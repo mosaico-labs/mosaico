@@ -48,6 +48,7 @@ def test_topic_handler_slash_in_name(_client: MosaicoClient, topic_name: str):
     # Topic must exist
     assert tophandler is not None
     _validate_returned_topic_name(tophandler.name)
+    _client.clear_topic_handlers_cache()
 
     if topic_name.startswith("/"):
         # I have tested the retrieve with the slash: remove and retest
@@ -62,6 +63,38 @@ def test_topic_handler_slash_in_name(_client: MosaicoClient, topic_name: str):
     # Topic must exist
     assert tophandler is not None
     _validate_returned_topic_name(tophandler.name)
+    _client.clear_topic_handlers_cache()
+
+    tophandler = _client.topic_handler(
+        sequence_name=UPLOADED_SEQUENCE_NAME, topic_name=topic_name + "/"
+    )
+    # Topic must exist
+    assert tophandler is not None
+    _validate_returned_topic_name(tophandler.name)
+    _client.clear_topic_handlers_cache()
+
+    _client.close()
+
+
+def test_sequence_handler_slash_in_name(_client: MosaicoClient):
+    """Test that the sent and reconstructed topic metadata are the same as original ones"""
+    seqhandler = _client.sequence_handler(sequence_name=UPLOADED_SEQUENCE_NAME)
+    assert seqhandler is not None
+    _client.clear_sequence_handlers_cache()
+
+    seqhandler = _client.sequence_handler(sequence_name=("/" + UPLOADED_SEQUENCE_NAME))
+    assert seqhandler is not None
+    _client.clear_sequence_handlers_cache()
+
+    seqhandler = _client.sequence_handler(sequence_name=(UPLOADED_SEQUENCE_NAME + "/"))
+    assert seqhandler is not None
+    _client.clear_sequence_handlers_cache()
+
+    seqhandler = _client.sequence_handler(
+        sequence_name=("/" + UPLOADED_SEQUENCE_NAME + "/")
+    )
+    assert seqhandler is not None
+    _client.clear_sequence_handlers_cache()
 
     _client.close()
 

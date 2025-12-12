@@ -5,6 +5,7 @@ Provides utility functions for dict manipulation and other things
 """
 
 import ast
+from copy import deepcopy
 from dataclasses import is_dataclass
 from pathlib import Path
 import re
@@ -194,6 +195,24 @@ def truncate_long_strings(data, max_length=100):
     return data
 
 
+def sanitize_topic_name(name: str):
+    _name = deepcopy(name)
+    if _name.endswith("/"):
+        _name = _name[:-1]
+    if not _name.startswith("/"):
+        return "/" + _name
+    return _name
+
+
+def sanitize_sequence_name(name: str):
+    _name = deepcopy(name)
+    if _name.endswith("/"):
+        _name = _name[:-1]
+    if _name.startswith("/"):
+        return _name[1:]
+    return _name
+
+
 def pack_topic_resource_name(sequence_name: str, topic_name: str) -> str:
     """
     Constructs the full resource path for a topic.
@@ -225,11 +244,12 @@ def unpack_topic_full_path(topic_path: str) -> Optional[tuple[str, str]]:
         Optional[tuple[str, str]]: A tuple (sequence_name, topic_name), or None if invalid.
     """
     # topic may come as '/sequence_name/the/topic/name' or as 'sequence_name/the/topic/name'
-    if topic_path.startswith("/"):
-        topic_path = topic_path[1:]
-    tick_parts = topic_path.split("/")
+    _topic_path = deepcopy(topic_path)
+    if _topic_path.startswith("/"):
+        _topic_path = _topic_path[1:]
+    tick_parts = _topic_path.split("/")
     if not tick_parts or len(tick_parts) < 2:
         return None
     sname = tick_parts[0]
-    tname = "/" + ("/".join(tick_parts[1:]))
+    tname = sanitize_topic_name("/".join(tick_parts[1:]))
     return sname, tname

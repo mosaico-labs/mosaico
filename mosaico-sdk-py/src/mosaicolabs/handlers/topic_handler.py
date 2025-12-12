@@ -14,7 +14,11 @@ from ..comm.metadata import TopicMetadata, _decode_metadata
 from ..comm.do_action import _do_action, _DoActionResponseSysInfo
 from ..enum import FlightAction
 from .helpers import _parse_ep_ticket
-from ..helpers import pack_topic_resource_name
+from ..helpers import (
+    pack_topic_resource_name,
+    sanitize_topic_name,
+    sanitize_sequence_name,
+)
 from .topic_reader import TopicDataStreamer
 from ..models.platform import Topic
 
@@ -67,7 +71,12 @@ class TopicHandler:
         Returns:
             TopicHandler: Initialized handler.
         """
-        topic_resrc_name = pack_topic_resource_name(sequence_name, topic_name)
+        _stzd_sequence_name = sanitize_sequence_name(sequence_name)
+        _stzd_topic_name = sanitize_topic_name(topic_name)
+
+        topic_resrc_name = pack_topic_resource_name(
+            _stzd_sequence_name, _stzd_topic_name
+        )
         descriptor = fl.FlightDescriptor.for_path(topic_resrc_name)
 
         # Get FlightInfo (Metadata + Endpoints)
@@ -86,21 +95,16 @@ class TopicHandler:
         ep_ticket_data = None
         for ep in flight_info.endpoints:
             ep_ticket_data = _parse_ep_ticket(ep.ticket)
-            if ep_ticket_data and ep_ticket_data[1] == topic_name:
+            # here the topic name is sanitized
+            if ep_ticket_data and ep_ticket_data[1] == _stzd_topic_name:
                 ticket = ep.ticket
                 break
 
-        if (
-            ticket is None or ep_ticket_data is None
-        ):  # Not necessary, but corrects pylance complains
+        if ticket is None:
             log.error(
                 f"Unable to init handler for topic {topic_name} in sequence {sequence_name}"
             )
             return None
-
-        # here 'ep_ticket_data' must exist
-        # get standardized sequence and topic name
-        _, stdzd_topic_name = ep_ticket_data
 
         # Get System Info (Size, dates, etc.)
         ACTION = FlightAction.TOPIC_SYSTEM_INFO
@@ -117,8 +121,8 @@ class TopicHandler:
 
         # Build Model
         topic_model = Topic.from_flight_info(
-            sequence_name=sequence_name,
-            name=stdzd_topic_name,
+            sequence_name=_stzd_sequence_name,
+            name=_stzd_topic_name,
             metadata=topic_metadata,
             sys_info=act_resp,
         )

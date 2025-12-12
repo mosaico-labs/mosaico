@@ -13,10 +13,11 @@ import logging as log
 from ..comm.metadata import SequenceMetadata, _decode_metadata
 from ..comm.do_action import _do_action, _DoActionResponseSysInfo
 from ..enum import FlightAction
+from ..models.platform import Sequence
+from ..helpers import sanitize_sequence_name
 from .helpers import _parse_ep_ticket
 from .sequence_reader import SequenceDataStreamer
 from .topic_handler import TopicHandler
-from ..models.platform import Sequence
 
 
 class SequenceHandler:
@@ -65,7 +66,9 @@ class SequenceHandler:
             SequenceHandler: Initialized handler.
         """
 
-        descriptor = fl.FlightDescriptor.for_path(sequence_name)
+        _stzd_sequence_name = sanitize_sequence_name(sequence_name)
+
+        descriptor = fl.FlightDescriptor.for_path(_stzd_sequence_name)
 
         # Get FlightInfo
         try:
@@ -96,7 +99,7 @@ class SequenceHandler:
         act_resp = _do_action(
             client=client,
             action=ACTION,
-            payload={"name": sequence_name},
+            payload={"name": _stzd_sequence_name},
             expected_type=_DoActionResponseSysInfo,
         )
 
@@ -105,7 +108,7 @@ class SequenceHandler:
             return None
 
         sequence_model = Sequence.from_flight_info(
-            name=sequence_name,
+            name=_stzd_sequence_name,
             metadata=seq_metadata,
             sys_info=act_resp,
             topics=stopics,
