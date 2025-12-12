@@ -13,7 +13,10 @@ from .helpers import (
 )
 
 
-def test_sequence_metadata_recvd(_client: MosaicoClient):
+def test_sequence_metadata_recvd(
+    _client: MosaicoClient,
+    _inject_sequence_data_stream,  # Ensure the data are available on the data platform
+):
     """Test that the sent and reconstructed sequence metadata are the same as original ones"""
     seqhandler = _client.sequence_handler(UPLOADED_SEQUENCE_NAME)
     # Sequence must exist
@@ -25,7 +28,11 @@ def test_sequence_metadata_recvd(_client: MosaicoClient):
 
 
 @pytest.mark.parametrize("topic_name", list(topic_to_metadata_dict.keys()))
-def test_topic_metadata_recvd(_client: MosaicoClient, topic_name):
+def test_topic_metadata_recvd(
+    _client: MosaicoClient,
+    topic_name,
+    _inject_sequence_data_stream,  # Ensure the data are available on the data platform
+):
     """Test that the sent and reconstructed topic metadata are the same as original ones"""
     tophandler = _client.topic_handler(
         sequence_name=UPLOADED_SEQUENCE_NAME, topic_name=topic_name
@@ -40,7 +47,11 @@ def test_topic_metadata_recvd(_client: MosaicoClient, topic_name):
 
 
 @pytest.mark.parametrize("topic_name", list(topic_to_metadata_dict.keys()))
-def test_topic_handler_slash_in_name(_client: MosaicoClient, topic_name: str):
+def test_topic_handler_slash_in_name(
+    _client: MosaicoClient,
+    topic_name: str,
+    _inject_sequence_data_stream,  # Ensure the data are available on the data platform
+):
     """Test that the sent and reconstructed topic metadata are the same as original ones"""
     tophandler = _client.topic_handler(
         sequence_name=UPLOADED_SEQUENCE_NAME, topic_name=topic_name
@@ -76,7 +87,10 @@ def test_topic_handler_slash_in_name(_client: MosaicoClient, topic_name: str):
     _client.close()
 
 
-def test_sequence_handler_slash_in_name(_client: MosaicoClient):
+def test_sequence_handler_slash_in_name(
+    _client: MosaicoClient,
+    _inject_sequence_data_stream,  # Ensure the data are available on the data platform
+):
     """Test that the sent and reconstructed topic metadata are the same as original ones"""
     seqhandler = _client.sequence_handler(sequence_name=UPLOADED_SEQUENCE_NAME)
     assert seqhandler is not None
@@ -100,7 +114,11 @@ def test_sequence_handler_slash_in_name(_client: MosaicoClient):
 
 
 @pytest.mark.parametrize("topic_name", list(topic_to_metadata_dict.keys()))
-def test_topic_handlers(_client: MosaicoClient, topic_name):
+def test_topic_handlers(
+    _client: MosaicoClient,
+    topic_name,
+    _inject_sequence_data_stream,  # Ensure the data are available on the data platform
+):
     """Test if 'SequenceHandler.get_topic_handler' and 'MosaicoClient.topic_handler' return the very same entity"""
     seqhandler = _client.sequence_handler(UPLOADED_SEQUENCE_NAME)
     # Sequence must exist

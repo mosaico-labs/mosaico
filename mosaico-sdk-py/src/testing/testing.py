@@ -15,6 +15,16 @@ def mosaico_testing():
 
     # Required Arguments
     parser.add_argument(
+        "--port",
+        default="6276",
+        help="Set client port.",
+    )
+    parser.add_argument(
+        "--host",
+        default="localhost",
+        help="Set client host.",
+    )
+    parser.add_argument(
         "-k",
         "--keyword",
         help="Only run tests matching keyword expression (same as pytest -k).",
@@ -45,6 +55,10 @@ def mosaico_testing():
         pytest_args.append("-vv")
     if args.log:
         pytest_args += ["--log-cli-level", args.log.upper()]
+
+    # pass to the conftest.py to create fixtures
+    pytest_args += ["--host", args.host]
+    pytest_args += ["--port", args.port]
 
     # run pytest; sys.exit ensures exit code is propagated
     sys.exit(pytest.main(pytest_args))

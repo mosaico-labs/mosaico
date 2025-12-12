@@ -14,7 +14,7 @@ from .helpers import _validate_returned_topic_name
 def test_query_mockup_sequence_by_name(
     _client: MosaicoClient,
     sequence_name,
-    _query_sequences_mockup,
+    _inject_sequences_mockup,  # Ensure the data are available on the data platform
 ):
     # Trivial: query by topic name
     query_resp = _client.query(QuerySequence().with_name(sequence_name))
@@ -103,7 +103,7 @@ def test_query_mockup_sequence_by_name(
 
 def test_query_mockup_sequence_metadata(
     _client: MosaicoClient,
-    _query_sequences_mockup,  # this is necessary to trigger data loading
+    _inject_sequences_mockup,  # Ensure the data are available on the data platform
 ):
     # Test 1: with single condition
     sequence_name_pattern = "test-query-"

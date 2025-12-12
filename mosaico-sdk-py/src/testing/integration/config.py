@@ -1,8 +1,6 @@
 import logging as log
 from mosaicolabs.models.sensors import IMU, GPS, Image
 
-TESTS_HOST = "127.0.0.1"
-TESTS_PORT = 6276
 log.basicConfig(level=log.DEBUG, format="%(levelname)s - %(message)s")
 
 

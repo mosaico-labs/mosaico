@@ -9,27 +9,40 @@ from testing.integration.helpers import (
     sequential_time_generator,
     topic_maker_generator,
 )
-from .config import (
-    TESTS_HOST,
-    TESTS_PORT,
+from .integration.config import (
     UPLOADED_SEQUENCE_METADATA,
     UPLOADED_SEQUENCE_NAME,
     QUERY_SEQUENCES_MOCKUP,
 )
 
 
+def pytest_addoption(parser):
+    parser.addoption("--host", action="store", type=str, help="Set client host.")
+    parser.addoption("--port", action="store", type=int, help="Set client port.")
+
+
+@pytest.fixture(scope="session")
+def host(request):
+    return request.config.getoption("--host")
+
+
+@pytest.fixture(scope="session")
+def port(request):
+    return request.config.getoption("--port")
+
+
 @pytest.fixture(scope="function")
-def _client():
+def _client(host, port):
     """Open a client connection FOR EACH function using this fixture"""
-    return MosaicoClient.connect(host=TESTS_HOST, port=TESTS_PORT)
+    return MosaicoClient.connect(host=host, port=port)
 
 
 @pytest.fixture(
     scope="session"
 )  # the first who calls this function, wins and avoid this is called multiple times
-def _make_sequence_data_stream():
+def _make_sequence_data_stream(host, port):
     """Generate synthetic data, create a sequence and pushes messages"""
-    _client = MosaicoClient.connect(host=TESTS_HOST, port=TESTS_PORT)
+    _client = MosaicoClient.connect(host=host, port=port)
     out_stream: List[DataStreamItem] = []
 
     start_time_sec = 1700000000
@@ -72,9 +85,9 @@ def _make_sequence_data_stream():
 
 
 @pytest.fixture(scope="session")
-def _inject_sequence_data_stream(_make_sequence_data_stream):
+def _inject_sequence_data_stream(_make_sequence_data_stream, host, port):
     """Generate synthetic data, create a sequence and pushes messages"""
-    _client = MosaicoClient.connect(host=TESTS_HOST, port=TESTS_PORT)
+    _client = MosaicoClient.connect(host=host, port=port)
 
     with _client.sequence_create(
         sequence_name=UPLOADED_SEQUENCE_NAME,
@@ -100,9 +113,9 @@ def _inject_sequence_data_stream(_make_sequence_data_stream):
 
 
 @pytest.fixture(scope="session")
-def _query_sequences_mockup():
+def _inject_sequences_mockup(host, port):
     """Generate synthetic data, create a sequence and pushes messages"""
-    _client = MosaicoClient.connect(host=TESTS_HOST, port=TESTS_PORT)
+    _client = MosaicoClient.connect(host=host, port=port)
     for sname, sdata in QUERY_SEQUENCES_MOCKUP.items():
         with _client.sequence_create(
             sequence_name=sname,

@@ -39,10 +39,8 @@ def test_query_topic_by_name(
     # the topic name only succeeded, the operator works
 
 
-@pytest.mark.parametrize("topic_name", list(topic_to_metadata_dict.keys()))
 def test_query_topic_by_creation_timestamp(
     _client: MosaicoClient,
-    topic_name,
     _inject_sequence_data_stream,  # Ensure the data are available on the data platform
 ):
     # Query by creation time, up to now (the sequence has been pushed few seconds ago)
