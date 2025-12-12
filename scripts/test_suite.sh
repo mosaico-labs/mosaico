@@ -38,7 +38,6 @@ export RUST_BACKTRACE
 export TERM
 
 
-
 COLS=$(tput cols || echo 80 )
 if (( "$COLS" < 70 )); then
     COLS=70
@@ -102,7 +101,6 @@ title "running test suite" "#" ${GREEN}
 title "setup" "-"
 cd ${DOCKER_PATH}
 title "docker" "." ${BLUE}
-docker compose up -d --wait 2> /dev/null
 cd ${PYTHON_SDK_PATH}
 title "poetry" "." ${BLUE}
 poetry install
@@ -120,7 +118,7 @@ title "integration tests" "-"
 cd ${MOSAICOD_PATH}
 title "mosaicod build" "." ${BLUE}
 cargo build
-./target/debug/mosaicod run --local-store "${TEST_DIRECTORY}" > ${MOSAICOD_OUTPUT} 2>&1 &
+./target/debug/mosaicod run --port 6276 --local-store "${TEST_DIRECTORY}" > "${MOSAICOD_OUTPUT}" 2>&1 &
 MOSAICOD_PID=$!
 title "mosaicod startup" "." ${BLUE}
 echo "starting mosaicod as background service (pid ${MOSAICOD_PID}), output can be found in ${BOLD}${MOSAICOD_OUTPUT}${RESET}"

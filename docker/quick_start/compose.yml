@@ -1,36 +1,47 @@
 name: "mosaico-quick-start"
 services:
-  db:
+  qs-pg:
     image: postgres:16
-    container_name: db-mosaico 
+    container_name: pg
+    hostname: db
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
       POSTGRES_DB: mosaico
+    networks:
+      - mosaico-qs
     ports:
       - "5432:5432"
     volumes:
-      - mosaico_db_data:/var/lib/postgresql/data
+      - mosaico-qs-pg-data:/var/lib/postgresql/data
     healthcheck: # Ensure the DB is ready for the compilation step
       test: ["CMD-SHELL", "pg_isready -U  postgres"]
       interval: 5s
       timeout: 5s
       retries: 5
 
-  mosaicod:
+  qs-mosaicod:
     build:
       context: ../../mosaicod
       dockerfile: ../docker/quick_start/Dockerfile.mosaicod
+    image: mosaicolabs/mosaicod
+    container_name: mosaicod
+    networks:
+      - mosaico-qs
     environment:
       MOSAICO_REPOSITORY_DB_URL: postgresql://postgres:password@db:5432/mosaico
       RUST_LOG: mosaico=trace
     command: |
       run --host --local-store /store
     depends_on:
-      db:
+      qs-pg:
         condition: service_healthy
     ports:
       - "6726:6726"
 
 volumes:
-  mosaico_db_data:
+  mosaico-qs-pg-data:
+
+networks:
+  mosaico-qs:
+    name: mosaico-qs

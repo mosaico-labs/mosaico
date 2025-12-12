@@ -58,7 +58,7 @@ fn load_env_variables() -> Result<Variables, Box<dyn std::error::Error>> {
     let vars = Variables { repository_db_url };
 
     debug!("{:#?}", params::configurables());
-    // debug!("{:#?}", vars);
+    debug!("{:#?}", vars);
 
     Ok(vars)
 }
@@ -99,7 +99,7 @@ fn run(startup_time: &Instant) -> Result<(), Box<dyn std::error::Error>> {
                 args.port,
                 store,
                 repo::Config {
-                    db_url: vars.repository_db_url,
+                    db_url: vars.repository_db_url.clone(),
                 },
             );
 

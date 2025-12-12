@@ -12,6 +12,7 @@ from testing.integration.helpers import (
 )
 from .config import (
     TESTS_HOST,
+    TESTS_PORT,
     UPLOADED_SEQUENCE_METADATA,
     UPLOADED_SEQUENCE_NAME,
     QUERY_SEQUENCES_MOCKUP,
@@ -21,7 +22,7 @@ from .config import (
 @pytest.fixture(scope="function")
 def _client():
     """Open a client connection FOR EACH function using this fixture"""
-    return MosaicoClient.connect(host=TESTS_HOST, port=6726)
+    return MosaicoClient.connect(host=TESTS_HOST, port=TESTS_PORT)
 
 
 @pytest.fixture(
@@ -29,7 +30,7 @@ def _client():
 )  # the first who calls this function, wins and avoid this is called multiple times
 def _make_sequence_data_stream():
     """Generate synthetic data, create a sequence and pushes messages"""
-    _client = MosaicoClient.connect(host=TESTS_HOST, port=6726)
+    _client = MosaicoClient.connect(host=TESTS_HOST, port=TESTS_PORT)
     out_stream: List[DataStreamItem] = []
 
     start_time_sec = 1700000000
@@ -74,7 +75,7 @@ def _make_sequence_data_stream():
 @pytest.fixture(scope="session")
 def _inject_sequence_data_stream(_make_sequence_data_stream):
     """Generate synthetic data, create a sequence and pushes messages"""
-    _client = MosaicoClient.connect(host=TESTS_HOST, port=6726)
+    _client = MosaicoClient.connect(host=TESTS_HOST, port=TESTS_PORT)
 
     with _client.sequence_create(
         sequence_name=UPLOADED_SEQUENCE_NAME,
@@ -102,7 +103,7 @@ def _inject_sequence_data_stream(_make_sequence_data_stream):
 @pytest.fixture(scope="session")
 def _query_sequences_mockup():
     """Generate synthetic data, create a sequence and pushes messages"""
-    _client = MosaicoClient.connect(host=TESTS_HOST, port=6726)
+    _client = MosaicoClient.connect(host=TESTS_HOST, port=TESTS_PORT)
     for sname, sdata in QUERY_SEQUENCES_MOCKUP.items():
         # TODO: delete before production: make development easier when debugging tests
         log.warning(

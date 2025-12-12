@@ -29,7 +29,13 @@ The SDK handles serialization, ROS bridging, and client communication. We use **
 - Use strict Python type hints. This is critical for our Ontology and `Serializable` models.
 - When modifying `SequenceDataStreamer` or `TopicDataStreamer`, preserve the **batching strategy**. Do not load full sequences into RAM.
 - Use `rosbags` for parsing. If adding custom message support, use the `ROSTypeRegistry`.
-  
+
+### Tests
+
+Make many tests.
+
+Tests can be executed using the `scripts/test_suite.sh` script. Be aware that integration tests are configured to run on a non-default port (`6276`) in order to avoid writes on a live instance of the backend.
+
 #### Prerequisites**
 
   * **Python:** version 3.13 or newer.
