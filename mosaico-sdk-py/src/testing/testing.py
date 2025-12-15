@@ -29,6 +29,11 @@ def mosaico_testing():
         "--keyword",
         help="Only run tests matching keyword expression (same as pytest -k).",
     )
+    parser.add_argument(
+        "-s",
+        action="store_true",
+        help="Disable output capturing (same as pytest -s).",
+    )
     parser.add_argument("-q", "--quiet", action="store_true", help="Quiet mode.")
 
     # Connection Arguments
@@ -47,6 +52,9 @@ def mosaico_testing():
 
     if args.keyword:
         pytest_args += ["-k", args.keyword]
+
+    if args.s:
+        pytest_args.append("-s")
 
     if not args.quiet:
         pytest_args.append("-v")

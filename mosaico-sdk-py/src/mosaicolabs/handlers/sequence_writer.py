@@ -118,34 +118,45 @@ class SequenceWriter:
           or Reports the error based on `WriterConfig.on_error`.
         """
         error_in_block = exc_type is not None
+        out_exc = exc_val
 
-        try:
-            if not error_in_block:
+        if not error_in_block:
+            try:
                 # Normal Exit: Finalize everything
                 self._close_topics(with_error=False)
                 self.close()
 
-            else:
-                # Exception occurred: Clean up and handle policy
-                log.error(
-                    f"Exception in SequenceWriter '{self._name}' block. Inner err: {exc_val}"
-                )
+            except Exception as e:
+                # An exception occurred during cleanup or finalization
+                log.error(f"Exception during __exit__ for sequence '{self._name}': {e}")
+                # notify error and go on
+                out_exc = e
+                error_in_block = True
+
+        if error_in_block:  # either in with block or after close operations
+            # Exception occurred: Clean up and handle policy
+            log.error(
+                f"Exception in SequenceWriter '{self._name}' block. Inner err: {out_exc}"
+            )
+            try:
                 self._close_topics(with_error=True)
+            except Exception as e:
+                log.error(
+                    f"Exception during __exit__ with error in block (finalizing topics) for sequence '{self._name}': {e}"
+                )
+                out_exc = e
 
-                # Apply the sequence-level error policy
-                if self._config.on_error == OnErrorPolicy.Delete:
-                    self._abort()
-                else:
-                    self._error_report(str(exc_val))
+            # Apply the sequence-level error policy
+            if self._config.on_error == OnErrorPolicy.Delete:
+                self._abort()
+            else:
+                self._error_report(str(out_exc))
 
-                # Last thing to do: DO NOT SET BEFORE!
-                self._sequence_status = SequenceStatus.Error
+            # Last thing to do: DO NOT SET BEFORE!
+            self._sequence_status = SequenceStatus.Error
 
-        except Exception as e:
-            # An exception occurred during cleanup or finalization
-            log.exception(f"Exception during __exit__ for sequence '{self._name}': {e}")
-            if not error_in_block:
-                raise e  # Re-raise the cleanup error if it's the only one
+            if exc_type is None and out_exc is not None:
+                raise out_exc  # Re-raise the cleanup error if it's the only one
 
         return False
 
@@ -255,11 +266,27 @@ class SequenceWriter:
             log.error(
                 str(
                     _make_exception(
-                        f"Failed to initialize 'TopicWriter' for sequence '{self._name}', topic '{topic_name}'.",
+                        f"Failed to initialize 'TopicWriter' for sequence '{self._name}', topic '{topic_name}'. Topic will be deleted from db.",
                         e,
                     )
                 )
             )
+            try:
+                _do_action(
+                    client=self._control_client,
+                    action=FlightAction.TOPIC_DELETE,
+                    payload={"name": pack_topic_resource_name(self._name, topic_name)},
+                    expected_type=None,
+                )
+            except Exception:
+                log.error(
+                    str(
+                        _make_exception(
+                            f"Failed to send TOPIC_DELETE do_action for sequence '{self._name}', topic '{topic_name}'.",
+                            e,
+                        )
+                    )
+                )
             return None
 
         return writer
@@ -319,7 +346,7 @@ class SequenceWriter:
 
     def _abort(self):
         """Internal: Sends Abort command (Delete policy)."""
-        if self._sequence_status == SequenceStatus.Pending:
+        if self._sequence_status != SequenceStatus.Finalized:
             try:
                 _do_action(
                     client=self._control_client,
@@ -363,6 +390,9 @@ class SequenceWriter:
             except Exception as e:
                 log.error(f"Failed to finalize topic '{topic_name}': {e}")
                 errors.append(e)
+
+        # Delete all TopicWriter instances, nothing can be done from here on
+        self._topic_writers = {}
 
         if errors:
             first_error = errors[0]

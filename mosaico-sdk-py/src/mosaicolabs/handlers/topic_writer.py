@@ -191,19 +191,10 @@ class TopicWriter:
 
     @classmethod
     def _validate_ontology_type(cls, ontology_type: Type[Serializable]) -> None:
-        """Checks if the ontology class has required metadata attributes."""
-        required_attrs = [
-            "__ontology_tag__",
-            "__serialization_format__",
-        ]
-        for attr in required_attrs:
-            if not hasattr(ontology_type, attr) or getattr(ontology_type, attr) in (
-                None,
-                "",
-            ):
-                raise AttributeError(
-                    f"Ontology class {ontology_type.__name__} is missing required attribute '{attr}'."
-                )
+        if not issubclass(ontology_type, Serializable):
+            raise ValueError(
+                f"Ontology class '{ontology_type.__name__}' is not serializable."
+            )
 
     def _error_report(self, err: str):
         """Sends an 'error' notification to the server regarding this topic."""
