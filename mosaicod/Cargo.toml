@@ -32,3 +32,10 @@ tokio = { version = "1.47.1", features = ["rt-multi-thread"] }
 tonic = "0.13.1"
 url = "2.5.7"
 uuid = "1.18.1"
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["async_tokio"] }
+
+[[bench]]
+name = "query_benchmark"
+harness = false

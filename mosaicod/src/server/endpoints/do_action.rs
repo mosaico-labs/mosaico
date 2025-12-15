@@ -301,7 +301,7 @@ pub async fn do_action(
 
             let filter = marshal::query_filter_from_serde_value(data.query)?;
 
-            dbg!(&filter);
+            trace!("query filter: {:?}", filter);
 
             let (seq_filt, top_filt, dc_filt) = filter.into_parts();
 
@@ -374,7 +374,7 @@ pub async fn do_action(
                     }
                 }
 
-                dbg!(&filtered_topics);
+                trace!("filtered topics: {:?}", filtered_topics);
                 topics.retain(|e| filtered_topics.contains(&e.topic_id));
             }
 
