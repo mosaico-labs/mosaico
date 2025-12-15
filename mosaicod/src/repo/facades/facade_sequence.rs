@@ -46,7 +46,7 @@ impl FacadeSequence {
     ) -> Result<types::ResourceId, FacadeError> {
         let mut tx = self.repo.transaction().await?;
 
-        let mut record = repo::SequenceRecord::new(self.locator.name().clone());
+        let mut record = repo::SequenceRecord::new(self.locator.name());
 
         if let Some(mdata) = &metadata {
             record = record.with_user_metadata(mdata.user_metadata.clone());

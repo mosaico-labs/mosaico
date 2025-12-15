@@ -56,13 +56,13 @@ impl FacadeTopic {
             return Err(FacadeError::Unauthorized);
         }
 
-        let mut record = repo::TopicRecord::new(self.locator.name().clone(), srecord.sequence_id);
+        let mut record = repo::TopicRecord::new(self.locator.name(), srecord.sequence_id);
 
         if let Some(metadata) = &metadata {
             record = record
                 .with_user_metadata(metadata.user_metadata.clone())
-                .with_ontology_tag(metadata.properties.ontology_tag.clone())
-                .with_serialization_format(metadata.properties.serialization_format.to_string());
+                .with_ontology_tag(&metadata.properties.ontology_tag)
+                .with_serialization_format(&metadata.properties.serialization_format.to_string());
         }
 
         let record = repo::topic_create(&mut tx, &record).await?;

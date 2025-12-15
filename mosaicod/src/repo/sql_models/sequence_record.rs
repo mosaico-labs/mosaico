@@ -43,11 +43,11 @@ impl SequenceRecord {
     ///
     /// **Note**: This function only creates a local instance. The record will not be present
     /// in the repository until [`sequence_create`] is called.
-    pub fn new(name: String) -> Self {
+    pub fn new(name: &str) -> Self {
         Self {
             sequence_id: repo::UNREGISTERED,
             sequence_uuid: uuid::Uuid::new_v4(),
-            sequence_name: name,
+            sequence_name: name.to_owned(),
             locked: false,
             creation_unix_tstamp: types::Timestamp::now().into(),
             user_metadata: None,

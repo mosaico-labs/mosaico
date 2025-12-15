@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::collections::HashMap;
 
 const TEXT_MIN_PLACEHOLDER: &str = "";
@@ -84,8 +85,8 @@ impl NumericStats {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct TextStats {
-    pub min: String,
-    pub max: String,
+    pub min: Cow<'static, str>,
+    pub max: Cow<'static, str>,
 
     pub has_null: bool,
 }
@@ -99,8 +100,8 @@ impl Default for TextStats {
 impl TextStats {
     pub fn new() -> Self {
         Self {
-            min: TEXT_MIN_PLACEHOLDER.to_owned(),
-            max: TEXT_MAX_PLACEHOLDER.to_owned(),
+            min: Cow::Borrowed(TEXT_MIN_PLACEHOLDER),
+            max: Cow::Borrowed(TEXT_MAX_PLACEHOLDER),
 
             has_null: false,
         }
@@ -111,14 +112,19 @@ impl TextStats {
     pub fn eval(&mut self, val: &Option<&str>) {
         if let Some(val) = val {
             let val = *val;
-            if self.min == TEXT_MIN_PLACEHOLDER || *self.min > *val {
-                self.min = val.to_owned();
+            if self.min.as_ref() == TEXT_MIN_PLACEHOLDER || *self.min > *val {
+                self.min = Cow::Owned(val.to_owned());
             }
-            if self.max == TEXT_MAX_PLACEHOLDER || *self.max < *val {
-                self.max = val.to_owned();
+            if self.max.as_ref() == TEXT_MAX_PLACEHOLDER || *self.max < *val {
+                self.max = Cow::Owned(val.to_owned());
             }
         } else {
             self.has_null = true
         }
+    }
+
+    /// Consumes the stats and returns owned strings for min and max.
+    pub fn into_owned(self) -> (String, String, bool) {
+        (self.min.into_owned(), self.max.into_owned(), self.has_null)
     }
 }

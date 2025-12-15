@@ -13,6 +13,12 @@ use url::Url;
 
 use crate::{params, traits};
 
+/// Converts a filesystem path to an object_store Path.
+#[inline]
+fn to_object_path(path: impl AsRef<std::path::Path>) -> object_store::path::Path {
+    object_store::path::Path::from(path.as_ref().to_string_lossy().into_owned())
+}
+
 #[derive(Debug, Clone)]
 pub struct S3Config {
     /// Bucket name.
@@ -120,9 +126,7 @@ impl Store {
         trace!("reading bytes from {}", path.as_ref().display());
         Ok(self
             .driver
-            .get(&object_store::path::Path::from(
-                path.as_ref().to_string_lossy().to_string(),
-            ))
+            .get(&to_object_path(&path))
             .await?
             .bytes()
             .await?
@@ -137,10 +141,7 @@ impl Store {
         trace!("writing bytes to {}", path.as_ref().display());
 
         self.driver
-            .put(
-                &object_store::path::Path::from(path.as_ref().to_string_lossy().to_string()),
-                PutPayload::from_bytes(bytes.into()),
-            )
+            .put(&to_object_path(&path), PutPayload::from_bytes(bytes.into()))
             .await?;
 
         Ok(())
@@ -155,9 +156,7 @@ impl Store {
         path: impl AsRef<std::path::Path>,
         extension: Option<&str>,
     ) -> Result<Vec<String>, Error> {
-        let mut list_stream = self.driver.list(Some(&object_store::path::Path::from(
-            path.as_ref().to_string_lossy().to_string(),
-        )));
+        let mut list_stream = self.driver.list(Some(&to_object_path(&path)));
 
         let mut locations = Vec::new();
         while let Some(elem) = list_stream.try_next().await? {
@@ -183,30 +182,18 @@ impl Store {
     }
 
     pub async fn size(&self, path: impl AsRef<std::path::Path>) -> Result<usize, Error> {
-        let head = self
-            .driver
-            .head(&object_store::path::Path::from(
-                path.as_ref().to_string_lossy().to_string(),
-            ))
-            .await?;
+        let head = self.driver.head(&to_object_path(&path)).await?;
 
         Ok(head.size as usize)
     }
 
     pub async fn delete(&self, path: impl AsRef<std::path::Path>) -> Result<(), Error> {
-        Ok(self
-            .driver
-            .delete(&object_store::path::Path::from(
-                path.as_ref().to_string_lossy().to_string(),
-            ))
-            .await?)
+        Ok(self.driver.delete(&to_object_path(&path)).await?)
     }
 
     /// Deletes recursively all objects under a given path
     pub async fn delete_recursive(&self, path: impl AsRef<std::path::Path>) -> Result<(), Error> {
-        let mut list_stream = self.driver.list(Some(&object_store::path::Path::from(
-            path.as_ref().to_string_lossy().to_string(),
-        )));
+        let mut list_stream = self.driver.list(Some(&to_object_path(&path)));
 
         while let Some(e) = list_stream.try_next().await? {
             self.driver.delete(&e.location).await?;

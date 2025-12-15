@@ -31,12 +31,12 @@ impl From<TopicRecord> for types::ResourceId {
 }
 
 impl TopicRecord {
-    pub fn new(name: String, sequence_id: i32) -> Self {
+    pub fn new(name: &str, sequence_id: i32) -> Self {
         Self {
             topic_id: repo::UNREGISTERED,
             topic_uuid: uuid::Uuid::new_v4(),
             sequence_id,
-            topic_name: name,
+            topic_name: name.to_owned(),
             locked: false,
             ontology_tag: None,
             serialization_format: None,
@@ -45,13 +45,13 @@ impl TopicRecord {
         }
     }
 
-    pub fn with_ontology_tag(mut self, ontology_tag: String) -> Self {
-        self.ontology_tag = Some(ontology_tag);
+    pub fn with_ontology_tag(mut self, ontology_tag: &str) -> Self {
+        self.ontology_tag = Some(ontology_tag.to_owned());
         self
     }
 
-    pub fn with_serialization_format(mut self, serialization_format: String) -> Self {
-        self.serialization_format = Some(serialization_format);
+    pub fn with_serialization_format(mut self, serialization_format: &str) -> Self {
+        self.serialization_format = Some(serialization_format.to_owned());
         self
     }
 
@@ -66,9 +66,9 @@ impl TopicRecord {
 
     pub fn serialization_format(&self) -> Option<rw::Format> {
         self.serialization_format
-            .clone()
+            .as_ref()
             // In this case we use [`unwrap`] since we assume that the platform has the correct value inside
-            .map(|value| rw::Format::from_str(&value).unwrap())
+            .map(|value| rw::Format::from_str(value).unwrap())
     }
 
     pub fn creation_timestamp(&self) -> types::Timestamp {

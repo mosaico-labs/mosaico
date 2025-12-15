@@ -33,14 +33,15 @@ impl<'a> FacadeChunk<'a> {
 
         match stats {
             types::Stats::Text(stats) => {
+                let (min, max, has_null) = stats.into_owned();
                 repo::column_chunk_literal_create(
                     &mut self.tx,
                     &repo::ColumnChunkLiteral::try_new(
                         column.column_id,
                         self.chunk.chunk_id,
-                        stats.min.to_owned(),
-                        stats.max.to_owned(),
-                        stats.has_null,
+                        min,
+                        max,
+                        has_null,
                     )?,
                 )
                 .await?;

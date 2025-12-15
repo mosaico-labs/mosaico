@@ -172,7 +172,7 @@ mod tests {
 
     #[sqlx::test]
     async fn test_create(pool: Pool<repo::Database>) -> sqlx::Result<()> {
-        let record = sql_models::SequenceRecord::new("/my/path".to_string());
+        let record = sql_models::SequenceRecord::new("/my/path");
         let repo = repo::testing::Repository::new(pool);
         let rrecord = sequence_create(&mut repo.connection(), &record)
             .await

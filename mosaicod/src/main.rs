@@ -167,11 +167,11 @@ fn get_store_display_name(store: &store::StoreRef) -> String {
     }
 }
 
-fn get_version() -> String {
+fn get_version() -> &'static str {
     if cfg!(debug_assertions) {
-        "devel".to_string()
+        "devel"
     } else {
-        env!("CARGO_PKG_VERSION").to_string()
+        env!("CARGO_PKG_VERSION")
     }
 }
 
