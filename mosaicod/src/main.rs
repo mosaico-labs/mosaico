@@ -117,7 +117,7 @@ fn run(startup_time: &Instant) -> Result<(), Box<dyn std::error::Error>> {
                     args.host,
                     args.port,
                     &store_display_name,
-                    &get_version(),
+                    get_version(),
                     startup_time,
                 );
             })?;

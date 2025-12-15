@@ -204,7 +204,7 @@ impl Store {
 }
 
 impl traits::AsyncWriteToPath for Store {
-    #[allow(clippy::manual_async_fn)]
+    #[expect(clippy::manual_async_fn, reason = "trait requires impl Future return type")]
     fn write_to_path(
         &self,
         path: impl AsRef<std::path::Path>,

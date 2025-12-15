@@ -1,7 +1,10 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
 
+/// Placeholder indicating uninitialized minimum text statistic.
+/// Empty string compares less than any non-empty string.
 const TEXT_MIN_PLACEHOLDER: &str = "";
+/// Placeholder indicating uninitialized maximum text statistic.
 const TEXT_MAX_PLACEHOLDER: &str = "";
 
 const NUMERIC_MIN_PLACEHOLDER: f64 = f64::MAX;

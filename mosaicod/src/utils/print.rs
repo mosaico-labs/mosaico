@@ -19,7 +19,7 @@ pub fn print_startup_info(
         "⎪".purple()
     );
 
-    let addrs = if_addrs::get_if_addrs().unwrap();
+    let addrs = if_addrs::get_if_addrs().unwrap_or_default();
 
     if !host {
         // List only loopback addresses
