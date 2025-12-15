@@ -10,6 +10,7 @@ use sqlx::Pool;
 use url::Url;
 
 use super::Error;
+use crate::params;
 
 /// The concrete database type used throughout this module.
 pub type Database = sqlx::Postgres;
@@ -81,7 +82,9 @@ pub struct Repository {
 impl Repository {
     pub async fn try_new(config: &Config) -> Result<Self, Error> {
         debug!("creating database connection pool");
+        let max_connections = params::configurables().max_db_connections;
         let pool = sqlx::postgres::PgPoolOptions::new()
+            .max_connections(max_connections)
             .connect(config.db_url.as_str())
             .await?;
 
