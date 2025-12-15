@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use crate::{marshal, repo, rw, types};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TopicRecord {
     pub topic_id: i32,
     pub topic_uuid: uuid::Uuid,

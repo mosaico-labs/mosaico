@@ -1,9 +1,14 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
+use std::time::Instant;
 
+use futures::stream::{FuturesUnordered, StreamExt};
 use log::{info, trace, warn};
+use tokio::sync::{Mutex, Semaphore};
 
 use crate::{
     marshal::{self, ActionRequest, ActionResponse},
+    params,
     query,
     repo::{self, FacadeError, FacadeLayer, FacadeSequence, FacadeTopic},
     server::errors::ServerError,
@@ -317,7 +322,8 @@ pub async fn do_action(
             // trying to find a chunk that matches. If a chunk is found a query to the chunk
             // data file is performed to find at least a match.
             if let Some(data_catalog_filter) = dc_filt {
-                let mut filtered_topics: HashSet<i32> = HashSet::new();
+                let filtered_topics: Arc<Mutex<HashSet<i32>>> =
+                    Arc::new(Mutex::new(HashSet::new()));
 
                 let chunks = repo::chunks_from_filters(
                     &mut cx, // comment for formatting
@@ -326,55 +332,102 @@ pub async fn do_action(
                 )
                 .await?;
 
-                trace!("found {} chunks for provided filter", chunks.len());
+                let chunk_count = chunks.len();
+                trace!("found {} chunks for provided filter", chunk_count);
+
+                // Pre-fetch all topics needed for chunks to avoid N+1 queries
+                let topics_map: HashMap<i32, repo::TopicRecord> = if no_topic_filter {
+                    let chunk_topic_ids: Vec<i32> =
+                        chunks.iter().map(|c| c.topic_id).collect();
+                    let fetched_topics =
+                        repo::topic_find_by_ids(&mut cx, &chunk_topic_ids).await?;
+                    // Also extend the original topics list
+                    topics.extend(fetched_topics.iter().cloned());
+                    fetched_topics
+                        .into_iter()
+                        .map(|t| (t.topic_id, t))
+                        .collect()
+                } else {
+                    topics.iter().map(|t| (t.topic_id, t.clone())).collect()
+                };
+
+                let topics_map = Arc::new(topics_map);
+
+                // Process chunks in parallel with bounded concurrency
+                let start = Instant::now();
+                let max_concurrent = params::configurables().max_concurrent_chunk_queries;
+                let semaphore = Arc::new(Semaphore::new(max_concurrent));
+                let mut futures = FuturesUnordered::new();
 
                 for chunk in chunks {
-                    trace!("checking chunk `{}`", chunk.chunk_uuid);
+                    let permit = semaphore.clone().acquire_owned().await.map_err(|e| {
+                        ServerError::StreamError(format!("semaphore acquire failed: {}", e))
+                    })?;
 
-                    let topic = if no_topic_filter {
-                        topics.append(
-                            &mut repo::topic_find_by_ids(&mut cx, &[chunk.topic_id]).await?,
-                        );
-                        topics.last()
-                    } else {
-                        topics.iter().find(|topic| topic.topic_id == chunk.topic_id)
-                    };
+                    let ts_engine = ts_engine.clone();
+                    let filter = data_catalog_filter.clone();
+                    let filtered = filtered_topics.clone();
+                    let topics_map = topics_map.clone();
 
-                    if topic.is_none() {
-                        trace!("can't found a topic associated with the current chunk, skipping.");
-                        continue;
-                    }
-                    let topic = topic.unwrap();
+                    futures.push(async move {
+                        let _permit = permit; // released on drop
 
-                    trace!(
-                        "performing query on data file `{}`",
-                        chunk.data_file().to_string_lossy()
-                    );
+                        let topic = topics_map.get(&chunk.topic_id);
+                        if topic.is_none() {
+                            trace!(
+                                "can't find a topic associated with chunk `{}`, skipping.",
+                                chunk.chunk_uuid
+                            );
+                            return Ok::<_, ServerError>(());
+                        }
+                        let topic = topic.unwrap();
 
-                    let qr = ts_engine
-                        .read(
-                            chunk.data_file(),
-                            topic.serialization_format().unwrap(), // TODO: handle error
-                            false,
-                        )
-                        .await?;
-
-                    let qr = qr.filter(data_catalog_filter.clone())?;
-
-                    let count = qr.count().await?;
-
-                    if count != 0 {
-                        trace!("found {count} records matching filter in chunk");
-                        filtered_topics.insert(topic.topic_id);
-                    } else {
                         trace!(
-                            "discarding chunk `{}` for no query match (row count is {count})",
-                            chunk.chunk_uuid
-                        )
-                    }
+                            "performing query on data file `{}`",
+                            chunk.data_file().to_string_lossy()
+                        );
+
+                        let qr = ts_engine
+                            .read(
+                                chunk.data_file(),
+                                topic.serialization_format().unwrap(), // TODO: handle error
+                                false,
+                            )
+                            .await?;
+
+                        let qr = qr.filter(filter)?;
+                        let count = qr.count().await?;
+
+                        if count != 0 {
+                            trace!("found {count} records matching filter in chunk");
+                            filtered.lock().await.insert(topic.topic_id);
+                        } else {
+                            trace!(
+                                "discarding chunk `{}` for no query match (row count is {count})",
+                                chunk.chunk_uuid
+                            )
+                        }
+
+                        Ok(())
+                    });
                 }
 
-                trace!("filtered topics: {:?}", filtered_topics);
+                // Await all futures and propagate any errors
+                while let Some(result) = futures.next().await {
+                    result?;
+                }
+
+                let elapsed = start.elapsed();
+                info!(
+                    "processed {} chunks in {:?} ({:.2}ms/chunk, {} concurrent)",
+                    chunk_count,
+                    elapsed,
+                    elapsed.as_millis() as f64 / chunk_count.max(1) as f64,
+                    max_concurrent
+                );
+
+                let filtered_topics = filtered_topics.lock().await;
+                trace!("filtered topics: {:?}", *filtered_topics);
                 topics.retain(|e| filtered_topics.contains(&e.topic_id));
             }
 
