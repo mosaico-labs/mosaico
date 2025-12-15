@@ -49,7 +49,7 @@ pub async fn start(
                 shutdown_notifier.notified().await;
                 trace!("received shutdown notification");
             })
-            .await?
+            .await?;
     } else {
         server.serve(addr).await?;
     }

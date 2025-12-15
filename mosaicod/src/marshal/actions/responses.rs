@@ -75,7 +75,7 @@ impl From<types::Notify> for ResponseNotifyItem {
         Self {
             name: value.target.name().to_string(),
             notify_type: value.notify_type.to_string(),
-            msg: value.msg.unwrap_or("".into()),
+            msg: value.msg.unwrap_or_default(),
             created_datetime: value.created_at.to_string(),
         }
     }

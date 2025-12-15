@@ -241,7 +241,7 @@ impl OntologyField {
 pub struct OntologyFilter(HashMap<OntologyField, Op<Value>>);
 
 impl OntologyFilter {
-    /// Creates a new Metadata instance from a HashMap.
+    /// Creates a new Metadata instance from a [`HashMap`].
     pub fn new(v: HashMap<OntologyField, Op<Value>>) -> Self {
         Self(v)
     }

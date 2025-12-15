@@ -19,7 +19,11 @@ pub enum SchemaError {
 /// Validates that the provided Arrow schema meets certain structural requirements.
 ///
 /// This function performs a series of validation checks on an [`arrow::datatypes::SchemaRef`]
-/// to ensure it conforms to the platform conventions.  
+/// to ensure it conforms to the platform conventions.
+///
+/// # Errors
+///
+/// Returns [`SchemaError`] if the schema structural requirements are not met.
 pub fn check_schema(schema: &SchemaRef) -> Result<(), SchemaError> {
     let field = schema.field_with_name(params::ARROW_SCHEMA_COLUMN_NAME_TIMESTAMP);
     if let Ok(field) = field {
@@ -33,6 +37,7 @@ pub fn check_schema(schema: &SchemaRef) -> Result<(), SchemaError> {
 }
 
 /// Checks if the given Arrow [`DataType`] is considered numeric
+#[must_use]
 pub fn is_numeric(data_type: &DataType) -> bool {
     matches!(
         data_type,
@@ -52,6 +57,7 @@ pub fn is_numeric(data_type: &DataType) -> bool {
 }
 
 /// Checks if the given Arrow [`DataType`] is considered literal
+#[must_use]
 pub fn is_literal(data_type: &DataType) -> bool {
     matches!(
         data_type,
@@ -93,11 +99,11 @@ pub fn cast_array_to_numeric(array: &ArrayRef) -> Result<ArrayRef, ArrowError> {
     }
 }
 
-/// Retrieves a nested array from a RecordBatch based on a flattened field name.
+/// Retrieves a nested array from a [`RecordBatch`] based on a flattened field name.
 ///
 /// For example, given a flattened field name like "user.address.street",
-/// this function will traverse the nested structure in the RecordBatch to
-/// retrieve the corresponding ArrayRef.
+/// this function will traverse the nested structure in the [`RecordBatch`] to
+/// retrieve the corresponding [`ArrayRef`].
 pub fn array_from_flat_field_name(
     flattened_field_name: &str,
     batch: &RecordBatch,
@@ -149,8 +155,8 @@ impl SchemaFlattenerIter {
         let mut queue = VecDeque::new();
 
         // Traverse the schema to build a queue of fields
-        for field in schema.fields().iter() {
-            queue.push_back(("".to_string(), field.clone()));
+        for field in schema.fields() {
+            queue.push_back((String::new(), field.clone()));
         }
 
         SchemaFlattenerIter { field_queue: queue }
@@ -219,17 +225,17 @@ pub fn stats_inspect_array(stats: &mut types::Stats, array: &ArrayRef) -> Result
         Stats::Numeric(stats) => {
             let narray = cast_array_to_numeric(array)?;
             for val in narray.as_primitive::<arrow::datatypes::Float64Type>() {
-                stats.eval(&val)
+                stats.eval(&val);
             }
         }
         Stats::Text(stats) => {
             let sarray = cast_array_to_literal(array)?;
-            for val in sarray.as_string::<i32>().iter() {
-                stats.eval(&val)
+            for val in sarray.as_string::<i32>() {
+                stats.eval(&val);
             }
         }
         Stats::Unsupported => { /* do nothing */ }
-    };
+    }
 
     Ok(())
 }
@@ -239,7 +245,7 @@ pub fn column_stats_inspect_record_batch(
     cstats: &mut types::ColumnsStats,
     batch: &RecordBatch,
 ) -> Result<(), ArrowError> {
-    for (col_name, stats) in cstats.stats.iter_mut() {
+    for (col_name, stats) in &mut cstats.stats {
         let array = array_from_flat_field_name(col_name, batch)?;
         stats_inspect_array(stats, &array)?;
     }

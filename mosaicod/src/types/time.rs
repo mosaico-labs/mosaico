@@ -51,7 +51,7 @@ impl From<Timestamp> for DateTime {
     }
 }
 
-/// DateTime format used by mosaico
+/// `DateTime` format used by mosaico
 pub struct DateTime(chrono::DateTime<chrono::Utc>);
 
 impl DateTime {

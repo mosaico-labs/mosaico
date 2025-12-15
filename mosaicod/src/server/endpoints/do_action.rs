@@ -293,7 +293,7 @@ pub async fn do_action(
         }
 
         // (cabba) FIXME: move this code in a QueryFacade in order to avoid using
-        // repo low level function directly, do this when the query system is finalized
+        //                repo low level function directly, do this when the query system is finalized
         ActionRequest::Query(data) => {
             info!("performing a query");
 
@@ -370,7 +370,7 @@ pub async fn do_action(
                         trace!(
                             "discarding chunk `{}` for no query match (row count is {count})",
                             chunk.chunk_uuid
-                        )
+                        );
                     }
                 }
 

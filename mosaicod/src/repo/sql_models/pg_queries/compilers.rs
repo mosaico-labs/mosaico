@@ -162,16 +162,16 @@ mod internal {
         pub fn new() -> Self {
             Self {
                 placeholder_counter: 1,
-                field: "".into(),
+                field: String::new(),
             }
         }
 
         pub fn field(&mut self, field: String) {
-            self.field = field
+            self.field = field;
         }
 
         pub fn placeholder(&mut self, placeholder: usize) {
-            self.placeholder_counter = placeholder
+            self.placeholder_counter = placeholder;
         }
 
         fn consume_placeholder(&mut self) -> String {

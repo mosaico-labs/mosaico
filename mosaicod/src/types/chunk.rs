@@ -81,7 +81,7 @@ impl NumericStats {
                 }
             }
         } else {
-            self.has_null = true
+            self.has_null = true;
         }
     }
 }
@@ -122,7 +122,7 @@ impl TextStats {
                 self.max = Cow::Owned(val.to_owned());
             }
         } else {
-            self.has_null = true
+            self.has_null = true;
         }
     }
 

@@ -84,8 +84,8 @@ pub enum ServerError {
     #[error("action error :: {0}")]
     ActionError(#[from] crate::marshal::ActionError),
 
-    #[error("handle error :: {0}")]
-    HandleError(#[from] crate::repo::FacadeError),
+    #[error("facade error :: {0}")]
+    FacadeError(#[from] crate::repo::FacadeError),
 
     #[error("repository error :: {0}")]
     RepositoryError(#[from] crate::repo::Error),

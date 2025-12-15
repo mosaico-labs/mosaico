@@ -1,4 +1,4 @@
-//! This module provides the timeseries gateway, a wrapper around the Apache DataFusion
+//! This module provides the timeseries gateway, a wrapper around the datafusion
 //! query engine tailored for reading and processing timeseries data files stored in the
 //! application's underlying object store (S3, GCS, etc.).
 //!
@@ -164,7 +164,7 @@ fn unfold_field(field: &query::OntologyField) -> Expr {
     // By construction fields needs to have at least a value
     let mut col = col(fields.next().unwrap());
     for s in fields {
-        col = col.field(s)
+        col = col.field(s);
     }
     col
 }
