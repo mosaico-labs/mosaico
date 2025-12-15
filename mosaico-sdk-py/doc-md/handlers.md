@@ -12,8 +12,6 @@ This guide details the core components for reading and writing data within the M
 
 All interactions start from the `MosaicoClient` (see [Client Architecture](./communication.md) documentation), which acts as the factory for these components.
 
------
-
 ## Architecture Overview
 
 The library uses a hierarchical object model to manage data streams (see also [Core Concepts](../../CORE_CONCEPTS.md#topics-and-sequences)):
@@ -27,15 +25,13 @@ The library uses a hierarchical object model to manage data streams (see also [C
   * **Handlers (`SequenceHandler`, `TopicHandler`):** Lightweight proxies for server-side resources. They provide access to metadata and allow you to spawn "Streamers".
   * **Streamers (`SequenceDataStreamer`, `TopicDataStreamer`):** Iterators that pull data from the server. The `SequenceDataStreamer` performs a **K-Way Merge**, combining multiple topic streams into a single, time-ordered timeline.
 
------
-
 ## Writing Data
 
 Writing is performed inside a strict lifecycle managed by the `SequenceWriter`.
 
 ### Class: `SequenceWriter`
 
-The `SequenceWriter` acts as the orchestrator. It handles the sequence lifecycle on the server (Pending $\rightarrow$ Finalized/Error), and creates child `TopicWriter`s.
+The `SequenceWriter` acts as the orchestrator. It handles the sequence lifecycle on the server (Pending -> Finalized/Error), and creates child `TopicWriter`s.
 
 #### Key Features
 
@@ -71,7 +67,6 @@ The `SequenceWriter` acts as the orchestrator. It handles the sequence lifecycle
   * **`get_topic(topic_name: str) -> Optional[TopicWriter]`**
     Retrieves the `TopicWriter` instance for a specific topic, if it exists.
 
------
 
 ### Class: `TopicWriter`
 
@@ -182,8 +177,6 @@ This is the handler to an existing sequence. It allows you to inspect what topic
   * **`close() -> None`**
     Closes all cached topic handlers and active data streamers associated with this handler.
 
------
-
 ### Class: `SequenceDataStreamer`
 
 This is a unified iterator that connects to *all* topics in the sequence simultaneously, using a **K-Way Merge algorithm**. It actively maintains a connection to every topic, "peeking" at the next available timestamp for each. On every iteration, it yields the record with the lowest timestamp across all topics. This ensures a chronologically correct stream, regardless of the recording frequency of individual sensors.
@@ -224,6 +217,10 @@ for topic_name, message in streamer:
 seq_handler.close()
 ```
 
+> [!NOTE] 
+> **Memory Efficiency**
+>
+> The data stream is **not** downloaded all at once, as this would drain the RAM for long sequences. Instead, the SDK implements a smart buffering strategy: data is retrieved in **batches of limited memory**. As you iterate through the stream, processed batches are discarded and substituted automatically with new batches fetched from the server. This ensures you can process sequences far larger than your available RAM without performance degradation.
 
 ### Recommended Pattern: Type-Based Dispatching
 
@@ -292,24 +289,96 @@ for topic_name, message in streamer:
         pass
 ```
 
-### Class: `TopicHandler` & `TopicDataStreamer`
+### Class: `TopicHandler`
 
-If data from a single specific topic is needed (and its timing relative to other topics is not important), then the `TopicHandler` can be used.
+While a `SequenceHandler` manages the holistic view of a recording, the `TopicHandler` provides a dedicated interface for interacting with a single data resource.
 
-#### TopicHandler API Reference
+This approach is optimized for **high-throughput scenarios**. By bypassing the time-synchronization logic required when merging multiple topics, `TopicHandler` opens a direct Apache Arrow Flight channel to the specific topic endpoint. This is the preferred method when you need to process a single data stream (e.g., training a model on IMU data alone) and relative timing with other sensors is not a constraint.
 
-  * **`user_metadata`**
-    Returns the user dictionary associated with the topic.
-  * **`topic_info`**
-    Returns the full `Topic` data model (system info, schema, etc.).
-  * **`get_data_streamer(force_new_instance: bool = False) -> Optional[TopicDataStreamer]`**
-    Creates a `TopicDataStreamer` to read data strictly from this single topic endpoint.
+The `TopicHandler` provides access to metadata, schema definitions, and acts as a factory for creating data streamers.
 
-#### TopicDataStreamer API Reference
+**API Reference:**
 
-  * **`next() -> Optional[Message]`**
-    Returns the next `Message` object from the stream, or `None` if finished.
-  * **`next_timestamp() -> Optional[float]`**
-    Peeks at the timestamp of the next record without consuming it.
-  * **`name() -> str`**
-    Returns the topic name associated with this stream.
+**Properties**
+* **`user_metadata -> Dict[str, Any]`**
+  * Returns the custom user-defined metadata dictionary associated with the topic (e.g., `{"sensor_location": "rear_axle", "calibration_date": "2023-01-01"}`).
+* **`topic_info -> Topic`**
+  * Returns the full `Topic` data model. This includes system-level details such as the ontology model class and data volume size.
+
+**Streamer Factories**
+* **`get_data_streamer(force_new_instance: bool = False) -> Optional[TopicDataStreamer]`**
+  * Initializes and returns a `TopicDataStreamer`.
+  * If a streamer is already active for this handler, it returns the existing instance unless `force_new_instance` is set to `True`.
+  * Returns `None` if the topic contains no data or cannot be reached.
+
+
+#### Class: `TopicDataStreamer`
+
+Manages the active Arrow Flight stream, handling buffering and deserialization of the raw bytes into Mosaico `Message` objects. It implements the standard Python Iterator protocol (`__next__`), allowing it to be used directly in loops.
+
+**API Reference:**
+
+* **`next() -> Optional[Message]`**
+  * Advances the stream and returns the next `Message` object.
+  * Returns `None` (or raises `StopIteration` in a loop) when the stream is exhausted.
+* **`next_timestamp() -> Optional[float]`**
+  * **Lookahead capability:** Peeks at the timestamp of the *next* available record without consuming it or advancing the stream cursor.
+  * Useful for custom synchronization logic where you only want to process data up to a certain time boundary.
+* **`name() -> str`**
+  * Returns the canonical name of the topic associated with this stream (e.g., `/sensors/camera/front`).
+
+
+#### Example Usage
+The following example demonstrates how to connect to a specific topic (e.g. IMU), inspect its metadata to verify the sensor location, and then efficiently stream the acceleration data.
+
+```python
+from mosaicolabs.comm import MosaicoClient
+from mosaicolabs.models.sensors import IMU
+
+# 1. Connect to the Mosaico instance
+client = MosaicoClient.connect("localhost", 6726)
+
+try:
+    # Get the TopicHandler: we target a specific topic within a sequence
+
+    # Option A: Get directly from Client using full path
+    topic_handler = client.topic_handler(
+        sequence_name="mission_log_042", 
+        topic_name="sensors/imu_main"
+    )
+    # Option B: Get from a Sequence Handler
+    # seq_handler = client.sequence_handler("mission_log_042")
+    # topic_handler = seq_handler.get_topic_handler("sensors/imu_main")
+    
+    # If the Topic or the Sequence are not available, the return is None
+    if topic_handler:
+        # --- Metadata Inspection (Control Plane) ---
+        # Check metadata before opening the heavy data stream
+        meta = topic_handler.user_metadata
+        print(f"Topic: {topic_handler.topic_info.name}")
+        print(f"Sensor Location: {meta.get('location', 'None')}")
+
+        # --- Data Streaming (Data Plane) ---
+        # Initialize the direct Flight stream (Low overhead, no merging)
+        t_streamer = topic_handler.get_data_streamer()
+        
+        print("Starting stream...")
+        
+        # The streamer is an iterator, so we can loop over it directly
+        for message in t_streamer:
+            # 'message.data' is typed to `Serializable`
+            # imu_data = message.data
+            # It's better doing like this (bounding to the `IMU` Ontology Model)
+            imu_data = message.get_data(IMU)
+            
+            # Access typed fields with IDE autocompletion support
+            print(f"[{message.header.stamp.to_float()}] Accel X: {imu_data.acceleration.x:.4f}")
+            
+    else:
+        print("Topic not found.")
+
+finally:
+    # Best practice: ensure connection is closed
+    client.close()
+
+```

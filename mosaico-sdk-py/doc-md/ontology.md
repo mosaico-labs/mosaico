@@ -43,7 +43,7 @@ class MyCustomSensor(Serializable):  # <--- __init_subclass__ triggers here
 When this happens, `Serializable` performs the following steps automatically:
 
 1.  **Validates Schema:** Checks if the subclass defined a `__msco_pyarrow_struct__`. If missing, it raises an error at definition time (import time), preventing runtime failures later.
-2.  **Generates Tag:** If the class doesn't define `__ontology_tag__`, it auto-generates one from the class name (e.g., `MyCustomSensor` $\rightarrow$ `"my_custom_sensor"`).
+2.  **Generates Tag:** If the class doesn't define `__ontology_tag__`, it auto-generates one from the class name (e.g., `MyCustomSensor` -> `"my_custom_sensor"`).
 3.  **Registers Class:** It adds the new class to the global `_SENSOR_REGISTRY`.
 4.  **Injects Query Proxy:** It dynamically adds a `.Q` attribute to the class, enabling the fluent query syntax (e.g., `MyCustomSensor.Q.voltage > 12.0`).
 
@@ -556,6 +556,41 @@ Your class **must** inherit from `mosaicolabs.models.Serializable`. This base cl
 ### 2\. Define the Schema (`__msco_pyarrow_struct__`)
 
 You must define a class-level attribute named `__msco_pyarrow_struct__`. This is a `pyarrow.struct` that defines exactly how your data will be serialized to Parquet/Arrow format on the wire.
+
+#### 2.1\. Override the Serialization Format (`__serialization_format__`)
+
+Mosaico allows you to adapt the data serialization formats on the remote server to ensure efficient data compression. This is controlled by overriding the `__serialization_format__` class attribute in your custom ontology.
+
+The available formats are defined in the `SerializationFormat` enum:
+
+```python
+class SerializationFormat(StrEnum):
+    """
+    Defines the structural format used when serializing ontology data
+    for storage or transmission.
+    """
+
+    Default = "default"
+    """
+    Recommended for fixed-width tabular data format, like a standard DataFrame. 
+    (e.g., sensors with a constant number of fields and fixed-size data)
+    """
+
+    Ragged = "ragged"
+    """
+    Recommended for data containing variable-length lists or sequences 
+    (e.g., point clouds, lists of detections, or non-uniform arrays). 
+    """
+
+    Image = "image"
+    """
+    Represents raw or compressed image data, often requiring specialized 
+    compression/decompression handling.
+    """
+
+```
+
+**Note:** If the `__serialization_format__` variable is not explicitly set, the value defaults to `SerializationFormat.Default` (standard tabular data).
 
 ### 3\. Define Class Fields
 

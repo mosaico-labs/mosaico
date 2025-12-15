@@ -120,12 +120,12 @@ options:
 
 #### Programmatic Usage (Python Script)
 
-For advanced workflows—such as integrating with CI/CD pipelines or custom automation scripts—you can use the `RosbagInjector` class directly within Python code.
+For advanced workflows, such as integrating with CI/CD pipelines or custom automation scripts, you can use the `RosbagInjector` class directly within Python code.
 This approach offers full typed control over the configuration and avoids the overhead of spawning subprocesses for the CLI.
 
 ```python
 from pathlib import Path
-from mosaicolabs.ros_bridge.injector import RosbagInjector, ROSInjectionConfig, Stores
+from mosaicolabs.ros_bridge import RosbagInjector, ROSInjectionConfig, Stores
 
 def run_injection():
     # Define the Injection Configuration
@@ -158,7 +158,7 @@ def run_injection():
                 "my_custom_pkg",                 # ROS Package Name
                 Path("./definitions/my_pkg/"),   # Path to directory containing .msg files
                 Stores.ROS2_HUMBLE,              # Scope (valid for this distro)
-            )
+            ) # registry will automatically infer type names as `my_custom_pkg/msg/{filename}`
         ],
         
         # Execution Settings
@@ -189,7 +189,7 @@ For more details on the injection process, refer to the [ROS Bridge Documentatio
 Retrieving data from Mosaico follows a two-step pattern: first, obtain a **Handler** to inspect the resource's metadata, and then initialize a **Streamer** to consume the actual data flow. The SDK provides two primary handlers:
 
 1.  **`SequenceHandler`**: Represents a complete recording session. It provides access to global metadata, the list of contained topics, and storage statistics. It serves as a factory for the `SequenceDataStreamer`, which delivers a unified, time-synchronized stream of **all** topics in the sequence.
-2.  **`TopicHandler`**: Represents a specific data channel within a sequence (e.g., just the IMU or Left Camera). It provides topic-specific metadata (serialization format, message count) and creates a `TopicDataStreamer` for efficient, targeted data access.
+2.  **`TopicHandler`**: Represents a specific data channel within a sequence (e.g., just the IMU or Left Camera). It provides topic-specific metadata and creates a `TopicDataStreamer` for efficient, targeted data access.
 
 #### Sequence Stream (Unified Replay)
 

@@ -60,14 +60,6 @@ class MyCustomAdapter(ROSAdapterBase[MyCustomData]):
         )
 ```
 
-### The Type Registry (`ROSTypeRegistry`)
-
-ROS message definitions are not always self-contained within bag files (particularly in the ROS 2 `.db3` format), and datasets often contain proprietary data types that are not part of the standard message libraries. These definitions rely on external schema files (`.msg`). The `ROSTypeRegistry` acts as a context-aware singleton to manage these dependencies.
-
-* **Custom Messages:** It facilitates the registration of local `.msg` files, allowing the loader to parse proprietary or non-standard message types effectively.
-* **Versioning:** It implements a profile system (Stores) to resolve version conflicts, managing cases where message definitions differ between distributions (e.g., `ROS1_NOETIC` vs. `ROS2_HUMBLE`).
-
-
 ### The Orchestrator (`RosbagInjector`)
 
 The `RosbagInjector` is the primary entry point for embedding ROS ingestion into Python applications and coordinates the entire workflow. It connects the `ROSLoader` to the `MosaicoClient`, managing the flow of data, batching, error reporting, and progress visualization via a CLI interface.
@@ -173,7 +165,7 @@ def run_injection():
                 "my_custom_pkg",                 # ROS Package Name
                 Path("./definitions/my_pkg/"),   # Path to directory containing .msg files
                 Stores.ROS2_HUMBLE,              # Scope (valid for this distro)
-            )
+            ) # registry will automatically infer type names as `my_custom_pkg/msg/{filename}`
         ],
         
         # Execution Settings
@@ -197,15 +189,19 @@ if __name__ == "__main__":
     run_injection()
 ```
 
-### `ROSTypeRegistry`
+### The Type Registry (`ROSTypeRegistry`)
 
-For complex projects with many custom message definitions, passing them repeatedly via the `custom_msgs` argument can become unwieldy. Instead, you can use the **`ROSTypeRegistry`** to pre-load definitions globally at the start of your application.
+ROS message definitions are not always self-contained within bag files (particularly in the ROS 2 `.db3` format), and datasets often contain proprietary data types that are not part of the standard message libraries. These definitions rely on external schema files (`.msg`). The `ROSTypeRegistry` acts as a context-aware singleton to manage these dependencies.
 
-  * **`register_directory(package_name, dir_path, store=None)`**: Batch registers all `.msg` files found in a directory under a specific package name. The regisytry will automatically infer type names as `{package_name}/msg/{filename}`
+* **Custom Messages:** It facilitates the registration of local `.msg` files, allowing the loader to parse proprietary or non-standard message types effectively.
+* **Versioning:** It implements a profile system (Stores) to resolve version conflicts, managing cases where message definitions differ between distributions (e.g., `ROS1_NOETIC` vs. `ROS2_HUMBLE`).
+
+For complex projects with many custom message definitions, passing them repeatedly via the `custom_msgs` argument of the `ROSInjectionConfig` class can become unwieldy. Instead, you can use the **`ROSTypeRegistry`** to pre-load definitions at the start of your application.
+
+  * **`register_directory(package_name, dir_path, store=None)`**: Batch registers all `.msg` files found in a directory under a specific package name. The registry will automatically infer type names as `{package_name}/msg/{filename}`
   * **`register(msg_type, source, store=None)`**: Registers a single message type definition.
 
 #### Centralized Custom Message Registration
-
 
 For example, create a setup script (e.g., `setup_registry.py`) that runs before your injection logic.
 

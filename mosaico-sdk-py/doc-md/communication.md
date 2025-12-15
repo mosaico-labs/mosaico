@@ -26,7 +26,6 @@ To maximize throughput, the client automatically initializes a pool of connectio
 Serialization of complex sensor data (like images) can be CPU-intensive. The SDK maintains a pool of `ThreadPoolExecutor` instances.
 Each executor acts as a dedicated "lane," ensuring that heavy serialization tasks do not block the main application thread or the control plane.
 
----
 
 ## API Reference
 

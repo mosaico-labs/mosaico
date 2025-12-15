@@ -207,24 +207,53 @@ for item in query_resp:
 
 ### Filtering by Sequence and Data
 
-*Example: Retrieves specific high-acceleration events on the x axis (`> 4.0`) that occurred during a specific test campaign.*
+*Example: Retrieves specific high-brake events that occurred during all the test campaigns which name matches a specific substring.*
 
 ```python
-from mosaicolabs.models.query.builders import QueryOntologyCatalog, QuerySequence
+from mosaicolabs.models.query import QueryOntologyCatalog, QuerySequence
 from mosaicolabs.models.sensors import IMU
 
 results = client.query(
     # Filter 1: Sequence Name -> Use Convenience Method
-    QuerySequence().with_name_match("winter_test_2023"),
+    QuerySequence().with_name_match("winter_test_2023"), # all names that match `*winter_test_2023*`
 
     # Filter 2: IMU Data Threshold -> Use .Q proxy
+    # We assume that the IMU x axis is aligned to the vehicle's longitudinal axis
     QueryOntologyCatalog().with_expression(
-        IMU.Q.acceleration.x.gt(4.0)
+        IMU.Q.acceleration.x.lt(-6.0)
     )
 )
 ```
 
------
+
+### Query Response 
+The query return is a `List[QueryResponseItem] | None`. Each object groups results by **Sequence**, providing the sequence identifier and the list of specific **Topics** within that sequence that matched the query criteria.
+
+**Class: `QueryResponseItem`**
+
+| Attribute | Type | Description |
+| --- | --- | --- |
+| **`sequence`** | `str` | The unique identifier (name) of the sequence. |
+| **`topics`** | `List[str]` | A list of topic names belonging to this sequence that satisfied the filter conditions. |
+
+> [!NOTE]
+> **Topic Name Normalization**
+>
+> The raw response from the backend returns fully qualified resource names (e.g., `"sequence_name/topic/path"`).
+> The `QueryResponseItem` automatically processes these strings during initialization. Therefore, the **`topics`** attribute exposes only the relative topic path (e.g., `"/topic/path"`), stripping the sequence prefix for easier usage.
+
+**Example Usage:**
+
+```python
+results = client.query(...)
+
+for item in results:
+    print(f"Sequence: {item.sequence}")
+    # topics list contains relative paths, e.g., '/sensors/imu'
+    for topic_name in item.topics:
+        print(f" - Found matching topic: {topic_name}")
+
+```
 
 ## Supported Operators
 
