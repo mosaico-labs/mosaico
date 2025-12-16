@@ -180,9 +180,8 @@ async fn on_chunk_created(
 ) -> Result<(), ServerError> {
     let mut handle = repo::FacadeChunk::create(topic_id, &target_path, &repo).await?;
 
-    for (field, stats) in cstats.stats {
-        handle.push_stats(ontology_tag, &field, stats).await?;
-    }
+    // Use batch insert for better performance (single INSERT per type instead of N)
+    handle.push_all_stats(ontology_tag, cstats).await?;
 
     handle.finalize().await?;
 

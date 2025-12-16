@@ -393,14 +393,15 @@ pub async fn do_action(
                             .await?;
 
                         let qr = qr.filter(filter)?;
-                        let count = qr.count().await?;
 
-                        if count != 0 {
-                            trace!("found {count} records matching filter in chunk");
+                        // Use has_rows() instead of count() for early termination
+                        // This avoids scanning all matching rows when we only need to know if any exist
+                        if qr.has_rows().await? {
+                            trace!("found matching records in chunk");
                             filtered.lock().await.insert(topic.topic_id);
                         } else {
                             trace!(
-                                "discarding chunk `{}` for no query match (row count is {count})",
+                                "discarding chunk `{}` for no query match",
                                 chunk.chunk_uuid
                             );
                         }

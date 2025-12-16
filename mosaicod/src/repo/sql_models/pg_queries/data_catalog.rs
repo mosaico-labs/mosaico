@@ -95,6 +95,59 @@ pub async fn column_chunk_numeric_create(
     Ok(res)
 }
 
+/// Batch insert multiple numeric column chunk stats in a single query.
+/// More efficient than individual inserts when inserting many stats.
+pub async fn column_chunk_numeric_create_batch(
+    exec: &mut impl repo::AsExec,
+    values: &[sql_models::ColumnChunkNumeric],
+) -> Result<(), repo::Error> {
+    if values.is_empty() {
+        return Ok(());
+    }
+
+    let mut query_builder: sqlx::QueryBuilder<sqlx::Postgres> = sqlx::QueryBuilder::new(
+        "INSERT INTO column_chunk_numeric_t(column_id, chunk_id, min_value, max_value, has_null, has_nan) ",
+    );
+
+    query_builder.push_values(values, |mut b, val| {
+        b.push_bind(val.column_id)
+            .push_bind(val.chunk_id)
+            .push_bind(val.min_value)
+            .push_bind(val.max_value)
+            .push_bind(val.has_null)
+            .push_bind(val.has_nan);
+    });
+
+    query_builder.build().execute(exec.as_exec()).await?;
+    Ok(())
+}
+
+/// Batch insert multiple literal column chunk stats in a single query.
+/// More efficient than individual inserts when inserting many stats.
+pub async fn column_chunk_literal_create_batch(
+    exec: &mut impl repo::AsExec,
+    values: &[sql_models::ColumnChunkLiteral],
+) -> Result<(), repo::Error> {
+    if values.is_empty() {
+        return Ok(());
+    }
+
+    let mut query_builder: sqlx::QueryBuilder<sqlx::Postgres> = sqlx::QueryBuilder::new(
+        "INSERT INTO column_chunk_literal_t(column_id, chunk_id, min_value, max_value, has_null) ",
+    );
+
+    query_builder.push_values(values, |mut b, val| {
+        b.push_bind(val.column_id)
+            .push_bind(val.chunk_id)
+            .push_bind(&val.min_value)
+            .push_bind(&val.max_value)
+            .push_bind(val.has_null);
+    });
+
+    query_builder.build().execute(exec.as_exec()).await?;
+    Ok(())
+}
+
 /// Returns the list of chunks matching the provided `filter` criteria.
 /// Optionally the query can be fitlered across a list of topics (`on_topics`).
 pub async fn chunks_from_filters(

@@ -155,6 +155,15 @@ impl TimeseriesGwResult {
     pub async fn count(self) -> Result<usize, Error> {
         Ok(self.data_frame.count().await?)
     }
+
+    /// Checks if there are any rows matching the current query.
+    /// This is more efficient than `count()` when you only need to know if results exist,
+    /// as it stops after finding the first matching row.
+    pub async fn has_rows(self) -> Result<bool, Error> {
+        // Limit to 1 row for early termination - avoids full scan
+        let limited = self.data_frame.limit(0, Some(1))?;
+        Ok(limited.count().await? > 0)
+    }
 }
 
 fn get_listing_options(_format: rw::Format) -> ListingOptions {
