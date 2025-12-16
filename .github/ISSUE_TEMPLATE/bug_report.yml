@@ -1,7 +1,5 @@
 name: Bug Report
 description: Create a report to help us improve Mosaico
-title: ""
-type: "bug"
 labels: ["bug", "triage"]
 assignees: []
 
