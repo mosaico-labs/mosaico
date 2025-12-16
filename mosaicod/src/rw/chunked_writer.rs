@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use std::pin::Pin;
 
 use arrow::array::RecordBatch;
-use log::debug;
+use log::{debug, trace};
 
 use crate::{traits, types};
 
@@ -110,7 +110,16 @@ where
             None => ChunkWriter::try_new(batch.schema(), self.format)?,
         };
 
-        writer.write(batch)?;
+        // Clone batch for spawn_blocking (requires 'static)
+        let batch = batch.clone();
+
+        // Offload CPU-intensive parquet encoding/compression to blocking thread pool
+        writer = tokio::task::spawn_blocking(move || {
+            writer.write(&batch)?;
+            Ok::<_, Error>(writer)
+        })
+        .await
+        .map_err(|e| Error::SpawnBlockingError(e.to_string()))??;
 
         self.writer = Some(writer);
 
@@ -130,11 +139,14 @@ where
                 (self.on_file_format)(&self.path, &writer.format, self.chunk_serialized_number);
             self.chunk_serialized_number += 1;
 
-            let (buffer, stats) = writer.finalize()?;
+            // Offload CPU-intensive parquet finalization to blocking thread pool
+            let (buffer, stats) = tokio::task::spawn_blocking(move || writer.finalize())
+                .await
+                .map_err(|e| Error::SpawnBlockingError(e.to_string()))??;
 
             self.write_target.write_to_path(&path, buffer).await?;
 
-            dbg!(self.on_chunk_created_clbk.is_some());
+            trace!("on_chunk_created_clbk present: {}", self.on_chunk_created_clbk.is_some());
 
             return self
                 .on_chunk_created_clbk

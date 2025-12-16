@@ -1,31 +1,78 @@
----
 name: Bug Report
-about: Create a report to help us improve Mosaico
-title: "[Bug]: "
+description: Create a report to help us improve Mosaico
+title: ""
+type: "bug"
 labels: ["bug", "triage"]
 assignees: []
----
 
-### Component
-- [ ] **Python SDK** 
-- [ ] **mosaicod**
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to fill out this bug report!
 
-### System information
-- **OS:** [e.g. Ubuntu 22.04, macOS Sonoma]
-- **Python Version:** [e.g. 3.13] - **ROS Distribution (if applicable):** [e.g. ROS 2 Humble, ROS 1 Noetic, None]
-- **Installation Method:** [e.g. Poetry, Cargo, Source]
+  - type: checkboxes
+    id: component
+    attributes:
+      label: Component
+      description: Which part of the system is affected?
+      options:
+        - label: Python SDK
+        - label: mosaicod
+        - label: I don't know
+    validations:
+      required: true
 
-### Describe the bug
-A clear and concise description of what the bug is.
+  - type: textarea
+    id: system-info
+    attributes:
+      label: System Information
+      description: Please provide details about your environment.
+      value: |
+        - **OS:** [e.g. Ubuntu 22.04, macOS Sonoma]
+        - **Python Version:** [e.g. 3.13]
+        - **ROS Distribution:** [e.g. ROS 2 Humble, ROS 1 Noetic, None]
+        - **Installation Method:** [e.g. Poetry, Cargo, Source]
+    validations:
+      required: true
 
-### Steps to reproduce
-1. Run the daemon: `mosaicod ...`
-2. Run the injector/script:
+  - type: textarea
+    id: description
+    attributes:
+      label: Describe the bug
+      description: A clear and concise description of what the bug is.
+      placeholder: |
+        I expected X to happen, but Y happened instead.
+        Here is the context of what I was trying to do...
+    validations:
+      required: true
 
-```bash
-# Example:
-poetry run mosaico.ros_injector ./my_bag.mcap --name "Test_Seq" ...
-```
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Please list the steps required to reproduce the issue.
+      placeholder: steps...
+      value: |
+        1. Run the daemon: `mosaicod ...`
+        2. Run the injector/script:
 
-### Include logs
-If available include a `mosaicod` log, configure env variable `RUST_LOG=mosaico=trace` before execution.
+        ```bash
+        # Example:
+        poetry run mosaico.ros_injector ./my_bag.mcap --name "Test_Seq" ...
+        ```
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: |
+        Please paste the output of `mosaicod`.
+        **Tip:** Set `RUST_LOG=mosaico=trace` before execution to capture detailed logs.
+      render: shell
+      placeholder: |
+        [2024-01-01T12:00:00Z INFO  mosaico] Starting daemon...
+    validations:
+      required: false

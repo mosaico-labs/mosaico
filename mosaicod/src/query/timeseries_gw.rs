@@ -4,6 +4,8 @@
 //!
 //! The engine integrates directly with the configured [`store::Store`] to resolve
 //! paths and access data sources like Parquet files efficiently.
+use log::trace;
+
 use crate::traits::AsExtension;
 use crate::{params, query, rw, store};
 use arrow::datatypes::{Schema, SchemaRef};
@@ -137,7 +139,7 @@ impl TimeseriesGwResult {
         let expr = ontology_filter_to_df_expr(filter);
 
         let data_frame = if let Some(expr) = expr {
-            dbg!(expr.to_string());
+            trace!("filter expression: {}", expr);
             self.data_frame.filter(expr)?
         } else {
             self.data_frame

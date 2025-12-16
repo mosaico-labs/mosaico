@@ -303,8 +303,8 @@ pub async fn topic_from_query_filter(
         format!("{select} WHERE {}", qr.clauses.join(" AND "))
     };
 
-    dbg!(&qr.values);
-    dbg!(&query);
+    trace!("query values: {:?}", qr.values);
+    trace!("generated SQL query: {}", query);
 
     let mut r = sqlx::query(&query);
 
@@ -318,6 +318,6 @@ pub async fn topic_from_query_filter(
     }
 
     let r = r.map(cast_topic_data).fetch_all(exe.as_exec()).await?;
-    dbg!(r.len());
+    trace!("query returned {} results", r.len());
     r.into_iter().collect()
 }
