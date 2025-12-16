@@ -1,3 +1,6 @@
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 use std::{env, sync::Arc, thread, time::Instant};
 
 use clap::{Args, Parser, Subcommand};
