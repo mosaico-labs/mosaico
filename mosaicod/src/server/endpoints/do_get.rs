@@ -7,7 +7,7 @@ use arrow_flight::{
 use futures::TryStreamExt;
 use log::{info, trace};
 
-use crate::{marshal, query, repo, server::errors::ServerError, store, types::Resource};
+use crate::{marshal, params, query, repo, server::errors::ServerError, store, types::Resource};
 
 pub async fn do_get(
     store: store::StoreRef,
@@ -22,18 +22,21 @@ pub async fn do_get(
 
     // Create topic handle
     let topic = ticket;
-    let topic_handle = repo::FacadeTopic::new(topic, store, repo);
+    let topic_handle = repo::FacadeTopic::new(topic, store, repo.clone());
 
     // Read metadata from topic
     let metadata = topic_handle.metadata().await?;
 
     trace!("{:?}", metadata);
 
+    // Compute optimal batch size from database statistics
+    let batch_size = compute_optimal_batch_size(&repo, topic_handle.locator.name()).await?;
+
     let query_result = ts_engine
         .read(
             &topic_handle.locator.name(),
             metadata.properties.serialization_format,
-            true,
+            batch_size,
         )
         .await?;
 
@@ -55,4 +58,25 @@ pub async fn do_get(
     Ok(FlightDataEncoderBuilder::new()
         .with_schema(schema)
         .build(stream))
+}
+
+/// Computes the optimal batch size based on topic statistics from the database.
+///
+/// Returns `Some(batch_size)` if statistics are available, `None` otherwise
+/// (e.g., for empty topics).
+async fn compute_optimal_batch_size(
+    repo: &repo::Repository,
+    topic_name: &str,
+) -> Result<Option<usize>, ServerError> {
+    let mut cx = repo.connection();
+    let stats = repo::topic_get_stats(&mut cx, topic_name).await?;
+
+    if stats.total_size_bytes == 0 || stats.total_row_count == 0 {
+        return Ok(None);
+    }
+
+    let target_size = params::configurables().target_message_size_in_bytes;
+    let batch_size = (target_size as i64 * stats.total_row_count) / stats.total_size_bytes;
+
+    Ok(Some(batch_size as usize))
 }

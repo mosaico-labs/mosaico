@@ -10,11 +10,15 @@ impl<'a> FacadeChunk<'a> {
     pub async fn create(
         topic_id: i32,
         datafile: impl AsRef<std::path::Path>,
+        size_bytes: i64,
+        row_count: i64,
         repo: &'a repo::Repository,
     ) -> Result<Self, FacadeError> {
         let mut tx = repo.transaction().await?;
 
-        let chunk = repo::chunk_create(&mut tx, &repo::Chunk::new(topic_id, datafile)).await?;
+        let chunk =
+            repo::chunk_create(&mut tx, &repo::Chunk::new(topic_id, datafile, size_bytes, row_count))
+                .await?;
 
         Ok(Self { tx, chunk })
     }

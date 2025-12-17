@@ -34,12 +34,14 @@ pub async fn chunk_create(
 ) -> Result<sql_models::Chunk, repo::Error> {
     let res = sqlx::query_as!(
         sql_models::Chunk,
-        r#"INSERT INTO chunk_t(chunk_uuid, topic_id, data_file)
-        VALUES ($1, $2, $3)
+        r#"INSERT INTO chunk_t(chunk_uuid, topic_id, data_file, size_bytes, row_count)
+        VALUES ($1, $2, $3, $4, $5)
         RETURNING *"#,
         chunk.chunk_uuid,
         chunk.topic_id,
         chunk.data_file,
+        chunk.size_bytes,
+        chunk.row_count,
     )
     .fetch_one(exec.as_exec())
     .await?;
@@ -135,5 +137,36 @@ fn cast_chunk_data(row: PgRow) -> Result<sql_models::Chunk, repo::Error> {
         chunk_uuid: row.try_get("chunk_uuid")?,
         topic_id: row.try_get("topic_id")?,
         data_file: row.try_get("data_file")?,
+        size_bytes: row.try_get("size_bytes")?,
+        row_count: row.try_get("row_count")?,
+    })
+}
+
+/// Aggregated statistics for a topic's chunks.
+#[derive(Debug, Clone, Default)]
+pub struct TopicStats {
+    pub total_size_bytes: i64,
+    pub total_row_count: i64,
+}
+
+/// Returns aggregated size and row count statistics for all chunks belonging to a topic.
+pub async fn topic_get_stats(
+    exec: &mut impl repo::AsExec,
+    topic_name: &str,
+) -> Result<TopicStats, repo::Error> {
+    let res = sqlx::query!(
+        r#"SELECT
+            COALESCE(SUM(size_bytes), 0)::BIGINT as "total_size_bytes!",
+            COALESCE(SUM(row_count), 0)::BIGINT as "total_row_count!"
+        FROM chunk_t
+        WHERE topic_id = (SELECT topic_id FROM topic_t WHERE topic_name = $1)"#,
+        topic_name,
+    )
+    .fetch_one(exec.as_exec())
+    .await?;
+
+    Ok(TopicStats {
+        total_size_bytes: res.total_size_bytes,
+        total_row_count: res.total_row_count,
     })
 }

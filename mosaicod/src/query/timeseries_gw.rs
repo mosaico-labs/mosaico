@@ -6,7 +6,6 @@
 //! paths and access data sources like Parquet files efficiently.
 use log::trace;
 
-use crate::traits::AsExtension;
 use crate::{params, query, rw, store};
 use arrow::datatypes::{Schema, SchemaRef};
 use datafusion::datasource::file_format::parquet::ParquetFormat;
@@ -46,20 +45,20 @@ impl TimeseriesGw {
     ///
     /// All files in the provided path will be included in the read.
     ///
-    /// If `repartition` is `True` the system will compute the number of elements to include
-    /// in each message based on the maximum allowed message size.
+    /// If `batch_size` is provided, the system will use it to configure the batch size
+    /// for the query engine. This allows callers to control message sizes based on
+    /// pre-computed statistics from the database.
     pub async fn read(
         &self,
         path: impl AsRef<Path>,
         format: rw::Format,
-        repartition: bool,
+        batch_size: Option<usize>,
     ) -> Result<TimeseriesGwResult, Error> {
         let listing_options = get_listing_options(format);
 
         let mut conf = SessionConfig::new();
-        if repartition {
-            let optimal_batch_size = self.optimal_batch_size(&path, format).await?;
-            conf = conf.with_batch_size(optimal_batch_size);
+        if let Some(batch_size) = batch_size {
+            conf = conf.with_batch_size(batch_size);
         }
 
         let ctx = SessionContext::new_with_config_rt(conf, self.runtime.clone());
@@ -82,36 +81,6 @@ impl TimeseriesGw {
         let df = ctx.sql(&select).await?;
 
         Ok(TimeseriesGwResult { data_frame: df })
-    }
-
-    async fn optimal_batch_size(
-        &self,
-        path: impl AsRef<Path>,
-        format: rw::Format,
-    ) -> Result<usize, Error> {
-        let datafiles = self.store.list(&path, Some(&format.as_extension())).await?;
-        let mut total_size = 0;
-        for file in &datafiles {
-            total_size += self.store.size(file).await?;
-        }
-
-        // Compute the number of rows in the datafile
-        let listing_options = get_listing_options(format);
-        let ctx = SessionContext::new_with_config_rt(SessionConfig::new(), self.runtime.clone());
-        ctx.register_listing_table(
-            "data",
-            self.datafile_url(path)?,
-            listing_options,
-            None,
-            None,
-        )
-        .await?;
-        let df = ctx.sql("SELECT * FROM data").await?;
-        let count = df.count().await?;
-
-        let target_size = params::configurables().target_message_size_in_bytes;
-
-        Ok((target_size * count) / total_size)
     }
 
     fn datafile_url(&self, path: impl AsRef<Path>) -> Result<url::Url, Error> {

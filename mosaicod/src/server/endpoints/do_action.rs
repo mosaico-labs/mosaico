@@ -388,7 +388,7 @@ pub async fn do_action(
                             .read(
                                 chunk.data_file(),
                                 topic.serialization_format().unwrap(), // TODO: handle error
-                                false,
+                                None,
                             )
                             .await?;
 

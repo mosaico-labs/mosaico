@@ -27,15 +27,24 @@ pub struct Chunk {
     pub chunk_uuid: uuid::Uuid,
     pub topic_id: i32,
     pub(super) data_file: String,
+    pub size_bytes: i64,
+    pub row_count: i64,
 }
 
 impl Chunk {
-    pub fn new(topic_id: i32, data_file: impl AsRef<std::path::Path>) -> Self {
+    pub fn new(
+        topic_id: i32,
+        data_file: impl AsRef<std::path::Path>,
+        size_bytes: i64,
+        row_count: i64,
+    ) -> Self {
         Self {
             chunk_id: repo::UNREGISTERED,
             chunk_uuid: uuid::Uuid::new_v4(),
             topic_id,
             data_file: data_file.as_ref().to_string_lossy().to_string(),
+            size_bytes,
+            row_count,
         }
     }
 

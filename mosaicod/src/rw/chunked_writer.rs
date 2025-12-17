@@ -8,13 +8,14 @@ use crate::{traits, types};
 
 use super::Error;
 use super::Format;
-use super::chunk_writer::ChunkWriter;
+use super::chunk_writer::{ChunkMetadata, ChunkWriter};
 
 /// Callback called just before file serialization
 type OnChunkCallback = Box<
     dyn Fn(
             std::path::PathBuf,
             types::ColumnsStats,
+            ChunkMetadata,
         ) -> Pin<Box<dyn Future<Output = Result<(), Box<dyn std::error::Error>>> + Send>>
         + Send
         + Sync,
@@ -79,11 +80,11 @@ where
     /// serialization.
     pub fn on_chunk_created<F1, Fut>(mut self, clbk: F1) -> Self
     where
-        F1: Fn(std::path::PathBuf, types::ColumnsStats) -> Fut + Send + Sync + 'static,
+        F1: Fn(std::path::PathBuf, types::ColumnsStats, ChunkMetadata) -> Fut + Send + Sync + 'static,
         Fut: Future<Output = Result<(), Box<dyn std::error::Error>>> + Send + 'static,
     {
-        let wrapped = move |path, stats| {
-            let fut = clbk(path, stats);
+        let wrapped = move |path, stats, metadata| {
+            let fut = clbk(path, stats, metadata);
             Box::pin(fut)
                 as Pin<Box<dyn Future<Output = Result<(), Box<dyn std::error::Error>>> + Send>>
         };
@@ -140,7 +141,7 @@ where
             self.chunk_serialized_number += 1;
 
             // Offload CPU-intensive parquet finalization to blocking thread pool
-            let (buffer, stats) = tokio::task::spawn_blocking(move || writer.finalize())
+            let (buffer, stats, metadata) = tokio::task::spawn_blocking(move || writer.finalize())
                 .await
                 .map_err(|e| Error::SpawnBlockingError(e.to_string()))??;
 
@@ -153,7 +154,7 @@ where
                 .as_ref()
                 .map(async move |clbk| {
                     debug!("calling chunk serialization callback");
-                    return clbk(path, stats).await;
+                    return clbk(path, stats, metadata).await;
                 })
                 .unwrap()
                 .await
