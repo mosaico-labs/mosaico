@@ -109,32 +109,31 @@ async fn do_put_topic_data(
     let serialization_format = mdata.properties.serialization_format;
     let topic_id = r_id.id;
 
-    let mut writer =
-        handle
-            .writer(serialization_format)
-            .on_chunk_created(move |target_path, cols_stats, chunk_metadata| {
-                let topic_id = topic_id;
-                let repo_clone = repo.clone();
-                let ontology_tag = ontology_tag.clone();
+    let mut writer = handle.writer(serialization_format).on_chunk_created(
+        move |target_path, cols_stats, chunk_metadata| {
+            let topic_id = topic_id;
+            let repo_clone = repo.clone();
+            let ontology_tag = ontology_tag.clone();
 
-                async move {
-                    trace!(
-                        "calling chunk creation callback for `{}` {:?}",
-                        target_path.to_string_lossy(),
-                        cols_stats
-                    );
+            async move {
+                trace!(
+                    "calling chunk creation callback for `{}` {:?}",
+                    target_path.to_string_lossy(),
+                    cols_stats
+                );
 
-                    Ok(on_chunk_created(
-                        repo_clone,
-                        topic_id,
-                        &ontology_tag,
-                        target_path,
-                        cols_stats,
-                        chunk_metadata,
-                    )
-                    .await?)
-                }
-            });
+                Ok(on_chunk_created(
+                    repo_clone,
+                    topic_id,
+                    &ontology_tag,
+                    target_path,
+                    cols_stats,
+                    chunk_metadata,
+                )
+                .await?)
+            }
+        },
+    );
 
     // Consume all batches
     while let Some(data) = decoder

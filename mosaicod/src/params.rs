@@ -64,10 +64,7 @@ pub fn load_configurables_from_env() {
             "MOSAICO_TARGET_MESSAGE_SIZE_IN_BYTES",
             25 * 1024 * 1024,
         ),
-        max_concurrent_chunk_queries: cast_env_var(
-            "MOSAICO_MAX_CONCURRENT_CHUNK_QUERIES",
-            4,
-        ),
+        max_concurrent_chunk_queries: cast_env_var("MOSAICO_MAX_CONCURRENT_CHUNK_QUERIES", 4),
         max_db_connections: cast_env_var("MOSAICO_MAX_DB_CONNECTIONS", 10),
     };
 

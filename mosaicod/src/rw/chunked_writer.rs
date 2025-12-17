@@ -80,7 +80,10 @@ where
     /// serialization.
     pub fn on_chunk_created<F1, Fut>(mut self, clbk: F1) -> Self
     where
-        F1: Fn(std::path::PathBuf, types::ColumnsStats, ChunkMetadata) -> Fut + Send + Sync + 'static,
+        F1: Fn(std::path::PathBuf, types::ColumnsStats, ChunkMetadata) -> Fut
+            + Send
+            + Sync
+            + 'static,
         Fut: Future<Output = Result<(), Box<dyn std::error::Error>>> + Send + 'static,
     {
         let wrapped = move |path, stats, metadata| {
@@ -147,7 +150,10 @@ where
 
             self.write_target.write_to_path(&path, buffer).await?;
 
-            trace!("on_chunk_created_clbk present: {}", self.on_chunk_created_clbk.is_some());
+            trace!(
+                "on_chunk_created_clbk present: {}",
+                self.on_chunk_created_clbk.is_some()
+            );
 
             return self
                 .on_chunk_created_clbk

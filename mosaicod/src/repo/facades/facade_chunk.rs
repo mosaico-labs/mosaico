@@ -16,9 +16,11 @@ impl<'a> FacadeChunk<'a> {
     ) -> Result<Self, FacadeError> {
         let mut tx = repo.transaction().await?;
 
-        let chunk =
-            repo::chunk_create(&mut tx, &repo::Chunk::new(topic_id, datafile, size_bytes, row_count))
-                .await?;
+        let chunk = repo::chunk_create(
+            &mut tx,
+            &repo::Chunk::new(topic_id, datafile, size_bytes, row_count),
+        )
+        .await?;
 
         Ok(Self { tx, chunk })
     }

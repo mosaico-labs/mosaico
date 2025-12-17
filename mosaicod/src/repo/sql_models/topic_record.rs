@@ -65,9 +65,9 @@ impl TopicRecord {
     }
 
     pub fn serialization_format(&self) -> Option<rw::Format> {
-        self.serialization_format
-            .as_ref()
-            .map(|value| rw::Format::from_str(value).expect("BUG: invalid serialization format in database"))
+        self.serialization_format.as_ref().map(|value| {
+            rw::Format::from_str(value).expect("BUG: invalid serialization format in database")
+        })
     }
 
     pub fn creation_timestamp(&self) -> types::Timestamp {
