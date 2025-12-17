@@ -96,4 +96,5 @@ def test_topic_push_not_serializable(_client: MosaicoClient):
         tw = sw.topic_create("test-topic-registered", {}, NotSerializable)  # type: ignore (disable pylance complaining)
         assert tw is None
 
+    # free resources
     _client.close()

@@ -18,7 +18,7 @@ import datetime
 import logging as log
 import pyarrow.flight as fl
 from ..enum import FlightAction
-from ..models.query import QueryResponseItem
+from ..models.query import QueryResponseItem, QueryResponse
 
 # Generic TypeVar allowing _do_action to return the specific subclass requested
 T_DoActionResponse = TypeVar("T_DoActionResponse", bound="_DoActionResponse")
@@ -211,14 +211,16 @@ class _DoActionQueryResponse(_DoActionResponse):
     """Response containing the result of a query to data platform"""
 
     actions: ClassVar[list[FlightAction]] = [FlightAction.QUERY]
-    items: list[QueryResponseItem]
+    query_response: QueryResponse
 
-    def __init__(self, items: list) -> None:
-        self.items = items
+    def __init__(self, qresp: QueryResponse) -> None:
+        self.query_response = qresp
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "_DoActionQueryResponse":
         if data.get("items") is None:
             raise KeyError("Unable to find 'items' key in data dict.")
-        items = [QueryResponseItem(**item) for item in data["items"]]
-        return _DoActionQueryResponse(items=items)
+        qresp = QueryResponse(
+            items=[QueryResponseItem(**item) for item in data["items"]]
+        )
+        return _DoActionQueryResponse(qresp=qresp)

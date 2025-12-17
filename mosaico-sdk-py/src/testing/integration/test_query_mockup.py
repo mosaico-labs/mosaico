@@ -30,8 +30,8 @@ def test_query_mockup_sequence_by_name(
     expected_topic_names = [topic for topic in expected_topic_names]
     # all the expected topics, and only them
     [_validate_returned_topic_name(topic) for topic in query_resp[0].topics]
-    assert all([t for t in query_resp[0].topics if t in expected_topic_names])
-    assert all([t for t in expected_topic_names if t in query_resp[0].topics])
+    assert all([t in expected_topic_names for t in query_resp[0].topics])
+    assert all([t in query_resp[0].topics for t in expected_topic_names])
 
     # Query by partial name
     n_char = int(len(sequence_name) / 2)  # half the length
@@ -51,8 +51,8 @@ def test_query_mockup_sequence_by_name(
         expected_topic_names = [topic for topic in expected_topic_names]
         # all the expected topics, and only them
         [_validate_returned_topic_name(topic) for topic in item.topics]
-        assert all([t for t in item.topics if t in expected_topic_names])
-        assert all([t for t in expected_topic_names if t in item.topics])
+        assert all([t in expected_topic_names for t in item.topics])
+        assert all([t in item.topics for t in expected_topic_names])
 
     # Query by partial name: startswith
     n_char = int(len(sequence_name) / 2)  # half the length
@@ -74,8 +74,8 @@ def test_query_mockup_sequence_by_name(
         expected_topic_names = [topic for topic in expected_topic_names]
         # all the expected topics, and only them
         [_validate_returned_topic_name(topic) for topic in item.topics]
-        assert all([t for t in item.topics if t in expected_topic_names])
-        assert all([t for t in expected_topic_names if t in item.topics])
+        assert all([t in expected_topic_names for t in item.topics])
+        assert all([t in item.topics for t in expected_topic_names])
 
     # Query by partial name: endswith
     n_char = int(len(sequence_name) / 2)  # half the length
@@ -97,8 +97,11 @@ def test_query_mockup_sequence_by_name(
         expected_topic_names = [topic for topic in expected_topic_names]
         # all the expected topics, and only them
         [_validate_returned_topic_name(topic) for topic in item.topics]
-        assert all([t for t in item.topics if t in expected_topic_names])
-        assert all([t for t in expected_topic_names if t in item.topics])
+        assert all([t in expected_topic_names for t in item.topics])
+        assert all([t in item.topics for t in expected_topic_names])
+
+    # free resources
+    _client.close()
 
 
 def test_query_mockup_sequence_metadata(
@@ -128,8 +131,8 @@ def test_query_mockup_sequence_metadata(
     expected_topic_names = [topic for topic in expected_topic_names]
     # all the expected topics, and only them
     [_validate_returned_topic_name(topic) for topic in query_resp[0].topics]
-    assert all([t for t in query_resp[0].topics if t in expected_topic_names])
-    assert all([t for t in expected_topic_names if t in query_resp[0].topics])
+    assert all([t in expected_topic_names for t in query_resp[0].topics])
+    assert all([t in query_resp[0].topics for t in expected_topic_names])
 
     # Test 2: with None return
     query_resp = _client.query(
@@ -140,3 +143,110 @@ def test_query_mockup_sequence_metadata(
 
     assert query_resp is not None
     assert len(query_resp) == 0
+
+    # free resources
+    _client.close()
+
+
+def test_query_sequence_from_response(
+    _client: MosaicoClient,
+    _inject_sequences_mockup,  # Ensure the data are available on the data platform
+):
+    visibility_val = "private"
+    query_resp = _client.query(
+        QuerySequence().with_expression(
+            Sequence.Q.user_metadata["visibility"].eq(visibility_val)
+        )
+    )
+    # We do expect a successful query
+    assert query_resp is not None
+    # The other criteria have been tested above...
+    expected_sequence_names = [
+        key
+        for key, val in QUERY_SEQUENCES_MOCKUP.items()
+        if val.get("metadata", {}).get("visibility") == visibility_val
+    ]
+    assert len(query_resp) == len(expected_sequence_names)
+    assert all(
+        [it.sequence for it in query_resp if it.sequence in expected_sequence_names]
+    )
+    assert all(
+        [s for s in expected_sequence_names if s in [it.sequence for it in query_resp]]
+    )
+    # This translates to:
+    # 'query among the sequences in the returned response'
+    qsequence = query_resp.to_query_sequence()
+    # simply reprovide the same query to the client
+    query_resp = _client.query(qsequence)
+    # One (1) sequence corresponds to this query
+    assert query_resp is not None
+    assert len(query_resp) == len(expected_sequence_names)
+    assert all(
+        [it.sequence for it in query_resp if it.sequence in expected_sequence_names]
+    )
+    assert all(
+        [s for s in expected_sequence_names if s in [it.sequence for it in query_resp]]
+    )
+    # The other criteria have been tested above...
+
+    # free resources
+    _client.close()
+
+
+def test_query_topic_from_response(
+    _client: MosaicoClient,
+    _inject_sequences_mockup,  # Ensure the data are available on the data platform
+):
+    visibility_val = "private"
+    query_resp = _client.query(
+        QuerySequence().with_expression(
+            Sequence.Q.user_metadata["visibility"].eq(visibility_val)
+        )
+    )
+    # We do expect a successful query
+    assert query_resp is not None
+    # The other criteria have been tested above...
+    expected_sequence_names = [
+        key
+        for key, val in QUERY_SEQUENCES_MOCKUP.items()
+        if val.get("metadata", {}).get("visibility") == visibility_val
+    ]
+    assert len(query_resp) == len(expected_sequence_names)
+    assert all(
+        [it.sequence for it in query_resp if it.sequence in expected_sequence_names]
+    )
+    assert all(
+        [s for s in expected_sequence_names if s in [it.sequence for it in query_resp]]
+    )
+    # This translates to:
+    # 'query among the topics in the returned response'
+    qtopic = query_resp.to_query_topic()
+    # simply reprovide the same query to the client
+    query_resp = _client.query(qtopic)
+    # One (1) sequence corresponds to this query
+    assert query_resp is not None
+    assert len(query_resp) == len(expected_sequence_names)
+    assert all(
+        [it.sequence for it in query_resp if it.sequence in expected_sequence_names]
+    )
+    assert all(
+        [s for s in expected_sequence_names if s in [it.sequence for it in query_resp]]
+    )
+    # The other criteria have been tested above...
+
+    # Try restricting further the query...
+    # get the first available ontology tag
+    ontology_tag = "image"
+    query_resp = _client.query(qtopic.with_ontology_tag(ontology_tag))
+    # One (1) sequence corresponds to this query
+    assert query_resp is not None
+
+    expected_sequence_name = "test-query-sequence-1"
+    expected_topic_name = "/topic11"
+    assert len(query_resp) == 1
+    assert query_resp[0].sequence == expected_sequence_name
+    assert len(query_resp[0].topics) == 1
+    assert query_resp[0].topics[0] == expected_topic_name
+
+    # free resources
+    _client.close()

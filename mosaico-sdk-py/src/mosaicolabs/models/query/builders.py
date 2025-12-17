@@ -281,7 +281,7 @@ class QueryTopic:
         .with_expression(Topic.Q.user_metadata["firmware.version"].eq("v0.1.2"))
 
         Args:
-            expr: A _QueryTopicExpression, e.g., Topic.Q.name.eq("...").
+            expr: A _QueryTopicExpression, Topic.Q.user_metadata["key"].eq("...").
 
         Returns:
             The QueryTopic instance for method chaining.
@@ -460,7 +460,7 @@ class QuerySequence:
         Adds a new expression to the query (fluent interface).
 
         Args:
-            expr: A _QuerySequenceExpression, e.g., Sequence.Q.name.eq("...").
+            expr: A _QuerySequenceExpression, e.g., Sequence.Q.user_metadata["key"].eq("...").
 
         Returns:
             The QuerySequence instance for method chaining.

@@ -1,7 +1,4 @@
-import logging as log
 from mosaicolabs.models.sensors import IMU, GPS, Image
-
-log.basicConfig(level=log.DEBUG, format="%(levelname)s - %(message)s")
 
 
 # ----- Sequence setup ----
@@ -9,7 +6,7 @@ log.basicConfig(level=log.DEBUG, format="%(levelname)s - %(message)s")
 UPLOADED_SEQUENCE_NAME = "test-sequence-datastream"
 UPLOADED_SEQUENCE_METADATA = {
     "status": "processed",
-    "visibility": "private",
+    "visibility": "team-01",
     # --- Acquisition metadata ---
     "location": {
         "city": "Milan",
@@ -180,7 +177,7 @@ UPLOADED_MAGNETOMETER_METADATA = {
 QUERY_SEQUENCES_MOCKUP = {
     "test-query-sequence-1": {
         "topics": [
-            {"name": "/topic11", "metadata": {}, "ontology_type": IMU},
+            {"name": "/topic11", "metadata": {}, "ontology_type": Image},
             {"name": "/topic12", "metadata": {}, "ontology_type": GPS},
         ],
         "metadata": {

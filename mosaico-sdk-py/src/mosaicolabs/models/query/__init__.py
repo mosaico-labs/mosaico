@@ -7,4 +7,5 @@ from .builders import (
 
 from .response import (
     QueryResponseItem as QueryResponseItem,
+    QueryResponse as QueryResponse,
 )
