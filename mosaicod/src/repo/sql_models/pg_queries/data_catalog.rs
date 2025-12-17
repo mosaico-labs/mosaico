@@ -1,9 +1,9 @@
-use sqlx::{Row, postgres::PgRow};
-
 use crate::{
     query,
     repo::{self, sql_models},
 };
+use log::trace;
+use sqlx::{Row, postgres::PgRow};
 
 pub async fn column_get_or_create(
     exec: &mut impl repo::AsExec,
@@ -99,8 +99,8 @@ pub async fn column_chunk_numeric_create(
 /// Optionally the query can be fitlered across a list of topics (`on_topics`).
 pub async fn chunks_from_filters(
     exec: &mut impl repo::AsExec,
-    filter: query::OntologyFilter,
-    on_topics: Option<&Vec<sql_models::TopicRecord>>, // (cabba) TODO: pas only topic names or ids?
+    filter: query::ExprGroup<query::Value>,
+    on_topics: Option<&Vec<sql_models::TopicRecord>>, // (cabba) TODO: pass only topic names or ids?
 ) -> Result<Vec<sql_models::Chunk>, repo::Error> {
     // Collect topic ids, if any
     let ids: Vec<i64> = if let Some(topics) = on_topics {
@@ -111,7 +111,8 @@ pub async fn chunks_from_filters(
 
     let (query, values) = super::ChunkQueryBuilder::build(filter, ids)?;
 
-    dbg!(&query);
+    trace!("chunk SQL query values: {:?}", values);
+    trace!("chunk SQL query: {}", &query);
 
     let mut r = sqlx::query(&query);
 

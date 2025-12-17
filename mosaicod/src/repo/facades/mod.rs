@@ -12,3 +12,6 @@ pub use facade_error::*;
 
 mod facade_chunk;
 pub use facade_chunk::*;
+
+mod facade_query;
+pub use facade_query::*;

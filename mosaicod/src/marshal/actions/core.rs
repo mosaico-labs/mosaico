@@ -136,7 +136,7 @@ impl ActionRequest {
 
             "query" => parse_action_req!(Query, body),
 
-            _ => Err(ActionError::MissingAction(value.to_string())),
+            _ => Err(ActionError::MissingAction(value.to_owned())),
         }
     }
 }

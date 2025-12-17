@@ -59,7 +59,7 @@ impl query::CompileClause for SqlQueryCompiler {
         V: Into<query::Value> + query::IsSupportedOp,
     {
         if !op.is_supported_op() {
-            return Err(query::Error::unsupported_op(field.to_string()));
+            return Err(query::Error::unsupported_op(field.to_owned()));
         }
 
         let r = match op {
@@ -141,7 +141,7 @@ impl query::CompileClause for SqlQueryCompiler {
                     let clause = format!("{} LIKE {}", field, self.consume_placeholder());
                     query::CompiledClause::new(clause, vec![value])
                 } else {
-                    return Err(query::Error::unsupported_op(field.to_string()));
+                    return Err(query::Error::unsupported_op(field.to_owned()));
                 }
             }
         };
@@ -183,7 +183,7 @@ mod internal {
         fn fmt_value(&self, field: &str, v: &query::Value) -> String {
             match v {
                 query::Value::Integer(_) | query::Value::Float(_) => format!("({field})::numeric"),
-                query::Value::Text(_) => field.to_string(),
+                query::Value::Text(_) => field.to_owned(),
                 query::Value::Boolean(_) => format!("({field})::boolean"),
             }
         }
@@ -199,7 +199,7 @@ mod internal {
             V: Into<query::Value> + query::IsSupportedOp,
         {
             if !op.is_supported_op() {
-                return Err(query::Error::unsupported_op(field.to_string()));
+                return Err(query::Error::unsupported_op(field.to_owned()));
             }
 
             let r = match op {
@@ -290,19 +290,19 @@ mod internal {
 
                     query::CompiledClause::new(clause, vec![min, max])
                 }
-                query::Op::In(_) => return Err(query::Error::unsupported_op(field.to_string())),
-                query::Op::Match(_) => return Err(query::Error::unsupported_op(field.to_string())),
+                query::Op::In(_) => return Err(query::Error::unsupported_op(field.to_owned())),
+                query::Op::Match(_) => return Err(query::Error::unsupported_op(field.to_owned())),
             };
 
             Ok(r)
         }
     }
 
-    impl query::OntologyColumnFmt for JsonQueryCompiler {
-        fn ontology_column_fmt(&self, subfield: &str) -> String {
+    impl query::OntologyFieldFmt for JsonQueryCompiler {
+        fn ontology_column_fmt(&self, subfield: &query::OntologyField) -> String {
             let subfield = format!(
                 "{{{}}}",
-                subfield.split(".").collect::<Vec<&str>>().join(",")
+                subfield.value().split(".").collect::<Vec<&str>>().join(",")
             );
             format!("{} #>> '{subfield}'", self.field)
         }
@@ -321,7 +321,7 @@ mod tests {
         let mut fmt = SqlQueryCompiler::new();
 
         let qr = ClausesCompiler::new()
-            .expr("my-field", Op::Gt("topic-name".to_string()), &mut fmt)
+            .expr("my-field", Op::Gt("topic-name".to_owned()), &mut fmt)
             .compile();
 
         assert!(qr.is_err());
@@ -335,12 +335,12 @@ mod tests {
         let qr = ClausesCompiler::new()
             .expr(
                 "topic.topic_name",
-                Op::Match("my-topic".to_string()),
+                Op::Match("my-topic".to_owned()),
                 &mut fmt,
             )
             .expr(
                 "topic.ontology_tag",
-                Op::Neq("my-ontology-tag".to_string()),
+                Op::Neq("my-ontology-tag".to_owned()),
                 &mut fmt,
             )
             .compile()
@@ -353,7 +353,7 @@ mod tests {
             .iter()
             .position(|c| c == r#"topic.topic_name LIKE $1"#)
         {
-            assert_eq!(qr.values[idx], query::Value::Text("%my-topic%".to_string()));
+            assert_eq!(qr.values[idx], query::Value::Text("%my-topic%".to_owned()));
         } else {
             panic!("match not found");
         }
@@ -365,7 +365,7 @@ mod tests {
         {
             assert_eq!(
                 qr.values[idx],
-                query::Value::Text("my-ontology-tag".to_string())
+                query::Value::Text("my-ontology-tag".to_owned())
             );
         } else {
             panic!("match not found");
@@ -390,7 +390,7 @@ mod tests {
 
         let qr = ClausesCompiler::new()
             .filter(
-                kv.into_iterator(),
+                kv.into_expr_group(),
                 fmt.with_field_and_placeholder("topic.user_metadata".into(), 1),
             )
             .compile()

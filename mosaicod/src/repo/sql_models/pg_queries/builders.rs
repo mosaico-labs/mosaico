@@ -8,7 +8,7 @@ pub struct ChunkQueryBuilder {
 
 impl ChunkQueryBuilder {
     pub fn build(
-        filter: query::OntologyFilter,
+        filter: query::ExprGroup<query::Value>,
         on_topic_ids: Vec<i64>,
     ) -> Result<(String, Vec<query::Value>), query::Error> {
         let mut qb = query::ClausesCompiler::new();
@@ -31,7 +31,7 @@ impl ChunkQueryBuilder {
             placeholder_counter: pidx,
         };
 
-        qb = qb.filter(filter.into_iterator(), &mut qb_chunk);
+        qb = qb.filter(filter, &mut qb_chunk);
 
         let qr = qb.compile()?;
         let joined_clauses = qr.clauses.join(" INTERSECT ");
@@ -160,9 +160,9 @@ impl query::CompileClause for ChunkQueryBuilder {
     }
 }
 
-impl query::OntologyColumnFmt for ChunkQueryBuilder {
-    fn ontology_column_fmt(&self, subfield: &str) -> String {
-        format!("'{subfield}'")
+impl query::OntologyFieldFmt for ChunkQueryBuilder {
+    fn ontology_column_fmt(&self, subfield: &query::OntologyField) -> String {
+        format!("'{}'", subfield.value())
     }
 }
 

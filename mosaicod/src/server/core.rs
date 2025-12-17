@@ -48,7 +48,7 @@ impl Server {
         let host = if self.host { "0.0.0.0" } else { "127.0.0.1" };
 
         let config = flight::Config {
-            host: host.to_string(),
+            host: host.to_owned(),
             port: self.port,
         };
 

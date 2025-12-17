@@ -210,7 +210,7 @@ impl TryInto<query::SequenceFilter> for Sequence {
         Ok(query::SequenceFilter {
             name: self.name.map(|v| v.try_into()).transpose().map_err(|e| {
                 Self::Error::OpError {
-                    field: "sequence.name".to_string(),
+                    field: "sequence.name".to_owned(),
                     err: e,
                 }
             })?,
@@ -219,7 +219,7 @@ impl TryInto<query::SequenceFilter> for Sequence {
                 .map(|v| v.try_into())
                 .transpose()
                 .map_err(|e| Self::Error::OpError {
-                    field: "sequence.created_timestamp".to_string(),
+                    field: "sequence.created_timestamp".to_owned(),
                     err: e,
                 })?,
             user_metadata: self.user_metadata.map(|v| v.try_into()).transpose()?,
@@ -243,7 +243,7 @@ impl TryInto<query::TopicFilter> for Topic {
         Ok(query::TopicFilter {
             name: self.name.map(|v| v.try_into()).transpose().map_err(|e| {
                 Self::Error::OpError {
-                    field: "topic.name".to_string(),
+                    field: "topic.name".to_owned(),
                     err: e,
                 }
             })?,
@@ -253,7 +253,7 @@ impl TryInto<query::TopicFilter> for Topic {
                 .map(|v| v.try_into())
                 .transpose()
                 .map_err(|e| Self::Error::OpError {
-                    field: "topic.created_timestamp".to_string(),
+                    field: "topic.created_timestamp".to_owned(),
                     err: e,
                 })?,
 
@@ -262,7 +262,7 @@ impl TryInto<query::TopicFilter> for Topic {
                 .map(|v| v.try_into())
                 .transpose()
                 .map_err(|e| Self::Error::OpError {
-                    field: "topic.ontology_tag".to_string(),
+                    field: "topic.ontology_tag".to_owned(),
                     err: e,
                 })?,
 
@@ -271,7 +271,7 @@ impl TryInto<query::TopicFilter> for Topic {
                 .map(|v| v.try_into())
                 .transpose()
                 .map_err(|e| Self::Error::OpError {
-                    field: "topic.serialization_format".to_string(),
+                    field: "topic.serialization_format".to_owned(),
                     err: e,
                 })?,
 

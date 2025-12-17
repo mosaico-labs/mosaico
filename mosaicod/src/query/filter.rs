@@ -1,5 +1,30 @@
+//! # Search and Filtering Primitives
+//!
+//! This module provides the building blocks for constructing dynamic, type-safe search queries
+//! and filters across sequences, topics, and ontology data.
+//!
+//! The filtering logic is built hierarchically using four core concepts:
+//!
+//! -   _Value_: the unit of data.
+//!     A wrapper ([`Value`]) that allows heterogeneous types (Integers, Floats, Strings, Booleans)
+//!     to be treated uniformly within dynamic containers.
+//!
+//! -   _Operation_ ([`Op`]): the logical predicate.
+//!     An [`Op`] defines *how* to compare data. It represents specific conditions like equality
+//!     (`Eq`), ranges (`Between`), set membership (`In`), or existence (`Ex`).
+//!
+//! -   _Expression_ ([`Expr`]): the single constraint.
+//!     An expression is formed by binding a specific identifier (a field name or [`OntologyField`])
+//!     to an [`Op`]. It asserts a rule for that specific field (e.g., *"temperature > 25.0"*).
+//!
+//! -   _Filter_: the composite query.
+//!     A [`Filter`] is a collection of expressions grouped by domain (Sequence, Topic, Ontology,
+//!     ...).
+//!     It represents the complete set of criteria required to match a specific resource.
+//!
+
 use crate::types;
-use std::{borrow::Borrow, collections::HashMap};
+use std::{borrow::Borrow, collections::HashMap, collections::hash_map::Entry};
 
 /// Floating point value type alias
 pub type Float = f64;
@@ -37,7 +62,7 @@ pub enum Value {
 
 impl From<&str> for Value {
     fn from(s: &str) -> Self {
-        Value::Text(s.to_string())
+        Value::Text(s.to_owned())
     }
 }
 
@@ -180,32 +205,6 @@ pub struct OntologyField {
     tag_offset: usize,
 }
 
-impl PartialEq for OntologyField {
-    fn eq(&self, other: &Self) -> bool {
-        self.value == other.value
-    }
-}
-
-impl PartialEq<str> for OntologyField {
-    fn eq(&self, other: &str) -> bool {
-        self.value == other
-    }
-}
-
-impl Borrow<str> for OntologyField {
-    fn borrow(&self) -> &str {
-        &self.value
-    }
-}
-
-impl Eq for OntologyField {}
-
-impl std::hash::Hash for OntologyField {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.value.hash(state);
-    }
-}
-
 impl OntologyField {
     pub fn try_new(v: String) -> Result<Self, super::Error> {
         let ontology_tag = v.split(".").next().ok_or_else(|| super::Error::BadField {
@@ -233,10 +232,106 @@ impl OntologyField {
     }
 }
 
-/// A container for dynamic user-defined key-value pairs.
-///
-/// This is used for fields where the schema is not known at compile time.
-/// Keys are field names, and values are [`Op`]operations containing [`Value`]s.
+impl PartialEq for OntologyField {
+    fn eq(&self, other: &Self) -> bool {
+        self.value == other.value
+    }
+}
+
+impl PartialEq<str> for OntologyField {
+    fn eq(&self, other: &str) -> bool {
+        self.value == other
+    }
+}
+
+impl Borrow<str> for OntologyField {
+    fn borrow(&self) -> &str {
+        &self.value
+    }
+}
+
+impl Eq for OntologyField {}
+
+impl std::hash::Hash for OntologyField {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.value.hash(state);
+    }
+}
+
+/// A single constraint.
+/// An expression is formed by binding a specific identifier (a field name or [`OntologyField`])
+/// to an [`Op`]. It asserts a rule for that specific field (e.g., *"temperature > 25.0"*).
+#[derive(Debug, Clone)]
+pub struct Expr<T>(OntologyField, Op<T>);
+
+impl<T> Expr<T> {
+    pub fn ontology_field(&self) -> &OntologyField {
+        &self.0
+    }
+
+    pub fn op(&self) -> &Op<T> {
+        &self.1
+    }
+
+    pub fn into_parts(self) -> (OntologyField, Op<T>) {
+        (self.0, self.1)
+    }
+}
+
+impl<T> From<(OntologyField, Op<T>)> for Expr<T> {
+    fn from(value: (OntologyField, Op<T>)) -> Self {
+        Self(value.0, value.1)
+    }
+}
+
+/// An expression group is defined as a series of ontology fields
+/// with associated operations.
+#[derive(Debug, Clone)]
+pub struct ExprGroup<T> {
+    pub group: Vec<Expr<T>>,
+}
+
+impl<T> ExprGroup<T> {
+    pub fn new(group: Vec<Expr<T>>) -> Self {
+        Self { group }
+    }
+
+    /// Exports filter data as several expression groupss grouped by ontology tag
+    /// So if the
+    pub fn split_by_ontology_tag(self) -> Vec<ExprGroup<T>> {
+        let mut map: HashMap<String, ExprGroup<T>> = HashMap::new();
+        for expr in self.group {
+            let tag = expr.ontology_field().ontology_tag();
+            match map.entry(tag.to_owned()) {
+                Entry::Vacant(vacant) => {
+                    vacant.insert(Self::new(vec![expr]));
+                }
+                Entry::Occupied(mut occupied) => {
+                    occupied.get_mut().group.push(expr);
+                }
+            }
+        }
+
+        map.into_values().collect()
+    }
+}
+
+impl<T> Default for ExprGroup<T> {
+    fn default() -> Self {
+        Self { group: Vec::new() }
+    }
+}
+
+impl<T> IntoIterator for ExprGroup<T> {
+    type Item = Expr<T>;
+    type IntoIter = std::vec::IntoIter<Expr<T>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.group.into_iter()
+    }
+}
+
+/// A container for dynamic user-defined expressions mapping to ontology data models.
 #[derive(Debug, Clone)]
 pub struct OntologyFilter(HashMap<OntologyField, Op<Value>>);
 
@@ -256,13 +351,11 @@ impl OntologyFilter {
         self.0.get(field)
     }
 
-    /// Custom function that calls `into_iter()` on the inner type
-    pub fn into_iterator(self) -> impl Iterator<Item = (OntologyField, Op<Value>)> {
-        self.0.into_iter()
-    }
-
-    pub fn iter(&self) -> impl Iterator<Item = (&OntologyField, &Op<Value>)> {
-        self.0.iter()
+    /// Exports filter data as a unique expression group
+    pub fn into_expr_group(self) -> ExprGroup<Value> {
+        ExprGroup {
+            group: self.0.into_iter().map(|(o, v)| Expr(o, v)).collect(),
+        }
     }
 }
 
@@ -319,7 +412,7 @@ where
 /// A query allows filtering across three distinct domains:
 /// 1. The sequence, as [`SequenceFilter`]
 /// 2. The topic, as [`TopicFilter`]
-/// 3. The data catalog, represented as [`DataCatalogFilter`]
+/// 3. The data catalog, represented as [`OntologyFilter`]
 ///
 /// All fields are optional; [`None`] implies no filtering for that domain.
 #[derive(Debug, Clone, Default)]
@@ -389,5 +482,44 @@ mod tests {
         assert_eq!(oc.field(), "info.height");
         assert_eq!(oc.ontology_tag(), "image");
         assert_eq!(oc.value(), "image.info.height");
+    }
+
+    #[test]
+    fn expr_grp_split() {
+        let grp = ExprGroup {
+            group: vec![
+                (
+                    OntologyField::try_new("image.width".into()).unwrap(),
+                    Op::Eq(Value::Integer(1200)),
+                )
+                    .into(),
+                (
+                    OntologyField::try_new("image.height".into()).unwrap(),
+                    Op::Eq(Value::Integer(800)),
+                )
+                    .into(),
+                (
+                    OntologyField::try_new("imu.acceleration.x".into()).unwrap(),
+                    Op::Geq(Value::Float(8.0)),
+                )
+                    .into(),
+                (
+                    OntologyField::try_new("imu.angular_velocity.x".into()).unwrap(),
+                    Op::Leq(Value::Float(3.0)),
+                )
+                    .into(),
+            ],
+        };
+
+        let splits = grp.split_by_ontology_tag();
+
+        dbg!(&splits);
+
+        for split in splits {
+            assert_eq!(split.group.len(), 2);
+
+            let ontology_tag = split.group[0].ontology_field().ontology_tag();
+            assert!(ontology_tag == "image" || ontology_tag == "imu");
+        }
     }
 }

@@ -9,7 +9,7 @@ impl LayerLocator {
 
 impl From<&str> for LayerLocator {
     fn from(value: &str) -> Self {
-        Self(value.trim().to_string())
+        Self(value.trim().to_owned())
     }
 }
 

@@ -103,7 +103,7 @@ pub struct ResponseLayerItem {
 impl From<types::Layer> for ResponseLayerItem {
     fn from(value: types::Layer) -> Self {
         Self {
-            name: value.locator.name().to_string(),
+            name: value.locator.name().to_owned(),
             description: value.description,
         }
     }
@@ -136,16 +136,21 @@ pub struct Query {
 impl From<types::SequenceTopicGroup> for ResponseQueryItem {
     fn from(value: types::SequenceTopicGroup) -> Self {
         Self {
-            sequence: value.0.name().to_string(),
-            topics: value.1.into_iter().map(|t| t.name().to_string()).collect(),
+            sequence: value.sequence.name().to_string(),
+            topics: value
+                .topics
+                .into_iter()
+                .map(|t| t.name().to_string())
+                .collect(),
         }
     }
 }
 
-impl From<Vec<types::SequenceTopicGroup>> for Query {
-    fn from(value: Vec<types::SequenceTopicGroup>) -> Self {
+impl From<types::SequenceTopicGroups> for Query {
+    fn from(value: types::SequenceTopicGroups) -> Self {
+        let vec: Vec<types::SequenceTopicGroup> = value.into();
         Self {
-            items: value.into_iter().map(Into::into).collect(),
+            items: vec.into_iter().map(Into::into).collect(),
         }
     }
 }

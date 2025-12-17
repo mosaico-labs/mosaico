@@ -71,11 +71,11 @@ impl JsonSequenceMetadata {
     pub fn to_flat_hashmap(self) -> Result<HashMap<String, String>, MetadataError> {
         Ok(HashMap::from([
             (
-                "mosaico:context".to_string(), //
+                "mosaico:context".to_owned(), //
                 "sequence".into(),
             ),
             (
-                "mosaico:user_metadata".to_string(),
+                "mosaico:user_metadata".to_owned(),
                 self.user_metadata.try_to_string()?,
             ),
         ]))
@@ -92,16 +92,16 @@ impl JsonTopicMetadata {
     pub fn to_flat_hashmap(self) -> Result<HashMap<String, String>, MetadataError> {
         Ok(HashMap::from([
             (
-                "mosaico:context".into(), //
-                "topic".into(),
+                "mosaico:context".to_owned(), //
+                "topic".to_owned(),
             ),
             (
-                "mosaico:properties".to_string(),
+                "mosaico:properties".to_owned(),
                 serde_json::to_string(&self.properties)
                     .map_err(|e| Error::SerializationError(e.to_string()))?,
             ),
             (
-                "mosaico:user_metadata".to_string(),
+                "mosaico:user_metadata".to_owned(),
                 self.user_metadata.try_to_string()?,
             ),
         ]))

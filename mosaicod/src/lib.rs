@@ -3,6 +3,7 @@
 #![deny(clippy::explicit_iter_loop)]
 #![deny(clippy::manual_string_new)]
 #![deny(clippy::unwrap_or_default)]
+#![warn(clippy::str_to_string)]
 
 pub mod arrow;
 pub mod marshal;

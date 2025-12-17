@@ -289,7 +289,7 @@ impl FacadeTopic {
 
         let format = record
             .serialization_format()
-            .ok_or_else(|| FacadeError::MissingMetadataField("serialization_format".to_string()))?;
+            .ok_or_else(|| FacadeError::MissingMetadataField("serialization_format".to_owned()))?;
 
         let datafiles = self
             .store

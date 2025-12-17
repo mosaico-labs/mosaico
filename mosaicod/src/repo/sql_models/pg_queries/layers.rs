@@ -20,7 +20,7 @@ pub async fn layer_bootstrap(exec: &mut impl repo::AsExec) -> Result<(), repo::E
                     info!("creating default layer");
                     repo::layer_create(
                         exec,
-                        types::Layer::new(default_loc, DEFAULT_LAYER_DESCRIPTION.to_string()),
+                        types::Layer::new(default_loc, DEFAULT_LAYER_DESCRIPTION.to_owned()),
                     )
                     .await?;
                 }

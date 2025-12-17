@@ -1,4 +1,6 @@
-use super::{Error, IsSupportedOp, OntologyField, Op, Value};
+use crate::query::OntologyField;
+
+use super::{Error, ExprGroup, IsSupportedOp, Op, Value};
 
 const EMPTY_CLAUSE: &str = "()";
 
@@ -14,7 +16,7 @@ impl CompiledClause {
 
     pub fn empty() -> Self {
         Self {
-            clause: EMPTY_CLAUSE.to_string(),
+            clause: EMPTY_CLAUSE.to_owned(),
             values: Vec::new(),
         }
     }
@@ -33,9 +35,10 @@ pub trait CompileClause {
     where
         V: Into<Value> + IsSupportedOp;
 }
-pub trait OntologyColumnFmt {
-    // TODO: document that subfield needs to be a string like my.custom.field
-    fn ontology_column_fmt(&self, val: &str) -> String;
+
+/// Specify how a given ontology field needs to be formatted
+pub trait OntologyFieldFmt {
+    fn ontology_column_fmt(&self, val: &OntologyField) -> String;
 }
 
 #[derive(Debug)]
@@ -101,18 +104,18 @@ impl ClausesCompiler {
     }
 
     // es: field = topic.user_metadata
-    pub fn filter<F, I, V>(mut self, filter: I, formatter: &mut F) -> Self
+    pub fn filter<F, V>(mut self, filter: ExprGroup<V>, formatter: &mut F) -> Self
     where
-        I: Iterator<Item = (OntologyField, Op<V>)>,
         V: Into<Value> + IsSupportedOp,
-        F: CompileClause + OntologyColumnFmt,
+        F: CompileClause + OntologyFieldFmt,
     {
         if self.error.is_some() {
             return self;
         }
 
-        for (oc, op) in filter.into_iter() {
-            let field = formatter.ontology_column_fmt(oc.value());
+        for expr in filter.into_iter() {
+            let (ontology_field, op) = expr.into_parts();
+            let field = formatter.ontology_column_fmt(&ontology_field);
             self = self.expr(&field, op, formatter);
         }
 

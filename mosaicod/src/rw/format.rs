@@ -23,9 +23,9 @@ pub enum Format {
 impl traits::AsExtension for Format {
     fn as_extension(&self) -> String {
         match self {
-            Self::Default => params::ext::PARQUET.to_string(),
-            Self::Ragged => params::ext::PARQUET.to_string(),
-            Self::Image => params::ext::PARQUET.to_string(),
+            Self::Default => params::ext::PARQUET.to_owned(),
+            Self::Ragged => params::ext::PARQUET.to_owned(),
+            Self::Image => params::ext::PARQUET.to_owned(),
         }
     }
 }
@@ -48,7 +48,7 @@ impl std::str::FromStr for Format {
             "default" => Ok(Self::Default),
             "ragged" => Ok(Self::Ragged),
             "image" => Ok(Self::Image),
-            _ => Err(Error::UnkownFormat(value.to_string())),
+            _ => Err(Error::UnkownFormat(value.to_owned())),
         }
     }
 }

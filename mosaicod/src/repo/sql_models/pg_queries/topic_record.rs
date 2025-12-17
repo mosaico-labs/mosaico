@@ -253,7 +253,7 @@ pub async fn topic_from_query_filter(
 
         if let Some(mdata) = seq.user_metadata {
             qb = qb.filter(
-                mdata.into_iterator(),
+                mdata.into_expr_group(),
                 json_fmt.with_field_and_placeholder(
                     "sequence.user_metadata".into(),
                     sql_fmt.current_placeholder(),
@@ -281,7 +281,7 @@ pub async fn topic_from_query_filter(
 
         if let Some(mdata) = top.user_metadata {
             qb = qb.filter(
-                mdata.into_iterator(),
+                mdata.into_expr_group(),
                 json_fmt.with_field_and_placeholder(
                     "topic.user_metadata".into(),
                     sql_fmt.current_placeholder(),
@@ -297,11 +297,8 @@ pub async fn topic_from_query_filter(
         return Ok(Vec::new());
     }
 
-    let query = if qr.is_unfiltered() {
-        select.into()
-    } else {
-        format!("{select} WHERE {}", qr.clauses.join(" AND "))
-    };
+    // Since we have do an early-return is the query is unfiltered there is always a WHERE clause
+    let query = format!("{select} WHERE {}", qr.clauses.join(" AND "));
 
     trace!("query values: {:?}", qr.values);
     trace!("generated SQL query: {}", query);

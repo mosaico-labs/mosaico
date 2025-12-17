@@ -135,8 +135,11 @@ impl TimeseriesGwResult {
         ))
     }
 
-    pub fn filter(self, filter: query::OntologyFilter) -> Result<Self, Error> {
-        let expr = ontology_filter_to_df_expr(filter);
+    pub fn filter<V>(self, filter: query::ExprGroup<V>) -> Result<Self, Error>
+    where
+        V: Into<query::Value>,
+    {
+        let expr = expr_group_to_df_expr(filter);
 
         let data_frame = if let Some(expr) = expr {
             trace!("filter expression: {}", expr);
@@ -171,31 +174,38 @@ fn unfold_field(field: &query::OntologyField) -> Expr {
     col
 }
 
-fn ontology_filter_to_df_expr(filter: query::OntologyFilter) -> Option<Expr> {
+fn expr_group_to_df_expr<V>(filter: query::ExprGroup<V>) -> Option<Expr>
+where
+    V: Into<query::Value>,
+{
     let mut ret: Option<Expr> = None;
 
-    for (field, op) in filter.into_iterator() {
+    for expr in filter.into_iter() {
+        let (field, op) = expr.into_parts();
         let expr = match op {
-            query::Op::Eq(v) => Some(unfold_field(&field).eq(value_to_df_expr(v))),
-            query::Op::Neq(v) => Some(unfold_field(&field).not_eq(value_to_df_expr(v))),
-            query::Op::Leq(v) => Some(unfold_field(&field).lt_eq(value_to_df_expr(v))),
-            query::Op::Geq(v) => Some(unfold_field(&field).gt_eq(value_to_df_expr(v))),
-            query::Op::Lt(v) => Some(unfold_field(&field).lt(value_to_df_expr(v))),
-            query::Op::Gt(v) => Some(unfold_field(&field).gt(value_to_df_expr(v))),
+            query::Op::Eq(v) => Some(unfold_field(&field).eq(value_to_df_expr(v.into()))),
+            query::Op::Neq(v) => Some(unfold_field(&field).not_eq(value_to_df_expr(v.into()))),
+            query::Op::Leq(v) => Some(unfold_field(&field).lt_eq(value_to_df_expr(v.into()))),
+            query::Op::Geq(v) => Some(unfold_field(&field).gt_eq(value_to_df_expr(v.into()))),
+            query::Op::Lt(v) => Some(unfold_field(&field).lt(value_to_df_expr(v.into()))),
+            query::Op::Gt(v) => Some(unfold_field(&field).gt(value_to_df_expr(v.into()))),
             query::Op::Ex => None,  // no-op
             query::Op::Nex => None, // no-op
             query::Op::Between(range) => {
-                let vmin: query::Value = range.min;
-                let vmax: query::Value = range.max;
+                let vmin: query::Value = range.min.into();
+                let vmax: query::Value = range.max.into();
                 let emin = unfold_field(&field).lt_eq(value_to_df_expr(vmax));
                 let emax = unfold_field(&field).gt_eq(value_to_df_expr(vmin));
                 Some(emin.and(emax))
             }
             query::Op::In(items) => {
-                let list = items.into_iter().map(value_to_df_expr).collect();
+                let list = items
+                    .into_iter()
+                    .map(|v| value_to_df_expr(v.into()))
+                    .collect();
                 Some(unfold_field(&field).in_list(list, false))
             }
-            query::Op::Match(v) => Some(unfold_field(&field).like(value_to_df_expr(v))),
+            query::Op::Match(v) => Some(unfold_field(&field).like(value_to_df_expr(v.into()))),
         };
 
         if let Some(expr) = expr {

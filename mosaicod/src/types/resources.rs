@@ -11,7 +11,7 @@ pub enum ResourceType {
     Topic,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct TopicResourceLocator(String);
 
 impl Resource for TopicResourceLocator {
@@ -91,7 +91,7 @@ pub struct TopicSystemInfo {
     pub created_datetime: super::DateTime,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct SequenceResourceLocator(String);
 
 impl Resource for SequenceResourceLocator {
@@ -153,7 +153,73 @@ pub struct SequenceSystemInfo {
     pub created_datetime: super::DateTime,
 }
 
-pub type SequenceTopicGroup = (SequenceResourceLocator, Vec<TopicResourceLocator>);
+#[derive(Debug)]
+pub struct SequenceTopicGroup {
+    pub sequence: SequenceResourceLocator,
+    pub topics: Vec<TopicResourceLocator>,
+}
+
+impl SequenceTopicGroup {
+    pub fn new(sequence: SequenceResourceLocator, topics: Vec<TopicResourceLocator>) -> Self {
+        Self { sequence, topics }
+    }
+
+    pub fn into_parts(self) -> (SequenceResourceLocator, Vec<TopicResourceLocator>) {
+        (self.sequence, self.topics)
+    }
+}
+
+#[derive(Debug)]
+pub struct SequenceTopicGroups(Vec<SequenceTopicGroup>);
+
+impl SequenceTopicGroups {
+    pub fn new(groups: Vec<SequenceTopicGroup>) -> Self {
+        Self(groups)
+    }
+
+    pub fn empty() -> Self {
+        Self(Vec::new())
+    }
+
+    /// Consumes the current group and a provided group to produce a new group in which
+    /// the sequences are intersected while the topics are joined
+    pub fn merge(self, group: Self) -> Self {
+        let mut result = Self::empty();
+        for mut grp1 in self.0 {
+            let found = group
+                .0
+                .iter()
+                .find(|grp2| grp1.sequence.name() == grp2.sequence.name());
+
+            if let Some(found) = found {
+                grp1.topics.extend(found.topics.clone());
+                result
+                    .0
+                    .push(SequenceTopicGroup::new(found.sequence.clone(), Vec::new()));
+            }
+        }
+
+        result
+    }
+}
+
+impl Default for SequenceTopicGroups {
+    fn default() -> Self {
+        Self::empty()
+    }
+}
+
+impl From<Vec<SequenceTopicGroup>> for SequenceTopicGroups {
+    fn from(value: Vec<SequenceTopicGroup>) -> Self {
+        Self::new(value)
+    }
+}
+
+impl From<SequenceTopicGroups> for Vec<SequenceTopicGroup> {
+    fn from(value: SequenceTopicGroups) -> Self {
+        value.0
+    }
+}
 
 pub trait Resource: std::fmt::Display + Send + Sync {
     fn name(&self) -> &String;
@@ -191,9 +257,9 @@ fn sanitize_name(name: &str) -> String {
     let trimmed = name.trim();
 
     if let Some(stripped) = trimmed.strip_prefix('/') {
-        stripped.to_string()
+        stripped.to_owned()
     } else {
-        trimmed.to_string()
+        trimmed.to_owned()
     }
 }
 
@@ -210,4 +276,7 @@ mod tests {
         let san = sanitize_name("    my/resource/name   ");
         assert_eq!(san, target);
     }
+
+    #[test]
+    fn merge_sequence_topic_groups() {}
 }
