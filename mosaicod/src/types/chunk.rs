@@ -84,6 +84,23 @@ impl NumericStats {
             self.has_null = true;
         }
     }
+
+    /// Merges pre-computed statistics from an Arrow array.
+    /// This is more efficient than calling `eval()` for each element.
+    pub fn merge(&mut self, min: Option<f64>, max: Option<f64>, has_null: bool, has_nan: bool) {
+        if let Some(min_val) = min
+            && self.min > min_val
+        {
+            self.min = min_val;
+        }
+        if let Some(max_val) = max
+            && self.max < max_val
+        {
+            self.max = max_val;
+        }
+        self.has_null |= has_null;
+        self.has_nan |= has_nan;
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -129,5 +146,21 @@ impl TextStats {
     /// Consumes the stats and returns owned strings for min and max.
     pub fn into_owned(self) -> (String, String, bool) {
         (self.min.into_owned(), self.max.into_owned(), self.has_null)
+    }
+
+    /// Merges pre-computed statistics from an Arrow array.
+    /// This is more efficient than calling `eval()` for each element.
+    pub fn merge(&mut self, min: Option<&str>, max: Option<&str>, has_null: bool) {
+        if let Some(min_val) = min
+            && (self.min.as_ref() == TEXT_MIN_PLACEHOLDER || *self.min > *min_val)
+        {
+            self.min = Cow::Owned(min_val.to_owned());
+        }
+        if let Some(max_val) = max
+            && (self.max.as_ref() == TEXT_MAX_PLACEHOLDER || *self.max < *max_val)
+        {
+            self.max = Cow::Owned(max_val.to_owned());
+        }
+        self.has_null |= has_null;
     }
 }

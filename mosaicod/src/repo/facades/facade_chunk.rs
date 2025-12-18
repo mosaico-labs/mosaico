@@ -10,58 +10,70 @@ impl<'a> FacadeChunk<'a> {
     pub async fn create(
         topic_id: i32,
         datafile: impl AsRef<std::path::Path>,
+        size_bytes: i64,
+        row_count: i64,
         repo: &'a repo::Repository,
     ) -> Result<Self, FacadeError> {
         let mut tx = repo.transaction().await?;
 
-        let chunk = repo::chunk_create(&mut tx, &repo::Chunk::new(topic_id, datafile)).await?;
+        let chunk = repo::chunk_create(
+            &mut tx,
+            &repo::Chunk::new(topic_id, datafile, size_bytes, row_count),
+        )
+        .await?;
 
         Ok(Self { tx, chunk })
     }
 
-    pub async fn push_stats(
+    /// Push all column statistics using batch inserts for better performance.
+    /// This method collects all stats, resolves column IDs, then performs
+    /// two batch INSERT operations (one for numeric, one for literal stats).
+    pub async fn push_all_stats(
         &mut self,
         ontology_tag: &str,
-        field: &str,
-        stats: types::Stats,
+        cstats: types::ColumnsStats,
     ) -> Result<(), FacadeError> {
-        if stats.is_unsupported() {
-            return Ok(());
-        }
+        let mut numeric_batch: Vec<repo::ColumnChunkNumeric> = Vec::new();
+        let mut literal_batch: Vec<repo::ColumnChunkLiteral> = Vec::new();
 
-        let column = repo::column_get_or_create(&mut self.tx, field, ontology_tag).await?;
+        // First pass: resolve column IDs and collect stats for batch insert
+        for (field, stats) in cstats.stats {
+            if stats.is_unsupported() {
+                continue;
+            }
 
-        match stats {
-            types::Stats::Text(stats) => {
-                let (min, max, has_null) = stats.into_owned();
-                repo::column_chunk_literal_create(
-                    &mut self.tx,
-                    &repo::ColumnChunkLiteral::try_new(
+            let column = repo::column_get_or_create(&mut self.tx, &field, ontology_tag).await?;
+
+            match stats {
+                types::Stats::Text(stats) => {
+                    let (min, max, has_null) = stats.into_owned();
+                    literal_batch.push(repo::ColumnChunkLiteral::try_new(
                         column.column_id,
                         self.chunk.chunk_id,
                         min,
                         max,
                         has_null,
-                    )?,
-                )
-                .await?;
-            }
-            types::Stats::Numeric(stats) => {
-                repo::column_chunk_numeric_create(
-                    &mut self.tx,
-                    &repo::ColumnChunkNumeric::new(
+                    )?);
+                }
+                types::Stats::Numeric(stats) => {
+                    numeric_batch.push(repo::ColumnChunkNumeric::new(
                         column.column_id,
                         self.chunk.chunk_id,
                         stats.min,
                         stats.max,
                         stats.has_null,
                         stats.has_nan,
-                    ),
-                )
-                .await?;
+                    ));
+                }
+                types::Stats::Unsupported => {}
             }
-            _ => {}
         }
+
+        // Batch insert all numeric stats in one query
+        repo::column_chunk_numeric_create_batch(&mut self.tx, &numeric_batch).await?;
+
+        // Batch insert all literal stats in one query
+        repo::column_chunk_literal_create_batch(&mut self.tx, &literal_batch).await?;
 
         Ok(())
     }

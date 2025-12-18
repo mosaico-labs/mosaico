@@ -9,8 +9,8 @@ pub use sql_models::{get_resource_locator_from_name, layer_bootstrap};
 
 // TODO: remove this, temporary exported queries
 pub use sql_models::{
-    chunks_from_filters, sequences_group_from_topics, topic_find_by_ids, topic_from_query_filter,
-    TopicRecord,
+    TopicRecord, TopicStats, chunks_from_filters, sequences_group_from_topics, topic_find_by_ids,
+    topic_from_query_filter, topic_get_stats,
 };
 
 mod error;

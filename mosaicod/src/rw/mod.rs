@@ -7,7 +7,7 @@ pub mod format;
 pub use format::*;
 
 pub mod chunk_writer;
-pub use chunk_writer::*;
+pub use chunk_writer::{ChunkMetadata, ChunkWriter};
 
 mod writer;
 

@@ -298,7 +298,7 @@ impl FacadeTopic {
 
         let mut total_size = 0;
         for file in &datafiles {
-            total_size = self.store.size(file).await?;
+            total_size += self.store.size(file).await?;
         }
 
         Ok(types::TopicSystemInfo {

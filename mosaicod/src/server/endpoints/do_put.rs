@@ -7,7 +7,7 @@ use arrow_flight::flight_descriptor::DescriptorType;
 use log::{debug, info, trace};
 use serde::Deserialize;
 
-use crate::{repo, server::errors::ServerError, store, types};
+use crate::{repo, rw, server::errors::ServerError, store, types};
 
 #[derive(Deserialize, Debug)]
 struct DoPutTopic {
@@ -109,31 +109,31 @@ async fn do_put_topic_data(
     let serialization_format = mdata.properties.serialization_format;
     let topic_id = r_id.id;
 
-    let mut writer =
-        handle
-            .writer(serialization_format)
-            .on_chunk_created(move |target_path, cols_stats| {
-                let topic_id = topic_id;
-                let repo_clone = repo.clone();
-                let ontology_tag = ontology_tag.clone();
+    let mut writer = handle.writer(serialization_format).on_chunk_created(
+        move |target_path, cols_stats, chunk_metadata| {
+            let topic_id = topic_id;
+            let repo_clone = repo.clone();
+            let ontology_tag = ontology_tag.clone();
 
-                async move {
-                    trace!(
-                        "calling chunk creation callback for `{}` {:?}",
-                        target_path.to_string_lossy(),
-                        cols_stats
-                    );
+            async move {
+                trace!(
+                    "calling chunk creation callback for `{}` {:?}",
+                    target_path.to_string_lossy(),
+                    cols_stats
+                );
 
-                    Ok(on_chunk_created(
-                        repo_clone,
-                        topic_id,
-                        &ontology_tag,
-                        target_path,
-                        cols_stats,
-                    )
-                    .await?)
-                }
-            });
+                Ok(on_chunk_created(
+                    repo_clone,
+                    topic_id,
+                    &ontology_tag,
+                    target_path,
+                    cols_stats,
+                    chunk_metadata,
+                )
+                .await?)
+            }
+        },
+    );
 
     // Consume all batches
     while let Some(data) = decoder
@@ -177,12 +177,19 @@ async fn on_chunk_created(
     ontology_tag: &str,
     target_path: impl AsRef<std::path::Path>,
     cstats: types::ColumnsStats,
+    chunk_metadata: rw::ChunkMetadata,
 ) -> Result<(), ServerError> {
-    let mut handle = repo::FacadeChunk::create(topic_id, &target_path, &repo).await?;
+    let mut handle = repo::FacadeChunk::create(
+        topic_id,
+        &target_path,
+        chunk_metadata.size_bytes as i64,
+        chunk_metadata.row_count as i64,
+        &repo,
+    )
+    .await?;
 
-    for (field, stats) in cstats.stats {
-        handle.push_stats(ontology_tag, &field, stats).await?;
-    }
+    // Use batch insert for better performance (single INSERT per type instead of N)
+    handle.push_all_stats(ontology_tag, cstats).await?;
 
     handle.finalize().await?;
 

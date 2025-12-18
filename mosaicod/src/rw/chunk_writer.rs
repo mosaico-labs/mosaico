@@ -3,6 +3,13 @@ use crate::types;
 use arrow::{array::RecordBatch, datatypes::Schema, datatypes::SchemaRef};
 use std::sync::Arc;
 
+/// Metadata about a finalized chunk, including size and row count.
+#[derive(Debug, Clone)]
+pub struct ChunkMetadata {
+    pub size_bytes: usize,
+    pub row_count: usize,
+}
+
 /// The [`ChunkWriter`] is used to serialize [`RecordBatch`] instances into a single memory chunk,
 /// supporting multiple serialization formats. It encapsulates the underlying writer and manages the serialization
 /// process based on the specified format.
@@ -14,6 +21,7 @@ pub struct ChunkWriter {
     writer: Writer,
     stats: types::ColumnsStats,
     schema: SchemaRef,
+    row_count: usize,
 }
 
 impl ChunkWriter {
@@ -27,6 +35,7 @@ impl ChunkWriter {
             format,
             stats: crate::arrow::column_stats_from_schema(&schema),
             schema,
+            row_count: 0,
         })
     }
 
@@ -41,6 +50,7 @@ impl ChunkWriter {
                 writer.write(batch)?;
             }
         }
+        self.row_count += batch.num_rows();
         Ok(())
     }
 
@@ -80,16 +90,20 @@ impl ChunkWriter {
     ///
     /// This method must be called to complete the writing process. It consumes the writer object,
     /// preventing any further writes.
-    pub fn finalize(self) -> Result<(Vec<u8>, types::ColumnsStats), Error> {
+    ///
+    /// Returns the serialized buffer, column statistics, and chunk metadata (size and row count).
+    pub fn finalize(self) -> Result<(Vec<u8>, types::ColumnsStats, ChunkMetadata), Error> {
         // We are calling `finish`` since the implementation is the same as
         // close but takes no ownership of the writer. And we return the internal data buffer.
+        let row_count = self.row_count;
         let buffer = match self.writer {
-            Writer::Parquet(w) => {
-                let buffer = w.into_inner()?;
-                (buffer, self.stats)
-            }
+            Writer::Parquet(w) => w.into_inner()?,
         };
-        Ok(buffer)
+        let metadata = ChunkMetadata {
+            size_bytes: buffer.len(),
+            row_count,
+        };
+        Ok((buffer, self.stats, metadata))
     }
 }
 
@@ -226,10 +240,14 @@ mod tests {
         assert_eq!(cstats.stats.get("image"), Some(&types::Stats::Unsupported));
 
         // Finalize the writer (optional in test, but good practice)
-        let (buffer, _) = writer.finalize().expect("Failed to finalize writer");
+        let (buffer, _, metadata) = writer.finalize().expect("Failed to finalize writer");
 
         // Ensure that buffer is not empty
         dbg!(buffer.len());
         assert!(!buffer.is_empty());
+
+        // Check metadata
+        assert_eq!(metadata.row_count, 3);
+        assert_eq!(metadata.size_bytes, buffer.len());
     }
 }
