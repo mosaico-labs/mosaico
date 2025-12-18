@@ -8,10 +8,10 @@ to optimize throughput while preventing memory exhaustion.
 
 from collections import defaultdict
 from enum import Enum
-import io
 from mosaicolabs.models.message import Message
 import pyarrow.flight as fl
 import pyarrow as pa
+import pyarrow.ipc as pa_ipc
 from typing import List, Optional
 import logging as log
 
@@ -144,13 +144,16 @@ class _TopicWriteState:
         )
 
     def _get_serialized_size(self, batch: pa.RecordBatch) -> int:
-        """Calculates exact serialized size of a batch for limit enforcement."""
-        # TODO: implement a less resource consuming approach
-        buffer = io.BytesIO()
-        temp_writer = pa.ipc.new_stream(buffer, batch.schema)
-        temp_writer.write_batch(batch)
-        temp_writer.close()
-        return buffer.tell()
+        """
+        Calculates exact serialized size of a RecordBatch in Arrow IPC format.
+        
+        Uses PyArrow's native C++ implementation for optimal performance.
+        This method is significantly faster than full serialization and provides
+        accurate size for Flight transmission limits.
+        
+        Note: Returns batch size only (excludes schema message overhead).
+        """
+        return pa_ipc.get_record_batch_size(batch)
 
     def _push_by_bytes_size(self, msg: Message):
         """
