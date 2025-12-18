@@ -120,21 +120,17 @@ impl FacadeQuery {
                             .read(
                                 chunk.data_file(),
                                 topic.serialization_format().unwrap(), // TODO: handle error
-                                false,
+                                None,
                             )
                             .await?;
 
                         let qr = qr.filter(ontology_tag_exprs.to_owned())?;
-                        let count = qr.count().await?;
 
-                        if count != 0 {
-                            trace!("found {count} records matching filter in chunk");
+                        if qr.has_rows().await? {
+                            trace!("found matching records in chunk");
                             topics_with_data.insert(topic.topic_id);
                         } else {
-                            trace!(
-                                "discarding chunk `{}` for no query match (row count is {count})",
-                                chunk.chunk_uuid
-                            );
+                            trace!("discarding chunk `{}` for no query match", chunk.chunk_uuid);
                         }
                     }
 
