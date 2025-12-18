@@ -21,22 +21,6 @@ def _get_tag_from_expr_key(key: str):
     return fields[0]
 
 
-def _validate_expression_unique_tag(
-    stored_exprs: List["_QueryExpression"], new_key: str
-):
-    """
-    Private helper to validate a single expression against the
-    class's __supported_query_expressions__ type.
-
-    Raises a dynamic TypeError if the type is incorrect.
-    """
-    new_tag = _get_tag_from_expr_key(new_key)
-    if any(_get_tag_from_expr_key(e.key) != new_tag for e in stored_exprs):
-        raise NotImplementedError(
-            "The current implementation allows only querying a single ontology tag per query."
-        )
-
-
 def _validate_expression_unique_key(
     stored_exprs: List["_QueryExpression"], new_key: str
 ):
@@ -115,7 +99,6 @@ class QueryOntologyCatalog:
             )
             _validate_expression_operator_format(expr)
             _validate_expression_unique_key(self._expressions, expr.key)
-            _validate_expression_unique_tag(self._expressions, expr.key)
             self._expressions.append(expr)
 
     def with_expression(self, expr: _QueryExpression) -> "QueryOntologyCatalog":
@@ -134,7 +117,6 @@ class QueryOntologyCatalog:
         )
         _validate_expression_operator_format(expr)
         _validate_expression_unique_key(self._expressions, expr.key)
-        _validate_expression_unique_tag(self._expressions, expr.key)
 
         self._expressions.append(expr)
         return self
