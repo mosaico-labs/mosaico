@@ -83,6 +83,8 @@ function cleanup() {
 
     cd ${PROJECT_DIR}/docker/testing
     docker compose down -v 2> /dev/null
+
+    title "db + storage deleted" "#" ${YELLOW}
 }
 
 
