@@ -10,7 +10,22 @@ from mosaicolabs.models.data import (
     MotionState,
     Velocity,
     ROI,
+    String,
+    Integer8,
+    Integer16,
+    Integer32,
+    Integer64,
+    Unsigned8,
+    Unsigned16,
+    Unsigned32,
+    Unsigned64,
+    Boolean,
+    Floating16,
+    Floating32,
+    Floating64,
+    LargeString,
 )
+
 from mosaicolabs.models.query.generation.mixins import (
     _QueryableNumeric,
     _QueryableString,
@@ -801,3 +816,75 @@ class TestQueryROIAPI:
         # Check topic nesting (the complex part)
         # Check ontology flatness (the simple part)
         assert result["ontology"] == expected_dict["ontology"]
+
+
+@pytest.mark.parametrize(
+    "base_type",
+    [
+        Integer8,
+        Integer16,
+        Integer32,
+        Integer64,
+        Unsigned8,
+        Unsigned16,
+        Unsigned32,
+        Unsigned64,
+        Floating16,
+        Floating32,
+        Floating64,
+        Boolean,
+        String,
+        LargeString,
+    ],
+)
+class TestQueryBaseTypesAPI:
+    def test_accessibility(self, base_type):
+        """
+        Tests that inner fields are accessable from the _QueryProxy.
+        """
+        # --- Fields Accessibility Test ---
+        # Local fields
+        base_type.Q.data
+
+        # --- Catalog Context: Non-existing field ---
+        with pytest.raises(Exception):
+            base_type.Q.non_existing_field
+
+    def test_field_queryable_inheritance(self, base_type):
+        """
+        Tests the queryable type of the model fields.
+        This test ensure that for each field, only specified operators are defined and callable
+        """
+        # --- Fields Accessibility Test ---
+        # Local fields
+        if base_type.model_fields["data"].annotation in (int, float):
+            assert issubclass(type(base_type.Q.data), _QueryableNumeric)
+        elif base_type.model_fields["data"].annotation is bool:
+            assert issubclass(type(base_type.Q.data), _QueryableBool)
+        elif base_type.model_fields["data"].annotation is str:
+            assert issubclass(type(String.Q.data), _QueryableString)
+
+    def test_full_sdk_query_to_dict_structure(self, base_type):
+        """Tests the final output structure of an example query."""
+
+        # Simulate the User Query
+        val = base_type.model_fields["data"].annotation(
+            0
+        )  # convert to the 0 value of the actual 'data' type
+        q = Query(
+            QueryOntologyCatalog().with_expression(base_type.Q.data.eq(val))
+        )  # eq() is provided by all the _QueryableField
+        # Define Expected Output
+        expected_dict = {
+            "ontology": {
+                f"{base_type.ontology_tag()}.data": {"$eq": val},
+            },
+        }
+        # Assert the result
+        result = q.to_dict()
+        # Check top-level structure
+        assert set(result.keys()) == set(["ontology"])
+        # Check ontology flatness (the simple part)
+        assert result["ontology"] == expected_dict["ontology"]
+
+        # For the other types are the same. Skip testing for now...

@@ -1,7 +1,11 @@
-from dataclasses import dataclass
-from typing import List
+from dataclasses import dataclass, field
+from typing import Iterator, List
 
 from mosaicolabs.helpers import unpack_topic_full_path
+from mosaicolabs.helpers.helpers import pack_topic_resource_name
+
+from .builders import QuerySequence, QueryTopic
+from .expressions import _QuerySequenceExpression, _QueryTopicExpression
 
 
 @dataclass
@@ -23,3 +27,52 @@ class QueryResponseItem:
             tnames.append(tname)
         # reset topic names
         self.topics = tnames
+
+
+@dataclass
+class QueryResponse:
+    # Use field(default_factory=list) to handle cases where no items are passed
+    items: List[QueryResponseItem] = field(default_factory=list)
+
+    def to_query_sequence(self) -> QuerySequence:
+        return QuerySequence(
+            _QuerySequenceExpression(
+                "name",
+                "$in",
+                [it.sequence for it in self.items],
+            )
+        )
+
+    def to_query_topic(self) -> QueryTopic:
+        return QueryTopic(
+            _QueryTopicExpression(
+                "name",
+                "$in",
+                [
+                    pack_topic_resource_name(it.sequence, t)
+                    for it in self.items
+                    for t in it.topics
+                ],
+            )
+        )
+
+    def __len__(self) -> int:
+        """Allows using len(response)."""
+        return len(self.items)
+
+    def __iter__(self) -> Iterator[QueryResponseItem]:
+        """
+        Allows using 'for item in response'.
+        Delegates to the underlying list's iterator.
+        """
+        return iter(self.items)
+
+    def __getitem__(self, index: int) -> QueryResponseItem:
+        """
+        Allows access via index: response[0]
+        """
+        return self.items[index]
+
+    def is_empty(self) -> bool:
+        """Helper to check if response has data."""
+        return len(self.items) == 0

@@ -129,7 +129,7 @@ Filters the actual time-series data content inside the topics.
 | Method | Argument | Description |
 | :--- | :--- | :--- |
 | **`with_message_timestamp(type, start, end)`** | `Type`, `Time` | Filters by message reception timestamp (middleware/platform time). If only `start` is provided, acts as **greater-than**; if only `end` is provided, acts as **less-than**; if both are provided, acts as **between**. |
-| **`with_data_timestamp(type, start, end)`** | `Type`, `Time` | Filters by the sensor's internal `header.stamp` (measurement generation time). Follows the same logic as `with_message_timestamp`. |
+| **`with_data_timestamp(type, start, end)`** | `Type`, `Time` | Filters by the data internal `header.stamp` (measurement generation time). Follows the same logic as `with_message_timestamp`. |
 | **`with_expression(expr)` / Constructor** | `Expression` | Applies complex filters to **any** ontology field (e.g., `acceleration`, `position`). |
 
 ## Current Limitations
@@ -160,7 +160,7 @@ The current implementation imposes specific constraints on query structure. Thes
         .with_expression(IMU.Q.angular_velocity.x.between([0, 1]))
     ```
 
-2.  **Single Sensor Model per Query:** A `QueryOntologyCatalog` instance supports expressions from only one ontology type at a time. Mixing different sensor models in the same catalog query is not permitted in the current version of the library.
+2.  **Single Data Model per Query:** A `QueryOntologyCatalog` instance supports expressions from only one ontology type at a time. Mixing different data models in the same catalog query is not permitted in the current version of the library.
 
     The following code is **NOT allowed**:
 
@@ -171,7 +171,7 @@ The current implementation imposes specific constraints on query structure. Thes
         .with_expression(GPS.Q.status.service.eq(2))
     ```
 
-      * **Workaround**: To filter by multiple sensor criteria, you must construct separate queries for each sensor type, execute them independently via the client, and perform an intersection of the resulting sequences and topics on the application side.
+      * **Workaround**: To filter by multiple models, you must construct separate queries for each type and [chain them](#restricted-queries-chaining).
 
 
 ## Query Execution & Examples
@@ -225,9 +225,22 @@ results = client.query(
 )
 ```
 
+### Query Response
 
-### Query Response 
-The query return is a `List[QueryResponseItem] | None`. Each object groups results by **Sequence**, providing the sequence identifier and the list of specific **Topics** within that sequence that matched the query criteria.
+The query return is a `QueryResponse | None`. This class acts as a container for `QueryResponseItem` objects via the `items` field. Each item groups results by **Sequence**, providing the sequence identifier and the list of specific **Topics** within that sequence that matched the query criteria.
+
+**Class: `QueryResponse`**
+
+| Attribute | Type | Description |
+| --- | --- | --- |
+| **`items`** | `List[QueryResponseItem]` | A list of items containing the sequence and related topic names that satisfied the filter conditions. |
+
+The class behaves like a standard Python list. You can:
+
+* **Iterate** over items (`for item in results`).
+* **Check length** (`len(results)`).
+* **Access by index** (`results[0]`).
+* **Check emptiness** via the helper method `results.is_empty()`.
 
 **Class: `QueryResponseItem`**
 
@@ -239,21 +252,94 @@ The query return is a `List[QueryResponseItem] | None`. Each object groups resul
 > [!NOTE]
 > **Topic Name Normalization**
 >
-> The raw response from the backend returns fully qualified resource names (e.g., `"sequence_name/topic/path"`).
-> The `QueryResponseItem` automatically processes these strings during initialization. Therefore, the **`topics`** attribute exposes only the relative topic path (e.g., `"/topic/path"`), stripping the sequence prefix for easier usage.
+> The raw response from the backend returns fully qualified resource names (e.g., `"sequence_name/topic/path"`). The `QueryResponseItem` automatically processes these strings during initialization. Therefore, the **`topics`** attribute exposes only the normalized relative topic path (e.g., `"/topic/path"`), stripping the sequence prefix for easier usage.
 
 **Example Usage:**
 
 ```python
-results = client.query(...)
+results = client.query(...) # The return is a QueryResponse
 
-for item in results:
-    print(f"Sequence: {item.sequence}")
-    # topics list contains relative paths, e.g., '/sensors/imu'
-    for topic_name in item.topics:
-        print(f" - Found matching topic: {topic_name}")
+if results and not results.is_empty():
+    print(f"Total sequences found: {len(results)}")
+    
+    # Access by index
+    first_item = results[0]
+
+    for item in results: # Iterate like a list
+        print(f"Sequence: {item.sequence}")
+        for topic_name in item.topics:
+            print(f" - Found matching topic: {topic_name}")
 
 ```
+
+
+## Restricted Queries (Chaining)
+
+The `QueryResponse` class enables **search refinement** through factory methods that convert current results back into a new query builder.
+
+| Method | Return type | Description |
+| --- | --- | --- |
+| **`to_query_sequence()`** | `QuerySequence` | Returns a query builder pre-filtered to include only the **sequences** present in this response. |
+| **`to_query_topic()`** | `QueryTopic` | Returns a query builder pre-filtered to include only the **topics** present in this response. |
+
+These methods effectively "lock" the domain of the search. When you call `to_query_sequence()`, it generates a new query expression containing an explicit `$in` filter populated with the list of sequence names currently held in the response. Similarly, `to_query_topic()` restricts future queries to the specific topic paths identified in the result set.
+
+This mechanism allows you to perform **iterative refinement**: taking a broad result set and applying *new* conditions specifically to that subset without re-scanning the entire catalog. This is particularly powerful for **resolving ambiguous or multi-modal dependencies** by breaking a complex question into logical steps and normalizing situations where a single monolithic query would be confusing or inefficient.
+
+**Example Scenario**
+*Retrieve all sequences where a high-precision GPS fix (`status==2`) is present, AND where the Localization filter specifically reported an error.*
+
+By chaining queries, we ensure we only look for the error string within the context of valid GPS sequences.
+
+```python
+# Initial Query: Find all sequences where a valid GPS fix (status==2) was received
+initial_response = client.query(
+    QueryOntologyCatalog(GPS.Q.status.status.eq(2))
+)
+
+# Refinement: Create a new query restricted ONLY to the sequences found above.
+# This effectively says: "Focus ONLY on the sequences from 'initial_response'..."
+refined_query = initial_response.to_query_sequence()
+
+# Final Query: Apply the specific logic (Error string) to the restricted scope
+final_response = client.query(
+    refined_query,                                         # The restricted scope
+    QueryTopic().with_name("/localization/log_string"),    # Filter by specific topic
+    QueryOntologyCatalog(String.Q.data.match("[ERR]"))     # Search for the error pattern
+)
+
+```
+
+### Technical Note: The Necessity of Chaining
+
+It is important to understand that the **Restricted Query (Chaining)** pattern described above is not just a workaround for current software limitations; it is the correct architectural pattern for multi-modal correlation. Even when future releases enable querying [multiple data models simultaneously](#current-limitations), a single monolithic query will often yield incorrect results due to **logical ambiguity**. By providing multiple criteria in a single `client.query()` call, the server attempts to find the *data streams* that satisfy **all** conditions simultaneously (AND logic). Consider the following query:
+
+```python
+# Ambiguous Query: Will return 0 results
+response = client.query(
+    # Criteria 1: Must be GPS data
+    QueryOntologyCatalog(GPS.Q.status.status.eq(2)),
+    # Criteria 2: Must be String data
+    QueryOntologyCatalog(String.Q.data.match("[ERR]")),
+    # Criteria 3: Topic name must be specific
+    QueryTopic().with_name("/localization/log_string")
+)
+
+```
+
+**This query will fail and return zero results.**
+The server interprets this request as: *"Find a topic that is a **GPS** sensor AND is a **String** message AND is named `/localization/log_string`."*
+
+This intersection is logically impossible because:
+
+1. A single topic cannot be both type `GPS` and type `String` at the same time.
+2. The topic `/localization/log_string` (which contains Strings) will fail the check for `GPS` criteria immediately.
+
+By using **Chaining**, you decouple the criteria into logical steps:
+
+1. **Step 1:** Find the *Sequences* that contain valid GPS data.
+2. **Step 2:** Within *those specific sequences*, search for the Error string in the right topic.
+
 
 ## Supported Operators
 

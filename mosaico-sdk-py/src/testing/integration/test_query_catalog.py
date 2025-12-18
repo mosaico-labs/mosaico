@@ -36,8 +36,8 @@ def test_query_ontology(
     ]
     # all the expected topics, and only them
     [_validate_returned_topic_name(topic) for topic in query_resp[0].topics]
-    assert all([t for t in query_resp[0].topics if t in expected_topic_names])
-    assert all([t for t in expected_topic_names if t in query_resp[0].topics])
+    assert all([t in expected_topic_names for t in query_resp[0].topics])
+    assert all([t in query_resp[0].topics for t in expected_topic_names])
 
     # Query by multiple condition: time and value
     tstamp = Time.from_float(1700000000.26)
@@ -59,8 +59,8 @@ def test_query_ontology(
     ]
     # all the expected topics, and only them
     [_validate_returned_topic_name(topic) for topic in query_resp[0].topics]
-    assert all([t for t in query_resp[0].topics if t in expected_topic_names])
-    assert all([t for t in expected_topic_names if t in query_resp[0].topics])
+    assert all([t in expected_topic_names for t in query_resp[0].topics])
+    assert all([t in query_resp[0].topics for t in expected_topic_names])
 
     # Query by multiple condition: time and value (GPS)
     tstamp = Time.from_float(1700000000.26)
@@ -81,6 +81,9 @@ def test_query_ontology(
 
     _validate_returned_topic_name(query_resp[0].topics[0])
     assert query_resp[0].topics[0] == expected_topic_name
+
+    # free resources
+    _client.close()
 
 
 def test_query_ontology_between(
@@ -106,8 +109,8 @@ def test_query_ontology_between(
     ]
     # all the expected topics, and only them
     [_validate_returned_topic_name(topic) for topic in query_resp[0].topics]
-    assert all([t for t in query_resp[0].topics if t in expected_topic_names])
-    assert all([t for t in expected_topic_names if t in query_resp[0].topics])
+    assert all([t in expected_topic_names for t in query_resp[0].topics])
+    assert all([t in query_resp[0].topics for t in expected_topic_names])
 
     # Query by mixed conditions
     query_resp = _client.query(
@@ -128,8 +131,11 @@ def test_query_ontology_between(
     ]
     # all the expected topics, and only them
     [_validate_returned_topic_name(topic) for topic in query_resp[0].topics]
-    assert all([t for t in query_resp[0].topics if t in expected_topic_names])
-    assert all([t for t in expected_topic_names if t in query_resp[0].topics])
+    assert all([t in expected_topic_names for t in query_resp[0].topics])
+    assert all([t in query_resp[0].topics for t in expected_topic_names])
+
+    # free resources
+    _client.close()
 
 
 def test_mixed_query_ontology(
@@ -177,6 +183,9 @@ def test_mixed_query_ontology(
     _validate_returned_topic_name(query_resp[0].topics[0])
     assert query_resp[0].topics[0] == expected_topic_name
 
+    # free resources
+    _client.close()
+
 
 def test_mixed_query_no_return(
     _client: MosaicoClient,
@@ -195,6 +204,9 @@ def test_mixed_query_no_return(
     # One (1) sequence corresponds to this query
     assert len(query_resp) == 0
 
+    # free resources
+    _client.close()
+
 
 def test_query_multi_tag_ontology(
     _client: MosaicoClient,
@@ -207,9 +219,16 @@ def test_query_multi_tag_ontology(
         .with_expression(GPS.Q.status.service.geq(1))
     )
 
-    print(query_resp)
-
     assert query_resp is not None
 
-    # Check query
+    # Check sequence
     assert len(query_resp) == 1
+
+    for item in query_resp.items:
+        assert UPLOADED_GPS_TOPIC in item.topics
+        assert UPLOADED_IMU_CAMERA_TOPIC in item.topics
+        assert UPLOADED_IMU_FRONT_TOPIC in item.topics
+        assert len(item.topics) == 3
+
+    # free resources
+    _client.close()

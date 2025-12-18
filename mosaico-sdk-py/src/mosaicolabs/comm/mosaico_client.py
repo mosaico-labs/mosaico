@@ -8,11 +8,11 @@ creating resource handlers (sequences, topics) and executing queries.
 """
 
 import os
-from typing import Any, Dict, List, Optional, Type
+from typing import Any, Dict, Optional, Type
 import logging as log
 import pyarrow.flight as fl
 
-from mosaicolabs.models.query import Query, QueryResponseItem
+from mosaicolabs.models.query import Query, QueryResponse
 from mosaicolabs.models.query.protocols import QueryableProtocol
 
 from ..helpers import pack_topic_resource_name
@@ -338,8 +338,10 @@ class MosaicoClient:
             log.error(f"Server error while asking for Sequence deletion, {e}")
 
     def query(
-        self, *queries: QueryableProtocol, query: Optional[Query] = None
-    ) -> Optional[List[QueryResponseItem]]:
+        self,
+        *queries: QueryableProtocol,
+        query: Optional[Query] = None,
+    ) -> Optional[QueryResponse]:
         """
         Executes one or more queries against the Mosaico database.
         The provided queries are joined in AND condition.
@@ -390,7 +392,7 @@ class MosaicoClient:
             log.error(f"Action '{FlightAction.QUERY}' returned no response.")
             return None
 
-        return act_resp.items
+        return act_resp.query_response
 
     def close(self):
         """

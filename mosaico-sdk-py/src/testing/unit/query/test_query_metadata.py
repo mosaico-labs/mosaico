@@ -26,6 +26,8 @@ class TestQueryTopicMetadataAPI:
         Topic.Q.user_metadata["something"]
 
         with pytest.raises(AttributeError):
+            Topic.Q.name  # name is not queryable
+        with pytest.raises(AttributeError):
             Topic.Q.user_metadata.something  # user_metadata is not dot-accessible
 
     def test_field_queryable_inheritance(self):
@@ -97,6 +99,8 @@ class TestQuerySequenceMetadataAPI:
         Sequence.Q.user_metadata
         Sequence.Q.user_metadata["something"]
 
+        with pytest.raises(AttributeError):
+            Sequence.Q.name  # name is not queryable
         with pytest.raises(AttributeError):
             Sequence.Q.user_metadata.something  # user_metadata is not dot-accessible
 
