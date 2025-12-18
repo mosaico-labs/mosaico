@@ -195,7 +195,7 @@ impl SequenceTopicGroups {
                 grp1.topics.extend(found.topics.clone());
                 result
                     .0
-                    .push(SequenceTopicGroup::new(found.sequence.clone(), Vec::new()));
+                    .push(SequenceTopicGroup::new(found.sequence.clone(), grp1.topics));
             }
         }
 
