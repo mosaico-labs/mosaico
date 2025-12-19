@@ -71,14 +71,12 @@ where
     T: std::str::FromStr,
     <T as FromStr>::Err: std::fmt::Debug,
 {
-    let value = env::var(name);
-    if value.is_err() {
-        return default;
+    match env::var(name) {
+        Ok(value) => value
+            .parse()
+            .unwrap_or_else(|_| panic!("unable to parse variable `{}`", name)),
+        Err(_) => default,
     }
-    value
-        .unwrap()
-        .parse()
-        .unwrap_or_else(|_| panic!("unable to parse variable `{}`", name))
 }
 
 pub fn require_env_var<T>(name: &str) -> Result<T, Error>
