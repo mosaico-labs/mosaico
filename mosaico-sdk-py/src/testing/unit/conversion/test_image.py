@@ -68,7 +68,7 @@ def test_image_round_trip_integrity(format, encoding):
 
     log.debug("encoding test img data")
     # Encode (Compress)
-    img_obj = Image.encode(
+    img_obj = Image.from_linear_pixels(
         data=original_bytes,
         stride=stride,
         height=height,
@@ -89,7 +89,7 @@ def test_image_round_trip_integrity(format, encoding):
         assert img_obj.data.startswith(b"\x89PNG"), "Data is not a valid PNG blob"
 
     # Decode (Decompress)
-    decoded_bytes = img_obj.decode()
+    decoded_bytes = img_obj.to_linear_pixels()
 
     # Assert Equality
     # The length must match exactly
@@ -127,7 +127,7 @@ def test_image_invalid_format(format, encoding):
     log.debug("encoding test img data")
     # Encode (Compress)
     with pytest.raises(ValueError, match=f"Invalid image format {format}"):
-        _ = Image.encode(
+        _ = Image.from_linear_pixels(
             data=original_bytes,
             stride=stride,
             height=height,
@@ -159,7 +159,7 @@ def test_stride_padding_preservation():
         original_data.extend(row)
 
     # Encode as PNG (This relies on the encoder using 'stride' for width, not 'width')
-    img_obj = Image.encode(
+    img_obj = Image.from_linear_pixels(
         data=original_data,
         stride=stride,
         height=height,
@@ -169,7 +169,7 @@ def test_stride_padding_preservation():
     )
 
     # Decode
-    decoded_data = img_obj.decode()
+    decoded_data = img_obj.to_linear_pixels()
 
     # Assert
     assert len(decoded_data) == total_size
@@ -187,13 +187,13 @@ def test_endianness_metadata_passthrough():
     data = [1, 2, 3, 4]
 
     # Case 1: Big Endian Source
-    img_be = Image.encode(
+    img_be = Image.from_linear_pixels(
         data=data, stride=4, height=1, width=1, encoding="32FC1", is_bigendian=True
     )
     assert img_be.is_bigendian is True
 
     # Case 2: Little Endian Source
-    img_le = Image.encode(
+    img_le = Image.from_linear_pixels(
         data=data, stride=4, height=1, width=1, encoding="32FC1", is_bigendian=False
     )
     assert img_le.is_bigendian is False
@@ -208,7 +208,7 @@ def test_invalid_input_fallback():
     # Stride=10, Height=10 -> Expected 100 bytes. We provide 5.
     bad_data = [255, 255, 255, 255, 255]
 
-    img_obj = Image.encode(
+    img_obj = Image.from_linear_pixels(
         data=bad_data,
         stride=10,
         height=10,

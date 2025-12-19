@@ -9,12 +9,17 @@ It provides:
     (JPEG, PNG, H.264) using a pluggable codec architecture.
 """
 
-from abc import ABC, abstractmethod
+# TODO: This module needs a deep refactoring:
+# - It could be envisioned to collapse Image and CompressedImage in a single type;
+# - Using ImageFormat as enum limits the applicability to other formats; the library may not providing codecs
+#   for 'all' the formats, but doing so we are limiting the user from providing custom codecs for more clever extensibility;
+# - (related to previous) Envision the use of codecs, for 'to_image' conversions
+
 from enum import Enum
 import logging as log
 import io
 import sys
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 # dependencies for video handling
 import av
@@ -172,7 +177,7 @@ class Image(Serializable, HeaderMixin):
     """Store if the original data is Big-Endian. Optional field."""
 
     @classmethod
-    def encode(
+    def from_linear_pixels(
         cls,
         data: List[int],
         stride: int,
@@ -256,7 +261,7 @@ class Image(Serializable, HeaderMixin):
             encoding=encoding,
         )
 
-    def decode(self) -> List[int]:
+    def to_linear_pixels(self) -> List[int]:
         """
         Decodes the storage container back to a linear byte list.
 
@@ -304,7 +309,7 @@ class Image(Serializable, HeaderMixin):
             )
 
         dtype, channels, mode = _IMG_ENCODING_MAP[self.encoding]
-        decoded_uint8_list = self.decode()
+        decoded_uint8_list = self.to_linear_pixels()
         raw_bytes = bytes(decoded_uint8_list)
 
         # Attempt to interpret raw_bytes with the given dtype. If any error
@@ -419,7 +424,7 @@ class Image(Serializable, HeaderMixin):
         stride = arr.strides[0]
         height, width = arr.shape[:2]
 
-        return cls.encode(
+        return cls.from_linear_pixels(
             data=data_list,
             stride=stride,
             width=width,
@@ -431,89 +436,79 @@ class Image(Serializable, HeaderMixin):
         )
 
 
-class _CompressedImageCodec(ABC):
+class StatefulDecodingSession:
     """
-    Abstract Strategy interface for encoding and decoding compressed binary image data.
+    Manages the stateful decoding of video streams for a specific reading session.
 
-    This class defines the contract for handling various compression formats.
-    Subclasses can implement support for various standard images (JPEG, PNG),
-    video frames (H.264, HEVC), or others.
-
-    Attributes:
-        __available_formats__ (Tuple[str, ...]): A tuple of lowercase format strings
-            supported by this codec (e.g., ("jpeg", "png")).
+    NOTE: The image formats supported are: [h264 and hevc]
     """
 
-    __available_formats__: Tuple[str, ...] = ()
+    __suppported_formats__ = [ImageFormat.H264, ImageFormat.HEVC]
 
-    @abstractmethod
+    def __init__(self):
+        # Key: topic_name (str) -> Value: av.CodecContext
+        self._decoders: Dict[str, av.CodecContext] = {}
+
     def decode(
-        self, data_bytes: bytes, format: ImageFormat
+        self,
+        img_data: bytes,
+        format: ImageFormat,
+        context: str,
     ) -> Optional[PILImage.Image]:
         """
-        Decodes raw binary bytes into a usable Image object.
-
-        Args:
-            data: The raw byte stream of the compressed image/video frame.
-            format: The format string identifier (e.g., 'jpeg', 'h264').
-
-        Returns:
-            Optional[TImage]: The decoded image object (e.g. PIL.Image),
-            or None if decoding fails.
+        Decodes a CompressedImage message into a PIL Image using the
+        persistent state associated with 'topic_name'.
         """
-        pass
+        if format not in self.__suppported_formats__:
+            log.error(
+                f"Input format {format.value} not among the supported formats: {[fmt.value for fmt in self.__suppported_formats__]}"
+            )
+            return None
 
-    @abstractmethod
-    def encode(self, image: PILImage.Image, format: ImageFormat, **kwargs) -> bytes:
-        """
-        Encodes an Image object into compressed raw binary bytes.
+        return self._decode_video_frame(img_data, format, context)
 
-        Args:
-            image: The source image object.
-            format: The target compression format.
-            **kwargs: Format-specific parameters (e.g., quality=85).
+    def _decode_video_frame(
+        self,
+        img_data: bytes,
+        format: ImageFormat,
+        context: str,
+    ) -> Optional[PILImage.Image]:
+        # Lazy initialization of the decoder for this specific topic
+        if context not in self._decoders:
+            try:
+                self._decoders[context] = av.CodecContext.create(format, "r")
+                log.debug(f"Created new decoder context for context: {context}")
+            except Exception as e:
+                log.error(f"Failed to create decoder for context {context}: {e}")
+                return None
 
-        Returns:
-            bytes: The compressed binary data.
+        decoder = self._decoders[context]
 
-        Raises:
-            ValueError: If the format is not supported for encoding.
-        """
-        pass
+        try:
+            packet = av.Packet(img_data)
+            frames: List[av.VideoFrame] = decoder.decode(packet)
 
+            # Return the first available frame
+            if frames:
+                return frames[0].to_image()  # PyAV >= 0.5.0 supports .to_image() (PIL)
 
-# --- Registry System ---
+        except Exception as e:
+            log.warning(f"Decoding error on {context}: {e}")
+            # Optional: Implement reset logic here if the stream is truly corrupted
 
-_IMG_CODECS_FACTORY: Dict[str, _CompressedImageCodec] = {}
+        return None
 
-
-def register_codec(formats: Iterable[ImageFormat]):
-    """Decorator to register a codec for specific formats (jpeg, h264, etc.)."""
-
-    def decorator(cls):
-        # This ensures self.__available_formats__ is available at runtime
-        # without needing to define it manually in the class body.
-        cls.__available_formats__ = tuple(formats)
-        instance = cls()
-        for fmt in formats:
-            normalized_fmt = fmt.value.lower()
-            if normalized_fmt in _IMG_CODECS_FACTORY:
-                log.warning(
-                    f"Warning: Format '{normalized_fmt}' already assigned to "
-                    f"{type(_IMG_CODECS_FACTORY[normalized_fmt]).__name__} "
-                    "and will be overwritten"
-                )
-            _IMG_CODECS_FACTORY[normalized_fmt] = instance
-        return cls
-
-    return decorator
+    def close(self):
+        """Explicitly release resources (optional, GC usually handles this)."""
+        self._decoders.clear()
 
 
-@register_codec([ImageFormat.JPEG, ImageFormat.PNG, ImageFormat.TIFF])
-class _DefaultCodec(_CompressedImageCodec):
+class _StatelessDefaultCodec:
     """
     Standard codec implementation using the Pillow (PIL) library.
-    Handles common image formats like JPEG, PNG, and TIFF.
+
+    Does not make any check on format values: if encoding/deconding fails,
+    the function returns None
     """
 
     def decode(
@@ -528,7 +523,9 @@ class _DefaultCodec(_CompressedImageCodec):
             log.error(f"_DefaultCodec decode error: {e}")
             return None
 
-    def encode(self, image: PILImage.Image, format: ImageFormat, **kwargs) -> bytes:
+    def encode(
+        self, image: PILImage.Image, format: ImageFormat, **kwargs
+    ) -> Optional[bytes]:
         """Encodes image using PIL.Image.save."""
         buf = io.BytesIO()
         try:
@@ -536,98 +533,7 @@ class _DefaultCodec(_CompressedImageCodec):
             return buf.getvalue()
         except Exception as e:
             log.error(f"_DefaultCodec encode error: {e}")
-            raise ValueError(f"Encoding failed: {e}")
-
-
-@register_codec([ImageFormat.H264, ImageFormat.HEVC])
-class _VideoAwareCodec(_DefaultCodec):
-    """
-    Advanced codec that uses PyAV to decode video frames if available,
-    falling back to _DefaultCodec logic for unsupported formats.
-    """
-
-    # Store decoder contexts for each video format (e.g., {"h264": <Context>, "hevc": <Context>})
-    _decoder_contexts: Dict[str, av.CodecContext] = {}
-
-    def __init__(self):
-        super().__init__()
-        # Initialize the cache for decoder contexts
-        self._decoder_contexts = {}
-
-    def _get_or_create_decoder(
-        self, format_name: ImageFormat
-    ) -> Optional[av.CodecContext]:
-        """Gets a cached decoder context or creates a new one for the specified format."""
-
-        format_key = format_name.value.lower()
-        # Check if context is already cached
-        if format_key in self._decoder_contexts:
-            return self._decoder_contexts[format_key]
-        # Create and cache a new decoder context
-        try:
-            # 'r' mode for reading (decoding)
-            decoder = av.CodecContext.create(format_key, "r")
-            self._decoder_contexts[format_key] = decoder
-            log.debug(f"Created new PyAV decoder for format: {format_name}")
-            return decoder
-        except Exception as e:
-            log.error(
-                f"Failed to create PyAV decoder for {format_name} ({format_key}): {e}"
-            )
             return None
-
-    def decode(
-        self, data_bytes: bytes, format: ImageFormat
-    ) -> Optional[PILImage.Image]:
-        # --- Handle Video Formats ---
-        if format.lower() in self.__available_formats__:
-            decoder = self._get_or_create_decoder(format)
-            if decoder:
-                try:
-                    # Create packet from raw data
-                    packet = av.Packet(data_bytes)
-
-                    # Decode the packet (may yield 0 or more frames)
-                    for frame in decoder.decode(packet):
-                        # Convert PyAV frame (RGB) to NumPy array
-                        img_np_rgb = frame.to_rgb().to_ndarray()
-
-                        # We must ensure the NumPy array passed to fromarray is RGB.
-
-                        # Use the RGB NumPy array directly for PIL conversion
-                        return PILImage.fromarray(img_np_rgb)
-
-                    # If decode yielded no frames (e.g., waiting for keyframe), continue.
-                    log.debug(
-                        f"PyAV decode yielded no frame for {format}. Waiting for keyframe."
-                    )
-                    return None
-
-                except Exception as e:
-                    # Catch PyAV-specific or numpy conversion errors
-                    log.error(f"PyAV decode error for {format}: {e}")
-                    return None
-            else:
-                log.warning(
-                    f"Could not get decoder for video format: {format}. Dropping message."
-                )
-                return None
-
-        # --- Fallback to _DefaultCodec (e.g., JPEG, PNG) ---
-        else:
-            return super().decode(data_bytes, format)
-
-    def encode(self, image: PILImage.Image, format: ImageFormat, **kwargs) -> bytes:
-        """
-        Not yet implemented.
-
-        Raises NotImplementedError exception.
-        """
-
-        raise NotImplementedError(
-            f"Direct encoding of single images to video format '{format}' "
-            "is not currently supported. Consider saving as JPEG."
-        )
 
 
 # --- Data Structure ---
@@ -678,14 +584,15 @@ class CompressedImage(Serializable, HeaderMixin):
     def to_image(
         self,
         # TODO: enable param when allowing generic formats (not via Enum)
-        # codec: Optional[CompressedImageCodec] = None,
+        # codec: Optional[Any] = None,
     ) -> Optional[PILImage.Image]:
         """
         Decompresses the stored binary data into a usable PIL Image object.
 
-        Args:
-            codec: An optional specific codec instance to use. If None, the
-                   appropriate codec is resolved automatically based on `self.format`.
+        NOTE: The function use the _DefaultCodec which is valid for stateless formats
+        only ('png', 'jpeg', ...). If dealing with a stateful compressed image,
+        the conversion must be made via explicit instantiation of a StatefulDecodingSession
+        class.
 
         Returns:
             PILImage.Image: A ready-to-use Pillow image object.
@@ -693,13 +600,7 @@ class CompressedImage(Serializable, HeaderMixin):
         """
         if not self.data:
             return None
-        _codec = _IMG_CODECS_FACTORY.get(self.format.value.lower())
-        if not _codec:
-            log.error(
-                f"No codec found for format '{self.format.value}'. "
-                f"Available: {list(_IMG_CODECS_FACTORY.keys())}"
-            )
-            return None
+        _codec = _StatelessDefaultCodec()
         return _codec.decode(self.data, self.format)
 
     @classmethod
@@ -715,11 +616,14 @@ class CompressedImage(Serializable, HeaderMixin):
         """
         Factory method to create a CompressedImage from a PIL Image.
 
+        NOTE: The function use the _DefaultCodec which is valid for stateless formats
+        only ('png', 'jpeg', ...). If dealing with a stateful compressed image,
+        the conversion must be made via user defined encoding algorithms.
+
         Args:
             image: The source Pillow image.
             format: The target compression format (default: 'jpeg').
             header: Optional Header metadata.
-            codec: Optional specific codec to use.
             **kwargs: Additional arguments passed to the codec's encode method
                       (e.g., quality=90).
 
@@ -730,17 +634,10 @@ class CompressedImage(Serializable, HeaderMixin):
             ValueError: If no codec is found or encoding fails.
         """
         fmt_lower = format.value.lower()
-        _codec = _IMG_CODECS_FACTORY.get(fmt_lower)
-        if not _codec:
-            raise ValueError(
-                f"No codec found for format '{fmt_lower}'. "
-                f"Available: {list(_IMG_CODECS_FACTORY.keys())}"
-            )
-
-        try:
-            compressed_bytes = _codec.encode(image, format, **kwargs)
-            return cls(data=compressed_bytes, format=format, header=header)
-        except Exception as e:
+        _codec = _StatelessDefaultCodec()
+        compressed_bytes = _codec.encode(image, format, **kwargs)
+        if compressed_bytes is None:
             raise RuntimeError(
-                f"Failed to create CompressedImage (format: {fmt_lower}): {e}"
+                f"Failed to create CompressedImage (format: {fmt_lower})"
             )
+        return cls(data=compressed_bytes, format=format, header=header)

@@ -439,7 +439,7 @@ class ImageAdapter(ROSAdapterBase[Image]):
         """
         _validate_msgdata(cls, ros_data)
 
-        return Image.encode(
+        return Image.from_linear_pixels(
             header=_make_header(ros_data.get("header")),
             data=ros_data["data"],
             # if .get is None, the encode function will use a default format internally

@@ -377,106 +377,111 @@ Meta-information for interpreting images from a calibrated camera. Mirrors stand
   * **`roi`** (`ROI`, ***Optional***): Region of Interest. Used if the image is a sub-crop of the full resolution.
   * **`header`** (`Header`, ***Optional***): Standard metadata header (stamp, frame_id).
 
+
 ### Image (`image.py`)
 
 #### `Image` (Raw)
+
 Represents uncompressed pixel data with explicit memory layout control. It includes helper methods to convert to/from standard Python `PIL` images.
 
 **Fields:**
-  * **`data`** (`binary`): The flattened image memory buffer.
-  * **`format`** (`string`): Container format (e.g., 'raw', 'png').
-  * **`width`** (`int32`): Image width in pixels.
-  * **`height`** (`int32`): Image height in pixels.
-  * **`stride`** (`int32`): Bytes per row. Essential for alignment.
-  * **`encoding`** (`string`): Pixel format (e.g., 'bgr8', 'mono16').
-  * **`is_bigendian`** (`bool`, ***Optional***): True if data is Big-Endian. Defaults to system endianness if null.
-  * **`header`** (`Header`, ***Optional***): Standard metadata header (stamp, frame_id).
+
+* **`data`** (`binary`): The flattened image memory buffer.
+* **`format`** (`string`): Container format (e.g., 'raw', 'png').
+* **`width`** (`int32`): Image width in pixels.
+* **`height`** (`int32`): Image height in pixels.
+* **`stride`** (`int32`): Bytes per row. Essential for alignment.
+* **`encoding`** (`string`): Pixel format (e.g., 'bgr8', 'mono16').
+* **`is_bigendian`** (`bool`, ***Optional***): True if data is Big-Endian. Defaults to system endianness if null.
+* **`header`** (`Header`, ***Optional***): Standard metadata header (stamp, frame_id).
 
 **Methods:**
+
 * **`from_pillow(cls, pil_image: PIL.Image, ...) -> Image`**
-    Factory method that automatically handles data flattening, stride calculation, and type casting (e.g., converting a float32 Depth map to the correct byte representation). The function accepts the preferred serialization format; the allowed formats are `png` or `raw` (lossless representation). If None, `png` is selected.
+Factory method that automatically handles data flattening, stride calculation, and type casting (e.g., converting a float32 Depth map to the correct byte representation). The function accepts the preferred serialization format; the allowed formats are `png` or `raw` (lossless representation). If None, `png` is selected.
 * **`to_pillow() -> PIL.Image`**
-    Converts the raw binary data back into a standard Pillow Image object. Handles complex logic like reshuffling BGR to RGB, handling big-endian systems, and reshaping 1D buffers back to 2D arrays.
-* **`encode(cls, data: List[int], stride: int, ...) -> Image`**
-    Low-level factory to create an Image instance directly from a raw byte list and dimensions. Implements the "Wide Grayscale" trick for saving complex types into standard containers. The function accepts the preferred serialization format; the allowed formats are `png` or `raw` (lossless representation). If None, `png` is selected.
-* **`decode() -> List[int]`**
-    Returns the raw, flattened integer list of pixel data, decoding any transport container (like PNG) if necessary.
+Converts the raw binary data back into a standard Pillow Image object. Handles complex logic like reshuffling BGR to RGB, handling big-endian systems, and reshaping 1D buffers back to 2D arrays.
+* **`from_linear_pixels(cls, data: List[int], stride: int, ...) -> Image`**
+Low-level factory to create an Image instance directly from a raw byte list and dimensions. Implements the "Wide Grayscale" trick for saving complex types into standard containers. The function accepts the preferred serialization format; the allowed formats are `png` or `raw` (lossless representation). If None, `png` is selected.
+* **`to_linear_pixels() -> List[int]`**
+Returns the raw, flattened integer list of pixel data, decoding any transport container (like PNG) if necessary.
 
 #### *The "Wide Grayscale" Concept*
 
 The **Wide Grayscale** strategy is a technique used by the SDK to losslessly store image data (such as 32-bit floating-point depth maps or 16-bit raw sensor data) inside standard image containers like PNG. Instead of treating the data as "pixels" with semantic meaning (colors), the SDK treats the image memory as a **raw byte stream**.
 
-1.  **Reinterpretation:** The original buffer (e.g., a 100x100 image of `float32`) is viewed simply as a list of bytes. Since each `float32` is 4 bytes, a single row of 100 pixels becomes 400 bytes.
-2.  **Reshaping:** This byte stream is reshaped into a new 2D matrix where:
-    * **Height** = Original Image Height.
-    * **Width** = The full **Stride** of the original image (total bytes per row, including padding).
-3.  **Encoding:** This new "wide" matrix is saved as a standard **8-bit Grayscale (Mode 'L')** image.
+1. **Reinterpretation:** The original buffer (e.g., a 100x100 image of `float32`) is viewed simply as a list of bytes. Since each `float32` is 4 bytes, a single row of 100 pixels becomes 400 bytes.
+2. **Reshaping:** This byte stream is reshaped into a new 2D matrix where:
+  * **Height** = Original Image Height.
+  * **Width** = The full **Stride** of the original image (total bytes per row, including padding).
+3. **Encoding:** This new "wide" matrix is saved as a standard **8-bit Grayscale (Mode 'L')** image.
 
 To the PNG encoder, it looks like a very wide, boring grayscale image. To the SDK, it is a perfect, bit-exact copy of the original memory buffer, preserved in a compressed, standard format.
 
-
 #### `CompressedImage`
 
-Container for encoded binary blobs. Unlike the raw `Image` class, this class delegates the actual compression and decompression logic to a pluggable **Codec** system.
+Container for encoded binary blobs. Unlike the raw `Image` class, this class uses a simple stateless codec for standard formats (PNG, JPEG) but requires an [external session decoder](#statefuldecodingsession) for stateful video streams (H.264, HEVC).
 
 **Fields:**
 
-  * **`data`** (`binary`): The serialized (compressed) image data as bytes.
-  * **`format`** (`string`): The compression format identifier (e.g., 'jpeg', 'png').
-  * **`header`** (`Header`, ***Optional***): Standard metadata header (timestamp, frame_id).
+* **`data`** (`binary`): The serialized (compressed) image data as bytes.
+* **`format`** (`string`): The compression format identifier (e.g., 'jpeg', 'png').
+* **`header`** (`Header`, ***Optional***): Standard metadata header (timestamp, frame_id).
 
 **Methods:**
 
-  * **`from_image(cls, image: PIL.Image, format: str = 'png', ...) -> CompressedImage`**
-    Factory method that compresses a Pillow image into a binary blob.
-    
-    > [!NOTE]
-    > **`ImageFormat` limitations**
-    >
-    > Accepted image formats are strictly typed via `Enum`; the formats currently accepted are: JPEG, PNG, TIFF, H.264. Future releases will relax this assumptions and allow more formats (with custom codecs).
+* **`from_image(cls, image: PIL.Image, format: str = 'png', ...) -> CompressedImage`**
+Factory method that compresses a Pillow image into a binary blob.
+> [!NOTE]
+> **Stateful vs Stateless**
+>
+> This method uses a default stateless codec. It is valid for standard formats like 'png' and 'jpeg'. For stateful formats (H.264, HEVC), you must currently use custom encoders, as the default implementation only supports single-image compression.
+
+* **`to_image() -> Optional[PIL.Image]`**
+Decompresses the internal binary data into a usable Pillow Image object.
+> [!WARNING]
+> **Limitation**: 
+>
+>This method works **only** for stateless formats (PNG, JPEG). If the image is a video frame (H.264, HEVC), this method will not work because it lacks the decoder context. Use `StatefulDecodingSession` for video streams.
 
 
-      <!-- TODO: uncomment when updating policy with customizable codecs -->
-      <!-- * **`codec` Argument**: This optional argument allows for **Dependency Injection**.
-          * **Default Behavior (`None`):** The method looks up a registered codec based on the `format` string (e.g., uses `DefaultCodec` for 'png'). The following image formats are currently available:
-            * `jpeg`, `png`, `tiff`, `h264`, `hevc`
-          * **Custom Behavior:** User can pass an instance of your his custom `CompressedImageCodec` subclass. This is useful for using proprietary compression algorithms or overriding the standard behavior for a specific one-off operation without registering it globally. -->
 
-  * **`to_image() -> Optional[PIL.Image]`**
-    Decompresses the internal binary data into a usable Pillow Image object.
-    
+#### `StatefulDecodingSession`
 
-<!-- TODO: uncomment when updating policy with customizable codecs -->
-<!-- **Architecture: The Codec Strategy**
+A helper class designed to manage the decoding lifecycle of video streams (H.264, HEVC). It prevents memory corruption by maintaining a separate `av.CodecContext` for each context stream (e.g. topic).
 
-The class uses the **Strategy Pattern** via the `CompressedImageCodec` abstract base class. This allows the SDK to support standard formats (via Pillow) and video formats (via PyAV) while allowing users to inject custom compression logic.
+**Methods:**
 
-**`CompressedImageCodec` (Abstract Base Class)**
+* **`decode(img_data: bytes, format: ImageFormat, context: str) -> Optional[PIL.Image]`**
+Decodes a video packet. The `context` argument (usually the topic name) ensures that packets from different streams do not mix their decoding state.
 
-  * **`decode(data: bytes, format: str) -> PIL.Image`**:
-    Must be implemented to convert a binary blob back into a usable image object.
-  * **`encode(image: PIL.Image, format: str, **kwargs) -> bytes`**:
-    Must be implemented to compress an image object into a binary blob.
 
-#### Example: Using a Custom Codec
+**Example: Decoding a Mixed Sequence**
+
+This example shows how to handle both simple images (JPEG/PNG) and complex video streams (H.264) in the same loop using the new `StatefulDecodingSession`.
 
 ```python
-class MyCustomRLE(CompressedImageCodec):
-    def encode(image, format, **kwargs):
-        # Implement custom Run-Length Encoding logic...
-        return b"..." 
+# Initialize the session manager
+decoder_session = StatefulDecodingSession()
 
-    def decode(data, format):
-        # Implement custom decoding logic...
-        return PIL.Image.new("RGB", (100, 100))
+# Iterate through your sequence
+for topic_name, message in sequence_handler.get_data_streamer():
 
-# Usage without global registration
-my_blob = CompressedImage.from_image(
-    my_pil_image, 
-    format="rle", 
-    codec=MyCustomRLE()
-)
-``` -->
+    # ...
+
+    # Let's suppose we know it is a CompressedImage topic, with H.264 format
+    img = message.get_data(CompressedImage)
+    pil_image = decoder_session.decode(
+        img_data=img.data,
+        format=img.format,
+        context=topic_name  # Unique ID for this stream
+    )
+        
+    pil_image = message.to_image()
+
+# Cleanup resources when done
+decoder_session.close()
+```
 
 ### IMU (`imu.py`)
 
