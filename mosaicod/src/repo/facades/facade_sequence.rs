@@ -229,7 +229,6 @@ impl FacadeSequence {
 
     /// Computes system info for the sequence
     pub async fn system_info(&self) -> Result<types::SequenceSystemInfo, FacadeError> {
-        // (cabba) TODO: avoid transactions for this kind of queries?
         let mut cx = self.repo.connection();
         let record = repo::sequence_find_by_locator(&mut cx, &self.locator).await?;
 

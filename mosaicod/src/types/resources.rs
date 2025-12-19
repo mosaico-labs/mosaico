@@ -63,6 +63,14 @@ impl<M> TopicMetadata<M> {
     }
 }
 
+/// Aggregated statistics for a topic's chunks.
+#[derive(Debug, Clone, Default)]
+pub struct TopicChunksStats {
+    pub total_size_bytes: i64,
+    pub total_row_count: i64,
+}
+
+/// Configuration properties defining the data semantic and encoding for a topic.
 #[derive(Debug)]
 pub struct TopicProperties {
     pub serialization_format: rw::Format,
@@ -78,11 +86,18 @@ impl TopicProperties {
     }
 }
 
+/// Represents system-level metadata and statistical information for a specific topic.
+///
+/// This struct provides a snapshot of the topic's physical state on disk, including
+/// its size, structure, and lifecycle status.
 pub struct TopicSystemInfo {
     /// Number of chunks in the topic
     pub chunks_number: usize,
     /// True is the topic is currently locked, a topic is locked if
     /// some data was uploaded and the connection was closed gracefully
+    ///
+    /// # Note
+    /// (cabba) TODO: evaluate move this into a separate function since is not strictly related to system info
     pub is_locked: bool,
     /// Total size in bytes of the data.
     /// Metadata and other system files are excluded in the count.

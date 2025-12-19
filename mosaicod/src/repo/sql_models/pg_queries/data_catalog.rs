@@ -1,6 +1,7 @@
 use crate::{
     query,
     repo::{self, sql_models},
+    types::{self, Resource},
 };
 use log::trace;
 use sqlx::{Row, postgres::PgRow};
@@ -196,30 +197,23 @@ fn cast_chunk_data(row: PgRow) -> Result<sql_models::Chunk, repo::Error> {
     })
 }
 
-/// Aggregated statistics for a topic's chunks.
-#[derive(Debug, Clone, Default)]
-pub struct TopicStats {
-    pub total_size_bytes: i64,
-    pub total_row_count: i64,
-}
-
 /// Returns aggregated size and row count statistics for all chunks belonging to a topic.
 pub async fn topic_get_stats(
     exec: &mut impl repo::AsExec,
-    topic_name: &str,
-) -> Result<TopicStats, repo::Error> {
+    loc: &types::TopicResourceLocator,
+) -> Result<types::TopicChunksStats, repo::Error> {
     let res = sqlx::query!(
         r#"SELECT
             COALESCE(SUM(size_bytes), 0)::BIGINT as "total_size_bytes!",
             COALESCE(SUM(row_count), 0)::BIGINT as "total_row_count!"
         FROM chunk_t
         WHERE topic_id = (SELECT topic_id FROM topic_t WHERE topic_name = $1)"#,
-        topic_name,
+        loc.name(),
     )
     .fetch_one(exec.as_exec())
     .await?;
 
-    Ok(TopicStats {
+    Ok(types::TopicChunksStats {
         total_size_bytes: res.total_size_bytes,
         total_row_count: res.total_row_count,
     })
