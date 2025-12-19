@@ -13,10 +13,12 @@
   <a href="https://discord.gg/2ajEM9TxMM"><img src="https://shields.io/discord/1413199575442784266" alt="discord" /></a>
 </p>
 
-## Mosaico
+## The Open-Source Data Platform for Robotics & Physical AI
 
-Mosaico is an open-source data platform specifically designed for Robotics and Physical AI.
+Mosaico is a *blazing-fast* data platform designed to bridge the gap between Robotics and Physical AI. It streamlines data management, compression, and search by replacing monolithic files with a structured archive powered by Rust and Python.
+**Stop treating your sensor data like files. Start treating it like a dataset.**
 
+## What you'll find
 This repo contains both the Python SDK (`mosaico-sdk-py`) and the Rust backend (`mosaicod`). We have choosed to keep the code in a monorepo configuration to simplify the testing and reduce compatibility issues.
 
 > [!WARNING]
