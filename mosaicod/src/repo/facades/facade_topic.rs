@@ -281,9 +281,15 @@ impl FacadeTopic {
         Ok(())
     }
 
+    /// Returns the statistics about topic's chunks
+    pub async fn chunks_stats(&self) -> Result<types::TopicChunksStats, FacadeError> {
+        let mut cx = self.repo.connection();
+        let stats = repo::topic_get_stats(&mut cx, &self.locator).await?;
+        Ok(stats)
+    }
+
     /// Computes system info for the topic
     pub async fn system_info(&self) -> Result<types::TopicSystemInfo, FacadeError> {
-        // (cabba) TODO: avoid transactions for this kind of queries?
         let mut cx = self.repo.connection();
         let record = repo::topic_find_by_locator(&mut cx, &self.locator).await?;
 
