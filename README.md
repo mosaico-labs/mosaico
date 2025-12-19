@@ -17,7 +17,7 @@
 
 Mosaico is an open-source data platform specifically designed for Robotics and Physical AI.
 
-This repo contains both the Python SDK (`mosaico-sdk-py`) and the Rust backend (`mosaicod`). We have choosed to keep the code in a monorepo configuration to simplify the testing and reduce compatibility issues.
+This repo contains both the Python SDK (`mosaico-sdk-py`) and the Rust backend (`mosaicod`). We have chosen to keep the code in a monorepo configuration to simplify the testing and reduce compatibility issues.
 
 > [!WARNING]
 > **Mosaico is currently in an early development phase.**
@@ -85,6 +85,6 @@ If you use Mosaico for a publication, please cite it as:
   year = {2025},
   month = {12},
   address = {Online},
-  note = {Available from https://mosaico.dev/ and https://github.com/mosaico-labs/mosaicod}
+  note = {Available from https://mosaico.dev/ and https://github.com/mosaico-labs/mosaico}
 }
 ```
