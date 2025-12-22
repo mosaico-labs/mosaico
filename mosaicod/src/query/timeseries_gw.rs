@@ -8,8 +8,6 @@ use log::trace;
 
 use crate::{params, query, rw, store};
 use arrow::datatypes::{Schema, SchemaRef};
-use datafusion::datasource::file_format::parquet::ParquetFormat;
-use datafusion::datasource::listing::ListingOptions;
 use datafusion::execution::SendableRecordBatchStream;
 use datafusion::execution::runtime_env::{RuntimeEnv, RuntimeEnvBuilder};
 use datafusion::functions::core::expr_ext::FieldAccessor;
@@ -54,7 +52,8 @@ impl TimeseriesGw {
         format: rw::Format,
         batch_size: Option<usize>,
     ) -> Result<TimeseriesGwResult, Error> {
-        let listing_options = get_listing_options(format);
+        // Use format strategy for listing options - properly respects format configuration
+        let listing_options = format.strategy().listing_options();
 
         let mut conf = SessionConfig::new();
         if let Some(batch_size) = batch_size {
@@ -136,10 +135,6 @@ impl TimeseriesGwResult {
         let limited = self.data_frame.limit(0, Some(1))?;
         Ok(limited.count().await? > 0)
     }
-}
-
-fn get_listing_options(_format: rw::Format) -> ListingOptions {
-    ListingOptions::new(Arc::new(ParquetFormat::default())).with_file_extension(".parquet")
 }
 
 fn unfold_field(field: &query::OntologyField) -> Expr {

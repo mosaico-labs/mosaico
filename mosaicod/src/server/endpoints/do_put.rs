@@ -16,7 +16,6 @@ struct DoPutTopic {
 }
 
 #[derive(Deserialize, Debug)]
-#[allow(dead_code)]
 #[serde(rename_all = "snake_case")]
 enum DoPutCommand {
     Topic(DoPutTopic),

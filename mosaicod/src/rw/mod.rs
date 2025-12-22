@@ -4,7 +4,7 @@ pub mod errors;
 pub use errors::Error;
 
 pub mod format;
-pub use format::*;
+pub use format::{Format, FormatStrategy};
 
 pub mod chunk_writer;
 pub use chunk_writer::{ChunkMetadata, ChunkWriter};

@@ -13,7 +13,10 @@ impl MetadataBlob for JsonMetadataBlob {
         Ok(serde_json::to_string(&self.0).map_err(|e| Error::SerializationError(e.to_string())))?
     }
 
-    #[allow(refining_impl_trait)]
+    #[expect(
+        refining_impl_trait,
+        reason = "returns concrete JsonMetadataBlob instead of Self for type clarity"
+    )]
     fn try_from_str(v: &str) -> Result<JsonMetadataBlob, Error> {
         Ok(JsonMetadataBlob(
             serde_json::from_str(v).map_err(|e| Error::DeserializationError(e.to_string()))?,
