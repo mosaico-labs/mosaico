@@ -106,14 +106,17 @@ pub async fn sequence_delete_unlocked(
 
 /// Deletes a sequence record from the repository by its name, **bypassing any lock state**.
 ///
-/// This function is marked `unsafe` because it permanently removes the record
-/// from the database without checking whether it is locked or referenced
-/// elsewhere. Improper use can lead to data inconsistency or loss.
-pub async unsafe fn sequence_delete(
+/// # Warning
+///
+/// This function permanently removes the record from the database without checking
+/// whether it is locked or referenced elsewhere. Improper use can lead to data
+/// inconsistency or loss. Use `sequence_delete_unlocked` for safe deletion that
+/// respects lock state.
+pub async fn sequence_delete_force(
     exe: &mut impl repo::AsExec,
     loc: &types::SequenceResourceLocator,
 ) -> Result<(), repo::Error> {
-    trace!("(unsafe) deleting `{}`", loc);
+    trace!("(force) deleting `{}`", loc);
     sqlx::query!("DELETE FROM sequence_t WHERE sequence_name=$1", loc.name())
         .execute(exe.as_exec())
         .await?;

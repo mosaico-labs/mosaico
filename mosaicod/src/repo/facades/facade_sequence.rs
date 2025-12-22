@@ -211,12 +211,10 @@ impl FacadeSequence {
         for topic_loc in topics {
             let thandle = FacadeTopic::new(topic_loc.into(), self.store.clone(), self.repo.clone());
 
-            // For this special case we allow an unsafe delete since the sequence is still unlocked (previous check).
-            // This is because the system may be in a state where topics are partially uploaded:
-            // some topics are fully uploaded and locked, while others are not.
-            unsafe {
-                thandle.delete_unsafe().await?;
-            }
+            // Force delete topics since the sequence is still unlocked (verified above).
+            // This handles the case where topics are partially uploaded:
+            // some topics may be locked, while others are not.
+            thandle.delete_force().await?;
         }
 
         // Delete sequence data

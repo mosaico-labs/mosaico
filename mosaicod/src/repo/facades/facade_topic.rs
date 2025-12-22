@@ -221,16 +221,16 @@ impl FacadeTopic {
         Ok(())
     }
 
-    /// # Safety
+    /// Permanently deletes a topic and all its data, **bypassing any lock state**.
     ///
-    /// This function permanently deletes a topic and all its data, be caution
-    pub async unsafe fn delete_unsafe(self) -> Result<(), FacadeError> {
+    /// # Warning
+    ///
+    /// This function permanently removes the topic without checking whether it is
+    /// locked. Use `delete()` for safe deletion that respects lock state.
+    pub async fn delete_force(self) -> Result<(), FacadeError> {
         let mut tx = self.repo.transaction().await?;
 
-        // unsafe allowed since this function is unsafe itself
-        unsafe {
-            repo::topic_delete(&mut tx, &self.locator).await?;
-        }
+        repo::topic_delete_force(&mut tx, &self.locator).await?;
 
         // Delete files
         self.store.delete_recursive(&self.path()).await?;
