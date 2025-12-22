@@ -57,8 +57,7 @@ impl Server {
         info!("startup multi-threaded runtime");
         let rt = tokio::runtime::Builder::new_multi_thread()
             .enable_all()
-            .build()
-            .unwrap();
+            .build()?;
 
         info!("startup store connection");
 
