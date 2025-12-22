@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "DELETE FROM sequence_t WHERE sequence_name=$1 AND locked=FALSE",
+  "query": "DELETE FROM sequence_t WHERE locator_name=$1 AND locked=FALSE",
   "describe": {
     "columns": [],
     "parameters": {
@@ -10,5 +10,5 @@
     },
     "nullable": []
   },
-  "hash": "f1feccf8f912e9d53dd3a8e09a0ff1050d0eaee3e827a7d172765ec76240b380"
+  "hash": "630d6e2603d7aece4908b26af2995ca3cf98e71243bccfe0f6004ba70652ad81"
 }

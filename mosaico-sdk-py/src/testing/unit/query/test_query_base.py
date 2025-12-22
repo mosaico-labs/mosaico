@@ -175,7 +175,7 @@ def test_construction_query_from_response():
 
     expected_expr_top_values = [
         # QueryResponseItem.__post_init__ normalizes topic name
-        pack_topic_resource_name(it.sequence, t)
+        t
         for it in qresp
         for t in it.topics
     ]

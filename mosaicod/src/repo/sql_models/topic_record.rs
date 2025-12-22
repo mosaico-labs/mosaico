@@ -6,7 +6,7 @@ use crate::{marshal, repo, rw, types};
 pub struct TopicRecord {
     pub topic_id: i32,
     pub topic_uuid: uuid::Uuid,
-    pub topic_name: String,
+    pub locator_name: String,
     pub sequence_id: i32,
     pub ontology_tag: Option<String>,
 
@@ -36,7 +36,7 @@ impl TopicRecord {
             topic_id: repo::UNREGISTERED,
             topic_uuid: uuid::Uuid::new_v4(),
             sequence_id,
-            topic_name: name.to_owned(),
+            locator_name: name.to_owned(),
             locked: false,
             ontology_tag: None,
             serialization_format: None,

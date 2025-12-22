@@ -14,16 +14,18 @@ pub async fn sequences_group_from_topics(
     for topic in topics {
         let group = ret.get_mut(&topic.sequence_id);
         if let Some(group) = group {
-            group
-                .topics
-                .push(types::TopicResourceLocator::from(topic.topic_name.clone()));
+            group.topics.push(types::TopicResourceLocator::from(
+                topic.locator_name.clone(),
+            ));
         } else {
             let seq = repo::sequence_find_by_id(exe, topic.sequence_id).await?;
             ret.insert(
                 seq.sequence_id,
                 types::SequenceTopicGroup::new(
-                    types::SequenceResourceLocator::from(seq.sequence_name),
-                    vec![types::TopicResourceLocator::from(topic.topic_name.clone())],
+                    types::SequenceResourceLocator::from(seq.locator_name),
+                    vec![types::TopicResourceLocator::from(
+                        topic.locator_name.clone(),
+                    )],
                 ),
             );
         }

@@ -111,6 +111,7 @@ def _do_action(
     try:
         # Serialize payload
         body = json.dumps(payload).encode("utf-8")
+        log.debug(f"Action request body: {body}")
 
         # Execute Flight call
         action_results = client.do_action(fl.Action(action_name, body))
@@ -122,6 +123,7 @@ def _do_action(
 
             try:
                 result_str = result.body.to_pybytes().decode("utf-8")
+                log.debug(f"Action result body f{result_str}")
                 result_dict: dict[str, Any] = json.loads(result_str)
             except Exception as decode_err:
                 log.warning(

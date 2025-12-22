@@ -1,57 +1,46 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT * FROM topic_t WHERE topic_name=$1",
+  "query": "\n            INSERT INTO sequence_t\n                (sequence_uuid, locator_name, locked, creation_unix_tstamp, user_metadata) \n            VALUES \n                ($1, $2, $3, $4, $5) \n            RETURNING \n                *\n    ",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "topic_id",
-        "type_info": "Int4"
-      },
-      {
-        "ordinal": 1,
-        "name": "topic_uuid",
-        "type_info": "Uuid"
-      },
-      {
-        "ordinal": 2,
         "name": "sequence_id",
         "type_info": "Int4"
       },
       {
-        "ordinal": 3,
-        "name": "topic_name",
+        "ordinal": 1,
+        "name": "sequence_uuid",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "locator_name",
         "type_info": "Text"
       },
       {
-        "ordinal": 4,
+        "ordinal": 3,
         "name": "locked",
         "type_info": "Bool"
       },
       {
-        "ordinal": 5,
+        "ordinal": 4,
         "name": "user_metadata",
         "type_info": "Jsonb"
       },
       {
-        "ordinal": 6,
-        "name": "serialization_format",
-        "type_info": "Text"
-      },
-      {
-        "ordinal": 7,
-        "name": "ontology_tag",
-        "type_info": "Text"
-      },
-      {
-        "ordinal": 8,
+        "ordinal": 5,
         "name": "creation_unix_tstamp",
         "type_info": "Int8"
       }
     ],
     "parameters": {
       "Left": [
-        "Text"
+        "Uuid",
+        "Text",
+        "Bool",
+        "Int8",
+        "Jsonb"
       ]
     },
     "nullable": [
@@ -59,12 +48,9 @@
       false,
       false,
       false,
-      false,
-      true,
-      true,
       true,
       false
     ]
   },
-  "hash": "5e52213a4ec87e8b6147f4980cb31ff3da0ed374700bfb62f04b6c4a96d34ed4"
+  "hash": "9442fb96daede6835699109d6253793f52b5d932c6d9718f97b189ae25c72f99"
 }

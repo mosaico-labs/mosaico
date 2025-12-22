@@ -118,7 +118,9 @@ impl FacadeQuery {
 
                         let serialization_format =
                             topic.serialization_format().ok_or_else(|| {
-                                FacadeError::MissingSerializationFormat(topic.topic_name.to_owned())
+                                FacadeError::MissingSerializationFormat(
+                                    topic.locator_name.to_owned(),
+                                )
                             })?;
 
                         let qr = ts_engine

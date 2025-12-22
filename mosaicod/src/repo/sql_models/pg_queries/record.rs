@@ -16,7 +16,7 @@ pub async fn get_resource_locator_from_name(
     .await;
     if let Ok(sequence) = record {
         return Ok(Box::new(types::SequenceResourceLocator::from(
-            sequence.sequence_name,
+            sequence.locator_name,
         )));
     }
 
@@ -27,7 +27,7 @@ pub async fn get_resource_locator_from_name(
     .await;
     if let Ok(topic) = record {
         return Ok(Box::new(types::TopicResourceLocator::from(
-            topic.topic_name,
+            topic.locator_name,
         )));
     }
 

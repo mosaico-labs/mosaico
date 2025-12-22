@@ -48,7 +48,7 @@ impl FacadeTopic {
             return Err(FacadeError::SequenceLocked);
         }
 
-        let sloc = types::SequenceResourceLocator::from(&srecord.sequence_name);
+        let sloc = types::SequenceResourceLocator::from(&srecord.locator_name);
 
         // Ensure that this topic is child of the provided sequence, i.e. they are related with the same
         // name structure

@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT topic.locator_name\n        FROM topic_t AS topic\n        JOIN sequence_t AS sequence ON topic.sequence_id = sequence.sequence_id\n        WHERE sequence.locator_name = $1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "locator_name",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "468c1511714964134a8260eab59f621aca08ffacacb7809e893e50bf187fbcb8"
+}

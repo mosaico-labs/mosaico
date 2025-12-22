@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT * FROM topic_t WHERE topic_id = ANY($1)",
+  "query": "\n            INSERT INTO topic_t\n                (\n                    topic_uuid, sequence_id, locator_name, creation_unix_tstamp, \n                    serialization_format, ontology_tag, locked, user_metadata\n                ) \n            VALUES \n                ($1, $2, $3, $4, $5, $6, $7, $8) \n            RETURNING \n                *\n    ",
   "describe": {
     "columns": [
       {
@@ -51,7 +51,14 @@
     ],
     "parameters": {
       "Left": [
-        "Int4Array"
+        "Uuid",
+        "Int4",
+        "Text",
+        "Int8",
+        "Text",
+        "Text",
+        "Bool",
+        "Jsonb"
       ]
     },
     "nullable": [
@@ -66,5 +73,5 @@
       false
     ]
   },
-  "hash": "f3a201e4fb3da1c7b6b192ad40d9020dd73c6098a7b7fdf1d60e4d74498120b6"
+  "hash": "af413c6cc972b957d8dea77482d792ac1d2b2d0d22e27bb9967287543c18d866"
 }

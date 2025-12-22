@@ -48,11 +48,7 @@ class QueryResponse:
             _QueryTopicExpression(
                 "name",
                 "$in",
-                [
-                    pack_topic_resource_name(it.sequence, t)
-                    for it in self.items
-                    for t in it.topics
-                ],
+                [t for it in self.items for t in it.topics],
             )
         )
 

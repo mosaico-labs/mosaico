@@ -11,7 +11,7 @@ fn cast_topic_data(row: PgRow) -> Result<sql_models::TopicRecord, repo::Error> {
     Ok(sql_models::TopicRecord {
         topic_id: row.try_get("topic_id")?,
         topic_uuid: row.try_get("topic_uuid")?,
-        topic_name: row.try_get("topic_name")?,
+        locator_name: row.try_get("locator_name")?,
         sequence_id: row.try_get("sequence_id")?,
         ontology_tag: row.try_get("ontology_tag")?,
         serialization_format: row.try_get("serialization_format")?,
@@ -45,7 +45,7 @@ pub async fn topic_find_by_locator(
     trace!("searching by resource name `{}`", topic);
     let res = sqlx::query_as!(
         sql_models::TopicRecord,
-        "SELECT * FROM topic_t WHERE topic_name=$1",
+        "SELECT * FROM topic_t WHERE locator_name=$1",
         topic.name()
     )
     .fetch_one(exe.as_exec())
@@ -75,7 +75,7 @@ pub async fn topic_delete_unlocked(
 ) -> Result<(), repo::Error> {
     trace!("deleting (unlocked) topic `{}`", loc);
     sqlx::query!(
-        "DELETE FROM topic_t WHERE topic_name=$1 AND locked=FALSE",
+        "DELETE FROM topic_t WHERE locator_name=$1 AND locked=FALSE",
         loc.name()
     )
     .execute(exe.as_exec())
@@ -93,7 +93,7 @@ pub async unsafe fn topic_delete(
     loc: &types::TopicResourceLocator,
 ) -> Result<(), repo::Error> {
     trace!("(unsafe) deleting `{}`", loc);
-    sqlx::query!("DELETE FROM topic_t WHERE topic_name=$1", loc.name())
+    sqlx::query!("DELETE FROM topic_t WHERE locator_name=$1", loc.name())
         .execute(exe.as_exec())
         .await?;
     Ok(())
@@ -109,7 +109,7 @@ pub async fn topic_create(
         r#"
             INSERT INTO topic_t
                 (
-                    topic_uuid, sequence_id, topic_name, creation_unix_tstamp, 
+                    topic_uuid, sequence_id, locator_name, creation_unix_tstamp, 
                     serialization_format, ontology_tag, locked, user_metadata
                 ) 
             VALUES 
@@ -119,7 +119,7 @@ pub async fn topic_create(
     "#,
         record.topic_uuid,
         record.sequence_id,
-        record.topic_name,
+        record.locator_name,
         record.creation_unix_tstamp,
         record.serialization_format,
         record.ontology_tag,
@@ -140,7 +140,7 @@ pub async fn topic_lock(
         r#"
             UPDATE topic_t 
             SET locked = TRUE
-            WHERE topic_name = $1
+            WHERE locator_name = $1
     "#,
         loc.name(),
     )
@@ -163,7 +163,7 @@ pub async fn topic_update_serialization_format(
         r#"
             UPDATE topic_t
             SET serialization_format = $1
-            WHERE topic_name = $2
+            WHERE locator_name = $2
             RETURNING * 
     "#,
         serialization_format,
@@ -185,7 +185,7 @@ pub async fn topic_update_ontology_tag(
         r#"
             UPDATE topic_t
             SET ontology_tag = $1
-            WHERE topic_name = $2
+            WHERE locator_name = $2
             RETURNING * 
     "#,
         ontology_tag,
@@ -209,7 +209,7 @@ pub async fn topic_update_user_metadata(
         r#"
             UPDATE topic_t
             SET user_metadata = $1
-            WHERE topic_name = $2
+            WHERE locator_name = $2
             RETURNING * 
     "#,
         metadata,
@@ -244,7 +244,7 @@ pub async fn topic_from_query_filter(
 
     if let Some(seq) = filter_seq {
         if let Some(op) = seq.name {
-            qb = qb.expr("sequence.sequence_name", op, &mut sql_fmt);
+            qb = qb.expr("sequence.locator_name", op, &mut sql_fmt);
         }
 
         if let Some(op) = seq.creation {
@@ -264,7 +264,15 @@ pub async fn topic_from_query_filter(
 
     if let Some(top) = filter_top {
         if let Some(op) = top.name {
-            qb = qb.expr("topic.topic_name", op, &mut sql_fmt);
+            // Substring has a +1 for zero based indexing
+            //
+            // So using sequence locator '/a/b' and topic locator 'a/b/c/d'
+            // the query produces '/c/d', slash included
+            qb = qb.expr(
+                "SUBSTRING(topic.locator_name, LENGTH(sequence.locator_name) + 1)",
+                op,
+                &mut sql_fmt,
+            );
         }
 
         if let Some(op) = top.creation {

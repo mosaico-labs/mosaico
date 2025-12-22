@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            UPDATE topic_t\n            SET user_metadata = $1\n            WHERE topic_name = $2\n            RETURNING * \n    ",
+  "query": "\n            UPDATE topic_t\n            SET serialization_format = $1\n            WHERE locator_name = $2\n            RETURNING * \n    ",
   "describe": {
     "columns": [
       {
@@ -20,7 +20,7 @@
       },
       {
         "ordinal": 3,
-        "name": "topic_name",
+        "name": "locator_name",
         "type_info": "Text"
       },
       {
@@ -51,7 +51,7 @@
     ],
     "parameters": {
       "Left": [
-        "Jsonb",
+        "Text",
         "Text"
       ]
     },
@@ -67,5 +67,5 @@
       false
     ]
   },
-  "hash": "94c6b5efb624a1035f922e0e00764661810af0a93e175fddc46981fbacffebac"
+  "hash": "f6ac667b3d0eca1cc5cc8831f0a76f4917385d0722b3c8cef83615a85064ce20"
 }
