@@ -7,7 +7,7 @@ use futures::stream::BoxStream;
 use log::{info, trace};
 use tonic::Status;
 
-use crate::{repo, server::errors::ServerError, store};
+use crate::{repo, server::errors::ServerError};
 
 /// Lists all available flights (sequences) in the repository.
 ///
@@ -15,7 +15,6 @@ use crate::{repo, server::errors::ServerError, store};
 /// returns a streamed list of all sequences. Each sequence is represented
 /// as a minimal `FlightInfo` containing only the sequence identifier.
 pub async fn list_flights(
-    _store: store::StoreRef,
     repo: repo::Repository,
     criteria: Criteria,
 ) -> Result<BoxStream<'static, Result<FlightInfo, Status>>, ServerError> {
@@ -30,16 +29,15 @@ pub async fn list_flights(
     info!("listing all sequences");
 
     // Fetch all sequences from repository
-    let mut cx = repo.connection();
-    let sequences = repo::sequence_find_all(&mut cx).await?;
+    let sequences = repo::FacadeSequence::all(repo).await?;
 
     trace!("found {} sequences", sequences.len());
 
-    // Convert each sequence record to a minimal FlightInfo
+    // Convert each sequence locator to a minimal FlightInfo
     let flight_infos: Vec<Result<FlightInfo, Status>> = sequences
         .into_iter()
-        .map(|record| {
-            let sequence_name = record.sequence_name.clone();
+        .map(|locator| {
+            let sequence_name = locator.name().to_string();
 
             // Create flight descriptor with the sequence path
             let descriptor = FlightDescriptor::new_path(vec![sequence_name.clone()]);

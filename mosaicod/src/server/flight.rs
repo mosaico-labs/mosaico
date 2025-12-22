@@ -100,7 +100,7 @@ impl FlightService for MosaicoFlightService {
     ) -> Result<Response<Self::ListFlightsStream>, Status> {
         let criteria = request.into_inner();
 
-        let stream = endpoints::list_flights(self.store.clone(), self.repo.clone(), criteria)
+        let stream = endpoints::list_flights(self.repo.clone(), criteria)
             .await
             .inspect_err(log_server_error)?;
 

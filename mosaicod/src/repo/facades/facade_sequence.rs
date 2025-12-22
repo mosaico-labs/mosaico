@@ -245,4 +245,18 @@ impl FacadeSequence {
             created_datetime: record.creation_timestamp().into(),
         })
     }
+
+    /// Retrieves all sequences from the repository.
+    ///
+    /// Returns a list of all available sequences as [`SequenceResourceLocator`] objects.
+    /// This is primarily used for catalog discovery operations.
+    pub async fn all(repo: repo::Repository) -> Result<Vec<types::SequenceResourceLocator>, FacadeError> {
+        let mut cx = repo.connection();
+        let records = repo::sequence_find_all(&mut cx).await?;
+
+        Ok(records
+            .into_iter()
+            .map(|record| types::SequenceResourceLocator::from(record.sequence_name))
+            .collect())
+    }
 }
