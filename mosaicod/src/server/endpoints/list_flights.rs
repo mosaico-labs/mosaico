@@ -7,7 +7,7 @@ use futures::stream::BoxStream;
 use log::{info, trace};
 use tonic::Status;
 
-use crate::{repo, server::errors::ServerError};
+use crate::{repo, server::errors::ServerError, types::Resource};
 
 /// Lists all available flights (sequences) in the repository.
 ///
