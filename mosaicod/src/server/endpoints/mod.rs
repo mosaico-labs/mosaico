@@ -1,3 +1,4 @@
+mod actions;
 mod do_action;
 mod do_get;
 mod do_put;

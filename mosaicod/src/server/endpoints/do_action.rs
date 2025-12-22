@@ -1,312 +1,99 @@
-use log::{info, trace, warn};
+//! Flight DoAction endpoint implementation.
+//!
+//! This module implements the main dispatcher for Flight DoAction requests,
+//! delegating to specialized handlers for each action category.
 
 use crate::{
-    marshal::{self, ActionRequest, ActionResponse},
-    query,
-    repo::{self, FacadeError, FacadeLayer, FacadeQuery, FacadeSequence, FacadeTopic},
+    marshal::{ActionRequest, ActionResponse},
+    query, repo,
     server::errors::ServerError,
-    store, types,
-    types::{MetadataBlob, Resource},
+    store,
 };
 
+use super::actions::{
+    ActionContext, LayerActionHandler, QueryActionHandler, SequenceActionHandler,
+    TopicActionHandler,
+};
+
+/// Dispatches a Flight action request to the appropriate handler.
+///
+/// This function serves as the main entry point for all Flight DoAction requests,
+/// routing each action type to its specialized handler.
 pub async fn do_action(
     store: store::StoreRef,
     repo: repo::Repository,
     ts_engine: query::TimeseriesGwRef,
     action: ActionRequest,
 ) -> Result<ActionResponse, ServerError> {
-    let response = match action {
+    let ctx = ActionContext::new(store, repo, ts_engine);
+
+    match action {
+        // Sequence actions
         ActionRequest::SequenceCreate(data) => {
-            info!("requested resource {} creation", data.name);
-
-            let handle = FacadeSequence::new(data.name.clone(), store, repo);
-
-            // Check if sequence exists, if so return with an error
-            let r_id = handle.resource_id().await;
-            if r_id.is_ok() {
-                return Err(ServerError::SequenceAlreadyExists(
-                    handle.locator.name().into(),
-                ));
-            }
-
-            let str_mdata = data.user_metadata()?;
-            let user_mdata = marshal::JsonMetadataBlob::try_from_str(str_mdata.as_str())
-                .map_err(FacadeError::from)?;
-
-            // no sequence record was found, let's write it
-            let metadata = types::SequenceMetadata::new(user_mdata);
-            let r_id = handle.create(Some(metadata)).await?;
-
-            trace!(
-                "created resource {} with uuid {}",
-                handle.locator, r_id.uuid
-            );
-            ActionResponse::SequenceCreate(r_id.into())
+            let user_metadata = data.user_metadata()?;
+            SequenceActionHandler::create(&ctx, data.name, user_metadata.as_str()).await
         }
-
-        ActionRequest::SequenceDelete(data) => {
-            warn!("requested deletion of resource {}", data.name);
-
-            let handle = FacadeSequence::new(data.name, store, repo);
-
-            if handle.is_locked().await? {
-                return Err(ServerError::SequenceLocked);
-            }
-
-            let loc = handle.locator.clone();
-            handle.delete().await?;
-            warn!("resource {} deleted", loc);
-
-            ActionResponse::Empty
-        }
-
+        ActionRequest::SequenceDelete(data) => SequenceActionHandler::delete(&ctx, data.name).await,
         ActionRequest::SequenceAbort(data) => {
-            warn!("abort for {}", data.name);
-
-            let handle = FacadeSequence::new(data.name, store, repo);
-
-            // Avoid aborting on locked sequences
-            if handle.is_locked().await? {
-                return Err(ServerError::SequenceLocked);
-            }
-
-            // Check that sequence id and provided key matches
-            let r_id = handle.resource_id().await?;
-            let received_uuid: uuid::Uuid = data.key.parse()?;
-            if r_id.uuid != received_uuid {
-                return Err(ServerError::BadKey);
-            }
-
-            // Save handle name (for logging) since the delete will consume the handle
-            let loc = handle.locator.clone();
-            handle.delete().await?;
-            warn!("resource {} deleted", loc.name());
-
-            ActionResponse::Empty
+            SequenceActionHandler::abort(&ctx, data.name, data.key).await
         }
-
         ActionRequest::SequenceFinalize(data) => {
-            info!("resource {} finalized", data.name);
-
-            let handle = FacadeSequence::new(data.name, store, repo);
-
-            // Check that key matches the sequence id
-            let r_id = handle.resource_id().await?;
-            let received_uuid: uuid::Uuid = data.key.parse()?;
-
-            if r_id.uuid != received_uuid {
-                return Err(ServerError::BadKey);
-            }
-
-            handle.lock().await?;
-            trace!("resource {} locked", handle.locator);
-
-            ActionResponse::Empty
+            SequenceActionHandler::finalize(&ctx, data.name, data.key).await
         }
-
         ActionRequest::SequenceNotifyCreate(data) => {
-            info!("new notify for {}", data.name);
-
-            let handle = FacadeSequence::new(data.name, store, repo);
-            let ntype: types::NotifyType = data.notify_type.parse()?;
-            handle.notify(ntype, data.msg).await?;
-
-            ActionResponse::Empty
+            SequenceActionHandler::notify_create(&ctx, data.name, data.notify_type, data.msg).await
         }
-
         ActionRequest::SequenceNotifyList(data) => {
-            info!("notify list for {}", data.name);
-
-            let handle = FacadeSequence::new(data.name, store, repo);
-
-            // Convert notifies to response messages
-            let notifies = handle.notify_list().await?;
-
-            ActionResponse::SequenceNotifyList(notifies.into())
+            SequenceActionHandler::notify_list(&ctx, data.name).await
         }
-
         ActionRequest::SequenceNotifyPurge(data) => {
-            warn!("notify purge for {}", data.name);
-
-            let handle = FacadeSequence::new(data.name, store, repo);
-            handle.notify_purge().await?;
-
-            ActionResponse::Empty
+            SequenceActionHandler::notify_purge(&ctx, data.name).await
         }
-
-        ActionRequest::TopicCreate(data) => {
-            info!("requested resource {} creation", data.name);
-
-            // Find associated sequence
-            let handle = FacadeTopic::new(data.name.clone(), store, repo);
-
-            // Check if the topic has already been created
-            let r_id = handle.resource_id().await;
-            if r_id.is_ok() {
-                return Err(ServerError::TopicAlreadyExists(
-                    handle.locator.name().into(),
-                ));
-            }
-
-            // Get all metadata from the request and create a topic record
-            // into the repository
-            //
-            // The double error conversion happends because we need to
-            // tell the compiler that the error is coming into a topic
-            // related action
-            let user_mdata =
-                marshal::JsonMetadataBlob::try_from_str(data.user_metadata()?.as_str())
-                    .map_err(FacadeError::from)?;
-
-            let mdata = types::TopicMetadata::new(
-                types::TopicProperties::new(data.serialization_format, data.ontology_tag),
-                user_mdata,
-            );
-
-            let received_uuid: uuid::Uuid = data.sequence_key.parse()?;
-
-            let r_id = handle.create(&received_uuid, Some(mdata)).await?;
-
-            trace!(
-                "resource {} created with uuid {}",
-                handle.locator, r_id.uuid,
-            );
-
-            ActionResponse::TopicCreate(r_id.into())
-        }
-
-        ActionRequest::TopicDelete(data) => {
-            warn!("requested deletion of resource {}", data.name);
-
-            let handle = FacadeTopic::new(data.name.clone(), store, repo);
-
-            if handle.is_locked().await? {
-                return Err(ServerError::SequenceLocked);
-            }
-
-            handle.delete().await?;
-            warn!("resource {} deleted", data.name);
-
-            ActionResponse::Empty
-        }
-
-        ActionRequest::TopicNotifyCreate(data) => {
-            info!("nofity for {}", data.name);
-
-            let handle = FacadeTopic::new(data.name, store, repo);
-            handle.notify(data.notify_type.parse()?, data.msg).await?;
-
-            ActionResponse::Empty
-        }
-
-        ActionRequest::TopicNotifyList(data) => {
-            info!("notify list for {}", data.name);
-
-            let handle = FacadeTopic::new(data.name, store, repo);
-            let notifies = handle.notify_list().await?;
-            ActionResponse::TopicNotifyList(notifies.into())
-        }
-
-        ActionRequest::TopicNotifyPurge(data) => {
-            warn!("nofity purge for {}", data.name);
-
-            let handle = FacadeTopic::new(data.name, store, repo);
-            handle.notify_purge().await?;
-
-            ActionResponse::Empty
-        }
-
         ActionRequest::SequenceSystemInfo(data) => {
-            info!("[{}] sequence system informations", data.name);
-
-            let handle = FacadeSequence::new(data.name, store, repo);
-            let sysinfo = handle.system_info().await?;
-
-            ActionResponse::SequenceSystemInfo(sysinfo.into())
+            SequenceActionHandler::system_info(&ctx, data.name).await
         }
 
+        // Topic actions
+        ActionRequest::TopicCreate(data) => {
+            let user_metadata = data.user_metadata()?;
+            TopicActionHandler::create(
+                &ctx,
+                data.name,
+                data.sequence_key,
+                data.serialization_format,
+                data.ontology_tag,
+                user_metadata.as_str(),
+            )
+            .await
+        }
+        ActionRequest::TopicDelete(data) => TopicActionHandler::delete(&ctx, data.name).await,
+        ActionRequest::TopicNotifyCreate(data) => {
+            TopicActionHandler::notify_create(&ctx, data.name, data.notify_type, data.msg).await
+        }
+        ActionRequest::TopicNotifyList(data) => {
+            TopicActionHandler::notify_list(&ctx, data.name).await
+        }
+        ActionRequest::TopicNotifyPurge(data) => {
+            TopicActionHandler::notify_purge(&ctx, data.name).await
+        }
         ActionRequest::TopicSystemInfo(data) => {
-            info!("[{}] topic system informations", data.name);
-
-            let handle = FacadeTopic::new(data.name, store, repo);
-            let sysinfo = handle.system_info().await?;
-
-            ActionResponse::TopicSystemInfo(sysinfo.into())
+            TopicActionHandler::system_info(&ctx, data.name).await
         }
 
+        // Layer actions
         ActionRequest::LayerCreate(data) => {
-            info!("creating layer `{}`", data.name);
-
-            let handle = FacadeLayer::new(
-                types::LayerLocator::from(data.name.as_str()), //
-                store,
-                repo,
-            );
-            handle.create(data.description).await?;
-
-            ActionResponse::Empty
+            LayerActionHandler::create(&ctx, data.name, data.description).await
         }
-
-        ActionRequest::LayerDelete(data) => {
-            warn!("deleting layer `{}`", data.name);
-
-            let handle = FacadeLayer::new(
-                types::LayerLocator::from(data.name.as_str()), //
-                store,
-                repo,
-            );
-            handle.delete().await?;
-
-            ActionResponse::Empty
-        }
-
+        ActionRequest::LayerDelete(data) => LayerActionHandler::delete(&ctx, data.name).await,
         ActionRequest::LayerUpdate(data) => {
-            info!(
-                "updating layer `{}` with new name `{}` and new description `{}`",
-                data.prev_name, data.curr_name, data.curr_description
-            );
-
-            let handle = FacadeLayer::new(
-                types::LayerLocator::from(data.prev_name.as_str()),
-                store,
-                repo,
-            );
-            handle
-                .update(
-                    types::LayerLocator::from(data.curr_name.as_str()),
-                    &data.curr_description,
-                )
-                .await?;
-
-            ActionResponse::Empty
+            LayerActionHandler::update(&ctx, data.prev_name, data.curr_name, data.curr_description)
+                .await
         }
+        ActionRequest::LayerList(_) => LayerActionHandler::list(&ctx).await,
 
-        ActionRequest::LayerList(_) => {
-            info!("request layer list");
-
-            let layers = FacadeLayer::all(repo).await?;
-
-            ActionResponse::LayerList(layers.into())
-        }
-
-        // (cabba) FIXME: move this code in a QueryFacade in order to avoid using
-        //                repo low level function directly, do this when the query system is finalized
-        ActionRequest::Query(data) => {
-            info!("performing a query");
-
-            let filter = marshal::query_filter_from_serde_value(data.query)?;
-
-            trace!("query filter: {:?}", filter);
-
-            let groups = FacadeQuery::query(filter, ts_engine, repo).await?;
-
-            trace!("groups found: {:?}", groups);
-
-            ActionResponse::Query(groups.into())
-        }
-    };
-
-    Ok(response)
+        // Query actions
+        ActionRequest::Query(data) => QueryActionHandler::execute(&ctx, data.query).await,
+    }
 }
 
 #[cfg(test)]
@@ -315,9 +102,11 @@ mod tests {
 
     use super::*;
 
-    use crate::{repo, rw};
+    use crate::{
+        marshal, repo, repo::FacadeSequence, repo::FacadeTopic, rw, types, types::MetadataBlob,
+    };
 
-    /// Creates and empty sequence (no data) for testing purposes.
+    /// Creates an empty sequence (no data) for testing purposes.
     async fn create_empty_sequence(
         repo: &repo::testing::Repository,
         store: &store::testing::Store,
@@ -340,7 +129,7 @@ mod tests {
         Ok(record)
     }
 
-    /// Creates and empty sequence (no data) for testing purposes.
+    /// Creates an empty topic (no data) for testing purposes.
     async fn create_empty_topic(
         repo: &repo::testing::Repository,
         store: &store::testing::Store,
@@ -367,7 +156,7 @@ mod tests {
     }
 
     #[sqlx::test]
-    /// This tests checks the creation against the repository and compares values to check if
+    /// This test checks the creation against the repository and compares values to check if
     /// the creation was successful.
     async fn sequence_create(pool: sqlx::Pool<repo::Database>) -> sqlx::Result<()> {
         let name = "/test_sequence".to_owned();
@@ -408,10 +197,10 @@ mod tests {
             let user_metadata: serde_json::Value =
                 handle.metadata().await.unwrap().user_metadata.into();
 
-            // check that user_metadata are saved correcly
+            // Check that user_metadata are saved correctly
             assert_eq!(request.user_metadata, user_metadata);
         } else {
-            panic!("wrong response return")
+            panic!("wrong response returned")
         }
 
         Ok(())
@@ -437,7 +226,7 @@ mod tests {
     }
 
     #[sqlx::test]
-    /// Test checking if the creation of an already existing sequence fails.
+    /// Test checking if the creation of a topic succeeds.
     async fn topic_create(pool: sqlx::Pool<repo::Database>) -> sqlx::Result<()> {
         let sequence_name = "test_sequence".to_owned();
         let topic_name = "test_sequence/test_topic".to_owned();
@@ -458,7 +247,7 @@ mod tests {
     }
 
     #[sqlx::test]
-    /// Test checking if the creation of an already existing sequence fails.
+    /// Test checking if the creation of a topic with unauthorized name fails.
     async fn topic_create_unauthorized(pool: sqlx::Pool<repo::Database>) -> sqlx::Result<()> {
         let sequence_name = "test_sequence".to_owned();
         let topic_name = "test_topic".to_owned();
@@ -471,7 +260,7 @@ mod tests {
             .await
             .unwrap();
 
-        // this should fail since the topic name is not a child of the sequence
+        // This should fail since the topic name is not a child of the sequence
         let topic = create_empty_topic(&repo, &store, &sequence, &topic_name).await;
 
         if topic.is_ok() {
