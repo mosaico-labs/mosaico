@@ -139,7 +139,7 @@ class TopicHandler:
         exc_type: Optional[Type[BaseException]],
         exc_val: Optional[BaseException],
         exc_tb: Optional[Any],
-    ) -> bool:
+    ) -> None:
         """Context manager exit for TopicHandler."""
         try:
             self.close()
@@ -147,7 +147,6 @@ class TopicHandler:
             log.exception(
                 f"Error releasing resources allocated from TopicHandler '{self._topic.name}'.\nInner err: {e}"
             )
-        return False
 
     @property
     def user_metadata(self):

@@ -131,15 +131,13 @@ class TopicWriter:
         exc_type: Optional[Type[BaseException]],
         exc_val: Optional[BaseException],
         exc_tb: Optional[Any],
-    ) -> bool:
+    ) -> None:
         """
         Context manager exit.
 
         Guarantees cleanup of the Flight stream. If an exception occurred within
         the block, it triggers the configured `OnErrorPolicy` (e.g., reporting the error).
-
-        Returns:
-            bool: False, ensuring exceptions are propagated.
+        Exceptions from the with-block are always propagated.
         """
         error_occurred = exc_type is not None
 
@@ -162,9 +160,6 @@ class TopicWriter:
                 log.exception(
                     f"Error handling topic '{self._name}' after exception: {e}"
                 )
-
-        # Do not suppress any exception from the with-block
-        return False
 
     def __del__(self):
         """Destructor check to ensure `finalize()` was called."""
