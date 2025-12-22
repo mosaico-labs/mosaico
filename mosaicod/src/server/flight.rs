@@ -96,11 +96,15 @@ impl FlightService for MosaicoFlightService {
 
     async fn list_flights(
         &self,
-        _request: Request<Criteria>,
+        request: Request<Criteria>,
     ) -> Result<Response<Self::ListFlightsStream>, Status> {
-        Err(Status::unimplemented(
-            "list_flights is currenlty unimplemented",
-        ))
+        let criteria = request.into_inner();
+
+        let stream = endpoints::list_flights(self.store.clone(), self.repo.clone(), criteria)
+            .await
+            .inspect_err(log_server_error)?;
+
+        Ok(Response::new(stream))
     }
 
     async fn get_flight_info(
