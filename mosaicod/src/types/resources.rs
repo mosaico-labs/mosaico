@@ -15,11 +15,11 @@ pub enum ResourceType {
 #[derive(Debug, Clone)]
 pub struct TopicResourceLocator {
     locator: String,
-    timestamp_range: Option<TimestampRange>,
+    pub timestamp_range: Option<TimestampRange>,
 }
 
 impl TopicResourceLocator {
-    pub fn with_timestamp_range(&mut self, ts: TimestampRange) -> &mut Self {
+    pub fn with_timestamp_range(mut self, ts: TimestampRange) -> Self {
         self.timestamp_range = Some(ts);
         self
     }
