@@ -1,3 +1,4 @@
+use super::TimestampRange;
 use crate::{params, rw, traits};
 use std::path;
 
@@ -12,11 +13,30 @@ pub enum ResourceType {
 }
 
 #[derive(Debug, Clone)]
-pub struct TopicResourceLocator(String);
+pub struct TopicResourceLocator {
+    locator: String,
+    timestamp_range: Option<TimestampRange>,
+}
+
+impl TopicResourceLocator {
+    pub fn with_timestamp_range(&mut self, ts: TimestampRange) -> &mut Self {
+        self.timestamp_range = Some(ts);
+        self
+    }
+}
+
+impl Default for TopicResourceLocator {
+    fn default() -> Self {
+        Self {
+            locator: "".to_owned(),
+            timestamp_range: None,
+        }
+    }
+}
 
 impl Resource for TopicResourceLocator {
     fn name(&self) -> &String {
-        &self.0
+        &self.locator
     }
 
     fn resource_type(&self) -> ResourceType {
@@ -29,19 +49,26 @@ where
     T: AsRef<path::Path>,
 {
     fn from(value: T) -> Self {
-        Self(sanitize_name(&value.as_ref().to_string_lossy()))
+        Self {
+            locator: sanitize_name(&value.as_ref().to_string_lossy()),
+            ..Default::default()
+        }
     }
 }
 
 impl std::fmt::Display for TopicResourceLocator {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "[topic|{}]", self.0)
+        if let Some(ts) = &self.timestamp_range {
+            write!(f, "[topic|{}|{}]", self.locator, ts)
+        } else {
+            write!(f, "[topic|{}]", self.locator)
+        }
     }
 }
 
 impl From<TopicResourceLocator> for String {
     fn from(value: TopicResourceLocator) -> Self {
-        value.0
+        value.locator
     }
 }
 
@@ -168,6 +195,9 @@ pub struct SequenceSystemInfo {
     pub created_datetime: super::DateTime,
 }
 
+/// Groups a specific sequence with its associated topics and an optional time filter.
+///
+/// This structure acts as a container to link a [`SequenceResourceLocator`] with multiple [`TopicResourceLocator`]s.
 #[derive(Debug)]
 pub struct SequenceTopicGroup {
     pub sequence: SequenceResourceLocator,
