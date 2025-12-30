@@ -20,14 +20,14 @@ use std::sync::Arc;
 
 use super::Error;
 
-pub type TimeseriesGwRef = Arc<TimeseriesGw>;
+pub type TimeseriesGatewayRef = Arc<TimeseriesGateway>;
 
-pub struct TimeseriesGw {
+pub struct TimeseriesGateway {
     runtime: Arc<RuntimeEnv>,
     store: Arc<store::Store>,
 }
 
-impl TimeseriesGw {
+impl TimeseriesGateway {
     pub fn try_new(store: Arc<store::Store>) -> Result<Self, Error> {
         let runtime = Arc::new(
             RuntimeEnvBuilder::new()
@@ -35,7 +35,7 @@ impl TimeseriesGw {
                 .build()?,
         );
 
-        Ok(TimeseriesGw {
+        Ok(TimeseriesGateway {
             runtime,
             store: store.clone(),
         })

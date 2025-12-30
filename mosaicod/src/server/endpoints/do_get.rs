@@ -12,7 +12,7 @@ use crate::{marshal, params, query, repo, server::errors::ServerError, store, ty
 pub async fn do_get(
     store: store::StoreRef,
     repo: repo::Repository,
-    ts_engine: query::TimeseriesGwRef,
+    ts_engine: query::TimeseriesGatewayRef,
     ticket: Ticket,
 ) -> Result<FlightDataEncoder, ServerError> {
     let ticket = String::from_utf8(ticket.ticket.to_vec())

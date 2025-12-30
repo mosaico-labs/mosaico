@@ -14,9 +14,15 @@ use tokio::sync::Semaphore;
 pub struct FacadeQuery {}
 
 impl FacadeQuery {
+    /// Perform a query in the system
+    ///
+    /// If `include_timestamp_range` is `true` the result will include a time range `[tl, tu]` where:
+    /// - `tl` is the timestamp of the first occurence of the filter for a given topic
+    /// - `tu` is the timestamp of the last occurence of the filter for a given topic
     pub async fn query(
         filter: query::Filter,
-        ts_gw: query::TimeseriesGwRef,
+        include_timestamp_range: bool,
+        ts_gw: query::TimeseriesGatewayRef,
         repo: repo::Repository,
     ) -> Result<types::SequenceTopicGroups, FacadeError> {
         let mut result: Option<types::SequenceTopicGroups> = None;

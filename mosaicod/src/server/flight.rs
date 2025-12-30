@@ -60,13 +60,13 @@ pub async fn start(
 struct MosaicoFlightService {
     store: store::StoreRef,
     repo: repo::Repository,
-    ts_engine: query::TimeseriesGwRef,
+    ts_engine: query::TimeseriesGatewayRef,
 }
 
 impl MosaicoFlightService {
     pub fn try_new(store: store::StoreRef, repo: repo::Repository) -> Result<Self, String> {
         let ts_engine =
-            Arc::new(query::TimeseriesGw::try_new(store.clone()).map_err(|e| e.to_string())?);
+            Arc::new(query::TimeseriesGateway::try_new(store.clone()).map_err(|e| e.to_string())?);
 
         Ok(MosaicoFlightService {
             store,
