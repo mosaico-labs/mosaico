@@ -117,55 +117,58 @@ def _do_action(
         action_results = client.do_action(fl.Action(action_name, body))
 
         # Process the result stream (usually contains 0 or 1 item)
+        # Accumulate bytes in a list
+        # (much faster than repeatedly concatenating immutable bytes objects)
+        chunks: list[bytes] = []
+
         for result in action_results:
-            if not result.body:
-                continue
+            if result.body:
+                # result.body is a PyArrow Buffer; to_pybytes() is zero-copy or low-overhead
+                chunks.append(result.body.to_pybytes())
 
-            try:
-                result_str = result.body.to_pybytes().decode("utf-8")
-                log.debug(f"Action result body f{result_str}")
-                result_dict: dict[str, Any] = json.loads(result_str)
-            except Exception as decode_err:
-                log.warning(
-                    f"Failed to decode Flight action response for '{action_name}': {decode_err}"
+        # If no data was received
+        if not chunks:
+            return None
+
+        # Join all chunks into one contiguous byte sequence
+        full_response_bytes = b"".join(chunks)
+
+        # Decode and Parse exactly once
+        result_str = full_response_bytes.decode("utf-8")
+        result_dict: dict[str, Any] = json.loads(result_str)
+
+        # --- Validation ---
+        # Verify the server is responding to the correct action
+        returned_action = result_dict.get("action")
+        if returned_action is None or returned_action == "empty":
+            log.debug(f"Action '{action_name}' response had no 'action' field.")
+            return None
+
+        if returned_action != action_name:
+            log.warning(
+                f"Unexpected action in response: got '{result_dict.get('action')}', expected '{action_name}'"
+            )
+            return None
+
+        response_data = result_dict.get("response")
+        if response_data is None:
+            log.debug(f"Action '{action_name}' response had no 'response' field.")
+            return None
+
+        # --- Deserialization ---
+        if expected_type is not None:
+            # Ensure the registered class matches what the caller expects
+            response_cls = _DoActionResponse.get_class_for_action(action)
+            if response_cls is not expected_type:
+                raise TypeError(
+                    f"Action '{action_name}' returned an unexpected type. "
+                    f"Got {response_cls.__name__}, but expected {expected_type.__name__}"
                 )
-                return None
-
-            # --- Validation ---
-            # Verify the server is responding to the correct action
-            returned_action = result_dict.get("action")
-            if returned_action is None or returned_action == "empty":
-                log.debug(f"Action '{action_name}' response had no 'action' field.")
-                return None
-
-            if returned_action != action_name:
-                log.warning(
-                    f"Unexpected action in response: got '{result_dict.get('action')}', expected '{action_name}'"
-                )
-                return None
-
-            response_data = result_dict.get("response")
-            if response_data is None:
-                log.debug(f"Action '{action_name}' response had no 'response' field.")
-                return None
-
-            # --- Deserialization ---
-            if expected_type is not None:
-                # Ensure the registered class matches what the caller expects
-                response_cls = _DoActionResponse.get_class_for_action(action)
-                if response_cls is not expected_type:
-                    raise TypeError(
-                        f"Action '{action_name}' returned an unexpected type. "
-                        f"Got {response_cls.__name__}, but expected {expected_type.__name__}"
-                    )
-                # Parse data
-                return expected_type.from_dict(response_data)
-            else:
-                # Caller didn't ask for a specific type (or return value might be raw)
-                return response_data
-
-        log.debug(f"No response body found for Flight action '{action_name}'.")
-        return None
+            # Parse data
+            return expected_type.from_dict(response_data)
+        else:
+            # Caller didn't ask for a specific type (or return value might be raw)
+            return response_data
 
     except Exception as e:
         log.exception(f"Flight action '{action_name}' failed: {e}")
