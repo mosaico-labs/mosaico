@@ -14,7 +14,7 @@ use crate::{marshal, repo, types};
 pub struct SequenceRecord {
     pub sequence_id: i32,
     pub sequence_uuid: uuid::Uuid,
-    pub sequence_name: String,
+    pub locator_name: String,
 
     pub(super) locked: bool,
 
@@ -47,7 +47,7 @@ impl SequenceRecord {
         Self {
             sequence_id: repo::UNREGISTERED,
             sequence_uuid: uuid::Uuid::new_v4(),
-            sequence_name: name.to_owned(),
+            locator_name: name.to_owned(),
             locked: false,
             creation_unix_tstamp: types::Timestamp::now().into(),
             user_metadata: None,

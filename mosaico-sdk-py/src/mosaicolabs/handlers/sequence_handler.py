@@ -126,7 +126,7 @@ class SequenceHandler:
         exc_type: Optional[Type[BaseException]],
         exc_val: Optional[BaseException],
         exc_tb: Optional[Any],
-    ) -> bool:
+    ) -> None:
         """Context manager exit for SequenceHandler."""
         try:
             self.close()
@@ -134,7 +134,6 @@ class SequenceHandler:
             log.exception(
                 f"Error releasing resources allocated from SequenceHandler '{self._sequence.name}'.\nInner err: {e}"
             )
-        return False
 
     # -------------------- Public methods --------------------
     @property

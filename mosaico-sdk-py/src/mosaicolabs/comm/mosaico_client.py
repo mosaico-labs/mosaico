@@ -170,12 +170,11 @@ class MosaicoClient:
         exc_type: Optional[Type[BaseException]],
         exc_val: Optional[BaseException],
         exc_tb: Optional[Any],
-    ) -> bool:
+    ) -> None:
         """
         Context manager exit point. Ensures resources are closed.
 
-        Returns:
-            bool: False, to propagate any exceptions raised within the `with` block.
+        Exceptions raised within the `with` block are propagated.
         """
         try:
             self.close()
@@ -183,7 +182,6 @@ class MosaicoClient:
             log.exception(
                 f"Error releasing resources allocated from MosaicoClient.\nInner err: {e}"
             )
-        return False
 
     def __del__(self):
         """Destructor. Failsafe if close() is not explicitly called."""

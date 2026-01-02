@@ -4,6 +4,8 @@ pub enum FacadeError {
     NotFound(String),
     #[error("missing metadata field `{0}`")]
     MissingMetadataField(String),
+    #[error("missing serialization format for resource {0}")]
+    MissingSerializationFormat(String),
     #[error("error reading {src}: {msg}")]
     ReadError { src: String, msg: String },
     #[error("error writing to {dst} data: {msg}")]

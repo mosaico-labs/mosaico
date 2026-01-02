@@ -136,7 +136,6 @@ pub async fn do_action(
 
         ActionRequest::TopicCreate(data) => {
             info!("requested resource {} creation", data.name);
-            // (cabba) TODO: perform checks that the topic will be located in a "subfolder" of the sequence
 
             // Find associated sequence
             let handle = FacadeTopic::new(data.name.clone(), store, repo);
@@ -290,8 +289,6 @@ pub async fn do_action(
             ActionResponse::LayerList(layers.into())
         }
 
-        // (cabba) FIXME: move this code in a QueryFacade in order to avoid using
-        //                repo low level function directly, do this when the query system is finalized
         ActionRequest::Query(data) => {
             info!("performing a query");
 

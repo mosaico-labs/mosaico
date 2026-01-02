@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            INSERT INTO topic_t\n                (\n                    topic_uuid, sequence_id, topic_name, creation_unix_tstamp, \n                    serialization_format, ontology_tag, locked, user_metadata\n                ) \n            VALUES \n                ($1, $2, $3, $4, $5, $6, $7, $8) \n            RETURNING \n                *\n    ",
+  "query": "\n            UPDATE topic_t\n            SET user_metadata = $1\n            WHERE locator_name = $2\n            RETURNING * \n    ",
   "describe": {
     "columns": [
       {
@@ -20,7 +20,7 @@
       },
       {
         "ordinal": 3,
-        "name": "topic_name",
+        "name": "locator_name",
         "type_info": "Text"
       },
       {
@@ -51,14 +51,8 @@
     ],
     "parameters": {
       "Left": [
-        "Uuid",
-        "Int4",
-        "Text",
-        "Int8",
-        "Text",
-        "Text",
-        "Bool",
-        "Jsonb"
+        "Jsonb",
+        "Text"
       ]
     },
     "nullable": [
@@ -73,5 +67,5 @@
       false
     ]
   },
-  "hash": "476101a1364b88e2dd419743edbde6183f86f6f1c1bf463a4bc57376ca6a908c"
+  "hash": "7050173fd1a451a82796d74d5582a3d458af6bc9ea35290912e5452d5faf8a1a"
 }

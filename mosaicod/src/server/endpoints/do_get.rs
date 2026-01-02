@@ -22,19 +22,19 @@ pub async fn do_get(
 
     // Create topic handle
     let topic = ticket;
-    let topic_handle = repo::FacadeTopic::new(topic, store, repo.clone());
+    let tfacade = repo::FacadeTopic::new(topic, store, repo.clone());
 
     // Read metadata from topic
-    let metadata = topic_handle.metadata().await?;
+    let metadata = tfacade.metadata().await?;
 
     trace!("{:?}", metadata);
 
     // Compute optimal batch size from database statistics
-    let batch_size = compute_optimal_batch_size(&repo, topic_handle.locator.name()).await?;
+    let batch_size = compute_optimal_batch_size(&tfacade).await?;
 
     let query_result = ts_engine
         .read(
-            &topic_handle.locator.name(),
+            &tfacade.locator.name(),
             metadata.properties.serialization_format,
             batch_size,
         )
@@ -65,11 +65,9 @@ pub async fn do_get(
 /// Returns `Some(batch_size)` if statistics are available, `None` otherwise
 /// (e.g., for empty topics).
 async fn compute_optimal_batch_size(
-    repo: &repo::Repository,
-    topic_name: &str,
+    tfacade: &repo::FacadeTopic,
 ) -> Result<Option<usize>, ServerError> {
-    let mut cx = repo.connection();
-    let stats = repo::topic_get_stats(&mut cx, topic_name).await?;
+    let stats = tfacade.chunks_stats().await?;
 
     if stats.total_size_bytes == 0 || stats.total_row_count == 0 {
         return Ok(None);

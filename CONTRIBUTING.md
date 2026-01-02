@@ -21,7 +21,7 @@ Please report any bugs or issues in the [Issues](https://github.com/mosaico-labs
 ## Do you want to contribute code?
 ### `mosaicod` (Backend)
 * **Setup:** Ensure you have a working [Rust toolchain](https://rust-lang.org/tools/install/) installed.
-* **Build Instructions:** Refer to the [`mosaicod` main guide](./README.md) for detailed instructions on building from source.
+* **Build Instructions:** Refer to the [`mosaicod` main guide](./mosaicod/README.md) for detailed instructions on building from source.
 * **Database Schema:** If you modify the database schema, you **must** run `cargo sqlx prepare` and commit the generated `.sqlx` directory.
 * **Safety:** Avoid `unsafe` blocks unless absolutely necessary for FFI or zero-copy buffer handling.
 * **Style & Linting:** Your code must be formatted via `cargo fmt` and pass `cargo clippy` without warnings. CI actions are in place to enforce these checks.
@@ -63,7 +63,7 @@ This preliminary step ensures:
 
 ## Do you want to improve the documentation?
 * Update the relevant documentation if you modify any public interfaces.
-* We encourage adding code snippets to the `examples/` directory, specifically for ROS ingestion or Streamer usage.
+* We encourage adding code snippets to the relevant documentation files, specifically for ROS ingestion or Streamer usage.
 
 ## Submission
 1. **Fork** the repository.

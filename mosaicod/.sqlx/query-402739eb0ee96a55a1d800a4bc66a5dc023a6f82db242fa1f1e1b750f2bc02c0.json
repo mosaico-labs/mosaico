@@ -1,35 +1,30 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT * FROM sequence_t WHERE sequence_name=$1",
+  "query": "\n          SELECT notify.* FROM sequence_notify_t AS notify\n          JOIN sequence_t AS seq ON notify.sequence_id = seq.sequence_id\n          WHERE seq.locator_name=$1\n    ",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "sequence_id",
+        "name": "sequence_notify_id",
         "type_info": "Int4"
       },
       {
         "ordinal": 1,
-        "name": "sequence_uuid",
-        "type_info": "Uuid"
+        "name": "sequence_id",
+        "type_info": "Int4"
       },
       {
         "ordinal": 2,
-        "name": "sequence_name",
+        "name": "notify_type",
         "type_info": "Text"
       },
       {
         "ordinal": 3,
-        "name": "locked",
-        "type_info": "Bool"
+        "name": "msg",
+        "type_info": "Text"
       },
       {
         "ordinal": 4,
-        "name": "user_metadata",
-        "type_info": "Jsonb"
-      },
-      {
-        "ordinal": 5,
         "name": "creation_unix_tstamp",
         "type_info": "Int8"
       }
@@ -43,10 +38,9 @@
       false,
       false,
       false,
-      false,
       true,
       false
     ]
   },
-  "hash": "c35d369280898d882de0af15e452e3fd5204088392c539f9240cd62a1c04734a"
+  "hash": "402739eb0ee96a55a1d800a4bc66a5dc023a6f82db242fa1f1e1b750f2bc02c0"
 }

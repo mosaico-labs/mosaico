@@ -51,11 +51,11 @@ poetry --version
 
 ### Clone and Install SDK
 
-Clone the repository and navigate to the project root:
+Clone the repository and navigate to the SDK directory:
 
 ```bash
-git clone https://github.com/mosaico-labs/mosaico-sdk-py.git
-cd mosaico-sdk-py
+git clone https://github.com/mosaico-labs/mosaico.git
+cd mosaico/mosaico-sdk-py
 ```
 
 Install the dependencies. This will automatically create a virtual environment and install all required libraries (PyArrow, NumPy, ROSBags, etc.):

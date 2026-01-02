@@ -109,7 +109,7 @@ class SequenceWriter:
         exc_type: Optional[Type[BaseException]],
         exc_val: Optional[BaseException],
         exc_tb: Optional[Any],
-    ) -> bool:
+    ) -> None:
         """
         Finalizes the sequence.
 
@@ -157,8 +157,6 @@ class SequenceWriter:
 
             if exc_type is None and out_exc is not None:
                 raise out_exc  # Re-raise the cleanup error if it's the only one
-
-        return False
 
     def __del__(self):
         """Destructor check to warn if the writer was left pending."""

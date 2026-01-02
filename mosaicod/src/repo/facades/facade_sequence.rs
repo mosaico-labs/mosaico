@@ -32,6 +32,22 @@ impl FacadeSequence {
         }
     }
 
+    /// Retrieves all sequences from the repository.
+    ///
+    /// Returns a list of all available sequences as [`SequenceResourceLocator`] objects.
+    /// This is primarily used for catalog discovery operations.
+    pub async fn all(
+        repo: repo::Repository,
+    ) -> Result<Vec<types::SequenceResourceLocator>, FacadeError> {
+        let mut cx = repo.connection();
+        let records = repo::sequence_find_all(&mut cx).await?;
+
+        Ok(records
+            .into_iter()
+            .map(|record| types::SequenceResourceLocator::from(record.locator_name))
+            .collect())
+    }
+
     /// Creates a new repository entry for this sequence.
     ///
     /// The newly created sequence starts in an **unlocked** state, allowing
@@ -229,7 +245,6 @@ impl FacadeSequence {
 
     /// Computes system info for the sequence
     pub async fn system_info(&self) -> Result<types::SequenceSystemInfo, FacadeError> {
-        // (cabba) TODO: avoid transactions for this kind of queries?
         let mut cx = self.repo.connection();
         let record = repo::sequence_find_by_locator(&mut cx, &self.locator).await?;
 

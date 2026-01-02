@@ -111,6 +111,7 @@ def _do_action(
     try:
         # Serialize payload
         body = json.dumps(payload).encode("utf-8")
+        log.debug(f"Action request body: {body}")
 
         # Execute Flight call
         action_results = client.do_action(fl.Action(action_name, body))

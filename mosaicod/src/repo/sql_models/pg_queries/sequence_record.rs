@@ -45,7 +45,7 @@ pub async fn sequence_find_by_locator(
     trace!("searching by name `{}`", loc);
     let res = sqlx::query_as!(
         sql_models::SequenceRecord,
-        "SELECT * FROM sequence_t WHERE sequence_name=$1",
+        "SELECT * FROM sequence_t WHERE locator_name=$1",
         loc.name(),
     )
     .fetch_one(exe.as_exec())
@@ -60,10 +60,10 @@ pub async fn sequence_find_all_topic_names(
     trace!("searching topic locators by `{}`", loc);
     let res = sqlx::query_scalar!(
         r#"
-        SELECT topic.topic_name
+        SELECT topic.locator_name
         FROM topic_t AS topic
         JOIN sequence_t AS sequence ON topic.sequence_id = sequence.sequence_id
-        WHERE sequence.sequence_name = $1
+        WHERE sequence.locator_name = $1
         "#,
         loc.name()
     )
@@ -96,7 +96,7 @@ pub async fn sequence_delete_unlocked(
 ) -> Result<(), repo::Error> {
     trace!("deleting unlocked `{}`", loc);
     sqlx::query!(
-        "DELETE FROM sequence_t WHERE sequence_name=$1 AND locked=FALSE",
+        "DELETE FROM sequence_t WHERE locator_name=$1 AND locked=FALSE",
         loc.name()
     )
     .execute(exe.as_exec())
@@ -114,7 +114,7 @@ pub async unsafe fn sequence_delete(
     loc: &types::SequenceResourceLocator,
 ) -> Result<(), repo::Error> {
     trace!("(unsafe) deleting `{}`", loc);
-    sqlx::query!("DELETE FROM sequence_t WHERE sequence_name=$1", loc.name())
+    sqlx::query!("DELETE FROM sequence_t WHERE locator_name=$1", loc.name())
         .execute(exe.as_exec())
         .await?;
     Ok(())
@@ -129,14 +129,14 @@ pub async fn sequence_create(
         sql_models::SequenceRecord,
         r#"
             INSERT INTO sequence_t
-                (sequence_uuid, sequence_name, locked, creation_unix_tstamp, user_metadata) 
+                (sequence_uuid, locator_name, locked, creation_unix_tstamp, user_metadata) 
             VALUES 
                 ($1, $2, $3, $4, $5) 
             RETURNING 
                 *
     "#,
         record.sequence_uuid,
-        record.sequence_name,
+        record.locator_name,
         record.locked,
         record.creation_unix_tstamp,
         record.user_metadata
@@ -155,7 +155,7 @@ pub async fn sequence_lock(
         r#"
             UPDATE sequence_t
             SET locked = TRUE 
-            WHERE sequence_name = $1
+            WHERE locator_name = $1
     "#,
         loc.name()
     )
@@ -179,7 +179,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(record.sequence_uuid, rrecord.sequence_uuid);
-        assert_eq!(record.sequence_name, rrecord.sequence_name);
+        assert_eq!(record.locator_name, rrecord.locator_name);
         assert_eq!(record.creation_unix_tstamp, rrecord.creation_unix_tstamp);
         assert_eq!(record.locked, rrecord.locked);
 

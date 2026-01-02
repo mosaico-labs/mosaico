@@ -48,7 +48,7 @@ impl FacadeTopic {
             return Err(FacadeError::SequenceLocked);
         }
 
-        let sloc = types::SequenceResourceLocator::from(&srecord.sequence_name);
+        let sloc = types::SequenceResourceLocator::from(&srecord.locator_name);
 
         // Ensure that this topic is child of the provided sequence, i.e. they are related with the same
         // name structure
@@ -281,9 +281,15 @@ impl FacadeTopic {
         Ok(())
     }
 
+    /// Returns the statistics about topic's chunks
+    pub async fn chunks_stats(&self) -> Result<types::TopicChunksStats, FacadeError> {
+        let mut cx = self.repo.connection();
+        let stats = repo::topic_get_stats(&mut cx, &self.locator).await?;
+        Ok(stats)
+    }
+
     /// Computes system info for the topic
     pub async fn system_info(&self) -> Result<types::TopicSystemInfo, FacadeError> {
-        // (cabba) TODO: avoid transactions for this kind of queries?
         let mut cx = self.repo.connection();
         let record = repo::topic_find_by_locator(&mut cx, &self.locator).await?;
 

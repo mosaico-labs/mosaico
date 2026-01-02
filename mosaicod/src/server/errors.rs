@@ -2,7 +2,6 @@ use thiserror::Error;
 
 use crate::{query, rw};
 
-// (cabba) TODO: make some cleanup on the errors
 #[derive(Error, Debug)]
 pub enum ServerError {
     #[error("error during data streaming :: {0}")]
