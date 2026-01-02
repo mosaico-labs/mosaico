@@ -9,6 +9,7 @@ import pyarrow as pa
 from mosaicolabs.handlers import TopicWriter
 from mosaicolabs.comm import MosaicoClient
 from mosaicolabs.enum import SequenceStatus, SerializationFormat
+from testing.integration.config import UPLOADED_SEQUENCE_NAME
 
 
 def test_invalid_host():
@@ -98,3 +99,35 @@ def test_topic_push_not_serializable(_client: MosaicoClient):
 
     # free resources
     _client.close()
+
+
+def test_non_existing_topic_handler(
+    _client: MosaicoClient,
+    _inject_sequence_data_stream,
+):
+    """Test the exception raising of non-existing topic handler from sequence"""
+    seqhandler = _client.sequence_handler(UPLOADED_SEQUENCE_NAME)
+    # Sequence must exist
+    assert seqhandler is not None
+
+    with pytest.raises(
+        ValueError, match="Topic 'non-existing-topic-name' not available in sequence"
+    ):
+        seqhandler.get_topic_handler("non-existing-topic-name")
+
+
+def test_sequence_streamer_non_existing_topics(
+    _client: MosaicoClient,
+    _inject_sequence_data_stream,
+):
+    """Test the exception raising of non-existing topics when spawning data-stream from sequence"""
+    seqhandler = _client.sequence_handler(UPLOADED_SEQUENCE_NAME)
+    # Sequence must exist
+    assert seqhandler is not None
+
+    with pytest.raises(ValueError, match="Invalid input topic names"):
+        seqhandler.get_data_streamer(
+            topics=[
+                "non-existing-topic-name",
+            ]
+        )

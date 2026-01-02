@@ -60,12 +60,10 @@ def test_query_topic_by_creation_timestamp(
     # We expect to obtain all the topics
     expected_topic_names = list(topic_to_metadata_dict.keys())
     assert len(query_resp[0].topics) == len(expected_topic_names)
-    expected_topic_names = [topic for topic in expected_topic_names]
 
     # all the expected topics, and only them
     [_validate_returned_topic_name(topic) for topic in query_resp[0].topics]
     assert all([t in expected_topic_names for t in query_resp[0].topics])
-    assert all([t in query_resp[0].topics for t in expected_topic_names])
 
     # free resources
     _client.close()
@@ -97,11 +95,9 @@ def test_query_topic_by_sensor_tag(
     ]
     # N topics may correspond to this query
     assert len(query_resp[0].topics) == len(expected_topic_names)
-    expected_topic_names = [topic for topic in expected_topic_names]
     # all the expected topics, and only them
     [_validate_returned_topic_name(topic) for topic in query_resp[0].topics]
     assert all([t in expected_topic_names for t in query_resp[0].topics])
-    assert all([t in query_resp[0].topics for t in expected_topic_names])
 
     # free resources
     _client.close()
@@ -136,11 +132,9 @@ def test_query_topic_multi_criteria(
     ]
     # N topics may correspond to this query
     assert len(query_resp[0].topics) == len(expected_topic_names)
-    expected_topic_names = [topic for topic in expected_topic_names]
     # all the expected topics, and only them
     [_validate_returned_topic_name(topic) for topic in query_resp[0].topics]
     assert all([t in expected_topic_names for t in query_resp[0].topics])
-    assert all([t in query_resp[0].topics for t in expected_topic_names])
 
     # Test with multiple criteria: trigger between
     # Query by ontology_tag
@@ -175,11 +169,9 @@ def test_query_topic_multi_criteria(
     ]
     # N topics may correspond to this query
     assert len(query_resp[0].topics) == len(expected_topic_names)
-    expected_topic_names = [topic for topic in expected_topic_names]
     # all the expected topics, and only them
     [_validate_returned_topic_name(topic) for topic in query_resp[0].topics]
     assert all([t in expected_topic_names for t in query_resp[0].topics])
-    assert all([t in query_resp[0].topics for t in expected_topic_names])
 
     # free resources
     _client.close()
@@ -251,17 +243,15 @@ def test_query_topic_metadata(
     assert query_resp is not None
     # One (1) sequence corresponds to this query
     assert len(query_resp) == 1
-    # Two (2) topics correspond to this query
-    assert len(query_resp[0].topics) == 2
     # The target topics are 'UPLOADED_IMU_FRONT_TOPIC' and 'UPLOADED_IMU_CAMERA_TOPIC'
     expected_topic_names = [
         UPLOADED_IMU_FRONT_TOPIC,
         UPLOADED_IMU_CAMERA_TOPIC,
     ]
+    assert len(expected_topic_names) == len(query_resp[0].topics)
     # all the expected topics, and only them
     [_validate_returned_topic_name(topic) for topic in query_resp[0].topics]
     assert all([t in expected_topic_names for t in query_resp[0].topics])
-    assert all([t in query_resp[0].topics for t in expected_topic_names])
 
     # Test with nested field
     query_resp = _client.query(

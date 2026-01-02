@@ -9,6 +9,7 @@ from testing.integration.config import (
 from .helpers import (
     DataStreamItem,
     topic_to_metadata_dict,
+    topic_list,
     _validate_returned_topic_name,
 )
 
@@ -27,7 +28,7 @@ def test_sequence_metadata_recvd(
     _client.close()
 
 
-@pytest.mark.parametrize("topic_name", list(topic_to_metadata_dict.keys()))
+@pytest.mark.parametrize("topic_name", topic_list)
 def test_topic_metadata_recvd(
     _client: MosaicoClient,
     topic_name,
@@ -46,7 +47,7 @@ def test_topic_metadata_recvd(
     _client.close()
 
 
-@pytest.mark.parametrize("topic_name", list(topic_to_metadata_dict.keys()))
+@pytest.mark.parametrize("topic_name", topic_list)
 def test_topic_handler_slash_in_name(
     _client: MosaicoClient,
     topic_name: str,
@@ -113,7 +114,7 @@ def test_sequence_handler_slash_in_name(
     _client.close()
 
 
-@pytest.mark.parametrize("topic_name", list(topic_to_metadata_dict.keys()))
+@pytest.mark.parametrize("topic_name", topic_list)
 def test_topic_handlers(
     _client: MosaicoClient,
     topic_name,
@@ -123,9 +124,8 @@ def test_topic_handlers(
     seqhandler = _client.sequence_handler(UPLOADED_SEQUENCE_NAME)
     # Sequence must exist
     assert seqhandler is not None
+    # This must raise if topic does not exist
     tophandler_from_seq = seqhandler.get_topic_handler(topic_name)
-    # Topic must exist
-    assert tophandler_from_seq is not None
     _validate_returned_topic_name(tophandler_from_seq.name)
 
     # get the same handler from client
@@ -143,7 +143,11 @@ def test_topic_handlers(
 
 
 def test_sequence_data_stream(
-    _client: MosaicoClient, _make_sequence_data_stream: List[DataStreamItem]
+    _client: MosaicoClient,
+    _make_sequence_data_stream: List[
+        DataStreamItem
+    ],  # Get the data stream for comparisons
+    _inject_sequence_data_stream,  # Make sure data are available on the server
 ):
     """Test that the sequence data stream is correctly unpacked and provided"""
     msg_count = 0
@@ -152,9 +156,9 @@ def test_sequence_data_stream(
     assert seqhandler is not None
     # all the original topics are received
     [_validate_returned_topic_name(topic) for topic in seqhandler.topics]
-    assert all([topic in seqhandler.topics for topic in topic_to_metadata_dict.keys()])
-    # ONLY the original topics are received
-    assert all([topic in topic_to_metadata_dict.keys() for topic in seqhandler.topics])
+    # ALL AND ONLY the original topics are received
+    assert all([topic in seqhandler.topics for topic in topic_list])
+    assert len(seqhandler.topics) == len(topic_list)
 
     # The metadata are coherent
     assert seqhandler.user_metadata == UPLOADED_SEQUENCE_METADATA
@@ -195,12 +199,13 @@ def test_sequence_data_stream(
 
 
 # Repeat for each topic
-@pytest.mark.parametrize("topic", list(topic_to_metadata_dict.keys()))
+@pytest.mark.parametrize("topic", topic_list)
 def test_topic_data_stream(
     _client: MosaicoClient,
     _make_sequence_data_stream: List[
         DataStreamItem
-    ],  # this is necessary to trigger data loading
+    ],  # Get the data stream for comparisons
+    _inject_sequence_data_stream,  # Make sure data are available on the server
     topic: str,
 ):
     """Test that the topic data stream is correctly unpacked and provided"""
@@ -214,17 +219,17 @@ def test_topic_data_stream(
     assert seqhandler is not None
     # All other tests for this sequence have been done or will be done... skip.
 
+    # This must raise if topic does not exist
     tophandler = seqhandler.get_topic_handler(topic)
-    # Topic must exist
-    assert tophandler is not None
     _validate_returned_topic_name(tophandler.name)
     # Trivial: Handler is consistent
     assert tophandler.name == topic
 
     # The metadata are coherent
     assert tophandler.user_metadata == topic_to_metadata_dict[topic]
+    # This must raise if topic handler is malformed
     tstream_handl = tophandler.get_data_streamer()
-    assert tstream_handl is not None
+
     _validate_returned_topic_name(tstream_handl.name())
     assert tstream_handl.name() == topic
 
@@ -260,3 +265,25 @@ def test_topic_data_stream(
 
     # free resources
     _client.close()
+
+
+def test_sequence_data_stream_filter_topics(
+    _client: MosaicoClient,
+    _inject_sequence_data_stream,  # necessary to make sure data are available on server
+):
+    """Test that the sequence data stream is correctly unpacked and provided"""
+    seqhandler = _client.sequence_handler(UPLOADED_SEQUENCE_NAME)
+    # Sequence must exist
+    assert seqhandler is not None
+
+    # get a subset of topics
+    filtered_topics = topic_list[: round(len(topic_list) / 2)]
+    assert len(filtered_topics) > 0
+    ret_topics = set()
+    for topic, _ in seqhandler.get_data_streamer(topics=filtered_topics):
+        # only desired topics must be returned
+        assert topic in filtered_topics
+        ret_topics.add(topic)
+
+    # ALL the desired topics are returned
+    assert len(filtered_topics) == len(ret_topics)

@@ -7,11 +7,12 @@ by merging multiple topic streams into a single, time-ordered iterator.
 
 from mosaicolabs.models.message import Message
 import pyarrow.flight as fl
-from typing import Optional, Dict
+from typing import List, Optional, Dict
 import logging as log
 
 from .internal.topic_read_state import _TopicReadState
 from .topic_reader import TopicDataStreamer
+from .helpers import _parse_ep_ticket
 
 
 class SequenceDataStreamer:
@@ -50,7 +51,7 @@ class SequenceDataStreamer:
         self._topic_readers = topic_readers
 
     @classmethod
-    def connect(cls, sequence_name: str, client: fl.FlightClient):
+    def connect(cls, sequence_name: str, topics: List[str], client: fl.FlightClient):
         """
         Factory method to initialize the Sequence reader.
 
@@ -59,6 +60,7 @@ class SequenceDataStreamer:
 
         Args:
             sequence_name (str): The sequence to read.
+            topics (list[str]): Retrieve the streams from these topics only; ignore the other.
             client (fl.FlightClient): Connected client.
 
         Returns:
@@ -71,6 +73,9 @@ class SequenceDataStreamer:
 
         # Create a reader for each endpoint (topic)
         for ep in flight_info.endpoints:
+            ep_ticket_data = _parse_ep_ticket(ep.ticket)
+            if ep_ticket_data is None or (topics and ep_ticket_data[1] not in topics):
+                continue
             treader = TopicDataStreamer.connect(client=client, ticket=ep.ticket)
             topic_readers[treader.name()] = treader
 

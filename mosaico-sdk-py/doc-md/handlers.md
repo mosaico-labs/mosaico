@@ -163,16 +163,19 @@ This is the handler to an existing sequence. It allows you to inspect what topic
 
 **Streamer Factories**
 
-  * **`get_data_streamer(force_new_instance: bool = False) -> SequenceDataStreamer`**
+  * **`get_data_streamer(topics: List[str] = [], force_new_instance: bool = False) -> SequenceDataStreamer`**
     Creates and returns a `SequenceDataStreamer` initialized to read the **entire** sequence. By default, it caches the streamer instance.
-
+      * **`topics`**: Retrieves the sequence stream from the passed topics only (ignore the other topics, if any). Returns the data-stream from all the topics by default.
       * **`force_new_instance`**: If `True`, closes any existing streamer and creates a fresh one (useful for restarting iteration).
+      
+    Raises `ValueError` if some of the input topic names are not valid.
 
-  * **`get_topic_handler(topic_name: str, force_new_instance: bool = False) -> Optional[TopicHandler]`**
-    Returns a `TopicHandler` for a specific child topic.
-
+  * **`get_topic_handler(topic_name: str, force_new_instance: bool = False) -> TopicHandler`**
+    Returns a `TopicHandler` for a specific child topic:
       * **`topic_name`**: The name of the topic to retrieve.
       * **`force_new_instance`**: If `True`, recreates the handler connection.
+
+    Raises a `ValueError` if the topic name does not exist in the sequence.
 
   * **`close() -> None`**
     Closes all cached topic handlers and active data streamers associated with this handler.
@@ -306,10 +309,11 @@ The `TopicHandler` provides access to metadata, schema definitions, and acts as 
   * Returns the full `Topic` data model. This includes system-level details such as the ontology model class and data volume size.
 
 **Streamer Factories**
-* **`get_data_streamer(force_new_instance: bool = False) -> Optional[TopicDataStreamer]`**
+* **`get_data_streamer(force_new_instance: bool = False) -> TopicDataStreamer`**
   * Initializes and returns a `TopicDataStreamer`.
   * If a streamer is already active for this handler, it returns the existing instance unless `force_new_instance` is set to `True`.
   * Returns `None` if the topic contains no data or cannot be reached.
+  * Raises `ValueError` if a data streamer cannot be spawned.
 
 
 #### Class: `TopicDataStreamer`

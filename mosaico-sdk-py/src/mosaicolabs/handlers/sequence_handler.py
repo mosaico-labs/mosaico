@@ -7,7 +7,7 @@ and access reading interfaces (`SequenceDataStreamer`).
 """
 
 import pyarrow.flight as fl
-from typing import Dict, Any, Optional, Type
+from typing import Dict, Any, List, Optional, Type
 import logging as log
 
 from ..comm.metadata import SequenceMetadata, _decode_metadata
@@ -156,29 +156,40 @@ class SequenceHandler:
         """Returns the full Sequence model."""
         return self._sequence
 
-    def get_data_streamer(self, force_new_instance=False) -> SequenceDataStreamer:
+    def get_data_streamer(
+        self, topics: List[str] = [], force_new_instance=False
+    ) -> SequenceDataStreamer:
         """
         Get a `SequenceDataStreamer` to read the entire sequence (merged stream).
 
         Args:
+            topics (list[str]): Get the streams from these topics only; ignore the other.
             force_new_instance (bool): If True, forces creation of a new reader.
 
         Returns:
             SequenceDataStreamer: The unified reader.
+
+        Raises:
+            ValueError: If some of the input topics do not exist in the sequence.
         """
+        if topics and any([t not in self.topics for t in topics]):
+            raise ValueError(
+                f"Invalid input topic names {topics}. Available topics in sequence {self.name}:\n{self.topics}"
+            )
+
         if force_new_instance and self._data_streamer_instance is not None:
             self._data_streamer_instance.close()
             self._data_streamer_instance = None
 
         if self._data_streamer_instance is None:
             self._data_streamer_instance = SequenceDataStreamer.connect(
-                self._sequence.name, self._fl_client
+                self._sequence.name, topics, self._fl_client
             )
         return self._data_streamer_instance
 
     def get_topic_handler(
         self, topic_name: str, force_new_instance=False
-    ) -> Optional[TopicHandler]:
+    ) -> TopicHandler:
         """
         Get a specific `TopicHandler` for a child topic.
 
@@ -187,13 +198,15 @@ class SequenceHandler:
             force_new_instance (bool): If True, recreates the handler.
 
         Returns:
-            Optional[TopicHandler]: The handler, or None if topic doesn't exist.
+            TopicHandler: The handler
+
+        Raises:
+            ValueError: If topic doesn't exist.
         """
         if topic_name not in self._sequence.topics:
-            log.error(
+            raise ValueError(
                 f"Topic '{topic_name}' not available in sequence '{self._sequence.name}'"
             )
-            return None
 
         th = self._topic_handler_instances.get(topic_name)
 
@@ -208,7 +221,9 @@ class SequenceHandler:
                 client=self._fl_client,
             )
             if not th:
-                return None
+                raise ValueError(
+                    f"Internal Error: unable to connect a TopicHandler for topic {topic_name} in sequence {self.name}"
+                )
             self._topic_handler_instances[topic_name] = th
 
         return th

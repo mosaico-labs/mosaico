@@ -1,9 +1,8 @@
-import pytest
 from mosaicolabs.comm import MosaicoClient
 from mosaicolabs.models import Time
 from mosaicolabs.models.platform import Topic
 from mosaicolabs.models.query import QueryOntologyCatalog, QueryTopic, QuerySequence
-from mosaicolabs.models.sensors import IMU, Image, GPS
+from mosaicolabs.models.sensors import IMU, GPS
 from testing.integration.config import (
     UPLOADED_GPS_TOPIC,
     UPLOADED_IMU_CAMERA_TOPIC,
@@ -27,17 +26,16 @@ def test_query_ontology(
     assert query_resp is not None
     # One (1) sequence corresponds to this query
     assert len(query_resp) == 1
-    # Two (2) topics correspond to this query
-    assert len(query_resp[0].topics) == 2
     # The target topics are 'UPLOADED_IMU_FRONT_TOPIC' and 'UPLOADED_IMU_CAMERA_TOPIC'
     expected_topic_names = [
         UPLOADED_IMU_FRONT_TOPIC,
         UPLOADED_IMU_CAMERA_TOPIC,
     ]
+    assert len(query_resp[0].topics) == len(expected_topic_names)
+
     # all the expected topics, and only them
     [_validate_returned_topic_name(topic) for topic in query_resp[0].topics]
     assert all([t in expected_topic_names for t in query_resp[0].topics])
-    assert all([t in query_resp[0].topics for t in expected_topic_names])
 
     # Query by multiple condition: time and value
     tstamp = Time.from_float(1700000000.26)
@@ -50,17 +48,15 @@ def test_query_ontology(
     assert query_resp is not None
     # One (1) sequence corresponds to this query
     assert len(query_resp) == 1
-    # Two (2) topics correspond to this query
-    assert len(query_resp[0].topics) == 2
     # The target topics are 'UPLOADED_IMU_FRONT_TOPIC' and 'UPLOADED_IMU_CAMERA_TOPIC'
     expected_topic_names = [
         UPLOADED_IMU_FRONT_TOPIC,
         UPLOADED_IMU_CAMERA_TOPIC,
     ]
+    assert len(query_resp[0].topics) == len(expected_topic_names)
     # all the expected topics, and only them
     [_validate_returned_topic_name(topic) for topic in query_resp[0].topics]
     assert all([t in expected_topic_names for t in query_resp[0].topics])
-    assert all([t in query_resp[0].topics for t in expected_topic_names])
 
     # Query by multiple condition: time and value (GPS)
     tstamp = Time.from_float(1700000000.26)
@@ -100,17 +96,15 @@ def test_query_ontology_between(
     assert query_resp is not None
     # One (1) sequence corresponds to this query
     assert len(query_resp) == 1
-    # Two (2) topics correspond to this query
-    assert len(query_resp[0].topics) == 2
     # The target topics are 'UPLOADED_IMU_FRONT_TOPIC' and 'UPLOADED_IMU_CAMERA_TOPIC'
     expected_topic_names = [
         UPLOADED_IMU_FRONT_TOPIC,
         UPLOADED_IMU_CAMERA_TOPIC,
     ]
+    assert len(query_resp[0].topics) == len(expected_topic_names)
     # all the expected topics, and only them
     [_validate_returned_topic_name(topic) for topic in query_resp[0].topics]
     assert all([t in expected_topic_names for t in query_resp[0].topics])
-    assert all([t in query_resp[0].topics for t in expected_topic_names])
 
     # Query by mixed conditions
     query_resp = _client.query(
@@ -123,16 +117,14 @@ def test_query_ontology_between(
     assert query_resp is not None
     # One (1) sequence corresponds to this query
     assert len(query_resp) == 1
-    # Two (2) topics correspond to this query
-    assert len(query_resp[0].topics) == 1
     # The target topics are 'UPLOADED_IMU_FRONT_TOPIC' and 'UPLOADED_IMU_CAMERA_TOPIC'
     expected_topic_names = [
         UPLOADED_IMU_CAMERA_TOPIC,
     ]
+    assert len(query_resp[0].topics) == len(expected_topic_names)
     # all the expected topics, and only them
     [_validate_returned_topic_name(topic) for topic in query_resp[0].topics]
     assert all([t in expected_topic_names for t in query_resp[0].topics])
-    assert all([t in query_resp[0].topics for t in expected_topic_names])
 
     # free resources
     _client.close()
