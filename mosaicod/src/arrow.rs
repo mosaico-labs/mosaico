@@ -476,3 +476,33 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+pub mod testing {
+    use super::*;
+
+    use arrow::array::Int64Array;
+    use arrow::datatypes::Schema;
+
+    pub fn dummy_batch() -> RecordBatch {
+        let schema = Arc::new(Schema::new(vec![
+            Field::new(
+                params::ARROW_SCHEMA_COLUMN_NAME_TIMESTAMP,
+                DataType::Int64,
+                false,
+            ),
+            Field::new("value", DataType::Int64, false),
+        ]));
+
+        RecordBatch::try_new(
+            schema.clone(),
+            vec![
+                Arc::new(Int64Array::from(vec![
+                    10000, 10005, 10010, 10015, 10020, 10025, 10030,
+                ])),
+                Arc::new(Int64Array::from(vec![1, 2, 3, 4, 5, 6, 7])),
+            ],
+        )
+        .unwrap()
+    }
+}

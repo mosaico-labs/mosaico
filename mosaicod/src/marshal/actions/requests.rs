@@ -84,5 +84,9 @@ pub struct LayerUpdate {
 #[derive(Deserialize, Debug)]
 pub struct Query {
     #[serde(flatten)]
+    /// Query filter used to find matches in the system
     pub query: serde_json::Value,
+    /// If enabled the response should include timestamp ranges
+    /// for each topic in which the query filter matches
+    pub include_timestamp_range: Option<bool>,
 }

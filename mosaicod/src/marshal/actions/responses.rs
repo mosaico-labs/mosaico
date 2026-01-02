@@ -1,3 +1,5 @@
+//! This module defines the formatting structure for
+//! responses.
 use serde::Serialize;
 
 use crate::types::{self, Resource};
@@ -62,6 +64,10 @@ impl From<types::SequenceSystemInfo> for SequenceSystemInfo {
     }
 }
 
+// ########
+// Notifies
+// ########
+
 #[derive(Serialize, Debug)]
 pub struct ResponseNotifyItem {
     pub name: String,
@@ -94,6 +100,10 @@ impl From<Vec<types::Notify>> for NotifyList {
     }
 }
 
+// ######
+// Layers
+// ######
+
 #[derive(Serialize, Debug)]
 pub struct ResponseLayerItem {
     pub name: String,
@@ -122,26 +132,46 @@ impl From<Vec<types::Layer>> for LayerList {
     }
 }
 
-#[derive(Serialize, Debug)]
-pub struct ResponseQueryItem {
-    pub sequence: String,
-    pub topics: Vec<String>,
-}
+// #####
+// Query
+// #####
 
 #[derive(Serialize, Debug)]
 pub struct Query {
     pub items: Vec<ResponseQueryItem>,
 }
 
+/// Holds topic data: locator and optional timestamp.
+#[derive(Serialize, Debug)]
+pub struct ResponseQueryItemTopic {
+    pub locator: String,
+    /// Timestamp range will be omitted from the output if it is None.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub timestamp_range: Option<(i64, i64)>,
+}
+
+impl From<types::TopicResourceLocator> for ResponseQueryItemTopic {
+    fn from(value: types::TopicResourceLocator) -> Self {
+        Self {
+            locator: value.name().to_owned(),
+            timestamp_range: value
+                .timestamp_range
+                .map(|e| (e.start.into(), e.end.into())),
+        }
+    }
+}
+
+#[derive(Serialize, Debug)]
+pub struct ResponseQueryItem {
+    pub sequence: String,
+    pub topics: Vec<ResponseQueryItemTopic>,
+}
+
 impl From<types::SequenceTopicGroup> for ResponseQueryItem {
     fn from(value: types::SequenceTopicGroup) -> Self {
         Self {
             sequence: value.sequence.name().to_string(),
-            topics: value
-                .topics
-                .into_iter()
-                .map(|t| t.name().to_string())
-                .collect(),
+            topics: value.topics.into_iter().map(Into::into).collect(),
         }
     }
 }
@@ -151,6 +181,43 @@ impl From<types::SequenceTopicGroups> for Query {
         let vec: Vec<types::SequenceTopicGroup> = value.into();
         Self {
             items: vec.into_iter().map(Into::into).collect(),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn response_query_item() {
+        use types::{
+            SequenceResourceLocator, SequenceTopicGroup, TimestampRange, TopicResourceLocator,
+        };
+
+        let sequence = SequenceResourceLocator::from("/my_sequence");
+        let topics = vec![
+            TopicResourceLocator::from("/my_sequence/topic1/subtopic").with_timestamp_range(
+                TimestampRange {
+                    start: 1000.into(),
+                    end: 1001.into(),
+                },
+            ),
+            TopicResourceLocator::from("/my_sequence/topic2/subtopic"),
+        ];
+
+        let group = SequenceTopicGroup::new(sequence, topics);
+        let response: ResponseQueryItem = group.into();
+
+        let body = serde_json::to_string(&response).unwrap();
+
+        dbg!(body.to_string());
+
+        let response_raw = r#"{"sequence":"my_sequence","topics":[{"locator":"my_sequence/topic1/subtopic","timestamp_range":[1000,1001]},{"locator":"my_sequence/topic2/subtopic"}]}"#;
+
+        let body_serialized = body.to_string();
+
+        if body_serialized != response_raw {
+            panic!("wrong response\nexpecting:\n{response_raw}\ngot\n{body_serialized}");
         }
     }
 }

@@ -12,7 +12,7 @@ use crate::{
 pub async fn do_action(
     store: store::StoreRef,
     repo: repo::Repository,
-    ts_engine: query::TimeseriesGwRef,
+    ts_gw: query::TimeseriesGatewayRef,
     action: ActionRequest,
 ) -> Result<ActionResponse, ServerError> {
     let response = match action {
@@ -296,7 +296,8 @@ pub async fn do_action(
 
             trace!("query filter: {:?}", filter);
 
-            let groups = FacadeQuery::query(filter, ts_engine, repo).await?;
+            let include_ts_range = data.include_timestamp_range.unwrap_or(false);
+            let groups = FacadeQuery::query(filter, include_ts_range, ts_gw, repo).await?;
 
             trace!("groups found: {:?}", groups);
 
@@ -372,7 +373,7 @@ mod tests {
 
         let repo = repo::testing::Repository::new(pool);
         let store = store::testing::Store::new_random_on_tmp().unwrap();
-        let ts_engine = query::TimeseriesGw::try_new(store.clone()).unwrap();
+        let ts_engine = query::TimeseriesGateway::try_new(store.clone()).unwrap();
 
         #[derive(serde::Serialize, Debug)]
         struct Request {
