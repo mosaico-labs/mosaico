@@ -167,3 +167,52 @@ impl TextStats {
         self.has_null |= has_null;
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn text_stats_empty_string_is_valid_min() {
+        let mut stats = TextStats::new();
+        stats.eval(&Some(""));
+        stats.eval(&Some("a"));
+        stats.eval(&Some("b"));
+
+        assert_eq!(stats.min.as_deref(), Some(""));
+        assert_eq!(stats.max.as_deref(), Some("b"));
+        assert!(!stats.has_null);
+    }
+
+    #[test]
+    fn text_stats_normal_values() {
+        let mut stats = TextStats::new();
+        stats.eval(&Some("b"));
+        stats.eval(&Some("a"));
+        stats.eval(&Some("c"));
+
+        assert_eq!(stats.min.as_deref(), Some("a"));
+        assert_eq!(stats.max.as_deref(), Some("c"));
+    }
+
+    #[test]
+    fn text_stats_only_nulls() {
+        let mut stats = TextStats::new();
+        stats.eval(&None);
+        stats.eval(&None);
+
+        assert_eq!(stats.min, None);
+        assert_eq!(stats.max, None);
+        assert!(stats.has_null);
+    }
+
+    #[test]
+    fn text_stats_merge_with_empty_string() {
+        let mut stats = TextStats::new();
+        stats.merge(Some("a"), Some("z"), false);
+        stats.merge(Some(""), Some("b"), false);
+
+        assert_eq!(stats.min.as_deref(), Some(""));
+        assert_eq!(stats.max.as_deref(), Some("z"));
+    }
+}
