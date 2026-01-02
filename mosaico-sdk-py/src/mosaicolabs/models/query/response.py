@@ -2,7 +2,6 @@ from dataclasses import dataclass, field
 from typing import Iterator, List
 
 from mosaicolabs.helpers import unpack_topic_full_path
-from mosaicolabs.helpers.helpers import pack_topic_resource_name
 
 from .builders import QuerySequence, QueryTopic
 from .expressions import _QuerySequenceExpression, _QueryTopicExpression

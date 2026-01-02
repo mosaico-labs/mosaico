@@ -8,7 +8,7 @@ creating resource handlers (sequences, topics) and executing queries.
 """
 
 import os
-from typing import Any, Dict, Optional, Type
+from typing import Any, Dict, List, Optional, Type
 import logging as log
 import pyarrow.flight as fl
 
@@ -334,6 +334,21 @@ class MosaicoClient:
 
         except Exception as e:
             log.error(f"Server error while asking for Sequence deletion, {e}")
+
+    def list_sequences(self) -> List[str]:
+        """
+        Retrieves the list of all sequences available on the server.
+
+        Returns:
+            List[str]: The list of sequence names.
+        """
+        out_list = []
+        for finfo in self._control_client.list_flights():
+            if finfo.descriptor.path is None:
+                log.debug("`None` path found in `list_flights` endpoint")
+                continue
+            out_list.extend([p.decode("utf-8") for p in finfo.descriptor.path])
+        return out_list
 
     def query(
         self,

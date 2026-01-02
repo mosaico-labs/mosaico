@@ -87,15 +87,25 @@ def test_topic_push_not_serializable(_client: MosaicoClient):
     with pytest.raises(ValueError, match="is not serializable"):
         # type must fail here
         TopicWriter._validate_ontology_type(ontology_type)  # type: ignore (disable pylance complaining)
-    with _client.sequence_create("test-seq-not-seerializable", {}) as sw:
-        # This must fail: type is not serializable
-        tw = sw.topic_create("test-topic-unregistered", {}, ontology_type)  # type: ignore (disable pylance complaining)
-        assert tw is None
 
-        # This must fail: type is not serializable, although has all the variables injected by Serializable,
-        # but it is not a subclass
-        tw = sw.topic_create("test-topic-registered", {}, NotSerializable)  # type: ignore (disable pylance complaining)
-        assert tw is None
+    # We do not want to keep the next created sequence on the server: we will raise an Exception
+    # to trigger the Abort mechanism (which will be tested in a separate test). This block is necessary
+    # to make the test successfull (do not fail after raised exception)
+    with pytest.raises(ChildProcessError):
+        with _client.sequence_create("test-seq-not-seerializable", {}) as sw:
+            # This must fail: type is not serializable
+            tw = sw.topic_create("test-topic-unregistered", {}, ontology_type)  # type: ignore (disable pylance complaining)
+            assert tw is None
+
+            # This must fail: type is not serializable, although has all the variables injected by Serializable,
+            # but it is not a subclass
+            tw = sw.topic_create("test-topic-registered", {}, NotSerializable)  # type: ignore (disable pylance complaining)
+            assert tw is None
+
+            # do not want to keep this sequence on the server...
+            # Generate a specific Exception which is not raised by above functions
+            # (we want to be sure the test runs till here)
+            raise ChildProcessError
 
     # free resources
     _client.close()
