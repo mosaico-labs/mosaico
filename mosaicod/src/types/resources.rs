@@ -12,7 +12,7 @@ pub enum ResourceType {
     Topic,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Default, Debug, Clone)]
 pub struct TopicResourceLocator {
     locator: String,
     pub timestamp_range: Option<TimestampRange>,
@@ -22,15 +22,6 @@ impl TopicResourceLocator {
     pub fn with_timestamp_range(mut self, ts: TimestampRange) -> Self {
         self.timestamp_range = Some(ts);
         self
-    }
-}
-
-impl Default for TopicResourceLocator {
-    fn default() -> Self {
-        Self {
-            locator: "".to_owned(),
-            timestamp_range: None,
-        }
     }
 }
 

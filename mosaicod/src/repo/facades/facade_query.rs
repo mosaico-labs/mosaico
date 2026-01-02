@@ -1,4 +1,5 @@
 use super::FacadeError;
+use crate::types::Resource;
 use crate::{params, query, repo, types};
 use futures::stream::{FuturesUnordered, StreamExt};
 use log::{debug, trace};
@@ -106,6 +107,10 @@ impl FacadeQuery {
                     // Store which topic had a positive data file search
                     let mut topics_with_data: HashSet<i32> = HashSet::new();
 
+                    // Stores the timestamp range (is requested) of each topic that matches
+                    let mut topics_timestamp_range: HashMap<String, types::TimestampRange> =
+                        HashMap::new();
+
                     for chunk in chunks {
                         let topic = topics_map.get(&chunk.topic_id);
                         if topic.is_none() {
@@ -135,10 +140,33 @@ impl FacadeQuery {
 
                         let qr = qr.filter(ontology_tag_exprs.to_owned())?;
 
-                        if qr.has_rows().await? {
-                            trace!("found matching records in chunk");
-                            topics_with_data.insert(topic.topic_id);
+                        // Set this to true to print a log message that the chunk will be discared
+                        let mut is_discarded = false;
+
+                        if include_timestamp_range {
+                            match qr.timestamp_range().await {
+                                Ok(ts_range) => {
+                                    topics_timestamp_range
+                                        .insert(topic.locator_name.clone(), ts_range);
+                                }
+                                Err(err) => {
+                                    if let query::Error::NotFound = err {
+                                        is_discarded = true;
+                                    } else {
+                                        return Err(err.into());
+                                    }
+                                }
+                            }
                         } else {
+                            if qr.has_rows().await? {
+                                trace!("found matching records in chunk");
+                                topics_with_data.insert(topic.topic_id);
+                            } else {
+                                is_discarded = true;
+                            }
+                        }
+
+                        if is_discarded {
                             trace!("discarding chunk `{}` for no query match", chunk.chunk_uuid);
                         }
                     }
@@ -147,11 +175,21 @@ impl FacadeQuery {
                     let topics = topics_map
                         .values()
                         .filter(|e| topics_with_data.contains(&e.topic_id));
-                    let group = repo::sequences_group_from_topics(&mut cx, topics).await?;
+                    let mut groups = repo::sequences_group_from_topics(&mut cx, topics).await?;
 
-                    Ok::<_, FacadeError>(group.into())
+                    if include_timestamp_range {
+                        groups
+                            .iter_mut()
+                            .flat_map(|grp| &mut grp.topics)
+                            .for_each(|topic| {
+                                topic.timestamp_range = topics_timestamp_range.remove(topic.name());
+                            });
+                    }
+
+                    Ok::<_, FacadeError>(groups.into())
                 });
 
+                // Collect results from all concurrent routines
                 while let Some(groups) = search_jobs.next().await {
                     if let Some(r) = result {
                         result = Some(r.merge(groups?));
@@ -188,7 +226,7 @@ async fn pre_fetch_topics(
     cx: &mut repo::Cx<'_>,
     chunks: &[repo::Chunk],
     on_topics: Option<&Arc<Vec<repo::TopicRecord>>>,
-) -> Result<Arc<TopicMap>, FacadeError> {
+) -> Result<TopicMap, FacadeError> {
     let topic_map = if let Some(topics) = on_topics {
         topics.iter().map(|t| (t.topic_id, t.clone())).collect()
     } else {
@@ -200,5 +238,5 @@ async fn pre_fetch_topics(
             .collect()
     };
 
-    Ok(Arc::new(topic_map))
+    Ok(topic_map)
 }

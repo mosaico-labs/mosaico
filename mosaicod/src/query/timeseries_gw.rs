@@ -4,8 +4,10 @@
 //!
 //! The engine integrates directly with the configured [`store::Store`] to resolve
 //! paths and access data sources like Parquet files efficiently.
+use datafusion::scalar::ScalarValue;
 use log::trace;
 
+use crate::types;
 use crate::{params, query, rw, store};
 use arrow::datatypes::{Schema, SchemaRef};
 use datafusion::datasource::file_format::parquet::ParquetFormat;
@@ -13,6 +15,7 @@ use datafusion::datasource::listing::ListingOptions;
 use datafusion::execution::SendableRecordBatchStream;
 use datafusion::execution::runtime_env::{RuntimeEnv, RuntimeEnvBuilder};
 use datafusion::functions::core::expr_ext::FieldAccessor;
+use datafusion::functions_aggregate::expr_fn::{max, min};
 use datafusion::prelude::*;
 use std::collections::HashMap;
 use std::path::Path;
@@ -53,7 +56,7 @@ impl TimeseriesGateway {
         path: impl AsRef<Path>,
         format: rw::Format,
         batch_size: Option<usize>,
-    ) -> Result<TimeseriesGwResult, Error> {
+    ) -> Result<TimeseriesGatewayResult, Error> {
         let listing_options = get_listing_options(format);
 
         let mut conf = SessionConfig::new();
@@ -80,7 +83,7 @@ impl TimeseriesGateway {
 
         let df = ctx.sql(&select).await?;
 
-        Ok(TimeseriesGwResult { data_frame: df })
+        Ok(TimeseriesGatewayResult { data_frame: df })
     }
 
     fn datafile_url(&self, path: impl AsRef<Path>) -> Result<url::Url, Error> {
@@ -92,11 +95,11 @@ impl TimeseriesGateway {
     }
 }
 
-pub struct TimeseriesGwResult {
+pub struct TimeseriesGatewayResult {
     data_frame: DataFrame,
 }
 
-impl TimeseriesGwResult {
+impl TimeseriesGatewayResult {
     pub fn schema_with_metadata(&self, metadata: HashMap<String, String>) -> SchemaRef {
         Arc::new(Schema::new_with_metadata(
             self.data_frame.schema().fields().clone(),
@@ -117,7 +120,7 @@ impl TimeseriesGwResult {
             self.data_frame
         };
 
-        Ok(TimeseriesGwResult { data_frame })
+        Ok(TimeseriesGatewayResult { data_frame })
     }
 
     pub async fn stream(self) -> Result<SendableRecordBatchStream, Error> {
@@ -135,6 +138,50 @@ impl TimeseriesGwResult {
         // Limit to 1 row for early termination - avoids full scan
         let limited = self.data_frame.limit(0, Some(1))?;
         Ok(limited.count().await? > 0)
+    }
+
+    /// Returns the timestamp range matching the current query.
+    /// Timestamp range represent the timestamp of the first and last occurrence of the
+    /// query conditions.
+    ///
+    /// # Errors
+    ///
+    /// This function will return a [`Error::DataFusion`] if backend fails, a [`Error::NotFound`] if
+    /// no value is returned or an [`Error::BadField`] is there is some problem retrieving the
+    /// timestamp values (very rare since schema are checked before data upload)
+    pub async fn timestamp_range(self) -> Result<types::TimestampRange, Error> {
+        let stats = self.data_frame.aggregate(
+            vec![],
+            vec![
+                min(col(params::ARROW_SCHEMA_COLUMN_NAME_TIMESTAMP)),
+                max(col(params::ARROW_SCHEMA_COLUMN_NAME_TIMESTAMP)),
+            ],
+        )?;
+
+        let batches = stats.collect().await?;
+
+        if let Some(batch) = batches.get(0) {
+            let ts_min = ScalarValue::try_from_array(batch.column(0), 0)?;
+            let ts_max = ScalarValue::try_from_array(batch.column(1), 0)?;
+
+            let ts_min = scalar_value_to_timestamp(ts_min).ok_or_else(|| {
+                Error::bad_field(params::ARROW_SCHEMA_COLUMN_NAME_TIMESTAMP.to_owned())
+            })?;
+            let ts_max = scalar_value_to_timestamp(ts_max).ok_or_else(|| {
+                Error::bad_field(params::ARROW_SCHEMA_COLUMN_NAME_TIMESTAMP.to_owned())
+            })?;
+
+            return Ok(types::TimestampRange::new(ts_min, ts_max));
+        }
+
+        Err(Error::NotFound)
+    }
+}
+
+fn scalar_value_to_timestamp(value: ScalarValue) -> Option<types::Timestamp> {
+    match value {
+        ScalarValue::Int64(Some(v)) => Some(v.into()),
+        _ => None,
     }
 }
 
@@ -204,5 +251,58 @@ fn value_to_df_expr(v: query::Value) -> Expr {
         query::Value::Float(v) => lit(v),
         query::Value::Text(v) => lit(v),
         query::Value::Boolean(v) => lit(v),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{arrow, query::OntologyField, store, traits::AsyncWriteToPath};
+
+    async fn write_dummy_file(store: &store::Store, file_path: &str) {
+        let batch = arrow::testing::dummy_batch();
+        let schema = batch.schema().clone();
+
+        use parquet::arrow::arrow_writer::ArrowWriter;
+
+        let mut buffer = Vec::new();
+        let mut writer = ArrowWriter::try_new(&mut buffer, schema, None).unwrap();
+        writer.write(&batch).unwrap();
+        writer.close().unwrap();
+
+        store.write_to_path(file_path, buffer).await.unwrap();
+    }
+
+    /// Writes a local parquet file and tries to read and retrieve data in the correct timestamp
+    /// range
+    #[tokio::test]
+    async fn timeseries_range() {
+        let file_path = "dummy_file.parquet";
+
+        let store = store::testing::Store::new_random_on_tmp().unwrap();
+
+        write_dummy_file(&store, file_path).await;
+
+        let ts_gw = TimeseriesGateway::try_new((*store).clone()).unwrap();
+
+        let res = ts_gw
+            .read(file_path, rw::Format::Default, None)
+            .await
+            .unwrap();
+
+        let expr_grp = query::ExprGroup::new(vec![
+            (
+                OntologyField::try_new("tag.value".to_owned()).unwrap(),
+                query::Op::Between(query::Range::try_new(3, 5).unwrap()),
+            )
+                .into(),
+        ]);
+
+        let res = res.filter(expr_grp).unwrap();
+
+        let ts_range = res.timestamp_range().await.unwrap();
+
+        assert_eq!(ts_range.start, 10010.into());
+        assert_eq!(ts_range.end, 10020.into());
     }
 }

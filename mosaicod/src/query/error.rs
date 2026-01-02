@@ -16,6 +16,9 @@ pub enum Error {
     #[error("datafusion backend error :: {0}")]
     DataFusion(#[from] datafusion::error::DataFusionError),
 
+    #[error("not found")]
+    NotFound,
+
     #[error("bad path :: {0}")]
     BadPath(#[from] url::ParseError),
 
@@ -29,5 +32,9 @@ impl Error {
             field: field_name,
             err: super::OpError::UnsupportedOperation,
         }
+    }
+
+    pub fn bad_field(field_name: String) -> Self {
+        Self::BadField { field: field_name }
     }
 }

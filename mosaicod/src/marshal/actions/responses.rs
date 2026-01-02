@@ -1,3 +1,5 @@
+//! This module defines the formatting structure for
+//! responses.
 use serde::Serialize;
 
 use crate::types::{self, Resource};
@@ -62,6 +64,10 @@ impl From<types::SequenceSystemInfo> for SequenceSystemInfo {
     }
 }
 
+// ########
+// Notifies
+// ########
+
 #[derive(Serialize, Debug)]
 pub struct ResponseNotifyItem {
     pub name: String,
@@ -94,6 +100,10 @@ impl From<Vec<types::Notify>> for NotifyList {
     }
 }
 
+// ######
+// Layers
+// ######
+
 #[derive(Serialize, Debug)]
 pub struct ResponseLayerItem {
     pub name: String,
@@ -122,11 +132,16 @@ impl From<Vec<types::Layer>> for LayerList {
     }
 }
 
+// #####
+// Query
+// #####
+
 #[derive(Serialize, Debug)]
 pub struct Query {
     pub items: Vec<ResponseQueryItem>,
 }
 
+/// Holds topic data: locator and optional timestamp.
 #[derive(Serialize, Debug)]
 pub struct ResponseQueryItemTopic {
     pub locator: String,
@@ -179,15 +194,15 @@ mod tests {
             SequenceResourceLocator, SequenceTopicGroup, TimestampRange, TopicResourceLocator,
         };
 
-        let sequence = SequenceResourceLocator::try_from("/my_sequence").unwrap();
+        let sequence = SequenceResourceLocator::from("/my_sequence");
         let topics = vec![
-            TopicResourceLocator::try_from("/my_sequence/topic1/subtopic")
-                .unwrap()
-                .with_timestamp_range(TimestampRange {
+            TopicResourceLocator::from("/my_sequence/topic1/subtopic").with_timestamp_range(
+                TimestampRange {
                     start: 1000.into(),
                     end: 1001.into(),
-                }),
-            TopicResourceLocator::try_from("/my_sequence/topic2/subtopic").unwrap(),
+                },
+            ),
+            TopicResourceLocator::from("/my_sequence/topic2/subtopic"),
         ];
 
         let group = SequenceTopicGroup::new(sequence, topics);
