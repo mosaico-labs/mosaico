@@ -116,12 +116,15 @@ impl FacadeQuery {
                             chunk.data_file().to_string_lossy()
                         );
 
+                        let serialization_format =
+                            topic.serialization_format().ok_or_else(|| {
+                                FacadeError::MissingSerializationFormat(
+                                    topic.locator_name.to_owned(),
+                                )
+                            })?;
+
                         let qr = ts_engine
-                            .read(
-                                chunk.data_file(),
-                                topic.serialization_format().unwrap(), // TODO: handle error
-                                None,
-                            )
+                            .read(chunk.data_file(), serialization_format, None)
                             .await?;
 
                         let qr = qr.filter(ontology_tag_exprs.to_owned())?;

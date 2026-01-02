@@ -334,7 +334,7 @@ mod tests {
 
         let qr = ClausesCompiler::new()
             .expr(
-                "topic.topic_name",
+                "topic.locator_name",
                 Op::Match("my-topic".to_owned()),
                 &mut fmt,
             )
@@ -351,7 +351,7 @@ mod tests {
         if let Some(idx) = qr
             .clauses
             .iter()
-            .position(|c| c == r#"topic.topic_name LIKE $1"#)
+            .position(|c| c == r#"topic.locator_name LIKE $1"#)
         {
             assert_eq!(qr.values[idx], query::Value::Text("%my-topic%".to_owned()));
         } else {

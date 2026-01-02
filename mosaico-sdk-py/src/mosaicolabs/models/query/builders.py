@@ -280,6 +280,12 @@ class QueryTopic:
 
     # --- Helper methods for common fields ---
 
+    def with_name(self, name: str) -> "QueryTopic":
+        """
+        Helper method to add a filter for the topic 'name' field.
+        """
+        return self.with_expression(_QueryTopicExpression("name", "$eq", f"{name}"))
+
     def with_name_match(self, name: str) -> "QueryTopic":
         """
         Helper method to add a filter for the topic 'name' field.

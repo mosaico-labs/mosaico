@@ -15,7 +15,7 @@
       },
       {
         "ordinal": 2,
-        "name": "sequence_name",
+        "name": "locator_name",
         "type_info": "Text"
       },
       {

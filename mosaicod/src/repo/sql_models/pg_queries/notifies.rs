@@ -42,7 +42,7 @@ pub async fn topic_notifies_find_by_locator(
         r#"
           SELECT notify.* FROM topic_notify_t AS notify
           JOIN topic_t AS topic ON notify.topic_id = topic.topic_id
-          WHERE topic.topic_name=$1
+          WHERE topic.locator_name=$1
     "#,
         loc.name(),
     )
@@ -98,7 +98,7 @@ pub async fn sequence_notifies_find_by_name(
         r#"
           SELECT notify.* FROM sequence_notify_t AS notify
           JOIN sequence_t AS seq ON notify.sequence_id = seq.sequence_id
-          WHERE seq.sequence_name=$1
+          WHERE seq.locator_name=$1
     "#,
         loc.name(),
     )

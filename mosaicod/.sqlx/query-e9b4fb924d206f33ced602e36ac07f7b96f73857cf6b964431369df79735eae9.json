@@ -20,7 +20,7 @@
       },
       {
         "ordinal": 3,
-        "name": "topic_name",
+        "name": "locator_name",
         "type_info": "Text"
       },
       {

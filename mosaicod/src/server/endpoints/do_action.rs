@@ -289,8 +289,6 @@ pub async fn do_action(
             ActionResponse::LayerList(layers.into())
         }
 
-        // (cabba) FIXME: move this code in a QueryFacade in order to avoid using
-        //                repo low level function directly, do this when the query system is finalized
         ActionRequest::Query(data) => {
             info!("performing a query");
 
