@@ -112,6 +112,13 @@ def make_magn_msg(msg_time: int, meas_time: Time):
     )
 
 
+topic_list = [
+    UPLOADED_IMU_FRONT_TOPIC,
+    UPLOADED_IMU_CAMERA_TOPIC,
+    UPLOADED_GPS_TOPIC,
+    UPLOADED_MAGNETOMETER_TOPIC,
+]
+
 topic_to_maker_factory = [
     (UPLOADED_IMU_FRONT_TOPIC, make_imu_front_msg),
     (UPLOADED_IMU_CAMERA_TOPIC, make_imu_cam_msg),
