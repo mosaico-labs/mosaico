@@ -1,4 +1,3 @@
-use std::borrow::Cow;
 use std::collections::HashMap;
 
 const NUMERIC_MIN_PLACEHOLDER: f64 = f64::MAX;
@@ -99,8 +98,8 @@ impl NumericStats {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct TextStats {
-    pub min: Option<Cow<'static, str>>,
-    pub max: Option<Cow<'static, str>>,
+    pub min: Option<String>,
+    pub max: Option<String>,
 
     pub has_null: bool,
 }
@@ -127,13 +126,13 @@ impl TextStats {
         if let Some(val) = val {
             let val = *val;
             match &self.min {
-                Some(current_min) if **current_min <= *val => {}
-                _ => self.min = Some(Cow::Owned(val.to_owned())),
+                Some(current_min) if current_min.as_str() <= val => {}
+                _ => self.min = Some(val.to_owned()),
             }
 
             match &self.max {
-                Some(current_max) if **current_max >= *val => {}
-                _ => self.max = Some(Cow::Owned(val.to_owned())),
+                Some(current_max) if current_max.as_str() >= val => {}
+                _ => self.max = Some(val.to_owned()),
             }
         } else {
             self.has_null = true;
@@ -143,8 +142,8 @@ impl TextStats {
     /// Consumes the stats and returns owned strings for min and max.
     pub fn into_owned(self) -> (String, String, bool) {
         (
-            self.min.map(|c| c.into_owned()).unwrap_or_default(),
-            self.max.map(|c| c.into_owned()).unwrap_or_default(),
+            self.min.unwrap_or_default(),
+            self.max.unwrap_or_default(),
             self.has_null,
         )
     }
@@ -154,14 +153,14 @@ impl TextStats {
     pub fn merge(&mut self, min: Option<&str>, max: Option<&str>, has_null: bool) {
         if let Some(min_val) = min {
             match &self.min {
-                Some(current_min) if **current_min <= *min_val => {}
-                _ => self.min = Some(Cow::Owned(min_val.to_owned())),
+                Some(current_min) if current_min.as_str() <= min_val => {}
+                _ => self.min = Some(min_val.to_owned()),
             }
         }
         if let Some(max_val) = max {
             match &self.max {
-                Some(current_max) if **current_max >= *max_val => {}
-                _ => self.max = Some(Cow::Owned(max_val.to_owned())),
+                Some(current_max) if current_max.as_str() >= max_val => {}
+                _ => self.max = Some(max_val.to_owned()),
             }
         }
         self.has_null |= has_null;
