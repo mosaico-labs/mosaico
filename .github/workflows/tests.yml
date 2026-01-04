@@ -11,7 +11,20 @@ on:
       - '**/Cargo.lock'
       - '**/pyproject.toml'
       - '**/poetry.lock'
+  pull_request:
+    branches:
+      - "main"
+    paths:
+      - '**.rs'
+      - '**.py'
+      - '**/Cargo.toml'
+      - '**/Cargo.lock'
+      - '**/pyproject.toml'
+      - '**/poetry.lock'
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   lint-and-test:
@@ -23,14 +36,14 @@ jobs:
 
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Rust Toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@v1
         with:
           toolchain: stable
 
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@v2.8.2
         with:
           workspaces: "mosaicod -> target"
           cache-targets: true
@@ -47,7 +60,7 @@ jobs:
           sudo apt-get install -y libpq-dev
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6.1.0
         with:
           python-version: '3.13'
 
