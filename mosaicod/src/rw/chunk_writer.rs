@@ -208,8 +208,9 @@ mod tests {
         // Check stats for "label", and check that the computed bloom filter has
         // all the values in the set
         if let Some(types::Stats::Text(s)) = cstats.stats.get("label") {
-            assert_eq!(s.min, "a");
-            assert_eq!(s.max, "c");
+            assert_eq!(s.min.as_deref(), Some("a"));
+            assert_eq!(s.max.as_deref(), Some("c"));
+
             assert!(s.has_null);
         } else {
             panic!("Missing or incorrect type for label stats");

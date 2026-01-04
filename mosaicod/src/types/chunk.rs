@@ -1,11 +1,4 @@
-use std::borrow::Cow;
 use std::collections::HashMap;
-
-/// Placeholder indicating uninitialized minimum text statistic.
-/// Empty string compares less than any non-empty string.
-const TEXT_MIN_PLACEHOLDER: &str = "";
-/// Placeholder indicating uninitialized maximum text statistic.
-const TEXT_MAX_PLACEHOLDER: &str = "";
 
 const NUMERIC_MIN_PLACEHOLDER: f64 = f64::MAX;
 const NUMERIC_MAX_PLACEHOLDER: f64 = f64::MIN;
@@ -105,8 +98,8 @@ impl NumericStats {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct TextStats {
-    pub min: Cow<'static, str>,
-    pub max: Cow<'static, str>,
+    pub min: Option<String>,
+    pub max: Option<String>,
 
     pub has_null: bool,
 }
@@ -120,8 +113,8 @@ impl Default for TextStats {
 impl TextStats {
     pub fn new() -> Self {
         Self {
-            min: Cow::Borrowed(TEXT_MIN_PLACEHOLDER),
-            max: Cow::Borrowed(TEXT_MAX_PLACEHOLDER),
+            min: None,
+            max: None,
 
             has_null: false,
         }
@@ -132,11 +125,14 @@ impl TextStats {
     pub fn eval(&mut self, val: &Option<&str>) {
         if let Some(val) = val {
             let val = *val;
-            if self.min.as_ref() == TEXT_MIN_PLACEHOLDER || *self.min > *val {
-                self.min = Cow::Owned(val.to_owned());
+            match &self.min {
+                Some(current_min) if current_min.as_str() <= val => {}
+                _ => self.min = Some(val.to_owned()),
             }
-            if self.max.as_ref() == TEXT_MAX_PLACEHOLDER || *self.max < *val {
-                self.max = Cow::Owned(val.to_owned());
+
+            match &self.max {
+                Some(current_max) if current_max.as_str() >= val => {}
+                _ => self.max = Some(val.to_owned()),
             }
         } else {
             self.has_null = true;
@@ -145,22 +141,77 @@ impl TextStats {
 
     /// Consumes the stats and returns owned strings for min and max.
     pub fn into_owned(self) -> (String, String, bool) {
-        (self.min.into_owned(), self.max.into_owned(), self.has_null)
+        (
+            self.min.unwrap_or_default(),
+            self.max.unwrap_or_default(),
+            self.has_null,
+        )
     }
 
     /// Merges pre-computed statistics from an Arrow array.
     /// This is more efficient than calling `eval()` for each element.
     pub fn merge(&mut self, min: Option<&str>, max: Option<&str>, has_null: bool) {
-        if let Some(min_val) = min
-            && (self.min.as_ref() == TEXT_MIN_PLACEHOLDER || *self.min > *min_val)
-        {
-            self.min = Cow::Owned(min_val.to_owned());
+        if let Some(min_val) = min {
+            match &self.min {
+                Some(current_min) if current_min.as_str() <= min_val => {}
+                _ => self.min = Some(min_val.to_owned()),
+            }
         }
-        if let Some(max_val) = max
-            && (self.max.as_ref() == TEXT_MAX_PLACEHOLDER || *self.max < *max_val)
-        {
-            self.max = Cow::Owned(max_val.to_owned());
+        if let Some(max_val) = max {
+            match &self.max {
+                Some(current_max) if current_max.as_str() >= max_val => {}
+                _ => self.max = Some(max_val.to_owned()),
+            }
         }
         self.has_null |= has_null;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn text_stats_empty_string_is_valid_min() {
+        let mut stats = TextStats::new();
+        stats.eval(&Some(""));
+        stats.eval(&Some("a"));
+        stats.eval(&Some("b"));
+
+        assert_eq!(stats.min.as_deref(), Some(""));
+        assert_eq!(stats.max.as_deref(), Some("b"));
+        assert!(!stats.has_null);
+    }
+
+    #[test]
+    fn text_stats_normal_values() {
+        let mut stats = TextStats::new();
+        stats.eval(&Some("b"));
+        stats.eval(&Some("a"));
+        stats.eval(&Some("c"));
+
+        assert_eq!(stats.min.as_deref(), Some("a"));
+        assert_eq!(stats.max.as_deref(), Some("c"));
+    }
+
+    #[test]
+    fn text_stats_only_nulls() {
+        let mut stats = TextStats::new();
+        stats.eval(&None);
+        stats.eval(&None);
+
+        assert_eq!(stats.min, None);
+        assert_eq!(stats.max, None);
+        assert!(stats.has_null);
+    }
+
+    #[test]
+    fn text_stats_merge_with_empty_string() {
+        let mut stats = TextStats::new();
+        stats.merge(Some("a"), Some("z"), false);
+        stats.merge(Some(""), Some("b"), false);
+
+        assert_eq!(stats.min.as_deref(), Some(""));
+        assert_eq!(stats.max.as_deref(), Some("z"));
     }
 }
