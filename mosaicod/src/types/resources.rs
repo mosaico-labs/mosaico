@@ -291,12 +291,7 @@ pub trait Resource: std::fmt::Display + Send + Sync {
 /// across the application by making them relative paths.
 fn sanitize_name(name: &str) -> String {
     let trimmed = name.trim();
-
-    if let Some(stripped) = trimmed.strip_prefix('/') {
-        stripped.to_owned()
-    } else {
-        trimmed.to_owned()
-    }
+    trimmed.trim_start_matches('/').to_owned()
 }
 
 #[cfg(test)]
@@ -310,6 +305,9 @@ mod tests {
         assert_eq!(san, target);
 
         let san = sanitize_name("    my/resource/name   ");
+        assert_eq!(san, target);
+
+        let san = sanitize_name("//my/resource/name");
         assert_eq!(san, target);
     }
 
