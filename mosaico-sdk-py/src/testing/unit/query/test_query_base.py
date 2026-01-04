@@ -16,6 +16,8 @@ from mosaicolabs.models.query import (
     Query,
     QueryResponse,
     QueryResponseItem,
+    QueryResponseItemTopic,
+    QueryResponseItemSequence,
 )
 
 from mosaicolabs.models.query.expressions import (
@@ -150,22 +152,22 @@ def test_construction_query_from_response():
     qresp = QueryResponse(
         items=[
             QueryResponseItem(
-                sequence="seq0",
+                sequence=QueryResponseItemSequence(name="seq0"),
                 topics=[
-                    "seq0/top00",
-                    "seq0/top01",
+                    QueryResponseItemTopic(name="seq0/top00", timestamp_range=None),
+                    QueryResponseItemTopic(name="seq0/top01", timestamp_range=None),
                 ],  # constructor expects topic resource name
             ),
             QueryResponseItem(
-                sequence="seq1",
+                sequence=QueryResponseItemSequence(name="seq1"),
                 topics=[
-                    "seq1/top10",
-                    "seq1/top11",
+                    QueryResponseItemTopic(name="seq0/top10", timestamp_range=None),
+                    QueryResponseItemTopic(name="seq0/top11", timestamp_range=None),
                 ],  # constructor expects topic resource name
             ),
         ]
     )
-    expected_expr_seq_values = [it.sequence for it in qresp]
+    expected_expr_seq_values = [it.sequence.name for it in qresp]
     qseq = qresp.to_query_sequence()
     assert len(qseq._expressions) == 1
     assert qseq._expressions[0].key == "name"
@@ -174,7 +176,7 @@ def test_construction_query_from_response():
 
     expected_expr_top_values = [
         # QueryResponseItem.__post_init__ normalizes topic name
-        t
+        t.name
         for it in qresp
         for t in it.topics
     ]

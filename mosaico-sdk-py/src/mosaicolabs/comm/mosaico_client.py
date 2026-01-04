@@ -387,7 +387,7 @@ class MosaicoClient:
         else:
             raise ValueError("Expected input queries or a 'Query' object")
 
-        query_dict = {q.name(): q.to_dict() for q in self._queries}
+        query_dict: dict[str, Any] = {q.name(): q.to_dict() for q in self._queries}
 
         try:
             act_resp = _do_action(

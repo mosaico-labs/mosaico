@@ -31,8 +31,8 @@ def test_query_topic_by_name(
     assert len(query_resp[0].topics) == 1
     # The target topic is in 'topic_name'
     expected_topic_name = topic_name
-    assert query_resp[0].topics[0] == expected_topic_name
-    _validate_returned_topic_name(query_resp[0].topics[0])
+    assert query_resp[0].topics[0].name == expected_topic_name
+    _validate_returned_topic_name(query_resp[0].topics[0].name)
 
     # NOTE: the query 'with_name_match' is made via $match, so i am sure that this operator works;
     # The topics are stored with the resource name (seq/topic) so since this query by using
@@ -62,8 +62,8 @@ def test_query_topic_by_creation_timestamp(
     assert len(query_resp[0].topics) == len(expected_topic_names)
 
     # all the expected topics, and only them
-    [_validate_returned_topic_name(topic) for topic in query_resp[0].topics]
-    assert all([t in expected_topic_names for t in query_resp[0].topics])
+    [_validate_returned_topic_name(topic.name) for topic in query_resp[0].topics]
+    assert all([t.name in expected_topic_names for t in query_resp[0].topics])
 
     # free resources
     _client.close()
@@ -96,8 +96,8 @@ def test_query_topic_by_sensor_tag(
     # N topics may correspond to this query
     assert len(query_resp[0].topics) == len(expected_topic_names)
     # all the expected topics, and only them
-    [_validate_returned_topic_name(topic) for topic in query_resp[0].topics]
-    assert all([t in expected_topic_names for t in query_resp[0].topics])
+    [_validate_returned_topic_name(topic.name) for topic in query_resp[0].topics]
+    assert all([t.name in expected_topic_names for t in query_resp[0].topics])
 
     # free resources
     _client.close()
@@ -133,8 +133,8 @@ def test_query_topic_multi_criteria(
     # N topics may correspond to this query
     assert len(query_resp[0].topics) == len(expected_topic_names)
     # all the expected topics, and only them
-    [_validate_returned_topic_name(topic) for topic in query_resp[0].topics]
-    assert all([t in expected_topic_names for t in query_resp[0].topics])
+    [_validate_returned_topic_name(topic.name) for topic in query_resp[0].topics]
+    assert all([t.name in expected_topic_names for t in query_resp[0].topics])
 
     # Test with multiple criteria: trigger between
     # Query by ontology_tag
@@ -170,8 +170,8 @@ def test_query_topic_multi_criteria(
     # N topics may correspond to this query
     assert len(query_resp[0].topics) == len(expected_topic_names)
     # all the expected topics, and only them
-    [_validate_returned_topic_name(topic) for topic in query_resp[0].topics]
-    assert all([t in expected_topic_names for t in query_resp[0].topics])
+    [_validate_returned_topic_name(topic.name) for topic in query_resp[0].topics]
+    assert all([t.name in expected_topic_names for t in query_resp[0].topics])
 
     # free resources
     _client.close()
@@ -196,8 +196,8 @@ def test_query_topic_metadata(
     # The target topic is 'UPLOADED_IMU_FRONT_TOPIC'
     expected_topic_name = UPLOADED_IMU_FRONT_TOPIC
 
-    assert query_resp[0].topics[0] == expected_topic_name
-    _validate_returned_topic_name(query_resp[0].topics[0])
+    assert query_resp[0].topics[0].name == expected_topic_name
+    _validate_returned_topic_name(query_resp[0].topics[0].name)
 
     # Test with single condition
     query_resp = _client.query(
@@ -214,8 +214,8 @@ def test_query_topic_metadata(
     # The target topic is 'UPLOADED_IMU_FRONT_TOPIC'
     expected_topic_name = UPLOADED_IMU_FRONT_TOPIC
 
-    assert query_resp[0].topics[0] == expected_topic_name
-    _validate_returned_topic_name(query_resp[0].topics[0])
+    assert query_resp[0].topics[0].name == expected_topic_name
+    _validate_returned_topic_name(query_resp[0].topics[0].name)
 
     # Test with multiple conditions
     query_resp = _client.query(
@@ -232,8 +232,8 @@ def test_query_topic_metadata(
     # The target topic is 'UPLOADED_IMU_FRONT_TOPIC'
     expected_topic_name = UPLOADED_IMU_FRONT_TOPIC
 
-    assert query_resp[0].topics[0] == expected_topic_name
-    _validate_returned_topic_name(query_resp[0].topics[0])
+    assert query_resp[0].topics[0].name == expected_topic_name
+    _validate_returned_topic_name(query_resp[0].topics[0].name)
 
     # Test with multiple returned topic matches
     query_resp = _client.query(
@@ -250,8 +250,8 @@ def test_query_topic_metadata(
     ]
     assert len(expected_topic_names) == len(query_resp[0].topics)
     # all the expected topics, and only them
-    [_validate_returned_topic_name(topic) for topic in query_resp[0].topics]
-    assert all([t in expected_topic_names for t in query_resp[0].topics])
+    [_validate_returned_topic_name(topic.name) for topic in query_resp[0].topics]
+    assert all([t.name in expected_topic_names for t in query_resp[0].topics])
 
     # Test with nested field
     query_resp = _client.query(
@@ -268,8 +268,8 @@ def test_query_topic_metadata(
     # The target topic is 'UPLOADED_IMU_FRONT_TOPIC'
     expected_topic_name = UPLOADED_IMU_CAMERA_TOPIC
 
-    _validate_returned_topic_name(query_resp[0].topics[0])
-    assert query_resp[0].topics[0] == expected_topic_name
+    _validate_returned_topic_name(query_resp[0].topics[0].name)
+    assert query_resp[0].topics[0].name == expected_topic_name
 
     # free resources
     _client.close()
@@ -295,8 +295,8 @@ def test_query_topic_from_response(
     # One (1) topic corresponds to this query
     assert len(query_resp[0].topics) == 1
 
-    _validate_returned_topic_name(query_resp[0].topics[0])
-    assert query_resp[0].topics[0] == topic_name
+    _validate_returned_topic_name(query_resp[0].topics[0].name)
+    assert query_resp[0].topics[0].name == topic_name
 
     # Try a trivial query with a further expression
     query_resp = _client.query(qtopic.with_created_timestamp(time_end=Time.now()))
@@ -305,8 +305,8 @@ def test_query_topic_from_response(
     # One (1) topic corresponds to this query
     assert len(query_resp[0].topics) == 1
 
-    _validate_returned_topic_name(query_resp[0].topics[0])
-    assert query_resp[0].topics[0] == topic_name
+    _validate_returned_topic_name(query_resp[0].topics[0].name)
+    assert query_resp[0].topics[0].name == topic_name
 
     # free resources
     _client.close()

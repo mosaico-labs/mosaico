@@ -226,6 +226,6 @@ class _DoActionQueryResponse(_DoActionResponse):
         if data.get("items") is None:
             raise KeyError("Unable to find 'items' key in data dict.")
         qresp = QueryResponse(
-            items=[QueryResponseItem(**item) for item in data["items"]]
+            items=[QueryResponseItem._from_dict(ditem) for ditem in data["items"]]
         )
         return _DoActionQueryResponse(qresp=qresp)

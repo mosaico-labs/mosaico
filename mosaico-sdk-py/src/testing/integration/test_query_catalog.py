@@ -34,8 +34,8 @@ def test_query_ontology(
     assert len(query_resp[0].topics) == len(expected_topic_names)
 
     # all the expected topics, and only them
-    [_validate_returned_topic_name(topic) for topic in query_resp[0].topics]
-    assert all([t in expected_topic_names for t in query_resp[0].topics])
+    [_validate_returned_topic_name(topic.name) for topic in query_resp[0].topics]
+    assert all([t.name in expected_topic_names for t in query_resp[0].topics])
 
     # Query by multiple condition: time and value
     tstamp = Time.from_float(1700000000.26)
@@ -55,8 +55,8 @@ def test_query_ontology(
     ]
     assert len(query_resp[0].topics) == len(expected_topic_names)
     # all the expected topics, and only them
-    [_validate_returned_topic_name(topic) for topic in query_resp[0].topics]
-    assert all([t in expected_topic_names for t in query_resp[0].topics])
+    [_validate_returned_topic_name(topic.name) for topic in query_resp[0].topics]
+    assert all([t.name in expected_topic_names for t in query_resp[0].topics])
 
     # Query by multiple condition: time and value (GPS)
     tstamp = Time.from_float(1700000000.26)
@@ -75,8 +75,8 @@ def test_query_ontology(
     # The target topics are 'UPLOADED_IMU_FRONT_TOPIC' and 'UPLOADED_IMU_CAMERA_TOPIC'
     expected_topic_name = UPLOADED_GPS_TOPIC
 
-    _validate_returned_topic_name(query_resp[0].topics[0])
-    assert query_resp[0].topics[0] == expected_topic_name
+    _validate_returned_topic_name(query_resp[0].topics[0].name)
+    assert query_resp[0].topics[0].name == expected_topic_name
 
     # free resources
     _client.close()
@@ -103,8 +103,8 @@ def test_query_ontology_between(
     ]
     assert len(query_resp[0].topics) == len(expected_topic_names)
     # all the expected topics, and only them
-    [_validate_returned_topic_name(topic) for topic in query_resp[0].topics]
-    assert all([t in expected_topic_names for t in query_resp[0].topics])
+    [_validate_returned_topic_name(topic.name) for topic in query_resp[0].topics]
+    assert all([t.name in expected_topic_names for t in query_resp[0].topics])
 
     # Query by mixed conditions
     query_resp = _client.query(
@@ -123,8 +123,8 @@ def test_query_ontology_between(
     ]
     assert len(query_resp[0].topics) == len(expected_topic_names)
     # all the expected topics, and only them
-    [_validate_returned_topic_name(topic) for topic in query_resp[0].topics]
-    assert all([t in expected_topic_names for t in query_resp[0].topics])
+    [_validate_returned_topic_name(topic.name) for topic in query_resp[0].topics]
+    assert all([t.name in expected_topic_names for t in query_resp[0].topics])
 
     # free resources
     _client.close()
@@ -153,8 +153,8 @@ def test_mixed_query_ontology(
     assert len(query_resp[0].topics) == 1
     # The target topics are 'UPLOADED_IMU_FRONT_TOPIC' and 'UPLOADED_IMU_CAMERA_TOPIC'
     expected_topic_name = UPLOADED_IMU_FRONT_TOPIC
-    _validate_returned_topic_name(query_resp[0].topics[0])
-    assert query_resp[0].topics[0] == expected_topic_name
+    _validate_returned_topic_name(query_resp[0].topics[0].name)
+    assert query_resp[0].topics[0].name == expected_topic_name
 
     # Query by multiple condition: value and topic metadata
     tstamp = Time.from_float(1700000000.26)
@@ -172,8 +172,8 @@ def test_mixed_query_ontology(
     assert len(query_resp[0].topics) == 1
     # The target topics are 'UPLOADED_IMU_FRONT_TOPIC' and 'UPLOADED_IMU_CAMERA_TOPIC'
     expected_topic_name = UPLOADED_GPS_TOPIC
-    _validate_returned_topic_name(query_resp[0].topics[0])
-    assert query_resp[0].topics[0] == expected_topic_name
+    _validate_returned_topic_name(query_resp[0].topics[0].name)
+    assert query_resp[0].topics[0].name == expected_topic_name
 
     # free resources
     _client.close()
@@ -217,9 +217,10 @@ def test_query_multi_tag_ontology(
     assert len(query_resp) == 1
 
     for item in query_resp.items:
-        assert UPLOADED_GPS_TOPIC in item.topics
-        assert UPLOADED_IMU_CAMERA_TOPIC in item.topics
-        assert UPLOADED_IMU_FRONT_TOPIC in item.topics
+        topic_names = [t.name for t in item.topics]
+        assert UPLOADED_GPS_TOPIC in topic_names
+        assert UPLOADED_IMU_CAMERA_TOPIC in topic_names
+        assert UPLOADED_IMU_FRONT_TOPIC in topic_names
         assert len(item.topics) == 3
 
     # free resources

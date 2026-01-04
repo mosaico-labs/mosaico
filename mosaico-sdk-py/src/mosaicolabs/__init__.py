@@ -89,6 +89,23 @@ from .models.data import (
 # --- Other Data Types ---
 from .models.data import ROI as ROI
 
+# --- Main Query classes ---
+from .models.query import (
+    Query as Query,
+    QueryTopic as QueryTopic,
+    QuerySequence as QuerySequence,
+    QueryOntologyCatalog as QueryOntologyCatalog,
+)
+
+# --- Query Responses ---
+from .models.query import (
+    QueryResponseItemSequence as QueryResponseItemSequence,
+    QueryResponseItemTopic as QueryResponseItemTopic,
+    TimestampRange as TimestampRange,
+    QueryResponseItem as QueryResponseItem,
+    QueryResponse as QueryResponse,
+)
+
 # --- Enums ---
 from .enum import (
     SerializationFormat as SerializationFormat,
@@ -153,6 +170,16 @@ __all__ = [
     "MotionState",
     # Other
     "ROI",
+    # Query
+    "Query",
+    "QueryTopic",
+    "QuerySequence",
+    "QueryOntologyCatalog",
+    "QueryResponseItemSequence",
+    "QueryResponseItemTopic",
+    "TimestampRange",
+    "QueryResponseItem",
+    "QueryResponse",
     # Enums
     "SerializationFormat",
     "SequenceStatus",

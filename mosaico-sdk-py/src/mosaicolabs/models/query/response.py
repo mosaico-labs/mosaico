@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Iterator, List
+from typing import Iterator, List, Optional, Any
 
 from mosaicolabs.helpers import unpack_topic_full_path
 
@@ -8,24 +8,54 @@ from .expressions import _QuerySequenceExpression, _QueryTopicExpression
 
 
 @dataclass
-class QueryResponseItem:
-    sequence: str
-    topics: List[str]
+class TimestampRange:
+    start: int
+    end: int
 
-    def __post_init__(self):
-        """
-        Returned topics are the full resource names, e.g. 'sequence_name/the/topic/name'.
-        Retrieve the topic name only, i.e. '/the/topic/name'
-        """
-        tnames = []
-        for top in self.topics:
-            seq_topic_tuple = unpack_topic_full_path(top)
-            if not seq_topic_tuple:
-                raise ValueError(f"Invalid topic name in response {top}")
-            _, tname = seq_topic_tuple
-            tnames.append(tname)
-        # reset topic names
-        self.topics = tnames
+
+@dataclass
+class QueryResponseItemSequence:
+    name: str
+
+    @classmethod
+    def _from_dict(cls, qdict: dict[str, str]) -> "QueryResponseItemSequence":
+        return cls(name=qdict["sequence"])
+
+
+@dataclass
+class QueryResponseItemTopic:
+    name: str
+    timestamp_range: Optional[TimestampRange]
+
+    @classmethod
+    def _from_dict(cls, tdict: dict[str, Any]) -> "QueryResponseItemTopic":
+        seq_topic_tuple = unpack_topic_full_path(tdict["locator"])
+        if not seq_topic_tuple:
+            raise ValueError(f"Invalid topic name in response {tdict['locator']}")
+        _, tname = seq_topic_tuple
+        tsrange = tdict.get("timestamp_range")
+
+        return cls(
+            name=tname,
+            timestamp_range=TimestampRange(start=int(tsrange[0]), end=int(tsrange[1]))
+            if tsrange
+            else None,
+        )
+
+
+@dataclass
+class QueryResponseItem:
+    sequence: QueryResponseItemSequence
+    topics: List[QueryResponseItemTopic]
+
+    @classmethod
+    def _from_dict(cls, qdict: dict[str, Any]) -> "QueryResponseItem":
+        return cls(
+            sequence=QueryResponseItemSequence._from_dict(qdict),
+            topics=[
+                QueryResponseItemTopic._from_dict(tdict) for tdict in qdict["topics"]
+            ],
+        )
 
 
 @dataclass
@@ -38,7 +68,7 @@ class QueryResponse:
             _QuerySequenceExpression(
                 "name",
                 "$in",
-                [it.sequence for it in self.items],
+                [it.sequence.name for it in self.items],
             )
         )
 
@@ -47,7 +77,7 @@ class QueryResponse:
             _QueryTopicExpression(
                 "name",
                 "$in",
-                [t for it in self.items for t in it.topics],
+                [t.name for it in self.items for t in it.topics],
             )
         )
 

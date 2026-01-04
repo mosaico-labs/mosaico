@@ -19,15 +19,14 @@ def test_query_sequence_by_name(
     assert query_resp is not None
     # One (1) sequence corresponds to this query
     assert len(query_resp) == 1
-    assert query_resp[0].sequence == UPLOADED_SEQUENCE_NAME
+    assert query_resp[0].sequence.name == UPLOADED_SEQUENCE_NAME
     # We expect to obtain all the topics
     expected_topic_names = list(topic_to_metadata_dict.keys())
     assert len(query_resp[0].topics) == len(expected_topic_names)
     expected_topic_names = [topic for topic in expected_topic_names]
     # all the expected topics, and only them
-    [_validate_returned_topic_name(topic) for topic in query_resp[0].topics]
-    assert all([t in expected_topic_names for t in query_resp[0].topics])
-    assert all([t in query_resp[0].topics for t in expected_topic_names])
+    [_validate_returned_topic_name(topic.name) for topic in query_resp[0].topics]
+    assert all([t.name in expected_topic_names for t in query_resp[0].topics])
 
     # Query by partial name (operator should be a match)
     n_char = int(len(UPLOADED_SEQUENCE_NAME) / 2)  # half the length
@@ -38,16 +37,15 @@ def test_query_sequence_by_name(
     assert query_resp is not None
     # One (1) sequence corresponds to this query
     assert len(query_resp) == 1
-    assert query_resp[0].sequence == UPLOADED_SEQUENCE_NAME
+    assert query_resp[0].sequence.name == UPLOADED_SEQUENCE_NAME
     # We expect to obtain all the topics
     expected_topic_names = list(topic_to_metadata_dict.keys())
     assert len(query_resp[0].topics) == len(expected_topic_names)
     expected_topic_names = [topic for topic in expected_topic_names]
 
     # all the expected topics, and only them
-    [_validate_returned_topic_name(topic) for topic in query_resp[0].topics]
-    assert all([t in expected_topic_names for t in query_resp[0].topics])
-    assert all([t in query_resp[0].topics for t in expected_topic_names])
+    [_validate_returned_topic_name(topic.name) for topic in query_resp[0].topics]
+    assert all([t.name in expected_topic_names for t in query_resp[0].topics])
 
     # free resources
     _client.close()
@@ -69,16 +67,15 @@ def test_query_sequence_by_creation_timestamp(
     assert query_resp is not None
     # One (1) sequence corresponds to this query
     assert len(query_resp) == 1
-    assert query_resp[0].sequence == UPLOADED_SEQUENCE_NAME
+    assert query_resp[0].sequence.name == UPLOADED_SEQUENCE_NAME
     # We expect to obtain all the topics
     expected_topic_names = list(topic_to_metadata_dict.keys())
     assert len(query_resp[0].topics) == len(expected_topic_names)
     expected_topic_names = [topic for topic in expected_topic_names]
 
     # all the expected topics, and only them
-    [_validate_returned_topic_name(topic) for topic in query_resp[0].topics]
-    assert all([t in expected_topic_names for t in query_resp[0].topics])
-    assert all([t in query_resp[0].topics for t in expected_topic_names])
+    [_validate_returned_topic_name(topic.name) for topic in query_resp[0].topics]
+    assert all([t.name in expected_topic_names for t in query_resp[0].topics])
 
     # free resources
     _client.close()
@@ -100,15 +97,14 @@ def test_query_sequence_metadata(
     assert query_resp is not None
     # One (1) sequence corresponds to this query
     assert len(query_resp) == 1
-    assert query_resp[0].sequence == UPLOADED_SEQUENCE_NAME
+    assert query_resp[0].sequence.name == UPLOADED_SEQUENCE_NAME
     # We expect to obtain all the topics
     expected_topic_names = list(topic_to_metadata_dict.keys())
     assert len(query_resp[0].topics) == len(expected_topic_names)
     expected_topic_names = [topic for topic in expected_topic_names]
     # all the expected topics, and only them
-    [_validate_returned_topic_name(topic) for topic in query_resp[0].topics]
-    assert all([t in expected_topic_names for t in query_resp[0].topics])
-    assert all([t in query_resp[0].topics for t in expected_topic_names])
+    [_validate_returned_topic_name(topic.name) for topic in query_resp[0].topics]
+    assert all([t.name in expected_topic_names for t in query_resp[0].topics])
 
     # Test with multiple conditions
     query_resp = _client.query(
@@ -125,9 +121,8 @@ def test_query_sequence_metadata(
     assert len(query_resp[0].topics) == len(expected_topic_names)
     expected_topic_names = [topic for topic in expected_topic_names]
     # all the expected topics, and only them
-    [_validate_returned_topic_name(topic) for topic in query_resp[0].topics]
-    assert all([t in expected_topic_names for t in query_resp[0].topics])
-    assert all([t in query_resp[0].topics for t in expected_topic_names])
+    [_validate_returned_topic_name(topic.name) for topic in query_resp[0].topics]
+    assert all([t.name in expected_topic_names for t in query_resp[0].topics])
 
     # Test with nested-fields condition
     query_resp = _client.query(
@@ -142,15 +137,14 @@ def test_query_sequence_metadata(
     assert query_resp is not None
     # One (1) sequence corresponds to this query
     assert len(query_resp) == 1
-    assert query_resp[0].sequence == UPLOADED_SEQUENCE_NAME
+    assert query_resp[0].sequence.name == UPLOADED_SEQUENCE_NAME
     # We expect to obtain all the topics
     expected_topic_names = list(topic_to_metadata_dict.keys())
     assert len(query_resp[0].topics) == len(expected_topic_names)
     expected_topic_names = [topic for topic in expected_topic_names]
     # all the expected topics, and only them
-    [_validate_returned_topic_name(topic) for topic in query_resp[0].topics]
-    assert all([t in expected_topic_names for t in query_resp[0].topics])
-    assert all([t in query_resp[0].topics for t in expected_topic_names])
+    [_validate_returned_topic_name(topic.name) for topic in query_resp[0].topics]
+    assert all([t.name in expected_topic_names for t in query_resp[0].topics])
 
     # free resources
     _client.close()
@@ -179,7 +173,7 @@ def test_query_sequence_from_response(
     # One (1) sequence corresponds to this query
     assert query_resp is not None
     assert len(query_resp) == 1
-    assert query_resp[0].sequence == UPLOADED_SEQUENCE_NAME
+    assert query_resp[0].sequence.name == UPLOADED_SEQUENCE_NAME
     # The other criteria have been tested above...
 
     # Try a trivial query with a further expression
@@ -187,7 +181,7 @@ def test_query_sequence_from_response(
     # One (1) sequence corresponds to this query
     assert query_resp is not None
     assert len(query_resp) == 1
-    assert query_resp[0].sequence == UPLOADED_SEQUENCE_NAME
+    assert query_resp[0].sequence.name == UPLOADED_SEQUENCE_NAME
 
     # free resources
     _client.close()

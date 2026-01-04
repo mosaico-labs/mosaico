@@ -6,6 +6,9 @@ from .builders import (
 )
 
 from .response import (
+    QueryResponseItemSequence as QueryResponseItemSequence,
+    QueryResponseItemTopic as QueryResponseItemTopic,
+    TimestampRange as TimestampRange,
     QueryResponseItem as QueryResponseItem,
     QueryResponse as QueryResponse,
 )
