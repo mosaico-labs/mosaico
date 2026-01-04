@@ -1,0 +1,57 @@
+labels: ["triage"]
+body:
+  - type: markdown
+    attributes:
+      value: "# Issue Details"
+  - type: textarea
+    attributes:
+      label: Issue Description
+      description: |
+        Provide a detailed description of the issue.  Include relevant information, such as:
+        - The feature or configuration option you encounter the issue with.
+        - Screenshots, screen recordings, or other supporting media (as needed).
+        - If this is a regression of an existing issue that was closed or resolved, please include the previous item reference (Discussion, Issue, PR, commit) in your description.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Expected Behavior
+      description: |
+        Describe how you expect mosaico to behave in this situation.  Include any relevant documentation links.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Actual Behavior
+      description: |
+        Describe how mosaico actually behaves in this situation.  If it is not immediately obvious how the actual behavior differs from the expected behavior described above, please be sure to mention the deviation specifically.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Reproduction Steps
+      description: |
+        Provide a detailed set of step-by-step instructions for reproducing this issue.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Logs
+      description: |
+        Provide the `mosaicod` logs during your issue reproduction in this field. You can enable logs setting `RUST_LOG=mosaico=trace` environment variable.
+      render: text
+  - type: textarea
+    attributes:
+      label: Mosaico Version
+      description: Paste the output of `mosaico --version` here.
+      render: text
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: OS Version Information
+      description: |
+        Please tell us what operating system (name and version) you are using.
+      placeholder: Ubuntu 24.04.1 (Noble Numbat)
+    validations:
+      required: true
