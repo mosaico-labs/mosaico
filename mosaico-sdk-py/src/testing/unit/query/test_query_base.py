@@ -1,5 +1,4 @@
 from typing import Optional
-from mosaicolabs.helpers.helpers import pack_topic_resource_name
 from mosaicolabs.models.platform import Sequence, Topic
 from mosaicolabs.models.query.expressions import _QueryExpression
 from mosaicolabs.models.query.generation.mixins import (

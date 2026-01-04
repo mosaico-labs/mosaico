@@ -9,6 +9,7 @@ import pyarrow as pa
 from mosaicolabs.handlers import TopicWriter
 from mosaicolabs.comm import MosaicoClient
 from mosaicolabs.enum import SequenceStatus, SerializationFormat
+from testing.integration.config import UPLOADED_SEQUENCE_NAME
 
 
 def test_invalid_host():
@@ -86,15 +87,57 @@ def test_topic_push_not_serializable(_client: MosaicoClient):
     with pytest.raises(ValueError, match="is not serializable"):
         # type must fail here
         TopicWriter._validate_ontology_type(ontology_type)  # type: ignore (disable pylance complaining)
-    with _client.sequence_create("test-seq-not-seerializable", {}) as sw:
-        # This must fail: type is not serializable
-        tw = sw.topic_create("test-topic-unregistered", {}, ontology_type)  # type: ignore (disable pylance complaining)
-        assert tw is None
 
-        # This must fail: type is not serializable, although has all the variables injected by Serializable,
-        # but it is not a subclass
-        tw = sw.topic_create("test-topic-registered", {}, NotSerializable)  # type: ignore (disable pylance complaining)
-        assert tw is None
+    # We do not want to keep the next created sequence on the server: we will raise an Exception
+    # to trigger the Abort mechanism (which will be tested in a separate test). This block is necessary
+    # to make the test successfull (do not fail after raised exception)
+    with pytest.raises(ChildProcessError):
+        with _client.sequence_create("test-seq-not-seerializable", {}) as sw:
+            # This must fail: type is not serializable
+            tw = sw.topic_create("test-topic-unregistered", {}, ontology_type)  # type: ignore (disable pylance complaining)
+            assert tw is None
+
+            # This must fail: type is not serializable, although has all the variables injected by Serializable,
+            # but it is not a subclass
+            tw = sw.topic_create("test-topic-registered", {}, NotSerializable)  # type: ignore (disable pylance complaining)
+            assert tw is None
+
+            # do not want to keep this sequence on the server...
+            # Generate a specific Exception which is not raised by above functions
+            # (we want to be sure the test runs till here)
+            raise ChildProcessError
 
     # free resources
     _client.close()
+
+
+def test_non_existing_topic_handler(
+    _client: MosaicoClient,
+    _inject_sequence_data_stream,
+):
+    """Test the exception raising of non-existing topic handler from sequence"""
+    seqhandler = _client.sequence_handler(UPLOADED_SEQUENCE_NAME)
+    # Sequence must exist
+    assert seqhandler is not None
+
+    with pytest.raises(
+        ValueError, match="Topic 'non-existing-topic-name' not available in sequence"
+    ):
+        seqhandler.get_topic_handler("non-existing-topic-name")
+
+
+def test_sequence_streamer_non_existing_topics(
+    _client: MosaicoClient,
+    _inject_sequence_data_stream,
+):
+    """Test the exception raising of non-existing topics when spawning data-stream from sequence"""
+    seqhandler = _client.sequence_handler(UPLOADED_SEQUENCE_NAME)
+    # Sequence must exist
+    assert seqhandler is not None
+
+    with pytest.raises(ValueError, match="Invalid input topic names"):
+        seqhandler.get_data_streamer(
+            topics=[
+                "non-existing-topic-name",
+            ]
+        )

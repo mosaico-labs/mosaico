@@ -27,11 +27,9 @@ def test_query_mockup_sequence_by_name(
     topics = [t["name"] for t in QUERY_SEQUENCES_MOCKUP[sequence_name]["topics"]]
     expected_topic_names = topics
     assert len(query_resp[0].topics) == len(expected_topic_names)
-    expected_topic_names = [topic for topic in expected_topic_names]
     # all the expected topics, and only them
     [_validate_returned_topic_name(topic) for topic in query_resp[0].topics]
     assert all([t in expected_topic_names for t in query_resp[0].topics])
-    assert all([t in query_resp[0].topics for t in expected_topic_names])
 
     # Query by partial name
     n_char = int(len(sequence_name) / 2)  # half the length
@@ -48,11 +46,9 @@ def test_query_mockup_sequence_by_name(
         topics = [t["name"] for t in QUERY_SEQUENCES_MOCKUP[seqname]["topics"]]
         expected_topic_names = topics
         assert len(item.topics) == len(expected_topic_names)
-        expected_topic_names = [topic for topic in expected_topic_names]
         # all the expected topics, and only them
         [_validate_returned_topic_name(topic) for topic in item.topics]
         assert all([t in expected_topic_names for t in item.topics])
-        assert all([t in item.topics for t in expected_topic_names])
 
     # Query by partial name: startswith
     n_char = int(len(sequence_name) / 2)  # half the length
@@ -71,11 +67,9 @@ def test_query_mockup_sequence_by_name(
         topics = [t["name"] for t in QUERY_SEQUENCES_MOCKUP[seqname]["topics"]]
         expected_topic_names = topics
         assert len(item.topics) == len(expected_topic_names)
-        expected_topic_names = [topic for topic in expected_topic_names]
         # all the expected topics, and only them
         [_validate_returned_topic_name(topic) for topic in item.topics]
         assert all([t in expected_topic_names for t in item.topics])
-        assert all([t in item.topics for t in expected_topic_names])
 
     # Query by partial name: endswith
     n_char = int(len(sequence_name) / 2)  # half the length
@@ -94,11 +88,9 @@ def test_query_mockup_sequence_by_name(
         topics = [t["name"] for t in QUERY_SEQUENCES_MOCKUP[seqname]["topics"]]
         expected_topic_names = topics
         assert len(item.topics) == len(expected_topic_names)
-        expected_topic_names = [topic for topic in expected_topic_names]
         # all the expected topics, and only them
         [_validate_returned_topic_name(topic) for topic in item.topics]
         assert all([t in expected_topic_names for t in item.topics])
-        assert all([t in item.topics for t in expected_topic_names])
 
     # free resources
     _client.close()
@@ -128,11 +120,9 @@ def test_query_mockup_sequence_metadata(
     ]
     expected_topic_names = topics
     assert len(query_resp[0].topics) == len(expected_topic_names)
-    expected_topic_names = [topic for topic in expected_topic_names]
     # all the expected topics, and only them
     [_validate_returned_topic_name(topic) for topic in query_resp[0].topics]
     assert all([t in expected_topic_names for t in query_resp[0].topics])
-    assert all([t in query_resp[0].topics for t in expected_topic_names])
 
     # Test 2: with None return
     query_resp = _client.query(

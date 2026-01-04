@@ -163,9 +163,7 @@ class TopicHandler:
         """Returns the topic name."""
         return self._topic.name
 
-    def get_data_streamer(
-        self, force_new_instance=False
-    ) -> Optional[TopicDataStreamer]:
+    def get_data_streamer(self, force_new_instance=False) -> TopicDataStreamer:
         """
         Creates or retrieves a `TopicDataStreamer` to read data.
 
@@ -173,13 +171,15 @@ class TopicHandler:
             force_new_instance (bool): If True, creates a fresh reader even if one exists.
 
         Returns:
-            Optional[TopicDataStreamer]: The reader object.
+            TopicDataStreamer: The reader object.
+
+        Raises:
+            ValueError: if TopicHandler internal is not valid
         """
         if self._fl_ticket is None:
-            log.error(
+            raise ValueError(
                 f"Unable to get a TopicDataStreamer for topic {self._topic.name}: invalid TopicHandler!"
             )
-            return None
 
         if force_new_instance and self._data_streamer_instance is not None:
             self._data_streamer_instance.close()
