@@ -146,6 +146,7 @@ impl FacadeQuery {
                         if include_timestamp_range {
                             match qr.timestamp_range().await {
                                 Ok(ts_range) => {
+                                    topics_with_data.insert(topic.topic_id);
                                     topics_timestamp_range
                                         .insert(topic.locator_name.clone(), ts_range);
                                 }
