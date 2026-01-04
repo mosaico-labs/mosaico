@@ -354,6 +354,8 @@ class MosaicoClient:
         self,
         *queries: QueryableProtocol,
         query: Optional[Query] = None,
+        # TODO: move to QueryOntologyCatalog
+        include_timestamp_range: bool = False,
     ) -> Optional[QueryResponse]:
         """
         Executes one or more queries against the Mosaico database.
@@ -388,6 +390,8 @@ class MosaicoClient:
             raise ValueError("Expected input queries or a 'Query' object")
 
         query_dict: dict[str, Any] = {q.name(): q.to_dict() for q in self._queries}
+        # TODO: move to QueryOntologyCatalog
+        query_dict.update({"include_timestamp_range": include_timestamp_range})
 
         try:
             act_resp = _do_action(
