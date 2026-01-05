@@ -20,6 +20,14 @@ class Range(Serializable, HeaderMixin, CovarianceMixin):
     __msco_pyarrow_struct__ = pa.struct(
         [
             pa.field(
+                "radiation_type",
+                pa.uint8(),
+                nullable=False,
+                metadata={
+                    "description": "the type of radiation used by the sensor (sound, IR, etc) [enum]"
+                },
+            ),
+            pa.field(
                 "field_of_view",
                 pa.float32(),
                 nullable=False,
@@ -81,3 +89,6 @@ class Range(Serializable, HeaderMixin, CovarianceMixin):
     Fixed distance rangers only output -Inf or +Inf. -Inf represents a detection within fixed distance (Detection too close to the sensor to quantify).
     +Inf represents no detection within the fixed distance (Object out of range).
     """
+
+    radiation_type: int
+    """The type of radiation used by the sensor."""

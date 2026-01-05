@@ -644,6 +644,7 @@ class TestQueryRangeAPI:
         """
         # --- Fields Accessibility Test ---
         # Local fields
+        Range.Q.radiation_type
         Range.Q.field_of_view
         Range.Q.min_range
         Range.Q.max_range
@@ -668,6 +669,7 @@ class TestQueryRangeAPI:
         """
         # --- Fields Accessibility Test ---
         # Local fields
+        assert issubclass(type(Range.Q.radiation_type), _QueryableNumeric)
         assert issubclass(type(Range.Q.field_of_view), _QueryableNumeric)
         assert issubclass(type(Range.Q.min_range), _QueryableNumeric)
         assert issubclass(type(Range.Q.max_range), _QueryableNumeric)
