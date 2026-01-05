@@ -162,7 +162,7 @@ impl TryInto<query::Op<query::Value>> for Op {
 struct Query {
     sequence: Option<Sequence>,
     topic: Option<Topic>,
-    ontology: Option<HashMap<String, Op>>,
+    ontology: Option<Ontology>,
 }
 
 impl TryInto<query::Filter> for Query {
@@ -176,10 +176,18 @@ impl TryInto<query::Filter> for Query {
     }
 }
 
-impl TryInto<query::OntologyFilter> for HashMap<String, Op> {
+#[derive(Debug, Deserialize)]
+struct Ontology {
+    #[serde(flatten)]
+    filter: HashMap<String, Op>,
+    include_timestamp_range: Option<bool>,
+}
+
+impl TryInto<query::OntologyFilter> for Ontology {
     type Error = query::Error;
     fn try_into(self) -> Result<query::OntologyFilter, Self::Error> {
-        let map = self
+        let ontology = self
+            .filter
             .into_iter()
             .map(|(col, op)| {
                 let op = op.try_into().map_err(|e| query::Error::OpError {
@@ -193,8 +201,31 @@ impl TryInto<query::OntologyFilter> for HashMap<String, Op> {
             })
             .collect::<Result<_, _>>()?;
 
-        Ok(query::OntologyFilter::new(map))
+        let include_timestamp_range = self.include_timestamp_range.unwrap_or_default();
+
+        Ok(query::OntologyFilter::new_with_timestamp_range(
+            ontology,
+            include_timestamp_range,
+        ))
     }
+}
+
+/// Utility function to convert deserialized user metadata
+fn convert_user_metadata(
+    user_metadata: Option<HashMap<String, Op>>,
+) -> Result<HashMap<String, query::Op<query::Value>>, query::Error> {
+    user_metadata
+        .unwrap_or_default()
+        .into_iter()
+        .map(|(k, v)| {
+            let v: query::Op<query::Value> = v.try_into().map_err(|e| query::Error::OpError {
+                field: k.clone(),
+                err: e,
+            })?;
+
+            Ok::<(String, query::Op<query::Value>), query::Error>((k, v))
+        })
+        .collect::<Result<_, _>>()
 }
 
 #[derive(Debug, Deserialize)]
@@ -222,7 +253,7 @@ impl TryInto<query::SequenceFilter> for Sequence {
                     field: "sequence.created_timestamp".to_owned(),
                     err: e,
                 })?,
-            user_metadata: self.user_metadata.map(|v| v.try_into()).transpose()?,
+            user_metadata: convert_user_metadata(self.user_metadata)?,
         })
     }
 }
@@ -275,7 +306,7 @@ impl TryInto<query::TopicFilter> for Topic {
                     err: e,
                 })?,
 
-            user_metadata: self.user_metadata.map(|v| v.try_into()).transpose()?,
+            user_metadata: convert_user_metadata(self.user_metadata)?,
         })
     }
 }

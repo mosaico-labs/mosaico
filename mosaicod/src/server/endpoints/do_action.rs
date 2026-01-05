@@ -296,8 +296,7 @@ pub async fn do_action(
 
             trace!("query filter: {:?}", filter);
 
-            let include_ts_range = data.include_timestamp_range.unwrap_or(false);
-            let groups = FacadeQuery::query(filter, include_ts_range, ts_gw, repo).await?;
+            let groups = FacadeQuery::query(filter, ts_gw, repo).await?;
 
             trace!("groups found: {:?}", groups);
 

@@ -16,13 +16,8 @@ pub struct FacadeQuery {}
 
 impl FacadeQuery {
     /// Perform a query in the system
-    ///
-    /// If `include_timestamp_range` is `true` the result will include a time range `[tl, tu]` where:
-    /// - `tl` is the timestamp of the first occurence of the filter for a given topic
-    /// - `tu` is the timestamp of the last occurence of the filter for a given topic
     pub async fn query(
         filter: query::Filter,
-        include_timestamp_range: bool,
         ts_gw: query::TimeseriesGatewayRef,
         repo: repo::Repository,
     ) -> Result<types::SequenceTopicGroups, FacadeError> {
@@ -54,8 +49,11 @@ impl FacadeQuery {
         // `SequenceTopicGroups`.
         // At the end sequence topic groups are merged (sequences are interseted and topic are
         // joined) before return.
+        // TODO: move this code in a separate function to improve readability
         if let Some(ontology_filter) = on_filt {
             let start = Instant::now();
+
+            let include_timestamp_range = ontology_filter.include_timestamp_range;
 
             let ontology_tag_expr_groups =
                 ontology_filter.into_expr_group().split_by_ontology_tag();

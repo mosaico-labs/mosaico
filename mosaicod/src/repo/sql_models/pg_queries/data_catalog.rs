@@ -155,7 +155,7 @@ pub async fn column_chunk_literal_create_batch(
 /// Optionally the query can be fitlered across a list of topics (`on_topics`).
 pub async fn chunks_from_filters(
     exec: &mut impl repo::AsExec,
-    filter: query::ExprGroup<query::Value>,
+    filter: query::OntologyExprGroup<query::Value>,
     on_topics: Option<&Vec<sql_models::TopicRecord>>, // (cabba) TODO: pass only topic names or ids?
 ) -> Result<Vec<sql_models::Chunk>, repo::Error> {
     // Collect topic ids, if any

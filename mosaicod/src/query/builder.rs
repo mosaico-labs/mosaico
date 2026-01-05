@@ -1,6 +1,6 @@
 use crate::query::OntologyField;
 
-use super::{Error, ExprGroup, IsSupportedOp, Op, Value};
+use super::{Error, IsSupportedOp, OntologyExprGroup, Op, Value};
 
 const EMPTY_CLAUSE: &str = "()";
 
@@ -60,6 +60,7 @@ impl CompilerResult {
     }
 }
 
+#[derive(Debug)]
 pub struct ClausesCompiler {
     result: CompilerResult,
     error: Option<Error>,
@@ -79,7 +80,7 @@ impl ClausesCompiler {
         }
     }
 
-    pub fn expr<F, V>(mut self, field: &str, op: Op<V>, mapper: &mut F) -> Self
+    pub fn expr<F, V>(mut self, field: &str, op: Op<V>, formatter: &mut F) -> Self
     where
         V: Into<Value> + IsSupportedOp,
         F: CompileClause,
@@ -88,7 +89,7 @@ impl ClausesCompiler {
             return self;
         }
 
-        let result = mapper.compile_clause(field, op);
+        let result = formatter.compile_clause(field, op);
         if let Err(err) = result {
             self.error = Some(err);
             return self;
@@ -104,7 +105,11 @@ impl ClausesCompiler {
     }
 
     // es: field = topic.user_metadata
-    pub fn filter<F, V>(mut self, filter: ExprGroup<V>, formatter: &mut F) -> Self
+    pub fn ontology_expr_group<F, V>(
+        mut self,
+        filter: OntologyExprGroup<V>,
+        formatter: &mut F,
+    ) -> Self
     where
         V: Into<Value> + IsSupportedOp,
         F: CompileClause + OntologyFieldFmt,

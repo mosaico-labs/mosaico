@@ -251,14 +251,13 @@ pub async fn topic_from_query_filter(
             qb = qb.expr("sequence.creation_unix_tstamp", op, &mut sql_fmt);
         }
 
-        if let Some(mdata) = seq.user_metadata {
-            qb = qb.filter(
-                mdata.into_expr_group(),
-                json_fmt.with_field_and_placeholder(
-                    "sequence.user_metadata".into(),
-                    sql_fmt.current_placeholder(),
-                ),
-            );
+        let fmt = json_fmt.with_field_and_placeholder(
+            "sequence.user_metadata".into(),
+            sql_fmt.current_placeholder(),
+        );
+
+        for (field, op) in seq.user_metadata {
+            qb = qb.expr(&field, op, fmt);
         }
     }
 
@@ -287,14 +286,13 @@ pub async fn topic_from_query_filter(
             qb = qb.expr("topic.serialization_format", op, &mut sql_fmt);
         }
 
-        if let Some(mdata) = top.user_metadata {
-            qb = qb.filter(
-                mdata.into_expr_group(),
-                json_fmt.with_field_and_placeholder(
-                    "topic.user_metadata".into(),
-                    sql_fmt.current_placeholder(),
-                ),
-            );
+        let fmt = json_fmt.with_field_and_placeholder(
+            "topic.user_metadata".into(),
+            sql_fmt.current_placeholder(),
+        );
+
+        for (field, op) in top.user_metadata {
+            qb = qb.expr(&field, op, fmt);
         }
     }
 

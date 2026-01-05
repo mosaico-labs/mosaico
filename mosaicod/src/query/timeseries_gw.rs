@@ -107,7 +107,7 @@ impl TimeseriesGatewayResult {
         ))
     }
 
-    pub fn filter<V>(self, filter: query::ExprGroup<V>) -> Result<Self, Error>
+    pub fn filter<V>(self, filter: query::OntologyExprGroup<V>) -> Result<Self, Error>
     where
         V: Into<query::Value>,
     {
@@ -199,7 +199,7 @@ fn unfold_field(field: &query::OntologyField) -> Expr {
     col
 }
 
-fn expr_group_to_df_expr<V>(filter: query::ExprGroup<V>) -> Option<Expr>
+fn expr_group_to_df_expr<V>(filter: query::OntologyExprGroup<V>) -> Option<Expr>
 where
     V: Into<query::Value>,
 {
@@ -290,7 +290,7 @@ mod tests {
             .await
             .unwrap();
 
-        let expr_grp = query::ExprGroup::new(vec![
+        let expr_grp = query::OntologyExprGroup::new(vec![
             (
                 OntologyField::try_new("tag.value".to_owned()).unwrap(),
                 query::Op::Between(query::Range::try_new(3, 5).unwrap()),

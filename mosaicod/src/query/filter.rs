@@ -262,9 +262,9 @@ impl std::hash::Hash for OntologyField {
 /// An expression is formed by binding a specific identifier (a field name or [`OntologyField`])
 /// to an [`Op`]. It asserts a rule for that specific field (e.g., *"temperature > 25.0"*).
 #[derive(Debug, Clone)]
-pub struct Expr<T>(OntologyField, Op<T>);
+pub struct OntologyExpr<T>(OntologyField, Op<T>);
 
-impl<T> Expr<T> {
+impl<T> OntologyExpr<T> {
     pub fn ontology_field(&self) -> &OntologyField {
         &self.0
     }
@@ -278,7 +278,7 @@ impl<T> Expr<T> {
     }
 }
 
-impl<T> From<(OntologyField, Op<T>)> for Expr<T> {
+impl<T> From<(OntologyField, Op<T>)> for OntologyExpr<T> {
     fn from(value: (OntologyField, Op<T>)) -> Self {
         Self(value.0, value.1)
     }
@@ -287,19 +287,19 @@ impl<T> From<(OntologyField, Op<T>)> for Expr<T> {
 /// An expression group is defined as a series of ontology fields
 /// with associated operations.
 #[derive(Debug, Clone)]
-pub struct ExprGroup<T> {
-    pub group: Vec<Expr<T>>,
+pub struct OntologyExprGroup<T> {
+    pub group: Vec<OntologyExpr<T>>,
 }
 
-impl<T> ExprGroup<T> {
-    pub fn new(group: Vec<Expr<T>>) -> Self {
+impl<T> OntologyExprGroup<T> {
+    pub fn new(group: Vec<OntologyExpr<T>>) -> Self {
         Self { group }
     }
 
     /// Exports filter data as several expression groupss grouped by ontology tag
     /// So if the
-    pub fn split_by_ontology_tag(self) -> Vec<ExprGroup<T>> {
-        let mut map: HashMap<String, ExprGroup<T>> = HashMap::new();
+    pub fn split_by_ontology_tag(self) -> Vec<OntologyExprGroup<T>> {
+        let mut map: HashMap<String, OntologyExprGroup<T>> = HashMap::new();
         for expr in self.group {
             let tag = expr.ontology_field().ontology_tag();
             match map.entry(tag.to_owned()) {
@@ -316,15 +316,15 @@ impl<T> ExprGroup<T> {
     }
 }
 
-impl<T> Default for ExprGroup<T> {
+impl<T> Default for OntologyExprGroup<T> {
     fn default() -> Self {
         Self { group: Vec::new() }
     }
 }
 
-impl<T> IntoIterator for ExprGroup<T> {
-    type Item = Expr<T>;
-    type IntoIter = std::vec::IntoIter<Expr<T>>;
+impl<T> IntoIterator for OntologyExprGroup<T> {
+    type Item = OntologyExpr<T>;
+    type IntoIter = std::vec::IntoIter<OntologyExpr<T>>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.group.into_iter()
@@ -333,28 +333,54 @@ impl<T> IntoIterator for ExprGroup<T> {
 
 /// A container for dynamic user-defined expressions mapping to ontology data models.
 #[derive(Debug, Clone)]
-pub struct OntologyFilter(HashMap<OntologyField, Op<Value>>);
+pub struct OntologyFilter {
+    ontology: HashMap<OntologyField, Op<Value>>,
+
+    /// If enabled the response should include timestamp ranges
+    /// for each topic in which the query filter matches
+    pub include_timestamp_range: bool,
+}
 
 impl OntologyFilter {
     /// Creates a new Metadata instance from a [`HashMap`].
     pub fn new(v: HashMap<OntologyField, Op<Value>>) -> Self {
-        Self(v)
+        Self {
+            ontology: v,
+            include_timestamp_range: false,
+        }
+    }
+
+    pub fn new_with_timestamp_range(
+        v: HashMap<OntologyField, Op<Value>>,
+        include_timestamp_range: bool,
+    ) -> Self {
+        Self {
+            ontology: v,
+            include_timestamp_range,
+        }
     }
 
     /// Creates an empty Metadata instance.
     pub fn empty() -> Self {
-        Self(HashMap::new())
+        Self {
+            ontology: HashMap::new(),
+            include_timestamp_range: false,
+        }
     }
 
     /// Retrieves the operation associated with a specific metadata field.
     pub fn get_op(&self, field: &str) -> Option<&Op<Value>> {
-        self.0.get(field)
+        self.ontology.get(field)
     }
 
     /// Exports filter data as a unique expression group
-    pub fn into_expr_group(self) -> ExprGroup<Value> {
-        ExprGroup {
-            group: self.0.into_iter().map(|(o, v)| Expr(o, v)).collect(),
+    pub fn into_expr_group(self) -> OntologyExprGroup<Value> {
+        OntologyExprGroup {
+            group: self
+                .ontology
+                .into_iter()
+                .map(|(o, v)| OntologyExpr(o, v))
+                .collect(),
         }
     }
 }
@@ -443,12 +469,12 @@ impl Filter {
 pub struct SequenceFilter {
     pub name: Option<Op<Text>>,
     pub creation: Option<Op<Timestamp>>,
-    pub user_metadata: Option<OntologyFilter>,
+    pub user_metadata: HashMap<String, Op<Value>>,
 }
 
 impl SequenceFilter {
     pub fn is_empty(&self) -> bool {
-        self.name.is_none() && self.creation.is_none() && self.user_metadata.is_none()
+        self.name.is_none() && self.creation.is_none() && self.user_metadata.is_empty()
     }
 }
 
@@ -458,14 +484,14 @@ pub struct TopicFilter {
     pub creation: Option<Op<Timestamp>>,
     pub ontology_tag: Option<Op<Text>>,
     pub serialization_format: Option<Op<Text>>,
-    pub user_metadata: Option<OntologyFilter>,
+    pub user_metadata: HashMap<String, Op<Value>>,
 }
 
 impl TopicFilter {
     pub fn is_empty(&self) -> bool {
         self.name.is_none()
             && self.creation.is_none()
-            && self.user_metadata.is_none()
+            && self.user_metadata.is_empty()
             && self.ontology_tag.is_none()
             && self.serialization_format.is_none()
     }
@@ -486,7 +512,7 @@ mod tests {
 
     #[test]
     fn expr_grp_split() {
-        let grp = ExprGroup {
+        let grp = OntologyExprGroup {
             group: vec![
                 (
                     OntologyField::try_new("image.width".into()).unwrap(),

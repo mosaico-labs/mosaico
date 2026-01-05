@@ -187,6 +187,14 @@ mod internal {
                 query::Value::Boolean(_) => format!("({field})::boolean"),
             }
         }
+
+        fn fmt_clause(&self, subfield: &str) -> String {
+            let subfield = format!(
+                "{{{}}}",
+                subfield.split(".").collect::<Vec<&str>>().join(",")
+            );
+            format!("{} #>> '{subfield}'", self.field)
+        }
     }
 
     impl query::CompileClause for JsonQueryCompiler {
@@ -201,6 +209,8 @@ mod internal {
             if !op.is_supported_op() {
                 return Err(query::Error::unsupported_op(field.to_owned()));
             }
+
+            let field = &self.fmt_clause(field);
 
             let r = match op {
                 query::Op::Eq(v) => {
@@ -294,17 +304,9 @@ mod internal {
                 query::Op::Match(_) => return Err(query::Error::unsupported_op(field.to_owned())),
             };
 
-            Ok(r)
-        }
-    }
+            // r.clause = self.fmt_clause(&r.clause);
 
-    impl query::OntologyFieldFmt for JsonQueryCompiler {
-        fn ontology_column_fmt(&self, subfield: &query::OntologyField) -> String {
-            let subfield = format!(
-                "{{{}}}",
-                subfield.value().split(".").collect::<Vec<&str>>().join(",")
-            );
-            format!("{} #>> '{subfield}'", self.field)
+            Ok(r)
         }
     }
 }
@@ -374,27 +376,25 @@ mod tests {
 
     #[test]
     fn user_metadata() {
-        let mdata: HashMap<query::OntologyField, query::Op<query::Value>> = HashMap::from([
+        let mdata: HashMap<String, query::Op<query::Value>> = HashMap::from([
             (
-                query::OntologyField::try_new("my.custom.field.1".into()).unwrap(),
+                "my.custom.field.1".to_owned(),
                 query::Op::Eq(query::Value::Float(10.0)),
             ),
             (
-                query::OntologyField::try_new("my.custom.field.2".into()).unwrap(),
+                "my.custom.field.2".to_owned(),
                 query::Op::Neq(query::Value::Boolean(true)),
             ),
         ]);
-        let kv = query::OntologyFilter::new(mdata);
 
-        let mut fmt = JsonQueryCompiler::new();
+        let mut jqc = JsonQueryCompiler::new();
+        let fmt = jqc.with_field_and_placeholder("topic.user_metadata".to_owned(), 1);
 
-        let qr = ClausesCompiler::new()
-            .filter(
-                kv.into_expr_group(),
-                fmt.with_field_and_placeholder("topic.user_metadata".into(), 1),
-            )
-            .compile()
-            .expect("problem building query");
+        let mut cc = ClausesCompiler::new();
+        for (k, v) in mdata {
+            cc = cc.expr(&k, v, fmt);
+        }
+        let qr = cc.compile().expect("problem building query");
 
         dbg!(&qr);
 
