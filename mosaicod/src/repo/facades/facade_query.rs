@@ -156,13 +156,11 @@ impl FacadeQuery {
                                     }
                                 }
                             }
+                        } else if qr.has_rows().await? {
+                            trace!("found matching records in chunk");
+                            topics_with_data.insert(topic.topic_id);
                         } else {
-                            if qr.has_rows().await? {
-                                trace!("found matching records in chunk");
-                                topics_with_data.insert(topic.topic_id);
-                            } else {
-                                is_discarded = true;
-                            }
+                            is_discarded = true;
                         }
 
                         if is_discarded {

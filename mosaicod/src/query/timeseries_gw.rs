@@ -160,7 +160,7 @@ impl TimeseriesGatewayResult {
 
         let batches = stats.collect().await?;
 
-        if let Some(batch) = batches.get(0) {
+        if let Some(batch) = batches.first() {
             let ts_min = ScalarValue::try_from_array(batch.column(0), 0)?;
             let ts_max = ScalarValue::try_from_array(batch.column(1), 0)?;
 
