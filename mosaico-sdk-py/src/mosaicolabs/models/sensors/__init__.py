@@ -13,3 +13,9 @@ from .imu import IMU as IMU
 from .magnetometer import Magnetometer as Magnetometer
 
 from .robot import RobotJoint as RobotJoint
+
+from .temperature import Temperature as Temperature
+
+from .pressure import Pressure as Pressure
+
+from .range import Range as Range

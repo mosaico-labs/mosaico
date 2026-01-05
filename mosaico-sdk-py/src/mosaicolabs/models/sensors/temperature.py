@@ -1,0 +1,43 @@
+"""
+Temperature Ontology Module.
+
+Defines the data structure for temperature sensors.
+"""
+
+import pyarrow as pa
+
+from ..header_mixin import HeaderMixin
+from ..covariance_mixin import CovarianceMixin
+from ..serializable import Serializable
+
+
+class Temperature(Serializable, HeaderMixin, CovarianceMixin):
+    """
+    Temperature measurement data.
+    """
+
+    # --- Schema Definition ---
+    __msco_pyarrow_struct__ = pa.struct(
+        [
+            pa.field(
+                "temperature",
+                pa.float64(),
+                nullable=False,
+                metadata={"description": "Measurement of the Temperature in Kelvin."},
+            ),
+            pa.field(
+                "variance",
+                pa.float64(),
+                nullable=False,
+                metadata={
+                    "description": "Temperature variance. 0 is interpreted as variance unknown."
+                },
+            ),
+        ]
+    )
+
+    temperature: float
+    """Measurement of the Temperature in Kelvin."""
+
+    variance: float
+    """Temperature variance. 0 is interpreted as variance unknown."""
