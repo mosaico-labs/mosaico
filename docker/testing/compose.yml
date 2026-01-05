@@ -12,6 +12,12 @@ services:
       - mosaico-testing-pg-data:/var/lib/postgresql/data
     networks:
       - mosaico-testing
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready", "-d", "db_prod"]
+      interval: 30s
+      timeout: 60s
+      retries: 5
+      start_period: 80s
 
 
 volumes:
