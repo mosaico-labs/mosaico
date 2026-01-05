@@ -83,10 +83,11 @@ Filters sequences based on high-level metadata.
 
 | Method | Argument | Description |
 | :--- | :--- | :--- |
+| **`__init__(*exprs)`** | `Expression` | Initializes the query with variable number of expressions (valid **Only** for `Sequence.Q.user_metadata`) |
 | **`with_name(name)`** | `str` | Exact match for the sequence name. |
 | **`with_name_match(pattern)`** | `str` | Substring/Pattern match on the name (e.g., "drive\_2023"). |
 | **`with_created_timestamp(start, end)`** | `Time` | Filters sequences created within the given time range. If only `start` is provided, acts as **greater-than**; if only `end` is provided, acts as **less-than**; if both are provided, acts as **between**.|
-| **`with_expression(expr)`/Constructor** | `Expression` | **Only** for `Sequence.Q.user_metadata`|
+| **`with_expression(expr)`** | `Expression` | **Only** for `Sequence.Q.user_metadata`|
 
 ### `QueryTopic`
 
@@ -97,6 +98,7 @@ Filters specific topics within a sequence.
 
 | Method | Argument | Description |
 | :--- | :--- | :--- |
+| **`__init__(*exprs)`** | `Expression` | Initializes the query with variable number of expressions (valid **Only** for `Topic.Q.user_metadata`) |
 | **`with_name_match(pattern)`** | `str` | Substring match on the topic name (e.g., "camera/front"). |
 | **`with_ontology_tag(tag)`** | `str` | Performs an exact match on the data type tag. It is strongly recommended to programmatically retrieve the tag from the model class (e.g., `with_ontology_tag(GPS.ontology_tag())`) rather than using hardcoded strings. |
 | **`with_created_timestamp(start, end)`** | `Time` | Filters topics created within the given time range. If only `start` is provided, acts as **greater-than**; if only `end` is provided, acts as **less-than**; if both are provided, acts as **between**. |
@@ -123,117 +125,108 @@ Filters specific topics within a sequence.
 
 Filters the actual time-series data content inside the topics.
 
-  * **All Data Fields:** Must be queried via **`with_expression`** using the specific class proxy (e.g., `IMU.Q`, `GPS.Q`).
-  * **Timestamps:** Special helper methods exist for the standard header timestamps.
+* **All Data Fields:** Can be queried by passing expressions directly to the **constructor** or via **`with_expression`** using the specific class proxy (e.g., `IMU.Q`, `GPS.Q`).
+* **Timestamps:** Special helper methods exist for the standard header timestamps.
+* **Range Metadata:** The query can be configured to return the temporal bounds (start/end) of the matching data.
 
 | Method | Argument | Description |
 | :--- | :--- | :--- |
+| **`__init__(*exprs, include_timestamp_range)`** | `Expression`, `bool` | Initializes the query with a variable number of expressions. If **`include_timestamp_range`** is `True`, the server returns the start and end timestamps corresponding to the first and last time the queried conditions occurred. |
 | **`with_message_timestamp(type, start, end)`** | `Type`, `Time` | Filters by message reception timestamp (middleware/platform time). If only `start` is provided, acts as **greater-than**; if only `end` is provided, acts as **less-than**; if both are provided, acts as **between**. |
 | **`with_data_timestamp(type, start, end)`** | `Type`, `Time` | Filters by the data internal `header.stamp` (measurement generation time). Follows the same logic as `with_message_timestamp`. |
-| **`with_expression(expr)` / Constructor** | `Expression` | Applies complex filters to **any** ontology field (e.g., `acceleration`, `position`). |
+| **`with_expression(expr)`** | `Expression` | Applies complex filters to **any** ontology field (e.g., `acceleration`, `position`). |
 
 ## Current Limitations
 
 The current implementation imposes specific constraints on query structure. These limitations are expected to be removed in future releases.
 
-1.  **Single Occurrence per Field:** A specific field may appear only once within a single query builder instance. It is currently not possible to chain multiple conditions on the *exact same* field path (e.g., manually constructing a range filter).
+**Single Occurrence per Field:** 
 
-    The following code is **NOT allowed**:
+A specific field may appear only once within a single query builder instance. It is currently not possible to chain multiple conditions on the *exact same* field path (e.g., manually constructing a range filter), even if passed as separate arguments to the constructor. The following code is **NOT allowed**:
+```python
+# Invalid: Same field used twice
+QueryOntologyCatalog(
+    IMU.Q.acceleration.x.gt(0.5),
+    IMU.Q.acceleration.x.lt(1.0)
+)
+# Also Invalid
+QueryOntologyCatalog()
+    .with_expression(IMU.Q.acceleration.x.gt(0.5))
+    .with_expression(IMU.Q.acceleration.x.lt(1.0)) # <- same field
+```
 
-    ```python
-    # Invalid: Same field used twice
-    QueryOntologyCatalog()
-        .with_expression(IMU.Q.acceleration.x.gt(0.5))
-        .with_expression(IMU.Q.acceleration.x.lt(1.0))
-    ```
 
-      * **Workaround**: Use the `.between()` operator where applicable.
-      * **Clarification**: This restriction applies only to the specific field path. It is fully supported to query **multiple different fields** from the same model within a single query. 
-      
-    The following code is **Valid**:
+* **Workaround**: Use the `.between()` operator where applicable.
+* **Clarification**: This restriction applies only to the specific field path. It is fully supported to query **multiple different fields** from the same model within a single query.
 
-    ```python
-    # Valid: Different fields
-    QueryOntologyCatalog()
-        .with_expression(IMU.Q.acceleration.x.gt(0.5))
-        .with_expression(IMU.Q.acceleration.y.lt(1.0))
-        .with_expression(IMU.Q.angular_velocity.x.between([0, 1]))
-    ```
 
-2.  **Single Data Model per Query:** A `QueryOntologyCatalog` instance supports expressions from only one ontology type at a time. Mixing different data models in the same catalog query is not permitted in the current version of the library.
+The following code is **Valid**:
 
-    The following code is **NOT allowed**:
-
-    ```python
-    # Invalid: Mixing IMU and GPS in the same builder
-    QueryOntologyCatalog()
-        .with_expression(IMU.Q.acceleration.x.gt(0.5))
-        .with_expression(GPS.Q.status.service.eq(2))
-    ```
-
-      * **Workaround**: To filter by multiple models, you must construct separate queries for each type and [chain them](#restricted-queries-chaining).
+```python
+# Valid: Different fields
+QueryOntologyCatalog(
+    IMU.Q.acceleration.x.gt(0.5),
+    IMU.Q.acceleration.y.lt(1.0), # <- different field
+    IMU.Q.angular_velocity.x.between([0, 1]),
+    include_timestamp_range=True
+)
+```
 
 
 ## Query Execution & Examples
 
 Queries are executed via the `MosaicoClient` object. The `.query()` method accepts one or more Query Builder objects. When multiple builders are provided, they are combined with a logical **AND**.
 
-### Complex Multi-Level Query
+1. *Example: Retrieve data where the GPS service is equal to a certain vaue (generally an enum-based) (`==1`), restricted to topics tagged with the "UART" interface*
 
-*Example: Retrieve data where the GPS service is equal to a certain vaue (generally an enum-based) (`==1`), restricted to topics tagged with the "UART" interface*
+  ```python
+  from mosaicolabs.models.query import QueryOntologyCatalog, QueryTopic
+  from mosaicolabs.models.platform import Topic
+  from mosaicolabs.models.sensors import GPS
 
-```python
-from mosaicolabs.models.query import QueryOntologyCatalog, QueryTopic
-from mosaicolabs.models.platform import Topic
-from mosaicolabs.models.sensors import GPS
+  # Execute the query
+  query_resp = client.query(
+      # Filter 1: Data Content (Ontology) -> Use .Q proxy
+      QueryOntologyCatalog().with_expression(
+          GPS.Q.status.service.eq(1)
+      ),
+      # Filter 2: Topic Metadata (Platform) -> Use .Q proxy for user_metadata
+      QueryTopic().with_expression(
+          Topic.Q.user_metadata["interface.type"].eq("UART")
+      ),
+  )
 
-# Execute the query
-query_resp = client.query(
-    # Filter 1: Data Content (Ontology) -> Use .Q proxy
-    QueryOntologyCatalog().with_expression(
-        GPS.Q.status.service.eq(1)
-    ),
-    # Filter 2: Topic Metadata (Platform) -> Use .Q proxy for user_metadata
-    QueryTopic().with_expression(
-        Topic.Q.user_metadata["interface.type"].eq("UART")
-    ),
-)
+  # Process results
+  for item in query_resp:
+      print(f"Found sequence: {item.sequence.name}")
+      print(f"Matching topics: {[t.name for t in item.topics]}")
+  ```
 
-# Process results
-for item in query_resp:
-    print(f"Found sequence: {item.sequence}")
-    print(f"Matching topics: {item.topics}")
-```
+2. *Example: Retrieves specific high-brake events that occurred during all the test campaigns which name matches a specific substring.*
 
-### Filtering by Sequence and Data
+  ```python
+  from mosaicolabs.models.query import QueryOntologyCatalog, QuerySequence
+  from mosaicolabs.models.sensors import IMU
 
-*Example: Retrieves specific high-brake events that occurred during all the test campaigns which name matches a specific substring.*
+  results = client.query(
+      # Filter 1: Sequence Name -> Use Convenience Method
+      QuerySequence().with_name_match("winter_test_2023"), # all names that match `*winter_test_2023*`
 
-```python
-from mosaicolabs.models.query import QueryOntologyCatalog, QuerySequence
-from mosaicolabs.models.sensors import IMU
-
-results = client.query(
-    # Filter 1: Sequence Name -> Use Convenience Method
-    QuerySequence().with_name_match("winter_test_2023"), # all names that match `*winter_test_2023*`
-
-    # Filter 2: IMU Data Threshold -> Use .Q proxy
-    # We assume that the IMU x axis is aligned to the vehicle's longitudinal axis
-    QueryOntologyCatalog().with_expression(
-        IMU.Q.acceleration.x.lt(-6.0)
-    )
-)
-```
+      # Filter 2: IMU Data Threshold -> Use .Q proxy
+      # We assume that the IMU x axis is aligned to the vehicle's longitudinal axis
+      QueryOntologyCatalog().with_expression(
+          IMU.Q.acceleration.x.lt(-6.0)
+      )
+  )
+  ```
 
 ### Query Response
 
-The query return is a `QueryResponse | None`. This class acts as a container for `QueryResponseItem` objects via the `items` field. Each item groups results by **Sequence**, providing the sequence identifier and the list of specific **Topics** within that sequence that matched the query criteria.
-
-**Class: `QueryResponse`**
+The query returns a `QueryResponse` object. This class acts as a container for `QueryResponseItem` objects via the `items` field. Each item groups results by **Sequence**, providing the sequence identifier and the list of specific **Topics** within that sequence that matched the query criteria.
 
 | Attribute | Type | Description |
 | --- | --- | --- |
-| **`items`** | `List[QueryResponseItem]` | A list of items containing the sequence and related topic names that satisfied the filter conditions. |
+| **`items`** | `List[QueryResponseItem]` | A list of items containing the sequence and related topic objects that satisfied the filter conditions. |
 
 The class behaves like a standard Python list. You can:
 
@@ -242,17 +235,31 @@ The class behaves like a standard Python list. You can:
 * **Access by index** (`results[0]`).
 * **Check emptiness** via the helper method `results.is_empty()`.
 
+
 **Class: `QueryResponseItem`**
 
 | Attribute | Type | Description |
 | --- | --- | --- |
-| **`sequence`** | `str` | The unique identifier (name) of the sequence. |
-| **`topics`** | `List[str]` | A list of topic names belonging to this sequence that satisfied the filter conditions. |
+| **`sequence`** | `QueryResponseItemSequence` | Object containing the unique identifier (name) of the sequence. |
+| **`topics`** | `List[QueryResponseItemTopic]` | A list of topic objects belonging to this sequence that satisfied the filter conditions. |
+
+**Class: `QueryResponseItemSequence`**
+
+| Attribute | Type | Description |
+| --- | --- | --- |
+| **`name`** | `str` | The unique identifier (name) of the sequence. |
+
+**Class: `QueryResponseItemTopic`**
+
+| Attribute | Type | Description |
+| --- | --- | --- |
+| **`name`** | `str` | The normalized relative topic path (e.g., `"/topic/path"`). The prefix is automatically stripped. |
+| **`timestamp_range`** | `TimestampRange\|None` | The start and end timestamps corresponding to the first and last time the queried conditions occurred.
 
 > [!NOTE]
 > **Topic Name Normalization**
 >
-> The raw response from the backend returns fully qualified resource names (e.g., `"sequence_name/topic/path"`). The `QueryResponseItem` automatically processes these strings during initialization. Therefore, the **`topics`** attribute exposes only the normalized relative topic path (e.g., `"/topic/path"`), stripping the sequence prefix for easier usage.
+> The raw response from the backend returns fully qualified resource names (e.g., `"sequence_name/topic/path"`). The `QueryResponseItemTopic` automatically processes these strings during initialization. Therefore, the **`name`** attribute exposes only the normalized relative topic path (e.g., `"/topic/path"`), stripping the sequence prefix for easier usage.
 
 **Example Usage:**
 
@@ -260,18 +267,23 @@ The class behaves like a standard Python list. You can:
 results = client.query(...) # The return is a QueryResponse
 
 if results and not results.is_empty():
-    print(f"Total sequences found: {len(results)}")
+      print(f"Total sequences found: {len(results)}")
     
     # Access by index
     first_item = results[0]
-
     for item in results: # Iterate like a list
-        print(f"Sequence: {item.sequence}")
-        for topic_name in item.topics:
-            print(f" - Found matching topic: {topic_name}")
+        print(f"Sequence: {item.sequence.name}")
+        
+        for it_topic in item.topics:
+            print(f" - Found matching topic: {it_topic.name}")
+            
+            # Access timestamp range if requested
+            if it_topic.timestamp_range:
+                start = it_topic.timestamp_range.start
+                end = it_topic.timestamp_range.end
+                print(f"   Matches found between: {start} and {end}")
 
 ```
-
 
 ## Restricted Queries (Chaining)
 
