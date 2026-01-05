@@ -10,8 +10,6 @@ use log::trace;
 use crate::types;
 use crate::{params, query, rw, store};
 use arrow::datatypes::{Schema, SchemaRef};
-use datafusion::datasource::file_format::parquet::ParquetFormat;
-use datafusion::datasource::listing::ListingOptions;
 use datafusion::execution::SendableRecordBatchStream;
 use datafusion::execution::runtime_env::{RuntimeEnv, RuntimeEnvBuilder};
 use datafusion::functions::core::expr_ext::FieldAccessor;
@@ -57,7 +55,11 @@ impl TimeseriesGateway {
         format: rw::Format,
         batch_size: Option<usize>,
     ) -> Result<TimeseriesGatewayResult, Error> {
-        let listing_options = get_listing_options(format);
+        // Use Parquet format strategy for listing options
+        let parquet_strategy = format
+            .as_parquet()
+            .expect("TimeseriesGateway::read requires a Parquet-based format");
+        let listing_options = parquet_strategy.listing_options();
 
         let mut conf = SessionConfig::new();
         if let Some(batch_size) = batch_size {
@@ -183,10 +185,6 @@ fn scalar_value_to_timestamp(value: ScalarValue) -> Option<types::Timestamp> {
         ScalarValue::Int64(Some(v)) => Some(v.into()),
         _ => None,
     }
-}
-
-fn get_listing_options(_format: rw::Format) -> ListingOptions {
-    ListingOptions::new(Arc::new(ParquetFormat::default())).with_file_extension(".parquet")
 }
 
 fn unfold_field(field: &query::OntologyField) -> Expr {
