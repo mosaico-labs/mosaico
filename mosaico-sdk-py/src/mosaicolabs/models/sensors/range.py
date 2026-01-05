@@ -5,6 +5,8 @@ Defines the data structure for range sensors.
 """
 
 import pyarrow as pa
+from typing_extensions import Self
+from pydantic import model_validator
 
 from ..header_mixin import HeaderMixin
 from ..covariance_mixin import CovarianceMixin
@@ -68,6 +70,9 @@ class Range(Serializable, HeaderMixin, CovarianceMixin):
         ]
     )
 
+    radiation_type: int
+    """The type of radiation used by the sensor."""
+
     field_of_view: float
     """
     The size of the arc that the distance reading is valid for [rad]
@@ -90,5 +95,24 @@ class Range(Serializable, HeaderMixin, CovarianceMixin):
     +Inf represents no detection within the fixed distance (Object out of range).
     """
 
-    radiation_type: int
-    """The type of radiation used by the sensor."""
+    @model_validator(mode="after")
+    def validate_min_and_max_range(self) -> Self:
+        """Ensures that `min_range` is smaller or equal to `max_range`."""
+        if self.min_range > self.max_range:
+            raise ValueError(
+                "The min_range must be smaller or equal to max_range. "
+                f"Got {self.min_range} as min_range and {self.max_range} as max_range."
+            )
+
+        return self
+
+    @model_validator(mode="after")
+    def validate_range(self) -> Self:
+        """Ensures that `range` is between `min_range` and `max_range`."""
+        if not self.min_range <= self.range <= self.max_range:
+            raise ValueError(
+                "The range must be between min_range and max_range. "
+                f"Got {self.range} as range, {self.min_range} as min_range and {self.max_range} as max_range."
+            )
+
+        return self

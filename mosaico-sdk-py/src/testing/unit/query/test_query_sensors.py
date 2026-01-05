@@ -732,3 +732,36 @@ class TestQueryRangeAPI:
         # Check topic nesting (the complex part)
         # Check ontology flatness (the simple part)
         assert result["ontology"] == expected_dict["ontology"]
+
+    def test_validation_min_and_max_range(self):
+        """Tests the validator for `min_range` and `max_range`."""
+        # min_range < max_range
+        Range(field_of_view=30, min_range=0, max_range=1, range=0.5, radiation_type=0)
+
+        # min_range == max_range
+        Range(field_of_view=30, min_range=0, max_range=0, range=0, radiation_type=0)
+
+        # min_range
+        with pytest.raises(ValueError):
+            Range(
+                field_of_view=30, min_range=1, max_range=0, range=0.5, radiation_type=0
+            )
+
+    def test_validation_range(self):
+        """Tests the validator for `range`."""
+        # min_range < range < max_range
+        Range(field_of_view=30, min_range=0, max_range=1, range=0.5, radiation_type=0)
+
+        # range == min_range
+        Range(field_of_view=30, min_range=0, max_range=1, range=0, radiation_type=0)
+
+        # range == max_range
+        Range(field_of_view=30, min_range=0, max_range=1, range=1, radiation_type=0)
+
+        # range < min_range
+        with pytest.raises(ValueError):
+            Range(field_of_view=30, min_range=1, max_range=2, range=0, radiation_type=0)
+
+        # range > max_range
+        with pytest.raises(ValueError):
+            Range(field_of_view=30, min_range=0, max_range=1, range=2, radiation_type=0)
