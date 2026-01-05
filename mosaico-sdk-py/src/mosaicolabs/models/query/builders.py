@@ -83,14 +83,22 @@ class QueryOntologyCatalog:
         _QueryCatalogExpression,
     )
 
-    def __init__(self, *expressions: "_QueryExpression"):
+    def __init__(
+        self,
+        *expressions: "_QueryExpression",
+        include_timestamp_range: Optional[bool] = None,
+    ):
         """
         Initializes the query with an optional set of initial expressions.
 
         Args:
             *expressions: A variable number of _QueryCatalogExpression objects.
+            include_timestamp_range (Optional[bool]): If True, the server returns the start
+                and end timestamps corresponding to the first and last time the queried
+                condition occurred.
         """
         self._expressions = []
+        self._include_tstamp_range = include_timestamp_range
         # Call the helper for each expression
         for expr in list(expressions):
             _validate_expression_type(
@@ -220,7 +228,10 @@ class QueryOntologyCatalog:
         Uses _QueryCombinator to merge expressions, e.g.:
         {"gps.timestamp_ns": {"$between": [...]}, "gps.satellites": {"$leq": 10}}
         """
-        return _QueryCombinator(list(self._expressions)).to_dict()
+        query_dict = _QueryCombinator(list(self._expressions)).to_dict()
+        if self._include_tstamp_range:
+            query_dict.update({"include_timestamp_range": self._include_tstamp_range})
+        return query_dict
 
 
 class QueryTopic:
