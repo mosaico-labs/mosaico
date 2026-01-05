@@ -40,11 +40,11 @@ body:
       description: |
         Provide the `mosaicod` logs during your issue reproduction in this field. You can enable logs setting `RUST_LOG=mosaico=trace` environment variable.
       render: text
-  - type: textarea
+  - type: input
     attributes:
       label: Mosaico Version
       description: Paste the output of `mosaico --version` here.
-      render: text
+      placeholder: mosaicod 0.1.0
     validations:
       required: true
   - type: input
