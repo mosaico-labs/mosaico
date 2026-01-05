@@ -1,7 +1,7 @@
 """
-Pressure Ontology Module.
+Range Ontology Module.
 
-Defines the data structure for pressure sensors.
+Defines the data structure for range sensors.
 """
 
 import pyarrow as pa
