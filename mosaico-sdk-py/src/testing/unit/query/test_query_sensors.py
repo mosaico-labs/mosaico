@@ -18,7 +18,15 @@ from mosaicolabs.models.query.expressions import (
     _QueryCatalogExpression,
 )
 
-from mosaicolabs.models.sensors import IMU, GPS, Image, Magnetometer
+from mosaicolabs.models.sensors import (
+    IMU,
+    GPS,
+    Image,
+    Magnetometer,
+    Temperature,
+    Pressure,
+    Range,
+)
 
 
 class TestQueryIMUAPI:
@@ -433,6 +441,283 @@ class TestQueryMagnetometerAPI:
             "ontology": {
                 "magnetometer.timestamp_ns": {"$gt": 12345.67},
                 "magnetometer.magnetic_field.z": {"$gt": 12345.67},
+            },
+        }
+
+        # Assert the result
+        result = q.to_dict()
+
+        # Check top-level structure
+        assert set(result.keys()) == set(["ontology"])
+
+        # Check topic nesting (the complex part)
+        # Check ontology flatness (the simple part)
+        assert result["ontology"] == expected_dict["ontology"]
+
+
+class TestQueryTemperatureAPI:
+    def test_accessibility(self):
+        """
+        Tests that inner fields are accessable from the _QueryProxy.
+        """
+        # --- Fields Accessibility Test ---
+        # Local fields
+        Temperature.Q.temperature
+        Temperature.Q.variance
+        # Inherited from HeaderMixin
+        Temperature.Q.header.seq
+        Temperature.Q.header.stamp.sec
+        Temperature.Q.header.stamp.nanosec
+        Temperature.Q.header.frame_id
+        # Inherited from CovarianceMixin
+        Temperature.Q.covariance_type
+        # Inherited from Message
+        Temperature.Q.timestamp_ns
+        # --- Catalog Context: Non-existing field ---
+        with pytest.raises(Exception):
+            Temperature.Q.non_existing_field.eq(0)
+
+    def test_field_queryable_inheritance(self):
+        """
+        Tests the queryable type of the model fields.
+        This test ensure that for each field, only specified operators are defined and callable
+        """
+        # --- Fields Accessibility Test ---
+        # Local fields
+        assert issubclass(type(Temperature.Q.temperature), _QueryableNumeric)
+        assert issubclass(type(Temperature.Q.variance), _QueryableNumeric)
+        assert issubclass(type(Temperature.Q.covariance_type), _QueryableNumeric)
+        assert issubclass(type(Temperature.Q.header.seq), _QueryableNumeric)
+        assert issubclass(type(Temperature.Q.header.stamp.sec), _QueryableNumeric)
+        assert issubclass(type(Temperature.Q.header.stamp.nanosec), _QueryableNumeric)
+        assert issubclass(type(Temperature.Q.header.frame_id), _QueryableString)
+
+    def test_expression_generation_paths_and_operators(self):
+        """
+        Tests that complex query chains correctly generate the final, flat expression
+        dictionary with the right keys, operators, and types.
+        """
+        # --- Catalog Context: Field & Operator ---
+        test_numeric_value = 303.15
+        # Call: Image.Q.encoding.match(test_str_value)
+        # Expected: {'gps.position.y': {'$gt': 12345.67}} - _QueryCatalogExpression
+        expr_nested = Temperature.Q.temperature.leq(test_numeric_value)
+        assert isinstance(expr_nested, _QueryCatalogExpression)
+        assert expr_nested.to_dict() == {
+            "temperature.temperature": {"$leq": test_numeric_value},
+        }
+
+        # --- Catalog Context: Range Operator ---
+        test_time_range = [10000, 30000]
+        # Call: Image.Q.timestamp_ns.between(10000, 30000)
+        # Expected: {'image.timestamp_ns': {'$between': [10000, 30000]}} - _QueryCatalogExpression
+        expr_between = Temperature.Q.header.stamp.sec.between(test_time_range)
+        assert isinstance(expr_between, _QueryCatalogExpression)
+        assert expr_between.to_dict() == {
+            "temperature.header.stamp.sec": {"$between": test_time_range}
+        }
+
+    def test_full_sdk_query_to_dict_structure(self):
+        """Tests the final output structure of an example query."""
+
+        # Sgpslate the User Query
+        q = Query(
+            QueryOntologyCatalog()
+            .with_expression(Temperature.Q.timestamp_ns.gt(12345.67))
+            .with_expression(Temperature.Q.temperature.gt(303.15)),
+        )
+
+        # Define Expected Output
+        expected_dict = {
+            "ontology": {
+                "temperature.timestamp_ns": {"$gt": 12345.67},
+                "temperature.temperature": {"$gt": 303.15},
+            },
+        }
+
+        # Assert the result
+        result = q.to_dict()
+
+        # Check top-level structure
+        assert set(result.keys()) == set(["ontology"])
+
+        # Check topic nesting (the complex part)
+        # Check ontology flatness (the simple part)
+        assert result["ontology"] == expected_dict["ontology"]
+
+
+class TestQueryPressureAPI:
+    def test_accessibility(self):
+        """
+        Tests that inner fields are accessable from the _QueryProxy.
+        """
+        # --- Fields Accessibility Test ---
+        # Local fields
+        Pressure.Q.fluid_pressure
+        Pressure.Q.variance
+        # Inherited from HeaderMixin
+        Pressure.Q.header.seq
+        Pressure.Q.header.stamp.sec
+        Pressure.Q.header.stamp.nanosec
+        Pressure.Q.header.frame_id
+        # Inherited from CovarianceMixin
+        Pressure.Q.covariance_type
+        # Inherited from Message
+        Pressure.Q.timestamp_ns
+        # --- Catalog Context: Non-existing field ---
+        with pytest.raises(Exception):
+            Pressure.Q.non_existing_field.eq(0)
+
+    def test_field_queryable_inheritance(self):
+        """
+        Tests the queryable type of the model fields.
+        This test ensure that for each field, only specified operators are defined and callable
+        """
+        # --- Fields Accessibility Test ---
+        # Local fields
+        assert issubclass(type(Pressure.Q.fluid_pressure), _QueryableNumeric)
+        assert issubclass(type(Pressure.Q.variance), _QueryableNumeric)
+        assert issubclass(type(Pressure.Q.covariance_type), _QueryableNumeric)
+        assert issubclass(type(Pressure.Q.header.seq), _QueryableNumeric)
+        assert issubclass(type(Pressure.Q.header.stamp.sec), _QueryableNumeric)
+        assert issubclass(type(Pressure.Q.header.stamp.nanosec), _QueryableNumeric)
+        assert issubclass(type(Pressure.Q.header.frame_id), _QueryableString)
+
+    def test_expression_generation_paths_and_operators(self):
+        """
+        Tests that complex query chains correctly generate the final, flat expression
+        dictionary with the right keys, operators, and types.
+        """
+        # --- Catalog Context: Field & Operator ---
+        test_numeric_value = 200123.15
+        # Call: Image.Q.encoding.match(test_str_value)
+        # Expected: {'gps.position.y': {'$gt': 12345.67}} - _QueryCatalogExpression
+        expr_nested = Pressure.Q.fluid_pressure.leq(test_numeric_value)
+        assert isinstance(expr_nested, _QueryCatalogExpression)
+        assert expr_nested.to_dict() == {
+            "pressure.fluid_pressure": {"$leq": test_numeric_value},
+        }
+
+        # --- Catalog Context: Range Operator ---
+        test_time_range = [10000, 30000]
+        # Call: Image.Q.timestamp_ns.between(10000, 30000)
+        # Expected: {'image.timestamp_ns': {'$between': [10000, 30000]}} - _QueryCatalogExpression
+        expr_between = Pressure.Q.header.stamp.sec.between(test_time_range)
+        assert isinstance(expr_between, _QueryCatalogExpression)
+        assert expr_between.to_dict() == {
+            "pressure.header.stamp.sec": {"$between": test_time_range}
+        }
+
+    def test_full_sdk_query_to_dict_structure(self):
+        """Tests the final output structure of an example query."""
+
+        # Sgpslate the User Query
+        q = Query(
+            QueryOntologyCatalog()
+            .with_expression(Pressure.Q.timestamp_ns.gt(12345.67))
+            .with_expression(Pressure.Q.fluid_pressure.gt(200123.15)),
+        )
+
+        # Define Expected Output
+        expected_dict = {
+            "ontology": {
+                "pressure.timestamp_ns": {"$gt": 12345.67},
+                "pressure.fluid_pressure": {"$gt": 200123.15},
+            },
+        }
+
+        # Assert the result
+        result = q.to_dict()
+
+        # Check top-level structure
+        assert set(result.keys()) == set(["ontology"])
+
+        # Check topic nesting (the complex part)
+        # Check ontology flatness (the simple part)
+        assert result["ontology"] == expected_dict["ontology"]
+
+
+class TestQueryRangeAPI:
+    def test_accessibility(self):
+        """
+        Tests that inner fields are accessable from the _QueryProxy.
+        """
+        # --- Fields Accessibility Test ---
+        # Local fields
+        Range.Q.field_of_view
+        Range.Q.min_range
+        Range.Q.max_range
+        Range.Q.range
+        # Inherited from HeaderMixin
+        Range.Q.header.seq
+        Range.Q.header.stamp.sec
+        Range.Q.header.stamp.nanosec
+        Range.Q.header.frame_id
+        # Inherited from CovarianceMixin
+        Range.Q.covariance_type
+        # Inherited from Message
+        Range.Q.timestamp_ns
+        # --- Catalog Context: Non-existing field ---
+        with pytest.raises(Exception):
+            Range.Q.non_existing_field.eq(0)
+
+    def test_field_queryable_inheritance(self):
+        """
+        Tests the queryable type of the model fields.
+        This test ensure that for each field, only specified operators are defined and callable
+        """
+        # --- Fields Accessibility Test ---
+        # Local fields
+        assert issubclass(type(Range.Q.field_of_view), _QueryableNumeric)
+        assert issubclass(type(Range.Q.min_range), _QueryableNumeric)
+        assert issubclass(type(Range.Q.max_range), _QueryableNumeric)
+        assert issubclass(type(Range.Q.range), _QueryableNumeric)
+        assert issubclass(type(Range.Q.covariance_type), _QueryableNumeric)
+        assert issubclass(type(Range.Q.header.seq), _QueryableNumeric)
+        assert issubclass(type(Range.Q.header.stamp.sec), _QueryableNumeric)
+        assert issubclass(type(Range.Q.header.stamp.nanosec), _QueryableNumeric)
+        assert issubclass(type(Range.Q.header.frame_id), _QueryableString)
+
+    def test_expression_generation_paths_and_operators(self):
+        """
+        Tests that complex query chains correctly generate the final, flat expression
+        dictionary with the right keys, operators, and types.
+        """
+        # --- Catalog Context: Field & Operator ---
+        test_numeric_value = 0.52
+        # Call: Image.Q.encoding.match(test_str_value)
+        # Expected: {'gps.position.y': {'$gt': 12345.67}} - _QueryCatalogExpression
+        expr_nested = Range.Q.field_of_view.leq(test_numeric_value)
+        assert isinstance(expr_nested, _QueryCatalogExpression)
+        assert expr_nested.to_dict() == {
+            "range.field_of_view": {"$leq": test_numeric_value},
+        }
+
+        # --- Catalog Context: Range Operator ---
+        test_time_range = [10000, 30000]
+        # Call: Image.Q.timestamp_ns.between(10000, 30000)
+        # Expected: {'image.timestamp_ns': {'$between': [10000, 30000]}} - _QueryCatalogExpression
+        expr_between = Range.Q.header.stamp.sec.between(test_time_range)
+        assert isinstance(expr_between, _QueryCatalogExpression)
+        assert expr_between.to_dict() == {
+            "range.header.stamp.sec": {"$between": test_time_range}
+        }
+
+    def test_full_sdk_query_to_dict_structure(self):
+        """Tests the final output structure of an example query."""
+
+        # Sgpslate the User Query
+        q = Query(
+            QueryOntologyCatalog()
+            .with_expression(Range.Q.timestamp_ns.gt(12345.67))
+            .with_expression(Range.Q.field_of_view.gt(0.52)),
+        )
+
+        # Define Expected Output
+        expected_dict = {
+            "ontology": {
+                "range.timestamp_ns": {"$gt": 12345.67},
+                "range.field_of_view": {"$gt": 0.52},
             },
         }
 
