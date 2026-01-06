@@ -469,8 +469,6 @@ class TestQueryTemperatureAPI:
         Temperature.Q.header.stamp.sec
         Temperature.Q.header.stamp.nanosec
         Temperature.Q.header.frame_id
-        # Inherited from CovarianceMixin
-        Temperature.Q.covariance_type
         # Inherited from Message
         Temperature.Q.timestamp_ns
         # --- Catalog Context: Non-existing field ---
@@ -486,7 +484,6 @@ class TestQueryTemperatureAPI:
         # Local fields
         assert issubclass(type(Temperature.Q.temperature), _QueryableNumeric)
         assert issubclass(type(Temperature.Q.variance), _QueryableNumeric)
-        assert issubclass(type(Temperature.Q.covariance_type), _QueryableNumeric)
         assert issubclass(type(Temperature.Q.header.seq), _QueryableNumeric)
         assert issubclass(type(Temperature.Q.header.stamp.sec), _QueryableNumeric)
         assert issubclass(type(Temperature.Q.header.stamp.nanosec), _QueryableNumeric)
@@ -560,8 +557,6 @@ class TestQueryPressureAPI:
         Pressure.Q.header.stamp.sec
         Pressure.Q.header.stamp.nanosec
         Pressure.Q.header.frame_id
-        # Inherited from CovarianceMixin
-        Pressure.Q.covariance_type
         # Inherited from Message
         Pressure.Q.timestamp_ns
         # --- Catalog Context: Non-existing field ---
@@ -577,7 +572,6 @@ class TestQueryPressureAPI:
         # Local fields
         assert issubclass(type(Pressure.Q.fluid_pressure), _QueryableNumeric)
         assert issubclass(type(Pressure.Q.variance), _QueryableNumeric)
-        assert issubclass(type(Pressure.Q.covariance_type), _QueryableNumeric)
         assert issubclass(type(Pressure.Q.header.seq), _QueryableNumeric)
         assert issubclass(type(Pressure.Q.header.stamp.sec), _QueryableNumeric)
         assert issubclass(type(Pressure.Q.header.stamp.nanosec), _QueryableNumeric)
@@ -654,8 +648,6 @@ class TestQueryRangeAPI:
         Range.Q.header.stamp.sec
         Range.Q.header.stamp.nanosec
         Range.Q.header.frame_id
-        # Inherited from CovarianceMixin
-        Range.Q.covariance_type
         # Inherited from Message
         Range.Q.timestamp_ns
         # --- Catalog Context: Non-existing field ---
@@ -674,7 +666,6 @@ class TestQueryRangeAPI:
         assert issubclass(type(Range.Q.min_range), _QueryableNumeric)
         assert issubclass(type(Range.Q.max_range), _QueryableNumeric)
         assert issubclass(type(Range.Q.range), _QueryableNumeric)
-        assert issubclass(type(Range.Q.covariance_type), _QueryableNumeric)
         assert issubclass(type(Range.Q.header.seq), _QueryableNumeric)
         assert issubclass(type(Range.Q.header.stamp.sec), _QueryableNumeric)
         assert issubclass(type(Range.Q.header.stamp.nanosec), _QueryableNumeric)

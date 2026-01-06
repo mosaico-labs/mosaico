@@ -9,11 +9,10 @@ from typing_extensions import Self
 from pydantic import model_validator
 
 from ..header_mixin import HeaderMixin
-from ..covariance_mixin import CovarianceMixin
 from ..serializable import Serializable
 
 
-class Range(Serializable, HeaderMixin, CovarianceMixin):
+class Range(Serializable, HeaderMixin):
     """
     Range measurement data.
     """
@@ -25,9 +24,7 @@ class Range(Serializable, HeaderMixin, CovarianceMixin):
                 "radiation_type",
                 pa.uint8(),
                 nullable=False,
-                metadata={
-                    "description": "Which type of radiation the sensor used."
-                },
+                metadata={"description": "Which type of radiation the sensor used."},
             ),
             pa.field(
                 "field_of_view",
@@ -59,9 +56,7 @@ class Range(Serializable, HeaderMixin, CovarianceMixin):
                 "range",
                 pa.float32(),
                 nullable=False,
-                metadata={
-                    "description": "Range value in meters."
-                },
+                metadata={"description": "Range value in meters."},
             ),
         ]
     )

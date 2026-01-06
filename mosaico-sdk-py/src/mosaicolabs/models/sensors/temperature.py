@@ -7,11 +7,10 @@ Defines the data structure for temperature sensors.
 import pyarrow as pa
 
 from ..header_mixin import HeaderMixin
-from ..covariance_mixin import CovarianceMixin
 from ..serializable import Serializable
 
 
-class Temperature(Serializable, HeaderMixin, CovarianceMixin):
+class Temperature(Serializable, HeaderMixin):
     """
     Temperature measurement data.
     """

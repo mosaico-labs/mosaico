@@ -7,11 +7,10 @@ Defines the data structure for pressure sensors.
 import pyarrow as pa
 
 from ..header_mixin import HeaderMixin
-from ..covariance_mixin import CovarianceMixin
 from ..serializable import Serializable
 
 
-class Pressure(Serializable, HeaderMixin, CovarianceMixin):
+class Pressure(Serializable, HeaderMixin):
     """
     Pressure measurement data.
     """
@@ -23,7 +22,9 @@ class Pressure(Serializable, HeaderMixin, CovarianceMixin):
                 "fluid_pressure",
                 pa.float64(),
                 nullable=False,
-                metadata={"description": "The absolute pressure reading from the sensor in Pascals."},
+                metadata={
+                    "description": "The absolute pressure reading from the sensor in Pascals."
+                },
             ),
             pa.field(
                 "variance",
