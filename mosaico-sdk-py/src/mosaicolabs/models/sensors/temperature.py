@@ -23,21 +23,21 @@ class Temperature(Serializable, HeaderMixin, CovarianceMixin):
                 "temperature",
                 pa.float64(),
                 nullable=False,
-                metadata={"description": "Measurement of the Temperature in Kelvin."},
+                metadata={"description": "Temperature value in Kelvin."},
             ),
             pa.field(
                 "variance",
                 pa.float64(),
                 nullable=False,
                 metadata={
-                    "description": "Temperature variance. 0 is interpreted as variance unknown."
+                    "description": "Temperature variance. 0 means that the variance is unknown."
                 },
             ),
         ]
     )
 
     temperature: float
-    """Measurement of the Temperature in Kelvin."""
+    """Temperature value in Kelvin."""
 
     variance: float
-    """Temperature variance. 0 is interpreted as variance unknown."""
+    """Temperature variance. 0 means that the variance is unknown."""

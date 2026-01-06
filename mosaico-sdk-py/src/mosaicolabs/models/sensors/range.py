@@ -26,7 +26,7 @@ class Range(Serializable, HeaderMixin, CovarianceMixin):
                 pa.uint8(),
                 nullable=False,
                 metadata={
-                    "description": "the type of radiation used by the sensor (sound, IR, etc) [enum]"
+                    "description": "Which type of radiation the sensor used."
                 },
             ),
             pa.field(
@@ -34,9 +34,7 @@ class Range(Serializable, HeaderMixin, CovarianceMixin):
                 pa.float32(),
                 nullable=False,
                 metadata={
-                    "description": "The size of the arc that the distance reading is valid for [rad] "
-                    "the object causing the range reading may have been anywhere within -field_of_view/2 and "
-                    "field_of_view/2 at the measured range. 0 angle corresponds to the x-axis of the sensor."
+                    "description": "The arc angle, in radians, over which the distance reading is valid."
                 },
             ),
             pa.field(
@@ -44,7 +42,8 @@ class Range(Serializable, HeaderMixin, CovarianceMixin):
                 pa.float32(),
                 nullable=False,
                 metadata={
-                    "description": "Minimum range value [m] in meters. Fixed distance rangers require min_range==max_range."
+                    "description": "Minimum range value in meters. Fixed distance means that the minimum range"
+                    "must be equal to the maximum range."
                 },
             ),
             pa.field(
@@ -52,7 +51,8 @@ class Range(Serializable, HeaderMixin, CovarianceMixin):
                 pa.float32(),
                 nullable=False,
                 metadata={
-                    "description": "Maximum range value [m] in meters. Fixed distance rangers require min_range==max_range."
+                    "description": "Maximum range value in meters. Fixed distance means that the minimum range"
+                    "must be equal to the maximum range."
                 },
             ),
             pa.field(
@@ -60,39 +60,26 @@ class Range(Serializable, HeaderMixin, CovarianceMixin):
                 pa.float32(),
                 nullable=False,
                 metadata={
-                    "description": "Range data [m] in meters. "
-                    "(Note: values < range_min or > range_max should be discarded) "
-                    "Fixed distance rangers only output -Inf or +Inf. -Inf represents a detection within fixed distance "
-                    "(Detection too close to the sensor to quantify). "
-                    "+Inf represents no detection within the fixed distance (Object out of range)."
+                    "description": "Range value in meters."
                 },
             ),
         ]
     )
 
     radiation_type: int
-    """The type of radiation used by the sensor."""
+    """Which type of radiation the sensor used."""
 
     field_of_view: float
-    """
-    The size of the arc that the distance reading is valid for [rad]
-    the object causing the range reading may have been anywhere within -field_of_view/2 and
-    field_of_view/2 at the measured range. 0 angle corresponds to the x-axis of the sensor.
-    """
+    """The arc angle, in radians, over which the distance reading is valid."""
 
     min_range: float
-    """Minimum range value [m] in meters. Fixed distance rangers require min_range==max_range."""
+    """Minimum range value in meters. Fixed distance means that the minimum range must be equal to the maximum range."""
 
     max_range: float
-    """Maximum range value [m] in meters. Fixed distance rangers require min_range==max_range."""
+    """Maximum range value in meters. Fixed distance means that the minimum range must be equal to the maximum range."""
 
     range: float
-    """
-    Range data [m] in meters.
-
-    Fixed distance rangers only output -Inf or +Inf. -Inf represents a detection within fixed distance (Detection too close to the sensor to quantify).
-    +Inf represents no detection within the fixed distance (Object out of range).
-    """
+    """Range value in meters."""
 
     @model_validator(mode="after")
     def validate_min_and_max_range(self) -> Self:

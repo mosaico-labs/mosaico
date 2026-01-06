@@ -23,21 +23,21 @@ class Pressure(Serializable, HeaderMixin, CovarianceMixin):
                 "fluid_pressure",
                 pa.float64(),
                 nullable=False,
-                metadata={"description": "Absolute pressure reading in Pascals."},
+                metadata={"description": "The absolute pressure reading from the sensor in Pascals."},
             ),
             pa.field(
                 "variance",
                 pa.float64(),
                 nullable=False,
                 metadata={
-                    "description": "Pressure variance. 0 is interpreted as variance unknown."
+                    "description": "Pressure variance. 0 means that the variance is unknown."
                 },
             ),
         ]
     )
 
     fluid_pressure: float
-    """Absolute pressure reading in Pascals."""
+    """The absolute pressure reading from the sensor in Pascals."""
 
     variance: float
-    """Pressure variance. 0 is interpreted as variance unknown."""
+    """Pressure variance. 0 means that the variance is unknown."""
