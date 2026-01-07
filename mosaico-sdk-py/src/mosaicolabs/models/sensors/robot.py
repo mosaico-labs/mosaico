@@ -8,7 +8,7 @@ of a robot's actuators.
 from typing import List
 import pyarrow as pa
 
-from ..header_mixin import HeaderMixin
+from ..mixins import HeaderMixin
 from ..serializable import Serializable
 
 

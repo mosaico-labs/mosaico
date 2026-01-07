@@ -7,9 +7,8 @@ These can be assigned to Message.data field to send data to the platform.
 
 import pyarrow as pa
 
-from ..covariance_mixin import CovarianceMixin
 from ..serializable import Serializable
-from ..header_mixin import HeaderMixin
+from ..mixins import HeaderMixin, CovarianceMixin
 from .geometry import Vector3d
 
 

@@ -15,7 +15,7 @@ from typing import Any
 import pyarrow as pa
 
 from ..serializable import Serializable
-from ..header_mixin import HeaderMixin
+from ..mixins import HeaderMixin
 
 
 class Integer8(Serializable, HeaderMixin):

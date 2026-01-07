@@ -28,10 +28,14 @@ from .handlers import (
 
 # --- Core Models ---
 from .models import (
+    BaseModel as BaseModel,
     Serializable as Serializable,
     Header as Header,
     Time as Time,
     Message as Message,
+    HeaderMixin as HeaderMixin,
+    CovarianceMixin as CovarianceMixin,
+    VarianceMixin as VarianceMixin,
 )
 
 # --- Sensors ---
@@ -124,10 +128,14 @@ __all__ = [
     "TopicWriter",
     "TopicDataStreamer",
     # Core Models
+    "BaseModel",
     "Serializable",
     "Header",
     "Time",
     "Message",
+    "HeaderMixin",
+    "CovarianceMixin",
+    "VarianceMixin",
     # Sensors
     "CameraInfo",
     "GPS",

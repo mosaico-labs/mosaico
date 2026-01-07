@@ -2,7 +2,7 @@ import pyarrow as pa
 from typing import Optional
 
 from ..serializable import Serializable
-from ..header_mixin import HeaderMixin
+from ..mixins import HeaderMixin
 from .geometry import Vector2d
 
 

@@ -11,7 +11,7 @@ and lens distortion model.
 from typing import Optional
 import pyarrow as pa
 
-from ..header_mixin import HeaderMixin
+from ..mixins import HeaderMixin
 from ..data import ROI, Vector2d
 from ..serializable import Serializable
 

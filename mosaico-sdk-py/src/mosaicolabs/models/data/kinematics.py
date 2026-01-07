@@ -13,9 +13,8 @@ from typing import Optional
 import pyarrow as pa
 from pydantic import model_validator
 
-from ..covariance_mixin import CovarianceMixin
 from ..serializable import Serializable
-from ..header_mixin import HeaderMixin
+from ..mixins import HeaderMixin, CovarianceMixin
 from .geometry import Pose, Vector3d
 
 

@@ -9,7 +9,7 @@ It aggregates data from accelerometers and gyroscopes.
 from typing import Optional
 import pyarrow as pa
 
-from ..header_mixin import HeaderMixin
+from ..mixins import HeaderMixin
 from ..serializable import Serializable
 from ..data import Quaternion, Vector3d
 

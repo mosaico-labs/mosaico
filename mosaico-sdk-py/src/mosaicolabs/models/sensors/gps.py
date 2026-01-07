@@ -10,7 +10,7 @@ from typing import Optional
 import pyarrow as pa
 
 from ..data import Point3d, Vector3d
-from ..header_mixin import HeaderMixin
+from ..mixins import HeaderMixin
 from ..serializable import Serializable
 
 

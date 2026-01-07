@@ -6,7 +6,7 @@ Defines the data structure for temperature sensors.
 
 import pyarrow as pa
 
-from ..header_mixin import HeaderMixin
+from ..mixins import HeaderMixin
 from ..serializable import Serializable
 
 

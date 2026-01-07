@@ -16,9 +16,8 @@ from typing import Optional
 import pyarrow as pa
 
 from ..base_model import BaseModel
-from ..covariance_mixin import CovarianceMixin
 from ..serializable import Serializable
-from ..header_mixin import HeaderMixin
+from ..mixins import HeaderMixin, CovarianceMixin
 
 
 # ---------------------------------------------------------------------------

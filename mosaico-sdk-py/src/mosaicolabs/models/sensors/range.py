@@ -8,7 +8,7 @@ import pyarrow as pa
 from typing_extensions import Self
 from pydantic import model_validator
 
-from ..header_mixin import HeaderMixin
+from ..mixins import HeaderMixin
 from ..serializable import Serializable
 
 

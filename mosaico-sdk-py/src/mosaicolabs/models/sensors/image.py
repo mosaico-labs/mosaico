@@ -30,7 +30,7 @@ from PIL import Image as PILImage
 from mosaicolabs.enum import SerializationFormat
 
 from ..header import Header
-from ..header_mixin import HeaderMixin
+from ..mixins import HeaderMixin
 from ..serializable import Serializable
 
 

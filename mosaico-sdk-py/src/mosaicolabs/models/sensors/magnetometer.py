@@ -6,7 +6,7 @@ Defines the data structure for magnetic field sensors.
 
 import pyarrow as pa
 
-from ..header_mixin import HeaderMixin
+from ..mixins import HeaderMixin
 from ..serializable import Serializable
 from ..data import Vector3d
 
