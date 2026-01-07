@@ -654,6 +654,9 @@ class TestQueryRangeAPI:
         Range.Q.header.stamp.sec
         Range.Q.header.stamp.nanosec
         Range.Q.header.frame_id
+        # Inherited from VarianceMixin
+        Range.Q.variance
+        Range.Q.variance_type
         # Inherited from Message
         Range.Q.timestamp_ns
         # --- Catalog Context: Non-existing field ---
@@ -676,6 +679,8 @@ class TestQueryRangeAPI:
         assert issubclass(type(Range.Q.header.stamp.sec), _QueryableNumeric)
         assert issubclass(type(Range.Q.header.stamp.nanosec), _QueryableNumeric)
         assert issubclass(type(Range.Q.header.frame_id), _QueryableString)
+        assert issubclass(type(Range.Q.variance), _QueryableNumeric)
+        assert issubclass(type(Range.Q.variance_type), _QueryableNumeric)
 
     def test_expression_generation_paths_and_operators(self):
         """

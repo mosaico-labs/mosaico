@@ -8,11 +8,11 @@ import pyarrow as pa
 from typing_extensions import Self
 from pydantic import model_validator
 
-from ..mixins import HeaderMixin
+from ..mixins import HeaderMixin, VarianceMixin
 from ..serializable import Serializable
 
 
-class Range(Serializable, HeaderMixin):
+class Range(Serializable, HeaderMixin, VarianceMixin):
     """
     Range measurement data.
     """
