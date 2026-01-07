@@ -6,11 +6,11 @@ Defines the data structure for temperature sensors.
 
 import pyarrow as pa
 
-from ..mixins import HeaderMixin
+from ..mixins import HeaderMixin, VarianceMixin
 from ..serializable import Serializable
 
 
-class Temperature(Serializable, HeaderMixin):
+class Temperature(Serializable, HeaderMixin, VarianceMixin):
     """
     Temperature measurement data.
     """
@@ -19,24 +19,13 @@ class Temperature(Serializable, HeaderMixin):
     __msco_pyarrow_struct__ = pa.struct(
         [
             pa.field(
-                "temperature",
+                "value",
                 pa.float64(),
                 nullable=False,
                 metadata={"description": "Temperature value in Kelvin."},
             ),
-            pa.field(
-                "variance",
-                pa.float64(),
-                nullable=False,
-                metadata={
-                    "description": "Temperature variance. 0 means that the variance is unknown."
-                },
-            ),
         ]
     )
 
-    temperature: float
+    value: float
     """Temperature value in Kelvin."""
-
-    variance: float
-    """Temperature variance. 0 means that the variance is unknown."""

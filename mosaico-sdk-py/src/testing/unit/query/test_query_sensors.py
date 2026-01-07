@@ -462,13 +462,15 @@ class TestQueryTemperatureAPI:
         """
         # --- Fields Accessibility Test ---
         # Local fields
-        Temperature.Q.temperature
-        Temperature.Q.variance
+        Temperature.Q.value
         # Inherited from HeaderMixin
         Temperature.Q.header.seq
         Temperature.Q.header.stamp.sec
         Temperature.Q.header.stamp.nanosec
         Temperature.Q.header.frame_id
+        # Inherited from VarianceMixin
+        Temperature.Q.variance
+        Temperature.Q.variance_type
         # Inherited from Message
         Temperature.Q.timestamp_ns
         # --- Catalog Context: Non-existing field ---
@@ -482,12 +484,13 @@ class TestQueryTemperatureAPI:
         """
         # --- Fields Accessibility Test ---
         # Local fields
-        assert issubclass(type(Temperature.Q.temperature), _QueryableNumeric)
-        assert issubclass(type(Temperature.Q.variance), _QueryableNumeric)
+        assert issubclass(type(Temperature.Q.value), _QueryableNumeric)
         assert issubclass(type(Temperature.Q.header.seq), _QueryableNumeric)
         assert issubclass(type(Temperature.Q.header.stamp.sec), _QueryableNumeric)
         assert issubclass(type(Temperature.Q.header.stamp.nanosec), _QueryableNumeric)
         assert issubclass(type(Temperature.Q.header.frame_id), _QueryableString)
+        assert issubclass(type(Temperature.Q.variance), _QueryableNumeric)
+        assert issubclass(type(Temperature.Q.variance_type), _QueryableNumeric)
 
     def test_expression_generation_paths_and_operators(self):
         """
@@ -498,10 +501,10 @@ class TestQueryTemperatureAPI:
         test_numeric_value = 303.15
         # Call: Image.Q.encoding.match(test_str_value)
         # Expected: {'gps.position.y': {'$gt': 12345.67}} - _QueryCatalogExpression
-        expr_nested = Temperature.Q.temperature.leq(test_numeric_value)
+        expr_nested = Temperature.Q.value.leq(test_numeric_value)
         assert isinstance(expr_nested, _QueryCatalogExpression)
         assert expr_nested.to_dict() == {
-            "temperature.temperature": {"$leq": test_numeric_value},
+            "temperature.value": {"$leq": test_numeric_value},
         }
 
         # --- Catalog Context: Range Operator ---
@@ -521,14 +524,14 @@ class TestQueryTemperatureAPI:
         q = Query(
             QueryOntologyCatalog()
             .with_expression(Temperature.Q.timestamp_ns.gt(12345.67))
-            .with_expression(Temperature.Q.temperature.gt(303.15)),
+            .with_expression(Temperature.Q.value.gt(303.15)),
         )
 
         # Define Expected Output
         expected_dict = {
             "ontology": {
                 "temperature.timestamp_ns": {"$gt": 12345.67},
-                "temperature.temperature": {"$gt": 303.15},
+                "temperature.value": {"$gt": 303.15},
             },
         }
 
@@ -550,13 +553,15 @@ class TestQueryPressureAPI:
         """
         # --- Fields Accessibility Test ---
         # Local fields
-        Pressure.Q.fluid_pressure
-        Pressure.Q.variance
+        Pressure.Q.value
         # Inherited from HeaderMixin
         Pressure.Q.header.seq
         Pressure.Q.header.stamp.sec
         Pressure.Q.header.stamp.nanosec
         Pressure.Q.header.frame_id
+        # Inherited from VarianceMixin
+        Pressure.Q.variance
+        Pressure.Q.variance_type
         # Inherited from Message
         Pressure.Q.timestamp_ns
         # --- Catalog Context: Non-existing field ---
@@ -570,12 +575,13 @@ class TestQueryPressureAPI:
         """
         # --- Fields Accessibility Test ---
         # Local fields
-        assert issubclass(type(Pressure.Q.fluid_pressure), _QueryableNumeric)
-        assert issubclass(type(Pressure.Q.variance), _QueryableNumeric)
+        assert issubclass(type(Pressure.Q.value), _QueryableNumeric)
         assert issubclass(type(Pressure.Q.header.seq), _QueryableNumeric)
         assert issubclass(type(Pressure.Q.header.stamp.sec), _QueryableNumeric)
         assert issubclass(type(Pressure.Q.header.stamp.nanosec), _QueryableNumeric)
         assert issubclass(type(Pressure.Q.header.frame_id), _QueryableString)
+        assert issubclass(type(Pressure.Q.variance), _QueryableNumeric)
+        assert issubclass(type(Pressure.Q.variance_type), _QueryableNumeric)
 
     def test_expression_generation_paths_and_operators(self):
         """
@@ -586,10 +592,10 @@ class TestQueryPressureAPI:
         test_numeric_value = 200123.15
         # Call: Image.Q.encoding.match(test_str_value)
         # Expected: {'gps.position.y': {'$gt': 12345.67}} - _QueryCatalogExpression
-        expr_nested = Pressure.Q.fluid_pressure.leq(test_numeric_value)
+        expr_nested = Pressure.Q.value.leq(test_numeric_value)
         assert isinstance(expr_nested, _QueryCatalogExpression)
         assert expr_nested.to_dict() == {
-            "pressure.fluid_pressure": {"$leq": test_numeric_value},
+            "pressure.value": {"$leq": test_numeric_value},
         }
 
         # --- Catalog Context: Range Operator ---
@@ -609,14 +615,14 @@ class TestQueryPressureAPI:
         q = Query(
             QueryOntologyCatalog()
             .with_expression(Pressure.Q.timestamp_ns.gt(12345.67))
-            .with_expression(Pressure.Q.fluid_pressure.gt(200123.15)),
+            .with_expression(Pressure.Q.value.gt(200123.15)),
         )
 
         # Define Expected Output
         expected_dict = {
             "ontology": {
                 "pressure.timestamp_ns": {"$gt": 12345.67},
-                "pressure.fluid_pressure": {"$gt": 200123.15},
+                "pressure.value": {"$gt": 200123.15},
             },
         }
 
