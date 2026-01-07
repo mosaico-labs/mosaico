@@ -1,15 +1,14 @@
-use arrow::datatypes::{Field, Schema};
-use arrow_flight::{
-    FlightDescriptor, FlightEndpoint, FlightInfo, Ticket, flight_descriptor::DescriptorType,
-};
-use log::{info, trace};
-
 use crate::{
     marshal,
     repo::{self, FacadeError, FacadeSequence, FacadeTopic},
     server::errors::ServerError,
     store, types,
 };
+use arrow::datatypes::{Field, Schema};
+use arrow_flight::{
+    FlightDescriptor, FlightEndpoint, FlightInfo, Ticket, flight_descriptor::DescriptorType,
+};
+use log::{info, trace};
 
 pub async fn get_flight_info(
     store: store::StoreRef,
@@ -17,11 +16,10 @@ pub async fn get_flight_info(
     desc: FlightDescriptor,
 ) -> Result<FlightInfo, ServerError> {
     match desc.r#type() {
-        DescriptorType::Path => {
-            if desc.path.len() != 1 {
-                return Err(ServerError::MultiplePathUnsupported);
-            }
-            let resource_name = &desc.path[0];
+        DescriptorType::Cmd => {
+            let cmd = marshal::flight::get_flight_info_cmd(&desc.cmd)?;
+            let resource_name = &cmd.resource_locator;
+
             info!("requesting info for resource {}", resource_name);
 
             let resource = repo::get_resource_locator_from_name(&repo, resource_name).await?;

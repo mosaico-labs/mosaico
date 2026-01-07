@@ -1,26 +1,10 @@
+use crate::marshal;
+use crate::{repo, rw, server::errors::ServerError, store, types};
 use arrow::datatypes::SchemaRef;
-use futures::TryStreamExt;
-
 use arrow_flight::decode::{DecodedFlightData, DecodedPayload, FlightDataDecoder};
 use arrow_flight::flight_descriptor::DescriptorType;
-
+use futures::TryStreamExt;
 use log::{debug, info, trace};
-use serde::Deserialize;
-
-use crate::{repo, rw, server::errors::ServerError, store, types};
-
-#[derive(Deserialize, Debug)]
-struct DoPutTopic {
-    name: String,
-    key: String,
-}
-
-#[derive(Deserialize, Debug)]
-#[allow(dead_code)]
-#[serde(rename_all = "snake_case")]
-enum DoPutCommand {
-    Topic(DoPutTopic),
-}
 
 pub async fn do_put(
     store: store::StoreRef,
@@ -28,17 +12,12 @@ pub async fn do_put(
     decoder: &mut FlightDataDecoder,
 ) -> Result<(), ServerError> {
     let (cmd, schema) = extract_command_and_schema_from_header_message(decoder).await?;
-
-    match cmd {
-        DoPutCommand::Topic(cmd) => {
-            return do_put_topic_data(store, repo, decoder, schema, cmd).await;
-        }
-    }
+    do_put_topic_data(store, repo, decoder, schema, cmd).await
 }
 
 async fn extract_command_and_schema_from_header_message(
     decoder: &mut FlightDataDecoder,
-) -> Result<(DoPutCommand, SchemaRef), ServerError> {
+) -> Result<(types::flight::DoPutCmd, SchemaRef), ServerError> {
     if let Some(data) = decoder
         .try_next()
         .await
@@ -59,7 +38,9 @@ fn extract_schema_from_flight_data(data: &DecodedFlightData) -> Result<SchemaRef
 }
 
 /// Extract descriptor tag from flight decoded data
-fn extract_command_from_flight_data(data: &DecodedFlightData) -> Result<DoPutCommand, ServerError> {
+fn extract_command_from_flight_data(
+    data: &DecodedFlightData,
+) -> Result<types::flight::DoPutCmd, ServerError> {
     let desc = data
         .inner
         .flight_descriptor
@@ -71,8 +52,9 @@ fn extract_command_from_flight_data(data: &DecodedFlightData) -> Result<DoPutCom
         return Err(ServerError::UnsupportedDescriptor);
     }
 
-    // decode
-    Ok(serde_json::from_slice::<DoPutCommand>(&desc.cmd)?)
+    let decoded = marshal::flight::do_put_cmd(&desc.cmd)?;
+
+    Ok(decoded)
 }
 
 async fn do_put_topic_data(
@@ -80,19 +62,19 @@ async fn do_put_topic_data(
     repo: repo::Repository,
     decoder: &mut FlightDataDecoder,
     schema: SchemaRef,
-    cmd: DoPutTopic,
+    cmd: types::flight::DoPutCmd,
 ) -> Result<(), ServerError> {
-    let name = cmd.name;
+    let locator = cmd.resource_locator;
     let key = &cmd.key;
 
     info!(
         "client trying to upload topic '{}' using key `{}`",
-        name, key
+        locator, key
     );
 
     crate::arrow::check_schema(&schema)?;
 
-    let handle = repo::FacadeTopic::new(name, store.clone(), repo.clone());
+    let handle = repo::FacadeTopic::new(locator, store.clone(), repo.clone());
 
     // perform the match between received key and topic id
     let r_id = handle.resource_id().await?;

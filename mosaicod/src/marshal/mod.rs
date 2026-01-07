@@ -11,3 +11,5 @@ pub use query::*;
 
 mod errors;
 pub use errors::*;
+
+pub mod flight;
