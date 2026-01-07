@@ -6,6 +6,7 @@ for an *existing* sequence. It allows users to inspect metadata, list topics,
 and access reading interfaces (`SequenceDataStreamer`).
 """
 
+import json
 import pyarrow.flight as fl
 from typing import Dict, Any, List, Optional, Type
 import logging as log
@@ -68,7 +69,13 @@ class SequenceHandler:
 
         _stzd_sequence_name = sanitize_sequence_name(sequence_name)
 
-        descriptor = fl.FlightDescriptor.for_path(_stzd_sequence_name)
+        descriptor = fl.FlightDescriptor.for_command(
+            json.dumps(
+                {
+                    "resource_locator": _stzd_sequence_name,
+                }
+            )
+        )
 
         # Get FlightInfo
         try:

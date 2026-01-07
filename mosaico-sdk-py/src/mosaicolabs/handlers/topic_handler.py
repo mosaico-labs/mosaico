@@ -6,6 +6,7 @@ for an *existing* topic on the server. It allows users to inspect metadata
 and create readers (`TopicDataStreamer`).
 """
 
+import json
 import pyarrow.flight as fl
 from typing import Any, Optional, Type
 import logging as log
@@ -77,7 +78,13 @@ class TopicHandler:
         topic_resrc_name = pack_topic_resource_name(
             _stzd_sequence_name, _stzd_topic_name
         )
-        descriptor = fl.FlightDescriptor.for_path(topic_resrc_name)
+        descriptor = fl.FlightDescriptor.for_command(
+            json.dumps(
+                {
+                    "resource_locator": topic_resrc_name,
+                }
+            )
+        )
 
         # Get FlightInfo (Metadata + Endpoints)
         try:

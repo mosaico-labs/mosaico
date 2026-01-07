@@ -5,6 +5,7 @@ This module provides the `SequenceDataStreamer`, which reads an entire sequence
 by merging multiple topic streams into a single, time-ordered iterator.
 """
 
+import json
 from mosaicolabs.models.message import Message
 import pyarrow.flight as fl
 from typing import List, Optional, Dict
@@ -66,7 +67,13 @@ class SequenceDataStreamer:
         Returns:
             SequenceDataStreamer: The initialized merger.
         """
-        descriptor = fl.FlightDescriptor.for_path(sequence_name)
+        descriptor = fl.FlightDescriptor.for_command(
+            json.dumps(
+                {
+                    "resource_locator": sequence_name,
+                }
+            )
+        )
         flight_info = client.get_flight_info(descriptor)
 
         topic_readers: Dict[str, TopicDataStreamer] = {}

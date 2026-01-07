@@ -91,10 +91,10 @@ class TopicWriter:
         descriptor = fl.FlightDescriptor.for_command(
             json.dumps(
                 {
-                    "topic": {
-                        "name": pack_topic_resource_name(sequence_name, topic_name),
-                        "key": topic_key,
-                    }
+                    "resource_locator": pack_topic_resource_name(
+                        sequence_name, topic_name
+                    ),
+                    "key": topic_key,
                 }
             )
         )
