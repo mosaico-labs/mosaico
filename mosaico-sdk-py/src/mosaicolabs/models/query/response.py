@@ -31,7 +31,7 @@ class QueryResponseItemTopic:
     def _from_dict(cls, tdict: dict[str, Any]) -> "QueryResponseItemTopic":
         seq_topic_tuple = unpack_topic_full_path(tdict["locator"])
         if not seq_topic_tuple:
-            raise ValueError(f"Invalid topic name in response {tdict['locator']}")
+            raise ValueError(f"Invalid topic name in response '{tdict['locator']}'")
         _, tname = seq_topic_tuple
         tsrange = tdict.get("timestamp_range")
 

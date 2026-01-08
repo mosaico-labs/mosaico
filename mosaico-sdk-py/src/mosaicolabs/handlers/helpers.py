@@ -51,4 +51,4 @@ def _validate_sequence_name(name: str):
     if nbase.is_absolute():
         nbase = nbase.relative_to("/")
     if "/" in str(nbase):
-        raise ValueError(f"Invalid characters '/' in sequence name {name}")
+        raise ValueError(f"Invalid characters '/' in sequence name '{name}'")

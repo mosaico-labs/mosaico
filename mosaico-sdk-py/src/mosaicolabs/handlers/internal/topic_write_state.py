@@ -13,14 +13,18 @@ import pyarrow.flight as fl
 import pyarrow as pa
 import pyarrow.ipc as pa_ipc
 from typing import List, Optional
-import logging as log
 
 from concurrent.futures import ThreadPoolExecutor, Future, wait
 from threading import BoundedSemaphore, Lock
 
 from mosaicolabs.models import Serializable
 from mosaicolabs.enum import SerializationFormat
+from mosaicolabs.logging import get_logger
 from ...comm.connection import PYARROW_OUT_OF_RANGE_BYTES
+
+
+# Set the hierarchical logger
+logger = get_logger(__name__)
 
 
 class _UploadMode(Enum):
@@ -146,11 +150,11 @@ class _TopicWriteState:
     def _get_serialized_size(self, batch: pa.RecordBatch) -> int:
         """
         Calculates exact serialized size of a RecordBatch in Arrow IPC format.
-        
+
         Uses PyArrow's native C++ implementation for optimal performance.
         This method is significantly faster than full serialization and provides
         accurate size for Flight transmission limits.
-        
+
         Note: Returns batch size only (excludes schema message overhead).
         """
         return pa_ipc.get_record_batch_size(batch)
@@ -173,7 +177,7 @@ class _TopicWriteState:
         # TODO: Try finding solutions for the case in which the single record
         # is beyond pyarrow transmission limits! Log for now.
         if single_record_size > PYARROW_OUT_OF_RANGE_BYTES:
-            log.error(
+            logger.error(
                 f"Single record size ({single_record_size} bytes) exceeds PyArrow limit "
                 f"({PYARROW_OUT_OF_RANGE_BYTES} bytes) for topic '{self.topic_name}'. "
                 "Record will be skipped."
@@ -241,7 +245,7 @@ class _TopicWriteState:
         this call BLOCKS, pausing the main thread until a worker finishes.
         """
         if self.writer is None:
-            log.error(
+            logger.error(
                 f"Cannot write batch for topic '{self.topic_name}'. Writer is None."
             )
             return
@@ -255,7 +259,7 @@ class _TopicWriteState:
                 assert self.writer is not None
                 self.writer.write(batch)
             except Exception as e:
-                log.error(f"Async write failed for topic '{topic_name}': {e}")
+                logger.error(f"Async write failed for topic '{topic_name}': '{e}'")
             finally:
                 # Release Semaphore (Unblock main thread, if blocked)
                 if sem:
@@ -313,8 +317,8 @@ class _TopicWriteState:
         Blocks until all async tasks are complete.
         """
         if self.writer is not None and self.executor is not None:
-            log.info(
-                f"Waiting for pending writes termination, for topic {self.topic_name}..."
+            logger.info(
+                f"Waiting for pending writes termination, for topic '{self.topic_name}'..."
             )
 
             with self._pending_writes_lock:
@@ -326,7 +330,7 @@ class _TopicWriteState:
             # Check for silent failures
             for f in futures:
                 if f.exception():
-                    log.error(f"Async write error: {f.exception()}")
+                    logger.error(f"Async write error: '{f.exception()}'")
 
     def close(self, with_error: bool = False):
         """
@@ -344,8 +348,8 @@ class _TopicWriteState:
                     self._wait_for_pending_writes()
 
                 self.writer.done_writing()
-                log.info(
-                    f"Topic {self.topic_name} finished. "
+                logger.info(
+                    f"Topic '{self.topic_name}' finished. "
                     f"Pushed: {self._pushed_records}, Written: {self._written_records}"
                 )
             finally:

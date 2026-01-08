@@ -8,9 +8,10 @@ preventing bottlenecking on a single TCP/gRPC socket during high-throughput oper
 
 import pyarrow.flight as fl
 from enum import Enum
-import logging as log
 from typing import List, Optional
 from itertools import cycle
+
+from ..logging import get_logger
 
 # Constants defining batch size limits for Flight transmission
 PYARROW_OUT_OF_RANGE_BYTES = 16 * 1024 * 1024  # 4 MB
@@ -18,6 +19,9 @@ DEFAULT_MAX_BATCH_BYTES = 10 * 1024 * 1024  # 3 MB
 DEFAULT_MAX_BATCH_SIZE_RECORDS = 5_000
 
 _DEFAULT_CONNECTION_POOL_SIZE = 2
+
+# Set the hierarchical logger
+logger = get_logger(__name__)
 
 
 class _ConnectionStatus(Enum):
@@ -92,7 +96,7 @@ class _ConnectionPool:
         if self._size < 1:
             raise ValueError("Connection pool size must be at least 1")
 
-        log.debug(f"Initializing connection pool with {self._size} connections...")
+        logger.debug(f"Initializing connection pool with {self._size} connections...")
 
         for i in range(self._size):
             try:
@@ -101,8 +105,8 @@ class _ConnectionPool:
                     _get_connection(host=self._host, port=self._port, timeout=timeout)
                 )
             except Exception as e:
-                log.error(
-                    f"Failed to create connection {i + 1}/{self._size} for pool: {e}"
+                logger.error(
+                    f"Failed to create connection {i + 1}/{self._size} for pool: '{e}'"
                 )
                 # Clean up any connections successfully created before the failure
                 # to prevent resource leaks (dangling sockets).
@@ -141,6 +145,6 @@ class _ConnectionPool:
             try:
                 client.close()
             except Exception as e:
-                log.warning(f"Error closing pooled client #{i}: {e}")
+                logger.warning(f"Error closing pooled client #{i}: '{e}'")
         self._clients.clear()
         self._iterator = None

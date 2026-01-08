@@ -8,3 +8,4 @@ from .sequence_reader import (
     SequenceDataStreamer as SequenceDataStreamer,
 )
 from .sequence_handler import SequenceHandler as SequenceHandler
+from .system_info import SystemInfo as SystemInfo

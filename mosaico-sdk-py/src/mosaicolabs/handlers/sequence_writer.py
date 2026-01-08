@@ -6,19 +6,22 @@ It manages the lifecycle of the sequence on the server (Create -> Write -> Final
 and distributes client resources (Connections, Executors) to individual Topics.
 """
 
-import logging as log
 from typing import Any, Dict, Type, Optional
 import pyarrow.flight as fl
 
-from mosaicolabs.models import Serializable
-from .topic_writer import TopicWriter
+from .config import WriterConfig
 from .helpers import _make_exception, _validate_sequence_name
-from ..helpers import pack_topic_resource_name
+from .topic_writer import TopicWriter
 from ..comm.do_action import _do_action, _DoActionResponseKey
 from ..comm.connection import _ConnectionPool
 from ..comm.executor_pool import _ExecutorPool
 from ..enum import FlightAction, OnErrorPolicy, SequenceStatus
-from .config import WriterConfig
+from ..helpers import pack_topic_resource_name
+from ..logging import get_logger
+from ..models import Serializable
+
+# Set the hierarchical logger
+logger = get_logger(__name__)
 
 
 class SequenceWriter:
@@ -128,21 +131,23 @@ class SequenceWriter:
 
             except Exception as e:
                 # An exception occurred during cleanup or finalization
-                log.error(f"Exception during __exit__ for sequence '{self._name}': {e}")
+                logger.error(
+                    f"Exception during __exit__ for sequence '{self._name}': '{e}'"
+                )
                 # notify error and go on
                 out_exc = e
                 error_in_block = True
 
         if error_in_block:  # either in with block or after close operations
             # Exception occurred: Clean up and handle policy
-            log.error(
-                f"Exception in SequenceWriter '{self._name}' block. Inner err: {out_exc}"
+            logger.error(
+                f"Exception in SequenceWriter '{self._name}' block. Inner err: '{out_exc}'"
             )
             try:
                 self._close_topics(with_error=True)
             except Exception as e:
-                log.error(
-                    f"Exception during __exit__ with error in block (finalizing topics) for sequence '{self._name}': {e}"
+                logger.error(
+                    f"Exception during __exit__ with error in block (finalizing topics) for sequence '{self._name}': '{e}'"
                 )
                 out_exc = e
 
@@ -164,7 +169,7 @@ class SequenceWriter:
         status = getattr(self, "_sequence_status", SequenceStatus.Null)
 
         if status == SequenceStatus.Pending:
-            log.warning(
+            logger.warning(
                 f"SequenceWriter '{name}' destroyed without calling close(). "
                 "Resources may not have been released properly."
             )
@@ -202,10 +207,10 @@ class SequenceWriter:
         self._check_entered()
 
         if topic_name in self._topic_writers:
-            log.error(f"Topic '{topic_name}' already exists in this sequence.")
+            logger.error(f"Topic '{topic_name}' already exists in this sequence.")
             return None
 
-        log.debug(f"Requesting new topic '{topic_name}' for sequence '{self._name}'")
+        logger.debug(f"Requesting new topic '{topic_name}' for sequence '{self._name}'")
 
         try:
             # Register topic on server
@@ -222,7 +227,7 @@ class SequenceWriter:
                 expected_type=_DoActionResponseKey,
             )
         except Exception as e:
-            log.error(
+            logger.error(
                 str(
                     _make_exception(
                         f"Failed to execute '{ACTION.value}' action for sequence '{self._name}', topic '{topic_name}'.",
@@ -233,7 +238,7 @@ class SequenceWriter:
             return None
 
         if act_resp is None:
-            log.error(f"Action '{ACTION.value}' returned no response.")
+            logger.error(f"Action '{ACTION.value}' returned no response.")
             return None
 
         # --- Resource Assignment Strategy ---
@@ -261,7 +266,7 @@ class SequenceWriter:
             self._topic_writers[topic_name] = writer
 
         except Exception as e:
-            log.error(
+            logger.error(
                 str(
                     _make_exception(
                         f"Failed to initialize 'TopicWriter' for sequence '{self._name}', topic '{topic_name}'. Topic will be deleted from db.",
@@ -277,7 +282,7 @@ class SequenceWriter:
                     expected_type=None,
                 )
             except Exception:
-                log.error(
+                logger.error(
                     str(
                         _make_exception(
                             f"Failed to send TOPIC_DELETE do_action for sequence '{self._name}', topic '{topic_name}'.",
@@ -312,7 +317,7 @@ class SequenceWriter:
                     expected_type=None,
                 )
                 self._sequence_status = SequenceStatus.Finalized
-                log.info(f"Sequence '{self._name}' finalized successfully.")
+                logger.info(f"Sequence '{self._name}' finalized successfully.")
                 return
             except Exception as e:
                 # _do_action raised: re-raise
@@ -336,7 +341,7 @@ class SequenceWriter:
                     },
                     expected_type=None,
                 )
-                log.info(f"Sequence '{self._name}' reported error.")
+                logger.info(f"Sequence '{self._name}' reported error.")
             except Exception as e:
                 raise _make_exception(
                     f"Error sending 'sequence_report_error' for '{self._name}'.", e
@@ -355,7 +360,7 @@ class SequenceWriter:
                     },
                     expected_type=None,
                 )
-                log.info(f"Sequence '{self._name}' aborted successfully.")
+                logger.info(f"Sequence '{self._name}' aborted successfully.")
                 self._sequence_status = SequenceStatus.Error
             except Exception as e:
                 raise _make_exception(
@@ -378,7 +383,7 @@ class SequenceWriter:
         """
         Iterates over all TopicWriters and finalizes them.
         """
-        log.info(
+        logger.info(
             f"Freeing TopicWriters {'WITH ERROR' if with_error else ''} for sequence '{self._name}'."
         )
         errors = []
@@ -386,7 +391,7 @@ class SequenceWriter:
             try:
                 twriter.finalize(with_error=with_error)
             except Exception as e:
-                log.error(f"Failed to finalize topic '{topic_name}': {e}")
+                logger.error(f"Failed to finalize topic '{topic_name}': '{e}'")
                 errors.append(e)
 
         # Delete all TopicWriter instances, nothing can be done from here on

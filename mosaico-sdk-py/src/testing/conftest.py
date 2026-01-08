@@ -1,4 +1,5 @@
 from typing import List
+from mosaicolabs.logging import setup_sdk_logging
 import pytest
 from mosaicolabs.comm import MosaicoClient
 from testing.integration.helpers import (
@@ -14,6 +15,17 @@ from .integration.config import (
     UPLOADED_SEQUENCE_NAME,
     QUERY_SEQUENCES_MOCKUP,
 )
+
+
+def pytest_configure(config):
+    """
+    Hook called by pytest before any tests are run.
+    We use it to sync the SDK's internal logging with pytest's CLI options.
+    """
+    level_str = config.getoption("--log-cli-level")
+    if level_str:
+        # Initialize the SDK logger
+        setup_sdk_logging(level=level_str.upper(), pretty=True)
 
 
 def pytest_addoption(parser):
@@ -107,7 +119,7 @@ def _inject_sequence_data_stream(_make_sequence_data_stream, host, port):
                 )
                 if twriter is None:
                     raise Exception(
-                        f"Unable to create topic {ds_item.topic} in sequence {UPLOADED_SEQUENCE_NAME}"
+                        f"Unable to create topic '{ds_item.topic}' in sequence '{UPLOADED_SEQUENCE_NAME}'"
                     )
 
             twriter.push(ds_item.msg)
@@ -136,7 +148,7 @@ def _inject_sequences_mockup(host, port):
                     )
                     if twriter is None:
                         raise Exception(
-                            f"Unable to create topic {tname} in sequence {sname}"
+                            f"Unable to create topic '{tname}' in sequence '{sname}'"
                         )
 
     # free resources

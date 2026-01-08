@@ -30,6 +30,6 @@ def _validate_msgdata(
 
     if missing_keys:
         raise ValueError(
-            f"Malformed ROS message {cls.ros_msgtype}: missing required keys {missing_keys}. "
+            f"Malformed ROS message '{cls.ros_msgtype}': missing required keys {missing_keys}. "
             f"Available keys: {list(ros_data.keys())}"
         )

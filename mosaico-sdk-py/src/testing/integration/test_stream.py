@@ -287,3 +287,6 @@ def test_sequence_data_stream_filter_topics(
 
     # ALL the desired topics are returned
     assert len(filtered_topics) == len(ret_topics)
+
+    # free resources
+    _client.close()

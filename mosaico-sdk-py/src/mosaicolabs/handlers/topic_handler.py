@@ -9,19 +9,23 @@ and create readers (`TopicDataStreamer`).
 import json
 import pyarrow.flight as fl
 from typing import Any, Optional, Type
-import logging as log
+
+from .helpers import _parse_ep_ticket
+from .topic_reader import TopicDataStreamer
 
 from ..comm.metadata import TopicMetadata, _decode_metadata
 from ..comm.do_action import _do_action, _DoActionResponseSysInfo
 from ..enum import FlightAction
-from .helpers import _parse_ep_ticket
 from ..helpers import (
     pack_topic_resource_name,
     sanitize_topic_name,
     sanitize_sequence_name,
 )
-from .topic_reader import TopicDataStreamer
 from ..models.platform import Topic
+from ..logging import get_logger
+
+# Set the hierarchical logger
+logger = get_logger(__name__)
 
 
 class TopicHandler:
@@ -90,7 +94,7 @@ class TopicHandler:
         try:
             flight_info = client.get_flight_info(descriptor)
         except Exception as e:
-            log.error(f"Server error while asking for Topic descriptor, {e}")
+            logger.error(f"Server error while asking for Topic descriptor, '{e}'")
             return None
 
         topic_metadata = TopicMetadata.from_dict(
@@ -108,8 +112,8 @@ class TopicHandler:
                 break
 
         if ticket is None:
-            log.error(
-                f"Unable to init handler for topic {topic_name} in sequence {sequence_name}"
+            logger.error(
+                f"Unable to init handler for topic '{topic_name}' in sequence '{sequence_name}'"
             )
             return None
 
@@ -123,7 +127,7 @@ class TopicHandler:
         )
 
         if act_resp is None:
-            log.error(f"Action '{ACTION}' returned no response.")
+            logger.error(f"Action '{ACTION}' returned no response.")
             return None
 
         # Build Model
@@ -151,8 +155,8 @@ class TopicHandler:
         try:
             self.close()
         except Exception as e:
-            log.exception(
-                f"Error releasing resources allocated from TopicHandler '{self._topic.name}'.\nInner err: {e}"
+            logger.exception(
+                f"Error releasing resources allocated from TopicHandler '{self._topic.name}'.\nInner err: '{e}'"
             )
 
     @property
@@ -185,7 +189,7 @@ class TopicHandler:
         """
         if self._fl_ticket is None:
             raise ValueError(
-                f"Unable to get a TopicDataStreamer for topic {self._topic.name}: invalid TopicHandler!"
+                f"Unable to get a TopicDataStreamer for topic '{self._topic.name}': invalid TopicHandler!"
             )
 
         if force_new_instance and self._data_streamer_instance is not None:

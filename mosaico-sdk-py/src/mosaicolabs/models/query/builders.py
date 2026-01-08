@@ -17,7 +17,7 @@ from .expressions import (
 def _get_tag_from_expr_key(key: str):
     fields = key.split(".")
     if not len(fields) > 1:
-        raise ValueError(f"expected 'ontology_tag.field0.field1... in key, got {key}")
+        raise ValueError(f"expected 'ontology_tag.field0.field1... in key, got '{key}'")
     return fields[0]
 
 
@@ -53,7 +53,7 @@ def _validate_expression_type(
         expected_names = [expct.__name__ for expct in expected_types]
 
         raise TypeError(
-            f"Invalid expression type. Expected {expected_names}, but got {found_type}."
+            f"Invalid expression type. Expected {expected_names}, but got '{found_type}'."
         )
 
 
@@ -67,7 +67,9 @@ def _validate_expression_operator_format(expr: "_QueryExpression"):
     # Get the type this class supports
 
     if not expr.op.startswith("$"):
-        raise ValueError(f"Invalid expression operator {expr.op}: must start with '$'.")
+        raise ValueError(
+            f"Invalid expression operator '{expr.op}': must start with '$'."
+        )
 
 
 class QueryOntologyCatalog:
@@ -181,7 +183,7 @@ class QueryOntologyCatalog:
         # special fields in data platform
         if not hasattr(ontology_type, "__ontology_tag__"):
             raise ValueError(
-                f"Only Serializable types can be used as 'ontology_type' class {ontology_type.__name__}"
+                f"Only Serializable types can be used as 'ontology_type' class '{ontology_type.__name__}'"
             )
         sensor_tag = getattr(ontology_type, "__ontology_tag__")
         if time_start is not None and time_end is None:
@@ -626,7 +628,7 @@ class Query:
             t = type(q)
             if t in self._types_seen:
                 raise ValueError(
-                    f"Duplicate query type detected: {t.__name__}. "
+                    f"Duplicate query type detected: '{t.__name__}'. "
                     "Multiple instances of the same type will override each other when encoded.",
                 )
             else:
@@ -637,7 +639,7 @@ class Query:
             t = type(q)
             if t in self._types_seen:
                 raise ValueError(
-                    f"Duplicate query type detected: {t.__name__}. "
+                    f"Duplicate query type detected: '{t.__name__}'. "
                     "Multiple instances of the same type will override each other when encoded.",
                 )
             else:

@@ -261,7 +261,7 @@ def _test_operators(
     # This is necessary because 'value_type' can be any type, so we need a fallback
     if value_type not in allowed_types:
         with pytest.raises(
-            TypeError, match=f"Invalid type for {queryable_type.__name__}"
+            TypeError, match=f"Invalid type for '{queryable_type.__name__}Field'"
         ):
             return eval_func(test_value, allowed_varargs_operators, operator, op_fun)
     else:
@@ -274,7 +274,7 @@ def _test_operators(
         # future (or past) test runs
         if other_type not in allowed_types:
             with pytest.raises(
-                TypeError, match=f"Invalid type for {queryable_type.__name__}"
+                TypeError, match=f"Invalid type for '{queryable_type.__name__}Field'"
             ):
                 other_type_value = other_type(0)
                 if (

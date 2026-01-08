@@ -15,7 +15,7 @@ from testing.integration.config import UPLOADED_SEQUENCE_NAME
 def test_invalid_host():
     with pytest.raises(
         ConnectionError,
-        match="Connection to Flight server at invalid-address:0 failed on startup",
+        match="Connection to Flight server at 'invalid-address:0' failed on startup",
     ):
         MosaicoClient.connect(host="invalid-address", port=0, timeout=0)
 
@@ -125,6 +125,9 @@ def test_non_existing_topic_handler(
     ):
         seqhandler.get_topic_handler("non-existing-topic-name")
 
+    # free resources
+    _client.close()
+
 
 def test_sequence_streamer_non_existing_topics(
     _client: MosaicoClient,
@@ -141,3 +144,6 @@ def test_sequence_streamer_non_existing_topics(
                 "non-existing-topic-name",
             ]
         )
+
+    # free resources
+    _client.close()

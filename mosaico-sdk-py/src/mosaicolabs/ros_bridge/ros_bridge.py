@@ -37,7 +37,7 @@ class ROSBridge(Generic[T]):
         for ros_type in ros_types:
             if ros_type in cls._adapters:
                 raise ValueError(
-                    f"Adapter for ROS message type {ros_type} is already registered."
+                    f"Adapter for ROS message type '{ros_type}' is already registered."
                 )
             cls._adapters[ros_type] = adapter_class
 

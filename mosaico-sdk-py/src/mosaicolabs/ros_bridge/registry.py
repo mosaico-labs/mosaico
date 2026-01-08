@@ -19,8 +19,11 @@ definitions relevant to its specific data file.
 from pathlib import Path
 from typing import Dict, Union, Optional
 from collections import defaultdict
-import logging as log
 from rosbags.typesys import Stores
+from ..logging import get_logger
+
+# Set the hierarchical logger
+logger = get_logger(__name__)
 
 
 class ROSTypeRegistry:
@@ -85,10 +88,10 @@ class ROSTypeRegistry:
             # Overwrites existing definition if the same type is registered twice in the same scope
             cls._registry[key][msg_type] = definition
 
-            log.debug(f"Registered custom type '{msg_type}' for scope: {key}")
+            logger.debug(f"Registered custom type '{msg_type}' for scope: '{key}'")
 
         except Exception as e:
-            log.error(f"Failed to register type '{msg_type}': {e}")
+            logger.error(f"Failed to register type '{msg_type}': '{e}'")
             raise
 
     @classmethod
@@ -116,7 +119,7 @@ class ROSTypeRegistry:
         if not path.is_dir():
             raise ValueError(f"Path '{path}' is not a directory.")
 
-        log.debug(f"Scanning directory '{path}' for .msg files...")
+        logger.debug(f"Scanning directory '{path}' for .msg files...")
         count = 0
 
         for msg_file in path.glob("*.msg"):
@@ -128,7 +131,7 @@ class ROSTypeRegistry:
             count += 1
 
         if count == 0:
-            log.warning(f"No .msg files found in '{path}'.")
+            logger.warning(f"No .msg files found in '{path}'.")
 
     @classmethod
     def get_types(cls, store: Optional[Union[Stores, str]]) -> Dict[str, str]:
@@ -185,7 +188,7 @@ class ROSTypeRegistry:
         """
         if isinstance(source, Path):
             if not source.exists():
-                raise FileNotFoundError(f"Msg file not found: {source}")
+                raise FileNotFoundError(f"Msg file not found: '{source}'")
             return source.read_text(encoding="utf-8")
         elif isinstance(source, str):
             # Heuristic check: is this a path string or a definition?
@@ -202,5 +205,5 @@ class ROSTypeRegistry:
             return source
         else:
             raise TypeError(
-                f"Invalid source type: {type(source)}. Expected str or Path."
+                f"Invalid source type: '{type(source)}'. Expected str or Path."
             )

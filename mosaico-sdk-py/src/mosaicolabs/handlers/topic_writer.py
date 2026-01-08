@@ -12,7 +12,6 @@ from typing import Any, Dict, Type, Optional
 from mosaicolabs.models.header import Header
 from mosaicolabs.models.message import Message
 import pyarrow.flight as fl
-import logging as log
 
 from mosaicolabs.models import Serializable
 from .internal.topic_write_state import _TopicWriteState
@@ -21,6 +20,10 @@ from ..helpers import pack_topic_resource_name
 from ..comm.do_action import _do_action
 from ..enum import FlightAction, OnErrorPolicy
 from .config import WriterConfig
+from ..logging import get_logger
+
+# Set the hierarchical logger
+logger = get_logger(__name__)
 
 
 class TopicWriter:
@@ -146,7 +149,7 @@ class TopicWriter:
             self.finalize(with_error=error_occurred)
         except Exception as e:
             # FINALIZE FAILED: treat this as an error condition
-            log.exception(f"Failed to finalize topic '{self._name}': {e}")
+            logger.exception(f"Failed to finalize topic '{self._name}': '{e}'")
             error_occurred = True
             if not exc_type:
                 exc_type, exc_val = type(e), e
@@ -157,15 +160,15 @@ class TopicWriter:
                 if self._config.on_error == OnErrorPolicy.Report:
                     self._error_report(str(exc_val))
             except Exception as e:
-                log.exception(
-                    f"Error handling topic '{self._name}' after exception: {e}"
+                logger.exception(
+                    f"Error handling topic '{self._name}' after exception: '{e}'"
                 )
 
     def __del__(self):
         """Destructor check to ensure `finalize()` was called."""
         name = getattr(self, "_name", "__not_initialized__")
         if hasattr(self, "finalized") and not self.finalized():
-            log.warning(
+            logger.warning(
                 f"TopicWriter '{name}' destroyed without calling finalize(). "
                 "Resources may not have been released properly."
             )
@@ -176,13 +179,13 @@ class TopicWriter:
             if self._config.on_error == OnErrorPolicy.Report:
                 self._error_report(str(err))
         except Exception as report_err:
-            log.error(f"Failed to report error: {report_err}")
+            logger.error(f"Failed to report error: '{report_err}'")
         finally:
             # Always attempt to close local resources
             if hasattr(self, "_wrstate") and self._wrstate:
                 self._wrstate.close(with_error=True)
 
-        raise _make_exception(f"Topic '{self._name}' operation failed: {msg}", err)
+        raise _make_exception(f"Topic '{self._name}' operation failed: '{msg}'", err)
 
     @classmethod
     def _validate_ontology_type(cls, ontology_type: Type[Serializable]) -> None:
@@ -204,7 +207,7 @@ class TopicWriter:
                 },
                 expected_type=None,
             )
-            log.info(f"TopicWriter '{self._name}' reported error.")
+            logger.info(f"TopicWriter '{self._name}' reported error.")
         except Exception as e:
             raise _make_exception(
                 f"Error sending 'topic_report_error' action for sequence '{self._name}'.",
@@ -269,6 +272,6 @@ class TopicWriter:
         except Exception:
             raise
 
-        log.info(
+        logger.info(
             f"TopicWriter '{self._name}' finalized {'WITH ERROR' if with_error else ''} successfully."
         )

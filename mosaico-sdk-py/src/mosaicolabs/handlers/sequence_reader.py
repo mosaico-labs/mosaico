@@ -9,11 +9,14 @@ import json
 from mosaicolabs.models.message import Message
 import pyarrow.flight as fl
 from typing import List, Optional, Dict
-import logging as log
 
 from .internal.topic_read_state import _TopicReadState
 from .topic_reader import TopicDataStreamer
 from .helpers import _parse_ep_ticket
+from ..logging import get_logger
+
+# Set the hierarchical logger
+logger = get_logger(__name__)
 
 
 class SequenceDataStreamer:
@@ -88,7 +91,7 @@ class SequenceDataStreamer:
 
         if not topic_readers:
             raise RuntimeError(
-                f"Unable to open TopicDataStreamer handlers for sequence {sequence_name}"
+                f"Unable to open TopicDataStreamer handlers for sequence '{sequence_name}'"
             )
 
         return cls(sequence_name, client, topic_readers)
@@ -188,5 +191,5 @@ class SequenceDataStreamer:
             try:
                 treader.close()
             except Exception as e:
-                log.warning(f"Error closing state {treader.name()}: {e}")
-        log.info(f"SequenceReader for '{self._name}' closed.")
+                logger.warning(f"Error closing state '{treader.name()}': '{e}'")
+        logger.info(f"SequenceReader for '{self._name}' closed.")

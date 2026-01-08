@@ -278,7 +278,7 @@ class _DynamicFieldFactoryMixin:
         """
         if not isinstance(key, str):
             raise TypeError(
-                f"Dictionary key must be a string, got {type(key).__name__}"
+                f"Dictionary key must be a string, got '{type(key).__name__}'"
             )
 
         # NOTE: This mixin is always combined with _QueryableField,
@@ -395,7 +395,7 @@ class _QueryableField:
         if not all(type(v) is first_type for v in values):
             raise TypeError(
                 "All values must be of the same type. "
-                f"Got: {[type(v).__name__ for v in values]}"
+                f"Got: {[f"'{type(v).__name__}'" for v in values]}"
             )
 
         # --- Check required type(s), if provided ---
@@ -407,8 +407,8 @@ class _QueryableField:
 
             if not all(type(v) in allowed for v in values):
                 raise TypeError(
-                    f"Invalid type for {self.__class__.__name__} comparison: "
-                    f"{type(value).__name__}. Expected: ({', '.join(t.__name__ for t in allowed)})"
+                    f"Invalid type for '{self.__class__.__name__}' comparison: "
+                    f"'{type(value).__name__}'. Expected: ({', '.join(f"'{t.__name__}'" for t in allowed)})"
                 )
         return True
 

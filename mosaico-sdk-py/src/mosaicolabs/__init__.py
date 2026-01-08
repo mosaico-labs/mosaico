@@ -13,6 +13,8 @@ Example:
     ...     handler = client.sequence_handler("my_sequence")
 """
 
+import logging as root_logging
+
 # --- Client ---
 from .comm import MosaicoClient as MosaicoClient
 
@@ -24,6 +26,7 @@ from .handlers import (
     TopicHandler as TopicHandler,
     TopicWriter as TopicWriter,
     TopicDataStreamer as TopicDataStreamer,
+    SystemInfo as SystemInfo,
 )
 
 # --- Core Models ---
@@ -127,6 +130,7 @@ __all__ = [
     "TopicHandler",
     "TopicWriter",
     "TopicDataStreamer",
+    "SystemInfo",
     # Core Models
     "BaseModel",
     "Serializable",
@@ -193,3 +197,9 @@ __all__ = [
     "SequenceStatus",
     "OnErrorPolicy",
 ]
+
+
+# --- Set up the top-level logger for the SDK ---
+
+logger = root_logging.getLogger("mosaicolabs")
+logger.addHandler(root_logging.NullHandler())

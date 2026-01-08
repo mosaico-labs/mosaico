@@ -9,7 +9,12 @@ blocking I/O waits from the main application thread during asynchronous operatio
 from concurrent.futures import ThreadPoolExecutor
 from itertools import cycle
 from typing import List, Optional
-import logging as log
+
+from ..logging import get_logger
+
+# Set the hierarchical logger
+logger = get_logger(__name__)
+
 
 _DEFAULT_EXECUTOR_POOL_SIZE = 2
 
@@ -48,7 +53,7 @@ class _ExecutorPool:
         if self._size < 1:
             raise ValueError("Executor pool size must be at least 1")
 
-        log.debug(f"Initializing executor pool with {self._size} executors...")
+        logger.debug(f"Initializing executor pool with {self._size} executors...")
 
         for i in range(self._size):
             try:
@@ -56,8 +61,8 @@ class _ExecutorPool:
                 # one processing thread/lane.
                 self._executors.append(ThreadPoolExecutor(max_workers=1))
             except Exception as e:
-                log.error(
-                    f"Failed to create executor {i + 1}/{self._size} for pool: {e}"
+                logger.error(
+                    f"Failed to create executor {i + 1}/{self._size} for pool: '{e}'"
                 )
                 # Clean up any executors successfully created before the failure
                 self.close()
@@ -88,6 +93,6 @@ class _ExecutorPool:
             try:
                 exec.shutdown()
             except Exception as e:
-                log.warning(f"Error closing pooled executor #{i}: {e}")
+                logger.warning(f"Error closing pooled executor #{i}: '{e}'")
         self._executors.clear()
         self._iterator = None

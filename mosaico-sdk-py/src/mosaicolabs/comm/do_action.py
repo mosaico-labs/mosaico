@@ -15,10 +15,15 @@ from typing import Any, ClassVar, Dict, Optional, Type, TypeVar
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 import datetime
-import logging as log
 import pyarrow.flight as fl
+
 from ..enum import FlightAction
+from ..logging import get_logger
 from ..models.query import QueryResponseItem, QueryResponse
+
+
+# Set the hierarchical logger
+logger = get_logger(__name__)
 
 # Generic TypeVar allowing _do_action to return the specific subclass requested
 T_DoActionResponse = TypeVar("T_DoActionResponse", bound="_DoActionResponse")
@@ -106,12 +111,12 @@ def _do_action(
         Exception: For Flight errors or JSON decoding failures.
     """
     action_name = action.value
-    log.debug(f"Sending Flight action: '{action_name}'")
+    logger.debug(f"Sending Flight action: '{action_name}'")
 
     try:
         # Serialize payload
         body = json.dumps(payload).encode("utf-8")
-        log.debug(f"Action request body: {body}")
+        logger.debug(f"Action request body: '{body}'")
 
         # Execute Flight call
         action_results = client.do_action(fl.Action(action_name, body))
@@ -141,18 +146,18 @@ def _do_action(
         # Verify the server is responding to the correct action
         returned_action = result_dict.get("action")
         if returned_action is None or returned_action == "empty":
-            log.debug(f"Action '{action_name}' response had no 'action' field.")
+            logger.debug(f"Action '{action_name}' response had no 'action' field.")
             return None
 
         if returned_action != action_name:
-            log.warning(
+            logger.warning(
                 f"Unexpected action in response: got '{result_dict.get('action')}', expected '{action_name}'"
             )
             return None
 
         response_data = result_dict.get("response")
         if response_data is None:
-            log.debug(f"Action '{action_name}' response had no 'response' field.")
+            logger.debug(f"Action '{action_name}' response had no 'response' field.")
             return None
 
         # --- Deserialization ---
@@ -162,7 +167,7 @@ def _do_action(
             if response_cls is not expected_type:
                 raise TypeError(
                     f"Action '{action_name}' returned an unexpected type. "
-                    f"Got {response_cls.__name__}, but expected {expected_type.__name__}"
+                    f"Got '{response_cls.__name__}', but expected '{expected_type.__name__}'"
                 )
             # Parse data
             return expected_type.from_dict(response_data)
@@ -171,7 +176,7 @@ def _do_action(
             return response_data
 
     except Exception as e:
-        log.exception(f"Flight action '{action_name}' failed: {e}")
+        logger.exception(f"Flight action '{action_name}' failed: '{e}'")
         raise e
 
 

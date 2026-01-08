@@ -16,7 +16,6 @@ It provides:
 # - (related to previous) Envision the use of codecs, for 'to_image' conversions
 
 from enum import Enum
-import logging as log
 import io
 import sys
 from typing import Dict, List, Optional
@@ -28,10 +27,14 @@ import pyarrow as pa
 from PIL import Image as PILImage
 
 from mosaicolabs.enum import SerializationFormat
+from mosaicolabs.logging import get_logger
 
 from ..header import Header
 from ..mixins import HeaderMixin
 from ..serializable import Serializable
+
+# Set the hierarchical logger
+logger = get_logger(__name__)
 
 
 class ImageFormat(str, Enum):
@@ -220,7 +223,7 @@ class Image(Serializable, HeaderMixin):
 
         if format not in cls.__supported_image_formats__:
             raise ValueError(
-                f"Invalid image format {format}. Supported formats {cls.__supported_image_formats__}"
+                f"Invalid image format '{format}'. Supported formats {cls.__supported_image_formats__}"
             )
 
         raw_bytes = bytes(data)
@@ -246,7 +249,7 @@ class Image(Serializable, HeaderMixin):
                 img_bytes = buf.getvalue()
 
             except Exception as e:
-                log.error(f"Encoding failed ({e}). Falling back to RAW.")
+                logger.error(f"Encoding failed ('{e}'). Falling back to RAW.")
                 img_bytes = raw_bytes
                 format = ImageFormat.RAW
 
@@ -387,7 +390,7 @@ class Image(Serializable, HeaderMixin):
 
         if output_format not in cls.__supported_image_formats__:
             raise ValueError(
-                f"Invalid image format {output_format}. Supported formats {cls.__supported_image_formats__}"
+                f"Invalid image format '{output_format}'. Supported formats {cls.__supported_image_formats__}"
             )
 
         arr = np.array(pil_image)
@@ -460,8 +463,8 @@ class StatefulDecodingSession:
         persistent state associated with 'topic_name'.
         """
         if format not in self.__suppported_formats__:
-            log.error(
-                f"Input format {format.value} not among the supported formats: {[fmt.value for fmt in self.__suppported_formats__]}"
+            logger.error(
+                f"Input format '{format.value}' not among the supported formats: {[f"'{fmt.value}'" for fmt in self.__suppported_formats__]}"
             )
             return None
 
@@ -477,9 +480,9 @@ class StatefulDecodingSession:
         if context not in self._decoders:
             try:
                 self._decoders[context] = av.CodecContext.create(format, "r")
-                log.debug(f"Created new decoder context for context: {context}")
+                logger.debug(f"Created new decoder context for context: '{context}'")
             except Exception as e:
-                log.error(f"Failed to create decoder for context {context}: {e}")
+                logger.error(f"Failed to create decoder for context '{context}': '{e}'")
                 return None
 
         decoder = self._decoders[context]
@@ -493,7 +496,7 @@ class StatefulDecodingSession:
                 return frames[0].to_image()  # PyAV >= 0.5.0 supports .to_image() (PIL)
 
         except Exception as e:
-            log.warning(f"Decoding error on {context}: {e}")
+            logger.warning(f"Decoding error on '{context}': '{e}'")
             # Optional: Implement reset logic here if the stream is truly corrupted
 
         return None
@@ -520,7 +523,7 @@ class _StatelessDefaultCodec:
             image.load()
             return image
         except Exception as e:
-            log.error(f"_DefaultCodec decode error: {e}")
+            logger.error(f"_DefaultCodec decode error: '{e}'")
             return None
 
     def encode(
@@ -532,7 +535,7 @@ class _StatelessDefaultCodec:
             image.save(buf, format=format.value.upper(), **kwargs)
             return buf.getvalue()
         except Exception as e:
-            log.error(f"_DefaultCodec encode error: {e}")
+            logger.error(f"_DefaultCodec encode error: '{e}'")
             return None
 
 
@@ -638,6 +641,6 @@ class CompressedImage(Serializable, HeaderMixin):
         compressed_bytes = _codec.encode(image, format, **kwargs)
         if compressed_bytes is None:
             raise RuntimeError(
-                f"Failed to create CompressedImage (format: {fmt_lower})"
+                f"Failed to create CompressedImage (format: '{fmt_lower}')"
             )
         return cls(data=compressed_bytes, format=format, header=header)

@@ -59,7 +59,7 @@ class PoseAdapter(ROSAdapterBase[Pose]):
         """
         if ros_msg.data is None:
             raise Exception(
-                f"'data' attribute in ROSMessage is None. Cannot translate! Ros topic {ros_msg.topic} @time: {ros_msg.timestamp}"
+                f"'data' attribute in ROSMessage is None. Cannot translate! Ros topic '{ros_msg.topic}' @time: {ros_msg.timestamp}"
             )
         try:
             return Message(
@@ -69,7 +69,7 @@ class PoseAdapter(ROSAdapterBase[Pose]):
             )
         except Exception as e:
             raise Exception(
-                f"Raised Exception while translating ros topic {ros_msg.topic} @time: {ros_msg.timestamp}.\nInner err: {e}"
+                f"Raised Exception while translating ros topic '{ros_msg.topic}' @time: {ros_msg.timestamp}.\nInner err: '{e}'"
             )
 
     @classmethod
@@ -100,7 +100,7 @@ class PoseAdapter(ROSAdapterBase[Pose]):
         if pose_dict:
             if not isinstance(pose_dict, dict):
                 raise ValueError(
-                    f"Invalid type for 'pose' value in ros message: expected 'dict' found {type(pose_dict).__name__}"
+                    f"Invalid type for 'pose' value in ros message: expected 'dict' found '{type(pose_dict).__name__}'"
                 )
 
             # Recurse to process the inner dictionary
@@ -159,7 +159,7 @@ class TwistAdapter(ROSAdapterBase[Velocity]):
         """
         if ros_msg.data is None:
             raise Exception(
-                f"'data' attribute in ROSMessage is None. Cannot translate! Ros topic {ros_msg.topic} @time: {ros_msg.timestamp}"
+                f"'data' attribute in ROSMessage is None. Cannot translate! Ros topic '{ros_msg.topic}' @time: {ros_msg.timestamp}"
             )
         try:
             return Message(
@@ -169,7 +169,7 @@ class TwistAdapter(ROSAdapterBase[Velocity]):
             )
         except Exception as e:
             raise Exception(
-                f"Raised Exception while translating ros topic {ros_msg.topic} @time: {ros_msg.timestamp}.\nInner err: {e}"
+                f"Raised Exception while translating ros topic '{ros_msg.topic}' @time: {ros_msg.timestamp}.\nInner err: '{e}'"
             )
 
     @classmethod
@@ -186,7 +186,7 @@ class TwistAdapter(ROSAdapterBase[Velocity]):
         if twist_dict:
             if not isinstance(twist_dict, dict):
                 raise ValueError(
-                    f"Invalid type for 'twist' value in ros message: expected 'dict' found {type(twist_dict).__name__}"
+                    f"Invalid type for 'twist' value in ros message: expected 'dict' found '{type(twist_dict).__name__}'"
                 )
 
             out_twist = cls.from_dict(twist_dict)
@@ -249,7 +249,7 @@ class AccelAdapter(ROSAdapterBase[Acceleration]):
         """
         if ros_msg.data is None:
             raise Exception(
-                f"'data' attribute in ROSMessage is None. Cannot translate! Ros topic {ros_msg.topic} @time: {ros_msg.timestamp}"
+                f"'data' attribute in ROSMessage is None. Cannot translate! Ros topic '{ros_msg.topic}' @time: {ros_msg.timestamp}"
             )
         try:
             return Message(
@@ -259,7 +259,7 @@ class AccelAdapter(ROSAdapterBase[Acceleration]):
             )
         except Exception as e:
             raise Exception(
-                f"Raised Exception while translating ros topic {ros_msg.topic} @time: {ros_msg.timestamp}.\nInner err: {e}"
+                f"Raised Exception while translating ros topic '{ros_msg.topic}' @time: {ros_msg.timestamp}.\nInner err: '{e}'"
             )
 
     @classmethod
@@ -274,7 +274,7 @@ class AccelAdapter(ROSAdapterBase[Acceleration]):
         if accel_dict:
             if not isinstance(accel_dict, dict):
                 raise ValueError(
-                    f"Invalid type for 'accel' value in ros message: expected 'dict' found {type(accel_dict).__name__}"
+                    f"Invalid type for 'accel' value in ros message: expected 'dict' found '{type(accel_dict).__name__}'"
                 )
 
             out_accel = cls.from_dict(accel_dict)
@@ -333,7 +333,7 @@ class Vector3Adapter(ROSAdapterBase[Vector3d]):
         """
         if ros_msg.data is None:
             raise Exception(
-                f"'data' attribute in ROSMessage is None. Cannot translate! Ros topic {ros_msg.topic} @time: {ros_msg.timestamp}"
+                f"'data' attribute in ROSMessage is None. Cannot translate! Ros topic '{ros_msg.topic}' @time: {ros_msg.timestamp}"
             )
         try:
             return Message(
@@ -343,7 +343,7 @@ class Vector3Adapter(ROSAdapterBase[Vector3d]):
             )
         except Exception as e:
             raise Exception(
-                f"Raised Exception while translating ros topic {ros_msg.topic} @time: {ros_msg.timestamp}.\nInner err: {e}"
+                f"Raised Exception while translating ros topic '{ros_msg.topic}' @time: {ros_msg.timestamp}.\nInner err: '{e}'"
             )
 
     @classmethod
@@ -358,7 +358,7 @@ class Vector3Adapter(ROSAdapterBase[Vector3d]):
         if vec3_dict:
             if not isinstance(vec3_dict, dict):
                 raise ValueError(
-                    f"Invalid type for 'vector' value in ros message: expected 'dict' found {type(vec3_dict).__name__}"
+                    f"Invalid type for 'vector' value in ros message: expected 'dict' found '{type(vec3_dict).__name__}'"
                 )
 
             out_vec3 = cls.from_dict(vec3_dict)
@@ -416,7 +416,7 @@ class PointAdapter(ROSAdapterBase[Point3d]):
         """
         if ros_msg.data is None:
             raise Exception(
-                f"'data' attribute in ROSMessage is None. Cannot translate! Ros topic {ros_msg.topic} @time: {ros_msg.timestamp}"
+                f"'data' attribute in ROSMessage is None. Cannot translate! Ros topic '{ros_msg.topic}' @time: {ros_msg.timestamp}"
             )
         try:
             return Message(
@@ -426,7 +426,7 @@ class PointAdapter(ROSAdapterBase[Point3d]):
             )
         except Exception as e:
             raise Exception(
-                f"Raised Exception while translating ros topic {ros_msg.topic} @time: {ros_msg.timestamp}.\nInner err: {e}"
+                f"Raised Exception while translating ros topic '{ros_msg.topic}' @time: {ros_msg.timestamp}.\nInner err: '{e}'"
             )
 
     @classmethod
@@ -441,7 +441,7 @@ class PointAdapter(ROSAdapterBase[Point3d]):
         if point_dict:
             if not isinstance(point_dict, dict):
                 raise ValueError(
-                    f"Invalid type for 'point' value in ros message: expected 'dict' found {type(point_dict).__name__}"
+                    f"Invalid type for 'point' value in ros message: expected 'dict' found '{type(point_dict).__name__}'"
                 )
 
             out_point = cls.from_dict(point_dict)
@@ -499,7 +499,7 @@ class QuaternionAdapter(ROSAdapterBase[Quaternion]):
         """
         if ros_msg.data is None:
             raise Exception(
-                f"'data' attribute in ROSMessage is None. Cannot translate! Ros topic {ros_msg.topic} @time: {ros_msg.timestamp}"
+                f"'data' attribute in ROSMessage is None. Cannot translate! Ros topic '{ros_msg.topic}' @time: {ros_msg.timestamp}"
             )
         try:
             return Message(
@@ -509,7 +509,7 @@ class QuaternionAdapter(ROSAdapterBase[Quaternion]):
             )
         except Exception as e:
             raise Exception(
-                f"Raised Exception while translating ros topic {ros_msg.topic} @time: {ros_msg.timestamp}.\nInner err: {e}"
+                f"Raised Exception while translating ros topic '{ros_msg.topic}' @time: {ros_msg.timestamp}.\nInner err: '{e}'"
             )
 
     @classmethod
@@ -524,7 +524,7 @@ class QuaternionAdapter(ROSAdapterBase[Quaternion]):
         if quat_dict:
             if not isinstance(quat_dict, dict):
                 raise ValueError(
-                    f"Invalid type for 'quaternion' value in ros message: expected 'dict' found {type(quat_dict).__name__}"
+                    f"Invalid type for 'quaternion' value in ros message: expected 'dict' found '{type(quat_dict).__name__}'"
                 )
 
             out_quat = cls.from_dict(quat_dict)
@@ -583,7 +583,7 @@ class TransformAdapter(ROSAdapterBase[Transform]):
         """
         if ros_msg.data is None:
             raise Exception(
-                f"'data' attribute in ROSMessage is None. Cannot translate! Ros topic {ros_msg.topic} @time: {ros_msg.timestamp}"
+                f"'data' attribute in ROSMessage is None. Cannot translate! Ros topic '{ros_msg.topic}' @time: {ros_msg.timestamp}"
             )
         try:
             return Message(
@@ -593,7 +593,7 @@ class TransformAdapter(ROSAdapterBase[Transform]):
             )
         except Exception as e:
             raise Exception(
-                f"Raised Exception while translating ros topic {ros_msg.topic} @time: {ros_msg.timestamp}.\nInner err: {e}"
+                f"Raised Exception while translating ros topic '{ros_msg.topic}' @time: {ros_msg.timestamp}.\nInner err: '{e}'"
             )
 
     @classmethod
@@ -609,7 +609,7 @@ class TransformAdapter(ROSAdapterBase[Transform]):
         if transf_dict:
             if not isinstance(transf_dict, dict):
                 raise ValueError(
-                    f"Invalid type for 'transform' value in ros message: expected 'dict' found {type(transf_dict).__name__}"
+                    f"Invalid type for 'transform' value in ros message: expected 'dict' found '{type(transf_dict).__name__}'"
                 )
 
             out_transf = cls.from_dict(transf_dict)
@@ -668,7 +668,7 @@ class WrenchAdapter(ROSAdapterBase[ForceTorque]):
         """
         if ros_msg.data is None:
             raise Exception(
-                f"'data' attribute in ROSMessage is None. Cannot translate! Ros topic {ros_msg.topic} @time: {ros_msg.timestamp}"
+                f"'data' attribute in ROSMessage is None. Cannot translate! Ros topic '{ros_msg.topic}' @time: {ros_msg.timestamp}"
             )
         try:
             return Message(
@@ -678,7 +678,7 @@ class WrenchAdapter(ROSAdapterBase[ForceTorque]):
             )
         except Exception as e:
             raise Exception(
-                f"Raised Exception while translating ros topic {ros_msg.topic} @time: {ros_msg.timestamp}.\nInner err: {e}"
+                f"Raised Exception while translating ros topic '{ros_msg.topic}' @time: {ros_msg.timestamp}.\nInner err: '{e}'"
             )
 
     @classmethod
@@ -694,7 +694,7 @@ class WrenchAdapter(ROSAdapterBase[ForceTorque]):
         if wrench_dict:
             if not isinstance(wrench_dict, dict):
                 raise ValueError(
-                    f"Invalid type for 'wrench' value in ros message: expected 'dict' found {type(wrench_dict).__name__}"
+                    f"Invalid type for 'wrench' value in ros message: expected 'dict' found '{type(wrench_dict).__name__}'"
                 )
 
             out_ft = cls.from_dict(wrench_dict)

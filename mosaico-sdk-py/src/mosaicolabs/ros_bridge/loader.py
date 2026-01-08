@@ -1,15 +1,18 @@
 import fnmatch
 from pathlib import Path
+from mosaicolabs.logging import get_logger
 from rosbags.highlevel import AnyReader
 from rosbags.interfaces import Connection, TopicInfo
 from typing import Dict, Generator, List, Optional, Tuple, Union
 from enum import Enum
-import logging as log
 from rosbags.typesys import Stores, get_typestore
 
 from .helpers import _to_dict
 from .ros_bridge import ROSMessage
 from .registry import ROSTypeRegistry
+
+# Set the hierarchical logger
+logger = get_logger(__name__)
 
 
 class LoaderErrorPolicy(Enum):
@@ -91,7 +94,7 @@ class ROSLoader:
                 add_types = get_types_from_msg(msg_def, msg_type)
                 self._typestore.register(add_types)
             except Exception as e:
-                log.warning(f"Failed to register type '{msg_type}': {e}")
+                logger.warning(f"Failed to register type '{msg_type}': '{e}'")
 
     def _resolve_connections(self):
         """
@@ -106,7 +109,7 @@ class ROSLoader:
             )
             self._reader.open()
         except Exception as e:
-            raise IOError(f"Could not open bag file: {e}") from e
+            raise IOError(f"Could not open bag file: '{e}'") from e
 
         available_topics = self._reader.topics
         self._connections = []
@@ -124,7 +127,9 @@ class ROSLoader:
             # fnmatch allows using * and ? wildcards
             matches = fnmatch.filter(available_topics.keys(), pattern)
             if not matches:
-                log.warning(f"Topic pattern '{pattern}' matched nothing in this bag.")
+                logger.warning(
+                    f"Topic pattern '{pattern}' matched nothing in this bag."
+                )
             target_topics.update(
                 {key: val for key, val in available_topics.items() if key in matches}
             )
@@ -137,7 +142,7 @@ class ROSLoader:
                 self._connections.append(conn)
 
         if not self._connections:
-            log.warning("Loader initialized, but no connections matched criteria.")
+            logger.warning("Loader initialized, but no connections matched criteria.")
 
     # --- Properties ---
     def msg_count(self, topic: Optional[str] = None) -> int:
@@ -148,7 +153,7 @@ class ROSLoader:
         try:
             return next(c.msgcount for c in self._connections if c.topic == topic)
         except StopIteration:
-            log.error(f"Topic '{topic}' not found in the loaded connections.")
+            logger.error(f"Topic '{topic}' not found in the loaded connections.")
             return 0
 
     @property
@@ -211,7 +216,7 @@ class ROSLoader:
         if self._error_policy == LoaderErrorPolicy.RAISE:
             raise ValueError(msg) from exc
         elif self._error_policy == LoaderErrorPolicy.LOG_WARN:
-            log.warning(msg)
+            logger.warning(msg)
         # If IGNORE, do nothing
 
     def close(self):

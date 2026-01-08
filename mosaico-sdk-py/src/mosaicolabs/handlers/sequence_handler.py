@@ -9,16 +9,19 @@ and access reading interfaces (`SequenceDataStreamer`).
 import json
 import pyarrow.flight as fl
 from typing import Dict, Any, List, Optional, Type
-import logging as log
 
 from ..comm.metadata import SequenceMetadata, _decode_metadata
 from ..comm.do_action import _do_action, _DoActionResponseSysInfo
 from ..enum import FlightAction
 from ..models.platform import Sequence
 from ..helpers import sanitize_sequence_name
+from ..logging import get_logger
 from .helpers import _parse_ep_ticket
 from .sequence_reader import SequenceDataStreamer
 from .topic_handler import TopicHandler
+
+# Set the hierarchical logger
+logger = get_logger(__name__)
 
 
 class SequenceHandler:
@@ -81,7 +84,7 @@ class SequenceHandler:
         try:
             flight_info = client.get_flight_info(descriptor)
         except Exception as e:
-            log.error(f"Server error while asking for Sequence descriptor, {e}")
+            logger.error(f"Server error while asking for Sequence descriptor, '{e}'")
             return None
 
         seq_metadata = SequenceMetadata.from_dict(
@@ -93,8 +96,8 @@ class SequenceHandler:
         for ep in flight_info.endpoints:
             ep_ticket_data = _parse_ep_ticket(ep.ticket)
             if ep_ticket_data is None:
-                log.error(
-                    f"Skipping endpoint with invalid ticket format: {ep.ticket.ticket.decode()}"
+                logger.error(
+                    f"Skipping endpoint with invalid ticket format: '{ep.ticket.ticket.decode()}'"
                 )
                 continue
             # retrieve standardized topic name
@@ -111,7 +114,7 @@ class SequenceHandler:
         )
 
         if act_resp is None:
-            log.error(f"Action '{ACTION}' returned no response.")
+            logger.error(f"Action '{ACTION}' returned no response.")
             return None
 
         sequence_model = Sequence.from_flight_info(
@@ -138,8 +141,8 @@ class SequenceHandler:
         try:
             self.close()
         except Exception as e:
-            log.exception(
-                f"Error releasing resources allocated from SequenceHandler '{self._sequence.name}'.\nInner err: {e}"
+            logger.error(
+                f"Error releasing resources allocated from SequenceHandler '{self._sequence.name}'.\nInner err: '{e}'"
             )
 
     # -------------------- Public methods --------------------
@@ -181,7 +184,7 @@ class SequenceHandler:
         """
         if topics and any([t not in self.topics for t in topics]):
             raise ValueError(
-                f"Invalid input topic names {topics}. Available topics in sequence {self.name}:\n{self.topics}"
+                f"Invalid input topic names {topics}. Available topics in sequence '{self.name}':\n{self.topics}"
             )
 
         if force_new_instance and self._data_streamer_instance is not None:
@@ -229,7 +232,7 @@ class SequenceHandler:
             )
             if not th:
                 raise ValueError(
-                    f"Internal Error: unable to connect a TopicHandler for topic {topic_name} in sequence {self.name}"
+                    f"Internal Error: unable to connect a TopicHandler for topic '{topic_name}' in sequence '{self.name}'"
                 )
             self._topic_handler_instances[topic_name] = th
 

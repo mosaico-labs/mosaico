@@ -9,7 +9,6 @@ creating resource handlers (sequences, topics) and executing queries.
 
 import os
 from typing import Any, Dict, List, Optional, Type
-import logging as log
 import pyarrow.flight as fl
 
 from mosaicolabs.models.query import Query, QueryResponse
@@ -19,13 +18,18 @@ from ..helpers import pack_topic_resource_name
 from ..handlers import TopicHandler, SequenceHandler, SequenceWriter
 from .connection import _get_connection, _ConnectionStatus, _ConnectionPool
 from .executor_pool import _ExecutorPool
-from .do_action import _do_action, _DoActionQueryResponse
+from .do_action import _do_action, _DoActionQueryResponse, _DoActionResponseSysInfo
+from ..logging import get_logger
 from ..enum import FlightAction, OnErrorPolicy
 from ..handlers.config import WriterConfig
+from ..handlers.system_info import SystemInfo
 from .connection import (
     DEFAULT_MAX_BATCH_BYTES,
     DEFAULT_MAX_BATCH_SIZE_RECORDS,
 )
+
+# Set the hierarchical logger
+logger = get_logger(__name__)
 
 
 class MosaicoClient:
@@ -119,13 +123,14 @@ class MosaicoClient:
         """
 
         # Establish the Control Connection
+        logger.debug(f"Opening a connection '{host}:{port}'")
         try:
             control_client: fl.FlightClient = _get_connection(
                 host=host, port=port, timeout=timeout
             )
         except Exception as e:
             raise ConnectionError(
-                f"Connection to Flight server at {host}:{port} failed on startup.\nInner err: '{e}"
+                f"Connection to Flight server at '{host}:{port}' failed on startup.\nInner err: '{e}'"
             )
 
         # Initialize Pools
@@ -144,14 +149,14 @@ class MosaicoClient:
         except Exception as e:
             # A failed pool is a fatal error.
             raise Exception(
-                f"Exception while initializing Connection pool.\nInner err. {str(e)}"
+                f"Exception while initializing Connection pool.\nInner err. '{e}'"
             )
 
         try:
             executor_pool = _ExecutorPool(pool_size=os.cpu_count())
         except Exception as e:
             raise Exception(
-                f"Exception while initializing Executor pool.\nInner err. {str(e)}"
+                f"Exception while initializing Executor pool.\nInner err. '{e}'"
             )
 
         # Call the private constructor
@@ -179,14 +184,14 @@ class MosaicoClient:
         try:
             self.close()
         except Exception as e:
-            log.exception(
-                f"Error releasing resources allocated from MosaicoClient.\nInner err: {e}"
+            logger.error(
+                f"Error releasing resources allocated from MosaicoClient.\nInner err: '{e}'"
             )
 
     def __del__(self):
         """Destructor. Failsafe if close() is not explicitly called."""
         if self._status == _ConnectionStatus.Open:
-            log.warning(
+            logger.warning(
                 "MosaicoClient destroyed without calling close(). "
                 "Resources may not have been released properly."
             )
@@ -315,6 +320,98 @@ class MosaicoClient:
     def clear_topic_handlers_cache(self):
         self._topic_handlers_cache = {}
 
+    def sequence_system_info(self, sequence_name: str) -> Optional[SystemInfo]:
+        """
+        Retrieves system-level metadata for a specific sequence.
+
+        This method queries the server for the physical state of the sequence,
+        including its total storage footprint and creation history.
+
+        Args:
+            sequence_name (str): The unique identifier of the sequence on the
+                Mosaico platform.
+
+        Returns:
+            Optional[SystemInfo]: A SystemInfo object containing the sequence
+                diagnostics if found, or None if the sequence does not exist
+                on the host.
+        """
+        # Get System Info
+        ACTION = FlightAction.SEQUENCE_SYSTEM_INFO
+        try:
+            act_resp = _do_action(
+                client=self._control_client,
+                action=ACTION,
+                payload={"name": sequence_name},
+                expected_type=_DoActionResponseSysInfo,
+            )
+        except Exception as e:
+            logger.error(
+                f"Error sending system-info do_action '{ACTION}'.\nInner err: '{e}'"
+            )
+            return None
+
+        if act_resp is None:
+            logger.error(f"Action '{ACTION}' returned no response.")
+            return None
+
+        return SystemInfo(
+            total_size_bytes=act_resp.total_size_bytes,
+            created_datetime=act_resp.created_datetime,
+            is_locked=act_resp.is_locked,
+        )
+
+    def topic_system_info(
+        self,
+        sequence_name: str,
+        topic_name: str,
+    ) -> Optional[SystemInfo]:
+        """
+        Retrieves system-level metadata for a specific topic within a sequence.
+
+        Useful for verifying the data integrity or storage consumption of
+        individual streams (e.g., a specific LIDAR or Camera topic) without
+        loading the entire sequence metadata.
+
+        Args:
+            sequence_name (str): The name of the sequence containing the topic.
+            topic_name (str): The specific topic name to query (e.g., "/front_cam/image_raw").
+
+        Returns:
+            Optional[SystemInfo]: A SystemInfo object containing the topic
+                diagnostics if found, or None if the sequence or topic
+                cannot be located.
+        """
+        # Get System Info
+        ACTION = FlightAction.TOPIC_SYSTEM_INFO
+        try:
+            act_resp = _do_action(
+                client=self._control_client,
+                action=ACTION,
+                payload={
+                    "name": pack_topic_resource_name(
+                        sequence_name=sequence_name, topic_name=topic_name
+                    )
+                },
+                expected_type=_DoActionResponseSysInfo,
+            )
+        except Exception as e:
+            logger.error(
+                f"Error sending system-info do_action '{ACTION}'.\nInner err: '{e}'"
+            )
+            return None
+
+        if act_resp is None:
+            logger.error(f"Action '{ACTION}' returned no response.")
+            return None
+
+        return SystemInfo(
+            total_size_bytes=act_resp.total_size_bytes,
+            created_datetime=act_resp.created_datetime,
+            is_locked=act_resp.is_locked,
+            chunks_number=act_resp.chunks_number,
+        )
+
     def sequence_delete(self, sequence_name: str):
         """
         Deletes a layer definition from the server.
@@ -333,7 +430,7 @@ class MosaicoClient:
             self._remove_from_sequence_handlers_cache(sequence_name=sequence_name)
 
         except Exception as e:
-            log.error(f"Server error while asking for Sequence deletion, {e}")
+            logger.error(f"Server error while asking for Sequence deletion, '{e}'")
 
     def list_sequences(self) -> List[str]:
         """
@@ -345,7 +442,7 @@ class MosaicoClient:
         out_list = []
         for finfo in self._control_client.list_flights():
             if finfo.descriptor.path is None:
-                log.debug("`None` path found in `list_flights` endpoint")
+                logger.debug("`None` path found in `list_flights` endpoint")
                 continue
             out_list.extend([p.decode("utf-8") for p in finfo.descriptor.path])
         return out_list
@@ -377,7 +474,7 @@ class MosaicoClient:
                 t = type(q)
                 if t in types_seen:
                     raise ValueError(
-                        f"Duplicate query type detected: {t.__name__}. "
+                        f"Duplicate query type detected: '{t.__name__}'. "
                         "Multiple instances of the same type will override each other when encoded.",
                     )
                 else:
@@ -389,20 +486,22 @@ class MosaicoClient:
 
         query_dict: dict[str, Any] = {q.name(): q.to_dict() for q in self._queries}
 
+        ACTION = FlightAction.QUERY
+
         try:
             act_resp = _do_action(
                 client=self._control_client,
-                action=FlightAction.QUERY,
+                action=ACTION,
                 payload=query_dict,
                 expected_type=_DoActionQueryResponse,
             )
 
         except Exception as e:
-            log.error(f"Query returned an internal error: '{e}'")
+            logger.error(f"Query returned an internal error: '{e}'")
             return None
 
         if act_resp is None:
-            log.error(f"Action '{FlightAction.QUERY}' returned no response.")
+            logger.error(f"Action '{ACTION}' returned no response.")
             return None
 
         return act_resp.query_response

@@ -7,12 +7,16 @@ from a single topic via the Flight `DoGet` protocol.
 
 from mosaicolabs.models.message import Message
 import pyarrow.flight as fl
-import logging as log
 from typing import Optional
 
-from ..comm.metadata import TopicMetadata, _decode_metadata
 from .helpers import _parse_ep_ticket
 from .internal.topic_read_state import _TopicReadState
+
+from ..comm.metadata import TopicMetadata, _decode_metadata
+from ..logging import get_logger
+
+# Set the hierarchical logger
+logger = get_logger(__name__)
 
 
 class TopicDataStreamer:
@@ -51,7 +55,7 @@ class TopicDataStreamer:
         ep_ticket_data = _parse_ep_ticket(ticket)
         if ep_ticket_data is None:
             raise Exception(
-                f"Skipping endpoint with invalid ticket format: {ticket.ticket.decode()}"
+                f"Skipping endpoint with invalid ticket format: '{ticket.ticket.decode()}'"
             )
         topic_name = ep_ticket_data[1]
 
@@ -137,5 +141,5 @@ class TopicDataStreamer:
         try:
             self._rdstate.close()
         except Exception as e:
-            log.warning(f"Error closing state {self._rdstate.topic_name}: {e}")
-        log.info(f"TopicReader for '{self._rdstate.topic_name}' closed.")
+            logger.warning(f"Error closing state '{self._rdstate.topic_name}': '{e}'")
+        logger.info(f"TopicReader for '{self._rdstate.topic_name}' closed.")

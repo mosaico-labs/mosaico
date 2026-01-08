@@ -23,7 +23,6 @@ Typical usage as a library:
 
 import argparse
 import json
-import logging as log
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -43,15 +42,18 @@ from rosbags.typesys import Stores
 from mosaicolabs.comm.mosaico_client import MosaicoClient
 from mosaicolabs.enum import OnErrorPolicy
 from mosaicolabs.handlers import SequenceWriter
+from mosaicolabs.logging import get_logger, setup_sdk_logging
 
 from .ros_bridge import ROSAdapterBase, ROSBridge
 from .loader import LoaderErrorPolicy, ROSLoader
 from .registry import ROSTypeRegistry
 from .ros_message import ROSMessage
 
+# Set the hierarchical logger
+logger = get_logger(__name__)
+
+
 # --- Configuration ---
-
-
 @dataclass
 class ROSInjectionConfig:
     """
@@ -209,19 +211,16 @@ class RosbagInjector:
             config: The fully resolved configuration object.
         """
         self.cfg = config
-        self._setup_logging()
+        # Create the single "source of truth" for the terminal
+        from rich.console import Console
+
+        self.console = Console(stderr=True)
+        setup_sdk_logging(
+            level=self.cfg.log_level.upper(), pretty=True, console=self.console
+        )
 
         # Set of topics to skip (e.g., no adapter found), allowing O(1) fast-fail in the loop.
         self._ignored_topics: Set[str] = set()
-
-    def _setup_logging(self):
-        """Configures the logging subsystem based on the config level."""
-        log.basicConfig(
-            level=getattr(log, self.cfg.log_level.upper()),
-            format="%(asctime)s - %(levelname)s - %(message)s",
-            datefmt="%H:%M:%S",
-        )
-        self.logger = log.getLogger("RosbagInjector")
 
     def _register_custom_types(self):
         """
@@ -231,15 +230,15 @@ class RosbagInjector:
         if not self.cfg.custom_msgs:
             return
 
-        self.logger.info("Registering custom message definitions...")
+        logger.info("Registering custom message definitions...")
         for package, path, store in self.cfg.custom_msgs:
             try:
                 ROSTypeRegistry.register_directory(
                     package_name=package, dir_path=path, store=store
                 )
-                self.logger.debug(f"Registered package '{package}' from {path}")
+                logger.debug(f"Registered package '{package}' from '{path}'")
             except Exception as e:
-                self.logger.error(f"Failed to register custom msgs at {path}: {e}")
+                logger.error(f"Failed to register custom msgs at '{path}': '{e}'")
 
     def _get_adapter(self, msg_type: str) -> Optional[Type[ROSAdapterBase]]:
         """
@@ -264,7 +263,7 @@ class RosbagInjector:
         # 1. Prepare Registry
         self._register_custom_types()
 
-        self.logger.info(f"Connecting to Mosaico at {self.cfg.host}:{self.cfg.port}...")
+        logger.info(f"Connecting to Mosaico at '{self.cfg.host}:{self.cfg.port}'...")
 
         try:
             # Context: Mosaico Client (Network Connection)
@@ -272,7 +271,7 @@ class RosbagInjector:
                 host=self.cfg.host, port=self.cfg.port
             ) as mclient:
                 # Context: ROS Loader (File Access)
-                self.logger.info(f"Opening bag: {self.cfg.file_path}")
+                logger.info(f"Opening bag: '{self.cfg.file_path}'")
                 with ROSLoader(
                     file_path=self.cfg.file_path,
                     topics=self.cfg.topics,
@@ -289,21 +288,67 @@ class RosbagInjector:
                         metadata=self.cfg.metadata,
                         on_error=self.cfg.on_error,
                     ) as seq_writer:
-                        self.logger.info("Starting upload...")
+                        logger.info("Starting upload...")
 
                         # Main Processing Loop
-                        with Live(ui.progress):
+                        # By passing self.console, any 'logger.info' calls inside
+                        # this loop will print cleanly ABOVE the progress bars.
+                        with Live(ui.progress, console=self.console):
                             for ros_msg, exc in ros_loader:
                                 self._process_message(ros_msg, exc, seq_writer, ui)
 
-            self.logger.info("Injection completed successfully.")
+                logger.info("Injection completed successfully.")
+
+                # Retrieve the sequence info
+                sinfo = mclient.sequence_system_info(self.cfg.sequence_name)
+                if sinfo is not None:
+                    # --- Final Statistics Report ---
+                    self._print_summary(
+                        self.cfg.file_path.stat().st_size, sinfo.total_size_bytes
+                    )
+                else:
+                    logger.error(
+                        f"Oops, Something bad happened: Sequence '{self.cfg.sequence_name}' not found on remote server. This should not happen..."
+                    )
 
         except KeyboardInterrupt:
-            self.logger.warning("Operation cancelled by user. Shutting down...")
+            logger.warning("Operation cancelled by user. Shutting down...")
             return
         except Exception as e:
-            self.logger.exception(f"Fatal error during injection: {e}")
+            logger.exception(f"Fatal error during injection: '{e}'")
             return
+
+    def _print_summary(self, original_size: int, remote_size: int):
+        """Calculates and prints the compression summary using Rich."""
+        if remote_size == 0:
+            logger.warning("No data was written; cannot calculate compression ratio.")
+            return
+
+        # Calculate ratio: (Original / Remote)
+        # A ratio > 1 means the remote sequence is smaller (better compression)
+        ratio = original_size / remote_size
+        savings = max(0, (1 - (remote_size / original_size)) * 100)
+
+        from rich.panel import Panel
+        from rich.filesize import decimal
+
+        summary_text = (
+            f"Original Size:  [bold]{decimal(original_size)}[/bold]\n"
+            f"Remote Size:    [bold]{decimal(remote_size)}[/bold]\n"
+            f"Ratio:          [bold cyan]{ratio:.2f}x[/bold cyan]\n"
+            f"Space Saved:    [bold green]{savings:.1f}%[/bold green]"
+        )
+
+        self.console.print(
+            Panel(
+                summary_text,
+                title="[bold]Injection Summary[/bold]",
+                expand=False,
+                border_style="green",
+                padding=1,
+                highlight=True,
+            )
+        )
 
     def _process_message(
         self,
@@ -393,7 +438,7 @@ def _parse_metadata_arg(metadata_input: Optional[str]) -> dict:
     # Attempt JSON Parse
     try:
         data = json.loads(metadata_input)
-        log.info("Metadata parsed successfully from JSON string.")
+        logger.info("Metadata parsed successfully from JSON string.")
         return data
     except json.JSONDecodeError:
         pass  # Not a valid JSON string, proceed to check file
@@ -404,17 +449,19 @@ def _parse_metadata_arg(metadata_input: Optional[str]) -> dict:
         try:
             with open(file_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
-            log.info(f"Metadata loaded successfully from file: {file_path}")
+            logger.info(f"Metadata loaded successfully from file: '{file_path}'")
             return data
         except json.JSONDecodeError as e:
-            log.error(f"File found at '{file_path}' but contained invalid JSON: {e}")
+            logger.error(
+                f"File found at '{file_path}' but contained invalid JSON: '{e}'"
+            )
             sys.exit(1)
         except Exception as e:
-            log.error(f"Error reading metadata file '{file_path}': {e}")
+            logger.error(f"Error reading metadata file '{file_path}': '{e}'")
             sys.exit(1)
 
     # Failure
-    log.error(
+    logger.error(
         f"Metadata argument is neither a valid JSON string nor a valid file path: '{metadata_input}'"
     )
     sys.exit(1)
@@ -459,6 +506,20 @@ def ros_injector():
         "If not set, defaults to ROS2_HUMBLE.",
     )
 
+    parser.add_argument(
+        "--log",
+        "-l",
+        help="Set the logging verbosity level",
+        default="INFO",  # Optional: defaults to INFO
+        type=str.upper,  # Automatically converts input (e.g., 'debug') to uppercase
+        choices=[
+            "DEBUG",
+            "INFO",
+            "WARNING",
+            "ERROR",
+            "CRITICAL",
+        ],  # Restricts input to these specific strings
+    )
     args = parser.parse_args()
 
     # --- Configuration Construction ---
@@ -481,6 +542,7 @@ def ros_injector():
         port=args.port,
         topics=args.topics,
         ros_distro=selected_distro,
+        log_level=args.log,
     )
 
     # --- Execution ---

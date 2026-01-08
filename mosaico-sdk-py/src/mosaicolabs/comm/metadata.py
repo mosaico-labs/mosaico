@@ -97,7 +97,7 @@ class TopicMetadata:
         """
         context = _get_value(mdata, "context")
         if context != "topic":
-            raise ValueError(f"expected a topic context, {context}")
+            raise ValueError(f"expected a 'topic' context, got '{context}'")
         properties = _get_value(mdata, "properties")
         user_metadata = _get_value(mdata, "user_metadata")
 

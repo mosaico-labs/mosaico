@@ -126,7 +126,7 @@ def test_image_invalid_format(format, encoding):
 
     log.debug("encoding test img data")
     # Encode (Compress)
-    with pytest.raises(ValueError, match=f"Invalid image format {format}"):
+    with pytest.raises(ValueError, match=f"Invalid image format '{format}'"):
         _ = Image.from_linear_pixels(
             data=original_bytes,
             stride=stride,

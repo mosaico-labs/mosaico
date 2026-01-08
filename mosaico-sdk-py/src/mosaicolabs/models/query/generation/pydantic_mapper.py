@@ -98,7 +98,7 @@ class PydanticFieldMapper:
         # Guard clause: This mapper only works on Pydantic models.
         if not issubclass(class_type, pydantic.BaseModel):
             raise ValueError(
-                f"PydanticFieldMapper can only process pydantic.BaseModel subclasses. Got {class_type}."
+                f"PydanticFieldMapper can only process pydantic.BaseModel subclasses. Got '{class_type}'."
             )
 
         # Establish the root path for this class

@@ -9,9 +9,12 @@ capabilities essential for the k-way merge logic used in `SequenceDataStreamer`.
 
 import pyarrow.flight as fl
 from typing import Iterator, List, Optional, Type
-import logging as log
 
 from mosaicolabs.models import Serializable
+from mosaicolabs.logging import get_logger
+
+# Set the hierarchical logger
+logger = get_logger(__name__)
 
 
 class _TopicReadState:
@@ -174,6 +177,6 @@ class _TopicReadState:
             try:
                 self.reader.cancel()
             except Exception as e:
-                log.warning(f"Error canceling FlightStreamReader: {e}")
+                logger.warning(f"Error canceling FlightStreamReader: '{e}'")
             finally:
                 self.reader = None

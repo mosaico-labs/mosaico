@@ -93,7 +93,7 @@ class Serializable(BaseModel, _QueryableModel):
         if tag in _SENSOR_REGISTRY:
             raise ValueError(
                 f"Duplicate ontology tag '{tag}' detected "
-                f"(already registered for {_SENSOR_REGISTRY[tag].__name__})"
+                f"(already registered for '{_SENSOR_REGISTRY[tag].__name__}')"
             )
         _SENSOR_REGISTRY[tag] = cls
 
@@ -215,6 +215,6 @@ class Serializable(BaseModel, _QueryableModel):
         """
         if not hasattr(cls, "__ontology_tag__") or cls.__ontology_tag__ is None:
             raise Exception(
-                f"class {cls.__name__} has no '__ontology_tag__' attribute. Initialization failed."
+                f"class '{cls.__name__}' has no '__ontology_tag__' attribute. Initialization failed."
             )
         return cls.__ontology_tag__

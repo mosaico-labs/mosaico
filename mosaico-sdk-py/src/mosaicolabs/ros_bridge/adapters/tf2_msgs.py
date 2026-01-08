@@ -34,7 +34,7 @@ class FrameTransformAdapter(ROSAdapterBase):
         """
         if ros_msg.data is None:
             raise Exception(
-                f"'data' attribute in ROSMessage is None. Cannot translate! Ros topic {ros_msg.topic} @time: {ros_msg.timestamp}"
+                f"'data' attribute in ROSMessage is None. Cannot translate! Ros topic '{ros_msg.topic}' @time: {ros_msg.timestamp}"
             )
         try:
             return Message(
@@ -44,7 +44,7 @@ class FrameTransformAdapter(ROSAdapterBase):
             )
         except Exception as e:
             raise Exception(
-                f"Raised Exception while translating ros topic {ros_msg.topic} @time: {ros_msg.timestamp}.\nInner err: {e}"
+                f"Raised Exception while translating ros topic '{ros_msg.topic}' @time: {ros_msg.timestamp}.\nInner err: '{e}'"
             )
 
     @classmethod
