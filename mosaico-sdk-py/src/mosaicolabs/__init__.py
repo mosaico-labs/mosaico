@@ -13,8 +13,6 @@ Example:
     ...     handler = client.sequence_handler("my_sequence")
 """
 
-import logging as root_logging
-
 # --- Client ---
 from .comm import MosaicoClient as MosaicoClient
 
@@ -120,9 +118,14 @@ from .enum import (
     OnErrorPolicy as OnErrorPolicy,
 )
 
+from .logging import get_logger as get_logger, setup_sdk_logging as setup_sdk_logging
+
 __all__ = [
     # Client
     "MosaicoClient",
+    # Logging
+    "get_logger",
+    "setup_sdk_logging",
     # Handlers
     "SequenceHandler",
     "SequenceWriter",
@@ -201,5 +204,7 @@ __all__ = [
 
 # --- Set up the top-level logger for the SDK ---
 
-logger = root_logging.getLogger("mosaicolabs")
-logger.addHandler(root_logging.NullHandler())
+from logging import NullHandler
+
+logger = get_logger()
+logger.addHandler(NullHandler())

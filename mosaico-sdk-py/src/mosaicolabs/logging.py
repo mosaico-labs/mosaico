@@ -1,5 +1,6 @@
 import logging as root_logging
 import sys
+from typing import Optional
 from rich.logging import RichHandler
 
 
@@ -93,20 +94,26 @@ def setup_sdk_logging(level="INFO", pretty: bool = False, console=None):
     logger.info(init_message, extra=extra)
 
 
-def get_logger(name: str):
+def get_logger(name: Optional[str] = None):
     """
-    Retrieves a logger instance within the SDK namespace.
+    Retrieves a logger instance within the Mosaico SDK namespace.
 
-    This is a convenience wrapper around the standard logging.getLogger call,
-    intended to be used across the project to maintain a consistent hierarchical
-    naming convention (e.g., 'mosaicolabs.comm.client').
+    This function acts as a wrapper for the standard logging.getLogger call.
+    If a name is provided, it returns a logger for that specific module
+    hierarchy. If no name is provided, it returns the
+    base 'mosaicolabs' logger.
 
     Args:
-        name (str): The name of the logger, typically passed as __name__
-            to reflect the module's path.
+        name (Optional[str]): The name of the logger.
+            Typically passed as __name__ to reflect the module's path
+            (e.g., 'mosaicolabs.comm.client').
+            If None, the top-level SDK logger is returned.
 
     Returns:
-        logging.Logger: A logger instance configured to work with the
-            Mosaico SDK logging subsystem.
+        logging.Logger: A logger instance configured for the Mosaico SDK
+            subsystem.
     """
-    return root_logging.getLogger(name=name)
+    if name is not None:
+        return root_logging.getLogger(name=name)
+    else:
+        return root_logging.getLogger("mosaicolabs")
