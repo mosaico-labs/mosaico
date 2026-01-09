@@ -173,7 +173,7 @@ impl TimeseriesGatewayResult {
                 Error::bad_field(params::ARROW_SCHEMA_COLUMN_NAME_TIMESTAMP.to_owned())
             })?;
 
-            return Ok(types::TimestampRange::new(ts_min, ts_max));
+            return Ok(types::TimestampRange::between(ts_min, ts_max));
         }
 
         Err(Error::NotFound)
