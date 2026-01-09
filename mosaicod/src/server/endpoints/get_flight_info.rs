@@ -2,7 +2,8 @@ use crate::{
     marshal,
     repo::{self, FacadeError, FacadeSequence, FacadeTopic},
     server::errors::ServerError,
-    store, types,
+    store,
+    types::{self, Resource},
 };
 use arrow::datatypes::{Field, Schema};
 use arrow_flight::{
@@ -43,15 +44,16 @@ pub async fn get_flight_info(
                     let endpoints: Vec<FlightEndpoint> = topics
                         .into_iter()
                         .map(|topic| {
-                            let (locator, ts_range) = topic.into_parts();
                             let ticket = types::flight::TicketTopic {
-                                locator,
-                                timestamp_range: ts_range,
+                                locator: topic.name().clone(),
+                                timestamp_range: cmd.timestamp_range.clone(),
                             };
 
-                            let e = FlightEndpoint::new().with_ticket(Ticket {
-                                ticket: marshal::flight::ticket_topic_to_binary(ticket)?.into(),
-                            });
+                            let e = FlightEndpoint::new()
+                                .with_ticket(Ticket {
+                                    ticket: marshal::flight::ticket_topic_to_binary(ticket)?.into(),
+                                })
+                                .with_location(format!("mosaico://{}", topic.name()));
 
                             Ok::<FlightEndpoint, ServerError>(e)
                         })
@@ -83,16 +85,23 @@ pub async fn get_flight_info(
                     let schema =
                         Schema::new_with_metadata(schema.fields().clone(), flatten_metadata);
 
-                    let ticket: String = handle.locator.clone().into();
+                    let ticket = types::flight::TicketTopic {
+                        locator: handle.locator.clone().into(),
+                        timestamp_range: cmd.timestamp_range,
+                    };
+
                     // building a single endpoint for topic data
-                    let endpoint = FlightEndpoint::new().with_ticket(Ticket {
-                        ticket: ticket.into(),
-                    });
+                    let endpoint = FlightEndpoint::new()
+                        .with_ticket(Ticket {
+                            ticket: marshal::flight::ticket_topic_to_binary(ticket)?.into(),
+                        })
+                        .with_location(format!("mosaico://{}", handle.locator.clone()));
 
                     trace!("{} generating response", handle.locator);
                     let mut flight_info = FlightInfo::new()
                         .with_descriptor(desc.clone())
                         .try_with_schema(&schema)?;
+
                     flight_info = flight_info.with_endpoint(endpoint);
 
                     trace!("{} done", handle.locator);

@@ -78,10 +78,9 @@ impl From<Timestamp> for i64 {
 
 impl From<Timestamp> for DateTime {
     fn from(value: Timestamp) -> Self {
-        Self(
-            chrono::DateTime::<chrono::Utc>::from_timestamp_millis(value.0)
-                .expect("invalid timestamp"),
-        )
+        Self(chrono::DateTime::<chrono::Utc>::from_timestamp_nanos(
+            value.0,
+        ))
     }
 }
 
