@@ -55,7 +55,14 @@ class SequenceDataStreamer:
         self._topic_readers = topic_readers
 
     @classmethod
-    def connect(cls, sequence_name: str, topics: List[str], client: fl.FlightClient):
+    def connect(
+        cls,
+        sequence_name: str,
+        topics: List[str],
+        start_timestamp_ns: Optional[int],
+        end_timestamp_ns: Optional[int],
+        client: fl.FlightClient,
+    ):
         """
         Factory method to initialize the Sequence reader.
 
@@ -74,10 +81,18 @@ class SequenceDataStreamer:
             json.dumps(
                 {
                     "resource_locator": sequence_name,
+                    # TODO: is ok for server to receive 'null'?
+                    "timestamp_ns_start": start_timestamp_ns,
+                    "timestamp_ns_end": end_timestamp_ns,
                 }
             )
         )
-        flight_info = client.get_flight_info(descriptor)
+        try:
+            flight_info = client.get_flight_info(descriptor)
+        except Exception as e:
+            raise ConnectionError(
+                f"Server error while asking for Sequence descriptor, {e}"
+            )
 
         topic_readers: Dict[str, TopicDataStreamer] = {}
 

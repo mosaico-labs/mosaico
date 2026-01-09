@@ -163,11 +163,13 @@ This is the handler to an existing sequence. It allows you to inspect what topic
 
 **Streamer Factories**
 
-  * **`get_data_streamer(topics: List[str] = [], force_new_instance: bool = False) -> SequenceDataStreamer`**
-    Creates and returns a `SequenceDataStreamer` initialized to read the **entire** sequence. By default, it caches the streamer instance.
-      * **`topics`**: Retrieves the sequence stream from the passed topics only (ignore the other topics, if any). Returns the data-stream from all the topics by default.
-      * **`force_new_instance`**: If `True`, closes any existing streamer and creates a fresh one (useful for restarting iteration).
-      
+
+  * **`get_data_streamer(topics: List[str] = [], start_timestamp_ns: Optional[int] = None, end_timestamp_ns: Optional[int] = None) -> SequenceDataStreamer`**
+  Opens a reading channel and returns a `SequenceDataStreamer` for iterating over the sequence data. The streamer supports temporal slicing to retrieve data within a specific time window.
+    * **`topics`**: Get the streams from these topics only; ignore the others. If empty, streams all available topics.
+    * **`start_timestamp_ns`**: The inclusive lower bound for the time window (nanoseconds). Streams from the timestamp closest to or equal to this value.
+    * **`end_timestamp_ns`**: The inclusive upper bound for the time window (nanoseconds). Streams up to the timestamp closest to or equal to this value.
+
     Raises `ValueError` if some of the input topic names are not valid.
 
   * **`get_topic_handler(topic_name: str, force_new_instance: bool = False) -> TopicHandler`**
@@ -309,11 +311,11 @@ The `TopicHandler` provides access to metadata, schema definitions, and acts as 
   * Returns the full `Topic` data model. This includes system-level details such as the ontology model class and data volume size.
 
 **Streamer Factories**
-* **`get_data_streamer(force_new_instance: bool = False) -> TopicDataStreamer`**
-  * Initializes and returns a `TopicDataStreamer`.
-  * If a streamer is already active for this handler, it returns the existing instance unless `force_new_instance` is set to `True`.
-  * Returns `None` if the topic contains no data or cannot be reached.
-  * Raises `ValueError` if a data streamer cannot be spawned.
+* **`get_data_streamer(start_timestamp_ns: Optional[int] = None, end_timestamp_ns: Optional[int] = None) -> TopicDataStreamer`**
+Opens a reading channel and returns a `TopicDataStreamer` for iterating over this topic's data. The streamer supports temporal slicing to retrieve data within a specific time window.
+  * **`start_timestamp_ns`**: The inclusive lower bound for the time window (nanoseconds).
+  * **`end_timestamp_ns`**: The inclusive upper bound for the time window (nanoseconds).
+  * **Raises**: `ValueError` if the TopicHandler internal state is not valid or the topic cannot be accessed.
 
 
 #### Class: `TopicDataStreamer`

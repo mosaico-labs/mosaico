@@ -1,9 +1,10 @@
-from typing import List
 from mosaicolabs.logging import setup_sdk_logging
+from mosaicolabs.models.header import Time
 import pytest
 from mosaicolabs.comm import MosaicoClient
 from testing.integration.helpers import (
     DataStreamItem,
+    SequenceDataStream,
     topic_to_maker_factory,
     topic_to_metadata_dict,
     topic_to_ontology_class_dict,
@@ -59,12 +60,22 @@ def _client(host, port):
 def _make_sequence_data_stream(host, port):
     """Generate synthetic data, create a sequence and pushes messages"""
     _client = MosaicoClient.connect(host=host, port=port)
-    out_stream: List[DataStreamItem] = []
 
     start_time_sec = 1700000000
     start_time_nanosec = 0
     dt_nanosec = 5_000_000  # 5 ms
     steps = 100
+
+    meas_time = Time(
+        sec=start_time_sec,
+        nanosec=start_time_nanosec,
+    )
+
+    out_stream: SequenceDataStream = SequenceDataStream(
+        items=[],
+        tstamp_ns_start=meas_time.to_nanoseconds(),
+        tstamp_ns_end=0,
+    )
 
     time_gen = sequential_time_generator(
         start_sec=start_time_sec,
@@ -87,7 +98,7 @@ def _make_sequence_data_stream(host, port):
             meas_time=meas_time,
         )
 
-        out_stream.append(
+        out_stream.items.append(
             DataStreamItem(
                 topic=topic,
                 msg=msg,
@@ -95,6 +106,7 @@ def _make_sequence_data_stream(host, port):
             )
         )
 
+    out_stream.tstamp_ns_end = meas_time.to_nanoseconds()
     # free resources
     _client.close()
     return out_stream
@@ -109,7 +121,7 @@ def _inject_sequence_data_stream(_make_sequence_data_stream, host, port):
         sequence_name=UPLOADED_SEQUENCE_NAME,
         metadata=UPLOADED_SEQUENCE_METADATA,
     ) as swriter:
-        for ds_item in _make_sequence_data_stream:
+        for ds_item in _make_sequence_data_stream.items:
             twriter = swriter.get_topic(topic_name=ds_item.topic)
             if twriter is None:
                 twriter = swriter.topic_create(

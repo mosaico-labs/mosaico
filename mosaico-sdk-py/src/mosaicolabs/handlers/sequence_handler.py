@@ -167,34 +167,44 @@ class SequenceHandler:
         return self._sequence
 
     def get_data_streamer(
-        self, topics: List[str] = [], force_new_instance=False
+        self,
+        topics: List[str] = [],
+        start_timestamp_ns: Optional[int] = None,
+        end_timestamp_ns: Optional[int] = None,
     ) -> SequenceDataStreamer:
         """
-        Get a `SequenceDataStreamer` to read the entire sequence (merged stream).
+        Opens a reading channel and returns a `SequenceDataStreamer` for iterating over the sequence data.
+
+        The streamer allows for time-synchronized playback of multiple topics and supports temporal slicing
+        to retrieve data within a specific time window.
 
         Args:
-            topics (list[str]): Get the streams from these topics only; ignore the other.
-            force_new_instance (bool): If True, forces creation of a new reader.
+            topics (List[str], optional): A list of specific topic names to filter the stream.
+                If empty, the behavior depends on the implementation (typically streams all available topics).
+            start_timestamp_ns (int, optional): The inclusive lower bound for the time window (in nanoseconds).
+                The stream will begin from the message with the timestamp closest to or equal to this value.
+            end_timestamp_ns (int, optional): The inclusive upper bound for the time window (in nanoseconds).
+                The stream will stop after the message with the timestamp closest to or equal to this value.
 
         Returns:
-            SequenceDataStreamer: The unified reader.
-
-        Raises:
-            ValueError: If some of the input topics do not exist in the sequence.
+            SequenceDataStreamer: An iterator yielding time-ordered messages from the requested topics.
         """
         if topics and any([t not in self.topics for t in topics]):
             raise ValueError(
                 f"Invalid input topic names {topics}. Available topics in sequence '{self.name}':\n{self.topics}"
             )
 
-        if force_new_instance and self._data_streamer_instance is not None:
+        if self._data_streamer_instance is not None:
             self._data_streamer_instance.close()
             self._data_streamer_instance = None
 
-        if self._data_streamer_instance is None:
-            self._data_streamer_instance = SequenceDataStreamer.connect(
-                self._sequence.name, topics, self._fl_client
-            )
+        self._data_streamer_instance = SequenceDataStreamer.connect(
+            self._sequence.name,
+            topics,
+            start_timestamp_ns,
+            end_timestamp_ns,
+            self._fl_client,
+        )
         return self._data_streamer_instance
 
     def get_topic_handler(

@@ -174,32 +174,79 @@ class TopicHandler:
         """Returns the topic name."""
         return self._topic.name
 
-    def get_data_streamer(self, force_new_instance=False) -> TopicDataStreamer:
+    def get_data_streamer(
+        self,
+        start_timestamp_ns: Optional[int] = None,
+        end_timestamp_ns: Optional[int] = None,
+    ) -> TopicDataStreamer:
         """
-        Creates or retrieves a `TopicDataStreamer` to read data.
+        Opens a reading channel and returns a `TopicDataStreamer` for iterating over this topic's data.
+
+        The streamer supports temporal slicing to retrieve data within a specific time window.
 
         Args:
-            force_new_instance (bool): If True, creates a fresh reader even if one exists.
+            start_timestamp_ns (int, optional): The inclusive lower bound for the time window (in nanoseconds).
+                The stream will begin from the message with the timestamp closest to or equal to this value.
+            end_timestamp_ns (int, optional): The inclusive upper bound for the time window (in nanoseconds).
+                The stream will stop after the message with the timestamp closest to or equal to this value.
 
         Returns:
-            TopicDataStreamer: The reader object.
+            TopicDataStreamer: An iterator yielding time-ordered messages from this topic.
 
         Raises:
-            ValueError: if TopicHandler internal is not valid
+            ValueError: If the TopicHandler's internal state is invalid or the topic cannot be accessed.
         """
         if self._fl_ticket is None:
             raise ValueError(
                 f"Unable to get a TopicDataStreamer for topic '{self._topic.name}': invalid TopicHandler!"
             )
 
-        if force_new_instance and self._data_streamer_instance is not None:
+        if self._data_streamer_instance is not None:
             self._data_streamer_instance.close()
             self._data_streamer_instance = None
 
-        if self._data_streamer_instance is None:
-            self._data_streamer_instance = TopicDataStreamer.connect(
-                self._fl_client, self._fl_ticket
+        if start_timestamp_ns is not None or end_timestamp_ns is not None:
+            topic_resrc_name = pack_topic_resource_name(
+                self._topic.sequence_name, self._topic.name
             )
+            descriptor = fl.FlightDescriptor.for_command(
+                json.dumps(
+                    {
+                        "resource_locator": topic_resrc_name,
+                        # TODO: is ok for server to receive 'null'?
+                        "timestamp_ns_start": start_timestamp_ns,
+                        "timestamp_ns_end": end_timestamp_ns,
+                    }
+                )
+            )
+
+            # Get FlightInfo (here we need just the Endpoints)
+            try:
+                flight_info = self._fl_client.get_flight_info(descriptor)
+            except Exception as e:
+                raise ConnectionError(
+                    f"Server error while asking for Topic descriptor, {e}"
+                )
+            ticket: Optional[fl.Ticket] = None
+            ep_ticket_data = None
+            for ep in flight_info.endpoints:
+                ep_ticket_data = _parse_ep_ticket(ep.ticket)
+                # here the topic name is sanitized
+                if ep_ticket_data and ep_ticket_data[1] == topic_resrc_name:
+                    ticket = ep.ticket
+                    break
+
+            if ticket is None:
+                raise ValueError(
+                    f"Unable to init handler for topic {self.name} in sequence {self._topic.sequence_name}"
+                )
+        else:
+            ticket = self._fl_ticket
+
+        self._data_streamer_instance = TopicDataStreamer.connect(
+            self._fl_client,
+            ticket,
+        )
         return self._data_streamer_instance
 
     def close(self):

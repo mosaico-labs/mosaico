@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 import itertools
 import random
-from typing import Iterable
+from typing import Iterable, List
 
 from mosaicolabs.models.data import Point3d, Vector3d
 from mosaicolabs.models.sensors import IMU, GPS, GPSStatus, Magnetometer
@@ -27,6 +27,13 @@ class DataStreamItem:
     topic: str
     msg: Message
     ontology_class: Serializable
+
+
+@dataclass
+class SequenceDataStream:
+    tstamp_ns_start: int
+    tstamp_ns_end: int
+    items: List[DataStreamItem]
 
 
 def make_imu_front_msg(msg_time: int, meas_time: Time):
