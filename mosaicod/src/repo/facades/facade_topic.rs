@@ -319,17 +319,19 @@ impl FacadeTopic {
     ///
     /// Returns `Some(batch_size)` if statistics are available, `None` otherwise
     /// (e.g., for empty topics).
-    pub async fn compute_optimal_batch_size(&self) -> Result<Option<usize>, FacadeError> {
+    pub async fn compute_optimal_batch_size(&self) -> Result<usize, FacadeError> {
         let stats = self.chunks_stats().await?;
 
         if stats.total_size_bytes == 0 || stats.total_row_count == 0 {
-            return Ok(None);
+            return Err(FacadeError::missing_data(
+                "unable to compute optimal batch size".to_owned(),
+            ));
         }
 
         let target_size = params::configurables().target_message_size_in_bytes;
         let batch_size = (target_size as i64 * stats.total_row_count) / stats.total_size_bytes;
 
-        Ok(Some(batch_size as usize))
+        Ok(batch_size as usize)
     }
 }
 

@@ -23,6 +23,10 @@ impl TopicResourceLocator {
         self.timestamp_range = Some(ts);
         self
     }
+
+    pub fn into_parts(self) -> (String, Option<TimestampRange>) {
+        (self.locator, self.timestamp_range)
+    }
 }
 
 impl Resource for TopicResourceLocator {

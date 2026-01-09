@@ -6,10 +6,6 @@ pub enum FacadeError {
     MissingMetadataField(String),
     #[error("missing serialization format for resource {0}")]
     MissingSerializationFormat(String),
-    #[error("error reading {src}: {msg}")]
-    ReadError { src: String, msg: String },
-    #[error("error writing to {dst} data: {msg}")]
-    WriteError { dst: String, msg: String },
     #[error("store error :: {0}")]
     StoreError(#[from] crate::store::Error),
     #[error("data serialization error :: {0}")]
@@ -32,4 +28,12 @@ pub enum FacadeError {
     Unimplemented,
     #[error("unauthorized")]
     Unauthorized,
+    #[error("missing data :: {0}")]
+    MissingData(String),
+}
+
+impl FacadeError {
+    pub fn missing_data(msg: String) -> Self {
+        Self::MissingData(msg)
+    }
 }

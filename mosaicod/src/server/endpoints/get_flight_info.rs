@@ -40,12 +40,22 @@ pub async fn get_flight_info(
 
                     trace!("{} generating endpoints", handle.locator);
                     let topics = handle.topic_list().await?;
-                    let endpoints = topics.into_iter().map(|topic| {
-                        let ticket: String = topic.into();
-                        FlightEndpoint::new().with_ticket(Ticket {
-                            ticket: ticket.into(),
+                    let endpoints: Vec<FlightEndpoint> = topics
+                        .into_iter()
+                        .map(|topic| {
+                            let (locator, ts_range) = topic.into_parts();
+                            let ticket = types::flight::TicketTopic {
+                                locator,
+                                timestamp_range: ts_range,
+                            };
+
+                            let e = FlightEndpoint::new().with_ticket(Ticket {
+                                ticket: marshal::flight::ticket_topic_to_binary(ticket)?.into(),
+                            });
+
+                            Ok::<FlightEndpoint, ServerError>(e)
                         })
-                    });
+                        .collect::<Result<_, ServerError>>()?;
 
                     trace!("{} generating response", handle.locator);
                     let mut flight_info = FlightInfo::new()

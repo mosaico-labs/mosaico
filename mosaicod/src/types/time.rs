@@ -47,6 +47,10 @@ impl Timestamp {
     pub fn unbounded_neg() -> Self {
         Self(TIMESTAMP_UB_NEG_SENTINEL)
     }
+
+    pub fn as_i64(self) -> i64 {
+        self.0
+    }
 }
 
 impl std::fmt::Display for Timestamp {
@@ -108,6 +112,11 @@ impl TimestampRange {
             start: Timestamp::unbounded_neg(),
             end,
         }
+    }
+
+    /// Returns true is both start and end are unbounded timestamps
+    pub fn is_unbounded(&self) -> bool {
+        self.start.is_unbounded() || self.end.is_unbounded()
     }
 }
 

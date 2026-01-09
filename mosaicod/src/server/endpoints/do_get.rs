@@ -5,9 +5,9 @@ use arrow_flight::{
 };
 
 use futures::TryStreamExt;
-use log::{info, trace};
+use log::{debug, info, trace};
 
-use crate::{marshal, params, query, repo, server::errors::ServerError, store, types::Resource};
+use crate::{marshal, query, repo, server::errors::ServerError, store, types::Resource};
 
 pub async fn do_get(
     store: store::StoreRef,
@@ -15,13 +15,12 @@ pub async fn do_get(
     ts_engine: query::TimeseriesGatewayRef,
     ticket: Ticket,
 ) -> Result<FlightDataEncoder, ServerError> {
-    let ticket = String::from_utf8(ticket.ticket.to_vec())
-        .map_err(|e| ServerError::BadTicket(e.to_string()))?;
+    let ticket = marshal::flight::ticket_topic_from_binary(&ticket.ticket)?;
 
-    info!("requesting data for ticket `{}`", ticket);
+    info!("requesting data for ticket `{}`", ticket.locator);
 
     // Create topic handle
-    let topic = ticket;
+    let topic = ticket.locator;
     let tfacade = repo::FacadeTopic::new(topic, store, repo.clone());
 
     // Read metadata from topic
@@ -29,14 +28,13 @@ pub async fn do_get(
 
     trace!("{:?}", metadata);
 
-    // Compute optimal batch size from database statistics
     let batch_size = tfacade.compute_optimal_batch_size().await?;
 
-    let query_result = ts_engine
+    let mut query_result = ts_engine
         .read(
             &tfacade.locator.name(),
             metadata.properties.serialization_format,
-            batch_size,
+            Some(batch_size),
         )
         .await?;
 
@@ -46,8 +44,12 @@ pub async fn do_get(
         .to_flat_hashmap()
         .map_err(repo::FacadeError::from)?;
     let schema = query_result.schema_with_metadata(flatten_mdata);
-
     trace!("{:?}", schema);
+
+    if let Some(ts_range) = ticket.timestamp_range {
+        debug!("requesting timestamp range {}", ts_range);
+        query_result = query_result.filter_by_timestamp_range(ts_range)?;
+    }
 
     // Get data stream from query result
     let stream = query_result.stream().await?;
