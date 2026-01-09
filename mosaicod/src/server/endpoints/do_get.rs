@@ -30,7 +30,7 @@ pub async fn do_get(
     trace!("{:?}", metadata);
 
     // Compute optimal batch size from database statistics
-    let batch_size = compute_optimal_batch_size(&tfacade).await?;
+    let batch_size = tfacade.compute_optimal_batch_size().await?;
 
     let query_result = ts_engine
         .read(
@@ -58,23 +58,4 @@ pub async fn do_get(
     Ok(FlightDataEncoderBuilder::new()
         .with_schema(schema)
         .build(stream))
-}
-
-/// Computes the optimal batch size based on topic statistics from the database.
-///
-/// Returns `Some(batch_size)` if statistics are available, `None` otherwise
-/// (e.g., for empty topics).
-async fn compute_optimal_batch_size(
-    tfacade: &repo::FacadeTopic,
-) -> Result<Option<usize>, ServerError> {
-    let stats = tfacade.chunks_stats().await?;
-
-    if stats.total_size_bytes == 0 || stats.total_row_count == 0 {
-        return Ok(None);
-    }
-
-    let target_size = params::configurables().target_message_size_in_bytes;
-    let batch_size = (target_size as i64 * stats.total_row_count) / stats.total_size_bytes;
-
-    Ok(Some(batch_size as usize))
 }
