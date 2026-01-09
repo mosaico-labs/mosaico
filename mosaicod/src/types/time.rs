@@ -1,11 +1,16 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
-/// Timestamp format used by mosaico
+/// SEntinel value to represent the positive unbounded timestamp
+const TIMESTAMP_UB_POS_SENTINEL: i64 = i64::MAX;
+/// SEntinel value to represent the negative unbounded timestamp
+const TIMESTAMP_UB_NEG_SENTINEL: i64 = i64::MIN;
+
+/// Timestamp format used by mosaico, currently this timestamp represent nanoseconds units of time
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub struct Timestamp(i64);
 
 impl Timestamp {
-    /// Returns the current system time as a millisecond-precision UTC timestamp.
+    /// Returns the current system time as a nanosecond-precision UTC timestamp.
     ///
     /// # Panics
     ///
@@ -17,23 +22,40 @@ impl Timestamp {
             .expect(
                 "unable to retrieve system time from unix epoch, the Beatles are still together?",
             )
-            .as_millis() as i64;
+            .as_nanos() as i64;
         Self(now)
     }
 
-    /// Returns the maximum possible timestamp value.
-    pub fn max() -> Self {
-        Self(i64::MAX)
+    pub fn is_unbounded_pos(&self) -> bool {
+        self.0 == TIMESTAMP_UB_POS_SENTINEL
     }
 
-    /// Returns the minimum possible timestamp value.
-    pub fn min() -> Self {
-        Self(i64::MIN)
+    pub fn is_unbounded_neg(&self) -> bool {
+        self.0 == TIMESTAMP_UB_NEG_SENTINEL
+    }
+
+    pub fn is_unbounded(&self) -> bool {
+        self.is_unbounded_pos() || self.is_unbounded_neg()
+    }
+
+    /// Returns a positive unbounded timestamp value
+    pub fn unbounded_pos() -> Self {
+        Self(TIMESTAMP_UB_POS_SENTINEL)
+    }
+
+    /// Returns a negative unbounded timestamp value
+    pub fn unbounded_neg() -> Self {
+        Self(TIMESTAMP_UB_NEG_SENTINEL)
     }
 }
 
 impl std::fmt::Display for Timestamp {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.is_unbounded_pos() {
+            return write!(f, "+unbounded");
+        } else if self.is_unbounded_neg() {
+            return write!(f, "-unbounded");
+        }
         write!(f, "{}", self.0)
     }
 }
@@ -70,8 +92,22 @@ pub struct TimestampRange {
 }
 
 impl TimestampRange {
-    pub fn new(start: Timestamp, end: Timestamp) -> Self {
+    pub fn between(start: Timestamp, end: Timestamp) -> Self {
         Self { start, end }
+    }
+
+    pub fn starting_at(start: Timestamp) -> Self {
+        Self {
+            start,
+            end: Timestamp::unbounded_pos(),
+        }
+    }
+
+    pub fn ending_at(end: Timestamp) -> Self {
+        Self {
+            start: Timestamp::unbounded_neg(),
+            end,
+        }
     }
 }
 
@@ -103,5 +139,27 @@ impl DateTime {
 impl std::fmt::Display for DateTime {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn timestamp() {
+        let ub_pos = Timestamp::unbounded_pos();
+        let ub_neg = Timestamp::unbounded_neg();
+        let ts: Timestamp = 1234567.into();
+
+        assert!(ub_pos.is_unbounded_pos());
+        assert!(ub_pos.is_unbounded());
+
+        assert!(ub_neg.is_unbounded_neg());
+        assert!(ub_neg.is_unbounded());
+
+        assert!(!ts.is_unbounded());
+        assert!(!ts.is_unbounded_pos());
+        assert!(!ts.is_unbounded_neg());
     }
 }
