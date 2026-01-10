@@ -427,7 +427,10 @@ where
             Op::Ex => true,
             Op::Nex => true,
             Op::Between(range) => range.min.support_ordering(),
-            Op::In(items) => items[0].support_in(),
+            // If no elements are provided the operation is unsupported
+            // (cabba) TODO: check if there is a way to access these methods
+            // directly from T
+            Op::In(items) => !items.is_empty() && items[0].support_in(),
             Op::Match(v) => v.support_match(),
         }
     }
