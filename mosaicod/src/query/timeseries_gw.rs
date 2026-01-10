@@ -121,7 +121,7 @@ impl TimeseriesGatewayResult {
 
         if !ts_range.end.is_unbounded() {
             self.data_frame = self.data_frame.filter(
-                col(params::ARROW_SCHEMA_COLUMN_NAME_TIMESTAMP).gt_eq(lit(ts_range.end.as_i64())),
+                col(params::ARROW_SCHEMA_COLUMN_NAME_TIMESTAMP).lt(lit(ts_range.end.as_i64())),
             )?;
         }
 
