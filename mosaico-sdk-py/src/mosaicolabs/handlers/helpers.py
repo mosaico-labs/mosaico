@@ -38,7 +38,7 @@ def _parse_ep_ticket(blocation: bytes) -> Optional[tuple[str, str]]:
     Returns:
         Optional[tuple[str, str]]: (sequence_name, topic_name) if successful, else None.
     """
-    location_str = blocation.decode("utf-8").removeprefix("mosaico://")
+    location_str = blocation.decode("utf-8").removeprefix("mosaico:")
     seq_topic_tuple = unpack_topic_full_path(location_str)
     if not seq_topic_tuple:
         return None
