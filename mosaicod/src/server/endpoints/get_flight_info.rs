@@ -53,13 +53,13 @@ pub async fn get_flight_info(
                                 .with_ticket(Ticket {
                                     ticket: marshal::flight::ticket_topic_to_binary(ticket)?.into(),
                                 })
-                                .with_location(format!("mosaico://{}", topic.name()));
+                                .with_location(topic.url()?);
 
                             Ok::<FlightEndpoint, ServerError>(e)
                         })
                         .collect::<Result<_, ServerError>>()?;
 
-                    trace!("{} generating response", handle.locator);
+                    trace!("{} generating endpoints: {:?}", handle.locator, endpoints);
                     let mut flight_info = FlightInfo::new()
                         .with_descriptor(desc.clone())
                         .try_with_schema(&schema)?;
@@ -95,9 +95,10 @@ pub async fn get_flight_info(
                         .with_ticket(Ticket {
                             ticket: marshal::flight::ticket_topic_to_binary(ticket)?.into(),
                         })
-                        .with_location(format!("mosaico://{}", handle.locator.clone()));
+                        .with_location(handle.locator.url()?);
 
-                    trace!("{} generating response", handle.locator);
+                    trace!("{} generating endpoint {:?}", handle.locator, endpoint);
+
                     let mut flight_info = FlightInfo::new()
                         .with_descriptor(desc.clone())
                         .try_with_schema(&schema)?;

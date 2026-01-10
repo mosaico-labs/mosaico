@@ -25,6 +25,9 @@ pub enum ServerError {
     #[error("missing schema")]
     MissingSchema,
 
+    #[error("resource error :: {0}")]
+    ResourceError(#[from] crate::types::ResourceError),
+
     /// This error is produced when the flight header message is missing.
     ///
     /// The flight header message is the first message sent by flight in a `do_put` call,

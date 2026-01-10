@@ -8,6 +8,9 @@
 /// Defines the name of the `timestamp` column in the arrow schema
 pub const ARROW_SCHEMA_COLUMN_NAME_TIMESTAMP: &str = "timestamp_ns";
 
+/// Defines schema name for mosaico resources
+pub const MOSAICO_URL_SCHEMA: &str = "mosaico";
+
 /// Internal resolution for floating point comparisons
 pub const EPSILON: f64 = 1.0e-06;
 

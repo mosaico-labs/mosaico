@@ -1,6 +1,7 @@
 use super::TimestampRange;
 use crate::{params, rw, traits};
 use std::path;
+use thiserror::Error;
 
 pub struct ResourceId {
     pub id: i32,
@@ -261,6 +262,12 @@ impl From<SequenceTopicGroups> for Vec<SequenceTopicGroup> {
     }
 }
 
+#[derive(Debug, Error)]
+pub enum ResourceError {
+    #[error("error encoding resource to url :: {0}")]
+    UrlError(#[from] url::ParseError),
+}
+
 pub trait Resource: std::fmt::Display + Send + Sync {
     fn name(&self) -> &String;
 
@@ -273,6 +280,17 @@ pub trait Resource: std::fmt::Display + Send + Sync {
         let mut path = path::Path::new(self.name()).join("metadata");
         path.set_extension(params::ext::JSON);
         path
+    }
+
+    /// Return the URL representing the resource
+    /// For now the URL is without authority.
+    ///
+    /// # Example
+    /// `mosaico:/sequence_name/topic/subtopic/sensor`
+    fn url(&self) -> Result<url::Url, ResourceError> {
+        let schema = params::MOSAICO_URL_SCHEMA;
+        let path = self.name();
+        Ok(url::Url::parse(&format!("{schema}:/{path}"))?)
     }
 
     fn datafile(&self, chunk_number: usize, extension: &dyn traits::AsExtension) -> path::PathBuf {
