@@ -94,10 +94,12 @@ class SequenceHandler:
         # Discover Topics from Endpoints
         stopics = []
         for ep in flight_info.endpoints:
-            ep_ticket_data = _parse_ep_ticket(ep.ticket)
+            if len(ep.locations) != 1:
+                continue
+            ep_ticket_data = _parse_ep_ticket(ep.locations[0].uri)
             if ep_ticket_data is None:
                 logger.error(
-                    f"Skipping endpoint with invalid ticket format: '{ep.ticket.ticket.decode()}'"
+                    f"Skipping endpoint with invalid ticket format: '{ep.locations[0].uri}'"
                 )
                 continue
             # retrieve standardized topic name

@@ -105,7 +105,14 @@ class TopicHandler:
         ticket: Optional[fl.Ticket] = None
         ep_ticket_data = None
         for ep in flight_info.endpoints:
-            ep_ticket_data = _parse_ep_ticket(ep.ticket)
+            if len(ep.locations) != 1:
+                continue
+            ep_ticket_data = _parse_ep_ticket(ep.locations[0].uri)
+            if ep_ticket_data is None:
+                logger.error(
+                    f"Skipping endpoint with invalid ticket format: '{ep.locations[0].uri}'"
+                )
+                continue
             # here the topic name is sanitized
             if ep_ticket_data and ep_ticket_data[1] == _stzd_topic_name:
                 ticket = ep.ticket
@@ -230,7 +237,14 @@ class TopicHandler:
             ticket: Optional[fl.Ticket] = None
             ep_ticket_data = None
             for ep in flight_info.endpoints:
-                ep_ticket_data = _parse_ep_ticket(ep.ticket)
+                if len(ep.locations) != 1:
+                    continue
+                ep_ticket_data = _parse_ep_ticket(ep.locations[0].uri)
+                if ep_ticket_data is None:
+                    logger.error(
+                        f"Skipping endpoint with invalid ticket format: '{ep.locations[0].uri}'"
+                    )
+                    continue
                 # here the topic name is sanitized
                 if ep_ticket_data and ep_ticket_data[1] == topic_resrc_name:
                     ticket = ep.ticket
@@ -244,8 +258,9 @@ class TopicHandler:
             ticket = self._fl_ticket
 
         self._data_streamer_instance = TopicDataStreamer.connect(
-            self._fl_client,
-            ticket,
+            client=self._fl_client,
+            topic_name=self.name,
+            ticket=ticket,
         )
         return self._data_streamer_instance
 

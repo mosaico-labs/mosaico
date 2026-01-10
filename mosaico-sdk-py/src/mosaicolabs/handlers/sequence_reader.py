@@ -98,10 +98,17 @@ class SequenceDataStreamer:
 
         # Create a reader for each endpoint (topic)
         for ep in flight_info.endpoints:
-            ep_ticket_data = _parse_ep_ticket(ep.ticket)
-            if ep_ticket_data is None or (topics and ep_ticket_data[1] not in topics):
+            if len(ep.locations) != 1:
                 continue
-            treader = TopicDataStreamer.connect(client=client, ticket=ep.ticket)
+            ep_ticket_data = _parse_ep_ticket(ep.locations[0].uri)
+            if ep_ticket_data is None:
+                logger.error(
+                    f"Skipping endpoint with invalid ticket format: '{ep.locations[0].uri}'"
+                )
+                continue
+            if topics and ep_ticket_data[1] not in topics:
+                continue
+            treader = TopicDataStreamer.connect(client=client, topic_name=ep_ticket_data[1], ticket=ep.ticket)
             topic_readers[treader.name()] = treader
 
         if not topic_readers:

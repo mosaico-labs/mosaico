@@ -7,7 +7,6 @@ and Flight ticket parsing.
 
 from pathlib import Path
 from typing import Optional
-import pyarrow.flight as fl
 from ..helpers import unpack_topic_full_path
 
 
@@ -29,18 +28,18 @@ def _make_exception(msg: str, exc_msg: Optional[Exception] = None) -> Exception:
         return Exception(f"{msg}\nInner err: {exc_msg}")
 
 
-def _parse_ep_ticket(ticket: fl.Ticket) -> Optional[tuple[str, str]]:
+def _parse_ep_ticket(blocation: bytes) -> Optional[tuple[str, str]]:
     """
     Decodes a Flight Ticket to extract sequence and topic identifiers.
 
     Args:
-        ticket (fl.Ticket): The opaque ticket object from a FlightInfo endpoint.
+        blocation (bytes): The opaque location bytes from a FlightInfo endpoint.
 
     Returns:
         Optional[tuple[str, str]]: (sequence_name, topic_name) if successful, else None.
     """
-    ticket_str = ticket.ticket.decode("utf-8")
-    seq_topic_tuple = unpack_topic_full_path(ticket_str)
+    location_str = blocation.decode("utf-8").removeprefix("mosaico://")
+    seq_topic_tuple = unpack_topic_full_path(location_str)
     if not seq_topic_tuple:
         return None
     return seq_topic_tuple

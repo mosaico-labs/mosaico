@@ -9,7 +9,6 @@ from mosaicolabs.models.message import Message
 import pyarrow.flight as fl
 from typing import Optional
 
-from .helpers import _parse_ep_ticket
 from .internal.topic_read_state import _TopicReadState
 
 from ..comm.metadata import TopicMetadata, _decode_metadata
@@ -41,7 +40,7 @@ class TopicDataStreamer:
         self._rdstate = state
 
     @classmethod
-    def connect(cls, client: fl.FlightClient, ticket: fl.Ticket) -> "TopicDataStreamer":
+    def connect(cls, client: fl.FlightClient, topic_name: str, ticket: fl.Ticket) -> "TopicDataStreamer":
         """
         Factory method to initialize a streamer.
 
@@ -52,13 +51,6 @@ class TopicDataStreamer:
         Returns:
             TopicDataStreamer: An initialized reader.
         """
-        ep_ticket_data = _parse_ep_ticket(ticket)
-        if ep_ticket_data is None:
-            raise Exception(
-                f"Skipping endpoint with invalid ticket format: '{ticket.ticket.decode()}'"
-            )
-        topic_name = ep_ticket_data[1]
-
         # Initialize the Flight stream (DoGet)
         reader = client.do_get(ticket)
 
