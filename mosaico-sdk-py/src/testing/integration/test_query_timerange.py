@@ -21,7 +21,7 @@ def test_query_ontology_with_timestamp_trivial(
         ),
     )
 
-    assert query_resp is not None
+    assert query_resp is not None and not query_resp.is_empty()
 
     # Check sequence
     assert len(query_resp) == 1
@@ -74,7 +74,7 @@ def test_query_ontology_with_timestamp_imu(
         .with_expression(IMU.Q.header.stamp.nanosec.geq(tstamp.nanosec)),
     )
 
-    assert query_resp is not None
+    assert query_resp is not None and not query_resp.is_empty()
 
     # Check sequence
     assert len(query_resp) == 1
@@ -128,7 +128,7 @@ def test_query_mixed_ontology_with_timestamp(
         .with_expression(GPS.Q.header.stamp.nanosec.geq(tstamp.nanosec)),
     )
 
-    assert query_resp is not None
+    assert query_resp is not None and not query_resp.is_empty()
 
     # Check sequence
     assert len(query_resp) == 1
@@ -192,7 +192,7 @@ def test_query_multi_criteria_with_timestamp(
         QueryTopic().with_name(UPLOADED_IMU_FRONT_TOPIC),
     )
 
-    assert query_resp is not None
+    assert query_resp is not None and not query_resp.is_empty()
 
     # Check sequence
     assert len(query_resp) == 1

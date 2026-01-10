@@ -187,6 +187,17 @@ def test_construction_query_from_response():
     assert all(t in qtop._expressions[0].value for t in expected_expr_top_values)
 
 
+
+def test_invalid_construction_query_from_response():
+    qresp = QueryResponse(
+        items=[]
+    )
+    with pytest.raises(ValueError, match="Cannot create a 'QuerySequence' builder from an empty response"):
+        qresp.to_query_sequence()
+    with pytest.raises(ValueError, match="Cannot create a 'QueryTopic' builder from an empty response"):
+        qresp.to_query_topic()
+
+
 @pytest.mark.parametrize(
     "query_type",
     _QUERY_TYPES,

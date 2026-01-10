@@ -23,7 +23,7 @@ def test_query_ontology(
         )  # set a very small value (data are random, so a small value is likely to be found)
     )
     # We do expect a successful query
-    assert query_resp is not None
+    assert query_resp is not None and not query_resp.is_empty()
     # One (1) sequence corresponds to this query
     assert len(query_resp) == 1
     # The target topics are 'UPLOADED_IMU_FRONT_TOPIC' and 'UPLOADED_IMU_CAMERA_TOPIC'
@@ -45,7 +45,7 @@ def test_query_ontology(
         .with_expression(IMU.Q.header.stamp.nanosec.geq(tstamp.nanosec))
     )
     # We do expect a successful query
-    assert query_resp is not None
+    assert query_resp is not None and not query_resp.is_empty()
     # One (1) sequence corresponds to this query
     assert len(query_resp) == 1
     # The target topics are 'UPLOADED_IMU_FRONT_TOPIC' and 'UPLOADED_IMU_CAMERA_TOPIC'
@@ -67,7 +67,7 @@ def test_query_ontology(
         .with_expression(GPS.Q.status.service.eq(2))
     )
     # We do expect a successful query
-    assert query_resp is not None
+    assert query_resp is not None and not query_resp.is_empty()
     # One (1) sequence corresponds to this query
     assert len(query_resp) == 1
     # Two (2) topics correspond to this query
@@ -93,7 +93,7 @@ def test_query_ontology_between(
         )  # set a very small value (data are random, so a small value is likely to be found)
     )
     # We do expect a successful query
-    assert query_resp is not None
+    assert query_resp is not None and not query_resp.is_empty()
     # One (1) sequence corresponds to this query
     assert len(query_resp) == 1
     # The target topics are 'UPLOADED_IMU_FRONT_TOPIC' and 'UPLOADED_IMU_CAMERA_TOPIC'
@@ -114,7 +114,7 @@ def test_query_ontology_between(
         QueryTopic().with_name_match("camera/left"),
     )
     # We do expect a successful query
-    assert query_resp is not None
+    assert query_resp is not None and not query_resp.is_empty()
     # One (1) sequence corresponds to this query
     assert len(query_resp) == 1
     # The target topics are 'UPLOADED_IMU_FRONT_TOPIC' and 'UPLOADED_IMU_CAMERA_TOPIC'
@@ -146,7 +146,7 @@ def test_mixed_query_ontology(
         QuerySequence().with_name(UPLOADED_SEQUENCE_NAME),
     )
     # We do expect a successful query
-    assert query_resp is not None
+    assert query_resp is not None and not query_resp.is_empty()
     # One (1) sequence corresponds to this query
     assert len(query_resp) == 1
     # Two (2) topics correspond to this query
@@ -165,7 +165,7 @@ def test_mixed_query_ontology(
         ),
     )
     # We do expect a successful query
-    assert query_resp is not None
+    assert query_resp is not None and not query_resp.is_empty()
     # One (1) sequence corresponds to this query
     assert len(query_resp) == 1
     # Two (2) topics correspond to this query
@@ -211,7 +211,7 @@ def test_query_multi_tag_ontology(
         .with_expression(GPS.Q.status.service.geq(1))
     )
 
-    assert query_resp is not None
+    assert query_resp is not None and not query_resp.is_empty()
 
     # Check sequence
     assert len(query_resp) == 1

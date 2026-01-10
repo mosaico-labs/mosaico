@@ -64,6 +64,8 @@ class QueryResponse:
     items: List[QueryResponseItem] = field(default_factory=list)
 
     def to_query_sequence(self) -> QuerySequence:
+        if not self.items:
+            raise ValueError("Cannot create a 'QuerySequence' builder from an empty response")
         return QuerySequence(
             _QuerySequenceExpression(
                 "name",
@@ -73,6 +75,8 @@ class QueryResponse:
         )
 
     def to_query_topic(self) -> QueryTopic:
+        if not self.items:
+            raise ValueError("Cannot create a 'QueryTopic' builder from an empty response")
         return QueryTopic(
             _QueryTopicExpression(
                 "name",

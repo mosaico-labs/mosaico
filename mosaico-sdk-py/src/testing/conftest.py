@@ -1,5 +1,4 @@
 from mosaicolabs.logging import setup_sdk_logging
-from mosaicolabs.models.header import Time
 import pytest
 from mosaicolabs.comm import MosaicoClient
 from testing.integration.helpers import (
@@ -66,15 +65,10 @@ def _make_sequence_data_stream(host, port):
     dt_nanosec = 5_000_000  # 5 ms
     steps = 100
 
-    meas_time = Time(
-        sec=start_time_sec,
-        nanosec=start_time_nanosec,
-    )
-
     out_stream: SequenceDataStream = SequenceDataStream(
         items=[],
-        tstamp_ns_start=meas_time.to_nanoseconds(),
-        tstamp_ns_end=0,
+        tstamp_ns_start=0,
+        tstamp_ns_end=(steps-1)*dt_nanosec,
     )
 
     time_gen = sequential_time_generator(
@@ -106,7 +100,6 @@ def _make_sequence_data_stream(host, port):
             )
         )
 
-    out_stream.tstamp_ns_end = meas_time.to_nanoseconds()
     # free resources
     _client.close()
     return out_stream

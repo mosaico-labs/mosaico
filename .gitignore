@@ -4,6 +4,7 @@ venv/
 env/
 /venv
 /env
+.history
 
 # IDEs and editors
 .idea/

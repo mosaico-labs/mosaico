@@ -24,7 +24,7 @@ def test_query_topic_by_name(
     # Trivial: query by topic name
     query_resp = _client.query(QueryTopic().with_name_match(topic_name))
     # We do expect a successful query
-    assert query_resp is not None
+    assert query_resp is not None and not query_resp.is_empty()
     # One (1) sequence corresponds to this query
     assert len(query_resp) == 1
     # One (1) topic corresponds to this query
@@ -54,7 +54,7 @@ def test_query_topic_by_creation_timestamp(
         QueryTopic().with_created_timestamp(time_end=Time.now()),
     )  # creation time <= now
     # We do expect a successful query
-    assert query_resp is not None
+    assert query_resp is not None and not query_resp.is_empty()
     # One (1) sequence corresponds to this query
     assert len(query_resp) == 1
     # We expect to obtain all the topics
@@ -84,7 +84,7 @@ def test_query_topic_by_sensor_tag(
         QueryTopic().with_ontology_tag(ontology_tag),
     )
     # We do expect a successful query
-    assert query_resp is not None
+    assert query_resp is not None and not query_resp.is_empty()
     # One (1) sequence corresponds to this query
     assert len(query_resp) == 1
     # We expect to obtain all the topics with this ontology_tag
@@ -121,7 +121,7 @@ def test_query_topic_multi_criteria(
         .with_created_timestamp(time_end=Time.now()),
     )
     # We do expect a successful query
-    assert query_resp is not None
+    assert query_resp is not None and not query_resp.is_empty()
     # One (1) sequence corresponds to this query
     assert len(query_resp) == 1
     # We expect to obtain all the topics with this ontology_tag
@@ -158,7 +158,7 @@ def test_query_topic_multi_criteria(
         ),
     )
     # We do expect a successful query
-    assert query_resp is not None
+    assert query_resp is not None and not query_resp.is_empty()
     # One (1) sequence corresponds to this query
     assert len(query_resp) == 1
     # We expect to obtain all the topics with this ontology_tag
@@ -188,7 +188,7 @@ def test_query_topic_metadata(
         )
     )
     # We do expect a successful query
-    assert query_resp is not None
+    assert query_resp is not None and not query_resp.is_empty()
     # One (1) sequence corresponds to this query
     assert len(query_resp) == 1
     # One (1) topic corresponds to this query
@@ -206,7 +206,7 @@ def test_query_topic_metadata(
         )
     )
     # We do expect a successful query
-    assert query_resp is not None
+    assert query_resp is not None and not query_resp.is_empty()
     # One (1) sequence corresponds to this query
     assert len(query_resp) == 1
     # One (1) topic corresponds to this query
@@ -224,7 +224,7 @@ def test_query_topic_metadata(
         .with_expression(Topic.Q.user_metadata["bias_stability"].gt(0.01))
     )
     # We do expect a successful query
-    assert query_resp is not None
+    assert query_resp is not None and not query_resp.is_empty()
     # One (1) sequence corresponds to this query
     assert len(query_resp) == 1
     # One (1) topic corresponds to this query
@@ -240,7 +240,7 @@ def test_query_topic_metadata(
         QueryTopic().with_expression(Topic.Q.user_metadata["bias_stability"].geq(0.01))
     )
     # We do expect a successful query
-    assert query_resp is not None
+    assert query_resp is not None and not query_resp.is_empty()
     # One (1) sequence corresponds to this query
     assert len(query_resp) == 1
     # The target topics are 'UPLOADED_IMU_FRONT_TOPIC' and 'UPLOADED_IMU_CAMERA_TOPIC'
@@ -260,7 +260,7 @@ def test_query_topic_metadata(
         )
     )
     # We do expect a successful query
-    assert query_resp is not None
+    assert query_resp is not None and not query_resp.is_empty()
     # One (1) sequence corresponds to this query
     assert len(query_resp) == 1
     # One (1) topic corresponds to this query
@@ -284,13 +284,13 @@ def test_query_topic_from_response(
     # Trivial: query by topic name
     query_resp = _client.query(QueryTopic().with_name_match(topic_name))
     # We do expect a successful query
-    assert query_resp is not None
+    assert query_resp is not None and not query_resp.is_empty()
     # The other criteria have been tested above...
     # This translates to:
     # 'query among the topics included in the returned response'
     qtopic = query_resp.to_query_topic()
     query_resp = _client.query(qtopic)
-    assert query_resp is not None
+    assert query_resp is not None and not query_resp.is_empty()
     assert len(query_resp) == 1
     # One (1) topic corresponds to this query
     assert len(query_resp[0].topics) == 1
@@ -300,7 +300,7 @@ def test_query_topic_from_response(
 
     # Try a trivial query with a further expression
     query_resp = _client.query(qtopic.with_created_timestamp(time_end=Time.now()))
-    assert query_resp is not None
+    assert query_resp is not None and not query_resp.is_empty()
     assert len(query_resp) == 1
     # One (1) topic corresponds to this query
     assert len(query_resp[0].topics) == 1
@@ -321,7 +321,7 @@ def test_query_topic_from_response_fail(
     # Trivial: query by topic name
     query_resp = _client.query(QueryTopic().with_name_match(topic_name))
     # We do expect a successful query
-    assert query_resp is not None
+    assert query_resp is not None and not query_resp.is_empty()
     # The other criteria have been tested above...
     # This translates to:
     # 'query among the topics included in the returned response'

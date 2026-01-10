@@ -329,8 +329,8 @@ class QueryTopic:
                 "At least one among 'time_start' and 'time_end' is mandatory"
             )
 
-        ts_int = time_start.to_milliseconds() if time_start else None
-        te_int = time_end.to_milliseconds() if time_end else None
+        ts_int = time_start.to_nanoseconds() if time_start else None
+        te_int = time_end.to_nanoseconds() if time_end else None
         # employs explicit _QueryTopicExpression composition for dealing with
         # special fields in data platform
         if ts_int and not te_int:
@@ -506,8 +506,8 @@ class QuerySequence:
                 "At least one among 'time_start' and 'time_end' is mandatory"
             )
 
-        ts_int = time_start.to_milliseconds() if time_start else None
-        te_int = time_end.to_milliseconds() if time_end else None
+        ts_int = time_start.to_nanoseconds() if time_start else None
+        te_int = time_end.to_nanoseconds() if time_end else None
         # employs explicit _QuerySequenceExpression composition for dealing with
         # special fields in data platform
         if ts_int and not te_int:

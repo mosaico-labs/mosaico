@@ -16,7 +16,7 @@ def test_query_sequence_by_name(
     # Trivial: query by topic name
     query_resp = _client.query(QuerySequence().with_name(UPLOADED_SEQUENCE_NAME))
     # We do expect a successful query
-    assert query_resp is not None
+    assert query_resp is not None and not query_resp.is_empty()
     # One (1) sequence corresponds to this query
     assert len(query_resp) == 1
     assert query_resp[0].sequence.name == UPLOADED_SEQUENCE_NAME
@@ -34,7 +34,7 @@ def test_query_sequence_by_name(
         QuerySequence().with_name_match(UPLOADED_SEQUENCE_NAME[:n_char])
     )
     # We do expect a successful query
-    assert query_resp is not None
+    assert query_resp is not None and not query_resp.is_empty()
     # One (1) sequence corresponds to this query
     assert len(query_resp) == 1
     assert query_resp[0].sequence.name == UPLOADED_SEQUENCE_NAME
@@ -64,7 +64,7 @@ def test_query_sequence_by_creation_timestamp(
         .with_created_timestamp(time_end=Time.now())
     )  # creation time <= now
     # We do expect a successful query
-    assert query_resp is not None
+    assert query_resp is not None and not query_resp.is_empty()
     # One (1) sequence corresponds to this query
     assert len(query_resp) == 1
     assert query_resp[0].sequence.name == UPLOADED_SEQUENCE_NAME
@@ -94,7 +94,7 @@ def test_query_sequence_metadata(
         .with_expression(Sequence.Q.user_metadata["status"].eq("processed"))
     )
     # We do expect a successful query
-    assert query_resp is not None
+    assert query_resp is not None and not query_resp.is_empty()
     # One (1) sequence corresponds to this query
     assert len(query_resp) == 1
     assert query_resp[0].sequence.name == UPLOADED_SEQUENCE_NAME
@@ -113,7 +113,7 @@ def test_query_sequence_metadata(
         .with_expression(Sequence.Q.user_metadata["environment.weather"].eq("sunny"))
     )
     # We do expect a successful query
-    assert query_resp is not None
+    assert query_resp is not None and not query_resp.is_empty()
     # One (1) sequence corresponds to this query
     assert len(query_resp) == 1
     # We expect to obtain all the topics
@@ -134,7 +134,7 @@ def test_query_sequence_metadata(
         )
     )
     # We do expect a successful query
-    assert query_resp is not None
+    assert query_resp is not None and not query_resp.is_empty()
     # One (1) sequence corresponds to this query
     assert len(query_resp) == 1
     assert query_resp[0].sequence.name == UPLOADED_SEQUENCE_NAME
@@ -163,7 +163,7 @@ def test_query_sequence_from_response(
         .with_created_timestamp(time_end=Time.now())
     )  # creation time <= now
     # We do expect a successful query
-    assert query_resp is not None
+    assert query_resp is not None and not query_resp.is_empty()
     # The other criteria have been tested above...
     # This translates to:
     # 'query among the sequences in the returned response'
@@ -171,7 +171,7 @@ def test_query_sequence_from_response(
     # simply reprovide the same query to the client
     query_resp = _client.query(qsequence)
     # One (1) sequence corresponds to this query
-    assert query_resp is not None
+    assert query_resp is not None and not query_resp.is_empty()
     assert len(query_resp) == 1
     assert query_resp[0].sequence.name == UPLOADED_SEQUENCE_NAME
     # The other criteria have been tested above...
@@ -179,7 +179,7 @@ def test_query_sequence_from_response(
     # Try a trivial query with a further expression
     query_resp = _client.query(qsequence.with_created_timestamp(time_end=Time.now()))
     # One (1) sequence corresponds to this query
-    assert query_resp is not None
+    assert query_resp is not None and not query_resp.is_empty()
     assert len(query_resp) == 1
     assert query_resp[0].sequence.name == UPLOADED_SEQUENCE_NAME
 
@@ -200,7 +200,7 @@ def test_query_sequence_from_response_fail(
         .with_created_timestamp(time_end=Time.now())
     )  # creation time <= now
     # We do expect a successful query
-    assert query_resp is not None
+    assert query_resp is not None and not query_resp.is_empty()
     # The other criteria have been tested above...
     # This translates to:
     # 'query among the sequences in the returned response'

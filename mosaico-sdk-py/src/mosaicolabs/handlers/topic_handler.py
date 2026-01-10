@@ -246,7 +246,7 @@ class TopicHandler:
                     )
                     continue
                 # here the topic name is sanitized
-                if ep_ticket_data and ep_ticket_data[1] == topic_resrc_name:
+                if ep_ticket_data and ep_ticket_data[1] == self._topic.name:
                     ticket = ep.ticket
                     break
 
