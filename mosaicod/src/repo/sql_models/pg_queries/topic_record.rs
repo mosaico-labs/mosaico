@@ -85,14 +85,15 @@ pub async fn topic_delete_unlocked(
 
 /// Deletes a topic record from the repository by its name, **bypassing any lock state**.
 ///
-/// This function is marked `unsafe` because it permanently removes the record
+/// This function requires a [`DataLossToken`] since permanently removes the record
 /// from the database without checking whether it is locked or referenced
 /// elsewhere. Improper use can lead to data inconsistency or loss.
-pub async unsafe fn topic_delete(
+pub async fn topic_delete(
     exe: &mut impl repo::AsExec,
     loc: &types::TopicResourceLocator,
+    _: types::DataLossToken,
 ) -> Result<(), repo::Error> {
-    trace!("(unsafe) deleting `{}`", loc);
+    trace!("(data loss) deleting `{}`", loc);
     sqlx::query!("DELETE FROM topic_t WHERE locator_name=$1", loc.name())
         .execute(exe.as_exec())
         .await?;

@@ -60,7 +60,7 @@ pub async fn delete(ctx: &ActionContext, name: String) -> Result<ActionResponse,
         return Err(ServerError::SequenceLocked);
     }
 
-    handle.delete().await?;
+    handle.delete_unlocked().await?;
     warn!("resource {} deleted", name);
 
     Ok(ActionResponse::Empty)

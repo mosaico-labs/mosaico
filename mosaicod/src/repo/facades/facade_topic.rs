@@ -207,10 +207,10 @@ impl FacadeTopic {
         )
     }
 
-    pub async fn delete(self) -> Result<(), FacadeError> {
+    /// Deletes this topic, if unlocked
+    pub async fn delete_unlocked(self) -> Result<(), FacadeError> {
         let mut tx = self.repo.transaction().await?;
 
-        // unsafe allowed since this function is unsafe itself
         repo::topic_delete_unlocked(&mut tx, &self.locator).await?;
 
         // Delete files
@@ -221,16 +221,12 @@ impl FacadeTopic {
         Ok(())
     }
 
-    /// # Safety
-    ///
-    /// This function permanently deletes a topic and all its data, be caution
-    pub async unsafe fn delete_unsafe(self) -> Result<(), FacadeError> {
+    /// Permanently deletes a topic and all its data, be caution
+    pub async fn delete(self, allowed_data_loss: types::DataLossToken) -> Result<(), FacadeError> {
         let mut tx = self.repo.transaction().await?;
 
-        // unsafe allowed since this function is unsafe itself
-        unsafe {
-            repo::topic_delete(&mut tx, &self.locator).await?;
-        }
+        // allowed since this function is unsafe itself
+        repo::topic_delete(&mut tx, &self.locator, allowed_data_loss).await?;
 
         // Delete files
         self.store.delete_recursive(&self.path()).await?;
