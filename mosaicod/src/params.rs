@@ -44,6 +44,10 @@ pub struct ConfigurablesParams {
     pub max_concurrent_chunk_queries: usize,
     /// Maximum number of database connections in the pool
     pub max_db_connections: u32,
+    /// Maximum chunk size in bytes before automatic splitting during upload.
+    /// When a chunk exceeds this size, it is finalized and a new chunk is started.
+    /// A value of 0 means unlimited (no automatic splitting).
+    pub max_chunk_size_in_bytes: usize,
 }
 
 static ENV: OnceLock<ConfigurablesParams> = OnceLock::new();
@@ -64,6 +68,10 @@ pub fn load_configurables_from_env() {
         ),
         max_concurrent_chunk_queries: cast_env_var("MOSAICO_MAX_CONCURRENT_CHUNK_QUERIES", 4),
         max_db_connections: cast_env_var("MOSAICO_MAX_DB_CONNECTIONS", 10),
+        max_chunk_size_in_bytes: cast_env_var(
+            "MOSAICO_MAX_CHUNK_SIZE_IN_BYTES",
+            256 * 1024 * 1024, // 256 MiB default
+        ),
     };
 
     let _ = ENV.set(ev);

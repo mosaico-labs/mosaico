@@ -199,12 +199,22 @@ impl FacadeTopic {
     }
 
     pub fn writer(&self, format: rw::Format) -> rw::ChunkedWriter<'_, store::Store> {
+        let max_chunk_size = {
+            let config_value = params::configurables().max_chunk_size_in_bytes;
+            if config_value == 0 {
+                None // 0 means unlimited (no automatic splitting)
+            } else {
+                Some(config_value)
+            }
+        };
+
         rw::ChunkedWriter::new(
             self.store.as_ref(),
             self.path(),
             format,
             |path, format, idx| types::TopicResourceLocator::from(path).datafile(idx, format),
         )
+        .with_max_chunk_size(max_chunk_size)
     }
 
     /// Deletes this topic, if unlocked

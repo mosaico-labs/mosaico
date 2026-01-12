@@ -7,7 +7,7 @@ use clap::{Args, Parser, Subcommand};
 
 use dotenv::dotenv;
 
-use log::{debug, error, info, trace};
+use log::{debug, error, info, trace, warn};
 use mosaicod::{params, repo, server, store, utils::print};
 
 #[derive(Parser, Debug)]
@@ -54,6 +54,13 @@ fn load_env_variables() -> Result<Variables, Box<dyn std::error::Error>> {
     dotenv().ok();
 
     params::load_configurables_from_env();
+
+    if params::configurables().max_chunk_size_in_bytes == 0 {
+        warn!(
+            "MOSAICO_MAX_CHUNK_SIZE_IN_BYTES=0: automatic chunk splitting is disabled. \
+             Large uploads may cause high memory usage."
+        );
+    }
 
     let repository_db_url: String = params::require_env_var("MOSAICO_REPOSITORY_DB_URL")?;
     let repository_db_url: url::Url = repository_db_url.parse()?;
