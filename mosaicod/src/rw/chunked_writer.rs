@@ -26,10 +26,7 @@ type OnFileFormat = Box<dyn Fn(&std::path::Path, &Format, usize) -> std::path::P
 
 /// Writes [`RecordBatch`] into multiple chunks to a location. A location is a path like structure.
 /// Internally the [`ChunkedWriter`] can subdivide the batches in multiple files
-pub struct ChunkedWriter<'a, W>
-where
-    W: traits::AsyncWriteToPath,
-{
+pub struct ChunkedWriter<'a, W> {
     /// The current active writer. If this is [`None`], a new writer will be
     /// initialized on the first call to [`ChunkedWriter::write`].
     ///
@@ -51,10 +48,7 @@ where
     on_file_format: OnFileFormat,
 }
 
-impl<'a, W> ChunkedWriter<'a, W>
-where
-    W: traits::AsyncWriteToPath,
-{
+impl<'a, W> ChunkedWriter<'a, W> {
     /// Creates a new [`ChunkedWriter`] that saves file to a given path on a given target writer
     pub fn new<F>(
         target: &'a W,
@@ -134,7 +128,10 @@ where
     ///
     /// It is important to call this method to ensure that an open chunk is properly finalized
     /// and written.
-    pub async fn finalize(&mut self) -> Result<(), Error> {
+    pub async fn finalize(&mut self) -> Result<(), Error>
+    where
+        W: traits::AsyncWriteToPath,
+    {
         // Calling this function will "consume" the current writer.
         // If another write_batch willl be called after this function call
         // will cause the instantiation of another writer.
