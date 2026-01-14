@@ -42,7 +42,7 @@ from rosbags.typesys import Stores
 from mosaicolabs.comm.mosaico_client import MosaicoClient
 from mosaicolabs.enum import OnErrorPolicy
 from mosaicolabs.handlers import SequenceWriter
-from mosaicolabs.logging import get_logger, setup_sdk_logging
+from mosaicolabs.logging_config import get_logger, setup_sdk_logging
 
 from .ros_bridge import ROSAdapterBase, ROSBridge
 from .loader import LoaderErrorPolicy, ROSLoader

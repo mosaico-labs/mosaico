@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Dict, Union, Optional
 from collections import defaultdict
 from rosbags.typesys import Stores
-from ..logging import get_logger
+from ..logging_config import get_logger
 
 # Set the hierarchical logger
 logger = get_logger(__name__)

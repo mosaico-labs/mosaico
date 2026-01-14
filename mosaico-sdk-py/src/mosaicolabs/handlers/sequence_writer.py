@@ -17,7 +17,7 @@ from ..comm.connection import _ConnectionPool
 from ..comm.executor_pool import _ExecutorPool
 from ..enum import FlightAction, OnErrorPolicy, SequenceStatus
 from ..helpers import pack_topic_resource_name
-from ..logging import get_logger
+from ..logging_config import get_logger
 from ..models import Serializable
 
 # Set the hierarchical logger

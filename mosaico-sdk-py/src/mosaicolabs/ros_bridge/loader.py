@@ -1,6 +1,6 @@
 import fnmatch
 from pathlib import Path
-from mosaicolabs.logging import get_logger
+from mosaicolabs.logging_config import get_logger
 from rosbags.highlevel import AnyReader
 from rosbags.interfaces import Connection, TopicInfo
 from typing import Dict, Generator, List, Optional, Tuple, Union

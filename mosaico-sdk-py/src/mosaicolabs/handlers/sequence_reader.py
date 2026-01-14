@@ -13,7 +13,7 @@ from typing import List, Optional, Dict
 from .internal.topic_read_state import _TopicReadState
 from .topic_reader import TopicDataStreamer
 from .helpers import _parse_ep_ticket
-from ..logging import get_logger
+from ..logging_config import get_logger
 
 # Set the hierarchical logger
 logger = get_logger(__name__)
@@ -108,7 +108,9 @@ class SequenceDataStreamer:
                 continue
             if topics and ep_ticket_data[1] not in topics:
                 continue
-            treader = TopicDataStreamer.connect(client=client, topic_name=ep_ticket_data[1], ticket=ep.ticket)
+            treader = TopicDataStreamer.connect(
+                client=client, topic_name=ep_ticket_data[1], ticket=ep.ticket
+            )
             topic_readers[treader.name()] = treader
 
         if not topic_readers:

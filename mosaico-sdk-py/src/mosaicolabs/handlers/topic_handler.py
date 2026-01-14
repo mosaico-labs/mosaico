@@ -22,7 +22,7 @@ from ..helpers import (
     sanitize_sequence_name,
 )
 from ..models.platform import Topic
-from ..logging import get_logger
+from ..logging_config import get_logger
 
 # Set the hierarchical logger
 logger = get_logger(__name__)

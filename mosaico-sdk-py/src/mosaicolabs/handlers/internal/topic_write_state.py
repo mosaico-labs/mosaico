@@ -19,7 +19,7 @@ from threading import BoundedSemaphore, Lock
 
 from mosaicolabs.models import Serializable
 from mosaicolabs.enum import SerializationFormat
-from mosaicolabs.logging import get_logger
+from mosaicolabs.logging_config import get_logger
 from ...comm.connection import PYARROW_OUT_OF_RANGE_BYTES
 
 

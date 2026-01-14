@@ -118,7 +118,10 @@ from .enum import (
     OnErrorPolicy as OnErrorPolicy,
 )
 
-from .logging import get_logger as get_logger, setup_sdk_logging as setup_sdk_logging
+from .logging_config import (
+    get_logger as get_logger,
+    setup_sdk_logging as setup_sdk_logging,
+)
 
 __all__ = [
     # Client
@@ -206,5 +209,5 @@ __all__ = [
 
 from logging import NullHandler
 
-logger = get_logger()
-logger.addHandler(NullHandler())
+logging_config = get_logger()
+logging_config.addHandler(NullHandler())

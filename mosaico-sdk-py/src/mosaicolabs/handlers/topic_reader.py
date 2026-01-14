@@ -12,7 +12,7 @@ from typing import Optional
 from .internal.topic_read_state import _TopicReadState
 
 from ..comm.metadata import TopicMetadata, _decode_metadata
-from ..logging import get_logger
+from ..logging_config import get_logger
 
 # Set the hierarchical logger
 logger = get_logger(__name__)
@@ -40,7 +40,9 @@ class TopicDataStreamer:
         self._rdstate = state
 
     @classmethod
-    def connect(cls, client: fl.FlightClient, topic_name: str, ticket: fl.Ticket) -> "TopicDataStreamer":
+    def connect(
+        cls, client: fl.FlightClient, topic_name: str, ticket: fl.Ticket
+    ) -> "TopicDataStreamer":
         """
         Factory method to initialize a streamer.
 

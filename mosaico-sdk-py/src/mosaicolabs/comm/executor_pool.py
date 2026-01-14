@@ -10,7 +10,7 @@ from concurrent.futures import ThreadPoolExecutor
 from itertools import cycle
 from typing import List, Optional
 
-from ..logging import get_logger
+from ..logging_config import get_logger
 
 # Set the hierarchical logger
 logger = get_logger(__name__)

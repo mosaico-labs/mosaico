@@ -27,7 +27,7 @@ import pyarrow as pa
 from PIL import Image as PILImage
 
 from mosaicolabs.enum import SerializationFormat
-from mosaicolabs.logging import get_logger
+from mosaicolabs.logging_config import get_logger
 
 from ..header import Header
 from ..mixins import HeaderMixin

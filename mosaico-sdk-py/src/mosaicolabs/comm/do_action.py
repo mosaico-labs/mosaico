@@ -18,7 +18,7 @@ import datetime
 import pyarrow.flight as fl
 
 from ..enum import FlightAction
-from ..logging import get_logger
+from ..logging_config import get_logger
 from ..models.query import QueryResponseItem, QueryResponse
 
 

@@ -1,7 +1,7 @@
 import io
 import logging
 from rich.console import Console
-from mosaicolabs.logging import get_logger, setup_sdk_logging
+from mosaicolabs.logging_config import get_logger, setup_sdk_logging
 
 
 def test_null_handler_silence(capsys):

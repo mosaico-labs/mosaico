@@ -19,7 +19,7 @@ from ..handlers import TopicHandler, SequenceHandler, SequenceWriter
 from .connection import _get_connection, _ConnectionStatus, _ConnectionPool
 from .executor_pool import _ExecutorPool
 from .do_action import _do_action, _DoActionQueryResponse, _DoActionResponseSysInfo
-from ..logging import get_logger
+from ..logging_config import get_logger
 from ..enum import FlightAction, OnErrorPolicy
 from ..handlers.config import WriterConfig
 from ..handlers.system_info import SystemInfo

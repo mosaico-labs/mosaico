@@ -15,7 +15,7 @@ from ..comm.do_action import _do_action, _DoActionResponseSysInfo
 from ..enum import FlightAction
 from ..models.platform import Sequence
 from ..helpers import sanitize_sequence_name
-from ..logging import get_logger
+from ..logging_config import get_logger
 from .helpers import _parse_ep_ticket
 from .sequence_reader import SequenceDataStreamer
 from .topic_handler import TopicHandler

@@ -11,7 +11,7 @@ from enum import Enum
 from typing import List, Optional
 from itertools import cycle
 
-from ..logging import get_logger
+from ..logging_config import get_logger
 
 # Constants defining batch size limits for Flight transmission
 PYARROW_OUT_OF_RANGE_BYTES = 16 * 1024 * 1024  # 4 MB

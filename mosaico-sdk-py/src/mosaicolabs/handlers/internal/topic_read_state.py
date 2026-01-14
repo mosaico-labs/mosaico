@@ -11,7 +11,7 @@ import pyarrow.flight as fl
 from typing import Iterator, List, Optional, Type
 
 from mosaicolabs.models import Serializable
-from mosaicolabs.logging import get_logger
+from mosaicolabs.logging_config import get_logger
 
 # Set the hierarchical logger
 logger = get_logger(__name__)
