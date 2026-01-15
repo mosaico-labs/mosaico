@@ -216,16 +216,13 @@ class TopicHandler:
             topic_resrc_name = pack_topic_resource_name(
                 self._topic.sequence_name, self._topic.name
             )
-            descriptor = fl.FlightDescriptor.for_command(
-                json.dumps(
-                    {
-                        "resource_locator": topic_resrc_name,
-                        # TODO: is ok for server to receive 'null'?
-                        "timestamp_ns_start": start_timestamp_ns,
-                        "timestamp_ns_end": end_timestamp_ns,
-                    }
-                )
-            )
+            cmd_dict: dict[str, Any] = {"resource_locator": topic_resrc_name}
+            if start_timestamp_ns is not None:
+                cmd_dict.update({"timestamp_ns_start": start_timestamp_ns})
+            if end_timestamp_ns is not None:
+                cmd_dict.update({"timestamp_ns_end": end_timestamp_ns})
+
+            descriptor = fl.FlightDescriptor.for_command(json.dumps(cmd_dict))
 
             # Get FlightInfo (here we need just the Endpoints)
             try:

@@ -8,7 +8,7 @@ by merging multiple topic streams into a single, time-ordered iterator.
 import json
 from mosaicolabs.models.message import Message
 import pyarrow.flight as fl
-from typing import List, Optional, Dict
+from typing import Any, List, Optional, Dict
 
 from .internal.topic_read_state import _TopicReadState
 from .topic_reader import TopicDataStreamer
@@ -77,16 +77,13 @@ class SequenceDataStreamer:
         Returns:
             SequenceDataStreamer: The initialized merger.
         """
-        descriptor = fl.FlightDescriptor.for_command(
-            json.dumps(
-                {
-                    "resource_locator": sequence_name,
-                    # TODO: is ok for server to receive 'null'?
-                    "timestamp_ns_start": start_timestamp_ns,
-                    "timestamp_ns_end": end_timestamp_ns,
-                }
-            )
-        )
+        cmd_dict: dict[str, Any] = {"resource_locator": sequence_name}
+        if start_timestamp_ns is not None:
+            cmd_dict.update({"timestamp_ns_start": start_timestamp_ns})
+        if end_timestamp_ns is not None:
+            cmd_dict.update({"timestamp_ns_end": end_timestamp_ns})
+
+        descriptor = fl.FlightDescriptor.for_command(json.dumps(cmd_dict))
         try:
             flight_info = client.get_flight_info(descriptor)
         except Exception as e:
