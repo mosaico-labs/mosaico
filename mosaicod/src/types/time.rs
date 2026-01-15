@@ -115,7 +115,12 @@ impl TimestampRange {
 
     /// Returns true is both start and end are unbounded timestamps
     pub fn is_unbounded(&self) -> bool {
-        self.start.is_unbounded() || self.end.is_unbounded()
+        self.start.is_unbounded() && self.end.is_unbounded()
+    }
+
+    /// Check if the timestamp range if empty (i.e. start >= end)
+    pub fn is_empty(&self) -> bool {
+        self.start >= self.end
     }
 }
 
@@ -155,7 +160,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn timestamp() {
+    fn timestamp_bounds_check() {
         let ub_pos = Timestamp::unbounded_pos();
         let ub_neg = Timestamp::unbounded_neg();
         let ts: Timestamp = 1234567.into();
@@ -169,5 +174,52 @@ mod tests {
         assert!(!ts.is_unbounded());
         assert!(!ts.is_unbounded_pos());
         assert!(!ts.is_unbounded_neg());
+    }
+
+    #[test]
+    fn timestamp_range_bounds_check() {
+        let lb = 10000;
+        let ub = 11000;
+
+        let ts_lb_ub = TimestampRange::between(lb.into(), ub.into());
+        assert!(!ts_lb_ub.is_unbounded());
+
+        let ts_ub = TimestampRange::ending_at(lb.into());
+        assert!(!ts_ub.is_unbounded());
+
+        let ts_ub_2 = TimestampRange::between(Timestamp::unbounded_neg(), ub.into());
+        assert!(!ts_ub_2.is_unbounded());
+
+        let ts_lb = TimestampRange::starting_at(lb.into());
+        assert!(!ts_lb.is_unbounded());
+
+        let ts_lb_2 = TimestampRange::between(ub.into(), Timestamp::unbounded_pos());
+        assert!(!ts_lb_2.is_unbounded());
+
+        let ts_unbounded =
+            TimestampRange::between(Timestamp::unbounded_neg(), Timestamp::unbounded_pos());
+        assert!(ts_unbounded.is_unbounded());
+
+        let ts_unbounded = TimestampRange::starting_at(Timestamp::unbounded_pos());
+        assert!(ts_unbounded.is_unbounded());
+
+        let ts_unbounded = TimestampRange::ending_at(Timestamp::unbounded_neg());
+        assert!(ts_unbounded.is_unbounded());
+    }
+
+    #[test]
+    fn timestamp_range_empty() {
+        let ts_empty = TimestampRange::between(11000.into(), 10000.into());
+        assert!(ts_empty.is_empty());
+
+        let ts_empty = TimestampRange::between(11000.into(), Timestamp::unbounded_neg());
+        assert!(ts_empty.is_empty());
+
+        let ts_empty = TimestampRange::between(Timestamp::unbounded_pos(), 1000.into());
+        assert!(ts_empty.is_empty());
+
+        let ts_empty =
+            TimestampRange::between(Timestamp::unbounded_pos(), Timestamp::unbounded_neg());
+        assert!(ts_empty.is_empty());
     }
 }

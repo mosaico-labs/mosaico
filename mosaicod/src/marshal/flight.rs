@@ -112,3 +112,87 @@ pub fn ticket_topic_from_binary(v: &[u8]) -> Result<types::flight::TicketTopic, 
 
     Ok(ticket.into())
 }
+
+#[cfg(test)]
+mod tests {
+
+    use crate::types;
+
+    /// Check that the conversion between [`super::GetFlightInfoCmd`] and
+    /// [`types::flight::GetFlightInfoCmd`] is correct from a fully bounded info message.
+    #[test]
+    fn get_flight_info_cmd_to_types_full() {
+        let src = super::GetFlightInfoCmd {
+            resource_locator: "test_sequence/topic/a".to_owned(),
+            timestamp_ns_start: Some(100000),
+            timestamp_ns_end: Some(110000),
+        };
+
+        let name = src.resource_locator.clone();
+        let start = src.timestamp_ns_start.unwrap();
+        let end = src.timestamp_ns_end.unwrap();
+
+        let dest: types::flight::GetFlightInfoCmd = src.into();
+
+        assert_eq!(dest.resource_locator, name);
+        assert_eq!(dest.timestamp_range.as_ref().unwrap().start.as_i64(), start);
+        assert_eq!(dest.timestamp_range.as_ref().unwrap().end.as_i64(), end);
+    }
+
+    /// Check that the conversion between [`super::GetFlightInfoCmd`] and
+    /// [`types::flight::GetFlightInfoCmd`] is correct from a lower bounded info message.
+    #[test]
+    fn get_flight_info_cmd_to_types_lb() {
+        let src = super::GetFlightInfoCmd {
+            resource_locator: "test_sequence/topic/a".to_owned(),
+            timestamp_ns_start: Some(100000),
+            timestamp_ns_end: None,
+        };
+
+        let name = src.resource_locator.clone();
+        let start = src.timestamp_ns_start.unwrap();
+
+        let dest: types::flight::GetFlightInfoCmd = src.into();
+
+        assert_eq!(dest.resource_locator, name);
+        assert_eq!(dest.timestamp_range.as_ref().unwrap().start.as_i64(), start);
+        assert!(dest.timestamp_range.as_ref().unwrap().end.is_unbounded());
+    }
+
+    /// Check that the conversion between [`super::GetFlightInfoCmd`] and
+    /// [`types::flight::GetFlightInfoCmd`] is correct from a upper bounded info message.
+    #[test]
+    fn get_flight_info_cmd_to_types_ub() {
+        let src = super::GetFlightInfoCmd {
+            resource_locator: "test_sequence/topic/a".to_owned(),
+            timestamp_ns_start: None,
+            timestamp_ns_end: Some(110000),
+        };
+
+        let name = src.resource_locator.clone();
+        let end = src.timestamp_ns_end.unwrap();
+
+        let dest: types::flight::GetFlightInfoCmd = src.into();
+
+        assert_eq!(dest.resource_locator, name);
+        assert!(dest.timestamp_range.as_ref().unwrap().start.is_unbounded());
+        assert_eq!(dest.timestamp_range.as_ref().unwrap().end.as_i64(), end);
+    }
+
+    /// Check that the conversion between [`super::GetFlightInfoCmd`] and
+    /// [`types::flight::GetFlightInfoCmd`] is correct from a message without timestamp.
+    #[test]
+    fn get_flight_info_cmd_to_types_no_bounds() {
+        let src = super::GetFlightInfoCmd {
+            resource_locator: "test_sequence/topic/a".to_owned(),
+            timestamp_ns_start: None,
+            timestamp_ns_end: None,
+        };
+
+        let name = src.resource_locator.clone();
+        let dest: types::flight::GetFlightInfoCmd = src.into();
+
+        assert_eq!(dest.resource_locator, name);
+        assert!(dest.timestamp_range.is_none());
+    }
+}
