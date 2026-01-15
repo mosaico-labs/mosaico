@@ -2,11 +2,16 @@
 These tests require the connection to the server (localhost)
 """
 
+from mosaicolabs.models.sensors.imu import IMU
 import pytest
 import logging as log
 import pyarrow as pa
 
 from mosaicolabs.handlers import TopicWriter
+from mosaicolabs.handlers.helpers import (
+    _UNSUPPORTED_TOPIC_NAME_CHARS,
+    _UNSUPPORTED_SEQUENCE_NAME_CHARS,
+)
 from mosaicolabs.comm import MosaicoClient
 from mosaicolabs.enum import SequenceStatus, SerializationFormat
 from testing.integration.config import UPLOADED_SEQUENCE_NAME
@@ -43,22 +48,53 @@ def test_sequence_writer_not_in_context(_client: MosaicoClient):
     _client.close()
 
 
-def test_sequence_invalid_name(_client: MosaicoClient):
-    sequence_name = "invalid/sequence/name"
+@pytest.mark.parametrize("unsupported_char", _UNSUPPORTED_SEQUENCE_NAME_CHARS)
+def test_sequence_invalid_name(_client: MosaicoClient, unsupported_char: str):
+    invalid_sequence_name = "@-sequence-name"
 
     # It is necessary to make the exception propagate until the SequenceWriter.__exit__
     # which triggers the report condition
-    with pytest.raises(ValueError, match="Invalid characters '/' in sequence name"):
-        with _client.sequence_create(sequence_name, {}) as _:
+    with pytest.raises(ValueError, match="does not begin with a letter or a number"):
+        with _client.sequence_create(invalid_sequence_name, {}) as _:
             pass
 
-    sequence_name = "/invalid/sequence/name"
+    invalid_sequence_name = f"invalid{unsupported_char}sequence-name"
 
     # It is necessary to make the exception propagate until the SequenceWriter.__exit__
     # which triggers the report condition
-    with pytest.raises(ValueError, match="Invalid characters '/' in sequence name"):
-        with _client.sequence_create(sequence_name, {}) as _:
+    with pytest.raises(ValueError, match="Sequence name contains invalid characters"):
+        with _client.sequence_create(invalid_sequence_name, {}) as _:
             pass
+
+    invalid_sequence_name = f"/invalid{unsupported_char}sequence-name"
+
+    # It is necessary to make the exception propagate until the SequenceWriter.__exit__
+    # which triggers the report condition
+    with pytest.raises(ValueError, match="Sequence name contains invalid characters"):
+        with _client.sequence_create(invalid_sequence_name, {}) as _:
+            pass
+
+    # free resources
+    _client.close()
+
+
+@pytest.mark.parametrize("unsupported_char", _UNSUPPORTED_TOPIC_NAME_CHARS)
+def test_topic_invalid_name(_client: MosaicoClient, unsupported_char: str):
+    invalid_topic_name = f"invalid{unsupported_char}topic-name"
+
+    # It is necessary to make the exception propagate until the SequenceWriter.__exit__
+    # which triggers the report condition
+    with pytest.raises(ValueError, match="Topic name contains invalid characters"):
+        with _client.sequence_create("new-sequence", {}) as sw:
+            sw.topic_create(invalid_topic_name, {}, IMU)
+
+    invalid_topic_name = f"/invalid{unsupported_char}topic-name"
+
+    # It is necessary to make the exception propagate until the SequenceWriter.__exit__
+    # which triggers the report condition
+    with pytest.raises(ValueError, match="Topic name contains invalid characters"):
+        with _client.sequence_create("new-sequence", {}) as sw:
+            sw.topic_create(invalid_topic_name, {}, IMU)
 
     # free resources
     _client.close()

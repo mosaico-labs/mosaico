@@ -10,7 +10,7 @@ from typing import Any, Dict, Type, Optional
 import pyarrow.flight as fl
 
 from .config import WriterConfig
-from .helpers import _make_exception, _validate_sequence_name
+from .helpers import _make_exception, _validate_sequence_name, _validate_topic_name
 from .topic_writer import TopicWriter
 from ..comm.do_action import _do_action, _DoActionResponseKey
 from ..comm.connection import _ConnectionPool
@@ -209,6 +209,8 @@ class SequenceWriter:
         if topic_name in self._topic_writers:
             logger.error(f"Topic '{topic_name}' already exists in this sequence.")
             return None
+
+        _validate_topic_name(topic_name)
 
         logger.debug(f"Requesting new topic '{topic_name}' for sequence '{self._name}'")
 
