@@ -9,6 +9,9 @@ pub use layers::*;
 mod notifies;
 pub use notifies::*;
 
+mod outbox;
+pub use outbox::*;
+
 mod sequence_record;
 pub use sequence_record::*;
 

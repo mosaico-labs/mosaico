@@ -6,6 +6,7 @@ use tokio::sync::Notify;
 use crate::{repo, store};
 
 use super::flight;
+use super::outbox::{OutboxConfig, OutboxWorker};
 
 /// Mosaico server.
 /// Handles incoming requests and manages the repository and store.
@@ -79,6 +80,10 @@ impl Server {
         })?;
 
         let store = self.store.clone();
+        let outbox_store = self.store.clone();
+        let outbox_repo = repo.clone();
+        let outbox_shutdown = self.shutdown.clone();
+
         rt.block_on(async {
             // Create a thread in tokio runtime to handle flight requests
             let handle_flight = rt.spawn(async move {
@@ -88,9 +93,16 @@ impl Server {
                 }
             });
 
+            // Spawn the outbox worker for processing S3 uploads
+            let handle_outbox = rt.spawn(async move {
+                let config = OutboxConfig::from_env();
+                let worker = OutboxWorker::new(outbox_store, outbox_repo, outbox_shutdown, config);
+                worker.run().await;
+            });
+
             on_start();
 
-            let _ = tokio::join!(handle_flight);
+            let _ = tokio::join!(handle_flight, handle_outbox);
         });
 
         info!("stopped");

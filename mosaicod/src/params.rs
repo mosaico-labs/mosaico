@@ -48,6 +48,12 @@ pub struct ConfigurablesParams {
     /// When a chunk exceeds this size, it is finalized and a new chunk is started.
     /// A value of 0 means unlimited (no automatic splitting).
     pub max_chunk_size_in_bytes: usize,
+    /// Outbox worker poll interval in milliseconds
+    pub outbox_poll_interval_ms: u64,
+    /// Outbox worker batch size (entries processed per poll)
+    pub outbox_batch_size: usize,
+    /// Maximum retries for failed outbox entries
+    pub outbox_max_retries: usize,
 }
 
 static ENV: OnceLock<ConfigurablesParams> = OnceLock::new();
@@ -72,6 +78,9 @@ pub fn load_configurables_from_env() {
             "MOSAICO_MAX_CHUNK_SIZE_IN_BYTES",
             256 * 1024 * 1024, // 256 MiB default
         ),
+        outbox_poll_interval_ms: cast_env_var("MOSAICO_OUTBOX_POLL_INTERVAL_MS", 100),
+        outbox_batch_size: cast_env_var("MOSAICO_OUTBOX_BATCH_SIZE", 50),
+        outbox_max_retries: cast_env_var("MOSAICO_OUTBOX_MAX_RETRIES", 5),
     };
 
     let _ = ENV.set(ev);
