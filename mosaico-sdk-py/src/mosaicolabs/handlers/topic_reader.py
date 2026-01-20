@@ -7,6 +7,7 @@ from a single topic via the Flight `DoGet` protocol.
 
 from mosaicolabs.models.message import Message
 import pyarrow.flight as fl
+import pyarrow as pa
 from typing import Optional
 
 from .internal.topic_read_state import _TopicReadState
@@ -27,17 +28,16 @@ class TopicDataStreamer:
     to allow peek-ahead capabilities (used by sequence-level merging).
     """
 
-    _fl_client: fl.FlightClient
-    _rdstate: _TopicReadState
-
     def __init__(self, client: fl.FlightClient, state: _TopicReadState):
         """
         Internal constructor.
         Users can retrieve an instance by using 'get_data_streamer()` from a TopicHandler instance instead.
         Internal library modules will call the 'connect()' function.
         """
-        self._fl_client = client
-        self._rdstate = state
+        self._fl_client: fl.FlightClient = client
+        """The FlightClient used for remote operations."""
+        self._rdstate: _TopicReadState = state
+        """The actual reader object"""
 
     @classmethod
     def connect(
@@ -137,3 +137,22 @@ class TopicDataStreamer:
         except Exception as e:
             logger.warning(f"Error closing state '{self._rdstate.topic_name}': '{e}'")
         logger.info(f"TopicReader for '{self._rdstate.topic_name}' closed.")
+
+    def _fetch_next_batch(self) -> Optional[pa.RecordBatch]:
+        """
+        Retrieves the next raw RecordBatch from the underlying stream.
+
+        This is a library-internal bridge designed for high-performance
+        batch processing. It bypasses the standard row-by-row iteration
+        to provide direct access to columnar data.
+
+        Returns:
+            Optional[pa.RecordBatch]: The next available Arrow RecordBatch,
+                or None if the stream is exhausted.
+
+        Note:
+            Calling this method advances the internal stream state and
+            will interfere with the standard iteration (`next()`) if
+            used concurrently.
+        """
+        return self._rdstate.fetch_next_batch()

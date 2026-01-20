@@ -53,25 +53,6 @@ class MosaicoClient:
     # Used to ensure the constructor is only called via the `connect()` factory.
     _CONNECT_SENTINEL = object()
 
-    # --- Class-level attributes ---
-    _sequence_handlers_cache: Dict[str, SequenceHandler]
-    """Cache for SequenceHandler instances, keyed by sequence_name. Used to avoid re-connecting for known sequences."""
-
-    _topic_handlers_cache: Dict[str, TopicHandler]
-    """Cache for TopicHandler instances, keyed by their resource ('sequence_name/topic_name') name."""
-
-    _status: _ConnectionStatus = _ConnectionStatus.Closed
-    """Tracks the current connection status (Open/Closed)."""
-
-    _control_client: fl.FlightClient
-    """The primary PyArrow Flight client used for SDK-Server control operations (e.g., creating layers, querying)."""
-
-    _connection_pool: Optional[_ConnectionPool]
-    """The pool of Flight clients used for parallel data writing."""
-
-    _executor_pool: Optional[_ExecutorPool]
-    """The pool of thread executors used for offloading serialization and I/O."""
-
     def __init__(
         self,
         control_client: fl.FlightClient,
@@ -90,14 +71,20 @@ class MosaicoClient:
                 "MosaicoClient must be instantiated using the classmethod MosaicoClient.connect()."
             )
 
-        self._control_client = control_client
-        self._status = _ConnectionStatus.Open
-        self._connection_pool = connection_pool
-        self._executor_pool = executor_pool
+        self._control_client: fl.FlightClient = control_client
+        """The primary PyArrow Flight client used for SDK-Server control operations (e.g., creating layers, querying)."""
+        self._status: _ConnectionStatus = _ConnectionStatus.Open
+        """Tracks the current connection status (Open/Closed)."""
+        self._connection_pool: Optional[_ConnectionPool] = connection_pool
+        """The pool of Flight clients used for parallel data writing."""
+        self._executor_pool: Optional[_ExecutorPool] = executor_pool
+        """The pool of thread executors used for offloading serialization and I/O."""
 
         # Initialize caches
-        self._sequence_handlers_cache = {}
-        self._topic_handlers_cache = {}
+        self._sequence_handlers_cache: Dict[str, SequenceHandler] = {}
+        """Cache for SequenceHandler instances, keyed by sequence_name. Used to avoid re-connecting for known sequences."""
+        self._topic_handlers_cache: Dict[str, TopicHandler] = {}
+        """Cache for TopicHandler instances, keyed by their resource ('sequence_name/topic_name') name."""
 
     @classmethod
     def connect(

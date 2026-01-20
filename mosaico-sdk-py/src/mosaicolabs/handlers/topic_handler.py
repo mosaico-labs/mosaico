@@ -39,22 +39,20 @@ class TopicHandler:
     User intending getting an instance of this class, must use 'MosaicoClient.topic_handler()' factory.
     """
 
-    # -------------------- Class attributes --------------------
-    _topic: Topic
-    _fl_client: fl.FlightClient
-    _fl_ticket: fl.Ticket
-    _data_streamer_instance: Optional[TopicDataStreamer]
-
     def __init__(self, client: fl.FlightClient, topic_model: Topic, ticket: fl.Ticket):
         """
         Internal constructor.
         Users can retrieve an instance by using 'MosaicoClient.topic_handler()` instead.
         Internal library modules will call the 'connect()' function.
         """
-        self._fl_client = client
-        self._topic = topic_model
-        self._fl_ticket = ticket
-        self._data_streamer_instance = None
+        self._fl_client: fl.FlightClient = client
+        """The FlightClient used for remote operations."""
+        self._topic: Topic = topic_model
+        """The topic metadata model"""
+        self._fl_ticket: fl.Ticket = ticket
+        """The FlightTicket of the remote resource corresponding to this topic"""
+        self._data_streamer_instance: Optional[TopicDataStreamer] = None
+        """The instance of the spawned data streamer handler"""
 
     @classmethod
     def connect(

@@ -34,11 +34,6 @@ class SequenceDataStreamer:
     the topics were recorded at different rates.
     """
 
-    _name: str
-    _fl_client: fl.FlightClient
-    _topic_readers: Dict[str, TopicDataStreamer] = {}
-    _winning_rdstate: Optional[_TopicReadState] = None
-
     def __init__(
         self,
         sequence_name: str,
@@ -51,8 +46,15 @@ class SequenceDataStreamer:
         Internal library modules will call the 'connect()' function.
         """
         self._name: str = sequence_name
-        self._fl_client = client
-        self._topic_readers = topic_readers
+        """The name of the handled sequence data stream"""
+        self._fl_client: fl.FlightClient = client
+        "The client for remote operations"
+        self._topic_readers: Dict[str, TopicDataStreamer] = topic_readers
+        """The spawned topic data stream readers"""
+        self._winning_rdstate: Optional[_TopicReadState] = None
+        """The current topic datastream state corresponding to the last extracted measurement"""
+        self._in_iter: bool = False
+        """Tag for assessing if the data streamer is used in a loop"""
 
     @classmethod
     def connect(
@@ -127,12 +129,14 @@ class SequenceDataStreamer:
         for treader in self._topic_readers.values():
             if treader._rdstate.peeked_row is None:
                 treader._rdstate.peek_next_row()
+        self._in_iter = True
         return self
 
     def next(self) -> Optional[tuple[str, Message]]:
         """
         Returns the next time-ordered record or None if finished.
         """
+        self._in_iter = True  # Safety: ensures direct next() calls also lock the state
         try:
             return self.__next__()
         except StopIteration:
@@ -147,6 +151,9 @@ class SequenceDataStreamer:
             The minimum timestamp (float) found across all active topics, or None
             if all streams are exhausted.
         """
+        self._in_iter = (
+            True  # Safety: ensures direct next_timestamp() calls also lock the state
+        )
         min_tstamp: float = float("inf")
 
         for treader in self._topic_readers.values():
@@ -205,6 +212,31 @@ class SequenceDataStreamer:
         return self._winning_rdstate.topic_name, Message.create(
             self._winning_rdstate.ontology_tag, **row_dict
         )
+
+    def _as_batch_provider(self) -> Dict[str, "TopicDataStreamer"]:
+        """
+        Transitions the streamer to 'Batch Provider' mode for analytical modules.
+
+        This internal helper is designed to facilitate high-performance data extraction
+        (e.g., by MosaicoFrameExtractor). It ensures the stream is in a 'clean' state
+        (not partially consumed) before returning the internal topic readers, avoiding
+        inconsistent data states between row-based and batch-based processing.
+
+        Returns:
+            Dict[str, TopicDataStreamer]: A mapping of topic names to their internal streamers.
+
+        Raises:
+            RuntimeError: If row-by-row iteration has already commenced.
+        """
+        # Safety check: if _winning_rdstate is set, it means next() has been called at least once.
+        if self._in_iter:
+            raise RuntimeError(
+                "Cannot switch to batch provider mode: row-by-row iteration has already started. "
+                "You must decide between streaming (loops) or batch processing (analytics) "
+                "at the beginning of the session."
+            )
+
+        return self._topic_readers
 
     def close(self):
         """Closes all underlying topic streams."""

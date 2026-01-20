@@ -48,10 +48,15 @@ class TopicWriter:
         Internal constructor. Use `TopicWriter.create()` instead.
         """
         self._fl_client: fl.FlightClient = client
+        """The FlightClient used for writing operations."""
         self._sequence_name: str = sequence_name
+        """The name of the created sequence"""
         self._name: str = topic_name
-        self._wrstate = state
-        self._config = config
+        """The name of the new topic"""
+        self._config: WriterConfig = config
+        """The config of the writer"""
+        self._wrstate: _TopicWriteState = state
+        """The actual writer object"""
 
     @classmethod
     def create(

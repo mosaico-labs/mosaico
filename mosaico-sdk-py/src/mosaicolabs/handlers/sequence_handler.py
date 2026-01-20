@@ -34,12 +34,6 @@ class SequenceHandler:
     User intending getting an instance of this class, must use 'MosaicoClient.sequence_handler()' factory.
     """
 
-    # -------------------- Class attributes --------------------
-    _sequence: Sequence
-    _fl_client: fl.FlightClient
-    _data_streamer_instance: Optional[SequenceDataStreamer]
-    _topic_handler_instances: Dict[str, TopicHandler]
-
     # -------------------- Constructor --------------------
     def __init__(self, sequence_model: Sequence, client: fl.FlightClient):
         """
@@ -47,10 +41,14 @@ class SequenceHandler:
         Users can retrieve an instance by using 'MosaicoClient.sequence_handler()` instead.
         Internal library modules will call the 'connect()' function.
         """
-        self._fl_client = client
-        self._topic_handler_instances = {}
-        self._data_streamer_instance = None
-        self._sequence = sequence_model
+        self._fl_client: fl.FlightClient = client
+        """The FlightClient used for remote operations."""
+        self._topic_handler_instances: Dict[str, TopicHandler] = {}
+        """The cache of the spawned topic handlers instances"""
+        self._data_streamer_instance: Optional[SequenceDataStreamer] = None
+        """The spawned sequence data streamer instance"""
+        self._sequence: Sequence = sequence_model
+        """The sequence metadata model"""
 
     @classmethod
     def connect(
