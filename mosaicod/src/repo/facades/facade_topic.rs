@@ -7,6 +7,7 @@ use crate::{
 };
 use arrow::datatypes::SchemaRef;
 use log::trace;
+use std::sync::Arc;
 
 /// Define topic metadata type contaning JSON user metadata
 type TopicMetadata = types::TopicMetadata<marshal::JsonMetadataBlob>;
@@ -201,7 +202,7 @@ impl FacadeTopic {
 
     /// Returns a writer used to write chunked record batches using a specified serialization
     /// format `format`.
-    pub fn writer(&self, format: rw::Format) -> rw::ChunkedWriter<'_, store::Store> {
+    pub fn writer(&mut self, format: rw::Format) -> FacadeTopicWriterGuard<'_> {
         let max_chunk_size = {
             let config_value = params::configurables().max_chunk_size_in_bytes;
             if config_value == 0 {
@@ -211,13 +212,18 @@ impl FacadeTopic {
             }
         };
 
-        rw::ChunkedWriter::new(
-            self.store.as_ref(),
+        let cw = rw::ChunkedWriter::new(
+            self.store.clone(),
             self.path(),
             format,
             |path, format, idx| types::TopicResourceLocator::from(path).datafile(idx, format),
         )
-        .with_max_chunk_size(max_chunk_size)
+        .with_max_chunk_size(max_chunk_size);
+
+        FacadeTopicWriterGuard {
+            _facade: self,
+            writer: cw,
+        }
     }
 
     /// Deletes this topic, if unlocked
@@ -341,5 +347,32 @@ impl FacadeTopic {
         let batch_size = (target_size as i64 * stats.total_row_count) / stats.total_size_bytes;
 
         Ok(batch_size as usize)
+    }
+}
+
+/// A guard ensuring exclusive write access to a [`FacadeTopic`].
+///
+/// While this struct exists, the underlying topic is mutably borrowed, preventing
+/// any other operations (such as locking or concurrent reads) until the writer is dropped.
+pub struct FacadeTopicWriterGuard<'a> {
+    /// Anchors the exclusive borrow of the facade, strictly tying the writer's lifetime
+    /// to the topic's availability.
+    _facade: &'a mut FacadeTopic,
+
+    /// The underlying writer handling the actual data operations.
+    writer: rw::ChunkedWriter<Arc<store::Store>>,
+}
+
+impl<'a> std::ops::Deref for FacadeTopicWriterGuard<'a> {
+    type Target = rw::ChunkedWriter<Arc<store::Store>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.writer
+    }
+}
+
+impl<'a> std::ops::DerefMut for FacadeTopicWriterGuard<'a> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.writer
     }
 }
