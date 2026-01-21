@@ -1,3 +1,4 @@
+use super::Context;
 use crate::marshal;
 use crate::{repo, rw, server::errors::ServerError, store, types};
 use arrow::datatypes::SchemaRef;
@@ -6,13 +7,9 @@ use arrow_flight::flight_descriptor::DescriptorType;
 use futures::TryStreamExt;
 use log::{debug, info, trace};
 
-pub async fn do_put(
-    store: store::StoreRef,
-    repo: repo::Repository,
-    decoder: &mut FlightDataDecoder,
-) -> Result<(), ServerError> {
+pub async fn do_put(ctx: Context, decoder: &mut FlightDataDecoder) -> Result<(), ServerError> {
     let (cmd, schema) = extract_command_and_schema_from_header_message(decoder).await?;
-    do_put_topic_data(store, repo, decoder, schema, cmd).await
+    do_put_topic_data(ctx.store, ctx.repo, decoder, schema, cmd).await
 }
 
 async fn extract_command_and_schema_from_header_message(

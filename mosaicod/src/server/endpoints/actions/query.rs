@@ -2,16 +2,16 @@
 
 use log::{info, trace};
 
-use super::ActionContext;
 use crate::{
     marshal::{self, ActionResponse},
     repo::FacadeQuery,
+    server::endpoints::Context,
     server::errors::ServerError,
 };
 
 /// Executes a query and returns matching groups.
 pub async fn execute(
-    ctx: &ActionContext,
+    ctx: &Context,
     query: serde_json::Value,
 ) -> Result<ActionResponse, ServerError> {
     info!("performing a query");

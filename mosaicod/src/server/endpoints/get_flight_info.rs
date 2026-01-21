@@ -1,8 +1,8 @@
+use super::Context;
 use crate::{
     marshal,
     repo::{self, FacadeError, FacadeSequence, FacadeTopic},
     server::errors::ServerError,
-    store,
     types::{self, Resource},
 };
 use arrow::datatypes::{Field, Schema};
@@ -12,8 +12,7 @@ use arrow_flight::{
 use log::{info, trace};
 
 pub async fn get_flight_info(
-    store: store::StoreRef,
-    repo: repo::Repository,
+    ctx: Context,
     desc: FlightDescriptor,
 ) -> Result<FlightInfo, ServerError> {
     match desc.r#type() {
@@ -23,11 +22,12 @@ pub async fn get_flight_info(
 
             info!("requesting info for resource {}", resource_name);
 
-            let resource = repo::get_resource_locator_from_name(&repo, resource_name).await?;
+            let resource = repo::get_resource_locator_from_name(&ctx.repo, resource_name).await?;
 
             match resource.resource_type() {
                 types::ResourceType::Sequence => {
-                    let handle = FacadeSequence::new(resource.name().into(), store.clone(), repo);
+                    let handle =
+                        FacadeSequence::new(resource.name().into(), ctx.store.clone(), ctx.repo);
                     let metadata = handle.metadata().await?;
 
                     trace!(
@@ -73,7 +73,7 @@ pub async fn get_flight_info(
                 }
 
                 types::ResourceType::Topic => {
-                    let handle = FacadeTopic::new(resource.name().into(), store, repo);
+                    let handle = FacadeTopic::new(resource.name().into(), ctx.store, ctx.repo);
                     let metadata = handle.metadata().await?;
 
                     trace!("{} building schema (+platform metadata)", handle.locator);

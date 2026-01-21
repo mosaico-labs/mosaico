@@ -2,17 +2,17 @@
 
 use log::{info, trace, warn};
 
-use super::ActionContext;
 use crate::{
     marshal::{self, ActionResponse},
     repo::{FacadeError, FacadeSequence},
+    server::endpoints::Context,
     server::errors::ServerError,
     types::{self, MetadataBlob, Resource},
 };
 
 /// Creates a new sequence with the given name and metadata.
 pub async fn create(
-    ctx: &ActionContext,
+    ctx: &Context,
     name: String,
     user_metadata_str: &str,
 ) -> Result<ActionResponse, ServerError> {
@@ -42,7 +42,7 @@ pub async fn create(
 }
 
 /// Deletes an unlocked sequence.
-pub async fn delete(ctx: &ActionContext, name: String) -> Result<ActionResponse, ServerError> {
+pub async fn delete(ctx: &Context, name: String) -> Result<ActionResponse, ServerError> {
     warn!("requested deletion of resource {}", name);
 
     let handle = FacadeSequence::new(name, ctx.store.clone(), ctx.repo.clone());
@@ -60,7 +60,7 @@ pub async fn delete(ctx: &ActionContext, name: String) -> Result<ActionResponse,
 
 /// Aborts a sequence creation, deleting it if the key matches.
 pub async fn abort(
-    ctx: &ActionContext,
+    ctx: &Context,
     name: String,
     key: String,
 ) -> Result<ActionResponse, ServerError> {
@@ -90,7 +90,7 @@ pub async fn abort(
 
 /// Finalizes and locks a sequence.
 pub async fn finalize(
-    ctx: &ActionContext,
+    ctx: &Context,
     name: String,
     key: String,
 ) -> Result<ActionResponse, ServerError> {
@@ -114,7 +114,7 @@ pub async fn finalize(
 
 /// Creates a notification for a sequence.
 pub async fn notify_create(
-    ctx: &ActionContext,
+    ctx: &Context,
     name: String,
     notify_type: String,
     msg: String,
@@ -129,7 +129,7 @@ pub async fn notify_create(
 }
 
 /// Lists all notifications for a sequence.
-pub async fn notify_list(ctx: &ActionContext, name: String) -> Result<ActionResponse, ServerError> {
+pub async fn notify_list(ctx: &Context, name: String) -> Result<ActionResponse, ServerError> {
     info!("notify list for {}", name);
 
     let handle = FacadeSequence::new(name, ctx.store.clone(), ctx.repo.clone());
@@ -139,10 +139,7 @@ pub async fn notify_list(ctx: &ActionContext, name: String) -> Result<ActionResp
 }
 
 /// Purges all notifications for a sequence.
-pub async fn notify_purge(
-    ctx: &ActionContext,
-    name: String,
-) -> Result<ActionResponse, ServerError> {
+pub async fn notify_purge(ctx: &Context, name: String) -> Result<ActionResponse, ServerError> {
     warn!("notify purge for {}", name);
 
     let handle = FacadeSequence::new(name, ctx.store.clone(), ctx.repo.clone());
@@ -152,7 +149,7 @@ pub async fn notify_purge(
 }
 
 /// Gets system information for a sequence.
-pub async fn system_info(ctx: &ActionContext, name: String) -> Result<ActionResponse, ServerError> {
+pub async fn system_info(ctx: &Context, name: String) -> Result<ActionResponse, ServerError> {
     info!("[{}] sequence system informations", name);
 
     let handle = FacadeSequence::new(name, ctx.store.clone(), ctx.repo.clone());

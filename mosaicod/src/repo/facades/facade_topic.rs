@@ -143,6 +143,7 @@ impl FacadeTopic {
         Ok(record.into())
     }
 
+    /// Lock the topic
     pub async fn lock(&self) -> Result<(), FacadeError> {
         let mut tx = self.repo.transaction().await?;
 
@@ -198,6 +199,8 @@ impl FacadeTopic {
         Ok(())
     }
 
+    /// Returns a writer used to write chunked record batches using a specified serialization
+    /// format `format`.
     pub fn writer(&self, format: rw::Format) -> rw::ChunkedWriter<'_, store::Store> {
         let max_chunk_size = {
             let config_value = params::configurables().max_chunk_size_in_bytes;
@@ -340,5 +343,3 @@ impl FacadeTopic {
         Ok(batch_size as usize)
     }
 }
-
-// Batch Reader needs to implement Stream trait

@@ -60,19 +60,19 @@ pub async fn start(
 struct MosaicoFlightService {
     store: store::StoreRef,
     repo: repo::Repository,
-    ts_engine: query::TimeseriesGatewayRef,
+    ts_gw: query::TimeseriesGatewayRef,
 }
 
 impl MosaicoFlightService {
     pub fn try_new(store: store::StoreRef, repo: repo::Repository) -> Result<Self, String> {
-        let ts_engine =
+        let ts_gw =
             Arc::new(query::TimeseriesGateway::try_new(store.clone()).map_err(|e| e.to_string())?);
 
-        Ok(MosaicoFlightService {
-            store,
-            repo,
-            ts_engine,
-        })
+        Ok(MosaicoFlightService { store, repo, ts_gw })
+    }
+
+    pub fn context(&self) -> endpoints::Context {
+        endpoints::Context::new(self.store.clone(), self.repo.clone(), self.ts_gw.clone())
     }
 }
 #[tonic::async_trait]
@@ -100,7 +100,7 @@ impl FlightService for MosaicoFlightService {
     ) -> Result<Response<Self::ListFlightsStream>, Status> {
         let criteria = request.into_inner();
 
-        let stream = endpoints::list_flights(self.repo.clone(), criteria)
+        let stream = endpoints::list_flights(self.context(), criteria)
             .await
             .inspect_err(log_server_error)?;
 
@@ -113,7 +113,7 @@ impl FlightService for MosaicoFlightService {
     ) -> Result<Response<FlightInfo>, Status> {
         let desc = request.into_inner();
 
-        let info = endpoints::get_flight_info(self.store.clone(), self.repo.clone(), desc)
+        let info = endpoints::get_flight_info(self.context(), desc)
             .await
             .inspect_err(log_server_error)?;
 
@@ -144,14 +144,9 @@ impl FlightService for MosaicoFlightService {
     ) -> Result<Response<Self::DoGetStream>, Status> {
         let ticket = request.into_inner();
 
-        let data_stream = endpoints::do_get(
-            self.store.clone(),
-            self.repo.clone(),
-            self.ts_engine.clone(),
-            ticket,
-        )
-        .await
-        .inspect_err(log_server_error)?;
+        let data_stream = endpoints::do_get(self.context(), ticket)
+            .await
+            .inspect_err(log_server_error)?;
 
         // map data stream error (flight error) to a tonic one
         let out_stream = data_stream
@@ -168,7 +163,7 @@ impl FlightService for MosaicoFlightService {
         let stream = request.into_inner();
         let mut decoder = FlightDataDecoder::new(stream.map_err(Into::into));
 
-        endpoints::do_put(self.store.clone(), self.repo.clone(), &mut decoder)
+        endpoints::do_put(self.context(), &mut decoder)
             .await
             .inspect_err(log_server_error)?;
 
@@ -184,14 +179,9 @@ impl FlightService for MosaicoFlightService {
             .map_err(ServerError::from)
             .inspect_err(log_server_error)?;
 
-        let response = endpoints::do_action(
-            self.store.clone(),
-            self.repo.clone(),
-            self.ts_engine.clone(),
-            action,
-        )
-        .await
-        .inspect_err(log_server_error)?;
+        let response = endpoints::do_action(self.context(), action)
+            .await
+            .inspect_err(log_server_error)?;
 
         let bytes = response
             .bytes()
