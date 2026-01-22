@@ -103,12 +103,10 @@ class DataFrameExtractor:
         global_start_ns = (
             start_ns
             if start_ns is not None
-            else 0  # FIXME: self._sequence_handler.min_timestamp_ns
+            else self._sequence_handler.timestamp_ns_min
         )
         global_end_ns = (
-            end_ns
-            if end_ns is not None
-            else 0  # FIXME:self._sequence_handler.max_timestamp_ns
+            end_ns if end_ns is not None else self._sequence_handler.timestamp_ns_max
         )
         window_ns = int(window_sec * 1e9)
         is_full_load = window_ns >= (global_end_ns - global_start_ns)

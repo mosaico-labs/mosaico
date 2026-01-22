@@ -38,6 +38,7 @@ class TopicWriter:
 
     def __init__(
         self,
+        *,
         topic_name: str,
         sequence_name: str,
         client: fl.FlightClient,
@@ -127,7 +128,13 @@ class TopicWriter:
             max_batch_size_records=config.max_batch_size_records,
         )
 
-        return cls(topic_name, sequence_name, client, wrstate, config)
+        return cls(
+            topic_name=topic_name,
+            sequence_name=sequence_name,
+            client=client,
+            state=wrstate,
+            config=config,
+        )
 
     # --- Context Manager ---
     def __enter__(self) -> "TopicWriter":

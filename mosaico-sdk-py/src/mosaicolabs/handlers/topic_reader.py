@@ -28,7 +28,14 @@ class TopicDataStreamer:
     to allow peek-ahead capabilities (used by sequence-level merging).
     """
 
-    def __init__(self, client: fl.FlightClient, state: _TopicReadState):
+    def __init__(
+        self,
+        *,
+        client: fl.FlightClient,
+        state: _TopicReadState,
+        timestamp_ns_min: int,
+        timestamp_ns_max: int,
+    ):
         """
         Internal constructor.
         Users can retrieve an instance by using 'get_data_streamer()` from a TopicHandler instance instead.
@@ -38,10 +45,19 @@ class TopicDataStreamer:
         """The FlightClient used for remote operations."""
         self._rdstate: _TopicReadState = state
         """The actual reader object"""
+        self._timestamp_ns_min = timestamp_ns_min
+        """Lowest timestamp [ns] in the sequence (among all the topics)"""
+        self._timestamp_ns_max = timestamp_ns_max
+        """Highest timestamp [ns] in the sequence (among all the topics)"""
 
     @classmethod
     def connect(
-        cls, client: fl.FlightClient, topic_name: str, ticket: fl.Ticket
+        cls,
+        client: fl.FlightClient,
+        topic_name: str,
+        ticket: fl.Ticket,
+        timestamp_ns_min: int,
+        timestamp_ns_max: int,
     ) -> "TopicDataStreamer":
         """
         Factory method to initialize a streamer.
@@ -65,7 +81,12 @@ class TopicDataStreamer:
             reader=reader,
             ontology_tag=ontology_tag,
         )
-        return TopicDataStreamer(client=client, state=rdstate)
+        return TopicDataStreamer(
+            client=client,
+            state=rdstate,
+            timestamp_ns_min=timestamp_ns_min,
+            timestamp_ns_max=timestamp_ns_max,
+        )
 
     def name(self) -> str:
         """Returns the topic name."""
@@ -129,6 +150,16 @@ class TopicDataStreamer:
         self._rdstate.peek_next_row()
 
         return Message.create(self._rdstate.ontology_tag, **row_dict)
+
+    @property
+    def timestamp_ns_min(self):
+        """Return the lowest timestamp in nanoseconds, for this topic"""
+        return self._timestamp_ns_min
+
+    @property
+    def timestamp_ns_max(self):
+        """Return the highest timestamp in nanoseconds, for this topic"""
+        return self._timestamp_ns_max
 
     def close(self):
         """Closes the underlying Flight stream."""

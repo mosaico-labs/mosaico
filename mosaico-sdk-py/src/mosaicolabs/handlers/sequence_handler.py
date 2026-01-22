@@ -10,15 +10,15 @@ import json
 import pyarrow.flight as fl
 from typing import Dict, Any, List, Optional, Type
 
+from .endpoints import TopicParsingError, TopicResourceManifest
+from .sequence_reader import SequenceDataStreamer
+from .topic_handler import TopicHandler
 from ..comm.metadata import SequenceMetadata, _decode_metadata
 from ..comm.do_action import _do_action, _DoActionResponseSysInfo
 from ..enum import FlightAction
 from ..models.platform import Sequence
 from ..helpers import sanitize_sequence_name
 from ..logging_config import get_logger
-from .helpers import _parse_ep_ticket
-from .sequence_reader import SequenceDataStreamer
-from .topic_handler import TopicHandler
 
 # Set the hierarchical logger
 logger = get_logger(__name__)
@@ -35,7 +35,14 @@ class SequenceHandler:
     """
 
     # -------------------- Constructor --------------------
-    def __init__(self, sequence_model: Sequence, client: fl.FlightClient):
+    def __init__(
+        self,
+        *,
+        sequence_model: Sequence,
+        client: fl.FlightClient,
+        timestamp_ns_min: int,
+        timestamp_ns_max: int,
+    ):
         """
         Internal constructor.
         Users can retrieve an instance by using 'MosaicoClient.sequence_handler()` instead.
@@ -49,6 +56,10 @@ class SequenceHandler:
         """The spawned sequence data streamer instance"""
         self._sequence: Sequence = sequence_model
         """The sequence metadata model"""
+        self._timestamp_ns_min = timestamp_ns_min
+        """Lowest timestamp [ns] in the sequence (among all the topics)"""
+        self._timestamp_ns_max = timestamp_ns_max
+        """Highest timestamp [ns] in the sequence (among all the topics)"""
 
     @classmethod
     def connect(
@@ -89,20 +100,21 @@ class SequenceHandler:
             _decode_metadata(flight_info.schema.metadata)
         )
 
-        # Discover Topics from Endpoints
+        # Extract the Topics resource manifests data
         stopics = []
+        tstamps_ns_min = []
+        tstamps_ns_max = []
         for ep in flight_info.endpoints:
-            if len(ep.locations) != 1:
+            try:
+                topic_resrc_mdata = TopicResourceManifest.from_flight_endpoint(ep)
+            except TopicParsingError as e:
+                logger.error(f"Skipping invalid topic endpoint, err: '{e}'")
                 continue
-            ep_ticket_data = _parse_ep_ticket(ep.locations[0].uri)
-            if ep_ticket_data is None:
-                logger.error(
-                    f"Skipping endpoint with invalid ticket format: '{ep.locations[0].uri}'"
-                )
-                continue
-            # retrieve standardized topic name
-            _, stdzd_topic_name = ep_ticket_data
-            stopics.append(stdzd_topic_name)
+            stopics.append(topic_resrc_mdata.topic_name)
+            # NOTE: Here we collect the 'min'/'max' timestamps, as we are at a sequence-level
+            # (not time-windowed stream)
+            tstamps_ns_min.append(topic_resrc_mdata.timestamp_ns_min)
+            tstamps_ns_max.append(topic_resrc_mdata.timestamp_ns_max)
 
         # Get System Info
         ACTION = FlightAction.SEQUENCE_SYSTEM_INFO
@@ -124,7 +136,12 @@ class SequenceHandler:
             topics=stopics,
         )
 
-        return cls(sequence_model, client)
+        return cls(
+            sequence_model=sequence_model,
+            client=client,
+            timestamp_ns_min=min(tstamps_ns_min),
+            timestamp_ns_max=max(tstamps_ns_max),
+        )
 
     # --- Context Manager ---
     def __enter__(self) -> "SequenceHandler":
@@ -165,6 +182,16 @@ class SequenceHandler:
     def sequence_info(self) -> Sequence:
         """Returns the full Sequence model."""
         return self._sequence
+
+    @property
+    def timestamp_ns_min(self):
+        """Return the lowest timestamp in nanoseconds, among all the topics"""
+        return self._timestamp_ns_min
+
+    @property
+    def timestamp_ns_max(self):
+        """Return the highest timestamp in nanoseconds, among all the topics"""
+        return self._timestamp_ns_max
 
     def get_data_streamer(
         self,

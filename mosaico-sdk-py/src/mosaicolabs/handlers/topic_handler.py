@@ -10,7 +10,7 @@ import json
 import pyarrow.flight as fl
 from typing import Any, Optional, Type
 
-from .helpers import _parse_ep_ticket
+from .endpoints import TopicParsingError, TopicResourceManifest
 from .topic_reader import TopicDataStreamer
 
 from ..comm.metadata import TopicMetadata, _decode_metadata
@@ -39,7 +39,15 @@ class TopicHandler:
     User intending getting an instance of this class, must use 'MosaicoClient.topic_handler()' factory.
     """
 
-    def __init__(self, client: fl.FlightClient, topic_model: Topic, ticket: fl.Ticket):
+    def __init__(
+        self,
+        *,
+        client: fl.FlightClient,
+        topic_model: Topic,
+        ticket: fl.Ticket,
+        timestamp_ns_min: int,
+        timestamp_ns_max: int,
+    ):
         """
         Internal constructor.
         Users can retrieve an instance by using 'MosaicoClient.topic_handler()` instead.
@@ -53,6 +61,10 @@ class TopicHandler:
         """The FlightTicket of the remote resource corresponding to this topic"""
         self._data_streamer_instance: Optional[TopicDataStreamer] = None
         """The instance of the spawned data streamer handler"""
+        self._timestamp_ns_min = timestamp_ns_min
+        """Lowest timestamp [ns] in the sequence (among all the topics)"""
+        self._timestamp_ns_max = timestamp_ns_max
+        """Highest timestamp [ns] in the sequence (among all the topics)"""
 
     @classmethod
     def connect(
@@ -99,30 +111,28 @@ class TopicHandler:
             _decode_metadata(flight_info.schema.metadata)
         )
 
-        # Extract the Ticket for this specific topic
+        # Extract the Topic resource manifest data and the ticket
         ticket: Optional[fl.Ticket] = None
-        ep_ticket_data = None
+        topic_resrc_mdata: Optional[TopicResourceManifest] = None
         for ep in flight_info.endpoints:
-            if len(ep.locations) != 1:
-                continue
-            ep_ticket_data = _parse_ep_ticket(ep.locations[0].uri)
-            if ep_ticket_data is None:
-                logger.error(
-                    f"Skipping endpoint with invalid ticket format: '{ep.locations[0].uri}'"
-                )
+            try:
+                topic_resrc_mdata = TopicResourceManifest.from_flight_endpoint(ep)
+            except TopicParsingError as e:
+                logger.error(f"Skipping invalid topic endpoint, err: '{e}'")
                 continue
             # here the topic name is sanitized
-            if ep_ticket_data and ep_ticket_data[1] == _stzd_topic_name:
+            if topic_resrc_mdata.topic_name == _stzd_topic_name:
                 ticket = ep.ticket
                 break
 
-        if ticket is None:
+        if ticket is None or topic_resrc_mdata is None:
             logger.error(
                 f"Unable to init handler for topic '{topic_name}' in sequence '{sequence_name}'"
             )
             return None
 
         # Get System Info (Size, dates, etc.)
+        # TODO: This data can be sent via the manifest also (in the flight endpoint). Backend agrees too
         ACTION = FlightAction.TOPIC_SYSTEM_INFO
         act_resp = _do_action(
             client=client,
@@ -143,7 +153,15 @@ class TopicHandler:
             sys_info=act_resp,
         )
 
-        return cls(client, topic_model, ticket)
+        # NOTE: Here we collect the 'min'/'max' timestamps, as we are at a topic-level
+        # (not time-windowed stream)
+        return cls(
+            client=client,
+            topic_model=topic_model,
+            ticket=ticket,
+            timestamp_ns_min=topic_resrc_mdata.timestamp_ns_min,
+            timestamp_ns_max=topic_resrc_mdata.timestamp_ns_max,
+        )
 
     # --- Context Manager ---
     def __enter__(self) -> "TopicHandler":
@@ -179,6 +197,16 @@ class TopicHandler:
         """Returns the topic name."""
         return self._topic.name
 
+    @property
+    def timestamp_ns_min(self):
+        """Return the lowest timestamp in nanoseconds, for this topic"""
+        return self._timestamp_ns_min
+
+    @property
+    def timestamp_ns_max(self):
+        """Return the highest timestamp in nanoseconds, for this topic"""
+        return self._timestamp_ns_max
+
     def get_data_streamer(
         self,
         start_timestamp_ns: Optional[int] = None,
@@ -210,6 +238,8 @@ class TopicHandler:
             self._data_streamer_instance.close()
             self._data_streamer_instance = None
 
+        tstamp_ns_min = self._timestamp_ns_min
+        tstamp_ns_max = self._timestamp_ns_max
         if start_timestamp_ns is not None or end_timestamp_ns is not None:
             topic_resrc_name = pack_topic_resource_name(
                 self._topic.sequence_name, self._topic.name
@@ -230,19 +260,19 @@ class TopicHandler:
                     f"Server error while asking for Topic descriptor, {e}"
                 )
             ticket: Optional[fl.Ticket] = None
-            ep_ticket_data = None
             for ep in flight_info.endpoints:
-                if len(ep.locations) != 1:
-                    continue
-                ep_ticket_data = _parse_ep_ticket(ep.locations[0].uri)
-                if ep_ticket_data is None:
-                    logger.error(
-                        f"Skipping endpoint with invalid ticket format: '{ep.locations[0].uri}'"
-                    )
+                try:
+                    topic_resrc_mdata = TopicResourceManifest.from_flight_endpoint(ep)
+                except TopicParsingError as e:
+                    logger.error(f"Skipping invalid topic endpoint, err: '{e}'")
                     continue
                 # here the topic name is sanitized
-                if ep_ticket_data and ep_ticket_data[1] == self._topic.name:
+                if topic_resrc_mdata.topic_name == self._topic.name:
                     ticket = ep.ticket
+                    # NOTE: Here we are getting the 'start'/'end' fields, as the user have
+                    # asked for a time-windowed stream
+                    tstamp_ns_min = topic_resrc_mdata.timestamp_ns_start
+                    tstamp_ns_max = topic_resrc_mdata.timestamp_ns_end
                     break
 
             if ticket is None:
@@ -256,6 +286,8 @@ class TopicHandler:
             client=self._fl_client,
             topic_name=self.name,
             ticket=ticket,
+            timestamp_ns_min=tstamp_ns_min,
+            timestamp_ns_max=tstamp_ns_max,
         )
         return self._data_streamer_instance
 

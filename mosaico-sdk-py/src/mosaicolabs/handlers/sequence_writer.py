@@ -39,6 +39,7 @@ class SequenceWriter:
     # -------------------- Constructor --------------------
     def __init__(
         self,
+        *,
         sequence_name: str,
         client: fl.FlightClient,
         connection_pool: Optional[_ConnectionPool],
