@@ -5,8 +5,8 @@
 //! For retrieving parameters that can be configured during startup (with env variables),
 //! see the [`load_configurables_from_env`] function and the [`configurables`] accessor.
 
-/// Defines the name of the `timestamp` column in the arrow schema
-pub const ARROW_SCHEMA_COLUMN_NAME_TIMESTAMP: &str = "timestamp_ns";
+/// Defines the name of the index timestamp column in the arrow schema
+pub const ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP: &str = "timestamp_ns";
 
 /// Defines schema name for mosaico resources
 pub const MOSAICO_URL_SCHEMA: &str = "mosaico";

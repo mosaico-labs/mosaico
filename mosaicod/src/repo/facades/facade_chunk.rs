@@ -28,16 +28,16 @@ impl<'a> FacadeChunk<'a> {
     /// Push all column statistics using batch inserts for better performance.
     /// This method collects all stats, resolves column IDs, then performs
     /// two batch INSERT operations (one for numeric, one for literal stats).
-    pub async fn push_all_stats(
+    pub async fn push_ontology_model_stats(
         &mut self,
         ontology_tag: &str,
-        cstats: types::ColumnsStats,
+        cstats: types::OntologyModelStats,
     ) -> Result<(), FacadeError> {
         let mut numeric_batch: Vec<repo::ColumnChunkNumeric> = Vec::new();
         let mut literal_batch: Vec<repo::ColumnChunkLiteral> = Vec::new();
 
         // First pass: resolve column IDs and collect stats for batch insert
-        for (field, stats) in cstats.stats {
+        for (field, stats) in cstats.cols {
             if stats.is_unsupported() {
                 continue;
             }

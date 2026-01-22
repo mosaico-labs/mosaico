@@ -1,6 +1,10 @@
 use crate::types;
 use bincode::{Decode, Encode};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
+
+// ////////////////////////////////////////////////////////////////////////////
+// GET FLIGHT INFO CMD
+// ////////////////////////////////////////////////////////////////////////////
 
 /// Non-exported type for deserialize [`GetFlightInfoCmd`]
 #[derive(Deserialize)]
@@ -39,6 +43,9 @@ pub fn get_flight_info_cmd(v: &[u8]) -> Result<types::flight::GetFlightInfoCmd, 
         .map(|v| v.into())
 }
 
+// ////////////////////////////////////////////////////////////////////////////
+// DO PUT
+// ////////////////////////////////////////////////////////////////////////////
 #[derive(Deserialize)]
 struct DoPutCmd {
     resource_locator: String,
@@ -60,6 +67,9 @@ pub fn do_put_cmd(v: &[u8]) -> Result<types::flight::DoPutCmd, super::Error> {
         .map(|v| v.into())
 }
 
+// ////////////////////////////////////////////////////////////////////////////
+// TICKET TOPIC
+// ////////////////////////////////////////////////////////////////////////////
 #[derive(Encode, Decode)]
 struct TicketTopic {
     locator: String,
@@ -113,6 +123,62 @@ pub fn ticket_topic_from_binary(v: &[u8]) -> Result<types::flight::TicketTopic, 
     Ok(ticket.into())
 }
 
+// ////////////////////////////////////////////////////////////////////////////
+// TOPIC APP METADATA
+// ////////////////////////////////////////////////////////////////////////////
+
+/// Topic app metadata sent when requesting flight info topics and sequences flights
+#[derive(Serialize)]
+pub struct TopicAppMetadata {
+    /// Topic timestamp data
+    timestamp: TopicAppMetadataTimestamp,
+}
+
+impl TopicAppMetadata {
+    pub fn new(
+        manifest: &types::TopicManifest,
+        timestamp_range: Option<types::TimestampRange>,
+    ) -> Self {
+        let start = timestamp_range
+            .as_ref()
+            .map_or_else(|| manifest.timestamp.range.start, |ts| ts.start);
+
+        let end = timestamp_range
+            .as_ref()
+            .map_or_else(|| manifest.timestamp.range.end, |ts| ts.end);
+
+        Self {
+            timestamp: TopicAppMetadataTimestamp {
+                min: manifest.timestamp.range.start.as_i64(),
+                max: manifest.timestamp.range.end.as_i64(),
+                start: start.as_i64(),
+                end: end.as_i64(),
+            },
+        }
+    }
+}
+
+impl From<TopicAppMetadata> for bytes::Bytes {
+    fn from(value: TopicAppMetadata) -> Self {
+        serde_json::to_vec(&value).unwrap_or_default().into()
+    }
+}
+
+#[derive(Serialize)]
+struct TopicAppMetadataTimestamp {
+    /// Minimum timestamp observed in the topic
+    min: i64,
+    /// Maximum timestamp observed in the topic
+    max: i64,
+    /// Holds the first timestamp of the requested topic
+    start: i64,
+    /// Holds the last timestamp of the requested topic
+    end: i64,
+}
+
+// ////////////////////////////////////////////////////////////////////////////
+// TESTS
+// ////////////////////////////////////////////////////////////////////////////
 #[cfg(test)]
 mod tests {
 

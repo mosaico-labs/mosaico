@@ -134,7 +134,7 @@ mod tests {
 
         let repo = repo::testing::Repository::new(pool);
         let store = store::testing::Store::new_random_on_tmp().unwrap();
-        let ts_engine = query::TimeseriesGateway::try_new(store.clone()).unwrap();
+        let ts_engine = query::Timeseries::try_new(store.clone()).unwrap();
 
         #[derive(serde::Serialize, Debug)]
         struct Request {

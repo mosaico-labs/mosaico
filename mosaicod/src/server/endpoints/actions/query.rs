@@ -20,7 +20,8 @@ pub async fn execute(
 
     trace!("query filter: {:?}", filter);
 
-    let groups = FacadeQuery::query(filter, ctx.ts_gw.clone(), ctx.repo.clone()).await?;
+    let groups =
+        FacadeQuery::query(filter, ctx.timeseries_querier.clone(), ctx.repo.clone()).await?;
 
     trace!("groups found: {:?}", groups);
 

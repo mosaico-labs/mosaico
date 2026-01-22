@@ -107,7 +107,7 @@ impl FormatStrategy for RaggedFormatStrategy {
 
 impl ParquetFormatStrategy for RaggedFormatStrategy {
     fn writer_properties(&self) -> WriterProperties {
-        let ts_path = ColumnPath::from(params::ARROW_SCHEMA_COLUMN_NAME_TIMESTAMP);
+        let ts_path = ColumnPath::from(params::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP);
 
         WriterProperties::builder()
             .set_writer_version(WriterVersion::PARQUET_2_0)
@@ -155,7 +155,7 @@ impl FormatStrategy for ImageFormatStrategy {
 
 impl ParquetFormatStrategy for ImageFormatStrategy {
     fn writer_properties(&self) -> WriterProperties {
-        let ts_path = ColumnPath::from(params::ARROW_SCHEMA_COLUMN_NAME_TIMESTAMP);
+        let ts_path = ColumnPath::from(params::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP);
 
         WriterProperties::builder()
             .set_writer_version(WriterVersion::PARQUET_2_0)

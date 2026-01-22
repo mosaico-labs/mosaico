@@ -14,7 +14,7 @@ use super::chunk_writer::{ChunkMetadata, ChunkWriter};
 type OnChunkCallback = Box<
     dyn Fn(
             std::path::PathBuf,
-            types::ColumnsStats,
+            types::OntologyModelStats,
             ChunkMetadata,
         ) -> Pin<Box<dyn Future<Output = Result<(), Box<dyn std::error::Error>>> + Send>>
         + Send
@@ -23,6 +23,13 @@ type OnChunkCallback = Box<
 
 /// Callback used to define a format function for files
 type OnFileFormat = Box<dyn Fn(&std::path::Path, &Format, usize) -> std::path::PathBuf + Send>;
+
+/// Summary data produced after write completion
+#[derive(Default)]
+pub struct ChunkedWriterSummary {
+    /// Total number of chunks created during write
+    pub number_of_chunks_created: usize,
+}
 
 /// Writes [`RecordBatch`] into multiple chunks to a location. A location is a path like structure.
 /// Internally the [`ChunkedWriter`] can subdivide the batches in multiple files.
@@ -36,20 +43,28 @@ pub struct ChunkedWriter<W> {
     ///
     /// When the chunk-size constraint is reached, a new writer will be created.
     writer: Option<ChunkWriter>,
+
     format: Format,
+
+    /// Target of the write operation for this writer
     write_target: W,
+
     /// Target path where the data will be serialized (e.g., `my/target/path`).
     ///
     /// Do not include a file extension or filename. The [`ChunkedWriter`] will
     /// automatically split the data into multiple files if the maximum chunk-size
     /// constraint is reached.
     path: PathBuf,
+
     /// Number of chunks serialized
     chunk_serialized_number: usize,
+
     /// Function called just before the chunk finalization (and serialization)
     on_chunk_created_clbk: Option<OnChunkCallback>,
+
     /// Callback used to format data when written
     on_file_format: OnFileFormat,
+
     /// Maximum chunk size in bytes. When exceeded after writing a batch,
     /// the current chunk is finalized and a new one is started.
     /// `None` means no limit (current behavior preserved).
@@ -96,7 +111,7 @@ impl<W> ChunkedWriter<W> {
     /// serialization.
     pub fn on_chunk_created<F1, Fut>(&mut self, clbk: F1)
     where
-        F1: Fn(std::path::PathBuf, types::ColumnsStats, ChunkMetadata) -> Fut
+        F1: Fn(std::path::PathBuf, types::OntologyModelStats, ChunkMetadata) -> Fut
             + Send
             + Sync
             + 'static,
@@ -142,7 +157,7 @@ impl<W> ChunkedWriter<W> {
             Ok::<_, Error>(writer)
         })
         .await
-        .map_err(|e| Error::SpawnBlockingError(e.to_string()))??;
+        .map_err(|e| Error::BlockingOperationError(e.to_string()))??;
 
         // Check if we should auto-finalize based on chunk size threshold
         if let Some(max) = self.max_chunk_size {
@@ -156,7 +171,7 @@ impl<W> ChunkedWriter<W> {
 
                 // Put the writer back for finalize() to consume it
                 self.writer = Some(writer);
-                self.finalize().await?;
+                self.finalize_chunk().await?;
                 // After finalize(), self.writer is None, ready for next chunk
             } else {
                 self.writer = Some(writer);
@@ -172,13 +187,26 @@ impl<W> ChunkedWriter<W> {
     ///
     /// It is important to call this method to ensure that an open chunk is properly finalized
     /// and written.
-    pub async fn finalize<A>(&mut self) -> Result<(), Error>
+    pub async fn finalize<A>(mut self) -> Result<ChunkedWriterSummary, Error>
+    where
+        A: traits::AsyncWriteToPath,
+        W: AsRef<A>,
+    {
+        self.finalize_chunk().await?;
+
+        Ok(ChunkedWriterSummary {
+            number_of_chunks_created: self.chunk_serialized_number,
+        })
+    }
+
+    /// Finalize the writing process of a single chunk
+    async fn finalize_chunk<A>(&mut self) -> Result<(), Error>
     where
         A: traits::AsyncWriteToPath,
         W: AsRef<A>,
     {
         // Calling this function will "consume" the current writer.
-        // If another write_batch willl be called after this function call
+        // If another write_batch will be called after this function call
         // will cause the instantiation of another writer.
         if let Some(writer) = self.writer.take() {
             let path =
@@ -186,9 +214,10 @@ impl<W> ChunkedWriter<W> {
             self.chunk_serialized_number += 1;
 
             // Offload CPU-intensive parquet finalization to blocking thread pool
-            let (buffer, stats, metadata) = tokio::task::spawn_blocking(move || writer.finalize())
-                .await
-                .map_err(|e| Error::SpawnBlockingError(e.to_string()))??;
+            let (buffer, om_stats, metadata) =
+                tokio::task::spawn_blocking(move || writer.finalize())
+                    .await
+                    .map_err(|e| Error::BlockingOperationError(e.to_string()))??;
 
             self.write_target
                 .as_ref()
@@ -205,7 +234,7 @@ impl<W> ChunkedWriter<W> {
                 .as_ref()
                 .map(async move |clbk| {
                     debug!("calling chunk serialization callback");
-                    return clbk(path, stats, metadata).await;
+                    return clbk(path, om_stats, metadata).await;
                 })
                 .unwrap()
                 .await

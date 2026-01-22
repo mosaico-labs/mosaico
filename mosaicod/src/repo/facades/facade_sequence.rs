@@ -175,7 +175,7 @@ impl FacadeSequence {
 
     /// Read the metadata from the store and returns an `HashMap` containing all the metadata
     pub async fn metadata(&self) -> Result<SequenceMetadata, FacadeError> {
-        let path = self.locator.metadata();
+        let path = self.locator.path_metadata();
         let bytes = self.store.read_bytes(&path).await?;
 
         let data: marshal::JsonSequenceMetadata = bytes.try_into()?;
@@ -184,7 +184,7 @@ impl FacadeSequence {
     }
 
     async fn metadata_write_to_store(&self, metadata: SequenceMetadata) -> Result<(), FacadeError> {
-        let path = self.locator.metadata();
+        let path = self.locator.path_metadata();
 
         trace!("converting metadata to bytes");
         let json_mdata = marshal::JsonSequenceMetadata::from(metadata);

@@ -25,7 +25,7 @@ pub async fn do_get(ctx: Context, ticket: Ticket) -> Result<FlightDataEncoder, S
     let batch_size = tfacade.compute_optimal_batch_size().await?;
 
     let mut query_result = ctx
-        .ts_gw
+        .timeseries_querier
         .read(
             &tfacade.locator.name(),
             metadata.properties.serialization_format,

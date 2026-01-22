@@ -26,8 +26,11 @@ pub async fn get_flight_info(
 
             match resource.resource_type() {
                 types::ResourceType::Sequence => {
-                    let handle =
-                        FacadeSequence::new(resource.name().into(), ctx.store.clone(), ctx.repo);
+                    let handle = FacadeSequence::new(
+                        resource.name().into(),
+                        ctx.store.clone(),
+                        ctx.repo.clone(),
+                    );
                     let metadata = handle.metadata().await?;
 
                     trace!(
@@ -35,24 +38,39 @@ pub async fn get_flight_info(
                         handle.locator
                     );
 
+                    // Collect metadata
                     let metadata = marshal::JsonSequenceMetadata::from(metadata);
                     let flatten_metadata = metadata.to_flat_hashmap().map_err(FacadeError::from)?;
+
+                    // Collect schema
                     let schema = Schema::new_with_metadata(Vec::<Field>::new(), flatten_metadata);
 
                     trace!("{} generating endpoints", handle.locator);
                     let topics = handle.topic_list().await?;
+
+                    // Collect manifests
+                    let manifests = collect_manifests(ctx, &topics).await?;
+
+                    // Populate endpoints
                     let endpoints: Vec<FlightEndpoint> = topics
                         .into_iter()
-                        .map(|topic| {
+                        .enumerate()
+                        .map(|(index, topic)| {
                             let ticket = types::flight::TicketTopic {
                                 locator: topic.name().clone(),
                                 timestamp_range: cmd.timestamp_range.clone(),
                             };
 
+                            let app_mdata = marshal::flight::TopicAppMetadata::new(
+                                &manifests[index],
+                                cmd.timestamp_range.clone(),
+                            );
+
                             let e = FlightEndpoint::new()
                                 .with_ticket(Ticket {
                                     ticket: marshal::flight::ticket_topic_to_binary(ticket)?.into(),
                                 })
+                                .with_app_metadata(app_mdata)
                                 .with_location(topic.url()?);
 
                             Ok::<FlightEndpoint, ServerError>(e)
@@ -73,17 +91,32 @@ pub async fn get_flight_info(
                 }
 
                 types::ResourceType::Topic => {
-                    let handle = FacadeTopic::new(resource.name().into(), ctx.store, ctx.repo);
+                    let handle =
+                        FacadeTopic::new(resource.name().into(), ctx.store, ctx.repo.clone());
                     let metadata = handle.metadata().await?;
 
                     trace!("{} building schema (+platform metadata)", handle.locator);
+
+                    // Collect schema
                     let schema = handle
                         .arrow_schema(metadata.properties.serialization_format)
                         .await?;
+
+                    // Collect metadata
                     let metadata = marshal::JsonTopicMetadata::from(metadata);
                     let flatten_metadata = metadata.to_flat_hashmap().map_err(FacadeError::from)?;
                     let schema =
                         Schema::new_with_metadata(schema.fields().clone(), flatten_metadata);
+
+                    // Collect manifest
+                    let manifest = handle.manifest().await?;
+
+                    // We can get directly the only elements since collect_manifests ensures that
+                    // there will be at least one entry returned (if no error)
+                    let app_mdata = marshal::flight::TopicAppMetadata::new(
+                        &manifest,
+                        cmd.timestamp_range.clone(),
+                    );
 
                     let ticket = types::flight::TicketTopic {
                         locator: handle.locator.clone().into(),
@@ -95,6 +128,7 @@ pub async fn get_flight_info(
                         .with_ticket(Ticket {
                             ticket: marshal::flight::ticket_topic_to_binary(ticket)?.into(),
                         })
+                        .with_app_metadata(app_mdata)
                         .with_location(handle.locator.url()?);
 
                     trace!("{} generating endpoint {:?}", handle.locator, endpoint);
@@ -112,4 +146,26 @@ pub async fn get_flight_info(
         }
         _ => Err(ServerError::UnsupportedDescriptor),
     }
+}
+
+/// Retrieves the manifest for every provided topic.
+///
+/// This function guarantees a 1:1 mapping: the output vector will strictly correspond
+/// to the input slice in both length and order.
+pub async fn collect_manifests(
+    ctx: Context,
+    topics: &[types::TopicResourceLocator],
+) -> Result<Vec<types::TopicManifest>, ServerError> {
+    let mut manifests = Vec::new();
+
+    for topic in topics {
+        // (cabba) TODO: avoid cloning avery time store and repo, maybe a `.into_parts()` to reuse
+        // facade resources ?
+        let handler =
+            FacadeTopic::new(topic.name().to_owned(), ctx.store.clone(), ctx.repo.clone());
+        let manifest = handler.manifest().await?;
+        manifests.push(manifest);
+    }
+
+    Ok(manifests)
 }

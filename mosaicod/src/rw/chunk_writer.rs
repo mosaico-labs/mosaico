@@ -19,7 +19,7 @@ pub struct ChunkMetadata {
 pub struct ChunkWriter {
     pub format: Format,
     writer: Writer,
-    stats: types::ColumnsStats,
+    stats: types::OntologyModelStats,
     schema: SchemaRef,
     row_count: usize,
 }
@@ -33,7 +33,7 @@ impl ChunkWriter {
         Ok(ChunkWriter {
             writer: Writer::new(&schema, format)?,
             format,
-            stats: crate::arrow::column_stats_from_schema(&schema),
+            stats: crate::arrow::ontology_model_stats_from_schema(&schema),
             schema,
             row_count: 0,
         })
@@ -46,7 +46,7 @@ impl ChunkWriter {
     pub fn write(&mut self, batch: &RecordBatch) -> Result<(), Error> {
         match &mut self.writer {
             Writer::Parquet(writer) => {
-                crate::arrow::column_stats_inspect_record_batch(&mut self.stats, batch)?;
+                crate::arrow::ontology_model_stats_inspect_record_batch(&mut self.stats, batch)?;
                 writer.write(batch)?;
             }
         }
@@ -55,14 +55,14 @@ impl ChunkWriter {
     }
 
     /// Returns a reference to the current statistics of the serialized data.
-    pub fn statistics(&self) -> &types::ColumnsStats {
+    pub fn statistics(&self) -> &types::OntologyModelStats {
         &self.stats
     }
 
-    pub fn take_statistics(&mut self) -> types::ColumnsStats {
+    pub fn take_statistics(&mut self) -> types::OntologyModelStats {
         std::mem::replace(
             &mut self.stats,
-            crate::arrow::column_stats_from_schema(&self.schema),
+            crate::arrow::ontology_model_stats_from_schema(&self.schema),
         )
     }
 
@@ -92,7 +92,7 @@ impl ChunkWriter {
     /// preventing any further writes.
     ///
     /// Returns the serialized buffer, column statistics, and chunk metadata (size and row count).
-    pub fn finalize(self) -> Result<(Vec<u8>, types::ColumnsStats, ChunkMetadata), Error> {
+    pub fn finalize(self) -> Result<(Vec<u8>, types::OntologyModelStats, ChunkMetadata), Error> {
         // We are calling `finish`` since the implementation is the same as
         // close but takes no ownership of the writer. And we return the internal data buffer.
         let row_count = self.row_count;
@@ -183,10 +183,10 @@ mod tests {
         dbg!(cstats);
 
         // The schema should be flattened into 5 fields: timestamp, label, is_braking, pose.x, pose.y, image
-        assert_eq!(cstats.stats.len(), 6);
+        assert_eq!(cstats.cols.len(), 6);
 
         // Check stats for "timestamp"
-        if let Some(types::Stats::Numeric(s)) = cstats.stats.get("timestamp") {
+        if let Some(types::Stats::Numeric(s)) = cstats.cols.get("timestamp") {
             assert_eq!(s.min, 1.0);
             assert_eq!(s.max, 3.0);
             assert!(!s.has_null);
@@ -196,7 +196,7 @@ mod tests {
         }
 
         // Check  stats for "is_braking"
-        if let Some(types::Stats::Numeric(v)) = cstats.stats.get("is_braking") {
+        if let Some(types::Stats::Numeric(v)) = cstats.cols.get("is_braking") {
             assert_eq!(v.min, 0.0);
             assert_eq!(v.max, 1.0);
             assert!(!v.has_null);
@@ -207,7 +207,7 @@ mod tests {
 
         // Check stats for "label", and check that the computed bloom filter has
         // all the values in the set
-        if let Some(types::Stats::Text(s)) = cstats.stats.get("label") {
+        if let Some(types::Stats::Text(s)) = cstats.cols.get("label") {
             assert_eq!(s.min.as_deref(), Some("a"));
             assert_eq!(s.max.as_deref(), Some("c"));
 
@@ -217,7 +217,7 @@ mod tests {
         }
 
         // Check stats for "pose.x"
-        if let Some(types::Stats::Numeric(s)) = cstats.stats.get("pose.x") {
+        if let Some(types::Stats::Numeric(s)) = cstats.cols.get("pose.x") {
             assert!((s.min - 0.1).abs() < params::EPSILON);
             assert!((s.max - 0.3).abs() < params::EPSILON);
             assert!(!s.has_null);
@@ -227,7 +227,7 @@ mod tests {
         }
 
         // Check stats for "pose.y"
-        if let Some(types::Stats::Numeric(s)) = cstats.stats.get("pose.y") {
+        if let Some(types::Stats::Numeric(s)) = cstats.cols.get("pose.y") {
             assert!((s.min - 1.1).abs() < params::EPSILON);
             assert!((s.max - 1.3).abs() < params::EPSILON);
             assert!(!s.has_null);
@@ -238,7 +238,7 @@ mod tests {
 
         // Check stats for "image", since this column holds binary data no statistics
         // needs to be computed
-        assert_eq!(cstats.stats.get("image"), Some(&types::Stats::Unsupported));
+        assert_eq!(cstats.cols.get("image"), Some(&types::Stats::Unsupported));
 
         // Finalize the writer (optional in test, but good practice)
         let (buffer, _, metadata) = writer.finalize().expect("Failed to finalize writer");
