@@ -369,3 +369,29 @@ def test_non_existing_field(
 
     # free resources
     _client.close()
+
+
+# FIXME: enable after backend fixes
+def _test_sequence_no_data(
+    _client: MosaicoClient,
+    _inject_sequences_mockup,  # Make sure data are available on the server
+):
+    """Test retrieving the dataframe from an empty (no data stream) sequence"""
+    # start from the half of the sequence
+
+    seqhandler = _client.sequence_handler("test-query-sequence-1")
+    # Sequence must exist
+    assert seqhandler is not None
+    # --- Topic 1 ---
+
+    with pytest.raises(ValueError, match="The sequence might contain no data"):
+        for _ in DataFrameExtractor(seqhandler).to_pandas_chunks(
+            selection=None,  # all the topics
+            window_sec=5,
+            start_ns=None,
+            end_ns=None,
+        ):
+            pass
+
+    # free resources
+    _client.close()

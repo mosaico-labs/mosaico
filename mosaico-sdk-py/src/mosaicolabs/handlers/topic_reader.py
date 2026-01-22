@@ -5,14 +5,17 @@ This module provides the `TopicDataStreamer`, an iterator that reads ontology re
 from a single topic via the Flight `DoGet` protocol.
 """
 
+import json
+from mosaicolabs.handlers.endpoints import TopicParsingError, TopicResourceManifest
 from mosaicolabs.models.message import Message
 import pyarrow.flight as fl
 import pyarrow as pa
-from typing import Optional
+from typing import Any, Optional
 
 from .internal.topic_read_state import _TopicReadState
 
 from ..comm.metadata import TopicMetadata, _decode_metadata
+from ..helpers.helpers import pack_topic_resource_name
 from ..logging_config import get_logger
 
 # Set the hierarchical logger
@@ -33,8 +36,6 @@ class TopicDataStreamer:
         *,
         client: fl.FlightClient,
         state: _TopicReadState,
-        timestamp_ns_min: int,
-        timestamp_ns_max: int,
     ):
         """
         Internal constructor.
@@ -45,25 +46,20 @@ class TopicDataStreamer:
         """The FlightClient used for remote operations."""
         self._rdstate: _TopicReadState = state
         """The actual reader object"""
-        self._timestamp_ns_min = timestamp_ns_min
-        """Lowest timestamp [ns] in the sequence (among all the topics)"""
-        self._timestamp_ns_max = timestamp_ns_max
-        """Highest timestamp [ns] in the sequence (among all the topics)"""
 
     @classmethod
-    def connect(
+    def connect_from_ticket(
         cls,
         client: fl.FlightClient,
         topic_name: str,
         ticket: fl.Ticket,
-        timestamp_ns_min: int,
-        timestamp_ns_max: int,
     ) -> "TopicDataStreamer":
         """
-        Factory method to initialize a streamer.
+        Factory method to initialize a streamer, starting from a flight Ticket
 
         Args:
             client (fl.FlightClient): Connected Flight client.
+            topic_name (str): The name of the topic.
             ticket (fl.Ticket): The opaque ticket (from `get_flight_info`) representing the data stream.
 
         Returns:
@@ -81,12 +77,63 @@ class TopicDataStreamer:
             reader=reader,
             ontology_tag=ontology_tag,
         )
-        return TopicDataStreamer(
+        return cls(
             client=client,
             state=rdstate,
-            timestamp_ns_min=timestamp_ns_min,
-            timestamp_ns_max=timestamp_ns_max,
         )
+
+    @classmethod
+    def connect(
+        cls,
+        topic_name: str,
+        sequence_name: str,
+        client: fl.FlightClient,
+        start_timestamp_ns: Optional[int],
+        end_timestamp_ns: Optional[int],
+    ):
+        """
+        Factory method to initialize a streamer, via endpoint.
+
+        Args:
+            client (fl.FlightClient): Connected Flight client.
+            topic_name (str): The name of the topic.
+            sequence_name (str): The name of the parent sequence.
+            start_timestamp_ns (Optional[int]): The **inclusive** lower bound for the time window (in nanoseconds).
+                The stream will begin from the message with the timestamp **greater than or equal to** this value.
+            end_timestamp_ns (Optional[int]): The **exclusive** upper bound for the time window (in nanoseconds).
+                The stream will stop at the message with the timestamp **strictly lower than** this value.
+
+        Returns:
+            TopicDataStreamer: An initialized reader.
+        """
+
+        # Get FlightInfo (here we need just the Endpoints)
+        try:
+            flight_info = cls._get_flight_info(
+                sequence_name=sequence_name,
+                topic_name=topic_name,
+                start_timestamp_ns=start_timestamp_ns,
+                end_timestamp_ns=end_timestamp_ns,
+                client=client,
+            )
+        except Exception as e:
+            raise ConnectionError(
+                f"Server error while asking for Topic descriptor, {e}"
+            )
+        for ep in flight_info.endpoints:
+            try:
+                topic_resrc_mdata = TopicResourceManifest.from_flight_endpoint(ep)
+            except TopicParsingError as e:
+                logger.error(f"Skipping invalid topic endpoint, err: '{e}'")
+                continue
+            if topic_resrc_mdata.topic_name == topic_name:
+                return cls.connect_from_ticket(
+                    client=client,
+                    topic_name=topic_name,
+                    ticket=ep.ticket,
+                )
+
+        raise ValueError("Unable to init TopicDataStreamer")
 
     def name(self) -> str:
         """Returns the topic name."""
@@ -151,16 +198,6 @@ class TopicDataStreamer:
 
         return Message.create(self._rdstate.ontology_tag, **row_dict)
 
-    @property
-    def timestamp_ns_min(self):
-        """Return the lowest timestamp in nanoseconds, for this topic"""
-        return self._timestamp_ns_min
-
-    @property
-    def timestamp_ns_max(self):
-        """Return the highest timestamp in nanoseconds, for this topic"""
-        return self._timestamp_ns_max
-
     def close(self):
         """Closes the underlying Flight stream."""
         try:
@@ -187,3 +224,24 @@ class TopicDataStreamer:
             used concurrently.
         """
         return self._rdstate.fetch_next_batch()
+
+    @staticmethod
+    def _get_flight_info(
+        sequence_name: str,
+        topic_name: str,
+        start_timestamp_ns: Optional[int],
+        end_timestamp_ns: Optional[int],
+        client: fl.FlightClient,
+    ) -> fl.FlightInfo:
+        """Performs the get_flight_info call. Raises if flight function does"""
+        topic_resrc_name = pack_topic_resource_name(sequence_name, topic_name)
+        cmd_dict: dict[str, Any] = {"resource_locator": topic_resrc_name}
+        if start_timestamp_ns is not None:
+            cmd_dict.update({"timestamp_ns_start": start_timestamp_ns})
+        if end_timestamp_ns is not None:
+            cmd_dict.update({"timestamp_ns_end": end_timestamp_ns})
+
+        descriptor = fl.FlightDescriptor.for_command(json.dumps(cmd_dict))
+
+        # Get FlightInfo
+        return client.get_flight_info(descriptor)

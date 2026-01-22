@@ -8,7 +8,7 @@ serialization, and connection management.
 
 from concurrent.futures import ThreadPoolExecutor
 import json
-from typing import Any, Dict, Type, Optional
+from typing import Any, Type, Optional
 from mosaicolabs.models.header import Header
 from mosaicolabs.models.message import Message
 import pyarrow.flight as fl
@@ -67,7 +67,6 @@ class TopicWriter:
         topic_key: str,
         client: fl.FlightClient,
         executor: Optional[ThreadPoolExecutor],
-        metadata: Dict[str, Any],
         ontology_type: Type[Serializable],
         config: WriterConfig,
     ) -> "TopicWriter":

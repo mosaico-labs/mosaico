@@ -8,7 +8,7 @@ and create readers (`TopicDataStreamer`).
 
 import json
 import pyarrow.flight as fl
-from typing import Any, Optional, Type
+from typing import Any, Optional, Tuple, Type
 
 from .endpoints import TopicParsingError, TopicResourceManifest
 from .topic_reader import TopicDataStreamer
@@ -45,8 +45,8 @@ class TopicHandler:
         client: fl.FlightClient,
         topic_model: Topic,
         ticket: fl.Ticket,
-        timestamp_ns_min: int,
-        timestamp_ns_max: int,
+        timestamp_ns_min: Optional[int],
+        timestamp_ns_max: Optional[int],
     ):
         """
         Internal constructor.
@@ -61,9 +61,9 @@ class TopicHandler:
         """The FlightTicket of the remote resource corresponding to this topic"""
         self._data_streamer_instance: Optional[TopicDataStreamer] = None
         """The instance of the spawned data streamer handler"""
-        self._timestamp_ns_min = timestamp_ns_min
+        self._timestamp_ns_min: Optional[int] = timestamp_ns_min
         """Lowest timestamp [ns] in the sequence (among all the topics)"""
-        self._timestamp_ns_max = timestamp_ns_max
+        self._timestamp_ns_max: Optional[int] = timestamp_ns_max
         """Highest timestamp [ns] in the sequence (among all the topics)"""
 
     @classmethod
@@ -86,23 +86,13 @@ class TopicHandler:
         Returns:
             TopicHandler: Initialized handler.
         """
-        _stzd_sequence_name = sanitize_sequence_name(sequence_name)
-        _stzd_topic_name = sanitize_topic_name(topic_name)
-
-        topic_resrc_name = pack_topic_resource_name(
-            _stzd_sequence_name, _stzd_topic_name
-        )
-        descriptor = fl.FlightDescriptor.for_command(
-            json.dumps(
-                {
-                    "resource_locator": topic_resrc_name,
-                }
-            )
-        )
-
         # Get FlightInfo (Metadata + Endpoints)
         try:
-            flight_info = client.get_flight_info(descriptor)
+            flight_info, _stzd_sequence_name, _stzd_topic_name = cls._get_flight_info(
+                sequence_name=sequence_name,
+                topic_name=topic_name,
+                client=client,
+            )
         except Exception as e:
             logger.error(f"Server error while asking for Topic descriptor, '{e}'")
             return None
@@ -137,7 +127,9 @@ class TopicHandler:
         act_resp = _do_action(
             client=client,
             action=ACTION,
-            payload={"name": topic_resrc_name},
+            payload={
+                "name": pack_topic_resource_name(_stzd_sequence_name, _stzd_topic_name)
+            },
             expected_type=_DoActionResponseSysInfo,
         )
 
@@ -153,8 +145,7 @@ class TopicHandler:
             sys_info=act_resp,
         )
 
-        # NOTE: Here we collect the 'min'/'max' timestamps, as we are at a topic-level
-        # (not time-windowed stream)
+        # Get the 'min'/'max' timestamps, as we are at a topic-level
         return cls(
             client=client,
             topic_model=topic_model,
@@ -218,10 +209,10 @@ class TopicHandler:
         The streamer supports temporal slicing to retrieve data within a specific time window.
 
         Args:
-            start_timestamp_ns (int, optional): The inclusive lower bound for the time window (in nanoseconds).
-                The stream will begin from the message with the timestamp closest to or equal to this value.
-            end_timestamp_ns (int, optional): The inclusive upper bound for the time window (in nanoseconds).
-                The stream will stop after the message with the timestamp closest to or equal to this value.
+            start_timestamp_ns (int, optional): The **inclusive** lower bound for the time window (in nanoseconds).
+                The stream will begin from the message with the timestamp **greater than or equal to** this value.
+            end_timestamp_ns (int, optional): The **exclusive** upper bound for the time window (in nanoseconds).
+                The stream will stop at the message with the timestamp **strictly lower than** this value.
 
         Returns:
             TopicDataStreamer: An iterator yielding time-ordered messages from this topic.
@@ -234,61 +225,35 @@ class TopicHandler:
                 f"Unable to get a TopicDataStreamer for topic '{self._topic.name}': invalid TopicHandler!"
             )
 
+        # FIXME: uncomment when backed fixes
+        # self._validate_timestamps_info()
+
         if self._data_streamer_instance is not None:
             self._data_streamer_instance.close()
             self._data_streamer_instance = None
 
-        tstamp_ns_min = self._timestamp_ns_min
-        tstamp_ns_max = self._timestamp_ns_max
         if start_timestamp_ns is not None or end_timestamp_ns is not None:
-            topic_resrc_name = pack_topic_resource_name(
-                self._topic.sequence_name, self._topic.name
-            )
-            cmd_dict: dict[str, Any] = {"resource_locator": topic_resrc_name}
-            if start_timestamp_ns is not None:
-                cmd_dict.update({"timestamp_ns_start": start_timestamp_ns})
-            if end_timestamp_ns is not None:
-                cmd_dict.update({"timestamp_ns_end": end_timestamp_ns})
-
-            descriptor = fl.FlightDescriptor.for_command(json.dumps(cmd_dict))
-
-            # Get FlightInfo (here we need just the Endpoints)
+            # Spawn via connection (calls get_flight_info)
             try:
-                flight_info = self._fl_client.get_flight_info(descriptor)
-            except Exception as e:
-                raise ConnectionError(
-                    f"Server error while asking for Topic descriptor, {e}"
+                self._data_streamer_instance = TopicDataStreamer.connect(
+                    client=self._fl_client,
+                    topic_name=self.name,
+                    sequence_name=self._topic.sequence_name,
+                    start_timestamp_ns=start_timestamp_ns,
+                    end_timestamp_ns=end_timestamp_ns,
                 )
-            ticket: Optional[fl.Ticket] = None
-            for ep in flight_info.endpoints:
-                try:
-                    topic_resrc_mdata = TopicResourceManifest.from_flight_endpoint(ep)
-                except TopicParsingError as e:
-                    logger.error(f"Skipping invalid topic endpoint, err: '{e}'")
-                    continue
-                # here the topic name is sanitized
-                if topic_resrc_mdata.topic_name == self._topic.name:
-                    ticket = ep.ticket
-                    # NOTE: Here we are getting the 'start'/'end' fields, as the user have
-                    # asked for a time-windowed stream
-                    tstamp_ns_min = topic_resrc_mdata.timestamp_ns_start
-                    tstamp_ns_max = topic_resrc_mdata.timestamp_ns_end
-                    break
-
-            if ticket is None:
+            except Exception as e:
                 raise ValueError(
-                    f"Unable to init handler for topic {self.name} in sequence {self._topic.sequence_name}"
+                    f"Unable to init handler for topic {self.name} in sequence {self._topic.sequence_name}, err '{e}'"
                 )
         else:
-            ticket = self._fl_ticket
+            # Spawn via ticket (calls do_get straight)
+            self._data_streamer_instance = TopicDataStreamer.connect_from_ticket(
+                client=self._fl_client,
+                topic_name=self.name,
+                ticket=self._fl_ticket,
+            )
 
-        self._data_streamer_instance = TopicDataStreamer.connect(
-            client=self._fl_client,
-            topic_name=self.name,
-            ticket=ticket,
-            timestamp_ns_min=tstamp_ns_min,
-            timestamp_ns_max=tstamp_ns_max,
-        )
         return self._data_streamer_instance
 
     def close(self):
@@ -296,3 +261,34 @@ class TopicHandler:
         if self._data_streamer_instance is not None:
             self._data_streamer_instance.close()
         self._data_streamer_instance = None
+
+    @staticmethod
+    def _get_flight_info(
+        sequence_name: str,
+        topic_name: str,
+        client: fl.FlightClient,
+    ) -> Tuple[fl.FlightInfo, str, str]:
+        """Performs the get_flight_info call. Raises if flight function does"""
+        _stzd_sequence_name = sanitize_sequence_name(sequence_name)
+        _stzd_topic_name = sanitize_topic_name(topic_name)
+
+        topic_resrc_name = pack_topic_resource_name(
+            _stzd_sequence_name, _stzd_topic_name
+        )
+        descriptor = fl.FlightDescriptor.for_command(
+            json.dumps(
+                {
+                    "resource_locator": topic_resrc_name,
+                }
+            )
+        )
+
+        # Get FlightInfo (Metadata + Endpoints)
+        return client.get_flight_info(descriptor), _stzd_sequence_name, _stzd_topic_name
+
+    def _validate_timestamps_info(self):
+        if self._timestamp_ns_min is None or self._timestamp_ns_max is None:
+            raise ValueError(
+                f"Unable to get the data-stream for topic {self.name}. "
+                "The topic might contain no data or could not derive 'min' and 'max' timestamps."
+            )

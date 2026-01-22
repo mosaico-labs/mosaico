@@ -255,7 +255,6 @@ class SequenceWriter:
                 topic_key=act_resp.key,
                 client=data_client,
                 executor=executor,
-                metadata=metadata,
                 ontology_type=ontology_type,
                 config=self._config,
             )

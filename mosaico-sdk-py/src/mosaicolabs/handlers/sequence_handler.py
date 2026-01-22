@@ -8,7 +8,7 @@ and access reading interfaces (`SequenceDataStreamer`).
 
 import json
 import pyarrow.flight as fl
-from typing import Dict, Any, List, Optional, Type
+from typing import Dict, Any, List, Optional, Tuple, Type
 
 from .endpoints import TopicParsingError, TopicResourceManifest
 from .sequence_reader import SequenceDataStreamer
@@ -40,8 +40,8 @@ class SequenceHandler:
         *,
         sequence_model: Sequence,
         client: fl.FlightClient,
-        timestamp_ns_min: int,
-        timestamp_ns_max: int,
+        timestamp_ns_min: Optional[int],
+        timestamp_ns_max: Optional[int],
     ):
         """
         Internal constructor.
@@ -56,9 +56,9 @@ class SequenceHandler:
         """The spawned sequence data streamer instance"""
         self._sequence: Sequence = sequence_model
         """The sequence metadata model"""
-        self._timestamp_ns_min = timestamp_ns_min
+        self._timestamp_ns_min: Optional[int] = timestamp_ns_min
         """Lowest timestamp [ns] in the sequence (among all the topics)"""
-        self._timestamp_ns_max = timestamp_ns_max
+        self._timestamp_ns_max: Optional[int] = timestamp_ns_max
         """Highest timestamp [ns] in the sequence (among all the topics)"""
 
     @classmethod
@@ -79,19 +79,11 @@ class SequenceHandler:
             SequenceHandler: Initialized handler.
         """
 
-        _stzd_sequence_name = sanitize_sequence_name(sequence_name)
-
-        descriptor = fl.FlightDescriptor.for_command(
-            json.dumps(
-                {
-                    "resource_locator": _stzd_sequence_name,
-                }
-            )
-        )
-
         # Get FlightInfo
         try:
-            flight_info = client.get_flight_info(descriptor)
+            flight_info, _stzd_sequence_name = cls._get_flight_info(
+                client=client, sequence_name=sequence_name
+            )
         except Exception as e:
             logger.error(f"Server error while asking for Sequence descriptor, '{e}'")
             return None
@@ -111,10 +103,13 @@ class SequenceHandler:
                 logger.error(f"Skipping invalid topic endpoint, err: '{e}'")
                 continue
             stopics.append(topic_resrc_mdata.topic_name)
-            # NOTE: Here we collect the 'min'/'max' timestamps, as we are at a sequence-level
-            # (not time-windowed stream)
-            tstamps_ns_min.append(topic_resrc_mdata.timestamp_ns_min)
-            tstamps_ns_max.append(topic_resrc_mdata.timestamp_ns_max)
+            # Collect the 'min'/'max' timestamps, as we are at a sequence-level
+            if (
+                topic_resrc_mdata.timestamp_ns_min is not None
+                and topic_resrc_mdata.timestamp_ns_max is not None
+            ):
+                tstamps_ns_min.append(topic_resrc_mdata.timestamp_ns_min)
+                tstamps_ns_max.append(topic_resrc_mdata.timestamp_ns_max)
 
         # Get System Info
         ACTION = FlightAction.SEQUENCE_SYSTEM_INFO
@@ -139,8 +134,8 @@ class SequenceHandler:
         return cls(
             sequence_model=sequence_model,
             client=client,
-            timestamp_ns_min=min(tstamps_ns_min),
-            timestamp_ns_max=max(tstamps_ns_max),
+            timestamp_ns_min=min(tstamps_ns_min) if tstamps_ns_min else None,
+            timestamp_ns_max=max(tstamps_ns_max) if tstamps_ns_max else None,
         )
 
     # --- Context Manager ---
@@ -184,13 +179,19 @@ class SequenceHandler:
         return self._sequence
 
     @property
-    def timestamp_ns_min(self):
-        """Return the lowest timestamp in nanoseconds, among all the topics"""
+    def timestamp_ns_min(self) -> Optional[int]:
+        """
+        Return the lowest timestamp in nanoseconds, among all the topics.
+        Returns optional to manage the degenerate case of topics with no data.
+        """
         return self._timestamp_ns_min
 
     @property
-    def timestamp_ns_max(self):
-        """Return the highest timestamp in nanoseconds, among all the topics"""
+    def timestamp_ns_max(self) -> Optional[int]:
+        """
+        Return the highest timestamp in nanoseconds, among all the topics.
+        Returns optional to manage the degenerate case of topics with no data.
+        """
         return self._timestamp_ns_max
 
     def get_data_streamer(
@@ -208,10 +209,10 @@ class SequenceHandler:
         Args:
             topics (List[str], optional): A list of specific topic names to filter the stream.
                 If empty, the behavior depends on the implementation (typically streams all available topics).
-            start_timestamp_ns (int, optional): The inclusive lower bound for the time window (in nanoseconds).
-                The stream will begin from the message with the timestamp closest to or equal to this value.
-            end_timestamp_ns (int, optional): The inclusive upper bound for the time window (in nanoseconds).
-                The stream will stop after the message with the timestamp closest to or equal to this value.
+            start_timestamp_ns (int, optional): The **inclusive** lower bound for the time window (in nanoseconds).
+                The stream will begin from the message with the timestamp **greater than or equal to** this value.
+            end_timestamp_ns (int, optional): The **exclusive** upper bound for the time window (in nanoseconds).
+                The stream will stop at the message with the timestamp **strictly lower than** this value.
 
         Returns:
             SequenceDataStreamer: An iterator yielding time-ordered messages from the requested topics.
@@ -284,3 +285,21 @@ class SequenceHandler:
         if self._data_streamer_instance is not None:
             self._data_streamer_instance.close()
             self._data_streamer_instance = None
+
+    @staticmethod
+    def _get_flight_info(
+        client: fl.FlightClient, sequence_name: str
+    ) -> Tuple[fl.FlightInfo, str]:
+        """Performs the get_flight_info call. Raises if flight function does"""
+        _stzd_sequence_name = sanitize_sequence_name(sequence_name)
+
+        descriptor = fl.FlightDescriptor.for_command(
+            json.dumps(
+                {
+                    "resource_locator": _stzd_sequence_name,
+                }
+            )
+        )
+        # Get FlightInfo
+        flight_info = client.get_flight_info(descriptor)
+        return flight_info, _stzd_sequence_name

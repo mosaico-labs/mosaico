@@ -90,6 +90,31 @@ class DataFrameExtractor:
                 selected topics and their fields within the current time window.
         """
         # Initialize the central SequenceDataStreamer (Server-side push-down)
+        # FIXME: uncomment after backend updates
+        # Check time information in sequence are coherent
+        # if (
+        #     self._sequence_handler.timestamp_ns_min is None
+        #     or self._sequence_handler.timestamp_ns_max is None
+        # ):
+        #     raise ValueError(
+        #         f"Unable to extract dataframe from the input sequence {self._sequence_handler.name}. "
+        #         "The sequence might contain no data or could not derive 'min' and 'max' timestamps from topics"
+        #     )
+        # Provide clamped data to data streamer, for better time management
+        # start_ns = (
+        #     start_ns
+        #     if start_ns is None
+        #     else max(
+        #         start_ns, self._sequence_handler.timestamp_ns_min
+        #     )  # do not go beyond (before) the minimum sequence timestamp
+        # )
+        # end_ns = (
+        #     end_ns
+        #     if end_ns is None
+        #     else min(
+        #         end_ns, self._sequence_handler.timestamp_ns_max
+        #     )  # do not go beyond (after) the maximum sequence timestamp
+        # )
         seq_streamer = self._sequence_handler.get_data_streamer(
             topics=[t if isinstance(t, str) else t[0] for t in selection]
             if selection
@@ -101,12 +126,14 @@ class DataFrameExtractor:
 
         # Setup temporal boundaries
         global_start_ns = (
-            start_ns
+            start_ns  # Already clamped
             if start_ns is not None
             else self._sequence_handler.timestamp_ns_min
         )
         global_end_ns = (
-            end_ns if end_ns is not None else self._sequence_handler.timestamp_ns_max
+            end_ns  # Already clamped
+            if end_ns is not None
+            else self._sequence_handler.timestamp_ns_max
         )
         window_ns = int(window_sec * 1e9)
         is_full_load = window_ns >= (global_end_ns - global_start_ns)
@@ -136,6 +163,8 @@ class DataFrameExtractor:
                 current_window_end = current_window_start + window_ns
                 window_parts = []
 
+                # Safely convert data streams to DataFrame.
+                # NOTE: if any topic contains no data, it is not in the list of topic readers
                 for t_name, reader in seq_readers.items():
                     # Retrieve leftover data from the previous iteration and re-initialize the Carry-over cache
                     df_topic = carry_over[t_name]

@@ -40,8 +40,6 @@ class SequenceDataStreamer:
         sequence_name: str,
         client: fl.FlightClient,
         topic_readers: Dict[str, TopicDataStreamer],
-        timestamp_ns_min: int,
-        timestamp_ns_max: int,
     ):
         """
         Internal constructor.
@@ -58,10 +56,6 @@ class SequenceDataStreamer:
         """The current topic datastream state corresponding to the last extracted measurement"""
         self._in_iter: bool = False
         """Tag for assessing if the data streamer is used in a loop"""
-        self._timestamp_ns_min = timestamp_ns_min
-        """Lowest timestamp [ns] in the sequence (among all the topics)"""
-        self._timestamp_ns_max = timestamp_ns_max
-        """Highest timestamp [ns] in the sequence (among all the topics)"""
 
     @classmethod
     def connect(
@@ -86,23 +80,19 @@ class SequenceDataStreamer:
         Returns:
             SequenceDataStreamer: The initialized merger.
         """
-        cmd_dict: dict[str, Any] = {"resource_locator": sequence_name}
-        if start_timestamp_ns is not None:
-            cmd_dict.update({"timestamp_ns_start": start_timestamp_ns})
-        if end_timestamp_ns is not None:
-            cmd_dict.update({"timestamp_ns_end": end_timestamp_ns})
-
-        descriptor = fl.FlightDescriptor.for_command(json.dumps(cmd_dict))
         try:
-            flight_info = client.get_flight_info(descriptor)
+            flight_info = cls._get_flight_info(
+                sequence_name=sequence_name,
+                start_timestamp_ns=start_timestamp_ns,
+                end_timestamp_ns=end_timestamp_ns,
+                client=client,
+            )
         except Exception as e:
             raise ConnectionError(
                 f"Server error while asking for Sequence descriptor, {e}"
             )
 
         topic_readers: Dict[str, TopicDataStreamer] = {}
-        tstamps_ns_min = []
-        tstamps_ns_max = []
 
         # Extract the Topics resource manifests data and their tickets
         for ep in flight_info.endpoints:
@@ -111,22 +101,21 @@ class SequenceDataStreamer:
             except TopicParsingError as e:
                 logger.error(f"Skipping invalid topic endpoint, err: '{e}'")
                 continue
+            # FIXME: uncomment after backend fixes
+            # Pass topics with no data
+            # if (
+            #     topic_resrc_mdata.timestamp_ns_min is None
+            #     or topic_resrc_mdata.timestamp_ns_max is None
+            # ):
+            #     continue
+            # If not in the selected topics
             if topics and topic_resrc_mdata.topic_name not in topics:
                 continue
-            # NOTE: Here we are getting the 'start'/'end' fields, as the user may have
-            # asked for a time-windowed stream
-            treader = TopicDataStreamer.connect(
+            treader = TopicDataStreamer.connect_from_ticket(
                 client=client,
                 topic_name=topic_resrc_mdata.topic_name,
                 ticket=ep.ticket,
-                timestamp_ns_min=topic_resrc_mdata.timestamp_ns_start,
-                timestamp_ns_max=topic_resrc_mdata.timestamp_ns_end,
             )
-            # Collect the true topics min and max timestamps
-            # NOTE: Here we are getting the 'start'/'end' fields, as the user may have
-            # asked for a time-windowed stream
-            tstamps_ns_min.append(topic_resrc_mdata.timestamp_ns_start)
-            tstamps_ns_max.append(topic_resrc_mdata.timestamp_ns_end)
             # Cache the topic reader instance
             topic_readers[treader.name()] = treader
 
@@ -139,8 +128,6 @@ class SequenceDataStreamer:
             sequence_name=sequence_name,
             client=client,
             topic_readers=topic_readers,
-            timestamp_ns_min=min(tstamps_ns_min),
-            timestamp_ns_max=max(tstamps_ns_max),
         )
 
     # --- Iterator Protocol Implementation ---
@@ -237,6 +224,23 @@ class SequenceDataStreamer:
             self._winning_rdstate.ontology_tag, **row_dict
         )
 
+    @staticmethod
+    def _get_flight_info(
+        sequence_name: str,
+        start_timestamp_ns: Optional[int],
+        end_timestamp_ns: Optional[int],
+        client: fl.FlightClient,
+    ) -> fl.FlightInfo:
+        """Performs the get_flight_info call. Raises if flight function does"""
+        cmd_dict: dict[str, Any] = {"resource_locator": sequence_name}
+        if start_timestamp_ns is not None:
+            cmd_dict.update({"timestamp_ns_start": start_timestamp_ns})
+        if end_timestamp_ns is not None:
+            cmd_dict.update({"timestamp_ns_end": end_timestamp_ns})
+
+        descriptor = fl.FlightDescriptor.for_command(json.dumps(cmd_dict))
+        return client.get_flight_info(descriptor)
+
     def _as_batch_provider(self) -> Dict[str, "TopicDataStreamer"]:
         """
         Transitions the streamer to 'Batch Provider' mode for analytical modules.
@@ -261,26 +265,6 @@ class SequenceDataStreamer:
             )
 
         return self._topic_readers
-
-    @property
-    def timestamp_ns_min(self):
-        """
-        Return the lowest timestamp in nanoseconds, among all the topics.
-
-        If the stream is time-windowed, this represent the lowest timestamp
-        of the windowed data subset.
-        """
-        return self._timestamp_ns_min
-
-    @property
-    def timestamp_ns_max(self):
-        """
-        Return the highest timestamp in nanoseconds, among all the topics
-
-        If the stream is time-windowed, this represent the highest timestamp
-        of the windowed data subset.
-        """
-        return self._timestamp_ns_max
 
     def close(self):
         """Closes all underlying topic streams."""

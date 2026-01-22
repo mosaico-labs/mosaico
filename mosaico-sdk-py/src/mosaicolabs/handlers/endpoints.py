@@ -1,12 +1,17 @@
 from dataclasses import dataclass
 import json
-from typing import Tuple, TYPE_CHECKING, Union
+from typing import Optional, Tuple, TYPE_CHECKING, Union
+
+from mosaicolabs.logging_config import get_logger
 
 from ..helpers.helpers import unpack_topic_full_path
 
 # Use TYPE_CHECKING to avoid circular imports or heavy dependencies at runtime
 if TYPE_CHECKING:
     from pyarrow.flight import FlightEndpoint
+
+# Set the hierarchical logger
+logger = get_logger(__name__)
 
 
 class TopicParsingError(Exception):
@@ -33,17 +38,13 @@ class TopicResourceManifest:
     class _TopicAppMetadata:
         """Internal container for application-specific metadata."""
 
-        tmin_ns: int
-        tmax_ns: int
-        tstart_ns: int
-        tend_ns: int
+        tmin_ns: Optional[int] = None
+        tmax_ns: Optional[int] = None
 
     topic_name: str
     sequence_name: str
-    timestamp_ns_min: int
-    timestamp_ns_max: int
-    timestamp_ns_start: int
-    timestamp_ns_end: int
+    timestamp_ns_min: Optional[int]
+    timestamp_ns_max: Optional[int]
 
     @classmethod
     def from_flight_endpoint(
@@ -80,19 +81,13 @@ class TopicResourceManifest:
 
             # Delegate parsing logic to the internal static helper
             seq_name, topic_name = cls._parse_uri(uri_bytes)
-            try:
-                # FIXME: This won't go until updates in backend (Tests will fail)
-                topic_app_mdata = cls._parse_app_metadata(endpoint.app_metadata)
-            except Exception:
-                topic_app_mdata = cls._TopicAppMetadata(0, 0, 0, 0)
+            topic_app_mdata = cls._parse_app_metadata(endpoint.app_metadata)
 
             return cls(
                 topic_name=topic_name,
                 sequence_name=seq_name,
                 timestamp_ns_min=topic_app_mdata.tmin_ns,
                 timestamp_ns_max=topic_app_mdata.tmax_ns,
-                timestamp_ns_start=topic_app_mdata.tstart_ns,
-                timestamp_ns_end=topic_app_mdata.tend_ns,
             )
 
         except Exception as e:
@@ -142,43 +137,47 @@ class TopicResourceManifest:
         Raises:
             TopicParsingError: If JSON is malformed or missing required schema keys.
         """
-        # Normalize input to string and safely load as JSON
+        # Decode input to string
         try:
             raw_str = (
                 app_mdata.decode("utf-8") if isinstance(app_mdata, bytes) else app_mdata
             )
         except UnicodeDecodeError as e:
-            raise TopicParsingError(f"App metadata bytes are not UTF-8: {e}")
+            logger.error(f"App metadata bytes are not UTF-8, err '{e}'")
+            return TopicResourceManifest._TopicAppMetadata()
+
+        # Check empty-string
+        if not raw_str:
+            logger.error("Empty app_metadata")
+            return TopicResourceManifest._TopicAppMetadata()
+
+        # Safely load into JSON
         try:
             data = json.loads(raw_str)
         except json.JSONDecodeError as e:
-            raise TopicParsingError(f"Invalid JSON in app_metadata: {e}")
+            logger.error(f"Invalid JSON in app_metadata, err: '{e}'")
+            return TopicResourceManifest._TopicAppMetadata()
 
+        # Validate format
         if not isinstance(data, dict):
-            raise TopicParsingError(f"Expected JSON object, got {type(data).__name__}")
+            logger.error(f"Expected JSON object, got {type(data).__name__}")
+            return TopicResourceManifest._TopicAppMetadata()
 
-        # Schema Validation
-        # Using .get() with a default empty dict allows for cleaner nested access
+        # --- Start parsing fields ---
+
+        # Timestamp
+        # (can be missing in manifest - i.e. degenerate Topics with no data stream)
+        tmin = None
+        tmax = None
         tstamp_data = data.get("timestamp", {})
-        if not isinstance(tstamp_data, dict):
-            raise TopicParsingError("'timestamp' field must be an object.")
+        if isinstance(tstamp_data, dict):
+            tmin = tstamp_data.get("min")
+            tmax = tstamp_data.get("max")
+            # Ensure both keys exist and are integers (adjust type check if they are floats)
+            if tmin is None != tmax is None:
+                logger.error(
+                    f"Wrong format of 'timestamp' field: 'min' or 'max' are None, but not both, {tstamp_data}"
+                )
+                return TopicResourceManifest._TopicAppMetadata()
 
-        tmin = tstamp_data.get("min")
-        tmax = tstamp_data.get("max")
-        tstart = tstamp_data.get("start")
-        tend = tstamp_data.get("end")
-
-        # Ensure both keys exist and are integers (adjust type check if they are floats)
-        if not isinstance(tmin, int) or not isinstance(tmax, int):
-            raise TopicParsingError(
-                f"App metadata missing required integer 'min'/'max' in: {tstamp_data}"
-            )
-        # Ensure both keys exist and are integers (adjust type check if they are floats)
-        if not isinstance(tstart, int) or not isinstance(tend, int):
-            raise TopicParsingError(
-                f"App metadata missing required integer 'start'/'end' in: {tstamp_data}"
-            )
-
-        return TopicResourceManifest._TopicAppMetadata(
-            tmin_ns=tmin, tmax_ns=tmax, tstart_ns=tstart, tend_ns=tend
-        )
+        return TopicResourceManifest._TopicAppMetadata(tmin_ns=tmin, tmax_ns=tmax)
