@@ -1,6 +1,6 @@
 #[derive(thiserror::Error, Debug)]
 pub enum FacadeError {
-    #[error("unable to find data: {0}")]
+    #[error("unable to find `{0}`")]
     NotFound(String),
     #[error("missing metadata field `{0}`")]
     MissingMetadataField(String),
