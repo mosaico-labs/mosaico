@@ -1,8 +1,8 @@
 <div align="center">
   <picture>
-    <source media="(prefers-color-scheme: light)" srcset="doc/logo/mono_black.svg">
-    <source media="(prefers-color-scheme: dark)" srcset="doc/logo/mono_white.svg">
-    <img alt="Mosaico logo" src="doc/logo/color_black.svg" height="100">
+    <source media="(prefers-color-scheme: light)" srcset="logo/mono_black.svg">
+    <source media="(prefers-color-scheme: dark)" srcset="logo/mono_white.svg">
+    <img alt="Mosaico logo" src="logo/color_black.svg" height="100">
   </picture>
 </div>
 
