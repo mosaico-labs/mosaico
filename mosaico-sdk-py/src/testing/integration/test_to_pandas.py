@@ -1,7 +1,7 @@
 import bisect
 from math import ceil
 from mosaicolabs.handlers.sequence_handler import SequenceHandler
-from typing import List, Iterable
+from typing import List, Iterable, Optional
 
 from mosaicolabs.comm import MosaicoClient
 from mosaicolabs.ml import DataFrameExtractor
@@ -12,9 +12,7 @@ from testing.integration.config import (
     UPLOADED_IMU_CAMERA_TOPIC,
     UPLOADED_GPS_TOPIC,
 )
-from .helpers import (
-    SequenceDataStream,
-)
+from .helpers import SequenceDataStream, topic_list
 
 
 def _get_topic_timestamps(
@@ -127,22 +125,36 @@ def _assert_chunk_topic_columns(
 def _exec_test_chunks(
     data_stream: SequenceDataStream,
     selection_dict: dict[str, dict],
-    timestamp_ns_start: int,
-    timestamp_ns_end: int,
+    timestamp_ns_start: Optional[int],
+    timestamp_ns_end: Optional[int],
     seqhandler: SequenceHandler,
 ):
-    total_sec = (timestamp_ns_end - timestamp_ns_start) / 1e9
+    min_time = (
+        max(timestamp_ns_start, data_stream.tstamp_ns_start)
+        if timestamp_ns_start is not None
+        else data_stream.tstamp_ns_start
+    )
+    max_time = (
+        min(timestamp_ns_end, data_stream.tstamp_ns_end)
+        if timestamp_ns_end is not None
+        else data_stream.tstamp_ns_end
+    )
+    total_sec = (max_time - min_time) / 1e9
     # make such that we receive more than 1 chunk
     window_chunk_sec = total_sec / 2
     expected_num_chunks = ceil(total_sec / window_chunk_sec)
 
     # Get the selected topics
-    topics = list(selection_dict.keys())
+    topics = list(selection_dict.keys()) if selection_dict else topic_list
     # Compose 'selection' from input dict
-    selection = [
-        (topic, fields["fields_leaf"] + fields["fields_all_subfields"])
-        for topic, fields in selection_dict.items()
-    ]
+    selection = (
+        [
+            (topic, fields["fields_leaf"] + fields["fields_all_subfields"])
+            for topic, fields in selection_dict.items()
+        ]
+        if selection_dict
+        else None
+    )
 
     # Get the original topic timestamps corresponding to 'timestamp_ns_start' to 'timestamp_ns_end'
     topic_timestamps = []
@@ -151,8 +163,8 @@ def _exec_test_chunks(
             _get_topic_timestamps(
                 data_stream=data_stream,
                 topic=topic,
-                time_start=timestamp_ns_start,
-                time_end=timestamp_ns_end,
+                time_start=min_time,
+                time_end=max_time,
             )
         )
     topic_timestamps = sorted(topic_timestamps)
@@ -174,19 +186,24 @@ def _exec_test_chunks(
         _assert_chunk_topic_prefix(chunk_columns=chunk.columns, topics=topics)
 
         # Assert the 'data' columns for each topic
-        for topic in topics:
-            item = selection_dict[topic]
-            fields_leaf = item["fields_leaf"]
-            fields_all_subfields = item["fields_all_subfields"]
-            topic_columns = [
-                c for c in chunk.columns if c == "timestamp_ns" or c.startswith(topic)
-            ]
-            _assert_chunk_topic_columns(
-                chunk_columns=topic_columns,
-                topic=topic,
-                fields_leaf=fields_leaf,
-                fields_all_subfields=fields_all_subfields,
-            )
+        # FIXME: if not setting the selected column,
+        # must test all the topic column (from data ontology)
+        if selection:
+            for topic in topics:
+                item = selection_dict[topic]
+                fields_leaf = item["fields_leaf"]
+                fields_all_subfields = item["fields_all_subfields"]
+                topic_columns = [
+                    c
+                    for c in chunk.columns
+                    if c == "timestamp_ns" or c.startswith(topic)
+                ]
+                _assert_chunk_topic_columns(
+                    chunk_columns=topic_columns,
+                    topic=topic,
+                    fields_leaf=fields_leaf,
+                    fields_all_subfields=fields_all_subfields,
+                )
         chunk_timestamps.extend(list(chunk["timestamp_ns"]))
         num_chunks += 1
 
@@ -196,12 +213,60 @@ def _exec_test_chunks(
     assert chunk_timestamps == topic_timestamps
 
 
-def test_topic_chunks(
+def test_single_selection_chunks_unbounded(
     _client: MosaicoClient,
     _make_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
     _inject_sequence_data_stream,  # Make sure data are available on the server
 ):
-    """Test retrieving the data-stream from half of the sequence, with full range in flight info command"""
+    """Test retrieving the topic data-stream from start to end, unbounded"""
+
+    seqhandler = _client.sequence_handler(UPLOADED_SEQUENCE_NAME)
+    # Sequence must exist
+    assert seqhandler is not None
+    # --- Topic 1 ---
+
+    selection_dict = {
+        UPLOADED_IMU_FRONT_TOPIC: {
+            "fields_leaf": ["acceleration.x", "acceleration.z"],
+            "fields_all_subfields": ["angular_velocity", "header"],
+        }
+    }
+
+    _exec_test_chunks(
+        data_stream=_make_sequence_data_stream,
+        selection_dict=selection_dict,
+        seqhandler=seqhandler,
+        timestamp_ns_start=None,
+        timestamp_ns_end=None,
+    )
+
+    # --- Topic 2 ---
+
+    selection_dict = {
+        UPLOADED_GPS_TOPIC: {
+            "fields_leaf": ["position.x", "status.service"],
+            "fields_all_subfields": ["velocity"],
+        }
+    }
+
+    _exec_test_chunks(
+        data_stream=_make_sequence_data_stream,
+        selection_dict=selection_dict,
+        seqhandler=seqhandler,
+        timestamp_ns_start=None,
+        timestamp_ns_end=None,
+    )
+
+    # free resources
+    _client.close()
+
+
+def test_single_selection_chunks_from_half_to_end(
+    _client: MosaicoClient,
+    _make_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
+    _inject_sequence_data_stream,  # Make sure data are available on the server
+):
+    """Test retrieving the topic data-stream from half to end"""
     # start from the half of the sequence
     timestamp_ns_start = _make_sequence_data_stream.tstamp_ns_start + int(
         (
@@ -253,12 +318,234 @@ def test_topic_chunks(
     _client.close()
 
 
-def test_sequence_chunks(
+def test_single_selection_chunks_from_half(
     _client: MosaicoClient,
     _make_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
     _inject_sequence_data_stream,  # Make sure data are available on the server
 ):
-    """Test retrieving the data-stream from half of the sequence, with full range in flight info command"""
+    """Test retrieving the topic data-stream from half (unbounded end)"""
+    # start from the half of the sequence
+    timestamp_ns_start = _make_sequence_data_stream.tstamp_ns_start + int(
+        (
+            _make_sequence_data_stream.tstamp_ns_start
+            + _make_sequence_data_stream.tstamp_ns_end
+        )
+        / 2
+    )
+
+    seqhandler = _client.sequence_handler(UPLOADED_SEQUENCE_NAME)
+    # Sequence must exist
+    assert seqhandler is not None
+    # --- Topic 1 ---
+
+    selection_dict = {
+        UPLOADED_IMU_FRONT_TOPIC: {
+            "fields_leaf": ["acceleration.x", "acceleration.z"],
+            "fields_all_subfields": ["angular_velocity", "header"],
+        }
+    }
+
+    _exec_test_chunks(
+        data_stream=_make_sequence_data_stream,
+        selection_dict=selection_dict,
+        seqhandler=seqhandler,
+        timestamp_ns_start=timestamp_ns_start,
+        timestamp_ns_end=None,
+    )
+
+    # --- Topic 2 ---
+
+    selection_dict = {
+        UPLOADED_GPS_TOPIC: {
+            "fields_leaf": ["position.x", "status.service"],
+            "fields_all_subfields": ["velocity"],
+        }
+    }
+
+    _exec_test_chunks(
+        data_stream=_make_sequence_data_stream,
+        selection_dict=selection_dict,
+        seqhandler=seqhandler,
+        timestamp_ns_start=timestamp_ns_start,
+        timestamp_ns_end=None,
+    )
+
+    # free resources
+    _client.close()
+
+
+def test_single_selection_chunks_to_half(
+    _client: MosaicoClient,
+    _make_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
+    _inject_sequence_data_stream,  # Make sure data are available on the server
+):
+    """Test retrieving the topic data-stream to half (unbounded start)"""
+
+    # start from the half of the sequence
+    timestamp_ns_end = _make_sequence_data_stream.tstamp_ns_start + int(
+        (
+            _make_sequence_data_stream.tstamp_ns_start
+            + _make_sequence_data_stream.tstamp_ns_end
+        )
+        / 2
+    )
+
+    seqhandler = _client.sequence_handler(UPLOADED_SEQUENCE_NAME)
+    # Sequence must exist
+    assert seqhandler is not None
+    # --- Topic 1 ---
+
+    selection_dict = {
+        UPLOADED_IMU_FRONT_TOPIC: {
+            "fields_leaf": ["acceleration.x", "acceleration.z"],
+            "fields_all_subfields": ["angular_velocity", "header"],
+        }
+    }
+
+    _exec_test_chunks(
+        data_stream=_make_sequence_data_stream,
+        selection_dict=selection_dict,
+        seqhandler=seqhandler,
+        timestamp_ns_start=None,
+        timestamp_ns_end=timestamp_ns_end,
+    )
+
+    # --- Topic 2 ---
+
+    selection_dict = {
+        UPLOADED_GPS_TOPIC: {
+            "fields_leaf": ["position.x", "status.service"],
+            "fields_all_subfields": ["velocity"],
+        }
+    }
+
+    _exec_test_chunks(
+        data_stream=_make_sequence_data_stream,
+        selection_dict=selection_dict,
+        seqhandler=seqhandler,
+        timestamp_ns_start=None,
+        timestamp_ns_end=timestamp_ns_end,
+    )
+
+    # free resources
+    _client.close()
+
+
+def test_single_selection_chunks_extra_bounds(
+    _client: MosaicoClient,
+    _make_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
+    _inject_sequence_data_stream,  # Make sure data are available on the server
+):
+    """Test retrieving the topic data-stream with time limits outside the valid sequence time boundaries."""
+
+    seqhandler = _client.sequence_handler(UPLOADED_SEQUENCE_NAME)
+    # Sequence must exist
+    assert seqhandler is not None
+    # --- Topic 1 ---
+
+    selection_dict = {
+        UPLOADED_IMU_FRONT_TOPIC: {
+            "fields_leaf": ["acceleration.x", "acceleration.z"],
+            "fields_all_subfields": ["angular_velocity", "header"],
+        }
+    }
+
+    _exec_test_chunks(
+        data_stream=_make_sequence_data_stream,
+        selection_dict=selection_dict,
+        seqhandler=seqhandler,
+        timestamp_ns_start=0,
+        timestamp_ns_end=_make_sequence_data_stream.tstamp_ns_end * 2,
+    )
+
+    # free resources
+    _client.close()
+
+
+def test_multi_selection_chunks_unbounded(
+    _client: MosaicoClient,
+    _make_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
+    _inject_sequence_data_stream,  # Make sure data are available on the server
+):
+    """Test retrieving the data-stream from start to end, unbounded"""
+
+    seqhandler = _client.sequence_handler(UPLOADED_SEQUENCE_NAME)
+    # Sequence must exist
+    assert seqhandler is not None
+    # --- Topic 1 ---
+
+    selection_dict = {
+        UPLOADED_IMU_FRONT_TOPIC: {
+            "fields_leaf": ["acceleration.x", "acceleration.z"],
+            "fields_all_subfields": ["angular_velocity", "header"],
+        },
+        UPLOADED_GPS_TOPIC: {
+            "fields_leaf": ["position.x", "status.service"],
+            "fields_all_subfields": ["velocity"],
+        },
+        UPLOADED_IMU_CAMERA_TOPIC: {
+            "fields_leaf": ["acceleration.x", "acceleration.y"],
+            "fields_all_subfields": ["angular_velocity", "orientation"],
+        },
+    }
+
+    _exec_test_chunks(
+        data_stream=_make_sequence_data_stream,
+        selection_dict=selection_dict,
+        seqhandler=seqhandler,
+        timestamp_ns_start=None,
+        timestamp_ns_end=None,
+    )
+
+    # free resources
+    _client.close()
+
+
+def test_multi_selection_chunks_extra_bounds(
+    _client: MosaicoClient,
+    _make_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
+    _inject_sequence_data_stream,  # Make sure data are available on the server
+):
+    """Test retrieving the data-stream from start to end, unbounded"""
+
+    seqhandler = _client.sequence_handler(UPLOADED_SEQUENCE_NAME)
+    # Sequence must exist
+    assert seqhandler is not None
+    # --- Topic 1 ---
+
+    selection_dict = {
+        UPLOADED_IMU_FRONT_TOPIC: {
+            "fields_leaf": ["acceleration.x", "acceleration.z"],
+            "fields_all_subfields": ["angular_velocity", "header"],
+        },
+        UPLOADED_GPS_TOPIC: {
+            "fields_leaf": ["position.x", "status.service"],
+            "fields_all_subfields": ["velocity"],
+        },
+        UPLOADED_IMU_CAMERA_TOPIC: {
+            "fields_leaf": ["acceleration.x", "acceleration.y"],
+            "fields_all_subfields": ["angular_velocity", "orientation"],
+        },
+    }
+
+    _exec_test_chunks(
+        data_stream=_make_sequence_data_stream,
+        selection_dict=selection_dict,
+        seqhandler=seqhandler,
+        timestamp_ns_start=0,
+        timestamp_ns_end=_make_sequence_data_stream.tstamp_ns_end * 2,
+    )
+
+    # free resources
+    _client.close()
+
+
+def test_multi_selection_chunks_from_half_to_end(
+    _client: MosaicoClient,
+    _make_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
+    _inject_sequence_data_stream,  # Make sure data are available on the server
+):
+    """Test retrieving the data-stream from half to end"""
     # start from the half of the sequence
     timestamp_ns_start = _make_sequence_data_stream.tstamp_ns_start + int(
         (
@@ -301,12 +588,106 @@ def test_sequence_chunks(
     _client.close()
 
 
-def test_non_existing_field(
+def test_multi_selection_chunks_from_half(
     _client: MosaicoClient,
     _make_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
     _inject_sequence_data_stream,  # Make sure data are available on the server
 ):
-    """Test retrieving the data-stream from half of the sequence, with full range in flight info command"""
+    """Test retrieving the data-stream from half (unbounded end)"""
+    # start from the half of the sequence
+    timestamp_ns_start = _make_sequence_data_stream.tstamp_ns_start + int(
+        (
+            _make_sequence_data_stream.tstamp_ns_start
+            + _make_sequence_data_stream.tstamp_ns_end
+        )
+        / 2
+    )
+
+    seqhandler = _client.sequence_handler(UPLOADED_SEQUENCE_NAME)
+    # Sequence must exist
+    assert seqhandler is not None
+    # --- Topic 1 ---
+
+    selection_dict = {
+        UPLOADED_IMU_FRONT_TOPIC: {
+            "fields_leaf": ["acceleration.x", "acceleration.z"],
+            "fields_all_subfields": ["angular_velocity", "header"],
+        },
+        UPLOADED_GPS_TOPIC: {
+            "fields_leaf": ["position.x", "status.service"],
+            "fields_all_subfields": ["velocity"],
+        },
+        UPLOADED_IMU_CAMERA_TOPIC: {
+            "fields_leaf": ["acceleration.x", "acceleration.y"],
+            "fields_all_subfields": ["angular_velocity", "orientation"],
+        },
+    }
+
+    _exec_test_chunks(
+        data_stream=_make_sequence_data_stream,
+        selection_dict=selection_dict,
+        seqhandler=seqhandler,
+        timestamp_ns_start=timestamp_ns_start,
+        timestamp_ns_end=None,
+    )
+
+    # free resources
+    _client.close()
+
+
+def test_multi_selection_chunks_to_half(
+    _client: MosaicoClient,
+    _make_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
+    _inject_sequence_data_stream,  # Make sure data are available on the server
+):
+    """Test retrieving the data-stream to half (unbounded start)"""
+    # start from the half of the sequence
+    timestamp_ns_end = _make_sequence_data_stream.tstamp_ns_start + int(
+        (
+            _make_sequence_data_stream.tstamp_ns_start
+            + _make_sequence_data_stream.tstamp_ns_end
+        )
+        / 2
+    )
+
+    seqhandler = _client.sequence_handler(UPLOADED_SEQUENCE_NAME)
+    # Sequence must exist
+    assert seqhandler is not None
+    # --- Topic 1 ---
+
+    selection_dict = {
+        UPLOADED_IMU_FRONT_TOPIC: {
+            "fields_leaf": ["acceleration.x", "acceleration.z"],
+            "fields_all_subfields": ["angular_velocity", "header"],
+        },
+        UPLOADED_GPS_TOPIC: {
+            "fields_leaf": ["position.x", "status.service"],
+            "fields_all_subfields": ["velocity"],
+        },
+        UPLOADED_IMU_CAMERA_TOPIC: {
+            "fields_leaf": ["acceleration.x", "acceleration.y"],
+            "fields_all_subfields": ["angular_velocity", "orientation"],
+        },
+    }
+
+    _exec_test_chunks(
+        data_stream=_make_sequence_data_stream,
+        selection_dict=selection_dict,
+        seqhandler=seqhandler,
+        timestamp_ns_start=None,
+        timestamp_ns_end=timestamp_ns_end,
+    )
+
+    # free resources
+    _client.close()
+
+
+def test_single_selection_non_existing_field(
+    _client: MosaicoClient,
+    _make_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
+    _inject_sequence_data_stream,  # Make sure data are available on the server
+):
+    """Test retrieving a non-existing column from topic data-stream"""
     # start from the half of the sequence
     timestamp_ns_start = _make_sequence_data_stream.tstamp_ns_start + int(
         (
@@ -367,6 +748,124 @@ def test_non_existing_field(
             end_ns=timestamp_ns_end,
         ):
             pass
+
+    # free resources
+    _client.close()
+
+
+def test_sequence_chunks_unbounded(
+    _client: MosaicoClient,
+    _make_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
+    _inject_sequence_data_stream,  # Make sure data are available on the server
+):
+    """Test retrieving the topic data-stream from start to end, unbounded"""
+
+    seqhandler = _client.sequence_handler(UPLOADED_SEQUENCE_NAME)
+    # Sequence must exist
+    assert seqhandler is not None
+    # --- Topic 1 ---
+
+    _exec_test_chunks(
+        data_stream=_make_sequence_data_stream,
+        selection_dict={},
+        seqhandler=seqhandler,
+        timestamp_ns_start=None,
+        timestamp_ns_end=None,
+    )
+
+    # free resources
+    _client.close()
+
+
+def test_sequence_chunks_from_half_to_end(
+    _client: MosaicoClient,
+    _make_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
+    _inject_sequence_data_stream,  # Make sure data are available on the server
+):
+    """Test retrieving the topic data-stream from start to end, unbounded"""
+
+    timestamp_ns_start = _make_sequence_data_stream.tstamp_ns_start + int(
+        (
+            _make_sequence_data_stream.tstamp_ns_start
+            + _make_sequence_data_stream.tstamp_ns_end
+        )
+        / 2
+    )
+    timestamp_ns_end = _make_sequence_data_stream.tstamp_ns_end
+    seqhandler = _client.sequence_handler(UPLOADED_SEQUENCE_NAME)
+    # Sequence must exist
+    assert seqhandler is not None
+    # --- Topic 1 ---
+
+    _exec_test_chunks(
+        data_stream=_make_sequence_data_stream,
+        selection_dict={},
+        seqhandler=seqhandler,
+        timestamp_ns_start=timestamp_ns_start,
+        timestamp_ns_end=timestamp_ns_end,
+    )
+
+    # free resources
+    _client.close()
+
+
+def test_sequence_chunks_from_half(
+    _client: MosaicoClient,
+    _make_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
+    _inject_sequence_data_stream,  # Make sure data are available on the server
+):
+    """Test retrieving the topic data-stream from start to end, unbounded"""
+
+    timestamp_ns_start = _make_sequence_data_stream.tstamp_ns_start + int(
+        (
+            _make_sequence_data_stream.tstamp_ns_start
+            + _make_sequence_data_stream.tstamp_ns_end
+        )
+        / 2
+    )
+    seqhandler = _client.sequence_handler(UPLOADED_SEQUENCE_NAME)
+    # Sequence must exist
+    assert seqhandler is not None
+    # --- Topic 1 ---
+
+    _exec_test_chunks(
+        data_stream=_make_sequence_data_stream,
+        selection_dict={},
+        seqhandler=seqhandler,
+        timestamp_ns_start=timestamp_ns_start,
+        timestamp_ns_end=None,
+    )
+
+    # free resources
+    _client.close()
+
+
+def test_sequence_chunks_to_half(
+    _client: MosaicoClient,
+    _make_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
+    _inject_sequence_data_stream,  # Make sure data are available on the server
+):
+    """Test retrieving the topic data-stream from start to end, unbounded"""
+
+    timestamp_ns_end = _make_sequence_data_stream.tstamp_ns_start + int(
+        (
+            _make_sequence_data_stream.tstamp_ns_start
+            + _make_sequence_data_stream.tstamp_ns_end
+        )
+        / 2
+    )
+    seqhandler = _client.sequence_handler(UPLOADED_SEQUENCE_NAME)
+    # Sequence must exist
+    assert seqhandler is not None
+    # --- Topic 1 ---
+
+    _exec_test_chunks(
+        data_stream=_make_sequence_data_stream,
+        selection_dict={},
+        seqhandler=seqhandler,
+        timestamp_ns_start=None,
+        timestamp_ns_end=timestamp_ns_end,
+    )
 
     # free resources
     _client.close()
