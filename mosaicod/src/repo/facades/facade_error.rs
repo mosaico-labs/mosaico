@@ -38,4 +38,8 @@ impl FacadeError {
     pub fn missing_data(msg: String) -> Self {
         Self::MissingData(msg)
     }
+
+    pub fn not_found(msg: String) -> Self {
+        Self::NotFound(msg)
+    }
 }

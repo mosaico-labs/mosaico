@@ -3,13 +3,13 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TopicManifest {
-    timestamp: TopicManifestTimestamp,
+    timestamp: Option<TopicManifestTimestamp>,
 }
 
 impl From<types::TopicManifest> for TopicManifest {
     fn from(value: types::TopicManifest) -> Self {
         Self {
-            timestamp: value.timestamp.into(),
+            timestamp: value.timestamp.map(|v| v.into()),
         }
     }
 }
@@ -17,7 +17,7 @@ impl From<types::TopicManifest> for TopicManifest {
 impl From<TopicManifest> for types::TopicManifest {
     fn from(value: TopicManifest) -> Self {
         Self {
-            timestamp: value.timestamp.into(),
+            timestamp: value.timestamp.map(|v| v.into()),
         }
     }
 }

@@ -1,4 +1,3 @@
-use crate::params;
 use std::collections::HashMap;
 
 const NUMERIC_MIN_PLACEHOLDER: f64 = f64::MAX;
@@ -15,21 +14,6 @@ impl OntologyModelStats {
         Self {
             cols: HashMap::new(),
         }
-    }
-
-    /// Returns statistics for the timestamp column used as the primary index.
-    ///
-    /// The function can return `None` if the ontology model is malformed
-    /// and no timestamp-index column is provided
-    pub fn timestamp_stats(&self) -> Option<&NumericStats> {
-        let stat = self
-            .cols
-            .get(params::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP);
-
-        if let Some(Stats::Numeric(n)) = stat {
-            return Some(n);
-        }
-        None
     }
 }
 

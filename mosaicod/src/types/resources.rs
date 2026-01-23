@@ -93,7 +93,7 @@ impl TopicResourceLocator {
 
     /// Return the full path of the manifest file
     pub fn path_manifest(&self) -> path::PathBuf {
-        path::Path::new(self.name()).join("timestamp.json")
+        path::Path::new(self.name()).join("manifest.json")
     }
 }
 
@@ -199,13 +199,22 @@ pub struct TopicSystemInfo {
 /// Metadata generated during topic consolidation.
 ///
 /// This manifest aggregates all topic details once the write process is finalized.
+#[derive(Default)]
 pub struct TopicManifest {
-    pub timestamp: TopicManifestTimestamp,
+    pub timestamp: Option<TopicManifestTimestamp>,
 }
 
 impl TopicManifest {
-    pub fn new(timestamp: TopicManifestTimestamp) -> Self {
-        Self { timestamp }
+    /// Generates an empty topic manifest
+    pub fn new() -> Self {
+        Self {
+            ..Default::default()
+        }
+    }
+
+    pub fn with_timestamp(mut self, timestamp: TopicManifestTimestamp) -> Self {
+        self.timestamp = Some(timestamp);
+        self
     }
 }
 

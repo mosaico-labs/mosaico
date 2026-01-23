@@ -6,7 +6,7 @@ use arrow::datatypes::SchemaRef;
 use arrow_flight::decode::{DecodedFlightData, DecodedPayload, FlightDataDecoder};
 use arrow_flight::flight_descriptor::DescriptorType;
 use futures::TryStreamExt;
-use log::{debug, info, trace};
+use log::{info, trace};
 
 pub async fn do_put(ctx: Context, decoder: &mut FlightDataDecoder) -> Result<(), ServerError> {
     let (cmd, schema) = extract_command_and_schema_from_header_message(decoder).await?;
@@ -88,8 +88,10 @@ async fn do_put_topic_data(
     let serialization_format = mdata.properties.serialization_format;
     let topic_id = r_id.id;
 
+    trace!("creating topic writer");
     let mut writer = handle.writer(ctx.timeseries_querier, serialization_format);
 
+    trace!("setup chunk creation callback for topic");
     writer.on_chunk_created(move |target_path, cols_stats, chunk_metadata| {
         let topic_id = topic_id;
         let repo_clone = ctx.repo.clone();
@@ -115,6 +117,7 @@ async fn do_put_topic_data(
     });
 
     // Consume all batches
+    trace!("ready to consume batches");
     while let Some(data) = decoder
         .try_next()
         .await
@@ -122,8 +125,8 @@ async fn do_put_topic_data(
     {
         match data.payload {
             DecodedPayload::RecordBatch(batch) => {
-                debug!(
-                    "processing batch (cols: {}, memory_size: {}",
+                trace!(
+                    "received batch (cols: {}, memory_size: {})",
                     batch.columns().len(),
                     batch.get_array_memory_size()
                 );

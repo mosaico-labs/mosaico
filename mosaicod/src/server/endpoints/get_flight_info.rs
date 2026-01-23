@@ -61,10 +61,8 @@ pub async fn get_flight_info(
                                 timestamp_range: cmd.timestamp_range.clone(),
                             };
 
-                            let app_mdata = marshal::flight::TopicAppMetadata::new(
-                                &manifests[index],
-                                cmd.timestamp_range.clone(),
-                            );
+                            let app_mdata =
+                                marshal::flight::TopicAppMetadata::new(&manifests[index]);
 
                             let e = FlightEndpoint::new()
                                 .with_ticket(Ticket {
@@ -108,15 +106,17 @@ pub async fn get_flight_info(
                     let schema =
                         Schema::new_with_metadata(schema.fields().clone(), flatten_metadata);
 
-                    // Collect manifest
-                    let manifest = handle.manifest().await?;
+                    // Collect manifest, if no manifest is found an empty one is returned while
+                    // other errors are propagated
+                    let manifest = match handle.manifest().await {
+                        Ok(m) => m,
+                        Err(FacadeError::NotFound(_)) => types::TopicManifest::new(),
+                        Err(e) => return Err(e.into()),
+                    };
 
                     // We can get directly the only elements since collect_manifests ensures that
                     // there will be at least one entry returned (if no error)
-                    let app_mdata = marshal::flight::TopicAppMetadata::new(
-                        &manifest,
-                        cmd.timestamp_range.clone(),
-                    );
+                    let app_mdata = marshal::flight::TopicAppMetadata::new(&manifest);
 
                     let ticket = types::flight::TicketTopic {
                         locator: handle.locator.clone().into(),
@@ -163,7 +163,15 @@ pub async fn collect_manifests(
         // facade resources ?
         let handler =
             FacadeTopic::new(topic.name().to_owned(), ctx.store.clone(), ctx.repo.clone());
-        let manifest = handler.manifest().await?;
+
+        // Collect manifest, if no manifest is found an empty one is returned while
+        // other errors are propagated
+        let manifest = match handler.manifest().await {
+            Ok(manifest) => manifest,
+            Err(FacadeError::NotFound(_)) => types::TopicManifest::new(),
+            Err(e) => return Err(e.into()),
+        };
+
         manifests.push(manifest);
     }
 

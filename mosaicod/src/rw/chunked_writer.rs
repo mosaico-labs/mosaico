@@ -25,7 +25,7 @@ type OnChunkCallback = Box<
 type OnFileFormat = Box<dyn Fn(&std::path::Path, &Format, usize) -> std::path::PathBuf + Send>;
 
 /// Summary data produced after write completion
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct ChunkedWriterSummary {
     /// Total number of chunks created during write
     pub number_of_chunks_created: usize,
@@ -137,6 +137,7 @@ impl<W> ChunkedWriter<W> {
         A: traits::AsyncWriteToPath,
         W: AsRef<A>,
     {
+        trace!("AAAAAAAAAAA");
         // Take the writer and if not inizialized creates a new one.
         // At the end the writer will be put back.
         //
@@ -225,7 +226,7 @@ impl<W> ChunkedWriter<W> {
                 .await?;
 
             trace!(
-                "on_chunk_created_clbk present: {}",
+                "chunked writer callback: {}",
                 self.on_chunk_created_clbk.is_some()
             );
 
@@ -240,6 +241,7 @@ impl<W> ChunkedWriter<W> {
                 .await
                 .map_err(|e| Error::ChunkCreationCallbackError(e.to_string()));
         }
+
         Ok(())
     }
 }

@@ -168,9 +168,11 @@ impl FacadeTopic {
         let res = timeseries_querier
             .read(self.locator.path(), format, None)
             .await?;
+
         let ts_range = res.timestamp_range().await?;
 
-        let manifest = types::TopicManifest::new(types::TopicManifestTimestamp::new(ts_range));
+        let manifest = types::TopicManifest::new()
+            .with_timestamp(types::TopicManifestTimestamp::new(ts_range));
 
         self.manifest_write_to_store(manifest).await?;
 
@@ -194,8 +196,18 @@ impl FacadeTopic {
     }
 
     /// Reads [`TopicManifest`] associated with this topic.
+    ///
+    /// If manifest can't be found a [`FacadeError::NotFound`] error is returned.
     pub async fn manifest(&self) -> Result<types::TopicManifest, FacadeError> {
         let path = self.locator.path_manifest();
+
+        if !self.store.exists(&path).await? {
+            return Err(FacadeError::not_found(format!(
+                "unable to find `{}`",
+                path.to_string_lossy()
+            )));
+        }
+
         let bytes = self.store.read_bytes(path).await?;
 
         let data: marshal::TopicManifest = bytes.try_into()?;
@@ -428,8 +440,18 @@ impl<'a> FacadeTopicWriterGuard<'a> {
     /// Performs all the operations required to finilize the writing stream, consolidate topic data
     /// and lock the topic
     pub async fn finalize(self) -> Result<(), FacadeError> {
-        let _summary = self.writer.finalize().await?;
-        self.facade.finalize(self.querier, self.format).await?;
+        trace!("internal writer finalized");
+        let summary = self.writer.finalize().await?;
+
+        if summary.number_of_chunks_created > 0 {
+            trace!("consolidating topic manifest");
+            self.facade.finalize(self.querier, self.format).await?;
+        } else {
+            trace!("finalizing topic without data");
+            self.facade.lock().await?;
+            trace!("topic has been locked");
+        }
+
         Ok(())
     }
 }
@@ -444,6 +466,7 @@ impl<'a> std::ops::Deref for FacadeTopicWriterGuard<'a> {
 
 impl<'a> std::ops::DerefMut for FacadeTopicWriterGuard<'a> {
     fn deref_mut(&mut self) -> &mut Self::Target {
+        trace!("dereferencing writer");
         &mut self.writer
     }
 }
