@@ -436,7 +436,9 @@ class MosaicoClient:
             self._remove_from_sequence_handlers_cache(sequence_name=sequence_name)
 
         except Exception as e:
-            logger.error(f"Server error while asking for Sequence deletion, '{e}'")
+            logger.error(
+                f"Server error (do_action) while asking for Sequence deletion, '{e}'"
+            )
 
     def list_sequences(self) -> List[str]:
         """

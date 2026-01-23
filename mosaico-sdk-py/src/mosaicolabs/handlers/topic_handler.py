@@ -94,7 +94,9 @@ class TopicHandler:
                 client=client,
             )
         except Exception as e:
-            logger.error(f"Server error while asking for Topic descriptor, '{e}'")
+            logger.error(
+                f"Server error (get_flight_info) while asking for Topic descriptor (in TopicHandler), '{e}'"
+            )
             return None
 
         topic_metadata = TopicMetadata.from_dict(
@@ -218,15 +220,14 @@ class TopicHandler:
             TopicDataStreamer: An iterator yielding time-ordered messages from this topic.
 
         Raises:
-            ValueError: If the TopicHandler's internal state is invalid or the topic cannot be accessed.
+            ValueError: If the TopicHandler internal state is invalid or the topic has no data to stream.
         """
         if self._fl_ticket is None:
             raise ValueError(
                 f"Unable to get a TopicDataStreamer for topic '{self._topic.name}': invalid TopicHandler!"
             )
 
-        # FIXME: uncomment when backed fixes
-        # self._validate_timestamps_info()
+        self._validate_timestamps_info()
 
         if self._data_streamer_instance is not None:
             self._data_streamer_instance.close()
@@ -234,18 +235,13 @@ class TopicHandler:
 
         if start_timestamp_ns is not None or end_timestamp_ns is not None:
             # Spawn via connection (calls get_flight_info)
-            try:
-                self._data_streamer_instance = TopicDataStreamer.connect(
-                    client=self._fl_client,
-                    topic_name=self.name,
-                    sequence_name=self._topic.sequence_name,
-                    start_timestamp_ns=start_timestamp_ns,
-                    end_timestamp_ns=end_timestamp_ns,
-                )
-            except Exception as e:
-                raise ValueError(
-                    f"Unable to init handler for topic {self.name} in sequence {self._topic.sequence_name}, err '{e}'"
-                )
+            self._data_streamer_instance = TopicDataStreamer.connect(
+                client=self._fl_client,
+                topic_name=self.name,
+                sequence_name=self._topic.sequence_name,
+                start_timestamp_ns=start_timestamp_ns,
+                end_timestamp_ns=end_timestamp_ns,
+            )
         else:
             # Spawn via ticket (calls do_get straight)
             self._data_streamer_instance = TopicDataStreamer.connect_from_ticket(

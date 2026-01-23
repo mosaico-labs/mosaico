@@ -85,7 +85,9 @@ class SequenceHandler:
                 client=client, sequence_name=sequence_name
             )
         except Exception as e:
-            logger.error(f"Server error while asking for Sequence descriptor, '{e}'")
+            logger.error(
+                f"Server error (get_flight_info) while asking for Sequence descriptor, '{e}'"
+            )
             return None
 
         seq_metadata = SequenceMetadata.from_dict(
@@ -222,6 +224,8 @@ class SequenceHandler:
                 f"Invalid input topic names {topics}. Available topics in sequence '{self.name}':\n{self.topics}"
             )
 
+        self._validate_timestamps_info()
+
         if self._data_streamer_instance is not None:
             self._data_streamer_instance.close()
             self._data_streamer_instance = None
@@ -303,3 +307,10 @@ class SequenceHandler:
         # Get FlightInfo
         flight_info = client.get_flight_info(descriptor)
         return flight_info, _stzd_sequence_name
+
+    def _validate_timestamps_info(self):
+        if self._timestamp_ns_min is None or self._timestamp_ns_max is None:
+            raise ValueError(
+                f"Unable to get the data-stream for sequence {self.name}. "
+                "The sequence might contain no data or could not derive 'min' and 'max' timestamps."
+            )

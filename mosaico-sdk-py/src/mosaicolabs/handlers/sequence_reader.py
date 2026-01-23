@@ -89,7 +89,7 @@ class SequenceDataStreamer:
             )
         except Exception as e:
             raise ConnectionError(
-                f"Server error while asking for Sequence descriptor, {e}"
+                f"Server error (get_flight_info) while asking for Sequence descriptor, {e}"
             )
 
         topic_readers: Dict[str, TopicDataStreamer] = {}
@@ -101,13 +101,12 @@ class SequenceDataStreamer:
             except TopicParsingError as e:
                 logger.error(f"Skipping invalid topic endpoint, err: '{e}'")
                 continue
-            # FIXME: uncomment after backend fixes
-            # Pass topics with no data
-            # if (
-            #     topic_resrc_mdata.timestamp_ns_min is None
-            #     or topic_resrc_mdata.timestamp_ns_max is None
-            # ):
-            #     continue
+            # Skip topics with no data
+            if (
+                topic_resrc_mdata.timestamp_ns_min is None
+                or topic_resrc_mdata.timestamp_ns_max is None
+            ):
+                continue
             # If not in the selected topics
             if topics and topic_resrc_mdata.topic_name not in topics:
                 continue

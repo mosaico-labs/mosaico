@@ -23,6 +23,7 @@ def _get_topic_timestamps(
     time_start: int,
     time_end: int,
 ):
+    """Retrieve the data stream timestamps from a topic inside the time window"""
     _cached_topic_data_stream = [
         dstream for dstream in data_stream.items if dstream.topic == topic
     ]
@@ -191,7 +192,7 @@ def _exec_test_chunks(
 
     # We have received the expected number of chunks
     assert expected_num_chunks == num_chunks
-    # We have received the expected list of timestamps
+    # We have received the expected sorted list of data points
     assert chunk_timestamps == topic_timestamps
 
 
@@ -371,8 +372,7 @@ def test_non_existing_field(
     _client.close()
 
 
-# FIXME: enable after backend fixes
-def _test_sequence_no_data(
+def test_sequence_no_data(
     _client: MosaicoClient,
     _inject_sequences_mockup,  # Make sure data are available on the server
 ):
@@ -382,7 +382,6 @@ def _test_sequence_no_data(
     seqhandler = _client.sequence_handler("test-query-sequence-1")
     # Sequence must exist
     assert seqhandler is not None
-    # --- Topic 1 ---
 
     with pytest.raises(ValueError, match="The sequence might contain no data"):
         for _ in DataFrameExtractor(seqhandler).to_pandas_chunks(

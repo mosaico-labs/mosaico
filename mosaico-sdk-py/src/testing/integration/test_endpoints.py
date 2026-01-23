@@ -8,11 +8,49 @@ from mosaicolabs.handlers import (
 import pytest
 from testing.integration.config import (
     UPLOADED_SEQUENCE_NAME,
+    QUERY_SEQUENCES_MOCKUP,
 )
 from .helpers import (
     SequenceDataStream,
     topic_list,
 )
+
+
+def test_manifest_in_data_sequence(
+    _client: MosaicoClient,
+    _inject_sequence_data_stream,  # Ensure the data are available on the data platform
+    _make_sequence_data_stream: SequenceDataStream,
+):
+    """
+    Test that the time-information are coherent for sequence with data stored.
+    This is a low level test: private members and methods are called
+    """
+    # All other tests are made somewhere else..
+    seqhandler = _client.sequence_handler(sequence_name=UPLOADED_SEQUENCE_NAME)
+    assert seqhandler is not None
+    assert seqhandler.timestamp_ns_min == _make_sequence_data_stream.tstamp_ns_start
+    assert seqhandler.timestamp_ns_max == _make_sequence_data_stream.tstamp_ns_end
+    # free resources
+    _client.close()
+
+
+@pytest.mark.parametrize("sequence", QUERY_SEQUENCES_MOCKUP.keys())
+def test_manifest_in_dataless_sequence(
+    _client: MosaicoClient,
+    _inject_sequences_mockup,  # Ensure the data are available on the data platform
+    sequence: str,
+):
+    """
+    Test that the time-information are coherent for dataless sequence.
+    This is a low level test: private members and methods are called
+    """
+    # All other tests are made somewhere else..
+    seqhandler = _client.sequence_handler(sequence_name=sequence)
+    assert seqhandler is not None
+    assert seqhandler.timestamp_ns_min is None
+    assert seqhandler.timestamp_ns_max is None
+    # free resources
+    _client.close()
 
 
 @pytest.mark.parametrize("topic", topic_list)
@@ -83,9 +121,8 @@ def test_topic_names_in_endpoints_from_sequence_handler(
     _client.close()
 
 
-# FIXME: enable after backend fixes
 @pytest.mark.parametrize("topic", topic_list)
-def _test_topics_manifest_timestamps(
+def test_topics_manifest_timestamps(
     _client: MosaicoClient,
     _inject_sequence_data_stream,  # Ensure the data are available on the data platform
     _make_sequence_data_stream: SequenceDataStream,
@@ -129,9 +166,8 @@ def _test_topics_manifest_timestamps(
     _client.close()
 
 
-# FIXME: enable after backend fixes
 @pytest.mark.parametrize("topic", topic_list)
-def _test_topic_streamer_manifest_timestamps(
+def test_topic_streamer_manifest_timestamps(
     _client: MosaicoClient,
     _inject_sequence_data_stream,  # Ensure the data are available on the data platform
     _make_sequence_data_stream: SequenceDataStream,

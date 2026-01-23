@@ -25,7 +25,7 @@ def test_invalid_host():
         MosaicoClient.connect(host="invalid-address", port=0, timeout=0)
 
 
-def test_read_non_existing_sequence_topic(_client: MosaicoClient):
+def test_read_non_existing_sequence_and_topic(_client: MosaicoClient):
     log.info("Expected three (3) errors after this line...")
     assert _client.sequence_handler("non-existing-sequence") is None
     assert (

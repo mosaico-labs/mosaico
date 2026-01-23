@@ -64,9 +64,17 @@ class TopicDataStreamer:
 
         Returns:
             TopicDataStreamer: An initialized reader.
+
+        Raises:
+            ConnectionError: if 'do_get' fails
         """
         # Initialize the Flight stream (DoGet)
-        reader = client.do_get(ticket)
+        try:
+            reader = client.do_get(ticket)
+        except Exception as e:
+            raise ConnectionError(
+                f"Server error (do_get) while asking for Topic data reader, '{e}'"
+            )
 
         # Decode metadata to determine how to deserialize the data
         topic_mdata = TopicMetadata.from_dict(_decode_metadata(reader.schema.metadata))
@@ -105,6 +113,9 @@ class TopicDataStreamer:
 
         Returns:
             TopicDataStreamer: An initialized reader.
+
+        Raises:
+            ConnectionError: if 'get_flight_info' or 'do_get' fail
         """
 
         # Get FlightInfo (here we need just the Endpoints)
@@ -118,7 +129,7 @@ class TopicDataStreamer:
             )
         except Exception as e:
             raise ConnectionError(
-                f"Server error while asking for Topic descriptor, {e}"
+                f"Server error (get_flight_info) while asking for Topic descriptor (in TopicDataStreamer), {e}"
             )
         for ep in flight_info.endpoints:
             try:
