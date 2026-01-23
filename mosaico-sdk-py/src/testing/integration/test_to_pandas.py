@@ -176,8 +176,8 @@ def _exec_test_chunks(
     for chunk in DataFrameExtractor(seqhandler).to_pandas_chunks(
         selection=selection,
         window_sec=window_chunk_sec,
-        start_ns=timestamp_ns_start,
-        end_ns=timestamp_ns_end,
+        timestamp_ns_start=timestamp_ns_start,
+        timestamp_ns_end=timestamp_ns_end,
     ):
         # Check timestamp
         assert "timestamp_ns" in chunk.columns, "'timestamp_ns' missing"
@@ -711,8 +711,8 @@ def test_single_selection_non_existing_field(
         for _ in DataFrameExtractor(seqhandler).to_pandas_chunks(
             selection=selection,
             window_sec=5,
-            start_ns=timestamp_ns_start,
-            end_ns=timestamp_ns_end,
+            timestamp_ns_start=timestamp_ns_start,
+            timestamp_ns_end=timestamp_ns_end,
         ):
             pass
 
@@ -733,8 +733,8 @@ def test_single_selection_non_existing_field(
         for _ in DataFrameExtractor(seqhandler).to_pandas_chunks(
             selection=selection,
             window_sec=5,
-            start_ns=timestamp_ns_start,
-            end_ns=timestamp_ns_end,
+            timestamp_ns_start=timestamp_ns_start,
+            timestamp_ns_end=timestamp_ns_end,
         ):
             pass
 
@@ -744,8 +744,8 @@ def test_single_selection_non_existing_field(
         for _ in DataFrameExtractor(seqhandler).to_pandas_chunks(
             selection=selection,
             window_sec=5,
-            start_ns=timestamp_ns_start,
-            end_ns=timestamp_ns_end,
+            timestamp_ns_start=timestamp_ns_start,
+            timestamp_ns_end=timestamp_ns_end,
         ):
             pass
 
@@ -886,8 +886,8 @@ def test_sequence_no_data(
         for _ in DataFrameExtractor(seqhandler).to_pandas_chunks(
             selection=None,  # all the topics
             window_sec=5,
-            start_ns=None,
-            end_ns=None,
+            timestamp_ns_start=None,
+            timestamp_ns_end=None,
         ):
             pass
 

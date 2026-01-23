@@ -67,8 +67,8 @@ class DataFrameExtractor:
             Sequence[Union[str, Tuple[str, Union[str, List[str]]]]]
         ] = None,
         window_sec: float = 5.0,
-        start_ns: Optional[int] = None,
-        end_ns: Optional[int] = None,
+        timestamp_ns_start: Optional[int] = None,
+        timestamp_ns_end: Optional[int] = None,
     ) -> Generator[pd.DataFrame, None, None]:
         """
         Generator that yields time-windowed pandas DataFrames from the sequence.
@@ -99,38 +99,38 @@ class DataFrameExtractor:
                 "The sequence might contain no data or could not derive 'min' and 'max' timestamps from topics"
             )
         # Provide clamped data to data streamer, for better time management
-        start_ns = (
-            start_ns
-            if start_ns is None
+        timestamp_ns_start = (
+            timestamp_ns_start
+            if timestamp_ns_start is None
             else max(
-                start_ns, self._sequence_handler.timestamp_ns_min
+                timestamp_ns_start, self._sequence_handler.timestamp_ns_min
             )  # do not go beyond (before) the minimum sequence timestamp
         )
-        end_ns = (
-            end_ns
-            if end_ns is None
+        timestamp_ns_end = (
+            timestamp_ns_end
+            if timestamp_ns_end is None
             else min(
-                end_ns, self._sequence_handler.timestamp_ns_max
+                timestamp_ns_end, self._sequence_handler.timestamp_ns_max
             )  # do not go beyond (after) the maximum sequence timestamp
         )
         seq_streamer = self._sequence_handler.get_data_streamer(
             topics=[t if isinstance(t, str) else t[0] for t in selection]
             if selection
             else [],
-            start_timestamp_ns=start_ns,
-            end_timestamp_ns=end_ns,
+            start_timestamp_ns=timestamp_ns_start,
+            end_timestamp_ns=timestamp_ns_end,
         )
         seq_readers = seq_streamer._as_batch_provider()
 
         # Setup temporal boundaries
         global_start_ns = (
-            start_ns  # Already clamped
-            if start_ns is not None
+            timestamp_ns_start  # Already clamped
+            if timestamp_ns_start is not None
             else self._sequence_handler.timestamp_ns_min
         )
         global_end_ns = (
-            end_ns  # Already clamped
-            if end_ns is not None
+            timestamp_ns_end  # Already clamped
+            if timestamp_ns_end is not None
             else self._sequence_handler.timestamp_ns_max
         )
         window_ns = int(window_sec * 1e9)

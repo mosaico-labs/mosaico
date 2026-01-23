@@ -281,6 +281,25 @@ if next_time:
     assert msg.timestamp == next_time
 ```
 
+####  Tabular Extraction (ML & Analytics)
+
+For users working with Machine Learning, Scikit-Learn, or deep learning frameworks, Mosaico provides the [`DataFrameExtractor`](./doc-md/ml/dataframe_extractor.md). This utility transforms sparse sensor streams into flattened, tabular DataFrames.
+
+```python
+from mosaicolabs.ml import DataFrameExtractor
+
+seq_handler = client.sequence_handler("my_sequence")
+extractor = DataFrameExtractor(seq_handler)
+
+# Get 5-second windowed DataFrames
+for df in extractor.to_pandas_chunks(window_sec=5.0):
+    # df is a pandas.DataFrame with flattened columns like '/front_imu.acceleration.x'
+    model.predict(df.fillna(0))
+
+```
+
+For more details on ML-specific features, refer to the **[ML Module Documentation](./doc-md/ml/ml.md)**.
+
 ### Documentation
 
 Detailed documentation for specific modules can be found here:
@@ -289,4 +308,5 @@ Detailed documentation for specific modules can be found here:
   * [**Communication**](./doc-md/communication.md): Client architecture and connection pooling.
   * [**Handlers (Writers/Readers)**](./doc-md/handlers.md): How to stream data to/from the platform.
   * [**Querying Remote Data**](./doc-md/queries.md): How to retrieve specific data by querying (topic/sequence) metadata and ontology time-series content.
+  * **[ML Module](./doc-md/ml/ml.md)**: Bridge between Mosaico and the modern Data Science and AI ecosystem.
   * [**ROS Bridge**](./doc-md/ros_bridge.md): Adapters and loaders for ROS 1/2.
