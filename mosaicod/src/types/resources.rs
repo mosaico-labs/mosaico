@@ -389,7 +389,7 @@ fn sanitize_name(name: &str) -> String {
         .collect();
 
     for c in chars_to_replace {
-        sanitized = sanitized.replace(&c, "");
+        sanitized = sanitized.replace(c, "");
     }
 
     sanitized
