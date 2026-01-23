@@ -58,7 +58,7 @@ pub fn is_numeric(data_type: &DataType) -> bool {
 
 /// Checks if the given Arrow [`DataType`] is considered literal
 #[must_use]
-pub fn is_literal(data_type: &DataType) -> bool {
+pub fn is_text(data_type: &DataType) -> bool {
     matches!(
         data_type,
         DataType::Utf8
@@ -73,7 +73,7 @@ pub fn is_literal(data_type: &DataType) -> bool {
 
 /// Converts an arrow [`Array`] to a literal type array (Utf8)
 pub fn cast_array_to_literal(array: &ArrayRef) -> Result<ArrayRef, ArrowError> {
-    if is_literal(array.data_type()) {
+    if is_text(array.data_type()) {
         Ok(arrow_cast::cast(
             array.as_ref(),
             &arrow_schema::DataType::Utf8,
@@ -213,7 +213,7 @@ pub fn stats_from_arrow_field(field: &Field) -> types::Stats {
 
     match field.data_type() {
         dt if is_numeric(dt) => Stats::Numeric(NumericStats::new()),
-        dt if is_literal(dt) => Stats::Text(TextStats::new()),
+        dt if is_text(dt) => Stats::Text(TextStats::new()),
         _ => Stats::Unsupported,
     }
 }
