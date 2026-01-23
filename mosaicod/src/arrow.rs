@@ -58,7 +58,7 @@ pub fn is_numeric(data_type: &DataType) -> bool {
 
 /// Checks if the given Arrow [`DataType`] is considered text
 #[must_use]
-pub fn is_text(data_type: &DataType) -> bool {
+pub fn is_textual(data_type: &DataType) -> bool {
     matches!(
         data_type,
         DataType::Utf8
@@ -72,15 +72,15 @@ pub fn is_text(data_type: &DataType) -> bool {
 }
 
 /// Converts an arrow [`Array`] to a text type array (Utf8)
-pub fn cast_array_to_text(array: &ArrayRef) -> Result<ArrayRef, ArrowError> {
-    if is_text(array.data_type()) {
+pub fn cast_array_to_textual(array: &ArrayRef) -> Result<ArrayRef, ArrowError> {
+    if is_textual(array.data_type()) {
         Ok(arrow_cast::cast(
             array.as_ref(),
             &arrow_schema::DataType::Utf8,
         )?)
     } else {
         Err(arrow::error::ArrowError::CastError(
-            "unable to cast arrow array to literal type".to_owned(),
+            "unable to cast arrow array to textual type".to_owned(),
         ))
     }
 }
@@ -209,11 +209,11 @@ impl SquashedIterator for SchemaRef {
 }
 
 pub fn stats_from_arrow_field(field: &Field) -> types::Stats {
-    use types::{NumericStats, Stats, TextStats};
+    use types::{NumericStats, Stats, TextualStats};
 
     match field.data_type() {
         dt if is_numeric(dt) => Stats::Numeric(NumericStats::new()),
-        dt if is_text(dt) => Stats::Text(TextStats::new()),
+        dt if is_textual(dt) => Stats::Textual(TextualStats::new()),
         _ => Stats::Unsupported,
     }
 }
@@ -242,8 +242,8 @@ pub fn stats_inspect_array(stats: &mut types::Stats, array: &ArrayRef) -> Result
 
             stats.merge(min_val, max_val, has_null, has_nan);
         }
-        Stats::Text(stats) => {
-            let sarray = cast_array_to_text(array)?;
+        Stats::Textual(stats) => {
+            let sarray = cast_array_to_textual(array)?;
             let string_array = sarray.as_string::<i32>();
 
             // Use SIMD-optimized min/max from Arrow compute

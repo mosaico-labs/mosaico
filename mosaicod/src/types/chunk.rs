@@ -20,7 +20,7 @@ impl OntologyModelStats {
 #[derive(Debug, PartialEq)]
 pub enum Stats {
     Numeric(NumericStats),
-    Text(TextStats),
+    Textual(TextualStats),
     Unsupported,
 }
 
@@ -98,20 +98,20 @@ impl NumericStats {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct TextStats {
+pub struct TextualStats {
     pub min: Option<String>,
     pub max: Option<String>,
 
     pub has_null: bool,
 }
 
-impl Default for TextStats {
+impl Default for TextualStats {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl TextStats {
+impl TextualStats {
     pub fn new() -> Self {
         Self {
             min: None,
@@ -121,7 +121,7 @@ impl TextStats {
         }
     }
 
-    /// Evaluates a new literal value and updates the column statistics.
+    /// Evaluates a new text value and updates the column statistics.
     /// If the provided value is [`None`], it is condered a null value.
     pub fn eval(&mut self, val: &Option<&str>) {
         if let Some(val) = val {
@@ -174,7 +174,7 @@ mod tests {
 
     #[test]
     fn text_stats_empty_string_is_valid_min() {
-        let mut stats = TextStats::new();
+        let mut stats = TextualStats::new();
         stats.eval(&Some(""));
         stats.eval(&Some("a"));
         stats.eval(&Some("b"));
@@ -186,7 +186,7 @@ mod tests {
 
     #[test]
     fn text_stats_normal_values() {
-        let mut stats = TextStats::new();
+        let mut stats = TextualStats::new();
         stats.eval(&Some("b"));
         stats.eval(&Some("a"));
         stats.eval(&Some("c"));
@@ -197,7 +197,7 @@ mod tests {
 
     #[test]
     fn text_stats_only_nulls() {
-        let mut stats = TextStats::new();
+        let mut stats = TextualStats::new();
         stats.eval(&None);
         stats.eval(&None);
 
@@ -208,7 +208,7 @@ mod tests {
 
     #[test]
     fn text_stats_merge_with_empty_string() {
-        let mut stats = TextStats::new();
+        let mut stats = TextualStats::new();
         stats.merge(Some("a"), Some("z"), false);
         stats.merge(Some(""), Some("b"), false);
 
