@@ -94,6 +94,15 @@ pub enum ServerError {
 
     #[error("query error :: {0}")]
     QueryError(#[from] query::Error),
+
+    #[error("internal error :: {0}")]
+    InternalError(String),
+}
+
+impl ServerError {
+    pub fn internal_error(msg: &str) -> Self {
+        Self::InternalError(msg.to_owned())
+    }
 }
 
 impl From<ServerError> for tonic::Status {

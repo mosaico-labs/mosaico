@@ -20,6 +20,8 @@ pub enum FacadeError {
     ConcurrencyError(String),
     #[error("query error :: {0}")]
     QueryError(#[from] crate::query::Error),
+    #[error("marshalling error :: {0}")]
+    MarshallingError(#[from] crate::marshal::Error),
     #[error("topic locked, unable to perform modifications")]
     TopicLocked,
     #[error("topic unlocked, unable to perform the requested operation over an unlocked topic")]
@@ -35,5 +37,9 @@ pub enum FacadeError {
 impl FacadeError {
     pub fn missing_data(msg: String) -> Self {
         Self::MissingData(msg)
+    }
+
+    pub fn not_found(msg: String) -> Self {
+        Self::NotFound(msg)
     }
 }

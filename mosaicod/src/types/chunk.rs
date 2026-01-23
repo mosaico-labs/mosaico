@@ -3,15 +3,16 @@ use std::collections::HashMap;
 const NUMERIC_MIN_PLACEHOLDER: f64 = f64::MAX;
 const NUMERIC_MAX_PLACEHOLDER: f64 = f64::MIN;
 
+/// Store [`Stats`] for each field of a given ontology model
 #[derive(Debug)]
-pub struct ColumnsStats {
-    pub stats: HashMap<String, Stats>,
+pub struct OntologyModelStats {
+    pub cols: HashMap<String, Stats>,
 }
 
-impl ColumnsStats {
+impl OntologyModelStats {
     pub fn empty() -> Self {
         Self {
-            stats: HashMap::new(),
+            cols: HashMap::new(),
         }
     }
 }

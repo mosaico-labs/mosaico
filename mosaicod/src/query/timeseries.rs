@@ -21,14 +21,14 @@ use std::sync::Arc;
 
 use super::Error;
 
-pub type TimeseriesGatewayRef = Arc<TimeseriesGateway>;
+pub type TimeseriesRef = Arc<Timeseries>;
 
-pub struct TimeseriesGateway {
+pub struct Timeseries {
     runtime: Arc<RuntimeEnv>,
     store: Arc<store::Store>,
 }
 
-impl TimeseriesGateway {
+impl Timeseries {
     pub fn try_new(store: Arc<store::Store>) -> Result<Self, Error> {
         let runtime = Arc::new(
             RuntimeEnvBuilder::new()
@@ -36,7 +36,7 @@ impl TimeseriesGateway {
                 .build()?,
         );
 
-        Ok(TimeseriesGateway {
+        Ok(Timeseries {
             runtime,
             store: store.clone(),
         })
@@ -54,7 +54,7 @@ impl TimeseriesGateway {
         path: impl AsRef<Path>,
         format: rw::Format,
         batch_size: Option<usize>,
-    ) -> Result<TimeseriesGatewayResult, Error> {
+    ) -> Result<TimeseriesResult, Error> {
         // Use Parquet format strategy for listing options
         let parquet_strategy = format
             .as_parquet()
@@ -80,12 +80,12 @@ impl TimeseriesGateway {
 
         let select = format!(
             "SELECT * FROM data ORDER BY {}",
-            params::ARROW_SCHEMA_COLUMN_NAME_TIMESTAMP
+            params::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP
         );
 
         let df = ctx.sql(&select).await?;
 
-        Ok(TimeseriesGatewayResult { data_frame: df })
+        Ok(TimeseriesResult { data_frame: df })
     }
 
     fn datafile_url(&self, path: impl AsRef<Path>) -> Result<url::Url, Error> {
@@ -97,11 +97,11 @@ impl TimeseriesGateway {
     }
 }
 
-pub struct TimeseriesGatewayResult {
+pub struct TimeseriesResult {
     data_frame: DataFrame,
 }
 
-impl TimeseriesGatewayResult {
+impl TimeseriesResult {
     pub fn schema_with_metadata(&self, metadata: HashMap<String, String>) -> SchemaRef {
         Arc::new(Schema::new_with_metadata(
             self.data_frame.schema().fields().clone(),
@@ -115,13 +115,15 @@ impl TimeseriesGatewayResult {
     ) -> Result<Self, Error> {
         if !ts_range.start.is_unbounded() {
             self.data_frame = self.data_frame.filter(
-                col(params::ARROW_SCHEMA_COLUMN_NAME_TIMESTAMP).gt_eq(lit(ts_range.start.as_i64())),
+                col(params::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP)
+                    .gt_eq(lit(ts_range.start.as_i64())),
             )?;
         }
 
         if !ts_range.end.is_unbounded() {
             self.data_frame = self.data_frame.filter(
-                col(params::ARROW_SCHEMA_COLUMN_NAME_TIMESTAMP).lt(lit(ts_range.end.as_i64())),
+                col(params::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP)
+                    .lt(lit(ts_range.end.as_i64())),
             )?;
         }
 
@@ -141,7 +143,7 @@ impl TimeseriesGatewayResult {
             self.data_frame
         };
 
-        Ok(TimeseriesGatewayResult { data_frame })
+        Ok(TimeseriesResult { data_frame })
     }
 
     pub async fn stream(self) -> Result<SendableRecordBatchStream, Error> {
@@ -174,8 +176,8 @@ impl TimeseriesGatewayResult {
         let stats = self.data_frame.aggregate(
             vec![],
             vec![
-                min(col(params::ARROW_SCHEMA_COLUMN_NAME_TIMESTAMP)),
-                max(col(params::ARROW_SCHEMA_COLUMN_NAME_TIMESTAMP)),
+                min(col(params::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP)),
+                max(col(params::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP)),
             ],
         )?;
 
@@ -186,10 +188,10 @@ impl TimeseriesGatewayResult {
             let ts_max = ScalarValue::try_from_array(batch.column(1), 0)?;
 
             let ts_min = scalar_value_to_timestamp(ts_min).ok_or_else(|| {
-                Error::bad_field(params::ARROW_SCHEMA_COLUMN_NAME_TIMESTAMP.to_owned())
+                Error::bad_field(params::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP.to_owned())
             })?;
             let ts_max = scalar_value_to_timestamp(ts_max).ok_or_else(|| {
-                Error::bad_field(params::ARROW_SCHEMA_COLUMN_NAME_TIMESTAMP.to_owned())
+                Error::bad_field(params::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP.to_owned())
             })?;
 
             return Ok(types::TimestampRange::between(ts_min, ts_max));
@@ -300,7 +302,7 @@ mod tests {
 
         write_dummy_file(&store, file_path).await;
 
-        let ts_gw = TimeseriesGateway::try_new((*store).clone()).unwrap();
+        let ts_gw = Timeseries::try_new((*store).clone()).unwrap();
 
         let res = ts_gw
             .read(file_path, rw::Format::Default, None)

@@ -15,6 +15,6 @@ pub enum Error {
     ChunkCreationCallbackError(String),
     #[error("unsupported write format")]
     Unsupported,
-    #[error("spawn_blocking task failed: {0}")]
-    SpawnBlockingError(String),
+    #[error("blocking operation failed: {0}")]
+    BlockingOperationError(String),
 }

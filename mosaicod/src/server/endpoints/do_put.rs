@@ -1,18 +1,16 @@
+use super::Context;
 use crate::marshal;
-use crate::{repo, rw, server::errors::ServerError, store, types};
+use crate::server::endpoints;
+use crate::{repo, rw, server::errors::ServerError, types};
 use arrow::datatypes::SchemaRef;
 use arrow_flight::decode::{DecodedFlightData, DecodedPayload, FlightDataDecoder};
 use arrow_flight::flight_descriptor::DescriptorType;
 use futures::TryStreamExt;
-use log::{debug, info, trace};
+use log::{info, trace};
 
-pub async fn do_put(
-    store: store::StoreRef,
-    repo: repo::Repository,
-    decoder: &mut FlightDataDecoder,
-) -> Result<(), ServerError> {
+pub async fn do_put(ctx: Context, decoder: &mut FlightDataDecoder) -> Result<(), ServerError> {
     let (cmd, schema) = extract_command_and_schema_from_header_message(decoder).await?;
-    do_put_topic_data(store, repo, decoder, schema, cmd).await
+    do_put_topic_data(ctx, decoder, schema, cmd).await
 }
 
 async fn extract_command_and_schema_from_header_message(
@@ -58,8 +56,7 @@ fn extract_command_from_flight_data(
 }
 
 async fn do_put_topic_data(
-    store: store::StoreRef,
-    repo: repo::Repository,
+    ctx: endpoints::Context,
     decoder: &mut FlightDataDecoder,
     schema: SchemaRef,
     cmd: types::flight::DoPutCmd,
@@ -74,7 +71,7 @@ async fn do_put_topic_data(
 
     crate::arrow::check_schema(&schema)?;
 
-    let handle = repo::FacadeTopic::new(locator, store.clone(), repo.clone());
+    let mut handle = repo::FacadeTopic::new(locator, ctx.store.clone(), ctx.repo.clone());
 
     // perform the match between received key and topic id
     let r_id = handle.resource_id().await?;
@@ -91,33 +88,36 @@ async fn do_put_topic_data(
     let serialization_format = mdata.properties.serialization_format;
     let topic_id = r_id.id;
 
-    let mut writer = handle.writer(serialization_format).on_chunk_created(
-        move |target_path, cols_stats, chunk_metadata| {
-            let topic_id = topic_id;
-            let repo_clone = repo.clone();
-            let ontology_tag = ontology_tag.clone();
+    trace!("creating topic writer");
+    let mut writer = handle.writer(ctx.timeseries_querier, serialization_format);
 
-            async move {
-                trace!(
-                    "calling chunk creation callback for `{}` {:?}",
-                    target_path.to_string_lossy(),
-                    cols_stats
-                );
+    trace!("setup chunk creation callback for topic");
+    writer.on_chunk_created(move |target_path, cols_stats, chunk_metadata| {
+        let topic_id = topic_id;
+        let repo_clone = ctx.repo.clone();
+        let ontology_tag = ontology_tag.clone();
 
-                Ok(on_chunk_created(
-                    repo_clone,
-                    topic_id,
-                    &ontology_tag,
-                    target_path,
-                    cols_stats,
-                    chunk_metadata,
-                )
-                .await?)
-            }
-        },
-    );
+        async move {
+            trace!(
+                "calling chunk creation callback for `{}` {:?}",
+                target_path.to_string_lossy(),
+                cols_stats
+            );
+
+            Ok(on_chunk_created(
+                repo_clone,
+                topic_id,
+                &ontology_tag,
+                target_path,
+                cols_stats,
+                chunk_metadata,
+            )
+            .await?)
+        }
+    });
 
     // Consume all batches
+    trace!("ready to consume batches");
     while let Some(data) = decoder
         .try_next()
         .await
@@ -125,8 +125,8 @@ async fn do_put_topic_data(
     {
         match data.payload {
             DecodedPayload::RecordBatch(batch) => {
-                debug!(
-                    "processing batch (cols: {}, memory_size: {}",
+                trace!(
+                    "received batch (cols: {}, memory_size: {})",
                     batch.columns().len(),
                     batch.get_array_memory_size()
                 );
@@ -142,13 +142,9 @@ async fn do_put_topic_data(
     }
 
     // If the finalize fails (e.g. problems during stats computation) the topic will not be locked,
-    // this allows the reindexing (currently not implemented) of
-    // the topic
+    // this allows the reindexing (currently not implemented) of the topic
     trace!("finializing data write");
     writer.finalize().await?;
-
-    trace!("resource {} locked", handle.locator);
-    handle.lock().await?;
 
     Ok(())
 }
@@ -158,7 +154,7 @@ async fn on_chunk_created(
     topic_id: i32,
     ontology_tag: &str,
     target_path: impl AsRef<std::path::Path>,
-    cstats: types::ColumnsStats,
+    cstats: types::OntologyModelStats,
     chunk_metadata: rw::ChunkMetadata,
 ) -> Result<(), ServerError> {
     let mut handle = repo::FacadeChunk::create(
@@ -171,7 +167,9 @@ async fn on_chunk_created(
     .await?;
 
     // Use batch insert for better performance (single INSERT per type instead of N)
-    handle.push_all_stats(ontology_tag, cstats).await?;
+    handle
+        .push_ontology_model_stats(ontology_tag, cstats)
+        .await?;
 
     handle.finalize().await?;
 

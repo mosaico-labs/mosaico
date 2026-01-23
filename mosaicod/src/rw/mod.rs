@@ -12,7 +12,7 @@ pub use chunk_writer::{ChunkMetadata, ChunkWriter};
 mod writer;
 
 pub mod chunked_writer;
-pub use chunked_writer::ChunkedWriter;
+pub use chunked_writer::{ChunkedWriter, ChunkedWriterSummary};
 
 pub mod chunk_reader;
 pub use chunk_reader::ChunkReader;

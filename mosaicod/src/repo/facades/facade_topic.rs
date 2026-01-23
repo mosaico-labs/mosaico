@@ -2,11 +2,12 @@ use super::FacadeError;
 use crate::rw;
 use crate::traits::AsExtension;
 use crate::{
-    marshal, params, repo, store,
+    marshal, params, query, repo, store,
     types::{self, Resource},
 };
 use arrow::datatypes::SchemaRef;
 use log::trace;
+use std::sync::Arc;
 
 /// Define topic metadata type contaning JSON user metadata
 type TopicMetadata = types::TopicMetadata<marshal::JsonMetadataBlob>;
@@ -18,6 +19,7 @@ pub struct FacadeTopic {
 }
 
 impl FacadeTopic {
+    /// Create a new facade using a topic name
     pub fn new(name: String, store: store::StoreRef, repo: repo::Repository) -> Self {
         Self {
             locator: types::TopicResourceLocator::from(name),
@@ -143,6 +145,7 @@ impl FacadeTopic {
         Ok(record.into())
     }
 
+    /// Lock the topic
     pub async fn lock(&self) -> Result<(), FacadeError> {
         let mut tx = self.repo.transaction().await?;
 
@@ -154,16 +157,60 @@ impl FacadeTopic {
         Ok(())
     }
 
-    /// Reads and deserializes the [`TopicMetadata`] associated with this topic.
+    /// Finalize the write procedure of the topic. The topic is locked and additional data are
+    /// consolidated (e.g. manifest, timestamp bounds). This function is intended to be called by
+    /// [`FacadeTopicWriterGuard`] to finilize the writing process.
+    async fn finalize(
+        &mut self,
+        timeseries_querier: query::TimeseriesRef,
+        format: rw::Format,
+    ) -> Result<(), FacadeError> {
+        let res = timeseries_querier
+            .read(self.locator.path(), format, None)
+            .await?;
+
+        let ts_range = res.timestamp_range().await?;
+
+        let manifest = types::TopicManifest::new()
+            .with_timestamp(types::TopicManifestTimestamp::new(ts_range));
+
+        self.manifest_write_to_store(manifest).await?;
+
+        self.lock().await?;
+
+        Ok(())
+    }
+
+    /// Reads [`TopicMetadata`] associated with this topic.
     ///
     /// # Errors
     ///
     /// Returns [`HandleError::ReadError`] if reading or deserializing fails.
     pub async fn metadata(&self) -> Result<TopicMetadata, FacadeError> {
-        let path = self.locator.metadata();
+        let path = self.locator.path_metadata();
         let bytes = self.store.read_bytes(path).await?;
 
         let data: marshal::JsonTopicMetadata = bytes.try_into()?;
+
+        Ok(data.into())
+    }
+
+    /// Reads [`TopicManifest`] associated with this topic.
+    ///
+    /// If manifest can't be found a [`FacadeError::NotFound`] error is returned.
+    pub async fn manifest(&self) -> Result<types::TopicManifest, FacadeError> {
+        let path = self.locator.path_manifest();
+
+        if !self.store.exists(&path).await? {
+            return Err(FacadeError::not_found(format!(
+                "unable to find `{}`",
+                path.to_string_lossy()
+            )));
+        }
+
+        let bytes = self.store.read_bytes(path).await?;
+
+        let data: marshal::TopicManifest = bytes.try_into()?;
 
         Ok(data.into())
     }
@@ -172,7 +219,7 @@ impl FacadeTopic {
     /// The serialization format is required to extract the schema, can be retrieved using [`TopicHandle::metadata`] function.
     pub async fn arrow_schema(&self, format: rw::Format) -> Result<SchemaRef, FacadeError> {
         // Get chunk 0 since this chunk needs to exist always
-        let path = self.locator.datafile(0, &format);
+        let path = self.locator.path_data(0, &format);
 
         // Build a chunk reader reading in memory a file
         // (cabba) TODO: avoid reading the whole file, get from store only the header
@@ -188,7 +235,7 @@ impl FacadeTopic {
     /// Returns [`HandleError::NotFound`] or [`HandleError::WriteError`] if serialization or writing fails.
     async fn metadata_write_to_store(&self, metadata: TopicMetadata) -> Result<(), FacadeError> {
         trace!("writing metadata to store to `{}`", self.locator);
-        let path = self.locator.metadata();
+        let path = self.locator.path_metadata();
 
         let json_mdata = marshal::JsonTopicMetadata::from(metadata);
         let bytes: Vec<u8> = json_mdata.try_into()?;
@@ -198,7 +245,29 @@ impl FacadeTopic {
         Ok(())
     }
 
-    pub fn writer(&self, format: rw::Format) -> rw::ChunkedWriter<'_, store::Store> {
+    /// Write timestamp data (for quick access without performing queries) into the store
+    async fn manifest_write_to_store(
+        &self,
+        manifest: types::TopicManifest,
+    ) -> Result<(), FacadeError> {
+        trace!("writing manifest to store to `{}`", self.locator);
+        let path = self.locator.path_manifest();
+
+        let json_manifest: marshal::TopicManifest = manifest.into();
+        let bytes: Vec<u8> = json_manifest.try_into()?;
+
+        self.store.write_bytes(&path, bytes).await?;
+
+        Ok(())
+    }
+
+    /// Returns a writer used to write chunked record batches using a specified serialization
+    /// format `format`.
+    pub fn writer(
+        &mut self,
+        querier: query::TimeseriesRef,
+        format: rw::Format,
+    ) -> FacadeTopicWriterGuard<'_> {
         let max_chunk_size = {
             let config_value = params::configurables().max_chunk_size_in_bytes;
             if config_value == 0 {
@@ -208,13 +277,20 @@ impl FacadeTopic {
             }
         };
 
-        rw::ChunkedWriter::new(
-            self.store.as_ref(),
+        let cw = rw::ChunkedWriter::new(
+            self.store.clone(),
             self.path(),
             format,
-            |path, format, idx| types::TopicResourceLocator::from(path).datafile(idx, format),
+            |path, format, idx| types::TopicResourceLocator::from(path).path_data(idx, format),
         )
-        .with_max_chunk_size(max_chunk_size)
+        .with_max_chunk_size(max_chunk_size);
+
+        FacadeTopicWriterGuard {
+            facade: self,
+            querier,
+            format,
+            writer: cw,
+        }
     }
 
     /// Deletes this topic, if unlocked
@@ -341,4 +417,56 @@ impl FacadeTopic {
     }
 }
 
-// Batch Reader needs to implement Stream trait
+/// A guard ensuring exclusive write access to a [`FacadeTopic`].
+///
+/// While this struct exists, the underlying topic is mutably borrowed, preventing
+/// any other operations (such as locking or concurrent reads) until [`FacadeTopicWriterGuard::finalize`] is called.
+pub struct FacadeTopicWriterGuard<'a> {
+    /// Anchors the exclusive borrow of the facade, strictly tying the writer's lifetime
+    /// to the topic's availability.
+    facade: &'a mut FacadeTopic,
+
+    /// Query engine for timeseries data used to finalize topic data at the end of write process
+    querier: query::TimeseriesRef,
+
+    /// Serialization format used to write
+    format: rw::Format,
+
+    /// The underlying writer handling the actual data operations.
+    writer: rw::ChunkedWriter<Arc<store::Store>>,
+}
+
+impl<'a> FacadeTopicWriterGuard<'a> {
+    /// Performs all the operations required to finilize the writing stream, consolidate topic data
+    /// and lock the topic
+    pub async fn finalize(self) -> Result<(), FacadeError> {
+        trace!("internal writer finalized");
+        let summary = self.writer.finalize().await?;
+
+        if summary.number_of_chunks_created > 0 {
+            trace!("consolidating topic manifest");
+            self.facade.finalize(self.querier, self.format).await?;
+        } else {
+            trace!("finalizing topic without data");
+            self.facade.lock().await?;
+            trace!("topic has been locked");
+        }
+
+        Ok(())
+    }
+}
+
+impl<'a> std::ops::Deref for FacadeTopicWriterGuard<'a> {
+    type Target = rw::ChunkedWriter<Arc<store::Store>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.writer
+    }
+}
+
+impl<'a> std::ops::DerefMut for FacadeTopicWriterGuard<'a> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        trace!("dereferencing writer");
+        &mut self.writer
+    }
+}

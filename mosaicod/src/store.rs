@@ -181,6 +181,14 @@ impl Store {
         Ok(locations)
     }
 
+    pub async fn exists(&self, path: impl AsRef<std::path::Path>) -> Result<bool, Error> {
+        match self.driver.head(&to_object_path(&path)).await {
+            Ok(_) => Ok(true),
+            Err(object_store::Error::NotFound { .. }) => Ok(false),
+            Err(e) => Err(e.into()),
+        }
+    }
+
     pub async fn size(&self, path: impl AsRef<std::path::Path>) -> Result<usize, Error> {
         let head = self.driver.head(&to_object_path(&path)).await?;
 

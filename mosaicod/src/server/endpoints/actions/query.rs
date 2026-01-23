@@ -2,16 +2,16 @@
 
 use log::{info, trace};
 
-use super::ActionContext;
 use crate::{
     marshal::{self, ActionResponse},
     repo::FacadeQuery,
+    server::endpoints::Context,
     server::errors::ServerError,
 };
 
 /// Executes a query and returns matching groups.
 pub async fn execute(
-    ctx: &ActionContext,
+    ctx: &Context,
     query: serde_json::Value,
 ) -> Result<ActionResponse, ServerError> {
     info!("performing a query");
@@ -20,7 +20,8 @@ pub async fn execute(
 
     trace!("query filter: {:?}", filter);
 
-    let groups = FacadeQuery::query(filter, ctx.ts_gw.clone(), ctx.repo.clone()).await?;
+    let groups =
+        FacadeQuery::query(filter, ctx.timeseries_querier.clone(), ctx.repo.clone()).await?;
 
     trace!("groups found: {:?}", groups);
 

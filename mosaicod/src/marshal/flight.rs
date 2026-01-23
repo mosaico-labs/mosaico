@@ -1,6 +1,10 @@
 use crate::types;
 use bincode::{Decode, Encode};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
+
+// ////////////////////////////////////////////////////////////////////////////
+// GET FLIGHT INFO CMD
+// ////////////////////////////////////////////////////////////////////////////
 
 /// Non-exported type for deserialize [`GetFlightInfoCmd`]
 #[derive(Deserialize)]
@@ -39,6 +43,9 @@ pub fn get_flight_info_cmd(v: &[u8]) -> Result<types::flight::GetFlightInfoCmd, 
         .map(|v| v.into())
 }
 
+// ////////////////////////////////////////////////////////////////////////////
+// DO PUT
+// ////////////////////////////////////////////////////////////////////////////
 #[derive(Deserialize)]
 struct DoPutCmd {
     resource_locator: String,
@@ -60,6 +67,9 @@ pub fn do_put_cmd(v: &[u8]) -> Result<types::flight::DoPutCmd, super::Error> {
         .map(|v| v.into())
 }
 
+// ////////////////////////////////////////////////////////////////////////////
+// TICKET TOPIC
+// ////////////////////////////////////////////////////////////////////////////
 #[derive(Encode, Decode)]
 struct TicketTopic {
     locator: String,
@@ -113,6 +123,49 @@ pub fn ticket_topic_from_binary(v: &[u8]) -> Result<types::flight::TicketTopic, 
     Ok(ticket.into())
 }
 
+// ////////////////////////////////////////////////////////////////////////////
+// TOPIC APP METADATA
+// ////////////////////////////////////////////////////////////////////////////
+
+#[derive(Serialize)]
+struct TopicAppMetadataTimestamp {
+    /// Minimum timestamp observed in the topic
+    min: i64,
+    /// Maximum timestamp observed in the topic
+    max: i64,
+}
+
+/// Topic app metadata sent when requesting flight info topics and sequences flights
+#[derive(Serialize)]
+pub struct TopicAppMetadata {
+    /// Topic timestamp data
+    timestamp: Option<TopicAppMetadataTimestamp>,
+}
+
+// (cabba) TODO: Use `From` trait
+impl TopicAppMetadata {
+    pub fn new(manifest: &types::TopicManifest) -> Self {
+        Self {
+            timestamp: manifest
+                .timestamp
+                .as_ref()
+                .map(|ts| TopicAppMetadataTimestamp {
+                    min: ts.range.start.as_i64(),
+                    max: ts.range.end.as_i64(),
+                }),
+        }
+    }
+}
+
+impl From<TopicAppMetadata> for bytes::Bytes {
+    fn from(value: TopicAppMetadata) -> Self {
+        serde_json::to_vec(&value).unwrap_or_default().into()
+    }
+}
+
+// ////////////////////////////////////////////////////////////////////////////
+// TESTS
+// ////////////////////////////////////////////////////////////////////////////
 #[cfg(test)]
 mod tests {
 

@@ -25,7 +25,7 @@ pub enum SchemaError {
 ///
 /// Returns [`SchemaError`] if the schema structural requirements are not met.
 pub fn check_schema(schema: &SchemaRef) -> Result<(), SchemaError> {
-    let field = schema.field_with_name(params::ARROW_SCHEMA_COLUMN_NAME_TIMESTAMP);
+    let field = schema.field_with_name(params::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP);
     if let Ok(field) = field {
         if DataType::Int64 != *field.data_type() {
             return Err(SchemaError::WrongTimestampType);
@@ -262,11 +262,11 @@ pub fn stats_inspect_array(stats: &mut types::Stats, array: &ArrayRef) -> Result
 }
 
 /// Inspects a [`RecordBatch`] and updates the columns statistics accordingly.
-pub fn column_stats_inspect_record_batch(
-    cstats: &mut types::ColumnsStats,
+pub fn ontology_model_stats_inspect_record_batch(
+    cstats: &mut types::OntologyModelStats,
     batch: &RecordBatch,
 ) -> Result<(), ArrowError> {
-    for (col_name, stats) in &mut cstats.stats {
+    for (col_name, stats) in &mut cstats.cols {
         let array = array_from_flat_field_name(col_name, batch)?;
         stats_inspect_array(stats, &array)?;
     }
@@ -276,10 +276,10 @@ pub fn column_stats_inspect_record_batch(
 /// Creates an empty chunk that holds al schema fields.
 ///
 /// The schema fields are flattened inside the chunk.
-pub fn column_stats_from_schema(schema: &SchemaRef) -> types::ColumnsStats {
-    let mut cs = types::ColumnsStats::empty();
+pub fn ontology_model_stats_from_schema(schema: &SchemaRef) -> types::OntologyModelStats {
+    let mut cs = types::OntologyModelStats::empty();
     for (squashed_name, field) in schema.squashed_iter() {
-        cs.stats.insert(
+        cs.cols.insert(
             squashed_name.clone(),
             stats_from_arrow_field(field.as_ref()),
         );
@@ -487,7 +487,7 @@ pub mod testing {
     pub fn dummy_batch() -> RecordBatch {
         let schema = Arc::new(Schema::new(vec![
             Field::new(
-                params::ARROW_SCHEMA_COLUMN_NAME_TIMESTAMP,
+                params::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP,
                 DataType::Int64,
                 false,
             ),

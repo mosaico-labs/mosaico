@@ -1,27 +1,21 @@
+use super::Context;
+use crate::{marshal, repo, server::errors::ServerError, types::Resource};
 use arrow_flight::{
     Ticket,
     encode::{FlightDataEncoder, FlightDataEncoderBuilder},
     error::FlightError,
 };
-
 use futures::TryStreamExt;
 use log::{debug, info, trace};
 
-use crate::{marshal, query, repo, server::errors::ServerError, store, types::Resource};
-
-pub async fn do_get(
-    store: store::StoreRef,
-    repo: repo::Repository,
-    ts_engine: query::TimeseriesGatewayRef,
-    ticket: Ticket,
-) -> Result<FlightDataEncoder, ServerError> {
+pub async fn do_get(ctx: Context, ticket: Ticket) -> Result<FlightDataEncoder, ServerError> {
     let ticket = marshal::flight::ticket_topic_from_binary(&ticket.ticket)?;
 
     info!("requesting data for ticket `{}`", ticket.locator);
 
     // Create topic handle
     let topic = ticket.locator;
-    let tfacade = repo::FacadeTopic::new(topic, store, repo.clone());
+    let tfacade = repo::FacadeTopic::new(topic, ctx.store, ctx.repo.clone());
 
     // Read metadata from topic
     let metadata = tfacade.metadata().await?;
@@ -30,7 +24,8 @@ pub async fn do_get(
 
     let batch_size = tfacade.compute_optimal_batch_size().await?;
 
-    let mut query_result = ts_engine
+    let mut query_result = ctx
+        .timeseries_querier
         .read(
             &tfacade.locator.name(),
             metadata.properties.serialization_format,
