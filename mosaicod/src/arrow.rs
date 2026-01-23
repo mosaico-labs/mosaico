@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 use std::sync::Arc;
 
 use arrow::array::{ArrayRef, AsArray, RecordBatch, StructArray};
-use arrow::datatypes::{DataType, Field, FieldRef, SchemaRef};
+use arrow::datatypes::{DataType, Field, FieldRef, Schema, SchemaRef};
 use arrow::error::ArrowError;
 
 use crate::{params, traits::SquashedIterator, types};
@@ -34,6 +34,11 @@ pub fn check_schema(schema: &SchemaRef) -> Result<(), SchemaError> {
         return Err(SchemaError::MissingTimestampInSchema);
     }
     Ok(())
+}
+
+/// Return a arrow empty schema
+pub fn empty_schema_ref() -> Arc<Schema> {
+    Arc::new(Schema::empty())
 }
 
 /// Checks if the given Arrow [`DataType`] is considered numeric

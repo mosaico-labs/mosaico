@@ -202,10 +202,7 @@ impl FacadeTopic {
         let path = self.locator.path_manifest();
 
         if !self.store.exists(&path).await? {
-            return Err(FacadeError::not_found(format!(
-                "unable to find `{}`",
-                path.to_string_lossy()
-            )));
+            return Err(FacadeError::not_found(path.to_string_lossy().to_string()));
         }
 
         let bytes = self.store.read_bytes(path).await?;
@@ -217,9 +214,15 @@ impl FacadeTopic {
 
     /// Returns the topic arrow schema.
     /// The serialization format is required to extract the schema, can be retrieved using [`TopicHandle::metadata`] function.
+    ///
+    /// If no arrow_schema is found a [`FacadeError::NotFound`] error is returned
     pub async fn arrow_schema(&self, format: rw::Format) -> Result<SchemaRef, FacadeError> {
         // Get chunk 0 since this chunk needs to exist always
         let path = self.locator.path_data(0, &format);
+
+        if !self.store.exists(&path).await? {
+            return Err(FacadeError::NotFound(path.to_string_lossy().to_string()));
+        }
 
         // Build a chunk reader reading in memory a file
         // (cabba) TODO: avoid reading the whole file, get from store only the header

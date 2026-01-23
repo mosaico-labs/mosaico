@@ -95,14 +95,21 @@ pub async fn get_flight_info(
 
                     trace!("{} building schema (+platform metadata)", handle.locator);
 
-                    // Collect schema
-                    let schema = handle
+                    // Collect schema, if no schema was found generate an create an empty schema
+                    let schema = match handle
                         .arrow_schema(metadata.properties.serialization_format)
-                        .await?;
+                        .await
+                    {
+                        Ok(s) => s,
+                        Err(FacadeError::NotFound(_)) => crate::arrow::empty_schema_ref(),
+                        Err(e) => return Err(e.into()),
+                    };
 
                     // Collect metadata
                     let metadata = marshal::JsonTopicMetadata::from(metadata);
                     let flatten_metadata = metadata.to_flat_hashmap().map_err(FacadeError::from)?;
+
+                    // Build schema to send
                     let schema =
                         Schema::new_with_metadata(schema.fields().clone(), flatten_metadata);
 
