@@ -19,7 +19,7 @@ dotenv = "0.15.0"
 env_logger = "0.11.8"
 futures = "0.3.31"
 if-addrs = "0.14.0"
-log = "0.4.28"
+log = "0.4.29"
 mimalloc = { version = "0.1", default-features = false }
 object_store = { version = "0.12.4", features = ["aws", "fs"] }
 parquet = "56.1.0"
