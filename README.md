@@ -16,7 +16,6 @@
 ## The Open-Source Data Platform for Robotics & Physical AI
 
 Mosaico is a *blazing-fast* data platform designed to bridge the gap between Robotics and Physical AI. It streamlines data management, compression, and search by replacing monolithic files with a structured archive powered by Rust and Python.
-**Stop treating your sensor data like files. Start treating it like a dataset.**
 
 ## What you'll find
 This repo contains both the Python SDK (`mosaico-sdk-py`) and the Rust backend (`mosaicod`). We have chosen to keep the code in a monorepo configuration to simplify the testing and reduce compatibility issues.
@@ -40,7 +39,7 @@ For a deep dive into the platform's architecture read the [Core Concepts Guide](
 ### Streamlining Data for Physical AI
 
 <p align="center">
-  <img alt="ros to physical ai" src="doc/ros_physical_ai.png" width="1280" />
+  <img alt="ros to physical ai" src="doc/ros_physical_ai.png" />
 </p>
 
 Mosaico is designed to streamline the transition from raw robotic data to model-ready datasets. 
@@ -73,18 +72,6 @@ To install the provided Python SDK and its dependencies, first navigate in the r
 cd mosaico-sdk-py
 poetry install
 ```
-
-### Testing
-
-To run the testing pipeline use the provided script:
-
-```bash
-./scripts/tests.sh
-```
-
-The testing pipeline requires [Poetry](https://python-poetry.org/docs/), the [Rust](https://rust-lang.org/tools/install/) toolchain, and [Docker](https://docs.docker.com/engine/install/).
-
-The testing pipeline contains all the unit tests (server + SDKs) and integration tests.
 
 ### Cite Us
 
