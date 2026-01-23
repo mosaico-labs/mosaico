@@ -163,7 +163,7 @@ def test_topic_handlers_in_dataless_sequence(
 @pytest.mark.parametrize("sequence", QUERY_SEQUENCES_MOCKUP.keys())
 def test_sequence_reader_in_dataless_sequence(
     _client: MosaicoClient,
-    # _inject_sequences_mockup,  # Ensure the data are available on the data platform
+    _inject_sequences_mockup,  # Ensure the data are available on the data platform
     sequence: str,
 ):
     """
