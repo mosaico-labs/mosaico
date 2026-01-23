@@ -371,13 +371,28 @@ impl From<SequenceTopicGroups> for Vec<SequenceTopicGroup> {
     }
 }
 
-/// Returns a sanitized resource name by trimming whitespace and ensuring it does **not** start with a `/`.
+/// Builds a sanitized resource name
 ///
-/// This function is useful when normalizing resource paths or identifiers to ensure consistency
-/// across the application by making them relative paths.
+/// Sanitized resource names have the following requirements:
+/// - remove any leading `/`
+/// - any non-alphanumeric char as first element is removed
+/// - these symbol `! " ' * £ $ % &` are removed
+/// - any non-ASCII char is replaced with a `?`
 fn sanitize_name(name: &str) -> String {
-    let trimmed = name.trim();
-    trimmed.trim_start_matches('/').to_owned()
+    let chars_to_replace = vec!["!", "\"", "'", "*", "£", "$", "%", "&"];
+
+    let mut sanitized: String = name.trim().trim_start_matches('/').to_owned();
+
+    sanitized = sanitized
+        .chars()
+        .map(|c| if c.is_ascii() { c } else { '?' })
+        .collect();
+
+    for c in chars_to_replace {
+        sanitized = sanitized.replace(c, "");
+    }
+
+    sanitized
 }
 
 #[cfg(test)]
@@ -395,6 +410,15 @@ mod tests {
 
         let san = sanitize_name("//my/resource/name");
         assert_eq!(san, target);
+
+        let san = sanitize_name("/!\"my/resource/name");
+        assert_eq!(san, target);
+
+        let san = sanitize_name("/èmy/resource/name");
+        assert_eq!(san, "?my/resource/name");
+
+        let san = sanitize_name("my/resourcè/name");
+        assert_eq!(san, "my/resourc?/name");
     }
 
     #[test]

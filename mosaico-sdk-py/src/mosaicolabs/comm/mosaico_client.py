@@ -53,27 +53,12 @@ class MosaicoClient:
     # Used to ensure the constructor is only called via the `connect()` factory.
     _CONNECT_SENTINEL = object()
 
-    # --- Class-level attributes ---
-    _sequence_handlers_cache: Dict[str, SequenceHandler]
-    """Cache for SequenceHandler instances, keyed by sequence_name. Used to avoid re-connecting for known sequences."""
-
-    _topic_handlers_cache: Dict[str, TopicHandler]
-    """Cache for TopicHandler instances, keyed by their resource ('sequence_name/topic_name') name."""
-
-    _status: _ConnectionStatus = _ConnectionStatus.Closed
-    """Tracks the current connection status (Open/Closed)."""
-
-    _control_client: fl.FlightClient
-    """The primary PyArrow Flight client used for SDK-Server control operations (e.g., creating layers, querying)."""
-
-    _connection_pool: Optional[_ConnectionPool]
-    """The pool of Flight clients used for parallel data writing."""
-
-    _executor_pool: Optional[_ExecutorPool]
-    """The pool of thread executors used for offloading serialization and I/O."""
-
     def __init__(
         self,
+        *,
+        host: str,
+        port: int,
+        timeout: int,
         control_client: fl.FlightClient,
         connection_pool: Optional[_ConnectionPool],
         executor_pool: Optional[_ExecutorPool],
@@ -90,14 +75,52 @@ class MosaicoClient:
                 "MosaicoClient must be instantiated using the classmethod MosaicoClient.connect()."
             )
 
-        self._control_client = control_client
-        self._status = _ConnectionStatus.Open
-        self._connection_pool = connection_pool
-        self._executor_pool = executor_pool
+        self._host = host
+        """The remote server host"""
+        self._port = port
+        """The remote server port"""
+        self._timeout = timeout
+        """The connection timeout"""
+        self._control_client: fl.FlightClient = control_client
+        """The primary PyArrow Flight client used for SDK-Server control operations (e.g., creating layers, querying)."""
+        self._status: _ConnectionStatus = _ConnectionStatus.Open
+        """Tracks the current connection status (Open/Closed)."""
+        self._connection_pool: Optional[_ConnectionPool] = connection_pool
+        """The pool of Flight clients used for parallel data writing."""
+        self._executor_pool: Optional[_ExecutorPool] = executor_pool
+        """The pool of thread executors used for offloading serialization and I/O."""
 
         # Initialize caches
-        self._sequence_handlers_cache = {}
-        self._topic_handlers_cache = {}
+        self._sequence_handlers_cache: Dict[str, SequenceHandler] = {}
+        """Cache for SequenceHandler instances, keyed by sequence_name. Used to avoid re-connecting for known sequences."""
+        self._topic_handlers_cache: Dict[str, TopicHandler] = {}
+        """Cache for TopicHandler instances, keyed by their resource ('sequence_name/topic_name') name."""
+
+    def _init_pools(self):
+        """Initialize Connection and Executor pools"""
+        try:
+            # Attempt to create the connection pool. We use os.cpu_count()
+            # as a heuristic for the optimal pool size.
+            if self._connection_pool is None:
+                self._connection_pool = _ConnectionPool(
+                    host=self._host,
+                    port=self._port,
+                    pool_size=os.cpu_count(),
+                    timeout=self._timeout,
+                )
+        except Exception as e:
+            raise Exception(
+                f"Exception while initializing Connection pool.\nInner err. '{e}'"
+            )
+
+        try:
+            # Attempt to create the executor pool.
+            if self._executor_pool is None:
+                self._executor_pool = _ExecutorPool(pool_size=os.cpu_count())
+        except Exception as e:
+            raise Exception(
+                f"Exception while initializing Executor pool.\nInner err. '{e}'"
+            )
 
     @classmethod
     def connect(
@@ -133,35 +156,15 @@ class MosaicoClient:
                 f"Connection to Flight server at '{host}:{port}' failed on startup.\nInner err: '{e}'"
             )
 
-        # Initialize Pools
-        connection_pool = None
-        executor_pool = None
-
-        try:
-            # We attempt to create the connection pool. We use os.cpu_count()
-            # as a heuristic for the optimal pool size.
-            connection_pool = _ConnectionPool(
-                host=host,
-                port=port,
-                pool_size=os.cpu_count(),
-                timeout=timeout,
-            )
-        except Exception as e:
-            # A failed pool is a fatal error.
-            raise Exception(
-                f"Exception while initializing Connection pool.\nInner err. '{e}'"
-            )
-
-        try:
-            executor_pool = _ExecutorPool(pool_size=os.cpu_count())
-        except Exception as e:
-            raise Exception(
-                f"Exception while initializing Executor pool.\nInner err. '{e}'"
-            )
-
         # Call the private constructor
         return cls(
-            control_client, connection_pool, executor_pool, cls._CONNECT_SENTINEL
+            host=host,
+            port=port,
+            timeout=timeout,
+            control_client=control_client,
+            connection_pool=None,
+            executor_pool=None,
+            sentinel=cls._CONNECT_SENTINEL,
         )
 
     # --- Context Manager Protocol ---
@@ -292,6 +295,9 @@ class MosaicoClient:
             if max_batch_size_records is not None
             else DEFAULT_MAX_BATCH_SIZE_RECORDS
         )
+
+        # Init connection and executor pools
+        self._init_pools()
 
         return SequenceWriter(
             sequence_name=sequence_name,
@@ -430,7 +436,9 @@ class MosaicoClient:
             self._remove_from_sequence_handlers_cache(sequence_name=sequence_name)
 
         except Exception as e:
-            logger.error(f"Server error while asking for Sequence deletion, '{e}'")
+            logger.error(
+                f"Server error (do_action) while asking for Sequence deletion, '{e}'"
+            )
 
     def list_sequences(self) -> List[str]:
         """

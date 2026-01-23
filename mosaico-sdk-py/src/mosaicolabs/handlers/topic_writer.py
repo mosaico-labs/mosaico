@@ -8,7 +8,7 @@ serialization, and connection management.
 
 from concurrent.futures import ThreadPoolExecutor
 import json
-from typing import Any, Dict, Type, Optional
+from typing import Any, Type, Optional
 from mosaicolabs.models.header import Header
 from mosaicolabs.models.message import Message
 import pyarrow.flight as fl
@@ -38,6 +38,7 @@ class TopicWriter:
 
     def __init__(
         self,
+        *,
         topic_name: str,
         sequence_name: str,
         client: fl.FlightClient,
@@ -48,10 +49,15 @@ class TopicWriter:
         Internal constructor. Use `TopicWriter.create()` instead.
         """
         self._fl_client: fl.FlightClient = client
+        """The FlightClient used for writing operations."""
         self._sequence_name: str = sequence_name
+        """The name of the created sequence"""
         self._name: str = topic_name
-        self._wrstate = state
-        self._config = config
+        """The name of the new topic"""
+        self._config: WriterConfig = config
+        """The config of the writer"""
+        self._wrstate: _TopicWriteState = state
+        """The actual writer object"""
 
     @classmethod
     def create(
@@ -61,7 +67,6 @@ class TopicWriter:
         topic_key: str,
         client: fl.FlightClient,
         executor: Optional[ThreadPoolExecutor],
-        metadata: Dict[str, Any],
         ontology_type: Type[Serializable],
         config: WriterConfig,
     ) -> "TopicWriter":
@@ -122,7 +127,13 @@ class TopicWriter:
             max_batch_size_records=config.max_batch_size_records,
         )
 
-        return cls(topic_name, sequence_name, client, wrstate, config)
+        return cls(
+            topic_name=topic_name,
+            sequence_name=sequence_name,
+            client=client,
+            state=wrstate,
+            config=config,
+        )
 
     # --- Context Manager ---
     def __enter__(self) -> "TopicWriter":

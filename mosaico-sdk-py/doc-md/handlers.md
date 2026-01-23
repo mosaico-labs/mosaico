@@ -167,8 +167,8 @@ This is the handler to an existing sequence. It allows you to inspect what topic
   * **`get_data_streamer(topics: List[str] = [], start_timestamp_ns: Optional[int] = None, end_timestamp_ns: Optional[int] = None) -> SequenceDataStreamer`**
   Opens a reading channel and returns a `SequenceDataStreamer` for iterating over the sequence data. The streamer supports temporal slicing to retrieve data within a specific time window.
     * **`topics`**: Get the streams from these topics only; ignore the others. If empty, streams all available topics.
-    * **`start_timestamp_ns`**: The inclusive lower bound for the time window (nanoseconds). Streams from the timestamp closest to or equal to this value.
-    * **`end_timestamp_ns`**: The inclusive upper bound for the time window (nanoseconds). Streams up to the timestamp closest to or equal to this value.
+    * **`start_timestamp_ns`**: The **inclusive** lower bound for the time window (nanoseconds). Streams from the timestamp **greater than or equal** to this value.
+    * **`end_timestamp_ns`**: The **exclusive** upper bound for the time window (nanoseconds). Streams up to the timestamp **strictly lower than** this value.
 
     Raises `ValueError` if some of the input topic names are not valid.
 
@@ -313,8 +313,8 @@ The `TopicHandler` provides access to metadata, schema definitions, and acts as 
 **Streamer Factories**
 * **`get_data_streamer(start_timestamp_ns: Optional[int] = None, end_timestamp_ns: Optional[int] = None) -> TopicDataStreamer`**
 Opens a reading channel and returns a `TopicDataStreamer` for iterating over this topic's data. The streamer supports temporal slicing to retrieve data within a specific time window.
-  * **`start_timestamp_ns`**: The inclusive lower bound for the time window (nanoseconds).
-  * **`end_timestamp_ns`**: The inclusive upper bound for the time window (nanoseconds).
+  * **`start_timestamp_ns`**: The **inclusive** lower bound for the time window (nanoseconds). Streams from the timestamp **greater than or equal** to this value.
+  * **`end_timestamp_ns`**: The **exclusive** upper bound for the time window (nanoseconds). Streams up to the timestamp **strictly lower than** this value.
   * **Raises**: `ValueError` if the TopicHandler internal state is not valid or the topic cannot be accessed.
 
 

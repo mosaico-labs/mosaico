@@ -25,7 +25,7 @@ def test_sequence_report(_client: MosaicoClient):
             log.info("Expected one (1) error after this line...")
             raise Exception("__exception_in_test__")
 
-    # The sequence is still present and not deleted
+    # The sequence is still present and not deleted (on_error=OnErrorPolicy.Report)
     shandler = _client.sequence_handler(sequence_name)
     # The sequence is still on the server
     assert shandler is not None

@@ -36,29 +36,10 @@ class SequenceWriter:
         parallelism between topics (e.g., high-bandwidth video vs low-bandwidth telemetry).
     """
 
-    # -------------------- Class attributes --------------------
-    _name: str
-    _metadata: Dict[str, Any]
-    _topic_writers: Dict[str, TopicWriter]
-    _control_client: fl.FlightClient
-    """The FlightClient used for metadata operations (creating topics, finalizing sequence)."""
-
-    _connection_pool: Optional[_ConnectionPool]
-    """The pool of FlightClients available for data streaming."""
-
-    _executor_pool: Optional[_ExecutorPool]
-    """The pool of ThreadPoolExecutors available for asynch I/O."""
-
-    _config: WriterConfig
-    """Configuration object containing error policies and batch size limits."""
-
-    _sequence_status: SequenceStatus = SequenceStatus.Null
-    _key: Optional[str] = None
-    _entered: bool = False
-
     # -------------------- Constructor --------------------
     def __init__(
         self,
+        *,
         sequence_name: str,
         client: fl.FlightClient,
         connection_pool: Optional[_ConnectionPool],
@@ -71,12 +52,25 @@ class SequenceWriter:
         """
         _validate_sequence_name(sequence_name)
         self._name: str = sequence_name
+        """The name of the new sequence"""
         self._metadata: dict[str, Any] = metadata
-        self._config = config
+        """The metadata of the new sequence"""
+        self._config: WriterConfig = config
+        """The config of the writer"""
         self._topic_writers: Dict[str, TopicWriter] = {}
-        self._control_client = client
-        self._connection_pool = connection_pool
-        self._executor_pool = executor_pool
+        """The cache of the spawned topic writers"""
+        self._control_client: fl.FlightClient = client
+        """The FlightClient used for operations (creating topics, finalizing sequence)."""
+        self._connection_pool: Optional[_ConnectionPool] = connection_pool
+        """The pool of FlightClients available for data streaming."""
+        self._executor_pool: Optional[_ExecutorPool] = executor_pool
+        """The pool of ThreadPoolExecutors available for asynch I/O."""
+        self._sequence_status: SequenceStatus = SequenceStatus.Null
+        """The status of the new sequence"""
+        self._key: Optional[str] = None
+        """The key for remote handshaking"""
+        self._entered: bool = False
+        """Tag for inspecting if the writer is used in a 'with' context"""
 
     # --- Context Manager ---
     def __enter__(self) -> "SequenceWriter":
@@ -261,7 +255,6 @@ class SequenceWriter:
                 topic_key=act_resp.key,
                 client=data_client,
                 executor=executor,
-                metadata=metadata,
                 ontology_type=ontology_type,
                 config=self._config,
             )

@@ -27,14 +27,14 @@ impl<'a> FacadeChunk<'a> {
 
     /// Push all column statistics using batch inserts for better performance.
     /// This method collects all stats, resolves column IDs, then performs
-    /// two batch INSERT operations (one for numeric, one for literal stats).
+    /// two batch INSERT operations (one for numeric, one for textual stats).
     pub async fn push_ontology_model_stats(
         &mut self,
         ontology_tag: &str,
         cstats: types::OntologyModelStats,
     ) -> Result<(), FacadeError> {
         let mut numeric_batch: Vec<repo::ColumnChunkNumeric> = Vec::new();
-        let mut literal_batch: Vec<repo::ColumnChunkLiteral> = Vec::new();
+        let mut textual_batch: Vec<repo::ColumnChunkTextual> = Vec::new();
 
         // First pass: resolve column IDs and collect stats for batch insert
         for (field, stats) in cstats.cols {
@@ -45,9 +45,9 @@ impl<'a> FacadeChunk<'a> {
             let column = repo::column_get_or_create(&mut self.tx, &field, ontology_tag).await?;
 
             match stats {
-                types::Stats::Text(stats) => {
+                types::Stats::Textual(stats) => {
                     let (min, max, has_null) = stats.into_owned();
-                    literal_batch.push(repo::ColumnChunkLiteral::try_new(
+                    textual_batch.push(repo::ColumnChunkTextual::try_new(
                         column.column_id,
                         self.chunk.chunk_id,
                         min,
@@ -69,11 +69,8 @@ impl<'a> FacadeChunk<'a> {
             }
         }
 
-        // Batch insert all numeric stats in one query
         repo::column_chunk_numeric_create_batch(&mut self.tx, &numeric_batch).await?;
-
-        // Batch insert all literal stats in one query
-        repo::column_chunk_literal_create_batch(&mut self.tx, &literal_batch).await?;
+        repo::column_chunk_textual_create_batch(&mut self.tx, &textual_batch).await?;
 
         Ok(())
     }

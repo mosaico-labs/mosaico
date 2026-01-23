@@ -34,6 +34,12 @@ def mosaico_testing():
         action="store_true",
         help="Disable output capturing (same as pytest -s).",
     )
+    parser.add_argument(
+        "-x",
+        "--exitfirst",
+        action="store_true",
+        help="Exit pytest after first failure (same as pytest -x, --exitfirst).",
+    )
     parser.add_argument("-q", "--quiet", action="store_true", help="Quiet mode.")
 
     # Connection Arguments
@@ -55,6 +61,9 @@ def mosaico_testing():
 
     if args.s:
         pytest_args.append("-s")
+
+    if args.exitfirst:
+        pytest_args.append("-x")
 
     if not args.quiet:
         pytest_args.append("-v")
