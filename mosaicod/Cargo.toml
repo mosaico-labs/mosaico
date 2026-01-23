@@ -10,7 +10,7 @@ arrow-flight = "56.2.0"
 arrow-schema = "56.2.0"
 base64 = "0.22.1"
 bincode = { version = "2.0.1", features = ["serde"] }
-bytes = "1.10.1"
+bytes = "1.11.0"
 chrono = "0.4.42"
 clap = { version = "4.5.48", features = ["derive"] }
 colored = "3.0.0"
