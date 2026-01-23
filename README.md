@@ -1,8 +1,8 @@
 <div align="center">
   <picture>
-    <source media="(prefers-color-scheme: light)" srcset="logo/mono_black.svg">
-    <source media="(prefers-color-scheme: dark)" srcset="logo/mono_white.svg">
-    <img alt="Mosaico logo" src="logo/color_black.svg" height="100">
+    <source media="(prefers-color-scheme: light)" srcset="doc/logo/mono_black.svg">
+    <source media="(prefers-color-scheme: dark)" srcset="doc/logo/mono_white.svg">
+    <img alt="Mosaico logo" src="doc/logo/color_black.svg" height="100">
   </picture>
 </div>
 
@@ -36,6 +36,18 @@ The server daemon, [`mosaicod`](mosaicod/README.md), acts as the central hub tha
 On the other side, the client SDK is what you actually import into your scripts; it manages the communication logic and abstracts away the implementation details to keep your API usage stable, even as the platform evolves in the background.
 
 For a deep dive into the platform's architecture read the [Core Concepts Guide](CORE_CONCEPTS.md).
+
+### Streamlining Data for Physical AI
+
+<p align="center">
+  <img alt="ros to physical ai" src="doc/ros_physical_ai.png" width="1280" />
+</p>
+
+Mosaico is designed to streamline the transition from raw robotic data to model-ready datasets. 
+
+Mosaico enables the ingestion of standard ROS sequences, which often consist of non-synchronized, linear data streams, and automatically transforms them into synchronized, randomized dataframes specifically structured for Physical AI applications. By allowing users to define a custom sampling step, enables precise data windowing for fine-tuning, ensuring that the resulting algorithms are significantly more robust against the temporal jitter commonly found in real-world hardware.
+
+Efficiency is built directly into the architecture, as data batches are streamed directly from the Mosaico data platform. This eliminate the need to download massive datasets locally before beginning work.
 
 ### Quick Start
 
