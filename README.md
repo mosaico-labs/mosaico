@@ -44,7 +44,7 @@ For a deep dive into the platform's architecture read the [Core Concepts Guide](
 
 Mosaico is designed to streamline the transition from raw robotic data to model-ready datasets. 
 
-Mosaico enables the ingestion of standard ROS sequences, which often consist of non-synchronized, linear data streams, and automatically transforms them into synchronized, randomized dataframes specifically structured for Physical AI applications. By allowing users to define a custom sampling step, enables precise data windowing for fine-tuning, ensuring that the resulting algorithms are significantly more robust against the temporal jitter commonly found in real-world hardware.
+Mosaico enables the ingestion of standard ROS sequences, which often consist of non-synchronized, linear data streams, and automatically transforms them  into synchronized, randomized dataframes specifically structured for Physical AI applications, see [SDK ML](mosaico-sdk-py/doc-md/ml/ml.md) module for more details. By allowing users to define a custom sampling step, enables precise data windowing for fine-tuning, ensuring that the resulting algorithms are significantly more robust against the temporal jitter commonly found in real-world hardware.
 
 Efficiency is built directly into the architecture, as data batches are streamed directly from the Mosaico data platform. This eliminate the need to download massive datasets locally before beginning work.
 
