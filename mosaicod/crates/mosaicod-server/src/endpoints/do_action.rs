@@ -123,7 +123,7 @@ mod tests {
         Ok(record)
     }
 
-    #[sqlx::test]
+    #[sqlx::test(migrator = "mosaicod_repo::testing::MIGRATOR")]
     /// This test checks the creation against the repository and compares values to check if
     /// the creation was successful.
     async fn sequence_create(pool: sqlx::Pool<repo::Database>) -> sqlx::Result<()> {
@@ -173,7 +173,7 @@ mod tests {
         Ok(())
     }
 
-    #[sqlx::test]
+    #[sqlx::test(migrator = "mosaicod_repo::testing::MIGRATOR")]
     /// Test checking if the creation of an already existing sequence fails.
     async fn sequence_create_existing(pool: sqlx::Pool<repo::Database>) -> sqlx::Result<()> {
         let name = "test_sequence".to_owned();
@@ -192,7 +192,7 @@ mod tests {
         Ok(())
     }
 
-    #[sqlx::test]
+    #[sqlx::test(migrator = "mosaicod_repo::testing::MIGRATOR")]
     /// Test checking if the creation of a topic succeeds.
     async fn topic_create(pool: sqlx::Pool<repo::Database>) -> sqlx::Result<()> {
         let sequence_name = "test_sequence".to_owned();
@@ -213,7 +213,7 @@ mod tests {
         Ok(())
     }
 
-    #[sqlx::test]
+    #[sqlx::test(migrator = "mosaicod_repo::testing::MIGRATOR")]
     /// Test checking if the creation of a topic with unauthorized name fails.
     async fn topic_create_unauthorized(pool: sqlx::Pool<repo::Database>) -> sqlx::Result<()> {
         let sequence_name = "test_sequence".to_owned();

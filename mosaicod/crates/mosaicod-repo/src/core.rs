@@ -115,6 +115,8 @@ impl Repository {
 /// Testing utilities for the repository module.
 #[cfg(any(test, feature = "testing"))]
 pub mod testing {
+    pub static MIGRATOR: sqlx::migrate::Migrator = sqlx::migrate!("./migrations");
+
     use std::ops::Deref;
 
     /// A wrapper around the [`Repository`] struct for testing purposes.
