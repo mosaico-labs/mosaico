@@ -20,12 +20,6 @@ Mosaico is a *blazing-fast* data platform designed to bridge the gap between Rob
 ## What you'll find
 This repo contains both the Python SDK (`mosaico-sdk-py`) and the Rust backend (`mosaicod`). We have chosen to keep the code in a monorepo configuration to simplify the testing and reduce compatibility issues.
 
-> [!WARNING]
-> **Mosaico is currently in an early development phase.**
->
-> This software is not ready for production environments. 
-> Until the release of version **1.0**, the API, inner mechanisms and naming are subject to significant changes without notice.
-
 Mosaico takes a strictly code-first approach. 
 We didn't want to force you to learn yet another SQL-like sublanguage just to move data around. 
 Instead, we provide native SDKs (starting with Python) so you can query and upload data using the programming language you are already comfortable with. You can start exploring the [Python SDK documentation](./mosaico-sdk-py/README.md).

@@ -8,11 +8,6 @@
 </picture>
 </div>
 
-> [!WARNING]
-> **Mosaico is currently in an early development phase.**
->
-> This software is not ready for production environments. Until the release of version **1.0**, the API, inner mechanisms and naming are subject to significant changes without notice.
-
 # Mosaico SDK
 
 The **Mosaico SDK** is the primary interface for interacting with the **Mosaico Data Platform**, a high-performance system designed for the ingestion, storage and retrieval of multi-modal sensor data (Robotics, IoT).
