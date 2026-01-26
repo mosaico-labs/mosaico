@@ -11,12 +11,18 @@ middleware-level metadata (like recording timestamp_ns).
 from typing import Any, Dict, Optional, Type, TypeVar
 from pydantic import PrivateAttr
 import pyarrow as pa
+import pandas as pd
 
+
+from ..logging_config import get_logger
 from ..helpers.helpers import encode_to_dict
 from .header import Header
 from .serializable import Serializable, _SENSOR_REGISTRY
 from .internal.helpers import _fix_empty_dicts
 from .base_model import BaseModel
+
+# Set the hierarchical logger
+logger = get_logger(__name__)
 
 
 def _make_schema(*args: pa.StructType) -> pa.Schema:
@@ -116,6 +122,79 @@ class Message(BaseModel):
         )
 
         return columns_dict
+
+    @staticmethod
+    def from_dataframe_row(row: pd.Series, topic_name: str) -> Optional["Message"]:
+        """
+        Smart reconstruction factory.
+
+        Returns None if the topic is not found or the ontology tag cannot be inferred.
+        """
+        # Topic Presence Check
+        # Check if any columns belonging to this topic exist in the row
+        topic_prefix = f"{topic_name}."
+        if not any(str(col).startswith(topic_prefix) for col in row.index):
+            return None  # Topic not present in this DataFrame
+
+        # Tag Inference Logic
+        tag = None
+        for col in row.index:
+            col_str = str(col)
+            if col_str.startswith(topic_prefix) and col_str != "timestamp_ns":
+                parts = col_str.split(".")
+                # Semantic Naming check: {topic}.{tag}.{field}
+                if len(parts) >= 3:
+                    tag = parts[1]
+                    break
+
+        # Tag Check
+        # If tag remains None after inference attempt there was something wrong when creating the dataframe
+        if tag is None:
+            # This should never happen
+            raise ValueError(
+                f"Ontology tag for topic '{topic_name}' could not be inferred."
+            )
+
+        # Define extraction prefix based on Tag presence
+        # Fallback to Clean Mode if inference failed but topic columns exist
+        prefix = f"{topic_name}.{tag}."
+
+        # Extract relevant data with Pylance fix
+        relevant_data = {
+            str(col)[len(prefix) :]: val
+            for col, val in row.items()
+            if str(col).startswith(prefix)
+        }
+
+        # If the prefix matched nothing (e.g., mismatch between inferred tag and actual data)
+        if not relevant_data:
+            return None
+
+        # Reconstruct the Nested Dictionary
+        # Ensure timestamp_ns is present; usually a global column in Mosaico DFs
+        timestamp = row.get("timestamp_ns")
+        if pd.isna(timestamp):
+            return None
+
+        nested_data: Dict[str, Any] = {"timestamp_ns": int(timestamp)}
+
+        for key, value in relevant_data.items():
+            # Convert Pandas/NumPy NaNs to Python None for model compatibility
+            processed_value = None if pd.isna(value) else value
+
+            parts = key.split(".")
+            d = nested_data
+            for part in parts[:-1]:
+                d = d.setdefault(part, {})
+            d[parts[-1]] = processed_value
+
+        # Final Message Creation
+        try:
+            # Reconstructs the strongly-typed Ontology object from flattened rows
+            return Message.create(tag=tag, **nested_data)
+        except Exception as e:
+            logger.error(f"Failed to reconstruct Message for topic {topic_name}: {e}")
+            return None
 
     @classmethod
     def create(cls, tag: str, **kwargs) -> "Message":

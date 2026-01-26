@@ -41,7 +41,6 @@ class DataFrameExtractor:
         window_sec: float = 5.0,
         timestamp_ns_start: Optional[int] = None,
         timestamp_ns_end: Optional[int] = None,
-        include_ontology_tag: bool = True,
     ) -> Generator[pd.DataFrame, None, None]:
         """
         Generator that yields time-windowed pandas DataFrames from the sequence.
@@ -57,8 +56,6 @@ class DataFrameExtractor:
             window_sec (float): Duration of each DataFrame chunk in seconds.
             start_ns (int, optional): Global start time for extraction.
             end_ns (int, optional): Global end time for extraction.
-            include_ontology_tag (bool): If True, column names include the ontology tag:
-                {topic}.{tag}.{field}. If False: {topic}.{field}.
 
         Yields:
             pd.DataFrame: A sparse, flattened DataFrame containing data from all
@@ -149,7 +146,7 @@ class DataFrameExtractor:
                         new_df = self._flatten_and_filter(
                             batch,
                             t_name,
-                            reader.ontology_tag if include_ontology_tag else None,
+                            reader.ontology_tag,
                         )
                         df_topic = pd.concat([df_topic, new_df], ignore_index=True)
                         del new_df  # Free tmp memory immediately

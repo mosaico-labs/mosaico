@@ -5,6 +5,8 @@ from typing import List, Iterable, Optional
 
 from mosaicolabs.comm import MosaicoClient
 from mosaicolabs.ml import DataFrameExtractor
+from mosaicolabs.models import Message
+from mosaicolabs.models.sensors.imu import IMU
 import pytest
 from testing.integration.config import (
     UPLOADED_SEQUENCE_NAME,
@@ -136,7 +138,6 @@ def _exec_test_chunks(
         window_sec=window_chunk_sec,
         timestamp_ns_start=timestamp_ns_start,
         timestamp_ns_end=timestamp_ns_end,
-        include_ontology_tag=len(tags) > 0,
     ):
         # Check timestamp
         assert "timestamp_ns" in chunk.columns, "'timestamp_ns' missing"
@@ -596,6 +597,90 @@ def test_single_selection_non_existing_topic(
             timestamp_ns_end=timestamp_ns_end,
         ):
             pass
+
+    # free resources
+    _client.close()
+
+
+def test_single_selection_message(
+    _client: MosaicoClient,
+    _make_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
+    _inject_sequence_data_stream,  # Make sure data are available on the server
+):
+    """Test retrieving a non-existing topic from data-stream"""
+    # start from the half of the sequence
+    timestamp_ns_start = _make_sequence_data_stream.tstamp_ns_start + int(
+        (
+            _make_sequence_data_stream.tstamp_ns_start
+            + _make_sequence_data_stream.tstamp_ns_end
+        )
+        / 2
+    )
+    timestamp_ns_end = _make_sequence_data_stream.tstamp_ns_end
+
+    seqhandler = _client.sequence_handler(UPLOADED_SEQUENCE_NAME)
+    # Sequence must exist
+    assert seqhandler is not None
+
+    selection = [UPLOADED_IMU_FRONT_TOPIC]
+
+    for df in DataFrameExtractor(seqhandler).to_pandas_chunks(
+        topics=selection,
+        window_sec=5,
+        timestamp_ns_start=timestamp_ns_start,
+        timestamp_ns_end=timestamp_ns_end,
+    ):
+        for _, row in df.iterrows():
+            imu_msg = Message.from_dataframe_row(row, UPLOADED_IMU_FRONT_TOPIC)
+            assert imu_msg is not None
+            assert imu_msg.ontology_type() is IMU
+
+            gps_msg = Message.from_dataframe_row(row, UPLOADED_GPS_TOPIC)
+            assert gps_msg is None
+
+    # free resources
+    _client.close()
+
+
+def test_multi_selection_message(
+    _client: MosaicoClient,
+    _make_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
+    _inject_sequence_data_stream,  # Make sure data are available on the server
+):
+    """Test retrieving a non-existing topic from data-stream"""
+    import pandas as pd
+
+    # start from the half of the sequence
+    timestamp_ns_start = _make_sequence_data_stream.tstamp_ns_start + int(
+        (
+            _make_sequence_data_stream.tstamp_ns_start
+            + _make_sequence_data_stream.tstamp_ns_end
+        )
+        / 2
+    )
+    timestamp_ns_end = _make_sequence_data_stream.tstamp_ns_end
+
+    seqhandler = _client.sequence_handler(UPLOADED_SEQUENCE_NAME)
+    # Sequence must exist
+    assert seqhandler is not None
+
+    selection = [UPLOADED_IMU_FRONT_TOPIC, UPLOADED_GPS_TOPIC]
+
+    for df in DataFrameExtractor(seqhandler).to_pandas_chunks(
+        topics=selection,
+        window_sec=5,
+        timestamp_ns_start=timestamp_ns_start,
+        timestamp_ns_end=timestamp_ns_end,
+    ):
+        for _, row in df.iterrows():
+            # Check what data contains this row
+            if not pd.isna(row[f"{UPLOADED_IMU_FRONT_TOPIC}.{'imu'}.acceleration.x"]):
+                # It is an imu message
+                imu_msg = Message.from_dataframe_row(row, UPLOADED_IMU_FRONT_TOPIC)
+                assert imu_msg is not None
+                assert imu_msg.ontology_type() is IMU
+                gps_msg = Message.from_dataframe_row(row, UPLOADED_GPS_TOPIC)
+                assert gps_msg is None
 
     # free resources
     _client.close()
