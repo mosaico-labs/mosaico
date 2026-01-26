@@ -1,9 +1,29 @@
-[package]
-name = "mosaicod"
-version = "0.1.2"
-edition = "2024"
+[workspace]
+members = ["crates/*", "bin/*"]
+resolver = "3"
 
-[dependencies]
+[workspace.package]
+#name = "mosaicod"
+version = "0.1.2"
+authors = ["Mosaico author's"]
+homepage = "https://mosaico.dev"
+repository = "https://github.com/mosaico-labs/mosaico"
+license = "APGL-3.0"
+edition = "2024"
+rust-version = "1.92"
+
+[workspace.dependencies]
+# Internal crates
+mosaicod-core = { path = "crates/mosaicod-core" }
+mosaicod-repo = { path = "crates/mosaicod-repo" }
+mosaicod-ext = { path = "crates/mosaicod-ext" }
+mosaicod-marshal = { path = "crates/mosaicod-marshal" }
+mosaicod-query = { path  = "crates/mosaicod-query" }
+mosaicod-rw = { path = "crates/mosaicod-rw" }
+mosaicod-server = { path = "crates/mosaicod-server" }
+mosaicod-store = { path = "crates/mosaicod-store" }
+
+# External dependencies
 arrow = { version = "56.2.0", features = ["prettyprint"] }
 arrow-cast = "56.2.0"
 arrow-flight = "56.2.0"

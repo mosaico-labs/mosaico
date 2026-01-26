@@ -1,0 +1,25 @@
+[package]
+name = "mosaicod-query"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+mosaicod-core = { workspace = true }
+mosaicod-store = { workspace = true }
+mosaicod-rw = { workspace = true }
+
+log = { workspace = true }
+thiserror = { workspace = true }
+datafusion = { workspace = true }
+arrow = { workspace = true }
+url  = { workspace = true }
+
+[dev-dependencies]
+mosaicod-ext = { workspace = true , features = ["testing"]}
+mosaicod-store = { workspace = true, features = ["testing"] }
+
+tokio = { workspace = true }
+parquet = { workspace = true }

@@ -1,0 +1,29 @@
+[package]
+name = "mosaicod-store"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[lib]
+name = "mosaicod_store"
+
+[features]
+testing = []
+
+[dependencies]
+mosaicod-core = { workspace = true }
+
+futures = { workspace = true }
+datafusion = { workspace = true }
+log = { workspace = true }
+object_store = { workspace = true }
+thiserror = { workspace = true }
+url = { workspace = true }
+bytes = { workspace = true }
+
+
+[dev-dependencies]
+tokio = { workspace = true }
+

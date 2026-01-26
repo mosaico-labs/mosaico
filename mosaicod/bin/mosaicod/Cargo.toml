@@ -1,0 +1,25 @@
+[package]
+name = "mosaicod"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "mosaicod"
+
+[dependencies]
+mosaicod-core = { workspace = true }
+mosaicod-repo = { workspace = true }
+mosaicod-store = { workspace = true }
+mosaicod-server = { workspace = true }
+
+clap = { workspace = true }
+dotenv = { workspace = true }
+log = { workspace = true }
+mimalloc = { workspace = true }
+tokio = { workspace = true }
+url = { workspace = true }
+env_logger = { workspace = true }
+signal-hook = { workspace = true }
+colored = { workspace = true }
+if-addrs = { workspace = true }

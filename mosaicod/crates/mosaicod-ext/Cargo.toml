@@ -1,0 +1,19 @@
+[package]
+name = "mosaicod-ext"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[features]
+testing = []
+
+[dependencies]
+mosaicod-core = { workspace = true }
+
+arrow = { workspace = true }
+arrow-cast = { workspace = true }
+arrow-schema = { workspace = true }
+thiserror = { workspace = true }
+
