@@ -9,9 +9,8 @@ capabilities essential for the k-way merge logic used in `SequenceDataStreamer`.
 
 import pyarrow.flight as fl
 import pyarrow as pa
-from typing import Iterator, List, Optional, Type
+from typing import Iterator, List, Optional
 
-from mosaicolabs.models import Serializable
 from mosaicolabs.logging_config import get_logger
 
 # Set the hierarchical logger
@@ -53,10 +52,6 @@ class _TopicReadState:
         self.topic_name: str = topic_name
         self.reader: Optional[fl.FlightStreamReader] = reader
         self.ontology_tag: str = ontology_tag
-
-        # Writer-specific fields (unused in reader context but kept for structure alignment)
-        self.ontology_type: Optional[Type[Serializable]] = None
-        self.field_names: Optional[List[str]] = None
 
         # --- Schema Validation & Setup ---
         self.column_names: List[str] = []
