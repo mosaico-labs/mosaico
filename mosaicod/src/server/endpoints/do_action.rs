@@ -5,25 +5,17 @@
 
 use crate::{
     marshal::{ActionRequest, ActionResponse},
-    query, repo,
+    server::endpoints::Context,
     server::errors::ServerError,
-    store,
 };
 
-use super::actions::{ActionContext, layer, query as query_action, sequence, topic};
+use super::actions::{layer, query as query_action, sequence, topic};
 
 /// Dispatches a Flight action request to the appropriate handler.
 ///
 /// This function serves as the main entry point for all Flight DoAction requests,
 /// routing each action type to its specialized handler function.
-pub async fn do_action(
-    store: store::StoreRef,
-    repo: repo::Repository,
-    ts_gw: query::TimeseriesGatewayRef,
-    action: ActionRequest,
-) -> Result<ActionResponse, ServerError> {
-    let ctx = ActionContext::new(store, repo, ts_gw);
-
+pub async fn do_action(ctx: Context, action: ActionRequest) -> Result<ActionResponse, ServerError> {
     match action {
         // Sequence actions
         ActionRequest::SequenceCreate(data) => {
@@ -78,13 +70,12 @@ pub async fn do_action(
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
-
     use super::*;
-
     use crate::{
-        marshal, repo, repo::FacadeSequence, repo::FacadeTopic, rw, types, types::MetadataBlob,
+        marshal, query, repo, repo::FacadeSequence, repo::FacadeTopic, rw, store, types,
+        types::MetadataBlob,
     };
+    use std::sync::Arc;
 
     /// Creates an empty sequence (no data) for testing purposes.
     async fn create_empty_sequence(
@@ -143,7 +134,7 @@ mod tests {
 
         let repo = repo::testing::Repository::new(pool);
         let store = store::testing::Store::new_random_on_tmp().unwrap();
-        let ts_engine = query::TimeseriesGateway::try_new(store.clone()).unwrap();
+        let ts_engine = query::Timeseries::try_new(store.clone()).unwrap();
 
         #[derive(serde::Serialize, Debug)]
         struct Request {
@@ -167,9 +158,8 @@ mod tests {
         let action = ActionRequest::try_new("sequence_create", request_raw.as_bytes())
             .expect("Unable to create action from string");
 
-        let response = do_action((*store).clone(), repo.clone(), Arc::new(ts_engine), action)
-            .await
-            .unwrap();
+        let ctx = Context::new((*store).clone(), repo.clone(), Arc::new(ts_engine));
+        let response = do_action(ctx, action).await.unwrap();
 
         if let ActionResponse::SequenceCreate(_) = response {
             let handle = repo::FacadeSequence::new(name, (*store).clone(), repo.clone());

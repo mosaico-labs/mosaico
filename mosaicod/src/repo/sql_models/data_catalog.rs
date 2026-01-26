@@ -53,9 +53,9 @@ impl Chunk {
     }
 }
 
-/// Chunk of literal data associated with a column.
+/// Chunk of textual data associated with a column.
 #[derive(Debug)]
-pub struct ColumnChunkLiteral {
+pub struct ColumnChunkTextual {
     pub column_id: i32,
     pub chunk_id: i32,
 
@@ -67,7 +67,7 @@ pub struct ColumnChunkLiteral {
     pub has_null: bool,
 }
 
-impl ColumnChunkLiteral {
+impl ColumnChunkTextual {
     pub fn try_new(
         column_id: i32,
         chunk_id: i32,
@@ -85,7 +85,7 @@ impl ColumnChunkLiteral {
     }
 }
 
-/// Chunk of literal data associated with a column.
+/// Chunk of textual data associated with a column.
 #[derive(Debug)]
 pub struct ColumnChunkNumeric {
     pub column_id: i32,

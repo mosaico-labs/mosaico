@@ -22,7 +22,7 @@ CREATE TABLE chunk_t(
     ON DELETE CASCADE
 );
 
-CREATE TABLE column_chunk_literal_t(
+CREATE TABLE column_chunk_textual_t(
   column_id    INTEGER REFERENCES column_t(column_id) NOT NULL,
   chunk_id     INTEGER NOT NULL, -- Constraint on chunks defined below
 

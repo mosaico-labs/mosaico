@@ -2,18 +2,18 @@
 
 use log::{info, trace, warn};
 
-use super::ActionContext;
 use crate::{
     marshal::{self, ActionResponse},
     repo::{FacadeError, FacadeTopic},
     rw,
+    server::endpoints::Context,
     server::errors::ServerError,
     types::{self, MetadataBlob, Resource},
 };
 
 /// Creates a new topic with the given name and metadata.
 pub async fn create(
-    ctx: &ActionContext,
+    ctx: &Context,
     name: String,
     sequence_key: String,
     serialization_format: rw::Format,
@@ -51,7 +51,7 @@ pub async fn create(
 }
 
 /// Deletes an unlocked topic.
-pub async fn delete(ctx: &ActionContext, name: String) -> Result<ActionResponse, ServerError> {
+pub async fn delete(ctx: &Context, name: String) -> Result<ActionResponse, ServerError> {
     warn!("requested deletion of resource {}", name);
 
     let handle = FacadeTopic::new(name.clone(), ctx.store.clone(), ctx.repo.clone());
@@ -68,7 +68,7 @@ pub async fn delete(ctx: &ActionContext, name: String) -> Result<ActionResponse,
 
 /// Creates a notification for a topic.
 pub async fn notify_create(
-    ctx: &ActionContext,
+    ctx: &Context,
     name: String,
     notify_type: String,
     msg: String,
@@ -82,7 +82,7 @@ pub async fn notify_create(
 }
 
 /// Lists all notifications for a topic.
-pub async fn notify_list(ctx: &ActionContext, name: String) -> Result<ActionResponse, ServerError> {
+pub async fn notify_list(ctx: &Context, name: String) -> Result<ActionResponse, ServerError> {
     info!("notify list for {}", name);
 
     let handle = FacadeTopic::new(name, ctx.store.clone(), ctx.repo.clone());
@@ -92,10 +92,7 @@ pub async fn notify_list(ctx: &ActionContext, name: String) -> Result<ActionResp
 }
 
 /// Purges all notifications for a topic.
-pub async fn notify_purge(
-    ctx: &ActionContext,
-    name: String,
-) -> Result<ActionResponse, ServerError> {
+pub async fn notify_purge(ctx: &Context, name: String) -> Result<ActionResponse, ServerError> {
     warn!("nofity purge for {}", name);
 
     let handle = FacadeTopic::new(name, ctx.store.clone(), ctx.repo.clone());
@@ -105,7 +102,7 @@ pub async fn notify_purge(
 }
 
 /// Gets system information for a topic.
-pub async fn system_info(ctx: &ActionContext, name: String) -> Result<ActionResponse, ServerError> {
+pub async fn system_info(ctx: &Context, name: String) -> Result<ActionResponse, ServerError> {
     info!("[{}] topic system informations", name);
 
     let handle = FacadeTopic::new(name, ctx.store.clone(), ctx.repo.clone());

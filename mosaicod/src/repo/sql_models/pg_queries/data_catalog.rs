@@ -49,13 +49,13 @@ pub async fn chunk_create(
     Ok(res)
 }
 
-pub async fn column_chunk_literal_create(
+pub async fn column_chunk_textual_create(
     exec: &mut impl repo::AsExec,
-    val: &sql_models::ColumnChunkLiteral,
-) -> Result<sql_models::ColumnChunkLiteral, repo::Error> {
+    val: &sql_models::ColumnChunkTextual,
+) -> Result<sql_models::ColumnChunkTextual, repo::Error> {
     let res = sqlx::query_as!(
-        sql_models::ColumnChunkLiteral,
-        r#"INSERT INTO column_chunk_literal_t(
+        sql_models::ColumnChunkTextual,
+        r#"INSERT INTO column_chunk_textual_t(
             column_id, chunk_id,
             min_value, max_value,
             has_null 
@@ -125,18 +125,18 @@ pub async fn column_chunk_numeric_create_batch(
     Ok(())
 }
 
-/// Batch insert multiple literal column chunk stats in a single query.
+/// Batch insert multiple textual column chunk stats in a single query.
 /// More efficient than individual inserts when inserting many stats.
-pub async fn column_chunk_literal_create_batch(
+pub async fn column_chunk_textual_create_batch(
     exec: &mut impl repo::AsExec,
-    values: &[sql_models::ColumnChunkLiteral],
+    values: &[sql_models::ColumnChunkTextual],
 ) -> Result<(), repo::Error> {
     if values.is_empty() {
         return Ok(());
     }
 
     let mut query_builder: sqlx::QueryBuilder<sqlx::Postgres> = sqlx::QueryBuilder::new(
-        "INSERT INTO column_chunk_literal_t(column_id, chunk_id, min_value, max_value, has_null) ",
+        "INSERT INTO column_chunk_textual_t(column_id, chunk_id, min_value, max_value, has_null) ",
     );
 
     query_builder.push_values(values, |mut b, val| {

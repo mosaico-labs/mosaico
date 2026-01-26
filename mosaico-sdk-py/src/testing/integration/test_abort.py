@@ -25,16 +25,15 @@ def test_sequence_report(_client: MosaicoClient):
             log.info("Expected one (1) error after this line...")
             raise Exception("__exception_in_test__")
 
-    # The sequence is still present and not deleted
+    # The sequence is still present and not deleted (on_error=OnErrorPolicy.Report)
     shandler = _client.sequence_handler(sequence_name)
     # The sequence is still on the server
     assert shandler is not None
     # The list of registered topics corresponds to [topic_name]
     assert shandler.topics == [topic_name]
-    # This is True because we did not push no data in the topic,
-    # so the server cannot find any serialized file
-    log.info("Expected one (1) error after this line...")
-    assert _client.topic_handler(sequence_name, topic_name) is None
+    # The topic exists although contains no data and no schema
+    assert _client.topic_handler(sequence_name, topic_name) is not None
+
     # Free resources
     _client.sequence_delete(sequence_name)
     # This must be True...

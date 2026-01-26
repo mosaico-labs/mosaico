@@ -7,7 +7,6 @@ and Flight ticket parsing.
 
 from pathlib import Path
 from typing import Optional
-from ..helpers import unpack_topic_full_path
 
 # Set the unsupported name chars for sequence and topic names
 _UNSUPPORTED_TOPIC_NAME_CHARS = ["!", '"', "'", "*", "£", "$", "%", "&"]
@@ -30,23 +29,6 @@ def _make_exception(msg: str, exc_msg: Optional[Exception] = None) -> Exception:
         return Exception(msg)
     else:
         return Exception(f"{msg}\nInner err: {exc_msg}")
-
-
-def _parse_ep_ticket(blocation: bytes) -> Optional[tuple[str, str]]:
-    """
-    Decodes a Flight Ticket to extract sequence and topic identifiers.
-
-    Args:
-        blocation (bytes): The opaque location bytes from a FlightInfo endpoint.
-
-    Returns:
-        Optional[tuple[str, str]]: (sequence_name, topic_name) if successful, else None.
-    """
-    location_str = blocation.decode("utf-8").removeprefix("mosaico:")
-    seq_topic_tuple = unpack_topic_full_path(location_str)
-    if not seq_topic_tuple:
-        return None
-    return seq_topic_tuple
 
 
 def _validate_sequence_name(name: str):

@@ -14,7 +14,7 @@ use super::chunk_writer::{ChunkMetadata, ChunkWriter};
 type OnChunkCallback = Box<
     dyn Fn(
             std::path::PathBuf,
-            types::ColumnsStats,
+            types::OntologyModelStats,
             ChunkMetadata,
         ) -> Pin<Box<dyn Future<Output = Result<(), Box<dyn std::error::Error>>> + Send>>
         + Send
@@ -24,42 +24,57 @@ type OnChunkCallback = Box<
 /// Callback used to define a format function for files
 type OnFileFormat = Box<dyn Fn(&std::path::Path, &Format, usize) -> std::path::PathBuf + Send>;
 
+/// Summary data produced after write completion
+#[derive(Default, Debug)]
+pub struct ChunkedWriterSummary {
+    /// Total number of chunks created during write
+    pub number_of_chunks_created: usize,
+}
+
 /// Writes [`RecordBatch`] into multiple chunks to a location. A location is a path like structure.
 /// Internally the [`ChunkedWriter`] can subdivide the batches in multiple files.
 ///
 /// When `max_chunk_size` is set and the internal buffer exceeds this size
 /// after writing a batch, the current chunk is automatically finalized and
 /// written to storage. A new chunk is started for subsequent writes.
-pub struct ChunkedWriter<'a, W> {
+pub struct ChunkedWriter<W> {
     /// The current active writer. If this is [`None`], a new writer will be
     /// initialized on the first call to [`ChunkedWriter::write`].
     ///
     /// When the chunk-size constraint is reached, a new writer will be created.
     writer: Option<ChunkWriter>,
+
     format: Format,
-    write_target: &'a W,
+
+    /// Target of the write operation for this writer
+    write_target: W,
+
     /// Target path where the data will be serialized (e.g., `my/target/path`).
     ///
     /// Do not include a file extension or filename. The [`ChunkedWriter`] will
     /// automatically split the data into multiple files if the maximum chunk-size
     /// constraint is reached.
     path: PathBuf,
+
     /// Number of chunks serialized
     chunk_serialized_number: usize,
+
     /// Function called just before the chunk finalization (and serialization)
     on_chunk_created_clbk: Option<OnChunkCallback>,
+
     /// Callback used to format data when written
     on_file_format: OnFileFormat,
+
     /// Maximum chunk size in bytes. When exceeded after writing a batch,
     /// the current chunk is finalized and a new one is started.
     /// `None` means no limit (current behavior preserved).
     max_chunk_size: Option<usize>,
 }
 
-impl<'a, W> ChunkedWriter<'a, W> {
+impl<W> ChunkedWriter<W> {
     /// Creates a new [`ChunkedWriter`] that saves file to a given path on a given target writer
     pub fn new<F>(
-        target: &'a W,
+        target: W,
         path: impl AsRef<std::path::Path>,
         format: Format,
         format_callback: F,
@@ -94,9 +109,9 @@ impl<'a, W> ChunkedWriter<'a, W> {
 
     /// Sets a callback function that will be called every time a chunk is produced just before
     /// serialization.
-    pub fn on_chunk_created<F1, Fut>(mut self, clbk: F1) -> Self
+    pub fn on_chunk_created<F1, Fut>(&mut self, clbk: F1)
     where
-        F1: Fn(std::path::PathBuf, types::ColumnsStats, ChunkMetadata) -> Fut
+        F1: Fn(std::path::PathBuf, types::OntologyModelStats, ChunkMetadata) -> Fut
             + Send
             + Sync
             + 'static,
@@ -109,7 +124,6 @@ impl<'a, W> ChunkedWriter<'a, W> {
         };
 
         self.on_chunk_created_clbk = Some(Box::new(wrapped));
-        self
     }
 
     /// Writes a [`RecordBatch`] into the chunked writer.
@@ -118,10 +132,12 @@ impl<'a, W> ChunkedWriter<'a, W> {
     /// based on the serialization format and the maximum chunk size (if any).
     /// To perform custom actions when a chunk is produced, use the
     /// [`on_chunk_produced`] method to set a callback function.
-    pub async fn write(&mut self, batch: &RecordBatch) -> Result<(), Error>
+    pub async fn write<A>(&mut self, batch: &RecordBatch) -> Result<(), Error>
     where
-        W: traits::AsyncWriteToPath,
+        A: traits::AsyncWriteToPath,
+        W: AsRef<A>,
     {
+        trace!("AAAAAAAAAAA");
         // Take the writer and if not inizialized creates a new one.
         // At the end the writer will be put back.
         //
@@ -142,7 +158,7 @@ impl<'a, W> ChunkedWriter<'a, W> {
             Ok::<_, Error>(writer)
         })
         .await
-        .map_err(|e| Error::SpawnBlockingError(e.to_string()))??;
+        .map_err(|e| Error::BlockingOperationError(e.to_string()))??;
 
         // Check if we should auto-finalize based on chunk size threshold
         if let Some(max) = self.max_chunk_size {
@@ -151,14 +167,12 @@ impl<'a, W> ChunkedWriter<'a, W> {
             if current_size >= max {
                 trace!(
                     "chunk size {} bytes exceeds max {} bytes, auto-finalizing chunk {}",
-                    current_size,
-                    max,
-                    self.chunk_serialized_number
+                    current_size, max, self.chunk_serialized_number
                 );
 
                 // Put the writer back for finalize() to consume it
                 self.writer = Some(writer);
-                self.finalize().await?;
+                self.finalize_chunk().await?;
                 // After finalize(), self.writer is None, ready for next chunk
             } else {
                 self.writer = Some(writer);
@@ -174,12 +188,26 @@ impl<'a, W> ChunkedWriter<'a, W> {
     ///
     /// It is important to call this method to ensure that an open chunk is properly finalized
     /// and written.
-    pub async fn finalize(&mut self) -> Result<(), Error>
+    pub async fn finalize<A>(mut self) -> Result<ChunkedWriterSummary, Error>
     where
-        W: traits::AsyncWriteToPath,
+        A: traits::AsyncWriteToPath,
+        W: AsRef<A>,
+    {
+        self.finalize_chunk().await?;
+
+        Ok(ChunkedWriterSummary {
+            number_of_chunks_created: self.chunk_serialized_number,
+        })
+    }
+
+    /// Finalize the writing process of a single chunk
+    async fn finalize_chunk<A>(&mut self) -> Result<(), Error>
+    where
+        A: traits::AsyncWriteToPath,
+        W: AsRef<A>,
     {
         // Calling this function will "consume" the current writer.
-        // If another write_batch willl be called after this function call
+        // If another write_batch will be called after this function call
         // will cause the instantiation of another writer.
         if let Some(writer) = self.writer.take() {
             let path =
@@ -187,14 +215,18 @@ impl<'a, W> ChunkedWriter<'a, W> {
             self.chunk_serialized_number += 1;
 
             // Offload CPU-intensive parquet finalization to blocking thread pool
-            let (buffer, stats, metadata) = tokio::task::spawn_blocking(move || writer.finalize())
-                .await
-                .map_err(|e| Error::SpawnBlockingError(e.to_string()))??;
+            let (buffer, om_stats, metadata) =
+                tokio::task::spawn_blocking(move || writer.finalize())
+                    .await
+                    .map_err(|e| Error::BlockingOperationError(e.to_string()))??;
 
-            self.write_target.write_to_path(&path, buffer).await?;
+            self.write_target
+                .as_ref()
+                .write_to_path(&path, buffer)
+                .await?;
 
             trace!(
-                "on_chunk_created_clbk present: {}",
+                "chunked writer callback: {}",
                 self.on_chunk_created_clbk.is_some()
             );
 
@@ -203,12 +235,13 @@ impl<'a, W> ChunkedWriter<'a, W> {
                 .as_ref()
                 .map(async move |clbk| {
                     debug!("calling chunk serialization callback");
-                    return clbk(path, stats, metadata).await;
+                    return clbk(path, om_stats, metadata).await;
                 })
                 .unwrap()
                 .await
                 .map_err(|e| Error::ChunkCreationCallbackError(e.to_string()));
         }
+
         Ok(())
     }
 }
@@ -218,8 +251,8 @@ mod tests {
     use super::*;
     use arrow::array::{ArrayRef, BinaryArray, Int64Array};
     use arrow::datatypes::{Field, Schema};
-    use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
 
     /// Mock store that counts write operations
     struct MockStore {
@@ -275,14 +308,18 @@ mod tests {
 
     #[tokio::test]
     async fn test_auto_split_creates_multiple_chunks() {
-        let store = MockStore::new();
+        let store = Arc::new(MockStore::new());
 
         // Use a small max_chunk_size to trigger splitting
-        let mut writer = ChunkedWriter::new(&store, "test/path", Format::Default, |path, _, idx| {
-            path.join(format!("chunk_{}.parquet", idx))
-        })
-        .with_max_chunk_size(Some(1024)) // 1 KiB threshold
-        .on_chunk_created(|_, _, _| async { Ok(()) });
+        let mut writer = ChunkedWriter::new(
+            store.clone(),
+            "test/path",
+            Format::Default,
+            |path, _, idx| path.join(format!("chunk_{}.parquet", idx)),
+        )
+        .with_max_chunk_size(Some(1024)); // 1 KiB threshold
+
+        writer.on_chunk_created(|_, _, _| async { Ok(()) });
 
         // Write multiple batches with enough data to exceed threshold multiple times
         // Each batch ~500 bytes of binary data + overhead
@@ -305,14 +342,16 @@ mod tests {
 
     #[tokio::test]
     async fn test_no_split_when_under_threshold() {
-        let store = MockStore::new();
+        let store = Arc::new(MockStore::new());
 
         // Use a large max_chunk_size that won't be exceeded
-        let mut writer = ChunkedWriter::new(&store, "test/path", Format::Default, |path, _, idx| {
-            path.join(format!("chunk_{}.parquet", idx))
-        })
-        .with_max_chunk_size(Some(100 * 1024 * 1024)) // 100 MiB threshold
-        .on_chunk_created(|_, _, _| async { Ok(()) });
+        let mut writer =
+            ChunkedWriter::new(&store, "test/path", Format::Default, |path, _, idx| {
+                path.join(format!("chunk_{}.parquet", idx))
+            })
+            .with_max_chunk_size(Some(100 * 1024 * 1024)); // 100 MiB threshold
+
+        writer.on_chunk_created(|_, _, _| async { Ok(()) });
 
         // Write small batches
         for _ in 0..5 {
@@ -332,14 +371,16 @@ mod tests {
 
     #[tokio::test]
     async fn test_unlimited_creates_single_chunk() {
-        let store = MockStore::new();
+        let store = Arc::new(MockStore::new());
 
         // No max_chunk_size (unlimited)
-        let mut writer = ChunkedWriter::new(&store, "test/path", Format::Default, |path, _, idx| {
-            path.join(format!("chunk_{}.parquet", idx))
-        })
-        .with_max_chunk_size(None) // Unlimited
-        .on_chunk_created(|_, _, _| async { Ok(()) });
+        let mut writer =
+            ChunkedWriter::new(&store, "test/path", Format::Default, |path, _, idx| {
+                path.join(format!("chunk_{}.parquet", idx))
+            })
+            .with_max_chunk_size(None); // Unlimited
+
+        writer.on_chunk_created(|_, _, _| async { Ok(()) });
 
         // Write many batches
         for _ in 0..20 {
@@ -359,16 +400,18 @@ mod tests {
 
     #[tokio::test]
     async fn test_large_data_auto_split() {
-        let store = MockStore::new();
+        let store = Arc::new(MockStore::new());
 
         // 5 MiB threshold - large enough to fit multiple batches
         let max_chunk_size = 5 * 1024 * 1024;
 
-        let mut writer = ChunkedWriter::new(&store, "test/path", Format::Default, |path, _, idx| {
-            path.join(format!("chunk_{}.parquet", idx))
-        })
-        .with_max_chunk_size(Some(max_chunk_size))
-        .on_chunk_created(|_, _, _| async { Ok(()) });
+        let mut writer =
+            ChunkedWriter::new(&store, "test/path", Format::Default, |path, _, idx| {
+                path.join(format!("chunk_{}.parquet", idx))
+            })
+            .with_max_chunk_size(Some(max_chunk_size));
+
+        writer.on_chunk_created(|_, _, _| async { Ok(()) });
 
         // Write 10 batches of ~1 MiB each (10 rows * 100KB random blob)
         // Random data doesn't compress, so total ~10 MiB
@@ -404,16 +447,18 @@ mod tests {
 
     #[tokio::test]
     async fn test_single_large_batch_exceeds_threshold() {
-        let store = MockStore::new();
+        let store = Arc::new(MockStore::new());
 
         // 512 KiB threshold
         let max_chunk_size = 512 * 1024;
 
-        let mut writer = ChunkedWriter::new(&store, "test/path", Format::Default, |path, _, idx| {
-            path.join(format!("chunk_{}.parquet", idx))
-        })
-        .with_max_chunk_size(Some(max_chunk_size))
-        .on_chunk_created(|_, _, _| async { Ok(()) });
+        let mut writer =
+            ChunkedWriter::new(&store, "test/path", Format::Default, |path, _, idx| {
+                path.join(format!("chunk_{}.parquet", idx))
+            })
+            .with_max_chunk_size(Some(max_chunk_size));
+
+        writer.on_chunk_created(|_, _, _| async { Ok(()) });
 
         // Write a single batch that exceeds the threshold (~1 MiB)
         // This tests that we handle the case where a single batch > max_chunk_size

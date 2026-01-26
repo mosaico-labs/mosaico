@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 use std::sync::Arc;
 
 use arrow::array::{ArrayRef, AsArray, RecordBatch, StructArray};
-use arrow::datatypes::{DataType, Field, FieldRef, SchemaRef};
+use arrow::datatypes::{DataType, Field, FieldRef, Schema, SchemaRef};
 use arrow::error::ArrowError;
 
 use crate::{params, traits::SquashedIterator, types};
@@ -25,7 +25,7 @@ pub enum SchemaError {
 ///
 /// Returns [`SchemaError`] if the schema structural requirements are not met.
 pub fn check_schema(schema: &SchemaRef) -> Result<(), SchemaError> {
-    let field = schema.field_with_name(params::ARROW_SCHEMA_COLUMN_NAME_TIMESTAMP);
+    let field = schema.field_with_name(params::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP);
     if let Ok(field) = field {
         if DataType::Int64 != *field.data_type() {
             return Err(SchemaError::WrongTimestampType);
@@ -34,6 +34,11 @@ pub fn check_schema(schema: &SchemaRef) -> Result<(), SchemaError> {
         return Err(SchemaError::MissingTimestampInSchema);
     }
     Ok(())
+}
+
+/// Return a arrow empty schema
+pub fn empty_schema_ref() -> Arc<Schema> {
+    Arc::new(Schema::empty())
 }
 
 /// Checks if the given Arrow [`DataType`] is considered numeric
@@ -56,9 +61,9 @@ pub fn is_numeric(data_type: &DataType) -> bool {
     )
 }
 
-/// Checks if the given Arrow [`DataType`] is considered literal
+/// Checks if the given Arrow [`DataType`] is considered text
 #[must_use]
-pub fn is_literal(data_type: &DataType) -> bool {
+pub fn is_textual(data_type: &DataType) -> bool {
     matches!(
         data_type,
         DataType::Utf8
@@ -71,16 +76,16 @@ pub fn is_literal(data_type: &DataType) -> bool {
     )
 }
 
-/// Converts an arrow [`Array`] to a literal type array (Utf8)
-pub fn cast_array_to_literal(array: &ArrayRef) -> Result<ArrayRef, ArrowError> {
-    if is_literal(array.data_type()) {
+/// Converts an arrow [`Array`] to a text type array (Utf8)
+pub fn cast_array_to_textual(array: &ArrayRef) -> Result<ArrayRef, ArrowError> {
+    if is_textual(array.data_type()) {
         Ok(arrow_cast::cast(
             array.as_ref(),
             &arrow_schema::DataType::Utf8,
         )?)
     } else {
         Err(arrow::error::ArrowError::CastError(
-            "unable to cast arrow array to literal type".to_owned(),
+            "unable to cast arrow array to textual type".to_owned(),
         ))
     }
 }
@@ -209,11 +214,11 @@ impl SquashedIterator for SchemaRef {
 }
 
 pub fn stats_from_arrow_field(field: &Field) -> types::Stats {
-    use types::{NumericStats, Stats, TextStats};
+    use types::{NumericStats, Stats, TextualStats};
 
     match field.data_type() {
         dt if is_numeric(dt) => Stats::Numeric(NumericStats::new()),
-        dt if is_literal(dt) => Stats::Text(TextStats::new()),
+        dt if is_textual(dt) => Stats::Textual(TextualStats::new()),
         _ => Stats::Unsupported,
     }
 }
@@ -242,8 +247,8 @@ pub fn stats_inspect_array(stats: &mut types::Stats, array: &ArrayRef) -> Result
 
             stats.merge(min_val, max_val, has_null, has_nan);
         }
-        Stats::Text(stats) => {
-            let sarray = cast_array_to_literal(array)?;
+        Stats::Textual(stats) => {
+            let sarray = cast_array_to_textual(array)?;
             let string_array = sarray.as_string::<i32>();
 
             // Use SIMD-optimized min/max from Arrow compute
@@ -262,11 +267,11 @@ pub fn stats_inspect_array(stats: &mut types::Stats, array: &ArrayRef) -> Result
 }
 
 /// Inspects a [`RecordBatch`] and updates the columns statistics accordingly.
-pub fn column_stats_inspect_record_batch(
-    cstats: &mut types::ColumnsStats,
+pub fn ontology_model_stats_inspect_record_batch(
+    cstats: &mut types::OntologyModelStats,
     batch: &RecordBatch,
 ) -> Result<(), ArrowError> {
-    for (col_name, stats) in &mut cstats.stats {
+    for (col_name, stats) in &mut cstats.cols {
         let array = array_from_flat_field_name(col_name, batch)?;
         stats_inspect_array(stats, &array)?;
     }
@@ -276,10 +281,10 @@ pub fn column_stats_inspect_record_batch(
 /// Creates an empty chunk that holds al schema fields.
 ///
 /// The schema fields are flattened inside the chunk.
-pub fn column_stats_from_schema(schema: &SchemaRef) -> types::ColumnsStats {
-    let mut cs = types::ColumnsStats::empty();
+pub fn ontology_model_stats_from_schema(schema: &SchemaRef) -> types::OntologyModelStats {
+    let mut cs = types::OntologyModelStats::empty();
     for (squashed_name, field) in schema.squashed_iter() {
-        cs.stats.insert(
+        cs.cols.insert(
             squashed_name.clone(),
             stats_from_arrow_field(field.as_ref()),
         );
@@ -487,7 +492,7 @@ pub mod testing {
     pub fn dummy_batch() -> RecordBatch {
         let schema = Arc::new(Schema::new(vec![
             Field::new(
-                params::ARROW_SCHEMA_COLUMN_NAME_TIMESTAMP,
+                params::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP,
                 DataType::Int64,
                 false,
             ),

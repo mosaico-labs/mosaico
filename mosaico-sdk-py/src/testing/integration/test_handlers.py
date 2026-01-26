@@ -3,6 +3,7 @@ import pytest
 from testing.integration.config import (
     UPLOADED_SEQUENCE_METADATA,
     UPLOADED_SEQUENCE_NAME,
+    QUERY_SEQUENCES_MOCKUP,
 )
 from .helpers import (
     topic_to_metadata_dict,
@@ -135,5 +136,70 @@ def test_topic_handlers(
     assert tophandler.name == tophandler_from_seq.name
     assert tophandler.topic_info == tophandler_from_seq.topic_info
     assert tophandler.user_metadata == tophandler_from_seq.user_metadata
+    # free resources
+    _client.close()
+
+
+@pytest.mark.parametrize("sequence", QUERY_SEQUENCES_MOCKUP.keys())
+def test_topic_handlers_in_dataless_sequence(
+    _client: MosaicoClient,
+    _inject_sequences_mockup,  # Ensure the data are available on the data platform
+    sequence: str,
+):
+    """
+    Test that the topic handler is correctly returned in a dataless sequence.
+    """
+    # All other tests are made somewhere else..
+    for topic in QUERY_SEQUENCES_MOCKUP[sequence]["topics"]:
+        tophandler = _client.topic_handler(
+            sequence_name=sequence, topic_name=topic["name"]
+        )
+        # The topic handler is available anyway
+        assert tophandler is not None
+    # free resources
+    _client.close()
+
+
+@pytest.mark.parametrize("sequence", QUERY_SEQUENCES_MOCKUP.keys())
+def test_sequence_reader_in_dataless_sequence(
+    _client: MosaicoClient,
+    _inject_sequences_mockup,  # Ensure the data are available on the data platform
+    sequence: str,
+):
+    """
+    Test that asking a data reader for a dataless sequence, raises an exception.
+    """
+    # All other tests are made somewhere else..
+    seqhandler = _client.sequence_handler(sequence_name=sequence)
+    assert seqhandler is not None
+    with pytest.raises(
+        ValueError,
+        match="The sequence might contain no data",
+    ):
+        seqhandler.get_data_streamer()
+    # free resources
+    _client.close()
+
+
+@pytest.mark.parametrize("sequence", QUERY_SEQUENCES_MOCKUP.keys())
+def test_topic_readers_in_dataless_sequence(
+    _client: MosaicoClient,
+    _inject_sequences_mockup,  # Ensure the data are available on the data platform
+    sequence: str,
+):
+    """
+    Test that asking a data reader for a dataless topic, raises an exception.
+    """
+    # All other tests are made somewhere else..
+    for topic in QUERY_SEQUENCES_MOCKUP[sequence]["topics"]:
+        tophandler = _client.topic_handler(
+            sequence_name=sequence, topic_name=topic["name"]
+        )
+        assert tophandler is not None
+        with pytest.raises(
+            ValueError,
+            match="The topic might contain no data",
+        ):
+            tophandler.get_data_streamer()
     # free resources
     _client.close()

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "INSERT INTO column_chunk_literal_t(\n            column_id, chunk_id,\n            min_value, max_value,\n            has_null \n        )\n        VALUES ($1, $2, $3, $4, $5)\n        RETURNING *",
+  "query": "INSERT INTO column_chunk_textual_t(\n            column_id, chunk_id,\n            min_value, max_value,\n            has_null \n        )\n        VALUES ($1, $2, $3, $4, $5)\n        RETURNING *",
   "describe": {
     "columns": [
       {
@@ -46,5 +46,5 @@
       false
     ]
   },
-  "hash": "e89e1bd5c54a16df5fd6870c084c41d0452f11d1ae014f1712c24beb08916fd6"
+  "hash": "52bf81ef269d8d00e4b3164e2daf9dfb9397551edcd167fec07f5eab7d32f475"
 }

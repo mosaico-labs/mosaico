@@ -14,7 +14,12 @@ except ImportError:
     RICH_AVAILABLE = False
 
 
-def setup_sdk_logging(level="INFO", pretty: bool = False, console=None):
+def setup_sdk_logging(
+    level="INFO",
+    pretty: bool = False,
+    console=None,
+    propagate: bool = False,
+):
     """
     Configures the global logging strategy for the Mosaico SDK.
 
@@ -89,7 +94,7 @@ def setup_sdk_logging(level="INFO", pretty: bool = False, console=None):
 
     logger.addHandler(handler)
     logger.setLevel(level)
-    logger.propagate = False
+    logger.propagate = propagate
 
     logger.info(init_message, extra=extra)
 

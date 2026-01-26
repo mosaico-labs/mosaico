@@ -25,8 +25,8 @@ def _exec_test_sequence_data_stream_timerange(
     # other tests are done elsewhere...
 
     sstream_handl = seqhandler.get_data_streamer(
-        start_timestamp_ns=time_start,
-        end_timestamp_ns=time_end,
+        start_timestamp_ns=time_start,  # lower_bound
+        end_timestamp_ns=time_end,  # upper_bound
     )
     # Get the next timestamp, without consuming the related sample
     next_tstamp = sstream_handl.next_timestamp()
@@ -46,7 +46,7 @@ def _exec_test_sequence_data_stream_timerange(
     )
     msg_count = msg_idx_start
 
-    # find the index to which end (which corresponds to timestamp_ns_end)
+    # find the index to which end (which corresponds to the one right before timestamp_ns_end)
     msg_idx_stop = (
         len(_make_sequence_data_stream.items) - 1
         if time_end is None

@@ -128,8 +128,8 @@ impl ClausesCompiler {
     }
 
     pub fn compile(self) -> Result<CompilerResult, Error> {
-        if self.error.is_some() {
-            return Err(self.error.unwrap());
+        if let Some(error) = self.error {
+            return Err(error);
         }
 
         Ok(self.result)

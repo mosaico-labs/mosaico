@@ -28,7 +28,11 @@ class _ExecutorPool:
     serialization overhead is parallelized alongside network operations.
     """
 
-    def __init__(self, pool_size: Optional[int]):
+    def __init__(
+        self,
+        *,
+        pool_size: Optional[int],
+    ):
         """
         Initializes the executor pool.
 

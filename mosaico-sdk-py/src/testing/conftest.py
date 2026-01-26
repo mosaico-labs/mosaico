@@ -25,7 +25,7 @@ def pytest_configure(config):
     level_str = config.getoption("--log-cli-level")
     if level_str:
         # Initialize the SDK logger
-        setup_sdk_logging(level=level_str.upper(), pretty=True)
+        setup_sdk_logging(level=level_str.upper(), pretty=True, propagate=True)
 
 
 def pytest_addoption(parser):

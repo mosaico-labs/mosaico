@@ -1,13 +1,12 @@
 //! Implementation of the Arrow Flight `list_flights` endpoint.
 //!
 //! Returns a stream of all available sequences when queried at the root level.
-
+use super::Context;
+use crate::{repo, server::errors::ServerError, types::Resource};
 use arrow_flight::{Criteria, FlightDescriptor, FlightEndpoint, FlightInfo, Ticket};
 use futures::stream::BoxStream;
 use log::{info, trace};
 use tonic::Status;
-
-use crate::{repo, server::errors::ServerError, types::Resource};
 
 /// Lists all available flights (sequences) in the repository.
 ///
@@ -15,7 +14,7 @@ use crate::{repo, server::errors::ServerError, types::Resource};
 /// returns a streamed list of all sequences. Each sequence is represented
 /// as a minimal `FlightInfo` containing only the sequence identifier.
 pub async fn list_flights(
-    repo: repo::Repository,
+    ctx: Context,
     criteria: Criteria,
 ) -> Result<BoxStream<'static, Result<FlightInfo, Status>>, ServerError> {
     // Validate criteria - only root-level queries are supported
@@ -29,7 +28,7 @@ pub async fn list_flights(
     info!("listing all sequences");
 
     // Fetch all sequences from repository
-    let sequences = repo::FacadeSequence::all(repo).await?;
+    let sequences = repo::FacadeSequence::all(ctx.repo).await?;
 
     trace!("found {} sequences", sequences.len());
 

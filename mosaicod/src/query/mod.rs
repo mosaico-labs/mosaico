@@ -6,8 +6,8 @@ pub use filter::*;
 mod builder;
 pub use builder::*;
 
-mod timeseries_gw;
-pub use timeseries_gw::*;
+mod timeseries;
+pub use timeseries::*;
 
 mod error;
 pub use error::*;

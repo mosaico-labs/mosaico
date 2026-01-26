@@ -10,9 +10,9 @@ from mosaicolabs.models.message import Message
 import pyarrow.flight as fl
 from typing import Any, List, Optional, Dict
 
+from .endpoints import TopicParsingError, TopicResourceManifest
 from .internal.topic_read_state import _TopicReadState
 from .topic_reader import TopicDataStreamer
-from .helpers import _parse_ep_ticket
 from ..logging_config import get_logger
 
 # Set the hierarchical logger
@@ -34,13 +34,9 @@ class SequenceDataStreamer:
     the topics were recorded at different rates.
     """
 
-    _name: str
-    _fl_client: fl.FlightClient
-    _topic_readers: Dict[str, TopicDataStreamer] = {}
-    _winning_rdstate: Optional[_TopicReadState] = None
-
     def __init__(
         self,
+        *,
         sequence_name: str,
         client: fl.FlightClient,
         topic_readers: Dict[str, TopicDataStreamer],
@@ -51,8 +47,15 @@ class SequenceDataStreamer:
         Internal library modules will call the 'connect()' function.
         """
         self._name: str = sequence_name
-        self._fl_client = client
-        self._topic_readers = topic_readers
+        """The name of the handled sequence data stream"""
+        self._fl_client: fl.FlightClient = client
+        "The client for remote operations"
+        self._topic_readers: Dict[str, TopicDataStreamer] = topic_readers
+        """The spawned topic data stream readers"""
+        self._winning_rdstate: Optional[_TopicReadState] = None
+        """The current topic datastream state corresponding to the last extracted measurement"""
+        self._in_iter: bool = False
+        """Tag for assessing if the data streamer is used in a loop"""
 
     @classmethod
     def connect(
@@ -77,37 +80,42 @@ class SequenceDataStreamer:
         Returns:
             SequenceDataStreamer: The initialized merger.
         """
-        cmd_dict: dict[str, Any] = {"resource_locator": sequence_name}
-        if start_timestamp_ns is not None:
-            cmd_dict.update({"timestamp_ns_start": start_timestamp_ns})
-        if end_timestamp_ns is not None:
-            cmd_dict.update({"timestamp_ns_end": end_timestamp_ns})
-
-        descriptor = fl.FlightDescriptor.for_command(json.dumps(cmd_dict))
         try:
-            flight_info = client.get_flight_info(descriptor)
+            flight_info = cls._get_flight_info(
+                sequence_name=sequence_name,
+                start_timestamp_ns=start_timestamp_ns,
+                end_timestamp_ns=end_timestamp_ns,
+                client=client,
+            )
         except Exception as e:
             raise ConnectionError(
-                f"Server error while asking for Sequence descriptor, {e}"
+                f"Server error (get_flight_info) while asking for Sequence descriptor, {e}"
             )
 
         topic_readers: Dict[str, TopicDataStreamer] = {}
 
-        # Create a reader for each endpoint (topic)
+        # Extract the Topics resource manifests data and their tickets
         for ep in flight_info.endpoints:
-            if len(ep.locations) != 1:
+            try:
+                topic_resrc_mdata = TopicResourceManifest.from_flight_endpoint(ep)
+            except TopicParsingError as e:
+                logger.error(f"Skipping invalid topic endpoint, err: '{e}'")
                 continue
-            ep_ticket_data = _parse_ep_ticket(ep.locations[0].uri)
-            if ep_ticket_data is None:
-                logger.error(
-                    f"Skipping endpoint with invalid ticket format: '{ep.locations[0].uri}'"
-                )
+            # Skip topics with no data
+            if (
+                topic_resrc_mdata.timestamp_ns_min is None
+                or topic_resrc_mdata.timestamp_ns_max is None
+            ):
                 continue
-            if topics and ep_ticket_data[1] not in topics:
+            # If not in the selected topics
+            if topics and topic_resrc_mdata.topic_name not in topics:
                 continue
-            treader = TopicDataStreamer.connect(
-                client=client, topic_name=ep_ticket_data[1], ticket=ep.ticket
+            treader = TopicDataStreamer.connect_from_ticket(
+                client=client,
+                topic_name=topic_resrc_mdata.topic_name,
+                ticket=ep.ticket,
             )
+            # Cache the topic reader instance
             topic_readers[treader.name()] = treader
 
         if not topic_readers:
@@ -115,7 +123,11 @@ class SequenceDataStreamer:
                 f"Unable to open TopicDataStreamer handlers for sequence '{sequence_name}'"
             )
 
-        return cls(sequence_name, client, topic_readers)
+        return cls(
+            sequence_name=sequence_name,
+            client=client,
+            topic_readers=topic_readers,
+        )
 
     # --- Iterator Protocol Implementation ---
 
@@ -127,12 +139,14 @@ class SequenceDataStreamer:
         for treader in self._topic_readers.values():
             if treader._rdstate.peeked_row is None:
                 treader._rdstate.peek_next_row()
+        self._in_iter = True
         return self
 
     def next(self) -> Optional[tuple[str, Message]]:
         """
         Returns the next time-ordered record or None if finished.
         """
+        self._in_iter = True  # Safety: ensures direct next() calls also lock the state
         try:
             return self.__next__()
         except StopIteration:
@@ -147,6 +161,9 @@ class SequenceDataStreamer:
             The minimum timestamp (float) found across all active topics, or None
             if all streams are exhausted.
         """
+        self._in_iter = (
+            True  # Safety: ensures direct next_timestamp() calls also lock the state
+        )
         min_tstamp: float = float("inf")
 
         for treader in self._topic_readers.values():
@@ -205,6 +222,48 @@ class SequenceDataStreamer:
         return self._winning_rdstate.topic_name, Message.create(
             self._winning_rdstate.ontology_tag, **row_dict
         )
+
+    @staticmethod
+    def _get_flight_info(
+        sequence_name: str,
+        start_timestamp_ns: Optional[int],
+        end_timestamp_ns: Optional[int],
+        client: fl.FlightClient,
+    ) -> fl.FlightInfo:
+        """Performs the get_flight_info call. Raises if flight function does"""
+        cmd_dict: dict[str, Any] = {"resource_locator": sequence_name}
+        if start_timestamp_ns is not None:
+            cmd_dict.update({"timestamp_ns_start": start_timestamp_ns})
+        if end_timestamp_ns is not None:
+            cmd_dict.update({"timestamp_ns_end": end_timestamp_ns})
+
+        descriptor = fl.FlightDescriptor.for_command(json.dumps(cmd_dict))
+        return client.get_flight_info(descriptor)
+
+    def _as_batch_provider(self) -> Dict[str, "TopicDataStreamer"]:
+        """
+        Transitions the streamer to 'Batch Provider' mode for analytical modules.
+
+        This internal helper is designed to facilitate high-performance data extraction
+        (e.g., by MosaicoFrameExtractor). It ensures the stream is in a 'clean' state
+        (not partially consumed) before returning the internal topic readers, avoiding
+        inconsistent data states between row-based and batch-based processing.
+
+        Returns:
+            Dict[str, TopicDataStreamer]: A mapping of topic names to their internal streamers.
+
+        Raises:
+            RuntimeError: If row-by-row iteration has already commenced.
+        """
+        # Safety check: if _winning_rdstate is set, it means next() has been called at least once.
+        if self._in_iter:
+            raise RuntimeError(
+                "Cannot switch to batch provider mode: row-by-row iteration has already started. "
+                "You must decide between streaming (loops) or batch processing (analytics) "
+                "at the beginning of the session."
+            )
+
+        return self._topic_readers
 
     def close(self):
         """Closes all underlying topic streams."""

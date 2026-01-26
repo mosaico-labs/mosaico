@@ -16,7 +16,6 @@
 ## The Open-Source Data Platform for Robotics & Physical AI
 
 Mosaico is a *blazing-fast* data platform designed to bridge the gap between Robotics and Physical AI. It streamlines data management, compression, and search by replacing monolithic files with a structured archive powered by Rust and Python.
-**Stop treating your sensor data like files. Start treating it like a dataset.**
 
 ## What you'll find
 This repo contains both the Python SDK (`mosaico-sdk-py`) and the Rust backend (`mosaicod`). We have chosen to keep the code in a monorepo configuration to simplify the testing and reduce compatibility issues.
@@ -36,6 +35,18 @@ The server daemon, [`mosaicod`](mosaicod/README.md), acts as the central hub tha
 On the other side, the client SDK is what you actually import into your scripts; it manages the communication logic and abstracts away the implementation details to keep your API usage stable, even as the platform evolves in the background.
 
 For a deep dive into the platform's architecture read the [Core Concepts Guide](CORE_CONCEPTS.md).
+
+### Streamlining Data for Physical AI
+
+<p align="center">
+  <img alt="ros to physical ai" src="doc/ros_physical_ai.png" />
+</p>
+
+Mosaico is designed to streamline the transition from raw robotic data to model-ready datasets. 
+
+Mosaico enables the ingestion of standard ROS sequences, which often consist of non-synchronized, linear data streams, and automatically transforms them  into synchronized, randomized dataframes specifically structured for Physical AI applications, see [SDK ML](mosaico-sdk-py/doc-md/ml/ml.md) module for more details. By allowing users to define a custom sampling step, enables precise data windowing for fine-tuning, ensuring that the resulting algorithms are significantly more robust against the temporal jitter commonly found in real-world hardware.
+
+Efficiency is built directly into the architecture, as data batches are streamed directly from the Mosaico data platform. This eliminate the need to download massive datasets locally before beginning work.
 
 ### Quick Start
 
@@ -61,18 +72,6 @@ To install the provided Python SDK and its dependencies, first navigate in the r
 cd mosaico-sdk-py
 poetry install
 ```
-
-### Testing
-
-To run the testing pipeline use the provided script:
-
-```bash
-./scripts/tests.sh
-```
-
-The testing pipeline requires [Poetry](https://python-poetry.org/docs/), the [Rust](https://rust-lang.org/tools/install/) toolchain, and [Docker](https://docs.docker.com/engine/install/).
-
-The testing pipeline contains all the unit tests (server + SDKs) and integration tests.
 
 ### Cite Us
 

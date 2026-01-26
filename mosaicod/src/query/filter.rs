@@ -32,7 +32,7 @@ pub type Float = f64;
 pub type Integer = i64;
 /// Timestam type alias
 pub type Timestamp = types::Timestamp;
-/// Literal type alias
+/// Text type alias
 pub type Text = String;
 
 #[derive(Debug, thiserror::Error)]

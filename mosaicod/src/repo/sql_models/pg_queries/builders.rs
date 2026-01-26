@@ -68,7 +68,7 @@ fn build_clause(where_clauses: String, v: &query::Value) -> String {
         query::Value::Text(_) => {
             let select = r#"
             SELECT chunk_id FROM chunk_t 
-            JOIN column_chunk_literal_t __stats__ USING(chunk_id) 
+            JOIN column_chunk_textual_t __stats__ USING(chunk_id) 
             JOIN column_t __column__ USING(column_id)
             "#;
 

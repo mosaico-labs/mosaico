@@ -2,12 +2,14 @@
 
 use log::{info, warn};
 
-use super::ActionContext;
-use crate::{marshal::ActionResponse, repo::FacadeLayer, server::errors::ServerError, types};
+use crate::{
+    marshal::ActionResponse, repo::FacadeLayer, server::endpoints::Context,
+    server::errors::ServerError, types,
+};
 
 /// Creates a new layer with the given name and description.
 pub async fn create(
-    ctx: &ActionContext,
+    ctx: &Context,
     name: String,
     description: String,
 ) -> Result<ActionResponse, ServerError> {
@@ -24,7 +26,7 @@ pub async fn create(
 }
 
 /// Deletes a layer.
-pub async fn delete(ctx: &ActionContext, name: String) -> Result<ActionResponse, ServerError> {
+pub async fn delete(ctx: &Context, name: String) -> Result<ActionResponse, ServerError> {
     warn!("deleting layer `{}`", name);
 
     let handle = FacadeLayer::new(
@@ -39,7 +41,7 @@ pub async fn delete(ctx: &ActionContext, name: String) -> Result<ActionResponse,
 
 /// Updates a layer's name and description.
 pub async fn update(
-    ctx: &ActionContext,
+    ctx: &Context,
     prev_name: String,
     curr_name: String,
     curr_description: String,
@@ -65,7 +67,7 @@ pub async fn update(
 }
 
 /// Lists all layers.
-pub async fn list(ctx: &ActionContext) -> Result<ActionResponse, ServerError> {
+pub async fn list(ctx: &Context) -> Result<ActionResponse, ServerError> {
     info!("request layer list");
 
     let layers = FacadeLayer::all(ctx.repo.clone()).await?;

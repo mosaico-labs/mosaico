@@ -18,7 +18,7 @@ impl FacadeQuery {
     /// Perform a query in the system
     pub async fn query(
         filter: query::Filter,
-        ts_gw: query::TimeseriesGatewayRef,
+        ts_gw: query::TimeseriesRef,
         repo: repo::Repository,
     ) -> Result<types::SequenceTopicGroups, FacadeError> {
         let mut result: Option<types::SequenceTopicGroups> = None;
