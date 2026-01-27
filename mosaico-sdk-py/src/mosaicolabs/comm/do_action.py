@@ -223,9 +223,6 @@ class _DoActionQueryResponse(_DoActionResponse):
     actions: ClassVar[list[FlightAction]] = [FlightAction.QUERY]
     query_response: QueryResponse
 
-    def __init__(self, qresp: QueryResponse) -> None:
-        self.query_response = qresp
-
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "_DoActionQueryResponse":
         if data.get("items") is None:
@@ -233,4 +230,4 @@ class _DoActionQueryResponse(_DoActionResponse):
         qresp = QueryResponse(
             items=[QueryResponseItem._from_dict(ditem) for ditem in data["items"]]
         )
-        return _DoActionQueryResponse(qresp=qresp)
+        return _DoActionQueryResponse(query_response=qresp)

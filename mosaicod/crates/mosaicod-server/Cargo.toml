@@ -1,0 +1,36 @@
+[package]
+name = "mosaicod-server"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[lib]
+name = "mosaicod_server"
+
+[dependencies]
+mosaicod-core = { workspace = true }
+mosaicod-marshal = { workspace = true }
+mosaicod-rw = { workspace = true }
+mosaicod-ext = { workspace = true }
+mosaicod-repo = { workspace = true }
+mosaicod-store = { workspace = true }
+mosaicod-query = { workspace = true }
+
+thiserror = { workspace = true }
+tokio = { workspace = true }
+log = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+futures = { workspace = true }
+tonic = { workspace = true }
+arrow-flight = { workspace = true }
+arrow = { workspace = true }
+
+[dev-dependencies]
+mosaicod-store = { workspace = true, features = ["testing"]}
+mosaicod-repo = { workspace = true, features = ["testing"]}
+serde = { workspace = true }
+sqlx = { workspace = true }
+

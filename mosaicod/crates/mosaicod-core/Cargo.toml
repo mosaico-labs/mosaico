@@ -1,0 +1,19 @@
+[package]
+name = "mosaicod-core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[lib]
+name = "mosaicod_core"
+
+[dependencies]
+colored = { workspace = true }
+rand = { workspace = true }
+url = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+bytes = { workspace = true }
+thiserror = { workspace = true }

@@ -154,7 +154,7 @@ run_mosaicod_tests() {
     title "mosaicod (unit tests)" "-"
     start_docker
     cd "${MOSAICOD_PATH}"
-    cargo test
+    cargo test --quiet
 }
 
 # Run Python SDK unit tests

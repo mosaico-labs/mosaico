@@ -60,6 +60,7 @@ class _ConnectionPool:
 
     def __init__(
         self,
+        *,
         host: str,
         port: int,
         pool_size: Optional[int],

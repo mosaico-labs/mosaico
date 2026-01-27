@@ -1,0 +1,31 @@
+[package]
+name = "mosaicod-repo"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[lib]
+name = "mosaicod_repo"
+
+[features]
+testing = []
+
+[dependencies]
+mosaicod-core = { workspace = true }
+mosaicod-marshal = { workspace = true }
+mosaicod-store = { workspace = true }
+mosaicod-rw = { workspace = true }
+mosaicod-query = { workspace = true }
+
+bytes = { workspace = true }
+thiserror = { workspace = true }
+arrow = { workspace = true }
+log = { workspace = true }
+futures = { workspace = true }
+tokio = { workspace = true }
+sqlx = { workspace = true }
+url = { workspace = true }
+uuid = { workspace = true }
+serde_json = { workspace = true }

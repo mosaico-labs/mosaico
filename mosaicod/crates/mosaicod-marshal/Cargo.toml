@@ -1,0 +1,18 @@
+[package]
+name = "mosaicod-marshal"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+mosaicod-core = { workspace = true }
+mosaicod-rw = { workspace = true }
+mosaicod-query = { workspace = true}
+
+thiserror = { workspace = true }
+bincode = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+bytes = { workspace = true }

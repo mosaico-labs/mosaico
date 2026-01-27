@@ -90,6 +90,7 @@ class _QueryableModel:
     root query prefix (like a '__ontology_tag__').
     """
 
+    # Class variable, because it is expected to use like: 'IMU.Q.acceleration.x >= 1.234'
     Q: ClassVar[_QueryProxy]
 
     @staticmethod

@@ -23,14 +23,14 @@ services:
   qs-mosaicod:
     build:
       context: ../../mosaicod
-      dockerfile: ../docker/quick_start/Dockerfile.mosaicod
+      dockerfile: ../docker/dockerfiles/Dockerfile.mosaicod
     image: mosaicolabs/mosaicod
     container_name: mosaicod
     networks:
       - mosaico-qs
     environment:
       MOSAICO_REPOSITORY_DB_URL: postgresql://postgres:password@db:5432/mosaico
-      RUST_LOG: mosaico=trace
+      RUST_LOG: mosaico=info
     command: |
       run --host --local-store /store
     depends_on:

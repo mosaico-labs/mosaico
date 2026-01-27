@@ -8,9 +8,9 @@ capabilities essential for the k-way merge logic used in `SequenceDataStreamer`.
 """
 
 import pyarrow.flight as fl
-from typing import Iterator, List, Optional, Type
+import pyarrow as pa
+from typing import Iterator, List, Optional
 
-from mosaicolabs.models import Serializable
 from mosaicolabs.logging_config import get_logger
 
 # Set the hierarchical logger
@@ -53,10 +53,6 @@ class _TopicReadState:
         self.reader: Optional[fl.FlightStreamReader] = reader
         self.ontology_tag: str = ontology_tag
 
-        # Writer-specific fields (unused in reader context but kept for structure alignment)
-        self.ontology_type: Optional[Type[Serializable]] = None
-        self.field_names: Optional[List[str]] = None
-
         # --- Schema Validation & Setup ---
         self.column_names: List[str] = []
         self.timestamp_index: int = -1
@@ -68,9 +64,6 @@ class _TopicReadState:
             raise ValueError(
                 f"Topic '{topic_name}' schema is missing the required 'timestamp_ns' column."
             ) from e
-
-        # --- Buffering & Iteration State ---
-        self.current_batch: Optional[fl.FlightStreamChunk] = None
 
         # Iterator yields tuples of python objects: (value_col1, value_col2, ...)
         self.row_iterator: Optional[Iterator] = None
@@ -93,18 +86,17 @@ class _TopicReadState:
 
         try:
             # Fetch next chunk from Flight
-            self.current_batch = self.reader.read_chunk()
-            current_batch = self.current_batch
+            current_batch_data = self.fetch_next_batch()
 
-            if current_batch.data is None or current_batch.data.num_rows == 0:
+            if current_batch_data is None:
                 self.row_iterator = None
                 return False
 
             # Efficiently transpose columnar data to row iterator
             # columns = [col_array_1, col_array_2, ...]
             columns = [
-                current_batch.data.column(i)
-                for i in range(current_batch.data.num_columns)
+                current_batch_data.column(i)
+                for i in range(current_batch_data.num_columns)
             ]
             self.row_iterator = iter(zip(*columns))
             return True
@@ -117,6 +109,19 @@ class _TopicReadState:
             # Unexpected error
             self.row_iterator = None
             raise
+
+    def fetch_next_batch(self) -> Optional[pa.RecordBatch]:
+        """Get the next RecordBatch"""
+        if self.reader is None:
+            return None
+        try:
+            chunk = self.reader.read_chunk()
+            return (
+                chunk.data if chunk and chunk.data and chunk.data.num_rows > 0 else None
+            )
+        except StopIteration:
+            self.reader = None
+            return None
 
     def peek_next_row(self) -> bool:
         """

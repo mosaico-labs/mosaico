@@ -1,4 +1,4 @@
-name: ci
+name: Tests and Linter
 
 on:
   push:
