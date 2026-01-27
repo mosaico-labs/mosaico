@@ -1,4 +1,4 @@
-name: mosaicod Docker Image
+name: Build mosaicod Docker Image
 
 on:
   push:
