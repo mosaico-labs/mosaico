@@ -24,8 +24,8 @@ impl FacadeQuery {
         filter: query::Filter,
         ts_gw: query::TimeseriesRef,
         repo: repo::Repository,
-    ) -> Result<types::SequenceTopicGroups, FacadeError> {
-        let mut result: Option<types::SequenceTopicGroups> = None;
+    ) -> Result<types::SequenceTopicGroupSet, FacadeError> {
+        let mut result: Option<types::SequenceTopicGroupSet> = None;
 
         let (seq_filt, top_filt, on_filt) = filter.into_parts();
 
@@ -120,7 +120,7 @@ impl FacadeQuery {
                                 "can't find a topic associated with chunk `{}`, skipping",
                                 chunk.chunk_uuid
                             );
-                            return Ok::<_, FacadeError>(types::SequenceTopicGroups::empty());
+                            return Ok::<_, FacadeError>(types::SequenceTopicGroupSet::empty());
                         }
                         let topic = topic.unwrap();
 

@@ -319,54 +319,82 @@ impl SequenceTopicGroup {
     }
 }
 
+/// A collection of [`SequenceTopicGroup`] items, providing utilities for
+/// set-based operations like merging and intersection.
+///
+/// This wrapper facilitates grouped management of topics associated with specific
+/// sequences, ensuring data consistency during complex merge operations.
 #[derive(Debug)]
-pub struct SequenceTopicGroups(Vec<SequenceTopicGroup>);
+pub struct SequenceTopicGroupSet(Vec<SequenceTopicGroup>);
 
-impl SequenceTopicGroups {
+impl SequenceTopicGroupSet {
     pub fn new(groups: Vec<SequenceTopicGroup>) -> Self {
         Self(groups)
     }
 
+    /// Returns and empty group set
     pub fn empty() -> Self {
         Self(Vec::new())
     }
 
-    /// Consumes the current group and a provided group to produce a new group in which
-    /// the sequences are intersected while the topics are joined
-    pub fn merge(self, group: Self) -> Self {
-        let mut result = Self::empty();
-        for mut grp1 in self.0 {
-            let found = group
-                .0
-                .iter()
-                .find(|grp2| grp1.sequence.name() == grp2.sequence.name());
+    /// Merges two sets of groups by intersecting sequences and joining their topics.
+    ///
+    /// Only groups present in both `self` and `groups` are retained. Topics within
+    /// matched groups are combined, deduplicated, and sorted by name.
+    /// # Example
+    ///
+    /// ```
+    /// # use mosaicod_core::types::{SequenceTopicGroupSet, SequenceTopicGroup};
+    /// # // Assuming SequenceTopicGroup and relevant types are in scope
+    /// let set_a = SequenceTopicGroupSet::new(vec![/* ... */]);
+    /// let set_b = SequenceTopicGroupSet::new(vec![/* ... */]);
+    ///
+    /// let merged = set_a.merge(set_b);
+    /// ```
+    pub fn merge(self, mut groups: Self) -> Self {
+        let max_capacity = groups.0.len().max(self.0.len());
+        let mut result = Vec::with_capacity(max_capacity);
 
-            if let Some(found) = found {
-                grp1.topics.extend(found.topics.clone());
-                result
-                    .0
-                    .push(SequenceTopicGroup::new(found.sequence.clone(), grp1.topics));
+        groups
+            .0
+            .sort_unstable_by(|a, b| a.sequence.name().cmp(b.sequence.name()));
+
+        for mut self_grp in self.0 {
+            let found = groups.0.binary_search_by(|grp_aux| {
+                return grp_aux.sequence.name().cmp(self_grp.sequence.name());
+            });
+
+            if let Ok(found) = found {
+                self_grp.topics.extend(groups.0[found].topics.clone());
+
+                // Sort and remove duplicates
+                self_grp
+                    .topics
+                    .sort_unstable_by(|a, b| a.name().cmp(b.name()));
+                self_grp.topics.dedup_by(|a, b| a.name() == b.name());
+
+                result.push(self_grp);
             }
         }
 
-        result
+        Self(result)
     }
 }
 
-impl Default for SequenceTopicGroups {
+impl Default for SequenceTopicGroupSet {
     fn default() -> Self {
         Self::empty()
     }
 }
 
-impl From<Vec<SequenceTopicGroup>> for SequenceTopicGroups {
+impl From<Vec<SequenceTopicGroup>> for SequenceTopicGroupSet {
     fn from(value: Vec<SequenceTopicGroup>) -> Self {
         Self::new(value)
     }
 }
 
-impl From<SequenceTopicGroups> for Vec<SequenceTopicGroup> {
-    fn from(value: SequenceTopicGroups) -> Self {
+impl From<SequenceTopicGroupSet> for Vec<SequenceTopicGroup> {
+    fn from(value: SequenceTopicGroupSet) -> Self {
         value.0
     }
 }
@@ -374,6 +402,7 @@ impl From<SequenceTopicGroups> for Vec<SequenceTopicGroup> {
 /// Builds a sanitized resource name
 ///
 /// Sanitized resource names have the following requirements:
+/// - remove any space
 /// - remove any leading `/`
 /// - any non-alphanumeric char as first element is removed
 /// - these symbol `! " ' * £ $ % &` are removed
@@ -381,7 +410,11 @@ impl From<SequenceTopicGroups> for Vec<SequenceTopicGroup> {
 fn sanitize_name(name: &str) -> String {
     let chars_to_replace = vec!["!", "\"", "'", "*", "£", "$", "%", "&"];
 
-    let mut sanitized: String = name.trim().trim_start_matches('/').to_owned();
+    let mut sanitized: String = name
+        .replace(" ", "")
+        .trim()
+        .trim_start_matches('/')
+        .to_owned();
 
     sanitized = sanitized
         .chars()
@@ -411,6 +444,12 @@ mod tests {
         let san = sanitize_name("//my/resource/name");
         assert_eq!(san, target);
 
+        let san = sanitize_name("/ /my/resource/name");
+        assert_eq!(san, target);
+
+        let san = sanitize_name("/ //my/resource/name");
+        assert_eq!(san, target);
+
         let san = sanitize_name("/!\"my/resource/name");
         assert_eq!(san, target);
 
@@ -422,5 +461,41 @@ mod tests {
     }
 
     #[test]
-    fn merge_sequence_topic_groups() {}
+    fn merge_sequence_topic_groups() {
+        let groups1 = SequenceTopicGroupSet::new(vec![
+            SequenceTopicGroup::new(
+                SequenceResourceLocator::from("sequence_1"),
+                vec![
+                    TopicResourceLocator::from("topic_1"),
+                    TopicResourceLocator::from("topic_2"),
+                ],
+            ),
+            SequenceTopicGroup::new(
+                SequenceResourceLocator::from("sequence_2"),
+                vec![TopicResourceLocator::from("topic_1")],
+            ),
+        ]);
+
+        let groups2 = SequenceTopicGroupSet::new(vec![
+            SequenceTopicGroup::new(
+                SequenceResourceLocator::from("sequence_1"),
+                vec![
+                    TopicResourceLocator::from("topic_1"),
+                    TopicResourceLocator::from("topic_3"),
+                ],
+            ),
+            SequenceTopicGroup::new(
+                SequenceResourceLocator::from("sequence_3"),
+                vec![TopicResourceLocator::from("topic_1")],
+            ),
+        ]);
+
+        let merged: Vec<SequenceTopicGroup> = groups1.merge(groups2).into();
+
+        dbg!(&merged);
+
+        assert_eq!(merged.len(), 1);
+        assert_eq!(merged[0].sequence.name(), "sequence_1");
+        assert_eq!(merged[0].topics.len(), 3);
+    }
 }

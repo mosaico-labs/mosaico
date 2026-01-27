@@ -176,8 +176,8 @@ impl From<types::SequenceTopicGroup> for ResponseQueryItem {
     }
 }
 
-impl From<types::SequenceTopicGroups> for Query {
-    fn from(value: types::SequenceTopicGroups) -> Self {
+impl From<types::SequenceTopicGroupSet> for Query {
+    fn from(value: types::SequenceTopicGroupSet) -> Self {
         let vec: Vec<types::SequenceTopicGroup> = value.into();
         Self {
             items: vec.into_iter().map(Into::into).collect(),
