@@ -1,6 +1,6 @@
 import pyarrow as pa
 import pandas as pd
-from typing import List, Dict, Optional, Generator, Union, Tuple, Sequence
+from typing import List, Dict, Optional, Generator
 
 from mosaicolabs.handlers import SequenceHandler
 from mosaicolabs.logging_config import get_logger
@@ -35,37 +35,9 @@ class DataFrameExtractor:
         """
         self._sequence_handler = sequence_handler
 
-    def _resolve_selection(self, selection: Sequence) -> Dict[str, Optional[List[str]]]:
-        """
-        Parses the user selection into a standardized topic-to-fields map.
-
-        Args:
-            selection (List): List of strings (topic names) or tuples (topic, fields).
-
-        Returns:
-            Dict[str, Optional[List[str]]]: A map where keys are topic names and values
-                are lists of requested sub-fields (None means 'all fields').
-        """
-        resolved = {}
-        for item in selection:
-            if isinstance(item, str):
-                # Full topic selection: 'imu_front'
-                resolved[item] = None
-            elif isinstance(item, tuple):
-                if len(item) != 2:
-                    raise ValueError(f"Expected a tuple of 2 elements. Got `{item}`")
-                # Targeted field selection: ('gps_main', ['position.z', 'status'])
-                topic, fields = item
-                if isinstance(fields, str):
-                    fields = [fields]
-                resolved[topic] = fields
-        return resolved
-
     def to_pandas_chunks(
         self,
-        selection: Optional[
-            Sequence[Union[str, Tuple[str, Union[str, List[str]]]]]
-        ] = None,
+        topics: Optional[List[str]] = None,
         window_sec: float = 5.0,
         timestamp_ns_start: Optional[int] = None,
         timestamp_ns_end: Optional[int] = None,
@@ -80,7 +52,7 @@ class DataFrameExtractor:
         .. NOTE:: This function must be iterated (e.g. called in a for loop)
 
         Args:
-            selection (List, optional): Topics and fields to extract. Defaults to all topics.
+            selection (List, optional): Topics to extract. Defaults to all topics.
             window_sec (float): Duration of each DataFrame chunk in seconds.
             start_ns (int, optional): Global start time for extraction.
             end_ns (int, optional): Global end time for extraction.
@@ -113,10 +85,12 @@ class DataFrameExtractor:
                 timestamp_ns_end, self._sequence_handler.timestamp_ns_max
             )  # do not go beyond (after) the maximum sequence timestamp
         )
+
+        # Get topic names from selection
+        topic_names = topics or self._sequence_handler.topics
+
         seq_streamer = self._sequence_handler.get_data_streamer(
-            topics=[t if isinstance(t, str) else t[0] for t in selection]
-            if selection
-            else [],
+            topics=topics or [],
             start_timestamp_ns=timestamp_ns_start,
             end_timestamp_ns=timestamp_ns_end,
         )
@@ -143,17 +117,8 @@ class DataFrameExtractor:
                 "The entire sequence will be loaded into RAM. Ensure sufficient memory is available."
             )
 
-        # Map selection for internal processing
-        resolved_selection = (
-            self._resolve_selection(selection)
-            if selection
-            else {t: None for t in seq_readers.keys()}  # all the available topics
-        )
-
         # Carry-over buffer to handle batches spanning across two windows
-        carry_over: Dict[str, pd.DataFrame] = {
-            t: pd.DataFrame() for t in resolved_selection.keys()
-        }
+        carry_over: Dict[str, pd.DataFrame] = {t: pd.DataFrame() for t in topic_names}
 
         try:
             current_window_start = global_start_ns
@@ -181,7 +146,7 @@ class DataFrameExtractor:
                         new_df = self._flatten_and_filter(
                             batch,
                             t_name,
-                            resolved_selection.get(t_name),  # safe get
+                            reader.ontology_tag,
                         )
                         df_topic = pd.concat([df_topic, new_df], ignore_index=True)
                         del new_df  # Free tmp memory immediately
@@ -214,7 +179,10 @@ class DataFrameExtractor:
             seq_streamer.close()
 
     def _flatten_and_filter(
-        self, batch: pa.RecordBatch, topic_name: str, fields: Optional[List[str]]
+        self,
+        batch: pa.RecordBatch,
+        topic_name: str,
+        ontology_tag: Optional[str],
     ) -> pd.DataFrame:
         """
         Converts an Arrow RecordBatch into a flattened and namespace-prefixed DataFrame.
@@ -236,11 +204,15 @@ class DataFrameExtractor:
         df = table.to_pandas(self_destruct=True)
 
         # Apply field selection filtering
-        if fields is not None:
-            df = df[self._match_columns(df.columns, fields)]
-        # Apply topic-based namespace to all columns except the timestamp
         df.columns = [
-            f"{topic_name}.{c}" if c != "timestamp_ns" else c for c in df.columns
+            (
+                f"{topic_name}.{ontology_tag}.{c}"
+                if ontology_tag
+                else f"{topic_name}.{c}"
+            )
+            if c != "timestamp_ns"
+            else c
+            for c in df.columns
         ]
         return df
 

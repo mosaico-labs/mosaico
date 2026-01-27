@@ -5,6 +5,8 @@ from typing import List, Iterable, Optional
 
 from mosaicolabs.comm import MosaicoClient
 from mosaicolabs.ml import DataFrameExtractor
+from mosaicolabs.models import Message
+from mosaicolabs.models.sensors.imu import IMU
 import pytest
 from testing.integration.config import (
     UPLOADED_SEQUENCE_NAME,
@@ -54,9 +56,10 @@ def _get_topic_timestamps(
     ]
 
 
-def _assert_chunk_topic_prefix(
+def _assert_chunk_topic_and_tag_prefix(
     chunk_columns: Iterable[str],
     topics: List[str],
+    tags: List[str],
 ):
     """
     Assert that:
@@ -66,65 +69,31 @@ def _assert_chunk_topic_prefix(
     # Columns minus timestamp
     non_ts_cols = [c for c in chunk_columns if c != "timestamp_ns"]
 
+    prefixes = {
+        f"{topic}.{tags[i]}" if tags else f"{topic}" for i, topic in enumerate(topics)
+    }
     # Check each column starts with one of the topics
     for col in non_ts_cols:
-        if not any(col.startswith(f"{topic}.") for topic in topics):
+        if not any(col.startswith(f"{prefix}.") for prefix in prefixes):
             raise AssertionError(
-                f"Column '{col}' does not start with any allowed topic prefix {topics}"
+                f"Column '{col}' does not start with any allowed topic prefix {prefixes}"
             )
 
     # Check that all topic prefixes are represented if needed
-    prefixes_found = {col.split(".")[0] for col in non_ts_cols}
-    unexpected_topics = prefixes_found - set(topics)
-    assert not unexpected_topics, (
-        f"Unexpected topic prefixes found: {unexpected_topics}"
-    )
-
-
-def _assert_chunk_topic_columns(
-    chunk_columns: Iterable[str],
-    topic: str,
-    fields_leaf: Iterable[str],
-    fields_all_subfields: Iterable[str],
-):
-    """
-    Assert that a DataFrame chunk has:
-    - all other columns (than 'timestamp_ns') are prefixed with topic
-    - exactly the requested leaf fields
-    - all subfields of requested group fields
-    """
-    # Columns minus timestamp
-    non_ts_cols = [c for c in chunk_columns if c != "timestamp_ns"]
-
-    # Strip namespace for semantic checks
-    logical_cols = {c.removeprefix(f"{topic}.") for c in non_ts_cols}
-
-    # Check leaf fields
-    for leaf in fields_leaf:
-        assert leaf in logical_cols, f"Missing leaf field: {leaf}"
-        # Make sure no extra subfields exist for this leaf
-        assert not any(c.startswith(leaf + ".") for c in logical_cols), (
-            f"Unexpected subfields for leaf field: {leaf}"
-        )
-
-    # Check all-subfields fields
-    for group in fields_all_subfields:
-        subfields = {c for c in logical_cols if c.startswith(group + ".")}
-        assert subfields, f"No subfields found for group field: {group}"
-
-    # Make sure there are no extra columns
-    allowed = set(fields_leaf)
-    for group in fields_all_subfields:
-        allowed |= {c for c in logical_cols if c.startswith(group + ".")}
-
-    assert logical_cols == allowed, (
-        f"Unexpected columns found: {logical_cols - allowed}"
+    prefixes_found = [col.split(".") for col in non_ts_cols]
+    prefixes_found = {
+        f"{pref[0]}.{pref[1]}" if tags else f"{pref[0]}" for pref in prefixes_found
+    }
+    unexpected_prefixes = prefixes_found - prefixes
+    assert not unexpected_prefixes, (
+        f"Unexpected topic prefixes found: {unexpected_prefixes}"
     )
 
 
 def _exec_test_chunks(
     data_stream: SequenceDataStream,
-    selection_dict: dict[str, dict],
+    topics: List[str],
+    tags: List[str],
     timestamp_ns_start: Optional[int],
     timestamp_ns_end: Optional[int],
     seqhandler: SequenceHandler,
@@ -145,16 +114,7 @@ def _exec_test_chunks(
     expected_num_chunks = ceil(total_sec / window_chunk_sec)
 
     # Get the selected topics
-    topics = list(selection_dict.keys()) if selection_dict else topic_list
-    # Compose 'selection' from input dict
-    selection = (
-        [
-            (topic, fields["fields_leaf"] + fields["fields_all_subfields"])
-            for topic, fields in selection_dict.items()
-        ]
-        if selection_dict
-        else None
-    )
+    topics = topics or topic_list
 
     # Get the original topic timestamps corresponding to 'timestamp_ns_start' to 'timestamp_ns_end'
     topic_timestamps = []
@@ -174,7 +134,7 @@ def _exec_test_chunks(
     # Cache for the list of packed timestamps
     chunk_timestamps = []
     for chunk in DataFrameExtractor(seqhandler).to_pandas_chunks(
-        selection=selection,
+        topics=topics,
         window_sec=window_chunk_sec,
         timestamp_ns_start=timestamp_ns_start,
         timestamp_ns_end=timestamp_ns_end,
@@ -183,27 +143,10 @@ def _exec_test_chunks(
         assert "timestamp_ns" in chunk.columns, "'timestamp_ns' missing"
 
         # Assert the columns contain the selected topics only
-        _assert_chunk_topic_prefix(chunk_columns=chunk.columns, topics=topics)
+        _assert_chunk_topic_and_tag_prefix(
+            chunk_columns=chunk.columns, topics=topics, tags=tags
+        )
 
-        # Assert the 'data' columns for each topic
-        # FIXME: if not setting the selected column,
-        # must test all the topic column (from data ontology)
-        if selection:
-            for topic in topics:
-                item = selection_dict[topic]
-                fields_leaf = item["fields_leaf"]
-                fields_all_subfields = item["fields_all_subfields"]
-                topic_columns = [
-                    c
-                    for c in chunk.columns
-                    if c == "timestamp_ns" or c.startswith(topic)
-                ]
-                _assert_chunk_topic_columns(
-                    chunk_columns=topic_columns,
-                    topic=topic,
-                    fields_leaf=fields_leaf,
-                    fields_all_subfields=fields_all_subfields,
-                )
         chunk_timestamps.extend(list(chunk["timestamp_ns"]))
         num_chunks += 1
 
@@ -225,16 +168,13 @@ def test_single_selection_chunks_unbounded(
     assert seqhandler is not None
     # --- Topic 1 ---
 
-    selection_dict = {
-        UPLOADED_IMU_FRONT_TOPIC: {
-            "fields_leaf": ["acceleration.x", "acceleration.z"],
-            "fields_all_subfields": ["angular_velocity", "header"],
-        }
-    }
+    selection = [UPLOADED_IMU_FRONT_TOPIC]
+    tags = ["imu"]
 
     _exec_test_chunks(
         data_stream=_make_sequence_data_stream,
-        selection_dict=selection_dict,
+        topics=selection,
+        tags=tags,
         seqhandler=seqhandler,
         timestamp_ns_start=None,
         timestamp_ns_end=None,
@@ -242,16 +182,13 @@ def test_single_selection_chunks_unbounded(
 
     # --- Topic 2 ---
 
-    selection_dict = {
-        UPLOADED_GPS_TOPIC: {
-            "fields_leaf": ["position.x", "status.service"],
-            "fields_all_subfields": ["velocity"],
-        }
-    }
+    selection = [UPLOADED_GPS_TOPIC]
+    tags = ["gps"]
 
     _exec_test_chunks(
         data_stream=_make_sequence_data_stream,
-        selection_dict=selection_dict,
+        topics=selection,
+        tags=tags,
         seqhandler=seqhandler,
         timestamp_ns_start=None,
         timestamp_ns_end=None,
@@ -282,16 +219,13 @@ def test_single_selection_chunks_from_half_to_end(
     assert seqhandler is not None
     # --- Topic 1 ---
 
-    selection_dict = {
-        UPLOADED_IMU_FRONT_TOPIC: {
-            "fields_leaf": ["acceleration.x", "acceleration.z"],
-            "fields_all_subfields": ["angular_velocity", "header"],
-        }
-    }
+    selection = [UPLOADED_IMU_FRONT_TOPIC]
+    tags = ["imu"]
 
     _exec_test_chunks(
         data_stream=_make_sequence_data_stream,
-        selection_dict=selection_dict,
+        topics=selection,
+        tags=tags,
         seqhandler=seqhandler,
         timestamp_ns_start=timestamp_ns_start,
         timestamp_ns_end=timestamp_ns_end,
@@ -299,16 +233,13 @@ def test_single_selection_chunks_from_half_to_end(
 
     # --- Topic 2 ---
 
-    selection_dict = {
-        UPLOADED_GPS_TOPIC: {
-            "fields_leaf": ["position.x", "status.service"],
-            "fields_all_subfields": ["velocity"],
-        }
-    }
+    selection = [UPLOADED_GPS_TOPIC]
+    tags = ["gps"]
 
     _exec_test_chunks(
         data_stream=_make_sequence_data_stream,
-        selection_dict=selection_dict,
+        topics=selection,
+        tags=tags,
         seqhandler=seqhandler,
         timestamp_ns_start=timestamp_ns_start,
         timestamp_ns_end=timestamp_ns_end,
@@ -338,16 +269,13 @@ def test_single_selection_chunks_from_half(
     assert seqhandler is not None
     # --- Topic 1 ---
 
-    selection_dict = {
-        UPLOADED_IMU_FRONT_TOPIC: {
-            "fields_leaf": ["acceleration.x", "acceleration.z"],
-            "fields_all_subfields": ["angular_velocity", "header"],
-        }
-    }
+    selection = [UPLOADED_IMU_FRONT_TOPIC]
+    tags = ["imu"]
 
     _exec_test_chunks(
         data_stream=_make_sequence_data_stream,
-        selection_dict=selection_dict,
+        topics=selection,
+        tags=tags,
         seqhandler=seqhandler,
         timestamp_ns_start=timestamp_ns_start,
         timestamp_ns_end=None,
@@ -355,16 +283,13 @@ def test_single_selection_chunks_from_half(
 
     # --- Topic 2 ---
 
-    selection_dict = {
-        UPLOADED_GPS_TOPIC: {
-            "fields_leaf": ["position.x", "status.service"],
-            "fields_all_subfields": ["velocity"],
-        }
-    }
+    selection = [UPLOADED_GPS_TOPIC]
+    tags = ["gps"]
 
     _exec_test_chunks(
         data_stream=_make_sequence_data_stream,
-        selection_dict=selection_dict,
+        topics=selection,
+        tags=tags,
         seqhandler=seqhandler,
         timestamp_ns_start=timestamp_ns_start,
         timestamp_ns_end=None,
@@ -395,16 +320,13 @@ def test_single_selection_chunks_to_half(
     assert seqhandler is not None
     # --- Topic 1 ---
 
-    selection_dict = {
-        UPLOADED_IMU_FRONT_TOPIC: {
-            "fields_leaf": ["acceleration.x", "acceleration.z"],
-            "fields_all_subfields": ["angular_velocity", "header"],
-        }
-    }
+    selection = [UPLOADED_IMU_FRONT_TOPIC]
+    tags = ["imu"]
 
     _exec_test_chunks(
         data_stream=_make_sequence_data_stream,
-        selection_dict=selection_dict,
+        topics=selection,
+        tags=tags,
         seqhandler=seqhandler,
         timestamp_ns_start=None,
         timestamp_ns_end=timestamp_ns_end,
@@ -412,16 +334,13 @@ def test_single_selection_chunks_to_half(
 
     # --- Topic 2 ---
 
-    selection_dict = {
-        UPLOADED_GPS_TOPIC: {
-            "fields_leaf": ["position.x", "status.service"],
-            "fields_all_subfields": ["velocity"],
-        }
-    }
+    selection = [UPLOADED_GPS_TOPIC]
+    tags = ["gps"]
 
     _exec_test_chunks(
         data_stream=_make_sequence_data_stream,
-        selection_dict=selection_dict,
+        topics=selection,
+        tags=tags,
         seqhandler=seqhandler,
         timestamp_ns_start=None,
         timestamp_ns_end=timestamp_ns_end,
@@ -443,16 +362,13 @@ def test_single_selection_chunks_extra_bounds(
     assert seqhandler is not None
     # --- Topic 1 ---
 
-    selection_dict = {
-        UPLOADED_IMU_FRONT_TOPIC: {
-            "fields_leaf": ["acceleration.x", "acceleration.z"],
-            "fields_all_subfields": ["angular_velocity", "header"],
-        }
-    }
+    selection = [UPLOADED_IMU_FRONT_TOPIC]
+    tags = ["imu"]
 
     _exec_test_chunks(
         data_stream=_make_sequence_data_stream,
-        selection_dict=selection_dict,
+        topics=selection,
+        tags=tags,
         seqhandler=seqhandler,
         timestamp_ns_start=0,
         timestamp_ns_end=_make_sequence_data_stream.tstamp_ns_end * 2,
@@ -474,24 +390,17 @@ def test_multi_selection_chunks_unbounded(
     assert seqhandler is not None
     # --- Topic 1 ---
 
-    selection_dict = {
-        UPLOADED_IMU_FRONT_TOPIC: {
-            "fields_leaf": ["acceleration.x", "acceleration.z"],
-            "fields_all_subfields": ["angular_velocity", "header"],
-        },
-        UPLOADED_GPS_TOPIC: {
-            "fields_leaf": ["position.x", "status.service"],
-            "fields_all_subfields": ["velocity"],
-        },
-        UPLOADED_IMU_CAMERA_TOPIC: {
-            "fields_leaf": ["acceleration.x", "acceleration.y"],
-            "fields_all_subfields": ["angular_velocity", "orientation"],
-        },
-    }
+    selection = [
+        UPLOADED_IMU_FRONT_TOPIC,
+        UPLOADED_GPS_TOPIC,
+        UPLOADED_IMU_CAMERA_TOPIC,
+    ]
+    tags = ["imu", "gps", "imu"]
 
     _exec_test_chunks(
         data_stream=_make_sequence_data_stream,
-        selection_dict=selection_dict,
+        topics=selection,
+        tags=tags,
         seqhandler=seqhandler,
         timestamp_ns_start=None,
         timestamp_ns_end=None,
@@ -513,24 +422,18 @@ def test_multi_selection_chunks_extra_bounds(
     assert seqhandler is not None
     # --- Topic 1 ---
 
-    selection_dict = {
-        UPLOADED_IMU_FRONT_TOPIC: {
-            "fields_leaf": ["acceleration.x", "acceleration.z"],
-            "fields_all_subfields": ["angular_velocity", "header"],
-        },
-        UPLOADED_GPS_TOPIC: {
-            "fields_leaf": ["position.x", "status.service"],
-            "fields_all_subfields": ["velocity"],
-        },
-        UPLOADED_IMU_CAMERA_TOPIC: {
-            "fields_leaf": ["acceleration.x", "acceleration.y"],
-            "fields_all_subfields": ["angular_velocity", "orientation"],
-        },
-    }
+    selection = [
+        UPLOADED_IMU_FRONT_TOPIC,
+        UPLOADED_GPS_TOPIC,
+        UPLOADED_IMU_CAMERA_TOPIC,
+    ]
+
+    tags = ["imu", "gps", "imu"]
 
     _exec_test_chunks(
         data_stream=_make_sequence_data_stream,
-        selection_dict=selection_dict,
+        topics=selection,
+        tags=tags,
         seqhandler=seqhandler,
         timestamp_ns_start=0,
         timestamp_ns_end=_make_sequence_data_stream.tstamp_ns_end * 2,
@@ -561,24 +464,18 @@ def test_multi_selection_chunks_from_half_to_end(
     assert seqhandler is not None
     # --- Topic 1 ---
 
-    selection_dict = {
-        UPLOADED_IMU_FRONT_TOPIC: {
-            "fields_leaf": ["acceleration.x", "acceleration.z"],
-            "fields_all_subfields": ["angular_velocity", "header"],
-        },
-        UPLOADED_GPS_TOPIC: {
-            "fields_leaf": ["position.x", "status.service"],
-            "fields_all_subfields": ["velocity"],
-        },
-        UPLOADED_IMU_CAMERA_TOPIC: {
-            "fields_leaf": ["acceleration.x", "acceleration.y"],
-            "fields_all_subfields": ["angular_velocity", "orientation"],
-        },
-    }
+    selection = [
+        UPLOADED_IMU_FRONT_TOPIC,
+        UPLOADED_GPS_TOPIC,
+        UPLOADED_IMU_CAMERA_TOPIC,
+    ]
+
+    tags = ["imu", "gps", "imu"]
 
     _exec_test_chunks(
         data_stream=_make_sequence_data_stream,
-        selection_dict=selection_dict,
+        topics=selection,
+        tags=tags,
         seqhandler=seqhandler,
         timestamp_ns_start=timestamp_ns_start,
         timestamp_ns_end=timestamp_ns_end,
@@ -608,24 +505,18 @@ def test_multi_selection_chunks_from_half(
     assert seqhandler is not None
     # --- Topic 1 ---
 
-    selection_dict = {
-        UPLOADED_IMU_FRONT_TOPIC: {
-            "fields_leaf": ["acceleration.x", "acceleration.z"],
-            "fields_all_subfields": ["angular_velocity", "header"],
-        },
-        UPLOADED_GPS_TOPIC: {
-            "fields_leaf": ["position.x", "status.service"],
-            "fields_all_subfields": ["velocity"],
-        },
-        UPLOADED_IMU_CAMERA_TOPIC: {
-            "fields_leaf": ["acceleration.x", "acceleration.y"],
-            "fields_all_subfields": ["angular_velocity", "orientation"],
-        },
-    }
+    selection = [
+        UPLOADED_IMU_FRONT_TOPIC,
+        UPLOADED_GPS_TOPIC,
+        UPLOADED_IMU_CAMERA_TOPIC,
+    ]
+
+    tags = ["imu", "gps", "imu"]
 
     _exec_test_chunks(
         data_stream=_make_sequence_data_stream,
-        selection_dict=selection_dict,
+        topics=selection,
+        tags=tags,
         seqhandler=seqhandler,
         timestamp_ns_start=timestamp_ns_start,
         timestamp_ns_end=None,
@@ -655,24 +546,18 @@ def test_multi_selection_chunks_to_half(
     assert seqhandler is not None
     # --- Topic 1 ---
 
-    selection_dict = {
-        UPLOADED_IMU_FRONT_TOPIC: {
-            "fields_leaf": ["acceleration.x", "acceleration.z"],
-            "fields_all_subfields": ["angular_velocity", "header"],
-        },
-        UPLOADED_GPS_TOPIC: {
-            "fields_leaf": ["position.x", "status.service"],
-            "fields_all_subfields": ["velocity"],
-        },
-        UPLOADED_IMU_CAMERA_TOPIC: {
-            "fields_leaf": ["acceleration.x", "acceleration.y"],
-            "fields_all_subfields": ["angular_velocity", "orientation"],
-        },
-    }
+    selection = [
+        UPLOADED_IMU_FRONT_TOPIC,
+        UPLOADED_GPS_TOPIC,
+        UPLOADED_IMU_CAMERA_TOPIC,
+    ]
+
+    tags = ["imu", "gps", "imu"]
 
     _exec_test_chunks(
         data_stream=_make_sequence_data_stream,
-        selection_dict=selection_dict,
+        topics=selection,
+        tags=tags,
         seqhandler=seqhandler,
         timestamp_ns_start=None,
         timestamp_ns_end=timestamp_ns_end,
@@ -682,12 +567,12 @@ def test_multi_selection_chunks_to_half(
     _client.close()
 
 
-def test_single_selection_non_existing_field(
+def test_single_selection_non_existing_topic(
     _client: MosaicoClient,
     _make_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
     _inject_sequence_data_stream,  # Make sure data are available on the server
 ):
-    """Test retrieving a non-existing column from topic data-stream"""
+    """Test retrieving a non-existing topic from data-stream"""
     # start from the half of the sequence
     timestamp_ns_start = _make_sequence_data_stream.tstamp_ns_start + int(
         (
@@ -701,53 +586,101 @@ def test_single_selection_non_existing_field(
     seqhandler = _client.sequence_handler(UPLOADED_SEQUENCE_NAME)
     # Sequence must exist
     assert seqhandler is not None
-    # --- Topic 1 ---
-
-    selection = [
-        (UPLOADED_IMU_FRONT_TOPIC, ["acceleration.h"])
-    ]  # NOTE: <- Does not exist
-
-    with pytest.raises(ValueError):
-        for _ in DataFrameExtractor(seqhandler).to_pandas_chunks(
-            selection=selection,
-            window_sec=5,
-            timestamp_ns_start=timestamp_ns_start,
-            timestamp_ns_end=timestamp_ns_end,
-        ):
-            pass
-
-    selection = [
-        (
-            UPLOADED_IMU_FRONT_TOPIC,
-            [
-                "acceleration",
-                "non-existing-field",  # NOTE: <- Does not exist
-            ],
-        )
-    ]
-
-    with pytest.raises(
-        ValueError,
-        match="The field 'non-existing-field' does not exist in the columns.",
-    ):
-        for _ in DataFrameExtractor(seqhandler).to_pandas_chunks(
-            selection=selection,
-            window_sec=5,
-            timestamp_ns_start=timestamp_ns_start,
-            timestamp_ns_end=timestamp_ns_end,
-        ):
-            pass
 
     selection = ["non-existing-topic"]  # NOTE: <- Does not exist
 
     with pytest.raises(ValueError, match="Invalid input topic names"):
         for _ in DataFrameExtractor(seqhandler).to_pandas_chunks(
-            selection=selection,
+            topics=selection,
             window_sec=5,
             timestamp_ns_start=timestamp_ns_start,
             timestamp_ns_end=timestamp_ns_end,
         ):
             pass
+
+    # free resources
+    _client.close()
+
+
+def test_single_selection_message(
+    _client: MosaicoClient,
+    _make_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
+    _inject_sequence_data_stream,  # Make sure data are available on the server
+):
+    """Test retrieving a non-existing topic from data-stream"""
+    # start from the half of the sequence
+    timestamp_ns_start = _make_sequence_data_stream.tstamp_ns_start + int(
+        (
+            _make_sequence_data_stream.tstamp_ns_start
+            + _make_sequence_data_stream.tstamp_ns_end
+        )
+        / 2
+    )
+    timestamp_ns_end = _make_sequence_data_stream.tstamp_ns_end
+
+    seqhandler = _client.sequence_handler(UPLOADED_SEQUENCE_NAME)
+    # Sequence must exist
+    assert seqhandler is not None
+
+    selection = [UPLOADED_IMU_FRONT_TOPIC]
+
+    for df in DataFrameExtractor(seqhandler).to_pandas_chunks(
+        topics=selection,
+        window_sec=5,
+        timestamp_ns_start=timestamp_ns_start,
+        timestamp_ns_end=timestamp_ns_end,
+    ):
+        for _, row in df.iterrows():
+            imu_msg = Message.from_dataframe_row(row, UPLOADED_IMU_FRONT_TOPIC)
+            assert imu_msg is not None
+            assert imu_msg.ontology_type() is IMU
+
+            gps_msg = Message.from_dataframe_row(row, UPLOADED_GPS_TOPIC)
+            assert gps_msg is None
+
+    # free resources
+    _client.close()
+
+
+def test_multi_selection_message(
+    _client: MosaicoClient,
+    _make_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
+    _inject_sequence_data_stream,  # Make sure data are available on the server
+):
+    """Test retrieving a non-existing topic from data-stream"""
+    import pandas as pd
+
+    # start from the half of the sequence
+    timestamp_ns_start = _make_sequence_data_stream.tstamp_ns_start + int(
+        (
+            _make_sequence_data_stream.tstamp_ns_start
+            + _make_sequence_data_stream.tstamp_ns_end
+        )
+        / 2
+    )
+    timestamp_ns_end = _make_sequence_data_stream.tstamp_ns_end
+
+    seqhandler = _client.sequence_handler(UPLOADED_SEQUENCE_NAME)
+    # Sequence must exist
+    assert seqhandler is not None
+
+    selection = [UPLOADED_IMU_FRONT_TOPIC, UPLOADED_GPS_TOPIC]
+
+    for df in DataFrameExtractor(seqhandler).to_pandas_chunks(
+        topics=selection,
+        window_sec=5,
+        timestamp_ns_start=timestamp_ns_start,
+        timestamp_ns_end=timestamp_ns_end,
+    ):
+        for _, row in df.iterrows():
+            # Check what data contains this row
+            if not pd.isna(row[f"{UPLOADED_IMU_FRONT_TOPIC}.{'imu'}.acceleration.x"]):
+                # It is an imu message
+                imu_msg = Message.from_dataframe_row(row, UPLOADED_IMU_FRONT_TOPIC)
+                assert imu_msg is not None
+                assert imu_msg.ontology_type() is IMU
+                gps_msg = Message.from_dataframe_row(row, UPLOADED_GPS_TOPIC)
+                assert gps_msg is None
 
     # free resources
     _client.close()
@@ -767,7 +700,8 @@ def test_sequence_chunks_unbounded(
 
     _exec_test_chunks(
         data_stream=_make_sequence_data_stream,
-        selection_dict={},
+        topics=[],
+        tags=[],
         seqhandler=seqhandler,
         timestamp_ns_start=None,
         timestamp_ns_end=None,
@@ -799,7 +733,8 @@ def test_sequence_chunks_from_half_to_end(
 
     _exec_test_chunks(
         data_stream=_make_sequence_data_stream,
-        selection_dict={},
+        topics=[],
+        tags=[],
         seqhandler=seqhandler,
         timestamp_ns_start=timestamp_ns_start,
         timestamp_ns_end=timestamp_ns_end,
@@ -830,7 +765,8 @@ def test_sequence_chunks_from_half(
 
     _exec_test_chunks(
         data_stream=_make_sequence_data_stream,
-        selection_dict={},
+        topics=[],
+        tags=[],
         seqhandler=seqhandler,
         timestamp_ns_start=timestamp_ns_start,
         timestamp_ns_end=None,
@@ -861,7 +797,8 @@ def test_sequence_chunks_to_half(
 
     _exec_test_chunks(
         data_stream=_make_sequence_data_stream,
-        selection_dict={},
+        topics=[],
+        tags=[],
         seqhandler=seqhandler,
         timestamp_ns_start=None,
         timestamp_ns_end=timestamp_ns_end,
@@ -884,7 +821,7 @@ def test_sequence_no_data(
 
     with pytest.raises(ValueError, match="The sequence might contain no data"):
         for _ in DataFrameExtractor(seqhandler).to_pandas_chunks(
-            selection=None,  # all the topics
+            topics=None,  # all the topics
             window_sec=5,
             timestamp_ns_start=None,
             timestamp_ns_end=None,

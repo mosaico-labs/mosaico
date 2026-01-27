@@ -179,6 +179,10 @@ class TopicDataStreamer:
 
         return self._rdstate.peeked_timestamp
 
+    @property
+    def ontology_tag(self) -> str:
+        return self._rdstate.ontology_tag
+
     def __iter__(self) -> "TopicDataStreamer":
         """Returns self as iterator."""
         return self
