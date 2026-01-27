@@ -26,7 +26,7 @@ mosaicod-store = { path = "crates/mosaicod-store" }
 # External dependencies
 arrow = { version = "56.2.0", features = ["prettyprint"] }
 arrow-cast = "56.2.0"
-arrow-flight = "56.2.0"
+arrow-flight = "57.2.0"
 arrow-schema = "56.2.0"
 base64 = "0.22.1"
 bincode = { version = "2.0.1", features = ["serde"] }
