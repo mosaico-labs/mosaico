@@ -1,5 +1,5 @@
 # --- BUILD STAGE ---
-FROM rust:1.91-slim-bullseye AS builder
+FROM rust:1.92-slim-bullseye AS builder
 
 WORKDIR /mosaicod
 
@@ -13,10 +13,10 @@ RUN apt-get update && \
 RUN cargo install sqlx-cli --no-default-features --features postgres
 
 COPY Cargo.toml Cargo.lock ./
-COPY migrations ./migrations
+COPY crates ./crates
+COPY bin ./bin
 COPY .sqlx ./.sqlx
 
-COPY src ./src
 RUN SQLX_OFFLINE=true cargo build --release
 
 # RUNTIME STAGE

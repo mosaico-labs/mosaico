@@ -30,7 +30,7 @@ services:
       - mosaico-qs
     environment:
       MOSAICO_REPOSITORY_DB_URL: postgresql://postgres:password@db:5432/mosaico
-      RUST_LOG: mosaico=trace
+      RUST_LOG: mosaico=info
     command: |
       run --host --local-store /store
     depends_on:
