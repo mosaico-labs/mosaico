@@ -36,16 +36,18 @@ class SyncTransformer:
 
     def __init__(
         self,
-        target_fps: int,
+        target_fps: float,
         policy: SynchPolicy = SynchHold(),
+        timestamp_column_name="timestamp_ns",
     ):
         """
         Args:
-            target_fps: The desired output frequency in Hz.
-            policy: A strategy implementing the `SynchPolicy` protocol.
+            target_fps (float): The desired output frequency in Hz.
+            policy (SynchPolicy): A strategy implementing the `SynchPolicy` protocol.
         """
         self._step_ns: int = int(1e9 / target_fps)
-        self._policy = policy
+        self._policy: SynchPolicy = policy
+        self._timestamp_column: str = timestamp_column_name
 
         # Internal state to bridge gaps between chunks
         self._last_values: Dict[str, Tuple[int, Any]] = {}
@@ -56,23 +58,32 @@ class SyncTransformer:
         Initializes the grid alignment based on the first observed timestamp.
         """
         if not X.empty and self._next_timestamp_ns is None:
-            self._next_timestamp_ns = int(X["timestamp_ns"].iloc[0])
+            self._next_timestamp_ns = int(X[self._timestamp_column].iloc[0])
+
+        if self._timestamp_column not in X.columns:
+            raise ValueError(
+                f"Unable to find time column '{self._timestamp_column}' in dataframe."
+            )
         return self
 
     def transform(self, X: pd.DataFrame) -> pd.DataFrame:
         """
         Synchronizes a sparse DataFrame chunk into a dense, uniform DataFrame.
         """
+        if self._timestamp_column not in X.columns:
+            raise ValueError(
+                f"Unable to find time column '{self._timestamp_column}' in dataframe."
+            )
         tstamp_grid = self._generate_grid(X=X)
         if len(tstamp_grid) == 0:
             return pd.DataFrame()
 
-        dense_df = pd.DataFrame({"timestamp_ns": tstamp_grid})
+        dense_df = pd.DataFrame({self._timestamp_column: tstamp_grid})
 
         # Process each topic column independently
-        for col in [c for c in X.columns if c != "timestamp_ns"]:
+        for col in [c for c in X.columns if c != self._timestamp_column]:
             # Standard sparse extraction: drop NaNs to get real measurement events
-            samples = X[["timestamp_ns", col]].dropna()
+            samples = X[[self._timestamp_column, col]].dropna()
 
             # Merge previous chunk's final state with current data
             s_ts, s_val = self._prepare_data(col, samples)
@@ -99,7 +110,7 @@ class SyncTransformer:
         if X.empty:
             return np.array([], dtype=np.int64)
 
-        X_tstamp = X["timestamp_ns"]
+        X_tstamp = X[self._timestamp_column]
         if self._next_timestamp_ns is None:
             self._next_timestamp_ns = int(X_tstamp.iloc[0])
 
@@ -122,7 +133,7 @@ class SyncTransformer:
         """
         Prepends the carried-over sample from the previous chunk to ensure continuity.
         """
-        current_ts = samples["timestamp_ns"].values
+        current_ts = samples[self._timestamp_column].values
         current_val = samples.iloc[:, 1].values
 
         if col_name in self._last_values:
