@@ -58,7 +58,7 @@ def _get_topic_timestamps(
 def _exec_test_synch(
     data_stream: SequenceDataStream,
     topics: List[str],
-    target_fps: float,
+    target_fps: int,
     timestamp_ns_start: Optional[int],
     timestamp_ns_end: Optional[int],
     seqhandler: SequenceHandler,
@@ -99,7 +99,7 @@ def _exec_test_synch(
         timestamp_ns_start=timestamp_ns_start,
         timestamp_ns_end=timestamp_ns_end,
     ):
-        stransformer = SyncTransformer(target_fps)
+        stransformer = SyncTransformer(target_fps=target_fps)
         synched_df = stransformer.transform(chunk)
         deltas = synched_df["timestamp_ns"].diff(1)[
             1:
@@ -124,7 +124,7 @@ def test_single_selection_synch_unbounded(
     _exec_test_synch(
         data_stream=_make_sequence_data_stream,
         topics=selection,
-        target_fps=1e3,
+        target_fps=1_000,
         seqhandler=seqhandler,
         timestamp_ns_start=None,
         timestamp_ns_end=None,
