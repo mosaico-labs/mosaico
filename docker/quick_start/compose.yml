@@ -23,7 +23,7 @@ services:
   qs-mosaicod:
     build:
       context: ../../mosaicod
-      dockerfile: ../docker/quick_start/Dockerfile.mosaicod
+      dockerfile: ../docker/dockerfiles/Dockerfile.mosaicod
     image: mosaicolabs/mosaicod
     container_name: mosaicod
     networks:

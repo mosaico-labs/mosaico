@@ -56,6 +56,13 @@ uuid = "1.19.0"
 
 [profile.release]
 strip = true          # Strip symbols from binary
+panic = "abort"       # Smaller binary, no unwinding
+
+[profile.optimized]
+inherits = "release"
 lto = true            # Link-Time Optimization
 codegen-units = 1     # Better optimization (slower compile)
-panic = "abort"       # Smaller binary, no unwinding
+
+[profile.docker]
+inherits = "release"
+lto = false

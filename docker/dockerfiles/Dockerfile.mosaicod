@@ -17,13 +17,13 @@ COPY crates ./crates
 COPY bin ./bin
 COPY .sqlx ./.sqlx
 
-RUN SQLX_OFFLINE=true cargo build --release
+RUN SQLX_OFFLINE=true cargo build --profile docker
 
 # RUNTIME STAGE
 FROM gcr.io/distroless/cc-debian11
 
 WORKDIR /mosaicod
 
-COPY --from=builder /mosaicod/target/release/mosaicod /usr/local/bin/mosaicod
+COPY --from=builder /mosaicod/target/docker/mosaicod /usr/local/bin/mosaicod
 
 ENTRYPOINT ["mosaicod"]
