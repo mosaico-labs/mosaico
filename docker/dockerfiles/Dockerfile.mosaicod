@@ -10,7 +10,7 @@ RUN apt-get update && \
   build-essential \
   ca-certificates 
 
-RUN cargo install sqlx-cli --no-default-features --features postgres
+# RUN cargo install sqlx-cli --no-default-features --features postgres
 
 COPY Cargo.toml Cargo.lock ./
 COPY crates ./crates
