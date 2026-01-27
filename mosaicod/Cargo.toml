@@ -3,12 +3,11 @@ members = ["crates/*", "bin/*"]
 resolver = "3"
 
 [workspace.package]
-#name = "mosaicod"
 version = "0.1.2"
 authors = ["Mosaico author's"]
 homepage = "https://mosaico.dev"
 repository = "https://github.com/mosaico-labs/mosaico"
-license = "APGL-3.0"
+license = "AGPL-3.0"
 edition = "2024"
 rust-version = "1.92"
 
@@ -24,17 +23,18 @@ mosaicod-server = { path = "crates/mosaicod-server" }
 mosaicod-store = { path = "crates/mosaicod-store" }
 
 # External dependencies
-arrow = { version = "56.2.0", features = ["prettyprint"] }
-arrow-cast = "56.2.0"
-arrow-flight = "56.2.0"
-arrow-schema = "56.2.0"
+arrow = { version = "57.2.0", features = ["prettyprint"] }
+arrow-cast = "57.2.0"
+arrow-flight = "57.2.0"
+arrow-schema = "57.2.0"
+parquet = "57.2.0"
 base64 = "0.22.1"
 bincode = { version = "2.0.1", features = ["serde"] }
 bytes = "1.11.0"
 chrono = "0.4.42"
 clap = { version = "4.5.48", features = ["derive"] }
 colored = "3.0.0"
-datafusion = "50.1.0"
+datafusion = "52.1.0"
 dotenv = "0.15.0"
 env_logger = "0.11.8"
 futures = "0.3.31"
@@ -42,7 +42,6 @@ if-addrs = "0.14.0"
 log = "0.4.29"
 mimalloc = { version = "0.1", default-features = false }
 object_store = { version = "0.12.4", features = ["aws", "fs"] }
-parquet = "56.1.0"
 rand = "0.9.2"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
@@ -50,7 +49,7 @@ signal-hook = "0.3.18"
 sqlx = { version = "0.8.6", features = ["postgres", "macros", "runtime-tokio", "uuid", "json"] }
 thiserror = "2.0.18"
 tokio = { version = "1.47.1", features = ["rt-multi-thread"] }
-tonic = "0.13.1"
+tonic = "0.14.2"
 url = "2.5.7"
 uuid = "1.19.0"
 
