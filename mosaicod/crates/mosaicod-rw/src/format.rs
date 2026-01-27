@@ -1,9 +1,9 @@
 //!
-//! Format definitions and strategy pattern for format-specific behavior.
+//! Format properties definitions
 //!
 //! This module implements the Strategy pattern to encapsulate format-specific
-//! configuration for Parquet serialization. Each format variant has its own
-//! strategy that defines compression settings, file extensions, and reading options.
+//! configurations. Each format variant has its own strategy that defines compression settings,
+//! file extensions, and reading options.
 
 use datafusion::datasource::file_format::parquet::ParquetFormat;
 use datafusion::datasource::listing::ListingOptions;
@@ -16,7 +16,7 @@ use parquet::{
 use std::sync::Arc;
 
 // ////////////////////////////////////////////////////////////////////////////
-// FormatStrategy Traits
+// Format Properties Traits
 // ////////////////////////////////////////////////////////////////////////////
 
 /// Base strategy trait for all storage formats.
@@ -27,7 +27,7 @@ use std::sync::Arc;
 /// This follows the Strategy pattern to adhere to the Open/Closed Principle:
 /// - Open for extension: New formats can be added by implementing this trait
 /// - Closed for modification: Existing code doesn't need to change when adding formats
-pub trait FormatStrategy: AsExtension + Send + Sync {
+pub trait FormatProperties: AsExtension + Send + Sync {
     /// Returns a human-readable name for this format strategy.
     fn name(&self) -> &'static str;
 }
@@ -37,7 +37,7 @@ pub trait FormatStrategy: AsExtension + Send + Sync {
 /// Extends `FormatStrategy` with Parquet-specific configuration for compression,
 /// statistics, and DataFusion integration. Formats that store data as Parquet
 /// files should implement this trait.
-pub trait ParquetFormatStrategy: FormatStrategy {
+pub trait ParquetFormatProperties: FormatProperties {
     /// Returns the Parquet writer properties configured for this format.
     fn writer_properties(&self) -> WriterProperties;
 
@@ -46,26 +46,26 @@ pub trait ParquetFormatStrategy: FormatStrategy {
 }
 
 // ////////////////////////////////////////////////////////////////////////////
-// Strategy Implementations
+// Formats Implementation
 // ////////////////////////////////////////////////////////////////////////////
 
 /// Strategy for standard columnar data with fixed-width columns.
 /// Uses Parquet 2.0 with default compression settings.
-pub struct DefaultFormatStrategy;
+pub struct DefaultFormatProperties;
 
-impl AsExtension for DefaultFormatStrategy {
+impl AsExtension for DefaultFormatProperties {
     fn as_extension(&self) -> String {
         params::ext::PARQUET.to_owned()
     }
 }
 
-impl FormatStrategy for DefaultFormatStrategy {
+impl FormatProperties for DefaultFormatProperties {
     fn name(&self) -> &'static str {
         "default"
     }
 }
 
-impl ParquetFormatStrategy for DefaultFormatStrategy {
+impl ParquetFormatProperties for DefaultFormatProperties {
     fn writer_properties(&self) -> WriterProperties {
         WriterProperties::builder()
             .set_writer_version(WriterVersion::PARQUET_2_0)
@@ -78,33 +78,33 @@ impl ParquetFormatStrategy for DefaultFormatStrategy {
     }
 }
 
-/// Strategy for ragged/variable-length data (nested or list-like structures).
+/// Properties for ragged/variable-length data (nested or list-like structures).
 ///
 /// Uses ZSTD level 5 compression with optimized timestamp column handling:
 /// - Timestamp column is uncompressed for fast range queries
 /// - Bloom filters enabled on timestamp for efficient filtering
 /// - Page-level statistics on timestamp for predicate pushdown
-pub struct RaggedFormatStrategy;
+pub struct RaggedFormatProperties;
 
-impl RaggedFormatStrategy {
+impl RaggedFormatProperties {
     /// ZSTD compression level 5 provides good balance between compression ratio
     /// and speed for variable-length data structures.
     const COMPRESSION_LEVEL: i32 = 5;
 }
 
-impl AsExtension for RaggedFormatStrategy {
+impl AsExtension for RaggedFormatProperties {
     fn as_extension(&self) -> String {
         params::ext::PARQUET.to_owned()
     }
 }
 
-impl FormatStrategy for RaggedFormatStrategy {
+impl FormatProperties for RaggedFormatProperties {
     fn name(&self) -> &'static str {
         "ragged"
     }
 }
 
-impl ParquetFormatStrategy for RaggedFormatStrategy {
+impl ParquetFormatProperties for RaggedFormatProperties {
     fn writer_properties(&self) -> WriterProperties {
         let ts_path = ColumnPath::from(params::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP);
 
@@ -128,33 +128,33 @@ impl ParquetFormatStrategy for RaggedFormatStrategy {
     }
 }
 
-/// Strategy for images and dense multi-dimensional arrays.
+/// Format properties for images and dense multi-dimensional arrays.
 ///
 /// Uses maximum ZSTD compression (level 22) since:
 /// - Image data is written once and read many times
 /// - Higher compression ratio reduces storage costs
 /// - Decompression speed is less critical than compression ratio
-pub struct ImageFormatStrategy;
+pub struct ImageFormatProperties;
 
-impl ImageFormatStrategy {
+impl ImageFormatProperties {
     /// Maximum ZSTD compression level for best compression ratio.
     /// Suitable for write-once, read-many image data.
     const COMPRESSION_LEVEL: i32 = 22;
 }
 
-impl AsExtension for ImageFormatStrategy {
+impl AsExtension for ImageFormatProperties {
     fn as_extension(&self) -> String {
         params::ext::PARQUET.to_owned()
     }
 }
 
-impl FormatStrategy for ImageFormatStrategy {
+impl FormatProperties for ImageFormatProperties {
     fn name(&self) -> &'static str {
         "image"
     }
 }
 
-impl ParquetFormatStrategy for ImageFormatStrategy {
+impl ParquetFormatProperties for ImageFormatProperties {
     fn writer_properties(&self) -> WriterProperties {
         let ts_path = ColumnPath::from(params::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP);
 
@@ -178,7 +178,7 @@ impl ParquetFormatStrategy for ImageFormatStrategy {
     }
 }
 
-/// Returns the base strategy implementation for this format variant.
+/// Returns the base properties for this format variant.
 ///
 /// Use this method when you only need format-agnostic behavior like
 /// file extension or format name.
@@ -187,32 +187,31 @@ impl ParquetFormatStrategy for ImageFormatStrategy {
 ///
 /// ```
 /// use mosaicod_core::types::Format;
+/// use mosaicod_rw::ToProperties;
 ///
-/// let format = Format::Default;
-/// if let Some(format_strategy) = format.as_strategy() {
-///     let file_ext = format_strategy.file_extension();
-///     let name = format_strategy.name();
-/// }
+/// let props = Format::Default.to_properties();
+/// let file_ext = props.as_extension();
+/// let name = props.name();
 /// ```
-pub trait AsStrategy {
-    fn as_strategy(&self) -> Box<dyn FormatStrategy>;
+pub trait ToProperties {
+    fn to_properties(&self) -> Box<dyn FormatProperties>;
 }
 
-fn as_format_strategy(format: &types::Format) -> Box<dyn FormatStrategy> {
+fn as_format_property(format: &types::Format) -> Box<dyn FormatProperties> {
     match format {
-        types::Format::Default => Box::new(DefaultFormatStrategy),
-        types::Format::Ragged => Box::new(RaggedFormatStrategy),
-        types::Format::Image => Box::new(ImageFormatStrategy),
+        types::Format::Default => Box::new(DefaultFormatProperties),
+        types::Format::Ragged => Box::new(RaggedFormatProperties),
+        types::Format::Image => Box::new(ImageFormatProperties),
     }
 }
 
-impl AsStrategy for types::Format {
-    fn as_strategy(&self) -> Box<dyn FormatStrategy> {
-        as_format_strategy(self)
+impl ToProperties for types::Format {
+    fn to_properties(&self) -> Box<dyn FormatProperties> {
+        as_format_property(self)
     }
 }
 
-/// Returns the Parquet strategy if this format uses Parquet storage.
+/// Returns the Parquet-specific properties if this format uses Parquet storage.
 ///
 /// Use this method when you need Parquet-specific configuration like
 /// writer properties or DataFusion listing options. Returns `None` for
@@ -222,29 +221,30 @@ impl AsStrategy for types::Format {
 ///
 /// ```
 /// use mosaicod_core::types::Format;
+/// use mosaicod_rw::ToParquetProperties;
 ///
-/// let format = Format::Default;
-/// if let Some(parquet_strategy) = format.as_parquet(){
-///     let props = parquet_strategy.writer_properties();
-///     let options = parquet_strategy.listing_options();
+/// // Returns option since not every format is based on parquet
+/// if let Some(props) = Format::Default.to_parquet_properties(){
+///     let wprops = props.writer_properties();
+///     let loptions = props.listing_options();
 /// }
 /// ```
-pub trait AsParquet {
-    fn as_parquet(&self) -> Option<Box<dyn ParquetFormatStrategy>>;
+pub trait ToParquetProperties {
+    fn to_parquet_properties(&self) -> Option<Box<dyn ParquetFormatProperties>>;
 }
 
-fn as_parquet_strategy(format: &types::Format) -> Option<Box<dyn ParquetFormatStrategy>> {
+fn as_parquet_properties(format: &types::Format) -> Option<Box<dyn ParquetFormatProperties>> {
     match format {
-        types::Format::Default => Some(Box::new(DefaultFormatStrategy)),
-        types::Format::Ragged => Some(Box::new(RaggedFormatStrategy)),
-        types::Format::Image => Some(Box::new(ImageFormatStrategy)),
+        types::Format::Default => Some(Box::new(DefaultFormatProperties)),
+        types::Format::Ragged => Some(Box::new(RaggedFormatProperties)),
+        types::Format::Image => Some(Box::new(ImageFormatProperties)),
         // Future non-Parquet formats would return None here
     }
 }
 
-impl AsParquet for types::Format {
-    fn as_parquet(&self) -> Option<Box<dyn ParquetFormatStrategy>> {
-        as_parquet_strategy(self)
+impl ToParquetProperties for types::Format {
+    fn to_parquet_properties(&self) -> Option<Box<dyn ParquetFormatProperties>> {
+        as_parquet_properties(self)
     }
 }
 
@@ -260,40 +260,54 @@ mod tests {
 
     #[test]
     fn strategy_names() {
-        assert_eq!(Format::Default.as_strategy().name(), "default");
-        assert_eq!(Format::Ragged.as_strategy().name(), "ragged");
-        assert_eq!(Format::Image.as_strategy().name(), "image");
+        assert_eq!(Format::Default.to_properties().name(), "default");
+        assert_eq!(Format::Ragged.to_properties().name(), "ragged");
+        assert_eq!(Format::Image.to_properties().name(), "image");
     }
 
     #[test]
     fn strategy_extensions() {
-        assert_eq!(Format::Default.as_strategy().as_extension(), "parquet");
-        assert_eq!(Format::Ragged.as_strategy().as_extension(), "parquet");
-        assert_eq!(Format::Image.as_strategy().as_extension(), "parquet");
+        assert_eq!(Format::Default.to_properties().as_extension(), "parquet");
+        assert_eq!(Format::Ragged.to_properties().as_extension(), "parquet");
+        assert_eq!(Format::Image.to_properties().as_extension(), "parquet");
     }
 
     #[test]
     fn parquet_strategy_writer_properties() {
-        // Verify that as_parquet() returns Some for all current formats
-        // and writer_properties() doesn't panic
-        let _ = Format::Default.as_parquet().unwrap().writer_properties();
-        let _ = Format::Ragged.as_parquet().unwrap().writer_properties();
-        let _ = Format::Image.as_parquet().unwrap().writer_properties();
+        let _ = Format::Default
+            .to_parquet_properties()
+            .unwrap()
+            .writer_properties();
+        let _ = Format::Ragged
+            .to_parquet_properties()
+            .unwrap()
+            .writer_properties();
+        let _ = Format::Image
+            .to_parquet_properties()
+            .unwrap()
+            .writer_properties();
     }
 
     #[test]
     fn parquet_strategy_listing_options() {
-        // Verify that as_parquet() returns Some for all current formats
-        // and listing_options() doesn't panic
-        let _ = Format::Default.as_parquet().unwrap().listing_options();
-        let _ = Format::Ragged.as_parquet().unwrap().listing_options();
-        let _ = Format::Image.as_parquet().unwrap().listing_options();
+        let _ = Format::Default
+            .to_parquet_properties()
+            .unwrap()
+            .listing_options();
+        let _ = Format::Ragged
+            .to_parquet_properties()
+            .unwrap()
+            .listing_options();
+        let _ = Format::Image
+            .to_parquet_properties()
+            .unwrap()
+            .listing_options();
     }
 
     #[test]
     fn as_parquet_returns_some_for_parquet_formats() {
-        assert!(Format::Default.as_parquet().is_some());
-        assert!(Format::Ragged.as_parquet().is_some());
-        assert!(Format::Image.as_parquet().is_some());
+        assert!(Format::Default.to_parquet_properties().is_some());
+        assert!(Format::Ragged.to_parquet_properties().is_some());
+        assert!(Format::Image.to_parquet_properties().is_some());
     }
 }

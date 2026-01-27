@@ -8,7 +8,7 @@ use mosaicod_core::{
 };
 use mosaicod_marshal as marshal;
 use mosaicod_query as query;
-use mosaicod_rw::{self as rw, AsStrategy};
+use mosaicod_rw::{self as rw, ToProperties};
 use mosaicod_store as store;
 use std::sync::Arc;
 
@@ -221,7 +221,7 @@ impl FacadeTopic {
     /// If no arrow_schema is found a [`FacadeError::NotFound`] error is returned
     pub async fn arrow_schema(&self, format: types::Format) -> Result<SchemaRef, FacadeError> {
         // Get chunk 0 since this chunk needs to exist always
-        let path = self.locator.path_data(0, format.as_strategy().as_ref());
+        let path = self.locator.path_data(0, format.to_properties().as_ref());
 
         if !self.store.exists(&path).await? {
             return Err(FacadeError::NotFound(path.to_string_lossy().to_string()));
@@ -289,7 +289,7 @@ impl FacadeTopic {
             format,
             |path, format, idx| {
                 types::TopicResourceLocator::from(path)
-                    .path_data(idx, format.as_strategy().as_ref())
+                    .path_data(idx, format.to_properties().as_ref())
             },
         )
         .with_max_chunk_size(max_chunk_size);
@@ -392,7 +392,7 @@ impl FacadeTopic {
             .store
             .list(
                 &self.locator.name(),
-                Some(&format.as_strategy().as_extension()),
+                Some(&format.to_properties().as_extension()),
             )
             .await?;
 

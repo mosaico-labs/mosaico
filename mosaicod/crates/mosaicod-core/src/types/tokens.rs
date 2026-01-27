@@ -14,7 +14,7 @@ pub struct DataLossToken {
 /// An example of the typical use of this construct:
 ///
 /// ```
-/// use mosaicod::types::{DataLossToken, allow_data_loss};
+/// use mosaicod_core::types::{DataLossToken, allow_data_loss};
 ///
 /// fn dangerous_function(_: DataLossToken) {
 ///     // destroy the universe

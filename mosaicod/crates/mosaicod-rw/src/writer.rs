@@ -1,4 +1,4 @@
-use crate::AsParquet;
+use crate::ToParquetProperties;
 
 use super::Error;
 use arrow::datatypes::Schema;
@@ -15,7 +15,7 @@ pub enum Writer {
 impl Writer {
     pub fn new(schema: &Arc<Schema>, format: types::Format) -> Result<Self, Error> {
         let parquet_strategy = format
-            .as_parquet()
+            .to_parquet_properties()
             .expect("Writer::new requires a Parquet-based format");
 
         let props = parquet_strategy.writer_properties();

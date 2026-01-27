@@ -21,7 +21,7 @@ pub trait AsyncWriteToPath {
 /// # Example
 ///
 /// ```
-/// use mosaicod::traits::AsExtension;
+/// use mosaicod_core::traits::AsExtension;
 ///
 /// // A hypothetical struct representing a JPEG file
 /// struct JpegFile;

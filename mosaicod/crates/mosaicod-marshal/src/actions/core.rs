@@ -24,7 +24,7 @@ pub enum ActionError {
 ///
 /// ### Usage Example
 /// ```rust
-///   use mosaicod::marshal::ActionRequest;
+///   use mosaicod_marshal::ActionRequest;
 ///
 ///   let raw = r#"
 ///    {

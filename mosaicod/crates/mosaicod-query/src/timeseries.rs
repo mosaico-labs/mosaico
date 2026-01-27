@@ -14,7 +14,7 @@ use datafusion::prelude::*;
 use datafusion::scalar::ScalarValue;
 use log::trace;
 use mosaicod_core::{params, types};
-use mosaicod_rw::AsParquet;
+use mosaicod_rw::ToParquetProperties;
 use mosaicod_store as store;
 use std::collections::HashMap;
 use std::path::Path;
@@ -56,7 +56,7 @@ impl Timeseries {
     ) -> Result<TimeseriesResult, Error> {
         // Use Parquet format strategy for listing options
         let parquet_strategy = format
-            .as_parquet()
+            .to_parquet_properties()
             .expect("TimeseriesGateway::read requires a Parquet-based format");
         let listing_options = parquet_strategy.listing_options();
 
