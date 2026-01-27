@@ -22,7 +22,7 @@ def test_invalid_timestamp_column(
     for chunk in DataFrameExtractor(seqhandler).to_pandas_chunks():
         with pytest.raises(ValueError, match="Unable to find time column"):
             stransformer = SyncTransformer(
-                target_fps=1, timestamp_column_name="invalid-name"
+                target_fps=1, timestamp_column="invalid-name"
             )
             _ = stransformer.transform(chunk)
 

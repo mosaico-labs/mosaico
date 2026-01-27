@@ -38,16 +38,17 @@ class SyncTransformer:
         self,
         target_fps: float,
         policy: SynchPolicy = SynchHold(),
-        timestamp_column_name="timestamp_ns",
+        timestamp_column="timestamp_ns",
     ):
         """
         Args:
             target_fps (float): The desired output frequency in Hz.
             policy (SynchPolicy): A strategy implementing the `SynchPolicy` protocol.
+            timestamp_column (str): The column name containing the timestamp data.
         """
         self._step_ns: int = int(1e9 / target_fps)
         self._policy: SynchPolicy = policy
-        self._timestamp_column: str = timestamp_column_name
+        self._timestamp_column: str = timestamp_column
 
         # Internal state to bridge gaps between chunks
         self._last_values: Dict[str, Tuple[int, Any]] = {}
@@ -99,6 +100,9 @@ class SyncTransformer:
             dense_df[col] = self._policy.apply(tstamp_grid, s_ts, s_val)
 
         return dense_df
+
+    def fit_transform(self, X: pd.DataFrame, y=None) -> pd.DataFrame:
+        return self.fit(X, y).transform(X)
 
     def reset(self):
         """Resets the internal temporal state and cached sensor values."""

@@ -16,8 +16,7 @@ The ML module is designed to solve these issues by providing tools for **Flatten
 | Component | Description | Status |
 | :--- | :--- | :--- |
 | [**DataFrameExtractor**](./dataframe_extractor.md) | High-performance conversion of sequences into sparse, flattened DataFrames. | Developed |
-| **SyncTransformer** | Temporal synchronization and interpolation kernels (Linear, ZOH, Spline). | *In Development* |
-
+| [**SyncTransformer**](./synch_transformer.md) | Temporal synchronization and interpolation kernels (ZOH, As-Of, Drop). | Developed |
 ## Ecosystem Integration
 
 The ML module is built to be "Zero-Copy" where possible, leveraging Apache Arrow to move data from the Mosaico Flight streams into:
