@@ -360,9 +360,9 @@ impl SequenceTopicGroupSet {
             .sort_unstable_by(|a, b| a.sequence.name().cmp(b.sequence.name()));
 
         for mut self_grp in self.0 {
-            let found = groups.0.binary_search_by(|grp_aux| {
-                return grp_aux.sequence.name().cmp(self_grp.sequence.name());
-            });
+            let found = groups
+                .0
+                .binary_search_by(|grp_aux| grp_aux.sequence.name().cmp(self_grp.sequence.name()));
 
             if let Ok(found) = found {
                 self_grp.topics.extend(groups.0[found].topics.clone());
@@ -408,7 +408,7 @@ impl From<SequenceTopicGroupSet> for Vec<SequenceTopicGroup> {
 /// - these symbol `! " ' * £ $ % &` are removed
 /// - any non-ASCII char is replaced with a `?`
 fn sanitize_name(name: &str) -> String {
-    let chars_to_replace = vec!["!", "\"", "'", "*", "£", "$", "%", "&"];
+    let chars_to_replace = vec!["!", "\"", "'", "*", "£", "$", "%", "&", "."];
 
     let mut sanitized: String = name
         .replace(" ", "")
@@ -451,6 +451,9 @@ mod tests {
         assert_eq!(san, target);
 
         let san = sanitize_name("/!\"my/resource/name");
+        assert_eq!(san, target);
+
+        let san = sanitize_name("/my/resource/na.me");
         assert_eq!(san, target);
 
         let san = sanitize_name("/èmy/resource/name");
