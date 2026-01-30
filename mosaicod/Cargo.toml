@@ -50,7 +50,7 @@ sqlx = { version = "0.8.6", features = ["postgres", "macros", "runtime-tokio", "
 thiserror = "2.0.18"
 tokio = { version = "1.47.1", features = ["rt-multi-thread"] }
 tonic = "0.14.2"
-url = "2.5.7"
+url = "2.5.8"
 uuid = "1.19.0"
 
 [profile.release]
