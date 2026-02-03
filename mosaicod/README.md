@@ -62,6 +62,7 @@ cargo install sqlx-cli
 This sets up your local database schema.
 
 ```bash
+cd creates/mosaicod-repo
 cargo sqlx migrate run
 ```
 ##### Build
