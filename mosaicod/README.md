@@ -27,6 +27,26 @@ export MOSAICO_REPOSITORY_DB_URL="postgresql://user:password@localhost:5432/mosa
 This command launches `mosaicod` and configures it to save all binary files directly to the specified local folder. 
 If you need to set up remote storage (like S3) or tweak other settings, please refer to the [Configuration](#configuration) section.
 
+## Workspace 
+
+Mosaico utilizes a multi-crate workspace to maintain high modularity and clear boundaries between system components.
+
+
+```text
+mosaico/
+├── bin/
+│   └── mosaicod/        # Main daemon entry point
+├── crates/
+│   ├── mosaicod-repo/ 
+│   ├── mosaicod-core/  
+│   └── ...              # Other internal modules
+└── tests/
+    └── tests/           # Cross-crate platform tests
+
+```
+
+The core logic resides within the **crates** directory, which houses all internal libraries and shared functionalities. The **bin** directory contains the primary entry point for the **mosaicod** daemon, acting as the thin wrapper that orchestrates the internal crates. To ensure system stability, the **tests** directory is reserved for platform-level integration tests; unlike unit tests, these are explicitly permitted to depend on and call any combination of internal crates to verify complex, cross-component workflows.
+
 ### Build
 
 Mosaico is written in Rust and uses `sqlx` for compile-time checked queries. 

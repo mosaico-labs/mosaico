@@ -1,0 +1,13 @@
+[package]
+name = "tests"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+
+
+[dependencies]
+mosaicod-core = { workspace = true }
+
+

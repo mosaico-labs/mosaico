@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/*", "bin/*"]
+members = ["crates/*", "bin/*", "tests/"]
 resolver = "3"
 
 [workspace.package]
@@ -21,6 +21,7 @@ mosaicod-query = { path  = "crates/mosaicod-query" }
 mosaicod-rw = { path = "crates/mosaicod-rw" }
 mosaicod-server = { path = "crates/mosaicod-server" }
 mosaicod-store = { path = "crates/mosaicod-store" }
+# tests = { path = "itests" }
 
 # External dependencies
 arrow = { version = "57.2.0", features = ["prettyprint"] }
