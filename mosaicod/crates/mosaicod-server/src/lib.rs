@@ -6,3 +6,5 @@ mod endpoints;
 
 pub use core::Server;
 pub use errors::ServerError;
+
+pub use flight::ShutdownNotifier;

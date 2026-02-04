@@ -21,8 +21,23 @@ use tonic::{Request, Response, Status, Streaming};
 
 /// To stop the server use the following command on
 /// `ShutdownNotifier`
-/// To trigger the server shutdown use [`notify_waiters()`] function.
-pub type ShutdownNotifier = Arc<Notify>;
+#[derive(Clone)]
+pub struct ShutdownNotifier(Arc<Notify>);
+
+impl ShutdownNotifier {
+    pub fn new() -> Self {
+        Self(Arc::new(Notify::new()))
+    }
+
+    // Notifies the server to be shut down
+    pub fn shutdown(&self) {
+        self.0.notify_waiters();
+    }
+
+    pub async fn wait_for_shutdown(&self) {
+        self.0.notified().await;
+    }
+}
 
 pub struct Config {
     pub host: String,
@@ -50,7 +65,7 @@ pub async fn start(
     if let Some(shutdown_notifier) = shutdown {
         server
             .serve_with_shutdown(addr, async {
-                shutdown_notifier.notified().await;
+                shutdown_notifier.wait_for_shutdown().await;
                 trace!("received shutdown notification");
             })
             .await?;

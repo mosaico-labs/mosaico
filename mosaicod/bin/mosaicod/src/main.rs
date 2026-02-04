@@ -121,7 +121,7 @@ fn run(startup_time: &Instant) -> Result<(), Box<dyn std::error::Error>> {
             thread::spawn(move || {
                 for sig in signals.forever() {
                     trace!("received signal {:?}", sig);
-                    shutdown.notify_waiters();
+                    shutdown.shutdown();
                 }
             });
 
