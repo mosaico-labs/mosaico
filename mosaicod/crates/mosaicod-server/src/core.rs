@@ -25,7 +25,7 @@ impl Server {
             port,
             store,
             repo_config,
-            shutdown: flight::ShutdownNotifier::new(),
+            shutdown: flight::ShutdownNotifier::default(),
         }
     }
 

@@ -35,7 +35,7 @@ async fn start_server(
     let store = store::testing::Store::new_random_on_tmp().unwrap();
     let config = server::flight::Config {
         host: host.to_owned(),
-        port: port,
+        port,
     };
 
     let handle = tokio::task::spawn(async move {
@@ -75,7 +75,7 @@ pub struct Server {
 impl Server {
     /// Creates and starts a new Flight server on the specified host and port.
     pub async fn new(host: &str, port: u16, pool: sqlx::Pool<repo::Database>) -> Self {
-        let shutdown = ShutdownNotifier::new();
+        let shutdown = ShutdownNotifier::default();
         Self {
             server_join_handle: start_server(host, port, pool, shutdown.clone()).await,
             shutdown,
@@ -102,7 +102,7 @@ impl Client {
             .expect("Unable to create tonic channel")
             .connect()
             .await
-            .expect(&format!("Unable to connect to `{}`", url));
+            .unwrap_or_else(|_| panic!("Unable to connect to `{}`", url));
 
         let client = FlightServiceClient::new(channel);
 
@@ -156,4 +156,3 @@ impl ActionResponse {
         serde_json::from_slice(body).expect("problem deserializing action response")
     }
 }
-

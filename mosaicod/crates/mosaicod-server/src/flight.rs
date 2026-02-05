@@ -25,10 +25,6 @@ use tonic::{Request, Response, Status, Streaming};
 pub struct ShutdownNotifier(Arc<Notify>);
 
 impl ShutdownNotifier {
-    pub fn new() -> Self {
-        Self(Arc::new(Notify::new()))
-    }
-
     // Notifies the server to be shut down
     pub fn shutdown(&self) {
         self.0.notify_waiters();
@@ -36,6 +32,12 @@ impl ShutdownNotifier {
 
     pub async fn wait_for_shutdown(&self) {
         self.0.notified().await;
+    }
+}
+
+impl Default for ShutdownNotifier {
+    fn default() -> Self {
+        Self(Arc::new(Notify::new()))
     }
 }
 

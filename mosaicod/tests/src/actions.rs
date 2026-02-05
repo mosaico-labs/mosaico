@@ -1,5 +1,5 @@
+use super::common::{ActionResponse, Client};
 use arrow_flight::Action;
-use super::common::{Client, ActionResponse};
 
 /// Create a new sequence.
 /// Returns the `key` of the newly created sequence, this key is required to perform action
@@ -35,7 +35,7 @@ pub async fn sequence_create(
         assert_eq!(r.action, "sequence_create");
 
         let key_str = r.response["key"].as_str().unwrap();
-        key = Some(uuid::Uuid::parse_str(&key_str).expect("Invalid uuid"));
+        key = Some(uuid::Uuid::parse_str(key_str).expect("Invalid uuid"));
     }
 
     key.expect("Unable to return key")
@@ -62,7 +62,7 @@ pub async fn topic_create(
         }}
         "#,
             name = topic_name,
-            key = key.to_string(),
+            key = key,
             mdata = json_metadata.unwrap_or("{}"),
         )
         .into(),
@@ -79,7 +79,7 @@ pub async fn topic_create(
         assert_eq!(r.action, "topic_create");
 
         let key_str = r.response["key"].as_str().unwrap();
-        key = Some(uuid::Uuid::parse_str(&key_str).expect("Invalid uuid"));
+        key = Some(uuid::Uuid::parse_str(key_str).expect("Invalid uuid"));
     }
 
     key.expect("Unable to return key")
