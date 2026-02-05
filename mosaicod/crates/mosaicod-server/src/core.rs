@@ -1,5 +1,3 @@
-use crate::ShutdownNotifier;
-
 use super::flight;
 use log::{error, info, trace};
 use mosaicod_repo as repo;
@@ -27,7 +25,7 @@ impl Server {
             port,
             store,
             repo_config,
-            shutdown: ShutdownNotifier::new(),
+            shutdown: flight::ShutdownNotifier::new(),
         }
     }
 

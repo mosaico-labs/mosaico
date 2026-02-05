@@ -4053,7 +4053,21 @@ dependencies = [
 name = "tests"
 version = "0.1.2"
 dependencies = [
+ "arrow-flight",
+ "log",
  "mosaicod-core",
+ "mosaicod-ext",
+ "mosaicod-marshal",
+ "mosaicod-repo",
+ "mosaicod-server",
+ "mosaicod-store",
+ "rand 0.9.2",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "tokio",
+ "tonic",
+ "uuid",
 ]
 
 [[package]]

@@ -1,12 +1,12 @@
 //! This module defines the formatting structure for
 //! responses.
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use mosaicod_core::types::{self, Resource};
 
 /// Generic response message used to provide to clients the key
 /// of a resource
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct ResourceKey {
     pub key: String,
 }
