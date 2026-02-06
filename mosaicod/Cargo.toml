@@ -50,7 +50,7 @@ signal-hook = "0.4.3"
 sqlx = { version = "0.8.6", features = ["postgres", "macros", "runtime-tokio", "uuid", "json"] }
 thiserror = "2.0.18"
 tokio = { version = "1.47.1", features = ["rt-multi-thread"] }
-tonic = "0.14.2"
+tonic = "0.14.3"
 url = "2.5.8"
 uuid = "1.20.0"
 
