@@ -688,11 +688,11 @@ checksum = "b05b61dc5112cbb17e4b6cd61790d9845d13888356391624cbe7e41efeac1e75"
 
 [[package]]
 name = "colored"
-version = "3.0.0"
+version = "3.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fde0e0ec90c9dfb3b4b1a0891a7dcd0e2bffde2f7efed5fe7c9bb00e5bfb915e"
+checksum = "faf9468729b8cbcea668e36183cb69d317348c2e08e994829fb56ebfdfbaac34"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -2583,7 +2583,7 @@ dependencies = [
 
 [[package]]
 name = "mosaicod"
-version = "0.1.2"
+version = "0.2.0"
 dependencies = [
  "clap",
  "colored",
@@ -2603,7 +2603,7 @@ dependencies = [
 
 [[package]]
 name = "mosaicod-core"
-version = "0.1.2"
+version = "0.2.0"
 dependencies = [
  "bytes",
  "chrono",
@@ -2616,7 +2616,7 @@ dependencies = [
 
 [[package]]
 name = "mosaicod-ext"
-version = "0.1.2"
+version = "0.2.0"
 dependencies = [
  "arrow",
  "arrow-cast",
@@ -2627,7 +2627,7 @@ dependencies = [
 
 [[package]]
 name = "mosaicod-marshal"
-version = "0.1.2"
+version = "0.2.0"
 dependencies = [
  "bincode",
  "bytes",
@@ -2641,7 +2641,7 @@ dependencies = [
 
 [[package]]
 name = "mosaicod-query"
-version = "0.1.2"
+version = "0.2.0"
 dependencies = [
  "arrow",
  "datafusion",
@@ -2658,7 +2658,7 @@ dependencies = [
 
 [[package]]
 name = "mosaicod-repo"
-version = "0.1.2"
+version = "0.2.0"
 dependencies = [
  "arrow",
  "bytes",
@@ -2679,7 +2679,7 @@ dependencies = [
 
 [[package]]
 name = "mosaicod-rw"
-version = "0.1.2"
+version = "0.2.0"
 dependencies = [
  "arrow",
  "arrow-schema",
@@ -2697,7 +2697,7 @@ dependencies = [
 
 [[package]]
 name = "mosaicod-server"
-version = "0.1.2"
+version = "0.2.0"
 dependencies = [
  "arrow",
  "arrow-flight",
@@ -2721,7 +2721,7 @@ dependencies = [
 
 [[package]]
 name = "mosaicod-store"
-version = "0.1.2"
+version = "0.2.0"
 dependencies = [
  "bytes",
  "datafusion",
@@ -4051,7 +4051,7 @@ dependencies = [
 
 [[package]]
 name = "tests"
-version = "0.1.2"
+version = "0.2.0"
 dependencies = [
  "arrow-flight",
  "log",
