@@ -55,12 +55,6 @@ pub enum ActionRequest {
     /// Ask for system informations about the sequence
     SequenceSystemInfo(requests::ResourceLocator),
 
-    /// Finalizes the upload of a sequence and locks it.
-    ///
-    /// After this action, the sequence will no longer be editable.  
-    /// If there are any unlocked topics in the sequence, the action will fail.
-    SequenceFinalize(requests::UploadToken),
-
     /// Creates a notification associated with a sequence.
     SequenceNotifyCreate(requests::NotifyCreate),
 
@@ -88,6 +82,13 @@ pub enum ActionRequest {
     /// Ask for system informations about the topic
     TopicSystemInfo(requests::ResourceLocator),
 
+    /// Creates a new upload session for a sequence
+    SessionCreate(requests::ResourceLocator),
+
+    /// Finalizes the upload session
+    SessionFinalize(requests::UploadToken),
+
+    /// Perform a query in the system
     Query(requests::Query),
 
     /// Creates a new layer in the repository
@@ -116,7 +117,6 @@ impl ActionRequest {
             "sequence_create" => parse_action_req!(SequenceCreate, body),
             "sequence_delete" => parse_action_req!(SequenceDelete, body),
             "sequence_abort" => parse_action_req!(SequenceAbort, body),
-            "sequence_finalize" => parse_action_req!(SequenceFinalize, body),
             "sequence_system_info" => parse_action_req!(SequenceSystemInfo, body),
             "sequence_notify_create" => parse_action_req!(SequenceNotifyCreate, body),
             "sequence_notify_list" => parse_action_req!(SequenceNotifyList, body),
@@ -128,6 +128,9 @@ impl ActionRequest {
             "topic_notify_create" => parse_action_req!(TopicNotifyCreate, body),
             "topic_notify_list" => parse_action_req!(TopicNotifyList, body),
             "topic_notify_purge" => parse_action_req!(TopicNotifyPurge, body),
+
+            "session_create" => parse_action_req!(SessionCreate, body),
+            "session_finalize" => parse_action_req!(SessionFinalize, body),
 
             "layer_create" => parse_action_req!(LayerCreate, body),
             "layer_delete" => parse_action_req!(LayerDelete, body),
@@ -144,14 +147,23 @@ impl ActionRequest {
 #[derive(Serialize)]
 #[serde(tag = "action", content = "response", rename_all = "snake_case")]
 pub enum ActionResponse {
-    SequenceCreate(responses::ResourceKey),
+    SequenceCreate(()),
+    SequenceDelete(()),
+    SequenceAbort(()),
+    SequenceNotifyCreate(()),
+    SequenceNotifyPurge(()),
     SequenceSystemInfo(responses::SequenceSystemInfo),
     SequenceNotifyList(responses::NotifyList),
 
-    TopicCreate(responses::ResourceKey),
+    TopicCreate(responses::ResourceUuid),
     TopicSystemInfo(responses::TopicSystemInfo),
     TopicNotifyList(responses::NotifyList),
 
+    /// Returns the response key associated with the session just created
+    SessionCreate(responses::ResourceUuid),
+    SessionFinalize(()),
+
+    /// Returns the list of layers
     LayerList(responses::LayerList),
 
     Query(responses::Query),
@@ -164,6 +176,42 @@ impl ActionResponse {
     /// Converts to bytes the action response
     pub fn bytes(&self) -> Result<Vec<u8>, ActionError> {
         serde_json::to_vec(self).map_err(|e| ActionError::ResponseSerializationError(e.to_string()))
+    }
+
+    pub fn sequence_create() -> Self {
+        Self::SequenceCreate(())
+    }
+
+    pub fn sequence_delete() -> Self {
+        Self::SequenceDelete(())
+    }
+
+    pub fn sequence_abort() -> Self {
+        Self::SequenceAbort(())
+    }
+
+    pub fn sequence_notify_create() -> Self {
+        Self::SequenceNotifyCreate(())
+    }
+
+    pub fn sequence_notify_purge() -> Self {
+        Self::SequenceNotifyPurge(())
+    }
+
+    pub fn sequence_notify_list(response: responses::NotifyList) -> Self {
+        Self::SequenceNotifyList(response)
+    }
+
+    pub fn sequence_system_info(response: responses::SequenceSystemInfo) -> Self {
+        Self::SequenceSystemInfo(response)
+    }
+
+    pub fn session_create(response: responses::ResourceUuid) -> Self {
+        Self::SessionCreate(response)
+    }
+
+    pub fn session_finalize() -> Self {
+        Self::SessionFinalize(())
     }
 }
 

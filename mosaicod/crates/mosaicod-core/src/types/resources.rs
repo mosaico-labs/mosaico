@@ -1,3 +1,4 @@
+use super::Uuid;
 use super::{Format, TimestampRange};
 use crate::{params, traits};
 use std::path;
@@ -7,13 +8,39 @@ use thiserror::Error;
 // RESOURCE
 // ////////////////////////////////////////////////////////////////////////////
 
+/// Represents the unique identifiers for a resource.
 pub struct ResourceId {
+    /// The internal, numeric ID of the resource (e.g., a database primary key).
     pub id: i32,
-    pub uuid: uuid::Uuid,
+    /// The universally unique identifier (UUID) for the resource.
+    pub uuid: Uuid,
 }
 
+/// Defines the different ways a resource can be looked up.
+pub enum ResourceLookup {
+    /// Lookup by the internal numeric ID.
+    Id(i32),
+    /// Lookup by its unique string locator (e.g., `my/sequence/my/topic`).
+    Locator(String),
+    /// Lookup by its universally unique identifier.
+    Uuid(Uuid),
+}
+
+impl std::fmt::Display for ResourceLookup {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Id(id) => write!(f, "{}", id),
+            Self::Uuid(uuid) => write!(f, "{}", uuid),
+            Self::Locator(locator) => write!(f, "{}", locator),
+        }
+    }
+}
+
+/// Enumerates the types of resources available in Mosaico.
 pub enum ResourceType {
+    /// A resource that represents a collection of related topics.
     Sequence,
+    /// A resource that represents a stream of data.
     Topic,
 }
 
@@ -24,7 +51,7 @@ pub enum ResourceError {
 }
 
 pub trait Resource: std::fmt::Display + Send + Sync {
-    fn name(&self) -> &String;
+    fn name(&self) -> &str;
 
     fn resource_type(&self) -> ResourceType;
 
@@ -62,9 +89,15 @@ pub trait Resource: std::fmt::Display + Send + Sync {
 // TOPIC
 // ////////////////////////////////////////////////////////////////////////////
 
+/// Uniquely identifies a topic resource and an optional time-based filter.
+///
+/// This locator combines a string-based path (`locator`) with an optional
+/// [`TimestampRange`] to specify a subset of data within the topic.
 #[derive(Default, Debug, Clone)]
 pub struct TopicResourceLocator {
+    /// The unique string identifier for the topic (e.g., `my/sequence/my/topic`).
     locator: String,
+    /// An optional time range to filter data within the topic.
     pub timestamp_range: Option<TimestampRange>,
 }
 
@@ -98,7 +131,7 @@ impl TopicResourceLocator {
 }
 
 impl Resource for TopicResourceLocator {
-    fn name(&self) -> &String {
+    fn name(&self) -> &str {
         &self.locator
     }
 
@@ -132,6 +165,12 @@ impl std::fmt::Display for TopicResourceLocator {
 impl From<TopicResourceLocator> for String {
     fn from(value: TopicResourceLocator) -> Self {
         value.locator
+    }
+}
+
+impl AsRef<str> for TopicResourceLocator {
+    fn as_ref(&self) -> &str {
+        self.locator.as_ref()
     }
 }
 
@@ -234,11 +273,16 @@ impl TopicManifestTimestamp {
 // SEQUENCE
 // ////////////////////////////////////////////////////////////////////////////
 
+/// Uniquely identifies a sequence resource.
+///
+/// A sequence acts as a container for a collection of related topics. This locator
+/// is a sanitized, path-like string (e.g., `my/sequence`) that provides a
+/// human-readable and stable identifier for the sequence.
 #[derive(Debug, Clone)]
 pub struct SequenceResourceLocator(String);
 
 impl Resource for SequenceResourceLocator {
-    fn name(&self) -> &String {
+    fn name(&self) -> &str {
         &self.0
     }
 
@@ -268,6 +312,12 @@ impl From<SequenceResourceLocator> for String {
     }
 }
 
+impl AsRef<str> for SequenceResourceLocator {
+    fn as_ref(&self) -> &str {
+        self.0.as_ref()
+    }
+}
+
 pub struct SequenceMetadata<M>
 where
     M: super::MetadataBlob,
@@ -288,10 +338,6 @@ pub struct SequenceSystemInfo {
     /// Total size in bytes of the data.
     /// This values includes additional system files.
     pub total_size_bytes: usize,
-    /// True is the sequence is locked, a sequence is locked if
-    /// all its topics are locked and the `sequence_finalize` action
-    /// was called.
-    pub is_locked: bool,
     /// Datetime of the sequence creation
     pub created_datetime: super::DateTime,
 }

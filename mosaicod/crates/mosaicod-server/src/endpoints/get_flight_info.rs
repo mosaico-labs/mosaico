@@ -55,7 +55,7 @@ pub async fn get_flight_info(
                         .enumerate()
                         .map(|(index, topic)| {
                             let ticket = types::flight::TicketTopic {
-                                locator: topic.name().clone(),
+                                locator: topic.name().to_owned(),
                                 timestamp_range: cmd.timestamp_range.clone(),
                             };
 

@@ -1,4 +1,4 @@
-//! Topic-related action handlers.
+//! Topic-related actions.
 
 use crate::{endpoints::Context, errors::ServerError};
 use log::{info, trace, warn};
@@ -34,7 +34,7 @@ pub async fn create(
         user_mdata,
     );
 
-    let received_uuid: uuid::Uuid = sequence_key.parse()?;
+    let received_uuid: types::Uuid = sequence_key.parse()?;
     let r_id = handle.create(&received_uuid, Some(mdata)).await?;
 
     trace!(
@@ -52,7 +52,7 @@ pub async fn delete(ctx: &Context, name: String) -> Result<ActionResponse, Serve
     let handle = FacadeTopic::new(name.clone(), ctx.store.clone(), ctx.repo.clone());
 
     if handle.is_locked().await? {
-        return Err(ServerError::SequenceLocked);
+        return Err(ServerError::TopicLocked);
     }
 
     handle.delete_unlocked().await?;

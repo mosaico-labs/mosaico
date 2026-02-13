@@ -53,7 +53,7 @@ pub struct ConfigurablesParams {
 static ENV: OnceLock<ConfigurablesParams> = OnceLock::new();
 
 pub fn configurables() -> &'static ConfigurablesParams {
-    ENV.get().expect("paramenters not initializes, plase call params::load_variable() before accessing and env variable.")
+    ENV.get().expect("paramenters not initializes, plase call `params::load_configurables_from_env()` before accessing and env variable.")
 }
 
 pub fn load_configurables_from_env() {

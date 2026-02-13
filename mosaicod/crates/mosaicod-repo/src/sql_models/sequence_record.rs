@@ -18,8 +18,6 @@ pub struct SequenceRecord {
     pub sequence_uuid: uuid::Uuid,
     pub locator_name: String,
 
-    pub(super) locked: bool,
-
     /// This metadata field is only for database query access and
     /// should not be exposed
     pub(super) user_metadata: Option<serde_json::Value>,
@@ -32,7 +30,7 @@ impl From<SequenceRecord> for types::ResourceId {
     fn from(value: SequenceRecord) -> Self {
         Self {
             id: value.sequence_id,
-            uuid: value.sequence_uuid,
+            uuid: value.sequence_uuid.into(),
         }
     }
 }
@@ -50,7 +48,6 @@ impl SequenceRecord {
             sequence_id: repo::UNREGISTERED,
             sequence_uuid: uuid::Uuid::new_v4(),
             locator_name: name.to_owned(),
-            locked: false,
             creation_unix_tstamp: types::Timestamp::now().into(),
             user_metadata: None,
         }
@@ -61,11 +58,13 @@ impl SequenceRecord {
         self
     }
 
-    pub fn is_locked(&self) -> bool {
-        self.locked
-    }
-
     pub fn creation_timestamp(&self) -> types::Timestamp {
         types::Timestamp::from(self.creation_unix_tstamp)
+    }
+
+    /// Exposes user metadata for testing purposes
+    #[cfg(test)]
+    pub fn user_metadata(&self) -> Option<&serde_json::Value> {
+        self.user_metadata.as_ref()
     }
 }

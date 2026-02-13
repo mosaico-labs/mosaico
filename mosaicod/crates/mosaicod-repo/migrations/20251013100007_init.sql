@@ -1,8 +1,7 @@
 CREATE TABLE sequence_t(
   sequence_id   SERIAL PRIMARY KEY,
   sequence_uuid UUID UNIQUE NOT NULL,
-  locator_name TEXT UNIQUE NOT NULL,
-  locked        BOOL NOT NULL DEFAULT FALSE,
+  locator_name TEXT UNIQUE NOT NULL, 
   user_metadata JSONB,
   
   creation_unix_tstamp BIGINT NOT NULL
@@ -11,8 +10,11 @@ CREATE TABLE sequence_t(
 CREATE TABLE topic_t(
   topic_id      SERIAL PRIMARY KEY,
   topic_uuid    UUID UNIQUE NOT NULL,
-  sequence_id   INTEGER REFERENCES sequence_t(sequence_id) NOT NULL,
-  locator_name    TEXT UNIQUE NOT NULL,
+  -- (cabba) sequence_id can be removed since we have a sequence reference 
+  -- in the session, for now we keep it to avoid changing the query engine
+  sequence_id   INTEGER REFERENCES sequence_t(sequence_id) NOT NULL, 
+  -- session_id INTEGER REFERENCES session_t(session_id) NOT NULL,
+  locator_name  TEXT UNIQUE NOT NULL,
   locked        BOOL NOT NULL DEFAULT FALSE,
   user_metadata JSONB,
   

@@ -33,7 +33,7 @@ impl FacadeTopic {
 
     // Returns the path were the topic is located
     pub fn path(&self) -> &str {
-        self.locator.name().as_str()
+        self.locator.name()
     }
 
     /// Creates a new repository entry for this topic.
@@ -42,17 +42,13 @@ impl FacadeTopic {
     /// the repository transaction is rolled back, restoring the previous state.
     pub async fn create(
         &self,
-        sequence: &uuid::Uuid,
+        sequence: &types::Uuid,
         metadata: Option<TopicMetadata>,
     ) -> Result<types::ResourceId, FacadeError> {
         let mut tx = self.repo.transaction().await?;
 
-        // Ensure that a sequence with th provided id is available and is unlocked
+        // Ensure that a sequence with the provided id is available
         let srecord = repo::sequence_find_by_uuid(&mut tx, sequence).await?;
-        if srecord.is_locked() {
-            return Err(FacadeError::SequenceLocked);
-        }
-
         let sloc = types::SequenceResourceLocator::from(&srecord.locator_name);
 
         // Ensure that this topic is child of the provided sequence, i.e. they are related with the same
@@ -103,12 +99,6 @@ impl FacadeTopic {
         let record = repo::topic_find_by_locator(&mut tx, &self.locator).await?;
         if record.is_locked() {
             return Err(FacadeError::TopicLocked);
-        }
-
-        // check if parent sequenc is locked
-        let sequence = repo::sequence_find_by_id(&mut tx, record.sequence_id).await?;
-        if sequence.is_locked() {
-            return Err(FacadeError::SequenceLocked);
         }
 
         repo::topic_update_user_metadata(

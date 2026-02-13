@@ -82,7 +82,7 @@ cleanup() {
 
     if [ "$DOCKER_STARTED" = true ]; then
         cd "${DOCKER_PATH}"
-        docker compose down -v 2>/dev/null || true
+        eval "docker compose down -v $REDIRECT_TO_NULL || true"
     fi
 }
 
@@ -137,7 +137,7 @@ start_docker() {
         DOCKER_STARTED=true
         title "docker" "." "${BLUE}"
         cd "${DOCKER_PATH}"
-        docker compose up -d --wait 2>/dev/null
+        eval "docker compose up -d --wait $REDIRECT_TO_NULL"
         echo "Started ${BOLD}docker/testing${RESET} compose file"
     fi
 }
@@ -151,10 +151,16 @@ install_python_deps() {
 
 # Run mosaicod unit tests
 run_mosaicod_tests() {
-    title "mosaicod (unit tests)" "-"
     start_docker
+    title "mosaicod (unit tests)" "-"
     cd "${MOSAICOD_PATH}"
-    cargo test --quiet
+
+    if $VERBOSE; then
+        cargo test
+    else
+        echo "Compiling, it may take some time ..."
+        cargo test --quiet
+    fi
 }
 
 # Run Python SDK unit tests
@@ -167,8 +173,8 @@ run_sdk_python_tests() {
 
 # Run integration tests
 run_integration_tests() {
-    title "integration tests" "-"
     start_docker
+    title "integration tests" "-"
     install_python_deps
 
     # Build mosaicod
@@ -193,6 +199,9 @@ run_integration_tests() {
     poetry run pytest ./src/testing -k integration
 }
 
+VERBOSE=false
+REDIRECT_TO_NULL="2>/dev/null"
+
 # Main
 main() {
     setup_colors
@@ -201,40 +210,50 @@ main() {
     local run_sdk_python=false
     local run_integration=false
     local run_all=false
+    local run_selected=false # true if at least a run option is selected
 
-    # Parse arguments
-    if [ $# -eq 0 ]; then
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --verbose|-v)
+                VERBOSE=true
+                REDIRECT_TO_NULL=""
+                shift
+                ;;
+            --mosaicod)
+                run_mosaicod=true
+                run_selected=true
+                shift
+                ;;
+            --sdk-python)
+                run_sdk_python=true
+                run_selected=true
+                shift
+                ;;
+            --integration)
+                run_integration=true
+                run_selected=true
+                shift
+                ;;
+            --all)
+                run_all=true
+                run_selected=true
+                shift
+                ;;
+            --help|-h)
+                show_help
+                exit 0
+                ;;
+            *)
+                echo "${RED}Unknown option: $1${RESET}"
+                show_help
+                exit 1
+                ;;
+        esac
+    done
+
+    # If no option was specified
+    if [[ "$run_selected" == "false" ]]; then
         run_all=true
-    else
-        while [ $# -gt 0 ]; do
-            case "$1" in
-                --mosaicod)
-                    run_mosaicod=true
-                    shift
-                    ;;
-                --sdk-python)
-                    run_sdk_python=true
-                    shift
-                    ;;
-                --integration)
-                    run_integration=true
-                    shift
-                    ;;
-                --all)
-                    run_all=true
-                    shift
-                    ;;
-                --help|-h)
-                    show_help
-                    exit 0
-                    ;;
-                *)
-                    echo "${RED}Unknown option: $1${RESET}"
-                    show_help
-                    exit 1
-                    ;;
-            esac
-        done
     fi
 
     title "test runner" "#" "${GREEN}"

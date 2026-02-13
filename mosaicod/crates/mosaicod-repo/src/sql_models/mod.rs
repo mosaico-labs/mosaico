@@ -15,5 +15,8 @@ pub use sequence_record::*;
 mod topic_record;
 pub use topic_record::*;
 
+mod session_record;
+pub use session_record::*;
+
 mod pg_queries;
 pub use pg_queries::*;

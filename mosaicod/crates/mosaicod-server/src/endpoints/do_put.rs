@@ -77,7 +77,7 @@ async fn do_put_topic_data(
 
     // perform the match between received key and topic id
     let r_id = handle.resource_id().await?;
-    let received_uuid: uuid::Uuid = key.parse()?;
+    let received_uuid: types::Uuid = key.parse()?;
     if received_uuid != r_id.uuid {
         return Err(ServerError::BadKey);
     }

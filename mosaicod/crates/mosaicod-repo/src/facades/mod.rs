@@ -32,3 +32,6 @@ pub use facade_chunk::*;
 
 mod facade_query;
 pub use facade_query::*;
+
+mod facade_session;
+pub use facade_session::*;

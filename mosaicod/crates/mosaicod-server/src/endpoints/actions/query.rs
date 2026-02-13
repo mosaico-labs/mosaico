@@ -1,4 +1,4 @@
-//! Query-related action handlers.
+//! Query-related actions.
 
 use crate::{endpoints::Context, errors::ServerError};
 use log::{info, trace};

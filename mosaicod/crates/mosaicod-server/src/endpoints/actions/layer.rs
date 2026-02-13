@@ -1,4 +1,4 @@
-//! Layer-related action handlers.
+//! Layer-related actions.
 
 use crate::{endpoints::Context, errors::ServerError};
 use log::{info, warn};

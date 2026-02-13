@@ -13,7 +13,7 @@
   <a href="https://discord.gg/mwQtFnsckE"><img src="https://shields.io/discord/1413199575442784266" alt="discord" /></a>
 </p>
 
-## The Open-Source Data Platform for Robotics & Physical AI
+## The Data Platform for Robotics & Physical AI
 
 Mosaico is a *blazing-fast* data platform designed to bridge the gap between Robotics and Physical AI. It streamlines data management, compression, and search by replacing monolithic files with a structured archive powered by Rust and Python.
 

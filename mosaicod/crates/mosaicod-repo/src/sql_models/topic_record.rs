@@ -26,7 +26,7 @@ impl From<TopicRecord> for types::ResourceId {
     fn from(value: TopicRecord) -> Self {
         Self {
             id: value.topic_id,
-            uuid: value.topic_uuid,
+            uuid: value.topic_uuid.into(),
         }
     }
 }
@@ -35,7 +35,7 @@ impl TopicRecord {
     pub fn new(name: &str, sequence_id: i32) -> Self {
         Self {
             topic_id: repo::UNREGISTERED,
-            topic_uuid: uuid::Uuid::new_v4(),
+            topic_uuid: types::Uuid::new().into(),
             sequence_id,
             locator_name: name.to_owned(),
             locked: false,

@@ -1,4 +1,4 @@
-//! Sequence-related action handlers.
+//! Sequence-related actions
 
 use crate::{endpoints::Context, errors::ServerError};
 use log::{info, trace, warn};
@@ -9,12 +9,12 @@ use mosaicod_repo::{FacadeError, FacadeSequence};
 /// Creates a new sequence with the given name and metadata.
 pub async fn create(
     ctx: &Context,
-    name: String,
+    locator: String,
     user_metadata_str: &str,
 ) -> Result<ActionResponse, ServerError> {
-    info!("requested resource {} creation", name);
+    info!("requested resource {} creation", locator);
 
-    let handle = FacadeSequence::new(name, ctx.store.clone(), ctx.repo.clone());
+    let handle = FacadeSequence::new(locator, ctx.store.clone(), ctx.repo.clone());
 
     // Check if sequence exists, if so return with an error
     if handle.resource_id().await.is_ok() {
@@ -34,7 +34,8 @@ pub async fn create(
         "created resource {} with uuid {}",
         handle.locator, r_id.uuid
     );
-    Ok(ActionResponse::SequenceCreate(r_id.into()))
+
+    Ok(ActionResponse::sequence_create())
 }
 
 /// Deletes an unlocked sequence.
@@ -43,15 +44,11 @@ pub async fn delete(ctx: &Context, name: String) -> Result<ActionResponse, Serve
 
     let handle = FacadeSequence::new(name, ctx.store.clone(), ctx.repo.clone());
 
-    if handle.is_locked().await? {
-        return Err(ServerError::SequenceLocked);
-    }
-
     let loc = handle.locator.clone();
     handle.delete().await?;
     warn!("resource {} deleted", loc);
 
-    Ok(ActionResponse::Empty)
+    Ok(ActionResponse::sequence_delete())
 }
 
 /// Aborts a sequence creation, deleting it if the key matches.
@@ -64,14 +61,9 @@ pub async fn abort(
 
     let handle = FacadeSequence::new(name, ctx.store.clone(), ctx.repo.clone());
 
-    // Avoid aborting on locked sequences
-    if handle.is_locked().await? {
-        return Err(ServerError::SequenceLocked);
-    }
-
     // Check that sequence id and provided key matches
     let r_id = handle.resource_id().await?;
-    let received_uuid: uuid::Uuid = key.parse()?;
+    let received_uuid: types::Uuid = key.parse()?;
     if r_id.uuid != received_uuid {
         return Err(ServerError::BadKey);
     }
@@ -81,31 +73,7 @@ pub async fn abort(
     handle.delete().await?;
     warn!("resource {} deleted", loc.name());
 
-    Ok(ActionResponse::Empty)
-}
-
-/// Finalizes and locks a sequence.
-pub async fn finalize(
-    ctx: &Context,
-    name: String,
-    key: String,
-) -> Result<ActionResponse, ServerError> {
-    info!("resource {} finalized", name);
-
-    let handle = FacadeSequence::new(name, ctx.store.clone(), ctx.repo.clone());
-
-    // Check that key matches the sequence id
-    let r_id = handle.resource_id().await?;
-    let received_uuid: uuid::Uuid = key.parse()?;
-
-    if r_id.uuid != received_uuid {
-        return Err(ServerError::BadKey);
-    }
-
-    handle.lock().await?;
-    trace!("resource {} locked", handle.locator);
-
-    Ok(ActionResponse::Empty)
+    Ok(ActionResponse::sequence_abort())
 }
 
 /// Creates a notification for a sequence.
@@ -121,7 +89,7 @@ pub async fn notify_create(
     let ntype: types::NotifyType = notify_type.parse()?;
     handle.notify(ntype, msg).await?;
 
-    Ok(ActionResponse::Empty)
+    Ok(ActionResponse::sequence_notify_create())
 }
 
 /// Lists all notifications for a sequence.
@@ -131,7 +99,7 @@ pub async fn notify_list(ctx: &Context, name: String) -> Result<ActionResponse, 
     let handle = FacadeSequence::new(name, ctx.store.clone(), ctx.repo.clone());
     let notifies = handle.notify_list().await?;
 
-    Ok(ActionResponse::SequenceNotifyList(notifies.into()))
+    Ok(ActionResponse::sequence_notify_list(notifies.into()))
 }
 
 /// Purges all notifications for a sequence.
@@ -141,7 +109,7 @@ pub async fn notify_purge(ctx: &Context, name: String) -> Result<ActionResponse,
     let handle = FacadeSequence::new(name, ctx.store.clone(), ctx.repo.clone());
     handle.notify_purge().await?;
 
-    Ok(ActionResponse::Empty)
+    Ok(ActionResponse::sequence_notify_purge())
 }
 
 /// Gets system information for a sequence.
@@ -151,5 +119,5 @@ pub async fn system_info(ctx: &Context, name: String) -> Result<ActionResponse, 
     let handle = FacadeSequence::new(name, ctx.store.clone(), ctx.repo.clone());
     let sysinfo = handle.system_info().await?;
 
-    Ok(ActionResponse::SequenceSystemInfo(sysinfo.into()))
+    Ok(ActionResponse::sequence_system_info(sysinfo.into()))
 }

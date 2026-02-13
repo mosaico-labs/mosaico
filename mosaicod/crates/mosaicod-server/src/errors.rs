@@ -42,8 +42,8 @@ pub enum ServerError {
     #[error("sequence `{0}` already exists")]
     SequenceAlreadyExists(String),
 
-    #[error("sequence is locked")]
-    SequenceLocked,
+    #[error("topic is locked")]
+    TopicLocked,
 
     #[error("topic `{0}` already exists")]
     TopicAlreadyExists(String),
@@ -66,8 +66,8 @@ pub enum ServerError {
     #[error("sanitization error :: {0}")]
     SchemaError(#[from] mosaicod_ext::arrow::SchemaError),
 
-    #[error("malformed key :: {0}")]
-    MalformedKey(#[from] uuid::Error),
+    #[error("malformed uuid :: {0}")]
+    MalformedUuid(#[from] mosaicod_core::types::UuidError),
 
     #[error("bad command :: {0}")]
     BadCommand(#[from] serde_json::Error),

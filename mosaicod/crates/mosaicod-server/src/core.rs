@@ -2,8 +2,6 @@ use super::flight;
 use log::{error, info, trace};
 use mosaicod_repo as repo;
 use mosaicod_store as store;
-use std::sync::Arc;
-use tokio::sync::Notify;
 
 /// Mosaico server.
 /// Handles incoming requests and manages the repository and store.
@@ -27,7 +25,7 @@ impl Server {
             port,
             store,
             repo_config,
-            shutdown: Arc::new(Notify::new()),
+            shutdown: flight::ShutdownNotifier::default(),
         }
     }
 
@@ -60,17 +58,19 @@ impl Server {
 
         info!("startup store connection");
 
+        // Repo connection needs to be done in a async context
+        // this is the main reason for which in Server::new we pass
+        // `repo::Config` instead of the repo directly.
         info!("startup repository connection (database)");
         let repo = rt.block_on(async {
             let repo = repo::Repository::try_new(&self.repo_config)
                 .await
                 .inspect_err(|e| error!("{}", e))?;
 
+            // Bootstrap logic
             info!("repository initialization");
             let mut tx = repo.transaction().await?;
-
             repo::layer_bootstrap(&mut tx).await?;
-
             tx.commit().await?;
 
             Ok::<repo::Repository, Box<dyn std::error::Error>>(repo)
