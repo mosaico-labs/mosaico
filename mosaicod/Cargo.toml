@@ -24,7 +24,7 @@ mosaicod-store = { path = "crates/mosaicod-store" }
 # tests = { path = "itests" }
 
 # External dependencies
-arrow = { version = "57.2.0", features = ["prettyprint"] }
+arrow = { version = "57.3.0", features = ["prettyprint"] }
 arrow-cast = "57.2.0"
 arrow-flight = "57.2.0"
 arrow-schema = "57.2.0"
