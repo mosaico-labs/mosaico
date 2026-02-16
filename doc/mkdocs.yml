@@ -1,5 +1,5 @@
 site_name: Mosaico Documentation
-site_url: https://docs.mosaico.dev
+site_url: https://cabba.github.io/mosaico
 repo_url: https://github.com/mosaico-labs/mosaico
 
 markdown_extensions:
@@ -43,11 +43,9 @@ plugins:
 
 nav:
   - Mosaico: index.md
-  - Getting Started:
-    - getting_started/mosaicod.md
-    - getting_started/python-sdk.md
-  - Python SDK:
+  - SDK:
     - SDK/index.md
+    - SDK/install.md
     - SDK/client.md
     - SDK/ontology.md
     - Data Handling:
@@ -89,10 +87,13 @@ nav:
             - SDK/API_reference/bridges/ros/adapters/tf2_msgs.md
   - Daemon:
     - daemon/index.md
+    - daemon/install.md
     - daemon/control.md
     - daemon/ingestion.md
     - daemon/query.md
     - daemon/retrieval.md
+  - Development:
+    - development/release_cycle.md
 
 extra_css:
   - stylesheets/extra.css
@@ -109,7 +110,7 @@ theme:
   palette: 
     scheme: slate
     primary: custom
-    accent: light blue
+    accent: custom
   features:
     - content.code.copy
     - content.code.annotate

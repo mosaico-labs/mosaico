@@ -21,6 +21,10 @@
 }
 
 [data-md-color-scheme="slate"] {
+    --md-primary-fg-color: var(--mosaico-bg);
+    --md-primary-fg-color--light: var(--mosaico-bg-hi);
+    --md-primary-fg-color--dark: var(--mosaico-bg);
+
     --md-default-bg-color: var(--mosaico-bg);
 
     --md-accent-fg-color:                #ffffff;
@@ -63,6 +67,10 @@
     font-size: 0.7rem;
 }
 
+[data-md-color-scheme="slate"] .md-code__content {
+    font-size: 0.65rem;
+}
+
 .md-tabs {
     background: linear-gradient(90deg, var(--mosaico-orange-low), var(--mosaico-purple-low), var(--mosaico-blue-low));
 }
@@ -84,6 +92,15 @@
 .md-footer-meta {
     background-color: var(--mosaico-bg);
 }
+
+/* .md-sidebar{ */
+/*     border-right: 1px solid #2C2C2C; */
+/* } */
+
+.md-search form {
+    background-color: var(--mosaico-bg-hi);
+}
+
 
 code.nowrap {
   white-space: nowrap;

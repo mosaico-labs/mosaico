@@ -1,8 +1,5 @@
-# Install `mosaicod`
+# Setup
 
-The `mosaicod` daemon acts as the central hub of the platform. Written in Rust for performance and safety, it handles the heavy lifting of data ingestion, conversion, compression, and organized storage. It exposes a [Flight-based API](https://arrow.apache.org/docs/format/Flight.html) that the client SDK interacts with.
-
-## Quick Start
 
 For rapid prototyping, we provide a Docker Compose configuration. This sets up a volatile environment that includes both the Mosaico server and a [PostgreSQL](https://www.postgresql.org/) database.
 

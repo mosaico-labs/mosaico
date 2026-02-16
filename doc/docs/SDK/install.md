@@ -1,11 +1,8 @@
----
-title: Install Python SDK
-description: Setting up the Python SDK
----
+# Setup 
 
 The SDK is currently available via source distribution. We use [Poetry](https://python-poetry.org/) for robust dependency management and packaging.
 
-### Prerequisites
+## Prerequisites
 
 * **Python:** Version **3.13** or newer is required.
 * **Poetry:** For package management.
@@ -27,7 +24,7 @@ poetry --version
 
 ```
 
-### Install SDK
+## Install SDK
 
 Clone the repository and navigate to the SDK directory:
 
