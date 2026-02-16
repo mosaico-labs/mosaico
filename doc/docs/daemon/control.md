@@ -22,7 +22,6 @@ Sequences are the fundamental containers for data recordings in Mosaico. The Con
 | **`sequence_finalize`** | Transitions a sequence from *uploading* to *archived*. This action locks the sequence, marking it as immutable. Once finalized, no further data can be added or modified, ensuring a perfect audit trail. |
 | **`sequence_abort`** | A cleanup operation for failed uploads. It discards a sequence that is currently being uploaded, purging any partial data from the storage to prevent *zombie* records. |
 | **`sequence_delete`** | Permanently removes a sequence from the platform. To protect data lineage, this is typically permitted only on unlocked (incomplete) sequences. |
-| **`sequence_system_info`** | Provides low-level diagnostics, such as the total byte size, chunk count, and disk usage of a sequence. |
 
 ## Topic Management
 
@@ -32,7 +31,6 @@ Topics represent the individual sensor streams (e.g., `camera/front`, `gps`) con
 | --- | --- |
 | **`topic_create`** | Registers a new topic. |
 | **`topic_delete`** | Removes a specific topic from a sequence, permitted only if the parent sequence is still unlocked. |
-| **`topic_system_info`** | Retrieves storage statistics specific to a single topic. |
 
 ## Notification System
 

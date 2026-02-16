@@ -150,17 +150,18 @@ class BaseSequenceWriter(ABC):
                 # notify error and go on
                 out_exc = e
                 error_in_block = True
+                # Re-handle later
 
         if error_in_block:  # either in with block or after close operations
             # Exception occurred: Clean up and handle policy
             self._logger.error(
-                f"Exception in SequenceWriter '{self._name}' block. Inner err: '{out_exc}'"
+                f"Exception caught in SequenceWriter block, sequence  '{self._name}'. Inner err: '{out_exc}'"
             )
             try:
                 self._close_topics(error=out_exc)
             except Exception as e:
                 self._logger.error(
-                    f"Exception during __exit__ with error in block (finalizing topics) for sequence '{self._name}': '{e}'"
+                    f"Exception while finalizing topics for sequence '{self._name}': '{e}'"
                 )
                 out_exc = e
 
@@ -174,7 +175,9 @@ class BaseSequenceWriter(ABC):
             self._sequence_status = SequenceStatus.Error
 
             if exc_type is None and out_exc is not None:
-                raise out_exc  # Re-raise the cleanup error if it's the only one
+                self._logger.error(
+                    f"Exception caught while handling errors in termination phase. Inner err: '{out_exc}'"
+                )
 
     # --- Context Manager ---
     def __enter__(self) -> "BaseSequenceWriter":
@@ -542,6 +545,7 @@ class BaseSequenceWriter(ABC):
 
         if errors:
             first_error = errors[0]
+            # Raise for the `_on_context_exit` to handle the error
             raise _make_exception(
                 f"Errors occurred closing topics: {len(errors)} topic(s) failed to finalize.",
                 first_error,

@@ -9,6 +9,7 @@ middleware-level metadata (like recording timestamp_ns).
 
 # --- Python Standard Library Imports ---
 from typing import Any, Dict, Optional, Type, TypeVar
+from mosaicolabs.models.header import Header
 from pydantic import PrivateAttr
 import pyarrow as pa
 import pandas as pd
@@ -16,7 +17,6 @@ import pandas as pd
 
 from ..logging_config import get_logger
 from ..helpers.helpers import encode_to_dict
-from .header import Header
 from .serializable import Serializable
 from .internal.helpers import _fix_empty_dicts
 from .base_model import BaseModel
@@ -41,9 +41,9 @@ class Message(BaseModel):
     payload with middleware metadata, such as recording timestamps and headers.
 
     Attributes:
-        timestamp_ns: Middleware processing timestamp in nanoseconds.
-        message_header: Optional middleware-level header.
+        timestamp_ns: Message/Sensor acquisition timestamp in nanoseconds (resambles the data ontology high precision time header).
         data: The actual ontology data payload (e.g., an IMU or GPS instance).
+        recording_timestamp_ns: Recording timestamp in nanoseconds. This is the timestamp in which the message was recorded in the receiving store file (like rosbags, parquet files, etc.), different from sensor acquisition time.
 
     """
 
@@ -55,27 +55,38 @@ class Message(BaseModel):
                 pa.int64(),
                 nullable=False,
                 metadata={
-                    "description": "Middleware processing timestamp in nanoseconds (e.g., recording time)."
+                    "description": "Message/Sensor acquisition timestamp in nanoseconds (resambles the data ontology high precision time header)."
                 },
             ),
             pa.field(
-                "message_header",
-                Header.__msco_pyarrow_struct__,
+                "recording_timestamp_ns",
+                pa.int64(),
                 nullable=True,
-                metadata={"description": "Optional middleware header."},
+                metadata={
+                    "description": "Recording timestamp in nanoseconds (different from sensor acquisition time)."
+                },
             ),
         ]
     )
 
-    # Pydantic definitions
-    timestamp_ns: int
-    """Middleware processing timestamp in nanoseconds (different from sensor acquisition time)."""
-
     data: Serializable
     """The actual ontology data payload (e.g., an IMU or GPS instance)."""
 
-    message_header: Optional[Header] = None
-    """Optional middleware-level header."""
+    timestamp_ns: Optional[int] = None
+    """
+    Message/Sensor acquisition timestamp in nanoseconds (resambles the data ontology high precision time header).
+
+    Can be omitted if the data ontology already contains the timestamp (e.g. `data.header.stamp`) or the `recording_timestamp_ns` is set.
+    If all timestamps data are None, the message will be rejected and a `ValueError` is raised.
+    """
+
+    recording_timestamp_ns: Optional[int] = None
+    """
+    Recording timestamp in nanoseconds (different from sensor acquisition time).
+    
+    This is the timestamp in which the message was recorded in the receiving store file
+    (like rosbags, parquet files, etc.)
+    """
 
     # Internal cache for efficient field separation during encoding
     _self_model_keys: set[str] = PrivateAttr(default_factory=set)
@@ -89,6 +100,21 @@ class Message(BaseModel):
         (e.g., `timestamp_ns`) and the data payload.
         """
         super().model_post_init(context)
+        data_header: Optional[Header] = getattr(self.data, "header", None)
+        timestamp = (
+            self.timestamp_ns  # try setting the timestamp from the `timestamp_ns` field
+            if self.timestamp_ns is not None
+            else data_header.stamp.to_nanoseconds()  # try setting the timestamp from the data header
+            if data_header is not None
+            else self.recording_timestamp_ns  # try setting the timestamp from the `recording_timestamp_ns` field
+        )
+        if timestamp is None:
+            raise ValueError(
+                "Timestamp data is needed. It must be set in data ontology header, OR in `Message.timestamp_ns` OR in `Message.recording_timestamp_ns`."
+            )
+        # Set the timestamp
+        self.timestamp_ns = timestamp
+
         self._self_model_keys = {
             field for field in self.__class__.model_fields if field != "data"
         }
@@ -357,7 +383,7 @@ class Message(BaseModel):
         # Reconstruct the Nested Dictionary
         # Ensure timestamp_ns is present; usually a global column in Mosaico DFs
         timestamp = row.get(timestamp_column_name)
-        if pd.isna(timestamp):
+        if timestamp is None or pd.isna(timestamp):
             return None
 
         nested_data: Dict[str, Any] = {timestamp_column_name: int(timestamp)}

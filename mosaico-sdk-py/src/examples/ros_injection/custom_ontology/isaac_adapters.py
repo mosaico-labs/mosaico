@@ -36,19 +36,7 @@ class EncoderTicksAdapter(ROSAdapterBase[EncoderTicks]):
         Returns:
             A Mosaico Message containing the translated EncoderTicks data.
         """
-        if ros_msg.data is None:
-            raise Exception(f"'data' attribute is None for topic {ros_msg.topic}")
-
-        print(f"Mesg Header: {ros_msg.header}")
-
-        try:
-            return Message(
-                timestamp_ns=ros_msg.bag_timestamp_ns,
-                data=cls.from_dict(ros_msg.data),
-                message_header=ros_msg.header.translate() if ros_msg.header else None,
-            )
-        except Exception as e:
-            raise Exception(f"Translation failed for {ros_msg.topic}: {e}")
+        return super().translate(ros_msg, **kwargs)
 
     @classmethod
     def from_dict(cls, ros_data: dict) -> EncoderTicks:
@@ -58,10 +46,9 @@ class EncoderTicksAdapter(ROSAdapterBase[EncoderTicks]):
         This method performs field validation and header reconstruction.
         """
         _validate_msgdata(cls, ros_data)
-        print(f"Type Header: {ros_data.get('header')}")
-        print(f"Encoder Timestamp: {ros_data['encoder_timestamp']}")
         return EncoderTicks(
             header=_make_header(ros_data.get("header")),
             left_ticks=ros_data["left_ticks"],
             right_ticks=ros_data["right_ticks"],
+            encoder_timestamp=ros_data["encoder_timestamp"],
         )

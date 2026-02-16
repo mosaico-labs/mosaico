@@ -164,11 +164,11 @@ This flattening is handled automatically by the `encode()` and `get_schema()` me
 #### Fields
 
   * **`timestamp_ns`** (`int64`):
-    The middleware processing timestamp in nanoseconds (Unix epoch). This usually represents when the data was *recorded* or *received* by the middleware during data recording onboard the robot, **distinct from the sensor's internal acquisition time** (which would be found inside `data.header.stamp`).
+    Message/Sensor acquisition timestamp in nanoseconds (resambles the data ontology high precision time header).
   * **`data`** (`Serializable`):
     The polymorphic payload. This can be any instance of a class registered in the Mosaico Ontology (e.g., `IMU`, `Image`, `GPS`).
-  * **`message_header`** (`Header`, optional):
-    An optional secondary header for middleware-specific metadata, distinct from the sensor's own header.
+  * **`recording_timestamp_ns`** (`int64`, optional):
+    Recording timestamp in nanoseconds. This is the timestamp in which the message was recorded in the receiving store file (like rosbags, parquet files, etc.), different from sensor acquisition time.
 
 #### Methods (***Internal library usage***)
 

@@ -300,11 +300,12 @@ class RosbagInjector:
                 logger.info("Injection completed successfully.")
 
                 # Retrieve the sequence info
-                sinfo = mclient.sequence_system_info(self.cfg.sequence_name)
-                if sinfo is not None:
+                seq_handler = mclient.sequence_handler(self.cfg.sequence_name)
+                if seq_handler is not None:
                     # --- Final Statistics Report ---
                     self._print_summary(
-                        self.cfg.file_path.stat().st_size, sinfo.total_size_bytes
+                        original_size=self.cfg.file_path.stat().st_size,
+                        remote_size=seq_handler.total_size_bytes,
                     )
                 else:
                     logger.error(
@@ -330,11 +331,10 @@ class RosbagInjector:
         savings = max(0, (1 - (remote_size / original_size)) * 100)
 
         from rich.panel import Panel
-        from rich.filesize import decimal
 
         summary_text = (
-            f"Original Size:  [bold]{decimal(original_size)}[/bold]\n"
-            f"Remote Size:    [bold]{decimal(remote_size)}[/bold]\n"
+            f"Original Size:  [bold]{original_size / (1024 * 1024):.2f}[/bold]\n"
+            f"Remote Size:    [bold]{remote_size / (1024 * 1024):.2f}[/bold]\n"
             f"Ratio:          [bold cyan]{ratio:.2f}x[/bold cyan]\n"
             f"Space Saved:    [bold green]{savings:.1f}%[/bold green]"
         )

@@ -9,7 +9,6 @@ serialization, and connection management.
 from concurrent.futures import ThreadPoolExecutor
 import json
 from typing import Any, Type, Optional
-from mosaicolabs.models.header import Header
 from mosaicolabs.models.message import Message
 import pyarrow.flight as fl
 
@@ -295,10 +294,7 @@ class TopicWriter:
     # --- Writing Logic ---
     def push(
         self,
-        message: Optional[Message] = None,
-        message_timestamp_ns: Optional[int] = None,
-        message_header: Optional[Header] = None,
-        ontology_obj: Optional[Serializable] = None,
+        message: Message,
     ) -> None:
         """
         Adds a new record to the internal write buffer.
@@ -306,19 +302,10 @@ class TopicWriter:
         Records are accumulated in memory. If a push triggers a batch limit,
         the buffer is automatically serialized and transmitted to the server.
 
-        Note: Input Modes
-            You can provide a single [`Message`][mosaicolabs.models.Message] object
-            **OR** provide the discrete components (`ontology_obj`, `message_timestamp_ns`
-            and `message_header`).
-
         Args:
             message: A pre-constructed Message object.
-            message_timestamp_ns: Absolute timestamp in **nanoseconds**.
-            message_header: Optional metadata header for the record.
-            ontology_obj: The actual data payload instance (e.g., a GPS or IMU object).
 
         Raises:
-            ValueError: If neither a Message nor the required discrete components are provided.
             Exception: If a buffer flush fails during the operation.
 
         Example:
@@ -358,14 +345,6 @@ class TopicWriter:
                         ontology_type=GPS, # The ontology type stored in this topic
                     )
 
-                    # Push data - The SDK handles batching and background I/O
-                    # Usage Mode A: Component-based
-                    imu_writer.push(
-                        ontology_obj=IMU(acceleration=Vector3d(x=0, y=0, z=9.81), ...),
-                        message_timestamp_ns=1700000000000
-                    )
-
-                    # Usage Mode B: Full Message-based
                     gps_msg = Message(timestamp_ns=1700000000100, data=GPS(...))
                     gps_writer.push(message=gps_msg)
                 # Exiting the seq_writer `with` block, the `finalize()` method of all topic writers is called.
@@ -374,21 +353,9 @@ class TopicWriter:
             1. See also: [`MosaicoClient.sequence_create()`][mosaicolabs.comm.MosaicoClient.sequence_create]
             2. See also: [`SequenceWriter.topic_create()`][mosaicolabs.handlers.SequenceWriter.topic_create]
         """
-        msg = message
-        if not msg:
-            if message_timestamp_ns is not None and ontology_obj is not None:
-                msg = Message(
-                    timestamp_ns=message_timestamp_ns,
-                    data=ontology_obj,
-                    message_header=message_header,
-                )
-            else:
-                raise ValueError(
-                    "Expected a valid message or the couple 'message_timestamp_ns' + 'ontology_obj'."
-                )
-
+        # time.sleep(0.1)
         try:
-            self._wrstate.push_record(msg)
+            self._wrstate.push_record(message)
         except Exception as e:
             self._handle_exception_and_raise(e, "Error during TopicWriter.push")
 
@@ -453,14 +420,16 @@ class TopicWriter:
             Exception: If the server fails to acknowledge the stream closure or if the
                 internal state machine encounters a terminal error.
         """
+        with_error = error is not None
         try:
-            self._error_report(str(error))
-            self._wrstate.close(with_error=error is not None)
+            if with_error:
+                self._error_report(str(error))
+            self._wrstate.close(with_error=with_error)
         except Exception as e:
             raise _make_exception(
-                exc_msg=error,
+                exc_msg=e,
                 msg=f"Error finalizing TopicWriter '{self._name}'.",
-            ) from e
+            )
 
         logger.info(
             f"TopicWriter '{self._name}' finalized {'WITH ERROR' if error is not None else ''} successfully."

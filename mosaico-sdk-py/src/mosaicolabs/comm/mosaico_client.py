@@ -22,13 +22,11 @@ from .executor_pool import _ExecutorPool
 from .do_action import (
     _do_action,
     _DoActionQueryResponse,
-    _DoActionResponseSysInfo,
     _DoActionNotifyList,
 )
 from ..logging_config import get_logger
 from ..enum import FlightAction, OnErrorPolicy
 from ..handlers.config import WriterConfig
-from ..handlers.system_info import SystemInfo
 from .connection import (
     DEFAULT_MAX_BATCH_BYTES,
     DEFAULT_MAX_BATCH_SIZE_RECORDS,
@@ -441,115 +439,6 @@ class MosaicoClient:
                 max_batch_size_bytes=max_batch_size_bytes,
                 max_batch_size_records=max_batch_size_records,
             ),
-        )
-
-    def sequence_system_info(self, sequence_name: str) -> Optional[SystemInfo]:
-        """
-        Retrieves system-level metadata and physical diagnostics for a specific sequence.
-
-        Args:
-            sequence_name (str): The unique identifier of the sequence.
-
-        Returns:
-            Optional[SystemInfo]: Object containing storage size, creation time,
-                and lock status, or None if missing.
-
-        Exmaple:
-            ```python
-            from mosaicolabs import MosaicoClient, OnErrorPolicy
-
-            # Open the connection with the Mosaico Client
-            with MosaicoClient.connect("localhost", 6726) as client:
-                seq_info = client.sequence_system_info("test_sequence")
-                if seq_info:
-                    # Print sequence system-info
-                    print(f"Created: {seq_info.created_datetime}")
-                    print(f"Size (MB): {seq_info.total_size_bytes / 1024 / 1024}")
-            ```
-        """
-        # Get System Info
-        ACTION = FlightAction.SEQUENCE_SYSTEM_INFO
-        try:
-            act_resp = _do_action(
-                client=self._control_client,
-                action=ACTION,
-                payload={"name": sequence_name},
-                expected_type=_DoActionResponseSysInfo,
-            )
-        except Exception as e:
-            logger.error(
-                f"Error sending system-info do_action '{ACTION}'.\nInner err: '{e}'"
-            )
-            return None
-
-        if act_resp is None:
-            logger.error(f"Action '{ACTION}' returned no response.")
-            return None
-
-        return SystemInfo(
-            total_size_bytes=act_resp.total_size_bytes,
-            created_datetime=act_resp.created_datetime,
-            is_locked=act_resp.is_locked,
-        )
-
-    def topic_system_info(
-        self,
-        sequence_name: str,
-        topic_name: str,
-    ) -> Optional[SystemInfo]:
-        """
-        Retrieves system-level metadata for a specific topic within a sequence.
-
-        Args:
-            sequence_name (str): The name of the sequence containing the topic.
-            topic_name (str): The specific topic name to query.
-
-        Returns:
-            Optional[SystemInfo]: Object containing storage diagnostics and
-                chunk counts, or None if missing.
-
-        Example:
-            ```python
-            from mosaicolabs import MosaicoClient, OnErrorPolicy
-
-            # Open the connection with the Mosaico Client
-            with MosaicoClient.connect("localhost", 6726) as client:
-                top_info = client.topic_system_info("test_sequence", "/sensors/imu")
-                if top_info:
-                    # Print sequence system-info
-                    print(f"Created: {top_info.created_datetime}")
-                    print(f"Size (MB): {top_info.total_size_bytes / 1024 / 1024}")
-                    print(f"Size (MB): {top_info.chunks_number}")
-            ```
-        """
-        # Get System Info
-        ACTION = FlightAction.TOPIC_SYSTEM_INFO
-        try:
-            act_resp = _do_action(
-                client=self._control_client,
-                action=ACTION,
-                payload={
-                    "name": pack_topic_resource_name(
-                        sequence_name=sequence_name, topic_name=topic_name
-                    )
-                },
-                expected_type=_DoActionResponseSysInfo,
-            )
-        except Exception as e:
-            logger.error(
-                f"Error sending system-info do_action '{ACTION}'.\nInner err: '{e}'"
-            )
-            return None
-
-        if act_resp is None:
-            logger.error(f"Action '{ACTION}' returned no response.")
-            return None
-
-        return SystemInfo(
-            total_size_bytes=act_resp.total_size_bytes,
-            created_datetime=act_resp.created_datetime,
-            is_locked=act_resp.is_locked,
-            chunks_number=act_resp.chunks_number,
         )
 
     def sequence_delete(self, sequence_name: str):

@@ -37,6 +37,12 @@ class EncoderTicks(Serializable, HeaderMixin):
                     "description": "Cumulative counts from the right wheel encoder."
                 },
             ),
+            pa.field(
+                "encoder_timestamp",
+                pa.uint64(),
+                nullable=False,
+                metadata={"description": "Timestamp of the encoder ticks."},
+            ),
         ],
     )
 
@@ -46,7 +52,5 @@ class EncoderTicks(Serializable, HeaderMixin):
     """Cumulative tick count for the left wheel."""
     right_ticks: int
     """Cumulative tick count for the right wheel."""
-
-    # ROS message defines a 'encoder_timestamp' field. We will use the `HeaderMixin.header` mixin, instead of
-    # defining a new timestamp field in the pyarrow struct and pydantic model. This is because the HeaderMixin
-    # already provides a timestamp field that is compatible with the Mosaico Ontology.
+    encoder_timestamp: int
+    """Timestamp of the encoder ticks."""
