@@ -32,7 +32,7 @@ This layer represents the semantic core of the module, translating raw ROS data 
 Users can extend the bridge to support new ROS message types by implementing a custom adapter and registering it.
 
 1.  **Inherit from `ROSAdapterBase`**: Define the input ROS type string and the target Mosaico Ontology type.
-2.  **Implement `translate`**: Define the logic to convert the `ROSMessage` dictionary into a `Message` object containing the ontology data.
+2.  **Implement `from_dict`**: Define the logic to convert the `ROSMessage.data` dictionary into an intance of the target ontology object.
 3.  **Register**: Decorate the class with `@register_adapter`.
 
 ```python
@@ -46,83 +46,43 @@ class MyCustomAdapter(ROSAdapterBase[MyCustomData]):
     __mosaico_ontology_type__ = MyCustomData
 
     @classmethod
-    def translate(cls, ros_msg: ROSMessage, **kwargs) -> Message:
+    def from_dict(cls, ros_data: dict) -> MyCustomData:
         # Transformation logic here
-        return Message(
-            timestamp_ns=ros_msg.timestamp,
-            data=MyCustomData(...)
-        )
+        return MyCustomData(...)
 ```
 
 ### The Orchestrator (`RosbagInjector`)
 
-The `RosbagInjector` is the primary entry point for embedding ROS ingestion into Python applications and coordinates the entire workflow. It connects the `ROSLoader` to the `MosaicoClient`, managing the flow of data, batching, error reporting, and progress visualization via a CLI interface.
+The **`RosbagInjector`** is the central command center of the ROS Bridge module. It is designed to be the primary entry point for developers who want to embed high-performance ROS ingestion directly into their Python applications or automation scripts.
 
-```python
-class RosbagInjector:
-    def __init__(self, config: ROSInjectionConfig)
-    def run(self)
-```
+The injector acts as a "glue" layer, orchestrating the interaction between the **`ROSLoader`** (file access), the **`ROSBridge`** (data adaptation), and the **`MosaicoClient`** (network transmission). It handles the complex lifecycle of a data upload—including connection management, batching, and transaction safety—while providing real-time feedback through a visual CLI interface.
 
-  * **`run()`**: Executes the injection pipeline: connects to the server, opens the bag, iterates through messages, adapts them, and transmits them to the Mosaico platform.
+#### Core Workflow Execution: `run()`
 
-#### `ROSInjectionConfig`
+The `run()` method is the heart of the injector. When called, it initiates a multi-phase pipeline:
 
-A data class defining the configuration for the injection process.
+1. **Handshake & Registry**: Establishes a connection to the Mosaico server and registers any provided custom `.msg` definitions into the global `ROSTypeRegistry`.
+2. **Sequence Creation**: Requests the server to initialize a new data sequence based on the provided name and metadata.
+3. **Adaptive Streaming**: Iterates through the ROS bag records. For each message, it identifies the correct adapter, translates the ROS dictionary into a Mosaico object, and pushes it into an optimized asynchronous write buffer.
+4. **Transaction Finalization**: Once the bag is exhausted, it flushes all remaining buffers and signals the server to commit the sequence.
+
+
+#### The Blueprint: `ROSInjectionConfig`
+
+The behavior of the injector is entirely driven by the **`ROSInjectionConfig`**. This configuration object ensures that the ingestion logic is decoupled from the user interface, allowing for consistent behavior whether triggered via the CLI or a complex script.
 
 | Attribute | Type | Description |
-| :--- | :--- | :--- |
-| `file_path` | `Path` | Path to the input bag file (`.mcap`, `.db3`, `.bag`). |
-| `sequence_name` | `str` | The name of the target sequence to create on the server. |
-| `metadata` | `dict` | User-defined metadata to attach to the sequence (e.g., `{"driver": "TestDriver"}`). |
-| `ros_distro` | `Stores` | (Optional) The target ROS distribution (e.g., `Stores.ROS2_HUMBLE`). Defaults to `EMPTY`. |
-| `topics` | `List[str]` | (Optional) A list of topics to filter. Supports glob patterns (e.g., `["/cam/*"]`). |
-| `custom_msgs` | `List` | A list of tuples `(package, path, store)` to register custom `.msg` definitions. |
-| `on_error` | `OnErrorPolicy` | Behavior when sequence writing fails (`Delete` sequence or `Report` error). |
+| --- | --- | --- |
+| **`file_path`** | `Path` | The location of the source ROS bag (`.mcap`, `.db3`, or `.bag`). |
+| **`sequence_name`** | `str` | The unique identifier for the sequence on the server. |
+| **`metadata`** | `dict` | Searchable tags and context (e.g., `{"weather": "rainy"}`) attached to the sequence. |
+| **`ros_distro`** | `Stores` | **Crucial for `.db3` bags:** Specifies the ROS distribution (e.g., `ROS2_HUMBLE`) to ensure standard messages are parsed with the correct schema version. |
+| **`topics`** | `List[str]` | A filter list supporting glob patterns (e.g., `["/camera/*"]`). If omitted, all supported topics are ingested. |
+| **`custom_msgs`** | `List` | A list of tuples `(package, path, store)` used to dynamically register proprietary message definitions at runtime. |
+| **`on_error`** | `OnErrorPolicy` | **Safety Switch:** Determines if a failed upload should `Delete` the partial sequence or `Report` the error and keep the data. |
+| **`log_level`** | `str` | Controls terminal verbosity, ranging from `DEBUG` to `ERROR`. |
 
-#### CLI Usage
-
-The module includes a command-line interface for quick ingestion tasks.
-
-```bash
-# Basic Usage
-mosaico.ros_injector ./data.mcap --name "Test_Run_01"
-
-# Advanced Usage: Filtering topics and adding metadata
-mosaico.ros_injector ./data.db3 \
-  --name "Test_Run_01" \
-  --topics /camera/front/* /gps/fix \
-  --metadata ./metadata.json \
-  --ros-distro ros2_humble
-```
-
-The full list of options can be retrieved by running `mosaico.ros_injector -h`:
-
-```bash
-usage: mosaico.ros_injector [-h] --name NAME [--host HOST] [--port PORT] [--topics TOPICS [TOPICS ...]] [--metadata METADATA]
-                                [--ros-distro {empty,latest,ros1_noetic,ros2_dashing,ros2_eloquent,ros2_foxy,ros2_galactic,ros2_humble,ros2_iron,ros2_jazzy,ros2_kilted}]
-                                bag_path
-
-Inject ROS Bag data into Mosaico.
-
-positional arguments:
-  bag_path              Path to .bag, .mcap or .db3 file
-
-options:
-  -h, --help            show the help message and exit
-  --name, -n NAME       Target Sequence Name
-  --host HOST           Mosaico Server Host
-  --port PORT           Mosaico Server Port (Default: 6726)
-  --topics TOPICS [TOPICS ...]
-                        Specific topics to filter (supports glob patterns like /cam/*)
-  --metadata METADATA   JSON string or path to JSON file containing sequence metadata
-  --ros-distro {empty,latest,ros1_noetic,ros2_dashing,ros2_eloquent,ros2_foxy,ros2_galactic,ros2_humble,ros2_iron,ros2_jazzy,ros2_kilted}
-                        Target ROS Distribution for message parsing (e.g., ros2_humble). If not set, defaults to EMPTY.
-```
-
-#### Programmatic Usage (Python Script)
-
-For code-first workflows, such as integrating with CI/CD or custom automation scripts, it is possible to use the `RosbagInjector` class directly within Python code.
+#### Practical Example: Programmatic Usage
 
 ```python
 from pathlib import Path
@@ -183,56 +143,62 @@ if __name__ == "__main__":
     run_injection()
 ```
 
+#### CLI Usage
+
+The module includes a command-line interface for quick ingestion tasks. The full list of options can be retrieved by running `mosaico.ros_injector -h`
+
+```bash
+# Basic Usage
+poetry run mosaico.ros_injector ./data.mcap --name "Test_Run_01"
+
+# Advanced Usage: Filtering topics and adding metadata
+poetry run mosaico.ros_injector ./data.db3 \
+  --name "Test_Run_01" \
+  --topics /camera/front/* /gps/fix \
+  --metadata ./metadata.json \
+  --ros-distro ros2_humble
+```
+
 ### The Type Registry (`ROSTypeRegistry`)
 
-ROS message definitions are not always self-contained within bag files (particularly in the ROS 2 `.db3` format), and datasets often contain proprietary data types that are not part of the standard message libraries. These definitions rely on external schema files (`.msg`). The `ROSTypeRegistry` acts as a context-aware singleton to manage these dependencies.
+The **`ROSTypeRegistry`** is a context-aware singleton designed to manage the schemas required to decode ROS data. ROS message definitions are frequently external to the data files themselves—this is especially true for ROS 2 `.db3` (SQLite) formats and proprietary datasets containing custom sensors. Without these definitions, the bridge cannot deserialize the raw binary "blobs" into readable dictionaries.
 
-* **Custom Messages:** It facilitates the registration of local `.msg` files, allowing the loader to parse proprietary or non-standard message types effectively.
-* **Versioning:** It implements a profile system (Stores) to resolve version conflicts, managing cases where message definitions differ between distributions (e.g., `ROS1_NOETIC` vs. `ROS2_HUMBLE`).
+* **Schema Resolution**: It allows the `ROSLoader` to resolve custom `.msg` definitions on-the-fly during bag playback.
+* **Version Isolation (Stores)**: ROS messages often vary across distributions (e.g., a "Header" in ROS 1 Noetic is structurally different from ROS 2 Humble). The registry uses a "Profile" system to store these version-specific definitions separately, preventing cross-distribution conflicts.
+* **Global vs. Scoped Definitions**: You can register definitions **Globally** (available to all loaders) or **Scoped** to a specific distribution.
 
-For complex projects with many custom message definitions, passing them repeatedly via the `custom_msgs` argument of the `ROSInjectionConfig` class can become unwieldy. Instead, you can use the **`ROSTypeRegistry`** to pre-load definitions at the start of your application.
+#### Pre-loading Definitions
 
-  * **`register_directory(package_name, dir_path, store=None)`**: Batch registers all `.msg` files found in a directory under a specific package name. The registry will automatically infer type names as `{package_name}/msg/{filename}`
-  * **`register(msg_type, source, store=None)`**: Registers a single message type definition.
+While you can pass custom messages via `ROSInjectionConfig`, it can become cumbersome for large-scale projects with hundreds of proprietary types. The recommended approach is to pre-load the registry at the start of your application. This makes the definitions available to all subsequent loaders automatically.
 
-#### Centralized Custom Message Registration
+| Method | Scope | Description |
+| --- | --- | --- |
+| **`register(...)`** | Single Message | Registers a single custom type. The source can be a path to a `.msg` file or a raw string containing the definition. |
+| **`register_directory(...)`** | Batch Package | Scans a directory for all `.msg` files and registers them under a specific package name (e.g., `my_pkg/msg/Sensor`). |
+| **`get_types(...)`** | Internal | Implements a "Cascade" logic: merges Global definitions with distribution-specific overrides for a loader. |
+| **`reset()`** | Utility | Clears all stored definitions. Primarily used for unit testing to ensure process isolation. |
 
-For example, create a setup script (e.g., `setup_registry.py`) that runs before your injection logic.
+#### Centralized Registration Example
+
+A clean way to manage large projects is to centralize your message registration in a single setup function (e.g., `setup_registry.py`):
 
 ```python
 from pathlib import Path
 from mosaicolabs.ros_bridge import ROSTypeRegistry, Stores
 
-def register_project_messages():
-    """
-    Centralized registration of all custom ROS message definitions used in the project.
-    """
-    
-    # Register a Single Message Globally (Applies to all ROS versions)
-    # Useful for simple, stable message definitions.
+def initialize_project_schemas():
+    # 1. Register a proprietary message valid for all ROS versions
     ROSTypeRegistry.register(
-        msg_type="my_robot_msgs/msg/BatteryStatus",
-        source=Path("./definitions/common/BatteryStatus.msg")
+        msg_type="common_msgs/msg/SystemHeartbeat",
+        source=Path("./definitions/Heartbeat.msg")
     )
 
-    # Register for a Specific Distro (e.g., ROS 2 Humble)
-    # Essential if the definition changed between versions or relies on specific headers.
-    ROSTypeRegistry.register(
-        msg_type="my_robot_msgs/msg/NavigationState",
-        source=Path("./definitions/humble/NavigationState.msg"),
-        store=Stores.ROS2_HUMBLE
-    )
-
-    # Batch Register an Entire Directory
-    # Automatically infers type names: "package_name/msg/{filename}"
-    # Example: ./definitions/lidar/Scan.msg -> "velodyne_msgs/msg/Scan"
+    # 2. Batch register an entire package for ROS 2 Humble
     ROSTypeRegistry.register_directory(
-        package_name="velodyne_msgs",
-        dir_path=Path("./definitions/lidar"),
+        package_name="robot_v3_msgs",
+        dir_path=Path("./definitions/robot_v3/msgs"),
         store=Stores.ROS2_HUMBLE
     )
-
-    print("Custom message definitions registered successfully.")
 
 ```
 
@@ -245,7 +211,7 @@ from mosaicolabs.ros_bridge import RosbagInjector, ROSInjectionConfig, Stores
 from pathlib import Path
 
 # Initialize registry
-setup_registry.register_project_messages()
+setup_registry.initialize_project_schemas()
 
 # Configure injection WITHOUT listing custom messages again
 config = ROSInjectionConfig(
@@ -269,14 +235,22 @@ The ROS Bag Injection module has been validated against a variety of standard da
 
 For evaluating Mosaico capabilities, we recommend the **[NVIDIA NGC Catalog - R2B Dataset 2024](https://catalog.ngc.nvidia.com/orgs/nvidia/teams/isaac/resources/r2bdataset2024?version=1)**. This dataset has been verified to be fully compatible with the injection pipeline.
 
-The following table summarizes the injection performance for key sequences within this dataset:
+The following table details the injection performance for the **NVIDIA R2B Dataset 2024**. These benchmarks were captured on a system running **macOS 26.2** with an **Apple M2 Pro (10 cores, 16GB RAM)**.
 
-| Sequence Name | Compression Factor | Injection Time | Notes |
-| :--- | :--- | :--- | :--- |
-| **`r2b_galileo2`** | ~70% | ~40 sec | High compression achieved. |
-| **`r2b_galileo`** | ~1% | ~20 sec | **Low Compression:** Source contains pre-compressed images. <br> **Skipped Topics:** `/chassis/ticks` (No adapter available). |
-| **`r2b_robotarm`** | ~66% | ~50 sec | High compression achieved. |
-| **`r2b_whitetunnel`** | ~1% | ~20 sec | **Low Compression:** Source contains pre-compressed images. <br> **Skipped Topics:** `/chassis/ticks` (No adapter available). |
+#### NVIDIA R2B Dataset 2024 Injection Performance
+
+| Sequence Name | Compression Factor | Injection Time | Hardware Architecture | Notes |
+| --- | --- | --- | --- | --- |
+| **`r2b_galileo2`** | ~70% | ~40 sec | Apple M2 Pro (16GB) | High compression achieved for telemetry data. |
+| **`r2b_galileo`** | ~1% | ~30 sec | Apple M2 Pro (16GB) | Low compression due to pre-compressed source images. |
+| **`r2b_robotarm`** | ~66% | ~50 sec | Apple M2 Pro (16GB) | High efficiency for high-frequency state updates. |
+| **`r2b_whitetunnel`** | ~1% | ~30 sec | Apple M2 Pro (16GB) | Low compression; contains topics with no available adapter. |
+
+#### Understanding Performance Factors
+
+* **Compression Factors**: Sequences like `r2b_galileo2` achieve high ratios (~70%) because Mosaico optimizes the underlying columnar storage for scalar telemetry. Conversely, sequences with pre-compressed video feeds show minimal gains (~1%) because the data is already in a dense format.
+* **Injection Time**: This metric includes the overhead of local MCAP/DB3 deserialization via `ROSLoader`, semantic translation through the `ROSBridge`, and the asynchronous transmission to the Mosaico server.
+* **Hardware Impact**: On the **Apple M2 Pro**, the `RosbagInjector` utilizes multi-threading for the **Adaptation Layer**, allowing serialization tasks to run in parallel while the main thread manages the Flight stream.
 
 #### Known Issues & Limitations
 

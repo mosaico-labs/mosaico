@@ -24,7 +24,7 @@ Typical usage as a library:
 import argparse
 import json
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple, Type
 from rich.live import Live
@@ -57,30 +57,41 @@ logger = get_logger(__name__)
 @dataclass
 class ROSInjectionConfig:
     """
-    Configuration object for the ROS Bag Injection process.
+    The central configuration object for the ROS Bag injection process.
 
-    This data class serves as the single source of truth for the injection settings,
-    decoupling the `RosbagInjector` logic from the source of the configuration
-    (CLI arguments, config file, or hardcoded values).
+    This data class serves as the single source of truth for all injection settings,
+    decoupling the orchestration logic from CLI arguments or configuration files.
+    It encapsulates network parameters, file paths, and advanced filtering logic required
+    to drive a successful ingestion session.
 
     Attributes:
-        file_path (Path): Path to the input ROS bag file (.mcap, .db3, .bag).
-        sequence_name (str): The name of the target sequence to create on the server.
-        metadata (dict): User-defined metadata to attach to the sequence (e.g., {"driver": "John"}).
-        host (str): Hostname of the Mosaico server (default: "localhost").
-        port (int): Port of the Mosaico server (default: 6726).
-        ros_distro (Optional[Stores]): The specific ROS distribution to use for message parsing
-                                       (e.g., Stores.ROS2_HUMBLE). If None, defaults to Empty/Auto.
-        on_error (OnErrorPolicy): Behavior when a write fails (Report vs Delete).
-        custom_msgs (List): A list of tuples (package_name, path, store) to register
-                            custom .msg definitions before loading.
-                            For example, for "my_robot_msgs/msg/Frame" pass:
-                                package_name = "my_robot_msgs"
-                                path = path/to/Frame.msg
-                                store = Stores.ROS2_HUMBLE (e.g.)
-        topics (Optional[List[str]]): A list of specific topics to filter (supports glob patterns).
-                                      If None, all compatible topics are loaded.
-        log_level (str): Logging verbosity ("DEBUG", "INFO", "WARNING", "ERROR").
+        file_path (Path): Absolute or relative path to the input ROS bag file (.mcap, .db3, or .bag).
+        sequence_name (str): The name for the new sequence to be created on the Mosaico server.
+        metadata (dict): User-defined metadata to attach to the sequence (e.g., driver, weather, location).
+        host (str): Hostname or IP of the Mosaico server. Defaults to "localhost".
+        port (int): Port of the Mosaico server. Defaults to 6726.
+        ros_distro (Optional[Stores]): The target ROS distribution for message parsing (e.g., Stores.ROS2_HUMBLE).
+            See [`rosbags.typesys.Stores`](https://ternaris.gitlab.io/rosbags/topics/typesys.html#type-stores).
+        on_error (OnErrorPolicy): Behavior when an ingestion error occurs (Delete the partial sequence or Report the error).
+        custom_msgs (Optional[List[Tuple]]): List of custom .msg definitions to register before loading.
+        topics (Optional[List[str]]): List of topics to filter, supporting glob patterns (e.g., ["/cam/*"]).
+        log_level (str): Logging verbosity level ("DEBUG", "INFO", "WARNING", "ERROR").
+
+    Example:
+        ```python
+        from pathlib import Path
+        from rosbags.typesys import Stores
+        from mosaicolabs.enum import OnErrorPolicy
+        from mosaicolabs.ros_bridge import ROSInjectionConfig
+
+        config = ROSInjectionConfig(
+            file_path=Path("recording.mcap"),
+            sequence_name="test_drive_01",
+            metadata={"environment": "urban", "vehicle": "robot_alpha"},
+            ros_distro=Stores.ROS2_FOXY,
+            on_error=OnErrorPolicy.Delete
+        )
+        ```
     """
 
     file_path: Path
@@ -90,18 +101,24 @@ class ROSInjectionConfig:
     port: int = 6726
 
     ros_distro: Optional[Stores] = None
-    """The specific ROS distribution to use for message parsing (e.g., Stores.ROS2_HUMBLE). If None, defaults to Empty/Auto."""
+    """
+    The specific ROS distribution to use for message parsing (e.g., Stores.ROS2_HUMBLE). If None, defaults to Empty/Auto.
+
+    See [`rosbags.typesys.Stores`](https://ternaris.gitlab.io/rosbags/topics/typesys.html#type-stores).
+    """
 
     on_error: OnErrorPolicy = OnErrorPolicy.Delete
-    """Behavior when a sequence write fails (Report vs Delete)"""
+    """the `SequenceWriter` `on_error` behavior when a sequence write fails (Report vs Delete)"""
 
-    custom_msgs: List[Tuple[str, Path, Optional[Stores]]] = field(default_factory=list)
+    custom_msgs: Optional[List[Tuple[str, Path, Optional[Stores]]]] = None
     """
     A list of tuples (package_name, path, store) to register custom .msg definitions before loading.
 
     For example, for "my_robot_msgs/msg/Location" pass: 
 
     package_name = "my_robot_msgs"; path = path/to/Location.msg; store = Stores.ROS2_HUMBLE (e.g.) or None
+
+    See [`rosbags.typesys.Stores`](https://ternaris.gitlab.io/rosbags/topics/typesys.html#type-stores).
     """
 
     topics: Optional[List[str]] = None
@@ -115,11 +132,18 @@ class ROSInjectionConfig:
 
 class ProgressManager:
     """
-    Manages the Rich progress bars for the injection process.
+    Visual management system for ROS injection tracking.
 
-    This class decouples the visual presentation logic from the data processing logic.
-    It handles the creation and updating of multiple progress bars (one per topic
-    plus a global total) within a `rich.Live` context.
+    This class decouples the UI presentation logic from the data processing pipeline.
+    It utilizes the `rich` library to provide real-time feedback through multi-lane progress bars,
+    tracking individual topic throughput and aggregate global progress.
+
+
+    Methods:
+        setup(): Initializes the progress tracking tasks by querying message counts from the loader.
+        update_status(topic, status, style): Modifies the label of a specific topic bar (e.g., to show "No Adapter").
+        advance_global(): Increments the master progress bar without affecting individual topic bars.
+        advance_all(topic): Increments both the specific topic task and the global master task.
     """
 
     def __init__(self, loader: ROSLoader):
@@ -195,14 +219,35 @@ class ProgressManager:
 
 class RosbagInjector:
     """
-    Controller class for the ROS Bag injection workflow.
+    Main controller for the ROS Bag ingestion workflow.
 
-    This class orchestrates the entire pipeline:
-    1.  Connecting to the Mosaico Server.
-    2.  Opening the ROS bag.
-    3.  Iterating through messages.
-    4.  Adapting messages to Mosaico format.
-    5.  Writing data to the server.
+    The `RosbagInjector` orchestrates the entire data pipeline from the physical storage
+    to the remote Mosaico server. It manages the initialization of the registry,
+    establishes network connections, and drives the main adaptation loop.
+
+    **Core Workflow Architecture:**
+
+    1.  **Registry Initialization**: Pre-loads custom message definitions via the `ROSTypeRegistry`.
+    2.  **Resource Management**: Opens the `ROSLoader` for file access and the `MosaicoClient` for networking.
+    3.  **Stream Negotiation**: Creates a `SequenceWriter` on the server and opens individual `TopicWriter` streams.
+    4.  **Adaptation Loop**: Iterates through ROS records, translates them via the `ROSBridge`, and pushes them to the server.
+
+    Example:
+        ```python
+        from mosaicolabs.ros_bridge import RosbagInjector, ROSInjectionConfig
+
+        # Define configuration
+        config = ROSInjectionConfig(file_path=Path("data.db3"), sequence_name="auto_ingest")
+
+        # Initialize and run
+        injector = RosbagInjector(config)
+        injector.run() # This handles the full lifecycle including cleanup on failure
+        ```
+
+    Attributes:
+        cfg (ROSInjectionConfig): The active configuration settings.
+        console (Console): The rich console instance for logging and UI output.
+        _ignored_topics (Set[str]): Cache of topics that lack a compatible adapter, used for fast-fail filtering.
     """
 
     def __init__(self, config: ROSInjectionConfig):
@@ -224,8 +269,10 @@ class RosbagInjector:
 
     def _register_custom_types(self):
         """
-        Pre-loads custom ROS message definitions into the global registry.
-        This enables the `ROSLoader` to deserialize non-standard message types found in the bag.
+        Loads custom ROS message definitions into the global `ROSTypeRegistry`.
+
+        This enables the loader to correctly deserialize proprietary message types
+        found within the bag file.
         """
         if not self.cfg.custom_msgs:
             return
@@ -255,10 +302,15 @@ class RosbagInjector:
 
     def run(self):
         """
-        Main execution entry point.
+        Main execution entry point for the injection pipeline.
 
-        Establishes all necessary contexts (Client, Loader, Writer, UI) and
-        runs the processing loop. Handles graceful shutdowns on interrupts.
+        This method establishes the necessary contexts (Network Client, File Loader, Server Writer)
+        and executes the processing loop. It handles graceful shutdowns in case of
+        user interrupts and provides a summary report upon completion.
+
+        Raises:
+            KeyboardInterrupt: If the user cancels the operation via Ctrl+C.
+            Exception: Any fatal error encountered during networking or file access.
         """
         # 1. Prepare Registry
         self._register_custom_types()
@@ -327,7 +379,12 @@ class RosbagInjector:
             return
 
     def _print_summary(self, original_size: int, remote_size: int):
-        """Calculates and prints the compression summary using Rich."""
+        """
+        Calculates and displays the ingestion performance summary.
+
+        Outputs the original file size, the remote sequence size, the compression ratio,
+        and the percentage of disk space saved.
+        """
         if remote_size == 0:
             logger.warning("No data was written; cannot calculate compression ratio.")
             return
@@ -365,14 +422,14 @@ class RosbagInjector:
         ui: ProgressManager,
     ):
         """
-        Business logic for processing a single ROS message.
+        Internal business logic for processing a single ROS message.
 
         Steps:
-        1. Check if topic is ignored (fast fail).
-        2. Validate message data integrity.
-        3. Retrieve/Validate the Mosaico Adapter.
-        4. Retrieve/Create the TopicWriter.
-        5. Adapt and Push the data.
+        1. **Filter**: Checks if the topic is blacklisted (e.g., no adapter found).
+        2. **Validate**: Checks for deserialization errors or empty payloads.
+        3. **Resolve**: Locates the appropriate Mosaico Adapter for the message type.
+        4. **Stream**: Obtains or creates a `TopicWriter` for the specific topic.
+        5. **Adapt & Push**: Translates the ROS dictionary into a Mosaico object and pushes it to the server buffer.
         """
 
         # --- Filter Check ---

@@ -7,7 +7,7 @@ This example provides a detailed, step-by-step walkthrough of a complete Mosaico
 3. **Automate Ingestion**: Use a high-performance injector to upload a complete recording (MCAP) to the server.
 4. **Verify Results**: Programmatically inspect the ingested data to ensure structural integrity.
 
-The injected sequence is available at [NVIDIA R2B Dataset 2024](https://catalog.ngc.nvidia.com/orgs/nvidia/teams/isaac/resources/r2bdataset2024?version=1).
+The injected sequence is the `r2b_whitetunnel_0` sequence from the [NVIDIA R2B Dataset 2024](https://catalog.ngc.nvidia.com/orgs/nvidia/teams/isaac/resources/r2bdataset2024?version=1).
 
 
 ## Running the example
@@ -60,11 +60,13 @@ Total Upload                                       ━━━━━━━━━�
 ...Other logging messages
 ```
 
-## Step 1: Custom Ontology Definition (`isaac.py`)
+## Step-by-Step Guide
 
-In Mosaico, data is not just "blobs"; it is strongly typed. When dealing with specialized hardware like the NVIDIA Isaac Nova encoders, we must define a model that the platform understands.
+### Step 1: Custom Ontology Definition (`isaac.py`)
 
-### The Data Model
+In Mosaico, data is not just "blobs"; it is strongly typed. When dealing with specialized hardware like the NVIDIA Isaac Nova encoders, with custom data models, not available in the SDK, we must define a model that the platform understands.
+
+#### The Data Model
 
 The `EncoderTicks` class defines the physical storage format.
 
@@ -89,15 +91,17 @@ class EncoderTicks(Serializable, HeaderMixin):
 
 **What is happening here?**
 
-* **`Serializable`**: Inheriting from this class automatically registers your model in the Mosaico ecosystem, making it dispatchable to the data platform, and enables the `.Q` query proxy.
-* **`HeaderMixin`**: This "injects" a standard `header` (including a timestamp and frame ID) into your model, ensuring it remains compatible with time-series analysis.
+* **[`Serializable`](../ontology.md)**: Inheriting from this class automatically registers your model in the Mosaico ecosystem, making it dispatchable to the data platform, and enables the `.Q` query proxy.
+* **[`HeaderMixin`](../ontology.md)**: This "injects" a standard `header` (including a timestamp and frame ID) into your model, ensuring it remains compatible with time-series analysis.
 * **Schema Alignment**: The field names in the `pa.struct` (binary format) **must match exactly** the names of the Python attributes.
 
-## Step 2: Implementing the ROS Adapter (`isaac_adapters.py`)
+### Step 2: Implementing the ROS Adapter (`isaac_adapters.py`)
 
 A ROS Bag contains raw data dictionaries. To ingest them, we need an "Adapter" that acts as a semantic translator between the ROS world and the Mosaico Ontology.
+The [`ROSAdapterBase`][mosaicolabs.ros_bridge.ROSAdapterBase] class provides the necessary infrastructure for this. We just need to implement the `from_dict` method, which is responsible for converting the raw ROS message dictionary into our custom ontology model.
+The adaptation between the ROS message and the Mosaico message is done via the `translate` method, which is inherited from the `ROSAdapterBase` class, which is called by the [`RosbagInjector`][mosaicolabs.ros_bridge.RosbagInjector] class for each message in the bag.
 
-### The Adapter Implementation
+#### The Adapter Implementation
 
 ```python
 from mosaicolabs.ros_bridge import ROSMessage, ROSAdapterBase, register_adapter
@@ -123,6 +127,13 @@ class EncoderTicksAdapter(ROSAdapterBase[EncoderTicks]):
             encoder_timestamp=ros_data["encoder_timestamp"],
         )
 
+    @classmethod
+    def translate(cls, ros_msg: ROSMessage, **kwargs: Any) -> Message:
+        """
+        Translates a ROS EncoderTicks message into a Mosaico Message container.
+        """
+        return super().translate(ros_msg, **kwargs)
+
 ```
 
 **Key Operations:**
@@ -130,26 +141,19 @@ class EncoderTicksAdapter(ROSAdapterBase[EncoderTicks]):
 * **`@register_adapter`**: This decorator tells the Mosaico ROS Bridge: "Whenever you see a message of type `isaac_ros_nova_interfaces/msg/EncoderTicks`, use this class to translate it".
 * **`_validate_msgdata`**: This ensures the raw ROS message actually contains the fields we expect (`left_ticks`, etc.) before we try to process it.
 * **`from_dict`**: This is the heart of the translator. It takes a Python dictionary and maps the keys to our `EncoderTicks` ontology model.
+* **`translate`**: This method is called by the `RosbagInjector` class for each message in the bag. It is responsible for converting the raw ROS message dictionary into the Mosaico message,
+wrapping thecustom ontology model.
 
 
-## Step 3: The Execution Pipeline (`ros_injection.py`)
+### Step 3: The Execution Pipeline (`ros_injection.py`)
 
 The main script orchestrates the entire process in three distinct phases.
 
-### Phase 1: Asset Preparation
+#### Phase 1: Asset Preparation
 
 Before we can ingest data, we need the raw file. This phase downloads a verified dataset from NVIDIA.
 
 ```python
-# NVIDIA R2B Dataset 2024 - Verified compatible with Mosaico
-BAGFILE_URL = "..."
-
-def download_asset(url: str, target_dir: Path) -> Path:
-    # ... logic to download with a progress bar ...
-    return file_path
-
-# ...
-
 # --- PHASE 1: Asset Preparation ---
 try:
     out_bag_file = download_asset(BAGFILE_URL, ASSET_DIR)
@@ -158,7 +162,7 @@ except Exception as e:
     sys.exit(1)
 ```
 
-### Phase 2: High-Performance Injection
+#### Phase 2: High-Performance Injection
 
 This is where the ROS Bridge takes over. It opens the bag, applies our custom `EncoderTicksAdapter`, plus the adapters already available in the SDK, and streams the data to the server.
 
@@ -170,6 +174,7 @@ config = ROSInjectionConfig(
         port=MOSAICO_PORT,
         file_path=out_bag_file,
         sequence_name=out_bag_file.stem,  # Sequence name derived from filename
+        # Some example metadata for the sequence
         metadata={
             "source_url": BAGFILE_URL,
             "ingested_via": "mosaico_example_ros_injection",
@@ -192,7 +197,7 @@ Inside its logics, the **[`RosbagInjector`][mosaicolabs.ros_bridge.RosbagInjecto
 * **Adapt** the messages to the Mosaico Ontology using the provided adapters.
 * **Spawn Topic writers** via the `SequenceWriter.topic_create()` API to write the adapted messages to the server in batches, via the `TopicWriter.push()` method.
 
-### Phase 3: Verification & Retrieval
+#### Phase 3: Verification & Retrieval
 
 Once the upload is finished, we connect to the Mosaico Server to retrieve the data from the sequence just created.
 
