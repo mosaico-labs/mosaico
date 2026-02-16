@@ -39,7 +39,7 @@ def test_read_non_existing_sequence_and_topic(_client: MosaicoClient):
 
 def test_sequence_writer_not_in_context(_client: MosaicoClient):
     swriter = _client.sequence_create("new-sequence", metadata={})
-    assert swriter.sequence_status() == SequenceStatus.Null
+    assert swriter.sequence_status == SequenceStatus.Null
     with pytest.raises(
         RuntimeError, match="SequenceWriter must be used within a 'with' block."
     ):

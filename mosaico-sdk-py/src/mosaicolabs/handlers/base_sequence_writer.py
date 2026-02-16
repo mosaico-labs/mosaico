@@ -349,6 +349,7 @@ class BaseSequenceWriter(ABC):
 
         return writer
 
+    @property
     def sequence_status(self) -> SequenceStatus:
         """
         Returns the current operational status of the sequence.

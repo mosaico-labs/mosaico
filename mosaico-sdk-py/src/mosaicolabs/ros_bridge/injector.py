@@ -40,7 +40,7 @@ from rich.progress import (
 from rosbags.typesys import Stores
 
 from mosaicolabs.comm.mosaico_client import MosaicoClient
-from mosaicolabs.enum import OnErrorPolicy
+from mosaicolabs.enum import OnErrorPolicy, SequenceStatus
 from mosaicolabs.handlers import SequenceWriter
 from mosaicolabs.logging_config import get_logger, setup_sdk_logging
 
@@ -283,11 +283,12 @@ class RosbagInjector:
                     ui.setup()
 
                     # Context: Sequence Writer (Server Transaction)
-                    with mclient.sequence_create(
+                    seq_writer = mclient.sequence_create(
                         sequence_name=self.cfg.sequence_name,
                         metadata=self.cfg.metadata,
                         on_error=self.cfg.on_error,
-                    ) as seq_writer:
+                    )
+                    with seq_writer:
                         logger.info("Starting upload...")
 
                         # Main Processing Loop
@@ -297,7 +298,13 @@ class RosbagInjector:
                             for ros_msg, exc in ros_loader:
                                 self._process_message(ros_msg, exc, seq_writer, ui)
 
-                logger.info("Injection completed successfully.")
+                if seq_writer.sequence_status == SequenceStatus.Error:
+                    logger.error(
+                        "`SequenceWriter` returned a `SequenceStatus.Error` status. Upload might have failed!"
+                    )
+                    return
+
+                logger.info("Sequence upload completed successfully.")
 
                 # Retrieve the sequence info
                 seq_handler = mclient.sequence_handler(self.cfg.sequence_name)

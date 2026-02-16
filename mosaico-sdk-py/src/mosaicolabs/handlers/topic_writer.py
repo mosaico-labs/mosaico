@@ -426,6 +426,8 @@ class TopicWriter:
                 self._error_report(str(error))
             self._wrstate.close(with_error=with_error)
         except Exception as e:
+            # Close the writer anyway to prevent further operations
+            self._wrstate.writer = None
             raise _make_exception(
                 exc_msg=e,
                 msg=f"Error finalizing TopicWriter '{self._name}'.",
