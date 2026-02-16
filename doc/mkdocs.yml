@@ -58,6 +58,8 @@ nav:
     - Bridges:
         - SDK/bridges/ml.md
         - SDK/bridges/ros.md
+    - Examples:
+        - SDK/examples/ros_injection_1.md
     - Python API Reference:
       - SDK/API_reference/comm.md
       - SDK/API_reference/enum.md

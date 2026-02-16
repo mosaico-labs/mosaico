@@ -149,27 +149,7 @@ class GenericStdAdapter(ROSAdapterBase[Serializable]):
         This method extracts the header/timestamp and wraps the payload using
         the specific ontology type defined for this adapter class.
         """
-        # Extract optional ROS header if present (std_msgs usually don't have one,
-        # but custom variants might).
-        header: Optional[ROSHeader] = getattr(ros_msg, "header", None)
-        message_header = header.translate() if header else None
-
-        # Optimization: We directly use `cls.from_dict` which uses the
-        # class-bound `__mosaico_ontology_type__`. No runtime lookup is needed.
-        if ros_msg.data is None:
-            raise Exception(
-                f"'data' attribute in ROSMessage is None. Cannot translate! Ros topic '{ros_msg.topic}' @time: {ros_msg.bag_timestamp_ns}"
-            )
-        try:
-            return Message(
-                message_header=message_header,
-                timestamp_ns=getattr(ros_msg, "timestamp"),
-                data=cls.from_dict(getattr(ros_msg, "data")),
-            )
-        except Exception as e:
-            raise Exception(
-                f"Raised Exception while translating ros topic '{ros_msg.topic}' @time: {ros_msg.bag_timestamp_ns}.\nInner err: '{e}'"
-            )
+        return super().translate(ros_msg, **kwargs)
 
     @classmethod
     def from_dict(cls, ros_data: dict) -> Serializable:

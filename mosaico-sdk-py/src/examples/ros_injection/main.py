@@ -17,8 +17,7 @@ from typing import Optional
 from urllib.parse import parse_qs, urlparse
 from urllib.request import Request, urlopen
 
-# NOTE: The Before starting Phase 2, the custom adapter must be registered
-
+# NOTE: The Before starting Phase 2, the custom adapter must be registered. See __init__.py
 from rich.console import Console
 from rich.panel import Panel
 from rich.progress import (
@@ -110,7 +109,7 @@ def run_pipeline():
     # --- PHASE 1: Asset Preparation ---
     try:
         downloaded_time = Time.now()
-        out_file = download_asset(BAGFILE_URL, ASSET_DIR)
+        out_bag_file = download_asset(BAGFILE_URL, ASSET_DIR)
     except Exception as e:
         log.error(f"Failed to prepare asset: {e}")
         sys.exit(1)
@@ -121,14 +120,15 @@ def run_pipeline():
     config = ROSInjectionConfig(
         host=MOSAICO_HOST,
         port=MOSAICO_PORT,
-        file_path=out_file,
-        sequence_name=out_file.stem,  # Sequence name derived from filename
+        # on_error=OnErrorPolicy.Report,
+        file_path=out_bag_file,
+        sequence_name=out_bag_file.stem,  # Sequence name derived from filename
         metadata={
             "source_url": BAGFILE_URL,
             "ingested_via": "mosaico_example_ros_injection",
             "download_time_utc": str(downloaded_time),
         },
-        # Optional: topics=["/camera/*"] to filter only vision data
+        # topics=["/back_stereo_camera/left/image_compressed"],
         log_level="INFO",
     )
 
@@ -146,7 +146,7 @@ def run_pipeline():
 
     with MosaicoClient.connect(host=MOSAICO_HOST, port=MOSAICO_PORT) as client:
         # Retrieve a SequenceHandler for the newly ingested data
-        shandler = client.sequence_handler(out_file.stem)
+        shandler = client.sequence_handler(out_bag_file.stem)
 
         if not shandler:
             console.print(
@@ -165,12 +165,22 @@ def run_pipeline():
         for topic in shandler.topics:
             console.print(f"  - {topic}")
 
-        # Optional: Detailed system info including lock status
-        sys_info = client.sequence_system_info(shandler.name)
-        if sys_info:
+        # Retrieve a TopicHandler for a specific topic
+        topic_name = "/front_stereo_imu/imu"
+        tchandler = shandler.get_topic_handler(topic_name)
+
+        if not tchandler:
             console.print(
-                f"• [bold]Lock Status:[/bold]   {'Locked' if sys_info.is_locked else 'Unlocked'}"
+                f"[bold red]Error:[/bold red] Could not retrieve topic handler {topic_name}"
             )
+            return
+
+        # Display topic diagnostics
+        console.print(f"• [bold]Topic Name:[/bold] {tchandler.name}")
+        console.print(f"• [bold]Topic Ontology Tag:[/bold] {tchandler.ontology_tag}")
+        console.print(
+            f"• [bold]Topic Timestamps Range:[/bold] {tchandler.timestamp_ns_min} - {tchandler.timestamp_ns_max}"
+        )
 
 
 if __name__ == "__main__":

@@ -26,12 +26,8 @@ The [`DataFrameExtractor`][mosaicolabs.ml.DataFrameExtractor] is a specialized u
 * **Memory-Efficient Windowing**: Uses a generator-based approach to yield data in time-based "chunks" (e.g., 5-second windows) while handling straddling batches via a carry-over buffer.
 * **Sparse Merging**: Creates a "sparse" DataFrame containing the union of all timestamps, using `NaN` for missing sensor readings at specific intervals.
 
-### Quick Reference
 API Reference: [`mosaicolabs.ml.DataFrameExtractor`][mosaicolabs.ml.DataFrameExtractor]
 
-| Method | Description |
-| --- | --- |
-| **[`to_pandas_chunks(topics, window_sec, ...)`][mosaicolabs.ml.DataFrameExtractor.to_pandas_chunks]** | The primary entry point for converting Mosaico data into windowed Pandas DataFrames. |
 
 This example demonstrates iterating through a sequence in 10-second tabular chunks.
 
@@ -95,6 +91,7 @@ Unlike standard resamplers that treat each data batch in isolation, this transfo
 * **Vectorized Performance**: Internal kernels leverage high-speed lookups for high-throughput processing.
 * **Protocol-Based Extensibility**: The mathematical logic for resampling is decoupled through a `SynchPolicy` protocol, allowing for custom kernel injection.
 
+API Reference: [`mosaicolabs.ml.SyncTransformer`][mosaicolabs.ml.SyncTransformer]
 
 ### Implemented Synchronization Policies
 
@@ -115,16 +112,7 @@ Each policy defines a specific logic for how the transformer bridges temporal ga
 * **Behavior**: Ensures a grid tick only receives a value if a new measurement actually occurred within that specific grid interval; otherwise, it returns `None`.
 * **Best For**: Downsampling high-frequency data where a strict 1-to-1 relationship between windows and unique hardware events is required.
 
-### Quick Reference
-API Reference: [`mosaicolabs.ml.SyncTransformer`][mosaicolabs.ml.SyncTransformer]
-
-| Method | Description |
-| --- | --- |
-| **[`__init__`][mosaicolabs.ml.SyncTransformer]** | Initializes the transformer with a target frequency (`target_fps`) and a `SynchPolicy`. |
-| **[`fit(X, y=None)`][mosaicolabs.ml.SyncTransformer.fit]** | Captures the initial timestamp from the first chunk to align the grid and initialize state. |
-| **[`transform(X)`][mosaicolabs.ml.SyncTransformer.transform]** | Executes temporal resampling logic on a sparse chunk to produce a dense, grid-aligned DataFrame. |
-| **[`fit_transform(X, y=None)`][mosaicolabs.ml.SyncTransformer.fit_transform]** | Chains the `fit` and `transform` operations. |
-| **[`reset()`][mosaicolabs.ml.SyncTransformer.reset]** | Clears internal temporal state and cached values to start a new session. |
+API Reference: [`mosaicolabs.ml.SynchPolicy`][mosaicolabs.ml.SyncPolicy]
 
 ### Scikit-Learn Compatibility
 

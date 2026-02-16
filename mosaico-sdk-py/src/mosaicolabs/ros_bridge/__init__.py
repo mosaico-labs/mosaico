@@ -5,7 +5,6 @@ from .ros_message import ROSMessage as ROSMessage, ROSHeader as ROSHeader
 from .injector import (
     RosbagInjector as RosbagInjector,
     ROSInjectionConfig as ROSInjectionConfig,
-    Stores as Stores,
 )
 
 

@@ -78,16 +78,7 @@ The `TopicWriter` handles the actual data transmission for a single stream. It a
 
   * **`push(message: Optional[Message] = None, message_timestamp_ns: Optional[int] = None, ontology_obj: Optional[Serializable] = None, ...) -> None`**
     Adds a new record to the internal write buffer. If the buffer exceeds the configured limits (`max_batch_size_bytes` or `max_batch_size_records`), it triggers a flush to the server.
-
-    *Usage Mode A (Recommended):*
-
       * **`message`**: A complete `Message` object containing the data and timestamp.
-
-    *Usage Mode B (Components):*
-
-      * **`ontology_obj`**: The payload object (must match the topic's ontology type).
-      * **`message_timestamp_ns`**: The timestamp of the record in nanoseconds.
-      * **`message_header`** *(Optional)*: Additional header information.
 
 **State Management**
 

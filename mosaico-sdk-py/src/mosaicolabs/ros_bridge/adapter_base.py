@@ -36,7 +36,6 @@ class ROSAdapterBase(ABC, Generic[T]):
         return cls.ros_msgtype
 
     @classmethod
-    @abstractmethod
     def translate(cls, ros_msg: ROSMessage, **kwargs: Any) -> Message:
         """
         Translates a ROS message instance into a Mosaico Message.
@@ -50,6 +49,29 @@ class ROSAdapterBase(ABC, Generic[T]):
 
         Returns:
             A Mosaico Message object containing the instantiated ontology data.
+        """
+        if ros_msg.data is None:
+            raise Exception(f"'data' attribute is None for topic {ros_msg.topic}")
+
+        msg_header = ros_msg.header.translate() if ros_msg.header else None
+        try:
+            return Message(
+                timestamp_ns=msg_header.stamp.to_nanoseconds()
+                if msg_header
+                else ros_msg.bag_timestamp_ns,
+                data=cls.from_dict(ros_msg.data),
+                recording_timestamp_ns=ros_msg.bag_timestamp_ns,
+            )
+        except Exception as e:
+            raise Exception(f"Translation failed for {ros_msg.topic}: {e}")
+
+    @classmethod
+    @abstractmethod
+    def from_dict(cls, ros_data: dict) -> "Serializable":
+        """
+        Maps the raw ROS dictionary to the EncoderTicks Pydantic model.
+
+        This method performs field validation and header reconstruction.
         """
         pass
 
