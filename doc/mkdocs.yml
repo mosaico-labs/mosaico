@@ -46,18 +46,21 @@ nav:
   - SDK:
     - SDK/index.md
     - SDK/install.md
-    - SDK/client.md
-    - SDK/ontology.md
-    - Data Handling:
-      - SDK/handling/data-handling.md
-      - SDK/handling/writing.md
-      - SDK/handling/reading.md
-    - SDK/query.md
-    - Bridges:
-        - SDK/bridges/ml.md
-        - SDK/bridges/ros.md
-    - Examples:
-        - SDK/examples/ros_injection_1.md
+    - How To:
+      - SDK/howto/serialized_writing_from_csv.md
+      - SDK/howto/serialized_writing_from_multi_csv.md
+      - SDK/howto/ros_injection_1.md
+    - In Depth:
+      - SDK/client.md
+      - SDK/ontology.md
+      - Data Handling:
+        - SDK/handling/data-handling.md
+        - SDK/handling/writing.md
+        - SDK/handling/reading.md
+      - SDK/query.md
+      - Bridges:
+          - SDK/bridges/ml.md
+          - SDK/bridges/ros.md
     - Python API Reference:
       - SDK/API_reference/comm.md
       - SDK/API_reference/enum.md

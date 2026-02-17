@@ -359,6 +359,11 @@ class TopicWriter:
         except Exception as e:
             self._handle_exception_and_raise(e, "Error during TopicWriter.push")
 
+    @property
+    def name(self) -> str:
+        """Returns the name of the topic"""
+        return self._name
+
     def finalized(self) -> bool:
         """
         Returns `True` if the data stream has been finalized and the writer is closed.
