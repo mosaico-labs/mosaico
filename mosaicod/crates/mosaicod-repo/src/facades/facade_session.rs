@@ -46,7 +46,7 @@ impl FacadeSession {
         todo!();
     }
 
-    async fn manifest_write_to_store(&self) -> Result<(), FacadeError> {
-        todo!();
-    }
+    // async fn manifest_write_to_store(&self) -> Result<(), FacadeError> {
+    //     todo!();
+    // }
 }

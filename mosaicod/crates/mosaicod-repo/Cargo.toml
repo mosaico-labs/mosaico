@@ -29,3 +29,7 @@ sqlx = { workspace = true }
 url = { workspace = true }
 uuid = { workspace = true }
 serde_json = { workspace = true }
+
+[dev-dependencies]
+mosaicod-store = { workspace = true, features = ["testing"] }
+mosaicod-repo  = { workspace = true, features = ["testing"] }

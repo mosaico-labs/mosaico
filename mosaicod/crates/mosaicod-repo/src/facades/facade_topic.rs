@@ -42,22 +42,30 @@ impl FacadeTopic {
     /// the repository transaction is rolled back, restoring the previous state.
     pub async fn create(
         &self,
-        sequence: &types::Uuid,
+        session: &types::Uuid,
         metadata: Option<FacadeTopicMetadata>,
     ) -> Result<types::Identifiers, FacadeError> {
         let mut tx = self.repo.transaction().await?;
 
-        // Ensure that a sequence with the provided id is available
-        let srecord = repo::sequence_find_by_uuid(&mut tx, sequence).await?;
-        let sloc = types::SequenceResourceLocator::from(&srecord.locator_name);
+        // Ensure that uuid points to a unlocked session
+        let ses_rec = repo::session_find_by_uuid(&mut tx, session).await?;
+        if ses_rec.is_locked() {
+            return Err(FacadeError::SessionLocked);
+        }
 
-        // Ensure that this topic is child of the provided sequence, i.e. they are related with the same
-        // name structure
-        if !self.locator.is_sub_resource(&sloc) {
+        // Find parent sequence and ensure that this topic is child of the provided
+        // sequence, i.e. they are related with the same name structure
+        let seq_rec = repo::sequence_find_by_id(&mut tx, ses_rec.sequence_id).await?;
+        let seq_loc = types::SequenceResourceLocator::from(&seq_rec.locator_name);
+        if !self.locator.is_sub_resource(&seq_loc) {
             return Err(FacadeError::Unauthorized);
         }
 
-        let mut record = repo::TopicRecord::new(self.locator.name(), srecord.sequence_id);
+        let mut record = repo::TopicRecord::new(
+            self.locator.name(), //
+            seq_rec.sequence_id,
+            ses_rec.session_id,
+        );
 
         if let Some(metadata) = &metadata {
             record = record

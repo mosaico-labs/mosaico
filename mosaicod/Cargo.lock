@@ -118,18 +118,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a23eb6b1614318a8071c9b2521f36b424b2c83db5eb3a0fead4a6c0809af6e61"
 
 [[package]]
-name = "arrayref"
-version = "0.3.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "76a2e8124351fda1ef8aaaa3bbd7ebbcb486bbcd4225aca0aa0d84bb2db8fecb"
-
-[[package]]
-name = "arrayvec"
-version = "0.7.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7c02d123df017efcdfbd739ef81735b36c5ba83ec3c59c80a9d7ecc718f92e50"
-
-[[package]]
 name = "arrow"
 version = "57.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -514,28 +502,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "blake2"
-version = "0.10.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "46502ad458c9a52b69d4d4d32775c788b7a1b85e8bc9d482d92250fc0e3f8efe"
-dependencies = [
- "digest",
-]
-
-[[package]]
-name = "blake3"
-version = "1.8.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3888aaa89e4b2a40fca9848e400f6a658a5a3978de7be858e209cafa8be9a4a0"
-dependencies = [
- "arrayref",
- "arrayvec",
- "cc",
- "cfg-if",
- "constant_time_eq",
-]
-
-[[package]]
 name = "block-buffer"
 version = "0.10.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -761,12 +727,6 @@ dependencies = [
  "once_cell",
  "tiny-keccak",
 ]
-
-[[package]]
-name = "constant_time_eq"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7c74b8349d32d297c9134b8c88677813a227df8f779daa29bfc29c183fe3dca6"
 
 [[package]]
 name = "core-foundation"
@@ -1227,8 +1187,6 @@ dependencies = [
  "arrow",
  "arrow-buffer",
  "base64",
- "blake2",
- "blake3",
  "chrono",
  "chrono-tz",
  "datafusion-common",
@@ -1240,11 +1198,9 @@ dependencies = [
  "hex",
  "itertools",
  "log",
- "md-5",
  "num-traits",
  "rand 0.9.2",
  "regex",
- "sha2",
  "unicode-segmentation",
  "uuid",
 ]
@@ -2597,7 +2553,6 @@ dependencies = [
  "mosaicod-server",
  "mosaicod-store",
  "signal-hook",
- "tokio",
  "url",
 ]
 
@@ -2607,7 +2562,6 @@ version = "0.2.0"
 dependencies = [
  "bytes",
  "chrono",
- "colored",
  "rand 0.9.2",
  "thiserror",
  "url",
@@ -2666,6 +2620,7 @@ dependencies = [
  "mosaicod-core",
  "mosaicod-marshal",
  "mosaicod-query",
+ "mosaicod-repo",
  "mosaicod-rw",
  "mosaicod-store",
  "serde_json",

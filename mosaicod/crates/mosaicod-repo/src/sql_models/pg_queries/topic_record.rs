@@ -11,6 +11,7 @@ fn cast_topic_data(row: PgRow) -> Result<sql_models::TopicRecord, repo::Error> {
         topic_uuid: row.try_get("topic_uuid")?,
         locator_name: row.try_get("locator_name")?,
         sequence_id: row.try_get("sequence_id")?,
+        session_id: row.try_get("session_id")?,
         ontology_tag: row.try_get("ontology_tag")?,
         serialization_format: row.try_get("serialization_format")?,
         user_metadata: row.try_get("user_metadata")?,
@@ -108,16 +109,17 @@ pub async fn topic_create(
         r#"
             INSERT INTO topic_t
                 (
-                    topic_uuid, sequence_id, locator_name, creation_unix_tstamp, 
+                    topic_uuid, sequence_id, session_id, locator_name, creation_unix_tstamp, 
                     serialization_format, ontology_tag, locked, user_metadata
                 ) 
             VALUES 
-                ($1, $2, $3, $4, $5, $6, $7, $8) 
+                ($1, $2, $3, $4, $5, $6, $7, $8, $9) 
             RETURNING 
                 *
     "#,
         record.topic_uuid,
         record.sequence_id,
+        record.session_id,
         record.locator_name,
         record.creation_unix_tstamp,
         record.serialization_format,
@@ -233,8 +235,8 @@ pub async fn topic_from_query_filter(
     let select = r#"
         SELECT topic.*
         FROM topic_t topic
-        INNER JOIN sequence_t sequence 
-        ON topic.sequence_id = sequence.sequence_id
+        INNER JOIN sequence_t sequence
+            ON topic.sequence_id = sequence.sequence_id
     "#;
 
     let mut qb = query::ClausesCompiler::new();

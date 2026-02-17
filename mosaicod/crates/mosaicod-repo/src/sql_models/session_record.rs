@@ -58,4 +58,9 @@ impl SessionRecord {
         self.completion_unix_tstamp
             .map(|t| types::Timestamp::from(t))
     }
+
+    /// Returns true if the session is locked (immutable)
+    pub fn is_locked(&self) -> bool {
+        self.locked
+    }
 }

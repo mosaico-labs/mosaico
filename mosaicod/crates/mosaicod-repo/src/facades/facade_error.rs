@@ -24,6 +24,8 @@ pub enum FacadeError {
     MarshallingError(#[from] mosaicod_marshal::Error),
     #[error("topic locked, unable to perform modifications")]
     TopicLocked,
+    #[error("session locked, unable to perform modifications")]
+    SessionLocked,
     #[error("topic unlocked, unable to perform the requested operation over an unlocked topic")]
     TopicUnlocked,
     #[error("unimplemented")]
