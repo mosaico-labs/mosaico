@@ -30,7 +30,7 @@ impl std::fmt::Display for IdLookup {
     }
 }
 
-/// Defines the different ways a resource can be looked up.
+/// Defines the different ways a resource (topic, sequence and sessions) can be looked up.
 pub enum ResourceLookup {
     /// Lookup by the internal numeric ID.
     Id(i32),
@@ -229,6 +229,7 @@ impl TopicProperties {
 ///
 /// This struct provides a snapshot of the topic's physical state on disk, including
 /// its size, structure, and lifecycle status.
+/// (cabba) FIXME: remove this
 pub struct TopicSystemInfo {
     /// Number of chunks in the topic
     pub chunks_number: usize,
@@ -290,6 +291,12 @@ impl TopicManifestTimestamp {
 /// human-readable and stable identifier for the sequence.
 #[derive(Debug, Clone)]
 pub struct SequenceResourceLocator(String);
+
+impl SequenceResourceLocator {
+    pub fn session_manifest(&self, uuid: &super::Uuid) -> String {
+        format!("session-{}.json", uuid)
+    }
+}
 
 impl Resource for SequenceResourceLocator {
     fn name(&self) -> &str {
