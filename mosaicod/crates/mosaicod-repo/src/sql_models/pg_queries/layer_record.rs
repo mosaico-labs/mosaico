@@ -37,9 +37,9 @@ pub async fn layer_bootstrap(exec: &mut impl repo::AsExec) -> Result<(), repo::E
 pub async fn layer_create(
     exec: &mut impl repo::AsExec,
     layer: types::Layer,
-) -> Result<sql_models::Layer, Error> {
+) -> Result<sql_models::LayerRecord, Error> {
     let res = sqlx::query_as!(
-        sql_models::Layer,
+        sql_models::LayerRecord,
         r#"INSERT INTO layer_t
             (layer_name, layer_description)
           VALUES
@@ -68,9 +68,9 @@ pub async fn layer_update(
     prev_loc: &types::LayerLocator,
     curr_loc: &types::LayerLocator,
     curr_description: &str,
-) -> Result<sql_models::Layer, repo::Error> {
+) -> Result<sql_models::LayerRecord, repo::Error> {
     let res = sqlx::query_as!(
-        sql_models::Layer,
+        sql_models::LayerRecord,
         r#"
           UPDATE layer_t
           SET
@@ -92,9 +92,9 @@ pub async fn layer_update(
 pub async fn layer_find_by_locator(
     exe: &mut impl repo::AsExec,
     loc: &types::LayerLocator,
-) -> Result<sql_models::Layer, repo::Error> {
+) -> Result<sql_models::LayerRecord, repo::Error> {
     let res = sqlx::query_as!(
-        sql_models::Layer,
+        sql_models::LayerRecord,
         r#"
         SELECT *
         FROM layer_t
@@ -109,8 +109,10 @@ pub async fn layer_find_by_locator(
 /// Return all layers
 pub async fn layer_find_all(
     exe: &mut impl repo::AsExec,
-) -> Result<Vec<sql_models::Layer>, repo::Error> {
-    Ok(sqlx::query_as!(sql_models::Layer, "SELECT * FROM layer_t")
-        .fetch_all(exe.as_exec())
-        .await?)
+) -> Result<Vec<sql_models::LayerRecord>, repo::Error> {
+    Ok(
+        sqlx::query_as!(sql_models::LayerRecord, "SELECT * FROM layer_t")
+            .fetch_all(exe.as_exec())
+            .await?,
+    )
 }

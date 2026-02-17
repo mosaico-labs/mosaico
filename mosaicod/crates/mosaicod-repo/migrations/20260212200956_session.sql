@@ -4,6 +4,6 @@ CREATE TABLE session_t(
   sequence_id   INTEGER REFERENCES sequence_t(sequence_id) NOT NULL, 
   locked        BOOL NOT NULL DEFAULT FALSE,
 
-  creation_unix_timestamp   BIGINT NOT NULL,
-  completion_unix_timestamp BIGINT
+  creation_unix_tstamp   BIGINT NOT NULL,
+  completion_unix_tstamp BIGINT
 );

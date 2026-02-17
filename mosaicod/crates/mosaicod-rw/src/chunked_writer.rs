@@ -137,7 +137,6 @@ impl<W> ChunkedWriter<W> {
         A: traits::AsyncWriteToPath,
         W: AsRef<A>,
     {
-        trace!("AAAAAAAAAAA");
         // Take the writer and if not inizialized creates a new one.
         // At the end the writer will be put back.
         //

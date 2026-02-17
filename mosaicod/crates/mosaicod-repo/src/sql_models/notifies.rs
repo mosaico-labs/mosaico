@@ -4,7 +4,7 @@ use crate as repo;
 use mosaicod_core::types;
 
 #[derive(Debug)]
-pub struct SequenceNotify {
+pub struct SequenceNotifyRecord {
     pub(super) sequence_notify_id: i32,
     pub sequence_id: i32,
     /// Field containing the string representation of
@@ -16,7 +16,7 @@ pub struct SequenceNotify {
     pub(super) creation_unix_tstamp: i64,
 }
 
-impl SequenceNotify {
+impl SequenceNotifyRecord {
     /// Creates a new sequence notify.
     ///
     /// **Note**: This function only creates a local instance. The record will not be present
@@ -64,7 +64,7 @@ impl SequenceNotify {
 }
 
 #[derive(Debug)]
-pub struct TopicNotify {
+pub struct TopicNotifyRecord {
     pub(super) topic_notify_id: i32,
     pub topic_id: i32,
     /// Field containing the string representation of
@@ -76,7 +76,7 @@ pub struct TopicNotify {
     pub(super) creation_unix_tstamp: i64,
 }
 
-impl TopicNotify {
+impl TopicNotifyRecord {
     /// Creates a new topic notify.
     ///
     /// **Note**: This function only creates a local instance. The record will not be present

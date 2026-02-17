@@ -13,7 +13,7 @@ use mosaicod_store as store;
 use std::sync::Arc;
 
 /// Define topic metadata type contaning JSON user metadata
-type TopicMetadata = types::TopicMetadata<marshal::JsonMetadataBlob>;
+type FacadeTopicMetadata = types::TopicMetadata<marshal::JsonMetadataBlob>;
 
 pub struct FacadeTopic {
     pub locator: types::TopicResourceLocator,
@@ -43,8 +43,8 @@ impl FacadeTopic {
     pub async fn create(
         &self,
         sequence: &types::Uuid,
-        metadata: Option<TopicMetadata>,
-    ) -> Result<types::ResourceId, FacadeError> {
+        metadata: Option<FacadeTopicMetadata>,
+    ) -> Result<types::Identifiers, FacadeError> {
         let mut tx = self.repo.transaction().await?;
 
         // Ensure that a sequence with the provided id is available
@@ -91,7 +91,7 @@ impl FacadeTopic {
     ///
     /// If a record with the same name already exists, the operation fails and
     /// the repository transaction is rolled back, restoring the previous state.
-    pub async fn update(&self, metadata: TopicMetadata) -> Result<(), FacadeError> {
+    pub async fn update(&self, metadata: FacadeTopicMetadata) -> Result<(), FacadeError> {
         let mut tx = self.repo.transaction().await?;
 
         // find topic record to check that upload is not completed and is still prossible
@@ -129,7 +129,7 @@ impl FacadeTopic {
     }
 
     /// Read the repository record for this sequence. If no record is found an error is returned.
-    pub async fn resource_id(&self) -> Result<types::ResourceId, FacadeError> {
+    pub async fn resource_id(&self) -> Result<types::Identifiers, FacadeError> {
         let mut cx = self.repo.connection();
 
         trace!("searching for `{}`", self.locator);
@@ -179,7 +179,7 @@ impl FacadeTopic {
     /// # Errors
     ///
     /// Returns [`HandleError::ReadError`] if reading or deserializing fails.
-    pub async fn metadata(&self) -> Result<TopicMetadata, FacadeError> {
+    pub async fn metadata(&self) -> Result<FacadeTopicMetadata, FacadeError> {
         let path = self.locator.path_metadata();
         let bytes = self.store.read_bytes(path).await?;
 
@@ -229,7 +229,10 @@ impl FacadeTopic {
     /// # Errors
     ///
     /// Returns [`HandleError::NotFound`] or [`HandleError::WriteError`] if serialization or writing fails.
-    async fn metadata_write_to_store(&self, metadata: TopicMetadata) -> Result<(), FacadeError> {
+    async fn metadata_write_to_store(
+        &self,
+        metadata: FacadeTopicMetadata,
+    ) -> Result<(), FacadeError> {
         trace!("writing metadata to store to `{}`", self.locator);
         let path = self.locator.path_metadata();
 
@@ -330,7 +333,7 @@ impl FacadeTopic {
         let mut tx = self.repo.transaction().await?;
 
         let record = repo::topic_find_by_locator(&mut tx, &self.locator).await?;
-        let notify = repo::TopicNotify::new(record.topic_id, ntype, Some(msg));
+        let notify = repo::TopicNotifyRecord::new(record.topic_id, ntype, Some(msg));
         let notify = repo::topic_notify_create(&mut tx, &notify).await?;
 
         tx.commit().await?;

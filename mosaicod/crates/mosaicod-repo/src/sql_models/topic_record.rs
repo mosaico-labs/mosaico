@@ -22,7 +22,7 @@ pub struct TopicRecord {
     pub(super) creation_unix_tstamp: i64,
 }
 
-impl From<TopicRecord> for types::ResourceId {
+impl From<TopicRecord> for types::Identifiers {
     fn from(value: TopicRecord) -> Self {
         Self {
             id: value.topic_id,

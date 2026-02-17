@@ -39,7 +39,7 @@ pub async fn sequence_find_by_locator(
     exe: &mut impl repo::AsExec,
     loc: &types::SequenceResourceLocator,
 ) -> Result<sql_models::SequenceRecord, Error> {
-    trace!("searching by name `{}`", loc);
+    trace!("searching by locator `{}`", loc);
     let res = sqlx::query_as!(
         sql_models::SequenceRecord,
         "SELECT * FROM sequence_t WHERE locator_name=$1",
@@ -60,7 +60,8 @@ pub async fn sequence_lookup(
         types::ResourceLookup::Uuid(uuid) => repo::sequence_find_by_uuid(exec, uuid).await,
         types::ResourceLookup::Locator(locator) => {
             // (cabba) FIXME: we need to find a way to avoid locator copy
-            repo::sequence_find_by_locator(exec, &locator.to_owned().into()).await
+            let locator = locator.to_owned().into();
+            repo::sequence_find_by_locator(exec, &locator).await
         }
     }
 }

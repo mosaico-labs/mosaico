@@ -22,7 +22,6 @@ thiserror = { workspace = true }
 tokio = { workspace = true }
 log = { workspace = true }
 serde_json = { workspace = true }
-uuid = { workspace = true }
 futures = { workspace = true }
 tonic = { workspace = true }
 arrow-flight = { workspace = true }
@@ -31,6 +30,4 @@ arrow = { workspace = true }
 [dev-dependencies]
 mosaicod-store = { workspace = true, features = ["testing"]}
 mosaicod-repo = { workspace = true, features = ["testing"]}
-serde = { workspace = true }
-sqlx = { workspace = true }
 

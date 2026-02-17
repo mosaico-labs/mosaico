@@ -1,5 +1,5 @@
-mod record;
-pub use record::*;
+mod resource;
+pub use resource::*;
 
 mod sequence_record;
 pub use sequence_record::*;
@@ -13,8 +13,11 @@ pub use notifies::*;
 mod data_catalog;
 pub use data_catalog::*;
 
-mod layers;
-pub use layers::*;
+mod layer_record;
+pub use layer_record::*;
+
+mod session_record;
+pub use session_record::*;
 
 mod group;
 pub use group::*;

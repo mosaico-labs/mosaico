@@ -14,8 +14,6 @@ pub struct SessionRecord {
     /// The ID of the sequence this session belongs to.
     pub sequence_id: i32,
 
-    /// Specifies if the session is completed. If completed, all data within this
-    /// session is considered immutable.
     pub(super) locked: bool,
 
     /// UNIX timestamp in milliseconds since the creation
@@ -25,7 +23,7 @@ pub struct SessionRecord {
     pub(super) completion_unix_tstamp: Option<i64>,
 }
 
-impl From<SessionRecord> for types::ResourceId {
+impl From<SessionRecord> for types::Identifiers {
     fn from(value: SessionRecord) -> Self {
         Self {
             id: value.session_id,
@@ -43,16 +41,11 @@ impl SessionRecord {
         Self {
             session_id: repo::UNREGISTERED,
             session_uuid: types::Uuid::new().into(),
-            sequence_id,
             locked: false,
+            sequence_id,
             creation_unix_tstamp: types::Timestamp::now().into(),
             completion_unix_tstamp: None,
         }
-    }
-
-    /// Checks if the session is locked (completed).
-    pub fn is_locked(&self) -> bool {
-        self.locked
     }
 
     /// Returns the creation timestamp of the session.

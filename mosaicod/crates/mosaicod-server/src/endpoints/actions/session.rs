@@ -3,7 +3,7 @@ use crate::{ServerError, endpoints::Context};
 use log::{info, trace};
 use mosaicod_core::types;
 use mosaicod_marshal::ActionResponse;
-use mosaicod_repo::FacadeSession;
+use mosaicod_repo::{FacadeSequence, FacadeSession};
 
 pub async fn create(
     ctx: &Context,
@@ -11,14 +11,10 @@ pub async fn create(
 ) -> Result<ActionResponse, ServerError> {
     info!("requested resource {} creation", sequence_locator);
 
-    let handle = FacadeSession::new(
-        types::ResourceLookup::Locator(sequence_locator),
-        ctx.store.clone(),
-        ctx.repo.clone(),
-    );
-    let resource_key = handle.create().await?;
+    let handle = FacadeSequence::new(sequence_locator, ctx.store.clone(), ctx.repo.clone());
+    let resource_key = handle.session().await?;
 
-    trace!("created session for {}", handle.lookup);
+    trace!("created session for {}", handle.locator);
 
     Ok(ActionResponse::session_create(resource_key.uuid.into()))
 }

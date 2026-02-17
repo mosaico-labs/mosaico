@@ -4,7 +4,7 @@ use mosaicod_core::types;
 
 pub struct FacadeChunk<'a> {
     tx: repo::Tx<'a>,
-    chunk: repo::Chunk,
+    chunk: repo::ChunkRecord,
 }
 
 impl<'a> FacadeChunk<'a> {
@@ -19,7 +19,7 @@ impl<'a> FacadeChunk<'a> {
 
         let chunk = repo::chunk_create(
             &mut tx,
-            &repo::Chunk::new(topic_id, datafile, size_bytes, row_count),
+            &repo::ChunkRecord::new(topic_id, datafile, size_bytes, row_count),
         )
         .await?;
 
@@ -34,8 +34,8 @@ impl<'a> FacadeChunk<'a> {
         ontology_tag: &str,
         cstats: types::OntologyModelStats,
     ) -> Result<(), FacadeError> {
-        let mut numeric_batch: Vec<repo::ColumnChunkNumeric> = Vec::new();
-        let mut textual_batch: Vec<repo::ColumnChunkTextual> = Vec::new();
+        let mut numeric_batch: Vec<repo::ColumnChunkNumericRecord> = Vec::new();
+        let mut textual_batch: Vec<repo::ColumnChunkTextualRecord> = Vec::new();
 
         // First pass: resolve column IDs and collect stats for batch insert
         for (field, stats) in cstats.cols {
@@ -48,7 +48,7 @@ impl<'a> FacadeChunk<'a> {
             match stats {
                 types::Stats::Textual(stats) => {
                     let (min, max, has_null) = stats.into_owned();
-                    textual_batch.push(repo::ColumnChunkTextual::try_new(
+                    textual_batch.push(repo::ColumnChunkTextualRecord::try_new(
                         column.column_id,
                         self.chunk.chunk_id,
                         min,
@@ -57,7 +57,7 @@ impl<'a> FacadeChunk<'a> {
                     )?);
                 }
                 types::Stats::Numeric(stats) => {
-                    numeric_batch.push(repo::ColumnChunkNumeric::new(
+                    numeric_batch.push(repo::ColumnChunkNumericRecord::new(
                         column.column_id,
                         self.chunk.chunk_id,
                         stats.min,

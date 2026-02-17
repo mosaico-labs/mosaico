@@ -225,7 +225,7 @@ type TopicMap = HashMap<i32, repo::TopicRecord>;
 /// Pre-fetch all topics needed for chunks to avoid `N+1` queries
 async fn pre_fetch_topics(
     cx: &mut repo::Cx<'_>,
-    chunks: &[repo::Chunk],
+    chunks: &[repo::ChunkRecord],
     on_topics: Option<&Arc<Vec<repo::TopicRecord>>>,
 ) -> Result<TopicMap, FacadeError> {
     let topic_map = if let Some(topics) = on_topics {

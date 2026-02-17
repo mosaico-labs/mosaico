@@ -11,8 +11,8 @@ pub struct ResourceUuid {
     pub uuid: String,
 }
 
-impl From<types::ResourceId> for ResourceUuid {
-    fn from(value: types::ResourceId) -> Self {
+impl From<types::Identifiers> for ResourceUuid {
+    fn from(value: types::Identifiers) -> Self {
         Self {
             uuid: value.uuid.to_string(),
         }

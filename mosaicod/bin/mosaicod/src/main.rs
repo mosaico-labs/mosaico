@@ -3,7 +3,6 @@
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 mod print;
-
 use clap::{Args, Parser, Subcommand};
 use dotenv::dotenv;
 use log::{debug, error, info, trace, warn};

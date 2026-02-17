@@ -8,11 +8,11 @@ pub async fn column_get_or_create(
     exec: &mut impl repo::AsExec,
     column_name: &str,
     ontology_tag: &str,
-) -> Result<sql_models::Column, repo::Error> {
+) -> Result<sql_models::ColumnRecord, repo::Error> {
     // The UPDATE part of the query is a no-op update: it forces the query to return the existing row
     // from the COLUMN table without changing any data.
     let res = sqlx::query_as!(
-        sql_models::Column,
+        sql_models::ColumnRecord,
         r#"INSERT INTO column_t (column_name, ontology_tag)
         VALUES ($1, $2)
         ON CONFLICT (column_name, ontology_tag)
@@ -29,10 +29,10 @@ pub async fn column_get_or_create(
 
 pub async fn chunk_create(
     exec: &mut impl repo::AsExec,
-    chunk: &sql_models::Chunk,
-) -> Result<sql_models::Chunk, repo::Error> {
+    chunk: &sql_models::ChunkRecord,
+) -> Result<sql_models::ChunkRecord, repo::Error> {
     let res = sqlx::query_as!(
-        sql_models::Chunk,
+        sql_models::ChunkRecord,
         r#"INSERT INTO chunk_t(chunk_uuid, topic_id, data_file, size_bytes, row_count)
         VALUES ($1, $2, $3, $4, $5)
         RETURNING *"#,
@@ -49,10 +49,10 @@ pub async fn chunk_create(
 
 pub async fn column_chunk_textual_create(
     exec: &mut impl repo::AsExec,
-    val: &sql_models::ColumnChunkTextual,
-) -> Result<sql_models::ColumnChunkTextual, repo::Error> {
+    val: &sql_models::ColumnChunkTextualRecord,
+) -> Result<sql_models::ColumnChunkTextualRecord, repo::Error> {
     let res = sqlx::query_as!(
-        sql_models::ColumnChunkTextual,
+        sql_models::ColumnChunkTextualRecord,
         r#"INSERT INTO column_chunk_textual_t(
             column_id, chunk_id,
             min_value, max_value,
@@ -73,10 +73,10 @@ pub async fn column_chunk_textual_create(
 
 pub async fn column_chunk_numeric_create(
     exec: &mut impl repo::AsExec,
-    val: &sql_models::ColumnChunkNumeric,
-) -> Result<sql_models::ColumnChunkNumeric, repo::Error> {
+    val: &sql_models::ColumnChunkNumericRecord,
+) -> Result<sql_models::ColumnChunkNumericRecord, repo::Error> {
     let res = sqlx::query_as!(
-        sql_models::ColumnChunkNumeric,
+        sql_models::ColumnChunkNumericRecord,
         r#"INSERT INTO column_chunk_numeric_t(
             column_id, chunk_id,
             min_value, max_value,
@@ -100,7 +100,7 @@ pub async fn column_chunk_numeric_create(
 /// More efficient than individual inserts when inserting many stats.
 pub async fn column_chunk_numeric_create_batch(
     exec: &mut impl repo::AsExec,
-    values: &[sql_models::ColumnChunkNumeric],
+    values: &[sql_models::ColumnChunkNumericRecord],
 ) -> Result<(), repo::Error> {
     if values.is_empty() {
         return Ok(());
@@ -127,7 +127,7 @@ pub async fn column_chunk_numeric_create_batch(
 /// More efficient than individual inserts when inserting many stats.
 pub async fn column_chunk_textual_create_batch(
     exec: &mut impl repo::AsExec,
-    values: &[sql_models::ColumnChunkTextual],
+    values: &[sql_models::ColumnChunkTextualRecord],
 ) -> Result<(), repo::Error> {
     if values.is_empty() {
         return Ok(());
@@ -155,7 +155,7 @@ pub async fn chunks_from_filters(
     exec: &mut impl repo::AsExec,
     filter: query::OntologyExprGroup<query::Value>,
     on_topics: Option<&Vec<sql_models::TopicRecord>>, // (cabba) TODO: pass only topic names or ids?
-) -> Result<Vec<sql_models::Chunk>, repo::Error> {
+) -> Result<Vec<sql_models::ChunkRecord>, repo::Error> {
     // Collect topic ids, if any
     let ids: Vec<i64> = if let Some(topics) = on_topics {
         topics.iter().map(|t| t.topic_id as i64).collect()
@@ -184,8 +184,8 @@ pub async fn chunks_from_filters(
     r.into_iter().collect()
 }
 
-fn cast_chunk_data(row: PgRow) -> Result<sql_models::Chunk, repo::Error> {
-    Ok(sql_models::Chunk {
+fn cast_chunk_data(row: PgRow) -> Result<sql_models::ChunkRecord, repo::Error> {
+    Ok(sql_models::ChunkRecord {
         chunk_id: row.try_get("chunk_id")?,
         chunk_uuid: row.try_get("chunk_uuid")?,
         topic_id: row.try_get("topic_id")?,

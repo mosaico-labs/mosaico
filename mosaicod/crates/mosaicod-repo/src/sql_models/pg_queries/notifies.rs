@@ -5,11 +5,11 @@ use mosaicod_core::types::{self, Resource};
 /// Creates a new notify associated with a topic
 pub async fn topic_notify_create(
     exe: &mut impl repo::AsExec,
-    notify: &sql_models::TopicNotify,
-) -> Result<sql_models::TopicNotify, repo::Error> {
+    notify: &sql_models::TopicNotifyRecord,
+) -> Result<sql_models::TopicNotifyRecord, repo::Error> {
     trace!("creating a new topic notify {:?}", notify);
     let res = sqlx::query_as!(
-        sql_models::TopicNotify,
+        sql_models::TopicNotifyRecord,
         r#"
             INSERT INTO topic_notify_t
                 (topic_id, notify_type, msg, creation_unix_tstamp) 
@@ -32,10 +32,10 @@ pub async fn topic_notify_create(
 pub async fn topic_notifies_find_by_locator(
     exe: &mut impl repo::AsExec,
     loc: &types::TopicResourceLocator,
-) -> Result<Vec<sql_models::TopicNotify>, repo::Error> {
+) -> Result<Vec<sql_models::TopicNotifyRecord>, repo::Error> {
     trace!("searching notifies for {}", loc);
     let res = sqlx::query_as!(
-        sql_models::TopicNotify,
+        sql_models::TopicNotifyRecord,
         r#"
           SELECT notify.* FROM topic_notify_t AS notify
           JOIN topic_t AS topic ON notify.topic_id = topic.topic_id
@@ -61,11 +61,11 @@ pub async fn topic_notify_delete(exe: &mut impl repo::AsExec, id: i32) -> Result
 
 pub async fn sequence_notify_create(
     exe: &mut impl repo::AsExec,
-    notify: &sql_models::SequenceNotify,
-) -> Result<sql_models::SequenceNotify, repo::Error> {
+    notify: &sql_models::SequenceNotifyRecord,
+) -> Result<sql_models::SequenceNotifyRecord, repo::Error> {
     trace!("creating a new sequence notify {:?}", notify);
     let res = sqlx::query_as!(
-        sql_models::SequenceNotify,
+        sql_models::SequenceNotifyRecord,
         r#"
             INSERT INTO sequence_notify_t
                 (sequence_id, notify_type, msg, creation_unix_tstamp) 
@@ -88,10 +88,10 @@ pub async fn sequence_notify_create(
 pub async fn sequence_notifies_find_by_name(
     exe: &mut impl repo::AsExec,
     loc: &types::SequenceResourceLocator,
-) -> Result<Vec<sql_models::SequenceNotify>, repo::Error> {
+) -> Result<Vec<sql_models::SequenceNotifyRecord>, repo::Error> {
     trace!("searching notifies for `{}`", loc);
     let res = sqlx::query_as!(
-        sql_models::SequenceNotify,
+        sql_models::SequenceNotifyRecord,
         r#"
           SELECT notify.* FROM sequence_notify_t AS notify
           JOIN sequence_t AS seq ON notify.sequence_id = seq.sequence_id

@@ -26,7 +26,7 @@ pub struct SequenceRecord {
     pub(super) creation_unix_tstamp: i64,
 }
 
-impl From<SequenceRecord> for types::ResourceId {
+impl From<SequenceRecord> for types::Identifiers {
     fn from(value: SequenceRecord) -> Self {
         Self {
             id: value.sequence_id,

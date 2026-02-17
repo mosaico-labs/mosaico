@@ -2,13 +2,13 @@ use crate as repo;
 use mosaicod_core::types;
 
 #[derive(Debug)]
-pub struct Layer {
+pub struct LayerRecord {
     pub layer_id: i32,
     pub layer_name: String,
     pub layer_description: String,
 }
 
-impl Layer {
+impl LayerRecord {
     pub fn new(name: String, description: String) -> Self {
         Self {
             layer_id: repo::UNREGISTERED,
@@ -18,8 +18,8 @@ impl Layer {
     }
 }
 
-impl From<Layer> for types::Layer {
-    fn from(value: Layer) -> Self {
+impl From<LayerRecord> for types::Layer {
+    fn from(value: LayerRecord) -> Self {
         Self::new(
             types::LayerLocator::from(value.layer_name.as_str()),
             value.layer_description,

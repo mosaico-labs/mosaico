@@ -1,13 +1,13 @@
 use crate as repo;
 
 #[derive(Debug)]
-pub struct Column {
+pub struct ColumnRecord {
     pub column_id: i32,
     pub column_name: String,
     pub ontology_tag: String,
 }
 
-impl Column {
+impl ColumnRecord {
     pub fn new(ontology_tag: String, name: String) -> Self {
         Self {
             column_id: repo::UNREGISTERED,
@@ -22,7 +22,7 @@ impl Column {
 /// Each chunk represents a partition of data for a given topic.
 /// Chunks are entity indexed by the platform for fast retrieval and storage.
 #[derive(Debug)]
-pub struct Chunk {
+pub struct ChunkRecord {
     pub chunk_id: i32,
     pub chunk_uuid: uuid::Uuid,
     pub topic_id: i32,
@@ -31,7 +31,7 @@ pub struct Chunk {
     pub row_count: i64,
 }
 
-impl Chunk {
+impl ChunkRecord {
     pub fn new(
         topic_id: i32,
         data_file: impl AsRef<std::path::Path>,
@@ -55,7 +55,7 @@ impl Chunk {
 
 /// Chunk of textual data associated with a column.
 #[derive(Debug)]
-pub struct ColumnChunkTextual {
+pub struct ColumnChunkTextualRecord {
     pub column_id: i32,
     pub chunk_id: i32,
 
@@ -67,7 +67,7 @@ pub struct ColumnChunkTextual {
     pub has_null: bool,
 }
 
-impl ColumnChunkTextual {
+impl ColumnChunkTextualRecord {
     pub fn try_new(
         column_id: i32,
         chunk_id: i32,
@@ -87,7 +87,7 @@ impl ColumnChunkTextual {
 
 /// Chunk of textual data associated with a column.
 #[derive(Debug)]
-pub struct ColumnChunkNumeric {
+pub struct ColumnChunkNumericRecord {
     pub column_id: i32,
     pub chunk_id: i32,
 
@@ -100,7 +100,7 @@ pub struct ColumnChunkNumeric {
     pub has_nan: bool,
 }
 
-impl ColumnChunkNumeric {
+impl ColumnChunkNumericRecord {
     pub fn new(
         column_id: i32,
         chunk_id: i32,

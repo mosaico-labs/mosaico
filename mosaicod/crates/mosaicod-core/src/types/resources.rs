@@ -8,12 +8,26 @@ use thiserror::Error;
 // RESOURCE
 // ////////////////////////////////////////////////////////////////////////////
 
-/// Represents the unique identifiers for a resource.
-pub struct ResourceId {
+/// Represents the unique identifiers of a record.
+pub struct Identifiers {
     /// The internal, numeric ID of the resource (e.g., a database primary key).
     pub id: i32,
     /// The universally unique identifier (UUID) for the resource.
     pub uuid: Uuid,
+}
+
+pub enum IdLookup {
+    Id(i32),
+    Uuid(Uuid),
+}
+
+impl std::fmt::Display for IdLookup {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Id(id) => write!(f, "id:{}", id),
+            Self::Uuid(uuid) => write!(f, "uuid:{}", uuid),
+        }
+    }
 }
 
 /// Defines the different ways a resource can be looked up.
@@ -29,9 +43,9 @@ pub enum ResourceLookup {
 impl std::fmt::Display for ResourceLookup {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Id(id) => write!(f, "{}", id),
-            Self::Uuid(uuid) => write!(f, "{}", uuid),
-            Self::Locator(locator) => write!(f, "{}", locator),
+            Self::Id(id) => write!(f, "id:{}", id),
+            Self::Uuid(uuid) => write!(f, "uuid:{}", uuid),
+            Self::Locator(locator) => write!(f, "locator:{}", locator),
         }
     }
 }
@@ -154,11 +168,7 @@ where
 
 impl std::fmt::Display for TopicResourceLocator {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if let Some(ts) = &self.timestamp_range {
-            write!(f, "[topic|{}|{}]", self.locator, ts)
-        } else {
-            write!(f, "[topic|{}]", self.locator)
-        }
+        write!(f, "{}", self.locator)
     }
 }
 
@@ -302,7 +312,7 @@ where
 
 impl std::fmt::Display for SequenceResourceLocator {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "[sequence|{}]", self.0)
+        write!(f, "{}", self.0)
     }
 }
 

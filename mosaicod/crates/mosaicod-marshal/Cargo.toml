@@ -8,7 +8,6 @@ license.workspace = true
 
 [dependencies]
 mosaicod-core = { workspace = true }
-mosaicod-rw = { workspace = true }
 mosaicod-query = { workspace = true}
 
 thiserror = { workspace = true }

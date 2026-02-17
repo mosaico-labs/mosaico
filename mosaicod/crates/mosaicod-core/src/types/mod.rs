@@ -27,4 +27,7 @@ pub use chunk::*;
 mod uuid;
 pub use uuid::*;
 
+mod session;
+pub use session::*;
+
 pub mod flight;

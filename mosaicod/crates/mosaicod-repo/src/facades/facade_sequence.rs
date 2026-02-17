@@ -13,7 +13,7 @@ use mosaicod_marshal as marshal;
 use mosaicod_store as store;
 
 /// Define sequence metadata type contaning json user metadata
-type SequenceMetadata = types::SequenceMetadata<marshal::JsonMetadataBlob>;
+type FacadeSequenceMetadata = types::SequenceMetadata<marshal::JsonMetadataBlob>;
 
 pub struct FacadeSequence {
     pub locator: types::SequenceResourceLocator,
@@ -56,8 +56,8 @@ impl FacadeSequence {
     /// the repo transaction is rolled back, restoring the previous state.
     pub async fn create(
         &self,
-        metadata: Option<SequenceMetadata>,
-    ) -> Result<types::ResourceId, FacadeError> {
+        metadata: Option<FacadeSequenceMetadata>,
+    ) -> Result<types::Identifiers, FacadeError> {
         let mut tx = self.repo.transaction().await?;
 
         let mut record = repo::SequenceRecord::new(self.locator.name());
@@ -78,7 +78,7 @@ impl FacadeSequence {
     }
 
     /// Read the repository record for this sequence. If no record is found an error is returned.
-    pub async fn resource_id(&self) -> Result<types::ResourceId, FacadeError> {
+    pub async fn resource_id(&self) -> Result<types::Identifiers, FacadeError> {
         let mut cx = self.repo.connection();
 
         let record = repo::sequence_find_by_locator(&mut cx, &self.locator).await?;
@@ -95,7 +95,7 @@ impl FacadeSequence {
         let mut tx = self.repo.transaction().await?;
 
         let record = repo::sequence_find_by_locator(&mut tx, &self.locator).await?;
-        let notify = repo::SequenceNotify::new(record.sequence_id, ntype, Some(msg));
+        let notify = repo::SequenceNotifyRecord::new(record.sequence_id, ntype, Some(msg));
         let notify = repo::sequence_notify_create(&mut tx, &notify).await?;
 
         tx.commit().await?;
@@ -128,8 +128,26 @@ impl FacadeSequence {
         Ok(())
     }
 
+    /// Creates a new update session for a sequence
+    pub async fn session(&self) -> Result<types::Identifiers, FacadeError> {
+        let mut tx = self.repo.transaction().await?;
+
+        let sequence = repo::sequence_lookup(
+            &mut tx,
+            &types::ResourceLookup::Locator(self.locator.to_string()),
+        )
+        .await?;
+
+        let session = repo::SessionRecord::new(sequence.sequence_id);
+        let session = repo::session_create(&mut tx, &session).await?;
+
+        tx.commit().await?;
+
+        Ok(session.into())
+    }
+
     /// Read the metadata from the store and returns an `HashMap` containing all the metadata
-    pub async fn metadata(&self) -> Result<SequenceMetadata, FacadeError> {
+    pub async fn metadata(&self) -> Result<FacadeSequenceMetadata, FacadeError> {
         let path = self.locator.path_metadata();
         let bytes = self.store.read_bytes(&path).await?;
 
@@ -138,7 +156,10 @@ impl FacadeSequence {
         Ok(data.into())
     }
 
-    async fn metadata_write_to_store(&self, metadata: SequenceMetadata) -> Result<(), FacadeError> {
+    async fn metadata_write_to_store(
+        &self,
+        metadata: FacadeSequenceMetadata,
+    ) -> Result<(), FacadeError> {
         let path = self.locator.path_metadata();
 
         trace!("converting metadata to bytes");
@@ -147,9 +168,6 @@ impl FacadeSequence {
 
         trace!("writing metadata to store");
         self.store.write_bytes(&path, bytes).await?;
-
-        trace!("wiring metadata to database");
-        // ...
 
         Ok(())
     }
@@ -233,12 +251,15 @@ mod tests {
             "weather": "sunny"
         }"#;
         dbg!(&mdata);
-        let mdata = SequenceMetadata::new(marshal::JsonMetadataBlob::try_from_str(mdata).unwrap());
+        let mdata =
+            FacadeSequenceMetadata::new(marshal::JsonMetadataBlob::try_from_str(mdata).unwrap());
 
         fsequence
-            .create(Some(mdata))
+            .create(Some(mdata)) // <-- testing this
             .await
             .expect("Error creating sequence");
+
+        let _ = fsequence.session().await.unwrap();
 
         // Check if sequence was created
         let mut cx = repo.connection();

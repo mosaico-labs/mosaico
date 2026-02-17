@@ -128,8 +128,9 @@ async fn do_put_topic_data(
         match data.payload {
             DecodedPayload::RecordBatch(batch) => {
                 trace!(
-                    "received batch (cols: {}, memory_size: {})",
+                    "received batch (cols: {}, rows: {}, memory_size: {})",
                     batch.columns().len(),
+                    batch.num_rows(),
                     batch.get_array_memory_size()
                 );
                 writer.write(&batch).await?;
