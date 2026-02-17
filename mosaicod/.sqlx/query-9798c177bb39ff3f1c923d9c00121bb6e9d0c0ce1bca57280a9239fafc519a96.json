@@ -20,16 +20,11 @@
       },
       {
         "ordinal": 3,
-        "name": "locked",
-        "type_info": "Bool"
-      },
-      {
-        "ordinal": 4,
         "name": "user_metadata",
         "type_info": "Jsonb"
       },
       {
-        "ordinal": 5,
+        "ordinal": 4,
         "name": "creation_unix_tstamp",
         "type_info": "Int8"
       }
@@ -38,7 +33,6 @@
       "Left": []
     },
     "nullable": [
-      false,
       false,
       false,
       false,

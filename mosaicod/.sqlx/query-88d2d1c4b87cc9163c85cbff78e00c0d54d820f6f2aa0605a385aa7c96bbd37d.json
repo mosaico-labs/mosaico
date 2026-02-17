@@ -1,46 +1,52 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT * FROM sequence_t WHERE sequence_uuid=$1",
+  "query": "SELECT * FROM session_t WHERE session_id=$1",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "sequence_id",
+        "name": "session_id",
         "type_info": "Int4"
       },
       {
         "ordinal": 1,
-        "name": "sequence_uuid",
+        "name": "session_uuid",
         "type_info": "Uuid"
       },
       {
         "ordinal": 2,
-        "name": "locator_name",
-        "type_info": "Text"
+        "name": "sequence_id",
+        "type_info": "Int4"
       },
       {
         "ordinal": 3,
-        "name": "user_metadata",
-        "type_info": "Jsonb"
+        "name": "locked",
+        "type_info": "Bool"
       },
       {
         "ordinal": 4,
         "name": "creation_unix_tstamp",
         "type_info": "Int8"
+      },
+      {
+        "ordinal": 5,
+        "name": "completion_unix_tstamp",
+        "type_info": "Int8"
       }
     ],
     "parameters": {
       "Left": [
-        "Uuid"
+        "Int4"
       ]
     },
     "nullable": [
       false,
       false,
       false,
-      true,
-      false
+      false,
+      false,
+      true
     ]
   },
-  "hash": "8496d2bc62be3f0b4db3d0f8aebbaf13a51fe52880e54d19677cd6efb22d8e73"
+  "hash": "88d2d1c4b87cc9163c85cbff78e00c0d54d820f6f2aa0605a385aa7c96bbd37d"
 }

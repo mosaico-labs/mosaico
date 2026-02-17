@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            INSERT INTO sequence_t\n                (sequence_uuid, locator_name, locked, creation_unix_tstamp, user_metadata) \n            VALUES \n                ($1, $2, $3, $4, $5) \n            RETURNING \n                *\n    ",
+  "query": "\n            INSERT INTO sequence_t\n                (sequence_uuid, locator_name, creation_unix_tstamp, user_metadata) \n            VALUES \n                ($1, $2, $3, $4) \n            RETURNING \n                *\n    ",
   "describe": {
     "columns": [
       {
@@ -20,16 +20,11 @@
       },
       {
         "ordinal": 3,
-        "name": "locked",
-        "type_info": "Bool"
-      },
-      {
-        "ordinal": 4,
         "name": "user_metadata",
         "type_info": "Jsonb"
       },
       {
-        "ordinal": 5,
+        "ordinal": 4,
         "name": "creation_unix_tstamp",
         "type_info": "Int8"
       }
@@ -38,7 +33,6 @@
       "Left": [
         "Uuid",
         "Text",
-        "Bool",
         "Int8",
         "Jsonb"
       ]
@@ -47,10 +41,9 @@
       false,
       false,
       false,
-      false,
       true,
       false
     ]
   },
-  "hash": "9442fb96daede6835699109d6253793f52b5d932c6d9718f97b189ae25c72f99"
+  "hash": "fd5d96e8b2cefa948598a6311afd035fc8db8cd3eb2c3af7672eb8ea9b8c6dc1"
 }

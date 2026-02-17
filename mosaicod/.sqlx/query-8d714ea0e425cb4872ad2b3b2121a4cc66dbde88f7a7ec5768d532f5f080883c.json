@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            INSERT INTO topic_t\n                (\n                    topic_uuid, sequence_id, locator_name, creation_unix_tstamp, \n                    serialization_format, ontology_tag, locked, user_metadata\n                ) \n            VALUES \n                ($1, $2, $3, $4, $5, $6, $7, $8) \n            RETURNING \n                *\n    ",
+  "query": "\n            INSERT INTO topic_t\n                (\n                    topic_uuid, session_id, locator_name, creation_unix_tstamp, \n                    serialization_format, ontology_tag, locked, user_metadata\n                ) \n            VALUES \n                ($1, $2, $3, $4, $5, $6, $7, $8) \n            RETURNING \n                *\n    ",
   "describe": {
     "columns": [
       {
@@ -15,7 +15,7 @@
       },
       {
         "ordinal": 2,
-        "name": "sequence_id",
+        "name": "session_id",
         "type_info": "Int4"
       },
       {
@@ -73,5 +73,5 @@
       false
     ]
   },
-  "hash": "af413c6cc972b957d8dea77482d792ac1d2b2d0d22e27bb9967287543c18d866"
+  "hash": "8d714ea0e425cb4872ad2b3b2121a4cc66dbde88f7a7ec5768d532f5f080883c"
 }

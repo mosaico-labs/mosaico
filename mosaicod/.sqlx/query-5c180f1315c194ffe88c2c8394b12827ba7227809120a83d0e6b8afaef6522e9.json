@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE session_t \n            SET locked = TRUE\n            WHERE session_id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "5c180f1315c194ffe88c2c8394b12827ba7227809120a83d0e6b8afaef6522e9"
+}
