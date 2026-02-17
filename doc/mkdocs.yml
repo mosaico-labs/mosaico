@@ -49,6 +49,8 @@ nav:
     - How To:
       - SDK/howto/serialized_writing_from_csv.md
       - SDK/howto/serialized_writing_from_multi_csv.md
+      - SDK/howto/reading.md
+      - SDK/howto/streaming.md
       - SDK/howto/ros_injection_1.md
     - In Depth:
       - SDK/client.md

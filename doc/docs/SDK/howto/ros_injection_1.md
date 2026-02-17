@@ -1,6 +1,6 @@
 # Advanced: ROS Injection
 
-!!! note
+!!! note "Full Example Code"
     The full example code is available under `mosaico-sdk-py/src/examples/ros_injection/main.py`.
 
 This example provides a detailed, step-by-step walkthrough of a complete Mosaico data pipeline, from raw ROS bag ingestion to custom ontology creation and verification. It demonstrates how to bridge the gap between **Robot Operating System (ROS)** data and the **Mosaico Data Platform**. By following this pipeline, you will learn how to:
@@ -105,7 +105,7 @@ For a more in-depth explanation:
 ### Step 2: Implementing the ROS Adapter (`isaac_adapters.py`)
 
 A ROS Bag contains raw data dictionaries, that we need to translate into our custom ontology data model, by using *adapters*.
-The [`ROSAdapterBase`][mosaicolabs.ros_bridge.ROSAdapterBase] class provides the necessary infrastructure for this. We just need to implement the `from_dict` method, which is responsible for converting the raw ROS message dictionary into our custom ontology model.
+The [`ROSAdapterBase`][mosaicolabs.ros_bridge.adapter_base.ROSAdapterBase] class provides the necessary infrastructure for this. We just need to implement the `from_dict` method, which is responsible for converting the raw ROS message dictionary into our custom ontology model.
 
 #### The Adapter Implementation
 
