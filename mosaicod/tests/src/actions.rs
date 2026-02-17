@@ -77,7 +77,7 @@ pub async fn session_create(client: &mut Client, sequence_name: &str) -> types::
 }
 
 /// Create a new topic.
-/// Returns the `key` of the newly created sequence, this key is required to upload topic data.
+/// Returns the `key` of the newly created topic, this key is required to upload topic data.
 pub async fn topic_create(
     client: &mut Client,
     key: &types::Uuid,
@@ -90,7 +90,7 @@ pub async fn topic_create(
             r#"
         {{
             "name": "{name}",
-            "sequence_key": "{key}",
+            "session_uuid": "{key}",
             "serialization_format": "default",
             "ontology_tag": "mock",
             "user_metadata": {mdata}
@@ -113,7 +113,7 @@ pub async fn topic_create(
         let r = ActionResponse::from_body(&result.body);
         assert_eq!(r.action, "topic_create");
 
-        let uuid: types::Uuid = r.response["key"]
+        let uuid: types::Uuid = r.response["uuid"]
             .as_str()
             .expect("Error casting to string")
             .parse()

@@ -30,7 +30,7 @@ impl SequenceCreate {
 #[derive(Deserialize, Debug)]
 pub struct TopicCreate {
     pub name: String,
-    pub sequence_key: String,
+    pub session_uuid: String,
     pub serialization_format: Format,
     pub ontology_tag: String,
 

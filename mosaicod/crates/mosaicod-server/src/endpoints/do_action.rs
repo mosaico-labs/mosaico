@@ -40,7 +40,7 @@ pub async fn do_action(ctx: Context, action: ActionRequest) -> Result<ActionResp
             topic::create(
                 &ctx,
                 data.name,
-                data.sequence_key,
+                data.session_uuid,
                 data.serialization_format.into(),
                 data.ontology_tag,
                 user_metadata.as_str(),
