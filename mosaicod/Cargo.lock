@@ -4048,6 +4048,7 @@ dependencies = [
 name = "tests"
 version = "0.2.0"
 dependencies = [
+ "arrow-flight",
  "mosaicod-core",
  "mosaicod-repo",
  "mosaicod-server",
@@ -4057,6 +4058,7 @@ dependencies = [
  "serde_json",
  "sqlx",
  "tokio",
+ "tonic",
 ]
 
 [[package]]

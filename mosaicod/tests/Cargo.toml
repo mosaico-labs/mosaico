@@ -13,8 +13,11 @@ mosaicod-repo = { workspace = true, features = ["testing"] }
 mosaicod-store = { workspace = true, features = ["testing"] }
 mosaicod-server = { workspace = true }
 
+arrow-flight = { workspace = true }
+tonic = { workspace = true }
 sqlx = { workspace = true }
 tokio = { workspace = true }
 serde_json = { workspace = true }
 serde = { workspace = true }
 rand = { workspace = true }
+
