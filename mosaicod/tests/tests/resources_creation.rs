@@ -1,5 +1,7 @@
+#![allow(unused_crate_dependencies)]
+
 use mosaicod_repo as repo;
-use tests::{actions, common};
+use tests::{self, actions, common};
 
 #[sqlx::test(migrator = "mosaicod_repo::testing::MIGRATOR")]
 fn sequence_create(pool: sqlx::Pool<repo::Database>) -> sqlx::Result<()> {
