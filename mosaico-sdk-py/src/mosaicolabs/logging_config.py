@@ -99,7 +99,7 @@ def setup_sdk_logging(
     logger.info(init_message, extra=extra)
 
 
-def get_logger(name: Optional[str] = None):
+def get_logger(name: Optional[str] = None) -> root_logging.Logger:
     """
     Retrieves a logger instance within the Mosaico SDK namespace.
 

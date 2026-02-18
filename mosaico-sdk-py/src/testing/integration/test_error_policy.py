@@ -1,3 +1,4 @@
+from mosaicolabs.comm.notifications import NotifyType
 import pytest
 import logging as log
 
@@ -24,6 +25,31 @@ def test_sequence_report(_client: MosaicoClient):
             # raise and exception to exit the context
             log.info("Expected one (1) error after this line...")
             raise Exception("__exception_in_test__")
+
+    snotifies = _client.list_sequence_notify(sequence_name=sequence_name)
+    assert len(snotifies) == 1
+    assert snotifies[0].sequence_name == sequence_name
+    assert snotifies[0].notify_type == NotifyType.ERROR
+    assert snotifies[0].message == "__exception_in_test__"
+
+    tnotifies = _client.list_topic_notify(
+        sequence_name=sequence_name, topic_name=topic_name
+    )
+    assert len(tnotifies) == 1
+    assert tnotifies[0].sequence_name == sequence_name
+    assert tnotifies[0].topic_name == topic_name
+    assert tnotifies[0].notify_type == NotifyType.ERROR
+    assert tnotifies[0].message == "__exception_in_test__"
+
+    _client.clear_sequence_notify(sequence_name=sequence_name)
+    snotifies = _client.list_sequence_notify(sequence_name=sequence_name)
+    assert len(snotifies) == 0
+
+    _client.clear_topic_notify(sequence_name=sequence_name, topic_name=topic_name)
+    tnotifies = _client.list_topic_notify(
+        sequence_name=sequence_name, topic_name=topic_name
+    )
+    assert len(tnotifies) == 0
 
     # The sequence is still present and not deleted (on_error=OnErrorPolicy.Report)
     shandler = _client.sequence_handler(sequence_name)

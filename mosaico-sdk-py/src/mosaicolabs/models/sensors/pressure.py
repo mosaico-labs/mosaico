@@ -19,9 +19,45 @@ class Pressure(Serializable, HeaderMixin, VarianceMixin):
     Users are encouraged to use the `from_*` factory methods when initializing
     pressure values expressed in units other than Pascals.
 
-    Parameters:
+    Attributes:
         value (float): Pressure value in **Pascals (Pa)**. When using the constructor directly,
             the value **must** be provided in Pascals.
+
+    ### Querying with the **`.Q` Proxy**
+    This class is fully queryable via the **`.Q` proxy**. You can filter pressure data based
+    on pressure values within a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog].
+
+    Example:
+        ```python
+        from mosaicolabs import MosaicoClient, Pressure, QueryOntologyCatalog
+
+        with MosaicoClient.connect("localhost", 6726) as client:
+            # Filter for pressure values within a specific range
+            qresponse = client.query(
+                QueryOntologyCatalog(Pressure.Q.value.between([100000, 200000]))
+            )
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {[topic.name for topic in item.topics]}")
+
+            # Filter for a specific component value and extract the first and last occurrence times
+            qresponse = client.query(
+                QueryOntologyCatalog(Pressure.Q.value.between([100000, 200000]), include_timestamp_range=True)
+            )
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {{topic.name:
+                                [topic.timestamp_range.start, topic.timestamp_range.end]
+                                for topic in item.topics}}")
+        ```
     """
 
     # --- Schema Definition ---
@@ -39,7 +75,48 @@ class Pressure(Serializable, HeaderMixin, VarianceMixin):
     )
 
     value: float
-    """The absolute pressure reading from the sensor in Pascals."""
+    """
+    The absolute pressure reading from the sensor in Pascals.
+
+    ### Querying with the **`.Q` Proxy**
+    The pressure value is queryable via the `value` field.
+
+    | Field Access Path | Queryable Type | Supported Operators |
+    | :--- | :--- | :--- |
+    | `Pressure.Q.value` | `Numeric` | `.eq()`, `.neq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+
+    Example:
+        ```python
+        from mosaicolabs import MosaicoClient, Pressure, QueryOntologyCatalog
+
+        with MosaicoClient.connect("localhost", 6726) as client:
+            # Filter for pressure values within a specific range
+            qresponse = client.query(
+                QueryOntologyCatalog(Pressure.Q.value.between([100000, 200000]))
+            )
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {[topic.name for topic in item.topics]}")
+
+            # Filter for a specific component value and extract the first and last occurrence times
+            qresponse = client.query(
+                QueryOntologyCatalog(Pressure.Q.value.between([100000, 200000]), include_timestamp_range=True)
+            )
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {{topic.name:
+                                [topic.timestamp_range.start, topic.timestamp_range.end]
+                                for topic in item.topics}}")
+        ```
+    """
 
     @classmethod
     def from_atm(

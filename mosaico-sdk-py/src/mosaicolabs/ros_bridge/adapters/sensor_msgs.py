@@ -9,6 +9,7 @@ from mosaicolabs.models.sensors import (
     CompressedImage,
     Image,
     IMU,
+    RobotJoint,
 )
 
 from .geometry_msgs import (
@@ -25,6 +26,44 @@ from .helpers import _make_header, _validate_msgdata
 
 @register_adapter
 class CameraInfoAdapter(ROSAdapterBase[CameraInfo]):
+    """
+    Adapter for translating ROS CameraInfo messages to Mosaico `CameraInfo`.
+
+    **Supported ROS Types:**
+
+    - [`sensor_msgs/msg/CameraInfo`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/CameraInfo.html)
+
+    Example:
+        ```python
+        ros_msg = ROSMessage(
+            timestamp=17000,
+            topic="/camera_info",
+            msg_type="sensor_msgs/msg/CameraInfo",
+            data=
+            {
+                "height": 480,
+                "width": 640,
+                "binning_x": 1,
+                "binning_y": 1,
+                "roi": {
+                    "x_offset": 0,
+                    "y_offset": 0,
+                    "height": 480,
+                    "width": 640,
+                    "do_rectify": False,
+                },
+                "distortion_model": "plumb_bob",
+                "d": [0.0, 0.0, 0.0, 0.0, 0.0],
+                "k": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
+                "p": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                "r": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
+            }
+        )
+        # Automatically resolves to a flat Mosaico CameraInfo with attached metadata
+        mosaico_camera_info = CameraInfoAdapter.translate(ros_msg)
+        ```
+    """
+
     ros_msgtype: str | Tuple[str, ...] = "sensor_msgs/msg/CameraInfo"
 
     __mosaico_ontology_type__: Type[CameraInfo] = CameraInfo
@@ -56,25 +95,46 @@ class CameraInfoAdapter(ROSAdapterBase[CameraInfo]):
         Raises:
             Exception: Wraps any translation error with context (topic name, timestamp).
         """
-        if ros_msg.data is None:
-            raise Exception(
-                f"'data' attribute in ROSMessage is None. Cannot translate! Ros topic '{ros_msg.topic}' @time: {ros_msg.timestamp}"
-            )
-        try:
-            return Message(
-                message_header=ros_msg.header.translate() if ros_msg.header else None,
-                timestamp_ns=ros_msg.timestamp,
-                data=cls.from_dict(ros_msg.data),
-            )
-        except Exception as e:
-            raise Exception(
-                f"Raised Exception while translating ros topic '{ros_msg.topic}' @time: {ros_msg.timestamp}.\nInner err: '{e}'"
-            )
+        return super().translate(ros_msg, **kwargs)
 
     @classmethod
     def from_dict(cls, ros_data: dict) -> CameraInfo:
         """
         Converts the raw dictionary data into the specific Mosaico type.
+
+        Example:
+            ```python
+            ros_data=
+            {
+                "height": 480,
+                "width": 640,
+                "binning_x": 1,
+                "binning_y": 1,
+                "roi": {
+                    "x_offset": 0,
+                    "y_offset": 0,
+                    "height": 480,
+                    "width": 640,
+                    "do_rectify": False,
+                },
+                "distortion_model": "plumb_bob",
+                "d": [0.0, 0.0, 0.0, 0.0, 0.0],
+                "k": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
+                "p": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                "r": [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
+            }
+            # Automatically resolves to a flat Mosaico CameraInfo with attached metadata
+            mosaico_camera_info = CameraInfoAdapter.from_dict(ros_data)
+            ```
+
+        Args:
+            ros_data (dict): The raw dictionary from the ROS message.
+
+        Returns:
+            CameraInfo: The constructed Mosaico CameraInfo object.
+
+        Raises:
+            ValueError: If the recursive 'roi' key exists but is not a dict, or if required keys are missing.
         """
         # validate case insensitive keys (specific for this message - ROS1/2 variations)
         _validate_msgdata(cls, ros_data, case_insensitive=True)
@@ -105,6 +165,30 @@ class CameraInfoAdapter(ROSAdapterBase[CameraInfo]):
 
 
 class NavSatStatusAdapter(ROSAdapterBase[GPSStatus]):
+    """
+    Adapter for translating ROS NavSatStatus messages to Mosaico `GPSStatus`.
+
+    **Supported ROS Types:**
+
+    - [`sensor_msgs/msg/NavSatFix`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/NavSatFix.html)
+
+    Example:
+        ```python
+        ros_msg = ROSMessage(
+            timestamp=17000,
+            topic="/gps_status",
+            msg_type="sensor_msgs/msg/NavSatFix",
+            data=
+            {
+                "status": 0,
+                "service": 1,
+            }
+        )
+        # Automatically resolves to a flat Mosaico GPSStatus with attached metadata
+        mosaico_gps_status = NavSatStatusAdapter.translate(ros_msg)
+        ```
+    """
+
     ros_msgtype: str | Tuple[str, ...] = "sensor_msgs/msg/NavSatFix"
 
     __mosaico_ontology_type__: Type[GPSStatus] = GPSStatus
@@ -122,25 +206,32 @@ class NavSatStatusAdapter(ROSAdapterBase[GPSStatus]):
         Raises:
             Exception: Wraps any translation error with context (topic name, timestamp).
         """
-        if ros_msg.data is None:
-            raise Exception(
-                f"'data' attribute in ROSMessage is None. Cannot translate! Ros topic '{ros_msg.topic}' @time: {ros_msg.timestamp}"
-            )
-        try:
-            return Message(
-                message_header=ros_msg.header.translate() if ros_msg.header else None,
-                timestamp_ns=ros_msg.timestamp,
-                data=cls.from_dict(ros_msg.data),
-            )
-        except Exception as e:
-            raise Exception(
-                f"Raised Exception while translating ros topic '{ros_msg.topic}' @time: {ros_msg.timestamp}.\nInner err: '{e}'"
-            )
+        return super().translate(ros_msg, **kwargs)
 
     @classmethod
     def from_dict(cls, ros_data: dict) -> GPSStatus:
         """
         Converts the raw dictionary data into the specific Mosaico type.
+
+        Example:
+            ```python
+            ros_data=
+            {
+                "status": 0,
+                "service": 1,
+            }
+            # Automatically resolves to a flat Mosaico GPSStatus with attached metadata
+            mosaico_gps_status = NavSatStatusAdapter.from_dict(ros_data)
+            ```
+
+        Args:
+            ros_data (dict): The raw dictionary from the ROS message.
+
+        Returns:
+            GPSStatus: The constructed Mosaico GPSStatus object.
+
+        Raises:
+            ValueError: If the recursive 'roi' key exists but is not a dict, or if required keys are missing.
         """
         _validate_msgdata(cls, ros_data)
         return GPSStatus(status=ros_data["status"], service=ros_data["service"])
@@ -166,6 +257,35 @@ class NavSatStatusAdapter(ROSAdapterBase[GPSStatus]):
 
 @register_adapter
 class GPSAdapter(ROSAdapterBase[GPS]):
+    """
+    Adapter for translating ROS NavSatFix messages to Mosaico `GPS`.
+
+    **Supported ROS Types:**
+
+    - [`sensor_msgs/msg/NavSatFix`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/NavSatFix.html)
+
+    Example:
+        ```python
+        ros_msg = ROSMessage(
+            timestamp=17000,
+            topic="/gps",
+            msg_type="sensor_msgs/msg/NavSatFix",
+            data=
+            {
+                "latitude": 45.5,
+                "longitude": -122.5,
+                "altitude": 100.0,
+                "status": {
+                    "status": 0,
+                    "service": 1,
+                },
+            }
+        )
+        # Automatically resolves to a flat Mosaico GPS with attached metadata
+        mosaico_gps = GPSAdapter.translate(ros_msg)
+        ```
+    """
+
     ros_msgtype: str | Tuple[str, ...] = "sensor_msgs/msg/NavSatFix"
 
     __mosaico_ontology_type__: Type[GPS] = GPS
@@ -183,25 +303,37 @@ class GPSAdapter(ROSAdapterBase[GPS]):
         Raises:
             Exception: Wraps any translation error with context (topic name, timestamp).
         """
-        if ros_msg.data is None:
-            raise Exception(
-                f"'data' attribute in ROSMessage is None. Cannot translate! Ros topic '{ros_msg.topic}' @time: {ros_msg.timestamp}"
-            )
-        try:
-            return Message(
-                message_header=ros_msg.header.translate() if ros_msg.header else None,
-                timestamp_ns=ros_msg.timestamp,
-                data=cls.from_dict(ros_msg.data),
-            )
-        except Exception as e:
-            raise Exception(
-                f"Raised Exception while translating ros topic '{ros_msg.topic}' @time: {ros_msg.timestamp}.\nInner err: '{e}'"
-            )
+        return super().translate(ros_msg, **kwargs)
 
     @classmethod
     def from_dict(cls, ros_data: dict) -> GPS:
         """
         Converts the raw dictionary data into the specific Mosaico type.
+
+        Example:
+            ```python
+            ros_data=
+            {
+                "latitude": 45.5,
+                "longitude": -122.5,
+                "altitude": 100.0,
+                "status": {
+                    "status": 0,
+                    "service": 1,
+                },
+            }
+            # Automatically resolves to a flat Mosaico GPS with attached metadata
+            mosaico_gps = GPSAdapter.from_dict(ros_data)
+            ```
+
+        Args:
+            ros_data (dict): The raw dictionary from the ROS message.
+
+        Returns:
+            GPS: The constructed Mosaico GPS object.
+
+        Raises:
+            ValueError: If the recursive 'roi' key exists but is not a dict, or if required keys are missing.
         """
         _validate_msgdata(cls, ros_data)
 
@@ -241,6 +373,35 @@ class GPSAdapter(ROSAdapterBase[GPS]):
 
 @register_adapter
 class IMUAdapter(ROSAdapterBase[IMU]):
+    """
+    Adapter for translating ROS Imu messages to Mosaico `IMU`.
+
+    **Supported ROS Types:**
+
+    - [`sensor_msgs/msg/Imu`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/Imu.html)
+
+    Example:
+        ```python
+        ros_msg = ROSMessage(
+            timestamp=17000,
+            topic="/imu",
+            msg_type="sensor_msgs/msg/Imu",
+            data=
+            {
+                "linear_acceleration": {"x": 0.0, "y": 0.0, "z": 0.0},
+                "angular_velocity": {"x": 0.0, "y": 0.0, "z": 0.0},
+                "orientation": {"x": 0.0, "y": 0.0, "z": 0.0, "w": 1.0},
+                "orientation_covariance": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                "linear_acceleration_covariance": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                "angular_velocity_covariance": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                "header": {"seq": 0, "stamp": {"sec": 0, "nanosec": 0}, "frame_id": "robot_link"},
+            }
+        )
+        # Automatically resolves to a flat Mosaico IMU with attached metadata
+        mosaico_imu = IMUAdapter.translate(ros_msg)
+        ```
+    """
+
     ros_msgtype: str | Tuple[str, ...] = "sensor_msgs/msg/Imu"
 
     __mosaico_ontology_type__: Type[IMU] = IMU
@@ -277,25 +438,37 @@ class IMUAdapter(ROSAdapterBase[IMU]):
         Raises:
             Exception: Wraps any translation error with context (topic name, timestamp).
         """
-        if ros_msg.data is None:
-            raise Exception(
-                f"'data' attribute in ROSMessage is None. Cannot translate! Ros topic '{ros_msg.topic}' @time: {ros_msg.timestamp}"
-            )
-        try:
-            return Message(
-                message_header=ros_msg.header.translate() if ros_msg.header else None,
-                timestamp_ns=ros_msg.timestamp,
-                data=cls.from_dict(ros_msg.data),
-            )
-        except Exception as e:
-            raise Exception(
-                f"Raised Exception while translating ros topic '{ros_msg.topic}' @time: {ros_msg.timestamp}.\nInner err: '{e}'"
-            )
+        return super().translate(ros_msg, **kwargs)
 
     @classmethod
     def from_dict(cls, ros_data: dict) -> IMU:
         """
         Converts the raw dictionary data into the specific Mosaico type.
+
+        Example:
+            ```python
+            ros_data=
+            {
+                "linear_acceleration": {"x": 0.0, "y": 0.0, "z": 0.0},
+                "angular_velocity": {"x": 0.0, "y": 0.0, "z": 0.0},
+                "orientation": {"x": 0.0, "y": 0.0, "z": 0.0, "w": 1.0},
+                "orientation_covariance": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                "linear_acceleration_covariance": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                "angular_velocity_covariance": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                "header": {"seq": 0, "stamp": {"sec": 0, "nanosec": 0}, "frame_id": "robot_link"},
+            }
+            # Automatically resolves to a flat Mosaico IMU with attached metadata
+            mosaico_imu = IMUAdapter.from_dict(ros_data)
+            ```
+
+        Args:
+            ros_data (dict): The raw dictionary from the ROS message.
+
+        Returns:
+            IMU: The constructed Mosaico IMU object.
+
+        Raises:
+            ValueError: If the recursive 'roi' key exists but is not a dict, or if required keys are missing.
         """
         _validate_msgdata(cls, ros_data)
         # Mandatory Field Conversions (as before)
@@ -339,6 +512,29 @@ class IMUAdapter(ROSAdapterBase[IMU]):
 
 @register_adapter
 class NMEASentenceAdapter(ROSAdapterBase[NMEASentence]):
+    """
+    Adapter for translating ROS NMEASentence messages to Mosaico `NMEASentence`.
+
+    **Supported ROS Types:**
+
+    - [`nmea_msgs/msg/Sentence`](https://docs.ros2.org/foxy/api/nmea_msgs/msg/Sentence.html)
+
+    Example:
+        ```python
+        ros_msg = ROSMessage(
+            timestamp=17000,
+            topic="/gps/fix",
+            msg_type="sensor_msgs/msg/GPSFix",
+            data=
+            {
+                "sentence": "GPGGA,123519,4807.038,N,01131.000,E,1,08,0.9,545.4,M,46.9,M,,*47",
+            }
+        )
+        # Automatically resolves to a flat Mosaico GPS with attached metadata
+        mosaico_gps = NMEASentenceAdapter.translate(ros_msg)
+        ```
+    """
+
     ros_msgtype: str | Tuple[str, ...] = "nmea_msgs/msg/Sentence"
 
     __mosaico_ontology_type__: Type[NMEASentence] = NMEASentence
@@ -356,25 +552,28 @@ class NMEASentenceAdapter(ROSAdapterBase[NMEASentence]):
         Raises:
             Exception: Wraps any translation error with context (topic name, timestamp).
         """
-        if ros_msg.data is None:
-            raise Exception(
-                f"'data' attribute in ROSMessage is None. Cannot translate! Ros topic '{ros_msg.topic}' @time: {ros_msg.timestamp}"
-            )
-        try:
-            return Message(
-                message_header=ros_msg.header.translate() if ros_msg.header else None,
-                timestamp_ns=ros_msg.timestamp,
-                data=cls.from_dict(ros_msg.data),
-            )
-        except Exception as e:
-            raise Exception(
-                f"Raised Exception while translating ros topic '{ros_msg.topic}' @time: {ros_msg.timestamp}.\nInner err: '{e}'"
-            )
+        return super().translate(ros_msg, **kwargs)
 
     @classmethod
     def from_dict(cls, ros_data: dict) -> NMEASentence:
         """
         Converts the raw dictionary data into the specific Mosaico type.
+
+        Example:
+            ```python
+            ros_data=
+            {
+                "sentence": "GPGGA,123519,4807.038,N,01131.000,E,1,08,0.9,545.4,M,46.9,M,,*47",
+            }
+            # Automatically resolves to a flat Mosaico NMEASentence with attached metadata
+            mosaico_nmea_sentence = NMEASentenceAdapter.from_dict(ros_data)
+            ```
+
+        Args:
+            ros_data (dict): The raw dictionary from the ROS message.
+
+        Returns:
+            NMEASentence: The constructed Mosaico NMEASentence object.
         """
         _validate_msgdata(cls, ros_data)
         return NMEASentence(
@@ -392,6 +591,33 @@ class NMEASentenceAdapter(ROSAdapterBase[NMEASentence]):
 
 @register_adapter
 class ImageAdapter(ROSAdapterBase[Image]):
+    """
+    Adapter for translating ROS Image messages to Mosaico `Image`.
+
+    **Supported ROS Types:**
+
+    - [`sensor_msgs/msg/Image`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/Image.html)
+
+    Example:
+        ```python
+        ros_msg = ROSMessage(
+            timestamp=17000,
+            topic="/image",
+            msg_type="sensor_msgs/msg/Image",
+            data=
+            {
+                "data": [...],
+                "width": 1,
+                "height": 1,
+                "step": 4,
+                "encoding": "bgr8",
+            }
+        )
+        # Automatically resolves to a flat Mosaico Image with attached metadata
+        mosaico_image = ImageAdapter.translate(ros_msg)
+        ```
+    """
+
     ros_msgtype: str | Tuple[str, ...] = "sensor_msgs/msg/Image"
 
     __mosaico_ontology_type__: Type[Image] = Image
@@ -413,20 +639,7 @@ class ImageAdapter(ROSAdapterBase[Image]):
         Raises:
             Exception: Wraps any translation error with context (topic name, timestamp).
         """
-        if ros_msg.data is None:
-            raise Exception(
-                f"'data' attribute in ROSMessage is None. Cannot translate! Ros topic '{ros_msg.topic}' @time: {ros_msg.timestamp}"
-            )
-        try:
-            return Message(
-                message_header=ros_msg.header.translate() if ros_msg.header else None,
-                timestamp_ns=ros_msg.timestamp,
-                data=cls.from_dict(ros_msg.data, **kwargs),
-            )
-        except Exception as e:
-            raise Exception(
-                f"Raised Exception while translating ros topic '{ros_msg.topic}' @time: {ros_msg.timestamp}.\nInner err: '{e}'"
-            )
+        return super().translate(ros_msg, **kwargs)
 
     @classmethod
     def from_dict(
@@ -436,6 +649,26 @@ class ImageAdapter(ROSAdapterBase[Image]):
     ) -> Image:
         """
         Converts the raw dictionary data into the specific Mosaico type.
+
+        Example:
+            ```python
+            ros_data=
+            {
+                "data": [...],
+                "width": 1,
+                "height": 1,
+                "step": 4,
+                "encoding": "bgr8",
+            }
+            # Automatically resolves to a flat Mosaico Image with attached metadata
+            mosaico_image = ImageAdapter.from_dict(ros_data)
+            ```
+
+        Args:
+            ros_data (dict): The raw dictionary from the ROS message.
+
+        Returns:
+            Image: The constructed Mosaico Image object.
         """
         _validate_msgdata(cls, ros_data)
 
@@ -461,6 +694,30 @@ class ImageAdapter(ROSAdapterBase[Image]):
 
 @register_adapter
 class CompressedImageAdapter(ROSAdapterBase[CompressedImage]):
+    """
+    Adapter for translating ROS CompressedImage messages to Mosaico `CompressedImage`.
+
+    **Supported ROS Types:**
+
+    - [`sensor_msgs/msg/CompressedImage`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/CompressedImage.html)
+
+    Example:
+        ```python
+        ros_msg = ROSMessage(
+            timestamp=17000,
+            topic="/compressed_image",
+            msg_type="sensor_msgs/msg/CompressedImage",
+            data=
+            {
+                "data": [...],
+                "format": "jpeg",
+            }
+        )
+        # Automatically resolves to a flat Mosaico CompressedImage with attached metadata
+        mosaico_compressed_image = CompressedImageAdapter.translate(ros_msg)
+        ```
+    """
+
     ros_msgtype: str | Tuple[str, ...] = "sensor_msgs/msg/CompressedImage"
 
     __mosaico_ontology_type__: Type[CompressedImage] = CompressedImage
@@ -481,20 +738,7 @@ class CompressedImageAdapter(ROSAdapterBase[CompressedImage]):
         Raises:
             Exception: Wraps any translation error with context (topic name, timestamp).
         """
-        if ros_msg.data is None:
-            raise Exception(
-                f"'data' attribute in ROSMessage is None. Cannot translate! Ros topic '{ros_msg.topic}' @time: {ros_msg.timestamp}"
-            )
-        try:
-            return Message(
-                message_header=ros_msg.header.translate() if ros_msg.header else None,
-                timestamp_ns=ros_msg.timestamp,
-                data=cls.from_dict(ros_msg.data),
-            )
-        except Exception as e:
-            raise Exception(
-                f"Raised Exception while translating ros topic '{ros_msg.topic}' @time: {ros_msg.timestamp}.\nInner err: '{e}'"
-            )
+        return super().translate(ros_msg, **kwargs)
 
     @classmethod
     def from_dict(
@@ -503,6 +747,23 @@ class CompressedImageAdapter(ROSAdapterBase[CompressedImage]):
     ) -> CompressedImage:
         """
         Converts the raw dictionary data into the specific Mosaico type.
+
+        Example:
+            ```python
+            ros_data=
+            {
+                "data": [...],
+                "format": "jpeg",
+            }
+            # Automatically resolves to a flat Mosaico CompressedImage with attached metadata
+            mosaico_compressed_image = CompressedImageAdapter.from_dict(ros_data)
+            ```
+
+        Args:
+            ros_data (dict): The raw dictionary from the ROS message.
+
+        Returns:
+            CompressedImage: The constructed Mosaico CompressedImage object.
         """
         _validate_msgdata(cls, ros_data)
 
@@ -522,6 +783,32 @@ class CompressedImageAdapter(ROSAdapterBase[CompressedImage]):
 
 @register_adapter
 class ROIAdapter(ROSAdapterBase[ROI]):
+    """
+    Adapter for translating ROS RegionOfInterest messages to Mosaico `ROI`.
+
+    **Supported ROS Types:**
+
+    - [`sensor_msgs/RegionOfInterest`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/RegionOfInterest.html)
+
+    Example:
+        ```python
+        ros_msg = ROSMessage(
+            timestamp=17000,
+            topic="/roi",
+            msg_type="sensor_msgs/RegionOfInterest",
+            data=
+            {
+                "height": 1,
+                "width": 1,
+                "x_offset": 0,
+                "y_offset": 0,
+            }
+        )
+        # Automatically resolves to a flat Mosaico ROI with attached metadata
+        mosaico_roi = ROIAdapter.translate(ros_msg)
+        ```
+    """
+
     ros_msgtype: str | Tuple[str, ...] = "sensor_msgs/RegionOfInterest"
 
     __mosaico_ontology_type__: Type[ROI] = ROI
@@ -543,25 +830,31 @@ class ROIAdapter(ROSAdapterBase[ROI]):
         Raises:
             Exception: Wraps any translation error with context (topic name, timestamp).
         """
-        if ros_msg.data is None:
-            raise Exception(
-                f"'data' attribute in ROSMessage is None. Cannot translate! Ros topic '{ros_msg.topic}' @time: {ros_msg.timestamp}"
-            )
-        try:
-            return Message(
-                message_header=ros_msg.header.translate() if ros_msg.header else None,
-                timestamp_ns=ros_msg.timestamp,
-                data=cls.from_dict(ros_msg.data),
-            )
-        except Exception as e:
-            raise Exception(
-                f"Raised Exception while translating ros topic '{ros_msg.topic}' @time: {ros_msg.timestamp}.\nInner err: '{e}'"
-            )
+        return super().translate(ros_msg, **kwargs)
 
     @classmethod
-    def from_dict(cls, ros_data: dict):
+    def from_dict(cls, ros_data: dict) -> ROI:
         """
         Converts the raw dictionary data into the specific Mosaico type.
+
+        Example:
+            ```python
+            ros_data=
+            {
+                "height": 1,
+                "width": 1,
+                "x_offset": 0,
+                "y_offset": 0,
+            }
+            # Automatically resolves to a flat Mosaico ROI with attached metadata
+            mosaico_roi = ROIAdapter.from_dict(ros_data)
+            ```
+
+        Args:
+            ros_data (dict): The raw dictionary from the ROS message.
+
+        Returns:
+            ROI: The constructed Mosaico ROI object.
         """
         _validate_msgdata(cls, ros_data)
 
@@ -582,6 +875,44 @@ class ROIAdapter(ROSAdapterBase[ROI]):
 
 @register_adapter
 class BatteryStateAdapter(ROSAdapterBase[BatteryState]):
+    """
+    Adapter for translating ROS BatteryState messages to Mosaico `BatteryState`.
+
+    **Supported ROS Types:**
+
+    - [`sensor_msgs/msg/BatteryState`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/BatteryState.html)
+
+    Example:
+        ```python
+        ros_msg = ROSMessage(
+            timestamp=17000,
+            topic="/battery_state",
+            msg_type="sensor_msgs/msg/BatteryState",
+            data=
+            {
+                "voltage": 12.6,
+                "capacity": 100,
+                "cell_temperature": 25,
+                "cell_voltage": [12.6],
+                "location": "battery",
+                "charge": 100,
+                "current": 0,
+                "design_capacity": 100,
+                "location": "battery",
+                "percentage": 100,
+                "power_supply_health": "good",
+                "power_supply_status": "charging",
+                "power_supply_technology": "li-ion",
+                "present": True,
+                "serial_number": "1234567890",
+                "temperature": 25,
+            }
+        )
+        # Automatically resolves to a flat Mosaico BatteryState with attached metadata
+        mosaico_battery_state = BatteryStateAdapter.translate(ros_msg)
+        ```
+    """
+
     ros_msgtype: str | Tuple[str, ...] = "sensor_msgs/msg/BatteryState"
 
     __mosaico_ontology_type__: Type[BatteryState] = BatteryState
@@ -616,25 +947,43 @@ class BatteryStateAdapter(ROSAdapterBase[BatteryState]):
         Raises:
             Exception: Wraps any translation error with context (topic name, timestamp).
         """
-        if ros_msg.data is None:
-            raise Exception(
-                f"'data' attribute in ROSMessage is None. Cannot translate! Ros topic '{ros_msg.topic}' @time: {ros_msg.timestamp}"
-            )
-        try:
-            return Message(
-                message_header=ros_msg.header.translate() if ros_msg.header else None,
-                timestamp_ns=ros_msg.timestamp,
-                data=cls.from_dict(ros_msg.data),
-            )
-        except Exception as e:
-            raise Exception(
-                f"Raised Exception while translating ros topic '{ros_msg.topic}' @time: {ros_msg.timestamp}.\nInner err: '{e}'"
-            )
+        return super().translate(ros_msg, **kwargs)
 
     @classmethod
     def from_dict(cls, ros_data: dict) -> BatteryState:
         """
         Converts the raw dictionary data into the specific Mosaico type.
+
+        Example:
+            ```python
+            ros_data=
+            {
+                "voltage": 12.6,
+                "capacity": 100,
+                "cell_temperature": 25,
+                "cell_voltage": [12.6],
+                "location": "battery",
+                "charge": 100,
+                "current": 0,
+                "design_capacity": 100,
+                "location": "battery",
+                "percentage": 100,
+                "power_supply_health": "good",
+                "power_supply_status": "charging",
+                "power_supply_technology": "li-ion",
+                "present": True,
+                "serial_number": "1234567890",
+                "temperature": 25,
+            }
+            # Automatically resolves to a flat Mosaico BatteryState with attached metadata
+            mosaico_battery_state = BatteryStateAdapter.from_dict(ros_data)
+            ```
+
+        Args:
+            ros_data (dict): The raw dictionary from the ROS message.
+
+        Returns:
+            BatteryState: The constructed Mosaico BatteryState object.
         """
         _validate_msgdata(cls, ros_data)
 
@@ -677,3 +1026,99 @@ class BatteryStateAdapter(ROSAdapterBase[BatteryState]):
             schema_mdata.update({"status": NavSatStatusAdapter.schema_metadata(status)})
 
         return schema_mdata if schema_mdata else None
+
+
+@register_adapter
+class RobotJointAdapter(ROSAdapterBase[RobotJoint]):
+    """
+    Adapter for translating ROS JointState messages to Mosaico `RobotJoint`.
+
+    **Supported ROS Types:**
+
+    - [`sensor_msgs/msg/JointState`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/JointState.html)
+
+    Example:
+        ```python
+        ros_msg = ROSMessage(
+            timestamp=17000,
+            topic="/joint_states",
+            msg_type="sensor_msgs/msg/JointState",
+            data={
+                "header": {
+                    "stamp": {
+                        "sec": 17000,
+                        "nanosec": 0,
+                    },
+                    "frame_id": "",
+                },
+                "name": ["joint1", "joint2"],
+                "position": [0.0, 0.0],
+                "velocity": [0.0, 0.0],
+                "effort": [0.0, 0.0],
+            },
+        )
+        # Automatically resolves to a flat Mosaico RobotJoint with attached metadata
+        mosaico_robot_joint = RobotJointAdapter.translate(ros_msg)
+        ```
+    """
+
+    ros_msgtype: str | Tuple[str, ...] = "sensor_msgs/msg/JointState"
+    __mosaico_ontology_type__: Type[RobotJoint] = RobotJoint
+    _REQUIRED_KEYS = ("name", "position", "velocity", "effort")
+
+    @classmethod
+    def translate(
+        cls,
+        ros_msg: ROSMessage,  # ROSMessage
+        **kwargs: Any,
+    ) -> Message:
+        """
+        Translates a ROS message into a Mosaico Message.
+
+        Returns:
+            Message: The translated message containing a `RobotJoint` object.
+
+        Raises:
+            Exception: Wraps any translation error with context (topic name, timestamp).
+        """
+        return super().translate(ros_msg, **kwargs)
+
+    @classmethod
+    def from_dict(cls, ros_data: dict) -> RobotJoint:
+        """
+        Converts the raw dictionary data into the specific Mosaico type.
+
+        Example:
+            ```python
+            ros_data={
+                "header": {
+                    "stamp": {
+                        "sec": 17000,
+                        "nanosec": 0,
+                    },
+                    "frame_id": "",
+                },
+                "name": ["joint1", "joint2"],
+                "position": [0.0, 0.0],
+                "velocity": [0.0, 0.0],
+                "effort": [0.0, 0.0],
+            }
+            # Automatically resolves to a flat Mosaico RobotJoint with attached metadata
+            mosaico_robot_joint = RobotJointAdapter.from_dict(ros_data)
+            ```
+        """
+        _validate_msgdata(cls, ros_data)
+        return RobotJoint(
+            header=_make_header(ros_data.get("header")),
+            names=ros_data["name"],
+            positions=ros_data["position"],
+            velocities=ros_data["velocity"],
+            efforts=ros_data["effort"],
+        )
+
+    @classmethod
+    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
+        """
+        Extract the ROS message specific schema metadata, if any.
+        """
+        return None

@@ -23,15 +23,53 @@ from .platform_base import PlatformBase
 )
 class Topic(PlatformBase):
     """
-    Represents a Topic entity within the platform catalog.
+    Represents a read-only view of a server-side Topic platform resource.
 
-    This class provides access to topic-specific system metadata, such as
-    the ontology tag (e.g., 'imu', 'camera') and the serialization format.
-    It is decorated with `@queryable` to enable fluid query syntax generation.
+    The `Topic` class provides access to topic-specific system metadata, such as the ontology tag (e.g., 'imu', 'camera') and the serialization format.
+    It serves as a metadata-rich view of an individual data stream within the platform catalog.
 
-    **NOTE:** This version of the SDK allows the direct queryablity of the sole 'user_metadata'
-    field via 'Q' query proxy. All the other entities can be queried via the
-    'with_*' functions of the QueryTopic() class
+    Important: Data Retrieval
+        This class provides a **metadata-only** view of the topic.
+        To retrieve the actual time-series messages contained within the topic, you must
+        use the [`TopicHandler.get_data_streamer()`][mosaicolabs.handlers.TopicHandler.get_data_streamer]
+        method from a [`TopicHandler`][mosaicolabs.handlers.TopicHandler]
+        instance.
+
+    ### Querying with the **`.Q` Proxy**
+    The `user_metadata` field of this class is queryable when constructing a [`QueryTopic`][mosaicolabs.models.query.QueryTopic]
+    via the **`.Q` proxy**.
+    Check the documentation of the [`PlatformBase`][mosaicolabs.models.platform.platform_base.PlatformBase--querying-with-the-q-proxy] to construct a
+    a valid expression for the builders involving the `user_metadata` component.
+
+    Example:
+        ```python
+        from mosaicolabs import MosaicoClient, Topic, QueryTopic
+
+        with MosaicoClient.connect("localhost", 6726) as client:
+            # Filter for a specific data value (using constructor)
+            qresponse = client.query(
+                QueryTopic(
+                    Topic.Q.user_metadata["update_rate_hz"].eq(100), # Access the keys using the [] operator
+                    Topic.Q.user_metadata["interface.type"].eq("canbus"), # Navigate the nested dicts using the dot notation
+                )
+            )
+
+            # # The same query using `with_expression`
+            # qresponse = client.query(
+            #     QueryTopic()
+            #     .with_expression(Topic.Q.user_metadata["update_rate_hz"].eq(100))
+            #     .with_expression(
+            #         Topic.Q.user_metadata["interface.type"].match("canbus")
+            #     )
+            # )
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {[topic.name for topic in item.topics]}")
+        ```
     """
 
     # --- Private Fields (Internal State) ---
@@ -42,23 +80,23 @@ class Topic(PlatformBase):
 
     # --- Factory Method ---
     @classmethod
-    def from_flight_info(
+    def _from_flight_info(
         cls, sequence_name: str, name: str, metadata: Any, sys_info: Any
     ) -> "Topic":
         """
-        Factory method to construct a Topic from Flight protocol objects.
+        Internal factory method to construct a Topic model from Flight protocol objects.
 
-        This acts as a bridge (adapter) between the low-level `TopicMetadata` /
-        `_DoActionResponseSysInfo` objects (from `comm.metadata` and `comm.do_action`)
-        and this high-level catalog model.
+        This method adapts low-level protocol responses into the high-level
+        Catalog model.
 
         Args:
-            name (str): The full resource name of the topic.
-            metadata (Any): The decoded `TopicMetadata` object containing user properties.
-            sys_info (Any): The `_DoActionResponseSysInfo` object containing system stats.
+            sequence_name: The parent sequence identifier.
+            name: The full resource name of the topic.
+            metadata: Decoded topic metadata (properties and user metadata).
+            sys_info: System diagnostic information.
 
         Returns:
-            Topic: An initialized, read-only Topic model.
+            An initialized, read-only `Topic` model.
         """
         # Create the instance with public fields.
         # Note: metadata.user_metadata comes flat from the server; we unflatten it
@@ -87,30 +125,83 @@ class Topic(PlatformBase):
     @property
     def ontology_tag(self) -> str:
         """
-        Returns the ontology type identifier (e.g., 'imu', 'gnss').
-        Corresponds to the `__ontology_tag__` in the `Serializable` class registry.
+        The ontology type identifier (e.g., 'imu', 'gnss').
+
+        This corresponds to the `__ontology_tag__` defined in the
+        [`Serializable`][mosaicolabs.models.Serializable] class registry.
+
+        ### Querying with **Query Builders**
+        The `ontology_tag` property is queryable when constructing a [`QueryTopic`][mosaicolabs.models.query.QueryTopic]
+        via the convenience method [`QueryTopic.with_ontology_tag()`][mosaicolabs.models.query.builders.QueryTopic.with_ontology_tag].
+
+        Example:
+            ```python
+            from mosaicolabs import MosaicoClient, Topic, IMU, QueryTopic
+
+            with MosaicoClient.connect("localhost", 6726) as client:
+                # Filter for a specific data value (using constructor)
+                qresponse = client.query(
+                    QueryTopic().with_ontology_tag(IMU.ontology_tag()),
+                )
+
+                # Inspect the response
+                if qresponse is not None:
+                    # Results are automatically grouped by Sequence for easier data management
+                    for item in qresponse:
+                        print(f"Sequence: {item.sequence.name}")
+                        print(f"Topics: {[topic.name for topic in item.topics]}")
+            ```
         """
         return self._ontology_tag
 
     @property
     def sequence_name(self) -> str:
         """
-        Returns the parent sequence name.
+        The name of the parent sequence containing this topic.
+
+        ### Querying with **Query Builders**
+        The `sequence_name` property is not queryable directly. Use [`QuerySequence`][mosaicolabs.models.query.QuerySequence] to query for sequences.
+
+        Example:
+            ```python
+            from mosaicolabs import MosaicoClient, Topic, QuerySequence
+
+            with MosaicoClient.connect("localhost", 6726) as client:
+                # Filter for a specific data value (using constructor)
+                qresponse = client.query(
+                    QuerySequence().with_name("test_winter_20260129_103000")
+                )
+
+                # Inspect the response
+                if qresponse is not None:
+                    # Results are automatically grouped by Sequence for easier data management
+                    for item in qresponse:
+                        print(f"Sequence: {item.sequence.name}")
+                        print(f"Topics: {[topic.name for topic in item.topics]}")
+            ```
         """
         return self._sequence_name
 
     @property
     def chunks_number(self) -> Optional[int]:
         """
-        Returns the number of data chunks stored for this topic.
-        May be None if the server did not provide detailed storage stats.
+        The number of physical data chunks stored for this topic.
+
+        May be `None` if the server did not provide detailed storage statistics.
+
+        ### Querying with **Query Builders**
+        The `chunks_number` property is not queryable.
         """
         return self._chunks_number
 
     @property
     def serialization_format(self) -> str:
         """
-        Returns the format used to serialize data (e.g., 'arrow', 'image').
-        Corresponds to the `SerializationFormat` enum.
+        The format used to serialize the topic data (e.g., 'arrow', 'image').
+
+        This corresponds to the [`SerializationFormat`][mosaicolabs.enum.SerializationFormat] enum.
+
+        ### Querying with **Query Builders**
+        The `serialization_format` property is not queryable.
         """
         return self._serialization_format

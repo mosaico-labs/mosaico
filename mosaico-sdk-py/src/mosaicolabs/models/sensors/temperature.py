@@ -19,9 +19,44 @@ class Temperature(Serializable, HeaderMixin, VarianceMixin):
     Users are encouraged to use the `from_*` factory methods when initializing
     temperature values expressed in units other than Kelvin.
 
-    Parameters:
+    Attributes:
         value (float): Temperature value in **Kelvin (K)**. When using the constructor directly,
             the value **must** be provided in Kelvin.
+
+    ### Querying with the **`.Q` Proxy**
+    This class is fully queryable via the **`.Q` proxy**. You can filter temperature data based
+    on temperature values within a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog].
+
+    Example:
+        ```python
+        from mosaicolabs import MosaicoClient, Temperature, QueryOntologyCatalog
+
+        with MosaicoClient.connect("localhost", 6726) as client:
+            # Filter for temperature values within a specific range
+            qresponse = client.query(
+                QueryOntologyCatalog(Temperature.Q.value.between([273.15, 373.15]))
+                .with_expression(Temperature.Q.header.stamp.sec.between(1700000000, 1800000000)),
+            )
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {[topic.name for topic in item.topics]}")
+
+            # Filter for a specific component value and extract the first and last occurrence times
+            qresponse = client.query(
+                QueryOntologyCatalog(Temperature.Q.value.between([273.15, 373.15]), include_timestamp_range=True)
+            )
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {[topic.name for topic in item.topics]}")
+        ```
     """
 
     # --- Schema Definition ---
@@ -37,7 +72,48 @@ class Temperature(Serializable, HeaderMixin, VarianceMixin):
     )
 
     value: float
-    """Temperature value in Kelvin."""
+    """
+    Temperature value in Kelvin.
+
+    ### Querying with the **`.Q` Proxy**
+    The temperature value is queryable via the `value` field.
+
+    | Field Access Path | Queryable Type | Supported Operators |
+    | :--- | :--- | :--- |
+    | `Temperature.Q.value` | `Numeric` | `.eq()`, `.neq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+
+    Example:
+        ```python
+        from mosaicolabs import MosaicoClient, Temperature, QueryOntologyCatalog
+
+        with MosaicoClient.connect("localhost", 6726) as client:
+            # Filter for temperature values within a specific range
+            qresponse = client.query(
+                QueryOntologyCatalog(Temperature.Q.value.between([273.15, 373.15]))
+            )
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {[topic.name for topic in item.topics]}")
+
+            # Filter for a specific component value and extract the first and last occurrence times
+            qresponse = client.query(
+                QueryOntologyCatalog(Temperature.Q.value.between([273.15, 373.15]), include_timestamp_range=True)
+            )
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {{topic.name:
+                                [topic.timestamp_range.start, topic.timestamp_range.end]
+                                for topic in item.topics}}")
+        ```
+    """
 
     @classmethod
     def from_celsius(

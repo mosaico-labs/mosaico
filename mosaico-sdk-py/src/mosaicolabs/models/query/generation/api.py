@@ -1,16 +1,9 @@
-from typing import (
-    ClassVar,
-    Dict,
-    Optional,
-    Type,
-    Any,
-    TypeVar,
-)
+from typing import ClassVar, Dict, Optional, Type, Any, TypeVar, Union
 import inspect
 
 from ..expressions import _QueryExpression
 from ..protocols import FieldMapperProtocol
-from .mixins import _QueryableUnsupported
+from .mixins import _QueryableUnsupported, _QueryableField
 
 
 class _QueryProxy:
@@ -18,6 +11,22 @@ class _QueryProxy:
     A dynamic proxy object that is attached to Ontology classes (as .Q).
     It intercepts attribute access (like .position or .status) to
     build nested query paths and provide custom error messages.
+
+    The proxy is created by the `queryable` decorator and is available as a
+    class attribute named ``Q``.
+
+    Example:
+        ```python
+        from mosaicolabs.models import IMU
+        imu_query_proxy = IMU.Q
+        imu_query_proxy.acceleration.x >= 1.234
+
+        # This is a _QueryProxy instance
+        imu_query_proxy.acceleration
+
+        # This is a _QueryableField instance
+        imu_query_proxy.acceleration.x
+        ```
     """
 
     def __init__(self, full_path: str, field_map: Dict[str, Any]):
@@ -35,7 +44,7 @@ class _QueryProxy:
         self.__path__ = full_path
         self.__map__ = field_map
 
-    def __getattr__(self, name: str) -> Any:
+    def __getattr__(self, name: str) -> Union["_QueryProxy", _QueryableField]:
         """
         Called at runtime when accessing an attribute (e.g., GPS.Q.position).
 
@@ -43,8 +52,8 @@ class _QueryProxy:
             name (str): The name of the attribute being accessed (e.g., "position").
 
         Returns:
-            Any: Either a new QueryProxy for a nested struct, or a
-                 _QueryableField for a simple field.
+            Union[_QueryProxy, _QueryableField]: Either a new QueryProxy for a nested struct, or a
+            _QueryableField for a simple field.
 
         Raises:
             AttributeError: If the 'name' is not a valid field in the map,
@@ -70,7 +79,7 @@ class _QueryProxy:
         else:
             # This is a simple field (a _QueryableField instance).
             # Return it directly.
-            # (e.g., accessing .status returns _QueryableField("gps.status"))
+            # (e.g., accessing IMU.Q.acceleration.x returns _QueryableField("IMU.Q.acceleration.x"))
             return child
 
     @property
@@ -82,16 +91,19 @@ class _QueryProxy:
         )
 
 
-# --- The General QueryableModel ---
-class _QueryableModel:
+# --- The General _QueryProxyMixin ---
+class _QueryProxyMixin:
     """
     A mixin class that provides query proxy generation capabilities
     to any class that defines a PyArrow '__msco_pyarrow_struct__' and provides a
     root query prefix (like a '__ontology_tag__').
+
+    The query proxy is available as a class attribute named ``Q``.
     """
 
     # Class variable, because it is expected to use like: 'IMU.Q.acceleration.x >= 1.234'
     Q: ClassVar[_QueryProxy]
+    """The query proxy for the model."""
 
     @staticmethod
     def _inject_query_proxy(
@@ -134,12 +146,18 @@ def queryable(
 ):
     """
     Class decorator to build and inject the .Q proxy.
+
+    Args:
+        mapper_type (Type[FieldMapperProtocol]): The type of mapper to use.
+        query_expression_type (Type[_QueryExpression]): The type of query expression to use.
+        prefix (Optional[str]): The prefix to use for the query.
+        **kwargs: Additional keyword arguments to pass to the mapper.
     """
 
     def decorator(cls: Type[T]) -> Type[T]:
         # Determine the query prefix
         # Call the injection helper
-        _QueryableModel._inject_query_proxy(
+        _QueryProxyMixin._inject_query_proxy(
             cls, mapper_type(**kwargs), query_expression_type, prefix
         )
         return cls
@@ -156,4 +174,4 @@ def is_model_queryable(model: Type[Any]) -> bool:
         return False
 
     # 2. Check if it inherits from QueryableModel at any level.
-    return issubclass(model, _QueryableModel)
+    return issubclass(model, _QueryProxyMixin)

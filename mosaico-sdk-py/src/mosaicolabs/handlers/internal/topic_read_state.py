@@ -120,7 +120,6 @@ class _TopicReadState:
                 chunk.data if chunk and chunk.data and chunk.data.num_rows > 0 else None
             )
         except StopIteration:
-            self.reader = None
             return None
 
     def peek_next_row(self) -> bool:

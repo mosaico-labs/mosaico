@@ -133,9 +133,7 @@ def test_topic_handlers(
     assert tophandler is not None
     _validate_returned_topic_name(tophandler.name)
     # TopicHandlers must be the same
-    assert tophandler.name == tophandler_from_seq.name
-    assert tophandler.topic_info == tophandler_from_seq.topic_info
-    assert tophandler.user_metadata == tophandler_from_seq.user_metadata
+    assert tophandler._topic == tophandler_from_seq._topic
     # free resources
     _client.close()
 

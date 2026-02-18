@@ -46,7 +46,7 @@ def _encode_messages(objs: list[Message]):
     """Helper to pivot a list of Message objects into a columnar dictionary."""
     result = defaultdict(list)
     for obj in objs:
-        for k, v in obj.encode().items():
+        for k, v in obj._encode().items():
             result[k].append(v)
     return dict(result)
 
@@ -105,7 +105,7 @@ class _TopicWriteState:
         self.max_batch_size_records = max_batch_size_records
 
         # Resolve Ontology Class for serialization schema
-        self.ontology_type = Serializable.get_class_type(ontology_tag)
+        self.ontology_type = Serializable._get_class_type(ontology_tag)
         if self.ontology_type is None:
             raise RuntimeError(
                 f"Ontology class for tag '{ontology_tag}' not registered in Message."
@@ -144,7 +144,7 @@ class _TopicWriteState:
 
         return pa.RecordBatch.from_pydict(
             _encode_messages(msgs),
-            schema=Message.get_schema(self.ontology_type),
+            schema=Message._get_schema(self.ontology_type),
         )
 
     def _get_serialized_size(self, batch: pa.RecordBatch) -> int:

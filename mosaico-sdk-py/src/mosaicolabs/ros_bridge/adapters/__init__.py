@@ -8,6 +8,7 @@ from .sensor_msgs import (
     CameraInfoAdapter as CameraInfoAdapter,
     NavSatStatusAdapter as NavSatStatusAdapter,
     BatteryStateAdapter as BatteryStateAdapter,
+    RobotJointAdapter as RobotJointAdapter,
 )
 from .geometry_msgs import (
     AccelAdapter as AccelAdapter,
@@ -25,7 +26,5 @@ from .nav_msgs import (
 )
 
 from .tf2_msgs import FrameTransformAdapter as FrameTransformAdapter
-
-from .robot_joint import RobotJointAdapter as RobotJointAdapter
 
 from . import std_msgs as std_msgs

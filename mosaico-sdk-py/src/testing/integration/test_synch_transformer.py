@@ -30,7 +30,7 @@ def test_invalid_timestamp_column(
     _client.close()
 
 
-def test_synch_unbounded(
+def test_sync_unbounded(
     _client: MosaicoClient,
     _make_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
     _inject_sequence_data_stream,  # Make sure data are available on the server

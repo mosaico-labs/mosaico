@@ -6,9 +6,11 @@ from typing import Optional
 @dataclass
 class SystemInfo:
     """
-    Metadata and structural information for a Mosaico resource.
+    Metadata and structural information for a Mosaico
+    [`Sequence`][mosaicolabs.models.platform.Sequence] or
+    [`Topic`][mosaicolabs.models.platform.Topic] resource.
 
-    This DTO (Data Transfer Object) summarizes the physical and logical state of a
+    This Data Transfer Object summarizes the physical and logical state of a
     sequence or topic on the server, typically retrieved via a system-info action.
 
     Attributes:

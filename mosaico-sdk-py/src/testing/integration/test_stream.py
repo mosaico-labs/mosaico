@@ -66,6 +66,34 @@ def test_sequence_data_stream(
     _client.close()
 
 
+def test_sequence_data_stream_multiple_call(
+    _client: MosaicoClient,
+    _make_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
+    _inject_sequence_data_stream,  # Make sure data are available on the server
+):
+    """Test that the sequence data stream is correctly unpacked and provided"""
+    seqhandler = _client.sequence_handler(UPLOADED_SEQUENCE_NAME)
+    # Sequence must exist
+    assert seqhandler is not None
+
+    sstream_handl_1 = seqhandler.get_data_streamer()
+    # Get the next timestamp, without consuming the related sample
+    sstream_handl_1.next_timestamp()
+
+    sstream_handl_2 = seqhandler.get_data_streamer()
+    sstream_handl_2.next_timestamp()
+
+    # sstream_handl_1 must have been closed
+    with pytest.raises(ValueError, match="Reader closed for sequence"):
+        sstream_handl_1.next_timestamp()
+    with pytest.raises(ValueError, match="Reader closed for sequence"):
+        for _, _ in sstream_handl_1:
+            pass
+
+    # free resources
+    _client.close()
+
+
 # Repeat for each topic
 @pytest.mark.parametrize("topic", topic_list)
 def test_topic_data_stream(
@@ -130,6 +158,51 @@ def test_topic_data_stream(
 
     # check the total number of received sensors is the same of the original sequence
     assert msg_count == len(_cached_topic_data_stream)
+
+    # free resources
+    _client.close()
+
+
+# Repeat for each topic
+@pytest.mark.parametrize("topic", topic_list)
+def test_topic_data_stream_multiple_call(
+    _client: MosaicoClient,
+    _inject_sequence_data_stream,  # Make sure data are available on the server
+    topic: str,
+):
+    """Test that the topic data stream is correctly unpacked and provided"""
+    seqhandler = _client.sequence_handler(UPLOADED_SEQUENCE_NAME)
+    # just prevent IDE to complain about None
+    assert seqhandler is not None
+    # All other tests for this sequence have been done or will be done... skip.
+
+    # This must raise if topic does not exist
+    tophandler = seqhandler.get_topic_handler(topic)
+
+    # This must raise if topic handler is malformed
+    tstream_handl_1 = tophandler.get_data_streamer()
+
+    # Topic reader must be valid
+    assert tstream_handl_1 is not None
+    # Get the next timestamp, without consuming the related sample
+    next_tstamp = tstream_handl_1.next_timestamp()
+    assert next_tstamp is not None
+
+    # This must raise if topic handler is malformed
+    tstream_handl_2 = tophandler.get_data_streamer()
+
+    # Topic reader must be valid
+    assert tstream_handl_2 is not None
+    # Get the next timestamp, without consuming the related sample
+    next_tstamp = tstream_handl_2.next_timestamp()
+    assert next_tstamp is not None
+
+    # tstream_handl_1 has been closed!
+    with pytest.raises(ValueError, match="Reader closed for topic"):
+        tstream_handl_1.next_timestamp()
+    with pytest.raises(ValueError, match="Reader closed for topic"):
+        for _ in tstream_handl_1:
+            pass
 
     # free resources
     _client.close()

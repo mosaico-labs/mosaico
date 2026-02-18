@@ -16,27 +16,49 @@ logger = get_logger(__name__)
 
 
 class LoaderErrorPolicy(Enum):
-    """Defines how the loader handles deserialization errors."""
+    """
+    Defines the strategy for handling deserialization failures during bag playback.
 
-    IGNORE = "ignore"  # Skip bad messages silently
-    LOG_WARN = "log_warn"  # Log a warning but continue (Default)
-    RAISE = "raise"  # Raise the exception and stop the pipeline
+    In heterogeneous datasets, it is common to encounter corrupted messages or missing
+    type definitions for specific topics. This policy allows the user to balance
+    system robustness against data integrity.
+
+    Attributes:
+        IGNORE: Silently skips any message that fails to deserialize. The pipeline continues
+            uninterrupted without any log output.
+        LOG_WARN: (Default) Logs a warning containing the topic name and error details, then
+            skips the message and continues.
+        RAISE: Immediately halts execution and raises the exception. Best used for critical
+            data ingestion where missing even a single record is unacceptable.
+    """
+
+    IGNORE = "ignore"
+    """Silently skips any message that fails to deserialize."""
+
+    LOG_WARN = "log_warn"
+    """Logs a warning containing the topic name and error details, then skips the message and continues."""
+
+    RAISE = "raise"
+    """Immediately halts execution and raises the exception. Best used for critical data ingestion where missing even a single record is unacceptable."""
 
 
 class ROSLoader:
     """
-    Concrete loader implementation for reading ROS 1 (.bag) and ROS 2 (.db3, .mcap)
-    bag files using the rosbags library.
+    Unified loader for reading and deserializing ROS 1 (.bag) and ROS 2 (.mcap, .db3) data.
 
-    It is responsible for resource management (opening/closing the bag file) and message
-    deserialization. It can handle custom ROS message types using the definitions embedded
-    in the bag file.
+    The `ROSLoader` acts as a resource manager that abstracts the underlying `rosbags` library.
+    It provides a standardized Pythonic interface for filtering topics, managing custom message
+    registries, and streaming data into the Mosaico adaptation pipeline.
 
-    Features:
-      - Dynamic Type Registry support.
-      - Glob pattern matching for topics (e.g. '/cam/*').
-      - Configurable error handling policies.
-      - Decoupled progress reporting hooks.
+
+    ### Key Features
+    * **Multi-Format Support**: Automatically detects and handles ROS 1 and ROS 2 bag containers.
+    * **Semantic Filtering**: Supports glob-style patterns (e.g., `/sensors/*`) to load only relevant data channels.
+    * **Dynamic Schema Resolution**: Integrates with the [`ROSTypeRegistry`][mosaicolabs.ros_bridge.ROSTypeRegistry] to resolve proprietary message types on-the-fly.
+    * **Memory Efficient**: Implements a generator-based iteration pattern to process large bags without loading them into RAM.
+
+    Attributes:
+        ACCEPTED_EXTENSIONS: Set of supported file extensions {'.bag', '.db3', '.mcap'}.
     """
 
     ACCEPTED_EXTENSIONS = {".bag", ".db3", ".mcap"}
@@ -49,6 +71,39 @@ class ROSLoader:
         error_policy: LoaderErrorPolicy = LoaderErrorPolicy.LOG_WARN,
         custom_types: Optional[Dict[str, Union[str, Path]]] = None,
     ):
+        """
+        Initializes the loader and prepares the type registry.
+
+        Upon initialization, the loader merges the global definitions from the
+        [`ROSTypeRegistry`][mosaicolabs.ros_bridge.ROSTypeRegistry]
+        with any `custom_types` provided specifically for this session.
+
+        Example:
+            ```python
+            from rosbags.typesys import Stores
+            from mosaicolabs.ros_bridge import ROSLoader, LoaderErrorPolicy
+
+            # Initialize to read only IMU and GPS data from an MCAP file
+            with ROSLoader(
+                file_path="mission_01.mcap",
+                topics=["/imu*", "/gps/fix"],
+                typestore_name=Stores.ROS2_HUMBLE,
+                error_policy=LoaderErrorPolicy.RAISE
+            ) as loader:
+                for msg, exc in loader:
+                    if not exc:
+                        print(f"Read {msg.msg_type} from {msg.topic}")
+            ```
+
+        Args:
+            file_path: Path to the bag file or directory.
+            topics: A single topic name, a list of names, or glob patterns.
+            typestore_name: The target ROS distribution for default message schemas.
+                See [`rosbags.typesys.Stores`](https://ternaris.gitlab.io/rosbags/topics/typesys.html#type-stores).
+            error_policy: How to handle errors during message iteration.
+            custom_types: Local overrides for message definitions (type_name: path/to/msg).
+        """
+
         self._file_path = Path(file_path)
         self._validate_file()
 
@@ -98,7 +153,11 @@ class ROSLoader:
 
     def _resolve_connections(self):
         """
-        Opens the reader (lazy) and resolves glob patterns to actual connections.
+        Lazily opens the bag file and resolves requested topic patterns.
+
+        This method performs "Smart Filtering" by matching requested glob patterns against
+        the actual topics available in the bag file. It populates the
+        internal `_connections` list used for optimized iteration.
         """
         if self._reader is not None:
             return
@@ -146,7 +205,16 @@ class ROSLoader:
 
     # --- Properties ---
     def msg_count(self, topic: Optional[str] = None) -> int:
-        """Total messages to be processed based on filters."""
+        """
+        Returns the total number of messages to be processed based on active filters.
+
+        Args:
+            topic: If provided, returns the count for that specific topic. If None, returns
+                the aggregate count for all filtered topics.
+
+        Returns:
+            The total message count.
+        """
         self._resolve_connections()
         if not topic:
             return sum(c.msgcount for c in self._connections)
@@ -158,19 +226,64 @@ class ROSLoader:
 
     @property
     def topics(self) -> List[str]:
-        """List of topics that will be loaded."""
+        """
+        Retrieves the list of canonical topic names that will be processed.
+
+        This property returns the result of the "Smart Filtering" process, which resolves
+        any glob patterns (e.g., `/camera/*`) provided during initialization against
+         the actual metadata contained within the bag file.
+
+        Example:
+            ```python
+            with ROSLoader(file_path="data.mcap", topics=["/sensors/*"]) as loader:
+                # If the bag contains /sensors/imu and /sensors/gps,
+                # this property returns ['/sensors/imu', '/sensors/gps']
+                print(f"Loading topics: {loader.topics}")
+            ```
+
+        Returns:
+            List[str]: A list of topic names currently matched and scheduled for loading.
+        """
         self._resolve_connections()
         return list(self._resolved_topics.keys())
 
     @property
     def msg_types(self) -> List[str | None]:
-        """List of topics that will be loaded."""
+        """
+        Retrieves the list of ROS message types corresponding to the resolved topics.
+
+        Each entry in this list represents the schema name (e.g., `sensor_msgs/msg/Image`)
+        required to correctly deserialize the messages for the topics returned by
+        the `.topics` property.
+
+        Example:
+            ```python
+            with ROSLoader(file_path="data.mcap") as loader:
+                for topic, msg_type in zip(loader.topics, loader.msg_types):
+                    print(f"Topic {topic} requires schema: {msg_type}")
+            ```
+
+        Returns:
+            List[str]: A list of ROS message type strings in the same order
+            as the resolved topics.
+        """
         self._resolve_connections()
         return [val.msgtype for val in self._resolved_topics.values()]
 
     # --- Core Logic ---
 
     def __iter__(self) -> Generator[Tuple[ROSMessage, Optional[Exception]], None, None]:
+        """
+        The primary data streaming loop.
+
+        This generator iterates through the bag chronologically, deserializing raw binary
+        payloads into standard `ROSMessage` containers.
+
+        Yields:
+            A tuple of (ROSMessage, Exception). If deserialization succeeds, Exception is None.
+            If it fails, ROSMessage still contains metadata (topic, timestamp) but `data` is None.
+        """
+
         self._resolve_connections()
 
         if (
@@ -181,7 +294,7 @@ class ROSLoader:
         # We allow an external observer hook for progress bars
         # This removes `rich` dependency from the core class
 
-        for connection, timestamp, rawdata in self._reader.messages(
+        for connection, bag_timestamp_ns, rawdata in self._reader.messages(
             connections=self._connections
         ):
             try:
@@ -190,7 +303,7 @@ class ROSLoader:
                 # Yield the standard SDK message
                 yield (
                     ROSMessage(
-                        timestamp=timestamp,
+                        bag_timestamp_ns=bag_timestamp_ns,
                         topic=connection.topic,
                         msg_type=connection.msgtype,
                         data=_to_dict(msg_obj),
@@ -202,7 +315,7 @@ class ROSLoader:
                 self._handle_error(connection.topic, connection.msgtype, e)
                 yield (
                     ROSMessage(
-                        timestamp=timestamp,
+                        bag_timestamp_ns=bag_timestamp_ns,
                         topic=connection.topic,
                         msg_type=connection.msgtype,
                         data=None,
@@ -220,12 +333,17 @@ class ROSLoader:
         # If IGNORE, do nothing
 
     def close(self):
+        """
+        Explicitly closes the bag file and releases system resources.
+        """
         if self._reader:
             self._reader.close()
             self._reader = None
 
     def __enter__(self):
+        """Context manager support."""
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
+        """Ensures resources are released even if an error occurs in the `with` block."""
         self.close()

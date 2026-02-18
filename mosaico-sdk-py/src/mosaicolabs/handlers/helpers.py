@@ -18,7 +18,7 @@ _SUPPORTED_SEQUENCE_NAME_CHARS = set(
 _SUPPORTED_TOPIC_NAME_CHARS = _SUPPORTED_SEQUENCE_NAME_CHARS | {"/"}
 
 
-def _make_exception(msg: str, exc_msg: Optional[Exception] = None) -> Exception:
+def _make_exception(msg: str, exc_msg: Optional[BaseException] = None) -> Exception:
     """
     Creates a new exception that chains an inner exception's message.
     Useful for adding context to low-level Flight errors.

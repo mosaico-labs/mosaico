@@ -9,7 +9,6 @@ serialization, and connection management.
 from concurrent.futures import ThreadPoolExecutor
 import json
 from typing import Any, Type, Optional
-from mosaicolabs.models.header import Header
 from mosaicolabs.models.message import Message
 import pyarrow.flight as fl
 
@@ -26,14 +25,29 @@ from ..logging_config import get_logger
 logger = get_logger(__name__)
 
 
+# TODO: Better manage topic lifecycle and error policy handling
+# Policies:
+# - Report and Skip: Skip the current record and continue with the next one.
+# - Report and Close: Report via topic_notify and close the writer. Must manage writer disabling and actions on calling push on a disabled writer
+# - Report and Delete: Delete the topic and report the error via sequence_notify. Must manage writer disabling and actions on calling push on a disabled writer
 class TopicWriter:
     """
-    Manages the data stream for a single topic.
+    Manages a high-performance data stream for a single Mosaico topic.
 
-    This class accumulates ontology records in a memory buffer. When the buffer
-    exceeds the configured limits (`max_batch_size_bytes` or `max_batch_size_records`),
-    it serializes the data (potentially using a background executor) and
-    sends it to the server via the Flight `DoPut` protocol.
+    The `TopicWriter` abstracts the complexity of the PyArrow Flight `DoPut` protocol,
+    handling internal buffering, serialization, and network transmission.
+    It accumulates records in memory and automatically flushes them to the server when
+    configured batch limits—defined by either byte size or record count—are exceeded.
+
+    ### Performance & Parallelism
+    If an executor pool is provided by the parent client, the `TopicWriter` performs
+    data serialization on background threads, preventing I/O operations from blocking
+    the main application logic.
+
+    Important: Obtaining a Writer
+        End-users should not instantiate this class directly. Use the
+        [`SequenceWriter.topic_create()`][mosaicolabs.handlers.SequenceWriter.topic_create]
+        factory method to obtain an active writer.
     """
 
     def __init__(
@@ -46,7 +60,50 @@ class TopicWriter:
         config: WriterConfig,
     ):
         """
-        Internal constructor. Use `TopicWriter.create()` instead.
+        Internal constructor for TopicWriter.
+
+        **Do not call this directly.** Internal library modules should use the
+        `_create()` factory. Users must call
+        [`SequenceWriter.topic_create()`][mosaicolabs.handlers.SequenceWriter.topic_create]
+        to obtain an initialized writer.
+
+        Example:
+            ```python
+            with MosaicoClient.connect("localhost", 6726) as client:
+                # Start the Sequence Orchestrator
+                with client.sequence_create(...) as seq_writer: # (1)!
+                    # Create individual Topic Writers
+                    # Each writer gets its own assigned resources from the pools
+                    imu_writer = seq_writer.topic_create( # (2)!
+                        topic_name="sensors/imu", # The univocal topic name
+                        metadata={ # The topic/sensor custom metadata
+                            "vendor": "inertix-dynamics",
+                            "model": "ixd-f100",
+                            "firmware_version": "1.2.0",
+                            "serial_number": "IMUF-9A31D72X",
+                            "calibrated":"false",
+                        },
+                        ontology_type=IMU, # The ontology type stored in this topic
+                    )
+
+                    # Push data...
+                    imu_writer.push( # (3)!
+                        ontology_obj=IMU(acceleration=Vector3d(x=0, y=0, z=9.81), ...),
+                        message_timestamp_ns=1700000000000
+                    )
+                # Exiting the seq_writer `with` block, the `finalize()` method of all topic writers is called.
+            ```
+
+            1. See also: [`MosaicoClient.sequence_create()`][mosaicolabs.comm.MosaicoClient.sequence_create]
+            2. See also: [`SequenceWriter.topic_create()`][mosaicolabs.handlers.SequenceWriter.topic_create]
+            3. See also: [`TopicWriter.push()`][mosaicolabs.handlers.TopicWriter.push]
+
+        Args:
+            topic_name: The name of the specific topic.
+            sequence_name: The name of the parent sequence.
+            client: The FlightClient used for data transmission.
+            state: The internal state object managing buffers and streams.
+            config: Operational configuration for batching and error handling.
         """
         self._fl_client: fl.FlightClient = client
         """The FlightClient used for writing operations."""
@@ -60,7 +117,7 @@ class TopicWriter:
         """The actual writer object"""
 
     @classmethod
-    def create(
+    def _create(
         cls,
         sequence_name: str,
         topic_name: str,
@@ -71,26 +128,32 @@ class TopicWriter:
         config: WriterConfig,
     ) -> "TopicWriter":
         """
-        Factory method to initialize the TopicWriter.
+        Internal Factory method to initialize an active TopicWriter.
 
-        It performs the following setup:
-        1. Validates the ontology data class.
-        2. Configures the Flight Descriptor with the topic key.
-        3. Opens the active `DoPut` stream to the server.
-        4. Initializes the internal write state (buffer).
+        This method performs the underlying handshake with the Mosaico server to
+        open a `DoPut` stream and initializes the memory buffers based on the
+        provided ontology type.
+
+        Important: **Do not call this directly**
+            Users must call
+            [`SequenceWriter.topic_create()`][mosaicolabs.handlers.SequenceWriter.topic_create]
+            to obtain an initialized writer.
 
         Args:
-            sequence_name (str): Parent sequence name.
-            topic_name (str): Topic name.
-            topic_key (str): Authentication key provided by the server.
-            client (fl.FlightClient): Connection to use for writing.
-            executor (Optional[ThreadPoolExecutor]): Thread for async serialization.
-            metadata (Dict[str, Any]): Topic-level user metadata.
-            ontology_type (Type[Serializable]): The class of data being written.
-            config (WriterConfig): Batching and error settings.
+            sequence_name: Name of the parent sequence.
+            topic_name: Unique name for this topic stream.
+            topic_key: authorization key provided by the server during creation.
+            client: The connection to use for the data stream.
+            executor: Optional thread pool for background serialization.
+            ontology_type: The data model class defining the record schema.
+            config: Batching limits and error policies.
 
         Returns:
-            TopicWriter: An active writer instance.
+            An active `TopicWriter` instance ready for data ingestion.
+
+        Raises:
+            ValueError: If the ontology type is not a valid `Serializable` subclass.
+            Exception: If the Flight stream fails to open on the server.
         """
         # Validate Ontology Class requirements (must have tags and serialization format)
         cls._validate_ontology_type(ontology_type)
@@ -109,7 +172,7 @@ class TopicWriter:
 
         # Open Flight Stream (DoPut)
         try:
-            writer, _ = client.do_put(descriptor, Message.get_schema(ontology_type))
+            writer, _ = client.do_put(descriptor, Message._get_schema(ontology_type))
         except Exception as e:
             raise _make_exception(
                 f"Failed to open Flight stream for topic '{topic_name}'", e
@@ -157,7 +220,7 @@ class TopicWriter:
 
         try:
             # Attempt to flush remaining data and close stream
-            self.finalize(with_error=error_occurred)
+            self.finalize(error=exc_val)
         except Exception as e:
             # FINALIZE FAILED: treat this as an error condition
             logger.exception(f"Failed to finalize topic '{self._name}': '{e}'")
@@ -207,10 +270,11 @@ class TopicWriter:
 
     def _error_report(self, err: str):
         """Sends an 'error' notification to the server regarding this topic."""
+        ACTION = FlightAction.TOPIC_NOTIFY_CREATE
         try:
             _do_action(
                 client=self._fl_client,
-                action=FlightAction.TOPIC_NOTIFY_CREATE,
+                action=ACTION,
                 payload={
                     "name": pack_topic_resource_name(self._sequence_name, self._name),
                     "notify_type": "error",
@@ -218,71 +282,162 @@ class TopicWriter:
                 },
                 expected_type=None,
             )
-            logger.info(f"TopicWriter '{self._name}' reported error.")
+            logger.warning(f"TopicWriter '{self._name}' reported error: '{err}'.")
         except Exception as e:
-            raise _make_exception(
-                f"Error sending 'topic_report_error' action for sequence '{self._name}'.",
-                e,
+            logger.error(
+                _make_exception(
+                    f"Error sending '{ACTION}' action for sequence '{self._name}'.",
+                    e,
+                )
             )
 
     # --- Writing Logic ---
     def push(
         self,
-        message: Optional[Message] = None,
-        message_timestamp_ns: Optional[int] = None,
-        message_header: Optional[Header] = None,
-        ontology_obj: Optional[Serializable] = None,
+        message: Message,
     ) -> None:
         """
-        Adds a new record to the write buffer.
+        Adds a new record to the internal write buffer.
 
-        This method supports two input modes:
-        1. Passing a pre-built `Message` object.
-        2. Passing distinct components (`ontology_obj`, `message_timestamp_ns`, `message_header`).
-
-        If the internal buffer is full, this method will trigger a flush to the server.
+        Records are accumulated in memory. If a push triggers a batch limit,
+        the buffer is automatically serialized and transmitted to the server.
 
         Args:
-            message (Optional[Message]): A complete Message object.
-            message_timestamp_ns (Optional[int]): Message Timestamp in **nanoseconds** (if message not provided).
-            message_header (Optional[Header]): Header info (optional - if message not provided).
-            ontology_obj (Optional[Serializable]): The ontology data payload (if message not provided).
-        """
-        msg = message
-        if not msg:
-            if message_timestamp_ns is not None and ontology_obj is not None:
-                msg = Message(
-                    timestamp_ns=message_timestamp_ns,
-                    data=ontology_obj,
-                    message_header=message_header,
-                )
-            else:
-                raise ValueError(
-                    "Expected a valid message or the couple 'message_timestamp_ns' + 'ontology_obj'."
-                )
+            message: A pre-constructed Message object.
 
+        Raises:
+            Exception: If a buffer flush fails during the operation.
+
+        Example:
+            ```python
+            with MosaicoClient.connect("localhost", 6726) as client:
+                # Start the Sequence Orchestrator
+                with client.sequence_create(...) as seq_writer: # (1)!
+                    # Create individual Topic Writers
+                    # Each writer gets its own assigned resources from the pools
+                    imu_writer = seq_writer.topic_create( # (2)!
+                        topic_name="sensors/imu", # The univocal topic name
+                        metadata={ # The topic/sensor custom metadata
+                            "vendor": "inertix-dynamics",
+                            "model": "ixd-f100",
+                            "firmware_version": "1.2.0",
+                            "serial_number": "IMUF-9A31D72X",
+                            "calibrated":"false",
+                        },
+                        ontology_type=IMU, # The ontology type stored in this topic
+                    )
+
+                    # Another individual topic writer for the GPS device
+                    gps_writer = seq_writer.topic_create(
+                        topic_name="sensors/gps", # The univocal topic name
+                        metadata={ # The topic/sensor custom metadata
+                            "role": "primary_gps",
+                            "vendor": "satnavics",
+                            "model": "snx-g500",
+                            "firmware_version": "3.2.0",
+                            "serial_number": "GPS-7C1F4A9B",
+                            "interface": {
+                                "type": "UART",
+                                "baudrate": 115200,
+                                "protocol": "NMEA",
+                            },
+                        }, # The topic/sensor custom metadata
+                        ontology_type=GPS, # The ontology type stored in this topic
+                    )
+
+                    gps_msg = Message(timestamp_ns=1700000000100, data=GPS(...))
+                    gps_writer.push(message=gps_msg)
+                # Exiting the seq_writer `with` block, the `finalize()` method of all topic writers is called.
+            ```
+
+            1. See also: [`MosaicoClient.sequence_create()`][mosaicolabs.comm.MosaicoClient.sequence_create]
+            2. See also: [`SequenceWriter.topic_create()`][mosaicolabs.handlers.SequenceWriter.topic_create]
+        """
+        # time.sleep(0.1)
         try:
-            self._wrstate.push_record(msg)
+            self._wrstate.push_record(message)
         except Exception as e:
             self._handle_exception_and_raise(e, "Error during TopicWriter.push")
 
+    @property
+    def name(self) -> str:
+        """Returns the name of the topic"""
+        return self._name
+
     def finalized(self) -> bool:
-        """Returns True if the writer stream has been closed."""
+        """
+        Returns `True` if the data stream has been finalized and the writer is closed.
+        """
         return self._wrstate.writer is None
 
-    def finalize(self, with_error: bool = False) -> None:
+    def finalize(self, error: Optional[BaseException] = None) -> None:
         """
-        Flushes pending data and closes the Flight stream.
+        Flushes all remaining buffered data and closes the remote Flight stream.
+
+        This method ensures that any data residing in the local memory buffer is sent to the
+        server before the connection is severed. It transitions the individual topic stream
+        into a terminal state, allowing the platform to catalog the ingested data.
+
+        ### Use in Resilient Data Ingestion
+        In advanced ingestion workflows, `finalize()` is the primary mechanism for **sensor-level
+        resilience**. If an error occurs during the preparation or pushing of data for a
+        *specific* topic, you can catch the exception locally, call `finalize(error=...)`
+        for that topic, and allow other healthy sensors to continue their injection without
+        triggering a global sequence-wide failure.
+
+        Example: Defensive Topic Shutdown
+            ```python
+            with client.sequence_create(name="resilient_run", ...) as seq_writer:
+                cam_w = seq_writer.topic_create(name="camera", ontology_type=CompressedImage)
+
+                for data in stream:
+                    # Wrap risky or unstable logic (e.g., image processing)
+                    try:
+                        processed_img = risky_transformation(data.frame)
+                        cam_w.push(ontology_obj=processed_img)
+                    except Exception as topic_err:
+                        print(f"Camera failure: {topic_err}. Shutting down camera only.")
+                        # Manually close the failing topic to save prior data
+                        # and prevent the global context from seeing an exception.
+                        if not cam_w.finalized():
+                            cam_w.finalize(error=topic_err)
+            ```
+
+        ### Error Reporting
+        When called with a non-null `error` object, this method automatically:
+
+        * **Reports the Failure**: Sends a server-side notification containing the
+            exception string.
+        * **Aborts the Buffer**: Closes the state machine immediately without
+            attempting to flush potentially corrupted data.
+
+        Note: Automatic Finalization
+            In typical workflows, you do not need to call this manually. It is
+            **automatically invoked** by the `__exit__` method of the parent
+            [`SequenceWriter`][mosaicolabs.handlers.SequenceWriter] when the `with`
+            block scope is closed.
 
         Args:
-            with_error (bool): If True, indicates the stream is closing due to an error,
-                               which may skip flushing partial buffers.
+            error: If provided, the writer generates an error report and closes the
+                stream without attempting a final buffer flush.
+
+        Raises:
+            Exception: If the server fails to acknowledge the stream closure or if the
+                internal state machine encounters a terminal error.
         """
+        with_error = error is not None
         try:
+            if with_error:
+                self._error_report(str(error))
             self._wrstate.close(with_error=with_error)
-        except Exception:
-            raise
+        except Exception as e:
+            # Close the writer anyway to prevent further operations
+            self._wrstate.writer = None
+            raise _make_exception(
+                exc_msg=e,
+                msg=f"Error finalizing TopicWriter '{self._name}'.",
+            )
 
         logger.info(
-            f"TopicWriter '{self._name}' finalized {'WITH ERROR' if with_error else ''} successfully."
+            f"TopicWriter '{self._name}' finalized {'WITH ERROR' if error is not None else ''} successfully."
         )

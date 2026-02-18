@@ -1,0 +1,128 @@
+site_name: Mosaico Documentation
+site_url: https://cabba.github.io/mosaico
+repo_url: https://github.com/mosaico-labs/mosaico
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - admonition
+  - pymdownx.details
+  - attr_list
+  - md_in_html
+  - pymdownx.blocks.caption
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+plugins:
+  - search
+  - typeset
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [../mosaico-sdk-py/src] 
+          options:
+            filters:
+              - "!^__"
+              - "^__init__$"
+              - "!^_"
+              - "!^Q$"
+            show_root_heading: true
+            separate_signature: true     
+            merge_init_into_class: true 
+            show_source: false
+            relative_crossrefs: true
+            signature_crossrefs: true
+            members_order: source
+            inherited_members: true
+
+nav:
+  - Mosaico: index.md
+  - SDK:
+    - SDK/index.md
+    - SDK/install.md
+    - How To:
+      - SDK/howto/serialized_writing_from_csv.md
+      - SDK/howto/serialized_writing_from_multi_csv.md
+      - SDK/howto/reading.md
+      - SDK/howto/streaming.md
+      - SDK/howto/ros_injection_1.md
+    - In Depth:
+      - SDK/client.md
+      - SDK/ontology.md
+      - Data Handling:
+        - SDK/handling/data-handling.md
+        - SDK/handling/writing.md
+        - SDK/handling/reading.md
+      - SDK/query.md
+      - Bridges:
+          - SDK/bridges/ml.md
+          - SDK/bridges/ros.md
+    - Python API Reference:
+      - SDK/API_reference/comm.md
+      - SDK/API_reference/enum.md
+      - Data Handling:
+        - SDK/API_reference/handlers/reading.md
+        - SDK/API_reference/handlers/writing.md
+      - Query Module:
+        - SDK/API_reference/query/builders.md
+        - SDK/API_reference/query/internal.md
+        - SDK/API_reference/query/response.md
+      - Models:
+        - SDK/API_reference/models/base.md
+        - SDK/API_reference/models/data_types.md
+        - SDK/API_reference/models/geometry.md
+        - SDK/API_reference/models/platform.md
+        - SDK/API_reference/models/sensors.md
+      - Bridges:
+        - SDK/API_reference/bridges/ml.md
+        - ROS-Bridge:
+          - SDK/API_reference/bridges/ros/ros.md
+          - Adapters:
+            - SDK/API_reference/bridges/ros/adapters/base.md
+            - SDK/API_reference/bridges/ros/adapters/std_msgs.md
+            - SDK/API_reference/bridges/ros/adapters/geometry_msgs.md
+            - SDK/API_reference/bridges/ros/adapters/sensor_msgs.md
+            - SDK/API_reference/bridges/ros/adapters/nav_msgs.md
+            - SDK/API_reference/bridges/ros/adapters/tf2_msgs.md
+  - Daemon:
+    - daemon/index.md
+    - daemon/install.md
+    - daemon/control.md
+    - daemon/ingestion.md
+    - daemon/query.md
+    - daemon/retrieval.md
+  - Development:
+    - development/release_cycle.md
+
+extra_css:
+  - stylesheets/extra.css
+
+extra:
+  generator: false
+
+theme:
+  logo: assets/mosaico_logomark.svg
+  favicon: assets/favicon.svg
+  name: material
+  font:
+    text: Manrope
+  palette: 
+    scheme: slate
+    primary: custom
+    accent: custom
+  features:
+    - content.code.copy
+    - content.code.annotate
+    - navigation.instant
+    - navigation.sections
+    - navigation.path
+    - navigation.indexes
+    - navigation.tabs
+    - navigation.footer
+  

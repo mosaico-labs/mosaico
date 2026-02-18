@@ -6,9 +6,10 @@ for an *existing* topic on the server. It allows users to inspect metadata
 and create readers (`TopicDataStreamer`).
 """
 
+import datetime
 import json
 import pyarrow.flight as fl
-from typing import Any, Optional, Tuple, Type
+from typing import Any, Dict, Optional, Tuple
 
 from .endpoints import TopicParsingError, TopicResourceManifest
 from .topic_reader import TopicDataStreamer
@@ -32,11 +33,15 @@ class TopicHandler:
     """
     Represents an existing topic on the Mosaico platform.
 
-    Provides access to:
-    1. Static metadata (from `Topic` model).
-    2. Streaming data reading (via `get_data_streamer`).
+    The `TopicHandler` provides a client-side interface for interacting with an individual
+    data stream (topic). It allows users to inspect static metadata and system diagnostics (via the [`Topic`][mosaicolabs.models.platform.Topic] model),
+    and access the raw message stream through a dedicated [`TopicDataStreamer`][mosaicolabs.handlers.TopicDataStreamer].
 
-    User intending getting an instance of this class, must use 'MosaicoClient.topic_handler()' factory.
+    Important: Obtaining a Handler
+        Direct instantiation of this class is discouraged. Use the
+        [`MosaicoClient.topic_handler()`][mosaicolabs.comm.MosaicoClient.topic_handler]
+        factory method to retrieve an initialized handler.
+
     """
 
     def __init__(
@@ -49,9 +54,20 @@ class TopicHandler:
         timestamp_ns_max: Optional[int],
     ):
         """
-        Internal constructor.
-        Users can retrieve an instance by using 'MosaicoClient.topic_handler()` instead.
-        Internal library modules will call the 'connect()' function.
+        Internal constructor for TopicHandler.
+
+        **Do not call this directly.** Users should retrieve instances via
+        [`MosaicoClient.topic_handler()`][mosaicolabs.comm.MosaicoClient.topic_handler],
+        or by using the [`get_topic_handler()`][mosaicolabs.handlers.SequenceHandler.get_topic_handler] method from the
+        [`SequenceHandler`][mosaicolabs.handlers.SequenceHandler] instance of the parent senquence.
+        Internal modules should use the `TopicHandler._connect()` factory.
+
+        Args:
+            client: The active FlightClient for remote operations.
+            topic_model: The underlying metadata and system info model for the topic.
+            ticket: The remote resource ticket used for data retrieval.
+            timestamp_ns_min: The lowest timestamp (in ns) available in this topic.
+            timestamp_ns_max: The highest timestamp (in ns) available in this topic.
         """
         self._fl_client: fl.FlightClient = client
         """The FlightClient used for remote operations."""
@@ -67,24 +83,33 @@ class TopicHandler:
         """Highest timestamp [ns] in the sequence (among all the topics)"""
 
     @classmethod
-    def connect(
+    def _connect(
         cls,
         sequence_name: str,
         topic_name: str,
         client: fl.FlightClient,
     ) -> Optional["TopicHandler"]:
         """
-        Factory method to create a handler.
+        Internal factory method to initialize a TopicHandler from the server.
+        This method fetches flight descriptors and system information (size, creation dates,
+        etc.) to fully populate the `Topic` data model.
 
-        Fetches flight info and system info from the server to populate the Topic model.
+
+        Important: **Do not call this directly**
+            Users should retrieve instances via
+            [`MosaicoClient.topic_handler()`][mosaicolabs.comm.MosaicoClient.topic_handler],
+            or by using the [`get_topic_handler()`][mosaicolabs.handlers.SequenceHandler.get_topic_handler] method from the
+            [`SequenceHandler`][mosaicolabs.handlers.SequenceHandler] instance of the parent senquence.
+
 
         Args:
-            sequence_name (str): Parent sequence.
-            topic_name (str): Topic name.
-            client (fl.FlightClient): Connected client.
+            sequence_name: Name of the parent sequence.
+            topic_name: Name of the topic.
+            client: An established PyArrow Flight connection.
 
         Returns:
-            TopicHandler: Initialized handler.
+            TopicHandler: An initialized handler instance, or `None` if the
+                resource cannot be found or initialized.
         """
         # Get FlightInfo (Metadata + Endpoints)
         try:
@@ -140,7 +165,7 @@ class TopicHandler:
             return None
 
         # Build Model
-        topic_model = Topic.from_flight_info(
+        topic_model = Topic._from_flight_info(
             sequence_name=_stzd_sequence_name,
             name=_stzd_topic_name,
             metadata=topic_metadata,
@@ -156,48 +181,123 @@ class TopicHandler:
             timestamp_ns_max=topic_resrc_mdata.timestamp_ns_max,
         )
 
-    # --- Context Manager ---
-    def __enter__(self) -> "TopicHandler":
-        """Returns the TopicHandler instance for use in a 'with' statement."""
-        return self
-
-    def __exit__(
-        self,
-        exc_type: Optional[Type[BaseException]],
-        exc_val: Optional[BaseException],
-        exc_tb: Optional[Any],
-    ) -> None:
-        """Context manager exit for TopicHandler."""
-        try:
-            self.close()
-        except Exception as e:
-            logger.exception(
-                f"Error releasing resources allocated from TopicHandler '{self._topic.name}'.\nInner err: '{e}'"
-            )
-
+    # -------------------- Public methods --------------------
     @property
-    def user_metadata(self):
-        """Returns the user dictionary associated with the topic."""
-        return self._topic.user_metadata
+    def name(self) -> str:
+        """
+        The relative name of the topic (e.g., "/front_cam/image_raw").
 
-    @property
-    def topic_info(self) -> Topic:
-        """Returns the Topic data model."""
-        return self._topic
-
-    @property
-    def name(self):
-        """Returns the topic name."""
+        Returns:
+            The relative name of the topic.
+        """
         return self._topic.name
 
     @property
-    def timestamp_ns_min(self):
-        """Return the lowest timestamp in nanoseconds, for this topic"""
+    def sequence_name(self) -> str:
+        """
+        The name of the parent sequence containing this topic.
+
+        Returns:
+            The name of the parent sequence.
+        """
+        return self._topic.sequence_name
+
+    @property
+    def user_metadata(self) -> Dict[str, Any]:
+        """
+        The user-defined metadata dictionary associated with this topic.
+
+        Returns:
+            The user-defined metadata dictionary.
+        """
+        return self._topic.user_metadata
+
+    @property
+    def created_datetime(self) -> datetime.datetime:
+        """
+        The UTC timestamp indicating when the entity was created on the server.
+
+        Returns:
+            The UTC timestamp indicating when the entity was created on the server.
+        """
+        return self._topic._created_datetime
+
+    @property
+    def is_locked(self) -> bool:
+        """
+        Indicates if the resource is currently locked.
+
+        A locked state typically occurs during active writing or maintenance operations,
+        preventing deletion or structural modifications.
+
+        Returns:
+            True if the resource is currently locked, False otherwise.
+        """
+        return self._topic._is_locked
+
+    @property
+    def chunks_number(self) -> Optional[int]:
+        """
+        The number of physical data chunks stored for this topic.
+
+        Returns:
+            The number of physical data chunks stored for this topic, or `None` if the server did not provide detailed storage statistics.
+        """
+        return self._topic._chunks_number
+
+    @property
+    def ontology_tag(self) -> str:
+        """
+        The ontology type identifier (e.g., 'imu', 'gnss').
+
+        This corresponds to the `__ontology_tag__` defined in the
+        [`Serializable`][mosaicolabs.models.Serializable] class registry.
+
+        Returns:
+            The ontology type identifier.
+        """
+        return self._topic._ontology_tag
+
+    @property
+    def serialization_format(self) -> str:
+        """
+        The format used to serialize the topic data (e.g., 'arrow', 'image').
+
+        This corresponds to the [`SerializationFormat`][mosaicolabs.enum.SerializationFormat] enum.
+
+        Returns:
+            The serialization format.
+        """
+        return self._topic._serialization_format
+
+    @property
+    def total_size_bytes(self) -> int:
+        """
+        The total physical storage footprint of the entity on the server in bytes.
+
+        Returns:
+            The total physical storage footprint of the entity on the server in bytes.
+        """
+        return self._topic._total_size_bytes
+
+    @property
+    def timestamp_ns_min(self) -> Optional[int]:
+        """
+        The lowest timestamp (nanoseconds) recorded in this topic.
+
+        Returns:
+            The lowest timestamp (nanoseconds) recorded in this topic, or `None` if the topic is empty or timestamps are unavailable.
+        """
         return self._timestamp_ns_min
 
     @property
-    def timestamp_ns_max(self):
-        """Return the highest timestamp in nanoseconds, for this topic"""
+    def timestamp_ns_max(self) -> Optional[int]:
+        """
+        The highest timestamp (nanoseconds) recorded in this topic.
+
+        Returns:
+            The highest timestamp (nanoseconds) recorded in this topic, or `None` if the topic is empty or timestamps are unavailable.
+        """
         return self._timestamp_ns_max
 
     def get_data_streamer(
@@ -206,21 +306,70 @@ class TopicHandler:
         end_timestamp_ns: Optional[int] = None,
     ) -> TopicDataStreamer:
         """
-        Opens a reading channel and returns a `TopicDataStreamer` for iterating over this topic's data.
+        Opens a high-performance reading channel for iterating over this topic's data.
 
-        The streamer supports temporal slicing to retrieve data within a specific time window.
+        ### Stream Lifecycle Policy: Single-Active-Streamer
+        To optimize resource utilization and prevent backend socket exhaustion, this handler
+        maintains at most **one active stream** at a time.
 
         Args:
-            start_timestamp_ns (int, optional): The **inclusive** lower bound for the time window (in nanoseconds).
-                The stream will begin from the message with the timestamp **greater than or equal to** this value.
-            end_timestamp_ns (int, optional): The **exclusive** upper bound for the time window (in nanoseconds).
-                The stream will stop at the message with the timestamp **strictly lower than** this value.
+            start_timestamp_ns: The **inclusive** lower bound (t >= start) in nanoseconds.
+                The stream begins at the first message with a timestamp >= this value.
+            end_timestamp_ns: The **exclusive** upper bound (t < end) in nanoseconds.
+                The stream terminates before reaching any message with a timestamp >= this value.
 
         Returns:
-            TopicDataStreamer: An iterator yielding time-ordered messages from this topic.
+            TopicDataStreamer: A chronological iterator for the requested data window.
 
         Raises:
-            ValueError: If the TopicHandler internal state is invalid or the topic has no data to stream.
+            ValueError: If the topic contains no data or the handler is in an invalid state.
+
+        Example:
+            ```python
+            from mosaicolabs import MosaicoClient, IMU
+
+            with MosaicoClient.connect("localhost", 6726) as client:
+                # Retrieve the topic handler using (e.g.) MosaicoClient
+                top_handler = client.topic_handler("mission_alpha", "/front/imu")
+                if top_handler:
+                    imu_stream = top_handler.get_data_streamer(
+                        # Optionally set the time window to extract
+                        start_timestamp_ns=1738508778000000000,
+                        end_timestamp_ns=1738509618000000000
+                    )
+
+                    # Peek at the start time (without consuming data)
+                    print(f"Recording starts at: {streamer.next_timestamp()}")
+
+                    # Direct, low-overhead loop
+                    for imu_msg in imu_stream:
+                        process_sample(imu_msg.get_data(IMU)) # Some custom process function
+
+                    # Once done, close the reading channel (recommended)
+                    top_handler.close()
+
+            ```
+
+        Important:
+            Every call to `get_data_streamer()` will automatically invoke
+            `close()` on any previously spawned `TopicDataStreamer` instance and its associated
+            Apache Arrow Flight channel before initializing the new stream.
+
+            Example:
+                ```python
+                top_handler = client.topic_handler("mission_alpha", "/front/imu")
+
+                # Opens first stream
+                streamer_v1 = top_handler.get_data_streamer(start_timestamp_ns=T1)
+
+                # Calling this again automatically CLOSES streamer_v1 and opens a new channel
+                streamer_v2 = top_handler.get_data_streamer(start_timestamp_ns=T2)
+
+                # Using `streamer_v1` will raise a ValueError
+                for msg in streamer_v1 # raises here!
+                    pass
+                ```
+
         """
         if self._fl_ticket is None:
             raise ValueError(
@@ -235,7 +384,7 @@ class TopicHandler:
 
         if start_timestamp_ns is not None or end_timestamp_ns is not None:
             # Spawn via connection (calls get_flight_info)
-            self._data_streamer_instance = TopicDataStreamer.connect(
+            self._data_streamer_instance = TopicDataStreamer._connect(
                 client=self._fl_client,
                 topic_name=self.name,
                 sequence_name=self._topic.sequence_name,
@@ -244,7 +393,7 @@ class TopicHandler:
             )
         else:
             # Spawn via ticket (calls do_get straight)
-            self._data_streamer_instance = TopicDataStreamer.connect_from_ticket(
+            self._data_streamer_instance = TopicDataStreamer._connect_from_ticket(
                 client=self._fl_client,
                 topic_name=self.name,
                 ticket=self._fl_ticket,
@@ -253,7 +402,43 @@ class TopicHandler:
         return self._data_streamer_instance
 
     def close(self):
-        """Closes the data streamer if active."""
+        """
+        Terminates the active data streamer associated with this topic and releases
+        allocated system resources.
+
+        In the Mosaico architecture, a `TopicHandler` acts as a factory for
+        `TopicDataStreamers`. Calling `close()` ensures that any background data
+        fetching, buffering, or network sockets held by an active streamer are
+        immediately shut down.
+
+        Note:
+            - If no streamer has been spawned (via `get_data_streamer`), this
+              method performs no operation and returns safely.
+            - Explicitly closing handlers is a best practice when iterating through
+              large datasets to prevent resource accumulation.
+
+        Example:
+            ```python
+            from mosaicolabs import MosaicoClient
+
+            with MosaicoClient.connect("localhost", 6726) as client:
+                # Access a specific sensor topic (e.g., IMU)
+                top_handler = client.topic_handler("mission_alpha", "/front/imu")
+
+                if top_handler:
+                    # Initialize a high-performance data stream
+                    imu_stream = top_handler.get_data_streamer(
+                        start_timestamp_ns=1738508778000000000,
+                        end_timestamp_ns=1738509618000000000
+                    )
+
+                    # Consume data for ML training or analysis
+                    # for msg in imu_stream: ...
+
+                    # Release the streaming channel and backend resources
+                    top_handler.close()
+            ```
+        """
         if self._data_streamer_instance is not None:
             self._data_streamer_instance.close()
         self._data_streamer_instance = None

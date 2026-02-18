@@ -13,6 +13,38 @@ from .helpers import _make_header, _validate_msgdata
 
 @register_adapter
 class OdometryAdapter(ROSAdapterBase[MotionState]):
+    """
+    Adapter for translating ROS Odometry messages to Mosaico `MotionState`.
+
+    **Supported ROS Types:**
+
+    - [`nav_msgs/msg/Odometry`](https://docs.ros2.org/foxy/api/nav_msgs/msg/Odometry.html)
+
+    Example:
+        ```python
+        ros_msg = ROSMessage(
+            timestamp=17000,
+            topic="/odometry",
+            msg_type="nav_msgs/msg/Odometry",
+            data=
+            {
+                "header": {"frame_id": "map", "stamp": {"sec": 17000, "nanosec": 0}},
+                "pose": {
+                    "position": {"x": 1.0, "y": 2.0, "z": 0.0},
+                    "orientation": {"x": 0, "y": 0, "z": 0, "w": 1}
+                },
+                "twist": {
+                    "linear": {"x": 0.0, "y": 0.0, "z": 0.0},
+                    "angular": {"x": 0.0, "y": 0.0, "z": 0.0}
+                },
+                "child_frame_id": "base_link"
+            }
+        )
+        # Automatically resolves to a flat Mosaico MotionState with attached metadata
+        mosaico_odometry = OdometryAdapter.translate(ros_msg)
+        ```
+    """
+
     ros_msgtype: str | Tuple[str, ...] = "nav_msgs/msg/Odometry"
 
     __mosaico_ontology_type__: Type[MotionState] = MotionState
@@ -33,23 +65,41 @@ class OdometryAdapter(ROSAdapterBase[MotionState]):
         Raises:
             Exception: Wraps any translation error with context (topic name, timestamp).
         """
-        if ros_msg.data is None:
-            raise Exception(
-                f"'data' attribute in ROSMessage is None. Cannot translate! Ros topic '{ros_msg.topic}' @time: {ros_msg.timestamp}"
-            )
-        try:
-            return Message(
-                message_header=ros_msg.header.translate() if ros_msg.header else None,
-                timestamp_ns=ros_msg.timestamp,
-                data=cls.from_dict(ros_msg.data),
-            )
-        except Exception as e:
-            raise Exception(
-                f"Raised Exception while translating ros topic '{ros_msg.topic}' @time: {ros_msg.timestamp}.\nInner err: '{e}'"
-            )
+        return super().translate(ros_msg, **kwargs)
 
     @classmethod
     def from_dict(cls, ros_data: dict) -> MotionState:
+        """
+        Parses a dictionary to extract a `MotionState` object.
+
+        Example:
+            ```python
+            ros_data=
+            {
+                "header": {"frame_id": "map", "stamp": {"sec": 17000, "nanosec": 0}},
+                "pose": {
+                    "position": {"x": 1.0, "y": 2.0, "z": 0.0},
+                    "orientation": {"x": 0, "y": 0, "z": 0, "w": 1}
+                },
+                "twist": {
+                    "linear": {"x": 0.0, "y": 0.0, "z": 0.0},
+                    "angular": {"x": 0.0, "y": 0.0, "z": 0.0}
+                },
+                "child_frame_id": "base_link"
+            }
+            # Automatically resolves to a flat Mosaico MotionState with attached metadata
+            mosaico_odometry = OdometryAdapter.from_dict(ros_data)
+            ```
+
+        Args:
+            ros_data (dict): The raw dictionary from the ROS message.
+
+        Returns:
+            MotionState: The constructed Mosaico MotionState object.
+
+        Raises:
+            ValueError: If the recursive 'pose' key exists but is not a dict, or if required keys are missing.
+        """
         _validate_msgdata(cls, ros_data)
         return MotionState(
             header=_make_header(ros_data.get("header")),

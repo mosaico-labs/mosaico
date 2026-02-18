@@ -17,6 +17,15 @@ class RobotJoint(Serializable, HeaderMixin):
     Snapshot of robot joint states.
 
     Arrays must be index-aligned (e.g., names[0] corresponds to positions[0]).
+
+    Attributes:
+        names: Names of the different robot joints
+        positions: Positions ([rad] or [m]) of the different robot joints
+        velocities: Velocities ([rad/s] or [m/s]) of the different robot joints
+        efforts: Efforts ([N] or [N/m]) applied to the different robot joints
+
+    ### Querying with the **`.Q` Proxy**
+    The robot joint states cannot be queried via the `.Q` proxy.
     """
 
     # TODO: maybe can be ok to define a type that contains the embedding of these
@@ -65,6 +74,33 @@ class RobotJoint(Serializable, HeaderMixin):
     )
 
     names: List[str]
+    """
+    Names of the different robot joints
+
+    ### Querying with the **`.Q` Proxy**
+    The names are not queryable via the `.Q` proxy (Lists are not supported yet).
+    """
+
     positions: List[float]
+    """
+    Positions ([rad] or [m]) of the different robot joints
+
+    ### Querying with the **`.Q` Proxy**
+    The positions are not queryable via the `.Q` proxy (Lists are not supported yet).
+    """
+
     velocities: List[float]
+    """
+    Velocities ([rad/s] or [m/s]) of the different robot joints
+
+    ### Querying with the **`.Q` Proxy**
+    The velocities are not queryable via the `.Q` proxy (Lists are not supported yet).
+    """
+
     efforts: List[float]
+    """
+    Efforts ([N] or [N/m]) applied to the different robot joints
+
+    ### Querying with the **`.Q` Proxy**
+    The efforts are not queryable via the `.Q` proxy (Lists are not supported yet).
+    """

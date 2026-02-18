@@ -1,8 +1,8 @@
 from .data_frame_extractor import DataFrameExtractor as DataFrameExtractor
-from .synch_transformer import SyncTransformer as SyncTransformer
-from .synch_policy import SynchPolicy as SynchPolicy
-from .synch_policies.hold import (
-    SynchHold as SynchHold,
-    SynchAsOf as SynchAsOf,
-    SynchDrop as SynchDrop,
+from .sync_transformer import SyncTransformer as SyncTransformer
+from .sync_policy import SyncPolicy as SyncPolicy
+from .sync_policies.hold import (
+    SyncHold as SyncHold,
+    SyncAsOf as SyncAsOf,
+    SyncDrop as SyncDrop,
 )

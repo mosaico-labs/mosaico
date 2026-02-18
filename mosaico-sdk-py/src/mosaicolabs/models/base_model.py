@@ -19,8 +19,9 @@ class BaseModel(pydantic.BaseModel):
     PyArrow structure (`__msco_pyarrow_struct__`), enabling the SDK to auto-generate
     Flight schemas.
 
-    NOTE: This class has been added mainly for wrapping pydantic, toward future
-    implementation where other fields mapping and checks are implemented
+    Note:
+        This class has been added mainly for wrapping pydantic, toward future
+        implementation where other fields mapping and checks are implemented
     """
 
     # A class-level attribute defining the PyArrow struct schema for this model.

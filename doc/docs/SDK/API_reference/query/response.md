@@ -1,0 +1,1 @@
+::: mosaicolabs.models.query.response

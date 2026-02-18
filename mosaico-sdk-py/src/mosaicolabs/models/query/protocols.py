@@ -8,19 +8,47 @@ class _QueryableMixinProtocol(Protocol):
 
 class QueryableProtocol(Protocol):
     """
-    Protocol for any class that can be part of a top-level Query.
+    Structural protocol for classes that integrate into a multi-domain [`Query`][mosaicolabs.models.query.builders.Query].
 
-    A class implicitly satisfies this protocol if it implements
-    both a `name()` and a `to_dict()` method.
+    A class implicitly satisfies this protocol if it provides a unique identification tag
+    via `name()` and a serialization method via `to_dict()`. This
+    protocol ensures that the root [`Query`][mosaicolabs.models.query.builders.Query]
+    or the  can
+    orchestrate complex requests without knowing the specific internal logic of
+    each sub-query.
+
+    ### Reference Implementations
+    The following classes are standard examples of this protocol:
+
+    * [`QueryTopic`][mosaicolabs.models.query.builders.QueryTopic]: Filters Topic-level metadata.
+    * [`QuerySequence`][mosaicolabs.models.query.builders.QuerySequence]: Filters Sequence-level metadata.
+    * [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]: Filters fine-grained sensor field data.
     """
 
     __supported_query_expressions__: Tuple[Type[_QueryExpression], ...]
 
-    def with_expression(self, expr: _QueryExpression) -> "QueryableProtocol": ...
+    def with_expression(self, expr: _QueryExpression) -> "QueryableProtocol":
+        """
+        Appends a new filter expression using a fluent interface.
 
-    def name(self) -> str: ...
+        Args:
+            expr: A valid `_QueryExpression`
+        """
+        ...
 
-    def to_dict(self) -> Dict[str, Any]: ...
+    def name(self) -> str:
+        """
+        Returns the unique key identifying this sub-query within the root request.
+
+        Examples include `"topic"`, `"sequence"`, or `"ontology"`.
+        """
+        ...
+
+    def to_dict(self) -> Dict[str, Any]:
+        """
+        Serializes the internal expressions into a platform-compatible dictionary.
+        """
+        ...
 
 
 class FieldMapperProtocol(Protocol):

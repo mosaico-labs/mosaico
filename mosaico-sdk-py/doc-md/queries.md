@@ -311,11 +311,11 @@ initial_response = client.query(
 
 # Refinement: Create a new query restricted ONLY to the sequences found above.
 # This effectively says: "Focus ONLY on the sequences from 'initial_response'..."
-refined_query = initial_response.to_query_sequence()
+refined_query_builder = initial_response.to_query_sequence()
 
 # Final Query: Apply the specific logic (Error string) to the restricted scope
 final_response = client.query(
-    refined_query,                                         # The restricted scope
+    refined_query_builder,                                         # The restricted scope
     QueryTopic().with_name("/localization/log_string"),    # Filter by specific topic
     QueryOntologyCatalog(String.Q.data.match("[ERR]"))     # Search for the error pattern
 )

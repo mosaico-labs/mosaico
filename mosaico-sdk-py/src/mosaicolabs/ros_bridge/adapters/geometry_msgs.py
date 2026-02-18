@@ -1,3 +1,12 @@
+"""
+Geometry Messages Adaptation Module.
+
+This module provides specialized adapters for translating ROS `geometry_msgs` into the
+standardized Mosaico Ontology. It implements recursive unwrapping to handle common
+ROS patterns, such as "Stamped" envelopes and covariance wrappers, ensuring that
+spatial data is normalized before ingestion.
+"""
+
 from typing import Any, Optional, Tuple, Type
 from mosaicolabs.models.data import (
     Point3d,
@@ -23,13 +32,40 @@ class PoseAdapter(ROSAdapterBase[Pose]):
     """
     Adapter for translating ROS Pose-related messages to Mosaico `Pose`.
 
-    Handles multiple ROS message types:
-    - `geometry_msgs/msg/Pose`
-    - `geometry_msgs/msg/PoseStamped`
-    - `geometry_msgs/msg/PoseWithCovariance`
-    - `geometry_msgs/msg/PoseWithCovarianceStamped`
+    This adapter follows the "Adaptation, Not Just Parsing" philosophy by actively
+    unwrapping nested ROS structures and normalizing them into strongly-typed
+    Mosaico `Pose` objects.
 
-    Logic includes recursive unwrapping to handle nested structures (e.g., `PoseWithCovariance` wrapping a `Pose`).
+    **Supported ROS Types:**
+
+    - [`geometry_msgs/msg/Pose`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/Pose.html)
+    - [`geometry_msgs/msg/PoseStamped`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/PoseStamped.html)
+    - [`geometry_msgs/msg/PoseWithCovariance`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/PoseWithCovariance.html)
+    - [`geometry_msgs/msg/PoseWithCovarianceStamped`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/PoseWithCovarianceStamped.html)
+
+    **Recursive Unwrapping Strategy:**
+    The adapter checks for nested `'pose'` keys. If found (as in `PoseStamped`),
+    it recurses to the leaf node while collecting metadata like headers and
+    covariance matrices along the way.
+
+    Example:
+        ```python
+        # Internal usage within the ROS Bridge
+        ros_msg = ROSMessage(
+            timestamp=17000,
+            topic="/pose",
+            msg_type="geometry_msgs/msg/PoseStamped",
+            data={
+                "header": {"frame_id": "map", "stamp": {"sec": 17000, "nanosec": 0}},
+                "pose": {
+                    "position": {"x": 1.0, "y": 2.0, "z": 0.0},
+                    "orientation": {"x": 0, "y": 0, "z": 0, "w": 1}
+                },
+            }
+        }
+        # Automatically resolves to a flat Mosaico Pose with attached metadata
+        mosaico_pose = PoseAdapter.translate(ros_msg)
+        ```
     """
 
     ros_msgtype: str | Tuple[str, ...] = (
@@ -49,39 +85,44 @@ class PoseAdapter(ROSAdapterBase[Pose]):
         **kwargs: Any,
     ) -> Message:
         """
-        Translates a ROS message into a Mosaico Message.
+        Main entry point for translating a high-level `ROSMessage`.
+
+        Args:
+            ros_msg: The source ROS message yielded by the loader.
+            **kwargs: Additional context for the translation.
 
         Returns:
-            Message: The translated message containing a `Pose` object.
-
-        Raises:
-            Exception: Wraps any translation error with context (topic name, timestamp).
+            A Mosaico `Message` containing the normalized `Pose` payload.
         """
-        if ros_msg.data is None:
-            raise Exception(
-                f"'data' attribute in ROSMessage is None. Cannot translate! Ros topic '{ros_msg.topic}' @time: {ros_msg.timestamp}"
-            )
-        try:
-            return Message(
-                timestamp_ns=ros_msg.timestamp,
-                data=cls.from_dict(ros_msg.data),
-                message_header=ros_msg.header.translate() if ros_msg.header else None,
-            )
-        except Exception as e:
-            raise Exception(
-                f"Raised Exception while translating ros topic '{ros_msg.topic}' @time: {ros_msg.timestamp}.\nInner err: '{e}'"
-            )
+        return super().translate(ros_msg, **kwargs)
 
     @classmethod
     def from_dict(cls, ros_data: dict) -> Pose:
         """
-        Recursively parses the ROS data dictionary to extract a `Pose`.
+        Recursively parses a dictionary to extract a `Pose` object.
 
         Strategy:
-        -  Checks for a nested 'pose' key (used in Stamped/WithCovariance types).
-            If found, it recurses to unwrap the inner structure.
-        -  If no 'pose' key is found, it expects 'position' and 'orientation' keys
-            (the flat structure of a standard ROS Pose).
+
+        -  **Recurse**: If a 'pose' key is found, dive deeper into the structure.
+        -  **Leaf Node**: At the base level, map 'position' and 'orientation' to
+           [`Point3d`][mosaicolabs.models.data.Point3d] and
+           [`Quaternion`][mosaicolabs.models.data.Quaternion].
+        -  **Metadata Binding**: Headers and covariances are attached during
+           recursion unwinding.
+
+        Example:
+            ```python
+            ros_data=
+            {
+                "header": {"frame_id": "map", "stamp": {"sec": 17000, "nanosec": 0}},
+                "pose": {
+                    "position": {"x": 1.0, "y": 2.0, "z": 0.0},
+                    "orientation": {"x": 0, "y": 0, "z": 0, "w": 1}
+                },
+            }
+            # Automatically resolves to a flat Mosaico Pose with attached metadata
+            mosaico_pose = PoseAdapter.from_dict(ros_data)
+            ```
 
         Args:
             ros_data (dict): The raw dictionary from the ROS message.
@@ -125,11 +166,39 @@ class TwistAdapter(ROSAdapterBase[Velocity]):
     """
     Adapter for translating ROS Twist-related messages to Mosaico `Velocity`.
 
-    Handles multiple ROS message types:
-    - `geometry_msgs/msg/Twist`
-    - `geometry_msgs/msg/TwistStamped`
-    - `geometry_msgs/msg/TwistWithCovariance`
-    - `geometry_msgs/msg/TwistWithCovarianceStamped`
+    Commonly referred to as a "Twist," this model captures the instantaneous motion
+    of an object split into linear and angular components.
+
+    **Supported ROS Types:**
+
+    - [`geometry_msgs/msg/Twist`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/Twist.html)
+    - [`geometry_msgs/msg/TwistStamped`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/TwistStamped.html)
+    - [`geometry_msgs/msg/TwistWithCovariance`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/TwistWithCovariance.html)
+    - [`geometry_msgs/msg/TwistWithCovarianceStamped`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/TwistWithCovarianceStamped.html)
+
+    **Recursive Unwrapping Strategy:**
+    The adapter checks for nested `'twist'` keys. If found (as in `TwistStamped`),
+    it recurses to the leaf node while collecting metadata like headers and
+    covariance matrices along the way.
+
+    Example:
+        ```python
+        ros_msg= ROSMessage(
+            timestamp=1700000000000,
+            topic="/cmd_vel",
+            msg_type="geometry_msgs/msg/TwistStamped",
+            data=
+            {
+                "header": {"frame_id": "map", "stamp": {"sec": 17000, "nanosec": 0}},
+                "twist": {
+                    "linear": {"x": 5.0, "y": 0.0, "z": 0.0},
+                    "angular": {"x": 0.0, "y": 0.0, "z": 1.0}
+            },
+            "covariance": [0.1] * 36
+        )
+        # Automatically resolves to a flat Mosaico Velocity with attached metadata
+        mosaico_velocity = TwistAdapter.translate(ros_msg)
+        ```
     """
 
     ros_msgtype: str | Tuple[str, ...] = (
@@ -157,27 +226,43 @@ class TwistAdapter(ROSAdapterBase[Velocity]):
         Raises:
             Exception: Wraps any translation error with context (topic name, timestamp).
         """
-        if ros_msg.data is None:
-            raise Exception(
-                f"'data' attribute in ROSMessage is None. Cannot translate! Ros topic '{ros_msg.topic}' @time: {ros_msg.timestamp}"
-            )
-        try:
-            return Message(
-                timestamp_ns=ros_msg.timestamp,
-                data=cls.from_dict(ros_msg.data),
-                message_header=ros_msg.header.translate() if ros_msg.header else None,
-            )
-        except Exception as e:
-            raise Exception(
-                f"Raised Exception while translating ros topic '{ros_msg.topic}' @time: {ros_msg.timestamp}.\nInner err: '{e}'"
-            )
+        return super().translate(ros_msg, **kwargs)
 
     @classmethod
     def from_dict(cls, ros_data: dict) -> Velocity:
         """
         Recursively parses the ROS data dictionary to extract a `Velocity` (Twist).
 
-        Follows the same recursive unwrapping strategy as PoseAdapter.
+        Strategy:
+        -  **Recurse**: If a 'twist' key is found, dive deeper into the structure.
+        -  **Leaf Node**: At the base level, map 'linear' and 'angular' to
+           [`Vector3`][mosaicolabs.models.data.geometry.Vector3d].
+        -  **Metadata Binding**: Headers and covariances are attached during
+           recursion unwinding.
+
+        Example:
+            ```python
+            ros_data=
+            {
+                "header": {"frame_id": "map", "stamp": {"sec": 17000, "nanosec": 0}},
+                "twist": {
+                    "linear": {"x": 5.0, "y": 0.0, "z": 0.0},
+                    "angular": {"x": 0.0, "y": 0.0, "z": 1.0}
+                },
+                "covariance": [0.1] * 36
+            }
+            # Automatically resolves to a flat Mosaico Velocity with attached metadata
+            mosaico_velocity = TwistAdapter.from_dict(ros_data)
+            ```
+
+        Args:
+            ros_data (dict): The raw dictionary from the ROS message.
+
+        Returns:
+            Velocity: The constructed Mosaico Velocity object.
+
+        Raises:
+            ValueError: If the recursive 'twist' key exists but is not a dict, or if required keys are missing.
         """
         out_twist: Optional[Velocity] = None
 
@@ -215,11 +300,35 @@ class AccelAdapter(ROSAdapterBase[Acceleration]):
     """
     Adapter for translating ROS Accel-related messages to Mosaico `Acceleration`.
 
-    Handles:
-    - `geometry_msgs/msg/Accel`
-    - `geometry_msgs/msg/AccelStamped`
-    - `geometry_msgs/msg/AccelWithCovariance`
-    - `geometry_msgs/msg/AccelWithCovarianceStamped`
+    **Supported ROS Types:**
+
+    - [`geometry_msgs/msg/Accel`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/Accel.html)
+    - [`geometry_msgs/msg/AccelStamped`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/AccelStamped.html)
+    - [`geometry_msgs/msg/AccelWithCovariance`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/AccelWithCovariance.html)
+    - [`geometry_msgs/msg/AccelWithCovarianceStamped`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/AccelWithCovarianceStamped.html)
+
+    **Recursive Unwrapping Strategy:**
+    The adapter checks for nested `'accel'` keys. If found (as in `AccelStamped`), it recurses to the leaf node while collecting metadata like headers and
+    covariance matrices along the way.
+
+    Example:
+        ```python
+        ros_msg = ROSMessage(
+            topic="/accel",
+            timestamp=17000,
+            msg_type="geometry_msgs/msg/AccelStamped",
+            data=
+            {
+                "header": {"frame_id": "map", "stamp": {"sec": 17000, "nanosec": 0}},
+                "accel": {
+                    "linear": {"x": 5.0, "y": 0.0, "z": 0.0},
+                    "angular": {"x": 0.0, "y": 0.0, "z": 1.0}
+                },
+                "covariance": [0.1] * 36
+            }
+        # Automatically resolves to a flat Mosaico Acceleration with attached metadata
+        mosaico_acceleration = AccelAdapter.translate(ros_msg)
+        ```
     """
 
     ros_msgtype: str | Tuple[str, ...] = (
@@ -247,25 +356,43 @@ class AccelAdapter(ROSAdapterBase[Acceleration]):
         Raises:
             Exception: Wraps any translation error with context (topic name, timestamp).
         """
-        if ros_msg.data is None:
-            raise Exception(
-                f"'data' attribute in ROSMessage is None. Cannot translate! Ros topic '{ros_msg.topic}' @time: {ros_msg.timestamp}"
-            )
-        try:
-            return Message(
-                timestamp_ns=ros_msg.timestamp,
-                data=cls.from_dict(ros_msg.data),
-                message_header=ros_msg.header.translate() if ros_msg.header else None,
-            )
-        except Exception as e:
-            raise Exception(
-                f"Raised Exception while translating ros topic '{ros_msg.topic}' @time: {ros_msg.timestamp}.\nInner err: '{e}'"
-            )
+        return super().translate(ros_msg, **kwargs)
 
     @classmethod
     def from_dict(cls, ros_data: dict) -> Acceleration:
         """
         Recursively parses the ROS data dictionary to extract an `Acceleration`.
+
+        Strategy:
+        -  **Recurse**: If a 'accel' key is found, dive deeper into the structure.
+        -  **Leaf Node**: At the base level, map 'linear' and 'angular' to
+           [`Vector3`][mosaicolabs.models.data.geometry.Vector3d].
+        -  **Metadata Binding**: Headers and covariances are attached during
+           recursion unwinding.
+
+        Example:
+            ```python
+            ros_data=
+            {
+                "header": {"frame_id": "map", "stamp": {"sec": 17000, "nanosec": 0}},
+                "accel": {
+                    "linear": {"x": 5.0, "y": 0.0, "z": 0.0},
+                    "angular": {"x": 0.0, "y": 0.0, "z": 1.0}
+                },
+                "covariance": [0.1] * 36
+            }
+            # Automatically resolves to a flat Mosaico Acceleration with attached metadata
+            mosaico_acceleration = AccelAdapter.from_dict(ros_data)
+            ```
+
+        Args:
+            ros_data (dict): The raw dictionary from the ROS message.
+
+        Returns:
+            Acceleration: The constructed Mosaico Acceleration object.
+
+        Raises:
+            ValueError: If the recursive 'accel' key exists but is not a dict, or if required keys are missing.
         """
         out_accel: Optional[Acceleration] = None
 
@@ -301,11 +428,31 @@ class AccelAdapter(ROSAdapterBase[Acceleration]):
 @register_adapter
 class Vector3Adapter(ROSAdapterBase[Vector3d]):
     """
-    Adapter for translating ROS Vector3 messages to Mosaico `Vector3d`.
+    Adapter for translating ROS Vector3 messages to Mosaico [`Vector3d`][mosaicolabs.models.data.Vector3d].
 
-    Handles:
-    - `geometry_msgs/msg/Vector3`
-    - `geometry_msgs/msg/Vector3Stamped`
+    **Supported ROS Types:**
+
+    - [`geometry_msgs/msg/Vector3`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/Vector3.html)
+    - [`geometry_msgs/msg/Vector3Stamped`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/Vector3Stamped.html)
+
+    **Recursive Unwrapping Strategy:**
+    The adapter checks for nested `'vector'` keys. If found (as in `Vector3Stamped`), it recurses to the leaf node while collecting metadata like headers and
+    covariance matrices along the way.
+
+    Example:
+        ```python
+        ros_msg = ROSMessage(
+            topic="/vector3",
+            timestamp=17000,
+            msg_type="geometry_msgs/msg/Vector3Stamped",
+            data=
+            {
+                "header": {"frame_id": "map", "stamp": {"sec": 17000, "nanosec": 0}},
+                "vector": {"x": 5.0, "y": 0.0, "z": 0.0},
+            }
+        # Automatically resolves to a flat Mosaico Vector3 with attached metadata
+        mosaico_vector3 = Vector3Adapter.translate(ros_msg)
+        ```
     """
 
     ros_msgtype: str | Tuple[str, ...] = (
@@ -331,25 +478,39 @@ class Vector3Adapter(ROSAdapterBase[Vector3d]):
         Raises:
             Exception: Wraps any translation error with context (topic name, timestamp).
         """
-        if ros_msg.data is None:
-            raise Exception(
-                f"'data' attribute in ROSMessage is None. Cannot translate! Ros topic '{ros_msg.topic}' @time: {ros_msg.timestamp}"
-            )
-        try:
-            return Message(
-                timestamp_ns=ros_msg.timestamp,
-                data=cls.from_dict(ros_msg.data),
-                message_header=ros_msg.header.translate() if ros_msg.header else None,
-            )
-        except Exception as e:
-            raise Exception(
-                f"Raised Exception while translating ros topic '{ros_msg.topic}' @time: {ros_msg.timestamp}.\nInner err: '{e}'"
-            )
+        return super().translate(ros_msg, **kwargs)
 
     @classmethod
     def from_dict(cls, ros_data: dict) -> Vector3d:
         """
         Recursively parses the ROS data to extract a `Vector3d`.
+
+        Strategy:
+        -  **Recurse**: If a 'vector' key is found, dive deeper into the structure.
+        -  **Leaf Node**: At the base level, map 'x', 'y' and 'z' to
+           [`Vector3d`][mosaicolabs.models.data.Vector3d].
+        -  **Metadata Binding**: Headers and covariances are attached during
+           recursion unwinding.
+
+        Example:
+            ```python
+            ros_data=
+            {
+                "header": {"frame_id": "map", "stamp": {"sec": 17000, "nanosec": 0}},
+                "vector": {"x": 5.0, "y": 0.0, "z": 0.0},
+            }
+            # Automatically resolves to a flat Mosaico Vector3d with attached metadata
+            mosaico_vector3d = Vector3Adapter.from_dict(ros_data)
+            ```
+
+        Args:
+            ros_data (dict): The raw dictionary from the ROS message.
+
+        Returns:
+            Vector3d: The constructed Mosaico Vector3d object.
+
+        Raises:
+            ValueError: If the recursive 'vector' key exists but is not a dict, or if required keys are missing.
         """
         out_vec3: Optional[Vector3d] = None
 
@@ -386,9 +547,29 @@ class PointAdapter(ROSAdapterBase[Point3d]):
     """
     Adapter for translating ROS Point messages to Mosaico `Point3d`.
 
-    Handles:
-    - `geometry_msgs/msg/Point`
-    - `geometry_msgs/msg/PointStamped`
+    **Supported ROS Types:**
+
+    - [`geometry_msgs/msg/Point`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/Point.html)
+    - [`geometry_msgs/msg/PointStamped`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/PointStamped.html)
+
+    **Recursive Unwrapping Strategy:**
+    The adapter checks for nested `'point'` keys. If found (as in `PointStamped`), it recurses to the leaf node while collecting metadata like headers and
+    covariance matrices along the way.
+
+    Example:
+        ```python
+        ros_msg = ROSMessage(
+            topic="/point",
+            timestamp=17000,
+            msg_type="geometry_msgs/msg/PointStamped",
+            data=
+            {
+                "header": {"frame_id": "map", "stamp": {"sec": 17000, "nanosec": 0}},
+                "point": {"x": 5.0, "y": 0.0, "z": 0.0},
+            }
+        # Automatically resolves to a flat Mosaico Point3d with attached metadata
+        mosaico_point3d = PointAdapter.translate(ros_msg)
+        ```
     """
 
     ros_msgtype: str | Tuple[str, ...] = (
@@ -414,25 +595,39 @@ class PointAdapter(ROSAdapterBase[Point3d]):
         Raises:
             Exception: Wraps any translation error with context (topic name, timestamp).
         """
-        if ros_msg.data is None:
-            raise Exception(
-                f"'data' attribute in ROSMessage is None. Cannot translate! Ros topic '{ros_msg.topic}' @time: {ros_msg.timestamp}"
-            )
-        try:
-            return Message(
-                timestamp_ns=ros_msg.timestamp,
-                data=cls.from_dict(ros_msg.data),
-                message_header=ros_msg.header.translate() if ros_msg.header else None,
-            )
-        except Exception as e:
-            raise Exception(
-                f"Raised Exception while translating ros topic '{ros_msg.topic}' @time: {ros_msg.timestamp}.\nInner err: '{e}'"
-            )
+        return super().translate(ros_msg, **kwargs)
 
     @classmethod
     def from_dict(cls, ros_data: dict) -> Point3d:
         """
         Recursively parses the ROS data to extract a `Point3d`.
+
+        Strategy:
+            -  **Recurse**: If a 'point' key is found, dive deeper into the structure.
+            -  **Leaf Node**: At the base level, map 'x', 'y' and 'z' to
+               [`Point3d`][mosaicolabs.models.data.Point3d].
+            -  **Metadata Binding**: Headers and covariances are attached during
+               recursion unwinding.
+
+        Example:
+            ```python
+            ros_data=
+            {
+                "header": {"frame_id": "map", "stamp": {"sec": 17000, "nanosec": 0}},
+                "point": {"x": 5.0, "y": 0.0, "z": 0.0},
+            }
+            # Automatically resolves to a flat Mosaico Point3d with attached metadata
+            mosaico_point3d = PointAdapter.from_dict(ros_data)
+            ```
+
+        Args:
+            ros_data (dict): The raw dictionary from the ROS message.
+
+        Returns:
+            Point3d: The constructed Mosaico Point3d object.
+
+        Raises:
+            ValueError: If the recursive 'point' key exists but is not a dict, or if required keys are missing.
         """
         out_point: Optional[Point3d] = None
 
@@ -469,9 +664,29 @@ class QuaternionAdapter(ROSAdapterBase[Quaternion]):
     """
     Adapter for translating ROS Quaternion messages to Mosaico `Quaternion`.
 
-    Handles:
-    - `geometry_msgs/msg/Quaternion`
-    - `geometry_msgs/msg/QuaternionStamped`
+    **Supported ROS Types:**
+
+    - [`geometry_msgs/msg/Quaternion`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/Quaternion.html)
+    - [`geometry_msgs/msg/QuaternionStamped`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/QuaternionStamped.html)
+
+    **Recursive Unwrapping Strategy:**
+    The adapter checks for nested `'quaternion'` keys. If found (as in `QuaternionStamped`), it recurses to the leaf node while collecting metadata like headers and
+    covariance matrices along the way.
+
+    Example:
+        ```python
+        ros_msg = ROSMessage(
+            topic="/quaternion",
+            timestamp=17000,
+            msg_type="geometry_msgs/msg/QuaternionStamped",
+            data=
+            {
+                "header": {"frame_id": "map", "stamp": {"sec": 17000, "nanosec": 0}},
+                "quaternion": {"x": 5.0, "y": 0.0, "z": 0.0, "w": 1.0},
+            }
+        # Automatically resolves to a flat Mosaico Quaternion with attached metadata
+        mosaico_quaternion = QuaternionAdapter.translate(ros_msg)
+        ```
     """
 
     ros_msgtype: str | Tuple[str, ...] = (
@@ -497,25 +712,39 @@ class QuaternionAdapter(ROSAdapterBase[Quaternion]):
         Raises:
             Exception: Wraps any translation error with context (topic name, timestamp).
         """
-        if ros_msg.data is None:
-            raise Exception(
-                f"'data' attribute in ROSMessage is None. Cannot translate! Ros topic '{ros_msg.topic}' @time: {ros_msg.timestamp}"
-            )
-        try:
-            return Message(
-                timestamp_ns=ros_msg.timestamp,
-                data=cls.from_dict(ros_msg.data),
-                message_header=ros_msg.header.translate() if ros_msg.header else None,
-            )
-        except Exception as e:
-            raise Exception(
-                f"Raised Exception while translating ros topic '{ros_msg.topic}' @time: {ros_msg.timestamp}.\nInner err: '{e}'"
-            )
+        return super().translate(ros_msg, **kwargs)
 
     @classmethod
     def from_dict(cls, ros_data: dict) -> Quaternion:
         """
         Recursively parses the ROS data to extract a `Quaternion`.
+
+        Strategy:
+            -  **Recurse**: If a 'quaternion' key is found, dive deeper into the structure.
+            -  **Leaf Node**: At the base level, map 'x', 'y', 'z' and 'w' to
+               [`Quaternion`][mosaicolabs.models.data.Quaternion].
+            -  **Metadata Binding**: Headers and covariances are attached during
+               recursion unwinding.
+
+        Example:
+            ```python
+            ros_data=
+            {
+                "header": {"frame_id": "map", "stamp": {"sec": 17000, "nanosec": 0}},
+                "quaternion": {"x": 5.0, "y": 0.0, "z": 0.0, "w": 1.0},
+            }
+            # Automatically resolves to a flat Mosaico Quaternion with attached metadata
+            mosaico_quaternion = QuaternionAdapter.from_dict(ros_data)
+            ```
+
+        Args:
+            ros_data (dict): The raw dictionary from the ROS message.
+
+        Returns:
+            Quaternion: The constructed Mosaico Quaternion object.
+
+        Raises:
+            ValueError: If the recursive 'quaternion' key exists but is not a dict, or if required keys are missing.
         """
         out_quat: Optional[Quaternion] = None
 
@@ -553,9 +782,29 @@ class TransformAdapter(ROSAdapterBase[Transform]):
     """
     Adapter for translating ROS Transform messages to Mosaico `Transform`.
 
-    Handles:
-    - `geometry_msgs/msg/TransformStamped`
-    - `geometry_msgs/msg/Transform`
+    **Supported ROS Types:**
+
+    - [`geometry_msgs/msg/TransformStamped`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/TransformStamped.html)
+    - [`geometry_msgs/msg/Transform`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/Transform.html)
+
+    **Recursive Unwrapping Strategy:**
+    The adapter checks for nested `'transform'` keys. If found (as in `TransformStamped`), it recurses to the leaf node while collecting metadata like headers and
+    covariance matrices along the way.
+
+    Example:
+        ```python
+        ros_msg = ROSMessage(
+            topic="/transform",
+            timestamp=17000,
+            msg_type="geometry_msgs/msg/TransformStamped",
+            data=
+            {
+                "header": {"frame_id": "map", "stamp": {"sec": 17000, "nanosec": 0}},
+                "transform": {"translation": {"x": 5.0, "y": 0.0, "z": 0.0}, "rotation": {"x": 0.0, "y": 0.0, "z": 0.0, "w": 1.0}},
+            }
+        # Automatically resolves to a flat Mosaico Transform with attached metadata
+        mosaico_transform = TransformAdapter.translate(ros_msg)
+        ```
     """
 
     ros_msgtype: str | Tuple[str, ...] = (
@@ -581,26 +830,40 @@ class TransformAdapter(ROSAdapterBase[Transform]):
         Raises:
             Exception: Wraps any translation error with context (topic name, timestamp).
         """
-        if ros_msg.data is None:
-            raise Exception(
-                f"'data' attribute in ROSMessage is None. Cannot translate! Ros topic '{ros_msg.topic}' @time: {ros_msg.timestamp}"
-            )
-        try:
-            return Message(
-                message_header=ros_msg.header.translate() if ros_msg.header else None,
-                timestamp_ns=ros_msg.timestamp,
-                data=cls.from_dict(ros_msg.data),
-            )
-        except Exception as e:
-            raise Exception(
-                f"Raised Exception while translating ros topic '{ros_msg.topic}' @time: {ros_msg.timestamp}.\nInner err: '{e}'"
-            )
+        return super().translate(ros_msg, **kwargs)
 
     @classmethod
     def from_dict(cls, ros_data: dict) -> Transform:
         """
         Parses ROS Transform data. Handles both nested 'transform' field (from Stamped)
         and flat structure.
+
+        Strategy:
+            -  **Recurse**: If a 'transform' key is found, dive deeper into the structure.
+            -  **Leaf Node**: At the base level, map 'translation' and 'rotation' to
+               [`Transform`][mosaicolabs.models.data.Transform].
+            -  **Metadata Binding**: Headers and covariances are attached during
+               recursion unwinding.
+
+        Example:
+            ```python
+            ros_data=
+            {
+                "header": {"frame_id": "map", "stamp": {"sec": 17000, "nanosec": 0}},
+                "transform": {"translation": {"x": 5.0, "y": 0.0, "z": 0.0}, "rotation": {"x": 0.0, "y": 0.0, "z": 0.0, "w": 1.0}},
+            }
+            # Automatically resolves to a flat Mosaico Transform with attached metadata
+            mosaico_transform = TransformAdapter.from_dict(ros_data)
+            ```
+
+        Args:
+            ros_data (dict): The raw dictionary from the ROS message.
+
+        Returns:
+            Transform: The constructed Mosaico Transform object.
+
+        Raises:
+            ValueError: If the recursive 'transform' key exists but is not a dict, or if required keys are missing.
         """
         out_transf: Optional[Transform] = None
 
@@ -638,9 +901,29 @@ class WrenchAdapter(ROSAdapterBase[ForceTorque]):
     """
     Adapter for translating ROS Wrench messages to Mosaico `ForceTorque`.
 
-    Handles:
-    - `geometry_msgs/msg/WrenchStamped`
-    - `geometry_msgs/msg/Wrench`
+    **Supported ROS Types:**
+
+    - [`geometry_msgs/msg/Wrench`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/Wrench.html)
+    - [`geometry_msgs/msg/WrenchStamped`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/WrenchStamped.html)
+
+    **Recursive Unwrapping Strategy:**
+    The adapter checks for nested `'wrench'` keys. If found (as in `WrenchStamped`), it recurses to the leaf node while collecting metadata like headers and
+    covariance matrices along the way.
+
+    Example:
+        ```python
+        ros_msg = ROSMessage(
+            topic="/wrench",
+            timestamp=17000,
+            msg_type="geometry_msgs/msg/WrenchStamped",
+            data=
+            {
+                "header": {"frame_id": "map", "stamp": {"sec": 17000, "nanosec": 0}},
+                "wrench": {"force": {"x": 5.0, "y": 0.0, "z": 0.0}, "torque": {"x": 0.0, "y": 0.0, "z": 0.0}},
+            }
+        # Automatically resolves to a flat Mosaico ForceTorque with attached metadata
+        mosaico_wrench = WrenchAdapter.translate(ros_msg)
+        ```
     """
 
     ros_msgtype: str | Tuple[str, ...] = (
@@ -666,26 +949,31 @@ class WrenchAdapter(ROSAdapterBase[ForceTorque]):
         Raises:
             Exception: Wraps any translation error with context (topic name, timestamp).
         """
-        if ros_msg.data is None:
-            raise Exception(
-                f"'data' attribute in ROSMessage is None. Cannot translate! Ros topic '{ros_msg.topic}' @time: {ros_msg.timestamp}"
-            )
-        try:
-            return Message(
-                message_header=ros_msg.header.translate() if ros_msg.header else None,
-                timestamp_ns=ros_msg.timestamp,
-                data=cls.from_dict(ros_msg.data),
-            )
-        except Exception as e:
-            raise Exception(
-                f"Raised Exception while translating ros topic '{ros_msg.topic}' @time: {ros_msg.timestamp}.\nInner err: '{e}'"
-            )
+        return super().translate(ros_msg, **kwargs)
 
     @classmethod
     def from_dict(cls, ros_data: dict) -> ForceTorque:
         """
         Parses ROS ForceTorque data. Handles both nested 'wrench' field (from Stamped)
         and flat structure.
+
+        Strategy:
+            -  **Recurse**: If a 'wrench' key is found, dive deeper into the structure.
+            -  **Leaf Node**: At the base level, map 'force' and 'torque' to
+               [`ForceTorque`][mosaicolabs.models.data.ForceTorque].
+            -  **Metadata Binding**: Headers and covariances are attached during
+               recursion unwinding.
+
+        Example:
+            ```python
+            ros_data=
+            {
+                "header": {"frame_id": "map", "stamp": {"sec": 17000, "nanosec": 0}},
+                "wrench": {"force": {"x": 5.0, "y": 0.0, "z": 0.0}, "torque": {"x": 0.0, "y": 0.0, "z": 0.0}},
+            }
+            # Automatically resolves to a flat Mosaico ForceTorque with attached metadata
+            mosaico_wrench = WrenchAdapter.from_dict(ros_data)
+            ```
         """
         out_ft: Optional[ForceTorque] = None
 

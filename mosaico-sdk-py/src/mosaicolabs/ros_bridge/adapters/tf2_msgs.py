@@ -12,6 +12,52 @@ from .helpers import _validate_msgdata
 
 @register_adapter
 class FrameTransformAdapter(ROSAdapterBase):
+    """
+    Adapter for translating ROS TF2 messages to Mosaico `FrameTransform`.
+
+    **Supported ROS Types:**
+
+    - [`tf2_msgs/msg/TFMessage`](https://docs.ros2.org/foxy/api/tf2_msgs/msg/TFMessage.html)
+
+    Example:
+        ```python
+        ros_msg = ROSMessage(
+            timestamp=17000,
+            topic="/tf",
+            msg_type="tf2_msgs/msg/TFMessage",
+            data={
+                "transforms": [
+                    {
+                        "header": {
+                            "stamp": {
+                                "sec": 17000,
+                                "nanosec": 0,
+                            },
+                            "frame_id": "map",
+                            "child_frame_id": "base_link",
+                        },
+                        "transform": {
+                            "translation": {
+                                "x": 0.0,
+                                "y": 0.0,
+                                "z": 0.0,
+                            },
+                            "rotation": {
+                                "x": 0.0,
+                                "y": 0.0,
+                                "z": 0.0,
+                                "w": 1.0,
+                            },
+                        },
+                    }
+                ]
+            },
+        )
+        # Automatically resolves to a flat Mosaico FrameTransform with attached metadata
+        mosaico_frame_transform = FrameTransformAdapter.translate(ros_msg)
+        ```
+    """
+
     ros_msgtype: str | Tuple[str, ...] = "tf2_msgs/msg/TFMessage"
 
     __mosaico_ontology_type__: Type[FrameTransform] = FrameTransform
@@ -32,25 +78,45 @@ class FrameTransformAdapter(ROSAdapterBase):
         Raises:
             Exception: Wraps any translation error with context (topic name, timestamp).
         """
-        if ros_msg.data is None:
-            raise Exception(
-                f"'data' attribute in ROSMessage is None. Cannot translate! Ros topic '{ros_msg.topic}' @time: {ros_msg.timestamp}"
-            )
-        try:
-            return Message(
-                message_header=ros_msg.header.translate() if ros_msg.header else None,
-                timestamp_ns=ros_msg.timestamp,
-                data=cls.from_dict(ros_msg.data),
-            )
-        except Exception as e:
-            raise Exception(
-                f"Raised Exception while translating ros topic '{ros_msg.topic}' @time: {ros_msg.timestamp}.\nInner err: '{e}'"
-            )
+        return super().translate(ros_msg, **kwargs)
 
     @classmethod
     def from_dict(cls, ros_data: dict) -> FrameTransform:
         """
         Converts the raw dictionary data into the specific Mosaico type.
+
+        Example:
+            ```python
+            ros_data={
+                "transforms": [
+                    {
+                        "header": {
+                            "stamp": {
+                                "sec": 17000,
+                                "nanosec": 0,
+                            },
+                            "frame_id": "map",
+                            "child_frame_id": "base_link",
+                        },
+                        "transform": {
+                            "translation": {
+                                "x": 0.0,
+                                "y": 0.0,
+                                "z": 0.0,
+                            },
+                            "rotation": {
+                                "x": 0.0,
+                                "y": 0.0,
+                                "z": 0.0,
+                                "w": 1.0,
+                            },
+                        },
+                    }
+                ]
+            }
+            # Automatically resolves to a flat Mosaico FrameTransform with attached metadata
+            mosaico_frame_transform = FrameTransformAdapter.from_dict(ros_data)
+            ```
         """
         _validate_msgdata(cls, ros_data)
         return FrameTransform(

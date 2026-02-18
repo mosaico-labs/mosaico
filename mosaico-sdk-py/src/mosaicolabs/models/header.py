@@ -19,10 +19,17 @@ from .base_model import BaseModel
 
 class Time(BaseModel):
     """
-    High-precision time representation.
+    A high-precision time representation designed to prevent precision loss.
 
-    Splits time into seconds (integer) and nanoseconds (unsigned integer)
-    to prevent precision loss common with 64-bit floats.
+    The `Time` class splits a timestamp into a 64-bit integer for seconds and a 32-bit
+    unsigned integer for nanoseconds. This dual-integer structure follows
+    robotics standards (like ROS) to ensure temporal accuracy that standard 64-bit
+    floating-point timestamps cannot maintain over long durations.
+
+
+    Attributes:
+        sec: Seconds since the epoch (Unix time).
+        nanosec: Nanoseconds component within the current second, ranging from 0 to 999,999,999.
     """
 
     __msco_pyarrow_struct__ = pa.struct(
@@ -33,7 +40,10 @@ class Time(BaseModel):
     )
 
     sec: int
+    """Seconds since the epoch (Unix time)."""
+
     nanosec: int
+    """Nanoseconds component within the current second, ranging from 0 to 999,999,999."""
 
     @field_validator("nanosec")
     @classmethod
@@ -46,13 +56,16 @@ class Time(BaseModel):
     @classmethod
     def from_float(cls, ftime: float) -> "Time":
         """
-        Factory: Creates Time from a float seconds value (e.g., `time.time()`).
+        Factory method to create a Time object from a float (seconds since epoch).
+
+        This method carefully handles floating-point artifacts by using rounding for
+        the fractional part to ensure stable nanosecond conversion.
 
         Args:
-            ftime (float): Seconds since epoch.
+            ftime: Total seconds since epoch (e.g., from `time.time()`).
 
         Returns:
-            Time: The normalized sec/nanosec object.
+            A normalized `Time` instance.
         """
         # Handle negative timestamps (although this is assumed a wrong behavior)
         # We must account for nanoseconds to be unsigned. This must be handled by borrowing from the seconds component.
@@ -77,10 +90,13 @@ class Time(BaseModel):
     @classmethod
     def from_milliseconds(cls, total_milliseconds: int) -> "Time":
         """
-        Factory: Creates Time from total nanoseconds.
+        Factory method to create a Time object from a total count of milliseconds.
 
         Args:
-            total_nanoseconds (int): Total time in nanoseconds.
+            total_milliseconds: Total time elapsed in milliseconds.
+
+        Returns:
+            A `Time` instance with split sec/nanosec components.
         """
         sec = total_milliseconds // 1_000
         nanosec = (total_milliseconds % 1_000) * 1_000_000
@@ -89,10 +105,13 @@ class Time(BaseModel):
     @classmethod
     def from_nanoseconds(cls, total_nanoseconds: int) -> "Time":
         """
-        Factory: Creates Time from total nanoseconds.
+        Factory method to create a Time object from a total count of nanoseconds.
 
         Args:
-            total_nanoseconds (int): Total time in nanoseconds.
+            total_nanoseconds: Total time elapsed in nanoseconds.
+
+        Returns:
+            A `Time` instance with split sec/nanosec components.
         """
         sec = total_nanoseconds // 1_000_000_000
         nanosec = total_nanoseconds % 1_000_000_000
@@ -101,10 +120,13 @@ class Time(BaseModel):
     @classmethod
     def from_datetime(cls, dt: datetime) -> "Time":
         """
-        Factory: Creates Time from a Python datetime object.
+        Factory method to create a Time object from a Python `datetime` instance.
 
         Args:
-            dt (datetime): Date (and time).
+            dt: A standard Python `datetime` object.
+
+        Returns:
+            A `Time` instance reflecting the datetime's timestamp.
         """
         # Note: dt.timestamp() handles timezone conversion if aware
         timestamp = dt.timestamp()
@@ -112,34 +134,64 @@ class Time(BaseModel):
 
     @classmethod
     def now(cls) -> "Time":
-        """Factory: Returns the current system time (UTC)."""
+        """Factory method that returns the current system UTC time in high precision."""
         return cls.from_float(time.time())
 
     def to_float(self) -> float:
-        """Converts to float seconds. Warning: Precision loss possible."""
+        """
+        Converts the high-precision time to a float.
+
+        Warning: Precision Loss
+            Converting to a 64-bit float may result in the loss of nanosecond
+            precision due to mantissa limitations.
+        """
         return float(self.sec) + float(self.nanosec) * 1e-9
 
     def to_nanoseconds(self) -> int:
-        """Converts to total nanoseconds (integer). Preserves precision."""
+        """
+        Converts the time to a total integer of nanoseconds.
+
+        This conversion preserves full precision.
+        """
         return (self.sec * 1_000_000_000) + self.nanosec
 
     def to_milliseconds(self) -> int:
-        """Converts to total milliseconds (integer). Preserves precision."""
+        """
+        Converts the time to a total integer of milliseconds.
+
+        This conversion preserves full precision.
+        """
         return (self.sec * 1_000) + int(self.nanosec / 1_000_000)
 
     def to_datetime(self) -> datetime:
-        """Converts to Python datetime (UTC). Warning: Precision loss (us vs ns)."""
+        """
+        Converts the time to a Python UTC `datetime` object.
+
+        Warning: Microsecond Limitation
+            Python's `datetime` objects typically support microsecond precision;
+            nanosecond data below that threshold will be truncated.
+        """
         return datetime.fromtimestamp(self.to_float(), tz=timezone.utc)
 
 
 class Header(BaseModel):
     """
-    Standard metadata header for ontology data.
+    Standard metadata header used to provide context to ontology data.
 
-    Structure matches common robotics standards (like ROS):
-    - Sequence ID
-    - Timestamp (acquisition time)
-    - Frame ID (spatial context)
+    The `Header` structure provides spatial and temporal context, matching common
+    industry standards for sensor data. It is typically injected
+    into sensor models via the [`HeaderMixin`][mosaicolabs.models.mixins.HeaderMixin].
+
+
+    Attributes:
+        stamp: The high-precision [`Time`][mosaicolabs.models.header.Time] of data acquisition.
+        frame_id: A string identifier for the coordinate frame (spatial context).
+        seq: An optional sequence ID, primarily used for legacy tracking.
+
+    Note: Nullable Fields
+        In the underlying PyArrow schema, all header fields are explicitly marked as
+        `nullable=True`. This ensures that empty headers are correctly
+        deserialized as `None` rather than default-initialized objects.
     """
 
     # OPTIONALITY NOTE
@@ -170,5 +222,10 @@ class Header(BaseModel):
     )
 
     stamp: Time
+    """The high-precision [`Time`][mosaicolabs.models.header.Time] of data acquisition."""
+
     frame_id: str
+    """A string identifier for the coordinate frame (spatial context)."""
+
     seq: Optional[int] = None
+    """An optional sequence ID, primarily used for legacy tracking."""

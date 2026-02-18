@@ -101,6 +101,39 @@ class Image(Serializable, HeaderMixin):
     1.  **Arbitrary Data Types**: From standard uint8 RGB to float32 Depth and uint16 IR.
     2.  **Memory Layouts**: Explicit control over `stride` (stride) and endianness (`is_bigendian`).
     3.  **Transport**: Can act as a container for RAW bytes or wrap them in lossless containers (PNG).
+
+    Attributes:
+        data (bytes): The flattened image memory buffer.
+        format (ImageFormat): The format used for serialization ('png' or 'raw').
+        width (int): The width of the image in pixels.
+        height (int): The height of the image in pixels.
+        stride (int): Bytes per row. Essential for alignment.
+        encoding (str): Pixel format (e.g., 'bgr8', 'mono16').
+        is_bigendian (bool): True if data is Big-Endian. Defaults to system endianness if null.
+
+    ### Querying with the **`.Q` Proxy**
+    This class is fully queryable via the **`.Q` proxy**. You can filter image data based
+    on image parameters within a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog].
+
+    Example:
+        ```python
+        from mosaicolabs import MosaicoClient, QueryOntologyCatalog, Image
+
+        with MosaicoClient.connect("localhost", 6726) as client:
+            # Filter for image data based on image parameters
+            qresponse = client.query(
+                QueryOntologyCatalog(Image.Q.width.between(1500, 2000))
+                .with_expression(Image.Q.height.between(1500, 2000))
+                .with_expression(Image.Q.format.eq("png")),
+            )
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {[topic.name for topic in item.topics]}")
+        ```
     """
 
     # --- Schema Definition ---
@@ -159,25 +192,192 @@ class Image(Serializable, HeaderMixin):
 
     # Pydantic Fields
     data: bytes
-    """The flattened image memory buffer."""
+    """
+    The flattened image memory buffer.
+
+    ### Querying with the **`.Q` Proxy**
+    The data is not queryable via the `data` field (bytes are not comparable).
+    """
 
     format: ImageFormat
-    """The format used for serialization ('png' or 'raw')."""
+    """
+    The format used for serialization ('png' or 'raw').
+
+    ### Querying with the **`.Q` Proxy**
+    The format is queryable via the `format` field.
+
+    | Field Access Path | Queryable Type | Supported Operators |
+    | :--- | :--- | :--- |
+    | `Image.Q.format` | `String` | `.eq()`, `.neq()`, `.match()`, `.in_()` |
+
+    Example:
+        ```python
+        from mosaicolabs import MosaicoClient, QueryOntologyCatalog, Image
+
+        with MosaicoClient.connect("localhost", 6726) as client:
+            # Filter for image data based on format
+            qresponse = client.query(
+                QueryOntologyCatalog(Image.Q.format.eq(ImageFormat.PNG))
+            )
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {[topic.name for topic in item.topics]}")
+        ```
+    """
 
     width: int
-    """The width of the image in pixels."""
+    """
+    The width of the image in pixels.
+
+    ### Querying with the **`.Q` Proxy**
+    The width is queryable via the `width` field.
+
+    | Field Access Path | Queryable Type | Supported Operators |
+    | :--- | :--- | :--- |
+    | `Image.Q.width` | `Integer` | `.eq()`, `.neq()`, `.gt()`, `.gte()`, `.lt()`, `.lte()`, `.between()` |
+
+    Example:
+        ```python
+        from mosaicolabs import MosaicoClient, QueryOntologyCatalog, Image
+
+        with MosaicoClient.connect("localhost", 6726) as client:
+            # Filter for image data based on width
+            qresponse = client.query(
+                QueryOntologyCatalog(Image.Q.width.between(0, 100))
+            )
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {[topic.name for topic in item.topics]}")
+        ```
+    """
 
     height: int
-    """The height of the image in pixels."""
+    """
+    The height of the image in pixels.
+
+    ### Querying with the **`.Q` Proxy**
+    The height is queryable via the `height` field.
+
+    | Field Access Path | Queryable Type | Supported Operators |
+    | :--- | :--- | :--- |
+    | `Image.Q.height` | `Integer` | `.eq()`, `.neq()`, `.gt()`, `.gte()`, `.lt()`, `.lte()`, `.between()` |
+
+    Example:
+        ```python
+        from mosaicolabs import MosaicoClient, QueryOntologyCatalog, Image
+
+        with MosaicoClient.connect("localhost", 6726) as client:
+            # Filter for image data based on height
+            qresponse = client.query(
+                QueryOntologyCatalog(Image.Q.height.between(0, 100))
+            )
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {[topic.name for topic in item.topics]}")
+        ```
+    """
 
     stride: int
-    """The number of bytes per row of the image."""
+    """
+    The number of bytes per row of the image.
+
+    ### Querying with the **`.Q` Proxy**
+    The stride is queryable via the `stride` field.
+
+    | Field Access Path | Queryable Type | Supported Operators |
+    | :--- | :--- | :--- |
+    | `Image.Q.stride` | `Integer` | `.eq()`, `.neq()`, `.gt()`, `.gte()`, `.lt()`, `.lte()`, `.between()` |
+
+    Example:
+        ```python
+        from mosaicolabs import MosaicoClient, QueryOntologyCatalog, Image
+
+        with MosaicoClient.connect("localhost", 6726) as client:
+            # Filter for image data based on stride
+            qresponse = client.query(
+                QueryOntologyCatalog(Image.Q.stride.between(0, 100))
+            )
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {[topic.name for topic in item.topics]}")
+        ```
+    """
 
     encoding: str
-    """The pixel encoding (e.g., 'bgr8', 'mono16'). Optional field."""
+    """
+    The pixel encoding (e.g., 'bgr8', 'mono16'). Optional field.
+
+    ### Querying with the **`.Q` Proxy**
+    The encoding is queryable via the `encoding` field.
+
+    | Field Access Path | Queryable Type | Supported Operators |
+    | :--- | :--- | :--- |
+    | `Image.Q.encoding` | `String` | `.eq()`, `.neq()`, `.match()`, `.in_()` |
+
+    Example:
+        ```python
+        from mosaicolabs import MosaicoClient, QueryOntologyCatalog, Image
+
+        with MosaicoClient.connect("localhost", 6726) as client:
+            # Filter for image data based on encoding
+            qresponse = client.query(
+                QueryOntologyCatalog(Image.Q.encoding.eq("bgr8"))
+            )
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {[topic.name for topic in item.topics]}")
+        ```
+    """
 
     is_bigendian: Optional[bool] = None
-    """Store if the original data is Big-Endian. Optional field."""
+    """
+    Store if the original data is Big-Endian. Optional field.
+
+    ### Querying with the **`.Q` Proxy**
+    The is_bigendian is queryable via the `is_bigendian` field.
+
+    | Field Access Path | Queryable Type | Supported Operators |
+    | :--- | :--- | :--- |
+    | `Image.Q.is_bigendian` | `Boolean` | `.eq()`, `.neq()` |
+
+    Example:
+        ```python
+        from mosaicolabs import MosaicoClient, QueryOntologyCatalog, Image
+
+        with MosaicoClient.connect("localhost", 6726) as client:
+            # Filter for image data based on is_bigendian
+            qresponse = client.query(
+                QueryOntologyCatalog(Image.Q.is_bigendian.eq(True))
+            )
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {[topic.name for topic in item.topics]}")
+        ```
+    """
 
     @classmethod
     def from_linear_pixels(
@@ -373,6 +573,7 @@ class Image(Serializable, HeaderMixin):
         Factory method to create an Image from a PIL object.
 
         Automatically handles:
+
         - Data flattening (row-major).
         - Stride calculation.
         - RGB to BGR conversion (if target_encoding requires it).
@@ -553,6 +754,28 @@ class CompressedImage(Serializable, HeaderMixin):
     Attributes:
         data (bytes): The compressed binary payload.
         format (str): The format identifier string (e.g., 'jpeg', 'png').
+
+    ### Querying with the **`.Q` Proxy**
+    This class is fully queryable via the **`.Q` proxy**. You can filter image data based
+    on image parameters within a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog].
+
+    Example:
+        ```python
+        from mosaicolabs import MosaicoClient, CompressedImage, QueryOntologyCatalog
+
+        with MosaicoClient.connect("localhost", 6726) as client:
+            # Filter for image data based on image parameters
+            qresponse = client.query(
+                QueryOntologyCatalog(CompressedImage.Q.format.eq("jpeg"))
+            )
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {[topic.name for topic in item.topics]}")
+        ```
     """
 
     __msco_pyarrow_struct__ = pa.struct(
@@ -579,10 +802,40 @@ class CompressedImage(Serializable, HeaderMixin):
     __serialization_format__ = SerializationFormat.Image
 
     data: bytes
-    """The serialized (compressed) image data as bytes."""
+    """
+    The serialized (compressed) image data as bytes.
+
+    ### Querying with the **`.Q` Proxy**
+    The data is not queryable via the `data` field (bytes are not comparable).
+    """
 
     format: ImageFormat
-    """The compression format (e.g., 'jpeg', 'png')."""
+    """
+    The compression format (e.g., 'jpeg', 'png').
+
+    ### Querying with the **`.Q` Proxy**
+    | Field Access Path | Queryable Type | Supported Operators |
+    | :--- | :--- | :--- |
+    | `CompressedImage.Q.format` | `String` | `.eq()`, `.neq()`, `.match()`, `.in_()` |
+
+    Example:
+        ```python
+        from mosaicolabs import MosaicoClient, CompressedImage, QueryOntologyCatalog
+
+        with MosaicoClient.connect("localhost", 6726) as client:
+            # Filter for image data based on image parameters
+            qresponse = client.query(
+                QueryOntologyCatalog(CompressedImage.Q.format.eq("jpeg"))
+            )
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {[topic.name for topic in item.topics]}")
+        ```
+    """
 
     def to_image(
         self,
