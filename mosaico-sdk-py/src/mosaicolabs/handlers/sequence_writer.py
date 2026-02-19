@@ -227,8 +227,10 @@ class SequenceWriter(BaseSequenceWriter):
 
                     # Push data
                     imu_writer.push( # (3)!
-                        ontology_obj=IMU(acceleration=Vector3d(x=0, y=0, z=9.81), ...),
-                        message_timestamp_ns=1700000000000
+                        message=Message(
+                            timestamp_ns=1700000000000,
+                            data=IMU(acceleration=Vector3d(x=0, y=0, z=9.81), ...),
+                        )
                     )
                     # ...
 

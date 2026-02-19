@@ -53,11 +53,10 @@ class ROSAdapterBase(ABC, Generic[T]):
         if ros_msg.data is None:
             raise Exception(f"'data' attribute is None for topic {ros_msg.topic}")
 
-        msg_header = ros_msg.header.translate() if ros_msg.header else None
         try:
             return Message(
-                timestamp_ns=msg_header.stamp.to_nanoseconds()
-                if msg_header
+                timestamp_ns=ros_msg.header.translate().stamp.to_nanoseconds()
+                if ros_msg.header
                 else ros_msg.bag_timestamp_ns,
                 data=cls.from_dict(ros_msg.data),
                 recording_timestamp_ns=ros_msg.bag_timestamp_ns,

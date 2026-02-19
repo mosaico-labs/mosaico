@@ -6,7 +6,12 @@ from mosaicolabs.models import Serializable, HeaderMixin
 
 class FrameTransform(Serializable, HeaderMixin):
     """
-    NOTE: This model is not included in the default ontology of Mosaico and is defined specifically for the ros-bridge module
+    Represents a list of transformations between two coordinates.
+
+    modeled after: [tf2_msgs/msg/TFMessage](https://docs.ros2.org/foxy/api/tf2_msgs/msg/TFMessage.html)
+
+    Note:
+        This model is not included in the default ontology of Mosaico and is defined specifically for the ros-bridge module
     """
 
     __msco_pyarrow_struct__ = pa.struct(
@@ -21,3 +26,4 @@ class FrameTransform(Serializable, HeaderMixin):
     )
 
     transforms: List[Transform]
+    """List of coordinate frames transformations."""

@@ -205,6 +205,7 @@ response = client.query(
 Mosaico organizes data into three distinct architectural layers, each with its own specialized Query Builder:
 
 #### [`QuerySequence`][mosaicolabs.models.query.builders.QuerySequence] (Sequence Layer)
+API Reference: [`mosaicolabs.models.query.builders.QuerySequence`][mosaicolabs.models.query.builders.QuerySequence].
 
 Filters recordings based on high-level session metadata, such as the sequence name or the time it was created.
 
@@ -228,9 +229,9 @@ with MosaicoClient.connect("localhost", 6726) as client:
         print(f"Topics: {[topic.name for topic in item.topics]}")
 ```
 
-API Reference: [`mosaicolabs.models.query.builders.QuerySequence`][mosaicolabs.models.query.builders.QuerySequence].
 
 #### [`QueryTopic`][mosaicolabs.models.query.builders.QueryTopic] (Topic Layer)
+API Reference: [`mosaicolabs.models.query.builders.QueryTopic`][mosaicolabs.models.query.builders.QueryTopic].
 
 Targets specific data channels within a sequence. You can search for topics by name pattern or by their specific Ontology type (e.g., "Find all GPS topics").
 
@@ -256,9 +257,9 @@ with MosaicoClient.connect("localhost", 6726) as client:
             print(f"Topics: {[topic.name for topic in item.topics]}")
 ```
 
-API Reference: [`mosaicolabs.models.query.builders.QueryTopic`][mosaicolabs.models.query.builders.QueryTopic].
 
 #### [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog] (Ontology Catalog Layer)
+API Reference: [`mosaicolabs.models.query.builders.QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog].
 
 Filters based on the **actual time-series content** of the sensors (e.g., "Find events where `acceleration.z` exceeded a specific value").
 
@@ -301,7 +302,6 @@ from mosaicolabs import MosaicoClient, QueryOntologyCatalog, GPS, IMU
                             for topic in item.topics}}")
 ```
 
-API Reference: [`mosaicolabs.models.query.builders.QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog].
 
 
 The Mosaico Query Module offers two distinct paths for defining filters,  **Convenience Methods** and **Generic Expression Method**, both of which support **method chaining** to compose multiple criteria into a single query using a logical **AND**.

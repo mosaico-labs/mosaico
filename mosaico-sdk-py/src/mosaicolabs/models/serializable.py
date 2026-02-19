@@ -257,6 +257,18 @@ class Serializable(BaseModel, _QueryProxyMixin):
         )
 
     @classmethod
+    def is_registered(cls) -> bool:
+        """
+        Checks if a class is registered.
+
+        Returns:
+            bool: True if registered.
+        """
+        if not hasattr(cls, "__ontology_tag__"):
+            return False
+        return cls.__ontology_tag__ in _SENSOR_REGISTRY.keys()
+
+    @classmethod
     def ontology_tag(cls) -> str:
         """
         Retrieves the unique identifier (tag) for the current ontology class, automatically generated during class definition.

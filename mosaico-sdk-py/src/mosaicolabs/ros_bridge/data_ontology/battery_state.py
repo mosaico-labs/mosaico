@@ -7,9 +7,10 @@ class BatteryState(Serializable, HeaderMixin):
     """
     Represents the state of a battery power supply.
 
-    modeled after: sensor_msgs/msg/BatteryState
+    modeled after: [sensor_msgs/msg/BatteryState](https://docs.ros2.org/foxy/api/sensor_msgs/msg/BatteryState.html)
 
-    NOTE: This model is still not included in the default ontology of Mosaico and is defined specifically for the ros-bridge module
+    Note:
+        This model is still not included in the default ontology of Mosaico and is defined specifically for the ros-bridge module
     """
 
     __msco_pyarrow_struct__ = pa.struct(
@@ -39,23 +40,38 @@ class BatteryState(Serializable, HeaderMixin):
 
     # Core Metrics
     voltage: float
+    """The battery voltage value"""
     temperature: Optional[float]
+    """The optional battery temperature in °C"""
     current: Optional[float]
+    """The optional battery current in A"""
     charge: Optional[float]
+    """The optional battery charge in Ah"""
     capacity: Optional[float]
+    """The optional battery capacity in Ah"""
     design_capacity: Optional[float]
+    """The optional battery design capacity in Ah"""
     percentage: float
+    """The battery percentage in %"""
 
     # Status
     power_supply_status: int
+    """The charging status"""
     power_supply_health: int
+    """The battery health"""
     power_supply_technology: int
+    """The battery technology"""
     present: bool
+    """The battery presence"""
 
     # Metadata
     location: str
+    """The battery location (like the slot)"""
     serial_number: str
+    """The battery serial number"""
 
     # Cell Details (Optional because some drivers don't report them)
     cell_voltage: List[float] = []
+    """The battery cells voltage"""
     cell_temperature: List[float] = []
+    """The battery cells temperature"""

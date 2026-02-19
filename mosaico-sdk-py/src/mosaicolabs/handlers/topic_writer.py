@@ -88,10 +88,12 @@ class TopicWriter:
 
                     # Push data...
                     imu_writer.push( # (3)!
-                        ontology_obj=IMU(acceleration=Vector3d(x=0, y=0, z=9.81), ...),
-                        message_timestamp_ns=1700000000000
+                        message=Message(
+                            data=IMU(acceleration=Vector3d(x=0, y=0, z=9.81), ...),
+                            timestamp_ns=1700000000000,
+                        )
                     )
-                # Exiting the seq_writer `with` block, the `finalize()` method of all topic writers is called.
+                # Exiting the seq_writer `with` block, the `_finalize()` method of all topic writers is called.
             ```
 
             1. See also: [`MosaicoClient.sequence_create()`][mosaicolabs.comm.MosaicoClient.sequence_create]
@@ -220,7 +222,7 @@ class TopicWriter:
 
         try:
             # Attempt to flush remaining data and close stream
-            self.finalize(error=exc_val)
+            self._finalize(error=exc_val)
         except Exception as e:
             # FINALIZE FAILED: treat this as an error condition
             logger.exception(f"Failed to finalize topic '{self._name}': '{e}'")
@@ -239,11 +241,11 @@ class TopicWriter:
                 )
 
     def __del__(self):
-        """Destructor check to ensure `finalize()` was called."""
+        """Destructor check to ensure `_finalize()` was called."""
         name = getattr(self, "_name", "__not_initialized__")
-        if hasattr(self, "finalized") and not self.finalized():
+        if hasattr(self, "is_active") and self.is_active():
             logger.warning(
-                f"TopicWriter '{name}' destroyed without calling finalize(). "
+                f"TopicWriter '{name}' destroyed without calling _finalize(). "
                 "Resources may not have been released properly."
             )
 
@@ -347,7 +349,7 @@ class TopicWriter:
 
                     gps_msg = Message(timestamp_ns=1700000000100, data=GPS(...))
                     gps_writer.push(message=gps_msg)
-                # Exiting the seq_writer `with` block, the `finalize()` method of all topic writers is called.
+                # Exiting the seq_writer `with` block, the `_finalize()` method of all topic writers is called.
             ```
 
             1. See also: [`MosaicoClient.sequence_create()`][mosaicolabs.comm.MosaicoClient.sequence_create]
@@ -364,13 +366,13 @@ class TopicWriter:
         """Returns the name of the topic"""
         return self._name
 
-    def finalized(self) -> bool:
+    def is_active(self) -> bool:
         """
-        Returns `True` if the data stream has been finalized and the writer is closed.
+        Returns `True` if the writing stream is open and the writer accepts new messages.
         """
         return self._wrstate.writer is None
 
-    def finalize(self, error: Optional[BaseException] = None) -> None:
+    def _finalize(self, error: Optional[BaseException] = None) -> None:
         """
         Flushes all remaining buffered data and closes the remote Flight stream.
 
@@ -378,30 +380,11 @@ class TopicWriter:
         server before the connection is severed. It transitions the individual topic stream
         into a terminal state, allowing the platform to catalog the ingested data.
 
-        ### Use in Resilient Data Ingestion
-        In advanced ingestion workflows, `finalize()` is the primary mechanism for **sensor-level
+        In advanced ingestion workflows, `_finalize()` is the primary mechanism for **sensor-level
         resilience**. If an error occurs during the preparation or pushing of data for a
-        *specific* topic, you can catch the exception locally, call `finalize(error=...)`
+        *specific* topic, you can catch the exception locally, call `_finalize(error=...)`
         for that topic, and allow other healthy sensors to continue their injection without
         triggering a global sequence-wide failure.
-
-        Example: Defensive Topic Shutdown
-            ```python
-            with client.sequence_create(name="resilient_run", ...) as seq_writer:
-                cam_w = seq_writer.topic_create(name="camera", ontology_type=CompressedImage)
-
-                for data in stream:
-                    # Wrap risky or unstable logic (e.g., image processing)
-                    try:
-                        processed_img = risky_transformation(data.frame)
-                        cam_w.push(ontology_obj=processed_img)
-                    except Exception as topic_err:
-                        print(f"Camera failure: {topic_err}. Shutting down camera only.")
-                        # Manually close the failing topic to save prior data
-                        # and prevent the global context from seeing an exception.
-                        if not cam_w.finalized():
-                            cam_w.finalize(error=topic_err)
-            ```
 
         ### Error Reporting
         When called with a non-null `error` object, this method automatically:

@@ -16,7 +16,7 @@ from .geometry_msgs import (
     QuaternionAdapter,
     Vector3Adapter,
 )
-from ..data_ontology.battery_state import BatteryState
+from ..data_ontology import BatteryState
 from ..ros_message import ROSMessage
 from ..adapter_base import ROSAdapterBase
 from ..ros_bridge import register_adapter

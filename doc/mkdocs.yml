@@ -46,12 +46,14 @@ nav:
   - SDK:
     - SDK/index.md
     - SDK/install.md
-    - How To:
+    - How-To:
       - SDK/howto/serialized_writing_from_csv.md
       - SDK/howto/serialized_writing_from_multi_csv.md
       - SDK/howto/reading.md
       - SDK/howto/streaming.md
-      - SDK/howto/ros_injection_1.md
+      - Advanced:
+        - SDK/howto/ontology_customization.md
+        - SDK/howto/ros_injection_1.md
     - In Depth:
       - SDK/client.md
       - SDK/ontology.md
@@ -83,6 +85,7 @@ nav:
         - SDK/API_reference/bridges/ml.md
         - ROS-Bridge:
           - SDK/API_reference/bridges/ros/ros.md
+          - SDK/API_reference/bridges/ros/custom_ontology.md
           - Adapters:
             - SDK/API_reference/bridges/ros/adapters/base.md
             - SDK/API_reference/bridges/ros/adapters/std_msgs.md

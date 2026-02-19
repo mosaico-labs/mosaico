@@ -43,50 +43,64 @@ For each file, open the reading process and yield the messages one by one.
 def stream_imu_from_csv(file_path: str, chunk_size: int = 1000):
     """Efficiently streams IMU data."""
     for chunk in pd.read_csv(file_path, chunksize=chunk_size):
-        for _, row in chunk.iterrows():
-            yield Message(
-                timestamp_ns=int(row["timestamp"]),
-                data=IMU(
-                    acceleration=Vector3d(
-                        x=row["acc_x"], 
-                        y=row["acc_y"], 
-                        z=row["acc_z"]
-                    ),
-                    angular_velocity=Vector3d(
-                        x=row["gyro_x"], 
-                        y=row["gyro_y"], 
-                        z=row["gyro_z"]
+        for row in chunk.itertuples(index=False):
+            try:
+                yield Message(
+                    timestamp_ns=int(row.timestamp),
+                    data=IMU(
+                        acceleration=Vector3d(
+                            x=float(row.acc_x),
+                            y=float(row.acc_y),
+                            z=float(row.acc_z),
+                        ),
+                        angular_velocity=Vector3d(
+                            x=float(row.gyro_x),
+                            y=float(row.gyro_y),
+                            z=float(row.gyro_z),
+                        )
                     )
                 )
-            )
+            except Exception:
+                # Yield None only for parsing/type-related errors
+                yield None
+
 
 def stream_gps_from_csv(file_path: str, chunk_size: int = 1000):
     """Efficiently streams GPS data."""
     for chunk in pd.read_csv(file_path, chunksize=chunk_size):
-        for _, row in chunk.iterrows():
-            yield Message(
-                timestamp_ns=int(row["timestamp"]),
-                data=GPS(
-                    position=Vector3d(
-                        x=row["latitude"], 
-                        y=row["longitude"], 
-                        z=row["altitude"]
-                    ),
-                    status=GPSStatus(
-                        status=row["status"], 
-                        service=row["service"]
+        for row in chunk.itertuples(index=False):
+            try:
+                yield Message(
+                    timestamp_ns=int(row.timestamp),
+                    data=GPS(
+                        position=Vector3d(
+                            x=float(row.latitude),
+                            y=float(row.longitude),
+                            z=float(row.altitude),
+                        ),
+                        status=GPSStatus(
+                            status=int(row.status), 
+                            service=int(row.service),
+                        )
                     )
                 )
-            )
+
+            except Exception:
+                # Yield None only for parsing/type-related errors
+                yield None
 
 def stream_pressure_from_csv(file_path: str, chunk_size: int = 1000):
     """Efficiently streams Barometric Pressure data."""
     for chunk in pd.read_csv(file_path, chunksize=chunk_size):
-        for _, row in chunk.iterrows():
-            yield Message(
-                timestamp_ns=int(row["timestamp"]),
-                data=Pressure(value=row["pressure"])
-            )
+        for row in chunk.itertuples(index=False):
+            try:
+                yield Message(
+                    timestamp_ns=int(row.timestamp),
+                    data=Pressure(value=row.pressure)
+                )
+            except Exception:
+                # Yield None only for parsing/type-related errors
+                yield None
 
 ```
 
@@ -158,37 +172,21 @@ Inside the sequence, we create individual **Topic Writers** to manage data strea
             topic_name="sensors/imu",
             metadata={"sensor_id": "accel_01"},
             ontology_type=IMU,
-            on_error=OnErrorTopicPolicy.Finalize  # Default behavior
         )
         
         gps_twriter = swriter.topic_create(
             topic_name="sensors/gps",
             metadata={"sensor_id": "gps_01"},
             ontology_type=GPS,
-            on_error=OnErrorTopicPolicy.Finalize
         )
         
         pressure_twriter = swriter.topic_create(
             topic_name="sensors/pressure",
             metadata={"sensor_id": "pressure_01"},
             ontology_type=Pressure,
-            on_error=OnErrorTopicPolicy.Ignore  # Non-critical sensor
         )
 
 ```
-
-#### Topic-Level Error Handling
-
-The `TopicWriter` accepts an `on_error` policy parameter that determines how the system reacts to failures occurring within that specific topic's processing block.
-
-| Policy | Behavior | Use Case |
-| --- | --- | --- |
-| **`Finalize`** | Notifies the server of the error and immediately closes the topic channel. | **Recommended Default**: Best for sensors where data integrity is critical and further "corrupted" pushes should be prevented. |
-| **`Ignore`** | Notifies the server of the error but keeps the writer alive for subsequent `push()` calls. | Best for non-critical sensors where a transient error (e.g., one malformed CSV row) should not stop the entire stream. |
-| **`Raise`** | Notifies the server and allows the exception to bubble up outside the `with` block. | Used when a specific topic's failure is so severe that it should trigger the global `SequenceWriter` error policy. |
-
-This mechanism is only active when the `TopicWriter` is used as a context manager (highly recommended). If a failure occurs inside the `with imu_twriter:` block ([Step 4](#step-4-pushing-data-into-the-pipeline)), the specified policy is automatically enforced, ensuring local errors are handled without necessarily crashing the parent sequence.
-
 
 ### Step 4: Pushing Data into the Pipeline
 
@@ -196,38 +194,207 @@ The final stage of the ingestion process involves iterating through your data ge
 
 ```python
         # --- 1. Push IMU Data ---
-        # The 'with' context handles automatic finalization if an error occurs
-        with imu_twriter:
-            for msg in stream_imu_from_csv("imu_data.csv"):
+        for msg in stream_imu_from_csv("imu_data.csv"):
+            if msg is None:
+                # Log and skip, or raise if incomplete data is disallowed
+                print("Skipping row due to parsing error")
+                continue # Ignore malformed records
+            try:
                 imu_twriter.push(message=msg)
-        
+            except Exception as e:
+                # Log and skip, or raise if incomplete data is disallowed
+                print(f"Error processing IMU at time: {msg.timestamp_ns}. Inner err: {e}")
+
         # --- 2. Push GPS Data with Custom Processing ---
-        with gps_twriter:
-            for msg in stream_gps_from_csv("gps_data.csv"):
+        for msg in stream_gps_from_csv("gps_data.csv"):
+            if msg is None:
+                # Log and skip, or raise if incomplete data is disallowed
+                print("Skipping row due to parsing error")
+                continue # Ignore malformed records
+            try:
                 # This custom processing might fail
                 process_gps_message(msg) 
                 gps_twriter.push(message=msg)
+            except Exception as e:
+                # Log and skip, or raise if incomplete data is disallowed
+                print(f"Error processing GPS at time: {msg.timestamp_ns}. Inner err: {e}")
 
         # --- 3. Push Pressure Data ---
-        with pressure_twriter:
-            for msg in stream_pressure_from_csv("pressure_data.csv"):
+        for msg in stream_pressure_from_csv("pressure_data.csv"):
+            if msg is None:
+                # Log and skip, or raise if incomplete data is disallowed
+                print("Skipping row due to parsing error")
+                continue # Ignore malformed records
+            try:
                 pressure_twriter.push(message=msg)
+            except Exception as e:
+                # Log and skip, or raise if incomplete data is disallowed
+                print(f"Error processing pressure at time: {msg.timestamp_ns}. Inner err: {e}")
 
     # All buffers are flushed and the sequence is committed when exiting the SequenceWriter 'with' block
     print("Multi-topic ingestion completed!")
 
 ```
 
-#### Ingestion Best-Practices
+#### Topic-Level Error Management
 
-It is recommended to use the **Topic Writer Context Manager** to implement a **Controlled Ingestion Pattern**. On the contrary, if data unpacking or processing fails (e.g., within a custom method like `process_gps_message`), the SDK cannot natively distinguish which specific topic failed within your custom code. In this situation, an exception would bubble up to the `SequenceWriter`, triggering the global `OnErrorPolicy` and potentially terminating the entire ingestion process.
+In the code snippet above, we implemented a **Controlled Ingestion** by wrapping the topic-specific processing and pushing logic within a local `try-except` block.
+Because the `SequenceWriter` cannot natively distinguish which specific topic failed within your custom processing code (such as a coordinate transformation or a malformed CSV row), an unhandled exception will bubble up and trigger the global sequence-level error policy. To avoid this, you should catch errors locally for each topic.
 
-To prevent a single corrupted file or transformation bug from aborting the entire mission, we implement a **Controlled Ingestion Pattern**:
+Upcoming versions of the SDK will introduce native **Topic-Level Error Policies**. This feature will allow you to define the error behavior directly when creating the topic, removing the need for boilerplate `try-except` blocks around every sensor stream.
 
-* Isolate failures to that specific stream, by wrapping each topic loop in its own `with topic_twriter:` block.
-* If an error occurs within the `with` block, the `TopicWriter` automatically invokes its `on_error` policy (e.g., `Finalize`).
-* The failing topic is handled according to its policy, while healthy streams continue their ingestion uninterrupted. The final sequence on the server will contain all successful data alongside a reported error for the failed sensor.
+## The full example code
 
-!!! note "Defensive Ingestion Patterns"
-    Always use the `with topic_writer:` context manager for each sensor stream. This is significantly cleaner than manual `try-except` blocks and ensures that even if a transformation function bugs out, your overall ingestion process remains resilient.
+```python
+"""
+Import the necessary classes from the Mosaico SDK.
+"""
+import pandas as pd
+from mosaicolabs import (
+    MosaicoClient, # The gateway to the Mosaico Platform
+    OnErrorPolicy, # The error policy for the SequenceWriter
+    Message, # The base class for all data messages
+    IMU, # The IMU sensor data class
+    Vector3d, # The 3D vector class, needed to populate the IMU and GPS data
+    GPS, # The GPS sensor data class
+    GPSStatus, # The GPS status enum, needed to populate the GPS data
+    Pressure, # The Pressure sensor data class
+)
 
+"""
+Define the generator functions that yield `Message` objects.
+For each file, open the reading process and yield the messages one by one.
+"""
+def stream_imu_from_csv(file_path: str, chunk_size: int = 1000):
+    """Efficiently streams IMU data."""
+    for chunk in pd.read_csv(file_path, chunksize=chunk_size):
+        for row in chunk.itertuples(index=False):
+            try:
+                yield Message(
+                    timestamp_ns=int(row.timestamp),
+                    data=IMU(
+                        acceleration=Vector3d(
+                            x=float(row.acc_x),
+                            y=float(row.acc_y),
+                            z=float(row.acc_z),
+                        ),
+                        angular_velocity=Vector3d(
+                            x=float(row.gyro_x),
+                            y=float(row.gyro_y),
+                            z=float(row.gyro_z),
+                        )
+                    )
+                )
+            except Exception:
+                # Yield None only for parsing/type-related errors
+                yield None
+
+
+def stream_gps_from_csv(file_path: str, chunk_size: int = 1000):
+    """Efficiently streams GPS data."""
+    for chunk in pd.read_csv(file_path, chunksize=chunk_size):
+        for row in chunk.itertuples(index=False):
+            try:
+                yield Message(
+                    timestamp_ns=int(row.timestamp),
+                    data=GPS(
+                        position=Vector3d(
+                            x=float(row.latitude),
+                            y=float(row.longitude),
+                            z=float(row.altitude),
+                        ),
+                        status=GPSStatus(
+                            status=int(row.status), 
+                            service=int(row.service),
+                        )
+                    )
+                )
+
+            except Exception:
+                # Yield None only for parsing/type-related errors
+                yield None
+
+def stream_pressure_from_csv(file_path: str, chunk_size: int = 1000):
+    """Efficiently streams Barometric Pressure data."""
+    for chunk in pd.read_csv(file_path, chunksize=chunk_size):
+        for row in chunk.itertuples(index=False):
+            try:
+                yield Message(
+                    timestamp_ns=int(row.timestamp),
+                    data=Pressure(value=row.pressure)
+                )
+            except Exception:
+                # Yield None only for parsing/type-related errors
+                yield None
+
+"""
+Main ingestion orchestration
+"""
+def main():
+    with MosaicoClient.connect("localhost", 6726) as client:
+        # Initialize the Orchestrator for the entire mission
+        with client.sequence_create(
+            sequence_name="multi_sensor_ingestion",
+            metadata={"mission": "alpha_test", "environment": "laboratory"},
+            on_error=OnErrorPolicy.Delete # Deletes the whole sequence if a fatal crash occurs
+        ) as swriter:
+            # Create dedicated Topic Writers for each sensor stream
+            imu_twriter = swriter.topic_create(
+                topic_name="sensors/imu",
+                metadata={"sensor_id": "accel_01"},
+                ontology_type=IMU,
+            )
+            
+            gps_twriter = swriter.topic_create(
+                topic_name="sensors/gps",
+                metadata={"sensor_id": "gps_01"},
+                ontology_type=GPS,
+            )
+            
+            pressure_twriter = swriter.topic_create(
+                topic_name="sensors/pressure",
+                metadata={"sensor_id": "pressure_01"},
+                ontology_type=Pressure,
+            )
+
+            # --- 1. Push IMU Data ---
+            for msg in stream_imu_from_csv("imu_data.csv"):
+                if msg is None:
+                    # Log and skip, or raise if incomplete data is disallowed
+                    print("Skipping row due to parsing error")
+                    continue # Ignore malformed records
+                try:
+                    imu_twriter.push(message=msg)
+                except Exception as e:
+                    # Log and skip, or raise if incomplete data is disallowed
+                    print(f"Error processing IMU at time: {msg.timestamp_ns}. Inner err: {e}") 
+
+            # --- 2. Push GPS Data with Custom Processing ---
+            for msg in stream_gps_from_csv("gps_data.csv"):
+                if msg is None:
+                    # Log and skip, or raise if incomplete data is disallowed
+                    print("Skipping row due to parsing error")
+                    continue # Ignore malformed records
+                try:
+                    # This custom processing might fail
+                    process_gps_message(msg) 
+                    gps_twriter.push(message=msg)
+                except Exception as e:
+                    # Log and skip, or raise if incomplete data is disallowed
+                    print(f"Error processing GPS at time: {msg.timestamp_ns}. Inner err: {e}")
+
+            # --- 3. Push Pressure Data ---
+            for msg in stream_pressure_from_csv("pressure_data.csv"):
+                if msg is None:
+                    # Log and skip, or raise if incomplete data is disallowed
+                    print("Skipping row due to parsing error")
+                    continue # Ignore malformed records
+                try:
+                    pressure_twriter.push(message=msg)
+                except Exception as e:
+                    # Log and skip, or raise if incomplete data is disallowed
+                    print(f"Error processing pressure at time: {msg.timestamp_ns}. Inner err: {e}")
+
+        # All buffers are flushed and the sequence is committed when exiting the SequenceWriter 'with' block
+        print("Multi-topic ingestion completed!")
+```

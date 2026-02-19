@@ -1,2 +1,2 @@
-from . import battery_state as battery_state
-from . import frame_transform as frame_transform
+from .battery_state import BatteryState as BatteryState
+from .frame_transform import FrameTransform as FrameTransform

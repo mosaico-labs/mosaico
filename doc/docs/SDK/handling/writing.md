@@ -8,12 +8,13 @@ The **Writing Workflow** in Mosaico is designed for high-throughput data ingesti
 The architecture is built around a **"Multi-Lane"** approach, where each sensor stream operates in its own isolated lane with dedicated system resources.
 
 ### The Orchestrator: `SequenceWriter`
+API Reference: [`mosaicolabs.handlers.SequenceWriter`][mosaicolabs.handlers.SequenceWriter].
 
 The `SequenceWriter` acts as the central controller for a recording session. It manages the high-level lifecycle of the data on the server and serves as the factory for individual sensor streams.
 
 **Key Roles:**
 
-* **Lifecycle Management**: It handles the lifecycle of a new sequence and ensures that it is either successfully committed as immutable data or, in the event of a failure, cleaned up according to your configured `OnErrorPolicy`.
+* **Lifecycle Management**: It handles the lifecycle of a new sequence and ensures that it is either successfully committed as immutable data or, in the event of a failure, cleaned up according to your configured [`OnErrorPolicy`][mosaicolabs.enum.OnErrorPolicy].
 * **Resource Distribution**: The writer pulls network connections from the **Connection Pool** and background threads from the **Executor Pool**, assigning them to individual topics. This isolation prevents a slow network connection on one topic from bottlenecking others.
 * **Context Safety**: To ensure data integrity, the `SequenceWriter` must be used within a Python `with` block. This guarantees that all buffers are flushed and the sequence is closed properly, even if your application crashes.
 
@@ -42,15 +43,6 @@ with MosaicoClient.connect("localhost", 6726) as client:
                 "role": "validation",
                 "experience_level": "senior",
             },
-            "location": {
-                "city": "Milan",
-                "country": "IT",
-                "facility": "Downtown",
-                "gps": {
-                    "lat": 45.46481,
-                    "lon": 9.19201,
-                },
-            },
         }
         on_error = OnErrorPolicy.Delete # Default
         ) as seq_writer:
@@ -63,9 +55,8 @@ with MosaicoClient.connect("localhost", 6726) as client:
 
 1. The metadata fields will be queryable via the [`Query` mechanism](../query.md). The mechanism allows creating queries like: `Sequence.Q.user_metadata["vehicle.software_stack.planning"].match("plan-4.")`
 
-API Reference: [`mosaicolabs.handlers.SequenceWriter`][mosaicolabs.handlers.SequenceWriter].
-
 ### The Data Engine: `TopicWriter`
+API Reference: [`mosaicolabs.handlers.TopicWriter`][mosaicolabs.handlers.TopicWriter].
 
 Once a topic is created, a `TopicWriter` is spawned to handle the actual transmission of data for that specific stream. It abstracts the underlying networking protocols, allowing you to simply "push" Python objects while it handles the heavy lifting.
 
@@ -112,15 +103,19 @@ Once a topic is created, a `TopicWriter` is spawned to handle the actual transmi
         )
 
         # Push data - The SDK handles batching and background I/O
-        # Usage Mode A: Component-based
         imu_writer.push(
-            ontology_obj=IMU(acceleration=Vector3d(x=0, y=0, z=9.81), ...),
-            message_timestamp_ns=1700000000000
+            message=Message(
+                timestamp_ns=1700000000000, 
+                data=IMU(acceleration=Vector3d(x=0, y=0, z=9.81), ...),
+            )
         )
 
-        # Usage Mode B: Full Message-based
-        gps_msg = Message(timestamp_ns=1700000000100, data=GPS(...))
-        gps_writer.push(message=gps_msg)
+        gps_writer.push(
+            message=Message(
+                timestamp_ns=1700000000100, 
+                data=GPS(position=Vector3d(x=44.0123,y=10.12345,z=0), ...),
+            )
+        )
 
 # Exiting the block automatically flushes all topic buffers, finalizes the sequence on the server 
 # and closes all connections and pools
@@ -131,64 +126,28 @@ Once a topic is created, a `TopicWriter` is spawned to handle the actual transmi
     * [`mosaicolabs.models.platform.Topic`][mosaicolabs.models.platform.Topic]
     * [`mosaicolabs.models.query.builders.QueryTopic`][mosaicolabs.models.query.builders.QueryTopic].
 
-API Reference: [`mosaicolabs.handlers.TopicWriter`][mosaicolabs.handlers.TopicWriter].
-
 ### Resilient Data Ingestion & Error Management
 
 Recording high-bandwidth sensor data in dynamic environments requires a tiered approach to error handling. While the Mosaico SDK provides automated recovery through **Error Policies**, these act as a "last line of defense". For robust production pipelines, you must implement **Defensive Ingestion Patterns** to prevent isolated failures from compromising your entire recording session.
 
-### Tier 1: *Last-Resort* Automated Error Policies
+### Sequence-Level Error Handling
+API Reference: [`mosaicolabs.enum.OnErrorPolicy`][mosaicolabs.enum.OnErrorPolicy].
 
-Configured via `WriterConfig`, these policies dictate how the server handles a sequence if an unhandled exception bubbles up to the `SequenceWriter` context manager.
+Configured when instantiating a new [`SequenceWriter`][mosaicolabs.handlers.SequenceWriter] via [`MosaicoClient.connect()`][mosaicolabs.comm.MosaicoClient.connect] factory, these policies dictate how the server handles a sequence if an unhandled exception bubbles up to the `SequenceWriter` context manager.
 
-#### 1. `OnErrorPolicy.Delete` (The "Clean Slate" Policy)
+#### 1. [`OnErrorPolicy.Delete`][mosaicolabs.enum.OnErrorPolicy.Delete] (The "Clean Slate" Policy)
 
 * **Behavior**: If an error occurs, the SDK sends an `ABORT` signal to the server.
 * **Result**: The server immediately deletes the entire sequence and all associated topic data.
 * **Best For**: CI/CD pipelines, unit testing, or "Gold Dataset" generation where partial or corrupted logs are unacceptable.
 
-#### 2. `OnErrorPolicy.Report` (The "Recovery" Policy)
+#### 2. [`OnErrorPolicy.Report`][mosaicolabs.enum.OnErrorPolicy.Report] (The "Recovery" Policy)
 
 * **Behavior**: The SDK finalizes data that successfully reached the server and sends a `NOTIFY_CREATE` signal with error details.
 * **Result**: The sequence is preserved but remains in an **unlocked (pending) state**, allowing for forensic analysis.
 * **Best For**: Field tests and mission-critical logs where lead-up data is essential for debugging.
 
-### Tier 2: Defensive Ingestion Patterns (The "Golden Rule")
-
-**The Golden Rule**: Always wrap data transformation and custom processing logic in local `try-except` blocks before calling `.push()`.
-
-The SDK cannot distinguish which specific topic failed within your custom code; it only knows that an exception occurred within the `SequenceWriter` block and will trigger the global Error Policy accordingly. Without local protection, a single failing data point will terminate the entire injection process.
-
-#### 1. Surgical Topic Finalization
-
-If a specific sensor fails or a transformation function bugs out, you can catch the error locally. This allows you to surgically close the failing topic while letting other healthy streams complete their job.
-
-* **Approach**: Catch the exception, call `finalize(error=e)` on the failing `TopicWriter`, and continue the loop.
-
-```python
-with client.sequence_create(name="resilient_mission") as seq_writer:
-    cam_writer = seq_writer.topic_create(name="camera", ontology_type=CompressedImage)
-
-    for data in sensor_source:
-
-        # Protect Risky Processing
-        try:
-            # Always protect conversion/processing before the push happens
-            processed_img = risky_image_transformation(data.raw_frame)
-            cam_writer.push(ontology_obj=processed_img)
-        except Exception as topic_e:
-            # Topic failure: Report and continue
-            print(f"Camera failure: {topic_e}. Continuing other topics.")
-            # Optionally finalize the topic to prevent further pushes
-            # e.g. if the topic is not critical for the mission
-            if not cam_writer.finalized():
-                cam_writer.finalize(error=topic_e) # Reports error to server
-
-```
-
-#### 2. Strategic Policy Selection
-
-Align your `OnErrorPolicy` with your operational environment to balance data integrity against recovery needs:
+An example schematic rationale for deciding between the two policies can be:
 
 | Scenario | Recommended Policy | Rationale |
 | --- | --- | --- |
@@ -196,8 +155,8 @@ Align your `OnErrorPolicy` with your operational environment to balance data int
 | **Automated CI/CD** | `OnErrorPolicy.Delete` | Platform hygiene: Prevents cluttering the catalog with junk data from failed runs. |
 | **Ground Truth Generation** | `OnErrorPolicy.Delete` | Integrity: Ensures only 100% verified, complete sequences enter the database. |
 
----
+### Topic-Level Error Handling
 
-### Summary of Resilience
+Because the `SequenceWriter` cannot natively distinguish which specific topic failed within your injection script or custom processing code (such as a coordinate transformations), an unhandled exception will bubble up and trigger the global sequence-level error policy. To avoid this, you should catch errors locally for each topic. It is highly recommended to wrap the topic-specific processing and pushing logic within a local `try-except` block, if a single failure is accepted and the entire sequence can still be accepted with partial data on failing topics. As an example, see the [How-Tos](../howto/serialized_writing_from_csv.md#topic-level-error-management)
 
-By implementing local error handling, you shift the `SequenceWriter` error policies from being the "default" failure mode to being a **last-resort recovery** for systemic issues (like total network failure). This ensures that minor software bugs do not result in the total loss of valuable multi-sensor datasets.
+Upcoming versions of the SDK will introduce native **Topic-Level Error Policies**, which will allow the user to define the error behavior directly when creating the topic, removing the need for boilerplate `try-except` blocks around every sensor stream.

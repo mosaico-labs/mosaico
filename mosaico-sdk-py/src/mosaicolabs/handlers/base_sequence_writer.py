@@ -108,9 +108,9 @@ class BaseSequenceWriter(ABC):
         1.  **Detection**: Determines if the context was exited due to an error
             or a successful completion.
         2.  **Topic Orchestration**:
-            - **On Success**: Triggers a normal `finalize()` on all active `TopicWriter`
+            - **On Success**: Triggers a normal `_finalize()` on all active `TopicWriter`
               instances to flush remaining buffers.
-            - **On Failure**: Triggers an error-mode `finalize()` on all topics to
+            - **On Failure**: Triggers an error-mode `_finalize()` on all topics to
               ensure immediate resource release without data integrity guarantees.
         3.  **Server Lifecycle Handshake**:
             - **Success Path**: Calls `self.close()` to send a finalization signal
@@ -473,11 +473,13 @@ class BaseSequenceWriter(ABC):
                     # The adapter converts the raw payload into a validated Mosaico object.
                     # push() handles high-performance batching and asynchronous I/O to the rust backend.
                     twriter.push( # (1)!
-                        ontology_obj=adapter[topic](payload),
-                        message_timestamp_ns=ts
+                        message=Message(
+                            timestamp_ns=ts,
+                            data=adapter[topic](payload),
+                        )
                     )
 
-            # SequenceWriter automatically calls finalize() on all internal TopicWriters,
+            # SequenceWriter automatically calls _finalize() on all internal TopicWriters,
             # guaranteeing that every sensor measurement is safely committed to the platform.
             ```
 
@@ -536,7 +538,7 @@ class BaseSequenceWriter(ABC):
         errors = []
         for topic_name, twriter in self._topic_writers.items():
             try:
-                twriter.finalize(error=error)
+                twriter._finalize(error=error)
             except Exception as e:
                 self._logger.error(f"Failed to finalize topic '{topic_name}': '{e}'")
                 errors.append(e)

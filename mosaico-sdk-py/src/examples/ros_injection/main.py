@@ -34,7 +34,7 @@ from mosaicolabs.ros_bridge import ROSInjectionConfig, RosbagInjector
 
 # Configuration Constants
 MOSAICO_HOST = "localhost"
-MOSAICO_PORT = 6276  # Standard Mosaico port
+MOSAICO_PORT = 6726  # Standard Mosaico port
 ASSET_DIR = Path("/tmp/mosaico_assets")
 
 # NVIDIA R2B Dataset 2024 - Verified compatible with Mosaico

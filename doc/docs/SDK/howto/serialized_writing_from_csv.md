@@ -40,24 +40,26 @@ def stream_imu_from_csv(file_path: str, chunk_size: int = 1000):
     """
     # Use pandas TextFileReader to stream the file in chunks
     for chunk in pd.read_csv(file_path, chunksize=chunk_size):
-        for _, row in chunk.iterrows():
-            # Yielding a Message creates a memory-efficient generator
-            yield Message(
-                timestamp_ns=int(row["timestamp"]),
-                data=IMU(
-                    acceleration=Vector3d(
-                        x=row["acc_x"], 
-                        y=row["acc_y"], 
-                        z=row["acc_z"]
-                    ),
-                    angular_velocity=Vector3d(
-                        x=row["gyro_x"], 
-                        y=row["gyro_y"], 
-                        z=row["gyro_z"]
+        for row in chunk.itertuples(index=False):
+            try:
+                yield Message(
+                    timestamp_ns=int(row.timestamp),
+                    data=IMU(
+                        acceleration=Vector3d(
+                            x=float(row.acc_x),
+                            y=float(row.acc_y),
+                            z=float(row.acc_z),
+                        ),
+                        angular_velocity=Vector3d(
+                            x=float(row.gyro_x),
+                            y=float(row.gyro_y),
+                            z=float(row.gyro_z),
+                        ),
                     ),
                 )
-            )
-
+            except Exception:
+                # Yield None only for parsing/type-related errors
+                yield None
 ```
 
 #### Understanding the Output
@@ -127,23 +129,9 @@ Inside the sequence, we create a **Topic Writer**, which is assigned to the IMU 
             topic_name="sensors/imu", 
             metadata={"sensor_id": "accel_01"},
             ontology_type=IMU,
-            on_error=OnErrorTopicPolicy.Finalize  # Default behavior
         )
 
 ```
-
-#### Topic-Level Error Handling
-
-The `TopicWriter` accepts an `on_error` policy parameter that determines how the system reacts to failures occurring within that specific topic's processing block.
-
-| Policy | Behavior | Use Case |
-| --- | --- | --- |
-| **`Finalize`** | Notifies the server of the error and immediately closes the topic channel. | **Recommended Default**: Best for sensors where data integrity is critical and further "corrupted" pushes should be prevented. |
-| **`Ignore`** | Notifies the server of the error but keeps the writer alive for subsequent `push()` calls. | Best for non-critical sensors where a transient error (e.g., one malformed CSV row) should not stop the entire stream. |
-| **`Raise`** | Notifies the server and allows the exception to bubble up outside the `with` block. | Used when a specific topic's failure is so severe that it should trigger the global `SequenceWriter` error policy. |
-
-This mechanism is only active when the `TopicWriter` is used as a context manager (highly recommended). If a failure occurs inside the `with imu_twriter:` block ([Step 4](#step-4-pushing-data-into-the-pipeline)), the specified policy is automatically enforced, ensuring local errors are handled without necessarily crashing the parent sequence.
-
 
 ### Step 4: Pushing Data into the Pipeline
 
@@ -153,15 +141,108 @@ The final stage of the ingestion process involves iterating through your data ge
         """Inside the `SequenceWriter` context..."""
 
         # --- Push IMU Data ---
-        # The 'with' context handles automatic finalization if an error occurs
-        with imu_twriter:
-            # Any error in this block will be handled by the 'with' context,
-            # according to the specified policy
-            for msg in stream_imu_from_csv("imu_data.csv"):
+        for msg in stream_imu_from_csv("imu_data.csv"):
+            if msg is None:
+                # Log and skip, or raise if incomplete data is disallowed
+                print("Skipping row due to parsing error")
+                continue # Ignore malformed records
+            try:
                 imu_twriter.push(message=msg)
+            except Exception as e:
+                # Log and skip, or raise if incomplete data is disallowed
+                print(f"Error processing IMU at time: {msg.timestamp_ns}. Inner err: {e}")
 
     # All buffers are flushed and the sequence is committed when exiting the SequenceWriter 'with' block
     print("Successfully injected data from CSV into Mosaico!")
 
 # Here the `MosaicoClient` context and all connections are closed
+```
+
+#### Topic-Level Error Management
+
+In the code snippet above, we implemented a **Controlled Ingestion** by wrapping the topic-specific processing and pushing logic within a local `try-except` block.
+Because the `SequenceWriter` cannot natively distinguish which specific topic failed within your custom processing code (such as a coordinate transformation or a malformed CSV row), an unhandled exception will bubble up and trigger the global sequence-level error policy. To avoid this, you should catch errors locally for each topic.
+
+Upcoming versions of the SDK will introduce native **Topic-Level Error Policies**. This feature will allow you to define the error behavior directly when creating the topic, removing the need for boilerplate `try-except` blocks around every sensor stream.
+
+
+## The full example code
+
+```python
+"""
+Import the necessary classes from the Mosaico SDK.
+"""
+import pandas as pd
+from mosaicolabs import (
+    MosaicoClient, # The gateway to the Mosaico Platform
+    OnErrorPolicy, # The error policy for the SequenceWriter
+    Message, # The base class for all data messages
+    IMU, # The IMU sensor data class
+    Vector3d, # The 3D vector class, needed to populate the IMU data
+)
+
+"""
+Define the generator functions that yield `Message` objects.
+"""
+def stream_imu_from_csv(file_path: str, chunk_size: int = 1000):
+    """
+    Efficiently reads a large CSV in chunks to prevent memory exhaustion.
+    """
+    # Use pandas TextFileReader to stream the file in chunks
+    for chunk in pd.read_csv(file_path, chunksize=chunk_size):
+        for row in chunk.itertuples(index=False):
+            try:
+                yield Message(
+                    timestamp_ns=int(row.timestamp),
+                    data=IMU(
+                        acceleration=Vector3d(
+                            x=float(row.acc_x),
+                            y=float(row.acc_y),
+                            z=float(row.acc_z),
+                        ),
+                        angular_velocity=Vector3d(
+                            x=float(row.gyro_x),
+                            y=float(row.gyro_y),
+                            z=float(row.gyro_z),
+                        ),
+                    ),
+                )
+            except Exception:
+                # Yield None only for parsing/type-related errors
+                yield None
+
+"""
+Main ingestion orchestration
+"""
+def main():
+    with MosaicoClient.connect("localhost", 6726) as client:
+        # Initialize the Sequence Orchestrator
+        with client.sequence_create(
+            sequence_name="csv_ingestion_test",
+            metadata={"source": "manual_upload", "format": "csv"}
+            on_error = OnErrorPolicy.Delete # Default
+        ) as swriter:
+            # Create a dedicated writer for the IMU topic
+            imu_twriter = swriter.topic_create(
+                topic_name="sensors/imu", 
+                metadata={"sensor_id": "accel_01"},
+                ontology_type=IMU,
+            )
+
+            # --- Push IMU Data ---
+            for msg in stream_imu_from_csv("imu_data.csv"):
+                if msg is None:
+                    # Log and skip, or raise if incomplete data is disallowed
+                    print("Skipping row due to parsing error")
+                    continue # Ignore malformed records
+                try:
+                    imu_twriter.push(message=msg)
+                except Exception as e:
+                    # Log and skip, or raise if incomplete data is disallowed
+                    print(f"Error processing IMU at time: {msg.timestamp_ns}. Inner err: {e}")
+
+        # All buffers are flushed and the sequence is committed when exiting the SequenceWriter 'with' block
+        print("Successfully injected data from CSV into Mosaico!")
+
+    # Here the `MosaicoClient` context and all connections are closed
 ```

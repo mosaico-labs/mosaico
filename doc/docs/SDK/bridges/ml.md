@@ -15,6 +15,7 @@ Working with robotics and multi-modal datasets presents three primary technical 
 
 
 ## From Sequences to DataFrames
+API Reference: [`mosaicolabs.ml.DataFrameExtractor`][mosaicolabs.ml.DataFrameExtractor]
 
 The [`DataFrameExtractor`][mosaicolabs.ml.DataFrameExtractor] is a specialized utility designed to convert Mosaico sequences into tabular formats. Unlike standard streamers that instantiate individual Python objects, this extractor operates at the **Batch Level** by pulling raw `RecordBatch` objects directly from the underlying stream to maximize throughput.
 
@@ -26,7 +27,6 @@ The [`DataFrameExtractor`][mosaicolabs.ml.DataFrameExtractor] is a specialized u
 * **Memory-Efficient Windowing**: Uses a generator-based approach to yield data in time-based "chunks" (e.g., 5-second windows) while handling straddling batches via a carry-over buffer.
 * **Sparse Merging**: Creates a "sparse" DataFrame containing the union of all timestamps, using `NaN` for missing sensor readings at specific intervals.
 
-API Reference: [`mosaicolabs.ml.DataFrameExtractor`][mosaicolabs.ml.DataFrameExtractor]
 
 
 This example demonstrates iterating through a sequence in 10-second tabular chunks.
@@ -78,10 +78,11 @@ with MosaicoClient.connect("localhost", 6726):
 ```
 
 ## Sparse to Dense Representation
+API Reference: [`mosaicolabs.ml.SyncTransformer`][mosaicolabs.ml.SyncTransformer]
 
-The `SyncTransformer` is a temporal resampler designed to solve the **Heterogeneous Sampling** problem inherent in robotics and Physical AI. 
+The [`SyncTransformer`][mosaicolabs.ml.SyncTransformer] is a temporal resampler designed to solve the **Heterogeneous Sampling** problem inherent in robotics and Physical AI. 
 It aligns multi-rate sensor streams (for example, an IMU at 100Hz and a GPS at 5Hz) onto a uniform, fixed-frequency grid to prepare them for machine learning models.
-The `SyncTransformer` operates as a processor that bridges the gaps between windowed chunks yielded by the `DataFrameExtractor`.
+The `SyncTransformer` operates as a processor that bridges the gaps between windowed chunks yielded by the [`DataFrameExtractor`][mosaicolabs.ml.DataFrameExtractor].
 Unlike standard resamplers that treat each data batch in isolation, this transformer maintains internal state to ensure signal continuity across batch boundaries.
 
 ### Key Design Principles
@@ -91,32 +92,31 @@ Unlike standard resamplers that treat each data batch in isolation, this transfo
 * **Vectorized Performance**: Internal kernels leverage high-speed lookups for high-throughput processing.
 * **Protocol-Based Extensibility**: The mathematical logic for resampling is decoupled through a `SynchPolicy` protocol, allowing for custom kernel injection.
 
-API Reference: [`mosaicolabs.ml.SyncTransformer`][mosaicolabs.ml.SyncTransformer]
 
 ### Implemented Synchronization Policies
+API Reference: [`mosaicolabs.ml.SynchPolicy`][mosaicolabs.ml.SyncPolicy]
 
 Each policy defines a specific logic for how the transformer bridges temporal gaps between sparse data points.
 
-#### 1. **`SynchHold`** (Last-Value-Hold)
+#### 1. **[`SyncHold`][mosaicolabs.ml.SyncPolicy.SyncHold]** (Last-Value-Hold)
 
 * **Behavior**: Finds the most recent valid measurement and "holds" it constant until a new one arrives.
 * **Best For**: Sensors where states remain valid until explicitly changed, such as robot joint positions or battery levels.
 
-#### 2. **`SynchAsOf`** (Staleness Guard)
+#### 2. **[`SyncAsOf`][[mosaicolabs.ml.SyncPolicy.SyncAsOf]** (Staleness Guard)
 
 * **Behavior**: Carries the last known value forward only if it has not exceeded a defined maximum "tolerance" (fresher than a specific age).
 * **Best For**: High-speed signals that become unreliable if not updated frequently, such as localization coordinates.
 
-#### 3. **`SynchDrop`** (Interval Filter)
+#### 3. **[`SyncDrop`][mosaicolabs.ml.SyncPolicy.SyncDrop]** (Interval Filter)
 
 * **Behavior**: Ensures a grid tick only receives a value if a new measurement actually occurred within that specific grid interval; otherwise, it returns `None`.
 * **Best For**: Downsampling high-frequency data where a strict 1-to-1 relationship between windows and unique hardware events is required.
 
-API Reference: [`mosaicolabs.ml.SynchPolicy`][mosaicolabs.ml.SyncPolicy]
 
 ### Scikit-Learn Compatibility
 
-By implementing the standard `fit`/`transform` interface, the [`SyncTransformer`][mosaicolabs.ml.SyncTransformer] makes robotics data a "first-class citizen" of the Scikit-learn ecosystem. This allows for the plug-and-play integration of multi-rate sensor data into standard pipelines.
+By implementing the standard `fit`/`transform` interface, the [`SyncTransformer`][mosaicolabs.ml.SyncTransformer] makes robotics data a "first-class citizen" of the [Scikit-learn](https://scikit-learn.org/stable/) ecosystem. This allows for the plug-and-play integration of multi-rate sensor data into standard [pipelines](https://scikit-learn.org/stable/api/sklearn.pipeline.html).
 
 ```python
 from sklearn.pipeline import Pipeline

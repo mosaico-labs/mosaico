@@ -1,7 +1,13 @@
-# Advanced: ROS Injection
+# ROS Injection
 
 !!! note "Full Example Code"
     The full example code is available under `mosaico-sdk-py/src/examples/ros_injection/main.py`.
+
+!!! info "Prerequisites"
+    To fully grasp the following How-To, we recommend you to read the **[Customizing the Data Ontology](../howto/ontology_customization.md) How-To**.
+
+!!! info "Dataset"
+    This tutorial uses the `r2b_whitetunnel_0` sequence from the [NVIDIA R2B Dataset 2024](https://catalog.ngc.nvidia.com/orgs/nvidia/teams/isaac/resources/r2bdataset2024?version=1).
 
 This example provides a detailed, step-by-step walkthrough of a complete Mosaico data pipeline, from raw ROS bag ingestion to custom ontology creation and verification. It demonstrates how to bridge the gap between **Robot Operating System (ROS)** data and the **Mosaico Data Platform**. By following this pipeline, you will learn how to:
 
@@ -10,18 +16,43 @@ This example provides a detailed, step-by-step walkthrough of a complete Mosaico
 3. **Automate Ingestion** using a high-performance injector to upload a complete recording (MCAP) to the server.
 4. **Verify Results** by inspecting the ingested data to ensure structural integrity.
 
-The injected sequence is the `r2b_whitetunnel_0` sequence from the [NVIDIA R2B Dataset 2024](https://catalog.ngc.nvidia.com/orgs/nvidia/teams/isaac/resources/r2bdataset2024?version=1).
+## Running the Example
 
+This setup provides a local Mosaico server instance to receive and store the data from your Python scripts.
 
-## Running the example
+#### Start the Mosaico Infrastructure
 
-From `mosaico-sdk-py` root directory:
+First, launch the required backend services (database and ingestion server) using Docker Compose. Run these commands from the `mosaico-sdk-py` root directory:
 
 ```bash
-cd examples
-poetry run python -m ros_injection.main
+# Navigate to the quickstart environment
+cd docker/quick_start
+
+# Start the Mosaico server and its dependencies
+docker compose up
+
 ```
 
+#### Execute the ROS Injection Script
+
+Once the infrastructure is healthy, open a new terminal tab or window to run the demonstration script. Run these commands from the `mosaico-sdk-py` root directory:
+
+```bash
+# Navigate to the examples directory
+cd examples
+
+# Run the ROS injection example using poetry
+poetry run python -m ros_injection.main
+
+```
+
+### What to Expect
+
+* **Server Logs**: In your first terminal, you will see the Docker containers spinning up and the Mosaico Ingestion Server acknowledging incoming connections.
+* **Injection Progress**: In your second terminal, the `RosbagInjector` will provide a CLI progress bar showing the topics being resolved, messages being adapted, and the final transmission status.
+* **Data Verification**: After completion, the sequence will be fully cataloged on the server and ready for retrieval via the `SequenceHandler`.
+
+**Would you like me to show you how to check the server logs to verify that the sequence was successfully committed to the database?**
 You should see output similar to the following:
 
 ```bash
@@ -100,6 +131,7 @@ class EncoderTicks(Serializable, HeaderMixin):
 
 For a more in-depth explanation:
 
+* **[How-To: Customizing the Data Ontology](./ontology_customization.md)**
 * **[Documentation: Data Models & Ontology](../ontology.md)**
 
 ### Step 2: Implementing the ROS Adapter (`isaac_adapters.py`)
@@ -232,3 +264,7 @@ For a more in-depth explanation:
 
 * **[Documentation: The Reading Workflow](../handling/reading.md)**
 * **[API Reference: Data Retrieval](../API_reference/handlers/reading.md)**
+
+
+## The full example code
+The full example code is available under `mosaico-sdk-py/src/examples/ros_injection/main.py`.

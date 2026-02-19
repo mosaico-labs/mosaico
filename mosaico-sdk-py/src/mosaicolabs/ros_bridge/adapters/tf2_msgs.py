@@ -1,7 +1,7 @@
 from typing import Any, Optional, Tuple, Type
 from mosaicolabs.models import Message
 
-from ..data_ontology.frame_transform import FrameTransform
+from ..data_ontology import FrameTransform
 from ..adapter_base import ROSAdapterBase
 from ..ros_message import ROSMessage
 from ..ros_bridge import register_adapter

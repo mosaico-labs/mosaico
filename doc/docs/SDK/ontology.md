@@ -72,6 +72,7 @@ High-level models representing physical hardware devices and their processed out
 The ontology architecture relies on three primary abstractions: the **Factory** (`Serializable`), the **Envelope** (`Message`) and the **Mixins**
 
 ### 1. `Serializable` (The Factory)
+API Reference: [`mosaicolabs.models.Serializable`][mosaicolabs.models.Serializable]
 
 Every data payload in Mosaico inherits from the `Serializable` class. It manages the global registry of data types and ensures that the system knows exactly how to convert a string tag like `"imu"` back into a Python class with a specific binary schema.
 `Serializable` uses the `__init_subclass__` hook, which is automatically called whenever a developer defines a new subclass.
@@ -88,9 +89,9 @@ If missing, it raises an error at definition time (import time), preventing runt
 3.  **Registers Class:** It adds the new class to the global types registry.
 4.  **Injects Query Proxy:** It dynamically adds a `.Q` attribute to the class, enabling the fluent query syntax (e.g., `MyCustomSensor.Q.voltage > 12.0`).
 
-API Reference: [`mosaicolabs.models.Serializable`][mosaicolabs.models.Serializable]
 
 ### 2. `Message` (The Envelope)
+API Reference: [`mosaicolabs.models.Message`][mosaicolabs.models.Message]
 
 The **`Message`** class is the universal transport envelope for all data within the Mosaico platform. 
 It acts as a wrapper that combines specific sensor data (the payload) with middleware-level metadata.
@@ -109,7 +110,6 @@ temp_msg = Message(
 )
 ```
 
-API Reference: [`mosaicolabs.models.Message`][mosaicolabs.models.Message]
 
 While logically a `Message` contains a `data` object (e.g., an instance of an Ontology type), physically on the wire (PyArrow/Parquet), the fields are **flattened**.
 
@@ -129,6 +129,8 @@ The integration of mixins into the Mosaico Data Ontology enables a flexible dual
 which will be detailed later and allow base geometric types to serve as either independent data streams or granular components of complex sensor models.
 
 #### `HeaderMixin`
+API Reference: [`mosaicolabs.models.mixins.HeaderMixin`][mosaicolabs.models.mixins.HeaderMixin]
+
 Injects a standard (Optional) `header` containing a sequence ID, a frame ID (e.g., `"base_link"`), and a high-precision acquisition timestamp (`stamp`).
 
 ```python
@@ -137,9 +139,10 @@ class MySensor(Serializable, HeaderMixin):
     ...
 ```
 
-API Reference: [`mosaicolabs.models.mixins.HeaderMixin`][mosaicolabs.models.mixins.HeaderMixin]
 
 #### `CovarianceMixin`
+API Reference: [`mosaicolabs.models.mixins.CovarianceMixin`][mosaicolabs.models.mixins.CovarianceMixin]
+
 Injects multidimensional uncertainty fields, typically used for flattened covariance matrices in sensor fusion applications.
 
 ```python
@@ -148,9 +151,10 @@ class MySensor(Serializable, CovarianceMixin):
     ...
 ```
 
-API Reference: [`mosaicolabs.models.mixins.CovarianceMixin`][mosaicolabs.models.mixins.CovarianceMixin]
 
 #### `VarianceMixin`
+API Reference: [`mosaicolabs.models.mixins.VarianceMixin`][mosaicolabs.models.mixins.VarianceMixin]
+
 Injects monodimensional uncertainty fields, useful for sensors with 1-dimensional uncertain data (like `Temperature` or `Pressure`).
 
 ```python
@@ -159,7 +163,6 @@ class MySensor(Serializable, VarianceMixin):
     ...
 ```
 
-API Reference: [`mosaicolabs.models.mixins.VarianceMixin`][mosaicolabs.models.mixins.VarianceMixin]
 
 #### Standalone Usage
 
@@ -312,10 +315,10 @@ To align with the Mosaico ecosystem, use the following mixins:
 You must define a class-level `__msco_pyarrow_struct__` using `pyarrow.struct`. This explicitly dictates how your Python object is serialized into high-performance Apache Arrow/Parquet buffers for network transmission and storage.
 
 #### 2.1 Serialization Format Optimization
+API Reference: [`mosaicolabs.enum.SerializationFormat`][mosaicolabs.enum.SerializationFormat]
 
 You can optimize remote server performance by overriding the `__serialization_format__` attribute. This controls how the server compresses and organizes your data.
 
-API Reference: [`mosaicolabs.enum.SerializationFormat`][mosaicolabs.enum.SerializationFormat]
 
 | Format | Identifier | Use Case Recommendation |
 | --- | --- | --- |
