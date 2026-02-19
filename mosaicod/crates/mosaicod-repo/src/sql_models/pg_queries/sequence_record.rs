@@ -70,7 +70,7 @@ pub async fn sequence_find_all_topic_names(
     exe: &mut impl repo::AsExec,
     loc: &types::SequenceResourceLocator,
 ) -> Result<Vec<types::TopicResourceLocator>, Error> {
-    trace!("searching topic locators by `{}`", loc);
+    trace!("searching topic locators by sequence `{}`", loc);
     let res = sqlx::query_scalar!(
         r#"
         SELECT topic.locator_name

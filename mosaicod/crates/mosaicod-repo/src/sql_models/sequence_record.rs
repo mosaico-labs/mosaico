@@ -67,4 +67,9 @@ impl SequenceRecord {
     pub fn user_metadata(&self) -> Option<&serde_json::Value> {
         self.user_metadata.as_ref()
     }
+
+    /// Returns the sequence recource locator for this sequence
+    pub fn resource_locator(&self) -> types::SequenceResourceLocator {
+        self.locator_name.to_owned().into()
+    }
 }

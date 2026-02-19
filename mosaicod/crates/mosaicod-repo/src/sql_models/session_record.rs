@@ -9,10 +9,11 @@ use mosaicod_core::types;
 pub struct SessionRecord {
     /// The unique identifier for the session.
     pub session_id: i32,
-    /// The unique UUID for the session.
-    pub session_uuid: uuid::Uuid,
     /// The ID of the sequence this session belongs to.
     pub sequence_id: i32,
+
+    /// The unique UUID for the session.
+    pub(super) session_uuid: uuid::Uuid,
 
     pub(super) locked: bool,
 
@@ -62,5 +63,9 @@ impl SessionRecord {
     /// Returns true if the session is locked (immutable)
     pub fn is_locked(&self) -> bool {
         self.locked
+    }
+
+    pub fn uuid(&self) -> types::Uuid {
+        self.session_uuid.into()
     }
 }

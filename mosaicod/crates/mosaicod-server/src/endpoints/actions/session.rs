@@ -24,15 +24,11 @@ pub async fn finalize(ctx: &Context, uuid: String) -> Result<ActionResponse, Ser
 
     let uuid: types::Uuid = uuid.parse()?;
 
-    let handle = FacadeSession::new(
-        types::ResourceLookup::Uuid(uuid),
-        ctx.store.clone(),
-        ctx.repo.clone(),
-    );
+    let handle = FacadeSession::new(uuid, ctx.store.clone(), ctx.repo.clone());
 
     handle.finalize().await?;
 
-    trace!("session `{}` finalized", handle.lookup);
+    trace!("session `{}` finalized", handle.uuid);
 
     Ok(ActionResponse::session_finalize())
 }

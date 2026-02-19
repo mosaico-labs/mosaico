@@ -234,7 +234,7 @@ mod tests {
         let raw = r#"
             {
                 "name" : "test_topic",
-                "sequence_key" : "some_uuid",
+                "session_uuid" : "some_uuid",
                 "serialization_format" : "default",
                 "ontology_tag" : "my_sensor",
                 "user_metadata" : {
@@ -249,7 +249,7 @@ mod tests {
 
         if let ActionRequest::TopicCreate(action) = action {
             assert_eq!(action.name, "test_topic");
-            assert_eq!(action.sequence_key, "some_uuid");
+            assert_eq!(action.session_uuid, "some_uuid");
             assert_eq!(action.serialization_format, Format::Default);
             assert_eq!(action.ontology_tag, "my_sensor");
             let raw_json = action

@@ -162,11 +162,14 @@ impl FacadeSequence {
     ) -> Result<(), FacadeError> {
         let path = self.locator.path_metadata();
 
-        trace!("converting metadata to bytes");
+        trace!("converting sequence metadata to bytes");
         let json_mdata = marshal::JsonSequenceMetadata::from(metadata);
         let bytes: Vec<u8> = json_mdata.try_into()?;
 
-        trace!("writing metadata to store");
+        trace!(
+            "writing sequence metadata `{}` to store",
+            &path.to_string_lossy()
+        );
         self.store.write_bytes(&path, bytes).await?;
 
         Ok(())

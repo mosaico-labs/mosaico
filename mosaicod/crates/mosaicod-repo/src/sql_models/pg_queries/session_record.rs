@@ -75,34 +75,47 @@ pub async fn session_lookup(
     }
 }
 
+/// Locks the sequence in the db and sets the completion timestamp
 pub async fn session_lock(
     exe: &mut impl repo::AsExec,
-    loc: &types::IdLookup,
+    uuid: &types::Uuid,
+    completion_timestamp: &types::Timestamp,
 ) -> Result<(), repo::Error> {
-    trace!("locking `{}`", loc);
-    match loc {
-        types::IdLookup::Id(id) => {
-            sqlx::query!(
-                r#"
-            UPDATE session_t 
-            SET locked = TRUE
-            WHERE session_id = $1"#,
-                id,
-            )
-            .execute(exe.as_exec())
-            .await?;
-        }
-        types::IdLookup::Uuid(uuid) => {
-            sqlx::query!(
-                r#"
-            UPDATE session_t 
-            SET locked = TRUE
-            WHERE session_uuid = $1"#,
-                uuid.as_ref(),
-            )
-            .execute(exe.as_exec())
-            .await?;
-        }
-    }
+    trace!("locking `{}`", uuid);
+    sqlx::query!(
+        r#"
+        UPDATE session_t 
+        SET 
+            locked = TRUE,
+            completion_unix_tstamp = $1
+        WHERE session_uuid = $2"#,
+        completion_timestamp.as_i64(),
+        uuid.as_ref(),
+    )
+    .execute(exe.as_exec())
+    .await?;
     Ok(())
+}
+
+pub async fn session_find_all_topic_names(
+    exe: &mut impl repo::AsExec,
+    uuid: &types::Uuid,
+) -> Result<Vec<types::TopicResourceLocator>, Error> {
+    trace!("searching topic locators by session `{}`", uuid);
+    let res = sqlx::query_scalar!(
+        r#"
+        SELECT topic.locator_name
+        FROM topic_t AS topic
+        JOIN session_t AS session 
+            ON topic.session_id = session.session_id
+        WHERE session.session_uuid = $1
+        "#,
+        uuid.as_ref(),
+    )
+    .fetch_all(exe.as_exec())
+    .await?;
+    Ok(res
+        .into_iter()
+        .map(types::TopicResourceLocator::from)
+        .collect())
 }

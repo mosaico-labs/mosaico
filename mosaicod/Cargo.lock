@@ -2620,7 +2620,6 @@ dependencies = [
  "mosaicod-core",
  "mosaicod-marshal",
  "mosaicod-query",
- "mosaicod-repo",
  "mosaicod-rw",
  "mosaicod-store",
  "serde_json",

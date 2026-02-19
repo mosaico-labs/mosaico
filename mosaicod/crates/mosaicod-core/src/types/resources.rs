@@ -293,8 +293,10 @@ impl TopicManifestTimestamp {
 pub struct SequenceResourceLocator(String);
 
 impl SequenceResourceLocator {
-    pub fn session_manifest(&self, uuid: &super::Uuid) -> String {
-        format!("session-{}.json", uuid)
+    pub fn session_manifest(&self, uuid: &super::Uuid) -> std::path::PathBuf {
+        std::path::PathBuf::from(self.0.clone())
+            .join(format!("session-{}", uuid))
+            .with_extension(params::ext::JSON)
     }
 }
 
