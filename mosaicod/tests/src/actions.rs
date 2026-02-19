@@ -1,6 +1,12 @@
 use super::common::{ActionResponse, Client};
-use arrow_flight::Action;
+use arrow_flight::encode::FlightDataEncoderBuilder;
+use arrow_flight::{Action, FlightDescriptor, PutResult};
 use mosaicod_core::types;
+use tonic::Streaming;
+
+use arrow::array::RecordBatch;
+
+use futures::StreamExt;
 
 /// Create a new sequence.
 /// Returns the `key` of the newly created sequence, this key is required to perform action
@@ -123,4 +129,31 @@ pub async fn topic_create(
     }
 
     key.expect("Unable to return key")
+}
+
+pub async fn do_put(
+    client: &mut Client,
+    topic_uuid: &types::Uuid,
+    topic_name: &str,
+    batches: Vec<RecordBatch>,
+) -> tonic::Response<Streaming<PutResult>> {
+    let input_stream = futures::stream::iter(batches.into_iter().map(Ok));
+
+    let cmd = format!(
+        r#"
+        {{
+            "resource_locator": "{}",
+            "key": "{}"
+        }}
+        "#,
+        topic_name,
+        topic_uuid
+    );
+
+    let flight_data_stream = FlightDataEncoderBuilder::new()
+        .with_flight_descriptor(Some(FlightDescriptor::new_cmd(cmd)))
+        .build(input_stream)
+        .map(|v| v.unwrap());
+
+    client.do_put(flight_data_stream).await.unwrap()
 }
