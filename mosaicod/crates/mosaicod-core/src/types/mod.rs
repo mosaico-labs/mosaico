@@ -30,4 +30,7 @@ pub use uuid::*;
 mod session;
 pub use session::*;
 
+mod error_report;
+pub use error_report::*;
+
 pub mod flight;

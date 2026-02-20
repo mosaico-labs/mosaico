@@ -46,12 +46,6 @@ pub enum ActionRequest {
     /// Deletes an unlocked sequence from the system.
     SequenceDelete(requests::ResourceLocator),
 
-    /// Aborts the sequence upload process and deletes all resources associated with the sequence.
-    ///
-    /// This action can only be called on **unlocked** sequences.  
-    /// Calling it on a **locked** sequence will result in an error.
-    SequenceAbort(requests::UploadToken),
-
     /// Ask for system informations about the sequence
     SequenceSystemInfo(requests::ResourceLocator),
 
@@ -86,7 +80,13 @@ pub enum ActionRequest {
     SessionCreate(requests::ResourceLocator),
 
     /// Finalizes the upload session
-    SessionFinalize(requests::UploadToken),
+    SessionFinalize(requests::SessionUuid),
+
+    /// Aborts the session upload process and deletes all resources associated with the session.
+    ///
+    /// This action can only be called on **unlocked** sessions.  
+    /// Calling it on a **locked** session will result in an error.
+    SessionAbort(requests::SessionUuid),
 
     /// Perform a query in the system
     Query(requests::Query),
@@ -116,7 +116,6 @@ impl ActionRequest {
         match value {
             "sequence_create" => parse_action_req!(SequenceCreate, body),
             "sequence_delete" => parse_action_req!(SequenceDelete, body),
-            "sequence_abort" => parse_action_req!(SequenceAbort, body),
             "sequence_system_info" => parse_action_req!(SequenceSystemInfo, body),
             "sequence_notify_create" => parse_action_req!(SequenceNotifyCreate, body),
             "sequence_notify_list" => parse_action_req!(SequenceNotifyList, body),
@@ -131,6 +130,7 @@ impl ActionRequest {
 
             "session_create" => parse_action_req!(SessionCreate, body),
             "session_finalize" => parse_action_req!(SessionFinalize, body),
+            "session_abort" => parse_action_req!(SessionAbort, body),
 
             "layer_create" => parse_action_req!(LayerCreate, body),
             "layer_delete" => parse_action_req!(LayerDelete, body),
@@ -162,6 +162,7 @@ pub enum ActionResponse {
     /// Returns the response key associated with the session just created
     SessionCreate(responses::ResourceUuid),
     SessionFinalize(()),
+    SessionAbort(()),
 
     /// Returns the list of layers
     LayerList(responses::LayerList),
@@ -212,6 +213,10 @@ impl ActionResponse {
 
     pub fn session_finalize() -> Self {
         Self::SessionFinalize(())
+    }
+
+    pub fn session_abort() -> Self {
+        Self::SessionAbort(())
     }
 }
 

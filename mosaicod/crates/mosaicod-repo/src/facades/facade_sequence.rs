@@ -193,8 +193,6 @@ impl FacadeSequence {
     pub async fn delete(self) -> Result<(), FacadeError> {
         let mut tx = self.repo.transaction().await?;
 
-        //        let srecord = repo::sequence_find_by_locator(&mut tx, &self.locator).await?;
-
         // Retrieve topics data and deletes it
         let topics = self.topic_list().await?;
         for topic_loc in topics {
