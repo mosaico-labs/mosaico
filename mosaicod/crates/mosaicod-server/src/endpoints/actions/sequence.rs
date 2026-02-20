@@ -51,31 +51,6 @@ pub async fn delete(ctx: &Context, name: String) -> Result<ActionResponse, Serve
     Ok(ActionResponse::sequence_delete())
 }
 
-/// Aborts a sequence creation, deleting it if the key matches.
-pub async fn abort(
-    ctx: &Context,
-    name: String,
-    key: String,
-) -> Result<ActionResponse, ServerError> {
-    warn!("abort for {}", name);
-
-    let handle = FacadeSequence::new(name, ctx.store.clone(), ctx.repo.clone());
-
-    // Check that sequence id and provided key matches
-    let r_id = handle.resource_id().await?;
-    let received_uuid: types::Uuid = key.parse()?;
-    if r_id.uuid != received_uuid {
-        return Err(ServerError::BadKey);
-    }
-
-    // Save handle name (for logging) since the delete will consume the handle
-    let loc = handle.locator.clone();
-    handle.delete().await?;
-    warn!("resource {} deleted", loc.name());
-
-    Ok(ActionResponse::sequence_abort())
-}
-
 /// Creates a notification for a sequence.
 pub async fn notify_create(
     ctx: &Context,

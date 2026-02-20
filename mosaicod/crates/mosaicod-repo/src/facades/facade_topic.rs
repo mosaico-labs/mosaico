@@ -31,9 +31,14 @@ impl FacadeTopic {
         }
     }
 
-    // Returns the path were the topic is located
+    /// Returns the path were the topic is located
     pub fn path(&self) -> &str {
         self.locator.name()
+    }
+
+    /// Return the inner locator and consumes the facade
+    pub fn into_inner(self) -> types::TopicResourceLocator {
+        self.locator
     }
 
     /// Creates a new repository entry for this topic.
@@ -321,11 +326,10 @@ impl FacadeTopic {
     pub async fn delete(self, allowed_data_loss: types::DataLossToken) -> Result<(), FacadeError> {
         let mut tx = self.repo.transaction().await?;
 
-        // allowed since this function is unsafe itself
-        repo::topic_delete(&mut tx, &self.locator, allowed_data_loss).await?;
-
-        // Delete files
+        // Delete at forst the data and after that the record on db,
+        // so if the delete procedure fails i can retry again against the database record
         self.store.delete_recursive(&self.path()).await?;
+        repo::topic_delete(&mut tx, &self.locator, allowed_data_loss).await?;
 
         tx.commit().await?;
 

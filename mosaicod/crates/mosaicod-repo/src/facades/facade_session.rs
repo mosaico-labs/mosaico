@@ -6,7 +6,7 @@
 //! Multiple sessions can occur in parallel for the same sequence. Once a session is
 //! finalized, all data associated with it becomes immutable.
 
-use crate::{self as repo, FacadeError};
+use crate::{self as repo, FacadeError, FacadeSequence, FacadeTopic};
 use log::trace;
 use mosaicod_core::types;
 use mosaicod_marshal as marshal;
@@ -66,6 +66,81 @@ impl FacadeSession {
         tx.commit().await?;
 
         Ok(())
+    }
+
+    /// Deletes all the topics associated with this session, deletes also the sesion manifest and
+    /// the session record from the repository
+    pub async fn delete(&self) -> Result<(), FacadeError> {
+        let mut tx = self.repo.transaction().await?;
+
+        let session = repo::session_find_by_uuid(&mut tx, &self.uuid).await?;
+
+        let error_report_msg = format!("Some error occured while deleting session `{}`", self.uuid);
+        let mut error_report = types::ErrorReport::new(error_report_msg);
+
+        // Deletes topic data
+        let topics = self.topic_list().await?;
+        for topic_loc in topics.clone() {
+            let thandle = FacadeTopic::new(
+                topic_loc.clone().into(),
+                self.store.clone(),
+                self.repo.clone(),
+            );
+
+            // For this special case we allow a data loss delete since the sequence is still unlocked (previous check).
+            // This is because the system may be in a state where topics are partially uploaded:
+            // some topics are fully uploaded and locked, while others are not.
+            //
+            // We collect all the errors to build a sequence notification reporting all error if
+            // something fails.
+            if let Err(e) = thandle.delete(types::allow_data_loss()).await {
+                error_report
+                    .errors
+                    .push(types::ErrorReportItem::new(topic_loc, e));
+            }
+        }
+
+        let sequence = repo::sequence_find_by_id(&mut tx, session.sequence_id).await?;
+
+        // Deletes the session manifest
+        if let Err(e) = self
+            .store
+            .delete(
+                sequence
+                    .resource_locator()
+                    .session_manifest(&session.uuid()),
+            )
+            .await
+        {
+            error_report.errors.push(types::ErrorReportItem::new(
+                sequence.locator_name.clone(),
+                e,
+            ));
+        }
+
+        // If some error occurs create a notification with all errors stacked
+        if error_report.has_errors() {
+            let msg: String = error_report.into();
+            let fsequence = FacadeSequence::new(
+                sequence.locator_name, //
+                self.store.clone(),
+                self.repo.clone(),
+            );
+            fsequence.notify(types::NotifyType::Error, msg).await?;
+        }
+
+        tx.commit().await?;
+
+        Ok(())
+    }
+
+    /// Returns the topic list associated with this session.
+    pub async fn topic_list(&self) -> Result<Vec<types::TopicResourceLocator>, FacadeError> {
+        let mut cx = self.repo.connection();
+
+        let topics = repo::session_find_all_topic_names(&mut cx, &self.uuid).await?;
+
+        Ok(topics)
     }
 
     async fn manifest_write_to_store(

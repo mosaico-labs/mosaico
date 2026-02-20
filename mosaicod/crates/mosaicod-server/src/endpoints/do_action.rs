@@ -20,7 +20,6 @@ pub async fn do_action(ctx: Context, action: ActionRequest) -> Result<ActionResp
             sequence::create(&ctx, data.name, user_metadata.as_str()).await
         }
         ActionRequest::SequenceDelete(data) => sequence::delete(&ctx, data.name).await,
-        ActionRequest::SequenceAbort(data) => sequence::abort(&ctx, data.name, data.key).await,
         ActionRequest::SequenceNotifyCreate(data) => {
             sequence::notify_create(&ctx, data.name, data.notify_type, data.msg).await
         }
@@ -31,7 +30,8 @@ pub async fn do_action(ctx: Context, action: ActionRequest) -> Result<ActionResp
         // ///////
         // Session
         ActionRequest::SessionCreate(data) => session::create(&ctx, data.name).await,
-        ActionRequest::SessionFinalize(data) => session::finalize(&ctx, data.key).await,
+        ActionRequest::SessionFinalize(data) => session::finalize(&ctx, data.session_uuid).await,
+        ActionRequest::SessionAbort(data) => session::abort(&ctx, data.session_uuid).await,
 
         // /////
         // Topic
