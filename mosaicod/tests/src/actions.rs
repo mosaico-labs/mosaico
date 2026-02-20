@@ -82,6 +82,33 @@ pub async fn session_create(client: &mut Client, sequence_name: &str) -> types::
     key.expect("Unable to return key")
 }
 
+pub async fn session_finalize(client: &mut Client, session_uuid: types::Uuid) {
+    let action = Action {
+        r#type: "session_finalize".to_owned(),
+        body: format!(
+            r#"
+        {{
+            "session_uuid": "{}"
+        }}
+        "#,
+            session_uuid
+        )
+            .into(),
+    };
+
+    dbg!(&action);
+
+    let mut stream = client.do_action(action).await.unwrap().into_inner();
+
+    while let Some(result) = stream.message().await.expect("Problem while streaming") {
+        dbg!(&result);
+        let r = ActionResponse::from_body(&result.body);
+        assert_eq!(r.action, "session_finalize");
+
+        assert!(r.response.as_object().is_none());
+    }
+}
+
 /// Create a new topic.
 /// Returns the `key` of the newly created topic, this key is required to upload topic data.
 pub async fn topic_create(
