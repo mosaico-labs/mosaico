@@ -1,9 +1,4 @@
----
-title: Mosaico SDK
-description: A high-level introduction to the Mosaico Python SDK for beginners.
-sidebar:
-    order: 1
----
+# Mosaico SDK
 
 The Mosaico SDK is a high-performance Python interface designed specifically for managing **Physical AI and Robotics data**. Its purpose is to handle the complete lifecycle of information—from the moment it is captured by a sensor to the moment it is used to train a neural network or analyze a robot's behavior.
 

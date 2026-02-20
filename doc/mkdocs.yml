@@ -96,7 +96,7 @@ nav:
   - Daemon:
     - daemon/index.md
     - daemon/install.md
-    - daemon/control.md
+    - daemon/actions.md
     - daemon/ingestion.md
     - daemon/query.md
     - daemon/retrieval.md

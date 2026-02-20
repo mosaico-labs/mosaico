@@ -11,11 +11,11 @@ It functions on a standard client-server model, mediating between your high-leve
 
 ## Architectural Design
 
-`mosaicod` is architected atop the **Apache Arrow Flight** protocol. Apache Arrow Flight is a general-purpose, high-performance client-server framework developed for the exchange of massive datasets. It operates directly on Apache Arrow columnar data, enabling efficient transport over gRPC without the overhead of serialization.
+`mosaicod` is architected atop the [Apache Arrow Flight](https://arrow.apache.org/docs/format/Flight.html) protocol. Apache Arrow Flight is a general-purpose, high-performance client-server framework developed for the exchange of massive datasets. It operates directly on [Apache Arrow](https://arrow.apache.org/) columnar data, enabling efficient transport over gRPC without the overhead of serialization.
 
 Unlike traditional REST APIs which serialize data into text-based JSON, Flight is designed specifically for high-throughput data systems. This architectural choice provides Mosaico with three critical advantages:
 
-**Zero-Copy Serialization.** Data is transmitted in the Apache Arrow columnar format, the exact same format used in-memory by modern analytics tools like pandas and Polars. This eliminates the CPU-heavy cost of serializing and deserializing data at every hop.
+**Zero-Copy Serialization.** Data is transmitted in the Arrow columnar format, the exact same format used in-memory by modern analytics tools like pandas and Polars. This eliminates the CPU-heavy cost of serializing and deserializing data at every hop.
 
 **Parallelized Transport.** Operations are not bound to a single pipe; data transfer can be striped across multiple TCP connections to saturate available bandwidth.
 
@@ -30,31 +30,15 @@ Mosaico uses two types of resource locators:
 - A **Sequence Locator** identifies a recording session by its sequence name (e.g., `run_2023_01`).
 - A **Topic Locator** identifies a specific data stream using a hierarchical path that includes the sequence name and topic path (e.g., `run_2023_01/sensors/lidar_front`).
 
-### The Three Channels
+### Flight Endpoints
 
-The server partitions its operations into three specialized channels to ensure that administrative overhead never bottlenecks data throughput. The **Control Channel** acts as the system's administrative control path, handling metadata management and resource orchestration. 
+The daemon exposes Apache Arrow Flight endpoints that handle various operations using Flight's core methods: `list_flights` and `get_flight_info` for discovery and metadata management, `do_put` for high-speed data ingestion, and `do_get` for efficient data retrieval. 
+This design ensures administrative operations don't interfere with data throughput while maintaining low-latency columnar data access.
 
-Data flows into the system via the **Ingestion Channel**, a dedicated high-speed lane optimized for writing raw sensor data at wire speed. Conversely, the **Retrieval Channel** is engineered to read and stream requested data slices back to clients. This separation ensures that columnar data retrieval remains efficient and low-latency, even while the system is under heavy write load.
+### Storage Architecture
 
-### Snapshot Schema
+`mosaicod` uses a database to perform fast queries on metadata, manage system state such as sequence and topic definitions, and handle the event queue for processing asynchronous tasks like background data processing or notifications. An object store (such as S3, MinIO, or local filesystem) provides long-term storage for resilience and durability, holding the bulk sensor data, images, point clouds, and immutable schema snapshots that define data structures.
 
-Robotics data is inherently dynamic, with sensor configurations and message definitions that evolve rapidly across different experimental runs. 
+*The database state is entirely transient and can be completely reconstructed effectively using the object state.*
 
-To avoid the overhead of complex schema migrations or the risk of breaking legacy datasets, Mosaico moves away from a rigid global schema in favor of a *schema snapshot* approach. 
-By associating a specific snapshot with each individual sequence, `mosaicod` captures the exact blueprint of every topic and sensor message at the moment of creation. 
-This ensures that the data remains immutable and self-describing. 
-The SDK can reconstruct objects exactly as they were originally defined, guaranteeing that a recording remains perfectly readable even if the project's ontology undergoes significant changes over time.
-
-### Two-Tier Storage Topology
-
-`mosaicod` implements a hierarchical storage architecture, consisting of two distinct layers:
-
-**L1 Hot State (Metadata Cache).** A high-performance **PostgreSQL** database acts as the system's L1 layer. It indexes all structural information—the catalog of sequences, topics, channel definitions, and validation schemas. This layer provides the transactional consistency and query speed required for the Control Channel's interactive operations.
-
-**L2 Cold State (Long Term Storage).** The **Object Store** (e.g., S3, Google Cloud Storage, or MinIO) serves as the persistent L2 layer. This is the system's ground truth, where the bulk sensor data (images, Lidar point clouds) and immutable schema snapshots reside.
-
-This topology decouples compute from retention storage, but more importantly, it enforces a critical resiliency invariant involved with the reconstructability principle:
-
-*The L1 state is entirely transient and can be completely reconstructed effectively caching the L2 state.*
-
-If the metadata database is corrupted or destroyed, `mosaicod` can rebuild the entire catalog by rescanning the durable L2 storage. This design ensures that while the L1 provides performance, the L2 guarantees long-term durability and recovery, protecting your data against catastrophic infrastructure failure.
+If the metadata database is corrupted or destroyed, `mosaicod` can rebuild the entire catalog by rescanning the durable object storage. This design ensures that while the database provides performance, the store guarantees long-term durability and recovery, protecting your data against catastrophic infrastructure failure.

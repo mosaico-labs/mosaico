@@ -1,9 +1,5 @@
----
-title: Client Architecture
-description: Description of the MosaicoClient class
-sidebar:
-    order: 2
----
+# Client
+
 API Reference: [`mosaicolabs.comm.MosaicoClient`][mosaicolabs.comm.MosaicoClient].
 
 The `MosaicoClient` is a resource manager designed to orchestrate three distinct **Layers** of communication and processing. 

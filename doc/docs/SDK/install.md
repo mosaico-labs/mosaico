@@ -13,15 +13,12 @@ If you do not have Poetry installed, use the official installer:
 
 ```bash
 curl -sSL https://install.python-poetry.org | python3 -
-
 ```
 
 Ensure the poetry binary is in your path by verifying the version:
 
 ```bash
 poetry --version
-# Expected: Poetry (version 1.8.0 or higher)
-
 ```
 
 ## Install SDK
@@ -30,14 +27,12 @@ Clone the repository and navigate to the SDK directory:
 
 ```bash
 cd mosaico/mosaico-sdk-py
-
 ```
 
 Install the dependencies. This will automatically create a virtual environment and install all required libraries (PyArrow, NumPy, ROSBags, etc.):
 
 ```bash
 poetry install
-
 ```
 
 ### Activate Environment
@@ -46,12 +41,10 @@ You can spawn a shell within the configured virtual environment to work interact
 
 ```bash
 eval $(poetry env activate)
-
 ```
 
 Alternatively, you can run one-off commands without activating the shell:
 
 ```bash
 poetry run python any_script.py
-
 ```

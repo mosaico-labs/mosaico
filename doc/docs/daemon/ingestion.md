@@ -1,28 +1,29 @@
----
-title: Ingestion Channel
-description: High-throughput writing via data streams.
-sidebar:
-    order: 3
----
+# Ingestion 
 
-Data ingestion in Mosaico is handled by the **Ingestion Channel**, a specialized pathway implemented via the Flight `DoPut` streaming endpoint. 
+Data ingestion in Mosaico is handled by the Flight `DoPut` streaming endpoint. 
 This channel is explicitly engineered to handle write-heavy workloads, enabling the system to absorb high-bandwidth sensor data—such as 4K video streams or high-frequency Lidar point clouds—without contending with administrative traffic.
 
 ## The Ingestion Protocol
 
-Uploading a stream involves a rigorous handshake protocol designed to ensure type safety before any data is committed to storage:
+Data ingestion follows a structured protocol to ensure type safety and proper sequencing. The process begins with creating a new sequence using `sequence_create`, which takes a sequence name and optional user metadata, returning a unique sequence UUID.
 
-**Command Descriptor.** The client initiates the stream by sending a Flight Descriptor containing a JSON command identifying the target topic (e.g., `run_01/sensors/cam_front`) and providing the authorization key generated during topic creation.
+Within this sequence, you create topics for each data stream via `topic_create`, associating them with the sequence UUID and assigning unique paths like `my_sequence/topic/1`. Each topic can also include its own metadata. For each topic, data is uploaded using the Flight `do_put` operation, starting with an Arrow schema for validation, followed by streaming RecordBatch payloads.
 
-**Schema Negotiation.** The first message of the stream must be the Apache Arrow Schema definition. This establishes the contract for the transmitted data and carries three critical pieces of metadata: *user metadata*, *ontology tag*, and *serialization format*.
+Once all topics are uploaded, the sequence is finalized with `sequence_finalize`, committing it to make the data immutable and queryable. During this process, the server validates schemas against registered ontologies, chunks data for efficient storage, and computes indices for fast querying.
 
-User metadata consists of custom, queryable key-value pairs (e.g., `{"vehicle_id": "v1"}`) that tag streams with project-specific attributes. The ontology tag serves as a strict type identifier, ensuring that the arriving data conforms to the registered model (e.g., verifying `Lidar` data matches the `Lidar` ontology). Finally, the serialization format dictates the physical binary layout, supporting `Default` for fixed-schema tables, `Ragged` for variable-length lists, and `Image` for optimized multi-dimensional arrays.
+```py
+sq_uuid = sequence_create("my_sequence", metadata)
+    
+t1_uuid = topic_create(sq_uuid, "my_sequence/topic/1", metadata) # (1)!
+do_put(t1_uuid, stream) # (2)!
+    
 
-If the schema or metadata mismatches the topic registration, the server immediately rejects the stream to guarantee data integrity.
+sequence_finalize(sq_uuid) # (3)!
+```
 
-**Data Transmission.** Once the schema is negotiated and accepted, the client streams a sequence of `RecordBatch` payloads. The server buffers the batches in memory and writes them efficiently to the underlying storage.
-
-**Commit Phase.** Closing the stream signals the server that the upload is complete. The server then flushes all buffers, calculates necessary indices, and atomically commits the data chunks to the repository.
+1. In this case we are 
+2. ASasdasda
+3. asdasd
 
 ## Chunking & Indexing Strategy
 

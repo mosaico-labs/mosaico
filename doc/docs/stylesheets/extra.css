@@ -101,6 +101,9 @@
     background-color: var(--mosaico-bg-hi);
 }
 
+aside .md-annotation a{
+    transform: scale(0.5);
+}
 
 code.nowrap {
   white-space: nowrap;
