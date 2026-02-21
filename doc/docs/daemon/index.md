@@ -5,7 +5,7 @@ sidebar:
     order: 1
 ---
 
-The **Mosaico Daemon**, a.k.a. `mosaicod`, acts as the authoritative kernel of the data platform. Developed in **Rust**, it is engineered to be the high-performance arbiter for all data interactions, guaranteeing that every byte of robotics data is strictly typed, atomically stored, and efficiently retrievable.
+The **Mosaico Daemon**, a.k.a. `mosaicod`, acts as engine of the data platform. Developed in **Rust**, it is engineered to be the high-performance arbiter for all data interactions, guaranteeing that every byte of robotics data is strictly typed, atomically stored, and efficiently retrievable.
 
 It functions on a standard client-server model, mediating between your high-level applications (via the SDKs) and the low-level storage infrastructure.
 
@@ -39,6 +39,9 @@ This design ensures administrative operations don't interfere with data throughp
 
 `mosaicod` uses a database to perform fast queries on metadata, manage system state such as sequence and topic definitions, and handle the event queue for processing asynchronous tasks like background data processing or notifications. An object store (such as S3, MinIO, or local filesystem) provides long-term storage for resilience and durability, holding the bulk sensor data, images, point clouds, and immutable schema snapshots that define data structures.
 
-*The database state is entirely transient and can be completely reconstructed effectively using the object state.*
+!!! note "Database Durability and Recovery"
+    The database state is entirely transient and can be fully reconstructed from the object store. This also enables importing data from other stores. 
+    
+    *Currently, there is no way to import data and reconstruct the database, but we are designing the system to enable this feature in future releases.* 
 
 If the metadata database is corrupted or destroyed, `mosaicod` can rebuild the entire catalog by rescanning the durable object storage. This design ensures that while the database provides performance, the store guarantees long-term durability and recovery, protecting your data against catastrophic infrastructure failure.

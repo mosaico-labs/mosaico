@@ -14,16 +14,24 @@ You will learn how to use the Mosaico SDK to:
 The following implementation defines three distinct generators to stream IMU, GPS, and Pressure data.
 In this example, we assume our CSV files contain the following columns:
 
-* IMU.csv: `timestamp`, `acc_x`, `acc_y`, `acc_z`, `gyro_x`, `gyro_y`, `gyro_z`
-* GPS.csv: `timestamp`, `latitude`, `longitude`, `altitude`, `status`, `service`
-* Pressure.csv: `timestamp`, `pressure`
+```csv title="IMU.csv"
+timestamp, acc_x, acc_y, acc_z, gyro_x, gyro_y, gyro_z
+1110022, 0.0032, 0.001, -0.002, 0.01, 0.005, -0.003
+```
+
+```csv title="GPS.csv"
+timestamp, latitude, longitude, altitude, status, service
+1110022, 45.123456, -93.123456, 250.0, 1, 1
+```
+
+```csv title="Pressure.csv"
+timestamp, pressure
+1110022, 101325.0
+```
 
 When dealing with massive datasets spread across multiple files, we adopt a **chunked loading approach** for each sensor type.
 
-```python
-"""
-Import the necessary classes from the Mosaico SDK.
-"""
+```python title="Define the generator functions that yield Message objects"
 import pandas as pd
 from mosaicolabs import (
     MosaicoClient, # The gateway to the Mosaico Platform
@@ -40,67 +48,55 @@ from mosaicolabs import (
 Define the generator functions that yield `Message` objects.
 For each file, open the reading process and yield the messages one by one.
 """
+
 def stream_imu_from_csv(file_path: str, chunk_size: int = 1000):
-    """Efficiently streams IMU data."""
     for chunk in pd.read_csv(file_path, chunksize=chunk_size):
         for row in chunk.itertuples(index=False):
-            try:
-                yield Message(
-                    timestamp_ns=int(row.timestamp),
-                    data=IMU(
-                        acceleration=Vector3d(
-                            x=float(row.acc_x),
-                            y=float(row.acc_y),
-                            z=float(row.acc_z),
-                        ),
-                        angular_velocity=Vector3d(
-                            x=float(row.gyro_x),
-                            y=float(row.gyro_y),
-                            z=float(row.gyro_z),
-                        )
+            yield Message(
+                timestamp_ns=int(row.timestamp),
+                data=IMU(
+                    acceleration=Vector3d(
+                        x=float(row.acc_x),
+                        y=float(row.acc_y),
+                        z=float(row.acc_z),
+                    ),
+                    angular_velocity=Vector3d(
+                        x=float(row.gyro_x),
+                        y=float(row.gyro_y),
+                        z=float(row.gyro_z),
                     )
                 )
-            except Exception:
-                # Yield None only for parsing/type-related errors
-                yield None
+            )
+       
 
 
 def stream_gps_from_csv(file_path: str, chunk_size: int = 1000):
-    """Efficiently streams GPS data."""
     for chunk in pd.read_csv(file_path, chunksize=chunk_size):
-        for row in chunk.itertuples(index=False):
-            try:
-                yield Message(
-                    timestamp_ns=int(row.timestamp),
-                    data=GPS(
-                        position=Vector3d(
-                            x=float(row.latitude),
-                            y=float(row.longitude),
-                            z=float(row.altitude),
-                        ),
-                        status=GPSStatus(
-                            status=int(row.status), 
-                            service=int(row.service),
-                        )
+        for row in chunk.itertuples(index=False):            
+            yield Message(
+                timestamp_ns=int(row.timestamp),
+                data=GPS(
+                    position=Vector3d(
+                        x=float(row.latitude),
+                        y=float(row.longitude),
+                        z=float(row.altitude),
+                    ),
+                    status=GPSStatus(
+                        status=int(row.status), 
+                        service=int(row.service),
                     )
                 )
+            )
 
-            except Exception:
-                # Yield None only for parsing/type-related errors
-                yield None
 
 def stream_pressure_from_csv(file_path: str, chunk_size: int = 1000):
-    """Efficiently streams Barometric Pressure data."""
     for chunk in pd.read_csv(file_path, chunksize=chunk_size):
         for row in chunk.itertuples(index=False):
-            try:
-                yield Message(
-                    timestamp_ns=int(row.timestamp),
-                    data=Pressure(value=row.pressure)
-                )
-            except Exception:
-                # Yield None only for parsing/type-related errors
-                yield None
+            yield Message(
+                timestamp_ns=int(row.timestamp),
+                data=Pressure(value=row.pressure)
+            )
+            
 
 ```
 
@@ -123,16 +119,13 @@ A sequence writer acts as a logical container for related sensor data streams (t
 
 When initializing your data handling pipeline, it is highly recommended to wrap the **Mosaico Client** within a `with` statement. This context manager pattern ensures that underlying network connections and shared resource pools are correctly shut down and released when your operations conclude.
 
-```python
-"""
-Connect to the Mosaico server and create a sequence writer.
-"""
+```python title="Connect to the Mosaico server and create a sequence writer"
+
 with MosaicoClient.connect("localhost", 6726) as client:
-    # Initialize the Orchestrator for the entire mission
     with client.sequence_create(
         sequence_name="multi_sensor_ingestion",
         metadata={"mission": "alpha_test", "environment": "laboratory"},
-        on_error=OnErrorPolicy.Delete # Deletes the whole sequence if a fatal crash occurs
+        on_error=OnErrorPolicy.Delete
     ) as swriter:
         # Steps 3 and 4 (Topic Creation & serial Pushing) happen here...
 
@@ -165,27 +158,26 @@ For a more in-depth explanation:
 Inside the sequence, we create individual **Topic Writers** to manage data streams. Each writer is an independent "lane" assigned its own internal buffer and background thread for serialization.
 
 ```python
-        # Inside the SequenceWriter context...
-        
-        # Create dedicated Topic Writers for each sensor stream
-        imu_twriter = swriter.topic_create(
-            topic_name="sensors/imu",
-            metadata={"sensor_id": "accel_01"},
-            ontology_type=IMU,
-        )
-        
-        gps_twriter = swriter.topic_create(
-            topic_name="sensors/gps",
-            metadata={"sensor_id": "gps_01"},
-            ontology_type=GPS,
-        )
-        
-        pressure_twriter = swriter.topic_create(
-            topic_name="sensors/pressure",
-            metadata={"sensor_id": "pressure_01"},
-            ontology_type=Pressure,
-        )
-
+with client.sequence_create(...) as swriter:
+    
+    # Create dedicated Topic Writers for each sensor stream
+    imu_twriter = swriter.topic_create(
+        topic_name="sensors/imu",
+        metadata={"sensor_id": "accel_01"},
+        ontology_type=IMU,
+    )
+    
+    gps_twriter = swriter.topic_create(
+        topic_name="sensors/gps",
+        metadata={"sensor_id": "gps_01"},
+        ontology_type=GPS,
+    )
+    
+    pressure_twriter = swriter.topic_create(
+        topic_name="sensors/pressure",
+        metadata={"sensor_id": "pressure_01"},
+        ontology_type=Pressure,
+    )
 ```
 
 ### Step 4: Pushing Data into the Pipeline
@@ -193,7 +185,7 @@ Inside the sequence, we create individual **Topic Writers** to manage data strea
 The final stage of the ingestion process involves iterating through your data generators and transmitting records to the Mosaico platform by calling the [`TopicWriter.push()`][mosaicolabs.handlers.TopicWriter.push] method for each record. The `push()` method optimizes the throughput by accumulating messages into internal batches.
 
 ```python
-        # --- 1. Push IMU Data ---
+        # 1. Push IMU Data
         for msg in stream_imu_from_csv("imu_data.csv"):
             if msg is None:
                 # Log and skip, or raise if incomplete data is disallowed
@@ -205,7 +197,7 @@ The final stage of the ingestion process involves iterating through your data ge
                 # Log and skip, or raise if incomplete data is disallowed
                 print(f"Error processing IMU at time: {msg.timestamp_ns}. Inner err: {e}")
 
-        # --- 2. Push GPS Data with Custom Processing ---
+        # 2. Push GPS Data with Custom Processing
         for msg in stream_gps_from_csv("gps_data.csv"):
             if msg is None:
                 # Log and skip, or raise if incomplete data is disallowed
@@ -219,7 +211,7 @@ The final stage of the ingestion process involves iterating through your data ge
                 # Log and skip, or raise if incomplete data is disallowed
                 print(f"Error processing GPS at time: {msg.timestamp_ns}. Inner err: {e}")
 
-        # --- 3. Push Pressure Data ---
+        # 3. Push Pressure Data
         for msg in stream_pressure_from_csv("pressure_data.csv"):
             if msg is None:
                 # Log and skip, or raise if incomplete data is disallowed

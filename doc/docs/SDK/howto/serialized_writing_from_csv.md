@@ -12,16 +12,18 @@ You will learn how to use the Mosaico SDK for:
 
 In this example, we assume our CSV file contains the following columns:
 
-* IMU.csv: `timestamp`, `acc_x`, `acc_y`, `acc_z`, `gyro_x`, `gyro_y`, `gyro_z`
+```csv title="IMU.csv"
+timestamp, acc_x, acc_y, acc_z, gyro_x, gyro_y, gyro_z
+1110022, 0.0032, 0.001, -0.002, 0.01, 0.005, -0.003
+1111022, 0.0041, 0.002, -0.001, 0.012, 0.006, -0.004
+1112022, 0.0028, 0.0005, -0.003, 0.009, 0.004, -0.002
+```
 
-The implementation below uses `pandas` to stream the data, but the logic is compatible with any streaming I/O library.
+The implementation below uses [`pandas`](https://pandas.pydata.org/) to stream the data, but the logic is compatible with any streaming I/O library.
 
 When dealing with massive datasets, we adopt a **chunked loading approach** for each sensor type.
 
-```python
-"""
-Import the necessary classes from the Mosaico SDK.
-"""
+```python title="Define the generator functions that yield Message objects."
 import pandas as pd
 from mosaicolabs import (
     MosaicoClient, # The gateway to the Mosaico Platform
@@ -31,15 +33,8 @@ from mosaicolabs import (
     Vector3d, # The 3D vector class, needed to populate the IMU data
 )
 
-"""
-Define the generator functions that yield `Message` objects.
-"""
 def stream_imu_from_csv(file_path: str, chunk_size: int = 1000):
-    """
-    Efficiently reads a large CSV in chunks to prevent memory exhaustion.
-    """
-    # Use pandas TextFileReader to stream the file in chunks
-    for chunk in pd.read_csv(file_path, chunksize=chunk_size):
+    for chunk in pd.read_csv(file_path, chunksize=chunk_size): # (1)!
         for row in chunk.itertuples(index=False):
             try:
                 yield Message(
@@ -62,7 +57,8 @@ def stream_imu_from_csv(file_path: str, chunk_size: int = 1000):
                 yield None
 ```
 
-#### Understanding the Output
+1. Use pandas TextFileReader to stream the file in chunks
+
 
 The Mosaico [`Message`][mosaicolabs.models.Message] object is an in-memory object wrapping the sensor data with necessary metadata (e.g. timestamp), and ensuring it is ready for serialization and network transmission.
 
@@ -78,22 +74,21 @@ For a more in-depth explanation:
 To write data, we first establish a connection to the Mosaico server via the [`MosaicoClient.connect()`][mosaicolabs.comm.MosaicoClient.connect] method and create a [`SequenceWriter`][mosaicolabs.handlers.SequenceWriter].
 A sequence writer acts as a logical container for related data streams (topics).
 
-When initializing your data handling pipeline, it is highly recommended to wrap the **Mosaico Client** within a `with` statement. This context manager pattern ensures that underlying network connections and shared resource pools are correctly shut down and released when your operations conclude.
+When initializing your data handling pipeline, it is highly recommended to wrap the `MosaicoClient` within a `with` statement. This context manager pattern ensures that underlying network connections and shared resource pools are correctly shut down and released when your operations conclude.
 
-```python
-"""
-Connect to the Mosaico server and create a sequence writer.
-"""
+```python title="Connect to the Mosaico server and create a sequence writer"
 with MosaicoClient.connect("localhost", 6726) as client:
     # Initialize the Sequence Orchestrator
     with client.sequence_create(
         sequence_name="csv_ingestion_test",
         metadata={"source": "manual_upload", "format": "csv"}
-        on_error = OnErrorPolicy.Delete # Default
+        on_error = OnErrorPolicy.Delete # (1)!
     ) as swriter:
         # Step 3 and 4 happen inside this block...
 
 ```
+
+1. Mosaico supports two distinct error policies for sequences: `OnErrorPolicy.Delete` and `OnErrorPolicy.Report`.
 
 !!! warning "Context Management"
     It is **mandatory** to use the `SequenceWriter` instance returned by `client.sequence_create()` inside its own `with` context. The following code will raise an exception:
@@ -119,13 +114,11 @@ For a more in-depth explanation:
 
 ### Step 3: Topic Creation
 
-Inside the sequence, we create a **Topic Writer**, which is assigned to the IMU topic.
+Inside the sequence, we create a [Topic Writer][mosaicolabs.handlers.TopicWriter], which is assigned to the IMU topic.
 
 ```python
-        """Inside the `SequenceWriter` context..."""
-
-        # Create a dedicated writer for the IMU topic
-        imu_twriter = swriter.topic_create(
+    with client.sequence_create(...)
+        imu_twriter = swriter.topic_create( # (1)!
             topic_name="sensors/imu", 
             metadata={"sensor_id": "accel_01"},
             ontology_type=IMU,
@@ -133,29 +126,26 @@ Inside the sequence, we create a **Topic Writer**, which is assigned to the IMU 
 
 ```
 
+1. Here we are creating a dedicated writer for the IMU topic
+
 ### Step 4: Pushing Data into the Pipeline
 
 The final stage of the ingestion process involves iterating through your data generators and transmitting records to the Mosaico platform by calling the [`TopicWriter.push()`][mosaicolabs.handlers.TopicWriter.push] method for each record. The `push()` method optimizes the throughput by accumulating messages into internal batches.
 
-```python
-        """Inside the `SequenceWriter` context..."""
+```python hl_lines="10"
+with client.sequence_create(...)
+    imu_twriter = swriter.topic_create(...)
 
-        # --- Push IMU Data ---
-        for msg in stream_imu_from_csv("imu_data.csv"):
-            if msg is None:
-                # Log and skip, or raise if incomplete data is disallowed
-                print("Skipping row due to parsing error")
-                continue # Ignore malformed records
-            try:
-                imu_twriter.push(message=msg)
-            except Exception as e:
-                # Log and skip, or raise if incomplete data is disallowed
-                print(f"Error processing IMU at time: {msg.timestamp_ns}. Inner err: {e}")
-
-    # All buffers are flushed and the sequence is committed when exiting the SequenceWriter 'with' block
-    print("Successfully injected data from CSV into Mosaico!")
-
-# Here the `MosaicoClient` context and all connections are closed
+    for msg in stream_imu_from_csv("imu_data.csv"):
+        if msg is None:
+            # Log and skip, or raise if incomplete data is disallowed
+            print("Skipping row due to parsing error")
+            continue # Ignore malformed records
+        try:
+            imu_twriter.push(message=msg)
+        except Exception as e:
+            # Log and skip, or raise if incomplete data is disallowed
+            print(f"Error at time: {msg.timestamp_ns}. Inner err: {e}")
 ```
 
 #### Topic-Level Error Management

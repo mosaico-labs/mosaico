@@ -1,8 +1,8 @@
 # Mosaico SDK
 
-The Mosaico SDK is a high-performance Python interface designed specifically for managing **Physical AI and Robotics data**. Its purpose is to handle the complete lifecycle of information—from the moment it is captured by a sensor to the moment it is used to train a neural network or analyze a robot's behavior.
+The Mosaico SDK is a Python interface designed specifically for managing **Physical AI and Robotics data**. Its purpose is to handle the complete lifecycle of information, from the moment it is captured by a sensor to the moment it is used to train a neural network or analyze a robot's behavior.
 
-The SDK is built on the philosophy that robotics data is **unique**. Whether it comes from a autonomous car, a drone, or a factory arm, this data is multi-modal, highly frequent, and deeply interconnected in space and time. The Mosaico SDK provides the infrastructure to treat this data as a **"first-class citizen"** rather than just a collection of generic numbers. It understands the geometric and physical semantics of complex data types such as LIDAR point clouds, IMU readings, high-resolution camera feeds, and rigid-body transformations.
+The SDK is built on the philosophy that robotics data is **unique**. Whether it comes from a autonomous car, a drone, or a factory arm, this data is multi-modal, highly frequent, and deeply interconnected in space and time. The Mosaico SDK provides the infrastructure to treat this data as a *first-class citizen* rather than just a collection of generic numbers. It understands the geometric and physical semantics of complex data types such as LIDAR point clouds, IMU readings, high-resolution camera feeds, and rigid-body transformations.
 
 ## Overview
 
@@ -16,14 +16,14 @@ Mosaico is middleware-agnostic. While the SDK provides robust tools for ROS, it 
 * **Custom Collectors**: Proprietary data loggers or direct hardware drivers.
 * **Simulators**: Synthetic data generated in virtual environments.
 
-### The Ontology
+### Ontology
 
-The [Mosaico Data Ontology](ontology.md) acts as the abstraction layer between your specific data collection system and your storage. Instead of saving "Topic A from Robot B," you save a `Pose`, an `IMU` reading, or an `Image`. 
+The [Mosaico Data Ontology](ontology.md) acts as the abstraction layer between your specific data collection system and your storage. Instead of saving "Topic A from Robot B" you save a `Pose`, an `IMU` reading, or an `Image`. 
 Once data is in the platform, its origin becomes secondary to its universal, semantic format. Moreover, the ontology is designed to be extensible with no effort, to meet the needs of any domain; the custom types are automatically validatable, serializable, and queryable alongside standard types.
 
 ### High-Performance
 
-Leveraging [Apache Arrow](https://arrow.apache.org/) for zero-copy performance, the SDK moves massive data volumes from the network to analysis tools without the CPU overhead of traditional data conversion. Every piece of data is time-synchronized, allowing the SDK to "replay" a session from dozens of sensors in the exact chronological order they occurred.
+Leveraging [Apache Arrow](https://arrow.apache.org/) for zero-copy performance, the SDK moves massive data volumes from the network to analysis tools without the CPU overhead of traditional data conversion. Every piece of data is time-synchronized, allowing the SDK to *replay* a session from dozens of sensors in the exact chronological order they occurred.
 
 ## Key Operations
 
