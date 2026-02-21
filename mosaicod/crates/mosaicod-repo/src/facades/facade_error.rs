@@ -6,6 +6,8 @@ pub enum FacadeError {
     MissingMetadataField(String),
     #[error("missing serialization format for resource {0}")]
     MissingSerializationFormat(String),
+    #[error("operation failed, a notification has been added to the system")]
+    FailedAndNotified,
     #[error("store error :: {0}")]
     StoreError(#[from] mosaicod_store::Error),
     #[error("data serialization error :: {0}")]

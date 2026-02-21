@@ -118,8 +118,10 @@ impl FacadeSession {
             ));
         }
 
+        let error_occurs = error_report.has_errors();
+
         // If some error occurs create a notification with all errors stacked
-        if error_report.has_errors() {
+        if error_occurs {
             let msg: String = error_report.into();
             let fsequence = FacadeSequence::new(
                 sequence.locator_name, //
@@ -130,6 +132,10 @@ impl FacadeSession {
         }
 
         tx.commit().await?;
+
+        if error_occurs {
+            return Err(FacadeError::FailedAndNotified);
+        }
 
         Ok(())
     }
