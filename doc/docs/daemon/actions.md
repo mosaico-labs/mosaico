@@ -32,11 +32,13 @@ The platform includes a tagging mechanism to attach alerts or informational mess
 
 | Action | Description |
 | --- | --- |
-| `*_notify_create` | Attaches a notification to a Sequence or Topic. |
-| `*_notify_list` | Retrieves the history of active notifications for a resource. |
-| `*_notify_purge` | Clears the notification history. |
+| `*_notify_create` | Attaches a notification to a Sequence or Topic, such as logging an error or status update. |
+| `*_notify_list` | Retrieves the history of active notifications for a resource, allowing clients to review alerts. |
+| `*_notify_purge` | Clears the notification history for a resource, useful for cleanup after resolution. |
 
-## Query Entrypoint
+Here, `*` can be either `sequence` or `topic`.
+
+## Query
 
 | Action | Description |
 | --- | --- |

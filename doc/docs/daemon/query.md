@@ -1,11 +1,6 @@
----
-title: Query Engine
-description: Deep semantic search capabilities.
-sidebar:
-    order: 5
----
+# Queries
 
-Mosaico distinguishes itself from simple file stores with a powerful **Query Engine** capable of filtering data based on both high-level metadata and deep content values. The query engine operates through the `query` action in the Control Channel, accepting structured JSON-based filter expressions that can span the entire data hierarchy.
+Mosaico distinguishes itself from simple file stores with a powerful **Query System** capable of filtering data based on both high-level metadata and content values. The query engine operates through the [`query`](/daemon/actions#query-entrypoint) action, accepting structured JSON-based filter expressions that can span the entire data hierarchy.
 
 ## Query Architecture
 
@@ -15,7 +10,7 @@ The query engine is designed around a three-tier filtering model that allows you
 
 **Topic Filtering.** Refine your search to specific data streams within sequences. You can filter by topic name, ontology tag (the data type), serialization format, or topic-level user metadata.
 
-**Ontology Filtering (Deep Content Search).** Query the actual physical values recorded inside the sensor data without scanning terabytes of files. The engine leverages statistical indices computed during ingestion—min/max bounds stored in the metadata cache for each chunk—to rapidly include or exclude entire segments of data.
+**Ontology Filtering.** Query the actual physical values recorded inside the sensor data without scanning terabytes of files. The engine leverages statistical indices computed during ingestion, min/max bounds stored in the metadata cache for each chunk, to rapidly include or exclude entire segments of data.
 
 ## Filter Domains
 
@@ -41,11 +36,15 @@ The topic filter narrows the search to specific data streams within matching seq
 | `topic.serialization_format`   | The binary layout format (`Default`, `Ragged`, or `Image`)   |
 | `topic.user_metadata.<key>`    | Custom user-defined metadata attached to the topic           |
 
-### Ontology Filter (Deep Content)
+### Ontology Filter
 
 The ontology filter queries the actual sensor data values. Fields are specified using dot notation: `<ontology_tag>.<field_path>`.
 
 For example, to query IMU acceleration data: `imu.acceleration.x`, where `imu` is the ontology tag and `acceleration.x` is the field path within that data model.
+
+#### Timestamp query support
+
+If `include_timestamp_range` is set to `true` the response will also return [timestamps ranges](#timestamps) for each query.
 
 ## Supported Operators
 
@@ -69,7 +68,7 @@ The query engine supports a rich set of comparison operators. Each operator is p
 
 Queries are submitted as JSON objects. Each field is mapped to an operator and value. Multiple conditions are combined with implicit AND logic.
 
-```json
+```json hl_lines="15"
 {
   "sequence": {
     "name": { "$match": "test_run_%" },
@@ -82,12 +81,17 @@ Queries are submitted as JSON objects. Each field is mapped to an operator and v
   },
   "ontology": {
     "imu.acceleration.x": { "$gt": 5.0 },
-    "imu.acceleration.y": { "$between": [-2.0, 2.0] }
+    "imu.acceleration.y": { "$between": [-2.0, 2.0] },
+
+    "include_timestamp_range": true, // (1)!
   }
 }
 ```
 
+1. This filed is optional, if set to `true` the query returns the [timestamp ranges](#timestamps)
+
 This query searches for:
+
 - Sequences with names matching `test_run_%` pattern
 - Where the user metadata field `driver` equals `"Alice"`
 - Containing topics with ontology tag `imu`
@@ -98,7 +102,7 @@ This query searches for:
 
 The query response is hierarchically grouped by sequence. For each matching sequence, it provides the list of topics that satisfied the filter criteria, along with optional timestamp ranges indicating when the ontology conditions were met.
 
-```json
+```json title="Query response example"
 {
   "items": [
     {
@@ -106,7 +110,24 @@ The query response is hierarchically grouped by sequence. For each matching sequ
       "topics": [
         { 
           "locator": "test_run_01/sensors/imu",
-          "timestamp_range": [1600000000, 1600005000]
+          "timestamp_range": [1000000000, 2000000000]
+        },
+        {
+          "locator": "test_run_01/sensors/gps",
+          "timestamp_range": [1000000000, 2000000000]
+        }
+      ]
+    },
+    {
+      "sequence": "test_run_02",
+      "topics": [
+        {
+          "locator": "test_run_02/camera/front",
+          "timestamp_range": [1500000000, 2500000000]
+        },
+        {
+          "locator": "test_run_02/lidar/point_cloud",
+          "timestamp_range": [1500000000, 2500000000]
         }
       ]
     }
@@ -114,14 +135,18 @@ The query response is hierarchically grouped by sequence. For each matching sequ
 }
 ```
 
-The `timestamp_range` field is included only when ontology filters are applied and indicates the precise time windows where the deep content conditions were satisfied. This allows you to retrieve only the relevant data slices using the Retrieval Channel.
+### Timestamps
+
+It returns the time window `[min, max]` where the filter conditions were met for that topic, with `min` being the timestamp of the first matching event and max being the timestamp of the last matching event. This allows you to retrieve only the relevant data slices using the [retrieval protocol](/daemon/retrieval#the-retrieval-protocol).
+
+!!! note 
+    The `timestamp_range` field is included only when ontology filters are applied and `include_timestamp_range` is set to `true` inside the `ontology` filter. 
 
 ## Performance Characteristics
 
-The query engine is optimized for speed through several mechanisms:
+The query engine is optimized for high performance by minimizing unnecessary data retrieval and I/O operations. 
+During execution, the engine uses index-based pruning to evaluate precomputed min/max statistics and skip indices, allowing it to bypass irrelevant data chunks without reading the underlying files. 
 
-**Index-Based Pruning.** Ontology queries leverage skip indices—precomputed min/max statistics for each chunk. The engine can exclude entire chunks without reading the underlying data files, dramatically reducing I/O.
+Performance is further improved by executing metadata cache queries, such as sequence and topic filters, directly within the database, which ensures sub-second response times even across thousands of sequences.
 
-**Metadata Cache Queries.** Sequence and topic filters execute entirely within the L1 metadata cache (PostgreSQL), providing sub-second response times even across thousands of sequences.
-
-**Lazy Evaluation.** The engine returns locators and timestamp ranges, not the actual data. This keeps query responses lightweight. Clients then use the Retrieval Channel to fetch only the relevant data slices.
+The system employs **lazy evaluation** to keep network payloads lightweight; instead of returning raw data immediately, queries return locators and timestamp ranges. This architecture allows client applications to fetch only the required data slices via the retrieval protocol as needed.

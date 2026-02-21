@@ -1,8 +1,10 @@
 site_name: Mosaico Documentation
-site_url: https://cabba.github.io/mosaico
+site_url: https://docs.mosaico.dev
 repo_url: https://github.com/mosaico-labs/mosaico
 
 markdown_extensions:
+  - toc:
+      permalink: true
   - pymdownx.highlight:
       anchor_linenums: true
       line_spans: __span
@@ -98,8 +100,8 @@ nav:
     - daemon/install.md
     - daemon/actions.md
     - daemon/ingestion.md
-    - daemon/query.md
     - daemon/retrieval.md
+    - daemon/query.md
   - Development:
     - development/release_cycle.md
 
