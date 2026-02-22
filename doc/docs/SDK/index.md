@@ -35,6 +35,11 @@ You can push data into Mosaico through two primary pathways, both designed to en
 
 **Ecosystem Adapters & Bridges**. Use specialized adapters to translate data from existing middleware and log formats into Mosaico sequences. Mosaico currently supports ROS 1 bags (`.bag`) and more recent formats like `.mcap` and `.db3`.
 
+
+<figure markdown="span">
+    ![Ingestion flow](../assets/ingestion_flow.svg){ width="500" }
+</figure>
+
 ### Data Retrieval
 
 Retrieving data goes beyond simple downloading. It is possible to stream and merge multiple topics into a single, time-ordered timeline, which is essential for sensor fusion. 

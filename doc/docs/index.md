@@ -81,6 +81,7 @@ Mosaico follows a client-server architecture where users interact with the platf
 
 This design enables Mosaico to efficiently manage complex multi-modal sensor data while providing a simple, code-first interface for developers.
 
-![Mosaico System Architecture](assets/general_flow.png)
-
+<figure markdown="span">
+  ![Mosaico general flow](assets/general_flow.svg)
+</figure>
 

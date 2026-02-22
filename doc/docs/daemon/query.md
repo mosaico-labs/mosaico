@@ -1,6 +1,6 @@
 # Queries
 
-Mosaico distinguishes itself from simple file stores with a powerful **Query System** capable of filtering data based on both high-level metadata and content values. The query engine operates through the [`query`](/daemon/actions#query-entrypoint) action, accepting structured JSON-based filter expressions that can span the entire data hierarchy.
+Mosaico distinguishes itself from simple file stores with a powerful **Query System** capable of filtering data based on both high-level metadata and content values. The query engine operates through the [`query`](daemon/actions#query-entrypoint) action, accepting structured JSON-based filter expressions that can span the entire data hierarchy.
 
 ## Query Architecture
 
@@ -137,7 +137,7 @@ The query response is hierarchically grouped by sequence. For each matching sequ
 
 ### Timestamps
 
-It returns the time window `[min, max]` where the filter conditions were met for that topic, with `min` being the timestamp of the first matching event and max being the timestamp of the last matching event. This allows you to retrieve only the relevant data slices using the [retrieval protocol](/daemon/retrieval#the-retrieval-protocol).
+It returns the time window `[min, max]` where the filter conditions were met for that topic, with `min` being the timestamp of the first matching event and max being the timestamp of the last matching event. This allows you to retrieve only the relevant data slices using the [retrieval protocol](daemon/retrieval#the-retrieval-protocol).
 
 !!! note 
     The `timestamp_range` field is included only when ontology filters are applied and `include_timestamp_range` is set to `true` inside the `ontology` filter. 
