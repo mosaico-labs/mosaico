@@ -40,7 +40,7 @@ As Mosaico is in early development, documentation contributions are highly encou
 The backend source code is located in the `mosaicod` directory.
 
 * **Setup:** Ensure you have a working [Rust toolchain](https://rust-lang.org/tools/install/) installed.
-* **Build Instructions:** Refer to the [`mosaicod` main guide](https://www.google.com/search?q=./mosaicod/README.md) for detailed instructions on building from source.
+* **Build Instructions:** Refer to the [`mosaicod` main guide](./mosaicod/README.md) for detailed instructions on building from source.
 * **Database Schema:** If you modify the database schema, you **must** run `cargo sqlx prepare` and commit the generated `.sqlx` directory.
 * **Safety:** Avoid `unsafe` blocks unless strictly necessary for FFI or zero-copy buffer handling.
 * **Style & Linting:** Your code must be formatted via `cargo fmt` and pass `cargo clippy` without warnings.
