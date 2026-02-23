@@ -1,3 +1,5 @@
+use mosaicod_core::types;
+
 #[derive(thiserror::Error, Debug)]
 pub enum FacadeError {
     #[error("unable to find `{0}`")]
@@ -6,14 +8,16 @@ pub enum FacadeError {
     MissingMetadataField(String),
     #[error("missing serialization format for resource {0}")]
     MissingSerializationFormat(String),
-    #[error("operation failed, a notification has been added to the system")]
-    FailedAndNotified,
+    #[error("operation failed, sequence notification `{0}` has been added")]
+    FailedAndNotified(i32),
+    #[error("an error occured by the system was unable to notify. original error details:\n\n")]
+    FailedAndUnableToNotify(String),
     #[error("store error :: {0}")]
     StoreError(#[from] mosaicod_store::Error),
     #[error("data serialization error :: {0}")]
     DataSerializationError(#[from] mosaicod_rw::Error),
     #[error("metadata error :: {0}")]
-    MetadataError(#[from] mosaicod_core::types::MetadataError),
+    MetadataError(#[from] types::MetadataError),
     #[error("repository error :: {0}")]
     RepositoryError(#[from] crate::Error),
     #[error("sequence locked, unable to perform modifications")]
@@ -39,11 +43,27 @@ pub enum FacadeError {
 }
 
 impl FacadeError {
+    /// Report an error due to some missing data, `msg` is used to
+    /// give additional infos about the missing data (e.g. which data are missing).
     pub fn missing_data(msg: String) -> Self {
         Self::MissingData(msg)
     }
 
+    /// The requested resource was not found
     pub fn not_found(msg: String) -> Self {
         Self::NotFound(msg)
+    }
+
+    /// Used to report a failure and a corresponding notifiction,
+    /// the notification will be used by the userts to see advanced
+    /// details about the error.
+    pub fn failed_and_notified(notify_id: i32) -> Self {
+        Self::FailedAndNotified(notify_id)
+    }
+
+    /// Used when something has failed, similar to [`FacadeError::failed_and_notified`],
+    /// but a notification has not been created.
+    pub fn failed_and_unable_to_notify(msg: String) -> Self {
+        Self::FailedAndUnableToNotify(msg)
     }
 }

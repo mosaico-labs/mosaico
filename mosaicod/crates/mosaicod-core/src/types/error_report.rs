@@ -1,3 +1,4 @@
+#[derive(Debug)]
 pub struct ErrorReport {
     header: String,
     pub errors: Vec<ErrorReportItem>,
@@ -23,6 +24,7 @@ impl Into<String> for ErrorReport {
     }
 }
 
+#[derive(Debug)]
 pub struct ErrorReportItem {
     target: String,
     error: String,

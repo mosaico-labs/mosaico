@@ -93,7 +93,7 @@ pub async fn session_finalize(client: &mut Client, session_uuid: types::Uuid) {
         "#,
             session_uuid
         )
-            .into(),
+        .into(),
     };
 
     dbg!(&action);
@@ -104,6 +104,34 @@ pub async fn session_finalize(client: &mut Client, session_uuid: types::Uuid) {
         dbg!(&result);
         let r = ActionResponse::from_body(&result.body);
         assert_eq!(r.action, "session_finalize");
+
+        assert!(r.response.as_object().is_none());
+    }
+}
+
+/// Send an action to abort the current session
+pub async fn session_abort(client: &mut Client, session_uuid: types::Uuid) {
+    let action = Action {
+        r#type: "session_abort".to_owned(),
+        body: format!(
+            r#"
+        {{
+            "session_uuid": "{}"
+        }}
+        "#,
+            session_uuid
+        )
+        .into(),
+    };
+
+    dbg!(&action);
+
+    let mut stream = client.do_action(action).await.unwrap().into_inner();
+
+    while let Some(result) = stream.message().await.expect("Problem while streaming") {
+        dbg!(&result);
+        let r = ActionResponse::from_body(&result.body);
+        assert_eq!(r.action, "session_abort");
 
         assert!(r.response.as_object().is_none());
     }
@@ -173,8 +201,7 @@ pub async fn do_put(
             "key": "{}"
         }}
         "#,
-        topic_name,
-        topic_uuid
+        topic_name, topic_uuid
     );
 
     let flight_data_stream = FlightDataEncoderBuilder::new()

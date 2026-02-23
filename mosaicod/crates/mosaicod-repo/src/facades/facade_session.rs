@@ -68,8 +68,17 @@ impl FacadeSession {
         Ok(())
     }
 
-    /// Deletes all the topics associated with this session, deletes also the sesion manifest and
-    /// the session record from the repository
+    /// Deletes all the topics associated with this session, deletes also the session manifest and
+    /// the session record from the db.
+    ///
+    /// Since the session delets involves multiple deletes across the system, topics data and
+    /// session manifest, if operation fails a notification will be created. The notification will
+    /// enable the user to manually delete dangling resources if required.
+    ///
+    /// # Errors
+    ///
+    /// * [`FacadeError::FailedAndNotified`]: if the error is correctly reported and notified.
+    /// * [`FacadeError::FailedAndUnableToNotify`]: if the notification creation faild.
     pub async fn delete(&self) -> Result<(), FacadeError> {
         let mut tx = self.repo.transaction().await?;
 
@@ -102,39 +111,52 @@ impl FacadeSession {
 
         let sequence = repo::sequence_find_by_id(&mut tx, session.sequence_id).await?;
 
-        // Deletes the session manifest
-        if let Err(e) = self
-            .store
-            .delete(
-                sequence
-                    .resource_locator()
-                    .session_manifest(&session.uuid()),
-            )
-            .await
-        {
-            error_report.errors.push(types::ErrorReportItem::new(
-                sequence.locator_name.clone(),
-                e,
-            ));
+        // Deletes the session manifest if session was previously locked (an unlocked
+        // sessions has no manifest)
+        if session.is_locked() {
+            if let Err(e) = self
+                .store
+                .delete(
+                    sequence
+                        .resource_locator()
+                        .session_manifest(&session.uuid()),
+                )
+                .await
+            {
+                error_report.errors.push(types::ErrorReportItem::new(
+                    sequence.locator_name.clone(),
+                    e,
+                ));
+            }
         }
 
         let error_occurs = error_report.has_errors();
+        let mut notify = None;
+        let mut msg = "".to_owned();
 
         // If some error occurs create a notification with all errors stacked
         if error_occurs {
-            let msg: String = error_report.into();
+            msg = error_report.into();
             let fsequence = FacadeSequence::new(
                 sequence.locator_name, //
                 self.store.clone(),
                 self.repo.clone(),
             );
-            fsequence.notify(types::NotifyType::Error, msg).await?;
+            notify = Some(
+                fsequence
+                    .notify(types::NotifyType::Error, msg.clone())
+                    .await?,
+            );
         }
 
         tx.commit().await?;
 
         if error_occurs {
-            return Err(FacadeError::FailedAndNotified);
+            if let Some(notify) = notify {
+                return Err(FacadeError::failed_and_notified(notify.id));
+            } else {
+                return Err(FacadeError::failed_and_unable_to_notify(msg));
+            }
         }
 
         Ok(())
