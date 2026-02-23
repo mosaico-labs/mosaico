@@ -28,7 +28,7 @@ arrow = { version = "57.3.0", features = ["prettyprint"] }
 arrow-cast = "57.2.0"
 arrow-flight = "57.2.0"
 arrow-schema = "57.2.0"
-parquet = "57.2.0"
+parquet = "57.3.0"
 base64 = "0.22.1"
 bincode = { version = "2.0.1", features = ["serde"] }
 bytes = "1.11.1"

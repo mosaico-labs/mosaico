@@ -108,7 +108,7 @@ Filters specific topics within a sequence.
 > [\!NOTE]
 > **Querying `user_metadata` in Topic/Sequence**
 >
-> The `user_metadata` field supports all [available operators](https://www.google.com/search?q=%23supported-operators). To query a value, access the specific metadata key using bracket notation (`[]`) and chain the desired comparison method.
+> The `user_metadata` field supports all [available operators](#supported-operators). To query a value, access the specific metadata key using bracket notation (`[]`) and chain the desired comparison method.
 >
 > For nested dictionaries, use **dot notation** (`.`) within the key string to traverse sub-fields.
 >
