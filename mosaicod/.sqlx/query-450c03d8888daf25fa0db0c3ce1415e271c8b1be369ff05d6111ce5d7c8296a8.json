@@ -15,36 +15,41 @@
       },
       {
         "ordinal": 2,
-        "name": "session_id",
+        "name": "sequence_id",
         "type_info": "Int4"
       },
       {
         "ordinal": 3,
+        "name": "session_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 4,
         "name": "locator_name",
         "type_info": "Text"
       },
       {
-        "ordinal": 4,
+        "ordinal": 5,
         "name": "locked",
         "type_info": "Bool"
       },
       {
-        "ordinal": 5,
+        "ordinal": 6,
         "name": "user_metadata",
         "type_info": "Jsonb"
       },
       {
-        "ordinal": 6,
+        "ordinal": 7,
         "name": "serialization_format",
         "type_info": "Text"
       },
       {
-        "ordinal": 7,
+        "ordinal": 8,
         "name": "ontology_tag",
         "type_info": "Text"
       },
       {
-        "ordinal": 8,
+        "ordinal": 9,
         "name": "creation_unix_tstamp",
         "type_info": "Int8"
       }
@@ -56,6 +61,7 @@
       ]
     },
     "nullable": [
+      false,
       false,
       false,
       false,

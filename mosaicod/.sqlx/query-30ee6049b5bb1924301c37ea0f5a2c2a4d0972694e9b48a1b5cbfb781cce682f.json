@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            INSERT INTO topic_t\n                (\n                    topic_uuid, session_id, locator_name, creation_unix_tstamp, \n                    serialization_format, ontology_tag, locked, user_metadata\n                ) \n            VALUES \n                ($1, $2, $3, $4, $5, $6, $7, $8) \n            RETURNING \n                *\n    ",
+  "query": "\n            INSERT INTO topic_t\n                (\n                    topic_uuid, sequence_id, session_id, locator_name, creation_unix_tstamp, \n                    serialization_format, ontology_tag, locked, user_metadata\n                ) \n            VALUES \n                ($1, $2, $3, $4, $5, $6, $7, $8, $9) \n            RETURNING \n                *\n    ",
   "describe": {
     "columns": [
       {
@@ -15,36 +15,41 @@
       },
       {
         "ordinal": 2,
-        "name": "session_id",
+        "name": "sequence_id",
         "type_info": "Int4"
       },
       {
         "ordinal": 3,
+        "name": "session_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 4,
         "name": "locator_name",
         "type_info": "Text"
       },
       {
-        "ordinal": 4,
+        "ordinal": 5,
         "name": "locked",
         "type_info": "Bool"
       },
       {
-        "ordinal": 5,
+        "ordinal": 6,
         "name": "user_metadata",
         "type_info": "Jsonb"
       },
       {
-        "ordinal": 6,
+        "ordinal": 7,
         "name": "serialization_format",
         "type_info": "Text"
       },
       {
-        "ordinal": 7,
+        "ordinal": 8,
         "name": "ontology_tag",
         "type_info": "Text"
       },
       {
-        "ordinal": 8,
+        "ordinal": 9,
         "name": "creation_unix_tstamp",
         "type_info": "Int8"
       }
@@ -52,6 +57,7 @@
     "parameters": {
       "Left": [
         "Uuid",
+        "Int4",
         "Int4",
         "Text",
         "Int8",
@@ -67,11 +73,12 @@
       false,
       false,
       false,
+      false,
       true,
       true,
       true,
       false
     ]
   },
-  "hash": "8d714ea0e425cb4872ad2b3b2121a4cc66dbde88f7a7ec5768d532f5f080883c"
+  "hash": "30ee6049b5bb1924301c37ea0f5a2c2a4d0972694e9b48a1b5cbfb781cce682f"
 }

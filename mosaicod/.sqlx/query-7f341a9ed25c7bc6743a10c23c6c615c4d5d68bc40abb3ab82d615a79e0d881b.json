@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT topic.locator_name\n        FROM topic_t AS topic\n        JOIN session_t AS session \n            ON topic.session_id = session.session_id\n        WHERE session.session_uuid = $1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "locator_name",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "7f341a9ed25c7bc6743a10c23c6c615c4d5d68bc40abb3ab82d615a79e0d881b"
+}
