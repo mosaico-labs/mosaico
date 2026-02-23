@@ -51,6 +51,7 @@ nav:
     - How-To:
       - SDK/howto/serialized_writing_from_csv.md
       - SDK/howto/serialized_writing_from_multi_csv.md
+      - SDK/howto/interleaved_writing_from_multi_topics.md
       - SDK/howto/reading.md
       - SDK/howto/streaming.md
       - Advanced:

@@ -71,7 +71,7 @@ class BatteryState(Serializable, HeaderMixin):
     """The battery serial number"""
 
     # Cell Details (Optional because some drivers don't report them)
-    cell_voltage: List[float] = []
+    cell_voltage: Optional[List[float]] = None
     """The battery cells voltage"""
-    cell_temperature: List[float] = []
+    cell_temperature: Optional[List[float]] = None
     """The battery cells temperature"""

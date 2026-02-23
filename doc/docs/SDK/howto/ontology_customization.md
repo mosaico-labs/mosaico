@@ -59,7 +59,7 @@ Create a dedicated `models.py` or `ontology/` package for your project and impor
 
 ```python
 # app/main.py
-import my_project.ontology.encoders as encoders # <-- This import triggers the registration!
+import my_project.ontology.encoders as encoders # <-- This triggers the registration
 from mosaicolabs import MosaicoClient
 
 def run_ingestion():
@@ -77,7 +77,7 @@ If you are unsure whether your model has been correctly "seen" by the ecosystem,
 
 ```python
 from mosaicolabs import Serializable
-import my_project.ontology.encoders as encoders # <-- This import triggers the registration!
+import my_project.ontology.encoders as encoders # <-- This triggers the registration
 
 if encoders.EncoderTicks.is_registered():
     print("Registration successful!")

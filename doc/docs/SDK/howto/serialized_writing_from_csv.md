@@ -12,7 +12,7 @@ You will learn how to use the Mosaico SDK for:
 
 In this example, we assume our CSV file contains the following columns:
 
-```csv title="IMU.csv"
+```csv title="imu.csv"
 timestamp, acc_x, acc_y, acc_z, gyro_x, gyro_y, gyro_z
 1110022, 0.0032, 0.001, -0.002, 0.01, 0.005, -0.003
 1111022, 0.0041, 0.002, -0.001, 0.012, 0.006, -0.004
@@ -220,7 +220,7 @@ def main():
             )
 
             # --- Push IMU Data ---
-            for msg in stream_imu_from_csv("imu_data.csv"):
+            for msg in stream_imu_from_csv("imu.csv"):
                 if msg is None:
                     # Log and skip, or raise if incomplete data is disallowed
                     print("Skipping row due to parsing error")

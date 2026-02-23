@@ -224,7 +224,7 @@ class Header(BaseModel):
     stamp: Time
     """The high-precision [`Time`][mosaicolabs.models.header.Time] of data acquisition."""
 
-    frame_id: str
+    frame_id: Optional[str] = None
     """A string identifier for the coordinate frame (spatial context)."""
 
     seq: Optional[int] = None
