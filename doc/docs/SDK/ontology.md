@@ -233,7 +233,7 @@ imu_writer.push(imu_msg)
 ```
 
 
-## Querying Data Ontology with the [Query (`.Q`) Proxy](./query.md)
+## Querying Data Ontology with the Query (`.Q`) Proxy
 
 The Mosaico SDK allows you to perform deep discovery directly on the physical content of your sensor streams. Every class inheriting from [`Serializable`][mosaicolabs.models.Serializable], including standard sensors, geometric primitives, and custom user models, is automatically injected with a static **`.Q` proxy** attribute.
 

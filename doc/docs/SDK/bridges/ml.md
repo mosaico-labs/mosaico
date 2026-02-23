@@ -5,8 +5,6 @@ description: Streamlining Data for Physical AI
 
 The **Mosaico ML** module serves as the high-performance bridge between the Mosaico Data Platform and the modern Data Science ecosystem. While the platform is optimized for high-speed raw message streaming, this module provides the abstractions necessary to transform asynchronous sensor data into tabular formats compatible with **Physical AI**, **Deep Learning**, and **Predictive Analytics**.
 
-### Data Challenges in Physical AI
-
 Working with robotics and multi-modal datasets presents three primary technical hurdles that the ML module is designed to solve:
 
 * **Heterogeneous Sampling**: Sensors like LIDAR (low frequency), IMU (high frequency), and GPS (intermittent) operate at different rates.

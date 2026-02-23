@@ -164,24 +164,25 @@ For a more in-depth explanation:
 Inside the sequence, we can stream interleaved data without loading the entire file into memory. We automatically create individual **Topic Writers** per each channel in the MCAP file to manage data streams. Each writer is an independent "lane" assigned its own internal buffer and background thread for serialization. The [`swriter.get_topic_writer`][mosaicolabs.handlers.SequenceWriter.get_topic_writer] pattern removes the need to pre-scan the file. **Topics are created only when they are first encountered**.
 
 ```python
-            # Iterate through all interleaved messages
-            for schema, channel, message in reader.iter_messages():
-                # 1. Resolve Topic Writer using the SDK cache
-                twriter = swriter.get_topic_writer(channel.topic) # (1)!
+with client.sequence_create(...) as swriter:
+    # Iterate through all interleaved messages
+    for schema, channel, message in reader.iter_messages():
+        # 1. Resolve Topic Writer using the SDK cache
+        twriter = swriter.get_topic_writer(channel.topic) # (1)!
+        
+        if twriter is None:
+            ontology_type = determine_mosaico_type(schema.name)
+            if ontology_type is None:
+                print(f"Skipping message on {channel.topic} due to unknown ontology type")
+                # Skip the topic if no ontology type is found
+                continue
                 
-                if twriter is None:
-                    ontology_type = determine_mosaico_type(schema.name)
-                    if ontology_type is None:
-                        print(f"Skipping message on {channel.topic} due to unknown ontology type")
-                        # Skip the topic if no ontology type is found
-                        continue
-                        
-                    # Dynamically register the topic writer upon discovery
-                    twriter = swriter.topic_create( # (2)!
-                        topic_name=channel.topic,
-                        metadata={},
-                        ontology_type=ontology_type
-                    )
+            # Dynamically register the topic writer upon discovery
+            twriter = swriter.topic_create( # (2)!
+                topic_name=channel.topic,
+                metadata={},
+                ontology_type=ontology_type
+            )
 ```
 
 1. Here we are checking if the a `TopicWriter` for the current topic already exists.
@@ -193,19 +194,19 @@ Inside the sequence, we can stream interleaved data without loading the entire f
 The final stage of the ingestion process involves iterating through your data generators and transmitting records to the Mosaico platform by calling the [`TopicWriter.push()`][mosaicolabs.handlers.TopicWriter.push] method for each record. The `push()` method optimizes the throughput by accumulating messages into internal batches.
 
 ```python
-                try:
-                    # In a real scenario, use a deserializer like mcap_ros2.decoder
-                    raw_data = deserialize_payload(message.data, schema.name) # (1)!
-                    mosaico_msg = custom_translator(schema.name, raw_data)
+        try:
+            # In a real scenario, use a deserializer like mcap_ros2.decoder
+            raw_data = deserialize_payload(message.data, schema.name) # (1)!
+            mosaico_msg = custom_translator(schema.name, raw_data)
 
-                    if mosaico_msg is None:
-                        # Log and skip, or raise if incomplete data is disallowed
-                        print("Skipping row due to parsing error")
-                        continue # Ignore malformed records
-                    
-                    twriter.push(message=mosaico_msg)
-                except Exception as e:
-                    print(f"Skip error on {channel.topic} at {message.log_time}: {e}")
+            if mosaico_msg is None:
+                # Log and skip, or raise if incomplete data is disallowed
+                print("Skipping row due to parsing error")
+                continue # Ignore malformed records
+            
+            twriter.push(message=mosaico_msg)
+        except Exception as e:
+            print(f"Skip error on {channel.topic} at {message.log_time}: {e}")
 
 ```
 
