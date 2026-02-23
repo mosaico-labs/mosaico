@@ -54,6 +54,11 @@ nav:
       - SDK/howto/interleaved_writing_from_multi_topics.md
       - SDK/howto/reading.md
       - SDK/howto/streaming.md
+      - SDK/howto/query_sequences.md
+      - SDK/howto/query_topics.md
+      - SDK/howto/query_data.md
+      - SDK/howto/query_multi_domain.md
+      - SDK/howto/query_chained.md
       - Advanced:
         - SDK/howto/ontology_customization.md
         - SDK/howto/ros_injection_1.md
