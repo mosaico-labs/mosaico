@@ -108,6 +108,7 @@ nav:
     - daemon/ingestion.md
     - daemon/retrieval.md
     - daemon/query.md
+    - daemon/cli.md
   - Development:
     - development/release_cycle.md
 

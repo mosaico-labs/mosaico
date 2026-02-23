@@ -1,4 +1,4 @@
-# Writing Multiple Topics (Interleaved Ingestion)
+# Writing Interleaved Topics
 
 This guide demonstrates how to ingest data from multiple topics stored within a **single file container** (such as an MCAP or a specialized binary log) into the Mosaico Data Platform. Unlike serial ingestion where files are processed one by one, interleaved ingestion handles a stream of messages from different sensors—such as IMU, GPS, and Pressure—as they appear in the source file.
 

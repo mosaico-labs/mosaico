@@ -55,11 +55,13 @@ cargo sqlx migrate run
 cargo build --release
 ```
 
-
 ## Configuration
 
 The server supports S3-compatible object storage by default but can be configured for local storage via command line options.
 
+### Database
+
+Mosaico requires a connection to a running **PostgreSQL** instance, which is defined via the `MOSAICO_REPOSITORY_DB_URL` environment variable.
 
 ### Remote Storage Configuration
 
