@@ -9,7 +9,7 @@ middleware-level metadata (like recording timestamp_ns).
 
 # --- Python Standard Library Imports ---
 from typing import Any, Dict, Optional, Type, TypeVar
-from mosaicolabs.models.header import Header
+from mosaicolabs.models.header import Header, Time
 from pydantic import PrivateAttr
 import pyarrow as pa
 import pandas as pd
@@ -115,6 +115,10 @@ class Message(BaseModel):
         # Set the timestamp
         self.timestamp_ns = timestamp
 
+        # Assign the correct timestamp to the data header (if it does not provide one)
+        if data_header is None:
+            self.data.header = Header(stamp=Time.from_nanoseconds(timestamp))
+
         self._self_model_keys = {
             field for field in self.__class__.model_fields if field != "data"
         }
@@ -197,14 +201,11 @@ class Message(BaseModel):
             raise Exception(f"Unable to obtain valid fields from kwargs: {kwargs}")
 
         # Argument Separation
-        message_fields = list(cls.model_fields.keys())
         data_fields = list(DataClass.model_fields.keys())
 
         # Extract Envelope args
         message_kwargs = {
-            key: val
-            for key, val in fixed_kwargs.items()
-            if key in message_fields and key != "data"
+            key: val for key, val in fixed_kwargs.items() if key not in data_fields
         }
         if not message_kwargs:
             raise Exception("Input kwargs missing required Message fields.")

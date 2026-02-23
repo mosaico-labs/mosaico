@@ -461,7 +461,7 @@ class RosbagInjector:
             # Register new topic on server
             twriter = seq_writer.topic_create(
                 topic_name=ros_msg.topic,
-                metadata=self.cfg.metadata,
+                metadata={},  # TODO: how-to push metadata per topic?
                 ontology_type=adapter.ontology_data_type(),
             )
             if twriter is None:

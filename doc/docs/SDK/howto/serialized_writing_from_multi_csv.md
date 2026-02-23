@@ -14,17 +14,17 @@ You will learn how to use the Mosaico SDK to:
 The following implementation defines three distinct generators to stream IMU, GPS, and Pressure data.
 In this example, we assume our CSV files contain the following columns:
 
-```csv title="IMU.csv"
+```csv title="imu.csv"
 timestamp, acc_x, acc_y, acc_z, gyro_x, gyro_y, gyro_z
 1110022, 0.0032, 0.001, -0.002, 0.01, 0.005, -0.003
 ```
 
-```csv title="GPS.csv"
+```csv title="gps.csv"
 timestamp, latitude, longitude, altitude, status, service
 1110022, 45.123456, -93.123456, 250.0, 1, 1
 ```
 
-```csv title="Pressure.csv"
+```csv title="pressure.csv"
 timestamp, pressure
 1110022, 101325.0
 ```
@@ -125,11 +125,13 @@ with MosaicoClient.connect("localhost", 6726) as client:
     with client.sequence_create(
         sequence_name="multi_sensor_ingestion",
         metadata={"mission": "alpha_test", "environment": "laboratory"},
-        on_error=OnErrorPolicy.Delete
+        on_error=OnErrorPolicy.Delete # (1)!
     ) as swriter:
         # Steps 3 and 4 (Topic Creation & serial Pushing) happen here...
 
 ```
+
+1. Mosaico supports two distinct error policies for sequences: `OnErrorPolicy.Delete` and `OnErrorPolicy.Report`.
 
 !!! warning "Context Management"
     It is **mandatory** to use the `SequenceWriter` instance returned by `client.sequence_create()` inside its own `with` context. The following code will raise an exception:
@@ -161,24 +163,28 @@ Inside the sequence, we create individual **Topic Writers** to manage data strea
 with client.sequence_create(...) as swriter:
     
     # Create dedicated Topic Writers for each sensor stream
-    imu_twriter = swriter.topic_create(
+    imu_twriter = swriter.topic_create( # (1)!
         topic_name="sensors/imu",
         metadata={"sensor_id": "accel_01"},
         ontology_type=IMU,
     )
     
-    gps_twriter = swriter.topic_create(
+    gps_twriter = swriter.topic_create( # (2)!
         topic_name="sensors/gps",
         metadata={"sensor_id": "gps_01"},
         ontology_type=GPS,
     )
     
-    pressure_twriter = swriter.topic_create(
+    pressure_twriter = swriter.topic_create( # (3)!
         topic_name="sensors/pressure",
         metadata={"sensor_id": "pressure_01"},
         ontology_type=Pressure,
     )
 ```
+
+1. Here we are creating a dedicated writer for the IMU topic
+2. Here we are creating a dedicated writer for the GPS topic
+3. Here we are creating a dedicated writer for the Pressure topic
 
 ### Step 4: Pushing Data into the Pipeline
 
@@ -186,7 +192,7 @@ The final stage of the ingestion process involves iterating through your data ge
 
 ```python
         # 1. Push IMU Data
-        for msg in stream_imu_from_csv("imu_data.csv"):
+        for msg in stream_imu_from_csv("imu.csv"):
             if msg is None:
                 # Log and skip, or raise if incomplete data is disallowed
                 print("Skipping row due to parsing error")
@@ -198,7 +204,7 @@ The final stage of the ingestion process involves iterating through your data ge
                 print(f"Error processing IMU at time: {msg.timestamp_ns}. Inner err: {e}")
 
         # 2. Push GPS Data with Custom Processing
-        for msg in stream_gps_from_csv("gps_data.csv"):
+        for msg in stream_gps_from_csv("gps.csv"):
             if msg is None:
                 # Log and skip, or raise if incomplete data is disallowed
                 print("Skipping row due to parsing error")
@@ -212,7 +218,7 @@ The final stage of the ingestion process involves iterating through your data ge
                 print(f"Error processing GPS at time: {msg.timestamp_ns}. Inner err: {e}")
 
         # 3. Push Pressure Data
-        for msg in stream_pressure_from_csv("pressure_data.csv"):
+        for msg in stream_pressure_from_csv("pressure.csv"):
             if msg is None:
                 # Log and skip, or raise if incomplete data is disallowed
                 print("Skipping row due to parsing error")
@@ -222,9 +228,6 @@ The final stage of the ingestion process involves iterating through your data ge
             except Exception as e:
                 # Log and skip, or raise if incomplete data is disallowed
                 print(f"Error processing pressure at time: {msg.timestamp_ns}. Inner err: {e}")
-
-    # All buffers are flushed and the sequence is committed when exiting the SequenceWriter 'with' block
-    print("Multi-topic ingestion completed!")
 
 ```
 
@@ -350,7 +353,7 @@ def main():
             )
 
             # --- 1. Push IMU Data ---
-            for msg in stream_imu_from_csv("imu_data.csv"):
+            for msg in stream_imu_from_csv("imu.csv"):
                 if msg is None:
                     # Log and skip, or raise if incomplete data is disallowed
                     print("Skipping row due to parsing error")
@@ -362,7 +365,7 @@ def main():
                     print(f"Error processing IMU at time: {msg.timestamp_ns}. Inner err: {e}") 
 
             # --- 2. Push GPS Data with Custom Processing ---
-            for msg in stream_gps_from_csv("gps_data.csv"):
+            for msg in stream_gps_from_csv("gps.csv"):
                 if msg is None:
                     # Log and skip, or raise if incomplete data is disallowed
                     print("Skipping row due to parsing error")
@@ -376,7 +379,7 @@ def main():
                     print(f"Error processing GPS at time: {msg.timestamp_ns}. Inner err: {e}")
 
             # --- 3. Push Pressure Data ---
-            for msg in stream_pressure_from_csv("pressure_data.csv"):
+            for msg in stream_pressure_from_csv("pressure.csv"):
                 if msg is None:
                     # Log and skip, or raise if incomplete data is disallowed
                     print("Skipping row due to parsing error")
