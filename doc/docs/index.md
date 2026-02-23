@@ -77,7 +77,7 @@ To visualize this, think of a *ROS bag* or a recording of a robot's run. The rec
 
 Mosaico follows a client-server architecture where users interact with the platform through the Python SDK to query, read, and write data. The SDK communicates with the Mosaico daemon a.k.a. `mosaicod`, a high-performance server written in Rust, using [Apache Arrow](https://arrow.apache.org/) for efficient columnar data exchange without serialization overhead.
 
-`mosaicod` daemon handles all core data operations including [ingestion](daemon/ingestion.md), [retrieval](daemon/retrieval.md), and [query](daemon/query.md). It uses a database instance to accelerate metadata queries, manage system state, and implement an event queue for processing asynchronous tasks. Data files themselves are stored in an object store (such as S3, MinIO, or local filesystem) for durable, long-term persistence and scalability.
+`mosaicod` daemon handles all core data operations including [ingestion](daemon/ingestion.md), [retrieval](daemon/retrieval.md), and [query](daemon/query.md). It uses a database instance to accelerate metadata queries, manage system state, and implement an event queue for processing asynchronous tasks. Data files themselves are stored in an [object store](https://en.wikipedia.org/wiki/Object_storage) (such as [S3](https://aws.amazon.com/s3/), [MinIO](https://www.min.io/), or local filesystem) for durable, long-term persistence and scalability.
 
 This design enables Mosaico to efficiently manage complex multi-modal sensor data while providing a simple, code-first interface for developers.
 

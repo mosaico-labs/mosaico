@@ -11,13 +11,13 @@ It functions on a standard client-server model, mediating between your high-leve
 
 ## Architectural Design
 
-`mosaicod` is architected atop the [Apache Arrow Flight](https://arrow.apache.org/docs/format/Flight.html) protocol. Apache Arrow Flight is a general-purpose, high-performance client-server framework developed for the exchange of massive datasets. It operates directly on [Apache Arrow](https://arrow.apache.org/) columnar data, enabling efficient transport over gRPC without the overhead of serialization.
+`mosaicod` is architected atop the [Apache Arrow Flight](https://arrow.apache.org/docs/format/Flight.html) protocol. Apache Arrow Flight is a general-purpose, high-performance client-server framework developed for the exchange of massive datasets. It operates directly on [Apache Arrow](https://arrow.apache.org/) columnar data, enabling efficient transport over [gRPC](https://grpc.io/) without the overhead of serialization.
 
 Unlike traditional REST APIs which serialize data into text-based JSON, Flight is designed specifically for high-throughput data systems. This architectural choice provides Mosaico with three critical advantages:
 
 **Zero-Copy Serialization.** Data is transmitted in the Arrow columnar format, the exact same format used in-memory by modern analytics tools like pandas and Polars. This eliminates the CPU-heavy cost of serializing and deserializing data at every hop.
 
-**Parallelized Transport.** Operations are not bound to a single pipe; data transfer can be striped across multiple TCP connections to saturate available bandwidth.
+**Parallelized Transport.** Operations are not bound to a single pipe; data transfer can be striped across multiple connections to saturate available bandwidth.
 
 **Snapshot-Based Schema Enforcement.** Data types are not guessed, nor are they forced into a rigid global model. Instead, the protocol enforces a rigorous schema handshake that validates data against a specific schema snapshot stored with the sequence.
 

@@ -44,10 +44,10 @@ from mosaicolabs import (
     Pressure, # The Pressure sensor data class
 )
 
-"""
-Define the generator functions that yield `Message` objects.
-For each file, open the reading process and yield the messages one by one.
-"""
+
+# Define the generator functions that yield `Message` objects.
+# For each file, open the reading process and yield the messages one by one.
+
 
 def stream_imu_from_csv(file_path: str, chunk_size: int = 1000):
     for chunk in pd.read_csv(file_path, chunksize=chunk_size):

@@ -94,21 +94,21 @@ Unlike standard resamplers that treat each data batch in isolation, this transfo
 
 
 ### Implemented Synchronization Policies
-API Reference: [`mosaicolabs.ml.SynchPolicy`][mosaicolabs.ml.SyncPolicy]
+API Reference: [`mosaicolabs.ml.SyncPolicy`][mosaicolabs.ml.SyncPolicy]
 
 Each policy defines a specific logic for how the transformer bridges temporal gaps between sparse data points.
 
-#### 1. **[`SyncHold`][mosaicolabs.ml.SyncPolicy.SyncHold]** (Last-Value-Hold)
+#### 1. **[`SyncHold`][mosaicolabs.ml.SyncHold]** (Last-Value-Hold)
 
 * **Behavior**: Finds the most recent valid measurement and "holds" it constant until a new one arrives.
 * **Best For**: Sensors where states remain valid until explicitly changed, such as robot joint positions or battery levels.
 
-#### 2. **[`SyncAsOf`][[mosaicolabs.ml.SyncPolicy.SyncAsOf]** (Staleness Guard)
+#### 2. **[`SyncAsOf`][mosaicolabs.ml.SyncAsOf]** (Staleness Guard)
 
 * **Behavior**: Carries the last known value forward only if it has not exceeded a defined maximum "tolerance" (fresher than a specific age).
 * **Best For**: High-speed signals that become unreliable if not updated frequently, such as localization coordinates.
 
-#### 3. **[`SyncDrop`][mosaicolabs.ml.SyncPolicy.SyncDrop]** (Interval Filter)
+#### 3. **[`SyncDrop`][mosaicolabs.ml.SyncDrop]** (Interval Filter)
 
 * **Behavior**: Ensures a grid tick only receives a value if a new measurement actually occurred within that specific grid interval; otherwise, it returns `None`.
 * **Best For**: Downsampling high-frequency data where a strict 1-to-1 relationship between windows and unique hardware events is required.
