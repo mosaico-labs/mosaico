@@ -17,19 +17,21 @@ pub async fn do_action(ctx: Context, action: ActionRequest) -> Result<ActionResp
         // Sequence
         ActionRequest::SequenceCreate(data) => {
             let user_metadata = data.user_metadata()?;
-            sequence::create(&ctx, data.name, user_metadata.as_str()).await
+            sequence::create(&ctx, data.locator, user_metadata.as_str()).await
         }
-        ActionRequest::SequenceDelete(data) => sequence::delete(&ctx, data.name).await,
+        ActionRequest::SequenceDelete(data) => sequence::delete(&ctx, data.locator).await,
         ActionRequest::SequenceNotifyCreate(data) => {
-            sequence::notify_create(&ctx, data.name, data.notify_type, data.msg).await
+            sequence::notify_create(&ctx, data.locator, data.notify_type, data.msg).await
         }
-        ActionRequest::SequenceNotifyList(data) => sequence::notify_list(&ctx, data.name).await,
-        ActionRequest::SequenceNotifyPurge(data) => sequence::notify_purge(&ctx, data.name).await,
-        ActionRequest::SequenceSystemInfo(data) => sequence::system_info(&ctx, data.name).await,
+        ActionRequest::SequenceNotifyList(data) => sequence::notify_list(&ctx, data.locator).await,
+        ActionRequest::SequenceNotifyPurge(data) => {
+            sequence::notify_purge(&ctx, data.locator).await
+        }
+        ActionRequest::SequenceSystemInfo(data) => sequence::system_info(&ctx, data.locator).await,
 
         // ///////
         // Session
-        ActionRequest::SessionCreate(data) => session::create(&ctx, data.name).await,
+        ActionRequest::SessionCreate(data) => session::create(&ctx, data.locator).await,
         ActionRequest::SessionFinalize(data) => session::finalize(&ctx, data.session_uuid).await,
         ActionRequest::SessionAbort(data) => session::abort(&ctx, data.session_uuid).await,
 
@@ -39,7 +41,7 @@ pub async fn do_action(ctx: Context, action: ActionRequest) -> Result<ActionResp
             let user_metadata = data.user_metadata()?;
             topic::create(
                 &ctx,
-                data.name,
+                data.locator,
                 data.session_uuid,
                 data.serialization_format.into(),
                 data.ontology_tag,
@@ -47,13 +49,13 @@ pub async fn do_action(ctx: Context, action: ActionRequest) -> Result<ActionResp
             )
             .await
         }
-        ActionRequest::TopicDelete(data) => topic::delete(&ctx, data.name).await,
+        ActionRequest::TopicDelete(data) => topic::delete(&ctx, data.locator).await,
         ActionRequest::TopicNotifyCreate(data) => {
-            topic::notify_create(&ctx, data.name, data.notify_type, data.msg).await
+            topic::notify_create(&ctx, data.locator, data.notify_type, data.msg).await
         }
-        ActionRequest::TopicNotifyList(data) => topic::notify_list(&ctx, data.name).await,
-        ActionRequest::TopicNotifyPurge(data) => topic::notify_purge(&ctx, data.name).await,
-        ActionRequest::TopicSystemInfo(data) => topic::system_info(&ctx, data.name).await,
+        ActionRequest::TopicNotifyList(data) => topic::notify_list(&ctx, data.locator).await,
+        ActionRequest::TopicNotifyPurge(data) => topic::notify_purge(&ctx, data.locator).await,
+        ActionRequest::TopicSystemInfo(data) => topic::system_info(&ctx, data.locator).await,
 
         // /////
         // Layer

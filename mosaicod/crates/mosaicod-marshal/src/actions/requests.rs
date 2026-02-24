@@ -12,7 +12,7 @@ pub struct Empty {}
 /// Specialized message used to create a new sequence in the platform
 #[derive(Deserialize, Debug)]
 pub struct SequenceCreate {
-    pub name: String,
+    pub locator: String,
     user_metadata: serde_json::Value,
 }
 
@@ -29,7 +29,7 @@ impl SequenceCreate {
 /// Specialized message used to create a new sequence in the platform
 #[derive(Deserialize, Debug)]
 pub struct TopicCreate {
-    pub name: String,
+    pub locator: String,
     pub session_uuid: String,
     pub serialization_format: Format,
     pub ontology_tag: String,
@@ -50,18 +50,18 @@ impl TopicCreate {
 /// Request used to locate a specific resource by name.
 #[derive(Deserialize, Debug)]
 pub struct ResourceLocator {
-    pub name: String,
+    pub locator: String,
 }
 
 /// Request used to locate a resource deterministically,
 /// by combining the resource name and a unique key.
 /// Used for topics, sequences, or other uuid resources.
-#[derive(Deserialize, Debug)]
-pub struct UploadToken {
-    pub name: String,
-    pub uuid: String,
-}
-
+// #[derive(Deserialize, Debug)]
+// pub struct UploadToken {
+//     pub name: String,
+//     pub uuid: String,
+// }
+//
 /// Request used to identify a session with its uuid.
 #[derive(Deserialize, Debug)]
 pub struct SessionUuid {
@@ -75,7 +75,7 @@ pub struct SessionUuid {
 /// Generic request message used to create nofifications
 #[derive(Deserialize, Debug)]
 pub struct NotifyCreate {
-    pub name: String,
+    pub locator: String,
     pub notify_type: String,
     pub msg: String,
 }
