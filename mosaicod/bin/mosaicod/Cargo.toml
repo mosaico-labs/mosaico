@@ -9,7 +9,7 @@ name = "mosaicod"
 
 [dependencies]
 mosaicod-core = { workspace = true }
-mosaicod-repo = { workspace = true }
+mosaicod-db = { workspace = true }
 mosaicod-store = { workspace = true }
 mosaicod-server = { workspace = true }
 

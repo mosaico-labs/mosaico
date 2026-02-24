@@ -1,6 +1,6 @@
 use super::flight;
 use log::{error, info, trace};
-use mosaicod_repo as repo;
+use mosaicod_db as db;
 use mosaicod_store as store;
 
 /// Mosaico server.
@@ -15,16 +15,16 @@ pub struct Server {
     /// Store engine
     store: store::StoreRef,
     /// Repository configuration params
-    pub repo_config: repo::Config,
+    pub db_config: db::Config,
 }
 
 impl Server {
-    pub fn new(host: bool, port: u16, store: store::StoreRef, repo_config: repo::Config) -> Self {
+    pub fn new(host: bool, port: u16, store: store::StoreRef, db_config: db::Config) -> Self {
         Self {
             host,
             port,
             store,
-            repo_config,
+            db_config,
             shutdown: flight::ShutdownNotifier::default(),
         }
     }
@@ -36,7 +36,7 @@ impl Server {
     /// This method startup a Tokio runtime to handle async operations.
     ///
     /// Since the `repo` requires an async context to be initialized,
-    /// the initialization of the [`repo::Repository`] is done inside this method.
+    /// the initialization of the [`db::Database`] is done inside this method.
     pub fn start_and_wait<F>(&self, on_start: F) -> Result<(), Box<dyn std::error::Error>>
     where
         F: FnOnce(),
@@ -60,20 +60,20 @@ impl Server {
 
         // Repo connection needs to be done in a async context
         // this is the main reason for which in Server::new we pass
-        // `repo::Config` instead of the repo directly.
+        // `db::Config` instead of the repo directly.
         info!("startup repository connection (database)");
         let repo = rt.block_on(async {
-            let repo = repo::Repository::try_new(&self.repo_config)
+            let repo = db::Database::try_new(&self.db_config)
                 .await
                 .inspect_err(|e| error!("{}", e))?;
 
             // Bootstrap logic
             info!("repository initialization");
             let mut tx = repo.transaction().await?;
-            repo::layer_bootstrap(&mut tx).await?;
+            db::layer_bootstrap(&mut tx).await?;
             tx.commit().await?;
 
-            Ok::<repo::Repository, Box<dyn std::error::Error>>(repo)
+            Ok::<db::Database, Box<dyn std::error::Error>>(repo)
         })?;
 
         let store = self.store.clone();

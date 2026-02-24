@@ -4,7 +4,7 @@ use crate::{endpoints::Context, errors::ServerError};
 use log::{info, warn};
 use mosaicod_core::types;
 use mosaicod_marshal::ActionResponse;
-use mosaicod_repo::FacadeLayer;
+use mosaicod_facade::Layer;
 
 /// Creates a new layer with the given name and description.
 pub async fn create(
@@ -14,7 +14,7 @@ pub async fn create(
 ) -> Result<ActionResponse, ServerError> {
     info!("creating layer `{}`", name);
 
-    let handle = FacadeLayer::new(
+    let handle = Layer::new(
         types::LayerLocator::from(name.as_str()),
         ctx.store.clone(),
         ctx.repo.clone(),
@@ -28,7 +28,7 @@ pub async fn create(
 pub async fn delete(ctx: &Context, name: String) -> Result<ActionResponse, ServerError> {
     warn!("deleting layer `{}`", name);
 
-    let handle = FacadeLayer::new(
+    let handle = Layer::new(
         types::LayerLocator::from(name.as_str()),
         ctx.store.clone(),
         ctx.repo.clone(),
@@ -50,7 +50,7 @@ pub async fn update(
         prev_name, curr_name, curr_description
     );
 
-    let handle = FacadeLayer::new(
+    let handle = Layer::new(
         types::LayerLocator::from(prev_name.as_str()),
         ctx.store.clone(),
         ctx.repo.clone(),
@@ -69,7 +69,7 @@ pub async fn update(
 pub async fn list(ctx: &Context) -> Result<ActionResponse, ServerError> {
     info!("request layer list");
 
-    let layers = FacadeLayer::all(ctx.repo.clone()).await?;
+    let layers = Layer::all(ctx.repo.clone()).await?;
 
     Ok(ActionResponse::LayerList(layers.into()))
 }

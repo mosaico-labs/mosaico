@@ -1,6 +1,6 @@
 use arrow_flight::flight_service_client::FlightServiceClient;
 use mosaicod_core::params;
-use mosaicod_repo as repo;
+use mosaicod_db as db;
 use mosaicod_server::{self as server, flight::ShutdownNotifier};
 use mosaicod_store as store;
 use serde::Deserialize;
@@ -25,13 +25,13 @@ pub fn format_endpoint(host: &str, port: u16) -> String {
 async fn start_server(
     host: &str,
     port: u16,
-    pool: sqlx::Pool<repo::Database>,
+    pool: sqlx::Pool<db::DatabaseType>,
     shutdown: ShutdownNotifier,
 ) -> tokio::task::JoinHandle<()> {
     // Ensure that params are loaded
     params::load_configurables_from_env();
 
-    let repo = repo::testing::Repository::new(pool);
+    let repo = db::testing::Database::new(pool);
     let store = store::testing::Store::new_random_on_tmp().unwrap();
     let config = server::flight::Config {
         host: host.to_owned(),
@@ -58,9 +58,9 @@ async fn start_server(
 /// ### Usage:
 /// ```no_run
 /// use tests::common;
-/// use mosaicod_repo as repo;
+/// use mosaicod_db as db;
 ///
-/// async fn test(pool: sqlx::Pool<repo::Database>) {
+/// async fn test(pool: sqlx::Pool<db::DatabaseType>) {
 ///     let port = common::random_port();
 ///     let server = common::Server::new(common::HOST, port, pool).await;
 ///     // ... run tests ...
@@ -74,7 +74,7 @@ pub struct Server {
 
 impl Server {
     /// Creates and starts a new Flight server on the specified host and port.
-    pub async fn new(host: &str, port: u16, pool: sqlx::Pool<repo::Database>) -> Self {
+    pub async fn new(host: &str, port: u16, pool: sqlx::Pool<db::DatabaseType>) -> Self {
         let shutdown = ShutdownNotifier::default();
         Self {
             server_join_handle: start_server(host, port, pool, shutdown.clone()).await,

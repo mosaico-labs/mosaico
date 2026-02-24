@@ -7,8 +7,9 @@ use futures::TryStreamExt;
 use log::{info, trace};
 use mosaicod_core::types;
 use mosaicod_marshal as marshal;
-use mosaicod_repo as repo;
 use mosaicod_rw as rw;
+use mosaicod_facade as facade;
+use mosaicod_db as db;
 
 pub async fn do_put(ctx: Context, decoder: &mut FlightDataDecoder) -> Result<(), ServerError> {
     let (cmd, schema) = extract_command_and_schema_from_header_message(decoder).await?;
@@ -73,7 +74,7 @@ async fn do_put_topic_data(
 
     mosaicod_ext::arrow::check_schema(&schema)?;
 
-    let mut handle = repo::FacadeTopic::new(locator, ctx.store.clone(), ctx.repo.clone());
+    let mut handle = facade::Topic::new(locator, ctx.store.clone(), ctx.repo.clone());
 
     // perform the match between received key and topic id
     let r_id = handle.resource_id().await?;
@@ -153,14 +154,14 @@ async fn do_put_topic_data(
 }
 
 async fn on_chunk_created(
-    repo: repo::Repository,
+    repo: db::Database,
     topic_id: i32,
     ontology_tag: &str,
     target_path: impl AsRef<std::path::Path>,
     cstats: types::OntologyModelStats,
     chunk_metadata: rw::ChunkMetadata,
 ) -> Result<(), ServerError> {
-    let mut handle = repo::FacadeChunk::create(
+    let mut handle = facade::Chunk::create(
         topic_id,
         &target_path,
         chunk_metadata.size_bytes as i64,

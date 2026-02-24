@@ -1,5 +1,5 @@
 use mosaicod_query as query;
-use mosaicod_repo as repo;
+use mosaicod_db as db;
 use mosaicod_store as store;
 
 /// Shared context for all endpoint handlers.
@@ -9,14 +9,14 @@ use mosaicod_store as store;
 #[derive(Clone)]
 pub struct Context {
     pub store: store::StoreRef,
-    pub repo: repo::Repository,
+    pub repo: db::Database,
     pub timeseries_querier: query::TimeseriesRef,
 }
 
 impl Context {
     pub fn new(
         store: store::StoreRef,
-        repo: repo::Repository,
+        repo: db::Database,
         ts_gw: query::TimeseriesRef,
     ) -> Self {
         Self {

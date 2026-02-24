@@ -7,7 +7,7 @@ use clap::{Args, Parser, Subcommand};
 use dotenv::dotenv;
 use log::{debug, error, info, trace, warn};
 use mosaicod_core::params;
-use mosaicod_repo as repo;
+use mosaicod_db as db;
 use mosaicod_server as server;
 use mosaicod_store as store;
 use std::{env, sync::Arc, thread, time::Instant};
@@ -110,7 +110,7 @@ fn run(startup_time: &Instant) -> Result<(), Box<dyn std::error::Error>> {
                 args.host,
                 args.port,
                 store,
-                repo::Config {
+                db::Config {
                     db_url: vars.repository_db_url.clone(),
                 },
             );

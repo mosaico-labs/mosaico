@@ -2575,7 +2575,7 @@ dependencies = [
  "log",
  "mimalloc",
  "mosaicod-core",
- "mosaicod-repo",
+ "mosaicod-db",
  "mosaicod-server",
  "mosaicod-store",
  "signal-hook",
@@ -2595,6 +2595,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "mosaicod-db"
+version = "0.2.0"
+dependencies = [
+ "log",
+ "mosaicod-core",
+ "mosaicod-marshal",
+ "mosaicod-query",
+ "serde_json",
+ "sqlx",
+ "thiserror",
+ "url",
+ "uuid",
+]
+
+[[package]]
 name = "mosaicod-ext"
 version = "0.2.0"
 dependencies = [
@@ -2603,6 +2618,25 @@ dependencies = [
  "arrow-schema",
  "mosaicod-core",
  "thiserror",
+]
+
+[[package]]
+name = "mosaicod-facade"
+version = "0.2.0"
+dependencies = [
+ "arrow",
+ "bytes",
+ "futures",
+ "log",
+ "mosaicod-core",
+ "mosaicod-db",
+ "mosaicod-marshal",
+ "mosaicod-query",
+ "mosaicod-rw",
+ "mosaicod-store",
+ "sqlx",
+ "thiserror",
+ "tokio",
 ]
 
 [[package]]
@@ -2636,27 +2670,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "mosaicod-repo"
-version = "0.2.0"
-dependencies = [
- "arrow",
- "bytes",
- "futures",
- "log",
- "mosaicod-core",
- "mosaicod-marshal",
- "mosaicod-query",
- "mosaicod-rw",
- "mosaicod-store",
- "serde_json",
- "sqlx",
- "thiserror",
- "tokio",
- "url",
- "uuid",
-]
-
-[[package]]
 name = "mosaicod-rw"
 version = "0.2.0"
 dependencies = [
@@ -2682,10 +2695,11 @@ dependencies = [
  "futures",
  "log",
  "mosaicod-core",
+ "mosaicod-db",
  "mosaicod-ext",
+ "mosaicod-facade",
  "mosaicod-marshal",
  "mosaicod-query",
- "mosaicod-repo",
  "mosaicod-rw",
  "mosaicod-store",
  "serde_json",
@@ -4042,8 +4056,8 @@ dependencies = [
  "arrow-flight",
  "futures",
  "mosaicod-core",
+ "mosaicod-db",
  "mosaicod-ext",
- "mosaicod-repo",
  "mosaicod-server",
  "mosaicod-store",
  "rand 0.9.2",

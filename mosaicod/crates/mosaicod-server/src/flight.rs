@@ -12,7 +12,7 @@ use log::{error, trace};
 use mosaicod_core::params;
 use mosaicod_marshal as marshal;
 use mosaicod_query as query;
-use mosaicod_repo as repo;
+use mosaicod_db as db;
 use mosaicod_store as store;
 use std::sync::Arc;
 use tokio::sync::Notify;
@@ -50,7 +50,7 @@ pub struct Config {
 pub async fn start(
     config: Config,
     store: store::StoreRef,
-    repo: repo::Repository,
+    repo: db::Database,
     shutdown: Option<ShutdownNotifier>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let addr = format!("{}:{}", config.host, config.port).parse()?;
@@ -80,12 +80,12 @@ pub async fn start(
 
 struct MosaicoFlightService {
     store: store::StoreRef,
-    repo: repo::Repository,
+    repo: db::Database,
     ts_gw: query::TimeseriesRef,
 }
 
 impl MosaicoFlightService {
-    pub fn try_new(store: store::StoreRef, repo: repo::Repository) -> Result<Self, String> {
+    pub fn try_new(store: store::StoreRef, repo: db::Database) -> Result<Self, String> {
         let ts_gw = Arc::new(query::Timeseries::try_new(store.clone()).map_err(|e| e.to_string())?);
 
         Ok(MosaicoFlightService { store, repo, ts_gw })
