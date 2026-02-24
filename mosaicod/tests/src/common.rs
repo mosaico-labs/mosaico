@@ -29,7 +29,7 @@ async fn start_server(
     shutdown: ShutdownNotifier,
 ) -> tokio::task::JoinHandle<()> {
     // Ensure that params are loaded
-    params::load_configurables_from_env();
+    params::load_params_from_env().unwrap();
 
     let repo = repo::testing::Repository::new(pool);
     let store = store::testing::Store::new_random_on_tmp().unwrap();

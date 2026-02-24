@@ -60,8 +60,8 @@ pub async fn start(
     let svc = FlightServiceServer::new(service);
 
     let server = Server::builder().add_service(
-        svc.max_decoding_message_size(params::configurables().max_message_size_in_bytes)
-            .max_encoding_message_size(params::configurables().max_message_size_in_bytes),
+        svc.max_decoding_message_size(params::params().max_message_size_in_bytes)
+            .max_encoding_message_size(params::params().max_message_size_in_bytes),
     );
 
     if let Some(shutdown_notifier) = shutdown {

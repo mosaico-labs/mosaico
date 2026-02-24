@@ -36,8 +36,9 @@ pub enum Error {
     RetrieveError(String, String),
 }
 
+/// Reuired and configurables parameters of mosaico
 #[derive(Debug)]
-pub struct ConfigurablesParams {
+pub struct Params {
     pub max_message_size_in_bytes: usize,
     pub target_message_size_in_bytes: usize,
     /// Maximum number of concurrent chunk queries during data catalog filtering
@@ -48,36 +49,65 @@ pub struct ConfigurablesParams {
     /// When a chunk exceeds this size, it is finalized and a new chunk is started.
     /// A value of 0 means unlimited (no automatic splitting).
     pub max_chunk_size_in_bytes: usize,
+
+    /// Path holding the location of a file that hold both
+    /// the certificate and the key file.
+    ///
+    /// The concatenation is a simple textual contatenation like
+    /// `cat cart.pem key.pem > cert_key.pem`.
+    pub cert_key_file: String,
+
+    pub db_url: String,
+
+    pub store_endpoint: String,
+    pub store_bucket: String,
+    pub store_secret_key: Hidden,
+    pub store_access_key: String,
 }
 
-static ENV: OnceLock<ConfigurablesParams> = OnceLock::new();
-
-pub fn configurables() -> &'static ConfigurablesParams {
-    ENV.get().expect("paramenters not initializes, plase call `params::load_configurables_from_env()` before accessing and env variable.")
-}
-
-pub fn load_configurables_from_env() {
-    let ev = ConfigurablesParams {
-        max_message_size_in_bytes: cast_env_var(
+pub fn load_params_from_env() -> Result<(), Error> {
+    let ev = Params {
+        // buffering
+        max_message_size_in_bytes: optional(
             "MOSAICOD_MAX_MESSAGE_SIZE_IN_BYTES",
             (50 * 1024 * 1024) as usize,
         ),
-        target_message_size_in_bytes: cast_env_var(
+        target_message_size_in_bytes: optional(
             "MOSAICOD_TARGET_MESSAGE_SIZE_IN_BYTES",
             25 * 1024 * 1024,
         ),
-        max_concurrent_chunk_queries: cast_env_var("MOSAICOD_MAX_CONCURRENT_CHUNK_QUERIES", 4),
-        max_db_connections: cast_env_var("MOSAICOD_MAX_DB_CONNECTIONS", 10),
-        max_chunk_size_in_bytes: cast_env_var(
+        max_concurrent_chunk_queries: optional("MOSAICOD_MAX_CONCURRENT_CHUNK_QUERIES", 4),
+        max_db_connections: optional("MOSAICOD_MAX_DB_CONNECTIONS", 10),
+        max_chunk_size_in_bytes: optional(
             "MOSAICOD_MAX_CHUNK_SIZE_IN_BYTES",
             256 * 1024 * 1024, // 256 MiB default
         ),
+
+        // tls
+        cert_key_file: optional("MOSAICOD_CERT_KEY_FILE", "".to_owned()),
+
+        // database
+        db_url: required("MOSAICOD_DB_URL")?,
+
+        // store
+        store_endpoint: required("MOSAICOD_STORE_ENDPOINT")?,
+        store_bucket: required("MOSAICOD_STORE_BUCKET")?,
+        store_secret_key: Hidden::from(required::<String>("MOSAICOD_STORE_SECRET_KEY")?),
+        store_access_key: required("MOSAICOD_STORE_ACCESS_KEY")?,
     };
 
     let _ = ENV.set(ev);
+
+    Ok(())
 }
 
-fn cast_env_var<T>(name: &str, default: T) -> T
+static ENV: OnceLock<Params> = OnceLock::new();
+
+pub fn params() -> &'static Params {
+    ENV.get().expect("paramenters not initializes, plase call `params::load_configurables_from_env()` before accessing and env variable.")
+}
+
+fn optional<T>(name: &str, default: T) -> T
 where
     T: std::str::FromStr,
     <T as FromStr>::Err: std::fmt::Debug,
@@ -90,7 +120,7 @@ where
     }
 }
 
-pub fn require_env_var<T>(name: &str) -> Result<T, Error>
+fn required<T>(name: &str) -> Result<T, Error>
 where
     T: std::str::FromStr,
     <T as FromStr>::Err: std::fmt::Debug,

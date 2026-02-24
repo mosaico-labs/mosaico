@@ -55,38 +55,30 @@ fn load_env_variables() -> Result<Variables, Box<dyn std::error::Error>> {
     info!("Loading .env file");
     dotenv().ok();
 
-    params::load_configurables_from_env();
+    params::load_params_from_env()?;
 
-    if params::configurables().max_chunk_size_in_bytes == 0 {
+    if params::params().max_chunk_size_in_bytes == 0 {
         warn!(
-            "MOSAICO_MAX_CHUNK_SIZE_IN_BYTES=0: automatic chunk splitting is disabled. \
-             Large uploads may cause high memory usage."
+            "max size in bytes is 0: automatic chunk splitting is disabled. Large uploads may cause high memory usage."
         );
     }
 
-    let repository_db_url: String = params::require_env_var("MOSAICO_REPOSITORY_DB_URL")?;
-    let repository_db_url: url::Url = repository_db_url.parse()?;
+    let repository_db_url: url::Url = params::params().db_url.parse()?;
 
     let vars = Variables { repository_db_url };
 
-    debug!("{:#?}", params::configurables());
+    debug!("{:#?}", params::params());
     debug!("{:#?}", vars);
 
     Ok(vars)
 }
 
 fn load_remote_store_vars() -> Result<store::S3Config, Box<dyn std::error::Error>> {
-    let store_endpoint: String = params::require_env_var("MOSAICO_STORE_ENDPOINT")?;
-    let store_bucket: String = params::require_env_var("MOSAICO_STORE_BUCKET")?;
-    let secret_key: String = params::require_env_var("MOSAICO_STORE_SECRET_KEY")?;
-    let store_secret_key = params::Hidden::from(secret_key);
-    let store_access_key: String = params::require_env_var("MOSAICO_STORE_ACCESS_KEY")?;
-
     let vars = store::S3Config {
-        endpoint: store_endpoint,
-        bucket: store_bucket,
-        secret_key: store_secret_key,
-        access_key: store_access_key,
+        endpoint: params::params().store_endpoint.clone(),
+        bucket: params::params().store_bucket.clone(),
+        secret_key: params::params().store_secret_key.clone(),
+        access_key: params::params().store_access_key.clone(),
     };
 
     debug!("{:#?}", vars);
