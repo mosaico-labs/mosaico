@@ -5,7 +5,7 @@ use mosaicod_core::{
     types,
 };
 
-/// Initializes the repository layer structure.
+/// Initializes the database layer structure.
 ///
 /// This function ensures that the default layer is always defined.
 pub async fn layer_bootstrap(exec: &mut impl AsExec) -> Result<(), Error> {
@@ -33,7 +33,7 @@ pub async fn layer_bootstrap(exec: &mut impl AsExec) -> Result<(), Error> {
     Ok(())
 }
 
-/// Creates a new layer in the repository
+/// Creates a new layer in the database
 pub async fn layer_create(
     exec: &mut impl AsExec,
     layer: types::Layer,
@@ -53,7 +53,7 @@ pub async fn layer_create(
     Ok(res)
 }
 
-/// Deletes a new layer in the repository, the layer can be deleted only if there are no indexes
+/// Deletes a new layer in the database, the layer can be deleted only if there are no indexes
 /// associated with him
 pub async fn layer_delete(exec: &mut impl AsExec, layer_id: i32) -> Result<(), Error> {
     sqlx::query!("DELETE FROM layer_t WHERE layer_id=$1", layer_id)

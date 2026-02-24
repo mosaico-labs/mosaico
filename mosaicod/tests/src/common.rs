@@ -31,7 +31,7 @@ async fn start_server(
     // Ensure that params are loaded
     params::load_configurables_from_env();
 
-    let repo = db::testing::Database::new(pool);
+    let database = db::testing::Database::new(pool);
     let store = store::testing::Store::new_random_on_tmp().unwrap();
     let config = server::flight::Config {
         host: host.to_owned(),
@@ -40,7 +40,7 @@ async fn start_server(
 
     let handle = tokio::task::spawn(async move {
         if let Err(err) =
-            server::flight::start(config, (*store).clone(), (*repo).clone(), Some(shutdown)).await
+            server::flight::start(config, (*store).clone(), (*database).clone(), Some(shutdown)).await
         {
             panic!("flight server error: {}", err);
         }

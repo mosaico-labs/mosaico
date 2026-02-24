@@ -50,12 +50,12 @@ pub struct Config {
 pub async fn start(
     config: Config,
     store: store::StoreRef,
-    repo: db::Database,
+    db: db::Database,
     shutdown: Option<ShutdownNotifier>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let addr = format!("{}:{}", config.host, config.port).parse()?;
 
-    let service = MosaicoFlightService::try_new(store, repo)?;
+    let service = MosaicoFlightService::try_new(store, db)?;
 
     let svc = FlightServiceServer::new(service);
 
@@ -80,19 +80,19 @@ pub async fn start(
 
 struct MosaicoFlightService {
     store: store::StoreRef,
-    repo: db::Database,
+    db: db::Database,
     ts_gw: query::TimeseriesRef,
 }
 
 impl MosaicoFlightService {
-    pub fn try_new(store: store::StoreRef, repo: db::Database) -> Result<Self, String> {
+    pub fn try_new(store: store::StoreRef, db: db::Database) -> Result<Self, String> {
         let ts_gw = Arc::new(query::Timeseries::try_new(store.clone()).map_err(|e| e.to_string())?);
 
-        Ok(MosaicoFlightService { store, repo, ts_gw })
+        Ok(MosaicoFlightService { store, db, ts_gw })
     }
 
     pub fn context(&self) -> endpoints::Context {
-        endpoints::Context::new(self.store.clone(), self.repo.clone(), self.ts_gw.clone())
+        endpoints::Context::new(self.store.clone(), self.db.clone(), self.ts_gw.clone())
     }
 }
 #[tonic::async_trait]

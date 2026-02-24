@@ -43,7 +43,7 @@ enum Commands {
 
 #[derive(Debug)]
 struct Variables {
-    repository_db_url: url::Url,
+    database_url: url::Url,
 }
 
 fn init_logger() {
@@ -64,10 +64,10 @@ fn load_env_variables() -> Result<Variables, Box<dyn std::error::Error>> {
         );
     }
 
-    let repository_db_url: String = params::require_env_var("MOSAICO_REPOSITORY_DB_URL")?;
-    let repository_db_url: url::Url = repository_db_url.parse()?;
+    let database_url: String = params::require_env_var("MOSAICO_DATABASE_URL")?;
+    let database_url: url::Url = database_url.parse()?;
 
-    let vars = Variables { repository_db_url };
+    let vars = Variables { database_url };
 
     debug!("{:#?}", params::configurables());
     debug!("{:#?}", vars);
@@ -111,7 +111,7 @@ fn run(startup_time: &Instant) -> Result<(), Box<dyn std::error::Error>> {
                 args.port,
                 store,
                 db::Config {
-                    db_url: vars.repository_db_url.clone(),
+                    db_url: vars.database_url.clone(),
                 },
             );
 

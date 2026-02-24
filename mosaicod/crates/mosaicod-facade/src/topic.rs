@@ -18,16 +18,16 @@ type TopicMetadata = types::TopicMetadata<marshal::JsonMetadataBlob>;
 pub struct Topic {
     pub locator: types::TopicResourceLocator,
     store: store::StoreRef,
-    repo: db::Database,
+    db: db::Database,
 }
 
 impl Topic {
     /// Create a new facade using a topic name
-    pub fn new(name: String, store: store::StoreRef, repo: db::Database) -> Self {
+    pub fn new(name: String, store: store::StoreRef, db: db::Database) -> Self {
         Self {
             locator: types::TopicResourceLocator::from(name),
             store,
-            repo,
+            db,
         }
     }
 
@@ -41,16 +41,16 @@ impl Topic {
         self.locator
     }
 
-    /// Creates a new repository entry for this topic.
+    /// Creates a new database entry for this topic.
     ///
     /// If a record with the same name already exists, the operation fails and
-    /// the repository transaction is rolled back, restoring the previous state.
+    /// the database transaction is rolled back, restoring the previous state.
     pub async fn create(
         &self,
         session: &types::Uuid,
         metadata: Option<TopicMetadata>,
     ) -> Result<types::Identifiers, Error> {
-        let mut tx = self.repo.transaction().await?;
+        let mut tx = self.db.transaction().await?;
 
         // Ensure that uuid points to a unlocked session
         let ses_rec = db::session_find_by_uuid(&mut tx, session).await?;
@@ -82,7 +82,7 @@ impl Topic {
         let record = db::topic_create(&mut tx, &record).await?;
 
         // This operation is done at the end to avoid deleting or reverting changes
-        // to metadata file on store if some error causes a rollback on the repository
+        // to metadata file on store if some error causes a rollback on the database
         if let Some(metadata) = metadata {
             self.metadata_write_to_store(metadata).await?;
         }
@@ -93,19 +93,19 @@ impl Topic {
     }
 
     pub async fn is_locked(&self) -> Result<bool, Error> {
-        let mut cx = self.repo.connection();
+        let mut cx = self.db.connection();
 
         let record = db::topic_find_by_locator(&mut cx, &self.locator).await?;
 
         Ok(record.is_locked())
     }
 
-    /// Updates the repository entry for this topic.
+    /// Updates the database entry for this topic.
     ///
     /// If a record with the same name already exists, the operation fails and
-    /// the repository transaction is rolled back, restoring the previous state.
+    /// the database transaction is rolled back, restoring the previous state.
     pub async fn update(&self, metadata: TopicMetadata) -> Result<(), Error> {
-        let mut tx = self.repo.transaction().await?;
+        let mut tx = self.db.transaction().await?;
 
         // find topic record to check that upload is not completed and is still prossible
         // to change data
@@ -141,9 +141,9 @@ impl Topic {
         Ok(())
     }
 
-    /// Read the repository record for this sequence. If no record is found an error is returned.
+    /// Read the database record for this sequence. If no record is found an error is returned.
     pub async fn resource_id(&self) -> Result<types::Identifiers, Error> {
-        let mut cx = self.repo.connection();
+        let mut cx = self.db.connection();
 
         trace!("searching for `{}`", self.locator);
         let record = db::topic_find_by_locator(&mut cx, &self.locator).await?;
@@ -153,7 +153,7 @@ impl Topic {
 
     /// Lock the topic
     pub async fn lock(&self) -> Result<(), Error> {
-        let mut tx = self.repo.transaction().await?;
+        let mut tx = self.db.transaction().await?;
 
         trace!("locking `{}`", self.locator);
         db::topic_lock(&mut tx, &self.locator).await?;
@@ -310,7 +310,7 @@ impl Topic {
 
     /// Deletes this topic, if unlocked
     pub async fn delete_unlocked(self) -> Result<(), Error> {
-        let mut tx = self.repo.transaction().await?;
+        let mut tx = self.db.transaction().await?;
 
         db::topic_delete_unlocked(&mut tx, &self.locator).await?;
 
@@ -324,7 +324,7 @@ impl Topic {
 
     /// Permanently deletes a topic and all its data, be caution
     pub async fn delete(self, allowed_data_loss: types::DataLossToken) -> Result<(), Error> {
-        let mut tx = self.repo.transaction().await?;
+        let mut tx = self.db.transaction().await?;
 
         // Delete at forst the data and after that the record on db,
         // so if the delete procedure fails i can retry again against the database record
@@ -342,7 +342,7 @@ impl Topic {
         ntype: types::NotifyType,
         msg: String,
     ) -> Result<types::Notify, Error> {
-        let mut tx = self.repo.transaction().await?;
+        let mut tx = self.db.transaction().await?;
 
         let record = db::topic_find_by_locator(&mut tx, &self.locator).await?;
         let notify = db::TopicNotifyRecord::new(record.topic_id, ntype, Some(msg));
@@ -355,7 +355,7 @@ impl Topic {
 
     /// Returns a list of all notifications for the this topic
     pub async fn notify_list(&self) -> Result<Vec<types::Notify>, Error> {
-        let mut cx = self.repo.connection();
+        let mut cx = self.db.connection();
         let notifies = db::topic_notifies_find_by_locator(&mut cx, &self.locator).await?;
         Ok(notifies
             .into_iter()
@@ -365,7 +365,7 @@ impl Topic {
 
     /// Deletes all the notifications associated with the sequence
     pub async fn notify_purge(&self) -> Result<(), Error> {
-        let mut tx = self.repo.transaction().await?;
+        let mut tx = self.db.transaction().await?;
 
         let notifies = db::topic_notifies_find_by_locator(&mut tx, &self.locator).await?;
         for notify in notifies {
@@ -379,14 +379,14 @@ impl Topic {
 
     /// Returns the statistics about topic's chunks
     pub async fn chunks_stats(&self) -> Result<types::TopicChunksStats, Error> {
-        let mut cx = self.repo.connection();
+        let mut cx = self.db.connection();
         let stats = db::topic_get_stats(&mut cx, &self.locator).await?;
         Ok(stats)
     }
 
     /// Computes system info for the topic
     pub async fn system_info(&self) -> Result<types::TopicSystemInfo, Error> {
-        let mut cx = self.repo.connection();
+        let mut cx = self.db.connection();
         let record = db::topic_find_by_locator(&mut cx, &self.locator).await?;
 
         let format = record

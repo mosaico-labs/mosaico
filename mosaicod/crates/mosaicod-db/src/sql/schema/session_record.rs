@@ -1,5 +1,5 @@
 //! This module provides the data access and business logic for managing sessions
-//! within the application repository.
+//! within the application database.
 
 use crate as db;
 use mosaicod_core::types;

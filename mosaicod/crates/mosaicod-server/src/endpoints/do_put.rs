@@ -74,7 +74,7 @@ async fn do_put_topic_data(
 
     mosaicod_ext::arrow::check_schema(&schema)?;
 
-    let mut handle = facade::Topic::new(locator, ctx.store.clone(), ctx.repo.clone());
+    let mut handle = facade::Topic::new(locator, ctx.store.clone(), ctx.db.clone());
 
     // perform the match between received key and topic id
     let r_id = handle.resource_id().await?;
@@ -85,7 +85,7 @@ async fn do_put_topic_data(
 
     let mdata = handle.metadata().await?;
 
-    // Setup the callback that will be used to create the repository record for the data catalog
+    // Setup the callback that will be used to create the database record for the data catalog
     // and prepare variables that will be moved in the closure
     let ontology_tag = mdata.properties.ontology_tag;
     let serialization_format = mdata.properties.serialization_format;
@@ -97,7 +97,7 @@ async fn do_put_topic_data(
     trace!("setup chunk creation callback for topic");
     writer.on_chunk_created(move |target_path, cols_stats, chunk_metadata| {
         let topic_id = topic_id;
-        let repo_clone = ctx.repo.clone();
+        let db_clone = ctx.db.clone();
         let ontology_tag = ontology_tag.clone();
 
         async move {
@@ -108,7 +108,7 @@ async fn do_put_topic_data(
             );
 
             Ok(on_chunk_created(
-                repo_clone,
+                db_clone,
                 topic_id,
                 &ontology_tag,
                 target_path,
@@ -154,7 +154,7 @@ async fn do_put_topic_data(
 }
 
 async fn on_chunk_created(
-    repo: db::Database,
+    db: db::Database,
     topic_id: i32,
     ontology_tag: &str,
     target_path: impl AsRef<std::path::Path>,
@@ -166,7 +166,7 @@ async fn on_chunk_created(
         &target_path,
         chunk_metadata.size_bytes as i64,
         chunk_metadata.row_count as i64,
-        &repo,
+        &db,
     )
     .await?;
 

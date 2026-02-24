@@ -4,7 +4,7 @@ use mosaicod_db as db;
 use mosaicod_store as store;
 
 /// Mosaico server.
-/// Handles incoming requests and manages the repository and store.
+/// Handles incoming requests and manages the database and store.
 pub struct Server {
     /// Listen on all addresses, including LAN and public addresses
     pub host: bool,
@@ -14,7 +14,7 @@ pub struct Server {
     pub shutdown: flight::ShutdownNotifier,
     /// Store engine
     store: store::StoreRef,
-    /// Repository configuration params
+    /// database configuration params
     pub db_config: db::Config,
 }
 
@@ -35,7 +35,7 @@ impl Server {
     ///
     /// This method startup a Tokio runtime to handle async operations.
     ///
-    /// Since the `repo` requires an async context to be initialized,
+    /// Since the `database` requires an async context to be initialized,
     /// the initialization of the [`db::Database`] is done inside this method.
     pub fn start_and_wait<F>(&self, on_start: F) -> Result<(), Box<dyn std::error::Error>>
     where
@@ -58,22 +58,22 @@ impl Server {
 
         info!("startup store connection");
 
-        // Repo connection needs to be done in a async context
+        // Database connection needs to be done in a async context
         // this is the main reason for which in Server::new we pass
-        // `db::Config` instead of the repo directly.
-        info!("startup repository connection (database)");
-        let repo = rt.block_on(async {
-            let repo = db::Database::try_new(&self.db_config)
+        // `db::Config` instead of the database directly.
+        info!("startup database connection");
+        let database = rt.block_on(async {
+            let database = db::Database::try_new(&self.db_config)
                 .await
                 .inspect_err(|e| error!("{}", e))?;
 
             // Bootstrap logic
-            info!("repository initialization");
-            let mut tx = repo.transaction().await?;
+            info!("database initialization");
+            let mut tx = database.transaction().await?;
             db::layer_bootstrap(&mut tx).await?;
             tx.commit().await?;
 
-            Ok::<db::Database, Box<dyn std::error::Error>>(repo)
+            Ok::<db::Database, Box<dyn std::error::Error>>(database)
         })?;
 
         let store = self.store.clone();
@@ -81,7 +81,7 @@ impl Server {
             // Create a thread in tokio runtime to handle flight requests
             let handle_flight = rt.spawn(async move {
                 trace!("flight service starting");
-                if let Err(err) = flight::start(config, store, repo, Some(shutdown)).await {
+                if let Err(err) = flight::start(config, store, database, Some(shutdown)).await {
                     error!("flight server error: {}", err);
                 }
             });

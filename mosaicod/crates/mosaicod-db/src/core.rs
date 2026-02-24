@@ -15,7 +15,7 @@ use mosaicod_core::params;
 /// The concrete database type used throughout this module.
 pub type DatabaseType = sqlx::Postgres;
 
-/// If the layer has this id is not registered in the repository
+/// If the layer has this id is not registered in the database
 pub const UNREGISTERED: i32 = -1;
 
 /// A trait for types that can provide a [`sqlx::Executor`].
@@ -97,22 +97,22 @@ impl Database {
     /// Builds a transaction.
     ///
     /// This call should be used when performing **write** operations on the
-    /// repository.
+    /// database.
     pub async fn transaction(&self) -> Result<Tx<'_>, Error> {
         Ok(Tx {
             inner: self.pool.begin().await?,
         })
     }
 
-    /// Returns a connection to perform operations on the repository.
+    /// Returns a connection to perform operations on the database.
     ///
-    /// This call should be used when performing **read-only** operations on the repository.
+    /// This call should be used when performing **read-only** operations on the database.
     pub fn connection(&self) -> Cx<'_> {
         Cx { inner: &self.pool }
     }
 }
 
-/// Testing utilities for the repository module.
+/// Testing utilities for the database module.
 #[cfg(any(test, feature = "testing"))]
 pub mod testing {
     pub static MIGRATOR: sqlx::migrate::Migrator = sqlx::migrate!("./migrations");

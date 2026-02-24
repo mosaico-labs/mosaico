@@ -91,10 +91,10 @@ pub enum ActionRequest {
     /// Perform a query in the system
     Query(requests::Query),
 
-    /// Creates a new layer in the repository
+    /// Creates a new layer in the database
     LayerCreate(requests::LayerCreate),
 
-    /// Deletes an existing layer in the repository
+    /// Deletes an existing layer in the database
     LayerDelete(requests::LayerDelete),
 
     /// Updates the name and description of an existing layer

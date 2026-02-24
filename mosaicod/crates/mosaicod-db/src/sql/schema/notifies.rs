@@ -20,7 +20,7 @@ impl SequenceNotifyRecord {
     /// Creates a new sequence notify.
     ///
     /// **Note**: This function only creates a local instance. The record will not be present
-    /// in the repository until [`topic_notify_create`] is called.
+    /// in the database until [`topic_notify_create`] is called.
     pub fn new(sequence_id: i32, notify_type: types::NotifyType, msg: Option<String>) -> Self {
         Self {
             sequence_notify_id: db::UNREGISTERED,
@@ -43,7 +43,7 @@ impl SequenceNotifyRecord {
 
     /// Returns the id of the persistent notification record.
     ///
-    /// Returns **`None`** if this entity has not yet been persisted to the repository.
+    /// Returns **`None`** if this entity has not yet been persisted to the database.
     pub fn id(&self) -> Option<i32> {
         if self.sequence_notify_id == db::UNREGISTERED {
             None
@@ -80,7 +80,7 @@ impl TopicNotifyRecord {
     /// Creates a new topic notify.
     ///
     /// **Note**: This function only creates a local instance. The record will not be present
-    /// in the repository until [`topic_notify_create`] is called.
+    /// in the database until [`topic_notify_create`] is called.
     pub fn new(topic_id: i32, notify_type: types::NotifyType, msg: Option<String>) -> Self {
         Self {
             topic_notify_id: db::UNREGISTERED,
@@ -103,7 +103,7 @@ impl TopicNotifyRecord {
 
     /// Returns the notify id.
     ///
-    /// Returns [`None`] if this entity has not yet been persisted to the repository.
+    /// Returns [`None`] if this entity has not yet been persisted to the database.
     pub fn id(&self) -> Option<i32> {
         if self.topic_notify_id == db::UNREGISTERED {
             None

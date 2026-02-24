@@ -13,7 +13,7 @@ use std::time::Instant;
 use tokio::sync::Semaphore;
 
 /// Facade used to perform queries in the system, it will handle the dependencies
-/// between different components (mainly `query` and `repo` modules).
+/// between different components (mainly `query` and `db` modules).
 ///
 /// All complex query logics needs to be implemented inside this facade.
 pub struct Query {}
@@ -23,7 +23,7 @@ impl Query {
     pub async fn query(
         filter: query::Filter,
         ts_gw: query::TimeseriesRef,
-        repo: db::Database,
+        db: db::Database,
     ) -> Result<types::SequenceTopicGroupSet, Error> {
         let mut result: Option<types::SequenceTopicGroupSet> = None;
 
@@ -34,7 +34,7 @@ impl Query {
 
         // This holds the set of topic that the user requested with topic and sequence filters
         let on_topics = {
-            let mut cx = repo.connection();
+            let mut cx = db.connection();
             db::topic_from_query_filter(&mut cx, seq_filt, top_filt).await?
         };
         let on_topics = Arc::new(on_topics);
@@ -83,13 +83,13 @@ impl Query {
                     Error::ConcurrencyError(format!("semaphore acquire failed: {e}"))
                 })?;
 
-                let repo_clone = repo.clone();
+                let db_clone = db.clone();
                 let on_topics = on_topics.clone();
 
                 search_jobs.push(async move {
                     let _permit = permit; // sentinel lock
 
-                    let mut cx = repo_clone.connection();
+                    let mut cx = db_clone.connection();
                     let chunks = db::chunks_from_filters(
                         &mut cx,
                         ontology_tag_exprs.clone(),
@@ -210,7 +210,7 @@ impl Query {
             }
         } else {
             // No ontology filter branch, simply retrieve
-            let mut cx = repo.connection();
+            let mut cx = db.connection();
             let group = db::sequences_group_from_topics(&mut cx, on_topics.iter()).await?;
             result = Some(group.into());
         }

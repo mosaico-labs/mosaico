@@ -48,7 +48,7 @@ pub async fn topic_notifies_find_by_locator(
     Ok(res)
 }
 
-/// Deletes a sequence notify from the repository
+/// Deletes a sequence notify from the database
 ///
 /// If the notify does not exist, the operation has no effect.
 pub async fn topic_notify_delete(exe: &mut impl AsExec, id: i32) -> Result<(), Error> {
@@ -104,7 +104,7 @@ pub async fn sequence_notifies_find_by_name(
     Ok(res)
 }
 
-/// Deletes a sequence report from the repository
+/// Deletes a sequence report from the database
 ///
 /// If the report does not exist, the operation has no effect.
 pub async fn sequence_notify_delete(

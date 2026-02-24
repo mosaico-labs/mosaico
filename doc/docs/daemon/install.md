@@ -61,7 +61,7 @@ The server supports S3-compatible object storage by default but can be configure
 
 ### Database
 
-Mosaico requires a connection to a running **PostgreSQL** instance, which is defined via the `MOSAICO_REPOSITORY_DB_URL` environment variable.
+Mosaico requires a connection to a running **PostgreSQL** instance, which is defined via the `MOSAICO_DATABASE_URL` environment variable.
 
 ### Remote Storage Configuration
 

@@ -13,9 +13,9 @@ impl<'a> Chunk<'a> {
         datafile: impl AsRef<std::path::Path>,
         size_bytes: i64,
         row_count: i64,
-        repo: &'a db::Database,
+        db: &'a db::Database,
     ) -> Result<Self, Error> {
-        let mut tx = repo.transaction().await?;
+        let mut tx = db.transaction().await?;
 
         let chunk = db::chunk_create(
             &mut tx,

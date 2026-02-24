@@ -17,7 +17,7 @@ pub async fn create(
     let handle = Layer::new(
         types::LayerLocator::from(name.as_str()),
         ctx.store.clone(),
-        ctx.repo.clone(),
+        ctx.db.clone(),
     );
     handle.create(description).await?;
 
@@ -31,7 +31,7 @@ pub async fn delete(ctx: &Context, name: String) -> Result<ActionResponse, Serve
     let handle = Layer::new(
         types::LayerLocator::from(name.as_str()),
         ctx.store.clone(),
-        ctx.repo.clone(),
+        ctx.db.clone(),
     );
     handle.delete().await?;
 
@@ -53,7 +53,7 @@ pub async fn update(
     let handle = Layer::new(
         types::LayerLocator::from(prev_name.as_str()),
         ctx.store.clone(),
-        ctx.repo.clone(),
+        ctx.db.clone(),
     );
     handle
         .update(
@@ -69,7 +69,7 @@ pub async fn update(
 pub async fn list(ctx: &Context) -> Result<ActionResponse, ServerError> {
     info!("request layer list");
 
-    let layers = Layer::all(ctx.repo.clone()).await?;
+    let layers = Layer::all(ctx.db.clone()).await?;
 
     Ok(ActionResponse::LayerList(layers.into()))
 }

@@ -87,8 +87,8 @@ pub enum ServerError {
     #[error("facade error :: {0}")]
     FacadeError(#[from] mosaicod_facade::Error),
 
-    #[error("repository error :: {0}")]
-    RepositoryError(#[from] mosaicod_db::Error),
+    #[error("database error :: {0}")]
+    DatabaseError(#[from] mosaicod_db::Error),
 
     #[error("query error :: {0}")]
     QueryError(#[from] mosaicod_query::Error),

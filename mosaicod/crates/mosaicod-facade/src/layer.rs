@@ -6,24 +6,24 @@ use mosaicod_store as store;
 pub struct Layer {
     pub locator: types::LayerLocator,
     store: store::StoreRef,
-    repo: db::Database,
+    db: db::Database,
 }
 
 impl Layer {
     pub fn new(
         locator: types::LayerLocator,
         store: store::StoreRef,
-        repo: db::Database,
+        db: db::Database,
     ) -> Self {
         Self {
             locator,
             store,
-            repo,
+            db,
         }
     }
 
-    pub async fn all(repo: db::Database) -> Result<Vec<types::Layer>, Error> {
-        let mut cx = repo.connection();
+    pub async fn all(db: db::Database) -> Result<Vec<types::Layer>, Error> {
+        let mut cx = db.connection();
 
         let layers = db::layer_find_all(&mut cx).await?;
 
@@ -31,7 +31,7 @@ impl Layer {
     }
 
     pub async fn create(&self, description: String) -> Result<i32, Error> {
-        let mut tx = self.repo.transaction().await?;
+        let mut tx = self.db.transaction().await?;
 
         let layer = types::Layer::new(self.locator.clone(), description);
         let layer = db::layer_create(&mut tx, layer).await?;
@@ -41,7 +41,7 @@ impl Layer {
     }
 
     pub async fn delete(self) -> Result<(), Error> {
-        let mut tx = self.repo.transaction().await?;
+        let mut tx = self.db.transaction().await?;
 
         let layer = db::layer_find_by_locator(&mut tx, &self.locator).await?;
         db::layer_delete(&mut tx, layer.layer_id).await?;
@@ -56,7 +56,7 @@ impl Layer {
         new_locator: types::LayerLocator,
         new_description: &str,
     ) -> Result<Self, Error> {
-        let mut tx = self.repo.transaction().await?;
+        let mut tx = self.db.transaction().await?;
 
         db::layer_update(&mut tx, &self.locator, &new_locator, new_description).await?;
 
@@ -65,7 +65,7 @@ impl Layer {
         Ok(Self {
             locator: new_locator,
             store: self.store,
-            repo: self.repo,
+            db: self.db,
         })
     }
 }

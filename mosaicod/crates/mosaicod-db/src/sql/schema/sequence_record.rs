@@ -1,5 +1,5 @@
 //! This module provides the data access and minimal business logics for managing
-//! **Sequences** within the application repository.
+//! **Sequences** within the application database.
 //!
 //! A Sequence represents a named, persistent entity in the system, often associated
 //! with a physical data stream or a collection of topics. It includes methods for
@@ -42,7 +42,7 @@ impl SequenceRecord {
     /// you must call the [`sequence_lock`] method.
     ///
     /// **Note**: This function only creates a local instance. The record will not be present
-    /// in the repository until [`sequence_create`] is called.
+    /// in the database until [`sequence_create`] is called.
     pub fn new(name: &str) -> Self {
         Self {
             sequence_id: db::UNREGISTERED,

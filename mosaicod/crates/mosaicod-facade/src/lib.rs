@@ -9,7 +9,7 @@
 //! * **Database Abstraction:** Facades allow the system to interact with resources without
 //!   exposing whether the underlying provider is a SQL, NoSQL, or other database type.
 //! * **Coordinated Logic:** They manage multi-step operations—such as transactions that
-//!   span both the metadata repository and the physical object store—ensuring state
+//!   span both the metadata database and the physical object store—ensuring state
 //!   consistency.
 //! * **Encapsulation:** By focusing database operations within this layer, the rest of
 //!   the system interacts with high-level entities like [`FacadeTopic`] rather than

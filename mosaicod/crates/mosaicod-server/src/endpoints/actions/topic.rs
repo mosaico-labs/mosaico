@@ -17,7 +17,7 @@ pub async fn create(
 ) -> Result<ActionResponse, ServerError> {
     info!("requested resource {} creation", name);
 
-    let handle = facade::Topic::new(name.clone(), ctx.store.clone(), ctx.repo.clone());
+    let handle = facade::Topic::new(name.clone(), ctx.store.clone(), ctx.db.clone());
 
     // Check if the topic has already been created
     if handle.resource_id().await.is_ok() {
@@ -49,7 +49,7 @@ pub async fn create(
 pub async fn delete(ctx: &Context, name: String) -> Result<ActionResponse, ServerError> {
     warn!("requested deletion of resource {}", name);
 
-    let handle = facade::Topic::new(name.clone(), ctx.store.clone(), ctx.repo.clone());
+    let handle = facade::Topic::new(name.clone(), ctx.store.clone(), ctx.db.clone());
 
     if handle.is_locked().await? {
         return Err(ServerError::TopicLocked);
@@ -70,7 +70,7 @@ pub async fn notify_create(
 ) -> Result<ActionResponse, ServerError> {
     info!("nofity for {}", name);
 
-    let handle = facade::Topic::new(name, ctx.store.clone(), ctx.repo.clone());
+    let handle = facade::Topic::new(name, ctx.store.clone(), ctx.db.clone());
     handle.notify(notify_type.parse()?, msg).await?;
 
     Ok(ActionResponse::Empty)
@@ -80,7 +80,7 @@ pub async fn notify_create(
 pub async fn notify_list(ctx: &Context, name: String) -> Result<ActionResponse, ServerError> {
     info!("notify list for {}", name);
 
-    let handle = facade::Topic::new(name, ctx.store.clone(), ctx.repo.clone());
+    let handle = facade::Topic::new(name, ctx.store.clone(), ctx.db.clone());
     let notifies = handle.notify_list().await?;
 
     Ok(ActionResponse::TopicNotifyList(notifies.into()))
@@ -90,7 +90,7 @@ pub async fn notify_list(ctx: &Context, name: String) -> Result<ActionResponse, 
 pub async fn notify_purge(ctx: &Context, name: String) -> Result<ActionResponse, ServerError> {
     warn!("nofity purge for {}", name);
 
-    let handle = facade::Topic::new(name, ctx.store.clone(), ctx.repo.clone());
+    let handle = facade::Topic::new(name, ctx.store.clone(), ctx.db.clone());
     handle.notify_purge().await?;
 
     Ok(ActionResponse::Empty)
@@ -100,7 +100,7 @@ pub async fn notify_purge(ctx: &Context, name: String) -> Result<ActionResponse,
 pub async fn system_info(ctx: &Context, name: String) -> Result<ActionResponse, ServerError> {
     info!("[{}] topic system informations", name);
 
-    let handle = facade::Topic::new(name, ctx.store.clone(), ctx.repo.clone());
+    let handle = facade::Topic::new(name, ctx.store.clone(), ctx.db.clone());
     let sysinfo = handle.system_info().await?;
 
     Ok(ActionResponse::TopicSystemInfo(sysinfo.into()))

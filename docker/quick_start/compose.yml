@@ -26,7 +26,7 @@ services:
     networks:
       - mosaico-qs
     environment:
-      MOSAICO_REPOSITORY_DB_URL: postgresql://postgres:password@db:5432/mosaico
+      MOSAICO_DATABASE_URL: postgresql://postgres:password@db:5432/mosaico
       RUST_LOG: mosaico=info
     command: |
       run --host --local-store /store

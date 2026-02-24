@@ -100,7 +100,7 @@ pub async fn sequence_find_all(
     )
 }
 
-/// Deletes a sequence record from the repository by its name, **bypassing any lock state**.
+/// Deletes a sequence record from the database by its name, **bypassing any lock state**.
 ///
 /// This function requires a [`DataLossToken`] because it permanently removes the record
 /// from the database without checking whether it is locked or referenced
@@ -151,8 +151,8 @@ mod tests {
     #[sqlx::test]
     async fn test_create(pool: Pool<DatabaseType>) -> sqlx::Result<()> {
         let record = schema::SequenceRecord::new("/my/path");
-        let repo = testing::Database::new(pool);
-        let rrecord = sequence_create(&mut repo.connection(), &record)
+        let database = testing::Database::new(pool);
+        let rrecord = sequence_create(&mut database.connection(), &record)
             .await
             .unwrap();
 

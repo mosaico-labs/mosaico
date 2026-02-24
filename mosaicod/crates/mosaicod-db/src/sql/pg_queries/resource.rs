@@ -4,10 +4,10 @@ use crate::{core::Database, Error};
 use mosaicod_core::types;
 
 pub async fn get_resource_locator_from_name(
-    repo: &Database,
+    db: &Database,
     name: &str,
 ) -> Result<Box<dyn types::Resource>, Error> {
-    let mut cx = repo.connection();
+    let mut cx = db.connection();
 
     let record = sequence_record::sequence_find_by_locator(
         &mut cx,

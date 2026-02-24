@@ -64,7 +64,7 @@ pub async fn topic_find_all(
     )
 }
 
-/// Deletes a topic record from the repository **only if it is unlocked**.
+/// Deletes a topic record from the database **only if it is unlocked**.
 ///
 /// This function safely removes a topic whose `locked` field is set to `FALSE`.  
 /// If the topic is locked or does not exist, the operation has no effect.
@@ -82,7 +82,7 @@ pub async fn topic_delete_unlocked(
     Ok(())
 }
 
-/// Deletes a topic record from the repository by its name, **bypassing any lock state**.
+/// Deletes a topic record from the database by its name, **bypassing any lock state**.
 ///
 /// This function requires a [`DataLossToken`] since permanently removes the record
 /// from the database without checking whether it is locked or referenced

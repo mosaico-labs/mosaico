@@ -16,24 +16,24 @@ use mosaicod_db as db;
 /// A high-level facade for managing a session.
 ///
 /// This struct provides a transactional API for creating and finalizing sessions,
-/// coordinating operations between the metadata repository and the object store.
+/// coordinating operations between the metadata database and the object store.
 pub struct Session {
     pub uuid: types::Uuid,
 
     /// A reference to the underlying object store.
     store: store::StoreRef,
 
-    /// A reference to the metadata repository.
-    repo: db::Database,
+    /// A reference to the metadata database.
+    db: db::Database,
 }
 
 impl Session {
     /// Creates a new upload session for a given sequence.
-    pub fn new(session_uuid: types::Uuid, store: store::StoreRef, repo: db::Database) -> Self {
+    pub fn new(session_uuid: types::Uuid, store: store::StoreRef, db: db::Database) -> Self {
         Self {
             uuid: session_uuid,
             store,
-            repo,
+            db,
         }
     }
 
@@ -41,7 +41,7 @@ impl Session {
     ///
     /// Once a session is finalized, no more topics can be added to it.
     pub async fn finalize(&self) -> Result<(), Error> {
-        let mut tx = self.repo.transaction().await?;
+        let mut tx = self.db.transaction().await?;
 
         let session = db::session_find_by_uuid(&mut tx, &self.uuid).await?;
 
@@ -81,7 +81,7 @@ impl Session {
     /// * [`Error::FailedAndNotified`]: if the error is correctly reported and notified.
     /// * [`Error::FailedAndUnableToNotify`]: if the notification creation faild.
     pub async fn delete(&self) -> Result<(), Error> {
-        let mut tx = self.repo.transaction().await?;
+        let mut tx = self.db.transaction().await?;
 
         let session = db::session_find_by_uuid(&mut tx, &self.uuid).await?;
 
@@ -94,7 +94,7 @@ impl Session {
             let thandle = Topic::new(
                 topic_loc.clone().into(),
                 self.store.clone(),
-                self.repo.clone(),
+                self.db.clone(),
             );
 
             // For this special case we allow a data loss delete since the sequence is still unlocked (previous check).
@@ -141,7 +141,7 @@ impl Session {
             let fsequence = Sequence::new(
                 sequence.locator_name, //
                 self.store.clone(),
-                self.repo.clone(),
+                self.db.clone(),
             );
             notify = Some(
                 fsequence
@@ -165,7 +165,7 @@ impl Session {
 
     /// Returns the topic list associated with this session.
     pub async fn topic_list(&self) -> Result<Vec<types::TopicResourceLocator>, Error> {
-        let mut cx = self.repo.connection();
+        let mut cx = self.db.connection();
 
         let topics = db::session_find_all_topic_names(&mut cx, &self.uuid).await?;
 

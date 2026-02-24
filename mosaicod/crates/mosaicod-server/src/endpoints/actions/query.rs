@@ -17,7 +17,7 @@ pub async fn execute(
     trace!("query filter: {:?}", filter);
 
     let groups =
-        Query::query(filter, ctx.timeseries_querier.clone(), ctx.repo.clone()).await?;
+        Query::query(filter, ctx.timeseries_querier.clone(), ctx.db.clone()).await?;
 
     trace!("groups found: {:?}", groups);
 

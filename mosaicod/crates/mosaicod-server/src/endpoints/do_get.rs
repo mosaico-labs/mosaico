@@ -18,7 +18,7 @@ pub async fn do_get(ctx: Context, ticket: Ticket) -> Result<FlightDataEncoder, S
 
     // Create topic handle
     let topic = ticket.locator;
-    let tfacade = facade::Topic::new(topic, ctx.store, ctx.repo.clone());
+    let tfacade = facade::Topic::new(topic, ctx.store, ctx.db.clone());
 
     // Read metadata from topic
     let metadata = tfacade.metadata().await?;
