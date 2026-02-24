@@ -59,17 +59,17 @@ pub fn configurables() -> &'static ConfigurablesParams {
 pub fn load_configurables_from_env() {
     let ev = ConfigurablesParams {
         max_message_size_in_bytes: cast_env_var(
-            "MOSAICO_MAX_MESSAGE_SIZE_IN_BYTES",
+            "MOSAICOD_MAX_MESSAGE_SIZE_IN_BYTES",
             (50 * 1024 * 1024) as usize,
         ),
         target_message_size_in_bytes: cast_env_var(
-            "MOSAICO_TARGET_MESSAGE_SIZE_IN_BYTES",
+            "MOSAICOD_TARGET_MESSAGE_SIZE_IN_BYTES",
             25 * 1024 * 1024,
         ),
-        max_concurrent_chunk_queries: cast_env_var("MOSAICO_MAX_CONCURRENT_CHUNK_QUERIES", 4),
-        max_db_connections: cast_env_var("MOSAICO_MAX_DB_CONNECTIONS", 10),
+        max_concurrent_chunk_queries: cast_env_var("MOSAICOD_MAX_CONCURRENT_CHUNK_QUERIES", 4),
+        max_db_connections: cast_env_var("MOSAICOD_MAX_DB_CONNECTIONS", 10),
         max_chunk_size_in_bytes: cast_env_var(
-            "MOSAICO_MAX_CHUNK_SIZE_IN_BYTES",
+            "MOSAICOD_MAX_CHUNK_SIZE_IN_BYTES",
             256 * 1024 * 1024, // 256 MiB default
         ),
     };
