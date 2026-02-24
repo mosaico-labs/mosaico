@@ -6,12 +6,12 @@
 //! Multiple sessions can occur in parallel for the same sequence. Once a session is
 //! finalized, all data associated with it becomes immutable.
 
-use crate::{Sequence, Topic, Error};
+use crate::{Error, Sequence, Topic};
 use log::trace;
 use mosaicod_core::types;
+use mosaicod_db as db;
 use mosaicod_marshal as marshal;
 use mosaicod_store as store;
-use mosaicod_db as db;
 
 /// A high-level facade for managing a session.
 ///
@@ -114,8 +114,8 @@ impl Session {
 
         // Deletes the session manifest if session was previously locked (an unlocked
         // sessions has no manifest)
-        if session.is_locked() {
-            if let Err(e) = self
+        if session.is_locked()
+            && let Err(e) = self
                 .store
                 .delete(
                     sequence
@@ -123,12 +123,11 @@ impl Session {
                         .session_manifest(&session.uuid()),
                 )
                 .await
-            {
-                error_report.errors.push(types::ErrorReportItem::new(
-                    sequence.locator_name.clone(),
-                    e,
-                ));
-            }
+        {
+            error_report.errors.push(types::ErrorReportItem::new(
+                sequence.locator_name.clone(),
+                e,
+            ));
         }
 
         let error_occurs = error_report.has_errors();

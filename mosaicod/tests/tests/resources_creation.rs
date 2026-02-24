@@ -1,7 +1,7 @@
 #![allow(unused_crate_dependencies)]
 
-use mosaicod_ext as ext;
 use mosaicod_db as db;
+use mosaicod_ext as ext;
 use tests::{self, actions, common};
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
@@ -74,7 +74,7 @@ async fn do_put(pool: sqlx::Pool<db::DatabaseType>) {
     let response = actions::do_put(&mut client, &uuid, "test_sequence/my_topic", batches).await;
 
     let mut response_reader = response.into_inner();
-    while let Some(_) = response_reader.message().await.unwrap() {
+    if response_reader.message().await.unwrap().is_some() {
         panic!("Received a not-empty response!");
     }
 
@@ -102,7 +102,7 @@ async fn session_finalize(pool: sqlx::Pool<db::DatabaseType>) {
     let response = actions::do_put(&mut client, &uuid, "test_sequence/my_topic", batches).await;
 
     let mut response_reader = response.into_inner();
-    while let Some(_) = response_reader.message().await.unwrap() {
+    if response_reader.message().await.unwrap().is_some() {
         panic!("Received a not-empty response!");
     }
 
@@ -131,8 +131,7 @@ async fn session_abort(pool: sqlx::Pool<db::DatabaseType>) {
 
     let response = actions::do_put(&mut client, &uuid, "test_sequence/my_topic", batches).await;
 
-    let mut response_reader = response.into_inner();
-    while let Some(_) = response_reader.message().await.unwrap() {
+    if response.into_inner().message().await.unwrap().is_some() {
         panic!("Received a not-empty response!");
     }
 

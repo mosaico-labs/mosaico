@@ -56,8 +56,7 @@ impl SessionRecord {
 
     /// Returns the completion timestamp of the session, if it has been completed.
     pub fn completion_timestamp(&self) -> Option<types::Timestamp> {
-        self.completion_unix_tstamp
-            .map(|t| types::Timestamp::from(t))
+        self.completion_unix_tstamp.map(types::Timestamp::from)
     }
 
     /// Returns true if the session is locked (immutable)

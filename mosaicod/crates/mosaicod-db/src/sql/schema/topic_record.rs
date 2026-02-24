@@ -37,8 +37,8 @@ impl TopicRecord {
         Self {
             topic_id: db::UNREGISTERED,
             topic_uuid: types::Uuid::new().into(),
-            sequence_id: sequence_id,
-            session_id: session_id,
+            sequence_id,
+            session_id,
             locator_name: name.to_owned(),
             locked: false,
             ontology_tag: None,

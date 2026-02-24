@@ -6,9 +6,9 @@ use arrow_flight::{
 };
 use log::{info, trace};
 use mosaicod_core::types::{self, Resource};
-use mosaicod_marshal as marshal;
-use mosaicod_facade as facade;
 use mosaicod_db as db;
+use mosaicod_facade as facade;
+use mosaicod_marshal as marshal;
 
 pub async fn get_flight_info(
     ctx: Context,
@@ -39,7 +39,8 @@ pub async fn get_flight_info(
 
                     // Collect metadata
                     let metadata = marshal::JsonSequenceMetadata::from(metadata);
-                    let flatten_metadata = metadata.to_flat_hashmap().map_err(facade::Error::from)?;
+                    let flatten_metadata =
+                        metadata.to_flat_hashmap().map_err(facade::Error::from)?;
 
                     // Collect schema
                     let schema = Schema::new_with_metadata(Vec::<Field>::new(), flatten_metadata);
@@ -106,7 +107,8 @@ pub async fn get_flight_info(
 
                     // Collect metadata
                     let metadata = marshal::JsonTopicMetadata::from(metadata);
-                    let flatten_metadata = metadata.to_flat_hashmap().map_err(facade::Error::from)?;
+                    let flatten_metadata =
+                        metadata.to_flat_hashmap().map_err(facade::Error::from)?;
 
                     // Build schema to send
                     let schema =

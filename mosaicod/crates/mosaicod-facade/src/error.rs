@@ -1,5 +1,4 @@
 use mosaicod_core::types;
-use mosaicod_db;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
