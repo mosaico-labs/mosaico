@@ -1,4 +1,4 @@
-use crate::{core::AsExec, Error, sql::schema};
+use crate::{Error, core::AsExec, sql::schema};
 use log::trace;
 use mosaicod_core::types;
 
@@ -12,15 +12,14 @@ pub async fn session_create(
         r#"
             INSERT INTO session_t 
                 (
-                    session_id, session_uuid, sequence_id, locked, 
+                    session_uuid, sequence_id, locked,
                     creation_unix_tstamp, completion_unix_tstamp
                 ) 
             VALUES 
-                ($1, $2, $3, $4, $5, $6) 
+                ($1, $2, $3, $4, $5)
             RETURNING 
                 *
     "#,
-        record.session_id,
         record.session_uuid,
         record.sequence_id,
         record.locked,
