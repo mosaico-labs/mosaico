@@ -20,8 +20,11 @@ class FlightAction(StrEnum):
     SEQUENCE_CREATE = "sequence_create"
     """Initiates the registration of a new sequence on the server."""
 
-    SEQUENCE_FINALIZE = "sequence_finalize"
-    """Marks a sequence as complete and makes its data immutable."""
+    SESSION_CREATE = "session_create"
+    """Initiates the registration of a new session for an existing sequence on the server."""
+
+    SESSION_FINALIZE = "session_finalize"
+    """Marks a session as complete and makes its data immutable."""
 
     SEQUENCE_NOTIFY_CREATE = "sequence_notify_create"
     """Sends asynchronous notifications or error reports during the sequence creation phase."""
@@ -35,8 +38,8 @@ class FlightAction(StrEnum):
     SEQUENCE_SYSTEM_INFO = "sequence_system_info"
     """Requests physical diagnostics such as storage size and lock status for a sequence."""
 
-    SEQUENCE_ABORT = "sequence_abort"
-    """Signals the server to stop an active ingestion and discard partial data."""
+    SESSION_ABORT = "session_abort"
+    """Signals the server to stop an active session ingestion and discard partial data."""
 
     SEQUENCE_DELETE = "sequence_delete"
     """Requests the permanent removal of a sequence and all associated topics from the server."""

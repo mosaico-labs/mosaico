@@ -9,11 +9,11 @@ and distributes client resources (Connections, Executors) to individual Topics.
 from typing import Any, Optional, Type
 import pyarrow.flight as fl
 
-from .base_sequence_writer import BaseSequenceWriter
+from .base_session_writer import BaseSessionWriter
 from .config import WriterConfig
 from .helpers import _validate_sequence_name
 from .topic_writer import TopicWriter
-from ..comm.do_action import _do_action, _DoActionResponseKey
+from ..comm.do_action import _do_action
 from ..comm.connection import _ConnectionPool
 from ..comm.executor_pool import _ExecutorPool
 from ..enum import FlightAction, SequenceStatus
@@ -24,7 +24,7 @@ from ..models import Serializable
 logger = get_logger(__name__)
 
 
-class SequenceWriter(BaseSequenceWriter):
+class SequenceWriter(BaseSessionWriter):
     """
     Orchestrates the creation and data ingestion lifecycle of a Mosaico Sequence.
 
@@ -137,30 +137,24 @@ class SequenceWriter(BaseSequenceWriter):
         Performs the server-side handshake to create the new sequence.
 
         Triggers the `SEQUENCE_CREATE` action, transmitting the sequence name
-        and initial metadata. Upon success, it captures the unique authorization
-        key required for subsequent topic creation.
+        and initial metadata. Then inits a new session.
 
         Raises:
             Exception: If the server rejects the creation or returns an empty response.
         """
-        ACTION = FlightAction.SEQUENCE_CREATE
-
-        act_resp = _do_action(
+        # 1. Send the `SEQUENCE_CREATE` command, to create the remote resource. This returns no response
+        _do_action(
             client=self._control_client,
-            action=ACTION,
+            action=FlightAction.SEQUENCE_CREATE,
             payload={
-                "name": self._name,
+                "locator": self._name,
                 "user_metadata": self._metadata,
             },
-            expected_type=_DoActionResponseKey,
+            expected_type=None,
         )
 
-        if act_resp is None:
-            raise Exception(f"Action '{ACTION.value}' returned no response.")
-
-        self._key = act_resp.key
-        self._entered = True
-        self._sequence_status = SequenceStatus.Pending
+        # 2. Initialize a new session for the sequence
+        super()._init_session(self._name)
 
     # NOTE: No need of overriding `_on_context_exit` as default behavior is ok.
 
@@ -251,3 +245,13 @@ class SequenceWriter(BaseSequenceWriter):
             metadata=metadata,
             ontology_type=ontology_type,
         )
+
+    @property
+    def status(self) -> SequenceStatus:
+        """
+        Returns the current operational status of the sequence.
+
+        Returns:
+            The [`SequenceStatus`][mosaicolabs.enum.SequenceStatus].
+        """
+        return self._status

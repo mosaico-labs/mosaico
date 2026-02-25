@@ -1,0 +1,286 @@
+//! This module provides the high-level API for managing a persistent **Sequence**
+//! entity within the application.
+//!
+//! The central type is the [`SequenceHandle`], which encapsulates the name of the
+//! sequence and provides transactional methods for interacting with both the
+//! database respository and the object store.
+
+use super::{Error, Topic};
+use mosaicod_db as db;
+use log::trace;
+use mosaicod_core::types::{self, Resource};
+use mosaicod_marshal as marshal;
+use mosaicod_store as store;
+
+/// Define sequence metadata type contaning json user metadata
+type SequenceMetadata = types::SequenceMetadata<marshal::JsonMetadataBlob>;
+
+pub struct Sequence {
+    pub locator: types::SequenceResourceLocator,
+    store: store::StoreRef,
+    db: db::Database,
+}
+
+impl Sequence {
+    pub fn new(name: String, store: store::StoreRef, db: db::Database) -> Sequence {
+        Sequence {
+            locator: types::SequenceResourceLocator::from(name),
+            store,
+            db,
+        }
+    }
+
+    /// Retrieves all sequences from the database.
+    ///
+    /// Returns a list of all available sequences as [`SequenceResourceLocator`] objects.
+    /// This is primarily used for catalog discovery operations.
+    pub async fn all(
+        db: db::Database,
+    ) -> Result<Vec<types::SequenceResourceLocator>, Error> {
+        let mut cx = db.connection();
+        let records = db::sequence_find_all(&mut cx).await?;
+
+        Ok(records
+            .into_iter()
+            .map(|record| types::SequenceResourceLocator::from(record.locator_name))
+            .collect())
+    }
+
+    /// Creates a new database entry for this sequence.
+    ///
+    /// The newly created sequence starts in an **unlocked** state, allowing
+    /// additional topics to be added later. If the sequence contains user-defined
+    /// metadata, all metadata fields are also persisted in the db.
+    ///
+    /// If a record with the same name already exists, the operation fails and
+    /// the database transaction is rolled back, restoring the previous state.
+    pub async fn create(
+        &self,
+        metadata: Option<SequenceMetadata>,
+    ) -> Result<types::Identifiers, Error> {
+        let mut tx = self.db.transaction().await?;
+
+        let mut record = db::SequenceRecord::new(self.locator.name());
+
+        if let Some(mdata) = &metadata {
+            record = record.with_user_metadata(mdata.user_metadata.clone());
+        }
+
+        let record = db::sequence_create(&mut tx, &record).await?;
+
+        if let Some(mdata) = metadata {
+            self.metadata_write_to_store(mdata).await?;
+        }
+
+        tx.commit().await?;
+
+        Ok(record.into())
+    }
+
+    /// Read the database record for this sequence. If no record is found an error is returned.
+    pub async fn resource_id(&self) -> Result<types::Identifiers, Error> {
+        let mut cx = self.db.connection();
+
+        let record = db::sequence_find_by_locator(&mut cx, &self.locator).await?;
+
+        Ok(record.into())
+    }
+
+    /// Add a notification to the sequence
+    pub async fn notify(
+        &self,
+        ntype: types::NotifyType,
+        msg: String,
+    ) -> Result<types::Notify, Error> {
+        let mut tx = self.db.transaction().await?;
+
+        let record = db::sequence_find_by_locator(&mut tx, &self.locator).await?;
+        let notify = db::SequenceNotifyRecord::new(record.sequence_id, ntype, Some(msg));
+        let notify = db::sequence_notify_create(&mut tx, &notify).await?;
+
+        tx.commit().await?;
+
+        Ok(notify.into_types(self.locator.clone()))
+    }
+
+    /// Returns a list of all notifications for the this sequence
+    pub async fn notify_list(&self) -> Result<Vec<types::Notify>, Error> {
+        let mut trans = self.db.transaction().await?;
+        let notifies = db::sequence_notifies_find_by_name(&mut trans, &self.locator).await?;
+        trans.commit().await?;
+        Ok(notifies
+            .into_iter()
+            .map(|n| n.into_types(self.locator.clone()))
+            .collect())
+    }
+
+    /// Deletes all the notifications associated with the sequence
+    pub async fn notify_purge(&self) -> Result<(), Error> {
+        let mut trans = self.db.transaction().await?;
+
+        let notifies = db::sequence_notifies_find_by_name(&mut trans, &self.locator).await?;
+        for notify in notifies {
+            // Notify id is unwrapped since is retrieved from the database and
+            // it has an id
+            db::sequence_notify_delete(&mut trans, notify.id().unwrap()).await?;
+        }
+        trans.commit().await?;
+        Ok(())
+    }
+
+    /// Creates a new update session for a sequence
+    pub async fn session(&self) -> Result<types::Identifiers, Error> {
+        let mut tx = self.db.transaction().await?;
+
+        let sequence = db::sequence_lookup(
+            &mut tx,
+            &types::ResourceLookup::Locator(self.locator.to_string()),
+        )
+        .await?;
+
+        let session = db::SessionRecord::new(sequence.sequence_id);
+        let session = db::session_create(&mut tx, &session).await?;
+
+        tx.commit().await?;
+
+        Ok(session.into())
+    }
+
+    /// Read the metadata from the store and returns an `HashMap` containing all the metadata
+    pub async fn metadata(&self) -> Result<SequenceMetadata, Error> {
+        let path = self.locator.path_metadata();
+        let bytes = self.store.read_bytes(&path).await?;
+
+        let data: marshal::JsonSequenceMetadata = bytes.try_into()?;
+
+        Ok(data.into())
+    }
+
+    async fn metadata_write_to_store(
+        &self,
+        metadata: SequenceMetadata,
+    ) -> Result<(), Error> {
+        let path = self.locator.path_metadata();
+
+        trace!("converting sequence metadata to bytes");
+        let json_mdata = marshal::JsonSequenceMetadata::from(metadata);
+        let bytes: Vec<u8> = json_mdata.try_into()?;
+
+        trace!(
+            "writing sequence metadata `{}` to store",
+            &path.to_string_lossy()
+        );
+        self.store.write_bytes(&path, bytes).await?;
+
+        Ok(())
+    }
+
+    /// Returns the topic list associated with this sequence and returns the list of topic names
+    pub async fn topic_list(&self) -> Result<Vec<types::TopicResourceLocator>, Error> {
+        let mut cx = self.db.connection();
+
+        let topics = db::sequence_find_all_topic_names(&mut cx, &self.locator).await?;
+
+        Ok(topics)
+    }
+
+    /// Deletes a sequence and all its associated topics from the system.
+    ///
+    /// Both the sequence and its topics will be removed from the store and the database.
+    ///
+    /// This operation will only succeed if the sequence is locked.  
+    /// If the sequence is not locked, the function returns a [`HandleError::SequenceLocked`] error.
+    pub async fn delete(self) -> Result<(), Error> {
+        let mut tx = self.db.transaction().await?;
+
+        // Retrieve topics data and deletes it
+        let topics = self.topic_list().await?;
+        for topic_loc in topics {
+            let thandle = Topic::new(topic_loc.into(), self.store.clone(), self.db.clone());
+
+            // For this special case we allow a data loss delete since the sequence is still unlocked (previous check).
+            // This is because the system may be in a state where topics are partially uploaded:
+            // some topics are fully uploaded and locked, while others are not.
+            thandle.delete(types::allow_data_loss()).await?;
+        }
+
+        // Delete sequence data
+        db::sequence_delete(&mut tx, &self.locator, types::allow_data_loss()).await?;
+        self.store.delete_recursive(self.locator.name()).await?;
+
+        tx.commit().await?;
+        Ok(())
+    }
+
+    /// Computes system info for the sequence
+    pub async fn system_info(&self) -> Result<types::SequenceSystemInfo, Error> {
+        let mut cx = self.db.connection();
+        let record = db::sequence_find_by_locator(&mut cx, &self.locator).await?;
+
+        // Compute the sum of the size of all files in the sequence
+        let files = self.store.list(&self.locator.name(), None).await?;
+        let mut total_size = 0;
+        for file in files {
+            total_size += self.store.size(file).await?;
+        }
+
+        Ok(types::SequenceSystemInfo {
+            total_size_bytes: total_size,
+            created_datetime: record.creation_timestamp().into(),
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use types::{MetadataBlob, Resource};
+
+    #[sqlx::test(migrator = "db::testing::MIGRATOR")]
+    fn sequence_creation(pool: sqlx::Pool<db::DatabaseType>) -> sqlx::Result<()> {
+        let database = db::testing::Database::new(pool);
+        let store = store::testing::Store::new_random_on_tmp().unwrap();
+        let fsequence = Sequence::new(
+            "test_sequence".to_string(),
+            (*store).clone(),
+            (*database).clone(),
+        );
+
+        let mdata = r#"{
+            "driver" : "john",
+            "weather": "sunny"
+        }"#;
+        dbg!(&mdata);
+        let mdata =
+            SequenceMetadata::new(marshal::JsonMetadataBlob::try_from_str(mdata).unwrap());
+
+        fsequence
+            .create(Some(mdata)) // <-- testing this
+            .await
+            .expect("Error creating sequence");
+
+        let _ = fsequence.session().await.unwrap();
+
+        // Check if sequence was created
+        let mut cx = database.connection();
+        let sequence = db::sequence_find_by_locator(&mut cx, &fsequence.locator)
+            .await
+            .expect("Unable to find the created sequence");
+
+        // Check database user metadata
+        let user_mdata = sequence
+            .user_metadata()
+            .expect("Unable to find user metadata in database record");
+        assert_eq!(user_mdata["driver"].as_str().unwrap(), "john");
+        assert_eq!(user_mdata["weather"].as_str().unwrap(), "sunny");
+
+        // Check sequence locator
+        assert_eq!(
+            fsequence.locator.path().to_string_lossy(),
+            sequence.locator_name
+        );
+
+        Ok(())
+    }
+}

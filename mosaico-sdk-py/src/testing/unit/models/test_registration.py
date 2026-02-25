@@ -2,7 +2,7 @@ import pydantic
 import pytest
 import pyarrow as pa
 
-from mosaicolabs.models import Serializable, Message, CovarianceMixin, HeaderMixin
+from mosaicolabs.models import Serializable, Message, CovarianceMixin
 from .my_project import RegisteredSensor, UnregisteredSensor
 
 
@@ -56,7 +56,7 @@ def test_ontology_type_schema_mismatch():
     """
     with pytest.raises(TypeError) as excinfo:
         # Define the class LOCALLY to trigger __init_subclass__ now
-        class MismatchedSensorMissingField(Serializable, HeaderMixin, CovarianceMixin):
+        class MismatchedSensorMissingField(Serializable, CovarianceMixin):
             __msco_pyarrow_struct__ = pa.struct(
                 [
                     pa.field("data", pa.float64(), nullable=False),
@@ -74,7 +74,7 @@ def test_ontology_type_schema_mismatch():
 
     with pytest.raises(TypeError) as excinfo:
         # Define the class LOCALLY to trigger __init_subclass__ now
-        class MismatchedSensorRenamedField(Serializable, HeaderMixin):
+        class MismatchedSensorRenamedField(Serializable):
             __msco_pyarrow_struct__ = pa.struct(
                 [
                     pa.field(
@@ -93,7 +93,7 @@ def test_ontology_type_schema_mismatch():
 
     with pytest.raises(TypeError) as excinfo:
         # Define the class LOCALLY to trigger __init_subclass__ now
-        class MismatchedSensorMissingPAField(Serializable, HeaderMixin):
+        class MismatchedSensorMissingPAField(Serializable):
             __msco_pyarrow_struct__ = pa.struct([])
             field: float
 

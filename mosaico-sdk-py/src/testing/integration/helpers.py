@@ -5,7 +5,8 @@ from typing import Iterable, List
 
 from mosaicolabs.models.data import Point3d, Vector3d
 from mosaicolabs.models.sensors import IMU, GPS, GPSStatus, Magnetometer
-from mosaicolabs.models import Serializable, Message, Header, Time
+from mosaicolabs.models import Serializable, Message
+from mosaicolabs.types import Time
 from testing.integration.config import (
     UPLOADED_GPS_FRAME_ID,
     UPLOADED_GPS_METADATA,
@@ -36,14 +37,11 @@ class SequenceDataStream:
     items: List[DataStreamItem]
 
 
-def make_imu_front_msg(msg_time: int, meas_time: Time):
+def make_imu_front_msg(meas_time: Time):
     return Message(
-        timestamp_ns=msg_time,
+        timestamp_ns=meas_time.to_nanoseconds(),
+        frame_id=UPLOADED_IMU_FRONT_FRAME_ID,
         data=IMU(
-            header=Header(
-                stamp=meas_time,
-                frame_id=UPLOADED_IMU_FRONT_FRAME_ID,
-            ),
             acceleration=Vector3d(
                 x=random.uniform(0, 1),
                 y=random.uniform(0, 1),
@@ -58,14 +56,11 @@ def make_imu_front_msg(msg_time: int, meas_time: Time):
     )
 
 
-def make_imu_cam_msg(msg_time: int, meas_time: Time):
+def make_imu_cam_msg(meas_time: Time):
     return Message(
-        timestamp_ns=msg_time,
+        timestamp_ns=meas_time.to_nanoseconds(),
+        frame_id=UPLOADED_IMU_CAMERA_FRAME_ID,
         data=IMU(
-            header=Header(
-                stamp=meas_time,
-                frame_id=UPLOADED_IMU_CAMERA_FRAME_ID,
-            ),
             acceleration=Vector3d(
                 x=random.uniform(0, 1),
                 y=random.uniform(0, 1),
@@ -80,14 +75,11 @@ def make_imu_cam_msg(msg_time: int, meas_time: Time):
     )
 
 
-def make_gps_msg(msg_time: int, meas_time: Time):
+def make_gps_msg(meas_time: Time):
     return Message(
-        timestamp_ns=msg_time,
+        timestamp_ns=meas_time.to_nanoseconds(),
+        frame_id=UPLOADED_GPS_FRAME_ID,
         data=GPS(
-            header=Header(
-                stamp=meas_time,
-                frame_id=UPLOADED_GPS_FRAME_ID,
-            ),
             position=Point3d(
                 x=random.uniform(0, 1),
                 y=random.uniform(0, 1),
@@ -102,14 +94,11 @@ def make_gps_msg(msg_time: int, meas_time: Time):
     )
 
 
-def make_magn_msg(msg_time: int, meas_time: Time):
+def make_magn_msg(meas_time: Time):
     return Message(
-        timestamp_ns=msg_time,
+        timestamp_ns=meas_time.to_nanoseconds(),
+        frame_id=UPLOADED_MAGNETOMETER_FRAME_ID,
         data=Magnetometer(
-            header=Header(
-                stamp=meas_time,
-                frame_id=UPLOADED_MAGNETOMETER_FRAME_ID,
-            ),
             magnetic_field=Vector3d(
                 x=random.uniform(0, 1),
                 y=random.uniform(0, 1),
@@ -158,7 +147,7 @@ def sequential_time_generator(
     nsec = start_nanosec
 
     for _ in range(steps):
-        yield Time(sec=sec, nanosec=nsec)
+        yield Time(seconds=sec, nanoseconds=nsec)
 
         nsec += step_nanosec
         sec += nsec // 1_000_000_000

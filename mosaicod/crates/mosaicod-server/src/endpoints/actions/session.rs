@@ -3,7 +3,7 @@ use crate::{ServerError, endpoints::Context};
 use log::{info, trace, warn};
 use mosaicod_core::types;
 use mosaicod_marshal::ActionResponse;
-use mosaicod_repo::{FacadeSequence, FacadeSession};
+use mosaicod_facade as facade;
 
 pub async fn create(
     ctx: &Context,
@@ -11,7 +11,7 @@ pub async fn create(
 ) -> Result<ActionResponse, ServerError> {
     info!("requested resource {} creation", sequence_locator);
 
-    let handle = FacadeSequence::new(sequence_locator, ctx.store.clone(), ctx.repo.clone());
+    let handle = facade::Sequence::new(sequence_locator, ctx.store.clone(), ctx.db.clone());
     let resource_key = handle.session().await?;
 
     trace!("created session for {}", handle.locator);
@@ -24,7 +24,7 @@ pub async fn finalize(ctx: &Context, session_uuid: String) -> Result<ActionRespo
 
     let uuid: types::Uuid = session_uuid.parse()?;
 
-    let handle = FacadeSession::new(uuid, ctx.store.clone(), ctx.repo.clone());
+    let handle = facade::Session::new(uuid, ctx.store.clone(), ctx.db.clone());
 
     handle.finalize().await?;
 
@@ -38,7 +38,7 @@ pub async fn abort(ctx: &Context, session_uuid: String) -> Result<ActionResponse
 
     let uuid: types::Uuid = session_uuid.parse()?;
 
-    let session = FacadeSession::new(uuid, ctx.store.clone(), ctx.repo.clone());
+    let session = facade::Session::new(uuid, ctx.store.clone(), ctx.db.clone());
 
     session.delete().await?;
 

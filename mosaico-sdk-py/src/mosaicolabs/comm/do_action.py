@@ -185,17 +185,17 @@ def _do_action(
 
 
 @dataclass
-class _DoActionResponseKey(_DoActionResponse):
+class _DoActionResponseUUID(_DoActionResponse):
     """Response containing a generated resource key (e.g., after creation)."""
 
     actions: ClassVar[list[FlightAction]] = [
-        FlightAction.SEQUENCE_CREATE,
+        FlightAction.SESSION_CREATE,
         FlightAction.TOPIC_CREATE,
     ]
-    key: str
+    uuid: str
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "_DoActionResponseKey":
+    def from_dict(cls, data: Dict[str, Any]) -> "_DoActionResponseUUID":
         return cls(**data)
 
 
@@ -209,7 +209,7 @@ class _DoActionResponseSysInfo(_DoActionResponse):
     ]
     total_size_bytes: int
     created_datetime: datetime.datetime
-    is_locked: bool
+    is_locked: Optional[bool] = None
     chunks_number: Optional[int] = None
 
     @classmethod

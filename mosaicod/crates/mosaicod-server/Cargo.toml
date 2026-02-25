@@ -14,7 +14,8 @@ mosaicod-core = { workspace = true }
 mosaicod-marshal = { workspace = true }
 mosaicod-rw = { workspace = true }
 mosaicod-ext = { workspace = true }
-mosaicod-repo = { workspace = true }
+mosaicod-db = { workspace = true }
+mosaicod-facade = { workspace = true }
 mosaicod-store = { workspace = true }
 mosaicod-query = { workspace = true }
 
@@ -29,5 +30,5 @@ arrow = { workspace = true }
 
 [dev-dependencies]
 mosaicod-store = { workspace = true, features = ["testing"]}
-mosaicod-repo = { workspace = true, features = ["testing"]}
+mosaicod-db = { workspace = true, features = ["testing"]}
 

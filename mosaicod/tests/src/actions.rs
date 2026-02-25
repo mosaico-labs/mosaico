@@ -21,7 +21,7 @@ pub async fn sequence_create(
         body: format!(
             r#"
         {{
-            "name": "{}",
+            "locator": "{}",
             "user_metadata": {}
         }}
         "#,
@@ -51,7 +51,7 @@ pub async fn session_create(client: &mut Client, sequence_name: &str) -> types::
         body: format!(
             r#"
         {{
-            "name": "{}"
+            "locator": "{}"
         }}
         "#,
             sequence_name
@@ -150,7 +150,7 @@ pub async fn topic_create(
         body: format!(
             r#"
         {{
-            "name": "{name}",
+            "locator": "{name}",
             "session_uuid": "{key}",
             "serialization_format": "default",
             "ontology_tag": "mock",
@@ -198,7 +198,7 @@ pub async fn do_put(
         r#"
         {{
             "resource_locator": "{}",
-            "key": "{}"
+            "topic_uuid": "{}"
         }}
         "#,
         topic_name, topic_uuid

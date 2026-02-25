@@ -155,7 +155,9 @@ class TopicHandler:
             client=client,
             action=ACTION,
             payload={
-                "name": pack_topic_resource_name(_stzd_sequence_name, _stzd_topic_name)
+                "locator": pack_topic_resource_name(
+                    _stzd_sequence_name, _stzd_topic_name
+                )
             },
             expected_type=_DoActionResponseSysInfo,
         )

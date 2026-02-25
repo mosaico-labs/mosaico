@@ -7,10 +7,10 @@ use arrow_flight::{Criteria, FlightDescriptor, FlightEndpoint, FlightInfo, Ticke
 use futures::stream::BoxStream;
 use log::{info, trace};
 use mosaicod_core::types::Resource;
-use mosaicod_repo as repo;
 use tonic::Status;
+use mosaicod_facade as facade;
 
-/// Lists all available flights (sequences) in the repository.
+/// Lists all available flights (sequences) in the database.
 ///
 /// When clients query with an empty or root path ("" or "/"), this function
 /// returns a streamed list of all sequences. Each sequence is represented
@@ -29,8 +29,8 @@ pub async fn list_flights(
 
     info!("listing all sequences");
 
-    // Fetch all sequences from repository
-    let sequences = repo::FacadeSequence::all(ctx.repo).await?;
+    // Fetch all sequences from database
+    let sequences = facade::Sequence::all(ctx.db).await?;
 
     trace!("found {} sequences", sequences.len());
 

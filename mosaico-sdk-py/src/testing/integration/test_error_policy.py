@@ -86,7 +86,13 @@ def test_sequence_abort(_client: MosaicoClient):
             raise Exception("__exception_in_test__")
     # The sequence is not available anymore (all the resources freed)
     log.info("Expected one (1) error after this line...")
-    assert _client.sequence_handler(sequence_name) is None
+
+    # Free resources
+    shandler = _client.sequence_handler(sequence_name)
+    assert shandler is not None
+    assert shandler.topics == []
+
+    _client.sequence_delete(sequence_name)
 
     # free resources
     _client.close()

@@ -3,8 +3,12 @@ This module defines the fundamental building blocks for spatial representation, 
 
 The module follows a **Two-Tier Architecture** to optimize both internal efficiency and public usability:
 
-* **Internal Structs (`_Struct`)**: Pure data containers that define the physical memory layout and the PyArrow schema. These are intended for embedding within larger composite objects (like a `Pose` or `Transform`) to avoid attaching redundant metadata headers or timestamps to every inner field.
-* **Public Classes**: High-level models that combine spatial data with Mosaico's transport and serialization logic. These inherit from the internal structs and inject support for auto-registration ([`Serializable`][mosaicolabs.models.serializable.Serializable]), temporal/spatial context ([`HeaderMixin`][mosaicolabs.models.mixins.HeaderMixin]), and uncertainty tracking ([`CovarianceMixin`][mosaicolabs.models.mixins.CovarianceMixin]).
+* **Internal Structs (`_Struct`)**: Pure data containers that define the physical memory layout and the PyArrow schema.
+    These are intended for embedding within larger composite objects (like a `Pose` or `Transform`)
+    to avoid attaching redundant metadata headers or timestamps to every inner field.
+* **Public Classes**: High-level models that combine spatial data with Mosaico's transport and serialization logic.
+    These inherit from the internal structs and inject support for auto-registration ([`Serializable`][mosaicolabs.models.serializable.Serializable]),
+    and uncertainty tracking ([`CovarianceMixin`][mosaicolabs.models.mixins.CovarianceMixin]).
 """
 
 from typing import Optional
@@ -12,7 +16,7 @@ import pyarrow as pa
 
 from ..base_model import BaseModel
 from ..serializable import Serializable
-from ..mixins import HeaderMixin, CovarianceMixin
+from ..mixins import CovarianceMixin
 
 
 # ---------------------------------------------------------------------------
@@ -67,8 +71,7 @@ class _Vector2dStruct(BaseModel):
 
     Note: Universal Compatibility
         The `<Model>` placeholder represents any Mosaico class derived by `_Vector2dStruct` (i.e. [`Vector2d`][mosaicolabs.models.data.Vector2d], [`Point2d`][mosaicolabs.models.data.Point2d])
-        or any custom user-defined [`Serializable`][mosaicolabs.models.Serializable] class that inherits
-        from `HeaderMixin`.
+        or any custom user-defined class that is a subclass of [`Serializable`][mosaicolabs.models.Serializable] and derives from `_Vector2dStruct` or its child classes.
 
     Example:
         ```python
@@ -125,8 +128,7 @@ class _Vector2dStruct(BaseModel):
 
     Note: Universal Compatibility
         The `<Model>` placeholder represents any Mosaico class derived by `_Vector2dStruct` (i.e. [`Vector2d`][mosaicolabs.models.data.Vector2d], [`Point2d`][mosaicolabs.models.data.Point2d])
-        or any custom user-defined [`Serializable`][mosaicolabs.models.Serializable] class that inherits
-        from `HeaderMixin`.
+        or any custom user-defined class that inherits from [`Serializable`][mosaicolabs.models.Serializable] and derives from `_Vector2dStruct` or its child classes.
 
     Example:
         ```python
@@ -240,8 +242,7 @@ class _Vector3dStruct(BaseModel):
 
     Note: Universal Compatibility
         The `<Model>` placeholder represents any Mosaico class derived by `_Vector3dStruct` (i.e. [`Vector3d`][mosaicolabs.models.data.Vector2d], [`Point3d`][mosaicolabs.models.data.Point2d])
-        or any custom user-defined [`Serializable`][mosaicolabs.models.Serializable] class that inherits
-        from `HeaderMixin`.
+        or any custom user-defined class that inherits from [`Serializable`][mosaicolabs.models.Serializable] and derives from `_Vector3dStruct` or its child classes.
 
     Example:
         ```python
@@ -298,8 +299,7 @@ class _Vector3dStruct(BaseModel):
 
     Note: Universal Compatibility
         The `<Model>` placeholder represents any Mosaico class derived by `_Vector3dStruct` (i.e. [`Vector3d`][mosaicolabs.models.data.Vector2d], [`Point3d`][mosaicolabs.models.data.Point2d])
-        or any custom user-defined [`Serializable`][mosaicolabs.models.Serializable] class that inherits
-        from `HeaderMixin`.
+        or any custom user-defined class that inherits from [`Serializable`][mosaicolabs.models.Serializable] and derives from `_Vector3dStruct` or its child classes.
 
     Example:
         ```python
@@ -356,8 +356,7 @@ class _Vector3dStruct(BaseModel):
 
     Note: Universal Compatibility
         The `<Model>` placeholder represents any Mosaico class derived by `_Vector3dStruct` (i.e. [`Vector3d`][mosaicolabs.models.data.Vector2d], [`Point3d`][mosaicolabs.models.data.Point2d])
-        or any custom user-defined [`Serializable`][mosaicolabs.models.Serializable] class that inherits
-        from `HeaderMixin`.
+        or any custom user-defined [`Serializable`][mosaicolabs.models.Serializable] class.
 
     Example:
         ```python
@@ -477,8 +476,7 @@ class _Vector4dStruct(BaseModel):
 
     Note: Universal Compatibility
         The `<Model>` placeholder represents any Mosaico class derived by `_Vector4dStruct` (i.e. [`Vector4d`][mosaicolabs.models.data.Vector4d], [`Quaternion`][mosaicolabs.models.data.Quaternion])
-        or any custom user-defined [`Serializable`][mosaicolabs.models.Serializable] class that inherits
-        from `HeaderMixin`.
+        or any custom user-defined class that inherits from [`Serializable`][mosaicolabs.models.Serializable] and derives from `_Vector4dStruct` or its child classes.
 
     Example:
         ```python
@@ -535,8 +533,7 @@ class _Vector4dStruct(BaseModel):
 
     Note: Universal Compatibility
         The `<Model>` placeholder represents any Mosaico class derived by `_Vector4dStruct` (i.e. [`Vector4d`][mosaicolabs.models.data.Vector4d], [`Quaternion`][mosaicolabs.models.data.Quaternion])
-        or any custom user-defined [`Serializable`][mosaicolabs.models.Serializable] class that inherits
-        from `HeaderMixin`.
+        or any custom user-defined class that inherits from [`Serializable`][mosaicolabs.models.Serializable] and derives from `_Vector4dStruct` or its child classes.
 
     Example:
         ```python
@@ -593,8 +590,7 @@ class _Vector4dStruct(BaseModel):
 
     Note: Universal Compatibility
         The `<Model>` placeholder represents any Mosaico class derived by `_Vector4dStruct` (i.e. [`Vector4d`][mosaicolabs.models.data.Vector4d], [`Quaternion`][mosaicolabs.models.data.Quaternion])
-        or any custom user-defined [`Serializable`][mosaicolabs.models.Serializable] class that inherits
-        from `HeaderMixin`.
+        or any custom user-defined class that inherits from [`Serializable`][mosaicolabs.models.Serializable] and derives from `_Vector4dStruct` or its child classes.
 
     Example:
         ```python
@@ -651,8 +647,7 @@ class _Vector4dStruct(BaseModel):
 
     Note: Universal Compatibility
         The `<Model>` placeholder represents any Mosaico class derived by `_Vector4dStruct` (i.e. [`Vector4d`][mosaicolabs.models.data.Vector4d], [`Quaternion`][mosaicolabs.models.data.Quaternion])
-        or any custom user-defined [`Serializable`][mosaicolabs.models.Serializable] class that inherits
-        from `HeaderMixin`.
+        or any custom user-defined class that inherits from [`Serializable`][mosaicolabs.models.Serializable] and derives from `_Vector4dStruct` or its child classes.
 
     Example:
         ```python
@@ -719,7 +714,6 @@ class _Vector4dStruct(BaseModel):
 class Vector2d(
     _Vector2dStruct,  # Inherits fields (x, y)
     Serializable,  # Adds Registry/Factory logic
-    HeaderMixin,  # Adds Timestamp/Frame info
     CovarianceMixin,  # Adds Covariance matrix support
 ):
     """
@@ -731,7 +725,6 @@ class Vector2d(
     Attributes:
         x: Vector X component.
         y: Vector Y component.
-        header: Optional metadata header providing temporal and spatial context.
         covariance: Optional flattened 2x2 covariance matrix representing
             the uncertainty of the vector measurement.
         covariance_type: Enum integer representing the parameterization of the
@@ -749,7 +742,7 @@ class Vector2d(
             # Filter for a specific component value.
             qresponse = client.query(
                 QueryOntologyCatalog(Vector2d.Q.y.leq(123.4))
-                .with_expression(Vector2d.Q.header.stamp.sec.between([1770282868, 1770290127]))
+                .with_expression(Vector2d.Q.timestamp_ns.between([1770282868, 1770290127]))
             )
 
             # Inspect the response
@@ -781,7 +774,6 @@ class Vector2d(
 class Vector3d(
     _Vector3dStruct,  # Inherits fields (x, y, z)
     Serializable,  # Adds Registry/Factory logic
-    HeaderMixin,  # Adds Timestamp/Frame info
     CovarianceMixin,  # Adds Covariance matrix support
 ):
     """
@@ -794,7 +786,6 @@ class Vector3d(
         x: Vector X component.
         y: Vector Y component.
         z: Vector Z component.
-        header: Optional metadata header providing temporal and spatial context.
         covariance: Optional flattened 3x3 covariance matrix representing
             the uncertainty of the vector measurement.
         covariance_type: Enum integer representing the parameterization of the
@@ -812,7 +803,7 @@ class Vector3d(
             # Filter for a specific component value.
             qresponse = client.query(
                 QueryOntologyCatalog(Vector3d.Q.y.leq(123.4))
-                .with_expression(Vector3d.Q.header.stamp.sec.between([1770282868, 1770290127]))
+                .with_expression(Vector3d.Q.timestamp_ns.between([1770282868, 1770290127]))
             )
 
             # Inspect the response
@@ -844,7 +835,6 @@ class Vector3d(
 class Vector4d(
     _Vector4dStruct,  # Inherits fields (x, y, z, w)
     Serializable,  # Adds Registry/Factory logic
-    HeaderMixin,  # Adds Timestamp/Frame info
     CovarianceMixin,  # Adds Covariance matrix support
 ):
     """
@@ -858,7 +848,6 @@ class Vector4d(
         y: Vector Y component.
         z: Vector Z component.
         w: Vector W component.
-        header: Optional metadata header providing temporal and spatial context.
         covariance: Optional flattened 4x4 covariance matrix representing
             the uncertainty of the vector measurement.
         covariance_type: Enum integer representing the parameterization of the
@@ -876,7 +865,7 @@ class Vector4d(
             # Filter for a specific component value.
             qresponse = client.query(
                 QueryOntologyCatalog(Vector4d.Q.y.leq(123.4))
-                .with_expression(Vector4d.Q.header.stamp.sec.between([1770282868, 1770290127]))
+                .with_expression(Vector4d.Q.timestamp_ns.between([1770282868, 1770290127]))
             )
 
             # Inspect the response
@@ -908,7 +897,6 @@ class Vector4d(
 class Point2d(
     _Vector2dStruct,  # Inherits fields (x, y)
     Serializable,  # Adds Registry/Factory logic
-    HeaderMixin,  # Adds Timestamp/Frame info
     CovarianceMixin,  # Adds Covariance matrix support
 ):
     """
@@ -921,7 +909,6 @@ class Point2d(
     Attributes:
         x: Point X coordinate.
         y: Point Y coordinate.
-        header: Optional metadata header providing temporal and spatial context.
         covariance: Optional flattened 2x2 covariance matrix representing
             the uncertainty of the point measurement.
         covariance_type: Enum integer representing the parameterization of the
@@ -939,7 +926,7 @@ class Point2d(
             # Filter for a specific component value.
             qresponse = client.query(
                 QueryOntologyCatalog(Point2d.Q.y.leq(123.4))
-                .with_expression(Point2d.Q.header.stamp.sec.between([1770282868, 1770290127]))
+                .with_expression(Point2d.Q.timestamp_ns.between([1770282868, 1770290127]))
             )
 
             # Inspect the response
@@ -971,7 +958,6 @@ class Point2d(
 class Point3d(
     _Vector3dStruct,  # Inherits fields (x, y, z)
     Serializable,  # Adds Registry/Factory logic
-    HeaderMixin,  # Adds Timestamp/Frame info
     CovarianceMixin,  # Adds Covariance matrix support
 ):
     """
@@ -985,7 +971,6 @@ class Point3d(
         x: Point X coordinate.
         y: Point Y coordinate.
         z: Point Z coordinate.
-        header: Optional metadata header providing temporal and spatial context.
         covariance: Optional flattened 3x3 covariance matrix representing
             the uncertainty of the point measurement.
         covariance_type: Enum integer representing the parameterization of the
@@ -1003,7 +988,7 @@ class Point3d(
             # Filter for a specific component value.
             qresponse = client.query(
                 QueryOntologyCatalog(Point3d.Q.y.leq(123.4))
-                .with_expression(Point3d.Q.header.stamp.sec.between([1770282868, 1770290127]))
+                .with_expression(Point3d.Q.timestamp_ns.between([1770282868, 1770290127]))
             )
 
             # Inspect the response
@@ -1035,7 +1020,6 @@ class Point3d(
 class Quaternion(
     _Vector4dStruct,  # Inherits fields (x, y, z, w)
     Serializable,  # Adds Registry/Factory logic
-    HeaderMixin,  # Adds Timestamp/Frame info
     CovarianceMixin,  # Adds Covariance matrix support
 ):
     """
@@ -1050,7 +1034,6 @@ class Quaternion(
         y: Vector Y component.
         z: Vector Z component.
         w: Vector W component.
-        header: Optional metadata header providing temporal and spatial context.
         covariance: Optional flattened 4x4 covariance matrix representing
             the uncertainty of the quaternion measurement.
         covariance_type: Enum integer representing the parameterization of the
@@ -1068,7 +1051,7 @@ class Quaternion(
             # Filter for a specific component value.
             qresponse = client.query(
                 QueryOntologyCatalog(Quaternion.Q.w.leq(0.707))
-                .with_expression(Quaternion.Q.header.stamp.sec.between([1770282868, 1770290127]))
+                .with_expression(Quaternion.Q.timestamp_ns.between([1770282868, 1770290127]))
             )
 
             # Inspect the response
@@ -1104,7 +1087,6 @@ class Quaternion(
 
 class Transform(
     Serializable,  # Adds Registry/Factory logic
-    HeaderMixin,  # Adds Timestamp/Frame info
     CovarianceMixin,  # Adds Covariance matrix support
 ):
     """
@@ -1118,7 +1100,6 @@ class Transform(
         translation: A `Vector3d` describing the linear shift.
         rotation: A `Quaternion` describing the rotational shift.
         target_frame_id: The identifier of the destination coordinate frame.
-        header: Optional metadata header providing temporal and spatial context.
         covariance: Optional flattened 7x7 composed covariance matrix representing
             the uncertainty of the Translation+Rotation.
         covariance_type: Enum integer representing the parameterization of the
@@ -1137,7 +1118,7 @@ class Transform(
             qresponse = client.query(
                 QueryOntologyCatalog(Transform.Q.translation.x.gt(5.0))
                 .with_expression(Transform.Q.rotation.w.lt(0.707))
-                .with_expression(Transform.Q.header.stamp.sec.between([1770282868, 1770290127]))
+                .with_expression(Transform.Q.timestamp_ns.between([1770282868, 1770290127]))
             )
 
             # Inspect the response
@@ -1326,7 +1307,6 @@ class Transform(
 
 class Pose(
     Serializable,  # Adds Registry/Factory logic
-    HeaderMixin,  # Adds Timestamp/Frame info
     CovarianceMixin,  # Adds Covariance matrix support
 ):
     """
@@ -1339,7 +1319,6 @@ class Pose(
     Attributes:
         position: A `Point3d` representing the object's coordinates.
         orientation: A `Quaternion` representing the object's heading.
-        header: Optional metadata header providing temporal and spatial context.
         covariance: Optional flattened 7x7 composed covariance matrix representing
             the uncertainty of the Translation+Rotation.
         covariance_type: Enum integer representing the parameterization of the

@@ -133,7 +133,7 @@ class SequenceHandler:
         act_resp = _do_action(
             client=client,
             action=ACTION,
-            payload={"name": _stzd_sequence_name},
+            payload={"locator": _stzd_sequence_name},
             expected_type=_DoActionResponseSysInfo,
         )
 

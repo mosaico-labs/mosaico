@@ -106,9 +106,9 @@ The `EncoderTicks` class defines the physical storage format.
 
 ```python
 import pyarrow as pa
-from mosaicolabs import HeaderMixin, Serializable
+from mosaicolabs import Serializable
 
-class EncoderTicks(Serializable, HeaderMixin):
+class EncoderTicks(Serializable):
     # --- Wire Schema Definition ---
     __msco_pyarrow_struct__ = pa.struct([
         pa.field("left_ticks", pa.uint32(), nullable=False),
@@ -126,7 +126,6 @@ class EncoderTicks(Serializable, HeaderMixin):
 **What is happening here?**
 
 * **[`Serializable`](../ontology.md)**: Inheriting from this class automatically registers your model in the Mosaico ecosystem, making it dispatchable to the data platform, and enables the `.Q` query proxy.
-* **[`HeaderMixin`](../ontology.md)**: This "injects" a standard `header` (including a timestamp and frame ID) into your model, ensuring it remains compatible with time-series analysis.
 * **Schema Alignment**: The field names in the `pa.struct` **must match exactly** the names of the Python attributes.
 
 For a more in-depth explanation:
@@ -143,7 +142,7 @@ The [`ROSAdapterBase`][mosaicolabs.ros_bridge.adapter_base.ROSAdapterBase] class
 
 ```python
 from mosaicolabs.ros_bridge import ROSMessage, ROSAdapterBase, register_adapter
-from mosaicolabs.ros_bridge.adapters.helpers import _make_header, _validate_msgdata
+from mosaicolabs.ros_bridge.adapters.helpers import _validate_msgdata
 from .isaac import EncoderTicks
 
 @register_adapter
@@ -159,7 +158,6 @@ class EncoderTicksAdapter(ROSAdapterBase[EncoderTicks]):
         """
         _validate_msgdata(cls, ros_data)
         return EncoderTicks(
-            header=_make_header(ros_data.get("header")),
             left_ticks=ros_data["left_ticks"],
             right_ticks=ros_data["right_ticks"],
             encoder_timestamp=ros_data["encoder_timestamp"],

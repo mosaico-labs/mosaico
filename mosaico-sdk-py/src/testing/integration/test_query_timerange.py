@@ -1,5 +1,5 @@
 from mosaicolabs.comm import MosaicoClient
-from mosaicolabs.models import Time
+from mosaicolabs.types import Time
 from mosaicolabs.models.query import QueryOntologyCatalog, QueryTopic
 from mosaicolabs.models.sensors import IMU, GPS
 from testing.integration.config import (
@@ -37,7 +37,7 @@ def test_query_ontology_with_timestamp_trivial(
 
     # NOTE:(v0.1) data is hardcoded in tests!
     # assert expected data for UPLOADED_IMU_CAMERA_TOPIC
-    expected_timerange = [5000000, 485000000]
+    expected_timerange = [1700000000005000000, 1700000000485000000]
     trange = next(
         t.timestamp_range
         for t in query_resp[0].topics
@@ -48,7 +48,7 @@ def test_query_ontology_with_timestamp_trivial(
     assert trange.end == expected_timerange[1]
 
     # assert expected data for UPLOADED_IMU_FRONT_TOPIC
-    expected_timerange = [0, 480000000]
+    expected_timerange = [1700000000000000000, 1700000000480000000]
     trange = next(
         t.timestamp_range
         for t in query_resp[0].topics
@@ -69,9 +69,9 @@ def test_query_ontology_with_timestamp_imu(
     # Query by multiple condition: time and value
     tstamp = Time.from_float(1700000000.26)
     query_resp = _client.query(
-        QueryOntologyCatalog(include_timestamp_range=True)
-        .with_expression(IMU.Q.header.stamp.sec.eq(tstamp.sec))
-        .with_expression(IMU.Q.header.stamp.nanosec.geq(tstamp.nanosec)),
+        QueryOntologyCatalog(include_timestamp_range=True).with_expression(
+            IMU.Q.timestamp_ns.geq(tstamp.to_nanoseconds())
+        ),
     )
 
     assert query_resp is not None and not query_resp.is_empty()
@@ -90,7 +90,7 @@ def test_query_ontology_with_timestamp_imu(
 
     # NOTE:(v0.1) data is hardcoded in tests!
     # assert expected data for UPLOADED_IMU_CAMERA_TOPIC
-    expected_timerange = [265000000, 485000000]
+    expected_timerange = [1700000000265000000, 1700000000485000000]
     trange = next(
         t.timestamp_range
         for t in query_resp[0].topics
@@ -101,7 +101,7 @@ def test_query_ontology_with_timestamp_imu(
     assert trange.end == expected_timerange[1]
 
     # assert expected data for UPLOADED_IMU_FRONT_TOPIC
-    expected_timerange = [260000000, 480000000]
+    expected_timerange = [1700000000260000000, 1700000000480000000]
     trange = next(
         t.timestamp_range
         for t in query_resp[0].topics
@@ -124,8 +124,7 @@ def test_query_mixed_ontology_with_timestamp(
     query_resp = _client.query(
         QueryOntologyCatalog(include_timestamp_range=True)
         .with_expression(IMU.Q.acceleration.x.geq(0))
-        .with_expression(GPS.Q.header.stamp.sec.geq(tstamp.sec))
-        .with_expression(GPS.Q.header.stamp.nanosec.geq(tstamp.nanosec)),
+        .with_expression(GPS.Q.timestamp_ns.geq(tstamp.to_nanoseconds())),
     )
 
     assert query_resp is not None and not query_resp.is_empty()
@@ -145,7 +144,7 @@ def test_query_mixed_ontology_with_timestamp(
 
     # NOTE:(v0.1) data is hardcoded in tests!
     # assert expected data for UPLOADED_IMU_CAMERA_TOPIC
-    expected_timerange = [5000000, 485000000]
+    expected_timerange = [1700000000005000000, 1700000000485000000]
     trange = next(
         t.timestamp_range
         for t in query_resp[0].topics
@@ -156,7 +155,7 @@ def test_query_mixed_ontology_with_timestamp(
     assert trange.end == expected_timerange[1]
 
     # assert expected data for UPLOADED_IMU_FRONT_TOPIC
-    expected_timerange = [0, 480000000]
+    expected_timerange = [1700000000000000000, 1700000000480000000]
     trange = next(
         t.timestamp_range
         for t in query_resp[0].topics
@@ -167,7 +166,7 @@ def test_query_mixed_ontology_with_timestamp(
     assert trange.end == expected_timerange[1]
 
     # assert expected data for UPLOADED_GPS_TOPIC
-    expected_timerange = [330000000, 490000000]
+    expected_timerange = [1700000000330000000, 1700000000490000000]
     trange = next(
         t.timestamp_range for t in query_resp[0].topics if t.name == UPLOADED_GPS_TOPIC
     )
@@ -186,9 +185,9 @@ def test_query_multi_criteria_with_timestamp(
     # Query by multiple condition: time and value
     tstamp = Time.from_float(1700000000.33)
     query_resp = _client.query(
-        QueryOntologyCatalog(include_timestamp_range=True)
-        .with_expression(IMU.Q.header.stamp.sec.geq(tstamp.sec))
-        .with_expression(IMU.Q.header.stamp.nanosec.geq(tstamp.nanosec)),
+        QueryOntologyCatalog(include_timestamp_range=True).with_expression(
+            IMU.Q.timestamp_ns.geq(tstamp.to_nanoseconds())
+        ),
         QueryTopic().with_name(UPLOADED_IMU_FRONT_TOPIC),
     )
 
@@ -207,7 +206,7 @@ def test_query_multi_criteria_with_timestamp(
 
     # NOTE:(v0.1) data is hardcoded in tests!
     # assert expected data for UPLOADED_IMU_FRONT_TOPIC
-    expected_timerange = [340000000, 480000000]
+    expected_timerange = [1700000000340000000, 1700000000480000000]
     trange = next(
         t.timestamp_range
         for t in query_resp[0].topics

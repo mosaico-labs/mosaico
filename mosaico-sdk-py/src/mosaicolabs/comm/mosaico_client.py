@@ -461,7 +461,7 @@ class MosaicoClient:
             _do_action(
                 client=self._control_client,
                 action=FlightAction.SEQUENCE_DELETE,
-                payload={"name": sequence_name},
+                payload={"locator": sequence_name},
                 expected_type=None,
             )
 
@@ -524,7 +524,7 @@ class MosaicoClient:
             act_resp = _do_action(
                 client=self._control_client,
                 action=ACTION,
-                payload={"name": sequence_name},
+                payload={"locator": sequence_name},
                 expected_type=_DoActionNotifyList,
             )
 
@@ -551,7 +551,7 @@ class MosaicoClient:
             _do_action(
                 client=self._control_client,
                 action=ACTION,
-                payload={"name": sequence_name},
+                payload={"locator": sequence_name},
                 expected_type=None,
             )
 
@@ -589,7 +589,7 @@ class MosaicoClient:
                 client=self._control_client,
                 action=ACTION,
                 payload={
-                    "name": pack_topic_resource_name(
+                    "locator": pack_topic_resource_name(
                         sequence_name=sequence_name,
                         topic_name=topic_name,
                     )
@@ -622,7 +622,7 @@ class MosaicoClient:
                 client=self._control_client,
                 action=ACTION,
                 payload={
-                    "name": pack_topic_resource_name(
+                    "locator": pack_topic_resource_name(
                         sequence_name=sequence_name,
                         topic_name=topic_name,
                     )
@@ -672,8 +672,7 @@ class MosaicoClient:
                     # Append a filter with deep time-series data discovery and measurement time windowing
                     QueryOntologyCatalog()
                     .with_expression(IMU.Q.acceleration.x.gt(5.0))
-                    .with_expression(IMU.Q.header.stamp.sec.gt(1700134567))
-                    .with_expression(IMU.Q.header.stamp.nanosec.between([123456, 789123])),
+                    .with_expression(IMU.Q.timestamp_ns.gt(1700134567))
                 )
                 # Inspect the results
                 if results is not None:
@@ -700,8 +699,7 @@ class MosaicoClient:
                     # Append a filter with deep time-series data discovery and measurement time windowing
                     QueryOntologyCatalog()
                     .with_expression(IMU.Q.acceleration.x.gt(5.0))
-                    .with_expression(IMU.Q.header.stamp.sec.gt(1700134567))
-                    .with_expression(IMU.Q.header.stamp.nanosec.between([123456, 789123])),
+                    .with_expression(IMU.Q.timestamp_ns.gt(1700134567))
                 )
                 # Perform the server side query
                 results = client.query(query=query)

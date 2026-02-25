@@ -2,11 +2,10 @@ import pyarrow as pa
 from typing import Optional
 
 from ..serializable import Serializable
-from ..mixins import HeaderMixin
 from .geometry import Vector2d
 
 
-class ROI(Serializable, HeaderMixin):
+class ROI(Serializable):
     """
     Represents a rectangular Region of Interest (ROI) within a 2D coordinate system.
 
@@ -20,7 +19,6 @@ class ROI(Serializable, HeaderMixin):
         width: The horizontal extent of the ROI in pixels.
         do_rectify: Optional flag; `True` if a sub-window is captured and requires
             rectification.
-        header: Standard metadata header providing temporal and spatial context.
 
     ### Querying with the **`.Q` Proxy**
     This class fields are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]

@@ -57,12 +57,9 @@ class TestQueryTransformAPI:
         # Inherited from Quaternion
         Transform.Q.rotation.covariance_type
         Transform.Q.target_frame_id
-        # Inherited from HeaderMixin
-        Transform.Q.header.seq
-        Transform.Q.header.stamp.sec
-        Transform.Q.header.stamp.nanosec
-        Transform.Q.header.frame_id
         # Inherited from Message
+        Transform.Q.sequence_id
+        Transform.Q.frame_id
         Transform.Q.timestamp_ns
         # Inherited from CovarianceMixin
         Transform.Q.covariance_type
@@ -89,10 +86,8 @@ class TestQueryTransformAPI:
         assert issubclass(type(Transform.Q.rotation.z), _QueryableNumeric)
         assert issubclass(type(Transform.Q.rotation.w), _QueryableNumeric)
         assert issubclass(type(Transform.Q.target_frame_id), _QueryableString)
-        assert issubclass(type(Transform.Q.header.seq), _QueryableNumeric)
-        assert issubclass(type(Transform.Q.header.stamp.sec), _QueryableNumeric)
-        assert issubclass(type(Transform.Q.header.stamp.nanosec), _QueryableNumeric)
-        assert issubclass(type(Transform.Q.header.frame_id), _QueryableString)
+        assert issubclass(type(Transform.Q.sequence_id), _QueryableNumeric)
+        assert issubclass(type(Transform.Q.frame_id), _QueryableString)
         assert issubclass(type(Transform.Q.covariance_type), _QueryableNumeric)
 
     def test_expression_generation_paths_and_operators(self):
@@ -115,10 +110,10 @@ class TestQueryTransformAPI:
 
         # --- Catalog Context: Range Operator ---
         test_time_range = [10000, 30000]
-        expr_trans_between = Transform.Q.header.stamp.sec.between(test_time_range)
+        expr_trans_between = Transform.Q.timestamp_ns.between(test_time_range)
         assert isinstance(expr_trans_between, _QueryCatalogExpression)
         assert expr_trans_between.to_dict() == {
-            "transform.header.stamp.sec": {"$between": test_time_range}
+            "transform.timestamp_ns": {"$between": test_time_range}
         }
 
     def test_full_sdk_query_to_dict_structure(self):
@@ -168,12 +163,9 @@ class TestQueryPoseAPI:
         Pose.Q.orientation.w
         # Inherited from Quaternion
         Pose.Q.orientation.covariance_type
-        # Inherited from HeaderMixin
-        Pose.Q.header.seq
-        Pose.Q.header.stamp.sec
-        Pose.Q.header.stamp.nanosec
-        Pose.Q.header.frame_id
         # Inherited from Message
+        Pose.Q.sequence_id
+        Pose.Q.frame_id
         Pose.Q.timestamp_ns
         # Inherited from CovarianceMixin
         Pose.Q.covariance_type
@@ -198,10 +190,9 @@ class TestQueryPoseAPI:
         assert issubclass(type(Pose.Q.orientation.z), _QueryableNumeric)
         assert issubclass(type(Pose.Q.orientation.w), _QueryableNumeric)
         assert issubclass(type(Pose.Q.orientation.covariance_type), _QueryableNumeric)
-        assert issubclass(type(Pose.Q.header.seq), _QueryableNumeric)
-        assert issubclass(type(Pose.Q.header.stamp.sec), _QueryableNumeric)
-        assert issubclass(type(Pose.Q.header.stamp.nanosec), _QueryableNumeric)
-        assert issubclass(type(Pose.Q.header.frame_id), _QueryableString)
+        assert issubclass(type(Pose.Q.sequence_id), _QueryableNumeric)
+        assert issubclass(type(Pose.Q.timestamp_ns), _QueryableNumeric)
+        assert issubclass(type(Pose.Q.frame_id), _QueryableString)
         assert issubclass(type(Pose.Q.covariance_type), _QueryableNumeric)
 
     def test_expression_generation_paths_and_operators(self):
@@ -224,10 +215,10 @@ class TestQueryPoseAPI:
 
         # --- Catalog Context: Range Operator ---
         test_time_range = [10000, 30000]
-        expr_between = Pose.Q.header.stamp.sec.between(test_time_range)
+        expr_between = Pose.Q.timestamp_ns.between(test_time_range)
         assert isinstance(expr_between, _QueryCatalogExpression)
         assert expr_between.to_dict() == {
-            "pose.header.stamp.sec": {"$between": test_time_range}
+            "pose.timestamp_ns": {"$between": test_time_range}
         }
 
     def test_full_sdk_query_to_dict_structure(self):
@@ -276,12 +267,10 @@ class TestQueryVelocityAPI:
         Velocity.Q.angular.z
         # Inherited from Vector3d
         Velocity.Q.angular.covariance_type
-        # Inherited from HeaderMixin
-        Velocity.Q.header.seq
-        Velocity.Q.header.stamp.sec
-        Velocity.Q.header.stamp.nanosec
-        Velocity.Q.header.frame_id
         # Inherited from Message
+        Velocity.Q.sequence_id
+        Velocity.Q.timestamp_ns
+        Velocity.Q.frame_id
         Velocity.Q.timestamp_ns
         # Inherited from CovarianceMixin
         Velocity.Q.covariance_type
@@ -305,10 +294,9 @@ class TestQueryVelocityAPI:
         assert issubclass(type(Velocity.Q.angular.y), _QueryableNumeric)
         assert issubclass(type(Velocity.Q.angular.z), _QueryableNumeric)
         assert issubclass(type(Velocity.Q.angular.covariance_type), _QueryableNumeric)
-        assert issubclass(type(Velocity.Q.header.seq), _QueryableNumeric)
-        assert issubclass(type(Velocity.Q.header.stamp.sec), _QueryableNumeric)
-        assert issubclass(type(Velocity.Q.header.stamp.nanosec), _QueryableNumeric)
-        assert issubclass(type(Velocity.Q.header.frame_id), _QueryableString)
+        assert issubclass(type(Velocity.Q.sequence_id), _QueryableNumeric)
+        assert issubclass(type(Velocity.Q.timestamp_ns), _QueryableNumeric)
+        assert issubclass(type(Velocity.Q.frame_id), _QueryableString)
         assert issubclass(type(Velocity.Q.covariance_type), _QueryableNumeric)
 
     def test_expression_generation_paths_and_operators(self):
@@ -331,10 +319,10 @@ class TestQueryVelocityAPI:
 
         # --- Catalog Context: Range Operator ---
         test_time_range = [10000, 30000]
-        expr_between = Velocity.Q.header.stamp.sec.between(test_time_range)
+        expr_between = Velocity.Q.timestamp_ns.between(test_time_range)
         assert isinstance(expr_between, _QueryCatalogExpression)
         assert expr_between.to_dict() == {
-            "velocity.header.stamp.sec": {"$between": test_time_range}
+            "velocity.timestamp_ns": {"$between": test_time_range}
         }
 
     def test_full_sdk_query_to_dict_structure(self):
@@ -383,12 +371,10 @@ class TestQueryAccelerationAPI:
         Acceleration.Q.angular.z
         # Inherited from Vector3d
         Acceleration.Q.angular.covariance_type
-        # Inherited from HeaderMixin
-        Acceleration.Q.header.seq
-        Acceleration.Q.header.stamp.sec
-        Acceleration.Q.header.stamp.nanosec
-        Acceleration.Q.header.frame_id
         # Inherited from Message
+        Acceleration.Q.sequence_id
+        Acceleration.Q.timestamp_ns
+        Acceleration.Q.frame_id
         Acceleration.Q.timestamp_ns
         # Inherited from CovarianceMixin
         Acceleration.Q.covariance_type
@@ -416,10 +402,9 @@ class TestQueryAccelerationAPI:
         assert issubclass(
             type(Acceleration.Q.angular.covariance_type), _QueryableNumeric
         )
-        assert issubclass(type(Acceleration.Q.header.seq), _QueryableNumeric)
-        assert issubclass(type(Acceleration.Q.header.stamp.sec), _QueryableNumeric)
-        assert issubclass(type(Acceleration.Q.header.stamp.nanosec), _QueryableNumeric)
-        assert issubclass(type(Acceleration.Q.header.frame_id), _QueryableString)
+        assert issubclass(type(Acceleration.Q.sequence_id), _QueryableNumeric)
+        assert issubclass(type(Acceleration.Q.timestamp_ns), _QueryableNumeric)
+        assert issubclass(type(Acceleration.Q.frame_id), _QueryableString)
         assert issubclass(type(Acceleration.Q.covariance_type), _QueryableNumeric)
 
     def test_expression_generation_paths_and_operators(self):
@@ -442,10 +427,10 @@ class TestQueryAccelerationAPI:
 
         # --- Catalog Context: Range Operator ---
         test_time_range = [10000, 30000]
-        expr_between = Acceleration.Q.header.stamp.sec.between(test_time_range)
+        expr_between = Acceleration.Q.timestamp_ns.between(test_time_range)
         assert isinstance(expr_between, _QueryCatalogExpression)
         assert expr_between.to_dict() == {
-            "acceleration.header.stamp.sec": {"$between": test_time_range}
+            "acceleration.timestamp_ns": {"$between": test_time_range}
         }
 
     def test_full_sdk_query_to_dict_structure(self):
@@ -491,25 +476,23 @@ class TestQueryMotionStateAPI:
         MotionState.Q.pose.orientation.y
         MotionState.Q.pose.orientation.z
         MotionState.Q.pose.orientation.w
-        # Inherited from Vector3d
+        # Inherited from CovarianceMixin
         MotionState.Q.pose.position.covariance_type
         MotionState.Q.pose.orientation.covariance_type
-        # Inherited from HeaderMixin
+        # Inherited from Vector3d
         MotionState.Q.velocity.linear.x
         MotionState.Q.velocity.linear.y
         MotionState.Q.velocity.linear.z
         MotionState.Q.velocity.angular.x
         MotionState.Q.velocity.angular.y
         MotionState.Q.velocity.angular.z
-        # Inherited from Vector3d
+        # Inherited from CovarianceMixin
         MotionState.Q.velocity.linear.covariance_type
         MotionState.Q.velocity.angular.covariance_type
-        # Inherited from HeaderMixin
-        MotionState.Q.header.seq
-        MotionState.Q.header.stamp.sec
-        MotionState.Q.header.stamp.nanosec
-        MotionState.Q.header.frame_id
         # Inherited from Message
+        MotionState.Q.sequence_id
+        MotionState.Q.timestamp_ns
+        MotionState.Q.frame_id
         MotionState.Q.timestamp_ns
         # Inherited from CovarianceMixin
         MotionState.Q.covariance_type
@@ -551,10 +534,9 @@ class TestQueryMotionStateAPI:
         assert issubclass(
             type(MotionState.Q.velocity.angular.covariance_type), _QueryableNumeric
         )
-        assert issubclass(type(MotionState.Q.header.seq), _QueryableNumeric)
-        assert issubclass(type(MotionState.Q.header.stamp.sec), _QueryableNumeric)
-        assert issubclass(type(MotionState.Q.header.stamp.nanosec), _QueryableNumeric)
-        assert issubclass(type(MotionState.Q.header.frame_id), _QueryableString)
+        assert issubclass(type(MotionState.Q.sequence_id), _QueryableNumeric)
+        assert issubclass(type(MotionState.Q.timestamp_ns), _QueryableNumeric)
+        assert issubclass(type(MotionState.Q.frame_id), _QueryableString)
         assert issubclass(type(MotionState.Q.covariance_type), _QueryableNumeric)
         assert issubclass(type(MotionState.Q.target_frame_id), _QueryableString)
 
@@ -578,10 +560,10 @@ class TestQueryMotionStateAPI:
 
         # --- Catalog Context: Range Operator ---
         test_time_range = [10000, 30000]
-        expr_between = MotionState.Q.header.stamp.sec.between(test_time_range)
+        expr_between = MotionState.Q.timestamp_ns.between(test_time_range)
         assert isinstance(expr_between, _QueryCatalogExpression)
         assert expr_between.to_dict() == {
-            "motion_state.header.stamp.sec": {"$between": test_time_range}
+            "motion_state.timestamp_ns": {"$between": test_time_range}
         }
 
     def test_full_sdk_query_to_dict_structure(self):
@@ -630,12 +612,10 @@ class TestQueryForceTorqueAPI:
         ForceTorque.Q.torque.z
         # Inherited from Vector3d
         ForceTorque.Q.torque.covariance_type
-        # Inherited from HeaderMixin
-        ForceTorque.Q.header.seq
-        ForceTorque.Q.header.stamp.sec
-        ForceTorque.Q.header.stamp.nanosec
-        ForceTorque.Q.header.frame_id
         # Inherited from Message
+        ForceTorque.Q.sequence_id
+        ForceTorque.Q.timestamp_ns
+        ForceTorque.Q.frame_id
         ForceTorque.Q.timestamp_ns
         # Inherited from CovarianceMixin
         ForceTorque.Q.covariance_type
@@ -659,10 +639,9 @@ class TestQueryForceTorqueAPI:
         assert issubclass(type(ForceTorque.Q.torque.y), _QueryableNumeric)
         assert issubclass(type(ForceTorque.Q.torque.z), _QueryableNumeric)
         assert issubclass(type(ForceTorque.Q.torque.covariance_type), _QueryableNumeric)
-        assert issubclass(type(ForceTorque.Q.header.seq), _QueryableNumeric)
-        assert issubclass(type(ForceTorque.Q.header.stamp.sec), _QueryableNumeric)
-        assert issubclass(type(ForceTorque.Q.header.stamp.nanosec), _QueryableNumeric)
-        assert issubclass(type(ForceTorque.Q.header.frame_id), _QueryableString)
+        assert issubclass(type(ForceTorque.Q.sequence_id), _QueryableNumeric)
+        assert issubclass(type(ForceTorque.Q.timestamp_ns), _QueryableNumeric)
+        assert issubclass(type(ForceTorque.Q.frame_id), _QueryableString)
         assert issubclass(type(ForceTorque.Q.covariance_type), _QueryableNumeric)
 
     def test_expression_generation_paths_and_operators(self):
@@ -685,10 +664,10 @@ class TestQueryForceTorqueAPI:
 
         # --- Catalog Context: Range Operator ---
         test_time_range = [10000, 30000]
-        expr_between = ForceTorque.Q.header.stamp.sec.between(test_time_range)
+        expr_between = ForceTorque.Q.timestamp_ns.between(test_time_range)
         assert isinstance(expr_between, _QueryCatalogExpression)
         assert expr_between.to_dict() == {
-            "force_torque.header.stamp.sec": {"$between": test_time_range}
+            "force_torque.timestamp_ns": {"$between": test_time_range}
         }
 
     def test_full_sdk_query_to_dict_structure(self):
@@ -733,12 +712,10 @@ class TestQueryROIAPI:
         ROI.Q.height
         ROI.Q.width
         ROI.Q.do_rectify
-        # Inherited from HeaderMixin
-        ROI.Q.header.seq
-        ROI.Q.header.stamp.sec
-        ROI.Q.header.stamp.nanosec
-        ROI.Q.header.frame_id
         # Inherited from Message
+        ROI.Q.sequence_id
+        ROI.Q.timestamp_ns
+        ROI.Q.frame_id
         ROI.Q.timestamp_ns
 
         # --- Catalog Context: Non-existing field ---
@@ -758,10 +735,9 @@ class TestQueryROIAPI:
         assert issubclass(type(ROI.Q.height), _QueryableNumeric)
         assert issubclass(type(ROI.Q.width), _QueryableNumeric)
         assert issubclass(type(ROI.Q.do_rectify), _QueryableBool)
-        assert issubclass(type(ROI.Q.header.seq), _QueryableNumeric)
-        assert issubclass(type(ROI.Q.header.stamp.sec), _QueryableNumeric)
-        assert issubclass(type(ROI.Q.header.stamp.nanosec), _QueryableNumeric)
-        assert issubclass(type(ROI.Q.header.frame_id), _QueryableString)
+        assert issubclass(type(ROI.Q.sequence_id), _QueryableNumeric)
+        assert issubclass(type(ROI.Q.timestamp_ns), _QueryableNumeric)
+        assert issubclass(type(ROI.Q.frame_id), _QueryableString)
 
     def test_expression_generation_paths_and_operators(self):
         """
@@ -783,10 +759,10 @@ class TestQueryROIAPI:
 
         # --- Catalog Context: Range Operator ---
         test_time_range = [10000, 30000]
-        expr_between = ROI.Q.header.stamp.sec.between(test_time_range)
+        expr_between = ROI.Q.timestamp_ns.between(test_time_range)
         assert isinstance(expr_between, _QueryCatalogExpression)
         assert expr_between.to_dict() == {
-            "roi.header.stamp.sec": {"$between": test_time_range}
+            "roi.timestamp_ns": {"$between": test_time_range}
         }
 
     def test_full_sdk_query_to_dict_structure(self):

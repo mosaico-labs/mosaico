@@ -1,10 +1,10 @@
 import pyarrow as pa
 from typing import List
 from mosaicolabs.models.data import Transform
-from mosaicolabs.models import Serializable, HeaderMixin
+from mosaicolabs.models import Serializable
 
 
-class FrameTransform(Serializable, HeaderMixin):
+class FrameTransform(Serializable):
     """
     Represents a list of transformations between two coordinates.
 

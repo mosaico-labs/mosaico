@@ -374,8 +374,7 @@ if qresponse is not None:
 # Build a filter with deep time-series data discovery and measurement time windowing
 qbuilder = QueryOntologyCatalog()
     .with_expression(IMU.Q.acceleration.x.gt(5.0))
-    .with_expression(IMU.Q.header.stamp.sec.gt(1700134567))
-    .with_expression(IMU.Q.header.stamp.nanosec.between([123456, 789123]))
+    .with_expression(IMU.Q.timestamp_ns.gt(1700134567))
 # Execute the query
 qresponse = client.query(qbuilder)
 
@@ -402,7 +401,7 @@ The proxy follows a three-step lifecycle to ensure that your queries are both se
 To understand how the proxy handles nested structures, inherited attributes, and data types, consider the `IMU` ontology class:
 
 ```python
-class IMU(Serializable, HeaderMixin):
+class IMU(Serializable):
     acceleration: Vector3d      # Composed type: contains x, y, z
     angular_velocity: Vector3d  # Composed type: contains x, y, z
     orientation: Optional[Quaternion] = None # Composed type: contains x, y, z, w
@@ -410,7 +409,7 @@ class IMU(Serializable, HeaderMixin):
 
 The `.Q` proxy enables you to navigate the data exactly as it is defined in the model. By following the `IMU.Q` instruction, you can drill down through nested fields and inherited mixins using standard dot notation until you reach a base queryable type.
 
-The proxy automatically flattens the hierarchy, including fields inherited from `HeaderMixin` (like `frame_id` and `stamp`), assigning the correct queryable type and operators to each leaf node:
+The proxy automatically flattens the hierarchy, assigning the correct queryable type and operators to each leaf node:
 (API Reference: [`mosaicolabs.models.sensors.IMU`][mosaicolabs.models.sensors.IMU--querying-with-the-q-proxy])
 
 | Proxy Field Path | Queryable Type | Supported Operators (Examples) |
@@ -418,9 +417,10 @@ The proxy automatically flattens the hierarchy, including fields inherited from 
 | **[`IMU.Q.acceleration.x/y/z`][mosaicolabs.models.sensors.IMU.acceleration--querying-with-the-q-proxy]** | **Numeric** | `.gt()`, `.lt()`, `.geq()`, `.leq()`, `.eq()`, `.between()`, `.in_()` |
 | **[`IMU.Q.angular_velocity.x/y/z`][mosaicolabs.models.sensors.IMU.angular_velocity--querying-with-the-q-proxy]** | **Numeric** | `.gt()`, `.lt()`, `.geq()`, `.leq()`, `.eq()`, `.between()`, `.in_()` |
 | **[`IMU.Q.orientation.x/y/z/w`][mosaicolabs.models.sensors.IMU.orientation--querying-with-the-q-proxy]** | **Numeric** | `.gt()`, `.lt()`, `.geq()`, `.leq()`, `.eq()`, `.between()`, `.in_()` |
-| **[`IMU.Q.header.frame_id`][mosaicolabs.models.sensors.IMU.header--querying-with-the-q-proxy]** | **String** | `.eq()`, `.match()` |
-| **[`IMU.Q.header.stamp.sec`][mosaicolabs.models.sensors.IMU.header--querying-with-the-q-proxy]** | **Numeric** | `.gt()`, `.lt()`, `.geq()`, `.leq()`, `.eq()`, `.between()`, `.in_()` |
-| **[`IMU.Q.header.stamp.nanosec`][mosaicolabs.models.sensors.IMU.header--querying-with-the-q-proxy]** | **Numeric** | `.gt()`, `.lt()`, `.geq()`, `.leq()`, `.eq()`, `.between()`, `.in_()` |
+| **[`IMU.Q.timestamp_ns`][mosaicolabs.models.Message.timestamp_ns--querying-with-the-q-proxy]** | **Numeric** | `.gt()`, `.lt()`, `.geq()`, `.leq()`, `.eq()`, `.between()`, `.in_()` |
+| **[`IMU.Q.recording_timestamp_ns`][mosaicolabs.models.Message.recording_timestamp_ns--querying-with-the-q-proxy]** | **Numeric** | `.gt()`, `.lt()`, `.geq()`, `.leq()`, `.eq()`, `.between()`, `.in_()` |
+| **[`IMU.Q.frame_id`][mosaicolabs.models.Message.frame_id--querying-with-the-q-proxy]** | **String** | `.eq()`, `.neq()`, `.match()`, `in_()` |
+| **[`IMU.Q.sequence_id`][mosaicolabs.models.Message.sequence_id--querying-with-the-q-proxy]** | **Numeric** | `.gt()`, `.lt()`, `.geq()`, `.leq()`, `.eq()`, `.between()`, `.in_()` |
 
 
 The following table lists the supported operators for each data type:

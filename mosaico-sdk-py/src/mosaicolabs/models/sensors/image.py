@@ -29,8 +29,6 @@ from PIL import Image as PILImage
 from mosaicolabs.enum import SerializationFormat
 from mosaicolabs.logging_config import get_logger
 
-from ..header import Header
-from ..mixins import HeaderMixin
 from ..serializable import Serializable
 
 # Set the hierarchical logger
@@ -92,7 +90,7 @@ _IMG_ENCODING_MAP: dict = {
 _DEFAULT_IMG_FORMAT = ImageFormat.PNG
 
 
-class Image(Serializable, HeaderMixin):
+class Image(Serializable):
     """
     Represents raw, uncompressed image data.
 
@@ -387,7 +385,6 @@ class Image(Serializable, HeaderMixin):
         height: int,
         width: int,
         encoding: str,
-        header: Optional[Header] = None,
         is_bigendian: Optional[bool] = None,
         format: Optional[ImageFormat] = _DEFAULT_IMG_FORMAT,
     ) -> "Image":
@@ -454,7 +451,6 @@ class Image(Serializable, HeaderMixin):
                 format = ImageFormat.RAW
 
         return cls(
-            header=header,
             data=img_bytes,
             format=format,
             width=width,
@@ -565,7 +561,6 @@ class Image(Serializable, HeaderMixin):
     def from_pillow(
         cls,
         pil_image: PILImage.Image,
-        header: Optional[Header] = None,
         target_encoding: Optional[str] = None,
         output_format: Optional[ImageFormat] = None,
     ) -> "Image":
@@ -581,7 +576,6 @@ class Image(Serializable, HeaderMixin):
 
         Args:
             pil_image (PILImage.Image): Source image.
-            header (Optional[Header]): Metadata.
             target_encoding (Optional[str]): Target pixel format (e.g., "bgr8").
             output_format (Optional[ImageFormat]): ('raw' or 'png').
 
@@ -636,7 +630,6 @@ class Image(Serializable, HeaderMixin):
             encoding=target_encoding,
             height=height,
             is_bigendian=sys.byteorder == "big",
-            header=header,
         )
 
 
@@ -743,7 +736,7 @@ class _StatelessDefaultCodec:
 # --- Data Structure ---
 
 
-class CompressedImage(Serializable, HeaderMixin):
+class CompressedImage(Serializable):
     """
     Represents image data stored as a compressed binary blob (e.g. JPEG, PNG, H264, ...).
 
@@ -864,7 +857,6 @@ class CompressedImage(Serializable, HeaderMixin):
         cls,
         image: PILImage.Image,
         format: ImageFormat = ImageFormat.PNG,
-        header: Optional[Header] = None,
         # TODO: enable param when allowing generic formats (not via Enum)
         # codec: Optional[CompressedImageCodec] = None,
         **kwargs,
@@ -879,7 +871,6 @@ class CompressedImage(Serializable, HeaderMixin):
         Args:
             image: The source Pillow image.
             format: The target compression format (default: 'jpeg').
-            header: Optional Header metadata.
             **kwargs: Additional arguments passed to the codec's encode method
                       (e.g., quality=90).
 
@@ -896,4 +887,4 @@ class CompressedImage(Serializable, HeaderMixin):
             raise RuntimeError(
                 f"Failed to create CompressedImage (format: '{fmt_lower}')"
             )
-        return cls(data=compressed_bytes, format=format, header=header)
+        return cls(data=compressed_bytes, format=format)

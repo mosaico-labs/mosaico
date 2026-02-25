@@ -350,7 +350,7 @@ class RosbagInjector:
                             for ros_msg, exc in ros_loader:
                                 self._process_message(ros_msg, exc, seq_writer, ui)
 
-                if seq_writer.sequence_status == SequenceStatus.Error:
+                if seq_writer.status == SequenceStatus.Error:
                     logger.error(
                         "`SequenceWriter` returned a `SequenceStatus.Error` status. Upload might have failed!"
                     )

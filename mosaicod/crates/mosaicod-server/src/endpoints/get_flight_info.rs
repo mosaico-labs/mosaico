@@ -6,8 +6,9 @@ use arrow_flight::{
 };
 use log::{info, trace};
 use mosaicod_core::types::{self, Resource};
+use mosaicod_db as db;
+use mosaicod_facade as facade;
 use mosaicod_marshal as marshal;
-use mosaicod_repo::{self as repo, FacadeError, FacadeSequence, FacadeTopic};
 
 pub async fn get_flight_info(
     ctx: Context,
@@ -20,14 +21,14 @@ pub async fn get_flight_info(
 
             info!("requesting info for resource {}", resource_name);
 
-            let resource = repo::get_resource_locator_from_name(&ctx.repo, resource_name).await?;
+            let resource = db::get_resource_locator_from_name(&ctx.db, resource_name).await?;
 
             match resource.resource_type() {
                 types::ResourceType::Sequence => {
-                    let handle = FacadeSequence::new(
+                    let handle = facade::Sequence::new(
                         resource.name().into(),
                         ctx.store.clone(),
-                        ctx.repo.clone(),
+                        ctx.db.clone(),
                     );
                     let metadata = handle.metadata().await?;
 
@@ -38,7 +39,8 @@ pub async fn get_flight_info(
 
                     // Collect metadata
                     let metadata = marshal::JsonSequenceMetadata::from(metadata);
-                    let flatten_metadata = metadata.to_flat_hashmap().map_err(FacadeError::from)?;
+                    let flatten_metadata =
+                        metadata.to_flat_hashmap().map_err(facade::Error::from)?;
 
                     // Collect schema
                     let schema = Schema::new_with_metadata(Vec::<Field>::new(), flatten_metadata);
@@ -88,7 +90,7 @@ pub async fn get_flight_info(
 
                 types::ResourceType::Topic => {
                     let handle =
-                        FacadeTopic::new(resource.name().into(), ctx.store, ctx.repo.clone());
+                        facade::Topic::new(resource.name().into(), ctx.store, ctx.db.clone());
                     let metadata = handle.metadata().await?;
 
                     trace!("{} building schema (+platform metadata)", handle.locator);
@@ -99,13 +101,14 @@ pub async fn get_flight_info(
                         .await
                     {
                         Ok(s) => s,
-                        Err(FacadeError::NotFound(_)) => mosaicod_ext::arrow::empty_schema_ref(),
+                        Err(facade::Error::NotFound(_)) => mosaicod_ext::arrow::empty_schema_ref(),
                         Err(e) => return Err(e.into()),
                     };
 
                     // Collect metadata
                     let metadata = marshal::JsonTopicMetadata::from(metadata);
-                    let flatten_metadata = metadata.to_flat_hashmap().map_err(FacadeError::from)?;
+                    let flatten_metadata =
+                        metadata.to_flat_hashmap().map_err(facade::Error::from)?;
 
                     // Build schema to send
                     let schema =
@@ -115,7 +118,7 @@ pub async fn get_flight_info(
                     // other errors are propagated
                     let manifest = match handle.manifest().await {
                         Ok(m) => m,
-                        Err(FacadeError::NotFound(_)) => types::TopicManifest::new(),
+                        Err(facade::Error::NotFound(_)) => types::TopicManifest::new(),
                         Err(e) => return Err(e.into()),
                     };
 
@@ -164,16 +167,16 @@ pub async fn collect_manifests(
     let mut manifests = Vec::new();
 
     for topic in topics {
-        // (cabba) TODO: avoid cloning avery time store and repo, maybe a `.into_parts()` to reuse
+        // (cabba) TODO: avoid cloning avery time store and database, maybe a `.into_parts()` to reuse
         // facade resources ?
         let handler =
-            FacadeTopic::new(topic.name().to_owned(), ctx.store.clone(), ctx.repo.clone());
+            facade::Topic::new(topic.name().to_owned(), ctx.store.clone(), ctx.db.clone());
 
         // Collect manifest, if no manifest is found an empty one is returned while
         // other errors are propagated
         let manifest = match handler.manifest().await {
             Ok(manifest) => manifest,
-            Err(FacadeError::NotFound(_)) => types::TopicManifest::new(),
+            Err(facade::Error::NotFound(_)) => types::TopicManifest::new(),
             Err(e) => return Err(e.into()),
         };
 

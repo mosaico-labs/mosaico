@@ -8,7 +8,7 @@ from ..adapter_base import ROSAdapterBase
 from ..ros_message import ROSMessage
 from ..ros_bridge import register_adapter
 
-from .helpers import _make_header, _validate_msgdata
+from .helpers import _validate_msgdata
 
 
 @register_adapter
@@ -102,7 +102,6 @@ class OdometryAdapter(ROSAdapterBase[MotionState]):
         """
         _validate_msgdata(cls, ros_data)
         return MotionState(
-            header=_make_header(ros_data.get("header")),
             target_frame_id=ros_data["child_frame_id"],
             pose=PoseAdapter.from_dict(ros_data["pose"]),
             velocity=TwistAdapter.from_dict(ros_data["twist"]),

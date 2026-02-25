@@ -14,13 +14,12 @@ import pyarrow as pa
 from pydantic import model_validator
 
 from ..serializable import Serializable
-from ..mixins import HeaderMixin, CovarianceMixin
+from ..mixins import CovarianceMixin
 from .geometry import Pose, Vector3d
 
 
 class Velocity(
     Serializable,  # Adds Registry/Factory logic
-    HeaderMixin,  # Adds Timestamp/Frame info
     CovarianceMixin,  # Adds Covariance matrix support
 ):
     """
@@ -32,7 +31,6 @@ class Velocity(
     Attributes:
         linear: Optional [`Vector3d`][mosaicolabs.models.data.geometry.Vector3d] linear velocity vector.
         angular: Optional [`Vector3d`][mosaicolabs.models.data.geometry.Vector3d] angular velocity vector.
-        header: Optional metadata header providing temporal and spatial context.
         covariance: Optional flattened 3x3 covariance matrix representing
             the uncertainty of the point measurement.
         covariance_type: Enum integer representing the parameterization of the
@@ -205,7 +203,6 @@ class Velocity(
 
 class Acceleration(
     Serializable,  # Adds Registry/Factory logic
-    HeaderMixin,  # Adds Timestamp/Frame info
     CovarianceMixin,  # Adds Covariance matrix support
 ):
     """
@@ -217,7 +214,6 @@ class Acceleration(
     Attributes:
         linear: Optional 3D linear acceleration vector ($a_x, a_y, a_z$).
         angular: Optional 3D angular acceleration vector ($\alpha_x, \alpha_y, \alpha_z$).
-        header: Optional metadata header providing acquisition context.
         covariance: Optional flattened 3x3 covariance matrix representing
             the uncertainty of the point measurement.
         covariance_type: Enum integer representing the parameterization of the
@@ -389,7 +385,6 @@ class Acceleration(
 
 class MotionState(
     Serializable,  # Adds Registry/Factory logic
-    HeaderMixin,  # Adds Timestamp/Frame info
     CovarianceMixin,  # Adds Covariance matrix support
 ):
     """
@@ -411,7 +406,6 @@ class MotionState(
         velocity: The 6D velocity (Twist).
         target_frame_id: A string identifier for the target coordinate frame.
         acceleration: Optional 6D acceleration.
-        header: Standard metadata header for temporal synchronization.
         covariance: Optional flattened NxN composed covariance matrix representing
             the uncertainty of the Pose+Velocity+[Acceleration] measurement.
         covariance_type: Enum integer representing the parameterization of the

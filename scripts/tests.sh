@@ -20,14 +20,14 @@ TEST_DIRECTORY="/tmp/__mosaico_auto_testing__"
 
 # Environment variables (with defaults)
 RUST_LOG="mosaico=trace"
-MOSAICO_REPOSITORY_DB_URL="postgresql://postgres:password@localhost:6543/mosaico"
+MOSAICO_DATABASE_URL="postgresql://postgres:password@localhost:6543/mosaico"
 RUST_BACKTRACE="${RUST_BACKTRACE:-1}"
 SQLX_OFFLINE="true"
 
 # Resolve paths
 FILE_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 PROJECT_DIR=$(readlink -f "${FILE_DIR}/..")
-DATABASE_URL="${MOSAICO_REPOSITORY_DB_URL}"
+DATABASE_URL="${MOSAICO_DATABASE_URL}"
 MOSAICOD_PATH="${PROJECT_DIR}/${MOSAICOD_DIR}"
 PYTHON_SDK_PATH="${PROJECT_DIR}/${PYTHON_SDK_DIR}"
 DOCKER_PATH="${PROJECT_DIR}/${DOCKER_DIR}"
@@ -35,7 +35,7 @@ DOCKER_PATH="${PROJECT_DIR}/${DOCKER_DIR}"
 export DATABASE_URL
 export RUST_LOG
 export SQLX_OFFLINE
-export MOSAICO_REPOSITORY_DB_URL
+export MOSAICO_DATABASE_URL
 export RUST_BACKTRACE
 
 # Colors (with fallback for non-interactive terminals)
@@ -260,7 +260,7 @@ main() {
 
     # Print configuration
     title "setup" "-"
-    echo "MOSAICO_REPOSITORY_DB_URL=${MOSAICO_REPOSITORY_DB_URL}"
+    echo "MOSAICO_DATABASE_URL=${MOSAICO_DATABASE_URL}"
     echo "DATABASE_URL=${DATABASE_URL}"
     echo "SQLX_OFFLINE=${SQLX_OFFLINE}"
 

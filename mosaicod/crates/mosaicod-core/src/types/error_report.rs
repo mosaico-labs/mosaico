@@ -17,10 +17,10 @@ impl ErrorReport {
     }
 }
 
-impl Into<String> for ErrorReport {
-    fn into(self) -> String {
-        let errors: Vec<String> = self.errors.into_iter().map(Into::into).collect();
-        format!("{}\n\n{}", self.header, errors.join("\n"))
+impl From<ErrorReport> for String {
+    fn from(error: ErrorReport) -> Self {
+        let errors: Vec<String> = error.errors.into_iter().map(Into::into).collect();
+        format!("{}\n\n{}", error.header, errors.join("\n"))
     }
 }
 
@@ -30,17 +30,17 @@ pub struct ErrorReportItem {
     error: String,
 }
 
+impl From<ErrorReportItem> for String {
+    fn from(error: ErrorReportItem) -> Self {
+        format!("* {} - {}", error.target, error.error)
+    }
+}
+
 impl ErrorReportItem {
     pub fn new(target: impl Into<String>, error: impl std::error::Error) -> Self {
         Self {
             target: target.into(),
             error: error.to_string(),
         }
-    }
-}
-
-impl Into<String> for ErrorReportItem {
-    fn into(self) -> String {
-        format!("* {} - {}", self.target, self.error)
     }
 }

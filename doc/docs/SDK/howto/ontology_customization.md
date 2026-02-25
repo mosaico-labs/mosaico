@@ -21,11 +21,10 @@ For this example, we will create a model for **`EncoderTicks`**, found in the NV
 
 ```python
 import pyarrow as pa
-from mosaicolabs import HeaderMixin, Serializable
+from mosaicolabs import Serializable
 
 class EncoderTicks(
     Serializable, # Automatically registers the model via `Serializable.__init_subclass__`
-    HeaderMixin,  # Injects standard metadata (timestamp, frame_id, seq)
 ):
     """
     Custom model for hardware-level encoder tick readings.

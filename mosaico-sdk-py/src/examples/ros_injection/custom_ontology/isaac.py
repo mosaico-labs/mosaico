@@ -1,8 +1,8 @@
 import pyarrow as pa
-from mosaicolabs import HeaderMixin, Serializable
+from mosaicolabs import Serializable
 
 
-class EncoderTicks(Serializable, HeaderMixin):
+class EncoderTicks(Serializable):
     """
     Custom Mosaico model for NVIDIA Isaac Nova Encoder Ticks.
 

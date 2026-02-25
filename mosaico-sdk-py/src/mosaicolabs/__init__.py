@@ -27,14 +27,14 @@ from .handlers import (
     SystemInfo as SystemInfo,
 )
 
+# --- Types ---
+from .types import Time as Time
+
 # --- Core Models ---
 from .models import (
     BaseModel as BaseModel,
     Serializable as Serializable,
-    Header as Header,
-    Time as Time,
     Message as Message,
-    HeaderMixin as HeaderMixin,
     CovarianceMixin as CovarianceMixin,
     VarianceMixin as VarianceMixin,
 )
@@ -114,6 +114,7 @@ from .models.query import (
 # --- Enums ---
 from .enum import (
     SerializationFormat as SerializationFormat,
+    SessionStatus as SessionStatus,
     SequenceStatus as SequenceStatus,
     OnErrorPolicy as OnErrorPolicy,
 )
@@ -140,10 +141,8 @@ __all__ = [
     # Core Models
     "BaseModel",
     "Serializable",
-    "Header",
     "Time",
     "Message",
-    "HeaderMixin",
     "CovarianceMixin",
     "VarianceMixin",
     # Sensors
@@ -200,6 +199,7 @@ __all__ = [
     "QueryResponse",
     # Enums
     "SerializationFormat",
+    "SessionStatus",
     "SequenceStatus",
     "OnErrorPolicy",
 ]

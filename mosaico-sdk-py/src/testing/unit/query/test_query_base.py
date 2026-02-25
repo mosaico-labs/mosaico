@@ -170,7 +170,7 @@ def test_construction_query_from_response():
     expected_expr_seq_values = [it.sequence.name for it in qresp]
     qseq = qresp.to_query_sequence()
     assert len(qseq._expressions) == 1
-    assert qseq._expressions[0].key == "name"
+    assert qseq._expressions[0].key == "locator"
     assert all(s in expected_expr_seq_values for s in qseq._expressions[0].value)
     assert all(s in qseq._expressions[0].value for s in expected_expr_seq_values)
 
@@ -182,19 +182,21 @@ def test_construction_query_from_response():
     ]
     qtop = qresp.to_query_topic()
     assert len(qtop._expressions) == 1
-    assert qtop._expressions[0].key == "name"
+    assert qtop._expressions[0].key == "locator"
     assert all(t in expected_expr_top_values for t in qtop._expressions[0].value)
     assert all(t in qtop._expressions[0].value for t in expected_expr_top_values)
 
 
-
 def test_invalid_construction_query_from_response():
-    qresp = QueryResponse(
-        items=[]
-    )
-    with pytest.raises(ValueError, match="Cannot create a 'QuerySequence' builder from an empty response"):
+    qresp = QueryResponse(items=[])
+    with pytest.raises(
+        ValueError,
+        match="Cannot create a 'QuerySequence' builder from an empty response",
+    ):
         qresp.to_query_sequence()
-    with pytest.raises(ValueError, match="Cannot create a 'QueryTopic' builder from an empty response"):
+    with pytest.raises(
+        ValueError, match="Cannot create a 'QueryTopic' builder from an empty response"
+    ):
         qresp.to_query_topic()
 
 

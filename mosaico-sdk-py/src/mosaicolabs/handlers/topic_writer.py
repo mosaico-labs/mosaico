@@ -123,7 +123,7 @@ class TopicWriter:
         cls,
         sequence_name: str,
         topic_name: str,
-        topic_key: str,
+        topic_uuid: str,
         client: fl.FlightClient,
         executor: Optional[ThreadPoolExecutor],
         ontology_type: Type[Serializable],
@@ -144,7 +144,7 @@ class TopicWriter:
         Args:
             sequence_name: Name of the parent sequence.
             topic_name: Unique name for this topic stream.
-            topic_key: authorization key provided by the server during creation.
+            topic_uuid: authorization key provided by the server during creation.
             client: The connection to use for the data stream.
             executor: Optional thread pool for background serialization.
             ontology_type: The data model class defining the record schema.
@@ -167,7 +167,7 @@ class TopicWriter:
                     "resource_locator": pack_topic_resource_name(
                         sequence_name, topic_name
                     ),
-                    "key": topic_key,
+                    "topic_uuid": topic_uuid,
                 }
             )
         )
@@ -278,7 +278,9 @@ class TopicWriter:
                 client=self._fl_client,
                 action=ACTION,
                 payload={
-                    "name": pack_topic_resource_name(self._sequence_name, self._name),
+                    "locator": pack_topic_resource_name(
+                        self._sequence_name, self._name
+                    ),
                     "notify_type": "error",
                     "msg": str(err),
                 },
@@ -370,7 +372,7 @@ class TopicWriter:
         """
         Returns `True` if the writing stream is open and the writer accepts new messages.
         """
-        return self._wrstate.writer is None
+        return self._wrstate.writer is not None
 
     def _finalize(self, error: Optional[BaseException] = None) -> None:
         """

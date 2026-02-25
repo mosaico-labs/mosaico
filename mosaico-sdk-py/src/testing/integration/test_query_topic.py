@@ -1,5 +1,5 @@
 from mosaicolabs.comm import MosaicoClient
-from mosaicolabs.models import Time
+from mosaicolabs.types import Time
 from mosaicolabs.models.platform import Topic
 from mosaicolabs.models.query import QuerySequence, QueryTopic
 import pytest
@@ -328,7 +328,7 @@ def test_query_topic_from_response_fail(
     qtopic = query_resp.to_query_topic()
     # This must fail: field 'name' is already queried
     with pytest.raises(
-        NotImplementedError, match="Query builder already contains the key 'name'"
+        NotImplementedError, match="Query builder already contains the key 'locator'"
     ):
         query_resp = _client.query(qtopic.with_name_match(""))
 

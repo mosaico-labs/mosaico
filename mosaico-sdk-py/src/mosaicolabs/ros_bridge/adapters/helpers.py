@@ -1,15 +1,6 @@
-from typing import Dict, Optional, Type
-from mosaicolabs.models import Header
+from typing import Type
 
 from ..adapter_base import ROSAdapterBase
-
-
-def _make_header(ros_head_dict: Optional[Dict]) -> Optional[Header]:
-    # Mandatory Field Conversions (as before)
-    # Extract metadata
-    if ros_head_dict is None:
-        return None
-    return Header(**ros_head_dict)
 
 
 def _validate_msgdata(

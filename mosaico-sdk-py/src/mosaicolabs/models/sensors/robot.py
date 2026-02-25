@@ -8,11 +8,10 @@ of a robot's actuators.
 from typing import List
 import pyarrow as pa
 
-from ..mixins import HeaderMixin
 from ..serializable import Serializable
 
 
-class RobotJoint(Serializable, HeaderMixin):
+class RobotJoint(Serializable):
     """
     Snapshot of robot joint states.
 

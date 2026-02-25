@@ -9,7 +9,7 @@ use futures::TryStreamExt;
 use log::{debug, info, trace};
 use mosaicod_core::types::Resource;
 use mosaicod_marshal as marshal;
-use mosaicod_repo as repo;
+use mosaicod_facade as facade;
 
 pub async fn do_get(ctx: Context, ticket: Ticket) -> Result<FlightDataEncoder, ServerError> {
     let ticket = marshal::flight::ticket_topic_from_binary(&ticket.ticket)?;
@@ -18,7 +18,7 @@ pub async fn do_get(ctx: Context, ticket: Ticket) -> Result<FlightDataEncoder, S
 
     // Create topic handle
     let topic = ticket.locator;
-    let tfacade = repo::FacadeTopic::new(topic, ctx.store, ctx.repo.clone());
+    let tfacade = facade::Topic::new(topic, ctx.store, ctx.db.clone());
 
     // Read metadata from topic
     let metadata = tfacade.metadata().await?;
@@ -40,7 +40,7 @@ pub async fn do_get(ctx: Context, ticket: Ticket) -> Result<FlightDataEncoder, S
     let metadata = marshal::JsonTopicMetadata::from(metadata);
     let flatten_mdata = metadata
         .to_flat_hashmap()
-        .map_err(repo::FacadeError::from)?;
+        .map_err(facade::Error::from)?;
     let schema = query_result.schema_with_metadata(flatten_mdata);
     trace!("{:?}", schema);
 

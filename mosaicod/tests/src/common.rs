@@ -2,7 +2,7 @@ use std::fs;
 
 use arrow_flight::flight_service_client::FlightServiceClient;
 use mosaicod_core::params;
-use mosaicod_repo as repo;
+use mosaicod_db as db;
 use mosaicod_server::{self as server, flight::ShutdownNotifier};
 use mosaicod_store as store;
 use serde::Deserialize;
@@ -38,14 +38,14 @@ pub fn format_endpoint(host: &str, port: u16, tls: bool) -> String {
 async fn start_server(
     host: &str,
     port: u16,
-    pool: sqlx::Pool<repo::Database>,
+    pool: sqlx::Pool<db::DatabaseType>,
     shutdown: ShutdownNotifier,
     tls: Option<server::flight::TlsConfig>,
 ) -> tokio::task::JoinHandle<()> {
     // Ensure that params are loaded
     params::load_params_from_env().unwrap();
 
-    let repo = repo::testing::Repository::new(pool);
+    let database = db::testing::Database::new(pool);
     let store = store::testing::Store::new_random_on_tmp().unwrap();
     let config = server::flight::Config {
         host: host.to_owned(),
@@ -54,8 +54,13 @@ async fn start_server(
     };
 
     let handle = tokio::task::spawn(async move {
-        if let Err(err) =
-            server::flight::start(config, (*store).clone(), (*repo).clone(), Some(shutdown)).await
+        if let Err(err) = server::flight::start(
+            config,
+            (*store).clone(),
+            (*database).clone(),
+            Some(shutdown),
+        )
+        .await
         {
             panic!("flight server error: {}", err);
         }
@@ -71,12 +76,12 @@ async fn start_server(
 pub struct ServerBuilder {
     host: String,
     port: u16,
-    pool: sqlx::Pool<repo::Database>,
+    pool: sqlx::Pool<db::DatabaseType>,
     tls: Option<server::flight::TlsConfig>,
 }
 
 impl ServerBuilder {
-    pub fn new(host: &str, port: u16, pool: sqlx::Pool<repo::Database>) -> Self {
+    pub fn new(host: &str, port: u16, pool: sqlx::Pool<db::DatabaseType>) -> Self {
         Self {
             host: host.to_owned(),
             port,
@@ -114,9 +119,9 @@ impl ServerBuilder {
 /// ### Usage:
 /// ```no_run
 /// use tests::common;
-/// use mosaicod_repo as repo;
+/// use mosaicod_db as db;
 ///
-/// async fn test(pool: sqlx::Pool<repo::Database>) {
+/// async fn test(pool: sqlx::Pool<db::DatabaseType>) {
 ///     let port = common::random_port();
 ///     let server = common::ServerBuilder::new(common::HOST, port, pool).build().await;
 ///     // ... run tests ...
@@ -129,8 +134,7 @@ pub struct Server {
 }
 
 impl Server {
-    /// a require"cmp.utils.feedkeys".run(100)
-    /// signals the server to stop and waits for the background task to complete.
+    /// Signals the server to stop and waits for the background task to complete.
     pub async fn shutdown(self) {
         self.shutdown.shutdown();
         let _ = tokio::join!(self.server_join_handle);

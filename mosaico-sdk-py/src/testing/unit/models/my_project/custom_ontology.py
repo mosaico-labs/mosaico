@@ -1,9 +1,9 @@
 import pyarrow as pa
 from mosaicolabs.enum import SerializationFormat
-from mosaicolabs.models import Serializable, HeaderMixin
+from mosaicolabs.models import Serializable, BaseModel
 
 
-class RegisteredSensor(Serializable, HeaderMixin):
+class RegisteredSensor(Serializable):
     """
     Test correctly registered data
     """
@@ -21,7 +21,7 @@ class RegisteredSensor(Serializable, HeaderMixin):
     field: float
 
 
-class UnregisteredSensor(HeaderMixin):
+class UnregisteredSensor(BaseModel):
     """
     Check not-correctly registered data
     """

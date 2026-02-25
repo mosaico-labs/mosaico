@@ -21,7 +21,7 @@ from ..ros_message import ROSMessage
 from ..adapter_base import ROSAdapterBase
 from ..ros_bridge import register_adapter
 
-from .helpers import _make_header, _validate_msgdata
+from .helpers import _validate_msgdata
 
 
 @register_adapter
@@ -141,7 +141,6 @@ class CameraInfoAdapter(ROSAdapterBase[CameraInfo]):
 
         # Manage differences between ROS1 and ROS2s
         return CameraInfo(
-            header=_make_header(ros_data.get("header")),
             height=ros_data["height"],
             width=ros_data["width"],
             binning=Vector2d(
@@ -338,7 +337,6 @@ class GPSAdapter(ROSAdapterBase[GPS]):
         _validate_msgdata(cls, ros_data)
 
         return GPS(
-            header=_make_header(ros_data.get("header")),
             position=Point3d(
                 x=ros_data["latitude"],
                 y=ros_data["longitude"],
@@ -496,7 +494,6 @@ class IMUAdapter(ROSAdapterBase[IMU]):
             angular_vel.covariance = ros_data.get("angular_velocity_covariance")
 
         return IMU(
-            header=_make_header(ros_data.get("header")),
             acceleration=accel,
             angular_velocity=angular_vel,
             orientation=orientation,
@@ -576,10 +573,7 @@ class NMEASentenceAdapter(ROSAdapterBase[NMEASentence]):
             NMEASentence: The constructed Mosaico NMEASentence object.
         """
         _validate_msgdata(cls, ros_data)
-        return NMEASentence(
-            header=_make_header(ros_data.get("header")),
-            sentence=ros_data["sentence"],
-        )
+        return NMEASentence(sentence=ros_data["sentence"])
 
     @classmethod
     def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
@@ -673,7 +667,6 @@ class ImageAdapter(ROSAdapterBase[Image]):
         _validate_msgdata(cls, ros_data)
 
         return Image.from_linear_pixels(
-            header=_make_header(ros_data.get("header")),
             data=ros_data["data"],
             # if .get is None, the encode function will use a default format internally
             format=kwargs.get("output_format"),
@@ -767,11 +760,7 @@ class CompressedImageAdapter(ROSAdapterBase[CompressedImage]):
         """
         _validate_msgdata(cls, ros_data)
 
-        return CompressedImage(
-            header=_make_header(ros_data.get("header")),
-            data=bytes(ros_data["data"]),
-            format=ros_data["format"],
-        )
+        return CompressedImage(data=bytes(ros_data["data"]), format=ros_data["format"])
 
     @classmethod
     def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
@@ -988,7 +977,6 @@ class BatteryStateAdapter(ROSAdapterBase[BatteryState]):
         _validate_msgdata(cls, ros_data)
 
         return BatteryState(
-            header=_make_header(ros_data.get("header")),
             voltage=ros_data["voltage"],
             temperature=ros_data["temperature"],
             current=ros_data["current"],
@@ -1109,7 +1097,6 @@ class RobotJointAdapter(ROSAdapterBase[RobotJoint]):
         """
         _validate_msgdata(cls, ros_data)
         return RobotJoint(
-            header=_make_header(ros_data.get("header")),
             names=ros_data["name"],
             positions=ros_data["position"],
             velocities=ros_data["velocity"],

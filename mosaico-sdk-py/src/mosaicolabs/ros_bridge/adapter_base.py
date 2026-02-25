@@ -55,22 +55,24 @@ class ROSAdapterBase(ABC, Generic[T]):
 
         try:
             return Message(
-                timestamp_ns=ros_msg.header.translate().stamp.to_nanoseconds()
+                timestamp_ns=ros_msg.header.stamp.to_nanoseconds()
                 if ros_msg.header
                 else ros_msg.bag_timestamp_ns,
                 data=cls.from_dict(ros_msg.data),
                 recording_timestamp_ns=ros_msg.bag_timestamp_ns,
+                frame_id=ros_msg.header.frame_id if ros_msg.header else None,
+                sequence_id=ros_msg.header.seq if ros_msg.header else None,
             )
         except Exception as e:
             raise Exception(f"Translation failed for {ros_msg.topic}: {e}")
 
     @classmethod
     @abstractmethod
-    def from_dict(cls, ros_data: dict) -> "Serializable":
+    def from_dict(cls, ros_data: dict) -> T:
         """
         Maps the raw ROS dictionary to the EncoderTicks Pydantic model.
 
-        This method performs field validation and header reconstruction.
+        This method performs field validation and reconstruction.
         """
         pass
 

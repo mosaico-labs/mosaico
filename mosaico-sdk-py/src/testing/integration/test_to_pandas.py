@@ -207,8 +207,8 @@ def test_single_selection_chunks_from_half_to_end(
     # start from the half of the sequence
     timestamp_ns_start = _make_sequence_data_stream.tstamp_ns_start + int(
         (
-            _make_sequence_data_stream.tstamp_ns_start
-            + _make_sequence_data_stream.tstamp_ns_end
+            _make_sequence_data_stream.tstamp_ns_end
+            - _make_sequence_data_stream.tstamp_ns_start
         )
         / 2
     )
@@ -258,8 +258,8 @@ def test_single_selection_chunks_from_half(
     # start from the half of the sequence
     timestamp_ns_start = _make_sequence_data_stream.tstamp_ns_start + int(
         (
-            _make_sequence_data_stream.tstamp_ns_start
-            + _make_sequence_data_stream.tstamp_ns_end
+            _make_sequence_data_stream.tstamp_ns_end
+            - _make_sequence_data_stream.tstamp_ns_start
         )
         / 2
     )
@@ -452,8 +452,8 @@ def test_multi_selection_chunks_from_half_to_end(
     # start from the half of the sequence
     timestamp_ns_start = _make_sequence_data_stream.tstamp_ns_start + int(
         (
-            _make_sequence_data_stream.tstamp_ns_start
-            + _make_sequence_data_stream.tstamp_ns_end
+            _make_sequence_data_stream.tstamp_ns_end
+            - _make_sequence_data_stream.tstamp_ns_start
         )
         / 2
     )
@@ -494,8 +494,8 @@ def test_multi_selection_chunks_from_half(
     # start from the half of the sequence
     timestamp_ns_start = _make_sequence_data_stream.tstamp_ns_start + int(
         (
-            _make_sequence_data_stream.tstamp_ns_start
-            + _make_sequence_data_stream.tstamp_ns_end
+            _make_sequence_data_stream.tstamp_ns_end
+            - _make_sequence_data_stream.tstamp_ns_start
         )
         / 2
     )
@@ -720,8 +720,8 @@ def test_sequence_chunks_from_half_to_end(
 
     timestamp_ns_start = _make_sequence_data_stream.tstamp_ns_start + int(
         (
-            _make_sequence_data_stream.tstamp_ns_start
-            + _make_sequence_data_stream.tstamp_ns_end
+            _make_sequence_data_stream.tstamp_ns_end
+            - _make_sequence_data_stream.tstamp_ns_start
         )
         / 2
     )
@@ -753,8 +753,8 @@ def test_sequence_chunks_from_half(
 
     timestamp_ns_start = _make_sequence_data_stream.tstamp_ns_start + int(
         (
-            _make_sequence_data_stream.tstamp_ns_start
-            + _make_sequence_data_stream.tstamp_ns_end
+            _make_sequence_data_stream.tstamp_ns_end
+            - _make_sequence_data_stream.tstamp_ns_start
         )
         / 2
     )

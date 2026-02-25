@@ -71,7 +71,7 @@ High-level models representing physical hardware devices and their processed out
 
 The ontology architecture relies on three primary abstractions: the **Factory** (`Serializable`), the **Envelope** (`Message`) and the **Mixins**
 
-### 1. `Serializable` (The Factory)
+### `Serializable` (The Factory)
 API Reference: [`mosaicolabs.models.Serializable`][mosaicolabs.models.Serializable]
 
 Every data payload in Mosaico inherits from the `Serializable` class. It manages the global registry of data types and ensures that the system knows exactly how to convert a string tag like `"imu"` back into a Python class with a specific binary schema.
@@ -89,149 +89,123 @@ If missing, it raises an error at definition time (import time), preventing runt
 3.  **Registers Class:** It adds the new class to the global types registry.
 4.  **Injects Query Proxy:** It dynamically adds a `.Q` attribute to the class, enabling the fluent query syntax (e.g., `MyCustomSensor.Q.voltage > 12.0`).
 
+### `Message` (The Envelope)
 
-### 2. `Message` (The Envelope)
 API Reference: [`mosaicolabs.models.Message`][mosaicolabs.models.Message]
 
-The **`Message`** class is the universal transport envelope for all data within the Mosaico platform. 
-It acts as a wrapper that combines specific sensor data (the payload) with middleware-level metadata.
+The **`Message`** class is the universal transport envelope for all data within the Mosaico platform. It acts as the "Source of Truth" for synchronization and spatial context, combining specific sensor data (the payload) with critical middleware-level metadata. By centralizing metadata at the envelope level, Mosaico ensures that every data point—regardless of its complexity—carries a consistent temporal and spatial identity.
 
 ```python
-from mosaicolabs import Message, Time, Header, Temperature
-# Use Case: Create a Temperature timestamped message with uncertainty
+from mosaicolabs import Message, Time, Temperature
+
+# Create a Temperature message with unified envelope metadata
 meas_time = Time.now()
+
 temp_msg = Message(
-    timestamp_ns=meas_time.to_nanoseconds(), # here the message timestamp is the same as the measurement, but it can be different
+    timestamp_ns=meas_time.to_nanoseconds(),  # Primary synchronization clock
+    frame_id="comp_case",                     # Spatial reference frame
+    seq_id=101,                               # Optional sequence ID for ordering
     data=Temperature.from_celsius(
         value=57,
-        header=Header(stamp=meas_time, frame_id="comp_case"),
         variance=0.03
     )
 )
+
 ```
 
+While logically a `Message` contains a `data` object, the physical representation on the wire (PyArrow/Parquet) is **flattened**, 
+ensuring zero-overhead access to nested data during queries while maintaining a clean, object-oriented API in Python.
 
-While logically a `Message` contains a `data` object (e.g., an instance of an Ontology type), physically on the wire (PyArrow/Parquet), the fields are **flattened**.
+* **Logical:** `Message(timestamp_ns=123, frame_id="map", data=IMU(acceleration=Vector3d(x=1.0,...)))`
+* **Physical:** `Struct(timestamp_ns=123, frame_id="map", seq_id=null, acceleration, ...)`
 
-  * **Logical:** `Message(timestamp_ns=123567890, data=IMU(acceleration=Vector3d(x=1.0,...)))`
-  * **Physical:** `Struct(timestamp_ns=123567890, acceleration, ...)`
+The `Message` mechanism enables a flexible dual-usage pattern for every Mosaico ontology type, supporting both **Standalone Messages** and **Embedded Fields**.
 
-This flattening is handled automatically by the class internal methods.
-This ensures zero-overhead access to nested data during queries while maintaining a clean object-oriented API in Python.
+#### Standalone Messages
 
+Any `Serializable` type (from elementary types like `String` and `Float32` to complex sensors like `IMU`) can be used as a standalone message. When assigned to the `data` field of a `Message` envelope, the type represents an independent data stream with its own global timestamp and metadata, that can be pushed via a dedicated [`TopicWriter`][mosaicolabs.handlers.TopicWriter].
 
-### 3. Mixins: Headers & Uncertainty
-
-Mosaico uses **Mixins** to inject standard fields across different data types, ensuring a consistent interface.
-Almost every class in the ontology, from high-level sensors down to elementary data primitives like `Vector3d` or `Float32`, 
-inherits from two Mixin classes, which inject standard fields into data models via composition, ensuring consistency across different sensor types.
-The integration of mixins into the Mosaico Data Ontology enables a flexible dual-usage pattern, **Standalone Messages** and **Embedded Fields**, 
-which will be detailed later and allow base geometric types to serve as either independent data streams or granular components of complex sensor models.
-
-#### `HeaderMixin`
-API Reference: [`mosaicolabs.models.mixins.HeaderMixin`][mosaicolabs.models.mixins.HeaderMixin]
-
-Injects a standard (Optional) `header` containing a sequence ID, a frame ID (e.g., `"base_link"`), and a high-precision acquisition timestamp (`stamp`).
+This is ideal for pushing processed signals, debug values, or simple sensor readings.
 
 ```python
-class MySensor(Serializable, HeaderMixin):
-    # Injects a header with stamp, frame_id, and seq fields
-    ...
-```
-
-
-#### `CovarianceMixin`
-API Reference: [`mosaicolabs.models.mixins.CovarianceMixin`][mosaicolabs.models.mixins.CovarianceMixin]
-
-Injects multidimensional uncertainty fields, typically used for flattened covariance matrices in sensor fusion applications.
-
-```python
-class MySensor(Serializable, CovarianceMixin):
-    # Injects a covariance matrix with covariance and covariance_type fields
-    ...
-```
-
-
-#### `VarianceMixin`
-API Reference: [`mosaicolabs.models.mixins.VarianceMixin`][mosaicolabs.models.mixins.VarianceMixin]
-
-Injects monodimensional uncertainty fields, useful for sensors with 1-dimensional uncertain data (like `Temperature` or `Pressure`).
-
-```python
-class MySensor(Serializable, VarianceMixin):
-    # Injects a variance with variance and variance_type fields
-    ...
-```
-
-
-#### Standalone Usage
-
-Because elementary types (such as `Vector3d`, `String`, or `Float32`) inherit directly from these mixins, they are "first-class" members of the ontology. 
-You can treat them as independent, timestamped messages without needing to wrap them in a more complex container.
-
-This is ideal for pushing processed signals, debug values, or simple sensor readings that require their own metadata and uncertainty context.
-
-```python
-# Use Case: Sending a raw 3D vector as a timestamped message with uncertainty
-accel_msg = Vector3d(
-    x=0.0, 
-    y=0.0, 
-    z=9.81,
-    header=Header(stamp=Time.now(), frame_id="base_link"),
-    covariance=[0.01, 0, 0, 0, 0.01, 0, 0, 0, 0.01]  # 3x3 Diagonal matrix
-)
-
-# `acc_writer` is a TopicWriter associated to the new sequence that is being uploaded.
-acc_writer.push(message=Message(timestamp_ns=ts, data=accel_msg)) # (1)!
-
-# Use Case: Sending a timestamped diagnostic error
-error_msg = String(
-    data="Waypoint-miss in navigation detected!",
-    header=Header(stamp=Time.now(), frame_id="base_link")
-)
-
-# `log_writer` is another TopicWriter associated to the new sequence that is being uploaded.
-log_writer.push(message=Message(timestamp_ns=ts, data=error_msg))
-```
-
-1. The `push` command will be covered in the documentation of the [Writers](./handling/writing.md#the-data-engine-topicwriter)
-    API Reference:
-    * [`mosaicolabs.handlers.SequenceWriter`][mosaicolabs.handlers.SequenceWriter]
-    * [`mosaicolabs.handlers.TopicWriter`][mosaicolabs.handlers.TopicWriter]
-
-#### Embedded Usage
-
-When these base types are used as internal fields within a larger structure (e.g., an `IMU` or `MotionState` model), the mixins allow you to attach metadata to specific *parts* of a message.
-
-In this context, while the parent object (the `IMU`) carries a global timestamp, the individual fields (like `acceleration`) can carry their own specific **covariance** matrices.
-To avoid data redundancy, the internal `header` of the embedded field is typically left as `None`, as it inherits the temporal context from the parent message.
-
-```python
-# Use Case: Embedding Vector3d inside a complex IMU message
-imu_msg = IMU(
-    # Parent Header: Defines the time and frame for the entire sensor packet
-    header=Header(stamp=Time.now(), frame_id="imu_link"),
-    
-    # Embedded Field 1: Acceleration
-    # Inherits global time, but specifies its own unique uncertainty
-    acceleration=Vector3d(
-        x=0.5, y=-0.2, z=9.8,
-        covariance=[0.1, 0, 0, 0, 0.1, 0, 0, 0, 0.1] # Specific to acceleration
-    ),
-    
-    # Embedded Field 2: Angular Velocity
-    # Carries a distinct covariance matrix independent of the acceleration
-    angular_velocity=Vector3d(
-        x=0.01, y=0.0, z=-0.01,
-        covariance=[0.05, 0, 0, 0, 0.05, 0, 0, 0, 0.05] # Specific to velocity
+# Sending a raw Vector3d as a timestamped standalone message with its own uncertainty
+accel_msg = Message(
+    timestamp_ns=ts,
+    frame_id="base_link",
+    data=Vector3d(
+        x=0.0, 
+        y=0.0, 
+        z=9.81,
+        covariance=[0.01, 0, 0, 0, 0.01, 0, 0, 0, 0.01]  # 3x3 Diagonal matrix
     )
 )
 
-# as above, `imu_writer` is another TopicWriter associated to the new sequence that is being uploaded.
-imu_writer.push(imu_msg)
+accel_writer.push(message=accel_msg)
+
+# Sending a raw String as a timestamped standalone message
+log_msg = Message(
+    timestamp_ns=ts,
+    frame_id="base_link",
+    data=String(data="Waypoint-miss in navigation detected!")
+)
+
+log_writer.push(message=log_msg)
+```
+
+#### Embedded Fields
+
+`Serializable` types can also be embedded as internal fields within a larger structure. In this context, they behave as standard data types. While the parent `Message` provides the global temporal context, the embedded fields can carry their own granular attributes, such as unique uncertainty matrices.
+
+```python
+# Embedding Vector3d inside a complex IMU model
+imu_payload = IMU(
+    # Embedded Field 1: Acceleration with its own specific uncertainty
+    # Here the Vector3d instance inherits the timestamp and frame_id
+    # from the parent IMU Message.
+    acceleration=Vector3d(
+        x=0.5, y=-0.2, z=9.8,
+        covariance=[0.1, 0, 0, 0, 0.1, 0, 0, 0, 0.1]
+    ),
+    # Embedded Field 2: Angular Velocity
+    angular_velocity=Vector3d(x=0.0, y=0.0, z=0.0)
+)
+
+# Wrap the complex payload in the Message envelope
+imu_writer.push(Message(timestamp_ns=ts, frame_id="imu_link", data=imu_payload))
 
 ```
 
+### Mixins: Uncertainty & Robustness
+
+Mosaico uses **Mixins** to inject standard uncertainty fields across different data types, ensuring a consistent interface for sensor fusion and error analysis. These fields are typically used to represent the precision of the sensor data.
+
+#### `CovarianceMixin`
+
+API Reference: [`mosaicolabs.models.mixins.CovarianceMixin`][mosaicolabs.models.mixins.CovarianceMixin]
+
+Injects multidimensional uncertainty fields, typically used for flattened covariance matrices (e.g., 3x3 or 6x6) in sensor fusion applications.
+
+```python
+class MySensor(Serializable, CovarianceMixin):
+    # Automatically receives covariance and covariance_type fields
+    ...
+
+```
+
+#### `VarianceMixin`
+
+API Reference: [`mosaicolabs.models.mixins.VarianceMixin`][mosaicolabs.models.mixins.VarianceMixin]
+
+Injects monodimensional uncertainty fields, useful for sensors with 1-dimensional uncertain data like `Temperature` or `Pressure`.
+
+```python
+class MySensor(Serializable, VarianceMixin):
+    # Automatically receives variance and variance_type fields
+    ...
+
+```
+
+By leveraging these mixins, the platform can perform deep analysis on data quality—such as filtering for only "high-confidence" segments—without requiring unique logic for every sensor type.
 
 ## Querying Data Ontology with the Query (`.Q`) Proxy
 
@@ -245,7 +219,7 @@ The `.Q` proxy recursively inspects the model’s schema to expose every queryab
 
 * **Direct Field Access**: Filter based on primary values, such as `Temperature.Q.value.gt(25.0)`.
 * **Nested Navigation**: Traverse complex, embedded structures. For example, in the [`GPS`][mosaicolabs.models.sensors.GPS] model, you can drill down into the status sub-field: `GPS.Q.status.satellites.geq(8)`.
-* **Mixin Integration**: Fields inherited from mixins are automatically included in the proxy. This allows you to query standard metadata (from `HeaderMixin`) or uncertainty metrics (from `VarianceMixin` or `CovarianceMixin`) across any model.
+* **Mixin Integration**: Fields inherited from mixins are automatically included in the proxy. This allows you to query uncertainty metrics (from `VarianceMixin` or `CovarianceMixin`) across any model.
 
 ### Queryability Examples
 
@@ -255,7 +229,7 @@ The following table illustrates how the proxy flattens complex hierarchies into 
 | --- | --- | --- | --- | --- |
 | `IMU.acceleration.x` | `IMU.Q.acceleration.x` | `float` | **Numeric** | `.eq()`, `.neq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
 | `GPS.status.hdop` | `GPS.Q.status.hdop` | `float` | **Numeric** | `.eq()`, `.neq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
-| `IMU.header.frame_id` | `IMU.Q.header.frame_id` | `str` | **String** | `.eq()`, `.neq()`, `.match()`, `.in_()` |
+| `IMU.frame_id` | `IMU.Q.frame_id` | `str` | **String** | `.eq()`, `.neq()`, `.match()`, `.in_()` |
 | `GPS.covariance_type` | `GPS.Q.covariance_type` | `int` | **Numeric** | `.eq()`, `.neq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
 
 ### Practical Usage
@@ -306,9 +280,7 @@ Follow these three steps to implement a compatible custom data type:
 Your custom class **must** inherit from `Serializable` to enable auto-registration, factory creation, and the queryability of the model. 
 To align with the Mosaico ecosystem, use the following mixins:
 
-* **`HeaderMixin`**: Required for timestamped data or sensor readings. It injects a standard `header` (stamp, frame_id, seq), ensuring your data remains compatible with time-synchronization and coordinate frame logic.
 * **`CovarianceMixin`**: Used for data including measurement uncertainty, standardizing the storage of covariance matrices.
-
 
 ### 2. Define the Wire Schema (`__msco_pyarrow_struct__`)
 
@@ -343,9 +315,9 @@ This example demonstrates a custom sensor for environmental monitoring that trac
 
 from typing import Optional
 import pyarrow as pa
-from mosaicolabs.models import Serializable, HeaderMixin
+from mosaicolabs.models import Serializable
 
-class EnvironmentSensor(Serializable, HeaderMixin):
+class EnvironmentSensor(Serializable):
     """
     Custom sensor reading for Temperature, Humidity, and Pressure.
     """

@@ -65,11 +65,7 @@ def _make_sequence_data_stream(host, port):
     dt_nanosec = 5_000_000  # 5 ms
     steps = 100
 
-    out_stream: SequenceDataStream = SequenceDataStream(
-        items=[],
-        tstamp_ns_start=0,
-        tstamp_ns_end=(steps - 1) * dt_nanosec,
-    )
+    items = []
 
     time_gen = sequential_time_generator(
         start_sec=start_time_sec,
@@ -87,12 +83,9 @@ def _make_sequence_data_stream(host, port):
         topic, msg_maker = next(msg_maker_gen)
         ontology_type = topic_to_ontology_class_dict[topic]
 
-        msg = msg_maker(
-            msg_time=t * (dt_nanosec),  # simulation time
-            meas_time=meas_time,
-        )
+        msg = msg_maker(meas_time=meas_time)
 
-        out_stream.items.append(
+        items.append(
             DataStreamItem(
                 topic=topic,
                 msg=msg,
@@ -102,7 +95,11 @@ def _make_sequence_data_stream(host, port):
 
     # free resources
     _client.close()
-    return out_stream
+    return SequenceDataStream(
+        items=items,
+        tstamp_ns_start=items[0].msg.timestamp_ns,
+        tstamp_ns_end=items[-1].msg.timestamp_ns,
+    )
 
 
 @pytest.fixture(scope="session")

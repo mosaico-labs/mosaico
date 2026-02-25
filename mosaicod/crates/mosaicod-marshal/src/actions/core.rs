@@ -28,7 +28,7 @@ pub enum ActionError {
 ///
 ///   let raw = r#"
 ///    {
-///          "name" : "test_sequence",
+///          "locator" : "test_sequence",
 ///          "user_metadata" : {
 ///              "calibration" : [0, 1, 2],
 ///              "driver" : "jon"
@@ -91,10 +91,10 @@ pub enum ActionRequest {
     /// Perform a query in the system
     Query(requests::Query),
 
-    /// Creates a new layer in the repository
+    /// Creates a new layer in the database
     LayerCreate(requests::LayerCreate),
 
-    /// Deletes an existing layer in the repository
+    /// Deletes an existing layer in the database
     LayerDelete(requests::LayerDelete),
 
     /// Updates the name and description of an existing layer
@@ -238,7 +238,7 @@ mod tests {
     fn request_topic_create() {
         let raw = r#"
             {
-                "name" : "test_topic",
+                "locator" : "sequence/test_topic",
                 "session_uuid" : "some_uuid",
                 "serialization_format" : "default",
                 "ontology_tag" : "my_sensor",
@@ -253,7 +253,7 @@ mod tests {
             .expect("Problem parsing action request `topic_create`");
 
         if let ActionRequest::TopicCreate(action) = action {
-            assert_eq!(action.name, "test_topic");
+            assert_eq!(action.locator, "sequence/test_topic");
             assert_eq!(action.session_uuid, "some_uuid");
             assert_eq!(action.serialization_format, Format::Default);
             assert_eq!(action.ontology_tag, "my_sensor");

@@ -3,7 +3,7 @@
 use crate::{endpoints::Context, errors::ServerError};
 use log::{info, trace};
 use mosaicod_marshal::{self as marshal, ActionResponse};
-use mosaicod_repo::FacadeQuery;
+use mosaicod_facade::Query;
 
 /// Executes a query and returns matching groups.
 pub async fn execute(
@@ -17,7 +17,7 @@ pub async fn execute(
     trace!("query filter: {:?}", filter);
 
     let groups =
-        FacadeQuery::query(filter, ctx.timeseries_querier.clone(), ctx.repo.clone()).await?;
+        Query::query(filter, ctx.timeseries_querier.clone(), ctx.db.clone()).await?;
 
     trace!("groups found: {:?}", groups);
 

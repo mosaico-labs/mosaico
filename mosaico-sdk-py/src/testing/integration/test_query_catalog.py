@@ -1,5 +1,5 @@
 from mosaicolabs.comm import MosaicoClient
-from mosaicolabs.models import Time
+from mosaicolabs.types import Time
 from mosaicolabs.models.platform import Topic
 from mosaicolabs.models.query import QueryOntologyCatalog, QueryTopic, QuerySequence
 from mosaicolabs.models.sensors import IMU, GPS
@@ -40,9 +40,9 @@ def test_query_ontology(
     # Query by multiple condition: time and value
     tstamp = Time.from_float(1700000000.26)
     query_resp = _client.query(
-        QueryOntologyCatalog()
-        .with_expression(IMU.Q.header.stamp.sec.eq(tstamp.sec))
-        .with_expression(IMU.Q.header.stamp.nanosec.geq(tstamp.nanosec))
+        QueryOntologyCatalog().with_expression(
+            IMU.Q.timestamp_ns.geq(tstamp.to_nanoseconds())
+        )
     )
     # We do expect a successful query
     assert query_resp is not None and not query_resp.is_empty()
@@ -62,8 +62,7 @@ def test_query_ontology(
     tstamp = Time.from_float(1700000000.26)
     query_resp = _client.query(
         QueryOntologyCatalog()
-        .with_expression(GPS.Q.header.stamp.sec.eq(tstamp.sec))
-        .with_expression(GPS.Q.header.stamp.nanosec.geq(tstamp.nanosec))
+        .with_expression(GPS.Q.timestamp_ns.geq(tstamp.to_nanoseconds()))
         .with_expression(GPS.Q.status.service.eq(2))
     )
     # We do expect a successful query
@@ -137,9 +136,9 @@ def test_mixed_query_ontology(
     # Query by multiple condition: time, topic metadata and sequence name
     tstamp = Time.from_float(1700000000.26)
     query_resp = _client.query(
-        QueryOntologyCatalog()
-        .with_expression(IMU.Q.header.stamp.sec.eq(tstamp.sec))
-        .with_expression(IMU.Q.header.stamp.nanosec.geq(tstamp.nanosec)),
+        QueryOntologyCatalog().with_expression(
+            IMU.Q.timestamp_ns.geq(tstamp.to_nanoseconds())
+        ),
         QueryTopic().with_expression(
             Topic.Q.user_metadata["sensor_id"].eq("imu_front_01")
         ),
@@ -207,7 +206,7 @@ def test_query_multi_tag_ontology(
     # Query by multiple condition: time and value
     query_resp = _client.query(
         QueryOntologyCatalog()
-        .with_expression(IMU.Q.header.stamp.sec.gt(0))
+        .with_expression(IMU.Q.timestamp_ns.gt(0))
         .with_expression(GPS.Q.status.service.geq(1))
     )
 

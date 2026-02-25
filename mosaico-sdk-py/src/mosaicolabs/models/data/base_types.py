@@ -2,11 +2,9 @@
 This module provides specialized wrapper classes for standard Python primitive types, including Integers, Floating-point numbers, Booleans, and Strings.
 
 In the Mosaico ecosystem, raw primitives cannot be transmitted directly because the platform requires structured metadata and explicit serialization schemas.
-These wrappers elevate basic data types to "first-class citizens" of the messaging system by inheriting from [`Serializable`][mosaicolabs.models.serializable.Serializable]
-and [`HeaderMixin`][mosaicolabs.models.mixins.HeaderMixin].
+These wrappers elevate basic data types to "first-class citizens" of the messaging system by inheriting from [`Serializable`][mosaicolabs.models.serializable.Serializable].
 
 **Key Features:**
-* **Standardized Metadata**: Every wrapped value includes a standard [`Header`][mosaicolabs.models.header.Header], enabling full traceability and temporal context (timestamps) for even the simplest data points.
 * **Explicit Serialization**: Each class defines a precise `pyarrow.StructType` schema, ensuring consistent bit-width (e.g., 8-bit vs 64-bit) across the entire data platform.
 * **Registry Integration**: Wrapped types are automatically registered in the Mosaico ontology, allowing them to be used in platform-side [Queries][mosaicolabs.comm.MosaicoClient.query].
 """
@@ -15,16 +13,14 @@ from typing import Any
 import pyarrow as pa
 
 from ..serializable import Serializable
-from ..mixins import HeaderMixin
 
 
-class Integer8(Serializable, HeaderMixin):
+class Integer8(Serializable):
     """
     A wrapper for a signed 8-bit integer.
 
     Attributes:
         data: The underlying 8-bit integer value.
-        header: An optional metadata header injected by `HeaderMixin`.
 
     ### Querying with the **`.Q` Proxy**
     The fields of this class are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
@@ -115,13 +111,12 @@ class Integer8(Serializable, HeaderMixin):
     """
 
 
-class Integer16(Serializable, HeaderMixin):
+class Integer16(Serializable):
     """
     A wrapper for a signed 16-bit integer.
 
     Attributes:
         data: The underlying 16-bit integer value.
-        header: An optional metadata header injected by `HeaderMixin`.
 
     ### Querying with the **`.Q` Proxy**
     The fields of this class are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
@@ -212,13 +207,12 @@ class Integer16(Serializable, HeaderMixin):
     """
 
 
-class Integer32(Serializable, HeaderMixin):
+class Integer32(Serializable):
     """
     A wrapper for a signed 32-bit integer.
 
     Attributes:
         data: The underlying 32-bit integer value.
-        header: An optional metadata header injected by `HeaderMixin`.
 
     ### Querying with the **`.Q` Proxy**
     The fields of this class are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
@@ -309,13 +303,12 @@ class Integer32(Serializable, HeaderMixin):
     """
 
 
-class Integer64(Serializable, HeaderMixin):
+class Integer64(Serializable):
     """
     A wrapper for a signed 64-bit integer.
 
     Attributes:
         data: The underlying 64-bit integer value.
-        header: An optional metadata header injected by `HeaderMixin`.ù
 
     ### Querying with the **`.Q` Proxy**
     The fields of this class are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
@@ -406,13 +399,12 @@ class Integer64(Serializable, HeaderMixin):
     """
 
 
-class Unsigned8(Serializable, HeaderMixin):
+class Unsigned8(Serializable):
     """
     A wrapper for an unsigned 8-bit integer.
 
     Attributes:
         data: The underlying unsigned 8-bit integer value.
-        header: An optional metadata header injected by `HeaderMixin`.
 
     Raises:
         ValueError: If `data` is initialized with a negative value.
@@ -517,13 +509,12 @@ class Unsigned8(Serializable, HeaderMixin):
             raise ValueError("Integer must be unsigned")
 
 
-class Unsigned16(Serializable, HeaderMixin):
+class Unsigned16(Serializable):
     """
     A wrapper for an unsigned 16-bit integer.
 
     Attributes:
         data: The underlying unsigned 16-bit integer value.
-        header: An optional metadata header injected by `HeaderMixin`.
 
     Raises:
         ValueError: If `data` is initialized with a negative value.
@@ -628,13 +619,12 @@ class Unsigned16(Serializable, HeaderMixin):
             raise ValueError("Integer must be unsigned")
 
 
-class Unsigned32(Serializable, HeaderMixin):
+class Unsigned32(Serializable):
     """
     A wrapper for an unsigned 32-bit integer.
 
     Attributes:
         data: The underlying unsigned 32-bit integer value.
-        header: An optional metadata header injected by `HeaderMixin`.
 
     Raises:
         ValueError: If `data` is initialized with a negative value.
@@ -739,13 +729,12 @@ class Unsigned32(Serializable, HeaderMixin):
             raise ValueError("Integer must be unsigned")
 
 
-class Unsigned64(Serializable, HeaderMixin):
+class Unsigned64(Serializable):
     """
     A wrapper for an unsigned 64-bit integer.
 
     Attributes:
         data: The underlying unsigned 64-bit integer value.
-        header: An optional metadata header injected by `HeaderMixin`.
 
     Raises:
         ValueError: If `data` is initialized with a negative value.
@@ -850,13 +839,12 @@ class Unsigned64(Serializable, HeaderMixin):
             raise ValueError("Integer must be unsigned")
 
 
-class Floating16(Serializable, HeaderMixin):
+class Floating16(Serializable):
     """
     A wrapper for a 16-bit single-precision floating-point number.
 
     Attributes:
         data: The underlying single-precision float.
-        header: An optional metadata header injected by `HeaderMixin`.
 
     ### Querying with the **`.Q` Proxy**
     The fields of this class are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
@@ -947,13 +935,12 @@ class Floating16(Serializable, HeaderMixin):
     """
 
 
-class Floating32(Serializable, HeaderMixin):
+class Floating32(Serializable):
     """
     A wrapper for a 32-bit single-precision floating-point number.
 
     Attributes:
         data: The underlying single-precision float.
-        header: An optional metadata header injected by `HeaderMixin`.
 
     ### Querying with the **`.Q` Proxy**
     The fields of this class are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
@@ -1044,13 +1031,12 @@ class Floating32(Serializable, HeaderMixin):
     """
 
 
-class Floating64(Serializable, HeaderMixin):
+class Floating64(Serializable):
     """
     A wrapper for a 64-bit single-precision floating-point number.
 
     Attributes:
         data: The underlying single-precision float.
-        header: An optional metadata header injected by `HeaderMixin`.
 
     ### Querying with the **`.Q` Proxy**
     The fields of this class are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
@@ -1141,13 +1127,12 @@ class Floating64(Serializable, HeaderMixin):
     """
 
 
-class Boolean(Serializable, HeaderMixin):
+class Boolean(Serializable):
     """
     A wrapper for a standard boolean value.
 
     Attributes:
         data: The underlying boolean value.
-        header: An optional metadata header injected by `HeaderMixin`.
 
     ### Querying with the **`.Q` Proxy**
     The fields of this class are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
@@ -1238,13 +1223,12 @@ class Boolean(Serializable, HeaderMixin):
     """
 
 
-class String(Serializable, HeaderMixin):
+class String(Serializable):
     """
     A wrapper for a standard UTF-8 encoded string.
 
     Attributes:
         data: The underlying string data.
-        header: An optional metadata header injected by `HeaderMixin`.
 
     ### Querying with the **`.Q` Proxy**
     The fields of this class are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
@@ -1335,7 +1319,7 @@ class String(Serializable, HeaderMixin):
     """
 
 
-class LargeString(Serializable, HeaderMixin):
+class LargeString(Serializable):
     """
     A wrapper for a Large UTF-8 encoded string.
 
@@ -1344,7 +1328,6 @@ class LargeString(Serializable, HeaderMixin):
 
     Attributes:
         data: The underlying large string data.
-        header: An optional metadata header injected by `HeaderMixin`.
 
     ### Querying with the **`.Q` Proxy**
     The fields of this class are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
