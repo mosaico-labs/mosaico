@@ -103,7 +103,7 @@ pub fn load_params_from_env() -> Result<(), Error> {
 static ENV: OnceLock<Params> = OnceLock::new();
 
 pub fn params() -> &'static Params {
-    ENV.get().expect("paramenters not initializes, plase call `params::load_configurables_from_env()` before accessing and env variable.")
+    ENV.get().expect("paramenters not initialized, plase call `params::load_configurables_from_env()` before accessing an env variable.")
 }
 
 fn optional<T>(name: &str, default: T) -> T

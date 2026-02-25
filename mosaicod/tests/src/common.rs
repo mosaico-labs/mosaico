@@ -157,7 +157,7 @@ impl ClientBuilder {
     }
 
     pub fn enable_tls(mut self) -> Self {
-        let cert_str = fs::read(TLS_CA_FILE).expect("Unable to to read certificate");
+        let cert_str = fs::read(TLS_CA_FILE).expect("Unable to read certificate");
         let cert = tonic::transport::Certificate::from_pem(cert_str);
 
         self.url = format_endpoint(

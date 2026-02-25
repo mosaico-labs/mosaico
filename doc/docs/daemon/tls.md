@@ -1,11 +1,11 @@
 # TLS Support
 
 Securing your Mosaico instance is straightforward, as TLS (Transport Layer Security) is fully supported out of the box. 
-Enabling TLS ensures that all communication with your server is encrypted and secure.
+Enabling TLS ensures that all communications with the daemon are encrypted and secure.
 
 To activate it, simply append the `--tls` flag to your `mosaicod run` command.
 
-When the `--tls` flag is used, `mosaicod` requires a valid certificate and private key to function. 
+When the `--tls` flag is used, `mosaicod` requires a valid certificate and private key. 
 
 It looks for these credentials via the following environment variables:
 
