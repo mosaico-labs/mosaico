@@ -37,7 +37,11 @@ impl Server {
     ///
     /// Since the `repo` requires an async context to be initialized,
     /// the initialization of the [`repo::Repository`] is done inside this method.
-    pub fn start_and_wait<F>(&self, on_start: F) -> Result<(), Box<dyn std::error::Error>>
+    pub fn start_and_wait<F>(
+        &self,
+        on_start: F,
+        tls: Option<flight::TlsConfig>,
+    ) -> Result<(), Box<dyn std::error::Error>>
     where
         F: FnOnce(),
     {
@@ -46,6 +50,7 @@ impl Server {
         let config = flight::Config {
             host: host.to_owned(),
             port: self.port,
+            tls,
         };
 
         let shutdown = self.shutdown.clone();
@@ -82,7 +87,7 @@ impl Server {
             let handle_flight = rt.spawn(async move {
                 trace!("flight service starting");
                 if let Err(err) = flight::start(config, store, repo, Some(shutdown)).await {
-                    error!("flight server error: {}", err);
+                    error!("{}", err);
                 }
             });
 

@@ -5,7 +5,7 @@ static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 mod print;
 use clap::{Args, Parser, Subcommand};
 use dotenv::dotenv;
-use log::{debug, error, info, trace, warn};
+use log::{debug, info, trace};
 use mosaicod_core::params;
 use mosaicod_repo as repo;
 use mosaicod_server as server;
@@ -14,7 +14,7 @@ use std::{env, sync::Arc, thread, time::Instant};
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
-/// Mosaico command-line-interface
+/// mosaicod - Mosaico high-performance daemon
 struct Cli {
     #[command(subcommand)]
     cmd: Commands,
@@ -33,6 +33,12 @@ struct CommandRun {
     /// Enable to store objects on the local filesystem at the specified directory path
     #[arg(long)]
     local_store: Option<std::path::PathBuf>,
+
+    /// Enable TLS. When enabled, the following envirnoment variables needs to be set
+    /// MOSAICOD_TLS_CERT_FILE: certificate file path, MOSAICOD_TLS_PRIVATE_KEY_FILE:
+    /// private key file path
+    #[arg(long, default_value_t = false)]
+    tls: bool,
 }
 
 #[derive(Subcommand, Debug)]
@@ -58,8 +64,8 @@ fn load_env_variables() -> Result<Variables, Box<dyn std::error::Error>> {
     params::load_params_from_env()?;
 
     if params::params().max_chunk_size_in_bytes == 0 {
-        warn!(
-            "max size in bytes is 0: automatic chunk splitting is disabled. Large uploads may cause high memory usage."
+        print::warning(
+            "Max chunk size in bytes is 0: automatic chunk splitting is disabled. Large uploads may cause high memory usage.",
         );
     }
 
@@ -86,6 +92,17 @@ fn load_remote_store_vars() -> Result<store::S3Config, Box<dyn std::error::Error
     Ok(vars)
 }
 
+fn check_tls(tls: bool) -> Option<server::flight::TlsConfig> {
+    if tls {
+        return Some(server::flight::TlsConfig {
+            certificate_file: params::params().tls_certificate_file.clone().into(),
+            private_key_file: params::params().tls_private_key_file.clone().into(),
+        });
+    }
+
+    None
+}
+
 fn run(startup_time: &Instant) -> Result<(), Box<dyn std::error::Error>> {
     let args = Cli::parse();
 
@@ -97,6 +114,8 @@ fn run(startup_time: &Instant) -> Result<(), Box<dyn std::error::Error>> {
         Commands::Run(args) => {
             let store = get_store(&args)?;
             let store_display_name = get_store_display_name(&store);
+
+            let tls = check_tls(args.tls);
 
             let server = server::Server::new(
                 args.host,
@@ -116,15 +135,18 @@ fn run(startup_time: &Instant) -> Result<(), Box<dyn std::error::Error>> {
                 }
             });
 
-            server.start_and_wait(|| {
-                print::print_startup_info(
-                    args.host,
-                    args.port,
-                    &store_display_name,
-                    get_version(),
-                    startup_time,
-                );
-            })?;
+            server.start_and_wait(
+                || {
+                    print::print_startup_info(
+                        args.host,
+                        args.port,
+                        &store_display_name,
+                        get_version(),
+                        startup_time,
+                    );
+                },
+                tls,
+            )?;
         }
     }
 
@@ -189,6 +211,6 @@ fn main() {
 
     match res {
         Ok(_) => println!("\n{}\n", "All done. Bye!".dimmed()),
-        Err(e) => error!("{}", e),
+        Err(e) => print::error(&e.to_string()),
     }
 }

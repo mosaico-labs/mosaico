@@ -50,12 +50,10 @@ pub struct Params {
     /// A value of 0 means unlimited (no automatic splitting).
     pub max_chunk_size_in_bytes: usize,
 
-    /// Path holding the location of a file that hold both
-    /// the certificate and the key file.
-    ///
-    /// The concatenation is a simple textual contatenation like
-    /// `cat cart.pem key.pem > cert_key.pem`.
-    pub cert_key_file: String,
+    /// Path of the `cert.pem` file used as TLS certificate
+    pub tls_certificate_file: String,
+    /// Path of the `key.pem` file used as private key for TLS
+    pub tls_private_key_file: String,
 
     pub db_url: String,
 
@@ -84,7 +82,8 @@ pub fn load_params_from_env() -> Result<(), Error> {
         ),
 
         // tls
-        cert_key_file: optional("MOSAICOD_CERT_KEY_FILE", "".to_owned()),
+        tls_certificate_file: optional("MOSAICOD_TLS_CERT_FILE", "".to_owned()),
+        tls_private_key_file: optional("MOSAICOD_TLS_PRIVATE_KEY_FILE", "".to_owned()),
 
         // database
         db_url: required("MOSAICOD_DB_URL")?,
