@@ -109,6 +109,7 @@ nav:
     - daemon/retrieval.md
     - daemon/query.md
     - daemon/cli.md
+    - daemon/tls.md
   - Development:
     - development/release_cycle.md
 
