@@ -11,6 +11,24 @@ use std::sync::Arc;
 use thiserror::Error;
 use url::Url;
 
+#[derive(Error, Debug)]
+pub enum Error {
+    #[error("storage backend error: {0}")]
+    BackendError(#[from] object_store::Error),
+    #[error("bad url: {0}")]
+    BadUrl(#[from] url::ParseError),
+    #[error("io error :: {0}")]
+    IoError(#[from] std::io::Error),
+    #[error("unable to configure object store: missing {0}")]
+    BadConfiguration(String),
+}
+
+impl Error {
+    pub fn bad_configuration(field: &str) -> Self {
+        Self::BadConfiguration(field.to_owned())
+    }
+}
+
 /// Converts a filesystem path to an object_store Path.
 #[inline]
 fn to_object_path(path: impl AsRef<std::path::Path>) -> object_store::path::Path {
@@ -27,14 +45,23 @@ pub struct S3Config {
     pub secret_key: params::Hidden,
 }
 
-#[derive(Error, Debug)]
-pub enum Error {
-    #[error("storage backend error: {0}")]
-    BackendError(#[from] object_store::Error),
-    #[error("bad url: {0}")]
-    BadUrl(#[from] url::ParseError),
-    #[error("io error :: {0}")]
-    IoError(#[from] std::io::Error),
+impl S3Config {
+    /// Returns an error is the configuration contains empty fields.
+    pub fn validate(&self) -> Result<(), Error> {
+        if self.bucket.is_empty() {
+            return Err(Error::bad_configuration("bucket"));
+        }
+        if self.endpoint.is_empty() {
+            return Err(Error::bad_configuration("endpoint"));
+        }
+        if self.access_key.is_empty() {
+            return Err(Error::bad_configuration("access key"));
+        }
+        if self.secret_key.is_empty() {
+            return Err(Error::bad_configuration("secret key"));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone)]

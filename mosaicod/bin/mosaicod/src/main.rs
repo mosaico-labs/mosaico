@@ -80,16 +80,21 @@ fn load_env_variables() -> Result<Variables, Box<dyn std::error::Error>> {
 }
 
 fn load_remote_store_vars() -> Result<store::S3Config, Box<dyn std::error::Error>> {
-    let vars = store::S3Config {
-        endpoint: params::params().store_endpoint.clone(),
-        bucket: params::params().store_bucket.clone(),
-        secret_key: params::params().store_secret_key.clone(),
-        access_key: params::params().store_access_key.clone(),
+    let params = params::params();
+
+    let config = store::S3Config {
+        endpoint: params.store_endpoint.clone(),
+        bucket: params.store_bucket.clone(),
+        secret_key: params.store_secret_key.clone(),
+        access_key: params.store_access_key.clone(),
     };
 
-    debug!("{:#?}", vars);
+    // This will return and error if the s3 confuration has some problems
+    config.validate()?;
 
-    Ok(vars)
+    debug!("{:#?}", config);
+
+    Ok(config)
 }
 
 fn check_tls(tls: bool) -> Option<server::flight::TlsConfig> {
@@ -211,6 +216,12 @@ fn main() {
 
     match res {
         Ok(_) => println!("\n{}\n", "All done. Bye!".dimmed()),
-        Err(e) => print::error(&e.to_string()),
+        Err(e) => {
+            print::error(&e.to_string());
+            println!(
+                "\nPlease refer to {} for more informations.",
+                "https://docs.mosaico.dev/daemon".cyan()
+            )
+        }
     }
 }

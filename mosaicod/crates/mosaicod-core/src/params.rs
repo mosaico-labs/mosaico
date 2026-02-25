@@ -36,7 +36,7 @@ pub enum Error {
     RetrieveError(String, String),
 }
 
-/// Reuired and configurables parameters of mosaico
+/// Required and configurables parameters of mosaico
 #[derive(Debug)]
 pub struct Params {
     pub max_message_size_in_bytes: usize,
@@ -89,10 +89,10 @@ pub fn load_params_from_env() -> Result<(), Error> {
         db_url: required("MOSAICOD_DB_URL")?,
 
         // store
-        store_endpoint: required("MOSAICOD_STORE_ENDPOINT")?,
-        store_bucket: required("MOSAICOD_STORE_BUCKET")?,
-        store_secret_key: Hidden::from(required::<String>("MOSAICOD_STORE_SECRET_KEY")?),
-        store_access_key: required("MOSAICOD_STORE_ACCESS_KEY")?,
+        store_endpoint: optional("MOSAICOD_STORE_ENDPOINT", "".to_owned()),
+        store_bucket: optional("MOSAICOD_STORE_BUCKET", "".to_owned()),
+        store_secret_key: Hidden::from(optional("MOSAICOD_STORE_SECRET_KEY", "".to_owned())),
+        store_access_key: optional("MOSAICOD_STORE_ACCESS_KEY", "".to_owned()),
     };
 
     let _ = ENV.set(ev);
@@ -145,6 +145,10 @@ impl Hidden {
 
     pub fn take(self) -> String {
         self.0
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
     }
 }
 

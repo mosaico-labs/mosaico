@@ -1,5 +1,4 @@
 use colored::Colorize;
-use log::{error, warn};
 use std::{net::IpAddr, time::Instant};
 
 pub fn print_startup_info(
@@ -52,12 +51,10 @@ pub fn print_startup_info(
 
 pub fn warning(msg: &str) {
     println!("{:^12} {}", "WARNING".on_yellow().black(), msg);
-    warn!("{}", msg);
 }
 
 pub fn error(msg: &str) {
     eprintln!("{:^12} {}", "ERROR".on_red().black(), msg);
-    error!("{}", msg);
 }
 
 fn format_addr(is_loopback: bool, msg: String) {
