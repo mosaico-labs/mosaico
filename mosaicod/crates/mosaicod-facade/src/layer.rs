@@ -1,6 +1,6 @@
 use super::Error;
-use mosaicod_db as db;
 use mosaicod_core::types;
+use mosaicod_db as db;
 use mosaicod_store as store;
 
 pub struct Layer {
@@ -10,16 +10,8 @@ pub struct Layer {
 }
 
 impl Layer {
-    pub fn new(
-        locator: types::LayerLocator,
-        store: store::StoreRef,
-        db: db::Database,
-    ) -> Self {
-        Self {
-            locator,
-            store,
-            db,
-        }
+    pub fn new(locator: types::LayerLocator, store: store::StoreRef, db: db::Database) -> Self {
+        Self { locator, store, db }
     }
 
     pub async fn all(db: db::Database) -> Result<Vec<types::Layer>, Error> {

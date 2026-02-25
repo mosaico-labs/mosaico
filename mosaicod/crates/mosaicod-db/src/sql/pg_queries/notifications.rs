@@ -54,9 +54,12 @@ pub async fn topic_notifications_find_by_locator(
 /// If the notification does not exist, the operation has no effect.
 pub async fn topic_notification_delete(exe: &mut impl AsExec, id: i32) -> Result<(), Error> {
     trace!("deleting topic report `{}`", id);
-    sqlx::query!("DELETE FROM topic_notification_t WHERE topic_notification_id=$1", id)
-        .execute(exe.as_exec())
-        .await?;
+    sqlx::query!(
+        "DELETE FROM topic_notification_t WHERE topic_notification_id=$1",
+        id
+    )
+    .execute(exe.as_exec())
+    .await?;
     Ok(())
 }
 

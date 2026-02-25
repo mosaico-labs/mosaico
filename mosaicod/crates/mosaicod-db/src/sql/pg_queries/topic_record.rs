@@ -1,4 +1,4 @@
-use crate::{core::AsExec, Error, sql::schema};
+use crate::{Error, core::AsExec, sql::schema};
 use log::trace;
 use mosaicod_core::types::{self, Resource};
 use mosaicod_marshal as marshal;
@@ -53,9 +53,7 @@ pub async fn topic_find_by_locator(
 }
 
 /// Return all sequences
-pub async fn topic_find_all(
-    exe: &mut impl AsExec,
-) -> Result<Vec<schema::TopicRecord>, Error> {
+pub async fn topic_find_all(exe: &mut impl AsExec) -> Result<Vec<schema::TopicRecord>, Error> {
     trace!("retrieving all topics");
     Ok(
         sqlx::query_as!(schema::TopicRecord, "SELECT * FROM topic_t")

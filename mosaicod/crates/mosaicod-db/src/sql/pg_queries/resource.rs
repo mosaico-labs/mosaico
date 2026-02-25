@@ -1,6 +1,6 @@
 use super::sequence_record;
 use super::topic_record;
-use crate::{core::Database, Error};
+use crate::{Error, core::Database};
 use mosaicod_core::types;
 
 pub async fn get_resource_locator_from_name(

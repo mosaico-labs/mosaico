@@ -22,7 +22,11 @@ impl SequenceNotificationRecord {
     ///
     /// **Note**: This function only creates a local instance. The record will not be present
     /// in the database until [`sequence_notification_create`] is called.
-    pub fn new(sequence_id: i32, notification_type: types::NotificationType, msg: Option<String>) -> Self {
+    pub fn new(
+        sequence_id: i32,
+        notification_type: types::NotificationType,
+        msg: Option<String>,
+    ) -> Self {
         Self {
             sequence_notification_id: db::UNREGISTERED,
             sequence_notification_uuid: types::Uuid::new().into(),
@@ -88,7 +92,11 @@ impl TopicNotificationRecord {
     ///
     /// **Note**: This function only creates a local instance. The record will not be present
     /// in the database until [`topic_notification_create`] is called.
-    pub fn new(topic_id: i32, notification_type: types::NotificationType, msg: Option<String>) -> Self {
+    pub fn new(
+        topic_id: i32,
+        notification_type: types::NotificationType,
+        msg: Option<String>,
+    ) -> Self {
         Self {
             topic_notification_id: db::UNREGISTERED,
             topic_notification_uuid: types::Uuid::new().into(),

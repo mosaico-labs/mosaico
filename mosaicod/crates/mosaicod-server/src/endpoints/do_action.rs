@@ -21,9 +21,12 @@ pub async fn do_action(ctx: Context, action: ActionRequest) -> Result<ActionResp
         }
         ActionRequest::SequenceDelete(data) => sequence::delete(&ctx, data.locator).await,
         ActionRequest::SequenceNotificationCreate(data) => {
-            sequence::notification_create(&ctx, data.locator, data.notification_type, data.msg).await
+            sequence::notification_create(&ctx, data.locator, data.notification_type, data.msg)
+                .await
         }
-        ActionRequest::SequenceNotificationList(data) => sequence::notification_list(&ctx, data.locator).await,
+        ActionRequest::SequenceNotificationList(data) => {
+            sequence::notification_list(&ctx, data.locator).await
+        }
         ActionRequest::SequenceNotificationPurge(data) => {
             sequence::notification_purge(&ctx, data.locator).await
         }
@@ -53,8 +56,12 @@ pub async fn do_action(ctx: Context, action: ActionRequest) -> Result<ActionResp
         ActionRequest::TopicNotificationCreate(data) => {
             topic::notification_create(&ctx, data.locator, data.notification_type, data.msg).await
         }
-        ActionRequest::TopicNotificationList(data) => topic::notification_list(&ctx, data.locator).await,
-        ActionRequest::TopicNotificationPurge(data) => topic::notification_purge(&ctx, data.locator).await,
+        ActionRequest::TopicNotificationList(data) => {
+            topic::notification_list(&ctx, data.locator).await
+        }
+        ActionRequest::TopicNotificationPurge(data) => {
+            topic::notification_purge(&ctx, data.locator).await
+        }
         ActionRequest::TopicSystemInfo(data) => topic::system_info(&ctx, data.locator).await,
 
         // /////

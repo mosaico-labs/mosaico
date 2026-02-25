@@ -93,7 +93,8 @@ impl Sequence {
         let mut tx = self.db.transaction().await?;
 
         let record = db::sequence_find_by_locator(&mut tx, &self.locator).await?;
-        let notification = db::SequenceNotificationRecord::new(record.sequence_id, ntype, Some(msg));
+        let notification =
+            db::SequenceNotificationRecord::new(record.sequence_id, ntype, Some(msg));
         let notification = db::sequence_notification_create(&mut tx, &notification).await?;
 
         tx.commit().await?;
@@ -116,7 +117,8 @@ impl Sequence {
     pub async fn notification_purge(&self) -> Result<(), Error> {
         let mut trans = self.db.transaction().await?;
 
-        let notifications = db::sequence_notifications_find_by_name(&mut trans, &self.locator).await?;
+        let notifications =
+            db::sequence_notifications_find_by_name(&mut trans, &self.locator).await?;
         for notification in notifications {
             // Notification id is unwrapped since is retrieved from the database and
             // it has an id
@@ -307,12 +309,18 @@ mod tests {
         );
 
         fsequence
-            .notify(NotificationType::Error, "test notification message".to_owned())
+            .notify(
+                NotificationType::Error,
+                "test notification message".to_owned(),
+            )
             .await
             .expect("Error creating notification");
 
         fsequence
-            .notify(NotificationType::Error, "test notification message 2".to_owned())
+            .notify(
+                NotificationType::Error,
+                "test notification message 2".to_owned(),
+            )
             .await
             .expect("Error creating notification");
 

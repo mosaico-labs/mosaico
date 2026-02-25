@@ -7,8 +7,8 @@ use arrow_flight::{Criteria, FlightDescriptor, FlightEndpoint, FlightInfo, Ticke
 use futures::stream::BoxStream;
 use log::{info, trace};
 use mosaicod_core::types::Resource;
-use tonic::Status;
 use mosaicod_facade as facade;
+use tonic::Status;
 
 /// Lists all available flights (sequences) in the database.
 ///

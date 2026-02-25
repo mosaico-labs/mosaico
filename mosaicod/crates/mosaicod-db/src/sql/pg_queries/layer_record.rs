@@ -1,4 +1,4 @@
-use crate::{core::AsExec, Error, sql::schema};
+use crate::{Error, core::AsExec, sql::schema};
 use log::info;
 use mosaicod_core::{
     params::{DEFAULT_LAYER_DESCRIPTION, DEFAULT_LAYER_NAME},
@@ -107,9 +107,7 @@ pub async fn layer_find_by_locator(
     Ok(res)
 }
 /// Return all layers
-pub async fn layer_find_all(
-    exe: &mut impl AsExec,
-) -> Result<Vec<schema::LayerRecord>, Error> {
+pub async fn layer_find_all(exe: &mut impl AsExec) -> Result<Vec<schema::LayerRecord>, Error> {
     Ok(
         sqlx::query_as!(schema::LayerRecord, "SELECT * FROM layer_t")
             .fetch_all(exe.as_exec())

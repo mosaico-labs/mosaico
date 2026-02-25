@@ -6,10 +6,10 @@ use arrow_flight::flight_descriptor::DescriptorType;
 use futures::TryStreamExt;
 use log::{info, trace};
 use mosaicod_core::types;
+use mosaicod_db as db;
+use mosaicod_facade as facade;
 use mosaicod_marshal as marshal;
 use mosaicod_rw as rw;
-use mosaicod_facade as facade;
-use mosaicod_db as db;
 
 pub async fn do_put(ctx: Context, decoder: &mut FlightDataDecoder) -> Result<(), ServerError> {
     let (cmd, schema) = extract_command_and_schema_from_header_message(decoder).await?;

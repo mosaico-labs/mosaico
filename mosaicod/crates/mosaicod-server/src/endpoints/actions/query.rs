@@ -2,8 +2,8 @@
 
 use crate::{endpoints::Context, errors::ServerError};
 use log::{info, trace};
-use mosaicod_marshal::{self as marshal, ActionResponse};
 use mosaicod_facade::Query;
+use mosaicod_marshal::{self as marshal, ActionResponse};
 
 /// Executes a query and returns matching groups.
 pub async fn execute(
@@ -16,8 +16,7 @@ pub async fn execute(
 
     trace!("query filter: {:?}", filter);
 
-    let groups =
-        Query::query(filter, ctx.timeseries_querier.clone(), ctx.db.clone()).await?;
+    let groups = Query::query(filter, ctx.timeseries_querier.clone(), ctx.db.clone()).await?;
 
     trace!("groups found: {:?}", groups);
 

@@ -3,8 +3,8 @@
 use crate::{endpoints::Context, errors::ServerError};
 use log::{info, trace, warn};
 use mosaicod_core::types::{self, MetadataBlob, Resource};
-use mosaicod_marshal::{self as marshal, ActionResponse};
 use mosaicod_facade as facade;
+use mosaicod_marshal::{self as marshal, ActionResponse};
 
 /// Creates a new topic with the given name and metadata.
 pub async fn create(
@@ -87,7 +87,10 @@ pub async fn notification_list(ctx: &Context, name: String) -> Result<ActionResp
 }
 
 /// Purges all notifications for a topic.
-pub async fn notification_purge(ctx: &Context, name: String) -> Result<ActionResponse, ServerError> {
+pub async fn notification_purge(
+    ctx: &Context,
+    name: String,
+) -> Result<ActionResponse, ServerError> {
     warn!("notification purge for {}", name);
 
     let handle = facade::Topic::new(name, ctx.store.clone(), ctx.db.clone());

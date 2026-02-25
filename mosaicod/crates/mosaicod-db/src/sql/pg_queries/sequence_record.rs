@@ -1,4 +1,4 @@
-use crate::{core::AsExec, Error, sql::schema};
+use crate::{Error, core::AsExec, sql::schema};
 use log::trace;
 use mosaicod_core::types::{self, Resource};
 
@@ -145,7 +145,7 @@ pub async fn sequence_create(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::{testing, DatabaseType};
+    use crate::core::{DatabaseType, testing};
     use sqlx::Pool;
 
     #[sqlx::test]

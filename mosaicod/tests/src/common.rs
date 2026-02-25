@@ -39,8 +39,13 @@ async fn start_server(
     };
 
     let handle = tokio::task::spawn(async move {
-        if let Err(err) =
-            server::flight::start(config, (*store).clone(), (*database).clone(), Some(shutdown)).await
+        if let Err(err) = server::flight::start(
+            config,
+            (*store).clone(),
+            (*database).clone(),
+            Some(shutdown),
+        )
+        .await
         {
             panic!("flight server error: {}", err);
         }

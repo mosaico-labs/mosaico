@@ -1,6 +1,6 @@
 use super::Error;
-use mosaicod_db as db;
 use mosaicod_core::types;
+use mosaicod_db as db;
 
 pub struct Chunk<'a> {
     tx: db::Tx<'a>,

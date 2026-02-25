@@ -156,7 +156,7 @@ impl Session {
                 Err(Error::failed_and_notified(notification.uuid))
             } else {
                 Err(Error::failed_and_unable_to_notify(msg))
-            }
+            };
         }
 
         Ok(())
