@@ -6,9 +6,9 @@
 //! database respository and the object store.
 
 use super::{Error, Topic};
-use mosaicod_db as db;
 use log::trace;
 use mosaicod_core::types::{self, Resource};
+use mosaicod_db as db;
 use mosaicod_marshal as marshal;
 use mosaicod_store as store;
 
@@ -34,9 +34,7 @@ impl Sequence {
     ///
     /// Returns a list of all available sequences as [`SequenceResourceLocator`] objects.
     /// This is primarily used for catalog discovery operations.
-    pub async fn all(
-        db: db::Database,
-    ) -> Result<Vec<types::SequenceResourceLocator>, Error> {
+    pub async fn all(db: db::Database) -> Result<Vec<types::SequenceResourceLocator>, Error> {
         let mut cx = db.connection();
         let records = db::sequence_find_all(&mut cx).await?;
 
@@ -100,7 +98,7 @@ impl Sequence {
 
         tx.commit().await?;
 
-        Ok(notify.into_types(self.locator.clone()))
+        Ok(notify.into_notify(self.locator.clone()))
     }
 
     /// Returns a list of all notifications for the this sequence
@@ -110,7 +108,7 @@ impl Sequence {
         trans.commit().await?;
         Ok(notifies
             .into_iter()
-            .map(|n| n.into_types(self.locator.clone()))
+            .map(|n| n.into_notify(self.locator.clone()))
             .collect())
     }
 
@@ -156,10 +154,7 @@ impl Sequence {
         Ok(data.into())
     }
 
-    async fn metadata_write_to_store(
-        &self,
-        metadata: SequenceMetadata,
-    ) -> Result<(), Error> {
+    async fn metadata_write_to_store(&self, metadata: SequenceMetadata) -> Result<(), Error> {
         let path = self.locator.path_metadata();
 
         trace!("converting sequence metadata to bytes");
@@ -252,8 +247,7 @@ mod tests {
             "weather": "sunny"
         }"#;
         dbg!(&mdata);
-        let mdata =
-            SequenceMetadata::new(marshal::JsonMetadataBlob::try_from_str(mdata).unwrap());
+        let mdata = SequenceMetadata::new(marshal::JsonMetadataBlob::try_from_str(mdata).unwrap());
 
         fsequence
             .create(Some(mdata)) // <-- testing this

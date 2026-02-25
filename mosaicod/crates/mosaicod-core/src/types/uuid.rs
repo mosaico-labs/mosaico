@@ -12,7 +12,7 @@ pub enum UuidError {
 ///
 /// This struct simplifies UUID creation and validation within the Mosaico ecosystem.
 /// It defaults to creating a v4 UUID.
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 pub struct Uuid(uuid::Uuid);
 
 impl Default for Uuid {

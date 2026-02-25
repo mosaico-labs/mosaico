@@ -1,11 +1,11 @@
 use super::Error;
-use mosaicod_db as db;
 use arrow::datatypes::SchemaRef;
 use log::trace;
 use mosaicod_core::{
     params,
     types::{self, Resource},
 };
+use mosaicod_db as db;
 use mosaicod_marshal as marshal;
 use mosaicod_query as query;
 use mosaicod_rw::{self as rw, ToProperties};
@@ -242,10 +242,7 @@ impl Topic {
     /// # Errors
     ///
     /// Returns [`HandleError::NotFound`] or [`HandleError::WriteError`] if serialization or writing fails.
-    async fn metadata_write_to_store(
-        &self,
-        metadata: TopicMetadata,
-    ) -> Result<(), Error> {
+    async fn metadata_write_to_store(&self, metadata: TopicMetadata) -> Result<(), Error> {
         trace!("writing metadata to store to `{}`", self.locator);
         let path = self.locator.path_metadata();
 
@@ -258,10 +255,7 @@ impl Topic {
     }
 
     /// Write timestamp data (for quick access without performing queries) into the store
-    async fn manifest_write_to_store(
-        &self,
-        manifest: types::TopicManifest,
-    ) -> Result<(), Error> {
+    async fn manifest_write_to_store(&self, manifest: types::TopicManifest) -> Result<(), Error> {
         trace!("writing manifest to store to `{}`", self.locator);
         let path = self.locator.path_manifest();
 
@@ -350,7 +344,7 @@ impl Topic {
 
         tx.commit().await?;
 
-        Ok(notify.into_types(self.locator.clone()))
+        Ok(notify.into_notify(self.locator.clone()))
     }
 
     /// Returns a list of all notifications for the this topic
@@ -359,7 +353,7 @@ impl Topic {
         let notifies = db::topic_notifies_find_by_locator(&mut cx, &self.locator).await?;
         Ok(notifies
             .into_iter()
-            .map(|e| e.into_types(self.locator.clone()))
+            .map(|e| e.into_notify(self.locator.clone()))
             .collect())
     }
 

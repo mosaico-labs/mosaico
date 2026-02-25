@@ -9,7 +9,7 @@ pub enum Error {
     #[error("missing serialization format for resource {0}")]
     MissingSerializationFormat(String),
     #[error("operation failed, sequence notification `{0}` has been added")]
-    FailedAndNotified(i32),
+    FailedAndNotified(types::Uuid),
     #[error("an error occured by the system was unable to notify. original error details:\n\n")]
     FailedAndUnableToNotify(String),
     #[error("store error :: {0}")]
@@ -57,8 +57,8 @@ impl Error {
     /// Used to report a failure and a corresponding notifiction,
     /// the notification will be used by the userts to see advanced
     /// details about the error.
-    pub fn failed_and_notified(notify_id: i32) -> Self {
-        Self::FailedAndNotified(notify_id)
+    pub fn failed_and_notified(notify_uuid: types::Uuid) -> Self {
+        Self::FailedAndNotified(notify_uuid)
     }
 
     /// Used when something has failed, similar to [`Error::failed_and_notified`],

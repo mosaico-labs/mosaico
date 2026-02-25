@@ -153,7 +153,7 @@ impl Session {
 
         if error_occurs {
             if let Some(notify) = notify {
-                return Err(Error::failed_and_notified(notify.id));
+                return Err(Error::failed_and_notified(notify.uuid));
             } else {
                 return Err(Error::failed_and_unable_to_notify(msg));
             }

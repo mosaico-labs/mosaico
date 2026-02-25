@@ -1,4 +1,4 @@
-use crate::{core::AsExec, Error, sql::schema};
+use crate::{Error, core::AsExec, sql::schema};
 use log::trace;
 use mosaicod_core::types::{self, Resource};
 
@@ -12,12 +12,13 @@ pub async fn topic_notify_create(
         schema::TopicNotifyRecord,
         r#"
             INSERT INTO topic_notify_t
-                (topic_id, notify_type, msg, creation_unix_tstamp) 
+                (topic_notify_uuid, topic_id, notify_type, msg, creation_unix_tstamp)
             VALUES 
-                ($1, $2, $3, $4) 
+                ($1, $2, $3, $4, $5)
             RETURNING 
                 *
     "#,
+        notify.topic_notify_uuid,
         notify.topic_id,
         notify.notify_type,
         notify.msg,
@@ -68,12 +69,13 @@ pub async fn sequence_notify_create(
         schema::SequenceNotifyRecord,
         r#"
             INSERT INTO sequence_notify_t
-                (sequence_id, notify_type, msg, creation_unix_tstamp) 
+                (sequence_notify_uuid, sequence_id, notify_type, msg, creation_unix_tstamp)
             VALUES 
-                ($1, $2, $3, $4) 
+                ($1, $2, $3, $4, $5)
             RETURNING 
                 *
     "#,
+        notify.sequence_notify_uuid,
         notify.sequence_id,
         notify.notify_type,
         notify.msg,
@@ -107,10 +109,7 @@ pub async fn sequence_notifies_find_by_name(
 /// Deletes a sequence report from the database
 ///
 /// If the report does not exist, the operation has no effect.
-pub async fn sequence_notify_delete(
-    exe: &mut impl AsExec,
-    id: i32,
-) -> Result<(), Error> {
+pub async fn sequence_notify_delete(exe: &mut impl AsExec, id: i32) -> Result<(), Error> {
     trace!("deleting sequence notify `{}`", id);
     sqlx::query!(
         "DELETE FROM sequence_notify_t WHERE sequence_notify_id=$1",

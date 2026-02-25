@@ -1,3 +1,5 @@
+use super::*;
+
 pub enum NotifyType {
     Error,
 }
@@ -25,21 +27,9 @@ impl std::str::FromStr for NotifyType {
 }
 
 pub struct Notify {
-    pub id: i32,
-    pub target: Box<dyn super::Resource>,
+    pub uuid: Uuid,
+    pub target: Box<dyn Resource>,
     pub notify_type: NotifyType,
     pub msg: Option<String>,
-    pub created_at: super::DateTime,
-}
-
-impl Notify {
-    pub fn new(ntype: NotifyType, target: Box<dyn super::Resource>, msg: Option<String>) -> Self {
-        Self {
-            id: -1,
-            notify_type: ntype,
-            target,
-            msg,
-            created_at: super::DateTime::now(),
-        }
-    }
+    pub created_at: DateTime,
 }

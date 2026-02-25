@@ -5,12 +5,13 @@ use mosaicod_core::types;
 
 #[derive(Debug)]
 pub struct SequenceNotifyRecord {
-    pub(crate) sequence_notify_id: i32,
+    pub sequence_notify_id: i32,
     pub sequence_id: i32,
+    pub(crate) sequence_notify_uuid: uuid::Uuid,
     /// Field containing the string representation of
     /// the underlying [`NotifyType`], this filed is stored as a raw String
     /// since the sqlx driver cannot interact directly with enums.
-    pub notify_type: String,
+    pub(crate) notify_type: String,
     pub msg: Option<String>,
     /// UNIX timestamp in milliseconds from the creation
     pub(crate) creation_unix_tstamp: i64,
@@ -24,6 +25,7 @@ impl SequenceNotifyRecord {
     pub fn new(sequence_id: i32, notify_type: types::NotifyType, msg: Option<String>) -> Self {
         Self {
             sequence_notify_id: db::UNREGISTERED,
+            sequence_notify_uuid: types::Uuid::new().into(),
             sequence_id,
             notify_type: notify_type.to_string(),
             msg,
@@ -31,9 +33,9 @@ impl SequenceNotifyRecord {
         }
     }
 
-    pub fn into_types(self, loc: types::SequenceResourceLocator) -> types::Notify {
+    pub fn into_notify(self, loc: types::SequenceResourceLocator) -> types::Notify {
         types::Notify {
-            id: self.sequence_notify_id,
+            uuid: self.sequence_notify_uuid.into(),
             target: Box::new(loc),
             notify_type: self.notify_type(),
             msg: self.msg,
@@ -61,16 +63,21 @@ impl SequenceNotifyRecord {
     pub fn creation_timestamp(&self) -> types::Timestamp {
         types::Timestamp::from(self.creation_unix_tstamp)
     }
+
+    pub fn uuid(&self) -> types::Uuid {
+        self.sequence_notify_uuid.into()
+    }
 }
 
 #[derive(Debug)]
 pub struct TopicNotifyRecord {
-    pub(crate) topic_notify_id: i32,
+    pub topic_notify_id: i32,
     pub topic_id: i32,
+    pub(crate) topic_notify_uuid: uuid::Uuid,
     /// Field containing the string representation of
     /// the underlying [`NotifyType`], this filed is stored as a raw String
     /// since the sqlx driver cannot interact directly with enums.
-    pub notify_type: String,
+    pub(crate) notify_type: String,
     pub msg: Option<String>,
     /// UNIX timestamp in milliseconds from the creation
     pub(crate) creation_unix_tstamp: i64,
@@ -84,6 +91,7 @@ impl TopicNotifyRecord {
     pub fn new(topic_id: i32, notify_type: types::NotifyType, msg: Option<String>) -> Self {
         Self {
             topic_notify_id: db::UNREGISTERED,
+            topic_notify_uuid: types::Uuid::new().into(),
             topic_id,
             notify_type: notify_type.to_string(),
             msg,
@@ -91,9 +99,9 @@ impl TopicNotifyRecord {
         }
     }
 
-    pub fn into_types(self, loc: types::TopicResourceLocator) -> types::Notify {
+    pub fn into_notify(self, loc: types::TopicResourceLocator) -> types::Notify {
         types::Notify {
-            id: self.topic_notify_id,
+            uuid: self.topic_notify_uuid.into(),
             target: Box::new(loc),
             notify_type: self.notify_type(),
             msg: self.msg,
@@ -118,5 +126,9 @@ impl TopicNotifyRecord {
 
     pub fn creation_timestamp(&self) -> types::Timestamp {
         types::Timestamp::from(self.creation_unix_tstamp)
+    }
+
+    pub fn uuid(&self) -> types::Uuid {
+        self.topic_notify_uuid.into()
     }
 }
