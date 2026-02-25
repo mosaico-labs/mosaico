@@ -87,40 +87,40 @@ impl Sequence {
     /// Add a notification to the sequence
     pub async fn notify(
         &self,
-        ntype: types::NotifyType,
+        ntype: types::NotificationType,
         msg: String,
-    ) -> Result<types::Notify, Error> {
+    ) -> Result<types::Notification, Error> {
         let mut tx = self.db.transaction().await?;
 
         let record = db::sequence_find_by_locator(&mut tx, &self.locator).await?;
-        let notify = db::SequenceNotifyRecord::new(record.sequence_id, ntype, Some(msg));
-        let notify = db::sequence_notify_create(&mut tx, &notify).await?;
+        let notification = db::SequenceNotificationRecord::new(record.sequence_id, ntype, Some(msg));
+        let notification = db::sequence_notification_create(&mut tx, &notification).await?;
 
         tx.commit().await?;
 
-        Ok(notify.into_notify(self.locator.clone()))
+        Ok(notification.into_notification(self.locator.clone()))
     }
 
-    /// Returns a list of all notifications for the this sequence
-    pub async fn notify_list(&self) -> Result<Vec<types::Notify>, Error> {
+    /// Returns a list of all notifications for the sequence
+    pub async fn notification_list(&self) -> Result<Vec<types::Notification>, Error> {
         let mut trans = self.db.transaction().await?;
-        let notifies = db::sequence_notifies_find_by_name(&mut trans, &self.locator).await?;
+        let notifies = db::sequence_notifications_find_by_name(&mut trans, &self.locator).await?;
         trans.commit().await?;
         Ok(notifies
             .into_iter()
-            .map(|n| n.into_notify(self.locator.clone()))
+            .map(|n| n.into_notification(self.locator.clone()))
             .collect())
     }
 
     /// Deletes all the notifications associated with the sequence
-    pub async fn notify_purge(&self) -> Result<(), Error> {
+    pub async fn notification_purge(&self) -> Result<(), Error> {
         let mut trans = self.db.transaction().await?;
 
-        let notifies = db::sequence_notifies_find_by_name(&mut trans, &self.locator).await?;
-        for notify in notifies {
-            // Notify id is unwrapped since is retrieved from the database and
+        let notifications = db::sequence_notifications_find_by_name(&mut trans, &self.locator).await?;
+        for notification in notifications {
+            // Notification id is unwrapped since is retrieved from the database and
             // it has an id
-            db::sequence_notify_delete(&mut trans, notify.id().unwrap()).await?;
+            db::sequence_notification_delete(&mut trans, notification.id().unwrap()).await?;
         }
         trans.commit().await?;
         Ok(())
@@ -229,7 +229,7 @@ impl Sequence {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use mosaicod_core::types::NotifyType;
+    use mosaicod_core::types::NotificationType;
 
     use types::{MetadataBlob, Resource};
 
@@ -280,7 +280,7 @@ mod tests {
     }
 
     #[sqlx::test(migrator = "db::testing::MIGRATOR")]
-    async fn sequence_notify_and_notify_purge(pool: sqlx::Pool<db::DatabaseType>) {
+    async fn sequence_notify_and_notification_purge(pool: sqlx::Pool<db::DatabaseType>) {
         let database = db::testing::Database::new(pool);
         let store = store::testing::Store::new_random_on_tmp().unwrap();
         let fsequence = Sequence::new(
@@ -307,17 +307,17 @@ mod tests {
         );
 
         fsequence
-            .notify(NotifyType::Error, "test notify message".to_owned())
+            .notify(NotificationType::Error, "test notification message".to_owned())
             .await
-            .expect("Error creating notify message");
+            .expect("Error creating notification");
 
         fsequence
-            .notify(NotifyType::Error, "test notify message 2".to_owned())
+            .notify(NotificationType::Error, "test notification message 2".to_owned())
             .await
-            .expect("Error creating notify message");
+            .expect("Error creating notification");
 
         // Check if notifications were created on database.
-        let notifications = db::sequence_notifies_find_by_name(&mut cx, &fsequence.locator)
+        let notifications = db::sequence_notifications_find_by_name(&mut cx, &fsequence.locator)
             .await
             .unwrap();
 
@@ -326,7 +326,7 @@ mod tests {
         let first_notification = notifications.first().unwrap();
         assert_eq!(
             first_notification.msg.as_ref().unwrap(),
-            "test notify message"
+            "test notification message"
         );
         assert!(first_notification.uuid().is_valid());
         assert_eq!(first_notification.sequence_id, sequence.sequence_id);
@@ -334,19 +334,19 @@ mod tests {
         let second_notification = notifications.last().unwrap();
         assert_eq!(
             second_notification.msg.as_ref().unwrap(),
-            "test notify message 2"
+            "test notification message 2"
         );
         assert!(second_notification.uuid().is_valid());
         assert_eq!(second_notification.sequence_id, sequence.sequence_id);
 
         fsequence
-            .notify_purge()
+            .notification_purge()
             .await
             .expect("Unable to purge notifications");
 
         // Check there are no more notifications on database.
         assert!(
-            db::sequence_notifies_find_by_name(&mut cx, &fsequence.locator)
+            db::sequence_notifications_find_by_name(&mut cx, &fsequence.locator)
                 .await
                 .unwrap()
                 .is_empty()

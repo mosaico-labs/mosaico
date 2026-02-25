@@ -20,12 +20,12 @@ pub async fn do_action(ctx: Context, action: ActionRequest) -> Result<ActionResp
             sequence::create(&ctx, data.locator, user_metadata.as_str()).await
         }
         ActionRequest::SequenceDelete(data) => sequence::delete(&ctx, data.locator).await,
-        ActionRequest::SequenceNotifyCreate(data) => {
-            sequence::notify_create(&ctx, data.locator, data.notify_type, data.msg).await
+        ActionRequest::SequenceNotificationCreate(data) => {
+            sequence::notification_create(&ctx, data.locator, data.notification_type, data.msg).await
         }
-        ActionRequest::SequenceNotifyList(data) => sequence::notify_list(&ctx, data.locator).await,
-        ActionRequest::SequenceNotifyPurge(data) => {
-            sequence::notify_purge(&ctx, data.locator).await
+        ActionRequest::SequenceNotificationList(data) => sequence::notification_list(&ctx, data.locator).await,
+        ActionRequest::SequenceNotificationPurge(data) => {
+            sequence::notification_purge(&ctx, data.locator).await
         }
         ActionRequest::SequenceSystemInfo(data) => sequence::system_info(&ctx, data.locator).await,
 
@@ -50,11 +50,11 @@ pub async fn do_action(ctx: Context, action: ActionRequest) -> Result<ActionResp
             .await
         }
         ActionRequest::TopicDelete(data) => topic::delete(&ctx, data.locator).await,
-        ActionRequest::TopicNotifyCreate(data) => {
-            topic::notify_create(&ctx, data.locator, data.notify_type, data.msg).await
+        ActionRequest::TopicNotificationCreate(data) => {
+            topic::notification_create(&ctx, data.locator, data.notification_type, data.msg).await
         }
-        ActionRequest::TopicNotifyList(data) => topic::notify_list(&ctx, data.locator).await,
-        ActionRequest::TopicNotifyPurge(data) => topic::notify_purge(&ctx, data.locator).await,
+        ActionRequest::TopicNotificationList(data) => topic::notification_list(&ctx, data.locator).await,
+        ActionRequest::TopicNotificationPurge(data) => topic::notification_purge(&ctx, data.locator).await,
         ActionRequest::TopicSystemInfo(data) => topic::system_info(&ctx, data.locator).await,
 
         // /////

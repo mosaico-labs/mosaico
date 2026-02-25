@@ -9,8 +9,8 @@ pub use time::*;
 mod format;
 pub use format::*;
 
-mod notify;
-pub use notify::*;
+mod notification;
+pub use notification::*;
 
 mod resources;
 pub use resources::*;

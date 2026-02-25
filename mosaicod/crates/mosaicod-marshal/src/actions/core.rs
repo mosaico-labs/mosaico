@@ -50,13 +50,13 @@ pub enum ActionRequest {
     SequenceSystemInfo(requests::ResourceLocator),
 
     /// Creates a notification associated with a sequence.
-    SequenceNotifyCreate(requests::NotifyCreate),
+    SequenceNotificationCreate(requests::NotificationCreate),
 
-    /// Get all nofifications for a given sequence
-    SequenceNotifyList(requests::ResourceLocator),
+    /// Get all notifications for a given sequence
+    SequenceNotificationList(requests::ResourceLocator),
 
     /// Deletes all notifications associated with a sequence
-    SequenceNotifyPurge(requests::ResourceLocator),
+    SequenceNotificationPurge(requests::ResourceLocator),
 
     /// Creates a new topic in the system without any data.
     TopicCreate(requests::TopicCreate),
@@ -65,15 +65,15 @@ pub enum ActionRequest {
     TopicDelete(requests::ResourceLocator),
 
     /// Creates a notification associated with a topic.
-    TopicNotifyCreate(requests::NotifyCreate),
+    TopicNotificationCreate(requests::NotificationCreate),
 
-    /// Get all nofifications for a given topic
-    TopicNotifyList(requests::ResourceLocator),
+    /// Get all notifications for a given topic
+    TopicNotificationList(requests::ResourceLocator),
 
     /// Deletes all notifications associated with a topic
-    TopicNotifyPurge(requests::ResourceLocator),
+    TopicNotificationPurge(requests::ResourceLocator),
 
-    /// Ask for system informations about the topic
+    /// Ask for system information about the topic
     TopicSystemInfo(requests::ResourceLocator),
 
     /// Creates a new upload session for a sequence
@@ -117,16 +117,16 @@ impl ActionRequest {
             "sequence_create" => parse_action_req!(SequenceCreate, body),
             "sequence_delete" => parse_action_req!(SequenceDelete, body),
             "sequence_system_info" => parse_action_req!(SequenceSystemInfo, body),
-            "sequence_notify_create" => parse_action_req!(SequenceNotifyCreate, body),
-            "sequence_notify_list" => parse_action_req!(SequenceNotifyList, body),
-            "sequence_notify_purge" => parse_action_req!(SequenceNotifyPurge, body),
+            "sequence_notification_create" => parse_action_req!(SequenceNotificationCreate, body),
+            "sequence_notification_list" => parse_action_req!(SequenceNotificationList, body),
+            "sequence_notification_purge" => parse_action_req!(SequenceNotificationPurge, body),
 
             "topic_create" => parse_action_req!(TopicCreate, body),
             "topic_delete" => parse_action_req!(TopicDelete, body),
             "topic_system_info" => parse_action_req!(TopicSystemInfo, body),
-            "topic_notify_create" => parse_action_req!(TopicNotifyCreate, body),
-            "topic_notify_list" => parse_action_req!(TopicNotifyList, body),
-            "topic_notify_purge" => parse_action_req!(TopicNotifyPurge, body),
+            "topic_notification_create" => parse_action_req!(TopicNotificationCreate, body),
+            "topic_notification_list" => parse_action_req!(TopicNotificationList, body),
+            "topic_notification_purge" => parse_action_req!(TopicNotificationPurge, body),
 
             "session_create" => parse_action_req!(SessionCreate, body),
             "session_finalize" => parse_action_req!(SessionFinalize, body),
@@ -150,14 +150,14 @@ pub enum ActionResponse {
     SequenceCreate(()),
     SequenceDelete(()),
     SequenceAbort(()),
-    SequenceNotifyCreate(()),
-    SequenceNotifyPurge(()),
+    SequenceNotificationCreate(()),
+    SequenceNotificationPurge(()),
     SequenceSystemInfo(responses::SequenceSystemInfo),
-    SequenceNotifyList(responses::NotifyList),
+    SequenceNotificationList(responses::NotificationList),
 
     TopicCreate(responses::ResourceUuid),
     TopicSystemInfo(responses::TopicSystemInfo),
-    TopicNotifyList(responses::NotifyList),
+    TopicNotificationList(responses::NotificationList),
 
     /// Returns the response key associated with the session just created
     SessionCreate(responses::ResourceUuid),
@@ -191,16 +191,16 @@ impl ActionResponse {
         Self::SequenceAbort(())
     }
 
-    pub fn sequence_notify_create() -> Self {
-        Self::SequenceNotifyCreate(())
+    pub fn sequence_notification_create() -> Self {
+        Self::SequenceNotificationCreate(())
     }
 
-    pub fn sequence_notify_purge() -> Self {
-        Self::SequenceNotifyPurge(())
+    pub fn sequence_notification_purge() -> Self {
+        Self::SequenceNotificationPurge(())
     }
 
-    pub fn sequence_notify_list(response: responses::NotifyList) -> Self {
-        Self::SequenceNotifyList(response)
+    pub fn sequence_notification_list(response: responses::NotificationList) -> Self {
+        Self::SequenceNotificationList(response)
     }
 
     pub fn sequence_system_info(response: responses::SequenceSystemInfo) -> Self {

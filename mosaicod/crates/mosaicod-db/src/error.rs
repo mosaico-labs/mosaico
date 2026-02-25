@@ -13,8 +13,8 @@ pub enum Error {
     #[error("serialization error :: {0}")]
     SerializationError(#[from] serde_json::Error),
     /// An attempt was made to handle an unrecognized or unsupported report type.
-    #[error("unkown notify type")]
-    UnkownNotifyType(String),
+    #[error("unknown notification type")]
+    UnknownNotificationType(String),
     /// A required field was found to be empty.
     #[error("empty field")]
     EmptyField,

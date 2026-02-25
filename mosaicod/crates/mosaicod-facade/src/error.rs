@@ -54,11 +54,11 @@ impl Error {
         Self::NotFound(msg)
     }
 
-    /// Used to report a failure and a corresponding notifiction,
-    /// the notification will be used by the userts to see advanced
+    /// Used to report a failure and a corresponding notification,
+    /// the notification will be used by the users to see advanced
     /// details about the error.
-    pub fn failed_and_notified(notify_uuid: types::Uuid) -> Self {
-        Self::FailedAndNotified(notify_uuid)
+    pub fn failed_and_notified(notification_uuid: types::Uuid) -> Self {
+        Self::FailedAndNotified(notification_uuid)
     }
 
     /// Used when something has failed, similar to [`Error::failed_and_notified`],

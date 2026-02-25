@@ -131,7 +131,7 @@ impl Session {
         }
 
         let error_occurs = error_report.has_errors();
-        let mut notify = None;
+        let mut notification = None;
         let mut msg = "".to_owned();
 
         // If some error occurs create a notification with all errors stacked
@@ -142,9 +142,9 @@ impl Session {
                 self.store.clone(),
                 self.db.clone(),
             );
-            notify = Some(
+            notification = Some(
                 fsequence
-                    .notify(types::NotifyType::Error, msg.clone())
+                    .notify(types::NotificationType::Error, msg.clone())
                     .await?,
             );
         }
@@ -152,10 +152,10 @@ impl Session {
         tx.commit().await?;
 
         if error_occurs {
-            if let Some(notify) = notify {
-                return Err(Error::failed_and_notified(notify.uuid));
+            return if let Some(notification) = notification {
+                Err(Error::failed_and_notified(notification.uuid))
             } else {
-                return Err(Error::failed_and_unable_to_notify(msg));
+                Err(Error::failed_and_unable_to_notify(msg))
             }
         }
 

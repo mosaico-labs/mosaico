@@ -6,8 +6,8 @@ pub use data_catalog::*;
 mod layer_record;
 pub use layer_record::*;
 
-mod notifies;
-pub use notifies::*;
+mod notifications;
+pub use notifications::*;
 
 mod sequence_record;
 pub use sequence_record::*;
