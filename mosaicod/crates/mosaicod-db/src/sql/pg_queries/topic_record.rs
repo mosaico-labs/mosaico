@@ -1,5 +1,5 @@
-use crate::{core::AsExec, Error, sql::schema};
-use log::trace;
+use crate::{Error, core::AsExec, sql::schema};
+use log::{trace, warn};
 use mosaicod_core::types::{self, Resource};
 use mosaicod_marshal as marshal;
 use mosaicod_query as query;
@@ -53,9 +53,7 @@ pub async fn topic_find_by_locator(
 }
 
 /// Return all sequences
-pub async fn topic_find_all(
-    exe: &mut impl AsExec,
-) -> Result<Vec<schema::TopicRecord>, Error> {
+pub async fn topic_find_all(exe: &mut impl AsExec) -> Result<Vec<schema::TopicRecord>, Error> {
     trace!("retrieving all topics");
     Ok(
         sqlx::query_as!(schema::TopicRecord, "SELECT * FROM topic_t")
@@ -92,7 +90,7 @@ pub async fn topic_delete(
     loc: &types::TopicResourceLocator,
     _: types::DataLossToken,
 ) -> Result<(), Error> {
-    trace!("(data loss) deleting `{}`", loc);
+    warn!("(data loss) deleting topic `{}`", loc);
     sqlx::query!("DELETE FROM topic_t WHERE locator_name=$1", loc.name())
         .execute(exe.as_exec())
         .await?;

@@ -1,5 +1,5 @@
-use crate::{core::AsExec, Error, sql::schema};
-use log::trace;
+use crate::{Error, core::AsExec, sql::schema};
+use log::{trace, warn};
 use mosaicod_core::types::{self, Resource};
 
 /// Find a sequence given its id.
@@ -66,7 +66,7 @@ pub async fn sequence_lookup(
     }
 }
 
-pub async fn sequence_find_all_topic_names(
+pub async fn sequence_find_all_topic_locators(
     exe: &mut impl AsExec,
     loc: &types::SequenceResourceLocator,
 ) -> Result<Vec<types::TopicResourceLocator>, Error> {
@@ -86,6 +86,25 @@ pub async fn sequence_find_all_topic_names(
         .into_iter()
         .map(types::TopicResourceLocator::from)
         .collect())
+}
+
+pub async fn sequence_find_all_sessions(
+    exe: &mut impl AsExec,
+    loc: &types::SequenceResourceLocator,
+) -> Result<Vec<types::Uuid>, Error> {
+    trace!("searching sessions by sequence `{}`", loc);
+    let res = sqlx::query_scalar!(
+        r#"
+        SELECT session.session_uuid
+        FROM session_t AS session 
+        JOIN sequence_t AS sequence ON session.sequence_id = sequence.sequence_id
+        WHERE sequence.locator_name = $1
+        "#,
+        loc.name()
+    )
+    .fetch_all(exe.as_exec())
+    .await?;
+    Ok(res.into_iter().map(types::Uuid::from).collect())
 }
 
 /// Return all sequences
@@ -110,7 +129,7 @@ pub async fn sequence_delete(
     loc: &types::SequenceResourceLocator,
     _: types::DataLossToken,
 ) -> Result<(), Error> {
-    trace!("(data loss) deleting `{}`", loc);
+    warn!("(data loss) deleting sequence `{}`", loc);
     sqlx::query!("DELETE FROM sequence_t WHERE locator_name=$1", loc.name())
         .execute(exe.as_exec())
         .await?;
@@ -145,7 +164,7 @@ pub async fn sequence_create(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::{testing, DatabaseType};
+    use crate::core::{DatabaseType, testing};
     use sqlx::Pool;
 
     #[sqlx::test]

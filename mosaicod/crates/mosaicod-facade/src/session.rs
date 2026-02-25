@@ -46,7 +46,7 @@ impl Session {
         let session = db::session_find_by_uuid(&mut tx, &self.uuid).await?;
 
         // Collect all topics associated with this session
-        let topics = db::session_find_all_topic_names(&mut tx, &self.uuid).await?;
+        let topics = db::session_find_all_topic_locators(&mut tx, &self.uuid).await?;
 
         let completion_timestamp = types::Timestamp::now();
         db::session_lock(&mut tx, &self.uuid, &completion_timestamp).await?;
@@ -80,10 +80,8 @@ impl Session {
     ///
     /// * [`Error::FailedAndNotified`]: if the error is correctly reported and notified.
     /// * [`Error::FailedAndUnableToNotify`]: if the notification creation faild.
-    pub async fn delete(&self) -> Result<(), Error> {
+    pub async fn delete(&self, allow_data_loss: types::DataLossToken) -> Result<(), Error> {
         let mut tx = self.db.transaction().await?;
-
-        let session = db::session_find_by_uuid(&mut tx, &self.uuid).await?;
 
         let error_report_msg = format!("Some error occured while deleting session `{}`", self.uuid);
         let mut error_report = types::ErrorReport::new(error_report_msg);
@@ -91,28 +89,25 @@ impl Session {
         // Deletes topic data
         let topics = self.topic_list().await?;
         for topic_loc in topics.clone() {
-            let thandle = Topic::new(
+            let topic = Topic::new(
                 topic_loc.clone().into(),
                 self.store.clone(),
                 self.db.clone(),
             );
 
-            // For this special case we allow a data loss delete since the sequence is still unlocked (previous check).
-            // This is because the system may be in a state where topics are partially uploaded:
-            // some topics are fully uploaded and locked, while others are not.
-            //
             // We collect all the errors to build a sequence notification reporting all error if
             // something fails.
-            if let Err(e) = thandle.delete(types::allow_data_loss()).await {
+            if let Err(e) = topic.delete(allow_data_loss.clone()).await {
                 error_report
                     .errors
                     .push(types::ErrorReportItem::new(topic_loc, e));
             }
         }
 
+        let session = db::session_find_by_uuid(&mut tx, &self.uuid).await?;
         let sequence = db::sequence_find_by_id(&mut tx, session.sequence_id).await?;
 
-        // Deletes the session manifest if session was previously locked (an unlocked
+        // Deletes the session manifest if session was previously locked (a unlocked
         // sessions has no manifest)
         if session.is_locked()
             && let Err(e) = self
@@ -134,7 +129,8 @@ impl Session {
         let mut notify = None;
         let mut msg = "".to_owned();
 
-        // If some error occurs create a notification with all errors stacked
+        // If some error occurs create a notification with all errors stacked otherwise
+        // if no error occurs delete the session record
         if error_occurs {
             msg = error_report.into();
             let fsequence = Sequence::new(
@@ -147,6 +143,10 @@ impl Session {
                     .notify(types::NotifyType::Error, msg.clone())
                     .await?,
             );
+        } else {
+            // This is done as last operation, otherwise multiple cals to this function will fail
+            // since a session lookup is made above
+            db::session_delete(&mut tx, &session.uuid(), allow_data_loss).await?;
         }
 
         tx.commit().await?;
@@ -166,7 +166,7 @@ impl Session {
     pub async fn topic_list(&self) -> Result<Vec<types::TopicResourceLocator>, Error> {
         let mut cx = self.db.connection();
 
-        let topics = db::session_find_all_topic_names(&mut cx, &self.uuid).await?;
+        let topics = db::session_find_all_topic_locators(&mut cx, &self.uuid).await?;
 
         Ok(topics)
     }

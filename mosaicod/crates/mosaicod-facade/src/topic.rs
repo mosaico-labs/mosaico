@@ -1,11 +1,11 @@
 use super::Error;
-use mosaicod_db as db;
 use arrow::datatypes::SchemaRef;
 use log::trace;
 use mosaicod_core::{
     params,
     types::{self, Resource},
 };
+use mosaicod_db as db;
 use mosaicod_marshal as marshal;
 use mosaicod_query as query;
 use mosaicod_rw::{self as rw, ToProperties};
@@ -242,10 +242,7 @@ impl Topic {
     /// # Errors
     ///
     /// Returns [`HandleError::NotFound`] or [`HandleError::WriteError`] if serialization or writing fails.
-    async fn metadata_write_to_store(
-        &self,
-        metadata: TopicMetadata,
-    ) -> Result<(), Error> {
+    async fn metadata_write_to_store(&self, metadata: TopicMetadata) -> Result<(), Error> {
         trace!("writing metadata to store to `{}`", self.locator);
         let path = self.locator.path_metadata();
 
@@ -258,10 +255,7 @@ impl Topic {
     }
 
     /// Write timestamp data (for quick access without performing queries) into the store
-    async fn manifest_write_to_store(
-        &self,
-        manifest: types::TopicManifest,
-    ) -> Result<(), Error> {
+    async fn manifest_write_to_store(&self, manifest: types::TopicManifest) -> Result<(), Error> {
         trace!("writing manifest to store to `{}`", self.locator);
         let path = self.locator.path_manifest();
 
@@ -323,10 +317,12 @@ impl Topic {
     }
 
     /// Permanently deletes a topic and all its data, be caution
+    ///
+    /// A [`types::DataLossToken`] is required since this call will lead to data losess.
     pub async fn delete(self, allowed_data_loss: types::DataLossToken) -> Result<(), Error> {
         let mut tx = self.db.transaction().await?;
 
-        // Delete at forst the data and after that the record on db,
+        // Delete at first the data and after that the record on db,
         // so if the delete procedure fails i can retry again against the database record
         self.store.delete_recursive(&self.path()).await?;
         db::topic_delete(&mut tx, &self.locator, allowed_data_loss).await?;

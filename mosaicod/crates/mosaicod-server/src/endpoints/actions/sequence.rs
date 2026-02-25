@@ -3,8 +3,8 @@
 use crate::{endpoints::Context, errors::ServerError};
 use log::{info, trace, warn};
 use mosaicod_core::types::{self, MetadataBlob, Resource};
-use mosaicod_marshal::{self as marshal, ActionResponse};
 use mosaicod_facade as facade;
+use mosaicod_marshal::{self as marshal, ActionResponse};
 
 /// Creates a new sequence with the given name and metadata.
 pub async fn create(
@@ -45,7 +45,7 @@ pub async fn delete(ctx: &Context, name: String) -> Result<ActionResponse, Serve
     let handle = facade::Sequence::new(name, ctx.store.clone(), ctx.db.clone());
 
     let loc = handle.locator.clone();
-    handle.delete().await?;
+    handle.delete(types::allow_data_loss()).await?;
     warn!("resource {} deleted", loc);
 
     Ok(ActionResponse::sequence_delete())

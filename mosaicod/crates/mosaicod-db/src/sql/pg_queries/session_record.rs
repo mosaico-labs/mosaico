@@ -1,5 +1,5 @@
 use crate::{Error, core::AsExec, sql::schema};
-use log::trace;
+use log::{trace, warn};
 use mosaicod_core::types;
 
 pub async fn session_create(
@@ -96,7 +96,25 @@ pub async fn session_lock(
     Ok(())
 }
 
-pub async fn session_find_all_topic_names(
+/// Deletes a session record from the database by its name, **bypassing any lock state**.
+///
+/// This function requires a [`DataLossToken`] because it permanently removes the record
+/// from the database without checking whether it is locked or referenced
+/// elsewhere. Improper use can lead to data inconsistency or loss.
+pub async fn session_delete(
+    exe: &mut impl AsExec,
+    uuid: &types::Uuid,
+    _: types::DataLossToken,
+) -> Result<(), Error> {
+    warn!("(data loss) deleting session `{}`", uuid);
+    sqlx::query!("DELETE FROM session_t WHERE session_uuid=$1", uuid.as_ref())
+        .execute(exe.as_exec())
+        .await?;
+    Ok(())
+}
+
+/// Find all topic associated with a session
+pub async fn session_find_all_topic_locators(
     exe: &mut impl AsExec,
     uuid: &types::Uuid,
 ) -> Result<Vec<types::TopicResourceLocator>, Error> {

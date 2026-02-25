@@ -5,10 +5,10 @@
 //! sequence and provides transactional methods for interacting with both the
 //! database respository and the object store.
 
-use super::{Error, Topic};
-use mosaicod_db as db;
+use super::{Error, Session};
 use log::trace;
 use mosaicod_core::types::{self, Resource};
+use mosaicod_db as db;
 use mosaicod_marshal as marshal;
 use mosaicod_store as store;
 
@@ -34,9 +34,7 @@ impl Sequence {
     ///
     /// Returns a list of all available sequences as [`SequenceResourceLocator`] objects.
     /// This is primarily used for catalog discovery operations.
-    pub async fn all(
-        db: db::Database,
-    ) -> Result<Vec<types::SequenceResourceLocator>, Error> {
+    pub async fn all(db: db::Database) -> Result<Vec<types::SequenceResourceLocator>, Error> {
         let mut cx = db.connection();
         let records = db::sequence_find_all(&mut cx).await?;
 
@@ -156,10 +154,7 @@ impl Sequence {
         Ok(data.into())
     }
 
-    async fn metadata_write_to_store(
-        &self,
-        metadata: SequenceMetadata,
-    ) -> Result<(), Error> {
+    async fn metadata_write_to_store(&self, metadata: SequenceMetadata) -> Result<(), Error> {
         let path = self.locator.path_metadata();
 
         trace!("converting sequence metadata to bytes");
@@ -179,33 +174,38 @@ impl Sequence {
     pub async fn topic_list(&self) -> Result<Vec<types::TopicResourceLocator>, Error> {
         let mut cx = self.db.connection();
 
-        let topics = db::sequence_find_all_topic_names(&mut cx, &self.locator).await?;
+        let topics = db::sequence_find_all_topic_locators(&mut cx, &self.locator).await?;
 
         Ok(topics)
     }
 
-    /// Deletes a sequence and all its associated topics from the system.
+    /// Returns the session list associated with this sequence as vector of session UUIDs
+    pub async fn session_list(&self) -> Result<Vec<types::Uuid>, Error> {
+        let mut cx = self.db.connection();
+
+        let sessions = db::sequence_find_all_sessions(&mut cx, &self.locator).await?;
+
+        Ok(sessions)
+    }
+
+    /// Deletes a sequence and all its associated sessions and topics from the system.
     ///
-    /// Both the sequence and its topics will be removed from the store and the database.
-    ///
-    /// This operation will only succeed if the sequence is locked.  
-    /// If the sequence is not locked, the function returns a [`HandleError::SequenceLocked`] error.
-    pub async fn delete(self) -> Result<(), Error> {
+    /// Sequences, sessions and topics will be removed from the store and the database.
+    /// The [`types::DataLossToken`] is required since this function will lead to data loss.
+    pub async fn delete(self, allow_data_loss: types::DataLossToken) -> Result<(), Error> {
         let mut tx = self.db.transaction().await?;
 
-        // Retrieve topics data and deletes it
-        let topics = self.topic_list().await?;
-        for topic_loc in topics {
-            let thandle = Topic::new(topic_loc.into(), self.store.clone(), self.db.clone());
-
-            // For this special case we allow a data loss delete since the sequence is still unlocked (previous check).
-            // This is because the system may be in a state where topics are partially uploaded:
-            // some topics are fully uploaded and locked, while others are not.
-            thandle.delete(types::allow_data_loss()).await?;
+        // Retrieve sessions data and deletes it
+        let sessions = self.session_list().await?;
+        for session_uuid in sessions {
+            let session = Session::new(session_uuid, self.store.clone(), self.db.clone());
+            session.delete(allow_data_loss.clone()).await?;
         }
 
         // Delete sequence data
         db::sequence_delete(&mut tx, &self.locator, types::allow_data_loss()).await?;
+
+        // Delete all remaining data
         self.store.delete_recursive(self.locator.name()).await?;
 
         tx.commit().await?;
@@ -252,8 +252,7 @@ mod tests {
             "weather": "sunny"
         }"#;
         dbg!(&mdata);
-        let mdata =
-            SequenceMetadata::new(marshal::JsonMetadataBlob::try_from_str(mdata).unwrap());
+        let mdata = SequenceMetadata::new(marshal::JsonMetadataBlob::try_from_str(mdata).unwrap());
 
         fsequence
             .create(Some(mdata)) // <-- testing this

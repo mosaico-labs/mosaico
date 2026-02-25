@@ -2,8 +2,8 @@
 use crate::{ServerError, endpoints::Context};
 use log::{info, trace, warn};
 use mosaicod_core::types;
-use mosaicod_marshal::ActionResponse;
 use mosaicod_facade as facade;
+use mosaicod_marshal::ActionResponse;
 
 pub async fn create(
     ctx: &Context,
@@ -40,7 +40,7 @@ pub async fn abort(ctx: &Context, session_uuid: String) -> Result<ActionResponse
 
     let session = facade::Session::new(uuid, ctx.store.clone(), ctx.db.clone());
 
-    session.delete().await?;
+    session.delete(types::allow_data_loss()).await?;
 
     warn!("session `{}` deleted", session_uuid);
 
