@@ -50,7 +50,7 @@ async fn start_server(
     let config = server::flight::Config {
         host: host.to_owned(),
         port,
-        tls: tls,
+        tls,
     };
 
     let handle = tokio::task::spawn(async move {
