@@ -1,5 +1,5 @@
 # Communication Module
 
 ::: mosaicolabs.comm.MosaicoClient
-::: mosaicolabs.comm.NotifyType
+::: mosaicolabs.comm.NotificationType
 ::: mosaicolabs.comm.Notified

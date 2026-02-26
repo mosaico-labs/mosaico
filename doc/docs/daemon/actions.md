@@ -30,11 +30,11 @@ Topics represent the individual sensor streams (e.g., `camera/front`, `gps`) con
 
 The platform includes a tagging mechanism to attach alerts or informational messages to resources. For example, if an exception is raised during an upload, the notification system automatically registers the event, ensuring the failure is logged and visible for troubleshooting.
 
-| Action | Description |
-| --- | --- |
-| `*_notify_create` | Attaches a notification to a Sequence or Topic, such as logging an error or status update. |
-| `*_notify_list` | Retrieves the history of active notifications for a resource, allowing clients to review alerts. |
-| `*_notify_purge` | Clears the notification history for a resource, useful for cleanup after resolution. |
+| Action                  | Description |
+|-------------------------| --- |
+| `*_notification_create` | Attaches a notification to a Sequence or Topic, such as logging an error or status update. |
+| `*_notification_list`   | Retrieves the history of active notifications for a resource, allowing clients to review alerts. |
+| `*_notification_purge`  | Clears the notification history for a resource, useful for cleanup after resolution. |
 
 Here, `*` can be either `sequence` or `topic`.
 

@@ -143,7 +143,7 @@ Configured when instantiating a new [`SequenceWriter`][mosaicolabs.handlers.Sequ
 
 #### 2. [`OnErrorPolicy.Report`][mosaicolabs.enum.OnErrorPolicy.Report] (The "Recovery" Policy)
 
-* **Behavior**: The SDK finalizes data that successfully reached the server and sends a `NOTIFY_CREATE` signal with error details.
+* **Behavior**: The SDK finalizes data that successfully reached the server and sends a `NOTIFICATION_CREATE` signal with error details.
 * **Result**: The sequence is preserved but remains in an **unlocked (pending) state**, allowing for forensic analysis.
 * **Best For**: Field tests and mission-critical logs where lead-up data is essential for debugging.
 
