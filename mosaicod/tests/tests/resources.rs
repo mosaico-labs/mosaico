@@ -161,8 +161,11 @@ async fn session_abort(pool: sqlx::Pool<db::DatabaseType>) {
 async fn sequence_delete(pool: sqlx::Pool<db::DatabaseType>) {
     let port = common::random_port();
 
-    let server = common::Server::new(common::HOST, port, pool).await;
-    let mut client = common::Client::new(common::HOST, port).await;
+    let server = common::ServerBuilder::new(common::HOST, port, pool)
+        .build()
+        .await;
+
+    let mut client = common::ClientBuilder::new(common::HOST, port).build().await;
 
     let sequence_name = "test_sequence";
 
