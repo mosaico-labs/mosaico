@@ -70,7 +70,7 @@ impl From<types::SequenceSystemInfo> for SequenceSystemInfo {
 }
 
 // ########
-// Notifies
+// Notifications
 // ########
 
 #[derive(Serialize, Debug)]
@@ -94,13 +94,13 @@ impl From<types::Notification> for ResponseNotificationItem {
 
 #[derive(Serialize, Debug)]
 pub struct NotificationList {
-    pub notifies: Vec<ResponseNotificationItem>,
+    pub notifications: Vec<ResponseNotificationItem>,
 }
 
 impl From<Vec<types::Notification>> for NotificationList {
     fn from(value: Vec<types::Notification>) -> Self {
         Self {
-            notifies: value.into_iter().map(Into::into).collect(),
+            notifications: value.into_iter().map(Into::into).collect(),
         }
     }
 }

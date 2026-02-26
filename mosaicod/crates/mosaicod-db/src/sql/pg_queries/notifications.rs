@@ -29,7 +29,7 @@ pub async fn topic_notification_create(
     Ok(res)
 }
 
-/// Find al notifies associated with a topic name
+/// Find all notifications associated with a topic name
 pub async fn topic_notifications_find_by_locator(
     exe: &mut impl AsExec,
     loc: &types::TopicResourceLocator,

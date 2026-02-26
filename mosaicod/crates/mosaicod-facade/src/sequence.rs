@@ -105,9 +105,10 @@ impl Sequence {
     /// Returns a list of all notifications for the sequence
     pub async fn notification_list(&self) -> Result<Vec<types::Notification>, Error> {
         let mut trans = self.db.transaction().await?;
-        let notifies = db::sequence_notifications_find_by_name(&mut trans, &self.locator).await?;
+        let notifications =
+            db::sequence_notifications_find_by_name(&mut trans, &self.locator).await?;
         trans.commit().await?;
-        Ok(notifies
+        Ok(notifications
             .into_iter()
             .map(|n| n.into_notification(self.locator.clone()))
             .collect())

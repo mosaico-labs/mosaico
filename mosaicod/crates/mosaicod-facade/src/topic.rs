@@ -350,8 +350,8 @@ impl Topic {
     /// Returns a list of all notifications for the this topic
     pub async fn notification_list(&self) -> Result<Vec<types::Notification>, Error> {
         let mut cx = self.db.connection();
-        let notifies = db::topic_notifications_find_by_locator(&mut cx, &self.locator).await?;
-        Ok(notifies
+        let notifications = db::topic_notifications_find_by_locator(&mut cx, &self.locator).await?;
+        Ok(notifications
             .into_iter()
             .map(|e| e.into_notification(self.locator.clone()))
             .collect())
