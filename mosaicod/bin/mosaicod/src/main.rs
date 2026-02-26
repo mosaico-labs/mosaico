@@ -5,7 +5,7 @@ static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 mod print;
 use clap::{Args, Parser, Subcommand};
 use dotenv::dotenv;
-use log::{debug, error, info, trace, warn};
+use log::{debug, info, trace};
 use mosaicod_core::params;
 use mosaicod_db as db;
 use mosaicod_server as server;
@@ -14,7 +14,7 @@ use std::{env, sync::Arc, thread, time::Instant};
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
-/// Mosaico command-line-interface
+/// mosaicod - Mosaico high-performance daemon
 struct Cli {
     #[command(subcommand)]
     cmd: Commands,
@@ -33,6 +33,12 @@ struct CommandRun {
     /// Enable to store objects on the local filesystem at the specified directory path
     #[arg(long)]
     local_store: Option<std::path::PathBuf>,
+
+    /// Enable TLS. When enabled, the following envirnoment variables needs to be set
+    /// MOSAICOD_TLS_CERT_FILE: certificate file path, MOSAICOD_TLS_PRIVATE_KEY_FILE:
+    /// private key file path
+    #[arg(long, default_value_t = false)]
+    tls: bool,
 }
 
 #[derive(Subcommand, Debug)]
@@ -55,43 +61,51 @@ fn load_env_variables() -> Result<Variables, Box<dyn std::error::Error>> {
     info!("Loading .env file");
     dotenv().ok();
 
-    params::load_configurables_from_env();
+    params::load_params_from_env()?;
 
-    if params::configurables().max_chunk_size_in_bytes == 0 {
-        warn!(
-            "MOSAICO_MAX_CHUNK_SIZE_IN_BYTES=0: automatic chunk splitting is disabled. \
-             Large uploads may cause high memory usage."
+    if params::params().max_chunk_size_in_bytes == 0 {
+        print::warning(
+            "Max chunk size in bytes is 0: automatic chunk splitting is disabled. Large uploads may cause high memory usage.",
         );
     }
 
-    let database_url: String = params::require_env_var("MOSAICO_DATABASE_URL")?;
-    let database_url: url::Url = database_url.parse()?;
+    let database_url: url::Url = params::params().db_url.parse()?;
 
     let vars = Variables { database_url };
 
-    debug!("{:#?}", params::configurables());
+    debug!("{:#?}", params::params());
     debug!("{:#?}", vars);
 
     Ok(vars)
 }
 
 fn load_remote_store_vars() -> Result<store::S3Config, Box<dyn std::error::Error>> {
-    let store_endpoint: String = params::require_env_var("MOSAICO_STORE_ENDPOINT")?;
-    let store_bucket: String = params::require_env_var("MOSAICO_STORE_BUCKET")?;
-    let secret_key: String = params::require_env_var("MOSAICO_STORE_SECRET_KEY")?;
-    let store_secret_key = params::Hidden::from(secret_key);
-    let store_access_key: String = params::require_env_var("MOSAICO_STORE_ACCESS_KEY")?;
+    let params = params::params();
 
-    let vars = store::S3Config {
-        endpoint: store_endpoint,
-        bucket: store_bucket,
-        secret_key: store_secret_key,
-        access_key: store_access_key,
+    let config = store::S3Config {
+        endpoint: params.store_endpoint.clone(),
+        bucket: params.store_bucket.clone(),
+        secret_key: params.store_secret_key.clone(),
+        access_key: params.store_access_key.clone(),
     };
 
-    debug!("{:#?}", vars);
+    // This will return and error if the s3 confuration has some problems
+    config.validate()?;
 
-    Ok(vars)
+    debug!("{:#?}", config);
+
+    Ok(config)
+}
+
+fn check_tls(tls: bool) -> Option<server::flight::TlsConfig> {
+    if tls {
+        return Some(server::flight::TlsConfig {
+            certificate_file: params::params().tls_certificate_file.clone().into(),
+            private_key_file: params::params().tls_private_key_file.clone().into(),
+        });
+    }
+
+    None
 }
 
 fn run(startup_time: &Instant) -> Result<(), Box<dyn std::error::Error>> {
@@ -105,6 +119,8 @@ fn run(startup_time: &Instant) -> Result<(), Box<dyn std::error::Error>> {
         Commands::Run(args) => {
             let store = get_store(&args)?;
             let store_display_name = get_store_display_name(&store);
+
+            let tls = check_tls(args.tls);
 
             let server = server::Server::new(
                 args.host,
@@ -124,15 +140,18 @@ fn run(startup_time: &Instant) -> Result<(), Box<dyn std::error::Error>> {
                 }
             });
 
-            server.start_and_wait(|| {
-                print::print_startup_info(
-                    args.host,
-                    args.port,
-                    &store_display_name,
-                    get_version(),
-                    startup_time,
-                );
-            })?;
+            server.start_and_wait(
+                || {
+                    print::print_startup_info(
+                        args.host,
+                        args.port,
+                        &store_display_name,
+                        get_version(),
+                        startup_time,
+                    );
+                },
+                tls,
+            )?;
         }
     }
 
@@ -197,6 +216,12 @@ fn main() {
 
     match res {
         Ok(_) => println!("\n{}\n", "All done. Bye!".dimmed()),
-        Err(e) => error!("{}", e),
+        Err(e) => {
+            print::error(&e.to_string());
+            println!(
+                "\nPlease refer to {} for more informations.",
+                "https://docs.mosaico.dev/daemon".cyan()
+            )
+        }
     }
 }

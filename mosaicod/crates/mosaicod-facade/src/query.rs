@@ -75,7 +75,7 @@ impl Query {
                 );
 
                 let ts_engine = ts_gw.clone();
-                let max_concurrent = params::configurables().max_concurrent_chunk_queries;
+                let max_concurrent = params::params().max_concurrent_chunk_queries;
                 let semaphore = Arc::new(Semaphore::new(max_concurrent));
                 let mut search_jobs = FuturesUnordered::new();
 

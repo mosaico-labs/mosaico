@@ -9,8 +9,8 @@ pub fn print_startup_info(
     startup_time: &Instant,
 ) {
     println!(
-        "\n{} {} {} {} {}\n {}",
-        "  mosaicod  ".on_purple().black(),
+        "\n{:^12} {} {} {} {}\n {}",
+        "mosaicod".on_purple().black(),
         version.purple(),
         "ready in".dimmed(),
         startup_time.elapsed().as_millis().to_string().bold(),
@@ -47,6 +47,14 @@ pub fn print_startup_info(
     println!();
     println!("{}", "Press Ctrl+C to stop.".dimmed());
     println!();
+}
+
+pub fn warning(msg: &str) {
+    println!("{:^12} {}", "WARNING".on_yellow().black(), msg);
+}
+
+pub fn error(msg: &str) {
+    eprintln!("{:^12} {}", "ERROR".on_red().black(), msg);
 }
 
 fn format_addr(is_loopback: bool, msg: String) {

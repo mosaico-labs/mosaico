@@ -22,6 +22,7 @@ serde = { workspace = true }
 rand = { workspace = true }
 futures = { workspace = true }
 arrow = { workspace = true }
+url = { workspace = true }
 
 [dev-dependencies]
 mosaicod-ext = { workspace = true, features = ["testing"] }

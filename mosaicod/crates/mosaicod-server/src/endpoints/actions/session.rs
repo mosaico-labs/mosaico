@@ -40,7 +40,7 @@ pub async fn abort(ctx: &Context, session_uuid: String) -> Result<ActionResponse
 
     let session = facade::Session::new(uuid, ctx.store.clone(), ctx.db.clone());
 
-    session.delete().await?;
+    session.delete(types::allow_data_loss()).await?;
 
     warn!("session `{}` deleted", session_uuid);
 

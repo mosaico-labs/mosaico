@@ -8,9 +8,11 @@ use tests::{self, actions, common};
 async fn sequence_create(pool: sqlx::Pool<db::DatabaseType>) -> sqlx::Result<()> {
     let port = common::random_port();
 
-    let server = common::Server::new(common::HOST, port, pool).await;
+    let server = common::ServerBuilder::new(common::HOST, port, pool)
+        .build()
+        .await;
 
-    let mut client = common::Client::new(common::HOST, port).await;
+    let mut client = common::ClientBuilder::new(common::HOST, port).build().await;
 
     actions::sequence_create(&mut client, "test_sequence", None).await;
 
@@ -22,8 +24,11 @@ async fn sequence_create(pool: sqlx::Pool<db::DatabaseType>) -> sqlx::Result<()>
 async fn session_create(pool: sqlx::Pool<db::DatabaseType>) -> sqlx::Result<()> {
     let port = common::random_port();
 
-    let server = common::Server::new(common::HOST, port, pool).await;
-    let mut client = common::Client::new(common::HOST, port).await;
+    let server = common::ServerBuilder::new(common::HOST, port, pool)
+        .build()
+        .await;
+
+    let mut client = common::ClientBuilder::new(common::HOST, port).build().await;
 
     let sequence_name = "test_sequence";
 
@@ -39,8 +44,11 @@ async fn session_create(pool: sqlx::Pool<db::DatabaseType>) -> sqlx::Result<()> 
 async fn topic_create(pool: sqlx::Pool<db::DatabaseType>) -> sqlx::Result<()> {
     let port = common::random_port();
 
-    let server = common::Server::new(common::HOST, port, pool).await;
-    let mut client = common::Client::new(common::HOST, port).await;
+    let server = common::ServerBuilder::new(common::HOST, port, pool)
+        .build()
+        .await;
+
+    let mut client = common::ClientBuilder::new(common::HOST, port).build().await;
 
     let sequence_name = "test_sequence";
 
@@ -58,8 +66,11 @@ async fn topic_create(pool: sqlx::Pool<db::DatabaseType>) -> sqlx::Result<()> {
 async fn do_put(pool: sqlx::Pool<db::DatabaseType>) {
     let port = common::random_port();
 
-    let server = common::Server::new(common::HOST, port, pool).await;
-    let mut client = common::Client::new(common::HOST, port).await;
+    let server = common::ServerBuilder::new(common::HOST, port, pool)
+        .build()
+        .await;
+
+    let mut client = common::ClientBuilder::new(common::HOST, port).build().await;
 
     let sequence_name = "test_sequence";
 
@@ -85,8 +96,11 @@ async fn do_put(pool: sqlx::Pool<db::DatabaseType>) {
 async fn session_finalize(pool: sqlx::Pool<db::DatabaseType>) {
     let port = common::random_port();
 
-    let server = common::Server::new(common::HOST, port, pool).await;
-    let mut client = common::Client::new(common::HOST, port).await;
+    let server = common::ServerBuilder::new(common::HOST, port, pool)
+        .build()
+        .await;
+
+    let mut client = common::ClientBuilder::new(common::HOST, port).build().await;
 
     let sequence_name = "test_sequence";
 
@@ -115,8 +129,11 @@ async fn session_finalize(pool: sqlx::Pool<db::DatabaseType>) {
 async fn session_abort(pool: sqlx::Pool<db::DatabaseType>) {
     let port = common::random_port();
 
-    let server = common::Server::new(common::HOST, port, pool).await;
-    let mut client = common::Client::new(common::HOST, port).await;
+    let server = common::ServerBuilder::new(common::HOST, port, pool)
+        .build()
+        .await;
+
+    let mut client = common::ClientBuilder::new(common::HOST, port).build().await;
 
     let sequence_name = "test_sequence";
 
@@ -136,6 +153,35 @@ async fn session_abort(pool: sqlx::Pool<db::DatabaseType>) {
     }
 
     actions::session_abort(&mut client, session_uuid).await;
+
+    server.shutdown().await;
+}
+
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn sequence_delete(pool: sqlx::Pool<db::DatabaseType>) {
+    let port = common::random_port();
+
+    let server = common::ServerBuilder::new(common::HOST, port, pool)
+        .build()
+        .await;
+
+    let mut client = common::ClientBuilder::new(common::HOST, port).build().await;
+
+    let sequence_name = "test_sequence";
+
+    actions::sequence_create(&mut client, sequence_name, None).await;
+    let session_uuid = actions::session_create(&mut client, sequence_name).await;
+    assert!(session_uuid.is_valid());
+    let uuid =
+        actions::topic_create(&mut client, &session_uuid, "test_sequence/my_topic", None).await;
+    assert!(uuid.is_valid());
+
+    let batches = vec![ext::arrow::testing::dummy_batch()];
+    let _ = actions::do_put(&mut client, &uuid, "test_sequence/my_topic", batches).await;
+
+    actions::session_finalize(&mut client, session_uuid).await;
+
+    actions::sequence_delete(&mut client, "test_sequence").await;
 
     server.shutdown().await;
 }

@@ -45,6 +45,34 @@ pub async fn sequence_create(
     }
 }
 
+pub async fn sequence_delete(client: &mut Client, locator: &str) {
+    let action = Action {
+        r#type: "sequence_delete".to_owned(),
+        body: format!(
+            r#"
+        {{
+            "locator": "{}"
+        }}
+        "#,
+            locator,
+        )
+        .into(),
+    };
+
+    dbg!(&action);
+
+    let mut stream = client.do_action(action).await.unwrap().into_inner();
+
+    while let Some(result) = stream.message().await.expect("Problem while streaming") {
+        dbg!(&result);
+        let r = ActionResponse::from_body(&result.body);
+        assert_eq!(r.action, "sequence_delete");
+
+        let available_keys = r.response.as_object().map(|o| o.len()).unwrap_or(0);
+        assert_eq!(available_keys, 0);
+    }
+}
+
 pub async fn session_create(client: &mut Client, sequence_name: &str) -> types::Uuid {
     let action = Action {
         r#type: "session_create".to_owned(),

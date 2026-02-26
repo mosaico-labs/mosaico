@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT session.session_uuid\n        FROM session_t AS session \n        JOIN sequence_t AS sequence ON session.sequence_id = sequence.sequence_id\n        WHERE sequence.locator_name = $1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "session_uuid",
+        "type_info": "Uuid"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "c6144fad98d1d2d94f2a8070689a60903eda4446ea52162081eadb6357d7e8e8"
+}

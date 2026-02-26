@@ -1,6 +1,7 @@
 /// A marker type representing a scope where data loss is explicitly acknowledged.
 ///
 /// Use [`allow_data_loss`] to build this token.
+#[derive(Clone)]
 pub struct DataLossToken {
     _private: (),
 }

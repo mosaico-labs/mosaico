@@ -82,7 +82,7 @@ pub struct Database {
 impl Database {
     pub async fn try_new(config: &Config) -> Result<Self, Error> {
         debug!("creating database connection pool");
-        let max_connections = params::configurables().max_db_connections;
+        let max_connections = params::params().max_db_connections;
         let pool = sqlx::postgres::PgPoolOptions::new()
             .max_connections(max_connections)
             .connect(config.db_url.as_str())

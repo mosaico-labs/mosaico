@@ -45,7 +45,7 @@ pub async fn delete(ctx: &Context, name: String) -> Result<ActionResponse, Serve
     let handle = facade::Sequence::new(name, ctx.store.clone(), ctx.db.clone());
 
     let loc = handle.locator.clone();
-    handle.delete().await?;
+    handle.delete(types::allow_data_loss()).await?;
     warn!("resource {} deleted", loc);
 
     Ok(ActionResponse::sequence_delete())
