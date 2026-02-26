@@ -69,10 +69,10 @@ For production deployments, `mosaicod` should be configured to use an S3-compati
 
 | Environment Variable       | Description                                                                                                                                                           |
 | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| <code class="nowrap">`MOSAICO_STORE_BUCKET`</code>     | The name of the S3 bucket where Mosaico will store all data blobs. This bucket must be created before starting the server.                                   |
-| <code class="nowrap">`MOSAICO_STORE_ENDPOINT`</code>   | The full URL endpoint for the S3-compatible service. This is necessary for non-AWS providers (e.g., `http://localhost:9000` for a local MinIO instance).                 |
-| <code class="nowrap">`MOSAICO_STORE_ACCESS_KEY`</code> | The access key ID for authenticating with your object storage service.                                                                                                |
-|  <code class="nowrap">`MOSAICO_STORE_SECRET_KEY`</code> | The secret access key that corresponds to the provided access key ID, used for authentication.                                                                        |
+| <code class="nowrap">`MOSAICOD_STORE_BUCKET`</code>     | The name of the S3 bucket where Mosaico will store all data blobs. This bucket must be created before starting the server.                                   |
+| <code class="nowrap">`MOSAICOD_STORE_ENDPOINT`</code>   | The full URL endpoint for the S3-compatible service. This is necessary for non-AWS providers (e.g., `http://localhost:9000` for a local MinIO instance).                 |
+| <code class="nowrap">`MOSAICOD_STORE_ACCESS_KEY`</code> | The access key ID for authenticating with your object storage service.                                                                                                |
+|  <code class="nowrap">`MOSAICOD_STORE_SECRET_KEY`</code> | The secret access key that corresponds to the provided access key ID, used for authentication.                                                                        |
 
 ### Local Storage Configuration
 

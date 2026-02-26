@@ -275,7 +275,7 @@ impl Topic {
         format: types::Format,
     ) -> TopicWriterGuard<'_> {
         let max_chunk_size = {
-            let config_value = params::configurables().max_chunk_size_in_bytes;
+            let config_value = params::params().max_chunk_size_in_bytes;
             if config_value == 0 {
                 None // 0 means unlimited (no automatic splitting)
             } else {
@@ -423,7 +423,7 @@ impl Topic {
             ));
         }
 
-        let target_size = params::configurables().target_message_size_in_bytes;
+        let target_size = params::params().target_message_size_in_bytes;
         let batch_size = (target_size as i64 * stats.total_row_count) / stats.total_size_bytes;
 
         Ok(batch_size as usize)
