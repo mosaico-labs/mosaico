@@ -41,7 +41,7 @@ def test_sequence_writer_not_in_context(_client: MosaicoClient):
     swriter = _client.sequence_create("new-sequence", metadata={})
     assert swriter.status == SequenceStatus.Null
     with pytest.raises(
-        RuntimeError, match="SequenceWriter must be used within a 'with' block."
+        RuntimeError, match="BaseSessionWriter must be used within a 'with' block."
     ):
         swriter._check_entered()
 

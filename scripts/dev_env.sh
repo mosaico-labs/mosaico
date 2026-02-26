@@ -14,7 +14,7 @@ TEST_DIRECTORY="/tmp/__mosaico_dev_env__"
 # Log level for mosaicod
 RUST_LOG=mosaico=trace
 # Database URL (see docker compose if you need to change the params)
-MOSAICO_DATABASE_URL="postgresql://postgres:password@localhost:6543/mosaico"
+MOSAICOD_DB_URL="postgresql://postgres:password@localhost:6543/mosaico"
 
 # This flag should be always `true`, otherwise a running database with live migration
 # is required to compile the code (and also we need to reinstall sqlx at each run).
@@ -22,7 +22,7 @@ SQLX_OFFLINE=true
 
 FILE_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 PROJECT_DIR=$(readlink -f "${FILE_DIR}/..")
-DATABASE_URL="${MOSAICO_DATABASE_URL}"
+DATABASE_URL="${MOSAICOD_DB_URL}"
 MOSAICOD_PATH="${PROJECT_DIR}/${MOSAICOD_DIR}"
 PYTHON_SDK_PATH="${PROJECT_DIR}/${PYTHON_SDK_DIR}"
 DOCKER_PATH="${PROJECT_DIR}/${DOCKER_DIR}"
@@ -30,7 +30,7 @@ DOCKER_PATH="${PROJECT_DIR}/${DOCKER_DIR}"
 export DATABASE_URL
 export RUST_LOG
 export SQLX_OFFLINE
-export MOSAICO_DATABASE_URL
+export MOSAICOD_DB_URL
 export RUST_BACKTRACE
 
 
@@ -97,7 +97,7 @@ mkdir -p "${TEST_DIRECTORY}"
 title "development environment" "#" ${GREEN}
 
 title "setup" "-"
-echo "MOSAICO_DATABASE_URL ${MOSAICO_DATABASE_URL}"
+echo "MOSAICOD_DB_URL ${MOSAICOD_DB_URL}"
 echo "DATABASE_URL=${DATABASE_URL}"
 echo "SQLX_OFFLINE=${SQLX_OFFLINE}"
 cd ${DOCKER_PATH}
