@@ -9,7 +9,7 @@ creating resource handlers (sequences, topics) and executing queries.
 
 import os
 from typing import Any, Dict, List, Optional, Type
-from mosaicolabs.comm.notifications import Notified
+from mosaicolabs.comm.notifications import Notification
 import pyarrow.flight as fl
 
 from mosaicolabs.models.query import Query, QueryResponse
@@ -22,7 +22,7 @@ from .executor_pool import _ExecutorPool
 from .do_action import (
     _do_action,
     _DoActionQueryResponse,
-    _DoActionNotifyList,
+    _DoActionNotificationList,
 )
 from ..logging_config import get_logger
 from ..enum import FlightAction, OnErrorPolicy
@@ -496,7 +496,7 @@ class MosaicoClient:
             out_list.extend([p.decode("utf-8") for p in finfo.descriptor.path])
         return out_list
 
-    def list_sequence_notify(self, sequence_name: str) -> List[Notified]:
+    def list_sequence_notifications(self, sequence_name: str) -> List[Notification]:
         """
         Retrieves a list of all notifications available on the server for a specific sequence.
 
@@ -504,7 +504,7 @@ class MosaicoClient:
             sequence_name (str): The name of the sequence to list notifications for.
 
         Returns:
-            List[Notified]: The list of sequence notifications.
+            List[Notification]: The list of sequence notifications.
 
         Example:
             ```python
@@ -512,10 +512,10 @@ class MosaicoClient:
 
             with MosaicoClient.connect("localhost", 6726) as client:
                 sequence_notifications = client.list_sequence_notify("my_sequence")
-                for notify in sequence_notifications:
-                    print(f"Notification Type: {notify.notify_type}")
-                    print(f"Notification Message: {notify.message}")
-                    print(f"Notification Created: {notify.created_datetime}")
+                for notification in sequence_notifications:
+                    print(f"Notification Type: {notification.notify_type}")
+                    print(f"Notification Message: {notification.message}")
+                    print(f"Notification Created: {notification.created_datetime}")
             ```
         """
         ACTION = FlightAction.SEQUENCE_NOTIFICATION_LIST
@@ -525,20 +525,20 @@ class MosaicoClient:
                 client=self._control_client,
                 action=ACTION,
                 payload={"locator": sequence_name},
-                expected_type=_DoActionNotifyList,
+                expected_type=_DoActionNotificationList,
             )
 
             if act_resp is None:
                 logger.error(f"Action '{ACTION}' returned no response.")
                 return []
 
-            return act_resp.notifies
+            return act_resp.notifications
 
         except Exception as e:
             logger.error(f"Query returned an internal error: '{e}'")
             return []
 
-    def clear_sequence_notify(self, sequence_name: str):
+    def clear_sequence_notifications(self, sequence_name: str):
         """
         Clears the notifications for a specific sequence from the server.
 
@@ -559,7 +559,9 @@ class MosaicoClient:
             logger.error(f"Query returned an internal error: '{e}'")
             return []
 
-    def list_topic_notify(self, sequence_name: str, topic_name: str) -> List[Notified]:
+    def list_topic_notifications(
+        self, sequence_name: str, topic_name: str
+    ) -> List[Notification]:
         """
         Retrieves a list of all notifications available on the server for a specific topic
 
@@ -576,10 +578,10 @@ class MosaicoClient:
 
             with MosaicoClient.connect("localhost", 6726) as client:
                 topic_notifications = client.list_topic_notify("my_sequence", "my_topic")
-                for notify in topic_notifications:
-                    print(f"Notification Type: {notify.notify_type}")
-                    print(f"Notification Message: {notify.message}")
-                    print(f"Notification Created: {notify.created_datetime}")
+                for notification in topic_notifications:
+                    print(f"Notification Type: {notification.notify_type}")
+                    print(f"Notification Message: {notification.message}")
+                    print(f"Notification Created: {notification.created_datetime}")
             ```
         """
         ACTION = FlightAction.TOPIC_NOTIFICATION_LIST
@@ -594,20 +596,20 @@ class MosaicoClient:
                         topic_name=topic_name,
                     )
                 },
-                expected_type=_DoActionNotifyList,
+                expected_type=_DoActionNotificationList,
             )
 
             if act_resp is None:
                 logger.error(f"Action '{ACTION}' returned no response.")
                 return []
 
-            return act_resp.notifies
+            return act_resp.notifications
 
         except Exception as e:
             logger.error(f"Query returned an internal error: '{e}'")
             return []
 
-    def clear_topic_notify(self, sequence_name: str, topic_name: str):
+    def clear_topic_notifications(self, sequence_name: str, topic_name: str):
         """
         Clears the notifications for a specific topic from the server.
 

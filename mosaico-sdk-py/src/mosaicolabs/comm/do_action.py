@@ -15,7 +15,7 @@ from typing import Any, ClassVar, Dict, Optional, Type, TypeVar
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 import datetime
-from mosaicolabs.comm.notifications import Notified
+from mosaicolabs.comm.notifications import Notification
 import pyarrow.flight as fl
 
 from ..enum import FlightAction
@@ -236,20 +236,22 @@ class _DoActionQueryResponse(_DoActionResponse):
 
 
 @dataclass
-class _DoActionNotifyList(_DoActionResponse):
+class _DoActionNotificationList(_DoActionResponse):
     """Response containing a list."""
 
     actions: ClassVar[list[FlightAction]] = [
         FlightAction.SEQUENCE_NOTIFICATION_LIST,
         FlightAction.TOPIC_NOTIFICATION_LIST,
     ]
-    notifies: list[Notified]
+    notifications: list[Notification]
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "_DoActionNotifyList":
-        nofifies: Optional[list] = data.get("notifies")
-        if nofifies is None:
-            raise KeyError("Unable to find 'notifies' key in data dict.")
-        return _DoActionNotifyList(
-            notifies=[Notified._from_dict(notify) for notify in nofifies]
+    def from_dict(cls, data: Dict[str, Any]) -> "_DoActionNotificationList":
+        notifications: Optional[list] = data.get("notifications")
+        if notifications is None:
+            raise KeyError("Unable to find 'notifications' key in data dict.")
+        return _DoActionNotificationList(
+            notifications=[
+                Notification._from_dict(notification) for notification in notifications
+            ]
         )
