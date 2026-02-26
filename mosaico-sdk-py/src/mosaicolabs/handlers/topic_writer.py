@@ -272,7 +272,7 @@ class TopicWriter:
 
     def _error_report(self, err: str):
         """Sends an 'error' notification to the server regarding this topic."""
-        ACTION = FlightAction.TOPIC_NOTIFY_CREATE
+        ACTION = FlightAction.TOPIC_NOTIFICATION_CREATE
         try:
             _do_action(
                 client=self._fl_client,

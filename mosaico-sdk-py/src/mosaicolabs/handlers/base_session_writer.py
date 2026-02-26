@@ -527,7 +527,7 @@ class BaseSessionWriter(ABC):
             try:
                 _do_action(
                     client=self._control_client,
-                    action=FlightAction.SEQUENCE_NOTIFY_CREATE,
+                    action=FlightAction.SEQUENCE_NOTIFICATION_CREATE,
                     payload={
                         "locator": self._name,
                         "notify_type": "error",

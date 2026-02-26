@@ -518,7 +518,7 @@ class MosaicoClient:
                     print(f"Notification Created: {notify.created_datetime}")
             ```
         """
-        ACTION = FlightAction.SEQUENCE_NOTIFY_LIST
+        ACTION = FlightAction.SEQUENCE_NOTIFICATION_LIST
 
         try:
             act_resp = _do_action(
@@ -545,7 +545,7 @@ class MosaicoClient:
         Args:
             sequence_name (str): The name of the sequence.
         """
-        ACTION = FlightAction.SEQUENCE_NOTIFY_PURGE
+        ACTION = FlightAction.SEQUENCE_NOTIFICATION_PURGE
 
         try:
             _do_action(
@@ -582,7 +582,7 @@ class MosaicoClient:
                     print(f"Notification Created: {notify.created_datetime}")
             ```
         """
-        ACTION = FlightAction.TOPIC_NOTIFY_LIST
+        ACTION = FlightAction.TOPIC_NOTIFICATION_LIST
 
         try:
             act_resp = _do_action(
@@ -615,7 +615,7 @@ class MosaicoClient:
             sequence_name (str): The name of the sequence.
             topic_name (str): The name of the topic.
         """
-        ACTION = FlightAction.TOPIC_NOTIFY_PURGE
+        ACTION = FlightAction.TOPIC_NOTIFICATION_PURGE
 
         try:
             _do_action(

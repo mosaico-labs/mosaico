@@ -240,8 +240,8 @@ class _DoActionNotifyList(_DoActionResponse):
     """Response containing a list."""
 
     actions: ClassVar[list[FlightAction]] = [
-        FlightAction.SEQUENCE_NOTIFY_LIST,
-        FlightAction.TOPIC_NOTIFY_LIST,
+        FlightAction.SEQUENCE_NOTIFICATION_LIST,
+        FlightAction.TOPIC_NOTIFICATION_LIST,
     ]
     notifies: list[Notified]
 
