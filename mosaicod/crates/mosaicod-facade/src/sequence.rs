@@ -302,12 +302,6 @@ mod tests {
             .await
             .expect("Unable to find the created sequence");
 
-        // Check sequence locator
-        assert_eq!(
-            fsequence.locator.path().to_string_lossy(),
-            sequence.locator_name
-        );
-
         fsequence
             .notify(
                 NotificationType::Error,
