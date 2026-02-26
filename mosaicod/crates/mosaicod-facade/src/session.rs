@@ -144,7 +144,7 @@ impl Session {
                     .await?,
             );
         } else {
-            // This is done as last operation, otherwise multiple cals to this function will fail
+            // This is done as last operation, otherwise multiple calls to this function will fail
             // since a session lookup is made above
             db::session_delete(&mut tx, &session.uuid(), allow_data_loss).await?;
         }

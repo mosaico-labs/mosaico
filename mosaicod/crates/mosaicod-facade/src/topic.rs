@@ -318,7 +318,7 @@ impl Topic {
 
     /// Permanently deletes a topic and all its data, be caution
     ///
-    /// A [`types::DataLossToken`] is required since this call will lead to data losess.
+    /// A [`types::DataLossToken`] is required since this call will lead to data losses.
     pub async fn delete(self, allowed_data_loss: types::DataLossToken) -> Result<(), Error> {
         let mut tx = self.db.transaction().await?;
 
