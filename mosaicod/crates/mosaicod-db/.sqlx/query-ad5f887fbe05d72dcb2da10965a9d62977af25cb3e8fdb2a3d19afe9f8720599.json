@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "DELETE FROM sequence_notify_t WHERE sequence_notify_id=$1",
+  "query": "DELETE FROM topic_notification_t WHERE topic_notification_id=$1",
   "describe": {
     "columns": [],
     "parameters": {
@@ -10,5 +10,5 @@
     },
     "nullable": []
   },
-  "hash": "ecb768b557d9e6fd0dc1874603f49e1385c740aa3cb05f969346af1465c931ec"
+  "hash": "ad5f887fbe05d72dcb2da10965a9d62977af25cb3e8fdb2a3d19afe9f8720599"
 }

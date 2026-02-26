@@ -1,30 +1,35 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n          SELECT notify.* FROM topic_notify_t AS notify\n          JOIN topic_t AS topic ON notify.topic_id = topic.topic_id\n          WHERE topic.locator_name=$1\n    ",
+  "query": "\n          SELECT notification.* FROM topic_notification_t AS notification\n          JOIN topic_t AS topic ON notification.topic_id = topic.topic_id\n          WHERE topic.locator_name=$1\n    ",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "topic_notify_id",
+        "name": "topic_notification_id",
         "type_info": "Int4"
       },
       {
         "ordinal": 1,
+        "name": "topic_notification_uuid",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
         "name": "topic_id",
         "type_info": "Int4"
       },
       {
-        "ordinal": 2,
-        "name": "notify_type",
-        "type_info": "Text"
-      },
-      {
         "ordinal": 3,
-        "name": "msg",
+        "name": "notification_type",
         "type_info": "Text"
       },
       {
         "ordinal": 4,
+        "name": "msg",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
         "name": "creation_unix_tstamp",
         "type_info": "Int8"
       }
@@ -38,9 +43,10 @@
       false,
       false,
       false,
+      false,
       true,
       false
     ]
   },
-  "hash": "126290d2e2e17e1d282739d1384a4a5b22315d450009d850dab8a666ad2c3895"
+  "hash": "681b1757a5808a8cfb8bcbd9700126cf237eacccbdec8196f074316b34ca1eca"
 }

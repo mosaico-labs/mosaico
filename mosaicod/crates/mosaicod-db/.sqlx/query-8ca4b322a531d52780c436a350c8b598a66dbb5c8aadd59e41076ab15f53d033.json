@@ -1,36 +1,42 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            INSERT INTO topic_notify_t\n                (topic_id, notify_type, msg, creation_unix_tstamp) \n            VALUES \n                ($1, $2, $3, $4) \n            RETURNING \n                *\n    ",
+  "query": "\n            INSERT INTO topic_notification_t\n                (topic_notification_uuid, topic_id, notification_type, msg, creation_unix_tstamp)\n            VALUES \n                ($1, $2, $3, $4, $5)\n            RETURNING \n                *\n    ",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "topic_notify_id",
+        "name": "topic_notification_id",
         "type_info": "Int4"
       },
       {
         "ordinal": 1,
+        "name": "topic_notification_uuid",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
         "name": "topic_id",
         "type_info": "Int4"
       },
       {
-        "ordinal": 2,
-        "name": "notify_type",
-        "type_info": "Text"
-      },
-      {
         "ordinal": 3,
-        "name": "msg",
+        "name": "notification_type",
         "type_info": "Text"
       },
       {
         "ordinal": 4,
+        "name": "msg",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
         "name": "creation_unix_tstamp",
         "type_info": "Int8"
       }
     ],
     "parameters": {
       "Left": [
+        "Uuid",
         "Int4",
         "Text",
         "Text",
@@ -41,9 +47,10 @@
       false,
       false,
       false,
+      false,
       true,
       false
     ]
   },
-  "hash": "5b60dbd21dcbfe36f33796fd3627501370938d249f643307fff137c9809ccb44"
+  "hash": "8ca4b322a531d52780c436a350c8b598a66dbb5c8aadd59e41076ab15f53d033"
 }
