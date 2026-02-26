@@ -45,21 +45,21 @@ class Notification:
     Notifications can be retrieved at both the sequence and topic level via the
     Mosaico client:
 
-    * [`MosaicoClient.list_sequence_notify()`][mosaicolabs.comm.MosaicoClient.list_sequence_notify]
-    * [`MosaicoClient.list_topic_notify()`][mosaicolabs.comm.MosaicoClient.list_topic_notify]
+    * [`MosaicoClient.list_sequence_notifications()`][mosaicolabs.comm.MosaicoClient.list_sequence_notifications]
+    * [`MosaicoClient.list_topic_notifications()`][mosaicolabs.comm.MosaicoClient.list_topic_notifications]
 
     Example:
         ```python
         with MosaicoClient.connect("localhost", 6726) as client:
             # Retrieve notifications for a problematic sequence
-            errors = client.list_sequence_notify("mission_alpha")
+            errors = client.list_sequence_notifications("mission_alpha")
             for error in errors:
-                print(f"[{error.created_datetime}] {error.notify_type}: {error.message}")
+                print(f"[{error.created_datetime}] {error.type}: {error.message}")
         ```
 
     Attributes:
         sequence_name: The unique identifier of the associated sequence.
-        notify_type: The [`NotificationType`][mosaicolabs.comm.notifications.NotificationType]
+        type: The [`NotificationType`][mosaicolabs.comm.notifications.NotificationType]
             categorization of this event.
         message: A detailed string describing the event or error cause.
         created_datetime: The timestamp when the server generated the notification.
@@ -68,7 +68,7 @@ class Notification:
     """
 
     sequence_name: str
-    notify_type: NotificationType
+    type: NotificationType
     message: str
     created_datetime: datetime.datetime
     topic_name: Optional[str] = None
@@ -93,7 +93,7 @@ class Notification:
         return cls(
             sequence_name=sequence_name,
             topic_name=topic_name,
-            notify_type=NotificationType(data["notify_type"]),
+            type=NotificationType(data["notification_type"]),
             message=data["msg"],
             created_datetime=_parse_datetime_str(data["created_datetime"]),
         )

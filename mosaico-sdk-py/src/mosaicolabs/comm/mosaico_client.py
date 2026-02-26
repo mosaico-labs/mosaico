@@ -511,9 +511,9 @@ class MosaicoClient:
             from mosaicolabs import MosaicoClient
 
             with MosaicoClient.connect("localhost", 6726) as client:
-                sequence_notifications = client.list_sequence_notify("my_sequence")
+                sequence_notifications = client.list_sequence_notifications("my_sequence")
                 for notification in sequence_notifications:
-                    print(f"Notification Type: {notification.notify_type}")
+                    print(f"Notification Type: {notification.type}")
                     print(f"Notification Message: {notification.message}")
                     print(f"Notification Created: {notification.created_datetime}")
             ```
@@ -577,9 +577,9 @@ class MosaicoClient:
             from mosaicolabs import MosaicoClient
 
             with MosaicoClient.connect("localhost", 6726) as client:
-                topic_notifications = client.list_topic_notify("my_sequence", "my_topic")
+                topic_notifications = client.list_topic_notifications("my_sequence", "my_topic")
                 for notification in topic_notifications:
-                    print(f"Notification Type: {notification.notify_type}")
+                    print(f"Notification Type: {notification.type}")
                     print(f"Notification Message: {notification.message}")
                     print(f"Notification Created: {notification.created_datetime}")
             ```

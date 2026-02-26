@@ -29,7 +29,7 @@ def test_sequence_report(_client: MosaicoClient):
     snotifies = _client.list_sequence_notifications(sequence_name=sequence_name)
     assert len(snotifies) == 1
     assert snotifies[0].sequence_name == sequence_name
-    assert snotifies[0].notify_type == NotificationType.ERROR
+    assert snotifies[0].type == NotificationType.ERROR
     assert "Inner err: '__exception_in_test__'" in snotifies[0].message
 
     tnotifies = _client.list_topic_notifications(
@@ -38,7 +38,7 @@ def test_sequence_report(_client: MosaicoClient):
     assert len(tnotifies) == 1
     assert tnotifies[0].sequence_name == sequence_name
     assert tnotifies[0].topic_name == topic_name
-    assert tnotifies[0].notify_type == NotificationType.ERROR
+    assert tnotifies[0].type == NotificationType.ERROR
     assert "Inner err: '__exception_in_test__'" in snotifies[0].message
 
     _client.clear_sequence_notifications(sequence_name=sequence_name)

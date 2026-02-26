@@ -28,8 +28,8 @@ logger = get_logger(__name__)
 # TODO: Better manage topic lifecycle and error policy handling
 # Policies:
 # - Report and Skip: Skip the current record and continue with the next one.
-# - Report and Close: Report via topic_notify and close the writer. Must manage writer disabling and actions on calling push on a disabled writer
-# - Report and Delete: Delete the topic and report the error via sequence_notify. Must manage writer disabling and actions on calling push on a disabled writer
+# - Report and Close: Report via topic_notification_create and close the writer. Must manage writer disabling and actions on calling push on a disabled writer
+# - Report and Delete: Delete the topic and report the error via sequence_notification_create. Must manage writer disabling and actions on calling push on a disabled writer
 class TopicWriter:
     """
     Manages a high-performance data stream for a single Mosaico topic.
@@ -281,7 +281,7 @@ class TopicWriter:
                     "locator": pack_topic_resource_name(
                         self._sequence_name, self._name
                     ),
-                    "notify_type": "error",
+                    "notification_type": "error",
                     "msg": str(err),
                 },
                 expected_type=None,

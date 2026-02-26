@@ -530,7 +530,7 @@ class BaseSessionWriter(ABC):
                     action=FlightAction.SEQUENCE_NOTIFICATION_CREATE,
                     payload={
                         "locator": self._name,
-                        "notify_type": "error",
+                        "notification_type": "error",
                         "msg": err_msg,
                     },
                     expected_type=None,
