@@ -1,4 +1,4 @@
-name: Tests and Linter
+name: CI
 
 on:
   push:
@@ -30,7 +30,7 @@ permissions:
 
 jobs:
   backend-linter:
-    name: "Backend (linter)"
+    name: "Backend (lint and format-check)"
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -48,7 +48,11 @@ jobs:
           cache-targets: true
           cache-on-failure: true
 
-      - name: Run Linter
+      - name: Format Check
+        working-directory: mosaicod
+        run: cargo fmt -- --check
+
+      - name: Linter
         working-directory: mosaicod
         run: cargo lint
 
@@ -76,7 +80,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libpq-dev
 
-      - name: Run Unit Tests
+      - name: Unit Tests
         run: ./scripts/tests.sh --mosaicod
 
   python-sdk-unit-tests:
@@ -97,7 +101,7 @@ jobs:
           python-version: '3.13'
           cache: 'poetry'
 
-      - name: Run Unit Tests
+      - name: Unit Tests
         run: ./scripts/tests.sh --sdk-python
 
   integration-tests:
@@ -136,5 +140,5 @@ jobs:
           python-version: '3.13'
           cache: 'poetry'
 
-      - name: Run Integration Tests
+      - name: Integration Tests
         run: ./scripts/tests.sh --integration
