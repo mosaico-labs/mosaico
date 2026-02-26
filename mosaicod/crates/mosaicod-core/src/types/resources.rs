@@ -60,7 +60,7 @@ pub enum ResourceType {
 
 #[derive(Debug, Error)]
 pub enum ResourceError {
-    #[error("error encoding resource to url :: {0}")]
+    #[error("error encoding resource to url")]
     UrlError(#[from] url::ParseError),
 }
 

@@ -5,7 +5,6 @@ use mosaicod_core::types;
 use tonic::Streaming;
 
 use arrow::array::RecordBatch;
-
 use futures::StreamExt;
 
 /// Create a new sequence.
@@ -15,7 +14,7 @@ pub async fn sequence_create(
     client: &mut Client,
     sequence_name: &str,
     json_metadata: Option<&str>,
-) {
+) -> Result<(), tonic::Status> {
     let action = Action {
         r#type: "sequence_create".to_owned(),
         body: format!(
@@ -33,7 +32,7 @@ pub async fn sequence_create(
 
     dbg!(&action);
 
-    let mut stream = client.do_action(action).await.unwrap().into_inner();
+    let mut stream = client.do_action(action).await?.into_inner();
 
     while let Some(result) = stream.message().await.expect("Problem while streaming") {
         dbg!(&result);
@@ -43,6 +42,8 @@ pub async fn sequence_create(
         let available_keys = r.response.as_object().map(|o| o.len()).unwrap_or(0);
         assert_eq!(available_keys, 0);
     }
+
+    Ok(())
 }
 
 pub async fn sequence_delete(client: &mut Client, locator: &str) {
@@ -172,7 +173,7 @@ pub async fn topic_create(
     key: &types::Uuid,
     topic_name: &str,
     json_metadata: Option<&str>,
-) -> types::Uuid {
+) -> Result<types::Uuid, tonic::Status> {
     let action = Action {
         r#type: "topic_create".to_owned(),
         body: format!(
@@ -194,11 +195,11 @@ pub async fn topic_create(
 
     dbg!(&action);
 
-    let mut stream = client.do_action(action).await.unwrap().into_inner();
+    let mut stream = client.do_action(action).await?.into_inner();
 
     let mut key: Option<types::Uuid> = None;
 
-    while let Some(result) = stream.message().await.expect("Problem while streaming") {
+    while let Some(result) = stream.message().await? {
         let r = ActionResponse::from_body(&result.body);
         assert_eq!(r.action, "topic_create");
 
@@ -211,7 +212,7 @@ pub async fn topic_create(
         key = Some(uuid);
     }
 
-    key.expect("Unable to return key")
+    Ok(key.expect("Unable to return key"))
 }
 
 pub async fn do_put(
@@ -219,7 +220,8 @@ pub async fn do_put(
     topic_uuid: &types::Uuid,
     topic_name: &str,
     batches: Vec<RecordBatch>,
-) -> tonic::Response<Streaming<PutResult>> {
+    no_descriptor: bool,
+) -> Result<tonic::Response<Streaming<PutResult>>, tonic::Status> {
     let input_stream = futures::stream::iter(batches.into_iter().map(Ok));
 
     let cmd = format!(
@@ -233,9 +235,13 @@ pub async fn do_put(
     );
 
     let flight_data_stream = FlightDataEncoderBuilder::new()
-        .with_flight_descriptor(Some(FlightDescriptor::new_cmd(cmd)))
+        .with_flight_descriptor(if no_descriptor {
+            None
+        } else {
+            Some(FlightDescriptor::new_cmd(cmd))
+        })
         .build(input_stream)
         .map(|v| v.unwrap());
 
-    client.do_put(flight_data_stream).await.unwrap()
+    client.do_put(flight_data_stream).await
 }

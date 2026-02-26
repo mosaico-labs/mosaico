@@ -12,11 +12,11 @@ pub enum ActionError {
     MissingAction(String),
 
     /// Failed to deserialize the request body.
-    #[error("body deserialization error: {0}")]
+    #[error("body deserialization error")]
     BodyDeserializationError(#[from] serde_json::Error),
 
     /// Failed to serialize the response.
-    #[error("response serialization error: {0}")]
+    #[error("response serialization error")]
     ResponseSerializationError(String),
 }
 

@@ -4,7 +4,7 @@ use thiserror::Error;
 /// Errors that can occur when working with [`Uuid`].
 #[derive(Error, Debug)]
 pub enum UuidError {
-    #[error("error while parsing uuid from string :: {0}")]
+    #[error("error while parsing uuid from string")]
     FromStringParse(String),
 }
 

@@ -18,7 +18,9 @@ async fn sequence_create(pool: sqlx::Pool<db::DatabaseType>) -> sqlx::Result<()>
         .await;
 
     // make a dummy sequence create to see if the connection works
-    actions::sequence_create(&mut client, "test_sequence", None).await;
+    actions::sequence_create(&mut client, "test_sequence", None)
+        .await
+        .unwrap();
 
     server.shutdown().await;
     Ok(())
