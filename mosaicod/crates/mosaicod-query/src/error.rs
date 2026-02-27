@@ -2,7 +2,7 @@
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     /// Wraps errors occurring during the JSON parsing/deserialization phase.
-    #[error("query deserialization error")]
+    #[error("query deserialization error: {0}")]
     DeserializationError(String),
 
     #[error("operation error :: field `{field}` has {err}")]

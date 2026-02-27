@@ -16,7 +16,7 @@ pub enum ActionError {
     BodyDeserializationError(#[from] serde_json::Error),
 
     /// Failed to serialize the response.
-    #[error("response serialization error")]
+    #[error("response serialization error: {0}")]
     ResponseSerializationError(String),
 }
 

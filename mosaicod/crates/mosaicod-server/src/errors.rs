@@ -93,7 +93,7 @@ pub enum ServerError {
     #[error("query error")]
     QueryError(#[from] mosaicod_query::Error),
 
-    #[error("internal error")]
+    #[error("internal error: {0}")]
     InternalError(String),
 }
 

@@ -10,7 +10,9 @@ pub enum Error {
     MissingSerializationFormat(String),
     #[error("operation failed, sequence notification `{0}` has been added")]
     FailedAndNotified(types::Uuid),
-    #[error("an error occurred by the system was unable to notify. original error details:\n\n")]
+    #[error(
+        "an error occurred, but the system was unable to notify it. The original message is: {0}"
+    )]
     FailedAndUnableToNotify(String),
     #[error("store error")]
     StoreError(#[from] mosaicod_store::Error),
