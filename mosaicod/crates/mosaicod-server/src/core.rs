@@ -10,21 +10,23 @@ pub struct Server {
     pub host: bool,
 
     pub port: u16,
+
     /// Shutdown notifier used to signal server shutdown
     pub shutdown: flight::ShutdownNotifier,
+
     /// Store engine
     store: store::StoreRef,
-    /// database configuration params
-    pub db_config: db::Config,
+
+    db: db::Database,
 }
 
 impl Server {
-    pub fn new(host: bool, port: u16, store: store::StoreRef, db_config: db::Config) -> Self {
+    pub fn new(host: bool, port: u16, store: store::StoreRef, db: db::Database) -> Self {
         Self {
             host,
             port,
             store,
-            db_config,
+            db,
             shutdown: flight::ShutdownNotifier::default(),
         }
     }
@@ -39,6 +41,7 @@ impl Server {
     /// the initialization of the [`db::Database`] is done inside this method.
     pub fn start_and_wait<F>(
         &self,
+        rt: tokio::runtime::Runtime,
         on_start: F,
         tls: Option<flight::TlsConfig>,
     ) -> Result<(), Box<dyn std::error::Error>>
@@ -55,33 +58,9 @@ impl Server {
 
         let shutdown = self.shutdown.clone();
 
-        info!("startup multi-threaded runtime");
-        let rt = tokio::runtime::Builder::new_multi_thread()
-            .enable_all()
-            .build()
-            .unwrap();
-
-        info!("startup store connection");
-
-        // Database connection needs to be done in a async context
-        // this is the main reason for which in Server::new we pass
-        // `db::Config` instead of the database directly.
-        info!("startup database connection");
-        let database = rt.block_on(async {
-            let database = db::Database::try_new(&self.db_config)
-                .await
-                .inspect_err(|e| error!("{}", e))?;
-
-            // Bootstrap logic
-            info!("database initialization");
-            let mut tx = database.transaction().await?;
-            db::layer_bootstrap(&mut tx).await?;
-            tx.commit().await?;
-
-            Ok::<db::Database, Box<dyn std::error::Error>>(database)
-        })?;
-
         let store = self.store.clone();
+        let database = self.db.clone();
+
         rt.block_on(async {
             // Create a thread in tokio runtime to handle flight requests
             let handle_flight = rt.spawn(async move {

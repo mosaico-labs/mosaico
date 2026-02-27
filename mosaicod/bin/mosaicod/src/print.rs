@@ -1,13 +1,17 @@
 use colored::Colorize;
+use mosaicod_store as store;
 use std::{net::IpAddr, time::Instant};
 
-pub fn print_startup_info(
-    host: bool,
-    port: u16,
-    store: &str,
-    version: &str,
-    startup_time: &Instant,
-) {
+fn format_addr(is_loopback: bool, msg: String) {
+    println!(
+        " {} {:10} {}",
+        "⎬".purple(),
+        if is_loopback { "Local" } else { "Network" },
+        msg,
+    );
+}
+
+pub fn startup_info(host: bool, port: u16, store: &str, version: &str, startup_time: &Instant) {
     println!(
         "\n{:^12} {} {} {} {}\n {}",
         "mosaicod".on_purple().black(),
@@ -57,11 +61,27 @@ pub fn error(msg: &str) {
     eprintln!("{:^12} {}", "ERROR".on_red().black(), msg);
 }
 
-fn format_addr(is_loopback: bool, msg: String) {
-    println!(
-        " {} {:10} {}",
-        "⎬".purple(),
-        if is_loopback { "Local" } else { "Network" },
-        msg,
-    );
+/// Returns the name to display on the console for the current in use store
+pub fn store_display_name(store: &store::StoreRef) -> String {
+    match store.target() {
+        store::StoreTarget::Filesystem(path) => {
+            format!(
+                "{} {}{}{}",
+                path.yellow().bold(),
+                "[".dimmed(),
+                "local".cyan(),
+                "]".dimmed()
+            )
+        }
+        store::StoreTarget::S3Compatible(bucket) => {
+            format!(
+                "{}{} {}{}{}",
+                "s3://".yellow(),
+                bucket.yellow(),
+                "[".dimmed(),
+                "remote".cyan(),
+                "]".dimmed(),
+            )
+        }
+    }
 }

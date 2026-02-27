@@ -1,3 +1,4 @@
+use super::*;
 use crc32fast::Hasher;
 use std::{ops::BitOr, str::FromStr};
 
@@ -12,24 +13,24 @@ pub enum ApiKeyError {
     #[error("bad payload")]
     BadPayload,
 
-    #[error("bad checksum")]
-    BadChecksum,
+    #[error("bad fingerprint")]
+    BadFingerprint,
 
-    #[error("checksum mismatch")]
+    #[error("fingerprint mismatch")]
     ChecksumMismatch,
 }
 
 type Payload = [u8; ApiKey::PAYLOAD_LENGTH];
-type Checksum = [u8; ApiKey::CHECKSUM_LENGTH];
+type Fingerprint = [u8; ApiKey::FINGERPRINT_LENGTH];
 
 /// Mosaico API Key.
 #[derive(PartialEq, Debug)]
 pub struct ApiKey {
     payload: Payload,
-    checksum: Checksum,
+    fingerprint: Fingerprint,
 }
 
-fn compute_checksum(payload: &Payload) -> Checksum {
+fn compute_fingerprint(payload: &Payload) -> Fingerprint {
     let mut hasher = Hasher::new();
     hasher.update(payload);
     let hash = hasher.finalize();
@@ -40,14 +41,52 @@ fn compute_checksum(payload: &Payload) -> Checksum {
         .unwrap()
 }
 
+/// Perform all checks required to cast a payload string to
+/// the [`Payload`] fixed size array
+fn cast_payload(payload: &str) -> Result<Payload, ApiKeyError> {
+    let payload_size_ok = payload.chars().count() == ApiKey::PAYLOAD_LENGTH;
+
+    let payload_is_alphanumeric: bool = payload
+        .chars()
+        .all(|c| c.is_ascii_digit() || (c.is_ascii_alphabetic() && c.is_lowercase()));
+
+    if !(payload_size_ok && payload_is_alphanumeric) {
+        return Err(ApiKeyError::BadPayload);
+    }
+
+    Ok(payload.as_bytes().try_into().unwrap())
+}
+
+/// Perform all checks required to cast fingerprint string to
+/// the [`Fingerprint`] fixed size array
+fn cast_fingerprint(fingerprint: &str) -> Result<Fingerprint, ApiKeyError> {
+    let fingerprint_size_ok = fingerprint.chars().count() == ApiKey::FINGERPRINT_LENGTH;
+
+    let fingerprint_is_alphanumeric: bool = fingerprint
+        .chars()
+        .all(|c| c.is_ascii_digit() || (c.is_ascii_alphabetic() && c.is_lowercase()));
+
+    if !(fingerprint_size_ok && fingerprint_is_alphanumeric) {
+        return Err(ApiKeyError::BadFingerprint);
+    }
+
+    Ok(fingerprint.as_bytes().try_into().unwrap())
+}
+
 impl ApiKey {
     /// Header included in the token
     pub const HEADER: &str = "msco";
 
     /// Number of characters used to generate the key payload
     const PAYLOAD_LENGTH: usize = 32;
-    const CHECKSUM_LENGTH: usize = 4;
 
+    /// Number of characters used to store the fingerprint.
+    ///
+    /// The fingerprint is set to 8 characters since is also used as general
+    /// api key identifier to perform actions like: list, revoke, etc
+    const FINGERPRINT_LENGTH: usize = 8;
+
+    /// Character used to separate header, payload and checksum in the API key
     const SEPARATOR: &str = "_";
 
     /// Generates a new random API key
@@ -60,9 +99,23 @@ impl ApiKey {
             .unwrap();
 
         Self {
-            checksum: compute_checksum(&payload),
+            fingerprint: compute_fingerprint(&payload),
             payload: payload,
         }
+    }
+
+    pub fn try_from_parts(payload: String, checksum: String) -> Result<Self, ApiKeyError> {
+        let payload = cast_payload(&payload)?;
+        let checksum = cast_fingerprint(&checksum)?;
+
+        Ok(Self {
+            payload,
+            fingerprint: checksum,
+        })
+    }
+
+    pub fn fingerprint(&self) -> &Fingerprint {
+        &self.fingerprint
     }
 }
 
@@ -81,34 +134,17 @@ impl FromStr for ApiKey {
             return Err(ApiKeyError::BadHeader);
         }
 
-        let payload_size_ok = payload.chars().count() == ApiKey::PAYLOAD_LENGTH;
-        let checksum_size_ok = checksum.chars().count() == ApiKey::CHECKSUM_LENGTH;
+        let payload = cast_payload(payload)?;
+        let checksum = cast_fingerprint(checksum)?;
 
-        let payload_is_alphanumeric: bool = payload
-            .chars()
-            .all(|c| c.is_ascii_digit() || (c.is_ascii_alphabetic() && c.is_lowercase()));
-
-        let checksum_is_alphanumeric: bool = checksum
-            .chars()
-            .all(|c| c.is_ascii_digit() || (c.is_ascii_alphabetic() && c.is_lowercase()));
-
-        if !(payload_size_ok && payload_is_alphanumeric) {
-            return Err(ApiKeyError::BadPayload);
-        }
-
-        if !(checksum_size_ok && checksum_is_alphanumeric) {
-            return Err(ApiKeyError::BadChecksum);
-        }
-
-        // We use `.unwrap()` since we have already checked above
-        let payload: Payload = payload.as_bytes().try_into().unwrap();
-        let checksum: Checksum = checksum.as_bytes().try_into().unwrap();
-
-        if checksum != compute_checksum(&payload) {
+        if checksum != compute_fingerprint(&payload) {
             return Err(ApiKeyError::ChecksumMismatch);
         }
 
-        Ok(Self { payload, checksum })
+        Ok(Self {
+            payload,
+            fingerprint: checksum,
+        })
     }
 }
 
@@ -119,16 +155,16 @@ impl std::fmt::Display for ApiKey {
             "{header}{separator}{payload}{separator}{checksum}",
             header = ApiKey::HEADER,
             payload = std::str::from_utf8(&self.payload).unwrap(),
-            checksum = std::str::from_utf8(&self.checksum).unwrap(),
+            checksum = std::str::from_utf8(&self.fingerprint).unwrap(),
             separator = ApiKey::SEPARATOR,
         )
     }
 }
 
 #[derive(PartialEq)]
-pub struct Permission(u8);
+pub struct Permissions(u8);
 
-impl Permission {
+impl Permissions {
     pub const READ: Self = Self(0b0000_0001);
     pub const WRITE: Self = Self(0b0000_0010);
     pub const DELETE: Self = Self(0b0000_0100);
@@ -144,7 +180,7 @@ impl Permission {
     ///     let perm = Permission::new(Permission::READ | Permission::WRITE);
     /// }
     /// ```
-    pub fn new(perm: Permission) -> Self {
+    pub fn new(perm: Permissions) -> Self {
         Self(perm.0)
     }
 
@@ -161,7 +197,7 @@ impl Permission {
     ///     assert!(perm.has(Permission::MANAGE));
     /// }
     /// ```
-    pub fn add(&self, permission: Permission) -> Permission {
+    pub fn add(&self, permission: Permissions) -> Permissions {
         Self(self.0 | permission.0)
     }
 
@@ -177,7 +213,7 @@ impl Permission {
     ///     assert!(!perm.has(Permission::WRITE));
     /// }
     /// ```
-    pub fn remove(&self, permission: Permission) -> Permission {
+    pub fn remove(&self, permission: Permissions) -> Permissions {
         Self(self.0 & !permission.0)
     }
 
@@ -194,7 +230,7 @@ impl Permission {
     ///     assert!(!perm.has(Permission::MANAGE));
     /// }
     /// ```
-    pub fn has(&self, target: Permission) -> bool {
+    pub fn has(&self, target: Permissions) -> bool {
         target.0 & self.0 == target.0
     }
 
@@ -214,14 +250,50 @@ impl Permission {
     }
 }
 
-impl Default for Permission {
+impl From<u8> for Permissions {
+    fn from(value: u8) -> Self {
+        Self(value)
+    }
+}
+
+/// Convert a permissions into a vector of strings
+/// like `["read", "write" ...]`
+impl From<Permissions> for Vec<String> {
+    fn from(value: Permissions) -> Self {
+        let mut vec: Vec<String> = Vec::new();
+        if value.has(Permissions::READ) {
+            vec.push("read".to_owned());
+        }
+
+        if value.has(Permissions::WRITE) {
+            vec.push("write".to_owned());
+        }
+
+        if value.has(Permissions::DELETE) {
+            vec.push("delete".to_owned());
+        }
+
+        if value.has(Permissions::MANAGE) {
+            vec.push("manage".to_owned());
+        }
+        vec
+    }
+}
+
+impl std::fmt::Debug for Permissions {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Permissions({:08b})", self.0)
+    }
+}
+
+impl Default for Permissions {
     /// Returns an empty permission
     fn default() -> Self {
         Self(0)
     }
 }
 
-impl BitOr for Permission {
+impl BitOr for Permissions {
     type Output = Self;
     fn bitor(self, rhs: Self) -> Self::Output {
         Self(rhs.0 | self.0)
@@ -232,18 +304,23 @@ impl BitOr for Permission {
 /// * an API Key like `msco:0938n8b37r378brf`
 /// * the associated permissions (like: read, write, ..)
 /// * a description to keep track of the purpose of the key
-pub struct ApiKeyScope {
-    /// Val
-    key: ApiKey,
+pub struct AuthScope {
+    pub key: ApiKey,
 
     /// Permissions associated with the scope
-    pub permission: Permission,
+    pub permissions: Permissions,
 
     /// Description to keep track of the purpose of the key
     pub description: String,
+
+    /// Creation timestamp
+    pub creation_timestamp: Timestamp,
+
+    /// Expiration timestamp
+    pub expiration_timestamp: Option<Timestamp>,
 }
 
-impl ApiKeyScope {
+impl AuthScope {
     /// Create a new API key scope
     ///
     /// # Example
@@ -260,10 +337,17 @@ impl ApiKeyScope {
     ///         "dummy key".to_owned(),
     ///     );
     /// }
-    pub fn new(permission: Permission, description: String) -> Self {
+    pub fn new(
+        permission: Permissions,
+        description: String,
+        expires: Option<std::time::Duration>,
+    ) -> Self {
         Self {
             key: ApiKey::new(),
-            permission,
+            permissions: permission,
+            creation_timestamp: Timestamp::now(),
+            // FIXME
+            expiration_timestamp: expires.map(|delta| Timestamp::now() + delta),
             description,
         }
     }
@@ -271,6 +355,15 @@ impl ApiKeyScope {
     /// Get the scope api key
     pub fn key(&self) -> &ApiKey {
         &self.key
+    }
+
+    /// Check if the key is expired
+    pub fn is_expired(&self) -> bool {
+        if let Some(ts) = self.expiration_timestamp {
+            return ts >= Timestamp::now();
+        }
+
+        return false;
     }
 }
 
@@ -280,21 +373,21 @@ mod tests {
 
     #[test]
     fn permissions() {
-        let perm = Permission::new(Permission::READ | Permission::WRITE);
+        let perm = Permissions::new(Permissions::READ | Permissions::WRITE);
 
-        assert!(perm.has(Permission::READ | Permission::WRITE));
-        assert!(perm.has(Permission::READ));
-        assert!(perm.has(Permission::WRITE));
+        assert!(perm.has(Permissions::READ | Permissions::WRITE));
+        assert!(perm.has(Permissions::READ));
+        assert!(perm.has(Permissions::WRITE));
 
-        let perm = Permission::new(Permission::MANAGE);
-        assert!(perm.has(Permission::MANAGE));
-        assert!(!perm.has(Permission::READ));
-        assert!(!perm.has(Permission::WRITE));
-        assert!(!perm.has(Permission::DELETE));
+        let perm = Permissions::new(Permissions::MANAGE);
+        assert!(perm.has(Permissions::MANAGE));
+        assert!(!perm.has(Permissions::READ));
+        assert!(!perm.has(Permissions::WRITE));
+        assert!(!perm.has(Permissions::DELETE));
 
-        let mut perm = Permission::new(Permission::READ | Permission::WRITE);
-        perm = perm.add(Permission::MANAGE);
-        assert!(perm.has(Permission::READ | Permission::WRITE | Permission::MANAGE),);
+        let mut perm = Permissions::new(Permissions::READ | Permissions::WRITE);
+        perm = perm.add(Permissions::MANAGE);
+        assert!(perm.has(Permissions::READ | Permissions::WRITE | Permissions::MANAGE),);
     }
 
     #[test]
@@ -304,7 +397,7 @@ mod tests {
 
         let key_str = key.to_string();
 
-        let _: ApiKey = key_str.parse().expect("Error parsing API key");
+        let key: ApiKey = key_str.parse().expect("Error parsing API key");
     }
 
     #[test]
@@ -320,12 +413,12 @@ mod tests {
         // e -> E in checksum
         let res: Result<ApiKey, ApiKeyError> = "msco_gm8osbmxriljmgkyeb7aybirba4jeysw_E2c2".parse();
         dbg!(&res);
-        assert!(matches!(res, Err(ApiKeyError::BadChecksum)));
+        assert!(matches!(res, Err(ApiKeyError::BadFingerprint)));
 
         // Removed char from checksum
         let res: Result<ApiKey, ApiKeyError> = "msco_gm8osbmxriljmgkyeb7aybirba4jeysw_e2c".parse();
         dbg!(&res);
-        assert!(matches!(res, Err(ApiKeyError::BadChecksum)));
+        assert!(matches!(res, Err(ApiKeyError::BadFingerprint)));
 
         // Changed checksum
         let res: Result<ApiKey, ApiKeyError> = "msco_gm8osbmxriljmgkyeb7aybirba4jeysw_e2c3".parse();

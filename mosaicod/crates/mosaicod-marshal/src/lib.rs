@@ -18,4 +18,7 @@ pub use query::*;
 mod errors;
 pub use errors::*;
 
+mod cli;
+pub use cli::*;
+
 pub mod flight;

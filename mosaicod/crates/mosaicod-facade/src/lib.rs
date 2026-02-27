@@ -33,5 +33,8 @@ pub use chunk::*;
 mod query;
 pub use query::*;
 
+mod auth;
+pub use auth::*;
+
 mod session;
 pub use session::*;

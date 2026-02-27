@@ -298,7 +298,7 @@ pub mod testing {
         /// The store's directory will be automatically deleted when the [`Store`] is dropped.
         /// The directory name is based on the current timestamp.
         pub fn new_random_on_tmp() -> Result<Self, Box<dyn std::error::Error>> {
-            let random_location = format!("/tmp/{}", mosaicod_core::random::random_string(10));
+            let random_location = format!("/tmp/{}", mosaicod_core::random::alphabetic(10));
             Self::new(random_location)
         }
     }

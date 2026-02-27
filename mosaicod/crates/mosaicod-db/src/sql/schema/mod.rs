@@ -17,3 +17,6 @@ pub use topic_record::*;
 
 mod session_record;
 pub use session_record::*;
+
+mod auth_scope_record;
+pub use auth_scope_record::*;
