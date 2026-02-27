@@ -10,7 +10,7 @@ use mosaicod_core::params;
 use mosaicod_db as db;
 use mosaicod_server as server;
 use mosaicod_store as store;
-use std::{env, sync::Arc, thread, time::Instant};
+use std::{sync::Arc, thread, time::Instant};
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -146,7 +146,7 @@ fn run(startup_time: &Instant) -> Result<(), Box<dyn std::error::Error>> {
                         args.host,
                         args.port,
                         &store_display_name,
-                        get_version(),
+                        &params::get_version(),
                         startup_time,
                     );
                 },
@@ -195,14 +195,6 @@ fn get_store_display_name(store: &store::StoreRef) -> String {
                 "]".dimmed(),
             )
         }
-    }
-}
-
-fn get_version() -> &'static str {
-    if cfg!(debug_assertions) {
-        "devel"
-    } else {
-        env!("CARGO_PKG_VERSION")
     }
 }
 

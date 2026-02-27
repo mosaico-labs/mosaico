@@ -239,3 +239,38 @@ pub async fn do_put(
 
     client.do_put(flight_data_stream).await.unwrap()
 }
+
+pub async fn server_version(client: &mut Client) {
+    let action = Action {
+        r#type: "version".to_owned(),
+        body: r#"{}"#.to_string().into(),
+    };
+
+    dbg!(&action);
+
+    let mut stream = client.do_action(action).await.unwrap().into_inner();
+
+    while let Some(result) = stream.message().await.expect("Problem while streaming") {
+        dbg!(&result);
+        let r = ActionResponse::from_body(&result.body);
+        assert_eq!(r.action, "version");
+
+        assert!(r.response.as_object().unwrap().contains_key("version"));
+        let semver = r.response.as_object().unwrap().get("semver").unwrap();
+
+        assert!(semver.as_object().unwrap().contains_key("major"));
+        assert!(semver.as_object().unwrap().contains_key("minor"));
+        assert!(semver.as_object().unwrap().contains_key("patch"));
+        assert!(semver.as_object().unwrap().contains_key("pre"));
+
+        let major = semver.as_object().unwrap().get("major").unwrap();
+        assert!(major.is_u64());
+        let minor = semver.as_object().unwrap().get("minor").unwrap();
+        assert!(minor.is_u64());
+        let patch = semver.as_object().unwrap().get("patch").unwrap();
+        assert!(patch.is_u64());
+        if let Some(pre) = semver.as_object().unwrap().get("pre") {
+            assert!(pre.is_string());
+        }
+    }
+}

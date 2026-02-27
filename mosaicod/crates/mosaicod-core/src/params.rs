@@ -169,3 +169,12 @@ impl std::fmt::Display for Hidden {
         write!(f, "**********")
     }
 }
+
+/// Returns mosaicod version.
+pub fn get_version() -> String {
+    let mut version = env!("CARGO_PKG_VERSION").to_owned();
+    if cfg!(debug_assertions) {
+        version.push_str("-devel");
+    }
+    version
+}

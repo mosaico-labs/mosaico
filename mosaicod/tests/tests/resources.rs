@@ -185,3 +185,18 @@ async fn sequence_delete(pool: sqlx::Pool<db::DatabaseType>) {
 
     server.shutdown().await;
 }
+
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn get_server_version(pool: sqlx::Pool<db::DatabaseType>) {
+    let port = common::random_port();
+
+    let server = common::ServerBuilder::new(common::HOST, port, pool)
+        .build()
+        .await;
+
+    let mut client = common::ClientBuilder::new(common::HOST, port).build().await;
+
+    actions::server_version(&mut client).await;
+
+    server.shutdown().await;
+}

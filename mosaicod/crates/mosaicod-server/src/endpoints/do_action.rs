@@ -3,7 +3,7 @@
 //! This module implements the main dispatcher for Flight DoAction requests,
 //! delegating to specialized handler functions for each action category.
 
-use super::actions::{layer, query as query_action, sequence, session, topic};
+use super::actions::{layer, misc, query as query_action, sequence, session, topic};
 use crate::{endpoints::Context, errors::ServerError};
 use mosaicod_marshal::{ActionRequest, ActionResponse};
 
@@ -76,5 +76,9 @@ pub async fn do_action(ctx: Context, action: ActionRequest) -> Result<ActionResp
         // /////
         // Query
         ActionRequest::Query(data) => query_action::execute(&ctx, data.query).await,
+
+        // /////
+        // Misc
+        ActionRequest::Version(_) => misc::version(),
     }
 }
