@@ -1,14 +1,5 @@
 #!/usr/bin/env bash
 
-# Mosaico Test Runner
-#
-# Usage:
-#   ./scripts/tests.sh --mosaicod      # Docker env + mosaicod unit tests
-#   ./scripts/tests.sh --sdk-python    # Python SDK unit tests (no docker)
-#   ./scripts/tests.sh --integration   # Docker env + integration tests
-#   ./scripts/tests.sh --all           # Run all tests (default)
-#   ./scripts/tests.sh --help          # Show this help
-
 set -euo pipefail
 
 # Configuration
@@ -121,17 +112,19 @@ Mosaico Test Runner
 Usage: ./scripts/tests.sh [OPTIONS]
 
 Options:
-    --mosaicod      Run mosaicod unit tests (requires Docker for PostgreSQL)
-    --sdk-python    Run Python SDK unit tests (no Docker required)
-    --integration   Run integration tests (requires Docker + mosaicod build)
-    --all           Run all tests (default)
-    --help          Show this help message
+    --mosaicod                  Run mosaicod unit tests (requires Docker for PostgreSQL)
+    --sdk-python                Run Python SDK unit tests (no Docker required)
+    --integration               Run integration tests (requires Docker + mosaicod build)
+    --integration_with_tls      Run integration tests with TLS (requires Docker + mosaicod build)
+    --all                       Run all tests (default)
+    --help                      Show this help message
 
 Examples:
-    ./scripts/tests.sh --mosaicod       # Run only backend tests
-    ./scripts/tests.sh --sdk-python     # Run only Python SDK tests
-    ./scripts/tests.sh --integration    # Run only integration tests
-    ./scripts/tests.sh                  # Run all tests
+    ./scripts/tests.sh --mosaicod               # Run only backend tests
+    ./scripts/tests.sh --sdk-python             # Run only Python SDK tests
+    ./scripts/tests.sh --integration            # Run only integration tests
+    ./scripts/tests.sh --integration_with_tls   # Run only integration tests with TLS
+    ./scripts/tests.sh                          # Run all tests
 EOF
 }
 
@@ -203,7 +196,7 @@ run_integration_tests() {
     poetry run pytest ./src/testing -k "integration and not test_tls_connections"
 }
 
-# Run integration tests
+# Run integration tests with TLS enabled
 run_integration_with_tls_tests() {
     cleanup
     start_docker
