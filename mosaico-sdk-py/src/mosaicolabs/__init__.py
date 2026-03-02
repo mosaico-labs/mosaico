@@ -16,102 +16,70 @@ Example:
 # --- Client ---
 from .comm import MosaicoClient as MosaicoClient
 
-# --- Handlers ---
-from .handlers import (
-    SequenceHandler as SequenceHandler,
-    SequenceWriter as SequenceWriter,
-    SequenceDataStreamer as SequenceDataStreamer,
-    TopicHandler as TopicHandler,
-    TopicWriter as TopicWriter,
-    TopicDataStreamer as TopicDataStreamer,
-    SequenceUpdater as SequenceUpdater,
+# --- Enums ---
+from .enum import (
+    OnErrorPolicy as OnErrorPolicy,
+    SequenceStatus as SequenceStatus,
+    SerializationFormat as SerializationFormat,
+    SessionStatus as SessionStatus,
 )
 
-# --- Types ---
-from .types import Time as Time
+# --- Handlers ---
+from .handlers import (
+    SequenceDataStreamer as SequenceDataStreamer,
+    SequenceHandler as SequenceHandler,
+    SequenceUpdater as SequenceUpdater,
+    SequenceWriter as SequenceWriter,
+    TopicDataStreamer as TopicDataStreamer,
+    TopicHandler as TopicHandler,
+    TopicWriter as TopicWriter,
+)
+from .logging_config import (
+    get_logger as get_logger,
+    setup_sdk_logging as setup_sdk_logging,
+)
 
 # --- Core Models ---
 from .models import (
     BaseModel as BaseModel,
-    Serializable as Serializable,
-    Message as Message,
     CovarianceMixin as CovarianceMixin,
+    Message as Message,
+    Serializable as Serializable,
     VarianceMixin as VarianceMixin,
 )
 
-# --- Sensors ---
-from .models.sensors import (
-    CameraInfo as CameraInfo,
-    GPS as GPS,
-    GPSStatus as GPSStatus,
-    NMEASentence as NMEASentence,
-    Image as Image,
-    ImageFormat as ImageFormat,
-    CompressedImage as CompressedImage,
-    IMU as IMU,
-    Magnetometer as Magnetometer,
-    RobotJoint as RobotJoint,
-    Pressure as Pressure,
-    Temperature as Temperature,
-    Range as Range,
-)
-
 # --- Base Types ---
+# --- Geometry ---
+# --- Dynamics & Kinematics ---
+# --- Other Data Types ---
 from .models.data import (
+    ROI as ROI,
+    Acceleration as Acceleration,
     Boolean as Boolean,
+    Floating16 as Floating16,
+    Floating32 as Floating32,
+    Floating64 as Floating64,
+    ForceTorque as ForceTorque,
     Integer8 as Integer8,
     Integer16 as Integer16,
     Integer32 as Integer32,
     Integer64 as Integer64,
+    LargeString as LargeString,
+    MotionState as MotionState,
+    Point2d as Point2d,
+    Point3d as Point3d,
+    Pose as Pose,
+    Quaternion as Quaternion,
+    String as String,
+    Transform as Transform,
     Unsigned8 as Unsigned8,
     Unsigned16 as Unsigned16,
     Unsigned32 as Unsigned32,
     Unsigned64 as Unsigned64,
-    Floating16 as Floating16,
-    Floating32 as Floating32,
-    Floating64 as Floating64,
-    String as String,
-    LargeString as LargeString,
-)
-
-# --- Geometry ---
-from .models.data import (
-    Point2d as Point2d,
-    Point3d as Point3d,
     Vector2d as Vector2d,
     Vector3d as Vector3d,
     Vector4d as Vector4d,
-    Quaternion as Quaternion,
-    Pose as Pose,
-    Transform as Transform,
-)
-
-# --- Dynamics & Kinematics ---
-from .models.data import (
-    ForceTorque as ForceTorque,
-    Acceleration as Acceleration,
     Velocity as Velocity,
-    MotionState as MotionState,
-)
-
-# --- Other Data Types ---
-from .models.data import ROI as ROI
-
-# --- Main Query classes ---
-from .models.query import (
-    Query as Query,
-    QueryTopic as QueryTopic,
-    QuerySequence as QuerySequence,
-    QueryOntologyCatalog as QueryOntologyCatalog,
-)
-
-# --- Query Responses ---
-from .models.query import (
-    QueryResponseItemSequence as QueryResponseItemSequence,
-    QueryResponseItemTopic as QueryResponseItemTopic,
-    TimestampRange as TimestampRange,
-    QueryResponseItem as QueryResponseItem,
-    QueryResponse as QueryResponse,
 )
 
 # --- Platform ---
@@ -120,19 +88,39 @@ from .models.platform import (
     Topic as Topic,
 )
 
-# --- Enums ---
-from .enum import (
-    SerializationFormat as SerializationFormat,
-    SessionStatus as SessionStatus,
-    SequenceStatus as SequenceStatus,
-    OnErrorPolicy as OnErrorPolicy,
+# --- Main Query classes ---
+# --- Query Responses ---
+from .models.query import (
+    Query as Query,
+    QueryOntologyCatalog as QueryOntologyCatalog,
+    QueryResponse as QueryResponse,
+    QueryResponseItem as QueryResponseItem,
+    QueryResponseItemSequence as QueryResponseItemSequence,
+    QueryResponseItemTopic as QueryResponseItemTopic,
+    QuerySequence as QuerySequence,
+    QueryTopic as QueryTopic,
+    TimestampRange as TimestampRange,
 )
 
-from .logging_config import (
-    get_logger as get_logger,
-    setup_sdk_logging as setup_sdk_logging,
+# --- Sensors ---
+from .models.sensors import (
+    GPS as GPS,
+    IMU as IMU,
+    CameraInfo as CameraInfo,
+    CompressedImage as CompressedImage,
+    GPSStatus as GPSStatus,
+    Image as Image,
+    ImageFormat as ImageFormat,
+    Magnetometer as Magnetometer,
+    NMEASentence as NMEASentence,
+    Pressure as Pressure,
+    Range as Range,
+    RobotJoint as RobotJoint,
+    Temperature as Temperature,
 )
 
+# --- Types ---
+from .types import Time as Time
 
 __all__ = [
     # Client

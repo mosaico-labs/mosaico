@@ -12,12 +12,12 @@ The module follows a **Two-Tier Architecture** to optimize both internal efficie
 """
 
 from typing import Optional
+
 import pyarrow as pa
 
 from ..base_model import BaseModel
-from ..serializable import Serializable
 from ..mixins import CovarianceMixin
-
+from ..serializable import Serializable
 
 # ---------------------------------------------------------------------------
 # Vector STRUCT classes

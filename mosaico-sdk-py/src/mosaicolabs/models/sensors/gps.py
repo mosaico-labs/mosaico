@@ -7,6 +7,7 @@ It includes Status flags, processed Fixes (Position/Velocity), and raw NMEA stri
 """
 
 from typing import Optional
+
 import pyarrow as pa
 
 from ..data import Point3d, Vector3d

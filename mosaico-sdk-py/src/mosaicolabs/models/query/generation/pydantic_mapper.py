@@ -1,24 +1,23 @@
+import inspect
 from typing import (
-    Optional,
-    Type,
     Any,
     Dict,
+    Optional,
     Tuple,
+    Type,
     Union,
     get_args,
     get_origin,
 )
-import inspect
 
 import pydantic
-from .mixins import (
-    _QueryableUnsupported,
-    _QueryableField,
-)
-
-from .internal import _PYTHON_TYPE_TO_QUERYABLE
 
 from ..expressions import _QueryExpression
+from .internal import _PYTHON_TYPE_TO_QUERYABLE
+from .mixins import (
+    _QueryableField,
+    _QueryableUnsupported,
+)
 
 
 def _is_optional(field_type):

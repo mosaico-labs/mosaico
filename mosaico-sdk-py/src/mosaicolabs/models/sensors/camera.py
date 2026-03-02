@@ -9,6 +9,7 @@ and lens distortion model.
 """
 
 from typing import Optional
+
 import pyarrow as pa
 
 from ..data import ROI, Vector2d

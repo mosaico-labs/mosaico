@@ -24,9 +24,7 @@ def test_tls_connection_empty_path(host, port):
 
 def test_tls_connection_wrong_path(host, port, tls_cert_path):
     with pytest.raises(ValueError):
-        MosaicoClient.connect(
-            host, port, tls_cert_path=tls_cert_path + "/wrong_path"
-        )
+        MosaicoClient.connect(host, port, tls_cert_path=tls_cert_path + "/wrong_path")
 
 
 def test_tls_connection_cert_not_found(host, port, tls_cert_path):

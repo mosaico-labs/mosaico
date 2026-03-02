@@ -7,15 +7,16 @@ and distributes client resources (Connections, Executors) to individual Topics.
 """
 
 from typing import Any, Optional, Type
+
 import pyarrow.flight as fl
 
-from .base_session_writer import _BaseSessionWriter
-from .config import WriterConfig
-from .topic_writer import TopicWriter
 from ..comm.connection import _ConnectionPool
 from ..comm.executor_pool import _ExecutorPool
 from ..logging_config import get_logger
 from ..models import Serializable
+from .base_session_writer import _BaseSessionWriter
+from .config import WriterConfig
+from .topic_writer import TopicWriter
 
 # Set the hierarchical logger
 logger = get_logger(__name__)

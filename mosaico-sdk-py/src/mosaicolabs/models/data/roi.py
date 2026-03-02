@@ -1,5 +1,6 @@
-import pyarrow as pa
 from typing import Optional
+
+import pyarrow as pa
 
 from ..serializable import Serializable
 from .geometry import Vector2d

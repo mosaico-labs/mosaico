@@ -10,6 +10,7 @@ These wrappers elevate basic data types to "first-class citizens" of the messagi
 """
 
 from typing import Any
+
 import pyarrow as pa
 
 from ..serializable import Serializable

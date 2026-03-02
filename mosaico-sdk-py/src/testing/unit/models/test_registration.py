@@ -1,8 +1,9 @@
+import pyarrow as pa
 import pydantic
 import pytest
-import pyarrow as pa
 
-from mosaicolabs.models import Serializable, Message, CovarianceMixin
+from mosaicolabs.models import CovarianceMixin, Message, Serializable
+
 from .my_project import RegisteredSensor, UnregisteredSensor
 
 

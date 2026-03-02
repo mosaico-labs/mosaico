@@ -1,14 +1,16 @@
-from mosaicolabs.comm import MosaicoClient
 import pytest
+
+from mosaicolabs.comm import MosaicoClient
 from testing.integration.config import (
+    QUERY_SEQUENCES_MOCKUP,
     UPLOADED_SEQUENCE_METADATA,
     UPLOADED_SEQUENCE_NAME,
-    QUERY_SEQUENCES_MOCKUP,
 )
+
 from .helpers import (
-    topic_to_metadata_dict,
-    topic_list,
     _validate_returned_topic_name,
+    topic_list,
+    topic_to_metadata_dict,
 )
 
 

@@ -7,21 +7,22 @@ and distributes client resources (Connections, Executors) to individual Topics.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Type, Optional
-import pyarrow.flight as fl
 from logging import Logger
+from typing import Any, Dict, Optional, Type
 
+import pyarrow.flight as fl
+
+from mosaicolabs.comm.connection import _ConnectionPool
+from mosaicolabs.comm.do_action import _do_action, _DoActionResponseUUID
+from mosaicolabs.comm.executor_pool import _ExecutorPool
+from mosaicolabs.enum import FlightAction, OnErrorPolicy, SessionStatus
 from mosaicolabs.handlers.config import WriterConfig
 from mosaicolabs.handlers.helpers import (
     _make_exception,
-    _validate_topic_name,
     _validate_metadata,
+    _validate_topic_name,
 )
 from mosaicolabs.handlers.topic_writer import TopicWriter
-from mosaicolabs.comm.do_action import _do_action, _DoActionResponseUUID
-from mosaicolabs.comm.connection import _ConnectionPool
-from mosaicolabs.comm.executor_pool import _ExecutorPool
-from mosaicolabs.enum import FlightAction, OnErrorPolicy, SessionStatus
 from mosaicolabs.helpers import pack_topic_resource_name
 from mosaicolabs.models import Serializable
 

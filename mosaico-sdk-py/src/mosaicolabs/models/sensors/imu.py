@@ -7,10 +7,11 @@ It aggregates data from accelerometers and gyroscopes.
 """
 
 from typing import Optional
+
 import pyarrow as pa
 
-from ..serializable import Serializable
 from ..data import Quaternion, Vector3d
+from ..serializable import Serializable
 
 
 class IMU(Serializable):

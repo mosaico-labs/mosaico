@@ -6,30 +6,29 @@ for an *existing* sequence. It allows users to inspect metadata, list topics,
 and access reading interfaces (`SequenceDataStreamer`).
 """
 
-from typing import Callable
 import datetime
 import json
-import pyarrow.flight as fl
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
+import pyarrow.flight as fl
+
+from ..comm.connection import (
+    DEFAULT_MAX_BATCH_BYTES,
+    DEFAULT_MAX_BATCH_SIZE_RECORDS,
+    _ConnectionPool,
+)
+from ..comm.do_action import _do_action, _DoActionResponseSysInfo
+from ..comm.executor_pool import _ExecutorPool
+from ..comm.metadata import SequenceMetadata, _decode_schema_metadata
+from ..enum import FlightAction, OnErrorPolicy
+from ..helpers import sanitize_sequence_name
+from ..logging_config import get_logger
+from ..models.platform import Sequence
 from .config import WriterConfig
 from .endpoints import TopicParsingError, TopicResourceManifest
 from .sequence_reader import SequenceDataStreamer
 from .sequence_updater import SequenceUpdater
 from .topic_handler import TopicHandler
-from ..comm.metadata import SequenceMetadata, _decode_schema_metadata
-from ..comm.do_action import _do_action, _DoActionResponseSysInfo
-from ..comm.connection import _ConnectionPool
-from ..comm.executor_pool import _ExecutorPool
-from ..comm.connection import (
-    DEFAULT_MAX_BATCH_BYTES,
-    DEFAULT_MAX_BATCH_SIZE_RECORDS,
-)
-
-from ..enum import FlightAction, OnErrorPolicy
-from ..models.platform import Sequence
-from ..helpers import sanitize_sequence_name
-from ..logging_config import get_logger
 
 # Set the hierarchical logger
 logger = get_logger(__name__)

@@ -6,6 +6,7 @@ of a robot's actuators.
 """
 
 from typing import List
+
 import pyarrow as pa
 
 from ..serializable import Serializable

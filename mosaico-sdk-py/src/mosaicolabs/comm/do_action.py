@@ -11,17 +11,17 @@ providing stronger typing and validation than raw dictionaries.
 """
 
 import json
-from typing import Any, ClassVar, Dict, Optional, Type, TypeVar
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from typing import Any, ClassVar, Dict, Optional, Type, TypeVar
+
+import pyarrow.flight as fl
 
 from mosaicolabs.comm.notifications import Notification
-import pyarrow.flight as fl
 
 from ..enum import FlightAction
 from ..logging_config import get_logger
-from ..models.query import QueryResponseItem, QueryResponse
-
+from ..models.query import QueryResponse, QueryResponseItem
 from .platform_resource_info import PlatformResourceInfo
 
 # Set the hierarchical logger

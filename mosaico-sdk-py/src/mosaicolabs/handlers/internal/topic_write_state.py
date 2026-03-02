@@ -111,10 +111,7 @@ class _TopicWriteState:
                 f"Ontology class for tag '{ontology_tag}' not registered in Message."
             )
 
-        if (
-            self.max_batch_size_bytes is None
-            or self.max_batch_size_records is None
-        ):
+        if self.max_batch_size_bytes is None or self.max_batch_size_records is None:
             raise RuntimeError(
                 "'max_batch_size_bytes' AND 'max_batch_size_records' must be provided."
             )
@@ -254,9 +251,7 @@ class _TopicWriteState:
             return
 
         # Worker Function
-        def full_write_task(
-            records, topic_name, sem: Optional[BoundedSemaphore]
-        ):
+        def full_write_task(records, topic_name, sem: Optional[BoundedSemaphore]):
             try:
                 # Serialization (CPU)
                 batch = self._get_record_batch(records)
@@ -265,9 +260,7 @@ class _TopicWriteState:
                 self.writer.write(batch)
                 self._written_records += len(msgs_to_write)
             except Exception as e:
-                logger.error(
-                    f"Async write failed for topic '{topic_name}': '{e}'"
-                )
+                logger.error(f"Async write failed for topic '{topic_name}': '{e}'")
             finally:
                 # Release Semaphore (Unblock main thread, if blocked)
                 if sem:

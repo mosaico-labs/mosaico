@@ -152,9 +152,7 @@ class DataFrameExtractor:
             )
 
         # Carry-over buffer to handle batches spanning across two windows
-        carry_over: Dict[str, pd.DataFrame] = {
-            t: pd.DataFrame() for t in topic_names
-        }
+        carry_over: Dict[str, pd.DataFrame] = {t: pd.DataFrame() for t in topic_names}
 
         try:
             current_window_start = global_start_ns
@@ -184,9 +182,7 @@ class DataFrameExtractor:
                             t_name,
                             reader.ontology_tag,
                         )
-                        df_topic = pd.concat(
-                            [df_topic, new_df], ignore_index=True
-                        )
+                        df_topic = pd.concat([df_topic, new_df], ignore_index=True)
                         del new_df  # Free tmp memory immediately
 
                     if not df_topic.empty:
@@ -272,12 +268,8 @@ class DataFrameExtractor:
         fields_set = set(fields)
 
         for f in fields:
-            if not (
-                f in columns or any(c.startswith(f + ".") for c in columns)
-            ):
-                raise ValueError(
-                    f"The field '{f}' does not exist in the columns."
-                )
+            if not (f in columns or any(c.startswith(f + ".") for c in columns)):
+                raise ValueError(f"The field '{f}' does not exist in the columns.")
 
         cols = [
             c

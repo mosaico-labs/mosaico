@@ -6,17 +6,18 @@ from a single topic via the Flight `DoGet` protocol.
 """
 
 import json
-from mosaicolabs.handlers.endpoints import TopicParsingError, TopicResourceManifest
-from mosaicolabs.models.message import Message
-import pyarrow.flight as fl
-import pyarrow as pa
 from typing import Any, Optional
 
-from .internal.topic_read_state import _TopicReadState
+import pyarrow as pa
+import pyarrow.flight as fl
+
+from mosaicolabs.handlers.endpoints import TopicParsingError, TopicResourceManifest
+from mosaicolabs.models.message import Message
 
 from ..comm.metadata import TopicMetadata, _decode_schema_metadata
 from ..helpers.helpers import pack_topic_resource_name
 from ..logging_config import get_logger
+from .internal.topic_read_state import _TopicReadState
 
 # Set the hierarchical logger
 logger = get_logger(__name__)

@@ -13,10 +13,9 @@ from pydantic import PrivateAttr
 from mosaicolabs.comm.metadata import PlatformMetadata, TopicMetadata
 from mosaicolabs.comm.platform_resource_info import PlatformResourceInfo
 
+from ..query.expressions import _QueryTopicExpression
 from ..query.generation.api import queryable
 from ..query.generation.pydantic_mapper import PydanticFieldMapper
-from ..query.expressions import _QueryTopicExpression
-
 from .platform_base import PlatformBase
 
 

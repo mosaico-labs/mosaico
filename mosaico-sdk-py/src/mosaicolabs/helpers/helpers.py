@@ -5,9 +5,9 @@ Provides utility functions for dict manipulation and other things
 """
 
 import ast
+import re
 from dataclasses import is_dataclass
 from pathlib import Path
-import re
 from typing import Any, Iterable, Optional
 
 from pydantic import BaseModel

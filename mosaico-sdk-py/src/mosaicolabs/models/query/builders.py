@@ -16,15 +16,15 @@ from typing import Any, Dict, List, Optional, Tuple, Type, get_origin
 
 # Import custom types used in helper methods
 from mosaicolabs.types import Time
-from .protocols import QueryableProtocol
 
 # Import the building blocks for expressions and how they are combined
 from .expressions import (
     _QueryCatalogExpression,
-    _QueryTopicExpression,
-    _QuerySequenceExpression,
     _QueryExpression,
+    _QuerySequenceExpression,
+    _QueryTopicExpression,
 )
+from .protocols import QueryableProtocol
 
 
 def _get_tag_from_expr_key(key: str):

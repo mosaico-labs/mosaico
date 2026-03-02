@@ -6,8 +6,8 @@ Defines the data structure for magnetic field sensors.
 
 import pyarrow as pa
 
-from ..serializable import Serializable
 from ..data import Vector3d
+from ..serializable import Serializable
 
 
 class Magnetometer(Serializable):

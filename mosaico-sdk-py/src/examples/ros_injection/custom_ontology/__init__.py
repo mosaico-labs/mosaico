@@ -1,3 +1,2 @@
 # export classes
-from . import isaac as isaac
-from . import isaac_adapters as isaac_adapters
+from . import isaac as isaac, isaac_adapters as isaac_adapters

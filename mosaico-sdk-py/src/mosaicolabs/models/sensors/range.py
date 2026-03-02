@@ -5,8 +5,8 @@ Defines the data structure for range sensors.
 """
 
 import pyarrow as pa
-from typing_extensions import Self
 from pydantic import model_validator
+from typing_extensions import Self
 
 from ..mixins import VarianceMixin
 from ..serializable import Serializable

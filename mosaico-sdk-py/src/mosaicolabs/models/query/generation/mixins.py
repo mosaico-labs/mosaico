@@ -1,8 +1,8 @@
 import datetime
 import inspect
 from typing import Any, Tuple, Type, Union
-from ..expressions import _QueryExpression
 
+from ..expressions import _QueryExpression
 
 # -------------------------------------------------------------------------
 # Queryable Mixins

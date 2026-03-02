@@ -6,15 +6,15 @@ Sequence's metadata. A Sequence is a logical grouping of multiple Topics.
 """
 
 from typing import Any, List
+
 from pydantic import PrivateAttr
 
 from mosaicolabs.comm.metadata import PlatformMetadata
 from mosaicolabs.comm.platform_resource_info import PlatformResourceInfo
 
+from ..query.expressions import _QuerySequenceExpression
 from ..query.generation.api import queryable
 from ..query.generation.pydantic_mapper import PydanticFieldMapper
-from ..query.expressions import _QuerySequenceExpression
-
 from .platform_base import PlatformBase
 
 

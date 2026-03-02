@@ -1,4 +1,4 @@
-from typing import Dict, Generic, Optional, Type, Any, TypeVar
+from typing import Any, Dict, Generic, Optional, Type, TypeVar
 
 from mosaicolabs.models import Message, Serializable
 

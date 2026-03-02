@@ -7,8 +7,9 @@ It includes a high-precision `Time` class to handle ROS-style seconds/nanosecond
 
 import math
 import time
-from pydantic import BaseModel, field_validator
 from datetime import datetime, timezone
+
+from pydantic import BaseModel, field_validator
 
 
 class Time(BaseModel):
