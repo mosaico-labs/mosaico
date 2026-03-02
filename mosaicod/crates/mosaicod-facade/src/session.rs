@@ -72,19 +72,30 @@ impl Session {
     /// Deletes all the topics associated with this session, deletes also the session manifest and
     /// the session record from the db.
     ///
-    /// Since the session delets involves multiple deletes across the system, topics data and
+    /// Since the session delete involves multiple deletes across the system, topics data and
     /// session manifest, if operation fails a notification will be created. The notification will
     /// enable the user to manually delete dangling resources if required.
     ///
     /// # Errors
     ///
     /// * [`Error::FailedAndNotified`]: if the error is correctly reported and notified.
-    /// * [`Error::FailedAndUnableToNotify`]: if the notification creation faild.
-    pub async fn delete(&self, allow_data_loss: types::DataLossToken) -> Result<(), Error> {
+    /// * [`Error::FailedAndUnableToNotify`]: if the notification creation failed.
+    pub async fn delete(
+        &self,
+        only_if_unlocked: bool,
+        allow_data_loss: types::DataLossToken,
+    ) -> Result<(), Error> {
         let mut tx = self.db.transaction().await?;
 
-        let error_report_msg = format!("Some error occured while deleting session `{}`", self.uuid);
+        let error_report_msg =
+            format!("Some error occurred while deleting session `{}`", self.uuid);
         let mut error_report = types::ErrorReport::new(error_report_msg);
+
+        let session = db::session_find_by_uuid(&mut tx, &self.uuid).await?;
+
+        if only_if_unlocked && session.is_locked() {
+            return Err(Error::SessionLocked);
+        }
 
         // Deletes topic data
         let topics = self.topic_list().await?;
@@ -104,11 +115,10 @@ impl Session {
             }
         }
 
-        let session = db::session_find_by_uuid(&mut tx, &self.uuid).await?;
         let sequence = db::sequence_find_by_id(&mut tx, session.sequence_id).await?;
 
-        // Deletes the session manifest if session was previously locked (a unlocked
-        // sessions has no manifest)
+        // Deletes the session manifest if session was previously locked (unlocked
+        // sessions have no manifest)
         if session.is_locked()
             && let Err(e) = self
                 .store

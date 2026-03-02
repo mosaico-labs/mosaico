@@ -53,15 +53,10 @@ pub struct ResourceLocator {
     pub locator: String,
 }
 
-/// Request used to locate a resource deterministically,
-/// by combining the resource name and a unique key.
-/// Used for topics, sequences, or other uuid resources.
-// #[derive(Deserialize, Debug)]
-// pub struct UploadToken {
-//     pub name: String,
-//     pub uuid: String,
-// }
-//
+// ////////////////////////////////////////////////////////////////////////////
+// Session
+// ////////////////////////////////////////////////////////////////////////////
+
 /// Request used to identify a session with its uuid.
 #[derive(Deserialize, Debug)]
 pub struct SessionUuid {

@@ -37,6 +37,7 @@ pub async fn do_action(ctx: Context, action: ActionRequest) -> Result<ActionResp
         ActionRequest::SessionCreate(data) => session::create(&ctx, data.locator).await,
         ActionRequest::SessionFinalize(data) => session::finalize(&ctx, data.session_uuid).await,
         ActionRequest::SessionAbort(data) => session::abort(&ctx, data.session_uuid).await,
+        ActionRequest::SessionDelete(data) => session::delete(&ctx, data.session_uuid).await,
 
         // /////
         // Topic

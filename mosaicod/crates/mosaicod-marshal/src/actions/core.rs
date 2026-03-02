@@ -88,6 +88,9 @@ pub enum ActionRequest {
     /// Calling it on a **locked** session will result in an error.
     SessionAbort(requests::SessionUuid),
 
+    /// Deletes the selected session.
+    SessionDelete(requests::SessionUuid),
+
     /// Perform a query in the system
     Query(requests::Query),
 
@@ -133,6 +136,7 @@ impl ActionRequest {
             "session_create" => parse_action_req!(SessionCreate, body),
             "session_finalize" => parse_action_req!(SessionFinalize, body),
             "session_abort" => parse_action_req!(SessionAbort, body),
+            "session_delete" => parse_action_req!(SessionDelete, body),
 
             "layer_create" => parse_action_req!(LayerCreate, body),
             "layer_delete" => parse_action_req!(LayerDelete, body),
@@ -167,6 +171,7 @@ pub enum ActionResponse {
     SessionCreate(responses::ResourceUuid),
     SessionFinalize(()),
     SessionAbort(()),
+    SessionDelete(()),
 
     /// Returns the list of layers
     LayerList(responses::LayerList),
@@ -223,6 +228,10 @@ impl ActionResponse {
 
     pub fn session_abort() -> Self {
         Self::SessionAbort(())
+    }
+
+    pub fn session_delete() -> Self {
+        Self::SessionDelete(())
     }
 }
 
