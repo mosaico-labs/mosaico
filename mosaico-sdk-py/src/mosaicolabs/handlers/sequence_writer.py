@@ -158,9 +158,12 @@ class SequenceWriter(_BaseSessionWriter):
         # 2. Initialize a new session for the sequence
         super()._init_session(self._name)
 
-    # NOTE: No need of overriding `_on_context_exit` as default behavior is ok.
-
-    def __exit__(self, exc_type, exc_value, traceback):
+    def _on_context_exit(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[Any],
+    ) -> None:
         """
         Override the __exit__ method to handle exceptions and apply `on_error` policies.
 
@@ -174,18 +177,16 @@ class SequenceWriter(_BaseSessionWriter):
         """
 
         # Run base session cleanup
-        base_exit_ret = super().__exit__(exc_type, exc_value, traceback)
+        super()._on_context_exit(exc_type, exc_val, exc_tb)
 
         # Apply policy upon exception caught in the context
         if exc_type is not None and self._config.on_error == OnErrorPolicy.Delete:
             self._logger.error(
-                f"Sequence writer for sequence {self._name} caught exception: '{exc_value}'."
+                f"Sequence writer for sequence {self._name} caught exception: '{exc_val}'."
                 f"Triggering `OnErrorPolicy.Delete`."
             )
             # Delete the sequence
             self._delete()
-
-        return base_exit_ret  # Preserve base behavior on exception suppression
 
     def _delete(self):
         """Internal: Sends Delete command (Delete policy)."""

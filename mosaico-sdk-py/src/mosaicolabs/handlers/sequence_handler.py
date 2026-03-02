@@ -17,7 +17,7 @@ from .endpoints import TopicParsingError, TopicResourceManifest
 from .sequence_reader import SequenceDataStreamer
 from .sequence_updater import SequenceUpdater
 from .topic_handler import TopicHandler
-from ..comm.metadata import SequenceMetadata, _decode_metadata
+from ..comm.metadata import SequenceMetadata, _decode_schema_metadata
 from ..comm.do_action import _do_action, _DoActionResponseSysInfo
 from ..comm.connection import _ConnectionPool
 from ..comm.executor_pool import _ExecutorPool
@@ -113,14 +113,54 @@ class SequenceHandler:
         Args:
             sequence_name (str): Name of the sequence.
             client (fl.FlightClient): Connected client.
+            connection_pool_allocator (Callable): the callback for allocationg a connection pool.
+            executor_pool_allocator (Callable): the callback for allocationg an executor pool.
 
         Returns:
             SequenceHandler: Initialized handler or None if error occurs
         """
 
+        model_tuple = SequenceHandler._get_platform_resource_data(
+            sequence_name=sequence_name, client=client
+        )
+        if model_tuple is None:
+            return None
+
+        sequence_model, tstamp_ns_min, tstamp_ns_max = model_tuple
+
+        return cls(
+            sequence_model=sequence_model,
+            client=client,
+            connection_pool_allocator=connection_pool_allocator,
+            executor_pool_allocator=executor_pool_allocator,
+            timestamp_ns_min=tstamp_ns_min,
+            timestamp_ns_max=tstamp_ns_max,
+        )
+
+    @staticmethod
+    def _get_platform_resource_data(
+        sequence_name: str,
+        client: fl.FlightClient,
+    ) -> Optional[Tuple]:
+        """
+        Internal static method to retrieve sequence-related remote info.
+        Queries the server to build the `Sequence` model and discover all
+        contained topics.
+
+        Args:
+            sequence_name (str): Name of the sequence.
+            client (fl.FlightClient): Connected client.
+
+        Returns:
+            Optional tuple containing:
+                - the sequence model (`Sequence`),
+                - the min sequence timestamp
+                - the max sequence timestamp
+        """
+
         # Get FlightInfo
         try:
-            flight_info, _stzd_sequence_name = cls._get_flight_info(
+            flight_info, _stzd_sequence_name = SequenceHandler._get_flight_info(
                 client=client, sequence_name=sequence_name
             )
         except Exception as e:
@@ -129,8 +169,8 @@ class SequenceHandler:
             )
             return None
 
-        seq_metadata = SequenceMetadata.from_dict(
-            _decode_metadata(flight_info.schema.metadata)
+        seq_metadata = SequenceMetadata._from_decoded_schema_metadata(
+            _decode_schema_metadata(flight_info.schema.metadata)
         )
 
         # Extract the Topics resource manifests data
@@ -167,18 +207,15 @@ class SequenceHandler:
 
         sequence_model = Sequence._from_flight_info(
             name=_stzd_sequence_name,
-            metadata=seq_metadata.user_metadata,
-            sys_info=act_resp,
+            metadata=seq_metadata,
+            resrc_info=act_resp.info,
             topics=stopics,
         )
 
-        return cls(
-            sequence_model=sequence_model,
-            client=client,
-            connection_pool_allocator=connection_pool_allocator,
-            executor_pool_allocator=executor_pool_allocator,
-            timestamp_ns_min=min(tstamps_ns_min) if tstamps_ns_min else None,
-            timestamp_ns_max=max(tstamps_ns_max) if tstamps_ns_max else None,
+        return (
+            sequence_model,
+            min(tstamps_ns_min) if tstamps_ns_min else None,
+            max(tstamps_ns_max) if tstamps_ns_max else None,
         )
 
     def _reload(self) -> bool:
@@ -188,61 +225,17 @@ class SequenceHandler:
         Returns:
             bool: True if the reload was successful, False otherwise.
         """
-
-        # Regain FlightInfo
-        try:
-            flight_info, _stzd_sequence_name = self._get_flight_info(
-                client=self._fl_client, sequence_name=self._sequence.name
-            )
-        except Exception as e:
-            logger.error(
-                f"Server error (get_flight_info) while asking for Sequence descriptor, '{e}'"
-            )
+        model_tuple = SequenceHandler._get_platform_resource_data(
+            sequence_name=self.name, client=self._fl_client
+        )
+        if model_tuple is None:
             return False
 
-        # Metadata are not changed
+        sequence_model, tstamp_ns_min, tstamp_ns_max = model_tuple
 
-        # Extract the Topics resource manifests data
-        stopics = []
-        tstamps_ns_min = []
-        tstamps_ns_max = []
-        for ep in flight_info.endpoints:
-            try:
-                topic_resrc_mdata = TopicResourceManifest.from_flight_endpoint(ep)
-            except TopicParsingError as e:
-                logger.error(f"Skipping invalid topic endpoint, err: '{e}'")
-                continue
-            stopics.append(topic_resrc_mdata.topic_name)
-            # Collect the 'min'/'max' timestamps, as we are at a sequence-level
-            if (
-                topic_resrc_mdata.timestamp_ns_min is not None
-                and topic_resrc_mdata.timestamp_ns_max is not None
-            ):
-                tstamps_ns_min.append(topic_resrc_mdata.timestamp_ns_min)
-                tstamps_ns_max.append(topic_resrc_mdata.timestamp_ns_max)
-
-        # Get System Info
-        ACTION = FlightAction.SEQUENCE_SYSTEM_INFO
-        act_resp = _do_action(
-            client=self._fl_client,
-            action=ACTION,
-            payload={"locator": _stzd_sequence_name},
-            expected_type=_DoActionResponseSysInfo,
-        )
-
-        if act_resp is None:
-            logger.error(f"Action '{ACTION}' returned no response.")
-            return False
-
-        self._sequence = Sequence._from_flight_info(
-            name=_stzd_sequence_name,
-            metadata=self.user_metadata,
-            sys_info=act_resp,
-            topics=stopics,
-        )
-
-        self._timestamp_ns_min = min(tstamps_ns_min) if tstamps_ns_min else None
-        self._timestamp_ns_max = max(tstamps_ns_max) if tstamps_ns_max else None
+        self._sequence = sequence_model
+        self._timestamp_ns_min = tstamp_ns_min
+        self._timestamp_ns_max = tstamp_ns_max
 
         return True
 

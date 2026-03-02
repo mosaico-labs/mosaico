@@ -26,6 +26,33 @@ def test_sequence_metadata_recvd(
     _client.close()
 
 
+def test_sequence_reload(
+    _client: MosaicoClient,
+    _inject_sequence_data_stream,  # Ensure the data are available on the data platform
+):
+    """Test that the sent and reconstructed sequence metadata are the same as original ones"""
+    seqhandler = _client.sequence_handler(UPLOADED_SEQUENCE_NAME)
+    # Sequence must exist
+    assert seqhandler is not None
+    original_topics = seqhandler.topics
+    original_size_bytes = seqhandler.total_size_bytes
+    original_created_datetime = seqhandler.created_datetime
+    original_timestamp_ns_min = seqhandler.timestamp_ns_min
+    original_timestamp_ns_max = seqhandler.timestamp_ns_max
+
+    seqhandler.reload()
+    assert seqhandler is not None
+    assert len(seqhandler.topics) == len(original_topics)
+    assert all(topic in original_topics for topic in seqhandler.topics)
+    assert seqhandler.total_size_bytes == original_size_bytes
+    assert seqhandler.created_datetime == original_created_datetime
+    assert seqhandler.timestamp_ns_min == original_timestamp_ns_min
+    assert seqhandler.timestamp_ns_max == original_timestamp_ns_max
+
+    # free resources
+    _client.close()
+
+
 @pytest.mark.parametrize("topic_name", topic_list)
 def test_topic_metadata_recvd(
     _client: MosaicoClient,

@@ -8,7 +8,7 @@ PyArrow Flight protocol. It also handles Mosaico-specific namespacing.
 
 import json
 from dataclasses import dataclass
-from typing import Any, Dict
+from typing import Any, ClassVar, Dict, Literal, Self
 
 from mosaicolabs.enum import SerializationFormat
 
@@ -17,9 +17,60 @@ UserMetadata = Dict[str, Any]
 # Prefix for internal ROS keys that for now are filtered out of user metadata
 _ROS_KEY_PREFIX = "ros:"
 
+PlatformContext = Literal["sequence", "topic"]
 
-@dataclass
-class SequenceMetadata:
+
+@dataclass(slots=True)
+class PlatformMetadata:
+    """
+    Represents the schema metadata specific to a platform resource.
+
+    Attributes:
+        context (str): The context type (must be "sequence" or "topic").
+    """
+
+    context: PlatformContext
+
+    # Must be defined by subclasses
+    _EXPECTED_CONTEXT: ClassVar[PlatformContext]
+
+    @classmethod
+    def _from_decoded_schema_metadata(cls, schema_metadata: Dict[str, Any]) -> Self:
+        """
+        Factory method to create a PlatformMetadata-derived instance from a dictionary.
+
+        Args:
+            schema_metadata (Dict[str, Any]): The decoded metadata dictionary received from the server.
+
+        Returns:
+            Self: An initialized instance of this class.
+
+        Raises:
+            ValueError: If the "context" key is missing.
+        """
+        context = _get_value(schema_metadata, "context")
+        if context != cls._EXPECTED_CONTEXT:
+            raise ValueError(
+                f"expected '{cls._EXPECTED_CONTEXT}' context, got '{context}'"
+            )
+        return cls._from_metadata(schema_metadata)
+
+    @classmethod
+    def _from_metadata(cls, schema_metadata: Dict[str, Any]) -> Self:
+        """Subclass-specific construction hook."""
+        raise NotImplementedError(
+            "Subclasses must define `_from_metadata` decoding classmethod"
+        )
+
+    @staticmethod
+    def _filter_user_metadata(user_metadata: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            key: val for key, val in user_metadata.items() if _ROS_KEY_PREFIX not in key
+        }
+
+
+@dataclass(slots=True)
+class SequenceMetadata(PlatformMetadata):
     """
     Represents metadata specific to a Sequence.
 
@@ -28,41 +79,22 @@ class SequenceMetadata:
         user_metadata (dict): A dictionary of user-provided metadata keys/values.
     """
 
-    context: str
+    _EXPECTED_CONTEXT: ClassVar[PlatformContext] = "sequence"
+
     user_metadata: UserMetadata
 
     @classmethod
-    def from_dict(cls, mdata: Dict[str, Any]):
-        """
-        Factory method to create a SequenceMetadata instance from a dictionary.
+    def _from_metadata(cls, schema_metadata: Dict[str, Any]) -> Self:
+        user_metadata = _get_value(schema_metadata, "user_metadata")
 
-        Args:
-            mdata (Dict[str, Any]): The decoded metadata dictionary received from the server.
-
-        Returns:
-            SequenceMetadata: An initialized instance of this class.
-
-        Raises:
-            ValueError: If the "context" key is missing or is not "sequence".
-        """
-        context = _get_value(mdata, "context")
-        if context != "sequence":
-            raise ValueError("expected a sequence context")
-        user_metadata = _get_value(mdata, "user_metadata")
-
-        # Filter out internal ROS keys before presenting to the user
-        return SequenceMetadata(
-            context=context,
-            user_metadata={
-                key: val
-                for key, val in user_metadata.items()
-                if _ROS_KEY_PREFIX not in key
-            },
+        return cls(
+            context=cls._EXPECTED_CONTEXT,
+            user_metadata=cls._filter_user_metadata(user_metadata),
         )
 
 
-@dataclass
-class TopicMetadata:
+@dataclass(slots=True)
+class TopicMetadata(PlatformMetadata):
     """
     Represents metadata specific to a Topic.
 
@@ -72,48 +104,31 @@ class TopicMetadata:
         user_metadata (dict): A dictionary of user-provided metadata keys/values.
     """
 
-    @dataclass
+    _EXPECTED_CONTEXT: ClassVar[PlatformContext] = "topic"
+
+    @dataclass(slots=True)
     class Properties:
         ontology_tag: str
         serialization_format: SerializationFormat
 
-    context: str
     properties: Properties
     user_metadata: UserMetadata
 
     @classmethod
-    def from_dict(cls, mdata: Dict[str, Any]):
-        """
-        Factory method to create a TopicMetadata instance from a dictionary.
+    def _from_metadata(cls, schema_metadata: Dict[str, Any]) -> Self:
+        properties = _get_value(schema_metadata, "properties")
+        user_metadata = _get_value(schema_metadata, "user_metadata")
 
-        Args:
-            mdata (Dict[str, Any]): The decoded metadata dictionary received from the server.
-
-        Returns:
-            TopicMetadata: An initialized instance of this class.
-
-        Raises:
-            ValueError: If the "context" key is missing or is not "topic".
-        """
-        context = _get_value(mdata, "context")
-        if context != "topic":
-            raise ValueError(f"expected a 'topic' context, got '{context}'")
-        properties = _get_value(mdata, "properties")
-        user_metadata = _get_value(mdata, "user_metadata")
-
-        # Filter out internal ROS keys before presenting to the user
-        return TopicMetadata(
-            context=context,
-            properties=TopicMetadata.Properties(**properties),
-            user_metadata={
-                key: val
-                for key, val in user_metadata.items()
-                if _ROS_KEY_PREFIX not in key
-            },
+        return cls(
+            context=cls._EXPECTED_CONTEXT,
+            properties=cls.Properties(**properties),
+            user_metadata=cls._filter_user_metadata(user_metadata),
         )
 
 
-def _decode_metadata(bmdata: dict[bytes, bytes], enc: str = "utf-8") -> dict[str, Any]:
+def _decode_schema_metadata(
+    bmdata: dict[bytes, bytes], enc: str = "utf-8"
+) -> dict[str, Any]:
     """
     Decodes a bytes-only dictionary back into a Python dictionary.
 

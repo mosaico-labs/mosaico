@@ -18,7 +18,7 @@ It provides:
 from enum import Enum
 import io
 import sys
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 
 # dependencies for video handling
 import av
@@ -859,7 +859,7 @@ class CompressedImage(Serializable):
         format: ImageFormat = ImageFormat.PNG,
         # TODO: enable param when allowing generic formats (not via Enum)
         # codec: Optional[CompressedImageCodec] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> "CompressedImage":
         """
         Factory method to create a CompressedImage from a PIL Image.

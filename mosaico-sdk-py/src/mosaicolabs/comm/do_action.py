@@ -14,14 +14,14 @@ import json
 from typing import Any, ClassVar, Dict, Optional, Type, TypeVar
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-import datetime
-from mosaicolabs.comm.notifications import Notified
 import pyarrow.flight as fl
 
 from ..enum import FlightAction
 from ..logging_config import get_logger
 from ..models.query import QueryResponseItem, QueryResponse
 
+from .platform_resource_info import PlatformResourceInfo
+from .notifications import Notified
 
 # Set the hierarchical logger
 logger = get_logger(__name__)
@@ -207,14 +207,11 @@ class _DoActionResponseSysInfo(_DoActionResponse):
         FlightAction.SEQUENCE_SYSTEM_INFO,
         FlightAction.TOPIC_SYSTEM_INFO,
     ]
-    total_size_bytes: int
-    created_datetime: datetime.datetime
-    is_locked: Optional[bool] = None
-    chunks_number: Optional[int] = None
+    info: PlatformResourceInfo
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "_DoActionResponseSysInfo":
-        return cls(**data)
+        return cls(info=PlatformResourceInfo(**data))
 
 
 @dataclass

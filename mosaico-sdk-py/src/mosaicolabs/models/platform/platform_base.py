@@ -7,11 +7,16 @@ Sequences and Topics, within the SDK. It consolidates shared system attributes
 system and the internal Query API.
 """
 
+from typing import Self
 import datetime
 from typing import Any, Dict
 
 from pydantic import PrivateAttr
 import pydantic
+
+from mosaicolabs.comm.metadata import PlatformMetadata
+from mosaicolabs.comm.platform_resource_info import PlatformResourceInfo
+
 from ..query.generation.api import _QueryProxyMixin
 
 
@@ -116,6 +121,62 @@ class PlatformBase(pydantic.BaseModel, _QueryProxyMixin):
     _created_datetime: datetime.datetime = PrivateAttr()
     _name: str = PrivateAttr()
 
+    @classmethod
+    def _from_flight_info(
+        cls,
+        name: str,
+        metadata: PlatformMetadata,
+        resrc_info: PlatformResourceInfo,
+        **kwargs: Any,
+    ) -> Self:
+        """
+        Factory method to create a PlatformBase instance from flight information.
+
+        Args:
+            name: The name of the platform resource.
+            metadata: The metadata of the platform resource.
+            resrc_info: The system information of the platform resource.
+            **kwargs: Additional keyword arguments. Accepted values:
+                - `topics`: The list of topic names (when constructing a `mosaicolabs.models.platform.Sequence`).
+                - `sequence_name`: The name of the parent sequence (when constructing a `mosaicolabs.models.platform.Topic`).
+
+
+        Returns:
+            A PlatformBase instance.
+        """
+        if not isinstance(metadata, PlatformMetadata):
+            raise ValueError(
+                "Metadata must be an instance of `mosaicolabs.comm.PlatformMetadata`."
+            )
+        user_metadata = getattr(metadata, "user_metadata", None)
+        if user_metadata is None:
+            raise ValueError("Metadata must have a `user_metadata` attribute.")
+
+        instance = cls(user_metadata=user_metadata)
+
+        # Initialize shared private attrs
+        instance._init_base_private(
+            name=name,
+            total_size_bytes=resrc_info.total_size_bytes,
+            created_datetime=resrc_info.created_datetime,
+        )
+
+        # Hook for subclasses
+        instance._init_from_flight_info(metadata, resrc_info, **kwargs)
+
+        return instance
+
+    def _init_from_flight_info(
+        self,
+        metadata: PlatformMetadata,
+        resrc_info: PlatformResourceInfo,
+        **kwargs: Any,
+    ) -> None:
+        """
+        Subclasses override to initialize their own private state.
+        """
+        raise NotImplementedError("Subclasses must implement `_init_from_flight_info`.")
+
     def _init_base_private(
         self,
         *,
@@ -138,7 +199,7 @@ class PlatformBase(pydantic.BaseModel, _QueryProxyMixin):
         self._created_datetime = created_datetime or datetime.datetime.now(
             datetime.timezone.utc
         )
-        self._name = name or ""
+        self._name = name
 
     # --- Shared Properties ---
     @property
