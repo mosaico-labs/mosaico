@@ -1,0 +1,52 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        SELECT *\n        FROM auth_scope_t AS auth_scope\n        WHERE auth_scope.api_key_fingerprint = $1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "api_key_fingerprint",
+        "type_info": "Bytea"
+      },
+      {
+        "ordinal": 1,
+        "name": "api_key_payload",
+        "type_info": "Bytea"
+      },
+      {
+        "ordinal": 2,
+        "name": "permissions",
+        "type_info": "Int2"
+      },
+      {
+        "ordinal": 3,
+        "name": "description",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "creation_unix_timestamp",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 5,
+        "name": "expiration_unix_timestamp",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "9eda69d00c603dc73ff3bf7a92142add3fc87ccdc29348fefe1c02cd5cbccedc"
+}

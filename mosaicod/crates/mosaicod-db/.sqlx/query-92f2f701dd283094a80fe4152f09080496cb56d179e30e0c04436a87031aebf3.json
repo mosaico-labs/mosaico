@@ -1,0 +1,57 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        INSERT INTO auth_scope_t\n            (\n                api_key_fingerprint, \n                api_key_payload, \n                permissions,\n                description,\n                creation_unix_timestamp,\n                expiration_unix_timestamp\n            )\n        VALUES\n            ($1, $2, $3, $4, $5, $6)\n        RETURNING\n            *\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "api_key_fingerprint",
+        "type_info": "Bytea"
+      },
+      {
+        "ordinal": 1,
+        "name": "api_key_payload",
+        "type_info": "Bytea"
+      },
+      {
+        "ordinal": 2,
+        "name": "permissions",
+        "type_info": "Int2"
+      },
+      {
+        "ordinal": 3,
+        "name": "description",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "creation_unix_timestamp",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 5,
+        "name": "expiration_unix_timestamp",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Bytea",
+        "Int2",
+        "Text",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "92f2f701dd283094a80fe4152f09080496cb56d179e30e0c04436a87031aebf3"
+}
