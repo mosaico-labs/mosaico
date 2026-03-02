@@ -2,9 +2,9 @@ use crate::{Error, core::AsExec, sql::schema};
 use mosaicod_core::types;
 
 fn convert(record: schema::AuthScopeRecord) -> Result<types::AuthScope, Error> {
-    Ok(record
+    record
         .try_into()
-        .map_err(|e: types::ApiKeyError| Error::BadData(e.to_string()))?)
+        .map_err(|e: types::ApiKeyError| Error::BadData(e.to_string()))
 }
 
 pub async fn auth_scope_create(
@@ -40,7 +40,7 @@ pub async fn auth_scope_create(
     .fetch_one(exe.as_exec())
     .await?;
 
-    Ok(convert(res)?)
+    convert(res)
 }
 
 pub async fn auth_scope_find_by_fingerprint(
@@ -59,7 +59,7 @@ pub async fn auth_scope_find_by_fingerprint(
     .fetch_one(exe.as_exec())
     .await?;
 
-    Ok(convert(res)?)
+    convert(res)
 }
 
 pub async fn auth_scope_delete(exe: &mut impl AsExec, fingerprint: &str) -> Result<(), Error> {
@@ -80,7 +80,7 @@ pub async fn auth_scope_find_all(exe: &mut impl AsExec) -> Result<Vec<types::Aut
 
     let scopes = scopes
         .into_iter()
-        .map(|e| convert(e))
+        .map(convert)
         .collect::<Result<Vec<types::AuthScope>, Error>>()?;
 
     Ok(scopes)
