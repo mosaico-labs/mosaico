@@ -143,8 +143,19 @@ fn print_auth_scope_details(scope: types::AuthScope) {
         "Expired:".bold(),
         if scope.is_expired() { "true" } else { "false" }
     );
-    let datetime: types::DateTime = scope.creation_timestamp.into();
-    println!("{:>13} {}", "Created:".bold(), datetime);
+    let created_datetime: types::DateTime = scope.creation_timestamp.into();
+    let expired_datetime: Option<types::DateTime> = scope.expiration_timestamp.map(|t| t.into());
+
+    println!("{:>13} {}", "Created:".bold(), created_datetime);
+    println!(
+        "{:>13} {}",
+        "Expires:".bold(),
+        if let Some(ts) = expired_datetime {
+            ts.to_string()
+        } else {
+            "never".to_owned()
+        }
+    );
     println!("{:>13} {}", "Description:".bold(), scope.description);
 
     let perms: Vec<String> = scope.permissions.into();
@@ -164,12 +175,17 @@ fn print_auth_scope_list(scopes: Vec<types::AuthScope>) {
     for scope in scopes {
         let datetime: types::DateTime = scope.creation_timestamp.into();
         let permissions: Vec<String> = scope.permissions.into();
+        let expired = if scope.is_expired() {
+            "expired".red()
+        } else {
+            "valid".green()
+        };
 
         println!(
             "{:>12} {:>24} {:>10} {:>30}    {}",
             scope.key().fingerprint(),
             datetime.to_string(),
-            if scope.is_expired() { "true" } else { "false" },
+            expired,
             permissions.join(", "),
             scope.description
         );

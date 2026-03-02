@@ -103,13 +103,13 @@ impl ApiKey {
 
         Self {
             fingerprint: compute_fingerprint(&payload),
-            payload: payload,
+            payload,
         }
     }
 
     pub fn try_from_parts(payload: &str, checksum: &str) -> Result<Self, ApiKeyError> {
-        let payload = cast_payload(&payload)?;
-        let checksum = cast_fingerprint(&checksum)?;
+        let payload = cast_payload(payload)?;
+        let checksum = cast_fingerprint(checksum)?;
 
         Ok(Self {
             payload,
@@ -175,6 +175,12 @@ impl std::fmt::Display for ApiKey {
     }
 }
 
+impl Default for ApiKey {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[derive(Copy, Clone, PartialEq)]
 pub struct Permissions(u8);
 
@@ -190,9 +196,7 @@ impl Permissions {
     /// ```
     /// use mosaicod_core::types::Permissions;
     ///
-    /// fn main(){
-    ///     let perm = Permissions::new(Permissions::READ | Permissions::WRITE);
-    /// }
+    /// let perm = Permissions::new(Permissions::READ | Permissions::WRITE);
     /// ```
     pub fn new(perm: Permissions) -> Self {
         Self(perm.0)
@@ -204,12 +208,10 @@ impl Permissions {
     /// ```
     /// use mosaicod_core::types::Permissions;
     ///
-    /// fn main(){
-    ///     let mut perm = Permissions::default();
-    ///     assert!(!perm.has(Permissions::MANAGE));
-    ///     perm = perm.add(Permissions::MANAGE);
-    ///     assert!(perm.has(Permissions::MANAGE));
-    /// }
+    /// let mut perm = Permissions::default();
+    /// assert!(!perm.has(Permissions::MANAGE));
+    /// perm = perm.add(Permissions::MANAGE);
+    /// assert!(perm.has(Permissions::MANAGE));
     /// ```
     pub fn add(&self, permission: Permissions) -> Permissions {
         Self(self.0 | permission.0)
@@ -221,11 +223,9 @@ impl Permissions {
     /// ```
     /// use mosaicod_core::types::Permissions;
     ///
-    /// fn main(){
-    ///     let perm = Permissions::new(Permissions::WRITE | Permissions::READ);
-    ///     let perm = perm.remove(Permissions::WRITE);
-    ///     assert!(!perm.has(Permissions::WRITE));
-    /// }
+    /// let perm = Permissions::new(Permissions::WRITE | Permissions::READ);
+    /// let perm = perm.remove(Permissions::WRITE);
+    /// assert!(!perm.has(Permissions::WRITE));
     /// ```
     pub fn remove(&self, permission: Permissions) -> Permissions {
         Self(self.0 & !permission.0)
@@ -237,12 +237,10 @@ impl Permissions {
     /// ```
     /// use mosaicod_core::types::Permissions;
     ///
-    /// fn main(){
-    ///     let perm = Permissions::new(Permissions::READ | Permissions::WRITE);
-    ///     assert!(perm.has(Permissions::READ));
-    ///     assert!(perm.has(Permissions::WRITE));
-    ///     assert!(!perm.has(Permissions::MANAGE));
-    /// }
+    /// let perm = Permissions::new(Permissions::READ | Permissions::WRITE);
+    /// assert!(perm.has(Permissions::READ));
+    /// assert!(perm.has(Permissions::WRITE));
+    /// assert!(!perm.has(Permissions::MANAGE));
     /// ```
     pub fn has(&self, target: Permissions) -> bool {
         target.0 & self.0 == target.0
@@ -254,10 +252,8 @@ impl Permissions {
     /// ```
     /// use mosaicod_core::types::Permissions;
     ///
-    /// fn main(){
-    ///     let perm = Permissions::default();
-    ///     assert!(perm.is_empty());
-    /// }
+    /// let perm = Permissions::default();
+    /// assert!(perm.is_empty());
     /// ```
     pub fn is_empty(&self) -> bool {
         self.0 == 0
@@ -353,17 +349,15 @@ impl AuthScope {
     /// ```
     /// use mosaicod_core::types::{AuthScope, Permissions};
     ///
-    /// fn main(){
-    ///     // Single permission
-    ///     let scope = AuthScope::new(Permissions::READ, "dummy key".to_owned(), None);
+    /// // Single permission
+    /// let scope = AuthScope::new(Permissions::READ, "dummy key".to_owned(), None);
     ///
-    ///     // Multiple permissions
-    ///     let scope = AuthScope::new(
-    ///         Permissions::READ | Permissions::WRITE,
-    ///         "dummy key".to_owned(),
-    ///         None
-    ///     );
-    /// }
+    /// // Multiple permissions
+    /// let scope = AuthScope::new(
+    ///     Permissions::READ | Permissions::WRITE,
+    ///     "dummy key".to_owned(),
+    ///     None
+    /// );
     pub fn new(
         permission: Permissions,
         description: String,
@@ -386,10 +380,10 @@ impl AuthScope {
     /// Check if the key is expired
     pub fn is_expired(&self) -> bool {
         if let Some(ts) = self.expiration_timestamp {
-            return ts >= Timestamp::now();
+            return ts <= Timestamp::now();
         }
 
-        return false;
+        false
     }
 }
 
