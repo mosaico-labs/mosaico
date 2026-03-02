@@ -8,6 +8,8 @@ Sequence's metadata. A Sequence is a logical grouping of multiple Topics.
 from typing import Any, List
 from pydantic import PrivateAttr
 
+from mosaicolabs.comm.metadata import PlatformMetadata
+from mosaicolabs.comm.platform_resource_info import PlatformResourceInfo
 
 from ..query.generation.api import queryable
 from ..query.generation.pydantic_mapper import PydanticFieldMapper
@@ -76,38 +78,29 @@ class Sequence(PlatformBase):
     # --- Private Fields ---
     _topics: List[str] = PrivateAttr(default_factory=list)
 
-    # --- Factory Method ---
-    @classmethod
-    def _from_flight_info(
-        cls, name: str, metadata: Any, sys_info: Any, topics: List[str]
-    ) -> "Sequence":
+    def _init_from_flight_info(
+        self,
+        metadata: PlatformMetadata,
+        resrc_info: PlatformResourceInfo,
+        **kwargs: Any,
+    ) -> None:
         """
-        Internal factory method to construct a Sequence model from Flight protocol objects.
+        Overridden factory for Sequence entities.
 
         Args:
-            name: The unique name of the sequence.
-            metadata: Decoded sequence metadata containing user properties.
-            sys_info: System diagnostic information (size, lock status, dates).
-            topics: A list of string names for all topics contained in the sequence.
-
-        Returns:
-            A read-only `Sequence` model instance.
+            name: The name of the sequence.
+            metadata: UNUSED.
+            resrc_info: UNUSED.
+            **kwargs: Keyword arguments containing the following keys:
+                - `topics`: The list of topic names.
         """
-        instance = cls(
-            user_metadata=metadata.user_metadata,
-        )
+        # Check for topics in kwargs
+        topics = kwargs.get("topics")
+        if topics is None:
+            raise ValueError("Topics must be provided to initialize a Sequence.")
 
-        # Set private attributes explicitly
-        instance._init_base_private(
-            name=name,
-            created_datetime=sys_info.created_datetime,
-            is_locked=sys_info.is_locked,
-            total_size_bytes=sys_info.total_size_bytes,
-        )
-
-        # Set local private attributes
-        instance._topics = topics
-        return instance
+        # Populate Sequence-specific private attributes
+        self._topics = topics
 
     # --- Properties ---
     @property

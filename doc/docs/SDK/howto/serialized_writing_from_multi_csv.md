@@ -42,6 +42,7 @@ from mosaicolabs import (
     GPS, # The GPS sensor data class
     GPSStatus, # The GPS status enum, needed to populate the GPS data
     Pressure, # The Pressure sensor data class
+    Point3d # The 3D point class, needed to populate the GPS data
 )
 
 
@@ -49,8 +50,8 @@ from mosaicolabs import (
 # For each file, open the reading process and yield the messages one by one.
 
 
-def stream_imu_from_csv(file_path: str, chunk_size: int = 1000):
-    for chunk in pd.read_csv(file_path, chunksize=chunk_size):
+def stream_imu_from_csv(file_path: str, chunk_size: int = 1000, skipinitialspace: bool = True):
+    for chunk in pd.read_csv(file_path, chunksize=chunk_size, skipinitialspace=skipinitialspace):
         for row in chunk.itertuples(index=False):
             yield Message(
                 timestamp_ns=int(row.timestamp),
@@ -70,13 +71,13 @@ def stream_imu_from_csv(file_path: str, chunk_size: int = 1000):
        
 
 
-def stream_gps_from_csv(file_path: str, chunk_size: int = 1000):
-    for chunk in pd.read_csv(file_path, chunksize=chunk_size):
+def stream_gps_from_csv(file_path: str, chunk_size: int = 1000, skipinitialspace: bool = True):
+    for chunk in pd.read_csv(file_path, chunksize=chunk_size, skipinitialspace=skipinitialspace):
         for row in chunk.itertuples(index=False):            
             yield Message(
                 timestamp_ns=int(row.timestamp),
                 data=GPS(
-                    position=Vector3d(
+                    position=Point3d(
                         x=float(row.latitude),
                         y=float(row.longitude),
                         z=float(row.altitude),
@@ -90,7 +91,7 @@ def stream_gps_from_csv(file_path: str, chunk_size: int = 1000):
 
 
 def stream_pressure_from_csv(file_path: str, chunk_size: int = 1000):
-    for chunk in pd.read_csv(file_path, chunksize=chunk_size):
+    for chunk in pd.read_csv(file_path, chunksize=chunk_size, skipinitialspace=True):
         for row in chunk.itertuples(index=False):
             yield Message(
                 timestamp_ns=int(row.timestamp),
@@ -148,7 +149,7 @@ with MosaicoClient.connect("localhost", 6726) as client:
 
 #### Sequence-Level Error Handling
 
-The behavior of the orchestrator during a failure is governed by the `on_error` policy. This is a *Last-Resort* automated error policy, which dictates how the server manages a sequence if an unhandled exception bubbles up to the `SequenceWriter` context manager. By default, this is set to [`OnErrorPolicy.Delete`][mosaicolabs.enum.OnErrorPolicy.Delete], which signals the server to physically remove the incomplete sequence and its associated topic directories, if any errors occurred. Alternatively, you can specify [`OnErrorPolicy.Report`][mosaicolabs.enum.OnErrorPolicy.Report]: in this case, the SDK will not delete the data but will instead send an error notification to the server, allowing the platform to flag the sequence as failed while retaining whatever records were successfully transmitted before the error occurred.
+The behavior of the orchestrator during a failure is governed by the `on_error` policy. This is a *Last-Resort* automated error policy, which dictates how the server manages a sequence if an unhandled exception bubbles up to the `SequenceWriter` context manager. By default, this is set to [`OnErrorPolicy.Report`][mosaicolabs.enum.OnErrorPolicy.Report], send an error notification to the server, allowing the platform to flag the sequence as failed while retaining whatever records were successfully transmitted before the error occurred. Alternatively, you can specify [`OnErrorPolicy.Delete`][mosaicolabs.enum.OnErrorPolicy.Delete]: in this case, the SDK will signal the server to physically remove the incomplete sequence and its associated topic directories, if any errors occurred.
 
 For a more in-depth explanation:
 
@@ -250,19 +251,20 @@ from mosaicolabs import (
     OnErrorPolicy, # The error policy for the SequenceWriter
     Message, # The base class for all data messages
     IMU, # The IMU sensor data class
-    Vector3d, # The 3D vector class, needed to populate the IMU and GPS data
+    Vector3d, # The 3D vector class, needed to populate the IMU data
     GPS, # The GPS sensor data class
     GPSStatus, # The GPS status enum, needed to populate the GPS data
     Pressure, # The Pressure sensor data class
+    Point3d # The 3D point class, needed to populate the GPS data
 )
 
 """
 Define the generator functions that yield `Message` objects.
 For each file, open the reading process and yield the messages one by one.
 """
-def stream_imu_from_csv(file_path: str, chunk_size: int = 1000):
+def stream_imu_from_csv(file_path: str, chunk_size: int = 1000, skipinitialspace: bool = True):
     """Efficiently streams IMU data."""
-    for chunk in pd.read_csv(file_path, chunksize=chunk_size):
+    for chunk in pd.read_csv(file_path, chunksize=chunk_size, skipinitialspace=skipinitialspace):
         for row in chunk.itertuples(index=False):
             try:
                 yield Message(
@@ -285,15 +287,15 @@ def stream_imu_from_csv(file_path: str, chunk_size: int = 1000):
                 yield None
 
 
-def stream_gps_from_csv(file_path: str, chunk_size: int = 1000):
+def stream_gps_from_csv(file_path: str, chunk_size: int = 1000, skipinitialspace: bool = True):
     """Efficiently streams GPS data."""
-    for chunk in pd.read_csv(file_path, chunksize=chunk_size):
+    for chunk in pd.read_csv(file_path, chunksize=chunk_size, skipinitialspace=skipinitialspace):
         for row in chunk.itertuples(index=False):
             try:
                 yield Message(
                     timestamp_ns=int(row.timestamp),
                     data=GPS(
-                        position=Vector3d(
+                        position=Point3d(
                             x=float(row.latitude),
                             y=float(row.longitude),
                             z=float(row.altitude),
@@ -309,9 +311,9 @@ def stream_gps_from_csv(file_path: str, chunk_size: int = 1000):
                 # Yield None only for parsing/type-related errors
                 yield None
 
-def stream_pressure_from_csv(file_path: str, chunk_size: int = 1000):
+def stream_pressure_from_csv(file_path: str, chunk_size: int = 1000, skipinitialspace: bool = True):
     """Efficiently streams Barometric Pressure data."""
-    for chunk in pd.read_csv(file_path, chunksize=chunk_size):
+    for chunk in pd.read_csv(file_path, chunksize=chunk_size, skipinitialspace=skipinitialspace):
         for row in chunk.itertuples(index=False):
             try:
                 yield Message(
@@ -392,4 +394,7 @@ def main():
 
         # All buffers are flushed and the sequence is committed when exiting the SequenceWriter 'with' block
         print("Multi-topic ingestion completed!")
+
+if __name__ == "__main__":
+    main()
 ```

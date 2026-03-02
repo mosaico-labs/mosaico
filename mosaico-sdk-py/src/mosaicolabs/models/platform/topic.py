@@ -9,6 +9,10 @@ Topic's metadata in the platform catalog. It is used primarily for inspection
 from typing import Any, Optional
 
 from pydantic import PrivateAttr
+
+from mosaicolabs.comm.metadata import PlatformMetadata, TopicMetadata
+from mosaicolabs.comm.platform_resource_info import PlatformResourceInfo
+
 from ..query.generation.api import queryable
 from ..query.generation.pydantic_mapper import PydanticFieldMapper
 from ..query.expressions import _QueryTopicExpression
@@ -76,50 +80,40 @@ class Topic(PlatformBase):
     _sequence_name: str = PrivateAttr()
     _ontology_tag: str = PrivateAttr()
     _serialization_format: str = PrivateAttr()
+    _is_locked: bool = PrivateAttr(default=False)
     _chunks_number: Optional[int] = PrivateAttr(default=None)
 
-    # --- Factory Method ---
-    @classmethod
-    def _from_flight_info(
-        cls, sequence_name: str, name: str, metadata: Any, sys_info: Any
-    ) -> "Topic":
+    def _init_from_flight_info(
+        self,
+        metadata: PlatformMetadata,
+        resrc_info: PlatformResourceInfo,
+        **kwargs: Any,
+    ) -> None:
         """
-        Internal factory method to construct a Topic model from Flight protocol objects.
-
-        This method adapts low-level protocol responses into the high-level
-        Catalog model.
+        Initialize the Topic instance from flight information.
 
         Args:
-            sequence_name: The parent sequence identifier.
-            name: The full resource name of the topic.
-            metadata: Decoded topic metadata (properties and user metadata).
-            sys_info: System diagnostic information.
-
-        Returns:
-            An initialized, read-only `Topic` model.
+            metadata: The platform schema metadata of the topic.
+            resrc_info: The system information of the topic.
+            **kwargs: Additional keyword arguments.
+                - `sequence_name`: The name of the parent sequence.
         """
-        # Create the instance with public fields.
-        # Note: metadata.user_metadata comes flat from the server; we unflatten it
-        # to restore nested dictionary structures for the user.
-        instance = cls(
-            user_metadata=metadata.user_metadata,
-        )
+        if not isinstance(metadata, TopicMetadata):
+            raise ValueError(
+                "Metadata must be an instance of `mosaicolabs.comm.TopicMetadata`."
+            )
 
-        # Set private attributes explicitly via the base helper
-        instance._init_base_private(
-            name=name,
-            created_datetime=sys_info.created_datetime,
-            is_locked=sys_info.is_locked,
-            total_size_bytes=sys_info.total_size_bytes,
-        )
+        sequence_name = kwargs.get("sequence_name")
+        if sequence_name is None:
+            raise ValueError("Sequence name must be provided to initialize a Topic.")
 
-        # Set local private attributes
-        instance._sequence_name = sequence_name
-        instance._ontology_tag = metadata.properties.ontology_tag
-        instance._serialization_format = metadata.properties.serialization_format
-        instance._chunks_number = sys_info.chunks_number
-
-        return instance
+        if resrc_info.is_locked is None:
+            raise ValueError("`is_locked` must be provided to initialize a Topic.")
+        self._sequence_name = sequence_name
+        self._ontology_tag = metadata.properties.ontology_tag
+        self._serialization_format = metadata.properties.serialization_format
+        self._chunks_number = resrc_info.chunks_number
+        self._is_locked = resrc_info.is_locked
 
     # --- Properties ---
     @property
@@ -205,3 +199,16 @@ class Topic(PlatformBase):
         The `serialization_format` property is not queryable.
         """
         return self._serialization_format
+
+    @property
+    def is_locked(self) -> bool:
+        """
+        Indicates if the topic resource is locked on the server.
+
+        A locked state typically occurs after data writing is completed,
+        preventing structural modifications.
+
+        ### Querying with **Query Builders**
+        The `is_locked` property is not queryable.
+        """
+        return self._is_locked

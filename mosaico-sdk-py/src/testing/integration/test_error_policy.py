@@ -91,10 +91,7 @@ def test_sequence_abort(_client: MosaicoClient):
 
     # Free resources
     shandler = _client.sequence_handler(sequence_name)
-    assert shandler is not None
-    assert shandler.topics == []
-
-    _client.sequence_delete(sequence_name)
+    assert shandler is None
 
     # free resources
     _client.close()

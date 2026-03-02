@@ -1,8 +1,10 @@
 //! This module defines the formatting structure for
 //! responses.
-use serde::{Deserialize, Serialize};
 
 use mosaicod_core::types::{self, Resource};
+use semver;
+use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 
 /// Generic response message used to provide to clients the a unique key
 /// of a resource
@@ -187,6 +189,46 @@ impl From<types::SequenceTopicGroupSet> for Query {
         Self {
             items: vec.into_iter().map(Into::into).collect(),
         }
+    }
+}
+
+// ####
+// Misc
+// ####
+
+#[derive(Serialize, Debug)]
+pub struct SemVerItem {
+    pub major: u64,
+    pub minor: u64,
+    pub patch: u64,
+    pub pre: String,
+}
+
+#[derive(Serialize, Debug)]
+pub struct ServerVersion {
+    pub version: String,
+    pub semver: SemVerItem,
+}
+
+impl FromStr for ServerVersion {
+    type Err = semver::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let version = semver::Version::parse(s)?;
+
+        Ok(Self {
+            version: s.to_owned(),
+            semver: SemVerItem {
+                major: version.major,
+                minor: version.minor,
+                patch: version.patch,
+                pre: if !version.pre.is_empty() {
+                    version.pre.to_string()
+                } else {
+                    String::new()
+                },
+            },
+        })
     }
 }
 

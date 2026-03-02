@@ -14,7 +14,7 @@ from typing import Any, Optional
 
 from .internal.topic_read_state import _TopicReadState
 
-from ..comm.metadata import TopicMetadata, _decode_metadata
+from ..comm.metadata import TopicMetadata, _decode_schema_metadata
 from ..helpers.helpers import pack_topic_resource_name
 from ..logging_config import get_logger
 
@@ -132,7 +132,9 @@ class TopicDataStreamer:
             )
 
         # Decode metadata to determine how to deserialize the data
-        topic_mdata = TopicMetadata.from_dict(_decode_metadata(reader.schema.metadata))
+        topic_mdata = TopicMetadata._from_decoded_schema_metadata(
+            _decode_schema_metadata(reader.schema.metadata)
+        )
         ontology_tag = topic_mdata.properties.ontology_tag
 
         rdstate = _TopicReadState(

@@ -34,6 +34,7 @@ class DataStreamItem:
 class SequenceDataStream:
     tstamp_ns_start: int
     tstamp_ns_end: int
+    dt_nanosec: int
     items: List[DataStreamItem]
 
 

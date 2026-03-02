@@ -1,8 +1,8 @@
 """
-Sequence Writing Module.
+Session (Base) Writing Module.
 
-This module acts as the central controller for writing a sequence of data.
-It manages the lifecycle of the sequence on the server (Create -> Write -> Finalize)
+This module acts as the central controller for writing a session in an existing sequence.
+It manages the lifecycle of the session on the server (Create -> Write -> Finalize/Abort)
 and distributes client resources (Connections, Executors) to individual Topics.
 """
 
@@ -12,7 +12,11 @@ import pyarrow.flight as fl
 from logging import Logger
 
 from mosaicolabs.handlers.config import WriterConfig
-from mosaicolabs.handlers.helpers import _make_exception, _validate_topic_name
+from mosaicolabs.handlers.helpers import (
+    _make_exception,
+    _validate_topic_name,
+    _validate_metadata,
+)
 from mosaicolabs.handlers.topic_writer import TopicWriter
 from mosaicolabs.comm.do_action import _do_action, _DoActionResponseUUID
 from mosaicolabs.comm.connection import _ConnectionPool
@@ -22,7 +26,7 @@ from mosaicolabs.helpers import pack_topic_resource_name
 from mosaicolabs.models import Serializable
 
 
-class BaseSessionWriter(ABC):
+class _BaseSessionWriter(ABC):
     """
     Abstract base class that orchestrates the creation and data ingestion lifecycle of a Mosaico Session.
 
@@ -56,18 +60,18 @@ class BaseSessionWriter(ABC):
         logger: Logger,
     ):
         """
-        Internal constructor for SequenceWriter.
+        Internal constructor for _BaseSessionWriter.
 
-        **Do not call this directly.** Users must call
-        [`MosaicoClient.sequence_create()`][mosaicolabs.comm.MosaicoClient.sequence_create]
-        to obtain an initialized writer.
+        **Do not call this directly.** This is an internal base class for the
+        [`SequenceWriter`][mosaicolabs.handlers.SequenceWriter] class.
+        Users must call [`MosaicoClient.sequence_create()`][mosaicolabs.comm.MosaicoClient.sequence_create]
+        to obtain a user-facing writer instance.
 
         Args:
-            sequence_name: Unique name for the new sequence.
+            sequence_name: Unique name for the sequence corresponding to the session.
             client: The primary control FlightClient.
             connection_pool: Shared pool of data connections for parallel writing.
             executor_pool: Shared pool of thread executors for asynchronous I/O.
-            metadata: User-defined metadata dictionary.
             config: Operational configuration (e.g., error policies, batch sizes).
         """
         self._name: str = sequence_name
@@ -100,7 +104,7 @@ class BaseSessionWriter(ABC):
         Initializes a new session on the existing remote resource.
 
         Args:
-            sequence_name: The name of the sequence to create.
+            sequence_name: The name of the sequence owning the data pushed in this session.
         """
 
         # Send the `SESSION_CREATE` action, to start a new session on the existing remote resource.
@@ -114,7 +118,7 @@ class BaseSessionWriter(ABC):
         )
         if act_resp is None:
             raise Exception(
-                f"Action '{FlightAction.SESSION_CREATE.value}' returned no response."
+                f"Action '{FlightAction.SESSION_CREATE.value}' returned no response, sequence '{sequence_name}'."
             )
 
         self._uuid = act_resp.uuid
@@ -181,7 +185,7 @@ class BaseSessionWriter(ABC):
         if error_in_block:  # either in with block or after close operations
             # Exception occurred: Clean up and handle policy
             self._logger.error(
-                f"Exception caught in BaseSessionWriter block for session {self._uuid}, sequence  '{self._name}'. Inner err: '{out_exc}'"
+                f"Exception caught in _BaseSessionWriter block for session {self._uuid}, sequence  '{self._name}'. Inner err: '{out_exc}'"
             )
             try:
                 self._close_topics(error=out_exc)
@@ -206,7 +210,7 @@ class BaseSessionWriter(ABC):
                 )
 
     # --- Context Manager ---
-    def __enter__(self) -> "BaseSessionWriter":
+    def __enter__(self) -> "_BaseSessionWriter":
         """
         Activates the session writer and initializes server-side resources.
 
@@ -216,7 +220,7 @@ class BaseSessionWriter(ABC):
         of topics and parallel data streaming.
 
         Returns:
-            BaseSessionWriter: The initialized and ready-to-write instance.
+            _BaseSessionWriter: The initialized and ready-to-write instance.
         """
         self._on_context_enter()
         return self
@@ -233,6 +237,14 @@ class BaseSessionWriter(ABC):
         - If successful: Finalizes all topics and the session itself.
         - If error: Finalizes topics in error mode and either Aborts (Delete)
           or Reports the error based on `WriterConfig.on_error`.
+
+        Args:
+            exc_type: The type of the exception.
+            exc_val: The exception value.
+            exc_tb: The traceback.
+
+        Returns:
+            None: prevents exception suppression
         """
         return self._on_context_exit(
             exc_type=exc_type,
@@ -247,14 +259,132 @@ class BaseSessionWriter(ABC):
 
         if status == SessionStatus.Pending:
             self._logger.warning(
-                f"BaseSessionWriter' for sequence '{name}' destroyed without calling close(). "
+                f"_BaseSessionWriter' for sequence '{name}' destroyed without calling close(). "
                 "Resources may not have been released properly."
             )
 
     def _check_entered(self):
         """Ensures methods are only called inside a `with` block."""
         if not self._entered:
-            raise RuntimeError("BaseSessionWriter must be used within a 'with' block.")
+            raise RuntimeError(
+                "SequenceWriter or SequenceUpdater must be used within a 'with' block."
+            )
+
+    # --- Private lifetime management methods ---
+    def _finalize(self):
+        """
+        Finalizes the session on the server.
+
+        Sends the `SESSION_FINALIZE` signal, which instructs the server to mark all
+        ingested data as immutable.
+
+        Note: Automatic Finalization
+            This is called automatically on the `with` block exit.
+
+        Raises:
+            RuntimeError: If called outside of a `with` block.
+            Exception: If the server-side finalization fails.
+        """
+        self._check_entered()
+        if self._status == SessionStatus.Pending:
+            try:
+                _do_action(
+                    client=self._control_client,
+                    action=FlightAction.SESSION_FINALIZE,
+                    payload={
+                        "session_uuid": self._uuid,
+                    },
+                    expected_type=None,
+                )
+                self._status = SessionStatus.Finalized
+                self._logger.info(
+                    f"Session {self._uuid}, sequence '{self._name}' finalized successfully."
+                )
+                return
+            except Exception as e:
+                # _do_action raised: re-raise
+                self._status = SessionStatus.Error  # Sets status to Error
+                raise _make_exception(
+                    f"Error sending 'finalize' action for session {self._uuid}, sequence '{self._name}'. Server state may be inconsistent.",
+                    e,
+                )
+
+    def _error_report(self, err: str):
+        """Internal: Sends error report to server."""
+        if self._status == SessionStatus.Pending:
+            err_msg = (
+                f"Exception caught in _BaseSessionWriter block for session "
+                f"{self._uuid}, sequence  '{self._name}'.\nInner err: '{err}'"
+            )
+            try:
+                _do_action(
+                    client=self._control_client,
+                    action=FlightAction.SEQUENCE_NOTIFICATION_CREATE,
+                    payload={
+                        "locator": self._name,
+                        "notification_type": "error",
+                        "msg": err_msg,
+                    },
+                    expected_type=None,
+                )
+                self._logger.info(
+                    f"Session {self._uuid}, sequence '{self._name}' reported error: '{err_msg}'"
+                )
+            except Exception as e:
+                raise _make_exception(
+                    f"Error sending 'sequence_report_error' for session '{self._uuid}', sequence '{self._name}'.",
+                    e,
+                )
+
+    def _abort(self):
+        """Internal: Sends Abort command (Delete policy)."""
+        if self._status != SessionStatus.Finalized:
+            try:
+                _do_action(
+                    client=self._control_client,
+                    action=FlightAction.SESSION_ABORT,
+                    payload={
+                        "session_uuid": self._uuid,
+                    },
+                    expected_type=None,
+                )
+                self._logger.info(
+                    f"Session {self._uuid}, sequence '{self._name}' aborted successfully."
+                )
+                self._status = SessionStatus.Error
+            except Exception as e:
+                raise _make_exception(
+                    f"Error sending 'abort' for session {self._uuid}, sequence '{self._name}'.",
+                    e,
+                )
+
+    def _close_topics(self, error: Optional[BaseException] = None) -> None:
+        """
+        Iterates over all TopicWriters and finalizes them.
+        """
+        self._logger.info(
+            f"Freeing TopicWriters {'WITH ERROR' if error is not None else ''} for session {self._uuid}, sequence '{self._name}'."
+        )
+        errors = []
+        for topic_name, twriter in self._topic_writers.items():
+            try:
+                twriter._finalize(error=error)
+            except Exception as e:
+                self._logger.error(
+                    f"Failed to finalize topic '{topic_name}' for session {self._uuid}, sequence '{self._name}'.: '{e}'"
+                )
+                errors.append(e)
+
+        # Delete all TopicWriter instances, nothing can be done from here on
+        self._topic_writers = {}
+
+        if errors:
+            first_error = errors[0]
+            # Raise for the `_on_context_exit` to handle the error
+            raise _make_exception(
+                f"Errors occurred closing topics for session {self._uuid}, sequence '{self._name}': {len(errors)} topic(s) failed to finalize.",
+                first_error,
+            )
 
     # --- Public API ---
     def topic_create(
@@ -270,6 +400,9 @@ class BaseSessionWriter(ABC):
         [`TopicWriter`][mosaicolabs.handlers.TopicWriter], its own connection from the pool
         and a dedicated executor for background serialization and I/O.
 
+        Note:
+            The class verifies that the topic name is valid and that the metadata is valid (i.e. it is a dict).
+
         Args:
             topic_name: The relative name of the new topic.
             metadata: Topic-specific user metadata.
@@ -281,14 +414,15 @@ class BaseSessionWriter(ABC):
         Raises:
             RuntimeError: If called outside of a `with` block.
         """
-        ACTION = FlightAction.TOPIC_CREATE
         self._check_entered()
 
+        ACTION = FlightAction.TOPIC_CREATE
         if topic_name in self._topic_writers:
             self._logger.error(f"Topic '{topic_name}' already exists in this sequence.")
             return None
 
         _validate_topic_name(topic_name)
+        _validate_metadata(metadata)
 
         self._logger.debug(
             f"Requesting new topic '{topic_name}' for sequence '{self._name}'"
@@ -380,50 +514,24 @@ class BaseSessionWriter(ABC):
     @property
     def session_status(self) -> SessionStatus:
         """
-        Returns the current operational status of the session.
+        Returns the current operational status of the session corresponding to this sequence write or update.
 
         Returns:
             The [`SessionStatus`][mosaicolabs.enum.SessionStatus].
         """
+        self._check_entered()
         return self._status
 
-    def _finalize(self):
+    @property
+    def session_uuid(self) -> Optional[str]:
         """
-        Finalizes the session on the server.
+        Returns the UUID of the session corresponding to this sequence write or update.
 
-        Sends the `SESSION_FINALIZE` signal, which instructs the server to mark all
-        ingested data as immutable.
-
-        Note: Automatic Finalization
-            This is called automatically on the `with` block exit.
-
-        Raises:
-            RuntimeError: If called outside of a `with` block.
-            Exception: If the server-side finalization fails.
+        Returns:
+            The UUID of the session.
         """
         self._check_entered()
-        if self._status == SessionStatus.Pending:
-            try:
-                _do_action(
-                    client=self._control_client,
-                    action=FlightAction.SESSION_FINALIZE,
-                    payload={
-                        "session_uuid": self._uuid,
-                    },
-                    expected_type=None,
-                )
-                self._status = SessionStatus.Finalized
-                self._logger.info(
-                    f"Session {self._uuid}, sequence '{self._name}' finalized successfully."
-                )
-                return
-            except Exception as e:
-                # _do_action raised: re-raise
-                self._status = SessionStatus.Error  # Sets status to Error
-                raise _make_exception(
-                    f"Error sending 'finalize' action for session {self._uuid}, sequence '{self._name}'. Server state may be inconsistent.",
-                    e,
-                )
+        return self._uuid
 
     def topic_writer_exists(self, topic_name: str) -> bool:
         """
@@ -436,12 +544,14 @@ class BaseSessionWriter(ABC):
         Returns:
             True if the topic writer exists locally, False otherwise.
         """
+        self._check_entered()
         return topic_name in self._topic_writers
 
     def list_topic_writers(self) -> list[str]:
         """
         Returns the list of all topic names currently managed by this writer.
         """
+        self._check_entered()
         return [k for k in self._topic_writers.keys()]
 
     def get_topic_writer(self, topic_name: str) -> Optional[TopicWriter]:
@@ -514,82 +624,5 @@ class BaseSessionWriter(ABC):
 
             1. See also: [`TopicWriter.push()`][mosaicolabs.handlers.TopicWriter.push]
         """
+        self._check_entered()
         return self._topic_writers.get(topic_name)
-
-    # --- Private lifetime management methods ---
-    def _error_report(self, err: str):
-        """Internal: Sends error report to server."""
-        if self._status == SessionStatus.Pending:
-            err_msg = (
-                f"Exception caught in BaseSessionWriter block for session "
-                f"{self._uuid}, sequence  '{self._name}'.\nInner err: '{err}'"
-            )
-            try:
-                _do_action(
-                    client=self._control_client,
-                    action=FlightAction.SEQUENCE_NOTIFICATION_CREATE,
-                    payload={
-                        "locator": self._name,
-                        "notification_type": "error",
-                        "msg": err_msg,
-                    },
-                    expected_type=None,
-                )
-                self._logger.info(
-                    f"Session {self._uuid}, sequence '{self._name}' reported error: '{err_msg}'"
-                )
-            except Exception as e:
-                raise _make_exception(
-                    f"Error sending 'sequence_report_error' for session '{self._uuid}', sequence '{self._name}'.",
-                    e,
-                )
-
-    def _abort(self):
-        """Internal: Sends Abort command (Delete policy)."""
-        if self._status != SessionStatus.Finalized:
-            try:
-                _do_action(
-                    client=self._control_client,
-                    action=FlightAction.SESSION_ABORT,
-                    payload={
-                        "session_uuid": self._uuid,
-                    },
-                    expected_type=None,
-                )
-                self._logger.info(
-                    f"Session {self._uuid}, sequence '{self._name}' aborted successfully."
-                )
-                self._status = SessionStatus.Error
-            except Exception as e:
-                raise _make_exception(
-                    f"Error sending 'abort' for session {self._uuid}, sequence '{self._name}'.",
-                    e,
-                )
-
-    def _close_topics(self, error: Optional[BaseException] = None) -> None:
-        """
-        Iterates over all TopicWriters and finalizes them.
-        """
-        self._logger.info(
-            f"Freeing TopicWriters {'WITH ERROR' if error is not None else ''} for session {self._uuid}, sequence '{self._name}'."
-        )
-        errors = []
-        for topic_name, twriter in self._topic_writers.items():
-            try:
-                twriter._finalize(error=error)
-            except Exception as e:
-                self._logger.error(
-                    f"Failed to finalize topic '{topic_name}' for session {self._uuid}, sequence '{self._name}'.: '{e}'"
-                )
-                errors.append(e)
-
-        # Delete all TopicWriter instances, nothing can be done from here on
-        self._topic_writers = {}
-
-        if errors:
-            first_error = errors[0]
-            # Raise for the `_on_context_exit` to handle the error
-            raise _make_exception(
-                f"Errors occurred closing topics for session {self._uuid}, sequence '{self._name}': {len(errors)} topic(s) failed to finalize.",
-                first_error,
-            )

@@ -1,19 +1,24 @@
-from mosaicolabs.logging_config import setup_sdk_logging
+from pathlib import Path
+from typing import Optional
+
 import pytest
+
 from mosaicolabs.comm import MosaicoClient
+from mosaicolabs.logging_config import setup_sdk_logging
 from testing.integration.helpers import (
     DataStreamItem,
     SequenceDataStream,
+    sequential_time_generator,
+    topic_maker_generator,
     topic_to_maker_factory,
     topic_to_metadata_dict,
     topic_to_ontology_class_dict,
-    sequential_time_generator,
-    topic_maker_generator,
 )
+
 from .integration.config import (
+    QUERY_SEQUENCES_MOCKUP,
     UPLOADED_SEQUENCE_METADATA,
     UPLOADED_SEQUENCE_NAME,
-    QUERY_SEQUENCES_MOCKUP,
 )
 
 
@@ -30,10 +35,24 @@ def pytest_configure(config):
 
 def pytest_addoption(parser):
     parser.addoption(
-        "--host", action="store", default="localhost", type=str, help="Set client host."
+        "--host",
+        action="store",
+        default="localhost",
+        type=str,
+        help="Set client host.",
     )
     parser.addoption(
-        "--port", action="store", default="6276", type=int, help="Set client port."
+        "--port",
+        action="store",
+        default="6276",
+        type=int,
+        help="Set client port.",
+    )
+    parser.addoption(
+        "--tls",
+        action="store_true",
+        default=False,
+        help="Enable TLS connection with the server",
     )
 
 
@@ -47,18 +66,35 @@ def port(request):
     return request.config.getoption("--port")
 
 
+@pytest.fixture(scope="session")
+def tls_cert_path(request) -> Optional[str]:
+    if request.config.getoption("--tls"):
+        return str(
+            (
+                Path(__file__).resolve().parent
+                / "../../../mosaicod/tests/data/cert.pem"
+            ).resolve()
+        )
+    return None
+
+
 @pytest.fixture(scope="function")
-def _client(host, port):
+def _client(host, port, tls_cert_path):
     """Open a client connection FOR EACH function using this fixture"""
-    return MosaicoClient.connect(host=host, port=port)
+
+    return MosaicoClient.connect(
+        host=host, port=port, tls_cert_path=tls_cert_path
+    )
 
 
 @pytest.fixture(
     scope="session"
 )  # the first who calls this function, wins and avoid this is called multiple times
-def _make_sequence_data_stream(host, port):
+def _make_sequence_data_stream(host, port, tls_cert_path):
     """Generate synthetic data, create a sequence and pushes messages"""
-    _client = MosaicoClient.connect(host=host, port=port)
+    _client = MosaicoClient.connect(
+        host=host, port=port, tls_cert_path=tls_cert_path
+    )
 
     start_time_sec = 1700000000
     start_time_nanosec = 0
@@ -97,15 +133,20 @@ def _make_sequence_data_stream(host, port):
     _client.close()
     return SequenceDataStream(
         items=items,
+        dt_nanosec=dt_nanosec,
         tstamp_ns_start=items[0].msg.timestamp_ns,
         tstamp_ns_end=items[-1].msg.timestamp_ns,
     )
 
 
 @pytest.fixture(scope="session")
-def _inject_sequence_data_stream(_make_sequence_data_stream, host, port):
+def _inject_sequence_data_stream(
+    _make_sequence_data_stream, host, port, tls_cert_path
+):
     """Generate synthetic data, create a sequence and pushes messages"""
-    _client = MosaicoClient.connect(host=host, port=port)
+    _client = MosaicoClient.connect(
+        host=host, port=port, tls_cert_path=tls_cert_path
+    )
 
     with _client.sequence_create(
         sequence_name=UPLOADED_SEQUENCE_NAME,
@@ -131,9 +172,11 @@ def _inject_sequence_data_stream(_make_sequence_data_stream, host, port):
 
 
 @pytest.fixture(scope="session")
-def _inject_sequences_mockup(host, port):
+def _inject_sequences_mockup(host, port, tls_cert_path):
     """Generate synthetic data, create a sequence and pushes messages"""
-    _client = MosaicoClient.connect(host=host, port=port)
+    _client = MosaicoClient.connect(
+        host=host, port=port, tls_cert_path=tls_cert_path
+    )
     for sname, sdata in QUERY_SEQUENCES_MOCKUP.items():
         with _client.sequence_create(
             sequence_name=sname,

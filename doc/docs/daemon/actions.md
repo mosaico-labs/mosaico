@@ -43,3 +43,9 @@ Here, `*` can be either `sequence` or `topic`.
 | Action | Description |
 | --- | --- |
 | `query` | This action serves as the gateway to the query system. It accepts a complex filter object and returns a list of resources that match the criteria. |
+
+## Misc
+
+| Action | Description                           |
+| --- |---------------------------------------|
+| `version` | Retrieves the current daemon version. |

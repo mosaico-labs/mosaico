@@ -15,6 +15,7 @@ use mosaicod_ext as ext;
 use mosaicod_marshal as marshal;
 use mosaicod_query as query;
 use mosaicod_store as store;
+use std::error::Error;
 use std::sync::Arc;
 use tokio::sync::Notify;
 use tonic::{Request, Response, Status, Streaming, transport::Server};
@@ -254,12 +255,16 @@ impl FlightService for MosaicoFlightService {
 ///
 /// Use this function with `.inspect_err`
 fn log_server_error(e: &ServerError) {
-    match e {
-        ServerError::BadTicket(inner) => {
-            error!("{} - {}", e, inner);
-        }
-        _ => error!("{}", e),
+    let mut unrolled_error = e.to_string();
+
+    let mut err: &dyn Error = e;
+
+    while let Some(inner_err) = err.source() {
+        unrolled_error.push_str(format!(" :: {}", inner_err).as_str());
+        err = inner_err;
     }
+
+    log::error!("{}", unrolled_error);
 }
 
 #[cfg(test)]

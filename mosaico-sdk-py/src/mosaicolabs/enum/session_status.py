@@ -3,7 +3,7 @@ from enum import Enum
 
 class SessionStatus(Enum):
     """
-    Represents the operational lifecycle state of a session upload for a Sequence during the ingestion process
+    Represents the operational lifecycle state of a Session upload for a Sequence during the ingestion process
     (see also [`SequenceWriter`][mosaicolabs.handlers.SequenceWriter]).
 
     This enumeration tracks the state of a session from its initial creation through
@@ -55,5 +55,7 @@ class SessionStatus(Enum):
 # Set the same for now. Can be made different in the future
 SequenceStatus = SessionStatus
 """
+Represents the operational lifecycle state of a Sequence during the ingestion process
+
 Alias for [`SessionStatus`][mosaicolabs.enum.SessionStatus].
 """

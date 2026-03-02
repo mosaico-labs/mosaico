@@ -2,11 +2,11 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum ServerError {
-    #[error("error during data streaming :: {0}")]
+    #[error("error during data streaming")]
     StreamError(String),
 
     #[error("missing descriptor in request")]
-    MissingDescriptior,
+    MissingDescriptor,
 
     #[error("missing `ontology_tag`")]
     MissingOntologyTag,
@@ -23,13 +23,13 @@ pub enum ServerError {
     #[error("missing schema")]
     MissingSchema,
 
-    #[error("resource error :: {0}")]
+    #[error("resource error")]
     ResourceError(#[from] mosaicod_core::types::ResourceError),
 
     /// This error is produced when the flight header message is missing.
     ///
     /// The flight header message is the first message sent by flight in a `do_put` call,
-    /// this message carryies the schema and the descriptor.
+    /// this message carries the schema and the descriptor.
     #[error("missing header message")]
     MissingDoPutHeaderMessage,
 
@@ -60,40 +60,40 @@ pub enum ServerError {
     #[error("bad key")]
     BadKey,
 
-    #[error("io error :: {0}")]
+    #[error("io error")]
     IOError(#[from] std::io::Error),
 
-    #[error("sanitization error :: {0}")]
+    #[error("sanitization error")]
     SchemaError(#[from] mosaicod_ext::arrow::SchemaError),
 
-    #[error("malformed uuid :: {0}")]
+    #[error("malformed uuid")]
     MalformedUuid(#[from] mosaicod_core::types::UuidError),
 
-    #[error("bad command :: {0}")]
+    #[error("bad command")]
     BadCommand(#[from] serde_json::Error),
 
-    #[error("rw error :: {0}")]
+    #[error("rw error")]
     RwError(#[from] mosaicod_rw::Error),
 
-    #[error("arrow error :: {0}")]
+    #[error("arrow error")]
     ArrowError(#[from] mosaicod_ext::arrow::Error),
 
-    #[error("marshal error :: {0}")]
+    #[error("marshal error")]
     MarshalError(#[from] mosaicod_marshal::Error),
 
-    #[error("action error :: {0}")]
+    #[error("action error")]
     ActionError(#[from] mosaicod_marshal::ActionError),
 
-    #[error("facade error :: {0}")]
+    #[error("facade error")]
     FacadeError(#[from] mosaicod_facade::Error),
 
-    #[error("database error :: {0}")]
+    #[error("database error")]
     DatabaseError(#[from] mosaicod_db::Error),
 
-    #[error("query error :: {0}")]
+    #[error("query error")]
     QueryError(#[from] mosaicod_query::Error),
 
-    #[error("internal error :: {0}")]
+    #[error("internal error: {0}")]
     InternalError(String),
 }
 
@@ -108,8 +108,24 @@ impl From<ServerError> for tonic::Status {
         use tonic::Status;
         match value {
             ServerError::MultiplePathUnsupported => Status::invalid_argument(value.to_string()),
-            ServerError::MissingDescriptior => Status::invalid_argument(value.to_string()),
+            ServerError::MissingDescriptor => Status::invalid_argument(value.to_string()),
             ServerError::BadTicket(_) => Status::invalid_argument(value.to_string()),
+            ServerError::BadKey => Status::invalid_argument(value.to_string()),
+            ServerError::NotFound => Status::not_found(value.to_string()),
+            ServerError::Unimplemented => Status::unimplemented(value.to_string()),
+            ServerError::BadCommand(_) => Status::invalid_argument(value.to_string()),
+            ServerError::DuplicateSchemaInPayload => Status::invalid_argument(value.to_string()),
+            ServerError::SequenceAlreadyExists(_) => Status::already_exists(value.to_string()),
+            ServerError::TopicLocked => Status::permission_denied(value.to_string()),
+            ServerError::TopicAlreadyExists(_) => Status::already_exists(value.to_string()),
+            ServerError::NoData => Status::not_found(value.to_string()),
+            ServerError::SchemaError(_) => Status::invalid_argument(value.to_string()),
+            ServerError::MalformedUuid(_) => Status::invalid_argument(value.to_string()),
+            ServerError::MissingDoPutHeaderMessage => Status::invalid_argument(value.to_string()),
+            ServerError::MissingSerializationFormat => Status::invalid_argument(value.to_string()),
+            ServerError::UnsupportedDescriptor => Status::invalid_argument(value.to_string()),
+            ServerError::MissingOntologyTag => Status::invalid_argument(value.to_string()),
+            ServerError::MissingSchema => Status::invalid_argument(value.to_string()),
 
             _ => Status::internal(value.to_string()),
         }

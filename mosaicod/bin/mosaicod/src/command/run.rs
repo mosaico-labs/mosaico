@@ -86,7 +86,7 @@ pub fn run(args: Run) -> Result<(), common::Error> {
                 args.host,
                 args.port,
                 &store_display_name,
-                common::get_version(),
+                &params::version(),
                 common::startup_time(),
             );
         },

@@ -19,10 +19,11 @@ This example provides a detailed, step-by-step walkthrough of a complete Mosaico
 ## Running the Example
 
 This setup provides a local Mosaico server instance to receive and store the data from your Python scripts.
+This example expects the Python SDK to be installed via Poetry, as described in the **[Installation](../install.md) section**.
 
 #### Start the Mosaico Infrastructure
 
-First, launch the required backend services (database and ingestion server) using Docker Compose. Run these commands from the `mosaico-sdk-py` root directory:
+First, launch the required backend services (database and ingestion server) using Docker Compose. Run these commands from the `mosaico` root directory:
 
 ```bash
 # Navigate to the quickstart environment
@@ -39,7 +40,7 @@ Once the infrastructure is healthy, open a new terminal tab or window to run the
 
 ```bash
 # Navigate to the examples directory
-cd examples
+cd src/examples
 
 # Run the ROS injection example using poetry
 poetry run python -m ros_injection.main

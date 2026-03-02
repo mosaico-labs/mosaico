@@ -86,11 +86,3 @@ pub fn load_env_variables() -> Result<(), Error> {
 
     Ok(())
 }
-
-pub fn get_version() -> &'static str {
-    if cfg!(debug_assertions) {
-        "devel"
-    } else {
-        env!("CARGO_PKG_VERSION")
-    }
-}

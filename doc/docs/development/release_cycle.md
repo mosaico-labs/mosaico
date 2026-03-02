@@ -13,8 +13,7 @@ Below, we introduce the terminology of branches and tags involved in the process
 * `main`: this is the only stable branch, where every commit is an official release. Critical patches to the latest version are merged directly on this branch 
 * `release/x.y.0`: this is the catch-all branch for the version `x.y.0`. Once ready it is merged back into `main` and deleted.
 * `issue/<num>/x.y.z`: this kind of branch is associated to the corresponding Github issue `#<num>`. It can contain the development of a new feature or a bug-fix. It is a child of the corresponding `release/x.y.z` branch and it's merged back into it when completed 
-* `hotfix/x.y.<z+1>`: this branch is intended to contain critical fixes. It is derived directly from `main` and merged back into it to produce the new official version `x.y.<z+1>`.
-* `chore/x.y.<z+1>`: this is a particular branch used for maintainance tasks, like updating workflows or documentation.
+* `hotfix/x.y.<z+1>`: this branch is intended to contain critical fixes, documentation updates, and maintenance tasks. It is derived directly from `main` and merged back into it to produce the new official version `x.y.<z+1>`.
 * `vx.y.z` this tag is created when a new stable version is ready.
 
 Let's have a look to an example

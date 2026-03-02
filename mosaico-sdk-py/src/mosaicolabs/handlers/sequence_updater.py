@@ -1,7 +1,7 @@
 """
-Sequence Writing Module.
+Sequence Updating Module.
 
-This module acts as the central controller for writing a sequence of data.
+This module acts as the central controller for updating a sequence of data.
 It manages the lifecycle of the sequence on the server (Create -> Write -> Finalize)
 and distributes client resources (Connections, Executors) to individual Topics.
 """
@@ -11,35 +11,29 @@ import pyarrow.flight as fl
 
 from .base_session_writer import _BaseSessionWriter
 from .config import WriterConfig
-from .helpers import _validate_sequence_name, _make_exception, _validate_metadata
 from .topic_writer import TopicWriter
-from ..comm.do_action import _do_action
 from ..comm.connection import _ConnectionPool
 from ..comm.executor_pool import _ExecutorPool
-from ..enum import FlightAction, SequenceStatus
 from ..logging_config import get_logger
 from ..models import Serializable
-from ..enum import OnErrorPolicy
 
 # Set the hierarchical logger
 logger = get_logger(__name__)
 
 
-class SequenceWriter(_BaseSessionWriter):
+class SequenceUpdater(_BaseSessionWriter):
     """
-    Orchestrates the creation and data ingestion lifecycle of a Mosaico Sequence.
+    Orchestrates the sequence update and related data ingestion lifecycle of a Mosaico Sequence.
 
-    The `SequenceWriter` is the central controller for high-performance data writing.
-    It manages the transition of a sequence through its lifecycle states: **Create** -> **Write** -> **Finalize**.
+    The `SequenceUpdater` is the central controller for high-performance data writing.
 
     ### Key Responsibilities
-    * **Lifecycle Management**: Coordinates creation, finalization, or abort signals with the server.
+    * **Lifecycle Management**: Coordinates new session creation, finalization, or abort signals with the server.
     * **Resource Distribution**: Implements a "Multi-Lane" architecture by distributing network connections
         from a Connection Pool and thread executors from an Executor Pool to individual
         [`TopicWriter`][mosaicolabs.handlers.TopicWriter]
         instances. This ensures strict isolation and maximum parallelism between
         diverse data streams.
-
 
     Important: Usage Pattern
         This class **must** be used within a `with` statement (Context Manager).
@@ -48,7 +42,7 @@ class SequenceWriter(_BaseSessionWriter):
 
     Important: Obtaining a Writer
         Do not instantiate this class directly. Use the
-        [`MosaicoClient.sequence_create()`][mosaicolabs.comm.MosaicoClient.sequence_create]
+        [`SequenceHandler.update()`][mosaicolabs.handlers.SequenceHandler.update]
         factory method.
     """
 
@@ -60,14 +54,13 @@ class SequenceWriter(_BaseSessionWriter):
         client: fl.FlightClient,
         connection_pool: Optional[_ConnectionPool],
         executor_pool: Optional[_ExecutorPool],
-        metadata: dict[str, Any],
         config: WriterConfig,
     ):
         """
-        Internal constructor for SequenceWriter.
+        Internal constructor for SequenceUpdater.
 
         **Do not call this directly.** Users must call
-        [`MosaicoClient.sequence_create()`][mosaicolabs.comm.MosaicoClient.sequence_create]
+        [`SequenceHandler.update()`][mosaicolabs.handlers.SequenceHandler.update]
         to obtain an initialized writer.
 
         Example:
@@ -76,28 +69,12 @@ class SequenceWriter(_BaseSessionWriter):
 
             # Open the connection with the Mosaico Client
             with MosaicoClient.connect("localhost", 6726) as client:
-                # Start the Sequence Orchestrator
-                with client.sequence_create( # (1)!
-                    sequence_name="mission_log_042",
-                    # Custom metadata for this data sequence.
-                    metadata={
-                        "driver": {
-                            "driver_id": "drv_sim_017",
-                            "role": "validation",
-                            "experience_level": "senior",
-                        },
-                        "location": {
-                            "city": "Milan",
-                            "country": "IT",
-                            "facility": "Downtown",
-                            "gps": {
-                                "lat": 45.46481,
-                                "lon": 9.19201,
-                            },
-                        },
-                    }
+                # Get the handler for the sequence
+                seq_handler = client.sequence_handler("mission_log_042")
+                # Update the sequence
+                with seq_handler.update( # (1)!
                     on_error = OnErrorPolicy.Delete # Default
-                    ) as seq_writer:
+                    ) as seq_updater:
                         # Start creating topics and pushing data
                         # (2)!
 
@@ -105,9 +82,9 @@ class SequenceWriter(_BaseSessionWriter):
                 # and closes all connections and pools
             ```
 
-            1. See also: [`MosaicoClient.sequence_create()`][mosaicolabs.comm.MosaicoClient.sequence_create]
+            1. See also: [`SequenceHandler.update()`][mosaicolabs.handlers.SequenceHandler.update]
             2. See also:
-                * [`SequenceWriter.topic_create()`][mosaicolabs.handlers.SequenceWriter.topic_create]
+                * [`SequenceUpdater.topic_create()`][mosaicolabs.handlers.SequenceUpdater.topic_create]
                 * [`TopicWriter.push()`][mosaicolabs.handlers.TopicWriter.push]
 
         Args:
@@ -115,13 +92,8 @@ class SequenceWriter(_BaseSessionWriter):
             client: The primary control FlightClient.
             connection_pool: Shared pool of data connections for parallel writing.
             executor_pool: Shared pool of thread executors for asynchronous I/O.
-            metadata: User-defined metadata dictionary.
             config: Operational configuration (e.g., error policies, batch sizes).
         """
-        _validate_sequence_name(sequence_name)
-        _validate_metadata(metadata)
-        self._metadata: dict[str, Any] = metadata
-        """The metadata of the new sequence"""
 
         # Initialize base class
         super().__init__(
@@ -136,77 +108,15 @@ class SequenceWriter(_BaseSessionWriter):
     # -------------------- Base class abstract method override --------------------
     def _on_context_enter(self):
         """
-        Performs the server-side handshake to create the new sequence.
-
-        Triggers the `SEQUENCE_CREATE` action, transmitting the sequence name
-        and initial metadata. Then inits a new session.
+        Performs the server-side handshake to start the sequence update.
 
         Raises:
-            Exception: If the server rejects the creation or returns an empty response.
+            Exception: If the server rejects the session creation or returns an empty response.
         """
-        # 1. Send the `SEQUENCE_CREATE` command, to create the remote resource. This returns no response
-        _do_action(
-            client=self._control_client,
-            action=FlightAction.SEQUENCE_CREATE,
-            payload={
-                "locator": self._name,
-                "user_metadata": self._metadata,
-            },
-            expected_type=None,
-        )
-
-        # 2. Initialize a new session for the sequence
+        # Initialize a new session for the sequence
         super()._init_session(self._name)
 
-    def _on_context_exit(
-        self,
-        exc_type: Optional[Type[BaseException]],
-        exc_val: Optional[BaseException],
-        exc_tb: Optional[Any],
-    ) -> None:
-        """
-        Override the __exit__ method to handle exceptions and apply `on_error` policies.
-
-        Args:
-            exc_type: The type of the exception.
-            exc_value: The exception value.
-            traceback: The traceback.
-
-        Returns:
-            The return value of the base class __exit__ method.
-        """
-
-        # Run base session cleanup
-        super()._on_context_exit(exc_type, exc_val, exc_tb)
-
-        # Apply policy upon exception caught in the context
-        if exc_type is not None and self._config.on_error == OnErrorPolicy.Delete:
-            self._logger.error(
-                f"Sequence writer for sequence {self._name} caught exception: '{exc_val}'."
-                f"Triggering `OnErrorPolicy.Delete`."
-            )
-            # Delete the sequence
-            self._delete()
-
-    def _delete(self):
-        """Internal: Sends Delete command (Delete policy)."""
-        if self._status != SequenceStatus.Finalized:
-            try:
-                _do_action(
-                    client=self._control_client,
-                    action=FlightAction.SEQUENCE_DELETE,
-                    payload={
-                        "locator": self._name,
-                    },
-                    expected_type=None,
-                )
-                self._logger.info(f"Sequence '{self._name}' deleted successfully.")
-                self._status = SequenceStatus.Error
-            except Exception as e:
-                raise _make_exception(
-                    f"Error sending 'delete' for sequence '{self._name}'.",
-                    e,
-                )
+    # NOTE: No need of overriding `_on_context_exit` as default behavior is ok.
 
     def topic_create(
         self,
@@ -295,13 +205,3 @@ class SequenceWriter(_BaseSessionWriter):
             metadata=metadata,
             ontology_type=ontology_type,
         )
-
-    @property
-    def status(self) -> SequenceStatus:
-        """
-        Returns the current operational status of the sequence.
-
-        Returns:
-            The [`SequenceStatus`][mosaicolabs.enum.SequenceStatus].
-        """
-        return self._status

@@ -10,23 +10,25 @@ pub enum Error {
     MissingSerializationFormat(String),
     #[error("operation failed, sequence notification `{0}` has been added")]
     FailedAndNotified(types::Uuid),
-    #[error("an error occured by the system was unable to notify. original error details:\n\n")]
+    #[error(
+        "an error occurred, but the system was unable to notify it. The original message is: {0}"
+    )]
     FailedAndUnableToNotify(String),
-    #[error("store error :: {0}")]
+    #[error("store error")]
     StoreError(#[from] mosaicod_store::Error),
-    #[error("data serialization error :: {0}")]
+    #[error("data serialization error")]
     DataSerializationError(#[from] mosaicod_rw::Error),
-    #[error("metadata error :: {0}")]
+    #[error("metadata error")]
     MetadataError(#[from] types::MetadataError),
-    #[error("database error :: {0}")]
+    #[error("database error")]
     DatabaseError(#[from] mosaicod_db::Error),
     #[error("sequence locked, unable to perform modifications")]
     SequenceLocked,
-    #[error("concurrecy error :: {0}")]
+    #[error("concurrecy error")]
     ConcurrencyError(String),
-    #[error("query error :: {0}")]
+    #[error("query error")]
     QueryError(#[from] mosaicod_query::Error),
-    #[error("marshalling error :: {0}")]
+    #[error("marshalling error")]
     MarshallingError(#[from] mosaicod_marshal::Error),
     #[error("topic locked, unable to perform modifications")]
     TopicLocked,
@@ -38,7 +40,7 @@ pub enum Error {
     Unimplemented,
     #[error("unauthorized")]
     Unauthorized,
-    #[error("missing data :: {0}")]
+    #[error("missing data")]
     MissingData(String),
 }
 

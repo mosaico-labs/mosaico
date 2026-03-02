@@ -46,7 +46,7 @@ fn extract_command_from_flight_data(
         .inner
         .flight_descriptor
         .as_ref()
-        .ok_or_else(|| ServerError::MissingDescriptior)?;
+        .ok_or_else(|| ServerError::MissingDescriptor)?;
 
     // Check if the descriptor if supported
     if desc.r#type() == DescriptorType::Path {

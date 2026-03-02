@@ -14,7 +14,7 @@ from typing import Any, Dict, Optional, Tuple
 from .endpoints import TopicParsingError, TopicResourceManifest
 from .topic_reader import TopicDataStreamer
 
-from ..comm.metadata import TopicMetadata, _decode_metadata
+from ..comm.metadata import TopicMetadata, _decode_schema_metadata
 from ..comm.do_action import _do_action, _DoActionResponseSysInfo
 from ..enum import FlightAction
 from ..helpers import (
@@ -124,8 +124,8 @@ class TopicHandler:
             )
             return None
 
-        topic_metadata = TopicMetadata.from_dict(
-            _decode_metadata(flight_info.schema.metadata)
+        topic_metadata = TopicMetadata._from_decoded_schema_metadata(
+            _decode_schema_metadata(flight_info.schema.metadata)
         )
 
         # Extract the Topic resource manifest data and the ticket
@@ -171,7 +171,7 @@ class TopicHandler:
             sequence_name=_stzd_sequence_name,
             name=_stzd_topic_name,
             metadata=topic_metadata,
-            sys_info=act_resp,
+            resrc_info=act_resp.info,
         )
 
         # Get the 'min'/'max' timestamps, as we are at a topic-level

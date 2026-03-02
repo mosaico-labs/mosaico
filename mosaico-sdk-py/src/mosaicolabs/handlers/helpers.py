@@ -7,7 +7,7 @@ and Flight ticket parsing.
 
 from pathlib import Path
 import string
-from typing import Optional
+from typing import Any, Optional
 
 # Set the unsupported name chars for sequence and topic names
 _SUPPORTED_SEQUENCE_NAME_CHARS = set(
@@ -34,6 +34,11 @@ def _make_exception(msg: str, exc_msg: Optional[BaseException] = None) -> Except
         return Exception(msg)
     else:
         return Exception(f"{msg}\nInner err: {exc_msg}")
+
+
+def _validate_metadata(metadata: dict[str, Any]):
+    if not isinstance(metadata, dict):
+        raise ValueError("Metadata must be a dictionary")
 
 
 def _validate_sequence_name(name: str):
