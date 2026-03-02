@@ -69,14 +69,14 @@ pub struct SessionUuid {
 }
 
 // ////////////////////////////////////////////////////////////////////////////
-// Notifies
+// Notifications
 // ////////////////////////////////////////////////////////////////////////////
 
-/// Generic request message used to create nofifications
+/// Generic request message used to create notifications
 #[derive(Deserialize, Debug)]
-pub struct NotifyCreate {
+pub struct NotificationCreate {
     pub locator: String,
-    pub notify_type: String,
+    pub notification_type: String,
     pub msg: String,
 }
 

@@ -6,10 +6,11 @@ It implements a pooling mechanism (`_ConnectionPool`) to allow parallel data wri
 preventing bottlenecking on a single TCP/gRPC socket during high-throughput operations.
 """
 
-import pyarrow.flight as fl
 from enum import Enum
-from typing import List, Optional
 from itertools import cycle
+from typing import List, Optional
+
+import pyarrow.flight as fl
 
 from ..logging_config import get_logger
 
@@ -31,7 +32,9 @@ class _ConnectionStatus(Enum):
     Closed = "closed"
 
 
-def _get_connection(host: str, port: int, timeout: int) -> fl.FlightClient:
+def _get_connection(
+    host: str, port: int, timeout: int, tls_cert: Optional[bytes] = None
+) -> fl.FlightClient:
     """
     Factory function to establish a single PyArrow Flight client connection.
 
@@ -39,11 +42,26 @@ def _get_connection(host: str, port: int, timeout: int) -> fl.FlightClient:
         host (str): The hostname or IP address of the server.
         port (int): The port number to connect to.
         timeout (int): The waiting-for-connection timeout in seconds (default = 2s)
+        tls_cert (Optional[bytes]): The contents of the TLS certificate file.
 
     Returns:
         fl.FlightClient: An active Flight client instance connected to the specified address.
     """
-    client = fl.FlightClient(f"grpc://{host}:{port}")
+
+    protocol = "grpc+tls" if tls_cert is not None else "grpc"
+    kwargs = {"tls_root_certs": tls_cert} if tls_cert is not None else {}
+
+    try:
+        client = fl.FlightClient(f"{protocol}://{host}:{port}", **kwargs)
+    except fl.FlightUnavailableError as e:
+        raise ConnectionError(f"Failed to connect to {host}:{port}") from e
+    except fl.FlightInternalError as e:
+        if "cert" in str(e).lower() or "ssl" in str(e).lower():
+            raise ConnectionError(
+                f"Error to validate certificate for {host}:{port}"
+            ) from e
+        raise ConnectionError(f"Error to connect to {host}:{port}") from e
+
     client.wait_for_available(timeout=timeout)
     return client
 
@@ -65,6 +83,7 @@ class _ConnectionPool:
         port: int,
         pool_size: Optional[int],
         timeout: int,
+        tls_cert: Optional[bytes],
     ):
         """
         Initializes the connection pool.
@@ -74,12 +93,14 @@ class _ConnectionPool:
             port (int): The server port.
             pool_size (Optional[int]): The number of connections to maintain.
                                        If None, defaults to `_DEFAULT_CONNECTION_POOL_SIZE`.
+            tls_cert(Optional[bytes]): The contents of the TLS certificate file.
         """
         self._host = host
         self._port = port
         self._size = pool_size or _DEFAULT_CONNECTION_POOL_SIZE
         self._clients: List[fl.FlightClient] = []
         self._iterator = None
+        self._tls_cert = tls_cert
 
         self._initialize_pool(timeout)
 
@@ -97,13 +118,20 @@ class _ConnectionPool:
         if self._size < 1:
             raise ValueError("Connection pool size must be at least 1")
 
-        logger.debug(f"Initializing connection pool with {self._size} connections...")
+        logger.debug(
+            f"Initializing connection pool with {self._size} connections..."
+        )
 
         for i in range(self._size):
             try:
                 # distinct connection instance
                 self._clients.append(
-                    _get_connection(host=self._host, port=self._port, timeout=timeout)
+                    _get_connection(
+                        host=self._host,
+                        port=self._port,
+                        timeout=timeout,
+                        tls_cert=self._tls_cert,
+                    )
                 )
             except Exception as e:
                 logger.error(
@@ -132,7 +160,9 @@ class _ConnectionPool:
             RuntimeError: If the pool has not been initialized or has been closed.
         """
         if not self._clients or self._iterator is None:
-            raise RuntimeError("Connection pool is not initialized or has been closed.")
+            raise RuntimeError(
+                "Connection pool is not initialized or has been closed."
+            )
         return next(self._iterator)
 
     def close(self):

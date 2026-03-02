@@ -7,8 +7,8 @@ pub use sequence_record::*;
 mod topic_record;
 pub use topic_record::*;
 
-mod notifies;
-pub use notifies::*;
+mod notifications;
+pub use notifications::*;
 
 mod data_catalog;
 pub use data_catalog::*;

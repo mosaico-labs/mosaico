@@ -8,8 +8,8 @@ use arrow_flight::{
 use futures::TryStreamExt;
 use log::{debug, info, trace};
 use mosaicod_core::types::Resource;
-use mosaicod_marshal as marshal;
 use mosaicod_facade as facade;
+use mosaicod_marshal as marshal;
 
 pub async fn do_get(ctx: Context, ticket: Ticket) -> Result<FlightDataEncoder, ServerError> {
     let ticket = marshal::flight::ticket_topic_from_binary(&ticket.ticket)?;
@@ -38,9 +38,7 @@ pub async fn do_get(ctx: Context, ticket: Ticket) -> Result<FlightDataEncoder, S
 
     // Append JSON metadata to original data schema
     let metadata = marshal::JsonTopicMetadata::from(metadata);
-    let flatten_mdata = metadata
-        .to_flat_hashmap()
-        .map_err(facade::Error::from)?;
+    let flatten_mdata = metadata.to_flat_hashmap().map_err(facade::Error::from)?;
     let schema = query_result.schema_with_metadata(flatten_mdata);
     trace!("{:?}", schema);
 

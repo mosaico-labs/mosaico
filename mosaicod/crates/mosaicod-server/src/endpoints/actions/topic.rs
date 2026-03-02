@@ -3,8 +3,8 @@
 use crate::{endpoints::Context, errors::ServerError};
 use log::{info, trace, warn};
 use mosaicod_core::types::{self, MetadataBlob, Resource};
-use mosaicod_marshal::{self as marshal, ActionResponse};
 use mosaicod_facade as facade;
+use mosaicod_marshal::{self as marshal, ActionResponse};
 
 /// Creates a new topic with the given name and metadata.
 pub async fn create(
@@ -62,43 +62,46 @@ pub async fn delete(ctx: &Context, name: String) -> Result<ActionResponse, Serve
 }
 
 /// Creates a notification for a topic.
-pub async fn notify_create(
+pub async fn notification_create(
     ctx: &Context,
     name: String,
-    notify_type: String,
+    notification_type: String,
     msg: String,
 ) -> Result<ActionResponse, ServerError> {
-    info!("nofity for {}", name);
+    info!("notification for {}", name);
 
     let handle = facade::Topic::new(name, ctx.store.clone(), ctx.db.clone());
-    handle.notify(notify_type.parse()?, msg).await?;
+    handle.notify(notification_type.parse()?, msg).await?;
 
     Ok(ActionResponse::Empty)
 }
 
 /// Lists all notifications for a topic.
-pub async fn notify_list(ctx: &Context, name: String) -> Result<ActionResponse, ServerError> {
-    info!("notify list for {}", name);
+pub async fn notification_list(ctx: &Context, name: String) -> Result<ActionResponse, ServerError> {
+    info!("notification list for {}", name);
 
     let handle = facade::Topic::new(name, ctx.store.clone(), ctx.db.clone());
-    let notifies = handle.notify_list().await?;
+    let notifications = handle.notification_list().await?;
 
-    Ok(ActionResponse::TopicNotifyList(notifies.into()))
+    Ok(ActionResponse::TopicNotificationList(notifications.into()))
 }
 
 /// Purges all notifications for a topic.
-pub async fn notify_purge(ctx: &Context, name: String) -> Result<ActionResponse, ServerError> {
-    warn!("nofity purge for {}", name);
+pub async fn notification_purge(
+    ctx: &Context,
+    name: String,
+) -> Result<ActionResponse, ServerError> {
+    warn!("notification purge for {}", name);
 
     let handle = facade::Topic::new(name, ctx.store.clone(), ctx.db.clone());
-    handle.notify_purge().await?;
+    handle.notification_purge().await?;
 
     Ok(ActionResponse::Empty)
 }
 
 /// Gets system information for a topic.
 pub async fn system_info(ctx: &Context, name: String) -> Result<ActionResponse, ServerError> {
-    info!("[{}] topic system informations", name);
+    info!("[{}] topic system information", name);
 
     let handle = facade::Topic::new(name, ctx.store.clone(), ctx.db.clone());
     let sysinfo = handle.system_info().await?;

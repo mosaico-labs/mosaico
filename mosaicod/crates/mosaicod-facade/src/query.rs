@@ -1,11 +1,11 @@
 use super::Error;
-use mosaicod_db as db;
 use futures::stream::{FuturesUnordered, StreamExt};
 use log::{debug, trace};
 use mosaicod_core::{
     params,
     types::{self, Resource},
 };
+use mosaicod_db as db;
 use mosaicod_query as query;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -131,9 +131,7 @@ impl Query {
 
                         let serialization_format =
                             topic.serialization_format().ok_or_else(|| {
-                                Error::MissingSerializationFormat(
-                                    topic.locator_name.to_owned(),
-                                )
+                                Error::MissingSerializationFormat(topic.locator_name.to_owned())
                             })?;
 
                         let qr = ts_engine

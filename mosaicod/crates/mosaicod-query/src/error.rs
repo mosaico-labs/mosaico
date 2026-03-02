@@ -2,7 +2,7 @@
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     /// Wraps errors occurring during the JSON parsing/deserialization phase.
-    #[error("query deserialization error :: {0}")]
+    #[error("query deserialization error: {0}")]
     DeserializationError(String),
 
     #[error("operation error :: field `{field}` has {err}")]
@@ -11,16 +11,16 @@ pub enum Error {
     #[error("bad field `{field}`")]
     BadField { field: String },
 
-    #[error("datafusion backend error :: {0}")]
+    #[error("datafusion backend error")]
     DataFusion(#[from] datafusion::error::DataFusionError),
 
     #[error("not found")]
     NotFound,
 
-    #[error("bad path :: {0}")]
+    #[error("bad path")]
     BadPath(#[from] url::ParseError),
 
-    #[error("store error :: {0}")]
+    #[error("store error")]
     StoreError(#[from] mosaicod_store::Error),
 }
 

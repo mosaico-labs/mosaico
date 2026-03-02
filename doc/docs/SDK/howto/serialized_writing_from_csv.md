@@ -33,8 +33,8 @@ from mosaicolabs import (
     Vector3d, # The 3D vector class, needed to populate the IMU data
 )
 
-def stream_imu_from_csv(file_path: str, chunk_size: int = 1000):
-    for chunk in pd.read_csv(file_path, chunksize=chunk_size): # (1)!
+def stream_imu_from_csv(file_path: str, chunk_size: int = 1000, skipinitialspace: bool = True):
+    for chunk in pd.read_csv(file_path, chunksize=chunk_size, skipinitialspace=skipinitialspace): # (1)!
         for row in chunk.itertuples(index=False):
             try:
                 yield Message(
@@ -174,12 +174,12 @@ from mosaicolabs import (
 """
 Define the generator functions that yield `Message` objects.
 """
-def stream_imu_from_csv(file_path: str, chunk_size: int = 1000):
+def stream_imu_from_csv(file_path: str, chunk_size: int = 1000, skipinitialspace: bool = True):
     """
     Efficiently reads a large CSV in chunks to prevent memory exhaustion.
     """
     # Use pandas TextFileReader to stream the file in chunks
-    for chunk in pd.read_csv(file_path, chunksize=chunk_size):
+    for chunk in pd.read_csv(file_path, chunksize=chunk_size, skipinitialspace=skipinitialspace):
         for row in chunk.itertuples(index=False):
             try:
                 yield Message(
@@ -209,7 +209,7 @@ def main():
         # Initialize the Sequence Orchestrator
         with client.sequence_create(
             sequence_name="csv_ingestion_test",
-            metadata={"source": "manual_upload", "format": "csv"}
+            metadata={"source": "manual_upload", "format": "csv"},
             on_error = OnErrorPolicy.Delete # Default
         ) as swriter:
             # Create a dedicated writer for the IMU topic
@@ -235,4 +235,7 @@ def main():
         print("Successfully injected data from CSV into Mosaico!")
 
     # Here the `MosaicoClient` context and all connections are closed
+
+if __name__ == "__main__":
+    main()
 ```

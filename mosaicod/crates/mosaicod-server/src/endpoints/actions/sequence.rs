@@ -52,39 +52,44 @@ pub async fn delete(ctx: &Context, name: String) -> Result<ActionResponse, Serve
 }
 
 /// Creates a notification for a sequence.
-pub async fn notify_create(
+pub async fn notification_create(
     ctx: &Context,
     name: String,
-    notify_type: String,
+    notification_type: String,
     msg: String,
 ) -> Result<ActionResponse, ServerError> {
-    info!("new notify for {}", name);
+    info!("new notification for {}", name);
 
     let handle = facade::Sequence::new(name, ctx.store.clone(), ctx.db.clone());
-    let ntype: types::NotifyType = notify_type.parse()?;
+    let ntype: types::NotificationType = notification_type.parse()?;
     handle.notify(ntype, msg).await?;
 
-    Ok(ActionResponse::sequence_notify_create())
+    Ok(ActionResponse::sequence_notification_create())
 }
 
 /// Lists all notifications for a sequence.
-pub async fn notify_list(ctx: &Context, name: String) -> Result<ActionResponse, ServerError> {
-    info!("notify list for {}", name);
+pub async fn notification_list(ctx: &Context, name: String) -> Result<ActionResponse, ServerError> {
+    info!("notification list for {}", name);
 
     let handle = facade::Sequence::new(name, ctx.store.clone(), ctx.db.clone());
-    let notifies = handle.notify_list().await?;
+    let notifications = handle.notification_list().await?;
 
-    Ok(ActionResponse::sequence_notify_list(notifies.into()))
+    Ok(ActionResponse::sequence_notification_list(
+        notifications.into(),
+    ))
 }
 
 /// Purges all notifications for a sequence.
-pub async fn notify_purge(ctx: &Context, name: String) -> Result<ActionResponse, ServerError> {
-    warn!("notify purge for {}", name);
+pub async fn notification_purge(
+    ctx: &Context,
+    name: String,
+) -> Result<ActionResponse, ServerError> {
+    warn!("notification purge for {}", name);
 
     let handle = facade::Sequence::new(name, ctx.store.clone(), ctx.db.clone());
-    handle.notify_purge().await?;
+    handle.notification_purge().await?;
 
-    Ok(ActionResponse::sequence_notify_purge())
+    Ok(ActionResponse::sequence_notification_purge())
 }
 
 /// Gets system information for a sequence.

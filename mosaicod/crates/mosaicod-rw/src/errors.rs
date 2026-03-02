@@ -5,11 +5,11 @@ use thiserror::Error;
 pub enum Error {
     // #[error("unknown serialization format `{0}`")]
     // UnkownFormat(String),
-    #[error("parquet error :: {0}")]
+    #[error("parquet error")]
     ParquetError(#[from] ParquetError),
-    #[error("arrow error :: {0}")]
+    #[error("arrow error")]
     ArrowError(#[from] arrow::error::ArrowError),
-    #[error("io error :: {0}")]
+    #[error("io error")]
     IOError(#[from] std::io::Error),
     #[error("chunk creation callback error with message `{0}`")]
     ChunkCreationCallbackError(String),

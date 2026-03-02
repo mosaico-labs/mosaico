@@ -1,4 +1,4 @@
-use crate::{core::AsExec, Error, sql::schema};
+use crate::{Error, core::AsExec, sql::schema};
 use log::trace;
 use mosaicod_core::types::{self, Resource};
 use mosaicod_query as query;

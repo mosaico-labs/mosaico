@@ -51,6 +51,9 @@ from .models.sensors import (
     IMU as IMU,
     Magnetometer as Magnetometer,
     RobotJoint as RobotJoint,
+    Pressure as Pressure,
+    Temperature as Temperature,
+    Range as Range,
 )
 
 # --- Base Types ---
@@ -111,6 +114,12 @@ from .models.query import (
     QueryResponse as QueryResponse,
 )
 
+# --- Platform ---
+from .models.platform import (
+    Sequence as Sequence,
+    Topic as Topic,
+)
+
 # --- Enums ---
 from .enum import (
     SerializationFormat as SerializationFormat,
@@ -123,6 +132,7 @@ from .logging_config import (
     get_logger as get_logger,
     setup_sdk_logging as setup_sdk_logging,
 )
+
 
 __all__ = [
     # Client
@@ -156,6 +166,9 @@ __all__ = [
     "IMU",
     "Magnetometer",
     "RobotJoint",
+    "Pressure",
+    "Temperature",
+    "Range",
     # Base Types
     "Boolean",
     "Integer8",
@@ -202,6 +215,9 @@ __all__ = [
     "SessionStatus",
     "SequenceStatus",
     "OnErrorPolicy",
+    # Platform
+    "Sequence",
+    "Topic",
 ]
 
 

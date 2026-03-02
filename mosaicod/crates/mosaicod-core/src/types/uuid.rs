@@ -4,7 +4,7 @@ use thiserror::Error;
 /// Errors that can occur when working with [`Uuid`].
 #[derive(Error, Debug)]
 pub enum UuidError {
-    #[error("error while parsing uuid from string :: {0}")]
+    #[error("error while parsing uuid from string")]
     FromStringParse(String),
 }
 
@@ -12,7 +12,7 @@ pub enum UuidError {
 ///
 /// This struct simplifies UUID creation and validation within the Mosaico ecosystem.
 /// It defaults to creating a v4 UUID.
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 pub struct Uuid(uuid::Uuid);
 
 impl Default for Uuid {

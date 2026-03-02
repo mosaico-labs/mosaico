@@ -49,9 +49,9 @@ A [`SequenceHandler`][mosaicolabs.handlers.SequenceHandler] provides a view of a
     print(f"• Duration (ns): {end - start}")
     
     # Access structural info from the server
-    size_mb = seq_handler.sequence_info.total_size_bytes / (1024 * 1024)
+    size_mb = seq_handler.total_size_bytes / (1024 * 1024)
     print(f"• Total Size: {size_mb:.2f} MB")
-    print(f"• Created At: {seq_handler.sequence_info.created_datetime}")
+    print(f"• Created At: {seq_handler.created_datetime}")
 
 ```
 
@@ -63,7 +63,7 @@ While a sequence represents a "mission," a [`TopicHandler`][mosaicolabs.handlers
     """Inside the `if seq_handler:` block"""
 
     # Retrieve a specific handler for the IMU sensor
-    imu_handler = seq_handler.get_topic_handler("sensors/imu")
+    imu_handler = seq_handler.get_topic_handler("/sensors/imu")
     
     if imu_handler:
         print(f"Inspecting Topic: {imu_handler.name}")
@@ -73,7 +73,7 @@ While a sequence represents a "mission," a [`TopicHandler`][mosaicolabs.handlers
         print(f"• Topic Span: {imu_handler.timestamp_ns_min} to {imu_handler.timestamp_ns_max}")
         
         # Topic-specific size on the server
-        topic_mb = imu_handler.topic_info.total_size_bytes / (1024 * 1024)
+        topic_mb = imu_handler.total_size_bytes / (1024 * 1024)
         print(f"• Topic Size: {topic_mb:.2f} MB")
 
 ```
@@ -101,25 +101,24 @@ with MosaicoClient.connect("localhost", 6726) as client:
         print("Sequence not found in the catalog.")
     else:
         # Proceed to inspect metadata (Step 2)
-        pass
-
-    # Print sequence metadata
-    print(f"Sequence: {seq_handler.name}")
-    print(f"• Registered Topics: {seq_handler.topics}")
-    print(f"• User Metadata: {seq_handler.user_metadata}")
-    
-    # Analyze temporal bounds (earliest and latest timestamps across all sensors)
-    # Timestamps are consistently handled in nanoseconds
-    start, end = seq_handler.timestamp_ns_min, seq_handler.timestamp_ns_max
-    print(f"• Duration (ns): {end - start}")
-    
-    # Access structural info from the server
-    size_mb = seq_handler.sequence_info.total_size_bytes / (1024 * 1024)
-    print(f"• Total Size: {size_mb:.2f} MB")
-    print(f"• Created At: {seq_handler.sequence_info.created_datetime}")
+        # Print sequence metadata
+        print(f"Sequence: {seq_handler.name}")
+        print(f"• Registered Topics: {seq_handler.topics}")
+        print(f"• User Metadata: {seq_handler.user_metadata}")
+        
+        # Analyze temporal bounds (earliest and latest timestamps across all sensors)
+        # Timestamps are consistently handled in nanoseconds
+        start, end = seq_handler.timestamp_ns_min, seq_handler.timestamp_ns_max
+        print(f"• Duration (ns): {end - start}")
+        
+        # Access structural info from the server
+        size_mb = seq_handler.total_size_bytes / (1024 * 1024)
+        print(f"• Total Size: {size_mb:.2f} MB")
+        print(f"• Created At: {seq_handler.created_datetime}")
 
     # Retrieve a specific handler for the IMU sensor
-    imu_handler = seq_handler.get_topic_handler("sensors/imu")
+    # Note: Topic names in Mosaico SDK usually start with a slash
+    imu_handler = seq_handler.get_topic_handler("/sensors/imu")
     
     if imu_handler:
         print(f"Inspecting Topic: {imu_handler.name}")
@@ -129,6 +128,6 @@ with MosaicoClient.connect("localhost", 6726) as client:
         print(f"• Topic Span: {imu_handler.timestamp_ns_min} to {imu_handler.timestamp_ns_max}")
         
         # Topic-specific size on the server
-        topic_mb = imu_handler.topic_info.total_size_bytes / (1024 * 1024)
+        topic_mb = imu_handler.total_size_bytes / (1024 * 1024)
         print(f"• Topic Size: {topic_mb:.2f} MB")
 ```

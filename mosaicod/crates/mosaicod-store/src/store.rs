@@ -13,11 +13,11 @@ use url::Url;
 
 #[derive(Error, Debug)]
 pub enum Error {
-    #[error("storage backend error: {0}")]
+    #[error("storage backend error")]
     BackendError(#[from] object_store::Error),
-    #[error("bad url: {0}")]
+    #[error("bad url")]
     BadUrl(#[from] url::ParseError),
-    #[error("io error :: {0}")]
+    #[error("io error")]
     IoError(#[from] std::io::Error),
     #[error("unable to configure object store: missing {0}")]
     BadConfiguration(String),

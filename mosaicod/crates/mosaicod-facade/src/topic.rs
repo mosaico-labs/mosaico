@@ -335,39 +335,39 @@ impl Topic {
     /// Add a notification to the sequence
     pub async fn notify(
         &self,
-        ntype: types::NotifyType,
+        ntype: types::NotificationType,
         msg: String,
-    ) -> Result<types::Notify, Error> {
+    ) -> Result<types::Notification, Error> {
         let mut tx = self.db.transaction().await?;
 
         let record = db::topic_find_by_locator(&mut tx, &self.locator).await?;
-        let notify = db::TopicNotifyRecord::new(record.topic_id, ntype, Some(msg));
-        let notify = db::topic_notify_create(&mut tx, &notify).await?;
+        let notification = db::TopicNotificationRecord::new(record.topic_id, ntype, Some(msg));
+        let notification = db::topic_notification_create(&mut tx, &notification).await?;
 
         tx.commit().await?;
 
-        Ok(notify.into_types(self.locator.clone()))
+        Ok(notification.into_notification(self.locator.clone()))
     }
 
     /// Returns a list of all notifications for the this topic
-    pub async fn notify_list(&self) -> Result<Vec<types::Notify>, Error> {
+    pub async fn notification_list(&self) -> Result<Vec<types::Notification>, Error> {
         let mut cx = self.db.connection();
-        let notifies = db::topic_notifies_find_by_locator(&mut cx, &self.locator).await?;
-        Ok(notifies
+        let notifications = db::topic_notifications_find_by_locator(&mut cx, &self.locator).await?;
+        Ok(notifications
             .into_iter()
-            .map(|e| e.into_types(self.locator.clone()))
+            .map(|e| e.into_notification(self.locator.clone()))
             .collect())
     }
 
     /// Deletes all the notifications associated with the sequence
-    pub async fn notify_purge(&self) -> Result<(), Error> {
+    pub async fn notification_purge(&self) -> Result<(), Error> {
         let mut tx = self.db.transaction().await?;
 
-        let notifies = db::topic_notifies_find_by_locator(&mut tx, &self.locator).await?;
-        for notify in notifies {
-            // Notify id is unwrapped since is retrieved from the database and
+        let notifications = db::topic_notifications_find_by_locator(&mut tx, &self.locator).await?;
+        for notification in notifications {
+            // Notification id is unwrapped since is retrieved from the database and
             // it has an id
-            db::topic_notify_delete(&mut tx, notify.id().unwrap()).await?;
+            db::topic_notification_delete(&mut tx, notification.id().unwrap()).await?;
         }
         tx.commit().await?;
         Ok(())
@@ -481,5 +481,171 @@ impl<'a> std::ops::DerefMut for TopicWriterGuard<'a> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         trace!("dereferencing writer");
         &mut self.writer
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::Sequence;
+    use mosaicod_core::types::NotificationType;
+    use types::Resource;
+
+    #[sqlx::test(migrator = "db::testing::MIGRATOR")]
+    async fn topic_create_and_delete(pool: sqlx::Pool<db::DatabaseType>) {
+        let database = db::testing::Database::new(pool);
+        let store = store::testing::Store::new_random_on_tmp().unwrap();
+        let fsequence = Sequence::new(
+            "test_sequence".to_string(),
+            (*store).clone(),
+            (*database).clone(),
+        );
+
+        fsequence
+            .create(None)
+            .await
+            .expect("Error creating sequence");
+
+        // Check if sequence was created
+        let mut cx = database.connection();
+        let sequence = db::sequence_find_by_locator(&mut cx, &fsequence.locator)
+            .await
+            .expect("Unable to find the created sequence");
+
+        // Check sequence locator
+        assert_eq!(
+            fsequence.locator.path().to_string_lossy(),
+            sequence.locator_name
+        );
+
+        let session = fsequence.session().await.unwrap();
+        assert!(session.uuid.is_valid());
+
+        let ftopic = Topic::new(
+            "test_sequence/test_topic".to_owned(),
+            (*store).clone(),
+            (*database).clone(),
+        );
+
+        ftopic
+            .create(&session.uuid, None)
+            .await
+            .expect("Unable to create topic");
+
+        // Check if topic was created
+        let mut cx = database.connection();
+        let topic = db::topic_find_by_locator(&mut cx, &ftopic.locator)
+            .await
+            .expect("Unable to find the created topic");
+
+        // Check topic locator.
+        assert_eq!(ftopic.locator.path().to_string_lossy(), topic.locator_name);
+
+        // Check topic deletion.
+        ftopic.delete(types::allow_data_loss()).await.unwrap();
+
+        assert!(
+            db::topic_find_by_locator(&mut cx, &"test_sequence/test_topic".into())
+                .await
+                .is_err()
+        );
+    }
+
+    #[sqlx::test(migrator = "db::testing::MIGRATOR")]
+    async fn topic_notify_and_notify_purge(pool: sqlx::Pool<db::DatabaseType>) {
+        let database = db::testing::Database::new(pool);
+        let store = store::testing::Store::new_random_on_tmp().unwrap();
+        let fsequence = Sequence::new(
+            "test_sequence".to_string(),
+            (*store).clone(),
+            (*database).clone(),
+        );
+
+        fsequence
+            .create(None)
+            .await
+            .expect("Error creating sequence");
+
+        // Check if sequence was created
+        let mut cx = database.connection();
+        let sequence = db::sequence_find_by_locator(&mut cx, &fsequence.locator)
+            .await
+            .expect("Unable to find the created sequence");
+
+        // Check sequence locator
+        assert_eq!(
+            fsequence.locator.path().to_string_lossy(),
+            sequence.locator_name
+        );
+
+        let session = fsequence.session().await.unwrap();
+        assert!(session.uuid.is_valid());
+
+        let ftopic = Topic::new(
+            "test_sequence/test_topic".to_owned(),
+            (*store).clone(),
+            (*database).clone(),
+        );
+
+        ftopic
+            .create(&session.uuid, None)
+            .await
+            .expect("Unable to create topic");
+
+        ftopic
+            .notify(
+                NotificationType::Error,
+                "test notification message".to_owned(),
+            )
+            .await
+            .expect("Error creating notification message");
+
+        ftopic
+            .notify(
+                NotificationType::Error,
+                "test notification message 2".to_owned(),
+            )
+            .await
+            .expect("Error creating notification message");
+
+        let topic = db::topic_find_by_locator(&mut cx, &ftopic.locator)
+            .await
+            .expect("Unable to find the created topic");
+
+        // Check if notifications were created on database.
+        let notifications = db::topic_notifications_find_by_locator(&mut cx, &ftopic.locator)
+            .await
+            .unwrap();
+
+        assert_eq!(notifications.len(), 2);
+
+        let first_notification = notifications.first().unwrap();
+        assert_eq!(
+            first_notification.msg.as_ref().unwrap(),
+            "test notification message"
+        );
+        assert!(first_notification.uuid().is_valid());
+        assert_eq!(first_notification.topic_id, topic.topic_id);
+
+        let second_notification = notifications.last().unwrap();
+        assert_eq!(
+            second_notification.msg.as_ref().unwrap(),
+            "test notification message 2"
+        );
+        assert!(second_notification.uuid().is_valid());
+        assert_eq!(second_notification.topic_id, topic.topic_id);
+
+        ftopic
+            .notification_purge()
+            .await
+            .expect("Unable to purge notifications");
+
+        // Check there are no more notifications on database.
+        assert!(
+            db::topic_notifications_find_by_locator(&mut cx, &ftopic.locator)
+                .await
+                .unwrap()
+                .is_empty()
+        );
     }
 }
