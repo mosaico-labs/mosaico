@@ -73,3 +73,48 @@ impl Auth {
         self.scope
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[sqlx::test(migrator = "db::testing::MIGRATOR")]
+    async fn auth_scope_create_and_delete(pool: sqlx::Pool<db::DatabaseType>) -> sqlx::Result<()> {
+        let database = db::testing::Database::new(pool);
+
+        let fscope = Auth::create(
+            types::Permissions::READ,
+            "some text".to_owned(),
+            None,
+            database.clone(),
+        )
+        .await
+        .unwrap();
+
+        let scope = fscope.scope().clone();
+
+        {
+            let mut cx = database.connection();
+
+            let res_scope = db::auth_scope_find_by_fingerprint(&mut cx, scope.key().fingerprint())
+                .await
+                .unwrap();
+
+            assert_eq!(res_scope.permissions, scope.permissions);
+            assert_eq!(res_scope.key(), scope.key());
+        }
+
+        fscope.delete().await.unwrap();
+
+        {
+            let mut cx = database.connection();
+
+            let res_scope =
+                db::auth_scope_find_by_fingerprint(&mut cx, scope.key().fingerprint()).await;
+
+            assert!(res_scope.is_err());
+        }
+
+        Ok(())
+    }
+}

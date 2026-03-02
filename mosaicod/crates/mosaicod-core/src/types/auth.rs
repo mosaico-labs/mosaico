@@ -27,7 +27,7 @@ pub type ApiKeyPayload = [u8; ApiKey::PAYLOAD_LENGTH];
 pub type ApiKeyFingerprint = [u8; ApiKey::FINGERPRINT_LENGTH];
 
 /// Mosaico API Key.
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone, Copy)]
 pub struct ApiKey {
     payload: ApiKeyPayload,
     fingerprint: ApiKeyFingerprint,
@@ -329,6 +329,7 @@ impl BitOr for Permissions {
 /// * an API Key like `msco:0938n8b37r378brf`
 /// * the associated permissions (like: read, write, ..)
 /// * a description to keep track of the purpose of the key
+#[derive(Clone)]
 pub struct AuthScope {
     pub key: ApiKey,
 
