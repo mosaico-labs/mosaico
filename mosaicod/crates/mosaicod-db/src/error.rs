@@ -9,9 +9,12 @@ pub enum Error {
     #[error("migration error :: {0}")]
     MigrationError(#[from] sqlx::migrate::MigrateError),
     /// An error occurred during serialization or deserialization of data,
-    /// typically to or from JSON in the database.
+    /// typically to or from JSON in the database
     #[error("serialization error :: {0}")]
     SerializationError(#[from] serde_json::Error),
+    /// Found some bad data inside the database
+    #[error("bad data: {0}")]
+    BadData(String),
     /// An attempt was made to handle an unrecognized or unsupported report type.
     #[error("unknown notification type")]
     UnknownNotificationType(String),

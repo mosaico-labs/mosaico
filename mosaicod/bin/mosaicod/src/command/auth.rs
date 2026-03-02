@@ -82,6 +82,9 @@ pub fn auth(auth: Auth) -> Result<(), common::Error> {
                 None
             };
 
+            // If no description is provided use the empty string
+            let description = description.unwrap_or_default();
+
             let scope: Result<types::AuthScope, facade::Error> = rt.block_on(async {
                 let fauth = facade::Auth::create(permissions, description, expires, db).await?;
                 Ok(fauth.into_scope())
@@ -120,9 +123,7 @@ pub fn auth(auth: Auth) -> Result<(), common::Error> {
 
         Auth::List => {
             let res: Result<(), facade::Error> = rt.block_on(async {
-                let fauths = facade::Auth::all(db).await?;
-
-                let scopes = fauths.into_iter().map(|a| a.into_scope()).collect();
+                let scopes = facade::Auth::all_scopes(db).await?;
 
                 print_auth_scope_list(scopes);
 
@@ -137,35 +138,39 @@ pub fn auth(auth: Auth) -> Result<(), common::Error> {
 }
 
 fn print_auth_scope_details(scope: types::AuthScope) {
-    println!("API key status:");
-
     println!(
-        "{:>15} {}",
-        "Expired:",
+        "{:>13} {}",
+        "Expired:".bold(),
         if scope.is_expired() { "true" } else { "false" }
     );
-    println!("{:>15} {}", "Created:", scope.creation_timestamp);
-    println!("{:>15} {}", "Description:", scope.description);
+    let datetime: types::DateTime = scope.creation_timestamp.into();
+    println!("{:>13} {}", "Created:".bold(), datetime);
+    println!("{:>13} {}", "Description:".bold(), scope.description);
 
     let perms: Vec<String> = scope.permissions.into();
-    println!("{:>15} {:?}", "Permissions:", perms);
+    println!("{:>13} {}", "Permissions:".bold(), perms.join(", "));
 }
 
 fn print_auth_scope_list(scopes: Vec<types::AuthScope>) {
     // Header
     println!(
-        "{:>15} {:>10} {:>10} {}\n",
+        "{:>12} {:>24} {:>10} {:>30}    {}",
         "Fingerprint".bold(),
         "Created".bold(),
         "Expired".bold(),
+        "Permissions".bold(),
         "Description".bold()
     );
     for scope in scopes {
+        let datetime: types::DateTime = scope.creation_timestamp.into();
+        let permissions: Vec<String> = scope.permissions.into();
+
         println!(
-            "{:>15} {:>10} {:>10} {}",
-            String::from_utf8_lossy(scope.key().fingerprint()),
-            scope.creation_timestamp,
+            "{:>12} {:>24} {:>10} {:>30}    {}",
+            scope.key().fingerprint(),
+            datetime.to_string(),
             if scope.is_expired() { "true" } else { "false" },
+            permissions.join(", "),
             scope.description
         );
     }

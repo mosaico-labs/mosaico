@@ -16,34 +16,37 @@ pub enum ApiKeyError {
     #[error("bad fingerprint")]
     BadFingerprint,
 
+    #[error("bad api key length")]
+    BadLength,
+
     #[error("fingerprint mismatch")]
-    ChecksumMismatch,
+    FingerprintMismatch,
 }
 
-type Payload = [u8; ApiKey::PAYLOAD_LENGTH];
-type Fingerprint = [u8; ApiKey::FINGERPRINT_LENGTH];
+pub type ApiKeyPayload = [u8; ApiKey::PAYLOAD_LENGTH];
+pub type ApiKeyFingerprint = [u8; ApiKey::FINGERPRINT_LENGTH];
 
 /// Mosaico API Key.
 #[derive(PartialEq, Debug)]
 pub struct ApiKey {
-    payload: Payload,
-    fingerprint: Fingerprint,
+    payload: ApiKeyPayload,
+    fingerprint: ApiKeyFingerprint,
 }
 
-fn compute_fingerprint(payload: &Payload) -> Fingerprint {
+fn compute_fingerprint(payload: &ApiKeyPayload) -> ApiKeyFingerprint {
     let mut hasher = Hasher::new();
     hasher.update(payload);
     let hash = hasher.finalize();
 
-    format!("{:04x}", hash % 0xFFFF)
-        .as_bytes()
-        .try_into()
-        .unwrap()
+    let tmp = format!("{:0length$x}", hash, length = ApiKey::FINGERPRINT_LENGTH);
+    let bytes = tmp.as_bytes();
+
+    bytes.try_into().unwrap()
 }
 
 /// Perform all checks required to cast a payload string to
 /// the [`Payload`] fixed size array
-fn cast_payload(payload: &str) -> Result<Payload, ApiKeyError> {
+fn cast_payload(payload: &str) -> Result<ApiKeyPayload, ApiKeyError> {
     let payload_size_ok = payload.chars().count() == ApiKey::PAYLOAD_LENGTH;
 
     let payload_is_alphanumeric: bool = payload
@@ -59,7 +62,7 @@ fn cast_payload(payload: &str) -> Result<Payload, ApiKeyError> {
 
 /// Perform all checks required to cast fingerprint string to
 /// the [`Fingerprint`] fixed size array
-fn cast_fingerprint(fingerprint: &str) -> Result<Fingerprint, ApiKeyError> {
+fn cast_fingerprint(fingerprint: &str) -> Result<ApiKeyFingerprint, ApiKeyError> {
     let fingerprint_size_ok = fingerprint.chars().count() == ApiKey::FINGERPRINT_LENGTH;
 
     let fingerprint_is_alphanumeric: bool = fingerprint
@@ -92,7 +95,7 @@ impl ApiKey {
     /// Generates a new random API key
     pub fn new() -> Self {
         // Use of `.unwrap()` since we are creating a string of known size with alphanumeric chars
-        let payload: Payload = crate::random::alphanumeric(ApiKey::PAYLOAD_LENGTH)
+        let payload: ApiKeyPayload = crate::random::alphanumeric(ApiKey::PAYLOAD_LENGTH)
             .to_lowercase()
             .as_bytes()
             .try_into()
@@ -104,7 +107,7 @@ impl ApiKey {
         }
     }
 
-    pub fn try_from_parts(payload: String, checksum: String) -> Result<Self, ApiKeyError> {
+    pub fn try_from_parts(payload: &str, checksum: &str) -> Result<Self, ApiKeyError> {
         let payload = cast_payload(&payload)?;
         let checksum = cast_fingerprint(&checksum)?;
 
@@ -114,8 +117,19 @@ impl ApiKey {
         })
     }
 
-    pub fn fingerprint(&self) -> &Fingerprint {
-        &self.fingerprint
+    pub fn from_bytes(payload: ApiKeyPayload, fingerprint: ApiKeyFingerprint) -> Self {
+        Self {
+            payload,
+            fingerprint,
+        }
+    }
+
+    pub fn fingerprint(&self) -> &str {
+        std::str::from_utf8(&self.fingerprint).unwrap()
+    }
+
+    pub fn payload(&self) -> &str {
+        std::str::from_utf8(&self.payload).unwrap()
     }
 }
 
@@ -138,7 +152,7 @@ impl FromStr for ApiKey {
         let checksum = cast_fingerprint(checksum)?;
 
         if checksum != compute_fingerprint(&payload) {
-            return Err(ApiKeyError::ChecksumMismatch);
+            return Err(ApiKeyError::FingerprintMismatch);
         }
 
         Ok(Self {
@@ -161,7 +175,7 @@ impl std::fmt::Display for ApiKey {
     }
 }
 
-#[derive(PartialEq)]
+#[derive(Copy, Clone, PartialEq)]
 pub struct Permissions(u8);
 
 impl Permissions {
@@ -174,10 +188,10 @@ impl Permissions {
     ///
     /// # Example
     /// ```
-    /// use mosaicod_core::types::Permission;
+    /// use mosaicod_core::types::Permissions;
     ///
     /// fn main(){
-    ///     let perm = Permission::new(Permission::READ | Permission::WRITE);
+    ///     let perm = Permissions::new(Permissions::READ | Permissions::WRITE);
     /// }
     /// ```
     pub fn new(perm: Permissions) -> Self {
@@ -188,13 +202,13 @@ impl Permissions {
     ///
     /// # Example
     /// ```
-    /// use mosaicod_core::types::Permission;
+    /// use mosaicod_core::types::Permissions;
     ///
     /// fn main(){
-    ///     let mut perm = Permission::default();
-    ///     assert!(!perm.has(Permission::MANAGE));
-    ///     perm = perm.add(Permission::MANAGE);
-    ///     assert!(perm.has(Permission::MANAGE));
+    ///     let mut perm = Permissions::default();
+    ///     assert!(!perm.has(Permissions::MANAGE));
+    ///     perm = perm.add(Permissions::MANAGE);
+    ///     assert!(perm.has(Permissions::MANAGE));
     /// }
     /// ```
     pub fn add(&self, permission: Permissions) -> Permissions {
@@ -205,12 +219,12 @@ impl Permissions {
     ///
     /// # Example
     /// ```
-    /// use mosaicod_core::types::Permission;
+    /// use mosaicod_core::types::Permissions;
     ///
     /// fn main(){
-    ///     let perm = Permission::new(Permission::WRITE | Permission::READ);
-    ///     let perm = perm.remove(Permission::WRITE);
-    ///     assert!(!perm.has(Permission::WRITE));
+    ///     let perm = Permissions::new(Permissions::WRITE | Permissions::READ);
+    ///     let perm = perm.remove(Permissions::WRITE);
+    ///     assert!(!perm.has(Permissions::WRITE));
     /// }
     /// ```
     pub fn remove(&self, permission: Permissions) -> Permissions {
@@ -221,13 +235,13 @@ impl Permissions {
     ///
     /// # Example
     /// ```
-    /// use mosaicod_core::types::Permission;
+    /// use mosaicod_core::types::Permissions;
     ///
     /// fn main(){
-    ///     let perm = Permission::new(Permission::READ | Permission::WRITE);
-    ///     assert!(perm.has(Permission::READ));
-    ///     assert!(perm.has(Permission::WRITE));
-    ///     assert!(!perm.has(Permission::MANAGE));
+    ///     let perm = Permissions::new(Permissions::READ | Permissions::WRITE);
+    ///     assert!(perm.has(Permissions::READ));
+    ///     assert!(perm.has(Permissions::WRITE));
+    ///     assert!(!perm.has(Permissions::MANAGE));
     /// }
     /// ```
     pub fn has(&self, target: Permissions) -> bool {
@@ -238,21 +252,32 @@ impl Permissions {
     ///
     /// # Example
     /// ```
-    /// use mosaicod_core::types::Permission;
+    /// use mosaicod_core::types::Permissions;
     ///
     /// fn main(){
-    ///     let perm = Permission::default();
+    ///     let perm = Permissions::default();
     ///     assert!(perm.is_empty());
     /// }
     /// ```
     pub fn is_empty(&self) -> bool {
         self.0 == 0
     }
+
+    /// Returns the permissions as 1 byte
+    pub fn as_u8(&self) -> u8 {
+        self.0
+    }
 }
 
 impl From<u8> for Permissions {
     fn from(value: u8) -> Self {
         Self(value)
+    }
+}
+
+impl From<Permissions> for u8 {
+    fn from(value: Permissions) -> Self {
+        value.0
     }
 }
 
@@ -325,16 +350,17 @@ impl AuthScope {
     ///
     /// # Example
     /// ```
-    /// use mosaicod_core::types::{ApiKeyScope, Permission};
+    /// use mosaicod_core::types::{AuthScope, Permissions};
     ///
     /// fn main(){
     ///     // Single permission
-    ///     let scope = ApiKeyScope::new(Permission::READ, "dummy key".to_owned());
+    ///     let scope = AuthScope::new(Permissions::READ, "dummy key".to_owned(), None);
     ///
     ///     // Multiple permissions
-    ///     let scope = ApiKeyScope::new(
-    ///         Permission::READ | Permission::WRITE,
+    ///     let scope = AuthScope::new(
+    ///         Permissions::READ | Permissions::WRITE,
     ///         "dummy key".to_owned(),
+    ///         None
     ///     );
     /// }
     pub fn new(
@@ -346,7 +372,6 @@ impl AuthScope {
             key: ApiKey::new(),
             permissions: permission,
             creation_timestamp: Timestamp::now(),
-            // FIXME
             expiration_timestamp: expires.map(|delta| Timestamp::now() + delta),
             description,
         }
@@ -397,31 +422,30 @@ mod tests {
 
         let key_str = key.to_string();
 
-        let key: ApiKey = key_str.parse().expect("Error parsing API key");
+        let _: ApiKey = key_str.parse().expect("Error parsing API key");
     }
 
     #[test]
     fn bad_apy_key() {
         let res: Result<ApiKey, ApiKeyError> =
-            "mosaico_gm8osbmxriljmgkyeb7aybirba4jeysw_e2c2".parse();
+            "mosaico_vrfeceju4lqivysxgaseefa3tsxs0vrl_1b676530".parse();
         assert!(matches!(res, Err(ApiKeyError::BadHeader)));
 
         // Removed char in payload
-        let res: Result<ApiKey, ApiKeyError> = "msco_m8osbmxriljmgkyeb7aybirba4jeysw_e2c2".parse();
+        let res: Result<ApiKey, ApiKeyError> =
+            "msco_rfeceju4lqivysxgaseefa3tsxs0vrl_1b676530".parse();
         assert!(matches!(res, Err(ApiKeyError::BadPayload)));
 
-        // e -> E in checksum
-        let res: Result<ApiKey, ApiKeyError> = "msco_gm8osbmxriljmgkyeb7aybirba4jeysw_E2c2".parse();
+        // added non ascii char in fingerprint
+        let res: Result<ApiKey, ApiKeyError> =
+            "msco_vrfeceju4lqivysxgaseefa3tsxs0vrl_©b676530".parse();
         dbg!(&res);
         assert!(matches!(res, Err(ApiKeyError::BadFingerprint)));
 
-        // Removed char from checksum
-        let res: Result<ApiKey, ApiKeyError> = "msco_gm8osbmxriljmgkyeb7aybirba4jeysw_e2c".parse();
+        // Removed char from fingerprint
+        let res: Result<ApiKey, ApiKeyError> =
+            "msco_vrfeceju4lqivysxgaseefa3tsxs0vrl_b676530".parse();
         dbg!(&res);
         assert!(matches!(res, Err(ApiKeyError::BadFingerprint)));
-
-        // Changed checksum
-        let res: Result<ApiKey, ApiKeyError> = "msco_gm8osbmxriljmgkyeb7aybirba4jeysw_e2c3".parse();
-        assert!(matches!(res, Err(ApiKeyError::ChecksumMismatch)));
     }
 }

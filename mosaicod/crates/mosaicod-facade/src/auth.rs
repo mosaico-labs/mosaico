@@ -8,45 +8,67 @@ pub struct Auth {
 }
 
 impl Auth {
-    pub async fn try_from_key(api_key: types::ApiKey, db: db::Database) -> Result<Self, Error> {
-        todo!()
+    /// Create a new auth facade using an existing scope.
+    ///
+    /// This function does not perform any checks, if the auth scope is not existing subsequent
+    /// calls will return errors
+    pub fn from_scope(scope: types::AuthScope, db: db::Database) -> Self {
+        Self { scope, db }
     }
 
-    /// Loockup an API key using its
+    /// Lookup an auth scope using the API key fingerprint
     pub async fn try_from_fingerprint(
-        _fingerprint: String,
-        _db: db::Database,
+        fingerprint: String,
+        db: db::Database,
     ) -> Result<Self, Error> {
-        todo!();
+        let mut cx = db.connection();
+
+        let scope = db::auth_scope_find_by_fingerprint(&mut cx, &fingerprint).await?;
+
+        Ok(Self { scope, db })
     }
 
+    /// Creates a new auth scope in the system
     pub async fn create(
-        _permissions: types::Permissions,
-        _description: Option<String>,
-        _expire_duration: Option<std::time::Duration>,
-        _db: db::Database,
+        permissions: types::Permissions,
+        description: String,
+        expire_duration: Option<std::time::Duration>,
+        db: db::Database,
     ) -> Result<Self, Error> {
-        // let tx = db.transaction().await?;
-        //
-        // types::ApiKey::new(permission, description);
-        // db::auth_scope_create(&mut tx, );
-        //
-        // Self{db}
-        todo!();
+        let mut tx = db.transaction().await?;
+
+        let scope = types::AuthScope::new(permissions, description, expire_duration);
+        let scope = db::auth_scope_create(&mut tx, scope).await?;
+
+        tx.commit().await?;
+
+        Ok(Self { scope, db })
     }
 
-    pub async fn all(_db: db::Database) -> Result<Vec<Self>, Error> {
-        todo!();
+    /// Returns a list of all auth scope in the system
+    pub async fn all_scopes(db: db::Database) -> Result<Vec<types::AuthScope>, Error> {
+        let mut cx = db.connection();
+
+        Ok(db::auth_scope_find_all(&mut cx).await?)
     }
 
+    /// Deletes the current auth scope
     pub async fn delete(self) -> Result<(), Error> {
-        todo!()
+        let mut tx = self.db.transaction().await?;
+
+        db::auth_scope_delete(&mut tx, self.scope.key.fingerprint()).await?;
+
+        tx.commit().await?;
+
+        Ok(())
     }
 
+    /// Returns the current auth scope
     pub fn scope(&self) -> &types::AuthScope {
         &self.scope
     }
 
+    /// Consumes the facade and returns the inner auth scope
     pub fn into_scope(self) -> types::AuthScope {
         self.scope
     }
