@@ -8,7 +8,7 @@ use semver;
 pub fn version() -> Result<ActionResponse, ServerError> {
     info!("requested server version");
     Ok(ActionResponse::Version(
-        params::get_version()
+        params::version()
             .parse()
             .map_err(|e: semver::Error| ServerError::InternalError(e.to_string()))?,
     ))
