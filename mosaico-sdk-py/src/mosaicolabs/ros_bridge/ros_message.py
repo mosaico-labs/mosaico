@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any
 
 from mosaicolabs.types import Time
 
@@ -37,7 +37,7 @@ class ROSHeader:
             was physically sampled by the sensor.
     """
 
-    seq: Optional[int]
+    seq: int | None
     """sequence ID: consecutively increasing ID """
     frame_id: str
     """Frame this data is associated with"""
@@ -47,7 +47,7 @@ class ROSHeader:
     _REQUIRED_KEYS = ("frame_id", "stamp")
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ROSHeader":
+    def from_dict(cls, data: dict[str, Any]) -> "ROSHeader":
         """
         Factory method to construct a ROSHeader from a raw ROS dictionary.
 
@@ -75,7 +75,8 @@ class ROSHeader:
             seq=data.get("seq"),
             frame_id=data["frame_id"],
             stamp=Time(
-                seconds=data["stamp"]["sec"], nanoseconds=data["stamp"]["nanosec"]
+                seconds=data["stamp"]["sec"],
+                nanoseconds=data["stamp"]["nanosec"],
             ),
         )
 
@@ -126,7 +127,7 @@ class ROSMessage:
         bag_timestamp_ns: int,
         topic: str,
         msg_type: str,
-        data: Optional[Dict[str, Any]],
+        data: dict[str, Any] | None,
     ):
         self.bag_timestamp_ns = bag_timestamp_ns
         self.topic = topic
@@ -147,7 +148,7 @@ class ROSMessage:
     """The topic string of the message source."""
     msg_type: str
     """The message ros type string."""
-    data: Optional[Dict[str, Any]]
+    data: dict[str, Any] | None
     """The message payload, converted into a standard nested Python dictionary."""
-    header: Optional[ROSHeader] = None
+    header: ROSHeader | None = None
     """The message payload header"""

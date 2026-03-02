@@ -1,10 +1,10 @@
 from abc import ABC, abstractmethod
-from typing import Generic, Optional, Tuple, Type, Any, TypeVar
+from typing import Any, Generic, TypeVar
 
 from mosaicolabs.models.message import Message
 
-from .ros_message import ROSMessage
 from ..models import Serializable
+from .ros_message import ROSMessage
 
 T = TypeVar("T", bound=Serializable)
 
@@ -24,14 +24,14 @@ class ROSAdapterBase(ABC, Generic[T]):
         _REQUIRED_KEYS: Internal validation list for mandatory ROS message fields.
     """
 
-    ros_msgtype: str | Tuple[str, ...]
-    __mosaico_ontology_type__: Type[T]
-    _REQUIRED_KEYS: Tuple[str, ...]
-    _REQUIRED_KEYS_CASE_INSENSITIVE: Tuple[str, ...] = ()
+    ros_msgtype: str | tuple[str, ...]
+    __mosaico_ontology_type__: type[T]
+    _REQUIRED_KEYS: tuple[str, ...]
+    _REQUIRED_KEYS_CASE_INSENSITIVE: tuple[str, ...] = ()
 
     @classmethod
     @abstractmethod
-    def ros_msg_type(cls) -> str | Tuple[str, ...]:
+    def ros_msg_type(cls) -> str | tuple[str, ...]:
         """Returns the specific ROS message type handled by this adapter."""
         return cls.ros_msgtype
 
@@ -51,7 +51,9 @@ class ROSAdapterBase(ABC, Generic[T]):
             A Mosaico Message object containing the instantiated ontology data.
         """
         if ros_msg.data is None:
-            raise Exception(f"'data' attribute is None for topic {ros_msg.topic}")
+            raise Exception(
+                f"'data' attribute is None for topic {ros_msg.topic}"
+            )
 
         try:
             return Message(
@@ -78,7 +80,7 @@ class ROSAdapterBase(ABC, Generic[T]):
 
     @classmethod
     @abstractmethod
-    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
+    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> dict | None:
         """
         Extracts ROS-specific schema metadata for the Mosaico platform.
 
@@ -88,6 +90,6 @@ class ROSAdapterBase(ABC, Generic[T]):
         pass
 
     @classmethod
-    def ontology_data_type(cls) -> Type[T]:
+    def ontology_data_type(cls) -> type[T]:
         """Returns the Ontology class type associated with this adapter."""
         return cls.__mosaico_ontology_type__

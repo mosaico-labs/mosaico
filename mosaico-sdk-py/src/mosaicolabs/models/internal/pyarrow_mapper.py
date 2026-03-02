@@ -1,22 +1,22 @@
 import datetime
+from typing import Any
+
 import pyarrow as pa
-from typing import Dict, Optional, Tuple, Type, Any
 
 # --- Import the query builder components ---
 from ..query.expressions import _QueryExpression
+from ..query.generation.internal import _PYTHON_TYPE_TO_QUERYABLE
 from ..query.generation.mixins import (
     _QueryableField,
     _QueryableUnsupported,
 )
-from ..query.generation.internal import _PYTHON_TYPE_TO_QUERYABLE
-
 
 # -------------------------------------------------------------------------
 # Pyarrow Type to Python Type Mapping
 # This dictionary maps specific PyArrow data types to their corresponding
 # python types.
 # -------------------------------------------------------------------------
-_PYARROW_TO_PYTHON_TYPE: Dict[pa.DataType, type] = {
+_PYARROW_TO_PYTHON_TYPE: dict[pa.DataType, type] = {
     # Boolean types
     pa.bool_(): bool,
     # Numeric types → use _QueryableNumeric
@@ -68,9 +68,9 @@ class PyarrowFieldMapper:
     def build_map(
         self,
         class_type: type,
-        query_expression_type: Type[_QueryExpression],
-        path_prefix: Optional[str] = None,
-    ) -> Tuple[str, Dict[str, Any]]:
+        query_expression_type: type[_QueryExpression],
+        path_prefix: str | None = None,
+    ) -> tuple[str, dict[str, Any]]:
         """
         Builds the queryable field map for a given Ontology Model, via pyarrow
         struct inspection.
@@ -83,7 +83,10 @@ class PyarrowFieldMapper:
         from mosaicolabs.models.message import Message
 
         cls_pa_fields = []
-        if class_type.__msco_pyarrow_struct__ is not Message.__msco_pyarrow_struct__:
+        if (
+            class_type.__msco_pyarrow_struct__
+            is not Message.__msco_pyarrow_struct__
+        ):
             # Convert the PyArrow struct to a standard list of pa.Field objects
             cls_pa_fields = list(class_type.__msco_pyarrow_struct__)
         combined_struct = pa.struct(
@@ -91,7 +94,9 @@ class PyarrowFieldMapper:
             list(Message.__msco_pyarrow_struct__) + cls_pa_fields
         )
         # Make sure we have a valid path prefix
-        path_prefix = path_prefix or class_type.__ontology_tag__ or class_type.__name__
+        path_prefix = (
+            path_prefix or class_type.__ontology_tag__ or class_type.__name__
+        )
         # create a member variable to hold the query expression type
         self._query_expression_type = query_expression_type
         # start fields mapping
@@ -102,7 +107,7 @@ class PyarrowFieldMapper:
 
     def _build_map_recursive(
         self, struct_type: pa.StructType, path_prefix: str
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         field_map = {}
 
         for field in struct_type:
@@ -111,7 +116,9 @@ class PyarrowFieldMapper:
 
             if isinstance(field.type, pa.StructType):
                 # If the field is a nested struct, recurse into it
-                field_map[field.name] = self._build_map_recursive(field.type, full_path)
+                field_map[field.name] = self._build_map_recursive(
+                    field.type, full_path
+                )
 
             elif not isinstance(field.type, (pa.ListType, pa.LargeListType)):
                 # If it's a base field (not a list or nested struct):
@@ -132,7 +139,9 @@ class PyarrowFieldMapper:
                 #     )
                 # else:
                 #     cls = type(f"{mixin.__name__}Field", (mixin, _QueryableField), {})
-                cls = type(f"{mixin.__name__}Field", (mixin, _QueryableField), {})
+                cls = type(
+                    f"{mixin.__name__}Field", (mixin, _QueryableField), {}
+                )
 
                 # Instantiate the dynamically created class with its path
                 field_map[field.name] = cls(

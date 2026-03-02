@@ -1,10 +1,8 @@
-from typing import Type
-
 from ..adapter_base import ROSAdapterBase
 
 
 def _validate_msgdata(
-    cls: Type[ROSAdapterBase], ros_data: dict, case_insensitive: bool = False
+    cls: type[ROSAdapterBase], ros_data: dict, case_insensitive: bool = False
 ):
     missing_keys = [
         key

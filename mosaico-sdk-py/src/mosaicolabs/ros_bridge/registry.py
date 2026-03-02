@@ -16,10 +16,11 @@ When a `ROSDataLoader` is initialized, it requests a merged view of the Global +
 definitions relevant to its specific data file.
 """
 
-from pathlib import Path
-from typing import Dict, Union, Optional
 from collections import defaultdict
+from pathlib import Path
+
 from rosbags.typesys import Stores
+
 from ..logging_config import get_logger
 
 # Set the hierarchical logger
@@ -49,14 +50,14 @@ class ROSTypeRegistry:
     # Internal storage.
     # Key: Store Name (e.g. "GLOBAL", "ros2_foxy")
     # Value: Dict[MsgType, Definition]
-    _registry: Dict[str, Dict[str, str]] = defaultdict(dict)
+    _registry: dict[str, dict[str, str]] = defaultdict(dict)
 
     @classmethod
     def register(
         cls,
         msg_type: str,
-        source: Union[str, Path],
-        store: Optional[Union[Stores, str]] = None,
+        source: str | Path,
+        store: Stores | str | None = None,
     ):
         """
         Registers a single custom message type into the registry.
@@ -102,7 +103,9 @@ class ROSTypeRegistry:
             # Overwrites existing definition if the same type is registered twice in the same scope
             cls._registry[key][msg_type] = definition
 
-            logger.debug(f"Registered custom type '{msg_type}' for scope: '{key}'")
+            logger.debug(
+                f"Registered custom type '{msg_type}' for scope: '{key}'"
+            )
 
         except Exception as e:
             logger.error(f"Failed to register type '{msg_type}': '{e}'")
@@ -112,8 +115,8 @@ class ROSTypeRegistry:
     def register_directory(
         cls,
         package_name: str,
-        dir_path: Union[str, Path],
-        store: Optional[Union[Stores, str]] = None,
+        dir_path: str | Path,
+        store: Stores | str | None = None,
     ):
         """
         Batch registers all `.msg` files found within a specified directory.
@@ -159,7 +162,7 @@ class ROSTypeRegistry:
             logger.warning(f"No .msg files found in '{path}'.")
 
     @classmethod
-    def get_types(cls, store: Optional[Union[Stores, str]]) -> Dict[str, str]:
+    def get_types(cls, store: Stores | str | None) -> dict[str, str]:
         """
         Retrieves a merged view of message definitions for a specific distribution.
 
@@ -203,7 +206,7 @@ class ROSTypeRegistry:
         cls._registry.clear()
 
     @staticmethod
-    def _resolve_source(source: Union[str, Path]) -> str:
+    def _resolve_source(source: str | Path) -> str:
         """
         Internal utility to normalize varied inputs into raw definition text.
 

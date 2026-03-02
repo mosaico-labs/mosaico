@@ -1,4 +1,5 @@
-from typing import Any, Dict, Optional, Protocol, Tuple, Type
+from typing import Any, Protocol
+
 from .expressions import _QueryExpression
 
 
@@ -25,7 +26,7 @@ class QueryableProtocol(Protocol):
     * [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]: Filters fine-grained sensor field data.
     """
 
-    __supported_query_expressions__: Tuple[Type[_QueryExpression], ...]
+    __supported_query_expressions__: tuple[type[_QueryExpression], ...]
 
     def with_expression(self, expr: _QueryExpression) -> "QueryableProtocol":
         """
@@ -44,7 +45,7 @@ class QueryableProtocol(Protocol):
         """
         ...
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """
         Serializes the internal expressions into a platform-compatible dictionary.
         """
@@ -60,10 +61,10 @@ class FieldMapperProtocol(Protocol):
 
     def build_map(
         self,
-        class_type: Type,
-        query_expression_type: Type[_QueryExpression],
-        path_prefix: Optional[str] = None,
-    ) -> Tuple[str, Dict[str, Any]]:
+        class_type: type,
+        query_expression_type: type[_QueryExpression],
+        path_prefix: str | None = None,
+    ) -> tuple[str, dict[str, Any]]:
         """
         Builds the queryable field map for a given class.
 

@@ -228,7 +228,7 @@ run_integration_with_tls_tests() {
     sleep 5
 
     # Run integration tests
-    title "running integration tests" "." "${BLUE}"
+    title "running integration tests with tls" "." "${BLUE}"
     cd "${PYTHON_SDK_PATH}"
 
     poetry run pytest ./src/testing -k "integration" --tls

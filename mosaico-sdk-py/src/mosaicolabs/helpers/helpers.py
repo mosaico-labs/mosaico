@@ -5,10 +5,11 @@ Provides utility functions for dict manipulation and other things
 """
 
 import ast
+import re
+from collections.abc import Iterable
 from dataclasses import is_dataclass
 from pathlib import Path
-import re
-from typing import Any, Iterable, Optional
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -149,7 +150,8 @@ def encode_to_dict(obj: Any, exclude_none: bool = False) -> Any:
         return {
             key: encode_to_dict(value, exclude_none=exclude_none)
             for key, value in obj.__dict__.items()
-            if not key.startswith("_") and (value is not None or not exclude_none)
+            if not key.startswith("_")
+            and (value is not None or not exclude_none)
         }
 
     # --- Handle iterable types (lists and tuples) ---
@@ -180,14 +182,16 @@ def truncate_long_strings(data, max_length=100):
     if isinstance(data, dict):
         # Recursively process keys and values
         return {
-            key: truncate_long_strings(value, max_length) for key, value in data.items()
+            key: truncate_long_strings(value, max_length)
+            for key, value in data.items()
         }
 
     # --- Handle lists ---
     if isinstance(data, Iterable):
         # Rebuild using the same container type
         return type(data)(
-            truncate_long_strings(data=item, max_length=max_length) for item in data
+            truncate_long_strings(data=item, max_length=max_length)
+            for item in data
         )
 
     # --- Base case: return the value unchanged ---
@@ -228,7 +232,7 @@ def pack_topic_resource_name(sequence_name: str, topic_name: str) -> str:
     return str(rbase / sub)
 
 
-def unpack_topic_full_path(topic_path: str) -> Optional[tuple[str, str]]:
+def unpack_topic_full_path(topic_path: str) -> tuple[str, str] | None:
     """
     Splits a full resource path back into sequence and topic names.
 

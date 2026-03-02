@@ -8,7 +8,6 @@ and lens distortion model.
 
 """
 
-from typing import Optional
 import pyarrow as pa
 
 from ..data import ROI, Vector2d
@@ -260,7 +259,7 @@ class CameraInfo(Serializable):
     The projection parameters cannot be queried via the `.Q` proxy (Lists are not supported yet).
     """
 
-    binning: Optional[Vector2d] = None
+    binning: Vector2d | None = None
     """
     Hardware binning factor (x, y). If null, assumes (0, 0) (no binning).
 
@@ -291,7 +290,7 @@ class CameraInfo(Serializable):
         ```
     """
 
-    roi: Optional[ROI] = None
+    roi: ROI | None = None
     """
     Region of Interest. Used if the image is a sub-crop of the full resolution.
 

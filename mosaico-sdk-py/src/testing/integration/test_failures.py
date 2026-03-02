@@ -2,19 +2,20 @@
 These tests require the connection to the server (localhost)
 """
 
-import string
-from mosaicolabs.models.sensors.imu import IMU
-import pytest
 import logging as log
-import pyarrow as pa
+import string
 
+import pyarrow as pa
+import pytest
+
+from mosaicolabs.comm import MosaicoClient
+from mosaicolabs.enum import SequenceStatus, SerializationFormat
 from mosaicolabs.handlers import TopicWriter
 from mosaicolabs.handlers.helpers import (
     _SUPPORTED_SEQUENCE_NAME_CHARS,
     _SUPPORTED_TOPIC_NAME_CHARS,
 )
-from mosaicolabs.comm import MosaicoClient
-from mosaicolabs.enum import SequenceStatus, SerializationFormat
+from mosaicolabs.models.sensors.imu import IMU
 from testing.integration.config import UPLOADED_SEQUENCE_NAME
 
 
@@ -30,7 +31,8 @@ def test_read_non_existing_sequence_and_topic(_client: MosaicoClient):
     log.info("Expected three (3) errors after this line...")
     assert _client.sequence_handler("non-existing-sequence") is None
     assert (
-        _client.topic_handler(sequence_name="non-existing", topic_name="/topic") is None
+        _client.topic_handler(sequence_name="non-existing", topic_name="/topic")
+        is None
     )
 
     # free resources
@@ -41,7 +43,8 @@ def test_sequence_writer_not_in_context(_client: MosaicoClient):
     swriter = _client.sequence_create("new-sequence", metadata={})
     assert swriter.status == SequenceStatus.Null
     with pytest.raises(
-        RuntimeError, match="BaseSessionWriter must be used within a 'with' block."
+        RuntimeError,
+        match="BaseSessionWriter must be used within a 'with' block.",
     ):
         swriter._check_entered()
 
@@ -54,7 +57,9 @@ def test_sequence_writer_not_in_context(_client: MosaicoClient):
     "non_alphanum",
     [p for p in string.punctuation if p not in _SUPPORTED_SEQUENCE_NAME_CHARS],
 )
-def test_sequence_invalid_char_in_name(_client: MosaicoClient, non_alphanum: str):
+def test_sequence_invalid_char_in_name(
+    _client: MosaicoClient, non_alphanum: str
+):
     if non_alphanum != "/":
         # '/' is supported at the beginning of the name
         invalid_sequence_name = f"{non_alphanum}sequence-name"
@@ -71,7 +76,9 @@ def test_sequence_invalid_char_in_name(_client: MosaicoClient, non_alphanum: str
 
     # It is necessary to make the exception propagate until the SequenceWriter.__exit__
     # which triggers the report condition
-    with pytest.raises(ValueError, match="Sequence name contains invalid characters"):
+    with pytest.raises(
+        ValueError, match="Sequence name contains invalid characters"
+    ):
         with _client.sequence_create(invalid_sequence_name, {}) as _:
             pass
 
@@ -79,7 +86,9 @@ def test_sequence_invalid_char_in_name(_client: MosaicoClient, non_alphanum: str
 
     # It is necessary to make the exception propagate until the SequenceWriter.__exit__
     # which triggers the report condition
-    with pytest.raises(ValueError, match="Sequence name contains invalid characters"):
+    with pytest.raises(
+        ValueError, match="Sequence name contains invalid characters"
+    ):
         with _client.sequence_create(invalid_sequence_name, {}) as _:
             pass
 
@@ -128,7 +137,9 @@ def test_topic_invalid_char_in_name(_client: MosaicoClient, non_alphanum: str):
 
     # It is necessary to make the exception propagate until the SequenceWriter.__exit__
     # which triggers the report condition
-    with pytest.raises(ValueError, match="does not begin with a letter or a number"):
+    with pytest.raises(
+        ValueError, match="does not begin with a letter or a number"
+    ):
         with _client.sequence_create("new-sequence", {}) as sw:
             sw.topic_create(invalid_topic_name, {}, IMU)
     _client.sequence_delete("new-sequence")
@@ -137,7 +148,9 @@ def test_topic_invalid_char_in_name(_client: MosaicoClient, non_alphanum: str):
 
     # It is necessary to make the exception propagate until the SequenceWriter.__exit__
     # which triggers the report condition
-    with pytest.raises(ValueError, match="Topic name contains invalid characters"):
+    with pytest.raises(
+        ValueError, match="Topic name contains invalid characters"
+    ):
         with _client.sequence_create("new-sequence", {}) as sw:
             sw.topic_create(invalid_topic_name, {}, IMU)
     _client.sequence_delete("new-sequence")
@@ -146,7 +159,9 @@ def test_topic_invalid_char_in_name(_client: MosaicoClient, non_alphanum: str):
 
     # It is necessary to make the exception propagate until the SequenceWriter.__exit__
     # which triggers the report condition
-    with pytest.raises(ValueError, match="Topic name contains invalid characters"):
+    with pytest.raises(
+        ValueError, match="Topic name contains invalid characters"
+    ):
         with _client.sequence_create("new-sequence", {}) as sw:
             sw.topic_create(invalid_topic_name, {}, IMU)
     _client.sequence_delete("new-sequence")
@@ -248,7 +263,8 @@ def test_non_existing_topic_handler(
     assert seqhandler is not None
 
     with pytest.raises(
-        ValueError, match="Topic 'non-existing-topic-name' not available in sequence"
+        ValueError,
+        match="Topic 'non-existing-topic-name' not available in sequence",
     ):
         seqhandler.get_topic_handler("non-existing-topic-name")
 

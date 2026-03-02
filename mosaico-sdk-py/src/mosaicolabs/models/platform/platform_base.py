@@ -8,10 +8,11 @@ system and the internal Query API.
 """
 
 import datetime
-from typing import Any, Dict
+from typing import Any
 
-from pydantic import PrivateAttr
 import pydantic
+from pydantic import PrivateAttr
+
 from ..query.generation.api import _QueryProxyMixin
 
 
@@ -73,7 +74,7 @@ class PlatformBase(pydantic.BaseModel, _QueryProxyMixin):
         ```
     """
 
-    user_metadata: Dict[str, Any]
+    user_metadata: dict[str, Any]
     """
     Custom user-defined key-value pairs associated with the entity.
 

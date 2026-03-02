@@ -5,9 +5,8 @@ Provides utility functions for path manipulation, exception chaining,
 and Flight ticket parsing.
 """
 
-from pathlib import Path
 import string
-from typing import Optional
+from pathlib import Path
 
 # Set the unsupported name chars for sequence and topic names
 _SUPPORTED_SEQUENCE_NAME_CHARS = set(
@@ -18,7 +17,9 @@ _SUPPORTED_SEQUENCE_NAME_CHARS = set(
 _SUPPORTED_TOPIC_NAME_CHARS = _SUPPORTED_SEQUENCE_NAME_CHARS | {"/"}
 
 
-def _make_exception(msg: str, exc_msg: Optional[BaseException] = None) -> Exception:
+def _make_exception(
+    msg: str, exc_msg: BaseException | None = None
+) -> Exception:
     """
     Creates a new exception that chains an inner exception's message.
     Useful for adding context to low-level Flight errors.
@@ -54,10 +55,14 @@ def _validate_sequence_name(name: str):
         raise ValueError("Empty sequence name after '/' removal")
     # Check the first char is alphanumeric
     if not nbase[0].isalnum():
-        raise ValueError("Sequence name does not begin with a letter or a number.")
+        raise ValueError(
+            "Sequence name does not begin with a letter or a number."
+        )
     # Check the name does not contain unsupported chars
 
-    unsupported_chars = [ch for ch in nbase if ch not in _SUPPORTED_SEQUENCE_NAME_CHARS]
+    unsupported_chars = [
+        ch for ch in nbase if ch not in _SUPPORTED_SEQUENCE_NAME_CHARS
+    ]
     if unsupported_chars:
         raise ValueError(
             f"Sequence name contains invalid characters: {unsupported_chars}"
@@ -85,6 +90,10 @@ def _validate_topic_name(name: str):
         raise ValueError("Topic name does not begin with a letter or a number.")
 
     # Check the name does not contain unsupported chars
-    unsupported_chars = [ch for ch in nbase if ch not in _SUPPORTED_TOPIC_NAME_CHARS]
+    unsupported_chars = [
+        ch for ch in nbase if ch not in _SUPPORTED_TOPIC_NAME_CHARS
+    ]
     if unsupported_chars:
-        raise ValueError(f"Topic name contains invalid characters: {unsupported_chars}")
+        raise ValueError(
+            f"Topic name contains invalid characters: {unsupported_chars}"
+        )

@@ -2,40 +2,40 @@
 # 3. UNIT TESTS
 # ======================================================================
 
+import pytest
+
 from mosaicolabs.models.data import (
-    ForceTorque,
-    Pose,
-    Transform,
-    Acceleration,
-    MotionState,
-    Velocity,
     ROI,
-    String,
-    Integer8,
-    Integer16,
-    Integer32,
-    Integer64,
-    Unsigned8,
-    Unsigned16,
-    Unsigned32,
-    Unsigned64,
+    Acceleration,
     Boolean,
     Floating16,
     Floating32,
     Floating64,
+    ForceTorque,
+    Integer8,
+    Integer16,
+    Integer32,
+    Integer64,
     LargeString,
+    MotionState,
+    Pose,
+    String,
+    Transform,
+    Unsigned8,
+    Unsigned16,
+    Unsigned32,
+    Unsigned64,
+    Velocity,
 )
-
-from mosaicolabs.models.query.generation.mixins import (
-    _QueryableNumeric,
-    _QueryableString,
-    _QueryableBool,
-)
+from mosaicolabs.models.query import Query, QueryOntologyCatalog
 from mosaicolabs.models.query.expressions import (
     _QueryCatalogExpression,
 )
-from mosaicolabs.models.query import Query, QueryOntologyCatalog
-import pytest
+from mosaicolabs.models.query.generation.mixins import (
+    _QueryableBool,
+    _QueryableNumeric,
+    _QueryableString,
+)
 
 
 class TestQueryTransformAPI:
@@ -184,12 +184,16 @@ class TestQueryPoseAPI:
         assert issubclass(type(Pose.Q.position.x), _QueryableNumeric)
         assert issubclass(type(Pose.Q.position.y), _QueryableNumeric)
         assert issubclass(type(Pose.Q.position.z), _QueryableNumeric)
-        assert issubclass(type(Pose.Q.position.covariance_type), _QueryableNumeric)
+        assert issubclass(
+            type(Pose.Q.position.covariance_type), _QueryableNumeric
+        )
         assert issubclass(type(Pose.Q.orientation.x), _QueryableNumeric)
         assert issubclass(type(Pose.Q.orientation.y), _QueryableNumeric)
         assert issubclass(type(Pose.Q.orientation.z), _QueryableNumeric)
         assert issubclass(type(Pose.Q.orientation.w), _QueryableNumeric)
-        assert issubclass(type(Pose.Q.orientation.covariance_type), _QueryableNumeric)
+        assert issubclass(
+            type(Pose.Q.orientation.covariance_type), _QueryableNumeric
+        )
         assert issubclass(type(Pose.Q.sequence_id), _QueryableNumeric)
         assert issubclass(type(Pose.Q.timestamp_ns), _QueryableNumeric)
         assert issubclass(type(Pose.Q.frame_id), _QueryableString)
@@ -289,11 +293,15 @@ class TestQueryVelocityAPI:
         assert issubclass(type(Velocity.Q.linear.x), _QueryableNumeric)
         assert issubclass(type(Velocity.Q.linear.y), _QueryableNumeric)
         assert issubclass(type(Velocity.Q.linear.z), _QueryableNumeric)
-        assert issubclass(type(Velocity.Q.linear.covariance_type), _QueryableNumeric)
+        assert issubclass(
+            type(Velocity.Q.linear.covariance_type), _QueryableNumeric
+        )
         assert issubclass(type(Velocity.Q.angular.x), _QueryableNumeric)
         assert issubclass(type(Velocity.Q.angular.y), _QueryableNumeric)
         assert issubclass(type(Velocity.Q.angular.z), _QueryableNumeric)
-        assert issubclass(type(Velocity.Q.angular.covariance_type), _QueryableNumeric)
+        assert issubclass(
+            type(Velocity.Q.angular.covariance_type), _QueryableNumeric
+        )
         assert issubclass(type(Velocity.Q.sequence_id), _QueryableNumeric)
         assert issubclass(type(Velocity.Q.timestamp_ns), _QueryableNumeric)
         assert issubclass(type(Velocity.Q.frame_id), _QueryableString)
@@ -405,7 +413,9 @@ class TestQueryAccelerationAPI:
         assert issubclass(type(Acceleration.Q.sequence_id), _QueryableNumeric)
         assert issubclass(type(Acceleration.Q.timestamp_ns), _QueryableNumeric)
         assert issubclass(type(Acceleration.Q.frame_id), _QueryableString)
-        assert issubclass(type(Acceleration.Q.covariance_type), _QueryableNumeric)
+        assert issubclass(
+            type(Acceleration.Q.covariance_type), _QueryableNumeric
+        )
 
     def test_expression_generation_paths_and_operators(self):
         """
@@ -509,35 +519,66 @@ class TestQueryMotionStateAPI:
         """
         # --- Fields Accessibility Test ---
         # Local fields
-        assert issubclass(type(MotionState.Q.pose.position.x), _QueryableNumeric)
-        assert issubclass(type(MotionState.Q.pose.position.y), _QueryableNumeric)
-        assert issubclass(type(MotionState.Q.pose.position.z), _QueryableNumeric)
-        assert issubclass(type(MotionState.Q.pose.orientation.x), _QueryableNumeric)
-        assert issubclass(type(MotionState.Q.pose.orientation.y), _QueryableNumeric)
-        assert issubclass(type(MotionState.Q.pose.orientation.z), _QueryableNumeric)
-        assert issubclass(type(MotionState.Q.pose.orientation.w), _QueryableNumeric)
+        assert issubclass(
+            type(MotionState.Q.pose.position.x), _QueryableNumeric
+        )
+        assert issubclass(
+            type(MotionState.Q.pose.position.y), _QueryableNumeric
+        )
+        assert issubclass(
+            type(MotionState.Q.pose.position.z), _QueryableNumeric
+        )
+        assert issubclass(
+            type(MotionState.Q.pose.orientation.x), _QueryableNumeric
+        )
+        assert issubclass(
+            type(MotionState.Q.pose.orientation.y), _QueryableNumeric
+        )
+        assert issubclass(
+            type(MotionState.Q.pose.orientation.z), _QueryableNumeric
+        )
+        assert issubclass(
+            type(MotionState.Q.pose.orientation.w), _QueryableNumeric
+        )
         assert issubclass(
             type(MotionState.Q.pose.position.covariance_type), _QueryableNumeric
         )
         assert issubclass(
-            type(MotionState.Q.pose.orientation.covariance_type), _QueryableNumeric
-        )
-        assert issubclass(type(MotionState.Q.velocity.linear.x), _QueryableNumeric)
-        assert issubclass(type(MotionState.Q.velocity.linear.y), _QueryableNumeric)
-        assert issubclass(type(MotionState.Q.velocity.linear.z), _QueryableNumeric)
-        assert issubclass(type(MotionState.Q.velocity.angular.x), _QueryableNumeric)
-        assert issubclass(type(MotionState.Q.velocity.angular.y), _QueryableNumeric)
-        assert issubclass(type(MotionState.Q.velocity.angular.z), _QueryableNumeric)
-        assert issubclass(
-            type(MotionState.Q.velocity.linear.covariance_type), _QueryableNumeric
+            type(MotionState.Q.pose.orientation.covariance_type),
+            _QueryableNumeric,
         )
         assert issubclass(
-            type(MotionState.Q.velocity.angular.covariance_type), _QueryableNumeric
+            type(MotionState.Q.velocity.linear.x), _QueryableNumeric
+        )
+        assert issubclass(
+            type(MotionState.Q.velocity.linear.y), _QueryableNumeric
+        )
+        assert issubclass(
+            type(MotionState.Q.velocity.linear.z), _QueryableNumeric
+        )
+        assert issubclass(
+            type(MotionState.Q.velocity.angular.x), _QueryableNumeric
+        )
+        assert issubclass(
+            type(MotionState.Q.velocity.angular.y), _QueryableNumeric
+        )
+        assert issubclass(
+            type(MotionState.Q.velocity.angular.z), _QueryableNumeric
+        )
+        assert issubclass(
+            type(MotionState.Q.velocity.linear.covariance_type),
+            _QueryableNumeric,
+        )
+        assert issubclass(
+            type(MotionState.Q.velocity.angular.covariance_type),
+            _QueryableNumeric,
         )
         assert issubclass(type(MotionState.Q.sequence_id), _QueryableNumeric)
         assert issubclass(type(MotionState.Q.timestamp_ns), _QueryableNumeric)
         assert issubclass(type(MotionState.Q.frame_id), _QueryableString)
-        assert issubclass(type(MotionState.Q.covariance_type), _QueryableNumeric)
+        assert issubclass(
+            type(MotionState.Q.covariance_type), _QueryableNumeric
+        )
         assert issubclass(type(MotionState.Q.target_frame_id), _QueryableString)
 
     def test_expression_generation_paths_and_operators(self):
@@ -634,15 +675,21 @@ class TestQueryForceTorqueAPI:
         assert issubclass(type(ForceTorque.Q.force.x), _QueryableNumeric)
         assert issubclass(type(ForceTorque.Q.force.y), _QueryableNumeric)
         assert issubclass(type(ForceTorque.Q.force.z), _QueryableNumeric)
-        assert issubclass(type(ForceTorque.Q.force.covariance_type), _QueryableNumeric)
+        assert issubclass(
+            type(ForceTorque.Q.force.covariance_type), _QueryableNumeric
+        )
         assert issubclass(type(ForceTorque.Q.torque.x), _QueryableNumeric)
         assert issubclass(type(ForceTorque.Q.torque.y), _QueryableNumeric)
         assert issubclass(type(ForceTorque.Q.torque.z), _QueryableNumeric)
-        assert issubclass(type(ForceTorque.Q.torque.covariance_type), _QueryableNumeric)
+        assert issubclass(
+            type(ForceTorque.Q.torque.covariance_type), _QueryableNumeric
+        )
         assert issubclass(type(ForceTorque.Q.sequence_id), _QueryableNumeric)
         assert issubclass(type(ForceTorque.Q.timestamp_ns), _QueryableNumeric)
         assert issubclass(type(ForceTorque.Q.frame_id), _QueryableString)
-        assert issubclass(type(ForceTorque.Q.covariance_type), _QueryableNumeric)
+        assert issubclass(
+            type(ForceTorque.Q.covariance_type), _QueryableNumeric
+        )
 
     def test_expression_generation_paths_and_operators(self):
         """

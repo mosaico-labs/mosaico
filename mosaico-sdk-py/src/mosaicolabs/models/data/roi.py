@@ -1,5 +1,4 @@
 import pyarrow as pa
-from typing import Optional
 
 from ..serializable import Serializable
 from .geometry import Vector2d
@@ -65,7 +64,9 @@ class ROI(Serializable):
                 "offset",
                 Vector2d.__msco_pyarrow_struct__,
                 nullable=False,
-                metadata={"description": "(Leftmost, Rightmost) pixels of the ROI."},
+                metadata={
+                    "description": "(Leftmost, Rightmost) pixels of the ROI."
+                },
             ),
             pa.field(
                 "height",
@@ -222,7 +223,7 @@ class ROI(Serializable):
         ```
     """
 
-    do_rectify: Optional[bool] = None
+    do_rectify: bool | None = None
     """
     Flag indicating if the ROI requires rectification.
 

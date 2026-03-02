@@ -1,12 +1,14 @@
+import pytest
+
 from mosaicolabs.comm import MosaicoClient
-from mosaicolabs.types import Time
 from mosaicolabs.models.platform import Sequence
 from mosaicolabs.models.query import QuerySequence
-import pytest
+from mosaicolabs.types import Time
 from testing.integration.config import (
     UPLOADED_SEQUENCE_NAME,
 )
-from .helpers import topic_to_metadata_dict, _validate_returned_topic_name
+
+from .helpers import _validate_returned_topic_name, topic_to_metadata_dict
 
 
 def test_query_sequence_by_name(
@@ -14,7 +16,9 @@ def test_query_sequence_by_name(
     _inject_sequence_data_stream,  # Ensure the data are available on the data platform
 ):
     # Trivial: query by topic name
-    query_resp = _client.query(QuerySequence().with_name(UPLOADED_SEQUENCE_NAME))
+    query_resp = _client.query(
+        QuerySequence().with_name(UPLOADED_SEQUENCE_NAME)
+    )
     # We do expect a successful query
     assert query_resp is not None and not query_resp.is_empty()
     # One (1) sequence corresponds to this query
@@ -25,7 +29,10 @@ def test_query_sequence_by_name(
     assert len(query_resp[0].topics) == len(expected_topic_names)
     expected_topic_names = [topic for topic in expected_topic_names]
     # all the expected topics, and only them
-    [_validate_returned_topic_name(topic.name) for topic in query_resp[0].topics]
+    [
+        _validate_returned_topic_name(topic.name)
+        for topic in query_resp[0].topics
+    ]
     assert all([t.name in expected_topic_names for t in query_resp[0].topics])
 
     # Query by partial name (operator should be a match)
@@ -44,7 +51,10 @@ def test_query_sequence_by_name(
     expected_topic_names = [topic for topic in expected_topic_names]
 
     # all the expected topics, and only them
-    [_validate_returned_topic_name(topic.name) for topic in query_resp[0].topics]
+    [
+        _validate_returned_topic_name(topic.name)
+        for topic in query_resp[0].topics
+    ]
     assert all([t.name in expected_topic_names for t in query_resp[0].topics])
 
     # free resources
@@ -74,7 +84,10 @@ def test_query_sequence_by_creation_timestamp(
     expected_topic_names = [topic for topic in expected_topic_names]
 
     # all the expected topics, and only them
-    [_validate_returned_topic_name(topic.name) for topic in query_resp[0].topics]
+    [
+        _validate_returned_topic_name(topic.name)
+        for topic in query_resp[0].topics
+    ]
     assert all([t.name in expected_topic_names for t in query_resp[0].topics])
 
     # free resources
@@ -103,14 +116,19 @@ def test_query_sequence_metadata(
     assert len(query_resp[0].topics) == len(expected_topic_names)
     expected_topic_names = [topic for topic in expected_topic_names]
     # all the expected topics, and only them
-    [_validate_returned_topic_name(topic.name) for topic in query_resp[0].topics]
+    [
+        _validate_returned_topic_name(topic.name)
+        for topic in query_resp[0].topics
+    ]
     assert all([t.name in expected_topic_names for t in query_resp[0].topics])
 
     # Test with multiple conditions
     query_resp = _client.query(
         QuerySequence()
         .with_expression(Sequence.Q.user_metadata["status"].eq("processed"))
-        .with_expression(Sequence.Q.user_metadata["environment.weather"].eq("sunny"))
+        .with_expression(
+            Sequence.Q.user_metadata["environment.weather"].eq("sunny")
+        )
     )
     # We do expect a successful query
     assert query_resp is not None and not query_resp.is_empty()
@@ -121,16 +139,23 @@ def test_query_sequence_metadata(
     assert len(query_resp[0].topics) == len(expected_topic_names)
     expected_topic_names = [topic for topic in expected_topic_names]
     # all the expected topics, and only them
-    [_validate_returned_topic_name(topic.name) for topic in query_resp[0].topics]
+    [
+        _validate_returned_topic_name(topic.name)
+        for topic in query_resp[0].topics
+    ]
     assert all([t.name in expected_topic_names for t in query_resp[0].topics])
 
     # Test with nested-fields condition
     query_resp = _client.query(
         QuerySequence()
         .with_expression(Sequence.Q.user_metadata["location.city"].eq("Milan"))
-        .with_expression(Sequence.Q.user_metadata["location.facility"].eq("Downtown"))
         .with_expression(
-            Sequence.Q.user_metadata["vehicle.software_stack.planning"].eq("plan-4.1.7")
+            Sequence.Q.user_metadata["location.facility"].eq("Downtown")
+        )
+        .with_expression(
+            Sequence.Q.user_metadata["vehicle.software_stack.planning"].eq(
+                "plan-4.1.7"
+            )
         )
     )
     # We do expect a successful query
@@ -143,7 +168,10 @@ def test_query_sequence_metadata(
     assert len(query_resp[0].topics) == len(expected_topic_names)
     expected_topic_names = [topic for topic in expected_topic_names]
     # all the expected topics, and only them
-    [_validate_returned_topic_name(topic.name) for topic in query_resp[0].topics]
+    [
+        _validate_returned_topic_name(topic.name)
+        for topic in query_resp[0].topics
+    ]
     assert all([t.name in expected_topic_names for t in query_resp[0].topics])
 
     # free resources
@@ -177,7 +205,9 @@ def test_query_sequence_from_response(
     # The other criteria have been tested above...
 
     # Try a trivial query with a further expression
-    query_resp = _client.query(qsequence.with_created_timestamp(time_end=Time.now()))
+    query_resp = _client.query(
+        qsequence.with_created_timestamp(time_end=Time.now())
+    )
     # One (1) sequence corresponds to this query
     assert query_resp is not None and not query_resp.is_empty()
     assert len(query_resp) == 1
@@ -207,12 +237,14 @@ def test_query_sequence_from_response_fail(
     qsequence = query_resp.to_query_sequence()
     # This must fail: field 'name' is already queried
     with pytest.raises(
-        NotImplementedError, match="Query builder already contains the key 'locator'"
+        NotImplementedError,
+        match="Query builder already contains the key 'locator'",
     ):
         query_resp = _client.query(qsequence.with_name(""))
     # This must fail: field 'name' is already queried
     with pytest.raises(
-        NotImplementedError, match="Query builder already contains the key 'locator'"
+        NotImplementedError,
+        match="Query builder already contains the key 'locator'",
     ):
         query_resp = _client.query(qsequence.with_name_match(""))
 

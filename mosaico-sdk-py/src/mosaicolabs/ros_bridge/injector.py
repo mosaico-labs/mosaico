@@ -26,7 +26,7 @@ import json
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple, Type
+
 from rich.live import Live
 from rich.progress import (
     BarColumn,
@@ -44,9 +44,9 @@ from mosaicolabs.enum import OnErrorPolicy, SequenceStatus
 from mosaicolabs.handlers import SequenceWriter
 from mosaicolabs.logging_config import get_logger, setup_sdk_logging
 
-from .ros_bridge import ROSAdapterBase, ROSBridge
 from .loader import LoaderErrorPolicy, ROSLoader
 from .registry import ROSTypeRegistry
+from .ros_bridge import ROSAdapterBase, ROSBridge
 from .ros_message import ROSMessage
 
 # Set the hierarchical logger
@@ -100,7 +100,7 @@ class ROSInjectionConfig:
     host: str = "localhost"
     port: int = 6726
 
-    ros_distro: Optional[Stores] = None
+    ros_distro: Stores | None = None
     """
     The specific ROS distribution to use for message parsing (e.g., Stores.ROS2_HUMBLE). If None, defaults to Empty/Auto.
 
@@ -110,7 +110,7 @@ class ROSInjectionConfig:
     on_error: OnErrorPolicy = OnErrorPolicy.Delete
     """the `SequenceWriter` `on_error` behavior when a sequence write fails (Report vs Delete)"""
 
-    custom_msgs: Optional[List[Tuple[str, Path, Optional[Stores]]]] = None
+    custom_msgs: list[tuple[str, Path, Stores | None]] | None = None
     """
     A list of tuples (package_name, path, store) to register custom .msg definitions before loading.
 
@@ -121,7 +121,7 @@ class ROSInjectionConfig:
     See [`rosbags.typesys.Stores`](https://ternaris.gitlab.io/rosbags/topics/typesys.html#type-stores).
     """
 
-    topics: Optional[List[str]] = None
+    topics: list[str] | None = None
     """A list of specific topics to filter (supports glob patterns). If None, all compatible topics are loaded."""
 
     log_level: str = "INFO"
@@ -166,8 +166,8 @@ class ProgressManager:
             TimeElapsedColumn(),
             expand=True,
         )
-        self.tasks: Dict[str, TaskID] = {}
-        self.global_task: Optional[TaskID] = None
+        self.tasks: dict[str, TaskID] = {}
+        self.global_task: TaskID | None = None
 
     def setup(self):
         """
@@ -177,7 +177,9 @@ class ProgressManager:
         # Create individual progress bars for each topic
         for topic in self.loader.topics:
             count = self.loader.msg_count(topic)
-            self.tasks[topic] = self.progress.add_task("", total=count, name=topic)
+            self.tasks[topic] = self.progress.add_task(
+                "", total=count, name=topic
+            )
 
         # Create a master progress bar for the aggregate total
         total_msgs = sum(self.loader.msg_count(t) for t in self.loader.topics)
@@ -265,7 +267,7 @@ class RosbagInjector:
         )
 
         # Set of topics to skip (e.g., no adapter found), allowing O(1) fast-fail in the loop.
-        self._ignored_topics: Set[str] = set()
+        self._ignored_topics: set[str] = set()
 
     def _register_custom_types(self):
         """
@@ -285,9 +287,11 @@ class RosbagInjector:
                 )
                 logger.debug(f"Registered package '{package}' from '{path}'")
             except Exception as e:
-                logger.error(f"Failed to register custom msgs at '{path}': '{e}'")
+                logger.error(
+                    f"Failed to register custom msgs at '{path}': '{e}'"
+                )
 
-    def _get_adapter(self, msg_type: str) -> Optional[Type[ROSAdapterBase]]:
+    def _get_adapter(self, msg_type: str) -> type[ROSAdapterBase] | None:
         """
         Memoized lookup for Mosaico ROS Adapters.
 
@@ -315,7 +319,9 @@ class RosbagInjector:
         # 1. Prepare Registry
         self._register_custom_types()
 
-        logger.info(f"Connecting to Mosaico at '{self.cfg.host}:{self.cfg.port}'...")
+        logger.info(
+            f"Connecting to Mosaico at '{self.cfg.host}:{self.cfg.port}'..."
+        )
 
         try:
             # Context: Mosaico Client (Network Connection)
@@ -348,7 +354,9 @@ class RosbagInjector:
                         # this loop will print cleanly ABOVE the progress bars.
                         with Live(ui.progress, console=self.console):
                             for ros_msg, exc in ros_loader:
-                                self._process_message(ros_msg, exc, seq_writer, ui)
+                                self._process_message(
+                                    ros_msg, exc, seq_writer, ui
+                                )
 
                 if seq_writer.status == SequenceStatus.Error:
                     logger.error(
@@ -386,7 +394,9 @@ class RosbagInjector:
         and the percentage of disk space saved.
         """
         if remote_size == 0:
-            logger.warning("No data was written; cannot calculate compression ratio.")
+            logger.warning(
+                "No data was written; cannot calculate compression ratio."
+            )
             return
 
         # Calculate ratio: (Original / Remote)
@@ -417,7 +427,7 @@ class RosbagInjector:
     def _process_message(
         self,
         ros_msg: ROSMessage,
-        exc: Optional[Exception],
+        exc: Exception | None,
         seq_writer: SequenceWriter,
         ui: ProgressManager,
     ):
@@ -485,7 +495,7 @@ class RosbagInjector:
 # --- CLI Entry Point ---
 
 
-def _parse_metadata_arg(metadata_input: Optional[str]) -> dict:
+def _parse_metadata_arg(metadata_input: str | None) -> dict:
     """
     Parses the CLI metadata argument.
 
@@ -511,9 +521,11 @@ def _parse_metadata_arg(metadata_input: Optional[str]) -> dict:
     file_path = Path(metadata_input)
     if file_path.is_file():
         try:
-            with open(file_path, "r", encoding="utf-8") as f:
+            with open(file_path, encoding="utf-8") as f:
                 data = json.load(f)
-            logger.info(f"Metadata loaded successfully from file: '{file_path}'")
+            logger.info(
+                f"Metadata loaded successfully from file: '{file_path}'"
+            )
             return data
         except json.JSONDecodeError as e:
             logger.error(
@@ -536,16 +548,27 @@ def ros_injector():
     Console script entry point.
     Parses arguments, sets up configuration, and initiates the injector.
     """
-    parser = argparse.ArgumentParser(description="Inject ROS Bag data into Mosaico.")
+    parser = argparse.ArgumentParser(
+        description="Inject ROS Bag data into Mosaico."
+    )
 
     # Required Arguments
-    parser.add_argument("bag_path", type=Path, help="Path to .mcap or .db3 file")
-    parser.add_argument("--name", "-n", required=True, help="Target Sequence Name")
+    parser.add_argument(
+        "bag_path", type=Path, help="Path to .mcap or .db3 file"
+    )
+    parser.add_argument(
+        "--name", "-n", required=True, help="Target Sequence Name"
+    )
 
     # Connection Arguments
-    parser.add_argument("--host", default="localhost", help="Mosaico Server Host")
     parser.add_argument(
-        "--port", type=int, default=6726, help="Mosaico Server Port (Default: 6726)"
+        "--host", default="localhost", help="Mosaico Server Host"
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=6726,
+        help="Mosaico Server Port (Default: 6726)",
     )
 
     # Filter Arguments

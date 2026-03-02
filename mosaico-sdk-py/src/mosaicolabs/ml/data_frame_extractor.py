@@ -1,4 +1,4 @@
-from typing import Dict, Generator, List, Optional
+from collections.abc import Generator
 
 import pandas as pd
 import pyarrow as pa
@@ -39,10 +39,10 @@ class DataFrameExtractor:
 
     def to_pandas_chunks(
         self,
-        topics: Optional[List[str]] = None,
+        topics: list[str] | None = None,
         window_sec: float = 5.0,
-        timestamp_ns_start: Optional[int] = None,
-        timestamp_ns_end: Optional[int] = None,
+        timestamp_ns_start: int | None = None,
+        timestamp_ns_end: int | None = None,
     ) -> Generator[pd.DataFrame, None, None]:
         """
         Generator that yields time-windowed pandas DataFrames from the sequence.
@@ -152,7 +152,7 @@ class DataFrameExtractor:
             )
 
         # Carry-over buffer to handle batches spanning across two windows
-        carry_over: Dict[str, pd.DataFrame] = {
+        carry_over: dict[str, pd.DataFrame] = {
             t: pd.DataFrame() for t in topic_names
         }
 
@@ -220,7 +220,7 @@ class DataFrameExtractor:
         self,
         batch: pa.RecordBatch,
         topic_name: str,
-        ontology_tag: Optional[str],
+        ontology_tag: str | None,
     ) -> pd.DataFrame:
         """
         Converts an Arrow RecordBatch into a flattened and namespace-prefixed DataFrame.
@@ -254,7 +254,7 @@ class DataFrameExtractor:
         ]
         return df
 
-    def _match_columns(self, columns: pd.Index, fields: List[str]) -> List[str]:
+    def _match_columns(self, columns: pd.Index, fields: list[str]) -> list[str]:
         """
         Filters and expands the requested fields against the available DataFrame columns.
 

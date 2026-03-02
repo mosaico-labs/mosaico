@@ -1,14 +1,16 @@
-from mosaicolabs.comm import MosaicoClient
 import pytest
+
+from mosaicolabs.comm import MosaicoClient
 from testing.integration.config import (
+    QUERY_SEQUENCES_MOCKUP,
     UPLOADED_SEQUENCE_METADATA,
     UPLOADED_SEQUENCE_NAME,
-    QUERY_SEQUENCES_MOCKUP,
 )
+
 from .helpers import (
-    topic_to_metadata_dict,
-    topic_list,
     _validate_returned_topic_name,
+    topic_list,
+    topic_to_metadata_dict,
 )
 
 
@@ -95,11 +97,15 @@ def test_sequence_handler_slash_in_name(
     assert seqhandler is not None
     _client.clear_sequence_handlers_cache()
 
-    seqhandler = _client.sequence_handler(sequence_name=("/" + UPLOADED_SEQUENCE_NAME))
+    seqhandler = _client.sequence_handler(
+        sequence_name=("/" + UPLOADED_SEQUENCE_NAME)
+    )
     assert seqhandler is not None
     _client.clear_sequence_handlers_cache()
 
-    seqhandler = _client.sequence_handler(sequence_name=(UPLOADED_SEQUENCE_NAME + "/"))
+    seqhandler = _client.sequence_handler(
+        sequence_name=(UPLOADED_SEQUENCE_NAME + "/")
+    )
     assert seqhandler is not None
     _client.clear_sequence_handlers_cache()
 

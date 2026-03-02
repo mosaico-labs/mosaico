@@ -1,19 +1,21 @@
 import bisect
+from collections.abc import Iterable
 from math import ceil
-from mosaicolabs.handlers.sequence_handler import SequenceHandler
-from typing import List, Iterable, Optional
+
+import pytest
 
 from mosaicolabs.comm import MosaicoClient
+from mosaicolabs.handlers.sequence_handler import SequenceHandler
 from mosaicolabs.ml import DataFrameExtractor
 from mosaicolabs.models import Message
 from mosaicolabs.models.sensors.imu import IMU
-import pytest
 from testing.integration.config import (
-    UPLOADED_SEQUENCE_NAME,
-    UPLOADED_IMU_FRONT_TOPIC,
-    UPLOADED_IMU_CAMERA_TOPIC,
     UPLOADED_GPS_TOPIC,
+    UPLOADED_IMU_CAMERA_TOPIC,
+    UPLOADED_IMU_FRONT_TOPIC,
+    UPLOADED_SEQUENCE_NAME,
 )
+
 from .helpers import SequenceDataStream, topic_list
 
 
@@ -58,8 +60,8 @@ def _get_topic_timestamps(
 
 def _assert_chunk_topic_and_tag_prefix(
     chunk_columns: Iterable[str],
-    topics: List[str],
-    tags: List[str],
+    topics: list[str],
+    tags: list[str],
 ):
     """
     Assert that:
@@ -70,7 +72,8 @@ def _assert_chunk_topic_and_tag_prefix(
     non_ts_cols = [c for c in chunk_columns if c != "timestamp_ns"]
 
     prefixes = {
-        f"{topic}.{tags[i]}" if tags else f"{topic}" for i, topic in enumerate(topics)
+        f"{topic}.{tags[i]}" if tags else f"{topic}"
+        for i, topic in enumerate(topics)
     }
     # Check each column starts with one of the topics
     for col in non_ts_cols:
@@ -82,7 +85,8 @@ def _assert_chunk_topic_and_tag_prefix(
     # Check that all topic prefixes are represented if needed
     prefixes_found = [col.split(".") for col in non_ts_cols]
     prefixes_found = {
-        f"{pref[0]}.{pref[1]}" if tags else f"{pref[0]}" for pref in prefixes_found
+        f"{pref[0]}.{pref[1]}" if tags else f"{pref[0]}"
+        for pref in prefixes_found
     }
     unexpected_prefixes = prefixes_found - prefixes
     assert not unexpected_prefixes, (
@@ -92,10 +96,10 @@ def _assert_chunk_topic_and_tag_prefix(
 
 def _exec_test_chunks(
     data_stream: SequenceDataStream,
-    topics: List[str],
-    tags: List[str],
-    timestamp_ns_start: Optional[int],
-    timestamp_ns_end: Optional[int],
+    topics: list[str],
+    tags: list[str],
+    timestamp_ns_start: int | None,
+    timestamp_ns_end: int | None,
     seqhandler: SequenceHandler,
 ):
     min_time = (
@@ -674,9 +678,13 @@ def test_multi_selection_message(
     ):
         for _, row in df.iterrows():
             # Check what data contains this row
-            if not pd.isna(row[f"{UPLOADED_IMU_FRONT_TOPIC}.{'imu'}.acceleration.x"]):
+            if not pd.isna(
+                row[f"{UPLOADED_IMU_FRONT_TOPIC}.{'imu'}.acceleration.x"]
+            ):
                 # It is an imu message
-                imu_msg = Message.from_dataframe_row(row, UPLOADED_IMU_FRONT_TOPIC)
+                imu_msg = Message.from_dataframe_row(
+                    row, UPLOADED_IMU_FRONT_TOPIC
+                )
                 assert imu_msg is not None
                 assert imu_msg.ontology_type() is IMU
                 gps_msg = Message.from_dataframe_row(row, UPLOADED_GPS_TOPIC)

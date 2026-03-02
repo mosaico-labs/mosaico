@@ -6,20 +6,22 @@ It abstracts the PyArrow Flight `DoPut` stream, handling batching,
 serialization, and connection management.
 """
 
-from concurrent.futures import ThreadPoolExecutor
 import json
-from typing import Any, Type, Optional
-from mosaicolabs.models.message import Message
+from concurrent.futures import ThreadPoolExecutor
+from typing import Any
+
 import pyarrow.flight as fl
 
 from mosaicolabs.models import Serializable
-from .internal.topic_write_state import _TopicWriteState
-from .helpers import _make_exception
-from ..helpers import pack_topic_resource_name
+from mosaicolabs.models.message import Message
+
 from ..comm.do_action import _do_action
 from ..enum import FlightAction, OnErrorPolicy
-from .config import WriterConfig
+from ..helpers import pack_topic_resource_name
 from ..logging_config import get_logger
+from .config import WriterConfig
+from .helpers import _make_exception
+from .internal.topic_write_state import _TopicWriteState
 
 # Set the hierarchical logger
 logger = get_logger(__name__)
@@ -125,8 +127,8 @@ class TopicWriter:
         topic_name: str,
         topic_uuid: str,
         client: fl.FlightClient,
-        executor: Optional[ThreadPoolExecutor],
-        ontology_type: Type[Serializable],
+        executor: ThreadPoolExecutor | None,
+        ontology_type: type[Serializable],
         config: WriterConfig,
     ) -> "TopicWriter":
         """
@@ -174,7 +176,9 @@ class TopicWriter:
 
         # Open Flight Stream (DoPut)
         try:
-            writer, _ = client.do_put(descriptor, Message._get_schema(ontology_type))
+            writer, _ = client.do_put(
+                descriptor, Message._get_schema(ontology_type)
+            )
         except Exception as e:
             raise _make_exception(
                 f"Failed to open Flight stream for topic '{topic_name}'", e
@@ -207,9 +211,9 @@ class TopicWriter:
 
     def __exit__(
         self,
-        exc_type: Optional[Type[BaseException]],
-        exc_val: Optional[BaseException],
-        exc_tb: Optional[Any],
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: Any | None,
     ) -> None:
         """
         Context manager exit.
@@ -261,10 +265,12 @@ class TopicWriter:
             if hasattr(self, "_wrstate") and self._wrstate:
                 self._wrstate.close(with_error=True)
 
-        raise _make_exception(f"Topic '{self._name}' operation failed: '{msg}'", err)
+        raise _make_exception(
+            f"Topic '{self._name}' operation failed: '{msg}'", err
+        )
 
     @classmethod
-    def _validate_ontology_type(cls, ontology_type: Type[Serializable]) -> None:
+    def _validate_ontology_type(cls, ontology_type: type[Serializable]) -> None:
         if not issubclass(ontology_type, Serializable):
             raise ValueError(
                 f"Ontology class '{ontology_type.__name__}' is not serializable."
@@ -286,7 +292,9 @@ class TopicWriter:
                 },
                 expected_type=None,
             )
-            logger.warning(f"TopicWriter '{self._name}' reported error: '{err}'.")
+            logger.warning(
+                f"TopicWriter '{self._name}' reported error: '{err}'."
+            )
         except Exception as e:
             logger.error(
                 _make_exception(
@@ -374,7 +382,7 @@ class TopicWriter:
         """
         return self._wrstate.writer is not None
 
-    def _finalize(self, error: Optional[BaseException] = None) -> None:
+    def _finalize(self, error: BaseException | None = None) -> None:
         """
         Flushes all remaining buffered data and closes the remote Flight stream.
 

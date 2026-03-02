@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import Optional
 
 import pytest
 
@@ -67,7 +66,7 @@ def port(request):
 
 
 @pytest.fixture(scope="session")
-def tls_cert_path(request) -> Optional[str]:
+def tls_cert_path(request) -> str | None:
     if request.config.getoption("--tls"):
         return str(
             (

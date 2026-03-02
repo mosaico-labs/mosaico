@@ -1,26 +1,26 @@
-from typing import Any, List, Optional, Tuple, Type
-from mosaicolabs.models.data import Point3d, Vector2d, ROI
+from typing import Any
+
 from mosaicolabs.models import Message
+from mosaicolabs.models.data import ROI, Point3d, Vector2d
 from mosaicolabs.models.sensors import (
-    CameraInfo,
     GPS,
-    GPSStatus,
-    NMEASentence,
-    CompressedImage,
-    Image,
     IMU,
+    CameraInfo,
+    CompressedImage,
+    GPSStatus,
+    Image,
+    NMEASentence,
     RobotJoint,
 )
 
+from ..adapter_base import ROSAdapterBase
+from ..data_ontology import BatteryState
+from ..ros_bridge import register_adapter
+from ..ros_message import ROSMessage
 from .geometry_msgs import (
     QuaternionAdapter,
     Vector3Adapter,
 )
-from ..data_ontology import BatteryState
-from ..ros_message import ROSMessage
-from ..adapter_base import ROSAdapterBase
-from ..ros_bridge import register_adapter
-
 from .helpers import _validate_msgdata
 
 
@@ -64,9 +64,9 @@ class CameraInfoAdapter(ROSAdapterBase[CameraInfo]):
         ```
     """
 
-    ros_msgtype: str | Tuple[str, ...] = "sensor_msgs/msg/CameraInfo"
+    ros_msgtype: str | tuple[str, ...] = "sensor_msgs/msg/CameraInfo"
 
-    __mosaico_ontology_type__: Type[CameraInfo] = CameraInfo
+    __mosaico_ontology_type__: type[CameraInfo] = CameraInfo
     _REQUIRED_KEYS = (
         "height",
         "width",
@@ -156,7 +156,7 @@ class CameraInfoAdapter(ROSAdapterBase[CameraInfo]):
         )
 
     @classmethod
-    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
+    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> dict | None:
         """
         Extract the ROS message specific schema metadata, if any.
         """
@@ -188,9 +188,9 @@ class NavSatStatusAdapter(ROSAdapterBase[GPSStatus]):
         ```
     """
 
-    ros_msgtype: str | Tuple[str, ...] = "sensor_msgs/msg/NavSatFix"
+    ros_msgtype: str | tuple[str, ...] = "sensor_msgs/msg/NavSatFix"
 
-    __mosaico_ontology_type__: Type[GPSStatus] = GPSStatus
+    __mosaico_ontology_type__: type[GPSStatus] = GPSStatus
     _REQUIRED_KEYS = ("status", "service")
     _SCHEMA_METADATA_KEYS_PREFIX = ("STATUS_", "SERVICE_")
 
@@ -236,7 +236,7 @@ class NavSatStatusAdapter(ROSAdapterBase[GPSStatus]):
         return GPSStatus(status=ros_data["status"], service=ros_data["service"])
 
     @classmethod
-    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
+    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> dict | None:
         """
         Extract the ROS message specific schema metadata, if any.
         """
@@ -285,9 +285,9 @@ class GPSAdapter(ROSAdapterBase[GPS]):
         ```
     """
 
-    ros_msgtype: str | Tuple[str, ...] = "sensor_msgs/msg/NavSatFix"
+    ros_msgtype: str | tuple[str, ...] = "sensor_msgs/msg/NavSatFix"
 
-    __mosaico_ontology_type__: Type[GPS] = GPS
+    __mosaico_ontology_type__: type[GPS] = GPS
     _REQUIRED_KEYS = ("latitude", "longitude", "altitude", "status")
     _SCHEMA_METADATA_KEYS_PREFIX = ("COVARIANCE_TYPE_",)
 
@@ -348,7 +348,7 @@ class GPSAdapter(ROSAdapterBase[GPS]):
         )
 
     @classmethod
-    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
+    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> dict | None:
         """
         Extract the ROS message specific schema metadata, if any.
         """
@@ -364,7 +364,9 @@ class GPSAdapter(ROSAdapterBase[GPS]):
 
         status = ros_data.get("status")
         if status:
-            schema_mdata.update({"status": NavSatStatusAdapter.schema_metadata(status)})
+            schema_mdata.update(
+                {"status": NavSatStatusAdapter.schema_metadata(status)}
+            )
 
         return schema_mdata if schema_mdata else None
 
@@ -400,14 +402,14 @@ class IMUAdapter(ROSAdapterBase[IMU]):
         ```
     """
 
-    ros_msgtype: str | Tuple[str, ...] = "sensor_msgs/msg/Imu"
+    ros_msgtype: str | tuple[str, ...] = "sensor_msgs/msg/Imu"
 
-    __mosaico_ontology_type__: Type[IMU] = IMU
+    __mosaico_ontology_type__: type[IMU] = IMU
     # These are the fields required by the data platform. The remaining data can be None
     _REQUIRED_KEYS = ("linear_acceleration", "angular_velocity")
 
     @staticmethod
-    def _is_valid_covariance(covariance_list: Optional[List[float]]) -> bool:
+    def _is_valid_covariance(covariance_list: list[float] | None) -> bool:
         """Checks if a 9-element ROS covariance list is not the 'all zeros' sentinel."""
         # ROS often uses an all-zero matrix (or a matrix with a special marker)
         # to indicate 'no covariance provided'.
@@ -417,7 +419,7 @@ class IMUAdapter(ROSAdapterBase[IMU]):
         return any(c != 0.0 for c in covariance_list)
 
     @staticmethod
-    def _is_data_available(covariance_list: Optional[List[float]]) -> bool:
+    def _is_data_available(covariance_list: list[float] | None) -> bool:
         """Checks if an element is provided by the message, e.g. an orientation data is present.
         this is made by checking if the element 0 of the 9-element ROS covariance list equals -1."""
         # ROS often uses tp set covariance_list[0]=-1 to tell if a data is provided in the message
@@ -478,19 +480,25 @@ class IMUAdapter(ROSAdapterBase[IMU]):
         orientation = None
         if cls._is_data_available(ros_data.get("orientation_covariance")):
             ori_dict = ros_data.get("orientation")
-            orientation = QuaternionAdapter.from_dict(ori_dict) if ori_dict else None
+            orientation = (
+                QuaternionAdapter.from_dict(ori_dict) if ori_dict else None
+            )
         if orientation and cls._is_valid_covariance(
             ros_data.get("orientation_covariance")
         ):
             orientation.covariance = ros_data.get("orientation_covariance")
 
         # Optional Field Conversions (Covariance)
-        if cls._is_valid_covariance(ros_data.get("linear_acceleration_covariance")):
+        if cls._is_valid_covariance(
+            ros_data.get("linear_acceleration_covariance")
+        ):
             # ROS covariance is a 9-element array (row-major 3x3).
             # Vector9d is assumed to take these 9 elements directly.
             accel.covariance = ros_data.get("linear_acceleration_covariance")
 
-        if cls._is_valid_covariance(ros_data.get("angular_velocity_covariance")):
+        if cls._is_valid_covariance(
+            ros_data.get("angular_velocity_covariance")
+        ):
             angular_vel.covariance = ros_data.get("angular_velocity_covariance")
 
         return IMU(
@@ -500,7 +508,7 @@ class IMUAdapter(ROSAdapterBase[IMU]):
         )
 
     @classmethod
-    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
+    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> dict | None:
         """
         Extract the ROS message specific schema metadata, if any.
         """
@@ -532,9 +540,9 @@ class NMEASentenceAdapter(ROSAdapterBase[NMEASentence]):
         ```
     """
 
-    ros_msgtype: str | Tuple[str, ...] = "nmea_msgs/msg/Sentence"
+    ros_msgtype: str | tuple[str, ...] = "nmea_msgs/msg/Sentence"
 
-    __mosaico_ontology_type__: Type[NMEASentence] = NMEASentence
+    __mosaico_ontology_type__: type[NMEASentence] = NMEASentence
 
     _REQUIRED_KEYS = ("sentence",)
 
@@ -576,7 +584,7 @@ class NMEASentenceAdapter(ROSAdapterBase[NMEASentence]):
         return NMEASentence(sentence=ros_data["sentence"])
 
     @classmethod
-    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
+    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> dict | None:
         """
         Extract the ROS message specific schema metadata, if any.
         """
@@ -612,9 +620,9 @@ class ImageAdapter(ROSAdapterBase[Image]):
         ```
     """
 
-    ros_msgtype: str | Tuple[str, ...] = "sensor_msgs/msg/Image"
+    ros_msgtype: str | tuple[str, ...] = "sensor_msgs/msg/Image"
 
-    __mosaico_ontology_type__: Type[Image] = Image
+    __mosaico_ontology_type__: type[Image] = Image
 
     _REQUIRED_KEYS = ("data", "width", "height", "step", "encoding")
 
@@ -678,7 +686,7 @@ class ImageAdapter(ROSAdapterBase[Image]):
         )
 
     @classmethod
-    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
+    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> dict | None:
         """
         Extract the ROS message specific schema metadata, if any.
         """
@@ -711,9 +719,9 @@ class CompressedImageAdapter(ROSAdapterBase[CompressedImage]):
         ```
     """
 
-    ros_msgtype: str | Tuple[str, ...] = "sensor_msgs/msg/CompressedImage"
+    ros_msgtype: str | tuple[str, ...] = "sensor_msgs/msg/CompressedImage"
 
-    __mosaico_ontology_type__: Type[CompressedImage] = CompressedImage
+    __mosaico_ontology_type__: type[CompressedImage] = CompressedImage
     _REQUIRED_KEYS = ("data", "format")
 
     @classmethod
@@ -760,10 +768,12 @@ class CompressedImageAdapter(ROSAdapterBase[CompressedImage]):
         """
         _validate_msgdata(cls, ros_data)
 
-        return CompressedImage(data=bytes(ros_data["data"]), format=ros_data["format"])
+        return CompressedImage(
+            data=bytes(ros_data["data"]), format=ros_data["format"]
+        )
 
     @classmethod
-    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
+    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> dict | None:
         """
         Extract the ROS message specific schema metadata, if any.
         """
@@ -798,9 +808,9 @@ class ROIAdapter(ROSAdapterBase[ROI]):
         ```
     """
 
-    ros_msgtype: str | Tuple[str, ...] = "sensor_msgs/RegionOfInterest"
+    ros_msgtype: str | tuple[str, ...] = "sensor_msgs/RegionOfInterest"
 
-    __mosaico_ontology_type__: Type[ROI] = ROI
+    __mosaico_ontology_type__: type[ROI] = ROI
 
     _REQUIRED_KEYS = ("height", "width", "x_offset", "y_offset")
 
@@ -855,7 +865,7 @@ class ROIAdapter(ROSAdapterBase[ROI]):
         )
 
     @classmethod
-    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
+    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> dict | None:
         """
         Extract the ROS message specific schema metadata, if any.
         """
@@ -902,9 +912,9 @@ class BatteryStateAdapter(ROSAdapterBase[BatteryState]):
         ```
     """
 
-    ros_msgtype: str | Tuple[str, ...] = "sensor_msgs/msg/BatteryState"
+    ros_msgtype: str | tuple[str, ...] = "sensor_msgs/msg/BatteryState"
 
-    __mosaico_ontology_type__: Type[BatteryState] = BatteryState
+    __mosaico_ontology_type__: type[BatteryState] = BatteryState
     _REQUIRED_KEYS = (
         "voltage",
         "capacity",
@@ -995,7 +1005,7 @@ class BatteryStateAdapter(ROSAdapterBase[BatteryState]):
         )
 
     @classmethod
-    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
+    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> dict | None:
         """
         Extract the ROS message specific schema metadata, if any.
         """
@@ -1011,7 +1021,9 @@ class BatteryStateAdapter(ROSAdapterBase[BatteryState]):
 
         status = ros_data.get("status")
         if status:
-            schema_mdata.update({"status": NavSatStatusAdapter.schema_metadata(status)})
+            schema_mdata.update(
+                {"status": NavSatStatusAdapter.schema_metadata(status)}
+            )
 
         return schema_mdata if schema_mdata else None
 
@@ -1050,8 +1062,8 @@ class RobotJointAdapter(ROSAdapterBase[RobotJoint]):
         ```
     """
 
-    ros_msgtype: str | Tuple[str, ...] = "sensor_msgs/msg/JointState"
-    __mosaico_ontology_type__: Type[RobotJoint] = RobotJoint
+    ros_msgtype: str | tuple[str, ...] = "sensor_msgs/msg/JointState"
+    __mosaico_ontology_type__: type[RobotJoint] = RobotJoint
     _REQUIRED_KEYS = ("name", "position", "velocity", "effort")
 
     @classmethod
@@ -1104,7 +1116,7 @@ class RobotJointAdapter(ROSAdapterBase[RobotJoint]):
         )
 
     @classmethod
-    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
+    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> dict | None:
         """
         Extract the ROS message specific schema metadata, if any.
         """

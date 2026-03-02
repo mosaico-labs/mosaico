@@ -1,5 +1,5 @@
-from typing import List, Optional
 import pyarrow as pa
+
 from mosaicolabs.models import Serializable
 
 
@@ -41,15 +41,15 @@ class BatteryState(Serializable):
     # Core Metrics
     voltage: float
     """The battery voltage value"""
-    temperature: Optional[float]
+    temperature: float | None
     """The optional battery temperature in °C"""
-    current: Optional[float]
+    current: float | None
     """The optional battery current in A"""
-    charge: Optional[float]
+    charge: float | None
     """The optional battery charge in Ah"""
-    capacity: Optional[float]
+    capacity: float | None
     """The optional battery capacity in Ah"""
-    design_capacity: Optional[float]
+    design_capacity: float | None
     """The optional battery design capacity in Ah"""
     percentage: float
     """The battery percentage in %"""
@@ -71,7 +71,7 @@ class BatteryState(Serializable):
     """The battery serial number"""
 
     # Cell Details (Optional because some drivers don't report them)
-    cell_voltage: Optional[List[float]] = None
+    cell_voltage: list[float] | None = None
     """The battery cells voltage"""
-    cell_temperature: Optional[List[float]] = None
+    cell_temperature: list[float] | None = None
     """The battery cells temperature"""

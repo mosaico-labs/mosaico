@@ -9,12 +9,11 @@ This module defines structures for analyzing motion:
 These can be assigned to Message.data field to send data to the platform.
 """
 
-from typing import Optional
 import pyarrow as pa
 from pydantic import model_validator
 
-from ..serializable import Serializable
 from ..mixins import CovarianceMixin
+from ..serializable import Serializable
 from .geometry import Pose, Vector3d
 
 
@@ -96,7 +95,7 @@ class Velocity(
         ]
     )
 
-    linear: Optional[Vector3d] = None
+    linear: Vector3d | None = None
     """
     3D linear velocity vector
 
@@ -142,7 +141,7 @@ class Velocity(
         ```
     """
 
-    angular: Optional[Vector3d] = None
+    angular: Vector3d | None = None
     """
     3D angular velocity vector
 
@@ -197,7 +196,9 @@ class Velocity(
             ValueError: If both `linear` and `angular` are None.
         """
         if self.linear is None and self.angular is None:
-            raise ValueError("User must provide at least 'linear' or 'angular'.")
+            raise ValueError(
+                "User must provide at least 'linear' or 'angular'."
+            )
         return self
 
 
@@ -278,7 +279,7 @@ class Acceleration(
         ]
     )
 
-    linear: Optional[Vector3d] = None
+    linear: Vector3d | None = None
     """
     3D linear acceleration vector
 
@@ -324,7 +325,7 @@ class Acceleration(
         ```
     """
 
-    angular: Optional[Vector3d] = None
+    angular: Vector3d | None = None
     """
     3D angular acceleration vector
 
@@ -379,7 +380,9 @@ class Acceleration(
             ValueError: If both `linear` and `angular` are None.
         """
         if self.linear is None and self.angular is None:
-            raise ValueError("User must provide at least 'linear' or 'angular'.")
+            raise ValueError(
+                "User must provide at least 'linear' or 'angular'."
+            )
         return self
 
 
@@ -614,7 +617,7 @@ class MotionState(
         ```
     """
 
-    acceleration: Optional[Acceleration] = None
+    acceleration: Acceleration | None = None
     """
     Optional 6D acceleration components.
 

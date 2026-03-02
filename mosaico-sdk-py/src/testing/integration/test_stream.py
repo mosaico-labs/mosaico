@@ -1,14 +1,16 @@
-from mosaicolabs.comm import MosaicoClient
 import pytest
+
+from mosaicolabs.comm import MosaicoClient
 from testing.integration.config import (
     UPLOADED_SEQUENCE_METADATA,
     UPLOADED_SEQUENCE_NAME,
 )
+
 from .helpers import (
     SequenceDataStream,
-    topic_to_metadata_dict,
-    topic_list,
     _validate_returned_topic_name,
+    topic_list,
+    topic_to_metadata_dict,
 )
 
 
@@ -57,7 +59,10 @@ def test_sequence_data_stream(
 
         # Test the correct return of the Message methods
         assert message.ontology_type() == cached_item.ontology_class
-        assert message.ontology_tag() == cached_item.ontology_class.__ontology_tag__
+        assert (
+            message.ontology_tag()
+            == cached_item.ontology_class.__ontology_tag__
+        )
 
     # check the total number of received sensors is the same of the original sequence
     assert msg_count == len(_make_sequence_data_stream.items)
@@ -154,7 +159,10 @@ def test_topic_data_stream(
 
         # Test the correct return of the Message methods
         assert message.ontology_type() == cached_item.ontology_class
-        assert message.ontology_tag() == cached_item.ontology_class.__ontology_tag__
+        assert (
+            message.ontology_tag()
+            == cached_item.ontology_class.__ontology_tag__
+        )
 
     # check the total number of received sensors is the same of the original sequence
     assert msg_count == len(_cached_topic_data_stream)

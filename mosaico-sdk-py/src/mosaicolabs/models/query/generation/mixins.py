@@ -1,8 +1,8 @@
 import datetime
 import inspect
-from typing import Any, Tuple, Type, Union
-from ..expressions import _QueryExpression
+from typing import Any
 
+from ..expressions import _QueryExpression
 
 # -------------------------------------------------------------------------
 # Queryable Mixins
@@ -37,48 +37,49 @@ class _QueryableComparable:
 
     __slots__ = ()
     # Allowed Python types per subclass
-    __mixin_supported_types__: tuple[type, ...] = (int, float)  # default: numeric
+    __mixin_supported_types__: tuple[type, ...] = (
+        int,
+        float,
+    )  # default: numeric
 
     # --- Operators ---
     def eq(self, value: Any):
-        getattr(self, "_validate_value_type")(value, self.__mixin_supported_types__)
-        return getattr(self, "_cmp")("$eq", getattr(self, "_transform_value")(value))
+        self._validate_value_type(value, self.__mixin_supported_types__)
+        return self._cmp("$eq", self._transform_value(value))
 
     def neq(self, value: Any):
-        getattr(self, "_validate_value_type")(value, self.__mixin_supported_types__)
-        return getattr(self, "_cmp")("$neq", getattr(self, "_transform_value")(value))
+        self._validate_value_type(value, self.__mixin_supported_types__)
+        return self._cmp("$neq", self._transform_value(value))
 
     def lt(self, value: Any):
-        getattr(self, "_validate_value_type")(value, self.__mixin_supported_types__)
-        return getattr(self, "_cmp")("$lt", getattr(self, "_transform_value")(value))
+        self._validate_value_type(value, self.__mixin_supported_types__)
+        return self._cmp("$lt", self._transform_value(value))
 
     def leq(self, value: Any):
-        getattr(self, "_validate_value_type")(value, self.__mixin_supported_types__)
-        return getattr(self, "_cmp")("$leq", getattr(self, "_transform_value")(value))
+        self._validate_value_type(value, self.__mixin_supported_types__)
+        return self._cmp("$leq", self._transform_value(value))
 
     def gt(self, value: Any):
-        getattr(self, "_validate_value_type")(value, self.__mixin_supported_types__)
-        return getattr(self, "_cmp")("$gt", getattr(self, "_transform_value")(value))
+        self._validate_value_type(value, self.__mixin_supported_types__)
+        return self._cmp("$gt", self._transform_value(value))
 
     def geq(self, value: Any):
-        getattr(self, "_validate_value_type")(value, self.__mixin_supported_types__)
-        return getattr(self, "_cmp")("$geq", getattr(self, "_transform_value")(value))
+        self._validate_value_type(value, self.__mixin_supported_types__)
+        return self._cmp("$geq", self._transform_value(value))
 
     def in_(self, *values):
         """
         Finds if the field's value is in the provided list of values.
         Accept either in_(v1, v2, ...) or in_([v1, v2, ...])
         """
-        return getattr(self, "_in")(
-            *values, allowed_types=self.__mixin_supported_types__
-        )
+        return self._in(*values, allowed_types=self.__mixin_supported_types__)
 
     def between(self, *values):
         """
         Checks if the field's value is between two provided values (inclusive).
         Accept either between(v1, v2, ...) or between([v1, v2, ...])
         """
-        return getattr(self, "_between")(
+        return self._between(
             *values, allowed_types=self.__mixin_supported_types__
         )
 
@@ -136,7 +137,7 @@ class _QueryableDateTime(_QueryableComparable):
         - datetime.date, datetime.time, datetime.datetime → ISO 8601 string.
         - int → string representation of nanoseconds since epoch.
         """
-        getattr(self, "_validate_value_type")(value, self.__mixin_supported_types__)
+        self._validate_value_type(value, self.__mixin_supported_types__)
 
         if isinstance(value, int):
             # Treat numeric values as timestamps in nanoseconds since epoch
@@ -161,8 +162,8 @@ class _QueryableBool:
     __mixin_supported_types__: tuple[type, ...] = (bool,)
 
     def eq(self, value: Any) -> "_QueryExpression":
-        getattr(self, "_validate_value_type")(value, self.__mixin_supported_types__)
-        return getattr(self, "_cmp")("$eq", value)
+        self._validate_value_type(value, self.__mixin_supported_types__)
+        return self._cmp("$eq", value)
 
 
 # -------------------------------------------------------------------------
@@ -180,25 +181,23 @@ class _QueryableString:
     __mixin_supported_types__: tuple[type, ...] = (str,)
 
     def eq(self, value: Any) -> "_QueryExpression":
-        getattr(self, "_validate_value_type")(value, self.__mixin_supported_types__)
-        return getattr(self, "_cmp")("$eq", value)
+        self._validate_value_type(value, self.__mixin_supported_types__)
+        return self._cmp("$eq", value)
 
     def neq(self, value: Any) -> "_QueryExpression":
-        getattr(self, "_validate_value_type")(value, self.__mixin_supported_types__)
-        return getattr(self, "_cmp")("$neq", value)
+        self._validate_value_type(value, self.__mixin_supported_types__)
+        return self._cmp("$neq", value)
 
     def match(self, value: Any) -> "_QueryExpression":
-        getattr(self, "_validate_value_type")(value, self.__mixin_supported_types__)
-        return getattr(self, "_cmp")("$match", value)
+        self._validate_value_type(value, self.__mixin_supported_types__)
+        return self._cmp("$match", value)
 
     def in_(self, *values):
         """
         Finds if the field's value is in the provided list of values.
         Accept either in_(v1, v2, ...) or in_([v1, v2, ...])
         """
-        return getattr(self, "_in")(
-            *values, allowed_types=self.__mixin_supported_types__
-        )
+        return self._in(*values, allowed_types=self.__mixin_supported_types__)
 
 
 # -------------------------------------------------------------------------
@@ -219,44 +218,44 @@ class _QueryableDynamicValue:
 
     # --- From _QueryableComparable (Numeric/DateTime) ---
     def eq(self, value: Any):
-        getattr(self, "_validate_value_type")(
+        self._validate_value_type(
             value,
             _QueryableComparable.__mixin_supported_types__
             + _QueryableString.__mixin_supported_types__
             + _QueryableBool.__mixin_supported_types__,
         )
-        return getattr(self, "_cmp")("$eq", value)
+        return self._cmp("$eq", value)
 
     def lt(self, value: Any):
-        getattr(self, "_validate_value_type")(
+        self._validate_value_type(
             value, _QueryableComparable.__mixin_supported_types__
         )
-        return getattr(self, "_cmp")("$lt", value)
+        return self._cmp("$lt", value)
 
     def leq(self, value: Any):
-        getattr(self, "_validate_value_type")(
+        self._validate_value_type(
             value, _QueryableComparable.__mixin_supported_types__
         )
-        return getattr(self, "_cmp")("$leq", value)
+        return self._cmp("$leq", value)
 
     def gt(self, value: Any):
-        getattr(self, "_validate_value_type")(
+        self._validate_value_type(
             value, _QueryableComparable.__mixin_supported_types__
         )
-        return getattr(self, "_cmp")("$gt", value)
+        return self._cmp("$gt", value)
 
     def geq(self, value: Any):
-        getattr(self, "_validate_value_type")(
+        self._validate_value_type(
             value, _QueryableComparable.__mixin_supported_types__
         )
-        return getattr(self, "_cmp")("$geq", value)
+        return self._cmp("$geq", value)
 
     def between(self, *values):
         """
         Checks if the field's value is between two provided values (inclusive).
         Accept either between(v1, v2, ...) or between([v1, v2, ...])
         """
-        return getattr(self, "_between")(*values, allowed_types=None)
+        return self._between(*values, allowed_types=None)
 
 
 class _DynamicFieldFactoryMixin:
@@ -301,7 +300,9 @@ class _DynamicFieldFactoryMixin:
         )
 
         # Return an instance of this new dynamic field
-        return _QueryableDynamicValueField(full_path=new_path, expr_cls=self._expr_cls)
+        return _QueryableDynamicValueField(
+            full_path=new_path, expr_cls=self._expr_cls
+        )
 
     def __getattr__(self, name: str):
         # Override __getattr__ to give a more helpful error
@@ -355,7 +356,7 @@ class _QueryableField:
 
     __slots__ = ("full_path", "_expr_cls")
 
-    def __init__(self, full_path: str, expr_cls: Type[_QueryExpression]):
+    def __init__(self, full_path: str, expr_cls: type[_QueryExpression]):
         self.full_path = full_path
         self._expr_cls = expr_cls
 
@@ -376,7 +377,7 @@ class _QueryableField:
         return value
 
     def _validate_value_type(
-        self, value: Any, req_type: Union[Type, Tuple[Type, ...], None]
+        self, value: Any, req_type: type | tuple[type, ...] | None
     ):
         """
         Validate that:
@@ -412,7 +413,7 @@ class _QueryableField:
                 )
         return True
 
-    def _in(self, *values, allowed_types: Union[Type, Tuple[Type, ...], None]):
+    def _in(self, *values, allowed_types: type | tuple[type, ...] | None):
         """
         Finds if the field's value is in the provided list of values.
         Accept either in_(v1, v2, ...) or in_([v1, v2, ...])
@@ -428,12 +429,12 @@ class _QueryableField:
             raise ValueError("'in_' operator requires at least one value.")
 
         # Validate type of each value
-        getattr(self, "_validate_value_type")(values, allowed_types)
+        self._validate_value_type(values, allowed_types)
 
-        transformed = [getattr(self, "_transform_value")(v) for v in values]
-        return getattr(self, "_cmp")("$in", transformed)
+        transformed = [self._transform_value(v) for v in values]
+        return self._cmp("$in", transformed)
 
-    def _between(self, *values, allowed_types: Union[Type, Tuple[Type, ...], None]):
+    def _between(self, *values, allowed_types: type | tuple[type, ...] | None):
         """
         Checks if the field's value is between two provided values (inclusive).
         Accept either between(v1, v2, ...) or between([v1, v2, ...])
@@ -445,10 +446,12 @@ class _QueryableField:
             values = list(values)
 
         if len(values) != 2:
-            raise ValueError("'between' operator requires exactly two numeric values.")
+            raise ValueError(
+                "'between' operator requires exactly two numeric values."
+            )
 
         # Validate type of each value
-        getattr(self, "_validate_value_type")(values, allowed_types)
+        self._validate_value_type(values, allowed_types)
 
         # Ensure first <= second
         if values[0] > values[1]:
@@ -456,8 +459,8 @@ class _QueryableField:
                 "'between' operator expects the first value less than (or equal to) the second."
             )
 
-        transformed = [getattr(self, "_transform_value")(v) for v in values]
-        return getattr(self, "_cmp")("$between", transformed)
+        transformed = [self._transform_value(v) for v in values]
+        return self._cmp("$between", transformed)
 
     def __getattr__(self, name: str):
         """This is callesd when an attribute is not found normally. Raise a helpful error."""

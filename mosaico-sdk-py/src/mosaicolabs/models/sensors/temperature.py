@@ -4,7 +4,6 @@ Temperature Ontology Module.
 Defines the data structure for temperature sensors.
 """
 
-from typing import Optional
 import pyarrow as pa
 
 from ..mixins import VarianceMixin
@@ -121,8 +120,8 @@ class Temperature(Serializable, VarianceMixin):
         cls,
         *,
         value: float,
-        variance: Optional[float] = None,
-        variance_type: Optional[int] = None,
+        variance: float | None = None,
+        variance_type: int | None = None,
     ) -> "Temperature":
         """
         Creates a `Temperature` instance using the value in Celsius and converting it in Kelvin using the formula
@@ -148,8 +147,8 @@ class Temperature(Serializable, VarianceMixin):
         cls,
         *,
         value: float,
-        variance: Optional[float] = None,
-        variance_type: Optional[int] = None,
+        variance: float | None = None,
+        variance_type: int | None = None,
     ) -> "Temperature":
         """
         Creates a `Temperature` instance using the value in Fahrenheit and converting it in Kelvin using the formula

@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any
 
 
 class _QueryExpression:
@@ -40,7 +40,7 @@ class _QueryExpression:
         self.op = op
         self.value = value
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """
         Converts the expression into its final dictionary format.
 

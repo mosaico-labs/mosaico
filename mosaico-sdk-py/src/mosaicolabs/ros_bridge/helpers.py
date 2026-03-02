@@ -1,4 +1,5 @@
 from typing import Any
+
 import numpy as np
 
 
@@ -13,7 +14,11 @@ def _to_dict(message: Any) -> Any:
         fields = getattr(
             message,
             "__slots__",
-            [k for k in dir(message) if not k.startswith("_") and k != "__msgtype__"],
+            [
+                k
+                for k in dir(message)
+                if not k.startswith("_") and k != "__msgtype__"
+            ],
         )
         for field_name in fields:
             if field_name.startswith("_") or field_name == "__msgtype__":

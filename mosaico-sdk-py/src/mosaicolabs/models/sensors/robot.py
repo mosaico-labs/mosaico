@@ -5,7 +5,6 @@ Defines the `RobotJoint` model for capturing the state (position, velocity, effo
 of a robot's actuators.
 """
 
-from typing import List
 import pyarrow as pa
 
 from ..serializable import Serializable
@@ -37,7 +36,9 @@ class RobotJoint(Serializable):
                 "names",
                 pa.list_(pa.string()),
                 nullable=False,
-                metadata={"description": ("Names of the different robot joints")},
+                metadata={
+                    "description": ("Names of the different robot joints")
+                },
             ),
             pa.field(
                 "positions",
@@ -72,7 +73,7 @@ class RobotJoint(Serializable):
         ]
     )
 
-    names: List[str]
+    names: list[str]
     """
     Names of the different robot joints
 
@@ -80,7 +81,7 @@ class RobotJoint(Serializable):
     The names are not queryable via the `.Q` proxy (Lists are not supported yet).
     """
 
-    positions: List[float]
+    positions: list[float]
     """
     Positions ([rad] or [m]) of the different robot joints
 
@@ -88,7 +89,7 @@ class RobotJoint(Serializable):
     The positions are not queryable via the `.Q` proxy (Lists are not supported yet).
     """
 
-    velocities: List[float]
+    velocities: list[float]
     """
     Velocities ([rad/s] or [m/s]) of the different robot joints
 
@@ -96,7 +97,7 @@ class RobotJoint(Serializable):
     The velocities are not queryable via the `.Q` proxy (Lists are not supported yet).
     """
 
-    efforts: List[float]
+    efforts: list[float]
     """
     Efforts ([N] or [N/m]) applied to the different robot joints
 

@@ -1,6 +1,5 @@
-from dataclasses import dataclass
 import datetime
-from typing import Optional
+from dataclasses import dataclass
 
 
 @dataclass
@@ -26,4 +25,4 @@ class SystemInfo:
     total_size_bytes: int
     created_datetime: datetime.datetime
     is_locked: bool
-    chunks_number: Optional[int] = None
+    chunks_number: int | None = None

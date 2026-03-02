@@ -1,35 +1,31 @@
-from typing import Optional
+import pytest
+
 from mosaicolabs.models.platform import Sequence, Topic
-from mosaicolabs.models.query.expressions import _QueryExpression
-from mosaicolabs.models.query.generation.mixins import (
-    _QueryableComparable,
-    _QueryableUnsupported,
-    _QueryableString,
-    _QueryableBool,
-    _QueryableDynamicValue,
-    _QueryableField,
-)
 from mosaicolabs.models.query import (
-    QueryOntologyCatalog,
-    QuerySequence,
-    QueryTopic,
     Query,
+    QueryOntologyCatalog,
     QueryResponse,
     QueryResponseItem,
-    QueryResponseItemTopic,
     QueryResponseItemSequence,
+    QueryResponseItemTopic,
+    QuerySequence,
+    QueryTopic,
 )
-
 from mosaicolabs.models.query.expressions import (
     _QueryCatalogExpression,
+    _QueryExpression,
     _QuerySequenceExpression,
     _QueryTopicExpression,
 )
-
+from mosaicolabs.models.query.generation.mixins import (
+    _QueryableBool,
+    _QueryableComparable,
+    _QueryableDynamicValue,
+    _QueryableField,
+    _QueryableString,
+    _QueryableUnsupported,
+)
 from mosaicolabs.models.query.protocols import QueryableProtocol
-
-import pytest
-
 
 _QUERY_TYPES = [QueryOntologyCatalog, QueryTopic, QuerySequence]
 _QUERY_EXPRESSION_TYPES = [
@@ -64,7 +60,9 @@ def test_query_base_succeeds(query_type: type[QueryableProtocol]):
     "query_type",
     _QUERY_TYPES,
 )
-def test_query_base_fails_on_duplicate_type(query_type: type[QueryableProtocol]):
+def test_query_base_fails_on_duplicate_type(
+    query_type: type[QueryableProtocol],
+):
     """Tests the validation that prevents two instances of the same query builder."""
 
     qdc = query_type()
@@ -154,15 +152,23 @@ def test_construction_query_from_response():
             QueryResponseItem(
                 sequence=QueryResponseItemSequence(name="seq0"),
                 topics=[
-                    QueryResponseItemTopic(name="seq0/top00", timestamp_range=None),
-                    QueryResponseItemTopic(name="seq0/top01", timestamp_range=None),
+                    QueryResponseItemTopic(
+                        name="seq0/top00", timestamp_range=None
+                    ),
+                    QueryResponseItemTopic(
+                        name="seq0/top01", timestamp_range=None
+                    ),
                 ],  # constructor expects topic resource name
             ),
             QueryResponseItem(
                 sequence=QueryResponseItemSequence(name="seq1"),
                 topics=[
-                    QueryResponseItemTopic(name="seq0/top10", timestamp_range=None),
-                    QueryResponseItemTopic(name="seq0/top11", timestamp_range=None),
+                    QueryResponseItemTopic(
+                        name="seq0/top10", timestamp_range=None
+                    ),
+                    QueryResponseItemTopic(
+                        name="seq0/top11", timestamp_range=None
+                    ),
                 ],  # constructor expects topic resource name
             ),
         ]
@@ -171,8 +177,12 @@ def test_construction_query_from_response():
     qseq = qresp.to_query_sequence()
     assert len(qseq._expressions) == 1
     assert qseq._expressions[0].key == "locator"
-    assert all(s in expected_expr_seq_values for s in qseq._expressions[0].value)
-    assert all(s in qseq._expressions[0].value for s in expected_expr_seq_values)
+    assert all(
+        s in expected_expr_seq_values for s in qseq._expressions[0].value
+    )
+    assert all(
+        s in qseq._expressions[0].value for s in expected_expr_seq_values
+    )
 
     expected_expr_top_values = [
         # QueryResponseItem.__post_init__ normalizes topic name
@@ -183,8 +193,12 @@ def test_construction_query_from_response():
     qtop = qresp.to_query_topic()
     assert len(qtop._expressions) == 1
     assert qtop._expressions[0].key == "locator"
-    assert all(t in expected_expr_top_values for t in qtop._expressions[0].value)
-    assert all(t in qtop._expressions[0].value for t in expected_expr_top_values)
+    assert all(
+        t in expected_expr_top_values for t in qtop._expressions[0].value
+    )
+    assert all(
+        t in qtop._expressions[0].value for t in expected_expr_top_values
+    )
 
 
 def test_invalid_construction_query_from_response():
@@ -195,7 +209,8 @@ def test_invalid_construction_query_from_response():
     ):
         qresp.to_query_sequence()
     with pytest.raises(
-        ValueError, match="Cannot create a 'QueryTopic' builder from an empty response"
+        ValueError,
+        match="Cannot create a 'QueryTopic' builder from an empty response",
     ):
         qresp.to_query_topic()
 
@@ -204,7 +219,9 @@ def test_invalid_construction_query_from_response():
     "query_type",
     _QUERY_TYPES,
 )
-def test_query_base_fails_on_bad_operator_format(query_type: type[QueryableProtocol]):
+def test_query_base_fails_on_bad_operator_format(
+    query_type: type[QueryableProtocol],
+):
     """Tests the validation that prevents two instances of the same query builder."""
 
     qdc = query_type()
@@ -237,11 +254,14 @@ def _test_operators(
     value_type: type,
     allowed_types: list[type],
     all_allowed_operators: list[str],
-    allowed_varargs_operators: Optional[list[str]],
+    allowed_varargs_operators: list[str] | None,
 ):
     # evaluation function
     def eval_func(val, allowed_varargs_operators, operator, op_fun):
-        if not allowed_varargs_operators or operator not in allowed_varargs_operators:
+        if (
+            not allowed_varargs_operators
+            or operator not in allowed_varargs_operators
+        ):
             op_fun(val)
         else:
             test_pair = (val, val)
@@ -259,7 +279,9 @@ def _test_operators(
 
     # Test 1: Calling not allowed operators: must call _QueryableField.__getattr__ AttributeError
     for other_operator in [
-        oop for oop in _ALL_TESTING_OPERATORS if oop not in all_allowed_operators
+        oop
+        for oop in _ALL_TESTING_OPERATORS
+        if oop not in all_allowed_operators
     ]:
         with pytest.raises(
             AttributeError,
@@ -274,9 +296,12 @@ def _test_operators(
     # This is necessary because 'value_type' can be any type, so we need a fallback
     if value_type not in allowed_types:
         with pytest.raises(
-            TypeError, match=f"Invalid type for '{queryable_type.__name__}Field'"
+            TypeError,
+            match=f"Invalid type for '{queryable_type.__name__}Field'",
         ):
-            return eval_func(test_value, allowed_varargs_operators, operator, op_fun)
+            return eval_func(
+                test_value, allowed_varargs_operators, operator, op_fun
+            )
     else:
         eval_func(test_value, allowed_varargs_operators, operator, op_fun)
         # go over...
@@ -287,7 +312,8 @@ def _test_operators(
         # future (or past) test runs
         if other_type not in allowed_types:
             with pytest.raises(
-                TypeError, match=f"Invalid type for '{queryable_type.__name__}Field'"
+                TypeError,
+                match=f"Invalid type for '{queryable_type.__name__}Field'",
             ):
                 other_type_value = other_type(0)
                 if (
@@ -304,7 +330,9 @@ def _test_operators(
         if other_type is not value_type and (
             allowed_varargs_operators and operator in allowed_varargs_operators
         ):
-            with pytest.raises(TypeError, match="All values must be of the same type"):
+            with pytest.raises(
+                TypeError, match="All values must be of the same type"
+            ):
                 other_type_value = other_type(0)
                 op_fun(other_type_value, test_value)
 

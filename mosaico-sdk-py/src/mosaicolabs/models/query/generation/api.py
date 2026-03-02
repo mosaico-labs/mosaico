@@ -1,9 +1,9 @@
-from typing import ClassVar, Dict, Optional, Type, Any, TypeVar, Union
 import inspect
+from typing import Any, ClassVar, TypeVar, Union
 
 from ..expressions import _QueryExpression
 from ..protocols import FieldMapperProtocol
-from .mixins import _QueryableUnsupported, _QueryableField
+from .mixins import _QueryableField, _QueryableUnsupported
 
 
 class _QueryProxy:
@@ -29,7 +29,7 @@ class _QueryProxy:
         ```
     """
 
-    def __init__(self, full_path: str, field_map: Dict[str, Any]):
+    def __init__(self, full_path: str, field_map: dict[str, Any]):
         """
         Initializes the dynamic proxy.
 
@@ -107,10 +107,10 @@ class _QueryProxyMixin:
 
     @staticmethod
     def _inject_query_proxy(
-        class_type: Type,
+        class_type: type,
         mapper: FieldMapperProtocol,
-        query_expression_type: Type[_QueryExpression],
-        query_prefix: Optional[str] = None,
+        query_expression_type: type[_QueryExpression],
+        query_prefix: str | None = None,
     ):
         """
         Static helper to build and inject the .Q query proxy.
@@ -130,7 +130,7 @@ class _QueryProxyMixin:
         )
 
         # Attach the live proxy instance to the class
-        setattr(class_type, "Q", root_proxy)
+        class_type.Q = root_proxy
 
 
 # Use a generic type to instruct the interpreter that the decorator returns the very same type
@@ -139,9 +139,9 @@ T = TypeVar("T")
 
 
 def queryable(
-    mapper_type: Type[FieldMapperProtocol],
-    query_expression_type: Type[_QueryExpression],
-    prefix: Optional[str] = None,
+    mapper_type: type[FieldMapperProtocol],
+    query_expression_type: type[_QueryExpression],
+    prefix: str | None = None,
     **kwargs,
 ):
     """
@@ -154,7 +154,7 @@ def queryable(
         **kwargs: Additional keyword arguments to pass to the mapper.
     """
 
-    def decorator(cls: Type[T]) -> Type[T]:
+    def decorator(cls: type[T]) -> type[T]:
         # Determine the query prefix
         # Call the injection helper
         _QueryProxyMixin._inject_query_proxy(
@@ -165,7 +165,7 @@ def queryable(
     return decorator
 
 
-def is_model_queryable(model: Type[Any]) -> bool:
+def is_model_queryable(model: type[Any]) -> bool:
     """
     Checks if the given model is a class that inherits from QueryableModel.
     """

@@ -8,22 +8,22 @@ and create readers (`TopicDataStreamer`).
 
 import datetime
 import json
+from typing import Any, Optional
+
 import pyarrow.flight as fl
-from typing import Any, Dict, Optional, Tuple
 
-from .endpoints import TopicParsingError, TopicResourceManifest
-from .topic_reader import TopicDataStreamer
-
-from ..comm.metadata import TopicMetadata, _decode_metadata
 from ..comm.do_action import _do_action, _DoActionResponseSysInfo
+from ..comm.metadata import TopicMetadata, _decode_metadata
 from ..enum import FlightAction
 from ..helpers import (
     pack_topic_resource_name,
-    sanitize_topic_name,
     sanitize_sequence_name,
+    sanitize_topic_name,
 )
-from ..models.platform import Topic
 from ..logging_config import get_logger
+from ..models.platform import Topic
+from .endpoints import TopicParsingError, TopicResourceManifest
+from .topic_reader import TopicDataStreamer
 
 # Set the hierarchical logger
 logger = get_logger(__name__)
@@ -50,8 +50,8 @@ class TopicHandler:
         client: fl.FlightClient,
         topic_model: Topic,
         ticket: fl.Ticket,
-        timestamp_ns_min: Optional[int],
-        timestamp_ns_max: Optional[int],
+        timestamp_ns_min: int | None,
+        timestamp_ns_max: int | None,
     ):
         """
         Internal constructor for TopicHandler.
@@ -75,11 +75,11 @@ class TopicHandler:
         """The topic metadata model"""
         self._fl_ticket: fl.Ticket = ticket
         """The FlightTicket of the remote resource corresponding to this topic"""
-        self._data_streamer_instance: Optional[TopicDataStreamer] = None
+        self._data_streamer_instance: TopicDataStreamer | None = None
         """The instance of the spawned data streamer handler"""
-        self._timestamp_ns_min: Optional[int] = timestamp_ns_min
+        self._timestamp_ns_min: int | None = timestamp_ns_min
         """Lowest timestamp [ns] in the sequence (among all the topics)"""
-        self._timestamp_ns_max: Optional[int] = timestamp_ns_max
+        self._timestamp_ns_max: int | None = timestamp_ns_max
         """Highest timestamp [ns] in the sequence (among all the topics)"""
 
     @classmethod
@@ -113,10 +113,12 @@ class TopicHandler:
         """
         # Get FlightInfo (Metadata + Endpoints)
         try:
-            flight_info, _stzd_sequence_name, _stzd_topic_name = cls._get_flight_info(
-                sequence_name=sequence_name,
-                topic_name=topic_name,
-                client=client,
+            flight_info, _stzd_sequence_name, _stzd_topic_name = (
+                cls._get_flight_info(
+                    sequence_name=sequence_name,
+                    topic_name=topic_name,
+                    client=client,
+                )
             )
         except Exception as e:
             logger.error(
@@ -129,11 +131,13 @@ class TopicHandler:
         )
 
         # Extract the Topic resource manifest data and the ticket
-        ticket: Optional[fl.Ticket] = None
-        topic_resrc_mdata: Optional[TopicResourceManifest] = None
+        ticket: fl.Ticket | None = None
+        topic_resrc_mdata: TopicResourceManifest | None = None
         for ep in flight_info.endpoints:
             try:
-                topic_resrc_mdata = TopicResourceManifest.from_flight_endpoint(ep)
+                topic_resrc_mdata = TopicResourceManifest.from_flight_endpoint(
+                    ep
+                )
             except TopicParsingError as e:
                 logger.error(f"Skipping invalid topic endpoint, err: '{e}'")
                 continue
@@ -205,7 +209,7 @@ class TopicHandler:
         return self._topic.sequence_name
 
     @property
-    def user_metadata(self) -> Dict[str, Any]:
+    def user_metadata(self) -> dict[str, Any]:
         """
         The user-defined metadata dictionary associated with this topic.
 
@@ -238,7 +242,7 @@ class TopicHandler:
         return self._topic._is_locked
 
     @property
-    def chunks_number(self) -> Optional[int]:
+    def chunks_number(self) -> int | None:
         """
         The number of physical data chunks stored for this topic.
 
@@ -283,7 +287,7 @@ class TopicHandler:
         return self._topic._total_size_bytes
 
     @property
-    def timestamp_ns_min(self) -> Optional[int]:
+    def timestamp_ns_min(self) -> int | None:
         """
         The lowest timestamp (nanoseconds) recorded in this topic.
 
@@ -293,7 +297,7 @@ class TopicHandler:
         return self._timestamp_ns_min
 
     @property
-    def timestamp_ns_max(self) -> Optional[int]:
+    def timestamp_ns_max(self) -> int | None:
         """
         The highest timestamp (nanoseconds) recorded in this topic.
 
@@ -304,8 +308,8 @@ class TopicHandler:
 
     def get_data_streamer(
         self,
-        start_timestamp_ns: Optional[int] = None,
-        end_timestamp_ns: Optional[int] = None,
+        start_timestamp_ns: int | None = None,
+        end_timestamp_ns: int | None = None,
     ) -> TopicDataStreamer:
         """
         Opens a high-performance reading channel for iterating over this topic's data.
@@ -395,10 +399,12 @@ class TopicHandler:
             )
         else:
             # Spawn via ticket (calls do_get straight)
-            self._data_streamer_instance = TopicDataStreamer._connect_from_ticket(
-                client=self._fl_client,
-                topic_name=self.name,
-                ticket=self._fl_ticket,
+            self._data_streamer_instance = (
+                TopicDataStreamer._connect_from_ticket(
+                    client=self._fl_client,
+                    topic_name=self.name,
+                    ticket=self._fl_ticket,
+                )
             )
 
         return self._data_streamer_instance
@@ -450,7 +456,7 @@ class TopicHandler:
         sequence_name: str,
         topic_name: str,
         client: fl.FlightClient,
-    ) -> Tuple[fl.FlightInfo, str, str]:
+    ) -> tuple[fl.FlightInfo, str, str]:
         """Performs the get_flight_info call. Raises if flight function does"""
         _stzd_sequence_name = sanitize_sequence_name(sequence_name)
         _stzd_topic_name = sanitize_topic_name(topic_name)
@@ -467,7 +473,11 @@ class TopicHandler:
         )
 
         # Get FlightInfo (Metadata + Endpoints)
-        return client.get_flight_info(descriptor), _stzd_sequence_name, _stzd_topic_name
+        return (
+            client.get_flight_info(descriptor),
+            _stzd_sequence_name,
+            _stzd_topic_name,
+        )
 
     def _validate_timestamps_info(self):
         if self._timestamp_ns_min is None or self._timestamp_ns_max is None:

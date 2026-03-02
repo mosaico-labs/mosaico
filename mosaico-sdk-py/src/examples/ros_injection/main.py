@@ -13,7 +13,6 @@ This script demonstrates a complete workflow:
 import logging as log
 import sys
 from pathlib import Path
-from typing import Optional
 from urllib.parse import parse_qs, urlparse
 from urllib.request import Request, urlopen
 
@@ -30,7 +29,7 @@ from rich.progress import (
 
 # Mosaico SDK Imports
 from mosaicolabs import MosaicoClient, Time
-from mosaicolabs.ros_bridge import ROSInjectionConfig, RosbagInjector
+from mosaicolabs.ros_bridge import RosbagInjector, ROSInjectionConfig
 
 # Configuration Constants
 MOSAICO_HOST = "localhost"
@@ -47,7 +46,7 @@ BAGFILE_URL = (
 console = Console()
 
 
-def _filename_from_url(url: str) -> Optional[str]:
+def _filename_from_url(url: str) -> str | None:
     """Infers the filename from URL query parameters or the path."""
     parsed = urlparse(url)
     qs = parse_qs(parsed.query)
@@ -132,7 +131,9 @@ def run_pipeline():
         log_level="INFO",
     )
 
-    console.print(Panel("[bold green]Phase 2: Starting ROS Ingestion[/bold green]"))
+    console.print(
+        Panel("[bold green]Phase 2: Starting ROS Ingestion[/bold green]")
+    )
     injector = RosbagInjector(config)
     try:
         injector.run()  # Handles connection, loading, adaptation, and batching
@@ -142,7 +143,9 @@ def run_pipeline():
 
     # --- PHASE 3: Verification & Retrieval ---
     # Connect to the client using a context manager to ensure resource cleanup.
-    console.print(Panel("[bold green]Phase 3: Verifying Data on Server[/bold green]"))
+    console.print(
+        Panel("[bold green]Phase 3: Verifying Data on Server[/bold green]")
+    )
 
     with MosaicoClient.connect(host=MOSAICO_HOST, port=MOSAICO_PORT) as client:
         # Retrieve a SequenceHandler for the newly ingested data
@@ -159,7 +162,9 @@ def run_pipeline():
 
         console.print(f"• [bold]Sequence Name:[/bold] {shandler.name}")
         console.print(f"• [bold]Remote Size:[/bold]   {size_mb:.2f} MB")
-        console.print(f"• [bold]Created At:[/bold]    {shandler.created_datetime}")
+        console.print(
+            f"• [bold]Created At:[/bold]    {shandler.created_datetime}"
+        )
         console.print(f"• [bold]Topics Found:[/bold]  {len(shandler.topics)}")
 
         for topic in shandler.topics:
@@ -177,7 +182,9 @@ def run_pipeline():
 
         # Display topic diagnostics
         console.print(f"• [bold]Topic Name:[/bold] {tchandler.name}")
-        console.print(f"• [bold]Topic Ontology Tag:[/bold] {tchandler.ontology_tag}")
+        console.print(
+            f"• [bold]Topic Ontology Tag:[/bold] {tchandler.ontology_tag}"
+        )
         console.print(
             f"• [bold]Topic Timestamps Range:[/bold] {tchandler.timestamp_ns_min} - {tchandler.timestamp_ns_max}"
         )

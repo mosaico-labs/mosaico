@@ -1,8 +1,7 @@
 import logging as root_logging
 import sys
-from typing import Optional
-from rich.logging import RichHandler
 
+from rich.logging import RichHandler
 
 # We import these inside the function or use a try-except
 # to ensure 'rich' isn't a hard requirement for the whole SDK
@@ -99,7 +98,7 @@ def setup_sdk_logging(
     logger.info(init_message, extra=extra)
 
 
-def get_logger(name: Optional[str] = None) -> root_logging.Logger:
+def get_logger(name: str | None = None) -> root_logging.Logger:
     """
     Retrieves a logger instance within the Mosaico SDK namespace.
 

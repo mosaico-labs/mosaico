@@ -1,15 +1,17 @@
+import pytest
+
 from mosaicolabs.comm import MosaicoClient
-from mosaicolabs.handlers.endpoints import TopicResourceManifest
 from mosaicolabs.handlers import (
     SequenceHandler,
-    TopicHandler,
     TopicDataStreamer,
+    TopicHandler,
 )
-import pytest
+from mosaicolabs.handlers.endpoints import TopicResourceManifest
 from testing.integration.config import (
-    UPLOADED_SEQUENCE_NAME,
     QUERY_SEQUENCES_MOCKUP,
+    UPLOADED_SEQUENCE_NAME,
 )
+
 from .helpers import (
     SequenceDataStream,
     topic_list,
@@ -28,8 +30,13 @@ def test_manifest_in_data_sequence(
     # All other tests are made somewhere else..
     seqhandler = _client.sequence_handler(sequence_name=UPLOADED_SEQUENCE_NAME)
     assert seqhandler is not None
-    assert seqhandler.timestamp_ns_min == _make_sequence_data_stream.tstamp_ns_start
-    assert seqhandler.timestamp_ns_max == _make_sequence_data_stream.tstamp_ns_end
+    assert (
+        seqhandler.timestamp_ns_min
+        == _make_sequence_data_stream.tstamp_ns_start
+    )
+    assert (
+        seqhandler.timestamp_ns_max == _make_sequence_data_stream.tstamp_ns_end
+    )
     # free resources
     _client.close()
 
@@ -155,7 +162,8 @@ def test_topics_manifest_timestamps(
     topic_manifest = TopicResourceManifest.from_flight_endpoint(ep)
     # Not asked for time-windowed stream: the min/max timestamps must be equal to start/end
     assert (
-        _cached_topic_data_stream[0].msg.timestamp_ns == topic_manifest.timestamp_ns_min
+        _cached_topic_data_stream[0].msg.timestamp_ns
+        == topic_manifest.timestamp_ns_min
     )
     assert (
         _cached_topic_data_stream[-1].msg.timestamp_ns
@@ -206,7 +214,8 @@ def test_topic_streamer_manifest_timestamps(
     # The start/end timestamp must be equal to the first/last message timestamps of the topic data stream
     # min and max are still the lowest and highest timestamp in the whole topic stream
     assert (
-        topic_manifest.timestamp_ns_min == _cached_topic_data_stream[0].msg.timestamp_ns
+        topic_manifest.timestamp_ns_min
+        == _cached_topic_data_stream[0].msg.timestamp_ns
     )
     assert (
         topic_manifest.timestamp_ns_max

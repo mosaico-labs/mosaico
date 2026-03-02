@@ -1,15 +1,17 @@
 import fnmatch
+from collections.abc import Generator
+from enum import Enum
 from pathlib import Path
-from mosaicolabs.logging_config import get_logger
+
 from rosbags.highlevel import AnyReader
 from rosbags.interfaces import Connection, TopicInfo
-from typing import Dict, Generator, List, Optional, Tuple, Union
-from enum import Enum
 from rosbags.typesys import Stores, get_typestore
 
+from mosaicolabs.logging_config import get_logger
+
 from .helpers import _to_dict
-from .ros_bridge import ROSMessage
 from .registry import ROSTypeRegistry
+from .ros_bridge import ROSMessage
 
 # Set the hierarchical logger
 logger = get_logger(__name__)
@@ -65,11 +67,11 @@ class ROSLoader:
 
     def __init__(
         self,
-        file_path: Union[str, Path],
-        topics: Optional[Union[str, List[str]]] = None,
+        file_path: str | Path,
+        topics: str | list[str] | None = None,
         typestore_name: Stores = Stores.EMPTY,
         error_policy: LoaderErrorPolicy = LoaderErrorPolicy.LOG_WARN,
-        custom_types: Optional[Dict[str, Union[str, Path]]] = None,
+        custom_types: dict[str, str | Path] | None = None,
     ):
         """
         Initializes the loader and prepares the type registry.
@@ -113,9 +115,9 @@ class ROSLoader:
         self._error_policy = error_policy
 
         # State
-        self._reader: Optional[AnyReader] = None
-        self._connections: List[Connection] = []
-        self._resolved_topics: Dict[
+        self._reader: AnyReader | None = None
+        self._connections: list[Connection] = []
+        self._resolved_topics: dict[
             str, TopicInfo
         ] = {}  # The actual topics matched after globbing
 
@@ -128,7 +130,8 @@ class ROSLoader:
         if custom_types:
             # Resolve paths to strings immediately
             resolved = {
-                k: ROSTypeRegistry._resolve_source(v) for k, v in custom_types.items()
+                k: ROSTypeRegistry._resolve_source(v)
+                for k, v in custom_types.items()
             }
             self._register_definitions(resolved)
 
@@ -140,7 +143,7 @@ class ROSLoader:
                 f"Unsupported format '{self._file_path.suffix}'. Supported: {self.ACCEPTED_EXTENSIONS}"
             )
 
-    def _register_definitions(self, types_map: Dict[str, str]):
+    def _register_definitions(self, types_map: dict[str, str]):
         """Safe registration wrapper."""
         from rosbags.typesys import get_types_from_msg
 
@@ -168,7 +171,7 @@ class ROSLoader:
             )
             self._reader.open()
         except Exception as e:
-            raise IOError(f"Could not open bag file: '{e}'") from e
+            raise OSError(f"Could not open bag file: '{e}'") from e
 
         available_topics = self._reader.topics
         self._connections = []
@@ -190,7 +193,11 @@ class ROSLoader:
                     f"Topic pattern '{pattern}' matched nothing in this bag."
                 )
             target_topics.update(
-                {key: val for key, val in available_topics.items() if key in matches}
+                {
+                    key: val
+                    for key, val in available_topics.items()
+                    if key in matches
+                }
             )
 
         self._resolved_topics = target_topics
@@ -201,10 +208,12 @@ class ROSLoader:
                 self._connections.append(conn)
 
         if not self._connections:
-            logger.warning("Loader initialized, but no connections matched criteria.")
+            logger.warning(
+                "Loader initialized, but no connections matched criteria."
+            )
 
     # --- Properties ---
-    def msg_count(self, topic: Optional[str] = None) -> int:
+    def msg_count(self, topic: str | None = None) -> int:
         """
         Returns the total number of messages to be processed based on active filters.
 
@@ -219,13 +228,17 @@ class ROSLoader:
         if not topic:
             return sum(c.msgcount for c in self._connections)
         try:
-            return next(c.msgcount for c in self._connections if c.topic == topic)
+            return next(
+                c.msgcount for c in self._connections if c.topic == topic
+            )
         except StopIteration:
-            logger.error(f"Topic '{topic}' not found in the loaded connections.")
+            logger.error(
+                f"Topic '{topic}' not found in the loaded connections."
+            )
             return 0
 
     @property
-    def topics(self) -> List[str]:
+    def topics(self) -> list[str]:
         """
         Retrieves the list of canonical topic names that will be processed.
 
@@ -248,7 +261,7 @@ class ROSLoader:
         return list(self._resolved_topics.keys())
 
     @property
-    def msg_types(self) -> List[str | None]:
+    def msg_types(self) -> list[str | None]:
         """
         Retrieves the list of ROS message types corresponding to the resolved topics.
 
@@ -272,7 +285,9 @@ class ROSLoader:
 
     # --- Core Logic ---
 
-    def __iter__(self) -> Generator[Tuple[ROSMessage, Optional[Exception]], None, None]:
+    def __iter__(
+        self,
+    ) -> Generator[tuple[ROSMessage, Exception | None], None, None]:
         """
         The primary data streaming loop.
 

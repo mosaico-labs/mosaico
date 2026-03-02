@@ -6,14 +6,16 @@ by merging multiple topic streams into a single, time-ordered iterator.
 """
 
 import json
-from mosaicolabs.models.message import Message
-import pyarrow.flight as fl
-from typing import Any, List, Optional, Dict
+from typing import Any
 
+import pyarrow.flight as fl
+
+from mosaicolabs.models.message import Message
+
+from ..logging_config import get_logger
 from .endpoints import TopicParsingError, TopicResourceManifest
 from .internal.topic_read_state import _TopicReadState
 from .topic_reader import TopicDataStreamer
-from ..logging_config import get_logger
 
 # Set the hierarchical logger
 logger = get_logger(__name__)
@@ -54,7 +56,7 @@ class SequenceDataStreamer:
         *,
         sequence_name: str,
         client: fl.FlightClient,
-        topic_readers: Dict[str, TopicDataStreamer],
+        topic_readers: dict[str, TopicDataStreamer],
     ):
         """
         Internal constructor for SequenceDataStreamer.
@@ -96,9 +98,9 @@ class SequenceDataStreamer:
         """The name of the handled sequence data stream"""
         self._fl_client: fl.FlightClient = client
         "The client for remote operations"
-        self._topic_readers: Dict[str, TopicDataStreamer] = topic_readers
+        self._topic_readers: dict[str, TopicDataStreamer] = topic_readers
         """The spawned topic data stream readers"""
-        self._winning_rdstate: Optional[_TopicReadState] = None
+        self._winning_rdstate: _TopicReadState | None = None
         """The current topic datastream state corresponding to the last extracted measurement"""
         self._in_iter: bool = False
         """Tag for assessing if the data streamer is used in a loop"""
@@ -109,9 +111,9 @@ class SequenceDataStreamer:
     def _connect(
         cls,
         sequence_name: str,
-        topics: List[str],
-        start_timestamp_ns: Optional[int],
-        end_timestamp_ns: Optional[int],
+        topics: list[str],
+        start_timestamp_ns: int | None,
+        end_timestamp_ns: int | None,
         client: fl.FlightClient,
     ) -> "SequenceDataStreamer":
         """
@@ -152,12 +154,14 @@ class SequenceDataStreamer:
                 f"Server error (get_flight_info) while asking for Sequence descriptor, {e}"
             )
 
-        topic_readers: Dict[str, TopicDataStreamer] = {}
+        topic_readers: dict[str, TopicDataStreamer] = {}
 
         # Extract the Topics resource manifests data and their tickets
         for ep in flight_info.endpoints:
             try:
-                topic_resrc_mdata = TopicResourceManifest.from_flight_endpoint(ep)
+                topic_resrc_mdata = TopicResourceManifest.from_flight_endpoint(
+                    ep
+                )
             except TopicParsingError as e:
                 logger.error(f"Skipping invalid topic endpoint, err: '{e}'")
                 continue
@@ -217,7 +221,7 @@ class SequenceDataStreamer:
         self._in_iter = True
         return self
 
-    def next_timestamp(self) -> Optional[int]:
+    def next_timestamp(self) -> int | None:
         """
         Peeks at the timestamp of the next chronological measurement without
         consuming the record.
@@ -253,9 +257,7 @@ class SequenceDataStreamer:
 
         """
         self._validate_status_open()
-        self._in_iter = (
-            True  # Safety: ensures direct next_timestamp() calls also lock the state
-        )
+        self._in_iter = True  # Safety: ensures direct next_timestamp() calls also lock the state
         min_tstamp: float = float("inf")
 
         for treader in self._topic_readers.values():
@@ -284,7 +286,7 @@ class SequenceDataStreamer:
         """
         self._validate_status_open()
         min_tstamp: float = float("inf")
-        topic_min_tstamp: Optional[str] = None
+        topic_min_tstamp: str | None = None
         self._winning_rdstate = None
 
         # Identify the "Winner" (Topic with lowest timestamp)
@@ -307,7 +309,9 @@ class SequenceDataStreamer:
         row_values = self._winning_rdstate.peeked_row
         row_dict = {
             name: value.as_py()
-            for name, value in zip(self._winning_rdstate.column_names, row_values)
+            for name, value in zip(
+                self._winning_rdstate.column_names, row_values
+            )
         }
 
         # Advance the Winner's stream
@@ -320,8 +324,8 @@ class SequenceDataStreamer:
     @staticmethod
     def _get_flight_info(
         sequence_name: str,
-        start_timestamp_ns: Optional[int],
-        end_timestamp_ns: Optional[int],
+        start_timestamp_ns: int | None,
+        end_timestamp_ns: int | None,
         client: fl.FlightClient,
     ) -> fl.FlightInfo:
         """Performs the get_flight_info call. Raises if flight function does"""
@@ -334,7 +338,7 @@ class SequenceDataStreamer:
         descriptor = fl.FlightDescriptor.for_command(json.dumps(cmd_dict))
         return client.get_flight_info(descriptor)
 
-    def _as_batch_provider(self) -> Dict[str, "TopicDataStreamer"]:
+    def _as_batch_provider(self) -> dict[str, "TopicDataStreamer"]:
         """
         Transitions the streamer to 'Batch Provider' mode for analytical modules.
 

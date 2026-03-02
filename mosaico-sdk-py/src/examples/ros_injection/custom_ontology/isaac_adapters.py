@@ -1,6 +1,7 @@
-from typing import Any, Tuple, Type
+from typing import Any
+
 from mosaicolabs.models import Message
-from mosaicolabs.ros_bridge import ROSMessage, ROSAdapterBase, register_adapter
+from mosaicolabs.ros_bridge import ROSAdapterBase, ROSMessage, register_adapter
 from mosaicolabs.ros_bridge.adapters.helpers import _validate_msgdata
 
 from .isaac import EncoderTicks
@@ -18,8 +19,10 @@ class EncoderTicksAdapter(ROSAdapterBase[EncoderTicks]):
     - `isaac_ros_nova_interfaces/msg/EncoderTicks`
     """
 
-    ros_msgtype: str | Tuple[str, ...] = ("isaac_ros_nova_interfaces/msg/EncoderTicks",)
-    __mosaico_ontology_type__: Type[EncoderTicks] = EncoderTicks
+    ros_msgtype: str | tuple[str, ...] = (
+        "isaac_ros_nova_interfaces/msg/EncoderTicks",
+    )
+    __mosaico_ontology_type__: type[EncoderTicks] = EncoderTicks
 
     # Validation keys used by _validate_msgdata
     _REQUIRED_KEYS = ("left_ticks", "right_ticks", "encoder_timestamp")

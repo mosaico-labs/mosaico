@@ -1,5 +1,6 @@
 import pandas as pd
-from mosaicolabs.ml import SyncTransformer, SyncHold, SyncAsOf, SyncDrop
+
+from mosaicolabs.ml import SyncAsOf, SyncDrop, SyncHold, SyncTransformer
 
 
 def test_sync_transformer_fps_to_ns_alignment():
@@ -144,7 +145,10 @@ def test_sync_transformer_state_carry_over():
     # The grid should have generated 3s and 4s
     assert list(dense2["timestamp_ns"]) == expected_tstamp
     # Check that '3' was carried over into the first tick of the new chunk
-    assert dense2.loc[dense2["timestamp_ns"] == 3_000_000_000, "val"].values[0] == 3
+    assert (
+        dense2.loc[dense2["timestamp_ns"] == 3_000_000_000, "val"].values[0]
+        == 3
+    )
 
 
 def test_sync_transformer_reset():

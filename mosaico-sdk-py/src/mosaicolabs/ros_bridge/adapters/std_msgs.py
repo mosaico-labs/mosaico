@@ -16,26 +16,27 @@ Architecture:
     in the ROSBridge.
 """
 
-from typing import Any, Dict, Optional, Type, Tuple
+from typing import Any
+
+from mosaicolabs.models import Message, Serializable
 from mosaicolabs.models.data import (
+    Boolean,
     Floating32,
     Floating64,
-    Integer64,
-    String,
     Integer8,
     Integer16,
     Integer32,
-    Boolean,
+    Integer64,
+    String,
+    Unsigned8,
     Unsigned16,
     Unsigned32,
     Unsigned64,
-    Unsigned8,
 )
-from mosaicolabs.models import Message, Serializable
 
 from ..adapter_base import ROSAdapterBase
-from ..ros_message import ROSMessage, ROSHeader
 from ..ros_bridge import register_adapter
+from ..ros_message import ROSMessage
 from .helpers import _validate_msgdata
 
 # ---------------------------------------------------------------------------
@@ -44,7 +45,7 @@ from .helpers import _validate_msgdata
 # This dictionary is the single source of truth for standard type support.
 # Adding a new mapping here automatically generates the corresponding adapter.
 
-_ROS_MSGTYPE_MSCO_BASE_TYPE_MAP: Dict[str, Type[Serializable]] = {
+_ROS_MSGTYPE_MSCO_BASE_TYPE_MAP: dict[str, type[Serializable]] = {
     # String Types
     "std_msgs/msg/String": String,
     # Integer Types (Signed)
@@ -136,8 +137,8 @@ class GenericStdAdapter(ROSAdapterBase[Serializable]):
 
     # These attributes are placeholders. They are populated in the dynamic
     # subclasses generated below.
-    ros_msgtype: str | Tuple[str, ...]
-    __mosaico_ontology_type__: Type[Serializable]
+    ros_msgtype: str | tuple[str, ...]
+    __mosaico_ontology_type__: type[Serializable]
     _REQUIRED_KEYS = ("data",)
 
     @classmethod
@@ -162,7 +163,7 @@ class GenericStdAdapter(ROSAdapterBase[Serializable]):
         )
 
     @classmethod
-    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
+    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> dict | None:
         """Standard types do not carry additional schema metadata."""
         return None
 

@@ -1,7 +1,7 @@
-import pytest
-import numpy as np
-from typing import List, Tuple
 import logging as log
+
+import numpy as np
+import pytest
 
 # Import your classes (adjust the import path to match your project structure)
 from mosaicolabs.models.sensors import Image, ImageFormat
@@ -12,7 +12,7 @@ from mosaicolabs.models.sensors.image import _IMG_ENCODING_MAP
 
 def generate_test_data(
     width: int, height: int, encoding: str
-) -> Tuple[List[int], int, np.ndarray]:
+) -> tuple[list[int], int, np.ndarray]:
     """
     Helper to generate random synthetic data mimicking ROS memory layouts.
     Returns:
@@ -86,7 +86,9 @@ def test_image_round_trip_integrity(format, encoding):
     # For PNG, the stored data size should generally be smaller (unless random noise)
     # or at least formatted as a PNG file header.
     if format == ImageFormat.PNG:
-        assert img_obj.data.startswith(b"\x89PNG"), "Data is not a valid PNG blob"
+        assert img_obj.data.startswith(b"\x89PNG"), (
+            "Data is not a valid PNG blob"
+        )
 
     # Decode (Decompress)
     decoded_bytes = img_obj.to_linear_pixels()
@@ -107,7 +109,8 @@ def test_image_round_trip_integrity(format, encoding):
 
 
 @pytest.mark.parametrize(
-    "format", [f for f in ImageFormat if f not in Image.__supported_image_formats__]
+    "format",
+    [f for f in ImageFormat if f not in Image.__supported_image_formats__],
 )
 @pytest.mark.parametrize(
     "encoding",
@@ -188,13 +191,23 @@ def test_endianness_metadata_passthrough():
 
     # Case 1: Big Endian Source
     img_be = Image.from_linear_pixels(
-        data=data, stride=4, height=1, width=1, encoding="32FC1", is_bigendian=True
+        data=data,
+        stride=4,
+        height=1,
+        width=1,
+        encoding="32FC1",
+        is_bigendian=True,
     )
     assert img_be.is_bigendian is True
 
     # Case 2: Little Endian Source
     img_le = Image.from_linear_pixels(
-        data=data, stride=4, height=1, width=1, encoding="32FC1", is_bigendian=False
+        data=data,
+        stride=4,
+        height=1,
+        width=1,
+        encoding="32FC1",
+        is_bigendian=False,
     )
     assert img_le.is_bigendian is False
 

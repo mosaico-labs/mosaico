@@ -6,17 +6,21 @@ from a single topic via the Flight `DoGet` protocol.
 """
 
 import json
-from mosaicolabs.handlers.endpoints import TopicParsingError, TopicResourceManifest
-from mosaicolabs.models.message import Message
-import pyarrow.flight as fl
-import pyarrow as pa
-from typing import Any, Optional
+from typing import Any
 
-from .internal.topic_read_state import _TopicReadState
+import pyarrow as pa
+import pyarrow.flight as fl
+
+from mosaicolabs.handlers.endpoints import (
+    TopicParsingError,
+    TopicResourceManifest,
+)
+from mosaicolabs.models.message import Message
 
 from ..comm.metadata import TopicMetadata, _decode_metadata
 from ..helpers.helpers import pack_topic_resource_name
 from ..logging_config import get_logger
+from .internal.topic_read_state import _TopicReadState
 
 # Set the hierarchical logger
 logger = get_logger(__name__)
@@ -132,7 +136,9 @@ class TopicDataStreamer:
             )
 
         # Decode metadata to determine how to deserialize the data
-        topic_mdata = TopicMetadata.from_dict(_decode_metadata(reader.schema.metadata))
+        topic_mdata = TopicMetadata.from_dict(
+            _decode_metadata(reader.schema.metadata)
+        )
         ontology_tag = topic_mdata.properties.ontology_tag
 
         rdstate = _TopicReadState(
@@ -151,8 +157,8 @@ class TopicDataStreamer:
         topic_name: str,
         sequence_name: str,
         client: fl.FlightClient,
-        start_timestamp_ns: Optional[int],
-        end_timestamp_ns: Optional[int],
+        start_timestamp_ns: int | None,
+        end_timestamp_ns: int | None,
     ) -> "TopicDataStreamer":
         """
         Factory method to initialize a streamer via an endpoint with optional temporal slicing.
@@ -194,7 +200,9 @@ class TopicDataStreamer:
             )
         for ep in flight_info.endpoints:
             try:
-                topic_resrc_mdata = TopicResourceManifest.from_flight_endpoint(ep)
+                topic_resrc_mdata = TopicResourceManifest.from_flight_endpoint(
+                    ep
+                )
             except TopicParsingError as e:
                 logger.error(f"Skipping invalid topic endpoint, err: '{e}'")
                 continue
@@ -220,7 +228,7 @@ class TopicDataStreamer:
         """
         return self._rdstate.topic_name
 
-    def next_timestamp(self) -> Optional[int]:
+    def next_timestamp(self) -> int | None:
         """
         Peeks at the timestamp of the next record without consuming it.
 
@@ -336,10 +344,12 @@ class TopicDataStreamer:
         try:
             self._rdstate.close()
         except Exception as e:
-            logger.warning(f"Error closing state '{self._rdstate.topic_name}': '{e}'")
+            logger.warning(
+                f"Error closing state '{self._rdstate.topic_name}': '{e}'"
+            )
         logger.info(f"TopicReader for '{self._rdstate.topic_name}' closed.")
 
-    def _fetch_next_batch(self) -> Optional[pa.RecordBatch]:
+    def _fetch_next_batch(self) -> pa.RecordBatch | None:
         """
         Retrieves the next raw RecordBatch from the underlying stream.
 
@@ -363,8 +373,8 @@ class TopicDataStreamer:
     def _get_flight_info(
         sequence_name: str,
         topic_name: str,
-        start_timestamp_ns: Optional[int],
-        end_timestamp_ns: Optional[int],
+        start_timestamp_ns: int | None,
+        end_timestamp_ns: int | None,
         client: fl.FlightClient,
     ) -> fl.FlightInfo:
         """Performs the get_flight_info call. Raises if flight function does"""

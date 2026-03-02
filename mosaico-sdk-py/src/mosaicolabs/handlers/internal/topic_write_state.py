@@ -10,7 +10,6 @@ from collections import defaultdict
 from concurrent.futures import Future, ThreadPoolExecutor, wait
 from enum import Enum
 from threading import BoundedSemaphore, Lock
-from typing import List, Optional
 
 import pyarrow as pa
 import pyarrow.flight as fl
@@ -69,10 +68,10 @@ class _TopicWriteState:
         self,
         topic_name: str,
         ontology_tag: str,
-        writer: Optional[fl.FlightStreamWriter],
-        executor: Optional[ThreadPoolExecutor] = None,
-        max_batch_size_bytes: Optional[int] = None,
-        max_batch_size_records: Optional[int] = None,
+        writer: fl.FlightStreamWriter | None,
+        executor: ThreadPoolExecutor | None = None,
+        max_batch_size_bytes: int | None = None,
+        max_batch_size_records: int | None = None,
     ):
         """
         Initializes the write state.
@@ -98,9 +97,9 @@ class _TopicWriteState:
             )
 
         self.topic_name: str = topic_name
-        self.writer: Optional[fl.FlightStreamWriter] = writer
+        self.writer: fl.FlightStreamWriter | None = writer
         self.ontology_tag: str = ontology_tag
-        self.executor: Optional[ThreadPoolExecutor] = executor
+        self.executor: ThreadPoolExecutor | None = executor
         self.max_batch_size_bytes = max_batch_size_bytes
         self.max_batch_size_records = max_batch_size_records
 
@@ -120,11 +119,11 @@ class _TopicWriteState:
             )
 
         # --- Buffering State ---
-        self._current_data_batch: List[Message] = []
+        self._current_data_batch: list[Message] = []
         self._current_batch_size_bytes: int = 0
 
         # --- Async & Backpressure State ---
-        self._pending_writes: List[Future] = []
+        self._pending_writes: list[Future] = []
         self._pending_writes_lock = Lock()
         self._written_records = 0
         self._pushed_records = 0
@@ -136,7 +135,7 @@ class _TopicWriteState:
         # Waiting (blocking) mechanism when length of pending batches is more than limit
         self._pending_sem = BoundedSemaphore(self.max_pending_batches)
 
-    def _get_record_batch(self, msgs: List[Message]) -> pa.RecordBatch:
+    def _get_record_batch(self, msgs: list[Message]) -> pa.RecordBatch:
         """
         [CPU Bound] Converts Python objects to Arrow RecordBatch.
         Runs in worker thread during async mode.
@@ -239,7 +238,7 @@ class _TopicWriteState:
 
         self._pushed_records += 1
 
-    def _submit_write_task(self, msgs_to_write: List[Message]):
+    def _submit_write_task(self, msgs_to_write: list[Message]):
         """
         Dispatches the write operation to the executor.
 
@@ -254,9 +253,7 @@ class _TopicWriteState:
             return
 
         # Worker Function
-        def full_write_task(
-            records, topic_name, sem: Optional[BoundedSemaphore]
-        ):
+        def full_write_task(records, topic_name, sem: BoundedSemaphore | None):
             try:
                 # Serialization (CPU)
                 batch = self._get_record_batch(records)

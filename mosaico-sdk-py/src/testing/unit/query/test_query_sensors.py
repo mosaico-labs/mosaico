@@ -7,25 +7,22 @@ from mosaicolabs.models.query import (
     Query,
     QueryOntologyCatalog,
 )
-
-from mosaicolabs.models.query.generation.mixins import (
-    _QueryableNumeric,
-    _QueryableString,
-    _QueryableBool,
-)
-
 from mosaicolabs.models.query.expressions import (
     _QueryCatalogExpression,
 )
-
+from mosaicolabs.models.query.generation.mixins import (
+    _QueryableBool,
+    _QueryableNumeric,
+    _QueryableString,
+)
 from mosaicolabs.models.sensors import (
-    IMU,
     GPS,
+    IMU,
     Image,
     Magnetometer,
-    Temperature,
     Pressure,
     Range,
+    Temperature,
 )
 
 
@@ -72,7 +69,9 @@ class TestQueryIMUAPI:
         assert issubclass(type(IMU.Q.acceleration.x), _QueryableNumeric)
         assert issubclass(type(IMU.Q.acceleration.y), _QueryableNumeric)
         assert issubclass(type(IMU.Q.acceleration.z), _QueryableNumeric)
-        assert issubclass(type(IMU.Q.acceleration.covariance_type), _QueryableNumeric)
+        assert issubclass(
+            type(IMU.Q.acceleration.covariance_type), _QueryableNumeric
+        )
         assert issubclass(type(IMU.Q.angular_velocity.x), _QueryableNumeric)
         assert issubclass(type(IMU.Q.angular_velocity.y), _QueryableNumeric)
         assert issubclass(type(IMU.Q.angular_velocity.z), _QueryableNumeric)
@@ -83,7 +82,9 @@ class TestQueryIMUAPI:
         assert issubclass(type(IMU.Q.orientation.y), _QueryableNumeric)
         assert issubclass(type(IMU.Q.orientation.z), _QueryableNumeric)
         assert issubclass(type(IMU.Q.orientation.w), _QueryableNumeric)
-        assert issubclass(type(IMU.Q.orientation.covariance_type), _QueryableNumeric)
+        assert issubclass(
+            type(IMU.Q.orientation.covariance_type), _QueryableNumeric
+        )
         assert issubclass(type(IMU.Q.sequence_id), _QueryableNumeric)
         assert issubclass(type(IMU.Q.timestamp_ns), _QueryableNumeric)
         assert issubclass(type(IMU.Q.frame_id), _QueryableString)
@@ -187,11 +188,15 @@ class TestQueryGPSAPI:
         assert issubclass(type(GPS.Q.position.x), _QueryableNumeric)
         assert issubclass(type(GPS.Q.position.y), _QueryableNumeric)
         assert issubclass(type(GPS.Q.position.z), _QueryableNumeric)
-        assert issubclass(type(GPS.Q.position.covariance_type), _QueryableNumeric)
+        assert issubclass(
+            type(GPS.Q.position.covariance_type), _QueryableNumeric
+        )
         assert issubclass(type(GPS.Q.velocity.x), _QueryableNumeric)
         assert issubclass(type(GPS.Q.velocity.y), _QueryableNumeric)
         assert issubclass(type(GPS.Q.velocity.z), _QueryableNumeric)
-        assert issubclass(type(GPS.Q.velocity.covariance_type), _QueryableNumeric)
+        assert issubclass(
+            type(GPS.Q.velocity.covariance_type), _QueryableNumeric
+        )
         assert issubclass(type(GPS.Q.status.status), _QueryableNumeric)
         assert issubclass(type(GPS.Q.status.satellites), _QueryableNumeric)
         assert issubclass(type(GPS.Q.status.hdop), _QueryableNumeric)
@@ -211,10 +216,14 @@ class TestQueryGPSAPI:
         # Expected: {'gps.position.y': {'$gt': 12345.67}} - _QueryCatalogExpression
         expr_nested = GPS.Q.position.y.gt(test_numeric_value)
         assert isinstance(expr_nested, _QueryCatalogExpression)
-        assert expr_nested.to_dict() == {"gps.position.y": {"$gt": test_numeric_value}}
+        assert expr_nested.to_dict() == {
+            "gps.position.y": {"$gt": test_numeric_value}
+        }
         expr_nested = GPS.Q.position.y.eq(test_numeric_value)
         assert isinstance(expr_nested, _QueryCatalogExpression)
-        assert expr_nested.to_dict() == {"gps.position.y": {"$eq": test_numeric_value}}
+        assert expr_nested.to_dict() == {
+            "gps.position.y": {"$eq": test_numeric_value}
+        }
 
         # --- Catalog Context: Range Operator ---
         test_time_range = [10000, 30000]
@@ -379,11 +388,18 @@ class TestQueryMagnetometerAPI:
         """
         # --- Fields Accessibility Test ---
         # Local fields
-        assert issubclass(type(Magnetometer.Q.magnetic_field.x), _QueryableNumeric)
-        assert issubclass(type(Magnetometer.Q.magnetic_field.y), _QueryableNumeric)
-        assert issubclass(type(Magnetometer.Q.magnetic_field.z), _QueryableNumeric)
         assert issubclass(
-            type(Magnetometer.Q.magnetic_field.covariance_type), _QueryableNumeric
+            type(Magnetometer.Q.magnetic_field.x), _QueryableNumeric
+        )
+        assert issubclass(
+            type(Magnetometer.Q.magnetic_field.y), _QueryableNumeric
+        )
+        assert issubclass(
+            type(Magnetometer.Q.magnetic_field.z), _QueryableNumeric
+        )
+        assert issubclass(
+            type(Magnetometer.Q.magnetic_field.covariance_type),
+            _QueryableNumeric,
         )
         assert issubclass(type(Magnetometer.Q.sequence_id), _QueryableNumeric)
         assert issubclass(type(Magnetometer.Q.timestamp_ns), _QueryableNumeric)
@@ -752,32 +768,78 @@ class TestQueryRangeAPI:
     def test_validation_min_and_max_range(self):
         """Tests the validator for `min_range` and `max_range`."""
         # min_range < max_range
-        Range(field_of_view=30, min_range=0, max_range=1, range=0.5, radiation_type=0)
+        Range(
+            field_of_view=30,
+            min_range=0,
+            max_range=1,
+            range=0.5,
+            radiation_type=0,
+        )
 
         # min_range == max_range
-        Range(field_of_view=30, min_range=0, max_range=0, range=0, radiation_type=0)
+        Range(
+            field_of_view=30,
+            min_range=0,
+            max_range=0,
+            range=0,
+            radiation_type=0,
+        )
 
         # min_range
         with pytest.raises(ValueError):
             Range(
-                field_of_view=30, min_range=1, max_range=0, range=0.5, radiation_type=0
+                field_of_view=30,
+                min_range=1,
+                max_range=0,
+                range=0.5,
+                radiation_type=0,
             )
 
     def test_validation_range(self):
         """Tests the validator for `range`."""
         # min_range < range < max_range
-        Range(field_of_view=30, min_range=0, max_range=1, range=0.5, radiation_type=0)
+        Range(
+            field_of_view=30,
+            min_range=0,
+            max_range=1,
+            range=0.5,
+            radiation_type=0,
+        )
 
         # range == min_range
-        Range(field_of_view=30, min_range=0, max_range=1, range=0, radiation_type=0)
+        Range(
+            field_of_view=30,
+            min_range=0,
+            max_range=1,
+            range=0,
+            radiation_type=0,
+        )
 
         # range == max_range
-        Range(field_of_view=30, min_range=0, max_range=1, range=1, radiation_type=0)
+        Range(
+            field_of_view=30,
+            min_range=0,
+            max_range=1,
+            range=1,
+            radiation_type=0,
+        )
 
         # range < min_range
         with pytest.raises(ValueError):
-            Range(field_of_view=30, min_range=1, max_range=2, range=0, radiation_type=0)
+            Range(
+                field_of_view=30,
+                min_range=1,
+                max_range=2,
+                range=0,
+                radiation_type=0,
+            )
 
         # range > max_range
         with pytest.raises(ValueError):
-            Range(field_of_view=30, min_range=0, max_range=1, range=2, radiation_type=0)
+            Range(
+                field_of_view=30,
+                min_range=0,
+                max_range=1,
+                range=2,
+                radiation_type=0,
+            )

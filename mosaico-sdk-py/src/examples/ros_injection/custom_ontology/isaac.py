@@ -1,4 +1,5 @@
 import pyarrow as pa
+
 from mosaicolabs import Serializable
 
 

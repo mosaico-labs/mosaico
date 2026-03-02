@@ -1,8 +1,9 @@
+import pyarrow as pa
 import pydantic
 import pytest
-import pyarrow as pa
 
-from mosaicolabs.models import Serializable, Message, CovarianceMixin
+from mosaicolabs.models import CovarianceMixin, Message, Serializable
+
 from .my_project import RegisteredSensor, UnregisteredSensor
 
 
@@ -68,8 +69,9 @@ def test_ontology_type_schema_mismatch():
             pass
 
     # Verify the error message contains the expected mismatch details
-    assert "Schema mismatch in ontology class 'MismatchedSensorMissingField'" in str(
-        excinfo.value
+    assert (
+        "Schema mismatch in ontology class 'MismatchedSensorMissingField'"
+        in str(excinfo.value)
     )
 
     with pytest.raises(TypeError) as excinfo:
@@ -87,8 +89,9 @@ def test_ontology_type_schema_mismatch():
             other_field: float
 
     # Verify the error message contains the expected mismatch details
-    assert "Schema mismatch in ontology class 'MismatchedSensorRenamedField'" in str(
-        excinfo.value
+    assert (
+        "Schema mismatch in ontology class 'MismatchedSensorRenamedField'"
+        in str(excinfo.value)
     )
 
     with pytest.raises(TypeError) as excinfo:
@@ -98,6 +101,7 @@ def test_ontology_type_schema_mismatch():
             field: float
 
     # Verify the error message contains the expected mismatch details
-    assert "Schema mismatch in ontology class 'MismatchedSensorMissingPAField'" in str(
-        excinfo.value
+    assert (
+        "Schema mismatch in ontology class 'MismatchedSensorMissingPAField'"
+        in str(excinfo.value)
     )

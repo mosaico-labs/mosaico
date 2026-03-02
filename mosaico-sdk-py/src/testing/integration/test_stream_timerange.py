@@ -1,11 +1,12 @@
 import bisect
-from typing import Optional
+
+import pytest
 
 from mosaicolabs.comm import MosaicoClient
-import pytest
 from testing.integration.config import (
     UPLOADED_SEQUENCE_NAME,
 )
+
 from .helpers import (
     SequenceDataStream,
     topic_list,
@@ -15,8 +16,8 @@ from .helpers import (
 def _exec_test_sequence_data_stream_timerange(
     _client: MosaicoClient,
     _make_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
-    time_start: Optional[int],
-    time_end: Optional[int],
+    time_start: int | None,
+    time_end: int | None,
 ):
     """Test that the sequence time-windowed data stream from start to end is correctly unpacked and provided"""
     seqhandler = _client.sequence_handler(UPLOADED_SEQUENCE_NAME)
@@ -52,7 +53,10 @@ def _exec_test_sequence_data_stream_timerange(
         if time_end is None
         else (
             bisect.bisect_left(
-                [it.msg.timestamp_ns for it in _make_sequence_data_stream.items],
+                [
+                    it.msg.timestamp_ns
+                    for it in _make_sequence_data_stream.items
+                ],
                 time_end,
             )
             - 1
@@ -80,7 +84,10 @@ def _exec_test_sequence_data_stream_timerange(
 
         # Test the correct return of the Message methods
         assert message.ontology_type() == cached_item.ontology_class
-        assert message.ontology_tag() == cached_item.ontology_class.__ontology_tag__
+        assert (
+            message.ontology_tag()
+            == cached_item.ontology_class.__ontology_tag__
+        )
 
     # check the total number of received sensors is the same of the original sequence
     assert msg_count == msg_idx_stop + 1
@@ -93,8 +100,8 @@ def _exec_test_topic_data_stream_timerange(
     _client: MosaicoClient,
     _make_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
     topic: str,
-    time_start: Optional[int],
-    time_end: Optional[int],
+    time_start: int | None,
+    time_end: int | None,
 ):
     """Test that the topic data stream is correctly unpacked and provided"""
     # generate for easier inspection and debug (than using next)
@@ -169,7 +176,10 @@ def _exec_test_topic_data_stream_timerange(
 
         # Test the correct return of the Message methods
         assert message.ontology_type() == cached_item.ontology_class
-        assert message.ontology_tag() == cached_item.ontology_class.__ontology_tag__
+        assert (
+            message.ontology_tag()
+            == cached_item.ontology_class.__ontology_tag__
+        )
 
     # check the total number of received sensors is the same of the original sequence
     assert msg_count == msg_idx_stop + 1

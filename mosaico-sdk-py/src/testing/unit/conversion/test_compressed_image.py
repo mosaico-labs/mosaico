@@ -1,5 +1,5 @@
-import pytest
 import numpy as np
+import pytest
 from PIL import Image as PILImage
 
 # Import your classes
@@ -28,7 +28,9 @@ def test_compressed_image_round_trip_standard(format):
     original_img = create_test_image()
 
     # Encode (from_image)
-    compressed_msg = CompressedImage.from_image(image=original_img, format=format)
+    compressed_msg = CompressedImage.from_image(
+        image=original_img, format=format
+    )
 
     assert compressed_msg.format == format
     assert len(compressed_msg.data) > 0

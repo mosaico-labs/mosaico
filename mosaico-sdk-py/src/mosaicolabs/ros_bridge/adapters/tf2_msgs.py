@@ -1,11 +1,11 @@
-from typing import Any, Optional, Tuple, Type
+from typing import Any
+
 from mosaicolabs.models import Message
 
-from ..data_ontology import FrameTransform
 from ..adapter_base import ROSAdapterBase
-from ..ros_message import ROSMessage
+from ..data_ontology import FrameTransform
 from ..ros_bridge import register_adapter
-
+from ..ros_message import ROSMessage
 from .geometry_msgs import TransformAdapter
 from .helpers import _validate_msgdata
 
@@ -58,9 +58,9 @@ class FrameTransformAdapter(ROSAdapterBase):
         ```
     """
 
-    ros_msgtype: str | Tuple[str, ...] = "tf2_msgs/msg/TFMessage"
+    ros_msgtype: str | tuple[str, ...] = "tf2_msgs/msg/TFMessage"
 
-    __mosaico_ontology_type__: Type[FrameTransform] = FrameTransform
+    __mosaico_ontology_type__: type[FrameTransform] = FrameTransform
     _REQUIRED_KEYS = ("transforms",)
 
     @classmethod
@@ -127,7 +127,7 @@ class FrameTransformAdapter(ROSAdapterBase):
         )
 
     @classmethod
-    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
+    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> dict | None:
         """
         Extract the ROS message specific schema metadata, if any.
         """

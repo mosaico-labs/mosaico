@@ -1,13 +1,12 @@
-from typing import Any, Optional, Tuple, Type
+from typing import Any
 
-from mosaicolabs.models.data import MotionState
 from mosaicolabs.models import Message
+from mosaicolabs.models.data import MotionState
 
-from .geometry_msgs import PoseAdapter, TwistAdapter
 from ..adapter_base import ROSAdapterBase
-from ..ros_message import ROSMessage
 from ..ros_bridge import register_adapter
-
+from ..ros_message import ROSMessage
+from .geometry_msgs import PoseAdapter, TwistAdapter
 from .helpers import _validate_msgdata
 
 
@@ -45,9 +44,9 @@ class OdometryAdapter(ROSAdapterBase[MotionState]):
         ```
     """
 
-    ros_msgtype: str | Tuple[str, ...] = "nav_msgs/msg/Odometry"
+    ros_msgtype: str | tuple[str, ...] = "nav_msgs/msg/Odometry"
 
-    __mosaico_ontology_type__: Type[MotionState] = MotionState
+    __mosaico_ontology_type__: type[MotionState] = MotionState
     _REQUIRED_KEYS = ("pose", "twist", "child_frame_id")
 
     @classmethod
@@ -108,7 +107,7 @@ class OdometryAdapter(ROSAdapterBase[MotionState]):
         )
 
     @classmethod
-    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
+    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> dict | None:
         """
         Extract the ROS message specific schema metadata, if any.
         """

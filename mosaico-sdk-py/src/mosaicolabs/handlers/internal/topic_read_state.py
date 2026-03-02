@@ -7,9 +7,10 @@ of an active PyArrow Flight stream reading session. It manages the underlying
 capabilities essential for the k-way merge logic used in `SequenceDataStreamer`.
 """
 
-import pyarrow.flight as fl
+from collections.abc import Iterator
+
 import pyarrow as pa
-from typing import Iterator, List, Optional
+import pyarrow.flight as fl
 
 from mosaicolabs.logging_config import get_logger
 
@@ -33,7 +34,7 @@ class _TopicReadState:
         self,
         topic_name: str,
         ontology_tag: str,
-        reader: Optional[fl.FlightStreamReader],
+        reader: fl.FlightStreamReader | None,
     ):
         """
         Initializes the read state.
@@ -50,11 +51,11 @@ class _TopicReadState:
             raise ValueError("Cannot initialize _TopicState: 'reader' is None.")
 
         self.topic_name: str = topic_name
-        self.reader: Optional[fl.FlightStreamReader] = reader
+        self.reader: fl.FlightStreamReader | None = reader
         self.ontology_tag: str = ontology_tag
 
         # --- Schema Validation & Setup ---
-        self.column_names: List[str] = []
+        self.column_names: list[str] = []
         self.timestamp_index: int = -1
 
         self.column_names = reader.schema.names
@@ -66,10 +67,10 @@ class _TopicReadState:
             ) from e
 
         # Iterator yields tuples of python objects: (value_col1, value_col2, ...)
-        self.row_iterator: Optional[Iterator] = None
+        self.row_iterator: Iterator | None = None
 
         # Peek Buffer: Stores the next row to be consumed
-        self.peeked_row: Optional[tuple] = None
+        self.peeked_row: tuple | None = None
 
         # Sentinel value: 'inf' indicates stream is empty or not yet started
         self.peeked_timestamp: float = float("inf")
@@ -110,14 +111,16 @@ class _TopicReadState:
             self.row_iterator = None
             raise
 
-    def fetch_next_batch(self) -> Optional[pa.RecordBatch]:
+    def fetch_next_batch(self) -> pa.RecordBatch | None:
         """Get the next RecordBatch"""
         if self.reader is None:
             return None
         try:
             chunk = self.reader.read_chunk()
             return (
-                chunk.data if chunk and chunk.data and chunk.data.num_rows > 0 else None
+                chunk.data
+                if chunk and chunk.data and chunk.data.num_rows > 0
+                else None
             )
         except StopIteration:
             return None

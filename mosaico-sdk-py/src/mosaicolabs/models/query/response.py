@@ -1,5 +1,6 @@
+from collections.abc import Iterator
 from dataclasses import dataclass, field
-from typing import Iterator, List, Optional, Any
+from typing import Any
 
 from mosaicolabs.helpers import unpack_topic_full_path
 
@@ -55,19 +56,23 @@ class QueryResponseItemTopic:
     """
 
     name: str
-    timestamp_range: Optional[TimestampRange]
+    timestamp_range: TimestampRange | None
 
     @classmethod
     def _from_dict(cls, tdict: dict[str, Any]) -> "QueryResponseItemTopic":
         seq_topic_tuple = unpack_topic_full_path(tdict["locator"])
         if not seq_topic_tuple:
-            raise ValueError(f"Invalid topic name in response '{tdict['locator']}'")
+            raise ValueError(
+                f"Invalid topic name in response '{tdict['locator']}'"
+            )
         _, tname = seq_topic_tuple
         tsrange = tdict.get("timestamp_range")
 
         return cls(
             name=tname,
-            timestamp_range=TimestampRange(start=int(tsrange[0]), end=int(tsrange[1]))
+            timestamp_range=TimestampRange(
+                start=int(tsrange[0]), end=int(tsrange[1])
+            )
             if tsrange
             else None,
         )
@@ -88,14 +93,15 @@ class QueryResponseItem:
     """
 
     sequence: QueryResponseItemSequence
-    topics: List[QueryResponseItemTopic]
+    topics: list[QueryResponseItemTopic]
 
     @classmethod
     def _from_dict(cls, qdict: dict[str, Any]) -> "QueryResponseItem":
         return cls(
             sequence=QueryResponseItemSequence._from_dict(qdict),
             topics=[
-                QueryResponseItemTopic._from_dict(tdict) for tdict in qdict["topics"]
+                QueryResponseItemTopic._from_dict(tdict)
+                for tdict in qdict["topics"]
             ],
         )
 
@@ -143,7 +149,7 @@ class QueryResponse:
     """
 
     # Use field(default_factory=list) to handle cases where no items are passed
-    items: List[QueryResponseItem] = field(default_factory=list)
+    items: list[QueryResponseItem] = field(default_factory=list)
 
     def to_query_sequence(self) -> QuerySequence:
         """

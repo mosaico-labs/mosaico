@@ -6,19 +6,20 @@ It manages the lifecycle of the sequence on the server (Create -> Write -> Final
 and distributes client resources (Connections, Executors) to individual Topics.
 """
 
-from typing import Any, Optional, Type
+from typing import Any
+
 import pyarrow.flight as fl
 
-from .base_session_writer import BaseSessionWriter
-from .config import WriterConfig
-from .helpers import _validate_sequence_name
-from .topic_writer import TopicWriter
-from ..comm.do_action import _do_action
 from ..comm.connection import _ConnectionPool
+from ..comm.do_action import _do_action
 from ..comm.executor_pool import _ExecutorPool
 from ..enum import FlightAction, SequenceStatus
 from ..logging_config import get_logger
 from ..models import Serializable
+from .base_session_writer import BaseSessionWriter
+from .config import WriterConfig
+from .helpers import _validate_sequence_name
+from .topic_writer import TopicWriter
 
 # Set the hierarchical logger
 logger = get_logger(__name__)
@@ -57,8 +58,8 @@ class SequenceWriter(BaseSessionWriter):
         *,
         sequence_name: str,
         client: fl.FlightClient,
-        connection_pool: Optional[_ConnectionPool],
-        executor_pool: Optional[_ExecutorPool],
+        connection_pool: _ConnectionPool | None,
+        executor_pool: _ExecutorPool | None,
         metadata: dict[str, Any],
         config: WriterConfig,
     ):
@@ -162,8 +163,8 @@ class SequenceWriter(BaseSessionWriter):
         self,
         topic_name: str,
         metadata: dict[str, Any],
-        ontology_type: Type[Serializable],
-    ) -> Optional[TopicWriter]:
+        ontology_type: type[Serializable],
+    ) -> TopicWriter | None:
         """
         Creates a new topic within the active sequence.
 

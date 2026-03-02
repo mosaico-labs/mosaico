@@ -12,23 +12,22 @@ It implements a **Registry/Factory Pattern**:
 3.  **Query Capability**: It injects query proxies allowing users to write `IMU.Q.acc_x > 0`.
 """
 
-from typing import Optional, Type, Dict, List, ClassVar
+from typing import ClassVar
+
 import pyarrow as pa
 
 from mosaicolabs.enum import SerializationFormat
 from mosaicolabs.helpers import camel_to_snake
 
 from .base_model import BaseModel
-
-from .query.generation.api import _QueryProxyMixin
-from .query.expressions import _QueryCatalogExpression
-from .internal.pyarrow_mapper import PyarrowFieldMapper
 from .internal.helpers import _fix_empty_dicts
-
+from .internal.pyarrow_mapper import PyarrowFieldMapper
+from .query.expressions import _QueryCatalogExpression
+from .query.generation.api import _QueryProxyMixin
 
 # --- Private Registry ---
 # Global dictionary mapping string tags (e.g., "imu") to class types.
-_SENSOR_REGISTRY: Dict[str, Type["Serializable"]] = {}
+_SENSOR_REGISTRY: dict[str, type["Serializable"]] = {}
 
 
 class Serializable(BaseModel, _QueryProxyMixin):
@@ -77,10 +76,10 @@ class Serializable(BaseModel, _QueryProxyMixin):
     )
 
     # Unique tag. If None, it is auto-generated from the class name (CamelCase -> snake_case).
-    __ontology_tag__: ClassVar[Optional[str]] = None
+    __ontology_tag__: ClassVar[str | None] = None
 
     # Reference to the actual subclass.
-    __class_type__: ClassVar[Type["Serializable"]]
+    __class_type__: ClassVar[type["Serializable"]]
 
     def __init_subclass__(cls, **kwargs):
         """
@@ -192,7 +191,7 @@ class Serializable(BaseModel, _QueryProxyMixin):
     # --- Registry Helper Methods ---
 
     @classmethod
-    def _list_registered(cls) -> List[str]:
+    def _list_registered(cls) -> list[str]:
         """Returns a list of all currently registered ontology tags."""
         return list(_SENSOR_REGISTRY.keys())
 
@@ -210,7 +209,7 @@ class Serializable(BaseModel, _QueryProxyMixin):
         return tag in _SENSOR_REGISTRY.keys()
 
     @classmethod
-    def _get_class_type(cls, tag: str) -> Optional[Type["Serializable"]]:
+    def _get_class_type(cls, tag: str) -> type["Serializable"] | None:
         """
         Retrieves the concrete Python class type associated with a specific tag.
 
@@ -227,7 +226,7 @@ class Serializable(BaseModel, _QueryProxyMixin):
     @classmethod
     def _get_ontology_tag(
         cls, class_type_name: str, case_sensitive: bool = True
-    ) -> Optional[str]:
+    ) -> str | None:
         """
         Reverse lookup: finds a tag given a class name.
 

@@ -1,10 +1,11 @@
-from mosaicolabs.comm.notifications import NotificationType
-import pytest
 import logging as log
 
+import pytest
+
+from mosaicolabs.comm import MosaicoClient
+from mosaicolabs.comm.notifications import NotificationType
 from mosaicolabs.enum import OnErrorPolicy
 from mosaicolabs.models.sensors import IMU
-from mosaicolabs.comm import MosaicoClient
 
 
 def test_sequence_report(_client: MosaicoClient):

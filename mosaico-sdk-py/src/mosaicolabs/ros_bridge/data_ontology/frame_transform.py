@@ -1,7 +1,7 @@
 import pyarrow as pa
-from typing import List
-from mosaicolabs.models.data import Transform
+
 from mosaicolabs.models import Serializable
+from mosaicolabs.models.data import Transform
 
 
 class FrameTransform(Serializable):
@@ -20,10 +20,12 @@ class FrameTransform(Serializable):
                 "transforms",
                 pa.list_(value_type=Transform.__msco_pyarrow_struct__),
                 nullable=False,
-                metadata={"description": "List of coordinate frames transformations."},
+                metadata={
+                    "description": "List of coordinate frames transformations."
+                },
             ),
         ]
     )
 
-    transforms: List[Transform]
+    transforms: list[Transform]
     """List of coordinate frames transformations."""

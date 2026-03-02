@@ -1,20 +1,19 @@
-from typing import Dict, Type
 import datetime
 
 from ..protocols import _QueryableMixinProtocol
 from .mixins import (
+    _DynamicFieldFactoryMixin,
+    _QueryableBool,
+    _QueryableDateTime,
     _QueryableNumeric,
     _QueryableString,
-    _QueryableDateTime,
-    _QueryableBool,
-    _DynamicFieldFactoryMixin,
     _QueryableUnsupported,
 )
 
 # -------------------------------------------------------------------------
 # Type to Queryable Mixin Mapping
 # -------------------------------------------------------------------------
-_PYTHON_TYPE_TO_QUERYABLE: Dict[type | None, Type[_QueryableMixinProtocol]] = {
+_PYTHON_TYPE_TO_QUERYABLE: dict[type | None, type[_QueryableMixinProtocol]] = {
     None: _QueryableUnsupported,
     # Numeric Types
     int: _QueryableNumeric,

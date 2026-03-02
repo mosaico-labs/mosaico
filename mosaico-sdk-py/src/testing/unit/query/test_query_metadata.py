@@ -4,14 +4,14 @@
 import pytest
 
 from mosaicolabs.models.platform import Sequence, Topic
-from mosaicolabs.models.query import QuerySequence, QueryTopic, Query
+from mosaicolabs.models.query import Query, QuerySequence, QueryTopic
+from mosaicolabs.models.query.expressions import (
+    _QuerySequenceExpression,
+    _QueryTopicExpression,
+)
 from mosaicolabs.models.query.generation.mixins import (
     _DynamicFieldFactoryMixin,
     _QueryableDynamicValue,
-)
-from mosaicolabs.models.query.expressions import (
-    _QueryTopicExpression,
-    _QuerySequenceExpression,
 )
 
 
@@ -38,8 +38,12 @@ class TestQueryTopicMetadataAPI:
         # === IMU ===
         # --- Fields Accessibility Test ---
         # Local fields
-        assert issubclass(type(Topic.Q.user_metadata), _DynamicFieldFactoryMixin)
-        assert issubclass(type(Topic.Q.user_metadata["key"]), _QueryableDynamicValue)
+        assert issubclass(
+            type(Topic.Q.user_metadata), _DynamicFieldFactoryMixin
+        )
+        assert issubclass(
+            type(Topic.Q.user_metadata["key"]), _QueryableDynamicValue
+        )
 
     def test_expression_generation_paths_and_operators(self):
         """
@@ -63,7 +67,9 @@ class TestQueryTopicMetadataAPI:
         # Simulate the User Query
         q = Query(
             QueryTopic()
-            .with_expression(Topic.Q.user_metadata["some-field"].eq("some_value"))
+            .with_expression(
+                Topic.Q.user_metadata["some-field"].eq("some_value")
+            )
             .with_expression(
                 Topic.Q.user_metadata["field.nested"].leq(0.1234)
             ),  # support numeric operators
@@ -111,8 +117,12 @@ class TestQuerySequenceMetadataAPI:
         """
         # --- Fields Accessibility Test ---
         # Local fields
-        assert issubclass(type(Sequence.Q.user_metadata), _DynamicFieldFactoryMixin)
-        assert issubclass(type(Sequence.Q.user_metadata["key"]), _QueryableDynamicValue)
+        assert issubclass(
+            type(Sequence.Q.user_metadata), _DynamicFieldFactoryMixin
+        )
+        assert issubclass(
+            type(Sequence.Q.user_metadata["key"]), _QueryableDynamicValue
+        )
 
     def test_expression_generation_paths_and_operators(self):
         """
@@ -123,7 +133,9 @@ class TestQuerySequenceMetadataAPI:
         test_numeric_value = 12345.67
         # Call: Sequence.Q.user_metadata["some_field"].gt(test_numeric_value)
         # Expected: {'user_metadata.some-field': {'$gt': 12345.67}} - _QuerySequenceExpression
-        expr_mdata = Sequence.Q.user_metadata["some-field"].gt(test_numeric_value)
+        expr_mdata = Sequence.Q.user_metadata["some-field"].gt(
+            test_numeric_value
+        )
         assert isinstance(expr_mdata, _QuerySequenceExpression)
         assert expr_mdata.to_dict() == {
             "user_metadata.some-field": {"$gt": test_numeric_value}
@@ -135,7 +147,9 @@ class TestQuerySequenceMetadataAPI:
         # Simulate the User Query
         q = Query(
             QuerySequence()
-            .with_expression(Sequence.Q.user_metadata["some-field"].eq("some_value"))
+            .with_expression(
+                Sequence.Q.user_metadata["some-field"].eq("some_value")
+            )
             .with_expression(
                 Sequence.Q.user_metadata["field.nested"].leq(0.1234)
             ),  # support numeric operators

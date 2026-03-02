@@ -6,7 +6,6 @@ It includes Status flags, processed Fixes (Position/Velocity), and raw NMEA stri
 
 """
 
-from typing import Optional
 import pyarrow as pa
 
 from ..data import Point3d, Vector3d
@@ -189,7 +188,7 @@ class GPSStatus(Serializable):
         ```
     """
 
-    satellites: Optional[int] = None
+    satellites: int | None = None
     """
     Satellites visible/used.
 
@@ -233,7 +232,7 @@ class GPSStatus(Serializable):
         ```
     """
 
-    hdop: Optional[float] = None
+    hdop: float | None = None
     """
     Horizontal Dilution of Precision.
 
@@ -277,7 +276,7 @@ class GPSStatus(Serializable):
         ```
     """
 
-    vdop: Optional[float] = None
+    vdop: float | None = None
     """
     Vertical Dilution of Precision.
 
@@ -385,7 +384,9 @@ class GPS(Serializable):
                 "velocity",
                 Vector3d.__msco_pyarrow_struct__,
                 nullable=True,
-                metadata={"description": "Velocity vector [North, East, Alt] m/s."},
+                metadata={
+                    "description": "Velocity vector [North, East, Alt] m/s."
+                },
             ),
             pa.field(
                 "status",
@@ -442,7 +443,7 @@ class GPS(Serializable):
         ```
     """
 
-    velocity: Optional[Vector3d] = None
+    velocity: Vector3d | None = None
     """
     Velocity vector [North, East, Alt] m/s.
 
@@ -488,7 +489,7 @@ class GPS(Serializable):
         ```
     """
 
-    status: Optional[GPSStatus] = None
+    status: GPSStatus | None = None
     """
     Receiver status information.
 

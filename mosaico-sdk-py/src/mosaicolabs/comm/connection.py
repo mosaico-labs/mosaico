@@ -8,7 +8,6 @@ preventing bottlenecking on a single TCP/gRPC socket during high-throughput oper
 
 from enum import Enum
 from itertools import cycle
-from typing import List, Optional
 
 import pyarrow.flight as fl
 
@@ -33,7 +32,7 @@ class _ConnectionStatus(Enum):
 
 
 def _get_connection(
-    host: str, port: int, timeout: int, tls_cert: Optional[bytes] = None
+    host: str, port: int, timeout: int, tls_cert: bytes | None = None
 ) -> fl.FlightClient:
     """
     Factory function to establish a single PyArrow Flight client connection.
@@ -81,9 +80,9 @@ class _ConnectionPool:
         *,
         host: str,
         port: int,
-        pool_size: Optional[int],
+        pool_size: int | None,
         timeout: int,
-        tls_cert: Optional[bytes],
+        tls_cert: bytes | None,
     ):
         """
         Initializes the connection pool.
@@ -98,7 +97,7 @@ class _ConnectionPool:
         self._host = host
         self._port = port
         self._size = pool_size or _DEFAULT_CONNECTION_POOL_SIZE
-        self._clients: List[fl.FlightClient] = []
+        self._clients: list[fl.FlightClient] = []
         self._iterator = None
         self._tls_cert = tls_cert
 

@@ -1,6 +1,6 @@
-from dataclasses import dataclass
 import json
-from typing import Optional, Tuple, TYPE_CHECKING, Union
+from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from mosaicolabs.logging_config import get_logger
 
@@ -38,13 +38,13 @@ class TopicResourceManifest:
     class _TopicAppMetadata:
         """Internal container for application-specific metadata."""
 
-        tmin_ns: Optional[int] = None
-        tmax_ns: Optional[int] = None
+        tmin_ns: int | None = None
+        tmax_ns: int | None = None
 
     topic_name: str
     sequence_name: str
-    timestamp_ns_min: Optional[int]
-    timestamp_ns_max: Optional[int]
+    timestamp_ns_min: int | None
+    timestamp_ns_max: int | None
 
     @classmethod
     def from_flight_endpoint(
@@ -98,7 +98,7 @@ class TopicResourceManifest:
             ) from e
 
     @staticmethod
-    def _parse_uri(uri_bytes: bytes) -> Tuple[str, str]:
+    def _parse_uri(uri_bytes: bytes) -> tuple[str, str]:
         """
         Decodes and validates the raw URI string.
 
@@ -108,7 +108,9 @@ class TopicResourceManifest:
         # Decode bytes to string and protocol validation (mosaico resource)
         decoded_uri = uri_bytes.decode("utf-8")
         if not decoded_uri.startswith("mosaico:"):
-            raise ValueError(f"URI missing required 'mosaico:' prefix: {decoded_uri}")
+            raise ValueError(
+                f"URI missing required 'mosaico:' prefix: {decoded_uri}"
+            )
 
         # Path Extraction
         path = decoded_uri.removeprefix("mosaico:")
@@ -117,13 +119,15 @@ class TopicResourceManifest:
         result = unpack_topic_full_path(path)
 
         if not result or len(result) != 2:
-            raise ValueError(f"Path '{path}' is not a valid sequence/topic pair.")
+            raise ValueError(
+                f"Path '{path}' is not a valid sequence/topic pair."
+            )
 
         return result
 
     @staticmethod
     def _parse_app_metadata(
-        app_mdata: Union[bytes, str],
+        app_mdata: bytes | str,
     ) -> "TopicResourceManifest._TopicAppMetadata":
         """
         Decodes and validates the raw App Metadata JSON payload.
@@ -140,7 +144,9 @@ class TopicResourceManifest:
         # Decode input to string
         try:
             raw_str = (
-                app_mdata.decode("utf-8") if isinstance(app_mdata, bytes) else app_mdata
+                app_mdata.decode("utf-8")
+                if isinstance(app_mdata, bytes)
+                else app_mdata
             )
         except UnicodeDecodeError as e:
             logger.error(f"App metadata bytes are not UTF-8, err '{e}'")
@@ -180,4 +186,6 @@ class TopicResourceManifest:
                 )
                 return TopicResourceManifest._TopicAppMetadata()
 
-        return TopicResourceManifest._TopicAppMetadata(tmin_ns=tmin, tmax_ns=tmax)
+        return TopicResourceManifest._TopicAppMetadata(
+            tmin_ns=tmin, tmax_ns=tmax
+        )

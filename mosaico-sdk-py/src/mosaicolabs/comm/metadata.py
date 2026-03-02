@@ -8,11 +8,11 @@ PyArrow Flight protocol. It also handles Mosaico-specific namespacing.
 
 import json
 from dataclasses import dataclass
-from typing import Any, Dict
+from typing import Any
 
 from mosaicolabs.enum import SerializationFormat
 
-UserMetadata = Dict[str, Any]
+UserMetadata = dict[str, Any]
 
 # Prefix for internal ROS keys that for now are filtered out of user metadata
 _ROS_KEY_PREFIX = "ros:"
@@ -32,7 +32,7 @@ class SequenceMetadata:
     user_metadata: UserMetadata
 
     @classmethod
-    def from_dict(cls, mdata: Dict[str, Any]):
+    def from_dict(cls, mdata: dict[str, Any]):
         """
         Factory method to create a SequenceMetadata instance from a dictionary.
 
@@ -82,7 +82,7 @@ class TopicMetadata:
     user_metadata: UserMetadata
 
     @classmethod
-    def from_dict(cls, mdata: Dict[str, Any]):
+    def from_dict(cls, mdata: dict[str, Any]):
         """
         Factory method to create a TopicMetadata instance from a dictionary.
 
@@ -113,7 +113,9 @@ class TopicMetadata:
         )
 
 
-def _decode_metadata(bmdata: dict[bytes, bytes], enc: str = "utf-8") -> dict[str, Any]:
+def _decode_metadata(
+    bmdata: dict[bytes, bytes], enc: str = "utf-8"
+) -> dict[str, Any]:
     """
     Decodes a bytes-only dictionary back into a Python dictionary.
 
@@ -142,7 +144,7 @@ def _decode_metadata(bmdata: dict[bytes, bytes], enc: str = "utf-8") -> dict[str
     return result
 
 
-def _get_value(metadata: Dict[str, Any], key: str) -> Any:
+def _get_value(metadata: dict[str, Any], key: str) -> Any:
     """
     Helper to retrieve namespaced values from a decoded metadata dictionary.
 

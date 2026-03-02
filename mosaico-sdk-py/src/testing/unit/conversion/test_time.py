@@ -1,6 +1,7 @@
-import pytest
 import time
 from datetime import datetime, timezone
+
+import pytest
 
 # Import your Time class (adjust import as needed)
 # Assuming it is in a file named time_module.py or similar

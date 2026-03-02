@@ -8,7 +8,6 @@ blocking I/O waits from the main application thread during asynchronous operatio
 
 from concurrent.futures import ThreadPoolExecutor
 from itertools import cycle
-from typing import List, Optional
 
 from ..logging_config import get_logger
 
@@ -31,7 +30,7 @@ class _ExecutorPool:
     def __init__(
         self,
         *,
-        pool_size: Optional[int],
+        pool_size: int | None,
     ):
         """
         Initializes the executor pool.
@@ -41,7 +40,7 @@ class _ExecutorPool:
                                        If None, defaults to `_DEFAULT_EXECUTOR_POOL_SIZE`.
         """
         self._size = pool_size or _DEFAULT_EXECUTOR_POOL_SIZE
-        self._executors: List[ThreadPoolExecutor] = []
+        self._executors: list[ThreadPoolExecutor] = []
         self._iterator = None
 
         self._initialize_pool()
@@ -57,7 +56,9 @@ class _ExecutorPool:
         if self._size < 1:
             raise ValueError("Executor pool size must be at least 1")
 
-        logger.debug(f"Initializing executor pool with {self._size} executors...")
+        logger.debug(
+            f"Initializing executor pool with {self._size} executors..."
+        )
 
         for i in range(self._size):
             try:
@@ -86,7 +87,9 @@ class _ExecutorPool:
             RuntimeError: If the pool is not initialized or has been closed.
         """
         if not self._executors or self._iterator is None:
-            raise RuntimeError("executor pool is not initialized or has been closed.")
+            raise RuntimeError(
+                "executor pool is not initialized or has been closed."
+            )
         return next(self._iterator)
 
     def close(self):

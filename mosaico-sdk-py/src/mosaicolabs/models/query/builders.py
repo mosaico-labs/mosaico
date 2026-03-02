@@ -12,30 +12,32 @@ It implements a Domain-Specific Language that allows users to filter **Sequences
 * [**`QuerySequence`**][mosaicolabs.models.query.builders.QuerySequence]: Specifically for filtering sequence-level metadata.
 """
 
-from typing import Any, Dict, List, Optional, Tuple, Type, get_origin
+from typing import Any, get_origin
 
 # Import custom types used in helper methods
 from mosaicolabs.types import Time
-from .protocols import QueryableProtocol
 
 # Import the building blocks for expressions and how they are combined
 from .expressions import (
     _QueryCatalogExpression,
-    _QueryTopicExpression,
-    _QuerySequenceExpression,
     _QueryExpression,
+    _QuerySequenceExpression,
+    _QueryTopicExpression,
 )
+from .protocols import QueryableProtocol
 
 
 def _get_tag_from_expr_key(key: str):
     fields = key.split(".")
     if not len(fields) > 1:
-        raise ValueError(f"expected 'ontology_tag.field0.field1... in key, got '{key}'")
+        raise ValueError(
+            f"expected 'ontology_tag.field0.field1... in key, got '{key}'"
+        )
     return fields[0]
 
 
 def _validate_expression_unique_key(
-    stored_exprs: List["_QueryExpression"], new_key: str
+    stored_exprs: list["_QueryExpression"], new_key: str
 ):
     """
     Private helper to validate a single expression against the
@@ -50,7 +52,7 @@ def _validate_expression_unique_key(
 
 
 def _validate_expression_type(
-    expr: "_QueryExpression", expected_types: Tuple[Type[_QueryExpression], ...]
+    expr: "_QueryExpression", expected_types: tuple[type[_QueryExpression], ...]
 ):
     """
     Private helper to validate a single expression against the
@@ -99,7 +101,7 @@ class _QueryCombinator:
 
     def __init__(
         self,
-        expressions: List[_QueryExpression],
+        expressions: list[_QueryExpression],
         # op: str = "$and",
     ):
         """
@@ -111,7 +113,7 @@ class _QueryCombinator:
         # self.op = op
         self.expressions = expressions
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """
         Converts the logical group into a merged dictionary format.
 
@@ -122,7 +124,9 @@ class _QueryCombinator:
             return {}
         # return {self.op: [expr.to_dict() for expr in self.expressions]}
         return {
-            key: val for expr in self.expressions for key, val in expr.to_dict().items()
+            key: val
+            for expr in self.expressions
+            for key, val in expr.to_dict().items()
         }
 
 
@@ -179,14 +183,14 @@ class QueryOntologyCatalog:
         ```
     """
 
-    __supported_query_expressions__: Tuple[Type[_QueryExpression], ...] = (
+    __supported_query_expressions__: tuple[type[_QueryExpression], ...] = (
         _QueryCatalogExpression,
     )
 
     def __init__(
         self,
         *expressions: "_QueryExpression",
-        include_timestamp_range: Optional[bool] = None,
+        include_timestamp_range: bool | None = None,
     ):
         """
         The constructor initializes the query with an optional list of
@@ -279,7 +283,7 @@ class QueryOntologyCatalog:
         return "ontology"
 
     # compatibility with QueryProtocol
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """
         Serializes the ontology expressions into a flat dictionary for the platform API.
 
@@ -291,7 +295,9 @@ class QueryOntologyCatalog:
         """
         query_dict = _QueryCombinator(list(self._expressions)).to_dict()
         if self._include_tstamp_range:
-            query_dict.update({"include_timestamp_range": self._include_tstamp_range})
+            query_dict.update(
+                {"include_timestamp_range": self._include_tstamp_range}
+            )
         return query_dict
 
 
@@ -325,7 +331,7 @@ class QueryTopic:
         ```
     """
 
-    __supported_query_expressions__: Tuple[Type[_QueryExpression], ...] = (
+    __supported_query_expressions__: tuple[type[_QueryExpression], ...] = (
         _QueryTopicExpression,
     )
 
@@ -428,7 +434,9 @@ class QueryTopic:
         Returns:
             The `QueryTopic` instance for method chaining.
         """
-        return self.with_expression(_QueryTopicExpression("locator", "$eq", f"{name}"))
+        return self.with_expression(
+            _QueryTopicExpression("locator", "$eq", f"{name}")
+        )
 
     def with_name_match(self, name: str) -> "QueryTopic":
         """
@@ -509,7 +517,7 @@ class QueryTopic:
         )
 
     def with_created_timestamp(
-        self, time_start: Optional[Time] = None, time_end: Optional[Time] = None
+        self, time_start: Time | None = None, time_end: Time | None = None
     ) -> "QueryTopic":
         """
         Adds a filter for the 'created_timestamp' field using high-precision Time.
@@ -576,7 +584,7 @@ class QueryTopic:
         return "topic"
 
     # compatibility with QueryProtocol
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """
         Serializes the query into a nested dictionary for the platform API.
 
@@ -609,7 +617,9 @@ class QueryTopic:
             for meta_name in metadata_field_names:
                 # Check if the expression's field path starts with a metadata field name
                 # e.g., "user_metadata.mission" starts with "user_metadata"
-                if expr.key == meta_name or expr.key.startswith(f"{meta_name}."):
+                if expr.key == meta_name or expr.key.startswith(
+                    f"{meta_name}."
+                ):
                     metadata_buckets[meta_name].append(expr)
                     is_metadata_expr = True
                     break
@@ -678,7 +688,7 @@ class QuerySequence:
         ```
     """
 
-    __supported_query_expressions__: Tuple[Type[_QueryExpression], ...] = (
+    __supported_query_expressions__: tuple[type[_QueryExpression], ...] = (
         _QuerySequenceExpression,
     )
 
@@ -818,7 +828,7 @@ class QuerySequence:
         )
 
     def with_created_timestamp(
-        self, time_start: Optional[Time] = None, time_end: Optional[Time] = None
+        self, time_start: Time | None = None, time_end: Time | None = None
     ) -> "QuerySequence":
         """
         Adds a filter for the 'created_timestamp' field using high-precision Time.
@@ -884,7 +894,7 @@ class QuerySequence:
 
         # compatibility with QueryProtocol
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """
         Serializes the query into a nested dictionary for the platform API.
 
@@ -916,7 +926,9 @@ class QuerySequence:
             for meta_name in metadata_field_names:
                 # Check if the expression's field path starts with a metadata field name
                 # e.g., "user_metadata.mission" starts with "user_metadata"
-                if expr.key == meta_name or expr.key.startswith(f"{meta_name}."):
+                if expr.key == meta_name or expr.key.startswith(
+                    f"{meta_name}."
+                ):
                     metadata_buckets[meta_name].append(expr)
                     is_metadata_expr = True
                     break
@@ -1068,7 +1080,7 @@ class Query:
                 self._types_seen[t] = True
                 self._queries.append(q)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """
         Serializes the entire multi-domain query into the final JSON dictionary.
 

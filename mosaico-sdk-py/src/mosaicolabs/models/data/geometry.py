@@ -11,13 +11,11 @@ The module follows a **Two-Tier Architecture** to optimize both internal efficie
     and uncertainty tracking ([`CovarianceMixin`][mosaicolabs.models.mixins.CovarianceMixin]).
 """
 
-from typing import Optional
 import pyarrow as pa
 
 from ..base_model import BaseModel
-from ..serializable import Serializable
 from ..mixins import CovarianceMixin
-
+from ..serializable import Serializable
 
 # ---------------------------------------------------------------------------
 # Vector STRUCT classes
@@ -1263,7 +1261,7 @@ class Transform(
         ```
     """
 
-    target_frame_id: Optional[str] = None
+    target_frame_id: str | None = None
     """
     Target coordinate frame identifier.
 

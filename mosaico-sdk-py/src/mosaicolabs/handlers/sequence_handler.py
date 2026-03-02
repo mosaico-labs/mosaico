@@ -8,18 +8,19 @@ and access reading interfaces (`SequenceDataStreamer`).
 
 import datetime
 import json
-import pyarrow.flight as fl
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Any, Optional
 
+import pyarrow.flight as fl
+
+from ..comm.do_action import _do_action, _DoActionResponseSysInfo
+from ..comm.metadata import SequenceMetadata, _decode_metadata
+from ..enum import FlightAction
+from ..helpers import sanitize_sequence_name
+from ..logging_config import get_logger
+from ..models.platform import Sequence
 from .endpoints import TopicParsingError, TopicResourceManifest
 from .sequence_reader import SequenceDataStreamer
 from .topic_handler import TopicHandler
-from ..comm.metadata import SequenceMetadata, _decode_metadata
-from ..comm.do_action import _do_action, _DoActionResponseSysInfo
-from ..enum import FlightAction
-from ..models.platform import Sequence
-from ..helpers import sanitize_sequence_name
-from ..logging_config import get_logger
 
 # Set the hierarchical logger
 logger = get_logger(__name__)
@@ -45,8 +46,8 @@ class SequenceHandler:
         *,
         sequence_model: Sequence,
         client: fl.FlightClient,
-        timestamp_ns_min: Optional[int],
-        timestamp_ns_max: Optional[int],
+        timestamp_ns_min: int | None,
+        timestamp_ns_max: int | None,
     ):
         """
         Internal constructor for SequenceHandler.
@@ -63,15 +64,15 @@ class SequenceHandler:
         """
         self._fl_client: fl.FlightClient = client
         """The FlightClient used for remote operations."""
-        self._topic_handler_instances: Dict[str, TopicHandler] = {}
+        self._topic_handler_instances: dict[str, TopicHandler] = {}
         """The cache of the spawned topic handlers instances"""
-        self._data_streamer_instance: Optional[SequenceDataStreamer] = None
+        self._data_streamer_instance: SequenceDataStreamer | None = None
         """The spawned sequence data streamer instance"""
         self._sequence: Sequence = sequence_model
         """The sequence metadata model"""
-        self._timestamp_ns_min: Optional[int] = timestamp_ns_min
+        self._timestamp_ns_min: int | None = timestamp_ns_min
         """Lowest timestamp [ns] in the sequence (among all the topics)"""
-        self._timestamp_ns_max: Optional[int] = timestamp_ns_max
+        self._timestamp_ns_max: int | None = timestamp_ns_max
         """Highest timestamp [ns] in the sequence (among all the topics)"""
 
     @classmethod
@@ -115,7 +116,9 @@ class SequenceHandler:
         tstamps_ns_max = []
         for ep in flight_info.endpoints:
             try:
-                topic_resrc_mdata = TopicResourceManifest.from_flight_endpoint(ep)
+                topic_resrc_mdata = TopicResourceManifest.from_flight_endpoint(
+                    ep
+                )
             except TopicParsingError as e:
                 logger.error(f"Skipping invalid topic endpoint, err: '{e}'")
                 continue
@@ -167,7 +170,7 @@ class SequenceHandler:
         return self._sequence._name
 
     @property
-    def topics(self) -> List[str]:
+    def topics(self) -> list[str]:
         """
         The list of topic names (data channels) available within this sequence.
 
@@ -177,7 +180,7 @@ class SequenceHandler:
         return self._sequence._topics
 
     @property
-    def user_metadata(self) -> Dict[str, Any]:
+    def user_metadata(self) -> dict[str, Any]:
         """
         The user-defined metadata dictionary associated with this sequence.
 
@@ -220,7 +223,7 @@ class SequenceHandler:
         return self._sequence._total_size_bytes
 
     @property
-    def timestamp_ns_min(self) -> Optional[int]:
+    def timestamp_ns_min(self) -> int | None:
         """
         The lowest timestamp (nanoseconds) recorded in the sequence across all topics.
 
@@ -230,7 +233,7 @@ class SequenceHandler:
         return self._timestamp_ns_min
 
     @property
-    def timestamp_ns_max(self) -> Optional[int]:
+    def timestamp_ns_max(self) -> int | None:
         """
         The highest timestamp (nanoseconds) recorded in the sequence across all topics.
 
@@ -241,9 +244,9 @@ class SequenceHandler:
 
     def get_data_streamer(
         self,
-        topics: List[str] = [],
-        start_timestamp_ns: Optional[int] = None,
-        end_timestamp_ns: Optional[int] = None,
+        topics: list[str] = [],
+        start_timestamp_ns: int | None = None,
+        end_timestamp_ns: int | None = None,
     ) -> SequenceDataStreamer:
         """
         Opens a reading channel for iterating over the sequence data.
@@ -433,7 +436,7 @@ class SequenceHandler:
     @staticmethod
     def _get_flight_info(
         client: fl.FlightClient, sequence_name: str
-    ) -> Tuple[fl.FlightInfo, str]:
+    ) -> tuple[fl.FlightInfo, str]:
         """Performs the get_flight_info call. Raises if flight function does"""
         _stzd_sequence_name = sanitize_sequence_name(sequence_name)
 

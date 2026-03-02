@@ -1,4 +1,4 @@
-from typing import Dict, Generic, Optional, Type, Any, TypeVar
+from typing import Any, Generic, TypeVar
 
 from mosaicolabs.models import Message, Serializable
 
@@ -29,14 +29,14 @@ class ROSBridge(Generic[T]):
     """
 
     # Maps ROS Message Type (e.g., sensor_msgs.msg.Imu) to its Adapter Class
-    _adapters: Dict[str, Type[ROSAdapterBase]] = {}
+    _adapters: dict[str, type[ROSAdapterBase]] = {}
 
     @classmethod
     def get_adapters(cls):
         return cls._adapters
 
     @classmethod
-    def _register_adapter(cls, adapter_class: Type[ROSAdapterBase]):
+    def _register_adapter(cls, adapter_class: type[ROSAdapterBase]):
         """
         Internal helper for registering an adapter class for one or more specific ROS message types.
 
@@ -65,7 +65,7 @@ class ROSBridge(Generic[T]):
             cls._adapters[ros_type] = adapter_class
 
     @classmethod
-    def get_adapter(cls, ros_msg_type: str) -> Optional[Type[ROSAdapterBase]]:
+    def get_adapter(cls, ros_msg_type: str) -> type[ROSAdapterBase] | None:
         """
         Retrieves the registered adapter class for a given ROS message type.
 
@@ -99,13 +99,16 @@ class ROSBridge(Generic[T]):
             bool: True if an adapter exists for this class, False otherwise.
         """
         return any(
-            val.ontology_data_type() == mosaico_cls for val in cls._adapters.values()
+            val.ontology_data_type() == mosaico_cls
+            for val in cls._adapters.values()
         )
 
     # --- Main Bridge API ---
 
     @classmethod
-    def from_ros_message(cls, ros_msg: ROSMessage, **kwargs: Any) -> Optional[Message]:
+    def from_ros_message(
+        cls, ros_msg: ROSMessage, **kwargs: Any
+    ) -> Message | None:
         """
         The high-level API for translating raw ROS message containers.
 
@@ -136,7 +139,7 @@ class ROSBridge(Generic[T]):
         return adapter_class.translate(ros_msg, **kwargs)
 
 
-def register_adapter(cls: Type["ROSAdapterBase"]) -> Type["ROSAdapterBase"]:
+def register_adapter(cls: type["ROSAdapterBase"]) -> type["ROSAdapterBase"]:
     """
     A class decorator for streamlined adapter registration.
 

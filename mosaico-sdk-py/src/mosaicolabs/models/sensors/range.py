@@ -5,8 +5,8 @@ Defines the data structure for range sensors.
 """
 
 import pyarrow as pa
-from typing_extensions import Self
 from pydantic import model_validator
+from typing_extensions import Self
 
 from ..mixins import VarianceMixin
 from ..serializable import Serializable
@@ -77,7 +77,9 @@ class Range(Serializable, VarianceMixin):
                 "radiation_type",
                 pa.uint8(),
                 nullable=False,
-                metadata={"description": "Which type of radiation the sensor used."},
+                metadata={
+                    "description": "Which type of radiation the sensor used."
+                },
             ),
             pa.field(
                 "field_of_view",

@@ -1,10 +1,12 @@
+import pytest
+
 from mosaicolabs.comm import MosaicoClient
 from mosaicolabs.models.platform import Sequence
 from mosaicolabs.models.query import QuerySequence
-import pytest
 from testing.integration.config import (
     QUERY_SEQUENCES_MOCKUP,
 )
+
 from .helpers import _validate_returned_topic_name
 
 # ------ Tests with mockup ----
@@ -24,11 +26,16 @@ def test_query_mockup_sequence_by_name(
     assert len(query_resp) == 1
     assert query_resp[0].sequence.name == sequence_name
     # We expect to obtain all the topics
-    topics = [t["name"] for t in QUERY_SEQUENCES_MOCKUP[sequence_name]["topics"]]
+    topics = [
+        t["name"] for t in QUERY_SEQUENCES_MOCKUP[sequence_name]["topics"]
+    ]
     expected_topic_names = topics
     assert len(query_resp[0].topics) == len(expected_topic_names)
     # all the expected topics, and only them
-    [_validate_returned_topic_name(topic.name) for topic in query_resp[0].topics]
+    [
+        _validate_returned_topic_name(topic.name)
+        for topic in query_resp[0].topics
+    ]
     assert all([t.name in expected_topic_names for t in query_resp[0].topics])
 
     # Query by partial name
@@ -38,7 +45,9 @@ def test_query_mockup_sequence_by_name(
     # We do expect a successful query
     assert query_resp is not None and not query_resp.is_empty()
     matches = [
-        sname for sname in QUERY_SEQUENCES_MOCKUP.keys() if seqname_substr in sname
+        sname
+        for sname in QUERY_SEQUENCES_MOCKUP.keys()
+        if seqname_substr in sname
     ]
     assert len(query_resp) == len(matches)
     for item in query_resp:
@@ -116,12 +125,16 @@ def test_query_mockup_sequence_metadata(
     assert query_resp[0].sequence.name == expected_sequence_name
     # We expect to obtain all the topics
     topics = [
-        t["name"] for t in QUERY_SEQUENCES_MOCKUP[expected_sequence_name]["topics"]
+        t["name"]
+        for t in QUERY_SEQUENCES_MOCKUP[expected_sequence_name]["topics"]
     ]
     expected_topic_names = topics
     assert len(query_resp[0].topics) == len(expected_topic_names)
     # all the expected topics, and only them
-    [_validate_returned_topic_name(topic.name) for topic in query_resp[0].topics]
+    [
+        _validate_returned_topic_name(topic.name)
+        for topic in query_resp[0].topics
+    ]
     assert all([t.name in expected_topic_names for t in query_resp[0].topics])
 
     # Test 2: with None return
@@ -157,7 +170,9 @@ def test_query_sequence_from_response(
         if val.get("metadata", {}).get("visibility") == visibility_val
     ]
     assert len(query_resp) == len(expected_sequence_names)
-    assert all([it.sequence.name in expected_sequence_names for it in query_resp])
+    assert all(
+        [it.sequence.name in expected_sequence_names for it in query_resp]
+    )
     # This translates to:
     # 'query among the sequences in the returned response'
     qsequence = query_resp.to_query_sequence()
@@ -166,7 +181,9 @@ def test_query_sequence_from_response(
     # One (1) sequence corresponds to this query
     assert query_resp is not None and not query_resp.is_empty()
     assert len(query_resp) == len(expected_sequence_names)
-    assert all([it.sequence.name in expected_sequence_names for it in query_resp])
+    assert all(
+        [it.sequence.name in expected_sequence_names for it in query_resp]
+    )
 
     # The other criteria have been tested above...
 
@@ -193,7 +210,9 @@ def test_query_topic_from_response(
         if val.get("metadata", {}).get("visibility") == visibility_val
     ]
     assert len(query_resp) == len(expected_sequence_names)
-    assert all([it.sequence.name in expected_sequence_names for it in query_resp])
+    assert all(
+        [it.sequence.name in expected_sequence_names for it in query_resp]
+    )
     # This translates to:
     # 'query among the topics in the returned response'
     qtopic = query_resp.to_query_topic()
@@ -202,7 +221,9 @@ def test_query_topic_from_response(
     # One (1) sequence corresponds to this query
     assert query_resp is not None and not query_resp.is_empty()
     assert len(query_resp) == len(expected_sequence_names)
-    assert all([it.sequence.name in expected_sequence_names for it in query_resp])
+    assert all(
+        [it.sequence.name in expected_sequence_names for it in query_resp]
+    )
 
     # The other criteria have been tested above...
 

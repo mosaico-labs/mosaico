@@ -7,23 +7,23 @@ ROS patterns, such as "Stamped" envelopes and covariance wrappers, ensuring that
 spatial data is normalized before ingestion.
 """
 
-from typing import Any, Optional, Tuple, Type
+from typing import Any
+
+from mosaicolabs.models import Message
 from mosaicolabs.models.data import (
+    Acceleration,
+    ForceTorque,
     Point3d,
     Pose,
     Quaternion,
     Transform,
     Vector3d,
-    ForceTorque,
-    Acceleration,
     Velocity,
 )
-from mosaicolabs.models import Message
 
 from ..adapter_base import ROSAdapterBase
-from ..ros_message import ROSMessage
 from ..ros_bridge import register_adapter
-
+from ..ros_message import ROSMessage
 from .helpers import _validate_msgdata
 
 
@@ -68,14 +68,14 @@ class PoseAdapter(ROSAdapterBase[Pose]):
         ```
     """
 
-    ros_msgtype: str | Tuple[str, ...] = (
+    ros_msgtype: str | tuple[str, ...] = (
         "geometry_msgs/msg/Pose",
         "geometry_msgs/msg/PoseStamped",
         "geometry_msgs/msg/PoseWithCovariance",
         "geometry_msgs/msg/PoseWithCovarianceStamped",
     )
 
-    __mosaico_ontology_type__: Type[Pose] = Pose
+    __mosaico_ontology_type__: type[Pose] = Pose
     _REQUIRED_KEYS = ("position", "orientation")
 
     @classmethod
@@ -133,7 +133,7 @@ class PoseAdapter(ROSAdapterBase[Pose]):
         Raises:
             ValueError: If the recursive 'pose' key exists but is not a dict, or if required keys are missing.
         """
-        out_pose: Optional[Pose] = None
+        out_pose: Pose | None = None
 
         # Recursive Step: Unwrap nested types (PoseWithCovariance, PoseStamped, PoseWithCovarianceStamped)
         # Look for a 'pose' key which indicates a wrapper structure
@@ -156,7 +156,9 @@ class PoseAdapter(ROSAdapterBase[Pose]):
             _validate_msgdata(cls, ros_data)
             return Pose(
                 position=PointAdapter.from_dict(ros_data["position"]),
-                orientation=QuaternionAdapter.from_dict(ros_data["orientation"]),
+                orientation=QuaternionAdapter.from_dict(
+                    ros_data["orientation"]
+                ),
             )
 
 
@@ -200,14 +202,14 @@ class TwistAdapter(ROSAdapterBase[Velocity]):
         ```
     """
 
-    ros_msgtype: str | Tuple[str, ...] = (
+    ros_msgtype: str | tuple[str, ...] = (
         "geometry_msgs/msg/Twist",
         "geometry_msgs/msg/TwistStamped",
         "geometry_msgs/msg/TwistWithCovariance",
         "geometry_msgs/msg/TwistWithCovarianceStamped",
     )
 
-    __mosaico_ontology_type__: Type[Velocity] = Velocity
+    __mosaico_ontology_type__: type[Velocity] = Velocity
     _REQUIRED_KEYS = ("linear", "angular")
 
     @classmethod
@@ -263,7 +265,7 @@ class TwistAdapter(ROSAdapterBase[Velocity]):
         Raises:
             ValueError: If the recursive 'twist' key exists but is not a dict, or if required keys are missing.
         """
-        out_twist: Optional[Velocity] = None
+        out_twist: Velocity | None = None
 
         # Recursive Step: Unwrap nested types
         twist_dict = ros_data.get("twist")
@@ -289,7 +291,7 @@ class TwistAdapter(ROSAdapterBase[Velocity]):
             )
 
     @classmethod
-    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
+    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> dict | None:
         return None
 
 
@@ -329,14 +331,14 @@ class AccelAdapter(ROSAdapterBase[Acceleration]):
         ```
     """
 
-    ros_msgtype: str | Tuple[str, ...] = (
+    ros_msgtype: str | tuple[str, ...] = (
         "geometry_msgs/msg/Accel",
         "geometry_msgs/msg/AccelStamped",
         "geometry_msgs/msg/AccelWithCovariance",
         "geometry_msgs/msg/AccelWithCovarianceStamped",
     )
 
-    __mosaico_ontology_type__: Type[Acceleration] = Acceleration
+    __mosaico_ontology_type__: type[Acceleration] = Acceleration
     _REQUIRED_KEYS = ("linear", "angular")
 
     @classmethod
@@ -392,7 +394,7 @@ class AccelAdapter(ROSAdapterBase[Acceleration]):
         Raises:
             ValueError: If the recursive 'accel' key exists but is not a dict, or if required keys are missing.
         """
-        out_accel: Optional[Acceleration] = None
+        out_accel: Acceleration | None = None
 
         # Recursive Step: Unwrap nested types
         accel_dict = ros_data.get("accel")
@@ -418,7 +420,7 @@ class AccelAdapter(ROSAdapterBase[Acceleration]):
             )
 
     @classmethod
-    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
+    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> dict | None:
         return None
 
 
@@ -452,12 +454,12 @@ class Vector3Adapter(ROSAdapterBase[Vector3d]):
         ```
     """
 
-    ros_msgtype: str | Tuple[str, ...] = (
+    ros_msgtype: str | tuple[str, ...] = (
         "geometry_msgs/msg/Vector3",
         "geometry_msgs/msg/Vector3Stamped",
     )
 
-    __mosaico_ontology_type__: Type[Vector3d] = Vector3d
+    __mosaico_ontology_type__: type[Vector3d] = Vector3d
     _REQUIRED_KEYS = ("x", "y", "z")
 
     @classmethod
@@ -507,7 +509,7 @@ class Vector3Adapter(ROSAdapterBase[Vector3d]):
         Raises:
             ValueError: If the recursive 'vector' key exists but is not a dict, or if required keys are missing.
         """
-        out_vec3: Optional[Vector3d] = None
+        out_vec3: Vector3d | None = None
 
         # Recursive Step: Unwrap nested types (Vector3dStamped usually has 'vector')
         vec3_dict = ros_data.get("vector")
@@ -532,7 +534,7 @@ class Vector3Adapter(ROSAdapterBase[Vector3d]):
             )
 
     @classmethod
-    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
+    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> dict | None:
         return None
 
 
@@ -566,12 +568,12 @@ class PointAdapter(ROSAdapterBase[Point3d]):
         ```
     """
 
-    ros_msgtype: str | Tuple[str, ...] = (
+    ros_msgtype: str | tuple[str, ...] = (
         "geometry_msgs/msg/Point",
         "geometry_msgs/msg/PointStamped",
     )
 
-    __mosaico_ontology_type__: Type[Point3d] = Point3d
+    __mosaico_ontology_type__: type[Point3d] = Point3d
     _REQUIRED_KEYS = ("x", "y", "z")
 
     @classmethod
@@ -621,7 +623,7 @@ class PointAdapter(ROSAdapterBase[Point3d]):
         Raises:
             ValueError: If the recursive 'point' key exists but is not a dict, or if required keys are missing.
         """
-        out_point: Optional[Point3d] = None
+        out_point: Point3d | None = None
 
         # Recursive Step: Unwrap nested types (PointStamped uses 'point')
         point_dict = ros_data.get("point")
@@ -646,7 +648,7 @@ class PointAdapter(ROSAdapterBase[Point3d]):
             )
 
     @classmethod
-    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
+    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> dict | None:
         return None
 
 
@@ -680,12 +682,12 @@ class QuaternionAdapter(ROSAdapterBase[Quaternion]):
         ```
     """
 
-    ros_msgtype: str | Tuple[str, ...] = (
+    ros_msgtype: str | tuple[str, ...] = (
         "geometry_msgs/msg/Quaternion",
         "geometry_msgs/msg/QuaternionStamped",
     )
 
-    __mosaico_ontology_type__: Type[Quaternion] = Quaternion
+    __mosaico_ontology_type__: type[Quaternion] = Quaternion
     _REQUIRED_KEYS = ("x", "y", "z", "w")
 
     @classmethod
@@ -735,7 +737,7 @@ class QuaternionAdapter(ROSAdapterBase[Quaternion]):
         Raises:
             ValueError: If the recursive 'quaternion' key exists but is not a dict, or if required keys are missing.
         """
-        out_quat: Optional[Quaternion] = None
+        out_quat: Quaternion | None = None
 
         # Recursive Step: Unwrap nested types (QuaternionStamped uses 'quaternion')
         quat_dict = ros_data.get("quaternion")
@@ -761,7 +763,7 @@ class QuaternionAdapter(ROSAdapterBase[Quaternion]):
             )
 
     @classmethod
-    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
+    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> dict | None:
         return None
 
 
@@ -795,12 +797,12 @@ class TransformAdapter(ROSAdapterBase[Transform]):
         ```
     """
 
-    ros_msgtype: str | Tuple[str, ...] = (
+    ros_msgtype: str | tuple[str, ...] = (
         "geometry_msgs/msg/TransformStamped",
         "geometry_msgs/msg/Transform",
     )
 
-    __mosaico_ontology_type__: Type[Transform] = Transform
+    __mosaico_ontology_type__: type[Transform] = Transform
     _REQUIRED_KEYS = ("translation", "rotation")
 
     @classmethod
@@ -851,7 +853,7 @@ class TransformAdapter(ROSAdapterBase[Transform]):
         Raises:
             ValueError: If the recursive 'transform' key exists but is not a dict, or if required keys are missing.
         """
-        out_transf: Optional[Transform] = None
+        out_transf: Transform | None = None
 
         # Recursive Step: Unwrap nested types (TransformStamped)
         transf_dict = ros_data.get("transform")
@@ -877,7 +879,7 @@ class TransformAdapter(ROSAdapterBase[Transform]):
             )
 
     @classmethod
-    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
+    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> dict | None:
         return None
 
 
@@ -911,12 +913,12 @@ class WrenchAdapter(ROSAdapterBase[ForceTorque]):
         ```
     """
 
-    ros_msgtype: str | Tuple[str, ...] = (
+    ros_msgtype: str | tuple[str, ...] = (
         "geometry_msgs/msg/WrenchStamped",
         "geometry_msgs/msg/Wrench",
     )
 
-    __mosaico_ontology_type__: Type[ForceTorque] = ForceTorque
+    __mosaico_ontology_type__: type[ForceTorque] = ForceTorque
     _REQUIRED_KEYS = ("force", "torque")
 
     @classmethod
@@ -958,7 +960,7 @@ class WrenchAdapter(ROSAdapterBase[ForceTorque]):
             mosaico_wrench = WrenchAdapter.from_dict(ros_data)
             ```
         """
-        out_ft: Optional[ForceTorque] = None
+        out_ft: ForceTorque | None = None
 
         # Recursive Step: Unwrap nested types (TransformStamped)
         wrench_dict = ros_data.get("wrench")
@@ -983,5 +985,5 @@ class WrenchAdapter(ROSAdapterBase[ForceTorque]):
             )
 
     @classmethod
-    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
+    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> dict | None:
         return None

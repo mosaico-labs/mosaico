@@ -1,24 +1,19 @@
+import inspect
 from typing import (
-    Optional,
-    Type,
     Any,
-    Dict,
-    Tuple,
     Union,
     get_args,
     get_origin,
 )
-import inspect
 
 import pydantic
-from .mixins import (
-    _QueryableUnsupported,
-    _QueryableField,
-)
-
-from .internal import _PYTHON_TYPE_TO_QUERYABLE
 
 from ..expressions import _QueryExpression
+from .internal import _PYTHON_TYPE_TO_QUERYABLE
+from .mixins import (
+    _QueryableField,
+    _QueryableUnsupported,
+)
 
 
 def _is_optional(field_type):
@@ -33,7 +28,7 @@ class PydanticFieldMapper:
     Pydantic BaseModel fields.
     """
 
-    def _get_base_type(self, field_type: Optional[Type]) -> Type | None:
+    def _get_base_type(self, field_type: type | None) -> type | None:
         """
         Recursively unwraps type hints like Optional[T] to get the base type T.
 
@@ -82,10 +77,10 @@ class PydanticFieldMapper:
 
     def build_map(
         self,
-        class_type: Type,
-        query_expression_type: Type[_QueryExpression],
-        path_prefix: Optional[str] = None,
-    ) -> Tuple[str, Dict[str, Any]]:
+        class_type: type,
+        query_expression_type: type[_QueryExpression],
+        path_prefix: str | None = None,
+    ) -> tuple[str, dict[str, Any]]:
         """
         Builds the queryable field map for a given Pydantic class.
 
@@ -105,13 +100,17 @@ class PydanticFieldMapper:
         # If path_prefix is None (i.e., this is the top-level call),
         # use the class's name as the default.
         path_prefix = (
-            path_prefix if path_prefix is not None else class_type.__name__.lower()
+            path_prefix
+            if path_prefix is not None
+            else class_type.__name__.lower()
         )
 
         # Iterate over all fields defined in the Pydantic model
         for field_name, field_info in class_type.model_fields.items():
             # Construct the full dot-notation path (e.g., "type.field")
-            full_path = f"{path_prefix}.{field_name}" if path_prefix else field_name
+            full_path = (
+                f"{path_prefix}.{field_name}" if path_prefix else field_name
+            )
 
             # Get the raw type annotation (e.g., str, Optional[int], MyNestedModel)
             field_type = field_info.annotation
@@ -129,7 +128,9 @@ class PydanticFieldMapper:
                 # If the field is another Pydantic model, recurse.
                 # The returned path is the prefix (e.g., "Topic.sub_model"),
                 # and the sub_map is its field map.
-                _, sub_map = self.build_map(base_type, query_expression_type, full_path)
+                _, sub_map = self.build_map(
+                    base_type, query_expression_type, full_path
+                )
                 field_map[field_name] = sub_map
 
             # Handle types
@@ -137,7 +138,9 @@ class PydanticFieldMapper:
                 # We have a simple, unwrapped type (int, str, bool).
                 # Look up the corresponding query mixin (e.g., _QueryableNumeric)
                 # If not found, default to _QueryableUnsupported.
-                mixin = _PYTHON_TYPE_TO_QUERYABLE.get(base_type, _QueryableUnsupported)
+                mixin = _PYTHON_TYPE_TO_QUERYABLE.get(
+                    base_type, _QueryableUnsupported
+                )
 
                 # TODO: Better implement the optional logic being incomplete
 
@@ -152,7 +155,9 @@ class PydanticFieldMapper:
                 #     )
                 # else:
                 #     q_cls = type(f"{mixin.__name__}Field", (mixin, _QueryableField), {})
-                q_cls = type(f"{mixin.__name__}Field", (mixin, _QueryableField), {})
+                q_cls = type(
+                    f"{mixin.__name__}Field", (mixin, _QueryableField), {}
+                )
 
                 # Instantiate it with its full query path
                 field_map[field_name] = q_cls(

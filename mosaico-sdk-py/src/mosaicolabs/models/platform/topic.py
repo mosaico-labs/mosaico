@@ -6,13 +6,13 @@ Topic's metadata in the platform catalog. It is used primarily for inspection
 (listing topics) and query construction.
 """
 
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import PrivateAttr
+
+from ..query.expressions import _QueryTopicExpression
 from ..query.generation.api import queryable
 from ..query.generation.pydantic_mapper import PydanticFieldMapper
-from ..query.expressions import _QueryTopicExpression
-
 from .platform_base import PlatformBase
 
 
@@ -76,7 +76,7 @@ class Topic(PlatformBase):
     _sequence_name: str = PrivateAttr()
     _ontology_tag: str = PrivateAttr()
     _serialization_format: str = PrivateAttr()
-    _chunks_number: Optional[int] = PrivateAttr(default=None)
+    _chunks_number: int | None = PrivateAttr(default=None)
 
     # --- Factory Method ---
     @classmethod
@@ -116,7 +116,9 @@ class Topic(PlatformBase):
         # Set local private attributes
         instance._sequence_name = sequence_name
         instance._ontology_tag = metadata.properties.ontology_tag
-        instance._serialization_format = metadata.properties.serialization_format
+        instance._serialization_format = (
+            metadata.properties.serialization_format
+        )
         instance._chunks_number = sys_info.chunks_number
 
         return instance
@@ -183,7 +185,7 @@ class Topic(PlatformBase):
         return self._sequence_name
 
     @property
-    def chunks_number(self) -> Optional[int]:
+    def chunks_number(self) -> int | None:
         """
         The number of physical data chunks stored for this topic.
 

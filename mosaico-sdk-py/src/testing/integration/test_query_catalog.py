@@ -1,14 +1,19 @@
 from mosaicolabs.comm import MosaicoClient
-from mosaicolabs.types import Time
 from mosaicolabs.models.platform import Topic
-from mosaicolabs.models.query import QueryOntologyCatalog, QueryTopic, QuerySequence
-from mosaicolabs.models.sensors import IMU, GPS
+from mosaicolabs.models.query import (
+    QueryOntologyCatalog,
+    QuerySequence,
+    QueryTopic,
+)
+from mosaicolabs.models.sensors import GPS, IMU
+from mosaicolabs.types import Time
 from testing.integration.config import (
     UPLOADED_GPS_TOPIC,
     UPLOADED_IMU_CAMERA_TOPIC,
     UPLOADED_IMU_FRONT_TOPIC,
     UPLOADED_SEQUENCE_NAME,
 )
+
 from .helpers import _validate_returned_topic_name
 
 
@@ -34,7 +39,10 @@ def test_query_ontology(
     assert len(query_resp[0].topics) == len(expected_topic_names)
 
     # all the expected topics, and only them
-    [_validate_returned_topic_name(topic.name) for topic in query_resp[0].topics]
+    [
+        _validate_returned_topic_name(topic.name)
+        for topic in query_resp[0].topics
+    ]
     assert all([t.name in expected_topic_names for t in query_resp[0].topics])
 
     # Query by multiple condition: time and value
@@ -55,7 +63,10 @@ def test_query_ontology(
     ]
     assert len(query_resp[0].topics) == len(expected_topic_names)
     # all the expected topics, and only them
-    [_validate_returned_topic_name(topic.name) for topic in query_resp[0].topics]
+    [
+        _validate_returned_topic_name(topic.name)
+        for topic in query_resp[0].topics
+    ]
     assert all([t.name in expected_topic_names for t in query_resp[0].topics])
 
     # Query by multiple condition: time and value (GPS)
@@ -102,7 +113,10 @@ def test_query_ontology_between(
     ]
     assert len(query_resp[0].topics) == len(expected_topic_names)
     # all the expected topics, and only them
-    [_validate_returned_topic_name(topic.name) for topic in query_resp[0].topics]
+    [
+        _validate_returned_topic_name(topic.name)
+        for topic in query_resp[0].topics
+    ]
     assert all([t.name in expected_topic_names for t in query_resp[0].topics])
 
     # Query by mixed conditions
@@ -122,7 +136,10 @@ def test_query_ontology_between(
     ]
     assert len(query_resp[0].topics) == len(expected_topic_names)
     # all the expected topics, and only them
-    [_validate_returned_topic_name(topic.name) for topic in query_resp[0].topics]
+    [
+        _validate_returned_topic_name(topic.name)
+        for topic in query_resp[0].topics
+    ]
     assert all([t.name in expected_topic_names for t in query_resp[0].topics])
 
     # free resources

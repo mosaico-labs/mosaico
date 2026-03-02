@@ -4,7 +4,6 @@ Pressure Ontology Module.
 Defines the data structure for pressure sensors.
 """
 
-from typing import Optional
 import pyarrow as pa
 
 from ..mixins import VarianceMixin
@@ -124,8 +123,8 @@ class Pressure(Serializable, VarianceMixin):
         cls,
         *,
         value: float,
-        variance: Optional[float] = None,
-        variance_type: Optional[int] = None,
+        variance: float | None = None,
+        variance_type: int | None = None,
     ) -> "Pressure":
         """
         Creates a `Pressure` instance using the value in Atm and converting it in Pascal using the formula
@@ -151,8 +150,8 @@ class Pressure(Serializable, VarianceMixin):
         cls,
         *,
         value: float,
-        variance: Optional[float] = None,
-        variance_type: Optional[int] = None,
+        variance: float | None = None,
+        variance_type: int | None = None,
     ) -> "Pressure":
         """
         Creates a `Pressure` instance using the value in Bar and converting it in Pascal using the formula
@@ -178,8 +177,8 @@ class Pressure(Serializable, VarianceMixin):
         cls,
         *,
         value: float,
-        variance: Optional[float] = None,
-        variance_type: Optional[int] = None,
+        variance: float | None = None,
+        variance_type: int | None = None,
     ) -> "Pressure":
         """
         Creates a `Pressure` instance using the value in Psi and converting it in Pascal using the formula

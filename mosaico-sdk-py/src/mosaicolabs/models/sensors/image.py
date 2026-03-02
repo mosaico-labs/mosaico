@@ -15,10 +15,9 @@ It provides:
 #   for 'all' the formats, but doing so we are limiting the user from providing custom codecs for more clever extensibility;
 # - (related to previous) Envision the use of codecs, for 'to_image' conversions
 
-from enum import Enum
 import io
 import sys
-from typing import Dict, List, Optional
+from enum import Enum
 
 # dependencies for video handling
 import av
@@ -147,7 +146,9 @@ class Image(Serializable):
                 "format",
                 pa.string(),
                 nullable=False,
-                metadata={"description": "Container format (e.g., 'raw', 'png')."},
+                metadata={
+                    "description": "Container format (e.g., 'raw', 'png')."
+                },
             ),
             pa.field(
                 "width",
@@ -165,13 +166,17 @@ class Image(Serializable):
                 "stride",
                 pa.int32(),
                 nullable=False,
-                metadata={"description": "Bytes per row. Essential for alignment."},
+                metadata={
+                    "description": "Bytes per row. Essential for alignment."
+                },
             ),
             pa.field(
                 "encoding",
                 pa.string(),
                 nullable=False,
-                metadata={"description": "Pixel format (e.g., 'bgr8', 'mono16')."},
+                metadata={
+                    "description": "Pixel format (e.g., 'bgr8', 'mono16')."
+                },
             ),
             pa.field(
                 "is_bigendian",
@@ -347,7 +352,7 @@ class Image(Serializable):
         ```
     """
 
-    is_bigendian: Optional[bool] = None
+    is_bigendian: bool | None = None
     """
     Store if the original data is Big-Endian. Optional field.
 
@@ -380,13 +385,13 @@ class Image(Serializable):
     @classmethod
     def from_linear_pixels(
         cls,
-        data: List[int],
+        data: list[int],
         stride: int,
         height: int,
         width: int,
         encoding: str,
-        is_bigendian: Optional[bool] = None,
-        format: Optional[ImageFormat] = _DEFAULT_IMG_FORMAT,
+        is_bigendian: bool | None = None,
+        format: ImageFormat | None = _DEFAULT_IMG_FORMAT,
     ) -> "Image":
         """
         Encodes linear pixel uint8 data into the storage container.
@@ -460,7 +465,7 @@ class Image(Serializable):
             encoding=encoding,
         )
 
-    def to_linear_pixels(self) -> List[int]:
+    def to_linear_pixels(self) -> list[int]:
         """
         Decodes the storage container back to a linear byte list.
 
@@ -561,8 +566,8 @@ class Image(Serializable):
     def from_pillow(
         cls,
         pil_image: PILImage.Image,
-        target_encoding: Optional[str] = None,
-        output_format: Optional[ImageFormat] = None,
+        target_encoding: str | None = None,
+        output_format: ImageFormat | None = None,
     ) -> "Image":
         """
         Factory method to create an Image from a PIL object.
@@ -644,14 +649,14 @@ class StatefulDecodingSession:
 
     def __init__(self):
         # Key: topic_name (str) -> Value: av.CodecContext
-        self._decoders: Dict[str, av.CodecContext] = {}
+        self._decoders: dict[str, av.CodecContext] = {}
 
     def decode(
         self,
         img_data: bytes,
         format: ImageFormat,
         context: str,
-    ) -> Optional[PILImage.Image]:
+    ) -> PILImage.Image | None:
         """
         Decodes a CompressedImage message into a PIL Image using the
         persistent state associated with 'topic_name'.
@@ -669,25 +674,31 @@ class StatefulDecodingSession:
         img_data: bytes,
         format: ImageFormat,
         context: str,
-    ) -> Optional[PILImage.Image]:
+    ) -> PILImage.Image | None:
         # Lazy initialization of the decoder for this specific topic
         if context not in self._decoders:
             try:
                 self._decoders[context] = av.CodecContext.create(format, "r")
-                logger.debug(f"Created new decoder context for context: '{context}'")
+                logger.debug(
+                    f"Created new decoder context for context: '{context}'"
+                )
             except Exception as e:
-                logger.error(f"Failed to create decoder for context '{context}': '{e}'")
+                logger.error(
+                    f"Failed to create decoder for context '{context}': '{e}'"
+                )
                 return None
 
         decoder = self._decoders[context]
 
         try:
             packet = av.Packet(img_data)
-            frames: List[av.VideoFrame] = decoder.decode(packet)
+            frames: list[av.VideoFrame] = decoder.decode(packet)
 
             # Return the first available frame
             if frames:
-                return frames[0].to_image()  # PyAV >= 0.5.0 supports .to_image() (PIL)
+                return frames[
+                    0
+                ].to_image()  # PyAV >= 0.5.0 supports .to_image() (PIL)
 
         except Exception as e:
             logger.warning(f"Decoding error on '{context}': '{e}'")
@@ -710,7 +721,7 @@ class _StatelessDefaultCodec:
 
     def decode(
         self, data_bytes: bytes, format: ImageFormat
-    ) -> Optional[PILImage.Image]:
+    ) -> PILImage.Image | None:
         """Decodes bytes using PIL.Image.open."""
         try:
             image = PILImage.open(io.BytesIO(data_bytes))
@@ -722,7 +733,7 @@ class _StatelessDefaultCodec:
 
     def encode(
         self, image: PILImage.Image, format: ImageFormat, **kwargs
-    ) -> Optional[bytes]:
+    ) -> bytes | None:
         """Encodes image using PIL.Image.save."""
         buf = io.BytesIO()
         try:
@@ -834,7 +845,7 @@ class CompressedImage(Serializable):
         self,
         # TODO: enable param when allowing generic formats (not via Enum)
         # codec: Optional[Any] = None,
-    ) -> Optional[PILImage.Image]:
+    ) -> PILImage.Image | None:
         """
         Decompresses the stored binary data into a usable PIL Image object.
 

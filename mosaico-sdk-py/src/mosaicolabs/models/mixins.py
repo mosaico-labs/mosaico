@@ -5,7 +5,6 @@ This module provides helper classes used to inject standard
 fields (covariance and variance) into ontology models via composition.
 """
 
-from typing import List, Optional
 import pyarrow as pa
 
 from .base_model import BaseModel
@@ -75,7 +74,7 @@ class CovarianceMixin(BaseModel):
         ```
     """
 
-    covariance: Optional[List[float]] = None
+    covariance: list[float] | None = None
     """
     Optional list of 64-bit floats representing the flattened matrix.
     
@@ -85,7 +84,7 @@ class CovarianceMixin(BaseModel):
         The field is not queryable with the **`.Q` Proxy**.
     """
 
-    covariance_type: Optional[int] = None
+    covariance_type: int | None = None
     """
     Optional 16-bit integer representing the covariance enum.
 
@@ -170,7 +169,10 @@ class CovarianceMixin(BaseModel):
 
         # Collision Check
         existing_pa_names = [f.name for f in current_pa_fields]
-        if "covariance" in existing_pa_names or "covariance_type" in existing_pa_names:
+        if (
+            "covariance" in existing_pa_names
+            or "covariance_type" in existing_pa_names
+        ):
             raise ValueError(
                 f"Class '{cls.__name__}' has conflicting 'covariance' or 'covariance_type' schema keys."
             )
@@ -250,7 +252,7 @@ class VarianceMixin(BaseModel):
         ```
     """
 
-    variance: Optional[float] = None
+    variance: float | None = None
     """
     Optional 64-bit float representing the variance of the data.
 
@@ -289,7 +291,7 @@ class VarianceMixin(BaseModel):
         ```
     """
 
-    variance_type: Optional[int] = None
+    variance_type: int | None = None
     """
     Optional 16-bit integer representing the variance parameterization.
 
@@ -365,7 +367,10 @@ class VarianceMixin(BaseModel):
 
         # Collision Check
         existing_pa_names = [f.name for f in current_pa_fields]
-        if "variance" in existing_pa_names or "variance_type" in existing_pa_names:
+        if (
+            "variance" in existing_pa_names
+            or "variance_type" in existing_pa_names
+        ):
             raise ValueError(
                 f"Class '{cls.__name__}' has conflicting 'variance' or 'variance_type' schema keys."
             )

@@ -10,18 +10,19 @@ server responses are automatically deserialized into the correct Python objects,
 providing stronger typing and validation than raw dictionaries.
 """
 
+import datetime
 import json
-from typing import Any, ClassVar, Dict, Optional, Type, TypeVar
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-import datetime
-from mosaicolabs.comm.notifications import Notification
+from typing import Any, ClassVar, TypeVar
+
 import pyarrow.flight as fl
+
+from mosaicolabs.comm.notifications import Notification
 
 from ..enum import FlightAction
 from ..logging_config import get_logger
-from ..models.query import QueryResponseItem, QueryResponse
-
+from ..models.query import QueryResponse, QueryResponseItem
 
 # Set the hierarchical logger
 logger = get_logger(__name__)
@@ -39,7 +40,7 @@ class _DoActionResponse(ABC):
     """
 
     # Registry mapping FlightAction -> Subclass Type
-    _registry: ClassVar[Dict[FlightAction, Type["_DoActionResponse"]]] = {}
+    _registry: ClassVar[dict[FlightAction, type["_DoActionResponse"]]] = {}
 
     # Subclasses must define which actions they handle
     actions: ClassVar[list[FlightAction]] = []
@@ -53,7 +54,9 @@ class _DoActionResponse(ABC):
             _DoActionResponse._registry[action] = cls
 
     @classmethod
-    def get_class_for_action(cls, action: FlightAction) -> Type["_DoActionResponse"]:
+    def get_class_for_action(
+        cls, action: FlightAction
+    ) -> type["_DoActionResponse"]:
         """
         Retrieves the registered response class for a given action.
 
@@ -73,7 +76,7 @@ class _DoActionResponse(ABC):
     @classmethod
     @abstractmethod
     def from_dict(
-        cls: Type[T_DoActionResponse], data: Dict[str, Any]
+        cls: type[T_DoActionResponse], data: dict[str, Any]
     ) -> T_DoActionResponse:
         """
         Abstract method to deserialize a dictionary into an instance.
@@ -91,8 +94,8 @@ def _do_action(
     client: fl.FlightClient,
     action: FlightAction,
     payload: dict[str, Any],
-    expected_type: Optional[Type[T_DoActionResponse]],
-) -> Optional[T_DoActionResponse]:
+    expected_type: type[T_DoActionResponse] | None,
+) -> T_DoActionResponse | None:
     """
     Executes a Flight `do_action` command and deserializes the response.
 
@@ -147,7 +150,9 @@ def _do_action(
         # Verify the server is responding to the correct action
         returned_action = result_dict.get("action")
         if returned_action is None or returned_action == "empty":
-            logger.debug(f"Action '{action_name}' response had no 'action' field.")
+            logger.debug(
+                f"Action '{action_name}' response had no 'action' field."
+            )
             return None
 
         if returned_action != action_name:
@@ -158,7 +163,9 @@ def _do_action(
 
         response_data = result_dict.get("response")
         if response_data is None:
-            logger.debug(f"Action '{action_name}' response had no 'response' field.")
+            logger.debug(
+                f"Action '{action_name}' response had no 'response' field."
+            )
             return None
 
         # --- Deserialization ---
@@ -195,7 +202,7 @@ class _DoActionResponseUUID(_DoActionResponse):
     uuid: str
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "_DoActionResponseUUID":
+    def from_dict(cls, data: dict[str, Any]) -> "_DoActionResponseUUID":
         return cls(**data)
 
 
@@ -209,11 +216,11 @@ class _DoActionResponseSysInfo(_DoActionResponse):
     ]
     total_size_bytes: int
     created_datetime: datetime.datetime
-    is_locked: Optional[bool] = None
-    chunks_number: Optional[int] = None
+    is_locked: bool | None = None
+    chunks_number: int | None = None
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "_DoActionResponseSysInfo":
+    def from_dict(cls, data: dict[str, Any]) -> "_DoActionResponseSysInfo":
         return cls(**data)
 
 
@@ -225,12 +232,14 @@ class _DoActionQueryResponse(_DoActionResponse):
     query_response: QueryResponse
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "_DoActionQueryResponse":
+    def from_dict(cls, data: dict[str, Any]) -> "_DoActionQueryResponse":
         items = data.get("items")
         if items is None:
             raise KeyError("Unable to find 'items' key in data dict.")
         qresp = QueryResponse(
-            items=[QueryResponseItem._from_dict(ditem) for ditem in data["items"]]
+            items=[
+                QueryResponseItem._from_dict(ditem) for ditem in data["items"]
+            ]
         )
         return _DoActionQueryResponse(query_response=qresp)
 
@@ -246,12 +255,13 @@ class _DoActionNotificationList(_DoActionResponse):
     notifications: list[Notification]
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "_DoActionNotificationList":
-        notifications: Optional[list] = data.get("notifications")
+    def from_dict(cls, data: dict[str, Any]) -> "_DoActionNotificationList":
+        notifications: list | None = data.get("notifications")
         if notifications is None:
             raise KeyError("Unable to find 'notifications' key in data dict.")
         return _DoActionNotificationList(
             notifications=[
-                Notification._from_dict(notification) for notification in notifications
+                Notification._from_dict(notification)
+                for notification in notifications
             ]
         )

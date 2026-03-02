@@ -1,7 +1,7 @@
-from dataclasses import dataclass
 import datetime
+from dataclasses import dataclass
 from enum import StrEnum
-from typing import Any, Dict, Optional
+from typing import Any
 
 from mosaicolabs.helpers.helpers import unpack_topic_full_path
 
@@ -12,7 +12,9 @@ def _parse_datetime_str(s: str) -> datetime.datetime:
         return datetime.datetime.fromisoformat(s)
     else:
         # no timezone → assume UTC
-        return datetime.datetime.fromisoformat(s).replace(tzinfo=datetime.timezone.utc)
+        return datetime.datetime.fromisoformat(s).replace(
+            tzinfo=datetime.timezone.utc
+        )
 
 
 class NotificationType(StrEnum):
@@ -71,10 +73,10 @@ class Notification:
     type: NotificationType
     message: str
     created_datetime: datetime.datetime
-    topic_name: Optional[str] = None
+    topic_name: str | None = None
 
     @classmethod
-    def _from_dict(cls, data: Dict[str, Any]) -> "Notification":
+    def _from_dict(cls, data: dict[str, Any]) -> "Notification":
         """
         Create a Notification object from a dictionary.
 

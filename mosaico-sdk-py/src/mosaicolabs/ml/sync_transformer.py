@@ -1,10 +1,12 @@
-import pandas as pd
+from typing import Any
+
 import numpy as np
-from typing import Any, Dict, Optional, Tuple
+import pandas as pd
+
 from mosaicolabs.logging_config import get_logger
 
-from .sync_policy import SyncPolicy
 from .sync_policies.hold import SyncHold
+from .sync_policy import SyncPolicy
 
 logger = get_logger(__name__)
 
@@ -53,8 +55,8 @@ class SyncTransformer:
         self._timestamp_column: str = timestamp_column
 
         # Internal state to bridge gaps between chunks
-        self._last_values: Dict[str, Tuple[int, Any]] = {}
-        self._next_timestamp_ns: Optional[int] = None
+        self._last_values: dict[str, tuple[int, Any]] = {}
+        self._next_timestamp_ns: int | None = None
 
     def fit(self, X: pd.DataFrame, y=None) -> "SyncTransformer":
         """
@@ -182,7 +184,10 @@ class SyncTransformer:
 
         # We start exactly from the next expected tick to prevent drift
         grid = np.arange(
-            self._next_timestamp_ns, chunk_end_ns + 1, self._step_ns, dtype=np.int64
+            self._next_timestamp_ns,
+            chunk_end_ns + 1,
+            self._step_ns,
+            dtype=np.int64,
         )
 
         # Advance the pointer for the next chunk
@@ -193,7 +198,7 @@ class SyncTransformer:
 
     def _prepare_data(
         self, col_name: str, samples: pd.DataFrame
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray, np.ndarray]:
         """
         Prepends the carried-over sample from the previous chunk to ensure continuity.
         """

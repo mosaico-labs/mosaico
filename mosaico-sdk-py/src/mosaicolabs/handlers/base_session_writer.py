@@ -7,17 +7,18 @@ and distributes client resources (Connections, Executors) to individual Topics.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Type, Optional
-import pyarrow.flight as fl
 from logging import Logger
+from typing import Any
 
+import pyarrow.flight as fl
+
+from mosaicolabs.comm.connection import _ConnectionPool
+from mosaicolabs.comm.do_action import _do_action, _DoActionResponseUUID
+from mosaicolabs.comm.executor_pool import _ExecutorPool
+from mosaicolabs.enum import FlightAction, OnErrorPolicy, SessionStatus
 from mosaicolabs.handlers.config import WriterConfig
 from mosaicolabs.handlers.helpers import _make_exception, _validate_topic_name
 from mosaicolabs.handlers.topic_writer import TopicWriter
-from mosaicolabs.comm.do_action import _do_action, _DoActionResponseUUID
-from mosaicolabs.comm.connection import _ConnectionPool
-from mosaicolabs.comm.executor_pool import _ExecutorPool
-from mosaicolabs.enum import FlightAction, OnErrorPolicy, SessionStatus
 from mosaicolabs.helpers import pack_topic_resource_name
 from mosaicolabs.models import Serializable
 
@@ -50,8 +51,8 @@ class BaseSessionWriter(ABC):
         *,
         sequence_name: str,
         client: fl.FlightClient,
-        connection_pool: Optional[_ConnectionPool],
-        executor_pool: Optional[_ExecutorPool],
+        connection_pool: _ConnectionPool | None,
+        executor_pool: _ExecutorPool | None,
         config: WriterConfig,
         logger: Logger,
     ):
@@ -74,17 +75,17 @@ class BaseSessionWriter(ABC):
         """The name of the sequence this session refers to"""
         self._config: WriterConfig = config
         """The config of the writer"""
-        self._topic_writers: Dict[str, TopicWriter] = {}
+        self._topic_writers: dict[str, TopicWriter] = {}
         """The cache of the spawned topic writers"""
         self._control_client: fl.FlightClient = client
         """The FlightClient used for operations (creating topics, finalizing session)."""
-        self._connection_pool: Optional[_ConnectionPool] = connection_pool
+        self._connection_pool: _ConnectionPool | None = connection_pool
         """The pool of FlightClients available for data streaming."""
-        self._executor_pool: Optional[_ExecutorPool] = executor_pool
+        self._executor_pool: _ExecutorPool | None = executor_pool
         """The pool of ThreadPoolExecutors available for asynch I/O."""
         self._status: SessionStatus = SessionStatus.Null
         """The status of the new session"""
-        self._uuid: Optional[str] = None
+        self._uuid: str | None = None
         """The session uuid for remote handshaking"""
         self._entered: bool = False
         """Tag for inspecting if the writer is used in a 'with' context"""
@@ -123,9 +124,9 @@ class BaseSessionWriter(ABC):
 
     def _on_context_exit(
         self,
-        exc_type: Optional[Type[BaseException]],
-        exc_val: Optional[BaseException],
-        exc_tb: Optional[Any],
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: Any | None,
     ) -> None:
         """
         Executes the default finalization and cleanup logic for the session.
@@ -223,9 +224,9 @@ class BaseSessionWriter(ABC):
 
     def __exit__(
         self,
-        exc_type: Optional[Type[BaseException]],
-        exc_val: Optional[BaseException],
-        exc_tb: Optional[Any],
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: Any | None,
     ) -> None:
         """
         Finalizes the session.
@@ -254,15 +255,17 @@ class BaseSessionWriter(ABC):
     def _check_entered(self):
         """Ensures methods are only called inside a `with` block."""
         if not self._entered:
-            raise RuntimeError("BaseSessionWriter must be used within a 'with' block.")
+            raise RuntimeError(
+                "BaseSessionWriter must be used within a 'with' block."
+            )
 
     # --- Public API ---
     def topic_create(
         self,
         topic_name: str,
         metadata: dict[str, Any],
-        ontology_type: Type[Serializable],
-    ) -> Optional[TopicWriter]:
+        ontology_type: type[Serializable],
+    ) -> TopicWriter | None:
         """
         Creates a new topic within the active session.
 
@@ -285,7 +288,9 @@ class BaseSessionWriter(ABC):
         self._check_entered()
 
         if topic_name in self._topic_writers:
-            self._logger.error(f"Topic '{topic_name}' already exists in this sequence.")
+            self._logger.error(
+                f"Topic '{topic_name}' already exists in this sequence."
+            )
             return None
 
         _validate_topic_name(topic_name)
@@ -332,7 +337,9 @@ class BaseSessionWriter(ABC):
             data_client = self._control_client
 
         # Assign executor if pool is available
-        executor = self._executor_pool.get_next() if self._executor_pool else None
+        executor = (
+            self._executor_pool.get_next() if self._executor_pool else None
+        )
 
         try:
             writer = TopicWriter._create(
@@ -360,7 +367,9 @@ class BaseSessionWriter(ABC):
                     client=self._control_client,
                     action=FlightAction.TOPIC_DELETE,
                     payload={
-                        "locator": pack_topic_resource_name(self._name, topic_name)
+                        "locator": pack_topic_resource_name(
+                            self._name, topic_name
+                        )
                     },
                     expected_type=None,
                 )
@@ -444,7 +453,7 @@ class BaseSessionWriter(ABC):
         """
         return [k for k in self._topic_writers.keys()]
 
-    def get_topic_writer(self, topic_name: str) -> Optional[TopicWriter]:
+    def get_topic_writer(self, topic_name: str) -> TopicWriter | None:
         """
         Retrieves an existing [`TopicWriter`][mosaicolabs.handlers.TopicWriter] instance from the internal cache.
 
@@ -566,7 +575,7 @@ class BaseSessionWriter(ABC):
                     e,
                 )
 
-    def _close_topics(self, error: Optional[BaseException] = None) -> None:
+    def _close_topics(self, error: BaseException | None = None) -> None:
         """
         Iterates over all TopicWriters and finalizes them.
         """

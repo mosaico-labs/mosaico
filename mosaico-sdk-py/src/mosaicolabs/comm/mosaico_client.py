@@ -8,7 +8,7 @@ creating resource handlers (sequences, topics) and executing queries.
 """
 
 import os
-from typing import Any, Dict, List, Optional, Type
+from typing import Any
 
 import pyarrow.flight as fl
 
@@ -72,10 +72,10 @@ class MosaicoClient:
         port: int,
         timeout: int,
         control_client: fl.FlightClient,
-        connection_pool: Optional[_ConnectionPool],
-        executor_pool: Optional[_ExecutorPool],
+        connection_pool: _ConnectionPool | None,
+        executor_pool: _ExecutorPool | None,
         sentinel: object,
-        tls_cert: Optional[bytes],
+        tls_cert: bytes | None,
     ):
         """
         **Internal Constructor** (do not call this directly): The `MosaicoClient` enforces a strict
@@ -113,17 +113,17 @@ class MosaicoClient:
         """The primary PyArrow Flight client used for SDK-Server control operations (e.g., creating layers, querying)."""
         self._status: _ConnectionStatus = _ConnectionStatus.Open
         """Tracks the current connection status (Open/Closed)."""
-        self._connection_pool: Optional[_ConnectionPool] = connection_pool
+        self._connection_pool: _ConnectionPool | None = connection_pool
         """The pool of Flight clients used for parallel data writing."""
-        self._executor_pool: Optional[_ExecutorPool] = executor_pool
+        self._executor_pool: _ExecutorPool | None = executor_pool
         """The pool of thread executors used for offloading serialization and I/O."""
-        self._tls_cert: Optional[bytes] = tls_cert
+        self._tls_cert: bytes | None = tls_cert
         """The path to the TLS certificate file."""
 
         # Initialize caches
-        self._sequence_handlers_cache: Dict[str, SequenceHandler] = {}
+        self._sequence_handlers_cache: dict[str, SequenceHandler] = {}
         """Cache for SequenceHandler instances, keyed by sequence_name. Used to avoid re-connecting for known sequences."""
-        self._topic_handlers_cache: Dict[str, TopicHandler] = {}
+        self._topic_handlers_cache: dict[str, TopicHandler] = {}
         """Cache for TopicHandler instances, keyed by their resource ('sequence_name/topic_name') name."""
 
     def _init_pools(self):
@@ -159,7 +159,7 @@ class MosaicoClient:
         host: str,
         port: int,
         timeout: int = 5,
-        tls_cert_path: Optional[str] = None,
+        tls_cert_path: str | None = None,
     ) -> "MosaicoClient":
         """
         The primary entry point to the Mosaico Data Platform.
@@ -273,9 +273,9 @@ class MosaicoClient:
 
     def __exit__(
         self,
-        exc_type: Optional[Type[BaseException]],
-        exc_val: Optional[BaseException],
-        exc_tb: Optional[Any],
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: Any | None,
     ) -> None:
         """
         Context manager exit point. Ensures resources are closed.
@@ -306,7 +306,7 @@ class MosaicoClient:
         del self._topic_handlers_cache[topic_resource_name]
 
     @staticmethod
-    def _resolve_tls_cert_path(tls_cert_path: Optional[str]) -> Optional[bytes]:
+    def _resolve_tls_cert_path(tls_cert_path: str | None) -> bytes | None:
         """
         Resolves the TLS certificate path.
 
@@ -339,7 +339,7 @@ class MosaicoClient:
 
     # --- Handler Factory Methods ---
 
-    def sequence_handler(self, sequence_name: str) -> Optional[SequenceHandler]:
+    def sequence_handler(self, sequence_name: str) -> SequenceHandler | None:
         """
         Retrieves a [`SequenceHandler`][mosaicolabs.handlers.SequenceHandler] for the given sequence.
 
@@ -386,7 +386,7 @@ class MosaicoClient:
         self,
         sequence_name: str,
         topic_name: str,
-    ) -> Optional[TopicHandler]:
+    ) -> TopicHandler | None:
         """
         Retrieves a [`TopicHandler`][mosaicolabs.handlers.TopicHandler] for a specific data channel.
 
@@ -441,8 +441,8 @@ class MosaicoClient:
         sequence_name: str,
         metadata: dict[str, Any],
         on_error: OnErrorPolicy = OnErrorPolicy.Delete,
-        max_batch_size_bytes: Optional[int] = None,
-        max_batch_size_records: Optional[int] = None,
+        max_batch_size_bytes: int | None = None,
+        max_batch_size_records: int | None = None,
     ) -> SequenceWriter:
         """
         Creates a new sequence on the platform and returns a [`SequenceWriter`][mosaicolabs.handlers.SequenceWriter] for ingestion.
@@ -562,7 +562,7 @@ class MosaicoClient:
                 f"Server error (do_action) while asking for Sequence deletion, '{e}'"
             )
 
-    def list_sequences(self) -> List[str]:
+    def list_sequences(self) -> list[str]:
         """
         Retrieves a list of all sequence names available on the server.
 
@@ -588,7 +588,7 @@ class MosaicoClient:
 
     def list_sequence_notifications(
         self, sequence_name: str
-    ) -> List[Notification]:
+    ) -> list[Notification]:
         """
         Retrieves a list of all notifications available on the server for a specific sequence.
 
@@ -653,7 +653,7 @@ class MosaicoClient:
 
     def list_topic_notifications(
         self, sequence_name: str, topic_name: str
-    ) -> List[Notification]:
+    ) -> list[Notification]:
         """
         Retrieves a list of all notifications available on the server for a specific topic
 
@@ -731,8 +731,8 @@ class MosaicoClient:
     def query(
         self,
         *queries: QueryableProtocol,
-        query: Optional[Query] = None,
-    ) -> Optional[QueryResponse]:
+        query: Query | None = None,
+    ) -> QueryResponse | None:
         """
         Executes one or more queries against the Mosaico database.
 

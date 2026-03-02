@@ -5,14 +5,13 @@ This module defines the `Sequence` class, which represents a read-only view of a
 Sequence's metadata. A Sequence is a logical grouping of multiple Topics.
 """
 
-from typing import Any, List
+from typing import Any
+
 from pydantic import PrivateAttr
 
-
+from ..query.expressions import _QuerySequenceExpression
 from ..query.generation.api import queryable
 from ..query.generation.pydantic_mapper import PydanticFieldMapper
-from ..query.expressions import _QuerySequenceExpression
-
 from .platform_base import PlatformBase
 
 
@@ -74,12 +73,12 @@ class Sequence(PlatformBase):
     """
 
     # --- Private Fields ---
-    _topics: List[str] = PrivateAttr(default_factory=list)
+    _topics: list[str] = PrivateAttr(default_factory=list)
 
     # --- Factory Method ---
     @classmethod
     def _from_flight_info(
-        cls, name: str, metadata: Any, sys_info: Any, topics: List[str]
+        cls, name: str, metadata: Any, sys_info: Any, topics: list[str]
     ) -> "Sequence":
         """
         Internal factory method to construct a Sequence model from Flight protocol objects.
@@ -111,7 +110,7 @@ class Sequence(PlatformBase):
 
     # --- Properties ---
     @property
-    def topics(self) -> List[str]:
+    def topics(self) -> list[str]:
         """
         Returns the list of names for all topics contained within this sequence.
 

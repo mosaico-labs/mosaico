@@ -8,17 +8,17 @@ middleware-level metadata (like recording timestamp_ns).
 """
 
 # --- Python Standard Library Imports ---
-from typing import Any, Dict, Optional, Type, TypeVar
-from pydantic import PrivateAttr
-import pyarrow as pa
+from typing import Any, Optional, TypeVar
+
 import pandas as pd
+import pyarrow as pa
+from pydantic import PrivateAttr
 
-
-from ..logging_config import get_logger
 from ..helpers.helpers import encode_to_dict
-from .serializable import Serializable
-from .internal.helpers import _fix_empty_dicts
+from ..logging_config import get_logger
 from .base_model import BaseModel
+from .internal.helpers import _fix_empty_dicts
+from .serializable import Serializable
 
 # Set the hierarchical logger
 logger = get_logger(__name__)
@@ -186,7 +186,7 @@ class Message(BaseModel):
 
     """
 
-    recording_timestamp_ns: Optional[int] = None
+    recording_timestamp_ns: int | None = None
     """
     Ingestion timestamp in nanoseconds (record time).
 
@@ -240,7 +240,7 @@ class Message(BaseModel):
         ```
     """
 
-    frame_id: Optional[str] = None
+    frame_id: str | None = None
     """
     A string identifier for the coordinate frame (spatial context).
     
@@ -273,7 +273,7 @@ class Message(BaseModel):
         ```
     """
 
-    sequence_id: Optional[int] = None
+    sequence_id: int | None = None
     """
     An optional sequence ID, primarily used for legacy tracking.
     
@@ -321,7 +321,9 @@ class Message(BaseModel):
         self._self_model_keys = {
             field for field in self.__class__.model_fields if field != "data"
         }
-        self._data_model_keys = {field for field in self.data.__class__.model_fields}
+        self._data_model_keys = {
+            field for field in self.data.__class__.model_fields
+        }
 
         colliding_fields = self._self_model_keys & self._data_model_keys
         if colliding_fields:
@@ -330,17 +332,15 @@ class Message(BaseModel):
                 f"and Message envelope. Colliding fields: {colliding_fields}."
             )
 
-    def ontology_type(self) -> Type[Serializable]:
+    def ontology_type(self) -> type[Serializable]:
         """Retrieves the class type of the ontology object stored in the `data` field."""
         return self.data.__class_type__
 
     def ontology_tag(self) -> str:
         """Returns the unique ontology tag name associated with the object in the data field."""
-        return getattr(
-            self.data, "__ontology_tag__"
-        )  # avoid the IDE complaining (__ontology_tag__ defined as Optional but surely not None at this point)
+        return self.data.__ontology_tag__  # avoid the IDE complaining (__ontology_tag__ defined as Optional but surely not None at this point)
 
-    def _encode(self) -> Dict[str, Any]:
+    def _encode(self) -> dict[str, Any]:
         """
         Flattens the message and its payload into a dictionary for serialization.
 
@@ -397,14 +397,18 @@ class Message(BaseModel):
         # Cleanup Input (Fix Parquet artifacts)
         fixed_kwargs = _fix_empty_dicts(kwargs) if kwargs else dict({})
         if not fixed_kwargs:
-            raise Exception(f"Unable to obtain valid fields from kwargs: {kwargs}")
+            raise Exception(
+                f"Unable to obtain valid fields from kwargs: {kwargs}"
+            )
 
         # Argument Separation
         data_fields = list(DataClass.model_fields.keys())
 
         # Extract Envelope args
         message_kwargs = {
-            key: val for key, val in fixed_kwargs.items() if key not in data_fields
+            key: val
+            for key, val in fixed_kwargs.items()
+            if key not in data_fields
         }
         if not message_kwargs:
             raise Exception("Input kwargs missing required Message fields.")
@@ -419,7 +423,7 @@ class Message(BaseModel):
         return cls(data=data_obj, **message_kwargs)
 
     @classmethod
-    def _get_schema(cls, data_cls: Type["Serializable"]) -> pa.Schema:
+    def _get_schema(cls, data_cls: type["Serializable"]) -> pa.Schema:
         """
         Generates a combined PyArrow Schema for the message and a specific ontology.
 
@@ -448,7 +452,7 @@ class Message(BaseModel):
 
     # --- Public API ---
 
-    def get_data(self, target_type: Type[TSerializable]) -> TSerializable:
+    def get_data(self, target_type: type[TSerializable]) -> TSerializable:
         """
         Safe, type-hinted accessor for the data payload.
 
@@ -485,7 +489,9 @@ class Message(BaseModel):
 
     @staticmethod
     def from_dataframe_row(
-        row: pd.Series, topic_name: str, timestamp_column_name: str = "timestamp_ns"
+        row: pd.Series,
+        topic_name: str,
+        timestamp_column_name: str = "timestamp_ns",
     ) -> Optional["Message"]:
         """
         Reconstructs a `Message` object from a flattened DataFrame row.
@@ -550,7 +556,10 @@ class Message(BaseModel):
         tag = None
         for col in row.index:
             col_str = str(col)
-            if col_str.startswith(topic_prefix) and col_str != timestamp_column_name:
+            if (
+                col_str.startswith(topic_prefix)
+                and col_str != timestamp_column_name
+            ):
                 parts = col_str.split(".")
                 # Semantic Naming check: {topic}.{tag}.{field}
                 if len(parts) >= 3:
@@ -586,7 +595,7 @@ class Message(BaseModel):
         if timestamp is None or pd.isna(timestamp):
             return None
 
-        nested_data: Dict[str, Any] = {timestamp_column_name: int(timestamp)}
+        nested_data: dict[str, Any] = {timestamp_column_name: int(timestamp)}
 
         for key, value in relevant_data.items():
             # Convert Pandas/NumPy NaNs to Python None for model compatibility
@@ -603,5 +612,7 @@ class Message(BaseModel):
             # Reconstructs the strongly-typed Ontology object from flattened rows
             return Message._create(tag=tag, **nested_data)
         except Exception as e:
-            logger.error(f"Failed to reconstruct Message for topic {topic_name}: {e}")
+            logger.error(
+                f"Failed to reconstruct Message for topic {topic_name}: {e}"
+            )
             return None

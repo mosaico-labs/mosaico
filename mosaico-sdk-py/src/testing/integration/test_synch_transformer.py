@@ -1,12 +1,14 @@
-from mosaicolabs.comm import MosaicoClient
-from mosaicolabs.ml import DataFrameExtractor, SyncTransformer
 import numpy as np
 import pytest
+
+from mosaicolabs.comm import MosaicoClient
+from mosaicolabs.ml import DataFrameExtractor, SyncTransformer
 from testing.integration.config import (
-    UPLOADED_SEQUENCE_NAME,
-    UPLOADED_IMU_FRONT_TOPIC,
     UPLOADED_GPS_TOPIC,
+    UPLOADED_IMU_FRONT_TOPIC,
+    UPLOADED_SEQUENCE_NAME,
 )
+
 from .helpers import SequenceDataStream
 
 
