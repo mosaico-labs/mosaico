@@ -7,11 +7,9 @@ use semver;
 /// Returns the server version.
 pub fn version() -> Result<ActionResponse, ServerError> {
     info!("requested server version");
-    Ok(ActionResponse::Version(
-        params::version()
-            .parse()
-            .map_err(|e: semver::Error| ServerError::InternalError(e.to_string()))?,
-    ))
+    Ok(ActionResponse::Version(params::version().parse().map_err(
+        |e: semver::Error| ServerError::InternalError(e.to_string()),
+    )?))
 }
 
 #[cfg(test)]
