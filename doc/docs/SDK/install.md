@@ -32,7 +32,7 @@ cd mosaico/mosaico-sdk-py
 Install the dependencies. This will automatically create a virtual environment and install all required libraries (PyArrow, NumPy, ROSBags, etc.):
 
 ```bash
-poetry install && poetry run pre-commit install
+poetry install
 ```
 
 ### Activate Environment
