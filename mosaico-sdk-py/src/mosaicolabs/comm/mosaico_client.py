@@ -548,11 +548,6 @@ class MosaicoClient:
         resources, including all topics and data chunks belonging to the sequence.
         Once executed, all storage occupied by the sequence is freed.
 
-        Important: Sequence Locking
-            This action can only be performed on **unlocked** sequences. If a sequence
-            is currently locked (e.g., for archival or safety reasons), the deletion
-            request will be rejected by the server.
-
         Args:
             sequence_name (str): The unique name of the sequence to remove.
         """
@@ -569,6 +564,30 @@ class MosaicoClient:
         except Exception as e:
             logger.error(
                 f"Server error (do_action) while asking for Sequence deletion, '{e}'"
+            )
+
+    def session_delete(self, session_uuid: str):
+        """
+        Permanently deletes a session and all its associated data from the server.
+
+        This operation is destructive and triggers a cascading deletion of all underlying
+        resources, including all topics and data chunks stored in the session.
+        Once executed, all storage occupied by the session is freed.
+
+        Args:
+            session_uuid (str): The unique identifier of the session to remove.
+        """
+        try:
+            _do_action(
+                client=self._control_client,
+                action=FlightAction.SESSION_DELETE,
+                payload={"session_uuid": session_uuid},
+                expected_type=None,
+            )
+
+        except Exception as e:
+            logger.error(
+                f"Server error (do_action) while asking for Session '{session_uuid}' deletion, '{e}'"
             )
 
     def list_sequences(self) -> List[str]:

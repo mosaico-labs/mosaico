@@ -89,7 +89,7 @@ class _BaseSessionWriter(ABC):
         """The pool of ThreadPoolExecutors available for asynch I/O."""
         self._status: SessionStatus = SessionStatus.Null
         """The status of the new session"""
-        self._uuid: Optional[str] = None
+        self._uuid: str = ""
         """The session uuid for remote handshaking"""
         self._entered: bool = False
         """Tag for inspecting if the writer is used in a 'with' context"""
@@ -524,7 +524,7 @@ class _BaseSessionWriter(ABC):
         return self._status
 
     @property
-    def session_uuid(self) -> Optional[str]:
+    def session_uuid(self) -> str:
         """
         Returns the UUID of the session corresponding to this sequence write or update.
 

@@ -67,8 +67,13 @@ def port(request):
 
 
 @pytest.fixture(scope="session")
-def tls_cert_path(request) -> Optional[str]:
-    if request.config.getoption("--tls"):
+def with_tls(request):
+    return request.config.getoption("--tls")
+
+
+@pytest.fixture(scope="session")
+def tls_cert_path(with_tls) -> Optional[str]:
+    if with_tls:
         return str(
             (
                 Path(__file__).resolve().parent

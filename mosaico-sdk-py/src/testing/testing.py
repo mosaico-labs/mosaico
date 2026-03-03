@@ -39,6 +39,11 @@ def mosaico_testing():
         action="store_true",
         help="Exit pytest after first failure (same as pytest -x, --exitfirst).",
     )
+    parser.add_argument(
+        "--tls",
+        action="store_true",
+        help="Enable TLS connection with the server",
+    )
     parser.add_argument("-q", "--quiet", action="store_true", help="Quiet mode.")
 
     # Connection Arguments
@@ -63,6 +68,9 @@ def mosaico_testing():
 
     if args.exitfirst:
         pytest_args.append("-x")
+
+    if args.tls:
+        pytest_args.append("--tls")
 
     if not args.quiet:
         pytest_args.append("-v")
