@@ -117,7 +117,9 @@ class _TopicWriteState:
             )
 
         # --- Buffering State ---
-        self._current_data_batch: List[Message] = []
+        # Buffer stores either Message objects (Count Mode) or pa.RecordBatch (Bytes Mode)
+        # This avoids double serialization in Bytes Mode (see issue #232)
+        self._current_data_batch: List[Message] | List[pa.RecordBatch] = []
         self._current_batch_size_bytes: int = 0
 
         # --- Async & Backpressure State ---
@@ -166,6 +168,9 @@ class _TopicWriteState:
         1. Serializes the *single* new record to check its size.
         2. If adding it exceeds `max_batch_size_bytes`, flushes current buffer.
         3. Adds record to new buffer.
+
+        Note: In Bytes Mode, we store the already-serialized pa.RecordBatch
+        instead of raw Message objects to avoid double serialization (issue #232).
         """
         assert self.writer is not None
         assert self.max_batch_size_bytes is not None
@@ -195,10 +200,12 @@ class _TopicWriteState:
             # Handle edge case: Single record > Preferred batch size
             # It will be added as a batch of 1.
 
-            self._current_data_batch = [msg]
+            # Store the serialized batch, not the raw message
+            self._current_data_batch = [single_record_batch]
             self._current_batch_size_bytes = single_record_size
         else:
-            self._current_data_batch.append(msg)
+            # Store the serialized batch, not the raw message
+            self._current_data_batch.append(single_record_batch)
             self._current_batch_size_bytes += single_record_size
 
     def _push_by_count(self, msg: Message):
@@ -236,13 +243,17 @@ class _TopicWriteState:
 
         self._pushed_records += 1
 
-    def _submit_write_task(self, msgs_to_write: List[Message]):
+    def _submit_write_task(self, batch_data: List[Message] | List[pa.RecordBatch]):
         """
         Dispatches the write operation to the executor.
 
         **Backpressure Logic:**
         Calls `self._pending_sem.acquire()`. If 3 tasks are already pending,
         this call BLOCKS, pausing the main thread until a worker finishes.
+
+        Args:
+            batch_data: Either List[Message] (Count Mode) or List[pa.RecordBatch] (Bytes Mode).
+                       In Bytes Mode, data is already serialized to avoid double work (issue #232).
         """
         if self.writer is None:
             logger.error(
@@ -251,7 +262,25 @@ class _TopicWriteState:
             return
 
         # Worker Function
-        def full_write_task(records, topic_name, sem: Optional[BoundedSemaphore]):
+        def full_write_task(
+            batches: List[pa.RecordBatch], topic_name: str, sem: Optional[BoundedSemaphore]
+        ):
+            try:
+                # Transmission (IO) - batches are already serialized
+                assert self.writer is not None
+                for batch in batches:
+                    self.writer.write(batch)
+            except Exception as e:
+                logger.error(f"Async write failed for topic '{topic_name}': '{e}'")
+            finally:
+                # Release Semaphore (Unblock main thread, if blocked)
+                if sem:
+                    sem.release()
+
+        def full_write_task_from_messages(
+            records: List[Message], topic_name: str, sem: Optional[BoundedSemaphore]
+        ):
+            """Count Mode: Serialize then write (original behavior)."""
             try:
                 # Serialization (CPU)
                 batch = self._get_record_batch(records)
@@ -261,9 +290,18 @@ class _TopicWriteState:
             except Exception as e:
                 logger.error(f"Async write failed for topic '{topic_name}': '{e}'")
             finally:
-                # Release Semaphore (Unblock main thread, if blocked)
                 if sem:
                     sem.release()
+
+        # Determine if data is already serialized (Bytes Mode) or raw (Count Mode)
+        if batch_data and isinstance(batch_data[0], pa.RecordBatch):
+            # Bytes Mode: Data is already serialized as List[pa.RecordBatch]
+            record_count = len(batch_data)
+            task_func = full_write_task
+        else:
+            # Count Mode: Data is List[Message], needs serialization
+            record_count = len(batch_data)
+            task_func = full_write_task_from_messages
 
         if self.executor is not None:
             # Backpressure Gate
@@ -272,7 +310,7 @@ class _TopicWriteState:
             self._pending_sem.acquire()
 
             future = self.executor.submit(
-                full_write_task, msgs_to_write, self.topic_name, self._pending_sem
+                task_func, batch_data, self.topic_name, self._pending_sem
             )
 
             # Resource Management
@@ -292,25 +330,27 @@ class _TopicWriteState:
 
         else:
             # Sync Path: Run immediately on main thread
-            full_write_task(msgs_to_write, self.topic_name, None)
+            task_func(batch_data, self.topic_name, None)
 
-        self._written_records += len(msgs_to_write)
+        self._written_records += record_count
 
     def _write_current_batch(self):
         """
         Flushes buffer: transfers data ownership to async task and resets buffer.
+
+        Handles both Count Mode (List[Message]) and Bytes Mode (List[pa.RecordBatch]).
         """
         if self.writer is None:
             raise ValueError("Writer is None")
 
         if self._current_data_batch:
-            records = self._current_data_batch
+            batch_data = self._current_data_batch
 
             # Reset immediately
             self._current_data_batch = []
             self._current_batch_size_bytes = 0
 
-            self._submit_write_task(records)
+            self._submit_write_task(batch_data)
 
     def _wait_for_pending_writes(self):
         """
