@@ -1,10 +1,12 @@
+import pytest
+
 from mosaicolabs.comm import MosaicoClient
 from mosaicolabs.models.platform import Sequence
 from mosaicolabs.models.query import QuerySequence
-import pytest
 from testing.integration.config import (
     QUERY_SEQUENCES_MOCKUP,
 )
+
 from .helpers import _validate_returned_topic_name
 
 # ------ Tests with mockup ----

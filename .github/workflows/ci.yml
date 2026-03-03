@@ -6,23 +6,23 @@ on:
       - "main"
       - "release/*"
     paths:
-      - '**.rs'
-      - '**.py'
-      - '**/Cargo.toml'
-      - '**/Cargo.lock'
-      - '**/pyproject.toml'
-      - '**/poetry.lock'
+      - "**.rs"
+      - "**.py"
+      - "**/Cargo.toml"
+      - "**/Cargo.lock"
+      - "**/pyproject.toml"
+      - "**/poetry.lock"
   pull_request:
     branches:
       - "main"
       - "release/*"
     paths:
-      - '**.rs'
-      - '**.py'
-      - '**/Cargo.toml'
-      - '**/Cargo.lock'
-      - '**/pyproject.toml'
-      - '**/poetry.lock'
+      - "**.rs"
+      - "**.py"
+      - "**/Cargo.toml"
+      - "**/Cargo.lock"
+      - "**/pyproject.toml"
+      - "**/poetry.lock"
   workflow_dispatch:
 
 permissions:
@@ -83,6 +83,24 @@ jobs:
       - name: Unit Tests
         run: ./scripts/tests.sh --mosaicod
 
+  python-sdk-linter:
+    name: "Python SDK (lint and format-check)"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v6
+
+      - name: Install Ruff
+        run: pipx install ruff
+
+      - name: Format Check
+        working-directory: mosaico-sdk-py
+        run: ruff format --check .
+
+      - name: Linter
+        working-directory: mosaico-sdk-py
+        run: ruff check .
+
   python-sdk-unit-tests:
     name: "Python SDK (unit tests)"
     runs-on: ubuntu-latest
@@ -98,8 +116,8 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v6.1.0
         with:
-          python-version: '3.13'
-          cache: 'poetry'
+          python-version: "3.13"
+          cache: "poetry"
 
       - name: Unit Tests
         run: ./scripts/tests.sh --sdk-python
@@ -107,7 +125,13 @@ jobs:
   integration-tests:
     name: "Integration tests"
     runs-on: ubuntu-latest
-    needs: [backend-linter, backend-unit-tests, python-sdk-unit-tests]
+    needs:
+      [
+        backend-linter,
+        backend-unit-tests,
+        python-sdk-linter,
+        python-sdk-unit-tests,
+      ]
     env:
       PYTHON_KEYRING_BACKEND: keyring.backends.null.Keyring
     steps:
@@ -137,8 +161,10 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v6.1.0
         with:
-          python-version: '3.13'
-          cache: 'poetry'
+          python-version: "3.13"
+          cache: "poetry"
 
-      - name: Integration Tests
-        run: ./scripts/tests.sh --integration
+      - name: Integration Tests and TLS Tests
+        run: |
+          ./scripts/tests.sh --integration
+          ./scripts/tests.sh --integration_with_tls

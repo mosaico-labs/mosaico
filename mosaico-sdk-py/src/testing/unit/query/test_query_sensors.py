@@ -7,25 +7,22 @@ from mosaicolabs.models.query import (
     Query,
     QueryOntologyCatalog,
 )
-
-from mosaicolabs.models.query.generation.mixins import (
-    _QueryableNumeric,
-    _QueryableString,
-    _QueryableBool,
-)
-
 from mosaicolabs.models.query.expressions import (
     _QueryCatalogExpression,
 )
-
+from mosaicolabs.models.query.generation.mixins import (
+    _QueryableBool,
+    _QueryableNumeric,
+    _QueryableString,
+)
 from mosaicolabs.models.sensors import (
-    IMU,
     GPS,
+    IMU,
     Image,
     Magnetometer,
-    Temperature,
     Pressure,
     Range,
+    Temperature,
 )
 
 

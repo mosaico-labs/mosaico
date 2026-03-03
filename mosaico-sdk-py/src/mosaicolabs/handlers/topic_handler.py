@@ -8,22 +8,22 @@ and create readers (`TopicDataStreamer`).
 
 import datetime
 import json
-import pyarrow.flight as fl
 from typing import Any, Dict, Optional, Tuple
 
-from .endpoints import TopicParsingError, TopicResourceManifest
-from .topic_reader import TopicDataStreamer
+import pyarrow.flight as fl
 
-from ..comm.metadata import TopicMetadata, _decode_schema_metadata
 from ..comm.do_action import _do_action, _DoActionResponseSysInfo
+from ..comm.metadata import TopicMetadata, _decode_schema_metadata
 from ..enum import FlightAction
 from ..helpers import (
     pack_topic_resource_name,
-    sanitize_topic_name,
     sanitize_sequence_name,
+    sanitize_topic_name,
 )
-from ..models.platform import Topic
 from ..logging_config import get_logger
+from ..models.platform import Topic
+from .endpoints import TopicParsingError, TopicResourceManifest
+from .topic_reader import TopicDataStreamer
 
 # Set the hierarchical logger
 logger = get_logger(__name__)

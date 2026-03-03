@@ -1,4 +1,5 @@
 from mosaicolabs.comm import MosaicoClient
+
 from .config import QUERY_SEQUENCES_MOCKUP, UPLOADED_SEQUENCE_NAME
 
 

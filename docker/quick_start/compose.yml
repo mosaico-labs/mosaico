@@ -10,8 +10,10 @@ services:
       POSTGRES_DB: mosaico
     networks:
       - mosaico-qs
+    # Bind to localhost only — exposing PostgreSQL to 0.0.0.0 with default
+    # credentials is a known ransomware attack vector (Docker bypasses ufw/iptables).
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - mosaico-qs-pg-data:/var/lib/postgresql/data
     healthcheck: # Ensure the DB is ready for the compilation step

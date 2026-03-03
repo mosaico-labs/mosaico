@@ -41,6 +41,9 @@ class FlightAction(StrEnum):
     SESSION_ABORT = "session_abort"
     """Signals the server to stop an active session ingestion and discard partial data."""
 
+    SESSION_DELETE = "session_delete"
+    """Requests the permanent removal of a session and all associated topics from the server."""
+
     SEQUENCE_DELETE = "sequence_delete"
     """Requests the permanent removal of a sequence and all associated topics from the server."""
 

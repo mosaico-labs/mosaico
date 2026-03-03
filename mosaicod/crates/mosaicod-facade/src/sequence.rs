@@ -202,7 +202,7 @@ impl Sequence {
         let sessions = self.session_list().await?;
         for session_uuid in sessions {
             let session = Session::new(session_uuid, self.store.clone(), self.db.clone());
-            session.delete(allow_data_loss.clone()).await?;
+            session.delete(false, allow_data_loss.clone()).await?;
         }
 
         // Delete sequence data

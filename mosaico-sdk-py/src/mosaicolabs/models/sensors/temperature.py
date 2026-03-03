@@ -5,6 +5,7 @@ Defines the data structure for temperature sensors.
 """
 
 from typing import Optional
+
 import pyarrow as pa
 
 from ..mixins import VarianceMixin

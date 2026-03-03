@@ -1,11 +1,11 @@
-from dataclasses import dataclass
 import itertools
 import random
+from dataclasses import dataclass
 from typing import Iterable, List
 
+from mosaicolabs.models import Message, Serializable
 from mosaicolabs.models.data import Point3d, Vector3d
-from mosaicolabs.models.sensors import IMU, GPS, GPSStatus, Magnetometer
-from mosaicolabs.models import Serializable, Message
+from mosaicolabs.models.sensors import GPS, IMU, GPSStatus, Magnetometer
 from mosaicolabs.types import Time
 from testing.integration.config import (
     UPLOADED_GPS_FRAME_ID,

@@ -272,9 +272,7 @@ class MosaicoClient:
         return cls.connect(
             host,
             port,
-            tls_cert_path=os.environ.get(
-                MosaicoClient._MOSAICO_TLS_CERT_ENV_VAR
-            ),
+            tls_cert_path=os.environ.get(MosaicoClient._MOSAICO_TLS_CERT_ENV_VAR),
         )
 
     # --- Context Manager Protocol ---
@@ -431,9 +429,7 @@ class MosaicoClient:
             ```
         """
         # normalize inputs to a unique resource string
-        topic_resource_name = pack_topic_resource_name(
-            sequence_name, topic_name
-        )
+        topic_resource_name = pack_topic_resource_name(sequence_name, topic_name)
 
         th = self._topic_handlers_cache.get(topic_resource_name)
         if th is None:
@@ -552,11 +548,6 @@ class MosaicoClient:
         resources, including all topics and data chunks belonging to the sequence.
         Once executed, all storage occupied by the sequence is freed.
 
-        Important: Sequence Locking
-            This action can only be performed on **unlocked** sequences. If a sequence
-            is currently locked (e.g., for archival or safety reasons), the deletion
-            request will be rejected by the server.
-
         Args:
             sequence_name (str): The unique name of the sequence to remove.
         """
@@ -568,13 +559,35 @@ class MosaicoClient:
                 expected_type=None,
             )
 
-            self._remove_from_sequence_handlers_cache(
-                sequence_name=sequence_name
-            )
+            self._remove_from_sequence_handlers_cache(sequence_name=sequence_name)
 
         except Exception as e:
             logger.error(
                 f"Server error (do_action) while asking for Sequence deletion, '{e}'"
+            )
+
+    def session_delete(self, session_uuid: str):
+        """
+        Permanently deletes a session and all its associated data from the server.
+
+        This operation is destructive and triggers a cascading deletion of all underlying
+        resources, including all topics and data chunks stored in the session.
+        Once executed, all storage occupied by the session is freed.
+
+        Args:
+            session_uuid (str): The unique identifier of the session to remove.
+        """
+        try:
+            _do_action(
+                client=self._control_client,
+                action=FlightAction.SESSION_DELETE,
+                payload={"session_uuid": session_uuid},
+                expected_type=None,
+            )
+
+        except Exception as e:
+            logger.error(
+                f"Server error (do_action) while asking for Session '{session_uuid}' deletion, '{e}'"
             )
 
     def list_sequences(self) -> List[str]:
@@ -601,9 +614,7 @@ class MosaicoClient:
             out_list.extend([p.decode("utf-8") for p in finfo.descriptor.path])
         return out_list
 
-    def list_sequence_notifications(
-        self, sequence_name: str
-    ) -> List[Notification]:
+    def list_sequence_notifications(self, sequence_name: str) -> List[Notification]:
         """
         Retrieves a list of all notifications available on the server for a specific sequence.
 
@@ -837,9 +848,7 @@ class MosaicoClient:
         else:
             raise ValueError("Expected input queries or a 'Query' object")
 
-        query_dict: dict[str, Any] = {
-            q.name(): q.to_dict() for q in self._queries
-        }
+        query_dict: dict[str, Any] = {q.name(): q.to_dict() for q in self._queries}
 
         ACTION = FlightAction.QUERY
 

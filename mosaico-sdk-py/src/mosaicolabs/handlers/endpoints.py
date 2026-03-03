@@ -1,6 +1,6 @@
-from dataclasses import dataclass
 import json
-from typing import Optional, Tuple, TYPE_CHECKING, Union
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Optional, Tuple, Union
 
 from mosaicolabs.logging_config import get_logger
 

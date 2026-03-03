@@ -1,12 +1,13 @@
 from mosaicolabs.comm import MosaicoClient
-from mosaicolabs.types import Time
 from mosaicolabs.models.query import QueryOntologyCatalog, QueryTopic
-from mosaicolabs.models.sensors import IMU, GPS
+from mosaicolabs.models.sensors import GPS, IMU
+from mosaicolabs.types import Time
 from testing.integration.config import (
     UPLOADED_GPS_TOPIC,
     UPLOADED_IMU_CAMERA_TOPIC,
     UPLOADED_IMU_FRONT_TOPIC,
 )
+
 from .helpers import _validate_returned_topic_name
 
 

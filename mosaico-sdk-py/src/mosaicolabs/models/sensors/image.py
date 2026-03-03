@@ -15,10 +15,10 @@ It provides:
 #   for 'all' the formats, but doing so we are limiting the user from providing custom codecs for more clever extensibility;
 # - (related to previous) Envision the use of codecs, for 'to_image' conversions
 
-from enum import Enum
 import io
 import sys
-from typing import Dict, List, Optional, Any
+from enum import Enum
+from typing import Any, Dict, List, Optional
 
 # dependencies for video handling
 import av

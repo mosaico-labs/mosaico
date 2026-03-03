@@ -2,40 +2,40 @@
 # 3. UNIT TESTS
 # ======================================================================
 
+import pytest
+
 from mosaicolabs.models.data import (
-    ForceTorque,
-    Pose,
-    Transform,
-    Acceleration,
-    MotionState,
-    Velocity,
     ROI,
-    String,
-    Integer8,
-    Integer16,
-    Integer32,
-    Integer64,
-    Unsigned8,
-    Unsigned16,
-    Unsigned32,
-    Unsigned64,
+    Acceleration,
     Boolean,
     Floating16,
     Floating32,
     Floating64,
+    ForceTorque,
+    Integer8,
+    Integer16,
+    Integer32,
+    Integer64,
     LargeString,
+    MotionState,
+    Pose,
+    String,
+    Transform,
+    Unsigned8,
+    Unsigned16,
+    Unsigned32,
+    Unsigned64,
+    Velocity,
 )
-
-from mosaicolabs.models.query.generation.mixins import (
-    _QueryableNumeric,
-    _QueryableString,
-    _QueryableBool,
-)
+from mosaicolabs.models.query import Query, QueryOntologyCatalog
 from mosaicolabs.models.query.expressions import (
     _QueryCatalogExpression,
 )
-from mosaicolabs.models.query import Query, QueryOntologyCatalog
-import pytest
+from mosaicolabs.models.query.generation.mixins import (
+    _QueryableBool,
+    _QueryableNumeric,
+    _QueryableString,
+)
 
 
 class TestQueryTransformAPI:

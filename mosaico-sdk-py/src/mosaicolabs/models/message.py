@@ -9,16 +9,16 @@ middleware-level metadata (like recording timestamp_ns).
 
 # --- Python Standard Library Imports ---
 from typing import Any, Dict, Optional, Type, TypeVar
-from pydantic import PrivateAttr
-import pyarrow as pa
+
 import pandas as pd
+import pyarrow as pa
+from pydantic import PrivateAttr
 
-
-from ..logging_config import get_logger
 from ..helpers.helpers import encode_to_dict
-from .serializable import Serializable
-from .internal.helpers import _fix_empty_dicts
+from ..logging_config import get_logger
 from .base_model import BaseModel
+from .internal.helpers import _fix_empty_dicts
+from .serializable import Serializable
 
 # Set the hierarchical logger
 logger = get_logger(__name__)

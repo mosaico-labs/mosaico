@@ -5,42 +5,35 @@ pub struct JsonQueryCompiler {
 }
 
 impl JsonQueryCompiler {
-    pub fn new() -> Self {
+    pub fn new(placeholder: query::Placeholder) -> Self {
         Self {
-            internal: internal::JsonQueryCompiler::new(),
+            internal: internal::JsonQueryCompiler::new(placeholder),
         }
     }
 
-    pub fn with_field_and_placeholder(
+    pub fn with_field(
         &mut self,
         field: String,
-        placeholder: usize,
+        // placeholder: usize,
     ) -> &mut internal::JsonQueryCompiler {
         self.internal.field(field);
-        self.internal.placeholder(placeholder);
+        // self.internal.placeholder(placeholder);
         &mut self.internal
     }
 }
 
 pub struct SqlQueryCompiler {
-    placeholder_counter: usize,
+    placeholder: query::Placeholder,
 }
 
 impl SqlQueryCompiler {
-    pub fn new() -> Self {
-        Self {
-            placeholder_counter: 1,
-        }
+    pub fn new(placeholder: query::Placeholder) -> Self {
+        Self { placeholder }
     }
 
     fn consume_placeholder(&mut self) -> String {
-        let p = format!("${}", self.placeholder_counter);
-        self.placeholder_counter += 1;
-        p
-    }
-
-    pub fn current_placeholder(&self) -> usize {
-        self.placeholder_counter
+        let current_idx = self.placeholder.consume();
+        format!("${}", current_idx)
     }
 }
 
@@ -146,17 +139,19 @@ impl query::CompileClause for SqlQueryCompiler {
 }
 
 mod internal {
+    use mosaicod_query::Placeholder;
+
     use super::*;
 
     pub struct JsonQueryCompiler {
-        placeholder_counter: usize,
+        placeholder: query::Placeholder,
         field: String,
     }
 
     impl JsonQueryCompiler {
-        pub fn new() -> Self {
+        pub fn new(placeholder: Placeholder) -> Self {
             Self {
-                placeholder_counter: 1,
+                placeholder,
                 field: String::new(),
             }
         }
@@ -165,14 +160,9 @@ mod internal {
             self.field = field;
         }
 
-        pub fn placeholder(&mut self, placeholder: usize) {
-            self.placeholder_counter = placeholder;
-        }
-
         fn consume_placeholder(&mut self) -> String {
-            let p = format!("${}", self.placeholder_counter);
-            self.placeholder_counter += 1;
-            p
+            let current_idx = self.placeholder.consume();
+            format!("${}", current_idx)
         }
 
         fn fmt_value(&self, field: &str, v: &query::Value) -> String {
@@ -315,7 +305,8 @@ mod tests {
 
     #[test]
     fn unsupported_op() {
-        let mut fmt = SqlQueryCompiler::new();
+        let placeholder = query::Placeholder::new();
+        let mut fmt = SqlQueryCompiler::new(placeholder);
 
         let qr = ClausesCompiler::new()
             .expr("my-field", Op::Gt("topic-name".to_owned()), &mut fmt)
@@ -327,7 +318,8 @@ mod tests {
 
     #[test]
     fn topic_fields() {
-        let mut fmt = SqlQueryCompiler::new();
+        let placeholder = query::Placeholder::new();
+        let mut fmt = SqlQueryCompiler::new(placeholder);
 
         let qr = ClausesCompiler::new()
             .expr(
@@ -382,8 +374,9 @@ mod tests {
             ),
         ]);
 
-        let mut jqc = JsonQueryCompiler::new();
-        let fmt = jqc.with_field_and_placeholder("topic.user_metadata".to_owned(), 1);
+        let placeholder = query::Placeholder::new();
+        let mut jqc = JsonQueryCompiler::new(placeholder);
+        let fmt = jqc.with_field("topic.user_metadata".to_owned());
 
         let mut cc = ClausesCompiler::new();
         for (k, v) in mdata {

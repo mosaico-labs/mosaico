@@ -1,5 +1,7 @@
 from typing import List, Optional
+
 import pyarrow as pa
+
 from mosaicolabs.models import Serializable
 
 

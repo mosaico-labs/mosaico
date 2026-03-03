@@ -7,12 +7,11 @@ Sequences and Topics, within the SDK. It consolidates shared system attributes
 system and the internal Query API.
 """
 
-from typing import Self
 import datetime
-from typing import Any, Dict
+from typing import Any, Dict, Self
 
-from pydantic import PrivateAttr
 import pydantic
+from pydantic import PrivateAttr
 
 from mosaicolabs.comm.metadata import PlatformMetadata
 from mosaicolabs.comm.platform_resource_info import PlatformResourceInfo

@@ -1,4 +1,5 @@
 from typing import Any, Dict, Optional, Protocol, Tuple, Type
+
 from .expressions import _QueryExpression
 
 

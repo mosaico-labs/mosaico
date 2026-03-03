@@ -118,9 +118,7 @@ class _ConnectionPool:
         if self._size < 1:
             raise ValueError("Connection pool size must be at least 1")
 
-        logger.debug(
-            f"Initializing connection pool with {self._size} connections..."
-        )
+        logger.debug(f"Initializing connection pool with {self._size} connections...")
 
         for i in range(self._size):
             try:
@@ -160,9 +158,7 @@ class _ConnectionPool:
             RuntimeError: If the pool has not been initialized or has been closed.
         """
         if not self._clients or self._iterator is None:
-            raise RuntimeError(
-                "Connection pool is not initialized or has been closed."
-            )
+            raise RuntimeError("Connection pool is not initialized or has been closed.")
         return next(self._iterator)
 
     def close(self):

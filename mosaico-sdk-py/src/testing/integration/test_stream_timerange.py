@@ -1,11 +1,13 @@
 import bisect
 from typing import Optional
 
-from mosaicolabs.comm import MosaicoClient
 import pytest
+
+from mosaicolabs.comm import MosaicoClient
 from testing.integration.config import (
     UPLOADED_SEQUENCE_NAME,
 )
+
 from .helpers import (
     SequenceDataStream,
     topic_list,

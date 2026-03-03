@@ -7,19 +7,19 @@ and distributes client resources (Connections, Executors) to individual Topics.
 """
 
 from typing import Any, Optional, Type
+
 import pyarrow.flight as fl
 
-from .base_session_writer import _BaseSessionWriter
-from .config import WriterConfig
-from .helpers import _validate_sequence_name, _make_exception, _validate_metadata
-from .topic_writer import TopicWriter
-from ..comm.do_action import _do_action
 from ..comm.connection import _ConnectionPool
+from ..comm.do_action import _do_action
 from ..comm.executor_pool import _ExecutorPool
-from ..enum import FlightAction, SequenceStatus
+from ..enum import FlightAction, OnErrorPolicy, SequenceStatus
 from ..logging_config import get_logger
 from ..models import Serializable
-from ..enum import OnErrorPolicy
+from .base_session_writer import _BaseSessionWriter
+from .config import WriterConfig
+from .helpers import _make_exception, _validate_metadata, _validate_sequence_name
+from .topic_writer import TopicWriter
 
 # Set the hierarchical logger
 logger = get_logger(__name__)

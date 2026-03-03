@@ -1,35 +1,33 @@
 from typing import Optional
-from mosaicolabs.models.platform import Sequence, Topic
-from mosaicolabs.models.query.expressions import _QueryExpression
-from mosaicolabs.models.query.generation.mixins import (
-    _QueryableComparable,
-    _QueryableUnsupported,
-    _QueryableString,
-    _QueryableBool,
-    _QueryableDynamicValue,
-    _QueryableField,
-)
-from mosaicolabs.models.query import (
-    QueryOntologyCatalog,
-    QuerySequence,
-    QueryTopic,
-    Query,
-    QueryResponse,
-    QueryResponseItem,
-    QueryResponseItemTopic,
-    QueryResponseItemSequence,
-)
-
-from mosaicolabs.models.query.expressions import (
-    _QueryCatalogExpression,
-    _QuerySequenceExpression,
-    _QueryTopicExpression,
-)
-
-from mosaicolabs.models.query.protocols import QueryableProtocol
 
 import pytest
 
+from mosaicolabs.models.platform import Sequence, Topic
+from mosaicolabs.models.query import (
+    Query,
+    QueryOntologyCatalog,
+    QueryResponse,
+    QueryResponseItem,
+    QueryResponseItemSequence,
+    QueryResponseItemTopic,
+    QuerySequence,
+    QueryTopic,
+)
+from mosaicolabs.models.query.expressions import (
+    _QueryCatalogExpression,
+    _QueryExpression,
+    _QuerySequenceExpression,
+    _QueryTopicExpression,
+)
+from mosaicolabs.models.query.generation.mixins import (
+    _QueryableBool,
+    _QueryableComparable,
+    _QueryableDynamicValue,
+    _QueryableField,
+    _QueryableString,
+    _QueryableUnsupported,
+)
+from mosaicolabs.models.query.protocols import QueryableProtocol
 
 _QUERY_TYPES = [QueryOntologyCatalog, QueryTopic, QuerySequence]
 _QUERY_EXPRESSION_TYPES = [

@@ -27,6 +27,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple, Type
+
 from rich.live import Live
 from rich.progress import (
     BarColumn,
@@ -44,9 +45,9 @@ from mosaicolabs.enum import OnErrorPolicy, SequenceStatus
 from mosaicolabs.handlers import SequenceWriter
 from mosaicolabs.logging_config import get_logger, setup_sdk_logging
 
-from .ros_bridge import ROSAdapterBase, ROSBridge
 from .loader import LoaderErrorPolicy, ROSLoader
 from .registry import ROSTypeRegistry
+from .ros_bridge import ROSAdapterBase, ROSBridge
 from .ros_message import ROSMessage
 
 # Set the hierarchical logger

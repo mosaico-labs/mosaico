@@ -2,20 +2,21 @@
 These tests require the connection to the server (localhost)
 """
 
-import string
-import pytest
 import logging as log
-import pyarrow as pa
+import string
 
+import pyarrow as pa
+import pytest
+
+from mosaicolabs.comm import MosaicoClient
+from mosaicolabs.enum import OnErrorPolicy, SequenceStatus, SerializationFormat
 from mosaicolabs.handlers import TopicWriter
 from mosaicolabs.handlers.helpers import (
     _SUPPORTED_SEQUENCE_NAME_CHARS,
     _SUPPORTED_TOPIC_NAME_CHARS,
 )
-from mosaicolabs.comm import MosaicoClient
-from mosaicolabs.enum import SequenceStatus, SerializationFormat, OnErrorPolicy
-from testing.integration.config import UPLOADED_SEQUENCE_NAME
 from mosaicolabs.models.sensors.imu import IMU
+from testing.integration.config import UPLOADED_SEQUENCE_NAME
 
 
 def test_invalid_host():

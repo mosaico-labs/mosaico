@@ -11,8 +11,8 @@ These models are designed to be assigned to the `data` field of a [`Message`][mo
 
 import pyarrow as pa
 
-from ..serializable import Serializable
 from ..mixins import CovarianceMixin
+from ..serializable import Serializable
 from .geometry import Vector3d
 
 

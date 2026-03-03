@@ -7,21 +7,22 @@ and distributes client resources (Connections, Executors) to individual Topics.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Type, Optional
-import pyarrow.flight as fl
 from logging import Logger
+from typing import Any, Dict, Optional, Type
 
+import pyarrow.flight as fl
+
+from mosaicolabs.comm.connection import _ConnectionPool
+from mosaicolabs.comm.do_action import _do_action, _DoActionResponseUUID
+from mosaicolabs.comm.executor_pool import _ExecutorPool
+from mosaicolabs.enum import FlightAction, OnErrorPolicy, SessionStatus
 from mosaicolabs.handlers.config import WriterConfig
 from mosaicolabs.handlers.helpers import (
     _make_exception,
-    _validate_topic_name,
     _validate_metadata,
+    _validate_topic_name,
 )
 from mosaicolabs.handlers.topic_writer import TopicWriter
-from mosaicolabs.comm.do_action import _do_action, _DoActionResponseUUID
-from mosaicolabs.comm.connection import _ConnectionPool
-from mosaicolabs.comm.executor_pool import _ExecutorPool
-from mosaicolabs.enum import FlightAction, OnErrorPolicy, SessionStatus
 from mosaicolabs.helpers import pack_topic_resource_name
 from mosaicolabs.models import Serializable
 
@@ -88,7 +89,7 @@ class _BaseSessionWriter(ABC):
         """The pool of ThreadPoolExecutors available for asynch I/O."""
         self._status: SessionStatus = SessionStatus.Null
         """The status of the new session"""
-        self._uuid: Optional[str] = None
+        self._uuid: str = ""
         """The session uuid for remote handshaking"""
         self._entered: bool = False
         """Tag for inspecting if the writer is used in a 'with' context"""
@@ -523,7 +524,7 @@ class _BaseSessionWriter(ABC):
         return self._status
 
     @property
-    def session_uuid(self) -> Optional[str]:
+    def session_uuid(self) -> str:
         """
         Returns the UUID of the session corresponding to this sequence write or update.
 

@@ -6,6 +6,7 @@ fields (covariance and variance) into ontology models via composition.
 """
 
 from typing import List, Optional
+
 import pyarrow as pa
 
 from .base_model import BaseModel

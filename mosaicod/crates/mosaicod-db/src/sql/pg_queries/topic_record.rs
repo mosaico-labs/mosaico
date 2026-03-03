@@ -238,8 +238,11 @@ pub async fn topic_from_query_filter(
     "#;
 
     let mut qb = query::ClausesCompiler::new();
-    let mut sql_fmt = super::SqlQueryCompiler::new();
-    let mut json_fmt = super::JsonQueryCompiler::new();
+
+    let placeholder = query::Placeholder::new();
+
+    let mut sql_fmt = super::SqlQueryCompiler::new(placeholder.clone());
+    let mut json_fmt = super::JsonQueryCompiler::new(placeholder);
 
     if let Some(seq) = filter_seq {
         if let Some(op) = seq.name {
@@ -250,10 +253,7 @@ pub async fn topic_from_query_filter(
             qb = qb.expr("sequence.creation_unix_tstamp", op, &mut sql_fmt);
         }
 
-        let fmt = json_fmt.with_field_and_placeholder(
-            "sequence.user_metadata".into(),
-            sql_fmt.current_placeholder(),
-        );
+        let fmt = json_fmt.with_field("sequence.user_metadata".into());
 
         for (field, op) in seq.user_metadata {
             qb = qb.expr(&field, op, fmt);
@@ -285,10 +285,7 @@ pub async fn topic_from_query_filter(
             qb = qb.expr("topic.serialization_format", op, &mut sql_fmt);
         }
 
-        let fmt = json_fmt.with_field_and_placeholder(
-            "topic.user_metadata".into(),
-            sql_fmt.current_placeholder(),
-        );
+        let fmt = json_fmt.with_field("topic.user_metadata".into());
 
         for (field, op) in top.user_metadata {
             qb = qb.expr(&field, op, fmt);

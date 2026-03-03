@@ -5,8 +5,8 @@ Provides utility functions for path manipulation, exception chaining,
 and Flight ticket parsing.
 """
 
-from pathlib import Path
 import string
+from pathlib import Path
 from typing import Any, Optional
 
 # Set the unsupported name chars for sequence and topic names

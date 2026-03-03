@@ -30,7 +30,7 @@ from rich.progress import (
 
 # Mosaico SDK Imports
 from mosaicolabs import MosaicoClient, Time
-from mosaicolabs.ros_bridge import ROSInjectionConfig, RosbagInjector
+from mosaicolabs.ros_bridge import RosbagInjector, ROSInjectionConfig
 
 # Configuration Constants
 MOSAICO_HOST = "localhost"

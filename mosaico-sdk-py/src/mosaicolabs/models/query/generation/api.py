@@ -1,9 +1,9 @@
-from typing import ClassVar, Dict, Optional, Type, Any, TypeVar, Union
 import inspect
+from typing import Any, ClassVar, Dict, Optional, Type, TypeVar, Union
 
 from ..expressions import _QueryExpression
 from ..protocols import FieldMapperProtocol
-from .mixins import _QueryableUnsupported, _QueryableField
+from .mixins import _QueryableField, _QueryableUnsupported
 
 
 class _QueryProxy:

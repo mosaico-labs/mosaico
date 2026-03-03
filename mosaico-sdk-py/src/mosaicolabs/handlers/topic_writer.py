@@ -6,20 +6,22 @@ It abstracts the PyArrow Flight `DoPut` stream, handling batching,
 serialization, and connection management.
 """
 
-from concurrent.futures import ThreadPoolExecutor
 import json
-from typing import Any, Type, Optional
-from mosaicolabs.models.message import Message
+from concurrent.futures import ThreadPoolExecutor
+from typing import Any, Optional, Type
+
 import pyarrow.flight as fl
 
 from mosaicolabs.models import Serializable
-from .internal.topic_write_state import _TopicWriteState
-from .helpers import _make_exception
-from ..helpers import pack_topic_resource_name
+from mosaicolabs.models.message import Message
+
 from ..comm.do_action import _do_action
 from ..enum import FlightAction, OnErrorPolicy
-from .config import WriterConfig
+from ..helpers import pack_topic_resource_name
 from ..logging_config import get_logger
+from .config import WriterConfig
+from .helpers import _make_exception
+from .internal.topic_write_state import _TopicWriteState
 
 # Set the hierarchical logger
 logger = get_logger(__name__)

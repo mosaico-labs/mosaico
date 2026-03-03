@@ -1,7 +1,8 @@
-import pytest
-import numpy as np
-from typing import List, Tuple
 import logging as log
+from typing import List, Tuple
+
+import numpy as np
+import pytest
 
 # Import your classes (adjust the import path to match your project structure)
 from mosaicolabs.models.sensors import Image, ImageFormat

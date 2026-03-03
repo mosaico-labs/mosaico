@@ -8,7 +8,7 @@ services:
       POSTGRES_PASSWORD: password
       POSTGRES_DB: mosaico
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
@@ -20,8 +20,8 @@ services:
       MINIO_ROOT_PASSWORD: password
     command: server /data --console-address ":9001"
     ports:
-      - "9000:9000"  # API
-      - "9001:9001"  # Web UI
+      - "127.0.0.1:9000:9000"  # API
+      - "127.0.0.1:9001:9001"  # Web UI
     volumes:
       - /tmp/minio:/data
     healthcheck:

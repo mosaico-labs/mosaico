@@ -7,7 +7,7 @@ services:
       POSTGRES_PASSWORD: password
       POSTGRES_DB: mosaico
     ports:
-      - "6543:5432"
+      - "127.0.0.1:6543:5432"
     volumes:
       - mosaico-testing-pg-data:/var/lib/postgresql/data
     networks:

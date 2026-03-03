@@ -22,12 +22,29 @@ av = "^16.1.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = ">=8.4.2"
+ruff = "^0.15.4"
+pre-commit = "^4.5.1"
 
+[tool.ruff]
+line-length = 88
 
-# ROS 1/2 messages (sensor_msgs) are typically system packages, but for development/testing 
-# you might need a Python wrapper, e.g., rosidl_runtime_py or a specific wrapper 
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+ignore = ["COM812", "E501"]
+
+[tool.ruff.format]
+skip-magic-trailing-comma = false
+quote-style = "double"
+indent-style = "space"
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+
+# ROS 1/2 messages (sensor_msgs) are typically system packages, but for development/testing
+# you might need a Python wrapper, e.g., rosidl_runtime_py or a specific wrapper
 # for sensor_msgs if you can't rely on the user's sourced ROS environment.
 # Since you're using rosbags, relying on its abilities to read ROS messages is the standard approach.
+
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"

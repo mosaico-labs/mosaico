@@ -67,8 +67,13 @@ def port(request):
 
 
 @pytest.fixture(scope="session")
-def tls_cert_path(request) -> Optional[str]:
-    if request.config.getoption("--tls"):
+def with_tls(request):
+    return request.config.getoption("--tls")
+
+
+@pytest.fixture(scope="session")
+def tls_cert_path(with_tls) -> Optional[str]:
+    if with_tls:
         return str(
             (
                 Path(__file__).resolve().parent
@@ -82,9 +87,7 @@ def tls_cert_path(request) -> Optional[str]:
 def _client(host, port, tls_cert_path):
     """Open a client connection FOR EACH function using this fixture"""
 
-    return MosaicoClient.connect(
-        host=host, port=port, tls_cert_path=tls_cert_path
-    )
+    return MosaicoClient.connect(host=host, port=port, tls_cert_path=tls_cert_path)
 
 
 @pytest.fixture(
@@ -92,9 +95,7 @@ def _client(host, port, tls_cert_path):
 )  # the first who calls this function, wins and avoid this is called multiple times
 def _make_sequence_data_stream(host, port, tls_cert_path):
     """Generate synthetic data, create a sequence and pushes messages"""
-    _client = MosaicoClient.connect(
-        host=host, port=port, tls_cert_path=tls_cert_path
-    )
+    _client = MosaicoClient.connect(host=host, port=port, tls_cert_path=tls_cert_path)
 
     start_time_sec = 1700000000
     start_time_nanosec = 0
@@ -140,13 +141,9 @@ def _make_sequence_data_stream(host, port, tls_cert_path):
 
 
 @pytest.fixture(scope="session")
-def _inject_sequence_data_stream(
-    _make_sequence_data_stream, host, port, tls_cert_path
-):
+def _inject_sequence_data_stream(_make_sequence_data_stream, host, port, tls_cert_path):
     """Generate synthetic data, create a sequence and pushes messages"""
-    _client = MosaicoClient.connect(
-        host=host, port=port, tls_cert_path=tls_cert_path
-    )
+    _client = MosaicoClient.connect(host=host, port=port, tls_cert_path=tls_cert_path)
 
     with _client.sequence_create(
         sequence_name=UPLOADED_SEQUENCE_NAME,
@@ -174,9 +171,7 @@ def _inject_sequence_data_stream(
 @pytest.fixture(scope="session")
 def _inject_sequences_mockup(host, port, tls_cert_path):
     """Generate synthetic data, create a sequence and pushes messages"""
-    _client = MosaicoClient.connect(
-        host=host, port=port, tls_cert_path=tls_cert_path
-    )
+    _client = MosaicoClient.connect(host=host, port=port, tls_cert_path=tls_cert_path)
     for sname, sdata in QUERY_SEQUENCES_MOCKUP.items():
         with _client.sequence_create(
             sequence_name=sname,

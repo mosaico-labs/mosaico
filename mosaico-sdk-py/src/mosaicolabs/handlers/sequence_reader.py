@@ -6,14 +6,16 @@ by merging multiple topic streams into a single, time-ordered iterator.
 """
 
 import json
-from mosaicolabs.models.message import Message
-import pyarrow.flight as fl
-from typing import Any, List, Optional, Dict
+from typing import Any, Dict, List, Optional
 
+import pyarrow.flight as fl
+
+from mosaicolabs.models.message import Message
+
+from ..logging_config import get_logger
 from .endpoints import TopicParsingError, TopicResourceManifest
 from .internal.topic_read_state import _TopicReadState
 from .topic_reader import TopicDataStreamer
-from ..logging_config import get_logger
 
 # Set the hierarchical logger
 logger = get_logger(__name__)

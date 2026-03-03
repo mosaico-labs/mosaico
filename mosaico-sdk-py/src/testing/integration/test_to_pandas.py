@@ -1,19 +1,21 @@
 import bisect
 from math import ceil
-from mosaicolabs.handlers.sequence_handler import SequenceHandler
-from typing import List, Iterable, Optional
+from typing import Iterable, List, Optional
+
+import pytest
 
 from mosaicolabs.comm import MosaicoClient
+from mosaicolabs.handlers.sequence_handler import SequenceHandler
 from mosaicolabs.ml import DataFrameExtractor
 from mosaicolabs.models import Message
 from mosaicolabs.models.sensors.imu import IMU
-import pytest
 from testing.integration.config import (
-    UPLOADED_SEQUENCE_NAME,
-    UPLOADED_IMU_FRONT_TOPIC,
-    UPLOADED_IMU_CAMERA_TOPIC,
     UPLOADED_GPS_TOPIC,
+    UPLOADED_IMU_CAMERA_TOPIC,
+    UPLOADED_IMU_FRONT_TOPIC,
+    UPLOADED_SEQUENCE_NAME,
 )
+
 from .helpers import SequenceDataStream, topic_list
 
 

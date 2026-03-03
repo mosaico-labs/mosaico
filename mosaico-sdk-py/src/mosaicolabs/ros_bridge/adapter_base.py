@@ -1,10 +1,10 @@
 from abc import ABC, abstractmethod
-from typing import Generic, Optional, Tuple, Type, Any, TypeVar
+from typing import Any, Generic, Optional, Tuple, Type, TypeVar
 
 from mosaicolabs.models.message import Message
 
-from .ros_message import ROSMessage
 from ..models import Serializable
+from .ros_message import ROSMessage
 
 T = TypeVar("T", bound=Serializable)
 

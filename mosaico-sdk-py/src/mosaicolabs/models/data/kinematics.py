@@ -10,11 +10,12 @@ These can be assigned to Message.data field to send data to the platform.
 """
 
 from typing import Optional
+
 import pyarrow as pa
 from pydantic import model_validator
 
-from ..serializable import Serializable
 from ..mixins import CovarianceMixin
+from ..serializable import Serializable
 from .geometry import Pose, Vector3d
 
 

@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Iterator, List, Optional, Any
+from typing import Any, Iterator, List, Optional
 
 from mosaicolabs.helpers import unpack_topic_full_path
 

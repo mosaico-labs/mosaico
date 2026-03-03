@@ -16,26 +16,27 @@ Architecture:
     in the ROSBridge.
 """
 
-from typing import Any, Dict, Optional, Type, Tuple
+from typing import Any, Dict, Optional, Tuple, Type
+
+from mosaicolabs.models import Message, Serializable
 from mosaicolabs.models.data import (
+    Boolean,
     Floating32,
     Floating64,
-    Integer64,
-    String,
     Integer8,
     Integer16,
     Integer32,
-    Boolean,
+    Integer64,
+    String,
+    Unsigned8,
     Unsigned16,
     Unsigned32,
     Unsigned64,
-    Unsigned8,
 )
-from mosaicolabs.models import Message, Serializable
 
 from ..adapter_base import ROSAdapterBase
-from ..ros_message import ROSMessage, ROSHeader
 from ..ros_bridge import register_adapter
+from ..ros_message import ROSMessage
 from .helpers import _validate_msgdata
 
 # ---------------------------------------------------------------------------
