@@ -39,7 +39,7 @@ fn get_store(cmds: &Run) -> Result<store::StoreRef, common::Error> {
     }
 }
 
-fn check_tls(tls: bool) -> Option<server::flight::TlsConfig> {
+fn tls_config(tls: bool) -> Option<server::flight::TlsConfig> {
     if tls {
         return Some(server::flight::TlsConfig {
             certificate_file: params::params().tls_certificate_file.clone().into(),
@@ -51,7 +51,7 @@ fn check_tls(tls: bool) -> Option<server::flight::TlsConfig> {
 }
 
 pub fn run(args: Run) -> Result<(), common::Error> {
-    let tls = check_tls(args.tls);
+    let tls = tls_config(args.tls);
 
     info!("startup store");
     let store = get_store(&args)?;
