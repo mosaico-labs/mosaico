@@ -321,12 +321,15 @@ impl BitOr for Permissions {
     }
 }
 
-/// Represent an api key scope. The scope is composed of:
+/// Represent an authorization policy.
+///
+/// The policy is composed of:
 /// * an API Key like `msco:0938n8b37r378brf`
 /// * the associated permissions (like: read, write, ..)
 /// * a description to keep track of the purpose of the key
+/// * an optional expire date
 #[derive(Clone)]
-pub struct AuthScope {
+pub struct AuthorizationPolicy {
     pub key: ApiKey,
 
     /// Permissions associated with the scope
@@ -342,18 +345,18 @@ pub struct AuthScope {
     pub expiration_timestamp: Option<Timestamp>,
 }
 
-impl AuthScope {
+impl AuthorizationPolicy {
     /// Create a new API key scope
     ///
     /// # Example
     /// ```
-    /// use mosaicod_core::types::{AuthScope, Permissions};
+    /// use mosaicod_core::types::{AuthorizationPolicy, Permissions};
     ///
     /// // Single permission
-    /// let scope = AuthScope::new(Permissions::READ, "dummy key".to_owned(), None);
+    /// let policy = AuthorizationPolicy::new(Permissions::READ, "dummy key".to_owned(), None);
     ///
     /// // Multiple permissions
-    /// let scope = AuthScope::new(
+    /// let policy = AuthorizationPolicy::new(
     ///     Permissions::READ | Permissions::WRITE,
     ///     "dummy key".to_owned(),
     ///     None
@@ -372,12 +375,12 @@ impl AuthScope {
         }
     }
 
-    /// Get the scope api key
+    /// Get the API key associated with this authorization policy
     pub fn key(&self) -> &ApiKey {
         &self.key
     }
 
-    /// Check if the key is expired
+    /// Check if the policy is expired
     pub fn is_expired(&self) -> bool {
         if let Some(ts) = self.expiration_timestamp {
             return ts <= Timestamp::now();

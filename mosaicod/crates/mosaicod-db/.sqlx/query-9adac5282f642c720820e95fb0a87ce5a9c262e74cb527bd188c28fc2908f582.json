@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "DELETE FROM auth_scope_t WHERE api_key_fingerprint=$1",
+  "query": "DELETE FROM authz_policy_t WHERE api_key_fingerprint=$1",
   "describe": {
     "columns": [],
     "parameters": {
@@ -10,5 +10,5 @@
     },
     "nullable": []
   },
-  "hash": "3533d189566d116882359ae50d09566b505cbe99d0622c2b802af7d30d2f7159"
+  "hash": "9adac5282f642c720820e95fb0a87ce5a9c262e74cb527bd188c28fc2908f582"
 }

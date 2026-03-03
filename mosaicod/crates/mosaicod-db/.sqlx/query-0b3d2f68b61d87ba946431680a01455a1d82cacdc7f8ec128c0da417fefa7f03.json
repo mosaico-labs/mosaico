@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        INSERT INTO auth_scope_t\n            (\n                api_key_fingerprint, \n                api_key_payload, \n                permissions,\n                description,\n                creation_unix_timestamp,\n                expiration_unix_timestamp\n            )\n        VALUES\n            ($1, $2, $3, $4, $5, $6)\n        RETURNING\n            *\n        ",
+  "query": "\n        INSERT INTO authz_policy_t\n            (\n                api_key_fingerprint, \n                api_key_payload, \n                permissions,\n                description,\n                creation_unix_timestamp,\n                expiration_unix_timestamp\n            )\n        VALUES\n            ($1, $2, $3, $4, $5, $6)\n        RETURNING\n            *\n        ",
   "describe": {
     "columns": [
       {
@@ -53,5 +53,5 @@
       true
     ]
   },
-  "hash": "92f2f701dd283094a80fe4152f09080496cb56d179e30e0c04436a87031aebf3"
+  "hash": "0b3d2f68b61d87ba946431680a01455a1d82cacdc7f8ec128c0da417fefa7f03"
 }

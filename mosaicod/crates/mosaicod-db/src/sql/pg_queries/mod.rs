@@ -25,8 +25,8 @@ pub use group::*;
 mod compilers;
 use compilers::*;
 
-mod auth_scope_record;
-pub use auth_scope_record::*;
+mod authz_policy_record;
+pub use authz_policy_record::*;
 
 mod builders;
 use builders::*;

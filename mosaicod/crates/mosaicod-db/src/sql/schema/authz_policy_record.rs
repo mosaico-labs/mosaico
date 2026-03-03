@@ -1,8 +1,8 @@
 use mosaicod_core::types;
 
-/// To inspect inner fields this type needs to be converted in a [`types::AuthScope`].
-pub struct AuthScopeRecord {
-    /// Unique identifier of the auth scope used as primary key.
+/// To inspect inner fields this type needs to be converted in a [`types::AuthorizationPolicy`].
+pub struct AuthzPolicyRecord {
+    /// Unique identifier of the authorization policy used as primary key.
     ///
     /// This identifier is the fingerprint part of the API key.
     pub(crate) api_key_fingerprint: Vec<u8>,
@@ -14,20 +14,20 @@ pub struct AuthScopeRecord {
     /// system have no support for 1 byte words)
     pub(crate) permissions: i16,
 
-    /// Auth scope description
+    /// Authorization policy description
     pub description: String,
 
-    /// UNIX t imestamp in milliseconds since the creation
+    /// UNIX timestamp in milliseconds since the creation
     pub(crate) creation_unix_timestamp: i64,
 
     /// UNIX timestamp in milliseconds of the expiration date
     pub(crate) expiration_unix_timestamp: Option<i64>,
 }
 
-impl TryFrom<AuthScopeRecord> for types::AuthScope {
+impl TryFrom<AuthzPolicyRecord> for types::AuthorizationPolicy {
     type Error = types::ApiKeyError;
 
-    fn try_from(value: AuthScopeRecord) -> Result<Self, Self::Error> {
+    fn try_from(value: AuthzPolicyRecord) -> Result<Self, Self::Error> {
         let payload: types::ApiKeyPayload = value
             .api_key_payload
             .try_into()
@@ -48,8 +48,8 @@ impl TryFrom<AuthScopeRecord> for types::AuthScope {
     }
 }
 
-impl From<types::AuthScope> for AuthScopeRecord {
-    fn from(value: types::AuthScope) -> Self {
+impl From<types::AuthorizationPolicy> for AuthzPolicyRecord {
+    fn from(value: types::AuthorizationPolicy) -> Self {
         Self {
             api_key_fingerprint: value.key().fingerprint().as_bytes().into(),
             api_key_payload: value.key().payload().as_bytes().into(),

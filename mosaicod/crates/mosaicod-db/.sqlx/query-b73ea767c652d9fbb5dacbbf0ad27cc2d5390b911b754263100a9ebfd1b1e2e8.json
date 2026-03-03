@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT *\n        FROM auth_scope_t AS auth_scope\n        WHERE auth_scope.api_key_fingerprint = $1\n        ",
+  "query": "SELECT * FROM authz_policy_t",
   "describe": {
     "columns": [
       {
@@ -35,9 +35,7 @@
       }
     ],
     "parameters": {
-      "Left": [
-        "Bytea"
-      ]
+      "Left": []
     },
     "nullable": [
       false,
@@ -48,5 +46,5 @@
       true
     ]
   },
-  "hash": "9eda69d00c603dc73ff3bf7a92142add3fc87ccdc29348fefe1c02cd5cbccedc"
+  "hash": "b73ea767c652d9fbb5dacbbf0ad27cc2d5390b911b754263100a9ebfd1b1e2e8"
 }

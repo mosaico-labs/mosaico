@@ -18,5 +18,5 @@ pub use topic_record::*;
 mod session_record;
 pub use session_record::*;
 
-mod auth_scope_record;
-pub use auth_scope_record::*;
+mod authz_policy_record;
+pub use authz_policy_record::*;

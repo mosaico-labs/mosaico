@@ -7,36 +7,36 @@ use mosaicod_facade as facade;
 
 #[derive(Subcommand, Debug)]
 pub enum Auth {
-    /// Create a new API key with custom parameters
+    /// Create a new authorization policy with custom parameters
     Create {
-        /// Specifies permissions for the API key. Allowed values are: read, write, delete, manage
+        /// Specifies permissions for the policy. Allowed values are: read, write, delete, manage
         #[arg(num_args=1.., value_delimiter=' ', required=true)]
         permissions: Vec<String>,
 
-        /// Define a description for the new API key
+        /// Define a description for the policy
         #[arg(short, long)]
         description: Option<String>,
 
-        /// Define a time duration (using the ISO8601 format) after which the API key in no longer valid.
+        /// Define a time duration (using the ISO8601 format) after which the policy in no longer valid.
         #[arg(short, long)]
         expires: Option<String>,
     },
 
-    /// Revoke an API key permissions
+    /// Revoke a policy
     Revoke {
-        /// API key fingerprint of the key to revoke. The fingerprint are the last 8 digits of
+        /// API key fingerprint of the policy to revoke. The fingerprint are the last 8 digits of
         /// the API key.
         fingerprint: String,
     },
 
-    /// Return the status of an API key.
+    /// Return the status of a policy
     Status {
         /// API key fingerprint of the key. The fingerprint are the last 8 digits of
         /// the API key.
         fingerprint: String,
     },
 
-    /// List all API keys
+    /// List all policies
     List,
 }
 
@@ -85,14 +85,14 @@ pub fn auth(auth: Auth) -> Result<(), common::Error> {
             // If no description is provided use the empty string
             let description = description.unwrap_or_default();
 
-            let scope: Result<types::AuthScope, facade::Error> = rt.block_on(async {
+            let policy: Result<types::AuthorizationPolicy, facade::Error> = rt.block_on(async {
                 let fauth = facade::Auth::create(permissions, description, expires, db).await?;
-                Ok(fauth.into_scope())
+                Ok(fauth.into_policy())
             });
 
-            let scope = scope?;
+            let policy = policy?;
 
-            println!("{}", scope.key);
+            println!("{}", policy.key);
         }
 
         Auth::Revoke { fingerprint } => {
@@ -111,9 +111,9 @@ pub fn auth(auth: Auth) -> Result<(), common::Error> {
             let res: Result<(), facade::Error> = rt.block_on(async {
                 let fauth = facade::Auth::try_from_fingerprint(fingerprint, db).await?;
 
-                let scope = fauth.into_scope();
+                let policy = fauth.into_policy();
 
-                print_auth_scope_details(scope);
+                print_authz_policy_details(policy);
 
                 Ok(())
             });
@@ -123,9 +123,9 @@ pub fn auth(auth: Auth) -> Result<(), common::Error> {
 
         Auth::List => {
             let res: Result<(), facade::Error> = rt.block_on(async {
-                let scopes = facade::Auth::all_scopes(db).await?;
+                let policies = facade::Auth::all_policies(db).await?;
 
-                print_auth_scope_list(scopes);
+                print_authz_policy_list(policies);
 
                 Ok(())
             });
@@ -137,14 +137,14 @@ pub fn auth(auth: Auth) -> Result<(), common::Error> {
     Ok(())
 }
 
-fn print_auth_scope_details(scope: types::AuthScope) {
+fn print_authz_policy_details(policy: types::AuthorizationPolicy) {
     println!(
         "{:>13} {}",
         "Expired:".bold(),
-        if scope.is_expired() { "true" } else { "false" }
+        if policy.is_expired() { "true" } else { "false" }
     );
-    let created_datetime: types::DateTime = scope.creation_timestamp.into();
-    let expired_datetime: Option<types::DateTime> = scope.expiration_timestamp.map(|t| t.into());
+    let created_datetime: types::DateTime = policy.creation_timestamp.into();
+    let expired_datetime: Option<types::DateTime> = policy.expiration_timestamp.map(|t| t.into());
 
     println!("{:>13} {}", "Created:".bold(), created_datetime);
     println!(
@@ -156,13 +156,13 @@ fn print_auth_scope_details(scope: types::AuthScope) {
             "never".to_owned()
         }
     );
-    println!("{:>13} {}", "Description:".bold(), scope.description);
+    println!("{:>13} {}", "Description:".bold(), policy.description);
 
-    let perms: Vec<String> = scope.permissions.into();
+    let perms: Vec<String> = policy.permissions.into();
     println!("{:>13} {}", "Permissions:".bold(), perms.join(", "));
 }
 
-fn print_auth_scope_list(scopes: Vec<types::AuthScope>) {
+fn print_authz_policy_list(policies: Vec<types::AuthorizationPolicy>) {
     // Header
     println!(
         "{:>12} {:>24} {:>10} {:>30}    {}",
@@ -172,10 +172,10 @@ fn print_auth_scope_list(scopes: Vec<types::AuthScope>) {
         "Permissions".bold(),
         "Description".bold()
     );
-    for scope in scopes {
-        let datetime: types::DateTime = scope.creation_timestamp.into();
-        let permissions: Vec<String> = scope.permissions.into();
-        let expired = if scope.is_expired() {
+    for policy in policies {
+        let datetime: types::DateTime = policy.creation_timestamp.into();
+        let permissions: Vec<String> = policy.permissions.into();
+        let expired = if policy.is_expired() {
             "expired".red()
         } else {
             "valid".green()
@@ -183,11 +183,11 @@ fn print_auth_scope_list(scopes: Vec<types::AuthScope>) {
 
         println!(
             "{:>12} {:>24} {:>10} {:>30}    {}",
-            scope.key().fingerprint(),
+            policy.key().fingerprint(),
             datetime.to_string(),
             expired,
             permissions.join(", "),
-            scope.description
+            policy.description
         );
     }
 }
