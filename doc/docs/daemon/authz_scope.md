@@ -1,32 +1,32 @@
-# Authorization Policies
+# API keys
 
-In Mosaico, access control is managed through **Authorization Policies**. An Authorization Policy securely binds a unique API key to a specific set of permissions.
+In Mosaico, access control is managed through **API keys**. An API key securely binds a unique API key to a specific set of permissions.
 
 !!! note "Scope of access"
 
-    It is important to note that Authorization Policies in Mosaico act as a *loose, coarse-grained access mechanism*. They are designed strictly to limit the *types of operations* an API key owner can perform across the platform as a whole.
+    It is important to note that API keys in Mosaico act as a *loose, coarse-grained access mechanism*. They are designed strictly to limit the *types of operations* a user can perform across the platform as a whole.
 
-    This mechanism *does not support fine-grained policies*. You cannot use an Authorization Policy to restrict an API key's access to specific resources, such as individual topics or sequences. For example, if an API key is granted the `read` permission, the client is allowed to read data globally across the entire platform, rather than being restricted to a single topic or a specific subset of data.
+    This mechanism *does not support fine-grained policies*. You cannot use an API key to restrict access to specific resources, such as individual topics or sequences. For example, if an API key is granted the `read` permission, the client is allowed to read data globally across the entire platform, rather than being restricted to a single topic or a specific subset of data.
 
 
 ## Properties
 
-Each Authorization Policy in Mosaico acts as a single access control rule and consists of the following properties:
+Each API key in Mosaico acts as a single access control rule and consists of the following properties:
 
 | Property | Status | Description |
 | --- | --- | --- |
-| **API Key** | Required | The unique token provided by the client to authenticate with the Mosaico platform. |
+| **Token** | Required | The unique token provided by the client to authenticate with the Mosaico platform. |
 | **Permissions** | Required | A defined list of global operations (e.g., `read`, `write`) the owner of the API key is authorized to perform. |
 | **Description** | Required | A human-readable text string explaining the specific purpose or use case of the policy. |
 | **Creation Time** | Auto-generated | The exact timestamp when the API key and its associated policy were generated. |
 | **Expiration Time** | Optional | A predetermined date and time after which the API key automatically becomes invalid. |
 
-## API Key Structure
+## Token Structure
 
-Mosaico API keys follow a strict three-part format separated by underscores (`_`):
+Mosaico API key token follow a strict three-part format separated by underscores (`_`):
 
 ```text
-[header]_[payload]_[fingerprint]
+[HEADER]_[PAYLOAD]_[FINGERPRINT]
 ```
 
 **Example:** `msco_vrfeceju4lqivysxgaseefa3tsxs0vrl_1b676530`

@@ -2,14 +2,14 @@ use mosaicod_core::types;
 use serde::Serialize;
 
 #[derive(Serialize, Debug)]
-pub struct AuthorizationPolicy {
+pub struct ApiKey {
     pub expired: bool,
     pub description: String,
     pub permissions: Vec<String>,
 }
 
-impl From<types::AuthorizationPolicy> for AuthorizationPolicy {
-    fn from(value: types::AuthorizationPolicy) -> Self {
+impl From<types::ApiKey> for ApiKey {
+    fn from(value: types::ApiKey) -> Self {
         Self {
             expired: value.is_expired(),
             description: value.description,
@@ -18,7 +18,7 @@ impl From<types::AuthorizationPolicy> for AuthorizationPolicy {
     }
 }
 
-impl std::fmt::Display for AuthorizationPolicy {
+impl std::fmt::Display for ApiKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,

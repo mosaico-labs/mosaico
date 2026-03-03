@@ -25,8 +25,8 @@ pub use group::*;
 mod compilers;
 use compilers::*;
 
-mod authz_policy_record;
-pub use authz_policy_record::*;
+mod api_key_record;
+pub use api_key_record::*;
 
 mod builders;
 use builders::*;

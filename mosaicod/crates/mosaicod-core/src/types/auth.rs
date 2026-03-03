@@ -3,9 +3,9 @@ use crc32fast::Hasher;
 use std::{ops::BitOr, str::FromStr};
 
 #[derive(thiserror::Error, Debug)]
-pub enum ApiKeyError {
-    #[error("the api key is incomplete")]
-    IncompleteApiKey,
+pub enum TokenError {
+    #[error("the token is incomplete")]
+    IncompleteToken,
 
     #[error("bad header")]
     BadHeader,
@@ -16,29 +16,29 @@ pub enum ApiKeyError {
     #[error("bad fingerprint")]
     BadFingerprint,
 
-    #[error("bad api key length")]
+    #[error("bad length")]
     BadLength,
 
     #[error("fingerprint mismatch")]
     FingerprintMismatch,
 }
 
-pub type ApiKeyPayload = [u8; ApiKey::PAYLOAD_LENGTH];
-pub type ApiKeyFingerprint = [u8; ApiKey::FINGERPRINT_LENGTH];
+pub type TokenPayload = [u8; Token::PAYLOAD_LENGTH];
+pub type TokenFingerprint = [u8; Token::FINGERPRINT_LENGTH];
 
 /// Mosaico API Key.
 #[derive(PartialEq, Debug, Clone, Copy)]
-pub struct ApiKey {
-    payload: ApiKeyPayload,
-    fingerprint: ApiKeyFingerprint,
+pub struct Token {
+    payload: TokenPayload,
+    fingerprint: TokenFingerprint,
 }
 
-fn compute_fingerprint(payload: &ApiKeyPayload) -> ApiKeyFingerprint {
+fn compute_fingerprint(payload: &TokenPayload) -> TokenFingerprint {
     let mut hasher = Hasher::new();
     hasher.update(payload);
     let hash = hasher.finalize();
 
-    let tmp = format!("{:0length$x}", hash, length = ApiKey::FINGERPRINT_LENGTH);
+    let tmp = format!("{:0length$x}", hash, length = Token::FINGERPRINT_LENGTH);
     let bytes = tmp.as_bytes();
 
     bytes.try_into().unwrap()
@@ -46,15 +46,15 @@ fn compute_fingerprint(payload: &ApiKeyPayload) -> ApiKeyFingerprint {
 
 /// Perform all checks required to cast a payload string to
 /// the [`Payload`] fixed size array
-fn cast_payload(payload: &str) -> Result<ApiKeyPayload, ApiKeyError> {
-    let payload_size_ok = payload.chars().count() == ApiKey::PAYLOAD_LENGTH;
+fn cast_payload(payload: &str) -> Result<TokenPayload, TokenError> {
+    let payload_size_ok = payload.chars().count() == Token::PAYLOAD_LENGTH;
 
     let payload_is_alphanumeric: bool = payload
         .chars()
         .all(|c| c.is_ascii_digit() || (c.is_ascii_alphabetic() && c.is_lowercase()));
 
     if !(payload_size_ok && payload_is_alphanumeric) {
-        return Err(ApiKeyError::BadPayload);
+        return Err(TokenError::BadPayload);
     }
 
     Ok(payload.as_bytes().try_into().unwrap())
@@ -62,40 +62,40 @@ fn cast_payload(payload: &str) -> Result<ApiKeyPayload, ApiKeyError> {
 
 /// Perform all checks required to cast fingerprint string to
 /// the [`Fingerprint`] fixed size array
-fn cast_fingerprint(fingerprint: &str) -> Result<ApiKeyFingerprint, ApiKeyError> {
-    let fingerprint_size_ok = fingerprint.chars().count() == ApiKey::FINGERPRINT_LENGTH;
+fn cast_fingerprint(fingerprint: &str) -> Result<TokenFingerprint, TokenError> {
+    let fingerprint_size_ok = fingerprint.chars().count() == Token::FINGERPRINT_LENGTH;
 
     let fingerprint_is_alphanumeric: bool = fingerprint
         .chars()
         .all(|c| c.is_ascii_digit() || (c.is_ascii_alphabetic() && c.is_lowercase()));
 
     if !(fingerprint_size_ok && fingerprint_is_alphanumeric) {
-        return Err(ApiKeyError::BadFingerprint);
+        return Err(TokenError::BadFingerprint);
     }
 
     Ok(fingerprint.as_bytes().try_into().unwrap())
 }
 
-impl ApiKey {
+impl Token {
     /// Header included in the token
     pub const HEADER: &str = "msco";
 
-    /// Number of characters used to generate the key payload
+    /// Number of characters used to generate the token payload
     const PAYLOAD_LENGTH: usize = 32;
 
     /// Number of characters used to store the fingerprint.
     ///
     /// The fingerprint is set to 8 characters since is also used as general
-    /// api key identifier to perform actions like: list, revoke, etc
+    /// token identifier to perform actions like: list, revoke, etc
     const FINGERPRINT_LENGTH: usize = 8;
 
-    /// Character used to separate header, payload and checksum in the API key
+    /// Character used to separate header, payload and checksum in the token
     const SEPARATOR: &str = "_";
 
-    /// Generates a new random API key
+    /// Generates a new random token
     pub fn new() -> Self {
         // Use of `.unwrap()` since we are creating a string of known size with alphanumeric chars
-        let payload: ApiKeyPayload = crate::random::alphanumeric(ApiKey::PAYLOAD_LENGTH)
+        let payload: TokenPayload = crate::random::alphanumeric(Token::PAYLOAD_LENGTH)
             .to_lowercase()
             .as_bytes()
             .try_into()
@@ -107,7 +107,7 @@ impl ApiKey {
         }
     }
 
-    pub fn try_from_parts(payload: &str, checksum: &str) -> Result<Self, ApiKeyError> {
+    pub fn try_from_parts(payload: &str, checksum: &str) -> Result<Self, TokenError> {
         let payload = cast_payload(payload)?;
         let checksum = cast_fingerprint(checksum)?;
 
@@ -117,7 +117,7 @@ impl ApiKey {
         })
     }
 
-    pub fn from_bytes(payload: ApiKeyPayload, fingerprint: ApiKeyFingerprint) -> Self {
+    pub fn from_bytes(payload: TokenPayload, fingerprint: TokenFingerprint) -> Self {
         Self {
             payload,
             fingerprint,
@@ -133,26 +133,26 @@ impl ApiKey {
     }
 }
 
-impl FromStr for ApiKey {
-    type Err = ApiKeyError;
+impl FromStr for Token {
+    type Err = TokenError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let parts: Vec<&str> = s.split(ApiKey::SEPARATOR).collect();
+        let parts: Vec<&str> = s.split(Token::SEPARATOR).collect();
 
         if parts.len() != 3 {
-            return Err(ApiKeyError::IncompleteApiKey);
+            return Err(TokenError::IncompleteToken);
         }
 
         let (header, payload, checksum) = (parts[0], parts[1], parts[2]);
 
-        if header != ApiKey::HEADER {
-            return Err(ApiKeyError::BadHeader);
+        if header != Token::HEADER {
+            return Err(TokenError::BadHeader);
         }
 
         let payload = cast_payload(payload)?;
         let checksum = cast_fingerprint(checksum)?;
 
         if checksum != compute_fingerprint(&payload) {
-            return Err(ApiKeyError::FingerprintMismatch);
+            return Err(TokenError::FingerprintMismatch);
         }
 
         Ok(Self {
@@ -162,20 +162,20 @@ impl FromStr for ApiKey {
     }
 }
 
-impl std::fmt::Display for ApiKey {
+impl std::fmt::Display for Token {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
             "{header}{separator}{payload}{separator}{checksum}",
-            header = ApiKey::HEADER,
+            header = Token::HEADER,
             payload = std::str::from_utf8(&self.payload).unwrap(),
             checksum = std::str::from_utf8(&self.fingerprint).unwrap(),
-            separator = ApiKey::SEPARATOR,
+            separator = Token::SEPARATOR,
         )
     }
 }
 
-impl Default for ApiKey {
+impl Default for Token {
     fn default() -> Self {
         Self::new()
     }
@@ -194,7 +194,7 @@ impl Permissions {
     ///
     /// # Example
     /// ```
-    /// use mosaicod_core::types::Permissions;
+    /// use mosaicod_core::types::auth::Permissions;
     ///
     /// let perm = Permissions::new(Permissions::READ | Permissions::WRITE);
     /// ```
@@ -206,7 +206,7 @@ impl Permissions {
     ///
     /// # Example
     /// ```
-    /// use mosaicod_core::types::Permissions;
+    /// use mosaicod_core::types::auth::Permissions;
     ///
     /// let mut perm = Permissions::default();
     /// assert!(!perm.has(Permissions::MANAGE));
@@ -221,7 +221,7 @@ impl Permissions {
     ///
     /// # Example
     /// ```
-    /// use mosaicod_core::types::Permissions;
+    /// use mosaicod_core::types::auth::Permissions;
     ///
     /// let perm = Permissions::new(Permissions::WRITE | Permissions::READ);
     /// let perm = perm.remove(Permissions::WRITE);
@@ -235,7 +235,7 @@ impl Permissions {
     ///
     /// # Example
     /// ```
-    /// use mosaicod_core::types::Permissions;
+    /// use mosaicod_core::types::auth::Permissions;
     ///
     /// let perm = Permissions::new(Permissions::READ | Permissions::WRITE);
     /// assert!(perm.has(Permissions::READ));
@@ -250,7 +250,7 @@ impl Permissions {
     ///
     /// # Example
     /// ```
-    /// use mosaicod_core::types::Permissions;
+    /// use mosaicod_core::types::auth::Permissions;
     ///
     /// let perm = Permissions::default();
     /// assert!(perm.is_empty());
@@ -329,8 +329,8 @@ impl BitOr for Permissions {
 /// * a description to keep track of the purpose of the key
 /// * an optional expire date
 #[derive(Clone)]
-pub struct AuthorizationPolicy {
-    pub key: ApiKey,
+pub struct ApiKey {
+    pub key: Token,
 
     /// Permissions associated with the scope
     pub permissions: Permissions,
@@ -345,18 +345,18 @@ pub struct AuthorizationPolicy {
     pub expiration_timestamp: Option<Timestamp>,
 }
 
-impl AuthorizationPolicy {
-    /// Create a new API key scope
+impl ApiKey {
+    /// Create a new API key
     ///
     /// # Example
     /// ```
-    /// use mosaicod_core::types::{AuthorizationPolicy, Permissions};
+    /// use mosaicod_core::types::{ApiKey, auth::Permissions};
     ///
     /// // Single permission
-    /// let policy = AuthorizationPolicy::new(Permissions::READ, "dummy key".to_owned(), None);
+    /// let policy = ApiKey::new(Permissions::READ, "dummy key".to_owned(), None);
     ///
     /// // Multiple permissions
-    /// let policy = AuthorizationPolicy::new(
+    /// let policy = ApiKey::new(
     ///     Permissions::READ | Permissions::WRITE,
     ///     "dummy key".to_owned(),
     ///     None
@@ -367,7 +367,7 @@ impl AuthorizationPolicy {
         expires: Option<std::time::Duration>,
     ) -> Self {
         Self {
-            key: ApiKey::new(),
+            key: Token::new(),
             permissions: permission,
             creation_timestamp: Timestamp::now(),
             expiration_timestamp: expires.map(|delta| Timestamp::now() + delta),
@@ -375,12 +375,12 @@ impl AuthorizationPolicy {
         }
     }
 
-    /// Get the API key associated with this authorization policy
-    pub fn key(&self) -> &ApiKey {
+    /// Get the token associated with this API key
+    pub fn token(&self) -> &Token {
         &self.key
     }
 
-    /// Check if the policy is expired
+    /// Check if the API key is expired
     pub fn is_expired(&self) -> bool {
         if let Some(ts) = self.expiration_timestamp {
             return ts <= Timestamp::now();
@@ -415,35 +415,35 @@ mod tests {
 
     #[test]
     fn api_key_create_and_parse() {
-        let key = ApiKey::new();
+        let key = Token::new();
         dbg!(&key.to_string());
 
         let key_str = key.to_string();
 
-        let _: ApiKey = key_str.parse().expect("Error parsing API key");
+        let _: Token = key_str.parse().expect("Error parsing API key");
     }
 
     #[test]
     fn bad_apy_key() {
-        let res: Result<ApiKey, ApiKeyError> =
+        let res: Result<Token, TokenError> =
             "mosaico_vrfeceju4lqivysxgaseefa3tsxs0vrl_1b676530".parse();
-        assert!(matches!(res, Err(ApiKeyError::BadHeader)));
+        assert!(matches!(res, Err(TokenError::BadHeader)));
 
         // Removed char in payload
-        let res: Result<ApiKey, ApiKeyError> =
+        let res: Result<Token, TokenError> =
             "msco_rfeceju4lqivysxgaseefa3tsxs0vrl_1b676530".parse();
-        assert!(matches!(res, Err(ApiKeyError::BadPayload)));
+        assert!(matches!(res, Err(TokenError::BadPayload)));
 
         // added non ascii char in fingerprint
-        let res: Result<ApiKey, ApiKeyError> =
+        let res: Result<Token, TokenError> =
             "msco_vrfeceju4lqivysxgaseefa3tsxs0vrl_©b676530".parse();
         dbg!(&res);
-        assert!(matches!(res, Err(ApiKeyError::BadFingerprint)));
+        assert!(matches!(res, Err(TokenError::BadFingerprint)));
 
         // Removed char from fingerprint
-        let res: Result<ApiKey, ApiKeyError> =
+        let res: Result<Token, TokenError> =
             "msco_vrfeceju4lqivysxgaseefa3tsxs0vrl_b676530".parse();
         dbg!(&res);
-        assert!(matches!(res, Err(ApiKeyError::BadFingerprint)));
+        assert!(matches!(res, Err(TokenError::BadFingerprint)));
     }
 }

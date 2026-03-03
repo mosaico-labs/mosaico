@@ -1,7 +1,7 @@
 use mosaicod_core::types;
 
 /// To inspect inner fields this type needs to be converted in a [`types::AuthorizationPolicy`].
-pub struct AuthzPolicyRecord {
+pub struct ApiKeyRecord {
     /// Unique identifier of the authorization policy used as primary key.
     ///
     /// This identifier is the fingerprint part of the API key.
@@ -24,22 +24,22 @@ pub struct AuthzPolicyRecord {
     pub(crate) expiration_unix_timestamp: Option<i64>,
 }
 
-impl TryFrom<AuthzPolicyRecord> for types::AuthorizationPolicy {
-    type Error = types::ApiKeyError;
+impl TryFrom<ApiKeyRecord> for types::ApiKey {
+    type Error = types::auth::TokenError;
 
-    fn try_from(value: AuthzPolicyRecord) -> Result<Self, Self::Error> {
-        let payload: types::ApiKeyPayload = value
+    fn try_from(value: ApiKeyRecord) -> Result<Self, Self::Error> {
+        let payload: types::auth::TokenPayload = value
             .api_key_payload
             .try_into()
-            .map_err(|_| types::ApiKeyError::BadPayload)?;
+            .map_err(|_| types::auth::TokenError::BadPayload)?;
 
-        let fingerprint: types::ApiKeyFingerprint = value
+        let fingerprint: types::auth::TokenFingerprint = value
             .api_key_fingerprint
             .try_into()
-            .map_err(|_| types::ApiKeyError::BadFingerprint)?;
+            .map_err(|_| types::auth::TokenError::BadFingerprint)?;
 
         Ok(Self {
-            key: types::ApiKey::from_bytes(payload, fingerprint),
+            key: types::auth::Token::from_bytes(payload, fingerprint),
             permissions: (value.permissions as u8).into(),
             description: value.description,
             creation_timestamp: value.creation_unix_timestamp.into(),
@@ -48,11 +48,11 @@ impl TryFrom<AuthzPolicyRecord> for types::AuthorizationPolicy {
     }
 }
 
-impl From<types::AuthorizationPolicy> for AuthzPolicyRecord {
-    fn from(value: types::AuthorizationPolicy) -> Self {
+impl From<types::ApiKey> for ApiKeyRecord {
+    fn from(value: types::ApiKey) -> Self {
         Self {
-            api_key_fingerprint: value.key().fingerprint().as_bytes().into(),
-            api_key_payload: value.key().payload().as_bytes().into(),
+            api_key_fingerprint: value.token().fingerprint().as_bytes().into(),
+            api_key_payload: value.token().payload().as_bytes().into(),
             permissions: value.permissions.as_u8() as i16,
             description: value.description,
             creation_unix_timestamp: value.creation_timestamp.into(),

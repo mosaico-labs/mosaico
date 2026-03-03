@@ -3,74 +3,74 @@ use mosaicod_core::types;
 use mosaicod_db as db;
 
 pub struct Auth {
-    policy: types::AuthorizationPolicy,
+    api_key: types::ApiKey,
     db: db::Database,
 }
 
 impl Auth {
-    /// Create a new auth facade using an existing policy.
+    /// Create a new auth facade using an existing API key.
     ///
-    /// This function does not perform any checks, if the authorization policy is not existing subsequent
+    /// This function does not perform any checks, if the API key is not existing subsequent
     /// calls will return errors
-    pub fn from_policy(policy: types::AuthorizationPolicy, db: db::Database) -> Self {
-        Self { policy, db }
+    pub fn from_policy(api_key: types::ApiKey, db: db::Database) -> Self {
+        Self { api_key, db }
     }
 
-    /// Lookup an authorization policy using the API key fingerprint
+    /// Lookup an API key using its fingerprint
     pub async fn try_from_fingerprint(
         fingerprint: String,
         db: db::Database,
     ) -> Result<Self, Error> {
         let mut cx = db.connection();
 
-        let policy = db::authz_policy_find_by_fingerprint(&mut cx, &fingerprint).await?;
+        let api_key = db::api_key_find_by_fingerprint(&mut cx, &fingerprint).await?;
 
-        Ok(Self { policy, db })
+        Ok(Self { api_key, db })
     }
 
-    /// Creates a new authorization policy in the system
+    /// Creates a new API key in the system
     pub async fn create(
-        permissions: types::Permissions,
+        permissions: types::auth::Permissions,
         description: String,
         expire_duration: Option<std::time::Duration>,
         db: db::Database,
     ) -> Result<Self, Error> {
         let mut tx = db.transaction().await?;
 
-        let policy = types::AuthorizationPolicy::new(permissions, description, expire_duration);
-        let policy = db::authz_policy_create(&mut tx, policy).await?;
+        let api_key = types::ApiKey::new(permissions, description, expire_duration);
+        let api_key = db::api_key_create(&mut tx, api_key).await?;
 
         tx.commit().await?;
 
-        Ok(Self { policy, db })
+        Ok(Self { api_key, db })
     }
 
-    /// Returns a list of all authorization policy in the system
-    pub async fn all_policies(db: db::Database) -> Result<Vec<types::AuthorizationPolicy>, Error> {
+    /// Returns a list of all API keys in the system
+    pub async fn all_keys(db: db::Database) -> Result<Vec<types::ApiKey>, Error> {
         let mut cx = db.connection();
 
-        Ok(db::authz_policy_find_all(&mut cx).await?)
+        Ok(db::api_key_find_all(&mut cx).await?)
     }
 
-    /// Deletes the current authorization policy
+    /// Deletes the current API key
     pub async fn delete(self) -> Result<(), Error> {
         let mut tx = self.db.transaction().await?;
 
-        db::authz_policy_delete(&mut tx, self.policy.key.fingerprint()).await?;
+        db::api_key_delete(&mut tx, self.api_key.key.fingerprint()).await?;
 
         tx.commit().await?;
 
         Ok(())
     }
 
-    /// Returns the current authorization policy
-    pub fn policy(&self) -> &types::AuthorizationPolicy {
-        &self.policy
+    /// Returns the inner API key
+    pub fn api_key(&self) -> &types::ApiKey {
+        &self.api_key
     }
 
-    /// Consumes the facade and returns the inner authorization policy
-    pub fn into_policy(self) -> types::AuthorizationPolicy {
-        self.policy
+    /// Consumes the facade and returns the inner API key
+    pub fn into_api_key(self) -> types::ApiKey {
+        self.api_key
     }
 }
 
@@ -83,7 +83,7 @@ mod tests {
         let database = db::testing::Database::new(pool);
 
         let fauth = Auth::create(
-            types::Permissions::READ,
+            types::auth::Permissions::READ,
             "some text".to_owned(),
             None,
             database.clone(),
@@ -91,18 +91,17 @@ mod tests {
         .await
         .unwrap();
 
-        let policy = fauth.policy().clone();
+        let key = fauth.api_key().clone();
 
         {
             let mut cx = database.connection();
 
-            let res_policy =
-                db::authz_policy_find_by_fingerprint(&mut cx, policy.key().fingerprint())
-                    .await
-                    .unwrap();
+            let res_key = db::api_key_find_by_fingerprint(&mut cx, key.token().fingerprint())
+                .await
+                .unwrap();
 
-            assert_eq!(res_policy.permissions, policy.permissions);
-            assert_eq!(res_policy.key(), policy.key());
+            assert_eq!(res_key.permissions, key.permissions);
+            assert_eq!(res_key.token(), key.token());
         }
 
         fauth.delete().await.unwrap();
@@ -111,7 +110,7 @@ mod tests {
             let mut cx = database.connection();
 
             let res_policy =
-                db::authz_policy_find_by_fingerprint(&mut cx, policy.key().fingerprint()).await;
+                db::api_key_find_by_fingerprint(&mut cx, key.token().fingerprint()).await;
 
             assert!(res_policy.is_err());
         }

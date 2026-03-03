@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT * FROM authz_policy_t",
+  "query": "SELECT * FROM api_key_t",
   "describe": {
     "columns": [
       {
@@ -46,5 +46,5 @@
       true
     ]
   },
-  "hash": "b73ea767c652d9fbb5dacbbf0ad27cc2d5390b911b754263100a9ebfd1b1e2e8"
+  "hash": "c29a4e960e56718f4b8b2d45581e5ce52a6081e08acc3c1c0fe944435c3782e0"
 }

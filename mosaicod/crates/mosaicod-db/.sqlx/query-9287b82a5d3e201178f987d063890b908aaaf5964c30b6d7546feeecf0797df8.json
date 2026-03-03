@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT *\n        FROM authz_policy_t AS authz_policy\n        WHERE authz_policy.api_key_fingerprint = $1\n        ",
+  "query": "\n        SELECT *\n        FROM api_key_t AS api_key \n        WHERE api_key.api_key_fingerprint = $1\n        ",
   "describe": {
     "columns": [
       {
@@ -48,5 +48,5 @@
       true
     ]
   },
-  "hash": "5b8e9580b46706ac5c914205366a4985ec5f17676177872eed9e0292bcc0c709"
+  "hash": "9287b82a5d3e201178f987d063890b908aaaf5964c30b6d7546feeecf0797df8"
 }

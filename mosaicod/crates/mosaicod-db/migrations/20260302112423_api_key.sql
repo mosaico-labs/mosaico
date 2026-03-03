@@ -1,4 +1,4 @@
-CREATE TABLE authz_policy_t (
+CREATE TABLE api_key_t (
     api_key_fingerprint BYTEA PRIMARY KEY, -- 8 bytes
     api_key_payload BYTEA NOT NULL, -- 32 bytes.
 

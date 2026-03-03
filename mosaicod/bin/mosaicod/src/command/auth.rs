@@ -7,48 +7,48 @@ use mosaicod_facade as facade;
 
 #[derive(Subcommand, Debug)]
 pub enum Auth {
-    /// Create a new authorization policy with custom parameters
+    /// Create a new API key with custom parameters
     Create {
-        /// Specifies permissions for the policy. Allowed values are: read, write, delete, manage
+        /// Specifies permissions for the key. Allowed values are: read, write, delete, manage
         #[arg(num_args=1.., value_delimiter=' ', required=true)]
         permissions: Vec<String>,
 
-        /// Define a description for the policy
+        /// Define a description for the key
         #[arg(short, long)]
         description: Option<String>,
 
-        /// Define a time duration (using the ISO8601 format) after which the policy in no longer valid.
+        /// Define a time duration (using the ISO8601 format) after which the key in no longer valid.
         #[arg(short, long)]
         expires: Option<String>,
     },
 
-    /// Revoke a policy
+    /// Revoke a key
     Revoke {
-        /// API key fingerprint of the policy to revoke. The fingerprint are the last 8 digits of
+        /// Fingerprint of the key to revoke. The fingerprint are the last 8 digits of
         /// the API key.
         fingerprint: String,
     },
 
-    /// Return the status of a policy
+    /// Return the status of a key
     Status {
-        /// API key fingerprint of the key. The fingerprint are the last 8 digits of
+        /// Fingerprint of the key. The fingerprint are the last 8 digits of
         /// the API key.
         fingerprint: String,
     },
 
-    /// List all policies
+    /// List all keys
     List,
 }
 
 /// Convert the strings obtained from the CLI into a [`types::Permissions`]
-fn cast_to_permissions(permissions: Vec<String>) -> Result<types::Permissions, String> {
-    let mut perm = types::Permissions::default();
+fn cast_to_permissions(permissions: Vec<String>) -> Result<types::auth::Permissions, String> {
+    let mut perm = types::auth::Permissions::default();
     for p in permissions {
         match p.as_str() {
-            "read" => perm = perm.add(types::Permissions::READ),
-            "write" => perm = perm.add(types::Permissions::WRITE),
-            "delete" => perm = perm.add(types::Permissions::DELETE),
-            "manage" => perm = perm.add(types::Permissions::MANAGE),
+            "read" => perm = perm.add(types::auth::Permissions::READ),
+            "write" => perm = perm.add(types::auth::Permissions::WRITE),
+            "delete" => perm = perm.add(types::auth::Permissions::DELETE),
+            "manage" => perm = perm.add(types::auth::Permissions::MANAGE),
             _ => return Err("Permission not allowed".to_string()),
         };
     }
@@ -85,9 +85,9 @@ pub fn auth(auth: Auth) -> Result<(), common::Error> {
             // If no description is provided use the empty string
             let description = description.unwrap_or_default();
 
-            let policy: Result<types::AuthorizationPolicy, facade::Error> = rt.block_on(async {
+            let policy: Result<types::ApiKey, facade::Error> = rt.block_on(async {
                 let fauth = facade::Auth::create(permissions, description, expires, db).await?;
-                Ok(fauth.into_policy())
+                Ok(fauth.into_api_key())
             });
 
             let policy = policy?;
@@ -111,7 +111,7 @@ pub fn auth(auth: Auth) -> Result<(), common::Error> {
             let res: Result<(), facade::Error> = rt.block_on(async {
                 let fauth = facade::Auth::try_from_fingerprint(fingerprint, db).await?;
 
-                let policy = fauth.into_policy();
+                let policy = fauth.into_api_key();
 
                 print_authz_policy_details(policy);
 
@@ -123,7 +123,7 @@ pub fn auth(auth: Auth) -> Result<(), common::Error> {
 
         Auth::List => {
             let res: Result<(), facade::Error> = rt.block_on(async {
-                let policies = facade::Auth::all_policies(db).await?;
+                let policies = facade::Auth::all_keys(db).await?;
 
                 print_authz_policy_list(policies);
 
@@ -137,7 +137,7 @@ pub fn auth(auth: Auth) -> Result<(), common::Error> {
     Ok(())
 }
 
-fn print_authz_policy_details(policy: types::AuthorizationPolicy) {
+fn print_authz_policy_details(policy: types::ApiKey) {
     println!(
         "{:>13} {}",
         "Expired:".bold(),
@@ -162,7 +162,7 @@ fn print_authz_policy_details(policy: types::AuthorizationPolicy) {
     println!("{:>13} {}", "Permissions:".bold(), perms.join(", "));
 }
 
-fn print_authz_policy_list(policies: Vec<types::AuthorizationPolicy>) {
+fn print_authz_policy_list(policies: Vec<types::ApiKey>) {
     // Header
     println!(
         "{:>12} {:>24} {:>10} {:>30}    {}",
@@ -183,7 +183,7 @@ fn print_authz_policy_list(policies: Vec<types::AuthorizationPolicy>) {
 
         println!(
             "{:>12} {:>24} {:>10} {:>30}    {}",
-            policy.key().fingerprint(),
+            policy.token().fingerprint(),
             datetime.to_string(),
             expired,
             permissions.join(", "),

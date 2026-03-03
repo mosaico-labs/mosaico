@@ -30,8 +30,8 @@ pub use uuid::*;
 mod session;
 pub use session::*;
 
-mod auth;
-pub use auth::*;
+pub mod auth;
+pub use auth::ApiKey;
 
 mod error_report;
 pub use error_report::*;
