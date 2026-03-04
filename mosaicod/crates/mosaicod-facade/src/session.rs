@@ -48,7 +48,12 @@ impl Session {
         // Collect all topics associated with this session
         let topics = db::session_find_all_topic_locators(&mut tx, &self.uuid).await?;
 
-        // If not all topics are locked, return an error.
+        // If the session does not contain any topic, return an error and leave the session unlocked.
+        if topics.is_empty() {
+            return Err(Error::SessionEmpty);
+        }
+
+        // If not all topics are locked, return an error and leave the session unlocked.
         let all_topics_locked = futures::future::join_all(topics.iter().map(async |topic_loc| {
             let topic = Topic::new(
                 topic_loc.clone().into(),

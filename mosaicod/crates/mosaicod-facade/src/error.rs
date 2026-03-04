@@ -34,6 +34,8 @@ pub enum Error {
     TopicLocked,
     #[error("session locked, unable to perform modifications")]
     SessionLocked,
+    #[error("session empty, unable to perform the requested operation")]
+    SessionEmpty,
     #[error("topic unlocked, unable to perform the requested operation over an unlocked topic")]
     TopicUnlocked,
     #[error("unimplemented")]

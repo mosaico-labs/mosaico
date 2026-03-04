@@ -158,8 +158,10 @@ async fn session_finalize(pool: sqlx::Pool<db::DatabaseType>) {
     actions::sequence_create(&mut client, sequence_name, None)
         .await
         .unwrap();
+
     let session_uuid = actions::session_create(&mut client, sequence_name).await;
     assert!(session_uuid.is_valid());
+
     let uuid = actions::topic_create(&mut client, &session_uuid, "test_sequence/my_topic", None)
         .await
         .unwrap();
@@ -188,6 +190,17 @@ async fn session_finalize(pool: sqlx::Pool<db::DatabaseType>) {
     actions::session_finalize(&mut client, &session_uuid)
         .await
         .unwrap();
+
+    // Finalize on an empty session should fail.
+    let session_uuid = actions::session_create(&mut client, sequence_name).await;
+    assert!(session_uuid.is_valid());
+    assert_eq!(
+        actions::session_finalize(&mut client, &session_uuid)
+            .await
+            .unwrap_err()
+            .message(),
+        "facade error"
+    );
 
     server.shutdown().await;
 }
@@ -232,9 +245,26 @@ async fn session_abort(pool: sqlx::Pool<db::DatabaseType>) {
 
     // Abort on locked sessions must fail.
     let session_uuid = actions::session_create(&mut client, sequence_name).await;
+
+    let uuid = actions::topic_create(&mut client, &session_uuid, "test_sequence/my_topic", None)
+        .await
+        .unwrap();
+    assert!(uuid.is_valid());
+
+    let batches = vec![ext::arrow::testing::dummy_batch()];
+
+    let response = actions::do_put(&mut client, &uuid, "test_sequence/my_topic", batches, false)
+        .await
+        .unwrap();
+
+    if response.into_inner().message().await.unwrap().is_some() {
+        panic!("Received a not-empty response!");
+    }
+
     actions::session_finalize(&mut client, &session_uuid)
         .await
         .unwrap();
+
     assert_eq!(
         actions::session_abort(&mut client, &session_uuid)
             .await
