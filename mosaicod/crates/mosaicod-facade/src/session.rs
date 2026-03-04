@@ -48,6 +48,26 @@ impl Session {
         // Collect all topics associated with this session
         let topics = db::session_find_all_topic_locators(&mut tx, &self.uuid).await?;
 
+        // If not all topics are locked, return an error.
+        let all_topics_locked = futures::future::join_all(topics.iter().map(async |topic_loc| {
+            let topic = Topic::new(
+                topic_loc.clone().into(),
+                self.store.clone(),
+                self.db.clone(),
+            );
+
+            topic.is_locked().await
+        }))
+        .await
+        .into_iter()
+        .collect::<Result<Vec<_>, _>>()?
+        .into_iter()
+        .all(|v| v);
+
+        if !all_topics_locked {
+            return Err(Error::TopicUnlocked);
+        }
+
         let completion_timestamp = types::Timestamp::now();
         db::session_lock(&mut tx, &self.uuid, &completion_timestamp).await?;
 
