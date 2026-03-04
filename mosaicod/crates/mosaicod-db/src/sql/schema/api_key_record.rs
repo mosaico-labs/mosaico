@@ -5,10 +5,10 @@ pub struct ApiKeyRecord {
     /// Unique identifier of the authorization policy used as primary key.
     ///
     /// This identifier is the fingerprint part of the API key.
-    pub(crate) api_key_fingerprint: Vec<u8>,
+    pub(crate) fingerprint: Vec<u8>,
 
     /// Payload part of the API key
-    pub(crate) api_key_payload: Vec<u8>,
+    pub(crate) payload: Vec<u8>,
 
     /// Permissions are stored as 2 bytes (for future usages, and since some modern database
     /// system have no support for 1 byte words)
@@ -29,12 +29,12 @@ impl TryFrom<ApiKeyRecord> for types::ApiKey {
 
     fn try_from(value: ApiKeyRecord) -> Result<Self, Self::Error> {
         let payload: types::auth::TokenPayload = value
-            .api_key_payload
+            .payload
             .try_into()
             .map_err(|_| types::auth::TokenError::BadPayload)?;
 
         let fingerprint: types::auth::TokenFingerprint = value
-            .api_key_fingerprint
+            .fingerprint
             .try_into()
             .map_err(|_| types::auth::TokenError::BadFingerprint)?;
 
@@ -51,8 +51,8 @@ impl TryFrom<ApiKeyRecord> for types::ApiKey {
 impl From<types::ApiKey> for ApiKeyRecord {
     fn from(value: types::ApiKey) -> Self {
         Self {
-            api_key_fingerprint: value.token().fingerprint().as_bytes().into(),
-            api_key_payload: value.token().payload().as_bytes().into(),
+            fingerprint: value.token().fingerprint().as_bytes().into(),
+            payload: value.token().payload().as_bytes().into(),
             permissions: value.permissions.as_u8() as i16,
             description: value.description,
             creation_unix_timestamp: value.creation_timestamp.into(),

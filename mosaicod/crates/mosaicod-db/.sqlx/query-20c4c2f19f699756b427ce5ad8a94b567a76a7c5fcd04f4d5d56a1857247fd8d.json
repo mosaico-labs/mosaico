@@ -1,16 +1,16 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT *\n        FROM api_key_t AS api_key \n        WHERE api_key.api_key_fingerprint = $1\n        ",
+  "query": "\n        SELECT *\n        FROM api_key_t AS api_key \n        WHERE api_key.fingerprint = $1\n        ",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "api_key_fingerprint",
+        "name": "fingerprint",
         "type_info": "Bytea"
       },
       {
         "ordinal": 1,
-        "name": "api_key_payload",
+        "name": "payload",
         "type_info": "Bytea"
       },
       {
@@ -48,5 +48,5 @@
       true
     ]
   },
-  "hash": "9287b82a5d3e201178f987d063890b908aaaf5964c30b6d7546feeecf0797df8"
+  "hash": "20c4c2f19f699756b427ce5ad8a94b567a76a7c5fcd04f4d5d56a1857247fd8d"
 }

@@ -18,8 +18,8 @@ pub async fn api_key_create(
         r#"
         INSERT INTO api_key_t
             (
-                api_key_fingerprint, 
-                api_key_payload, 
+                fingerprint, 
+                payload, 
                 permissions,
                 description,
                 creation_unix_timestamp,
@@ -30,8 +30,8 @@ pub async fn api_key_create(
         RETURNING
             *
         "#,
-        key.api_key_fingerprint,
-        key.api_key_payload,
+        key.fingerprint,
+        key.payload,
         key.permissions,
         key.description,
         key.creation_unix_timestamp,
@@ -52,7 +52,7 @@ pub async fn api_key_find_by_fingerprint(
         r#"
         SELECT *
         FROM api_key_t AS api_key 
-        WHERE api_key.api_key_fingerprint = $1
+        WHERE api_key.fingerprint = $1
         "#,
         fingerprint.as_bytes()
     )
@@ -64,7 +64,7 @@ pub async fn api_key_find_by_fingerprint(
 
 pub async fn api_key_delete(exe: &mut impl AsExec, fingerprint: &str) -> Result<(), Error> {
     sqlx::query!(
-        "DELETE FROM api_key_t WHERE api_key_fingerprint=$1",
+        "DELETE FROM api_key_t WHERE fingerprint=$1",
         fingerprint.as_bytes()
     )
     .execute(exe.as_exec())

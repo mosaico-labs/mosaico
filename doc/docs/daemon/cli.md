@@ -33,7 +33,7 @@ Manage API keys.
 
 ### mosaicod api-key create
 
-Create a new authorization policy.
+Create a new API key.
 
 ```bash
 mosaicod api-key create [OPTIONS]

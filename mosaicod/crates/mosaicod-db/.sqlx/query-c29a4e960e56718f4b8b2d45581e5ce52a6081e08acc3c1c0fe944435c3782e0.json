@@ -5,12 +5,12 @@
     "columns": [
       {
         "ordinal": 0,
-        "name": "api_key_fingerprint",
+        "name": "fingerprint",
         "type_info": "Bytea"
       },
       {
         "ordinal": 1,
-        "name": "api_key_payload",
+        "name": "payload",
         "type_info": "Bytea"
       },
       {
