@@ -18,9 +18,9 @@ mosaicod run [OPTIONS]
 | `--tls` | `false` | Enable TLS. When enabled, the following envirnoment variables needs to be set `MOSAICOD_TLS_CERT_FILE`: certificate file path, `MOSAICOD_TLS_PRIVATE_KEY_FILE`: private key file path | 
 
 
-## mosaicod auth
+## mosaicod api-key
 
-Manage API keys and authorization policies.
+Manage API keys.
 
 ### Subcommands
 
@@ -31,12 +31,12 @@ Manage API keys and authorization policies.
 |`status`|Check the status of an API key|
 |`list`|List all API keys|
 
-### mosaicod auth create
+### mosaicod api-key create
 
 Create a new authorization policy.
 
 ```bash
-mosaicod auth create [OPTIONS]
+mosaicod api-key create [OPTIONS]
 ```
 
 | Option | Description |
@@ -44,32 +44,32 @@ mosaicod auth create [OPTIONS]
 | `-d, --description` | Set a description for the API key to make it easily recognizable. |
 | `-e, --expires` |  Define a time duration (using the ISO8601 format) after which the API key in no longer valid. |
 
-### mosaicod auth revoke
+### mosaicod api-key revoke
 
-Revoke an existing authorization policy.
+Revoke an existing API key.
 
 ```bash
-mosaicod auth revoke <FINGERPRINT>
+mosaicod api-key revoke <FINGERPRINT>
 ```
 
-The [fingerprint](authz_scope.md#api-key-structure) are the last 8 digits of the API key.
+The [fingerprint](api_key.md#token-structure) are the last 8 digits of the API key.
 
-### mosaicod auth status
+### mosaicod api-key status
 
 Check the status of an API key.
 
 ```bash
-mosaicod auth status <FINGERPRINT>
+mosaicod api-key status <FINGERPRINT>
 ```
 
-The [fingerprint](authz_scope.md#api-key-structure) are the last 8 digits of the API key.
+The [fingerprint](api_key.md#token-structure) are the last 8 digits of the API key.
 
 
-### mosaicod auth list
+### mosaicod api-key list
 
 List all API keys.
 
 ```bash
-mosaicod auth list
+mosaicod api-key list
 ```
 

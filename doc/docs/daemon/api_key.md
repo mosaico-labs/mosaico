@@ -1,6 +1,6 @@
 # API keys
 
-In Mosaico, access control is managed through **API keys**. An API key securely binds a unique API key to a specific set of permissions.
+In Mosaico, access control is managed through **API keys**. An API key securely binds a unique token to a specific set of permissions.
 
 !!! note "Scope of access"
 
@@ -29,7 +29,10 @@ Mosaico API key token follow a strict three-part format separated by underscores
 [HEADER]_[PAYLOAD]_[FINGERPRINT]
 ```
 
-**Example:** `msco_vrfeceju4lqivysxgaseefa3tsxs0vrl_1b676530`
+**Example** 
+```text
+msco_vrfeceju4lqivysxgaseefa3tsxs0vrl_1b676530
+```
 
 **Header**. A fixed prefix that easily identifies the token as a Mosaico API key. This helps developers quickly spot Mosaico tokens in configuration files or environment variables.
 

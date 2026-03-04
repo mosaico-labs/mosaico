@@ -6,7 +6,7 @@ use mosaicod_db as db;
 use mosaicod_facade as facade;
 
 #[derive(Subcommand, Debug)]
-pub enum Auth {
+pub enum ApiKey {
     /// Create a new API key with custom parameters
     Create {
         /// Specifies permissions for the key. Allowed values are: read, write, delete, manage
@@ -56,7 +56,7 @@ fn cast_to_permissions(permissions: Vec<String>) -> Result<types::auth::Permissi
     Ok(perm)
 }
 
-pub fn auth(auth: Auth) -> Result<(), common::Error> {
+pub fn auth(auth: ApiKey) -> Result<(), common::Error> {
     common::load_env_variables()?;
 
     let rt = common::init_runtime()?;
@@ -69,7 +69,7 @@ pub fn auth(auth: Auth) -> Result<(), common::Error> {
     )?;
 
     match auth {
-        Auth::Create {
+        ApiKey::Create {
             permissions,
             description,
             expires,
@@ -95,7 +95,7 @@ pub fn auth(auth: Auth) -> Result<(), common::Error> {
             println!("{}", policy.key);
         }
 
-        Auth::Revoke { fingerprint } => {
+        ApiKey::Revoke { fingerprint } => {
             let res: Result<(), facade::Error> = rt.block_on(async {
                 let fauth = facade::Auth::try_from_fingerprint(fingerprint, db).await?;
 
@@ -107,7 +107,7 @@ pub fn auth(auth: Auth) -> Result<(), common::Error> {
             res?;
         }
 
-        Auth::Status { fingerprint } => {
+        ApiKey::Status { fingerprint } => {
             let res: Result<(), facade::Error> = rt.block_on(async {
                 let fauth = facade::Auth::try_from_fingerprint(fingerprint, db).await?;
 
@@ -121,7 +121,7 @@ pub fn auth(auth: Auth) -> Result<(), common::Error> {
             res?;
         }
 
-        Auth::List => {
+        ApiKey::List => {
             let res: Result<(), facade::Error> = rt.block_on(async {
                 let policies = facade::Auth::all_keys(db).await?;
 

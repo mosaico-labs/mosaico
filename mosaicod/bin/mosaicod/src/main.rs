@@ -22,12 +22,20 @@ enum Commands {
     Run(command::Run),
 
     /// Manage mosaico API keys
-    #[command(subcommand)]
-    Auth(command::Auth),
+    #[command(subcommand, name = "api-key")]
+    Auth(command::ApiKey),
 }
 
-fn start() -> Result<(), common::Error> {
-    let args = Cli::try_parse()?;
+fn start() -> Result<Option<String>, common::Error> {
+    let cli_parse_res = Cli::try_parse().map_err(|e| e.to_string());
+
+    // Avoid to show error message when parsing cli
+    let args = match cli_parse_res {
+        Ok(args) => args,
+        Err(err) => {
+            return Ok(Some(err.to_string()));
+        }
+    };
 
     common::init_logger();
     common::load_env_variables()?;
@@ -37,7 +45,7 @@ fn start() -> Result<(), common::Error> {
         Commands::Auth(args) => command::auth(args)?,
     }
 
-    Ok(())
+    Ok(None)
 }
 
 use colored::Colorize;
@@ -48,7 +56,11 @@ fn main() {
     let res = start();
 
     match res {
-        Ok(_) => {}
+        Ok(opt_msg) => {
+            if let Some(msg) = opt_msg {
+                println!("{msg}");
+            }
+        }
         Err(e) => {
             print::error(&e.to_string());
             println!(

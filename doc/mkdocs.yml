@@ -106,6 +106,7 @@ nav:
   - Daemon:
       - daemon/index.md
       - daemon/install.md
+      - daemon/api_key.md
       - daemon/actions.md
       - daemon/ingestion.md
       - daemon/retrieval.md
