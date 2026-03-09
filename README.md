@@ -42,7 +42,7 @@ The server daemon, [`mosaicod`](https://docs.mosaico.dev/daemon), acts as the ce
 On the other side, the client SDK is what you actually import into your scripts; it manages the communication logic and abstracts away the implementation details to keep your API usage stable, even as the platform evolves in the background.
 
 ## Documentation
-For a comprehensive description, please visit our [documentation](https://docs.mosaico.dev). If you are building with AI, you can find specialized technical guides in the [Agent-ready](https://docs.mosaico.dev/agents_docs) section.
+For a comprehensive description, please visit our [documentation](https://docs.mosaico.dev). If you are building with AI, you can find specialized technical guides in the [Agent-ready](https://docs.mosaico.dev/latest/agents_docs) section.
 
 ### Cite Us
 
