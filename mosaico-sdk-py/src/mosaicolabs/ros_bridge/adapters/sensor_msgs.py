@@ -1154,10 +1154,7 @@ class PointCloudAdapter(ROSAdapterBase[PointCloud2]):
     ```
     """
 
-    ros_msgtype: str | Tuple[str, ...] = (
-        "sensor_msgs/msg/PointCloud2",
-        "sensor_msgs/PointCloud2",
-    )
+    ros_msgtype: str | Tuple[str, ...] = "sensor_msgs/msg/PointCloud2"
 
     __mosaico_ontology_type__: Type[PointCloud2] = PointCloud2
     _REQUIRED_KEYS = (

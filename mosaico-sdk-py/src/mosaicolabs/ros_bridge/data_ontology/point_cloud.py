@@ -24,7 +24,7 @@ class PointField(Serializable):
     """
     Represents a point field in a point cloud in ROS2.
 
-    modeled after: [sensor_msgs/PointField](https://docs.ros.org/en/ros2_packages/humble/api/sensor_msgs/msg/PointField.html)
+    modeled after: [sensor_msgs/msg/PointField](https://docs.ros2.org/foxy/api/sensor_msgs/msg/PointField.html)
     """
 
     __msco_pyarrow_struct__ = pa.struct(
@@ -50,7 +50,7 @@ class PointCloud2(Serializable):
     """
      Represents a point cloud in ROS2.
 
-     modeled after: [sensor_msgs/PointCloud2](https://docs.ros.org/en/ros2_packages/humble/api/sensor_msgs/msg/PointCloud2.html)
+     modeled after: [sensor_msgs/msg/PointCloud2](https://docs.ros2.org/foxy/api/sensor_msgs/msg/PointCloud2.html)
 
     Note:
         This model is still not included in the default ontology of Mosaico and is defined specifically for the ros-bridge module
