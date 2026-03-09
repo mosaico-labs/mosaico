@@ -81,7 +81,7 @@ def on_page_content(html, page, config, files):
 
 
 def _llms_dir(config):
-    return Path(config["docs_dir"]) / "llms"
+    return Path(config["site_dir"]) / "llms"
 
 
 def _make_llms_full_page(config):
