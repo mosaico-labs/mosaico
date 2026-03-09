@@ -11,17 +11,18 @@ providing stronger typing and validation than raw dictionaries.
 """
 
 import json
-from typing import Any, ClassVar, Dict, Optional, Type, TypeVar
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-import datetime
-from mosaicolabs.comm.notifications import Notified
+from typing import Any, ClassVar, Dict, Optional, Type, TypeVar
+
 import pyarrow.flight as fl
+
+from mosaicolabs.comm.notifications import Notification
 
 from ..enum import FlightAction
 from ..logging_config import get_logger
-from ..models.query import QueryResponseItem, QueryResponse
-
+from ..models.query import QueryResponse, QueryResponseItem
+from .platform_resource_info import PlatformResourceInfo
 
 # Set the hierarchical logger
 logger = get_logger(__name__)
@@ -185,17 +186,17 @@ def _do_action(
 
 
 @dataclass
-class _DoActionResponseKey(_DoActionResponse):
+class _DoActionResponseUUID(_DoActionResponse):
     """Response containing a generated resource key (e.g., after creation)."""
 
     actions: ClassVar[list[FlightAction]] = [
-        FlightAction.SEQUENCE_CREATE,
+        FlightAction.SESSION_CREATE,
         FlightAction.TOPIC_CREATE,
     ]
-    key: str
+    uuid: str
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "_DoActionResponseKey":
+    def from_dict(cls, data: Dict[str, Any]) -> "_DoActionResponseUUID":
         return cls(**data)
 
 
@@ -207,14 +208,11 @@ class _DoActionResponseSysInfo(_DoActionResponse):
         FlightAction.SEQUENCE_SYSTEM_INFO,
         FlightAction.TOPIC_SYSTEM_INFO,
     ]
-    total_size_bytes: int
-    created_datetime: datetime.datetime
-    is_locked: bool
-    chunks_number: Optional[int] = None
+    info: PlatformResourceInfo
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "_DoActionResponseSysInfo":
-        return cls(**data)
+        return cls(info=PlatformResourceInfo(**data))
 
 
 @dataclass
@@ -236,20 +234,22 @@ class _DoActionQueryResponse(_DoActionResponse):
 
 
 @dataclass
-class _DoActionNotifyList(_DoActionResponse):
+class _DoActionNotificationList(_DoActionResponse):
     """Response containing a list."""
 
     actions: ClassVar[list[FlightAction]] = [
-        FlightAction.SEQUENCE_NOTIFY_LIST,
-        FlightAction.TOPIC_NOTIFY_LIST,
+        FlightAction.SEQUENCE_NOTIFICATION_LIST,
+        FlightAction.TOPIC_NOTIFICATION_LIST,
     ]
-    notifies: list[Notified]
+    notifications: list[Notification]
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "_DoActionNotifyList":
-        nofifies: Optional[list] = data.get("notifies")
-        if nofifies is None:
-            raise KeyError("Unable to find 'notifies' key in data dict.")
-        return _DoActionNotifyList(
-            notifies=[Notified._from_dict(notify) for notify in nofifies]
+    def from_dict(cls, data: Dict[str, Any]) -> "_DoActionNotificationList":
+        notifications: Optional[list] = data.get("notifications")
+        if notifications is None:
+            raise KeyError("Unable to find 'notifications' key in data dict.")
+        return _DoActionNotificationList(
+            notifications=[
+                Notification._from_dict(notification) for notification in notifications
+            ]
         )

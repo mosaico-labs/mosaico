@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM api_key_t WHERE fingerprint=$1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Bytea"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "ce050f0b57e70a28ff7a1a70e04b7112196749878baa6a3d10946b5ea4753691"
+}

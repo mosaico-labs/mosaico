@@ -2,7 +2,7 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum FormatError {
-    #[error("unknown format :: {0}")]
+    #[error("unknown format")]
     UnknownFormat(String),
 }
 

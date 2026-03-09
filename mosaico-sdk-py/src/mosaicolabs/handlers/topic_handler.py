@@ -8,22 +8,22 @@ and create readers (`TopicDataStreamer`).
 
 import datetime
 import json
-import pyarrow.flight as fl
 from typing import Any, Dict, Optional, Tuple
 
-from .endpoints import TopicParsingError, TopicResourceManifest
-from .topic_reader import TopicDataStreamer
+import pyarrow.flight as fl
 
-from ..comm.metadata import TopicMetadata, _decode_metadata
 from ..comm.do_action import _do_action, _DoActionResponseSysInfo
+from ..comm.metadata import TopicMetadata, _decode_schema_metadata
 from ..enum import FlightAction
 from ..helpers import (
     pack_topic_resource_name,
-    sanitize_topic_name,
     sanitize_sequence_name,
+    sanitize_topic_name,
 )
-from ..models.platform import Topic
 from ..logging_config import get_logger
+from ..models.platform import Topic
+from .endpoints import TopicParsingError, TopicResourceManifest
+from .topic_reader import TopicDataStreamer
 
 # Set the hierarchical logger
 logger = get_logger(__name__)
@@ -124,8 +124,8 @@ class TopicHandler:
             )
             return None
 
-        topic_metadata = TopicMetadata.from_dict(
-            _decode_metadata(flight_info.schema.metadata)
+        topic_metadata = TopicMetadata._from_decoded_schema_metadata(
+            _decode_schema_metadata(flight_info.schema.metadata)
         )
 
         # Extract the Topic resource manifest data and the ticket
@@ -155,7 +155,9 @@ class TopicHandler:
             client=client,
             action=ACTION,
             payload={
-                "name": pack_topic_resource_name(_stzd_sequence_name, _stzd_topic_name)
+                "locator": pack_topic_resource_name(
+                    _stzd_sequence_name, _stzd_topic_name
+                )
             },
             expected_type=_DoActionResponseSysInfo,
         )
@@ -169,7 +171,7 @@ class TopicHandler:
             sequence_name=_stzd_sequence_name,
             name=_stzd_topic_name,
             metadata=topic_metadata,
-            sys_info=act_resp,
+            resrc_info=act_resp.info,
         )
 
         # Get the 'min'/'max' timestamps, as we are at a topic-level

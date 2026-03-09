@@ -27,6 +27,68 @@ In a mixed ingestion scenario, the source file provides a serialized stream of r
 
 As the reader iterates through the file, Mosaico dynamically assigns each record to its corresponding "lane" (Topic Writer).
 
+??? info "Generating Sample Data (Optional)"
+
+    If you want to follow along and run the code in this guide, you can generate the `mission_data.mcap` sample file using the following Python script. Make sure you have the `mcap` Python package installed (`pip install mcap`).
+    
+    ```python title="mcap_gen.py"
+    import time
+    import json
+    from mcap.writer import Writer
+    
+    def generate_mission_mcap(output_path: str):
+        with open(output_path, "wb") as f:
+            writer = Writer(f)
+            writer.start()
+    
+            # 1. Register Schema (define data type name, must correspond to Mosaico script)
+            imu_schema = writer.register_schema(name="sensor_msgs/msg/Imu", encoding="jsonschema", data=b"{}")
+            gps_schema = writer.register_schema(name="sensor_msgs/msg/NavSatFix", encoding="jsonschema", data=b"{}")
+            press_schema = writer.register_schema(name="sensor_msgs/msg/FluidPressure", encoding="jsonschema", data=b"{}")
+    
+            # 2. Register Channel (define Topic path)
+            imu_chan = writer.register_channel(topic="/sensors/imu", message_encoding="json", schema_id=imu_schema)
+            gps_chan = writer.register_channel(topic="/sensors/gps", message_encoding="json", schema_id=gps_schema)
+            press_chan = writer.register_channel(topic="/sensors/baro", message_encoding="json", schema_id=press_schema)
+    
+            # 3. Simulate data generation loop (generate 10 data)
+            start_time_ns = time.time_ns()
+            
+            for i in range(10):
+                current_time_ns = start_time_ns + (i * 100_000_000) # Every 0.1 seconds
+                sec = current_time_ns // 1_000_000_000
+                nanosec = current_time_ns % 1_000_000_000
+    
+                # --- Simulate IMU data ---
+                imu_payload = {
+                    "header": {"stamp": {"sec": sec, "nanosec": nanosec}},
+                    "linear_acceleration": {"x": 0.01 * i, "y": 0.02, "z": 9.81},
+                    "angular_velocity": {"x": 0.0, "y": 0.0, "z": 0.01}
+                }
+                writer.add_message(imu_chan, log_time=current_time_ns, data=json.dumps(imu_payload).encode(), publish_time=current_time_ns)
+    
+                # --- Simulate GPS data ---
+                gps_payload = {
+                    "header": {"stamp": {"sec": sec, "nanosec": nanosec}},
+                    "latitude": 25.04, "longitude": 121.53, "altitude": 10.5,
+                    "status": {"status": 1, "service": 1}
+                }
+                writer.add_message(gps_chan, log_time=current_time_ns, data=json.dumps(gps_payload).encode(), publish_time=current_time_ns)
+    
+                # --- Simulate Pressure data ---
+                press_payload = {
+                    "header": {"stamp": {"sec": sec, "nanosec": nanosec}},
+                    "fluid_pressure": 101325.0 - (i * 10)
+                }
+                writer.add_message(press_chan, log_time=current_time_ns, data=json.dumps(press_payload).encode(), publish_time=current_time_ns)
+    
+            writer.finish()
+            print(f"Successfully generated MCAP file: {output_path}")
+    
+    if __name__ == "__main__":
+        generate_mission_mcap("mission_data.mcap")
+    ```
+
 
 ### Step 1: Implementing the Custom Translator and Adapters
 
@@ -39,14 +101,15 @@ from mosaicolabs.models import (IMU,
                                 Vector3d, 
                                 GPSStatus, 
                                 Time, 
-                                Serializable)
+                                Serializable,
+                                Point3d)
 
 def custom_translator(schema_name: str, payload: dict):
     if schema_name == "sensor_msgs/msg/Imu":
         header = payload['header']
         timestamp_ns = Time(
-            sec=header['stamp']['sec'], 
-            nanosec=header['stamp']['nanosec']
+            seconds=header['stamp']['sec'], 
+            nanoseconds=header['stamp']['nanosec']
         ).to_nanoseconds()
         return Message(
             timestamp_ns=timestamp_ns,
@@ -59,13 +122,13 @@ def custom_translator(schema_name: str, payload: dict):
     if schema_name == "sensor_msgs/msg/NavSatFix":
         header = payload['header']
         timestamp_ns = Time(
-            sec=header['stamp']['sec'], 
-            nanosec=header['stamp']['nanosec']
+            seconds=header['stamp']['sec'], 
+            nanoseconds=header['stamp']['nanosec']
         ).to_nanoseconds()
         return Message(
             timestamp_ns=timestamp_ns,
             data=GPS(
-                position=Vector3d(
+                position=Point3d(
                     x=payload['latitude'], 
                     y=payload['longitude'], 
                     z=payload['altitude']
@@ -80,8 +143,8 @@ def custom_translator(schema_name: str, payload: dict):
     if schema_name == "sensor_msgs/msg/FluidPressure":
         header = payload['header']
         timestamp_ns = Time(
-            sec=header['stamp']['sec'], 
-            nanosec=header['stamp']['nanosec']
+            seconds=header['stamp']['sec'], 
+            nanoseconds=header['stamp']['nanosec']
         ).to_nanoseconds()
         return Message(
             timestamp_ns=timestamp_ns,
@@ -155,7 +218,7 @@ with open("mission_data.mcap", "rb") as f:
 
 #### Sequence-Level Error Handling
 
-The behavior of the orchestrator during a failure is governed by the `on_error` policy. This is a *Last-Resort* automated error policy, which dictates how the server manages a sequence if an unhandled exception bubbles up to the `SequenceWriter` context manager. By default, this is set to [`OnErrorPolicy.Delete`][mosaicolabs.enum.OnErrorPolicy.Delete], which signals the server to physically remove the incomplete sequence and its associated topic directories, if any errors occurred. Alternatively, you can specify [`OnErrorPolicy.Report`][mosaicolabs.enum.OnErrorPolicy.Report]: in this case, the SDK will not delete the data but will instead send an error notification to the server, allowing the platform to flag the sequence as failed while retaining whatever records were successfully transmitted before the error occurred.
+The behavior of the orchestrator during a failure is governed by the `on_error` policy. This is a *Last-Resort* automated error policy, which dictates how the server manages a sequence if an unhandled exception bubbles up to the `SequenceWriter` context manager. By default, this is set to [`OnErrorPolicy.Report`][mosaicolabs.enum.OnErrorPolicy.Report], send an error notification to the server, allowing the platform to flag the sequence as failed while retaining whatever records were successfully transmitted before the error occurred. Alternatively, you can specify [`OnErrorPolicy.Delete`][mosaicolabs.enum.OnErrorPolicy.Delete]: in this case, the SDK will signal the server to physically remove the incomplete sequence and its associated topic directories, if any errors occurred.
 
 For a more in-depth explanation:
 
@@ -229,6 +292,9 @@ Upcoming versions of the SDK will introduce native **Topic-Level Error Policies*
 """
 Import the necessary classes from the Mosaico SDK.
 """
+"""
+Import the necessary classes from the Mosaico SDK.
+"""
 from mcap.reader import make_reader
 
 from mosaicolabs import (
@@ -240,7 +306,11 @@ from mosaicolabs import (
     GPS, # The GPS sensor data class
     GPSStatus, # The GPS status enum, needed to populate the GPS data
     Pressure, # The Pressure sensor data class
+    Time, # The Time class, needed to populate the IMU and GPS data
+    Point3d, # The 3D point class, needed to populate the GPS data
+    Serializable # The Serializable class
 )
+from typing import Optional, Type
 
 """
 Define the generator functions that yield `Message` objects.
@@ -251,8 +321,8 @@ def custom_translator(schema_name: str, payload: dict):
     if schema_name == "sensor_msgs/msg/Imu":
         header = payload['header']
         timestamp_ns = Time(
-            sec=header['stamp']['sec'], 
-            nanosec=header['stamp']['nanosec']
+            seconds=header['stamp']['sec'], 
+            nanoseconds=header['stamp']['nanosec']
         ).to_nanoseconds()
         return Message(
             timestamp_ns=timestamp_ns,
@@ -265,13 +335,13 @@ def custom_translator(schema_name: str, payload: dict):
     if schema_name == "sensor_msgs/msg/NavSatFix":
         header = payload['header']
         timestamp_ns = Time(
-            sec=header['stamp']['sec'], 
-            nanosec=header['stamp']['nanosec']
+            seconds=header['stamp']['sec'], 
+            nanoseconds=header['stamp']['nanosec']
         ).to_nanoseconds()
         return Message(
             timestamp_ns=timestamp_ns,
             data=GPS(
-                position=Vector3d(
+                position=Point3d(
                     x=payload['latitude'], 
                     y=payload['longitude'], 
                     z=payload['altitude']
@@ -286,8 +356,8 @@ def custom_translator(schema_name: str, payload: dict):
     if schema_name == "sensor_msgs/msg/FluidPressure":
         header = payload['header']
         timestamp_ns = Time(
-            sec=header['stamp']['sec'], 
-            nanosec=header['stamp']['nanosec']
+            seconds=header['stamp']['sec'], 
+            nanoseconds=header['stamp']['nanosec']
         ).to_nanoseconds()
         return Message(
             timestamp_ns=timestamp_ns,
@@ -306,6 +376,20 @@ def determine_mosaico_type(schema_name: str) -> Optional[Type["Serializable"]]:
     elif schema_name == "sensor_msgs/msg/FluidPressure":
         return Pressure
     return None
+
+
+# Example helper function
+def deserialize_payload(data: bytes, schema_name: str) -> dict:
+    """
+    Decode the binary data in MCAP into a Python dictionary.
+    """
+    try:
+        import json
+        return json.loads(data.decode("utf-8"))
+    except Exception as e:
+        print(f"decode error: {e}")
+        return {}
+
 
 """
 Main ingestion orchestration
@@ -355,4 +439,7 @@ def main():
 
         # All buffers are flushed and the sequence is committed when exiting the SequenceWriter 'with' block
         print("Multi-topic ingestion completed!")
+
+if __name__ == "__main__":
+    main()
 ```

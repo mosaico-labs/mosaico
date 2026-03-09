@@ -7,9 +7,10 @@ of an active PyArrow Flight stream reading session. It manages the underlying
 capabilities essential for the k-way merge logic used in `SequenceDataStreamer`.
 """
 
-import pyarrow.flight as fl
-import pyarrow as pa
 from typing import Iterator, List, Optional
+
+import pyarrow as pa
+import pyarrow.flight as fl
 
 from mosaicolabs.logging_config import get_logger
 

@@ -1,9 +1,11 @@
 from typing import List, Optional
+
 import pyarrow as pa
-from mosaicolabs.models import Serializable, HeaderMixin
+
+from mosaicolabs.models import Serializable
 
 
-class BatteryState(Serializable, HeaderMixin):
+class BatteryState(Serializable):
     """
     Represents the state of a battery power supply.
 

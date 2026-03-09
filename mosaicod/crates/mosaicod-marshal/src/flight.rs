@@ -49,14 +49,14 @@ pub fn get_flight_info_cmd(v: &[u8]) -> Result<types::flight::GetFlightInfoCmd, 
 #[derive(Deserialize)]
 struct DoPutCmd {
     resource_locator: String,
-    key: String,
+    topic_uuid: String,
 }
 
 impl From<DoPutCmd> for types::flight::DoPutCmd {
     fn from(value: DoPutCmd) -> Self {
         types::flight::DoPutCmd {
             resource_locator: value.resource_locator,
-            key: value.key,
+            key: value.topic_uuid,
         }
     }
 }

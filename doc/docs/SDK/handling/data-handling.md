@@ -7,9 +7,9 @@ The **Data Handling** module serves as the high-performance operational core of 
 
 ### Asymmetric Architecture
 
-The SDK employs a specialized architecture that separates concerns into **Writers** and **Handlers**, ensuring each layer is optimized for its unique traffic pattern:
+The SDK employs a specialized architecture that separates concerns into **Writers/Updaters** and **Handlers**, ensuring each layer is optimized for its unique traffic pattern:
 
-* **Ingestion (Writing)**: Designed for low-latency, high-throughput ingestion of 4K video, high-frequency IMU telemetry, and dense point clouds. It utilizes a "Multi-Lane" approach where each sensor stream operates in isolation with dedicated system resources.
+* **Ingestion (Writing/Updating)**: Designed for low-latency, high-throughput ingestion of 4K video, high-frequency IMU telemetry, and dense point clouds. It utilizes a "Multi-Lane" approach where each sensor stream operates in isolation with dedicated system resources.
 * **Discovery & Retrieval (Reading)**: Architected to separate metadata-based resource discovery from high-volume data transmission. This separation allows developers to inspect sequence and topic catalogs—querying metadata and temporal bounds—before committing to a high-bandwidth data stream.
 
 ### Memory-Efficient Data Flow

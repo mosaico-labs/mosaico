@@ -6,20 +6,22 @@ It abstracts the PyArrow Flight `DoPut` stream, handling batching,
 serialization, and connection management.
 """
 
-from concurrent.futures import ThreadPoolExecutor
 import json
-from typing import Any, Type, Optional
-from mosaicolabs.models.message import Message
+from concurrent.futures import ThreadPoolExecutor
+from typing import Any, Optional, Type
+
 import pyarrow.flight as fl
 
 from mosaicolabs.models import Serializable
-from .internal.topic_write_state import _TopicWriteState
-from .helpers import _make_exception
-from ..helpers import pack_topic_resource_name
+from mosaicolabs.models.message import Message
+
 from ..comm.do_action import _do_action
 from ..enum import FlightAction, OnErrorPolicy
-from .config import WriterConfig
+from ..helpers import pack_topic_resource_name
 from ..logging_config import get_logger
+from .config import WriterConfig
+from .helpers import _make_exception
+from .internal.topic_write_state import _TopicWriteState
 
 # Set the hierarchical logger
 logger = get_logger(__name__)
@@ -28,8 +30,8 @@ logger = get_logger(__name__)
 # TODO: Better manage topic lifecycle and error policy handling
 # Policies:
 # - Report and Skip: Skip the current record and continue with the next one.
-# - Report and Close: Report via topic_notify and close the writer. Must manage writer disabling and actions on calling push on a disabled writer
-# - Report and Delete: Delete the topic and report the error via sequence_notify. Must manage writer disabling and actions on calling push on a disabled writer
+# - Report and Close: Report via topic_notification_create and close the writer. Must manage writer disabling and actions on calling push on a disabled writer
+# - Report and Delete: Delete the topic and report the error via sequence_notification_create. Must manage writer disabling and actions on calling push on a disabled writer
 class TopicWriter:
     """
     Manages a high-performance data stream for a single Mosaico topic.
@@ -123,7 +125,7 @@ class TopicWriter:
         cls,
         sequence_name: str,
         topic_name: str,
-        topic_key: str,
+        topic_uuid: str,
         client: fl.FlightClient,
         executor: Optional[ThreadPoolExecutor],
         ontology_type: Type[Serializable],
@@ -144,7 +146,7 @@ class TopicWriter:
         Args:
             sequence_name: Name of the parent sequence.
             topic_name: Unique name for this topic stream.
-            topic_key: authorization key provided by the server during creation.
+            topic_uuid: authorization key provided by the server during creation.
             client: The connection to use for the data stream.
             executor: Optional thread pool for background serialization.
             ontology_type: The data model class defining the record schema.
@@ -167,7 +169,7 @@ class TopicWriter:
                     "resource_locator": pack_topic_resource_name(
                         sequence_name, topic_name
                     ),
-                    "key": topic_key,
+                    "topic_uuid": topic_uuid,
                 }
             )
         )
@@ -272,14 +274,16 @@ class TopicWriter:
 
     def _error_report(self, err: str):
         """Sends an 'error' notification to the server regarding this topic."""
-        ACTION = FlightAction.TOPIC_NOTIFY_CREATE
+        ACTION = FlightAction.TOPIC_NOTIFICATION_CREATE
         try:
             _do_action(
                 client=self._fl_client,
                 action=ACTION,
                 payload={
-                    "name": pack_topic_resource_name(self._sequence_name, self._name),
-                    "notify_type": "error",
+                    "locator": pack_topic_resource_name(
+                        self._sequence_name, self._name
+                    ),
+                    "notification_type": "error",
                     "msg": str(err),
                 },
                 expected_type=None,
@@ -370,7 +374,7 @@ class TopicWriter:
         """
         Returns `True` if the writing stream is open and the writer accepts new messages.
         """
-        return self._wrstate.writer is None
+        return self._wrstate.writer is not None
 
     def _finalize(self, error: Optional[BaseException] = None) -> None:
         """

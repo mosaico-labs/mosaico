@@ -6,12 +6,11 @@ Defines the data structure for magnetic field sensors.
 
 import pyarrow as pa
 
-from ..mixins import HeaderMixin
-from ..serializable import Serializable
 from ..data import Vector3d
+from ..serializable import Serializable
 
 
-class Magnetometer(Serializable, HeaderMixin):
+class Magnetometer(Serializable):
     """
     Magnetic field measurement data.
 
@@ -19,7 +18,6 @@ class Magnetometer(Serializable, HeaderMixin):
 
     Attributes:
         magnetic_field: Magnetic field vector [mx, my, mz] in microTesla.
-        header: Standard metadata providing temporal and spatial reference.
 
     ### Querying with the **`.Q` Proxy**
     This class is fully queryable via the **`.Q` proxy**. You can filter magnetometer data based

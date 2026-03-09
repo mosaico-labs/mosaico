@@ -10,12 +10,10 @@ All custom actions follow a standardized pattern: they expect a JSON-serialized 
 
 Sequences are the fundamental containers for data recordings in Mosaico. These custom actions enforce a strict lifecycle state machine to guarantee data integrity.
 
-| Action | Description |
-| --- | --- |
+| Action | Description                                                                                                                                                                                                                                                                                            |
+| --- |--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `sequence_create` | Initializes a new, empty sequence. It generates and returns a unique key (UUID). This key acts as a write token, authorizing subsequent data ingestion into this specific sequence. This avoids concurrent access and creation issues when multiple clients attempt to create sequences simultaneously. |
-| `sequence_finalize` | Transitions a sequence from *uploading* to *archived*. This action locks the sequence, marking it as immutable. Once finalized, no further data can be added or modified, ensuring a perfect audit trail. |
-| `sequence_abort` | A cleanup operation for failed uploads. It discards a sequence that is currently being uploaded, purging any partial data from the storage to prevent *zombie* records. |
-| `sequence_delete` | Permanently removes a sequence from the platform. To protect data lineage, this is typically permitted only on unlocked (incomplete) sequences. |
+| `sequence_delete` | Permanently removes a sequence from the platform.                                                                                                                                                                                                                                                      |
 
 ## Topic Management
 
@@ -24,17 +22,28 @@ Topics represent the individual sensor streams (e.g., `camera/front`, `gps`) con
 | Action | Description |
 | --- | --- |
 | `topic_create` | Registers a new topic. |
-| `topic_delete` | Removes a specific topic from a sequence, permitted only if the parent sequence is still unlocked. |
+| `topic_delete` | Removes a specific topic from a sequence. |
+
+## Session Management
+
+Uploading data to the platform is made through sessions. Within a session it is possible to load one or more topics. Once closed, it becomes immutable.
+
+| Action             | Description                                                                                                                                                                |
+|--------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `session_create`   | Start a new upload session.                                                                                                                                                |
+| `session_finalize` | Moves the session status from *uploading* to *archived*. This action locks the session, marking it as immutable. Once finalized, no further data can be added or modified. |
+| `session_abort`    | A cleanup operation for failed uploads. It discards a session that is currently being uploaded, purging any partial data from the storage to prevent *zombie* records.     |
+| `session_delete`   | Removes a specific session and all its data.                                                                                                                               | 
 
 ## Notification System
 
 The platform includes a tagging mechanism to attach alerts or informational messages to resources. For example, if an exception is raised during an upload, the notification system automatically registers the event, ensuring the failure is logged and visible for troubleshooting.
 
-| Action | Description |
-| --- | --- |
-| `*_notify_create` | Attaches a notification to a Sequence or Topic, such as logging an error or status update. |
-| `*_notify_list` | Retrieves the history of active notifications for a resource, allowing clients to review alerts. |
-| `*_notify_purge` | Clears the notification history for a resource, useful for cleanup after resolution. |
+| Action                  | Description |
+|-------------------------| --- |
+| `*_notification_create` | Attaches a notification to a Sequence or Topic, such as logging an error or status update. |
+| `*_notification_list`   | Retrieves the history of active notifications for a resource, allowing clients to review alerts. |
+| `*_notification_purge`  | Clears the notification history for a resource, useful for cleanup after resolution. |
 
 Here, `*` can be either `sequence` or `topic`.
 
@@ -43,3 +52,9 @@ Here, `*` can be either `sequence` or `topic`.
 | Action | Description |
 | --- | --- |
 | `query` | This action serves as the gateway to the query system. It accepts a complex filter object and returns a list of resources that match the criteria. |
+
+## Misc
+
+| Action | Description                           |
+| --- |---------------------------------------|
+| `version` | Retrieves the current daemon version. |

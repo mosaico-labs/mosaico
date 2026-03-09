@@ -7,14 +7,14 @@ It includes Status flags, processed Fixes (Position/Velocity), and raw NMEA stri
 """
 
 from typing import Optional
+
 import pyarrow as pa
 
 from ..data import Point3d, Vector3d
-from ..mixins import HeaderMixin
 from ..serializable import Serializable
 
 
-class GPSStatus(Serializable, HeaderMixin):
+class GPSStatus(Serializable):
     """
     Status of the GNSS receiver and satellite fix.
 
@@ -27,7 +27,6 @@ class GPSStatus(Serializable, HeaderMixin):
         satellites: Number of satellites currently visible or used in the solution.
         hdop: Horizontal Dilution of Precision (lower is better).
         vdop: Vertical Dilution of Precision (lower is better).
-        header: Standard metadata providing temporal and spatial reference.
 
     ### Querying with the **`.Q` Proxy**
     This class is fully queryable via the **`.Q` proxy**. You can filter status data based
@@ -324,7 +323,7 @@ class GPSStatus(Serializable, HeaderMixin):
     """
 
 
-class GPS(Serializable, HeaderMixin):
+class GPS(Serializable):
     """
     Processed GNSS fix containing Position, Velocity, and Status.
 
@@ -335,7 +334,6 @@ class GPS(Serializable, HeaderMixin):
         position: Lat/Lon/Alt (WGS 84) represented as a [`Point3d`][mosaicolabs.models.data.geometry.Point3d].
         velocity: Velocity vector [North, East, Alt] in $m/s$.
         status: Receiver status info including fix type and satellite count.
-        header: Standard metadata providing temporal and spatial reference.
 
     ### Querying with the **`.Q` Proxy**
     This class is fully queryable via the **`.Q` proxy**. You can filter GPS data based
@@ -540,13 +538,12 @@ class GPS(Serializable, HeaderMixin):
     """
 
 
-class NMEASentence(Serializable, HeaderMixin):
+class NMEASentence(Serializable):
     """
     Raw NMEA 0183 sentence string.
 
     Attributes:
         sentence: The NMEA 0183 sentence string.
-        header: Standard metadata providing temporal and spatial reference.
 
     ### Querying with the **`.Q` Proxy**
     This class is fully queryable via the **`.Q` proxy**. You can filter NMEA data based

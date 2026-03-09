@@ -31,7 +31,7 @@ plugins:
   - mkdocstrings:
       handlers:
         python:
-          paths: [../mosaico-sdk-py/src] 
+          paths: [../mosaico-sdk-py/src]
           options:
             filters:
               - "!^__"
@@ -39,8 +39,8 @@ plugins:
               - "!^_"
               - "!^Q$"
             show_root_heading: true
-            separate_signature: true     
-            merge_init_into_class: true 
+            separate_signature: true
+            merge_init_into_class: true
             show_source: false
             relative_crossrefs: true
             signature_crossrefs: true
@@ -52,71 +52,75 @@ nav:
     - index.md
     - agents_docs.md
   - SDK:
-    - SDK/index.md
-    - SDK/install.md
-    - How-To:
-      - SDK/howto/serialized_writing_from_csv.md
-      - SDK/howto/serialized_writing_from_multi_csv.md
-      - SDK/howto/interleaved_writing_from_multi_topics.md
-      - SDK/howto/reading.md
-      - SDK/howto/streaming.md
-      - SDK/howto/query_sequences.md
-      - SDK/howto/query_topics.md
-      - SDK/howto/query_data.md
-      - SDK/howto/query_multi_domain.md
-      - SDK/howto/query_chained.md
-      - Advanced:
-        - SDK/howto/ontology_customization.md
-        - SDK/howto/ros_injection_1.md
-    - In Depth:
-      - SDK/client.md
-      - SDK/ontology.md
-      - Data Handling:
-        - SDK/handling/data-handling.md
-        - SDK/handling/writing.md
-        - SDK/handling/reading.md
-      - SDK/query.md
-      - Bridges:
-          - SDK/bridges/ml.md
-          - SDK/bridges/ros.md
-    - Python API Reference:
-      - SDK/API_reference/comm.md
-      - SDK/API_reference/enum.md
-      - Data Handling:
-        - SDK/API_reference/handlers/reading.md
-        - SDK/API_reference/handlers/writing.md
-      - Query Module:
-        - SDK/API_reference/query/builders.md
-        - SDK/API_reference/query/internal.md
-        - SDK/API_reference/query/response.md
-      - Models:
-        - SDK/API_reference/models/base.md
-        - SDK/API_reference/models/data_types.md
-        - SDK/API_reference/models/geometry.md
-        - SDK/API_reference/models/platform.md
-        - SDK/API_reference/models/sensors.md
-      - Bridges:
-        - SDK/API_reference/bridges/ml.md
-        - ROS-Bridge:
-          - SDK/API_reference/bridges/ros/ros.md
-          - SDK/API_reference/bridges/ros/custom_ontology.md
-          - Adapters:
-            - SDK/API_reference/bridges/ros/adapters/base.md
-            - SDK/API_reference/bridges/ros/adapters/std_msgs.md
-            - SDK/API_reference/bridges/ros/adapters/geometry_msgs.md
-            - SDK/API_reference/bridges/ros/adapters/sensor_msgs.md
-            - SDK/API_reference/bridges/ros/adapters/nav_msgs.md
-            - SDK/API_reference/bridges/ros/adapters/tf2_msgs.md
+      - SDK/index.md
+      - SDK/install.md
+      - SDK/code_contributing.md
+      - How-To:
+          - SDK/howto/serialized_writing_from_csv.md
+          - SDK/howto/serialized_writing_from_multi_csv.md
+          - SDK/howto/interleaved_writing_from_multi_topics.md
+          - SDK/howto/reading.md
+          - SDK/howto/streaming.md
+          - SDK/howto/query_sequences.md
+          - SDK/howto/query_topics.md
+          - SDK/howto/query_data.md
+          - SDK/howto/query_multi_domain.md
+          - SDK/howto/query_chained.md
+          - Advanced:
+              - SDK/howto/ontology_customization.md
+              - SDK/howto/ros_injection_1.md
+      - In Depth:
+          - SDK/client.md
+          - SDK/ontology.md
+          - Data Handling:
+              - SDK/handling/data-handling.md
+              - SDK/handling/writing.md
+              - SDK/handling/reading.md
+          - SDK/query.md
+          - Bridges:
+              - SDK/bridges/ml.md
+              - SDK/bridges/ros.md
+      - Python API Reference:
+          - SDK/API_reference/comm.md
+          - SDK/API_reference/enum.md
+          - SDK/API_reference/types.md
+          - Data Handling:
+              - SDK/API_reference/handlers/reading.md
+              - SDK/API_reference/handlers/writing.md
+          - Query Module:
+              - SDK/API_reference/query/builders.md
+              - SDK/API_reference/query/internal.md
+              - SDK/API_reference/query/response.md
+          - Models:
+              - SDK/API_reference/models/base.md
+              - SDK/API_reference/models/data_types.md
+              - SDK/API_reference/models/geometry.md
+              - SDK/API_reference/models/platform.md
+              - SDK/API_reference/models/sensors.md
+          - Bridges:
+              - SDK/API_reference/bridges/ml.md
+              - ROS-Bridge:
+                  - SDK/API_reference/bridges/ros/ros.md
+                  - SDK/API_reference/bridges/ros/custom_ontology.md
+                  - Adapters:
+                      - SDK/API_reference/bridges/ros/adapters/base.md
+                      - SDK/API_reference/bridges/ros/adapters/std_msgs.md
+                      - SDK/API_reference/bridges/ros/adapters/geometry_msgs.md
+                      - SDK/API_reference/bridges/ros/adapters/sensor_msgs.md
+                      - SDK/API_reference/bridges/ros/adapters/nav_msgs.md
+                      - SDK/API_reference/bridges/ros/adapters/tf2_msgs.md
   - Daemon:
-    - daemon/index.md
-    - daemon/install.md
-    - daemon/actions.md
-    - daemon/ingestion.md
-    - daemon/retrieval.md
-    - daemon/query.md
-    - daemon/cli.md
+      - daemon/index.md
+      - daemon/install.md
+      - daemon/api_key.md
+      - daemon/actions.md
+      - daemon/ingestion.md
+      - daemon/retrieval.md
+      - daemon/query.md
+      - daemon/cli.md
+      - daemon/tls.md
   - Development:
-    - development/release_cycle.md
+      - development/release_cycle.md
 
 extra_css:
   - stylesheets/extra.css
@@ -133,7 +137,7 @@ theme:
   name: material
   font:
     text: Manrope
-  palette: 
+  palette:
     scheme: slate
     primary: custom
     accent: custom
@@ -145,4 +149,3 @@ theme:
     - navigation.indexes
     - navigation.tabs
     - navigation.footer
-  

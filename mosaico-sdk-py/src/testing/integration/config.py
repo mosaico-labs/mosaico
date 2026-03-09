@@ -1,5 +1,4 @@
-from mosaicolabs.models.sensors import IMU, GPS, Image
-
+from mosaicolabs.models.sensors import GPS, IMU, Image
 
 # ----- Sequence setup ----
 

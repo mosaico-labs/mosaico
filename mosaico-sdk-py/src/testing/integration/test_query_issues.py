@@ -1,11 +1,9 @@
-import pytest
-
 from mosaicolabs.comm import MosaicoClient
 from mosaicolabs.models.platform import Sequence, Topic
 from mosaicolabs.models.query.builders import QuerySequence, QueryTopic
 from testing.integration.config import (
-    UPLOADED_SEQUENCE_NAME,
     UPLOADED_IMU_FRONT_TOPIC,
+    UPLOADED_SEQUENCE_NAME,
 )
 
 

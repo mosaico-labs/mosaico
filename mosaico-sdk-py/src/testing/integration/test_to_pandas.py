@@ -1,19 +1,21 @@
 import bisect
 from math import ceil
-from mosaicolabs.handlers.sequence_handler import SequenceHandler
-from typing import List, Iterable, Optional
+from typing import Iterable, List, Optional
+
+import pytest
 
 from mosaicolabs.comm import MosaicoClient
+from mosaicolabs.handlers.sequence_handler import SequenceHandler
 from mosaicolabs.ml import DataFrameExtractor
 from mosaicolabs.models import Message
 from mosaicolabs.models.sensors.imu import IMU
-import pytest
 from testing.integration.config import (
-    UPLOADED_SEQUENCE_NAME,
-    UPLOADED_IMU_FRONT_TOPIC,
-    UPLOADED_IMU_CAMERA_TOPIC,
     UPLOADED_GPS_TOPIC,
+    UPLOADED_IMU_CAMERA_TOPIC,
+    UPLOADED_IMU_FRONT_TOPIC,
+    UPLOADED_SEQUENCE_NAME,
 )
+
 from .helpers import SequenceDataStream, topic_list
 
 
@@ -207,8 +209,8 @@ def test_single_selection_chunks_from_half_to_end(
     # start from the half of the sequence
     timestamp_ns_start = _make_sequence_data_stream.tstamp_ns_start + int(
         (
-            _make_sequence_data_stream.tstamp_ns_start
-            + _make_sequence_data_stream.tstamp_ns_end
+            _make_sequence_data_stream.tstamp_ns_end
+            - _make_sequence_data_stream.tstamp_ns_start
         )
         / 2
     )
@@ -258,8 +260,8 @@ def test_single_selection_chunks_from_half(
     # start from the half of the sequence
     timestamp_ns_start = _make_sequence_data_stream.tstamp_ns_start + int(
         (
-            _make_sequence_data_stream.tstamp_ns_start
-            + _make_sequence_data_stream.tstamp_ns_end
+            _make_sequence_data_stream.tstamp_ns_end
+            - _make_sequence_data_stream.tstamp_ns_start
         )
         / 2
     )
@@ -452,8 +454,8 @@ def test_multi_selection_chunks_from_half_to_end(
     # start from the half of the sequence
     timestamp_ns_start = _make_sequence_data_stream.tstamp_ns_start + int(
         (
-            _make_sequence_data_stream.tstamp_ns_start
-            + _make_sequence_data_stream.tstamp_ns_end
+            _make_sequence_data_stream.tstamp_ns_end
+            - _make_sequence_data_stream.tstamp_ns_start
         )
         / 2
     )
@@ -494,8 +496,8 @@ def test_multi_selection_chunks_from_half(
     # start from the half of the sequence
     timestamp_ns_start = _make_sequence_data_stream.tstamp_ns_start + int(
         (
-            _make_sequence_data_stream.tstamp_ns_start
-            + _make_sequence_data_stream.tstamp_ns_end
+            _make_sequence_data_stream.tstamp_ns_end
+            - _make_sequence_data_stream.tstamp_ns_start
         )
         / 2
     )
@@ -720,8 +722,8 @@ def test_sequence_chunks_from_half_to_end(
 
     timestamp_ns_start = _make_sequence_data_stream.tstamp_ns_start + int(
         (
-            _make_sequence_data_stream.tstamp_ns_start
-            + _make_sequence_data_stream.tstamp_ns_end
+            _make_sequence_data_stream.tstamp_ns_end
+            - _make_sequence_data_stream.tstamp_ns_start
         )
         / 2
     )
@@ -753,8 +755,8 @@ def test_sequence_chunks_from_half(
 
     timestamp_ns_start = _make_sequence_data_stream.tstamp_ns_start + int(
         (
-            _make_sequence_data_stream.tstamp_ns_start
-            + _make_sequence_data_stream.tstamp_ns_end
+            _make_sequence_data_stream.tstamp_ns_end
+            - _make_sequence_data_stream.tstamp_ns_start
         )
         / 2
     )

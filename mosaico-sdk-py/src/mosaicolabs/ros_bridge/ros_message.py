@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
-from mosaicolabs.models import Header, Time
+from mosaicolabs.types import Time
 
 
 def _validate_header_fields(ros_hdata: dict):
@@ -46,24 +46,6 @@ class ROSHeader:
 
     _REQUIRED_KEYS = ("frame_id", "stamp")
 
-    def translate(
-        self,
-        **kwargs: Any,
-    ) -> Header:
-        """
-        Converts the internal ROS representation into a Mosaico Ontology Header.
-
-        This is typically called by a `ROSAdapter` during the final phase of message translation.
-
-        Returns:
-            Header: A validated Mosaico Header object ready for serialization.
-        """
-        return Header(
-            frame_id=self.frame_id,
-            seq=self.seq,
-            stamp=self.stamp,
-        )
-
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "ROSHeader":
         """
@@ -92,7 +74,9 @@ class ROSHeader:
         return ROSHeader(
             seq=data.get("seq"),
             frame_id=data["frame_id"],
-            stamp=Time(sec=data["stamp"]["sec"], nanosec=data["stamp"]["nanosec"]),
+            stamp=Time(
+                seconds=data["stamp"]["sec"], nanoseconds=data["stamp"]["nanosec"]
+            ),
         )
 
 

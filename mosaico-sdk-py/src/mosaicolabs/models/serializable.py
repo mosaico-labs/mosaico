@@ -12,19 +12,18 @@ It implements a **Registry/Factory Pattern**:
 3.  **Query Capability**: It injects query proxies allowing users to write `IMU.Q.acc_x > 0`.
 """
 
-from typing import Optional, Type, Dict, List, ClassVar
+from typing import ClassVar, Dict, List, Optional, Type
+
 import pyarrow as pa
 
 from mosaicolabs.enum import SerializationFormat
 from mosaicolabs.helpers import camel_to_snake
 
 from .base_model import BaseModel
-
-from .query.generation.api import _QueryProxyMixin
-from .query.expressions import _QueryCatalogExpression
-from .internal.pyarrow_mapper import PyarrowFieldMapper
 from .internal.helpers import _fix_empty_dicts
-
+from .internal.pyarrow_mapper import PyarrowFieldMapper
+from .query.expressions import _QueryCatalogExpression
+from .query.generation.api import _QueryProxyMixin
 
 # --- Private Registry ---
 # Global dictionary mapping string tags (e.g., "imu") to class types.

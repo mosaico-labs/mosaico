@@ -1,13 +1,22 @@
-use rand::{Rng, distr::Alphabetic};
+use rand::{Rng, distr::Alphabetic, distr::Alphanumeric};
 
-/// Generates a random string of a given `length`
-pub fn random_string(length: usize) -> String {
-    // ensure that length is a positive number
+/// Generates a random string containing alphabetic chars of a given `length`
+pub fn alphabetic(length: usize) -> String {
     assert!(length > 0);
 
     let mut rng = rand::rng();
     (0..length)
         .map(move |_| rng.sample(Alphabetic) as char)
+        .collect()
+}
+
+/// Generates a random string containing alphanumeric chars, of a given `length`
+pub fn alphanumeric(length: usize) -> String {
+    assert!(length > 0);
+
+    let mut rng = rand::rng();
+    (0..length)
+        .map(move |_| rng.sample(Alphanumeric) as char)
         .collect()
 }
 
@@ -18,15 +27,15 @@ mod tests {
     #[test]
     fn random_string() {
         // Check that requested length
-        let s10 = super::random_string(10);
+        let s10 = super::alphabetic(10);
         assert_eq!(s10.len(), 10);
 
-        let s1 = super::random_string(1);
+        let s1 = super::alphabetic(1);
         assert_eq!(s1.len(), 1);
 
         // If providing a 0 length the function needs to panic
         let result = panic::catch_unwind(|| {
-            super::random_string(0);
+            super::alphabetic(0);
         });
         assert!(result.is_err());
     }

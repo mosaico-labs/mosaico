@@ -5,10 +5,14 @@ use serde::Deserialize;
 #[derive(Deserialize, Debug)]
 pub struct Empty {}
 
+// ////////////////////////////////////////////////////////////////////////////
+// Sequence
+// ////////////////////////////////////////////////////////////////////////////
+
 /// Specialized message used to create a new sequence in the platform
 #[derive(Deserialize, Debug)]
 pub struct SequenceCreate {
-    pub name: String,
+    pub locator: String,
     user_metadata: serde_json::Value,
 }
 
@@ -18,11 +22,15 @@ impl SequenceCreate {
     }
 }
 
+// ////////////////////////////////////////////////////////////////////////////
+// Topic
+// ////////////////////////////////////////////////////////////////////////////
+
 /// Specialized message used to create a new sequence in the platform
 #[derive(Deserialize, Debug)]
 pub struct TopicCreate {
-    pub name: String,
-    pub sequence_key: String,
+    pub locator: String,
+    pub session_uuid: String,
     pub serialization_format: Format,
     pub ontology_tag: String,
 
@@ -35,28 +43,41 @@ impl TopicCreate {
     }
 }
 
+// ////////////////////////////////////////////////////////////////////////////
+// Locate & Upload
+// ////////////////////////////////////////////////////////////////////////////
+
 /// Request used to locate a specific resource by name.
 #[derive(Deserialize, Debug)]
 pub struct ResourceLocator {
-    pub name: String,
+    pub locator: String,
 }
 
-/// Request used to locate a resource deterministically,
-/// typically by combining the resource name and a unique key.
-/// Used for topics, sequences, or other keyed resources.
+// ////////////////////////////////////////////////////////////////////////////
+// Session
+// ////////////////////////////////////////////////////////////////////////////
+
+/// Request used to identify a session with its uuid.
 #[derive(Deserialize, Debug)]
-pub struct UploadToken {
-    pub name: String,
-    pub key: String,
+pub struct SessionUuid {
+    pub session_uuid: String,
 }
 
-/// Generic request message used to create nofifications
+// ////////////////////////////////////////////////////////////////////////////
+// Notifications
+// ////////////////////////////////////////////////////////////////////////////
+
+/// Generic request message used to create notifications
 #[derive(Deserialize, Debug)]
-pub struct NotifyCreate {
-    pub name: String,
-    pub notify_type: String,
+pub struct NotificationCreate {
+    pub locator: String,
+    pub notification_type: String,
     pub msg: String,
 }
+
+// ////////////////////////////////////////////////////////////////////////////
+// Layer
+// ////////////////////////////////////////////////////////////////////////////
 
 /// Creates a new layer
 #[derive(Deserialize, Debug)]
@@ -78,6 +99,10 @@ pub struct LayerUpdate {
     pub curr_name: String,
     pub curr_description: String,
 }
+
+// ////////////////////////////////////////////////////////////////////////////
+// Query
+// ////////////////////////////////////////////////////////////////////////////
 
 #[derive(Deserialize, Debug)]
 pub struct Query {

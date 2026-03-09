@@ -8,10 +8,14 @@ system and the internal Query API.
 """
 
 import datetime
-from typing import Any, Dict
+from typing import Any, Dict, Self
 
-from pydantic import PrivateAttr
 import pydantic
+from pydantic import PrivateAttr
+
+from mosaicolabs.comm.metadata import PlatformMetadata
+from mosaicolabs.comm.platform_resource_info import PlatformResourceInfo
+
 from ..query.generation.api import _QueryProxyMixin
 
 
@@ -25,8 +29,8 @@ class PlatformBase(pydantic.BaseModel, _QueryProxyMixin):
 
 
     ### Core Functionality
-    1.  **System Metadata**: Consolidates attributes like storage size and locking
-        status that are common across the catalog.
+    1.  **System Metadata**: Consolidates attributes like storage size
+        that are common across the catalog.
     2.  **Query Interface**: Inherits from internal `_QueryableModel` to support expressive
         syntax for filtering resources (e.g., `Sequence.Q.user_metadata["env"] == "prod"`).
 
@@ -112,10 +116,65 @@ class PlatformBase(pydantic.BaseModel, _QueryProxyMixin):
     # These fields are managed internally and populated via _init_base_private.
     # They are excluded from the standard Pydantic __init__ to prevent users
     # from manually setting system-controlled values.
-    _is_locked: bool = PrivateAttr(default=False)
     _total_size_bytes: int = PrivateAttr()
     _created_datetime: datetime.datetime = PrivateAttr()
     _name: str = PrivateAttr()
+
+    @classmethod
+    def _from_flight_info(
+        cls,
+        name: str,
+        metadata: PlatformMetadata,
+        resrc_info: PlatformResourceInfo,
+        **kwargs: Any,
+    ) -> Self:
+        """
+        Factory method to create a PlatformBase instance from flight information.
+
+        Args:
+            name: The name of the platform resource.
+            metadata: The metadata of the platform resource.
+            resrc_info: The system information of the platform resource.
+            **kwargs: Additional keyword arguments. Accepted values:
+                - `topics`: The list of topic names (when constructing a `mosaicolabs.models.platform.Sequence`).
+                - `sequence_name`: The name of the parent sequence (when constructing a `mosaicolabs.models.platform.Topic`).
+
+
+        Returns:
+            A PlatformBase instance.
+        """
+        if not isinstance(metadata, PlatformMetadata):
+            raise ValueError(
+                "Metadata must be an instance of `mosaicolabs.comm.PlatformMetadata`."
+            )
+        user_metadata = getattr(metadata, "user_metadata", None)
+        if user_metadata is None:
+            raise ValueError("Metadata must have a `user_metadata` attribute.")
+
+        instance = cls(user_metadata=user_metadata)
+
+        # Initialize shared private attrs
+        instance._init_base_private(
+            name=name,
+            total_size_bytes=resrc_info.total_size_bytes,
+            created_datetime=resrc_info.created_datetime,
+        )
+
+        # Hook for subclasses
+        instance._init_from_flight_info(metadata, resrc_info, **kwargs)
+
+        return instance
+
+    def _init_from_flight_info(
+        self,
+        metadata: PlatformMetadata,
+        resrc_info: PlatformResourceInfo,
+        **kwargs: Any,
+    ) -> None:
+        """
+        Subclasses override to initialize their own private state.
+        """
+        raise NotImplementedError("Subclasses must implement `_init_from_flight_info`.")
 
     def _init_base_private(
         self,
@@ -123,7 +182,6 @@ class PlatformBase(pydantic.BaseModel, _QueryProxyMixin):
         name: str,
         total_size_bytes: int,
         created_datetime: datetime.datetime,
-        is_locked: bool = False,
     ) -> None:
         """
         Internal helper to populate system-controlled private attributes.
@@ -135,14 +193,12 @@ class PlatformBase(pydantic.BaseModel, _QueryProxyMixin):
             name: The unique resource name.
             total_size_bytes: The storage size on the server.
             created_datetime: The UTC timestamp of creation.
-            is_locked: Whether the resource is currently locked (e.g., during writing).
         """
-        self._is_locked = is_locked
         self._total_size_bytes = total_size_bytes
         self._created_datetime = created_datetime or datetime.datetime.now(
             datetime.timezone.utc
         )
-        self._name = name or ""
+        self._name = name
 
     # --- Shared Properties ---
     @property
@@ -225,19 +281,6 @@ class PlatformBase(pydantic.BaseModel, _QueryProxyMixin):
             ```
         """
         return self._created_datetime
-
-    @property
-    def is_locked(self) -> bool:
-        """
-        Indicates if the resource is currently locked.
-
-        A locked state typically occurs during active writing or maintenance operations,
-        preventing deletion or structural modifications.
-
-        ### Querying with **Query Builders**
-        The `is_locked` property is not queryable.
-        """
-        return self._is_locked
 
     @property
     def total_size_bytes(self) -> int:

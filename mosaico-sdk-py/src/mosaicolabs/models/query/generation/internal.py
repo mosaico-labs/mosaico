@@ -1,13 +1,13 @@
-from typing import Dict, Type
 import datetime
+from typing import Dict, Type
 
 from ..protocols import _QueryableMixinProtocol
 from .mixins import (
+    _DynamicFieldFactoryMixin,
+    _QueryableBool,
+    _QueryableDateTime,
     _QueryableNumeric,
     _QueryableString,
-    _QueryableDateTime,
-    _QueryableBool,
-    _DynamicFieldFactoryMixin,
     _QueryableUnsupported,
 )
 

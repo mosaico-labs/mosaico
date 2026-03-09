@@ -1,17 +1,19 @@
+import pytest
+
 from mosaicolabs.comm import MosaicoClient
-from mosaicolabs.models import Time
 from mosaicolabs.models.platform import Topic
 from mosaicolabs.models.query import QuerySequence, QueryTopic
-import pytest
+from mosaicolabs.types import Time
 from testing.integration.config import (
     UPLOADED_IMU_CAMERA_TOPIC,
     UPLOADED_IMU_FRONT_TOPIC,
     UPLOADED_SEQUENCE_NAME,
 )
+
 from .helpers import (
+    _validate_returned_topic_name,
     topic_to_metadata_dict,
     topic_to_ontology_class_dict,
-    _validate_returned_topic_name,
 )
 
 
@@ -328,7 +330,7 @@ def test_query_topic_from_response_fail(
     qtopic = query_resp.to_query_topic()
     # This must fail: field 'name' is already queried
     with pytest.raises(
-        NotImplementedError, match="Query builder already contains the key 'name'"
+        NotImplementedError, match="Query builder already contains the key 'locator'"
     ):
         query_resp = _client.query(qtopic.with_name_match(""))
 

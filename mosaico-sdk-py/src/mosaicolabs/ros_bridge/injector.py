@@ -27,6 +27,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple, Type
+
 from rich.live import Live
 from rich.progress import (
     BarColumn,
@@ -44,9 +45,9 @@ from mosaicolabs.enum import OnErrorPolicy, SequenceStatus
 from mosaicolabs.handlers import SequenceWriter
 from mosaicolabs.logging_config import get_logger, setup_sdk_logging
 
-from .ros_bridge import ROSAdapterBase, ROSBridge
 from .loader import LoaderErrorPolicy, ROSLoader
 from .registry import ROSTypeRegistry
+from .ros_bridge import ROSAdapterBase, ROSBridge
 from .ros_message import ROSMessage
 
 # Set the hierarchical logger
@@ -107,7 +108,7 @@ class ROSInjectionConfig:
     See [`rosbags.typesys.Stores`](https://ternaris.gitlab.io/rosbags/topics/typesys.html#type-stores).
     """
 
-    on_error: OnErrorPolicy = OnErrorPolicy.Delete
+    on_error: OnErrorPolicy = OnErrorPolicy.Report
     """the `SequenceWriter` `on_error` behavior when a sequence write fails (Report vs Delete)"""
 
     custom_msgs: Optional[List[Tuple[str, Path, Optional[Stores]]]] = None
@@ -350,7 +351,7 @@ class RosbagInjector:
                             for ros_msg, exc in ros_loader:
                                 self._process_message(ros_msg, exc, seq_writer, ui)
 
-                if seq_writer.sequence_status == SequenceStatus.Error:
+                if seq_writer.status == SequenceStatus.Error:
                     logger.error(
                         "`SequenceWriter` returned a `SequenceStatus.Error` status. Upload might have failed!"
                     )

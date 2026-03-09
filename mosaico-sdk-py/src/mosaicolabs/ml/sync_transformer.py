@@ -1,10 +1,12 @@
-import pandas as pd
-import numpy as np
 from typing import Any, Dict, Optional, Tuple
+
+import numpy as np
+import pandas as pd
+
 from mosaicolabs.logging_config import get_logger
 
-from .sync_policy import SyncPolicy
 from .sync_policies.hold import SyncHold
+from .sync_policy import SyncPolicy
 
 logger = get_logger(__name__)
 

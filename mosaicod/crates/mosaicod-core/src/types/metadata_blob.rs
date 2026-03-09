@@ -1,8 +1,8 @@
 #[derive(thiserror::Error, Debug)]
 pub enum MetadataError {
-    #[error("deserialization error :: {0}")]
+    #[error("deserialization error")]
     DeserializationError(String),
-    #[error("serialization error :: {0}")]
+    #[error("serialization error")]
     SerializationError(String),
 }
 

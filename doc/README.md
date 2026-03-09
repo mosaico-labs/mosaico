@@ -12,6 +12,12 @@ To set up the environment, clone the repository and run:
 # Inside this directory `/doc`
 poetry install
 ```
+## Run locally
+
+To start a local instance of the documentation run
+```bash
+poetry run mkdocs serve
+```
 
 ## Local Development
 

@@ -1,12 +1,14 @@
+import pytest
+
 from mosaicolabs.comm import MosaicoClient
-from mosaicolabs.models import Time
 from mosaicolabs.models.platform import Sequence
 from mosaicolabs.models.query import QuerySequence
-import pytest
+from mosaicolabs.types import Time
 from testing.integration.config import (
     UPLOADED_SEQUENCE_NAME,
 )
-from .helpers import topic_to_metadata_dict, _validate_returned_topic_name
+
+from .helpers import _validate_returned_topic_name, topic_to_metadata_dict
 
 
 def test_query_sequence_by_name(
@@ -207,12 +209,12 @@ def test_query_sequence_from_response_fail(
     qsequence = query_resp.to_query_sequence()
     # This must fail: field 'name' is already queried
     with pytest.raises(
-        NotImplementedError, match="Query builder already contains the key 'name'"
+        NotImplementedError, match="Query builder already contains the key 'locator'"
     ):
         query_resp = _client.query(qsequence.with_name(""))
     # This must fail: field 'name' is already queried
     with pytest.raises(
-        NotImplementedError, match="Query builder already contains the key 'name'"
+        NotImplementedError, match="Query builder already contains the key 'locator'"
     ):
         query_resp = _client.query(qsequence.with_name_match(""))
 

@@ -10,10 +10,11 @@ license.workspace = true
 name = "mosaicod_core"
 
 [dependencies]
-colored = { workspace = true }
 rand = { workspace = true }
 url = { workspace = true }
 uuid = { workspace = true }
 chrono = { workspace = true }
-bytes = { workspace = true }
 thiserror = { workspace = true }
+crc32fast = { workspace = true }
+bytes = { workspace = true }
+

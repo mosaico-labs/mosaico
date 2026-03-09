@@ -9,18 +9,20 @@ license.workspace = true
 
 [dependencies]
 mosaicod-core = { workspace = true }
-mosaicod-repo = { workspace = true, features = ["testing"] }
-mosaicod-marshal = { workspace = true }
-mosaicod-ext = { workspace = true, features = ["testing"] }
+mosaicod-db = { workspace = true, features = ["testing"] }
 mosaicod-store = { workspace = true, features = ["testing"] }
 mosaicod-server = { workspace = true }
 
-sqlx = { workspace = true }
-tokio = { workspace = true }
-log = { workspace = true }
 arrow-flight = { workspace = true }
 tonic = { workspace = true }
+sqlx = { workspace = true }
+tokio = { workspace = true }
 serde_json = { workspace = true }
 serde = { workspace = true }
-uuid = { workspace = true }
 rand = { workspace = true }
+futures = { workspace = true }
+arrow = { workspace = true }
+url = { workspace = true }
+
+[dev-dependencies]
+mosaicod-ext = { workspace = true, features = ["testing"] }

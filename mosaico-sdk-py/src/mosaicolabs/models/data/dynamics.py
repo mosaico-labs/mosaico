@@ -11,14 +11,13 @@ These models are designed to be assigned to the `data` field of a [`Message`][mo
 
 import pyarrow as pa
 
+from ..mixins import CovarianceMixin
 from ..serializable import Serializable
-from ..mixins import HeaderMixin, CovarianceMixin
 from .geometry import Vector3d
 
 
 class ForceTorque(
     Serializable,  # Adds Registry/Factory logic
-    HeaderMixin,  # Adds Timestamp/Frame info
     CovarianceMixin,  # Adds Covariance matrix support
 ):
     """
@@ -32,7 +31,6 @@ class ForceTorque(
     Attributes:
         force: A `Vector3d` representing the linear force vector in Newtons ($N$).
         torque: A `Vector3d` representing the rotational moment vector in Newton-meters (Nm).
-        header: Optional metadata header providing temporal and spatial context.
         covariance: Optional flattened 6x6 composed covariance matrix representing
             the uncertainty of the force-torque measurement.
         covariance_type: Enum integer representing the parameterization of the

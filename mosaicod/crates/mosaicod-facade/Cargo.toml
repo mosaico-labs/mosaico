@@ -1,0 +1,30 @@
+[package]
+name = "mosaicod-facade"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[lib]
+name = "mosaicod_facade"
+
+[dependencies]
+mosaicod-core = { workspace = true }
+mosaicod-marshal = { workspace = true }
+mosaicod-store = { workspace = true }
+mosaicod-rw = { workspace = true }
+mosaicod-query = { workspace = true }
+mosaicod-db = { workspace = true, features = ["postgres"] }
+
+bytes = { workspace = true }
+thiserror = { workspace = true }
+arrow = { workspace = true }
+log = { workspace = true }
+futures = { workspace = true }
+tokio = { workspace = true }
+
+[dev-dependencies]
+sqlx = { workspace = true }
+mosaicod-store = { workspace = true, features = ["testing"] }
+mosaicod-db = { workspace = true, features = ["postgres", "testing"] }

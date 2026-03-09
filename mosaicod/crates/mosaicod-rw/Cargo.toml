@@ -13,7 +13,6 @@ mosaicod-ext = { workspace = true }
 log = { workspace = true }
 arrow = { workspace = true }
 parquet = { workspace = true }
-serde = { workspace = true }
 thiserror = { workspace = true }
 datafusion = { workspace = true }
 tokio = { workspace = true }

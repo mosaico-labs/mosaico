@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n        UPDATE session_t \n        SET \n            locked = TRUE,\n            completion_unix_tstamp = $1\n        WHERE session_uuid = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "e0fcef74e821226b4f686560aa0fdad90bd94476b7a1de2e5a5911daffa83a86"
+}

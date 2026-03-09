@@ -1,15 +1,17 @@
+import pytest
+
 from mosaicolabs.comm import MosaicoClient
-from mosaicolabs.handlers.endpoints import TopicResourceManifest
 from mosaicolabs.handlers import (
     SequenceHandler,
-    TopicHandler,
     TopicDataStreamer,
+    TopicHandler,
 )
-import pytest
+from mosaicolabs.handlers.endpoints import TopicResourceManifest
 from testing.integration.config import (
-    UPLOADED_SEQUENCE_NAME,
     QUERY_SEQUENCES_MOCKUP,
+    UPLOADED_SEQUENCE_NAME,
 )
+
 from .helpers import (
     SequenceDataStream,
     topic_list,

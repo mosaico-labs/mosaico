@@ -278,7 +278,7 @@ In addition to mapping standard ROS messages to the core Mosaico ontology, the `
 * **`FrameTransform`**: Designed to handle coordinate frame transformations (modeled after [`tf2_msgs/msg/TFMessage`](https://docs.ros2.org/foxy/api/tf2_msgs/msg/TFMessage.html)). It encapsulates a list of [`Transform`][mosaicolabs.models.data.geometry.Transform] objects to manage spatial relationships.
 * **`BatteryState`**: Modeled after [`sensor_msgs/msg/BatteryState`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/BatteryState.html)), this class captures comprehensive power supply metrics. It includes core data (voltage, current, capacity, percentage) and detailed metadata such as power supply health, technology status, and individual cell readings.
 
-> **Note:** Although these are provisional additions, both `FrameTransform` and `BatteryState` inherit from [`Serializable`][mosaicolabs.models.Serializable] and [`HeaderMixin`][mosaicolabs.models.HeaderMixin]. This ensures they remain fully compatible with Mosaico’s existing serialization and header management infrastructure.
+> **Note:** Although these are provisional additions, both `FrameTransform` and `BatteryState` inherit from [`Serializable`][mosaicolabs.models.Serializable]. This ensures they remain fully compatible with Mosaico’s existing serialization infrastructure.
 
 ### Supported Message Types Table
 

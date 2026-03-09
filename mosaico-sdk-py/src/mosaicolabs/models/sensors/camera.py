@@ -9,14 +9,14 @@ and lens distortion model.
 """
 
 from typing import Optional
+
 import pyarrow as pa
 
-from ..mixins import HeaderMixin
 from ..data import ROI, Vector2d
 from ..serializable import Serializable
 
 
-class CameraInfo(Serializable, HeaderMixin):
+class CameraInfo(Serializable):
     """
     Meta-information for interpreting images from a calibrated camera.
 

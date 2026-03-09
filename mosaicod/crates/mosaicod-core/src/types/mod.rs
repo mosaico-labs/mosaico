@@ -9,8 +9,8 @@ pub use time::*;
 mod format;
 pub use format::*;
 
-mod notify;
-pub use notify::*;
+mod notification;
+pub use notification::*;
 
 mod resources;
 pub use resources::*;
@@ -23,5 +23,17 @@ pub use tokens::*;
 
 mod chunk;
 pub use chunk::*;
+
+mod uuid;
+pub use uuid::*;
+
+mod session;
+pub use session::*;
+
+pub mod auth;
+pub use auth::ApiKey;
+
+mod error_report;
+pub use error_report::*;
 
 pub mod flight;

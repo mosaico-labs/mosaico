@@ -16,10 +16,12 @@ When a `ROSDataLoader` is initialized, it requests a merged view of the Global +
 definitions relevant to its specific data file.
 """
 
-from pathlib import Path
-from typing import Dict, Union, Optional
 from collections import defaultdict
+from pathlib import Path
+from typing import Dict, Optional, Union
+
 from rosbags.typesys import Stores
+
 from ..logging_config import get_logger
 
 # Set the hierarchical logger

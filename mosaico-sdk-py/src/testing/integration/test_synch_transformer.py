@@ -1,12 +1,14 @@
-from mosaicolabs.comm import MosaicoClient
-from mosaicolabs.ml import DataFrameExtractor, SyncTransformer
 import numpy as np
 import pytest
+
+from mosaicolabs.comm import MosaicoClient
+from mosaicolabs.ml import DataFrameExtractor, SyncTransformer
 from testing.integration.config import (
-    UPLOADED_SEQUENCE_NAME,
-    UPLOADED_IMU_FRONT_TOPIC,
     UPLOADED_GPS_TOPIC,
+    UPLOADED_IMU_FRONT_TOPIC,
+    UPLOADED_SEQUENCE_NAME,
 )
+
 from .helpers import SequenceDataStream
 
 
@@ -75,8 +77,9 @@ def test_sync_unbounded(
                 synched_df.columns.str.contains("position")
                 | synched_df.columns.str.contains("acceleration")
             )
-            & ~synched_df.columns.str.contains("header")
-            & ~synched_df.columns.str.contains("covariance")
+            & ~synched_df.columns.str.contains("_id")
+            & ~synched_df.columns.str.contains("recording_timestamp_ns")
+            & ~synched_df.columns.str.contains("variance")
         )
         selected = synched_df.loc[:, val_cols]
         # For every column in val_cols, there exists at least one non-NaN value.

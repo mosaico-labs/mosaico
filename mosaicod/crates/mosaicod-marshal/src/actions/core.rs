@@ -12,7 +12,7 @@ pub enum ActionError {
     MissingAction(String),
 
     /// Failed to deserialize the request body.
-    #[error("body deserialization error: {0}")]
+    #[error("body deserialization error")]
     BodyDeserializationError(#[from] serde_json::Error),
 
     /// Failed to serialize the response.
@@ -28,7 +28,7 @@ pub enum ActionError {
 ///
 ///   let raw = r#"
 ///    {
-///          "name" : "test_sequence",
+///          "locator" : "test_sequence",
 ///          "user_metadata" : {
 ///              "calibration" : [0, 1, 2],
 ///              "driver" : "jon"
@@ -46,29 +46,17 @@ pub enum ActionRequest {
     /// Deletes an unlocked sequence from the system.
     SequenceDelete(requests::ResourceLocator),
 
-    /// Aborts the sequence upload process and deletes all resources associated with the sequence.
-    ///
-    /// This action can only be called on **unlocked** sequences.  
-    /// Calling it on a **locked** sequence will result in an error.
-    SequenceAbort(requests::UploadToken),
-
     /// Ask for system informations about the sequence
     SequenceSystemInfo(requests::ResourceLocator),
 
-    /// Finalizes the upload of a sequence and locks it.
-    ///
-    /// After this action, the sequence will no longer be editable.  
-    /// If there are any unlocked topics in the sequence, the action will fail.
-    SequenceFinalize(requests::UploadToken),
-
     /// Creates a notification associated with a sequence.
-    SequenceNotifyCreate(requests::NotifyCreate),
+    SequenceNotificationCreate(requests::NotificationCreate),
 
-    /// Get all nofifications for a given sequence
-    SequenceNotifyList(requests::ResourceLocator),
+    /// Get all notifications for a given sequence
+    SequenceNotificationList(requests::ResourceLocator),
 
     /// Deletes all notifications associated with a sequence
-    SequenceNotifyPurge(requests::ResourceLocator),
+    SequenceNotificationPurge(requests::ResourceLocator),
 
     /// Creates a new topic in the system without any data.
     TopicCreate(requests::TopicCreate),
@@ -77,23 +65,39 @@ pub enum ActionRequest {
     TopicDelete(requests::ResourceLocator),
 
     /// Creates a notification associated with a topic.
-    TopicNotifyCreate(requests::NotifyCreate),
+    TopicNotificationCreate(requests::NotificationCreate),
 
-    /// Get all nofifications for a given topic
-    TopicNotifyList(requests::ResourceLocator),
+    /// Get all notifications for a given topic
+    TopicNotificationList(requests::ResourceLocator),
 
     /// Deletes all notifications associated with a topic
-    TopicNotifyPurge(requests::ResourceLocator),
+    TopicNotificationPurge(requests::ResourceLocator),
 
-    /// Ask for system informations about the topic
+    /// Ask for system information about the topic
     TopicSystemInfo(requests::ResourceLocator),
 
+    /// Creates a new upload session for a sequence
+    SessionCreate(requests::ResourceLocator),
+
+    /// Finalizes the upload session
+    SessionFinalize(requests::SessionUuid),
+
+    /// Aborts the session upload process and deletes all resources associated with the session.
+    ///
+    /// This action can only be called on **unlocked** sessions.  
+    /// Calling it on a **locked** session will result in an error.
+    SessionAbort(requests::SessionUuid),
+
+    /// Deletes the selected session.
+    SessionDelete(requests::SessionUuid),
+
+    /// Perform a query in the system
     Query(requests::Query),
 
-    /// Creates a new layer in the repository
+    /// Creates a new layer in the database
     LayerCreate(requests::LayerCreate),
 
-    /// Deletes an existing layer in the repository
+    /// Deletes an existing layer in the database
     LayerDelete(requests::LayerDelete),
 
     /// Updates the name and description of an existing layer
@@ -101,6 +105,8 @@ pub enum ActionRequest {
 
     /// Ask for the list of existing layers in the system
     LayerList(requests::Empty),
+
+    Version(requests::Empty),
 }
 
 /// Internal macro used to parse action requests
@@ -115,19 +121,22 @@ impl ActionRequest {
         match value {
             "sequence_create" => parse_action_req!(SequenceCreate, body),
             "sequence_delete" => parse_action_req!(SequenceDelete, body),
-            "sequence_abort" => parse_action_req!(SequenceAbort, body),
-            "sequence_finalize" => parse_action_req!(SequenceFinalize, body),
             "sequence_system_info" => parse_action_req!(SequenceSystemInfo, body),
-            "sequence_notify_create" => parse_action_req!(SequenceNotifyCreate, body),
-            "sequence_notify_list" => parse_action_req!(SequenceNotifyList, body),
-            "sequence_notify_purge" => parse_action_req!(SequenceNotifyPurge, body),
+            "sequence_notification_create" => parse_action_req!(SequenceNotificationCreate, body),
+            "sequence_notification_list" => parse_action_req!(SequenceNotificationList, body),
+            "sequence_notification_purge" => parse_action_req!(SequenceNotificationPurge, body),
 
             "topic_create" => parse_action_req!(TopicCreate, body),
             "topic_delete" => parse_action_req!(TopicDelete, body),
             "topic_system_info" => parse_action_req!(TopicSystemInfo, body),
-            "topic_notify_create" => parse_action_req!(TopicNotifyCreate, body),
-            "topic_notify_list" => parse_action_req!(TopicNotifyList, body),
-            "topic_notify_purge" => parse_action_req!(TopicNotifyPurge, body),
+            "topic_notification_create" => parse_action_req!(TopicNotificationCreate, body),
+            "topic_notification_list" => parse_action_req!(TopicNotificationList, body),
+            "topic_notification_purge" => parse_action_req!(TopicNotificationPurge, body),
+
+            "session_create" => parse_action_req!(SessionCreate, body),
+            "session_finalize" => parse_action_req!(SessionFinalize, body),
+            "session_abort" => parse_action_req!(SessionAbort, body),
+            "session_delete" => parse_action_req!(SessionDelete, body),
 
             "layer_create" => parse_action_req!(LayerCreate, body),
             "layer_delete" => parse_action_req!(LayerDelete, body),
@@ -135,6 +144,8 @@ impl ActionRequest {
             "layer_list" => parse_action_req!(LayerList, body),
 
             "query" => parse_action_req!(Query, body),
+
+            "version" => parse_action_req!(Version, body),
 
             _ => Err(ActionError::MissingAction(value.to_owned())),
         }
@@ -144,17 +155,29 @@ impl ActionRequest {
 #[derive(Serialize)]
 #[serde(tag = "action", content = "response", rename_all = "snake_case")]
 pub enum ActionResponse {
-    SequenceCreate(responses::ResourceKey),
+    SequenceCreate(()),
+    SequenceDelete(()),
+    SequenceNotificationCreate(()),
+    SequenceNotificationPurge(()),
     SequenceSystemInfo(responses::SequenceSystemInfo),
-    SequenceNotifyList(responses::NotifyList),
+    SequenceNotificationList(responses::NotificationList),
 
-    TopicCreate(responses::ResourceKey),
+    TopicCreate(responses::ResourceUuid),
     TopicSystemInfo(responses::TopicSystemInfo),
-    TopicNotifyList(responses::NotifyList),
+    TopicNotificationList(responses::NotificationList),
 
+    /// Returns the response key associated with the session just created
+    SessionCreate(responses::ResourceUuid),
+    SessionFinalize(()),
+    SessionAbort(()),
+    SessionDelete(()),
+
+    /// Returns the list of layers
     LayerList(responses::LayerList),
 
     Query(responses::Query),
+
+    Version(responses::ServerVersion),
 
     // Empty response, no data to send
     Empty,
@@ -164,6 +187,46 @@ impl ActionResponse {
     /// Converts to bytes the action response
     pub fn bytes(&self) -> Result<Vec<u8>, ActionError> {
         serde_json::to_vec(self).map_err(|e| ActionError::ResponseSerializationError(e.to_string()))
+    }
+
+    pub fn sequence_create() -> Self {
+        Self::SequenceCreate(())
+    }
+
+    pub fn sequence_delete() -> Self {
+        Self::SequenceDelete(())
+    }
+
+    pub fn sequence_notification_create() -> Self {
+        Self::SequenceNotificationCreate(())
+    }
+
+    pub fn sequence_notification_purge() -> Self {
+        Self::SequenceNotificationPurge(())
+    }
+
+    pub fn sequence_notification_list(response: responses::NotificationList) -> Self {
+        Self::SequenceNotificationList(response)
+    }
+
+    pub fn sequence_system_info(response: responses::SequenceSystemInfo) -> Self {
+        Self::SequenceSystemInfo(response)
+    }
+
+    pub fn session_create(response: responses::ResourceUuid) -> Self {
+        Self::SessionCreate(response)
+    }
+
+    pub fn session_finalize() -> Self {
+        Self::SessionFinalize(())
+    }
+
+    pub fn session_abort() -> Self {
+        Self::SessionAbort(())
+    }
+
+    pub fn session_delete() -> Self {
+        Self::SessionDelete(())
     }
 }
 
@@ -185,8 +248,8 @@ mod tests {
     fn request_topic_create() {
         let raw = r#"
             {
-                "name" : "test_topic",
-                "sequence_key" : "some_uuid",
+                "locator" : "sequence/test_topic",
+                "session_uuid" : "some_uuid",
                 "serialization_format" : "default",
                 "ontology_tag" : "my_sensor",
                 "user_metadata" : {
@@ -200,8 +263,8 @@ mod tests {
             .expect("Problem parsing action request `topic_create`");
 
         if let ActionRequest::TopicCreate(action) = action {
-            assert_eq!(action.name, "test_topic");
-            assert_eq!(action.sequence_key, "some_uuid");
+            assert_eq!(action.locator, "sequence/test_topic");
+            assert_eq!(action.session_uuid, "some_uuid");
             assert_eq!(action.serialization_format, Format::Default);
             assert_eq!(action.ontology_tag, "my_sensor");
             let raw_json = action

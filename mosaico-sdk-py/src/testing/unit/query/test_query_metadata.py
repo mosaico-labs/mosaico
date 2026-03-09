@@ -4,14 +4,14 @@
 import pytest
 
 from mosaicolabs.models.platform import Sequence, Topic
-from mosaicolabs.models.query import QuerySequence, QueryTopic, Query
+from mosaicolabs.models.query import Query, QuerySequence, QueryTopic
+from mosaicolabs.models.query.expressions import (
+    _QuerySequenceExpression,
+    _QueryTopicExpression,
+)
 from mosaicolabs.models.query.generation.mixins import (
     _DynamicFieldFactoryMixin,
     _QueryableDynamicValue,
-)
-from mosaicolabs.models.query.expressions import (
-    _QueryTopicExpression,
-    _QuerySequenceExpression,
 )
 
 

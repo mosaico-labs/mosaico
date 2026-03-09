@@ -5,14 +5,14 @@ Defines the data structure for pressure sensors.
 """
 
 from typing import Optional
+
 import pyarrow as pa
 
-from ..mixins import HeaderMixin, VarianceMixin
+from ..mixins import VarianceMixin
 from ..serializable import Serializable
-from ..header import Header
 
 
-class Pressure(Serializable, HeaderMixin, VarianceMixin):
+class Pressure(Serializable, VarianceMixin):
     """
     Represents a physical pressure value. The internal representation is always stored in **Pascals (Pa)**.
 
@@ -22,6 +22,8 @@ class Pressure(Serializable, HeaderMixin, VarianceMixin):
     Attributes:
         value (float): Pressure value in **Pascals (Pa)**. When using the constructor directly,
             the value **must** be provided in Pascals.
+        variance (Optional[float]): The variance of the data.
+        variance_type (Optional[int]): Enum integer representing the variance parameterization.
 
     ### Querying with the **`.Q` Proxy**
     This class is fully queryable via the **`.Q` proxy**. You can filter pressure data based
@@ -123,7 +125,6 @@ class Pressure(Serializable, HeaderMixin, VarianceMixin):
         cls,
         *,
         value: float,
-        header: Optional[Header] = None,
         variance: Optional[float] = None,
         variance_type: Optional[int] = None,
     ) -> "Pressure":
@@ -133,7 +134,6 @@ class Pressure(Serializable, HeaderMixin, VarianceMixin):
 
         Args:
             value (float): The pressure value in Atm.
-            header (Optional[Header]): The standard metadata header (optional).
             variance (Optional[float]): The variance of the data.
             variance_type (Optional[int]): Enum integer representing the variance parameterization.
 
@@ -143,7 +143,6 @@ class Pressure(Serializable, HeaderMixin, VarianceMixin):
         value_in_pascal = value * 101325
         return cls(
             value=value_in_pascal,
-            header=header,
             variance=variance,
             variance_type=variance_type,
         )
@@ -153,7 +152,6 @@ class Pressure(Serializable, HeaderMixin, VarianceMixin):
         cls,
         *,
         value: float,
-        header: Optional[Header] = None,
         variance: Optional[float] = None,
         variance_type: Optional[int] = None,
     ) -> "Pressure":
@@ -163,7 +161,6 @@ class Pressure(Serializable, HeaderMixin, VarianceMixin):
 
         Args:
             value (float): The pressure value in Bar.
-            header (Optional[Header]): The standard metadata header (optional).
             variance (Optional[float]): The variance of the data.
             variance_type (Optional[int]): Enum integer representing the variance parameterization.
 
@@ -173,7 +170,6 @@ class Pressure(Serializable, HeaderMixin, VarianceMixin):
         value_in_pascal = value * 100000
         return cls(
             value=value_in_pascal,
-            header=header,
             variance=variance,
             variance_type=variance_type,
         )
@@ -183,7 +179,6 @@ class Pressure(Serializable, HeaderMixin, VarianceMixin):
         cls,
         *,
         value: float,
-        header: Optional[Header] = None,
         variance: Optional[float] = None,
         variance_type: Optional[int] = None,
     ) -> "Pressure":
@@ -193,7 +188,6 @@ class Pressure(Serializable, HeaderMixin, VarianceMixin):
 
         Args:
             value (float): The pressure value in Psi.
-            header (Optional[Header]): The standard metadata header (optional).
             variance (Optional[float]): The variance of the data.
             variance_type (Optional[int]): Enum integer representing the variance parameterization.
 
@@ -203,7 +197,6 @@ class Pressure(Serializable, HeaderMixin, VarianceMixin):
         value_in_pascal = value * 6894.7572931783
         return cls(
             value=value_in_pascal,
-            header=header,
             variance=variance,
             variance_type=variance_type,
         )

@@ -6,8 +6,9 @@ use arrow_flight::flight_descriptor::DescriptorType;
 use futures::TryStreamExt;
 use log::{info, trace};
 use mosaicod_core::types;
+use mosaicod_db as db;
+use mosaicod_facade as facade;
 use mosaicod_marshal as marshal;
-use mosaicod_repo as repo;
 use mosaicod_rw as rw;
 
 pub async fn do_put(ctx: Context, decoder: &mut FlightDataDecoder) -> Result<(), ServerError> {
@@ -45,7 +46,7 @@ fn extract_command_from_flight_data(
         .inner
         .flight_descriptor
         .as_ref()
-        .ok_or_else(|| ServerError::MissingDescriptior)?;
+        .ok_or_else(|| ServerError::MissingDescriptor)?;
 
     // Check if the descriptor if supported
     if desc.r#type() == DescriptorType::Path {
@@ -73,18 +74,18 @@ async fn do_put_topic_data(
 
     mosaicod_ext::arrow::check_schema(&schema)?;
 
-    let mut handle = repo::FacadeTopic::new(locator, ctx.store.clone(), ctx.repo.clone());
+    let mut handle = facade::Topic::new(locator, ctx.store.clone(), ctx.db.clone());
 
     // perform the match between received key and topic id
     let r_id = handle.resource_id().await?;
-    let received_uuid: uuid::Uuid = key.parse()?;
+    let received_uuid: types::Uuid = key.parse()?;
     if received_uuid != r_id.uuid {
         return Err(ServerError::BadKey);
     }
 
     let mdata = handle.metadata().await?;
 
-    // Setup the callback that will be used to create the repository record for the data catalog
+    // Setup the callback that will be used to create the database record for the data catalog
     // and prepare variables that will be moved in the closure
     let ontology_tag = mdata.properties.ontology_tag;
     let serialization_format = mdata.properties.serialization_format;
@@ -96,7 +97,7 @@ async fn do_put_topic_data(
     trace!("setup chunk creation callback for topic");
     writer.on_chunk_created(move |target_path, cols_stats, chunk_metadata| {
         let topic_id = topic_id;
-        let repo_clone = ctx.repo.clone();
+        let db_clone = ctx.db.clone();
         let ontology_tag = ontology_tag.clone();
 
         async move {
@@ -107,7 +108,7 @@ async fn do_put_topic_data(
             );
 
             Ok(on_chunk_created(
-                repo_clone,
+                db_clone,
                 topic_id,
                 &ontology_tag,
                 target_path,
@@ -128,8 +129,9 @@ async fn do_put_topic_data(
         match data.payload {
             DecodedPayload::RecordBatch(batch) => {
                 trace!(
-                    "received batch (cols: {}, memory_size: {})",
+                    "received batch (cols: {}, rows: {}, memory_size: {})",
                     batch.columns().len(),
+                    batch.num_rows(),
                     batch.get_array_memory_size()
                 );
                 writer.write(&batch).await?;
@@ -152,19 +154,19 @@ async fn do_put_topic_data(
 }
 
 async fn on_chunk_created(
-    repo: repo::Repository,
+    db: db::Database,
     topic_id: i32,
     ontology_tag: &str,
     target_path: impl AsRef<std::path::Path>,
     cstats: types::OntologyModelStats,
     chunk_metadata: rw::ChunkMetadata,
 ) -> Result<(), ServerError> {
-    let mut handle = repo::FacadeChunk::create(
+    let mut handle = facade::Chunk::create(
         topic_id,
         &target_path,
         chunk_metadata.size_bytes as i64,
         chunk_metadata.row_count as i64,
-        &repo,
+        &db,
     )
     .await?;
 

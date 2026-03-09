@@ -1,11 +1,13 @@
 import bisect
 from typing import Optional
 
-from mosaicolabs.comm import MosaicoClient
 import pytest
+
+from mosaicolabs.comm import MosaicoClient
 from testing.integration.config import (
     UPLOADED_SEQUENCE_NAME,
 )
+
 from .helpers import (
     SequenceDataStream,
     topic_list,
@@ -201,8 +203,8 @@ def test_sequence_data_stream_timerange_from_half_to_end(
     # start from the half of the sequence
     timestamp_ns_start = _make_sequence_data_stream.tstamp_ns_start + int(
         (
-            _make_sequence_data_stream.tstamp_ns_start
-            + _make_sequence_data_stream.tstamp_ns_end
+            _make_sequence_data_stream.tstamp_ns_end
+            - _make_sequence_data_stream.tstamp_ns_start
         )
         / 2
     )
@@ -225,8 +227,8 @@ def test_sequence_data_stream_timerange_from_half(
     # start from the half of the sequence
     timestamp_ns_start = _make_sequence_data_stream.tstamp_ns_start + int(
         (
-            _make_sequence_data_stream.tstamp_ns_start
-            + _make_sequence_data_stream.tstamp_ns_end
+            _make_sequence_data_stream.tstamp_ns_end
+            - _make_sequence_data_stream.tstamp_ns_start
         )
         / 2
     )
@@ -297,8 +299,8 @@ def test_topic_data_stream_from_half_to_end(
     # start from the half of the sequence
     timestamp_ns_start = _make_sequence_data_stream.tstamp_ns_start + int(
         (
-            _make_sequence_data_stream.tstamp_ns_start
-            + _make_sequence_data_stream.tstamp_ns_end
+            _make_sequence_data_stream.tstamp_ns_end
+            - _make_sequence_data_stream.tstamp_ns_start
         )
         / 2
     )
@@ -325,8 +327,8 @@ def test_topic_data_stream_from_half(
     # start from the half of the sequence
     timestamp_ns_start = _make_sequence_data_stream.tstamp_ns_start + int(
         (
-            _make_sequence_data_stream.tstamp_ns_start
-            + _make_sequence_data_stream.tstamp_ns_end
+            _make_sequence_data_stream.tstamp_ns_end
+            - _make_sequence_data_stream.tstamp_ns_start
         )
         / 2
     )

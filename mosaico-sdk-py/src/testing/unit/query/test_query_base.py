@@ -1,35 +1,33 @@
 from typing import Optional
-from mosaicolabs.models.platform import Sequence, Topic
-from mosaicolabs.models.query.expressions import _QueryExpression
-from mosaicolabs.models.query.generation.mixins import (
-    _QueryableComparable,
-    _QueryableUnsupported,
-    _QueryableString,
-    _QueryableBool,
-    _QueryableDynamicValue,
-    _QueryableField,
-)
-from mosaicolabs.models.query import (
-    QueryOntologyCatalog,
-    QuerySequence,
-    QueryTopic,
-    Query,
-    QueryResponse,
-    QueryResponseItem,
-    QueryResponseItemTopic,
-    QueryResponseItemSequence,
-)
-
-from mosaicolabs.models.query.expressions import (
-    _QueryCatalogExpression,
-    _QuerySequenceExpression,
-    _QueryTopicExpression,
-)
-
-from mosaicolabs.models.query.protocols import QueryableProtocol
 
 import pytest
 
+from mosaicolabs.models.platform import Sequence, Topic
+from mosaicolabs.models.query import (
+    Query,
+    QueryOntologyCatalog,
+    QueryResponse,
+    QueryResponseItem,
+    QueryResponseItemSequence,
+    QueryResponseItemTopic,
+    QuerySequence,
+    QueryTopic,
+)
+from mosaicolabs.models.query.expressions import (
+    _QueryCatalogExpression,
+    _QueryExpression,
+    _QuerySequenceExpression,
+    _QueryTopicExpression,
+)
+from mosaicolabs.models.query.generation.mixins import (
+    _QueryableBool,
+    _QueryableComparable,
+    _QueryableDynamicValue,
+    _QueryableField,
+    _QueryableString,
+    _QueryableUnsupported,
+)
+from mosaicolabs.models.query.protocols import QueryableProtocol
 
 _QUERY_TYPES = [QueryOntologyCatalog, QueryTopic, QuerySequence]
 _QUERY_EXPRESSION_TYPES = [
@@ -170,7 +168,7 @@ def test_construction_query_from_response():
     expected_expr_seq_values = [it.sequence.name for it in qresp]
     qseq = qresp.to_query_sequence()
     assert len(qseq._expressions) == 1
-    assert qseq._expressions[0].key == "name"
+    assert qseq._expressions[0].key == "locator"
     assert all(s in expected_expr_seq_values for s in qseq._expressions[0].value)
     assert all(s in qseq._expressions[0].value for s in expected_expr_seq_values)
 
@@ -182,19 +180,21 @@ def test_construction_query_from_response():
     ]
     qtop = qresp.to_query_topic()
     assert len(qtop._expressions) == 1
-    assert qtop._expressions[0].key == "name"
+    assert qtop._expressions[0].key == "locator"
     assert all(t in expected_expr_top_values for t in qtop._expressions[0].value)
     assert all(t in qtop._expressions[0].value for t in expected_expr_top_values)
 
 
-
 def test_invalid_construction_query_from_response():
-    qresp = QueryResponse(
-        items=[]
-    )
-    with pytest.raises(ValueError, match="Cannot create a 'QuerySequence' builder from an empty response"):
+    qresp = QueryResponse(items=[])
+    with pytest.raises(
+        ValueError,
+        match="Cannot create a 'QuerySequence' builder from an empty response",
+    ):
         qresp.to_query_sequence()
-    with pytest.raises(ValueError, match="Cannot create a 'QueryTopic' builder from an empty response"):
+    with pytest.raises(
+        ValueError, match="Cannot create a 'QueryTopic' builder from an empty response"
+    ):
         qresp.to_query_topic()
 
 

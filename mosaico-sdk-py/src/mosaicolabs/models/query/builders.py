@@ -15,16 +15,16 @@ It implements a Domain-Specific Language that allows users to filter **Sequences
 from typing import Any, Dict, List, Optional, Tuple, Type, get_origin
 
 # Import custom types used in helper methods
-from mosaicolabs.models import Time
-from .protocols import QueryableProtocol
+from mosaicolabs.types import Time
 
 # Import the building blocks for expressions and how they are combined
 from .expressions import (
     _QueryCatalogExpression,
-    _QueryTopicExpression,
-    _QuerySequenceExpression,
     _QueryExpression,
+    _QuerySequenceExpression,
+    _QueryTopicExpression,
 )
+from .protocols import QueryableProtocol
 
 
 def _get_tag_from_expr_key(key: str):
@@ -273,95 +273,6 @@ class QueryOntologyCatalog:
         self._expressions.append(expr)
         return self
 
-    # TODO: improve this query on the server side (remove necessity of ontology_type). Commented for now
-    # def with_message_timestamp(
-    #     self,
-    #     ontology_type: object,
-    #     time_start: Optional[Time] = None,
-    #     time_end: Optional[Time] = None,
-    # ) -> "QueryOntologyCatalog":
-    #     """Helper method to add a filter for the 'creation_unix_timestamp' field."""
-    #     # .between() expects a list [start, end]
-    #     if time_start is None and time_end is None:
-    #         raise ValueError(
-    #             "At least one among 'time_start' and 'time_end' is mandatory"
-    #         )
-
-    #     ts_int = time_start.to_nanoseconds() if time_start else None
-    #     te_int = time_end.to_nanoseconds() if time_end else None
-    #     # special fields in data platform
-    #     if not hasattr(ontology_type, "__ontology_tag__"):
-    #         raise ValueError("Only Serializable types can be used as 'ontology_type'")
-    #     sensor_tag = getattr(ontology_type, "__ontology_tag__")
-    #     if ts_int and not te_int:
-    #         expr = _QueryCatalogExpression(f"{sensor_tag}.timestamp_ns", "$geq", ts_int)
-    #     elif te_int and not ts_int:
-    #         expr = _QueryCatalogExpression(f"{sensor_tag}.timestamp_ns", "$leq", te_int)
-    #     else:
-    #         if not ts_int or not te_int:
-    #             raise ValueError(
-    #                 "This is embarassing"
-    #             )  # will never happen (fix IDE complaining)
-    #         if ts_int > te_int:
-    #             raise ValueError("'time_start' must be less than 'time_end'.")
-
-    #         expr = _QueryCatalogExpression(
-    #             f"{sensor_tag}.timestamp_ns", "$between", [ts_int, te_int]
-    #         )
-    #     return self.with_expression(expr)
-
-    # TODO: improve this query on the server side (remove necessity of ontology_type). Commented for now
-    # def with_data_timestamp(
-    #     self,
-    #     ontology_type: type,
-    #     time_start: Optional[Time] = None,
-    #     time_end: Optional[Time] = None,
-    # ) -> "QueryOntologyCatalog":
-    #     """Helper method to add a filter for the 'creation_unix_timestamp' field."""
-    #     # .between() expects a list [start, end]
-    #     if time_start is None and time_end is None:
-    #         raise ValueError(
-    #             "At least one among 'time_start' and 'time_end' is mandatory"
-    #         )
-
-    #     # special fields in data platform
-    #     if not hasattr(ontology_type, "__ontology_tag__"):
-    #         raise ValueError(
-    #             f"Only Serializable types can be used as 'ontology_type' class '{ontology_type.__name__}'"
-    #         )
-    #     sensor_tag = getattr(ontology_type, "__ontology_tag__")
-    #     if time_start is not None and time_end is None:
-    #         expr1 = _QueryCatalogExpression(
-    #             f"{sensor_tag}.header.stamp.sec", "$geq", time_start.sec
-    #         )
-    #         expr2 = _QueryCatalogExpression(
-    #             f"{sensor_tag}.header.stamp.nanosec", "$geq", time_start.nanosec
-    #         )
-    #     elif time_end is not None and time_start is None:
-    #         expr1 = _QueryCatalogExpression(
-    #             f"{sensor_tag}.header.stamp.sec", "$leq", time_end.sec
-    #         )
-    #         expr2 = _QueryCatalogExpression(
-    #             f"{sensor_tag}.header.stamp.nanosec", "$leq", time_end.nanosec
-    #         )
-    #     else:
-    #         if not time_start or not time_end:
-    #             raise ValueError("This is embarassing")  # will never happen
-    #         if time_start.to_nanoseconds() > time_end.to_nanoseconds():
-    #             raise ValueError("'time_start' must be less than 'time_end'.")
-
-    #         expr1 = _QueryCatalogExpression(
-    #             f"{sensor_tag}.header.stamp.sec",
-    #             "$between",
-    #             [time_start.sec, time_end.sec],
-    #         )
-    #         expr2 = _QueryCatalogExpression(
-    #             f"{sensor_tag}.header.stamp.nanosec",
-    #             "$between",
-    #             [time_start.nanosec, time_end.nanosec],
-    #         )
-    #     return self.with_expression(expr1).with_expression(expr2)
-
     # compatibility with QueryProtocol
     def name(self) -> str:
         """Returns the top-level key ('ontology') used for nesting inside a root [`Query`][mosaicolabs.models.query.builders.Query]."""
@@ -517,7 +428,7 @@ class QueryTopic:
         Returns:
             The `QueryTopic` instance for method chaining.
         """
-        return self.with_expression(_QueryTopicExpression("name", "$eq", f"{name}"))
+        return self.with_expression(_QueryTopicExpression("locator", "$eq", f"{name}"))
 
     def with_name_match(self, name: str) -> "QueryTopic":
         """
@@ -553,7 +464,7 @@ class QueryTopic:
         return self.with_expression(
             # employs explicit _QueryTopicExpression composition for dealing with
             # special fields in data platform
-            _QueryTopicExpression("name", "$match", f"{name}")
+            _QueryTopicExpression("locator", "$match", f"{name}")
         )
 
     def with_ontology_tag(self, ontology_tag: str) -> "QueryTopic":
@@ -676,7 +587,7 @@ class QueryTopic:
            are stripped of their prefix and nested under that key.
 
         Returns:
-            A dictionary representation of the query, e.g., `{"name": {"$eq": "..."}, "user_metadata": {"key": {"$eq": "..."}}}`.
+            A dictionary representation of the query, e.g., `{"locator": {"$eq": "..."}, "user_metadata": {"key": {"$eq": "..."}}}`.
         """
         # Delayed import to avoid circular dependency
         from ..platform.topic import Topic
@@ -707,7 +618,7 @@ class QueryTopic:
                 normal_exprs.append(expr)
 
         # Combine the normal, top-level expressions
-        # This will produce {"name": {"$eq": "..."}}
+        # This will produce {"locator": {"$eq": "..."}}
         exprs_dict = _QueryCombinator(normal_exprs).to_dict()
 
         # Build and merge the nested metadata dictionaries
@@ -869,7 +780,7 @@ class QuerySequence:
         return self.with_expression(
             # employs explicit _QuerySequenceExpression composition for dealing with
             # special fields in data platform
-            _QuerySequenceExpression("name", "$eq", name)
+            _QuerySequenceExpression("locator", "$eq", name)
         )
 
     def with_name_match(self, name: str) -> "QuerySequence":
@@ -903,7 +814,7 @@ class QuerySequence:
         return self.with_expression(
             # employs explicit _QuerySequenceExpression composition for dealing with
             # special fields in data platform
-            _QuerySequenceExpression("name", "$match", f"{name}")
+            _QuerySequenceExpression("locator", "$match", f"{name}")
         )
 
     def with_created_timestamp(
@@ -1014,7 +925,7 @@ class QuerySequence:
                 normal_exprs.append(expr)
 
         # Combine the normal, top-level expressions
-        # This will produce {"name": {"$eq": "..."}}
+        # This will produce {"locator": {"$eq": "..."}}
         exprs_dict = _QueryCombinator(normal_exprs).to_dict()
 
         # Build and merge the nested metadata dictionaries
@@ -1072,8 +983,7 @@ class Query:
                 # Append a filter with deep time-series data discovery and measurement time windowing
                 QueryOntologyCatalog(include_timestamp_range=True)
                 .with_expression(IMU.Q.acceleration.x.gt(5.0))
-                .with_expression(IMU.Q.header.stamp.sec.gt(1700134567))
-                .with_expression(IMU.Q.header.stamp.nanosec.between([123456, 789123])),
+                .with_expression(IMU.Q.timestamp_ns.gt(1700134567))
             )
             # Perform the server side query
             qresponse = client.query(query=query)
@@ -1143,8 +1053,7 @@ class Query:
             query.append(
                 QueryOntologyCatalog()
                 .with_expression(IMU.Q.acceleration.x.gt(5.0))
-                .with_expression(IMU.Q.header.stamp.sec.gt(1700134567))
-                .with_expression(IMU.Q.header.stamp.nanosec.between([123456, 789123])),
+                .with_expression(IMU.Q.timestamp_ns.gt(1700134567))
             )
             ```
         """

@@ -5,7 +5,8 @@ const TIMESTAMP_UB_POS_SENTINEL: i64 = i64::MAX;
 /// SEntinel value to represent the negative unbounded timestamp
 const TIMESTAMP_UB_NEG_SENTINEL: i64 = i64::MIN;
 
-/// Timestamp format used by mosaico, currently this timestamp represent nanoseconds units of time
+/// Timestamp format used by mosaico, currently this timestamp represent nanoseconds
+/// units of time (stored as 64bit integer)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub struct Timestamp(i64);
 
@@ -61,6 +62,13 @@ impl std::fmt::Display for Timestamp {
             return write!(f, "-unbounded");
         }
         write!(f, "{}", self.0)
+    }
+}
+
+impl std::ops::Add<std::time::Duration> for Timestamp {
+    type Output = Self;
+    fn add(self, rhs: std::time::Duration) -> Self::Output {
+        Self(self.0 + (rhs.as_nanos() as i64))
     }
 }
 
@@ -151,7 +159,7 @@ impl DateTime {
 
 impl std::fmt::Display for DateTime {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
+        write!(f, "{}", self.0.format("%Y-%m-%d %H:%M UTC"))
     }
 }
 

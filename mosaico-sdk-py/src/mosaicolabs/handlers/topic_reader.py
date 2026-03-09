@@ -6,17 +6,18 @@ from a single topic via the Flight `DoGet` protocol.
 """
 
 import json
-from mosaicolabs.handlers.endpoints import TopicParsingError, TopicResourceManifest
-from mosaicolabs.models.message import Message
-import pyarrow.flight as fl
-import pyarrow as pa
 from typing import Any, Optional
 
-from .internal.topic_read_state import _TopicReadState
+import pyarrow as pa
+import pyarrow.flight as fl
 
-from ..comm.metadata import TopicMetadata, _decode_metadata
+from mosaicolabs.handlers.endpoints import TopicParsingError, TopicResourceManifest
+from mosaicolabs.models.message import Message
+
+from ..comm.metadata import TopicMetadata, _decode_schema_metadata
 from ..helpers.helpers import pack_topic_resource_name
 from ..logging_config import get_logger
+from .internal.topic_read_state import _TopicReadState
 
 # Set the hierarchical logger
 logger = get_logger(__name__)
@@ -132,7 +133,9 @@ class TopicDataStreamer:
             )
 
         # Decode metadata to determine how to deserialize the data
-        topic_mdata = TopicMetadata.from_dict(_decode_metadata(reader.schema.metadata))
+        topic_mdata = TopicMetadata._from_decoded_schema_metadata(
+            _decode_schema_metadata(reader.schema.metadata)
+        )
         ontology_tag = topic_mdata.properties.ontology_tag
 
         rdstate = _TopicReadState(

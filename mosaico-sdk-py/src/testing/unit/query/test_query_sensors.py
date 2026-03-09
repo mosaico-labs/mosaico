@@ -7,25 +7,22 @@ from mosaicolabs.models.query import (
     Query,
     QueryOntologyCatalog,
 )
-
-from mosaicolabs.models.query.generation.mixins import (
-    _QueryableNumeric,
-    _QueryableString,
-    _QueryableBool,
-)
-
 from mosaicolabs.models.query.expressions import (
     _QueryCatalogExpression,
 )
-
+from mosaicolabs.models.query.generation.mixins import (
+    _QueryableBool,
+    _QueryableNumeric,
+    _QueryableString,
+)
 from mosaicolabs.models.sensors import (
-    IMU,
     GPS,
+    IMU,
     Image,
     Magnetometer,
-    Temperature,
     Pressure,
     Range,
+    Temperature,
 )
 
 
@@ -52,12 +49,10 @@ class TestQueryIMUAPI:
         IMU.Q.orientation.w
         # Inherited from Quaternion
         IMU.Q.orientation.covariance_type
-        # Inherited from HeaderMixin
-        IMU.Q.header.seq
-        IMU.Q.header.stamp.sec
-        IMU.Q.header.stamp.nanosec
-        IMU.Q.header.frame_id
         # Inherited from Message
+        IMU.Q.sequence_id
+        IMU.Q.timestamp_ns
+        IMU.Q.frame_id
         IMU.Q.timestamp_ns
         # --- Catalog Context: Non-existing field ---
         with pytest.raises(Exception):
@@ -86,10 +81,9 @@ class TestQueryIMUAPI:
         assert issubclass(type(IMU.Q.orientation.z), _QueryableNumeric)
         assert issubclass(type(IMU.Q.orientation.w), _QueryableNumeric)
         assert issubclass(type(IMU.Q.orientation.covariance_type), _QueryableNumeric)
-        assert issubclass(type(IMU.Q.header.seq), _QueryableNumeric)
-        assert issubclass(type(IMU.Q.header.stamp.sec), _QueryableNumeric)
-        assert issubclass(type(IMU.Q.header.stamp.nanosec), _QueryableNumeric)
-        assert issubclass(type(IMU.Q.header.frame_id), _QueryableString)
+        assert issubclass(type(IMU.Q.sequence_id), _QueryableNumeric)
+        assert issubclass(type(IMU.Q.timestamp_ns), _QueryableNumeric)
+        assert issubclass(type(IMU.Q.frame_id), _QueryableString)
 
     def test_expression_generation_paths_and_operators(self):
         """
@@ -113,12 +107,12 @@ class TestQueryIMUAPI:
 
         # --- Catalog Context: Range Operator ---
         test_time_range = [10000, 30000]
-        # Call: GPS.Q.timestamp_ns.between(10000, 30000)
-        # Expected: {'gps.timestamp_ns': {'$between': [10000, 30000]}} - _QueryCatalogExpression
-        expr_between = IMU.Q.header.stamp.sec.between(test_time_range)
+        # Call: IMU.Q.timestamp_ns.between(10000, 30000)
+        # Expected: {'imu.timestamp_ns': {'$between': [10000, 30000]}} - _QueryCatalogExpression
+        expr_between = IMU.Q.timestamp_ns.between(test_time_range)
         assert isinstance(expr_between, _QueryCatalogExpression)
         assert expr_between.to_dict() == {
-            "imu.header.stamp.sec": {"$between": test_time_range}
+            "imu.timestamp_ns": {"$between": test_time_range}
         }
 
     def test_full_sdk_query_to_dict_structure(self):
@@ -171,12 +165,10 @@ class TestQueryGPSAPI:
         GPS.Q.status.satellites
         GPS.Q.status.hdop
         GPS.Q.status.vdop
-        # Inherited from HeaderMixin
-        GPS.Q.header.seq
-        GPS.Q.header.stamp.sec
-        GPS.Q.header.stamp.nanosec
-        GPS.Q.header.frame_id
         # Inherited from Message
+        GPS.Q.sequence_id
+        GPS.Q.timestamp_ns
+        GPS.Q.frame_id
         GPS.Q.timestamp_ns
         # --- Catalog Context: Non-existing field ---
         with pytest.raises(Exception):
@@ -201,10 +193,9 @@ class TestQueryGPSAPI:
         assert issubclass(type(GPS.Q.status.satellites), _QueryableNumeric)
         assert issubclass(type(GPS.Q.status.hdop), _QueryableNumeric)
         assert issubclass(type(GPS.Q.status.vdop), _QueryableNumeric)
-        assert issubclass(type(GPS.Q.header.seq), _QueryableNumeric)
-        assert issubclass(type(GPS.Q.header.stamp.sec), _QueryableNumeric)
-        assert issubclass(type(GPS.Q.header.stamp.nanosec), _QueryableNumeric)
-        assert issubclass(type(GPS.Q.header.frame_id), _QueryableString)
+        assert issubclass(type(GPS.Q.sequence_id), _QueryableNumeric)
+        assert issubclass(type(GPS.Q.timestamp_ns), _QueryableNumeric)
+        assert issubclass(type(GPS.Q.frame_id), _QueryableString)
 
     def test_expression_generation_paths_and_operators(self):
         """
@@ -226,10 +217,10 @@ class TestQueryGPSAPI:
         test_time_range = [10000, 30000]
         # Call: GPS.Q.timestamp_ns.between(10000, 30000)
         # Expected: {'gps.timestamp_ns': {'$between': [10000, 30000]}} - _QueryCatalogExpression
-        expr_between = GPS.Q.header.stamp.sec.between(test_time_range)
+        expr_between = GPS.Q.timestamp_ns.between(test_time_range)
         assert isinstance(expr_between, _QueryCatalogExpression)
         assert expr_between.to_dict() == {
-            "gps.header.stamp.sec": {"$between": test_time_range}
+            "gps.timestamp_ns": {"$between": test_time_range}
         }
 
     def test_full_sdk_query_to_dict_structure(self):
@@ -274,12 +265,10 @@ class TestQueryImageAPI:
         Image.Q.stride
         Image.Q.is_bigendian
         Image.Q.encoding
-        # Inherited from HeaderMixin
-        Image.Q.header.seq
-        Image.Q.header.stamp.sec
-        Image.Q.header.stamp.nanosec
-        Image.Q.header.frame_id
         # Inherited from Message
+        Image.Q.sequence_id
+        Image.Q.timestamp_ns
+        Image.Q.frame_id
         Image.Q.timestamp_ns
         with pytest.raises(Exception):
             Image.Q.data.eq(0)  # data is binary and does not provide operators
@@ -300,10 +289,9 @@ class TestQueryImageAPI:
         assert issubclass(type(Image.Q.stride), _QueryableNumeric)
         assert issubclass(type(Image.Q.is_bigendian), _QueryableBool)
         assert issubclass(type(Image.Q.encoding), _QueryableString)
-        assert issubclass(type(Image.Q.header.seq), _QueryableNumeric)
-        assert issubclass(type(Image.Q.header.stamp.sec), _QueryableNumeric)
-        assert issubclass(type(Image.Q.header.stamp.nanosec), _QueryableNumeric)
-        assert issubclass(type(Image.Q.header.frame_id), _QueryableString)
+        assert issubclass(type(Image.Q.sequence_id), _QueryableNumeric)
+        assert issubclass(type(Image.Q.timestamp_ns), _QueryableNumeric)
+        assert issubclass(type(Image.Q.frame_id), _QueryableString)
 
     def test_expression_generation_paths_and_operators(self):
         """
@@ -325,10 +313,10 @@ class TestQueryImageAPI:
         test_time_range = [10000, 30000]
         # Call: Image.Q.timestamp_ns.between(10000, 30000)
         # Expected: {'image.timestamp_ns': {'$between': [10000, 30000]}} - _QueryCatalogExpression
-        expr_between = Image.Q.header.stamp.sec.between(test_time_range)
+        expr_between = Image.Q.timestamp_ns.between(test_time_range)
         assert isinstance(expr_between, _QueryCatalogExpression)
         assert expr_between.to_dict() == {
-            "image.header.stamp.sec": {"$between": test_time_range}
+            "image.timestamp_ns": {"$between": test_time_range}
         }
 
     def test_full_sdk_query_to_dict_structure(self):
@@ -372,12 +360,10 @@ class TestQueryMagnetometerAPI:
         Magnetometer.Q.magnetic_field.z
         # Inherited from Vector3d
         Magnetometer.Q.magnetic_field.covariance_type
-        # Inherited from HeaderMixin
-        Magnetometer.Q.header.seq
-        Magnetometer.Q.header.stamp.sec
-        Magnetometer.Q.header.stamp.nanosec
-        Magnetometer.Q.header.frame_id
         # Inherited from Message
+        Magnetometer.Q.sequence_id
+        Magnetometer.Q.timestamp_ns
+        Magnetometer.Q.frame_id
         Magnetometer.Q.timestamp_ns
         # --- Catalog Context: Non-existing field ---
         with pytest.raises(Exception):
@@ -396,10 +382,9 @@ class TestQueryMagnetometerAPI:
         assert issubclass(
             type(Magnetometer.Q.magnetic_field.covariance_type), _QueryableNumeric
         )
-        assert issubclass(type(Magnetometer.Q.header.seq), _QueryableNumeric)
-        assert issubclass(type(Magnetometer.Q.header.stamp.sec), _QueryableNumeric)
-        assert issubclass(type(Magnetometer.Q.header.stamp.nanosec), _QueryableNumeric)
-        assert issubclass(type(Magnetometer.Q.header.frame_id), _QueryableString)
+        assert issubclass(type(Magnetometer.Q.sequence_id), _QueryableNumeric)
+        assert issubclass(type(Magnetometer.Q.timestamp_ns), _QueryableNumeric)
+        assert issubclass(type(Magnetometer.Q.frame_id), _QueryableString)
 
     def test_expression_generation_paths_and_operators(self):
         """
@@ -420,10 +405,10 @@ class TestQueryMagnetometerAPI:
         test_time_range = [10000, 30000]
         # Call: Image.Q.timestamp_ns.between(10000, 30000)
         # Expected: {'image.timestamp_ns': {'$between': [10000, 30000]}} - _QueryCatalogExpression
-        expr_between = Magnetometer.Q.header.stamp.sec.between(test_time_range)
+        expr_between = Magnetometer.Q.timestamp_ns.between(test_time_range)
         assert isinstance(expr_between, _QueryCatalogExpression)
         assert expr_between.to_dict() == {
-            "magnetometer.header.stamp.sec": {"$between": test_time_range}
+            "magnetometer.timestamp_ns": {"$between": test_time_range}
         }
 
     def test_full_sdk_query_to_dict_structure(self):
@@ -463,15 +448,13 @@ class TestQueryTemperatureAPI:
         # --- Fields Accessibility Test ---
         # Local fields
         Temperature.Q.value
-        # Inherited from HeaderMixin
-        Temperature.Q.header.seq
-        Temperature.Q.header.stamp.sec
-        Temperature.Q.header.stamp.nanosec
-        Temperature.Q.header.frame_id
         # Inherited from VarianceMixin
         Temperature.Q.variance
         Temperature.Q.variance_type
         # Inherited from Message
+        Temperature.Q.sequence_id
+        Temperature.Q.timestamp_ns
+        Temperature.Q.frame_id
         Temperature.Q.timestamp_ns
         # --- Catalog Context: Non-existing field ---
         with pytest.raises(Exception):
@@ -485,10 +468,9 @@ class TestQueryTemperatureAPI:
         # --- Fields Accessibility Test ---
         # Local fields
         assert issubclass(type(Temperature.Q.value), _QueryableNumeric)
-        assert issubclass(type(Temperature.Q.header.seq), _QueryableNumeric)
-        assert issubclass(type(Temperature.Q.header.stamp.sec), _QueryableNumeric)
-        assert issubclass(type(Temperature.Q.header.stamp.nanosec), _QueryableNumeric)
-        assert issubclass(type(Temperature.Q.header.frame_id), _QueryableString)
+        assert issubclass(type(Temperature.Q.sequence_id), _QueryableNumeric)
+        assert issubclass(type(Temperature.Q.timestamp_ns), _QueryableNumeric)
+        assert issubclass(type(Temperature.Q.frame_id), _QueryableString)
         assert issubclass(type(Temperature.Q.variance), _QueryableNumeric)
         assert issubclass(type(Temperature.Q.variance_type), _QueryableNumeric)
 
@@ -511,10 +493,10 @@ class TestQueryTemperatureAPI:
         test_time_range = [10000, 30000]
         # Call: Image.Q.timestamp_ns.between(10000, 30000)
         # Expected: {'image.timestamp_ns': {'$between': [10000, 30000]}} - _QueryCatalogExpression
-        expr_between = Temperature.Q.header.stamp.sec.between(test_time_range)
+        expr_between = Temperature.Q.timestamp_ns.between(test_time_range)
         assert isinstance(expr_between, _QueryCatalogExpression)
         assert expr_between.to_dict() == {
-            "temperature.header.stamp.sec": {"$between": test_time_range}
+            "temperature.timestamp_ns": {"$between": test_time_range}
         }
 
     def test_full_sdk_query_to_dict_structure(self):
@@ -569,15 +551,13 @@ class TestQueryPressureAPI:
         # --- Fields Accessibility Test ---
         # Local fields
         Pressure.Q.value
-        # Inherited from HeaderMixin
-        Pressure.Q.header.seq
-        Pressure.Q.header.stamp.sec
-        Pressure.Q.header.stamp.nanosec
-        Pressure.Q.header.frame_id
         # Inherited from VarianceMixin
         Pressure.Q.variance
         Pressure.Q.variance_type
         # Inherited from Message
+        Pressure.Q.sequence_id
+        Pressure.Q.timestamp_ns
+        Pressure.Q.frame_id
         Pressure.Q.timestamp_ns
         # --- Catalog Context: Non-existing field ---
         with pytest.raises(Exception):
@@ -591,10 +571,9 @@ class TestQueryPressureAPI:
         # --- Fields Accessibility Test ---
         # Local fields
         assert issubclass(type(Pressure.Q.value), _QueryableNumeric)
-        assert issubclass(type(Pressure.Q.header.seq), _QueryableNumeric)
-        assert issubclass(type(Pressure.Q.header.stamp.sec), _QueryableNumeric)
-        assert issubclass(type(Pressure.Q.header.stamp.nanosec), _QueryableNumeric)
-        assert issubclass(type(Pressure.Q.header.frame_id), _QueryableString)
+        assert issubclass(type(Pressure.Q.sequence_id), _QueryableNumeric)
+        assert issubclass(type(Pressure.Q.timestamp_ns), _QueryableNumeric)
+        assert issubclass(type(Pressure.Q.frame_id), _QueryableString)
         assert issubclass(type(Pressure.Q.variance), _QueryableNumeric)
         assert issubclass(type(Pressure.Q.variance_type), _QueryableNumeric)
 
@@ -617,10 +596,10 @@ class TestQueryPressureAPI:
         test_time_range = [10000, 30000]
         # Call: Image.Q.timestamp_ns.between(10000, 30000)
         # Expected: {'image.timestamp_ns': {'$between': [10000, 30000]}} - _QueryCatalogExpression
-        expr_between = Pressure.Q.header.stamp.sec.between(test_time_range)
+        expr_between = Pressure.Q.timestamp_ns.between(test_time_range)
         assert isinstance(expr_between, _QueryCatalogExpression)
         assert expr_between.to_dict() == {
-            "pressure.header.stamp.sec": {"$between": test_time_range}
+            "pressure.timestamp_ns": {"$between": test_time_range}
         }
 
     def test_full_sdk_query_to_dict_structure(self):
@@ -684,15 +663,13 @@ class TestQueryRangeAPI:
         Range.Q.min_range
         Range.Q.max_range
         Range.Q.range
-        # Inherited from HeaderMixin
-        Range.Q.header.seq
-        Range.Q.header.stamp.sec
-        Range.Q.header.stamp.nanosec
-        Range.Q.header.frame_id
         # Inherited from VarianceMixin
         Range.Q.variance
         Range.Q.variance_type
         # Inherited from Message
+        Range.Q.sequence_id
+        Range.Q.timestamp_ns
+        Range.Q.frame_id
         Range.Q.timestamp_ns
         # --- Catalog Context: Non-existing field ---
         with pytest.raises(Exception):
@@ -710,10 +687,9 @@ class TestQueryRangeAPI:
         assert issubclass(type(Range.Q.min_range), _QueryableNumeric)
         assert issubclass(type(Range.Q.max_range), _QueryableNumeric)
         assert issubclass(type(Range.Q.range), _QueryableNumeric)
-        assert issubclass(type(Range.Q.header.seq), _QueryableNumeric)
-        assert issubclass(type(Range.Q.header.stamp.sec), _QueryableNumeric)
-        assert issubclass(type(Range.Q.header.stamp.nanosec), _QueryableNumeric)
-        assert issubclass(type(Range.Q.header.frame_id), _QueryableString)
+        assert issubclass(type(Range.Q.sequence_id), _QueryableNumeric)
+        assert issubclass(type(Range.Q.timestamp_ns), _QueryableNumeric)
+        assert issubclass(type(Range.Q.frame_id), _QueryableString)
         assert issubclass(type(Range.Q.variance), _QueryableNumeric)
         assert issubclass(type(Range.Q.variance_type), _QueryableNumeric)
 
@@ -736,10 +712,10 @@ class TestQueryRangeAPI:
         test_time_range = [10000, 30000]
         # Call: Image.Q.timestamp_ns.between(10000, 30000)
         # Expected: {'image.timestamp_ns': {'$between': [10000, 30000]}} - _QueryCatalogExpression
-        expr_between = Range.Q.header.stamp.sec.between(test_time_range)
+        expr_between = Range.Q.timestamp_ns.between(test_time_range)
         assert isinstance(expr_between, _QueryCatalogExpression)
         assert expr_between.to_dict() == {
-            "range.header.stamp.sec": {"$between": test_time_range}
+            "range.timestamp_ns": {"$between": test_time_range}
         }
 
     def test_full_sdk_query_to_dict_structure(self):

@@ -5,14 +5,14 @@ Defines the data structure for temperature sensors.
 """
 
 from typing import Optional
+
 import pyarrow as pa
 
-from ..mixins import HeaderMixin, VarianceMixin
+from ..mixins import VarianceMixin
 from ..serializable import Serializable
-from ..header import Header
 
 
-class Temperature(Serializable, HeaderMixin, VarianceMixin):
+class Temperature(Serializable, VarianceMixin):
     """
     Represents a thermodynamic temperature. The internal representation is always stored in **Kelvin (K)**.
 
@@ -22,6 +22,8 @@ class Temperature(Serializable, HeaderMixin, VarianceMixin):
     Attributes:
         value (float): Temperature value in **Kelvin (K)**. When using the constructor directly,
             the value **must** be provided in Kelvin.
+        variance (Optional[float]): The variance of the data.
+        variance_type (Optional[int]): Enum integer representing the variance parameterization.
 
     ### Querying with the **`.Q` Proxy**
     This class is fully queryable via the **`.Q` proxy**. You can filter temperature data based
@@ -35,7 +37,7 @@ class Temperature(Serializable, HeaderMixin, VarianceMixin):
             # Filter for temperature values within a specific range
             qresponse = client.query(
                 QueryOntologyCatalog(Temperature.Q.value.between([273.15, 373.15]))
-                .with_expression(Temperature.Q.header.stamp.sec.between(1700000000, 1800000000)),
+                .with_expression(Temperature.Q.timestamp_ns.between(1700000000, 1800000000)),
             )
 
             # Inspect the response
@@ -120,7 +122,6 @@ class Temperature(Serializable, HeaderMixin, VarianceMixin):
         cls,
         *,
         value: float,
-        header: Optional[Header] = None,
         variance: Optional[float] = None,
         variance_type: Optional[int] = None,
     ) -> "Temperature":
@@ -130,7 +131,6 @@ class Temperature(Serializable, HeaderMixin, VarianceMixin):
 
         Args:
             value (float): The temperature value in Celsius.
-            header (Optional[Header]): The standard metadata header (optional).
             variance (Optional[float]): The variance of the data.
             variance_type (Optional[int]): Enum integer representing the variance parameterization.
 
@@ -140,7 +140,6 @@ class Temperature(Serializable, HeaderMixin, VarianceMixin):
         value_in_kelvin = value + 273.15
         return cls(
             value=value_in_kelvin,
-            header=header,
             variance=variance,
             variance_type=variance_type,
         )
@@ -150,7 +149,6 @@ class Temperature(Serializable, HeaderMixin, VarianceMixin):
         cls,
         *,
         value: float,
-        header: Optional[Header] = None,
         variance: Optional[float] = None,
         variance_type: Optional[int] = None,
     ) -> "Temperature":
@@ -160,7 +158,6 @@ class Temperature(Serializable, HeaderMixin, VarianceMixin):
 
         Args:
             value (float): The temperature value in Celsius.
-            header (Optional[Header]): The standard metadata header (optional).
             variance (Optional[float]): The variance of the data.
             variance_type (Optional[int]): Enum integer representing the variance parameterization.
 
@@ -170,7 +167,6 @@ class Temperature(Serializable, HeaderMixin, VarianceMixin):
         value_in_kelvin = (value - 32) * 5 / 9 + 273.15
         return cls(
             value=value_in_kelvin,
-            header=header,
             variance=variance,
             variance_type=variance_type,
         )

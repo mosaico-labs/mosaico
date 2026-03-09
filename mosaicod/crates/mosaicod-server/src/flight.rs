@@ -8,16 +8,17 @@ use arrow_flight::{
 };
 use futures::TryStreamExt;
 use futures::stream::BoxStream;
-use log::{error, trace};
+use log::{error, trace, warn};
 use mosaicod_core::params;
+use mosaicod_db as db;
+use mosaicod_ext as ext;
 use mosaicod_marshal as marshal;
 use mosaicod_query as query;
-use mosaicod_repo as repo;
 use mosaicod_store as store;
+use std::error::Error;
 use std::sync::Arc;
 use tokio::sync::Notify;
-use tonic::transport::Server;
-use tonic::{Request, Response, Status, Streaming};
+use tonic::{Request, Response, Status, Streaming, transport::Server};
 
 /// To stop the server use the following command on
 /// `ShutdownNotifier`
@@ -44,24 +45,42 @@ impl Default for ShutdownNotifier {
 pub struct Config {
     pub host: String,
     pub port: u16,
+
+    pub tls: Option<TlsConfig>,
+}
+
+pub struct TlsConfig {
+    pub certificate_file: std::path::PathBuf,
+    pub private_key_file: std::path::PathBuf,
 }
 
 /// Start mosaico Apache Arrow Flight service
 pub async fn start(
     config: Config,
     store: store::StoreRef,
-    repo: repo::Repository,
+    db: db::Database,
     shutdown: Option<ShutdownNotifier>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let addr = format!("{}:{}", config.host, config.port).parse()?;
 
-    let service = MosaicoFlightService::try_new(store, repo)?;
+    let service = MosaicoFlightService::try_new(store, db)?;
 
     let svc = FlightServiceServer::new(service);
 
-    let server = Server::builder().add_service(
-        svc.max_decoding_message_size(params::configurables().max_message_size_in_bytes)
-            .max_encoding_message_size(params::configurables().max_message_size_in_bytes),
+    let mut builder = Server::builder();
+
+    if let Some(tls) = config.tls {
+        builder = builder.tls_config(ext::tonic::load_tls_config(
+            &tls.certificate_file,
+            &tls.private_key_file,
+        )?)?;
+    } else {
+        warn!("TLS not enabled. Use the proper command line option to enable it.");
+    }
+
+    let server = builder.add_service(
+        svc.max_decoding_message_size(params::params().max_message_size_in_bytes)
+            .max_encoding_message_size(params::params().max_message_size_in_bytes),
     );
 
     if let Some(shutdown_notifier) = shutdown {
@@ -80,19 +99,19 @@ pub async fn start(
 
 struct MosaicoFlightService {
     store: store::StoreRef,
-    repo: repo::Repository,
+    db: db::Database,
     ts_gw: query::TimeseriesRef,
 }
 
 impl MosaicoFlightService {
-    pub fn try_new(store: store::StoreRef, repo: repo::Repository) -> Result<Self, String> {
+    pub fn try_new(store: store::StoreRef, db: db::Database) -> Result<Self, String> {
         let ts_gw = Arc::new(query::Timeseries::try_new(store.clone()).map_err(|e| e.to_string())?);
 
-        Ok(MosaicoFlightService { store, repo, ts_gw })
+        Ok(MosaicoFlightService { store, db, ts_gw })
     }
 
     pub fn context(&self) -> endpoints::Context {
-        endpoints::Context::new(self.store.clone(), self.repo.clone(), self.ts_gw.clone())
+        endpoints::Context::new(self.store.clone(), self.db.clone(), self.ts_gw.clone())
     }
 }
 #[tonic::async_trait]
@@ -236,12 +255,16 @@ impl FlightService for MosaicoFlightService {
 ///
 /// Use this function with `.inspect_err`
 fn log_server_error(e: &ServerError) {
-    match e {
-        ServerError::BadTicket(inner) => {
-            error!("{} - {}", e, inner);
-        }
-        _ => error!("{}", e),
+    let mut unrolled_error = e.to_string();
+
+    let mut err: &dyn Error = e;
+
+    while let Some(inner_err) = err.source() {
+        unrolled_error.push_str(format!(" :: {}", inner_err).as_str());
+        err = inner_err;
     }
+
+    log::error!("{}", unrolled_error);
 }
 
 #[cfg(test)]

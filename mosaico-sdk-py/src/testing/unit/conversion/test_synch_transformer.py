@@ -1,5 +1,6 @@
 import pandas as pd
-from mosaicolabs.ml import SyncTransformer, SyncHold, SyncAsOf, SyncDrop
+
+from mosaicolabs.ml import SyncAsOf, SyncDrop, SyncHold, SyncTransformer
 
 
 def test_sync_transformer_fps_to_ns_alignment():

@@ -1,14 +1,16 @@
-from mosaicolabs.comm import MosaicoClient
 import pytest
+
+from mosaicolabs.comm import MosaicoClient
 from testing.integration.config import (
+    QUERY_SEQUENCES_MOCKUP,
     UPLOADED_SEQUENCE_METADATA,
     UPLOADED_SEQUENCE_NAME,
-    QUERY_SEQUENCES_MOCKUP,
 )
+
 from .helpers import (
-    topic_to_metadata_dict,
-    topic_list,
     _validate_returned_topic_name,
+    topic_list,
+    topic_to_metadata_dict,
 )
 
 
@@ -22,6 +24,33 @@ def test_sequence_metadata_recvd(
     assert seqhandler is not None
     # Deserialized metadata must be the same
     assert seqhandler.user_metadata == UPLOADED_SEQUENCE_METADATA
+    # free resources
+    _client.close()
+
+
+def test_sequence_reload(
+    _client: MosaicoClient,
+    _inject_sequence_data_stream,  # Ensure the data are available on the data platform
+):
+    """Test that the sent and reconstructed sequence metadata are the same as original ones"""
+    seqhandler = _client.sequence_handler(UPLOADED_SEQUENCE_NAME)
+    # Sequence must exist
+    assert seqhandler is not None
+    original_topics = seqhandler.topics
+    original_size_bytes = seqhandler.total_size_bytes
+    original_created_datetime = seqhandler.created_datetime
+    original_timestamp_ns_min = seqhandler.timestamp_ns_min
+    original_timestamp_ns_max = seqhandler.timestamp_ns_max
+
+    seqhandler.reload()
+    assert seqhandler is not None
+    assert len(seqhandler.topics) == len(original_topics)
+    assert all(topic in original_topics for topic in seqhandler.topics)
+    assert seqhandler.total_size_bytes == original_size_bytes
+    assert seqhandler.created_datetime == original_created_datetime
+    assert seqhandler.timestamp_ns_min == original_timestamp_ns_min
+    assert seqhandler.timestamp_ns_max == original_timestamp_ns_max
+
     # free resources
     _client.close()
 

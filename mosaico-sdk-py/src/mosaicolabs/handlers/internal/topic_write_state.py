@@ -7,21 +7,21 @@ to optimize throughput while preventing memory exhaustion.
 """
 
 from collections import defaultdict
+from concurrent.futures import Future, ThreadPoolExecutor, wait
 from enum import Enum
-from mosaicolabs.models.message import Message
-import pyarrow.flight as fl
-import pyarrow as pa
-import pyarrow.ipc as pa_ipc
+from threading import BoundedSemaphore, Lock
 from typing import List, Optional
 
-from concurrent.futures import ThreadPoolExecutor, Future, wait
-from threading import BoundedSemaphore, Lock
+import pyarrow as pa
+import pyarrow.flight as fl
+import pyarrow.ipc as pa_ipc
 
-from mosaicolabs.models import Serializable
 from mosaicolabs.enum import SerializationFormat
 from mosaicolabs.logging_config import get_logger
-from ...comm.connection import PYARROW_OUT_OF_RANGE_BYTES
+from mosaicolabs.models import Serializable
+from mosaicolabs.models.message import Message
 
+from ...comm.connection import PYARROW_OUT_OF_RANGE_BYTES
 
 # Set the hierarchical logger
 logger = get_logger(__name__)
@@ -258,6 +258,7 @@ class _TopicWriteState:
                 # Transmission (IO)
                 assert self.writer is not None
                 self.writer.write(batch)
+                self._written_records += len(msgs_to_write)
             except Exception as e:
                 logger.error(f"Async write failed for topic '{topic_name}': '{e}'")
             finally:
@@ -272,7 +273,10 @@ class _TopicWriteState:
             self._pending_sem.acquire()
 
             future = self.executor.submit(
-                full_write_task, msgs_to_write, self.topic_name, self._pending_sem
+                full_write_task,
+                msgs_to_write,
+                self.topic_name,
+                self._pending_sem,
             )
 
             # Resource Management
@@ -293,8 +297,6 @@ class _TopicWriteState:
         else:
             # Sync Path: Run immediately on main thread
             full_write_task(msgs_to_write, self.topic_name, None)
-
-        self._written_records += len(msgs_to_write)
 
     def _write_current_batch(self):
         """
