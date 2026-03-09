@@ -10,7 +10,7 @@ dependencies = [
     "mkdocs-material (>=9.7.1,<10.0.0)",
     "mkdocstrings[python] (>=1.0.2,<2.0.0)",
     "ruff (>=0.15.1,<0.16.0)",
-    "mike (>=2.1.0,<3.0.0)"
+    "mike (>=2.1.0,<3.0.0)",
     "markdownify (>=1.2.2,<2.0.0)",
 ]
 
