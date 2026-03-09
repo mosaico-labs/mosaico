@@ -37,9 +37,5 @@ jobs:
       - name: Deploy docs
         working-directory: ./doc
         run: |
-          if [[ "${{ github.ref_type }}" == "tag" ]]; then
-            mike deploy --push "${{ github.ref_name }}"
-          else
-            mike deploy --push --update-aliases latest
-            mike set-default --push latest
-          fi
+          mike deploy --push --update-aliases "${{ github.ref_name }}" latest
+          mike set-default --push latest
