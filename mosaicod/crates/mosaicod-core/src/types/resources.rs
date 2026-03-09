@@ -1,6 +1,6 @@
-use super::Uuid;
 use super::{Format, TimestampRange};
-use crate::{params, traits};
+use super::{SessionManifest, Uuid};
+use crate::{params, traits, types};
 use std::path;
 use thiserror::Error;
 
@@ -342,12 +342,12 @@ where
     }
 }
 
-pub struct SequenceSystemInfo {
-    /// Total size in bytes of the data.
-    /// This values includes additional system files.
-    pub total_size_bytes: usize,
-    /// Datetime of the sequence creation
-    pub created_datetime: super::DateTime,
+pub struct SequenceManifest {
+    /// Timestamp of the sequence creation
+    pub created_timestamp: super::Timestamp,
+    pub resource_locator: SequenceResourceLocator,
+    /// Session list. It comprises also sessions still running for which a manifest is not yet available.
+    pub sessions: Vec<(types::Uuid, Option<SessionManifest>)>,
 }
 
 // ////////////////////////////////////////////////////////////////////////////

@@ -91,13 +91,3 @@ pub async fn notification_purge(
 
     Ok(ActionResponse::sequence_notification_purge())
 }
-
-/// Gets system information for a sequence.
-pub async fn system_info(ctx: &Context, name: String) -> Result<ActionResponse, ServerError> {
-    info!("[{}] sequence system informations", name);
-
-    let handle = facade::Sequence::new(name, ctx.store.clone(), ctx.db.clone());
-    let sysinfo = handle.system_info().await?;
-
-    Ok(ActionResponse::sequence_system_info(sysinfo.into()))
-}

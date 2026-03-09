@@ -1,3 +1,4 @@
+#[derive(Clone)]
 pub struct SessionManifest {
     pub uuid: super::Uuid,
     pub topics: Vec<super::TopicResourceLocator>,

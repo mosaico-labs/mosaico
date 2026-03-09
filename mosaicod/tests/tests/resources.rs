@@ -43,6 +43,124 @@ async fn sequence_create(pool: sqlx::Pool<db::DatabaseType>) -> sqlx::Result<()>
 }
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn sequence_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
+    let port = common::random_port();
+
+    let server = common::ServerBuilder::new(common::HOST, port, pool)
+        .build()
+        .await;
+
+    let mut client = common::ClientBuilder::new(common::HOST, port).build().await;
+
+    let sequence_name = "test_sequence";
+
+    actions::sequence_create(&mut client, sequence_name, None)
+        .await
+        .unwrap();
+
+    // The manifest for a sequence without sessions should be empty.
+    let info = actions::get_flight_info(&mut client, sequence_name)
+        .await
+        .unwrap();
+
+    let app_metadata: marshal::flight::SequenceAppMetadata = info.app_metadata.try_into().unwrap();
+    let sequence_manifest: core::types::SequenceManifest = app_metadata.try_into().unwrap();
+
+    assert!(sequence_manifest.sessions.is_empty());
+    assert_eq!(
+        sequence_manifest.resource_locator.to_string(),
+        sequence_name
+    );
+    assert_ne!(sequence_manifest.created_timestamp.as_i64(), 0);
+
+    let session_uuid = actions::session_create(&mut client, sequence_name).await;
+    assert!(session_uuid.is_valid());
+
+    // Check the manifest for a sequence with a still running session and no topic yet injected.
+    let info = actions::get_flight_info(&mut client, sequence_name)
+        .await
+        .unwrap();
+
+    let app_metadata: marshal::flight::SequenceAppMetadata = info.app_metadata.try_into().unwrap();
+    let sequence_manifest: core::types::SequenceManifest = app_metadata.try_into().unwrap();
+
+    assert_eq!(
+        sequence_manifest.resource_locator.to_string(),
+        sequence_name
+    );
+    assert_ne!(sequence_manifest.created_timestamp.as_i64(), 0);
+    assert_eq!(sequence_manifest.sessions.len(), 1);
+    assert_eq!(sequence_manifest.sessions[0].0, session_uuid);
+    assert!(sequence_manifest.sessions[0].1.is_none());
+
+    let topic_name = "test_sequence/my_topic";
+
+    let topic_uuid = actions::topic_create(&mut client, &session_uuid, topic_name, None)
+        .await
+        .unwrap();
+    assert!(topic_uuid.is_valid());
+
+    let batches = vec![ext::arrow::testing::dummy_batch()];
+
+    let response = actions::do_put(
+        &mut client,
+        &topic_uuid,
+        "test_sequence/my_topic",
+        batches,
+        false,
+    )
+    .await
+    .unwrap();
+
+    if response.into_inner().message().await.unwrap().is_some() {
+        panic!("Received a not-empty response!");
+    }
+
+    // Check the manifest for a sequence with a still running session and a topic injected.
+    let info = actions::get_flight_info(&mut client, sequence_name)
+        .await
+        .unwrap();
+
+    let app_metadata: marshal::flight::SequenceAppMetadata = info.app_metadata.try_into().unwrap();
+    let sequence_manifest: core::types::SequenceManifest = app_metadata.try_into().unwrap();
+
+    assert_eq!(
+        sequence_manifest.resource_locator.to_string(),
+        sequence_name
+    );
+    assert_ne!(sequence_manifest.created_timestamp.as_i64(), 0);
+    assert_eq!(sequence_manifest.sessions.len(), 1);
+    assert_eq!(sequence_manifest.sessions[0].0, session_uuid);
+    assert!(sequence_manifest.sessions[0].1.is_none());
+
+    actions::session_finalize(&mut client, &session_uuid).await;
+
+    // Check the manifest for a sequence with a finalized session and a topic injected.
+    let info = actions::get_flight_info(&mut client, sequence_name)
+        .await
+        .unwrap();
+
+    let app_metadata: marshal::flight::SequenceAppMetadata = info.app_metadata.try_into().unwrap();
+    let sequence_manifest: core::types::SequenceManifest = app_metadata.try_into().unwrap();
+
+    assert_eq!(
+        sequence_manifest.resource_locator.to_string(),
+        sequence_name
+    );
+    assert_ne!(sequence_manifest.created_timestamp.as_i64(), 0);
+    assert_eq!(sequence_manifest.sessions.len(), 1);
+    assert_eq!(sequence_manifest.sessions[0].0, session_uuid);
+    let sm = sequence_manifest.sessions[0].1.clone().unwrap();
+    assert_eq!(sm.uuid, session_uuid);
+    assert_ne!(sm.creation_timestamp.as_i64(), 0);
+    assert_ne!(sm.completion_timestamp.as_i64(), 0);
+    assert_eq!(sm.topics.len(), 1);
+    assert_eq!(sm.topics[0].clone().into_parts().0, topic_name);
+
+    server.shutdown().await;
+}
+
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn session_create(pool: sqlx::Pool<db::DatabaseType>) -> sqlx::Result<()> {
     let port = common::random_port();
 

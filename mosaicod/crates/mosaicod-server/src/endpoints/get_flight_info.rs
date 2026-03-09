@@ -9,6 +9,7 @@ use mosaicod_core::types::{self, Resource};
 use mosaicod_db as db;
 use mosaicod_facade as facade;
 use mosaicod_marshal as marshal;
+use mosaicod_marshal::flight;
 
 pub async fn get_flight_info(
     ctx: Context,
@@ -80,9 +81,16 @@ pub async fn get_flight_info(
                         })
                         .collect::<Result<_, ServerError>>()?;
 
+                    // Get sequence manifest, if it exists, and send it as app metadata.
+                    let manifest : flight::SequenceAppMetadata = match handle.manifest().await {
+                        Ok(m) => m.into(),
+                        Err(e) => return Err(e.into()),
+                    };
+
                     trace!("{} generating endpoints: {:?}", handle.locator, endpoints);
                     let mut flight_info = FlightInfo::new()
                         .with_descriptor(desc.clone())
+                        .with_app_metadata(manifest)
                         .try_with_schema(&schema)?;
 
                     for endpoint in endpoints {
@@ -183,7 +191,6 @@ pub async fn collect_manifests(
         // other errors are propagated
         let manifest = match handler.manifest().await {
             Ok(manifest) => manifest,
-            Err(facade::Error::NotFound(_)) => None,
             Err(e) => return Err(e.into()),
         };
 

@@ -18,6 +18,8 @@ use mosaicod_store as store;
 /// This struct provides a transactional API for creating and finalizing sessions,
 /// coordinating operations between the metadata database and the object store.
 pub struct Session {
+    pub sequence_locator: types::SequenceResourceLocator,
+
     pub uuid: types::Uuid,
 
     /// A reference to the underlying object store.
@@ -29,12 +31,24 @@ pub struct Session {
 
 impl Session {
     /// Creates a new upload session for a given sequence.
-    pub fn new(session_uuid: types::Uuid, store: store::StoreRef, db: db::Database) -> Self {
-        Self {
+    pub async fn new(
+        session_uuid: types::Uuid,
+        store: store::StoreRef,
+        db: db::Database,
+    ) -> Result<Self, Error> {
+        let mut tx = db.transaction().await?;
+
+        let db_session = db::session_find_by_uuid(&mut tx, &session_uuid).await?;
+        let db_sequence = db::sequence_find_by_id(&mut tx, db_session.sequence_id).await?;
+
+        tx.commit().await?;
+
+        Ok(Self {
+            sequence_locator: db_sequence.resource_locator(),
             uuid: session_uuid,
             store,
             db,
-        }
+        })
     }
 
     /// Finalizes the session, making it and all its associated data immutable.
@@ -58,11 +72,7 @@ impl Session {
             completion_timestamp,
         };
 
-        // Get sequence data in order to store the manifest file inside the sequence namespace/directory
-        let sequence = db::sequence_find_by_id(&mut tx, session.sequence_id).await?;
-
-        self.manifest_write_to_store(&sequence.resource_locator(), manifest)
-            .await?;
+        self.manifest_write_to_store(manifest).await?;
 
         tx.commit().await?;
 
@@ -115,22 +125,16 @@ impl Session {
             }
         }
 
-        let sequence = db::sequence_find_by_id(&mut tx, session.sequence_id).await?;
-
         // Deletes the session manifest if session was previously locked (unlocked
         // sessions have no manifest)
         if session.is_locked()
             && let Err(e) = self
                 .store
-                .delete(
-                    sequence
-                        .resource_locator()
-                        .session_manifest(&session.uuid()),
-                )
+                .delete(self.sequence_locator.session_manifest(&session.uuid()))
                 .await
         {
             error_report.errors.push(types::ErrorReportItem::new(
-                sequence.locator_name.clone(),
+                self.sequence_locator.clone(),
                 e,
             ));
         }
@@ -144,7 +148,7 @@ impl Session {
         if error_occurs {
             msg = error_report.into();
             let fsequence = Sequence::new(
-                sequence.locator_name, //
+                self.sequence_locator.clone().into(),
                 self.store.clone(),
                 self.db.clone(),
             );
@@ -181,12 +185,8 @@ impl Session {
         Ok(topics)
     }
 
-    async fn manifest_write_to_store(
-        &self,
-        locator: &types::SequenceResourceLocator,
-        manifest: types::SessionManifest,
-    ) -> Result<(), Error> {
-        let path = locator.session_manifest(&manifest.uuid);
+    async fn manifest_write_to_store(&self, manifest: types::SessionManifest) -> Result<(), Error> {
+        let path = self.sequence_locator.session_manifest(&manifest.uuid);
 
         trace!("converting session manifest to bytes");
         let json_manifest = marshal::SessionManifest::from(manifest);
@@ -199,5 +199,19 @@ impl Session {
         self.store.write_bytes(&path, bytes).await?;
 
         Ok(())
+    }
+
+    pub async fn manifest(&self) -> Result<Option<types::SessionManifest>, Error> {
+        let path = self.sequence_locator.session_manifest(&self.uuid);
+
+        if !self.store.exists(&path).await? {
+            return Ok(None);
+        }
+
+        let bytes = self.store.read_bytes(path).await?;
+
+        let data: marshal::SessionManifest = bytes.try_into()?;
+
+        Ok(Some(data.try_into()?))
     }
 }

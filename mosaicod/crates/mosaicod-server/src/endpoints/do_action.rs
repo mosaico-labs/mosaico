@@ -30,7 +30,6 @@ pub async fn do_action(ctx: Context, action: ActionRequest) -> Result<ActionResp
         ActionRequest::SequenceNotificationPurge(data) => {
             sequence::notification_purge(&ctx, data.locator).await
         }
-        ActionRequest::SequenceSystemInfo(data) => sequence::system_info(&ctx, data.locator).await,
 
         // ///////
         // Session

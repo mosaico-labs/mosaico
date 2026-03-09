@@ -46,9 +46,6 @@ pub enum ActionRequest {
     /// Deletes an unlocked sequence from the system.
     SequenceDelete(requests::ResourceLocator),
 
-    /// Ask for system informations about the sequence
-    SequenceSystemInfo(requests::ResourceLocator),
-
     /// Creates a notification associated with a sequence.
     SequenceNotificationCreate(requests::NotificationCreate),
 
@@ -118,7 +115,6 @@ impl ActionRequest {
         match value {
             "sequence_create" => parse_action_req!(SequenceCreate, body),
             "sequence_delete" => parse_action_req!(SequenceDelete, body),
-            "sequence_system_info" => parse_action_req!(SequenceSystemInfo, body),
             "sequence_notification_create" => parse_action_req!(SequenceNotificationCreate, body),
             "sequence_notification_list" => parse_action_req!(SequenceNotificationList, body),
             "sequence_notification_purge" => parse_action_req!(SequenceNotificationPurge, body),
@@ -156,7 +152,6 @@ pub enum ActionResponse {
     SequenceAbort(()),
     SequenceNotificationCreate(()),
     SequenceNotificationPurge(()),
-    SequenceSystemInfo(responses::SequenceSystemInfo),
     SequenceNotificationList(responses::NotificationList),
 
     TopicCreate(responses::ResourceUuid),
@@ -207,10 +202,6 @@ impl ActionResponse {
 
     pub fn sequence_notification_list(response: responses::NotificationList) -> Self {
         Self::SequenceNotificationList(response)
-    }
-
-    pub fn sequence_system_info(response: responses::SequenceSystemInfo) -> Self {
-        Self::SequenceSystemInfo(response)
     }
 
     pub fn session_create(response: responses::ResourceUuid) -> Self {
