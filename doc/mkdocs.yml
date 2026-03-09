@@ -48,7 +48,9 @@ plugins:
             inherited_members: true
   
 nav:
-  - Mosaico: index.md
+  - Mosaico: 
+    - index.md
+    - agents_docs.md
   - SDK:
     - SDK/index.md
     - SDK/install.md
@@ -139,7 +141,6 @@ theme:
     - content.code.copy
     - content.code.annotate
     - navigation.instant
-    - navigation.sections
     - navigation.path
     - navigation.indexes
     - navigation.tabs
