@@ -12,8 +12,8 @@ We provide three levels of context depending on your specific task and available
 
 | Resource | Description |
 | --- | --- |
-| [Architecture Guide](/llms-architecture.txt) | Understanding how Mosaico nodes and the Daemon interact. |
-| [Python SDK Guide](/llms-python.txt) | Writing code, understanding handlers, and API signatures. |
-| [Full](/llms-full.txt) | A complete doc covering both architecture and API reference. |
+| [Architecture Guide](llms/llms-architecture.txt) | Understanding how Mosaico nodes and the Daemon interact. |
+| [Python SDK Guide](llms/llms-python.txt) | Writing code, understanding handlers, and API signatures. |
+| [Full](llms/llms-full.txt) | A complete doc covering both architecture and API reference. |
 
 

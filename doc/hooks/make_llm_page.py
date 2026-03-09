@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from markdownify import markdownify as md
 
 OVERVIEW_PAGES_ORDERED = [
@@ -79,8 +80,12 @@ def on_page_content(html, page, config, files):
     return html
 
 
+def _llms_dir(config):
+    return Path(config["docs_dir"]) / "llms"
+
+
 def _make_llms_full_page(config):
-    output_path = os.path.join(config["site_dir"], "llms-full.txt")
+    output_path = os.path.join(_llms_dir(config), "llms-full.txt")
 
     with open(output_path, "w", encoding="utf-8") as f:
         # AI SYSTEM HEADER
@@ -105,7 +110,7 @@ def _make_llms_full_page(config):
 
 
 def _make_llms_api_reference_page(config):
-    output_path = os.path.join(config["site_dir"], "llms-python.txt")
+    output_path = os.path.join(_llms_dir(config), "llms-python.txt")
 
     with open(output_path, "w", encoding="utf-8") as f:
         # AI SYSTEM HEADER
@@ -132,7 +137,7 @@ def _make_llms_api_reference_page(config):
 
 
 def _make_llms_architecture_page(config):
-    output_path = os.path.join(config["site_dir"], "llms-architecture.txt")
+    output_path = os.path.join(_llms_dir(config), "llms-architecture.txt")
 
     with open(output_path, "w", encoding="utf-8") as f:
         # AI SYSTEM HEADER
