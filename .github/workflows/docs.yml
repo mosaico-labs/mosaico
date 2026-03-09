@@ -3,10 +3,9 @@
 name: docs
 on:
   push:
-    branches:
-      - main
     tags:
-      - 'v*'
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+-*'
 
 permissions:
   contents: write
