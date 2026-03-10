@@ -152,8 +152,8 @@ async fn sequence_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
     assert_eq!(sequence_manifest.sessions[0].0, session_uuid);
     let sm = sequence_manifest.sessions[0].1.clone().unwrap();
     assert_eq!(sm.uuid, session_uuid);
-    assert_ne!(sm.creation_timestamp.as_i64(), 0);
-    assert_ne!(sm.completion_timestamp.as_i64(), 0);
+    assert_ne!(sm.created_timestamp.as_i64(), 0);
+    assert_ne!(sm.completed_timestamp.as_i64(), 0);
     assert_eq!(sm.topics.len(), 1);
     assert_eq!(sm.topics[0].clone().into_parts().0, topic_name);
 

@@ -74,8 +74,8 @@ pub fn do_put_cmd(v: &[u8]) -> Result<types::flight::DoPutCmd, super::Error> {
 
 #[derive(Serialize, Deserialize)]
 pub struct SessionAppMetadataTimestamps {
-    creation_timestamp: i64,
-    completion_timestamp: i64,
+    created_timestamp: i64,
+    completed_timestamp: i64,
 }
 
 /// For a still running session only the uuid field is filled.
@@ -93,8 +93,8 @@ impl From<types::SessionManifest> for SessionAppMetadata {
         Self {
             uuid: value.uuid.to_string(),
             timestamps: Some(SessionAppMetadataTimestamps {
-                creation_timestamp: value.creation_timestamp.as_i64(),
-                completion_timestamp: value.completion_timestamp.as_i64(),
+                created_timestamp: value.created_timestamp.as_i64(),
+                completed_timestamp: value.completed_timestamp.as_i64(),
             }),
             topics: value.topics.into_iter().map(Into::into).collect(),
         }
@@ -112,8 +112,8 @@ impl TryFrom<SessionAppMetadata> for (types::Uuid, Option<types::SessionManifest
 
         let manifest = value.timestamps.map(|ts| types::SessionManifest {
             uuid: uuid.clone(),
-            creation_timestamp: ts.creation_timestamp.into(),
-            completion_timestamp: ts.completion_timestamp.into(),
+            created_timestamp: ts.created_timestamp.into(),
+            completed_timestamp: ts.completed_timestamp.into(),
             topics: value.topics.into_iter().map(Into::into).collect(),
         });
 
@@ -124,7 +124,7 @@ impl TryFrom<SessionAppMetadata> for (types::Uuid, Option<types::SessionManifest
 /// Sequence app metadata sent when requesting flight info topics and sequences flights
 #[derive(Serialize, Deserialize)]
 pub struct SequenceAppMetadata {
-    creation_timestamp: i64,
+    created_timestamp: i64,
     resource_locator: String,
     sessions: Vec<SessionAppMetadata>,
 }
@@ -132,7 +132,7 @@ pub struct SequenceAppMetadata {
 impl From<types::SequenceManifest> for SequenceAppMetadata {
     fn from(value: types::SequenceManifest) -> Self {
         Self {
-            creation_timestamp: value.created_timestamp.as_i64(),
+            created_timestamp: value.created_timestamp.as_i64(),
             resource_locator: value.resource_locator.into(),
             sessions: value
                 .sessions
@@ -147,8 +147,8 @@ impl From<types::SequenceManifest> for SequenceAppMetadata {
                         |v| SessionAppMetadata {
                             uuid: v.uuid.to_string(),
                             timestamps: Some(SessionAppMetadataTimestamps {
-                                creation_timestamp: v.creation_timestamp.as_i64(),
-                                completion_timestamp: v.completion_timestamp.as_i64(),
+                                created_timestamp: v.created_timestamp.as_i64(),
+                                completed_timestamp: v.completed_timestamp.as_i64(),
                             }),
                             topics: v.topics.into_iter().map(Into::into).collect(),
                         },
@@ -164,7 +164,7 @@ impl TryFrom<SequenceAppMetadata> for types::SequenceManifest {
 
     fn try_from(value: SequenceAppMetadata) -> Result<Self, Self::Error> {
         let mut res = Self {
-            created_timestamp: value.creation_timestamp.into(),
+            created_timestamp: value.created_timestamp.into(),
             resource_locator: value.resource_locator.into(),
             sessions: vec![],
         };

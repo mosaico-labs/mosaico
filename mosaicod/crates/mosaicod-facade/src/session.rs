@@ -62,14 +62,14 @@ impl Session {
         // Collect all topics associated with this session
         let topics = db::session_find_all_topic_locators(&mut tx, &self.uuid).await?;
 
-        let completion_timestamp = types::Timestamp::now();
-        db::session_lock(&mut tx, &self.uuid, &completion_timestamp).await?;
+        let completed_timestamp = types::Timestamp::now();
+        db::session_lock(&mut tx, &self.uuid, &completed_timestamp).await?;
 
         let manifest = types::SessionManifest {
             uuid: session.uuid(),
             topics,
-            creation_timestamp: session.creation_timestamp(),
-            completion_timestamp,
+            created_timestamp: session.creation_timestamp(),
+            completed_timestamp,
         };
 
         self.manifest_write_to_store(manifest).await?;

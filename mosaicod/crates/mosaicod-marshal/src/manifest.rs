@@ -104,8 +104,8 @@ impl From<TopicManifestTimestamp> for types::TopicManifestTimestamp {
 pub struct SessionManifest {
     uuid: String,
     topics: Vec<String>,
-    creation_unix_tstamp: i64,
-    completion_unix_tstamp: i64,
+    created_unix_tstamp: i64,
+    completed_unix_tstamp: i64,
 }
 
 impl From<types::SessionManifest> for SessionManifest {
@@ -113,8 +113,8 @@ impl From<types::SessionManifest> for SessionManifest {
         Self {
             uuid: value.uuid.to_string(),
             topics: value.topics.into_iter().map(|t| t.into()).collect(),
-            creation_unix_tstamp: value.creation_timestamp.into(),
-            completion_unix_tstamp: value.completion_timestamp.into(),
+            created_unix_tstamp: value.created_timestamp.into(),
+            completed_unix_tstamp: value.completed_timestamp.into(),
         }
     }
 }
@@ -128,8 +128,8 @@ impl TryFrom<SessionManifest> for types::SessionManifest {
                 .parse()
                 .map_err(|e: types::UuidError| super::Error::DeserializationError(e.to_string()))?,
             topics: value.topics.into_iter().map(Into::into).collect(),
-            creation_timestamp: value.creation_unix_tstamp.into(),
-            completion_timestamp: value.completion_unix_tstamp.into(),
+            created_timestamp: value.created_unix_tstamp.into(),
+            completed_timestamp: value.completed_unix_tstamp.into(),
         })
     }
 }
