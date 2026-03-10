@@ -17,4 +17,4 @@ arrow-cast = { workspace = true }
 arrow-schema = { workspace = true }
 tonic = { workspace = true }
 thiserror = { workspace = true }
-
+parquet = { workspace = true }

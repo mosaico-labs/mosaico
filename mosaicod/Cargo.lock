@@ -2591,6 +2591,7 @@ dependencies = [
  "arrow-cast",
  "arrow-schema",
  "mosaicod-core",
+ "parquet",
  "thiserror",
  "tonic",
 ]
@@ -2600,11 +2601,11 @@ name = "mosaicod-facade"
 version = "0.3.0"
 dependencies = [
  "arrow",
- "bytes",
  "futures",
  "log",
  "mosaicod-core",
  "mosaicod-db",
+ "mosaicod-ext",
  "mosaicod-marshal",
  "mosaicod-query",
  "mosaicod-rw",
@@ -2698,6 +2699,7 @@ dependencies = [
  "log",
  "mosaicod-core",
  "object_store",
+ "parquet",
  "thiserror",
  "tokio",
  "url",

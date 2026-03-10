@@ -22,6 +22,7 @@ object_store = { workspace = true }
 thiserror = { workspace = true }
 url = { workspace = true }
 bytes = { workspace = true }
+parquet = { workspace = true }
 
 
 [dev-dependencies]

@@ -6,6 +6,7 @@ use mosaicod_core::{
     types::{self, Resource},
 };
 use mosaicod_db as db;
+use mosaicod_ext as ext;
 use mosaicod_marshal as marshal;
 use mosaicod_query as query;
 use mosaicod_rw::{self as rw, ToProperties};
@@ -230,11 +231,11 @@ impl Topic {
             return Err(Error::NotFound(path.to_string_lossy().to_string()));
         }
 
-        // Build a chunk reader reading in memory a file
-        // (cabba) TODO: avoid reading the whole file, get from store only the header
-        let buffer = self.store.read_bytes(path).await?;
-        let reader = rw::ChunkReader::new(format, bytes::Bytes::from_owner(buffer))?;
-        Ok(reader.schema())
+        // Build a parquet reader reading in memory a file
+        let mut parquet_reader = self.store.parquet_reader(path);
+        let schema = ext::arrow::schema_from_parquet_reader(&mut parquet_reader).await?;
+
+        Ok(schema)
     }
 
     /// Serializes and writes [`TopicMetadata`] to the object store.
