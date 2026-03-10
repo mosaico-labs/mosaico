@@ -8,7 +8,7 @@ pub enum LogLevel {
 }
 
 impl LogLevel {
-    pub fn to_filter(&self) -> String {
+    pub fn as_filter(&self) -> String {
         let level = match self {
             Self::Warning => "warn",
             Self::Info => "info",
@@ -50,7 +50,7 @@ pub fn init_logger(format: LogFormat, level: LogLevel) {
     use tracing_subscriber::prelude::*;
 
     let filter = tracing_subscriber::EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new(level.to_filter()));
+        .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new(level.as_filter()));
 
     match format {
         LogFormat::Json => tracing_subscriber::FmtSubscriber::builder()
