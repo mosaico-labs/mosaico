@@ -2,7 +2,6 @@
 
 # Run a development enviroment DB + mosaicod for local testing
 
-
 # Directory contianing the source code for the SDK
 PYTHON_SDK_DIR="mosaico-sdk-py"
 # Directory containing the mosaicod source code
@@ -20,8 +19,8 @@ MOSAICOD_DB_URL="postgresql://postgres:password@localhost:6543/mosaico"
 # is required to compile the code (and also we need to reinstall sqlx at each run).
 SQLX_OFFLINE=true
 
-# Spcifies if the server should start with api key management enabled. If this option is set to true
-# a defult API key will be generated. Use --api-key option to enable this from command line.
+# Specifies if the server should start with api key management enabled. If this option is set to true
+# a default API key will be generated. Use --api-key option to enable this from command line.
 ENABLE_API_KEY=false
 
 # Specifies if the server should start with TLS enabled. If this option is set to true 

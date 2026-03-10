@@ -107,7 +107,7 @@ trap error_handler ERR
 # Show help
 show_help() {
     cat << EOF
-Mosaico rest runner.
+Mosaico test runner.
 
 Usage: tests.sh [OPTIONS]
 

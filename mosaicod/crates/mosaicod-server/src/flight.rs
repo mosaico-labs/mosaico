@@ -133,7 +133,7 @@ pub async fn start(
         warn!("API key management is currently disabled.");
     } else if !tls_enabled {
         warn!(
-            "API key management is currently enabled but TLS is disabled. Sensitive credential are sent unenrypted and could be intercepted."
+            "API key management is currently enabled but TLS is disabled. Sensitive credential are sent unencrypted and could be intercepted."
         );
     }
 

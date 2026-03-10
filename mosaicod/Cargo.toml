@@ -23,7 +23,7 @@ mosaicod-rw = { path = "crates/mosaicod-rw" }
 mosaicod-server = { path = "crates/mosaicod-server" }
 mosaicod-store = { path = "crates/mosaicod-store" }
 
-# These dependencies needs to be updated together
+# These dependencies need to be updated together
 arrow = { version = "57.3.0", features = ["prettyprint"] }
 arrow-cast = "57.2.0"
 arrow-flight = "57.2.0"

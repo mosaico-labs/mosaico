@@ -10,7 +10,7 @@ use tracing::{debug, info};
 
 #[derive(Args, Debug)]
 pub struct Run {
-    /// Specify a host address. It default to the loopback address `127.0.0.1`.
+    /// Specify a host address. It defaults to the loopback address `127.0.0.1`.
     #[arg(long)]
     pub host: Option<String>,
 
