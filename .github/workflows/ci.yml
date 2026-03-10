@@ -167,4 +167,4 @@ jobs:
       - name: Integration Tests and TLS Tests
         run: |
           ./scripts/tests.sh --integration
-          ./scripts/tests.sh --integration_with_tls
+          ./scripts/tests.sh --integration-with-tls
