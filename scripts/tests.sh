@@ -169,6 +169,7 @@ run_integration_tests() {
 
     MOSAICOD_OPTS=""
     PYTEST_OPTS_K="integration and not test_tls_connection"
+    PYTEST_OPTS=""
     TITLE="N/A"
 
     while [ $# -gt 0 ]; do
@@ -176,10 +177,11 @@ run_integration_tests() {
             --tls)
                 MOSAICOD_OPTS="--tls"
                 PYTEST_OPTS_K="integration"
+                PYTEST_OPTS="--tls"
 
                 export MOSAICOD_TLS_CERT_FILE="${MOSAICOD_PATH}/tests/data/cert.pem"
                 export MOSAICOD_TLS_PRIVATE_KEY_FILE="${MOSAICOD_PATH}/tests/data/key.pem"
-                export MOSAICO_TLS_CERT_FILE="$MOSAICOD_TLS_CERT_FILE"
+                export MOSAICO_TLS_CERT_FILE="${MOSAICOD_PATH}/tests/data/ca.pem"
 
                 shift 
                 ;;
@@ -225,7 +227,7 @@ run_integration_tests() {
     title "running integration tests" "." "${BLUE}"
     cd "${PYTHON_SDK_PATH}"
 
-    poetry run pytest ./src/testing -k "${PYTEST_OPTS_K}"
+    poetry run pytest ./src/testing -k "${PYTEST_OPTS_K}" ${PYTEST_OPTS}
 }
 
 VERBOSE=false
@@ -303,8 +305,8 @@ main() {
     if [ "$run_all" = true ]; then
         run_mosaicod_tests
         run_sdk_python_tests
-        run_integration_tests
-        run_integration_with_tls_tests
+        run_integration_tests --title "integration tests"
+        run_integration_tests --title "integration tests (TLS)" --tls
     else
         if [ "$run_mosaicod" = true ]; then
             run_mosaicod_tests
