@@ -85,6 +85,7 @@ from .models.data import (
 # --- Platform ---
 from .models.platform import (
     Sequence as Sequence,
+    Session as Session,
     Topic as Topic,
 )
 
@@ -205,6 +206,7 @@ __all__ = [
     "OnErrorPolicy",
     # Platform
     "Sequence",
+    "Session",
     "Topic",
 ]
 

@@ -175,6 +175,9 @@ class Sequence(pydantic.BaseModel, _QueryProxyMixin):
     _name: str = PrivateAttr()
     """The name of the sequence."""
 
+    _total_size_bytes: int = PrivateAttr()
+    """The aggregated total size of the sequence in bytes"""
+
     _sessions: List[Session] = PrivateAttr(default_factory=list)
     """The list of sessions in the sequence"""
 
@@ -182,6 +185,7 @@ class Sequence(pydantic.BaseModel, _QueryProxyMixin):
     def _from_resource_info(
         cls,
         name: str,
+        total_size_bytes: int,
         platform_metadata: SequenceMetadata,
         resrc_info: SequenceResourceInfo,
     ) -> Self:
@@ -209,6 +213,7 @@ class Sequence(pydantic.BaseModel, _QueryProxyMixin):
         # Initialize shared private attrs
         instance._init_base_private(
             name=name,
+            total_size_bytes=total_size_bytes,
             created_timestamp=resrc_info.created_timestamp,
             sessions=[Session._from_resource_info(s) for s in resrc_info.sessions],
         )
@@ -220,6 +225,7 @@ class Sequence(pydantic.BaseModel, _QueryProxyMixin):
         *,
         name: str,
         created_timestamp: int,
+        total_size_bytes: int,
         sessions: List[Session],
     ) -> None:
         """
@@ -237,6 +243,7 @@ class Sequence(pydantic.BaseModel, _QueryProxyMixin):
         self._created_timestamp = created_timestamp
         self._name = name
         self._sessions = sessions
+        self._total_size_bytes = total_size_bytes
 
     # --- Properties ---
     @property
@@ -355,3 +362,13 @@ class Sequence(pydantic.BaseModel, _QueryProxyMixin):
         The `sessions` property is not queryable.
         """
         return self._sessions
+
+    @property
+    def total_size_bytes(self) -> int:
+        """
+        The total physical storage footprint of the entity on the server in bytes.
+
+        ### Querying with **Query Builders**
+        The `total_size_bytes` property is not queryable.
+        """
+        return self._total_size_bytes

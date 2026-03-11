@@ -20,7 +20,7 @@ from ..comm.executor_pool import _ExecutorPool
 from ..enum import OnErrorPolicy
 from ..helpers import sanitize_sequence_name
 from ..logging_config import get_logger
-from ..models.platform import Sequence
+from ..models.platform import Sequence, Session
 from ..platform.metadata import SequenceMetadata, _decode_schema_metadata
 from ..platform.resource_manifests import (
     SequenceResourceManifest,
@@ -55,7 +55,6 @@ class SequenceHandler:
         self,
         *,
         sequence_model: Sequence,
-        total_size_bytes: int,
         client: fl.FlightClient,
         connection_pool_allocator: Callable[[], _ConnectionPool],
         executor_pool_allocator: Callable[[], _ExecutorPool],
@@ -83,8 +82,6 @@ class SequenceHandler:
         """The spawned sequence data streamer instance"""
         self._sequence: Sequence = sequence_model
         """The sequence metadata model"""
-        self._total_size_bytes: int = total_size_bytes
-        """The total size in bytes of the sequence"""
         self._timestamp_ns_min: Optional[int] = timestamp_ns_min
         """Lowest timestamp [ns] in the sequence (among all the topics)"""
         self._timestamp_ns_max: Optional[int] = timestamp_ns_max
@@ -130,11 +127,10 @@ class SequenceHandler:
         if model_tuple is None:
             return None
 
-        sequence_model, total_size_bytes, tstamp_ns_min, tstamp_ns_max = model_tuple
+        sequence_model, tstamp_ns_min, tstamp_ns_max = model_tuple
 
         return cls(
             sequence_model=sequence_model,
-            total_size_bytes=total_size_bytes,
             client=client,
             connection_pool_allocator=connection_pool_allocator,
             executor_pool_allocator=executor_pool_allocator,
@@ -207,11 +203,11 @@ class SequenceHandler:
             name=_stzd_sequence_name,
             platform_metadata=seq_metadata,
             resrc_info=seq_manifest.resource_info,
+            total_size_bytes=total_size_bytes,
         )
 
         return (
             sequence_model,
-            total_size_bytes,
             min(tstamps_ns_min) if tstamps_ns_min else None,
             max(tstamps_ns_max) if tstamps_ns_max else None,
         )
@@ -229,12 +225,11 @@ class SequenceHandler:
         if model_tuple is None:
             return False
 
-        sequence_model, total_size_bytes, tstamp_ns_min, tstamp_ns_max = model_tuple
+        sequence_model, tstamp_ns_min, tstamp_ns_max = model_tuple
 
         self._sequence = sequence_model
         self._timestamp_ns_min = tstamp_ns_min
         self._timestamp_ns_max = tstamp_ns_max
-        self._total_size_bytes = total_size_bytes
 
         return True
 
@@ -258,6 +253,16 @@ class SequenceHandler:
             The list of topic names (data channels) available within this sequence.
         """
         return self._sequence.topics
+
+    @property
+    def sessions(self) -> List[Session]:
+        """
+        The list of all the writing sessions that produced this sequence (upon creation or updates).
+
+        Returns:
+            A list of [`Session`][mosaicolabs.models.platform.Session] instances
+        """
+        return self._sequence.sessions
 
     @property
     def user_metadata(self) -> Dict[str, Any]:
@@ -297,7 +302,7 @@ class SequenceHandler:
         Returns:
             The total physical storage in bytes.
         """
-        return self._total_size_bytes
+        return self._sequence.total_size_bytes
 
     @property
     def timestamp_ns_min(self) -> Optional[int]:
