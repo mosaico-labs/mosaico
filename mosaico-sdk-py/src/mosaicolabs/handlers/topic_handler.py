@@ -6,15 +6,17 @@ for an *existing* topic on the server. It allows users to inspect metadata
 and create readers (`TopicDataStreamer`).
 """
 
-import datetime
 import json
 from typing import Any, Dict, Optional, Tuple
 
 import pyarrow.flight as fl
 
-from ..comm.do_action import _do_action, _DoActionResponseSysInfo
-from ..comm.metadata import TopicMetadata, _decode_schema_metadata
-from ..enum import FlightAction
+from mosaicolabs.platform.metadata import TopicMetadata, _decode_schema_metadata
+from mosaicolabs.platform.resource_manifests import (
+    TopicParsingError,
+    TopicResourceManifest,
+)
+
 from ..helpers import (
     pack_topic_resource_name,
     sanitize_sequence_name,
@@ -22,7 +24,6 @@ from ..helpers import (
 )
 from ..logging_config import get_logger
 from ..models.platform import Topic
-from .endpoints import TopicParsingError, TopicResourceManifest
 from .topic_reader import TopicDataStreamer
 
 # Set the hierarchical logger
@@ -133,12 +134,12 @@ class TopicHandler:
         topic_resrc_mdata: Optional[TopicResourceManifest] = None
         for ep in flight_info.endpoints:
             try:
-                topic_resrc_mdata = TopicResourceManifest.from_flight_endpoint(ep)
+                topic_resrc_mdata = TopicResourceManifest._from_flight_endpoint(ep)
             except TopicParsingError as e:
                 logger.error(f"Skipping invalid topic endpoint, err: '{e}'")
                 continue
             # here the topic name is sanitized
-            if topic_resrc_mdata.topic_name == _stzd_topic_name:
+            if topic_resrc_mdata.name == _stzd_topic_name:
                 ticket = ep.ticket
                 break
 
@@ -148,30 +149,12 @@ class TopicHandler:
             )
             return None
 
-        # Get System Info (Size, dates, etc.)
-        # TODO: This data can be sent via the manifest also (in the flight endpoint). Backend agrees too
-        ACTION = FlightAction.TOPIC_SYSTEM_INFO
-        act_resp = _do_action(
-            client=client,
-            action=ACTION,
-            payload={
-                "locator": pack_topic_resource_name(
-                    _stzd_sequence_name, _stzd_topic_name
-                )
-            },
-            expected_type=_DoActionResponseSysInfo,
-        )
-
-        if act_resp is None:
-            logger.error(f"Action '{ACTION}' returned no response.")
-            return None
-
         # Build Model
-        topic_model = Topic._from_flight_info(
+        topic_model = Topic._from_resource_info(
             sequence_name=_stzd_sequence_name,
             name=_stzd_topic_name,
-            metadata=topic_metadata,
-            resrc_info=act_resp.info,
+            platform_metadata=topic_metadata,
+            resrc_info=topic_resrc_mdata.resource_info,
         )
 
         # Get the 'min'/'max' timestamps, as we are at a topic-level
@@ -215,17 +198,17 @@ class TopicHandler:
         return self._topic.user_metadata
 
     @property
-    def created_datetime(self) -> datetime.datetime:
+    def created_timestamp(self) -> int:
         """
         The UTC timestamp indicating when the entity was created on the server.
 
         Returns:
             The UTC timestamp indicating when the entity was created on the server.
         """
-        return self._topic._created_datetime
+        return self._topic._created_timestamp
 
     @property
-    def is_locked(self) -> bool:
+    def locked(self) -> bool:
         """
         Indicates if the resource is currently locked.
 
@@ -235,7 +218,7 @@ class TopicHandler:
         Returns:
             True if the resource is currently locked, False otherwise.
         """
-        return self._topic._is_locked
+        return self._topic._locked
 
     @property
     def chunks_number(self) -> Optional[int]:

@@ -38,7 +38,7 @@ def test_sequence_reload(
     assert seqhandler is not None
     original_topics = seqhandler.topics
     original_size_bytes = seqhandler.total_size_bytes
-    original_created_datetime = seqhandler.created_datetime
+    original_created_timestamp = seqhandler.created_timestamp
     original_timestamp_ns_min = seqhandler.timestamp_ns_min
     original_timestamp_ns_max = seqhandler.timestamp_ns_max
 
@@ -47,7 +47,7 @@ def test_sequence_reload(
     assert len(seqhandler.topics) == len(original_topics)
     assert all(topic in original_topics for topic in seqhandler.topics)
     assert seqhandler.total_size_bytes == original_size_bytes
-    assert seqhandler.created_datetime == original_created_datetime
+    assert seqhandler.created_timestamp == original_created_timestamp
     assert seqhandler.timestamp_ns_min == original_timestamp_ns_min
     assert seqhandler.timestamp_ns_max == original_timestamp_ns_max
 

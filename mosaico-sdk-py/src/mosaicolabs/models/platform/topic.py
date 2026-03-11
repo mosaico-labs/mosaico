@@ -6,17 +6,19 @@ Topic's metadata in the platform catalog. It is used primarily for inspection
 (listing topics) and query construction.
 """
 
-from typing import Any, Optional
+from typing import Any, Dict, Optional, Self
 
+import pydantic
 from pydantic import PrivateAttr
 
-from mosaicolabs.comm.metadata import PlatformMetadata, TopicMetadata
-from mosaicolabs.comm.platform_resource_info import PlatformResourceInfo
+from mosaicolabs.platform.metadata import TopicMetadata
+from mosaicolabs.platform.resource_info import (
+    TopicResourceInfo,
+)
 
 from ..query.expressions import _QueryTopicExpression
-from ..query.generation.api import queryable
+from ..query.generation.api import _QueryProxyMixin, queryable
 from ..query.generation.pydantic_mapper import PydanticFieldMapper
-from .platform_base import PlatformBase
 
 
 @queryable(
@@ -24,7 +26,7 @@ from .platform_base import PlatformBase
     prefix="",
     query_expression_type=_QueryTopicExpression,
 )
-class Topic(PlatformBase):
+class Topic(pydantic.BaseModel, _QueryProxyMixin):
     """
     Represents a read-only view of a server-side Topic platform resource.
 
@@ -32,7 +34,7 @@ class Topic(PlatformBase):
     It serves as a metadata-rich view of an individual data stream within the platform catalog.
 
     Important: Data Retrieval
-        This class provides a **metadata-only** view of the topic.
+        This class provides a server-side **metadata-only** view of the topic.
         To retrieve the actual time-series messages contained within the topic, you must
         use the [`TopicHandler.get_data_streamer()`][mosaicolabs.handlers.TopicHandler.get_data_streamer]
         method from a [`TopicHandler`][mosaicolabs.handlers.TopicHandler]
@@ -41,8 +43,10 @@ class Topic(PlatformBase):
     ### Querying with the **`.Q` Proxy**
     The `user_metadata` field of this class is queryable when constructing a [`QueryTopic`][mosaicolabs.models.query.QueryTopic]
     via the **`.Q` proxy**.
-    Check the documentation of the [`PlatformBase`][mosaicolabs.models.platform.platform_base.PlatformBase--querying-with-the-q-proxy] to construct a
-    a valid expression for the builders involving the `user_metadata` component.
+
+    | Field Access Path | Queryable Type | Supported Operators |
+    | :--- | :--- | :--- |
+    | `Topic.Q.user_metadata["key"]` | `String`, `Numeric`, `Boolean` | `.eq()`, `.neq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.match()` |
 
     Example:
         ```python
@@ -75,46 +79,180 @@ class Topic(PlatformBase):
         ```
     """
 
+    user_metadata: Dict[str, Any]
+    """
+    Custom user-defined key-value pairs associated with the entity.
+
+    ### Querying with the **`.Q` Proxy**
+    The `user_metadata` field is queryable when constructing a [`QueryTopic`][mosaicolabs.models.query.builders.QueryTopic]
+     using the **`.Q` proxy**
+
+    | Field Access Path | Queryable Type | Supported Operators |
+    | :--- | :--- | :--- |
+    | `Topic.Q.user_metadata["key"]` | `String`, `Numeric`, `Boolean` | `.eq()`, `.neq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.match()` |
+    | `Topic.Q.user_metadata["key.subkey.subsubkey..."]` | `String`, `Numeric`, `Boolean` | `.eq()`, `.neq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.match()` |
+
+    Example:
+        ```python
+        from mosaicolabs import MosaicoClient, Topic, QueryTopic
+
+        with MosaicoClient.connect("localhost", 6726) as client:
+            # Filter for a specific keys in sequence AND topic metadata.
+            qresponse = client.query(
+                QueryTopic(Topic.Q.user_metadata["update_rate_hz"].geq(100)),
+            )
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {[topic.name for topic in item.topics]}")
+        ```
+    """
+
     # --- Private Fields (Internal State) ---
+    _name: str = PrivateAttr()
     _sequence_name: str = PrivateAttr()
+    _total_size_bytes: int = PrivateAttr()
+    _created_timestamp: int = PrivateAttr()
     _ontology_tag: str = PrivateAttr()
     _serialization_format: str = PrivateAttr()
-    _is_locked: bool = PrivateAttr(default=False)
+    _locked: bool = PrivateAttr(default=False)
     _chunks_number: Optional[int] = PrivateAttr(default=None)
 
-    def _init_from_flight_info(
-        self,
-        metadata: PlatformMetadata,
-        resrc_info: PlatformResourceInfo,
-        **kwargs: Any,
-    ) -> None:
+    @classmethod
+    def _from_resource_info(
+        cls,
+        name: str,
+        sequence_name: str,
+        platform_metadata: TopicMetadata,
+        resrc_info: TopicResourceInfo,
+    ) -> Self:
         """
-        Initialize the Topic instance from flight information.
+        Factory method to create a Topic view from platform resource information.
 
         Args:
-            metadata: The platform schema metadata of the topic.
-            resrc_info: The system information of the topic.
-            **kwargs: Additional keyword arguments.
-                - `sequence_name`: The name of the parent sequence.
+            name: The name of the platform resource.
+            platform_metadata: The metadata of the platform resource.
+            resrc_info: The system information of the platform resource.
+
+        Returns:
+            A Topic instance.
         """
-        if not isinstance(metadata, TopicMetadata):
+        if not isinstance(platform_metadata, TopicMetadata):
             raise ValueError(
                 "Metadata must be an instance of `mosaicolabs.comm.TopicMetadata`."
             )
+        user_metadata = getattr(platform_metadata, "user_metadata", None)
+        if user_metadata is None:
+            raise ValueError("Metadata must have a `user_metadata` attribute.")
 
-        sequence_name = kwargs.get("sequence_name")
-        if sequence_name is None:
-            raise ValueError("Sequence name must be provided to initialize a Topic.")
+        instance = cls(user_metadata=user_metadata)
 
-        if resrc_info.is_locked is None:
-            raise ValueError("`is_locked` must be provided to initialize a Topic.")
+        # Initialize shared private attrs
+        instance._init_base_private(
+            name=name,
+            sequence_name=sequence_name,
+            metadata=platform_metadata,
+            resrc_info=resrc_info,
+        )
+
+        return instance
+
+    def _init_base_private(
+        self,
+        *,
+        name: str,
+        sequence_name: str,
+        metadata: TopicMetadata,
+        resrc_info: TopicResourceInfo,
+    ) -> None:
+        """
+        Internal helper to populate system-controlled private attributes.
+
+        This is used by factory methods (`_from_flight_info`) to set attributes
+        that are strictly read-only for the user.
+
+        Args:
+            name: The unique resource name.
+            total_size_bytes: The storage size on the server.
+            created_datetime: The UTC timestamp of creation.
+        """
+        self._total_size_bytes = resrc_info.total_size_bytes
+        self._created_timestamp = resrc_info.created_timestamp
+        self._name = name
         self._sequence_name = sequence_name
         self._ontology_tag = metadata.properties.ontology_tag
         self._serialization_format = metadata.properties.serialization_format
         self._chunks_number = resrc_info.chunks_number
-        self._is_locked = resrc_info.is_locked
+        self._locked = resrc_info.locked
 
     # --- Properties ---
+
+    @property
+    def name(self) -> str:
+        """
+        The unique identifier or resource name of the entity.
+
+        ### Querying with **Query Builders**
+        The `name` property is queryable when constructing a [`QueryTopic`][mosaicolabs.models.query.QueryTopic]
+        via the convenience methods:
+
+        * [`QueryTopic.with_name()`][mosaicolabs.models.query.builders.QueryTopic.with_name]
+        * [`QueryTopic.with_name_match()`][mosaicolabs.models.query.builders.QueryTopic.with_name_match]
+
+        Example:
+            ```python
+            from mosaicolabs import MosaicoClient, QueryTopic
+
+            with MosaicoClient.connect("localhost", 6726) as client:
+                # Filter for a specific data value (using constructor)
+                qresponse = client.query(
+                    QueryTopic().with_name("/front/imu"),
+                )
+
+                # Inspect the response
+                if qresponse is not None:
+                    # Results are automatically grouped by Sequence for easier data management
+                    for item in qresponse:
+                        print(f"Sequence: {item.sequence.name}")
+                        print(f"Topics: {[topic.name for topic in item.topics]}")
+            ```
+        """
+        return self._name
+
+    @property
+    def created_timestamp(self) -> int:
+        """
+        The UTC timestamp indicating when the entity was created on the server.
+
+        ### Querying with **Query Builders**
+        The `created_timestamp` property is queryable when constructing a [`QueryTopic`][mosaicolabs.models.query.QueryTopic]
+        via the convenience method:
+
+        * [`QueryTopic.with_created_timestamp()`][mosaicolabs.models.query.builders.QueryTopic.with_created_timestamp]
+
+        Example:
+            ```python
+            from mosaicolabs import MosaicoClient, Topic, IMU, QueryTopic, Time
+
+            with MosaicoClient.connect("localhost", 6726) as client:
+                # Filter for a specific topic creation time
+                qresponse = client.query(
+                    QueryTopic().with_created_timestamp(time_start=Time.from_float(1765432100)),
+                )
+
+                # Inspect the response
+                if qresponse is not None:
+                    # Results are automatically grouped by Sequence for easier data management
+                    for item in qresponse:
+                        print(f"Sequence: {item.sequence.name}")
+                        print(f"Topics: {[topic.name for topic in item.topics]}")
+            ```
+        """
+        return self._created_timestamp
+
     @property
     def ontology_tag(self) -> str:
         """
@@ -200,7 +338,7 @@ class Topic(PlatformBase):
         return self._serialization_format
 
     @property
-    def is_locked(self) -> bool:
+    def locked(self) -> bool:
         """
         Indicates if the topic resource is locked on the server.
 
@@ -208,6 +346,16 @@ class Topic(PlatformBase):
         preventing structural modifications.
 
         ### Querying with **Query Builders**
-        The `is_locked` property is not queryable.
+        The `locked` property is not queryable.
         """
-        return self._is_locked
+        return self._locked
+
+    @property
+    def total_size_bytes(self) -> int:
+        """
+        The total physical storage footprint of the entity on the server in bytes.
+
+        ### Querying with **Query Builders**
+        The `total_size_bytes` property is not queryable.
+        """
+        return self._total_size_bytes

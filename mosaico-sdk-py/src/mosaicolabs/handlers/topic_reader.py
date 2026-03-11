@@ -11,10 +11,13 @@ from typing import Any, Optional
 import pyarrow as pa
 import pyarrow.flight as fl
 
-from mosaicolabs.handlers.endpoints import TopicParsingError, TopicResourceManifest
 from mosaicolabs.models.message import Message
+from mosaicolabs.platform.metadata import TopicMetadata, _decode_schema_metadata
+from mosaicolabs.platform.resource_manifests import (
+    TopicParsingError,
+    TopicResourceManifest,
+)
 
-from ..comm.metadata import TopicMetadata, _decode_schema_metadata
 from ..helpers.helpers import pack_topic_resource_name
 from ..logging_config import get_logger
 from .internal.topic_read_state import _TopicReadState
@@ -197,11 +200,11 @@ class TopicDataStreamer:
             )
         for ep in flight_info.endpoints:
             try:
-                topic_resrc_mdata = TopicResourceManifest.from_flight_endpoint(ep)
+                topic_resrc_mdata = TopicResourceManifest._from_flight_endpoint(ep)
             except TopicParsingError as e:
                 logger.error(f"Skipping invalid topic endpoint, err: '{e}'")
                 continue
-            if topic_resrc_mdata.topic_name == topic_name:
+            if topic_resrc_mdata.name == topic_name:
                 return cls._connect_from_ticket(
                     client=client,
                     topic_name=topic_name,

@@ -35,9 +35,6 @@ class FlightAction(StrEnum):
     SEQUENCE_NOTIFICATION_PURGE = "sequence_notification_purge"
     """Request the deletion of the list of notifications for a specific sequence"""
 
-    SEQUENCE_SYSTEM_INFO = "sequence_system_info"
-    """Requests physical diagnostics such as storage size and lock status for a sequence."""
-
     SESSION_ABORT = "session_abort"
     """Signals the server to stop an active session ingestion and discard partial data."""
 
@@ -59,9 +56,6 @@ class FlightAction(StrEnum):
 
     TOPIC_NOTIFICATION_PURGE = "topic_notification_purge"
     """Request the deletion of the list of notifications for a topic in a sequence"""
-
-    TOPIC_SYSTEM_INFO = "topic_system_info"
-    """Requests storage and chunk metadata for an individual topic."""
 
     TOPIC_DELETE = "topic_delete"
     """Requests the permanent removal of a specific topic from the platform."""

@@ -13,7 +13,7 @@ import pyarrow.flight as fl
 from mosaicolabs.models.message import Message
 
 from ..logging_config import get_logger
-from .endpoints import TopicParsingError, TopicResourceManifest
+from ..platform.resource_manifests import TopicParsingError, TopicResourceManifest
 from .internal.topic_read_state import _TopicReadState
 from .topic_reader import TopicDataStreamer
 
@@ -159,7 +159,7 @@ class SequenceDataStreamer:
         # Extract the Topics resource manifests data and their tickets
         for ep in flight_info.endpoints:
             try:
-                topic_resrc_mdata = TopicResourceManifest.from_flight_endpoint(ep)
+                topic_resrc_mdata = TopicResourceManifest._from_flight_endpoint(ep)
             except TopicParsingError as e:
                 logger.error(f"Skipping invalid topic endpoint, err: '{e}'")
                 continue
@@ -170,11 +170,11 @@ class SequenceDataStreamer:
             ):
                 continue
             # If not in the selected topics
-            if topics and topic_resrc_mdata.topic_name not in topics:
+            if topics and topic_resrc_mdata.name not in topics:
                 continue
             treader = TopicDataStreamer._connect_from_ticket(
                 client=client,
-                topic_name=topic_resrc_mdata.topic_name,
+                topic_name=topic_resrc_mdata.name,
                 ticket=ep.ticket,
             )
             # Cache the topic reader instance
