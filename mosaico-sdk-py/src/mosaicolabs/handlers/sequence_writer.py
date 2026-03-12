@@ -283,7 +283,8 @@ class SequenceWriter(_BaseSessionWriter):
             ```
 
             1. See also: [`MosaicoClient.sequence_create()`][mosaicolabs.comm.MosaicoClient.sequence_create]
-            2. The metadata fields will be queryable via the `Query` mechanism. The mechanism allows creating query expressions like: `Topic.Q.user_metadata["interface.type"].eq("UART")`.
+            2. The metadata fields will be queryable via the `Query` mechanism.
+                The mechanism allows creating query expressions like: `QueryTopic().with_user_metadata("interface.type", eq="UART")`.
                 See also:
                 * [`mosaicolabs.models.platform.Topic`][mosaicolabs.models.platform.Topic]
                 * [`mosaicolabs.models.query.builders.QueryTopic`][mosaicolabs.models.query.builders.QueryTopic].

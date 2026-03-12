@@ -39,10 +39,9 @@ class Topic(PlatformBase):
         instance.
 
     ### Querying with the **`.Q` Proxy**
-    The `user_metadata` field of this class is queryable when constructing a [`QueryTopic`][mosaicolabs.models.query.QueryTopic]
-    via the **`.Q` proxy**.
-    Check the documentation of the [`PlatformBase`][mosaicolabs.models.platform.platform_base.PlatformBase--querying-with-the-q-proxy] to construct a
-    a valid expression for the builders involving the `user_metadata` component.
+    Warning: Deprecated
+        Querying the topic user-custom metadata via the `user_metadata` field of this class is deprecated.
+        Use the [`QueryTopic.with_user_metadata()`][mosaicolabs.models.query.builders.QueryTopic.with_user_metadata] builder instead.
 
     Example:
         ```python
@@ -52,19 +51,10 @@ class Topic(PlatformBase):
             # Filter for a specific data value (using constructor)
             qresponse = client.query(
                 QueryTopic(
-                    Topic.Q.user_metadata["update_rate_hz"].eq(100), # Access the keys using the [] operator
-                    Topic.Q.user_metadata["interface.type"].eq("canbus"), # Navigate the nested dicts using the dot notation
+                    Topic.Q.with_user_metadata("update_rate_hz", gt=100),
+                    Topic.Q.with_user_metadata("interface.type", eq="canbus"), # Navigate the nested dicts using the dot notation
                 )
             )
-
-            # # The same query using `with_expression`
-            # qresponse = client.query(
-            #     QueryTopic()
-            #     .with_expression(Topic.Q.user_metadata["update_rate_hz"].eq(100))
-            #     .with_expression(
-            #         Topic.Q.user_metadata["interface.type"].match("canbus")
-            #     )
-            # )
 
             # Inspect the response
             if qresponse is not None:

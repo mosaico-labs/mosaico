@@ -1,5 +1,4 @@
 from mosaicolabs.comm import MosaicoClient
-from mosaicolabs.models.platform import Topic
 from mosaicolabs.models.query import QueryOntologyCatalog, QuerySequence, QueryTopic
 from mosaicolabs.models.sensors import GPS, IMU
 from mosaicolabs.types import Time
@@ -140,9 +139,7 @@ def test_mixed_query_ontology(
         QueryOntologyCatalog().with_expression(
             IMU.Q.timestamp_ns.geq(tstamp.to_nanoseconds())
         ),
-        QueryTopic().with_expression(
-            Topic.Q.user_metadata["sensor_id"].eq("imu_front_01")
-        ),
+        QueryTopic().with_user_metadata("sensor_id", eq="imu_front_01"),
         QuerySequence().with_name(UPLOADED_SEQUENCE_NAME),
     )
     # We do expect a successful query
@@ -160,9 +157,7 @@ def test_mixed_query_ontology(
     tstamp = Time.from_float(1700000000.26)
     query_resp = _client.query(
         QueryOntologyCatalog().with_expression(GPS.Q.status.service.geq(1)),
-        QueryTopic().with_expression(
-            Topic.Q.user_metadata["interface.type"].eq("UART")
-        ),
+        QueryTopic().with_user_metadata("interface.type", eq="UART"),
     )
     # We do expect a successful query
     assert query_resp is not None and not query_resp.is_empty()
@@ -186,9 +181,7 @@ def test_mixed_query_no_return(
     # Query by multiple condition: value and topic metadata
     query_resp = _client.query(
         QueryOntologyCatalog().with_expression(GPS.Q.status.service.geq(1)),
-        QueryTopic().with_expression(
-            Topic.Q.user_metadata["interface.type"].eq("UART")
-        ),
+        QueryTopic().with_user_metadata("interface.type", eq="UART"),
         QuerySequence().with_name("nonexisting-seq"),
     )
     # We do expect a successful query

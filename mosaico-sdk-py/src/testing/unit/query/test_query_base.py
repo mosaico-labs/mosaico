@@ -2,7 +2,6 @@ from typing import Optional
 
 import pytest
 
-from mosaicolabs.models.platform import Sequence, Topic
 from mosaicolabs.models.query import (
     Query,
     QueryOntologyCatalog,
@@ -125,25 +124,24 @@ def test_query_base_fails_on_duplicate_key(query_type: type[QueryableProtocol]):
 def test_query_succeed_on_metadata_multi_key():
     """Tests the validation that allows mulitple query criteria on user_metadata."""
 
-    QuerySequence().with_expression(
-        Sequence.Q.user_metadata["some-key"].eq(0)
-    ).with_expression(Sequence.Q.user_metadata["some-other-key"].eq("value"))
+    QuerySequence().with_user_metadata("some-key", eq=0).with_user_metadata(
+        "some-other-key", eq="value"
+    )
 
     # Still fails if the key is repeated
     with pytest.raises(NotImplementedError):
-        QuerySequence().with_expression(
-            Sequence.Q.user_metadata["same-key"].geq(0)
-        ).with_expression(Sequence.Q.user_metadata["same-key"].lt(3))
+        QuerySequence().with_user_metadata("same-key", geq=0).with_user_metadata(
+            "same-key", lt=3
+        )
 
-    QueryTopic().with_expression(
-        Topic.Q.user_metadata["some-key"].eq(0)
-    ).with_expression(Topic.Q.user_metadata["some-other-key"].eq("value"))
-
+    QueryTopic().with_user_metadata("some-key", eq=0).with_user_metadata(
+        "some-other-key", eq="value"
+    )
     # Still fails if the key is repeated
     with pytest.raises(NotImplementedError):
-        QueryTopic().with_expression(
-            Topic.Q.user_metadata["same-key"].geq(0)
-        ).with_expression(Topic.Q.user_metadata["same-key"].lt(3))
+        QueryTopic().with_user_metadata("same-key", geq=0).with_user_metadata(
+            "same-key", lt=3
+        )
 
 
 def test_construction_query_from_response():

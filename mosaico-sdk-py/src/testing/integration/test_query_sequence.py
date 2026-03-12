@@ -1,7 +1,6 @@
 import pytest
 
 from mosaicolabs.comm import MosaicoClient
-from mosaicolabs.models.platform import Sequence
 from mosaicolabs.models.query import QuerySequence
 from mosaicolabs.types import Time
 from testing.integration.config import (
@@ -93,7 +92,7 @@ def test_query_sequence_metadata(
         .with_name(
             UPLOADED_SEQUENCE_NAME
         )  # limit to this sequence for avoiding other sequences created by other tests (ensure controllability)
-        .with_expression(Sequence.Q.user_metadata["status"].eq("processed"))
+        .with_user_metadata("status", eq="processed")
     )
     # We do expect a successful query
     assert query_resp is not None and not query_resp.is_empty()
@@ -111,8 +110,8 @@ def test_query_sequence_metadata(
     # Test with multiple conditions
     query_resp = _client.query(
         QuerySequence()
-        .with_expression(Sequence.Q.user_metadata["status"].eq("processed"))
-        .with_expression(Sequence.Q.user_metadata["environment.weather"].eq("sunny"))
+        .with_user_metadata("status", eq="processed")
+        .with_user_metadata("environment.weather", eq="sunny")
     )
     # We do expect a successful query
     assert query_resp is not None and not query_resp.is_empty()
@@ -129,11 +128,9 @@ def test_query_sequence_metadata(
     # Test with nested-fields condition
     query_resp = _client.query(
         QuerySequence()
-        .with_expression(Sequence.Q.user_metadata["location.city"].eq("Milan"))
-        .with_expression(Sequence.Q.user_metadata["location.facility"].eq("Downtown"))
-        .with_expression(
-            Sequence.Q.user_metadata["vehicle.software_stack.planning"].eq("plan-4.1.7")
-        )
+        .with_user_metadata("location.city", eq="Milan")
+        .with_user_metadata("location.facility", eq="Downtown")
+        .with_user_metadata("vehicle.software_stack.planning", eq="plan-4.1.7")
     )
     # We do expect a successful query
     assert query_resp is not None and not query_resp.is_empty()

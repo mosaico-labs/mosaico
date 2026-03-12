@@ -3,7 +3,6 @@ import pytest
 from mosaicolabs.comm import MosaicoClient
 from mosaicolabs.enum.on_error_policy import OnErrorPolicy
 from mosaicolabs.models import Message
-from mosaicolabs.models.platform import Topic
 from mosaicolabs.models.query.builders import QueryOntologyCatalog, QueryTopic
 from mosaicolabs.models.sensors import Pressure, Temperature
 
@@ -146,9 +145,7 @@ def test_sequence_update(
 
     # Query by topic metadata
     query_resp = _client.query(
-        QueryTopic().with_expression(
-            Topic.Q.user_metadata["sensor_id"].eq("temperature_1")
-        )
+        QueryTopic().with_user_metadata("sensor_id", eq="temperature_1")
     )
     assert query_resp is not None and not query_resp.is_empty()
     assert len(query_resp) == 1

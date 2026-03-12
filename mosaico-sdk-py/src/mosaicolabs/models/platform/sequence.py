@@ -39,10 +39,9 @@ class Sequence(PlatformBase):
         instance.
 
     ### Querying with the **`.Q` Proxy**
-    The `user_metadata` field of this class is queryable when constructing a [`QuerySequence`][mosaicolabs.models.query.QuerySequence]
-    via the **`.Q` proxy**.
-    Check the documentation of the [`PlatformBase`][mosaicolabs.models.platform.platform_base.PlatformBase--querying-with-the-q-proxy] to construct a
-    a valid expression for the builders involving the `user_metadata` component.
+    Warning: Deprecated
+        Querying the sequence user-custom metadata via the `user_metadata` field of this class is deprecated.
+        Use the [`QuerySequence.with_user_metadata()`][mosaicolabs.models.query.builders.QuerySequence.with_user_metadata] builder instead.
 
     Example:
         ```python
@@ -52,19 +51,10 @@ class Sequence(PlatformBase):
             # Filter for a specific data value (using constructor)
             qresponse = client.query(
                 QuerySequence(
-                    Sequence.Q.user_metadata["project"].eq("Apollo"), # Access the keys using the [] operator
-                    Sequence.Q.user_metadata["vehicle.software_stack.planning"].match("plan-4."), # Navigate the nested dicts using the dot notation
+                    Sequence.Q.with_user_metadata("project", eq="Apollo"),
+                    Sequence.Q.with_user_metadata("vehicle.software_stack.planning", eq="plan-4.1.7"),
                 )
             )
-
-            # # The same query using `with_expression`
-            # qresponse = client.query(
-            #     QuerySequence()
-            #     .with_expression(Sequence.Q.user_metadata["project"].eq("Apollo"))
-            #     .with_expression(
-            #         Sequence.Q.user_metadata["vehicle.software_stack.planning"].match("plan-4.")
-            #     )
-            # )
 
             # Inspect the response
             if qresponse is not None:

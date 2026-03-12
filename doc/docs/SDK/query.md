@@ -21,9 +21,7 @@ with MosaicoClient.connect("localhost", 6726) as client:
         # Filter Sequence-level metadata
         QuerySequence()
         .with_name_match("test_drive")  # Use convenience method for fuzzy name matching
-        .with_expression(               # Use the .Q proxy to filter the `user_metadata` field
-            Sequence.Q.user_metadata["environment.visibility"].lt(50)
-        ),
+        .with_user_metadata("environment.visibility", lt=50), # Use convenience method for filtering user metadata
         # Search on topics with specific names
         QueryTopic()
         .with_name("/front/camera/image"),
@@ -51,8 +49,8 @@ with MosaicoClient.connect("localhost", 6726) as client:
 The provided example illustrates the core architecture of the Mosaico Query DSL. To effectively use this module, it is important to understand the two primary mechanisms that drive data discovery:
 
 * **Query Builders (Fluent Logic Collectors)**: Specialized builders like [`QuerySequence`][mosaicolabs.models.query.builders.QuerySequence], [`QueryTopic`][mosaicolabs.models.query.builders.QueryTopic], and [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog] serve as containers for your search criteria. They provide a **Fluent Interface** where you can chain two types of methods:
-    * **Convenience Methods**: High-level helpers for common fields, such as `with_name()`, `with_name_match()`, or `with_created_timestamp()`.
-    * **Generic `with_expression()`**: A versatile method that accepts any expression obtained via the **`.Q` proxy**, allowing you to define complex filters for nested user metadata or deep sensor payloads.
+    * **Convenience Methods**: High-level helpers for common fields, such as `with_user_metadata()`, `with_name_match()`, or `with_created_timestamp()`.
+    * **Generic `with_expression()`**: A versatile method that accepts any expression obtained via the **`.Q` proxy**, allowing you to define complex filters for deep sensor payloads.
 * **The `.Q` Proxy (Dynamic Model Inspection)**: Every [`Serializable`][mosaicolabs.models.serializable.Serializable] model in the Mosaico ontology features a static `.Q` attribute. This proxy dynamically inspects the model's underlying schema to build dot-notated field paths and intercepts attribute access (e.g., `IMU.Q.acceleration.x`). When a terminal method is called—such as `.gt()`, `.lt()`, or `.between()`—it generates a type-safe **Atomic Expression** used by the platform to filter physical sensor data or metadata fields.
 
 By combining these mechanisms, the Query Module delivers a robust filtering experience:
@@ -219,7 +217,7 @@ with MosaicoClient.connect("localhost", 6726) as client:
     qresponse = client.query(
         QuerySequence()
         .with_name_match("test_drive")
-        .with_expression(Sequence.Q.user_metadata["project"].eq("Apollo"))
+        .with_user_metadata("project", eq="Apollo")
         .with_created_timestamp(time_start=Time.from_float(1690000000.0))
     )
 
@@ -245,8 +243,8 @@ with MosaicoClient.connect("localhost", 6726) as client:
     qresponse = client.query(
         QueryTopic()
         .with_ontology_tag(Image.ontology_tag())
-        .with_created_timestamp(time_start=Time.from_float(1700000000))
-        .with_expression(Topic.Q.user_metadata["camera_id.serial_number"].eq("ABC123_XYZ"))
+        .with_created_timestamp(time_start=Time.from_float(170000000))
+        .with_user_metadata("camera_id.serial_number", eq="ABC123_XYZ")
     )
 
     # Inspect the response
@@ -351,32 +349,14 @@ The `with_expression()` method accepts raw **Query Expressions** generated throu
 This provides full access to every supported operator (`.gt()`, `.lt()`, `.between()`, etc.) for specific fields.
 
 ```python
-from mosaicolabs import QueryOntologyCatalog, QuerySequence, IMU
-
-# Build a filter with name pattern and metadata-related expression
-qbuilder = QuerySequence()
-    .with_expression(
-        # Use query proxy for generating a QueryExpression
-        Sequence.Q.user_metadata['environment.visibility'].lt(50)
-    )
-    # Can be AND-chained with convenience methods
-    .with_name_match("test_drive")
-# Execute the query
-qresponse = client.query(qbuilder)
-
-# Inspect the response
-if qresponse is not None:
-    # Results are automatically grouped by Sequence for easier data management
-    for item in qresponse:
-        print(f"Sequence: {item.sequence.name}")
-        print(f"Topics: {[topic.name for topic in item.topics]}")
+from mosaicolabs import QueryOntologyCatalog, IMU
 
 # Build a filter with deep time-series data discovery and measurement time windowing
-qbuilder = QueryOntologyCatalog()
+qresponse = client.query(
+    QueryOntologyCatalog()
     .with_expression(IMU.Q.acceleration.x.gt(5.0))
     .with_expression(IMU.Q.timestamp_ns.gt(1700134567))
-# Execute the query
-qresponse = client.query(qbuilder)
+)
 
 # Inspect the response
 if qresponse is not None:
@@ -386,7 +366,7 @@ if qresponse is not None:
         print(f"Topics: {[topic.name for topic in item.topics]}")
 ```
 
-* **Best For**: Accessing specific Ontology data fields (e.g., acceleration, position, etc.) and custom `user_metadata` in `Sequence` and `Topic` data models.
+* **Used For**: Accessing specific Ontology data fields (e.g., acceleration, position, etc.) in stored time-series data.
 
 ### The `.Q` Proxy Mechanism
 
@@ -430,17 +410,17 @@ The following table lists the supported operators for each data type:
 | **Numeric** | `.eq()`, `.neq()`, `.lt()`, `.leq()`, `.gt()`, `.geq()`, `.between()`, `.in_()` |
 | **String** | `.eq()`, `.neq()`, `.match()` (i.e. substring), `.in_()` |
 | **Boolean** | `.eq(True/False)` |
-| **Dictionary** | `.eq()`, `.neq()`, `.lt()`, `.leq()`, `.gt()`, `.geq()`, `.between()`, `.in_()`, `.match()`|
+| **Dictionary** | `.eq()`, `.lt()`, `.leq()`, `.gt()`, `.geq()`, `.between()`|
 
 #### Supported vs. Unsupported Types
 
 While the `.Q` proxy is highly versatile, it enforces specific rules on which data structures can be queried:
 
 * **Supported Types**: The proxy resolves all simple (int, float, str, bool) or composed types (like `Vector3d` or `Quaternion`). It will continue to expose nested fields as long as they lead to a primitive base type.
-* **Dictionaries**: Dynamic fields, such as the [`user_metadata`][mosaicolabs.models.platform.platform_base.PlatformBase.user_metadata] found in the **[`Topic`][mosaicolabs.models.platform.Topic]** and **[`Sequence`][mosaicolabs.models.platform.Sequence]** platform models, are fully queryable through the proxy using bracket notation (e.g., `Topic.Q.user_metadata["key"]` or `Topic.Q.user_metadata["key.subkey.subsubkey"]`). This approach provides the flexibility to search across custom tags and dynamic properties that aren't part of a fixed schema. This dictionary-based querying logic is not restricted to platform models; it applies to any **custom ontology model** created by the user that contains a `dict` field.
+* **Dictionaries**: Dynamic fields, i.e. derived from dictionaries in the ontology models, are fully queryable through the proxy using bracket notation (e.g., `<DataModel>.Q.dict_field["key"]` or `<DataModel>.Q.dict_field["key.subkey.subsubkey"]`). This approach provides the flexibility to search across custom tags and dynamic properties that aren't part of a fixed schema. This dictionary-based querying logic applies to any **custom ontology model** created by the user that contains a `dict` field.
     * **Syntax**: Instead of the standard dot notation used for fixed fields, you must use square brackets `["key"]` to target specific dictionary entries.
     * **Nested Access**: For dictionaries containing nested structures, you can use **dot notation within the key string** (e.g., `["environment.visibility"]`) to traverse sub-fields.
-    * **Operator Support**: Because dictionary values are dynamic, these fields are "promiscuous," meaning they support all available numeric, string, and boolean operators without strict SDK-level type checking.
+    * **Operator Support**: Because dictionary values are dynamic, these fields are "promiscuous," meaning they support mixed numeric, string, and boolean operators without strict SDK-level type checking.
 
 * **Unsupported Types (Lists and Tuples)**: Any field defined as a container, such as a **List** or **Tuple** (e.g., `covariance: List[float]`), is currently skipped by the proxy generator. These fields will not appear in autocomplete and cannot be used in a query expression.
 

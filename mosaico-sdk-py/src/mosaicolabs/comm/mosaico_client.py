@@ -816,10 +816,7 @@ class MosaicoClient:
                 results = client.query(
                     # Append a filter for sequence metadata
                     QuerySequence()
-                    .with_expression(
-                        # Use query proxy for generating a _QuerySequenceExpression
-                        Sequence.Q.user_metadata["environment.visibility"].lt(50)
-                    )
+                    .with_user_metadata("environment.visibility", lt=50)
                     .with_name_match("test_drive"),
                     # Append a filter with deep time-series data discovery and measurement time windowing
                     QueryOntologyCatalog()
@@ -843,10 +840,7 @@ class MosaicoClient:
                 query = Query(
                     # Append a filter for sequence metadata
                     QuerySequence()
-                    .with_expression(
-                        # Use query proxy for generating a _QuerySequenceExpression
-                        Sequence.Q.user_metadata["environment.visibility"].lt(50)
-                    )
+                    .with_user_metadata("environment.visibility", lt=50)
                     .with_name_match("test_drive"),
                     # Append a filter with deep time-series data discovery and measurement time windowing
                     QueryOntologyCatalog()
@@ -902,7 +896,7 @@ class MosaicoClient:
             logger.error(f"Query returned an internal error: '{e}'")
             return None
 
-    def version(self):
+    def version(self) -> str:
         """
         Get the version of the Mosaico server.
 
@@ -920,13 +914,13 @@ class MosaicoClient:
 
             if act_resp is None:
                 logger.error(f"Action '{ACTION}' returned no response.")
-                return []
+                return ""
 
             return act_resp
 
         except Exception as e:
             logger.error(f"'Version' action returned an internal error: '{e}'")
-            return []
+            return ""
 
     def clear_sequence_handlers_cache(self):
         """

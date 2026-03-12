@@ -227,6 +227,16 @@ class _QueryableDynamicValue:
         )
         return getattr(self, "_cmp")("$eq", value)
 
+    # TODO: Check with backend guys if those are available
+    # def match(self, value: Any):
+    #     getattr(self, "_validate_value_type")(
+    #         value, _QueryableString.__mixin_supported_types__
+    #     )
+    #     return getattr(self, "_cmp")("$match", value)
+
+    # def in_(self, *values: Any):
+    #     return getattr(self, "_in")(*values, allowed_types=None)
+
     def lt(self, value: Any):
         getattr(self, "_validate_value_type")(
             value, _QueryableComparable.__mixin_supported_types__
@@ -264,7 +274,7 @@ class _DynamicFieldFactoryMixin:
     Mixin for dict fields (like user_metadata) that allows dynamic key access.
 
     It provides __getitem__ to dynamically create a queryable field
-    for a specific key, e.g., `Topic.Q.user_metadata["mission"]`.
+    for a specific key, e.g., `<DataModel>.Q.dict_field["mission"]`.
     """
 
     __slots__ = ()
@@ -274,7 +284,7 @@ class _DynamicFieldFactoryMixin:
         """
         Enables the indexing operations using square bracket notation ([]) to
         dynamically create a queryable field for a given dict key.
-        e.g., Topic.Q.user_metadata["mission"]
+        e.g., <DataModel>.Q.dict_field["key"]
         """
         if not isinstance(key, str):
             raise TypeError(
@@ -472,3 +482,14 @@ class _QueryableField:
             f"'{self.__class__.__name__}' object has no operator '{name}'. "
             f"Available methods: {', '.join([f"'{meth}'" for meth in sorted(valid_operators)])}"
         )
+
+
+def _make_queryable_field_type(MixinType: Type) -> Type:
+    return type(f"{MixinType.__name__}Field", (MixinType, _QueryableField), {})
+
+
+def _make_queryable_field_intance(
+    queryable_type: Type, field_full_path: str, expression_type: Type[_QueryExpression]
+) -> Any:
+    cls = type(f"{queryable_type.__name__}Field", (queryable_type, _QueryableField), {})
+    return cls(full_path=field_full_path, expr_cls=expression_type)

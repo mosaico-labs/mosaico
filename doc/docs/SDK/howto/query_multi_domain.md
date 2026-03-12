@@ -34,7 +34,7 @@ with MosaicoClient.connect("localhost", 6726) as client:
     results = client.query(
         # Filter 1: Sequence Layer (Project Metadata)
         QuerySequence()
-            .with_expression(Sequence.Q.user_metadata["project.name"].eq("Apollo")), # (1)!
+            .with_user_metadata("project.name", eq="Apollo"), # (1)!
         
         # Filter 2: Topic Layer (Specific Channel Name)
         QueryTopic()
@@ -67,7 +67,7 @@ with MosaicoClient.connect("localhost", 6726) as client:
 
 The `query` method returns `None` if an error occurs, or a [`QueryResponse`][mosaicolabs.models.query.response.QueryResponse] object. This response acts as a list of [`QueryResponseItem`][mosaicolabs.models.query.response.QueryResponseItem] objects, each providing:
 
-*   **`item.sequence`**: A [`QueryResponseItemSequence`][mosaicolabs.models.query.response.QueryResponseItemSequence] containing the sequence metadata.
+*   **`item.sequence`**: A [`QueryResponseItemSequence`][mosaicolabs.models.query.response.QueryResponseItemSequence] containing the sequence name matching the query.
 *   **`item.topics`**: A list of [`QueryResponseItemTopic`][mosaicolabs.models.query.response.QueryResponseItemTopic] objects that matched the query.
 
 !!! info "Result Normalization"
@@ -75,8 +75,7 @@ The `query` method returns `None` if an error occurs, or a [`QueryResponse`][mos
 
 ### Key Concepts
 
-* [**Convenience Methods**](../query.md#convenience-methods): High-level helpers like `with_name_match()` provide a quick way to filter common fields.
+* [**Convenience Methods**](../query.md#convenience-methods): High-level helpers like `with_name_match()` or `with_user_metadata()` provide a quick way to filter common fields.
 * [**Generic Methods**](../query.md#generic-expression-method): The `with_expression()` method accepts raw **Query Expressions** generated through the [`.Q` proxy](../query.md#the-q-proxy-mechanism). This provides full access to every supported operator (`.gt()`, `.lt()`, `.between()`, etc.) for specific fields.
 * **The `.Q` Proxy**: Every ontology model features a [static `.Q` attribute](../ontology.md#querying-data-ontology-with-the-query-q-proxy) that dynamically builds type-safe field paths for your expressions.
 * **Temporal Windows**: By setting `include_timestamp_range=True` in the `QueryOntologyCatalog`, the platform identifies the exact start and end of the matching event within the stream.
-* **Dictionary Access**: Use bracket notation (e.g., [`Sequence.Q.user_metadata["key.subkey"]`][mosaicolabs.models.platform.Sequence]) to query custom tags that are not part of a fixed schema.
