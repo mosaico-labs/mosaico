@@ -218,7 +218,7 @@ def test_query_topic_metadata(
     query_resp = _client.query(
         QueryTopic()
         .with_user_metadata("serial_number", eq="IMUF-9A31D72X")
-        .with_user_metadata("bias_stability", gt=0.01)
+        .with_user_metadata("bias_stability", between=(0.005, 0.015))
     )
     # We do expect a successful query
     assert query_resp is not None and not query_resp.is_empty()

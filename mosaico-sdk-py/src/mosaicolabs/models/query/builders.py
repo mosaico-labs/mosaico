@@ -411,7 +411,7 @@ class QueryTopic:
         Appends a metadata filter to the query using a fluent, operator-based interface.
 
         This method simplifies metadata discovery by allowing direct filtering on the `user_metadata`
-        dictionary. Each call adds a logical AND condition to the query.
+        dictionary of the Topic. Each call adds a logical AND condition to the query.
 
         Note:
             The previous method using `Topic.Q.user_metadata` is maintained for backward
@@ -421,7 +421,7 @@ class QueryTopic:
             key (str): The metadata key to filter on (e.g., "sensor_id"). Supports dot-notation
                 for nested dictionary access (e.g., "calibration.focal_length").
             **operator_kwargs: A single keyword argument where the key is the operator
-                and the value is the comparison target.
+                and the value is the comparison target, e.g. `eq="value"`, `lt=100`, etc.
 
         Raises:
             ValueError: If no operator is provided, if multiple operators are provided in
@@ -802,7 +802,7 @@ class QuerySequence:
         Appends a metadata filter to the query using a fluent, operator-based interface.
 
         This method simplifies metadata discovery by allowing direct filtering on the `user_metadata`
-        dictionary. Each call adds a logical AND condition to the query.
+        dictionary of the Sequence. Each call adds a logical AND condition to the query.
 
         Note:
             The previous method using `Sequence.Q.user_metadata` is maintained for backward
@@ -812,7 +812,7 @@ class QuerySequence:
             key (str): The metadata key to filter on (e.g., "project"). Supports dot-notation
                 for nested dictionary access (e.g., "vehicle.id").
             **operator_kwargs: A single keyword argument where the key is the operator
-                and the value is the comparison target.
+                and the value is the comparison target, e.g. `eq="value"`, `lt=100`, etc.
 
         Raises:
             ValueError: If no operator is provided, if multiple operators are provided in
