@@ -81,7 +81,7 @@ impl Session {
 
         tx.commit().await?;
 
-        // Update manifest (store). Do it even in case of database transaction fail.
+        // Update manifest (store).
         let mut manifest = self.manifest().await?;
         manifest.locked = true;
         manifest.completed_at = Some(completed_at);

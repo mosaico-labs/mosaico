@@ -142,12 +142,12 @@ impl Sequence {
         let session = db::SessionRecord::new(sequence.sequence_id);
         let session = db::session_create(&mut tx, &session).await?;
 
+        tx.commit().await?;
+
         // Create session manifest (store)
         let session_facade =
             super::Session::new(session.uuid(), self.store.clone(), self.db.clone()).await?;
         session_facade.create_manifest().await?;
-
-        tx.commit().await?;
 
         Ok(session.into())
     }
