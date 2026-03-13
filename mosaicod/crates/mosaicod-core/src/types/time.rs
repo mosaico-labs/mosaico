@@ -95,6 +95,10 @@ pub struct TimestampRange {
 }
 
 impl TimestampRange {
+    pub fn unbounded() -> Self {
+        Self::between(Timestamp::unbounded_neg(), Timestamp::unbounded_pos())
+    }
+
     pub fn between(start: Timestamp, end: Timestamp) -> Self {
         Self { start, end }
     }

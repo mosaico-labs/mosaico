@@ -4,12 +4,15 @@ use arrow::datatypes::{Field, Schema};
 use arrow_flight::{
     FlightDescriptor, FlightEndpoint, FlightInfo, Ticket, flight_descriptor::DescriptorType,
 };
+use futures::stream::{self, StreamExt, TryStreamExt};
 use log::{info, trace};
-use mosaicod_core::types::{self, Resource};
+use mosaicod_core::types::{self, Resource, TopicResourceLocator, TopicSchemaMetadata};
 use mosaicod_db as db;
 use mosaicod_facade as facade;
 use mosaicod_marshal as marshal;
-use mosaicod_marshal::flight;
+use mosaicod_marshal::{JsonMetadataBlob, flight};
+
+const MAX_CONCURRENT_ENDPOINTS: usize = 10;
 
 pub async fn get_flight_info(
     ctx: Context,
@@ -49,45 +52,46 @@ pub async fn get_flight_info(
                     trace!("{} generating endpoints", handle.locator);
                     let topics = handle.topic_list().await?;
 
-                    // Collect manifests
-                    let manifests = collect_manifests(ctx, &topics).await?;
-
-                    assert_eq!(topics.len(), manifests.len());
-
                     // Populate endpoints
-                    let endpoints: Vec<FlightEndpoint> = manifests
-                        .into_iter()
-                        .enumerate()
-                        .map(|(index, manifest)| {
-                            let topic = &topics[index];
-
+                    let endpoints = stream::iter(topics)
+                        .map(async |topic: TopicResourceLocator| {
                             let ticket = types::flight::TicketTopic {
                                 locator: topic.name().to_owned(),
                                 timestamp_range: cmd.timestamp_range.clone(),
                             };
 
-                            let mut e = FlightEndpoint::new()
+                            let topic_facade = facade::Topic::new(
+                                topic.to_string(),
+                                ctx.store.clone(),
+                                ctx.db.clone(),
+                            );
+
+                            let topic_app_mdata = build_topic_app_metadata(
+                                topic_facade.metadata().await?.properties,
+                                &topic_facade,
+                            )
+                            .await;
+
+                            let e = FlightEndpoint::new()
                                 .with_ticket(Ticket {
                                     ticket: marshal::flight::ticket_topic_to_binary(ticket)?.into(),
                                 })
-                                .with_location(topic.url()?);
-
-                            if let Some(m) = manifest {
-                                let app_mdata: marshal::flight::TopicAppMetadata = m.into();
-                                e.app_metadata = app_mdata.into();
-                            }
+                                .with_location(topic.url()?)
+                                .with_app_metadata(topic_app_mdata);
 
                             Ok::<FlightEndpoint, ServerError>(e)
                         })
-                        .collect::<Result<_, ServerError>>()?;
+                        .buffer_unordered(MAX_CONCURRENT_ENDPOINTS)
+                        .try_collect::<Vec<FlightEndpoint>>()
+                        .await?;
 
                     // Get sequence manifest, if it exists, and send it as app metadata.
-                    let manifest : flight::SequenceAppMetadata = match handle.manifest().await {
+                    let manifest: flight::SequenceAppMetadata = match handle.manifest().await {
                         Ok(m) => m.into(),
                         Err(e) => return Err(e.into()),
                     };
 
-                    trace!("{} generating endpoints: {:?}", handle.locator, endpoints);
+                    // trace!("{} generating endpoints: {:?}", handle.locator, endpoints);
                     let mut flight_info = FlightInfo::new()
                         .with_descriptor(desc.clone())
                         .with_app_metadata(manifest)
@@ -104,39 +108,8 @@ pub async fn get_flight_info(
                 types::ResourceType::Topic => {
                     let handle =
                         facade::Topic::new(resource.name().into(), ctx.store, ctx.db.clone());
+
                     let metadata = handle.metadata().await?;
-
-                    trace!("{} building schema (+platform metadata)", handle.locator);
-
-                    // Collect schema, if no schema was found generate an empty schema
-                    let schema = match handle
-                        .arrow_schema(metadata.properties.serialization_format)
-                        .await
-                    {
-                        Ok(s) => s,
-                        Err(facade::Error::NotFound(_)) => mosaicod_ext::arrow::empty_schema_ref(),
-                        Err(e) => return Err(e.into()),
-                    };
-
-                    // Collect metadata
-                    let metadata = marshal::JsonTopicMetadata::from(metadata);
-                    let flatten_metadata =
-                        metadata.to_flat_hashmap().map_err(facade::Error::from)?;
-
-                    // Build schema to send
-                    let schema =
-                        Schema::new_with_metadata(schema.fields().clone(), flatten_metadata);
-
-                    // Get the manifest, if it exists.
-                    let manifest = match handle.manifest().await {
-                        Ok(m) => m,
-                        Err(e) => return Err(e.into()),
-                    };
-
-                    // We can get directly the only elements since collect_manifests ensures that
-                    // there will be at least one entry returned (if no error)
-                    let app_mdata: Option<marshal::flight::TopicAppMetadata> =
-                        manifest.map(|m| m.into());
 
                     let ticket = types::flight::TicketTopic {
                         locator: handle.locator.clone().into(),
@@ -144,23 +117,23 @@ pub async fn get_flight_info(
                     };
 
                     // building a single endpoint for topic data
-                    let mut endpoint = FlightEndpoint::new()
+                    let endpoint = FlightEndpoint::new()
                         .with_ticket(Ticket {
                             ticket: marshal::flight::ticket_topic_to_binary(ticket)?.into(),
                         })
-                        .with_location(handle.locator.url()?);
-
-                    if let Some(app_mdata) = app_mdata {
-                        endpoint.app_metadata = app_mdata.into();
-                    }
+                        .with_location(handle.locator.url()?)
+                        .with_app_metadata(
+                            build_topic_app_metadata(metadata.properties, &handle).await,
+                        );
 
                     trace!("{} generating endpoint {:?}", handle.locator, endpoint);
 
-                    let mut flight_info = FlightInfo::new()
-                        .with_descriptor(desc.clone())
-                        .try_with_schema(&schema)?;
+                    let schema = build_topic_schema_metadata(metadata.schema, &handle).await?;
 
-                    flight_info = flight_info.with_endpoint(endpoint);
+                    let flight_info = FlightInfo::new()
+                        .with_descriptor(desc.clone())
+                        .with_endpoint(endpoint)
+                        .try_with_schema(&schema)?;
 
                     trace!("{} done", handle.locator);
                     Ok(flight_info)
@@ -171,31 +144,47 @@ pub async fn get_flight_info(
     }
 }
 
-/// Retrieves the manifest for every provided topic.
-///
-/// This function guarantees a 1:1 mapping: the output vector will strictly correspond
-/// to the input slice in both length and order.
-pub async fn collect_manifests(
-    ctx: Context,
-    topics: &[types::TopicResourceLocator],
-) -> Result<Vec<Option<types::TopicManifest>>, ServerError> {
-    let mut manifests = Vec::new();
+/// Build topic app_metadata.
+async fn build_topic_app_metadata(
+    metadata_props: types::TopicProperties,
+    topic_facade: &facade::Topic,
+) -> marshal::flight::TopicAppMetadata {
+    let mut app_mdata = marshal::flight::TopicAppMetadata::new(metadata_props);
 
-    for topic in topics {
-        // (cabba) TODO: avoid cloning avery time store and database, maybe a `.into_parts()` to reuse
-        // facade resources ?
-        let handler =
-            facade::Topic::new(topic.name().to_owned(), ctx.store.clone(), ctx.db.clone());
-
-        // Collect manifest, if no manifest is found an empty one is returned while
-        // other errors are propagated
-        let manifest = match handler.manifest().await {
-            Ok(manifest) => manifest,
-            Err(e) => return Err(e.into()),
-        };
-
-        manifests.push(manifest);
+    if let Ok(info) = topic_facade.data_info().await {
+        app_mdata = app_mdata.with_info(info);
     }
 
-    Ok(manifests)
+    app_mdata
+}
+
+async fn build_topic_schema_metadata(
+    schema_metadata: TopicSchemaMetadata<JsonMetadataBlob>,
+    topic_facade: &facade::Topic,
+) -> Result<Schema, facade::Error> {
+    trace!(
+        "{} building schema (+platform metadata)",
+        topic_facade.locator
+    );
+
+    // Collect schema, if no schema was found generate an empty schema
+    let schema = match topic_facade
+        .arrow_schema(schema_metadata.properties.serialization_format)
+        .await
+    {
+        Ok(s) => s,
+        Err(facade::Error::NotFound(_)) => mosaicod_ext::arrow::empty_schema_ref(),
+        Err(e) => return Err(e),
+    };
+
+    // Collect schema metadata
+    let json_schema_metadata = marshal::JsonTopicSchemaMetadata::from(schema_metadata);
+    let flatten_schema_metadata = json_schema_metadata
+        .to_flat_hashmap()
+        .map_err(facade::Error::from)?;
+
+    Ok(Schema::new_with_metadata(
+        schema.fields().clone(),
+        flatten_schema_metadata,
+    ))
 }

@@ -31,14 +31,17 @@ pub async fn do_get(ctx: Context, ticket: Ticket) -> Result<FlightDataEncoder, S
         .timeseries_querier
         .read(
             &tfacade.locator.name(),
-            metadata.properties.serialization_format,
+            metadata.schema.properties.serialization_format,
             Some(batch_size),
         )
         .await?;
 
     // Append JSON metadata to original data schema
     let metadata = marshal::JsonTopicMetadata::from(metadata);
-    let flatten_mdata = metadata.to_flat_hashmap().map_err(facade::Error::from)?;
+    let flatten_mdata = metadata
+        .schema
+        .to_flat_hashmap()
+        .map_err(facade::Error::from)?;
     let schema = query_result.schema_with_metadata(flatten_mdata);
     trace!("{:?}", schema);
 

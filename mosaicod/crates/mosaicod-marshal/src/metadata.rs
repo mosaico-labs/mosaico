@@ -83,12 +83,36 @@ impl JsonSequenceMetadata {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct JsonTopicMetadata {
-    pub properties: JsonTopicProperties,
+pub struct JsonTopicSchemaProperties {
+    pub serialization_format: Format,
+    pub ontology_tag: String,
+}
+
+impl From<JsonTopicSchemaProperties> for types::TopicSchemaProperties {
+    fn from(value: JsonTopicSchemaProperties) -> Self {
+        Self {
+            ontology_tag: value.ontology_tag,
+            serialization_format: value.serialization_format.into(),
+        }
+    }
+}
+
+impl From<types::TopicSchemaProperties> for JsonTopicSchemaProperties {
+    fn from(value: types::TopicSchemaProperties) -> Self {
+        Self {
+            ontology_tag: value.ontology_tag,
+            serialization_format: value.serialization_format.into(),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct JsonTopicSchemaMetadata {
+    pub properties: JsonTopicSchemaProperties,
     pub user_metadata: JsonMetadataBlob,
 }
 
-impl JsonTopicMetadata {
+impl JsonTopicSchemaMetadata {
     pub fn to_flat_hashmap(self) -> Result<HashMap<String, String>, MetadataError> {
         Ok(HashMap::from([
             (
@@ -108,23 +132,52 @@ impl JsonTopicMetadata {
     }
 }
 
-impl From<JsonTopicMetadata> for types::TopicMetadata<JsonMetadataBlob> {
-    fn from(v: JsonTopicMetadata) -> Self {
+impl From<JsonTopicSchemaMetadata> for types::TopicSchemaMetadata<JsonMetadataBlob> {
+    fn from(value: JsonTopicSchemaMetadata) -> Self {
         Self {
-            user_metadata: v.user_metadata,
-            properties: v.properties.into(),
+            user_metadata: Some(value.user_metadata),
+            properties: value.properties.into(),
         }
+    }
+}
+
+impl From<types::TopicSchemaMetadata<JsonMetadataBlob>> for JsonTopicSchemaMetadata {
+    fn from(value: types::TopicSchemaMetadata<JsonMetadataBlob>) -> Self {
+        Self {
+            user_metadata: value
+                .user_metadata
+                .unwrap_or(JsonMetadataBlob(serde_json::Value::Null)),
+            properties: JsonTopicSchemaProperties::from(value.properties),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct JsonTopicMetadata {
+    pub properties: JsonTopicProperties,
+    pub schema: JsonTopicSchemaMetadata,
+}
+
+impl TryFrom<JsonTopicMetadata> for types::TopicMetadata<JsonMetadataBlob> {
+    type Error = Error;
+
+    fn try_from(v: JsonTopicMetadata) -> Result<Self, Error> {
+        Ok(Self {
+            schema: v.schema.into(),
+            properties: JsonTopicProperties::try_into(v.properties)?,
+        })
     }
 }
 
 impl From<types::TopicMetadata<JsonMetadataBlob>> for JsonTopicMetadata {
     fn from(value: types::TopicMetadata<JsonMetadataBlob>) -> Self {
         Self {
-            user_metadata: value.user_metadata,
-            properties: JsonTopicProperties::from(value.properties),
+            schema: value.schema.into(),
+            properties: value.properties.into(),
         }
     }
 }
+
 impl TryFrom<Vec<u8>> for JsonTopicMetadata {
     type Error = Error;
     fn try_from(bytes: Vec<u8>) -> Result<Self, Self::Error> {
@@ -141,24 +194,40 @@ impl TryInto<Vec<u8>> for JsonTopicMetadata {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct JsonTopicProperties {
-    pub serialization_format: Format,
-    pub ontology_tag: String,
+    pub created_at: i64,
+    pub completed_at: Option<i64>,
+    pub locked: bool,
+    pub session_uuid: String,
+    pub resource_locator: String,
 }
 
-impl From<JsonTopicProperties> for types::TopicProperties {
-    fn from(value: JsonTopicProperties) -> Self {
-        Self {
-            serialization_format: value.serialization_format.into(),
-            ontology_tag: value.ontology_tag,
-        }
+impl TryFrom<JsonTopicProperties> for types::TopicProperties {
+    type Error = Error;
+
+    fn try_from(value: JsonTopicProperties) -> Result<Self, Error> {
+        Ok(Self {
+            created_at: value.created_at.into(),
+            completed_at: value.completed_at.map(Into::into),
+            locked: value.locked,
+            session_uuid: value.session_uuid.parse().map_err(|_| {
+                MetadataError::DeserializationError(format!(
+                    "error parsing session UUID ({}) for topic {}",
+                    value.session_uuid, value.resource_locator
+                ))
+            })?,
+            resource_locator: value.resource_locator.into(),
+        })
     }
 }
 
 impl From<types::TopicProperties> for JsonTopicProperties {
     fn from(value: types::TopicProperties) -> Self {
         Self {
-            serialization_format: value.serialization_format.into(),
-            ontology_tag: value.ontology_tag,
+            created_at: value.created_at.as_i64(),
+            completed_at: value.completed_at.map(Into::into),
+            locked: value.locked,
+            session_uuid: value.session_uuid.to_string(),
+            resource_locator: value.resource_locator.into(),
         }
     }
 }

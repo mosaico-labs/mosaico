@@ -1,7 +1,7 @@
 use super::Error;
 use bincode::{Decode, Encode};
 use mosaicod_core::types;
-use mosaicod_core::types::UuidError;
+use mosaicod_core::types::{SessionManifest, UuidError};
 use serde::{Deserialize, Serialize};
 // ////////////////////////////////////////////////////////////////////////////
 // GET FLIGHT INFO CMD
@@ -72,55 +72,6 @@ pub fn do_put_cmd(v: &[u8]) -> Result<types::flight::DoPutCmd, super::Error> {
 // SEQUENCE APP METADATA
 // ////////////////////////////////////////////////////////////////////////////
 
-#[derive(Serialize, Deserialize)]
-pub struct SessionAppMetadataTimestamps {
-    created_timestamp: i64,
-    completed_timestamp: i64,
-}
-
-/// For a still running session only the uuid field is filled.
-/// For a closed session also the timestamps are available.
-#[derive(Serialize, Deserialize)]
-pub struct SessionAppMetadata {
-    uuid: String,
-    #[serde(flatten)]
-    timestamps: Option<SessionAppMetadataTimestamps>,
-    topics: Vec<String>,
-}
-
-impl From<types::SessionManifest> for SessionAppMetadata {
-    fn from(value: types::SessionManifest) -> Self {
-        Self {
-            uuid: value.uuid.to_string(),
-            timestamps: Some(SessionAppMetadataTimestamps {
-                created_timestamp: value.created_timestamp.as_i64(),
-                completed_timestamp: value.completed_timestamp.as_i64(),
-            }),
-            topics: value.topics.into_iter().map(Into::into).collect(),
-        }
-    }
-}
-
-impl TryFrom<SessionAppMetadata> for (types::Uuid, Option<types::SessionManifest>) {
-    type Error = super::Error;
-
-    fn try_from(value: SessionAppMetadata) -> Result<Self, Self::Error> {
-        let uuid: types::Uuid = value
-            .uuid
-            .parse()
-            .map_err(|e: UuidError| Error::DeserializationError(e.to_string()))?;
-
-        let manifest = value.timestamps.map(|ts| types::SessionManifest {
-            uuid: uuid.clone(),
-            created_timestamp: ts.created_timestamp.into(),
-            completed_timestamp: ts.completed_timestamp.into(),
-            topics: value.topics.into_iter().map(Into::into).collect(),
-        });
-
-        Ok((uuid, manifest))
-    }
-}
-
 /// Sequence app metadata sent when requesting flight info topics and sequences flights
 #[derive(Serialize, Deserialize)]
 pub struct SequenceAppMetadata {
@@ -134,27 +85,7 @@ impl From<types::SequenceManifest> for SequenceAppMetadata {
         Self {
             created_timestamp: value.created_timestamp.as_i64(),
             resource_locator: value.resource_locator.into(),
-            sessions: value
-                .sessions
-                .into_iter()
-                .map(|v| {
-                    v.1.map_or_else(
-                        || SessionAppMetadata {
-                            uuid: v.0.to_string(),
-                            timestamps: None,
-                            topics: vec![],
-                        },
-                        |v| SessionAppMetadata {
-                            uuid: v.uuid.to_string(),
-                            timestamps: Some(SessionAppMetadataTimestamps {
-                                created_timestamp: v.created_timestamp.as_i64(),
-                                completed_timestamp: v.completed_timestamp.as_i64(),
-                            }),
-                            topics: v.topics.into_iter().map(Into::into).collect(),
-                        },
-                    )
-                })
-                .collect(),
+            sessions: value.sessions.into_iter().map(Into::into).collect(),
         }
     }
 }
@@ -163,15 +94,15 @@ impl TryFrom<SequenceAppMetadata> for types::SequenceManifest {
     type Error = super::Error;
 
     fn try_from(value: SequenceAppMetadata) -> Result<Self, Self::Error> {
-        let mut res = Self {
+        let res = Self {
             created_timestamp: value.created_timestamp.into(),
             resource_locator: value.resource_locator.into(),
-            sessions: vec![],
+            sessions: value
+                .sessions
+                .into_iter()
+                .map(TryInto::try_into)
+                .collect::<Result<Vec<_>, _>>()?,
         };
-
-        for session in value.sessions {
-            res.sessions.push(session.try_into()?);
-        }
 
         Ok(res)
     }
@@ -188,6 +119,50 @@ impl TryFrom<bytes::Bytes> for SequenceAppMetadata {
     fn try_from(value: bytes::Bytes) -> Result<Self, Error> {
         serde_json::from_slice(value.as_ref())
             .map_err(|e| Error::DeserializationError(e.to_string()))
+    }
+}
+
+// ////////////////////////////////////////////////////////////////////////////
+// SESSION APP METADATA
+// ////////////////////////////////////////////////////////////////////////////
+
+#[derive(Serialize, Deserialize)]
+pub struct SessionAppMetadata {
+    uuid: String,
+    created_at: i64,
+    completed_at: Option<i64>,
+    topics: Vec<String>,
+    locked: bool,
+}
+
+impl From<types::SessionManifest> for SessionAppMetadata {
+    fn from(value: types::SessionManifest) -> Self {
+        Self {
+            uuid: value.uuid.to_string(),
+            created_at: value.created_at.as_i64(),
+            completed_at: value.completed_at.map(Into::into),
+            topics: value.topics.into_iter().map(Into::into).collect(),
+            locked: value.locked,
+        }
+    }
+}
+
+impl TryFrom<SessionAppMetadata> for types::SessionManifest {
+    type Error = super::Error;
+
+    fn try_from(value: SessionAppMetadata) -> Result<Self, Self::Error> {
+        let uuid: types::Uuid = value
+            .uuid
+            .parse()
+            .map_err(|e: UuidError| Error::DeserializationError(e.to_string()))?;
+
+        Ok(SessionManifest {
+            uuid,
+            created_at: value.created_at.into(),
+            completed_at: value.completed_at.map(Into::into),
+            topics: value.topics.into_iter().map(Into::into).collect(),
+            locked: value.locked,
+        })
     }
 }
 
@@ -252,85 +227,66 @@ pub fn ticket_topic_from_binary(v: &[u8]) -> Result<types::flight::TicketTopic, 
 // ////////////////////////////////////////////////////////////////////////////
 
 #[derive(Serialize, Deserialize)]
-struct TopicAppMetadataTimestamp {
+pub struct TopicAppMetadataTimestamp {
     /// Minimum timestamp observed in the topic
     min: i64,
     /// Maximum timestamp observed in the topic
     max: i64,
 }
 
-impl From<types::TopicManifestTimestamp> for TopicAppMetadataTimestamp {
-    fn from(value: types::TopicManifestTimestamp) -> Self {
+impl From<types::TimestampRange> for TopicAppMetadataTimestamp {
+    fn from(value: types::TimestampRange) -> Self {
         Self {
-            min: value.range.start.as_i64(),
-            max: value.range.end.as_i64(),
+            min: value.start.as_i64(),
+            max: value.end.as_i64(),
         }
     }
 }
 
-impl From<TopicAppMetadataTimestamp> for types::TopicManifestTimestamp {
+impl From<TopicAppMetadataTimestamp> for types::TimestampRange {
     fn from(value: TopicAppMetadataTimestamp) -> Self {
-        let range = types::TimestampRange {
+        Self {
             start: value.min.into(),
             end: value.max.into(),
-        };
-        Self { range }
+        }
     }
 }
 
 #[derive(Serialize, Deserialize)]
-struct TopicAppMetadataInfo {
-    chunks_number: usize,
-    is_locked: bool,
-    total_size_bytes: usize,
-    created_timestamp: i64,
-}
-
-impl From<types::TopicInfo> for TopicAppMetadataInfo {
-    fn from(value: types::TopicInfo) -> Self {
-        Self {
-            chunks_number: value.chunks_number,
-            is_locked: value.is_locked,
-            total_size_bytes: value.total_size_bytes,
-            created_timestamp: value.created_timestamp.as_i64(),
-        }
-    }
-}
-
-impl From<TopicAppMetadataInfo> for types::TopicInfo {
-    fn from(value: TopicAppMetadataInfo) -> Self {
-        Self {
-            chunks_number: value.chunks_number,
-            is_locked: value.is_locked,
-            total_size_bytes: value.total_size_bytes,
-            created_timestamp: value.created_timestamp.into(),
-        }
-    }
+pub struct TopicAppMetadataInfo {
+    pub chunks_number: u64,
+    pub total_bytes: u64,
+    pub timestamp: TopicAppMetadataTimestamp,
 }
 
 /// Topic app metadata sent when requesting flight info topics and sequences flights
 #[derive(Serialize, Deserialize)]
 pub struct TopicAppMetadata {
-    /// Topic timestamp data
-    timestamp: TopicAppMetadataTimestamp,
-    info: TopicAppMetadataInfo,
+    pub created_at: i64,
+    pub completed_at: Option<i64>,
+    pub locked: bool,
+    pub resource_locator: String,
+    pub info: Option<TopicAppMetadataInfo>,
 }
 
-impl From<types::TopicManifest> for TopicAppMetadata {
-    fn from(value: types::TopicManifest) -> Self {
+impl TopicAppMetadata {
+    pub fn new(metadata: types::TopicProperties) -> Self {
         Self {
-            timestamp: value.timestamp.into(),
-            info: value.info.into(),
+            created_at: metadata.created_at.as_i64(),
+            completed_at: metadata.completed_at.map(Into::into),
+            locked: metadata.locked,
+            resource_locator: metadata.resource_locator.to_string(),
+            info: None,
         }
     }
-}
 
-impl From<TopicAppMetadata> for types::TopicManifest {
-    fn from(value: TopicAppMetadata) -> Self {
-        Self {
-            timestamp: value.timestamp.into(),
-            info: value.info.into(),
-        }
+    pub fn with_info(mut self, info: types::TopicDataInfo) -> Self {
+        self.info = Some(TopicAppMetadataInfo {
+            chunks_number: info.chunks_number,
+            total_bytes: info.total_bytes,
+            timestamp: info.timestamp_range.into(),
+        });
+        self
     }
 }
 

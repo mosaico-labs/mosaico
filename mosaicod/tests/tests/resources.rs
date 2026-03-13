@@ -1,6 +1,7 @@
 #![allow(unused_crate_dependencies)]
 
 use mosaicod_core as core;
+use mosaicod_core::types;
 use mosaicod_db as db;
 use mosaicod_ext as ext;
 use mosaicod_marshal as marshal;
@@ -90,8 +91,11 @@ async fn sequence_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
     );
     assert_ne!(sequence_manifest.created_timestamp.as_i64(), 0);
     assert_eq!(sequence_manifest.sessions.len(), 1);
-    assert_eq!(sequence_manifest.sessions[0].0, session_uuid);
-    assert!(sequence_manifest.sessions[0].1.is_none());
+    assert_eq!(sequence_manifest.sessions[0].uuid, session_uuid);
+    assert_ne!(sequence_manifest.sessions[0].created_at.as_i64(), 0);
+    assert!(sequence_manifest.sessions[0].completed_at.is_none());
+    assert!(!sequence_manifest.sessions[0].locked);
+    assert!(sequence_manifest.sessions[0].topics.is_empty());
 
     let topic_name = "test_sequence/my_topic";
 
@@ -130,8 +134,11 @@ async fn sequence_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
     );
     assert_ne!(sequence_manifest.created_timestamp.as_i64(), 0);
     assert_eq!(sequence_manifest.sessions.len(), 1);
-    assert_eq!(sequence_manifest.sessions[0].0, session_uuid);
-    assert!(sequence_manifest.sessions[0].1.is_none());
+    assert_eq!(sequence_manifest.sessions[0].uuid, session_uuid);
+    assert_ne!(sequence_manifest.sessions[0].created_at.as_i64(), 0);
+    assert!(sequence_manifest.sessions[0].completed_at.is_none());
+    assert!(!sequence_manifest.sessions[0].locked);
+    assert!(sequence_manifest.sessions[0].topics.is_empty());
 
     actions::session_finalize(&mut client, &session_uuid).await;
 
@@ -149,13 +156,27 @@ async fn sequence_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
     );
     assert_ne!(sequence_manifest.created_timestamp.as_i64(), 0);
     assert_eq!(sequence_manifest.sessions.len(), 1);
-    assert_eq!(sequence_manifest.sessions[0].0, session_uuid);
-    let sm = sequence_manifest.sessions[0].1.clone().unwrap();
+    let sm = &sequence_manifest.sessions[0];
     assert_eq!(sm.uuid, session_uuid);
-    assert_ne!(sm.created_timestamp.as_i64(), 0);
-    assert_ne!(sm.completed_timestamp.as_i64(), 0);
+    assert_ne!(sm.created_at.as_i64(), 0);
+    assert_ne!(sm.completed_at.unwrap().as_i64(), 0);
     assert_eq!(sm.topics.len(), 1);
     assert_eq!(sm.topics[0].clone().into_parts().0, topic_name);
+
+    assert_eq!(info.endpoint.len(), 1);
+    let ep_metadata: marshal::flight::TopicAppMetadata =
+        info.endpoint[0].clone().app_metadata.try_into().unwrap();
+    assert!(ep_metadata.locked);
+    assert_ne!(ep_metadata.created_at, 0);
+    assert_ne!(ep_metadata.completed_at.unwrap(), 0);
+    assert_eq!(ep_metadata.resource_locator, topic_name);
+
+    let ep_metadata_info = ep_metadata.info.unwrap();
+    assert_eq!(ep_metadata_info.chunks_number, 1);
+    assert_eq!(ep_metadata_info.total_bytes, 895);
+    let ts_range: types::TimestampRange = ep_metadata_info.timestamp.into();
+    assert_eq!(ts_range.start.as_i64(), 10000);
+    assert_eq!(ts_range.end.as_i64(), 10030);
 
     server.shutdown().await;
 }
@@ -243,12 +264,27 @@ async fn topic_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
         .unwrap();
     assert!(uuid.is_valid());
 
-    // Metadata (topic manifest) shouldn't be available if topic is unlocked.
+    // Metadata should be available even if topic is unlocked, but not all info are filled.
     let info = actions::get_flight_info(&mut client, topic_name)
         .await
         .unwrap();
     assert_eq!(info.endpoint.len(), 1);
-    assert!(info.endpoint.first().unwrap().app_metadata.is_empty());
+    assert!(!info.endpoint.first().unwrap().app_metadata.is_empty());
+
+    let app_metadata: marshal::flight::TopicAppMetadata = info
+        .endpoint
+        .first()
+        .unwrap()
+        .clone()
+        .app_metadata
+        .try_into()
+        .unwrap();
+
+    assert!(!app_metadata.locked);
+    assert_eq!(app_metadata.resource_locator, topic_name);
+    assert!(app_metadata.info.is_none());
+    assert_ne!(app_metadata.created_at, 0);
+    assert!(app_metadata.completed_at.is_none());
 
     let batches = vec![ext::arrow::testing::dummy_batch()];
 
@@ -275,12 +311,17 @@ async fn topic_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
         .try_into()
         .unwrap();
 
-    let topic_manifest: core::types::TopicManifest = app_metadata.into();
+    assert!(app_metadata.locked);
+    assert_ne!(app_metadata.created_at, 0);
+    assert_ne!(app_metadata.completed_at.unwrap(), 0);
+    assert_eq!(app_metadata.resource_locator, topic_name);
 
-    assert!(topic_manifest.info.is_locked);
-    assert_eq!(topic_manifest.info.chunks_number, 1);
-    assert_eq!(topic_manifest.info.total_size_bytes, 895);
-    assert_ne!(topic_manifest.info.created_timestamp.as_i64(), 0);
+    let info = app_metadata.info.unwrap();
+    assert_eq!(info.chunks_number, 1);
+    assert_eq!(info.total_bytes, 895);
+    let ts_range = types::TimestampRange::from(info.timestamp);
+    assert_eq!(ts_range.start.as_i64(), 10000);
+    assert_eq!(ts_range.end.as_i64(), 10030);
 
     server.shutdown().await;
 }

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            INSERT INTO topic_t\n                (\n                    topic_uuid, sequence_id, session_id, locator_name, creation_unix_tstamp, \n                    serialization_format, ontology_tag, locked, user_metadata\n                ) \n            VALUES \n                ($1, $2, $3, $4, $5, $6, $7, $8, $9) \n            RETURNING \n                *\n    ",
+  "query": "\n            INSERT INTO topic_t\n                (\n                    topic_uuid, sequence_id, session_id, locator_name, creation_unix_tstamp, \n                    serialization_format, ontology_tag, locked, user_metadata, chunks_number,\n                    total_bytes, start_timestamp, end_timestamp\n                ) \n            VALUES \n                ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)\n            RETURNING \n                *\n    ",
   "describe": {
     "columns": [
       {
@@ -52,6 +52,26 @@
         "ordinal": 9,
         "name": "creation_unix_tstamp",
         "type_info": "Int8"
+      },
+      {
+        "ordinal": 10,
+        "name": "chunks_number",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 11,
+        "name": "total_bytes",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 12,
+        "name": "start_timestamp",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 13,
+        "name": "end_timestamp",
+        "type_info": "Int8"
       }
     ],
     "parameters": {
@@ -64,7 +84,11 @@
         "Text",
         "Text",
         "Bool",
-        "Jsonb"
+        "Jsonb",
+        "Int8",
+        "Int8",
+        "Int8",
+        "Int8"
       ]
     },
     "nullable": [
@@ -75,10 +99,14 @@
       false,
       false,
       true,
+      false,
+      false,
+      false,
       true,
       true,
-      false
+      true,
+      true
     ]
   },
-  "hash": "30ee6049b5bb1924301c37ea0f5a2c2a4d0972694e9b48a1b5cbfb781cce682f"
+  "hash": "24ef41019990e9588a3d93d915a5b70763d94224eb4e2f2a96a82bfa21b69829"
 }

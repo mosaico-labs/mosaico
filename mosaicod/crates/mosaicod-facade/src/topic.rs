@@ -12,8 +12,9 @@ use mosaicod_rw::{self as rw, ToProperties};
 use mosaicod_store as store;
 use std::sync::Arc;
 
-/// Define topic metadata type contaning JSON user metadata
+/// Define topic metadata type containing JSON user metadata
 type TopicMetadata = types::TopicMetadata<marshal::JsonMetadataBlob>;
+type TopicSchemaMetadata = types::TopicSchemaMetadata<marshal::JsonMetadataBlob>;
 
 pub struct Topic {
     pub locator: types::TopicResourceLocator,
@@ -48,11 +49,11 @@ impl Topic {
     pub async fn create(
         &self,
         session: &types::Uuid,
-        metadata: Option<TopicMetadata>,
+        schema_metadata: TopicSchemaMetadata,
     ) -> Result<types::Identifiers, Error> {
         let mut tx = self.db.transaction().await?;
 
-        // Ensure that uuid points to a unlocked session
+        // Ensure that uuid points to an unlocked session
         let ses_rec = db::session_find_by_uuid(&mut tx, session).await?;
         if ses_rec.is_locked() {
             return Err(Error::SessionLocked);
@@ -70,34 +71,40 @@ impl Topic {
             self.locator.name(), //
             seq_rec.sequence_id,
             ses_rec.session_id,
+            &schema_metadata.properties.ontology_tag,
+            &schema_metadata.properties.serialization_format.to_string(),
         );
 
-        if let Some(metadata) = &metadata {
-            record = record
-                .with_user_metadata(metadata.user_metadata.clone())
-                .with_ontology_tag(&metadata.properties.ontology_tag)
-                .with_serialization_format(&metadata.properties.serialization_format.to_string());
+        if let Some(user_metadata) = &schema_metadata.user_metadata {
+            record = record.with_user_metadata(user_metadata.clone());
         }
 
         let record = db::topic_create(&mut tx, &record).await?;
 
+        let metadata = types::TopicMetadata::new(
+            types::TopicProperties::new_with_created_at(
+                self.locator.clone(),
+                session.clone(),
+                record.creation_timestamp(),
+            ),
+            schema_metadata,
+        );
+
         // This operation is done at the end to avoid deleting or reverting changes
         // to metadata file on store if some error causes a rollback on the database
-        if let Some(metadata) = metadata {
-            self.metadata_write_to_store(metadata).await?;
-        }
+        self.metadata_write_to_store(metadata).await?;
 
         tx.commit().await?;
 
         Ok(record.into())
     }
 
-    pub async fn is_locked(&self) -> Result<bool, Error> {
+    pub async fn locked(&self) -> Result<bool, Error> {
         let mut cx = self.db.connection();
 
         let record = db::topic_find_by_locator(&mut cx, &self.locator).await?;
 
-        Ok(record.is_locked())
+        Ok(record.locked())
     }
 
     /// Read the database record for this sequence. If no record is found an error is returned.
@@ -111,13 +118,19 @@ impl Topic {
     }
 
     /// Lock the topic
+    /// TODO: consider to set lock state only inside metadata to avoid data inconsistency with DB.
     pub async fn lock(&self) -> Result<(), Error> {
-        let mut tx = self.db.transaction().await?;
-
         trace!("locking `{}`", self.locator);
-        db::topic_lock(&mut tx, &self.locator).await?;
 
+        // Update database
+        let mut tx = self.db.transaction().await?;
+        db::topic_lock(&mut tx, &self.locator).await?;
         tx.commit().await?;
+
+        // Update metadata (store)
+        let mut metadata = self.metadata().await?;
+        metadata.properties.locked = true;
+        self.metadata_write_to_store(metadata).await?;
 
         Ok(())
     }
@@ -130,19 +143,13 @@ impl Topic {
         timeseries_querier: query::TimeseriesRef,
         format: types::Format,
     ) -> Result<(), Error> {
-        let res = timeseries_querier
-            .read(self.locator.path(), format, None)
-            .await?;
+        let info = self.compute_data_info(timeseries_querier, format).await?;
+        self.data_info_write_to_db(info).await?;
 
-        let ts_range = res.timestamp_range().await?;
-
-        let mut info = self.info().await?;
-        info.is_locked = true;
-
-        let manifest =
-            types::TopicManifest::new(types::TopicManifestTimestamp::new(ts_range), info);
-
-        self.manifest_write_to_store(manifest).await?;
+        // Update metadata
+        let mut metadata = self.metadata().await?;
+        metadata.properties.completed_at = Some(types::Timestamp::now());
+        self.metadata_write_to_store(metadata).await?;
 
         self.lock().await?;
 
@@ -154,16 +161,25 @@ impl Topic {
     /// # Errors
     ///
     /// Returns [`HandleError::ReadError`] if reading or deserializing fails.
+    /// Returns None if metadata file does not exist yet.
     pub async fn metadata(&self) -> Result<TopicMetadata, Error> {
         let path = self.locator.path_metadata();
+
+        if !self.store.exists(&path).await? {
+            return Err(Error::NotFound(format!(
+                "missing metadata file for topic {}",
+                self.locator
+            )));
+        }
+
         let bytes = self.store.read_bytes(path).await?;
 
         let data: marshal::JsonTopicMetadata = bytes.try_into()?;
 
-        Ok(data.into())
+        Ok(data.try_into()?)
     }
 
-    /// Reads [`TopicManifest`] associated with this topic.
+    /*/// Reads [`TopicManifest`] associated with this topic.
     ///
     /// If manifest is not found, returns None.
     pub async fn manifest(&self) -> Result<Option<types::TopicManifest>, Error> {
@@ -178,7 +194,7 @@ impl Topic {
         let data: marshal::TopicManifest = bytes.try_into()?;
 
         Ok(Some(data.into()))
-    }
+    }*/
 
     /// Returns the topic arrow schema.
     /// The serialization format is required to extract the schema, can be retrieved using [`TopicHandle::metadata`] function.
@@ -216,7 +232,7 @@ impl Topic {
         Ok(())
     }
 
-    /// Write timestamp data (for quick access without performing queries) into the store
+    /*/// Write timestamp data (for quick access without performing queries) into the store
     async fn manifest_write_to_store(&self, manifest: types::TopicManifest) -> Result<(), Error> {
         trace!("writing manifest to store to `{}`", self.locator);
         let path = self.locator.path_manifest();
@@ -227,7 +243,7 @@ impl Topic {
         self.store.write_bytes(&path, bytes).await?;
 
         Ok(())
-    }
+    }*/
 
     /// Returns a writer used to write chunked record batches using a specified serialization
     /// format `format`.
@@ -342,8 +358,23 @@ impl Topic {
         Ok(stats)
     }
 
-    /// Computes system info for the topic
-    async fn info(&self) -> Result<types::TopicInfo, Error> {
+    async fn compute_data_info(
+        &self,
+        timeseries_querier: query::TimeseriesRef,
+        format: types::Format,
+    ) -> Result<types::TopicDataInfo, Error> {
+        let timeseries_res = timeseries_querier
+            .read(self.locator.path(), format, None)
+            .await;
+
+        let timestamp_range = match timeseries_res {
+            Ok(res) => {
+                let ts_range = res.timestamp_range().await;
+                ts_range.unwrap_or(types::TimestampRange::unbounded())
+            }
+            Err(_) => types::TimestampRange::unbounded(),
+        };
+
         let mut cx = self.db.connection();
         let record = db::topic_find_by_locator(&mut cx, &self.locator).await?;
 
@@ -359,17 +390,34 @@ impl Topic {
             )
             .await?;
 
-        let mut total_size = 0;
+        let mut total_bytes = 0;
         for file in &datafiles {
-            total_size += self.store.size(file).await?;
+            total_bytes += self.store.size(file).await? as u64;
         }
 
-        Ok(types::TopicInfo {
-            chunks_number: datafiles.len(),
-            is_locked: record.is_locked(),
-            total_size_bytes: total_size,
-            created_timestamp: record.creation_timestamp(),
+        Ok(types::TopicDataInfo {
+            chunks_number: datafiles.len() as u64,
+            total_bytes,
+            timestamp_range,
         })
+    }
+
+    async fn data_info_write_to_db(&self, system_info: types::TopicDataInfo) -> Result<(), Error> {
+        let mut tx = self.db.transaction().await?;
+        db::topic_update_system_info(&mut tx, &self.locator, &system_info).await?;
+        tx.commit().await?;
+        Ok(())
+    }
+
+    /// Retrieves system info for the topic from db. Returns an error if not present.
+    pub async fn data_info(&self) -> Result<types::TopicDataInfo, Error> {
+        let mut cx = self.db.connection();
+        let record = db::topic_find_by_locator(&mut cx, &self.locator).await?;
+        let topic_info = record.info();
+        topic_info.ok_or(Error::MissingData(format!(
+            "missing info on DB for topic {}",
+            self.locator
+        )))
     }
 
     /// Computes the optimal batch size based on topic statistics from the database.
@@ -412,21 +460,12 @@ pub struct TopicWriterGuard<'a> {
 }
 
 impl<'a> TopicWriterGuard<'a> {
-    /// Performs all the operations required to finilize the writing stream, consolidate topic data
+    /// Performs all the operations required to finalize the writing stream, consolidate topic data
     /// and lock the topic
     pub async fn finalize(self) -> Result<(), Error> {
         trace!("internal writer finalized");
-        let summary = self.writer.finalize().await?;
-
-        if summary.number_of_chunks_created > 0 {
-            trace!("consolidating topic manifest");
-            self.facade.finalize(self.querier, self.format).await?;
-        } else {
-            trace!("finalizing topic without data");
-            self.facade.lock().await?;
-            trace!("topic has been locked");
-        }
-
+        let _ = self.writer.finalize().await?;
+        self.facade.finalize(self.querier, self.format).await?;
         Ok(())
     }
 }
@@ -452,6 +491,16 @@ mod tests {
     use crate::Sequence;
     use mosaicod_core::types::NotificationType;
     use types::Resource;
+
+    fn dummy_schema_metadata() -> TopicSchemaMetadata {
+        types::TopicSchemaMetadata::new(
+            types::TopicSchemaProperties {
+                ontology_tag: "dummy".to_owned(),
+                serialization_format: types::Format::Default,
+            },
+            None,
+        )
+    }
 
     #[sqlx::test(migrator = "db::testing::MIGRATOR")]
     async fn topic_create_and_delete(pool: sqlx::Pool<db::DatabaseType>) {
@@ -490,7 +539,7 @@ mod tests {
         );
 
         ftopic
-            .create(&session.uuid, None)
+            .create(&session.uuid, dummy_schema_metadata())
             .await
             .expect("Unable to create topic");
 
@@ -550,7 +599,7 @@ mod tests {
         );
 
         ftopic
-            .create(&session.uuid, None)
+            .create(&session.uuid, dummy_schema_metadata())
             .await
             .expect("Unable to create topic");
 

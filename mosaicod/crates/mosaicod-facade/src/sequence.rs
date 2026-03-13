@@ -144,6 +144,11 @@ impl Sequence {
 
         tx.commit().await?;
 
+        // Create session manifest (store)
+        let session_facade =
+            super::Session::new(session.uuid(), self.store.clone(), self.db.clone()).await?;
+        session_facade.create_manifest().await?;
+
         Ok(session.into())
     }
 
@@ -232,7 +237,7 @@ impl Sequence {
             let session =
                 Session::new(session_uuid.clone(), self.store.clone(), self.db.clone()).await?;
             let session_manifest = session.manifest().await?;
-            manifest.sessions.push((session_uuid, session_manifest));
+            manifest.sessions.push(session_manifest);
         }
 
         Ok(manifest)

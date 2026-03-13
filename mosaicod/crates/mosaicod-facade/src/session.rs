@@ -45,10 +45,24 @@ impl Session {
 
         Ok(Self {
             sequence_locator: db_sequence.resource_locator(),
-            uuid: session_uuid,
+            uuid: session_uuid.clone(),
             store,
             db,
         })
+    }
+
+    /// Creates the session manifest and saves it on store
+    /// TODO: find a better solution to create the manifest (without calling a method externally)
+    pub async fn create_manifest(&self) -> Result<(), Error> {
+        let mut cx = self.db.connection();
+
+        let db_session = db::session_find_by_uuid(&mut cx, &self.uuid).await?;
+
+        let manifest =
+            types::SessionManifest::new(self.uuid.clone(), db_session.creation_timestamp());
+        self.manifest_write_to_store(manifest).await?;
+
+        Ok(())
     }
 
     /// Finalizes the session, making it and all its associated data immutable.
@@ -57,24 +71,22 @@ impl Session {
     pub async fn finalize(&self) -> Result<(), Error> {
         let mut tx = self.db.transaction().await?;
 
-        let session = db::session_find_by_uuid(&mut tx, &self.uuid).await?;
-
         // Collect all topics associated with this session
         let topics = db::session_find_all_topic_locators(&mut tx, &self.uuid).await?;
 
-        let completed_timestamp = types::Timestamp::now();
-        db::session_lock(&mut tx, &self.uuid, &completed_timestamp).await?;
+        let completed_at = types::Timestamp::now();
 
-        let manifest = types::SessionManifest {
-            uuid: session.uuid(),
-            topics,
-            created_timestamp: session.creation_timestamp(),
-            completed_timestamp,
-        };
-
-        self.manifest_write_to_store(manifest).await?;
+        // TODO: consider to set lock state only inside metadata to avoid data inconsistency with DB
+        db::session_lock(&mut tx, &self.uuid, &completed_at).await?;
 
         tx.commit().await?;
+
+        // Update manifest (store).
+        let mut manifest = self.manifest().await?;
+        manifest.locked = true;
+        manifest.completed_at = Some(completed_at);
+        manifest.topics = topics;
+        self.manifest_write_to_store(manifest).await?;
 
         Ok(())
     }
@@ -201,17 +213,20 @@ impl Session {
         Ok(())
     }
 
-    pub async fn manifest(&self) -> Result<Option<types::SessionManifest>, Error> {
+    pub async fn manifest(&self) -> Result<types::SessionManifest, Error> {
         let path = self.sequence_locator.session_manifest(&self.uuid);
 
         if !self.store.exists(&path).await? {
-            return Ok(None);
+            return Err(Error::NotFound(format!(
+                "missing manifest file for session (uuid={})",
+                self.uuid
+            )));
         }
 
         let bytes = self.store.read_bytes(path).await?;
 
         let data: marshal::SessionManifest = bytes.try_into()?;
 
-        Ok(Some(data.try_into()?))
+        Ok(data.try_into()?)
     }
 }
