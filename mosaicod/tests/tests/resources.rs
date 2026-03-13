@@ -174,7 +174,7 @@ async fn sequence_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
     let ep_metadata_info = ep_metadata.info.unwrap();
     assert_eq!(ep_metadata_info.chunks_number, 1);
     assert_eq!(ep_metadata_info.total_bytes, 895);
-    let ts_range: types::TimestampRange = ep_metadata_info.timestamp.into();
+    let ts_range: types::TimestampRange = ep_metadata_info.timestamp.unwrap().into();
     assert_eq!(ts_range.start.as_i64(), 10000);
     assert_eq!(ts_range.end.as_i64(), 10030);
 
@@ -254,12 +254,14 @@ async fn topic_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
         .await
         .unwrap();
 
-    let uuid = actions::session_create(&mut client, sequence_name).await;
-    assert!(uuid.is_valid());
+    let session_uuid = actions::session_create(&mut client, sequence_name).await;
+    assert!(session_uuid.is_valid());
 
-    let topic_name = "test_sequence/my_topic";
+    // Check flight info for a locked topic without data.
 
-    let uuid = actions::topic_create(&mut client, &uuid, topic_name, None)
+    let topic_name = "test_sequence/my_empty_topic";
+
+    let uuid = actions::topic_create(&mut client, &session_uuid, topic_name, None)
         .await
         .unwrap();
     assert!(uuid.is_valid());
@@ -286,9 +288,53 @@ async fn topic_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
     assert_ne!(app_metadata.created_at, 0);
     assert!(app_metadata.completed_at.is_none());
 
+    let batches = vec![ext::arrow::testing::dummy_empty_batch()];
+
+    let response = actions::do_put(&mut client, &uuid, topic_name, batches, false)
+        .await
+        .unwrap();
+
+    if response.into_inner().message().await.unwrap().is_some() {
+        panic!("Received a not-empty response!");
+    }
+
+    let info = actions::get_flight_info(&mut client, topic_name)
+        .await
+        .unwrap();
+    assert_eq!(info.endpoint.len(), 1);
+    assert!(!info.endpoint.first().unwrap().app_metadata.is_empty());
+
+    let app_metadata: marshal::flight::TopicAppMetadata = info
+        .endpoint
+        .first()
+        .unwrap()
+        .clone()
+        .app_metadata
+        .try_into()
+        .unwrap();
+
+    assert!(app_metadata.locked);
+    assert_ne!(app_metadata.created_at, 0);
+    assert_ne!(app_metadata.completed_at.unwrap(), 0);
+    assert_eq!(app_metadata.resource_locator, topic_name);
+
+    let info = app_metadata.info.unwrap();
+    assert_eq!(info.chunks_number, 0);
+    assert_eq!(info.total_bytes, 0);
+    assert!(info.timestamp.is_none());
+
+    // Check flight info for a locked topic with data.
+
+    let topic_name = "test_sequence/my_topic";
+
+    let uuid = actions::topic_create(&mut client, &session_uuid, topic_name, None)
+        .await
+        .unwrap();
+    assert!(uuid.is_valid());
+
     let batches = vec![ext::arrow::testing::dummy_batch()];
 
-    let response = actions::do_put(&mut client, &uuid, "test_sequence/my_topic", batches, false)
+    let response = actions::do_put(&mut client, &uuid, topic_name, batches, false)
         .await
         .unwrap();
 
@@ -319,7 +365,7 @@ async fn topic_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
     let info = app_metadata.info.unwrap();
     assert_eq!(info.chunks_number, 1);
     assert_eq!(info.total_bytes, 895);
-    let ts_range = types::TimestampRange::from(info.timestamp);
+    let ts_range: types::TimestampRange = info.timestamp.unwrap().into();
     assert_eq!(ts_range.start.as_i64(), 10000);
     assert_eq!(ts_range.end.as_i64(), 10030);
 

@@ -256,7 +256,7 @@ impl From<TopicAppMetadataTimestamp> for types::TimestampRange {
 pub struct TopicAppMetadataInfo {
     pub chunks_number: u64,
     pub total_bytes: u64,
-    pub timestamp: TopicAppMetadataTimestamp,
+    pub timestamp: Option<TopicAppMetadataTimestamp>,
 }
 
 /// Topic app metadata sent when requesting flight info topics and sequences flights
@@ -284,7 +284,11 @@ impl TopicAppMetadata {
         self.info = Some(TopicAppMetadataInfo {
             chunks_number: info.chunks_number,
             total_bytes: info.total_bytes,
-            timestamp: info.timestamp_range.into(),
+            timestamp: if info.timestamp_range.is_unbounded() {
+                None
+            } else {
+                Some(info.timestamp_range.into())
+            },
         });
         self
     }
