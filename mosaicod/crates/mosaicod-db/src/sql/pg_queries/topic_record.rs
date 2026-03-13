@@ -19,8 +19,8 @@ fn cast_topic_data(row: PgRow) -> Result<schema::TopicRecord, Error> {
         locked: row.try_get("locked")?,
         chunks_number: row.try_get("chunks_number")?,
         total_bytes: row.try_get("total_bytes")?,
-        start_timestamp: row.try_get("start_unix_tstamp")?,
-        end_timestamp: row.try_get("end_unix_tstamp")?,
+        start_timestamp: row.try_get("start_timestamp")?,
+        end_timestamp: row.try_get("end_timestamp")?,
     })
 }
 
