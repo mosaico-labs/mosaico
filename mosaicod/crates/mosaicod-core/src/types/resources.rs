@@ -209,12 +209,12 @@ impl<M> TopicSchemaMetadata<M> {
 }
 
 #[derive(Debug)]
-pub struct TopicMetadata<M> {
+pub struct TopicManifest<M> {
     pub properties: TopicProperties,
     pub schema: TopicSchemaMetadata<M>,
 }
 
-impl<M> TopicMetadata<M> {
+impl<M> TopicManifest<M> {
     pub fn new(props: TopicProperties, schema_metadata: TopicSchemaMetadata<M>) -> Self
     where
         M: super::MetadataBlob,

@@ -67,7 +67,7 @@ pub async fn get_flight_info(
                             );
 
                             let topic_app_mdata = build_topic_app_metadata(
-                                topic_facade.metadata().await?.properties,
+                                topic_facade.manifest().await?.properties,
                                 &topic_facade,
                             )
                             .await;
@@ -109,7 +109,7 @@ pub async fn get_flight_info(
                     let handle =
                         facade::Topic::new(resource.name().into(), ctx.store, ctx.db.clone());
 
-                    let metadata = handle.metadata().await?;
+                    let manifest = handle.manifest().await?;
 
                     let ticket = types::flight::TicketTopic {
                         locator: handle.locator.clone().into(),
@@ -123,12 +123,12 @@ pub async fn get_flight_info(
                         })
                         .with_location(handle.locator.url()?)
                         .with_app_metadata(
-                            build_topic_app_metadata(metadata.properties, &handle).await,
+                            build_topic_app_metadata(manifest.properties, &handle).await,
                         );
 
                     trace!("{} generating endpoint {:?}", handle.locator, endpoint);
 
-                    let schema = build_topic_schema_metadata(metadata.schema, &handle).await?;
+                    let schema = build_topic_schema_metadata(manifest.schema, &handle).await?;
 
                     let flight_info = FlightInfo::new()
                         .with_descriptor(desc.clone())

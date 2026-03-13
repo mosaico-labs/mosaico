@@ -83,7 +83,7 @@ async fn do_put_topic_data(
         return Err(ServerError::BadKey);
     }
 
-    let mdata = handle.metadata().await?;
+    let mdata = handle.manifest().await?;
 
     // Setup the callback that will be used to create the database record for the data catalog
     // and prepare variables that will be moved in the closure

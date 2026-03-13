@@ -12,8 +12,8 @@ use mosaicod_rw::{self as rw, ToProperties};
 use mosaicod_store as store;
 use std::sync::Arc;
 
-/// Define topic metadata type containing JSON user metadata
-type TopicMetadata = types::TopicMetadata<marshal::JsonMetadataBlob>;
+/// Define topic manifest type containing JSON user metadata
+type TopicManifest = types::TopicManifest<marshal::JsonMetadataBlob>;
 type TopicSchemaMetadata = types::TopicSchemaMetadata<marshal::JsonMetadataBlob>;
 
 pub struct Topic {
@@ -81,7 +81,7 @@ impl Topic {
 
         let record = db::topic_create(&mut tx, &record).await?;
 
-        let metadata = types::TopicMetadata::new(
+        let manifest = types::TopicManifest::new(
             types::TopicProperties::new_with_created_at(
                 self.locator.clone(),
                 session.clone(),
@@ -91,8 +91,8 @@ impl Topic {
         );
 
         // This operation is done at the end to avoid deleting or reverting changes
-        // to metadata file on store if some error causes a rollback on the database
-        self.metadata_write_to_store(metadata).await?;
+        // to manifest file on store if some error causes a rollback on the database
+        self.manifest_write_to_store(manifest).await?;
 
         tx.commit().await?;
 
@@ -118,7 +118,7 @@ impl Topic {
     }
 
     /// Lock the topic
-    /// TODO: consider to set lock state only inside metadata to avoid data inconsistency with DB.
+    /// TODO: consider to set lock state only inside manifest to avoid data inconsistency with DB.
     pub async fn lock(&self) -> Result<(), Error> {
         trace!("locking `{}`", self.locator);
 
@@ -127,10 +127,10 @@ impl Topic {
         db::topic_lock(&mut tx, &self.locator).await?;
         tx.commit().await?;
 
-        // Update metadata (store)
-        let mut metadata = self.metadata().await?;
-        metadata.properties.locked = true;
-        self.metadata_write_to_store(metadata).await?;
+        // Update manifest (store)
+        let mut manifest = self.manifest().await?;
+        manifest.properties.locked = true;
+        self.manifest_write_to_store(manifest).await?;
 
         Ok(())
     }
@@ -146,58 +146,42 @@ impl Topic {
         let info = self.compute_data_info(timeseries_querier, format).await?;
         self.data_info_write_to_db(info).await?;
 
-        // Update metadata
-        let mut metadata = self.metadata().await?;
-        metadata.properties.completed_at = Some(types::Timestamp::now());
-        self.metadata_write_to_store(metadata).await?;
+        // Update manifest
+        let mut manifest = self.manifest().await?;
+        manifest.properties.completed_at = Some(types::Timestamp::now());
+        self.manifest_write_to_store(manifest).await?;
 
         self.lock().await?;
 
         Ok(())
     }
 
-    /// Reads [`TopicMetadata`] associated with this topic.
+    /// Reads [`TopicManifest`] associated with this topic.
     ///
     /// # Errors
     ///
     /// Returns [`HandleError::ReadError`] if reading or deserializing fails.
-    /// Returns None if metadata file does not exist yet.
-    pub async fn metadata(&self) -> Result<TopicMetadata, Error> {
+    /// Returns an error if manifest file does not exist.
+    pub async fn manifest(&self) -> Result<TopicManifest, Error> {
         let path = self.locator.path_metadata();
 
         if !self.store.exists(&path).await? {
             return Err(Error::NotFound(format!(
-                "missing metadata file for topic {}",
+                "missing manifest file for topic {}",
                 self.locator
             )));
         }
 
         let bytes = self.store.read_bytes(path).await?;
 
-        let data: marshal::JsonTopicMetadata = bytes.try_into()?;
+        let data: marshal::JsonTopicManifest = bytes.try_into()?;
 
         Ok(data.try_into()?)
     }
 
-    /*/// Reads [`TopicManifest`] associated with this topic.
-    ///
-    /// If manifest is not found, returns None.
-    pub async fn manifest(&self) -> Result<Option<types::TopicManifest>, Error> {
-        let path = self.locator.path_manifest();
-
-        if !self.store.exists(&path).await? {
-            return Ok(None);
-        }
-
-        let bytes = self.store.read_bytes(path).await?;
-
-        let data: marshal::TopicManifest = bytes.try_into()?;
-
-        Ok(Some(data.into()))
-    }*/
-
     /// Returns the topic arrow schema.
-    /// The serialization format is required to extract the schema, can be retrieved using [`TopicHandle::metadata`] function.
+    /// The serialization format is required to extract the schema.
+    /// It can be retrieved using [`Topic::manifest`] function.
     ///
     /// If no arrow_schema is found a [`Error::NotFound`] error is returned
     pub async fn arrow_schema(&self, format: types::Format) -> Result<SchemaRef, Error> {
@@ -215,35 +199,22 @@ impl Topic {
         Ok(reader.schema())
     }
 
-    /// Serializes and writes [`TopicMetadata`] to the object store.
+    /// Serializes and writes [`TopicManifest`] to the object store.
     ///
     /// # Errors
     ///
-    /// Returns [`HandleError::NotFound`] or [`HandleError::WriteError`] if serialization or writing fails.
-    async fn metadata_write_to_store(&self, metadata: TopicMetadata) -> Result<(), Error> {
-        trace!("writing metadata to store to `{}`", self.locator);
+    /// Returns [`Error::NotFound`] or [`Error::WriteError`] if serialization or writing fails.
+    async fn manifest_write_to_store(&self, manifest: TopicManifest) -> Result<(), Error> {
+        trace!("writing manifest to store to `{}`", self.locator);
         let path = self.locator.path_metadata();
 
-        let json_mdata = marshal::JsonTopicMetadata::from(metadata);
+        let json_mdata = marshal::JsonTopicManifest::from(manifest);
         let bytes: Vec<u8> = json_mdata.try_into()?;
 
         self.store.write_bytes(&path, bytes).await?;
 
         Ok(())
     }
-
-    /*/// Write timestamp data (for quick access without performing queries) into the store
-    async fn manifest_write_to_store(&self, manifest: types::TopicManifest) -> Result<(), Error> {
-        trace!("writing manifest to store to `{}`", self.locator);
-        let path = self.locator.path_manifest();
-
-        let json_manifest: marshal::TopicManifest = manifest.into();
-        let bytes: Vec<u8> = json_manifest.try_into()?;
-
-        self.store.write_bytes(&path, bytes).await?;
-
-        Ok(())
-    }*/
 
     /// Returns a writer used to write chunked record batches using a specified serialization
     /// format `format`.

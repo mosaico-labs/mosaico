@@ -21,7 +21,7 @@ pub async fn do_get(ctx: Context, ticket: Ticket) -> Result<FlightDataEncoder, S
     let tfacade = facade::Topic::new(topic, ctx.store, ctx.db.clone());
 
     // Read metadata from topic
-    let metadata = tfacade.metadata().await?;
+    let metadata = tfacade.manifest().await?;
 
     trace!("{:?}", metadata);
 
@@ -37,7 +37,7 @@ pub async fn do_get(ctx: Context, ticket: Ticket) -> Result<FlightDataEncoder, S
         .await?;
 
     // Append JSON metadata to original data schema
-    let metadata = marshal::JsonTopicMetadata::from(metadata);
+    let metadata = marshal::JsonTopicManifest::from(metadata);
     let flatten_mdata = metadata
         .schema
         .to_flat_hashmap()

@@ -153,15 +153,15 @@ impl From<types::TopicSchemaMetadata<JsonMetadataBlob>> for JsonTopicSchemaMetad
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct JsonTopicMetadata {
+pub struct JsonTopicManifest {
     pub properties: JsonTopicProperties,
     pub schema: JsonTopicSchemaMetadata,
 }
 
-impl TryFrom<JsonTopicMetadata> for types::TopicMetadata<JsonMetadataBlob> {
+impl TryFrom<JsonTopicManifest> for types::TopicManifest<JsonMetadataBlob> {
     type Error = Error;
 
-    fn try_from(v: JsonTopicMetadata) -> Result<Self, Error> {
+    fn try_from(v: JsonTopicManifest) -> Result<Self, Error> {
         Ok(Self {
             schema: v.schema.into(),
             properties: JsonTopicProperties::try_into(v.properties)?,
@@ -169,8 +169,8 @@ impl TryFrom<JsonTopicMetadata> for types::TopicMetadata<JsonMetadataBlob> {
     }
 }
 
-impl From<types::TopicMetadata<JsonMetadataBlob>> for JsonTopicMetadata {
-    fn from(value: types::TopicMetadata<JsonMetadataBlob>) -> Self {
+impl From<types::TopicManifest<JsonMetadataBlob>> for JsonTopicManifest {
+    fn from(value: types::TopicManifest<JsonMetadataBlob>) -> Self {
         Self {
             schema: value.schema.into(),
             properties: value.properties.into(),
@@ -178,14 +178,14 @@ impl From<types::TopicMetadata<JsonMetadataBlob>> for JsonTopicMetadata {
     }
 }
 
-impl TryFrom<Vec<u8>> for JsonTopicMetadata {
+impl TryFrom<Vec<u8>> for JsonTopicManifest {
     type Error = Error;
     fn try_from(bytes: Vec<u8>) -> Result<Self, Self::Error> {
         Ok(serde_json::from_slice(&bytes).map_err(|e| Error::DeserializationError(e.to_string())))?
     }
 }
 
-impl TryInto<Vec<u8>> for JsonTopicMetadata {
+impl TryInto<Vec<u8>> for JsonTopicManifest {
     type Error = Error;
     fn try_into(self) -> Result<Vec<u8>, Self::Error> {
         Ok(serde_json::to_vec(&self).map_err(|e| Error::SerializationError(e.to_string())))?
