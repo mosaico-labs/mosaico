@@ -1,13 +1,17 @@
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional, Tuple
+
+from pyarrow.flight import FlightEndpoint
 
 from mosaicolabs.logging_config import get_logger
+
+from .helpers import ParsingError, _decode_app_metadata
 
 # Set the hierarchical logger
 logger = get_logger(__name__)
 
 
-@dataclass
+@dataclass(frozen=True)
 class TopicResourceInfo:
     """
     Metadata and structural information for a Mosaico
@@ -26,10 +30,34 @@ class TopicResourceInfo:
             stored on the server.
     """
 
-    created_timestamp: int
     total_size_bytes: int
-    locked: bool
     chunks_number: int
+    timestamp_ns_min: Optional[int]
+    timestamp_ns_max: Optional[int]
+
+    @classmethod
+    def _from_flight_endpoint(cls, endpoint: FlightEndpoint) -> "TopicResourceInfo":
+        """
+        Factory method to create metadata from an Arrow Flight endpoint.
+
+        Args:
+            endpoint: The FlightEndpoint object containing location URIs.
+
+        Returns:
+            TopicResourceMetadata: An immutable instance containing parsed data.
+
+        Raises:
+            TopicParsingError: If the endpoint has no locations, multiple
+                locations, or if the URI format is invalid.
+        """
+        try:
+            app_mdata = _decode_app_metadata(endpoint.app_metadata)
+        except ParsingError as pe:
+            raise ParsingError(
+                f"Failed to decode endpoint.app_metadata in TopicResourceInfo. Inner err: '{pe}'"
+            )
+
+        return TopicResourceInfo._from_info_metadata(app_mdata.get("info", {}))
 
     @classmethod
     def _from_info_metadata(
@@ -48,167 +76,46 @@ class TopicResourceInfo:
             TopicResourceInfo: The TopicResourceInfo object.
         """
         if not isinstance(info_data, dict):
-            logger.error(
-                f"Unrecognized type {type(info_data).__name__} for 'info' field. Returning 'invalid'."
+            raise ValueError(
+                f"Unrecognized format for TopicResourceInfo in manifest: type {type(info_data).__name__}, expected a JSON."
             )
-            # TODO: temporary fix before backend fixes this issue
-            return TopicResourceInfo._make_void()
 
         chunks_number = info_data.get("chunks_number")
-        locked = info_data.get("is_locked")
-        total_size_bytes = info_data.get("total_size_bytes")
-        created_timestamp = info_data.get("created_timestamp")
+        total_size_bytes = info_data.get("total_bytes")
 
-        if (
-            chunks_number is None
-            or locked is None
-            or total_size_bytes is None
-            or created_timestamp is None
-        ):
-            logger.error(
-                "Missing required fields in 'info' field. Returning 'invalid'."
-            )
-            # TODO: temporary fix before backend fixes this issue
-            return TopicResourceInfo._make_void()
+        if chunks_number is None or total_size_bytes is None:
+            raise ValueError("TopicResourceInfo in manifest misses required fields.")
+
+        tmin, tmax = cls._parse_timestamp_range(info_data.get("timestamp", {}))
 
         return TopicResourceInfo(
             chunks_number=chunks_number,
-            locked=locked,
             total_size_bytes=total_size_bytes,
-            created_timestamp=created_timestamp,
+            timestamp_ns_min=tmin,
+            timestamp_ns_max=tmax,
         )
 
-    @classmethod
-    def _make_void(cls) -> "TopicResourceInfo":
+    @staticmethod
+    def _parse_timestamp_range(
+        tstamp_mdata: dict,
+    ) -> Tuple[Optional[int], Optional[int]]:
         """
-        Internal static method to create a void TopicResourceInfo object.
-        """
-        return TopicResourceInfo(
-            created_timestamp=0,
-            total_size_bytes=0,
-            locked=False,
-            chunks_number=0,
-        )
-
-
-@dataclass
-class SessionResourceInfo:
-    """
-    Metadata and structural information for a Mosaico Session resource.
-
-    This Data Transfer Object summarizes the physical and logical state of a
-    session on the server, retrieved via the get_fligh_info enpoint (for a sequence).
-
-    Attributes:
-        uuid (str): The UUID of the session.
-        created_timestamp (int): The UTC timestamp of when the
-            resource was first initialized.
-        completed_timestamp (int): The UTC timestamp of when the
-            resource was completed.
-        topics (list[str]): The list of topics in the session.
-    """
-
-    uuid: str
-    created_timestamp: int
-    completed_timestamp: Optional[int]
-    # TODO: change to bool
-    locked: Optional[bool]
-    topics: list[str]
-
-    @classmethod
-    def _from_app_metadata(
-        cls,
-        session_mdata: Dict[str, Any],
-    ) -> "SessionResourceInfo":
-        """
-        Internal static method to retrieve session-related remote info.
-        Queries the server to build the `Session` model and discover all
-        contained sessions.
-
-        Args:
-            app_mdata (Union[bytes, str]): The app_metadata from the FlightInfo.
+        Returns the minimum and maximum timestamps of the resource.
 
         Returns:
-            SessionResourceInfo: The SessionResourceInfo object.
+            Tuple[Optional[int], Optional[int]]: The minimum and maximum timestamps.
         """
+        # (can be missing in manifest - i.e. degenerate Topics with no data stream)
+        tmin = None
+        tmax = None
+        # Can be null (i.e. "timestamp" present but empty)
+        if isinstance(tstamp_mdata, dict):
+            tmin = tstamp_mdata.get("min")
+            tmax = tstamp_mdata.get("max")
+            # Ensure both keys exist
+            if tstamp_mdata.get("min") is None != tmax is None:
+                logger.error(
+                    f"Wrong format of 'timestamp' field: 'min' or 'max' are None, but not both, {tstamp_mdata}"
+                )
 
-        # This should never happen. If it does, it's a malformed session.
-        if not isinstance(session_mdata, dict):
-            raise ValueError(
-                f"Unrecognized type {type(session_mdata).__name__} for 'session_mdata' field."
-            )
-
-        session_uuid = session_mdata.get("uuid")
-        created_timestamp = session_mdata.get("created_timestamp")
-
-        # This should never happen. If it does, it's a malformed session.
-        if session_uuid is None or created_timestamp is None:
-            raise ValueError(
-                f"Missing required 'uuid' or 'created_timestamp' in session-related app_metadata: {session_mdata}."
-            )
-
-        return SessionResourceInfo(
-            uuid=session_uuid,
-            created_timestamp=created_timestamp,
-            completed_timestamp=session_mdata.get("completed_timestamp"),
-            locked=session_mdata.get("is_locked"),
-            topics=session_mdata.get("topics", []),
-        )
-
-
-@dataclass
-class SequenceResourceInfo:
-    """
-    Metadata and structural information for a Mosaico
-    [`Sequence`][mosaicolabs.models.platform.Sequence] resource.
-
-    This Data Transfer Object summarizes the physical and logical state of a
-    sequence on the server, retrieved via the get_fligh_info enpoint.
-
-    Attributes:
-        created_timestamp (int): The UTC timestamp of when the
-            resource was first initialized.
-        sessions (list[SessionResourceInfo]): The list of sessions in the sequence.
-    """
-
-    created_timestamp: int
-    sessions: List[SessionResourceInfo]
-
-    @classmethod
-    def _from_app_metadata(
-        cls,
-        app_mdata: Dict[str, Any],
-    ) -> "SequenceResourceInfo":
-        """
-        Internal static method to retrieve sequence-related remote info.
-        Queries the server to build the `Sequence` model and discover all
-        contained sequences.
-
-        Args:
-            app_mdata (Dict[str, Any]): The app_metadata dictionary from the FlightInfo.
-
-        Returns:
-            SequenceResourceInfo: The SequenceResourceInfo object.
-        """
-        # This should never happen. If it does, it's a malformed session.
-        if not isinstance(app_mdata, dict):
-            raise ValueError(
-                f"Unrecognized type {type(app_mdata).__name__} for 'app_metadata' field."
-            )
-
-        created_timestamp = app_mdata.get("created_timestamp")
-        sessions = app_mdata.get("sessions", [])
-        # FIXME: maybe not necessary
-        if not isinstance(sessions, list):
-            sessions = []
-
-        # This should never happen. If it does, it's a malformed session.
-        if created_timestamp is None:
-            raise ValueError("Missing required 'created_timestamp' in app_metadata.")
-
-        return SequenceResourceInfo(
-            created_timestamp=created_timestamp,
-            sessions=[
-                SessionResourceInfo._from_app_metadata(session) for session in sessions
-            ],
-        )
+        return tmin, tmax

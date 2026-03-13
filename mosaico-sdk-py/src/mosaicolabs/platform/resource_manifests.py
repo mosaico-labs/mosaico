@@ -1,36 +1,27 @@
-import json
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
+
+import pyarrow.flight as fl
 
 from mosaicolabs.logging_config import get_logger
 
 from ..helpers.helpers import unpack_topic_full_path
+from .helpers import _decode_app_metadata
 from .resource_info import (
-    SequenceResourceInfo,
     TopicResourceInfo,
 )
-
-# Use TYPE_CHECKING to avoid circular imports or heavy dependencies at runtime
-if TYPE_CHECKING:
-    from pyarrow.flight import FlightEndpoint
 
 # Set the hierarchical logger
 logger = get_logger(__name__)
 
 
-class TopicParsingError(Exception):
+class TopicManifestError(Exception):
     """Raised when TopicResourceMetadata cannot be extracted from an endpoint."""
 
     pass
 
 
-class SessionParsingError(Exception):
-    """Raised when SessionResourceMetadata cannot be extracted from an endpoint."""
-
-    pass
-
-
-class SequenceParsingError(Exception):
+class SequenceManifestError(Exception):
     """Raised when SequenceResourceMetadata cannot be extracted from an endpoint."""
 
     pass
@@ -48,20 +39,44 @@ class TopicResourceManifest:
     Attributes:
         topic_name (str): The standardized name of the resource topic.
         sequence_name (str): The name of the sequence the topic belongs to.
+        created_timestamp (int): The creation timestamp of the topic in nanoseconds.
+        completed_timestamp (Optional[int]): The completion timestamp of the topic in nanoseconds.
+        locked (bool): Whether the topic is locked.
         resource_info (TopicResourceInfo): The server side system info of the topic resource.
-        timestamp_ns_min (Optional[int]): The minimum timestamp of the topic in nanoseconds.
-        timestamp_ns_max (Optional[int]): The maximum timestamp of the topic in nanoseconds.
     """
 
     name: str
     sequence_name: str
     resource_info: TopicResourceInfo
-    timestamp_ns_min: Optional[int]
-    timestamp_ns_max: Optional[int]
+    created_timestamp: int
+    locked: bool
+    completed_timestamp: Optional[int]
 
     @classmethod
-    def _from_flight_endpoint(
-        cls, endpoint: "FlightEndpoint"
+    def _get_topic_name_from_locations(cls, locations: List[fl.Location]) -> str:
+        # Flight endpoints can technically have multiple locations for redundancy,
+        # but our specific domain logic expects exactly one primary location.
+        if not locations:
+            raise TopicManifestError(
+                "Endpoint contains no locations; cannot resolve topic."
+            )
+
+        if len(locations) > 1:
+            raise TopicManifestError(
+                f"Multi-location endpoints not supported. Found: {len(locations)}"
+            )
+        # Extract URI (stored as bytes in pyarrow.flight)
+        uri_bytes = locations[0].uri
+
+        # Delegate parsing logic to the internal static helper
+        _, topic_name = cls._parse_uri(uri_bytes)
+
+        return topic_name
+
+    @classmethod
+    def _from_app_metadata(
+        cls,
+        app_mdata: Union[bytes, str],
     ) -> "TopicResourceManifest":
         """
         Factory method to create metadata from an Arrow Flight endpoint.
@@ -76,55 +91,40 @@ class TopicResourceManifest:
             TopicParsingError: If the endpoint has no locations, multiple
                 locations, or if the URI format is invalid.
         """
-        # Flight endpoints can technically have multiple locations for redundancy,
-        # but our specific domain logic expects exactly one primary location.
-        if not endpoint.locations:
-            raise TopicParsingError(
-                "Endpoint contains no locations; cannot resolve topic."
-            )
-
-        if len(endpoint.locations) > 1:
-            raise TopicParsingError(
-                f"Multi-location endpoints not supported. Found: {len(endpoint.locations)}"
-            )
-
         try:
-            # Extract URI (stored as bytes in pyarrow.flight)
-            uri_bytes = endpoint.locations[0].uri
+            mdata = _decode_app_metadata(app_mdata)
 
-            # Delegate parsing logic to the internal static helper
-            seq_name, topic_name = cls._parse_uri(uri_bytes)
-            # Parse and return the app_metadata fields
-            app_mdata = cls._decode_app_metadata(endpoint.app_metadata)
-            if app_mdata is None:
-                logger.error(TopicParsingError("Failed to parse app_metadata"))
-                return cls(
-                    name=topic_name,
-                    sequence_name=seq_name,
-                    resource_info=TopicResourceInfo._make_void(),
-                    timestamp_ns_min=None,
-                    timestamp_ns_max=None,
+            created_timestamp = mdata.get("created_at")
+            locked = mdata.get("locked")
+            resource_locator = mdata.get("resource_locator")
+            if created_timestamp is None or locked is None or resource_locator is None:
+                raise TopicManifestError(
+                    "Invalid format for TopicResourceManifest: missing required fields. The related topic can be malformed."
                 )
-            tmin_ns, tmax_ns = cls._parse_timestamp_range(
-                app_mdata.get("timestamp", {})
-            )
-            resource_info = TopicResourceInfo._from_info_metadata(
-                app_mdata.get("info", {})
-            )
+
+            resource_info = TopicResourceInfo._from_info_metadata(mdata.get("info", {}))
+            locator_tuple = unpack_topic_full_path(resource_locator)
+            if locator_tuple is None:
+                raise TopicManifestError(
+                    f"Invalid format for TopicResourceManifest: cannot deduce sequence and topic name from locator '{resource_locator}'."
+                )
+
+            seq_name, top_name = locator_tuple
 
             return cls(
-                name=topic_name,
+                name=top_name,
                 sequence_name=seq_name,
-                timestamp_ns_min=tmin_ns,
-                timestamp_ns_max=tmax_ns,
+                created_timestamp=created_timestamp,
+                completed_timestamp=mdata.get("completed_at"),
+                locked=locked,
                 resource_info=resource_info,
             )
 
         except Exception as e:
             # Wrap internal errors (like UnicodeDecode or Unpacking errors)
             # into a domain-specific exception for the caller to handle.
-            raise TopicParsingError(
-                f"Failed to parse metadata from endpoint: {e}"
+            raise TopicManifestError(
+                f"Failed to parse topic manifest from endpoint: {e}"
             ) from e
 
     @staticmethod
@@ -138,7 +138,7 @@ class TopicResourceManifest:
         # Decode bytes to string and protocol validation (mosaico resource)
         decoded_uri = uri_bytes.decode("utf-8")
         if not decoded_uri.startswith("mosaico:"):
-            raise TopicParsingError(
+            raise TopicManifestError(
                 f"URI missing required 'mosaico:' prefix: {decoded_uri}"
             )
 
@@ -149,95 +149,76 @@ class TopicResourceManifest:
         result = unpack_topic_full_path(path)
 
         if not result or len(result) != 2:
-            raise TopicParsingError(
+            raise TopicManifestError(
                 f"Path '{path}' is not a valid sequence/topic pair."
             )
 
         return result
 
-    @staticmethod
-    def _decode_app_metadata(
-        app_mdata: Union[bytes, str],
-    ) -> Optional[Dict[str, Any]]:
+
+@dataclass
+class SessionResourceManifest:
+    """
+    Metadata and structural information for a Mosaico Session resource.
+
+    This Data Transfer Object summarizes the physical and logical state of a
+    session on the server, retrieved via the get_fligh_info enpoint (for a sequence).
+
+    Attributes:
+        uuid (str): The UUID of the session.
+        created_timestamp (int): The UTC timestamp of when the
+            resource was first initialized.
+        completed_timestamp (int): The UTC timestamp of when the
+            resource was completed.
+        topics (list[str]): The list of topics in the session.
+    """
+
+    uuid: str
+    created_timestamp: int
+    locked: bool
+    completed_timestamp: Optional[int]
+    topics: list[str]
+
+    @classmethod
+    def _from_app_metadata(
+        cls,
+        session_mdata: Dict[str, Any],
+    ) -> "SessionResourceManifest":
         """
-        Decodes and validates the raw App Metadata JSON payload.
+        Internal static method to retrieve session-related remote info.
+        Queries the server to build the `Session` model and discover all
+        contained sessions.
 
         Args:
-            app_mdata: JSON payload as a UTF-8 string or byte sequence.
+            app_mdata (Union[bytes, str]): The app_metadata from the FlightInfo.
 
         Returns:
-            Tuple: (timestamp_ns_min, timestamp_ns_max, PlatformResourceInfo(...))
-
-        Raises:
-            TopicParsingError: If JSON is malformed or missing required schema keys.
+            SessionResourceInfo: The SessionResourceInfo object.
         """
-        # Decode input to string
-        try:
-            raw_str = (
-                app_mdata.decode("utf-8") if isinstance(app_mdata, bytes) else app_mdata
+
+        # This should never happen. If it does, it's a malformed session.
+        if not isinstance(session_mdata, dict):
+            raise ValueError(
+                f"Unrecognized type {type(session_mdata).__name__} for 'session_mdata' field."
             )
-        except UnicodeDecodeError as e:
-            logger.error(
-                TopicParsingError(f"App metadata bytes are not UTF-8, err '{e}'")
+
+        session_uuid = session_mdata.get("uuid")
+        created_timestamp = session_mdata.get("created_at")
+        locked = session_mdata.get("locked", False)
+
+        # This should never happen. If it does, it's a malformed session.
+        if session_uuid is None or created_timestamp is None:
+            raise ValueError(
+                f"Missing required 'uuid' or 'created_at' in session-related app_metadata: {session_mdata}."
             )
-            return None
 
-        # Check empty-string
-        if not raw_str:
-            logger.error(TopicParsingError("Empty app_metadata"))
-            return None
-
-        # Safely load into JSON
-        try:
-            data = json.loads(raw_str)
-        except json.JSONDecodeError as e:
-            logger.error(TopicParsingError(f"Invalid JSON in app_metadata, err: '{e}'"))
-            return None
-
-        # Validate format
-        if not isinstance(data, dict):
-            logger.error(
-                TopicParsingError(f"Expected JSON object, got {type(data).__name__}")
-            )
-            return None
-
-        # --- Check for mandatory terms ---
-        info_data = data.get("info")
-
-        if info_data is None:
-            logger.error(
-                TopicParsingError(
-                    "Cannot find mandatory element 'info' in topic app_metadata"
-                )
-            )
-            return None
-
-        return data
-
-    @staticmethod
-    def _parse_timestamp_range(
-        tstamp_mdata: dict,
-    ) -> Tuple[Optional[int], Optional[int]]:
-        """
-        Returns the minimum and maximum timestamps of the resource.
-
-        Returns:
-            Tuple[Optional[int], Optional[int]]: The minimum and maximum timestamps.
-        """
-        # (can be missing in manifest - i.e. degenerate Topics with no data stream)
-        tmin = None
-        tmax = None
-        # Can be null (i.e. "timestamp" present but empty)
-        if isinstance(tstamp_mdata, dict):
-            tmin = tstamp_mdata.get("min")
-            tmax = tstamp_mdata.get("max")
-            # Ensure both keys exist
-            if tstamp_mdata.get("min") is None != tmax is None:
-                logger.error(
-                    f"Wrong format of 'timestamp' field: 'min' or 'max' are None, but not both, {tstamp_mdata}"
-                )
-
-        return tmin, tmax
+        return SessionResourceManifest(
+            uuid=session_uuid,
+            created_timestamp=created_timestamp,
+            completed_timestamp=session_mdata.get("completed_at"),
+            locked=locked,
+            topics=session_mdata.get("topics", []),
+        )
 
 
 @dataclass(frozen=True)
@@ -255,7 +236,8 @@ class SequenceResourceManifest:
     """
 
     resource_locator: str
-    resource_info: SequenceResourceInfo
+    created_timestamp: int
+    sessions: List[SessionResourceManifest]
 
     @classmethod
     def _from_app_metadata(
@@ -278,75 +260,32 @@ class SequenceResourceManifest:
 
         try:
             # Parse and return the app_metadata fields
-            mdata = cls._decode_app_metadata(app_mdata)
-            # If not possible to parse the app_metadata, raise
-            if mdata is None:
-                raise SequenceParsingError("Failed to parse app_metadata")
+            mdata = _decode_app_metadata(app_mdata)
 
             resource_locator = mdata.get("resource_locator")
-            if resource_locator is None:
-                raise SequenceParsingError(
-                    "Missing required fields in 'app_metadata' field. Returning 'invalid'."
+            created_timestamp = mdata.get("created_timestamp")
+            if resource_locator is None or created_timestamp is None:
+                raise SequenceManifestError(
+                    "Unable to construct a 'SequenceResourceManifest': missing required fields in sequence app_metadata."
                 )
+
+            sessions = mdata.get("sessions", [])
+            # FIXME: maybe not necessary
+            if not isinstance(sessions, list):
+                sessions = []
 
             return cls(
                 resource_locator=resource_locator,
-                resource_info=SequenceResourceInfo._from_app_metadata(mdata),
+                created_timestamp=created_timestamp,
+                sessions=[
+                    SessionResourceManifest._from_app_metadata(session)
+                    for session in sessions
+                ],
             )
 
         except Exception as e:
             # Wrap internal errors (like UnicodeDecode or Unpacking errors)
             # into a domain-specific exception for the caller to handle.
-            raise SequenceParsingError(
+            raise SequenceManifestError(
                 f"Failed to parse metadata from endpoint: {e}"
             ) from e
-
-    @staticmethod
-    def _decode_app_metadata(
-        app_mdata: Union[bytes, str],
-    ) -> Optional[Dict[str, Any]]:
-        """
-        Decodes and validates the raw App Metadata JSON payload.
-
-        Args:
-            app_mdata: JSON payload as a UTF-8 string or byte sequence.
-
-        Returns:
-            Tuple: (timestamp_ns_min, timestamp_ns_max, PlatformResourceInfo(...))
-
-        Raises:
-            SequenceParsingError: If JSON is malformed or missing required schema keys.
-        """
-        # Decode input to string
-        try:
-            raw_str = (
-                app_mdata.decode("utf-8") if isinstance(app_mdata, bytes) else app_mdata
-            )
-        except UnicodeDecodeError as e:
-            logger.error(
-                SequenceParsingError(f"App metadata bytes are not UTF-8, err '{e}'")
-            )
-            return None
-
-        # Check empty-string
-        if not raw_str:
-            logger.error(SequenceParsingError("Empty app_metadata"))
-            return None
-
-        # Safely load into JSON
-        try:
-            data = json.loads(raw_str)
-        except json.JSONDecodeError as e:
-            logger.error(
-                SequenceParsingError(f"Invalid JSON in app_metadata, err: '{e}'")
-            )
-            return None
-
-        # Validate format
-        if not isinstance(data, dict):
-            logger.error(
-                SequenceParsingError(f"Expected JSON object, got {type(data).__name__}")
-            )
-            return None
-
-        return data

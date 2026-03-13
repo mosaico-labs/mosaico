@@ -5,73 +5,20 @@ This module defines the `Sequence` class, which represents a read-only view of a
 Sequence's platform_metadata. A Sequence is a logical grouping of multiple Topics.
 """
 
-from typing import Any, Dict, List, Optional, Self
+from typing import Any, Dict, List, Self
 
 import pydantic
 from pydantic import PrivateAttr
 
-from mosaicolabs.helpers.helpers import unpack_topic_full_path
 from mosaicolabs.platform.metadata import SequenceMetadata
-from mosaicolabs.platform.resource_info import (
-    SequenceResourceInfo,
-    SessionResourceInfo,
+from mosaicolabs.platform.resource_manifests import (
+    SequenceResourceManifest,
 )
 
 from ..query.expressions import _QuerySequenceExpression
 from ..query.generation.api import _QueryProxyMixin, queryable
 from ..query.generation.pydantic_mapper import PydanticFieldMapper
-
-
-class Session(pydantic.BaseModel):
-    """
-    Represents a read-only view of a server-side writing Session platform resource.
-
-    The `Session` class is designed to hold system-level metadata. It serves as the primary
-    metadata container for a logical grouping of topics written in the writing session.
-
-    Important: Data Retrieval
-        This class provides a server-side **metadata-only** view of the session.
-        To retrieve the actual time-series data contained within the topics of the session, you must
-        use the [`TopicHandler.get_data_streamer()`][mosaicolabs.handlers.TopicHandler.get_data_streamer]
-        method from a [`TopicHandler`][mosaicolabs.handlers.TopicHandler] instance.
-
-    ### Querying with the **`.Q` Proxy**
-    The session fields are not queryable via the **`.Q` proxy**.
-    """
-
-    uuid: str
-    """The session UUID"""
-
-    topics: List[str]
-    """The list of topics recorded during this writing session"""
-
-    created_timestamp: int
-    """The UTC timestamp [ns] when the writing session started"""
-
-    completed_timestamp: Optional[int]
-    """The UTC timestamp [ns] of the session finalization."""
-
-    # FIXME: change to bool
-    locked: Optional[bool]
-    """The locked/unlocked status of the session"""
-
-    @classmethod
-    def _from_resource_info(cls, resrc_info: SessionResourceInfo):
-        topics = []
-        for t_resrc_path in resrc_info.topics:
-            seq_topic_tuple = unpack_topic_full_path(t_resrc_path)
-            if not seq_topic_tuple:
-                raise ValueError(f"Invalid topic name in response '{t_resrc_path}'")
-            _, tname = seq_topic_tuple
-            topics.append(tname)
-
-        return cls(
-            uuid=resrc_info.uuid,
-            completed_timestamp=resrc_info.completed_timestamp,
-            created_timestamp=resrc_info.created_timestamp,
-            topics=topics,
-            locked=resrc_info.locked,
-        )
+from .session import Session
 
 
 @queryable(
@@ -187,7 +134,7 @@ class Sequence(pydantic.BaseModel, _QueryProxyMixin):
         name: str,
         total_size_bytes: int,
         platform_metadata: SequenceMetadata,
-        resrc_info: SequenceResourceInfo,
+        resrc_manifest: SequenceResourceManifest,
     ) -> Self:
         """
         Factory method to create a Sequence view from platform resource information.
@@ -214,8 +161,10 @@ class Sequence(pydantic.BaseModel, _QueryProxyMixin):
         instance._init_base_private(
             name=name,
             total_size_bytes=total_size_bytes,
-            created_timestamp=resrc_info.created_timestamp,
-            sessions=[Session._from_resource_info(s) for s in resrc_info.sessions],
+            created_timestamp=resrc_manifest.created_timestamp,
+            sessions=[
+                Session._from_resource_manifest(s) for s in resrc_manifest.sessions
+            ],
         )
 
         return instance

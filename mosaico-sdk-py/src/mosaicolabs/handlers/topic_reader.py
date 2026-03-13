@@ -14,7 +14,7 @@ import pyarrow.flight as fl
 from mosaicolabs.models.message import Message
 from mosaicolabs.platform.metadata import TopicMetadata, _decode_schema_metadata
 from mosaicolabs.platform.resource_manifests import (
-    TopicParsingError,
+    TopicManifestError,
     TopicResourceManifest,
 )
 
@@ -126,6 +126,7 @@ class TopicDataStreamer:
 
         Raises:
             ConnectionError: If the server fails to open the `do_get` stream.
+            ValueError: If errors when decoding schema metadata
         """
         # Initialize the Flight stream (DoGet)
         try:
@@ -200,11 +201,13 @@ class TopicDataStreamer:
             )
         for ep in flight_info.endpoints:
             try:
-                topic_resrc_mdata = TopicResourceManifest._from_flight_endpoint(ep)
-            except TopicParsingError as e:
+                tname = TopicResourceManifest._get_topic_name_from_locations(
+                    ep.locations
+                )
+            except TopicManifestError as e:
                 logger.error(f"Skipping invalid topic endpoint, err: '{e}'")
                 continue
-            if topic_resrc_mdata.name == topic_name:
+            if tname == topic_name:
                 return cls._connect_from_ticket(
                     client=client,
                     topic_name=topic_name,

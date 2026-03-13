@@ -12,9 +12,7 @@ import pydantic
 from pydantic import PrivateAttr
 
 from mosaicolabs.platform.metadata import TopicMetadata
-from mosaicolabs.platform.resource_info import (
-    TopicResourceInfo,
-)
+from mosaicolabs.platform.resource_manifests import TopicResourceManifest
 
 from ..query.expressions import _QueryTopicExpression
 from ..query.generation.api import _QueryProxyMixin, queryable
@@ -127,7 +125,7 @@ class Topic(pydantic.BaseModel, _QueryProxyMixin):
         name: str,
         sequence_name: str,
         platform_metadata: TopicMetadata,
-        resrc_info: TopicResourceInfo,
+        manifest: TopicResourceManifest,
     ) -> Self:
         """
         Factory method to create a Topic view from platform resource information.
@@ -155,7 +153,7 @@ class Topic(pydantic.BaseModel, _QueryProxyMixin):
             name=name,
             sequence_name=sequence_name,
             metadata=platform_metadata,
-            resrc_info=resrc_info,
+            manifest=manifest,
         )
 
         return instance
@@ -166,7 +164,7 @@ class Topic(pydantic.BaseModel, _QueryProxyMixin):
         name: str,
         sequence_name: str,
         metadata: TopicMetadata,
-        resrc_info: TopicResourceInfo,
+        manifest: TopicResourceManifest,
     ) -> None:
         """
         Internal helper to populate system-controlled private attributes.
@@ -179,14 +177,14 @@ class Topic(pydantic.BaseModel, _QueryProxyMixin):
             total_size_bytes: The storage size on the server.
             created_datetime: The UTC timestamp of creation.
         """
-        self._total_size_bytes = resrc_info.total_size_bytes
-        self._created_timestamp = resrc_info.created_timestamp
+        self._total_size_bytes = manifest.resource_info.total_size_bytes
+        self._created_timestamp = manifest.created_timestamp
         self._name = name
         self._sequence_name = sequence_name
         self._ontology_tag = metadata.properties.ontology_tag
         self._serialization_format = metadata.properties.serialization_format
-        self._chunks_number = resrc_info.chunks_number
-        self._locked = resrc_info.locked
+        self._chunks_number = manifest.resource_info.chunks_number
+        self._locked = manifest.locked
 
     # --- Properties ---
 

@@ -13,7 +13,7 @@ import pyarrow.flight as fl
 
 from mosaicolabs.platform.metadata import TopicMetadata, _decode_schema_metadata
 from mosaicolabs.platform.resource_manifests import (
-    TopicParsingError,
+    TopicManifestError,
     TopicResourceManifest,
 )
 
@@ -131,19 +131,21 @@ class TopicHandler:
 
         # Extract the Topic resource manifest data and the ticket
         ticket: Optional[fl.Ticket] = None
-        topic_resrc_mdata: Optional[TopicResourceManifest] = None
+        topic_resrc_manifest: Optional[TopicResourceManifest] = None
         for ep in flight_info.endpoints:
             try:
-                topic_resrc_mdata = TopicResourceManifest._from_flight_endpoint(ep)
-            except TopicParsingError as e:
+                topic_resrc_manifest = TopicResourceManifest._from_app_metadata(
+                    ep.app_metadata
+                )
+            except TopicManifestError as e:
                 logger.error(f"Skipping invalid topic endpoint, err: '{e}'")
                 continue
             # here the topic name is sanitized
-            if topic_resrc_mdata.name == _stzd_topic_name:
+            if topic_resrc_manifest.name == _stzd_topic_name:
                 ticket = ep.ticket
                 break
 
-        if ticket is None or topic_resrc_mdata is None:
+        if ticket is None or topic_resrc_manifest is None:
             logger.error(
                 f"Unable to init handler for topic '{topic_name}' in sequence '{sequence_name}'"
             )
@@ -154,7 +156,7 @@ class TopicHandler:
             sequence_name=_stzd_sequence_name,
             name=_stzd_topic_name,
             platform_metadata=topic_metadata,
-            resrc_info=topic_resrc_mdata.resource_info,
+            manifest=topic_resrc_manifest,
         )
 
         # Get the 'min'/'max' timestamps, as we are at a topic-level
@@ -162,8 +164,8 @@ class TopicHandler:
             client=client,
             topic_model=topic_model,
             ticket=ticket,
-            timestamp_ns_min=topic_resrc_mdata.timestamp_ns_min,
-            timestamp_ns_max=topic_resrc_mdata.timestamp_ns_max,
+            timestamp_ns_min=topic_resrc_manifest.resource_info.timestamp_ns_min,
+            timestamp_ns_max=topic_resrc_manifest.resource_info.timestamp_ns_max,
         )
 
     # -------------------- Public methods --------------------
