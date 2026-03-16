@@ -12,14 +12,15 @@ from typing import Any, Optional, Type
 
 import pyarrow.flight as fl
 
+from mosaicolabs.enum.topic_level_error_policy import TopicLevelErrorPolicy
 from mosaicolabs.models import Serializable
 from mosaicolabs.models.message import Message
 
 from ..comm.do_action import _do_action
-from ..enum import FlightAction, OnErrorPolicy
+from ..enum import FlightAction
 from ..helpers import pack_topic_resource_name
 from ..logging_config import get_logger
-from .config import WriterConfig
+from .config import TopicWriterConfig
 from .helpers import _make_exception
 from .internal.topic_write_state import _TopicWriteState
 
@@ -59,7 +60,7 @@ class TopicWriter:
         sequence_name: str,
         client: fl.FlightClient,
         state: _TopicWriteState,
-        config: WriterConfig,
+        config: TopicWriterConfig,
     ):
         """
         Internal constructor for TopicWriter.
@@ -115,7 +116,7 @@ class TopicWriter:
         """The name of the created sequence"""
         self._name: str = topic_name
         """The name of the new topic"""
-        self._config: WriterConfig = config
+        self._config: TopicWriterConfig = config
         """The config of the writer"""
         self._wrstate: _TopicWriteState = state
         """The actual writer object"""
@@ -129,7 +130,7 @@ class TopicWriter:
         client: fl.FlightClient,
         executor: Optional[ThreadPoolExecutor],
         ontology_type: Type[Serializable],
-        config: WriterConfig,
+        config: TopicWriterConfig,
     ) -> "TopicWriter":
         """
         Internal Factory method to initialize an active TopicWriter.
@@ -217,7 +218,7 @@ class TopicWriter:
         Context manager exit.
 
         Guarantees cleanup of the Flight stream. If an exception occurred within
-        the block, it triggers the configured `OnErrorPolicy` (e.g., reporting the error).
+        the block, it triggers the configured `TopicLevelErrorPolicy` (e.g., reporting the error).
         Exceptions from the with-block are always propagated.
         """
         error_occurred = exc_type is not None
@@ -233,10 +234,15 @@ class TopicWriter:
                 exc_type, exc_val = type(e), e
 
         if error_occurred:
-            # Exit due to an error (original, cleanup, or finalize failure)
+            # Exit due to an error
             try:
-                if self._config.on_error == OnErrorPolicy.Report:
+                if self._config.on_error == TopicLevelErrorPolicy.Finalize:
                     self._error_report(str(exc_val))
+                    self._wrstate.writer = None  # Close the topic
+                elif self._config.on_error == TopicLevelErrorPolicy.Ignore:
+                    self._error_report(str(exc_val))
+                elif self._config.on_error == TopicLevelErrorPolicy.Raise:
+                    raise exc_val
             except Exception as e:
                 logger.exception(
                     f"Error handling topic '{self._name}' after exception: '{e}'"
@@ -254,8 +260,13 @@ class TopicWriter:
     def _handle_exception_and_raise(self, err: Exception, msg: str):
         """Helper to cleanup resources and re-raise exceptions with context."""
         try:
-            if self._config.on_error == OnErrorPolicy.Report:
+            if self._config.on_error == TopicLevelErrorPolicy.Finalize:
                 self._error_report(str(err))
+                self._wrstate.writer = None  # Close the topic
+            elif self._config.on_error == TopicLevelErrorPolicy.Ignore:
+                self._error_report(str(err))
+            elif self._config.on_error == TopicLevelErrorPolicy.Raise:
+                raise err
         except Exception as report_err:
             logger.error(f"Failed to report error: '{report_err}'")
         finally:
@@ -418,8 +429,6 @@ class TopicWriter:
                 self._error_report(str(error))
             self._wrstate.close(with_error=with_error)
         except Exception as e:
-            # Close the writer anyway to prevent further operations
-            self._wrstate.writer = None
             raise _make_exception(
                 exc_msg=e,
                 msg=f"Error finalizing TopicWriter '{self._name}'.",

@@ -7,6 +7,7 @@ use futures::stream::TryStreamExt;
 use log::trace;
 use mosaicod_core::{params, traits};
 use object_store::{ObjectStore, PutPayload, aws::AmazonS3Builder, local::LocalFileSystem};
+use parquet::arrow::async_reader::ParquetObjectReader;
 use std::sync::Arc;
 use thiserror::Error;
 use url::Url;
@@ -233,6 +234,10 @@ impl Store {
         }
 
         Ok(())
+    }
+
+    pub fn parquet_reader(&self, path: impl AsRef<std::path::Path>) -> ParquetObjectReader {
+        ParquetObjectReader::new(self.driver.clone(), to_object_path(path))
     }
 }
 

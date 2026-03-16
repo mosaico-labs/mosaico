@@ -2,7 +2,6 @@
 
 # Run a development enviroment DB + mosaicod for local testing
 
-
 # Directory contianing the source code for the SDK
 PYTHON_SDK_DIR="mosaico-sdk-py"
 # Directory containing the mosaicod source code
@@ -19,6 +18,14 @@ MOSAICOD_DB_URL="postgresql://postgres:password@localhost:6543/mosaico"
 # This flag should be always `true`, otherwise a running database with live migration
 # is required to compile the code (and also we need to reinstall sqlx at each run).
 SQLX_OFFLINE=true
+
+# Specifies if the server should start with api key management enabled. If this option is set to true
+# a default API key will be generated. Use --api-key option to enable this from command line.
+ENABLE_API_KEY=false
+
+# Specifies if the server should start with TLS enabled. If this option is set to true 
+# the server will be configured with certificates from `mosaicod/tests/data` folder.
+ENABLE_TLS=false
 
 FILE_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 PROJECT_DIR=$(readlink -f "${FILE_DIR}/..")
@@ -48,10 +55,30 @@ RESET=$(tput sgr0)
 BOLD=$(tput bold)
 DIM=$(tput dim)
 
+show_help() {
+    cat << EOF
+Mosaico disposable development environment.
+
+This script generates a disposable development environment without data. 
+It is particularly useful for performing repeatable tests during development.
+
+Usage: dev_env.sh [OPTIONS]
+
+Options:
+    --api-key                   Start mosaicod with API key management and generate an admin
+                                key.
+    --tls                       Start mosaicod with TLS configured. Certificates can be found in 
+                                `mosaicod/tests/data` folder.
+    --help                      Show this help message
+EOF
+}
+
 error_handler() {
     echo "${RED}${BOLD}Ops, an error occurred. ${RESET}"
     exit 1
 }
+
+trap error_handler ERR
 
 title() {
     local text="$1"
@@ -83,34 +110,95 @@ function cleanup() {
 
     cd ${PROJECT_DIR}/docker/testing
     docker compose down -v 2> /dev/null
+}
 
-    title "db + storage deleted" "#" ${YELLOW}
+trap cleanup EXIT
+
+main() {
+
+    MOSAICOD_OPTS=""
+
+    while [ $# -gt 0 ]; do
+        case "$1" in 
+            --api-key)
+                ENABLE_API_KEY=true
+                MOSAICOD_OPTS="$MOSAICOD_OPTS --api-key"
+                shift
+                ;;
+            --tls)
+                ENABLE_TLS=true
+                MOSAICOD_OPTS="$MOSAICOD_OPTS --tls"
+                export MOSAICOD_TLS_CERT_FILE="${MOSAICOD_PATH}/tests/data/cert.pem"
+                export MOSAICOD_TLS_PRIVATE_KEY_FILE="${MOSAICOD_PATH}/tests/data/key.pem"
+                shift
+                ;;
+            --help|-h)
+                show_help
+                exit 0
+                ;;
+            *)
+                echo "${RED}Unknown option: $1${RESET}"
+                show_help
+                exit 1
+                ;;
+        esac
+    done
+
+    mkdir -p "${TEST_DIRECTORY}"
+
+    title "development environment" "#" ${GREEN}
+
+    title "setup" "-"
+    echo " * MOSAICOD_DB_URL ${DIM}${MOSAICOD_DB_URL}${RESET}"
+    echo " * DATABASE_URL    ${DIM}${DATABASE_URL}${RESET}"
+    echo " * SQLX_OFFLINE    ${DIM}${SQLX_OFFLINE}${RESET}"
+    cd ${DOCKER_PATH}
+    title "docker" "." ${BLUE}
+    docker compose up -d --wait 2> /dev/null
+    echo "Started ${BOLD}docker/testing${RESET} compose file"
+
+    title "mosaicod" "-"
+    cd ${MOSAICOD_PATH}
+    title "build" "." ${BLUE}
+    cargo build
+
+    if $ENABLE_API_KEY; then
+        API_KEY=$(RUST_LOG="" ./target/debug/mosaicod api-key create read write delete manage)
+
+cat << EOF 
+    ##################################################################
+    #                                                                #
+    #                        API KEY MANAGEMENT                      #
+    #                                                                #
+    #----------------------------------------------------------------#
+    #                                                                #
+    #  API KEY ${DIM}${API_KEY}${RESET}
+    #                                                                #
+    ##################################################################
+EOF
+    fi
+
+    if $ENABLE_TLS; then
+cat << EOF
+    ##################################################################
+    #                                                                #
+    #                           TLS ENABLED                          #
+    #----------------------------------------------------------------#
+    #           Certificate for client can be found at               # 
+    #           `mosaicod/tests/data/ca.pem`                         #
+    #                                                                #
+    ##################################################################
+EOF
+    fi
+
+    title "running" "." ${BLUE}
+    ./target/debug/mosaicod run --port 6276 --local-store "${TEST_DIRECTORY}" ${MOSAICOD_OPTS}
+    MOSAICOD_PID=$!
+
+    title "done" "#" ${GREEN}
+
 }
 
 
-trap error_handler ERR
-trap cleanup EXIT
-
-mkdir -p "${TEST_DIRECTORY}"
-
-
-title "development environment" "#" ${GREEN}
-
-title "setup" "-"
-echo "MOSAICOD_DB_URL ${MOSAICOD_DB_URL}"
-echo "DATABASE_URL=${DATABASE_URL}"
-echo "SQLX_OFFLINE=${SQLX_OFFLINE}"
-cd ${DOCKER_PATH}
-title "docker" "." ${BLUE}
-docker compose up -d --wait 2> /dev/null
-echo "Started ${BOLD}docker/testing${RESET} compose file"
-
-title "mosaicod" "-"
-cd ${MOSAICOD_PATH}
-title "build" "." ${BLUE}
-cargo build
-./target/debug/mosaicod run --port 6276 --local-store "${TEST_DIRECTORY}"
-MOSAICOD_PID=$!
-
-title "done" "#" ${GREEN}
+main "$@"
 

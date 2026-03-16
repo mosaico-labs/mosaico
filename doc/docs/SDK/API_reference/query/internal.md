@@ -1,4 +1,7 @@
-# Internal Types
+---
+title: Internal Types
+description: API Reference for Internal Types
+---
 
 ::: mosaicolabs.models.query.protocols.QueryableProtocol
 ::: mosaicolabs.models.query.expressions._QueryExpression

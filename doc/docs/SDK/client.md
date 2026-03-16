@@ -1,4 +1,7 @@
-# Client
+---
+title: Client
+description: Architecture and design of the MosaicoClient.
+---
 
 API Reference: [`mosaicolabs.comm.MosaicoClient`][mosaicolabs.comm.MosaicoClient].
 

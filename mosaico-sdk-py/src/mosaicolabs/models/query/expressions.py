@@ -66,7 +66,7 @@ class _QueryTopicExpression(_QueryExpression):
 
     | User Call | Internal Translation |
     | --- | --- |
-    | `Topic.Q.user_metadata["calibrated"].eq(True)` | `_QueryTopicExpression("user_metadata.calibrated", "$eq", True)` |
+    | `QueryTopic().with_user_metadata("calibrated", eq=True)` | `_QueryTopicExpression("user_metadata.calibrated", "$eq", True)` |
     | `QueryTopic().with_name("camera_front")` | `_QueryTopicExpression("name", "$eq", "camera_front")` |
     | `QueryTopic().with_ontology_tag("imu")` | `_QueryTopicExpression("ontology_tag", "$eq", "imu")` |
 
@@ -90,7 +90,7 @@ class _QuerySequenceExpression(_QueryExpression):
 
     | User Call | Internal Translation |
     | --- | --- |
-    | `Sequence.Q.user_metadata["project"].eq("Apollo")` | `_QuerySequenceExpression("user_metadata.project", "$eq", "Apollo")` |
+    | `QuerySequence().with_user_metadata("project", eq="Apollo")` | `_QuerySequenceExpression("user_metadata.project", "$eq", "Apollo")` |
     | `QuerySequence().with_name("Apollo")` | `_QuerySequenceExpression("name", "$eq", "Apollo")` |
     | `QuerySequence().with_created_timestamp(Time.from_float(1704067200.0))` | `_QuerySequenceExpression("created_timestamp", "$between", [1704067200.0, None])` |
 

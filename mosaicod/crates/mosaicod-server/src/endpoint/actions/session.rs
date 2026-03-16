@@ -1,5 +1,5 @@
 //! Session related actions.
-use crate::{ServerError, endpoints::Context};
+use crate::{ServerError, endpoint::Context};
 use log::{info, trace, warn};
 use mosaicod_core::types;
 use mosaicod_facade as facade;

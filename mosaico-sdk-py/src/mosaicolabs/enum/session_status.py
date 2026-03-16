@@ -47,7 +47,7 @@ class SessionStatus(Enum):
     
     This state is reached if an exception occurs within the `with` block or during 
     the finalization phase. Depending on the 
-    [`OnErrorPolicy`][mosaicolabs.enum.OnErrorPolicy], the data may have been 
+    [`SessionLevelErrorPolicy`][mosaicolabs.enum.SessionLevelErrorPolicy], the data may have been 
     purged (`Delete`) or retained in an **unlocked** state for debugging (`Report`).
     """
 

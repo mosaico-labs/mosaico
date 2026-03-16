@@ -1,4 +1,7 @@
-# Querying Topics by Name and Metadata
+---
+title: Querying Topics by Name and Metadata
+description: Example how-to for Querying Topics by Name and Metadata
+---
 
 This guide demonstrates how to locate specific recording sessions based on their naming conventions and custom user metadata tags. This is the most common entry point for data discovery, allowing you to isolate sessions that match specific environmental or project conditions.
 
@@ -29,8 +32,8 @@ with MosaicoClient.connect("localhost", 6726) as client:
         QueryTopic()
         # Use a convenience method for fuzzy name matching
         .with_ontology_tag(IMU.ontology_tag())
-        # Use the .Q proxy to filter fixed and dynamic metadata fields
-        .with_expression(Topic.Q.user_metadata["interface"].eq("serial")))
+        # Use a convenience method for filtering fixed and dynamic metadata fields
+        .with_user_metadata("interface", eq="serial")))
 
     # 3. Process the Response
     if results:
@@ -55,4 +58,4 @@ The `query` method returns `None` if an error occurs, or a [`QueryResponse`][mos
 
 * [**Convenience Methods**](../query.md#convenience-methods): High-level helpers like `with_ontology_tag()` provide a quick way to filter by ontology tags.
 * [**Generic Methods**](../query.md#generic-expression-method): The `with_expression()` method accepts raw **Query Expressions** generated through the [`.Q` proxy](../query.md#the-q-proxy-mechanism). This provides full access to every supported operator (`.gt()`, `.lt()`, `.between()`, etc.) for specific fields.
-* **Dynamic Metadata Access**: Using the bracket notation [`Topic.Q.user_metadata["key"]`][mosaicolabs.models.platform.Topic] allows you to query any custom tag you attached during the ingestion phase.
+* **Dynamic Metadata Access**: Using the nested notation in `with_user_metadata("key.subkey", ...)` allows you to query any custom tag you attached during the ingestion phase.

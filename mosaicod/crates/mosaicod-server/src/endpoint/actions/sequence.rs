@@ -1,6 +1,6 @@
 //! Sequence-related actions
 
-use crate::{endpoints::Context, errors::ServerError};
+use crate::{endpoint::Context, errors::ServerError};
 use log::{info, trace, warn};
 use mosaicod_core::types::{self, MetadataBlob, Resource};
 use mosaicod_facade as facade;

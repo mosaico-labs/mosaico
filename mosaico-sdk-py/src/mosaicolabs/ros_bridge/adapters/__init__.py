@@ -21,6 +21,7 @@ from .sensor_msgs import (
     IMUAdapter as IMUAdapter,
     NavSatStatusAdapter as NavSatStatusAdapter,
     NMEASentenceAdapter as NMEASentenceAdapter,
+    PointCloudAdapter as PointCloudAdapter,
     RobotJointAdapter as RobotJointAdapter,
     ROIAdapter as ROIAdapter,
 )

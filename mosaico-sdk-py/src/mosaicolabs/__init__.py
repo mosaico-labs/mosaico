@@ -21,7 +21,9 @@ from .enum import (
     OnErrorPolicy as OnErrorPolicy,
     SequenceStatus as SequenceStatus,
     SerializationFormat as SerializationFormat,
+    SessionLevelErrorPolicy as SessionLevelErrorPolicy,
     SessionStatus as SessionStatus,
+    TopicLevelErrorPolicy as TopicLevelErrorPolicy,
 )
 
 # --- Handlers ---
@@ -203,7 +205,8 @@ __all__ = [
     "SerializationFormat",
     "SessionStatus",
     "SequenceStatus",
-    "OnErrorPolicy",
+    "SessionLevelErrorPolicy",
+    "TopicLevelErrorPolicy",
     # Platform
     "Sequence",
     "Session",

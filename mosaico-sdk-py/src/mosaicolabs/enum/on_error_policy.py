@@ -1,6 +1,11 @@
 from enum import Enum
+from warnings import deprecated
 
 
+@deprecated(
+    "OnErrorPolicy is deprecated since v0.3.0; use SessionLevelErrorPolicy instead. "
+    "It will be removed in v0.4.0."
+)
 class OnErrorPolicy(Enum):
     """
     Defines the behavior of the [`SequenceWriter`][mosaicolabs.handlers.SequenceWriter]

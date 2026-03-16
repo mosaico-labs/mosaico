@@ -269,41 +269,45 @@ While the underlying `rosbags` library supports the majority of standard ROS 2 b
   * **Recommendation:** This issue originates in the upstream parser handling of this specific dataset's serialization alignment. It is currently recommended to exclude this dataset or transcode it using standard ROS 2 tools before ingestion.
 
 
-## Supported Message Types
-
-***ROS-Specific Data Models***
-
-In addition to mapping standard ROS messages to the core Mosaico ontology, the `ros-bridge` module implements two specialized data models. These are defined specifically for this module to handle ROS-native concepts that are not yet part of the official Mosaico standard:
-
-* **`FrameTransform`**: Designed to handle coordinate frame transformations (modeled after [`tf2_msgs/msg/TFMessage`](https://docs.ros2.org/foxy/api/tf2_msgs/msg/TFMessage.html)). It encapsulates a list of [`Transform`][mosaicolabs.models.data.geometry.Transform] objects to manage spatial relationships.
-* **`BatteryState`**: Modeled after [`sensor_msgs/msg/BatteryState`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/BatteryState.html)), this class captures comprehensive power supply metrics. It includes core data (voltage, current, capacity, percentage) and detailed metadata such as power supply health, technology status, and individual cell readings.
-
-> **Note:** Although these are provisional additions, both `FrameTransform` and `BatteryState` inherit from [`Serializable`][mosaicolabs.models.Serializable]. This ensures they remain fully compatible with Mosaico’s existing serialization infrastructure.
-
-### Supported Message Types Table
-
-| ROS Message Type | Mosaico Ontology Type | Adapter |
-| :--- | :--- | :--- |
-| [`geometry_msgs/Pose`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/Pose.html), [`PoseStamped`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/PoseStamped.html)... | [`Pose`][mosaicolabs.models.data.geometry.Pose] | `PoseAdapter` |
-| [`geometry_msgs/Twist`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/Twist.html), [`TwistStamped`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/TwistStamped.html)... | [`Velocity`][mosaicolabs.models.data.kinematics.Velocity] | `TwistAdapter` |
-| [`geometry_msgs/Accel`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/Accel.html), [`AccelStamped`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/AccelStamped.html)... | [`Acceleration`][mosaicolabs.models.data.kinematics.Acceleration] | `AccelAdapter` |
-| [`geometry_msgs/Vector3`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/Vector3.html), [`Vector3Stamped`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/Vector3Stamped.html) | [`Vector3d`][mosaicolabs.models.data.geometry.Vector3d] | `Vector3Adapter` |
-| [`geometry_msgs/Point`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/Point.html), [`PointStamped`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/PointStamped.html) | [`Point3d`][mosaicolabs.models.data.geometry.Point3d] | `PointAdapter` |
-| [`geometry_msgs/Quaternion`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/Quaternion.html), [`QuaternionStamped`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/QuaternionStamped.html) | [`Quaternion`][mosaicolabs.models.data.geometry.Quaternion] | `QuaternionAdapter` |
-| [`geometry_msgs/Transform`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/Transform.html), [`TransformStamped`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/TransformStamped.html) | [`Transform`][mosaicolabs.models.data.geometry.Transform] | `TransformAdapter` |
-| [`geometry_msgs/Wrench`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/Wrench.html), [`WrenchStamped`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/WrenchStamped.html) | [`ForceTorque`][mosaicolabs.models.data.dynamics.ForceTorque] | `WrenchAdapter` |
-| [`nav_msgs/Odometry`](https://docs.ros2.org/foxy/api/nav_msgs/msg/Odometry.html) | [`MotionState`][mosaicolabs.models.data.kinematics.MotionState] | `OdometryAdapter` |
-| [`nmea_msgs/Sentence`](https://docs.ros2.org/foxy/api/nmea_msgs/msg/Sentence.html) | [`NMEASentence`][mosaicolabs.models.sensors.NMEASentence] | `NMEASentenceAdapter` |
-| [`sensor_msgs/Image`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/Image.html), [`CompressedImage`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/CompressedImage.html) | [`Image`][mosaicolabs.models.sensors.Image], [`CompressedImage`][mosaicolabs.models.sensors.CompressedImage] | `ImageAdapter`, `CompressedImageAdapter` |
-| [`sensor_msgs/Imu`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/Imu.html) | [`IMU`][mosaicolabs.models.sensors.IMU] | `IMUAdapter` |
-| [`sensor_msgs/NavSatFix`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/NavSatFix.html) | [`GPS`][mosaicolabs.models.sensors.GPS], [`GPSStatus`][mosaicolabs.models.sensors.GPSStatus] | `GPSAdapter`, `NavSatStatusAdapter` |
-| [`sensor_msgs/CameraInfo`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/CameraInfo.html) | [`CameraInfo`][mosaicolabs.models.sensors.CameraInfo] | `CameraInfoAdapter` |
-| [`sensor_msgs/RegionOfInterest`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/RegionOfInterest.html) | [`ROI`][mosaicolabs.models.data.ROI] | `ROIAdapter` |
-| [`sensor_msgs/JointState`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/JointState.html) | [`RobotJoint`][mosaicolabs.models.sensors.RobotJoint] | `RobotJointAdapter` |
-| [`sensor_msgs/BatteryState`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/BatteryState.html) | [`BatteryState`][mosaicolabs.ros_bridge.data_ontology.BatteryState] (ROS-specific)| `BatteryStateAdapter` |
-| [`std_msgs/msg/String`](https://docs.ros2.org/foxy/api/std_msgs/msg/String.html)| [`String`][mosaicolabs.models.data.String]| `_GenericStdAdapter` |
-| [`std_msgs/msg/Int8(16,32,64)`](https://docs.ros2.org/foxy/api/std_msgs/msg/Int8.html) | [`Integer8(16,32,64)`][mosaicolabs.models.data.Integer8]| `_GenericStdAdapter` |
-| [`std_msgs/msg/UInt8(16,32,64)`](https://docs.ros2.org/foxy/api/std_msgs/msg/UInt8.html) | [`Unsigned8(16,32,64)`][mosaicolabs.models.data.Unsigned8]| `_GenericStdAdapter` |
-| [`std_msgs/msg/Float32(64)`](https://docs.ros2.org/foxy/api/std_msgs/msg/Float32.html) | [`Floating32(64)`][mosaicolabs.models.data.Floating32]| `_GenericStdAdapter` |
-| [`std_msgs/msg/Bool`](https://docs.ros2.org/foxy/api/std_msgs/msg/Bool.html) | [`Boolean`][mosaicolabs.models.data.Boolean]| `_GenericStdAdapter` |
-| [`tf2_msgs/msg/TFMessage`](https://docs.ros2.org/foxy/api/tf2_msgs/msg/TFMessage.html) | [`FrameTransform`][mosaicolabs.ros_bridge.data_ontology.FrameTransform] (ROS-specific)| `FrameTransformAdapter` |
+  ## Supported Message Types
+  
+  ***ROS-Specific Data Models***
+  
+  In addition to mapping standard ROS messages to the core Mosaico ontology, the `ros-bridge` module implements two specialized data models. These are defined specifically for this module to handle ROS-native concepts that are not yet part of the official Mosaico standard:
+  
+  * **`FrameTransform`**: Designed to handle coordinate frame transformations (modeled after [`tf2_msgs/msg/TFMessage`](https://docs.ros2.org/foxy/api/tf2_msgs/msg/TFMessage.html)). It encapsulates a list of [`Transform`][mosaicolabs.models.data.geometry.Transform] objects to manage spatial relationships.
+  * **`BatteryState`**: Modeled after [`sensor_msgs/msg/BatteryState`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/BatteryState.html)), this class captures comprehensive power supply metrics. It includes core data (voltage, current, capacity, percentage) and detailed metadata such as power supply health, technology status, and individual cell readings.
+  * **`PointCloud2`**: Modeled after [`sensor_msgs/msg/PointCloud2`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/PointCloud2.html),
+    this class captures raw point cloud data including field layout, endianness, and binary payload.
+    It includes the companion `PointField` model to describe each data channel (e.g., `x`, `y`, `z`, `intensity`).
+  
+  > **Note:** Although these are provisional additions, both `FrameTransform`, `BatteryState`, and `PointCloud2` inherit from [`Serializable`][mosaicolabs.models.Serializable]. This ensures they remain fully compatible with Mosaico’s existing serialization infrastructure.
+  
+  ### Supported Message Types Table
+  
+  | ROS Message Type | Mosaico Ontology Type | Adapter |
+  | :--- | :--- | :--- |
+  | [`geometry_msgs/msg/Pose`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/Pose.html), [`PoseStamped`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/PoseStamped.html)... | [`Pose`][mosaicolabs.models.data.geometry.Pose] | `PoseAdapter` |
+  | [`geometry_msgs/msg/Twist`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/Twist.html), [`TwistStamped`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/TwistStamped.html)... | [`Velocity`][mosaicolabs.models.data.kinematics.Velocity] | `TwistAdapter` |
+  | [`geometry_msgs/msg/Accel`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/Accel.html), [`AccelStamped`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/AccelStamped.html)... | [`Acceleration`][mosaicolabs.models.data.kinematics.Acceleration] | `AccelAdapter` |
+  | [`geometry_msgs/msg/Vector3`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/Vector3.html), [`Vector3Stamped`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/Vector3Stamped.html) | [`Vector3d`][mosaicolabs.models.data.geometry.Vector3d] | `Vector3Adapter` |
+  | [`geometry_msgs/msg/Point`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/Point.html), [`PointStamped`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/PointStamped.html) | [`Point3d`][mosaicolabs.models.data.geometry.Point3d] | `PointAdapter` |
+  | [`geometry_msgs/msg/Quaternion`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/Quaternion.html), [`QuaternionStamped`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/QuaternionStamped.html) | [`Quaternion`][mosaicolabs.models.data.geometry.Quaternion] | `QuaternionAdapter` |
+  | [`geometry_msgs/msg/Transform`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/Transform.html), [`TransformStamped`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/TransformStamped.html) | [`Transform`][mosaicolabs.models.data.geometry.Transform] | `TransformAdapter` |
+  | [`geometry_msgs/msg/Wrench`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/Wrench.html), [`WrenchStamped`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/WrenchStamped.html) | [`ForceTorque`][mosaicolabs.models.data.dynamics.ForceTorque] | `WrenchAdapter` |
+  | [`nav_msgs/msg/Odometry`](https://docs.ros2.org/foxy/api/nav_msgs/msg/Odometry.html) | [`MotionState`][mosaicolabs.models.data.kinematics.MotionState] | `OdometryAdapter` |
+  | [`nmea_msgs/msg/Sentence`](https://docs.ros2.org/foxy/api/nmea_msgs/msg/Sentence.html) | [`NMEASentence`][mosaicolabs.models.sensors.NMEASentence] | `NMEASentenceAdapter` |
+  | [`sensor_msgs/msg/Image`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/Image.html), [`CompressedImage`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/CompressedImage.html) | [`Image`][mosaicolabs.models.sensors.Image], [`CompressedImage`][mosaicolabs.models.sensors.CompressedImage] | `ImageAdapter`, `CompressedImageAdapter` |
+  | [`sensor_msgs/msg/Imu`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/Imu.html) | [`IMU`][mosaicolabs.models.sensors.IMU] | `IMUAdapter` |
+  | [`sensor_msgs/msg/NavSatFix`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/NavSatFix.html) | [`GPS`][mosaicolabs.models.sensors.GPS], [`GPSStatus`][mosaicolabs.models.sensors.GPSStatus] | `GPSAdapter`, `NavSatStatusAdapter` |
+  | [`sensor_msgs/msg/CameraInfo`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/CameraInfo.html) | [`CameraInfo`][mosaicolabs.models.sensors.CameraInfo] | `CameraInfoAdapter` |
+  | [`sensor_msgs/msg/RegionOfInterest`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/RegionOfInterest.html) | [`ROI`][mosaicolabs.models.data.ROI] | `ROIAdapter` |
+  | [`sensor_msgs/msg/JointState`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/JointState.html) | [`RobotJoint`][mosaicolabs.models.sensors.RobotJoint] | `RobotJointAdapter` |
+  | [`sensor_msgs/msg/BatteryState`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/BatteryState.html) | [`BatteryState`][mosaicolabs.ros_bridge.data_ontology.BatteryState] (ROS-specific)| `BatteryStateAdapter` |
+  | [`std_msgs/msg/String`](https://docs.ros2.org/foxy/api/std_msgs/msg/String.html)| [`String`][mosaicolabs.models.data.String]| `_GenericStdAdapter` |
+  | [`std_msgs/msg/Int8(16,32,64)`](https://docs.ros2.org/foxy/api/std_msgs/msg/Int8.html) | [`Integer8(16,32,64)`][mosaicolabs.models.data.Integer8]| `_GenericStdAdapter` |
+  | [`std_msgs/msg/UInt8(16,32,64)`](https://docs.ros2.org/foxy/api/std_msgs/msg/UInt8.html) | [`Unsigned8(16,32,64)`][mosaicolabs.models.data.Unsigned8]| `_GenericStdAdapter` |
+  | [`std_msgs/msg/Float32(64)`](https://docs.ros2.org/foxy/api/std_msgs/msg/Float32.html) | [`Floating32(64)`][mosaicolabs.models.data.Floating32]| `_GenericStdAdapter` |
+  | [`std_msgs/msg/Bool`](https://docs.ros2.org/foxy/api/std_msgs/msg/Bool.html) | [`Boolean`][mosaicolabs.models.data.Boolean]| `_GenericStdAdapter` |
+  | [`tf2_msgs/msg/TFMessage`](https://docs.ros2.org/foxy/api/tf2_msgs/msg/TFMessage.html) | [`FrameTransform`][mosaicolabs.ros_bridge.data_ontology.FrameTransform] (ROS-specific)| `FrameTransformAdapter` |
+  | [`sensor_msgs/msg/PointCloud2`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/PointCloud2.html) | [`PointCloud2`][mosaicolabs.ros_bridge.data_ontology.PointCloud2] (ROS-specific)| `PointCloudAdapter` |

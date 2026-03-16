@@ -13,11 +13,16 @@ import pyarrow.flight as fl
 from ..comm.connection import _ConnectionPool
 from ..comm.do_action import _do_action
 from ..comm.executor_pool import _ExecutorPool
-from ..enum import FlightAction, OnErrorPolicy, SequenceStatus
+from ..enum import (
+    FlightAction,
+    SequenceStatus,
+    SessionLevelErrorPolicy,
+    TopicLevelErrorPolicy,
+)
 from ..logging_config import get_logger
 from ..models import Serializable
 from .base_session_writer import _BaseSessionWriter
-from .config import WriterConfig
+from .config import SessionWriterConfig
 from .helpers import _make_exception, _validate_metadata, _validate_sequence_name
 from .topic_writer import TopicWriter
 
@@ -44,7 +49,7 @@ class SequenceWriter(_BaseSessionWriter):
     Important: Usage Pattern
         This class **must** be used within a `with` statement (Context Manager).
         The context entry triggers sequence registration on the server, while the exit handles
-        automatic finalization or error cleanup based on the configured `OnErrorPolicy`.
+        automatic finalization or error cleanup based on the configured `SessionLevelErrorPolicy`.
 
     Important: Obtaining a Writer
         Do not instantiate this class directly. Use the
@@ -61,7 +66,7 @@ class SequenceWriter(_BaseSessionWriter):
         connection_pool: Optional[_ConnectionPool],
         executor_pool: Optional[_ExecutorPool],
         metadata: dict[str, Any],
-        config: WriterConfig,
+        config: SessionWriterConfig,
     ):
         """
         Internal constructor for SequenceWriter.
@@ -72,7 +77,7 @@ class SequenceWriter(_BaseSessionWriter):
 
         Example:
             ```python
-            from mosaicolabs import MosaicoClient, OnErrorPolicy
+            from mosaicolabs import MosaicoClient, SessionLevelErrorPolicy
 
             # Open the connection with the Mosaico Client
             with MosaicoClient.connect("localhost", 6726) as client:
@@ -96,7 +101,7 @@ class SequenceWriter(_BaseSessionWriter):
                             },
                         },
                     }
-                    on_error = OnErrorPolicy.Delete # Default
+                    on_error = SessionLevelErrorPolicy.Delete
                     ) as seq_writer:
                         # Start creating topics and pushing data
                         # (2)!
@@ -180,10 +185,13 @@ class SequenceWriter(_BaseSessionWriter):
         super()._on_context_exit(exc_type, exc_val, exc_tb)
 
         # Apply policy upon exception caught in the context
-        if exc_type is not None and self._config.on_error == OnErrorPolicy.Delete:
+        if (
+            exc_type is not None
+            and self._config.on_error == SessionLevelErrorPolicy.Delete
+        ):
             self._logger.error(
                 f"Sequence writer for sequence {self._name} caught exception: '{exc_val}'."
-                f"Triggering `OnErrorPolicy.Delete`."
+                f"Triggering `SessionLevelErrorPolicy.Delete`."
             )
             # Delete the sequence
             self._delete()
@@ -213,6 +221,7 @@ class SequenceWriter(_BaseSessionWriter):
         topic_name: str,
         metadata: dict[str, Any],
         ontology_type: Type[Serializable],
+        on_error: TopicLevelErrorPolicy = TopicLevelErrorPolicy.Raise,
     ) -> Optional[TopicWriter]:
         """
         Creates a new topic within the active sequence.
@@ -225,6 +234,7 @@ class SequenceWriter(_BaseSessionWriter):
             topic_name: The relative name of the new topic.
             metadata: Topic-specific user metadata.
             ontology_type: The `Serializable` data model class defining the topic's schema.
+            on_error: The error policy to use in the `TopicWriter`.
 
         Returns:
             A `TopicWriter` instance configured for parallel ingestion, or `None` if creation fails.
@@ -283,7 +293,8 @@ class SequenceWriter(_BaseSessionWriter):
             ```
 
             1. See also: [`MosaicoClient.sequence_create()`][mosaicolabs.comm.MosaicoClient.sequence_create]
-            2. The metadata fields will be queryable via the `Query` mechanism. The mechanism allows creating query expressions like: `Topic.Q.user_metadata["interface.type"].eq("UART")`.
+            2. The metadata fields will be queryable via the `Query` mechanism.
+                The mechanism allows creating query expressions like: `QueryTopic().with_user_metadata("interface.type", eq="UART")`.
                 See also:
                 * [`mosaicolabs.models.platform.Topic`][mosaicolabs.models.platform.Topic]
                 * [`mosaicolabs.models.query.builders.QueryTopic`][mosaicolabs.models.query.builders.QueryTopic].
@@ -294,6 +305,7 @@ class SequenceWriter(_BaseSessionWriter):
             topic_name=topic_name,
             metadata=metadata,
             ontology_type=ontology_type,
+            on_error=on_error,
         )
 
     @property

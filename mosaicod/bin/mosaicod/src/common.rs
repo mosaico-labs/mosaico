@@ -1,3 +1,5 @@
+//! Common functions shared between multiple commands
+
 use crate::print;
 use log::{debug, info};
 use mosaicod_core::params;
@@ -23,9 +25,9 @@ pub fn startup_time() -> &'static std::time::Instant {
     )
 }
 
-pub fn init_db(rt: &tokio::runtime::Runtime, config: db::Config) -> Result<db::Database, Error> {
+pub fn init_db(rt: &tokio::runtime::Runtime, config: &db::Config) -> Result<db::Database, Error> {
     let database = rt.block_on(async {
-        let database = db::Database::try_new(&config).await?;
+        let database = db::Database::try_new(config).await?;
 
         let mut tx = database.transaction().await?;
         db::layer_bootstrap(&mut tx).await?;
@@ -65,13 +67,9 @@ pub fn init_s3_store() -> Result<store::StoreRef, Error> {
     Ok(Arc::new(store::Store::try_from_s3_store(config)?))
 }
 
-pub fn init_logger() {
-    env_logger::builder().format_target(true).init();
-}
-
 /// Load the defined env variables from the system.
 pub fn load_env_variables() -> Result<(), Error> {
-    info!("Loading environment variables");
+    info!("loading environment variables");
     dotenv::dotenv().ok();
 
     params::load_params_from_env()?;

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "mosaico-sdk-py"
-version = "0.1.0"
+version = "0.2.5"
 description = "SDK for Mosaico Data-Platform"
 authors = ["Mosaico Labs <info@mosaico.com>"]
 

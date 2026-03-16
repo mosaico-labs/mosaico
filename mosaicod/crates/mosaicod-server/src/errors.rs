@@ -95,11 +95,31 @@ pub enum ServerError {
 
     #[error("internal error: {0}")]
     InternalError(String),
+
+    #[error("missing api key token in request")]
+    MissingApiKeyToken,
+
+    #[error("unauthorized")]
+    Unauthorized,
 }
 
 impl ServerError {
     pub fn internal_error(msg: &str) -> Self {
         Self::InternalError(msg.to_owned())
+    }
+
+    /// Build a string unrolling and cocatenating all inner errors
+    pub fn unroll(&self) -> String {
+        let mut unrolled_error = self.to_string();
+
+        let mut err: &dyn std::error::Error = self;
+
+        while let Some(inner_err) = err.source() {
+            unrolled_error.push_str(format!(" :: {}", inner_err).as_str());
+            err = inner_err;
+        }
+
+        unrolled_error
     }
 }
 
@@ -126,6 +146,8 @@ impl From<ServerError> for tonic::Status {
             ServerError::UnsupportedDescriptor => Status::invalid_argument(value.to_string()),
             ServerError::MissingOntologyTag => Status::invalid_argument(value.to_string()),
             ServerError::MissingSchema => Status::invalid_argument(value.to_string()),
+            ServerError::Unauthorized => Status::permission_denied(value.to_string()),
+            ServerError::MissingApiKeyToken => Status::permission_denied(value.to_string()),
 
             _ => Status::internal(value.to_string()),
         }

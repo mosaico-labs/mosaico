@@ -1,4 +1,7 @@
-# Detecting Events in Time-Series Data
+---
+title: Detecting Events in Time-Series Data
+description: Example how-to for Detecting Events in Time-Series Data
+---
 
 Beyond metadata, the Mosaico platform allows for deep inspection of actual sensor payloads. This guide shows how to search for specific physical events, such as high-impact accelerations, across your entire data catalog.
 
@@ -49,7 +52,7 @@ with MosaicoClient.connect("localhost", 6726) as client:
 
 The `query` method returns `None` if an error occurs, or a [`QueryResponse`][mosaicolabs.models.query.response.QueryResponse] object. This response acts as a list of [`QueryResponseItem`][mosaicolabs.models.query.response.QueryResponseItem] objects, each providing:
 
-*   **`item.sequence`**: A [`QueryResponseItemSequence`][mosaicolabs.models.query.response.QueryResponseItemSequence] containing the sequence metadata.
+*   **`item.sequence`**: A [`QueryResponseItemSequence`][mosaicolabs.models.query.response.QueryResponseItemSequence] containing the sequence name matching the query.
 *   **`item.topics`**: A list of [`QueryResponseItemTopic`][mosaicolabs.models.query.response.QueryResponseItemTopic] objects that matched the query.
 
 !!! info "Result Normalization"

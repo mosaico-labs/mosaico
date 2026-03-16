@@ -1,6 +1,6 @@
 //! Layer-related actions.
 
-use crate::{endpoints::Context, errors::ServerError};
+use crate::{endpoint::Context, errors::ServerError};
 use log::{info, warn};
 use mosaicod_core::types;
 use mosaicod_facade::Layer;

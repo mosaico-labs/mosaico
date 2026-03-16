@@ -1,4 +1,7 @@
-# ROS Injection
+---
+title: ROS Injection
+description: Example how-to for ROS Injection
+---
 
 !!! note "Full Example Code"
     The full example code is available under `mosaico-sdk-py/src/examples/ros_injection/main.py`.

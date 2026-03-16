@@ -7,7 +7,7 @@ and access reading interfaces (`SequenceDataStreamer`).
 """
 
 import json
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import pyarrow.flight as fl
 
@@ -19,7 +19,7 @@ from ..comm.connection import (
     _ConnectionPool,
 )
 from ..comm.executor_pool import _ExecutorPool
-from ..enum import OnErrorPolicy
+from ..enum import OnErrorPolicy, SessionLevelErrorPolicy
 from ..helpers import sanitize_sequence_name
 from ..logging_config import get_logger
 from ..models.platform import Sequence, Session
@@ -28,7 +28,7 @@ from ..platform.resource_manifests import (
     SequenceResourceManifest,
     TopicManifestError,
 )
-from .config import WriterConfig
+from .config import SessionWriterConfig
 from .sequence_reader import SequenceDataStreamer
 from .sequence_updater import SequenceUpdater
 from .topic_handler import TopicHandler
@@ -487,7 +487,9 @@ class SequenceHandler:
 
     def update(
         self,
-        on_error: OnErrorPolicy = OnErrorPolicy.Report,
+        on_error: Union[
+            SessionLevelErrorPolicy, OnErrorPolicy
+        ] = SessionLevelErrorPolicy.Report,
         max_batch_size_bytes: Optional[int] = None,
         max_batch_size_records: Optional[int] = None,
     ) -> SequenceUpdater:
@@ -499,8 +501,14 @@ class SequenceHandler:
             RuntimeError is raised.
 
         Args:
-            on_error (OnErrorPolicy): Behavior on write failure. Defaults to
-                [`OnErrorPolicy.Report`][mosaicolabs.enum.OnErrorPolicy.Report].
+            on_error (SessionLevelErrorPolicy | OnErrorPolicy): Behavior on write failure. Defaults to
+                [`SessionLevelErrorPolicy.Report`][mosaicolabs.enum.SessionLevelErrorPolicy.Report].
+
+                Deprecated:
+                    [`OnErrorPolicy`][mosaicolabs.enum.OnErrorPolicy] is deprecated since v0.3.0; use
+                    [`SessionLevelErrorPolicy`][mosaicolabs.enum.SessionLevelErrorPolicy] instead.
+                    It will be removed in v0.4.0.
+
             max_batch_size_bytes (Optional[int]): Max bytes per Arrow batch.
             max_batch_size_records (Optional[int]): Max records per Arrow batch.
 
@@ -513,7 +521,7 @@ class SequenceHandler:
 
         Example:
             ```python
-            from mosaicolabs import MosaicoClient, OnErrorPolicy
+            from mosaicolabs import MosaicoClient, SessionLevelErrorPolicy
 
             # Open the connection with the Mosaico Client
             with MosaicoClient.connect("localhost", 6726) as client:
@@ -521,7 +529,7 @@ class SequenceHandler:
                 seq_handler = client.sequence_handler("mission_log_042")
                 # Update the sequence
                 with seq_handler.update(
-                    on_error = OnErrorPolicy.Delete
+                    on_error = SessionLevelErrorPolicy.Delete
                     ) as seq_updater:
                         # Start creating topics and pushing data
                         # (1)!
@@ -547,12 +555,15 @@ class SequenceHandler:
             else DEFAULT_MAX_BATCH_SIZE_RECORDS
         )
 
+        if isinstance(on_error, OnErrorPolicy):
+            on_error = SessionLevelErrorPolicy(on_error.value)
+
         return SequenceUpdater(
             sequence_name=self._sequence.name,
             client=self._fl_client,
             connection_pool=self._connection_pool_allocator(),
             executor_pool=self._executor_pool_allocator(),
-            config=WriterConfig(
+            config=SessionWriterConfig(
                 on_error=on_error,
                 max_batch_size_bytes=max_batch_size_bytes,
                 max_batch_size_records=max_batch_size_records,

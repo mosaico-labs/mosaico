@@ -1,4 +1,7 @@
-# Writing a Single Topic
+---
+title: Writing a Single Topic
+description: Example how-to for Writing a Single Topic
+---
 
 This guide demonstrates how to ingest data into the Mosaico Data Platform from custom files. Here the example of a CSV file is provided, but the logic is compatible with any file format and I/O library.
 You will learn how to use the Mosaico SDK for:

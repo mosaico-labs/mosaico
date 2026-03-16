@@ -149,7 +149,6 @@ impl ActionRequest {
 pub enum ActionResponse {
     SequenceCreate(()),
     SequenceDelete(()),
-    SequenceAbort(()),
     SequenceNotificationCreate(()),
     SequenceNotificationPurge(()),
     SequenceNotificationList(responses::NotificationList),
@@ -186,10 +185,6 @@ impl ActionResponse {
 
     pub fn sequence_delete() -> Self {
         Self::SequenceDelete(())
-    }
-
-    pub fn sequence_abort() -> Self {
-        Self::SequenceAbort(())
     }
 
     pub fn sequence_notification_create() -> Self {

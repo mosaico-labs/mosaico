@@ -4,6 +4,7 @@ static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 mod command;
 mod common;
+mod log;
 mod print;
 
 use clap::{Parser, Subcommand};
@@ -12,6 +13,14 @@ use clap::{Parser, Subcommand};
 #[command(version, about, long_about = None)]
 /// mosaicod - Mosaico high-performance daemon
 struct Cli {
+    /// Set the log output format
+    #[arg(long, global = true, default_value_t = log::LogFormat::Pretty)]
+    log_format: log::LogFormat,
+
+    /// Set the log level
+    #[arg(long, global = true, default_value_t = log::LogLevel::Warning)]
+    log_level: log::LogLevel,
+
     #[command(subcommand)]
     cmd: Commands,
 }
@@ -29,7 +38,7 @@ enum Commands {
 fn start() -> Result<Option<String>, common::Error> {
     let cli_parse_res = Cli::try_parse().map_err(|e| e.to_string());
 
-    // Avoid to show error message when parsing cli
+    // Avoid to show error message when parsing cli commands
     let args = match cli_parse_res {
         Ok(args) => args,
         Err(err) => {
@@ -37,12 +46,16 @@ fn start() -> Result<Option<String>, common::Error> {
         }
     };
 
-    common::init_logger();
+    print::set_colors(args.log_format);
+    log::init_logger(args.log_format, args.log_level);
+
     common::load_env_variables()?;
 
+    let is_json_output = matches!(args.log_format, log::LogFormat::Json);
+
     match args.cmd {
-        Commands::Run(args) => command::run(args)?,
-        Commands::Auth(args) => command::auth(args)?,
+        Commands::Run(sub_args) => command::run(sub_args, is_json_output)?,
+        Commands::Auth(sub_args) => command::auth(sub_args)?,
     }
 
     Ok(None)

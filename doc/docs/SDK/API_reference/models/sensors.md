@@ -1,4 +1,7 @@
-# Sensors Models
+---
+title: Sensors Models
+description: API Reference for Sensors Models
+---
 
 ::: mosaicolabs.models.sensors.IMU
 ::: mosaicolabs.models.sensors.GPSStatus

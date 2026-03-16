@@ -5,6 +5,9 @@
 //! For retrieving parameters that can be configured during startup (with env variables),
 //! see the [`load_configurables_from_env`] function and the [`configurables`] accessor.
 
+/// Header name for client requests
+pub const MOSAICO_API_KEY_HEADER: &str = "mosaico-api-key-token";
+
 /// Defines the name of the index timestamp column in the arrow schema
 pub const ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP: &str = "timestamp_ns";
 

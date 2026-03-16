@@ -76,3 +76,7 @@ class FlightAction(StrEnum):
     # --- Queries related ---
     QUERY = "query"
     """Commands a multi-layer search query against the platform."""
+
+    # --- Arch related ---
+    VERSION = "version"
+    """Requests the backend version"""

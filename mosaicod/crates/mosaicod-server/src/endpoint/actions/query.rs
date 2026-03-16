@@ -1,6 +1,6 @@
 //! Query-related actions.
 
-use crate::{endpoints::Context, errors::ServerError};
+use crate::{endpoint::Context, errors::ServerError};
 use log::{info, trace};
 use mosaicod_facade::Query;
 use mosaicod_marshal::{self as marshal, ActionResponse};

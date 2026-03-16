@@ -14,7 +14,7 @@ from mosaicolabs.models.sensors import (
 )
 
 from ..adapter_base import ROSAdapterBase
-from ..data_ontology import BatteryState
+from ..data_ontology import BatteryState, PointCloud2, PointField
 from ..ros_bridge import register_adapter
 from ..ros_message import ROSMessage
 from .geometry_msgs import (
@@ -1101,6 +1101,131 @@ class RobotJointAdapter(ROSAdapterBase[RobotJoint]):
             positions=ros_data["position"],
             velocities=ros_data["velocity"],
             efforts=ros_data["effort"],
+        )
+
+    @classmethod
+    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
+        """
+        Extract the ROS message specific schema metadata, if any.
+        """
+        return None
+
+
+@register_adapter
+class PointCloudAdapter(ROSAdapterBase[PointCloud2]):
+    """
+        Adapter for translating ROS PointCloud2 messages to Mosaico `PointCloud2`.
+
+        **Supported ROS Types:**
+
+        - [`sensor_msgs/msg/PointCloud2`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/PointCloud2.html)
+
+        Example:
+        ```python
+            ros_msg = ROSMessage(
+                timestamp=17000,
+                topic="/point_cloud",
+                msg_type="sensor_msgs/PointCloud2",
+                data={
+                    "height": 1,
+                    "width": 3,
+                    "fields": [
+                        {"name": "x", "offset": 0,  "datatype": 7, "count": 1},
+                        {"name": "y", "offset": 4,  "datatype": 7, "count": 1},
+                        {"name": "z", "offset": 8,  "datatype": 7, "count": 1},
+                    ],
+                    "is_bigendian": False,
+                    "point_step": 12,
+                    "row_step": 36,
+                    "data": b'\x00\x00\x80\x3f'  # x=1.0
+                            b'\x00\x00\x00\x40'  # y=2.0
+                            b'\x00\x00\x40\x40'  # z=3.0
+                            b'\x00\x00\x80\x3f'  # x=1.0
+                            b'\x00\x00\x00\x40'  # y=2.0
+                            b'\x00\x00\x40\x40'  # z=3.0
+                            b'\x00\x00\x80\x3f'  # x=1.0
+                            b'\x00\x00\x00\x40'  # y=2.0
+                            b'\x00\x00\x40\x40', # z=3.0
+                    "is_dense": True,
+                }
+            )
+            # Automatically resolves to a flat Mosaico PointCloud2 with attached metadata
+            mosaico_point_cloud = PointCloudAdapter.translate(ros_msg)
+    ```
+    """
+
+    ros_msgtype: str | Tuple[str, ...] = "sensor_msgs/msg/PointCloud2"
+
+    __mosaico_ontology_type__: Type[PointCloud2] = PointCloud2
+    _REQUIRED_KEYS = (
+        "height",
+        "width",
+        "fields",
+        "is_bigendian",
+        "point_step",
+        "row_step",
+        "data",
+        "is_dense",
+    )
+
+    @classmethod
+    def translate(
+        cls,
+        ros_msg: ROSMessage,  # ROSMessage
+        **kwargs: Any,
+    ) -> Message:
+        return super().translate(ros_msg, **kwargs)
+
+    @classmethod
+    def from_dict(cls, ros_data: dict) -> PointCloud2:
+        """
+        Converts the raw dictionary data into the specific Mosaico type.
+
+        Example:
+            ```python
+            ros_data = {
+                "height": 1,           # unorganized point cloud = 1 row
+                "width": 3,            # 3 points
+                "fields": [
+                    {
+                        "name": "x",
+                        "offset": 0,
+                        "datatype": 7,  # FLOAT32
+                        "count": 1
+                    },
+                    {
+                        "name": "y",
+                        "offset": 4,
+                        "datatype": 7,  # FLOAT32
+                        "count": 1
+                    },
+                    {
+                        "name": "z",
+                        "offset": 8,
+                        "datatype": 7,  # FLOAT32
+                        "count": 1
+                    },
+                ],
+                "is_bigendian": False,
+                "point_step": 12,      # 3 fields * 4 bytes (float32) = 12 bytes per point
+                "row_step": 36,        # point_step * width = 12 * 3 = 36 bytes per row
+                "data": b'\x00\x00\x80\x3f'  # x=1.0
+                        b'\x00\x00\x00\x40'  # y=2.0
+                        b'\x00\x00\x40\x40'  # z=3.0
+            }
+        """
+
+        _validate_msgdata(cls, ros_data)
+
+        return PointCloud2(
+            height=ros_data["height"],
+            width=ros_data["width"],
+            fields=[PointField(**f) for f in ros_data["fields"]],
+            is_bigendian=ros_data["is_bigendian"],
+            point_step=ros_data["point_step"],
+            row_step=ros_data["row_step"],
+            data=bytes(ros_data["data"]),
+            is_dense=ros_data["is_dense"],
         )
 
     @classmethod

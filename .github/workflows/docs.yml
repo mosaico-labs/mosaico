@@ -3,8 +3,9 @@
 name: docs
 on:
   push:
-    branches:
-      - main
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+-*'
 
 permissions:
   contents: write
@@ -13,6 +14,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Configure Git Credentials
         run: |
           git config user.name github-actions[bot]
@@ -29,7 +32,10 @@ jobs:
           restore-keys: |
             mkdocs-material-
 
-      - run: pip install mkdocs-material 'mkdocstrings[python]' ruff
+      - run: pip install mkdocs-material 'mkdocstrings[python]' ruff markdownify mike
 
-      - run: mkdocs gh-deploy --force
+      - name: Deploy docs
         working-directory: ./doc
+        run: |
+          mike deploy --push --update-aliases "${{ github.ref_name }}" latest
+          mike set-default --push latest

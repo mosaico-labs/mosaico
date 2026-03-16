@@ -30,10 +30,14 @@ pub enum Error {
     QueryError(#[from] mosaicod_query::Error),
     #[error("marshalling error")]
     MarshallingError(#[from] mosaicod_marshal::Error),
+    #[error("unable to read arrow schema")]
+    UnableToReadArrowSchema(#[from] mosaicod_ext::arrow::Error),
     #[error("topic locked, unable to perform modifications")]
     TopicLocked,
     #[error("session locked, unable to perform modifications")]
     SessionLocked,
+    #[error("session empty, unable to perform the requested operation")]
+    SessionEmpty,
     #[error("topic unlocked, unable to perform the requested operation over an unlocked topic")]
     TopicUnlocked,
     #[error("unimplemented")]

@@ -1,4 +1,7 @@
-# Complex Chained Queries
+---
+title: Complex Chained Queries
+description: Example how-to for Complex Chained Queries
+---
 
 Sometimes a single query is insufficient because you need to correlate data across different topics. This guide demonstrates **Query Chaining**, a technique where the results of one search are used to "lock" the domain for a second, more specific search.
 
@@ -47,7 +50,7 @@ with MosaicoClient.connect("localhost", 6726) as client:
 
 The `query` method returns `None` if an error occurs, or a [`QueryResponse`][mosaicolabs.models.query.response.QueryResponse] object. This response acts as a list of [`QueryResponseItem`][mosaicolabs.models.query.response.QueryResponseItem] objects, each providing:
 
-*   **`item.sequence`**: A [`QueryResponseItemSequence`][mosaicolabs.models.query.response.QueryResponseItemSequence] containing the sequence metadata.
+*   **`item.sequence`**: A [`QueryResponseItemSequence`][mosaicolabs.models.query.response.QueryResponseItemSequence] containing the sequence name matching the query.
 *   **`item.topics`**: A list of [`QueryResponseItemTopic`][mosaicolabs.models.query.response.QueryResponseItemTopic] objects that matched the query.
 
 !!! info "Result Normalization"

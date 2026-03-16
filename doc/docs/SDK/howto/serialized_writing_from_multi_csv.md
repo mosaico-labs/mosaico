@@ -1,4 +1,7 @@
-# Writing Multiple Topics Serially
+---
+title: Writing Multiple Topics Serially
+description: Example how-to for Writing Multiple Topics Serially
+---
 
 This guide demonstrates how to ingest data from multiple custom files into the Mosaico Data Platform. While the logic below uses CSV files as the primary example, the SDK's modular design is compatible with any file format (JSON, Parquet, binary) and any I/O library.
 

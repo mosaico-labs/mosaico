@@ -1,4 +1,7 @@
-# Customizing the Data Ontology
+---
+title: Customizing the Data Ontology
+description: Example how-to for Customizing the Data Ontology
+---
 
 This guide walks you through the process of extending the Mosaico Data Platform with custom data models. While Mosaico provides a rich default ontology for robotics (IMU, GPS, Images, etc.), specialized hardware often requires proprietary data structures.
 

@@ -7,7 +7,7 @@ import pyarrow as pa
 from ..query.expressions import _QueryExpression
 from ..query.generation.internal import _PYTHON_TYPE_TO_QUERYABLE
 from ..query.generation.mixins import (
-    _QueryableField,
+    _make_queryable_field_type,
     _QueryableUnsupported,
 )
 
@@ -132,7 +132,7 @@ class PyarrowFieldMapper:
                 #     )
                 # else:
                 #     cls = type(f"{mixin.__name__}Field", (mixin, _QueryableField), {})
-                cls = type(f"{mixin.__name__}Field", (mixin, _QueryableField), {})
+                cls = _make_queryable_field_type(mixin)
 
                 # Instantiate the dynamically created class with its path
                 field_map[field.name] = cls(

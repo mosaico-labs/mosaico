@@ -1,4 +1,7 @@
-# Machine Learning Module
+---
+title: Machine Learning Module
+description: API Reference for Machine Learning Module
+---
 
 ::: mosaicolabs.ml.DataFrameExtractor
 

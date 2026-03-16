@@ -1,6 +1,7 @@
 mod core;
-mod endpoints;
+mod endpoint;
 mod errors;
+mod middleware;
 
 pub mod flight;
 pub use core::Server;

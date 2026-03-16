@@ -15,7 +15,7 @@ from mosaicolabs.models.query.generation.mixins import (
 )
 
 
-class TestQueryTopicMetadataAPI:
+class TestQueryTopicMetadataOldAPI:
     def test_accessibility(self):
         """
         Tests that inner fields are accessable from the _QueryProxy.
@@ -88,8 +88,88 @@ class TestQueryTopicMetadataAPI:
         # Check topic flatness (the simple part)
         assert result["topic"] == expected_dict["topic"]
 
+    def test_with_user_metadata_expression_generation(self):
+        # Simulate the User Query
+        qt = (
+            QueryTopic()
+            .with_user_metadata("some-field", eq="some_value")
+            .with_user_metadata("field.nested", leq=0.1234)
+        )
+        # Define Expected Output
+        expected_dict = {
+            "user_metadata": {
+                "some-field": {"$eq": "some_value"},
+                "field.nested": {"$leq": 0.1234},
+            },
+        }
+        # Assert the result
+        result = qt.to_dict()
 
-class TestQuerySequenceMetadataAPI:
+        # Check top-level structure
+        assert set(result.keys()) == set(["user_metadata"])
+
+        # Check topic flatness (the simple part)
+        assert result["user_metadata"] == expected_dict["user_metadata"]
+
+    def test_with_user_metadata_wrong_operator(self):
+        # Simulate the User Query
+        with pytest.raises(
+            AttributeError,
+            match="'_QueryableDynamicValueField' object has no operator.",
+        ):
+            QueryTopic().with_user_metadata("some-field", wrong_op="some_value")
+
+    def test_with_user_metadata_wrong_type_on_operator(self):
+        # Simulate the User Query
+        with pytest.raises(
+            TypeError,
+            match="Invalid type for '_QueryableDynamicValueField' comparison",
+        ):
+            QueryTopic().with_user_metadata("some-field", lt="some_value")
+
+
+class TestQueryTopicMetadataAPI:
+    def test_expression_generation(self):
+        # Simulate the User Query
+        qt = (
+            QueryTopic()
+            .with_user_metadata("some-field", eq="some_value")
+            .with_user_metadata("field.nested", leq=0.1234)
+        )
+        # Define Expected Output
+        expected_dict = {
+            "user_metadata": {
+                "some-field": {"$eq": "some_value"},
+                "field.nested": {"$leq": 0.1234},
+            },
+        }
+        # Assert the result
+        result = qt.to_dict()
+
+        # Check top-level structure
+        assert set(result.keys()) == set(["user_metadata"])
+
+        # Check topic flatness (the simple part)
+        assert result["user_metadata"] == expected_dict["user_metadata"]
+
+    def test_wrong_operator(self):
+        # Simulate the User Query
+        with pytest.raises(
+            AttributeError,
+            match="'_QueryableDynamicValueField' object has no operator.",
+        ):
+            QueryTopic().with_user_metadata("some-field", wrong_op="some_value")
+
+    def test_wrong_type_on_operator(self):
+        # Simulate the User Query
+        with pytest.raises(
+            TypeError,
+            match="Invalid type for '_QueryableDynamicValueField' comparison",
+        ):
+            QueryTopic().with_user_metadata("some-field", lt="some_value")
+
+
+class TestQuerySequenceMetadataOldAPI:
     def test_accessibility(self):
         """
         Tests that inner fields are accessable from the _QueryProxy.
@@ -159,3 +239,44 @@ class TestQuerySequenceMetadataAPI:
 
         # Check topic flatness (the simple part)
         assert result["sequence"] == expected_dict["sequence"]
+
+
+class TestQuerySequenceMetadataAPI:
+    def test_expression_generation(self):
+        # Simulate the User Query
+        qt = (
+            QuerySequence()
+            .with_user_metadata("some-field", eq="some_value")
+            .with_user_metadata("field.nested", leq=0.1234)
+        )
+        # Define Expected Output
+        expected_dict = {
+            "user_metadata": {
+                "some-field": {"$eq": "some_value"},
+                "field.nested": {"$leq": 0.1234},
+            },
+        }
+        # Assert the result
+        result = qt.to_dict()
+
+        # Check top-level structure
+        assert set(result.keys()) == set(["user_metadata"])
+
+        # Check topic flatness (the simple part)
+        assert result["user_metadata"] == expected_dict["user_metadata"]
+
+    def test_wrong_operator(self):
+        # Simulate the User Query
+        with pytest.raises(
+            AttributeError,
+            match="'_QueryableDynamicValueField' object has no operator.",
+        ):
+            QuerySequence().with_user_metadata("some-field", wrong_op="some_value")
+
+    def test_wrong_type_on_operator(self):
+        # Simulate the User Query
+        with pytest.raises(
+            TypeError,
+            match="Invalid type for '_QueryableDynamicValueField' comparison",
+        ):
+            QuerySequence().with_user_metadata("some-field", lt="some_value")

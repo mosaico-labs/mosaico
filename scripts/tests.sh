@@ -107,9 +107,9 @@ trap error_handler ERR
 # Show help
 show_help() {
     cat << EOF
-Mosaico Test Runner
+Mosaico test runner.
 
-Usage: ./scripts/tests.sh [OPTIONS]
+Usage: tests.sh [OPTIONS]
 
 Options:
     --mosaicod                  Run mosaicod unit tests (requires Docker for PostgreSQL)
@@ -118,13 +118,6 @@ Options:
     --integration_with_tls      Run integration tests with TLS (requires Docker + mosaicod build)
     --all                       Run all tests (default)
     --help                      Show this help message
-
-Examples:
-    ./scripts/tests.sh --mosaicod               # Run only backend tests
-    ./scripts/tests.sh --sdk-python             # Run only Python SDK tests
-    ./scripts/tests.sh --integration            # Run only integration tests
-    ./scripts/tests.sh --integration_with_tls   # Run only integration tests with TLS
-    ./scripts/tests.sh                          # Run all tests
 EOF
 }
 
@@ -167,71 +160,74 @@ run_sdk_python_tests() {
     poetry run pytest ./src/testing -k unit
 }
 
+
 # Run integration tests
+#
+# Usage:
+#  run_integration_tests --title "title" --tls
 run_integration_tests() {
+
+    MOSAICOD_OPTS=""
+    PYTEST_OPTS_K="integration and not test_tls_connection"
+    PYTEST_OPTS=""
+    TITLE="N/A"
+
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --tls)
+                MOSAICOD_OPTS="--tls"
+                PYTEST_OPTS_K="integration"
+                PYTEST_OPTS="--tls"
+
+                export MOSAICOD_TLS_CERT_FILE="${MOSAICOD_PATH}/tests/data/cert.pem"
+                export MOSAICOD_TLS_PRIVATE_KEY_FILE="${MOSAICOD_PATH}/tests/data/key.pem"
+                export MOSAICO_TLS_CERT_FILE="${MOSAICOD_PATH}/tests/data/ca.pem"
+
+                shift 
+                ;;
+            --title)
+                TITLE="$2"
+                shift 2
+                ;;
+            *)
+                shift
+                ;;
+        esac
+    done
+
+    cleanup
     start_docker
-    title "integration tests" "-"
+    title "[ ${TITLE} ]" "-"
     install_python_deps
 
     # Build mosaicod
     title "mosaicod build" "." "${BLUE}"
     cd "${MOSAICOD_PATH}"
-    cargo build
+
+    if $VERBOSE; then
+        cargo build
+    else
+        echo "Compiling mosaicod, it may take a while ..."
+        cargo build 2>&1
+    fi
 
     # Create test directory
     mkdir -p "${TEST_DIRECTORY}"
 
     # Start mosaicod
     title "mosaicod startup" "." "${BLUE}"
-    ./target/debug/mosaicod run --port 6276 --local-store "${TEST_DIRECTORY}" > "${MOSAICOD_OUTPUT}" 2>&1 &
+    ./target/debug/mosaicod run --port 6276 --local-store "${TEST_DIRECTORY}" ${MOSAICOD_OPTS} > "${MOSAICOD_OUTPUT}" 2>&1 &
     MOSAICOD_PID=$!
     echo "Starting mosaicod as background service (pid ${MOSAICOD_PID})"
-    echo "Output: ${DIM}${MOSAICOD_OUTPUT}${RESET}"
-    sleep 5
+    echo "mosaicod logs can be found in ${DIM}${MOSAICOD_OUTPUT}${RESET}"
+    echo "Waiting starver to startup ..."
+    sleep 1
 
     # Run integration tests
     title "running integration tests" "." "${BLUE}"
     cd "${PYTHON_SDK_PATH}"
 
-    poetry run pytest ./src/testing -k "integration and not test_tls_connections"
-}
-
-# Run integration tests with TLS enabled
-run_integration_with_tls_tests() {
-    cleanup
-    start_docker
-    title "integration with tls tests" "-"
-    install_python_deps
-
-    # Build mosaicod
-    title "mosaicod build" "." "${BLUE}"
-    cd "${MOSAICOD_PATH}"
-    cargo build
-
-    # Create test directory
-    mkdir -p "${TEST_DIRECTORY}"
-
-    # Start mosaicod
-    title "mosaicod startup" "." "${BLUE}"
-
-    MOSAICOD_TLS_CERT_FILE="${MOSAICOD_PATH}/tests/data/cert.pem"
-    MOSAICOD_TLS_PRIVATE_KEY_FILE="${MOSAICOD_PATH}/tests/data/key.pem"
-
-    export MOSAICOD_TLS_CERT_FILE
-    export MOSAICOD_TLS_PRIVATE_KEY_FILE
-    export MOSAICO_TLS_CERT_FILE="$MOSAICOD_TLS_CERT_FILE"
-
-    ./target/debug/mosaicod run --port 6276 --local-store "${TEST_DIRECTORY}" --tls > "${MOSAICOD_OUTPUT}" 2>&1 &
-    MOSAICOD_PID=$!
-    echo "Starting mosaicod as background service (pid ${MOSAICOD_PID})"
-    echo "Output: ${DIM}${MOSAICOD_OUTPUT}${RESET}"
-    sleep 5
-
-    # Run integration tests
-    title "running integration tests with tls" "." "${BLUE}"
-    cd "${PYTHON_SDK_PATH}"
-
-    poetry run pytest ./src/testing -k "integration" --tls
+    poetry run pytest ./src/testing -k "${PYTEST_OPTS_K}" ${PYTEST_OPTS}
 }
 
 VERBOSE=false
@@ -270,7 +266,7 @@ main() {
                 run_selected=true
                 shift
                 ;;
-            --integration_with_tls)
+            --integration-with-tls)
                 run_integration_with_tls=true
                 run_selected=true
                 shift
@@ -300,17 +296,17 @@ main() {
     title "test runner" "#" "${GREEN}"
 
     # Print configuration
-    title "setup" "-"
-    echo "MOSAICOD_DB_URL=${MOSAICOD_DB_URL}"
-    echo "DATABASE_URL=${DATABASE_URL}"
-    echo "SQLX_OFFLINE=${SQLX_OFFLINE}"
+    title "[ setup ]" "-"
+    echo " * MOSAICOD_DB_URL ${DIM}${MOSAICOD_DB_URL}${RESET}"
+    echo " * DATABASE_URL    ${DIM}${DATABASE_URL}${RESET}"
+    echo " * SQLX_OFFLINE    ${DIM}${SQLX_OFFLINE}${RESET}"
 
     # Run selected tests
     if [ "$run_all" = true ]; then
         run_mosaicod_tests
         run_sdk_python_tests
-        run_integration_tests
-        run_integration_with_tls_tests
+        run_integration_tests --title "integration tests"
+        run_integration_tests --title "integration tests (TLS)" --tls
     else
         if [ "$run_mosaicod" = true ]; then
             run_mosaicod_tests
@@ -319,10 +315,10 @@ main() {
             run_sdk_python_tests
         fi
         if [ "$run_integration" = true ]; then
-            run_integration_tests
+            run_integration_tests --title "integration tests" 
         fi
         if [ "$run_integration_with_tls" = true ]; then
-            run_integration_with_tls_tests
+            run_integration_tests --title "integration tests (TLS)" --tls
         fi
     fi
 

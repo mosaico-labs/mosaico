@@ -1,4 +1,7 @@
-# Setup 
+---
+title: Setup
+description: Installing the Mosaico Python SDK.
+---
 
 The SDK is currently available via source distribution. We use [Poetry](https://python-poetry.org/) for robust dependency management and packaging.
 

@@ -1,21 +1,21 @@
 [project]
 name = "doc"
-version = "0.1.0"
+version = "0.2.5"
 description = ""
-authors = [
-    {name = "cabba",email = "federico.cabassi@mosaico.dev"}
-]
+authors = [{ name = "cabba", email = "federico.cabassi@mosaico.dev" }]
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "mkdocs (>=1.6.1,<2.0.0)",
     "mkdocs-material (>=9.7.1,<10.0.0)",
     "mkdocstrings[python] (>=1.0.2,<2.0.0)",
-    "ruff (>=0.15.1,<0.16.0)"
+    "ruff (>=0.15.1,<0.16.0)",
+    "mike (>=2.1.0,<3.0.0)",
+    "markdownify (>=1.2.2,<2.0.0)",
 ]
 
 [tool.poetry]
-packages = [{include = "doc", from = "src"}]
+packages = [{ include = "doc", from = "src" }]
 package-mode = false
 
 [build-system]

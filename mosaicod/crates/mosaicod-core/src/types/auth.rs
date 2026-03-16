@@ -263,6 +263,22 @@ impl Permissions {
     pub fn as_u8(&self) -> u8 {
         self.0
     }
+
+    pub fn is_read(&self) -> bool {
+        self.has(Permissions::READ)
+    }
+
+    pub fn is_write(&self) -> bool {
+        self.has(Permissions::WRITE)
+    }
+
+    pub fn is_delete(&self) -> bool {
+        self.has(Permissions::DELETE)
+    }
+
+    pub fn is_manage(&self) -> bool {
+        self.has(Permissions::MANAGE)
+    }
 }
 
 impl From<u8> for Permissions {

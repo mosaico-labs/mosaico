@@ -1,4 +1,7 @@
-# Streaming Data from Sequences and Topics
+---
+title: Streaming Data from Sequences and Topics
+description: Example how-to for Streaming Data from Sequences and Topics
+---
 
 !!! info "Prerequisites"
     To fully grasp the following How-To, we recommend you to read the **[Reading a Sequence and its Topics](../howto/reading.md) How-To**.

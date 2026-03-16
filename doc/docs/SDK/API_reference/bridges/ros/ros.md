@@ -1,4 +1,8 @@
-# ROS
+---
+title: ROS Bridge
+description: API Reference for ROS Bridge
+---
+
 ::: mosaicolabs.ros_bridge.ROSBridge
 ::: mosaicolabs.ros_bridge.register_adapter
 ::: mosaicolabs.ros_bridge.loader.ROSLoader

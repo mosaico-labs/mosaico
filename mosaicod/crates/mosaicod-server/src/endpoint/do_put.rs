@@ -1,5 +1,5 @@
 use super::Context;
-use crate::{endpoints, errors::ServerError};
+use crate::{endpoint, errors::ServerError};
 use arrow::datatypes::SchemaRef;
 use arrow_flight::decode::{DecodedFlightData, DecodedPayload, FlightDataDecoder};
 use arrow_flight::flight_descriptor::DescriptorType;
@@ -59,7 +59,7 @@ fn extract_command_from_flight_data(
 }
 
 async fn do_put_topic_data(
-    ctx: endpoints::Context,
+    ctx: endpoint::Context,
     decoder: &mut FlightDataDecoder,
     schema: SchemaRef,
     cmd: types::flight::DoPutCmd,

@@ -39,12 +39,9 @@ class Topic(pydantic.BaseModel, _QueryProxyMixin):
         instance.
 
     ### Querying with the **`.Q` Proxy**
-    The `user_metadata` field of this class is queryable when constructing a [`QueryTopic`][mosaicolabs.models.query.QueryTopic]
-    via the **`.Q` proxy**.
-
-    | Field Access Path | Queryable Type | Supported Operators |
-    | :--- | :--- | :--- |
-    | `Topic.Q.user_metadata["key"]` | `String`, `Numeric`, `Boolean` | `.eq()`, `.neq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.match()` |
+    Warning: Deprecated
+        Querying the topic user-custom metadata via the `user_metadata` field of this class is deprecated.
+        Use the [`QueryTopic.with_user_metadata()`][mosaicolabs.models.query.builders.QueryTopic.with_user_metadata] builder instead.
 
     Example:
         ```python
@@ -54,19 +51,10 @@ class Topic(pydantic.BaseModel, _QueryProxyMixin):
             # Filter for a specific data value (using constructor)
             qresponse = client.query(
                 QueryTopic(
-                    Topic.Q.user_metadata["update_rate_hz"].eq(100), # Access the keys using the [] operator
-                    Topic.Q.user_metadata["interface.type"].eq("canbus"), # Navigate the nested dicts using the dot notation
+                    Topic.Q.with_user_metadata("update_rate_hz", gt=100),
+                    Topic.Q.with_user_metadata("interface.type", eq="canbus"), # Navigate the nested dicts using the dot notation
                 )
             )
-
-            # # The same query using `with_expression`
-            # qresponse = client.query(
-            #     QueryTopic()
-            #     .with_expression(Topic.Q.user_metadata["update_rate_hz"].eq(100))
-            #     .with_expression(
-            #         Topic.Q.user_metadata["interface.type"].match("canbus")
-            #     )
-            # )
 
             # Inspect the response
             if qresponse is not None:

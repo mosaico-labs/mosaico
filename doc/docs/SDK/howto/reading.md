@@ -1,4 +1,7 @@
-# Reading a Sequence and its Topics
+---
+title: Reading a Sequence and its Topics
+description: Example how-to for Reading a Sequence and its Topics
+---
 
 This guide demonstrates how to interact with the Mosaico Data Platform to inspect and retrieve data that has been previously ingested. You will learn how to use the Mosaico SDK to:
 
