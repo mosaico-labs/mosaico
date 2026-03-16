@@ -4,6 +4,7 @@ from enum import Enum
 class SessionLevelErrorPolicy(Enum):
     """
     Defines the behavior of the [`SequenceWriter`][mosaicolabs.handlers.SequenceWriter]
+    or the [`SequenceUpdater`][mosaicolabs.handlers.SequenceUpdater]
     when an exception occurs during ingestion.
 
     This policy determines how the platform handles partially uploaded data if the
@@ -14,12 +15,12 @@ class SessionLevelErrorPolicy(Enum):
     """
     Notify the server of the error but retain partial data.
     
-    The system will attempt to finalize the sequence and notify the server of the 
+    The system will attempt to finalize the session and notify the server of the 
     specific failure, allowing existing data chunks to remain accessible for 
     inspection. 
 
     Important: Lock Status
-        Unlike standard successful finalization, a sequence finalized via a 
+        Unlike standard successful finalization, a session finalized via a 
         `Report` policy is **not placed in a locked state**. 
         This means the sequence remains mutable at a system level and can be 
         **deleted in a later moment** once debugging or triage is complete.
@@ -30,7 +31,8 @@ class SessionLevelErrorPolicy(Enum):
     Abort the sequence and instruct the server to discard all data.
     
     This is the default "all-or-nothing" strategy. If a failure occurs, the 
-    [`SequenceWriter`][mosaicolabs.handlers.SequenceWriter] will send an abort 
+    [`SequenceWriter`][mosaicolabs.handlers.SequenceWriter] or the 
+    [`SequenceUpdater`][mosaicolabs.handlers.SequenceUpdater] will send an abort 
     command to ensure the server purges all traces of the failed ingestion, 
     preventing inconsistent or incomplete sequences from appearing in the 
     catalog.

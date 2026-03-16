@@ -21,13 +21,11 @@ class TopicResourceInfo:
     topic on the server, retrieved via the get_fligh_info enpoint.
 
     Attributes:
-        created_timestamp (int): The UTC timestamp of when the
-            resource was first initialized.
         total_size_bytes (int): The aggregate size of all data chunks in bytes.
-        locked (bool): Indicates if the resource is currently read-only.
-            Usually true if an upload is finalized or a retention policy is active.
         chunks_number (int): The total count of data partitions (chunks)
             stored on the server.
+        timestamp_ns_min (Optional[int]): The minimum timestamp of the data in the topic.
+        timestamp_ns_max (Optional[int]): The maximum timestamp of the data in the topic.
     """
 
     total_size_bytes: int
@@ -65,12 +63,10 @@ class TopicResourceInfo:
         info_data: Dict[str, Any],
     ) -> "TopicResourceInfo":
         """
-        Internal static method to retrieve topic-related remote info.
-        Queries the server to build the `Topic` model and discover all
-        contained topics.
+        Internal static method to parse topic-related remote info.
 
         Args:
-            app_mdata (Union[bytes, str]): The app_metadata from the FlightInfo.
+            info_data (Dict[str, Any]): The info_data from the FlightInfo.
 
         Returns:
             TopicResourceInfo: The TopicResourceInfo object.
@@ -100,7 +96,10 @@ class TopicResourceInfo:
         tstamp_mdata: dict,
     ) -> Tuple[Optional[int], Optional[int]]:
         """
-        Returns the minimum and maximum timestamps of the resource.
+        Parses the minimum and maximum timestamps of the resource.
+
+        Args:
+            tstamp_mdata (dict): The timestamp metadata.
 
         Returns:
             Tuple[Optional[int], Optional[int]]: The minimum and maximum timestamps.
@@ -113,7 +112,7 @@ class TopicResourceInfo:
             tmin = tstamp_mdata.get("min")
             tmax = tstamp_mdata.get("max")
             # Ensure both keys exist
-            if tstamp_mdata.get("min") is None != tmax is None:
+            if (tstamp_mdata.get("min") is None) != (tmax is None):
                 logger.error(
                     f"Wrong format of 'timestamp' field: 'min' or 'max' are None, but not both, {tstamp_mdata}"
                 )

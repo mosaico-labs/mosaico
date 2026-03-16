@@ -156,7 +156,7 @@ class TopicHandler:
             sequence_name=_stzd_sequence_name,
             name=_stzd_topic_name,
             platform_metadata=topic_metadata,
-            manifest=topic_resrc_manifest,
+            resrc_manifest=topic_resrc_manifest,
         )
 
         # Get the 'min'/'max' timestamps, as we are at a topic-level

@@ -49,6 +49,15 @@ class Session:
 
     @classmethod
     def _from_resource_manifest(cls, resrc_manifest: SessionResourceManifest):
+        """
+        Factory method to create a Session from a SessionResourceManifest.
+
+        Args:
+            resrc_manifest (SessionResourceManifest): The resource manifest for the session.
+
+        Returns:
+            Self: An initialized instance of this class.
+        """
         topics = []
         for t_resrc_path in resrc_manifest.topics:
             seq_topic_tuple = unpack_topic_full_path(t_resrc_path)

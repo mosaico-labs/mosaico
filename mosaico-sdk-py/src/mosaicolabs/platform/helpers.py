@@ -18,10 +18,10 @@ def _decode_app_metadata(
         app_mdata: JSON payload as a UTF-8 string or byte sequence.
 
     Returns:
-        Tuple: (timestamp_ns_min, timestamp_ns_max, PlatformResourceInfo(...))
+        Dict[str, Any]: Decoded app_metadata JSON.
 
     Raises:
-        TopicParsingError: If JSON is malformed or missing required schema keys.
+        ParsingError: If JSON cannot be decoded or it is not a dictionary.
     """
     # Decode input to string
     try:

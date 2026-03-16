@@ -50,10 +50,9 @@ class Topic(pydantic.BaseModel, _QueryProxyMixin):
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for a specific data value (using constructor)
             qresponse = client.query(
-                QueryTopic(
-                    Topic.Q.with_user_metadata("update_rate_hz", gt=100),
-                    Topic.Q.with_user_metadata("interface.type", eq="canbus"), # Navigate the nested dicts using the dot notation
-                )
+                QueryTopic()
+                .with_user_metadata("update_rate_hz", gt=100)
+                .with_user_metadata("interface.type", eq="canbus")
             )
 
             # Inspect the response
@@ -70,31 +69,9 @@ class Topic(pydantic.BaseModel, _QueryProxyMixin):
     Custom user-defined key-value pairs associated with the entity.
 
     ### Querying with the **`.Q` Proxy**
-    The `user_metadata` field is queryable when constructing a [`QueryTopic`][mosaicolabs.models.query.builders.QueryTopic]
-     using the **`.Q` proxy**
-
-    | Field Access Path | Queryable Type | Supported Operators |
-    | :--- | :--- | :--- |
-    | `Topic.Q.user_metadata["key"]` | `String`, `Numeric`, `Boolean` | `.eq()`, `.neq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.match()` |
-    | `Topic.Q.user_metadata["key.subkey.subsubkey..."]` | `String`, `Numeric`, `Boolean` | `.eq()`, `.neq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.match()` |
-
-    Example:
-        ```python
-        from mosaicolabs import MosaicoClient, Topic, QueryTopic
-
-        with MosaicoClient.connect("localhost", 6726) as client:
-            # Filter for a specific keys in sequence AND topic metadata.
-            qresponse = client.query(
-                QueryTopic(Topic.Q.user_metadata["update_rate_hz"].geq(100)),
-            )
-
-            # Inspect the response
-            if qresponse is not None:
-                # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
-                    print(f"Sequence: {item.sequence.name}")
-                    print(f"Topics: {[topic.name for topic in item.topics]}")
-        ```
+    Warning: Deprecated
+        Querying the topic user-custom metadata via the `user_metadata` field of this class is deprecated.
+        Use the [`QueryTopic.with_user_metadata()`][mosaicolabs.models.query.builders.QueryTopic.with_user_metadata] builder instead.
     """
 
     # --- Private Fields (Internal State) ---
@@ -113,15 +90,16 @@ class Topic(pydantic.BaseModel, _QueryProxyMixin):
         name: str,
         sequence_name: str,
         platform_metadata: TopicMetadata,
-        manifest: TopicResourceManifest,
+        resrc_manifest: TopicResourceManifest,
     ) -> Self:
         """
         Factory method to create a Topic view from platform resource information.
 
         Args:
             name: The name of the platform resource.
+            sequence_name: The name of the sequence the topic belongs to.
             platform_metadata: The metadata of the platform resource.
-            resrc_info: The system information of the platform resource.
+            resrc_manifest: The manifest of the platform resource.
 
         Returns:
             A Topic instance.
@@ -140,8 +118,8 @@ class Topic(pydantic.BaseModel, _QueryProxyMixin):
         instance._init_base_private(
             name=name,
             sequence_name=sequence_name,
-            metadata=platform_metadata,
-            manifest=manifest,
+            platform_metadata=platform_metadata,
+            resrc_manifest=resrc_manifest,
         )
 
         return instance
@@ -151,28 +129,29 @@ class Topic(pydantic.BaseModel, _QueryProxyMixin):
         *,
         name: str,
         sequence_name: str,
-        metadata: TopicMetadata,
-        manifest: TopicResourceManifest,
+        platform_metadata: TopicMetadata,
+        resrc_manifest: TopicResourceManifest,
     ) -> None:
         """
         Internal helper to populate system-controlled private attributes.
 
-        This is used by factory methods (`_from_flight_info`) to set attributes
+        This is used by factory methods (`_from_resource_info`) to set attributes
         that are strictly read-only for the user.
 
         Args:
             name: The unique resource name.
-            total_size_bytes: The storage size on the server.
-            created_datetime: The UTC timestamp of creation.
+            sequence_name: The name of the sequence the topic belongs to.
+            platform_metadata: The metadata of the platform resource.
+            resrc_manifest: The manifest of the platform resource.
         """
-        self._total_size_bytes = manifest.resource_info.total_size_bytes
-        self._created_timestamp = manifest.created_timestamp
+        self._total_size_bytes = resrc_manifest.resource_info.total_size_bytes
+        self._created_timestamp = resrc_manifest.created_timestamp
         self._name = name
         self._sequence_name = sequence_name
-        self._ontology_tag = metadata.properties.ontology_tag
-        self._serialization_format = metadata.properties.serialization_format
-        self._chunks_number = manifest.resource_info.chunks_number
-        self._locked = manifest.locked
+        self._ontology_tag = platform_metadata.properties.ontology_tag
+        self._serialization_format = platform_metadata.properties.serialization_format
+        self._chunks_number = resrc_manifest.resource_info.chunks_number
+        self._locked = resrc_manifest.locked
 
     # --- Properties ---
 

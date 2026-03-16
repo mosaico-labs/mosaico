@@ -33,16 +33,16 @@ class TopicResourceManifest:
     Metadata container for a specific data topic resource.
 
     This class acts as a Value Object, standardizing topic and sequence
-    identifiers extracted from Arrow Flight transport layers. Being 'frozen'
+    identifiers extracted from Arrow Flight app_metadata. Being 'frozen'
     ensures the metadata remains immutable and hashable throughout its lifecycle.
 
     Attributes:
-        topic_name (str): The standardized name of the resource topic.
-        sequence_name (str): The name of the sequence the topic belongs to.
-        created_timestamp (int): The creation timestamp of the topic in nanoseconds.
-        completed_timestamp (Optional[int]): The completion timestamp of the topic in nanoseconds.
-        locked (bool): Whether the topic is locked.
-        resource_info (TopicResourceInfo): The server side system info of the topic resource.
+        name (str): The standardized name of the resource.
+        sequence_name (str): The name of the sequence the resource belongs to.
+        created_timestamp (int): The creation timestamp of the resource in nanoseconds.
+        completed_timestamp (Optional[int]): The completion timestamp of the resource in nanoseconds.
+        locked (bool): Whether the resource is locked.
+        resource_info (TopicResourceInfo): The server side system info of the resource.
     """
 
     name: str
@@ -79,10 +79,10 @@ class TopicResourceManifest:
         app_mdata: Union[bytes, str],
     ) -> "TopicResourceManifest":
         """
-        Factory method to create metadata from an Arrow Flight endpoint.
+        Factory method to create a manifest from an Arrow Flight app_metadata.
 
         Args:
-            endpoint: The FlightEndpoint object containing location URIs.
+            app_mdata (Union[bytes, str]): The app_metadata from the FlightInfo.
 
         Returns:
             TopicResourceMetadata: An immutable instance containing parsed data.
@@ -185,15 +185,13 @@ class SessionResourceManifest:
         session_mdata: Dict[str, Any],
     ) -> "SessionResourceManifest":
         """
-        Internal static method to retrieve session-related remote info.
-        Queries the server to build the `Session` model and discover all
-        contained sessions.
+        Internal static method to construct a SessionResourceManifest from app_metadata.
 
         Args:
-            app_mdata (Union[bytes, str]): The app_metadata from the FlightInfo.
+            session_mdata (Dict[str, Any]): The app_metadata from the FlightInfo.
 
         Returns:
-            SessionResourceInfo: The SessionResourceInfo object.
+            SessionResourceManifest: The SessionResourceManifest object.
         """
 
         # This should never happen. If it does, it's a malformed session.
@@ -224,7 +222,7 @@ class SessionResourceManifest:
 @dataclass(frozen=True)
 class SequenceResourceManifest:
     """
-    Metadata container for a specific data topic resource.
+    Metadata container for a specific data sequence resource.
 
     This class acts as a Value Object, standardizing topic and sequence
     identifiers extracted from Arrow Flight transport layers. Being 'frozen'
@@ -232,7 +230,8 @@ class SequenceResourceManifest:
 
     Attributes:
         resource_locator (str): The standardized name of the resource sequence.
-        resource_info (SequenceResourceInfo): The resource info of the sequence.
+        created_timestamp (int): The creation timestamp of the sequence in nanoseconds.
+        sessions (List[SessionResourceManifest]): The list of sessions manifests composing the sequence.
     """
 
     resource_locator: str
@@ -254,7 +253,7 @@ class SequenceResourceManifest:
             SequenceResourceManifest: An immutable instance containing parsed data.
 
         Raises:
-            TopicParsingError: If the endpoint has no locations, multiple
+            SequenceManifestError: If the endpoint has no locations, multiple
                 locations, or if the URI format is invalid.
         """
 

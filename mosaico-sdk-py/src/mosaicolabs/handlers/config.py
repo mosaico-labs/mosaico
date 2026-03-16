@@ -17,7 +17,7 @@ class WriterConfig:
 
     Note: Internal Usage
         This is currently **not a user-facing class**. It is extended
-        by the [`SessionWriterConfig`][mosaicolabs.handlers.config.SessionWriterConfig].
+        by the `SessionWriterConfig`.
 
     This dataclass defines the operational parameters for data ingestion, controlling
     both the error recovery strategy and the performance-critical buffering logic

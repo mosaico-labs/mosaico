@@ -53,10 +53,9 @@ class Sequence(pydantic.BaseModel, _QueryProxyMixin):
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for a specific data value (using constructor)
             qresponse = client.query(
-                QuerySequence(
-                    Sequence.Q.with_user_metadata("project", eq="Apollo"),
-                    Sequence.Q.with_user_metadata("vehicle.software_stack.planning", eq="plan-4.1.7"),
-                )
+                QuerySequence()
+                .with_user_metadata("project", eq="Apollo")
+                .with_user_metadata("vehicle.software_stack.planning", eq="plan-4.1.7")
             )
 
             # Inspect the response
@@ -73,31 +72,10 @@ class Sequence(pydantic.BaseModel, _QueryProxyMixin):
     Custom user-defined key-value pairs associated with the entity.
 
     ### Querying with the **`.Q` Proxy**
-    The `user_metadata` field is queryable when constructing a
-    [`QuerySequence`][mosaicolabs.models.query.builders.QuerySequence] using the **`.Q` proxy**
+    Warning: Deprecated
+        Querying the sequence user-custom metadata via the `user_metadata` field of this class is deprecated.
+        Use the [`QuerySequence.with_user_metadata()`][mosaicolabs.models.query.builders.QuerySequence.with_user_metadata] builder instead.
 
-    | Field Access Path | Queryable Type | Supported Operators |
-    | :--- | :--- | :--- |
-    | `Sequence.Q.user_metadata["key"]` | `String`, `Numeric`, `Boolean` | `.eq()`, `.neq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.match()` |
-    | `Sequence.Q.user_metadata["key.subkey.subsubkey..."]` | `String`, `Numeric`, `Boolean` | `.eq()`, `.neq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.match()` |
-
-    Example:
-        ```python
-        from mosaicolabs import MosaicoClient, Sequence, QuerySequence
-
-        with MosaicoClient.connect("localhost", 6726) as client:
-            # Filter for a specific keys in sequence AND topic metadata.
-            qresponse = client.query(
-                QuerySequence(Sequence.Q.user_metadata["project.version"].match("v1.0"))
-            )
-
-            # Inspect the response
-            if qresponse is not None:
-                # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
-                    print(f"Sequence: {item.sequence.name}")
-                    print(f"Topics: {[topic.name for topic in item.topics]}")
-        ```
     """
 
     # --- Private Fields ---
@@ -128,8 +106,9 @@ class Sequence(pydantic.BaseModel, _QueryProxyMixin):
 
         Args:
             name: The name of the platform resource.
+            total_size_bytes: The total size of the sequence in bytes.
             platform_metadata: The metadata of the platform resource.
-            resrc_info: The system information of the platform resource.
+            resrc_manifest: The manifest of the platform resource.
 
         Returns:
             A Sequence instance.
@@ -173,8 +152,8 @@ class Sequence(pydantic.BaseModel, _QueryProxyMixin):
         Args:
             name: The unique resource name.
             created_timestamp: The UTC timestamp of creation.
+            total_size_bytes: The total size of the sequence in bytes.
             sessions: The list of sessions associated with this sequence.
-            topics: The list of names for all topics contained within this sequence.
         """
         self._created_timestamp = created_timestamp
         self._name = name
