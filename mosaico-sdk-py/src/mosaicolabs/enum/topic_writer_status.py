@@ -10,7 +10,7 @@ class TopicWriterStatus(Enum):
     data writing until it reaches a terminal state.
 
     Note:
-        The `FinalizedWithError`, `IgnoredLastRecord` and `RaisedException` values can only be tracked
+        The `FinalizedWithError`, `IgnoredLastError` and `RaisedException` values can only be tracked
         if the `TopicWriter` is used in a `with` context.
     """
 
@@ -43,7 +43,7 @@ class TopicWriterStatus(Enum):
     the topic writer is **locked** and cannot be used to push records.
     """
 
-    IgnoredLastRecord = "ignored_last_record"
+    IgnoredLastError = "ignored_last_error"
     """
     The topic writer is still active and can be used to push data on the platform.
 

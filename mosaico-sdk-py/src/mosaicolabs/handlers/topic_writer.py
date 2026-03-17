@@ -122,6 +122,7 @@ class TopicWriter:
         """The actual writer object"""
         self._status: TopicWriterStatus = TopicWriterStatus.Active
         """The status of the writer"""
+        self._last_err: Optional[str] = None
 
     @classmethod
     def _create(
@@ -225,6 +226,8 @@ class TopicWriter:
         """
         if exc_type is not None:
             # Handle the error according to the configured policy
+            err = str(exc_val)
+            self._last_err = err
             try:
                 if (
                     self.is_active
@@ -234,8 +237,8 @@ class TopicWriter:
                     self._finalize(error=exc_val)
                     return True  # suppress exception
                 elif self._config.on_error == TopicLevelErrorPolicy.Ignore:
-                    self._error_report(str(exc_val))
-                    self._status = TopicWriterStatus.IgnoredLastRecord
+                    self._error_report(err)
+                    self._status = TopicWriterStatus.IgnoredLastError
                     return True  # suppress exception
                 elif self._config.on_error == TopicLevelErrorPolicy.Raise:
                     self._status = TopicWriterStatus.RaisedException
@@ -355,15 +358,38 @@ class TopicWriter:
             # If everything ok, reset any previous status
             # (if not active, this function would raise)
             self._status = TopicWriterStatus.Active
+            self._last_err = None
         except Exception as e:
             logger.error(f"Error during TopicWriter.push: '{e}'")
             self._status = TopicWriterStatus.RaisedException
+            self._last_err = str(e)
             raise e
 
     @property
     def name(self) -> str:
         """Returns the name of the topic"""
         return self._name
+
+    @property
+    def last_error(self) -> Optional[str]:
+        """
+        Returns the last cached error, if any. The value is reset after a new successful push
+
+        Example:
+            ```python
+            with twriter: # (1)!
+                mosaico_msg = custom_translator(twriter.name, raw_data) # Example helper function
+                twriter.push(message=mosaico_msg)
+            # Inspect failed processing/ingestion
+            if twriter.status == TopicWriterStatus.IgnoredLastError # (2)!
+                print(f"Error raised during last ingestion operation for topic {twriter.name}. Inner err: '{twriter.last_error}'")
+            ```
+
+        1. `twriter` is a `TopicWriter` instance, created with `on_error=TopicLevelErrorPolicy.Ignore`
+        2. **Important**: this check must be done outside the `with` block: any exception inside the context would
+            exit the context prematurely.
+        """
+        return self._last_err
 
     @property
     def is_active(self) -> bool:
@@ -425,6 +451,7 @@ class TopicWriter:
         finally:
             if with_error:
                 self._status = TopicWriterStatus.FinalizedWithError
+                self._last_err = str(error)
             else:
                 self._status = TopicWriterStatus.Finalized
 

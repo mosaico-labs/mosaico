@@ -79,13 +79,14 @@ The behavior of the injector is entirely driven by the **[`ROSInjectionConfig`][
 | **`ros_distro`** | [`Stores`](https://ternaris.gitlab.io/rosbags/topics/typesys.html#type-stores) | **Crucial for `.db3` bags:** Specifies the ROS distribution (e.g., `ROS2_HUMBLE`) to ensure standard messages are parsed with the correct schema version. |
 | **`topics`** | `List[str]` | A filter list supporting glob patterns (e.g., `["/camera/*"]`). If omitted, all supported topics are ingested. |
 | **`custom_msgs`** | `List` | A list of tuples `(package, path, store)` used to dynamically register proprietary message definitions at runtime. |
-| **`on_error`** | [`OnErrorPolicy`][mosaicolabs.enum.OnErrorPolicy] | **Safety Switch:** Determines if a failed upload should `Delete` the partial sequence or `Report` the error and keep the data. |
+| **`on_error`** | [`SessionLevelErrorPolicy`][mosaicolabs.enum.SessionLevelErrorPolicy] | **Safety Switch:** Determines if a failed upload should `Delete` the partial sequence or `Report` the error (Default) and keep the data (see [The Writing Workflow](../handling/writing.md#sequence-level-error-handling)). |
 | **`log_level`** | `str` | Controls terminal verbosity, ranging from `DEBUG` to `ERROR`. |
 
 #### Practical Example: Programmatic Usage
 
 ```python
 from pathlib import Path
+from mosaicolabs import SessionLevelErrorPolicy, TopicLevelErrorPolicy
 from mosaicolabs.ros_bridge import RosbagInjector, ROSInjectionConfig, Stores
 
 def run_injection():
@@ -124,6 +125,12 @@ def run_injection():
         
         # Execution Settings
         log_level="WARNING",  # Reduce verbosity for automated scripts
+
+        # Session Level Error Handling
+        on_error=SessionLevelErrorPolicy.Delete # Delete the sequence if an error occurs
+
+        # Topic Level Error Handling
+        topics_on_error=TopicLevelErrorPolicy.Raise # Re-raise any exception
     )
 
     # Instantiate the Controller

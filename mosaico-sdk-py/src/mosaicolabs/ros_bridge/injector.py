@@ -514,7 +514,7 @@ class RosbagInjector:
             with twriter:
                 # Convert ROS dict -> Mosaico Object -> Arrow Batch
                 twriter.push(adapter.translate(ros_msg))
-            if twriter.status == TopicWriterStatus.IgnoredLastRecord:
+            if twriter.status == TopicWriterStatus.IgnoredLastError:
                 # If writing fails (e.g. network error, validation error), update UI
                 ui.update_status(ros_msg.topic, "Write Error (Ignored)", "yellow")
             elif twriter.status == TopicWriterStatus.FinalizedWithError:
