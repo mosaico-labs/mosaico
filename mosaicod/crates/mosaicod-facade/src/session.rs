@@ -30,8 +30,9 @@ pub struct Session {
 }
 
 impl Session {
-    /// Creates a new upload session for a given sequence.
-    pub async fn new(
+    /// Tries to create a new upload session for a given sequence.
+    /// Returns an error if something goes wrong.
+    pub async fn try_new(
         session_uuid: types::Uuid,
         store: store::StoreRef,
         db: db::Database,

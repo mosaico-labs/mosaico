@@ -146,7 +146,7 @@ impl Sequence {
 
         // Create session manifest (store)
         let session_facade =
-            super::Session::new(session.uuid(), self.store.clone(), self.db.clone()).await?;
+            super::Session::try_new(session.uuid(), self.store.clone(), self.db.clone()).await?;
         session_facade.create_manifest().await?;
 
         Ok(session.into())
@@ -206,7 +206,8 @@ impl Sequence {
         // Retrieve sessions data and deletes it
         let sessions = self.session_list().await?;
         for session_uuid in sessions {
-            let session = Session::new(session_uuid, self.store.clone(), self.db.clone()).await?;
+            let session =
+                Session::try_new(session_uuid, self.store.clone(), self.db.clone()).await?;
             session.delete(false, allow_data_loss.clone()).await?;
         }
 
@@ -235,7 +236,7 @@ impl Sequence {
 
         for session_uuid in session_uuids {
             let session =
-                Session::new(session_uuid.clone(), self.store.clone(), self.db.clone()).await?;
+                Session::try_new(session_uuid.clone(), self.store.clone(), self.db.clone()).await?;
             let session_manifest = session.manifest().await?;
             manifest.sessions.push(session_manifest);
         }
