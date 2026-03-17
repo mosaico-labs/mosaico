@@ -18,40 +18,51 @@ type TopicMetadata = types::TopicMetadata<marshal::JsonMetadataBlob>;
 
 pub struct Topic {
     pub locator: types::TopicResourceLocator,
+
+    identifiers: types::Identifiers,
+
     store: store::StoreRef,
     db: db::Database,
 }
 
 impl Topic {
     /// Create a new facade using a topic name
-    pub fn new(name: String, store: store::StoreRef, db: db::Database) -> Self {
-        Self {
-            locator: types::TopicResourceLocator::from(name),
+    pub async fn try_from_locator(
+        locator: types::TopicResourceLocator,
+        store: store::StoreRef,
+        db: db::Database,
+    ) -> Result<Self, Error> {
+        let mut cx = db.connection();
+
+        let record = db::topic_find_by_locator(&mut cx, &locator).await?;
+
+        Ok(Self {
+            locator,
+            identifiers: record.identifiers(),
             store,
             db,
-        }
-    }
-
-    /// Returns the path were the topic is located
-    pub fn path(&self) -> &str {
-        self.locator.name()
-    }
-
-    /// Return the inner locator and consumes the facade
-    pub fn into_inner(self) -> types::TopicResourceLocator {
-        self.locator
+        })
     }
 
     /// Creates a new database entry for this topic.
     ///
-    /// If a record with the same name already exists, the operation fails and
-    /// the database transaction is rolled back, restoring the previous state.
+    /// If a record with the same name already exists an error [`Error::TopicAlreadyExists`] is returned.
+    ///
+    /// Also additional checks about the scope of the topic are performed. If the topic locator is
+    /// not a child of the related sequence locator an error [`Error::Unauthorized`] is returned.
     pub async fn create(
-        &self,
+        locator: types::TopicResourceLocator,
         session: &types::Uuid,
         metadata: Option<TopicMetadata>,
-    ) -> Result<types::Identifiers, Error> {
-        let mut tx = self.db.transaction().await?;
+        store: store::StoreRef,
+        db: db::Database,
+    ) -> Result<Self, Error> {
+        let mut tx = db.transaction().await?;
+
+        // Check that there are not other topics with the same locator
+        if let Ok(_) = db::topic_find_by_locator(&mut tx, &locator).await {
+            return Err(Error::topic_already_exists(locator));
+        }
 
         // Ensure that uuid points to a unlocked session
         let ses_rec = db::session_find_by_uuid(&mut tx, session).await?;
@@ -63,12 +74,12 @@ impl Topic {
         // sequence, i.e. they are related with the same name structure
         let seq_rec = db::sequence_find_by_id(&mut tx, ses_rec.sequence_id).await?;
         let seq_loc = types::SequenceResourceLocator::from(&seq_rec.locator_name);
-        if !self.locator.is_sub_resource(&seq_loc) {
+        if !locator.is_sub_resource(&seq_loc) {
             return Err(Error::Unauthorized);
         }
 
         let mut record = db::TopicRecord::new(
-            self.locator.name(), //
+            locator.locator(), //
             seq_rec.sequence_id,
             ses_rec.session_id,
         );
@@ -82,15 +93,32 @@ impl Topic {
 
         let record = db::topic_create(&mut tx, &record).await?;
 
+        let ftopic = Self {
+            locator: record.locator(),
+            identifiers: record.identifiers(),
+            store,
+            db: db.clone(),
+        };
+
         // This operation is done at the end to avoid deleting or reverting changes
         // to metadata file on store if some error causes a rollback on the database
         if let Some(metadata) = metadata {
-            self.metadata_write_to_store(metadata).await?;
+            ftopic.metadata_write_to_store(metadata).await?;
         }
 
         tx.commit().await?;
 
-        Ok(record.into())
+        Ok(ftopic)
+    }
+
+    /// Return the inner locator and consumes the facade
+    pub fn into_inner(self) -> types::TopicResourceLocator {
+        self.locator
+    }
+
+    /// Return the topic internal uuid
+    pub fn uuid(&self) -> &types::Uuid {
+        &self.identifiers.uuid
     }
 
     pub async fn is_locked(&self) -> Result<bool, Error> {
@@ -173,7 +201,11 @@ impl Topic {
         format: types::Format,
     ) -> Result<(), Error> {
         let res = timeseries_querier
-            .read(self.locator.path(), format, None)
+            .read(
+                self.locator.path_data_folder(&self.identifiers.uuid),
+                format,
+                None,
+            )
             .await?;
 
         let ts_range = res.timestamp_range().await?;
@@ -225,7 +257,9 @@ impl Topic {
     /// If no arrow_schema is found a [`Error::NotFound`] error is returned
     pub async fn arrow_schema(&self, format: types::Format) -> Result<SchemaRef, Error> {
         // Get chunk 0 since this chunk needs to exist always
-        let path = self.locator.path_data(0, format.to_properties().as_ref());
+        let path =
+            self.locator
+                .path_data(&self.identifiers.uuid, 0, format.to_properties().as_ref());
 
         if !self.store.exists(&path).await? {
             return Err(Error::NotFound(path.to_string_lossy().to_string()));
@@ -284,15 +318,15 @@ impl Topic {
             }
         };
 
-        let cw = rw::ChunkedWriter::new(
-            self.store.clone(),
-            self.path(),
-            format,
-            |path, format, idx| {
-                types::TopicResourceLocator::from(path)
-                    .path_data(idx, format.to_properties().as_ref())
-            },
-        )
+        // Cloning  since needs to be moved in side the file format callback
+        let data_folder = self.locator.path_data_folder(&self.uuid());
+
+        let cw = rw::ChunkedWriter::new(self.store.clone(), format, move |chunk_number| {
+            data_folder.join(types::TopicResourceLocator::data_file(
+                chunk_number,
+                format.to_properties().as_ref(),
+            ))
+        })
         .with_max_chunk_size(max_chunk_size);
 
         TopicWriterGuard {
@@ -310,7 +344,7 @@ impl Topic {
         db::topic_delete_unlocked(&mut tx, &self.locator).await?;
 
         // Delete files
-        self.store.delete_recursive(&self.path()).await?;
+        self.store.delete_recursive(&self.locator.path()).await?;
 
         tx.commit().await?;
 
@@ -325,7 +359,7 @@ impl Topic {
 
         // Delete at first the data and after that the record on db,
         // so if the delete procedure fails i can retry again against the database record
-        self.store.delete_recursive(&self.path()).await?;
+        self.store.delete_recursive(&self.locator.path()).await?;
         db::topic_delete(&mut tx, &self.locator, allowed_data_loss).await?;
 
         tx.commit().await?;
@@ -393,7 +427,7 @@ impl Topic {
         let datafiles = self
             .store
             .list(
-                &self.locator.name(),
+                &self.locator.locator(),
                 Some(&format.to_properties().as_extension()),
             )
             .await?;
@@ -514,24 +548,22 @@ mod tests {
             .expect("Unable to find the created sequence");
 
         // Check sequence locator
-        assert_eq!(
-            fsequence.locator.path().to_string_lossy(),
-            sequence.locator_name
-        );
+        assert_eq!(fsequence.locator.locator(), sequence.locator_name);
 
         let session = fsequence.session().await.unwrap();
         assert!(session.uuid.is_valid());
 
-        let ftopic = Topic::new(
-            "test_sequence/test_topic".to_owned(),
+        let topic_locator: types::TopicResourceLocator = "test_sequence/test_topic".into();
+
+        let ftopic = Topic::create(
+            topic_locator,
+            &session.uuid,
+            None,
             (*store).clone(),
             (*database).clone(),
-        );
-
-        ftopic
-            .create(&session.uuid, None)
-            .await
-            .expect("Unable to create topic");
+        )
+        .await
+        .expect("Unable to create topic");
 
         // Check if topic was created
         let mut cx = database.connection();
@@ -540,7 +572,7 @@ mod tests {
             .expect("Unable to find the created topic");
 
         // Check topic locator.
-        assert_eq!(ftopic.locator.path().to_string_lossy(), topic.locator_name);
+        assert_eq!(ftopic.locator.locator(), topic.locator().to_string());
 
         // Check topic deletion.
         ftopic.delete(types::allow_data_loss()).await.unwrap();
@@ -574,24 +606,22 @@ mod tests {
             .expect("Unable to find the created sequence");
 
         // Check sequence locator
-        assert_eq!(
-            fsequence.locator.path().to_string_lossy(),
-            sequence.locator_name
-        );
+        assert_eq!(fsequence.locator.locator(), sequence.locator_name);
 
         let session = fsequence.session().await.unwrap();
         assert!(session.uuid.is_valid());
 
-        let ftopic = Topic::new(
-            "test_sequence/test_topic".to_owned(),
+        let topic_locator: types::TopicResourceLocator = "test_sequence/test_topic".into();
+
+        let ftopic = Topic::create(
+            topic_locator,
+            &session.uuid,
+            None,
             (*store).clone(),
             (*database).clone(),
-        );
-
-        ftopic
-            .create(&session.uuid, None)
-            .await
-            .expect("Unable to create topic");
+        )
+        .await
+        .expect("Unable to create topic");
 
         ftopic
             .notify(

@@ -58,7 +58,7 @@ impl Sequence {
     ) -> Result<types::Identifiers, Error> {
         let mut tx = self.db.transaction().await?;
 
-        let mut record = db::SequenceRecord::new(self.locator.name());
+        let mut record = db::SequenceRecord::new(self.locator.locator());
 
         if let Some(mdata) = &metadata {
             record = record.with_user_metadata(mdata.user_metadata.clone());
@@ -209,7 +209,7 @@ impl Sequence {
         db::sequence_delete(&mut tx, &self.locator, types::allow_data_loss()).await?;
 
         // Delete all remaining data
-        self.store.delete_recursive(self.locator.name()).await?;
+        self.store.delete_recursive(self.locator.locator()).await?;
 
         tx.commit().await?;
         Ok(())
@@ -221,7 +221,7 @@ impl Sequence {
         let record = db::sequence_find_by_locator(&mut cx, &self.locator).await?;
 
         // Compute the sum of the size of all files in the sequence
-        let files = self.store.list(&self.locator.name(), None).await?;
+        let files = self.store.list(&self.locator.locator(), None).await?;
         let mut total_size = 0;
         for file in files {
             total_size += self.store.size(file).await?;
@@ -279,10 +279,7 @@ mod tests {
         assert_eq!(user_mdata["weather"].as_str().unwrap(), "sunny");
 
         // Check sequence locator
-        assert_eq!(
-            fsequence.locator.path().to_string_lossy(),
-            sequence.locator_name
-        );
+        assert_eq!(fsequence.locator.locator(), sequence.locator_name);
 
         Ok(())
     }

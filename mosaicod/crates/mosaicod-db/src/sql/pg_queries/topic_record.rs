@@ -45,7 +45,7 @@ pub async fn topic_find_by_locator(
     let res = sqlx::query_as!(
         schema::TopicRecord,
         "SELECT * FROM topic_t WHERE locator_name=$1",
-        topic.name()
+        topic.locator()
     )
     .fetch_one(exe.as_exec())
     .await?;
@@ -73,7 +73,7 @@ pub async fn topic_delete_unlocked(
     trace!("deleting (unlocked) topic `{}`", loc);
     sqlx::query!(
         "DELETE FROM topic_t WHERE locator_name=$1 AND locked=FALSE",
-        loc.name()
+        loc.locator()
     )
     .execute(exe.as_exec())
     .await?;
@@ -91,7 +91,7 @@ pub async fn topic_delete(
     _: types::DataLossToken,
 ) -> Result<(), Error> {
     warn!("(data loss) deleting topic `{}`", loc);
-    sqlx::query!("DELETE FROM topic_t WHERE locator_name=$1", loc.name())
+    sqlx::query!("DELETE FROM topic_t WHERE locator_name=$1", loc.locator())
         .execute(exe.as_exec())
         .await?;
     Ok(())
@@ -141,7 +141,7 @@ pub async fn topic_lock(
             SET locked = TRUE
             WHERE locator_name = $1
     "#,
-        loc.name(),
+        loc.locator(),
     )
     .execute(exe.as_exec())
     .await?;
@@ -166,7 +166,7 @@ pub async fn topic_update_serialization_format(
             RETURNING * 
     "#,
         serialization_format,
-        loc.name()
+        loc.locator()
     )
     .fetch_one(exe.as_exec())
     .await?;
@@ -188,7 +188,7 @@ pub async fn topic_update_ontology_tag(
             RETURNING * 
     "#,
         ontology_tag,
-        loc.name(),
+        loc.locator(),
     )
     .fetch_one(exe.as_exec())
     .await?;
@@ -212,7 +212,7 @@ pub async fn topic_update_user_metadata(
             RETURNING * 
     "#,
         metadata,
-        loc.name(),
+        loc.locator(),
     )
     .fetch_one(exe.as_exec())
     .await?;

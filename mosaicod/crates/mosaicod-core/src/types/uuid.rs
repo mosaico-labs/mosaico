@@ -12,7 +12,7 @@ pub enum UuidError {
 ///
 /// This struct simplifies UUID creation and validation within the Mosaico ecosystem.
 /// It defaults to creating a v4 UUID.
-#[derive(PartialEq, Debug)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct Uuid(uuid::Uuid);
 
 impl Default for Uuid {
@@ -31,6 +31,11 @@ impl Uuid {
     /// Checks if the UUID is in a valid range.
     pub fn is_valid(&self) -> bool {
         !(self.0.is_nil() || self.0.is_max())
+    }
+
+    /// Return a non hypened string
+    pub fn non_hypened_string(&self) -> String {
+        self.0.simple().to_string()
     }
 }
 

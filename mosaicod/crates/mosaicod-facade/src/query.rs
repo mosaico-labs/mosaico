@@ -131,7 +131,9 @@ impl Query {
 
                         let serialization_format =
                             topic.serialization_format().ok_or_else(|| {
-                                Error::MissingSerializationFormat(topic.locator_name.to_owned())
+                                Error::MissingSerializationFormat(
+                                    topic.locator().to_owned().to_string(),
+                                )
                             })?;
 
                         let qr = ts_engine
@@ -148,7 +150,7 @@ impl Query {
                                 Ok(ts_range) => {
                                     topics_with_data.insert(topic.topic_id);
                                     topics_timestamp_range
-                                        .insert(topic.locator_name.clone(), ts_range);
+                                        .insert(topic.locator().to_string(), ts_range);
                                 }
                                 Err(err) => {
                                     if let query::Error::NotFound = err {
@@ -181,7 +183,8 @@ impl Query {
                             .iter_mut()
                             .flat_map(|grp| &mut grp.topics)
                             .for_each(|topic| {
-                                topic.timestamp_range = topics_timestamp_range.remove(topic.name());
+                                topic.timestamp_range =
+                                    topics_timestamp_range.remove(topic.locator());
                             });
                     }
 

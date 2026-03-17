@@ -65,7 +65,7 @@ pub enum ResourceError {
 }
 
 pub trait Resource: std::fmt::Display + Send + Sync {
-    fn name(&self) -> &str;
+    fn locator(&self) -> &str;
 
     fn resource_type(&self) -> ResourceType;
 
@@ -73,7 +73,7 @@ pub trait Resource: std::fmt::Display + Send + Sync {
     ///
     /// The metadata file may or may not exists, no check if performed by this function.
     fn path_metadata(&self) -> path::PathBuf {
-        let mut path = path::Path::new(self.name()).join("metadata");
+        let mut path = path::Path::new(self.locator()).join("metadata");
         path.set_extension(params::ext::JSON);
         path
     }
@@ -85,17 +85,26 @@ pub trait Resource: std::fmt::Display + Send + Sync {
     /// `mosaico:/sequence_name/topic/subtopic/sensor`
     fn url(&self) -> Result<url::Url, ResourceError> {
         let schema = params::MOSAICO_URL_SCHEMA;
-        let path = self.name();
+        let path = self.locator();
         Ok(url::Url::parse(&format!("{schema}:/{path}"))?)
     }
 
-    /// Return the path of the resource
-    fn path(&self) -> &path::Path {
-        path::Path::new(self.name())
+    fn is_sub_resource(&self, parent: &dyn Resource) -> bool {
+        self.locator().starts_with(parent.locator())
     }
 
-    fn is_sub_resource(&self, parent: &dyn Resource) -> bool {
-        self.name().starts_with(parent.name())
+    /// Return the resource path
+    ///
+    /// # Example
+    /// ```txt, ignore
+    /// sequence/my/topic
+    /// ```
+    /// or
+    /// ```txt, ignore
+    /// sequence
+    /// ```
+    fn path(&self) -> &path::Path {
+        path::Path::new(self.locator())
     }
 }
 
@@ -121,31 +130,59 @@ impl TopicResourceLocator {
         self
     }
 
+    /// Returns the filename of the data file.
+    ///
+    /// The data file is composed as follows:
+    /// ```txt,ignore
+    /// data-[chunk_number].[extension]
+    /// ```
+    pub fn data_file(chunk_number: usize, extension: &dyn traits::AsExtension) -> String {
+        format!(
+            "data-{chunk_number:05}.{ext}",
+            ext = extension.as_extension()
+        )
+    }
+
     pub fn into_parts(self) -> (String, Option<TimestampRange>) {
         (self.locator, self.timestamp_range)
     }
 
+    /// Returns the complete path of a specific data file.
+    ///
+    /// # Example
+    /// ```txt, ignore
+    /// sequence/my/topic/2sr5g/data-0000.parquet
+    /// ```
     pub fn path_data(
         &self,
+        uuid: &Uuid,
         chunk_number: usize,
         extension: &dyn traits::AsExtension,
     ) -> path::PathBuf {
-        let filename = format!("data-{:05}", chunk_number);
-        let mut path = path::Path::new(self.name()).join(filename);
+        let filename = Self::data_file(chunk_number, extension);
+        self.path_data_folder(&uuid).join(filename)
+    }
 
-        path.set_extension(extension.as_extension());
+    /// Return the complete path of the folder contianing all data
+    ///
+    /// # Example
+    /// ```txt, ignore
+    /// sequence/my/topic/2sr5g
+    /// ```
+    pub fn path_data_folder(&self, uuid: &Uuid) -> path::PathBuf {
+        let cropped_uuid: String = uuid.non_hypened_string().chars().take(5).collect();
 
-        path
+        self.path().join(format!("data:{cropped_uuid}"))
     }
 
     /// Return the full path of the manifest file
     pub fn path_manifest(&self) -> path::PathBuf {
-        path::Path::new(self.name()).join("manifest.json")
+        path::Path::new(self.locator()).join("manifest.json")
     }
 }
 
 impl Resource for TopicResourceLocator {
-    fn name(&self) -> &str {
+    fn locator(&self) -> &str {
         &self.locator
     }
 
@@ -301,7 +338,7 @@ impl SequenceResourceLocator {
 }
 
 impl Resource for SequenceResourceLocator {
-    fn name(&self) -> &str {
+    fn locator(&self) -> &str {
         &self.0
     }
 
@@ -422,12 +459,12 @@ impl SequenceTopicGroupSet {
 
         groups
             .0
-            .sort_unstable_by(|a, b| a.sequence.name().cmp(b.sequence.name()));
+            .sort_unstable_by(|a, b| a.sequence.locator().cmp(b.sequence.locator()));
 
         for mut self_grp in self.0 {
-            let found = groups
-                .0
-                .binary_search_by(|grp_aux| grp_aux.sequence.name().cmp(self_grp.sequence.name()));
+            let found = groups.0.binary_search_by(|grp_aux| {
+                grp_aux.sequence.locator().cmp(self_grp.sequence.locator())
+            });
 
             if let Ok(found) = found {
                 self_grp.topics.extend(groups.0[found].topics.clone());
@@ -435,8 +472,8 @@ impl SequenceTopicGroupSet {
                 // Sort and remove duplicates
                 self_grp
                     .topics
-                    .sort_unstable_by(|a, b| a.name().cmp(b.name()));
-                self_grp.topics.dedup_by(|a, b| a.name() == b.name());
+                    .sort_unstable_by(|a, b| a.locator().cmp(b.locator()));
+                self_grp.topics.dedup_by(|a, b| a.locator() == b.locator());
 
                 result.push(self_grp);
             }
@@ -563,7 +600,7 @@ mod tests {
         dbg!(&merged);
 
         assert_eq!(merged.len(), 1);
-        assert_eq!(merged[0].sequence.name(), "sequence_1");
+        assert_eq!(merged[0].sequence.locator(), "sequence_1");
         assert_eq!(merged[0].topics.len(), 3);
     }
 }

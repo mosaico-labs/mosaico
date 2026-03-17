@@ -26,7 +26,7 @@ pub async fn get_flight_info(
             match resource.resource_type() {
                 types::ResourceType::Sequence => {
                     let handle = facade::Sequence::new(
-                        resource.name().into(),
+                        resource.locator().into(),
                         ctx.store.clone(),
                         ctx.db.clone(),
                     );
@@ -57,7 +57,7 @@ pub async fn get_flight_info(
                         .enumerate()
                         .map(|(index, topic)| {
                             let ticket = types::flight::TicketTopic {
-                                locator: topic.name().to_owned(),
+                                locator: topic.locator().to_owned(),
                                 timestamp_range: cmd.timestamp_range.clone(),
                             };
 
@@ -89,8 +89,12 @@ pub async fn get_flight_info(
                 }
 
                 types::ResourceType::Topic => {
-                    let handle =
-                        facade::Topic::new(resource.name().into(), ctx.store, ctx.db.clone());
+                    let handle = facade::Topic::try_from_locator(
+                        resource.locator().into(),
+                        ctx.store,
+                        ctx.db.clone(),
+                    )
+                    .await?;
                     let metadata = handle.metadata().await?;
 
                     trace!("{} building schema (+platform metadata)", handle.locator);
@@ -169,8 +173,12 @@ pub async fn collect_manifests(
     for topic in topics {
         // (cabba) TODO: avoid cloning avery time store and database, maybe a `.into_parts()` to reuse
         // facade resources ?
-        let handler =
-            facade::Topic::new(topic.name().to_owned(), ctx.store.clone(), ctx.db.clone());
+        let handler = facade::Topic::try_from_locator(
+            topic.locator().into(),
+            ctx.store.clone(),
+            ctx.db.clone(),
+        )
+        .await?;
 
         // Collect manifest, if no manifest is found an empty one is returned while
         // other errors are propagated
