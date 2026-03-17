@@ -6,7 +6,7 @@ from mosaicolabs.handlers import (
     TopicDataStreamer,
     TopicHandler,
 )
-from mosaicolabs.handlers.endpoints import TopicResourceManifest
+from mosaicolabs.platform.resource_manifests import TopicResourceManifest
 from testing.integration.config import (
     QUERY_SEQUENCES_MOCKUP,
     UPLOADED_SEQUENCE_NAME,
@@ -74,11 +74,11 @@ def test_topic_name_in_endpoint_from_topic_handler(
     # Topic exists!
     assert len(flight_info.endpoints) == 1 and "Expected 1 endpoint"
     ep = flight_info.endpoints[0]
-    topic_manifest = TopicResourceManifest.from_flight_endpoint(ep)
+    topic_manifest = TopicResourceManifest._from_app_metadata(ep.app_metadata)
     # Topic exists!
     assert (
-        topic_manifest.topic_name == topic
-        and f"Expected matching topic name {topic} != {topic_manifest.topic_name}"
+        topic_manifest.name == topic
+        and f"Expected matching topic name {topic} != {topic_manifest.name}"
     )
     assert (
         topic_manifest.sequence_name == UPLOADED_SEQUENCE_NAME
@@ -108,11 +108,11 @@ def test_topic_names_in_endpoints_from_sequence_handler(
         and f"Expected {len(topic_list)} endpoints, got {len(flight_info.endpoints)}"
     )
     for ep in flight_info.endpoints:
-        topic_manifest = TopicResourceManifest.from_flight_endpoint(ep)
+        topic_manifest = TopicResourceManifest._from_app_metadata(ep.app_metadata)
         # Topic exists!
         assert (
-            topic_manifest.topic_name in topic_list
-            and f"Expected matching topic name {topic_manifest.topic_name} in topics list {topic_list}"
+            topic_manifest.name in topic_list
+            and f"Expected matching topic name {topic_manifest.name} in topics list {topic_list}"
         )
         assert (
             topic_manifest.sequence_name == UPLOADED_SEQUENCE_NAME
@@ -154,14 +154,15 @@ def test_topics_manifest_timestamps(
     )
     # The length of the 'endpoints' list is tested elsewhere
     ep = flight_info.endpoints[0]
-    topic_manifest = TopicResourceManifest.from_flight_endpoint(ep)
+    topic_manifest = TopicResourceManifest._from_app_metadata(ep.app_metadata)
     # Not asked for time-windowed stream: the min/max timestamps must be equal to start/end
     assert (
-        _cached_topic_data_stream[0].msg.timestamp_ns == topic_manifest.timestamp_ns_min
+        _cached_topic_data_stream[0].msg.timestamp_ns
+        == topic_manifest.resource_info.timestamp_ns_min
     )
     assert (
         _cached_topic_data_stream[-1].msg.timestamp_ns
-        == topic_manifest.timestamp_ns_max
+        == topic_manifest.resource_info.timestamp_ns_max
     )
 
     # free resources
@@ -204,14 +205,15 @@ def test_topic_streamer_manifest_timestamps(
     )
     # The length of the 'endpoints' list is tested elsewhere
     ep = flight_info.endpoints[0]
-    topic_manifest = TopicResourceManifest.from_flight_endpoint(ep)
+    topic_manifest = TopicResourceManifest._from_app_metadata(ep.app_metadata)
     # The start/end timestamp must be equal to the first/last message timestamps of the topic data stream
     # min and max are still the lowest and highest timestamp in the whole topic stream
     assert (
-        topic_manifest.timestamp_ns_min == _cached_topic_data_stream[0].msg.timestamp_ns
+        topic_manifest.resource_info.timestamp_ns_min
+        == _cached_topic_data_stream[0].msg.timestamp_ns
     )
     assert (
-        topic_manifest.timestamp_ns_max
+        topic_manifest.resource_info.timestamp_ns_max
         == _cached_topic_data_stream[-1].msg.timestamp_ns
     )
 

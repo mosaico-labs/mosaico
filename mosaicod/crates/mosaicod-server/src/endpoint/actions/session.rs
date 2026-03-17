@@ -24,7 +24,7 @@ pub async fn finalize(ctx: &Context, session_uuid: String) -> Result<ActionRespo
 
     let uuid: types::Uuid = session_uuid.parse()?;
 
-    let handle = facade::Session::new(uuid, ctx.store.clone(), ctx.db.clone());
+    let handle = facade::Session::try_new(uuid, ctx.store.clone(), ctx.db.clone()).await?;
 
     handle.finalize().await?;
 
@@ -38,7 +38,7 @@ pub async fn abort(ctx: &Context, session_uuid: String) -> Result<ActionResponse
 
     let uuid: types::Uuid = session_uuid.parse()?;
 
-    let session = facade::Session::new(uuid, ctx.store.clone(), ctx.db.clone());
+    let session = facade::Session::try_new(uuid, ctx.store.clone(), ctx.db.clone()).await?;
 
     session.delete(true, types::allow_data_loss()).await?;
 
@@ -52,7 +52,7 @@ pub async fn delete(ctx: &Context, session_uuid: String) -> Result<ActionRespons
 
     let uuid: types::Uuid = session_uuid.parse()?;
 
-    let session = facade::Session::new(uuid, ctx.store.clone(), ctx.db.clone());
+    let session = facade::Session::try_new(uuid, ctx.store.clone(), ctx.db.clone()).await?;
 
     session.delete(false, types::allow_data_loss()).await?;
 

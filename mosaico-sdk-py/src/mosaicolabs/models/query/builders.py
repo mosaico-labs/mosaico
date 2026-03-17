@@ -1005,6 +1005,8 @@ class QuerySequence:
             )
         return self._with_expression(expr)
 
+    # TODO: possible to query updated_timestamps?
+
     # compatibility with QueryProtocol
     def name(self) -> str:
         """Returns the top-level key ('sequence') used for nesting inside a root [`Query`][mosaicolabs.models.query.builders.Query]."""

@@ -42,7 +42,6 @@ pub async fn do_action(
         ActionRequest::SequenceNotificationPurge(data) => {
             sequence::notification_purge(&ctx, data.locator).await
         }
-        ActionRequest::SequenceSystemInfo(data) => sequence::system_info(&ctx, data.locator).await,
 
         // ///////
         // Session
@@ -75,7 +74,6 @@ pub async fn do_action(
         ActionRequest::TopicNotificationPurge(data) => {
             topic::notification_purge(&ctx, data.locator).await
         }
-        ActionRequest::TopicSystemInfo(data) => topic::system_info(&ctx, data.locator).await,
 
         // /////
         // Layer
@@ -118,9 +116,7 @@ fn has_permissions(action: &ActionRequest, perm: &Permissions) -> bool {
 
         ActionRequest::Query(_) => perm.is_read(),
         ActionRequest::SequenceNotificationList(_) => perm.is_read(),
-        ActionRequest::SequenceSystemInfo(_) => perm.is_read(),
         ActionRequest::TopicNotificationList(_) => perm.is_read(),
-        ActionRequest::TopicSystemInfo(_) => perm.is_read(),
         ActionRequest::LayerList(_) => perm.is_read(),
 
         ActionRequest::Version(_) => true,

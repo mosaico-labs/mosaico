@@ -13,8 +13,9 @@ use mosaicod_rw::{self as rw, ToProperties};
 use mosaicod_store as store;
 use std::sync::Arc;
 
-/// Define topic metadata type contaning JSON user metadata
-type TopicMetadata = types::TopicMetadata<marshal::JsonMetadataBlob>;
+/// Define topic manifest type containing JSON user metadata
+type TopicManifest = types::TopicManifest<marshal::JsonMetadataBlob>;
+type TopicOntologyMetadata = types::TopicOntologyMetadata<marshal::JsonMetadataBlob>;
 
 pub struct Topic {
     pub locator: types::TopicResourceLocator,
@@ -49,11 +50,11 @@ impl Topic {
     pub async fn create(
         &self,
         session: &types::Uuid,
-        metadata: Option<TopicMetadata>,
+        ontology_metadata: TopicOntologyMetadata,
     ) -> Result<types::Identifiers, Error> {
         let mut tx = self.db.transaction().await?;
 
-        // Ensure that uuid points to a unlocked session
+        // Ensure that uuid points to an unlocked session
         let ses_rec = db::session_find_by_uuid(&mut tx, session).await?;
         if ses_rec.is_locked() {
             return Err(Error::SessionLocked);
@@ -71,75 +72,43 @@ impl Topic {
             self.locator.name(), //
             seq_rec.sequence_id,
             ses_rec.session_id,
+            &ontology_metadata.properties.ontology_tag,
+            &ontology_metadata
+                .properties
+                .serialization_format
+                .to_string(),
         );
 
-        if let Some(metadata) = &metadata {
-            record = record
-                .with_user_metadata(metadata.user_metadata.clone())
-                .with_ontology_tag(&metadata.properties.ontology_tag)
-                .with_serialization_format(&metadata.properties.serialization_format.to_string());
+        if let Some(user_metadata) = &ontology_metadata.user_metadata {
+            record = record.with_user_metadata(user_metadata.clone());
         }
 
         let record = db::topic_create(&mut tx, &record).await?;
 
+        let manifest = types::TopicManifest::new(
+            types::TopicProperties::new_with_created_at(
+                self.locator.clone(),
+                session.clone(),
+                record.creation_timestamp(),
+            ),
+            ontology_metadata,
+        );
+
         // This operation is done at the end to avoid deleting or reverting changes
-        // to metadata file on store if some error causes a rollback on the database
-        if let Some(metadata) = metadata {
-            self.metadata_write_to_store(metadata).await?;
-        }
+        // to manifest file on store if some error causes a rollback on the database
+        self.manifest_write_to_store(manifest).await?;
 
         tx.commit().await?;
 
         Ok(record.into())
     }
 
-    pub async fn is_locked(&self) -> Result<bool, Error> {
+    pub async fn locked(&self) -> Result<bool, Error> {
         let mut cx = self.db.connection();
 
         let record = db::topic_find_by_locator(&mut cx, &self.locator).await?;
 
-        Ok(record.is_locked())
-    }
-
-    /// Updates the database entry for this topic.
-    ///
-    /// If a record with the same name already exists, the operation fails and
-    /// the database transaction is rolled back, restoring the previous state.
-    pub async fn update(&self, metadata: TopicMetadata) -> Result<(), Error> {
-        let mut tx = self.db.transaction().await?;
-
-        // find topic record to check that upload is not completed and is still prossible
-        // to change data
-        let record = db::topic_find_by_locator(&mut tx, &self.locator).await?;
-        if record.is_locked() {
-            return Err(Error::TopicLocked);
-        }
-
-        db::topic_update_user_metadata(
-            &mut tx, //
-            &self.locator,
-            metadata.user_metadata.clone(),
-        )
-        .await?;
-        db::topic_update_ontology_tag(
-            &mut tx, //
-            &self.locator,
-            &metadata.properties.ontology_tag,
-        )
-        .await?;
-        // Save the last record for returning it
-        let _ = db::topic_update_serialization_format(
-            &mut tx,
-            &self.locator,
-            &metadata.properties.serialization_format.to_string(),
-        )
-        .await?;
-
-        self.metadata_write_to_store(metadata).await?;
-
-        tx.commit().await?;
-
-        Ok(())
+        Ok(record.locked())
     }
 
     /// Read the database record for this sequence. If no record is found an error is returned.
@@ -153,34 +122,37 @@ impl Topic {
     }
 
     /// Lock the topic
+    /// TODO: consider to set lock state only inside manifest to avoid data inconsistency with DB.
     pub async fn lock(&self) -> Result<(), Error> {
-        let mut tx = self.db.transaction().await?;
-
         trace!("locking `{}`", self.locator);
-        db::topic_lock(&mut tx, &self.locator).await?;
 
+        // Update database
+        let mut tx = self.db.transaction().await?;
+        db::topic_lock(&mut tx, &self.locator).await?;
         tx.commit().await?;
+
+        // Update manifest (store)
+        let mut manifest = self.manifest().await?;
+        manifest.properties.locked = true;
+        self.manifest_write_to_store(manifest).await?;
 
         Ok(())
     }
 
     /// Finalize the write procedure of the topic. The topic is locked and additional data are
-    /// consolidated (e.g. timestamp bounds). This function is intended to be called by
-    /// [`TopicWriterGuard`] to finilize the writing process.
+    /// consolidated (e.g. manifest, timestamp bounds). This function is intended to be called by
+    /// [`TopicWriterGuard`] to finalize the writing process.
     async fn finalize(
         &mut self,
         timeseries_querier: query::TimeseriesRef,
         format: types::Format,
     ) -> Result<(), Error> {
-        let res = timeseries_querier
-            .read(self.locator.path(), format, None)
-            .await?;
+        let info = self.compute_data_info(timeseries_querier, format).await?;
+        self.data_info_write_to_db(info).await?;
 
-        let ts_range = res.timestamp_range().await?;
-
-        let manifest = types::TopicManifest::new()
-            .with_timestamp(types::TopicManifestTimestamp::new(ts_range));
-
+        // Update manifest
+        let mut manifest = self.manifest().await?;
+        manifest.properties.completed_at = Some(types::Timestamp::now());
         self.manifest_write_to_store(manifest).await?;
 
         self.lock().await?;
@@ -188,39 +160,32 @@ impl Topic {
         Ok(())
     }
 
-    /// Reads [`TopicMetadata`] associated with this topic.
+    /// Reads [`TopicManifest`] associated with this topic.
     ///
     /// # Errors
     ///
     /// Returns [`HandleError::ReadError`] if reading or deserializing fails.
-    pub async fn metadata(&self) -> Result<TopicMetadata, Error> {
+    /// Returns an error if manifest file does not exist.
+    pub async fn manifest(&self) -> Result<TopicManifest, Error> {
         let path = self.locator.path_metadata();
-        let bytes = self.store.read_bytes(path).await?;
-
-        let data: marshal::JsonTopicMetadata = bytes.try_into()?;
-
-        Ok(data.into())
-    }
-
-    /// Reads [`TopicManifest`] associated with this topic.
-    ///
-    /// If manifest can't be found a [`Error::NotFound`] error is returned.
-    pub async fn manifest(&self) -> Result<types::TopicManifest, Error> {
-        let path = self.locator.path_manifest();
 
         if !self.store.exists(&path).await? {
-            return Err(Error::not_found(path.to_string_lossy().to_string()));
+            return Err(Error::NotFound(format!(
+                "missing manifest file for topic {}",
+                self.locator
+            )));
         }
 
         let bytes = self.store.read_bytes(path).await?;
 
-        let data: marshal::TopicManifest = bytes.try_into()?;
+        let data: marshal::JsonTopicManifest = bytes.try_into()?;
 
-        Ok(data.into())
+        Ok(data.try_into()?)
     }
 
     /// Returns the topic arrow schema.
-    /// The serialization format is required to extract the schema, can be retrieved using [`TopicHandle::metadata`] function.
+    /// The serialization format is required to extract the schema.
+    /// It can be retrieved using [`Topic::manifest`] function.
     ///
     /// If no arrow_schema is found a [`Error::NotFound`] error is returned
     pub async fn arrow_schema(&self, format: types::Format) -> Result<SchemaRef, Error> {
@@ -238,29 +203,16 @@ impl Topic {
         Ok(schema)
     }
 
-    /// Serializes and writes [`TopicMetadata`] to the object store.
+    /// Serializes and writes [`TopicManifest`] to the object store.
     ///
     /// # Errors
     ///
-    /// Returns [`HandleError::NotFound`] or [`HandleError::WriteError`] if serialization or writing fails.
-    async fn metadata_write_to_store(&self, metadata: TopicMetadata) -> Result<(), Error> {
-        trace!("writing metadata to store to `{}`", self.locator);
+    /// Returns [`Error::NotFound`] or [`Error::WriteError`] if serialization or writing fails.
+    async fn manifest_write_to_store(&self, manifest: TopicManifest) -> Result<(), Error> {
+        trace!("writing manifest to store to `{}`", self.locator);
         let path = self.locator.path_metadata();
 
-        let json_mdata = marshal::JsonTopicMetadata::from(metadata);
-        let bytes: Vec<u8> = json_mdata.try_into()?;
-
-        self.store.write_bytes(&path, bytes).await?;
-
-        Ok(())
-    }
-
-    /// Write timestamp data (for quick access without performing queries) into the store
-    async fn manifest_write_to_store(&self, manifest: types::TopicManifest) -> Result<(), Error> {
-        trace!("writing manifest to store to `{}`", self.locator);
-        let path = self.locator.path_manifest();
-
-        let json_manifest: marshal::TopicManifest = manifest.into();
+        let json_manifest = marshal::JsonTopicManifest::from(manifest);
         let bytes: Vec<u8> = json_manifest.try_into()?;
 
         self.store.write_bytes(&path, bytes).await?;
@@ -381,8 +333,25 @@ impl Topic {
         Ok(stats)
     }
 
-    /// Computes system info for the topic
-    pub async fn system_info(&self) -> Result<types::TopicSystemInfo, Error> {
+    /// Computes metrics about topic's stored data
+    /// (e.g. total size in bytes, first and last timestamps recorded in the topic)
+    async fn compute_data_info(
+        &self,
+        timeseries_querier: query::TimeseriesRef,
+        format: types::Format,
+    ) -> Result<types::TopicDataInfo, Error> {
+        let timeseries_res = timeseries_querier
+            .read(self.locator.path(), format, None)
+            .await;
+
+        let timestamp_range = match timeseries_res {
+            Ok(res) => {
+                let ts_range = res.timestamp_range().await;
+                ts_range.unwrap_or(types::TimestampRange::unbounded())
+            }
+            Err(_) => types::TimestampRange::unbounded(),
+        };
+
         let mut cx = self.db.connection();
         let record = db::topic_find_by_locator(&mut cx, &self.locator).await?;
 
@@ -398,17 +367,37 @@ impl Topic {
             )
             .await?;
 
-        let mut total_size = 0;
+        let mut total_bytes = 0;
         for file in &datafiles {
-            total_size += self.store.size(file).await?;
+            total_bytes += self.store.size(file).await? as u64;
         }
 
-        Ok(types::TopicSystemInfo {
-            chunks_number: datafiles.len(),
-            is_locked: record.is_locked(),
-            total_size_bytes: total_size,
-            created_datetime: record.creation_timestamp().into(),
+        Ok(types::TopicDataInfo {
+            chunks_number: datafiles.len() as u64,
+            total_bytes,
+            timestamp_range,
         })
+    }
+
+    /// Caches metrics about topic's data.
+    ///
+    /// Since they can be recalculated at any time, it's enough to save them in the DB.
+    async fn data_info_write_to_db(&self, system_info: types::TopicDataInfo) -> Result<(), Error> {
+        let mut tx = self.db.transaction().await?;
+        db::topic_update_system_info(&mut tx, &self.locator, &system_info).await?;
+        tx.commit().await?;
+        Ok(())
+    }
+
+    /// Retrieves system info for the topic from db. Returns an error if not present.
+    pub async fn data_info(&self) -> Result<types::TopicDataInfo, Error> {
+        let mut cx = self.db.connection();
+        let record = db::topic_find_by_locator(&mut cx, &self.locator).await?;
+        let topic_info = record.info();
+        topic_info.ok_or(Error::MissingData(format!(
+            "missing info on DB for topic {}",
+            self.locator
+        )))
     }
 
     /// Computes the optimal batch size based on topic statistics from the database.
@@ -455,17 +444,8 @@ impl<'a> TopicWriterGuard<'a> {
     /// and lock the topic
     pub async fn finalize(self) -> Result<(), Error> {
         trace!("internal writer finalized");
-        let summary = self.writer.finalize().await?;
-
-        if summary.number_of_chunks_created > 0 {
-            trace!("consolidating topic manifest");
-            self.facade.finalize(self.querier, self.format).await?;
-        } else {
-            trace!("finalizing topic without data");
-            self.facade.lock().await?;
-            trace!("topic has been locked");
-        }
-
+        let _ = self.writer.finalize().await?;
+        self.facade.finalize(self.querier, self.format).await?;
         Ok(())
     }
 }
@@ -491,6 +471,16 @@ mod tests {
     use crate::Sequence;
     use mosaicod_core::types::NotificationType;
     use types::Resource;
+
+    fn dummy_ontology_metadata() -> TopicOntologyMetadata {
+        types::TopicOntologyMetadata::new(
+            types::TopicOntologyProperties {
+                ontology_tag: "dummy".to_owned(),
+                serialization_format: types::Format::Default,
+            },
+            None,
+        )
+    }
 
     #[sqlx::test(migrator = "db::testing::MIGRATOR")]
     async fn topic_create_and_delete(pool: sqlx::Pool<db::DatabaseType>) {
@@ -529,7 +519,7 @@ mod tests {
         );
 
         ftopic
-            .create(&session.uuid, None)
+            .create(&session.uuid, dummy_ontology_metadata())
             .await
             .expect("Unable to create topic");
 
@@ -589,7 +579,7 @@ mod tests {
         );
 
         ftopic
-            .create(&session.uuid, None)
+            .create(&session.uuid, dummy_ontology_metadata())
             .await
             .expect("Unable to create topic");
 

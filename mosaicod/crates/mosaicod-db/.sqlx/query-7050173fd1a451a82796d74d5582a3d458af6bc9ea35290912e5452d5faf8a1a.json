@@ -52,6 +52,26 @@
         "ordinal": 9,
         "name": "creation_unix_tstamp",
         "type_info": "Int8"
+      },
+      {
+        "ordinal": 10,
+        "name": "chunks_number",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 11,
+        "name": "total_bytes",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 12,
+        "name": "start_index_timestamp",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 13,
+        "name": "end_index_timestamp",
+        "type_info": "Int8"
       }
     ],
     "parameters": {
@@ -68,9 +88,13 @@
       false,
       false,
       true,
+      false,
+      false,
+      false,
       true,
       true,
-      false
+      true,
+      true
     ]
   },
   "hash": "7050173fd1a451a82796d74d5582a3d458af6bc9ea35290912e5452d5faf8a1a"

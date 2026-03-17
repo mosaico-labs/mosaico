@@ -83,12 +83,12 @@ async fn do_put_topic_data(
         return Err(ServerError::BadKey);
     }
 
-    let mdata = handle.metadata().await?;
+    let mdata = handle.manifest().await?;
 
     // Setup the callback that will be used to create the database record for the data catalog
     // and prepare variables that will be moved in the closure
-    let ontology_tag = mdata.properties.ontology_tag;
-    let serialization_format = mdata.properties.serialization_format;
+    let ontology_tag = mdata.ontology_metadata.properties.ontology_tag;
+    let serialization_format = mdata.ontology_metadata.properties.serialization_format;
     let topic_id = r_id.id;
 
     trace!("creating topic writer");

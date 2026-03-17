@@ -10,4 +10,6 @@ description: API Reference for Enum Module
 ::: mosaicolabs.enum.SessionLevelErrorPolicy
 ::: mosaicolabs.enum.TopicLevelErrorPolicy
 ::: mosaicolabs.enum.OnErrorPolicy
+::: mosaicolabs.enum.TopicLevelErrorPolicy
+::: mosaicolabs.enum.SessionLevelErrorPolicy
 ::: mosaicolabs.enum.FlightAction

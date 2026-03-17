@@ -6,26 +6,29 @@ for an *existing* sequence. It allows users to inspect metadata, list topics,
 and access reading interfaces (`SequenceDataStreamer`).
 """
 
-import datetime
 import json
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import pyarrow.flight as fl
+
+from mosaicolabs.platform.resource_info import TopicResourceInfo
 
 from ..comm.connection import (
     DEFAULT_MAX_BATCH_BYTES,
     DEFAULT_MAX_BATCH_SIZE_RECORDS,
     _ConnectionPool,
 )
-from ..comm.do_action import _do_action, _DoActionResponseSysInfo
 from ..comm.executor_pool import _ExecutorPool
-from ..comm.metadata import SequenceMetadata, _decode_schema_metadata
-from ..enum import FlightAction, OnErrorPolicy, SessionLevelErrorPolicy
+from ..enum import OnErrorPolicy, SessionLevelErrorPolicy
 from ..helpers import sanitize_sequence_name
 from ..logging_config import get_logger
-from ..models.platform import Sequence
+from ..models.platform import Sequence, Session
+from ..platform.metadata import SequenceMetadata, _decode_schema_metadata
+from ..platform.resource_manifests import (
+    SequenceResourceManifest,
+    TopicManifestError,
+)
 from .config import SessionWriterConfig
-from .endpoints import TopicParsingError, TopicResourceManifest
 from .sequence_reader import SequenceDataStreamer
 from .sequence_updater import SequenceUpdater
 from .topic_handler import TopicHandler
@@ -168,47 +171,40 @@ class SequenceHandler:
             )
             return None
 
+        # Retrieve the Sequence metadata
         seq_metadata = SequenceMetadata._from_decoded_schema_metadata(
             _decode_schema_metadata(flight_info.schema.metadata)
         )
 
-        # Extract the Topics resource manifests data
-        stopics = []
-        tstamps_ns_min = []
-        tstamps_ns_max = []
-        for ep in flight_info.endpoints:
-            try:
-                topic_resrc_mdata = TopicResourceManifest.from_flight_endpoint(ep)
-            except TopicParsingError as e:
-                logger.error(f"Skipping invalid topic endpoint, err: '{e}'")
-                continue
-            stopics.append(topic_resrc_mdata.topic_name)
-            # Collect the 'min'/'max' timestamps, as we are at a sequence-level
-            if (
-                topic_resrc_mdata.timestamp_ns_min is not None
-                and topic_resrc_mdata.timestamp_ns_max is not None
-            ):
-                tstamps_ns_min.append(topic_resrc_mdata.timestamp_ns_min)
-                tstamps_ns_max.append(topic_resrc_mdata.timestamp_ns_max)
-
-        # Get System Info
-        ACTION = FlightAction.SEQUENCE_SYSTEM_INFO
-        act_resp = _do_action(
-            client=client,
-            action=ACTION,
-            payload={"locator": _stzd_sequence_name},
-            expected_type=_DoActionResponseSysInfo,
+        seq_manifest = SequenceResourceManifest._from_app_metadata(
+            flight_info.app_metadata
         )
 
-        if act_resp is None:
-            logger.error(f"Action '{ACTION}' returned no response.")
-            return None
+        # Extract the Topics resource manifests data
+        tstamps_ns_min = []
+        tstamps_ns_max = []
+        total_size_bytes = 0
+        for ep in flight_info.endpoints:
+            try:
+                topic_resrc_info = TopicResourceInfo._from_flight_endpoint(ep)
+            except TopicManifestError as e:
+                logger.error(f"Skipping invalid topic endpoint, err: '{e}'")
+                continue
+            # Collect the 'min'/'max' timestamps, as we are at a sequence-level
+            if (
+                topic_resrc_info.timestamp_ns_min is not None
+                and topic_resrc_info.timestamp_ns_max is not None
+            ):
+                tstamps_ns_min.append(topic_resrc_info.timestamp_ns_min)
+                tstamps_ns_max.append(topic_resrc_info.timestamp_ns_max)
 
-        sequence_model = Sequence._from_flight_info(
+            total_size_bytes += topic_resrc_info.total_size_bytes
+
+        sequence_model = Sequence._from_resource_info(
             name=_stzd_sequence_name,
-            metadata=seq_metadata,
-            resrc_info=act_resp.info,
-            topics=stopics,
+            platform_metadata=seq_metadata,
+            resrc_manifest=seq_manifest,
+            total_size_bytes=total_size_bytes,
         )
 
         return (
@@ -257,7 +253,17 @@ class SequenceHandler:
         Returns:
             The list of topic names (data channels) available within this sequence.
         """
-        return self._sequence._topics
+        return self._sequence.topics
+
+    @property
+    def sessions(self) -> List[Session]:
+        """
+        The list of all the writing sessions that produced this sequence (upon creation or updates).
+
+        Returns:
+            A list of [`Session`][mosaicolabs.models.platform.Session] instances
+        """
+        return self._sequence.sessions
 
     @property
     def user_metadata(self) -> Dict[str, Any]:
@@ -265,19 +271,29 @@ class SequenceHandler:
         The user-defined metadata dictionary associated with this sequence.
 
         Returns:
-            The user-defined metadata dictionary associated with this sequence.
+            The ucreated_timestampdata dictionary associated with this sequence.
         """
         return self._sequence.user_metadata
 
     @property
-    def created_datetime(self) -> datetime.datetime:
+    def created_timestamp(self) -> int:
         """
         The UTC timestamp indicating when the entity was created on the server.
 
         Returns:
-            The UTC timestamp indicating when the entity was created on the server.
+            The UTC creation timestamp.
         """
-        return self._sequence._created_datetime
+        return self._sequence.created_timestamp
+
+    @property
+    def updated_timestamps(self) -> List[int]:
+        """
+        The list of UTC timestamps indicating when the entity was updated on the server.
+
+        Returns:
+            The list of UTC update timestamps.
+        """
+        return self._sequence.updated_timestamps
 
     @property
     def total_size_bytes(self) -> int:
@@ -285,9 +301,9 @@ class SequenceHandler:
         The total physical storage footprint of the entity on the server in bytes.
 
         Returns:
-            The total physical storage footprint of the entity on the server in bytes.
+            The total physical storage in bytes.
         """
-        return self._sequence._total_size_bytes
+        return self._sequence.total_size_bytes
 
     @property
     def timestamp_ns_min(self) -> Optional[int]:
@@ -321,7 +337,6 @@ class SequenceHandler:
         The returned [`SequenceDataStreamer`][mosaicolabs.handlers.SequenceDataStreamer] performs a K-way merge sort to provide
         a single, time-synchronized chronological stream of messages from
         multiple topics.
-
 
         Args:
             topics: A subset of topic names to stream. If empty, all topics

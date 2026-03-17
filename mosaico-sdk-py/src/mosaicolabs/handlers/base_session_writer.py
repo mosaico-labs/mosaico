@@ -211,6 +211,7 @@ class _BaseSessionWriter(ABC):
                 self._abort()
             else:
                 self._error_report(str(out_exc))
+                self._finalize()
 
             # Last thing to do: DO NOT SET BEFORE!
             self._status = SessionStatus.Error

@@ -88,6 +88,7 @@ from .models.data import (
 # --- Platform ---
 from .models.platform import (
     Sequence as Sequence,
+    Session as Session,
     Topic as Topic,
 )
 
@@ -210,6 +211,7 @@ __all__ = [
     "TopicWriterStatus",
     # Platform
     "Sequence",
+    "Session",
     "Topic",
 ]
 
