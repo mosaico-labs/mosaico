@@ -30,9 +30,9 @@ pub struct TopicRecord {
     pub(crate) total_bytes: Option<i64>,
     pub(crate) chunks_number: Option<i64>,
 
-    /// First and last timestamps stored inside topic data.
-    pub(crate) start_timestamp: Option<i64>,
-    pub(crate) end_timestamp: Option<i64>,
+    /// First and last timestamps stored inside topic's data.
+    pub(crate) start_index_timestamp: Option<i64>,
+    pub(crate) end_index_timestamp: Option<i64>,
 }
 
 impl From<TopicRecord> for types::Identifiers {
@@ -65,8 +65,8 @@ impl TopicRecord {
             creation_unix_tstamp: types::Timestamp::now().into(),
             chunks_number: None,
             total_bytes: None,
-            start_timestamp: None,
-            end_timestamp: None,
+            start_index_timestamp: None,
+            end_index_timestamp: None,
         }
     }
 
@@ -98,8 +98,8 @@ impl TopicRecord {
                 chunks_number: self.chunks_number? as u64,
                 total_bytes: self.total_bytes? as u64,
                 timestamp_range: types::TimestampRange::between(
-                    self.start_timestamp?.into(),
-                    self.end_timestamp?.into(),
+                    self.start_index_timestamp?.into(),
+                    self.end_index_timestamp?.into(),
                 ),
             })
         })();

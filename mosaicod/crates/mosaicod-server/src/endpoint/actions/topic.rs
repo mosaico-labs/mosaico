@@ -31,8 +31,8 @@ pub async fn create(
 
     let received_uuid: types::Uuid = session_uuid.parse()?;
 
-    let schema_metadata = types::TopicSchemaMetadata::new(
-        types::TopicSchemaProperties {
+    let schema_metadata = types::TopicOntologyMetadata::new(
+        types::TopicOntologyProperties {
             serialization_format,
             ontology_tag,
         },

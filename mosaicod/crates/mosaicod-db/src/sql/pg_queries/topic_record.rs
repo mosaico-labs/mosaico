@@ -19,8 +19,8 @@ fn cast_topic_data(row: PgRow) -> Result<schema::TopicRecord, Error> {
         locked: row.try_get("locked")?,
         chunks_number: row.try_get("chunks_number")?,
         total_bytes: row.try_get("total_bytes")?,
-        start_timestamp: row.try_get("start_timestamp")?,
-        end_timestamp: row.try_get("end_timestamp")?,
+        start_index_timestamp: row.try_get("start_index_timestamp")?,
+        end_index_timestamp: row.try_get("end_index_timestamp")?,
     })
 }
 
@@ -113,7 +113,7 @@ pub async fn topic_create(
                 (
                     topic_uuid, sequence_id, session_id, locator_name, creation_unix_tstamp, 
                     serialization_format, ontology_tag, locked, user_metadata, chunks_number,
-                    total_bytes, start_timestamp, end_timestamp
+                    total_bytes, start_index_timestamp, end_index_timestamp
                 ) 
             VALUES 
                 ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
@@ -131,8 +131,8 @@ pub async fn topic_create(
         record.user_metadata,
         record.chunks_number,
         record.total_bytes,
-        record.start_timestamp,
-        record.end_timestamp,
+        record.start_index_timestamp,
+        record.end_index_timestamp,
     )
     .fetch_one(exe.as_exec())
     .await?;
@@ -239,7 +239,7 @@ pub async fn topic_update_system_info(
         schema::TopicRecord,
         r#"
             UPDATE topic_t
-            SET chunks_number = $1, total_bytes = $2, start_timestamp = $3, end_timestamp = $4
+            SET chunks_number = $1, total_bytes = $2, start_index_timestamp = $3, end_index_timestamp = $4
             WHERE locator_name = $5
             RETURNING *
     "#,

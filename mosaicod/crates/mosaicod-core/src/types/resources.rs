@@ -185,19 +185,20 @@ impl AsRef<str> for TopicResourceLocator {
 }
 
 #[derive(Debug)]
-pub struct TopicSchemaProperties {
+pub struct TopicOntologyProperties {
     pub serialization_format: Format,
     pub ontology_tag: String,
 }
 
+/// Properties defining the data semantic and encoding for a topic.
 #[derive(Debug)]
-pub struct TopicSchemaMetadata<M> {
-    pub properties: TopicSchemaProperties,
+pub struct TopicOntologyMetadata<M> {
+    pub properties: TopicOntologyProperties,
     pub user_metadata: Option<M>,
 }
 
-impl<M> TopicSchemaMetadata<M> {
-    pub fn new(props: TopicSchemaProperties, user_metadata: Option<M>) -> Self
+impl<M> TopicOntologyMetadata<M> {
+    pub fn new(props: TopicOntologyProperties, user_metadata: Option<M>) -> Self
     where
         M: super::MetadataBlob,
     {
@@ -211,17 +212,17 @@ impl<M> TopicSchemaMetadata<M> {
 #[derive(Debug)]
 pub struct TopicManifest<M> {
     pub properties: TopicProperties,
-    pub schema: TopicSchemaMetadata<M>,
+    pub ontology_metadata: TopicOntologyMetadata<M>,
 }
 
 impl<M> TopicManifest<M> {
-    pub fn new(props: TopicProperties, schema_metadata: TopicSchemaMetadata<M>) -> Self
+    pub fn new(properties: TopicProperties, ontology_metadata: TopicOntologyMetadata<M>) -> Self
     where
         M: super::MetadataBlob,
     {
         Self {
-            properties: props,
-            schema: schema_metadata,
+            properties,
+            ontology_metadata,
         }
     }
 }
@@ -233,7 +234,7 @@ pub struct TopicChunksStats {
     pub total_row_count: i64,
 }
 
-/// Configuration properties defining the data semantic and encoding for a topic.
+/// Metadata properties associated to a topic.
 #[derive(Debug)]
 pub struct TopicProperties {
     pub created_at: types::Timestamp,

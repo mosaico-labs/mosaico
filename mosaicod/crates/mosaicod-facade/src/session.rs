@@ -104,14 +104,14 @@ impl Session {
         // TODO: consider to set lock state only inside metadata to avoid data inconsistency with DB
         db::session_lock(&mut tx, &self.uuid, &completed_at).await?;
 
-        tx.commit().await?;
-
         // Update manifest (store).
         let mut manifest = self.manifest().await?;
         manifest.locked = true;
         manifest.completed_at = Some(completed_at);
         manifest.topics = topics;
         self.manifest_write_to_store(manifest).await?;
+
+        tx.commit().await?;
 
         Ok(())
     }
@@ -243,7 +243,7 @@ impl Session {
 
         if !self.store.exists(&path).await? {
             return Err(Error::NotFound(format!(
-                "missing manifest file for session (uuid={})",
+                "missing manifest file for session `{}`",
                 self.uuid
             )));
         }

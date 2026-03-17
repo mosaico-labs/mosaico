@@ -65,12 +65,12 @@
       },
       {
         "ordinal": 12,
-        "name": "start_timestamp",
+        "name": "start_index_timestamp",
         "type_info": "Int8"
       },
       {
         "ordinal": 13,
-        "name": "end_timestamp",
+        "name": "end_index_timestamp",
         "type_info": "Int8"
       }
     ],

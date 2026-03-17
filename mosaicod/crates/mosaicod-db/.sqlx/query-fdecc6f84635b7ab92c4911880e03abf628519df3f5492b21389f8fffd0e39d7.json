@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            INSERT INTO topic_t\n                (\n                    topic_uuid, sequence_id, session_id, locator_name, creation_unix_tstamp, \n                    serialization_format, ontology_tag, locked, user_metadata, chunks_number,\n                    total_bytes, start_timestamp, end_timestamp\n                ) \n            VALUES \n                ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)\n            RETURNING \n                *\n    ",
+  "query": "\n            UPDATE topic_t\n            SET chunks_number = $1, total_bytes = $2, start_index_timestamp = $3, end_index_timestamp = $4\n            WHERE locator_name = $5\n            RETURNING *\n    ",
   "describe": {
     "columns": [
       {
@@ -65,30 +65,22 @@
       },
       {
         "ordinal": 12,
-        "name": "start_timestamp",
+        "name": "start_index_timestamp",
         "type_info": "Int8"
       },
       {
         "ordinal": 13,
-        "name": "end_timestamp",
+        "name": "end_index_timestamp",
         "type_info": "Int8"
       }
     ],
     "parameters": {
       "Left": [
-        "Uuid",
-        "Int4",
-        "Int4",
-        "Text",
-        "Int8",
-        "Text",
-        "Text",
-        "Bool",
-        "Jsonb",
         "Int8",
         "Int8",
         "Int8",
-        "Int8"
+        "Int8",
+        "Text"
       ]
     },
     "nullable": [
@@ -108,5 +100,5 @@
       true
     ]
   },
-  "hash": "24ef41019990e9588a3d93d915a5b70763d94224eb4e2f2a96a82bfa21b69829"
+  "hash": "fdecc6f84635b7ab92c4911880e03abf628519df3f5492b21389f8fffd0e39d7"
 }

@@ -15,7 +15,7 @@ use std::sync::Arc;
 
 /// Define topic manifest type containing JSON user metadata
 type TopicManifest = types::TopicManifest<marshal::JsonMetadataBlob>;
-type TopicSchemaMetadata = types::TopicSchemaMetadata<marshal::JsonMetadataBlob>;
+type TopicOntologyMetadata = types::TopicOntologyMetadata<marshal::JsonMetadataBlob>;
 
 pub struct Topic {
     pub locator: types::TopicResourceLocator,
@@ -50,7 +50,7 @@ impl Topic {
     pub async fn create(
         &self,
         session: &types::Uuid,
-        schema_metadata: TopicSchemaMetadata,
+        ontology_metadata: TopicOntologyMetadata,
     ) -> Result<types::Identifiers, Error> {
         let mut tx = self.db.transaction().await?;
 
@@ -72,11 +72,14 @@ impl Topic {
             self.locator.name(), //
             seq_rec.sequence_id,
             ses_rec.session_id,
-            &schema_metadata.properties.ontology_tag,
-            &schema_metadata.properties.serialization_format.to_string(),
+            &ontology_metadata.properties.ontology_tag,
+            &ontology_metadata
+                .properties
+                .serialization_format
+                .to_string(),
         );
 
-        if let Some(user_metadata) = &schema_metadata.user_metadata {
+        if let Some(user_metadata) = &ontology_metadata.user_metadata {
             record = record.with_user_metadata(user_metadata.clone());
         }
 
@@ -88,7 +91,7 @@ impl Topic {
                 session.clone(),
                 record.creation_timestamp(),
             ),
-            schema_metadata,
+            ontology_metadata,
         );
 
         // This operation is done at the end to avoid deleting or reverting changes
@@ -209,8 +212,8 @@ impl Topic {
         trace!("writing manifest to store to `{}`", self.locator);
         let path = self.locator.path_metadata();
 
-        let json_mdata = marshal::JsonTopicManifest::from(manifest);
-        let bytes: Vec<u8> = json_mdata.try_into()?;
+        let json_manifest = marshal::JsonTopicManifest::from(manifest);
+        let bytes: Vec<u8> = json_manifest.try_into()?;
 
         self.store.write_bytes(&path, bytes).await?;
 
@@ -330,6 +333,8 @@ impl Topic {
         Ok(stats)
     }
 
+    /// Computes metrics about topic's stored data
+    /// (e.g. total size in bytes, first and last timestamps recorded in the topic)
     async fn compute_data_info(
         &self,
         timeseries_querier: query::TimeseriesRef,
@@ -374,6 +379,9 @@ impl Topic {
         })
     }
 
+    /// Caches metrics about topic's data.
+    ///
+    /// Since they can be recalculated at any time, it's enough to save them in the DB.
     async fn data_info_write_to_db(&self, system_info: types::TopicDataInfo) -> Result<(), Error> {
         let mut tx = self.db.transaction().await?;
         db::topic_update_system_info(&mut tx, &self.locator, &system_info).await?;
@@ -464,9 +472,9 @@ mod tests {
     use mosaicod_core::types::NotificationType;
     use types::Resource;
 
-    fn dummy_schema_metadata() -> TopicSchemaMetadata {
-        types::TopicSchemaMetadata::new(
-            types::TopicSchemaProperties {
+    fn dummy_ontology_metadata() -> TopicOntologyMetadata {
+        types::TopicOntologyMetadata::new(
+            types::TopicOntologyProperties {
                 ontology_tag: "dummy".to_owned(),
                 serialization_format: types::Format::Default,
             },
@@ -511,7 +519,7 @@ mod tests {
         );
 
         ftopic
-            .create(&session.uuid, dummy_schema_metadata())
+            .create(&session.uuid, dummy_ontology_metadata())
             .await
             .expect("Unable to create topic");
 
@@ -571,7 +579,7 @@ mod tests {
         );
 
         ftopic
-            .create(&session.uuid, dummy_schema_metadata())
+            .create(&session.uuid, dummy_ontology_metadata())
             .await
             .expect("Unable to create topic");
 

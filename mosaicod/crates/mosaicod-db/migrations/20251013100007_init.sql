@@ -35,6 +35,6 @@ CREATE TABLE topic_t(
   chunks_number     BIGINT,
   total_bytes       BIGINT,
 
-  start_timestamp   BIGINT,
-  end_timestamp     BIGINT
+  start_index_timestamp   BIGINT,
+  end_index_timestamp     BIGINT
 );

@@ -6,13 +6,12 @@ use arrow_flight::{
 };
 use futures::stream::{self, StreamExt, TryStreamExt};
 use log::{info, trace};
-use mosaicod_core::types::{self, Resource, TopicResourceLocator, TopicSchemaMetadata};
+use mosaicod_core::params;
+use mosaicod_core::types::{self, Resource, TopicOntologyMetadata, TopicResourceLocator};
 use mosaicod_db as db;
 use mosaicod_facade as facade;
 use mosaicod_marshal as marshal;
 use mosaicod_marshal::{JsonMetadataBlob, flight};
-
-const MAX_CONCURRENT_ENDPOINTS: usize = 10;
 
 pub async fn get_flight_info(
     ctx: Context,
@@ -81,7 +80,7 @@ pub async fn get_flight_info(
 
                             Ok::<FlightEndpoint, ServerError>(e)
                         })
-                        .buffer_unordered(MAX_CONCURRENT_ENDPOINTS)
+                        .buffer_unordered(params::MAX_BUFFERED_FUTURES)
                         .try_collect::<Vec<FlightEndpoint>>()
                         .await?;
 
@@ -91,7 +90,6 @@ pub async fn get_flight_info(
                         Err(e) => return Err(e.into()),
                     };
 
-                    // trace!("{} generating endpoints: {:?}", handle.locator, endpoints);
                     let mut flight_info = FlightInfo::new()
                         .with_descriptor(desc.clone())
                         .with_app_metadata(manifest)
@@ -128,7 +126,9 @@ pub async fn get_flight_info(
 
                     trace!("{} generating endpoint {:?}", handle.locator, endpoint);
 
-                    let schema = build_topic_schema_metadata(manifest.schema, &handle).await?;
+                    let schema =
+                        topic_arrow_schema_with_metadata(manifest.ontology_metadata, &handle)
+                            .await?;
 
                     let flight_info = FlightInfo::new()
                         .with_descriptor(desc.clone())
@@ -158,8 +158,9 @@ async fn build_topic_app_metadata(
     app_mdata
 }
 
-async fn build_topic_schema_metadata(
-    schema_metadata: TopicSchemaMetadata<JsonMetadataBlob>,
+/// Utility function to create an arrow schema with metadata for the given Topic.
+async fn topic_arrow_schema_with_metadata(
+    ontology_metadata: TopicOntologyMetadata<JsonMetadataBlob>,
     topic_facade: &facade::Topic,
 ) -> Result<Schema, facade::Error> {
     trace!(
@@ -169,7 +170,7 @@ async fn build_topic_schema_metadata(
 
     // Collect schema, if no schema was found generate an empty schema
     let schema = match topic_facade
-        .arrow_schema(schema_metadata.properties.serialization_format)
+        .arrow_schema(ontology_metadata.properties.serialization_format)
         .await
     {
         Ok(s) => s,
@@ -178,13 +179,13 @@ async fn build_topic_schema_metadata(
     };
 
     // Collect schema metadata
-    let json_schema_metadata = marshal::JsonTopicSchemaMetadata::from(schema_metadata);
-    let flatten_schema_metadata = json_schema_metadata
+    let json_ontology_metadata = marshal::JsonTopicOntologyMetadata::from(ontology_metadata);
+    let flatten_ontology_metadata = json_ontology_metadata
         .to_flat_hashmap()
         .map_err(facade::Error::from)?;
 
     Ok(Schema::new_with_metadata(
         schema.fields().clone(),
-        flatten_schema_metadata,
+        flatten_ontology_metadata,
     ))
 }

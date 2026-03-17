@@ -83,13 +83,13 @@ impl JsonSequenceMetadata {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct JsonTopicSchemaProperties {
+pub struct JsonTopicOntologyProperties {
     pub serialization_format: Format,
     pub ontology_tag: String,
 }
 
-impl From<JsonTopicSchemaProperties> for types::TopicSchemaProperties {
-    fn from(value: JsonTopicSchemaProperties) -> Self {
+impl From<JsonTopicOntologyProperties> for types::TopicOntologyProperties {
+    fn from(value: JsonTopicOntologyProperties) -> Self {
         Self {
             ontology_tag: value.ontology_tag,
             serialization_format: value.serialization_format.into(),
@@ -97,8 +97,8 @@ impl From<JsonTopicSchemaProperties> for types::TopicSchemaProperties {
     }
 }
 
-impl From<types::TopicSchemaProperties> for JsonTopicSchemaProperties {
-    fn from(value: types::TopicSchemaProperties) -> Self {
+impl From<types::TopicOntologyProperties> for JsonTopicOntologyProperties {
+    fn from(value: types::TopicOntologyProperties) -> Self {
         Self {
             ontology_tag: value.ontology_tag,
             serialization_format: value.serialization_format.into(),
@@ -107,12 +107,12 @@ impl From<types::TopicSchemaProperties> for JsonTopicSchemaProperties {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct JsonTopicSchemaMetadata {
-    pub properties: JsonTopicSchemaProperties,
+pub struct JsonTopicOntologyMetadata {
+    pub properties: JsonTopicOntologyProperties,
     pub user_metadata: JsonMetadataBlob,
 }
 
-impl JsonTopicSchemaMetadata {
+impl JsonTopicOntologyMetadata {
     pub fn to_flat_hashmap(self) -> Result<HashMap<String, String>, MetadataError> {
         Ok(HashMap::from([
             (
@@ -132,8 +132,8 @@ impl JsonTopicSchemaMetadata {
     }
 }
 
-impl From<JsonTopicSchemaMetadata> for types::TopicSchemaMetadata<JsonMetadataBlob> {
-    fn from(value: JsonTopicSchemaMetadata) -> Self {
+impl From<JsonTopicOntologyMetadata> for types::TopicOntologyMetadata<JsonMetadataBlob> {
+    fn from(value: JsonTopicOntologyMetadata) -> Self {
         Self {
             user_metadata: Some(value.user_metadata),
             properties: value.properties.into(),
@@ -141,13 +141,13 @@ impl From<JsonTopicSchemaMetadata> for types::TopicSchemaMetadata<JsonMetadataBl
     }
 }
 
-impl From<types::TopicSchemaMetadata<JsonMetadataBlob>> for JsonTopicSchemaMetadata {
-    fn from(value: types::TopicSchemaMetadata<JsonMetadataBlob>) -> Self {
+impl From<types::TopicOntologyMetadata<JsonMetadataBlob>> for JsonTopicOntologyMetadata {
+    fn from(value: types::TopicOntologyMetadata<JsonMetadataBlob>) -> Self {
         Self {
             user_metadata: value
                 .user_metadata
                 .unwrap_or(JsonMetadataBlob(serde_json::Value::Null)),
-            properties: JsonTopicSchemaProperties::from(value.properties),
+            properties: JsonTopicOntologyProperties::from(value.properties),
         }
     }
 }
@@ -155,7 +155,7 @@ impl From<types::TopicSchemaMetadata<JsonMetadataBlob>> for JsonTopicSchemaMetad
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct JsonTopicManifest {
     pub properties: JsonTopicProperties,
-    pub schema: JsonTopicSchemaMetadata,
+    pub ontology_metadata: JsonTopicOntologyMetadata,
 }
 
 impl TryFrom<JsonTopicManifest> for types::TopicManifest<JsonMetadataBlob> {
@@ -163,7 +163,7 @@ impl TryFrom<JsonTopicManifest> for types::TopicManifest<JsonMetadataBlob> {
 
     fn try_from(v: JsonTopicManifest) -> Result<Self, Error> {
         Ok(Self {
-            schema: v.schema.into(),
+            ontology_metadata: v.ontology_metadata.into(),
             properties: JsonTopicProperties::try_into(v.properties)?,
         })
     }
@@ -172,7 +172,7 @@ impl TryFrom<JsonTopicManifest> for types::TopicManifest<JsonMetadataBlob> {
 impl From<types::TopicManifest<JsonMetadataBlob>> for JsonTopicManifest {
     fn from(value: types::TopicManifest<JsonMetadataBlob>) -> Self {
         Self {
-            schema: value.schema.into(),
+            ontology_metadata: value.ontology_metadata.into(),
             properties: value.properties.into(),
         }
     }
