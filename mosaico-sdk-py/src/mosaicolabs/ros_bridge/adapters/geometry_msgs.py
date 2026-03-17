@@ -22,12 +22,12 @@ from mosaicolabs.models.data import (
 )
 
 from ..adapter_base import ROSAdapterBase
-from ..ros_bridge import register_adapter
+from ..ros_bridge import register_default_adapter
 from ..ros_message import ROSMessage
 from .helpers import _validate_msgdata
 
 
-@register_adapter
+@register_default_adapter
 class PoseAdapter(ROSAdapterBase[Pose]):
     """
     Adapter for translating ROS Pose-related messages to Mosaico `Pose`.
@@ -160,7 +160,7 @@ class PoseAdapter(ROSAdapterBase[Pose]):
             )
 
 
-@register_adapter
+@register_default_adapter
 class TwistAdapter(ROSAdapterBase[Velocity]):
     """
     Adapter for translating ROS Twist-related messages to Mosaico `Velocity`.
@@ -293,7 +293,7 @@ class TwistAdapter(ROSAdapterBase[Velocity]):
         return None
 
 
-@register_adapter
+@register_default_adapter
 class AccelAdapter(ROSAdapterBase[Acceleration]):
     """
     Adapter for translating ROS Accel-related messages to Mosaico `Acceleration`.
@@ -422,7 +422,7 @@ class AccelAdapter(ROSAdapterBase[Acceleration]):
         return None
 
 
-@register_adapter
+@register_default_adapter
 class Vector3Adapter(ROSAdapterBase[Vector3d]):
     """
     Adapter for translating ROS Vector3 messages to Mosaico [`Vector3d`][mosaicolabs.models.data.Vector3d].
@@ -536,7 +536,7 @@ class Vector3Adapter(ROSAdapterBase[Vector3d]):
         return None
 
 
-@register_adapter
+@register_default_adapter
 class PointAdapter(ROSAdapterBase[Point3d]):
     """
     Adapter for translating ROS Point messages to Mosaico `Point3d`.
@@ -650,7 +650,7 @@ class PointAdapter(ROSAdapterBase[Point3d]):
         return None
 
 
-@register_adapter
+@register_default_adapter
 class QuaternionAdapter(ROSAdapterBase[Quaternion]):
     """
     Adapter for translating ROS Quaternion messages to Mosaico `Quaternion`.
@@ -765,7 +765,7 @@ class QuaternionAdapter(ROSAdapterBase[Quaternion]):
         return None
 
 
-@register_adapter
+@register_default_adapter
 class TransformAdapter(ROSAdapterBase[Transform]):
     """
     Adapter for translating ROS Transform messages to Mosaico `Transform`.
@@ -881,7 +881,7 @@ class TransformAdapter(ROSAdapterBase[Transform]):
         return None
 
 
-@register_adapter
+@register_default_adapter
 class WrenchAdapter(ROSAdapterBase[ForceTorque]):
     """
     Adapter for translating ROS Wrench messages to Mosaico `ForceTorque`.

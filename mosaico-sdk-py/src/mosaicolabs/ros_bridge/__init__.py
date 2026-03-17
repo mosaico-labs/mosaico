@@ -7,5 +7,8 @@ from .injector import (
     ROSInjectionConfig as ROSInjectionConfig,
 )
 from .registry import ROSTypeRegistry as ROSTypeRegistry
-from .ros_bridge import ROSBridge as ROSBridge, register_adapter as register_adapter
+from .ros_bridge import (
+    ROSBridge as ROSBridge,
+    register_default_adapter as register_default_adapter,
+)
 from .ros_message import ROSHeader as ROSHeader, ROSMessage as ROSMessage
