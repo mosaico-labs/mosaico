@@ -15,7 +15,7 @@ from mosaicolabs.models.sensors import (
 
 from ..adapter_base import ROSAdapterBase
 from ..data_ontology import BatteryState, PointCloud2, PointField
-from ..ros_bridge import register_adapter
+from ..ros_bridge import register_default_adapter
 from ..ros_message import ROSMessage
 from .geometry_msgs import (
     QuaternionAdapter,
@@ -24,7 +24,7 @@ from .geometry_msgs import (
 from .helpers import _validate_msgdata
 
 
-@register_adapter
+@register_default_adapter
 class CameraInfoAdapter(ROSAdapterBase[CameraInfo]):
     """
     Adapter for translating ROS CameraInfo messages to Mosaico `CameraInfo`.
@@ -254,7 +254,7 @@ class NavSatStatusAdapter(ROSAdapterBase[GPSStatus]):
         return schema_mdata if schema_mdata else None
 
 
-@register_adapter
+@register_default_adapter
 class GPSAdapter(ROSAdapterBase[GPS]):
     """
     Adapter for translating ROS NavSatFix messages to Mosaico `GPS`.
@@ -369,7 +369,7 @@ class GPSAdapter(ROSAdapterBase[GPS]):
         return schema_mdata if schema_mdata else None
 
 
-@register_adapter
+@register_default_adapter
 class IMUAdapter(ROSAdapterBase[IMU]):
     """
     Adapter for translating ROS Imu messages to Mosaico `IMU`.
@@ -507,7 +507,7 @@ class IMUAdapter(ROSAdapterBase[IMU]):
         return None
 
 
-@register_adapter
+@register_default_adapter
 class NMEASentenceAdapter(ROSAdapterBase[NMEASentence]):
     """
     Adapter for translating ROS NMEASentence messages to Mosaico `NMEASentence`.
@@ -583,7 +583,7 @@ class NMEASentenceAdapter(ROSAdapterBase[NMEASentence]):
         return None
 
 
-@register_adapter
+@register_default_adapter
 class ImageAdapter(ROSAdapterBase[Image]):
     """
     Adapter for translating ROS Image messages to Mosaico `Image`.
@@ -685,7 +685,7 @@ class ImageAdapter(ROSAdapterBase[Image]):
         return None
 
 
-@register_adapter
+@register_default_adapter
 class CompressedImageAdapter(ROSAdapterBase[CompressedImage]):
     """
     Adapter for translating ROS CompressedImage messages to Mosaico `CompressedImage`.
@@ -770,7 +770,7 @@ class CompressedImageAdapter(ROSAdapterBase[CompressedImage]):
         return None
 
 
-@register_adapter
+@register_default_adapter
 class ROIAdapter(ROSAdapterBase[ROI]):
     """
     Adapter for translating ROS RegionOfInterest messages to Mosaico `ROI`.
@@ -862,7 +862,7 @@ class ROIAdapter(ROSAdapterBase[ROI]):
         return None
 
 
-@register_adapter
+@register_default_adapter
 class BatteryStateAdapter(ROSAdapterBase[BatteryState]):
     """
     Adapter for translating ROS BatteryState messages to Mosaico `BatteryState`.
@@ -1016,7 +1016,7 @@ class BatteryStateAdapter(ROSAdapterBase[BatteryState]):
         return schema_mdata if schema_mdata else None
 
 
-@register_adapter
+@register_default_adapter
 class RobotJointAdapter(ROSAdapterBase[RobotJoint]):
     """
     Adapter for translating ROS JointState messages to Mosaico `RobotJoint`.
@@ -1111,7 +1111,7 @@ class RobotJointAdapter(ROSAdapterBase[RobotJoint]):
         return None
 
 
-@register_adapter
+@register_default_adapter
 class PointCloudAdapter(ROSAdapterBase[PointCloud2]):
     """
         Adapter for translating ROS PointCloud2 messages to Mosaico `PointCloud2`.
