@@ -217,29 +217,34 @@ class TopicWriter:
         """
         Context manager exit.
 
-        Guarantees cleanup of the Flight stream. If an exception occurred within
+        Guarantees correct error handling and Flight stream management. If an exception occurred within
         the block, it triggers the configured `TopicLevelErrorPolicy` (e.g., reporting the error).
         Exceptions from the with-block are propagated if the error policy is set to `Raise`.
         """
         error_occurred = exc_type is not None
 
-        try:
-            # Attempt to flush remaining data and close stream
-            self._finalize(error=exc_val)
-        except Exception as e:
-            # FINALIZE FAILED: treat this as an error condition
-            logger.exception(f"Failed to finalize topic '{self._name}': '{e}'")
-            error_occurred = True
-            if not exc_type:
-                # If no exception was raised in the with-block, raise the finalize exception
-                exc_type, exc_val = type(e), e
+        # Normal exit or Finalize error policy: attempt to flush remaining data and close stream
+        if (
+            not error_occurred
+            or self._config.on_error == TopicLevelErrorPolicy.Finalize
+        ):
+            try:
+                if self.is_active:
+                    # Attempt to flush remaining data and close stream
+                    self._finalize(error=exc_val)
+            except Exception as e:
+                # FINALIZE FAILED: treat this as an error condition
+                logger.exception(f"Failed to finalize topic '{self._name}': '{e}'")
+                error_occurred = True
+                if not exc_type:
+                    # If no exception was raised in the with-block, raise the finalize exception
+                    exc_type, exc_val = type(e), e
 
         if error_occurred:
             # Handle the error according to the configured policy
             try:
                 if self._config.on_error == TopicLevelErrorPolicy.Finalize:
-                    self._error_report(str(exc_val))
-                    self._wrstate.writer = None  # Close the topic
+                    # Already closed and reported in the block above
                     return True  # suppress exception
                 elif self._config.on_error == TopicLevelErrorPolicy.Ignore:
                     self._error_report(str(exc_val))
@@ -261,25 +266,6 @@ class TopicWriter:
                 f"TopicWriter '{name}' destroyed without calling _finalize(). "
                 "Resources may not have been released properly."
             )
-
-    def _handle_exception_and_raise(self, err: Exception, msg: str):
-        """Helper to cleanup resources and re-raise exceptions with context."""
-        try:
-            if self._config.on_error == TopicLevelErrorPolicy.Finalize:
-                self._error_report(str(err))
-                self._wrstate.writer = None  # Close the topic
-            elif self._config.on_error == TopicLevelErrorPolicy.Ignore:
-                self._error_report(str(err))
-            elif self._config.on_error == TopicLevelErrorPolicy.Raise:
-                raise err
-        except Exception as report_err:
-            logger.error(f"Failed to report error: '{report_err}'")
-        finally:
-            # Always attempt to close local resources
-            if hasattr(self, "_wrstate") and self._wrstate:
-                self._wrstate.close(with_error=True)
-
-        raise _make_exception(f"Topic '{self._name}' operation failed: '{msg}'", err)
 
     @classmethod
     def _validate_ontology_type(cls, ontology_type: Type[Serializable]) -> None:
@@ -375,15 +361,11 @@ class TopicWriter:
             1. See also: [`MosaicoClient.sequence_create()`][mosaicolabs.comm.MosaicoClient.sequence_create]
             2. See also: [`SequenceWriter.topic_create()`][mosaicolabs.handlers.SequenceWriter.topic_create]
         """
-        if not self.is_active:
-            logger.warning(
-                f"Called push() on a closed TopicWriter '{self._name}'. Message not sent."
-            )
-            return
         try:
             self._wrstate.push_record(message)
         except Exception as e:
-            self._handle_exception_and_raise(e, "Error during TopicWriter.push")
+            logger.error(f"Error during TopicWriter.push: '{e}'")
+            raise e
 
     @property
     def name(self) -> str:
