@@ -221,6 +221,9 @@ class _TopicWriteState:
 
         Automatically delegates to `_push_by_bytes_size` or `_push_by_count`
         based on the ontology type defined in the message.
+
+        Raises:
+            ValueError: If the writer is None.
         """
         if self.writer is None:
             raise ValueError("write() called on uninitialized state.")

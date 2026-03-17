@@ -17,7 +17,7 @@ from mosaicolabs.models import Serializable
 from mosaicolabs.models.message import Message
 
 from ..comm.do_action import _do_action
-from ..enum import FlightAction
+from ..enum import FlightAction, TopicWriterStatus
 from ..helpers import pack_topic_resource_name
 from ..logging_config import get_logger
 from .config import TopicWriterConfig
@@ -120,6 +120,8 @@ class TopicWriter:
         """The config of the writer"""
         self._wrstate: _TopicWriteState = state
         """The actual writer object"""
+        self._status: TopicWriterStatus = TopicWriterStatus.Active
+        """The status of the writer"""
 
     @classmethod
     def _create(
@@ -218,38 +220,25 @@ class TopicWriter:
         Context manager exit.
 
         Guarantees correct error handling and Flight stream management. If an exception occurred within
-        the block, it triggers the configured `TopicLevelErrorPolicy` (e.g., reporting the error).
+        the block, it triggers the configured `TopicLevelErrorPolicy` (e.g., reporting the error), otherwise does nothing.
         Exceptions from the with-block are propagated if the error policy is set to `Raise`.
         """
-        error_occurred = exc_type is not None
-
-        # Normal exit or Finalize error policy: attempt to flush remaining data and close stream
-        if (
-            not error_occurred
-            or self._config.on_error == TopicLevelErrorPolicy.Finalize
-        ):
-            try:
-                if self.is_active:
-                    # Attempt to flush remaining data and close stream
-                    self._finalize(error=exc_val)
-            except Exception as e:
-                # FINALIZE FAILED: treat this as an error condition
-                logger.exception(f"Failed to finalize topic '{self._name}': '{e}'")
-                error_occurred = True
-                if not exc_type:
-                    # If no exception was raised in the with-block, raise the finalize exception
-                    exc_type, exc_val = type(e), e
-
-        if error_occurred:
+        if exc_type is not None:
             # Handle the error according to the configured policy
             try:
-                if self._config.on_error == TopicLevelErrorPolicy.Finalize:
-                    # Already closed and reported in the block above
+                if (
+                    self.is_active
+                    and self._config.on_error == TopicLevelErrorPolicy.Finalize
+                ):
+                    # Attempt to flush remaining data and close stream. This reports also
+                    self._finalize(error=exc_val)
                     return True  # suppress exception
                 elif self._config.on_error == TopicLevelErrorPolicy.Ignore:
                     self._error_report(str(exc_val))
+                    self._status = TopicWriterStatus.IgnoredLastRecord
                     return True  # suppress exception
                 elif self._config.on_error == TopicLevelErrorPolicy.Raise:
+                    self._status = TopicWriterStatus.RaisedException
                     return False  # propagate exception
             except Exception as e:
                 logger.exception(
@@ -363,8 +352,12 @@ class TopicWriter:
         """
         try:
             self._wrstate.push_record(message)
+            # If everything ok, reset any previous status
+            # (if not active, this function would raise)
+            self._status = TopicWriterStatus.Active
         except Exception as e:
             logger.error(f"Error during TopicWriter.push: '{e}'")
+            self._status = TopicWriterStatus.RaisedException
             raise e
 
     @property
@@ -378,6 +371,10 @@ class TopicWriter:
         Returns `True` if the writing stream is open and the writer accepts new messages.
         """
         return self._wrstate.writer is not None
+
+    @property
+    def status(self):
+        return self._status
 
     def _finalize(self, error: Optional[BaseException] = None) -> None:
         """
@@ -425,6 +422,11 @@ class TopicWriter:
                 exc_msg=e,
                 msg=f"Error finalizing TopicWriter '{self._name}'.",
             )
+        finally:
+            if with_error:
+                self._status = TopicWriterStatus.FinalizedWithError
+            else:
+                self._status = TopicWriterStatus.Finalized
 
         logger.info(
             f"TopicWriter '{self._name}' finalized {'WITH ERROR' if error is not None else ''} successfully."

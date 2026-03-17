@@ -8,8 +8,6 @@ class SessionStatus(Enum):
 
     This enumeration tracks the state of a session from its initial creation through
     data writing until it reaches a terminal state (Finalized or Error).
-
-
     """
 
     Null = "null"
