@@ -35,7 +35,7 @@ from mosaicolabs.models.data import (
 )
 
 from ..adapter_base import ROSAdapterBase
-from ..ros_bridge import register_adapter
+from ..ros_bridge import register_default_adapter
 from ..ros_message import ROSMessage
 from .helpers import _validate_msgdata
 
@@ -192,4 +192,4 @@ for ros_type, msco_type in _ROS_MSGTYPE_MSCO_BASE_TYPE_MAP.items():
 
     # Register the new class with the global adapter registry
     # This makes it available to the ROS Bridge for automatic resolution.
-    register_adapter(new_adapter_cls)
+    register_default_adapter(new_adapter_cls)

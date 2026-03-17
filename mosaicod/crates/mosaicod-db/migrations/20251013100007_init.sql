@@ -26,8 +26,15 @@ CREATE TABLE topic_t(
   locked        BOOL NOT NULL DEFAULT FALSE,
   user_metadata JSONB,
   
-  serialization_format  TEXT,
-  ontology_tag          TEXT,
-  
-  creation_unix_tstamp BIGINT NOT NULL
+  serialization_format  TEXT NOT NULL,
+  ontology_tag          TEXT NOT NULL,
+
+  creation_unix_tstamp BIGINT NOT NULL,
+
+  -- These fields store unsigned int 64bit numbers. Casting is required before usage.
+  chunks_number     BIGINT,
+  total_bytes       BIGINT,
+
+  start_index_timestamp   BIGINT,
+  end_index_timestamp     BIGINT
 );

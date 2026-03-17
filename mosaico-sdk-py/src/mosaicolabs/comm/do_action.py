@@ -22,7 +22,6 @@ from mosaicolabs.comm.notifications import Notification
 from ..enum import FlightAction
 from ..logging_config import get_logger
 from ..models.query import QueryResponse, QueryResponseItem
-from .platform_resource_info import PlatformResourceInfo
 
 # Set the hierarchical logger
 logger = get_logger(__name__)
@@ -198,21 +197,6 @@ class _DoActionResponseUUID(_DoActionResponse):
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "_DoActionResponseUUID":
         return cls(**data)
-
-
-@dataclass
-class _DoActionResponseSysInfo(_DoActionResponse):
-    """Response containing system information (size, dates, locks)."""
-
-    actions: ClassVar[list[FlightAction]] = [
-        FlightAction.SEQUENCE_SYSTEM_INFO,
-        FlightAction.TOPIC_SYSTEM_INFO,
-    ]
-    info: PlatformResourceInfo
-
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "_DoActionResponseSysInfo":
-        return cls(info=PlatformResourceInfo(**data))
 
 
 @dataclass

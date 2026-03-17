@@ -1,7 +1,8 @@
+use super::Error;
 use bincode::{Decode, Encode};
 use mosaicod_core::types;
+use mosaicod_core::types::{SessionManifest, UuidError};
 use serde::{Deserialize, Serialize};
-
 // ////////////////////////////////////////////////////////////////////////////
 // GET FLIGHT INFO CMD
 // ////////////////////////////////////////////////////////////////////////////
@@ -68,6 +69,104 @@ pub fn do_put_cmd(v: &[u8]) -> Result<types::flight::DoPutCmd, super::Error> {
 }
 
 // ////////////////////////////////////////////////////////////////////////////
+// SEQUENCE APP METADATA
+// ////////////////////////////////////////////////////////////////////////////
+
+/// Sequence app metadata sent when requesting flight info topics and sequences flights
+#[derive(Serialize, Deserialize)]
+pub struct SequenceAppMetadata {
+    created_timestamp: i64,
+    resource_locator: String,
+    sessions: Vec<SessionAppMetadata>,
+}
+
+impl From<types::SequenceManifest> for SequenceAppMetadata {
+    fn from(value: types::SequenceManifest) -> Self {
+        Self {
+            created_timestamp: value.created_timestamp.as_i64(),
+            resource_locator: value.resource_locator.into(),
+            sessions: value.sessions.into_iter().map(Into::into).collect(),
+        }
+    }
+}
+
+impl TryFrom<SequenceAppMetadata> for types::SequenceManifest {
+    type Error = super::Error;
+
+    fn try_from(value: SequenceAppMetadata) -> Result<Self, Self::Error> {
+        let res = Self {
+            created_timestamp: value.created_timestamp.into(),
+            resource_locator: value.resource_locator.into(),
+            sessions: value
+                .sessions
+                .into_iter()
+                .map(TryInto::try_into)
+                .collect::<Result<Vec<_>, _>>()?,
+        };
+
+        Ok(res)
+    }
+}
+
+impl From<SequenceAppMetadata> for bytes::Bytes {
+    fn from(value: SequenceAppMetadata) -> Self {
+        serde_json::to_vec(&value).unwrap_or_default().into()
+    }
+}
+
+impl TryFrom<bytes::Bytes> for SequenceAppMetadata {
+    type Error = Error;
+    fn try_from(value: bytes::Bytes) -> Result<Self, Error> {
+        serde_json::from_slice(value.as_ref())
+            .map_err(|e| Error::DeserializationError(e.to_string()))
+    }
+}
+
+// ////////////////////////////////////////////////////////////////////////////
+// SESSION APP METADATA
+// ////////////////////////////////////////////////////////////////////////////
+
+#[derive(Serialize, Deserialize)]
+pub struct SessionAppMetadata {
+    uuid: String,
+    created_at: i64,
+    completed_at: Option<i64>,
+    topics: Vec<String>,
+    locked: bool,
+}
+
+impl From<types::SessionManifest> for SessionAppMetadata {
+    fn from(value: types::SessionManifest) -> Self {
+        Self {
+            uuid: value.uuid.to_string(),
+            created_at: value.created_at.as_i64(),
+            completed_at: value.completed_at.map(Into::into),
+            topics: value.topics.into_iter().map(Into::into).collect(),
+            locked: value.locked,
+        }
+    }
+}
+
+impl TryFrom<SessionAppMetadata> for types::SessionManifest {
+    type Error = super::Error;
+
+    fn try_from(value: SessionAppMetadata) -> Result<Self, Self::Error> {
+        let uuid: types::Uuid = value
+            .uuid
+            .parse()
+            .map_err(|e: UuidError| Error::DeserializationError(e.to_string()))?;
+
+        Ok(SessionManifest {
+            uuid,
+            created_at: value.created_at.into(),
+            completed_at: value.completed_at.map(Into::into),
+            topics: value.topics.into_iter().map(Into::into).collect(),
+            locked: value.locked,
+        })
+    }
+}
+
+// ////////////////////////////////////////////////////////////////////////////
 // TICKET TOPIC
 // ////////////////////////////////////////////////////////////////////////////
 #[derive(Encode, Decode)]
@@ -127,33 +226,71 @@ pub fn ticket_topic_from_binary(v: &[u8]) -> Result<types::flight::TicketTopic, 
 // TOPIC APP METADATA
 // ////////////////////////////////////////////////////////////////////////////
 
-#[derive(Serialize)]
-struct TopicAppMetadataTimestamp {
+#[derive(Serialize, Deserialize)]
+pub struct TopicAppMetadataTimestamp {
     /// Minimum timestamp observed in the topic
     min: i64,
     /// Maximum timestamp observed in the topic
     max: i64,
 }
 
-/// Topic app metadata sent when requesting flight info topics and sequences flights
-#[derive(Serialize)]
-pub struct TopicAppMetadata {
-    /// Topic timestamp data
-    timestamp: Option<TopicAppMetadataTimestamp>,
+impl From<types::TimestampRange> for TopicAppMetadataTimestamp {
+    fn from(value: types::TimestampRange) -> Self {
+        Self {
+            min: value.start.as_i64(),
+            max: value.end.as_i64(),
+        }
+    }
 }
 
-// (cabba) TODO: Use `From` trait
-impl TopicAppMetadata {
-    pub fn new(manifest: &types::TopicManifest) -> Self {
+impl From<TopicAppMetadataTimestamp> for types::TimestampRange {
+    fn from(value: TopicAppMetadataTimestamp) -> Self {
         Self {
-            timestamp: manifest
-                .timestamp
-                .as_ref()
-                .map(|ts| TopicAppMetadataTimestamp {
-                    min: ts.range.start.as_i64(),
-                    max: ts.range.end.as_i64(),
-                }),
+            start: value.min.into(),
+            end: value.max.into(),
         }
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct TopicAppMetadataInfo {
+    pub chunks_number: u64,
+    pub total_bytes: u64,
+    pub timestamp: Option<TopicAppMetadataTimestamp>,
+}
+
+/// Topic app metadata sent when requesting flight info topics and sequences flights
+#[derive(Serialize, Deserialize)]
+pub struct TopicAppMetadata {
+    pub created_at: i64,
+    pub completed_at: Option<i64>,
+    pub locked: bool,
+    pub resource_locator: String,
+    pub info: Option<TopicAppMetadataInfo>,
+}
+
+impl TopicAppMetadata {
+    pub fn new(metadata: types::TopicProperties) -> Self {
+        Self {
+            created_at: metadata.created_at.as_i64(),
+            completed_at: metadata.completed_at.map(Into::into),
+            locked: metadata.locked,
+            resource_locator: metadata.resource_locator.to_string(),
+            info: None,
+        }
+    }
+
+    pub fn with_info(mut self, info: types::TopicDataInfo) -> Self {
+        self.info = Some(TopicAppMetadataInfo {
+            chunks_number: info.chunks_number,
+            total_bytes: info.total_bytes,
+            timestamp: if info.timestamp_range.is_unbounded() {
+                None
+            } else {
+                Some(info.timestamp_range.into())
+            },
+        });
+        self
     }
 }
 
@@ -163,12 +300,19 @@ impl From<TopicAppMetadata> for bytes::Bytes {
     }
 }
 
+impl TryFrom<bytes::Bytes> for TopicAppMetadata {
+    type Error = Error;
+    fn try_from(value: bytes::Bytes) -> Result<Self, Error> {
+        serde_json::from_slice(value.as_ref())
+            .map_err(|e| Error::DeserializationError(e.to_string()))
+    }
+}
+
 // ////////////////////////////////////////////////////////////////////////////
 // TESTS
 // ////////////////////////////////////////////////////////////////////////////
 #[cfg(test)]
 mod tests {
-
     use mosaicod_core::types;
 
     /// Check that the conversion between [`super::GetFlightInfoCmd`] and

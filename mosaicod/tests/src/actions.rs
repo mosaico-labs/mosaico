@@ -1,6 +1,6 @@
 use super::common::{ActionResponse, Client};
 use arrow_flight::encode::FlightDataEncoderBuilder;
-use arrow_flight::{Action, FlightDescriptor, PutResult};
+use arrow_flight::{Action, FlightDescriptor, FlightInfo, PutResult};
 use mosaicod_core::types;
 use tonic::Streaming;
 
@@ -315,4 +315,27 @@ pub async fn server_version(client: &mut Client) {
             assert!(pre.is_string());
         }
     }
+}
+
+/// Returns flight info data for a sequence or a topic.
+pub async fn get_flight_info(
+    client: &mut Client,
+    topic_name: &str,
+) -> Result<FlightInfo, tonic::Status> {
+    let cmd = format!(
+        r#"
+        {{
+            "resource_locator": "{}"
+        }}
+        "#,
+        topic_name
+    );
+
+    dbg!(&cmd);
+
+    let descriptor = FlightDescriptor::new_cmd(cmd);
+
+    let info = client.get_flight_info(descriptor).await?.into_inner();
+
+    Ok(info)
 }

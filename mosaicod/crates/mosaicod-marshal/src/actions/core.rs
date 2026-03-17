@@ -46,9 +46,6 @@ pub enum ActionRequest {
     /// Deletes an unlocked sequence from the system.
     SequenceDelete(requests::ResourceLocator),
 
-    /// Ask for system informations about the sequence
-    SequenceSystemInfo(requests::ResourceLocator),
-
     /// Creates a notification associated with a sequence.
     SequenceNotificationCreate(requests::NotificationCreate),
 
@@ -72,9 +69,6 @@ pub enum ActionRequest {
 
     /// Deletes all notifications associated with a topic
     TopicNotificationPurge(requests::ResourceLocator),
-
-    /// Ask for system information about the topic
-    TopicSystemInfo(requests::ResourceLocator),
 
     /// Creates a new upload session for a sequence
     SessionCreate(requests::ResourceLocator),
@@ -121,14 +115,12 @@ impl ActionRequest {
         match value {
             "sequence_create" => parse_action_req!(SequenceCreate, body),
             "sequence_delete" => parse_action_req!(SequenceDelete, body),
-            "sequence_system_info" => parse_action_req!(SequenceSystemInfo, body),
             "sequence_notification_create" => parse_action_req!(SequenceNotificationCreate, body),
             "sequence_notification_list" => parse_action_req!(SequenceNotificationList, body),
             "sequence_notification_purge" => parse_action_req!(SequenceNotificationPurge, body),
 
             "topic_create" => parse_action_req!(TopicCreate, body),
             "topic_delete" => parse_action_req!(TopicDelete, body),
-            "topic_system_info" => parse_action_req!(TopicSystemInfo, body),
             "topic_notification_create" => parse_action_req!(TopicNotificationCreate, body),
             "topic_notification_list" => parse_action_req!(TopicNotificationList, body),
             "topic_notification_purge" => parse_action_req!(TopicNotificationPurge, body),
@@ -159,11 +151,9 @@ pub enum ActionResponse {
     SequenceDelete(()),
     SequenceNotificationCreate(()),
     SequenceNotificationPurge(()),
-    SequenceSystemInfo(responses::SequenceSystemInfo),
     SequenceNotificationList(responses::NotificationList),
 
     TopicCreate(responses::ResourceUuid),
-    TopicSystemInfo(responses::TopicSystemInfo),
     TopicNotificationList(responses::NotificationList),
 
     /// Returns the response key associated with the session just created
@@ -207,10 +197,6 @@ impl ActionResponse {
 
     pub fn sequence_notification_list(response: responses::NotificationList) -> Self {
         Self::SequenceNotificationList(response)
-    }
-
-    pub fn sequence_system_info(response: responses::SequenceSystemInfo) -> Self {
-        Self::SequenceSystemInfo(response)
     }
 
     pub fn session_create(response: responses::ResourceUuid) -> Self {

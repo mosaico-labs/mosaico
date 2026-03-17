@@ -10,7 +10,7 @@ use mosaicod_marshal::{self as marshal, ActionResponse};
 pub async fn create(
     ctx: &Context,
     name: String,
-    sequence_key: String,
+    session_uuid: String,
     serialization_format: types::Format,
     ontology_tag: String,
     user_metadata_str: &str,
@@ -20,16 +20,20 @@ pub async fn create(
     let user_mdata =
         marshal::JsonMetadataBlob::try_from_str(user_metadata_str).map_err(facade::Error::from)?;
 
-    let mdata = types::TopicMetadata::new(
-        types::TopicProperties::new(serialization_format, ontology_tag),
-        user_mdata,
+    let received_uuid: types::Uuid = session_uuid.parse()?;
+
+    let ontology_metadata = types::TopicOntologyMetadata::new(
+        types::TopicOntologyProperties {
+            serialization_format,
+            ontology_tag,
+        },
+        Some(user_mdata),
     );
 
-    let received_uuid: types::Uuid = sequence_key.parse()?;
     let ftopic = facade::Topic::create(
         name.into(),
         &received_uuid,
-        Some(mdata),
+        ontology_metadata,
         ctx.store.clone(),
         ctx.db.clone(),
     )
@@ -52,7 +56,7 @@ pub async fn delete(ctx: &Context, locator: String) -> Result<ActionResponse, Se
         facade::Topic::try_from_locator(locator.clone().into(), ctx.store.clone(), ctx.db.clone())
             .await?;
 
-    if handle.is_locked().await? {
+    if handle.locked().await? {
         return Err(ServerError::TopicLocked);
     }
 
@@ -104,15 +108,4 @@ pub async fn notification_purge(
     ftopic.notification_purge().await?;
 
     Ok(ActionResponse::Empty)
-}
-
-/// Gets system information for a topic.
-pub async fn system_info(ctx: &Context, locator: String) -> Result<ActionResponse, ServerError> {
-    info!("[{}] topic system information", locator);
-
-    let ftopic =
-        facade::Topic::try_from_locator(locator.into(), ctx.store.clone(), ctx.db.clone()).await?;
-    let sysinfo = ftopic.system_info().await?;
-
-    Ok(ActionResponse::TopicSystemInfo(sysinfo.into()))
 }

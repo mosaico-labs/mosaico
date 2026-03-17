@@ -33,20 +33,20 @@ Users can extend the bridge to support new ROS message types by implementing a c
 
 1.  **Inherit from `ROSAdapterBase`**: Define the input ROS type string and the target Mosaico Ontology type.
 2.  **Implement `from_dict`**: Define the logic to convert the [`ROSMessage.data`][mosaicolabs.ros_bridge.ROSMessage] dictionary into an intance of the target ontology object.
-3.  **Register**: Decorate the class with [`@register_adapter`][mosaicolabs.ros_bridge.register_adapter].
+3.  **Register**: Decorate the class with [`@register_default_adapter`][mosaicolabs.ros_bridge.register_default_adapter].
 
 ```python
-from mosaicolabs.ros_bridge import ROSAdapterBase, register_adapter, ROSMessage
+from mosaicolabs.ros_bridge import ROSAdapterBase, register_default_adapter, ROSMessage
 from mosaicolabs.models import Message
 from my_ontology import MyCustomData # Assuming this class exists
 
-@register_adapter
+@register_default_adapter
 class MyCustomAdapter(ROSAdapterBase[MyCustomData]):
     ros_msgtype = "my_pkg/msg/MyCustomType"
     __mosaico_ontology_type__ = MyCustomData
 
     @classmethod
-    def from_dict(cls, ros_data: dict) -> MyCustomData:
+    def from_dict(cls, ros_data: dict, **kwargs) -> MyCustomData:
         # Transformation logic here
         return MyCustomData(...)
 ```
@@ -79,6 +79,7 @@ The behavior of the injector is entirely driven by the **[`ROSInjectionConfig`][
 | **`ros_distro`** | [`Stores`](https://ternaris.gitlab.io/rosbags/topics/typesys.html#type-stores) | **Crucial for `.db3` bags:** Specifies the ROS distribution (e.g., `ROS2_HUMBLE`) to ensure standard messages are parsed with the correct schema version. |
 | **`topics`** | `List[str]` | A filter list supporting glob patterns (e.g., `["/camera/*"]`). If omitted, all supported topics are ingested. |
 | **`custom_msgs`** | `List` | A list of tuples `(package, path, store)` used to dynamically register proprietary message definitions at runtime. |
+| **`adapter_override`** | `Dict[str, Type[ROSAdapterBase]]` | A mapping of topics to adapter overrides, allowing the use of specific adapters instead of the default for designated topics. |
 | **`on_error`** | [`OnErrorPolicy`][mosaicolabs.enum.OnErrorPolicy] | **Safety Switch:** Determines if a failed upload should `Delete` the partial sequence or `Report` the error and keep the data. |
 | **`log_level`** | `str` | Controls terminal verbosity, ranging from `DEBUG` to `ERROR`. |
 
@@ -122,6 +123,14 @@ def run_injection():
             ) # registry will automatically infer type names as `my_custom_pkg/msg/{filename}`
         ],
         
+        # Adapter Overrides
+        # Use specific adapters for designated topics instead of the default.
+        # In this case, instead to use PointCloudAdapter for depth camera,
+        # MyCustomRGBDAdapter will be used for the specified topic.
+        adapter_override={
+            "/camera/depth/points": MyCustomRGBDAdapter,
+        },
+
         # Execution Settings
         log_level="WARNING",  # Reduce verbosity for automated scripts
     )
@@ -142,6 +151,105 @@ def run_injection():
 if __name__ == "__main__":
     run_injection()
 ```
+
+
+#### Override Adapters
+This section explains how to extend the bridge's capabilities by implementing and registering Override Adapters.
+
+##### Overriding and Extending Adapters
+While the ROS Bridge provides a robust set of default adapters for standard message types, real-world robotics often involve proprietary message definitions or non-standard uses of common types.
+
+Through the **`adapter_override`** parameter in the `ROSInjectionConfig`, you can explicitly map a specific topic to a chosen adapter. This is particularly useful for types like [`sensor_msgs/msg/PointCloud2`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/PointCloud2.html), where, for example, different LiDAR vendors may encode data in unique ways that require specialized parsing logic.
+
+
+!!! important "Override adapter usage"
+    Use adapter overrides for versatile message types like [`sensor_msgs/msg/PointCloud2`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/PointCloud2.html), where different sensors (LiDAR, Radar, etc.) share the same ROS type but require unique parsing logic. Overrides should be used when the default adapter cannot satisfy specific topic requirements. If your message type is used consistently across all topics, simply use the [`@register_default_adapter`][mosaicolabs.ros_bridge.register_default_adapter] decorator to establish a global fallback.
+
+##### Implementing a Custom Adapter
+To create a custom adapter, you must inherit from `ROSAdapterBase` and define the transformation logic.
+Here is a structural example of a custom LiDAR adapter:
+
+```python
+from typing import Any, Optional, Type, Tuple
+from mosaicolabs.ros_bridge import ROSAdapterBase, ROSMessage
+from mosaicolabs.models import Message
+from my_ontology import MyLidar # Your target Ontology class
+
+class MyCustomLidarAdapter(ROSAdapterBase[MyLidar]):
+    # Define which ROS type this adapter handles
+    ros_msgtype: str | Tuple[str, ...] = "sensor_msgs/msg/PointCloud2"
+
+    # Define the target Mosaico Ontology class
+    __mosaico_ontology_type__: Type[MyLidar] = MyLidar
+
+    @classmethod
+    def translate(
+        cls,
+        ros_msg: ROSMessage,
+        **kwargs: Any,
+    ) -> Message:
+        """
+        Optional: Override the high-level translation if you need to
+        manipulate the ROSMessage envelope before processing.
+        """
+        # Optionally add pre/post processing logic around the base translation.
+        return super().translate(ros_msg, **kwargs)
+
+
+    @classmethod
+    def from_dict(cls, ros_data: dict) -> MyLidar:
+        """
+        The primary transformation logic.
+        Converts the deserialized ROS dictionary into a Mosaico object.
+        """
+        # Core transformation logic: map raw ROS fields to your ontology type.
+        return MyLidar(
+            # ... map ros_data fields to MyLidar fields
+        )
+
+
+    @classmethod
+    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
+        """
+        Optional: Extract specific metadata from the ROS message
+        to be stored in the Mosaico schema registry.
+        """
+        return None
+```
+
+##### Key Methods
+**`from_dict(ros_data)`**: This is the most important method. It receives the ROS message as a Python dictionary and must return an instance of your target Mosaico Ontology class.
+
+**`translate(ros_msg)`**: This is the entry point called by the ROSBridge. It usually just calls `from_dict`, but you can override it if you need access to the message metadata during conversion.
+
+**`schema_metadata(ros_data)`**: Use this to extract metadata information about the sensor configuration that is useful for the platform to know.
+
+##### Registering the Override
+Once implemented, the adapter is registered against a specific topic via `adapter_override` in [ROSInjectionConfig][mosaicolabs.ros_bridge.ROSInjectionConfig]:
+
+```python
+from .my_adapter import MyCustomLidarAdapter
+
+...
+
+config = ROSInjectionConfig(
+    file_path=Path("sensor_data.mcap"),
+    sequence_name="custom_lidar_run",
+    # Explicitly tell the bridge to use your custom adapter for this topic
+    adapter_override={
+        "/lidar/front/pointcloud": MyCustomLidarAdapter,
+    }
+)
+
+...
+
+injector = RosbagInjector(config)
+injector.run()
+```
+
+With this configuration, all the [`sensor_msgs/msg/PointCloud2`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/PointCloud2.html) message received on `/lidar/front/pointcloud`, will be processed exclusively by `MyCustomLidarAdapter`. All other topics continue to use the standard resolution logic.
+
+By using this pattern, you can maintain a clean separation between your raw ROS data and your high-level Mosaico data models, ensuring that even the most "exotic" sensor data is correctly ingested and indexed.
 
 #### CLI Usage
 

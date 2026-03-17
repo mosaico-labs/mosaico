@@ -84,14 +84,6 @@ impl From<Timestamp> for i64 {
     }
 }
 
-impl From<Timestamp> for DateTime {
-    fn from(value: Timestamp) -> Self {
-        Self(chrono::DateTime::<chrono::Utc>::from_timestamp_nanos(
-            value.0,
-        ))
-    }
-}
-
 /// Represents a closed interval of time where both the start and end are included.
 ///
 /// This struct defines a range $[start, end]$. A timestamp is considered
@@ -103,6 +95,10 @@ pub struct TimestampRange {
 }
 
 impl TimestampRange {
+    pub fn unbounded() -> Self {
+        Self::between(Timestamp::unbounded_neg(), Timestamp::unbounded_pos())
+    }
+
     pub fn between(start: Timestamp, end: Timestamp) -> Self {
         Self { start, end }
     }
@@ -160,6 +156,14 @@ impl DateTime {
 impl std::fmt::Display for DateTime {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0.format("%Y-%m-%d %H:%M UTC"))
+    }
+}
+
+impl From<Timestamp> for DateTime {
+    fn from(value: Timestamp) -> Self {
+        Self(chrono::DateTime::<chrono::Utc>::from_timestamp_nanos(
+            value.0,
+        ))
     }
 }
 

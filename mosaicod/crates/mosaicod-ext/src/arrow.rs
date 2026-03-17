@@ -339,6 +339,28 @@ pub mod testing {
     use arrow::array::Int64Array;
     use arrow::datatypes::Schema;
 
+    pub fn dummy_empty_batch() -> RecordBatch {
+        let schema = Arc::new(Schema::new(vec![
+            Field::new(
+                params::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP,
+                DataType::Int64,
+                false,
+            ),
+            Field::new("value", DataType::Int64, false),
+        ]));
+
+        let empty_vec: Vec<i64> = Vec::new();
+
+        RecordBatch::try_new(
+            schema.clone(),
+            vec![
+                Arc::new(Int64Array::from(empty_vec.clone())),
+                Arc::new(Int64Array::from(empty_vec)),
+            ],
+        )
+        .unwrap()
+    }
+
     pub fn dummy_batch() -> RecordBatch {
         let schema = Arc::new(Schema::new(vec![
             Field::new(
