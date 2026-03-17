@@ -39,7 +39,7 @@ pub async fn create(
         Some(user_mdata),
     );
 
-    let r_id = handle.create(&received_uuid, schema_metadata).await?;
+    let r_id = handle.create(received_uuid, schema_metadata).await?;
 
     trace!(
         "resource {} created with uuid {}",
@@ -55,7 +55,7 @@ pub async fn delete(ctx: &Context, name: String) -> Result<ActionResponse, Serve
 
     let handle = facade::Topic::new(name.clone(), ctx.store.clone(), ctx.db.clone());
 
-    if handle.locked().await? {
+    if handle.manifest().await?.properties.locked {
         return Err(ServerError::TopicLocked);
     }
 

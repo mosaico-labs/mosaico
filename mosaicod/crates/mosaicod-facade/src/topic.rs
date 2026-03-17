@@ -1,4 +1,4 @@
-use super::Error;
+use super::{Error, Session};
 use arrow::datatypes::SchemaRef;
 use log::trace;
 use mosaicod_core::{
@@ -49,19 +49,21 @@ impl Topic {
     /// the database transaction is rolled back, restoring the previous state.
     pub async fn create(
         &self,
-        session: &types::Uuid,
+        session: types::Uuid,
         ontology_metadata: TopicOntologyMetadata,
     ) -> Result<types::Identifiers, Error> {
         let mut tx = self.db.transaction().await?;
 
         // Ensure that uuid points to an unlocked session
-        let ses_rec = db::session_find_by_uuid(&mut tx, session).await?;
-        if ses_rec.is_locked() {
+        let session_facade =
+            Session::try_new(session.clone(), self.store.clone(), self.db.clone()).await?;
+        if session_facade.manifest().await?.locked {
             return Err(Error::SessionLocked);
         }
 
         // Find parent sequence and ensure that this topic is child of the provided
         // sequence, i.e. they are related with the same name structure
+        let ses_rec = db::session_find_by_uuid(&mut tx, &session).await?;
         let seq_rec = db::sequence_find_by_id(&mut tx, ses_rec.sequence_id).await?;
         let seq_loc = types::SequenceResourceLocator::from(&seq_rec.locator_name);
         if !self.locator.is_sub_resource(&seq_loc) {
@@ -88,7 +90,7 @@ impl Topic {
         let manifest = types::TopicManifest::new(
             types::TopicProperties::new_with_created_at(
                 self.locator.clone(),
-                session.clone(),
+                session,
                 record.creation_timestamp(),
             ),
             ontology_metadata,
@@ -103,14 +105,6 @@ impl Topic {
         Ok(record.into())
     }
 
-    pub async fn locked(&self) -> Result<bool, Error> {
-        let mut cx = self.db.connection();
-
-        let record = db::topic_find_by_locator(&mut cx, &self.locator).await?;
-
-        Ok(record.locked())
-    }
-
     /// Read the database record for this sequence. If no record is found an error is returned.
     pub async fn resource_id(&self) -> Result<types::Identifiers, Error> {
         let mut cx = self.db.connection();
@@ -119,24 +113,6 @@ impl Topic {
         let record = db::topic_find_by_locator(&mut cx, &self.locator).await?;
 
         Ok(record.into())
-    }
-
-    /// Lock the topic
-    /// TODO: consider to set lock state only inside manifest to avoid data inconsistency with DB.
-    pub async fn lock(&self) -> Result<(), Error> {
-        trace!("locking `{}`", self.locator);
-
-        // Update database
-        let mut tx = self.db.transaction().await?;
-        db::topic_lock(&mut tx, &self.locator).await?;
-        tx.commit().await?;
-
-        // Update manifest (store)
-        let mut manifest = self.manifest().await?;
-        manifest.properties.locked = true;
-        self.manifest_write_to_store(manifest).await?;
-
-        Ok(())
     }
 
     /// Finalize the write procedure of the topic. The topic is locked and additional data are
@@ -152,10 +128,15 @@ impl Topic {
 
         // Update manifest
         let mut manifest = self.manifest().await?;
-        manifest.properties.completed_at = Some(types::Timestamp::now());
-        self.manifest_write_to_store(manifest).await?;
 
-        self.lock().await?;
+        // Check if topic is already locked.
+        if manifest.properties.locked {
+            return Err(Error::TopicLocked);
+        }
+
+        manifest.properties.completed_at = Some(types::Timestamp::now());
+        manifest.properties.locked = true;
+        self.manifest_write_to_store(manifest).await?;
 
         Ok(())
     }
@@ -259,7 +240,11 @@ impl Topic {
     pub async fn delete_unlocked(self) -> Result<(), Error> {
         let mut tx = self.db.transaction().await?;
 
-        db::topic_delete_unlocked(&mut tx, &self.locator).await?;
+        if self.manifest().await?.properties.locked {
+            return Err(Error::TopicLocked);
+        }
+
+        db::topic_delete(&mut tx, &self.locator, types::allow_data_loss()).await?;
 
         // Delete files
         self.store.delete_recursive(&self.path()).await?;
@@ -275,10 +260,9 @@ impl Topic {
     pub async fn delete(self, allowed_data_loss: types::DataLossToken) -> Result<(), Error> {
         let mut tx = self.db.transaction().await?;
 
-        // Delete at first the data and after that the record on db,
-        // so if the delete procedure fails i can retry again against the database record
-        self.store.delete_recursive(&self.path()).await?;
+        // Delete the record from DB first, then from the store. Order matters (think in case of rollback).
         db::topic_delete(&mut tx, &self.locator, allowed_data_loss).await?;
+        self.store.delete_recursive(&self.path()).await?;
 
         tx.commit().await?;
 
@@ -519,7 +503,7 @@ mod tests {
         );
 
         ftopic
-            .create(&session.uuid, dummy_ontology_metadata())
+            .create(session.uuid, dummy_ontology_metadata())
             .await
             .expect("Unable to create topic");
 
@@ -579,7 +563,7 @@ mod tests {
         );
 
         ftopic
-            .create(&session.uuid, dummy_ontology_metadata())
+            .create(session.uuid, dummy_ontology_metadata())
             .await
             .expect("Unable to create topic");
 

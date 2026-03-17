@@ -12,17 +12,16 @@ pub async fn session_create(
         r#"
             INSERT INTO session_t 
                 (
-                    session_uuid, sequence_id, locked,
+                    session_uuid, sequence_id,
                     creation_unix_tstamp, completion_unix_tstamp
                 ) 
             VALUES 
-                ($1, $2, $3, $4, $5)
+                ($1, $2, $3, $4)
             RETURNING 
                 *
     "#,
         record.session_uuid,
         record.sequence_id,
-        record.locked,
         record.creation_unix_tstamp,
         record.completion_unix_tstamp,
     )
@@ -74,32 +73,9 @@ pub async fn session_lookup(
     }
 }
 
-/// Locks the sequence in the db and sets the completion timestamp
-pub async fn session_lock(
-    exe: &mut impl AsExec,
-    uuid: &types::Uuid,
-    completion_timestamp: &types::Timestamp,
-) -> Result<(), Error> {
-    trace!("locking `{}`", uuid);
-    sqlx::query!(
-        r#"
-        UPDATE session_t 
-        SET 
-            locked = TRUE,
-            completion_unix_tstamp = $1
-        WHERE session_uuid = $2"#,
-        completion_timestamp.as_i64(),
-        uuid.as_ref(),
-    )
-    .execute(exe.as_exec())
-    .await?;
-    Ok(())
-}
-
 /// Deletes a session record from the database by its name, **bypassing any lock state**.
 ///
-/// This function requires a [`DataLossToken`] because it permanently removes the record
-/// from the database without checking whether it is locked or referenced
+/// This function requires a [`DataLossToken`] because it permanently removes the record from the database
 /// elsewhere. Improper use can lead to data inconsistency or loss.
 pub async fn session_delete(
     exe: &mut impl AsExec,

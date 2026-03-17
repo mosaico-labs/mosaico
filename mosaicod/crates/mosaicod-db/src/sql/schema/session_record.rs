@@ -15,8 +15,6 @@ pub struct SessionRecord {
     /// The unique UUID for the session.
     pub(crate) session_uuid: uuid::Uuid,
 
-    pub(crate) locked: bool,
-
     /// UNIX timestamp in milliseconds since the creation
     pub(crate) creation_unix_tstamp: i64,
 
@@ -36,13 +34,11 @@ impl From<SessionRecord> for types::Identifiers {
 impl SessionRecord {
     /// Creates a new `SessionRecord` for a given sequence.
     ///
-    /// The new session is created in an unlocked state.
     /// The record is not persisted until an explicit database operation is called.
     pub fn new(sequence_id: i32) -> Self {
         Self {
             session_id: db::UNREGISTERED,
             session_uuid: types::Uuid::new().into(),
-            locked: false,
             sequence_id,
             creation_unix_tstamp: types::Timestamp::now().into(),
             completion_unix_tstamp: None,
@@ -57,11 +53,6 @@ impl SessionRecord {
     /// Returns the completion timestamp of the session, if it has been completed.
     pub fn completion_timestamp(&self) -> Option<types::Timestamp> {
         self.completion_unix_tstamp.map(types::Timestamp::from)
-    }
-
-    /// Returns true if the session is locked (immutable)
-    pub fn is_locked(&self) -> bool {
-        self.locked
     }
 
     pub fn uuid(&self) -> types::Uuid {

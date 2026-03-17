@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            INSERT INTO topic_t\n                (\n                    topic_uuid, sequence_id, session_id, locator_name, creation_unix_tstamp, \n                    serialization_format, ontology_tag, locked, user_metadata, chunks_number,\n                    total_bytes, start_index_timestamp, end_index_timestamp\n                ) \n            VALUES \n                ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)\n            RETURNING \n                *\n    ",
+  "query": "\n            INSERT INTO topic_t\n                (\n                    topic_uuid, sequence_id, session_id, locator_name, creation_unix_tstamp,\n                    serialization_format, ontology_tag, user_metadata, chunks_number,\n                    total_bytes, start_index_timestamp, end_index_timestamp\n                ) \n            VALUES \n                ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)\n            RETURNING \n                *\n    ",
   "describe": {
     "columns": [
       {
@@ -30,46 +30,41 @@
       },
       {
         "ordinal": 5,
-        "name": "locked",
-        "type_info": "Bool"
-      },
-      {
-        "ordinal": 6,
         "name": "user_metadata",
         "type_info": "Jsonb"
       },
       {
-        "ordinal": 7,
+        "ordinal": 6,
         "name": "serialization_format",
         "type_info": "Text"
       },
       {
-        "ordinal": 8,
+        "ordinal": 7,
         "name": "ontology_tag",
         "type_info": "Text"
       },
       {
-        "ordinal": 9,
+        "ordinal": 8,
         "name": "creation_unix_tstamp",
         "type_info": "Int8"
       },
       {
-        "ordinal": 10,
+        "ordinal": 9,
         "name": "chunks_number",
         "type_info": "Int8"
       },
       {
-        "ordinal": 11,
+        "ordinal": 10,
         "name": "total_bytes",
         "type_info": "Int8"
       },
       {
-        "ordinal": 12,
+        "ordinal": 11,
         "name": "start_index_timestamp",
         "type_info": "Int8"
       },
       {
-        "ordinal": 13,
+        "ordinal": 12,
         "name": "end_index_timestamp",
         "type_info": "Int8"
       }
@@ -83,7 +78,6 @@
         "Int8",
         "Text",
         "Text",
-        "Bool",
         "Jsonb",
         "Int8",
         "Int8",
@@ -92,7 +86,6 @@
       ]
     },
     "nullable": [
-      false,
       false,
       false,
       false,
@@ -108,5 +101,5 @@
       true
     ]
   },
-  "hash": "815783fa57cbd03422e782ee4b30b6ccec59845fdfa24be60a94cc7fdeef1a41"
+  "hash": "9fa960ddada9316ad8f9940bd0c95aae232ce9acbd7403ec27d148974a355bef"
 }
