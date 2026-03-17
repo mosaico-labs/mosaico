@@ -205,10 +205,10 @@ run_integration_tests() {
     cd "${MOSAICOD_PATH}"
 
     if $VERBOSE; then
-        cargo build
+        cargo build --bin mosaicod
     else
         echo "Compiling mosaicod, it may take a while ..."
-        cargo build 2>&1
+        cargo build --bin mosaicod 2>&1
     fi
 
     # Create test directory
