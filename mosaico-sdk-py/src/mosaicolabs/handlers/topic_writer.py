@@ -213,13 +213,13 @@ class TopicWriter:
         exc_type: Optional[Type[BaseException]],
         exc_val: Optional[BaseException],
         exc_tb: Optional[Any],
-    ) -> None:
+    ):
         """
         Context manager exit.
 
         Guarantees cleanup of the Flight stream. If an exception occurred within
         the block, it triggers the configured `TopicLevelErrorPolicy` (e.g., reporting the error).
-        Exceptions from the with-block are always propagated.
+        Exceptions from the with-block are propagated if the error policy is set to `Raise`.
         """
         error_occurred = exc_type is not None
 
@@ -231,27 +231,32 @@ class TopicWriter:
             logger.exception(f"Failed to finalize topic '{self._name}': '{e}'")
             error_occurred = True
             if not exc_type:
+                # If no exception was raised in the with-block, raise the finalize exception
                 exc_type, exc_val = type(e), e
 
         if error_occurred:
-            # Exit due to an error
+            # Handle the error according to the configured policy
             try:
                 if self._config.on_error == TopicLevelErrorPolicy.Finalize:
                     self._error_report(str(exc_val))
                     self._wrstate.writer = None  # Close the topic
+                    return True  # suppress exception
                 elif self._config.on_error == TopicLevelErrorPolicy.Ignore:
                     self._error_report(str(exc_val))
+                    return True  # suppress exception
                 elif self._config.on_error == TopicLevelErrorPolicy.Raise:
-                    raise exc_val
+                    return False  # propagate exception
             except Exception as e:
                 logger.exception(
                     f"Error handling topic '{self._name}' after exception: '{e}'"
                 )
+                # Important: do NOT suppress this exception (happened while handling the error policy)
+                return False
 
     def __del__(self):
         """Destructor check to ensure `_finalize()` was called."""
         name = getattr(self, "_name", "__not_initialized__")
-        if hasattr(self, "is_active") and self.is_active():
+        if hasattr(self, "is_active") and self.is_active:
             logger.warning(
                 f"TopicWriter '{name}' destroyed without calling _finalize(). "
                 "Resources may not have been released properly."
@@ -370,7 +375,11 @@ class TopicWriter:
             1. See also: [`MosaicoClient.sequence_create()`][mosaicolabs.comm.MosaicoClient.sequence_create]
             2. See also: [`SequenceWriter.topic_create()`][mosaicolabs.handlers.SequenceWriter.topic_create]
         """
-        # time.sleep(0.1)
+        if not self.is_active:
+            logger.warning(
+                f"Called push() on a closed TopicWriter '{self._name}'. Message not sent."
+            )
+            return
         try:
             self._wrstate.push_record(message)
         except Exception as e:
@@ -381,6 +390,7 @@ class TopicWriter:
         """Returns the name of the topic"""
         return self._name
 
+    @property
     def is_active(self) -> bool:
         """
         Returns `True` if the writing stream is open and the writer accepts new messages.
