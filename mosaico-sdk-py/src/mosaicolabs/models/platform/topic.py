@@ -6,7 +6,8 @@ Topic's metadata in the platform catalog. It is used primarily for inspection
 (listing topics) and query construction.
 """
 
-from typing import Any, Dict, Optional, Self
+from typing import Any, Dict, Optional
+from typing_extensions import Self
 
 import pydantic
 from pydantic import PrivateAttr

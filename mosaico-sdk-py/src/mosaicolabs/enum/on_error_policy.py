@@ -1,6 +1,5 @@
 from enum import Enum
-from warnings import deprecated
-
+from deprecated import deprecated
 
 @deprecated(
     "OnErrorPolicy is deprecated since v0.3.0; use SessionLevelErrorPolicy instead. "

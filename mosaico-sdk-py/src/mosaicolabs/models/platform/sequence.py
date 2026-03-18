@@ -5,7 +5,8 @@ This module defines the `Sequence` class, which represents a read-only view of a
 Sequence's platform_metadata. A Sequence is a logical grouping of multiple Topics.
 """
 
-from typing import Any, Dict, List, Self
+from typing import Any, Dict, List
+from typing_extensions import Self
 
 import pydantic
 from pydantic import PrivateAttr
