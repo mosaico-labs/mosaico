@@ -1,7 +1,7 @@
-from enum import StrEnum
+from enum import Enum
 
 
-class FlightAction(StrEnum):
+class FlightAction(Enum):
     """
     Internal enumeration of PyArrow Flight action identifiers.
 

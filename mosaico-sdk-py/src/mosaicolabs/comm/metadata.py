@@ -8,7 +8,7 @@ PyArrow Flight protocol. It also handles Mosaico-specific namespacing.
 
 import json
 from dataclasses import dataclass
-from typing import Any, ClassVar, Dict, Literal, Self
+from typing import Any, ClassVar, Dict, Literal
 
 from mosaicolabs.enum import SerializationFormat
 
@@ -35,7 +35,9 @@ class PlatformMetadata:
     _EXPECTED_CONTEXT: ClassVar[PlatformContext]
 
     @classmethod
-    def _from_decoded_schema_metadata(cls, schema_metadata: Dict[str, Any]) -> Self:
+    def _from_decoded_schema_metadata(
+        cls, schema_metadata: Dict[str, Any]
+    ) -> "PlatformMetadata":
         """
         Factory method to create a PlatformMetadata-derived instance from a dictionary.
 
@@ -56,7 +58,7 @@ class PlatformMetadata:
         return cls._from_metadata(schema_metadata)
 
     @classmethod
-    def _from_metadata(cls, schema_metadata: Dict[str, Any]) -> Self:
+    def _from_metadata(cls, schema_metadata: Dict[str, Any]) -> "PlatformMetadata":
         """Subclass-specific construction hook."""
         raise NotImplementedError(
             "Subclasses must define `_from_metadata` decoding classmethod"
@@ -84,7 +86,7 @@ class SequenceMetadata(PlatformMetadata):
     user_metadata: UserMetadata
 
     @classmethod
-    def _from_metadata(cls, schema_metadata: Dict[str, Any]) -> Self:
+    def _from_metadata(cls, schema_metadata: Dict[str, Any]) -> "SequenceMetadata":
         user_metadata = _get_value(schema_metadata, "user_metadata")
 
         return cls(
@@ -115,7 +117,7 @@ class TopicMetadata(PlatformMetadata):
     user_metadata: UserMetadata
 
     @classmethod
-    def _from_metadata(cls, schema_metadata: Dict[str, Any]) -> Self:
+    def _from_metadata(cls, schema_metadata: Dict[str, Any]) -> "TopicMetadata":
         properties = _get_value(schema_metadata, "properties")
         user_metadata = _get_value(schema_metadata, "user_metadata")
 

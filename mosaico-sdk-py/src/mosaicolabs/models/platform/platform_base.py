@@ -8,7 +8,7 @@ system and the internal Query API.
 """
 
 import datetime
-from typing import Any, Dict, Self
+from typing import Any, Dict
 
 import pydantic
 from pydantic import PrivateAttr
@@ -127,7 +127,7 @@ class PlatformBase(pydantic.BaseModel, _QueryProxyMixin):
         metadata: PlatformMetadata,
         resrc_info: PlatformResourceInfo,
         **kwargs: Any,
-    ) -> Self:
+    ) -> "PlatformBase":
         """
         Factory method to create a PlatformBase instance from flight information.
 
