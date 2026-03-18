@@ -32,6 +32,7 @@ pub use session::*;
 
 pub mod auth;
 pub use auth::ApiKey;
+pub use auth::ApiKeyError;
 
 mod error_report;
 pub use error_report::*;

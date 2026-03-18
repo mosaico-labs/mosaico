@@ -110,3 +110,14 @@ pub struct Query {
     /// Query filter used to find matches in the system
     pub query: serde_json::Value,
 }
+
+// ////////////////////////////////////////////////////////////////////////////
+// Api Key
+// ////////////////////////////////////////////////////////////////////////////
+
+#[derive(Deserialize, Debug)]
+pub struct ApiKeyCreate {
+    pub permissions: Vec<String>,
+    pub expires_at_ns: Option<i64>,
+    pub description: String,
+}

@@ -7,6 +7,7 @@ use super::{
     Context,
     actions::{layer, misc, query as query_action, sequence, session, topic},
 };
+use crate::endpoint::actions::auth;
 use crate::errors::ServerError;
 use mosaicod_core::types::auth::Permissions;
 use mosaicod_marshal::{ActionRequest, ActionResponse};
@@ -88,6 +89,18 @@ pub async fn do_action(
         // Query
         ActionRequest::Query(data) => query_action::execute(&ctx, data.query).await,
 
+        // ////
+        // Api Key
+        ActionRequest::ApiKeyCreate(data) => {
+            auth::api_key_create(
+                &ctx,
+                data.permissions,
+                data.expires_at_ns.map(Into::into),
+                data.description,
+            )
+            .await
+        }
+
         // /////
         // Misc
         ActionRequest::Version(_) => misc::version(),
@@ -118,6 +131,8 @@ fn has_permissions(action: &ActionRequest, perm: &Permissions) -> bool {
         ActionRequest::SequenceNotificationList(_) => perm.is_read(),
         ActionRequest::TopicNotificationList(_) => perm.is_read(),
         ActionRequest::LayerList(_) => perm.is_read(),
+
+        ActionRequest::ApiKeyCreate(_) => perm.is_manage(),
 
         ActionRequest::Version(_) => true,
     }

@@ -4,7 +4,7 @@ use mosaicod_core::types;
 fn convert(record: schema::ApiKeyRecord) -> Result<types::ApiKey, Error> {
     record
         .try_into()
-        .map_err(|e: types::auth::TokenError| Error::BadData(e.to_string()))
+        .map_err(|e: types::auth::ApiKeyError| Error::BadData(e.to_string()))
 }
 
 pub async fn api_key_create(
