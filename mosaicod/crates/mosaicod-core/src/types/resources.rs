@@ -161,7 +161,7 @@ impl TopicResourceLocator {
     /// sequence/my/topic/2sr5g
     /// ```
     pub fn path_data_folder(&self, uuid: &Uuid) -> path::PathBuf {
-        let cropped_uuid: String = uuid.non_hypened_string().chars().take(5).collect();
+        let cropped_uuid: String = uuid.non_hyphened_string().chars().take(5).collect();
 
         self.path().join(format!("data:{cropped_uuid}"))
     }

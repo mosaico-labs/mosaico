@@ -266,7 +266,6 @@ impl Topic {
             }
         };
 
-        // Cloning  since needs to be moved in side the file format callback
         let data_folder = self.locator.path_data_folder(self.uuid());
 
         let cw = rw::ChunkedWriter::new(self.store.clone(), format, move |chunk_number| {
