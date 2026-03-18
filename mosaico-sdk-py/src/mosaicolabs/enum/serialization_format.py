@@ -1,7 +1,7 @@
-from enum import StrEnum
+from enum import Enum
 
 
-class SerializationFormat(StrEnum):
+class SerializationFormat(Enum):
     """
     Defines the structural format used when serializing ontology data
     for storage or transmission.

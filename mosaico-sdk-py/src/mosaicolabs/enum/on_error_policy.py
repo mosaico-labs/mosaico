@@ -1,5 +1,6 @@
 from enum import Enum
-from warnings import deprecated
+
+from deprecated import deprecated
 
 
 @deprecated(

@@ -15,7 +15,7 @@ use mosaicod_marshal as marshal;
 #[derive(Debug, Eq, PartialEq, Hash)]
 pub struct SequenceRecord {
     pub sequence_id: i32,
-    pub sequence_uuid: uuid::Uuid,
+    pub(crate) sequence_uuid: uuid::Uuid,
     pub locator_name: String,
 
     /// This metadata field is only for database query access and
@@ -71,5 +71,9 @@ impl SequenceRecord {
     /// Returns the sequence recource locator for this sequence
     pub fn resource_locator(&self) -> types::SequenceResourceLocator {
         self.locator_name.to_owned().into()
+    }
+
+    pub fn uuid(&self) -> types::Uuid {
+        self.sequence_uuid.into()
     }
 }

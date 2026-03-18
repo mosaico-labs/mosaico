@@ -42,7 +42,7 @@ pub async fn topic_notifications_find_by_locator(
           JOIN topic_t AS topic ON notification.topic_id = topic.topic_id
           WHERE topic.locator_name=$1
     "#,
-        loc.name(),
+        loc.locator(),
     )
     .fetch_all(exe.as_exec())
     .await?;
@@ -102,7 +102,7 @@ pub async fn sequence_notifications_find_by_name(
           JOIN sequence_t AS seq ON notification.sequence_id = seq.sequence_id
           WHERE seq.locator_name=$1
     "#,
-        loc.name(),
+        loc.locator(),
     )
     .fetch_all(exe.as_exec())
     .await?;

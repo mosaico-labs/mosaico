@@ -36,6 +36,8 @@ pub enum Error {
     TopicLocked,
     #[error("session locked, unable to perform modifications")]
     SessionLocked,
+    #[error("topic with the same locator already exists")]
+    TopicAlreadyExists(String),
     #[error("session empty, unable to perform the requested operation")]
     SessionEmpty,
     #[error("topic unlocked, unable to perform the requested operation over an unlocked topic")]
@@ -71,5 +73,10 @@ impl Error {
     /// but a notification has not been created.
     pub fn failed_and_unable_to_notify(msg: String) -> Self {
         Self::FailedAndUnableToNotify(msg)
+    }
+
+    /// A topic with the same resource locator already exists.
+    pub fn topic_already_exists(locator: types::TopicResourceLocator) -> Self {
+        Self::TopicAlreadyExists(locator.into())
     }
 }

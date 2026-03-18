@@ -206,7 +206,7 @@ pub async fn topic_get_stats(
             COALESCE(SUM(row_count), 0)::BIGINT as "total_row_count!"
         FROM chunk_t
         WHERE topic_id = (SELECT topic_id FROM topic_t WHERE locator_name = $1)"#,
-        loc.name(),
+        loc.locator(),
     )
     .fetch_one(exec.as_exec())
     .await?;

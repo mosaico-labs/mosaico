@@ -82,11 +82,9 @@ impl Session {
 
         // If not all topics are locked, return an error and leave the session unlocked.
         let all_topics_locked = futures::future::join_all(topics.iter().map(async |topic_loc| {
-            let topic = Topic::new(
-                topic_loc.clone().into(),
-                self.store.clone(),
-                self.db.clone(),
-            );
+            let topic =
+                Topic::try_from_locator(topic_loc.clone(), self.store.clone(), self.db.clone())
+                    .await?;
 
             topic.locked().await
         }))
@@ -148,11 +146,9 @@ impl Session {
         // Deletes topic data
         let topics = self.topic_list().await?;
         for topic_loc in topics.clone() {
-            let topic = Topic::new(
-                topic_loc.clone().into(),
-                self.store.clone(),
-                self.db.clone(),
-            );
+            let topic =
+                Topic::try_from_locator(topic_loc.clone(), self.store.clone(), self.db.clone())
+                    .await?;
 
             // We collect all the errors to build a sequence notification reporting all error if
             // something fails.

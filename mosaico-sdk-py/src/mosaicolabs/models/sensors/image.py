@@ -657,8 +657,9 @@ class StatefulDecodingSession:
         persistent state associated with 'topic_name'.
         """
         if format not in self.__suppported_formats__:
+            type_error = [f"'{fmt.value}'" for fmt in self.__suppported_formats__]
             logger.error(
-                f"Input format '{format.value}' not among the supported formats: {[f"'{fmt.value}'" for fmt in self.__suppported_formats__]}"
+                f"Input format '{format.value}' not among the supported formats: {type_error}"
             )
             return None
 

@@ -7,8 +7,8 @@ use std::str::FromStr;
 #[derive(Debug, Clone)]
 pub struct TopicRecord {
     pub topic_id: i32,
-    pub topic_uuid: uuid::Uuid,
-    pub locator_name: String,
+    pub(crate) topic_uuid: uuid::Uuid,
+    pub(crate) locator_name: String,
     pub sequence_id: i32,
     pub session_id: i32,
     pub ontology_tag: String,
@@ -46,7 +46,7 @@ impl From<TopicRecord> for types::Identifiers {
 
 impl TopicRecord {
     pub fn new(
-        name: &str,
+        locator: &str,
         sequence_id: i32,
         session_id: i32,
         ontology_tag: &str,
@@ -57,7 +57,7 @@ impl TopicRecord {
             topic_uuid: types::Uuid::new().into(),
             sequence_id,
             session_id,
-            locator_name: name.to_owned(),
+            locator_name: locator.to_owned(),
             locked: false,
             ontology_tag: ontology_tag.to_owned(),
             serialization_format: serialization_format.to_owned(),
@@ -77,6 +77,21 @@ impl TopicRecord {
 
     pub fn locked(&self) -> bool {
         self.locked
+    }
+
+    pub fn uuid(&self) -> types::Uuid {
+        self.topic_uuid.into()
+    }
+
+    pub fn locator(&self) -> types::TopicResourceLocator {
+        self.locator_name.clone().into()
+    }
+
+    pub fn identifiers(&self) -> types::Identifiers {
+        types::Identifiers {
+            uuid: self.uuid(),
+            id: self.topic_id,
+        }
     }
 
     pub fn serialization_format(&self) -> Option<types::Format> {

@@ -1,4 +1,3 @@
-use std::path::PathBuf;
 use std::pin::Pin;
 
 use arrow::array::RecordBatch;
@@ -19,10 +18,6 @@ type OnChunkCallback = Box<
         + Send
         + Sync,
 >;
-
-/// Callback used to define a format function for files
-type OnFileFormat =
-    Box<dyn Fn(&std::path::Path, &types::Format, usize) -> std::path::PathBuf + Send>;
 
 /// Summary data produced after write completion
 #[derive(Default, Debug)]
@@ -49,21 +44,14 @@ pub struct ChunkedWriter<W> {
     /// Target of the write operation for this writer
     write_target: W,
 
-    /// Target path where the data will be serialized (e.g., `my/target/path`).
-    ///
-    /// Do not include a file extension or filename. The [`ChunkedWriter`] will
-    /// automatically split the data into multiple files if the maximum chunk-size
-    /// constraint is reached.
-    path: PathBuf,
-
     /// Number of chunks serialized
     chunk_serialized_number: usize,
 
     /// Function called just before the chunk finalization (and serialization)
     on_chunk_created_clbk: Option<OnChunkCallback>,
 
-    /// Callback used to format data when written
-    on_file_format: OnFileFormat,
+    /// Callback used to format file path when new data needs to be serialized
+    on_format_path: Box<dyn Fn(usize) -> std::path::PathBuf + Send>,
 
     /// Maximum chunk size in bytes. When exceeded after writing a batch,
     /// the current chunk is finalized and a new one is started.
@@ -72,24 +60,20 @@ pub struct ChunkedWriter<W> {
 }
 
 impl<W> ChunkedWriter<W> {
-    /// Creates a new [`ChunkedWriter`] that saves file to a given path on a given target writer
-    pub fn new<F>(
-        target: W,
-        path: impl AsRef<std::path::Path>,
-        format: types::Format,
-        format_callback: F,
-    ) -> Self
+    /// Creates a new [`ChunkedWriter`].
+    /// This writer will split data when a `max_chunk_size` is reached (see
+    /// [`ChunkedWriter::with_max_chunk_size`] for more details.
+    pub fn new<F>(target: W, format: types::Format, format_path: F) -> Self
     where
-        F: Fn(&std::path::Path, &types::Format, usize) -> std::path::PathBuf + Send + 'static,
+        F: Fn(usize) -> std::path::PathBuf + Send + 'static,
     {
         Self {
             writer: None,
             write_target: target,
             format,
-            path: path.as_ref().to_path_buf(),
             chunk_serialized_number: 0,
             on_chunk_created_clbk: None,
-            on_file_format: Box::new(format_callback),
+            on_format_path: Box::new(format_path),
             max_chunk_size: None,
         }
     }
@@ -209,8 +193,7 @@ impl<W> ChunkedWriter<W> {
         // If another write_batch will be called after this function call
         // will cause the instantiation of another writer.
         if let Some(writer) = self.writer.take() {
-            let path =
-                (self.on_file_format)(&self.path, &writer.format, self.chunk_serialized_number);
+            let path = (self.on_format_path)(self.chunk_serialized_number);
             self.chunk_serialized_number += 1;
 
             // Offload CPU-intensive parquet finalization to blocking thread pool
@@ -310,12 +293,10 @@ mod tests {
         let store = Arc::new(MockStore::new());
 
         // Use a small max_chunk_size to trigger splitting
-        let mut writer = ChunkedWriter::new(
-            store.clone(),
-            "test/path",
-            types::Format::Default,
-            |path, _, idx| path.join(format!("chunk_{}.parquet", idx)),
-        )
+        let path = std::path::PathBuf::from("test/path");
+        let mut writer = ChunkedWriter::new(&store, types::Format::Default, move |idx| {
+            path.join(format!("chunk_{}.parquet", idx))
+        })
         .with_max_chunk_size(Some(1024)); // 1 KiB threshold
 
         writer.on_chunk_created(|_, _, _| async { Ok(()) });
@@ -344,12 +325,10 @@ mod tests {
         let store = Arc::new(MockStore::new());
 
         // Use a large max_chunk_size that won't be exceeded
-        let mut writer = ChunkedWriter::new(
-            &store,
-            "test/path",
-            types::Format::Default,
-            |path, _, idx| path.join(format!("chunk_{}.parquet", idx)),
-        )
+        let path = std::path::PathBuf::from("test/path");
+        let mut writer = ChunkedWriter::new(&store, types::Format::Default, move |idx| {
+            path.join(format!("chunk_{}.parquet", idx))
+        })
         .with_max_chunk_size(Some(100 * 1024 * 1024)); // 100 MiB threshold
 
         writer.on_chunk_created(|_, _, _| async { Ok(()) });
@@ -375,13 +354,10 @@ mod tests {
         let store = Arc::new(MockStore::new());
 
         // No max_chunk_size (unlimited)
-        let mut writer = ChunkedWriter::new(
-            &store,
-            "test/path",
-            types::Format::Default,
-            |path, _, idx| path.join(format!("chunk_{}.parquet", idx)),
-        )
-        .with_max_chunk_size(None); // Unlimited
+        let path = std::path::PathBuf::from("test/path");
+        let mut writer = ChunkedWriter::new(&store, types::Format::Default, move |idx| {
+            path.join(format!("chunk_{}.parquet", idx))
+        });
 
         writer.on_chunk_created(|_, _, _| async { Ok(()) });
 
@@ -408,12 +384,10 @@ mod tests {
         // 5 MiB threshold - large enough to fit multiple batches
         let max_chunk_size = 5 * 1024 * 1024;
 
-        let mut writer = ChunkedWriter::new(
-            &store,
-            "test/path",
-            types::Format::Default,
-            |path, _, idx| path.join(format!("chunk_{}.parquet", idx)),
-        )
+        let path = std::path::PathBuf::from("test/path");
+        let mut writer = ChunkedWriter::new(&store, types::Format::Default, move |idx| {
+            path.join(format!("chunk_{}.parquet", idx))
+        })
         .with_max_chunk_size(Some(max_chunk_size));
 
         writer.on_chunk_created(|_, _, _| async { Ok(()) });
@@ -457,12 +431,11 @@ mod tests {
         // 512 KiB threshold
         let max_chunk_size = 512 * 1024;
 
-        let mut writer = ChunkedWriter::new(
-            &store,
-            "test/path",
-            types::Format::Default,
-            |path, _, idx| path.join(format!("chunk_{}.parquet", idx)),
-        )
+        let path = std::path::PathBuf::from("test/path");
+
+        let mut writer = ChunkedWriter::new(&store, types::Format::Default, move |idx| {
+            path.join(format!("chunk_{}.parquet", idx))
+        })
         .with_max_chunk_size(Some(max_chunk_size));
 
         writer.on_chunk_created(|_, _, _| async { Ok(()) });

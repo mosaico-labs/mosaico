@@ -19,7 +19,7 @@ pub async fn create(
     // Check if sequence exists, if so return with an error
     if handle.resource_id().await.is_ok() {
         return Err(ServerError::SequenceAlreadyExists(
-            handle.locator.name().into(),
+            handle.locator.locator().into(),
         ));
     }
 
