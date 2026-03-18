@@ -44,7 +44,7 @@ pub struct ResponseNotificationItem {
 impl From<types::Notification> for ResponseNotificationItem {
     fn from(value: types::Notification) -> Self {
         Self {
-            name: value.target.name().to_string(),
+            name: value.target.locator().to_string(),
             notification_type: value.notification_type.to_string(),
             msg: value.msg.unwrap_or_default(),
             created_datetime: value.created_at.to_string(),
@@ -118,7 +118,7 @@ pub struct ResponseQueryItemTopic {
 impl From<types::TopicResourceLocator> for ResponseQueryItemTopic {
     fn from(value: types::TopicResourceLocator) -> Self {
         Self {
-            locator: value.name().to_owned(),
+            locator: value.locator().to_owned(),
             timestamp_range: value
                 .timestamp_range
                 .map(|e| (e.start.into(), e.end.into())),
@@ -135,7 +135,7 @@ pub struct ResponseQueryItem {
 impl From<types::SequenceTopicGroup> for ResponseQueryItem {
     fn from(value: types::SequenceTopicGroup) -> Self {
         Self {
-            sequence: value.sequence.name().to_string(),
+            sequence: value.sequence.locator().to_string(),
             topics: value.topics.into_iter().map(Into::into).collect(),
         }
     }

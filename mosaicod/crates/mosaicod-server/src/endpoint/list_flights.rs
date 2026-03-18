@@ -38,7 +38,7 @@ pub async fn list_flights(
     let flight_infos: Vec<Result<FlightInfo, Status>> = sequences
         .into_iter()
         .map(|locator| {
-            let sequence_name = locator.name().to_string();
+            let sequence_name = locator.locator().to_string();
 
             // Create flight descriptor with the sequence path
             let descriptor = FlightDescriptor::new_path(vec![sequence_name.clone()]);

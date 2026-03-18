@@ -74,7 +74,8 @@ async fn do_put_topic_data(
 
     mosaicod_ext::arrow::check_schema(&schema)?;
 
-    let mut handle = facade::Topic::new(locator, ctx.store.clone(), ctx.db.clone());
+    let mut handle =
+        facade::Topic::try_from_locator(locator.into(), ctx.store.clone(), ctx.db.clone()).await?;
 
     // perform the match between received key and topic id
     let r_id = handle.resource_id().await?;
@@ -94,7 +95,6 @@ async fn do_put_topic_data(
     trace!("creating topic writer");
     let mut writer = handle.writer(ctx.timeseries_querier, serialization_format);
 
-    trace!("setup chunk creation callback for topic");
     writer.on_chunk_created(move |target_path, cols_stats, chunk_metadata| {
         let topic_id = topic_id;
         let db_clone = ctx.db.clone();

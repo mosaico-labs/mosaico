@@ -122,7 +122,7 @@ class ROSInjectionConfig:
     """
     A list of tuples (package_name, path, store) to register custom .msg definitions before loading.
 
-    For example, for "my_robot_msgs/msg/Location" pass: 
+    For example, for "my_robot_msgs/msg/Location" pass:
 
     package_name = "my_robot_msgs"; path = path/to/Location.msg; store = Stores.ROS2_HUMBLE (e.g.) or None
 
@@ -131,6 +131,9 @@ class ROSInjectionConfig:
 
     topics: Optional[List[str]] = None
     """A list of specific topics to filter (supports glob patterns). If None, all compatible topics are loaded."""
+
+    adapter_overrides: Optional[Dict[str, Type[ROSAdapterBase]]] = None
+    """A mapping of topics to adapter overrides, allowing the use of specific adapters instead of the default for designated topics."""
 
     log_level: str = "INFO"
 
@@ -295,7 +298,7 @@ class RosbagInjector:
             except Exception as e:
                 logger.error(f"Failed to register custom msgs at '{path}': '{e}'")
 
-    def _get_adapter(self, msg_type: str) -> Optional[Type[ROSAdapterBase]]:
+    def _get_default_adapter(self, msg_type: str) -> Optional[Type[ROSAdapterBase]]:
         """
         Memoized lookup for Mosaico ROS Adapters.
 
@@ -306,7 +309,7 @@ class RosbagInjector:
             The adapter class if found, otherwise None.
         """
 
-        return ROSBridge.get_adapter(msg_type)
+        return ROSBridge.get_default_adapter(msg_type)
 
     def run(self):
         """
@@ -453,7 +456,9 @@ class RosbagInjector:
             return
 
         # --- Adapter Resolution ---
-        adapter = self._get_adapter(ros_msg.msg_type)
+        adapter = (self.cfg.adapter_overrides or {}).get(
+            ros_msg.topic
+        ) or self._get_default_adapter(ros_msg.msg_type)
 
         if adapter is None:
             # If no adapter exists, blacklist this topic to prevent future lookups

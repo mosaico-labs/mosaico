@@ -1,6 +1,6 @@
 import datetime
 from dataclasses import dataclass
-from enum import StrEnum
+from enum import Enum
 from typing import Any, Dict, Optional
 
 from mosaicolabs.helpers.helpers import unpack_topic_full_path
@@ -15,7 +15,7 @@ def _parse_datetime_str(s: str) -> datetime.datetime:
         return datetime.datetime.fromisoformat(s).replace(tzinfo=datetime.timezone.utc)
 
 
-class NotificationType(StrEnum):
+class NotificationType(Enum):
     """
     Classification of platform-level notifications.
 

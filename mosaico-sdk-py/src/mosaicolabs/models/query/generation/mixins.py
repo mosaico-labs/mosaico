@@ -403,10 +403,8 @@ class _QueryableField:
         # --- Check that all values share the same type ---
         first_type = type(values[0])
         if not all(type(v) is first_type for v in values):
-            raise TypeError(
-                "All values must be of the same type. "
-                f"Got: {[f"'{type(v).__name__}'" for v in values]}"
-            )
+            type_error = [f"'{type(v).__name__}'" for v in values]
+            raise TypeError(f"All values must be of the same type. Got: {type_error}")
 
         # --- Check required type(s), if provided ---
         if req_type is not None:
@@ -416,9 +414,10 @@ class _QueryableField:
                 allowed = req_type
 
             if not all(type(v) in allowed for v in values):
+                type_error = {", ".join(f"'{t.__name__}'" for t in allowed)}
                 raise TypeError(
                     f"Invalid type for '{self.__class__.__name__}' comparison: "
-                    f"'{type(value).__name__}'. Expected: ({', '.join(f"'{t.__name__}'" for t in allowed)})"
+                    f"'{type(value).__name__}'. Expected: {type_error}"
                 )
         return True
 
@@ -478,9 +477,10 @@ class _QueryableField:
             )
             if not m.startswith("_")
         ]
+        type_error = [f"'{meth}'" for meth in sorted(valid_operators)]
         raise AttributeError(
             f"'{self.__class__.__name__}' object has no operator '{name}'. "
-            f"Available methods: {', '.join([f"'{meth}'" for meth in sorted(valid_operators)])}"
+            f"Available methods: {', '.join(type_error)}"
         )
 
 

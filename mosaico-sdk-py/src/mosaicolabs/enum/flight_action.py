@@ -1,7 +1,7 @@
-from enum import StrEnum
+from enum import Enum
 
 
-class FlightAction(StrEnum):
+class FlightAction(Enum):
     """
     Internal enumeration of PyArrow Flight action identifiers.
 
@@ -76,6 +76,15 @@ class FlightAction(StrEnum):
     # --- Queries related ---
     QUERY = "query"
     """Commands a multi-layer search query against the platform."""
+
+    API_KEY_CREATE = "api_key_create"
+    """Creates a new API key."""
+
+    API_KEY_REVOKE = "api_key_revoke"
+    """Revokes an existing API key."""
+
+    API_KEY_STATUS = "api_key_status"
+    """Checks the status of a specific API key."""
 
     # --- Arch related ---
     VERSION = "version"

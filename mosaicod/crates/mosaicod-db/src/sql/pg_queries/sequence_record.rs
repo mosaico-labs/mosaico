@@ -43,7 +43,7 @@ pub async fn sequence_find_by_locator(
     let res = sqlx::query_as!(
         schema::SequenceRecord,
         "SELECT * FROM sequence_t WHERE locator_name=$1",
-        loc.name(),
+        loc.locator(),
     )
     .fetch_one(exe.as_exec())
     .await?;
@@ -78,7 +78,7 @@ pub async fn sequence_find_all_topic_locators(
         JOIN sequence_t AS sequence ON topic.sequence_id = sequence.sequence_id
         WHERE sequence.locator_name = $1
         "#,
-        loc.name()
+        loc.locator()
     )
     .fetch_all(exe.as_exec())
     .await?;
@@ -100,7 +100,7 @@ pub async fn sequence_find_all_sessions(
         JOIN sequence_t AS sequence ON session.sequence_id = sequence.sequence_id
         WHERE sequence.locator_name = $1
         "#,
-        loc.name()
+        loc.locator()
     )
     .fetch_all(exe.as_exec())
     .await?;
@@ -130,9 +130,12 @@ pub async fn sequence_delete(
     _: types::DataLossToken,
 ) -> Result<(), Error> {
     warn!("(data loss) deleting sequence `{}`", loc);
-    sqlx::query!("DELETE FROM sequence_t WHERE locator_name=$1", loc.name())
-        .execute(exe.as_exec())
-        .await?;
+    sqlx::query!(
+        "DELETE FROM sequence_t WHERE locator_name=$1",
+        loc.locator()
+    )
+    .execute(exe.as_exec())
+    .await?;
     Ok(())
 }
 

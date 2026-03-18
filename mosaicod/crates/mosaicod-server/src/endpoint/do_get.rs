@@ -7,7 +7,6 @@ use arrow_flight::{
 };
 use futures::TryStreamExt;
 use log::{debug, info, trace};
-use mosaicod_core::types::Resource;
 use mosaicod_facade as facade;
 use mosaicod_marshal as marshal;
 
@@ -17,8 +16,9 @@ pub async fn do_get(ctx: Context, ticket: Ticket) -> Result<FlightDataEncoder, S
     info!("requesting data for ticket `{}`", ticket.locator);
 
     // Create topic handle
-    let topic = ticket.locator;
-    let tfacade = facade::Topic::new(topic, ctx.store, ctx.db.clone());
+    let topic_locator = ticket.locator;
+    let tfacade =
+        facade::Topic::try_from_locator(topic_locator.into(), ctx.store, ctx.db.clone()).await?;
 
     // Read metadata from topic
     let metadata = tfacade.manifest().await?;
@@ -30,7 +30,7 @@ pub async fn do_get(ctx: Context, ticket: Ticket) -> Result<FlightDataEncoder, S
     let mut query_result = ctx
         .timeseries_querier
         .read(
-            &tfacade.locator.name(),
+            &tfacade.locator.path_data_folder(tfacade.uuid()),
             metadata.ontology_metadata.properties.serialization_format,
             Some(batch_size),
         )

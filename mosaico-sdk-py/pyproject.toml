@@ -1,16 +1,15 @@
 [tool.poetry]
 name = "mosaico-sdk-py"
-version = "0.2.5"
+version = "0.3.0"
 description = "SDK for Mosaico Data-Platform"
 authors = ["Mosaico Labs <info@mosaico.com>"]
 
 packages = [{ include = "mosaicolabs", from = "src" }]
 
 [tool.poetry.dependencies]
-python = ">=3.13,<4"
+python = ">=3.10,<4"
 pyarrow = ">=22.0.0"
 numpy = ">=2.0.0,<2.5.0"
-pyarrow-stubs = ">=20.0.0.20250928,<21.0.0.0"
 pillow = ">=11.3.0,<13.0.0"
 pandas = ">=2.3.3,<4.0.0"
 pydantic = "^2.12.5"
@@ -19,6 +18,8 @@ rosbags = "^0.11.0"
 click = "^8.3.1"
 opencv-python = "^4.13.0.92"
 av = "^16.1.0"
+deprecated = "^1.3.1"
+typing-extensions = "^4.15.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = ">=8.4.2"
