@@ -13,8 +13,6 @@ pub struct TopicRecord {
     pub session_id: i32,
     pub ontology_tag: String,
 
-    pub(crate) locked: bool,
-
     pub(crate) serialization_format: String,
 
     /// This metadata field is only for database query access and
@@ -58,7 +56,6 @@ impl TopicRecord {
             sequence_id,
             session_id,
             locator_name: locator.to_owned(),
-            locked: false,
             ontology_tag: ontology_tag.to_owned(),
             serialization_format: serialization_format.to_owned(),
             user_metadata: None,
@@ -73,10 +70,6 @@ impl TopicRecord {
     pub fn with_user_metadata(mut self, user_metadata: marshal::JsonMetadataBlob) -> Self {
         self.user_metadata = Some(user_metadata.into());
         self
-    }
-
-    pub fn locked(&self) -> bool {
-        self.locked
     }
 
     pub fn uuid(&self) -> types::Uuid {

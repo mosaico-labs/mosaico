@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            INSERT INTO session_t \n                (\n                    session_uuid, sequence_id, locked,\n                    creation_unix_tstamp, completion_unix_tstamp\n                ) \n            VALUES \n                ($1, $2, $3, $4, $5)\n            RETURNING \n                *\n    ",
+  "query": "\n            INSERT INTO session_t \n                (\n                    session_uuid, sequence_id,\n                    creation_unix_tstamp, completion_unix_tstamp\n                ) \n            VALUES \n                ($1, $2, $3, $4)\n            RETURNING \n                *\n    ",
   "describe": {
     "columns": [
       {
@@ -20,16 +20,11 @@
       },
       {
         "ordinal": 3,
-        "name": "locked",
-        "type_info": "Bool"
-      },
-      {
-        "ordinal": 4,
         "name": "creation_unix_tstamp",
         "type_info": "Int8"
       },
       {
-        "ordinal": 5,
+        "ordinal": 4,
         "name": "completion_unix_tstamp",
         "type_info": "Int8"
       }
@@ -38,7 +33,6 @@
       "Left": [
         "Uuid",
         "Int4",
-        "Bool",
         "Int8",
         "Int8"
       ]
@@ -48,9 +42,8 @@
       false,
       false,
       false,
-      false,
       true
     ]
   },
-  "hash": "303ee118a6139dafab6d509cab6af712f7c21b5dd85e10bb52ce381c330c2c02"
+  "hash": "8f8cd465db9743b6bcb393f110c0507d2c08a8d3da1a06de5c20a1cdf66ad235"
 }

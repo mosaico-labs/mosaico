@@ -16,7 +16,6 @@ fn cast_topic_data(row: PgRow) -> Result<schema::TopicRecord, Error> {
         serialization_format: row.try_get("serialization_format")?,
         user_metadata: row.try_get("user_metadata")?,
         creation_unix_tstamp: row.try_get("creation_unix_tstamp")?,
-        locked: row.try_get("locked")?,
         chunks_number: row.try_get("chunks_number")?,
         total_bytes: row.try_get("total_bytes")?,
         start_index_timestamp: row.try_get("start_index_timestamp")?,
@@ -66,24 +65,6 @@ pub async fn topic_find_all(exe: &mut impl AsExec) -> Result<Vec<schema::TopicRe
     )
 }
 
-/// Deletes a topic record from the database **only if it is unlocked**.
-///
-/// This function safely removes a topic whose `locked` field is set to `FALSE`.  
-/// If the topic is locked or does not exist, the operation has no effect.
-pub async fn topic_delete_unlocked(
-    exe: &mut impl AsExec,
-    loc: &types::TopicResourceLocator,
-) -> Result<(), Error> {
-    trace!("deleting (unlocked) topic `{}`", loc);
-    sqlx::query!(
-        "DELETE FROM topic_t WHERE locator_name=$1 AND locked=FALSE",
-        loc.locator()
-    )
-    .execute(exe.as_exec())
-    .await?;
-    Ok(())
-}
-
 /// Deletes a topic record from the database by its name, **bypassing any lock state**.
 ///
 /// This function requires a [`DataLossToken`] since permanently removes the record
@@ -111,12 +92,12 @@ pub async fn topic_create(
         r#"
             INSERT INTO topic_t
                 (
-                    topic_uuid, sequence_id, session_id, locator_name, creation_unix_tstamp, 
-                    serialization_format, ontology_tag, locked, user_metadata, chunks_number,
+                    topic_uuid, sequence_id, session_id, locator_name, creation_unix_tstamp,
+                    serialization_format, ontology_tag, user_metadata, chunks_number,
                     total_bytes, start_index_timestamp, end_index_timestamp
                 ) 
             VALUES 
-                ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+                ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
             RETURNING 
                 *
     "#,
@@ -127,7 +108,6 @@ pub async fn topic_create(
         record.creation_unix_tstamp,
         record.serialization_format,
         record.ontology_tag,
-        record.locked,
         record.user_metadata,
         record.chunks_number,
         record.total_bytes,
@@ -137,24 +117,6 @@ pub async fn topic_create(
     .fetch_one(exe.as_exec())
     .await?;
     Ok(res)
-}
-
-pub async fn topic_lock(
-    exe: &mut impl AsExec,
-    loc: &types::TopicResourceLocator,
-) -> Result<(), Error> {
-    trace!("locking `{}`", loc);
-    sqlx::query!(
-        r#"
-            UPDATE topic_t 
-            SET locked = TRUE
-            WHERE locator_name = $1
-    "#,
-        loc.locator(),
-    )
-    .execute(exe.as_exec())
-    .await?;
-    Ok(())
 }
 
 pub async fn topic_update_serialization_format(

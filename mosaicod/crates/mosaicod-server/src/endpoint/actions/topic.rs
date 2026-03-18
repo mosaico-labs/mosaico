@@ -32,7 +32,7 @@ pub async fn create(
 
     let ftopic = facade::Topic::create(
         name.into(),
-        &received_uuid,
+        received_uuid,
         ontology_metadata,
         ctx.store.clone(),
         ctx.db.clone(),
@@ -56,7 +56,7 @@ pub async fn delete(ctx: &Context, locator: String) -> Result<ActionResponse, Se
         facade::Topic::try_from_locator(locator.clone().into(), ctx.store.clone(), ctx.db.clone())
             .await?;
 
-    if handle.locked().await? {
+    if handle.manifest().await?.properties.locked {
         return Err(ServerError::TopicLocked);
     }
 

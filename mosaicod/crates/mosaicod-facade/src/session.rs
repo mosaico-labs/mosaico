@@ -30,7 +30,7 @@ pub struct Session {
 }
 
 impl Session {
-    /// Tries to create a new upload session for a given sequence.
+    /// Tries to retrieve a facade for the session with the given [`session_uuid`].
     /// Returns an error if something goes wrong.
     pub async fn try_new(
         session_uuid: types::Uuid,
@@ -46,7 +46,7 @@ impl Session {
 
         Ok(Self {
             sequence_locator: db_sequence.resource_locator(),
-            uuid: session_uuid.clone(),
+            uuid: session_uuid,
             store,
             db,
         })
@@ -86,27 +86,22 @@ impl Session {
                 Topic::try_from_locator(topic_loc.clone(), self.store.clone(), self.db.clone())
                     .await?;
 
-            topic.locked().await
+            topic.manifest().await
         }))
         .await
         .into_iter()
         .collect::<Result<Vec<_>, _>>()?
         .into_iter()
-        .all(|v| v);
+        .all(|v| v.properties.locked);
 
         if !all_topics_locked {
             return Err(Error::TopicUnlocked);
         }
 
-        let completed_at = types::Timestamp::now();
-
-        // TODO: consider to set lock state only inside metadata to avoid data inconsistency with DB
-        db::session_lock(&mut tx, &self.uuid, &completed_at).await?;
-
         // Update manifest (store).
         let mut manifest = self.manifest().await?;
         manifest.locked = true;
-        manifest.completed_at = Some(completed_at);
+        manifest.completed_at = Some(types::Timestamp::now());
         manifest.topics = topics;
         self.manifest_write_to_store(manifest).await?;
 
@@ -137,9 +132,9 @@ impl Session {
             format!("Some error occurred while deleting session `{}`", self.uuid);
         let mut error_report = types::ErrorReport::new(error_report_msg);
 
-        let session = db::session_find_by_uuid(&mut tx, &self.uuid).await?;
+        let session_locked = self.manifest().await?.locked;
 
-        if only_if_unlocked && session.is_locked() {
+        if only_if_unlocked && session_locked {
             return Err(Error::SessionLocked);
         }
 
@@ -161,10 +156,10 @@ impl Session {
 
         // Deletes the session manifest if session was previously locked (unlocked
         // sessions have no manifest)
-        if session.is_locked()
+        if session_locked
             && let Err(e) = self
                 .store
-                .delete(self.sequence_locator.session_manifest(&session.uuid()))
+                .delete(self.sequence_locator.session_manifest(&self.uuid))
                 .await
         {
             error_report.errors.push(types::ErrorReportItem::new(
@@ -194,7 +189,7 @@ impl Session {
         } else {
             // This is done as last operation, otherwise multiple calls to this function will fail
             // since a session lookup is made above
-            db::session_delete(&mut tx, &session.uuid(), allow_data_loss).await?;
+            db::session_delete(&mut tx, &self.uuid, allow_data_loss).await?;
         }
 
         tx.commit().await?;
