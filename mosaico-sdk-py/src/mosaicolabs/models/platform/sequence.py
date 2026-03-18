@@ -6,10 +6,10 @@ Sequence's platform_metadata. A Sequence is a logical grouping of multiple Topic
 """
 
 from typing import Any, Dict, List
-from typing_extensions import Self
 
 import pydantic
 from pydantic import PrivateAttr
+from typing_extensions import Self
 
 from mosaicolabs.platform.metadata import SequenceMetadata
 from mosaicolabs.platform.resource_manifests import (

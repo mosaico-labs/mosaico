@@ -7,10 +7,10 @@ Topic's metadata in the platform catalog. It is used primarily for inspection
 """
 
 from typing import Any, Dict, Optional
-from typing_extensions import Self
 
 import pydantic
 from pydantic import PrivateAttr
+from typing_extensions import Self
 
 from mosaicolabs.platform.metadata import TopicMetadata
 from mosaicolabs.platform.resource_manifests import TopicResourceManifest
