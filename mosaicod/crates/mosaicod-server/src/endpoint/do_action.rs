@@ -3,15 +3,27 @@
 //! This module implements the main dispatcher for Flight DoAction requests,
 //! delegating to specialized handler functions for each action category.
 
-use super::actions::{layer, misc, query as query_action, sequence, session, topic};
-use crate::{endpoints::Context, errors::ServerError};
+use super::{
+    Context,
+    actions::{layer, misc, query as query_action, sequence, session, topic},
+};
+use crate::errors::ServerError;
+use mosaicod_core::types::auth::Permissions;
 use mosaicod_marshal::{ActionRequest, ActionResponse};
 
 /// Dispatches a Flight action request to the appropriate handler.
 ///
 /// This function serves as the main entry point for all Flight DoAction requests,
 /// routing each action type to its specialized handler function.
-pub async fn do_action(ctx: Context, action: ActionRequest) -> Result<ActionResponse, ServerError> {
+pub async fn do_action(
+    ctx: Context,
+    action: ActionRequest,
+    perm: &Permissions,
+) -> Result<ActionResponse, ServerError> {
+    if !has_permissions(&action, perm) {
+        return Err(ServerError::Unauthorized);
+    }
+
     match action {
         // ////////
         // Sequence
@@ -30,7 +42,6 @@ pub async fn do_action(ctx: Context, action: ActionRequest) -> Result<ActionResp
         ActionRequest::SequenceNotificationPurge(data) => {
             sequence::notification_purge(&ctx, data.locator).await
         }
-        ActionRequest::SequenceSystemInfo(data) => sequence::system_info(&ctx, data.locator).await,
 
         // ///////
         // Session
@@ -63,7 +74,6 @@ pub async fn do_action(ctx: Context, action: ActionRequest) -> Result<ActionResp
         ActionRequest::TopicNotificationPurge(data) => {
             topic::notification_purge(&ctx, data.locator).await
         }
-        ActionRequest::TopicSystemInfo(data) => topic::system_info(&ctx, data.locator).await,
 
         // /////
         // Layer
@@ -81,5 +91,34 @@ pub async fn do_action(ctx: Context, action: ActionRequest) -> Result<ActionResp
         // /////
         // Misc
         ActionRequest::Version(_) => misc::version(),
+    }
+}
+
+/// Return true if the requested action matches the permissions, false otherwise
+fn has_permissions(action: &ActionRequest, perm: &Permissions) -> bool {
+    match action {
+        ActionRequest::SequenceCreate(_) => perm.is_write(),
+        ActionRequest::SequenceNotificationCreate(_) => perm.is_write(),
+        ActionRequest::TopicCreate(_) => perm.is_write(),
+        ActionRequest::TopicNotificationCreate(_) => perm.is_write(),
+        ActionRequest::SessionCreate(_) => perm.is_write(),
+        ActionRequest::SessionFinalize(_) => perm.is_write(),
+        ActionRequest::SessionAbort(_) => perm.is_write(),
+        ActionRequest::LayerCreate(_) => perm.is_write(),
+        ActionRequest::LayerUpdate(_) => perm.is_write(),
+
+        ActionRequest::SequenceDelete(_) => perm.is_delete(),
+        ActionRequest::SequenceNotificationPurge(_) => perm.is_delete(),
+        ActionRequest::TopicDelete(_) => perm.is_delete(),
+        ActionRequest::TopicNotificationPurge(_) => perm.is_delete(),
+        ActionRequest::SessionDelete(_) => perm.is_delete(),
+        ActionRequest::LayerDelete(_) => perm.is_delete(),
+
+        ActionRequest::Query(_) => perm.is_read(),
+        ActionRequest::SequenceNotificationList(_) => perm.is_read(),
+        ActionRequest::TopicNotificationList(_) => perm.is_read(),
+        ActionRequest::LayerList(_) => perm.is_read(),
+
+        ActionRequest::Version(_) => true,
     }
 }

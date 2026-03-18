@@ -144,6 +144,11 @@ impl Sequence {
 
         tx.commit().await?;
 
+        // Create session manifest (store)
+        let session_facade =
+            super::Session::try_new(session.uuid(), self.store.clone(), self.db.clone()).await?;
+        session_facade.create_manifest().await?;
+
         Ok(session.into())
     }
 
@@ -201,7 +206,8 @@ impl Sequence {
         // Retrieve sessions data and deletes it
         let sessions = self.session_list().await?;
         for session_uuid in sessions {
-            let session = Session::new(session_uuid, self.store.clone(), self.db.clone());
+            let session =
+                Session::try_new(session_uuid, self.store.clone(), self.db.clone()).await?;
             session.delete(false, allow_data_loss.clone()).await?;
         }
 
@@ -215,22 +221,27 @@ impl Sequence {
         Ok(())
     }
 
-    /// Computes system info for the sequence
-    pub async fn system_info(&self) -> Result<types::SequenceSystemInfo, Error> {
+    pub async fn manifest(&self) -> Result<types::SequenceManifest, Error> {
         let mut cx = self.db.connection();
-        let record = db::sequence_find_by_locator(&mut cx, &self.locator).await?;
 
-        // Compute the sum of the size of all files in the sequence
-        let files = self.store.list(&self.locator.name(), None).await?;
-        let mut total_size = 0;
-        for file in files {
-            total_size += self.store.size(file).await?;
+        let db_sequence = db::sequence_find_by_locator(&mut cx, &self.locator).await?;
+
+        let mut manifest = types::SequenceManifest {
+            resource_locator: self.locator.clone(),
+            created_timestamp: db_sequence.creation_timestamp(),
+            sessions: Vec::new(),
+        };
+
+        let session_uuids = self.session_list().await?;
+
+        for session_uuid in session_uuids {
+            let session =
+                Session::try_new(session_uuid.clone(), self.store.clone(), self.db.clone()).await?;
+            let session_manifest = session.manifest().await?;
+            manifest.sessions.push(session_manifest);
         }
 
-        Ok(types::SequenceSystemInfo {
-            total_size_bytes: total_size,
-            created_datetime: record.creation_timestamp().into(),
-        })
+        Ok(manifest)
     }
 }
 

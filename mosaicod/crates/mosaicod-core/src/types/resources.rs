@@ -1,6 +1,6 @@
-use super::Uuid;
 use super::{Format, TimestampRange};
-use crate::{params, traits};
+use super::{SessionManifest, Uuid};
+use crate::{params, traits, types};
 use std::path;
 use thiserror::Error;
 
@@ -185,19 +185,44 @@ impl AsRef<str> for TopicResourceLocator {
 }
 
 #[derive(Debug)]
-pub struct TopicMetadata<M> {
-    pub properties: TopicProperties,
-    pub user_metadata: M,
+pub struct TopicOntologyProperties {
+    pub serialization_format: Format,
+    pub ontology_tag: String,
 }
 
-impl<M> TopicMetadata<M> {
-    pub fn new(props: TopicProperties, user_metadata: M) -> Self
+/// Properties defining the data semantic and encoding for a topic.
+#[derive(Debug)]
+pub struct TopicOntologyMetadata<M> {
+    pub properties: TopicOntologyProperties,
+    pub user_metadata: Option<M>,
+}
+
+impl<M> TopicOntologyMetadata<M> {
+    pub fn new(props: TopicOntologyProperties, user_metadata: Option<M>) -> Self
     where
         M: super::MetadataBlob,
     {
         Self {
             properties: props,
             user_metadata,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct TopicManifest<M> {
+    pub properties: TopicProperties,
+    pub ontology_metadata: TopicOntologyMetadata<M>,
+}
+
+impl<M> TopicManifest<M> {
+    pub fn new(properties: TopicProperties, ontology_metadata: TopicOntologyMetadata<M>) -> Self
+    where
+        M: super::MetadataBlob,
+    {
+        Self {
+            properties,
+            ontology_metadata,
         }
     }
 }
@@ -209,18 +234,32 @@ pub struct TopicChunksStats {
     pub total_row_count: i64,
 }
 
-/// Configuration properties defining the data semantic and encoding for a topic.
+/// Metadata properties associated to a topic.
 #[derive(Debug)]
 pub struct TopicProperties {
-    pub serialization_format: Format,
-    pub ontology_tag: String,
+    pub created_at: types::Timestamp,
+    pub completed_at: Option<types::Timestamp>,
+    pub locked: bool,
+    pub session_uuid: Uuid,
+    pub resource_locator: TopicResourceLocator,
 }
 
 impl TopicProperties {
-    pub fn new(serialization_format: Format, ontology_tag: String) -> Self {
+    pub fn new(resource_locator: TopicResourceLocator, session_uuid: Uuid) -> Self {
+        Self::new_with_created_at(resource_locator, session_uuid, types::Timestamp::now())
+    }
+
+    pub fn new_with_created_at(
+        resource_locator: TopicResourceLocator,
+        session_uuid: Uuid,
+        created_at: types::Timestamp,
+    ) -> Self {
         Self {
-            serialization_format,
-            ontology_tag,
+            locked: false,
+            resource_locator,
+            created_at,
+            completed_at: None,
+            session_uuid,
         }
     }
 }
@@ -229,55 +268,15 @@ impl TopicProperties {
 ///
 /// This struct provides a snapshot of the topic's physical state on disk, including
 /// its size, structure, and lifecycle status.
-/// (cabba) FIXME: remove this
-pub struct TopicSystemInfo {
+#[derive(Debug)]
+pub struct TopicDataInfo {
     /// Number of chunks in the topic
-    pub chunks_number: usize,
-    /// True is the topic is currently locked, a topic is locked if
-    /// some data was uploaded and the connection was closed gracefully
-    ///
-    /// # Note
-    /// (cabba) TODO: evaluate move this into a separate function since is not strictly related to system info
-    pub is_locked: bool,
+    pub chunks_number: u64,
     /// Total size in bytes of the data.
     /// Metadata and other system files are excluded in the count.
-    pub total_size_bytes: usize,
-    /// Datetime of the topic creation
-    pub created_datetime: super::DateTime,
-}
-
-/// Metadata generated during topic consolidation.
-///
-/// This manifest aggregates all topic details once the write process is finalized.
-#[derive(Default)]
-pub struct TopicManifest {
-    pub timestamp: Option<TopicManifestTimestamp>,
-}
-
-impl TopicManifest {
-    /// Generates an empty topic manifest
-    pub fn new() -> Self {
-        Self {
-            ..Default::default()
-        }
-    }
-
-    pub fn with_timestamp(mut self, timestamp: TopicManifestTimestamp) -> Self {
-        self.timestamp = Some(timestamp);
-        self
-    }
-}
-
-/// Timestamp statistics for the topic index.
-pub struct TopicManifestTimestamp {
-    /// Timestamp range observed (min and max) in this topic
-    pub range: super::TimestampRange,
-}
-
-impl TopicManifestTimestamp {
-    pub fn new(range: super::TimestampRange) -> Self {
-        Self { range }
-    }
+    pub total_bytes: u64,
+    /// First and last timestamps present in the topic data.
+    pub timestamp_range: TimestampRange,
 }
 
 // ////////////////////////////////////////////////////////////////////////////
@@ -353,12 +352,11 @@ where
     }
 }
 
-pub struct SequenceSystemInfo {
-    /// Total size in bytes of the data.
-    /// This values includes additional system files.
-    pub total_size_bytes: usize,
-    /// Datetime of the sequence creation
-    pub created_datetime: super::DateTime,
+pub struct SequenceManifest {
+    /// Timestamp of the sequence creation
+    pub created_timestamp: super::Timestamp,
+    pub resource_locator: SequenceResourceLocator,
+    pub sessions: Vec<SessionManifest>,
 }
 
 // ////////////////////////////////////////////////////////////////////////////

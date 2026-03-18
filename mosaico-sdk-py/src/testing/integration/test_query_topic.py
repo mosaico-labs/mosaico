@@ -1,7 +1,6 @@
 import pytest
 
 from mosaicolabs.comm import MosaicoClient
-from mosaicolabs.models.platform import Topic
 from mosaicolabs.models.query import QuerySequence, QueryTopic
 from mosaicolabs.types import Time
 from testing.integration.config import (
@@ -185,9 +184,7 @@ def test_query_topic_metadata(
 ):
     # Trivial: query by topic name
     query_resp = _client.query(
-        QueryTopic().with_expression(
-            Topic.Q.user_metadata["serial_number"].eq("IMUF-9A31D72X")
-        )
+        QueryTopic().with_user_metadata("serial_number", eq="IMUF-9A31D72X")
     )
     # We do expect a successful query
     assert query_resp is not None and not query_resp.is_empty()
@@ -203,9 +200,7 @@ def test_query_topic_metadata(
 
     # Test with single condition
     query_resp = _client.query(
-        QueryTopic().with_expression(
-            Topic.Q.user_metadata["serial_number"].eq("IMUF-9A31D72X")
-        )
+        QueryTopic().with_user_metadata("serial_number", eq="IMUF-9A31D72X")
     )
     # We do expect a successful query
     assert query_resp is not None and not query_resp.is_empty()
@@ -222,8 +217,8 @@ def test_query_topic_metadata(
     # Test with multiple conditions
     query_resp = _client.query(
         QueryTopic()
-        .with_expression(Topic.Q.user_metadata["serial_number"].eq("IMUF-9A31D72X"))
-        .with_expression(Topic.Q.user_metadata["bias_stability"].gt(0.01))
+        .with_user_metadata("serial_number", eq="IMUF-9A31D72X")
+        .with_user_metadata("bias_stability", between=(0.005, 0.015))
     )
     # We do expect a successful query
     assert query_resp is not None and not query_resp.is_empty()
@@ -239,7 +234,7 @@ def test_query_topic_metadata(
 
     # Test with multiple returned topic matches
     query_resp = _client.query(
-        QueryTopic().with_expression(Topic.Q.user_metadata["bias_stability"].geq(0.01))
+        QueryTopic().with_user_metadata("bias_stability", geq=0.01)
     )
     # We do expect a successful query
     assert query_resp is not None and not query_resp.is_empty()
@@ -257,9 +252,7 @@ def test_query_topic_metadata(
 
     # Test with nested field
     query_resp = _client.query(
-        QueryTopic().with_expression(
-            Topic.Q.user_metadata["interface.type"].eq("Ethernet")
-        )
+        QueryTopic().with_user_metadata("interface.type", eq="Ethernet")
     )
     # We do expect a successful query
     assert query_resp is not None and not query_resp.is_empty()

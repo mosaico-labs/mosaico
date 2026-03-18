@@ -17,10 +17,14 @@ fn cast_topic_data(row: PgRow) -> Result<schema::TopicRecord, Error> {
         user_metadata: row.try_get("user_metadata")?,
         creation_unix_tstamp: row.try_get("creation_unix_tstamp")?,
         locked: row.try_get("locked")?,
+        chunks_number: row.try_get("chunks_number")?,
+        total_bytes: row.try_get("total_bytes")?,
+        start_index_timestamp: row.try_get("start_index_timestamp")?,
+        end_index_timestamp: row.try_get("end_index_timestamp")?,
     })
 }
 
-/// Find a sequence given its uuid.
+/// Find a topic given its uuid.
 pub async fn topic_find_by_ids(
     exe: &mut impl AsExec,
     ids: &[i32],
@@ -108,10 +112,11 @@ pub async fn topic_create(
             INSERT INTO topic_t
                 (
                     topic_uuid, sequence_id, session_id, locator_name, creation_unix_tstamp, 
-                    serialization_format, ontology_tag, locked, user_metadata
+                    serialization_format, ontology_tag, locked, user_metadata, chunks_number,
+                    total_bytes, start_index_timestamp, end_index_timestamp
                 ) 
             VALUES 
-                ($1, $2, $3, $4, $5, $6, $7, $8, $9) 
+                ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
             RETURNING 
                 *
     "#,
@@ -123,7 +128,11 @@ pub async fn topic_create(
         record.serialization_format,
         record.ontology_tag,
         record.locked,
-        record.user_metadata
+        record.user_metadata,
+        record.chunks_number,
+        record.total_bytes,
+        record.start_index_timestamp,
+        record.end_index_timestamp,
     )
     .fetch_one(exe.as_exec())
     .await?;
@@ -212,6 +221,32 @@ pub async fn topic_update_user_metadata(
             RETURNING * 
     "#,
         metadata,
+        loc.name(),
+    )
+    .fetch_one(exe.as_exec())
+    .await?;
+
+    Ok(res)
+}
+
+pub async fn topic_update_system_info(
+    exe: &mut impl AsExec,
+    loc: &types::TopicResourceLocator,
+    system_info: &types::TopicDataInfo,
+) -> Result<schema::TopicRecord, Error> {
+    trace!("updating system info to `{:?}` for `{}`", system_info, loc);
+    let res = sqlx::query_as!(
+        schema::TopicRecord,
+        r#"
+            UPDATE topic_t
+            SET chunks_number = $1, total_bytes = $2, start_index_timestamp = $3, end_index_timestamp = $4
+            WHERE locator_name = $5
+            RETURNING *
+    "#,
+        system_info.chunks_number as i64,
+        system_info.total_bytes as i64,
+        system_info.timestamp_range.start.as_i64(),
+        system_info.timestamp_range.end.as_i64(),
         loc.name(),
     )
     .fetch_one(exe.as_exec())

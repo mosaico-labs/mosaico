@@ -1,6 +1,6 @@
 //! Sequence-related actions
 
-use crate::{endpoints::Context, errors::ServerError};
+use crate::{endpoint::Context, errors::ServerError};
 use log::{info, trace, warn};
 use mosaicod_core::types::{self, MetadataBlob, Resource};
 use mosaicod_facade as facade;
@@ -90,14 +90,4 @@ pub async fn notification_purge(
     handle.notification_purge().await?;
 
     Ok(ActionResponse::sequence_notification_purge())
-}
-
-/// Gets system information for a sequence.
-pub async fn system_info(ctx: &Context, name: String) -> Result<ActionResponse, ServerError> {
-    info!("[{}] sequence system informations", name);
-
-    let handle = facade::Sequence::new(name, ctx.store.clone(), ctx.db.clone());
-    let sysinfo = handle.system_info().await?;
-
-    Ok(ActionResponse::sequence_system_info(sysinfo.into()))
 }

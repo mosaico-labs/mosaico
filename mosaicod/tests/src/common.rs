@@ -47,11 +47,11 @@ async fn start_server(
 
     let database = db::testing::Database::new(pool);
     let store = store::testing::Store::new_random_on_tmp().unwrap();
-    let config = server::flight::Config {
-        host: host.to_owned(),
-        port,
-        tls,
-    };
+    let mut config = server::flight::Config::new(host.to_owned(), port);
+
+    if let Some(tls) = tls {
+        config.tls(tls);
+    }
 
     let handle = tokio::task::spawn(async move {
         if let Err(err) = server::flight::start(

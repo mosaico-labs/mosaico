@@ -1,30 +1,28 @@
 use super::flight;
-use log::{error, info, trace};
 use mosaicod_db as db;
 use mosaicod_store as store;
+use tracing::{debug, error};
 
 /// Mosaico server.
 /// Handles incoming requests and manages the database and store.
 pub struct Server {
-    /// Listen on all addresses, including LAN and public addresses
-    pub host: bool,
-
-    pub port: u16,
-
     /// Shutdown notifier used to signal server shutdown
     pub shutdown: flight::ShutdownNotifier,
+
+    pub flight_config: flight::Config,
 
     /// Store engine
     store: store::StoreRef,
 
+    /// Database handler
     db: db::Database,
 }
 
 impl Server {
-    pub fn new(host: bool, port: u16, store: store::StoreRef, db: db::Database) -> Self {
+    /// Creates a new server.
+    pub fn new(host: String, port: u16, store: store::StoreRef, db: db::Database) -> Self {
         Self {
-            host,
-            port,
+            flight_config: flight::Config::new(host, port),
             store,
             db,
             shutdown: flight::ShutdownNotifier::default(),
@@ -36,35 +34,25 @@ impl Server {
     /// The `on_start` callback is called once the server has started.
     ///
     /// This method startup a Tokio runtime to handle async operations.
-    ///
-    /// Since the `database` requires an async context to be initialized,
-    /// the initialization of the [`db::Database`] is done inside this method.
     pub fn start_and_wait<F>(
         &self,
         rt: tokio::runtime::Runtime,
         on_start: F,
-        tls: Option<flight::TlsConfig>,
     ) -> Result<(), Box<dyn std::error::Error>>
     where
         F: FnOnce(),
     {
-        let host = if self.host { "0.0.0.0" } else { "127.0.0.1" };
-
-        let config = flight::Config {
-            host: host.to_owned(),
-            port: self.port,
-            tls,
-        };
-
         let shutdown = self.shutdown.clone();
 
         let store = self.store.clone();
         let database = self.db.clone();
 
+        let config = self.flight_config.clone();
+
         rt.block_on(async {
             // Create a thread in tokio runtime to handle flight requests
             let handle_flight = rt.spawn(async move {
-                trace!("flight service starting");
+                debug!("flight service starting");
                 if let Err(err) = flight::start(config, store, database, Some(shutdown)).await {
                     error!("{}", err);
                 }
@@ -75,7 +63,7 @@ impl Server {
             let _ = tokio::join!(handle_flight);
         });
 
-        info!("stopped");
+        debug!("flight service stopped");
 
         Ok(())
     }

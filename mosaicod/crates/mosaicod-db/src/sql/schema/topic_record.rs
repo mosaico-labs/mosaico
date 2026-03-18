@@ -1,4 +1,5 @@
 use crate as db;
+use log::error;
 use mosaicod_core::types;
 use mosaicod_marshal as marshal;
 use std::str::FromStr;
@@ -10,10 +11,11 @@ pub struct TopicRecord {
     pub locator_name: String,
     pub sequence_id: i32,
     pub session_id: i32,
-    pub ontology_tag: Option<String>,
+    pub ontology_tag: String,
 
     pub(crate) locked: bool,
-    pub(crate) serialization_format: Option<String>,
+
+    pub(crate) serialization_format: String,
 
     /// This metadata field is only for database query access and
     /// should not be exposed
@@ -21,6 +23,16 @@ pub struct TopicRecord {
 
     /// UNIX timestamp in milliseconds from the creation
     pub(crate) creation_unix_tstamp: i64,
+
+    /// System info.
+    /// ATTENTION: They actually contain UNSIGNED int 64bit values,
+    /// converted into i64 just for compatibility with SQL Bigint standard.
+    pub(crate) total_bytes: Option<i64>,
+    pub(crate) chunks_number: Option<i64>,
+
+    /// First and last timestamps stored inside topic's data.
+    pub(crate) start_index_timestamp: Option<i64>,
+    pub(crate) end_index_timestamp: Option<i64>,
 }
 
 impl From<TopicRecord> for types::Identifiers {
@@ -33,7 +45,13 @@ impl From<TopicRecord> for types::Identifiers {
 }
 
 impl TopicRecord {
-    pub fn new(name: &str, sequence_id: i32, session_id: i32) -> Self {
+    pub fn new(
+        name: &str,
+        sequence_id: i32,
+        session_id: i32,
+        ontology_tag: &str,
+        serialization_format: &str,
+    ) -> Self {
         Self {
             topic_id: db::UNREGISTERED,
             topic_uuid: types::Uuid::new().into(),
@@ -41,21 +59,15 @@ impl TopicRecord {
             session_id,
             locator_name: name.to_owned(),
             locked: false,
-            ontology_tag: None,
-            serialization_format: None,
+            ontology_tag: ontology_tag.to_owned(),
+            serialization_format: serialization_format.to_owned(),
             user_metadata: None,
             creation_unix_tstamp: types::Timestamp::now().into(),
+            chunks_number: None,
+            total_bytes: None,
+            start_index_timestamp: None,
+            end_index_timestamp: None,
         }
-    }
-
-    pub fn with_ontology_tag(mut self, ontology_tag: &str) -> Self {
-        self.ontology_tag = Some(ontology_tag.to_owned());
-        self
-    }
-
-    pub fn with_serialization_format(mut self, serialization_format: &str) -> Self {
-        self.serialization_format = Some(serialization_format.to_owned());
-        self
     }
 
     pub fn with_user_metadata(mut self, user_metadata: marshal::JsonMetadataBlob) -> Self {
@@ -63,17 +75,35 @@ impl TopicRecord {
         self
     }
 
-    pub fn is_locked(&self) -> bool {
+    pub fn locked(&self) -> bool {
         self.locked
     }
 
     pub fn serialization_format(&self) -> Option<types::Format> {
-        self.serialization_format.as_ref().map(|value| {
-            types::Format::from_str(value).expect("BUG: invalid serialization format in database")
-        })
+        types::Format::from_str(self.serialization_format.as_ref())
+            .inspect_err(|e| error!("BUG: invalid serialization format in database: {}", e))
+            .ok()
     }
 
     pub fn creation_timestamp(&self) -> types::Timestamp {
         types::Timestamp::from(self.creation_unix_tstamp)
+    }
+
+    /// Either all the fields are set, or none.
+    /// Mixed combinations are a symptom that something went wrong
+    /// and most likely these metrics need to be recalculated.
+    pub fn info(&self) -> Option<types::TopicDataInfo> {
+        let info: Option<types::TopicDataInfo> = (|| {
+            Some(types::TopicDataInfo {
+                chunks_number: self.chunks_number? as u64,
+                total_bytes: self.total_bytes? as u64,
+                timestamp_range: types::TimestampRange::between(
+                    self.start_index_timestamp?.into(),
+                    self.end_index_timestamp?.into(),
+                ),
+            })
+        })();
+
+        info
     }
 }

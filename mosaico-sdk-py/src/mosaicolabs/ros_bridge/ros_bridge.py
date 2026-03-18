@@ -28,17 +28,17 @@ class ROSBridge(Generic[T]):
             mapping canonical ROS message type strings to their respective adapter classes.
     """
 
-    # Maps ROS Message Type (e.g., sensor_msgs.msg.Imu) to its Adapter Class
-    _adapters: Dict[str, Type[ROSAdapterBase]] = {}
+    # Maps ROS Message Type (e.g., sensor_msgs.msg.Imu) to its default Adapter Class
+    _default_adapters: Dict[str, Type[ROSAdapterBase]] = {}
 
     @classmethod
-    def get_adapters(cls):
-        return cls._adapters
+    def get_default_adapters(cls):
+        return cls._default_adapters
 
     @classmethod
-    def _register_adapter(cls, adapter_class: Type[ROSAdapterBase]):
+    def _register_default_adapter(cls, adapter_class: Type[ROSAdapterBase]):
         """
-        Internal helper for registering an adapter class for one or more specific ROS message types.
+        Internal helper for registering a default adapter class for one or more specific ROS message types.
 
         It populates the internal registry, allowing the bridge to automatically handle
         new message types during bag ingestion. Users must use the @register_adapter decorator instead.
@@ -58,14 +58,14 @@ class ROSBridge(Generic[T]):
             ros_types = (ros_types,)
 
         for ros_type in ros_types:
-            if ros_type in cls._adapters:
+            if ros_type in cls._default_adapters:
                 raise ValueError(
                     f"Adapter for ROS message type '{ros_type}' is already registered."
                 )
-            cls._adapters[ros_type] = adapter_class
+            cls._default_adapters[ros_type] = adapter_class
 
     @classmethod
-    def get_adapter(cls, ros_msg_type: str) -> Optional[Type[ROSAdapterBase]]:
+    def get_default_adapter(cls, ros_msg_type: str) -> Optional[Type[ROSAdapterBase]]:
         """
         Retrieves the registered adapter class for a given ROS message type.
 
@@ -75,7 +75,7 @@ class ROSBridge(Generic[T]):
         Returns:
             The corresponding `ROSAdapterBase` subclass if found, otherwise `None`.
         """
-        return cls._adapters.get(ros_msg_type)
+        return cls._default_adapters.get(ros_msg_type)
 
     @classmethod
     def is_msgtype_adapted(cls, ros_msg_type: str) -> bool:
@@ -85,7 +85,7 @@ class ROSBridge(Generic[T]):
         Returns:
             bool: True if the type is supported, False otherwise.
         """
-        return ros_msg_type in cls._adapters
+        return ros_msg_type in cls._default_adapters
 
     @classmethod
     def is_adapted(cls, mosaico_cls: T) -> bool:
@@ -99,7 +99,8 @@ class ROSBridge(Generic[T]):
             bool: True if an adapter exists for this class, False otherwise.
         """
         return any(
-            val.ontology_data_type() == mosaico_cls for val in cls._adapters.values()
+            val.ontology_data_type() == mosaico_cls
+            for val in cls._default_adapters.values()
         )
 
     # --- Main Bridge API ---
@@ -128,7 +129,7 @@ class ROSBridge(Generic[T]):
         Returns:
             A fully constructed Mosaico `Message` if an adapter is available, otherwise `None`.
         """
-        adapter_class = cls.get_adapter(ros_msg.msg_type)
+        adapter_class = cls.get_default_adapter(ros_msg.msg_type)
         if adapter_class is None:
             return None
 
@@ -136,9 +137,9 @@ class ROSBridge(Generic[T]):
         return adapter_class.translate(ros_msg, **kwargs)
 
 
-def register_adapter(cls: Type["ROSAdapterBase"]) -> Type["ROSAdapterBase"]:
+def register_default_adapter(cls: Type["ROSAdapterBase"]) -> Type["ROSAdapterBase"]:
     """
-    A class decorator for streamlined adapter registration.
+    A class decorator for streamlined default adapter registration.
 
     This is the recommended way to register adapters in a production environment,
     as it couples the adapter definition directly with its registration in the bridge.
@@ -159,5 +160,5 @@ def register_adapter(cls: Type["ROSAdapterBase"]) -> Type["ROSAdapterBase"]:
     Returns:
         The same class, unmodified, after successful registration.
     """
-    ROSBridge._register_adapter(cls)
+    ROSBridge._register_default_adapter(cls)
     return cls

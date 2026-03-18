@@ -22,23 +22,23 @@ mosaicod-query = { path = "crates/mosaicod-query" }
 mosaicod-rw = { path = "crates/mosaicod-rw" }
 mosaicod-server = { path = "crates/mosaicod-server" }
 mosaicod-store = { path = "crates/mosaicod-store" }
-# tests = { path = "itests" }
 
-# External dependencies
+# These dependencies need to be updated together
 arrow = { version = "57.3.0", features = ["prettyprint"] }
 arrow-cast = "57.2.0"
 arrow-flight = "57.2.0"
 arrow-schema = "57.2.0"
 parquet = "57.3.0"
+datafusion = { version = "52.1.0", default-features = false, features = ["compression", "parquet", "sql", "recursive_protection"] }
+tonic = { version = "0.14.3", features = ["tls-ring"] }
+
 base64 = "0.22.1"
 bincode = { version = "2.0.1", features = ["serde"] }
 bytes = "1.11.1"
 chrono = "0.4.43"
 clap = { version = "4.5.57", features = ["derive"] }
 colored = "3.1.1"
-datafusion = { version = "52.1.0", default-features = false, features = ["compression", "parquet", "sql", "recursive_protection"] }
 dotenv = "0.15.0"
-env_logger = "0.11.8"
 futures = "0.3.32"
 if-addrs = "0.15.0"
 log = "0.4.29"
@@ -57,12 +57,17 @@ sqlx = { version = "0.8.6", features = [
 ] }
 thiserror = "2.0.18"
 tokio = { version = "1.47.1", features = ["rt-multi-thread"] }
-tonic = { version = "0.14.3", features = ["tls-ring"] }
 url = "2.5.8"
 uuid = { version = "1.21.0", features = [ "v4" ] }
 crc32fast = "1.5.0"
 iso8601 = "0.6.3"
 semver = "1.0.27"
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.22", features = ["json", "env-filter"] }
+
+# Used to implement middlewares in mosaicod-server crate 
+tower = "0.5.3"
+http = "1.4.0"
 
 [profile.release]
 strip = true    # Strip symbols from binary

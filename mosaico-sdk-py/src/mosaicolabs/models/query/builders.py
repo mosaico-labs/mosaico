@@ -14,6 +14,8 @@ It implements a Domain-Specific Language that allows users to filter **Sequences
 
 from typing import Any, Dict, List, Optional, Tuple, Type, get_origin
 
+from typing_extensions import deprecated
+
 # Import custom types used in helper methods
 from mosaicolabs.types import Time
 
@@ -24,6 +26,7 @@ from .expressions import (
     _QuerySequenceExpression,
     _QueryTopicExpression,
 )
+from .generation.mixins import _make_queryable_field_intance, _QueryableDynamicValue
 from .protocols import QueryableProtocol
 
 
@@ -313,7 +316,7 @@ class QueryTopic:
                 QueryTopic()
                 .with_ontology_tag(Image.ontology_tag())
                 .with_created_timestamp(time_start=Time.from_float(1700000000))
-                .with_expression(Topic.Q.user_metadata["camera_id.serial_number"].eq("ABC123_XYZ"))
+                .with_user_metadata("camera_id.serial_number", eq="ABC123_XYZ")
             )
 
             # Inspect the response
@@ -335,9 +338,9 @@ class QueryTopic:
         [`_QueryTopicExpression`][mosaicolabs.models.query.expressions._QueryTopicExpression] objects, generated
         via `Topic.Q.` proxy.
 
-        This builder leverages the **`.Q` query proxy** on the `user_metadata`
-        field of the [`Topic`][mosaicolabs.models.platform.Topic] model to provide
-        a type-safe, fluent interface for filtering.
+        Warning: Deprecated
+            The constructor is deprecated. Use the [`with_user_metadata()`][mosaicolabs.models.query.builders.QueryTopic.with_user_metadata]
+            convenience method instead, if wanting to query the user metadata.
 
         Args:
             *expressions: A variable number of `Topic.Q` (`_QueryTopicExpression`) expression objects.
@@ -358,29 +361,10 @@ class QueryTopic:
             _validate_expression_unique_key(self._expressions, expr.key)
             self._expressions.append(expr)
 
-    def with_expression(self, expr: _QueryExpression) -> "QueryTopic":
+    def _with_expression(self, expr: _QueryExpression) -> "QueryTopic":
         """
-        Adds a new expression to the query using a fluent interface.
-
-        This is the way to add filters for nested metadata.
-
-        Example:
-            ```python
-            from mosaicolabs import MosaicoClient, Topic, QuerySequence
-
-            with MosaicoClient.connect("localhost", 6726) as client:
-                # Target a specific known topic path
-                qresponse = client.query(
-                    QueryTopic().with_expression(Topic.Q.user_metadata["version"].eq("1.0"))
-                )
-
-                # Inspect the response
-                if qresponse is not None:
-                    # Results are automatically grouped by Sequence for easier data management
-                    for item in qresponse:
-                        print(f"Sequence: {item.sequence.name}")
-                        print(f"Topics: {[topic.name for topic in item.topics]}")
-            ```
+        Internal method for adding a new expression to the query inner list
+        using a fluent interface.
 
         Args:
             expr: A `_QueryTopicExpression` constructed via a `Topic.Q` proxy.
@@ -398,7 +382,87 @@ class QueryTopic:
         self._expressions.append(expr)
         return self
 
+    # --- Public API ---
+    @deprecated(
+        "This function is deprecated and will be removed in release 0.4.0. Use `with_user_metadata` instead"
+    )
+    def with_expression(self, expr: _QueryExpression) -> "QueryTopic":
+        """
+        Adds a new expression to the query using a fluent interface.
+
+        Warning: Deprecated API
+            This is the old way to add filters for nested metadata. Use the
+            [`with_user_metadata`][mosaicolabs.models.query.builders.QueryTopic.with_user_metadata]
+            convenience method
+
+        Args:
+            expr: A `_QueryTopicExpression` constructed via a `Topic.Q` proxy.
+
+        Returns:
+            The `QueryTopic` instance for method chaining.
+        """
+
+        return self._with_expression(expr=expr)
+
     # --- Helper methods for common fields ---
+
+    def with_user_metadata(self, key: str, **operator_kwargs: Any) -> "QueryTopic":
+        """
+        Appends a metadata filter to the query using a fluent, operator-based interface.
+
+        This method simplifies metadata discovery by allowing direct filtering on the `user_metadata`
+        dictionary of the Topic. Each call adds a logical AND condition to the query.
+
+        Note:
+            The previous method using `Topic.Q.user_metadata` is maintained for backward
+            compatibility but is scheduled for removal in release **0.4.0**.
+
+        Args:
+            key (str): The metadata key to filter on (e.g., "sensor_id"). Supports dot-notation
+                for nested dictionary access (e.g., "calibration.focal_length").
+            **operator_kwargs: A single keyword argument where the key is the operator
+                and the value is the comparison target, e.g. `eq="value"`, `lt=100`, etc.
+
+        Raises:
+            ValueError: If no operator is provided, if multiple operators are provided in
+                a single call, or if an unsupported operator is used.
+
+        Operators Supported:
+            * `eq`: Equal to
+            * `neq`: Not equal to
+            * `gt`: Greater than
+            * `geq`: Greater than or equal to
+            * `lt`: Less than
+            * `leq`: Less than or equal to
+            * `between`: Range filter (expects a list of [min, max])
+
+        Example:
+            ```python
+            # Find sequences for 'Apollo' project with visibility under 100m
+            query = (
+                QueryTopic()
+                .with_user_metadata("sensor_id", eq="ABC123_XYZ")
+                .with_user_metadata("calibration.focal_length", between=(14, 24))
+            )
+            results = client.query(query)
+            ```
+
+        Returns:
+            QueryTopic: The current instance to support method chaining.
+        """
+        if len(operator_kwargs.keys()) != 1:
+            raise ValueError("'with_user_metadata' accepts exactly one operator key.")
+        op, value = operator_kwargs.popitem()
+
+        qfield_inst = _make_queryable_field_intance(
+            queryable_type=_QueryableDynamicValue,
+            field_full_path=f"user_metadata.{key}",
+            expression_type=_QueryTopicExpression,
+        )
+
+        op_callback = getattr(qfield_inst, op)
+
+        return self._with_expression(op_callback(value))
 
     def with_name(self, name: str) -> "QueryTopic":
         """
@@ -406,7 +470,7 @@ class QueryTopic:
 
         Example:
             ```python
-            from mosaicolabs import MosaicoClient, Topic, QuerySequence
+            from mosaicolabs import MosaicoClient, Topic, QueryTopic
 
             with MosaicoClient.connect("localhost", 6726) as client:
                 # Target a specific known topic path
@@ -428,7 +492,7 @@ class QueryTopic:
         Returns:
             The `QueryTopic` instance for method chaining.
         """
-        return self.with_expression(_QueryTopicExpression("locator", "$eq", f"{name}"))
+        return self._with_expression(_QueryTopicExpression("locator", "$eq", f"{name}"))
 
     def with_name_match(self, name: str) -> "QueryTopic":
         """
@@ -461,7 +525,7 @@ class QueryTopic:
         Returns:
             The `QueryTopic` instance for method chaining.
         """
-        return self.with_expression(
+        return self._with_expression(
             # employs explicit _QueryTopicExpression composition for dealing with
             # special fields in data platform
             _QueryTopicExpression("locator", "$match", f"{name}")
@@ -502,7 +566,7 @@ class QueryTopic:
         Returns:
             The `QueryTopic` instance for method chaining.
         """
-        return self.with_expression(
+        return self._with_expression(
             # employs explicit _QueryTopicExpression composition for dealing with
             # special fields in data platform
             _QueryTopicExpression("ontology_tag", "$eq", ontology_tag)
@@ -568,7 +632,7 @@ class QueryTopic:
             expr = _QueryTopicExpression(
                 "created_timestamp", "$between", [ts_int, te_int]
             )
-        return self.with_expression(expr)
+        return self._with_expression(expr)
 
     # compatibility with QueryProtocol
     def name(self) -> str:
@@ -667,7 +731,7 @@ class QuerySequence:
             # Search for sequences by project name and creation date
             qresponse = client.query(
                 QuerySequence()
-                .with_expression(Sequence.Q.user_metadata["project"].eq("Apollo"))
+                .with_user_metadata("project", eq="Apollo")
                 .with_created_timestamp(time_start=Time.from_float(1690000000.0))
             )
 
@@ -688,9 +752,9 @@ class QuerySequence:
         [`_QuerySequenceExpression`][mosaicolabs.models.query.expressions._QuerySequenceExpression] objects, generated
         via `Sequence.Q.` proxy.
 
-        This builder leverages the **`.Q` query proxy** specifically on the `user_metadata`
-        field of the [`Sequence`][mosaicolabs.models.platform.Sequence] model to provide
-        a type-safe, fluent interface for filtering.
+        Warning: Deprecated
+            The constructor is deprecated. Use the [`with_user_metadata()`][mosaicolabs.models.query.builders.QuerySequence.with_user_metadata]
+            convenience method instead, if wanting to query the user metadata.
 
         Args:
             *expressions: A variable number of `Sequence.Q` (`_QuerySequenceExpression`) objects.
@@ -711,27 +775,91 @@ class QuerySequence:
             _validate_expression_unique_key(self._expressions, expr.key)
             self._expressions.append(expr)
 
+    @deprecated(
+        "This function is deprecated and will be removed in release 0.4.0. Use `with_user_metadata` instead"
+    )
     def with_expression(self, expr: _QueryExpression) -> "QuerySequence":
         """
         Adds a new expression to the query using a fluent interface.
 
-        This is the way to add filters for nested metadata.
+        Warning: Deprecated API
+            This is the old way to add filters for nested metadata. Use the
+            [`with_user_metadata`][mosaicolabs.models.query.builders.QuerySequence.with_user_metadata]
+            convenience method
+
+        Args:
+            expr: A `_QuerySequenceExpression` constructed via a `Sequence.Q` proxy.
+
+        Returns:
+            The `QuerySequence` instance for method chaining.
+
+        """
+
+        return self._with_expression(expr=expr)
+
+    def with_user_metadata(self, key: str, **operator_kwargs: Any) -> "QuerySequence":
+        """
+        Appends a metadata filter to the query using a fluent, operator-based interface.
+
+        This method simplifies metadata discovery by allowing direct filtering on the `user_metadata`
+        dictionary of the Sequence. Each call adds a logical AND condition to the query.
+
+        Note:
+            The previous method using `Sequence.Q.user_metadata` is maintained for backward
+            compatibility but is scheduled for removal in release **0.4.0**.
+
+        Args:
+            key (str): The metadata key to filter on (e.g., "project"). Supports dot-notation
+                for nested dictionary access (e.g., "vehicle.id").
+            **operator_kwargs: A single keyword argument where the key is the operator
+                and the value is the comparison target, e.g. `eq="value"`, `lt=100`, etc.
+
+        Raises:
+            ValueError: If no operator is provided, if multiple operators are provided in
+                a single call, or if an unsupported operator is used.
+
+        Operators Supported:
+            * `eq`: Equal to
+            * `neq`: Not equal to
+            * `gt`: Greater than
+            * `geq`: Greater than or equal to
+            * `lt`: Less than
+            * `leq`: Less than or equal to
+            * `between`: Range filter (expects a list of [min, max])
 
         Example:
             ```python
-            from mosaicolabs import MosaicoClient, Topic, QuerySequence
-
-            with MosaicoClient.connect("localhost", 6726) as client:
-                # Target a specific known topic path
-                qresponse = client.query(
-                    QuerySequence().with_expression(Sequence.Q.user_metadata["project"].eq("Apollo"))
-                )
-
-                # Inspect the response
-                for item in qresponse:
-                    print(f"Sequence: {item.sequence.name}")
-                    print(f"Topics: {[topic.name for topic in item.topics]}")
+            # Find sequences for 'Apollo' project with visibility under 100m
+            query = (
+                QuerySequence()
+                .with_user_metadata("project", eq="Apollo")
+                .with_user_metadata("environment.visibility", lt=100)
+            )
+            results = client.query(query)
             ```
+
+        Returns:
+            QuerySequence: The current instance to support method chaining.
+        """
+
+        if len(operator_kwargs.keys()) != 1:
+            raise ValueError("'with_user_metadata' accepts exactly one operator key.")
+        op, value = operator_kwargs.popitem()
+
+        qfield_inst = _make_queryable_field_intance(
+            queryable_type=_QueryableDynamicValue,
+            field_full_path=f"user_metadata.{key}",
+            expression_type=_QuerySequenceExpression,
+        )
+
+        op_callback = getattr(qfield_inst, op)
+
+        return self._with_expression(op_callback(value))
+
+    def _with_expression(self, expr: _QueryExpression) -> "QuerySequence":
+        """
+        Internal method for adding a new expression to the query inner list
+        using a fluent interface.
 
         Args:
             expr: A `_QuerySequenceExpression` constructed via a `Sequence.Q` proxy.
@@ -777,7 +905,7 @@ class QuerySequence:
         Returns:
             The `QuerySequence` instance for method chaining.
         """
-        return self.with_expression(
+        return self._with_expression(
             # employs explicit _QuerySequenceExpression composition for dealing with
             # special fields in data platform
             _QuerySequenceExpression("locator", "$eq", name)
@@ -811,7 +939,7 @@ class QuerySequence:
         Returns:
             The `QuerySequence` instance for method chaining.
         """
-        return self.with_expression(
+        return self._with_expression(
             # employs explicit _QuerySequenceExpression composition for dealing with
             # special fields in data platform
             _QuerySequenceExpression("locator", "$match", f"{name}")
@@ -875,7 +1003,9 @@ class QuerySequence:
             expr = _QuerySequenceExpression(
                 "created_timestamp", "$between", [ts_int, te_int]
             )
-        return self.with_expression(expr)
+        return self._with_expression(expr)
+
+    # TODO: possible to query updated_timestamps?
 
     # compatibility with QueryProtocol
     def name(self) -> str:
@@ -975,10 +1105,7 @@ class Query:
             query = Query(
                 # Append a filter for sequence metadata
                 QuerySequence()
-                .with_expression(
-                    # Use query proxy for generating a _QuerySequenceExpression
-                    Sequence.Q.user_metadata["environment.visibility"].lt(50)
-                )
+                .with_user_metadata("environment.visibility", lt=50)
                 .with_name_match("test_drive"),
                 # Append a filter with deep time-series data discovery and measurement time windowing
                 QueryOntologyCatalog(include_timestamp_range=True)
@@ -1042,10 +1169,7 @@ class Query:
             query = Query(
                 # Append a filter for sequence metadata
                 QuerySequence()
-                .with_expression(
-                    # Use query proxy for generating a _QuerySequenceExpression
-                    Sequence.Q.user_metadata["environment.visibility"].lt(50)
-                )
+                .with_user_metadata("environment.visibility", lt=50)
                 .with_name_match("test_drive")
             )
 

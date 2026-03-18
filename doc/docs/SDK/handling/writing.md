@@ -55,7 +55,7 @@ with MosaicoClient.connect("localhost", 6726) as client:
 
 ```
 
-1. The metadata fields will be queryable via the [`Query` mechanism](../query.md). The mechanism allows creating queries like: `Sequence.Q.user_metadata["vehicle.software_stack.planning"].match("plan-4.")`
+1. The metadata fields will be queryable via the [`Query` mechanism](../query.md). The mechanism allows creating queries like: `QuerySequence().with_user_metadata("vehicle.software_stack.planning", eq="plan-4.1.7")`
 
 ### Sequence-Level Error Handling
 API Reference: [`mosaicolabs.enum.OnErrorPolicy`][mosaicolabs.enum.OnErrorPolicy].
@@ -136,7 +136,7 @@ Once a topic is created via [`mosaicolabs.handlers.SequenceWriter.topic_create`]
 # and closes all connections and pools
 ```
 
-1. The metadata fields will be queryable via the [`Query` mechanism](../query.md). The mechanism allows creating query expressions like: `Topic.Q.user_metadata["interface.type"].eq("UART")`.
+1. The metadata fields will be queryable via the [`Query` mechanism](../query.md). The mechanism allows creating query expressions like: `QueryTopic().with_user_metadata("interface.type", eq="UART")`.
     API Reference:
     * [`mosaicolabs.models.platform.Topic`][mosaicolabs.models.platform.Topic]
     * [`mosaicolabs.models.query.builders.QueryTopic`][mosaicolabs.models.query.builders.QueryTopic].

@@ -4,13 +4,13 @@ from mosaicolabs.models import Message
 from mosaicolabs.models.data import MotionState
 
 from ..adapter_base import ROSAdapterBase
-from ..ros_bridge import register_adapter
+from ..ros_bridge import register_default_adapter
 from ..ros_message import ROSMessage
 from .geometry_msgs import PoseAdapter, TwistAdapter
 from .helpers import _validate_msgdata
 
 
-@register_adapter
+@register_default_adapter
 class OdometryAdapter(ROSAdapterBase[MotionState]):
     """
     Adapter for translating ROS Odometry messages to Mosaico `MotionState`.

@@ -1,5 +1,5 @@
 use super::Context;
-use crate::{endpoints, errors::ServerError};
+use crate::{endpoint, errors::ServerError};
 use arrow::datatypes::SchemaRef;
 use arrow_flight::decode::{DecodedFlightData, DecodedPayload, FlightDataDecoder};
 use arrow_flight::flight_descriptor::DescriptorType;
@@ -59,7 +59,7 @@ fn extract_command_from_flight_data(
 }
 
 async fn do_put_topic_data(
-    ctx: endpoints::Context,
+    ctx: endpoint::Context,
     decoder: &mut FlightDataDecoder,
     schema: SchemaRef,
     cmd: types::flight::DoPutCmd,
@@ -83,12 +83,12 @@ async fn do_put_topic_data(
         return Err(ServerError::BadKey);
     }
 
-    let mdata = handle.metadata().await?;
+    let mdata = handle.manifest().await?;
 
     // Setup the callback that will be used to create the database record for the data catalog
     // and prepare variables that will be moved in the closure
-    let ontology_tag = mdata.properties.ontology_tag;
-    let serialization_format = mdata.properties.serialization_format;
+    let ontology_tag = mdata.ontology_metadata.properties.ontology_tag;
+    let serialization_format = mdata.ontology_metadata.properties.serialization_format;
     let topic_id = r_id.id;
 
     trace!("creating topic writer");

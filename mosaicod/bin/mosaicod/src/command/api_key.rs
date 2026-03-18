@@ -63,7 +63,7 @@ pub fn auth(auth: ApiKey) -> Result<(), common::Error> {
 
     let db = common::init_db(
         &rt,
-        db::Config {
+        &db::Config {
             db_url: params::params().db_url.parse()?,
         },
     )?;
@@ -97,7 +97,7 @@ pub fn auth(auth: ApiKey) -> Result<(), common::Error> {
 
         ApiKey::Revoke { fingerprint } => {
             let res: Result<(), facade::Error> = rt.block_on(async {
-                let fauth = facade::Auth::try_from_fingerprint(fingerprint, db).await?;
+                let fauth = facade::Auth::try_from_fingerprint(&fingerprint, db).await?;
 
                 fauth.delete().await?;
 
@@ -109,7 +109,7 @@ pub fn auth(auth: ApiKey) -> Result<(), common::Error> {
 
         ApiKey::Status { fingerprint } => {
             let res: Result<(), facade::Error> = rt.block_on(async {
-                let fauth = facade::Auth::try_from_fingerprint(fingerprint, db).await?;
+                let fauth = facade::Auth::try_from_fingerprint(&fingerprint, db).await?;
 
                 let policy = fauth.into_api_key();
 

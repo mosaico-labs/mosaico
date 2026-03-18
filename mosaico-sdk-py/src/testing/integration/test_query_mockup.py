@@ -1,7 +1,6 @@
 import pytest
 
 from mosaicolabs.comm import MosaicoClient
-from mosaicolabs.models.platform import Sequence
 from mosaicolabs.models.query import QuerySequence
 from testing.integration.config import (
     QUERY_SEQUENCES_MOCKUP,
@@ -106,8 +105,8 @@ def test_query_mockup_sequence_metadata(
     sequence_name_pattern = "test-query-"
     query_resp = _client.query(
         QuerySequence()
-        .with_expression(Sequence.Q.user_metadata["status"].eq("raw"))
-        .with_expression(Sequence.Q.user_metadata["visibility"].eq("private"))
+        .with_user_metadata("status", eq="raw")
+        .with_user_metadata("visibility", eq="private")
         .with_name_match(sequence_name_pattern)
     )
     expected_sequence_name = "test-query-sequence-2"
@@ -129,8 +128,8 @@ def test_query_mockup_sequence_metadata(
     # Test 2: with None return
     query_resp = _client.query(
         QuerySequence()
-        .with_expression(Sequence.Q.user_metadata["status"].eq("processed"))
-        .with_expression(Sequence.Q.user_metadata["visibility"].eq("public"))
+        .with_user_metadata("status", eq="processed")
+        .with_user_metadata("visibility", eq="public")
     )
 
     assert query_resp is not None
@@ -146,9 +145,7 @@ def test_query_sequence_from_response(
 ):
     visibility_val = "private"
     query_resp = _client.query(
-        QuerySequence().with_expression(
-            Sequence.Q.user_metadata["visibility"].eq(visibility_val)
-        )
+        QuerySequence().with_user_metadata("visibility", eq=visibility_val)
     )
     # We do expect a successful query
     assert query_resp is not None and not query_resp.is_empty()
@@ -182,9 +179,7 @@ def test_query_topic_from_response(
 ):
     visibility_val = "private"
     query_resp = _client.query(
-        QuerySequence().with_expression(
-            Sequence.Q.user_metadata["visibility"].eq(visibility_val)
-        )
+        QuerySequence().with_user_metadata("visibility", eq=visibility_val)
     )
     # We do expect a successful query
     assert query_resp is not None and not query_resp.is_empty()

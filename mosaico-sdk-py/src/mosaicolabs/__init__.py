@@ -21,7 +21,9 @@ from .enum import (
     OnErrorPolicy as OnErrorPolicy,
     SequenceStatus as SequenceStatus,
     SerializationFormat as SerializationFormat,
+    SessionLevelErrorPolicy as SessionLevelErrorPolicy,
     SessionStatus as SessionStatus,
+    TopicLevelErrorPolicy as TopicLevelErrorPolicy,
 )
 
 # --- Handlers ---
@@ -85,6 +87,7 @@ from .models.data import (
 # --- Platform ---
 from .models.platform import (
     Sequence as Sequence,
+    Session as Session,
     Topic as Topic,
 )
 
@@ -202,9 +205,11 @@ __all__ = [
     "SerializationFormat",
     "SessionStatus",
     "SequenceStatus",
-    "OnErrorPolicy",
+    "SessionLevelErrorPolicy",
+    "TopicLevelErrorPolicy",
     # Platform
     "Sequence",
+    "Session",
     "Topic",
 ]
 

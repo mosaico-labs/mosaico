@@ -26,7 +26,7 @@ import json
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple, Type
+from typing import Dict, List, Optional, Set, Tuple, Type, Union
 
 from rich.live import Live
 from rich.progress import (
@@ -41,7 +41,7 @@ from rich.progress import (
 from rosbags.typesys import Stores
 
 from mosaicolabs.comm.mosaico_client import MosaicoClient
-from mosaicolabs.enum import OnErrorPolicy, SequenceStatus
+from mosaicolabs.enum import OnErrorPolicy, SequenceStatus, SessionLevelErrorPolicy
 from mosaicolabs.handlers import SequenceWriter
 from mosaicolabs.logging_config import get_logger, setup_sdk_logging
 
@@ -73,7 +73,12 @@ class ROSInjectionConfig:
         port (int): Port of the Mosaico server. Defaults to 6726.
         ros_distro (Optional[Stores]): The target ROS distribution for message parsing (e.g., Stores.ROS2_HUMBLE).
             See [`rosbags.typesys.Stores`](https://ternaris.gitlab.io/rosbags/topics/typesys.html#type-stores).
-        on_error (OnErrorPolicy): Behavior when an ingestion error occurs (Delete the partial sequence or Report the error).
+        on_error (Union[SessionLevelErrorPolicy, OnErrorPolicy]): Behavior when an ingestion error occurs (Delete the partial sequence or Report the error).
+            Deprecated:
+                    [`OnErrorPolicy`][mosaicolabs.enum.OnErrorPolicy] is deprecated since v0.3.0; use
+                    [`SessionLevelErrorPolicy`][mosaicolabs.enum.SessionLevelErrorPolicy] instead.
+                    It will be removed in v0.4.0.
+
         custom_msgs (Optional[List[Tuple]]): List of custom .msg definitions to register before loading.
         topics (Optional[List[str]]): List of topics to filter, supporting glob patterns (e.g., ["/cam/*"]).
         log_level (str): Logging verbosity level ("DEBUG", "INFO", "WARNING", "ERROR").
@@ -82,7 +87,7 @@ class ROSInjectionConfig:
         ```python
         from pathlib import Path
         from rosbags.typesys import Stores
-        from mosaicolabs.enum import OnErrorPolicy
+        from mosaicolabs.enum import SessionLevelErrorPolicy
         from mosaicolabs.ros_bridge import ROSInjectionConfig
 
         config = ROSInjectionConfig(
@@ -90,7 +95,7 @@ class ROSInjectionConfig:
             sequence_name="test_drive_01",
             metadata={"environment": "urban", "vehicle": "robot_alpha"},
             ros_distro=Stores.ROS2_FOXY,
-            on_error=OnErrorPolicy.Delete
+            on_error=SessionLevelErrorPolicy.Delete
         )
         ```
     """
@@ -108,14 +113,16 @@ class ROSInjectionConfig:
     See [`rosbags.typesys.Stores`](https://ternaris.gitlab.io/rosbags/topics/typesys.html#type-stores).
     """
 
-    on_error: OnErrorPolicy = OnErrorPolicy.Report
+    on_error: Union[SessionLevelErrorPolicy, OnErrorPolicy] = (
+        SessionLevelErrorPolicy.Report
+    )
     """the `SequenceWriter` `on_error` behavior when a sequence write fails (Report vs Delete)"""
 
     custom_msgs: Optional[List[Tuple[str, Path, Optional[Stores]]]] = None
     """
     A list of tuples (package_name, path, store) to register custom .msg definitions before loading.
 
-    For example, for "my_robot_msgs/msg/Location" pass: 
+    For example, for "my_robot_msgs/msg/Location" pass:
 
     package_name = "my_robot_msgs"; path = path/to/Location.msg; store = Stores.ROS2_HUMBLE (e.g.) or None
 
@@ -124,6 +131,9 @@ class ROSInjectionConfig:
 
     topics: Optional[List[str]] = None
     """A list of specific topics to filter (supports glob patterns). If None, all compatible topics are loaded."""
+
+    adapter_overrides: Optional[Dict[str, Type[ROSAdapterBase]]] = None
+    """A mapping of topics to adapter overrides, allowing the use of specific adapters instead of the default for designated topics."""
 
     log_level: str = "INFO"
 
@@ -288,7 +298,7 @@ class RosbagInjector:
             except Exception as e:
                 logger.error(f"Failed to register custom msgs at '{path}': '{e}'")
 
-    def _get_adapter(self, msg_type: str) -> Optional[Type[ROSAdapterBase]]:
+    def _get_default_adapter(self, msg_type: str) -> Optional[Type[ROSAdapterBase]]:
         """
         Memoized lookup for Mosaico ROS Adapters.
 
@@ -299,7 +309,7 @@ class RosbagInjector:
             The adapter class if found, otherwise None.
         """
 
-        return ROSBridge.get_adapter(msg_type)
+        return ROSBridge.get_default_adapter(msg_type)
 
     def run(self):
         """
@@ -446,7 +456,9 @@ class RosbagInjector:
             return
 
         # --- Adapter Resolution ---
-        adapter = self._get_adapter(ros_msg.msg_type)
+        adapter = (self.cfg.adapter_overrides or {}).get(
+            ros_msg.topic
+        ) or self._get_default_adapter(ros_msg.msg_type)
 
         if adapter is None:
             # If no adapter exists, blacklist this topic to prevent future lookups

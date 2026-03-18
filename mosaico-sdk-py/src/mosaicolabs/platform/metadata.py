@@ -87,6 +87,15 @@ class SequenceMetadata(PlatformMetadata):
 
     @classmethod
     def _from_metadata(cls, schema_metadata: Dict[str, Any]) -> "SequenceMetadata":
+        """
+        Subclass-specific construction hook.
+
+        Args:
+            schema_metadata (Dict[str, Any]): The decoded metadata dictionary received from the server.
+
+        Returns:
+            Self: An initialized instance of this class.
+        """
         user_metadata = _get_value(schema_metadata, "user_metadata")
 
         return cls(
@@ -118,6 +127,15 @@ class TopicMetadata(PlatformMetadata):
 
     @classmethod
     def _from_metadata(cls, schema_metadata: Dict[str, Any]) -> "TopicMetadata":
+        """
+        Subclass-specific construction hook.
+
+        Args:
+            schema_metadata (Dict[str, Any]): The decoded metadata dictionary received from the server.
+
+        Returns:
+            Self: An initialized instance of this class.
+        """
         properties = _get_value(schema_metadata, "properties")
         user_metadata = _get_value(schema_metadata, "user_metadata")
 

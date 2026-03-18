@@ -8,7 +8,7 @@ creating resource handlers (sequences, topics) and executing queries.
 """
 
 import os
-from typing import Any, Dict, List, Optional, Type
+from typing import Any, Dict, List, Optional, Type, Union
 
 import pyarrow.flight as fl
 
@@ -16,11 +16,17 @@ from mosaicolabs.comm.notifications import Notification
 from mosaicolabs.models.query import Query, QueryResponse
 from mosaicolabs.models.query.protocols import QueryableProtocol
 
-from ..enum import FlightAction, OnErrorPolicy
+from ..enum import (
+    APIKeyPermissionEnum,
+    FlightAction,
+    OnErrorPolicy,
+    SessionLevelErrorPolicy,
+)
 from ..handlers import SequenceHandler, SequenceWriter, TopicHandler
-from ..handlers.config import WriterConfig
+from ..handlers.config import SessionWriterConfig
 from ..helpers import pack_topic_resource_name
 from ..logging_config import get_logger
+from ..platform.api_key import APIKeyStatus
 from .connection import (
     DEFAULT_MAX_BATCH_BYTES,
     DEFAULT_MAX_BATCH_SIZE_RECORDS,
@@ -32,8 +38,11 @@ from .do_action import (
     _do_action,
     _DoActionNotificationList,
     _DoActionQueryResponse,
+    _DoActionResponseAPIKeyCreate,
+    _DoActionResponseAPIKeyStatus,
 )
 from .executor_pool import _ExecutorPool
+from .middlewares import MosaicoAuthMiddlewareFactory
 
 # Set the hierarchical logger
 logger = get_logger(__name__)
@@ -54,7 +63,11 @@ class MosaicoClient:
         ```python
         from mosaicolabs import MosaicoClient
 
-        with MosaicoClient.connect("localhost", 6726) as client:
+        with MosaicoClient.connect(
+            "localhost",
+            6726,
+            api_key="msco_s3l8gcdwuadege3pkhou0k0n2t5omfij_f9010b9e",
+        ) as client:
             sequences = client.list_sequences()
             print(f"Available data: {sequences}")
         ```
@@ -64,6 +77,7 @@ class MosaicoClient:
     # Used to ensure the constructor is only called via the `connect()` factory.
     _CONNECT_SENTINEL = object()
     _MOSAICO_TLS_CERT_ENV_VAR: str = "MOSAICO_TLS_CERT_FILE"
+    _MOSAICO_AUTH_API_KEY: str = "MOSAICO_API_KEY"
 
     def __init__(
         self,
@@ -76,6 +90,7 @@ class MosaicoClient:
         executor_pool: Optional[_ExecutorPool],
         sentinel: object,
         tls_cert: Optional[bytes],
+        middlewares: dict[str, fl.ClientMiddlewareFactory],
     ):
         """
         **Internal Constructor** (do not call this directly): The `MosaicoClient` enforces a strict
@@ -97,6 +112,7 @@ class MosaicoClient:
             executor_pool: Internal pool for async I/O.
             sentinel: Private object used to verify factory-based instantiation.
             tls_cert: The TLS certificate.
+            middlewares: The middlewares to be used for the connection.
         """
         if sentinel is not MosaicoClient._CONNECT_SENTINEL:
             raise RuntimeError(
@@ -119,6 +135,8 @@ class MosaicoClient:
         """The pool of thread executors used for offloading serialization and I/O."""
         self._tls_cert: Optional[bytes] = tls_cert
         """The path to the TLS certificate file."""
+        self._middlewares: dict[str, fl.ClientMiddlewareFactory] = middlewares
+        """The middlewares to be used for the connection."""
 
         # Initialize caches
         self._sequence_handlers_cache: Dict[str, SequenceHandler] = {}
@@ -142,6 +160,7 @@ class MosaicoClient:
                     pool_size=os.cpu_count(),
                     timeout=self._timeout,
                     tls_cert=self._tls_cert,
+                    middlewares=self._middlewares,
                 )
 
             return self._connection_pool
@@ -172,6 +191,7 @@ class MosaicoClient:
         port: int,
         timeout: int = 5,
         tls_cert_path: Optional[str] = None,
+        api_key: Optional[str] = None,
     ) -> "MosaicoClient":
         """
         The primary entry point to the Mosaico Data Platform.
@@ -193,6 +213,7 @@ class MosaicoClient:
             timeout (int): Maximum time in seconds to wait for a connection response.
                 Defaults to 5.
             tls_cert_path (Optional[str]): Path to the TLS certificate file. Defaults to None.
+            api_key (Optional[str]): The API key for authentication. Defaults to None.
 
         Returns:
             MosaicoClient: An initialized and connected client ready for operations.
@@ -206,7 +227,11 @@ class MosaicoClient:
             from mosaicolabs import MosaicoClient
 
             # Establish a connection to the Mosaico Data Platform
-            with MosaicoClient.connect("localhost", 6726) as client:
+            with MosaicoClient.connect(
+                "localhost",
+                6726,
+                api_key="msco_vy9lqa7u4lr7w3vimhz5t8bvvc0xbmk2_9c94a86",
+            ) as client:
                 # Perform operations using the client
                 pass
             ```
@@ -217,12 +242,17 @@ class MosaicoClient:
 
         resolved_tls_cert = cls._resolve_tls_cert_path(tls_cert_path)
 
+        middlewares = {}
+        if api_key:
+            middlewares["mosaico_auth"] = MosaicoAuthMiddlewareFactory(api_key=api_key)
+
         try:
             control_client: fl.FlightClient = _get_connection(
                 host=host,
                 port=port,
                 timeout=timeout,
                 tls_cert=resolved_tls_cert,
+                middlewares=middlewares,
             )
         except Exception as e:
             raise ConnectionError(
@@ -239,16 +269,22 @@ class MosaicoClient:
             executor_pool=None,
             sentinel=cls._CONNECT_SENTINEL,
             tls_cert=resolved_tls_cert,
+            middlewares=middlewares,
         )
 
     @classmethod
-    def from_env(cls, host: str, port: int) -> "MosaicoClient":
+    def from_env(
+        cls,
+        host: str,
+        port: int,
+        timeout: int = 5,
+    ) -> "MosaicoClient":
         """
         Creates a MosaicoClient instance by resolving configuration from environment variables.
 
         This method acts as a smart constructor that automatically discovers system
         settings. It currently focuses on security configurations, specifically
-        resolving TLS settings if the required environment variables are present.
+        resolving TLS settings and Auth API-Key if the required environment variables are present.
 
         As the SDK evolves, this method will be expanded to automatically detect
         additional parameters from the environment.
@@ -256,6 +292,8 @@ class MosaicoClient:
         Args:
             host (str): The server hostname or IP address.
             port (int): The port number of the Mosaico service.
+            timeout (int): Maximum time in seconds to wait for a connection response.
+                Defaults to 5.
 
         Returns:
             MosaicoClient: A client instance pre-configured with discovered settings.
@@ -270,9 +308,11 @@ class MosaicoClient:
         """
 
         return cls.connect(
-            host,
-            port,
+            host=host,
+            port=port,
+            timeout=timeout,
             tls_cert_path=os.environ.get(MosaicoClient._MOSAICO_TLS_CERT_ENV_VAR),
+            api_key=os.environ.get(MosaicoClient._MOSAICO_AUTH_API_KEY),
         )
 
     # --- Context Manager Protocol ---
@@ -450,7 +490,9 @@ class MosaicoClient:
         self,
         sequence_name: str,
         metadata: dict[str, Any],
-        on_error: OnErrorPolicy = OnErrorPolicy.Report,
+        on_error: Union[
+            SessionLevelErrorPolicy, OnErrorPolicy
+        ] = SessionLevelErrorPolicy.Report,
         max_batch_size_bytes: Optional[int] = None,
         max_batch_size_records: Optional[int] = None,
     ) -> SequenceWriter:
@@ -464,8 +506,14 @@ class MosaicoClient:
         Args:
             sequence_name (str): Unique name for the sequence.
             metadata (dict[str, Any]): User-defined metadata to attach.
-            on_error (OnErrorPolicy): Behavior on write failure. Defaults to
-                [`OnErrorPolicy.Report`][mosaicolabs.enum.OnErrorPolicy.Report].
+            on_error (SessionLevelErrorPolicy | OnErrorPolicy): Behavior on write failure. Defaults to
+                [`SessionLevelErrorPolicy.Report`][mosaicolabs.enum.SessionLevelErrorPolicy.Report].
+
+                Deprecated:
+                    [`OnErrorPolicy`][mosaicolabs.enum.OnErrorPolicy] is deprecated since v0.3.0; use
+                    [`SessionLevelErrorPolicy`][mosaicolabs.enum.SessionLevelErrorPolicy] instead.
+                    It will be removed in v0.4.0.
+
             max_batch_size_bytes (Optional[int]): Max bytes per Arrow batch.
             max_batch_size_records (Optional[int]): Max records per Arrow batch.
 
@@ -478,7 +526,7 @@ class MosaicoClient:
 
         Example:
             ```python
-            from mosaicolabs import MosaicoClient, OnErrorPolicy
+            from mosaicolabs import MosaicoClient, SessionLevelErrorPolicy
 
             # Open the connection with the Mosaico Client
             with MosaicoClient.connect("localhost", 6726) as client:
@@ -502,7 +550,7 @@ class MosaicoClient:
                             },
                         },
                     }
-                    on_error = OnErrorPolicy.Delete
+                    on_error = SessionLevelErrorPolicy.Delete
                     ) as seq_writer:
                         # Start creating topics and pushing data...
                         # (1)!
@@ -527,13 +575,16 @@ class MosaicoClient:
         # Init connection and executor pools
         self._init_pools()
 
+        if isinstance(on_error, OnErrorPolicy):
+            on_error = SessionLevelErrorPolicy(on_error.value)
+
         return SequenceWriter(
             sequence_name=sequence_name,
             client=self._control_client,
             connection_pool=self._connection_pool,
             executor_pool=self._executor_pool,
             metadata=metadata,
-            config=WriterConfig(
+            config=SessionWriterConfig(
                 on_error=on_error,
                 max_batch_size_bytes=max_batch_size_bytes,
                 max_batch_size_records=max_batch_size_records,
@@ -784,10 +835,7 @@ class MosaicoClient:
                 results = client.query(
                     # Append a filter for sequence metadata
                     QuerySequence()
-                    .with_expression(
-                        # Use query proxy for generating a _QuerySequenceExpression
-                        Sequence.Q.user_metadata["environment.visibility"].lt(50)
-                    )
+                    .with_user_metadata("environment.visibility", lt=50)
                     .with_name_match("test_drive"),
                     # Append a filter with deep time-series data discovery and measurement time windowing
                     QueryOntologyCatalog()
@@ -811,10 +859,7 @@ class MosaicoClient:
                 query = Query(
                     # Append a filter for sequence metadata
                     QuerySequence()
-                    .with_expression(
-                        # Use query proxy for generating a _QuerySequenceExpression
-                        Sequence.Q.user_metadata["environment.visibility"].lt(50)
-                    )
+                    .with_user_metadata("environment.visibility", lt=50)
                     .with_name_match("test_drive"),
                     # Append a filter with deep time-series data discovery and measurement time windowing
                     QueryOntologyCatalog()
@@ -870,6 +915,32 @@ class MosaicoClient:
             logger.error(f"Query returned an internal error: '{e}'")
             return None
 
+    def version(self) -> str:
+        """
+        Get the version of the Mosaico server.
+
+        Returns:
+            str: The version of the Mosaico server.
+        """
+        ACTION = FlightAction.VERSION
+        try:
+            act_resp = _do_action(
+                client=self._control_client,
+                action=ACTION,
+                payload={},
+                expected_type=None,
+            )
+
+            if act_resp is None:
+                logger.error(f"Action '{ACTION}' returned no response.")
+                return ""
+
+            return act_resp
+
+        except Exception as e:
+            logger.error(f"'Version' action returned an internal error: '{e}'")
+            return ""
+
     def clear_sequence_handlers_cache(self):
         """
         Clears the internal cache of [`SequenceHandler`][mosaicolabs.handlers.SequenceHandler] objects.
@@ -881,6 +952,122 @@ class MosaicoClient:
         Clears the internal cache of [`TopicHandler`][mosaicolabs.handlers.TopicHandler] objects.
         """
         self._topic_handlers_cache = {}
+
+    def api_key_create(
+        self,
+        permissions: list[APIKeyPermissionEnum],
+        description: str,
+        expires_at_ns: int | None = None,
+    ) -> str | None:
+        """
+        Creates a new API key with the specified permissions.
+
+        Requires the client to have 'manage' permission. You can also optionally
+        set an expiration time and a description for the key.
+
+        Args:
+            permissions (list[str]): List of permissions for the key (e.g., "read", "write", "delete", "manage").
+            expires_at_ns (int | None): Optional expiration timestamp in nanoseconds.
+            description (str): Description for the key.
+
+        Returns:
+            str: The generated API key token or None.
+        """
+        payload: dict[str, Any] = {
+            "permissions": permissions,
+            "description": description,
+        }
+        if expires_at_ns is not None:
+            payload["expires_at_ns"] = expires_at_ns
+
+        ACTION = FlightAction.API_KEY_CREATE
+
+        try:
+            act_resp = _do_action(
+                client=self._control_client,
+                action=ACTION,
+                payload=payload,
+                expected_type=_DoActionResponseAPIKeyCreate,
+            )
+
+            if act_resp is None:
+                logger.error(f"Action '{ACTION}' returned no response.")
+                return None
+
+            return act_resp.api_key_token
+
+        except Exception as e:
+            logger.error(f"API key creation failed with error: '{e}'")
+            return None
+
+    def api_key_status(self, api_key_fingerprint: str) -> APIKeyStatus | None:
+        """
+        Retrieves the status and metadata of an API key.
+
+        Args:
+            api_key_fingerprint (str): The fingerprint of the API key to query.
+
+        Returns:
+            APIKeyStatus: An object containing the API key's status information, or None if the query fails.
+        """
+        if not api_key_fingerprint:
+            logger.error("api_key_fingerprint cannot be empty.")
+            return None
+
+        ACTION = FlightAction.API_KEY_STATUS
+
+        try:
+            act_resp = _do_action(
+                client=self._control_client,
+                action=ACTION,
+                payload={"api_key_fingerprint": api_key_fingerprint},
+                expected_type=_DoActionResponseAPIKeyStatus,
+            )
+
+            if act_resp is None:
+                logger.error(f"Action '{ACTION}' returned no response.")
+                return None
+
+            return APIKeyStatus(
+                api_key_fingerprint=act_resp.api_key_fingerprint,
+                created_at_ns=act_resp.created_at_ns,
+                expires_at_ns=act_resp.expires_at_ns,
+                description=act_resp.description,
+            )
+
+        except Exception as e:
+            logger.error(f"API key status query failed with error: '{e}'")
+            return None
+
+    def api_key_revoke(self, api_key_fingerprint: str) -> None:
+        """
+        Revokes an API key by its fingerprint.
+
+        Args:
+            api_key_fingerprint (str): The fingerprint of the API key to revoke.
+
+        Returns:
+            None.
+        """
+        if not api_key_fingerprint:
+            logger.error("api_key_fingerprint cannot be empty.")
+            return None
+
+        ACTION = FlightAction.API_KEY_REVOKE
+
+        try:
+            _do_action(
+                client=self._control_client,
+                action=ACTION,
+                payload={"api_key_fingerprint": api_key_fingerprint},
+                expected_type=None,
+            )
+
+            return None
+
+        except Exception as e:
+            logger.error(f"API key revoke failed with error: '{e}'")
+            return None
 
     def close(self):
         """

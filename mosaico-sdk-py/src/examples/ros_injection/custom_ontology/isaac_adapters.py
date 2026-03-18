@@ -1,13 +1,13 @@
 from typing import Any, Tuple, Type
 
 from mosaicolabs.models import Message
-from mosaicolabs.ros_bridge import ROSAdapterBase, ROSMessage, register_adapter
+from mosaicolabs.ros_bridge import ROSAdapterBase, ROSMessage, register_default_adapter
 from mosaicolabs.ros_bridge.adapters.helpers import _validate_msgdata
 
 from .isaac import EncoderTicks
 
 
-@register_adapter
+@register_default_adapter
 class EncoderTicksAdapter(ROSAdapterBase[EncoderTicks]):
     """
     Adapter for translating NVIDIA Isaac EncoderTicks messages to Mosaico.

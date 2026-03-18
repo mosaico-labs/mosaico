@@ -7,6 +7,7 @@ and distributes client resources (Connections, Executors) to individual Topics.
 """
 
 from abc import ABC, abstractmethod
+from dataclasses import asdict, fields
 from logging import Logger
 from typing import Any, Dict, Optional, Type
 
@@ -15,8 +16,17 @@ import pyarrow.flight as fl
 from mosaicolabs.comm.connection import _ConnectionPool
 from mosaicolabs.comm.do_action import _do_action, _DoActionResponseUUID
 from mosaicolabs.comm.executor_pool import _ExecutorPool
-from mosaicolabs.enum import FlightAction, OnErrorPolicy, SessionStatus
-from mosaicolabs.handlers.config import WriterConfig
+from mosaicolabs.enum import (
+    FlightAction,
+    SessionLevelErrorPolicy,
+    SessionStatus,
+    TopicLevelErrorPolicy,
+)
+from mosaicolabs.handlers.config import (
+    SessionWriterConfig,
+    TopicWriterConfig,
+    WriterConfig,
+)
 from mosaicolabs.handlers.helpers import (
     _make_exception,
     _validate_metadata,
@@ -57,7 +67,7 @@ class _BaseSessionWriter(ABC):
         client: fl.FlightClient,
         connection_pool: Optional[_ConnectionPool],
         executor_pool: Optional[_ExecutorPool],
-        config: WriterConfig,
+        config: SessionWriterConfig,
         logger: Logger,
     ):
         """
@@ -77,7 +87,7 @@ class _BaseSessionWriter(ABC):
         """
         self._name: str = sequence_name
         """The name of the sequence this session refers to"""
-        self._config: WriterConfig = config
+        self._config: SessionWriterConfig = config
         """The config of the writer"""
         self._topic_writers: Dict[str, TopicWriter] = {}
         """The cache of the spawned topic writers"""
@@ -146,7 +156,7 @@ class _BaseSessionWriter(ABC):
         3.  **Server Lifecycle Handshake**:
             - **Success Path**: Calls `self.close()` to send a finalization signal
               (default: `SESSION_FINALIZE`) to the server.
-            - **Error Path**: Evaluates the `WriterConfig.on_error` policy to either
+            - **Error Path**: Evaluates the `SessionWriterConfig.on_error` policy to either
               `_abort()` (delete the session) or `_error_report()` to the server.
         4.  **Status Integrity**: Updates the internal `_status` to `Error`
             if any part of the process fails.
@@ -197,10 +207,11 @@ class _BaseSessionWriter(ABC):
                 out_exc = e
 
             # Apply the session-level error policy
-            if self._config.on_error == OnErrorPolicy.Delete:
+            if self._config.on_error == SessionLevelErrorPolicy.Delete:
                 self._abort()
             else:
                 self._error_report(str(out_exc))
+                self._finalize()
 
             # Last thing to do: DO NOT SET BEFORE!
             self._status = SessionStatus.Error
@@ -237,7 +248,7 @@ class _BaseSessionWriter(ABC):
 
         - If successful: Finalizes all topics and the session itself.
         - If error: Finalizes topics in error mode and either Aborts (Delete)
-          or Reports the error based on `WriterConfig.on_error`.
+          or Reports the error based on `SessionWriterConfig.on_error`.
 
         Args:
             exc_type: The type of the exception.
@@ -393,6 +404,7 @@ class _BaseSessionWriter(ABC):
         topic_name: str,
         metadata: dict[str, Any],
         ontology_type: Type[Serializable],
+        on_error: TopicLevelErrorPolicy = TopicLevelErrorPolicy.Raise,
     ) -> Optional[TopicWriter]:
         """
         Creates a new topic within the active session.
@@ -408,6 +420,7 @@ class _BaseSessionWriter(ABC):
             topic_name: The relative name of the new topic.
             metadata: Topic-specific user metadata.
             ontology_type: The `Serializable` data model class defining the topic's schema.
+            on_error: The error policy to use in the `TopicWriter`.
 
         Returns:
             A `TopicWriter` instance configured for parallel ingestion, or `None` if creation fails.
@@ -469,6 +482,17 @@ class _BaseSessionWriter(ABC):
         # Assign executor if pool is available
         executor = self._executor_pool.get_next() if self._executor_pool else None
 
+        # Copy the common values in TopicWriterConfig from SessionWriterConfig
+        # and add the TopicLevelErrorPolicy
+        session_writer_config_data = asdict(self._config)
+        writer_config_fields = {field.name for field in fields(WriterConfig)}
+        writer_config_data = {
+            k: v
+            for k, v in session_writer_config_data.items()
+            if k in writer_config_fields
+        }
+        topic_writer_config = TopicWriterConfig(on_error=on_error, **writer_config_data)
+
         try:
             writer = TopicWriter._create(
                 sequence_name=self._name,
@@ -477,7 +501,7 @@ class _BaseSessionWriter(ABC):
                 client=data_client,
                 executor=executor,
                 ontology_type=ontology_type,
-                config=self._config,
+                config=topic_writer_config,
             )
             self._topic_writers[topic_name] = writer
 

@@ -33,9 +33,9 @@ with MosaicoClient.connect("localhost", 6726) as client:
         QuerySequence()
         # Use a convenience method for fuzzy name matching
         .with_name_match("test_drive")
-        # Use the .Q proxy to filter fixed and dynamic metadata fields
-        .with_expression(Sequence.Q.user_metadata["project"].eq("Apollo"))
-        .with_expression(Sequence.Q.user_metadata["environment.visibility"].lt(50)) # (1)!
+        # Use convenience method for filtering fixed and dynamic metadata fields
+        .with_user_metadata("project.name", eq="Apollo")
+        .with_user_metadata("environment.visibility", lt=50) # (1)!
     )
 
     # 3. Process the Response
@@ -47,12 +47,12 @@ with MosaicoClient.connect("localhost", 6726) as client:
 
 ```
 
-1. Use dot notation to access nested fields in the `user_metadata` dictionary.
+1. Use dot notation to access nested fields stored in the user metadata.
 2. The `item.topics` list contains all the topics that matched the query. In this case, all the available topics are returned because no topic-specific filters were applied.
 
 The `query` method returns `None` if an error occurs, or a [`QueryResponse`][mosaicolabs.models.query.response.QueryResponse] object. This response acts as a list of [`QueryResponseItem`][mosaicolabs.models.query.response.QueryResponseItem] objects, each providing:
 
-*   **`item.sequence`**: A [`QueryResponseItemSequence`][mosaicolabs.models.query.response.QueryResponseItemSequence] containing the sequence metadata.
+*   **`item.sequence`**: A [`QueryResponseItemSequence`][mosaicolabs.models.query.response.QueryResponseItemSequence] containing the sequence name matching the query.
 *   **`item.topics`**: A list of [`QueryResponseItemTopic`][mosaicolabs.models.query.response.QueryResponseItemTopic] objects that matched the query.
 
 !!! info "Result Normalization"
@@ -62,4 +62,4 @@ The `query` method returns `None` if an error occurs, or a [`QueryResponse`][mos
 
 * [**Convenience Methods**](../query.md#convenience-methods): High-level helpers like `with_name_match()` provide a quick way to filter common fields.
 * [**Generic Methods**](../query.md#generic-expression-method): The `with_expression()` method accepts raw **Query Expressions** generated through the [`.Q` proxy](../query.md#the-q-proxy-mechanism). This provides full access to every supported operator (`.gt()`, `.lt()`, `.between()`, etc.) for specific fields.
-* **Dynamic Metadata Access**: Using the bracket notation [`Sequence.Q.user_metadata["key"]`][mosaicolabs.models.platform.Sequence] allows you to query any custom tag you attached during the ingestion phase.
+* **Dynamic Metadata Access**: Using the nested notation in `with_user_metadata("key.subkey", ...)` allows you to query any custom tag you attached during the ingestion phase.

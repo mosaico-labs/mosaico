@@ -29,48 +29,6 @@ impl From<types::Uuid> for ResourceUuid {
     }
 }
 
-#[derive(Serialize, Debug)]
-pub struct TopicSystemInfo {
-    /// Number of chunks in the topic
-    pub chunks_number: usize,
-    /// Total size in bytes of the data.
-    /// Metadata and other system files are excluded in the count.
-    pub total_size_bytes: usize,
-    /// True if topic is locked
-    pub is_locked: bool,
-    /// Datetime of the topic creation
-    pub created_datetime: String,
-}
-
-impl From<types::TopicSystemInfo> for TopicSystemInfo {
-    fn from(value: types::TopicSystemInfo) -> Self {
-        Self {
-            chunks_number: value.chunks_number,
-            total_size_bytes: value.total_size_bytes,
-            is_locked: value.is_locked,
-            created_datetime: value.created_datetime.to_string(),
-        }
-    }
-}
-
-#[derive(Serialize, Debug)]
-pub struct SequenceSystemInfo {
-    /// Total size in bytes of the data.
-    /// This values includes additional system files.
-    pub total_size_bytes: usize,
-    /// Datetime of the sequence creation
-    pub created_datetime: String,
-}
-
-impl From<types::SequenceSystemInfo> for SequenceSystemInfo {
-    fn from(value: types::SequenceSystemInfo) -> Self {
-        Self {
-            total_size_bytes: value.total_size_bytes,
-            created_datetime: value.created_datetime.to_string(),
-        }
-    }
-}
-
 // ########
 // Notifications
 // ########

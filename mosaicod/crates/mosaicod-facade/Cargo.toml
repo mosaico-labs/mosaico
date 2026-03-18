@@ -11,13 +11,13 @@ name = "mosaicod_facade"
 
 [dependencies]
 mosaicod-core = { workspace = true }
+mosaicod-ext = { workspace = true }
 mosaicod-marshal = { workspace = true }
 mosaicod-store = { workspace = true }
 mosaicod-rw = { workspace = true }
 mosaicod-query = { workspace = true }
 mosaicod-db = { workspace = true, features = ["postgres"] }
 
-bytes = { workspace = true }
 thiserror = { workspace = true }
 arrow = { workspace = true }
 log = { workspace = true }

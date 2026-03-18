@@ -26,3 +26,4 @@ url = { workspace = true }
 
 [dev-dependencies]
 mosaicod-ext = { workspace = true, features = ["testing"] }
+mosaicod-marshal = { workspace = true }

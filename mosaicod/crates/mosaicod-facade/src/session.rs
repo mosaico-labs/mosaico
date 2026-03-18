@@ -18,6 +18,8 @@ use mosaicod_store as store;
 /// This struct provides a transactional API for creating and finalizing sessions,
 /// coordinating operations between the metadata database and the object store.
 pub struct Session {
+    pub sequence_locator: types::SequenceResourceLocator,
+
     pub uuid: types::Uuid,
 
     /// A reference to the underlying object store.
@@ -28,13 +30,40 @@ pub struct Session {
 }
 
 impl Session {
-    /// Creates a new upload session for a given sequence.
-    pub fn new(session_uuid: types::Uuid, store: store::StoreRef, db: db::Database) -> Self {
-        Self {
-            uuid: session_uuid,
+    /// Tries to create a new upload session for a given sequence.
+    /// Returns an error if something goes wrong.
+    pub async fn try_new(
+        session_uuid: types::Uuid,
+        store: store::StoreRef,
+        db: db::Database,
+    ) -> Result<Self, Error> {
+        let mut tx = db.transaction().await?;
+
+        let db_session = db::session_find_by_uuid(&mut tx, &session_uuid).await?;
+        let db_sequence = db::sequence_find_by_id(&mut tx, db_session.sequence_id).await?;
+
+        tx.commit().await?;
+
+        Ok(Self {
+            sequence_locator: db_sequence.resource_locator(),
+            uuid: session_uuid.clone(),
             store,
             db,
-        }
+        })
+    }
+
+    /// Creates the session manifest and saves it on store
+    /// TODO: find a better solution to create the manifest (without calling a method externally)
+    pub async fn create_manifest(&self) -> Result<(), Error> {
+        let mut cx = self.db.connection();
+
+        let db_session = db::session_find_by_uuid(&mut cx, &self.uuid).await?;
+
+        let manifest =
+            types::SessionManifest::new(self.uuid.clone(), db_session.creation_timestamp());
+        self.manifest_write_to_store(manifest).await?;
+
+        Ok(())
     }
 
     /// Finalizes the session, making it and all its associated data immutable.
@@ -42,8 +71,6 @@ impl Session {
     /// Once a session is finalized, no more topics can be added to it.
     pub async fn finalize(&self) -> Result<(), Error> {
         let mut tx = self.db.transaction().await?;
-
-        let session = db::session_find_by_uuid(&mut tx, &self.uuid).await?;
 
         // Collect all topics associated with this session
         let topics = db::session_find_all_topic_locators(&mut tx, &self.uuid).await?;
@@ -61,7 +88,7 @@ impl Session {
                 self.db.clone(),
             );
 
-            topic.is_locked().await
+            topic.locked().await
         }))
         .await
         .into_iter()
@@ -73,21 +100,17 @@ impl Session {
             return Err(Error::TopicUnlocked);
         }
 
-        let completion_timestamp = types::Timestamp::now();
-        db::session_lock(&mut tx, &self.uuid, &completion_timestamp).await?;
+        let completed_at = types::Timestamp::now();
 
-        let manifest = types::SessionManifest {
-            uuid: session.uuid(),
-            topics,
-            creation_timestamp: session.creation_timestamp(),
-            completion_timestamp,
-        };
+        // TODO: consider to set lock state only inside metadata to avoid data inconsistency with DB
+        db::session_lock(&mut tx, &self.uuid, &completed_at).await?;
 
-        // Get sequence data in order to store the manifest file inside the sequence namespace/directory
-        let sequence = db::sequence_find_by_id(&mut tx, session.sequence_id).await?;
-
-        self.manifest_write_to_store(&sequence.resource_locator(), manifest)
-            .await?;
+        // Update manifest (store).
+        let mut manifest = self.manifest().await?;
+        manifest.locked = true;
+        manifest.completed_at = Some(completed_at);
+        manifest.topics = topics;
+        self.manifest_write_to_store(manifest).await?;
 
         tx.commit().await?;
 
@@ -140,22 +163,16 @@ impl Session {
             }
         }
 
-        let sequence = db::sequence_find_by_id(&mut tx, session.sequence_id).await?;
-
         // Deletes the session manifest if session was previously locked (unlocked
         // sessions have no manifest)
         if session.is_locked()
             && let Err(e) = self
                 .store
-                .delete(
-                    sequence
-                        .resource_locator()
-                        .session_manifest(&session.uuid()),
-                )
+                .delete(self.sequence_locator.session_manifest(&session.uuid()))
                 .await
         {
             error_report.errors.push(types::ErrorReportItem::new(
-                sequence.locator_name.clone(),
+                self.sequence_locator.clone(),
                 e,
             ));
         }
@@ -169,7 +186,7 @@ impl Session {
         if error_occurs {
             msg = error_report.into();
             let fsequence = Sequence::new(
-                sequence.locator_name, //
+                self.sequence_locator.clone().into(),
                 self.store.clone(),
                 self.db.clone(),
             );
@@ -206,12 +223,8 @@ impl Session {
         Ok(topics)
     }
 
-    async fn manifest_write_to_store(
-        &self,
-        locator: &types::SequenceResourceLocator,
-        manifest: types::SessionManifest,
-    ) -> Result<(), Error> {
-        let path = locator.session_manifest(&manifest.uuid);
+    async fn manifest_write_to_store(&self, manifest: types::SessionManifest) -> Result<(), Error> {
+        let path = self.sequence_locator.session_manifest(&manifest.uuid);
 
         trace!("converting session manifest to bytes");
         let json_manifest = marshal::SessionManifest::from(manifest);
@@ -224,5 +237,22 @@ impl Session {
         self.store.write_bytes(&path, bytes).await?;
 
         Ok(())
+    }
+
+    pub async fn manifest(&self) -> Result<types::SessionManifest, Error> {
+        let path = self.sequence_locator.session_manifest(&self.uuid);
+
+        if !self.store.exists(&path).await? {
+            return Err(Error::NotFound(format!(
+                "missing manifest file for session `{}`",
+                self.uuid
+            )));
+        }
+
+        let bytes = self.store.read_bytes(path).await?;
+
+        let data: marshal::SessionManifest = bytes.try_into()?;
+
+        Ok(data.try_into()?)
     }
 }

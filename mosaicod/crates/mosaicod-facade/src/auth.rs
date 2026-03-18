@@ -12,18 +12,15 @@ impl Auth {
     ///
     /// This function does not perform any checks, if the API key is not existing subsequent
     /// calls will return errors
-    pub fn from_policy(api_key: types::ApiKey, db: db::Database) -> Self {
+    pub fn from_api_key(api_key: types::ApiKey, db: db::Database) -> Self {
         Self { api_key, db }
     }
 
     /// Lookup an API key using its fingerprint
-    pub async fn try_from_fingerprint(
-        fingerprint: String,
-        db: db::Database,
-    ) -> Result<Self, Error> {
+    pub async fn try_from_fingerprint(fingerprint: &str, db: db::Database) -> Result<Self, Error> {
         let mut cx = db.connection();
 
-        let api_key = db::api_key_find_by_fingerprint(&mut cx, &fingerprint).await?;
+        let api_key = db::api_key_find_by_fingerprint(&mut cx, fingerprint).await?;
 
         Ok(Self { api_key, db })
     }
