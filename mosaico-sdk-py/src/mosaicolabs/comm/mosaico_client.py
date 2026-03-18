@@ -16,11 +16,17 @@ from mosaicolabs.comm.notifications import Notification
 from mosaicolabs.models.query import Query, QueryResponse
 from mosaicolabs.models.query.protocols import QueryableProtocol
 
-from ..enum import FlightAction, OnErrorPolicy, SessionLevelErrorPolicy
+from ..enum import (
+    APIKeyPermissionEnum,
+    FlightAction,
+    OnErrorPolicy,
+    SessionLevelErrorPolicy,
+)
 from ..handlers import SequenceHandler, SequenceWriter, TopicHandler
 from ..handlers.config import SessionWriterConfig
 from ..helpers import pack_topic_resource_name
 from ..logging_config import get_logger
+from ..platform.api_key import APIKeyStatus
 from .connection import (
     DEFAULT_MAX_BATCH_BYTES,
     DEFAULT_MAX_BATCH_SIZE_RECORDS,
@@ -32,6 +38,8 @@ from .do_action import (
     _do_action,
     _DoActionNotificationList,
     _DoActionQueryResponse,
+    _DoActionResponseAPIKeyCreate,
+    _DoActionResponseAPIKeyStatus,
 )
 from .executor_pool import _ExecutorPool
 from .middlewares import MosaicoAuthMiddlewareFactory
@@ -944,6 +952,122 @@ class MosaicoClient:
         Clears the internal cache of [`TopicHandler`][mosaicolabs.handlers.TopicHandler] objects.
         """
         self._topic_handlers_cache = {}
+
+    def api_key_create(
+        self,
+        permissions: list[APIKeyPermissionEnum],
+        description: str,
+        expires_at_ns: int | None = None,
+    ) -> str | None:
+        """
+        Creates a new API key with the specified permissions.
+
+        Requires the client to have 'manage' permission. You can also optionally
+        set an expiration time and a description for the key.
+
+        Args:
+            permissions (list[str]): List of permissions for the key (e.g., "read", "write", "delete", "manage").
+            expires_at_ns (int | None): Optional expiration timestamp in nanoseconds.
+            description (str): Description for the key.
+
+        Returns:
+            str: The generated API key token or None.
+        """
+        payload: dict[str, Any] = {
+            "permissions": permissions,
+            "description": description,
+        }
+        if expires_at_ns is not None:
+            payload["expires_at_ns"] = expires_at_ns
+
+        ACTION = FlightAction.API_KEY_CREATE
+
+        try:
+            act_resp = _do_action(
+                client=self._control_client,
+                action=ACTION,
+                payload=payload,
+                expected_type=_DoActionResponseAPIKeyCreate,
+            )
+
+            if act_resp is None:
+                logger.error(f"Action '{ACTION}' returned no response.")
+                return None
+
+            return act_resp.api_key_token
+
+        except Exception as e:
+            logger.error(f"API key creation failed with error: '{e}'")
+            return None
+
+    def api_key_status(self, api_key_fingerprint: str) -> APIKeyStatus | None:
+        """
+        Retrieves the status and metadata of an API key.
+
+        Args:
+            api_key_fingerprint (str): The fingerprint of the API key to query.
+
+        Returns:
+            APIKeyStatus: An object containing the API key's status information, or None if the query fails.
+        """
+        if not api_key_fingerprint:
+            logger.error("api_key_fingerprint cannot be empty.")
+            return None
+
+        ACTION = FlightAction.API_KEY_STATUS
+
+        try:
+            act_resp = _do_action(
+                client=self._control_client,
+                action=ACTION,
+                payload={"api_key_fingerprint": api_key_fingerprint},
+                expected_type=_DoActionResponseAPIKeyStatus,
+            )
+
+            if act_resp is None:
+                logger.error(f"Action '{ACTION}' returned no response.")
+                return None
+
+            return APIKeyStatus(
+                api_key_fingerprint=act_resp.api_key_fingerprint,
+                created_at_ns=act_resp.created_at_ns,
+                expires_at_ns=act_resp.expires_at_ns,
+                description=act_resp.description,
+            )
+
+        except Exception as e:
+            logger.error(f"API key status query failed with error: '{e}'")
+            return None
+
+    def api_key_revoke(self, api_key_fingerprint: str) -> None:
+        """
+        Revokes an API key by its fingerprint.
+
+        Args:
+            api_key_fingerprint (str): The fingerprint of the API key to revoke.
+
+        Returns:
+            None.
+        """
+        if not api_key_fingerprint:
+            logger.error("api_key_fingerprint cannot be empty.")
+            return None
+
+        ACTION = FlightAction.API_KEY_REVOKE
+
+        try:
+            _do_action(
+                client=self._control_client,
+                action=ACTION,
+                payload={"api_key_fingerprint": api_key_fingerprint},
+                expected_type=None,
+            )
+
+            return None
+
+        except Exception as e:
+            logger.error(f"API key revoke failed with error: '{e}'")
+            return None
 
     def close(self):
         """

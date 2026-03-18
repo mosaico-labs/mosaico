@@ -237,3 +237,48 @@ class _DoActionNotificationList(_DoActionResponse):
                 Notification._from_dict(notification) for notification in notifications
             ]
         )
+
+
+@dataclass
+class _DoActionResponseAPIKeyCreate(_DoActionResponse):
+    """Response returned after creating a new API key.
+
+    This action generates a new API key token with the requested permissions.
+
+    Attributes:
+        api_key_token (str): The plaintext API key returned by the server.
+    """
+
+    actions: ClassVar[list[FlightAction]] = [FlightAction.API_KEY_CREATE]
+    api_key_token: str
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "_DoActionResponseAPIKeyCreate":
+        return cls(api_key_token=data["api_key_token"])
+
+
+@dataclass
+class _DoActionResponseAPIKeyStatus(_DoActionResponse):
+    """Response containing the status and metadata of an existing API key.
+
+    Attributes:
+        api_key_fingerprint (str): Unique identifier of the key.
+        created_at_ns (int): Creation timestamp in nanoseconds since epoch.
+        expires_at_ns (int): Expiration timestamp in nanoseconds since epoch.
+        description (str): Optional description provided at key creation.
+    """
+
+    actions: ClassVar[list[FlightAction]] = [FlightAction.API_KEY_STATUS]
+    api_key_fingerprint: str
+    created_at_ns: int
+    expires_at_ns: int | None
+    description: str | None
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "_DoActionResponseAPIKeyStatus":
+        return cls(
+            api_key_fingerprint=data["api_key_fingerprint"],
+            created_at_ns=data["created_at_ns"],
+            expires_at_ns=data.get("expires_at_ns"),
+            description=data.get("description"),
+        )
