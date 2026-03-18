@@ -575,8 +575,8 @@ class MosaicoClient:
         # Init connection and executor pools
         self._init_pools()
 
-        if isinstance(on_error, OnErrorPolicy):
-            on_error = SessionLevelErrorPolicy(on_error.value)
+        # Safely convert to the right type
+        on_error = SessionLevelErrorPolicy(on_error.value)
 
         return SequenceWriter(
             sequence_name=sequence_name,

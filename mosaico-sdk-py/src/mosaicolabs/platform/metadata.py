@@ -122,6 +122,13 @@ class TopicMetadata(PlatformMetadata):
         ontology_tag: str
         serialization_format: SerializationFormat
 
+        @classmethod
+        def _from_dict(cls, data: dict):
+            return cls(
+                ontology_tag=data["ontology_tag"],
+                serialization_format=SerializationFormat(data["serialization_format"]),
+            )
+
     properties: Properties
     user_metadata: UserMetadata
 
@@ -141,7 +148,7 @@ class TopicMetadata(PlatformMetadata):
 
         return cls(
             context=cls._EXPECTED_CONTEXT,
-            properties=cls.Properties(**properties),
+            properties=cls.Properties._from_dict(properties),
             user_metadata=cls._filter_user_metadata(user_metadata),
         )
 

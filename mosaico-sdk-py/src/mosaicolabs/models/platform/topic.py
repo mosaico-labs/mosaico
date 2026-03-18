@@ -150,7 +150,9 @@ class Topic(pydantic.BaseModel, _QueryProxyMixin):
         self._name = name
         self._sequence_name = sequence_name
         self._ontology_tag = platform_metadata.properties.ontology_tag
-        self._serialization_format = platform_metadata.properties.serialization_format
+        self._serialization_format = (
+            platform_metadata.properties.serialization_format.value
+        )
         self._chunks_number = resrc_manifest.resource_info.chunks_number
         self._locked = resrc_manifest.locked
 
