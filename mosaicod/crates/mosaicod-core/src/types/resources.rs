@@ -151,7 +151,7 @@ impl TopicResourceLocator {
         extension: &dyn traits::AsExtension,
     ) -> path::PathBuf {
         let filename = Self::data_file(chunk_number, extension);
-        self.path_data_folder(&uuid).join(filename)
+        self.path_data_folder(uuid).join(filename)
     }
 
     /// Return the complete path of the folder contianing all data

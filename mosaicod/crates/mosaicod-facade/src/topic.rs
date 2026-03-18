@@ -61,7 +61,7 @@ impl Topic {
         let mut tx = db.transaction().await?;
 
         // Check that there are not other topics with the same locator
-        if let Ok(_) = db::topic_find_by_locator(&mut tx, &locator).await {
+        if db::topic_find_by_locator(&mut tx, &locator).await.is_ok() {
             return Err(Error::topic_already_exists(locator));
         }
 
@@ -267,7 +267,7 @@ impl Topic {
         };
 
         // Cloning  since needs to be moved in side the file format callback
-        let data_folder = self.locator.path_data_folder(&self.uuid());
+        let data_folder = self.locator.path_data_folder(self.uuid());
 
         let cw = rw::ChunkedWriter::new(self.store.clone(), format, move |chunk_number| {
             data_folder.join(types::TopicResourceLocator::data_file(
@@ -371,7 +371,7 @@ impl Topic {
         format: types::Format,
     ) -> Result<types::TopicDataInfo, Error> {
         let timeseries_res = timeseries_querier
-            .read(self.locator.path_data_folder(&self.uuid()), format, None)
+            .read(self.locator.path_data_folder(self.uuid()), format, None)
             .await;
 
         let timestamp_range = match timeseries_res {
