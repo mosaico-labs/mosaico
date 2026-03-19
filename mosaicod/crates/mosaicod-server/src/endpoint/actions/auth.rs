@@ -15,7 +15,12 @@ pub async fn api_key_create(
     info!("requested new api key");
 
     let auth = facade::Auth::create(
-        permissions.as_slice().try_into()?,
+        permissions
+            .iter()
+            .map(|x| x.as_str())
+            .collect::<Vec<&str>>()
+            .as_slice()
+            .try_into()?,
         description,
         expires_at,
         ctx.db.clone(),

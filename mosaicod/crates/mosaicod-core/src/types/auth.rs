@@ -3,7 +3,7 @@ use crate::types;
 use crc32fast::Hasher;
 use std::{ops::BitOr, str::FromStr};
 
-#[derive(thiserror::Error, Debug)]
+#[derive(thiserror::Error, Debug, PartialEq)]
 pub enum ApiKeyError {
     #[error("the token is incomplete")]
     IncompleteToken,
@@ -25,6 +25,9 @@ pub enum ApiKeyError {
 
     #[error("unrecognized permission string")]
     UnrecognizedPermissionString,
+
+    #[error("missing permissions")]
+    MissingPermissions,
 }
 
 pub type TokenPayload = [u8; Token::PAYLOAD_LENGTH];
@@ -339,12 +342,15 @@ impl FromStr for Permissions {
     }
 }
 
-impl TryFrom<&[String]> for Permissions {
+impl TryFrom<&[&str]> for Permissions {
     type Error = ApiKeyError;
 
-    fn try_from(value: &[String]) -> Result<Self, Self::Error> {
-        value.iter().try_fold(Permissions::default(), |b, s| {
-            b.add(s.parse()?);
+    fn try_from(value: &[&str]) -> Result<Self, Self::Error> {
+        if value.is_empty() {
+            return Err(ApiKeyError::MissingPermissions);
+        }
+        value.iter().try_fold(Permissions::default(), |mut b, &s| {
+            b = b.add(s.parse()?);
             Ok(b)
         })
     }
@@ -460,6 +466,47 @@ mod tests {
         let mut perm = Permissions::new(Permissions::READ | Permissions::WRITE);
         perm = perm.add(Permissions::MANAGE);
         assert!(perm.has(Permissions::READ | Permissions::WRITE | Permissions::MANAGE),);
+
+        // Check string-to-permission conversion.
+        assert_eq!(
+            "".parse::<Permissions>().unwrap_err(),
+            ApiKeyError::UnrecognizedPermissionString
+        );
+        assert_eq!("read".parse::<Permissions>().unwrap(), Permissions::READ);
+        assert_eq!("write".parse::<Permissions>().unwrap(), Permissions::WRITE);
+        assert_eq!(
+            "delete".parse::<Permissions>().unwrap(),
+            Permissions::DELETE
+        );
+        assert_eq!(
+            "manage".parse::<Permissions>().unwrap(),
+            Permissions::MANAGE
+        );
+        assert_eq!(
+            "wrong_string".parse::<Permissions>().unwrap_err(),
+            ApiKeyError::UnrecognizedPermissionString
+        );
+
+        // Check conversion from vector of strings to permission.
+        let perm: Result<Permissions, ApiKeyError> = vec![].as_slice().try_into();
+        assert_eq!(perm.unwrap_err(), ApiKeyError::MissingPermissions);
+        let perm: Permissions = vec!["read"].as_slice().try_into().unwrap();
+        assert_eq!(perm, Permissions::READ);
+        let perm: Permissions = vec!["read", "write"].as_slice().try_into().unwrap();
+        assert_eq!(perm, Permissions::READ | Permissions::WRITE);
+        let perm: Permissions = vec!["read", "write", "delete", "manage"]
+            .as_slice()
+            .try_into()
+            .unwrap();
+        assert_eq!(
+            perm,
+            Permissions::READ | Permissions::WRITE | Permissions::DELETE | Permissions::MANAGE
+        );
+        let perm: Result<Permissions, ApiKeyError> =
+            vec!["read", "wrong_string"].as_slice().try_into();
+        assert_eq!(perm.unwrap_err(), ApiKeyError::UnrecognizedPermissionString);
+        let perm: Result<Permissions, ApiKeyError> = vec![""].as_slice().try_into();
+        assert_eq!(perm.unwrap_err(), ApiKeyError::UnrecognizedPermissionString);
     }
 
     #[test]
