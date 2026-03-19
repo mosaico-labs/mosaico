@@ -454,6 +454,7 @@ class TopicWriter:
                 self._last_err = str(error)
             else:
                 self._status = TopicWriterStatus.Finalized
+                self._last_err = None
 
         logger.info(
             f"TopicWriter '{self._name}' finalized {'WITH ERROR' if error is not None else ''} successfully."

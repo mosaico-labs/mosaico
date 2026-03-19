@@ -59,7 +59,7 @@ class TopicWriterStatus(Enum):
     The topic writer encountered an error in its `with` block.
     The error handling is delegated to the outer 
     [`SequenceWriter`][mosaicolabs.handlers.SequenceWriter] error handling policy
-    ([`SessionLevelErrorPolicy`][mosaicolabs.enums.SessionLevelErrorPolicy])
+    ([`SessionLevelErrorPolicy`][mosaicolabs.enum.SessionLevelErrorPolicy])
     , or any try-except outer block.
 
     This state is reached when the TopicWriter is used in a context and 

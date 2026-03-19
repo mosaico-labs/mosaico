@@ -158,7 +158,7 @@ By default, the `SequenceWriter` context manager cannot natively distinguish whi
 !!! note:
     The error handling is only possible inside the `TopicWriter` context manager, i.e. by wrapping the processing and pushing code inside a `with topic_writer:` block.
 
-When creating a topic via the `SequenceWriter.topic_create` function, users can specify a [`TopicLevelErrorPolicy`][mosaicolabs.enums.TopicLevelErrorPolicy] that isolates failures to that specific data "lane". This ensures that a single malformed message or transformation error does not compromise the high-level sequence. By defining these behaviors at the configuration level, the user can eliminate the need for boilerplate error-handling code around every topic writer context. The `TopicLevelErrorPolicy` can be set to:
+When creating a topic via the `SequenceWriter.topic_create` function, users can specify a [`TopicLevelErrorPolicy`][mosaicolabs.enum.TopicLevelErrorPolicy] that isolates failures to that specific data "lane". This ensures that a single malformed message or transformation error does not compromise the high-level sequence. By defining these behaviors at the configuration level, the user can eliminate the need for boilerplate error-handling code around every topic writer context. The `TopicLevelErrorPolicy` can be set to:
 
 * `TopicLevelErrorPolicy.Raise`: (Default) Raises an exception if an error occurs; this returns the error handling to the `SequenceWriter.on_error` policy.
 * `TopicLevelErrorPolicy.Ignore`: Reports the error to the server and continues the ingestion process.

@@ -515,7 +515,9 @@ class RosbagInjector:
                 return
 
         # --- Adapt & Push ---
-        if twriter.is_active:  # Avoid computations if prematurely closed
+        if (
+            twriter.is_active
+        ):  # Avoid computations if prematurely closed (TopicLevelErrorPolicy.Finalize)
             with twriter:
                 # Convert ROS dict -> Mosaico Object -> Arrow Batch
                 twriter.push(adapter.translate(ros_msg))
