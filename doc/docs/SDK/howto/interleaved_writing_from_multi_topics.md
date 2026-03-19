@@ -248,14 +248,18 @@ with client.sequence_create(...) as swriter:
                 topic_name=channel.topic,
                 metadata={},
                 ontology_type=ontology_type,
-                on_error=TopicLevelErrorPolicy.Ignore # (3)!
+                on_error=TopicLevelErrorPolicy.Finalize # (3)!
             )
 ```
 
 1. Here we are checking if the a `TopicWriter` for the current topic already exists.
 2. Here we are creating the topic writer for the current topic, if it doesn't exist yet.
-3. Here we are setting the error policy for the current topic. In this case, if an error occurs, the topic writer will signal the error to the server and ignore it.
+3. Here we are setting the error policy for the current topic. In this case, if an error occurs, the topic writer will **signal the error to the server and finalize the topic. Further writes to this topic will raise an error**.
 
+#### Topic-Level Error Management
+
+In the code snippet above, we implemented a **Controlled Ingestion** by wrapping the topic-specific processing and pushing logic within a local `with twriter:` block.
+Because the `SequenceWriter` cannot natively distinguish which specific topic failed within your custom processing code (such as a coordinate transformation), an unhandled exception will bubble up and trigger the global sequence-level error policy. In this way, we can keep ingesting data from the other topics even if one single topic fails.
 
 ### Step 4: Pushing Data into the Pipeline
 
@@ -263,9 +267,9 @@ The final stage of the ingestion process involves iterating through your data ge
 
 ```python
         if twriter.is_active: # (1)!
-            with twriter:
+            with twriter: # (2)!
                 # In a real scenario, use a deserializer like mcap_ros2.decoder
-                raw_data = deserialize_payload(message.data, schema.name) # (2)!
+                raw_data = deserialize_payload(message.data, schema.name) # (3)!
                 mosaico_msg = custom_translator(schema.name, raw_data)
 
                 if mosaico_msg is None:
@@ -273,19 +277,16 @@ The final stage of the ingestion process involves iterating through your data ge
                     print("Skipping row due to parsing error")
                     continue # Ignore malformed records
             
-                twriter.push(message=mosaico_msg) # (3)!
+                twriter.push(message=mosaico_msg) # (4)!
             if twriter.status == TopicWriterStatus.FinalizedWithError
                 print(f"Writer for topic {twriter.name} prematurely finalized due to error: '{twriter.last_error}'")
 ```
 
-1. We have to check if the topic writer is active because the on_error policy is set to `TopicLevelErrorPolicy.Finalize`: the topic writer could have been finalized, if an error occurred in a previous iteration.
-2. This is an example of a custom function that deserializes the payload of the current message.
-3. This function raises if the `TopicWriter` is not active. See [`TopicWriter.push`][mosaicolabs.handlers.TopicWriter.push].
-
-#### Topic-Level Error Management
-
-In the code snippet above, we implemented a **Controlled Ingestion** by wrapping the topic-specific processing and pushing logic within a local `with twriter:` block.
-Because the `SequenceWriter` cannot natively distinguish which specific topic failed within your custom processing code (such as a coordinate transformation), an unhandled exception will bubble up and trigger the global sequence-level error policy. In this way, we can keep ingesting data from the other topics even if one single topic fails.
+1. We check this because [`on_error=TopicLevelErrorPolicy.Finalize`][mosaicolabs.enum.TopicLevelErrorPolicy.Finalize]: the topic writer could have been closed, if an error occurred in a previous iteration.
+    By doing this, we avoid wasting resources by processing and pushing data into a closed topic writer.
+2. Protect the topic-related executions: in this way the `TopicWriter` can correctly handle the errors in this block, by implementing the topic-level error policy.
+3. This is an example of a custom function that deserializes the payload of the current message.
+4. This function raises if the `TopicWriter` is not active. See [`TopicWriter.push`][mosaicolabs.handlers.TopicWriter.push].
 
 
 ## The full example code
