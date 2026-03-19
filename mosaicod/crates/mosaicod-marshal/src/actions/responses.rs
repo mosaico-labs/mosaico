@@ -167,6 +167,25 @@ impl From<auth::Token> for ApiKeyToken {
     }
 }
 
+#[derive(Serialize, Debug)]
+pub struct ApiKeyStatus {
+    pub api_key_fingerprint: String,
+    pub description: String,
+    pub created_at_ns: i64,
+    pub expires_at_ns: Option<i64>,
+}
+
+impl From<&auth::ApiKey> for ApiKeyStatus {
+    fn from(value: &auth::ApiKey) -> Self {
+        Self {
+            api_key_fingerprint: value.token().fingerprint().to_string(),
+            description: value.description.clone(),
+            created_at_ns: value.creation_timestamp.as_i64(),
+            expires_at_ns: value.expiration_timestamp.map(Into::into),
+        }
+    }
+}
+
 // ####
 // Misc
 // ####

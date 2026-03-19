@@ -385,3 +385,48 @@ pub async fn api_key_create(
 
     Ok(api_key_token.expect("unable to read api key token"))
 }
+
+pub async fn api_key_status(
+    client: &mut Client,
+    fingerprint: &str,
+) -> Result<(String, String, i64, Option<i64>), tonic::Status> {
+    let action = Action {
+        r#type: "api_key_status".to_owned(),
+        body: format!(
+            r#"{{
+            "api_key_fingerprint": "{}"
+        }}"#,
+            fingerprint
+        )
+        .into(),
+    };
+
+    dbg!(&action);
+
+    let mut stream = client.do_action(action).await?.into_inner();
+
+    let mut api_key_status = None;
+
+    while let Some(result) = stream.message().await.expect("Problem while streaming") {
+        dbg!(&result);
+        let r = ActionResponse::from_body(&result.body);
+        assert_eq!(r.action, "api_key_status");
+
+        api_key_status = Some((
+            r.response["api_key_fingerprint"]
+                .as_str()
+                .expect("Error casting api key fingerprint to string")
+                .to_string(),
+            r.response["description"]
+                .as_str()
+                .expect("Error casting api key description to string")
+                .to_string(),
+            r.response["created_at_ns"]
+                .as_i64()
+                .expect("Error casting api key created_at_ns into an i64"),
+            r.response["expires_at_ns"].as_i64(),
+        ));
+    }
+
+    Ok(api_key_status.expect("unable to read api key status"))
+}

@@ -121,3 +121,8 @@ pub struct ApiKeyCreate {
     pub expires_at_ns: Option<i64>,
     pub description: String,
 }
+
+#[derive(Deserialize, Debug)]
+pub struct ApiKeyFingerprint {
+    pub api_key_fingerprint: String,
+}

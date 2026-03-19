@@ -29,3 +29,13 @@ pub async fn api_key_create(
 
     Ok(ActionResponse::api_key_create(auth.api_key().key.into()))
 }
+
+/// Returns the status for the given api key.
+pub async fn api_key_status(
+    ctx: &Context,
+    fingerprint: &str,
+) -> Result<ActionResponse, ServerError> {
+    info!("requested api key status");
+    let auth = facade::Auth::try_from_fingerprint(fingerprint, ctx.db.clone()).await?;
+    Ok(ActionResponse::api_key_status(auth.api_key().into()))
+}
