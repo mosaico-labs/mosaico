@@ -10,3 +10,5 @@ pub mod session;
 pub mod topic;
 
 pub mod misc;
+
+pub mod auth;

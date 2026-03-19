@@ -76,8 +76,8 @@ pub fn auth(auth: ApiKey) -> Result<(), common::Error> {
         } => {
             let permissions = cast_to_permissions(permissions)?;
 
-            let expires: Option<std::time::Duration> = if let Some(expires) = expires {
-                Some(expires.parse::<iso8601::Duration>()?.into())
+            let expires_at: Option<types::Timestamp> = if let Some(expires) = expires {
+                Some(types::Timestamp::now() + expires.parse::<iso8601::Duration>()?.into())
             } else {
                 None
             };
@@ -86,7 +86,7 @@ pub fn auth(auth: ApiKey) -> Result<(), common::Error> {
             let description = description.unwrap_or_default();
 
             let policy: Result<types::ApiKey, facade::Error> = rt.block_on(async {
-                let fauth = facade::Auth::create(permissions, description, expires, db).await?;
+                let fauth = facade::Auth::create(permissions, description, expires_at, db).await?;
                 Ok(fauth.into_api_key())
             });
 

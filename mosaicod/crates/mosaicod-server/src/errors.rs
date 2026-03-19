@@ -99,6 +99,9 @@ pub enum ServerError {
     #[error("missing api key token in request")]
     MissingApiKeyToken,
 
+    #[error("api key error")]
+    ApiKeyError(#[from] mosaicod_core::types::ApiKeyError),
+
     #[error("unauthorized")]
     Unauthorized,
 }

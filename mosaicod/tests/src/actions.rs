@@ -339,3 +339,49 @@ pub async fn get_flight_info(
 
     Ok(info)
 }
+
+pub async fn api_key_create(
+    client: &mut Client,
+    permissions: types::auth::Permissions,
+    description: String,
+    expires_at: Option<types::Timestamp>,
+) -> Result<types::auth::Token, tonic::Status> {
+    let perm_vec: Vec<String> = permissions.into();
+
+    let action = Action {
+        r#type: "api_key_create".to_owned(),
+        body: format!(
+            r#"{{
+            "permissions": ["{}"],
+            "description": "{}",
+            "expires_at_ns": {}
+        }}"#,
+            perm_vec.join("\",\""),
+            description,
+            expires_at.map_or(String::from("null"), |t| { t.to_string() })
+        )
+        .into(),
+    };
+
+    dbg!(&action);
+
+    let mut stream = client.do_action(action).await?.into_inner();
+
+    let mut api_key_token: Option<types::auth::Token> = None;
+
+    while let Some(result) = stream.message().await.expect("Problem while streaming") {
+        dbg!(&result);
+        let r = ActionResponse::from_body(&result.body);
+        assert_eq!(r.action, "api_key_create");
+
+        api_key_token = Some(
+            r.response["api_key_token"]
+                .as_str()
+                .expect("Error casting api key token to string")
+                .parse()
+                .unwrap(),
+        );
+    }
+
+    Ok(api_key_token.expect("unable to read api key token"))
+}

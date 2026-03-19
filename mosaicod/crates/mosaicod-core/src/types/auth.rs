@@ -1,26 +1,33 @@
 use super::*;
+use crate::types;
 use crc32fast::Hasher;
 use std::{ops::BitOr, str::FromStr};
 
-#[derive(thiserror::Error, Debug)]
-pub enum TokenError {
+#[derive(thiserror::Error, Debug, PartialEq)]
+pub enum ApiKeyError {
     #[error("the token is incomplete")]
     IncompleteToken,
 
     #[error("bad header")]
-    BadHeader,
+    BadTokenHeader,
 
     #[error("bad payload")]
-    BadPayload,
+    BadTokenPayload,
 
     #[error("bad fingerprint")]
-    BadFingerprint,
+    BadTokenFingerprint,
 
     #[error("bad length")]
-    BadLength,
+    BadTokenLength,
 
     #[error("fingerprint mismatch")]
-    FingerprintMismatch,
+    TokenFingerprintMismatch,
+
+    #[error("unrecognized permission string")]
+    UnrecognizedPermissionString,
+
+    #[error("missing permissions")]
+    MissingPermissions,
 }
 
 pub type TokenPayload = [u8; Token::PAYLOAD_LENGTH];
@@ -46,7 +53,7 @@ fn compute_fingerprint(payload: &TokenPayload) -> TokenFingerprint {
 
 /// Perform all checks required to cast a payload string to
 /// the [`Payload`] fixed size array
-fn cast_payload(payload: &str) -> Result<TokenPayload, TokenError> {
+fn cast_payload(payload: &str) -> Result<TokenPayload, ApiKeyError> {
     let payload_size_ok = payload.chars().count() == Token::PAYLOAD_LENGTH;
 
     let payload_is_alphanumeric: bool = payload
@@ -54,7 +61,7 @@ fn cast_payload(payload: &str) -> Result<TokenPayload, TokenError> {
         .all(|c| c.is_ascii_digit() || (c.is_ascii_alphabetic() && c.is_lowercase()));
 
     if !(payload_size_ok && payload_is_alphanumeric) {
-        return Err(TokenError::BadPayload);
+        return Err(ApiKeyError::BadTokenPayload);
     }
 
     Ok(payload.as_bytes().try_into().unwrap())
@@ -62,7 +69,7 @@ fn cast_payload(payload: &str) -> Result<TokenPayload, TokenError> {
 
 /// Perform all checks required to cast fingerprint string to
 /// the [`Fingerprint`] fixed size array
-fn cast_fingerprint(fingerprint: &str) -> Result<TokenFingerprint, TokenError> {
+fn cast_fingerprint(fingerprint: &str) -> Result<TokenFingerprint, ApiKeyError> {
     let fingerprint_size_ok = fingerprint.chars().count() == Token::FINGERPRINT_LENGTH;
 
     let fingerprint_is_alphanumeric: bool = fingerprint
@@ -70,7 +77,7 @@ fn cast_fingerprint(fingerprint: &str) -> Result<TokenFingerprint, TokenError> {
         .all(|c| c.is_ascii_digit() || (c.is_ascii_alphabetic() && c.is_lowercase()));
 
     if !(fingerprint_size_ok && fingerprint_is_alphanumeric) {
-        return Err(TokenError::BadFingerprint);
+        return Err(ApiKeyError::BadTokenFingerprint);
     }
 
     Ok(fingerprint.as_bytes().try_into().unwrap())
@@ -107,7 +114,7 @@ impl Token {
         }
     }
 
-    pub fn try_from_parts(payload: &str, checksum: &str) -> Result<Self, TokenError> {
+    pub fn try_from_parts(payload: &str, checksum: &str) -> Result<Self, ApiKeyError> {
         let payload = cast_payload(payload)?;
         let checksum = cast_fingerprint(checksum)?;
 
@@ -134,25 +141,25 @@ impl Token {
 }
 
 impl FromStr for Token {
-    type Err = TokenError;
+    type Err = ApiKeyError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let parts: Vec<&str> = s.split(Token::SEPARATOR).collect();
 
         if parts.len() != 3 {
-            return Err(TokenError::IncompleteToken);
+            return Err(ApiKeyError::IncompleteToken);
         }
 
         let (header, payload, checksum) = (parts[0], parts[1], parts[2]);
 
         if header != Token::HEADER {
-            return Err(TokenError::BadHeader);
+            return Err(ApiKeyError::BadTokenHeader);
         }
 
         let payload = cast_payload(payload)?;
         let checksum = cast_fingerprint(checksum)?;
 
         if checksum != compute_fingerprint(&payload) {
-            return Err(TokenError::FingerprintMismatch);
+            return Err(ApiKeyError::TokenFingerprintMismatch);
         }
 
         Ok(Self {
@@ -180,6 +187,10 @@ impl Default for Token {
         Self::new()
     }
 }
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+/// PERMISSIONS
+////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #[derive(Copy, Clone, PartialEq)]
 pub struct Permissions(u8);
@@ -293,7 +304,7 @@ impl From<Permissions> for u8 {
     }
 }
 
-/// Convert a permissions into a vector of strings
+/// Convert a set of permissions into a vector of strings
 /// like `["read", "write" ...]`
 impl From<Permissions> for Vec<String> {
     fn from(value: Permissions) -> Self {
@@ -314,6 +325,34 @@ impl From<Permissions> for Vec<String> {
             vec.push("manage".to_owned());
         }
         vec
+    }
+}
+
+impl FromStr for Permissions {
+    type Err = ApiKeyError;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "read" => Ok(Permissions::READ),
+            "write" => Ok(Permissions::WRITE),
+            "delete" => Ok(Permissions::DELETE),
+            "manage" => Ok(Permissions::MANAGE),
+            _ => Err(ApiKeyError::UnrecognizedPermissionString),
+        }
+    }
+}
+
+impl TryFrom<&[&str]> for Permissions {
+    type Error = ApiKeyError;
+
+    fn try_from(value: &[&str]) -> Result<Self, Self::Error> {
+        if value.is_empty() {
+            return Err(ApiKeyError::MissingPermissions);
+        }
+        value.iter().try_fold(Permissions::default(), |mut b, &s| {
+            b = b.add(s.parse()?);
+            Ok(b)
+        })
     }
 }
 
@@ -380,13 +419,13 @@ impl ApiKey {
     pub fn new(
         permission: Permissions,
         description: String,
-        expires: Option<std::time::Duration>,
+        expires_at: Option<types::Timestamp>,
     ) -> Self {
         Self {
             key: Token::new(),
             permissions: permission,
             creation_timestamp: Timestamp::now(),
-            expiration_timestamp: expires.map(|delta| Timestamp::now() + delta),
+            expiration_timestamp: expires_at,
             description,
         }
     }
@@ -427,6 +466,47 @@ mod tests {
         let mut perm = Permissions::new(Permissions::READ | Permissions::WRITE);
         perm = perm.add(Permissions::MANAGE);
         assert!(perm.has(Permissions::READ | Permissions::WRITE | Permissions::MANAGE),);
+
+        // Check string-to-permission conversion.
+        assert_eq!(
+            "".parse::<Permissions>().unwrap_err(),
+            ApiKeyError::UnrecognizedPermissionString
+        );
+        assert_eq!("read".parse::<Permissions>().unwrap(), Permissions::READ);
+        assert_eq!("write".parse::<Permissions>().unwrap(), Permissions::WRITE);
+        assert_eq!(
+            "delete".parse::<Permissions>().unwrap(),
+            Permissions::DELETE
+        );
+        assert_eq!(
+            "manage".parse::<Permissions>().unwrap(),
+            Permissions::MANAGE
+        );
+        assert_eq!(
+            "wrong_string".parse::<Permissions>().unwrap_err(),
+            ApiKeyError::UnrecognizedPermissionString
+        );
+
+        // Check conversion from vector of strings to permission.
+        let perm: Result<Permissions, ApiKeyError> = vec![].as_slice().try_into();
+        assert_eq!(perm.unwrap_err(), ApiKeyError::MissingPermissions);
+        let perm: Permissions = vec!["read"].as_slice().try_into().unwrap();
+        assert_eq!(perm, Permissions::READ);
+        let perm: Permissions = vec!["read", "write"].as_slice().try_into().unwrap();
+        assert_eq!(perm, Permissions::READ | Permissions::WRITE);
+        let perm: Permissions = vec!["read", "write", "delete", "manage"]
+            .as_slice()
+            .try_into()
+            .unwrap();
+        assert_eq!(
+            perm,
+            Permissions::READ | Permissions::WRITE | Permissions::DELETE | Permissions::MANAGE
+        );
+        let perm: Result<Permissions, ApiKeyError> =
+            vec!["read", "wrong_string"].as_slice().try_into();
+        assert_eq!(perm.unwrap_err(), ApiKeyError::UnrecognizedPermissionString);
+        let perm: Result<Permissions, ApiKeyError> = vec![""].as_slice().try_into();
+        assert_eq!(perm.unwrap_err(), ApiKeyError::UnrecognizedPermissionString);
     }
 
     #[test]
@@ -441,25 +521,25 @@ mod tests {
 
     #[test]
     fn bad_apy_key() {
-        let res: Result<Token, TokenError> =
+        let res: Result<Token, ApiKeyError> =
             "mosaico_vrfeceju4lqivysxgaseefa3tsxs0vrl_1b676530".parse();
-        assert!(matches!(res, Err(TokenError::BadHeader)));
+        assert!(matches!(res, Err(ApiKeyError::BadTokenHeader)));
 
         // Removed char in payload
-        let res: Result<Token, TokenError> =
+        let res: Result<Token, ApiKeyError> =
             "msco_rfeceju4lqivysxgaseefa3tsxs0vrl_1b676530".parse();
-        assert!(matches!(res, Err(TokenError::BadPayload)));
+        assert!(matches!(res, Err(ApiKeyError::BadTokenPayload)));
 
         // added non ascii char in fingerprint
-        let res: Result<Token, TokenError> =
+        let res: Result<Token, ApiKeyError> =
             "msco_vrfeceju4lqivysxgaseefa3tsxs0vrl_©b676530".parse();
         dbg!(&res);
-        assert!(matches!(res, Err(TokenError::BadFingerprint)));
+        assert!(matches!(res, Err(ApiKeyError::BadTokenFingerprint)));
 
         // Removed char from fingerprint
-        let res: Result<Token, TokenError> =
+        let res: Result<Token, ApiKeyError> =
             "msco_vrfeceju4lqivysxgaseefa3tsxs0vrl_b676530".parse();
         dbg!(&res);
-        assert!(matches!(res, Err(TokenError::BadFingerprint)));
+        assert!(matches!(res, Err(ApiKeyError::BadTokenFingerprint)));
     }
 }

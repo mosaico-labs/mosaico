@@ -100,6 +100,9 @@ pub enum ActionRequest {
     /// Ask for the list of existing layers in the system
     LayerList(requests::Empty),
 
+    /// Ask to create a new api key with given permissions and duration.
+    ApiKeyCreate(requests::ApiKeyCreate),
+
     Version(requests::Empty),
 }
 
@@ -137,6 +140,8 @@ impl ActionRequest {
 
             "query" => parse_action_req!(Query, body),
 
+            "api_key_create" => parse_action_req!(ApiKeyCreate, body),
+
             "version" => parse_action_req!(Version, body),
 
             _ => Err(ActionError::MissingAction(value.to_owned())),
@@ -166,6 +171,8 @@ pub enum ActionResponse {
     LayerList(responses::LayerList),
 
     Query(responses::Query),
+
+    ApiKeyCreate(responses::ApiKeyToken),
 
     Version(responses::ServerVersion),
 
@@ -213,6 +220,10 @@ impl ActionResponse {
 
     pub fn session_delete() -> Self {
         Self::SessionDelete(())
+    }
+
+    pub fn api_key_create(response: responses::ApiKeyToken) -> Self {
+        Self::ApiKeyCreate(response)
     }
 }
 

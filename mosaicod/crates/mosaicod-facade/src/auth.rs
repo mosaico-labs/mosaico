@@ -29,12 +29,12 @@ impl Auth {
     pub async fn create(
         permissions: types::auth::Permissions,
         description: String,
-        expire_duration: Option<std::time::Duration>,
+        expires_at: Option<types::Timestamp>,
         db: db::Database,
     ) -> Result<Self, Error> {
         let mut tx = db.transaction().await?;
 
-        let api_key = types::ApiKey::new(permissions, description, expire_duration);
+        let api_key = types::ApiKey::new(permissions, description, expires_at);
         let api_key = db::api_key_create(&mut tx, api_key).await?;
 
         tx.commit().await?;

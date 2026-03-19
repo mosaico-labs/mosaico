@@ -25,18 +25,18 @@ pub struct ApiKeyRecord {
 }
 
 impl TryFrom<ApiKeyRecord> for types::ApiKey {
-    type Error = types::auth::TokenError;
+    type Error = types::auth::ApiKeyError;
 
     fn try_from(value: ApiKeyRecord) -> Result<Self, Self::Error> {
         let payload: types::auth::TokenPayload = value
             .payload
             .try_into()
-            .map_err(|_| types::auth::TokenError::BadPayload)?;
+            .map_err(|_| types::auth::ApiKeyError::BadTokenPayload)?;
 
         let fingerprint: types::auth::TokenFingerprint = value
             .fingerprint
             .try_into()
-            .map_err(|_| types::auth::TokenError::BadFingerprint)?;
+            .map_err(|_| types::auth::ApiKeyError::BadTokenFingerprint)?;
 
         Ok(Self {
             key: types::auth::Token::from_bytes(payload, fingerprint),
