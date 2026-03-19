@@ -114,8 +114,8 @@ Usage: tests.sh [OPTIONS]
 Options:
     --mosaicod                  Run mosaicod unit tests (requires Docker for PostgreSQL)
     --sdk-python                Run Python SDK unit tests (no Docker required)
-    --integration               Run integration tests (requires Docker + mosaicod build)
-    --integration_with_tls      Run integration tests with TLS (requires Docker + mosaicod build)
+    --full-stack                Run full-stack tests (requires Docker + mosaicod build)
+    --full-stack-tls            Run full-stack tests with TLS (requires Docker + mosaicod build)
     --all                       Run all tests (default)
     --help                      Show this help message
 EOF
@@ -161,11 +161,11 @@ run_sdk_python_tests() {
 }
 
 
-# Run integration tests
+# Run full_stack tests
 #
 # Usage:
-#  run_integration_tests --title "title" --tls
-run_integration_tests() {
+#  run_full_stack_tests --title "title" --tls
+run_full_stack_tests() {
 
     MOSAICOD_OPTS=""
     PYTEST_OPTS_K="integration and not test_tls_connection"
@@ -239,8 +239,8 @@ main() {
 
     local run_mosaicod=false
     local run_sdk_python=false
-    local run_integration=false
-    local run_integration_with_tls=false
+    local run_full_stack=false
+    local run_full_stack_tls=false
     local run_all=false
     local run_selected=false # true if at least a run option is selected
 
@@ -261,13 +261,13 @@ main() {
                 run_selected=true
                 shift
                 ;;
-            --integration)
-                run_integration=true
+            --full-stack)
+                run_full_stack=true
                 run_selected=true
                 shift
                 ;;
-            --integration-with-tls)
-                run_integration_with_tls=true
+            --full-stack-tls)
+                run_full_stack_tls=true
                 run_selected=true
                 shift
                 ;;
@@ -305,8 +305,8 @@ main() {
     if [ "$run_all" = true ]; then
         run_mosaicod_tests
         run_sdk_python_tests
-        run_integration_tests --title "integration tests"
-        run_integration_tests --title "integration tests (TLS)" --tls
+        run_full_stack_tests --title "full-stack tests"
+        run_full_stack_tests --title "full-stack tests (TLS)" --tls
     else
         if [ "$run_mosaicod" = true ]; then
             run_mosaicod_tests
@@ -314,11 +314,11 @@ main() {
         if [ "$run_sdk_python" = true ]; then
             run_sdk_python_tests
         fi
-        if [ "$run_integration" = true ]; then
-            run_integration_tests --title "integration tests" 
+        if [ "$run_full_stack" = true ]; then
+            run_full_stack_tests --title "full-stack tests" 
         fi
-        if [ "$run_integration_with_tls" = true ]; then
-            run_integration_tests --title "integration tests (TLS)" --tls
+        if [ "$run_full_stack_tls" = true ]; then
+            run_full_stack_tests --title "full-stack tests (TLS)" --tls
         fi
     fi
 

@@ -2,9 +2,7 @@ name: CI
 
 on:
   push:
-    branches:
-      - "main"
-      - "release/*"
+    branches: ["main", "release/*"]
     paths:
       - "**.rs"
       - "**.py"
@@ -13,9 +11,7 @@ on:
       - "**/pyproject.toml"
       - "**/poetry.lock"
   pull_request:
-    branches:
-      - "main"
-      - "release/*"
+    branches: ["main", "release/*"]
     paths:
       - "**.rs"
       - "**.py"
@@ -29,53 +25,43 @@ permissions:
   contents: read
 
 jobs:
-  backend-linter:
-    name: "Backend (lint and format-check)"
+  static-analysis:
+    name: "Static analysis"
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v6
-
-      - name: Setup Rust Toolchain
-        uses: dtolnay/rust-toolchain@v1
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@v1
         with:
           toolchain: stable
-
+          components: rustfmt, clippy
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2.8.2
         with:
           workspaces: "mosaicod -> target"
-          cache-targets: true
-          cache-on-failure: true
-
-      - name: Format Check
+      
+      - name: Backend Lint
         working-directory: mosaicod
-        run: cargo fmt -- --check
+        run: |
+          cargo fmt -- --check
+          cargo clippy -- -D warnings
 
-      - name: Linter
-        working-directory: mosaicod
-        run: cargo lint
+      - name: Python SDK Lint
+        run: |
+          pipx install ruff
+          ruff format --check mosaico-sdk-py
+          ruff check mosaico-sdk-py
 
   backend-unit-tests:
-    name: "Backend (unit tests)"
-    runs-on: ubuntu-latest
+    name: "Backend: unit tests"
+    needs: [static-analysis]
+    runs-on: ubuntu-24.04
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v6
-
-      - name: Setup Rust Toolchain
-        uses: dtolnay/rust-toolchain@v1
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@v1
         with:
           toolchain: stable
 
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@v2.8.2
-        with:
-          workspaces: "mosaicod -> target"
-          cache-targets: true
-          cache-on-failure: true
-
-      - name: Install System Dependencies
+      - name: Install System Dependencies (Linux)
         run: |
           sudo apt-get update
           sudo apt-get install -y libpq-dev
@@ -83,88 +69,57 @@ jobs:
       - name: Unit Tests
         run: ./scripts/tests.sh --mosaicod
 
-  python-sdk-linter:
-    name: "Python SDK (lint and format-check)"
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v6
-
-      - name: Install Ruff
-        run: pipx install ruff
-
-      - name: Format Check
-        working-directory: mosaico-sdk-py
-        run: ruff format --check .
-
-      - name: Linter
-        working-directory: mosaico-sdk-py
-        run: ruff check .
-
   python-sdk-unit-tests:
-    name: "Python SDK (unit tests)"
-    runs-on: ubuntu-latest
+    name: "Python SDK: unit tests on (Py ${{ matrix.python-version }})"
+    needs: [static-analysis]
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.13"]
+    runs-on: ubuntu-24.04
     env:
       PYTHON_KEYRING_BACKEND: keyring.backends.null.Keyring
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v6
-
+      - uses: actions/checkout@v6
       - name: Install Poetry
         run: pipx install poetry
-
       - name: Setup Python
         uses: actions/setup-python@v6.1.0
         with:
-          python-version: "3.13"
+          python-version: ${{ matrix.python-version }}
           cache: "poetry"
-
       - name: Unit Tests
         run: ./scripts/tests.sh --sdk-python
 
-  integration-tests:
-    name: "Integration tests"
-    runs-on: ubuntu-latest
-    needs:
-      [
-        backend-linter,
-        backend-unit-tests,
-        python-sdk-linter,
-        python-sdk-unit-tests,
-      ]
+  full-stack-tests:
+    name: "Full stack tests on (Py ${{ matrix.python-version }})"
+    needs: [backend-unit-tests, python-sdk-unit-tests]
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.13"]
+    runs-on: ubuntu-24.04
     env:
       PYTHON_KEYRING_BACKEND: keyring.backends.null.Keyring
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v6
-
-      - name: Setup Rust Toolchain
-        uses: dtolnay/rust-toolchain@v1
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@v1
         with:
           toolchain: stable
-
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@v2.8.2
-        with:
-          workspaces: "mosaicod -> target"
-          cache-targets: true
-          cache-on-failure: true
-
-      - name: Install System Dependencies
+      
+      - name: Install Dependencies (Linux)
         run: |
           sudo apt-get update
           sudo apt-get install -y libpq-dev
 
       - name: Install Poetry
         run: pipx install poetry
-
-      - name: Setup Python
-        uses: actions/setup-python@v6.1.0
+      - uses: actions/setup-python@v6.1.0
         with:
-          python-version: "3.13"
+          python-version: ${{ matrix.python-version }}
           cache: "poetry"
 
-      - name: Integration Tests and TLS Tests
+      - name: Integration Tests
         run: |
-          ./scripts/tests.sh --integration
-          ./scripts/tests.sh --integration-with-tls
+          ./scripts/tests.sh --full-stack
+          ./scripts/tests.sh --full-stack-tls

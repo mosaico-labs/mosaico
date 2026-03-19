@@ -4,7 +4,7 @@ resolver = "3"
 
 [workspace.package]
 version = "0.3.0"
-authors = ["Mosaico author's"]
+authors = ["Mosaico Team"]
 homepage = "https://mosaico.dev"
 repository = "https://github.com/mosaico-labs/mosaico"
 license = "AGPL-3.0"
