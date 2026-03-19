@@ -114,7 +114,7 @@ where
                     return Ok(to_http_error(ServerError::MissingApiKeyToken));
                 }
 
-                let token: Result<types::auth::Token, types::auth::TokenError> = token.parse();
+                let token: Result<types::auth::Token, types::auth::ApiKeyError> = token.parse();
                 match token {
                     Ok(token) => {
                         let fauth =
