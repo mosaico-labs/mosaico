@@ -4,7 +4,7 @@ description: Example how-to for Streaming Data from Sequences and Topics
 ---
 
 !!! info "Prerequisites"
-    To fully grasp the following How-To, we recommend you to read the **[Reading a Sequence and its Topics](../howto/reading.md) How-To**.
+    To fully grasp the following How-To, we recommend you to read the **[Reading a Sequence and its Topics](../howto/data_inspection.md) How-To**.
 
 This guide demonstrates how to interact with the Mosaico Data Platform to retrieve the data stream that has been previously ingested. You will learn how to use the Mosaico SDK to:
 

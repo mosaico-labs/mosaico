@@ -1,7 +1,13 @@
 # This will register the adapters in the factory
 # This will register the data ontology in the mosaico Data Ontology
-from . import adapters as adapters, data_ontology as data_ontology
+from . import adapters as adapters
 from .adapter_base import ROSAdapterBase as ROSAdapterBase
+from .data_ontology import (
+    BatteryState as BatteryState,
+    FrameTransform as FrameTransform,
+    PointCloud2 as PointCloud2,
+    PointField as PointField,
+)
 from .injector import (
     RosbagInjector as RosbagInjector,
     ROSInjectionConfig as ROSInjectionConfig,
