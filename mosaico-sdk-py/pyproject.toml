@@ -1,8 +1,19 @@
 [tool.poetry]
 name = "mosaico-sdk-py"
 version = "0.3.0"
-description = "SDK for Mosaico Data-Platform"
+description = "Python SDK for Mosaico Data-Platform"
 authors = ["Mosaico Labs <info@mosaico.com>"]
+readme = "README.md"
+license = "AGPL-3.0"
+keywords = [
+    "mosaicolabs",
+    "mosaico",
+    "sdk",
+    "data-platform",
+    "physical-ai",
+    "robotics",
+    "ros",
+]
 
 packages = [{ include = "mosaicolabs", from = "src" }]
 
