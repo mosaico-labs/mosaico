@@ -17,7 +17,7 @@ from mosaicolabs.models import Serializable
 from mosaicolabs.models.message import Message
 
 from ..comm.do_action import _do_action
-from ..enum import FlightAction
+from ..enum import FlightAction, TopicWriterStatus
 from ..helpers import pack_topic_resource_name
 from ..logging_config import get_logger
 from .config import TopicWriterConfig
@@ -120,6 +120,9 @@ class TopicWriter:
         """The config of the writer"""
         self._wrstate: _TopicWriteState = state
         """The actual writer object"""
+        self._status: TopicWriterStatus = TopicWriterStatus.Active
+        """The status of the writer"""
+        self._last_err: Optional[str] = None
 
     @classmethod
     def _create(
@@ -213,68 +216,48 @@ class TopicWriter:
         exc_type: Optional[Type[BaseException]],
         exc_val: Optional[BaseException],
         exc_tb: Optional[Any],
-    ) -> None:
+    ):
         """
         Context manager exit.
 
-        Guarantees cleanup of the Flight stream. If an exception occurred within
-        the block, it triggers the configured `TopicLevelErrorPolicy` (e.g., reporting the error).
-        Exceptions from the with-block are always propagated.
+        Guarantees correct error handling and Flight stream management. If an exception occurred within
+        the block, it triggers the configured `TopicLevelErrorPolicy` (e.g., reporting the error), otherwise does nothing.
+        Exceptions from the with-block are propagated if the error policy is set to `Raise`.
         """
-        error_occurred = exc_type is not None
-
-        try:
-            # Attempt to flush remaining data and close stream
-            self._finalize(error=exc_val)
-        except Exception as e:
-            # FINALIZE FAILED: treat this as an error condition
-            logger.exception(f"Failed to finalize topic '{self._name}': '{e}'")
-            error_occurred = True
-            if not exc_type:
-                exc_type, exc_val = type(e), e
-
-        if error_occurred:
-            # Exit due to an error
+        if exc_type is not None:
+            # Handle the error according to the configured policy
+            err = str(exc_val)
+            self._last_err = err
             try:
-                if self._config.on_error == TopicLevelErrorPolicy.Finalize:
-                    self._error_report(str(exc_val))
-                    self._wrstate.writer = None  # Close the topic
+                if (
+                    self.is_active
+                    and self._config.on_error == TopicLevelErrorPolicy.Finalize
+                ):
+                    # Attempt to flush remaining data and close stream. This reports also
+                    self._finalize(error=exc_val)
+                    return True  # suppress exception
                 elif self._config.on_error == TopicLevelErrorPolicy.Ignore:
-                    self._error_report(str(exc_val))
+                    self._error_report(err)
+                    self._status = TopicWriterStatus.IgnoredLastError
+                    return True  # suppress exception
                 elif self._config.on_error == TopicLevelErrorPolicy.Raise:
-                    raise exc_val
+                    self._status = TopicWriterStatus.RaisedException
+                    return False  # propagate exception
             except Exception as e:
                 logger.exception(
                     f"Error handling topic '{self._name}' after exception: '{e}'"
                 )
+                # Important: do NOT suppress this exception (happened while handling the error policy)
+                return False
 
     def __del__(self):
         """Destructor check to ensure `_finalize()` was called."""
         name = getattr(self, "_name", "__not_initialized__")
-        if hasattr(self, "is_active") and self.is_active():
+        if hasattr(self, "is_active") and self.is_active:
             logger.warning(
                 f"TopicWriter '{name}' destroyed without calling _finalize(). "
                 "Resources may not have been released properly."
             )
-
-    def _handle_exception_and_raise(self, err: Exception, msg: str):
-        """Helper to cleanup resources and re-raise exceptions with context."""
-        try:
-            if self._config.on_error == TopicLevelErrorPolicy.Finalize:
-                self._error_report(str(err))
-                self._wrstate.writer = None  # Close the topic
-            elif self._config.on_error == TopicLevelErrorPolicy.Ignore:
-                self._error_report(str(err))
-            elif self._config.on_error == TopicLevelErrorPolicy.Raise:
-                raise err
-        except Exception as report_err:
-            logger.error(f"Failed to report error: '{report_err}'")
-        finally:
-            # Always attempt to close local resources
-            if hasattr(self, "_wrstate") and self._wrstate:
-                self._wrstate.close(with_error=True)
-
-        raise _make_exception(f"Topic '{self._name}' operation failed: '{msg}'", err)
 
     @classmethod
     def _validate_ontology_type(cls, ontology_type: Type[Serializable]) -> None:
@@ -370,22 +353,54 @@ class TopicWriter:
             1. See also: [`MosaicoClient.sequence_create()`][mosaicolabs.comm.MosaicoClient.sequence_create]
             2. See also: [`SequenceWriter.topic_create()`][mosaicolabs.handlers.SequenceWriter.topic_create]
         """
-        # time.sleep(0.1)
         try:
             self._wrstate.push_record(message)
+            # If everything ok, reset any previous status
+            # (if not active, this function would raise)
+            self._status = TopicWriterStatus.Active
+            self._last_err = None
         except Exception as e:
-            self._handle_exception_and_raise(e, "Error during TopicWriter.push")
+            logger.error(f"Error during TopicWriter.push: '{e}'")
+            self._status = TopicWriterStatus.RaisedException
+            self._last_err = str(e)
+            raise e
 
     @property
     def name(self) -> str:
         """Returns the name of the topic"""
         return self._name
 
+    @property
+    def last_error(self) -> Optional[str]:
+        """
+        Returns the last cached error, if any. The value is reset after a new successful push
+
+        Example:
+            ```python
+            with twriter: # (1)!
+                mosaico_msg = custom_translator(twriter.name, raw_data) # Example helper function
+                twriter.push(message=mosaico_msg)
+            # Inspect failed processing/ingestion
+            if twriter.status == TopicWriterStatus.IgnoredLastError # (2)!
+                print(f"Error raised during last ingestion operation for topic {twriter.name}. Inner err: '{twriter.last_error}'")
+            ```
+
+        1. `twriter` is a `TopicWriter` instance, created with `on_error=TopicLevelErrorPolicy.Ignore`
+        2. **Important**: this check must be done outside the `with` block: any exception inside the context would
+            exit the context prematurely.
+        """
+        return self._last_err
+
+    @property
     def is_active(self) -> bool:
         """
         Returns `True` if the writing stream is open and the writer accepts new messages.
         """
         return self._wrstate.writer is not None
+
+    @property
+    def status(self):
+        return self._status
 
     def _finalize(self, error: Optional[BaseException] = None) -> None:
         """
@@ -433,6 +448,13 @@ class TopicWriter:
                 exc_msg=e,
                 msg=f"Error finalizing TopicWriter '{self._name}'.",
             )
+        finally:
+            if with_error:
+                self._status = TopicWriterStatus.FinalizedWithError
+                self._last_err = str(error)
+            else:
+                self._status = TopicWriterStatus.Finalized
+                self._last_err = None
 
         logger.info(
             f"TopicWriter '{self._name}' finalized {'WITH ERROR' if error is not None else ''} successfully."

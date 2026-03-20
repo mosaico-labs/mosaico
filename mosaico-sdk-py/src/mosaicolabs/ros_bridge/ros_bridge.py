@@ -41,7 +41,7 @@ class ROSBridge(Generic[T]):
         Internal helper for registering a default adapter class for one or more specific ROS message types.
 
         It populates the internal registry, allowing the bridge to automatically handle
-        new message types during bag ingestion. Users must use the @register_adapter decorator instead.
+        new message types during bag ingestion. Users must use the @register_default_adapter decorator instead.
 
         Args:
             adapter_class: A class inheriting from `ROSAdapterBase` that defines the
@@ -146,9 +146,9 @@ def register_default_adapter(cls: Type["ROSAdapterBase"]) -> Type["ROSAdapterBas
 
     Example:
         ```python
-        from mosaicolabs.ros_bridge import register_adapter, ROSAdapterBase
+        from mosaicolabs.ros_bridge import register_default_adapter, ROSAdapterBase
 
-        @register_adapter
+        @register_default_adapter
         class MySensorAdapter(ROSAdapterBase):
             ros_msgtype = "sensor_msgs/msg/Temperature"
             # ...

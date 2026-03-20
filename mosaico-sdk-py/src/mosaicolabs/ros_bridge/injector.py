@@ -41,7 +41,13 @@ from rich.progress import (
 from rosbags.typesys import Stores
 
 from mosaicolabs.comm.mosaico_client import MosaicoClient
-from mosaicolabs.enum import OnErrorPolicy, SequenceStatus, SessionLevelErrorPolicy
+from mosaicolabs.enum import (
+    OnErrorPolicy,
+    SequenceStatus,
+    SessionLevelErrorPolicy,
+    TopicLevelErrorPolicy,
+    TopicWriterStatus,
+)
 from mosaicolabs.handlers import SequenceWriter
 from mosaicolabs.logging_config import get_logger, setup_sdk_logging
 
@@ -52,6 +58,9 @@ from .ros_message import ROSMessage
 
 # Set the hierarchical logger
 logger = get_logger(__name__)
+
+_DEFAULT_TOPIC_ON_ERROR = TopicLevelErrorPolicy.Raise
+_DEFAULT_SESSION_ON_ERROR = SessionLevelErrorPolicy.Report
 
 
 # --- Configuration ---
@@ -74,11 +83,15 @@ class ROSInjectionConfig:
         ros_distro (Optional[Stores]): The target ROS distribution for message parsing (e.g., Stores.ROS2_HUMBLE).
             See [`rosbags.typesys.Stores`](https://ternaris.gitlab.io/rosbags/topics/typesys.html#type-stores).
         on_error (Union[SessionLevelErrorPolicy, OnErrorPolicy]): Behavior when an ingestion error occurs (Delete the partial sequence or Report the error).
+            Default: [`SessionLevelErrorPolicy.Report`][mosaicolabs.enum.SessionLevelErrorPolicy.Report]
             Deprecated:
                     [`OnErrorPolicy`][mosaicolabs.enum.OnErrorPolicy] is deprecated since v0.3.0; use
                     [`SessionLevelErrorPolicy`][mosaicolabs.enum.SessionLevelErrorPolicy] instead.
                     It will be removed in v0.4.0.
-
+        topics_on_error (Union[TopicLevelErrorPolicy, Dict[str, TopicLevelErrorPolicy]]): Behavior when a topic write fails.
+            Default: [`TopicLevelErrorPolicy.Raise`][mosaicolabs.enum.TopicLevelErrorPolicy.Raise]
+            Set to a [`TopicLevelErrorPolicy`][mosaicolabs.enum.TopicLevelErrorPolicy] to apply the same policy to all topics.
+            Set to a `Dict[str, TopicLevelErrorPolicy]` to apply different policies to different (subset of) topics.
         custom_msgs (Optional[List[Tuple]]): List of custom .msg definitions to register before loading.
         topics (Optional[List[str]]): List of topics to filter, supporting glob patterns (e.g., ["/cam/*"]).
         log_level (str): Logging verbosity level ("DEBUG", "INFO", "WARNING", "ERROR").
@@ -95,7 +108,8 @@ class ROSInjectionConfig:
             sequence_name="test_drive_01",
             metadata={"environment": "urban", "vehicle": "robot_alpha"},
             ros_distro=Stores.ROS2_FOXY,
-            on_error=SessionLevelErrorPolicy.Delete
+            on_error=SessionLevelErrorPolicy.Delete,
+            topics_on_error=TopicLevelErrorPolicy.Finalize,
         )
         ```
     """
@@ -113,10 +127,18 @@ class ROSInjectionConfig:
     See [`rosbags.typesys.Stores`](https://ternaris.gitlab.io/rosbags/topics/typesys.html#type-stores).
     """
 
-    on_error: Union[SessionLevelErrorPolicy, OnErrorPolicy] = (
-        SessionLevelErrorPolicy.Report
-    )
+    on_error: Union[SessionLevelErrorPolicy, OnErrorPolicy] = _DEFAULT_SESSION_ON_ERROR
     """the `SequenceWriter` `on_error` behavior when a sequence write fails (Report vs Delete)"""
+
+    topics_on_error: Union[TopicLevelErrorPolicy, Dict[str, TopicLevelErrorPolicy]] = (
+        _DEFAULT_TOPIC_ON_ERROR
+    )
+    """
+    The TopicWriter `on_error` behavior ([`TopicLevelErrorPolicy`][mosaicolabs.enum.TopicLevelErrorPolicy]) when a topic write fails.
+    Default is `TopicLevelErrorPolicy.Raise` for all topics.
+    Set to a `TopicLevelErrorPolicy` to apply the same policy to all topics.
+    Set to a `Dict[str, TopicLevelErrorPolicy]` to apply different policies to different topics.
+    """
 
     custom_msgs: Optional[List[Tuple[str, Path, Optional[Stores]]]] = None
     """
@@ -218,7 +240,7 @@ class ProgressManager:
             self.progress.advance(self.global_task)
 
     def advance_all(self, topic: str):
-        """Advances both the specific topic's bar and the global bar (successful process)."""
+        """Advances both the specific topic's bar and the global bar."""
         if topic in self.tasks:
             self.progress.advance(self.tasks[topic])
         if self.global_task is not None:
@@ -425,6 +447,14 @@ class RosbagInjector:
             )
         )
 
+    def _get_topic_on_error(self, topic: str) -> TopicLevelErrorPolicy:
+        if isinstance(self.cfg.topics_on_error, dict):
+            return self.cfg.topics_on_error.get(topic, _DEFAULT_TOPIC_ON_ERROR)
+        elif isinstance(self.cfg.topics_on_error, TopicLevelErrorPolicy):
+            return self.cfg.topics_on_error
+
+        return _DEFAULT_TOPIC_ON_ERROR
+
     def _process_message(
         self,
         ros_msg: ROSMessage,
@@ -476,6 +506,7 @@ class RosbagInjector:
                 topic_name=ros_msg.topic,
                 metadata={},  # TODO: how-to push metadata per topic?
                 ontology_type=adapter.ontology_data_type(),
+                on_error=self._get_topic_on_error(ros_msg.topic),
             )
             if twriter is None:
                 ui.update_status(ros_msg.topic, "Write Error", "red")
@@ -484,15 +515,21 @@ class RosbagInjector:
                 return
 
         # --- Adapt & Push ---
-        try:
-            # Convert ROS dict -> Mosaico Object -> Arrow Batch
-            twriter.push(adapter.translate(ros_msg))
-            ui.advance_all(ros_msg.topic)
-        except Exception:
-            # If writing fails (e.g. network error, validation error), update UI
-            ui.update_status(ros_msg.topic, "Write Error", "red")
-            # We assume transient error and continue; strict policies are handled by Client
-            ui.advance_all(ros_msg.topic)
+        if (
+            twriter.is_active
+        ):  # Avoid computations if prematurely closed (TopicLevelErrorPolicy.Finalize)
+            with twriter:
+                # Convert ROS dict -> Mosaico Object -> Arrow Batch
+                twriter.push(adapter.translate(ros_msg))
+            if twriter.status == TopicWriterStatus.IgnoredLastError:
+                # If writing fails (e.g. network error, validation error), update UI
+                ui.update_status(ros_msg.topic, "Write Error (Ignored)", "yellow")
+            elif twriter.status == TopicWriterStatus.FinalizedWithError:
+                ui.update_status(
+                    ros_msg.topic, "Fatal Error: Prematurely finalized", "red"
+                )
+
+        ui.advance_all(ros_msg.topic)
 
 
 # --- CLI Entry Point ---

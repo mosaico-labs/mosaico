@@ -30,7 +30,7 @@ When dealing with massive datasets, we adopt a **chunked loading approach** for 
 import pandas as pd
 from mosaicolabs import (
     MosaicoClient, # The gateway to the Mosaico Platform
-    OnErrorPolicy, # The error policy for the SequenceWriter
+    SessionLevelErrorPolicy, # The error policy for the SequenceWriter
     Message, # The base class for all data messages
     IMU, # The IMU sensor data class
     Vector3d, # The 3D vector class, needed to populate the IMU data
@@ -85,13 +85,13 @@ with MosaicoClient.connect("localhost", 6726) as client:
     with client.sequence_create(
         sequence_name="csv_ingestion_test",
         metadata={"source": "manual_upload", "format": "csv"}
-        on_error = OnErrorPolicy.Delete # (1)!
+        on_error = SessionLevelErrorPolicy.Delete # (1)!
     ) as swriter:
         # Step 3 and 4 happen inside this block...
 
 ```
 
-1. Mosaico supports two distinct error policies for sequences: `OnErrorPolicy.Delete` and `OnErrorPolicy.Report`.
+1. Mosaico supports two distinct error policies for sequences: `SessionLevelErrorPolicy.Delete` and `SessionLevelErrorPolicy.Report`.
 
 !!! warning "Context Management"
     It is **mandatory** to use the `SequenceWriter` instance returned by `client.sequence_create()` inside its own `with` context. The following code will raise an exception:
@@ -108,7 +108,7 @@ with MosaicoClient.connect("localhost", 6726) as client:
 
 #### Sequence-Level Error Handling
 
-The behavior of the orchestrator during a failure is governed by the `on_error` policy. This is a *Last-Resort* automated error policy, which dictates how the server manages a sequence if an unhandled exception bubbles up to the `SequenceWriter` context manager. By default, this is set to [`OnErrorPolicy.Report`][mosaicolabs.enum.OnErrorPolicy.Report], send an error notification to the server, allowing the platform to flag the sequence as failed while retaining whatever records were successfully transmitted before the error occurred. Alternatively, you can specify [`OnErrorPolicy.Delete`][mosaicolabs.enum.OnErrorPolicy.Delete]: in this case, the SDK will signal the server to physically remove the incomplete sequence and its associated topic directories, if any errors occurred.
+The behavior of the orchestrator during a failure is governed by the `on_error` policy. This is a *Last-Resort* automated error policy, which dictates how the server manages a sequence if an unhandled exception bubbles up to the `SequenceWriter` context manager. By default, this is set to [`SessionLevelErrorPolicy.Report`][mosaicolabs.enum.SessionLevelErrorPolicy.Report], send an error notification to the server, allowing the platform to flag the sequence as failed while retaining whatever records were successfully transmitted before the error occurred. Alternatively, you can specify [`SessionLevelErrorPolicy.Delete`][mosaicolabs.enum.SessionLevelErrorPolicy.Delete]: in this case, the SDK will signal the server to physically remove the incomplete sequence and its associated topic directories, if any errors occurred.
 
 For a more in-depth explanation:
 
@@ -168,7 +168,7 @@ Import the necessary classes from the Mosaico SDK.
 import pandas as pd
 from mosaicolabs import (
     MosaicoClient, # The gateway to the Mosaico Platform
-    OnErrorPolicy, # The error policy for the SequenceWriter
+    SessionLevelErrorPolicy, # The error policy for the SequenceWriter
     Message, # The base class for all data messages
     IMU, # The IMU sensor data class
     Vector3d, # The 3D vector class, needed to populate the IMU data
@@ -213,7 +213,7 @@ def main():
         with client.sequence_create(
             sequence_name="csv_ingestion_test",
             metadata={"source": "manual_upload", "format": "csv"},
-            on_error = OnErrorPolicy.Delete # Default
+            on_error = SessionLevelErrorPolicy.Delete # Default
         ) as swriter:
             # Create a dedicated writer for the IMU topic
             imu_twriter = swriter.topic_create(

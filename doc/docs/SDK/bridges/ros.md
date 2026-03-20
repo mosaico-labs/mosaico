@@ -12,81 +12,37 @@ The core philosophy of the module is **"Adaptation, Not Just Parsing."** Rather 
 
 The module is composed of four distinct layers that handle the pipeline from raw file access to server transmission.
 
-### The Loader Layer (`ROSLoader`)
+### The Loader (`ROSLoader`)
 
 The [`ROSLoader`][mosaicolabs.ros_bridge.loader.ROSLoader] acts as the abstraction layer over the physical bag files. It utilizes the [`rosbags`](https://pypi.org/project/rosbags/) library to provide a unified interface for reading both ROS 1 and ROS 2 formats (`.bag`, `.db3`, `.mcap`).
 
   * **Responsibilities:** File I/O, raw deserialization, and topic filtering (supporting glob patterns like `/cam/*`).
   * **Error Handling:** It implements configurable policies (`IGNORE`, `LOG_WARN`, `RAISE`) to handle corrupted messages or deserialization failures without crashing the entire pipeline.
 
-### The Adaptation Layer (`ROSBridge` & Adapters)
-
-This layer represents the semantic core of the module, translating raw ROS data into the Mosaico Ontology.
-
-* **[`ROSAdapterBase`][mosaicolabs.ros_bridge.adapter_base.ROSAdapterBase]:** An abstract base class that establishes the contract for converting specific ROS message types into their corresponding Mosaico Ontology types.
-* **Concrete Adapters:** The library provides built-in implementations for common standards, such as [`IMUAdapter`][mosaicolabs.ros_bridge.adapters.sensor_msgs.IMUAdapter] (mapping `sensor_msgs/Imu` to [`IMU`][mosaicolabs.models.sensors.IMU]) and [`ImageAdapter`][mosaicolabs.ros_bridge.adapters.sensor_msgs.ImageAdapter] (mapping `sensor_msgs/Image` to [`Image`][mosaicolabs.models.sensors.Image]). These adapters include advanced logic for recursive unwrapping, automatically extracting data from complex nested wrappers like [`PoseWithCovarianceStamped`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/PoseWithCovarianceStamped.html). Developers can also implement custom adapters to handle non-standard or proprietary types.
-* **[`ROSBridge`][mosaicolabs.ros_bridge.ROSBridge]:** A central registry and dispatch mechanism that maps ROS message type strings (e.g., [`sensor_msgs/msg/Imu`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/Imu.html)) to their corresponding adapter classes, ensuring the correct translation logic is applied for each message.
-
-#### Extending the Bridge (Custom Adapters)
-
-Users can extend the bridge to support new ROS message types by implementing a custom adapter and registering it.
-
-1.  **Inherit from `ROSAdapterBase`**: Define the input ROS type string and the target Mosaico Ontology type.
-2.  **Implement `from_dict`**: Define the logic to convert the [`ROSMessage.data`][mosaicolabs.ros_bridge.ROSMessage] dictionary into an intance of the target ontology object.
-3.  **Register**: Decorate the class with [`@register_default_adapter`][mosaicolabs.ros_bridge.register_default_adapter].
-
-```python
-from mosaicolabs.ros_bridge import ROSAdapterBase, register_default_adapter, ROSMessage
-from mosaicolabs.models import Message
-from my_ontology import MyCustomData # Assuming this class exists
-
-@register_default_adapter
-class MyCustomAdapter(ROSAdapterBase[MyCustomData]):
-    ros_msgtype = "my_pkg/msg/MyCustomType"
-    __mosaico_ontology_type__ = MyCustomData
-
-    @classmethod
-    def from_dict(cls, ros_data: dict, **kwargs) -> MyCustomData:
-        # Transformation logic here
-        return MyCustomData(...)
-```
-
 ### The Orchestrator (`RosbagInjector`)
 
 The **[`RosbagInjector`][mosaicolabs.ros_bridge.RosbagInjector]** is the central command center of the ROS Bridge module. It is designed to be the primary entry point for developers who want to embed high-performance ROS ingestion directly into their Python applications or automation scripts.
 
-The injector acts as a "glue" layer, orchestrating the interaction between the **[`ROSLoader`][mosaicolabs.ros_bridge.loader.ROSLoader]** (file access), the **[`ROSBridge`][mosaicolabs.ros_bridge.ROSBridge]** (data adaptation), and the **[`MosaicoClient`][mosaicolabs.comm.MosaicoClient]** (network transmission). It handles the complex lifecycle of a data upload—including connection management, batching, and transaction safety—while providing real-time feedback through a visual CLI interface.
+The ingestor orchestrates the interaction between the **[`ROSLoader`][mosaicolabs.ros_bridge.loader.ROSLoader]** (file access), the **[`ROSBridge`][mosaicolabs.ros_bridge.ROSBridge]** (data adaptation), and the **[`MosaicoClient`][mosaicolabs.comm.MosaicoClient]** (network transmission). It handles the complex lifecycle of a data upload—including connection management, batching, and transaction safety—while providing real-time feedback through a visual CLI interface.
 
 #### Core Workflow Execution: `run()`
 
-The `run()` method is the heart of the injector. When called, it initiates a multi-phase pipeline:
+The `run()` method is the heart of the ingestor. When called, it initiates a multi-phase pipeline:
 
 1. **Handshake & Registry**: Establishes a connection to the Mosaico server and registers any provided custom `.msg` definitions into the global [`ROSTypeRegistry`][mosaicolabs.ros_bridge.ROSTypeRegistry].
 2. **Sequence Creation**: Requests the server to initialize a new data sequence based on the provided name and metadata.
 3. **Adaptive Streaming**: Iterates through the ROS bag records. For each message, it identifies the correct adapter, translates the ROS dictionary into a Mosaico object, and pushes it into an optimized asynchronous write buffer.
 4. **Transaction Finalization**: Once the bag is exhausted, it flushes all remaining buffers and signals the server to commit the sequence.
 
+#### Configuring the Ingestion
 
-#### The Blueprint: `ROSInjectionConfig`
-
-The behavior of the injector is entirely driven by the **[`ROSInjectionConfig`][mosaicolabs.ros_bridge.ROSInjectionConfig]**. This configuration object ensures that the ingestion logic is decoupled from the user interface, allowing for consistent behavior whether triggered via the CLI or a complex script.
-
-| Attribute | Type | Description |
-| --- | --- | --- |
-| **`file_path`** | `Path` | The location of the source ROS bag (`.mcap`, `.db3`, or `.bag`). |
-| **`sequence_name`** | `str` | The unique identifier for the sequence on the server. |
-| **`metadata`** | `dict` | Searchable tags and context (e.g., `{"weather": "rainy"}`) attached to the sequence. |
-| **`ros_distro`** | [`Stores`](https://ternaris.gitlab.io/rosbags/topics/typesys.html#type-stores) | **Crucial for `.db3` bags:** Specifies the ROS distribution (e.g., `ROS2_HUMBLE`) to ensure standard messages are parsed with the correct schema version. |
-| **`topics`** | `List[str]` | A filter list supporting glob patterns (e.g., `["/camera/*"]`). If omitted, all supported topics are ingested. |
-| **`custom_msgs`** | `List` | A list of tuples `(package, path, store)` used to dynamically register proprietary message definitions at runtime. |
-| **`adapter_override`** | `Dict[str, Type[ROSAdapterBase]]` | A mapping of topics to adapter overrides, allowing the use of specific adapters instead of the default for designated topics. |
-| **`on_error`** | [`OnErrorPolicy`][mosaicolabs.enum.OnErrorPolicy] | **Safety Switch:** Determines if a failed upload should `Delete` the partial sequence or `Report` the error and keep the data. |
-| **`log_level`** | `str` | Controls terminal verbosity, ranging from `DEBUG` to `ERROR`. |
+The behavior of the ingestor is entirely driven by the **[`ROSInjectionConfig`][mosaicolabs.ros_bridge.ROSInjectionConfig]**. This configuration object ensures that the ingestion logic is decoupled from the user interface, allowing for consistent behavior whether triggered via the CLI or a complex script.
 
 #### Practical Example: Programmatic Usage
 
 ```python
 from pathlib import Path
+from mosaicolabs import SessionLevelErrorPolicy, TopicLevelErrorPolicy
 from mosaicolabs.ros_bridge import RosbagInjector, ROSInjectionConfig, Stores
 
 def run_injection():
@@ -133,16 +89,22 @@ def run_injection():
 
         # Execution Settings
         log_level="WARNING",  # Reduce verbosity for automated scripts
+
+        # Session Level Error Handling
+        on_error=SessionLevelErrorPolicy.Delete # Delete the sequence if an error occurs
+
+        # Topic Level Error Handling
+        topics_on_error=TopicLevelErrorPolicy.Raise # Re-raise any exception
     )
 
     # Instantiate the Controller
-    injector = RosbagInjector(config)
+    ingestor = RosbagInjector(config)
 
     # Execute
     # The run method handles connection, loading, and uploading automatically.
     # It raises exceptions for fatal errors, allowing you to wrap it in try/except blocks.
     try:
-        injector.run()
+        ingestor.run()
         print("Injection job completed successfully.")
     except Exception as e:
         print(f"Injection job failed: {e}")
@@ -152,22 +114,51 @@ if __name__ == "__main__":
     run_injection()
 ```
 
+### The Adaptation Layer (`ROSBridge` & Adapters)
+
+This layer represents the default semantic core of the module, translating raw ROS data into the Mosaico Ontology.
+
+* **[`ROSAdapterBase`][mosaicolabs.ros_bridge.adapter_base.ROSAdapterBase]:** An abstract base class that establishes the **default** contracts for converting specific ROS message types into their corresponding Mosaico Ontology types.
+* **Concrete Adapters:** The library provides built-in implementations for common standards, such as [`IMUAdapter`][mosaicolabs.ros_bridge.adapters.sensor_msgs.IMUAdapter] (mapping `sensor_msgs/Imu` to [`IMU`][mosaicolabs.models.sensors.IMU]) and [`ImageAdapter`][mosaicolabs.ros_bridge.adapters.sensor_msgs.ImageAdapter] (mapping `sensor_msgs/Image` to [`Image`][mosaicolabs.models.sensors.Image]). These adapters include advanced logic for recursive unwrapping, automatically extracting data from complex nested wrappers like [`PoseWithCovarianceStamped`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/PoseWithCovarianceStamped.html). Developers can also implement custom adapters to handle non-standard or proprietary types.
+* **[`ROSBridge`][mosaicolabs.ros_bridge.ROSBridge]:** A central registry and dispatch mechanism that maps ROS message type strings (e.g., [`sensor_msgs/msg/Imu`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/Imu.html)) to their corresponding default adapter classes, ensuring the correct translation logic is applied for each message.
+
+#### Extending the Bridge (Custom Adapters)
+
+Users can extend the bridge to support new ROS message types by implementing a custom adapter and registering it.
+
+1.  **Inherit from `ROSAdapterBase`**: Define the input ROS type string and the target Mosaico Ontology type.
+2.  **Implement `from_dict`**: Define the logic to convert the [`ROSMessage.data`][mosaicolabs.ros_bridge.ROSMessage] dictionary into an intance of the target ontology object.
+3.  **Register**: Decorate the class with [`@register_default_adapter`][mosaicolabs.ros_bridge.register_default_adapter].
+
+```python
+from mosaicolabs.ros_bridge import ROSAdapterBase, register_default_adapter, ROSMessage
+from mosaicolabs.models import Message
+from my_ontology import MyCustomData # Assuming this class exists
+
+@register_default_adapter
+class MyCustomAdapter(ROSAdapterBase[MyCustomData]):
+    ros_msgtype = "my_pkg/msg/MyCustomType"
+    __mosaico_ontology_type__ = MyCustomData
+
+    @classmethod
+    def from_dict(cls, ros_data: dict, **kwargs) -> MyCustomData:
+        # Transformation logic here
+        return MyCustomData(...)
+```
 
 #### Override Adapters
 This section explains how to extend the bridge's capabilities by implementing and registering Override Adapters.
 
 ##### Overriding and Extending Adapters
 While the ROS Bridge provides a robust set of default adapters for standard message types, real-world robotics often involve proprietary message definitions or non-standard uses of common types.
-
 Through the **`adapter_override`** parameter in the `ROSInjectionConfig`, you can explicitly map a specific topic to a chosen adapter. This is particularly useful for types like [`sensor_msgs/msg/PointCloud2`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/PointCloud2.html), where, for example, different LiDAR vendors may encode data in unique ways that require specialized parsing logic.
 
-
 !!! important "Override adapter usage"
-    Use adapter overrides for versatile message types like [`sensor_msgs/msg/PointCloud2`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/PointCloud2.html), where different sensors (LiDAR, Radar, etc.) share the same ROS type but require unique parsing logic. Overrides should be used when the default adapter cannot satisfy specific topic requirements. If your message type is used consistently across all topics, simply use the [`@register_default_adapter`][mosaicolabs.ros_bridge.register_default_adapter] decorator to establish a global fallback.
+    Use adapter overrides for versatile message types like [`sensor_msgs/msg/PointCloud2`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/PointCloud2.html), where different sensors (LiDAR, Radar, etc.) share the same ROS type but require unique parsing logic. Overrides should be defined and used when a given ROS message type has its own **default adapter** registered in the `ROSBridge` registry, but such an adapter cannot satisfy topic-specific requirements. If your message type is used consistently across all topics, simply use the [`@register_default_adapter`][mosaicolabs.ros_bridge.register_default_adapter] decorator to establish a global fallback.
 
-##### Implementing a Custom Adapter
+##### Implementing a Custom Adapter Override
 To create a custom adapter, you must inherit from `ROSAdapterBase` and define the transformation logic.
-Here is a structural example of a custom LiDAR adapter:
+Here is a structural example of a custom LiDAR adapter; note that the adapter is not registered as **default**, since the message type `sensor_msgs/msg/PointCloud2` already has it:
 
 ```python
 from typing import Any, Optional, Type, Tuple
@@ -220,7 +211,7 @@ class MyCustomLidarAdapter(ROSAdapterBase[MyLidar]):
 ##### Key Methods
 **`from_dict(ros_data)`**: This is the most important method. It receives the ROS message as a Python dictionary and must return an instance of your target Mosaico Ontology class.
 
-**`translate(ros_msg)`**: This is the entry point called by the ROSBridge. It usually just calls `from_dict`, but you can override it if you need access to the message metadata during conversion.
+**`translate(ros_msg)`**: This is the entry point called by the ROSBridge. It just calls `from_dict`, but you can override it if you need access to the message metadata during conversion.
 
 **`schema_metadata(ros_data)`**: Use this to extract metadata information about the sensor configuration that is useful for the platform to know.
 
@@ -243,8 +234,8 @@ config = ROSInjectionConfig(
 
 ...
 
-injector = RosbagInjector(config)
-injector.run()
+ingestor = RosbagInjector(config)
+ingestor.run()
 ```
 
 With this configuration, all the [`sensor_msgs/msg/PointCloud2`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/PointCloud2.html) message received on `/lidar/front/pointcloud`, will be processed exclusively by `MyCustomLidarAdapter`. All other topics continue to use the standard resolution logic.
@@ -330,8 +321,8 @@ config = ROSInjectionConfig(
     # custom_msgs=[]  <-- No longer needed!
 )
 
-injector = RosbagInjector(config)
-injector.run()
+ingestor = RosbagInjector(config)
+ingestor.run()
 ```
 
 

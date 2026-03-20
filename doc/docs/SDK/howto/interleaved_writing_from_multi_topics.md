@@ -187,7 +187,7 @@ When initializing your data handling pipeline, it is highly recommended to wrap 
 
 ```python title="Connect to the Mosaico server and create a sequence writer"
 from mcap.reader import make_reader
-from mosaicolabs import MosaicoClient, OnErrorPolicy, Message
+from mosaicolabs import MosaicoClient, SessionLevelErrorPolicy, Message
 
 with open("mission_data.mcap", "rb") as f:
     reader = make_reader(f)
@@ -195,13 +195,13 @@ with open("mission_data.mcap", "rb") as f:
         with client.sequence_create(
             sequence_name="multi_sensor_ingestion",
             metadata={"mission": "alpha_test", "environment": "laboratory"},
-            on_error=OnErrorPolicy.Delete # (1)!
+            on_error=SessionLevelErrorPolicy.Report # (1)!
         ) as swriter:
             # Steps 3 and 4 (Topic Creation & Pushing) happen here...
 
 ```
 
-1. Mosaico supports two distinct error policies for sequences: `OnErrorPolicy.Delete` and `OnErrorPolicy.Report`.
+1. Mosaico supports two distinct error policies for sequences: `SessionLevelErrorPolicy.Delete` and `SessionLevelErrorPolicy.Report`. See [The Writing Workflow](../handling/writing.md#sequence-level-error-handling).
 
 !!! warning "Context Management"
     It is **mandatory** to use the `SequenceWriter` instance returned by `client.sequence_create()` inside its own `with` context. The following code will raise an exception:
@@ -218,7 +218,7 @@ with open("mission_data.mcap", "rb") as f:
 
 #### Sequence-Level Error Handling
 
-The behavior of the orchestrator during a failure is governed by the `on_error` policy. This is a *Last-Resort* automated error policy, which dictates how the server manages a sequence if an unhandled exception bubbles up to the `SequenceWriter` context manager. By default, this is set to [`OnErrorPolicy.Report`][mosaicolabs.enum.OnErrorPolicy.Report], send an error notification to the server, allowing the platform to flag the sequence as failed while retaining whatever records were successfully transmitted before the error occurred. Alternatively, you can specify [`OnErrorPolicy.Delete`][mosaicolabs.enum.OnErrorPolicy.Delete]: in this case, the SDK will signal the server to physically remove the incomplete sequence and its associated topic directories, if any errors occurred.
+The behavior of the orchestrator during a failure is governed by the `on_error` policy. This is a *Last-Resort* automated error policy, which dictates how the server manages a sequence if an unhandled exception bubbles up to the `SequenceWriter` context manager. By default, this is set to [`SessionLevelErrorPolicy.Report`][mosaicolabs.enum.SessionLevelErrorPolicy.Report], send an error notification to the server, allowing the platform to flag the sequence as failed while retaining whatever records were successfully transmitted before the error occurred. Alternatively, you can specify [`SessionLevelErrorPolicy.Delete`][mosaicolabs.enum.SessionLevelErrorPolicy.Delete]: in this case, the SDK will signal the server to physically remove the incomplete sequence and its associated topic directories, if any errors occurred.
 
 For a more in-depth explanation:
 
@@ -247,43 +247,46 @@ with client.sequence_create(...) as swriter:
             twriter = swriter.topic_create( # (2)!
                 topic_name=channel.topic,
                 metadata={},
-                ontology_type=ontology_type
+                ontology_type=ontology_type,
+                on_error=TopicLevelErrorPolicy.Finalize # (3)!
             )
 ```
 
 1. Here we are checking if the a `TopicWriter` for the current topic already exists.
 2. Here we are creating the topic writer for the current topic, if it doesn't exist yet.
+3. Here we are setting the error policy for the current topic. In this case, if an error occurs, the topic writer will **signal the error to the server and finalize the topic. Further writes to this topic will raise an error**.
 
+#### Topic-Level Error Management
+
+In the code snippet above, we implemented a **Controlled Ingestion** by wrapping the topic-specific processing and pushing logic within a local `with twriter:` block.
+Because the `SequenceWriter` cannot natively distinguish which specific topic failed within your custom processing code (such as a coordinate transformation), an unhandled exception will bubble up and trigger the global sequence-level error policy. In this way, we can keep ingesting data from the other topics even if one single topic fails.
 
 ### Step 4: Pushing Data into the Pipeline
 
 The final stage of the ingestion process involves iterating through your data generators and transmitting records to the Mosaico platform by calling the [`TopicWriter.push()`][mosaicolabs.handlers.TopicWriter.push] method for each record. The `push()` method optimizes the throughput by accumulating messages into internal batches.
 
 ```python
-        try:
-            # In a real scenario, use a deserializer like mcap_ros2.decoder
-            raw_data = deserialize_payload(message.data, schema.name) # (1)!
-            mosaico_msg = custom_translator(schema.name, raw_data)
+        if twriter.is_active: # (1)!
+            with twriter: # (2)!
+                # In a real scenario, use a deserializer like mcap_ros2.decoder
+                raw_data = deserialize_payload(message.data, schema.name) # (3)!
+                mosaico_msg = custom_translator(schema.name, raw_data)
 
-            if mosaico_msg is None:
-                # Log and skip, or raise if incomplete data is disallowed
-                print("Skipping row due to parsing error")
-                continue # Ignore malformed records
+                if mosaico_msg is None:
+                    # Log and skip, or raise if incomplete data is disallowed
+                    print("Skipping row due to parsing error")
+                    continue # Ignore malformed records
             
-            twriter.push(message=mosaico_msg)
-        except Exception as e:
-            print(f"Skip error on {channel.topic} at {message.log_time}: {e}")
-
+                twriter.push(message=mosaico_msg) # (4)!
+            if twriter.status == TopicWriterStatus.FinalizedWithError
+                print(f"Writer for topic {twriter.name} prematurely finalized due to error: '{twriter.last_error}'")
 ```
 
-1. This is an example of a custom function that deserializes the payload of the current message.
-
-#### Topic-Level Error Management
-
-In the code snippet above, we implemented a **Controlled Ingestion** by wrapping the topic-specific processing and pushing logic within a local `try-except` block.
-Because the `SequenceWriter` cannot natively distinguish which specific topic failed within your custom processing code (such as a coordinate transformation), an unhandled exception will bubble up and trigger the global sequence-level error policy. To avoid this, you should catch errors locally for each topic.
-
-Upcoming versions of the SDK will introduce native **Topic-Level Error Policies**. This feature will allow you to define the error behavior directly when creating the topic, removing the need for boilerplate `try-except` blocks around every sensor stream.
+1. We check this because [`on_error=TopicLevelErrorPolicy.Finalize`][mosaicolabs.enum.TopicLevelErrorPolicy.Finalize]: the topic writer could have been closed, if an error occurred in a previous iteration.
+    By doing this, we avoid wasting resources by processing and pushing data into a closed topic writer.
+2. Protect the topic-related executions: in this way the `TopicWriter` can correctly handle the errors in this block, by implementing the topic-level error policy.
+3. This is an example of a custom function that deserializes the payload of the current message.
+4. This function raises if the `TopicWriter` is not active. See [`TopicWriter.push`][mosaicolabs.handlers.TopicWriter.push].
 
 
 ## The full example code
@@ -299,7 +302,8 @@ from mcap.reader import make_reader
 
 from mosaicolabs import (
     MosaicoClient, # The gateway to the Mosaico Platform
-    OnErrorPolicy, # The error policy for the SequenceWriter
+    SessionLevelErrorPolicy, # The error policy for the SequenceWriter
+    TopicLevelErrorPolicy, # The error policy for the TopicWriter
     Message, # The base class for all data messages
     IMU, # The IMU sensor data class
     Vector3d, # The 3D vector class, needed to populate the IMU and GPS data
@@ -401,7 +405,7 @@ def main():
             with client.sequence_create(
                 sequence_name="multi_sensor_ingestion",
                 metadata={"mission": "alpha_test", "environment": "laboratory"},
-                on_error=OnErrorPolicy.Delete
+                on_error=SessionLevelErrorPolicy.Delete
             ) as swriter:
                 # Iterate through all interleaved messages
                 for schema, channel, message in reader.iter_messages():
@@ -419,23 +423,27 @@ def main():
                         twriter = swriter.topic_create(
                             topic_name=channel.topic,
                             metadata={},
-                            ontology_type=ontology_type
+                            ontology_type=ontology_type,
+                            on_error=TopicLevelErrorPolicy.Ignore,
                         )
 
                     # 2. Defensive Ingestion: Isolate errors to this specific record
-                    try:
-                        # In a real scenario, use a deserializer like mcap_ros2.decoder
-                        raw_data = deserialize_payload(message.data, schema.name) # Example helper function
-                        mosaico_msg = custom_translator(schema.name, raw_data)
+                    if twriter.is_active: # (1)!
+                        with twriter:
+                            # In a real scenario, use a deserializer like mcap_ros2.decoder
+                            raw_data = deserialize_payload(message.data, schema.name) # Example helper function
+                            mosaico_msg = custom_translator(schema.name, raw_data)
 
-                        if mosaico_msg is None:
-                            # Log and skip, or raise if incomplete data is disallowed
-                            print("Skipping row due to parsing error")
-                            continue # Ignore malformed records
-                        
-                        twriter.push(message=mosaico_msg)
-                    except Exception as e:
-                        print(f"Skip error on {channel.topic} at {message.log_time}: {e}")
+                            if mosaico_msg is None:
+                                # Log and skip, or raise if incomplete data is disallowed
+                                print("Skipping row due to parsing error")
+                                continue # Ignore malformed records
+                            
+                            twriter.push(message=mosaico_msg)
+                        # Inspect premature finalization
+                        if twriter.status == TopicWriterStatus.FinalizedWithError
+                            print(f"Writer for topic {twriter.name} prematurely finalized due to error: '{twriter.last_error}'")
+```
 
         # All buffers are flushed and the sequence is committed when exiting the SequenceWriter 'with' block
         print("Multi-topic ingestion completed!")

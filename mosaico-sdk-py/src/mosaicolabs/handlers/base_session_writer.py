@@ -380,7 +380,8 @@ class _BaseSessionWriter(ABC):
         errors = []
         for topic_name, twriter in self._topic_writers.items():
             try:
-                twriter._finalize(error=error)
+                if twriter.is_active:
+                    twriter._finalize(error=error)
             except Exception as e:
                 self._logger.error(
                     f"Failed to finalize topic '{topic_name}' for session {self._uuid}, sequence '{self._name}'.: '{e}'"

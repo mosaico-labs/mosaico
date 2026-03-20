@@ -24,6 +24,7 @@ from .enum import (
     SessionLevelErrorPolicy as SessionLevelErrorPolicy,
     SessionStatus as SessionStatus,
     TopicLevelErrorPolicy as TopicLevelErrorPolicy,
+    TopicWriterStatus as TopicWriterStatus,
 )
 
 # --- Handlers ---
@@ -207,6 +208,7 @@ __all__ = [
     "SequenceStatus",
     "SessionLevelErrorPolicy",
     "TopicLevelErrorPolicy",
+    "TopicWriterStatus",
     # Platform
     "Sequence",
     "Session",
