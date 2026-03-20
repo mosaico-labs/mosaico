@@ -227,6 +227,21 @@ class ROSLoader:
             return 0
 
     @property
+    def duration(self) -> int:
+        """
+        Returns the duration of the bag file in nanoseconds.
+
+        Returns:
+            int: The duration of the bag file in nanoseconds.
+        """
+        self._resolve_connections()
+        if not self._reader:
+            raise ValueError(
+                "Loader not initialized. Call .open() or use as context manager first."
+            )
+        return self._reader.duration
+
+    @property
     def topics(self) -> List[str]:
         """
         Retrieves the list of canonical topic names that will be processed.

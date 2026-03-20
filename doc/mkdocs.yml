@@ -60,10 +60,10 @@ nav:
           - SDK/howto/serialized_writing_from_multi_csv.md
           - SDK/howto/interleaved_writing_from_multi_topics.md
           - SDK/howto/data_inspection.md
+          - SDK/howto/query_catalogs.md
           - SDK/howto/streaming.md
           - SDK/howto/query_sequences.md
           - SDK/howto/query_topics.md
-          - SDK/howto/query_data.md
           - SDK/howto/query_multi_domain.md
           - SDK/howto/query_chained.md
           - Advanced:

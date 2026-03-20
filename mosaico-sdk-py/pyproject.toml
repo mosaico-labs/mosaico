@@ -15,11 +15,10 @@ pandas = ">=2.3.3,<4.0.0"
 pydantic = "^2.12.5"
 rich = "^14.3.3"
 rosbags = "^0.11.0"
-click = "^8.3.1"
-opencv-python = "^4.13.0.92"
-av = "^16.1.0"
 deprecated = "^1.3.1"
 typing-extensions = "^4.15.0"
+av = ">=16.0.0"
+click = "^8.3.1"
 
 [tool.poetry.group.dev.dependencies]
 pytest = ">=8.4.2"
@@ -52,4 +51,5 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
 "mosaico.ros_injector" = "mosaicolabs.ros_bridge.injector:ros_injector"
+"mosaico.examples" = "mosaicolabs.examples.cli:run_example_cli"
 "mosaico.testing" = "testing.testing:mosaico_testing"

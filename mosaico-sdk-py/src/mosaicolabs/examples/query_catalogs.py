@@ -18,13 +18,14 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from examples.config import MOSAICO_HOST, MOSAICO_PORT
 from mosaicolabs import (
     IMU,
     MosaicoClient,
     QueryOntologyCatalog,
     QueryTopic,
 )
+
+from .config import MOSAICO_HOST, MOSAICO_PORT
 
 # Initialize Rich Console for beautiful terminal output
 console = Console()
@@ -91,7 +92,7 @@ def query_acceleration_camera_imu(client: MosaicoClient, test_num: int):
     # Execute a unified multi-domain query
     console.print(
         Panel(
-            f"[bold green]TEST {test_num}: Querying catalog for IMU accelerations AND topic name[/bold green]"
+            f"[bold green]TEST {test_num}: Querying catalog for IMU accelerations (ay >= 1) AND topic name '/front_stereo_imu/imu'[/bold green]"
         )
     )
     results = client.query(
@@ -115,10 +116,12 @@ def query_acceleration_camera_imu(client: MosaicoClient, test_num: int):
             # item.topics contains only the topics and time-segments
             # that satisfied ALL criteria simultaneously
             for topic in item.topics:
+                start = topic.timestamp_range.start if topic.timestamp_range else "N/A"
+                end = topic.timestamp_range.end if topic.timestamp_range else "N/A"
                 table.add_row(
                     item.sequence.name,
                     topic.name,
-                    f"{topic.timestamp_range.start}-{topic.timestamp_range.end}",
+                    f"{start}-{end}",
                 )
 
         console.print(table)

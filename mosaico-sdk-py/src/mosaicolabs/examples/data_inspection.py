@@ -17,10 +17,10 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from examples.config import MOSAICO_HOST, MOSAICO_PORT
-
 # Mosaico SDK Imports
 from mosaicolabs import MosaicoClient
+
+from .config import MOSAICO_HOST, MOSAICO_PORT
 
 # Initialize Rich Console for beautiful terminal output
 console = Console()

@@ -3,11 +3,9 @@ title: ROS Injection
 description: Example how-to for ROS Injection
 ---
 
-!!! note "Full Example Code"
-    The full example code is available under [`mosaico-sdk-py/src/examples/ros_injection/main.py`](https://github.com/mosaico-labs/mosaico/blob/main/mosaico-sdk-py/src/examples/ros_injection/main.py).
-
-!!! info "Prerequisites"
-    To fully grasp the following How-To, we recommend you to read the **[Customizing the Data Ontology](../howto/ontology_customization.md) How-To**.
+!!! example "Fully Executable"
+    This guide is [**fully executable**](#running-the-example).
+    The full code of the example is available [**here**](https://github.com/mosaico-labs/mosaico/blob/main/mosaico-sdk-py/src/mosaicolabs/examples/ros_injection/main.py).
 
 This tutorial demonstrates a complete Mosaico data ingestion using the [NVIDIA R2B Dataset 2024](https://catalog.ngc.nvidia.com/orgs/nvidia/teams/isaac/resources/r2bdataset2024?version=1) dataset. ou will learn how to automate the transition from monolithic ROS bags (.mcap) to a structured, queryable archive.
 
@@ -17,6 +15,21 @@ By following this guide, you will:
 * **Implement Adaptation Logic**: Translate raw ROS types into the strongly-typed Mosaico Ontology.
 * **Execute Injection**: Use the [`RosbagInjector`][mosaicolabs.ros_bridge.RosbagInjector] to handle batching and network transmission.
 * **Verify Integrity**: Programmatically inspect the server to ensure the data is cataloged.
+
+!!! info "Prerequisites"
+    To fully grasp the following How-To, we recommend you to read the **[Customizing the Data Ontology](../howto/ontology_customization.md) How-To**.
+
+## Running the example
+
+1. **Start the Mosaico Infrastructure**
+```bash
+cd docker/quick_start && docker compose up
+```
+2. **Run the example**
+```bash
+# From the SDK root directory (mosaico-sdk-py)
+mosaico.examples ros_injection
+```
 
 ## Step 1: Custom Ontology Definition (`isaac.py`)
 

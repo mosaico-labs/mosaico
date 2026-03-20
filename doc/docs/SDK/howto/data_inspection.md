@@ -3,22 +3,11 @@ title: Data Discovery and Inspection
 description: Example how-to for Reading a Sequence and its Topics
 ---
 
+!!! example "Fully Executable"
+    This guide is [**fully executable**](#running-the-example).
+    The full code of the example is available [**here**](https://github.com/mosaico-labs/mosaico/blob/main/mosaico-sdk-py/src/mosaicolabs/examples/data_inspection.py).
+
 This guide demonstrates how to programmatically explore the Mosaico Data Platform to discover ingested sequences and inspect their internal structures.
-
-!!! note "Full Example Code"
-    The logic described here is implemented in [`mosaico-sdk-py/src/examples/data_inspection.py`](https://github.com/mosaico-labs/mosaico/blob/main/mosaico-sdk-py/src/examples/data_inspection.py).
-
-!!! info "Prerequisites"
-    This tutorial assumes you have already ingested data into your Mosaico instance (e.g., following the [ROS Injection guide](./ros_injection.md)).
-
-    1. **Start the Mosaico Infrastructure**
-    ```bash
-    cd docker/quick_start && docker compose up
-    ```
-    2. **Run Injestion**
-    ```bash
-    cd src/examples && poetry run python -m ros_injection.main
-    ```
 
 By following this guide, you will learn how to:
 
@@ -30,6 +19,22 @@ For a more in-depth explanation:
 
 * **[Documentation: The Reading Workflow](../handling/reading.md)**
 * **[API Reference: Data Retrieval](../API_reference/handlers/reading.md)**
+
+## Running the example
+
+1. **Start the Mosaico Infrastructure**
+```bash
+# From the mosaico root directory
+cd docker/quick_start && docker compose up
+```
+2. **Run the example**
+```bash
+# From the SDK root directory (mosaico-sdk-py)
+mosaico.examples data_inspection
+```
+
+!!! info "Prerequisites"
+    This tutorial assumes you have already ingested data into your Mosaico instance, using the example described in the [ROS Injection guide](./ros_injection.md#running-the-example).
 
 
 ## Step 1: Connecting to the Catalog

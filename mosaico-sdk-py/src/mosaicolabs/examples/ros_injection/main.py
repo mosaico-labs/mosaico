@@ -23,13 +23,13 @@ from pathlib import Path
 from rich.console import Console
 from rich.panel import Panel
 
-# Example Imports
-from examples.config import ASSET_DIR, MOSAICO_HOST, MOSAICO_PORT
-from examples.ros_injection.helpers import download_asset
-
 # Mosaico SDK Imports
 from mosaicolabs import MosaicoClient, Time
 from mosaicolabs.ros_bridge import RosbagInjector, ROSInjectionConfig
+
+# Example Imports
+from ..config import ASSET_DIR, MOSAICO_HOST, MOSAICO_PORT
+from .helpers import download_asset
 
 # NVIDIA R2B Dataset 2024 - Verified compatible with Mosaico
 BASE_BAGFILE_URL = "https://api.ngc.nvidia.com/v2/resources/org/nvidia/team/isaac/r2bdataset2024/1/files"
@@ -45,7 +45,7 @@ BAG_FILES_PATH = [
 console = Console()
 
 
-def run_pipeline():
+def main():
     """
     Executes the multi-phase Mosaico workflow.
 
@@ -80,7 +80,8 @@ def run_pipeline():
             metadata={
                 "source_url": bag_file_url,
                 "ingested_via": "mosaico_example_ros_injection",
-                "download_time_utc": str(downloaded_time),
+                "download_time_ns": downloaded_time.to_nanoseconds(),
+                "original_size_bytes": out_bag_file.stat().st_size,
             },
             # topics=["/back_stereo_camera/left/image_compressed"],
             log_level="INFO",
@@ -92,6 +93,7 @@ def run_pipeline():
             )
         )
         injector = RosbagInjector(config)
+
         try:
             injector.run()  # Handles connection, loading, adaptation, and batching
         except Exception as e:
@@ -119,4 +121,4 @@ def run_pipeline():
 if __name__ == "__main__":
     # Setup simple logging for background SDK processes
     log.basicConfig(level=log.INFO)
-    run_pipeline()
+    main()
