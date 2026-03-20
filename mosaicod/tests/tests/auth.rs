@@ -166,7 +166,13 @@ async fn test_api_key_revoke(pool: sqlx::Pool<db::DatabaseType>) {
             .is_ok()
     );
 
-    // Create an api key with duration.
+    assert!(
+        actions::api_key_status(&mut client, api_key_token.fingerprint())
+            .await
+            .is_err()
+    );
+
+    // Create an api key with duration and revoke it.
     let api_key_token = actions::api_key_create(
         &mut client,
         types::auth::Permissions::READ
@@ -186,6 +192,12 @@ async fn test_api_key_revoke(pool: sqlx::Pool<db::DatabaseType>) {
         actions::api_key_revoke(&mut client, api_key_token.fingerprint())
             .await
             .is_ok()
+    );
+
+    assert!(
+        actions::api_key_status(&mut client, api_key_token.fingerprint())
+            .await
+            .is_err()
     );
 
     server.shutdown().await;
