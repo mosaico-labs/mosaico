@@ -13,8 +13,10 @@ EXAMPLES_MAP = {
     "query_catalogs": "mosaicolabs.examples.query_catalogs",
 }
 
+CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
 
-@click.command()
+
+@click.command(context_settings=CONTEXT_SETTINGS)
 @click.argument(
     "example",
     type=click.Choice(list(EXAMPLES_MAP.keys())),
@@ -30,6 +32,7 @@ EXAMPLES_MAP = {
 )
 @click.option(
     "--log-level",
+    "-l",
     type=click.Choice(["DEBUG", "INFO", "WARNING", "ERROR"], case_sensitive=False),
     default="INFO",
     help="Set the logging level.",
