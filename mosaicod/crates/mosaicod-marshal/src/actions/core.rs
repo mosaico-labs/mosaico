@@ -103,6 +103,12 @@ pub enum ActionRequest {
     /// Ask to create a new api key with given permissions and duration.
     ApiKeyCreate(requests::ApiKeyCreate),
 
+    /// Ask for the status of the given api key (specified using its fingerprint).
+    ApiKeyStatus(requests::ApiKeyFingerprint),
+
+    /// Ask to revoke an existing api key.
+    ApiKeyRevoke(requests::ApiKeyFingerprint),
+
     Version(requests::Empty),
 }
 
@@ -141,6 +147,8 @@ impl ActionRequest {
             "query" => parse_action_req!(Query, body),
 
             "api_key_create" => parse_action_req!(ApiKeyCreate, body),
+            "api_key_status" => parse_action_req!(ApiKeyStatus, body),
+            "api_key_revoke" => parse_action_req!(ApiKeyRevoke, body),
 
             "version" => parse_action_req!(Version, body),
 
@@ -173,6 +181,8 @@ pub enum ActionResponse {
     Query(responses::Query),
 
     ApiKeyCreate(responses::ApiKeyToken),
+    ApiKeyStatus(responses::ApiKeyStatus),
+    ApiKeyRevoke(()),
 
     Version(responses::ServerVersion),
 
@@ -224,6 +234,14 @@ impl ActionResponse {
 
     pub fn api_key_create(response: responses::ApiKeyToken) -> Self {
         Self::ApiKeyCreate(response)
+    }
+
+    pub fn api_key_status(response: responses::ApiKeyStatus) -> Self {
+        Self::ApiKeyStatus(response)
+    }
+
+    pub fn api_key_revoke() -> Self {
+        Self::ApiKeyRevoke(())
     }
 }
 
