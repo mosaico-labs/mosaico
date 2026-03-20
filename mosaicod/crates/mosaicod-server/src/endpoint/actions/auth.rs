@@ -29,3 +29,14 @@ pub async fn api_key_create(
 
     Ok(ActionResponse::api_key_create(auth.api_key().key.into()))
 }
+
+/// Revokes the selected api key.
+pub async fn api_key_revoke(
+    ctx: &Context,
+    fingerprint: &str,
+) -> Result<ActionResponse, ServerError> {
+    info!("requested api key revocation");
+    let auth = facade::Auth::try_from_fingerprint(fingerprint, ctx.db.clone()).await?;
+    auth.delete().await?;
+    Ok(ActionResponse::api_key_revoke())
+}

@@ -385,3 +385,29 @@ pub async fn api_key_create(
 
     Ok(api_key_token.expect("unable to read api key token"))
 }
+
+pub async fn api_key_revoke(client: &mut Client, fingerprint: &str) -> Result<(), tonic::Status> {
+    let action = Action {
+        r#type: "api_key_revoke".to_owned(),
+        body: format!(
+            r#"{{
+            "api_key_fingerprint": "{}"
+        }}"#,
+            fingerprint
+        )
+        .into(),
+    };
+
+    dbg!(&action);
+
+    let mut stream = client.do_action(action).await?.into_inner();
+
+    while let Some(result) = stream.message().await.expect("Problem while streaming") {
+        dbg!(&result);
+        let r = ActionResponse::from_body(&result.body);
+        assert_eq!(r.action, "api_key_revoke");
+        assert!(r.response.as_object().is_none());
+    }
+
+    Ok(())
+}
