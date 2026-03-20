@@ -106,6 +106,9 @@ pub enum ActionRequest {
     /// Ask for the status of the given api key (specified using its fingerprint).
     ApiKeyStatus(requests::ApiKeyFingerprint),
 
+    /// Ask to revoke an existing api key.
+    ApiKeyRevoke(requests::ApiKeyFingerprint),
+
     Version(requests::Empty),
 }
 
@@ -145,6 +148,7 @@ impl ActionRequest {
 
             "api_key_create" => parse_action_req!(ApiKeyCreate, body),
             "api_key_status" => parse_action_req!(ApiKeyStatus, body),
+            "api_key_revoke" => parse_action_req!(ApiKeyRevoke, body),
 
             "version" => parse_action_req!(Version, body),
 
@@ -178,6 +182,7 @@ pub enum ActionResponse {
 
     ApiKeyCreate(responses::ApiKeyToken),
     ApiKeyStatus(responses::ApiKeyStatus),
+    ApiKeyRevoke(()),
 
     Version(responses::ServerVersion),
 
@@ -233,6 +238,10 @@ impl ActionResponse {
 
     pub fn api_key_status(response: responses::ApiKeyStatus) -> Self {
         Self::ApiKeyStatus(response)
+    }
+
+    pub fn api_key_revoke() -> Self {
+        Self::ApiKeyRevoke(())
     }
 }
 

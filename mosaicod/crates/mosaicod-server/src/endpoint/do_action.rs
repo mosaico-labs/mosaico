@@ -105,6 +105,10 @@ pub async fn do_action(
             auth::api_key_status(&ctx, data.api_key_fingerprint.as_str()).await
         }
 
+        ActionRequest::ApiKeyRevoke(data) => {
+            auth::api_key_revoke(&ctx, data.api_key_fingerprint.as_str()).await
+        }
+
         // /////
         // Misc
         ActionRequest::Version(_) => misc::version(),
@@ -138,6 +142,7 @@ fn has_permissions(action: &ActionRequest, perm: &Permissions) -> bool {
 
         ActionRequest::ApiKeyCreate(_) => perm.is_manage(),
         ActionRequest::ApiKeyStatus(_) => perm.is_manage(),
+        ActionRequest::ApiKeyRevoke(_) => perm.is_manage(),
 
         ActionRequest::Version(_) => true,
     }

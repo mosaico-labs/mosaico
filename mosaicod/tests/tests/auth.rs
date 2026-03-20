@@ -125,3 +125,80 @@ async fn test_api_key_status(pool: sqlx::Pool<db::DatabaseType>) {
 
     server.shutdown().await;
 }
+
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_api_key_revoke(pool: sqlx::Pool<db::DatabaseType>) {
+    let port = common::random_port();
+
+    let server = common::ServerBuilder::new(common::HOST, port, pool)
+        .enable_tls() // enable tls in the server
+        .build()
+        .await;
+
+    let mut client = common::ClientBuilder::new(common::HOST, port)
+        .enable_tls() // enable tls also in the client
+        .build()
+        .await;
+
+    // Revoking a non-existing api key should return an error.
+    assert!(
+        actions::api_key_revoke(&mut client, "wrong fingerprint")
+            .await
+            .is_err()
+    );
+
+    // Create an api key with lifetime duration and revoke it.
+    let api_key_token = actions::api_key_create(
+        &mut client,
+        types::auth::Permissions::READ,
+        "api key description".to_string(),
+        None,
+    )
+    .await
+    .unwrap();
+
+    assert!(!api_key_token.payload().is_empty());
+    assert!(!api_key_token.fingerprint().is_empty());
+
+    assert!(
+        actions::api_key_revoke(&mut client, api_key_token.fingerprint())
+            .await
+            .is_ok()
+    );
+
+    assert!(
+        actions::api_key_status(&mut client, api_key_token.fingerprint())
+            .await
+            .is_err()
+    );
+
+    // Create an api key with duration and revoke it.
+    let api_key_token = actions::api_key_create(
+        &mut client,
+        types::auth::Permissions::READ
+            | types::auth::Permissions::MANAGE
+            | types::auth::Permissions::WRITE
+            | types::auth::Permissions::DELETE,
+        "api key description".to_string(),
+        Some(types::Timestamp::now() + std::time::Duration::new(1000, 0)),
+    )
+    .await
+    .unwrap();
+
+    assert!(!api_key_token.payload().is_empty());
+    assert!(!api_key_token.fingerprint().is_empty());
+
+    assert!(
+        actions::api_key_revoke(&mut client, api_key_token.fingerprint())
+            .await
+            .is_ok()
+    );
+
+    assert!(
+        actions::api_key_status(&mut client, api_key_token.fingerprint())
+            .await
+            .is_err()
+    );
+
+    server.shutdown().await;
+}
