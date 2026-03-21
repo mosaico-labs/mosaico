@@ -37,4 +37,55 @@ Serialization of complex sensor data (like compressing images or encoding LIDAR 
 The SDK uses an **Executor Pool** of background threads to offload these tasks. 
 This ensures that while one thread is serializing the *next* batch of data, another thread is already transmitting the *previous* batch over the network.
 
+As a senior architect, it is vital to emphasize that the **Security Layer** is not an "add-on" but a foundational component of the `MosaicoClient` lifecycle. In robotics, where data often moves from edge devices to centralized clusters, this layer ensures that your Physical AI assets remain protected against unauthorized access and intercept.
 
+## Security Layer
+
+The Security Layer manages the confidentiality and integrity of the communication channel. It is composed of two primary mechanisms that work in tandem to harden the connection.
+
+### 1. Authentication (API Key)
+Mosaico uses an [**API Key** system](../daemon/api_key.md) to authorize every operation. When a key is provided, the client automatically attaches your unique credentials to the metadata of every gRPC and Flight call. This ensures that even if your endpoint is public, only requests with a valid, non-revoked key are processed by the server.
+
+### 2. Encryption (TLS)
+For deployments over public or shared networks, the client supports [**Transport Layer Security (TLS)**](../daemon/tls.md). By providing a `tls_cert_path`, the client automatically switches from an insecure channel to an encrypted one. The SDK handles the heavy lifting of reading the certificate bytes and configuring the underlying Flight/gRPC drivers to verify the server's identity and encrypt the data stream.
+
+
+### Recommended Patterns
+
+#### Explicit Connection
+Ideal for local development or scripts where credentials are managed by a secrets manager.
+
+```python
+from mosaicolabs import MosaicoClient
+
+# The client handles the handshake and credential injection automatically
+with MosaicoClient.connect(
+    host="mosaico.production.cluster",
+    port=6726,
+    api_key="msco_your_secret_key",
+    tls_cert_path="/etc/mosaico/certs/ca.pem"
+) as client:
+    # Verify the key is valid before starting heavy operations
+    status = client.api_key_status()
+    print(f"API Key is expired: {status.is_expired}")
+```
+
+#### Environment-Based Configuration (`from_env`)
+As a best practice for production and containerized environments (Docker/Kubernetes), the `MosaicoClient` supports **Zero-Config Discovery** via [`MosaicoClient.from_env`][mosaicolabs.comm.MosaicoClient.from_env]. This prevents sensitive keys from ever being hardcoded in your source files.
+
+The client automatically searches for:
+* `MOSAICO_API_KEY`: Your authentication token.
+* `MOSAICO_TLS_CERT_FILE`: The path to your CA certificate.
+
+```python
+import os
+from mosaicolabs import MosaicoClient
+
+# Standardize your deployment by using environment variables
+# export MOSAICO_API_KEY=... 
+# export MOSAICO_TLS_CERT_FILE=...
+
+with MosaicoClient.from_env(host="mosaico.internal", port=6726) as client:
+    # Security is initialized automatically from the environment
+    print(client.api_key_status())
+```

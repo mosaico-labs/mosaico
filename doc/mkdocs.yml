@@ -66,6 +66,7 @@ nav:
           - SDK/howto/query_topics.md
           - SDK/howto/query_multi_domain.md
           - SDK/howto/query_chained.md
+          - SDK/howto/secure_connection.md
           - Advanced:
               - SDK/howto/ontology_customization.md
               - SDK/howto/ros_injection.md

@@ -1,3 +1,6 @@
+from ..types import Time
+
+
 class APIKeyStatus:
     """
     Represents the status information of an API key.
@@ -28,6 +31,14 @@ class APIKeyStatus:
         self.created_at_ns = created_at_ns
         self.expires_at_ns = expires_at_ns
         self.description = description
+
+    @property
+    def is_expired(self) -> bool:
+        """Whether the API key is expired"""
+        return (
+            self.expires_at_ns is not None
+            and self.expires_at_ns < Time.now().to_nanoseconds()
+        )
 
     def __repr__(self) -> str:
         return (

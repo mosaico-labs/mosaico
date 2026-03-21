@@ -90,6 +90,7 @@ class MosaicoClient:
         executor_pool: Optional[_ExecutorPool],
         sentinel: object,
         tls_cert: Optional[bytes],
+        api_key_fingerprint: Optional[str],
         middlewares: dict[str, fl.ClientMiddlewareFactory],
     ):
         """
@@ -112,6 +113,7 @@ class MosaicoClient:
             executor_pool: Internal pool for async I/O.
             sentinel: Private object used to verify factory-based instantiation.
             tls_cert: The TLS certificate.
+            api_key_fingerprint: The fingerprint of the API key to use for authentication.
             middlewares: The middlewares to be used for the connection.
         """
         if sentinel is not MosaicoClient._CONNECT_SENTINEL:
@@ -137,6 +139,8 @@ class MosaicoClient:
         """The path to the TLS certificate file."""
         self._middlewares: dict[str, fl.ClientMiddlewareFactory] = middlewares
         """The middlewares to be used for the connection."""
+        self._api_key_fingerprint: Optional[str] = api_key_fingerprint
+        """The current optional API-Key fingerprint, used for access control"""
 
         # Initialize caches
         self._sequence_handlers_cache: Dict[str, SequenceHandler] = {}
@@ -243,8 +247,11 @@ class MosaicoClient:
         resolved_tls_cert = cls._resolve_tls_cert_path(tls_cert_path)
 
         middlewares = {}
+        api_key_fingerprint = None
         if api_key:
-            middlewares["mosaico_auth"] = MosaicoAuthMiddlewareFactory(api_key=api_key)
+            auth_mware = MosaicoAuthMiddlewareFactory(api_key=api_key)
+            middlewares["mosaico_auth"] = auth_mware
+            api_key_fingerprint = auth_mware.api_key_fingerprint
 
         try:
             control_client: fl.FlightClient = _get_connection(
@@ -269,6 +276,7 @@ class MosaicoClient:
             executor_pool=None,
             sentinel=cls._CONNECT_SENTINEL,
             tls_cert=resolved_tls_cert,
+            api_key_fingerprint=api_key_fingerprint,
             middlewares=middlewares,
         )
 
@@ -957,8 +965,8 @@ class MosaicoClient:
         self,
         permissions: list[APIKeyPermissionEnum],
         description: str,
-        expires_at_ns: int | None = None,
-    ) -> str | None:
+        expires_at_ns: Optional[int] = None,
+    ) -> Optional[str]:
         """
         Creates a new API key with the specified permissions.
 
@@ -967,7 +975,7 @@ class MosaicoClient:
 
         Args:
             permissions (list[str]): List of permissions for the key (e.g., "read", "write", "delete", "manage").
-            expires_at_ns (int | None): Optional expiration timestamp in nanoseconds.
+            expires_at_ns (Optional[int]): Optional expiration timestamp in nanoseconds.
             description (str): Description for the key.
 
         Returns:
@@ -1000,18 +1008,24 @@ class MosaicoClient:
             logger.error(f"API key creation failed with error: '{e}'")
             return None
 
-    def api_key_status(self, api_key_fingerprint: str) -> APIKeyStatus | None:
+    def api_key_status(
+        self, api_key_fingerprint: Optional[str] = None
+    ) -> Optional[APIKeyStatus]:
         """
         Retrieves the status and metadata of an API key.
 
         Args:
-            api_key_fingerprint (str): The fingerprint of the API key to query.
+            api_key_fingerprint (Optional[str]): The fingerprint of the API key to query.
+                If not provided, the fingerprint of the current API key will be used.
 
         Returns:
             APIKeyStatus: An object containing the API key's status information, or None if the query fails.
         """
+        api_key_fingerprint = api_key_fingerprint or self._api_key_fingerprint
         if not api_key_fingerprint:
-            logger.error("api_key_fingerprint cannot be empty.")
+            logger.error(
+                "API key fingerprint is required. Provide it as an argument or connect with an API key."
+            )
             return None
 
         ACTION = FlightAction.API_KEY_STATUS
