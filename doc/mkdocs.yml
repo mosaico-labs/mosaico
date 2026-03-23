@@ -66,10 +66,11 @@ nav:
           - SDK/howto/query_chained.md
           - SDK/howto/secure_connection.md
       - Examples:
+          - SDK/examples/index.md
+          - SDK/examples/ros_injection.md
           - SDK/examples/data_inspection.md
           - SDK/examples/query_catalogs.md
           - SDK/examples/ontology_customization.md
-          - SDK/examples/ros_injection.md
 
       - In Depth:
           - SDK/client.md

@@ -3,7 +3,7 @@ title: ROS Ingestion
 description: Example how-to for ROS Ingestion
 ---
 
-This tutorial demonstrates a complete Mosaico data ingestion using the [NVIDIA R2B Dataset 2024](https://catalog.ngc.nvidia.com/orgs/nvidia/teams/isaac/resources/r2bdataset2024?version=1). ou will learn how to automate the transition from monolithic ROS bags (.mcap) to a structured, queryable archive.
+This tutorial demonstrates a complete Mosaico data ingestion using the [NVIDIA R2B Dataset 2024](https://catalog.ngc.nvidia.com/orgs/nvidia/teams/isaac/resources/r2bdataset2024?version=1). You will learn how to automate the transition from monolithic ROS bags (.mcap) to a structured, queryable archive.
 
 By following this guide, you will:
 
