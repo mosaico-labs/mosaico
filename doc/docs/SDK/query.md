@@ -5,6 +5,9 @@ description: The Query Architecture and Mechanism
 
 The **Query Module** provides a high-performance, **fluent** interface for discovering and filtering data within the Mosaico Data Platform. It is designed to move beyond simple keyword searches, allowing you to perform deep, semantic queries across metadata, system catalogs, and the physical content of sensor streams.
 
+!!! example "Try-It Out"
+    You can experiment yourself the Query module via the **[Querying Catalogs](./examples/query_catalogs.md) Example**.
+
 A typical query workflow involves chaining methods within specialized builders to create a unified request that the server executes atomically. In the example below, the code orchestrates a multi-domain search to isolate high-interest data segments. Specifically, it queries for:
 
 * **Sequence Discovery**: Finds any recording session whose name contains the string `"test_drive"` **AND** where the custom user metadata indicates an `"environment.visibility"` value strictly less than 50.

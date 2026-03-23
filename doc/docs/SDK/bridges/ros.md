@@ -8,6 +8,9 @@ The **ROS Bridge** module serves as the ingestion gateway for ROS (Robot Operati
 
 The core philosophy of the module is **"Adaptation, Not Just Parsing."** Rather than simply extracting raw dictionaries from ROS messages, the bridge actively translates them into the standardized **Mosaico Ontology**. For example, a [`geometry_msgs/Pose`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/Pose.html) is validated, normalized, and instantiated as a strongly-typed [`mosaicolabs.models.data.Pose`][mosaicolabs.models.data.Pose] object before ingestion.
 
+!!! example "Try-It Out"
+    You can experiment yourself the ROS Bridge ingestion via the **[ROS Ingestion](../examples/ros_injection.md) Example**.
+
 ## Architecture
 
 The module is composed of four distinct layers that handle the pipeline from raw file access to server transmission.

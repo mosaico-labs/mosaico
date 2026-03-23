@@ -40,6 +40,22 @@ def setup_sdk_logging(
             bars) will synchronize to prevent screen flickering. Defaults
             to a new Console(stderr=True).
 
+    Example:
+        ```python
+        from mosaicolabs import setup_sdk_logging
+        from rich.console import Console
+
+        console = Console(stderr=True)
+
+        setup_sdk_logging(
+            level="INFO",
+            pretty=True,
+            console=console
+        )
+        with MosaicoClient.connect(host="localhost", port=6726) as client:
+            # Perform operations
+        ```
+
     Notes:
         - When 'pretty' is enabled, the logger name is styled in 'dim white'
           to keep focus on the message content.

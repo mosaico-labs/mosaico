@@ -59,17 +59,18 @@ nav:
           - SDK/howto/serialized_writing_from_csv.md
           - SDK/howto/serialized_writing_from_multi_csv.md
           - SDK/howto/interleaved_writing_from_multi_topics.md
-          - SDK/howto/data_inspection.md
-          - SDK/howto/query_catalogs.md
           - SDK/howto/streaming.md
           - SDK/howto/query_sequences.md
           - SDK/howto/query_topics.md
           - SDK/howto/query_multi_domain.md
           - SDK/howto/query_chained.md
           - SDK/howto/secure_connection.md
-          - Advanced:
-              - SDK/howto/ontology_customization.md
-              - SDK/howto/ros_injection.md
+      - Examples:
+          - SDK/examples/data_inspection.md
+          - SDK/examples/query_catalogs.md
+          - SDK/examples/ontology_customization.md
+          - SDK/examples/ros_injection.md
+
       - In Depth:
           - SDK/client.md
           - SDK/ontology.md
@@ -85,6 +86,7 @@ nav:
           - SDK/API_reference/comm.md
           - SDK/API_reference/enum.md
           - SDK/API_reference/types.md
+          - SDK/API_reference/logging.md
           - Data Handling:
               - SDK/API_reference/handlers/reading.md
               - SDK/API_reference/handlers/writing.md

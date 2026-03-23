@@ -1,35 +1,35 @@
 ---
-title: ROS Injection
-description: Example how-to for ROS Injection
+title: ROS Ingestion
+description: Example how-to for ROS Ingestion
 ---
 
-!!! example "Fully Executable"
-    This guide is [**fully executable**](#running-the-example).
-    The full code of the example is available [**here**](https://github.com/mosaico-labs/mosaico/blob/main/mosaico-sdk-py/src/mosaicolabs/examples/ros_injection/main.py).
-
-This tutorial demonstrates a complete Mosaico data ingestion using the [NVIDIA R2B Dataset 2024](https://catalog.ngc.nvidia.com/orgs/nvidia/teams/isaac/resources/r2bdataset2024?version=1) dataset. ou will learn how to automate the transition from monolithic ROS bags (.mcap) to a structured, queryable archive.
+This tutorial demonstrates a complete Mosaico data ingestion using the [NVIDIA R2B Dataset 2024](https://catalog.ngc.nvidia.com/orgs/nvidia/teams/isaac/resources/r2bdataset2024?version=1). ou will learn how to automate the transition from monolithic ROS bags (.mcap) to a structured, queryable archive.
 
 By following this guide, you will:
 
 * **Automate Asset Preparation**: Programmatically download and manage remote datasets.
 * **Implement Adaptation Logic**: Translate raw ROS types into the strongly-typed Mosaico Ontology.
-* **Execute Injection**: Use the [`RosbagInjector`][mosaicolabs.ros_bridge.RosbagInjector] to handle batching and network transmission.
+* **Execute Ingestion**: Use the [`RosbagInjector`][mosaicolabs.ros_bridge.RosbagInjector] to handle batching and network transmission.
 * **Verify Integrity**: Programmatically inspect the server to ensure the data is cataloged.
 
-!!! info "Prerequisites"
-    To fully grasp the following How-To, we recommend you to read the **[Customizing the Data Ontology](../howto/ontology_customization.md) How-To**.
+!!! example "Experiment Yourself"
+    This guide is **fully executable**.
 
-## Running the example
+    1. **Start the Mosaico Infrastructure**
+    ```bash
+    # From the mosaico root directory
+    cd docker/quick_start && docker compose up
+    ```
+    2. **Run the example**
+    ```bash
+    # From the SDK root directory (mosaico-sdk-py)
+    mosaico.examples ros_injection
+    ```
 
-1. **Start the Mosaico Infrastructure**
-```bash
-cd docker/quick_start && docker compose up
-```
-2. **Run the example**
-```bash
-# From the SDK root directory (mosaico-sdk-py)
-mosaico.examples ros_injection
-```
+??? question "In Depth Explanation"
+    * **[How-To: Customizing the Data Ontology](./ontology_customization.md)**
+    * **[Documentation: The ROS Bridge](../bridges/ros.md)**
+    * **[API Reference: The ROS Bridge](../API_reference/bridges/ros/ros.md)**
 
 ## Step 1: Custom Ontology Definition (`isaac.py`)
 
@@ -61,10 +61,9 @@ class EncoderTicks(Serializable): # (1)!
 1. Inheriting from [`Serializable`][mosaicolabs.models.Serializable] automatically registers your model in the Mosaico ecosystem, making it dispatchable to the data platform, and enables the `.Q` [query proxy](../query.md#the-q-proxy-mechanism).
 2. The field names in the `pa.struct` **must match exactly** the names of the Python attributes.
 
-For a more in-depth explanation:
-
-* **[How-To: Customizing the Data Ontology](./ontology_customization.md)**
-* **[Documentation: Data Models & Ontology](../ontology.md)**
+??? question "In Depth Explanation"
+    * **[How-To: Customizing the Data Ontology](./ontology_customization.md)**
+    * **[Documentation: Data Models & Ontology](../ontology.md)**
 
 ## Step 2: Implementing the ROS Adapter (`isaac_adapters.py`)
 
@@ -113,12 +112,6 @@ wrapping the custom ontology model.
 
 **Key Operation**: The [`@register_default_adapter`][mosaicolabs.ros_bridge.register_default_adapter] decorator ensures the [`RosbagInjector`][mosaicolabs.ros_bridge.RosbagInjector] automatically knows how to handle this message type during the ingestion loop.
 
-For a more in-depth explanation:
-
-* **[Documentation: ROS Bridge](../bridges/ros.md)**
-* **[API Reference: ROS Bridge](../API_reference/bridges/ros/ros.md)**
-
-
 ## Step 3: Orchestrating the Ingestion Loop
 
 In a real-world scenario, you often need to ingest a batch of files. The `main.py` implementation uses a 3-phase loop to manage this workflow.
@@ -134,7 +127,7 @@ for bag_path in BAG_FILES_PATH:
     out_bag_file = download_asset(bag_file_url, ASSET_DIR)
 ```
 
-### Phase 2: High-Performance Injection
+### Phase 2: High-Performance Ingestion
 
 Configure and run the injector. This layer handles connection pooling, asynchronous serialization, and batching.
 
@@ -158,11 +151,6 @@ injector = RosbagInjector(config)
 injector.run()  # Starts the ingestion process
 ```
 
-For a more in-depth explanation:
-
-* **[Documentation: ROS Bridge](../bridges/ros.md)**
-* **[API Reference: ROS Bridge](../API_reference/bridges/ros/ros.md)**
-
 ### Phase 3: Verification & Retrieval
 
 Programmatically confirm the sequence is available on the server using a context manager.
@@ -177,30 +165,13 @@ with MosaicoClient.connect(host=MOSAICO_HOST, port=MOSAICO_PORT) as client: # (1
 1. Establishes a secure connection to the platform.
 2. Asks for the lists of sequences on the server
 
-For a more in-depth explanation:
-
-* **[Documentation: The Reading Workflow](../handling/reading.md)**
-* **[API Reference: Data Retrieval](../API_reference/handlers/reading.md)**
+??? question "In Depth Explanation"
+    * **[How-To: Data Discovery and Inspection](./data_inspection.md)**
+    * **[Documentation: The Reading Workflow](../handling/reading.md)**
+    * **[API Reference: Data Retrieval](../API_reference/handlers/reading.md)**
 
 ## The full example code
 The full example code is available under `mosaico-sdk-py/src/examples/ros_injection/main.py`.
-
-## Running the Example
-
-!!! note:
-    This example expects the Python SDK to be installed via Poetry, as described in the **[Installation](../install.md) section**.
-
-1. **Start the Mosaico Infrastructure**: Launch the Mosaico server
-
-```bash
-cd docker/quick_start && docker compose up
-```
-
-2. **Run Injestion**: Execute the demonstration script using Poetry:
-
-```bash
-cd src/examples && poetry run python -m ros_injection.main
-```
 
 ### What to Expect
 

@@ -3,9 +3,6 @@ title: Querying Catalogs
 description: Example how-to for Querying Catalogs
 ---
 
-!!! example "Fully Executable"
-    This guide is [**fully executable**](#running-the-example).
-    The full code of the example is available [**here**](https://github.com/mosaico-labs/mosaico/blob/main/mosaico-sdk-py/src/mosaicolabs/examples/query_catalogs.py).
 
 By following this guide, you will learn how to:
 
@@ -13,32 +10,31 @@ By following this guide, you will learn how to:
 2.  **Filter by Sensor Type**: Isolate all topics belonging to a specific ontology (e.g., all IMUs).
 3.  **Execute Multi-Domain Queries**: Correlate sensor names with physical events (e.g., "Find the front camera IMU data where acceleration on the y-axis exceeded 1.0 m/s^2").
 
-## Running the example
-
-1. **Start the Mosaico Infrastructure**
-```bash
-# From the mosaico root directory
-cd docker/quick_start && docker compose up
-```
-2. **Run the example**
-```bash
-# From the SDK root directory (mosaico-sdk-py)
-mosaico.examples query_catalogs
-```
-
 !!! info "Prerequisites"
-    This tutorial assumes you have already ingested data into your Mosaico instance, using the example described in the [ROS Injection guide](./ros_injection.md#running-the-example).
+    This tutorial assumes you have already ingested data into your Mosaico instance, using the example described in the [ROS Injection guide](./ros_injection.md).
 
+!!! example "Experiment Yourself"
+    This guide is **fully executable**.
+
+    1. **Start the Mosaico Infrastructure**
+    ```bash
+    # From the mosaico root directory
+    cd docker/quick_start && docker compose up
+    ```
+    2. **Run the example**
+    ```bash
+    # From the SDK root directory (mosaico-sdk-py)
+    mosaico.examples query_catalogs
+    ```
+
+??? question "In Depth Explanation"
+    * **[Documentation: Querying Catalogs](../query.md)**
+    * **[API Reference: Query Builders](../API_reference/query/builders.md)**
+    * **[API Reference: Query Response](../API_reference/query/response.md)**
 
 ## The Query Philosophy: Chaining & Builders
 
 Mosaico uses specialized **Query Builders** that provide a "fluent" interface. When you pass multiple builders to the [`client.query()`][mosaicolabs.comm.MosaicoClient.query] method, the platform joins them with a logical **AND** condition—returning only results that satisfy every criteria simultaneously.
-
-For a more in-depth explanation:
-
-* **[Documentation: Querying Catalogs](../query.md)**
-* **[API Reference: Query Builders](../API_reference/query/builders.md)**
-* **[API Reference: Query Response](../API_reference/query/response.md)**
 
 
 ## Step 1: Finding Topics by Name Match
