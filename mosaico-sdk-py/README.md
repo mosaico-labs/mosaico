@@ -28,25 +28,42 @@ For full documentation, see the [Mosaico SDK Documentation](https://docs.mosaico
 Install the SDK via `pip`:
 
 ```bash
-pip install mosaico-sdk-py
+pip install mosaicolabs
 ```
 
 *Note: Requires Python 3.10 or higher.*
+
 
 ## CLI Utilities
 
 The SDK comes with built-in command-line tools to speed up your workflow.
 
+### Infrastructure Prerequisite
+
+Before running any mosaico service via SDK, ensure your **Mosaico Infrastructure** is active and running. 
+The easiest way to start is using the provided **Quick Start environment**.
+Please, refer to the **[daemon Setup](https://docs.mosaico.dev/latest/daemon/install/)** for setting up the environment.
+
+```python
+from mosaicolabs import MosaicoClient
+
+# Connect to the Mosaico server
+with MosaicoClient.connect(host="localhost", port=6726) as client:
+    # Simple is-alive check
+    print(client.version())
+```
+
+
 ### Interactive Examples
 
-We provide pre-built examples to help you explore the SDK capabilities. You can run them using the `mosaico.examples` command:
+We provide pre-built examples to help you explore the SDK capabilities. You can run them using the `mosaicolabs.examples` command:
 
 ```bash
 # List all available examples and help
-mosaico.examples --help
+mosaicolabs.examples --help
 
 # Run a specific example
-mosaico.examples data_inspection
+mosaicolabs.examples data_inspection
 ```
 
 **Available Examples:**
@@ -60,7 +77,7 @@ mosaico.examples data_inspection
 Inject ROS bags (MCAP or legacy) directly into the platform:
 
 ```bash
-mosaico.ros_injector --file path/to/your/data.mcap --sequence my_test_run
+mosaicolabs.ros_injector --file path/to/your/data.mcap --sequence my_test_run
 ```
 
 ## Quick Start (Python)

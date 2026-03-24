@@ -13,7 +13,7 @@ It handles the complex orchestration of:
 4.  **Configuration:** Managing custom message definitions via `ROSTypeRegistry`.
 
 Typical usage as a script:
-    $ mosaico.ros_injector ./data.mcap --name "Test_Run_01"
+    $ mosaicolabs.ros_injector ./data.mcap --name "Test_Run_01"
 
 Typical usage as a library:
     config = ROSInjectionConfig(file_path=Path("data.mcap"), ...)

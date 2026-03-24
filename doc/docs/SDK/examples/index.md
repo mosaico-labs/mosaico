@@ -11,11 +11,11 @@ We provide a specialized CLI utility to run these examples without manual config
 
 ### Basic Usage
 
-From your terminal, use the `mosaico.examples` command followed by the name of the example:
+From your terminal, use the `mosaicolabs.examples` command followed by the name of the example:
 
 ```bash
 # Run the ROS Ingestion example
-mosaico.examples ros_injection
+mosaicolabs.examples ros_injection
 ```
 
 ### Configuration Options
@@ -31,7 +31,7 @@ The CLI supports several global flags to control the execution environment:
 **Example with custom server:**
 
 ```bash
-mosaico.examples data_inspection --host 192.168.1.50 --port 6276 --log-level DEBUG
+mosaicolabs.examples data_inspection --host 192.168.1.50 --port 6276 --log-level DEBUG
 ```
 
 ### Available Blueprints
@@ -59,13 +59,8 @@ We recommend exploring the examples in the following order to understand the pla
 
 ### Infrastructure Prerequisite
 
-Before running any example, ensure your Mosaico infrastructure is active. The easiest way to start is using the provided Quick Start environment:
-
-```bash
-# From the root of the mosaico repository
-cd docker/quick_start
-docker compose up -d
-```
+Before running any example, ensure your Mosaico infrastructure is active. The easiest way to start is using the provided **Quick Start environment**.
+Please, refer to the **[daemon Setup](../../daemon/install.md)** for setting up the environment.
 
 ### Ready to start?
 We recommend beginning with the **[ROS Ingestion Guide](./ros_injection.md)** to populate your local server with high-fidelity robotics data. The other examples will run on the data ingested via the ROS Ingestion example.

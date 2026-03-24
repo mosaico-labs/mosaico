@@ -32,7 +32,7 @@ htmlcov/
 test_results.xml
 assets/test-sequences/*
 # Virtual environment
-.venv
+.venv*
 venv/
 env/
 /venv

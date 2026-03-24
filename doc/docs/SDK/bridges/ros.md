@@ -247,14 +247,14 @@ By using this pattern, you can maintain a clean separation between your raw ROS 
 
 #### CLI Usage
 
-The module includes a command-line interface for quick ingestion tasks. The full list of options can be retrieved by running `mosaico.ros_injector -h`
+The module includes a command-line interface for quick ingestion tasks. The full list of options can be retrieved by running `mosaicolabs.ros_injector -h`
 
 ```bash
 # Basic Usage
-poetry run mosaico.ros_injector ./data.mcap --name "Test_Run_01"
+mosaicolabs.ros_injector ./data.mcap --name "Test_Run_01"
 
 # Advanced Usage: Filtering topics and adding metadata
-poetry run mosaico.ros_injector ./data.db3 \
+mosaicolabs.ros_injector ./data.db3 \
   --name "Test_Run_01" \
   --topics /camera/front/* /gps/fix \
   --metadata ./metadata.json \
