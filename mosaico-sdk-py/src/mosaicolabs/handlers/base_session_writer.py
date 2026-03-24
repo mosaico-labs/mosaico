@@ -220,6 +220,7 @@ class _BaseSessionWriter(ABC):
                 self._logger.error(
                     f"Exception caught while handling errors in termination phase. Inner err: '{out_exc}'"
                 )
+                raise out_exc
 
     # --- Context Manager ---
     def __enter__(self) -> "_BaseSessionWriter":
@@ -258,11 +259,16 @@ class _BaseSessionWriter(ABC):
         Returns:
             None: prevents exception suppression
         """
-        return self._on_context_exit(
-            exc_type=exc_type,
-            exc_val=exc_val,
-            exc_tb=exc_tb,
-        )
+        try:
+            return self._on_context_exit(
+                exc_type=exc_type,
+                exc_val=exc_val,
+                exc_tb=exc_tb,
+            )
+        except Exception as cleanup_exc:
+            if exc_val is not None:
+                raise cleanup_exc from exc_val  # chain exceptions
+            raise cleanup_exc
 
     def __del__(self):
         """Destructor check to warn if the writer was left pending."""

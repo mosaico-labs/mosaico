@@ -4,6 +4,7 @@ from typing import Optional
 import pytest
 
 from mosaicolabs.comm import MosaicoClient
+from mosaicolabs.enum.api_key_permission import APIKeyPermissionEnum
 from mosaicolabs.logging_config import setup_sdk_logging
 from testing.integration.helpers import (
     DataStreamItem,
@@ -74,14 +75,43 @@ def port(request):
 
 
 @pytest.fixture(scope="session")
-def with_auth(request):
-    return request.config.getoption("--api-key") is not None
+def with_auth(api_key_mgmt):
+    return api_key_mgmt is not None
 
 
 @pytest.fixture(scope="session")
-def api_key(request, with_auth):
+def api_key_mgmt(request):
+    return request.config.getoption("--api-key")
+
+
+@pytest.fixture(scope="session")
+def api_keys_list(host, port, with_auth, api_key_mgmt):
     if with_auth:
-        return request.config.getoption("--api-key")
+        api_keys_list = []
+        with MosaicoClient.connect(
+            host=host, port=port, api_key=api_key_mgmt
+        ) as _client:
+            r_key = _client.api_key_create(
+                [APIKeyPermissionEnum.Read], description="read-only-api-key"
+            )
+            assert r_key is not None
+            api_keys_list.append((r_key, [APIKeyPermissionEnum.Read]))
+            w_key = _client.api_key_create(
+                [APIKeyPermissionEnum.Write], description="write-only-api-key"
+            )
+            assert r_key is not None
+            api_keys_list.append((w_key, [APIKeyPermissionEnum.Write]))
+            rw_key = _client.api_key_create(
+                [APIKeyPermissionEnum.Read, APIKeyPermissionEnum.Write],
+                description="read-write-api-key",
+            )
+            assert r_key is not None
+            api_keys_list.append(
+                (rw_key, [APIKeyPermissionEnum.Read, APIKeyPermissionEnum.Write])
+            )
+
+            return api_keys_list
+
     return None
 
 
@@ -103,21 +133,21 @@ def tls_cert_path(with_tls) -> Optional[str]:
 
 
 @pytest.fixture(scope="function")
-def _client(host, port, tls_cert_path, api_key):
+def _client(host, port, tls_cert_path, api_key_mgmt):
     """Open a client connection FOR EACH function using this fixture"""
 
     return MosaicoClient.connect(
-        host=host, port=port, tls_cert_path=tls_cert_path, api_key=api_key
+        host=host, port=port, tls_cert_path=tls_cert_path, api_key=api_key_mgmt
     )
 
 
 @pytest.fixture(
     scope="session"
 )  # the first who calls this function, wins and avoid this is called multiple times
-def _make_sequence_data_stream(host, port, tls_cert_path, api_key):
+def _make_sequence_data_stream(host, port, tls_cert_path, api_key_mgmt):
     """Generate synthetic data, create a sequence and pushes messages"""
     _client = MosaicoClient.connect(
-        host=host, port=port, tls_cert_path=tls_cert_path, api_key=api_key
+        host=host, port=port, tls_cert_path=tls_cert_path, api_key=api_key_mgmt
     )
 
     start_time_sec = 1700000000
@@ -165,11 +195,11 @@ def _make_sequence_data_stream(host, port, tls_cert_path, api_key):
 
 @pytest.fixture(scope="session")
 def _inject_sequence_data_stream(
-    _make_sequence_data_stream, host, port, tls_cert_path, api_key
+    _make_sequence_data_stream, host, port, tls_cert_path, api_key_mgmt
 ):
     """Generate synthetic data, create a sequence and pushes messages"""
     _client = MosaicoClient.connect(
-        host=host, port=port, tls_cert_path=tls_cert_path, api_key=api_key
+        host=host, port=port, tls_cert_path=tls_cert_path, api_key=api_key_mgmt
     )
 
     with _client.sequence_create(
@@ -196,10 +226,10 @@ def _inject_sequence_data_stream(
 
 
 @pytest.fixture(scope="session")
-def _inject_sequences_mockup(host, port, tls_cert_path, api_key):
+def _inject_sequences_mockup(host, port, tls_cert_path, api_key_mgmt):
     """Generate synthetic data, create a sequence and pushes messages"""
     _client = MosaicoClient.connect(
-        host=host, port=port, tls_cert_path=tls_cert_path, api_key=api_key
+        host=host, port=port, tls_cert_path=tls_cert_path, api_key=api_key_mgmt
     )
     for sname, sdata in QUERY_SEQUENCES_MOCKUP.items():
         with _client.sequence_create(

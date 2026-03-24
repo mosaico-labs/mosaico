@@ -982,7 +982,7 @@ class MosaicoClient:
             str: The generated API key token or None.
         """
         payload: dict[str, Any] = {
-            "permissions": permissions,
+            "permissions": [perm.value for perm in permissions],
             "description": description,
         }
         if expires_at_ns is not None:
