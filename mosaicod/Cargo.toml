@@ -27,7 +27,7 @@ mosaicod-store = { path = "crates/mosaicod-store" }
 arrow = { version = "57.3.0", features = ["prettyprint"] }
 arrow-cast = "57.2.0"
 arrow-flight = "57.2.0"
-arrow-schema = "57.2.0"
+arrow-schema = "58.0.0"
 parquet = "57.3.0"
 datafusion = { version = "52.1.0", default-features = false, features = ["compression", "parquet", "sql", "recursive_protection"] }
 tonic = { version = "0.14.3", features = ["tls-ring"] }
