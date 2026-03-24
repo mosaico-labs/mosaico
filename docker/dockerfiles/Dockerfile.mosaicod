@@ -1,4 +1,3 @@
-# --- BUILD STAGE ---
 FROM rust:1.92-slim-bullseye AS builder
 
 WORKDIR /mosaicod
@@ -14,11 +13,9 @@ COPY Cargo.toml Cargo.lock ./
 COPY crates ./crates
 COPY tests ./tests
 COPY bin ./bin
-COPY .sqlx ./.sqlx
 
 RUN SQLX_OFFLINE=true cargo build --bin mosaicod --profile docker
 
-# RUNTIME STAGE
 FROM gcr.io/distroless/cc-debian11
 
 WORKDIR /mosaicod
