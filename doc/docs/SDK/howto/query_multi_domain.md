@@ -3,8 +3,16 @@ title: Multi-Domain Querying
 description: Example how-to for Multi-Domain Querying
 ---
 
-
 This guide demonstrates how to orchestrate a **Unified Query** across three distinct layers of the Mosaico Data Platform: the **Sequence** (session metadata), the **Topic** (channel configuration), and the **Ontology Catalog** (actual sensor data). By combining these builders in a single request, you can perform highly targeted searches that correlate mission-level context with specific sensor events.
+
+!!! example "Related experiment"
+    To fully grasp the following How-To, we recommend you to read (and reproduce) the **[Querying Catalogs](../examples/query_catalogs.md) Example**.
+
+??? question "In Depth Explanation"
+    * **[Documentation: Querying Catalogs](../query.md)**
+    * **[API Reference: Query Builders](../API_reference/query/builders.md)**
+    * **[API Reference: Query Response](../API_reference/query/response.md)**
+
 
 ### The Objective
 
@@ -13,12 +21,6 @@ We want to isolate data segments from a large fleet recording by searching for:
 1. **Sequence**: Sessions belonging to the `"Apollo"` project.
 2. **Topic**: Specifically the front-facing camera imu topic named `"/front/camera/imu"`.
 3. **Ontology**: Time segments where such an IMU recorded a longitudinal acceleration (x-axis) exceeding 5.0 m/s².
-
-For a more in-depth explanation:
-
-* **[Documentation: Querying Catalogs](../query.md)**
-* **[API Reference: Query Builders](../API_reference/query/builders.md)**
-* **[API Reference: Query Response](../API_reference/query/response.md)**
 
 ### Implementation
 

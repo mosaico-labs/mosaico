@@ -1,9 +1,9 @@
 import inspect
-from typing import Any, ClassVar, Dict, Optional, Type, TypeVar, Union
+from typing import Any, ClassVar, Dict, Optional, Type, TypeVar
 
 from ..expressions import _QueryExpression
 from ..protocols import FieldMapperProtocol
-from .mixins import _QueryableField, _QueryableUnsupported
+from .mixins import _QueryableUnsupported
 
 
 class _QueryProxy:
@@ -44,7 +44,7 @@ class _QueryProxy:
         self.__path__ = full_path
         self.__map__ = field_map
 
-    def __getattr__(self, name: str) -> Union["_QueryProxy", _QueryableField]:
+    def __getattr__(self, name: str) -> Any:
         """
         Called at runtime when accessing an attribute (e.g., GPS.Q.position).
 

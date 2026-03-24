@@ -14,5 +14,6 @@ description: API Reference for Sensors Models
 ::: mosaicolabs.models.sensors.RobotJoint
 ::: mosaicolabs.models.sensors.Image
 ::: mosaicolabs.models.sensors.CompressedImage
+::: mosaicolabs.models.sensors.StatefulDecodingSession
 ::: mosaicolabs.models.sensors.ImageFormat
 ::: mosaicolabs.models.sensors.CameraInfo

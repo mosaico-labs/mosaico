@@ -5,6 +5,9 @@ description: Handlers, Writers, and Streamers.
 
 The **Reading Workflow** in Mosaico is architected to separate resource discovery from high-volume data transmission. This is achieved through two distinct layers: **Handlers**, which serve as metadata proxies, and **Streamers**, which act as the high-performance data engines.
 
+!!! example "Try-It Out"
+    You can experiment yourself the Handlers module via the **[Data Discovery and Inspection](../examples/query_catalogs.md) Example**.
+
 ### Handlers: The Catalog Layer
 
 Handlers are lightweight objects that represent a server-side resource. Their primary role is to provide immediate access to system information and user-defined metadata **without downloading the actual sensor data**. They act as the "Catalog" layer of the SDK, allowing you to inspect the contents of the platform before committing to a high-bandwidth data stream.

@@ -3,24 +3,26 @@ title: Customizing the Data Ontology
 description: Example how-to for Customizing the Data Ontology
 ---
 
-This guide walks you through the process of extending the Mosaico Data Platform with custom data models. While Mosaico provides a rich default ontology for robotics (IMU, GPS, Images, etc.), specialized hardware often requires proprietary data structures.
+This guide demostrates how to extend the Mosaico Data Platform with custom data models. While Mosaico provides a rich default ontology for robotics (IMU, GPS, Images, etc.), specialized hardware often requires proprietary data structures.
 
-By the end of this guide, you will be able to:
+By following this guide, you will be able to:
 
 * **Define** strongly-typed data models using Python and Apache Arrow.
 * **Register** these models so they are recognized by the Mosaico Ecosystem.
 * **Integrate** them into the ingestion and retrieval pipelines.
 
-For a more in-depth explanation:
+!!! abstract "Full Code"
+    The full code of the example is available [**here**](https://github.com/mosaico-labs/mosaico/blob/main/mosaico-sdk-py/src/mosaicolabs/examples/ros_injection/custom_ontology).
 
-* **[Documentation: Data Models & Ontology](../ontology.md)**
-* **[API Reference: Base Models and Mixins](../API_reference/models/base.md)**
+??? question "In Depth Explanation"
+    * **[Documentation: Data Models & Ontology](../ontology.md)**
+    * **[API Reference: Base Models and Mixins](../API_reference/models/base.md)**
 
 ### Step 1: Define the Custom Data Model
 
 In Mosaico, data models are defined by inheriting from the **[`Serializable`][mosaicolabs.models.Serializable]** base class. This ensures that your model can be automatically translated into the platform's high-performance storage format.
 
-For this example, we will create a model for **`EncoderTicks`**, found in the NVIDIA Isaac-related datasets.
+For this example, we will create a model for **`EncoderTicks`**, found in the [NVIDIA R2B Dataset 2024](https://catalog.ngc.nvidia.com/orgs/nvidia/teams/isaac/resources/r2bdataset2024?version=1).
 
 ```python
 import pyarrow as pa

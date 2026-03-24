@@ -115,10 +115,29 @@ class ROSInjectionConfig:
     """
 
     file_path: Path
+    """
+    The path to the ROS bag file to ingest.
+    """
+
     sequence_name: str
+    """
+    The name of the sequence to create.
+    """
+
     metadata: dict
+    """
+    Metadata to associate with the sequence.
+    """
+
     host: str = "localhost"
+    """
+    The hostname of the Mosaico server.
+    """
+
     port: int = 6726
+    """
+    The port of the Mosaico server.
+    """
 
     ros_distro: Optional[Stores] = None
     """
@@ -300,6 +319,8 @@ class RosbagInjector:
         # Set of topics to skip (e.g., no adapter found), allowing O(1) fast-fail in the loop.
         self._ignored_topics: Set[str] = set()
 
+        self._loader: Optional[ROSLoader] = None
+
     def _register_custom_types(self):
         """
         Loads custom ROS message definitions into the global `ROSTypeRegistry`.
@@ -333,6 +354,17 @@ class RosbagInjector:
 
         return ROSBridge.get_default_adapter(msg_type)
 
+    def _open_or_get_loader(self) -> ROSLoader:
+        if self._loader is None:
+            self._loader = ROSLoader(
+                file_path=self.cfg.file_path,
+                topics=self.cfg.topics,
+                typestore_name=self.cfg.ros_distro or Stores.EMPTY,
+                error_policy=LoaderErrorPolicy.IGNORE,
+            )
+
+        return self._loader
+
     def run(self):
         """
         Main execution entry point for the injection pipeline.
@@ -357,12 +389,8 @@ class RosbagInjector:
             ) as mclient:
                 # Context: ROS Loader (File Access)
                 logger.info(f"Opening bag: '{self.cfg.file_path}'")
-                with ROSLoader(
-                    file_path=self.cfg.file_path,
-                    topics=self.cfg.topics,
-                    typestore_name=self.cfg.ros_distro or Stores.EMPTY,
-                    error_policy=LoaderErrorPolicy.IGNORE,
-                ) as ros_loader:
+
+                with self._open_or_get_loader() as ros_loader:
                     # Setup Progress UI
                     ui = ProgressManager(ros_loader)
                     ui.setup()

@@ -4,6 +4,7 @@ from .image import (
     CompressedImage as CompressedImage,
     Image as Image,
     ImageFormat as ImageFormat,
+    StatefulDecodingSession as StatefulDecodingSession,
 )
 from .imu import IMU as IMU
 from .magnetometer import Magnetometer as Magnetometer

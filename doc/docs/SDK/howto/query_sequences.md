@@ -5,6 +5,15 @@ description: Example how-to for Querying Sequences by Name and Metadata
 
 This guide demonstrates how to locate specific recording sessions based on their naming conventions and custom user metadata tags. This is the most common entry point for data discovery, allowing you to isolate sessions that match specific environmental or project conditions.
 
+
+!!! example "Related experiment"
+    To fully grasp the following How-To, we recommend you to read (and reproduce) the **[Querying Catalogs](../examples/query_catalogs.md) Example**.
+
+??? question "In Depth Explanation"
+    * **[Documentation: Querying Catalogs](../query.md)**
+    * **[API Reference: Query Builders](../API_reference/query/builders.md)**
+    * **[API Reference: Query Response](../API_reference/query/response.md)**
+
 ### The Objective
 
 We want to find all sequences where:
@@ -12,12 +21,6 @@ We want to find all sequences where:
 1. The sequence name contains the string `"test_drive"`.
 2. The user metadata indicates a specific project name (e.g., `"Apollo"`).
 3. The environmental visibility was recorded as less than 50m.
-
-For a more in-depth explanation:
-
-* **[Documentation: Querying Catalogs](../query.md)**
-* **[API Reference: Query Builders](../API_reference/query/builders.md)**
-* **[API Reference: Query Response](../API_reference/query/response.md)**
 
 ### Implementation
 

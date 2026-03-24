@@ -3,18 +3,18 @@ title: Streaming Data from Sequences and Topics
 description: Example how-to for Streaming Data from Sequences and Topics
 ---
 
-!!! info "Prerequisites"
-    To fully grasp the following How-To, we recommend you to read the **[Reading a Sequence and its Topics](../howto/reading.md) How-To**.
 
 This guide demonstrates how to interact with the Mosaico Data Platform to retrieve the data stream that has been previously ingested. You will learn how to use the Mosaico SDK to:
 
 * **Obtain a [`SequenceDataStreamer`][mosaicolabs.handlers.SequenceDataStreamer]** to consume recordings from a sequence.
 * **Obtain a [`TopicDataStreamer`][mosaicolabs.handlers.TopicDataStreamer]** to consume recordings from a topic.
 
-For a more in-depth explanation:
+!!! info "Prerequisites"
+    To fully grasp the following How-To, we recommend you to read (and reproduce) the **[Reading a Sequence and its Topics](../examples/data_inspection.md) Example**.
 
-* **[Documentation: The Reading Workflow](../handling/reading.md)**
-* **[API Reference: Data Retrieval](../API_reference/handlers/reading.md)**
+??? question "In Depth Explanation"
+    * **[Documentation: The Reading Workflow](../handling/reading.md)**
+    * **[API Reference: Data Retrieval](../API_reference/handlers/reading.md)**
 
 ### Unified Multi-Sensor Replay
 

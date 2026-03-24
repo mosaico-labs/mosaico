@@ -5,15 +5,17 @@ description: Example how-to for Complex Chained Queries
 
 Sometimes a single query is insufficient because you need to correlate data across different topics. This guide demonstrates **Query Chaining**, a technique where the results of one search are used to "lock" the domain for a second, more specific search.
 
+!!! example "Related experiment"
+    To fully grasp the following How-To, we recommend you to read (and reproduce) the **[Querying Catalogs](../examples/query_catalogs.md) Example**.
+
+??? question "In Depth Explanation"
+    * **[Documentation: Querying Catalogs](../query.md)**
+    * **[API Reference: Query Builders](../API_reference/query/builders.md)**
+    * **[API Reference: Query Response](../API_reference/query/response.md)**
+
 ### The Objective
 
 Find sequences where a high-precision GPS state was achieved, and **within those same sequences**, locate any log messages containing the string `"[ERR]"`.
-
-For a more in-depth explanation:
-
-* **[Documentation: Querying Catalogs](../query.md)**
-* **[API Reference: Query Builders](../API_reference/query/builders.md)**
-* **[API Reference: Query Response](../API_reference/query/response.md)**
 
 ### Implementation
 

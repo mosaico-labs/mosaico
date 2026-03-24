@@ -448,7 +448,7 @@ class Message(BaseModel):
 
     # --- Public API ---
 
-    def get_data(self, target_type: Type[TSerializable]) -> TSerializable:
+    def get_data(self, target_type: Type[TSerializable]) -> Optional[TSerializable]:
         """
         Safe, type-hinted accessor for the data payload.
 
@@ -477,11 +477,31 @@ class Message(BaseModel):
             ```
         """
         if not isinstance(self.data, target_type):
-            raise TypeError(
-                f"Message data is type '{type(self.data).__name__}', "
-                f"but '{target_type.__name__}' was requested."
-            )
+            return None
         return self.data
+
+    @staticmethod
+    def _process_value(value):
+        """
+        Process a value to handle None values.
+
+        Args:
+            value: The value to process.
+
+        Returns:
+            The processed value.
+        """
+        import numpy as np
+
+        # Handle list / tuple / ndarray
+        if isinstance(value, (list, tuple, np.ndarray)):
+            return [None if pd.isna(v) else v for v in value]
+        # Handle pandas scalar / normal scalar
+        try:
+            return None if pd.isna(value) else value
+        except Exception:
+            # Fallback: Return the value as is
+            return value
 
     @staticmethod
     def from_dataframe_row(
@@ -590,7 +610,7 @@ class Message(BaseModel):
 
         for key, value in relevant_data.items():
             # Convert Pandas/NumPy NaNs to Python None for model compatibility
-            processed_value = None if pd.isna(value) else value
+            processed_value = Message._process_value(value)
 
             parts = key.split(".")
             d = nested_data

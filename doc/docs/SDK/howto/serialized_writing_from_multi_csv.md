@@ -38,6 +38,7 @@ When dealing with massive datasets spread across multiple files, we adopt a **ch
 import pandas as pd
 from mosaicolabs import (
     MosaicoClient, # The gateway to the Mosaico Platform
+    setup_sdk_logging, # The mosaico logging config
     SessionLevelErrorPolicy, # The error policy for the SequenceWriter
     Message, # The base class for all data messages
     IMU, # The IMU sensor data class
@@ -110,10 +111,9 @@ The Mosaico [`Message`][mosaicolabs.models.Message] object is an in-memory objec
 
 In this specific case, the data are instances of the [`IMU`][mosaicolabs.models.sensors.IMU], [`GPS`][mosaicolabs.models.sensors.GPS] and [`Pressure`][mosaicolabs.models.sensors.Pressure] models. These are built-in parts of the Mosaico default ontology, meaning the platform already understands their schema and how to optimize their storage.
 
-For a more in-depth explanation:
-
-* **[Documentation: Data Models & Ontology](../ontology.md)**
-* **[API Reference: Sensor Models](../API_reference/models/sensors.md)**
+??? question "In Depth Explanation"
+    * **[Documentation: Data Models & Ontology](../ontology.md)**
+    * **[API Reference: Sensor Models](../API_reference/models/sensors.md)**
 
 
 ### Step 2: Orchestrating the Multi-Topic Sequence
@@ -124,6 +124,7 @@ A sequence writer acts as a logical container for related sensor data streams (t
 When initializing your data handling pipeline, it is highly recommended to wrap the **Mosaico Client** within a `with` statement. This context manager pattern ensures that underlying network connections and shared resource pools are correctly shut down and released when your operations conclude.
 
 ```python title="Connect to the Mosaico server and create a sequence writer"
+setup_sdk_logging(level="INFO", pretty=True) # Configure the mosaico logging
 
 with MosaicoClient.connect("localhost", 6726) as client:
     with client.sequence_create(
@@ -154,10 +155,9 @@ with MosaicoClient.connect("localhost", 6726) as client:
 
 The behavior of the orchestrator during a failure is governed by the `on_error` policy. This is a *Last-Resort* automated error policy, which dictates how the server manages a sequence if an unhandled exception bubbles up to the `SequenceWriter` context manager. By default, this is set to [`SessionLevelErrorPolicy.Report`][mosaicolabs.enum.SessionLevelErrorPolicy.Report], send an error notification to the server, allowing the platform to flag the sequence as failed while retaining whatever records were successfully transmitted before the error occurred. Alternatively, you can specify [`SessionLevelErrorPolicy.Delete`][mosaicolabs.enum.SessionLevelErrorPolicy.Delete]: in this case, the SDK will signal the server to physically remove the incomplete sequence and its associated topic directories, if any errors occurred.
 
-For a more in-depth explanation:
-
-* **[Documentation: The Writing Workflow](../handling/writing.md)**
-* **[API Reference: Writing Data](../API_reference/handlers/writing.md)**
+??? question "In Depth Explanation"
+    * **[Documentation: The Writing Workflow](../handling/writing.md)**
+    * **[API Reference: Writing Data](../API_reference/handlers/writing.md)**
 
 ### Step 3: Topic Creation and Resource Allocation
 
@@ -251,6 +251,7 @@ Import the necessary classes from the Mosaico SDK.
 import pandas as pd
 from mosaicolabs import (
     MosaicoClient, # The gateway to the Mosaico Platform
+    setup_sdk_logging, # The mosaico logging config
     SessionLevelErrorPolicy, # The error policy for the SequenceWriter
     Message, # The base class for all data messages
     IMU, # The IMU sensor data class
@@ -331,6 +332,8 @@ def stream_pressure_from_csv(file_path: str, chunk_size: int = 1000, skipinitial
 Main ingestion orchestration
 """
 def main():
+    setup_sdk_logging(level="INFO", pretty=True) # Configure the mosaico logging
+    
     with MosaicoClient.connect("localhost", 6726) as client:
         # Initialize the Orchestrator for the entire mission
         with client.sequence_create(

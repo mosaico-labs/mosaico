@@ -173,10 +173,9 @@ The Mosaico [`Message`][mosaicolabs.models.Message] object is an in-memory objec
 
 In this specific case, the data are instances of the [`IMU`][mosaicolabs.models.sensors.IMU], [`GPS`][mosaicolabs.models.sensors.GPS] and [`Pressure`][mosaicolabs.models.sensors.Pressure] models. These are built-in parts of the Mosaico default ontology, meaning the platform already understands their schema and how to optimize their storage.
 
-For a more in-depth explanation:
-
-* **[Documentation: Data Models & Ontology](../ontology.md)**
-* **[API Reference: Sensor Models](../API_reference/models/sensors.md)**
+??? question "In Depth Explanation"
+    * **[Documentation: Data Models & Ontology](../ontology.md)**
+    * **[API Reference: Sensor Models](../API_reference/models/sensors.md)**
 
 ### Step 2: Orchestrating the Multi-Topic Interleaved Ingestion
 
@@ -191,6 +190,8 @@ from mosaicolabs import MosaicoClient, SessionLevelErrorPolicy, Message
 
 with open("mission_data.mcap", "rb") as f:
     reader = make_reader(f)
+    setup_sdk_logging(level="INFO", pretty=True) # Configure the mosaico logging
+    
     with MosaicoClient.connect("localhost", 6726) as client:
         with client.sequence_create(
             sequence_name="multi_sensor_ingestion",
@@ -220,10 +221,9 @@ with open("mission_data.mcap", "rb") as f:
 
 The behavior of the orchestrator during a failure is governed by the `on_error` policy. This is a *Last-Resort* automated error policy, which dictates how the server manages a sequence if an unhandled exception bubbles up to the `SequenceWriter` context manager. By default, this is set to [`SessionLevelErrorPolicy.Report`][mosaicolabs.enum.SessionLevelErrorPolicy.Report], send an error notification to the server, allowing the platform to flag the sequence as failed while retaining whatever records were successfully transmitted before the error occurred. Alternatively, you can specify [`SessionLevelErrorPolicy.Delete`][mosaicolabs.enum.SessionLevelErrorPolicy.Delete]: in this case, the SDK will signal the server to physically remove the incomplete sequence and its associated topic directories, if any errors occurred.
 
-For a more in-depth explanation:
-
-* **[Documentation: The Writing Workflow](../handling/writing.md)**
-* **[API Reference: Writing Data](../API_reference/handlers/writing.md)**
+??? question "In Depth Explanation"
+    * **[Documentation: The Writing Workflow](../handling/writing.md)**
+    * **[API Reference: Writing Data](../API_reference/handlers/writing.md)**
 
 ### Step 3: Topic Creation and Resource Allocation
 
@@ -302,6 +302,7 @@ from mcap.reader import make_reader
 
 from mosaicolabs import (
     MosaicoClient, # The gateway to the Mosaico Platform
+    setup_sdk_logging, # The mosaico logging config
     SessionLevelErrorPolicy, # The error policy for the SequenceWriter
     TopicLevelErrorPolicy, # The error policy for the TopicWriter
     Message, # The base class for all data messages
@@ -399,6 +400,8 @@ def deserialize_payload(data: bytes, schema_name: str) -> dict:
 Main ingestion orchestration
 """
 def main():
+    setup_sdk_logging(level="INFO", pretty=True) # Configure the mosaico logging
+
     with open("mission_data.mcap", "rb") as f:
         reader = make_reader(f)
         with MosaicoClient.connect("localhost", 6726) as client:

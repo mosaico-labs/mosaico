@@ -2,7 +2,7 @@ from enum import Enum
 
 
 class APIKeyPermissionEnum(Enum):
-    READ = "read"
-    WRITE = "write"
-    DELETE = "delete"
-    MANAGE = "manage"
+    Read = "read"
+    Write = "write"
+    Delete = "delete"
+    Manage = "manage"
