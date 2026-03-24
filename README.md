@@ -1,6 +1,6 @@
 <div align="center">
   <picture>
-    <img alt="Mosaico logo" src="https://mosaico.dev/mosaico-loop@512px-25fps.gif" width="512px">
+    <a href="https://mosaico.dev"><img alt="Mosaico logo" src="https://mosaico.dev/mosaico-loop@512px-25fps.gif" width="600px"></a>
   </picture>
 </div>
 <br/>
