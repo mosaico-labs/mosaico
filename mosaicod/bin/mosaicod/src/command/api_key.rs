@@ -40,18 +40,6 @@ pub enum ApiKey {
     List,
 }
 
-// /// Convert the strings obtained from the CLI into a [`types::Permissions`]
-// fn cast_to_permissions(permissions: String) -> Result<types::auth::Permissions, String> {
-//
-//     match p.as_str() {
-//         "read" => perm = perm.add(types::auth::Permissions::READ),
-//         "write" => perm = perm.add(types::auth::Permissions::WRITE),
-//         "delete" => perm = perm.add(types::auth::Permissions::DELETE),
-//         "manage" => perm = perm.add(types::auth::Permissions::MANAGE),
-//         _ => return Err("Permission not allowed".to_string()),
-//     };
-// }
-
 pub fn auth(auth: ApiKey) -> Result<(), common::Error> {
     common::load_env_variables()?;
 
