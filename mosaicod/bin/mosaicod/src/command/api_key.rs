@@ -134,42 +134,49 @@ pub fn auth(auth: ApiKey) -> Result<(), common::Error> {
 }
 
 fn print_authz_policy_details(policy: types::ApiKey) {
-    println!(
-        "{:>13} {}",
-        "Expired:".bold(),
-        if policy.is_expired() { "true" } else { "false" }
-    );
     let created_datetime: types::DateTime = policy.creation_timestamp.into();
     let expired_datetime: Option<types::DateTime> = policy.expiration_timestamp.map(|t| t.into());
 
-    println!("{:>13} {}", "Created:".bold(), created_datetime);
-    println!(
-        "{:>13} {}",
-        "Expires:".bold(),
-        if let Some(ts) = expired_datetime {
-            ts.to_string()
-        } else {
-            "never".to_owned()
-        }
-    );
-    println!("{:>13} {}", "Description:".bold(), policy.description);
+    println!("{:>13} {}", "CREATED:".bold(), created_datetime);
 
     println!(
         "{:>13} {}",
-        "Permissions:".bold(),
+        "PERMISSIONS:".bold(),
         String::from(policy.permission)
     );
+
+    println!(
+        "{:>13} {}",
+        "EXPIRES:".bold(),
+        if let Some(ts) = expired_datetime {
+            ts.to_string()
+        } else {
+            "never".yellow().to_string()
+        }
+    );
+
+    println!(
+        "{:>13} {}",
+        "EXPIRED:".bold(),
+        if policy.is_expired() {
+            "expired".red()
+        } else {
+            "valid".green()
+        }
+    );
+
+    println!("{:>13} {}", "DESCRIPTION:".bold(), policy.description);
 }
 
 fn print_authz_policy_list(policies: Vec<types::ApiKey>) {
     // Header
     println!(
-        "{:>12} {:>24} {:>10} {:>30}    {}",
-        "Fingerprint".bold(),
-        "Created".bold(),
-        "Expired".bold(),
-        "Permissions".bold(),
-        "Description".bold()
+        "{:>12} {:>24} {:>10} {:>14}    {}",
+        "FINGERPRINT".bold(),
+        "CREATED".bold(),
+        "EXPIRED".bold(),
+        "PERMISSIONS".bold(),
+        "DESCRIPTION".bold()
     );
     for policy in policies {
         let datetime: types::DateTime = policy.creation_timestamp.into();
@@ -180,7 +187,7 @@ fn print_authz_policy_list(policies: Vec<types::ApiKey>) {
         };
 
         println!(
-            "{:>12} {:>24} {:>10} {:>30}    {}",
+            "{:>12} {:>24} {:>10} {:>14}    {}",
             policy.token().fingerprint(),
             datetime.to_string(),
             expired,
