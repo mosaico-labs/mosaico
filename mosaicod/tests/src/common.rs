@@ -43,7 +43,7 @@ async fn start_server(
     tls: Option<server::flight::TlsConfig>,
 ) -> tokio::task::JoinHandle<()> {
     // Ensure that params are loaded
-    params::load_params_from_env().unwrap();
+    params::load_params_from_env(params::ParamsLoadOptions::testing()).unwrap();
 
     let database = db::testing::Database::new(pool);
     let store = store::testing::Store::new_random_on_tmp().unwrap();

@@ -2,10 +2,12 @@ version: 2
 updates:
   - package-ecosystem: "cargo"
     directory: "/mosaicod" 
+    target-branch: "release/0.3.0"
     schedule:
       interval: "weekly"
 
   - package-ecosystem: "pip"
     directory: "/mosaico-sdk-py"
+    target-branch: "release/0.3.0"
     schedule:
       interval: "weekly"
