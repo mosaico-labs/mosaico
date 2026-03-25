@@ -1,7 +1,7 @@
 use super::*;
 use crate::types;
 use crc32fast::Hasher;
-use std::{ops::BitOr, str::FromStr};
+use std::str::FromStr;
 
 #[derive(thiserror::Error, Debug, PartialEq)]
 pub enum ApiKeyError {
@@ -23,8 +23,11 @@ pub enum ApiKeyError {
     #[error("fingerprint mismatch")]
     TokenFingerprintMismatch,
 
-    #[error("unrecognized permission string")]
-    UnrecognizedPermissionString,
+    #[error("invalid string to permission cast")]
+    InvalidStringToPermissionCast,
+
+    #[error("invalid integer to permission cast")]
+    InvalidIntToPermissionCast,
 
     #[error("missing permissions")]
     MissingPermissions,
@@ -189,190 +192,85 @@ impl Default for Token {
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-/// PERMISSIONS
+// PERMISSIONS
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-#[derive(Copy, Clone, PartialEq)]
-pub struct Permissions(u8);
+/// List of possible permissions associated to an API Key (only one per API Key).
+/// They are arranged in a hierarchy where an element defines its permission and gets also all the permissions from the previous ones:
+/// Read => grants read access to data
+/// Write => grants read and write access to data
+/// Delete => grants read, write and delete access to data
+/// Manage => grants read, write and delete access to data. Plus the authorization to manage other API keys.
+#[repr(u8)]
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum Permission {
+    Read = 0b0000_0001,
+    Write = 0b0000_0011,
+    Delete = 0b0000_0111,
+    Manage = 0b0000_1111,
+}
 
-impl Permissions {
-    pub const READ: Self = Self(0b0000_0001);
-    pub const WRITE: Self = Self(0b0000_0010);
-    pub const DELETE: Self = Self(0b0000_0100);
-    pub const MANAGE: Self = Self(0b0000_1000);
+impl Permission {
+    const READ_BIT: u8 = 0b0000_0001;
+    const WRITE_BIT: u8 = 0b0000_0010;
+    const DELETE_BIT: u8 = 0b0000_0100;
+    const MANAGE_BIT: u8 = 0b0000_1000;
 
-    /// Creates a new permission scope from a set of permissions.
-    ///
-    /// # Example
-    /// ```
-    /// use mosaicod_core::types::auth::Permissions;
-    ///
-    /// let perm = Permissions::new(Permissions::READ | Permissions::WRITE);
-    /// ```
-    pub fn new(perm: Permissions) -> Self {
-        Self(perm.0)
+    pub fn can_read(&self) -> bool {
+        (*self as u8 & Self::READ_BIT) != 0
     }
 
-    /// Adds new permissions
-    ///
-    /// # Example
-    /// ```
-    /// use mosaicod_core::types::auth::Permissions;
-    ///
-    /// let mut perm = Permissions::default();
-    /// assert!(!perm.has(Permissions::MANAGE));
-    /// perm = perm.add(Permissions::MANAGE);
-    /// assert!(perm.has(Permissions::MANAGE));
-    /// ```
-    pub fn add(&self, permission: Permissions) -> Permissions {
-        Self(self.0 | permission.0)
+    pub fn can_write(&self) -> bool {
+        (*self as u8 & Self::WRITE_BIT) != 0
     }
 
-    /// Removes permissions
-    ///
-    /// # Example
-    /// ```
-    /// use mosaicod_core::types::auth::Permissions;
-    ///
-    /// let perm = Permissions::new(Permissions::WRITE | Permissions::READ);
-    /// let perm = perm.remove(Permissions::WRITE);
-    /// assert!(!perm.has(Permissions::WRITE));
-    /// ```
-    pub fn remove(&self, permission: Permissions) -> Permissions {
-        Self(self.0 & !permission.0)
+    pub fn can_delete(&self) -> bool {
+        (*self as u8 & Self::DELETE_BIT) != 0
     }
 
-    /// Checks if the current permission has the `target` permissions
-    ///
-    /// # Example
-    /// ```
-    /// use mosaicod_core::types::auth::Permissions;
-    ///
-    /// let perm = Permissions::new(Permissions::READ | Permissions::WRITE);
-    /// assert!(perm.has(Permissions::READ));
-    /// assert!(perm.has(Permissions::WRITE));
-    /// assert!(!perm.has(Permissions::MANAGE));
-    /// ```
-    pub fn has(&self, target: Permissions) -> bool {
-        target.0 & self.0 == target.0
-    }
-
-    /// Check if the current permission is empty (i.e. has no permissions set)
-    ///
-    /// # Example
-    /// ```
-    /// use mosaicod_core::types::auth::Permissions;
-    ///
-    /// let perm = Permissions::default();
-    /// assert!(perm.is_empty());
-    /// ```
-    pub fn is_empty(&self) -> bool {
-        self.0 == 0
-    }
-
-    /// Returns the permissions as 1 byte
-    pub fn as_u8(&self) -> u8 {
-        self.0
-    }
-
-    pub fn is_read(&self) -> bool {
-        self.has(Permissions::READ)
-    }
-
-    pub fn is_write(&self) -> bool {
-        self.has(Permissions::WRITE)
-    }
-
-    pub fn is_delete(&self) -> bool {
-        self.has(Permissions::DELETE)
-    }
-
-    pub fn is_manage(&self) -> bool {
-        self.has(Permissions::MANAGE)
+    pub fn can_manage(&self) -> bool {
+        (*self as u8 & Self::MANAGE_BIT) != 0
     }
 }
 
-impl From<u8> for Permissions {
-    fn from(value: u8) -> Self {
-        Self(value)
+/// Convert a permission into a string
+impl From<Permission> for String {
+    fn from(value: Permission) -> Self {
+        match value {
+            Permission::Read => String::from("read"),
+            Permission::Write => String::from("write"),
+            Permission::Delete => String::from("delete"),
+            Permission::Manage => String::from("manage"),
+        }
     }
 }
 
-impl From<Permissions> for u8 {
-    fn from(value: Permissions) -> Self {
-        value.0
-    }
-}
-
-/// Convert a set of permissions into a vector of strings
-/// like `["read", "write" ...]`
-impl From<Permissions> for Vec<String> {
-    fn from(value: Permissions) -> Self {
-        let mut vec: Vec<String> = Vec::new();
-        if value.has(Permissions::READ) {
-            vec.push("read".to_owned());
-        }
-
-        if value.has(Permissions::WRITE) {
-            vec.push("write".to_owned());
-        }
-
-        if value.has(Permissions::DELETE) {
-            vec.push("delete".to_owned());
-        }
-
-        if value.has(Permissions::MANAGE) {
-            vec.push("manage".to_owned());
-        }
-        vec
-    }
-}
-
-impl FromStr for Permissions {
+impl FromStr for Permission {
     type Err = ApiKeyError;
 
+    /// Empty string is not converted into Permission::None, but treated as an error instead.
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         match value {
-            "read" => Ok(Permissions::READ),
-            "write" => Ok(Permissions::WRITE),
-            "delete" => Ok(Permissions::DELETE),
-            "manage" => Ok(Permissions::MANAGE),
-            _ => Err(ApiKeyError::UnrecognizedPermissionString),
+            "read" => Ok(Permission::Read),
+            "write" => Ok(Permission::Write),
+            "delete" => Ok(Permission::Delete),
+            "manage" => Ok(Permission::Manage),
+            _ => Err(ApiKeyError::InvalidStringToPermissionCast),
         }
     }
 }
 
-impl TryFrom<&[&str]> for Permissions {
+impl TryFrom<u8> for Permission {
     type Error = ApiKeyError;
 
-    fn try_from(value: &[&str]) -> Result<Self, Self::Error> {
-        if value.is_empty() {
-            return Err(ApiKeyError::MissingPermissions);
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            x if x == Permission::Read as u8 => Ok(Permission::Read),
+            x if x == Permission::Write as u8 => Ok(Permission::Write),
+            x if x == Permission::Delete as u8 => Ok(Permission::Delete),
+            x if x == Permission::Manage as u8 => Ok(Permission::Manage),
+            _ => Err(ApiKeyError::InvalidIntToPermissionCast),
         }
-        value.iter().try_fold(Permissions::default(), |mut b, &s| {
-            b = b.add(s.parse()?);
-            Ok(b)
-        })
-    }
-}
-
-impl std::fmt::Debug for Permissions {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Permissions({:08b})", self.0)
-    }
-}
-
-impl Default for Permissions {
-    /// Returns an empty permission
-    fn default() -> Self {
-        Self(0)
-    }
-}
-
-impl BitOr for Permissions {
-    type Output = Self;
-    fn bitor(self, rhs: Self) -> Self::Output {
-        Self(rhs.0 | self.0)
     }
 }
 
@@ -388,7 +286,7 @@ pub struct ApiKey {
     pub key: Token,
 
     /// Permissions associated with the scope
-    pub permissions: Permissions,
+    pub permission: Permission,
 
     /// Description to keep track of the purpose of the key
     pub description: String,
@@ -405,25 +303,25 @@ impl ApiKey {
     ///
     /// # Example
     /// ```
-    /// use mosaicod_core::types::{ApiKey, auth::Permissions};
+    /// use mosaicod_core::types::{ApiKey, auth::Permission};
     ///
-    /// // Single permission
-    /// let policy = ApiKey::new(Permissions::READ, "dummy key".to_owned(), None);
+    /// // Read permission
+    /// let policy = ApiKey::new(Permission::Read, "dummy key".to_owned(), None);
     ///
-    /// // Multiple permissions
+    /// // Write permissions (read is implicitly inherited)
     /// let policy = ApiKey::new(
-    ///     Permissions::READ | Permissions::WRITE,
+    ///     Permission::Write,
     ///     "dummy key".to_owned(),
     ///     None
     /// );
     pub fn new(
-        permission: Permissions,
+        permission: Permission,
         description: String,
         expires_at: Option<types::Timestamp>,
     ) -> Self {
         Self {
             key: Token::new(),
-            permissions: permission,
+            permission,
             creation_timestamp: Timestamp::now(),
             expiration_timestamp: expires_at,
             description,
@@ -450,63 +348,44 @@ mod tests {
     use super::*;
 
     #[test]
-    fn permissions() {
-        let perm = Permissions::new(Permissions::READ | Permissions::WRITE);
+    fn test_permissions() {
+        let perm = Permission::Read;
+        assert!(perm.can_read());
+        assert!(!perm.can_write());
+        assert!(!perm.can_delete());
+        assert!(!perm.can_manage());
 
-        assert!(perm.has(Permissions::READ | Permissions::WRITE));
-        assert!(perm.has(Permissions::READ));
-        assert!(perm.has(Permissions::WRITE));
+        let perm = Permission::Write;
+        assert!(perm.can_read());
+        assert!(perm.can_write());
+        assert!(!perm.can_delete());
+        assert!(!perm.can_manage());
 
-        let perm = Permissions::new(Permissions::MANAGE);
-        assert!(perm.has(Permissions::MANAGE));
-        assert!(!perm.has(Permissions::READ));
-        assert!(!perm.has(Permissions::WRITE));
-        assert!(!perm.has(Permissions::DELETE));
+        let perm = Permission::Delete;
+        assert!(perm.can_read());
+        assert!(perm.can_write());
+        assert!(perm.can_delete());
+        assert!(!perm.can_manage());
 
-        let mut perm = Permissions::new(Permissions::READ | Permissions::WRITE);
-        perm = perm.add(Permissions::MANAGE);
-        assert!(perm.has(Permissions::READ | Permissions::WRITE | Permissions::MANAGE),);
+        let perm = Permission::Manage;
+        assert!(perm.can_read());
+        assert!(perm.can_write());
+        assert!(perm.can_delete());
+        assert!(perm.can_manage());
 
         // Check string-to-permission conversion.
         assert_eq!(
-            "".parse::<Permissions>().unwrap_err(),
-            ApiKeyError::UnrecognizedPermissionString
+            "".parse::<Permission>().unwrap_err(),
+            ApiKeyError::InvalidStringToPermissionCast
         );
-        assert_eq!("read".parse::<Permissions>().unwrap(), Permissions::READ);
-        assert_eq!("write".parse::<Permissions>().unwrap(), Permissions::WRITE);
+        assert_eq!("read".parse::<Permission>().unwrap(), Permission::Read);
+        assert_eq!("write".parse::<Permission>().unwrap(), Permission::Write);
+        assert_eq!("delete".parse::<Permission>().unwrap(), Permission::Delete);
+        assert_eq!("manage".parse::<Permission>().unwrap(), Permission::Manage);
         assert_eq!(
-            "delete".parse::<Permissions>().unwrap(),
-            Permissions::DELETE
+            "wrong_string".parse::<Permission>().unwrap_err(),
+            ApiKeyError::InvalidStringToPermissionCast
         );
-        assert_eq!(
-            "manage".parse::<Permissions>().unwrap(),
-            Permissions::MANAGE
-        );
-        assert_eq!(
-            "wrong_string".parse::<Permissions>().unwrap_err(),
-            ApiKeyError::UnrecognizedPermissionString
-        );
-
-        // Check conversion from vector of strings to permission.
-        let perm: Result<Permissions, ApiKeyError> = vec![].as_slice().try_into();
-        assert_eq!(perm.unwrap_err(), ApiKeyError::MissingPermissions);
-        let perm: Permissions = vec!["read"].as_slice().try_into().unwrap();
-        assert_eq!(perm, Permissions::READ);
-        let perm: Permissions = vec!["read", "write"].as_slice().try_into().unwrap();
-        assert_eq!(perm, Permissions::READ | Permissions::WRITE);
-        let perm: Permissions = vec!["read", "write", "delete", "manage"]
-            .as_slice()
-            .try_into()
-            .unwrap();
-        assert_eq!(
-            perm,
-            Permissions::READ | Permissions::WRITE | Permissions::DELETE | Permissions::MANAGE
-        );
-        let perm: Result<Permissions, ApiKeyError> =
-            vec!["read", "wrong_string"].as_slice().try_into();
-        assert_eq!(perm.unwrap_err(), ApiKeyError::UnrecognizedPermissionString);
-        let perm: Result<Permissions, ApiKeyError> = vec![""].as_slice().try_into();
-        assert_eq!(perm.unwrap_err(), ApiKeyError::UnrecognizedPermissionString);
     }
 
     #[test]

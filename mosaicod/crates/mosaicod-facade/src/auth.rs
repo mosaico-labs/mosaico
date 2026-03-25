@@ -27,7 +27,7 @@ impl Auth {
 
     /// Creates a new API key in the system
     pub async fn create(
-        permissions: types::auth::Permissions,
+        permissions: types::auth::Permission,
         description: String,
         expires_at: Option<types::Timestamp>,
         db: db::Database,
@@ -80,7 +80,7 @@ mod tests {
         let database = db::testing::Database::new(pool);
 
         let fauth = Auth::create(
-            types::auth::Permissions::READ,
+            types::auth::Permission::Read,
             "some text".to_owned(),
             None,
             database.clone(),
@@ -97,7 +97,7 @@ mod tests {
                 .await
                 .unwrap();
 
-            assert_eq!(res_key.permissions, key.permissions);
+            assert_eq!(res_key.permission, key.permission);
             assert_eq!(res_key.token(), key.token());
         }
 
