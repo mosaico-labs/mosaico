@@ -123,6 +123,7 @@ nav:
       - daemon/query.md
       - daemon/cli.md
       - daemon/tls.md
+      - daemon/env.md
   - Development:
       - development/release_cycle.md
 

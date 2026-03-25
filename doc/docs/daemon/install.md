@@ -4,7 +4,7 @@
 
 For rapid prototyping, we provide a standard Docker Compose configuration. This creates an isolated network environment containing the mosaico server and its required PostgreSQL database.
 
-```yaml
+```yaml title="Docker compose mosaicod deployement", hl_lines="31-32"
 name: "mosaico"
 services:
   
@@ -35,13 +35,13 @@ services:
       MOSAICOD_DB_URL: postgresql://postgres:password@db:5432/mosaico
     volumes:
       - mosaico-data:/data
-    command: |
-      run --host 127.0.0.1 --port 6726 --log-level info --local-store /data
+    command: | # (1)!
+      run --host 127.0.0.1 --port 6726 --log-level info --local-store /data 
     depends_on:
       database:
         condition: service_healthy
     ports:
-      - "127.0.0.1:6726:6726"
+      - "127.0.0.1:6726:6726" # (2)!
 
 volumes:
   pg-data:
@@ -51,9 +51,13 @@ networks:
   mosaico:
 ```
 
-This configuration provisions both Postgres and mosaicod within a private Docker network. Only the mosaicod instance is exposed to the host.
+1. Here you can list any additional command line options for `mosaicod`. In this example, we configure the server to use the local filesystem for storage, which is mounted to the `/data` directory in the container. This allows you to persist data across container restarts and easily access it from the host machine. If you prefer to use S3-compatible storage, simply remove the `--local-store` option and set the [appropriate environment](#remote-storage-configuration) variables for your object storage configuration.
 
-!!!warning "Security"
+2. Remove `127.0.0.1` to expose this service to external networks. By default, this configuration restricts access to the local machine for security reasons. If you need to access the server from other machines on the network, you can modify the port mapping to allow external connections.
+
+This configuration provisions both Postgres and mosaicod within a private Docker network. Only the daemon instance is exposed to the host.
+
+???warning "Security"
     In this basic prototyping setup, TLS and API key management are disabled.
 
     The port mapping is restricted to `127.0.0.1`. If you need to access this from an external network, consider configuring `mosaicod` to [enable TLS](tls.md) or use a reverse proxy to handle SSL termination.
@@ -109,18 +113,11 @@ The server supports S3-compatible object storage by default but can be configure
 
 ### Database
 
-Mosaico requires a connection to a running **PostgreSQL** instance, which is defined via the `MOSAICO_DATABASE_URL` environment variable.
+Mosaico requires a connection to a running **PostgreSQL** instance, which is defined via the `MOSAICOD_DB_URL` environment variable.
 
 ### Remote Storage Configuration
 
-For production deployments, `mosaicod` should be configured to use an S3-compatible object store (such as AWS S3, Google Cloud Storage, Hetzner Object Store, etc) for durable, long-term storage. This is configured through the following environment variables:
-
-| Environment Variable       | Description                                                                                                                                                           |
-| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| <code class="nowrap">`MOSAICOD_STORE_BUCKET`</code>     | The name of the S3 bucket where Mosaico will store all data blobs. This bucket must be created before starting the server.                                   |
-| <code class="nowrap">`MOSAICOD_STORE_ENDPOINT`</code>   | The full URL endpoint for the S3-compatible service. This is necessary for non-AWS providers (e.g., `http://localhost:9000` for a local MinIO instance).                 |
-| <code class="nowrap">`MOSAICOD_STORE_ACCESS_KEY`</code> | The access key ID for authenticating with your object storage service.                                                                                                |
-|  <code class="nowrap">`MOSAICOD_STORE_SECRET_KEY`</code> | The secret access key that corresponds to the provided access key ID, used for authentication.                                                                        |
+For production deployments, `mosaicod` should be configured to use an S3-compatible object store (such as AWS S3, Google Cloud Storage, Hetzner Object Store, etc) for durable, long-term storage. This is configured setting the proper [environment variables](env.md/#store) for your object store provider.
 
 ### Local Storage Configuration
 

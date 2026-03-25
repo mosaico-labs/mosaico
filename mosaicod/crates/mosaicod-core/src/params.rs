@@ -37,7 +37,7 @@ use std::{env, str::FromStr, sync::OnceLock};
 pub enum Error {
     #[error("unable to parse variable `{0}`")]
     UnableToParse(String),
-    #[error("unable to retrieve variable `{0}`, error: {1}")]
+    #[error("variable `{0}` missing: {1}.")]
     RetrieveError(String, String),
 }
 
@@ -144,7 +144,7 @@ pub fn load_params_from_env(config: ParamsLoadOptions) -> Result<(), Error> {
         store_secret_key: Hidden::from(optional("MOSAICOD_STORE_SECRET_KEY", "".to_owned())),
         store_access_key: optional("MOSAICOD_STORE_ACCESS_KEY", "".to_owned()),
         max_batch_size: optional("MOSAICOD_MAX_BATCH_SIZE", 8192),
-        query_engine_memory_pool: optional("MOSAICOD_QUERY_ENGINE_MEMORY_POOL", 0),
+        query_engine_memory_pool: optional("MOSAICOD_QUERY_ENGINE_MEMORY_POOL_IN_BYTES", 0),
     };
 
     let _ = ENV.set(ev);
