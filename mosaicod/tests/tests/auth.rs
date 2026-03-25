@@ -44,18 +44,6 @@ async fn test_api_key_create(pool: sqlx::Pool<db::DatabaseType>) {
     assert!(!api_key_token.payload().is_empty());
     assert!(!api_key_token.fingerprint().is_empty());
 
-    // Creating an API key with empty permissions is an error.
-    assert!(
-        actions::api_key_create(
-            &mut client,
-            types::auth::Permission::None,
-            "api key description".to_string(),
-            Some(types::Timestamp::now() + std::time::Duration::new(1000, 0)),
-        )
-        .await
-        .is_err()
-    );
-
     server.shutdown().await;
 }
 

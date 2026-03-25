@@ -204,7 +204,6 @@ impl Default for Token {
 #[repr(u8)]
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Permission {
-    None = 0b0000_0000,
     Read = 0b0000_0001,
     Write = 0b0000_0011,
     Delete = 0b0000_0111,
@@ -238,7 +237,6 @@ impl Permission {
 impl From<Permission> for String {
     fn from(value: Permission) -> Self {
         match value {
-            Permission::None => String::new(),
             Permission::Read => String::from("read"),
             Permission::Write => String::from("write"),
             Permission::Delete => String::from("delete"),
@@ -351,12 +349,6 @@ mod tests {
 
     #[test]
     fn test_permissions() {
-        let perm = Permission::None;
-        assert!(!perm.can_read());
-        assert!(!perm.can_write());
-        assert!(!perm.can_delete());
-        assert!(!perm.can_manage());
-
         let perm = Permission::Read;
         assert!(perm.can_read());
         assert!(!perm.can_write());
