@@ -247,12 +247,12 @@ impl TryInto<query::SequenceFilter> for Sequence {
                     field: "sequence.locator".to_owned(),
                     err: e,
                 })?,
-            creation: self
+            created_at: self
                 .created_at_ns
                 .map(|v| v.try_into())
                 .transpose()
                 .map_err(|e| Self::Error::OpError {
-                    field: "sequence.created_timestamp".to_owned(),
+                    field: "sequence.created_at".to_owned(),
                     err: e,
                 })?,
             user_metadata: convert_user_metadata(self.user_metadata)?,
@@ -283,12 +283,12 @@ impl TryInto<query::TopicFilter> for Topic {
                     err: e,
                 })?,
 
-            creation: self
+            created_at: self
                 .created_at_ns
                 .map(|v| v.try_into())
                 .transpose()
                 .map_err(|e| Self::Error::OpError {
-                    field: "topic.created_timestamp".to_owned(),
+                    field: "topic.created_at".to_owned(),
                     err: e,
                 })?,
 
