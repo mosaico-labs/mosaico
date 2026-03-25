@@ -7,6 +7,8 @@
 use super::{Error, OntologyExprGroup, OntologyField, Op, Value};
 use arrow::datatypes::{Schema, SchemaRef};
 use datafusion::execution::SendableRecordBatchStream;
+use datafusion::execution::disk_manager::DiskManagerBuilder;
+use datafusion::execution::memory_pool::FairSpillPool;
 use datafusion::execution::runtime_env::{RuntimeEnv, RuntimeEnvBuilder};
 use datafusion::functions::core::expr_ext::FieldAccessor;
 use datafusion::functions_aggregate::expr_fn::{max, min};
@@ -29,11 +31,23 @@ pub struct Timeseries {
 
 impl Timeseries {
     pub fn try_new(store: Arc<store::Store>) -> Result<Self, Error> {
-        let runtime = Arc::new(
-            RuntimeEnvBuilder::new()
-                .with_object_store_registry(store.registry())
-                .build()?,
-        );
+        let memory_limit_bytes = params::params().query_engine_memory_pool;
+
+        let memory_pool = if memory_limit_bytes != 0 {
+            Some(Arc::new(FairSpillPool::new(memory_limit_bytes)))
+        } else {
+            None
+        };
+
+        let mut builder = RuntimeEnvBuilder::new().with_object_store_registry(store.registry());
+
+        if let Some(memory_pool) = memory_pool {
+            builder = builder
+                .with_memory_pool(memory_pool)
+                .with_disk_manager_builder(DiskManagerBuilder::default());
+        }
+
+        let runtime = Arc::new(builder.build()?);
 
         Ok(Timeseries {
             runtime,
@@ -298,6 +312,8 @@ mod tests {
     /// range
     #[tokio::test]
     async fn timeseries_range() {
+        params::load_params_from_env(params::ParamsLoadOptions::testing()).unwrap();
+
         let file_path = "dummy_file.parquet";
 
         let store = store::testing::Store::new_random_on_tmp().unwrap();
