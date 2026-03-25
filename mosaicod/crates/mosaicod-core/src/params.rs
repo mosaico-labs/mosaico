@@ -72,7 +72,7 @@ pub struct Params {
     pub store_bucket: String,
     pub store_secret_key: Hidden,
     pub store_access_key: String,
-    
+
     /// Maximum batch size (number of elements inside a arrow record batch) used during data
     /// streaming
     ///
@@ -87,11 +87,13 @@ pub struct Params {
     pub query_engine_memory_pool: usize,
 }
 
+/// Options for loading parameters from environment variables
 pub struct ParamsLoadOptions {
     /// Avoid parsing `MOSICOD_DB_URL` env variable
     pub skip_db_url: bool,
 }
 
+#[allow(clippy::derivable_impls)]
 impl Default for ParamsLoadOptions {
     fn default() -> Self {
         Self { skip_db_url: false }
@@ -99,6 +101,9 @@ impl Default for ParamsLoadOptions {
 }
 
 impl ParamsLoadOptions {
+    /// Load parameters with options suitable for testing
+    ///
+    /// This will skip the loading of database URL in the environment variables.
     pub fn testing() -> Self {
         Self { skip_db_url: true }
     }
@@ -127,7 +132,11 @@ pub fn load_params_from_env(config: ParamsLoadOptions) -> Result<(), Error> {
         tls_private_key_file: optional("MOSAICOD_TLS_PRIVATE_KEY_FILE", "".to_owned()),
 
         // database
-        db_url: if config.skip_db_url { "".to_owned() } else {  required("MOSAICOD_DB_URL")? },
+        db_url: if config.skip_db_url {
+            "".to_owned()
+        } else {
+            required("MOSAICOD_DB_URL")?
+        },
 
         // store
         store_endpoint: optional("MOSAICOD_STORE_ENDPOINT", "".to_owned()),
