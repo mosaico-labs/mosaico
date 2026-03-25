@@ -8,19 +8,14 @@ use mosaicod_marshal::ActionResponse;
 /// Creates a new api key with the given name and metadata.
 pub async fn api_key_create(
     ctx: &Context,
-    permissions: Vec<String>,
+    permissions: String,
     expires_at: Option<types::Timestamp>,
     description: String,
 ) -> Result<ActionResponse, ServerError> {
     info!("requested new api key");
 
     let auth = facade::Auth::create(
-        permissions
-            .iter()
-            .map(|x| x.as_str())
-            .collect::<Vec<&str>>()
-            .as_slice()
-            .try_into()?,
+        permissions.parse()?,
         description,
         expires_at,
         ctx.db.clone(),

@@ -21,7 +21,7 @@ async fn test_api_key_create(pool: sqlx::Pool<db::DatabaseType>) {
     // Create an api key with lifetime duration.
     let api_key_token = actions::api_key_create(
         &mut client,
-        types::auth::Permissions::READ,
+        types::auth::Permission::Read,
         "api key description".to_string(),
         None,
     )
@@ -34,10 +34,7 @@ async fn test_api_key_create(pool: sqlx::Pool<db::DatabaseType>) {
     // Create an api key with duration.
     let api_key_token = actions::api_key_create(
         &mut client,
-        types::auth::Permissions::READ
-            | types::auth::Permissions::MANAGE
-            | types::auth::Permissions::WRITE
-            | types::auth::Permissions::DELETE,
+        types::auth::Permission::Manage,
         "api key description".to_string(),
         Some(types::Timestamp::now() + std::time::Duration::new(1000, 0)),
     )
@@ -47,11 +44,11 @@ async fn test_api_key_create(pool: sqlx::Pool<db::DatabaseType>) {
     assert!(!api_key_token.payload().is_empty());
     assert!(!api_key_token.fingerprint().is_empty());
 
-    // Create an api key with empty permissions.
+    // Creating an API key with empty permissions is an error.
     assert!(
         actions::api_key_create(
             &mut client,
-            types::auth::Permissions::default(),
+            types::auth::Permission::None,
             "api key description".to_string(),
             Some(types::Timestamp::now() + std::time::Duration::new(1000, 0)),
         )
@@ -86,7 +83,7 @@ async fn test_api_key_status(pool: sqlx::Pool<db::DatabaseType>) {
     // Create an api key with lifetime duration and read its status.
     let api_key_token = actions::api_key_create(
         &mut client,
-        types::auth::Permissions::READ,
+        types::auth::Permission::Read,
         "api key description".to_string(),
         None,
     )
@@ -107,7 +104,7 @@ async fn test_api_key_status(pool: sqlx::Pool<db::DatabaseType>) {
 
     let api_key_token = actions::api_key_create(
         &mut client,
-        types::auth::Permissions::READ | types::auth::Permissions::WRITE,
+        types::auth::Permission::Write,
         "api key description".to_string(),
         Some(expiration_time),
     )
@@ -150,7 +147,7 @@ async fn test_api_key_revoke(pool: sqlx::Pool<db::DatabaseType>) {
     // Create an api key with lifetime duration and revoke it.
     let api_key_token = actions::api_key_create(
         &mut client,
-        types::auth::Permissions::READ,
+        types::auth::Permission::Read,
         "api key description".to_string(),
         None,
     )
@@ -175,10 +172,7 @@ async fn test_api_key_revoke(pool: sqlx::Pool<db::DatabaseType>) {
     // Create an api key with duration and revoke it.
     let api_key_token = actions::api_key_create(
         &mut client,
-        types::auth::Permissions::READ
-            | types::auth::Permissions::MANAGE
-            | types::auth::Permissions::WRITE
-            | types::auth::Permissions::DELETE,
+        types::auth::Permission::Manage,
         "api key description".to_string(),
         Some(types::Timestamp::now() + std::time::Duration::new(1000, 0)),
     )

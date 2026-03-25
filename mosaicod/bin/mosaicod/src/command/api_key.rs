@@ -10,8 +10,8 @@ pub enum ApiKey {
     /// Create a new API key with custom parameters
     Create {
         /// Specifies permissions for the key. Allowed values are: read, write, delete, manage
-        #[arg(num_args=1.., value_delimiter=' ', required=true)]
-        permissions: Vec<String>,
+        #[arg(short, long, required = true)]
+        permissions: String,
 
         /// Define a description for the key
         #[arg(short, long)]
@@ -40,21 +40,17 @@ pub enum ApiKey {
     List,
 }
 
-/// Convert the strings obtained from the CLI into a [`types::Permissions`]
-fn cast_to_permissions(permissions: Vec<String>) -> Result<types::auth::Permissions, String> {
-    let mut perm = types::auth::Permissions::default();
-    for p in permissions {
-        match p.as_str() {
-            "read" => perm = perm.add(types::auth::Permissions::READ),
-            "write" => perm = perm.add(types::auth::Permissions::WRITE),
-            "delete" => perm = perm.add(types::auth::Permissions::DELETE),
-            "manage" => perm = perm.add(types::auth::Permissions::MANAGE),
-            _ => return Err("Permission not allowed".to_string()),
-        };
-    }
-
-    Ok(perm)
-}
+// /// Convert the strings obtained from the CLI into a [`types::Permissions`]
+// fn cast_to_permissions(permissions: String) -> Result<types::auth::Permissions, String> {
+//
+//     match p.as_str() {
+//         "read" => perm = perm.add(types::auth::Permissions::READ),
+//         "write" => perm = perm.add(types::auth::Permissions::WRITE),
+//         "delete" => perm = perm.add(types::auth::Permissions::DELETE),
+//         "manage" => perm = perm.add(types::auth::Permissions::MANAGE),
+//         _ => return Err("Permission not allowed".to_string()),
+//     };
+// }
 
 pub fn auth(auth: ApiKey) -> Result<(), common::Error> {
     common::load_env_variables()?;
@@ -74,7 +70,7 @@ pub fn auth(auth: ApiKey) -> Result<(), common::Error> {
             description,
             expires,
         } => {
-            let permissions = cast_to_permissions(permissions)?;
+            let permissions = permissions.parse()?;
 
             let expires_at: Option<types::Timestamp> = if let Some(expires) = expires {
                 Some(types::Timestamp::now() + expires.parse::<iso8601::Duration>()?.into())
@@ -158,8 +154,11 @@ fn print_authz_policy_details(policy: types::ApiKey) {
     );
     println!("{:>13} {}", "Description:".bold(), policy.description);
 
-    let perms: Vec<String> = policy.permissions.into();
-    println!("{:>13} {}", "Permissions:".bold(), perms.join(", "));
+    println!(
+        "{:>13} {}",
+        "Permissions:".bold(),
+        String::from(policy.permission)
+    );
 }
 
 fn print_authz_policy_list(policies: Vec<types::ApiKey>) {
@@ -174,7 +173,6 @@ fn print_authz_policy_list(policies: Vec<types::ApiKey>) {
     );
     for policy in policies {
         let datetime: types::DateTime = policy.creation_timestamp.into();
-        let permissions: Vec<String> = policy.permissions.into();
         let expired = if policy.is_expired() {
             "expired".red()
         } else {
@@ -186,7 +184,7 @@ fn print_authz_policy_list(policies: Vec<types::ApiKey>) {
             policy.token().fingerprint(),
             datetime.to_string(),
             expired,
-            permissions.join(", "),
+            String::from(policy.permission),
             policy.description
         );
     }

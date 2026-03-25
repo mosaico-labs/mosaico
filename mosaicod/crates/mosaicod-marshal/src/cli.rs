@@ -5,7 +5,7 @@ use serde::Serialize;
 pub struct ApiKey {
     pub expired: bool,
     pub description: String,
-    pub permissions: Vec<String>,
+    pub permission: String,
 }
 
 impl From<types::ApiKey> for ApiKey {
@@ -13,7 +13,7 @@ impl From<types::ApiKey> for ApiKey {
         Self {
             expired: value.is_expired(),
             description: value.description,
-            permissions: value.permissions.into(),
+            permission: value.permission.into(),
         }
     }
 }
