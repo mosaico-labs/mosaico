@@ -1,6 +1,6 @@
 <div align="center">
   <picture>
-    <a href="https://mosaico.dev"><img alt="Mosaico logo" src="https://mosaico.dev/mosaico-loop@512px-25fps.gif" width="600px"></a>
+    <a href="https://mosaico.dev"><img alt="Mosaico logo" src="https://mosaico.dev/mosaico-loop@920px-25fps-crop.gif" width="600px"></a>
   </picture>
 </div>
 <br/>
@@ -15,6 +15,8 @@
 <p align="center">
   <a target="_blank" href="https://discord.gg/mwQtFnsckE"><img src="https://img.shields.io/badge/Discord-Join%20Server-5865F2?style=for-the-badge&logo=discord" alt="Discord" /></a>
 </p>
+
+# The Data Platform for Robotics and Physical AI
 
 **Mosaico** is a *blazing-fast* data platform designed to bridge the gap between Robotics and Physical AI. It streamlines data management, compression, and search by replacing monolithic files with a structured archive powered by Rust and Python.
 
