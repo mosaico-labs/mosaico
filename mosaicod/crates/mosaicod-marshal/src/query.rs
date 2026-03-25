@@ -231,7 +231,7 @@ fn convert_user_metadata(
 #[derive(Debug, Deserialize)]
 struct Sequence {
     locator: Option<Op>,
-    created_timestamp: Option<Op>,
+    created_at_ns: Option<Op>,
     user_metadata: Option<HashMap<String, Op>>,
 }
 
@@ -248,7 +248,7 @@ impl TryInto<query::SequenceFilter> for Sequence {
                     err: e,
                 })?,
             creation: self
-                .created_timestamp
+                .created_at_ns
                 .map(|v| v.try_into())
                 .transpose()
                 .map_err(|e| Self::Error::OpError {
@@ -263,7 +263,7 @@ impl TryInto<query::SequenceFilter> for Sequence {
 #[derive(Debug, Deserialize)]
 pub struct Topic {
     locator: Option<Op>,
-    created_timestamp: Option<Op>,
+    created_at_ns: Option<Op>,
     ontology_tag: Option<Op>,
     serialization_format: Option<Op>,
     user_metadata: Option<HashMap<String, Op>>,
@@ -284,7 +284,7 @@ impl TryInto<query::TopicFilter> for Topic {
                 })?,
 
             creation: self
-                .created_timestamp
+                .created_at_ns
                 .map(|v| v.try_into())
                 .transpose()
                 .map_err(|e| Self::Error::OpError {

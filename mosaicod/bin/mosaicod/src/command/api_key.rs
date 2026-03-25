@@ -19,7 +19,7 @@ pub enum ApiKey {
 
         /// Define a time duration (using the ISO8601 format) after which the key in no longer valid.
         #[arg(short, long)]
-        expires: Option<String>,
+        expires_after: Option<String>,
     },
 
     /// Revoke a key
@@ -72,12 +72,12 @@ pub fn auth(auth: ApiKey) -> Result<(), common::Error> {
         ApiKey::Create {
             permissions,
             description,
-            expires,
+            expires_after,
         } => {
             let permissions = cast_to_permissions(permissions)?;
 
-            let expires_at: Option<types::Timestamp> = if let Some(expires) = expires {
-                Some(types::Timestamp::now() + expires.parse::<iso8601::Duration>()?.into())
+            let expires_at: Option<types::Timestamp> = if let Some(expires_after) = expires_after {
+                Some(types::Timestamp::now() + expires_after.parse::<iso8601::Duration>()?.into())
             } else {
                 None
             };
@@ -143,8 +143,8 @@ fn print_authz_policy_details(policy: types::ApiKey) {
         "Expired:".bold(),
         if policy.is_expired() { "true" } else { "false" }
     );
-    let created_datetime: types::DateTime = policy.creation_timestamp.into();
-    let expired_datetime: Option<types::DateTime> = policy.expiration_timestamp.map(|t| t.into());
+    let created_datetime: types::DateTime = policy.created_at.into();
+    let expired_datetime: Option<types::DateTime> = policy.expires_at.map(|t| t.into());
 
     println!("{:>13} {}", "Created:".bold(), created_datetime);
     println!(
@@ -173,7 +173,7 @@ fn print_authz_policy_list(policies: Vec<types::ApiKey>) {
         "Description".bold()
     );
     for policy in policies {
-        let datetime: types::DateTime = policy.creation_timestamp.into();
+        let datetime: types::DateTime = policy.created_at.into();
         let permissions: Vec<String> = policy.permissions.into();
         let expired = if policy.is_expired() {
             "expired".red()

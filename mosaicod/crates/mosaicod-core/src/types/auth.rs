@@ -394,10 +394,10 @@ pub struct ApiKey {
     pub description: String,
 
     /// Creation timestamp
-    pub creation_timestamp: Timestamp,
+    pub created_at: Timestamp,
 
     /// Expiration timestamp
-    pub expiration_timestamp: Option<Timestamp>,
+    pub expires_at: Option<Timestamp>,
 }
 
 impl ApiKey {
@@ -424,8 +424,8 @@ impl ApiKey {
         Self {
             key: Token::new(),
             permissions: permission,
-            creation_timestamp: Timestamp::now(),
-            expiration_timestamp: expires_at,
+            created_at: Timestamp::now(),
+            expires_at,
             description,
         }
     }
@@ -437,7 +437,7 @@ impl ApiKey {
 
     /// Check if the API key is expired
     pub fn is_expired(&self) -> bool {
-        if let Some(ts) = self.expiration_timestamp {
+        if let Some(ts) = self.expires_at {
             return ts <= Timestamp::now();
         }
 

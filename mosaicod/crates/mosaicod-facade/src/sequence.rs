@@ -228,7 +228,7 @@ impl Sequence {
 
         let mut manifest = types::SequenceManifest {
             resource_locator: self.locator.clone(),
-            created_timestamp: db_sequence.creation_timestamp(),
+            created_at: db_sequence.creation_timestamp(),
             sessions: Vec::new(),
         };
 

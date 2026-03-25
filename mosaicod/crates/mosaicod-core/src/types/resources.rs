@@ -391,7 +391,7 @@ where
 
 pub struct SequenceManifest {
     /// Timestamp of the sequence creation
-    pub created_timestamp: super::Timestamp,
+    pub created_at: super::Timestamp,
     pub resource_locator: SequenceResourceLocator,
     pub sessions: Vec<SessionManifest>,
 }
