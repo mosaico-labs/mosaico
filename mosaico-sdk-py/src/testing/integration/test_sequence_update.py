@@ -11,10 +11,10 @@ from .helpers import SequenceDataStream
 
 
 def test_sequence_update_not_in_context(
-    _client: MosaicoClient,
-    _inject_sequence_data_stream,  # Make sure data are available on the server
+    mosaico_client: MosaicoClient,
+    inject_synthetic_sequence,  # Make sure data are available on the server
 ):
-    seqhandler = _client.sequence_handler(UPLOADED_SEQUENCE_NAME)
+    seqhandler = mosaico_client.sequence_handler(UPLOADED_SEQUENCE_NAME)
     # Sequence must exist
     assert seqhandler is not None
     seq_updater = seqhandler.update()  # This does not create a session
@@ -30,10 +30,10 @@ def test_sequence_update_not_in_context(
 
 
 def test_sequence_update_on_error_report(
-    _client: MosaicoClient,
-    _inject_sequence_data_stream,  # Make sure data are available on the server
+    mosaico_client: MosaicoClient,
+    inject_synthetic_sequence,  # Make sure data are available on the server
 ):
-    seqhandler = _client.sequence_handler(UPLOADED_SEQUENCE_NAME)
+    seqhandler = mosaico_client.sequence_handler(UPLOADED_SEQUENCE_NAME)
     # Sequence must exist
     assert seqhandler is not None
     session_uuid = ""
@@ -52,14 +52,14 @@ def test_sequence_update_on_error_report(
     # The session and its data are still on the server
     assert "/test_topic_report" in seqhandler.topics
 
-    _client.session_delete(session_uuid)
+    mosaico_client.session_delete(session_uuid)
 
 
 def test_sequence_update_on_error_delete(
-    _client: MosaicoClient,
-    _inject_sequence_data_stream,  # Make sure data are available on the server
+    mosaico_client: MosaicoClient,
+    inject_synthetic_sequence,  # Make sure data are available on the server
 ):
-    seqhandler = _client.sequence_handler(UPLOADED_SEQUENCE_NAME)
+    seqhandler = mosaico_client.sequence_handler(UPLOADED_SEQUENCE_NAME)
     # Sequence must exist
     assert seqhandler is not None
     with pytest.raises(RuntimeError, match="__inner_exception__"):
@@ -78,11 +78,11 @@ def test_sequence_update_on_error_delete(
 
 
 def test_sequence_update(
-    _client: MosaicoClient,
-    _make_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
-    _inject_sequence_data_stream,  # Make sure data are available on the server
+    mosaico_client: MosaicoClient,
+    synthetic_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
+    inject_synthetic_sequence,  # Make sure data are available on the server
 ):
-    seqhandler = _client.sequence_handler(UPLOADED_SEQUENCE_NAME)
+    seqhandler = mosaico_client.sequence_handler(UPLOADED_SEQUENCE_NAME)
     # Sequence must exist
     assert seqhandler is not None
     session_uuid = ""
@@ -96,15 +96,15 @@ def test_sequence_update(
         assert twriter is not None
         twriter.push(
             Message(
-                timestamp_ns=_make_sequence_data_stream.tstamp_ns_start,
+                timestamp_ns=synthetic_sequence_data_stream.tstamp_ns_start,
                 data=Pressure(value=100),
             )
         )
 
         twriter.push(
             Message(
-                timestamp_ns=_make_sequence_data_stream.tstamp_ns_start
-                + _make_sequence_data_stream.dt_nanosec,
+                timestamp_ns=synthetic_sequence_data_stream.tstamp_ns_start
+                + synthetic_sequence_data_stream.dt_nanosec,
                 data=Pressure(value=101),
             )
         )
@@ -117,15 +117,15 @@ def test_sequence_update(
         assert twriter is not None
         twriter.push(
             Message(
-                timestamp_ns=_make_sequence_data_stream.tstamp_ns_start,
+                timestamp_ns=synthetic_sequence_data_stream.tstamp_ns_start,
                 data=Temperature.from_celsius(value=37.5),
             )
         )
 
         twriter.push(
             Message(
-                timestamp_ns=_make_sequence_data_stream.tstamp_ns_start
-                + _make_sequence_data_stream.dt_nanosec,
+                timestamp_ns=synthetic_sequence_data_stream.tstamp_ns_start
+                + synthetic_sequence_data_stream.dt_nanosec,
                 data=Temperature.from_celsius(value=38.0),
             )
         )
@@ -137,14 +137,14 @@ def test_sequence_update(
 
     # Query the catalog for the updated data
     # Query by topic name
-    query_resp = _client.query(QueryTopic().with_name_match("temperature"))
+    query_resp = mosaico_client.query(QueryTopic().with_name_match("temperature"))
     assert query_resp is not None and not query_resp.is_empty()
     assert len(query_resp) == 1
     assert len(query_resp[0].topics) == 1
     assert query_resp[0].topics[0].name == "/updated_topic/temperature"
 
     # Query by topic metadata
-    query_resp = _client.query(
+    query_resp = mosaico_client.query(
         QueryTopic().with_user_metadata("sensor_id", eq="temperature_1")
     )
     assert query_resp is not None and not query_resp.is_empty()
@@ -153,7 +153,7 @@ def test_sequence_update(
     assert query_resp[0].topics[0].name == "/updated_topic/temperature"
 
     # Query by data catalog
-    query_resp = _client.query(
+    query_resp = mosaico_client.query(
         QueryOntologyCatalog().with_expression(Pressure.Q.value.geq(100))
     )
     assert query_resp is not None and not query_resp.is_empty()
@@ -161,4 +161,4 @@ def test_sequence_update(
     assert len(query_resp[0].topics) == 1
     assert query_resp[0].topics[0].name == "/updated_topic/pressure"
 
-    _client.session_delete(session_uuid)
+    mosaico_client.session_delete(session_uuid)

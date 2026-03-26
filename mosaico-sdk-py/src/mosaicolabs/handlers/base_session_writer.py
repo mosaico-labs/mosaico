@@ -207,11 +207,17 @@ class _BaseSessionWriter(ABC):
                 out_exc = e
 
             # Apply the session-level error policy
-            if self._config.on_error == SessionLevelErrorPolicy.Delete:
-                self._abort()
-            else:
-                self._error_report(str(out_exc))
-                self._finalize()
+            try:
+                if self._config.on_error == SessionLevelErrorPolicy.Delete:
+                    self._abort()
+                else:
+                    self._error_report(str(out_exc))
+                    self._finalize()
+            except Exception as e:
+                self._logger.error(
+                    f"Exception while handling error policy or finalizing the session {self._uuid}, sequence '{self._name}': '{e}'"
+                )
+                out_exc = e
 
             # Last thing to do: DO NOT SET BEFORE!
             self._status = SessionStatus.Error

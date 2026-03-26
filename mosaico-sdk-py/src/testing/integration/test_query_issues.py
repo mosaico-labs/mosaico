@@ -7,13 +7,13 @@ from testing.integration.config import (
 
 
 def test_query_bug_218_fail(
-    _client: MosaicoClient,
-    _inject_sequence_data_stream,  # Ensure the data are available on the data platform
+    mosaico_client: MosaicoClient,
+    inject_synthetic_sequence,  # Ensure the data are available on the data platform
 ):
     # --- Passing Test ---
     # Test Existence of fields alone:
     # Query by sequence metadata ONLY
-    query_resp = _client.query(
+    query_resp = mosaico_client.query(
         QuerySequence().with_user_metadata("visibility", eq="team-01"),
     )
 
@@ -24,7 +24,7 @@ def test_query_bug_218_fail(
     # --- Passing Test ---
     # Test Existence of fields alone:
     # Query by sequence metadata ONLY
-    query_resp = _client.query(
+    query_resp = mosaico_client.query(
         QueryTopic().with_user_metadata("sensor_id", eq="imu_front_01"),
     )
 
@@ -36,7 +36,7 @@ def test_query_bug_218_fail(
 
     # --- FIXME: Failing test ---
     # Query by sequence metadata AND topic name
-    query_resp = _client.query(
+    query_resp = mosaico_client.query(
         QuerySequence().with_user_metadata("visibility", eq="team-01"),
         QueryTopic().with_name(UPLOADED_IMU_FRONT_TOPIC),
     )
@@ -48,7 +48,7 @@ def test_query_bug_218_fail(
 
     # --- FIXME: Failing test 2 ---
     # Query by topic metadata AND sequence name
-    query_resp = _client.query(
+    query_resp = mosaico_client.query(
         QuerySequence().with_user_metadata("visibility", eq="team-01"),
         QueryTopic().with_user_metadata("sensor_id", eq="imu_front_01"),
     )
@@ -59,4 +59,4 @@ def test_query_bug_218_fail(
     assert query_resp[0].topics[0].name == UPLOADED_IMU_FRONT_TOPIC
 
     # free resources
-    _client.close()
+    mosaico_client.close()
