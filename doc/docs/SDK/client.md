@@ -55,7 +55,7 @@ The client supports 4 permission levels, each with increasing privileges:
 | :--- | :--- |
 | [`APIKeyPermissionEnum.Read`][mosaicolabs.enum.APIKeyPermissionEnum.Read] | Read-Only access to resources |
 | [`APIKeyPermissionEnum.Write`][mosaicolabs.enum.APIKeyPermissionEnum.Write] | Write access to resources (Create and update sequences)|
-| [`APIKeyPermissionEnum.Delete`][mosaicolabs.enum.APIKeyPermissionEnum.Delete] | Delete access to resources (Delete sequences and sessions)|
+| [`APIKeyPermissionEnum.Delete`][mosaicolabs.enum.APIKeyPermissionEnum.Delete] | Delete access to resources (Delete sequences, sessions and topics)|
 | [`APIKeyPermissionEnum.Manage`][mosaicolabs.enum.APIKeyPermissionEnum.Manage] | Full access to resources + Manage API keys (create, retrieve the status, revoke)|
 
 

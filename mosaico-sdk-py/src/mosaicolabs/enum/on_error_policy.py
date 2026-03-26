@@ -27,7 +27,7 @@ class OnErrorPolicy(Enum):
     Note:
         When the connection is established via the authorization middleware 
         (i.e. using an API Key), this policy requires the minimum
-        [`APIKeyPermissionEnum.Delete`][mosaicolabs.enum.APIKeyPermissionEnum.Delete]
+        [`APIKeyPermissionEnum.Read`][mosaicolabs.enum.APIKeyPermissionEnum.Read]
         permission.
     
     Important: Lock Status

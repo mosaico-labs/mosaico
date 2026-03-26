@@ -32,7 +32,7 @@ class APIKeyPermissionEnum(Enum):
     - Retrieve Sequences, Topics and the related Data streams
     - Query the data catalogs via the [`MosaicoClient.query()`][mosaicolabs.comm.MosaicoClient.query] method
     - Create and update Sequences
-    - Delete Sequences and Sessions
+    - Delete Sequences, Sessions and Topics
     """
 
     Manage = "manage"
@@ -44,6 +44,6 @@ class APIKeyPermissionEnum(Enum):
     - Retrieve Sequences, Topics and the related Data streams
     - Query the data catalogs via the [`MosaicoClient.query()`][mosaicolabs.comm.MosaicoClient.query] method
     - Create and update Sequences
-    - Delete Sequences and Sessions
+    - Delete Sequences, Sessions and Topics
     - Manage API keys (create, retrieve the status, revoke)
     """
