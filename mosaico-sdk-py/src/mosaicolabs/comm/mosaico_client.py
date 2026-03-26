@@ -224,7 +224,8 @@ class MosaicoClient:
 
         Raises:
             ConnectionError: If the server is unreachable or the handshake fails.
-            RuntimeError: If the class is instantiated directly instead of using this method.
+            ValueError: If the tls_cert_path is invalid or unable to read the certificate (if using TLS).
+            FileNotFoundError: If the tls_cert_path does not exist (if using TLS).
 
         Example:
             ```python
@@ -356,12 +357,11 @@ class MosaicoClient:
             )
 
     def _remove_from_sequence_handlers_cache(self, sequence_name: str):
-        # remove from cache
-        del self._sequence_handlers_cache[sequence_name]
+        self._sequence_handlers_cache.pop(sequence_name, None)
 
     def _remove_from_topic_handlers_cache(self, topic_resource_name: str):
         # remove from cache
-        del self._topic_handlers_cache[topic_resource_name]
+        self._topic_handlers_cache.pop(topic_resource_name, None)
 
     @staticmethod
     def _resolve_tls_cert_path(tls_cert_path: Optional[str]) -> Optional[bytes]:
@@ -609,6 +609,10 @@ class MosaicoClient:
 
         Args:
             sequence_name (str): The unique name of the sequence to remove.
+
+        Raises:
+            Exception: If any error occurs during sequence deletion.
+
         """
         try:
             _do_action(
@@ -624,6 +628,7 @@ class MosaicoClient:
             logger.error(
                 f"Server error (do_action) while asking for Sequence deletion, '{e}'"
             )
+            raise
 
     def session_delete(self, session_uuid: str):
         """
@@ -635,6 +640,9 @@ class MosaicoClient:
 
         Args:
             session_uuid (str): The unique identifier of the session to remove.
+
+        Raises:
+            Exception: If any error occurs during session deletion.
         """
         try:
             _do_action(
@@ -648,6 +656,7 @@ class MosaicoClient:
             logger.error(
                 f"Server error (do_action) while asking for Session '{session_uuid}' deletion, '{e}'"
             )
+            raise
 
     def list_sequences(self) -> List[str]:
         """
@@ -683,6 +692,9 @@ class MosaicoClient:
         Returns:
             List[Notification]: The list of sequence notifications.
 
+        Raises:
+            Exception: If any error occurs during sequence notification listing.
+
         Example:
             ```python
             from mosaicolabs import MosaicoClient
@@ -713,7 +725,7 @@ class MosaicoClient:
 
         except Exception as e:
             logger.error(f"Query returned an internal error: '{e}'")
-            return []
+            raise
 
     def clear_sequence_notifications(self, sequence_name: str):
         """
@@ -721,6 +733,9 @@ class MosaicoClient:
 
         Args:
             sequence_name (str): The name of the sequence.
+
+        Raises:
+            Exception: If any error occurs during sequence notification clearing.
         """
         ACTION = FlightAction.SEQUENCE_NOTIFICATION_PURGE
 
@@ -734,7 +749,7 @@ class MosaicoClient:
 
         except Exception as e:
             logger.error(f"Query returned an internal error: '{e}'")
-            return []
+            raise
 
     def list_topic_notifications(
         self, sequence_name: str, topic_name: str
@@ -747,7 +762,10 @@ class MosaicoClient:
             topic_name (str): The name of the topic to list notifications for.
 
         Returns:
-            List[str]: The list of topic notifications.
+            List[Notification]: The list of topic notifications.
+
+        Raises:
+            Exception: If any error occurs during topic notification listing.
 
         Example:
             ```python
@@ -784,7 +802,7 @@ class MosaicoClient:
 
         except Exception as e:
             logger.error(f"Query returned an internal error: '{e}'")
-            return []
+            raise
 
     def clear_topic_notifications(self, sequence_name: str, topic_name: str):
         """
@@ -793,6 +811,9 @@ class MosaicoClient:
         Args:
             sequence_name (str): The name of the sequence.
             topic_name (str): The name of the topic.
+
+        Raises:
+            Exception: If any error occurs during topic notification clearing.
         """
         ACTION = FlightAction.TOPIC_NOTIFICATION_PURGE
 
@@ -811,7 +832,7 @@ class MosaicoClient:
 
         except Exception as e:
             logger.error(f"Query returned an internal error: '{e}'")
-            return []
+            raise
 
     def query(
         self,
@@ -832,6 +853,7 @@ class MosaicoClient:
 
         Raises:
             ValueError: If conflicting query types are passed or no queries are provided.
+            Exception: If any error occurs during query execution.
 
         Example: Query with variadic arguments
             ```python
@@ -921,7 +943,7 @@ class MosaicoClient:
 
         except Exception as e:
             logger.error(f"Query returned an internal error: '{e}'")
-            return None
+            raise
 
     def version(self) -> str:
         """
@@ -929,6 +951,9 @@ class MosaicoClient:
 
         Returns:
             str: The version of the Mosaico server.
+
+        Raises:
+            Exception: If any error occurs during version retrieval.
         """
         ACTION = FlightAction.VERSION
         try:
@@ -947,7 +972,7 @@ class MosaicoClient:
 
         except Exception as e:
             logger.error(f"'Version' action returned an internal error: '{e}'")
-            return ""
+            raise
 
     def clear_sequence_handlers_cache(self):
         """
@@ -963,7 +988,7 @@ class MosaicoClient:
 
     def api_key_create(
         self,
-        permissions: list[APIKeyPermissionEnum],
+        permission: APIKeyPermissionEnum,
         description: str,
         expires_at_ns: Optional[int] = None,
     ) -> Optional[str]:
@@ -974,15 +999,18 @@ class MosaicoClient:
         set an expiration time and a description for the key.
 
         Args:
-            permissions (list[str]): List of permissions for the key (e.g., "read", "write", "delete", "manage").
+            permission (APIKeyPermissionEnum): Permission for the key.
             expires_at_ns (Optional[int]): Optional expiration timestamp in nanoseconds.
             description (str): Description for the key.
 
         Returns:
             str: The generated API key token or None.
+
+        Raises:
+            Exception: If any error occurs during API key creation.
         """
         payload: dict[str, Any] = {
-            "permissions": permissions,
+            "permissions": permission.value,
             "description": description,
         }
         if expires_at_ns is not None:
@@ -1006,7 +1034,7 @@ class MosaicoClient:
 
         except Exception as e:
             logger.error(f"API key creation failed with error: '{e}'")
-            return None
+            raise
 
     def api_key_status(
         self, api_key_fingerprint: Optional[str] = None
@@ -1020,6 +1048,9 @@ class MosaicoClient:
 
         Returns:
             APIKeyStatus: An object containing the API key's status information, or None if the query fails.
+
+        Raises:
+            Exception: If any error occurs during API key status retrieval.
         """
         api_key_fingerprint = api_key_fingerprint or self._api_key_fingerprint
         if not api_key_fingerprint:
@@ -1043,7 +1074,6 @@ class MosaicoClient:
                 return None
 
             return APIKeyStatus(
-                api_key_fingerprint=act_resp.api_key_fingerprint,
                 created_at_ns=act_resp.created_at_ns,
                 expires_at_ns=act_resp.expires_at_ns,
                 description=act_resp.description,
@@ -1051,7 +1081,7 @@ class MosaicoClient:
 
         except Exception as e:
             logger.error(f"API key status query failed with error: '{e}'")
-            return None
+            raise
 
     def api_key_revoke(self, api_key_fingerprint: str) -> None:
         """
@@ -1062,6 +1092,9 @@ class MosaicoClient:
 
         Returns:
             None.
+
+        Raises:
+            Exception: If any error occurs during API key revocation.
         """
         if not api_key_fingerprint:
             logger.error("api_key_fingerprint cannot be empty.")
@@ -1081,7 +1114,7 @@ class MosaicoClient:
 
         except Exception as e:
             logger.error(f"API key revoke failed with error: '{e}'")
-            return None
+            raise
 
     def close(self):
         """
