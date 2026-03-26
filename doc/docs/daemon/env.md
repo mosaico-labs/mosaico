@@ -26,7 +26,7 @@ Here we provide a complete list of environment variables that can be used to con
 
 ## DBMS
 
-- `MOSAICOD_DB_URL`: Database connection URL. This should be in the format expected by the database driver being used. Default is an empty string.
+- `MOSAICOD_DB_URL`: Database connection URL. This should be in the format expected by the database driver being used. **Required**.
 
 ## Store
 
