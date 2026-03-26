@@ -48,7 +48,6 @@ pub async fn do_action(
         // Session
         ActionRequest::SessionCreate(data) => session::create(&ctx, data.locator).await,
         ActionRequest::SessionFinalize(data) => session::finalize(&ctx, data.session_uuid).await,
-        ActionRequest::SessionAbort(data) => session::abort(&ctx, data.session_uuid).await,
         ActionRequest::SessionDelete(data) => session::delete(&ctx, data.session_uuid).await,
 
         // /////
@@ -124,7 +123,6 @@ fn has_permissions(action: &ActionRequest, perm: &Permission) -> bool {
         ActionRequest::TopicNotificationCreate(_) => perm.can_write(),
         ActionRequest::SessionCreate(_) => perm.can_write(),
         ActionRequest::SessionFinalize(_) => perm.can_write(),
-        ActionRequest::SessionAbort(_) => perm.can_write(),
         ActionRequest::LayerCreate(_) => perm.can_write(),
         ActionRequest::LayerUpdate(_) => perm.can_write(),
 

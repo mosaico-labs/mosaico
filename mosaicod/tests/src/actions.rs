@@ -143,38 +143,6 @@ pub async fn session_finalize(
     Ok(())
 }
 
-/// Send an action to abort the current session
-pub async fn session_abort(
-    client: &mut Client,
-    session_uuid: &types::Uuid,
-) -> Result<(), tonic::Status> {
-    let action = Action {
-        r#type: "session_abort".to_owned(),
-        body: format!(
-            r#"
-        {{
-            "session_uuid": "{}"
-        }}
-        "#,
-            session_uuid
-        )
-        .into(),
-    };
-
-    dbg!(&action);
-
-    let mut stream = client.do_action(action).await?.into_inner();
-
-    while let Some(result) = stream.message().await? {
-        dbg!(&result);
-        let r = ActionResponse::from_body(&result.body);
-        assert_eq!(r.action, "session_abort");
-        assert!(r.response.as_object().is_none());
-    }
-
-    Ok(())
-}
-
 /// Send an action to delete the current session
 pub async fn session_delete(client: &mut Client, session_uuid: &types::Uuid) {
     let action = Action {
