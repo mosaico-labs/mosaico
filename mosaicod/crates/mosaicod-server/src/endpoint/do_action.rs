@@ -9,7 +9,7 @@ use super::{
 };
 use crate::endpoint::actions::auth;
 use crate::errors::ServerError;
-use mosaicod_core::types::auth::Permissions;
+use mosaicod_core::types::auth::Permission;
 use mosaicod_marshal::{ActionRequest, ActionResponse};
 
 /// Dispatches a Flight action request to the appropriate handler.
@@ -19,7 +19,7 @@ use mosaicod_marshal::{ActionRequest, ActionResponse};
 pub async fn do_action(
     ctx: Context,
     action: ActionRequest,
-    perm: &Permissions,
+    perm: &Permission,
 ) -> Result<ActionResponse, ServerError> {
     if !has_permissions(&action, perm) {
         return Err(ServerError::Unauthorized);
@@ -116,33 +116,33 @@ pub async fn do_action(
 }
 
 /// Return true if the requested action matches the permissions, false otherwise
-fn has_permissions(action: &ActionRequest, perm: &Permissions) -> bool {
+fn has_permissions(action: &ActionRequest, perm: &Permission) -> bool {
     match action {
-        ActionRequest::SequenceCreate(_) => perm.is_write(),
-        ActionRequest::SequenceNotificationCreate(_) => perm.is_write(),
-        ActionRequest::TopicCreate(_) => perm.is_write(),
-        ActionRequest::TopicNotificationCreate(_) => perm.is_write(),
-        ActionRequest::SessionCreate(_) => perm.is_write(),
-        ActionRequest::SessionFinalize(_) => perm.is_write(),
-        ActionRequest::SessionAbort(_) => perm.is_write(),
-        ActionRequest::LayerCreate(_) => perm.is_write(),
-        ActionRequest::LayerUpdate(_) => perm.is_write(),
+        ActionRequest::SequenceCreate(_) => perm.can_write(),
+        ActionRequest::SequenceNotificationCreate(_) => perm.can_write(),
+        ActionRequest::TopicCreate(_) => perm.can_write(),
+        ActionRequest::TopicNotificationCreate(_) => perm.can_write(),
+        ActionRequest::SessionCreate(_) => perm.can_write(),
+        ActionRequest::SessionFinalize(_) => perm.can_write(),
+        ActionRequest::SessionAbort(_) => perm.can_write(),
+        ActionRequest::LayerCreate(_) => perm.can_write(),
+        ActionRequest::LayerUpdate(_) => perm.can_write(),
 
-        ActionRequest::SequenceDelete(_) => perm.is_delete(),
-        ActionRequest::SequenceNotificationPurge(_) => perm.is_delete(),
-        ActionRequest::TopicDelete(_) => perm.is_delete(),
-        ActionRequest::TopicNotificationPurge(_) => perm.is_delete(),
-        ActionRequest::SessionDelete(_) => perm.is_delete(),
-        ActionRequest::LayerDelete(_) => perm.is_delete(),
+        ActionRequest::SequenceDelete(_) => perm.can_delete(),
+        ActionRequest::SequenceNotificationPurge(_) => perm.can_delete(),
+        ActionRequest::TopicDelete(_) => perm.can_delete(),
+        ActionRequest::TopicNotificationPurge(_) => perm.can_delete(),
+        ActionRequest::SessionDelete(_) => perm.can_delete(),
+        ActionRequest::LayerDelete(_) => perm.can_delete(),
 
-        ActionRequest::Query(_) => perm.is_read(),
-        ActionRequest::SequenceNotificationList(_) => perm.is_read(),
-        ActionRequest::TopicNotificationList(_) => perm.is_read(),
-        ActionRequest::LayerList(_) => perm.is_read(),
+        ActionRequest::Query(_) => perm.can_read(),
+        ActionRequest::SequenceNotificationList(_) => perm.can_read(),
+        ActionRequest::TopicNotificationList(_) => perm.can_read(),
+        ActionRequest::LayerList(_) => perm.can_read(),
 
-        ActionRequest::ApiKeyCreate(_) => perm.is_manage(),
-        ActionRequest::ApiKeyStatus(_) => perm.is_manage(),
-        ActionRequest::ApiKeyRevoke(_) => perm.is_manage(),
+        ActionRequest::ApiKeyCreate(_) => perm.can_manage(),
+        ActionRequest::ApiKeyStatus(_) => perm.can_manage(),
+        ActionRequest::ApiKeyRevoke(_) => perm.can_manage(),
 
         ActionRequest::Version(_) => true,
     }

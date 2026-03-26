@@ -40,7 +40,7 @@ impl TryFrom<ApiKeyRecord> for types::ApiKey {
 
         Ok(Self {
             key: types::auth::Token::from_bytes(payload, fingerprint),
-            permissions: (value.permissions as u8).into(),
+            permission: (value.permissions as u8).try_into()?,
             description: value.description,
             created_at: value.creation_unix_timestamp.into(),
             expires_at: value.expiration_unix_timestamp.map(Into::into),
@@ -53,7 +53,7 @@ impl From<types::ApiKey> for ApiKeyRecord {
         Self {
             fingerprint: value.token().fingerprint().as_bytes().into(),
             payload: value.token().payload().as_bytes().into(),
-            permissions: value.permissions.as_u8() as i16,
+            permissions: value.permission as i16,
             description: value.description,
             creation_unix_timestamp: value.created_at.into(),
             expiration_unix_timestamp: value.expires_at.map(|v| v.into()),

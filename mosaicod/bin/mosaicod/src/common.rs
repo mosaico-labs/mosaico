@@ -72,7 +72,7 @@ pub fn load_env_variables() -> Result<(), Error> {
     info!("loading environment variables");
     dotenv::dotenv().ok();
 
-    params::load_params_from_env()?;
+    params::load_params_from_env(params::ParamsLoadOptions::default())?;
 
     if params::params().max_chunk_size_in_bytes == 0 {
         print::warning(

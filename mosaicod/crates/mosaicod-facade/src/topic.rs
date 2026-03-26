@@ -413,6 +413,8 @@ impl Topic {
     }
 
     /// Computes the optimal batch size based on topic statistics from the database.
+    /// Batch size is the minimum between the computed batch size and
+    /// [`params::ConfigurablesParams::max_batch_size`].
     ///
     /// Returns `Some(batch_size)` if statistics are available, `None` otherwise
     /// (e.g., for empty topics).
@@ -425,10 +427,12 @@ impl Topic {
             ));
         }
 
-        let target_size = params::params().target_message_size_in_bytes;
+        let params = params::params();
+
+        let target_size = params.target_message_size_in_bytes;
         let batch_size = (target_size as i64 * stats.total_row_count) / stats.total_size_bytes;
 
-        Ok(batch_size as usize)
+        Ok((batch_size as usize).min(params.max_batch_size))
     }
 }
 

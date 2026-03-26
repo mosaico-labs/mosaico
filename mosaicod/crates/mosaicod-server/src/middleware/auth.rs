@@ -13,11 +13,11 @@ use tower::{Layer, Service};
 /// Context used to pass auth data
 #[derive(Clone)]
 pub struct AuthContext {
-    permissions: types::auth::Permissions,
+    permissions: types::auth::Permission,
 }
 
 impl AuthContext {
-    pub fn permissions(&self) -> &types::auth::Permissions {
+    pub fn permissions(&self) -> &types::auth::Permission {
         &self.permissions
     }
 }
@@ -29,7 +29,7 @@ pub struct AuthLayer {
     /// If permissions passthrough is enabled no auth check is performed
     /// and a fake permission token with all permission is
     /// generated for every request.
-    permissions_passthrough: Option<types::auth::Permissions>,
+    permissions_passthrough: Option<types::auth::Permission>,
 }
 
 impl AuthLayer {
@@ -43,7 +43,7 @@ impl AuthLayer {
     /// Enable auth passthrough. No internal check is
     /// performed to validate api keys and a fake permissions
     /// are generated to perform every action.
-    pub fn with_permission_passthrough(mut self, permissions: types::auth::Permissions) -> Self {
+    pub fn with_permission_passthrough(mut self, permissions: types::auth::Permission) -> Self {
         self.permissions_passthrough = Some(permissions);
         self
     }
@@ -65,7 +65,7 @@ impl<S> Layer<S> for AuthLayer {
 pub struct AuthMiddleware<S> {
     inner: S,
     db: db::Database,
-    permissions_passthrough: Option<types::auth::Permissions>,
+    permissions_passthrough: Option<types::auth::Permission>,
 }
 
 type BoxFuture<'a, T> = Pin<Box<dyn std::future::Future<Output = T> + Send + 'a>>;
@@ -127,7 +127,7 @@ where
                             };
 
                         req.extensions_mut().insert(AuthContext {
-                            permissions: fauth.into_api_key().permissions,
+                            permissions: fauth.into_api_key().permission,
                         });
 
                         let response = inner.call(req).await?;

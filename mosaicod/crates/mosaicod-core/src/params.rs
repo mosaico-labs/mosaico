@@ -45,6 +45,12 @@ pub enum Error {
 #[derive(Debug)]
 pub struct Params {
     pub max_message_size_in_bytes: usize,
+    /// Target message size used during data streaming. Mosaicod will try to
+    /// aggregate a number of Arrow RecordBatches to create a sufficiently large
+    /// message. If the resulting batch size exceeds the limit, it will be capped by
+    /// [`Params::max_batch_size`].
+    ///
+    /// Defaults to 25MB.
     pub target_message_size_in_bytes: usize,
     /// Maximum number of concurrent chunk queries during data catalog filtering
     pub max_concurrent_chunk_queries: usize,
@@ -66,9 +72,44 @@ pub struct Params {
     pub store_bucket: String,
     pub store_secret_key: Hidden,
     pub store_access_key: String,
+
+    /// Maximum batch size (number of elements inside a arrow record batch) used during data
+    /// streaming
+    ///
+    /// Defaults to default data fusion batch size 8192.
+    pub max_batch_size: usize,
+    /// Defines the amount of memory used by the query engine (DataFusion).
+    /// Set this value to a number greater than 0 to enforce a hard limit
+    /// on the memory allocated by the query engine. Use this setting if
+    /// mosaicod encounters OOM (Out Of Memory) errors.
+    ///
+    /// Defaults to 0 (no limit).
+    pub query_engine_memory_pool: usize,
 }
 
-pub fn load_params_from_env() -> Result<(), Error> {
+/// Options for loading parameters from environment variables
+pub struct ParamsLoadOptions {
+    /// Avoid parsing `MOSICOD_DB_URL` env variable
+    pub skip_db_url: bool,
+}
+
+#[allow(clippy::derivable_impls)]
+impl Default for ParamsLoadOptions {
+    fn default() -> Self {
+        Self { skip_db_url: false }
+    }
+}
+
+impl ParamsLoadOptions {
+    /// Load parameters with options suitable for testing
+    ///
+    /// This will skip the loading of database URL in the environment variables.
+    pub fn testing() -> Self {
+        Self { skip_db_url: true }
+    }
+}
+
+pub fn load_params_from_env(config: ParamsLoadOptions) -> Result<(), Error> {
     let ev = Params {
         // buffering
         max_message_size_in_bytes: optional(
@@ -91,13 +132,19 @@ pub fn load_params_from_env() -> Result<(), Error> {
         tls_private_key_file: optional("MOSAICOD_TLS_PRIVATE_KEY_FILE", "".to_owned()),
 
         // database
-        db_url: required("MOSAICOD_DB_URL")?,
+        db_url: if config.skip_db_url {
+            "".to_owned()
+        } else {
+            required("MOSAICOD_DB_URL")?
+        },
 
         // store
         store_endpoint: optional("MOSAICOD_STORE_ENDPOINT", "".to_owned()),
         store_bucket: optional("MOSAICOD_STORE_BUCKET", "".to_owned()),
         store_secret_key: Hidden::from(optional("MOSAICOD_STORE_SECRET_KEY", "".to_owned())),
         store_access_key: optional("MOSAICOD_STORE_ACCESS_KEY", "".to_owned()),
+        max_batch_size: optional("MOSAICOD_MAX_BATCH_SIZE", 8192),
+        query_engine_memory_pool: optional("MOSAICOD_QUERY_ENGINE_MEMORY_POOL", 0),
     };
 
     let _ = ENV.set(ev);
@@ -108,7 +155,7 @@ pub fn load_params_from_env() -> Result<(), Error> {
 static ENV: OnceLock<Params> = OnceLock::new();
 
 pub fn params() -> &'static Params {
-    ENV.get().expect("paramenters not initialized, plase call `params::load_configurables_from_env()` before accessing an env variable.")
+    ENV.get().expect("paramenters not initialized, plase call `params::load_params_from_env()` before accessing an env variable.")
 }
 
 fn optional<T>(name: &str, default: T) -> T
