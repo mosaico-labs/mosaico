@@ -96,6 +96,12 @@ def _test_delete_fail(del_disabled_client: MosaicoClient):
     # Delete a Sequence: must fail
     with pytest.raises(Exception, match="unauthorized"):
         del_disabled_client.sequence_delete(UPLOADED_SEQUENCE_NAME)
+    with pytest.raises(Exception, match="unauthorized"):
+        del_disabled_client.clear_sequence_notifications(UPLOADED_SEQUENCE_NAME)
+    with pytest.raises(Exception, match="unauthorized"):
+        del_disabled_client.clear_topic_notifications(
+            UPLOADED_SEQUENCE_NAME, UPLOADED_GPS_TOPIC
+        )
 
 
 def _test_delete_pass(del_enabled_client: MosaicoClient):
@@ -107,6 +113,12 @@ def _test_delete_pass(del_enabled_client: MosaicoClient):
         ) as sw:
             sw.topic_create("test_topic", {}, IMU)
             raise RuntimeError("__aborted_sequence_creation__")
+
+    del_enabled_client.clear_sequence_notifications(UPLOADED_SEQUENCE_NAME)
+
+    del_enabled_client.clear_topic_notifications(
+        UPLOADED_SEQUENCE_NAME, UPLOADED_GPS_TOPIC
+    )
 
 
 def _test_manage_fail(manage_disabled_client: MosaicoClient):
@@ -320,3 +332,45 @@ def test_manage_api_key(
 
         # -- Try Managing --
         _test_manage_pass(client)
+
+
+def test_delete_policy(
+    with_auth,
+    host,
+    port,
+    api_keys_list: List[Tuple],
+    mosaico_client: MosaicoClient,
+):
+    if not with_auth:
+        pytest.skip("Tests run without '--api-key'")
+
+    # extract a Write API Key among the one created
+    write_only_key = _get_api_key(api_keys_list, APIKeyPermissionEnum.Write)
+
+    with MosaicoClient.connect(host=host, port=port, api_key=write_only_key) as client:
+        session_uuid = ""
+        with pytest.raises(Exception, match="unauthorized"):
+            with client.sequence_create(
+                "unauthorized_sequence_abort",
+                {},
+                SessionLevelErrorPolicy.Delete,
+            ) as sw:
+                session_uuid = sw._uuid
+                sw.topic_create("test_topic", {}, IMU)
+                raise RuntimeError("__aborted_sequence_creation__")
+
+        # Check that the sequence and related session is still present
+        sh = client.sequence_handler("unauthorized_sequence_abort")
+        assert sh is not None
+        # Just one session
+        assert len(sh.sessions) == 1
+        session = sh.sessions[0]
+        assert session.uuid == session_uuid
+        # The session is unlocked
+        assert session.locked is False
+        # The session is not finalized!
+        assert session.completed_timestamp is None
+        assert session.topics == []
+
+        # free resources
+        mosaico_client.sequence_delete("unauthorized_sequence_abort")

@@ -35,9 +35,6 @@ class FlightAction(Enum):
     SEQUENCE_NOTIFICATION_PURGE = "sequence_notification_purge"
     """Request the deletion of the list of notifications for a specific sequence"""
 
-    SESSION_ABORT = "session_abort"
-    """Signals the server to stop an active session ingestion and discard partial data."""
-
     SESSION_DELETE = "session_delete"
     """Requests the permanent removal of a session and all associated topics from the server."""
 
