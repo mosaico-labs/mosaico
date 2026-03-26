@@ -165,6 +165,18 @@ def test_get_fingerprint():
         # Payload not alpha AND num
         _get_fingerprint("msco_123457678_abcd1234")
 
+    with pytest.raises(ValueError, match="not alnum"):
+        # Payload not alpha AND num
+        _get_fingerprint("msco_abcdefghi_abcd1234")
+
+    with pytest.raises(ValueError, match="not alnum"):
+        # Payload not alpha AND num
+        _get_fingerprint("msco_abcde12345_abcd1234!:")
+
+    with pytest.raises(ValueError, match="not alnum"):
+        # Payload not alpha AND num
+        _get_fingerprint("msco_abcde12345!:_abcd1234")
+
     with pytest.raises(ValueError, match="fingerprint"):
         # Fingerprint less than 8 char
         _get_fingerprint("msco_58qb7dssul_c5505")
@@ -235,9 +247,9 @@ def test_write_only_api_key(
     if not with_auth:
         pytest.skip("Tests run without '--api-key'")
 
-    # extract a Read-Only API Key among the one created
+    # extract a Write API Key among the one created
     write_only_key = _get_api_key(api_keys_list, APIKeyPermissionEnum.Write)
-    # Test Read-Only API Key
+    # Test Write API Key
     with MosaicoClient.connect(host=host, port=port, api_key=write_only_key) as client:
         # --- Try reading ---
         _test_read_pass(client)
@@ -264,9 +276,9 @@ def test_delete_api_key(
     if not with_auth:
         pytest.skip("Tests run without '--api-key'")
 
-    # extract a Read-Only API Key among the one created
+    # extract a Delete API Key among the one created
     mgmt_key = _get_api_key(api_keys_list, APIKeyPermissionEnum.Delete)
-    # Test Read-Only API Key
+    # Test Delete API Key
     with MosaicoClient.connect(host=host, port=port, api_key=mgmt_key) as client:
         ## --- Try reading ---
         _test_read_pass(client)
@@ -292,9 +304,9 @@ def test_manage_api_key(
     if not with_auth:
         pytest.skip("Tests run without '--api-key'")
 
-    # extract a Read-Only API Key among the one created
+    # extract a Manage API Key among the one created
     mgmt_key = _get_api_key(api_keys_list, APIKeyPermissionEnum.Manage)
-    # Test Read-Only API Key
+    # Test Manage API Key
     with MosaicoClient.connect(host=host, port=port, api_key=mgmt_key) as client:
         ## --- Try reading ---
         _test_read_pass(client)
