@@ -7,6 +7,7 @@ description: API Reference for Enum Module
 ::: mosaicolabs.enum.SessionStatus
 ::: mosaicolabs.enum.SequenceStatus
 ::: mosaicolabs.enum.TopicWriterStatus
+::: mosaicolabs.enum.APIKeyPermissionEnum
 ::: mosaicolabs.enum.SessionLevelErrorPolicy
 ::: mosaicolabs.enum.TopicLevelErrorPolicy
 ::: mosaicolabs.enum.OnErrorPolicy

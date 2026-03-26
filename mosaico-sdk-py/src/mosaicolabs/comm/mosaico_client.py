@@ -999,7 +999,7 @@ class MosaicoClient:
         set an expiration time and a description for the key.
 
         Args:
-            permissions (list[str]): List of permissions for the key (e.g., "read", "write", "delete", "manage").
+            permission (APIKeyPermissionEnum): Permission for the key.
             expires_at_ns (Optional[int]): Optional expiration timestamp in nanoseconds.
             description (str): Description for the key.
 
