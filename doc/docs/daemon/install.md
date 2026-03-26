@@ -4,7 +4,7 @@
 
 For rapid prototyping, we provide a standard Docker Compose configuration. This creates an isolated network environment containing the mosaico server and its required PostgreSQL database.
 
-```yaml title="Docker compose mosaicod deployement", hl_lines="31-32"
+```yaml title="Daemon compose file", hl_lines="31-32"
 name: "mosaico"
 services:
   
@@ -20,7 +20,7 @@ services:
       - mosaico
     volumes:
       - pg-data:/var/lib/postgresql
-    healthcheck:
+    healthcheck: # (3)!
       test: ["CMD-SHELL", "pg_isready -U  postgres"]
       interval: 5s
       timeout: 5s
@@ -31,7 +31,7 @@ services:
     container_name: mosaicod
     networks:
       - mosaico
-    environment:
+    environment: # (4)!
       MOSAICOD_DB_URL: postgresql://postgres:password@db:5432/mosaico
     volumes:
       - mosaico-data:/data
@@ -54,6 +54,10 @@ networks:
 1. Here you can list any additional command line options for `mosaicod`. In this example, we configure the server to use the local filesystem for storage, which is mounted to the `/data` directory in the container. This allows you to persist data across container restarts and easily access it from the host machine. If you prefer to use S3-compatible storage, simply remove the `--local-store` option and set the [appropriate environment](#remote-storage-configuration) variables for your object storage configuration.
 
 2. Remove `127.0.0.1` to expose this service to external networks. By default, this configuration restricts access to the local machine for security reasons. If you need to access the server from other machines on the network, you can modify the port mapping to allow external connections.
+
+3. The `healthcheck` ensures that the `mosaicod` service only starts after the PostgreSQL database is ready to accept connections. This prevents startup errors related to database connectivity.
+
+4. Additional environment variables can be set here to configure the daemon's behavior, see [environment variables](env.md) for a complete list of options.
 
 This configuration provisions both Postgres and mosaicod within a private Docker network. Only the daemon instance is exposed to the host.
 

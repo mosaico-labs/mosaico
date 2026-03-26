@@ -24,7 +24,7 @@ Here we provide a complete list of environment variables that can be used to con
 
 - `MOSAICOD_TLS_PRIVATE_KEY_FILE`: Path to the TLS private key file used for secure communication. Default is an empty string.
 
-## Database
+## DBMS
 
 - `MOSAICOD_DB_URL`: Database connection URL. This should be in the format expected by the database driver being used. Default is an empty string.
 

@@ -126,6 +126,7 @@ nav:
       - daemon/env.md
   - Development:
       - development/release_cycle.md
+      - development/testing_and_dev.md
 
 extra_css:
   - stylesheets/extra.css

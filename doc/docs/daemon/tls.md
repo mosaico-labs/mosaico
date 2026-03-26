@@ -1,16 +1,20 @@
 # TLS Support
 
-Securing your Mosaico instance is straightforward, as TLS (Transport Layer Security) is fully supported out of the box. 
+Securing your Mosaico instance is straightforward, as [TLS (Transport Layer Security)](https://en.wikipedia.org/wiki/Transport_Layer_Security) is fully supported out of the box. 
 Enabling TLS ensures that all communications with the daemon are encrypted and secure.
 
 To activate it, simply append the `--tls` flag to your `mosaicod run` command.
 
 When the `--tls` flag is used, `mosaicod` requires a valid certificate and private key. 
 
-It looks for these credentials via the following environment variables:
+It looks for these credentials via the following [environment variables](env.md#tls):
 
 * `MOSAICOD_TLS_CERT_FILE`: The path to the PEM-encoded X.509 certificate.
 * `MOSAICOD_TLS_PRIVATE_KEY_FILE`: The path to the file containing the PEM-encoded RSA private key.
+
+???tip "Use a reverse proxy for TLS termination"
+    If you prefer to manage TLS termination separately, you can run `mosaicod` without the `--tls` flag and use a reverse proxy (like [Nginx](https://nginx.org/) or [Caddy](https://caddyserver.com/)) to handle SSL termination. 
+    This allows you to centralize TLS management and offload encryption tasks from the daemon.
 
 ## Generate a Self-Signed Certificate
 
