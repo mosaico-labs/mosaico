@@ -576,7 +576,7 @@ class QueryTopic:
         self, time_start: Optional[Time] = None, time_end: Optional[Time] = None
     ) -> "QueryTopic":
         """
-        Adds a filter for the 'created_timestamp' field using high-precision Time.
+        Adds a filter for the 'created_at_ns' field using high-precision Time.
 
         Example:
             ```python
@@ -620,18 +620,16 @@ class QueryTopic:
         # employs explicit _QueryTopicExpression composition for dealing with
         # special fields in data platform
         if ts_int and not te_int:
-            expr = _QueryTopicExpression("created_timestamp", "$geq", ts_int)
+            expr = _QueryTopicExpression("created_at_ns", "$geq", ts_int)
         elif te_int and not ts_int:
-            expr = _QueryTopicExpression("created_timestamp", "$leq", te_int)
+            expr = _QueryTopicExpression("created_at_ns", "$leq", te_int)
         else:
             if not ts_int or not te_int:
                 raise ValueError("This is embarassing")  # will never happen
             if ts_int > te_int:
                 raise ValueError("'time_start' must be less than 'time_end'.")
 
-            expr = _QueryTopicExpression(
-                "created_timestamp", "$between", [ts_int, te_int]
-            )
+            expr = _QueryTopicExpression("created_at_ns", "$between", [ts_int, te_int])
         return self._with_expression(expr)
 
     # compatibility with QueryProtocol
@@ -949,7 +947,7 @@ class QuerySequence:
         self, time_start: Optional[Time] = None, time_end: Optional[Time] = None
     ) -> "QuerySequence":
         """
-        Adds a filter for the 'created_timestamp' field using high-precision Time.
+        Adds a filter for the 'created_at_ns' field using high-precision Time.
 
         Example:
             ```python
@@ -991,9 +989,9 @@ class QuerySequence:
         # employs explicit _QuerySequenceExpression composition for dealing with
         # special fields in data platform
         if ts_int and not te_int:
-            expr = _QuerySequenceExpression("created_timestamp", "$geq", ts_int)
+            expr = _QuerySequenceExpression("created_at_ns", "$geq", ts_int)
         elif te_int and not ts_int:
-            expr = _QuerySequenceExpression("created_timestamp", "$leq", te_int)
+            expr = _QuerySequenceExpression("created_at_ns", "$leq", te_int)
         else:
             if not ts_int or not te_int:
                 raise ValueError("This is embarassing")  # will never happen
@@ -1001,7 +999,7 @@ class QuerySequence:
                 raise ValueError("'time_start' must be less than 'time_end'.")
 
             expr = _QuerySequenceExpression(
-                "created_timestamp", "$between", [ts_int, te_int]
+                "created_at_ns", "$between", [ts_int, te_int]
             )
         return self._with_expression(expr)
 

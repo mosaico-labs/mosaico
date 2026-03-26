@@ -246,7 +246,7 @@ pub async fn topic_from_query_filter(
             qb = qb.expr("sequence.locator_name", op, &mut sql_fmt);
         }
 
-        if let Some(op) = seq.creation {
+        if let Some(op) = seq.created_at {
             qb = qb.expr("sequence.creation_unix_tstamp", op, &mut sql_fmt);
         }
 
@@ -270,7 +270,7 @@ pub async fn topic_from_query_filter(
             );
         }
 
-        if let Some(op) = top.creation {
+        if let Some(op) = top.created_at {
             qb = qb.expr("topic.creation_unix_tstamp", op, &mut sql_fmt);
         }
 

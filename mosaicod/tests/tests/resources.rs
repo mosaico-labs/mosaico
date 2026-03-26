@@ -72,7 +72,7 @@ async fn sequence_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
         sequence_manifest.resource_locator.to_string(),
         sequence_name
     );
-    assert_ne!(sequence_manifest.created_timestamp.as_i64(), 0);
+    assert_ne!(sequence_manifest.created_at.as_i64(), 0);
 
     let session_uuid = actions::session_create(&mut client, sequence_name).await;
     assert!(session_uuid.is_valid());
@@ -89,7 +89,7 @@ async fn sequence_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
         sequence_manifest.resource_locator.to_string(),
         sequence_name
     );
-    assert_ne!(sequence_manifest.created_timestamp.as_i64(), 0);
+    assert_ne!(sequence_manifest.created_at.as_i64(), 0);
     assert_eq!(sequence_manifest.sessions.len(), 1);
     assert_eq!(sequence_manifest.sessions[0].uuid, session_uuid);
     assert_ne!(sequence_manifest.sessions[0].created_at.as_i64(), 0);
@@ -132,7 +132,7 @@ async fn sequence_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
         sequence_manifest.resource_locator.to_string(),
         sequence_name
     );
-    assert_ne!(sequence_manifest.created_timestamp.as_i64(), 0);
+    assert_ne!(sequence_manifest.created_at.as_i64(), 0);
     assert_eq!(sequence_manifest.sessions.len(), 1);
     assert_eq!(sequence_manifest.sessions[0].uuid, session_uuid);
     assert_ne!(sequence_manifest.sessions[0].created_at.as_i64(), 0);
@@ -154,7 +154,7 @@ async fn sequence_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
         sequence_manifest.resource_locator.to_string(),
         sequence_name
     );
-    assert_ne!(sequence_manifest.created_timestamp.as_i64(), 0);
+    assert_ne!(sequence_manifest.created_at.as_i64(), 0);
     assert_eq!(sequence_manifest.sessions.len(), 1);
     let sm = &sequence_manifest.sessions[0];
     assert_eq!(sm.uuid, session_uuid);
@@ -167,8 +167,8 @@ async fn sequence_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
     let ep_metadata: marshal::flight::TopicAppMetadata =
         info.endpoint[0].clone().app_metadata.try_into().unwrap();
     assert!(ep_metadata.locked);
-    assert_ne!(ep_metadata.created_at, 0);
-    assert_ne!(ep_metadata.completed_at.unwrap(), 0);
+    assert_ne!(ep_metadata.created_at_ns, 0);
+    assert_ne!(ep_metadata.completed_at_ns.unwrap(), 0);
     assert_eq!(ep_metadata.resource_locator, topic_name);
 
     let ep_metadata_info = ep_metadata.info.unwrap();
@@ -285,8 +285,8 @@ async fn topic_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
     assert!(!app_metadata.locked);
     assert_eq!(app_metadata.resource_locator, topic_name);
     assert!(app_metadata.info.is_none());
-    assert_ne!(app_metadata.created_at, 0);
-    assert!(app_metadata.completed_at.is_none());
+    assert_ne!(app_metadata.created_at_ns, 0);
+    assert!(app_metadata.completed_at_ns.is_none());
 
     let batches = vec![ext::arrow::testing::dummy_empty_batch()];
 
@@ -314,8 +314,8 @@ async fn topic_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
         .unwrap();
 
     assert!(app_metadata.locked);
-    assert_ne!(app_metadata.created_at, 0);
-    assert_ne!(app_metadata.completed_at.unwrap(), 0);
+    assert_ne!(app_metadata.created_at_ns, 0);
+    assert_ne!(app_metadata.completed_at_ns.unwrap(), 0);
     assert_eq!(app_metadata.resource_locator, topic_name);
 
     let info = app_metadata.info.unwrap();
@@ -358,8 +358,8 @@ async fn topic_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
         .unwrap();
 
     assert!(app_metadata.locked);
-    assert_ne!(app_metadata.created_at, 0);
-    assert_ne!(app_metadata.completed_at.unwrap(), 0);
+    assert_ne!(app_metadata.created_at_ns, 0);
+    assert_ne!(app_metadata.completed_at_ns.unwrap(), 0);
     assert_eq!(app_metadata.resource_locator, topic_name);
 
     let info = app_metadata.info.unwrap();

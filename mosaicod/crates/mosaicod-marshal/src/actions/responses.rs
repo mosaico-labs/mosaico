@@ -180,8 +180,8 @@ impl From<&auth::ApiKey> for ApiKeyStatus {
         Self {
             api_key_fingerprint: value.token().fingerprint().to_string(),
             description: value.description.clone(),
-            created_at_ns: value.creation_timestamp.as_i64(),
-            expires_at_ns: value.expiration_timestamp.map(Into::into),
+            created_at_ns: value.created_at.as_i64(),
+            expires_at_ns: value.expires_at.map(Into::into),
         }
     }
 }

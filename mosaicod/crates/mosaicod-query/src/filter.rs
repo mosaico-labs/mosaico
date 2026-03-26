@@ -471,20 +471,20 @@ impl Filter {
 #[derive(Debug, Clone)]
 pub struct SequenceFilter {
     pub name: Option<Op<Text>>,
-    pub creation: Option<Op<Timestamp>>,
+    pub created_at: Option<Op<Timestamp>>,
     pub user_metadata: HashMap<String, Op<Value>>,
 }
 
 impl SequenceFilter {
     pub fn is_empty(&self) -> bool {
-        self.name.is_none() && self.creation.is_none() && self.user_metadata.is_empty()
+        self.name.is_none() && self.created_at.is_none() && self.user_metadata.is_empty()
     }
 }
 
 #[derive(Debug, Clone, Default)]
 pub struct TopicFilter {
     pub name: Option<Op<Text>>,
-    pub creation: Option<Op<Timestamp>>,
+    pub created_at: Option<Op<Timestamp>>,
     pub ontology_tag: Option<Op<Text>>,
     pub serialization_format: Option<Op<Text>>,
     pub user_metadata: HashMap<String, Op<Value>>,
@@ -493,7 +493,7 @@ pub struct TopicFilter {
 impl TopicFilter {
     pub fn is_empty(&self) -> bool {
         self.name.is_none()
-            && self.creation.is_none()
+            && self.created_at.is_none()
             && self.user_metadata.is_empty()
             && self.ontology_tag.is_none()
             && self.serialization_format.is_none()

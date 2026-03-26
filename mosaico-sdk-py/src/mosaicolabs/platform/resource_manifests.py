@@ -94,7 +94,7 @@ class TopicResourceManifest:
         try:
             mdata = _decode_app_metadata(app_mdata)
 
-            created_timestamp = mdata.get("created_at")
+            created_timestamp = mdata.get("created_at_ns")
             locked = mdata.get("locked")
             resource_locator = mdata.get("resource_locator")
             if created_timestamp is None or locked is None or resource_locator is None:
@@ -115,7 +115,7 @@ class TopicResourceManifest:
                 name=top_name,
                 sequence_name=seq_name,
                 created_timestamp=created_timestamp,
-                completed_timestamp=mdata.get("completed_at"),
+                completed_timestamp=mdata.get("completed_at_ns"),
                 locked=locked,
                 resource_info=resource_info,
             )
@@ -201,7 +201,7 @@ class SessionResourceManifest:
             )
 
         session_uuid = session_mdata.get("uuid")
-        created_timestamp = session_mdata.get("created_at")
+        created_timestamp = session_mdata.get("created_at_ns")
         locked = session_mdata.get("locked", False)
 
         # This should never happen. If it does, it's a malformed session.
@@ -213,7 +213,7 @@ class SessionResourceManifest:
         return SessionResourceManifest(
             uuid=session_uuid,
             created_timestamp=created_timestamp,
-            completed_timestamp=session_mdata.get("completed_at"),
+            completed_timestamp=session_mdata.get("completed_at_ns"),
             locked=locked,
             topics=session_mdata.get("topics", []),
         )
@@ -262,7 +262,7 @@ class SequenceResourceManifest:
             mdata = _decode_app_metadata(app_mdata)
 
             resource_locator = mdata.get("resource_locator")
-            created_timestamp = mdata.get("created_timestamp")
+            created_timestamp = mdata.get("created_at_ns")
             if resource_locator is None or created_timestamp is None:
                 raise SequenceManifestError(
                     "Unable to construct a 'SequenceResourceManifest': missing required fields in sequence app_metadata."

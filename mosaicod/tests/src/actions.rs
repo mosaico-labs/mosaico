@@ -342,21 +342,19 @@ pub async fn get_flight_info(
 
 pub async fn api_key_create(
     client: &mut Client,
-    permissions: types::auth::Permissions,
+    permissions: types::auth::Permission,
     description: String,
     expires_at: Option<types::Timestamp>,
 ) -> Result<types::auth::Token, tonic::Status> {
-    let perm_vec: Vec<String> = permissions.into();
-
     let action = Action {
         r#type: "api_key_create".to_owned(),
         body: format!(
             r#"{{
-            "permissions": ["{}"],
+            "permissions": "{}",
             "description": "{}",
             "expires_at_ns": {}
         }}"#,
-            perm_vec.join("\",\""),
+            String::from(permissions),
             description,
             expires_at.map_or(String::from("null"), |t| { t.to_string() })
         )
