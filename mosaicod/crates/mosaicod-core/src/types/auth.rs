@@ -428,24 +428,25 @@ mod tests {
 
         // Add special ascii char in payload
         let res: Result<Token, ApiKeyError> =
-            "msco_vrfecej!4lqivysxgaseefa3tsxs0vrl_b676530".parse();
+            "msco_vrfecej!4lqivysxgaseefa3tsxs0vrl_1b676530".parse();
         dbg!(&res);
         assert!(matches!(res, Err(ApiKeyError::BadTokenPayload)));
 
         // Add uppercase letter in payload
         let res: Result<Token, ApiKeyError> =
-            "msco_vrfecej!4lqivysxgaseefa3tsxs0vrl_b676530".parse();
+            "msco_vrfecejU4lqivysxgaseefa3tsxs0vrl_1b676530".parse();
         dbg!(&res);
         assert!(matches!(res, Err(ApiKeyError::BadTokenPayload)));
 
         // Add special ascii char in payload
         let res: Result<Token, ApiKeyError> =
-            "msco_vrfecej!4lqivysxgaseefa3tsxs0vrl_b676530".parse();
+            "msco_vrfecej©4lqivysxgaseefa3tsxs0vrl_1b676530".parse();
         dbg!(&res);
         assert!(matches!(res, Err(ApiKeyError::BadTokenPayload)));
+
         // Added non ascii char in fingerprint
         let res: Result<Token, ApiKeyError> =
-            "msco_vrfeceju4lqivysxgaseefa3tsxs0vrl_©b676530".parse();
+            "msco_vrfeceju4lqivysxgaseefa3tsxs0vrl_©1b676530".parse();
         dbg!(&res);
         assert!(matches!(res, Err(ApiKeyError::BadTokenFingerprint)));
 
