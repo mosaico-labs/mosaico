@@ -4,7 +4,7 @@ If you plan to contribute to the codebase, you need to set up the pre-commit hoo
 
 ## Prerequisites
 
-* **Python:** Version **3.13** or newer is required.
+* **Python:** Version **3.10** or newer is required.
 * **Poetry:** For package management.
 
 ## Development Setup

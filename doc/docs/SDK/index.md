@@ -7,6 +7,15 @@ The Mosaico SDK is a Python interface designed specifically for managing **Physi
 
 The SDK is built on the philosophy that robotics data is **unique**. Whether it comes from a autonomous car, a drone, or a factory arm, this data is multi-modal, highly frequent, and deeply interconnected in space and time. The Mosaico SDK provides the infrastructure to treat this data as a *first-class citizen* rather than just a collection of generic numbers. It understands the geometric and physical semantics of complex data types such as LIDAR point clouds, IMU readings, high-resolution camera feeds, and rigid-body transformations.
 
+## Installation
+Install the SDK via `pip`:
+
+```bash
+pip install mosaicolabs
+```
+
+*Note: Requires Python 3.10 or higher.*
+
 ## Overview
 
 The SDK is built on the following core principles:

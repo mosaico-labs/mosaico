@@ -53,7 +53,6 @@ nav:
     - agents_docs.md
   - SDK:
       - SDK/index.md
-      - SDK/install.md
       - SDK/code_contributing.md
       - How-To:
           - SDK/howto/serialized_writing_from_csv.md
