@@ -5,7 +5,6 @@ from markdownify import markdownify as md
 OVERVIEW_PAGES_ORDERED = [
     "index.md",
     "SDK/index.md",
-    "SDK/install.md",
 ]
 HOWTO_PAGES_ORDERED = [
     "SDK/howto/interleaved_writing_from_multi_topics.md",
