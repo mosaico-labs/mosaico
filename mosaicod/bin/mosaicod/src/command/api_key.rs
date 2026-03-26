@@ -159,15 +159,18 @@ fn print_authz_policy_details(policy: types::ApiKey) {
 fn print_authz_policy_list(policies: Vec<types::ApiKey>) {
     // Header
     println!(
-        "{:>12} {:>24} {:>10} {:>14}    {}",
+        "{:>12} {:>24} {:>24} {:>10} {:>14}    {}",
         "FINGERPRINT".bold(),
         "CREATED".bold(),
-        "EXPIRED".bold(),
+        "EXPIRES".bold(),
+        "STATUS".bold(),
         "PERMISSIONS".bold(),
         "DESCRIPTION".bold()
     );
     for policy in policies {
         let datetime: types::DateTime = policy.created_at.into();
+        let expired_datetime: Option<types::DateTime> = policy.expires_at.map(|t| t.into());
+
         let expired = if policy.is_expired() {
             "expired".red()
         } else {
@@ -175,9 +178,10 @@ fn print_authz_policy_list(policies: Vec<types::ApiKey>) {
         };
 
         println!(
-            "{:>12} {:>24} {:>10} {:>14}    {}",
+            "{:>12} {:>24} {:>24} {:>10} {:>14}    {}",
             policy.token().fingerprint(),
             datetime.to_string(),
+            expired_datetime.map_or("never".yellow().to_string(), |ts| { ts.to_string() }),
             expired,
             String::from(policy.permission),
             policy.description
