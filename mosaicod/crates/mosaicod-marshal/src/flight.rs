@@ -75,7 +75,7 @@ pub fn do_put_cmd(v: &[u8]) -> Result<types::flight::DoPutCmd, super::Error> {
 /// Sequence app metadata sent when requesting flight info topics and sequences flights
 #[derive(Serialize, Deserialize)]
 pub struct SequenceAppMetadata {
-    created_timestamp: i64,
+    created_at_ns: i64,
     resource_locator: String,
     sessions: Vec<SessionAppMetadata>,
 }
@@ -83,7 +83,7 @@ pub struct SequenceAppMetadata {
 impl From<types::SequenceManifest> for SequenceAppMetadata {
     fn from(value: types::SequenceManifest) -> Self {
         Self {
-            created_timestamp: value.created_timestamp.as_i64(),
+            created_at_ns: value.created_at.as_i64(),
             resource_locator: value.resource_locator.into(),
             sessions: value.sessions.into_iter().map(Into::into).collect(),
         }
@@ -95,7 +95,7 @@ impl TryFrom<SequenceAppMetadata> for types::SequenceManifest {
 
     fn try_from(value: SequenceAppMetadata) -> Result<Self, Self::Error> {
         let res = Self {
-            created_timestamp: value.created_timestamp.into(),
+            created_at: value.created_at_ns.into(),
             resource_locator: value.resource_locator.into(),
             sessions: value
                 .sessions
@@ -129,8 +129,8 @@ impl TryFrom<bytes::Bytes> for SequenceAppMetadata {
 #[derive(Serialize, Deserialize)]
 pub struct SessionAppMetadata {
     uuid: String,
-    created_at: i64,
-    completed_at: Option<i64>,
+    created_at_ns: i64,
+    completed_at_ns: Option<i64>,
     topics: Vec<String>,
     locked: bool,
 }
@@ -139,8 +139,8 @@ impl From<types::SessionManifest> for SessionAppMetadata {
     fn from(value: types::SessionManifest) -> Self {
         Self {
             uuid: value.uuid.to_string(),
-            created_at: value.created_at.as_i64(),
-            completed_at: value.completed_at.map(Into::into),
+            created_at_ns: value.created_at.as_i64(),
+            completed_at_ns: value.completed_at.map(Into::into),
             topics: value.topics.into_iter().map(Into::into).collect(),
             locked: value.locked,
         }
@@ -158,8 +158,8 @@ impl TryFrom<SessionAppMetadata> for types::SessionManifest {
 
         Ok(SessionManifest {
             uuid,
-            created_at: value.created_at.into(),
-            completed_at: value.completed_at.map(Into::into),
+            created_at: value.created_at_ns.into(),
+            completed_at: value.completed_at_ns.map(Into::into),
             topics: value.topics.into_iter().map(Into::into).collect(),
             locked: value.locked,
         })
@@ -172,16 +172,16 @@ impl TryFrom<SessionAppMetadata> for types::SessionManifest {
 #[derive(Encode, Decode)]
 struct TicketTopic {
     locator: String,
-    timestamp_range_start: Option<i64>,
-    timestamp_range_end: Option<i64>,
+    timestamp_ns_start: Option<i64>,
+    timestamp_ns_end: Option<i64>,
 }
 
 impl From<types::flight::TicketTopic> for TicketTopic {
     fn from(value: types::flight::TicketTopic) -> Self {
         Self {
             locator: value.locator,
-            timestamp_range_start: value.timestamp_range.as_ref().map(|tsr| tsr.start.into()),
-            timestamp_range_end: value.timestamp_range.map(|tsr| tsr.end.into()),
+            timestamp_ns_start: value.timestamp_range.as_ref().map(|tsr| tsr.start.into()),
+            timestamp_ns_end: value.timestamp_range.map(|tsr| tsr.end.into()),
         }
     }
 }
@@ -189,10 +189,10 @@ impl From<types::flight::TicketTopic> for TicketTopic {
 impl From<TicketTopic> for types::flight::TicketTopic {
     fn from(value: TicketTopic) -> Self {
         let ub: types::Timestamp = value
-            .timestamp_range_end
+            .timestamp_ns_end
             .map_or_else(types::Timestamp::unbounded_pos, |v| v.into());
         let lb: types::Timestamp = value
-            .timestamp_range_start
+            .timestamp_ns_start
             .map_or_else(types::Timestamp::unbounded_neg, |v| v.into());
 
         let ts = types::TimestampRange::between(lb, ub);
@@ -228,17 +228,17 @@ pub fn ticket_topic_from_binary(v: &[u8]) -> Result<types::flight::TicketTopic, 
 
 #[derive(Serialize, Deserialize)]
 pub struct TopicAppMetadataTimestamp {
-    /// Minimum timestamp observed in the topic
-    min: i64,
-    /// Maximum timestamp observed in the topic
-    max: i64,
+    /// First timestamp observed in the topic
+    start_ns: i64,
+    /// Last timestamp observed in the topic
+    end_ns: i64,
 }
 
 impl From<types::TimestampRange> for TopicAppMetadataTimestamp {
     fn from(value: types::TimestampRange) -> Self {
         Self {
-            min: value.start.as_i64(),
-            max: value.end.as_i64(),
+            start_ns: value.start.as_i64(),
+            end_ns: value.end.as_i64(),
         }
     }
 }
@@ -246,8 +246,8 @@ impl From<types::TimestampRange> for TopicAppMetadataTimestamp {
 impl From<TopicAppMetadataTimestamp> for types::TimestampRange {
     fn from(value: TopicAppMetadataTimestamp) -> Self {
         Self {
-            start: value.min.into(),
-            end: value.max.into(),
+            start: value.start_ns.into(),
+            end: value.end_ns.into(),
         }
     }
 }
@@ -262,8 +262,8 @@ pub struct TopicAppMetadataInfo {
 /// Topic app metadata sent when requesting flight info topics and sequences flights
 #[derive(Serialize, Deserialize)]
 pub struct TopicAppMetadata {
-    pub created_at: i64,
-    pub completed_at: Option<i64>,
+    pub created_at_ns: i64,
+    pub completed_at_ns: Option<i64>,
     pub locked: bool,
     pub resource_locator: String,
     pub info: Option<TopicAppMetadataInfo>,
@@ -272,8 +272,8 @@ pub struct TopicAppMetadata {
 impl TopicAppMetadata {
     pub fn new(metadata: types::TopicProperties) -> Self {
         Self {
-            created_at: metadata.created_at.as_i64(),
-            completed_at: metadata.completed_at.map(Into::into),
+            created_at_ns: metadata.created_at.as_i64(),
+            completed_at_ns: metadata.completed_at.map(Into::into),
             locked: metadata.locked,
             resource_locator: metadata.resource_locator.to_string(),
             info: None,

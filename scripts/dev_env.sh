@@ -163,7 +163,7 @@ main() {
     cargo build
 
     if $ENABLE_API_KEY; then
-        API_KEY=$(RUST_LOG="" ./target/debug/mosaicod api-key create read write delete manage)
+        API_KEY=$(RUST_LOG="" ./target/debug/mosaicod api-key create -p manage)
 
 cat << EOF 
     ##################################################################

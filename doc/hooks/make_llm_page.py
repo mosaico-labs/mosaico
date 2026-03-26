@@ -8,19 +8,22 @@ OVERVIEW_PAGES_ORDERED = [
     "SDK/install.md",
 ]
 HOWTO_PAGES_ORDERED = [
-    "SDK/howto/data_inspection.md",
     "SDK/howto/interleaved_writing_from_multi_topics.md",
-    "SDK/howto/ontology_customization.md",
-    "SDK/howto/query_catalogs.md",
     "SDK/howto/query_chained.md",
     "SDK/howto/query_multi_domain.md",
     "SDK/howto/query_sequences.md",
     "SDK/howto/query_topics.md",
-    "SDK/howto/ros_injection.md",
     "SDK/howto/secure_connection.md",
     "SDK/howto/serialized_writing_from_csv.md",
     "SDK/howto/serialized_writing_from_multi_csv.md",
     "SDK/howto/streaming.md",
+]
+EXAMPLES_PAGES_ORDERED = [
+    "SDK/examples/data_inspection.md",
+    "SDK/examples/index.md",
+    "SDK/examples/ontology_customization.md",
+    "SDK/examples/query_catalogs.md",
+    "SDK/examples/ros_injection.md",
 ]
 INDEPTH_PAGES_ORDERED = [
     "SDK/client.md",
@@ -32,10 +35,10 @@ INDEPTH_PAGES_ORDERED = [
     "SDK/bridges/ml.md",
     "SDK/bridges/ros.md",
     "SDK/code_contributing.md",
-    "daemon/index.md",
     "daemon/actions.md",
     "daemon/api_key.md",
     "daemon/cli.md",
+    "daemon/index.md",
     "daemon/ingestion.md",
     "daemon/install.md",
     "daemon/query.md",
@@ -48,6 +51,7 @@ API_REFERENCE_PAGES_ORDERED = [
     "SDK/API_reference/comm.md",
     "SDK/API_reference/enum.md",
     "SDK/API_reference/types.md",
+    "SDK/API_reference/logging.md",
     "SDK/API_reference/handlers/reading.md",
     "SDK/API_reference/handlers/writing.md",
     "SDK/API_reference/models/base.md",
@@ -72,6 +76,7 @@ API_REFERENCE_PAGES_ORDERED = [
 FULL_DOC_PAGES_ORDER = (
     OVERVIEW_PAGES_ORDERED
     + HOWTO_PAGES_ORDERED
+    + EXAMPLES_PAGES_ORDERED
     + INDEPTH_PAGES_ORDERED
     + API_REFERENCE_PAGES_ORDERED
 )
@@ -160,7 +165,10 @@ def _make_llms_architecture_page(config):
         f.write("---\n\n")
 
         for path in (
-            OVERVIEW_PAGES_ORDERED + HOWTO_PAGES_ORDERED + INDEPTH_PAGES_ORDERED
+            OVERVIEW_PAGES_ORDERED
+            + HOWTO_PAGES_ORDERED
+            + EXAMPLES_PAGES_ORDERED
+            + INDEPTH_PAGES_ORDERED
         ):
             if path in content_map:
                 f.write("\n\n\n")

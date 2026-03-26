@@ -117,7 +117,7 @@ pub struct Query {
 
 #[derive(Deserialize, Debug)]
 pub struct ApiKeyCreate {
-    pub permissions: Vec<String>,
+    pub permissions: String,
     pub expires_at_ns: Option<i64>,
     pub description: String,
 }

@@ -109,8 +109,8 @@ class TopicResourceInfo:
         tmax = None
         # Can be null (i.e. "timestamp" present but empty)
         if isinstance(tstamp_mdata, dict):
-            tmin = tstamp_mdata.get("min")
-            tmax = tstamp_mdata.get("max")
+            tmin = tstamp_mdata.get("start_ns")
+            tmax = tstamp_mdata.get("end_ns")
             # Ensure both keys exist
             if (tstamp_mdata.get("min") is None) != (tmax is None):
                 logger.error(

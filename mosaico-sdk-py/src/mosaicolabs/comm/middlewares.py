@@ -1,6 +1,8 @@
-from typing import Dict, List, Tuple
+from typing import Dict, List
 
 import pyarrow.flight as fl
+
+from ..platform.api_key import _get_fingerprint
 
 
 class MosaicoAuthMiddleware(fl.ClientMiddleware):
@@ -47,12 +49,7 @@ class MosaicoAuthMiddlewareFactory(fl.ClientMiddlewareFactory):
         """
         super().__init__()
         self._api_key: str = api_key
-
-        api_key_parts = self._get_key_parts()
-        if api_key_parts is None:
-            raise ValueError("Invalid format for API Key")
-
-        _, _, self._fingerprint = api_key_parts
+        self._fingerprint = _get_fingerprint(api_key)
 
     def start_call(self, info: fl.CallInfo) -> MosaicoAuthMiddleware:
         """
@@ -75,27 +72,3 @@ class MosaicoAuthMiddlewareFactory(fl.ClientMiddlewareFactory):
             str: The fingerprint of the API key
         """
         return self._fingerprint
-
-    def _get_key_parts(self) -> Tuple:
-        """
-        Split the API key into its components
-
-        Returns:
-            tuple: (header, payload, fingerprint)
-
-        Raises:
-            ValueError: If the API key is not in the correct format
-        """
-        parts = self._api_key.split("_")
-        if len(parts) != 3:
-            raise ValueError("Invalid format for API Key (wrong number of parts)")
-
-        header, payload, fingerprint = parts
-
-        if header != "msco":
-            raise ValueError("Invalid format for API Key (missing 'msco')")
-
-        if not (payload.isalnum() and fingerprint.isalnum()):
-            raise ValueError("Invalid format for API Key (not alnum)")
-
-        return header, payload, fingerprint

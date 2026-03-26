@@ -105,12 +105,7 @@ pub async fn start(
     // If API key management is disabled define a custom permission with all permissions
     // and enable permissions passthrough in the auth middleware
     if !config.enable_api_key_management {
-        auth_layer = auth_layer.with_permission_passthrough(
-            types::auth::Permissions::READ
-                | types::auth::Permissions::WRITE
-                | types::auth::Permissions::DELETE
-                | types::auth::Permissions::MANAGE,
-        );
+        auth_layer = auth_layer.with_permission_passthrough(types::auth::Permission::Manage);
     }
     let layer = tower::ServiceBuilder::new().layer(auth_layer).into_inner();
 
@@ -210,7 +205,7 @@ impl FlightService for MosaicodFlight {
         request: Request<Criteria>,
     ) -> Result<Response<Self::ListFlightsStream>, Status> {
         let auth_ctx = auth_context(&request)?;
-        if !auth_ctx.permissions().is_read() {
+        if !auth_ctx.permissions().can_read() {
             Err(ServerError::Unauthorized)?;
         }
 
@@ -228,7 +223,7 @@ impl FlightService for MosaicodFlight {
         request: Request<FlightDescriptor>,
     ) -> Result<Response<FlightInfo>, Status> {
         let auth_ctx = auth_context(&request)?;
-        if !auth_ctx.permissions().is_read() {
+        if !auth_ctx.permissions().can_read() {
             Err(ServerError::Unauthorized)?;
         }
 
@@ -264,7 +259,7 @@ impl FlightService for MosaicodFlight {
         request: Request<Ticket>,
     ) -> Result<Response<Self::DoGetStream>, Status> {
         let auth_ctx = auth_context(&request)?;
-        if !auth_ctx.permissions().is_read() {
+        if !auth_ctx.permissions().can_read() {
             Err(ServerError::Unauthorized)?;
         }
 
@@ -287,7 +282,7 @@ impl FlightService for MosaicodFlight {
         request: Request<Streaming<FlightData>>,
     ) -> Result<Response<Self::DoPutStream>, Status> {
         let auth_ctx = auth_context(&request)?;
-        if !auth_ctx.permissions().is_write() {
+        if !auth_ctx.permissions().can_write() {
             Err(ServerError::Unauthorized)?;
         }
 

@@ -19,27 +19,27 @@ from .helpers import (
 
 
 def test_manifest_in_data_sequence(
-    _client: MosaicoClient,
-    _inject_sequence_data_stream,  # Ensure the data are available on the data platform
-    _make_sequence_data_stream: SequenceDataStream,
+    mosaico_client: MosaicoClient,
+    inject_synthetic_sequence,  # Ensure the data are available on the data platform
+    synthetic_sequence_data_stream: SequenceDataStream,
 ):
     """
     Test that the time-information are coherent for sequence with data stored.
     This is a low level test: private members and methods are called
     """
     # All other tests are made somewhere else..
-    seqhandler = _client.sequence_handler(sequence_name=UPLOADED_SEQUENCE_NAME)
+    seqhandler = mosaico_client.sequence_handler(sequence_name=UPLOADED_SEQUENCE_NAME)
     assert seqhandler is not None
-    assert seqhandler.timestamp_ns_min == _make_sequence_data_stream.tstamp_ns_start
-    assert seqhandler.timestamp_ns_max == _make_sequence_data_stream.tstamp_ns_end
+    assert seqhandler.timestamp_ns_min == synthetic_sequence_data_stream.tstamp_ns_start
+    assert seqhandler.timestamp_ns_max == synthetic_sequence_data_stream.tstamp_ns_end
     # free resources
-    _client.close()
+    mosaico_client.close()
 
 
 @pytest.mark.parametrize("sequence", QUERY_SEQUENCES_MOCKUP.keys())
 def test_manifest_in_dataless_sequence(
-    _client: MosaicoClient,
-    _inject_sequences_mockup,  # Ensure the data are available on the data platform
+    mosaico_client: MosaicoClient,
+    inject_mockup_sequences,  # Ensure the data are available on the data platform
     sequence: str,
 ):
     """
@@ -47,18 +47,18 @@ def test_manifest_in_dataless_sequence(
     This is a low level test: private members and methods are called
     """
     # All other tests are made somewhere else..
-    seqhandler = _client.sequence_handler(sequence_name=sequence)
+    seqhandler = mosaico_client.sequence_handler(sequence_name=sequence)
     assert seqhandler is not None
     assert seqhandler.timestamp_ns_min is None
     assert seqhandler.timestamp_ns_max is None
     # free resources
-    _client.close()
+    mosaico_client.close()
 
 
 @pytest.mark.parametrize("topic", topic_list)
 def test_topic_name_in_endpoint_from_topic_handler(
-    _client: MosaicoClient,
-    _inject_sequence_data_stream,  # Ensure the data are available on the data platform
+    mosaico_client: MosaicoClient,
+    inject_synthetic_sequence,  # Ensure the data are available on the data platform
     topic: str,
 ):
     """
@@ -69,7 +69,7 @@ def test_topic_name_in_endpoint_from_topic_handler(
     flight_info, _, _ = TopicHandler._get_flight_info(
         sequence_name=UPLOADED_SEQUENCE_NAME,
         topic_name=topic,
-        client=_client._control_client,
+        client=mosaico_client._control_client,
     )
     # Topic exists!
     assert len(flight_info.endpoints) == 1 and "Expected 1 endpoint"
@@ -86,12 +86,12 @@ def test_topic_name_in_endpoint_from_topic_handler(
     )
 
     # free resources
-    _client.close()
+    mosaico_client.close()
 
 
 def test_topic_names_in_endpoints_from_sequence_handler(
-    _client: MosaicoClient,
-    _inject_sequence_data_stream,  # Ensure the data are available on the data platform
+    mosaico_client: MosaicoClient,
+    inject_synthetic_sequence,  # Ensure the data are available on the data platform
 ):
     """
     Test that the topic endpoints are coherent wrt expected.
@@ -100,7 +100,7 @@ def test_topic_names_in_endpoints_from_sequence_handler(
     # All other tests are made somewhere else..
     flight_info, _ = SequenceHandler._get_flight_info(
         sequence_name=UPLOADED_SEQUENCE_NAME,
-        client=_client._control_client,
+        client=mosaico_client._control_client,
     )
     # Topic exists!
     assert (
@@ -120,14 +120,14 @@ def test_topic_names_in_endpoints_from_sequence_handler(
         )
 
     # free resources
-    _client.close()
+    mosaico_client.close()
 
 
 @pytest.mark.parametrize("topic", topic_list)
 def test_topics_manifest_timestamps(
-    _client: MosaicoClient,
-    _inject_sequence_data_stream,  # Ensure the data are available on the data platform
-    _make_sequence_data_stream: SequenceDataStream,
+    mosaico_client: MosaicoClient,
+    inject_synthetic_sequence,  # Ensure the data are available on the data platform
+    synthetic_sequence_data_stream: SequenceDataStream,
     topic: str,
 ):
     """
@@ -137,11 +137,11 @@ def test_topics_manifest_timestamps(
     # generate for easier inspection and debug (than using next)
     _cached_topic_data_stream = [
         dstream
-        for dstream in _make_sequence_data_stream.items
+        for dstream in synthetic_sequence_data_stream.items
         if dstream.topic == topic
     ]
 
-    thandler = _client.topic_handler(
+    thandler = mosaico_client.topic_handler(
         sequence_name=UPLOADED_SEQUENCE_NAME, topic_name=topic
     )
     # Sequence must exist
@@ -150,7 +150,7 @@ def test_topics_manifest_timestamps(
     flight_info, _, _ = thandler._get_flight_info(
         sequence_name=UPLOADED_SEQUENCE_NAME,
         topic_name=topic,
-        client=_client._control_client,
+        client=mosaico_client._control_client,
     )
     # The length of the 'endpoints' list is tested elsewhere
     ep = flight_info.endpoints[0]
@@ -166,14 +166,14 @@ def test_topics_manifest_timestamps(
     )
 
     # free resources
-    _client.close()
+    mosaico_client.close()
 
 
 @pytest.mark.parametrize("topic", topic_list)
 def test_topic_streamer_manifest_timestamps(
-    _client: MosaicoClient,
-    _inject_sequence_data_stream,  # Ensure the data are available on the data platform
-    _make_sequence_data_stream: SequenceDataStream,
+    mosaico_client: MosaicoClient,
+    inject_synthetic_sequence,  # Ensure the data are available on the data platform
+    synthetic_sequence_data_stream: SequenceDataStream,
     topic: str,
 ):
     """
@@ -183,23 +183,23 @@ def test_topic_streamer_manifest_timestamps(
     # generate for easier inspection and debug (than using next)
     _cached_topic_data_stream = [
         dstream
-        for dstream in _make_sequence_data_stream.items
+        for dstream in synthetic_sequence_data_stream.items
         if dstream.topic == topic
     ]
     # start from the half of the sequence
-    timestamp_ns_start = _make_sequence_data_stream.tstamp_ns_start + int(
+    timestamp_ns_start = synthetic_sequence_data_stream.tstamp_ns_start + int(
         (
-            _make_sequence_data_stream.tstamp_ns_start
-            + _make_sequence_data_stream.tstamp_ns_end
+            synthetic_sequence_data_stream.tstamp_ns_start
+            + synthetic_sequence_data_stream.tstamp_ns_end
         )
         / 2
     )
-    timestamp_ns_end = _make_sequence_data_stream.tstamp_ns_end
+    timestamp_ns_end = synthetic_sequence_data_stream.tstamp_ns_end
 
     flight_info = TopicDataStreamer._get_flight_info(
         sequence_name=UPLOADED_SEQUENCE_NAME,
         topic_name=topic,
-        client=_client._control_client,
+        client=mosaico_client._control_client,
         start_timestamp_ns=timestamp_ns_start,
         end_timestamp_ns=timestamp_ns_end,
     )
@@ -218,4 +218,4 @@ def test_topic_streamer_manifest_timestamps(
     )
 
     # free resources
-    _client.close()
+    mosaico_client.close()

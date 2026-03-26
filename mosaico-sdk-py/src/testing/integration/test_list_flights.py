@@ -4,9 +4,9 @@ from .config import QUERY_SEQUENCES_MOCKUP, UPLOADED_SEQUENCE_NAME
 
 
 def test_list_sequences(
-    _client: MosaicoClient,
-    _inject_sequences_mockup,
-    _inject_sequence_data_stream,
+    mosaico_client: MosaicoClient,
+    inject_mockup_sequences,
+    inject_synthetic_sequence,
     # we do not know when the test is executed,
     # so we ensure all the sequences are available on the server
 ):
@@ -16,10 +16,10 @@ def test_list_sequences(
     expected_sequences_list = list(QUERY_SEQUENCES_MOCKUP.keys()) + [
         UPLOADED_SEQUENCE_NAME
     ]
-    slist = _client.list_sequences()
+    slist = mosaico_client.list_sequences()
 
     assert len(slist) == len(expected_sequences_list)
     assert all([sname in expected_sequences_list for sname in slist])
 
     # free resources
-    _client.close()
+    mosaico_client.close()
