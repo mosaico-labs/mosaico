@@ -59,9 +59,6 @@ The client supports 4 permission levels, each with increasing privileges:
 | [`APIKeyPermissionEnum.Manage`][mosaicolabs.enum.APIKeyPermissionEnum.Manage] | Full access to resources + Manage API keys (create, retrieve the status, revoke)|
 
 
-!!! warning "API-Key and TLS"
-    TLS is not mandatory for connecting via API-keys. It is recommended to enable the support for TLS in the server, to avoid sensitive credential to be sent on unencrypted channels.
-
 ```python
 from mosaicolabs import MosaicoClient
 
@@ -74,6 +71,8 @@ with MosaicoClient.connect(
     print(client.version())
 ```
 
+!!! warning "API-Key and TLS"
+    TLS is not mandatory for connecting via API-keys. It is recommended to enable the support for TLS in the server, to avoid sensitive credential to be sent on unencrypted channels.
 
 ### Recommended Patterns
 
