@@ -7,8 +7,7 @@ readme = "README.md"
 license = "AGPL-3.0"
 keywords = [
     "mosaicolabs",
-    "mosaico",
-    "sdk",
+    "mosaico-sdk",
     "data-platform",
     "physical-ai",
     "robotics",
@@ -28,7 +27,7 @@ rich = "^14.3.3"
 rosbags = "^0.11.0"
 deprecated = "^1.3.1"
 typing-extensions = "^4.15.0"
-av = ">=16.0.0"
+av = "^17.0.0"
 click = "^8.3.1"
 
 [tool.poetry.group.dev.dependencies]
