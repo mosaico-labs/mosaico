@@ -159,13 +159,13 @@ def _exec_test_chunks(
 
 
 def test_single_selection_chunks_unbounded(
-    _client: MosaicoClient,
-    _make_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
-    _inject_sequence_data_stream,  # Make sure data are available on the server
+    mosaico_client: MosaicoClient,
+    synthetic_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
+    inject_synthetic_sequence,  # Make sure data are available on the server
 ):
     """Test retrieving the topic data-stream from start to end, unbounded"""
 
-    seqhandler = _client.sequence_handler(UPLOADED_SEQUENCE_NAME)
+    seqhandler = mosaico_client.sequence_handler(UPLOADED_SEQUENCE_NAME)
     # Sequence must exist
     assert seqhandler is not None
     # --- Topic 1 ---
@@ -174,7 +174,7 @@ def test_single_selection_chunks_unbounded(
     tags = ["imu"]
 
     _exec_test_chunks(
-        data_stream=_make_sequence_data_stream,
+        data_stream=synthetic_sequence_data_stream,
         topics=selection,
         tags=tags,
         seqhandler=seqhandler,
@@ -188,7 +188,7 @@ def test_single_selection_chunks_unbounded(
     tags = ["gps"]
 
     _exec_test_chunks(
-        data_stream=_make_sequence_data_stream,
+        data_stream=synthetic_sequence_data_stream,
         topics=selection,
         tags=tags,
         seqhandler=seqhandler,
@@ -197,26 +197,26 @@ def test_single_selection_chunks_unbounded(
     )
 
     # free resources
-    _client.close()
+    mosaico_client.close()
 
 
 def test_single_selection_chunks_from_half_to_end(
-    _client: MosaicoClient,
-    _make_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
-    _inject_sequence_data_stream,  # Make sure data are available on the server
+    mosaico_client: MosaicoClient,
+    synthetic_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
+    inject_synthetic_sequence,  # Make sure data are available on the server
 ):
     """Test retrieving the topic data-stream from half to end"""
     # start from the half of the sequence
-    timestamp_ns_start = _make_sequence_data_stream.tstamp_ns_start + int(
+    timestamp_ns_start = synthetic_sequence_data_stream.tstamp_ns_start + int(
         (
-            _make_sequence_data_stream.tstamp_ns_end
-            - _make_sequence_data_stream.tstamp_ns_start
+            synthetic_sequence_data_stream.tstamp_ns_end
+            - synthetic_sequence_data_stream.tstamp_ns_start
         )
         / 2
     )
-    timestamp_ns_end = _make_sequence_data_stream.tstamp_ns_end
+    timestamp_ns_end = synthetic_sequence_data_stream.tstamp_ns_end
 
-    seqhandler = _client.sequence_handler(UPLOADED_SEQUENCE_NAME)
+    seqhandler = mosaico_client.sequence_handler(UPLOADED_SEQUENCE_NAME)
     # Sequence must exist
     assert seqhandler is not None
     # --- Topic 1 ---
@@ -225,7 +225,7 @@ def test_single_selection_chunks_from_half_to_end(
     tags = ["imu"]
 
     _exec_test_chunks(
-        data_stream=_make_sequence_data_stream,
+        data_stream=synthetic_sequence_data_stream,
         topics=selection,
         tags=tags,
         seqhandler=seqhandler,
@@ -239,7 +239,7 @@ def test_single_selection_chunks_from_half_to_end(
     tags = ["gps"]
 
     _exec_test_chunks(
-        data_stream=_make_sequence_data_stream,
+        data_stream=synthetic_sequence_data_stream,
         topics=selection,
         tags=tags,
         seqhandler=seqhandler,
@@ -248,25 +248,25 @@ def test_single_selection_chunks_from_half_to_end(
     )
 
     # free resources
-    _client.close()
+    mosaico_client.close()
 
 
 def test_single_selection_chunks_from_half(
-    _client: MosaicoClient,
-    _make_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
-    _inject_sequence_data_stream,  # Make sure data are available on the server
+    mosaico_client: MosaicoClient,
+    synthetic_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
+    inject_synthetic_sequence,  # Make sure data are available on the server
 ):
     """Test retrieving the topic data-stream from half (unbounded end)"""
     # start from the half of the sequence
-    timestamp_ns_start = _make_sequence_data_stream.tstamp_ns_start + int(
+    timestamp_ns_start = synthetic_sequence_data_stream.tstamp_ns_start + int(
         (
-            _make_sequence_data_stream.tstamp_ns_end
-            - _make_sequence_data_stream.tstamp_ns_start
+            synthetic_sequence_data_stream.tstamp_ns_end
+            - synthetic_sequence_data_stream.tstamp_ns_start
         )
         / 2
     )
 
-    seqhandler = _client.sequence_handler(UPLOADED_SEQUENCE_NAME)
+    seqhandler = mosaico_client.sequence_handler(UPLOADED_SEQUENCE_NAME)
     # Sequence must exist
     assert seqhandler is not None
     # --- Topic 1 ---
@@ -275,7 +275,7 @@ def test_single_selection_chunks_from_half(
     tags = ["imu"]
 
     _exec_test_chunks(
-        data_stream=_make_sequence_data_stream,
+        data_stream=synthetic_sequence_data_stream,
         topics=selection,
         tags=tags,
         seqhandler=seqhandler,
@@ -289,7 +289,7 @@ def test_single_selection_chunks_from_half(
     tags = ["gps"]
 
     _exec_test_chunks(
-        data_stream=_make_sequence_data_stream,
+        data_stream=synthetic_sequence_data_stream,
         topics=selection,
         tags=tags,
         seqhandler=seqhandler,
@@ -298,26 +298,26 @@ def test_single_selection_chunks_from_half(
     )
 
     # free resources
-    _client.close()
+    mosaico_client.close()
 
 
 def test_single_selection_chunks_to_half(
-    _client: MosaicoClient,
-    _make_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
-    _inject_sequence_data_stream,  # Make sure data are available on the server
+    mosaico_client: MosaicoClient,
+    synthetic_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
+    inject_synthetic_sequence,  # Make sure data are available on the server
 ):
     """Test retrieving the topic data-stream to half (unbounded start)"""
 
     # start from the half of the sequence
-    timestamp_ns_end = _make_sequence_data_stream.tstamp_ns_start + int(
+    timestamp_ns_end = synthetic_sequence_data_stream.tstamp_ns_start + int(
         (
-            _make_sequence_data_stream.tstamp_ns_start
-            + _make_sequence_data_stream.tstamp_ns_end
+            synthetic_sequence_data_stream.tstamp_ns_start
+            + synthetic_sequence_data_stream.tstamp_ns_end
         )
         / 2
     )
 
-    seqhandler = _client.sequence_handler(UPLOADED_SEQUENCE_NAME)
+    seqhandler = mosaico_client.sequence_handler(UPLOADED_SEQUENCE_NAME)
     # Sequence must exist
     assert seqhandler is not None
     # --- Topic 1 ---
@@ -326,7 +326,7 @@ def test_single_selection_chunks_to_half(
     tags = ["imu"]
 
     _exec_test_chunks(
-        data_stream=_make_sequence_data_stream,
+        data_stream=synthetic_sequence_data_stream,
         topics=selection,
         tags=tags,
         seqhandler=seqhandler,
@@ -340,7 +340,7 @@ def test_single_selection_chunks_to_half(
     tags = ["gps"]
 
     _exec_test_chunks(
-        data_stream=_make_sequence_data_stream,
+        data_stream=synthetic_sequence_data_stream,
         topics=selection,
         tags=tags,
         seqhandler=seqhandler,
@@ -349,17 +349,17 @@ def test_single_selection_chunks_to_half(
     )
 
     # free resources
-    _client.close()
+    mosaico_client.close()
 
 
 def test_single_selection_chunks_extra_bounds(
-    _client: MosaicoClient,
-    _make_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
-    _inject_sequence_data_stream,  # Make sure data are available on the server
+    mosaico_client: MosaicoClient,
+    synthetic_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
+    inject_synthetic_sequence,  # Make sure data are available on the server
 ):
     """Test retrieving the topic data-stream with time limits outside the valid sequence time boundaries."""
 
-    seqhandler = _client.sequence_handler(UPLOADED_SEQUENCE_NAME)
+    seqhandler = mosaico_client.sequence_handler(UPLOADED_SEQUENCE_NAME)
     # Sequence must exist
     assert seqhandler is not None
     # --- Topic 1 ---
@@ -368,26 +368,26 @@ def test_single_selection_chunks_extra_bounds(
     tags = ["imu"]
 
     _exec_test_chunks(
-        data_stream=_make_sequence_data_stream,
+        data_stream=synthetic_sequence_data_stream,
         topics=selection,
         tags=tags,
         seqhandler=seqhandler,
         timestamp_ns_start=0,
-        timestamp_ns_end=_make_sequence_data_stream.tstamp_ns_end * 2,
+        timestamp_ns_end=synthetic_sequence_data_stream.tstamp_ns_end * 2,
     )
 
     # free resources
-    _client.close()
+    mosaico_client.close()
 
 
 def test_multi_selection_chunks_unbounded(
-    _client: MosaicoClient,
-    _make_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
-    _inject_sequence_data_stream,  # Make sure data are available on the server
+    mosaico_client: MosaicoClient,
+    synthetic_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
+    inject_synthetic_sequence,  # Make sure data are available on the server
 ):
     """Test retrieving the data-stream from start to end, unbounded"""
 
-    seqhandler = _client.sequence_handler(UPLOADED_SEQUENCE_NAME)
+    seqhandler = mosaico_client.sequence_handler(UPLOADED_SEQUENCE_NAME)
     # Sequence must exist
     assert seqhandler is not None
     # --- Topic 1 ---
@@ -400,7 +400,7 @@ def test_multi_selection_chunks_unbounded(
     tags = ["imu", "gps", "imu"]
 
     _exec_test_chunks(
-        data_stream=_make_sequence_data_stream,
+        data_stream=synthetic_sequence_data_stream,
         topics=selection,
         tags=tags,
         seqhandler=seqhandler,
@@ -409,17 +409,17 @@ def test_multi_selection_chunks_unbounded(
     )
 
     # free resources
-    _client.close()
+    mosaico_client.close()
 
 
 def test_multi_selection_chunks_extra_bounds(
-    _client: MosaicoClient,
-    _make_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
-    _inject_sequence_data_stream,  # Make sure data are available on the server
+    mosaico_client: MosaicoClient,
+    synthetic_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
+    inject_synthetic_sequence,  # Make sure data are available on the server
 ):
     """Test retrieving the data-stream from start to end, unbounded"""
 
-    seqhandler = _client.sequence_handler(UPLOADED_SEQUENCE_NAME)
+    seqhandler = mosaico_client.sequence_handler(UPLOADED_SEQUENCE_NAME)
     # Sequence must exist
     assert seqhandler is not None
     # --- Topic 1 ---
@@ -433,35 +433,35 @@ def test_multi_selection_chunks_extra_bounds(
     tags = ["imu", "gps", "imu"]
 
     _exec_test_chunks(
-        data_stream=_make_sequence_data_stream,
+        data_stream=synthetic_sequence_data_stream,
         topics=selection,
         tags=tags,
         seqhandler=seqhandler,
         timestamp_ns_start=0,
-        timestamp_ns_end=_make_sequence_data_stream.tstamp_ns_end * 2,
+        timestamp_ns_end=synthetic_sequence_data_stream.tstamp_ns_end * 2,
     )
 
     # free resources
-    _client.close()
+    mosaico_client.close()
 
 
 def test_multi_selection_chunks_from_half_to_end(
-    _client: MosaicoClient,
-    _make_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
-    _inject_sequence_data_stream,  # Make sure data are available on the server
+    mosaico_client: MosaicoClient,
+    synthetic_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
+    inject_synthetic_sequence,  # Make sure data are available on the server
 ):
     """Test retrieving the data-stream from half to end"""
     # start from the half of the sequence
-    timestamp_ns_start = _make_sequence_data_stream.tstamp_ns_start + int(
+    timestamp_ns_start = synthetic_sequence_data_stream.tstamp_ns_start + int(
         (
-            _make_sequence_data_stream.tstamp_ns_end
-            - _make_sequence_data_stream.tstamp_ns_start
+            synthetic_sequence_data_stream.tstamp_ns_end
+            - synthetic_sequence_data_stream.tstamp_ns_start
         )
         / 2
     )
-    timestamp_ns_end = _make_sequence_data_stream.tstamp_ns_end
+    timestamp_ns_end = synthetic_sequence_data_stream.tstamp_ns_end
 
-    seqhandler = _client.sequence_handler(UPLOADED_SEQUENCE_NAME)
+    seqhandler = mosaico_client.sequence_handler(UPLOADED_SEQUENCE_NAME)
     # Sequence must exist
     assert seqhandler is not None
     # --- Topic 1 ---
@@ -475,7 +475,7 @@ def test_multi_selection_chunks_from_half_to_end(
     tags = ["imu", "gps", "imu"]
 
     _exec_test_chunks(
-        data_stream=_make_sequence_data_stream,
+        data_stream=synthetic_sequence_data_stream,
         topics=selection,
         tags=tags,
         seqhandler=seqhandler,
@@ -484,25 +484,25 @@ def test_multi_selection_chunks_from_half_to_end(
     )
 
     # free resources
-    _client.close()
+    mosaico_client.close()
 
 
 def test_multi_selection_chunks_from_half(
-    _client: MosaicoClient,
-    _make_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
-    _inject_sequence_data_stream,  # Make sure data are available on the server
+    mosaico_client: MosaicoClient,
+    synthetic_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
+    inject_synthetic_sequence,  # Make sure data are available on the server
 ):
     """Test retrieving the data-stream from half (unbounded end)"""
     # start from the half of the sequence
-    timestamp_ns_start = _make_sequence_data_stream.tstamp_ns_start + int(
+    timestamp_ns_start = synthetic_sequence_data_stream.tstamp_ns_start + int(
         (
-            _make_sequence_data_stream.tstamp_ns_end
-            - _make_sequence_data_stream.tstamp_ns_start
+            synthetic_sequence_data_stream.tstamp_ns_end
+            - synthetic_sequence_data_stream.tstamp_ns_start
         )
         / 2
     )
 
-    seqhandler = _client.sequence_handler(UPLOADED_SEQUENCE_NAME)
+    seqhandler = mosaico_client.sequence_handler(UPLOADED_SEQUENCE_NAME)
     # Sequence must exist
     assert seqhandler is not None
     # --- Topic 1 ---
@@ -516,7 +516,7 @@ def test_multi_selection_chunks_from_half(
     tags = ["imu", "gps", "imu"]
 
     _exec_test_chunks(
-        data_stream=_make_sequence_data_stream,
+        data_stream=synthetic_sequence_data_stream,
         topics=selection,
         tags=tags,
         seqhandler=seqhandler,
@@ -525,25 +525,25 @@ def test_multi_selection_chunks_from_half(
     )
 
     # free resources
-    _client.close()
+    mosaico_client.close()
 
 
 def test_multi_selection_chunks_to_half(
-    _client: MosaicoClient,
-    _make_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
-    _inject_sequence_data_stream,  # Make sure data are available on the server
+    mosaico_client: MosaicoClient,
+    synthetic_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
+    inject_synthetic_sequence,  # Make sure data are available on the server
 ):
     """Test retrieving the data-stream to half (unbounded start)"""
     # start from the half of the sequence
-    timestamp_ns_end = _make_sequence_data_stream.tstamp_ns_start + int(
+    timestamp_ns_end = synthetic_sequence_data_stream.tstamp_ns_start + int(
         (
-            _make_sequence_data_stream.tstamp_ns_start
-            + _make_sequence_data_stream.tstamp_ns_end
+            synthetic_sequence_data_stream.tstamp_ns_start
+            + synthetic_sequence_data_stream.tstamp_ns_end
         )
         / 2
     )
 
-    seqhandler = _client.sequence_handler(UPLOADED_SEQUENCE_NAME)
+    seqhandler = mosaico_client.sequence_handler(UPLOADED_SEQUENCE_NAME)
     # Sequence must exist
     assert seqhandler is not None
     # --- Topic 1 ---
@@ -557,7 +557,7 @@ def test_multi_selection_chunks_to_half(
     tags = ["imu", "gps", "imu"]
 
     _exec_test_chunks(
-        data_stream=_make_sequence_data_stream,
+        data_stream=synthetic_sequence_data_stream,
         topics=selection,
         tags=tags,
         seqhandler=seqhandler,
@@ -566,26 +566,26 @@ def test_multi_selection_chunks_to_half(
     )
 
     # free resources
-    _client.close()
+    mosaico_client.close()
 
 
 def test_single_selection_non_existing_topic(
-    _client: MosaicoClient,
-    _make_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
-    _inject_sequence_data_stream,  # Make sure data are available on the server
+    mosaico_client: MosaicoClient,
+    synthetic_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
+    inject_synthetic_sequence,  # Make sure data are available on the server
 ):
     """Test retrieving a non-existing topic from data-stream"""
     # start from the half of the sequence
-    timestamp_ns_start = _make_sequence_data_stream.tstamp_ns_start + int(
+    timestamp_ns_start = synthetic_sequence_data_stream.tstamp_ns_start + int(
         (
-            _make_sequence_data_stream.tstamp_ns_start
-            + _make_sequence_data_stream.tstamp_ns_end
+            synthetic_sequence_data_stream.tstamp_ns_start
+            + synthetic_sequence_data_stream.tstamp_ns_end
         )
         / 2
     )
-    timestamp_ns_end = _make_sequence_data_stream.tstamp_ns_end
+    timestamp_ns_end = synthetic_sequence_data_stream.tstamp_ns_end
 
-    seqhandler = _client.sequence_handler(UPLOADED_SEQUENCE_NAME)
+    seqhandler = mosaico_client.sequence_handler(UPLOADED_SEQUENCE_NAME)
     # Sequence must exist
     assert seqhandler is not None
 
@@ -601,26 +601,26 @@ def test_single_selection_non_existing_topic(
             pass
 
     # free resources
-    _client.close()
+    mosaico_client.close()
 
 
 def test_single_selection_message(
-    _client: MosaicoClient,
-    _make_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
-    _inject_sequence_data_stream,  # Make sure data are available on the server
+    mosaico_client: MosaicoClient,
+    synthetic_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
+    inject_synthetic_sequence,  # Make sure data are available on the server
 ):
     """Test retrieving a non-existing topic from data-stream"""
     # start from the half of the sequence
-    timestamp_ns_start = _make_sequence_data_stream.tstamp_ns_start + int(
+    timestamp_ns_start = synthetic_sequence_data_stream.tstamp_ns_start + int(
         (
-            _make_sequence_data_stream.tstamp_ns_start
-            + _make_sequence_data_stream.tstamp_ns_end
+            synthetic_sequence_data_stream.tstamp_ns_start
+            + synthetic_sequence_data_stream.tstamp_ns_end
         )
         / 2
     )
-    timestamp_ns_end = _make_sequence_data_stream.tstamp_ns_end
+    timestamp_ns_end = synthetic_sequence_data_stream.tstamp_ns_end
 
-    seqhandler = _client.sequence_handler(UPLOADED_SEQUENCE_NAME)
+    seqhandler = mosaico_client.sequence_handler(UPLOADED_SEQUENCE_NAME)
     # Sequence must exist
     assert seqhandler is not None
 
@@ -641,28 +641,28 @@ def test_single_selection_message(
             assert gps_msg is None
 
     # free resources
-    _client.close()
+    mosaico_client.close()
 
 
 def test_multi_selection_message(
-    _client: MosaicoClient,
-    _make_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
-    _inject_sequence_data_stream,  # Make sure data are available on the server
+    mosaico_client: MosaicoClient,
+    synthetic_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
+    inject_synthetic_sequence,  # Make sure data are available on the server
 ):
     """Test retrieving a non-existing topic from data-stream"""
     import pandas as pd
 
     # start from the half of the sequence
-    timestamp_ns_start = _make_sequence_data_stream.tstamp_ns_start + int(
+    timestamp_ns_start = synthetic_sequence_data_stream.tstamp_ns_start + int(
         (
-            _make_sequence_data_stream.tstamp_ns_start
-            + _make_sequence_data_stream.tstamp_ns_end
+            synthetic_sequence_data_stream.tstamp_ns_start
+            + synthetic_sequence_data_stream.tstamp_ns_end
         )
         / 2
     )
-    timestamp_ns_end = _make_sequence_data_stream.tstamp_ns_end
+    timestamp_ns_end = synthetic_sequence_data_stream.tstamp_ns_end
 
-    seqhandler = _client.sequence_handler(UPLOADED_SEQUENCE_NAME)
+    seqhandler = mosaico_client.sequence_handler(UPLOADED_SEQUENCE_NAME)
     # Sequence must exist
     assert seqhandler is not None
 
@@ -685,23 +685,23 @@ def test_multi_selection_message(
                 assert gps_msg is None
 
     # free resources
-    _client.close()
+    mosaico_client.close()
 
 
 def test_sequence_chunks_unbounded(
-    _client: MosaicoClient,
-    _make_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
-    _inject_sequence_data_stream,  # Make sure data are available on the server
+    mosaico_client: MosaicoClient,
+    synthetic_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
+    inject_synthetic_sequence,  # Make sure data are available on the server
 ):
     """Test retrieving the topic data-stream from start to end, unbounded"""
 
-    seqhandler = _client.sequence_handler(UPLOADED_SEQUENCE_NAME)
+    seqhandler = mosaico_client.sequence_handler(UPLOADED_SEQUENCE_NAME)
     # Sequence must exist
     assert seqhandler is not None
     # --- Topic 1 ---
 
     _exec_test_chunks(
-        data_stream=_make_sequence_data_stream,
+        data_stream=synthetic_sequence_data_stream,
         topics=[],
         tags=[],
         seqhandler=seqhandler,
@@ -710,31 +710,31 @@ def test_sequence_chunks_unbounded(
     )
 
     # free resources
-    _client.close()
+    mosaico_client.close()
 
 
 def test_sequence_chunks_from_half_to_end(
-    _client: MosaicoClient,
-    _make_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
-    _inject_sequence_data_stream,  # Make sure data are available on the server
+    mosaico_client: MosaicoClient,
+    synthetic_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
+    inject_synthetic_sequence,  # Make sure data are available on the server
 ):
     """Test retrieving the topic data-stream from start to end, unbounded"""
 
-    timestamp_ns_start = _make_sequence_data_stream.tstamp_ns_start + int(
+    timestamp_ns_start = synthetic_sequence_data_stream.tstamp_ns_start + int(
         (
-            _make_sequence_data_stream.tstamp_ns_end
-            - _make_sequence_data_stream.tstamp_ns_start
+            synthetic_sequence_data_stream.tstamp_ns_end
+            - synthetic_sequence_data_stream.tstamp_ns_start
         )
         / 2
     )
-    timestamp_ns_end = _make_sequence_data_stream.tstamp_ns_end
-    seqhandler = _client.sequence_handler(UPLOADED_SEQUENCE_NAME)
+    timestamp_ns_end = synthetic_sequence_data_stream.tstamp_ns_end
+    seqhandler = mosaico_client.sequence_handler(UPLOADED_SEQUENCE_NAME)
     # Sequence must exist
     assert seqhandler is not None
     # --- Topic 1 ---
 
     _exec_test_chunks(
-        data_stream=_make_sequence_data_stream,
+        data_stream=synthetic_sequence_data_stream,
         topics=[],
         tags=[],
         seqhandler=seqhandler,
@@ -743,30 +743,30 @@ def test_sequence_chunks_from_half_to_end(
     )
 
     # free resources
-    _client.close()
+    mosaico_client.close()
 
 
 def test_sequence_chunks_from_half(
-    _client: MosaicoClient,
-    _make_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
-    _inject_sequence_data_stream,  # Make sure data are available on the server
+    mosaico_client: MosaicoClient,
+    synthetic_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
+    inject_synthetic_sequence,  # Make sure data are available on the server
 ):
     """Test retrieving the topic data-stream from start to end, unbounded"""
 
-    timestamp_ns_start = _make_sequence_data_stream.tstamp_ns_start + int(
+    timestamp_ns_start = synthetic_sequence_data_stream.tstamp_ns_start + int(
         (
-            _make_sequence_data_stream.tstamp_ns_end
-            - _make_sequence_data_stream.tstamp_ns_start
+            synthetic_sequence_data_stream.tstamp_ns_end
+            - synthetic_sequence_data_stream.tstamp_ns_start
         )
         / 2
     )
-    seqhandler = _client.sequence_handler(UPLOADED_SEQUENCE_NAME)
+    seqhandler = mosaico_client.sequence_handler(UPLOADED_SEQUENCE_NAME)
     # Sequence must exist
     assert seqhandler is not None
     # --- Topic 1 ---
 
     _exec_test_chunks(
-        data_stream=_make_sequence_data_stream,
+        data_stream=synthetic_sequence_data_stream,
         topics=[],
         tags=[],
         seqhandler=seqhandler,
@@ -775,30 +775,30 @@ def test_sequence_chunks_from_half(
     )
 
     # free resources
-    _client.close()
+    mosaico_client.close()
 
 
 def test_sequence_chunks_to_half(
-    _client: MosaicoClient,
-    _make_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
-    _inject_sequence_data_stream,  # Make sure data are available on the server
+    mosaico_client: MosaicoClient,
+    synthetic_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
+    inject_synthetic_sequence,  # Make sure data are available on the server
 ):
     """Test retrieving the topic data-stream from start to end, unbounded"""
 
-    timestamp_ns_end = _make_sequence_data_stream.tstamp_ns_start + int(
+    timestamp_ns_end = synthetic_sequence_data_stream.tstamp_ns_start + int(
         (
-            _make_sequence_data_stream.tstamp_ns_start
-            + _make_sequence_data_stream.tstamp_ns_end
+            synthetic_sequence_data_stream.tstamp_ns_start
+            + synthetic_sequence_data_stream.tstamp_ns_end
         )
         / 2
     )
-    seqhandler = _client.sequence_handler(UPLOADED_SEQUENCE_NAME)
+    seqhandler = mosaico_client.sequence_handler(UPLOADED_SEQUENCE_NAME)
     # Sequence must exist
     assert seqhandler is not None
     # --- Topic 1 ---
 
     _exec_test_chunks(
-        data_stream=_make_sequence_data_stream,
+        data_stream=synthetic_sequence_data_stream,
         topics=[],
         tags=[],
         seqhandler=seqhandler,
@@ -807,17 +807,17 @@ def test_sequence_chunks_to_half(
     )
 
     # free resources
-    _client.close()
+    mosaico_client.close()
 
 
 def test_sequence_no_data(
-    _client: MosaicoClient,
-    _inject_sequences_mockup,  # Make sure data are available on the server
+    mosaico_client: MosaicoClient,
+    inject_mockup_sequences,  # Make sure data are available on the server
 ):
     """Test retrieving the dataframe from an empty (no data stream) sequence"""
     # start from the half of the sequence
 
-    seqhandler = _client.sequence_handler("test-query-sequence-1")
+    seqhandler = mosaico_client.sequence_handler("test-query-sequence-1")
     # Sequence must exist
     assert seqhandler is not None
 
@@ -831,4 +831,4 @@ def test_sequence_no_data(
             pass
 
     # free resources
-    _client.close()
+    mosaico_client.close()

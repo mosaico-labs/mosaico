@@ -33,20 +33,6 @@ pub async fn finalize(ctx: &Context, session_uuid: String) -> Result<ActionRespo
     Ok(ActionResponse::session_finalize())
 }
 
-pub async fn abort(ctx: &Context, session_uuid: String) -> Result<ActionResponse, ServerError> {
-    warn!("aborting session `{}`", session_uuid);
-
-    let uuid: types::Uuid = session_uuid.parse()?;
-
-    let session = facade::Session::try_new(uuid, ctx.store.clone(), ctx.db.clone()).await?;
-
-    session.delete(true, types::allow_data_loss()).await?;
-
-    warn!("session `{}` deleted", session_uuid);
-
-    Ok(ActionResponse::session_abort())
-}
-
 pub async fn delete(ctx: &Context, session_uuid: String) -> Result<ActionResponse, ServerError> {
     warn!("deleting session `{}`", session_uuid);
 

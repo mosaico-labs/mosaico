@@ -181,107 +181,107 @@ def _exec_test_topic_data_stream_timerange(
 
 
 def test_sequence_data_stream_timerange_from_start_to_end(
-    _client: MosaicoClient,
-    _make_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
-    _inject_sequence_data_stream,  # Make sure data are available on the server
+    mosaico_client: MosaicoClient,
+    synthetic_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
+    inject_synthetic_sequence,  # Make sure data are available on the server
 ):
     """Test that the sequence time-windowed data stream from start to end is correctly unpacked and provided"""
     _exec_test_sequence_data_stream_timerange(
-        _client,
-        _make_sequence_data_stream,
-        _make_sequence_data_stream.tstamp_ns_start,
-        _make_sequence_data_stream.tstamp_ns_end,
+        mosaico_client,
+        synthetic_sequence_data_stream,
+        synthetic_sequence_data_stream.tstamp_ns_start,
+        synthetic_sequence_data_stream.tstamp_ns_end,
     )
 
 
 def test_sequence_data_stream_timerange_from_half_to_end(
-    _client: MosaicoClient,
-    _make_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
-    _inject_sequence_data_stream,  # Make sure data are available on the server
+    mosaico_client: MosaicoClient,
+    synthetic_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
+    inject_synthetic_sequence,  # Make sure data are available on the server
 ):
     """Test retrieving the data-stream from half of the sequence, with full range in flight info command"""
     # start from the half of the sequence
-    timestamp_ns_start = _make_sequence_data_stream.tstamp_ns_start + int(
+    timestamp_ns_start = synthetic_sequence_data_stream.tstamp_ns_start + int(
         (
-            _make_sequence_data_stream.tstamp_ns_end
-            - _make_sequence_data_stream.tstamp_ns_start
+            synthetic_sequence_data_stream.tstamp_ns_end
+            - synthetic_sequence_data_stream.tstamp_ns_start
         )
         / 2
     )
-    timestamp_ns_end = _make_sequence_data_stream.tstamp_ns_end
+    timestamp_ns_end = synthetic_sequence_data_stream.tstamp_ns_end
 
     _exec_test_sequence_data_stream_timerange(
-        _client,
-        _make_sequence_data_stream,
+        mosaico_client,
+        synthetic_sequence_data_stream,
         timestamp_ns_start,
         timestamp_ns_end,
     )
 
 
 def test_sequence_data_stream_timerange_from_half(
-    _client: MosaicoClient,
-    _make_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
-    _inject_sequence_data_stream,  # Make sure data are available on the server
+    mosaico_client: MosaicoClient,
+    synthetic_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
+    inject_synthetic_sequence,  # Make sure data are available on the server
 ):
     """Test retrieving the data-stream from half of the sequence, with partial range in flight info command"""
     # start from the half of the sequence
-    timestamp_ns_start = _make_sequence_data_stream.tstamp_ns_start + int(
+    timestamp_ns_start = synthetic_sequence_data_stream.tstamp_ns_start + int(
         (
-            _make_sequence_data_stream.tstamp_ns_end
-            - _make_sequence_data_stream.tstamp_ns_start
+            synthetic_sequence_data_stream.tstamp_ns_end
+            - synthetic_sequence_data_stream.tstamp_ns_start
         )
         / 2
     )
     _exec_test_sequence_data_stream_timerange(
-        _client,
-        _make_sequence_data_stream,
+        mosaico_client,
+        synthetic_sequence_data_stream,
         timestamp_ns_start,
         None,
     )
 
 
 def test_sequence_data_stream_timerange_from_start_to_half(
-    _client: MosaicoClient,
-    _make_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
-    _inject_sequence_data_stream,  # Make sure data are available on the server
+    mosaico_client: MosaicoClient,
+    synthetic_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
+    inject_synthetic_sequence,  # Make sure data are available on the server
 ):
     """Test retrieving the data-stream to half of the sequence, with full range in flight info command"""
     # start from the half of the sequence
-    timestamp_ns_start = _make_sequence_data_stream.tstamp_ns_start
-    timestamp_ns_end = _make_sequence_data_stream.tstamp_ns_start + int(
+    timestamp_ns_start = synthetic_sequence_data_stream.tstamp_ns_start
+    timestamp_ns_end = synthetic_sequence_data_stream.tstamp_ns_start + int(
         (
-            _make_sequence_data_stream.tstamp_ns_start
-            + _make_sequence_data_stream.tstamp_ns_end
+            synthetic_sequence_data_stream.tstamp_ns_start
+            + synthetic_sequence_data_stream.tstamp_ns_end
         )
         / 2
     )
 
     _exec_test_sequence_data_stream_timerange(
-        _client,
-        _make_sequence_data_stream,
+        mosaico_client,
+        synthetic_sequence_data_stream,
         timestamp_ns_start,
         timestamp_ns_end,
     )
 
 
 def test_sequence_data_stream_timerange_to_half(
-    _client: MosaicoClient,
-    _make_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
-    _inject_sequence_data_stream,  # Make sure data are available on the server
+    mosaico_client: MosaicoClient,
+    synthetic_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
+    inject_synthetic_sequence,  # Make sure data are available on the server
 ):
     """Test retrieving the data-stream to half of the sequence, with partial range in flight info command"""
     # start from the half of the sequence
-    timestamp_ns_end = _make_sequence_data_stream.tstamp_ns_start + int(
+    timestamp_ns_end = synthetic_sequence_data_stream.tstamp_ns_start + int(
         (
-            _make_sequence_data_stream.tstamp_ns_start
-            + _make_sequence_data_stream.tstamp_ns_end
+            synthetic_sequence_data_stream.tstamp_ns_start
+            + synthetic_sequence_data_stream.tstamp_ns_end
         )
         / 2
     )
 
     _exec_test_sequence_data_stream_timerange(
-        _client,
-        _make_sequence_data_stream,
+        mosaico_client,
+        synthetic_sequence_data_stream,
         None,
         timestamp_ns_end,
     )
@@ -290,25 +290,25 @@ def test_sequence_data_stream_timerange_to_half(
 # Repeat for each topic
 @pytest.mark.parametrize("topic", topic_list)
 def test_topic_data_stream_from_half_to_end(
-    _client: MosaicoClient,
-    _make_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
-    _inject_sequence_data_stream,  # Make sure data are available on the server
+    mosaico_client: MosaicoClient,
+    synthetic_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
+    inject_synthetic_sequence,  # Make sure data are available on the server
     topic: str,
 ):
     """Test retrieving each topic data-stream from half of the sequence, with full range in flight info command"""
     # start from the half of the sequence
-    timestamp_ns_start = _make_sequence_data_stream.tstamp_ns_start + int(
+    timestamp_ns_start = synthetic_sequence_data_stream.tstamp_ns_start + int(
         (
-            _make_sequence_data_stream.tstamp_ns_end
-            - _make_sequence_data_stream.tstamp_ns_start
+            synthetic_sequence_data_stream.tstamp_ns_end
+            - synthetic_sequence_data_stream.tstamp_ns_start
         )
         / 2
     )
-    timestamp_ns_end = _make_sequence_data_stream.tstamp_ns_end
+    timestamp_ns_end = synthetic_sequence_data_stream.tstamp_ns_end
 
     _exec_test_topic_data_stream_timerange(
-        _client,
-        _make_sequence_data_stream,
+        mosaico_client,
+        synthetic_sequence_data_stream,
         topic,
         timestamp_ns_start,
         timestamp_ns_end,
@@ -318,24 +318,24 @@ def test_topic_data_stream_from_half_to_end(
 # Repeat for each topic
 @pytest.mark.parametrize("topic", topic_list)
 def test_topic_data_stream_from_half(
-    _client: MosaicoClient,
-    _make_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
-    _inject_sequence_data_stream,  # Make sure data are available on the server
+    mosaico_client: MosaicoClient,
+    synthetic_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
+    inject_synthetic_sequence,  # Make sure data are available on the server
     topic: str,
 ):
     """Test retrieving each topic data-stream from half of the sequence, with partial range in flight info command"""
     # start from the half of the sequence
-    timestamp_ns_start = _make_sequence_data_stream.tstamp_ns_start + int(
+    timestamp_ns_start = synthetic_sequence_data_stream.tstamp_ns_start + int(
         (
-            _make_sequence_data_stream.tstamp_ns_end
-            - _make_sequence_data_stream.tstamp_ns_start
+            synthetic_sequence_data_stream.tstamp_ns_end
+            - synthetic_sequence_data_stream.tstamp_ns_start
         )
         / 2
     )
 
     _exec_test_topic_data_stream_timerange(
-        _client,
-        _make_sequence_data_stream,
+        mosaico_client,
+        synthetic_sequence_data_stream,
         topic,
         timestamp_ns_start,
         None,
@@ -345,26 +345,26 @@ def test_topic_data_stream_from_half(
 # Repeat for each topic
 @pytest.mark.parametrize("topic", topic_list)
 def test_topic_data_stream_from_start_to_half(
-    _client: MosaicoClient,
-    _make_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
-    _inject_sequence_data_stream,  # Make sure data are available on the server
+    mosaico_client: MosaicoClient,
+    synthetic_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
+    inject_synthetic_sequence,  # Make sure data are available on the server
     topic: str,
 ):
     """Test retrieving each topic data-stream up to half of the sequence, with full range in flight info command"""
     # start from the beginning of the sequence
-    timestamp_ns_start = _make_sequence_data_stream.tstamp_ns_start
+    timestamp_ns_start = synthetic_sequence_data_stream.tstamp_ns_start
     # stop at the half of the sequence
-    timestamp_ns_end = _make_sequence_data_stream.tstamp_ns_start + int(
+    timestamp_ns_end = synthetic_sequence_data_stream.tstamp_ns_start + int(
         (
-            _make_sequence_data_stream.tstamp_ns_start
-            + _make_sequence_data_stream.tstamp_ns_end
+            synthetic_sequence_data_stream.tstamp_ns_start
+            + synthetic_sequence_data_stream.tstamp_ns_end
         )
         / 2
     )
 
     _exec_test_topic_data_stream_timerange(
-        _client,
-        _make_sequence_data_stream,
+        mosaico_client,
+        synthetic_sequence_data_stream,
         topic,
         timestamp_ns_start,
         timestamp_ns_end,
@@ -374,24 +374,24 @@ def test_topic_data_stream_from_start_to_half(
 # Repeat for each topic
 @pytest.mark.parametrize("topic", topic_list)
 def test_topic_data_stream_to_half(
-    _client: MosaicoClient,
-    _make_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
-    _inject_sequence_data_stream,  # Make sure data are available on the server
+    mosaico_client: MosaicoClient,
+    synthetic_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
+    inject_synthetic_sequence,  # Make sure data are available on the server
     topic: str,
 ):
     """Test retrieving each topic data-stream up to half of the sequence, with partial range in flight info command"""
     # stop at the half of the sequence
-    timestamp_ns_end = _make_sequence_data_stream.tstamp_ns_start + int(
+    timestamp_ns_end = synthetic_sequence_data_stream.tstamp_ns_start + int(
         (
-            _make_sequence_data_stream.tstamp_ns_start
-            + _make_sequence_data_stream.tstamp_ns_end
+            synthetic_sequence_data_stream.tstamp_ns_start
+            + synthetic_sequence_data_stream.tstamp_ns_end
         )
         / 2
     )
 
     _exec_test_topic_data_stream_timerange(
-        _client,
-        _make_sequence_data_stream,
+        mosaico_client,
+        synthetic_sequence_data_stream,
         topic,
         None,
         timestamp_ns_end,

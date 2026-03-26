@@ -116,6 +116,7 @@ Options:
     --sdk-python                Run Python SDK unit tests (no Docker required)
     --full-stack                Run full-stack tests (requires Docker + mosaicod build)
     --full-stack-tls            Run full-stack tests with TLS (requires Docker + mosaicod build)
+    --full-stack-api-key        Run full-stack tests on API KEY (requires Docker + mosaicod build)
     --all                       Run all tests (default)
     --help                      Show this help message
 EOF
@@ -170,6 +171,7 @@ run_full_stack_tests() {
     MOSAICOD_OPTS=""
     PYTEST_OPTS_K="integration and not test_tls_connection"
     PYTEST_OPTS=""
+    GENERATE_API_KEY=false
     TITLE="N/A"
 
     while [ $# -gt 0 ]; do
@@ -182,6 +184,13 @@ run_full_stack_tests() {
                 export MOSAICOD_TLS_CERT_FILE="${MOSAICOD_PATH}/tests/data/cert.pem"
                 export MOSAICOD_TLS_PRIVATE_KEY_FILE="${MOSAICOD_PATH}/tests/data/key.pem"
                 export MOSAICO_TLS_CERT_FILE="${MOSAICOD_PATH}/tests/data/ca.pem"
+
+                shift 
+                ;;
+            --api-key)
+                MOSAICOD_OPTS="--api-key"
+                PYTEST_OPTS_K="integration"
+                GENERATE_API_KEY=true
 
                 shift 
                 ;;
@@ -209,6 +218,11 @@ run_full_stack_tests() {
     else
         echo "Compiling mosaicod, it may take a while ..."
         cargo build --bin mosaicod 2>&1
+    fi
+
+    if $GENERATE_API_KEY; then
+        MOSAICO_API_KEY_MANAGE=$(RUST_LOG="" ${MOSAICOD_PATH}/target/debug/mosaicod api-key create -p manage)
+        PYTEST_OPTS="--api-key ${MOSAICO_API_KEY_MANAGE}"
     fi
 
     # Create test directory
@@ -241,6 +255,7 @@ main() {
     local run_sdk_python=false
     local run_full_stack=false
     local run_full_stack_tls=false
+    local run_full_stack_api_key=false
     local run_all=false
     local run_selected=false # true if at least a run option is selected
 
@@ -268,6 +283,11 @@ main() {
                 ;;
             --full-stack-tls)
                 run_full_stack_tls=true
+                run_selected=true
+                shift
+                ;;
+            --full-stack-api-key)
+                run_full_stack_api_key=true
                 run_selected=true
                 shift
                 ;;
@@ -307,6 +327,7 @@ main() {
         run_sdk_python_tests
         run_full_stack_tests --title "full-stack tests"
         run_full_stack_tests --title "full-stack tests (TLS)" --tls
+        run_full_stack_tests --title "full-stack tests (API KEY)" --api-key
     else
         if [ "$run_mosaicod" = true ]; then
             run_mosaicod_tests
@@ -319,6 +340,9 @@ main() {
         fi
         if [ "$run_full_stack_tls" = true ]; then
             run_full_stack_tests --title "full-stack tests (TLS)" --tls
+        fi
+        if [ "$run_full_stack_api_key" = true ]; then
+            run_full_stack_tests --title "full-stack tests (API KEY)" --api-key
         fi
     fi
 

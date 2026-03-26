@@ -11,11 +11,11 @@ from .helpers import _validate_returned_topic_name, topic_to_metadata_dict
 
 
 def test_query_sequence_by_name(
-    _client: MosaicoClient,
-    _inject_sequence_data_stream,  # Ensure the data are available on the data platform
+    mosaico_client: MosaicoClient,
+    inject_synthetic_sequence,  # Ensure the data are available on the data platform
 ):
     # Trivial: query by topic name
-    query_resp = _client.query(QuerySequence().with_name(UPLOADED_SEQUENCE_NAME))
+    query_resp = mosaico_client.query(QuerySequence().with_name(UPLOADED_SEQUENCE_NAME))
     # We do expect a successful query
     assert query_resp is not None and not query_resp.is_empty()
     # One (1) sequence corresponds to this query
@@ -31,7 +31,7 @@ def test_query_sequence_by_name(
 
     # Query by partial name (operator should be a match)
     n_char = int(len(UPLOADED_SEQUENCE_NAME) / 2)  # half the length
-    query_resp = _client.query(
+    query_resp = mosaico_client.query(
         QuerySequence().with_name_match(UPLOADED_SEQUENCE_NAME[:n_char])
     )
     # We do expect a successful query
@@ -49,15 +49,15 @@ def test_query_sequence_by_name(
     assert all([t.name in expected_topic_names for t in query_resp[0].topics])
 
     # free resources
-    _client.close()
+    mosaico_client.close()
 
 
 def test_query_sequence_by_creation_timestamp(
-    _client: MosaicoClient,
-    _inject_sequence_data_stream,  # Ensure the data are available on the data platform
+    mosaico_client: MosaicoClient,
+    inject_synthetic_sequence,  # Ensure the data are available on the data platform
 ):
     # Query by creation time, up to now (the sequence has been pushed few seconds ago)
-    query_resp = _client.query(
+    query_resp = mosaico_client.query(
         QuerySequence()
         .with_name(
             UPLOADED_SEQUENCE_NAME
@@ -79,15 +79,15 @@ def test_query_sequence_by_creation_timestamp(
     assert all([t.name in expected_topic_names for t in query_resp[0].topics])
 
     # free resources
-    _client.close()
+    mosaico_client.close()
 
 
 def test_query_sequence_metadata(
-    _client: MosaicoClient,
-    _inject_sequence_data_stream,  # Ensure the data are available on the data platform
+    mosaico_client: MosaicoClient,
+    inject_synthetic_sequence,  # Ensure the data are available on the data platform
 ):
     # Test with single condition
-    query_resp = _client.query(
+    query_resp = mosaico_client.query(
         QuerySequence()
         .with_name(
             UPLOADED_SEQUENCE_NAME
@@ -108,7 +108,7 @@ def test_query_sequence_metadata(
     assert all([t.name in expected_topic_names for t in query_resp[0].topics])
 
     # Test with multiple conditions
-    query_resp = _client.query(
+    query_resp = mosaico_client.query(
         QuerySequence()
         .with_user_metadata("status", eq="processed")
         .with_user_metadata("environment.weather", eq="sunny")
@@ -126,7 +126,7 @@ def test_query_sequence_metadata(
     assert all([t.name in expected_topic_names for t in query_resp[0].topics])
 
     # Test with nested-fields condition
-    query_resp = _client.query(
+    query_resp = mosaico_client.query(
         QuerySequence()
         .with_user_metadata("location.city", eq="Milan")
         .with_user_metadata("location.facility", eq="Downtown")
@@ -146,15 +146,15 @@ def test_query_sequence_metadata(
     assert all([t.name in expected_topic_names for t in query_resp[0].topics])
 
     # free resources
-    _client.close()
+    mosaico_client.close()
 
 
 def test_query_sequence_from_response(
-    _client: MosaicoClient,
-    _inject_sequence_data_stream,  # Ensure the data are available on the data platform
+    mosaico_client: MosaicoClient,
+    inject_synthetic_sequence,  # Ensure the data are available on the data platform
 ):
     # Query by creation time, up to now (the sequence has been pushed few seconds ago)
-    query_resp = _client.query(
+    query_resp = mosaico_client.query(
         QuerySequence()
         .with_name(
             UPLOADED_SEQUENCE_NAME
@@ -168,7 +168,7 @@ def test_query_sequence_from_response(
     # 'query among the sequences in the returned response'
     qsequence = query_resp.to_query_sequence()
     # simply reprovide the same query to the client
-    query_resp = _client.query(qsequence)
+    query_resp = mosaico_client.query(qsequence)
     # One (1) sequence corresponds to this query
     assert query_resp is not None and not query_resp.is_empty()
     assert len(query_resp) == 1
@@ -176,22 +176,24 @@ def test_query_sequence_from_response(
     # The other criteria have been tested above...
 
     # Try a trivial query with a further expression
-    query_resp = _client.query(qsequence.with_created_timestamp(time_end=Time.now()))
+    query_resp = mosaico_client.query(
+        qsequence.with_created_timestamp(time_end=Time.now())
+    )
     # One (1) sequence corresponds to this query
     assert query_resp is not None and not query_resp.is_empty()
     assert len(query_resp) == 1
     assert query_resp[0].sequence.name == UPLOADED_SEQUENCE_NAME
 
     # free resources
-    _client.close()
+    mosaico_client.close()
 
 
 def test_query_sequence_from_response_fail(
-    _client: MosaicoClient,
-    _inject_sequence_data_stream,  # Ensure the data are available on the data platform
+    mosaico_client: MosaicoClient,
+    inject_synthetic_sequence,  # Ensure the data are available on the data platform
 ):
     # Query by creation time, up to now (the sequence has been pushed few seconds ago)
-    query_resp = _client.query(
+    query_resp = mosaico_client.query(
         QuerySequence()
         .with_name(
             UPLOADED_SEQUENCE_NAME
@@ -208,12 +210,12 @@ def test_query_sequence_from_response_fail(
     with pytest.raises(
         NotImplementedError, match="Query builder already contains the key 'locator'"
     ):
-        query_resp = _client.query(qsequence.with_name(""))
+        query_resp = mosaico_client.query(qsequence.with_name(""))
     # This must fail: field 'name' is already queried
     with pytest.raises(
         NotImplementedError, match="Query builder already contains the key 'locator'"
     ):
-        query_resp = _client.query(qsequence.with_name_match(""))
+        query_resp = mosaico_client.query(qsequence.with_name_match(""))
 
     # free resources
-    _client.close()
+    mosaico_client.close()

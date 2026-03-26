@@ -15,13 +15,13 @@ from .helpers import (
 
 
 def test_sequence_data_stream(
-    _client: MosaicoClient,
-    _make_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
-    _inject_sequence_data_stream,  # Make sure data are available on the server
+    mosaico_client: MosaicoClient,
+    synthetic_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
+    inject_synthetic_sequence,  # Make sure data are available on the server
 ):
     """Test that the sequence data stream is correctly unpacked and provided"""
     msg_count = 0
-    seqhandler = _client.sequence_handler(UPLOADED_SEQUENCE_NAME)
+    seqhandler = mosaico_client.sequence_handler(UPLOADED_SEQUENCE_NAME)
     # Sequence must exist
     assert seqhandler is not None
     # all the original topics are received
@@ -45,7 +45,7 @@ def test_sequence_data_stream(
         _validate_returned_topic_name(topic)
         # assert the valid behavior of next_timestamp()
         assert next_tstamp == message.timestamp_ns
-        cached_item = _make_sequence_data_stream.items[msg_count]
+        cached_item = synthetic_sequence_data_stream.items[msg_count]
         # all the received data are consistent with the timing of the native sequence
         # note: the important thing is the timing: when two measurements have the same timestamp
         # cannot ensure order
@@ -62,19 +62,19 @@ def test_sequence_data_stream(
         assert message.ontology_tag() == cached_item.ontology_class.__ontology_tag__
 
     # check the total number of received sensors is the same of the original sequence
-    assert msg_count == len(_make_sequence_data_stream.items)
+    assert msg_count == len(synthetic_sequence_data_stream.items)
 
     # free resources
-    _client.close()
+    mosaico_client.close()
 
 
 def test_sequence_data_stream_multiple_call(
-    _client: MosaicoClient,
-    _make_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
-    _inject_sequence_data_stream,  # Make sure data are available on the server
+    mosaico_client: MosaicoClient,
+    synthetic_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
+    inject_synthetic_sequence,  # Make sure data are available on the server
 ):
     """Test that the sequence data stream is correctly unpacked and provided"""
-    seqhandler = _client.sequence_handler(UPLOADED_SEQUENCE_NAME)
+    seqhandler = mosaico_client.sequence_handler(UPLOADED_SEQUENCE_NAME)
     # Sequence must exist
     assert seqhandler is not None
 
@@ -93,26 +93,26 @@ def test_sequence_data_stream_multiple_call(
             pass
 
     # free resources
-    _client.close()
+    mosaico_client.close()
 
 
 # Repeat for each topic
 @pytest.mark.parametrize("topic", topic_list)
 def test_topic_data_stream(
-    _client: MosaicoClient,
-    _make_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
-    _inject_sequence_data_stream,  # Make sure data are available on the server
+    mosaico_client: MosaicoClient,
+    synthetic_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
+    inject_synthetic_sequence,  # Make sure data are available on the server
     topic: str,
 ):
     """Test that the topic data stream is correctly unpacked and provided"""
     # generate for easier inspection and debug (than using next)
     _cached_topic_data_stream = [
         dstream
-        for dstream in _make_sequence_data_stream.items
+        for dstream in synthetic_sequence_data_stream.items
         if dstream.topic == topic
     ]
     msg_count = 0
-    seqhandler = _client.sequence_handler(UPLOADED_SEQUENCE_NAME)
+    seqhandler = mosaico_client.sequence_handler(UPLOADED_SEQUENCE_NAME)
     # just prevent IDE to complain about None
     assert seqhandler is not None
     # All other tests for this sequence have been done or will be done... skip.
@@ -162,18 +162,18 @@ def test_topic_data_stream(
     assert msg_count == len(_cached_topic_data_stream)
 
     # free resources
-    _client.close()
+    mosaico_client.close()
 
 
 # Repeat for each topic
 @pytest.mark.parametrize("topic", topic_list)
 def test_topic_data_stream_multiple_call(
-    _client: MosaicoClient,
-    _inject_sequence_data_stream,  # Make sure data are available on the server
+    mosaico_client: MosaicoClient,
+    inject_synthetic_sequence,  # Make sure data are available on the server
     topic: str,
 ):
     """Test that the topic data stream is correctly unpacked and provided"""
-    seqhandler = _client.sequence_handler(UPLOADED_SEQUENCE_NAME)
+    seqhandler = mosaico_client.sequence_handler(UPLOADED_SEQUENCE_NAME)
     # just prevent IDE to complain about None
     assert seqhandler is not None
     # All other tests for this sequence have been done or will be done... skip.
@@ -207,15 +207,15 @@ def test_topic_data_stream_multiple_call(
             pass
 
     # free resources
-    _client.close()
+    mosaico_client.close()
 
 
 def test_sequence_data_stream_filter_topics(
-    _client: MosaicoClient,
-    _inject_sequence_data_stream,  # necessary to make sure data are available on server
+    mosaico_client: MosaicoClient,
+    inject_synthetic_sequence,  # necessary to make sure data are available on server
 ):
     """Test that the sequence data stream is correctly unpacked and provided"""
-    seqhandler = _client.sequence_handler(UPLOADED_SEQUENCE_NAME)
+    seqhandler = mosaico_client.sequence_handler(UPLOADED_SEQUENCE_NAME)
     # Sequence must exist
     assert seqhandler is not None
 
@@ -232,4 +232,4 @@ def test_sequence_data_stream_filter_topics(
     assert len(filtered_topics) == len(ret_topics)
 
     # free resources
-    _client.close()
+    mosaico_client.close()

@@ -31,32 +31,33 @@ def test_invalid_host():
         MosaicoClient.connect(host="invalid-address", port=0, timeout=0)
 
 
-def test_read_non_existing_sequence_and_topic(_client: MosaicoClient):
+def test_read_non_existing_sequence_and_topic(mosaico_client: MosaicoClient):
     log.info("Expected three (3) errors after this line...")
-    assert _client.sequence_handler("non-existing-sequence") is None
+    assert mosaico_client.sequence_handler("non-existing-sequence") is None
     assert (
-        _client.topic_handler(sequence_name="non-existing", topic_name="/topic") is None
+        mosaico_client.topic_handler(sequence_name="non-existing", topic_name="/topic")
+        is None
     )
 
     # free resources
-    _client.close()
+    mosaico_client.close()
 
 
-def test_sequence_writer_bad_metadata(_client: MosaicoClient):
+def test_sequence_writer_bad_metadata(mosaico_client: MosaicoClient):
     with pytest.raises(ValueError, match="Metadata must be a dictionary"):
-        with _client.sequence_create(
+        with mosaico_client.sequence_create(
             "new-sequence-bad-metadata",
             metadata="{",  # type: ignore
             on_error=SessionLevelErrorPolicy.Delete,
         ) as _:
             pass
 
-    _client.close()
+    mosaico_client.close()
 
 
-def test_topic_writer_bad_metadata(_client: MosaicoClient):
+def test_topic_writer_bad_metadata(mosaico_client: MosaicoClient):
     with pytest.raises(ValueError, match="Metadata must be a dictionary"):
-        with _client.sequence_create(
+        with mosaico_client.sequence_create(
             "new-sequence",
             metadata={},
             on_error=SessionLevelErrorPolicy.Delete,
@@ -67,11 +68,11 @@ def test_topic_writer_bad_metadata(_client: MosaicoClient):
                 ontology_type=IMU,
             )
 
-    _client.close()
+    mosaico_client.close()
 
 
-def test_sequence_writer_not_in_context(_client: MosaicoClient):
-    swriter = _client.sequence_create(
+def test_sequence_writer_not_in_context(mosaico_client: MosaicoClient):
+    swriter = mosaico_client.sequence_create(
         "new-sequence", metadata={}, on_error=SessionLevelErrorPolicy.Delete
     )
     assert swriter.status == SequenceStatus.Null
@@ -81,14 +82,16 @@ def test_sequence_writer_not_in_context(_client: MosaicoClient):
     ):
         swriter._check_entered()
 
-    _client.close()
+    mosaico_client.close()
 
 
 @pytest.mark.parametrize(
     "non_alphanum",
     [p for p in string.punctuation if p not in _SUPPORTED_SEQUENCE_NAME_CHARS],
 )
-def test_sequence_invalid_char_in_name(_client: MosaicoClient, non_alphanum: str):
+def test_sequence_invalid_char_in_name(
+    mosaico_client: MosaicoClient, non_alphanum: str
+):
     if non_alphanum != "/":
         # '/' is supported at the beginning of the name
         invalid_sequence_name = f"{non_alphanum}sequence-name"
@@ -98,7 +101,7 @@ def test_sequence_invalid_char_in_name(_client: MosaicoClient, non_alphanum: str
         with pytest.raises(
             ValueError, match="does not begin with a letter or a number"
         ):
-            with _client.sequence_create(
+            with mosaico_client.sequence_create(
                 invalid_sequence_name, {}, on_error=SessionLevelErrorPolicy.Delete
             ) as _:
                 pass
@@ -108,7 +111,7 @@ def test_sequence_invalid_char_in_name(_client: MosaicoClient, non_alphanum: str
     # It is necessary to make the exception propagate until the SequenceWriter.__exit__
     # which triggers the report condition
     with pytest.raises(ValueError, match="Sequence name contains invalid characters"):
-        with _client.sequence_create(
+        with mosaico_client.sequence_create(
             invalid_sequence_name, {}, on_error=SessionLevelErrorPolicy.Delete
         ) as _:
             pass
@@ -118,22 +121,22 @@ def test_sequence_invalid_char_in_name(_client: MosaicoClient, non_alphanum: str
     # It is necessary to make the exception propagate until the SequenceWriter.__exit__
     # which triggers the report condition
     with pytest.raises(ValueError, match="Sequence name contains invalid characters"):
-        with _client.sequence_create(
+        with mosaico_client.sequence_create(
             invalid_sequence_name, {}, on_error=SessionLevelErrorPolicy.Delete
         ) as _:
             pass
 
     # free resources
-    _client.close()
+    mosaico_client.close()
 
 
-def test_sequence_empty_name(_client: MosaicoClient):
+def test_sequence_empty_name(mosaico_client: MosaicoClient):
     # It is necessary to make the exception propagate until the SequenceWriter.__exit__
     # which triggers the report condition
     with pytest.raises(
         ValueError, match="Empty sequence name"
     ):  # triggers pathlib.path exception
-        with _client.sequence_create(
+        with mosaico_client.sequence_create(
             "", {}, on_error=SessionLevelErrorPolicy.Delete
         ) as _:
             pass
@@ -141,41 +144,41 @@ def test_sequence_empty_name(_client: MosaicoClient):
     with pytest.raises(
         ValueError, match="does not begin with a letter or a number"
     ):  # triggers pathlib.path exception
-        with _client.sequence_create(
+        with mosaico_client.sequence_create(
             "/", {}, on_error=SessionLevelErrorPolicy.Delete
         ) as _:
             pass
 
     # free resources
-    _client.close()
+    mosaico_client.close()
 
 
-def test_sequence_startswith_double_slash(_client: MosaicoClient):
+def test_sequence_startswith_double_slash(mosaico_client: MosaicoClient):
     # It is necessary to make the exception propagate until the SequenceWriter.__exit__
     # which triggers the report condition
     with pytest.raises(
         ValueError, match="Malformed sequence name"
     ):  # triggers pathlib.path exception
-        with _client.sequence_create(
+        with mosaico_client.sequence_create(
             "//sequence-name", {}, on_error=SessionLevelErrorPolicy.Delete
         ) as _:
             pass
 
     # free resources
-    _client.close()
+    mosaico_client.close()
 
 
 @pytest.mark.parametrize(
     "non_alphanum",
     [p for p in string.punctuation if p not in _SUPPORTED_TOPIC_NAME_CHARS],
 )
-def test_topic_invalid_char_in_name(_client: MosaicoClient, non_alphanum: str):
+def test_topic_invalid_char_in_name(mosaico_client: MosaicoClient, non_alphanum: str):
     invalid_topic_name = f"{non_alphanum}invalid-topic-name"
 
     # It is necessary to make the exception propagate until the SequenceWriter.__exit__
     # which triggers the report condition
     with pytest.raises(ValueError, match="does not begin with a letter or a number"):
-        with _client.sequence_create(
+        with mosaico_client.sequence_create(
             "new-sequence", {}, on_error=SessionLevelErrorPolicy.Delete
         ) as sw:
             sw.topic_create(invalid_topic_name, {}, IMU)
@@ -185,7 +188,7 @@ def test_topic_invalid_char_in_name(_client: MosaicoClient, non_alphanum: str):
     # It is necessary to make the exception propagate until the SequenceWriter.__exit__
     # which triggers the report condition
     with pytest.raises(ValueError, match="Topic name contains invalid characters"):
-        with _client.sequence_create(
+        with mosaico_client.sequence_create(
             "new-sequence", {}, on_error=SessionLevelErrorPolicy.Delete
         ) as sw:
             sw.topic_create(invalid_topic_name, {}, IMU)
@@ -195,22 +198,22 @@ def test_topic_invalid_char_in_name(_client: MosaicoClient, non_alphanum: str):
     # It is necessary to make the exception propagate until the SequenceWriter.__exit__
     # which triggers the report condition
     with pytest.raises(ValueError, match="Topic name contains invalid characters"):
-        with _client.sequence_create(
+        with mosaico_client.sequence_create(
             "new-sequence", {}, on_error=SessionLevelErrorPolicy.Delete
         ) as sw:
             sw.topic_create(invalid_topic_name, {}, IMU)
 
     # free resources
-    _client.close()
+    mosaico_client.close()
 
 
-def test_topic_empty_name(_client: MosaicoClient):
+def test_topic_empty_name(mosaico_client: MosaicoClient):
     # It is necessary to make the exception propagate until the SequenceWriter.__exit__
     # which triggers the report condition
     with pytest.raises(
         ValueError, match="Empty topic name"
     ):  # triggers pathlib.path exception
-        with _client.sequence_create(
+        with mosaico_client.sequence_create(
             "new-sequence", {}, on_error=SessionLevelErrorPolicy.Delete
         ) as sw:
             sw.topic_create("", {}, IMU)
@@ -218,28 +221,28 @@ def test_topic_empty_name(_client: MosaicoClient):
     with pytest.raises(
         ValueError, match="does not begin with a letter or a number"
     ):  # triggers pathlib.path exception
-        with _client.sequence_create(
+        with mosaico_client.sequence_create(
             "new-sequence", {}, on_error=SessionLevelErrorPolicy.Delete
         ) as sw:
             sw.topic_create("/", {}, IMU)
 
     # free resources
-    _client.close()
+    mosaico_client.close()
 
 
-def test_topic_startswith_double_slash(_client: MosaicoClient):
+def test_topic_startswith_double_slash(mosaico_client: MosaicoClient):
     # It is necessary to make the exception propagate until the SequenceWriter.__exit__
     # which triggers the report condition
     with pytest.raises(
         ValueError, match="Malformed topic name"
     ):  # triggers pathlib.path exception
-        with _client.sequence_create(
+        with mosaico_client.sequence_create(
             "new-sequence", {}, on_error=SessionLevelErrorPolicy.Delete
         ) as sw:
             sw.topic_create("//invalid/topic/name", {}, IMU)
 
     # free resources
-    _client.close()
+    mosaico_client.close()
 
 
 class NotSerializable:
@@ -259,7 +262,7 @@ class NotSerializable:
     field: float
 
 
-def test_topic_push_not_serializable(_client: MosaicoClient):
+def test_topic_push_not_serializable(mosaico_client: MosaicoClient):
     ontology_type = type
     # Check raise value
     with pytest.raises(ValueError, match="is not serializable"):
@@ -270,7 +273,7 @@ def test_topic_push_not_serializable(_client: MosaicoClient):
     # to trigger the Abort mechanism (which will be tested in a separate test). This block is necessary
     # to make the test successfull (do not fail after raised exception)
     with pytest.raises(ChildProcessError):
-        with _client.sequence_create(
+        with mosaico_client.sequence_create(
             "test-seq-not-seerializable", {}, on_error=SessionLevelErrorPolicy.Delete
         ) as sw:
             # This must fail: type is not serializable
@@ -287,15 +290,15 @@ def test_topic_push_not_serializable(_client: MosaicoClient):
             # (we want to be sure the test runs till here)
             raise ChildProcessError
     # free resources
-    _client.close()
+    mosaico_client.close()
 
 
 def test_non_existing_topic_handler(
-    _client: MosaicoClient,
-    _inject_sequence_data_stream,
+    mosaico_client: MosaicoClient,
+    inject_synthetic_sequence,
 ):
     """Test the exception raising of non-existing topic handler from sequence"""
-    seqhandler = _client.sequence_handler(UPLOADED_SEQUENCE_NAME)
+    seqhandler = mosaico_client.sequence_handler(UPLOADED_SEQUENCE_NAME)
     # Sequence must exist
     assert seqhandler is not None
 
@@ -305,15 +308,15 @@ def test_non_existing_topic_handler(
         seqhandler.get_topic_handler("non-existing-topic-name")
 
     # free resources
-    _client.close()
+    mosaico_client.close()
 
 
 def test_sequence_streamer_non_existing_topics(
-    _client: MosaicoClient,
-    _inject_sequence_data_stream,
+    mosaico_client: MosaicoClient,
+    inject_synthetic_sequence,
 ):
     """Test the exception raising of non-existing topics when spawning data-stream from sequence"""
-    seqhandler = _client.sequence_handler(UPLOADED_SEQUENCE_NAME)
+    seqhandler = mosaico_client.sequence_handler(UPLOADED_SEQUENCE_NAME)
     # Sequence must exist
     assert seqhandler is not None
 
@@ -325,4 +328,4 @@ def test_sequence_streamer_non_existing_topics(
         )
 
     # free resources
-    _client.close()
+    mosaico_client.close()

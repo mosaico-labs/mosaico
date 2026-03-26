@@ -12,11 +12,11 @@ from .helpers import _validate_returned_topic_name
 
 
 def test_query_ontology_with_timestamp_trivial(
-    _client: MosaicoClient,
-    _inject_sequence_data_stream,  # Ensure the data are available on the data platform
+    mosaico_client: MosaicoClient,
+    inject_synthetic_sequence,  # Ensure the data are available on the data platform
 ):
     # Query by multiple condition: time and value
-    query_resp = _client.query(
+    query_resp = mosaico_client.query(
         QueryOntologyCatalog(include_timestamp_range=True).with_expression(
             IMU.Q.acceleration.x.gt(0)
         ),
@@ -60,16 +60,16 @@ def test_query_ontology_with_timestamp_trivial(
     assert trange.end == expected_timerange[1]
 
     # free resources
-    _client.close()
+    mosaico_client.close()
 
 
 def test_query_ontology_with_timestamp_imu(
-    _client: MosaicoClient,
-    _inject_sequence_data_stream,  # Ensure the data are available on the data platform
+    mosaico_client: MosaicoClient,
+    inject_synthetic_sequence,  # Ensure the data are available on the data platform
 ):
     # Query by multiple condition: time and value
     tstamp = Time.from_float(1700000000.26)
-    query_resp = _client.query(
+    query_resp = mosaico_client.query(
         QueryOntologyCatalog(include_timestamp_range=True).with_expression(
             IMU.Q.timestamp_ns.geq(tstamp.to_nanoseconds())
         ),
@@ -113,16 +113,16 @@ def test_query_ontology_with_timestamp_imu(
     assert trange.end == expected_timerange[1]
 
     # free resources
-    _client.close()
+    mosaico_client.close()
 
 
 def test_query_mixed_ontology_with_timestamp(
-    _client: MosaicoClient,
-    _inject_sequence_data_stream,  # Ensure the data are available on the data platform
+    mosaico_client: MosaicoClient,
+    inject_synthetic_sequence,  # Ensure the data are available on the data platform
 ):
     # Query by multiple condition: time and value
     tstamp = Time.from_float(1700000000.33)
-    query_resp = _client.query(
+    query_resp = mosaico_client.query(
         QueryOntologyCatalog(include_timestamp_range=True)
         .with_expression(IMU.Q.acceleration.x.geq(0))
         .with_expression(GPS.Q.timestamp_ns.geq(tstamp.to_nanoseconds())),
@@ -176,16 +176,16 @@ def test_query_mixed_ontology_with_timestamp(
     assert trange.end == expected_timerange[1]
 
     # free resources
-    _client.close()
+    mosaico_client.close()
 
 
 def test_query_multi_criteria_with_timestamp(
-    _client: MosaicoClient,
-    _inject_sequence_data_stream,  # Ensure the data are available on the data platform
+    mosaico_client: MosaicoClient,
+    inject_synthetic_sequence,  # Ensure the data are available on the data platform
 ):
     # Query by multiple condition: time and value
     tstamp = Time.from_float(1700000000.33)
-    query_resp = _client.query(
+    query_resp = mosaico_client.query(
         QueryOntologyCatalog(include_timestamp_range=True).with_expression(
             IMU.Q.timestamp_ns.geq(tstamp.to_nanoseconds())
         ),
@@ -218,4 +218,4 @@ def test_query_multi_criteria_with_timestamp(
     assert trange.end == expected_timerange[1]
 
     # free resources
-    _client.close()
+    mosaico_client.close()

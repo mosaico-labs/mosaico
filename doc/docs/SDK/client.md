@@ -43,12 +43,36 @@ As a senior architect, it is vital to emphasize that the **Security Layer** is n
 
 The Security Layer manages the confidentiality and integrity of the communication channel. It is composed of two primary mechanisms that work in tandem to harden the connection.
 
-### 1. Authentication (API Key)
-Mosaico uses an [**API Key** system](../daemon/api_key.md) to authorize every operation. When a key is provided, the client automatically attaches your unique credentials to the metadata of every gRPC and Flight call. This ensures that even if your endpoint is public, only requests with a valid, non-revoked key are processed by the server.
-
-### 2. Encryption (TLS)
+### 1. Encryption (TLS)
 For deployments over public or shared networks, the client supports [**Transport Layer Security (TLS)**](../daemon/tls.md). By providing a `tls_cert_path`, the client automatically switches from an insecure channel to an encrypted one. The SDK handles the heavy lifting of reading the certificate bytes and configuring the underlying Flight/gRPC drivers to verify the server's identity and encrypt the data stream.
 
+### 2. Authentication (API Key)
+Mosaico uses an [**API Key** system](../daemon/api_key.md) to authorize every operation. When a key is provided, the client automatically attaches your unique credentials to the metadata of every gRPC and Flight call. This ensures that even if your endpoint is public, only requests with a valid, non-revoked key are processed by the server.
+
+The client supports 4 permission levels, each with increasing privileges:
+
+| Permission | Description |
+| :--- | :--- |
+| [`APIKeyPermissionEnum.Read`][mosaicolabs.enum.APIKeyPermissionEnum.Read] | Read-Only access to resources |
+| [`APIKeyPermissionEnum.Write`][mosaicolabs.enum.APIKeyPermissionEnum.Write] | Write access to resources (Create and update sequences)|
+| [`APIKeyPermissionEnum.Delete`][mosaicolabs.enum.APIKeyPermissionEnum.Delete] | Delete access to resources (Delete sequences, sessions and topics)|
+| [`APIKeyPermissionEnum.Manage`][mosaicolabs.enum.APIKeyPermissionEnum.Manage] | Full access to resources + Manage API keys (create, retrieve the status, revoke)|
+
+
+```python
+from mosaicolabs import MosaicoClient
+
+# The client handles the handshake and credential injection automatically
+with MosaicoClient.connect(
+    host="mosaico.production.cluster",
+    port=6726,
+    api_key="<msco_secret_key>",
+) as client:
+    print(client.version())
+```
+
+!!! warning "API-Key and TLS"
+    TLS is not mandatory for connecting via API-keys. It is recommended to enable the support for TLS in the server, to avoid sensitive credential to be sent on unencrypted channels.
 
 ### Recommended Patterns
 
@@ -62,12 +86,10 @@ from mosaicolabs import MosaicoClient
 with MosaicoClient.connect(
     host="mosaico.production.cluster",
     port=6726,
-    api_key="msco_your_secret_key",
+    api_key="<msco_secret_key>",
     tls_cert_path="/etc/mosaico/certs/ca.pem"
 ) as client:
-    # Verify the key is valid before starting heavy operations
-    status = client.api_key_status()
-    print(f"API Key is expired: {status.is_expired}")
+    print(client.version())
 ```
 
 #### Environment-Based Configuration (`from_env`)
@@ -87,5 +109,5 @@ from mosaicolabs import MosaicoClient
 
 with MosaicoClient.from_env(host="mosaico.internal", port=6726) as client:
     # Security is initialized automatically from the environment
-    print(client.api_key_status())
+    print(client.version())
 ```

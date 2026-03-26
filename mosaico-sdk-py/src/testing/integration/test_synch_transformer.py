@@ -13,10 +13,10 @@ from .helpers import SequenceDataStream
 
 
 def test_invalid_timestamp_column(
-    _client: MosaicoClient,
-    _inject_sequence_data_stream,  # Make sure data are available on the server
+    mosaico_client: MosaicoClient,
+    inject_synthetic_sequence,  # Make sure data are available on the server
 ):
-    seqhandler = _client.sequence_handler(UPLOADED_SEQUENCE_NAME)
+    seqhandler = mosaico_client.sequence_handler(UPLOADED_SEQUENCE_NAME)
     # Sequence must exist
     assert seqhandler is not None
     # --- Topic 1 ---
@@ -29,17 +29,17 @@ def test_invalid_timestamp_column(
             _ = stransformer.transform(chunk)
 
     # free resources
-    _client.close()
+    mosaico_client.close()
 
 
 def test_sync_unbounded(
-    _client: MosaicoClient,
-    _make_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
-    _inject_sequence_data_stream,  # Make sure data are available on the server
+    mosaico_client: MosaicoClient,
+    synthetic_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
+    inject_synthetic_sequence,  # Make sure data are available on the server
 ):
     """Test retrieving the topic data-stream from start to end, unbounded"""
 
-    seqhandler = _client.sequence_handler(UPLOADED_SEQUENCE_NAME)
+    seqhandler = mosaico_client.sequence_handler(UPLOADED_SEQUENCE_NAME)
     # Sequence must exist
     assert seqhandler is not None
     # --- Topic 1 ---
@@ -49,12 +49,12 @@ def test_sync_unbounded(
 
     imu_tstamps_ns = [
         dstream.msg.timestamp_ns
-        for dstream in _make_sequence_data_stream.items
+        for dstream in synthetic_sequence_data_stream.items
         if dstream.topic == UPLOADED_IMU_FRONT_TOPIC
     ]
     gps_tstamps_ns = [
         dstream.msg.timestamp_ns
-        for dstream in _make_sequence_data_stream.items
+        for dstream in synthetic_sequence_data_stream.items
         if dstream.topic == UPLOADED_GPS_TOPIC
     ]
     min_timestamp_ns = min(imu_tstamps_ns[0], gps_tstamps_ns[0])
@@ -85,4 +85,4 @@ def test_sync_unbounded(
         # For every column in val_cols, there exists at least one non-NaN value.
         assert selected.notna().any().all()
     # free resources
-    _client.close()
+    mosaico_client.close()

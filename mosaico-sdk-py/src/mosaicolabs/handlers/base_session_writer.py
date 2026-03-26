@@ -207,11 +207,18 @@ class _BaseSessionWriter(ABC):
                 out_exc = e
 
             # Apply the session-level error policy
-            if self._config.on_error == SessionLevelErrorPolicy.Delete:
-                self._abort()
-            else:
-                self._error_report(str(out_exc))
-                self._finalize()
+            try:
+                if self._config.on_error == SessionLevelErrorPolicy.Delete:
+                    # TODO: maybe convenient to explicitly deal with a possible "Unauthorized" error
+                    self._delete()
+                else:
+                    self._error_report(str(out_exc))
+                    self._finalize()
+            except Exception as e:
+                self._logger.error(
+                    f"Exception while handling error policy or finalizing the session {self._uuid}, sequence '{self._name}': '{e}'"
+                )
+                out_exc = e
 
             # Last thing to do: DO NOT SET BEFORE!
             self._status = SessionStatus.Error
@@ -220,6 +227,7 @@ class _BaseSessionWriter(ABC):
                 self._logger.error(
                     f"Exception caught while handling errors in termination phase. Inner err: '{out_exc}'"
                 )
+                raise out_exc
 
     # --- Context Manager ---
     def __enter__(self) -> "_BaseSessionWriter":
@@ -258,11 +266,16 @@ class _BaseSessionWriter(ABC):
         Returns:
             None: prevents exception suppression
         """
-        return self._on_context_exit(
-            exc_type=exc_type,
-            exc_val=exc_val,
-            exc_tb=exc_tb,
-        )
+        try:
+            return self._on_context_exit(
+                exc_type=exc_type,
+                exc_val=exc_val,
+                exc_tb=exc_tb,
+            )
+        except Exception as cleanup_exc:
+            if exc_val is not None:
+                raise cleanup_exc from exc_val  # chain exceptions
+            raise cleanup_exc
 
     def __del__(self):
         """Destructor check to warn if the writer was left pending."""
@@ -348,13 +361,13 @@ class _BaseSessionWriter(ABC):
                     e,
                 )
 
-    def _abort(self):
+    def _delete(self):
         """Internal: Sends Abort command (Delete policy)."""
         if self._status != SessionStatus.Finalized:
             try:
                 _do_action(
                     client=self._control_client,
-                    action=FlightAction.SESSION_ABORT,
+                    action=FlightAction.SESSION_DELETE,
                     payload={
                         "session_uuid": self._uuid,
                     },
