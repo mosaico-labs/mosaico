@@ -1,5 +1,5 @@
 use crate::common;
-use clap::Subcommand;
+use clap::{ArgGroup, Subcommand};
 use colored::Colorize;
 use mosaicod_core::{params, types};
 use mosaicod_db as db;
@@ -8,6 +8,11 @@ use mosaicod_facade as facade;
 #[derive(Subcommand, Debug)]
 pub enum ApiKey {
     /// Create a new API key with custom parameters
+    #[clap(group(
+    ArgGroup::new("expiration")
+        .required(false)
+        .args(["expires_in", "expires_at"]),
+    ))]
     Create {
         /// Specifies permissions for the key. Allowed values are: read, write, delete, manage
         #[arg(short, long, required = true)]
@@ -18,8 +23,12 @@ pub enum ApiKey {
         description: Option<String>,
 
         /// Define a time duration (using the ISO8601 format) after which the key in no longer valid.
-        #[arg(short, long)]
-        expires_after: Option<String>,
+        #[arg(long)]
+        expires_in: Option<String>,
+
+        /// Define a datetime (using the rfc3339 format) after which the key in no longer valid (e.g 2026-03-27T12:20:00Z).
+        #[arg(long)]
+        expires_at: Option<String>,
     },
 
     /// Revoke a key
@@ -56,12 +65,27 @@ pub fn auth(auth: ApiKey) -> Result<(), common::Error> {
         ApiKey::Create {
             permissions,
             description,
-            expires_after,
+            expires_in,
+            expires_at,
         } => {
             let permissions = permissions.parse()?;
 
-            let expires_at: Option<types::Timestamp> = if let Some(expires_after) = expires_after {
-                Some(types::Timestamp::now() + expires_after.parse::<iso8601::Duration>()?.into())
+            // Only onw at a time between expires_at and expires_in can be set.
+            let expiration_datetime: Option<types::Timestamp> = if let Some(expires_in) = expires_in
+            {
+                Some(types::Timestamp::now() + expires_in.parse::<iso8601::Duration>()?.into())
+            } else if let Some(expires_at) = expires_at {
+                let parsed_datetime: types::Timestamp =
+                    chrono::DateTime::parse_from_rfc3339(&expires_at)
+                        .map_err(|_| format!("error parsing datetime string {}", expires_at))?
+                        .with_timezone(&chrono::Utc)
+                        .into();
+
+                if parsed_datetime < types::Timestamp::now() {
+                    Err("provided datetime is invalid (past date)")?;
+                }
+
+                Some(parsed_datetime)
             } else {
                 None
             };
@@ -70,7 +94,8 @@ pub fn auth(auth: ApiKey) -> Result<(), common::Error> {
             let description = description.unwrap_or_default();
 
             let policy: Result<types::ApiKey, facade::Error> = rt.block_on(async {
-                let fauth = facade::Auth::create(permissions, description, expires_at, db).await?;
+                let fauth =
+                    facade::Auth::create(permissions, description, expiration_datetime, db).await?;
                 Ok(fauth.into_api_key())
             });
 

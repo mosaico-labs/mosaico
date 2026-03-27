@@ -84,6 +84,17 @@ impl From<Timestamp> for i64 {
     }
 }
 
+impl From<chrono::DateTime<chrono::Utc>> for Timestamp {
+    fn from(datetime: chrono::DateTime<chrono::Utc>) -> Self {
+        Self(datetime.timestamp_nanos_opt().unwrap_or_else(|| {
+            panic!(
+                "unable to retrieve unix timestamp from date time {}",
+                datetime
+            )
+        }))
+    }
+}
+
 /// Represents a closed interval of time where both the start and end are included.
 ///
 /// This struct defines a range $[start, end]$. A timestamp is considered

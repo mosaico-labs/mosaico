@@ -23,5 +23,6 @@ colored = { workspace = true }
 if-addrs = { workspace = true }
 tokio = { workspace = true }
 iso8601 = { workspace = true }
+chrono = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
