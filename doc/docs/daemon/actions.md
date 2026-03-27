@@ -12,7 +12,7 @@ Sequences are the fundamental containers for data recordings in Mosaico. These c
 
 | Action | Description | Permission |
 | --- | ---- | --- |
-| `sequence_create` | Initializes a new, empty sequence. It generates and returns a unique key (UUID). This key acts as a write token, authorizing subsequent data ingestion into this specific sequence. This avoids concurrent access and creation issues when multiple clients attempt to create sequences simultaneously. | `write` |
+| `sequence_create` | Initializes a new, empty sequence. | `write` |
 | `sequence_delete` | Permanently removes a sequence from the platform. | `delete` |
 
 ## Topic Management

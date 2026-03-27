@@ -1,7 +1,9 @@
 # Compile `mosaicod` Docker Image
 
-Compile locally docker image you can run the following command from this diretory:
+To compile a local docker image of `mosaicod` you can run the following command:
 
 ```bash
+cd docker
+
 docker build -f dockerfiles/Dockerfile.mosaicod -t mosaicod:latest ../mosaicod
 ```

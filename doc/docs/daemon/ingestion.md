@@ -14,7 +14,8 @@ Mosaico eliminates this ambiguity by focusing on **Sessions** rather than versio
 A session represents an immutable **data layer** within Mosaico. 
 It acts as a logical container for topics that are uploaded together as a single unit. 
 
-To visualize the hierarchy, think of a sequence as the primary data container. Sessions then represent specific, immutable layers of data within that sequence, while topics server as a specific instance of an ontology model.
+To visualize the hierarchy, think of a sequence as the primary data container. 
+Sessions then represent specific, immutable layers of data within that sequence, while topics serve as a specific instance of an ontology model.
 
 This design allows for high-concurrency environments; you can upload multiple sessions simultaneously without the risk of data races or state corruption. 
 
@@ -68,7 +69,7 @@ This approach allows your data to grow *horizontally* with new topics while main
 
 The data ingestion protocol in Mosaico follows a structured, multi-step flow designed to ensure type safety and prevent race conditions in high-concurrency environments. 
 
-The process begins with `sequence_create`, which establishes the primary data container and returns a sequence UUID. 
+The process begins with `sequence_create`, which establishes the primary data container. 
 Because Mosaico uses a session-based update model, you must then initialize a specific *data layer* using `session_create`, returning a session UUID that serves as the active context for all subsequent uploads within that specific batch.
 Within this active session, you define individual data streams via `topic_create`, where each topic is assigned a unique path (e.g., `my_sequence/topic/1`) and returns its own topic UUID. 
 Data is then transmitted using the Arrow Flight `do_put` operation, starting with an Arrow schema for structural validation and followed by a stream of `RecordBatch` payloads. 
@@ -81,7 +82,7 @@ Here is a simplified example of the ingestion flow using a pyhton-like pseudocod
 
 ```py title="Ingestion protocol"
 # Initialize the Sequence and the Session layer
-sq_uuid = sequence_create("my_sequence", metadata)
+sequence_create("my_sequence", metadata)
 ss_uuid = session_create("my_sequence")
 
 # Create topics within the session and stream data
@@ -105,7 +106,7 @@ session_finalize(ss_uuid) # (2)!
 
 ### Updating a Sequence
 
-To extend a sequence with new data, you follow a nearly identical flow to the initial ingestion, but you omit the `sequence_create` call and instead reference an existing sequence UUID. 
+To extend a sequence with new data, you follow a nearly identical flow to the initial ingestion, but you omit the `sequence_create`. 
 
 This process leverages Mosaico's session model to layer new information onto the established sequence without modifying the original data. 
 
@@ -126,7 +127,8 @@ session_finalize(ss_uuid)
 1.  Even though the sequence already exists, the `topic_create` call within a new session ensures this specific data stream is tracked as a new, immutable contribution.
 
 ??? tip "Concurrency"
-    Because each upload is encapsulated in its own session, multiple workers can extend the same sequence simultaneously. Mosaico handles the isolation of these sessions, ensuring that `session_finalize` only commits the specific topics and data associated with that worker's session UUID.
+    Because each upload is encapsulated in its own session, multiple workers can extend the same sequence simultaneously. 
+    Mosaico handles the isolation of these sessions, ensuring that `session_finalize` only commits the specific topics and data associated with that worker's session UUID.
 
 ### Aborting an Upload
 
@@ -136,7 +138,7 @@ Here is a simplified example of the abort flow using a pyhton-like pseudocode:
 
 ```py title="Aborting an upload", hl_lines="13 17"
 # Initialize the Sequence and the Session layer
-sq_uuid = sequence_create("my_sequence", metadata)
+sequence_create("my_sequence", metadata)
 ss_uuid = session_create("my_sequence")
 
 # Create topics within the session and stream data
@@ -151,8 +153,11 @@ session_delete(ss_uuid)
 
 # You can delete the dangling sequence since there are no data associated
 # or avoid deletion and start a new session to upload new data with a `session_create`
-sequence_delete(sq_uuid)
+sequence_delete()
 ```
+
+???warning "Permissions" 
+    If **API key management** is enabled, the `sequence_delete` and `session_delete` actions require a key with at least `delete` privileges.
 
 ## Chunking & Indexing Strategy
 

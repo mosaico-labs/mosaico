@@ -41,8 +41,7 @@ This design ensures administrative operations don't interfere with data throughp
 
 !!! note "Database Durability and Recovery"
     The DBMS state is not strictly required for data durability. The object store is the source of truth for all data, while the database serves as a metadata catalog for efficient querying and management.
-    In future releases, we plan to provide a **reindex** mechanism that allows the database to be reconstructed from the object store in case of corruption or loss.
 
-    *Currently, there is no way to import data and reconstruct the database, but we are designing the system to enable this feature in future releases.* 
 
-If the metadata database is corrupted or destroyed, `mosaicod` can rebuild the entire catalog by rescanning the durable object storage. This design ensures that while the DBMS is used to create relations between datasets, the store guarantees long-term durability and recovery, protecting your data against catastrophic infrastructure failure.
+If the metadata database is corrupted or destroyed, `mosaicod` can rebuild the entire catalog by rescanning the durable object storage. 
+This design ensures that while the DBMS is used to create relations between datasets, the store guarantees long-term durability and recovery, protecting your data against catastrophic infrastructure failure.
