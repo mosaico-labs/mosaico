@@ -19,6 +19,12 @@ class SessionLevelErrorPolicy(Enum):
     specific failure, allowing existing data chunks to remain accessible for 
     inspection. 
 
+    Note:
+        When the connection is established via the authorization middleware 
+        (i.e. using an API Key), this policy requires the minimum
+        [`APIKeyPermissionEnum.Read`][mosaicolabs.enum.APIKeyPermissionEnum.Read]
+        permission.
+    
     Important: Lock Status
         Unlike standard successful finalization, a session finalized via a 
         `Report` policy is **not placed in a locked state**. 
@@ -29,11 +35,17 @@ class SessionLevelErrorPolicy(Enum):
     Delete = "delete"
     """
     Abort the sequence and instruct the server to discard all data.
-    
+
     This is the default "all-or-nothing" strategy. If a failure occurs, the 
     [`SequenceWriter`][mosaicolabs.handlers.SequenceWriter] or the 
     [`SequenceUpdater`][mosaicolabs.handlers.SequenceUpdater] will send an abort 
     command to ensure the server purges all traces of the failed ingestion, 
     preventing inconsistent or incomplete sequences from appearing in the 
     catalog.
+    
+    Note:
+        When the connection is established via the authorization middleware 
+        (i.e. using an API Key), this policy is successfully executed by the 
+        server only if the API Key has [`APIKeyPermissionEnum.Delete`][mosaicolabs.enum.APIKeyPermissionEnum.Delete]
+        permission.
     """

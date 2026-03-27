@@ -15,15 +15,10 @@ By following this guide, you will:
 !!! example "Experiment Yourself"
     This guide is **fully executable**.
 
-    1. **Start the Mosaico Infrastructure**
-    ```bash
-    # From the mosaico root directory
-    cd docker/quick_start && docker compose up
-    ```
+    1. **[Start the Mosaico Infrastructure](../../daemon/install.md)**
     2. **Run the example**
     ```bash
-    # From the SDK root directory (mosaico-sdk-py)
-    mosaico.examples ros_injection
+    mosaicolabs.examples ros_injection
     ```
 
 ??? question "In Depth Explanation"

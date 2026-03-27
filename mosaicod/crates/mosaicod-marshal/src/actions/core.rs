@@ -76,12 +76,6 @@ pub enum ActionRequest {
     /// Finalizes the upload session
     SessionFinalize(requests::SessionUuid),
 
-    /// Aborts the session upload process and deletes all resources associated with the session.
-    ///
-    /// This action can only be called on **unlocked** sessions.  
-    /// Calling it on a **locked** session will result in an error.
-    SessionAbort(requests::SessionUuid),
-
     /// Deletes the selected session.
     SessionDelete(requests::SessionUuid),
 
@@ -136,7 +130,6 @@ impl ActionRequest {
 
             "session_create" => parse_action_req!(SessionCreate, body),
             "session_finalize" => parse_action_req!(SessionFinalize, body),
-            "session_abort" => parse_action_req!(SessionAbort, body),
             "session_delete" => parse_action_req!(SessionDelete, body),
 
             "layer_create" => parse_action_req!(LayerCreate, body),
@@ -172,7 +165,6 @@ pub enum ActionResponse {
     /// Returns the response key associated with the session just created
     SessionCreate(responses::ResourceUuid),
     SessionFinalize(()),
-    SessionAbort(()),
     SessionDelete(()),
 
     /// Returns the list of layers
@@ -222,10 +214,6 @@ impl ActionResponse {
 
     pub fn session_finalize() -> Self {
         Self::SessionFinalize(())
-    }
-
-    pub fn session_abort() -> Self {
-        Self::SessionAbort(())
     }
 
     pub fn session_delete() -> Self {

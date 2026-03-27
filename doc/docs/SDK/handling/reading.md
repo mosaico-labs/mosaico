@@ -5,6 +5,9 @@ description: Handlers, Writers, and Streamers.
 
 The **Reading Workflow** in Mosaico is architected to separate resource discovery from high-volume data transmission. This is achieved through two distinct layers: **Handlers**, which serve as metadata proxies, and **Streamers**, which act as the high-performance data engines.
 
+!!! info "API-Keys"
+    When the connection is established via the authorization middleware (i.e. using an [API-Key](../client.md#2-authentication-api-key)), the reading workflow requires the minimum [`APIKeyPermissionEnum.Read`][mosaicolabs.enum.APIKeyPermissionEnum.Read] permission.
+
 !!! example "Try-It Out"
     You can experiment yourself the Handlers module via the **[Data Discovery and Inspection](../examples/query_catalogs.md) Example**.
 

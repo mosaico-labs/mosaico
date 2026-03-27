@@ -211,6 +211,11 @@ class MosaicoClient:
             ensures that every client in use has been correctly configured with a
             valid network connection.
 
+        Note:
+            If using the Authorization middleware (via an API-Key), this method requires the minimum
+            [`APIKeyPermissionEnum.Read`][mosaicolabs.enum.APIKeyPermissionEnum.Read]
+            permission.
+
         Args:
             host (str): The server host address (e.g., "127.0.0.1" or "mosaico.local").
             port (int): The server port (e.g., 6726).
@@ -404,6 +409,11 @@ class MosaicoClient:
         Handlers are cached; subsequent calls for the same sequence return the existing
         object to avoid redundant handshakes.
 
+        Note:
+            If using the Authorization middleware (via an API-Key), this method requires the minimum
+            [`APIKeyPermissionEnum.Read`][mosaicolabs.enum.APIKeyPermissionEnum.Read]
+            permission.
+
         Args:
             sequence_name (str): The unique identifier of the sequence.
 
@@ -449,6 +459,11 @@ class MosaicoClient:
     ) -> Optional[TopicHandler]:
         """
         Retrieves a [`TopicHandler`][mosaicolabs.handlers.TopicHandler] for a specific data channel.
+
+        Note:
+            If using the Authorization middleware (via an API-Key), this method requires the minimum
+            [`APIKeyPermissionEnum.Read`][mosaicolabs.enum.APIKeyPermissionEnum.Read]
+            permission.
 
         Args:
             sequence_name (str): The parent sequence name.
@@ -510,6 +525,11 @@ class MosaicoClient:
         Important:
             The function **must** be called inside a with context, otherwise a
             RuntimeError is raised.
+
+        Note:
+            If using the Authorization middleware (via an API-Key), this method requires at least
+            [`APIKeyPermissionEnum.Write`][mosaicolabs.enum.APIKeyPermissionEnum.Write]
+            permission.
 
         Args:
             sequence_name (str): Unique name for the sequence.
@@ -607,6 +627,11 @@ class MosaicoClient:
         resources, including all topics and data chunks belonging to the sequence.
         Once executed, all storage occupied by the sequence is freed.
 
+        Note:
+            If using the Authorization middleware (via an API-Key), this method requires at least
+            [`APIKeyPermissionEnum.Delete`][mosaicolabs.enum.APIKeyPermissionEnum.Delete]
+            permission.
+
         Args:
             sequence_name (str): The unique name of the sequence to remove.
 
@@ -637,6 +662,11 @@ class MosaicoClient:
         This operation is destructive and triggers a cascading deletion of all underlying
         resources, including all topics and data chunks stored in the session.
         Once executed, all storage occupied by the session is freed.
+
+        Note:
+            If using the Authorization middleware (via an API-Key), this method requires at least
+            [`APIKeyPermissionEnum.Delete`][mosaicolabs.enum.APIKeyPermissionEnum.Delete]
+            permission.
 
         Args:
             session_uuid (str): The unique identifier of the session to remove.
@@ -686,6 +716,11 @@ class MosaicoClient:
         """
         Retrieves a list of all notifications available on the server for a specific sequence.
 
+        Note:
+            If using the Authorization middleware (via an API-Key), this method requires the minimum
+            [`APIKeyPermissionEnum.Read`][mosaicolabs.enum.APIKeyPermissionEnum.Read]
+            permission.
+
         Args:
             sequence_name (str): The name of the sequence to list notifications for.
 
@@ -731,6 +766,11 @@ class MosaicoClient:
         """
         Clears the notifications for a specific sequence from the server.
 
+        Note:
+            If using the Authorization middleware (via an API-Key), this method requires at least
+            [`APIKeyPermissionEnum.Delete`][mosaicolabs.enum.APIKeyPermissionEnum.Delete]
+            permission.
+
         Args:
             sequence_name (str): The name of the sequence.
 
@@ -756,6 +796,11 @@ class MosaicoClient:
     ) -> List[Notification]:
         """
         Retrieves a list of all notifications available on the server for a specific topic
+
+        Note:
+            If using the Authorization middleware (via an API-Key), this method requires the minimum
+            [`APIKeyPermissionEnum.Read`][mosaicolabs.enum.APIKeyPermissionEnum.Read]
+            permission.
 
         Args:
             sequence_name (str): The name of the sequence to list notifications for.
@@ -808,6 +853,11 @@ class MosaicoClient:
         """
         Clears the notifications for a specific topic from the server.
 
+        Note:
+            If using the Authorization middleware (via an API-Key), this method requires at least
+            [`APIKeyPermissionEnum.Delete`][mosaicolabs.enum.APIKeyPermissionEnum.Delete]
+            permission.
+
         Args:
             sequence_name (str): The name of the sequence.
             topic_name (str): The name of the topic.
@@ -843,6 +893,11 @@ class MosaicoClient:
         Executes one or more queries against the Mosaico database.
 
         Multiple provided queries are joined using a logical **AND** condition.
+
+        Note:
+            If using the Authorization middleware (via an API-Key), this method requires the minimum
+            [`APIKeyPermissionEnum.Read`][mosaicolabs.enum.APIKeyPermissionEnum.Read]
+            permission.
 
         Args:
             *queries: Variable arguments of query builder objects (e.g., `QuerySequence`).
@@ -949,6 +1004,11 @@ class MosaicoClient:
         """
         Get the version of the Mosaico server.
 
+        Note:
+            If using the Authorization middleware (via an API-Key), this method requires the minimum
+            [`APIKeyPermissionEnum.Read`][mosaicolabs.enum.APIKeyPermissionEnum.Read]
+            permission.
+
         Returns:
             str: The version of the Mosaico server.
 
@@ -995,19 +1055,33 @@ class MosaicoClient:
         """
         Creates a new API key with the specified permissions.
 
-        Requires the client to have 'manage' permission. You can also optionally
-        set an expiration time and a description for the key.
+        Note:
+            Requires the client to have [`APIKeyPermissionEnum.Manage`][mosaicolabs.enum.APIKeyPermissionEnum.Manage]
+            permission. You can also optionally set an expiration time and a description for the key.
 
         Args:
             permission (APIKeyPermissionEnum): Permission for the key.
-            expires_at_ns (Optional[int]): Optional expiration timestamp in nanoseconds.
             description (str): Description for the key.
+            expires_at_ns (Optional[int]): Optional expiration timestamp in nanoseconds.
 
         Returns:
             str: The generated API key token or None.
 
         Raises:
             Exception: If any error occurs during API key creation.
+
+        Example:
+            ```python
+            from mosaicolabs import MosaicoClient, APIKeyPermissionEnum
+
+            # Open the connection with the Mosaico Client
+            with MosaicoClient.connect("localhost", 6726, api_key="<API_KEY_MANAGE>") as client:
+                # Create a new API key with read and write permissions
+                api_key = client.api_key_create(
+                    permission=APIKeyPermissionEnum.Write,
+                    description="API key for data ingestion",
+                )
+            ```
         """
         payload: dict[str, Any] = {
             "permissions": permission.value,
@@ -1041,6 +1115,10 @@ class MosaicoClient:
     ) -> Optional[APIKeyStatus]:
         """
         Retrieves the status and metadata of an API key.
+
+        Note:
+            Requires the client to have [`APIKeyPermissionEnum.Manage`][mosaicolabs.enum.APIKeyPermissionEnum.Manage]
+            permission.
 
         Args:
             api_key_fingerprint (Optional[str]): The fingerprint of the API key to query.
@@ -1086,6 +1164,10 @@ class MosaicoClient:
     def api_key_revoke(self, api_key_fingerprint: str) -> None:
         """
         Revokes an API key by its fingerprint.
+
+        Note:
+            Requires the client to have [`APIKeyPermissionEnum.Manage`][mosaicolabs.enum.APIKeyPermissionEnum.Manage]
+            permission.
 
         Args:
             api_key_fingerprint (str): The fingerprint of the API key to revoke.

@@ -197,10 +197,10 @@ impl Default for Token {
 
 /// List of possible permissions associated to an API Key (only one per API Key).
 /// They are arranged in a hierarchy where an element defines its permission and gets also all the permissions from the previous ones:
-/// Read => grants read access to data
-/// Write => grants read and write access to data
-/// Delete => grants read, write and delete access to data
-/// Manage => grants read, write and delete access to data. Plus the authorization to manage other API keys.
+/// - **Read**: grants read access to data
+/// - **Write**: grants read and write access to data
+/// - **Delete**: grants read, write and delete access to data
+/// - **Manage**: grants read, write and delete access to data. Plus the authorization to manage other API keys.
 #[repr(u8)]
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Permission {
@@ -398,9 +398,22 @@ mod tests {
     }
 
     #[test]
-    fn bad_apy_key() {
+    fn api_key_ok() {
+        let _: Token = "msco_vrfeceju4lqivysxgaseefa3tsxs0vrl_1b676530"
+            .parse()
+            .expect("Unable to parse APi key token");
+    }
+
+    #[test]
+    fn api_key_bad() {
+        // Change header with a longer string
         let res: Result<Token, ApiKeyError> =
             "mosaico_vrfeceju4lqivysxgaseefa3tsxs0vrl_1b676530".parse();
+        assert!(matches!(res, Err(ApiKeyError::BadTokenHeader)));
+
+        // Change header with a string of same length
+        let res: Result<Token, ApiKeyError> =
+            "xyzw_vrfeceju4lqivysxgaseefa3tsxs0vrl_1b676530".parse();
         assert!(matches!(res, Err(ApiKeyError::BadTokenHeader)));
 
         // Removed char in payload
@@ -408,9 +421,32 @@ mod tests {
             "msco_rfeceju4lqivysxgaseefa3tsxs0vrl_1b676530".parse();
         assert!(matches!(res, Err(ApiKeyError::BadTokenPayload)));
 
-        // added non ascii char in fingerprint
+        // Added char in payload
         let res: Result<Token, ApiKeyError> =
-            "msco_vrfeceju4lqivysxgaseefa3tsxs0vrl_©b676530".parse();
+            "msco_xvrfeceju4lqivysxgaseefa3tsxs0vrl_1b676530".parse();
+        assert!(matches!(res, Err(ApiKeyError::BadTokenPayload)));
+
+        // Add special ascii char in payload
+        let res: Result<Token, ApiKeyError> =
+            "msco_vrfecej!4lqivysxgaseefa3tsxs0vrl_1b676530".parse();
+        dbg!(&res);
+        assert!(matches!(res, Err(ApiKeyError::BadTokenPayload)));
+
+        // Add uppercase letter in payload
+        let res: Result<Token, ApiKeyError> =
+            "msco_vrfecejU4lqivysxgaseefa3tsxs0vrl_1b676530".parse();
+        dbg!(&res);
+        assert!(matches!(res, Err(ApiKeyError::BadTokenPayload)));
+
+        // Add special ascii char in payload
+        let res: Result<Token, ApiKeyError> =
+            "msco_vrfecej©4lqivysxgaseefa3tsxs0vrl_1b676530".parse();
+        dbg!(&res);
+        assert!(matches!(res, Err(ApiKeyError::BadTokenPayload)));
+
+        // Added non ascii char in fingerprint
+        let res: Result<Token, ApiKeyError> =
+            "msco_vrfeceju4lqivysxgaseefa3tsxs0vrl_©1b676530".parse();
         dbg!(&res);
         assert!(matches!(res, Err(ApiKeyError::BadTokenFingerprint)));
 

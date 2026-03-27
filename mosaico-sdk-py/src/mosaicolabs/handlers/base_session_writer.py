@@ -209,7 +209,8 @@ class _BaseSessionWriter(ABC):
             # Apply the session-level error policy
             try:
                 if self._config.on_error == SessionLevelErrorPolicy.Delete:
-                    self._abort()
+                    # TODO: maybe convenient to explicitly deal with a possible "Unauthorized" error
+                    self._delete()
                 else:
                     self._error_report(str(out_exc))
                     self._finalize()
@@ -360,13 +361,13 @@ class _BaseSessionWriter(ABC):
                     e,
                 )
 
-    def _abort(self):
+    def _delete(self):
         """Internal: Sends Abort command (Delete policy)."""
         if self._status != SessionStatus.Finalized:
             try:
                 _do_action(
                     client=self._control_client,
-                    action=FlightAction.SESSION_ABORT,
+                    action=FlightAction.SESSION_DELETE,
                     payload={
                         "session_uuid": self._uuid,
                     },

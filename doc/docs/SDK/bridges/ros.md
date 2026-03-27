@@ -3,8 +3,11 @@ title: ROS
 description: ROS-Mosaico Bridge
 ---
 
-
 The **ROS Bridge** module serves as the ingestion gateway for ROS (Robot Operating System) data into the Mosaico Data Platform. Its primary function is to solve the interoperability challenges associated with ROS bag files—specifically format fragmentation (ROS 1 `.bag` vs. ROS 2 `.mcap`/`.db3`) and the lack of strict schema enforcement in custom message definitions.
+
+!!! info "API-Keys"
+    When the connection is established via the authorization middleware (i.e. using an [API-Key](../client.md#2-authentication-api-key)), the ROS Ingestion employs the mosaico [Writing Workflow](../handling/writing.md), which is allowed only if the key has at least [`APIKeyPermissionEnum.Write`][mosaicolabs.enum.APIKeyPermissionEnum.Write] permission.
+
 
 The core philosophy of the module is **"Adaptation, Not Just Parsing."** Rather than simply extracting raw dictionaries from ROS messages, the bridge actively translates them into the standardized **Mosaico Ontology**. For example, a [`geometry_msgs/Pose`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/Pose.html) is validated, normalized, and instantiated as a strongly-typed [`mosaicolabs.models.data.Pose`][mosaicolabs.models.data.Pose] object before ingestion.
 
@@ -94,7 +97,7 @@ def run_injection():
         log_level="WARNING",  # Reduce verbosity for automated scripts
 
         # Session Level Error Handling
-        on_error=SessionLevelErrorPolicy.Delete # Delete the sequence if an error occurs
+        on_error=SessionLevelErrorPolicy.Report # Report the error and terminate the session
 
         # Topic Level Error Handling
         topics_on_error=TopicLevelErrorPolicy.Raise # Re-raise any exception
@@ -247,14 +250,14 @@ By using this pattern, you can maintain a clean separation between your raw ROS 
 
 #### CLI Usage
 
-The module includes a command-line interface for quick ingestion tasks. The full list of options can be retrieved by running `mosaico.ros_injector -h`
+The module includes a command-line interface for quick ingestion tasks. The full list of options can be retrieved by running `mosaicolabs.ros_injector -h`
 
 ```bash
 # Basic Usage
-poetry run mosaico.ros_injector ./data.mcap --name "Test_Run_01"
+mosaicolabs.ros_injector ./data.mcap --name "Test_Run_01"
 
 # Advanced Usage: Filtering topics and adding metadata
-poetry run mosaico.ros_injector ./data.db3 \
+mosaicolabs.ros_injector ./data.db3 \
   --name "Test_Run_01" \
   --topics /camera/front/* /gps/fix \
   --metadata ./metadata.json \

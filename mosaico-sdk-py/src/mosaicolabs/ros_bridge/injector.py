@@ -13,7 +13,7 @@ It handles the complex orchestration of:
 4.  **Configuration:** Managing custom message definitions via `ROSTypeRegistry`.
 
 Typical usage as a script:
-    $ mosaico.ros_injector ./data.mcap --name "Test_Run_01"
+    $ mosaicolabs.ros_injector ./data.mcap --name "Test_Run_01"
 
 Typical usage as a library:
     config = ROSInjectionConfig(file_path=Path("data.mcap"), ...)
@@ -94,7 +94,16 @@ class ROSInjectionConfig:
             Set to a `Dict[str, TopicLevelErrorPolicy]` to apply different policies to different (subset of) topics.
         custom_msgs (Optional[List[Tuple]]): List of custom .msg definitions to register before loading.
         topics (Optional[List[str]]): List of topics to filter, supporting glob patterns (e.g., ["/cam/*"]).
+        adapter_overrides (Optional[Dict[str, Type[ROSAdapterBase]]]): Mapping of topics to adapter overrides,
+            allowing the use of specific adapters instead of the default for designated topics.
+            Deafult: None
         log_level (str): Logging verbosity level ("DEBUG", "INFO", "WARNING", "ERROR").
+        mosaico_api_key (Optional[str]): The API key for authentication on the mosaico server.
+            If provided it must be have at least [`APIKeyPermissionEnum.Write`][mosaicolabs.enum.APIKeyPermissionEnum.Write]
+            permission.
+            Default: None
+        tls_cert_path (Optional[str]): Path to the TLS certificate file for secure connection on the mosaico server.
+            Default: None
 
     Example:
         ```python
@@ -177,6 +186,17 @@ class ROSInjectionConfig:
     """A mapping of topics to adapter overrides, allowing the use of specific adapters instead of the default for designated topics."""
 
     log_level: str = "INFO"
+
+    mosaico_api_key: Optional[str] = None
+    """
+    The API key for authentication on the mosaico server. Defaults to None.
+    
+    If provided it must be have at least [`APIKeyPermissionEnum.Write`][mosaicolabs.enum.APIKeyPermissionEnum.Write]
+    permission.
+    """
+
+    tls_cert_path: Optional[str] = None
+    """Path to the TLS certificate file for secure connection on the mosaico server. Defaults to None."""
 
 
 # --- UI / Progress Helper ---
@@ -385,7 +405,10 @@ class RosbagInjector:
         try:
             # Context: Mosaico Client (Network Connection)
             with MosaicoClient.connect(
-                host=self.cfg.host, port=self.cfg.port
+                host=self.cfg.host,
+                port=self.cfg.port,
+                api_key=self.cfg.mosaico_api_key,
+                tls_cert_path=self.cfg.tls_cert_path,
             ) as mclient:
                 # Context: ROS Loader (File Access)
                 logger.info(f"Opening bag: '{self.cfg.file_path}'")
@@ -648,6 +671,20 @@ def ros_injector():
         "If not set, defaults to ROS2_HUMBLE.",
     )
 
+    # Advanced Arguments
+    parser.add_argument(
+        "--api-key",
+        default=None,
+        help="Mosaico API-Key",
+    )
+
+    # Advanced Arguments
+    parser.add_argument(
+        "--tls-cert",
+        default=None,
+        help="Path of the .cert file for secure connection",
+    )
+
     parser.add_argument(
         "--log",
         "-l",
@@ -685,6 +722,8 @@ def ros_injector():
         topics=args.topics,
         ros_distro=selected_distro,
         log_level=args.log,
+        tls_cert_path=args.tls_cert,
+        mosaico_api_key=args.api_key,
     )
 
     # --- Execution ---
