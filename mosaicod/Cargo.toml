@@ -36,7 +36,7 @@ base64 = "0.22.1"
 bincode = { version = "2.0.1", features = ["serde"] }
 bytes = "1.11.1"
 chrono = "0.4.44"
-clap = { version = "4.5.57", features = ["derive"] }
+clap = { version = "4.5.60", features = ["derive"] }
 colored = "3.1.1"
 dotenv = "0.15.0"
 futures = "0.3.32"
