@@ -206,7 +206,7 @@ fn print_authz_policy_list(policies: Vec<types::ApiKey>) {
             "{:>12} {:>24} {:>24} {:>10} {:>14}    {}",
             policy.token().fingerprint(),
             datetime.to_string(),
-            expired_datetime.map_or("never".yellow().to_string(), |ts| { ts.to_string() }),
+            expired_datetime.map_or("never".yellow(), |ts| { ts.to_string().white() }),
             expired,
             String::from(policy.permission),
             policy.description
