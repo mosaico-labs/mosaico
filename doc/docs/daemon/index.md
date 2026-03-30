@@ -37,11 +37,11 @@ This design ensures administrative operations don't interfere with data throughp
 
 ### Storage Architecture
 
-`mosaicod` uses a database to perform fast queries on metadata, manage system state such as sequence and topic definitions, and handle the event queue for processing asynchronous tasks like background data processing or notifications. An object store (such as S3, MinIO, or local filesystem) provides long-term storage for resilience and durability, holding the bulk sensor data, images, point clouds, and immutable schema snapshots that define data structures.
+`mosaicod` uses an RDBMS to perform fast queries on metadata, manage system state such as sequence and topic definitions, and handle the event queue for processing asynchronous tasks like background data processing or notifications. An object store (such as S3, MinIO, or local filesystem) provides long-term storage for resilience and durability, holding the bulk sensor data, images, point clouds, and immutable schema snapshots that define data structures.
 
 !!! note "Database Durability and Recovery"
-    The database state is entirely transient and can be fully reconstructed from the object store. This also enables importing data from other stores. 
-    
-    *Currently, there is no way to import data and reconstruct the database, but we are designing the system to enable this feature in future releases.* 
+    The DBMS state is not strictly required for data durability. The object store is the source of truth for all data, while the database serves as a metadata catalog for efficient querying and management.
 
-If the metadata database is corrupted or destroyed, `mosaicod` can rebuild the entire catalog by rescanning the durable object storage. This design ensures that while the database provides performance, the store guarantees long-term durability and recovery, protecting your data against catastrophic infrastructure failure.
+
+If the metadata database is corrupted or destroyed, `mosaicod` can rebuild the entire catalog by rescanning the durable object storage. 
+This design ensures that while the DBMS is used to create relations between datasets, the store guarantees long-term durability and recovery, protecting your data against catastrophic infrastructure failure.

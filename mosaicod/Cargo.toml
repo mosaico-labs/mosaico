@@ -30,13 +30,13 @@ arrow-flight = "57.2.0"
 arrow-schema = "57.2.0"
 parquet = "57.3.0"
 datafusion = { version = "52.1.0", default-features = false, features = ["compression", "parquet", "sql", "recursive_protection"] }
-tonic = { version = "0.14.3", features = ["tls-ring"] }
+tonic = { version = "0.14.5", features = ["tls-ring"] }
 
 base64 = "0.22.1"
 bincode = { version = "2.0.1", features = ["serde"] }
 bytes = "1.11.1"
 chrono = "0.4.44"
-clap = { version = "4.5.57", features = ["derive"] }
+clap = { version = "4.5.60", features = ["derive"] }
 colored = "3.1.1"
 dotenv = "0.15.0"
 futures = "0.3.32"
@@ -56,9 +56,9 @@ sqlx = { version = "0.8.6", features = [
     "json",
 ] }
 thiserror = "2.0.18"
-tokio = { version = "1.47.1", features = ["rt-multi-thread"] }
+tokio = { version = "1.50.0", features = ["rt-multi-thread"] }
 url = "2.5.8"
-uuid = { version = "1.21.0", features = [ "v4" ] }
+uuid = { version = "1.23.0", features = [ "v4" ] }
 crc32fast = "1.5.0"
 iso8601 = "0.6.3"
 semver = "1.0.27"

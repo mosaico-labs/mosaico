@@ -21,7 +21,7 @@ The sequence filter allows you to target specific recording sessions based on th
 | Field                       | Description                                                  |
 | --------------------------- | ------------------------------------------------------------ |
 | `sequence.name`             | The sequence identifier (supports text operations)           |
-| `sequence.creation`         | The creation timestamp in nanoseconds (supports timestamp operations) |
+| `sequence.created_at`       | The creation timestamp in nanoseconds (supports timestamp operations) |
 | `sequence.user_metadata.<key>` | Custom user-defined metadata attached to the sequence        |
 
 ### Topic Filter
@@ -31,7 +31,7 @@ The topic filter narrows the search to specific data streams within matching seq
 | Field                          | Description                                                  |
 | ------------------------------ | ------------------------------------------------------------ |
 | `topic.name`                   | The topic path within the sequence (supports text operations) |
-| `topic.creation`               | The topic creation timestamp in nanoseconds (supports timestamp operations) |
+| `topic.created_at`             | The topic creation timestamp in nanoseconds (supports timestamp operations) |
 | `topic.ontology_tag`           | The data type identifier (e.g., `Lidar`, `Camera`, `IMU`)    |
 | `topic.serialization_format`   | The binary layout format (`Default`, `Ragged`, or `Image`)   |
 | `topic.user_metadata.<key>`    | Custom user-defined metadata attached to the topic           |

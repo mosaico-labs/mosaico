@@ -1,22 +1,25 @@
 <div align="center">
   <picture>
-    <source media="(prefers-color-scheme: light)" srcset="logo/mono_black.svg">
-    <source media="(prefers-color-scheme: dark)" srcset="logo/mono_white.svg">
-    <img alt="Mosaico logo" src="logo/color_black.svg" height="100">
+    <a href="https://mosaico.dev"><img alt="Mosaico logo" src="https://mosaico.dev/mosaico-loop@920px-25fps-crop.gif" width="600px"></a>
   </picture>
 </div>
-
 <br/>
 
 <p align="center">
   <a href="https://github.com/mosaico-labs/mosaico/actions"><img src="https://img.shields.io/github/actions/workflow/status/mosaico-labs/mosaico/ci.yml?branch=main&label=main" alt="Github Actions Badge"></a>
-  <a href="https://discord.gg/mwQtFnsckE"><img src="https://shields.io/discord/1413199575442784266" alt="discord" /></a>
-  <a href="https://github.com/mosaico-labs/mosaico/releases/"><img src="https://img.shields.io/github/v/release/mosaico-labs/mosaico?sort=semver&color=brightgreen" /></a>
+  <a href="https://discord.gg/mwQtFnsckE"><img src="https://shields.io/discord/1413199575442784266?color=%235865f2" alt="discord" /></a>
+  <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.10+-blue.svg" alt="python version"/></a>
+  <a href="https://github.com/mosaico-labs/mosaico/releases/"><img src="https://img.shields.io/github/v/release/mosaico-labs/mosaico?sort=semver&color=orange" /></a>
+  <a href="https://docs.mosaico.dev"><img src="https://img.shields.io/badge/-%20Documentation-%23bd38b4?style=flat&logo=readthedocs&logoColor=white&labelColor=gray" alt="documentation"></a>
 </p>
 
-## The Data Platform for Robotics & Physical AI
+<p align="center">
+  <a target="_blank" href="https://discord.gg/mwQtFnsckE"><img src="https://img.shields.io/badge/Discord-Join%20Server-5865F2?style=for-the-badge&logo=discord" alt="Discord" /></a>
+</p>
 
-Mosaico is a *blazing-fast* data platform designed to bridge the gap between Robotics and Physical AI. It streamlines data management, compression, and search by replacing monolithic files with a structured archive powered by Rust and Python.
+# The Data Platform for Robotics and Physical AI
+
+**Mosaico** is a *blazing-fast* data platform designed to bridge the gap between Robotics and Physical AI. It streamlines data management, compression, and search by replacing monolithic files with a structured archive powered by Rust and Python.
 
 ## Streamlining Data for Physical AI
 The transition from classical robotics to Physical AI represents a fundamental shift in data requirements.
