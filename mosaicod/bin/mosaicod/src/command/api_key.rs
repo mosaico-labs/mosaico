@@ -22,11 +22,11 @@ pub enum ApiKey {
         #[arg(short, long)]
         description: Option<String>,
 
-        /// Define a time duration (using the ISO8601 format) after which the key in no longer valid.
+        /// Define a time duration, using the ISO8601 format, after which the key in no longer valid (e.g. `P1Y2M3D` 1 year 2 months and 3 days).
         #[arg(long)]
         expires_in: Option<String>,
 
-        /// Define a datetime (using the rfc3339 format) after which the key in no longer valid (e.g 2026-03-27T12:20:00Z).
+        /// Define a datetime, using the rfc3339 format, after which the key in no longer valid (e.g 2026-03-27T12:20:00Z).
         #[arg(long)]
         expires_at: Option<String>,
     },

@@ -2,29 +2,24 @@
 
 This document describes briefly how the release process is handled for Mosaico project.
 
-We use [semantic versioning](https://semver.org/) `v<MAJOR>.<MINOR>.<PATCH>` to label every new official release.
+## Monorepo
 
-## Development process
+Mosaico utilizes a monorepo structure to simplify integration and testing between `mosaicod` daemon and Python SDK.
+While these components reside in the same repository, they are decoupled: each component maintains its own release schedule and both follow [semantic versioning](gttps://semver.org).
 
-The basic idea is to use more than one develop branch to consent the progress of various versions simultaneously.
+## Development workflow
 
-Below, we introduce the terminology of branches and tags involved in the process:
+The development workflow relies on a specific set of branches and tags to manage stability and feature development.
 
-* `main`: this is the only stable branch, where every commit is an official release. Critical patches to the latest version are merged directly on this branch 
-* `release/x.y.0`: this is the catch-all branch for the version `x.y.0`. Once ready it is merged back into `main` and deleted.
-* `issue/<num>/x.y.z`: this kind of branch is associated to the corresponding Github issue `#<num>`. It can contain the development of a new feature or a bug-fix. It is a child of the corresponding `release/x.y.z` branch and it's merged back into it when completed 
-* `hotfix/x.y.<z+1>`: this branch is intended to contain critical fixes, documentation updates, and maintenance tasks. It is derived directly from `main` and merged back into it to produce the new official version `x.y.<z+1>`.
-* `vx.y.z` this tag is created when a new stable version is ready.
+- `main`: the primary integration branch. All stable features and fixes eventually land here. Official release tags are cut directly from main once sufficient changes have been accumulated.
+- `issue/<num>`: feature or bug-fix branches linked to a specific GitHub issue. Branched from *main* and merged back via pull request upon completion.
+- `release/[mosaicod|mosaico-py]/vX.Y.<Z+1>`: maintenance branches for *critical hotfixes*. Created from an existing version tag *when a patch is required* for an older release. The final commit is tagged with the incremented version. Relevant fixes should be cherry-picked or merged back into main if applicable. These branches might be used in the future to support pre-release stages.
 
-Let's have a look to an example
+## Tags
 
-![git release cycle](../assets/git_flow.png)
+We use specific tag prefixes to trigger CI/CD pipelines and distinguish between *stable releases* of the daemon and the SDK
 
-## Maintenance process
-
-Maintenance of older major versions (LTS) follows a slightly different process.
-
-We add to the terminology the following branch:
-
-* `lts/x` this branch is created from the last official release of version x present in `main` and lives until the end of support. Only fixes are permitted using `issue/<num>` branches. Once a new version is ready, it is tagged incrementing only the patch version (`vx.y.<z+1>`).
-
+| Component  | Tag                 |
+| ---------- | ------------------- |
+| Daemon     | `mosaicod/vX.Y.Z`   |
+| Python SDK | `mosaico-py/vX.Y.Z` |

@@ -80,4 +80,5 @@ codegen-units = 1    # Better optimization (slower compile)
 
 [profile.docker]
 inherits = "release"
-lto = false
+lto = "thin"
+opt-level = "s"

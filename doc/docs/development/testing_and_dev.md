@@ -35,7 +35,7 @@ cargo sqlx prepare -- --features postgres
 
 ### Apply Migrations
 
-As detailed in the [Setup](../daemon/setup.md) guide, the build process validates queries against the schema. Ensure your local database is synchronized with the latest migrations:
+As detailed in the [Setup](../daemon/install.md) guide, the build process validates queries against the schema. Ensure your local database is synchronized with the latest migrations:
 
 ```bash 
 cd mosaicod/crates/mosaicod-db
@@ -90,7 +90,7 @@ The project includes a comprehensive suite of unit and integration tests to vali
 The test suite can be executed with:
 
 ```bash
-./scripts/test.sh
+./scripts/test
 ```
 
 Use `--help` to see available options.
@@ -104,7 +104,7 @@ This is particularly useful when developing client applications or testing the A
 The environment can be launched with:
 
 ```bash
-./scripts/dev_env.sh
+./scripts/dev_env
 ```
 
 Use `--help` to see available options.

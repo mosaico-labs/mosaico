@@ -56,6 +56,10 @@ while [[ "$#" -gt 0 ]]; do
         --push) 
             PUSH=true
             ;;
+        --help)
+            show_help
+            exit 0
+            ;;
         *) 
             echo "Unknown parameter: $1"
             exit 1 

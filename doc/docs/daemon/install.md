@@ -2,7 +2,7 @@
 
 ## Running with Containers
 
-For rapid prototyping, we provide a standard Docker Compose configuration. This creates an isolated network environment containing the mosaico server and its required PostgreSQL database.
+For rapid prototyping, we provide a standard Docker Compose configuration. This creates an isolated network environment containing the `mosaicod` server and its required PostgreSQL database.
 
 ```yaml title="Daemon compose file", hl_lines="31-32"
 name: "mosaico"
@@ -82,8 +82,10 @@ SQLX_OFFLINE=true cargo build --release
 
 If you need to modify the database schema, a running PostgreSQL instance is required. This allows `sqlx` to verify queries against a live database during compilation. You can use the provided Docker Compose file in `docker/devel` which sets up an instance of [MinIO](https://www.min.io/) and a PostgreSQL database.
 
-First, start the development environment. From inside the `docker/devel` directory, run:
+First, start the development environment:
 ```bash
+cd docker/devel
+
 # Start the services in the background
 docker compose up -d
 
@@ -95,6 +97,8 @@ Apply database migrations to the running PostgreSQL instance. This ensures that 
 
 Next, from the root of the `mosaicod` workspace, install the necessary tools, configure the environment, and run the build.
 ```bash
+cd mosaicod
+
 # Install the SQLx command-line tool
 cargo install sqlx-cli
 
@@ -104,11 +108,9 @@ cp env.devel .env
 # Apply the database migrations
 cd crates/mosaicod-db
 cargo sqlx migrate run 
-```
 
-And finally you can run the build from `mosaicod` directory with:
-```bash
-cargo build --release
+# And finally you can build mosaicod 
+cargo build --release --bin mosaicod
 ```
 
 ## Configuration
