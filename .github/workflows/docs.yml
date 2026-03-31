@@ -2,6 +2,7 @@
 
 name: Docs deploy
 on:
+  workflow_dispatch:
   push:
     tags:
       - 'mosaicod/v[0-9]+.[0-9]+.[0-9]+'
