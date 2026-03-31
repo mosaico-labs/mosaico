@@ -97,6 +97,7 @@ nav:
           - Models:
               - SDK/API_reference/models/base.md
               - SDK/API_reference/models/data_types.md
+              - SDK/API_reference/models/futures.md
               - SDK/API_reference/models/geometry.md
               - SDK/API_reference/models/platform.md
               - SDK/API_reference/models/sensors.md

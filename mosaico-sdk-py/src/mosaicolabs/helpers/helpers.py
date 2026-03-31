@@ -5,6 +5,7 @@ Provides utility functions for dict manipulation and other things
 """
 
 import ast
+import json
 import re
 from dataclasses import is_dataclass
 from pathlib import Path
@@ -159,6 +160,16 @@ def encode_to_dict(obj: Any, exclude_none: bool = False) -> Any:
         return type(obj)(
             encode_to_dict(item, exclude_none=exclude_none) for item in obj
         )
+
+    # --- Handle dict types ---
+    if isinstance(obj, dict):
+        # convert all the value of obj to dict in case of nested structure or Pydantic model
+        to_json_dump = {
+            key: encode_to_dict(value, exclude_none=exclude_none)
+            for key, value in obj.items()
+            if (value is not None or not exclude_none)
+        }
+        return json.dumps(to_json_dump)
 
     # --- Base case: primitive or non-special object ---
     # Return primitive types (int, str, float, datetime, etc.) as-is.

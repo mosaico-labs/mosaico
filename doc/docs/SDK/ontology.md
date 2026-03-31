@@ -67,6 +67,27 @@ High-level models representing physical hardware devices and their processed out
 | **Magnetic** | [`Magnetometer`][mosaicolabs.models.sensors.Magnetometer] | Magnetic field vectors measured in microTesla (). |
 | **Robotics** | [`RobotJoint`][mosaicolabs.models.sensors.RobotJoint] | States (position, velocity, effort) for index-aligned actuator arrays. |
 
+#### Futures
+API Reference: [Futures Models](./API_reference/models/futures.md)
+
+Prospective high-level models representing emerging or not yet fully standardized sensor hardware. The `futures` module acts as a **transitional space** where experimental ontologies are introduced and iteratively refined before being promoted to the stable, production-ready ontology set.
+
+The following sensors are supported as first-class data types in this module:
+
+| Model | Description |
+|---|---|
+| **LiDAR** | 3D point cloud data from laser-based ranging sensors, supporting full spatial geometry and optional intensity/RGB fields. |
+| **Radar** | Range, velocity, and azimuth measurements from radio-frequency sensors, including Doppler-based target detection. |
+| **LaserScan** | 2D planar sweep data from single-line laser rangefinders, encoded as ordered range and intensity arrays. |
+| **Multi-Echo LaserScan** | Extension of LaserScan supporting multiple return echoes per beam, enabling richer surface characterization. |
+| **RGBD Camera** | Paired color and depth frames from structured-light or time-of-flight RGB-D sensors. |
+| **Stereo Camera** | Synchronized left/right image pairs from stereo rigs, suitable for disparity estimation and 3D reconstruction. |
+| **ToF Camera** | Per-pixel depth and amplitude data from time-of-flight imaging sensors. |
+
+> **Note - Experimental Ontologies**
+>
+> The `futures` module is a transitional area where ontologies under active experimentation are hosted before graduating to the stable ontology set. Field definitions, unit conventions, and structural relationships are **not yet considered final** and will be refined based on feedback from real-world integrations and adopters. Once an ontology reaches sufficient maturity and coverage, it will be promoted out of `futures` and into the core, production-ready modules.
+
 ## Architecture
 
 The ontology architecture relies on three primary abstractions: the **Factory** (`Serializable`), the **Envelope** (`Message`) and the **Mixins**
