@@ -12,7 +12,7 @@ The **Mosaico SDK** is the primary interface for interacting with the **Mosaico 
 
 It provides a seamless bridge between raw data formats (like ROS bags) and the Mosaico high-performance storage layer, leveraging technologies like **PyArrow**, **Pandas**, and **Pydantic**.
 
-For full documentation, see the [Mosaico SDK Documentation](https://docs.mosaico.dev/latest/SDK/).
+For full documentation, see the [Mosaico SDK Documentation](https://docs.mosaico.dev/SDK/).
 
 ## Key Features
 
@@ -42,7 +42,7 @@ The SDK comes with built-in command-line tools to speed up your workflow.
 
 Before running any mosaico service via SDK, ensure your **Mosaico Infrastructure** is active and running. 
 The easiest way to start is using the provided **Quick Start environment**.
-Please, refer to the **[daemon Setup](https://docs.mosaico.dev/latest/daemon/install/)** for setting up the environment.
+Please, refer to the **[daemon Setup](https://docs.mosaico.dev/daemon/install/)** for setting up the environment.
 
 ```python
 from mosaicolabs import MosaicoClient

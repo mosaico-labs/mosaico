@@ -35,7 +35,7 @@ As Mosaico is in early development, documentation contributions are highly encou
 
 ### Backend
 
-The backend source code is located in the `mosaicod` directory. For detailed instructions on building from source, please refer to the [official daemon documentation](https://docs.mosaico.dev/latest/daemon). 
+The backend source code is located in the `mosaicod` directory. For detailed instructions on building from source, please refer to the [official daemon documentation](https://docs.mosaico.dev/daemon). 
 
 #### Update DBMS Schema
 
