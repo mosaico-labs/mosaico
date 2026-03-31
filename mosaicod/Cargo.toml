@@ -63,7 +63,7 @@ crc32fast = "1.5.0"
 iso8601 = "0.6.3"
 semver = "1.0.27"
 tracing = "0.1.44"
-tracing-subscriber = { version = "0.3.22", features = ["json", "env-filter"] }
+tracing-subscriber = { version = "0.3.23", features = ["json", "env-filter"] }
 
 # Used to implement middlewares in mosaicod-server crate 
 tower = "0.5.3"
