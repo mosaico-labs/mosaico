@@ -23,6 +23,7 @@ By following this guide, you will learn how to:
     mosaicolabs.examples data_inspection
     ```
 
+!!! abstract "Full Code"
     The full code of the example is available [**here**](https://github.com/mosaico-labs/mosaico/blob/main/mosaico-sdk-py/src/mosaicolabs/examples/data_inspection.py).
 
 ??? question "In Depth Explanation"

@@ -21,6 +21,9 @@ By following this guide, you will:
     mosaicolabs.examples ros_injection
     ```
 
+!!! abstract "Full Code"
+    The full code of the example is available [**here**](https://github.com/mosaico-labs/mosaico/blob/main/mosaico-sdk-py/src/mosaicolabs/examples/ros_injection/main.py).
+
 ??? question "In Depth Explanation"
     * **[How-To: Customizing the Data Ontology](./ontology_customization.md)**
     * **[Documentation: The ROS Bridge](../bridges/ros.md)**
@@ -164,11 +167,3 @@ with MosaicoClient.connect(host=MOSAICO_HOST, port=MOSAICO_PORT) as client: # (1
     * **[How-To: Data Discovery and Inspection](./data_inspection.md)**
     * **[Documentation: The Reading Workflow](../handling/reading.md)**
     * **[API Reference: Data Retrieval](../API_reference/handlers/reading.md)**
-
-## The full example code
-The full example code is available under `mosaico-sdk-py/src/examples/ros_injection/main.py`.
-
-### What to Expect
-
-* **CLI Progress**: You will see a detailed breakdown of each ROS topic being resolved, adapted, and uploaded in real-time.
-* **Zero-Copy Performance**: Behind the scenes, the SDK uses Apache Arrow to move data without the CPU overhead of traditional serialization.
