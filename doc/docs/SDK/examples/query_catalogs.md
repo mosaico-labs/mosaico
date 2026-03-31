@@ -22,6 +22,9 @@ By following this guide, you will learn how to:
     mosaicolabs.examples query_catalogs
     ```
 
+!!! abstract "Full Code"
+    The full code of the example is available [**here**](https://github.com/mosaico-labs/mosaico/blob/main/mosaico-sdk-py/src/mosaicolabs/examples/query_catalogs.py).
+
 ??? question "In Depth Explanation"
     * **[Documentation: Querying Catalogs](../query.md)**
     * **[API Reference: Query Builders](../API_reference/query/builders.md)**
