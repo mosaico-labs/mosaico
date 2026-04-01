@@ -8,6 +8,7 @@ middleware-level metadata (like recording timestamp_ns).
 """
 
 # --- Python Standard Library Imports ---
+from collections import defaultdict
 from typing import Any, Dict, Optional, Type, TypeVar
 
 import pandas as pd
@@ -625,3 +626,54 @@ class Message(BaseModel):
         except Exception as e:
             logger.error(f"Failed to reconstruct Message for topic {topic_name}: {e}")
             return None
+
+    def _to_pa_record_batch(self) -> pa.RecordBatch:
+        """
+        Serializes the message instance into a PyArrow RecordBatch.
+
+        This method encodes the message fields into a dictionary-based structure
+        and wraps them in a single-row RecordBatch using the schema defined
+        for the specific ontology type.
+
+        Returns:
+            pa.RecordBatch: A single-row PyArrow RecordBatch containing the encoded message data."""
+
+        result = defaultdict(list)
+        for k, v in self._encode().items():
+            result[k].append(v)
+
+        return pa.RecordBatch.from_pydict(
+            dict(result),
+            schema=self._get_schema(self.ontology_type()),
+        )
+
+    @classmethod
+    def _from_pa_record_batch(cls, rb: pa.RecordBatch, tag: str) -> "Message":
+        """
+        Reconstructs a Message instance from a PyArrow RecordBatch.
+
+        This factory method extracts data from the first row of a RecordBatch
+        and instantiates the appropriate message type.
+
+        Args:
+            rb (pa.RecordBatch): The PyArrow RecordBatch containing the message data.
+                Must contain exactly one row.
+            tag (str): The unique identifier (tag) for the message.
+
+        Returns:
+            Message: A concrete instance of a Message or its subclasses.
+
+        Raises:
+            ValueError: If the RecordBatch does not contain exactly one row.
+            ValueError: If the provided `tag` is empty or None.
+        """
+        if len(rb) != 1:
+            raise ValueError(
+                f"_from_pa_record_batch expects a single-row RecordBatch, got {len(rb)} rows."
+            )
+
+        if not tag:
+            raise ValueError("Tag must be a valid value.")
+
+        flat = {col: rb.column(col)[0].as_py() for col in rb.column_names}
+        return cls._create(tag=tag, **flat)
