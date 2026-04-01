@@ -84,9 +84,8 @@ The following sensors are supported as first-class data types in this module:
 | **Stereo Camera** | Synchronized left/right image pairs from stereo rigs, suitable for disparity estimation and 3D reconstruction. |
 | **ToF Camera** | Per-pixel depth and amplitude data from time-of-flight imaging sensors. |
 
-> **Note - Experimental Ontologies**
->
-> The `futures` module is a transitional area where ontologies under active experimentation are hosted before graduating to the stable ontology set. Field definitions, unit conventions, and structural relationships are **not yet considered final** and will be refined based on feedback from real-world integrations and adopters. Once an ontology reaches sufficient maturity and coverage, it will be promoted out of `futures` and into the core, production-ready modules.
+!!! warning "Experimental Ontologies"
+    The `futures` module is a transitional area where ontologies under active experimentation are hosted before graduating to the stable ontology set. Field definitions, unit conventions, and structural relationships are **not yet considered final** and will be refined based on feedback from real-world integrations and adopters. Once an ontology reaches sufficient maturity and coverage, it will be promoted out of `futures` and into the core, production-ready modules.
 
 ## Architecture
 
