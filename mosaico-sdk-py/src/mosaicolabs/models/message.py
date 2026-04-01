@@ -658,7 +658,7 @@ class Message(BaseModel):
         Args:
             rb (pa.RecordBatch): The PyArrow RecordBatch containing the message data.
                 Must contain exactly one row.
-            tag (str): The unique identifier (tag) for the message.
+            tag (str): The ontology tag of the message data into the RecordBatch.
 
         Returns:
             Message: A concrete instance of a Message or its subclasses.

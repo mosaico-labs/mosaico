@@ -187,12 +187,30 @@ def test_forcetorque_roundtrip():
     assert_roundtrip(model)
 
 
+def test_forcetorque_required_only_roundtrip():
+    model = ForceTorque(
+        force=Vector3d(x=0.0, y=0.0, z=-9.81),
+        torque=Vector3d(x=0.0, y=0.0, z=0.0),
+    )
+    assert_roundtrip(model)
+
+
 def test_vector2d_roundtrip():
     model = Vector2d(x=1.5, y=-2.8, covariance=[0.1, 0.0, 0.0, 0.1], covariance_type=1)
     assert_roundtrip(model)
 
 
+def test_vector2d_required_only_roudtrip():
+    model = Vector2d(x=1.5, y=-2.8)
+    assert_roundtrip(model)
+
+
 def test_point2d_roundtrip():
+    model = Point2d(x=10.0, y=20.0, covariance=[0.01] * 9, covariance_type=2)
+    assert_roundtrip(model)
+
+
+def test_point2d_required_only_roundtrip():
     model = Point2d(x=10.0, y=20.0)
     assert_roundtrip(model)
 
@@ -202,7 +220,19 @@ def test_vector3d_roundtrip():
     assert_roundtrip(model)
 
 
+def test_vector3d_required_only_roundtrip():
+    model = Vector3d(x=0.5, y=0.2, z=9.81)
+    assert_roundtrip(model)
+
+
 def test_point3d_roundtrip():
+    model = Point3d(
+        x=41.8902, y=12.4922, z=54.0, covariance=[0.01] * 9, covariance_type=2
+    )
+    assert_roundtrip(model)
+
+
+def test_point3d_required_only_roundtrip():
     model = Point3d(x=41.8902, y=12.4922, z=54.0)
     assert_roundtrip(model)
 
@@ -214,10 +244,20 @@ def test_vector4d_roundtrip():
     assert_roundtrip(model)
 
 
+def test_vector4d_required_only_roundtrip():
+    model = Vector4d(x=1.0, y=2.0, z=3.0, w=4.0)
+    assert_roundtrip(model)
+
+
 def test_quaternion_roundtrip():
     model = Quaternion(
         x=0.0, y=0.0, z=0.7071, w=0.7071, covariance=[0.001] * 16, covariance_type=2
     )
+    assert_roundtrip(model)
+
+
+def test_quaternion_required_only_roundtrip():
+    model = Quaternion(x=0.0, y=0.0, z=0.7071, w=0.7071)
     assert_roundtrip(model)
 
 
@@ -232,12 +272,28 @@ def test_transform_roundtrip():
     assert_roundtrip(model)
 
 
+def test_transform_required_only_roundtrip():
+    model = Transform(
+        translation=Vector3d(x=1.0, y=0.0, z=0.5),
+        rotation=Quaternion(x=0.0, y=0.0, z=0.0, w=1.0),
+    )
+    assert_roundtrip(model)
+
+
 def test_pose_roundtrip():
     model = Pose(
         position=Point3d(x=-5.0, y=12.3, z=0.0),
         orientation=Quaternion(x=0.5, y=0.5, z=0.5, w=0.5),
         covariance=[0.0] * 49,
         covariance_type=2,
+    )
+    assert_roundtrip(model)
+
+
+def test_pose_required_only_roundtrip():
+    model = Pose(
+        position=Point3d(x=-5.0, y=12.3, z=0.0),
+        orientation=Quaternion(x=0.5, y=0.5, z=0.5, w=0.5),
     )
     assert_roundtrip(model)
 
@@ -252,6 +308,14 @@ def test_velocity_roundtrip():
     assert_roundtrip(model)
 
 
+def test_velocity_required_only_roundtrip():
+    model = Velocity(
+        linear=Vector3d(x=2.5, y=-1.2, z=0.0),
+        angular=Vector3d(x=0.0, y=0.0, z=0.4),
+    )
+    assert_roundtrip(model)
+
+
 def test_acceleration_roundtrip():
     model = Acceleration(
         linear=Vector3d(x=0.0, y=0.0, z=-9.81),
@@ -259,6 +323,11 @@ def test_acceleration_roundtrip():
         covariance=[0.05] * 36,
         covariance_type=2,
     )
+    assert_roundtrip(model)
+
+
+def test_acceleration_required_only_roundtrip():
+    model = Acceleration(linear=Vector3d(x=0.0, y=0.0, z=-9.81))
     assert_roundtrip(model)
 
 
@@ -279,6 +348,20 @@ def test_motion_state_roundtrip():
     assert_roundtrip(model)
 
 
+def test_motion_state_required_only_roundtrip():
+    model = MotionState(
+        pose=Pose(
+            position=Point3d(x=10.0, y=5.0, z=0.0),
+            orientation=Quaternion(x=0.0, y=0.0, z=0.707, w=0.707),
+        ),
+        velocity=Velocity(
+            linear=Vector3d(x=5.0, y=0.0, z=0.0), angular=Vector3d(x=0.0, y=0.0, z=0.1)
+        ),
+        target_frame_id="map",
+    )
+    assert_roundtrip(model)
+
+
 def test_roi_roundtrip():
     model = ROI(
         offset=Vector2d(x=100.0, y=150.0), height=480, width=640, do_rectify=True
@@ -286,7 +369,28 @@ def test_roi_roundtrip():
     assert_roundtrip(model)
 
 
+def test_roi_required_only_roundtrip():
+    model = ROI(offset=Vector2d(x=100.0, y=150.0), height=480, width=640)
+    assert_roundtrip(model)
+
+
 def test_laser_roundtrip():
+    model = LaserScan(
+        angle_min=1.0,
+        angle_max=1.0,
+        angle_increment=1.0,
+        time_increment=1.0,
+        scan_time=12.12,
+        range_min=1.0,
+        range_max=3.0,
+        ranges=[1.0, 2.0, 3.0],
+        intensities=[1.0, 2.0, 3.0],
+    )
+
+    assert_roundtrip(model)
+
+
+def test_laser_required_only_roundtrip():
     model = LaserScan(
         angle_min=1.0,
         angle_max=1.0,
@@ -302,6 +406,22 @@ def test_laser_roundtrip():
 
 
 def test_multiecho_laser_roundtrip():
+    model = MultiEchoLaserScan(
+        angle_min=1.0,
+        angle_max=1.0,
+        angle_increment=1.0,
+        time_increment=1.0,
+        scan_time=12.12,
+        range_min=1.0,
+        range_max=3.0,
+        ranges=[[1.0, 2.0, 3.0], [-1.0, -2.0, -3.0]],
+        intensities=[[1.0, 2.0, 3.0], [-1.0, -2.0, -3.0]],
+    )
+
+    assert_roundtrip(model)
+
+
+def test_multiecho_laser_required_only_roundtrip():
     model = MultiEchoLaserScan(
         angle_min=1.0,
         angle_max=1.0,
@@ -336,6 +456,16 @@ def test_lidar_roundtrip():
     assert_roundtrip(model)
 
 
+def test_lidar_required_only_roundtrip():
+    model = Lidar(
+        x=[1.0, -1.0, 0.0001],
+        y=[2.0, -2.0, 0.12],
+        z=[3.0, -3.0, 9999.1],
+    )
+
+    assert_roundtrip(model)
+
+
 def test_radar_roundtrip():
     model = Radar(
         x=[15.3, 8.7, 25.0],
@@ -359,6 +489,16 @@ def test_radar_roundtrip():
     assert_roundtrip(model)
 
 
+def test_radar_required_only_roundtrip():
+    model = Radar(
+        x=[15.3, 8.7, 25.0],
+        y=[0.2, -3.1, 4.8],
+        z=[-0.1, 0.0, 0.3],
+    )
+
+    assert_roundtrip(model)
+
+
 def test_rgbdcamera_roundtrip():
     model = RGBDCamera(
         x=[-0.5, 0.0, 1.2, -2.1],
@@ -371,6 +511,16 @@ def test_rgbdcamera_roundtrip():
             pack_rgb(135, 180, 220),
         ],
         intensity=[0.45, 0.91, 0.52, 0.30],
+    )
+
+    assert_roundtrip(model)
+
+
+def test_rgbdcamera_required_only_roundtrip():
+    model = RGBDCamera(
+        x=[-0.5, 0.0, 1.2, -2.1],
+        y=[0.3, -0.8, 0.4, -1.5],
+        z=[8.0, 15.0, 6.5, 40.0],
     )
 
     assert_roundtrip(model)
@@ -395,6 +545,16 @@ def test_tofcamera_roundtrip():
     assert_roundtrip(model)
 
 
+def test_tofcamera_required_only_roundtrip():
+    model = ToFCamera(
+        x=[-0.5, 0.0, 1.2, -2.1],
+        y=[0.3, -0.8, 0.4, -1.5],
+        z=[8.0, 15.0, 6.5, 40.0],
+    )
+
+    assert_roundtrip(model)
+
+
 def test_stereocamera_roundtrip():
     model = StereoCamera(
         x=[-0.5, 0.0, 1.2, -2.1],
@@ -409,6 +569,16 @@ def test_stereocamera_roundtrip():
         intensity=[0.45, 0.91, 0.52, 0.30],
         luma=[76, 115, 140, 184],
         cost=[4, 12, 7, 48],
+    )
+
+    assert_roundtrip(model)
+
+
+def test_stereocamera_required_only_roundtrip():
+    model = StereoCamera(
+        x=[-0.5, 0.0, 1.2, -2.1],
+        y=[0.3, -0.8, 0.4, -1.5],
+        z=[8.0, 15.0, 6.5, 40.0],
     )
 
     assert_roundtrip(model)
@@ -430,8 +600,21 @@ def test_imu_roundtrip():
     assert_roundtrip(model)
 
 
+def test_imu_required_only_roundtrip():
+    model = IMU(
+        acceleration=Vector3d(x=0.0156, y=-0.0212, z=9.8066),
+        angular_velocity=Vector3d(x=0.0001, y=-0.0001, z=0.0),
+    )
+    assert_roundtrip(model)
+
+
 def test_temperature_roundtrip():
     model = Temperature(value=23.85, variance=0.0025, variance_type=1)
+    assert_roundtrip(model)
+
+
+def test_temperature_required_only_roundtrip():
+    model = Temperature(value=23.85)
     assert_roundtrip(model)
 
 
@@ -458,8 +641,24 @@ def test_range_roundtrip():
     assert_roundtrip(model)
 
 
+def test_range_required_only_roundtrip():
+    model = Range(
+        radiation_type=0,
+        field_of_view=0.2618,
+        min_range=0.02,
+        max_range=4.0,
+        range=1.5432,
+    )
+    assert_roundtrip(model)
+
+
 def test_pressure_roundtrip():
     model = Pressure(value=101325.4578, variance=1.0, variance_type=2)
+    assert_roundtrip(model)
+
+
+def test_pressure_required_only_roundtrip():
+    model = Pressure(value=101325.4578)
     assert_roundtrip(model)
 
 
@@ -473,6 +672,11 @@ def test_magnetometer_roundtrip():
             covariance_type=2,
         )
     )
+    assert_roundtrip(model)
+
+
+def test_magnetometer_required_only_roundtrip():
+    model = Magnetometer(magnetic_field=Vector3d(x=22.5, y=-1.5, z=-42.8))
     assert_roundtrip(model)
 
 
@@ -511,6 +715,58 @@ def test_image_roundtrip():
     assert_roundtrip(model)
 
 
+def test_image_required_only_roundtrip():
+    model = Image(
+        data=bytes(
+            [
+                255,
+                0,
+                0,
+                0,
+                255,
+                0,
+                0,
+                0,
+                255,
+                255,
+                255,
+                0,
+                0,
+                255,
+                255,
+                255,
+                0,
+                255,
+            ]
+        ),
+        format=ImageFormat.RAW,
+        width=3,
+        height=2,
+        stride=9,
+        encoding="bgr8",
+    )
+
+    assert_roundtrip(model)
+
+
+def test_gps_status_roundtrip():
+    model = GPSStatus(
+        status=3,
+        service=1,
+        satellites=18,
+        hdop=0.6,
+        vdop=0.8,
+    )
+
+    assert_roundtrip(model)
+
+
+def test_gps_status_required_only_roundtrip():
+    model = GPSStatus(status=3, service=1)
+
+    assert_roundtrip(model)
+
+
 def test_gps_roundtrip():
     model = GPS(
         position=Point3d(
@@ -526,6 +782,18 @@ def test_gps_roundtrip():
             hdop=0.6,
             vdop=0.8,
         ),
+    )
+
+    assert_roundtrip(model)
+
+
+def test_gps_required_only_roundtrip():
+    model = GPS(
+        position=Point3d(
+            x=35.360625,
+            y=138.727361,
+            z=3776.0,
+        )
     )
 
     assert_roundtrip(model)
@@ -562,5 +830,31 @@ def test_camera_info_roundtrip():
         ],
         binning=Vector2d(x=1, y=1),
         roi=ROI(offset=Vector2d(x=0, y=0), width=0, height=0, do_rectify=False),
+    )
+    assert_roundtrip(model)
+
+
+def test_camera_info_required_only_roundtrip():
+    model = CameraInfo(
+        height=1080,
+        width=1920,
+        distortion_model="plumb_bob",
+        distortion_parameters=[-0.2, 0.1, 0.001, 0.001, 0.0],
+        intrinsic_parameters=[1200.0, 0.0, 960.0, 0.0, 1200.0, 540.0, 0.0, 0.0, 1.0],
+        rectification_parameters=[1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0],
+        projection_parameters=[
+            1200.0,
+            0.0,
+            960.0,
+            0.0,
+            0.0,
+            1200.0,
+            540.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+        ],
     )
     assert_roundtrip(model)
