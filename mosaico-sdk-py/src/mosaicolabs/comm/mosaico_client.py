@@ -89,6 +89,7 @@ class MosaicoClient:
         connection_pool: Optional[_ConnectionPool],
         executor_pool: Optional[_ExecutorPool],
         sentinel: object,
+        enable_tls: bool,
         tls_cert: Optional[bytes],
         api_key_fingerprint: Optional[str],
         middlewares: dict[str, fl.ClientMiddlewareFactory],
@@ -112,6 +113,7 @@ class MosaicoClient:
             connection_pool: Internal pool for data connections.
             executor_pool: Internal pool for async I/O.
             sentinel: Private object used to verify factory-based instantiation.
+            enable_tls: Enable TLS communication.
             tls_cert: The TLS certificate.
             api_key_fingerprint: The fingerprint of the API key to use for authentication.
             middlewares: The middlewares to be used for the connection.
@@ -137,6 +139,8 @@ class MosaicoClient:
         """The pool of thread executors used for offloading serialization and I/O."""
         self._tls_cert: Optional[bytes] = tls_cert
         """The path to the TLS certificate file."""
+        self._enable_tls: bool = enable_tls
+        """If True, enable the TLS commmunication protocol"""
         self._middlewares: dict[str, fl.ClientMiddlewareFactory] = middlewares
         """The middlewares to be used for the connection."""
         self._api_key_fingerprint: Optional[str] = api_key_fingerprint
@@ -164,6 +168,7 @@ class MosaicoClient:
                     pool_size=os.cpu_count(),
                     timeout=self._timeout,
                     tls_cert=self._tls_cert,
+                    enable_tls=self._enable_tls,
                     middlewares=self._middlewares,
                 )
 
@@ -194,6 +199,7 @@ class MosaicoClient:
         host: str,
         port: int,
         timeout: int = 5,
+        enable_tls: bool = False,
         tls_cert_path: Optional[str] = None,
         api_key: Optional[str] = None,
     ) -> "MosaicoClient":
@@ -221,7 +227,10 @@ class MosaicoClient:
             port (int): The server port (e.g., 6726).
             timeout (int): Maximum time in seconds to wait for a connection response.
                 Defaults to 5.
+            enable_tls (bool): Enable the TLS communication protocol. Defaults to False
+                If `enable_tls=True` and `tls_cert_path` is provided, the provided certificate will be used for TLS.
             tls_cert_path (Optional[str]): Path to the TLS certificate file. Defaults to None.
+                If `enable_tls=True` and `tls_cert_path=None`, standard one-way TLS (server authenticated only).
             api_key (Optional[str]): The API key for authentication. Defaults to None.
 
         Returns:
@@ -252,6 +261,8 @@ class MosaicoClient:
 
         resolved_tls_cert = cls._resolve_tls_cert_path(tls_cert_path)
 
+        enable_tls = enable_tls or tls_cert_path is not None
+
         middlewares = {}
         api_key_fingerprint = None
         if api_key:
@@ -264,6 +275,7 @@ class MosaicoClient:
                 host=host,
                 port=port,
                 timeout=timeout,
+                enable_tls=enable_tls,
                 tls_cert=resolved_tls_cert,
                 middlewares=middlewares,
             )
@@ -282,6 +294,7 @@ class MosaicoClient:
             executor_pool=None,
             sentinel=cls._CONNECT_SENTINEL,
             tls_cert=resolved_tls_cert,
+            enable_tls=enable_tls,
             api_key_fingerprint=api_key_fingerprint,
             middlewares=middlewares,
         )
@@ -321,11 +334,14 @@ class MosaicoClient:
             ```
         """
 
+        tls_cert = os.environ.get(MosaicoClient._MOSAICO_TLS_CERT_ENV_VAR)
+
         return cls.connect(
             host=host,
             port=port,
             timeout=timeout,
-            tls_cert_path=os.environ.get(MosaicoClient._MOSAICO_TLS_CERT_ENV_VAR),
+            enable_tls=tls_cert is not None,
+            tls_cert_path=tls_cert,
             api_key=os.environ.get(MosaicoClient._MOSAICO_AUTH_API_KEY),
         )
 
@@ -609,8 +625,8 @@ class MosaicoClient:
         return SequenceWriter(
             sequence_name=sequence_name,
             client=self._control_client,
-            connection_pool=self._connection_pool,
-            executor_pool=self._executor_pool,
+            connection_pool=None,
+            executor_pool=None,
             metadata=metadata,
             config=SessionWriterConfig(
                 on_error=on_error,

@@ -112,7 +112,7 @@ class TopicResourceInfo:
             tmin = tstamp_mdata.get("start_ns")
             tmax = tstamp_mdata.get("end_ns")
             # Ensure both keys exist
-            if (tstamp_mdata.get("min") is None) != (tmax is None):
+            if (tmin is None) != (tmax is None):
                 logger.error(
                     f"Wrong format of 'timestamp' field: 'min' or 'max' are None, but not both, {tstamp_mdata}"
                 )

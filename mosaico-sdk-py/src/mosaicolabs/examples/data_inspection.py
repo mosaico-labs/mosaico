@@ -20,7 +20,7 @@ from rich.table import Table
 # Mosaico SDK Imports
 from mosaicolabs import MosaicoClient
 
-from .config import MOSAICO_HOST, MOSAICO_PORT
+from .config import API_KEY, ENABLE_TLS, MOSAICO_HOST, MOSAICO_PORT
 
 # Initialize Rich Console for beautiful terminal output
 console = Console()
@@ -30,7 +30,12 @@ def main():
     # --- PHASE 3: Verification & Retrieval ---
     # Connect to the client using a context manager to ensure resource cleanup.
 
-    with MosaicoClient.connect(host=MOSAICO_HOST, port=MOSAICO_PORT) as client:
+    with MosaicoClient.connect(
+        host=MOSAICO_HOST,
+        port=MOSAICO_PORT,
+        enable_tls=ENABLE_TLS,
+        api_key=API_KEY,
+    ) as client:
         seq_list = client.list_sequences()
         for sequence_name in seq_list:
             console.print(

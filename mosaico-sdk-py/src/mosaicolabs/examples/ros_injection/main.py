@@ -28,17 +28,24 @@ from mosaicolabs import MosaicoClient, Time
 from mosaicolabs.ros_bridge import RosbagInjector, ROSInjectionConfig
 
 # Example Imports
-from ..config import ASSET_DIR, MOSAICO_HOST, MOSAICO_PORT
+from ..config import (
+    API_KEY,
+    ASSET_DIR,
+    ENABLE_TLS,
+    LOG_LEVEL,
+    MOSAICO_HOST,
+    MOSAICO_PORT,
+)
 from .helpers import download_asset
 
 # NVIDIA R2B Dataset 2024 - Verified compatible with Mosaico
 BASE_BAGFILE_URL = "https://api.ngc.nvidia.com/v2/resources/org/nvidia/team/isaac/r2bdataset2024/1/files"
 
 BAG_FILES_PATH = [
-    "?redirect=true&path=r2b_galileo/r2b_galileo_0.mcap",
     "?redirect=true&path=r2b_galileo2/r2b_galileo2_0.mcap",
-    "?redirect=true&path=r2b_robotarm/r2b_robotarm_0.mcap",
+    "?redirect=true&path=r2b_galileo/r2b_galileo_0.mcap",
     "?redirect=true&path=r2b_whitetunnel/r2b_whitetunnel_0.mcap",
+    "?redirect=true&path=r2b_robotarm/r2b_robotarm_0.mcap",
 ]
 
 # Initialize Rich Console for beautiful terminal output
@@ -74,6 +81,8 @@ def main():
         config = ROSInjectionConfig(
             host=MOSAICO_HOST,
             port=MOSAICO_PORT,
+            enable_tls=ENABLE_TLS,
+            mosaico_api_key=API_KEY,
             # on_error=OnErrorPolicy.Report,
             file_path=out_bag_file,
             sequence_name=out_bag_file.stem,  # Sequence name derived from filename
@@ -84,12 +93,12 @@ def main():
                 "original_size_bytes": out_bag_file.stat().st_size,
             },
             # topics=["/back_stereo_camera/left/image_compressed"],
-            log_level="INFO",
+            log_level=LOG_LEVEL,
         )
 
         console.print(
             Panel(
-                f"[bold green]Phase 2: Starting ROS Ingestion of sequence: {config.sequence_name}[/bold green]"
+                f"[bold green]Phase 2: Starting ROS Ingestion of sequence: {config.sequence_name} - Size (MB): {out_bag_file.stat().st_size / (1024 * 1024):.2f} [/bold green]"
             )
         )
         injector = RosbagInjector(config)
@@ -104,7 +113,12 @@ def main():
     # Connect to the client using a context manager to ensure resource cleanup.
     console.print(Panel("[bold green]Phase 3: Verifying Data on Server[/bold green]"))
 
-    with MosaicoClient.connect(host=MOSAICO_HOST, port=MOSAICO_PORT) as client:
+    with MosaicoClient.connect(
+        host=MOSAICO_HOST,
+        port=MOSAICO_PORT,
+        enable_tls=ENABLE_TLS,
+        api_key=API_KEY,
+    ) as client:
         seq_list = client.list_sequences()
         console.print(
             Panel(
