@@ -227,10 +227,11 @@ class MosaicoClient:
             port (int): The server port (e.g., 6726).
             timeout (int): Maximum time in seconds to wait for a connection response.
                 Defaults to 5.
-            enable_tls (bool): Enable the TLS communication protocol. Defaults to False
-                If `enable_tls=True` and `tls_cert_path` is provided, the provided certificate will be used for TLS.
+            enable_tls (bool): Enable the TLS standard one-way TLS (server authenticated only) communication protocol.
+                Defaults to False. If `tls_cert_path` is provided (not None), this flag does not have any effect.
             tls_cert_path (Optional[str]): Path to the TLS certificate file. Defaults to None.
-                If `enable_tls=True` and `tls_cert_path=None`, standard one-way TLS (server authenticated only).
+                If `tls_cert_path=None` and `enable_tls=True`, a standard one-way TLS (server authenticated only) connection
+                is established.
             api_key (Optional[str]): The API key for authentication. Defaults to None.
 
         Returns:
@@ -245,10 +246,11 @@ class MosaicoClient:
             ```python
             from mosaicolabs import MosaicoClient
 
-            # Establish a connection to the Mosaico Data Platform
+            # Establish a connection to the Mosaico Data Platform via One-way TLS and an API-KEY
             with MosaicoClient.connect(
                 "localhost",
                 6726,
+                enable_tls=True,
                 api_key="msco_vy9lqa7u4lr7w3vimhz5t8bvvc0xbmk2_9c94a86",
             ) as client:
                 # Perform operations using the client
