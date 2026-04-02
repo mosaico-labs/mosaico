@@ -1,6 +1,6 @@
 //! Topic-related actions.
 
-use crate::{endpoint::Context, errors::ServerError};
+use crate::errors::ServerError;
 use log::{info, trace, warn};
 use mosaicod_core::types::{self, MetadataBlob};
 use mosaicod_facade as facade;
@@ -8,7 +8,7 @@ use mosaicod_marshal::{self as marshal, ActionResponse};
 
 /// Creates a new topic with the given name and metadata.
 pub async fn create(
-    ctx: &Context,
+    ctx: &facade::Context,
     name: String,
     session_uuid: String,
     serialization_format: types::Format,
@@ -49,7 +49,7 @@ pub async fn create(
 }
 
 /// Deletes an unlocked topic.
-pub async fn delete(ctx: &Context, locator: String) -> Result<ActionResponse, ServerError> {
+pub async fn delete(ctx: &facade::Context, locator: String) -> Result<ActionResponse, ServerError> {
     warn!("requested deletion of resource `{}`", locator);
 
     let handle =
@@ -68,7 +68,7 @@ pub async fn delete(ctx: &Context, locator: String) -> Result<ActionResponse, Se
 
 /// Creates a notification for a topic.
 pub async fn notification_create(
-    ctx: &Context,
+    ctx: &facade::Context,
     locator: String,
     notification_type: String,
     msg: String,
@@ -84,7 +84,7 @@ pub async fn notification_create(
 
 /// Lists all notifications for a topic.
 pub async fn notification_list(
-    ctx: &Context,
+    ctx: &facade::Context,
     locator: String,
 ) -> Result<ActionResponse, ServerError> {
     info!("notification list for {}", locator);
@@ -98,7 +98,7 @@ pub async fn notification_list(
 
 /// Purges all notifications for a topic.
 pub async fn notification_purge(
-    ctx: &Context,
+    ctx: &facade::Context,
     locator: String,
 ) -> Result<ActionResponse, ServerError> {
     warn!("notification purge for {}", locator);

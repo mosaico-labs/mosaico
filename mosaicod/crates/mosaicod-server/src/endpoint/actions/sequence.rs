@@ -1,6 +1,6 @@
 //! Sequence-related actions
 
-use crate::{endpoint::Context, errors::ServerError};
+use crate::errors::ServerError;
 use log::{info, trace, warn};
 use mosaicod_core::types::{self, MetadataBlob, Resource};
 use mosaicod_facade as facade;
@@ -8,7 +8,7 @@ use mosaicod_marshal::{self as marshal, ActionResponse};
 
 /// Creates a new sequence with the given name and metadata.
 pub async fn create(
-    ctx: &Context,
+    ctx: &facade::Context,
     locator: String,
     user_metadata_str: &str,
 ) -> Result<ActionResponse, ServerError> {
@@ -39,7 +39,7 @@ pub async fn create(
 }
 
 /// Deletes an unlocked sequence.
-pub async fn delete(ctx: &Context, name: String) -> Result<ActionResponse, ServerError> {
+pub async fn delete(ctx: &facade::Context, name: String) -> Result<ActionResponse, ServerError> {
     warn!("requested deletion of resource {}", name);
 
     let handle = facade::Sequence::new(name, ctx.store.clone(), ctx.db.clone());
@@ -53,7 +53,7 @@ pub async fn delete(ctx: &Context, name: String) -> Result<ActionResponse, Serve
 
 /// Creates a notification for a sequence.
 pub async fn notification_create(
-    ctx: &Context,
+    ctx: &facade::Context,
     name: String,
     notification_type: String,
     msg: String,
@@ -68,7 +68,10 @@ pub async fn notification_create(
 }
 
 /// Lists all notifications for a sequence.
-pub async fn notification_list(ctx: &Context, name: String) -> Result<ActionResponse, ServerError> {
+pub async fn notification_list(
+    ctx: &facade::Context,
+    name: String,
+) -> Result<ActionResponse, ServerError> {
     info!("notification list for {}", name);
 
     let handle = facade::Sequence::new(name, ctx.store.clone(), ctx.db.clone());
@@ -81,7 +84,7 @@ pub async fn notification_list(ctx: &Context, name: String) -> Result<ActionResp
 
 /// Purges all notifications for a sequence.
 pub async fn notification_purge(
-    ctx: &Context,
+    ctx: &facade::Context,
     name: String,
 ) -> Result<ActionResponse, ServerError> {
     warn!("notification purge for {}", name);

@@ -1,4 +1,3 @@
-use super::Context;
 use crate::errors::ServerError;
 use arrow::datatypes::{Field, Schema};
 use arrow_flight::{
@@ -14,7 +13,7 @@ use mosaicod_marshal as marshal;
 use mosaicod_marshal::{JsonMetadataBlob, flight};
 
 pub async fn get_flight_info(
-    ctx: Context,
+    ctx: facade::Context,
     desc: FlightDescriptor,
 ) -> Result<FlightInfo, ServerError> {
     match desc.r#type() {

@@ -1,5 +1,4 @@
-use super::Context;
-use crate::{endpoint, errors::ServerError};
+use crate::errors::ServerError;
 use arrow::datatypes::SchemaRef;
 use arrow_flight::decode::{DecodedFlightData, DecodedPayload, FlightDataDecoder};
 use arrow_flight::flight_descriptor::DescriptorType;
@@ -11,7 +10,10 @@ use mosaicod_facade as facade;
 use mosaicod_marshal as marshal;
 use mosaicod_rw as rw;
 
-pub async fn do_put(ctx: Context, decoder: &mut FlightDataDecoder) -> Result<(), ServerError> {
+pub async fn do_put(
+    ctx: facade::Context,
+    decoder: &mut FlightDataDecoder,
+) -> Result<(), ServerError> {
     let (cmd, schema) = extract_command_and_schema_from_header_message(decoder).await?;
     do_put_topic_data(ctx, decoder, schema, cmd).await
 }
@@ -59,7 +61,7 @@ fn extract_command_from_flight_data(
 }
 
 async fn do_put_topic_data(
-    ctx: endpoint::Context,
+    ctx: facade::Context,
     decoder: &mut FlightDataDecoder,
     schema: SchemaRef,
     cmd: types::flight::DoPutCmd,

@@ -13,6 +13,7 @@ use log::{error, trace, warn};
 use mosaicod_core::{params, types};
 use mosaicod_db as db;
 use mosaicod_ext as ext;
+use mosaicod_facade as facade;
 use mosaicod_marshal as marshal;
 use mosaicod_query as query;
 use mosaicod_store as store;
@@ -176,8 +177,8 @@ impl MosaicodFlight {
         self.api_key_management = true;
     }
 
-    pub fn context(&self) -> endpoint::Context {
-        endpoint::Context::new(self.store.clone(), self.db.clone(), self.ts_gw.clone())
+    pub fn context(&self) -> facade::Context {
+        facade::Context::new(self.store.clone(), self.db.clone(), self.ts_gw.clone())
     }
 }
 

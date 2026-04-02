@@ -1,13 +1,13 @@
 //! Query-related actions.
 
-use crate::{endpoint::Context, errors::ServerError};
+use crate::errors::ServerError;
 use log::{info, trace};
-use mosaicod_facade::Query;
+use mosaicod_facade as facade;
 use mosaicod_marshal::{self as marshal, ActionResponse};
 
 /// Executes a query and returns matching groups.
 pub async fn execute(
-    ctx: &Context,
+    ctx: &facade::Context,
     query: serde_json::Value,
 ) -> Result<ActionResponse, ServerError> {
     info!("performing a query");
@@ -16,7 +16,8 @@ pub async fn execute(
 
     trace!("query filter: {:?}", filter);
 
-    let groups = Query::query(filter, ctx.timeseries_querier.clone(), ctx.db.clone()).await?;
+    let groups =
+        facade::Query::query(filter, ctx.timeseries_querier.clone(), ctx.db.clone()).await?;
 
     trace!("groups found: {:?}", groups);
 

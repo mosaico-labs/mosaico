@@ -1,7 +1,6 @@
 //! Implementation of the Arrow Flight `list_flights` endpoint.
 //!
 //! Returns a stream of all available sequences when queried at the root level.
-use super::Context;
 use crate::errors::ServerError;
 use arrow_flight::{Criteria, FlightDescriptor, FlightEndpoint, FlightInfo, Ticket};
 use futures::stream::BoxStream;
@@ -16,7 +15,7 @@ use tonic::Status;
 /// returns a streamed list of all sequences. Each sequence is represented
 /// as a minimal `FlightInfo` containing only the sequence identifier.
 pub async fn list_flights(
-    ctx: Context,
+    ctx: facade::Context,
     criteria: Criteria,
 ) -> Result<BoxStream<'static, Result<FlightInfo, Status>>, ServerError> {
     // Validate criteria - only root-level queries are supported

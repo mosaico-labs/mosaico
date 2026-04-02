@@ -1,4 +1,3 @@
-use super::Context;
 use crate::errors::ServerError;
 use arrow_flight::{
     Ticket,
@@ -10,7 +9,10 @@ use log::{debug, info, trace};
 use mosaicod_facade as facade;
 use mosaicod_marshal as marshal;
 
-pub async fn do_get(ctx: Context, ticket: Ticket) -> Result<FlightDataEncoder, ServerError> {
+pub async fn do_get(
+    ctx: facade::Context,
+    ticket: Ticket,
+) -> Result<FlightDataEncoder, ServerError> {
     let ticket = marshal::flight::ticket_topic_from_binary(&ticket.ticket)?;
 
     info!("requesting data for ticket `{}`", ticket.locator);

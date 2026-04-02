@@ -1,12 +1,12 @@
 //! Session related actions.
-use crate::{ServerError, endpoint::Context};
+use crate::ServerError;
 use log::{info, trace, warn};
 use mosaicod_core::types;
 use mosaicod_facade as facade;
 use mosaicod_marshal::ActionResponse;
 
 pub async fn create(
-    ctx: &Context,
+    ctx: &facade::Context,
     sequence_locator: String,
 ) -> Result<ActionResponse, ServerError> {
     info!("requested resource {} creation", sequence_locator);
@@ -19,7 +19,10 @@ pub async fn create(
     Ok(ActionResponse::session_create(resource_key.uuid.into()))
 }
 
-pub async fn finalize(ctx: &Context, session_uuid: String) -> Result<ActionResponse, ServerError> {
+pub async fn finalize(
+    ctx: &facade::Context,
+    session_uuid: String,
+) -> Result<ActionResponse, ServerError> {
     info!("finalizing session {}", session_uuid);
 
     let uuid: types::Uuid = session_uuid.parse()?;
@@ -33,7 +36,10 @@ pub async fn finalize(ctx: &Context, session_uuid: String) -> Result<ActionRespo
     Ok(ActionResponse::session_finalize())
 }
 
-pub async fn delete(ctx: &Context, session_uuid: String) -> Result<ActionResponse, ServerError> {
+pub async fn delete(
+    ctx: &facade::Context,
+    session_uuid: String,
+) -> Result<ActionResponse, ServerError> {
     warn!("deleting session `{}`", session_uuid);
 
     let uuid: types::Uuid = session_uuid.parse()?;

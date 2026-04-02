@@ -3,13 +3,11 @@
 //! This module implements the main dispatcher for Flight DoAction requests,
 //! delegating to specialized handler functions for each action category.
 
-use super::{
-    Context,
-    actions::{layer, misc, query as query_action, sequence, session, topic},
-};
+use super::actions::{layer, misc, query as query_action, sequence, session, topic};
 use crate::endpoint::actions::auth;
 use crate::errors::ServerError;
 use mosaicod_core::types::auth::Permission;
+use mosaicod_facade as facade;
 use mosaicod_marshal::{ActionRequest, ActionResponse};
 
 /// Dispatches a Flight action request to the appropriate handler.
@@ -17,7 +15,7 @@ use mosaicod_marshal::{ActionRequest, ActionResponse};
 /// This function serves as the main entry point for all Flight DoAction requests,
 /// routing each action type to its specialized handler function.
 pub async fn do_action(
-    ctx: Context,
+    ctx: facade::Context,
     action: ActionRequest,
     perm: &Permission,
 ) -> Result<ActionResponse, ServerError> {
