@@ -145,7 +145,7 @@ impl Topic {
     /// Finalize the write procedure of the topic. The topic is locked and additional data are
     /// consolidated (e.g. manifest, timestamp bounds). This function is intended to be called by
     /// [`TopicWriterGuard`] to finalize the writing process.
-    async fn finalize(
+    pub async fn finalize(
         &mut self,
         timeseries_querier: query::TimeseriesRef,
         format: types::Format,
@@ -233,30 +233,26 @@ impl Topic {
     /// Returns a writer used to write chunked record batches using a specified serialization
     /// format `format`.
     pub fn writer(
-        &mut self,
+        self,
         querier: query::TimeseriesRef,
         format: types::Format,
-    ) -> TopicWriterGuard<'_> {
-        let max_chunk_size = {
-            let config_value = params::params().max_chunk_size_in_bytes;
-            if config_value == 0 {
-                None // 0 means unlimited (no automatic splitting)
-            } else {
-                Some(config_value)
-            }
-        };
-
+        schema: SchemaRef,
+    ) -> TopicWriter {
         let data_folder = self.locator.path_data_folder(self.uuid());
 
-        let cw = rw::ChunkedWriter::new(self.store.clone(), format, move |chunk_number| {
-            data_folder.join(types::TopicResourceLocator::data_file(
-                chunk_number,
-                format.to_properties().as_ref(),
-            ))
-        })
-        .with_max_chunk_size(max_chunk_size);
+        let cw = rw::ChunkWriter::new(
+            self.store.clone(),
+            format,
+            schema.clone(),
+            move |chunk_number| {
+                data_folder.join(types::TopicResourceLocator::data_file(
+                    chunk_number,
+                    format.to_properties().as_ref(),
+                ))
+            },
+        );
 
-        TopicWriterGuard {
+        TopicWriter {
             facade: self,
             querier,
             format,
@@ -439,11 +435,11 @@ impl Topic {
 /// A guard ensuring exclusive write access to a [`Topic`].
 ///
 /// While this struct exists, the underlying topic is mutably borrowed, preventing
-/// any other operations (such as locking or concurrent reads) until [`TopicWriterGuard::finalize`] is called.
-pub struct TopicWriterGuard<'a> {
+/// any other operations (such as locking or concurrent reads) until [`TopicWriter::finalize`] is called.
+pub struct TopicWriter {
     /// Anchors the exclusive borrow of the facade, strictly tying the writer's lifetime
     /// to the topic's availability.
-    facade: &'a mut Topic,
+    facade: Topic,
 
     /// Query engine for timeseries data used to finalize topic data at the end of write process
     querier: query::TimeseriesRef,
@@ -452,31 +448,28 @@ pub struct TopicWriterGuard<'a> {
     format: types::Format,
 
     /// The underlying writer handling the actual data operations.
-    writer: rw::ChunkedWriter<Arc<store::Store>>,
+    writer: rw::ChunkWriter<Arc<store::Store>>,
 }
 
-impl<'a> TopicWriterGuard<'a> {
-    /// Performs all the operations required to finalize the writing stream, consolidate topic data
-    /// and lock the topic
-    pub async fn finalize(self) -> Result<(), Error> {
-        trace!("internal writer finalized");
-        let _ = self.writer.finalize().await?;
+impl TopicWriter {
+    /// Performs all the operations required to consolidate topic data
+    /// and close the writing process.
+    pub async fn finalize(mut self) -> Result<(), Error> {
         self.facade.finalize(self.querier, self.format).await?;
         Ok(())
     }
 }
 
-impl<'a> std::ops::Deref for TopicWriterGuard<'a> {
-    type Target = rw::ChunkedWriter<Arc<store::Store>>;
+impl std::ops::Deref for TopicWriter {
+    type Target = rw::ChunkWriter<Arc<store::Store>>;
 
     fn deref(&self) -> &Self::Target {
         &self.writer
     }
 }
 
-impl<'a> std::ops::DerefMut for TopicWriterGuard<'a> {
+impl std::ops::DerefMut for TopicWriter {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        trace!("dereferencing writer");
         &mut self.writer
     }
 }

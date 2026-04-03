@@ -45,6 +45,7 @@ pub enum Error {
 #[derive(Debug)]
 pub struct Params {
     pub max_message_size_in_bytes: usize,
+
     /// Target message size used during data streaming. Mosaicod will try to
     /// aggregate a number of Arrow RecordBatches to create a sufficiently large
     /// message. If the resulting batch size exceeds the limit, it will be capped by
@@ -52,17 +53,16 @@ pub struct Params {
     ///
     /// Defaults to 25MB.
     pub target_message_size_in_bytes: usize,
+
     /// Maximum number of concurrent chunk queries during data catalog filtering
     pub max_concurrent_chunk_queries: usize,
+
     /// Maximum number of database connections in the pool
     pub max_db_connections: u32,
-    /// Maximum chunk size in bytes before automatic splitting during upload.
-    /// When a chunk exceeds this size, it is finalized and a new chunk is started.
-    /// A value of 0 means unlimited (no automatic splitting).
-    pub max_chunk_size_in_bytes: usize,
 
     /// Path of the `cert.pem` file used as TLS certificate
     pub tls_certificate_file: String,
+
     /// Path of the `key.pem` file used as private key for TLS
     pub tls_private_key_file: String,
 
@@ -78,6 +78,7 @@ pub struct Params {
     ///
     /// Defaults to default data fusion batch size 8192.
     pub max_batch_size: usize,
+
     /// Defines the amount of memory used by the query engine (DataFusion).
     /// Set this value to a number greater than 0 to enforce a hard limit
     /// on the memory allocated by the query engine. Use this setting if

@@ -4,12 +4,12 @@ use arrow::datatypes::SchemaRef;
 use arrow_flight::decode::{DecodedFlightData, DecodedPayload, FlightDataDecoder};
 use arrow_flight::flight_descriptor::DescriptorType;
 use futures::TryStreamExt;
-use log::{info, trace};
 use mosaicod_core::types;
 use mosaicod_db as db;
 use mosaicod_facade as facade;
 use mosaicod_marshal as marshal;
 use mosaicod_rw as rw;
+use tracing::{debug, info};
 
 pub async fn do_put(ctx: Context, decoder: &mut FlightDataDecoder) -> Result<(), ServerError> {
     let (cmd, schema) = extract_command_and_schema_from_header_message(decoder).await?;
@@ -74,10 +74,10 @@ async fn do_put_topic_data(
 
     mosaicod_ext::arrow::check_schema(&schema)?;
 
-    let mut handle =
+    let handle =
         facade::Topic::try_from_locator(locator.into(), ctx.store.clone(), ctx.db.clone()).await?;
 
-    // perform the match between received key and topic id
+    // Perform the match between received key and topic id
     let r_id = handle.resource_id().await?;
     let received_uuid: types::Uuid = key.parse()?;
     if received_uuid != r_id.uuid {
@@ -92,35 +92,27 @@ async fn do_put_topic_data(
     let serialization_format = mdata.ontology_metadata.properties.serialization_format;
     let topic_id = r_id.id;
 
-    trace!("creating topic writer");
-    let mut writer = handle.writer(ctx.timeseries_querier, serialization_format);
+    let mut writer = handle.writer(ctx.timeseries_querier, serialization_format, schema.clone());
 
-    writer.on_chunk_created(move |target_path, cols_stats, chunk_metadata| {
+    // Build the callback that will be called at each chunk serialization
+    let on_chunk_creation = move |path: std::path::PathBuf, cols_stats, mdata| {
         let topic_id = topic_id;
         let db_clone = ctx.db.clone();
         let ontology_tag = ontology_tag.clone();
 
         async move {
-            trace!(
+            debug!(
                 "calling chunk creation callback for `{}` {:?}",
-                target_path.to_string_lossy(),
+                path.to_string_lossy(),
                 cols_stats
             );
 
-            Ok(on_chunk_created(
-                db_clone,
-                topic_id,
-                &ontology_tag,
-                target_path,
-                cols_stats,
-                chunk_metadata,
-            )
-            .await?)
+            on_chunk_created(db_clone, topic_id, &ontology_tag, path, cols_stats, mdata).await
         }
-    });
+    };
 
     // Consume all batches
-    trace!("ready to consume batches");
+    debug!("ready to receive batches");
     while let Some(data) = decoder
         .try_next()
         .await
@@ -128,13 +120,22 @@ async fn do_put_topic_data(
     {
         match data.payload {
             DecodedPayload::RecordBatch(batch) => {
-                trace!(
-                    "received batch (cols: {}, rows: {}, memory_size: {})",
+                debug!(
+                    "received batch - cols: {}, rows: {}, msg_body_size: {} MiB, batch_physical_size: {} MiB",
                     batch.columns().len(),
                     batch.num_rows(),
-                    batch.get_array_memory_size()
+                    data.inner.data_body.len() / 1024,
+                    batch.get_array_memory_size() / 1024,
                 );
-                writer.write(&batch).await?;
+
+                let serialized_chunk = writer.write(batch).await?;
+
+                on_chunk_creation(
+                    serialized_chunk.path,
+                    serialized_chunk.ontology_stats,
+                    serialized_chunk.metadata,
+                )
+                .await?;
             }
             DecodedPayload::Schema(_) => {
                 return Err(ServerError::DuplicateSchemaInPayload);
@@ -145,9 +146,7 @@ async fn do_put_topic_data(
         }
     }
 
-    // If the finalize fails (e.g. problems during stats computation) the topic will not be locked,
-    // this allows the reindexing (currently not implemented) of the topic
-    trace!("finializing data write");
+    debug!("finalizing writer");
     writer.finalize().await?;
 
     Ok(())
