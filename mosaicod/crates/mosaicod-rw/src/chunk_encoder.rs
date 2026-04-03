@@ -101,7 +101,7 @@ impl InMemoryChunkEncoder {
         // close but takes no ownership of the writer. And we return the internal data buffer.
         let row_count = self.row_count;
         let buffer = match self.writer {
-            Writer::Parquet(w) => w.into_inner()?,
+            Writer::Parquet(w) => w.buffer()?,
         };
         let metadata = ChunkMetadata {
             size_bytes: buffer.len(),
@@ -176,11 +176,14 @@ mod tests {
 
     #[test]
     fn chunk_writer_statistics() {
+        params::load_params_from_env(params::ParamsLoadOptions::testing()).unwrap();
+
         let batch = create_test_batch();
         let schema = batch.schema();
 
         let mut writer = InMemoryChunkEncoder::try_new(schema, types::Format::Default)
             .expect("Failed to create ChunkWriter");
+
         writer.write(&batch).expect("Failed to write batch");
         let cstats = writer.statistics();
 

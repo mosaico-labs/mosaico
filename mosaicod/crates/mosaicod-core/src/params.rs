@@ -44,21 +44,56 @@ pub enum Error {
 /// Required and configurables parameters of mosaico
 #[derive(Debug)]
 pub struct Params {
-    pub max_message_size_in_bytes: usize,
+    /// Maximum allowed message size (in bytes) by the gRPC protocol.
+    ///
+    /// If you need to update this value be aware that this value is tipically
+    /// smaller than [`Params::parquet_in_memory_encoding_buffer_size`].
+    ///
+    /// Defaults to 25 MB.
+    pub max_grpc_message_size: usize,
 
-    /// Target message size used during data streaming. Mosaicod will try to
+    /// Target message size (in bytes) used during data streaming. Mosaicod will try to
     /// aggregate a number of Arrow RecordBatches to create a sufficiently large
     /// message. If the resulting batch size exceeds the limit, it will be capped by
     /// [`Params::max_batch_size`].
     ///
     /// Defaults to 25MB.
-    pub target_message_size_in_bytes: usize,
+    pub target_message_size: usize,
 
-    /// Maximum number of concurrent chunk queries during data catalog filtering
+    /// Maximum number of concurrent chunk queries during data catalog filtering.
     pub max_concurrent_chunk_queries: usize,
 
-    /// Maximum number of database connections in the pool
-    pub max_db_connections: u32,
+    /// The maximum number of concurrent write operations allowed.
+    ///
+    /// Each operation is executed in a dedicated thread because it involves
+    /// a mix of CPU-intensive tasks (e.g., compression) and I/O-bound tasks (e.g., storage).
+    pub max_concurrent_writes: usize,
+
+    /// Maximum batch size (number of elements inside a arrow record batch) used during data
+    /// streaming
+    ///
+    /// Defaults to default data fusion batch size 8192.
+    pub max_batch_size: usize,
+
+    /// Sets the degree of parallelism.
+    ///
+    /// While this is typically detected automatically based on available hardware,
+    /// this field allows for a manual override in environments where automatic
+    /// detection might fail or be inaccurate.
+    pub default_parallelism: usize,
+
+    /// Defines the amount of memory (in bytes) used by the query engine (DataFusion).
+    /// Set this value to a number greater than 0 to enforce a hard limit
+    /// on the memory allocated by the query engine. Use this setting if
+    /// mosaicod encounters OOM (Out Of Memory) errors.
+    ///
+    /// Defaults to 0 (no limit).
+    pub query_engine_memory_pool_size: usize,
+
+    /// Size (in bytes) of the in-memory buffer used for encoding parquet data.
+    ///
+    /// Default to 50 MB
+    pub parquet_in_memory_encoding_buffer_size: usize,
 
     /// Path of the `cert.pem` file used as TLS certificate
     pub tls_certificate_file: String,
@@ -68,24 +103,13 @@ pub struct Params {
 
     pub db_url: String,
 
+    /// Maximum number of database connections in the pool
+    pub max_db_connections: u32,
+
     pub store_endpoint: String,
     pub store_bucket: String,
     pub store_secret_key: Hidden,
     pub store_access_key: String,
-
-    /// Maximum batch size (number of elements inside a arrow record batch) used during data
-    /// streaming
-    ///
-    /// Defaults to default data fusion batch size 8192.
-    pub max_batch_size: usize,
-
-    /// Defines the amount of memory used by the query engine (DataFusion).
-    /// Set this value to a number greater than 0 to enforce a hard limit
-    /// on the memory allocated by the query engine. Use this setting if
-    /// mosaicod encounters OOM (Out Of Memory) errors.
-    ///
-    /// Defaults to 0 (no limit).
-    pub query_engine_memory_pool: usize,
 }
 
 /// Options for loading parameters from environment variables
@@ -111,22 +135,24 @@ impl ParamsLoadOptions {
 }
 
 pub fn load_params_from_env(config: ParamsLoadOptions) -> Result<(), Error> {
+    let default_parallelism = std::thread::available_parallelism()
+        .expect("Unable to detect default parallelism, please define MOSAICOD_DEFAULT_PARALLELISM")
+        .get();
+
     let ev = Params {
-        // buffering
-        max_message_size_in_bytes: optional(
-            "MOSAICOD_MAX_MESSAGE_SIZE_IN_BYTES",
-            (50 * 1024 * 1024) as usize,
-        ),
-        target_message_size_in_bytes: optional(
-            "MOSAICOD_TARGET_MESSAGE_SIZE_IN_BYTES",
-            25 * 1024 * 1024,
-        ),
+        // general
+        max_grpc_message_size: optional("MOSAICOD_MAX_GRPC_MESSAGE_SIZE", 25 * 1000_000),
+        target_message_size: optional("MOSAICOD_TARGET_MESSAGE_SIZE", 25 * 1000_000),
         max_concurrent_chunk_queries: optional("MOSAICOD_MAX_CONCURRENT_CHUNK_QUERIES", 4),
         max_db_connections: optional("MOSAICOD_MAX_DB_CONNECTIONS", 10),
-        max_chunk_size_in_bytes: optional(
-            "MOSAICOD_MAX_CHUNK_SIZE_IN_BYTES",
-            256 * 1024 * 1024, // 256 MiB default
+        max_concurrent_writes: optional("MOSAICOD_MAX_CONCURRENT_WRITES", default_parallelism),
+        default_parallelism: optional("MOSAICOD_DEFAULT_PARALLELISM", default_parallelism),
+        parquet_in_memory_encoding_buffer_size: optional(
+            "MOSAICOD_PARQUET_IN_MEMORY_ENCODING_BUFFER_SIZE",
+            50 * 1000_000,
         ),
+        max_batch_size: optional("MOSAICOD_MAX_BATCH_SIZE", 8192),
+        query_engine_memory_pool_size: optional("MOSAICOD_QUERY_ENGINE_MEMORY_POOL_SIZE", 0),
 
         // tls
         tls_certificate_file: optional("MOSAICOD_TLS_CERT_FILE", "".to_owned()),
@@ -144,8 +170,6 @@ pub fn load_params_from_env(config: ParamsLoadOptions) -> Result<(), Error> {
         store_bucket: optional("MOSAICOD_STORE_BUCKET", "".to_owned()),
         store_secret_key: Hidden::from(optional("MOSAICOD_STORE_SECRET_KEY", "".to_owned())),
         store_access_key: optional("MOSAICOD_STORE_ACCESS_KEY", "".to_owned()),
-        max_batch_size: optional("MOSAICOD_MAX_BATCH_SIZE", 8192),
-        query_engine_memory_pool: optional("MOSAICOD_QUERY_ENGINE_MEMORY_POOL_IN_BYTES", 0),
     };
 
     let _ = ENV.set(ev);

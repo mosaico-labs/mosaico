@@ -2543,7 +2543,6 @@ dependencies = [
  "dotenv",
  "if-addrs",
  "iso8601",
- "log",
  "mimalloc",
  "mosaicod-core",
  "mosaicod-db",

@@ -121,11 +121,11 @@ async fn do_put_topic_data(
         match data.payload {
             DecodedPayload::RecordBatch(batch) => {
                 debug!(
-                    "received batch - cols: {}, rows: {}, msg_body_size: {} MiB, batch_physical_size: {} MiB",
+                    "received batch - cols: {}, rows: {}, msg_body_size: {} MB, batch_physical_size: {} MB",
                     batch.columns().len(),
                     batch.num_rows(),
-                    data.inner.data_body.len() / 1024,
-                    batch.get_array_memory_size() / 1024,
+                    data.inner.data_body.len() / 1000_000,
+                    batch.get_array_memory_size() / 1000_000,
                 );
 
                 let serialized_chunk = writer.write(batch).await?;

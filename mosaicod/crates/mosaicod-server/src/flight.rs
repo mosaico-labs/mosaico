@@ -133,8 +133,8 @@ pub async fn start(
     }
 
     svc = svc
-        .max_decoding_message_size(params::params().max_message_size_in_bytes)
-        .max_encoding_message_size(params::params().max_message_size_in_bytes);
+        .max_decoding_message_size(params::params().max_grpc_message_size)
+        .max_encoding_message_size(params::params().max_grpc_message_size);
 
     let server = builder.layer(layer).add_service(svc);
 

@@ -425,7 +425,7 @@ impl Topic {
 
         let params = params::params();
 
-        let target_size = params.target_message_size_in_bytes;
+        let target_size = params.target_message_size;
         let batch_size = (target_size as i64 * stats.total_row_count) / stats.total_size_bytes;
 
         Ok((batch_size as usize).min(params.max_batch_size))

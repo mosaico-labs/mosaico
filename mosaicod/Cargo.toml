@@ -73,6 +73,12 @@ http = "1.4.0"
 strip = true    # Strip symbols from binary
 panic = "abort" # Smaller binary, no unwinding
 
+[profile.profiling]
+inherits = "release"
+strip = "none"
+panic = "unwind"
+debug = true
+
 [profile.optimized]
 inherits = "release"
 lto = true           # Link-Time Optimization
