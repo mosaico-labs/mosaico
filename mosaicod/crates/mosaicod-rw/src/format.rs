@@ -149,7 +149,7 @@ pub struct ImageFormatProperties;
 impl ImageFormatProperties {
     /// Maximum ZSTD compression level for best compression ratio.
     /// Suitable for write-once, read-many image data.
-    const COMPRESSION_LEVEL: i32 = 19;
+    const COMPRESSION_LEVEL: i32 = 5;
 }
 
 impl AsExtension for ImageFormatProperties {
