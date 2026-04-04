@@ -51,6 +51,7 @@ impl InMemoryChunkEncoder {
                     &mut self.stats,
                     batch,
                 )?;
+
                 writer.write(batch)?;
             }
         }

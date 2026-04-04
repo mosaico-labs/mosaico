@@ -1,6 +1,8 @@
 use super::*;
 use arrow::{array::RecordBatch, datatypes::SchemaRef};
 use mosaicod_core::{traits, types};
+use std::time::Instant;
+use tracing::debug;
 
 pub struct SerializedChunk {
     pub path: std::path::PathBuf,
@@ -61,6 +63,8 @@ impl<W> ChunkWriter<W> {
     {
         let mut writer = InMemoryChunkEncoder::try_new(self.schema.clone(), self.format)?;
 
+        let encoding_time = Instant::now();
+
         // Offload CPU-intensive parquet encoding/compression to blocking thread pool
         let (buffer, stats, chunk_metadata) = tokio::task::spawn_blocking(move || {
             writer.write(&batch)?;
@@ -69,8 +73,20 @@ impl<W> ChunkWriter<W> {
         .await
         .map_err(|e| Error::BlockingOperationError(e.to_string()))??;
 
+        let buffer_len = buffer.len();
+        let encoding_time_ms = encoding_time.elapsed().as_millis();
+        let store_time = Instant::now();
+
         let target_path = self.store(buffer).await?;
         self.chunk_count += 1;
+
+        debug!(
+            target = "chunk encoding",
+            encoding_ms = encoding_time_ms,
+            store_ms = store_time.elapsed().as_millis(),
+            store_path = target_path.to_string_lossy().to_string(),
+            buffer_size_kb = buffer_len / 1000
+        );
 
         Ok(SerializedChunk {
             path: target_path,

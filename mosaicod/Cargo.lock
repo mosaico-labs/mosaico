@@ -2659,6 +2659,7 @@ dependencies = [
  "parquet",
  "thiserror",
  "tokio",
+ "tracing",
 ]
 
 [[package]]

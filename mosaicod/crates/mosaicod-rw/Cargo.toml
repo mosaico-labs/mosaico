@@ -16,6 +16,7 @@ thiserror = { workspace = true }
 datafusion = { workspace = true }
 tokio = { workspace = true }
 bytes = { workspace = true }
+tracing = { workspace = true }
 
 [dev-dependencies]
 arrow-schema = { workspace = true }

@@ -9,6 +9,7 @@ use mosaicod_db as db;
 use mosaicod_facade as facade;
 use mosaicod_marshal as marshal;
 use mosaicod_rw as rw;
+use std::time::Instant;
 use tracing::{debug, info};
 
 pub async fn do_put(ctx: Context, decoder: &mut FlightDataDecoder) -> Result<(), ServerError> {
@@ -100,15 +101,7 @@ async fn do_put_topic_data(
         let db_clone = ctx.db.clone();
         let ontology_tag = ontology_tag.clone();
 
-        async move {
-            debug!(
-                "calling chunk creation callback for `{}` {:?}",
-                path.to_string_lossy(),
-                cols_stats
-            );
-
-            on_chunk_created(db_clone, topic_id, &ontology_tag, path, cols_stats, mdata).await
-        }
+        async move { on_chunk_created(db_clone, topic_id, &ontology_tag, path, cols_stats, mdata).await }
     };
 
     // Consume all batches
@@ -146,8 +139,12 @@ async fn do_put_topic_data(
         }
     }
 
-    debug!("finalizing writer");
+    let time = Instant::now();
     writer.finalize().await?;
+    debug!(
+        target = "topic finalization",
+        finalize_ms = time.elapsed().as_millis()
+    );
 
     Ok(())
 }
