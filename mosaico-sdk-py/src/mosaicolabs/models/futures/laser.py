@@ -12,22 +12,19 @@ return mode:
 
 """
 
-from typing import Generic, List, Optional, TypeVar
+from typing import List, Optional
 
-from mosaicolabs.models import BaseModel, Serializable
+from mosaicolabs.models import BaseModel, MosaicoType, Serializable
+from mosaicolabs.models.types import MosaicoField
 
-from .internal.laser_helper import _build_struct
-
-SingleRange = List[float]
+SingleRange = List[MosaicoType.float32]
 """Type alias for a single-return range array: one distance value per beam."""
 
-MultiRange = List[List[float]]
+MultiRange = List[List[MosaicoType.float32]]
 """Type alias for a multi-echo range array: a list of distance values per beam."""
 
-T = TypeVar("T", bound=List)
 
-
-class _LaserScanBase(BaseModel, Generic[T]):
+class _LaserScanBase(BaseModel):
     """
     Internal generic base model shared by laser scan ontologies.
 
@@ -101,20 +98,9 @@ class _LaserScanBase(BaseModel, Generic[T]):
         ```
     """
 
-    @classmethod
-    def __pydantic_init_subclass__(cls, **kwargs):
-        super().__pydantic_init_subclass__(**kwargs)
-
-        ranges_field = cls.model_fields.get("ranges")
-
-        if (
-            ranges_field
-            and ranges_field.annotation
-            and ranges_field.annotation is not T
-        ):
-            cls.__msco_pyarrow_struct__ = _build_struct(ranges_field.annotation)
-
-    angle_min: float
+    angle_min: MosaicoType.float32 = MosaicoField(
+        description="start angle of the scan in rad."
+    )
     """
     Start angle of the scan in radians.
 
@@ -144,7 +130,9 @@ class _LaserScanBase(BaseModel, Generic[T]):
         ```
     """
 
-    angle_max: float
+    angle_max: MosaicoType.float32 = MosaicoField(
+        description="end angle of the scan in rad."
+    )
     """
     End angle of the scan in radians.
 
@@ -175,7 +163,9 @@ class _LaserScanBase(BaseModel, Generic[T]):
 
     """
 
-    angle_increment: float
+    angle_increment: MosaicoType.float32 = MosaicoField(
+        description="angular distance between measurements in rad."
+    )
     """
     Angular step between consecutive beams in radians.
 
@@ -206,7 +196,9 @@ class _LaserScanBase(BaseModel, Generic[T]):
         ```
     """
 
-    time_increment: float
+    time_increment: MosaicoType.float32 = MosaicoField(
+        description="time between measurements in seconds."
+    )
     """
     Time elapsed between consecutive beam measurements, in seconds.
     
@@ -235,7 +227,9 @@ class _LaserScanBase(BaseModel, Generic[T]):
         ```
     """
 
-    scan_time: float
+    scan_time: MosaicoType.float32 = MosaicoField(
+        description="time between scans in seconds."
+    )
     """
     Time between scans in seconds.
 
@@ -263,7 +257,9 @@ class _LaserScanBase(BaseModel, Generic[T]):
         ```
     """
 
-    range_min: float
+    range_min: MosaicoType.float32 = MosaicoField(
+        description="minimum range value in meters."
+    )
     """
     Minimum valid range value, in meters.
 
@@ -294,7 +290,9 @@ class _LaserScanBase(BaseModel, Generic[T]):
         ```
     """
 
-    range_max: float
+    range_max: MosaicoType.float32 = MosaicoField(
+        description="maximum range value in meters."
+    )
     """
     Maximum valid range value, in meters.
 
@@ -326,34 +324,8 @@ class _LaserScanBase(BaseModel, Generic[T]):
         ```
     """
 
-    ranges: T
-    """
-    Range measurements for each beam.
 
-    * For `LaserScan` (``T = SingleRange``): a flat list of ``float`` values, one per beam, representing the measured distance in meters.
-    * For `MultiEchoLaserScan` (``T = MultiRange``): a list of lists, where the *i*-th inner list contains all echo distances returned by the *i*-th beam, ordered from nearest to farthest. An empty inner list indicates no valid return for that beam.
-
-    Values outside the ``[range_min, range_max]`` interval should be
-    considered invalid.
-    """
-
-    intensities: Optional[T] = None
-    """
-    Intensity measurements for each beam, co-indexed with ``ranges`` (optional).
-
-    Carries the signal amplitude of each returned echo. The structure mirrors
-    that of ``ranges``: 
-
-    * a flat list for single-return scans 
-    * a list of lists for multi-echo scans 
-
-    Scaling and units are manufacturer-dependent.
-    
-    Not all scanner models populate this field.
-    """
-
-
-class LaserScan(_LaserScanBase[SingleRange], Serializable):
+class LaserScan(_LaserScanBase, Serializable):
     """
     Single-return 2D laser scan data.
 
@@ -423,7 +395,9 @@ class LaserScan(_LaserScanBase[SingleRange], Serializable):
         ```
     """
 
-    ranges: SingleRange
+    ranges: SingleRange = MosaicoField(
+        description="range data in meters. Ranges need to be between range min and max otherwise discarded."
+    )
     """
     Range measurements for each beam.
     
@@ -432,7 +406,9 @@ class LaserScan(_LaserScanBase[SingleRange], Serializable):
     Values outside the ``[range_min, range_max]`` interval should be considered invalid.
     """
 
-    intensities: Optional[SingleRange] = None
+    intensities: Optional[SingleRange] = MosaicoField(
+        default=None, nullable=True, description="intensity data."
+    )
     """
     Intensity measurements for each beam (optional).
     
@@ -440,7 +416,7 @@ class LaserScan(_LaserScanBase[SingleRange], Serializable):
     """
 
 
-class MultiEchoLaserScan(_LaserScanBase[MultiRange], Serializable):
+class MultiEchoLaserScan(_LaserScanBase, Serializable):
     """
     Multi-echo 2D laser scan data.
 
@@ -517,7 +493,9 @@ class MultiEchoLaserScan(_LaserScanBase[MultiRange], Serializable):
         ```
     """
 
-    ranges: MultiRange
+    ranges: MultiRange = MosaicoField(
+        description="range data in meters. Ranges need to be between range min and max otherwise discarded."
+    )
     """
     Range measurements for each beam.
 
@@ -527,7 +505,9 @@ class MultiEchoLaserScan(_LaserScanBase[MultiRange], Serializable):
     Values outside the ``[range_min, range_max]`` interval should be considered invalid.
     """
 
-    intensities: Optional[MultiRange] = None
+    intensities: Optional[MultiRange] = MosaicoField(
+        default=None, nullable=True, description="intensity data."
+    )
     """
     Intensity measurements for each beam. (optional).
 

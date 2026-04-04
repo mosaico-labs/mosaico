@@ -5,3 +5,4 @@ from .mixins import (
     VarianceMixin as VarianceMixin,
 )
 from .serializable import Serializable as Serializable
+from .types import MosaicoField as MosaicoField, MosaicoType as MosaicoType

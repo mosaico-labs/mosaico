@@ -12,7 +12,18 @@ It implements a **Registry/Factory Pattern**:
 3.  **Query Capability**: It injects query proxies allowing users to write `IMU.Q.acc_x > 0`.
 """
 
-from typing import ClassVar, Dict, List, Optional, Type
+from typing import (
+    Annotated,
+    Any,
+    ClassVar,
+    Dict,
+    List,
+    Optional,
+    Type,
+    Union,
+    get_args,
+    get_origin,
+)
 
 import pyarrow as pa
 
@@ -24,6 +35,7 @@ from .internal.helpers import _fix_empty_dicts
 from .internal.pyarrow_mapper import PyarrowFieldMapper
 from .query.expressions import _QueryCatalogExpression
 from .query.generation.api import _QueryProxyMixin
+from .types import BASE_MAPPING
 
 # --- Private Registry ---
 # Global dictionary mapping string tags (e.g., "imu") to class types.
@@ -81,7 +93,8 @@ class Serializable(BaseModel, _QueryProxyMixin):
     # Reference to the actual subclass.
     __class_type__: ClassVar[Type["Serializable"]]
 
-    def __init_subclass__(cls, **kwargs):
+    @classmethod
+    def __pydantic_init_subclass__(cls, **kwargs):
         """
         Registers the subclass and injects query capabilities.
 
@@ -92,7 +105,8 @@ class Serializable(BaseModel, _QueryProxyMixin):
             AttributeError: If `__msco_pyarrow_struct__` is missing or invalid.
             ValueError: If the generated or assigned tag collides with an existing one.
         """
-        super().__init_subclass__(**kwargs)
+        cls.__msco_pyarrow_struct__ = cls._build_ontology_struct(cls)
+        super().__pydantic_init_subclass__(**kwargs)
 
         # Schema Validation
         if not hasattr(cls, "__msco_pyarrow_struct__") or not isinstance(
@@ -254,6 +268,71 @@ class Serializable(BaseModel, _QueryProxyMixin):
             ),
             None,
         )
+
+    @classmethod
+    def _build_ontology_struct(cls, model_class: type[BaseModel]) -> pa.StructType:
+        pa_fields = []
+        for field_name, field_info in model_class.model_fields.items():
+            annotation = field_info.annotation
+            metadata = field_info.metadata[0] if field_info.metadata else None
+            pa_type = cls._resolve_type(annotation, metadata)
+
+            nullable = bool((field_info.json_schema_extra or {}).get("nullable", True))
+            metadata = None
+
+            if field_info.description:
+                metadata = {b"description": field_info.description.encode("utf-8")}
+
+            pa_fields.append(
+                pa.field(field_name, pa_type, nullable=nullable, metadata=metadata)
+            )
+        return pa.struct(pa_fields)
+
+    @classmethod
+    def _resolve_type(
+        cls, base_type: Any, suggested_type: Optional[Any] = None
+    ) -> pa.DataType:
+
+        if isinstance(suggested_type, pa.DataType):
+            return suggested_type
+
+        origin = get_origin(base_type)
+        args = get_args(base_type)
+
+        if origin is Annotated:
+            return cls._resolve_type(args[0], args[1])
+
+        # Optional / Union resolver
+        if origin is Union:
+            non_none = [a for a in args if a is not type(None)]
+            if len(non_none) == 1:
+                return cls._resolve_type(non_none[0])
+            raise NotImplementedError(
+                f"Union with multiple types is not supported: {args}"
+            )
+
+        # Dict resolver
+        if origin is dict:
+            inner_type_1 = args[0] if args else Any
+            inner_type_2 = args[1] if args else Any
+            resolved_inner_type_1 = cls._resolve_type(inner_type_1)
+            resolved_inner_type_2 = cls._resolve_type(inner_type_2)
+            return pa.map_(resolved_inner_type_1, resolved_inner_type_2)
+
+        # List resolver
+        if origin is list:
+            inner_type = args[0] if args else Any
+            resolved_inner_type = cls._resolve_type(inner_type)
+            return pa.list_(resolved_inner_type)
+
+        # type is a pydantic model
+        type_to_check = origin if origin is not None else base_type
+        if isinstance(type_to_check, type) and issubclass(type_to_check, BaseModel):
+            return cls._build_ontology_struct(type_to_check)
+
+        # fallback
+        base_primitive = origin if origin is not None else base_type
+        return BASE_MAPPING.get(base_primitive, pa.string())
 
     @classmethod
     def is_registered(cls) -> bool:

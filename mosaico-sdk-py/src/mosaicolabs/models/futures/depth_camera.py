@@ -17,19 +17,13 @@ All three models share a common spatial core (``x``, ``y``, ``z``) and optional
 colour/intensity channels, and extend it with technology-specific fields.
 """
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
 
-from mosaicolabs.models import BaseModel
+from mosaicolabs.models import BaseModel, MosaicoType
 from mosaicolabs.models.serializable import Serializable
-
-from .internal.depthcamera_helper import (
-    _COMMON_FIELD,
-    _STEREO_FIELDS,
-    _TOF_FIELDS,
-    _build_struct,
-)
+from mosaicolabs.models.types import MosaicoField
 
 
 def pack_rgb(r: int, g: int, b: int) -> float:
@@ -95,13 +89,19 @@ class _DepthCamera(BaseModel):
             raw binary data (optional).
     """
 
-    x: List[float]
+    x: MosaicoType.list_(MosaicoType.float32) = MosaicoField(
+        description="Horizontal position derived from depth."
+    )
     """Horizontal position of each point derived from the depth map, in meters."""
 
-    y: List[float]
+    y: MosaicoType.list_(MosaicoType.float32) = MosaicoField(
+        description="Vertical position derived from depth."
+    )
     """Vertical position of each point derived from the depth map, in meters."""
 
-    z: List[float]
+    z: MosaicoType.list_(MosaicoType.float32) = MosaicoField(
+        description="Depth value directly (distance along optical axis)."
+    )
     """
     Depth value of each point, in meters.
 
@@ -110,7 +110,9 @@ class _DepthCamera(BaseModel):
     the sensor's intrinsic parameters.
     """
 
-    rgb: Optional[List[float]] = None
+    rgb: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
+        default=None, nullable=True, description="Packed RGB color value."
+    )
     """
     Packed RGB colour value per point.
 
@@ -120,12 +122,16 @@ class _DepthCamera(BaseModel):
     There are useful utilities for [`pack_rgb()`][mosaicolabs.models.futures.depth_camera.pack_rgb] and [`unpack_rgb()`][mosaicolabs.models.futures.depth_camera.unpack_rgb] rgb in in the internal of depth camera.
     """
 
-    intensity: Optional[List[float]] = None
+    intensity: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
+        default=None, nullable=True, description="Signal amplitude/intensity."
+    )
     """Signal amplitude or intensity per point."""
 
-    extra_attributes: Optional[Dict[str, Any]] = None
+    extra_attributes: Optional[Dict[MosaicoType.string, Any]] = MosaicoField(
+        default=None, nullable=True, description="Vendor-specific attributes."
+    )
     """
-    Additional vendor-specific attributes serialised as raw binary data.
+    Additional vendor-specific attributes.
 
     Provides a forward-compatible escape hatch for proprietary extensions that
     do not map to any of the standardised fields above.
@@ -177,7 +183,7 @@ class RGBDCamera(_DepthCamera, Serializable):
     ```
     """
 
-    __msco_pyarrow_struct__ = _build_struct(_COMMON_FIELD)
+    ...
 
 
 class ToFCamera(_DepthCamera, Serializable):
@@ -230,9 +236,9 @@ class ToFCamera(_DepthCamera, Serializable):
         ```
     """
 
-    __msco_pyarrow_struct__ = _build_struct(_COMMON_FIELD, _TOF_FIELDS)
-
-    noise: Optional[List[float]] = None
+    noise: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
+        default=None, nullable=True, description="Noise value per pixel."
+    )
     """
     Per-pixel noise estimate of the depth measurement.
 
@@ -241,7 +247,9 @@ class ToFCamera(_DepthCamera, Serializable):
     motion blur, and should be treated with caution during downstream processing.
     """
 
-    grayscale: Optional[List[float]] = None
+    grayscale: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
+        default=None, nullable=True, description="Grayscale amplitude."
+    )
     """
     Passive greyscale amplitude per pixel.
 
@@ -302,14 +310,20 @@ class StereoCamera(_DepthCamera, Serializable):
     ```
     """
 
-    __msco_pyarrow_struct__ = _build_struct(_COMMON_FIELD, _STEREO_FIELDS)
-
-    luma: Optional[List[int]] = None
+    luma: Optional[MosaicoType.list_(MosaicoType.uint8)] = MosaicoField(
+        default=None,
+        nullable=True,
+        description="Luminance of the corresponding pixel in the rectified image.",
+    )
     """
         Luminance of the corresponding pixel in the rectified image.
     """
 
-    cost: Optional[List[int]] = None
+    cost: Optional[MosaicoType.list_(MosaicoType.uint8)] = MosaicoField(
+        default=None,
+        nullable=True,
+        description="Stereo matching cost (disparity confidence measure, 0 = high confidence).",
+    )
     """
         Stereo matching cost per point; lower values indicate higher
         disparity confidence.

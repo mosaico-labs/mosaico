@@ -5,9 +5,8 @@ Defines the `RobotJoint` model for capturing the state (position, velocity, effo
 of a robot's actuators.
 """
 
-from typing import List
-
-import pyarrow as pa
+from mosaicolabs.models import MosaicoType
+from mosaicolabs.models.types import MosaicoField
 
 from ..serializable import Serializable
 
@@ -28,52 +27,9 @@ class RobotJoint(Serializable):
     The robot joint states cannot be queried via the `.Q` proxy.
     """
 
-    # TODO: maybe can be ok to define a type that contains the embedding of these
-    # fields, and jusyt define a container
-
-    # --- Schema Definition ---
-    __msco_pyarrow_struct__ = pa.struct(
-        [
-            pa.field(
-                "names",
-                pa.list_(pa.string()),
-                nullable=False,
-                metadata={"description": ("Names of the different robot joints")},
-            ),
-            pa.field(
-                "positions",
-                pa.list_(pa.float64()),
-                nullable=False,
-                metadata={
-                    "description": (
-                        "Positions ([rad] or [m]) of the different robot joints"
-                    )
-                },
-            ),
-            pa.field(
-                "velocities",
-                pa.list_(pa.float64()),
-                nullable=False,
-                metadata={
-                    "description": (
-                        "Velocities ([rad/s] or [m/s]) of the different robot joints"
-                    )
-                },
-            ),
-            pa.field(
-                "efforts",
-                pa.list_(pa.float64()),
-                nullable=False,
-                metadata={
-                    "description": (
-                        "Efforts ([N] or [N/m]) applied to the different robot joints"
-                    )
-                },
-            ),
-        ]
+    names: MosaicoType.list_(MosaicoType.string) = MosaicoField(
+        description="Names of the different robot joints"
     )
-
-    names: List[str]
     """
     Names of the different robot joints
 
@@ -81,7 +37,9 @@ class RobotJoint(Serializable):
     The names are not queryable via the `.Q` proxy (Lists are not supported yet).
     """
 
-    positions: List[float]
+    positions: MosaicoType.list_(MosaicoType.float64) = MosaicoField(
+        description="Positions ([rad] or [m]) of the different robot joints"
+    )
     """
     Positions ([rad] or [m]) of the different robot joints
 
@@ -89,7 +47,9 @@ class RobotJoint(Serializable):
     The positions are not queryable via the `.Q` proxy (Lists are not supported yet).
     """
 
-    velocities: List[float]
+    velocities: MosaicoType.list_(MosaicoType.float64) = MosaicoField(
+        description="Velocities ([rad/s] or [m/s]) of the different robot joints"
+    )
     """
     Velocities ([rad/s] or [m/s]) of the different robot joints
 
@@ -97,7 +57,9 @@ class RobotJoint(Serializable):
     The velocities are not queryable via the `.Q` proxy (Lists are not supported yet).
     """
 
-    efforts: List[float]
+    efforts: MosaicoType.list_(MosaicoType.float64) = MosaicoField(
+        description="Efforts ([N] or [N/m]) applied to the different robot joints"
+    )
     """
     Efforts ([N] or [N/m]) applied to the different robot joints
 

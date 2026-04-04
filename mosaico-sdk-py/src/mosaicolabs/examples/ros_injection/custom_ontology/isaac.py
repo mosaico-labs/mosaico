@@ -1,6 +1,5 @@
-import pyarrow as pa
-
 from mosaicolabs import Serializable
+from mosaicolabs.models.types import MosaicoField, MosaicoType
 
 
 class EncoderTicks(Serializable):
@@ -19,39 +18,18 @@ class EncoderTicks(Serializable):
         right_ticks: Cumulative tick count for the right wheel.
     """
 
-    # --- Wire Schema Definition ---
-    __msco_pyarrow_struct__ = pa.struct(
-        [
-            pa.field(
-                "left_ticks",
-                pa.uint32(),
-                nullable=False,
-                metadata={
-                    "description": "Cumulative counts from the left wheel encoder."
-                },
-            ),
-            pa.field(
-                "right_ticks",
-                pa.uint32(),
-                nullable=False,
-                metadata={
-                    "description": "Cumulative counts from the right wheel encoder."
-                },
-            ),
-            pa.field(
-                "encoder_timestamp",
-                pa.uint64(),
-                nullable=False,
-                metadata={"description": "Timestamp of the encoder ticks."},
-            ),
-        ],
-    )
-
     # --- Pydantic Fields ---
-    # names must match between pyarrow struct and model fields
-    left_ticks: int
+    left_ticks: MosaicoType.uint32 = MosaicoField(
+        description="Cumulative counts from the left wheel encoder."
+    )
     """Cumulative tick count for the left wheel."""
-    right_ticks: int
+
+    right_ticks: MosaicoType.uint32 = MosaicoField(
+        description="Cumulative counts from the right wheel encoder."
+    )
     """Cumulative tick count for the right wheel."""
-    encoder_timestamp: int
+
+    encoder_timestamp: MosaicoType.uint64 = MosaicoField(
+        description="Timestamp of the encoder ticks."
+    )
     """Timestamp of the encoder ticks."""

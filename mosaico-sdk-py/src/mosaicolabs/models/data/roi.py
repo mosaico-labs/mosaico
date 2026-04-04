@@ -1,6 +1,7 @@
 from typing import Optional
 
-import pyarrow as pa
+from mosaicolabs.models import MosaicoType
+from mosaicolabs.models.types import MosaicoField
 
 from ..serializable import Serializable
 from .geometry import Vector2d
@@ -60,39 +61,9 @@ class ROI(Serializable):
         ```
     """
 
-    __msco_pyarrow_struct__ = pa.struct(
-        [
-            pa.field(
-                "offset",
-                Vector2d.__msco_pyarrow_struct__,
-                nullable=False,
-                metadata={"description": "(Leftmost, Rightmost) pixels of the ROI."},
-            ),
-            pa.field(
-                "height",
-                pa.uint32(),
-                nullable=False,
-                metadata={"description": "Height pixel of the ROI."},
-            ),
-            pa.field(
-                "width",
-                pa.uint32(),
-                nullable=False,
-                metadata={"description": "Width pixel of the ROI."},
-            ),
-            pa.field(
-                "do_rectify",
-                pa.bool_(),
-                nullable=True,
-                metadata={
-                    "description": "False if the full image is captured (ROI not used)"
-                    " and True if a subwindow is captured (ROI used) (optional). False if Null"
-                },
-            ),
-        ]
+    offset: Vector2d = MosaicoField(
+        description="(Leftmost, Rightmost) pixels of the ROI."
     )
-
-    offset: Vector2d
     """
     The top-left pixel coordinates of the ROI.
 
@@ -139,7 +110,7 @@ class ROI(Serializable):
         ```
     """
 
-    height: int
+    height: MosaicoType.uint32 = MosaicoField(description="Height pixel of the ROI.")
     """
     Height of the ROI in pixels.
 
@@ -181,7 +152,7 @@ class ROI(Serializable):
         ```
     """
 
-    width: int
+    width: MosaicoType.uint32 = MosaicoField(description="Width pixel of the ROI.")
     """
     Width of the ROI in pixels.
 
@@ -223,7 +194,12 @@ class ROI(Serializable):
         ```
     """
 
-    do_rectify: Optional[bool] = None
+    do_rectify: Optional[MosaicoType.bool] = MosaicoField(
+        default=None,
+        nullable=True,
+        description="False if the full image is captured (ROI not used)"
+        " and True if a subwindow is captured (ROI used) (optional). False if Null",
+    )
     """
     Flag indicating if the ROI requires rectification.
 

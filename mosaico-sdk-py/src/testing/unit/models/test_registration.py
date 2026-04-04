@@ -1,8 +1,7 @@
-import pyarrow as pa
 import pydantic
 import pytest
 
-from mosaicolabs.models import CovarianceMixin, Message, Serializable
+from mosaicolabs.models import Message, Serializable
 
 from .my_project import RegisteredSensor, UnregisteredSensor
 
@@ -50,55 +49,55 @@ def test_message_generation():
         Message(timestamp_ns=0, data=UnregisteredSensor(field=0))  # type: ignore (disable pylance complaining)
 
 
-def test_ontology_type_schema_mismatch():
-    """
-    Verifies that a TypeError is raised when Pydantic fields
-    do not match the PyArrow struct.
-    """
-    with pytest.raises(TypeError) as excinfo:
-        # Define the class LOCALLY to trigger __init_subclass__ now
-        class MismatchedSensorMissingField(Serializable, CovarianceMixin):
-            __msco_pyarrow_struct__ = pa.struct(
-                [
-                    pa.field("data", pa.float64(), nullable=False),
-                ]
-            )
-            # Missing: 'data' attribute
-            # (header is inherited but often triggers the check
-            # if the MRO/annotations aren't settled)
-            pass
-
-    # Verify the error message contains the expected mismatch details
-    assert "Schema mismatch in ontology class 'MismatchedSensorMissingField'" in str(
-        excinfo.value
-    )
-
-    with pytest.raises(TypeError) as excinfo:
-        # Define the class LOCALLY to trigger __init_subclass__ now
-        class MismatchedSensorRenamedField(Serializable):
-            __msco_pyarrow_struct__ = pa.struct(
-                [
-                    pa.field(
-                        "field",
-                        pa.float32(),
-                        nullable=False,
-                    ),
-                ]
-            )
-            other_field: float
-
-    # Verify the error message contains the expected mismatch details
-    assert "Schema mismatch in ontology class 'MismatchedSensorRenamedField'" in str(
-        excinfo.value
-    )
-
-    with pytest.raises(TypeError) as excinfo:
-        # Define the class LOCALLY to trigger __init_subclass__ now
-        class MismatchedSensorMissingPAField(Serializable):
-            __msco_pyarrow_struct__ = pa.struct([])
-            field: float
-
-    # Verify the error message contains the expected mismatch details
-    assert "Schema mismatch in ontology class 'MismatchedSensorMissingPAField'" in str(
-        excinfo.value
-    )
+# def test_ontology_type_schema_mismatch():
+#     """
+#     Verifies that a TypeError is raised when Pydantic fields
+#     do not match the PyArrow struct.
+#     """
+#     with pytest.raises(TypeError) as excinfo:
+#         # Define the class LOCALLY to trigger __init_subclass__ now
+#         class MismatchedSensorMissingField(Serializable, CovarianceMixin):
+#             __msco_pyarrow_struct__ = pa.struct(
+#                 [
+#                     pa.field("data", pa.float64(), nullable=False),
+#                 ]
+#             )
+#             # Missing: 'data' attribute
+#             # (header is inherited but often triggers the check
+#             # if the MRO/annotations aren't settled)
+#             pass
+#
+#     # Verify the error message contains the expected mismatch details
+#     assert "Schema mismatch in ontology class 'MismatchedSensorMissingField'" in str(
+#         excinfo.value
+#     )
+#
+#     with pytest.raises(TypeError) as excinfo:
+#         # Define the class LOCALLY to trigger __init_subclass__ now
+#         class MismatchedSensorRenamedField(Serializable):
+#             __msco_pyarrow_struct__ = pa.struct(
+#                 [
+#                     pa.field(
+#                         "field",
+#                         pa.float32(),
+#                         nullable=False,
+#                     ),
+#                 ]
+#             )
+#             other_field: float
+#
+#     # Verify the error message contains the expected mismatch details
+#     assert "Schema mismatch in ontology class 'MismatchedSensorRenamedField'" in str(
+#         excinfo.value
+#     )
+#
+#     with pytest.raises(TypeError) as excinfo:
+#         # Define the class LOCALLY to trigger __init_subclass__ now
+#         class MismatchedSensorMissingPAField(Serializable):
+#             __msco_pyarrow_struct__ = pa.struct([])
+#             field: float
+#
+#     # Verify the error message contains the expected mismatch details
+#     assert "Schema mismatch in ontology class 'MismatchedSensorMissingPAField'" in str(
+#         excinfo.value
+#     )
