@@ -158,6 +158,9 @@ struct MosaicodFlight {
     ts_gw: query::TimeseriesRef,
 
     api_key_management: bool,
+
+    /// Semaphore used to controll the maximum number of concurrent writers
+    concurrent_writes_semaphore: Arc<tokio::sync::Semaphore>,
 }
 
 impl MosaicodFlight {
@@ -169,6 +172,9 @@ impl MosaicodFlight {
             db,
             ts_gw,
             api_key_management: false,
+            concurrent_writes_semaphore: Arc::new(tokio::sync::Semaphore::new(
+                params::params().max_concurrent_writes,
+            )),
         })
     }
 
@@ -289,7 +295,12 @@ impl FlightService for MosaicodFlight {
         let stream = request.into_inner();
         let mut decoder = FlightDataDecoder::new(stream.map_err(Into::into));
 
-        endpoint::do_put(self.context(), &mut decoder)
+        let ctx = endpoint::DoPutContext {
+            inner: self.context(),
+            concurrent_writes_semaphore: self.concurrent_writes_semaphore.clone(),
+        };
+
+        endpoint::do_put(ctx, &mut decoder)
             .await
             .inspect_err(log_server_error)?;
 

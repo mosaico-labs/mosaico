@@ -118,12 +118,14 @@ trap cleanup EXIT
 main() {
 
     MOSAICOD_OPTS=""
-    MOSAICOD_BUILD_PROFILE="debug"
+    MOSAICOD_BUILD_PROFILE="dev"
+    MOSAICOD_BUILD_TARGET="debug"
 
     while [ $# -gt 0 ]; do
         case "$1" in 
             --profile|-p)
                 MOSAICOD_BUILD_PROFILE="$2"
+                MOSAICOD_BUILD_TARGET="${MOSAICOD_BUILD_PROFILE}"
                 shift 2
                 ;;
             --api-key)
@@ -198,7 +200,7 @@ EOF
     fi
 
     title "running" "." ${BLUE}
-    "./target/$MOSAICOD_BUILD_PROFILE/mosaicod" run \
+    "./target/$MOSAICOD_BUILD_TARGET/mosaicod" run \
       --port 6276 --local-store "$TEST_DIRECTORY" ${MOSAICOD_OPTS}
 
     MOSAICOD_PID=$!

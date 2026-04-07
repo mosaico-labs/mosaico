@@ -1,5 +1,5 @@
 use super::Context;
-use crate::{endpoint, errors::ServerError};
+use crate::errors::ServerError;
 use arrow::datatypes::SchemaRef;
 use arrow_flight::decode::{DecodedFlightData, DecodedPayload, FlightDataDecoder};
 use arrow_flight::flight_descriptor::DescriptorType;
@@ -9,10 +9,23 @@ use mosaicod_db as db;
 use mosaicod_facade as facade;
 use mosaicod_marshal as marshal;
 use mosaicod_rw as rw;
+use std::sync::Arc;
 use std::time::Instant;
 use tracing::{debug, info};
 
-pub async fn do_put(ctx: Context, decoder: &mut FlightDataDecoder) -> Result<(), ServerError> {
+pub struct DoPutContext {
+    pub inner: Context,
+    pub concurrent_writes_semaphore: Arc<tokio::sync::Semaphore>,
+}
+
+impl std::ops::Deref for DoPutContext {
+    type Target = Context;
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+pub async fn do_put(ctx: DoPutContext, decoder: &mut FlightDataDecoder) -> Result<(), ServerError> {
     let (cmd, schema) = extract_command_and_schema_from_header_message(decoder).await?;
     do_put_topic_data(ctx, decoder, schema, cmd).await
 }
@@ -60,7 +73,7 @@ fn extract_command_from_flight_data(
 }
 
 async fn do_put_topic_data(
-    ctx: endpoint::Context,
+    ctx: DoPutContext,
     decoder: &mut FlightDataDecoder,
     schema: SchemaRef,
     cmd: types::flight::DoPutCmd,
@@ -93,16 +106,11 @@ async fn do_put_topic_data(
     let serialization_format = mdata.ontology_metadata.properties.serialization_format;
     let topic_id = r_id.id;
 
-    let mut writer = handle.writer(ctx.timeseries_querier, serialization_format, schema.clone());
-
-    // Build the callback that will be called at each chunk serialization
-    let on_chunk_creation = move |path: std::path::PathBuf, cols_stats, mdata| {
-        let topic_id = topic_id;
-        let db_clone = ctx.db.clone();
-        let ontology_tag = ontology_tag.clone();
-
-        async move { on_chunk_created(db_clone, topic_id, &ontology_tag, path, cols_stats, mdata).await }
-    };
+    let mut writer = handle.writer(
+        ctx.timeseries_querier.clone(),
+        serialization_format,
+        schema.clone(),
+    );
 
     // Consume all batches
     debug!("ready to receive batches");
@@ -121,9 +129,29 @@ async fn do_put_topic_data(
                     batch.get_array_memory_size() / 1000_000,
                 );
 
+                // Trying to acquire a semaphore to limit the total amount of concurrent writes
+                // run by this instance. This is done in order to bound memory consumption and
+                // to limit CPU-bound operations.
+                //
+                // Since the `.write()` will encode-and-serialize in a single operation it is safe
+                // to acquire the semaphore without causing deadlocks.
+                let permit = ctx
+                    .concurrent_writes_semaphore
+                    .acquire()
+                    .await
+                    .map_err(|e| {
+                        ServerError::internal_error(&format!(
+                            "unable to acquire semaphore: {}",
+                            e.to_string()
+                        ))
+                    })?;
                 let serialized_chunk = writer.write(batch).await?;
+                drop(permit);
 
-                on_chunk_creation(
+                on_chunk_created(
+                    &ctx.db,
+                    topic_id,
+                    &ontology_tag,
                     serialized_chunk.path,
                     serialized_chunk.ontology_stats,
                     serialized_chunk.metadata,
@@ -150,7 +178,7 @@ async fn do_put_topic_data(
 }
 
 async fn on_chunk_created(
-    db: db::Database,
+    db: &db::Database,
     topic_id: i32,
     ontology_tag: &str,
     target_path: impl AsRef<std::path::Path>,
@@ -162,7 +190,7 @@ async fn on_chunk_created(
         &target_path,
         chunk_metadata.size_bytes as i64,
         chunk_metadata.row_count as i64,
-        &db,
+        db,
     )
     .await?;
 
