@@ -125,8 +125,8 @@ async fn do_put_topic_data(
                     "received batch - cols: {}, rows: {}, msg_body_size: {} MB, batch_physical_size: {} MB",
                     batch.columns().len(),
                     batch.num_rows(),
-                    data.inner.data_body.len() / 1000_000,
-                    batch.get_array_memory_size() / 1000_000,
+                    data.inner.data_body.len() / 1_000_000,
+                    batch.get_array_memory_size() / 1_000_000,
                 );
 
                 // Trying to acquire a semaphore to limit the total amount of concurrent writes
@@ -140,10 +140,7 @@ async fn do_put_topic_data(
                     .acquire()
                     .await
                     .map_err(|e| {
-                        ServerError::internal_error(&format!(
-                            "unable to acquire semaphore: {}",
-                            e.to_string()
-                        ))
+                        ServerError::internal_error(&format!("unable to acquire semaphore: {}", e))
                     })?;
                 let serialized_chunk = writer.write(batch).await?;
                 drop(permit);

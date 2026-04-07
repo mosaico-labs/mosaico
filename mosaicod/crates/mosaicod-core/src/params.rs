@@ -141,15 +141,15 @@ pub fn load_params_from_env(config: ParamsLoadOptions) -> Result<(), Error> {
 
     let ev = Params {
         // general
-        max_grpc_message_size: optional("MOSAICOD_MAX_GRPC_MESSAGE_SIZE", 25 * 1000_000),
-        target_message_size: optional("MOSAICOD_TARGET_MESSAGE_SIZE", 25 * 1000_000),
+        max_grpc_message_size: optional("MOSAICOD_MAX_GRPC_MESSAGE_SIZE", 25 * 1_000_000),
+        target_message_size: optional("MOSAICOD_TARGET_MESSAGE_SIZE", 25 * 1_000_000),
         max_concurrent_chunk_queries: optional("MOSAICOD_MAX_CONCURRENT_CHUNK_QUERIES", 4),
         max_db_connections: optional("MOSAICOD_MAX_DB_CONNECTIONS", 10),
         max_concurrent_writes: optional("MOSAICOD_MAX_CONCURRENT_WRITES", default_parallelism),
         default_parallelism: optional("MOSAICOD_DEFAULT_PARALLELISM", default_parallelism),
         parquet_in_memory_encoding_buffer_size: optional(
             "MOSAICOD_PARQUET_IN_MEMORY_ENCODING_BUFFER_SIZE",
-            50 * 1000_000,
+            50 * 1_000_000,
         ),
         max_batch_size: optional("MOSAICOD_MAX_BATCH_SIZE", 8192),
         query_engine_memory_pool_size: optional("MOSAICOD_QUERY_ENGINE_MEMORY_POOL_SIZE", 0),
