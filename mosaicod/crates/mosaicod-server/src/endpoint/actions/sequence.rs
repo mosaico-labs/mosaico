@@ -2,7 +2,7 @@
 
 use crate::errors::ServerError;
 use log::{info, trace, warn};
-use mosaicod_core::types::{self, MetadataBlob, Resource};
+use mosaicod_core::types::{self, MetadataBlob};
 use mosaicod_facade as facade;
 use mosaicod_marshal::{self as marshal, ActionResponse};
 
@@ -14,26 +14,20 @@ pub async fn create(
 ) -> Result<ActionResponse, ServerError> {
     info!("requested resource {} creation", locator);
 
-    let handle = facade::Sequence::new(locator, ctx.store.clone(), ctx.db.clone());
-
-    // Check if sequence exists, if so return with an error
-    if handle.resource_id().await.is_ok() {
-        return Err(ServerError::SequenceAlreadyExists(
-            handle.locator.locator().into(),
-        ));
-    }
+    let locator = types::SequenceResourceLocator::from(locator);
 
     let user_mdata =
         marshal::JsonMetadataBlob::try_from_str(user_metadata_str).map_err(facade::Error::from)?;
 
     // No sequence record was found, let's write it
     let metadata = types::SequenceMetadata::new(user_mdata);
-    let r_id = handle.create(Some(metadata)).await?;
+    let sequence_handle = facade::sequence::try_create(&locator, Some(metadata), ctx)
+        .await
+        .inspect_err(|e| println!("error in sequence create: {}", e))?;
 
-    trace!(
-        "created resource {} with uuid {}",
-        handle.locator, r_id.uuid
-    );
+    let uuid = facade::sequence::uuid(&sequence_handle, ctx);
+
+    trace!("created resource {} with uuid {}", locator, uuid);
 
     Ok(ActionResponse::sequence_create())
 }
@@ -42,11 +36,12 @@ pub async fn create(
 pub async fn delete(ctx: &facade::Context, name: String) -> Result<ActionResponse, ServerError> {
     warn!("requested deletion of resource {}", name);
 
-    let handle = facade::Sequence::new(name, ctx.store.clone(), ctx.db.clone());
+    let locator = types::SequenceResourceLocator::from(name);
 
-    let loc = handle.locator.clone();
-    handle.delete(types::allow_data_loss()).await?;
-    warn!("resource {} deleted", loc);
+    let handle = facade::sequence::Handle::try_from_locator(&locator, ctx).await?;
+
+    facade::sequence::delete(handle, types::allow_data_loss(), ctx).await?;
+    warn!("resource {} deleted", locator);
 
     Ok(ActionResponse::sequence_delete())
 }
@@ -60,9 +55,12 @@ pub async fn notification_create(
 ) -> Result<ActionResponse, ServerError> {
     info!("new notification for {}", name);
 
-    let handle = facade::Sequence::new(name, ctx.store.clone(), ctx.db.clone());
+    let locator = types::SequenceResourceLocator::from(name);
+
+    let handle = facade::sequence::Handle::try_from_locator(&locator, ctx).await?;
+
     let ntype: types::NotificationType = notification_type.parse()?;
-    handle.notify(ntype, msg).await?;
+    facade::sequence::notify(&handle, ntype, msg, ctx).await?;
 
     Ok(ActionResponse::sequence_notification_create())
 }
@@ -74,8 +72,11 @@ pub async fn notification_list(
 ) -> Result<ActionResponse, ServerError> {
     info!("notification list for {}", name);
 
-    let handle = facade::Sequence::new(name, ctx.store.clone(), ctx.db.clone());
-    let notifications = handle.notification_list().await?;
+    let locator = types::SequenceResourceLocator::from(name);
+
+    let handle = facade::sequence::Handle::try_from_locator(&locator, ctx).await?;
+
+    let notifications = facade::sequence::notification_list(&handle, ctx).await?;
 
     Ok(ActionResponse::sequence_notification_list(
         notifications.into(),
@@ -89,8 +90,11 @@ pub async fn notification_purge(
 ) -> Result<ActionResponse, ServerError> {
     warn!("notification purge for {}", name);
 
-    let handle = facade::Sequence::new(name, ctx.store.clone(), ctx.db.clone());
-    handle.notification_purge().await?;
+    let locator = types::SequenceResourceLocator::from(name);
+
+    let handle = facade::sequence::Handle::try_from_locator(&locator, ctx).await?;
+
+    facade::sequence::notification_purge(&handle, ctx).await?;
 
     Ok(ActionResponse::sequence_notification_purge())
 }

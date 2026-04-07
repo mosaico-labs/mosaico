@@ -9,6 +9,7 @@ use mosaicod_core::params;
 use mosaicod_core::types::{self, Resource, TopicOntologyMetadata, TopicResourceLocator};
 use mosaicod_db as db;
 use mosaicod_facade as facade;
+use mosaicod_facade::Context;
 use mosaicod_marshal as marshal;
 use mosaicod_marshal::{JsonMetadataBlob, flight};
 
@@ -27,16 +28,16 @@ pub async fn get_flight_info(
 
             match resource.resource_type() {
                 types::ResourceType::Sequence => {
-                    let handle = facade::Sequence::new(
-                        resource.locator().into(),
-                        ctx.store.clone(),
-                        ctx.db.clone(),
-                    );
-                    let metadata = handle.metadata().await?;
+                    let sequence_locator = types::SequenceResourceLocator::from(resource.locator());
+
+                    let sequence_handle =
+                        facade::sequence::Handle::try_from_locator(&sequence_locator, &ctx).await?;
+
+                    let metadata = facade::sequence::metadata(&sequence_handle, &ctx).await?;
 
                     trace!(
                         "{} building empty schema (+platform metadata)",
-                        handle.locator
+                        sequence_locator
                     );
 
                     // Collect metadata
@@ -47,8 +48,8 @@ pub async fn get_flight_info(
                     // Collect schema
                     let schema = Schema::new_with_metadata(Vec::<Field>::new(), flatten_metadata);
 
-                    trace!("{} generating endpoints", handle.locator);
-                    let topics = handle.topic_list().await?;
+                    trace!("{} generating endpoints", sequence_locator);
+                    let topics = facade::sequence::topic_list(&sequence_handle, &ctx).await?;
 
                     // Populate endpoints
                     let endpoints = stream::iter(topics)
@@ -58,16 +59,15 @@ pub async fn get_flight_info(
                                 timestamp_range: cmd.timestamp_range.clone(),
                             };
 
-                            let topic_facade = facade::Topic::try_from_locator(
-                                topic.clone(),
-                                ctx.store.clone(),
-                                ctx.db.clone(),
-                            )
-                            .await?;
+                            let topic_handle =
+                                facade::topic::Handle::try_from_locator(&topic, &ctx).await?;
 
                             let topic_app_mdata = build_topic_app_metadata(
-                                topic_facade.manifest().await?.properties,
-                                &topic_facade,
+                                facade::topic::manifest(&topic_handle, &ctx)
+                                    .await?
+                                    .properties,
+                                &topic_handle,
+                                &ctx,
                             )
                             .await;
 
@@ -85,10 +85,11 @@ pub async fn get_flight_info(
                         .await?;
 
                     // Get sequence manifest, if it exists, and send it as app metadata.
-                    let manifest: flight::SequenceAppMetadata = match handle.manifest().await {
-                        Ok(m) => m.into(),
-                        Err(e) => return Err(e.into()),
-                    };
+                    let manifest: flight::SequenceAppMetadata =
+                        match facade::sequence::manifest(&sequence_handle, &ctx).await {
+                            Ok(m) => m.into(),
+                            Err(e) => return Err(e.into()),
+                        };
 
                     let mut flight_info = FlightInfo::new()
                         .with_descriptor(desc.clone())
@@ -99,22 +100,20 @@ pub async fn get_flight_info(
                         flight_info = flight_info.with_endpoint(endpoint);
                     }
 
-                    trace!("{} done", handle.locator);
+                    trace!("{} done", sequence_locator);
                     Ok(flight_info)
                 }
 
                 types::ResourceType::Topic => {
-                    let handle = facade::Topic::try_from_locator(
-                        resource.locator().into(),
-                        ctx.store,
-                        ctx.db.clone(),
-                    )
-                    .await?;
+                    let topic_locator = types::TopicResourceLocator::from(resource.locator());
 
-                    let manifest = handle.manifest().await?;
+                    let topic_handle =
+                        facade::topic::Handle::try_from_locator(&topic_locator, &ctx).await?;
+
+                    let manifest = facade::topic::manifest(&topic_handle, &ctx).await?;
 
                     let ticket = types::flight::TicketTopic {
-                        locator: handle.locator.clone().into(),
+                        locator: topic_locator.clone().into(),
                         timestamp_range: cmd.timestamp_range,
                     };
 
@@ -123,23 +122,28 @@ pub async fn get_flight_info(
                         .with_ticket(Ticket {
                             ticket: marshal::flight::ticket_topic_to_binary(ticket)?.into(),
                         })
-                        .with_location(handle.locator.url()?)
+                        .with_location(topic_locator.url()?)
                         .with_app_metadata(
-                            build_topic_app_metadata(manifest.properties, &handle).await,
+                            build_topic_app_metadata(manifest.properties, &topic_handle, &ctx)
+                                .await,
                         );
 
-                    trace!("{} generating endpoint {:?}", handle.locator, endpoint);
+                    trace!("{} generating endpoint {:?}", topic_locator, endpoint);
 
-                    let schema =
-                        topic_arrow_schema_with_metadata(manifest.ontology_metadata, &handle)
-                            .await?;
+                    let schema = topic_arrow_schema_with_metadata(
+                        &topic_locator,
+                        manifest.ontology_metadata,
+                        &topic_handle,
+                        &ctx,
+                    )
+                    .await?;
 
                     let flight_info = FlightInfo::new()
                         .with_descriptor(desc.clone())
                         .with_endpoint(endpoint)
                         .try_with_schema(&schema)?;
 
-                    trace!("{} done", handle.locator);
+                    trace!("{} done", topic_locator);
                     Ok(flight_info)
                 }
             }
@@ -151,11 +155,12 @@ pub async fn get_flight_info(
 /// Build topic app_metadata.
 async fn build_topic_app_metadata(
     metadata_props: types::TopicProperties,
-    topic_facade: &facade::Topic,
+    topic_handle: &facade::topic::Handle,
+    context: &Context,
 ) -> marshal::flight::TopicAppMetadata {
     let mut app_mdata = marshal::flight::TopicAppMetadata::new(metadata_props);
 
-    if let Ok(info) = topic_facade.data_info().await {
+    if let Ok(info) = facade::topic::data_info(topic_handle, context).await {
         app_mdata = app_mdata.with_info(info);
     }
 
@@ -164,18 +169,20 @@ async fn build_topic_app_metadata(
 
 /// Utility function to create an arrow schema with metadata for the given Topic.
 async fn topic_arrow_schema_with_metadata(
+    topic_locator: &types::TopicResourceLocator,
     ontology_metadata: TopicOntologyMetadata<JsonMetadataBlob>,
-    topic_facade: &facade::Topic,
+    topic_handle: &facade::topic::Handle,
+    context: &Context,
 ) -> Result<Schema, facade::Error> {
-    trace!(
-        "{} building schema (+platform metadata)",
-        topic_facade.locator
-    );
+    trace!("{} building schema (+platform metadata)", topic_locator);
 
     // Collect schema, if no schema was found generate an empty schema
-    let schema = match topic_facade
-        .arrow_schema(ontology_metadata.properties.serialization_format)
-        .await
+    let schema = match facade::topic::arrow_schema(
+        topic_handle,
+        ontology_metadata.properties.serialization_format,
+        context,
+    )
+    .await
     {
         Ok(s) => s,
         Err(facade::Error::NotFound(_)) => mosaicod_ext::arrow::empty_schema_ref(),

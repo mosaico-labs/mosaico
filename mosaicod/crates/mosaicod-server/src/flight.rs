@@ -156,14 +156,20 @@ pub async fn start(
 struct MosaicodFlight {
     store: store::StoreRef,
     db: db::Database,
-    ts_gw: query::TimeseriesRef,
+    ts_gw: query::TimeseriesEngineRef,
 
     api_key_management: bool,
 }
 
 impl MosaicodFlight {
     pub fn try_new(store: store::StoreRef, db: db::Database) -> Result<Self, String> {
-        let ts_gw = Arc::new(query::Timeseries::try_new(store.clone()).map_err(|e| e.to_string())?);
+        let ts_gw = Arc::new(
+            query::TimeseriesEngine::try_new(
+                store.clone(),
+                params::params().query_engine_memory_pool,
+            )
+            .map_err(|e| e.to_string())?,
+        );
 
         Ok(MosaicodFlight {
             store,

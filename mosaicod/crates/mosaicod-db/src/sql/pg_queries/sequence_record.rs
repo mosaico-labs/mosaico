@@ -119,12 +119,12 @@ pub async fn sequence_find_all(
     )
 }
 
-/// Deletes a sequence record from the database by its name, **bypassing any lock state**.
+/// Deletes a sequence record from the database by its name.
 ///
 /// This function requires a [`DataLossToken`] because it permanently removes the record
-/// from the database without checking whether it is locked or referenced
-/// elsewhere. Improper use can lead to data inconsistency or loss.
-pub async fn sequence_delete(
+/// from the database without checking if it's referenced elsewhere.
+/// Improper use can lead to data inconsistency or loss.
+pub async fn sequence_delete_by_locator(
     exe: &mut impl AsExec,
     loc: &types::SequenceResourceLocator,
     _: types::DataLossToken,
@@ -136,6 +136,23 @@ pub async fn sequence_delete(
     )
     .execute(exe.as_exec())
     .await?;
+    Ok(())
+}
+
+/// Deletes a sequence record from the database by its id.
+///
+/// This function requires a [`DataLossToken`] because it permanently removes the record
+/// from the database without checking if it's referenced elsewhere.
+/// Improper use can lead to data inconsistency or loss.
+pub async fn sequence_delete_by_id(
+    exe: &mut impl AsExec,
+    sequence_id: i32,
+    _: types::DataLossToken,
+) -> Result<(), Error> {
+    warn!("(data loss) deleting sequence with id `{}`", sequence_id);
+    sqlx::query!("DELETE FROM sequence_t WHERE sequence_id=$1", sequence_id)
+        .execute(exe.as_exec())
+        .await?;
     Ok(())
 }
 

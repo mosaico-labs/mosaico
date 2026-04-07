@@ -30,38 +30,40 @@ pub async fn create(
         Some(user_mdata),
     );
 
-    let ftopic = facade::Topic::create(
-        name.into(),
-        received_uuid,
-        ontology_metadata,
-        ctx.store.clone(),
-        ctx.db.clone(),
-    )
-    .await?;
+    let topic_locator = types::TopicResourceLocator::from(name);
+
+    let session_handle = facade::session::Handle::try_from_uuid(&received_uuid, ctx).await?;
+    let topic_handle =
+        facade::topic::create(&topic_locator, &session_handle, ontology_metadata, ctx).await?;
+
+    let topic_uuid = facade::topic::uuid(&topic_handle, ctx);
 
     trace!(
         "resource `{}` created with uuid {}",
-        ftopic.locator,
-        ftopic.uuid(),
+        topic_locator, topic_uuid,
     );
 
-    Ok(ActionResponse::TopicCreate(ftopic.uuid().clone().into()))
+    Ok(ActionResponse::TopicCreate(topic_uuid.into()))
 }
 
 /// Deletes an unlocked topic.
 pub async fn delete(ctx: &facade::Context, locator: String) -> Result<ActionResponse, ServerError> {
     warn!("requested deletion of resource `{}`", locator);
 
-    let handle =
-        facade::Topic::try_from_locator(locator.clone().into(), ctx.store.clone(), ctx.db.clone())
-            .await?;
+    let topic_locator = types::TopicResourceLocator::from(locator);
 
-    if handle.manifest().await?.properties.locked {
+    let topic_handle = facade::topic::Handle::try_from_locator(&topic_locator, ctx).await?;
+
+    if facade::topic::manifest(&topic_handle, ctx)
+        .await?
+        .properties
+        .locked
+    {
         return Err(ServerError::TopicLocked);
     }
 
-    handle.delete_unlocked().await?;
-    warn!("resource {} deleted", locator);
+    facade::topic::delete_unlocked(topic_handle, ctx).await?;
+    warn!("resource {} deleted", topic_locator);
 
     Ok(ActionResponse::Empty)
 }
@@ -75,9 +77,11 @@ pub async fn notification_create(
 ) -> Result<ActionResponse, ServerError> {
     info!("notification for {}", locator);
 
-    let ftopic =
-        facade::Topic::try_from_locator(locator.into(), ctx.store.clone(), ctx.db.clone()).await?;
-    ftopic.notify(notification_type.parse()?, msg).await?;
+    let topic_locator = types::TopicResourceLocator::from(locator);
+
+    let topic_handle = facade::topic::Handle::try_from_locator(&topic_locator, ctx).await?;
+
+    facade::topic::notify(&topic_handle, notification_type.parse()?, msg, ctx).await?;
 
     Ok(ActionResponse::Empty)
 }
@@ -89,9 +93,11 @@ pub async fn notification_list(
 ) -> Result<ActionResponse, ServerError> {
     info!("notification list for {}", locator);
 
-    let ftopic =
-        facade::Topic::try_from_locator(locator.into(), ctx.store.clone(), ctx.db.clone()).await?;
-    let notifications = ftopic.notification_list().await?;
+    let topic_locator = types::TopicResourceLocator::from(locator);
+
+    let topic_handle = facade::topic::Handle::try_from_locator(&topic_locator, ctx).await?;
+
+    let notifications = facade::topic::notification_list(&topic_handle, ctx).await?;
 
     Ok(ActionResponse::TopicNotificationList(notifications.into()))
 }
@@ -103,9 +109,11 @@ pub async fn notification_purge(
 ) -> Result<ActionResponse, ServerError> {
     warn!("notification purge for {}", locator);
 
-    let ftopic =
-        facade::Topic::try_from_locator(locator.into(), ctx.store.clone(), ctx.db.clone()).await?;
-    ftopic.notification_purge().await?;
+    let topic_locator = types::TopicResourceLocator::from(locator);
+
+    let topic_handle = facade::topic::Handle::try_from_locator(&topic_locator, ctx).await?;
+
+    facade::topic::notification_purge(&topic_handle, ctx).await?;
 
     Ok(ActionResponse::Empty)
 }

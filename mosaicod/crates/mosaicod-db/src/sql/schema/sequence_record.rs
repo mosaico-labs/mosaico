@@ -76,4 +76,11 @@ impl SequenceRecord {
     pub fn uuid(&self) -> types::Uuid {
         self.sequence_uuid.into()
     }
+
+    pub fn identifiers(&self) -> types::Identifiers {
+        types::Identifiers {
+            uuid: self.uuid(),
+            id: self.sequence_id,
+        }
+    }
 }

@@ -10,11 +10,15 @@ use mosaicod_store as store;
 pub struct Context {
     pub store: store::StoreRef,
     pub db: db::Database,
-    pub timeseries_querier: query::TimeseriesRef,
+    pub timeseries_querier: query::TimeseriesEngineRef,
 }
 
 impl Context {
-    pub fn new(store: store::StoreRef, db: db::Database, ts_gw: query::TimeseriesRef) -> Self {
+    pub fn new(
+        store: store::StoreRef,
+        db: db::Database,
+        ts_gw: query::TimeseriesEngineRef,
+    ) -> Self {
         Self {
             store,
             db,

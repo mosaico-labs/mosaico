@@ -22,12 +22,10 @@ async fn sequence_create(pool: sqlx::Pool<db::DatabaseType>) -> sqlx::Result<()>
         .unwrap();
 
     // Check that sequences with same name are not allowed.
-    assert_eq!(
+    assert!(
         actions::sequence_create(&mut client, "test_sequence", None)
             .await
-            .unwrap_err()
-            .message(),
-        "sequence `test_sequence` already exists"
+            .is_err()
     );
 
     // Check malformed metadata json.

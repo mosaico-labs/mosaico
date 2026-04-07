@@ -10,7 +10,7 @@ pub struct Auth {
 impl Auth {
     /// Create a new auth facade using an existing API key.
     ///
-    /// This function does not perform any checks, if the API key is not existing subsequent
+    /// This function does not perform any checks, if the API key does not exist subsequent
     /// calls will return errors
     pub fn from_api_key(api_key: types::ApiKey, db: db::Database) -> Self {
         Self { api_key, db }

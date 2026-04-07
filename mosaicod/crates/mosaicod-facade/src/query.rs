@@ -22,7 +22,7 @@ impl Query {
     /// Perform a query in the system
     pub async fn query(
         filter: query::Filter,
-        ts_gw: query::TimeseriesRef,
+        ts_gw: query::TimeseriesEngineRef,
         db: db::Database,
     ) -> Result<types::SequenceTopicGroupSet, Error> {
         let mut result: Option<types::SequenceTopicGroupSet> = None;

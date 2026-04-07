@@ -3,6 +3,7 @@ use crate::ServerError;
 use log::{info, trace, warn};
 use mosaicod_core::types;
 use mosaicod_facade as facade;
+use mosaicod_facade::session;
 use mosaicod_marshal::ActionResponse;
 
 pub async fn create(
@@ -11,12 +12,15 @@ pub async fn create(
 ) -> Result<ActionResponse, ServerError> {
     info!("requested resource {} creation", sequence_locator);
 
-    let handle = facade::Sequence::new(sequence_locator, ctx.store.clone(), ctx.db.clone());
-    let resource_key = handle.session().await?;
+    let sequence_locator = types::SequenceResourceLocator::from(sequence_locator);
 
-    trace!("created session for {}", handle.locator);
+    let session_handle = facade::session::try_create(&sequence_locator, ctx).await?;
 
-    Ok(ActionResponse::session_create(resource_key.uuid.into()))
+    trace!("created session for {}", sequence_locator);
+
+    Ok(ActionResponse::session_create(
+        facade::session::uuid(&session_handle, ctx).into(),
+    ))
 }
 
 pub async fn finalize(
@@ -27,11 +31,11 @@ pub async fn finalize(
 
     let uuid: types::Uuid = session_uuid.parse()?;
 
-    let handle = facade::Session::try_new(uuid, ctx.store.clone(), ctx.db.clone()).await?;
+    let session_handle = session::Handle::try_from_uuid(&uuid, ctx).await?;
 
-    handle.finalize().await?;
+    facade::session::finalize(&session_handle, ctx).await?;
 
-    trace!("session `{}` finalized", handle.uuid);
+    trace!("session `{}` finalized", uuid);
 
     Ok(ActionResponse::session_finalize())
 }
@@ -44,9 +48,9 @@ pub async fn delete(
 
     let uuid: types::Uuid = session_uuid.parse()?;
 
-    let session = facade::Session::try_new(uuid, ctx.store.clone(), ctx.db.clone()).await?;
+    let session_handle = session::Handle::try_from_uuid(&uuid, ctx).await?;
 
-    session.delete(false, types::allow_data_loss()).await?;
+    facade::session::delete(session_handle, false, types::allow_data_loss(), ctx).await?;
 
     warn!("session `{}` deleted", session_uuid);
 

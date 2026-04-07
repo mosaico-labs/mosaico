@@ -29,7 +29,7 @@ pub async fn list_flights(
     info!("listing all sequences");
 
     // Fetch all sequences from database
-    let sequences = facade::Sequence::all(ctx.db).await?;
+    let sequences = facade::sequence::all(ctx.db).await?;
 
     trace!("found {} sequences", sequences.len());
 

@@ -22,17 +22,15 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
 
-pub type TimeseriesRef = Arc<Timeseries>;
+pub type TimeseriesEngineRef = Arc<TimeseriesEngine>;
 
-pub struct Timeseries {
+pub struct TimeseriesEngine {
     runtime: Arc<RuntimeEnv>,
     store: Arc<store::Store>,
 }
 
-impl Timeseries {
-    pub fn try_new(store: Arc<store::Store>) -> Result<Self, Error> {
-        let memory_limit_bytes = params::params().query_engine_memory_pool;
-
+impl TimeseriesEngine {
+    pub fn try_new(store: Arc<store::Store>, memory_limit_bytes: usize) -> Result<Self, Error> {
         let memory_pool = if memory_limit_bytes != 0 {
             Some(Arc::new(FairSpillPool::new(memory_limit_bytes)))
         } else {
@@ -49,7 +47,7 @@ impl Timeseries {
 
         let runtime = Arc::new(builder.build()?);
 
-        Ok(Timeseries {
+        Ok(TimeseriesEngine {
             runtime,
             store: store.clone(),
         })
@@ -320,7 +318,7 @@ mod tests {
 
         write_dummy_file(&store, file_path).await;
 
-        let ts_gw = Timeseries::try_new((*store).clone()).unwrap();
+        let ts_gw = TimeseriesEngine::try_new((*store).clone(), 0).unwrap();
 
         let res = ts_gw
             .read(file_path, types::Format::Default, None)

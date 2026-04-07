@@ -89,7 +89,7 @@ pub async fn sequence_notification_create(
     Ok(res)
 }
 
-/// Find al reports associated with a sequence name
+/// Find all reports associated to the sequence with the given name
 pub async fn sequence_notifications_find_by_name(
     exe: &mut impl AsExec,
     loc: &types::SequenceResourceLocator,
@@ -103,6 +103,29 @@ pub async fn sequence_notifications_find_by_name(
           WHERE seq.locator_name=$1
     "#,
         loc.locator(),
+    )
+    .fetch_all(exe.as_exec())
+    .await?;
+    Ok(res)
+}
+
+/// Find all reports associated to the sequence with the given id
+pub async fn sequence_notifications_find_by_sequence_id(
+    exe: &mut impl AsExec,
+    sequence_id: i32,
+) -> Result<Vec<schema::SequenceNotificationRecord>, Error> {
+    trace!(
+        "searching notifications for sequence with id `{}`",
+        sequence_id
+    );
+    let res = sqlx::query_as!(
+        schema::SequenceNotificationRecord,
+        r#"
+          SELECT notification.* FROM sequence_notification_t AS notification
+          JOIN sequence_t AS seq ON notification.sequence_id = seq.sequence_id
+          WHERE seq.sequence_id=$1
+    "#,
+        sequence_id,
     )
     .fetch_all(exe.as_exec())
     .await?;
