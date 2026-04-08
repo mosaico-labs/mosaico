@@ -37,8 +37,8 @@ impl Handle {
     /// Try to obtain a handle from a topic locator.
     /// Returns an error if the topic does not exist.
     pub async fn try_from_locator(
-        locator: types::TopicResourceLocator,
         context: &Context,
+        locator: types::TopicResourceLocator,
     ) -> Result<Self, Error> {
         let mut cx = context.db.connection();
 
@@ -52,7 +52,7 @@ impl Handle {
 
     /// Try to obtain a handle from a topic UUID.
     /// Returns an error if the topic does not exist.
-    pub async fn try_from_uuid(uuid: &types::Uuid, context: &Context) -> Result<Self, Error> {
+    pub async fn try_from_uuid(context: &Context, uuid: &types::Uuid) -> Result<Self, Error> {
         let mut cx = context.db.connection();
 
         let db_topic = db::topic_find_by_uuid(&mut cx, uuid).await?;
@@ -83,10 +83,10 @@ impl Handle {
 /// Additional checks about the scope of the topic are performed. If the topic locator is
 /// not a child of the related sequence locator an error [`Error::Unauthorized`] is returned.
 pub async fn try_create(
+    context: &Context,
     locator: types::TopicResourceLocator,
     session_handle: &session::Handle,
     ontology_metadata: TopicOntologyMetadata,
-    context: &Context,
 ) -> Result<Handle, Error> {
     let mut tx = context.db.transaction().await?;
 
@@ -96,7 +96,7 @@ pub async fn try_create(
     }
 
     // Ensure that uuid points to an unlocked session
-    if session::manifest(session_handle, context).await?.locked {
+    if session::manifest(context, session_handle).await?.locked {
         return Err(Error::SessionLocked);
     }
 
@@ -144,7 +144,7 @@ pub async fn try_create(
 
     // This operation is done at the end to avoid deleting or reverting changes
     // to manifest file on store if some error causes a rollback on the database
-    manifest_write_to_store(&topic_handle, manifest, context).await?;
+    manifest_write_to_store(context, &topic_handle, manifest).await?;
 
     tx.commit().await?;
 
@@ -154,12 +154,12 @@ pub async fn try_create(
 /// Finalize the write procedure of the topic. The topic is locked and additional data are
 /// consolidated (e.g. manifest, timestamp bounds). This function is intended to be called by
 /// [`TopicWriterGuard`] to finalize the writing process.
-async fn finalize(handle: &Handle, format: types::Format, context: &Context) -> Result<(), Error> {
-    let info = compute_data_info(handle, format, context).await?;
-    data_info_write_to_db(handle, info, context).await?;
+async fn finalize(context: &Context, handle: &Handle, format: types::Format) -> Result<(), Error> {
+    let info = compute_data_info(context, handle, format).await?;
+    data_info_write_to_db(context, handle, info).await?;
 
     // Update manifest
-    let mut manifest = manifest(handle, context).await?;
+    let mut manifest = manifest(context, handle).await?;
 
     // Check if topic is already locked.
     if manifest.properties.locked {
@@ -168,18 +168,18 @@ async fn finalize(handle: &Handle, format: types::Format, context: &Context) -> 
 
     manifest.properties.completed_at = Some(types::Timestamp::now());
     manifest.properties.locked = true;
-    manifest_write_to_store(handle, manifest, context).await?;
+    manifest_write_to_store(context, handle, manifest).await?;
 
     Ok(())
 }
 
-/// Reads [`TopicManifest`] associated with this topic.
+/// Reads [`TopicManifest`] associated to the given topic [`Handle`].
 ///
 /// # Errors
 ///
 /// Returns [`HandleError::ReadError`] if reading or deserializing fails.
 /// Returns an error if manifest file does not exist.
-pub async fn manifest(handle: &Handle, context: &Context) -> Result<TopicManifest, Error> {
+pub async fn manifest(context: &Context, handle: &Handle) -> Result<TopicManifest, Error> {
     let path = handle.locator.path_manifest();
 
     if !context.store.exists(&path).await? {
@@ -202,9 +202,9 @@ pub async fn manifest(handle: &Handle, context: &Context) -> Result<TopicManifes
 ///
 /// If no arrow_schema is found a [`Error::NotFound`] error is returned
 pub async fn arrow_schema(
+    context: &Context,
     handle: &Handle,
     format: types::Format,
-    context: &Context,
 ) -> Result<SchemaRef, Error> {
     // Get chunk 0 since this chunk needs to exist always
     let path = handle
@@ -228,9 +228,9 @@ pub async fn arrow_schema(
 ///
 /// Returns [`Error::NotFound`] or [`Error::WriteError`] if serialization or writing fails.
 async fn manifest_write_to_store(
+    context: &Context,
     handle: &Handle,
     manifest: TopicManifest,
-    context: &Context,
 ) -> Result<(), Error> {
     trace!("writing manifest to store to `{}`", handle.locator);
     let path = handle.locator.path_manifest();
@@ -246,9 +246,9 @@ async fn manifest_write_to_store(
 /// Returns a writer used to write chunked record batches using a specified serialization
 /// format `format`.
 pub fn writer(
+    context: Context,
     handle: &'_ mut Handle,
     format: types::Format,
-    context: Context,
 ) -> TopicWriterGuard<'_> {
     let max_chunk_size = {
         let config_value = params::params().max_chunk_size_in_bytes;
@@ -278,10 +278,10 @@ pub fn writer(
 }
 
 /// Deletes this topic, if unlocked
-pub async fn delete_unlocked(handle: Handle, context: &Context) -> Result<(), Error> {
+pub async fn delete_unlocked(context: &Context, handle: Handle) -> Result<(), Error> {
     let mut tx = context.db.transaction().await?;
 
-    if manifest(&handle, context).await?.properties.locked {
+    if manifest(context, &handle).await?.properties.locked {
         return Err(Error::TopicLocked);
     }
 
@@ -302,9 +302,9 @@ pub async fn delete_unlocked(handle: Handle, context: &Context) -> Result<(), Er
 ///
 /// A [`types::DataLossToken`] is required since this call will lead to data losses.
 pub async fn delete(
+    context: &Context,
     handle: Handle,
     allowed_data_loss: types::DataLossToken,
-    context: &Context,
 ) -> Result<(), Error> {
     let mut tx = context.db.transaction().await?;
 
@@ -322,10 +322,10 @@ pub async fn delete(
 
 /// Add a notification to the sequence
 pub async fn notify(
+    context: &Context,
     handle: &Handle,
     ntype: types::NotificationType,
     msg: String,
-    context: &Context,
 ) -> Result<types::Notification, Error> {
     let mut tx = context.db.transaction().await?;
 
@@ -340,8 +340,8 @@ pub async fn notify(
 
 /// Returns a list of all notifications for the this topic
 pub async fn notification_list(
-    handle: &Handle,
     context: &Context,
+    handle: &Handle,
 ) -> Result<Vec<types::Notification>, Error> {
     let mut cx = context.db.connection();
     let notifications = db::topic_notifications_find_by_locator(&mut cx, &handle.locator).await?;
@@ -352,7 +352,7 @@ pub async fn notification_list(
 }
 
 /// Deletes all the notifications associated with the sequence
-pub async fn notification_purge(handle: &Handle, context: &Context) -> Result<(), Error> {
+pub async fn notification_purge(context: &Context, handle: &Handle) -> Result<(), Error> {
     let mut tx = context.db.transaction().await?;
 
     let notifications = db::topic_notifications_find_by_locator(&mut tx, &handle.locator).await?;
@@ -367,8 +367,8 @@ pub async fn notification_purge(handle: &Handle, context: &Context) -> Result<()
 
 /// Returns the statistics about topic's chunks
 pub async fn chunks_stats(
-    handle: &Handle,
     context: &Context,
+    handle: &Handle,
 ) -> Result<types::TopicChunksStats, Error> {
     let mut cx = context.db.connection();
     let stats = db::topic_get_stats(&mut cx, &handle.locator).await?;
@@ -378,9 +378,9 @@ pub async fn chunks_stats(
 /// Computes metrics about topic's stored data
 /// (e.g. total size in bytes, first and last timestamps recorded in the topic)
 async fn compute_data_info(
+    context: &Context,
     handle: &Handle,
     format: types::Format,
-    context: &Context,
 ) -> Result<types::TopicDataInfo, Error> {
     let timeseries_res = context
         .timeseries_querier
@@ -426,9 +426,9 @@ async fn compute_data_info(
 ///
 /// Since they can be recalculated at any time, it's enough to save them in the DB.
 async fn data_info_write_to_db(
+    context: &Context,
     handle: &Handle,
     system_info: types::TopicDataInfo,
-    context: &Context,
 ) -> Result<(), Error> {
     let mut tx = context.db.transaction().await?;
     db::topic_update_system_info(&mut tx, &handle.locator, &system_info).await?;
@@ -437,7 +437,7 @@ async fn data_info_write_to_db(
 }
 
 /// Retrieves system info for the topic from db. Returns an error if not present.
-pub async fn data_info(handle: &Handle, context: &Context) -> Result<types::TopicDataInfo, Error> {
+pub async fn data_info(context: &Context, handle: &Handle) -> Result<types::TopicDataInfo, Error> {
     let mut cx = context.db.connection();
     let record = db::topic_find_by_locator(&mut cx, &handle.locator).await?;
     let topic_info = record.info();
@@ -454,10 +454,10 @@ pub async fn data_info(handle: &Handle, context: &Context) -> Result<types::Topi
 /// Returns `Some(batch_size)` if statistics are available, `None` otherwise
 /// (e.g., for empty topics).
 pub async fn compute_optimal_batch_size(
-    handle: &Handle,
     context: &Context,
+    handle: &Handle,
 ) -> Result<usize, Error> {
-    let stats = chunks_stats(handle, context).await?;
+    let stats = chunks_stats(context, handle).await?;
 
     if stats.total_size_bytes == 0 || stats.total_row_count == 0 {
         return Err(Error::missing_data(
@@ -498,7 +498,7 @@ impl<'a> TopicWriterGuard<'a> {
     pub async fn finalize(self) -> Result<(), Error> {
         trace!("internal writer finalized");
         let _ = self.writer.finalize().await?;
-        finalize(self.handle, self.format, &self.context).await?;
+        finalize(&self.context, self.handle, self.format).await?;
         Ok(())
     }
 }
@@ -550,7 +550,7 @@ mod tests {
 
         let seq_locator = types::SequenceResourceLocator::from("test_sequence");
 
-        let seq_handle = sequence::try_create(seq_locator, None, &context)
+        let seq_handle = sequence::try_create(&context, seq_locator, None)
             .await
             .expect("Error creating sequence");
 
@@ -563,17 +563,17 @@ mod tests {
         // Check sequence locator
         assert_eq!(seq_handle.locator().locator(), sequence.locator_name);
 
-        let session_handle = session::try_create(seq_handle.locator().clone(), &context)
+        let session_handle = session::try_create(&context, seq_handle.locator().clone())
             .await
             .unwrap();
 
         let topic_locator = types::TopicResourceLocator::from("test_sequence/test_topic");
 
         let topic_handle = try_create(
+            &context,
             topic_locator,
             &session_handle,
             dummy_ontology_metadata(),
-            &context,
         )
         .await
         .expect("Unable to create topic");
@@ -591,7 +591,7 @@ mod tests {
         );
 
         // Check topic deletion.
-        delete(topic_handle, types::allow_data_loss(), &context)
+        delete(&context, topic_handle, types::allow_data_loss())
             .await
             .unwrap();
 
@@ -608,7 +608,7 @@ mod tests {
 
         let seq_locator = types::SequenceResourceLocator::from("test_sequence");
 
-        let seq_handle = sequence::try_create(seq_locator, None, &context)
+        let seq_handle = sequence::try_create(&context, seq_locator, None)
             .await
             .expect("Unable to create sequence");
 
@@ -622,7 +622,7 @@ mod tests {
         // Check sequence locator
         assert_eq!(seq_handle.locator().locator(), sequence.locator_name);
 
-        let session_handle = session::try_create(seq_handle.locator().clone(), &context)
+        let session_handle = session::try_create(&context, seq_handle.locator().clone())
             .await
             .expect("Unable to create session");
         assert!(session_handle.uuid().is_valid());
@@ -630,28 +630,28 @@ mod tests {
         let topic_locator: types::TopicResourceLocator = "test_sequence/test_topic".into();
 
         let topic_handle = try_create(
+            &context,
             topic_locator,
             &session_handle,
             dummy_ontology_metadata(),
-            &context,
         )
         .await
         .expect("Unable to create topic");
 
         notify(
+            &context,
             &topic_handle,
             NotificationType::Error,
             "test notification message".to_owned(),
-            &context,
         )
         .await
         .expect("Error creating notification message");
 
         notify(
+            &context,
             &topic_handle,
             NotificationType::Error,
             "test notification message 2".to_owned(),
-            &context,
         )
         .await
         .expect("Error creating notification message");
@@ -684,7 +684,7 @@ mod tests {
         assert!(second_notification.uuid().is_valid());
         assert_eq!(second_notification.topic_id, topic.topic_id);
 
-        notification_purge(&topic_handle, &context)
+        notification_purge(&context, &topic_handle)
             .await
             .expect("Unable to purge notifications");
 

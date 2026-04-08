@@ -77,7 +77,7 @@ async fn do_put_topic_data(
 
     let topic_locator = types::TopicResourceLocator::from(locator);
 
-    let mut topic_handle = facade::topic::Handle::try_from_locator(topic_locator, &ctx).await?;
+    let mut topic_handle = facade::topic::Handle::try_from_locator(&ctx, topic_locator).await?;
 
     // perform the match between received uuid string and topic uuid
     let topic_uuid = topic_handle.uuid().clone();
@@ -86,7 +86,7 @@ async fn do_put_topic_data(
         return Err(ServerError::BadKey);
     }
 
-    let mdata = facade::topic::manifest(&topic_handle, &ctx).await?;
+    let mdata = facade::topic::manifest(&ctx, &topic_handle).await?;
 
     // Setup the callback that will be used to create the database record for the data catalog
     // and prepare variables that will be moved in the closure
@@ -94,7 +94,7 @@ async fn do_put_topic_data(
     let serialization_format = mdata.ontology_metadata.properties.serialization_format;
 
     trace!("creating topic writer");
-    let mut writer = facade::topic::writer(&mut topic_handle, serialization_format, ctx.clone());
+    let mut writer = facade::topic::writer(ctx.clone(), &mut topic_handle, serialization_format);
 
     writer.on_chunk_created(move |target_path, cols_stats, chunk_metadata| {
         let topic_uuid = topic_uuid.clone();

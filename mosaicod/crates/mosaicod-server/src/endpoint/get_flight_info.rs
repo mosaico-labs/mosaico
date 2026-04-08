@@ -31,9 +31,9 @@ pub async fn get_flight_info(
                     let sequence_locator = types::SequenceResourceLocator::from(resource.locator());
 
                     let sequence_handle =
-                        facade::sequence::Handle::try_from_locator(sequence_locator, ctx).await?;
+                        facade::sequence::Handle::try_from_locator(ctx, sequence_locator).await?;
 
-                    let metadata = facade::sequence::metadata(&sequence_handle, ctx).await?;
+                    let metadata = facade::sequence::metadata(ctx, &sequence_handle).await?;
 
                     trace!(
                         "{} building empty schema (+platform metadata)",
@@ -49,7 +49,7 @@ pub async fn get_flight_info(
                     let schema = Schema::new_with_metadata(Vec::<Field>::new(), flatten_metadata);
 
                     trace!("{} generating endpoints", sequence_handle.locator());
-                    let topics = facade::sequence::topic_list(&sequence_handle, ctx).await?;
+                    let topics = facade::sequence::topic_list(ctx, &sequence_handle).await?;
 
                     // Populate endpoints
                     let endpoints = stream::iter(topics)
@@ -60,7 +60,7 @@ pub async fn get_flight_info(
                             };
 
                             let topic_app_mdata = build_topic_app_metadata(
-                                facade::topic::manifest(&topic_handle, ctx)
+                                facade::topic::manifest(ctx, &topic_handle)
                                     .await?
                                     .properties,
                                 &topic_handle,
@@ -83,7 +83,7 @@ pub async fn get_flight_info(
 
                     // Get sequence manifest, if it exists, and send it as app metadata.
                     let manifest: flight::SequenceAppMetadata =
-                        match facade::sequence::manifest(&sequence_handle, ctx).await {
+                        match facade::sequence::manifest(ctx, &sequence_handle).await {
                             Ok(m) => m.into(),
                             Err(e) => return Err(e.into()),
                         };
@@ -105,9 +105,9 @@ pub async fn get_flight_info(
                     let topic_locator = types::TopicResourceLocator::from(resource.locator());
 
                     let topic_handle =
-                        facade::topic::Handle::try_from_locator(topic_locator, ctx).await?;
+                        facade::topic::Handle::try_from_locator(ctx, topic_locator).await?;
 
-                    let manifest = facade::topic::manifest(&topic_handle, ctx).await?;
+                    let manifest = facade::topic::manifest(ctx, &topic_handle).await?;
 
                     let ticket = types::flight::TicketTopic {
                         locator: topic_handle.locator().clone().into(),
@@ -159,7 +159,7 @@ async fn build_topic_app_metadata(
 ) -> marshal::flight::TopicAppMetadata {
     let mut app_mdata = marshal::flight::TopicAppMetadata::new(metadata_props);
 
-    if let Ok(info) = facade::topic::data_info(topic_handle, context).await {
+    if let Ok(info) = facade::topic::data_info(context, topic_handle).await {
         app_mdata = app_mdata.with_info(info);
     }
 
@@ -179,9 +179,9 @@ async fn topic_arrow_schema_with_metadata(
 
     // Collect schema, if no schema was found generate an empty schema
     let schema = match facade::topic::arrow_schema(
+        context,
         topic_handle,
         ontology_metadata.properties.serialization_format,
-        context,
     )
     .await
     {

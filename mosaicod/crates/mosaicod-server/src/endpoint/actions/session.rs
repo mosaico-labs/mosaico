@@ -14,7 +14,7 @@ pub async fn create(
 
     let sequence_locator = types::SequenceResourceLocator::from(sequence_locator);
 
-    let session_handle = facade::session::try_create(sequence_locator, ctx).await?;
+    let session_handle = facade::session::try_create(ctx, sequence_locator).await?;
 
     trace!("created session for {}", session_handle.sequence_locator());
 
@@ -31,9 +31,9 @@ pub async fn finalize(
 
     let uuid: types::Uuid = session_uuid.parse()?;
 
-    let session_handle = session::Handle::try_from_uuid(&uuid, ctx).await?;
+    let session_handle = session::Handle::try_from_uuid(ctx, &uuid).await?;
 
-    facade::session::finalize(&session_handle, ctx).await?;
+    facade::session::finalize(ctx, &session_handle).await?;
 
     trace!("session `{}` finalized", uuid);
 
@@ -48,9 +48,9 @@ pub async fn delete(
 
     let uuid: types::Uuid = session_uuid.parse()?;
 
-    let session_handle = session::Handle::try_from_uuid(&uuid, ctx).await?;
+    let session_handle = session::Handle::try_from_uuid(ctx, &uuid).await?;
 
-    facade::session::delete(session_handle, false, types::allow_data_loss(), ctx).await?;
+    facade::session::delete(ctx, session_handle, false, types::allow_data_loss()).await?;
 
     warn!("session `{}` deleted", session_uuid);
 

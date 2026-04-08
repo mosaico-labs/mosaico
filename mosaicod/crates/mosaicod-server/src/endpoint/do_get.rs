@@ -21,14 +21,14 @@ pub async fn do_get(
     // Create topic handle
     let topic_locator = types::TopicResourceLocator::from(ticket.locator);
 
-    let topic_handle = facade::topic::Handle::try_from_locator(topic_locator, ctx).await?;
+    let topic_handle = facade::topic::Handle::try_from_locator(ctx, topic_locator).await?;
 
     // Read metadata from topic
-    let metadata = facade::topic::manifest(&topic_handle, ctx).await?;
+    let metadata = facade::topic::manifest(ctx, &topic_handle).await?;
 
     trace!("{:?}", metadata);
 
-    let batch_size = facade::topic::compute_optimal_batch_size(&topic_handle, ctx).await?;
+    let batch_size = facade::topic::compute_optimal_batch_size(ctx, &topic_handle).await?;
 
     let mut query_result = ctx
         .timeseries_querier

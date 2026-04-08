@@ -21,7 +21,7 @@ pub async fn create(
 
     // No sequence record was found, let's write it
     let metadata = types::SequenceMetadata::new(user_mdata);
-    let sequence_handle = facade::sequence::try_create(locator, Some(metadata), ctx)
+    let sequence_handle = facade::sequence::try_create(ctx, locator, Some(metadata))
         .await
         .inspect_err(|e| println!("error in sequence create: {}", e))?;
 
@@ -40,9 +40,9 @@ pub async fn delete(ctx: &facade::Context, name: String) -> Result<ActionRespons
 
     let locator = types::SequenceResourceLocator::from(name);
 
-    let handle = facade::sequence::Handle::try_from_locator(locator.clone(), ctx).await?;
+    let handle = facade::sequence::Handle::try_from_locator(ctx, locator.clone()).await?;
 
-    facade::sequence::delete(handle, types::allow_data_loss(), ctx).await?;
+    facade::sequence::delete(ctx, handle, types::allow_data_loss()).await?;
     warn!("resource {} deleted", locator);
 
     Ok(ActionResponse::sequence_delete())
@@ -59,10 +59,10 @@ pub async fn notification_create(
 
     let locator = types::SequenceResourceLocator::from(name);
 
-    let handle = facade::sequence::Handle::try_from_locator(locator, ctx).await?;
+    let handle = facade::sequence::Handle::try_from_locator(ctx, locator).await?;
 
     let ntype: types::NotificationType = notification_type.parse()?;
-    facade::sequence::notify(&handle, ntype, msg, ctx).await?;
+    facade::sequence::notify(ctx, &handle, ntype, msg).await?;
 
     Ok(ActionResponse::sequence_notification_create())
 }
@@ -76,9 +76,9 @@ pub async fn notification_list(
 
     let locator = types::SequenceResourceLocator::from(name);
 
-    let handle = facade::sequence::Handle::try_from_locator(locator, ctx).await?;
+    let handle = facade::sequence::Handle::try_from_locator(ctx, locator).await?;
 
-    let notifications = facade::sequence::notification_list(&handle, ctx).await?;
+    let notifications = facade::sequence::notification_list(ctx, &handle).await?;
 
     Ok(ActionResponse::sequence_notification_list(
         notifications.into(),
@@ -94,9 +94,9 @@ pub async fn notification_purge(
 
     let locator = types::SequenceResourceLocator::from(name);
 
-    let handle = facade::sequence::Handle::try_from_locator(locator, ctx).await?;
+    let handle = facade::sequence::Handle::try_from_locator(ctx, locator).await?;
 
-    facade::sequence::notification_purge(&handle, ctx).await?;
+    facade::sequence::notification_purge(ctx, &handle).await?;
 
     Ok(ActionResponse::sequence_notification_purge())
 }

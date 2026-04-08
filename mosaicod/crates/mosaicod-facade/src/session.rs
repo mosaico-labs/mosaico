@@ -32,7 +32,7 @@ impl Handle {
 
     /// Try to obtain a handle from a session UUID.
     /// Returns an error if the session does not exist.
-    pub async fn try_from_uuid(uuid: &types::Uuid, context: &Context) -> Result<Self, Error> {
+    pub async fn try_from_uuid(context: &Context, uuid: &types::Uuid) -> Result<Self, Error> {
         let mut cx = context.db.connection();
 
         let db_session = db::session_find_by_uuid(&mut cx, uuid).await?;
@@ -58,8 +58,8 @@ impl Handle {
 }
 
 pub async fn try_create(
-    sequence_locator: types::SequenceResourceLocator,
     context: &Context,
+    sequence_locator: types::SequenceResourceLocator,
 ) -> Result<Handle, Error> {
     let mut tx = context.db.transaction().await?;
 
@@ -75,8 +75,8 @@ pub async fn try_create(
     tx.commit().await?;
 
     // Create session manifest (store)
-    let handle = Handle::try_from_uuid(&session.uuid(), context).await?;
-    create_manifest(&handle, context).await?;
+    let handle = Handle::try_from_uuid(context, &session.uuid()).await?;
+    create_manifest(context, &handle).await?;
 
     Ok(Handle {
         identifiers: session.into(),
@@ -86,22 +86,22 @@ pub async fn try_create(
 
 /// Creates the session manifest and saves it on store
 /// TODO: find a better solution to create the manifest (without calling a method externally)
-pub async fn create_manifest(handle: &Handle, context: &Context) -> Result<(), Error> {
+pub async fn create_manifest(context: &Context, handle: &Handle) -> Result<(), Error> {
     let mut cx = context.db.connection();
 
     let db_session = db::session_find_by_id(&mut cx, handle.id()).await?;
 
     let manifest =
         types::SessionManifest::new(handle.uuid().clone(), db_session.creation_timestamp());
-    manifest_write_to_store(handle, manifest, context).await?;
+    manifest_write_to_store(context, handle, manifest).await?;
 
     Ok(())
 }
 
 async fn manifest_write_to_store(
+    context: &Context,
     handle: &Handle,
     manifest: types::SessionManifest,
-    context: &Context,
 ) -> Result<(), Error> {
     let path = handle.sequence_locator.session_manifest(&manifest.uuid);
 
@@ -121,7 +121,7 @@ async fn manifest_write_to_store(
 /// Finalizes the session, making it and all its associated data immutable.
 ///
 /// Once a session is finalized, no more topics can be added to it.
-pub async fn finalize(handle: &Handle, context: &Context) -> Result<(), Error> {
+pub async fn finalize(context: &Context, handle: &Handle) -> Result<(), Error> {
     let mut tx = context.db.transaction().await?;
 
     // Collect all topics associated with this session
@@ -140,7 +140,7 @@ pub async fn finalize(handle: &Handle, context: &Context) -> Result<(), Error> {
     let all_topics_locked = futures::future::join_all(
         topics
             .iter()
-            .map(async |topic_handle| topic::manifest(topic_handle, context).await),
+            .map(async |topic_handle| topic::manifest(context, topic_handle).await),
     )
     .await
     .into_iter()
@@ -153,14 +153,14 @@ pub async fn finalize(handle: &Handle, context: &Context) -> Result<(), Error> {
     }
 
     // Update manifest (store).
-    let mut manifest = manifest(handle, context).await?;
+    let mut manifest = manifest(context, handle).await?;
     manifest.locked = true;
     manifest.completed_at = Some(types::Timestamp::now());
     manifest.topics = topics
         .into_iter()
         .map(|handle| handle.locator().clone())
         .collect();
-    manifest_write_to_store(handle, manifest, context).await?;
+    manifest_write_to_store(context, handle, manifest).await?;
 
     tx.commit().await?;
 
@@ -179,10 +179,10 @@ pub async fn finalize(handle: &Handle, context: &Context) -> Result<(), Error> {
 /// * [`Error::FailedAndNotified`]: if the error is correctly reported and notified.
 /// * [`Error::FailedAndUnableToNotify`]: if the notification creation failed.
 pub async fn delete(
+    context: &Context,
     handle: Handle,
     only_if_unlocked: bool,
     allow_data_loss: types::DataLossToken,
-    context: &Context,
 ) -> Result<(), Error> {
     let mut tx = context.db.transaction().await?;
 
@@ -192,20 +192,20 @@ pub async fn delete(
     );
     let mut error_report = types::ErrorReport::new(error_report_msg);
 
-    let session_locked = manifest(&handle, context).await?.locked;
+    let session_locked = manifest(context, &handle).await?.locked;
 
     if only_if_unlocked && session_locked {
         return Err(Error::SessionLocked);
     }
 
     // Deletes topic data
-    let topics = topic_list(&handle, context).await?;
+    let topics = topic_list(context, &handle).await?;
     for topic_handle in topics {
         let topic_locator_str = topic_handle.locator().to_string();
 
         // We collect all the errors to build a sequence notification reporting all error if
         // something fails.
-        if let Err(e) = topic::delete(topic_handle, types::allow_data_loss(), context).await {
+        if let Err(e) = topic::delete(context, topic_handle, types::allow_data_loss()).await {
             error_report
                 .errors
                 .push(types::ErrorReportItem::new(topic_locator_str, e));
@@ -236,14 +236,14 @@ pub async fn delete(
         msg = error_report.into();
 
         let sequence_handle =
-            sequence::Handle::try_from_locator(handle.sequence_locator, context).await?;
+            sequence::Handle::try_from_locator(context, handle.sequence_locator).await?;
 
         notification = Some(
             sequence::notify(
+                context,
                 &sequence_handle,
                 types::NotificationType::Error,
                 msg.clone(),
-                context,
             )
             .await?,
         );
@@ -267,7 +267,7 @@ pub async fn delete(
 }
 
 /// Returns the topic list associated with this session.
-pub async fn topic_list(handle: &Handle, context: &Context) -> Result<Vec<topic::Handle>, Error> {
+pub async fn topic_list(context: &Context, handle: &Handle) -> Result<Vec<topic::Handle>, Error> {
     let mut cx = context.db.connection();
 
     let topics = db::session_find_all_topics(&mut cx, handle.uuid()).await?;
@@ -278,7 +278,7 @@ pub async fn topic_list(handle: &Handle, context: &Context) -> Result<Vec<topic:
         .collect())
 }
 
-pub async fn manifest(handle: &Handle, context: &Context) -> Result<types::SessionManifest, Error> {
+pub async fn manifest(context: &Context, handle: &Handle) -> Result<types::SessionManifest, Error> {
     let path = handle.sequence_locator.session_manifest(handle.uuid());
 
     if !context.store.exists(&path).await? {
@@ -321,11 +321,11 @@ mod tests {
 
         let seq_locator = types::SequenceResourceLocator::from("test_sequence".to_string());
 
-        let seq_handle = sequence::try_create(seq_locator, None, &context)
+        let seq_handle = sequence::try_create(&context, seq_locator, None)
             .await
             .expect("Error creating sequence");
 
-        let session_handle = session::try_create(seq_handle.locator().clone(), &context)
+        let session_handle = session::try_create(&context, seq_handle.locator().clone())
             .await
             .expect("Error creating session");
 
@@ -347,7 +347,7 @@ mod tests {
         assert!(db_session.creation_timestamp().as_i64() > 0);
         assert!(db_session.completion_timestamp().is_none());
 
-        delete(session_handle, false, types::allow_data_loss(), &context)
+        delete(&context, session_handle, false, types::allow_data_loss())
             .await
             .expect("Unable to delete session");
 

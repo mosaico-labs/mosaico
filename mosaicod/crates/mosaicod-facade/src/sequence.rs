@@ -22,8 +22,8 @@ impl Handle {
     /// Try to obtain a handle from a sequence locator.
     /// Returns an error if the sequence does not exist.
     pub async fn try_from_locator(
-        locator: types::SequenceResourceLocator,
         context: &Context,
+        locator: types::SequenceResourceLocator,
     ) -> Result<Handle, Error> {
         let mut cx = context.db.connection();
 
@@ -37,7 +37,7 @@ impl Handle {
 
     /// Try to obtain a handle from a sequence UUID.
     /// Returns an error if the sequence does not exist.
-    pub async fn try_from_uuid(uuid: &types::Uuid, context: &Context) -> Result<Handle, Error> {
+    pub async fn try_from_uuid(context: &Context, uuid: &types::Uuid) -> Result<Handle, Error> {
         let mut cx = context.db.connection();
 
         let db_sequence = db::sequence_find_by_uuid(&mut cx, uuid).await?;
@@ -69,9 +69,9 @@ impl Handle {
 /// If a record with the same locator already exists, the operation fails and
 /// the database transaction is rolled back, restoring the previous state.
 pub async fn try_create(
+    context: &Context,
     locator: types::SequenceResourceLocator,
     metadata: Option<SequenceMetadata>,
-    context: &Context,
 ) -> Result<Handle, Error> {
     let mut tx = context.db.transaction().await?;
 
@@ -84,7 +84,7 @@ pub async fn try_create(
     let record = db::sequence_create(&mut tx, &record).await?;
 
     if let Some(mdata) = metadata {
-        metadata_write_to_store(&locator, mdata, context).await?;
+        metadata_write_to_store(context, &locator, mdata).await?;
     }
 
     tx.commit().await?;
@@ -113,9 +113,9 @@ pub async fn all(context: &Context) -> Result<Vec<Handle>, Error> {
 }
 
 async fn metadata_write_to_store(
+    context: &Context,
     locator: &types::SequenceResourceLocator,
     metadata: SequenceMetadata,
-    context: &Context,
 ) -> Result<(), Error> {
     let path = locator.path_metadata();
 
@@ -134,10 +134,10 @@ async fn metadata_write_to_store(
 
 /// Add a notification to the sequence
 pub async fn notify(
+    context: &Context,
     handle: &Handle,
     ntype: types::NotificationType,
     msg: String,
-    context: &Context,
 ) -> Result<types::Notification, Error> {
     let mut tx = context.db.transaction().await?;
 
@@ -153,8 +153,8 @@ pub async fn notify(
 
 /// Returns a list of all notifications for the sequence
 pub async fn notification_list(
-    handle: &Handle,
     context: &Context,
+    handle: &Handle,
 ) -> Result<Vec<types::Notification>, Error> {
     let mut trans = context.db.transaction().await?;
     let notifications =
@@ -167,7 +167,7 @@ pub async fn notification_list(
 }
 
 /// Deletes all the notifications associated with the sequence
-pub async fn notification_purge(handle: &Handle, context: &Context) -> Result<(), Error> {
+pub async fn notification_purge(context: &Context, handle: &Handle) -> Result<(), Error> {
     let mut trans = context.db.transaction().await?;
 
     let notifications =
@@ -183,7 +183,7 @@ pub async fn notification_purge(handle: &Handle, context: &Context) -> Result<()
 }
 
 /// Read the metadata from the store and returns an `HashMap` containing all the metadata
-pub async fn metadata(handle: &Handle, context: &Context) -> Result<SequenceMetadata, Error> {
+pub async fn metadata(context: &Context, handle: &Handle) -> Result<SequenceMetadata, Error> {
     let path = handle.locator.path_metadata();
     let bytes = context.store.read_bytes(&path).await?;
 
@@ -193,7 +193,7 @@ pub async fn metadata(handle: &Handle, context: &Context) -> Result<SequenceMeta
 }
 
 /// Returns the topic list for the given sequence
-pub async fn topic_list(handle: &Handle, context: &Context) -> Result<Vec<topic::Handle>, Error> {
+pub async fn topic_list(context: &Context, handle: &Handle) -> Result<Vec<topic::Handle>, Error> {
     let mut cx = context.db.connection();
 
     Ok(db::sequence_find_all_topics(&mut cx, &handle.locator)
@@ -205,8 +205,8 @@ pub async fn topic_list(handle: &Handle, context: &Context) -> Result<Vec<topic:
 
 /// Returns the session list associated with this sequence as vector of session UUIDs
 pub async fn session_list(
-    handle: &Handle,
     context: &Context,
+    handle: &Handle,
 ) -> Result<Vec<session::Handle>, Error> {
     let mut cx = context.db.connection();
     Ok(db::sequence_find_all_sessions(&mut cx, &handle.locator)
@@ -221,16 +221,16 @@ pub async fn session_list(
 /// Sequences, sessions and topics will be removed from the store and the database.
 /// The [`types::DataLossToken`] is required since this function will lead to data loss.
 pub async fn delete(
+    context: &Context,
     handle: Handle,
     allow_data_loss: types::DataLossToken,
-    context: &Context,
 ) -> Result<(), Error> {
     let mut tx = context.db.transaction().await?;
 
     // Retrieve sessions data and deletes it
-    let sessions = session_list(&handle, context).await?;
+    let sessions = session_list(context, &handle).await?;
     for session_handle in sessions {
-        session::delete(session_handle, false, allow_data_loss.clone(), context).await?;
+        session::delete(context, session_handle, false, allow_data_loss.clone()).await?;
     }
 
     // Delete sequence data
@@ -248,8 +248,8 @@ pub async fn delete(
 }
 
 pub async fn manifest(
-    handle: &Handle,
     context: &Context,
+    handle: &Handle,
 ) -> Result<types::SequenceManifest, Error> {
     let mut cx = context.db.connection();
 
@@ -262,10 +262,10 @@ pub async fn manifest(
         sessions: Vec::new(),
     };
 
-    let sessions = session_list(handle, context).await?;
+    let sessions = session_list(context, handle).await?;
 
     for session_handle in sessions {
-        let session_manifest = session::manifest(&session_handle, context).await?;
+        let session_manifest = session::manifest(context, &session_handle).await?;
         manifest.sessions.push(session_manifest);
     }
 
@@ -305,7 +305,7 @@ mod tests {
 
         let seq_locator = types::SequenceResourceLocator::from("test_sequence".to_string());
 
-        let handle = try_create(seq_locator, Some(mdata), &context)
+        let handle = try_create(&context, seq_locator, Some(mdata))
             .await
             .expect("Error creating sequence");
 
@@ -325,7 +325,7 @@ mod tests {
         // Check sequence locator
         assert_eq!(handle.locator.locator(), sequence.locator_name);
 
-        delete(handle, types::allow_data_loss(), &context)
+        delete(&context, handle, types::allow_data_loss())
             .await
             .expect("Unable to delete the sequence");
 
@@ -338,29 +338,29 @@ mod tests {
 
         let seq_locator = types::SequenceResourceLocator::from("test_sequence".to_string());
 
-        let handle = try_create(seq_locator, None, &context)
+        let handle = try_create(&context, seq_locator, None)
             .await
             .expect("Error creating sequence");
 
         // Check if sequence was created
-        let handle = Handle::try_from_locator(handle.locator, &context)
+        let handle = Handle::try_from_locator(&context, handle.locator)
             .await
             .expect("Unable to find the created sequence");
 
         notify(
+            &context,
             &handle,
             NotificationType::Error,
             "test notification message".to_owned(),
-            &context,
         )
         .await
         .expect("Error creating notification");
 
         notify(
+            &context,
             &handle,
             NotificationType::Error,
             "test notification message 2".to_owned(),
-            &context,
         )
         .await
         .expect("Error creating notification");
@@ -389,7 +389,7 @@ mod tests {
         assert!(second_notification.uuid().is_valid());
         assert_eq!(second_notification.sequence_id, handle.id());
 
-        notification_purge(&handle, &context)
+        notification_purge(&context, &handle)
             .await
             .expect("Unable to purge notifications");
 

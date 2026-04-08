@@ -15,7 +15,7 @@ impl<'a> Chunk<'a> {
         row_count: i64,
         context: &'a Context,
     ) -> Result<Self, Error> {
-        let topic_id = topic::Handle::try_from_uuid(&topic_uuid, context)
+        let topic_id = topic::Handle::try_from_uuid(context, &topic_uuid)
             .await?
             .id();
 
