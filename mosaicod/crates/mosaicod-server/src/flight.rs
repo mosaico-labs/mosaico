@@ -218,7 +218,7 @@ impl FlightService for MosaicodFlight {
 
         let criteria = request.into_inner();
 
-        let stream = endpoint::list_flights(self.context(), criteria)
+        let stream = endpoint::list_flights(&self.context(), criteria)
             .await
             .inspect_err(log_server_error)?;
 
@@ -236,7 +236,7 @@ impl FlightService for MosaicodFlight {
 
         let desc = request.into_inner();
 
-        let info = endpoint::get_flight_info(self.context(), desc)
+        let info = endpoint::get_flight_info(&self.context(), desc)
             .await
             .inspect_err(log_server_error)?;
 
@@ -272,7 +272,7 @@ impl FlightService for MosaicodFlight {
 
         let ticket = request.into_inner();
 
-        let data_stream = endpoint::do_get(self.context(), ticket)
+        let data_stream = endpoint::do_get(&self.context(), ticket)
             .await
             .inspect_err(log_server_error)?;
 
@@ -314,7 +314,7 @@ impl FlightService for MosaicodFlight {
             .map_err(ServerError::from)
             .inspect_err(log_server_error)?;
 
-        let response = endpoint::do_action(self.context(), action, auth_ctx.permissions())
+        let response = endpoint::do_action(&self.context(), action, auth_ctx.permissions())
             .await
             .inspect_err(log_server_error)?;
 

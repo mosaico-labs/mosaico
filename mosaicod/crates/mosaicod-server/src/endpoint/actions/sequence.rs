@@ -21,13 +21,15 @@ pub async fn create(
 
     // No sequence record was found, let's write it
     let metadata = types::SequenceMetadata::new(user_mdata);
-    let sequence_handle = facade::sequence::try_create(&locator, Some(metadata), ctx)
+    let sequence_handle = facade::sequence::try_create(locator, Some(metadata), ctx)
         .await
         .inspect_err(|e| println!("error in sequence create: {}", e))?;
 
-    let uuid = facade::sequence::uuid(&sequence_handle, ctx);
-
-    trace!("created resource {} with uuid {}", locator, uuid);
+    trace!(
+        "created resource {} with uuid {}",
+        sequence_handle.locator(),
+        sequence_handle.uuid()
+    );
 
     Ok(ActionResponse::sequence_create())
 }
@@ -38,7 +40,7 @@ pub async fn delete(ctx: &facade::Context, name: String) -> Result<ActionRespons
 
     let locator = types::SequenceResourceLocator::from(name);
 
-    let handle = facade::sequence::Handle::try_from_locator(&locator, ctx).await?;
+    let handle = facade::sequence::Handle::try_from_locator(locator.clone(), ctx).await?;
 
     facade::sequence::delete(handle, types::allow_data_loss(), ctx).await?;
     warn!("resource {} deleted", locator);
@@ -57,7 +59,7 @@ pub async fn notification_create(
 
     let locator = types::SequenceResourceLocator::from(name);
 
-    let handle = facade::sequence::Handle::try_from_locator(&locator, ctx).await?;
+    let handle = facade::sequence::Handle::try_from_locator(locator, ctx).await?;
 
     let ntype: types::NotificationType = notification_type.parse()?;
     facade::sequence::notify(&handle, ntype, msg, ctx).await?;
@@ -74,7 +76,7 @@ pub async fn notification_list(
 
     let locator = types::SequenceResourceLocator::from(name);
 
-    let handle = facade::sequence::Handle::try_from_locator(&locator, ctx).await?;
+    let handle = facade::sequence::Handle::try_from_locator(locator, ctx).await?;
 
     let notifications = facade::sequence::notification_list(&handle, ctx).await?;
 
@@ -92,7 +94,7 @@ pub async fn notification_purge(
 
     let locator = types::SequenceResourceLocator::from(name);
 
-    let handle = facade::sequence::Handle::try_from_locator(&locator, ctx).await?;
+    let handle = facade::sequence::Handle::try_from_locator(locator, ctx).await?;
 
     facade::sequence::notification_purge(&handle, ctx).await?;
 

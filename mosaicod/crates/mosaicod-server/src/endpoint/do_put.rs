@@ -77,10 +77,10 @@ async fn do_put_topic_data(
 
     let topic_locator = types::TopicResourceLocator::from(locator);
 
-    let mut topic_handle = facade::topic::Handle::try_from_locator(&topic_locator, &ctx).await?;
+    let mut topic_handle = facade::topic::Handle::try_from_locator(topic_locator, &ctx).await?;
 
     // perform the match between received uuid string and topic uuid
-    let topic_uuid = facade::topic::uuid(&topic_handle, &ctx);
+    let topic_uuid = topic_handle.uuid().clone();
     let received_uuid: types::Uuid = uuid_str.parse()?;
     if received_uuid != topic_uuid {
         return Err(ServerError::BadKey);

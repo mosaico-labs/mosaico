@@ -11,7 +11,7 @@ use mosaicod_facade as facade;
 use mosaicod_marshal as marshal;
 
 pub async fn do_get(
-    ctx: facade::Context,
+    ctx: &facade::Context,
     ticket: Ticket,
 ) -> Result<FlightDataEncoder, ServerError> {
     let ticket = marshal::flight::ticket_topic_from_binary(&ticket.ticket)?;
@@ -21,21 +21,19 @@ pub async fn do_get(
     // Create topic handle
     let topic_locator = types::TopicResourceLocator::from(ticket.locator);
 
-    let topic_handle = facade::topic::Handle::try_from_locator(&topic_locator, &ctx).await?;
+    let topic_handle = facade::topic::Handle::try_from_locator(topic_locator, ctx).await?;
 
     // Read metadata from topic
-    let metadata = facade::topic::manifest(&topic_handle, &ctx).await?;
+    let metadata = facade::topic::manifest(&topic_handle, ctx).await?;
 
     trace!("{:?}", metadata);
 
-    let batch_size = facade::topic::compute_optimal_batch_size(&topic_handle, &ctx).await?;
-
-    let topic_uuid = facade::topic::uuid(&topic_handle, &ctx);
+    let batch_size = facade::topic::compute_optimal_batch_size(&topic_handle, ctx).await?;
 
     let mut query_result = ctx
         .timeseries_querier
         .read(
-            &topic_locator.path_data_folder(&topic_uuid),
+            &topic_handle.locator().path_data_folder(topic_handle.uuid()),
             metadata.ontology_metadata.properties.serialization_format,
             Some(batch_size),
         )

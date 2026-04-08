@@ -34,16 +34,17 @@ pub async fn create(
 
     let session_handle = facade::session::Handle::try_from_uuid(&received_uuid, ctx).await?;
     let topic_handle =
-        facade::topic::create(&topic_locator, &session_handle, ontology_metadata, ctx).await?;
-
-    let topic_uuid = facade::topic::uuid(&topic_handle, ctx);
+        facade::topic::try_create(topic_locator, &session_handle, ontology_metadata, ctx).await?;
 
     trace!(
         "resource `{}` created with uuid {}",
-        topic_locator, topic_uuid,
+        topic_handle.locator(),
+        topic_handle.uuid(),
     );
 
-    Ok(ActionResponse::TopicCreate(topic_uuid.into()))
+    Ok(ActionResponse::TopicCreate(
+        topic_handle.uuid().clone().into(),
+    ))
 }
 
 /// Deletes an unlocked topic.
@@ -52,7 +53,7 @@ pub async fn delete(ctx: &facade::Context, locator: String) -> Result<ActionResp
 
     let topic_locator = types::TopicResourceLocator::from(locator);
 
-    let topic_handle = facade::topic::Handle::try_from_locator(&topic_locator, ctx).await?;
+    let topic_handle = facade::topic::Handle::try_from_locator(topic_locator.clone(), ctx).await?;
 
     if facade::topic::manifest(&topic_handle, ctx)
         .await?
@@ -79,7 +80,7 @@ pub async fn notification_create(
 
     let topic_locator = types::TopicResourceLocator::from(locator);
 
-    let topic_handle = facade::topic::Handle::try_from_locator(&topic_locator, ctx).await?;
+    let topic_handle = facade::topic::Handle::try_from_locator(topic_locator, ctx).await?;
 
     facade::topic::notify(&topic_handle, notification_type.parse()?, msg, ctx).await?;
 
@@ -95,7 +96,7 @@ pub async fn notification_list(
 
     let topic_locator = types::TopicResourceLocator::from(locator);
 
-    let topic_handle = facade::topic::Handle::try_from_locator(&topic_locator, ctx).await?;
+    let topic_handle = facade::topic::Handle::try_from_locator(topic_locator, ctx).await?;
 
     let notifications = facade::topic::notification_list(&topic_handle, ctx).await?;
 
@@ -111,7 +112,7 @@ pub async fn notification_purge(
 
     let topic_locator = types::TopicResourceLocator::from(locator);
 
-    let topic_handle = facade::topic::Handle::try_from_locator(&topic_locator, ctx).await?;
+    let topic_handle = facade::topic::Handle::try_from_locator(topic_locator, ctx).await?;
 
     facade::topic::notification_purge(&topic_handle, ctx).await?;
 

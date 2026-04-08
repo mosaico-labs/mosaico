@@ -47,6 +47,7 @@ pub async fn sequence_find_by_locator(
     )
     .fetch_one(exe.as_exec())
     .await?;
+
     Ok(res)
 }
 
@@ -66,14 +67,15 @@ pub async fn sequence_lookup(
     }
 }
 
-pub async fn sequence_find_all_topic_locators(
+pub async fn sequence_find_all_topics(
     exe: &mut impl AsExec,
     loc: &types::SequenceResourceLocator,
-) -> Result<Vec<types::TopicResourceLocator>, Error> {
-    trace!("searching topic locators by sequence `{}`", loc);
-    let res = sqlx::query_scalar!(
+) -> Result<Vec<schema::TopicRecord>, Error> {
+    trace!("searching topics for sequence `{}`", loc);
+    Ok(sqlx::query_as!(
+        schema::TopicRecord,
         r#"
-        SELECT topic.locator_name
+        SELECT topic.*
         FROM topic_t AS topic
         JOIN sequence_t AS sequence ON topic.sequence_id = sequence.sequence_id
         WHERE sequence.locator_name = $1
@@ -81,21 +83,18 @@ pub async fn sequence_find_all_topic_locators(
         loc.locator()
     )
     .fetch_all(exe.as_exec())
-    .await?;
-    Ok(res
-        .into_iter()
-        .map(types::TopicResourceLocator::from)
-        .collect())
+    .await?)
 }
 
 pub async fn sequence_find_all_sessions(
     exe: &mut impl AsExec,
     loc: &types::SequenceResourceLocator,
-) -> Result<Vec<types::Uuid>, Error> {
-    trace!("searching sessions by sequence `{}`", loc);
-    let res = sqlx::query_scalar!(
+) -> Result<Vec<schema::SessionRecord>, Error> {
+    trace!("searching sessions for sequence `{}`", loc);
+    Ok(sqlx::query_as!(
+        schema::SessionRecord,
         r#"
-        SELECT session.session_uuid
+        SELECT session.*
         FROM session_t AS session 
         JOIN sequence_t AS sequence ON session.sequence_id = sequence.sequence_id
         WHERE sequence.locator_name = $1
@@ -103,8 +102,7 @@ pub async fn sequence_find_all_sessions(
         loc.locator()
     )
     .fetch_all(exe.as_exec())
-    .await?;
-    Ok(res.into_iter().map(types::Uuid::from).collect())
+    .await?)
 }
 
 /// Return all sequences

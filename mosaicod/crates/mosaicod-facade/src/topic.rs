@@ -19,23 +19,33 @@ type TopicOntologyMetadata = types::TopicOntologyMetadata<marshal::JsonMetadataB
 /// Handle containing topic identifiers.
 /// It's used by all functions (except creation) in this module to indicate the topic to operate on.
 pub struct Handle {
-    pub(super) locator: types::TopicResourceLocator,
+    locator: types::TopicResourceLocator,
     identifiers: types::Identifiers,
 }
 
 impl Handle {
+    pub(super) fn new(
+        locator: types::TopicResourceLocator,
+        identifiers: types::Identifiers,
+    ) -> Self {
+        Self {
+            locator,
+            identifiers,
+        }
+    }
+
     /// Try to obtain a handle from a topic locator.
     /// Returns an error if the topic does not exist.
     pub async fn try_from_locator(
-        locator: &types::TopicResourceLocator,
+        locator: types::TopicResourceLocator,
         context: &Context,
     ) -> Result<Self, Error> {
         let mut cx = context.db.connection();
 
-        let db_topic = db::topic_find_by_locator(&mut cx, locator).await?;
+        let db_topic = db::topic_find_by_locator(&mut cx, &locator).await?;
 
         Ok(Self {
-            locator: locator.clone(),
+            locator,
             identifiers: db_topic.identifiers(),
         })
     }
@@ -53,8 +63,12 @@ impl Handle {
         })
     }
 
-    pub(super) fn uuid(&self) -> &types::Uuid {
+    pub fn uuid(&self) -> &types::Uuid {
         &self.identifiers.uuid
+    }
+
+    pub fn locator(&self) -> &types::TopicResourceLocator {
+        &self.locator
     }
 
     pub(super) fn id(&self) -> i32 {
@@ -68,8 +82,8 @@ impl Handle {
 ///
 /// Additional checks about the scope of the topic are performed. If the topic locator is
 /// not a child of the related sequence locator an error [`Error::Unauthorized`] is returned.
-pub async fn create(
-    locator: &types::TopicResourceLocator,
+pub async fn try_create(
+    locator: types::TopicResourceLocator,
     session_handle: &session::Handle,
     ontology_metadata: TopicOntologyMetadata,
     context: &Context,
@@ -77,8 +91,8 @@ pub async fn create(
     let mut tx = context.db.transaction().await?;
 
     // Check that there are not other topics with the same locator
-    if db::topic_find_by_locator(&mut tx, locator).await.is_ok() {
-        return Err(Error::topic_already_exists(locator.clone()));
+    if db::topic_find_by_locator(&mut tx, &locator).await.is_ok() {
+        return Err(Error::topic_already_exists(locator));
     }
 
     // Ensure that uuid points to an unlocked session
@@ -88,9 +102,9 @@ pub async fn create(
 
     // Find parent sequence and ensure that this topic is child of the provided
     // sequence, i.e. they are related with the same name structure
-    let seq_rec = db::sequence_find_by_locator(&mut tx, &session_handle.sequence_locator).await?;
+    let seq_rec = db::sequence_find_by_locator(&mut tx, session_handle.sequence_locator()).await?;
 
-    if !locator.is_sub_resource(&session_handle.sequence_locator) {
+    if !locator.is_sub_resource(session_handle.sequence_locator()) {
         return Err(Error::Unauthorized);
     }
 
@@ -121,7 +135,7 @@ pub async fn create(
 
     let manifest = types::TopicManifest::new(
         types::TopicProperties::new_with_created_at(
-            locator.clone(),
+            locator,
             session_handle.uuid().clone(),
             record.creation_timestamp(),
         ),
@@ -504,10 +518,6 @@ impl<'a> std::ops::DerefMut for TopicWriterGuard<'a> {
     }
 }
 
-pub fn uuid(handle: &Handle, _context: &Context) -> types::Uuid {
-    handle.uuid().clone()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -540,25 +550,27 @@ mod tests {
 
         let seq_locator = types::SequenceResourceLocator::from("test_sequence");
 
-        sequence::try_create(&seq_locator, None, &context)
+        let seq_handle = sequence::try_create(seq_locator, None, &context)
             .await
             .expect("Error creating sequence");
 
         // Check if sequence was created
         let mut cx = context.db.connection();
-        let sequence = db::sequence_find_by_locator(&mut cx, &seq_locator)
+        let sequence = db::sequence_find_by_locator(&mut cx, seq_handle.locator())
             .await
             .expect("Unable to find the created sequence");
 
         // Check sequence locator
-        assert_eq!(seq_locator.locator(), sequence.locator_name);
+        assert_eq!(seq_handle.locator().locator(), sequence.locator_name);
 
-        let session_handle = session::try_create(&seq_locator, &context).await.unwrap();
+        let session_handle = session::try_create(seq_handle.locator().clone(), &context)
+            .await
+            .unwrap();
 
         let topic_locator = types::TopicResourceLocator::from("test_sequence/test_topic");
 
-        let topic_handle = create(
-            &topic_locator,
+        let topic_handle = try_create(
+            topic_locator,
             &session_handle,
             dummy_ontology_metadata(),
             &context,
@@ -568,12 +580,15 @@ mod tests {
 
         // Check if topic was created
         let mut cx = context.db.connection();
-        let topic = db::topic_find_by_locator(&mut cx, &topic_locator)
+        let topic = db::topic_find_by_locator(&mut cx, topic_handle.locator())
             .await
             .expect("Unable to find the created topic");
 
         // Check topic locator.
-        assert_eq!(topic_locator.locator(), topic.locator().to_string());
+        assert_eq!(
+            topic_handle.locator().locator(),
+            topic.locator().to_string()
+        );
 
         // Check topic deletion.
         delete(topic_handle, types::allow_data_loss(), &context)
@@ -593,29 +608,29 @@ mod tests {
 
         let seq_locator = types::SequenceResourceLocator::from("test_sequence");
 
-        sequence::try_create(&seq_locator, None, &context)
+        let seq_handle = sequence::try_create(seq_locator, None, &context)
             .await
             .expect("Unable to create sequence");
 
         // Check if sequence was created
         let mut cx = context.db.connection();
 
-        let sequence = db::sequence_find_by_locator(&mut cx, &seq_locator)
+        let sequence = db::sequence_find_by_locator(&mut cx, seq_handle.locator())
             .await
             .expect("Unable to find the created sequence");
 
         // Check sequence locator
-        assert_eq!(seq_locator.locator(), sequence.locator_name);
+        assert_eq!(seq_handle.locator().locator(), sequence.locator_name);
 
-        let session_handle = session::try_create(&seq_locator, &context)
+        let session_handle = session::try_create(seq_handle.locator().clone(), &context)
             .await
             .expect("Unable to create session");
         assert!(session_handle.uuid().is_valid());
 
         let topic_locator: types::TopicResourceLocator = "test_sequence/test_topic".into();
 
-        let topic_handle = create(
-            &topic_locator,
+        let topic_handle = try_create(
+            topic_locator,
             &session_handle,
             dummy_ontology_metadata(),
             &context,
@@ -641,14 +656,15 @@ mod tests {
         .await
         .expect("Error creating notification message");
 
-        let topic = db::topic_find_by_locator(&mut cx, &topic_locator)
+        let topic = db::topic_find_by_locator(&mut cx, topic_handle.locator())
             .await
             .expect("Unable to find the created topic");
 
         // Check if notifications were created on database.
-        let notifications = db::topic_notifications_find_by_locator(&mut cx, &topic_locator)
-            .await
-            .unwrap();
+        let notifications =
+            db::topic_notifications_find_by_locator(&mut cx, topic_handle.locator())
+                .await
+                .unwrap();
 
         assert_eq!(notifications.len(), 2);
 
@@ -674,7 +690,7 @@ mod tests {
 
         // Check there are no more notifications on database.
         assert!(
-            db::topic_notifications_find_by_locator(&mut cx, &topic_locator)
+            db::topic_notifications_find_by_locator(&mut cx, topic_handle.locator())
                 .await
                 .unwrap()
                 .is_empty()

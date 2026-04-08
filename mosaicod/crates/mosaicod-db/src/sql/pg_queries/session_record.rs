@@ -90,14 +90,15 @@ pub async fn session_delete(
 }
 
 /// Find all topic associated with a session
-pub async fn session_find_all_topic_locators(
+pub async fn session_find_all_topics(
     exe: &mut impl AsExec,
     uuid: &types::Uuid,
-) -> Result<Vec<types::TopicResourceLocator>, Error> {
-    trace!("searching topic locators by session `{}`", uuid);
-    let res = sqlx::query_scalar!(
+) -> Result<Vec<schema::TopicRecord>, Error> {
+    trace!("searching topics for session `{}`", uuid);
+    Ok(sqlx::query_as!(
+        schema::TopicRecord,
         r#"
-        SELECT topic.locator_name
+        SELECT topic.*
         FROM topic_t AS topic
         JOIN session_t AS session 
             ON topic.session_id = session.session_id
@@ -106,9 +107,5 @@ pub async fn session_find_all_topic_locators(
         uuid.as_ref(),
     )
     .fetch_all(exe.as_exec())
-    .await?;
-    Ok(res
-        .into_iter()
-        .map(types::TopicResourceLocator::from)
-        .collect())
+    .await?)
 }
