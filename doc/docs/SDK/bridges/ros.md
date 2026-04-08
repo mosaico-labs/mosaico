@@ -355,7 +355,6 @@ The following table details the injection performance for the **NVIDIA R2B Datas
 
 * **Compression Factors**: Sequences like `r2b_galileo2` achieve high ratios (~70%) because Mosaico optimizes the underlying columnar storage for scalar telemetry. Conversely, sequences with pre-compressed video feeds show minimal gains (~1%) because the data is already in a dense format.
 * **Injection Time**: This metric includes the overhead of local MCAP/DB3 deserialization via [`ROSLoader`][mosaicolabs.ros_bridge.loader.ROSLoader], semantic translation through the [`ROSBridge`][mosaicolabs.ros_bridge.ROSBridge], and the asynchronous transmission to the Mosaico server.
-* **Hardware Impact**: On the **Apple M2 Pro**, the [`RosbagInjector`][mosaicolabs.ros_bridge.RosbagInjector] utilizes multi-threading for the **Adaptation Layer**, allowing serialization tasks to run in parallel while the main thread manages the Flight stream.
 
 #### Known Issues & Limitations
 

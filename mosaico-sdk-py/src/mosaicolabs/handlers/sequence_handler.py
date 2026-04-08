@@ -7,7 +7,7 @@ and access reading interfaces (`SequenceDataStreamer`).
 """
 
 import json
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import pyarrow.flight as fl
 
@@ -16,9 +16,7 @@ from mosaicolabs.platform.resource_info import TopicResourceInfo
 from ..comm.connection import (
     DEFAULT_MAX_BATCH_BYTES,
     DEFAULT_MAX_BATCH_SIZE_RECORDS,
-    _ConnectionPool,
 )
-from ..comm.executor_pool import _ExecutorPool
 from ..enum import OnErrorPolicy, SessionLevelErrorPolicy
 from ..helpers import sanitize_sequence_name
 from ..logging_config import get_logger
@@ -57,8 +55,6 @@ class SequenceHandler:
         *,
         sequence_model: Sequence,
         client: fl.FlightClient,
-        connection_pool_allocator: Callable[[], _ConnectionPool],
-        executor_pool_allocator: Callable[[], _ExecutorPool],
         timestamp_ns_min: Optional[int],
         timestamp_ns_max: Optional[int],
     ):
@@ -87,22 +83,12 @@ class SequenceHandler:
         """Lowest timestamp [ns] in the sequence (among all the topics)"""
         self._timestamp_ns_max: Optional[int] = timestamp_ns_max
         """Highest timestamp [ns] in the sequence (among all the topics)"""
-        self._connection_pool_allocator: Callable[[], _ConnectionPool] = (
-            connection_pool_allocator
-        )
-        """Allocator for connection pools"""
-        self._executor_pool_allocator: Callable[[], _ExecutorPool] = (
-            executor_pool_allocator
-        )
-        """Allocator for executor pools"""
 
     @classmethod
     def _connect(
         cls,
         sequence_name: str,
         client: fl.FlightClient,
-        connection_pool_allocator: Callable[[], _ConnectionPool],
-        executor_pool_allocator: Callable[[], _ExecutorPool],
     ) -> Optional["SequenceHandler"]:
         """
         Internal factory method to create a handler.
@@ -115,8 +101,6 @@ class SequenceHandler:
         Args:
             sequence_name (str): Name of the sequence.
             client (fl.FlightClient): Connected client.
-            connection_pool_allocator (Callable): the callback for allocationg a connection pool.
-            executor_pool_allocator (Callable): the callback for allocationg an executor pool.
 
         Returns:
             SequenceHandler: Initialized handler or None if error occurs
@@ -133,8 +117,6 @@ class SequenceHandler:
         return cls(
             sequence_model=sequence_model,
             client=client,
-            connection_pool_allocator=connection_pool_allocator,
-            executor_pool_allocator=executor_pool_allocator,
             timestamp_ns_min=tstamp_ns_min,
             timestamp_ns_max=tstamp_ns_max,
         )
@@ -534,8 +516,7 @@ class SequenceHandler:
                         # Start creating topics and pushing data
                         # (1)!
 
-                # Exiting the block automatically flushes all topic buffers, finalizes the sequence on the server
-                # and closes all connections and pools
+                # Exiting the block automatically flushes all topic buffers and finalizes the sequence on the server
             ```
 
             1. See also:
@@ -561,8 +542,6 @@ class SequenceHandler:
         return SequenceUpdater(
             sequence_name=self._sequence.name,
             client=self._fl_client,
-            connection_pool=self._connection_pool_allocator(),
-            executor_pool=self._executor_pool_allocator(),
             config=SessionWriterConfig(
                 on_error=on_error,
                 max_batch_size_bytes=max_batch_size_bytes,

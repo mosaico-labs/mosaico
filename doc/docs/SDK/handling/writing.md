@@ -5,8 +5,6 @@ description: Data Writers.
 
 The **Writing Workflow** in Mosaico is designed for high-throughput data ingestion, ensuring that your application remains responsive even when streaming high-bandwidth sensor data like 4K video or high-frequency IMU telemetry.
 
-The architecture is built around a **"Multi-Lane"** approach, where each sensor stream operates in its own isolated lane with dedicated system resources.
-
 !!! info "API-Keys"
     When the connection is established via the authorization middleware (i.e. using an [API-Key](../client.md#2-authentication-api-key)), the writing workflow is allowed only if the key has at least [`APIKeyPermissionEnum.Write`][mosaicolabs.enum.APIKeyPermissionEnum.Write] permission.
 
@@ -21,7 +19,6 @@ Spawning a new sequence writer is done via the [`MosaicoClient.connect()`][mosai
 **Key Roles:**
 
 * **Lifecycle Management**: It handles the lifecycle of a new sequence resource and related writing Session, ensuring that it is either successfully committed as immutable data. In the event of a failure, the sequence and the written data are handled according to the configured [`SessionLevelErrorPolicy`][mosaicolabs.enum.SessionLevelErrorPolicy].
-* **Resource Distribution**: The writer pulls network connections from the **Connection Pool** and background threads from the **Executor Pool**, assigning them to individual topics. This isolation prevents a slow network connection on one topic from bottlenecking others.
 * **Context Safety**: To ensure data integrity, the `SequenceWriter` must be used within a Python `with` block. This guarantees that all buffers are flushed and the sequence is closed properly, even if your application crashes.
 
 ```python
@@ -90,7 +87,6 @@ Once a topic is created via [`SequenceWriter.topic_create`][mosaicolabs.handlers
 
 * **Smart Buffering**: Instead of sending every single message over the network—which would be highly inefficient—the `TopicWriter` accumulates records in a memory buffer.
 * **Automated Flushing**: The writer automatically triggers a "flush" to the server whenever the internal buffer exceeds your configured limits, such as a maximum byte size or a specific number of records.
-* **Asynchronous Serialization**: For CPU-intensive data (like encoding images), the writer can offload the serialization process to background threads, ensuring your main application loop stays fast.
 
 ```python
 # Continues from the code above...
@@ -185,7 +181,6 @@ Spawning a new sequence updater is done via the [`SequenceHandler.update()`][mos
 **Key Roles:**
 
 * **Lifecycle Management**: It handles the lifecycle of a new writing Session on an existing sequence and ensures that it is either successfully committed as immutable data or, in the event of a failure, cleaned up according to the configured [`SessionLevelErrorPolicy`][mosaicolabs.enum.SessionLevelErrorPolicy].
-* **Resource Distribution**: The writer pulls network connections from the **Connection Pool** and background threads from the **Executor Pool**, assigning them to individual topics. This isolation prevents a slow network connection on one topic from bottlenecking others.
 * **Context Safety**: To ensure data integrity, the `SequenceUpdater` must be used within a Python `with` block. This guarantees that all buffers are flushed and the writing Session is closed properly, even if your application crashes.
 
 ```python

@@ -161,7 +161,7 @@ The behavior of the orchestrator during a failure is governed by the `on_error` 
 
 ### Step 3: Topic Creation and Resource Allocation
 
-Inside the sequence, we create individual **Topic Writers** to manage data streams. Each writer is an independent "lane" assigned its own internal buffer and background thread for serialization.
+Inside the sequence, we create individual **Topic Writers** to manage data streams.
 
 ```python
 with client.sequence_create(...) as swriter:

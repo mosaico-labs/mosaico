@@ -227,7 +227,7 @@ The behavior of the orchestrator during a failure is governed by the `on_error` 
 
 ### Step 3: Topic Creation and Resource Allocation
 
-Inside the sequence, we can stream interleaved data without loading the entire file into memory. We automatically create individual **Topic Writers** per each channel in the MCAP file to manage data streams. Each writer is an independent "lane" assigned its own internal buffer and background thread for serialization. The [`swriter.get_topic_writer`][mosaicolabs.handlers.SequenceWriter.get_topic_writer] pattern removes the need to pre-scan the file. **Topics are created only when they are first encountered**.
+Inside the sequence, we can stream interleaved data without loading the entire file into memory. We automatically create individual **Topic Writers** per each channel in the MCAP file to manage data streams. The [`swriter.get_topic_writer`][mosaicolabs.handlers.SequenceWriter.get_topic_writer] pattern removes the need to pre-scan the file. **Topics are created only when they are first encountered**.
 
 ```python
 with client.sequence_create(...) as swriter:
