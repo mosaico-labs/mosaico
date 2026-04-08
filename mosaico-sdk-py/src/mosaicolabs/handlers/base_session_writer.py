@@ -3,7 +3,7 @@ Session (Base) Writing Module.
 
 This module acts as the central controller for writing a session in an existing sequence.
 It manages the lifecycle of the session on the server (Create -> Write -> Finalize/Abort)
-and distributes client resources (Connections, Executors) to individual Topics.
+and distributes client resources to individual Topics.
 """
 
 from abc import ABC, abstractmethod

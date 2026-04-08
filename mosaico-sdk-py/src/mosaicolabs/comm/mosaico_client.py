@@ -51,8 +51,7 @@ class MosaicoClient:
     The gateway to the Mosaico Data Platform.
 
     This class centralizes connection management, and serves as a
-    factory for specialized handlers. It is designed to manage the lifecycle of
-    both network connections and asynchronous executors efficiently.
+    factory for specialized handlers.
 
     Tip: Context Manager Usage
         The `MosaicoClient` is best used as a context manager to ensure

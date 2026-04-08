@@ -3,7 +3,7 @@ Sequence Writing Module.
 
 This module acts as the central controller for writing a sequence of data.
 It manages the lifecycle of the sequence on the server (Create -> Write -> Finalize)
-and distributes client resources (Connections, Executors) to individual Topics.
+and distributes client resources to individual Topics.
 """
 
 from typing import Any, Optional, Type

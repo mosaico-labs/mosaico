@@ -127,7 +127,7 @@ for bag_path in BAG_FILES_PATH:
 
 ### Phase 2: High-Performance Ingestion
 
-Configure and run the injector. This layer handles connection pooling, asynchronous serialization, and batching.
+Configure and run the injector. This layer handles connection, serialization, and batching, via the Mosaico [Writing Workflow](../handling/writing.md)
 
 ```python
 config = ROSInjectionConfig(

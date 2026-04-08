@@ -93,7 +93,6 @@ Once a topic is created via [`SequenceWriter.topic_create`][mosaicolabs.handlers
 
     # with client.sequence_create(...) as seq_writer:
         # Create individual Topic Writers
-        # Each writer gets its own assigned resources from the pools
         imu_writer = seq_writer.topic_create(
             topic_name="sensors/imu", # The univocal topic name
             metadata={ # The topic/sensor custom metadata
@@ -148,8 +147,7 @@ Once a topic is created via [`SequenceWriter.topic_create`][mosaicolabs.handlers
                     )
                 )
 
-# Exiting the block automatically flushes all topic buffers, finalizes the sequence on the server 
-# and closes all connections and pools
+# Exiting the block automatically flushes all topic buffers and finalizes the sequence on the server 
 ```
 
 1. The metadata fields will be queryable via the [`Query` mechanism](../query.md). The mechanism allows creating query expressions like: `QueryTopic().with_user_metadata("interface.type", eq="UART")`.
@@ -211,12 +209,10 @@ Once obtained, the `SequenceUpdater` can be used to create new topics and push d
 
     # seq_handler.update(...) as seq_updater:
         # Create individual Topic Writers
-        # Each writer gets its own assigned resources from the pools
         imu_writer = seq_updater.topic_create(...)
 
         # Push data - The SDK handles batching and background I/O
         imu_writer.push(...)
 
-# Exiting the block automatically flushes all topic buffers, finalizes the sequence on the server 
-# and closes all connections and pools
+# Exiting the block automatically flushes all topic buffers and finalizes the sequence on the server 
 ```

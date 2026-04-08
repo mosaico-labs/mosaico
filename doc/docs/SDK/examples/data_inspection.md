@@ -33,7 +33,7 @@ By following this guide, you will learn how to:
 
 ## Step 1: Connecting to the Catalog
 
-The first step is establishing a control connection. We use the [`MosaicoClient`][mosaicolabs.comm.MosaicoClient] within a context manager to ensure that network resources and internal connection pools are gracefully released when the script finishes.
+The first step is establishing a control connection. We use the [`MosaicoClient`][mosaicolabs.comm.MosaicoClient] within a context manager to ensure that network resources are gracefully released when the script finishes.
 
 ```python
 from mosaicolabs import MosaicoClient
