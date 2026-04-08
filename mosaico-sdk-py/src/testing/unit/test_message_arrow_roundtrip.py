@@ -56,9 +56,9 @@ from mosaicolabs.models.futures.radar import Radar
 
 def assert_helper(expected, actual, rel=1e-4, abs_tol=None):
 
-    # assert type(expected) is type(actual), (
-    #     f"Type mismatch (expected != actual): {type(expected)} != {type(actual)}"
-    # )
+    assert type(expected) is type(actual), (
+        f"Type mismatch (expected != actual): {type(expected)} != {type(actual)}"
+    )
 
     if isinstance(expected, dict):
         assert set(expected.keys()) == set(actual.keys()), (

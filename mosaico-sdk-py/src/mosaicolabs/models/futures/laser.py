@@ -14,8 +14,7 @@ return mode:
 
 from typing import List, Optional
 
-from mosaicolabs.models import BaseModel, MosaicoType, Serializable
-from mosaicolabs.models.types import MosaicoField
+from mosaicolabs.models import BaseModel, MosaicoField, MosaicoType, Serializable
 
 SingleRange = List[MosaicoType.float32]
 """Type alias for a single-return range array: one distance value per beam."""
@@ -29,10 +28,6 @@ class _LaserScanBase(BaseModel):
     Internal generic base model shared by laser scan ontologies.
 
     Encodes the scan geometry, timing metadata, and range and intensity arrays that are common to both single-return and multi-echo laser scanners.
-    The type parameter ``T`` determines the shape of the ``ranges`` and ``intensities`` arrays:
-
-    * ``T = SingleRange`` (``List[float]``) for single-return scanners one distance value per beam.
-    * ``T = MultiRange`` (``List[List[float]]``) for multi-echo scanners a list of distance values per beam.
 
     **This class is not intended to be instantiated directly**. Use one of the concrete subclasses: [`LaserScan`][mosaicolabs.models.futures.LaserScan] or [`MultiEchoLaserScan`][mosaicolabs.models.futures.MultiEchoLaserScan].
 

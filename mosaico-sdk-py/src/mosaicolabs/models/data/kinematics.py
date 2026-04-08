@@ -13,8 +13,7 @@ from typing import Optional
 
 from pydantic import model_validator
 
-from mosaicolabs.models import MosaicoType
-from mosaicolabs.models.types import MosaicoField
+from mosaicolabs import MosaicoField, MosaicoType
 
 from ..mixins import CovarianceMixin
 from ..serializable import Serializable

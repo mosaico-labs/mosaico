@@ -5,11 +5,9 @@ This module defines the LiDAR ontology model, which represents a 3D point cloud
 obtained from a LiDAR sensor.
 """
 
-from typing import Any, Dict, Optional
+from typing import Optional
 
-from mosaicolabs.models import MosaicoType
-from mosaicolabs.models.serializable import Serializable
-from mosaicolabs.models.types import MosaicoField
+from mosaicolabs import MosaicoField, MosaicoType, Serializable
 
 
 class Lidar(Serializable):
@@ -38,8 +36,7 @@ class Lidar(Serializable):
         return_type: Single/dual return classification, manufacturer-specific (optional).
         point_timestamp: Per-point acquisition time offset from the scan start,
             in seconds (optional).
-        extra_attributes: Additional manufacturer-specific attributes serialised as
-            raw binary data (optional).
+
 
     Note:
         List-typed fields are **not queryable** via the `.Q` proxy. The `.Q` proxy
@@ -182,16 +179,4 @@ class Lidar(Serializable):
     Allows precise temporal localisation of individual points within a single
     sweep, which is important for motion-distortion correction during
     point-cloud registration.
-    """
-
-    extra_attributes: Optional[Dict[MosaicoType.string, Any]] = MosaicoField(
-        default=None,
-        nullable=True,
-        description="extra attributes, manufacturer-specific.",
-    )
-    """
-    Additional manufacturer-specific attributes serialised as raw binary data.
-    
-    Provides a forward-compatible escape hatch for vendor extensions that do
-    not map to any of the standardised fields above.
     """

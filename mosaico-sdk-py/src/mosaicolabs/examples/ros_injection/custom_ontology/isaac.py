@@ -1,5 +1,4 @@
-from mosaicolabs import Serializable
-from mosaicolabs.models.types import MosaicoField, MosaicoType
+from mosaicolabs import MosaicoField, MosaicoType, Serializable
 
 
 class EncoderTicks(Serializable):
@@ -9,13 +8,10 @@ class EncoderTicks(Serializable):
     This model represents raw wheel encoder counts and their hardware-specific
     timestamps, providing the base data for dead-reckoning and odometry calculations.
 
-    ### Structural Integrity
-    To pass Mosaico's strict schema alignment check, the names defined in the
-    `__msco_pyarrow_struct__` must match the Pydantic field names one-to-one.
-
     Attributes:
         left_ticks: Cumulative tick count for the left wheel.
         right_ticks: Cumulative tick count for the right wheel.
+        encoder_timestamp: Timestamp of the encoder ticks.
     """
 
     # --- Pydantic Fields ---

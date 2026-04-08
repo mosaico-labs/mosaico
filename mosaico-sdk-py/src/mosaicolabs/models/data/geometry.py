@@ -13,8 +13,7 @@ The module follows a **Two-Tier Architecture** to optimize both internal efficie
 
 from typing import Optional
 
-from mosaicolabs.models import MosaicoType
-from mosaicolabs.models.types import MosaicoField
+from mosaicolabs import MosaicoField, MosaicoType
 
 from ..base_model import BaseModel
 from ..mixins import CovarianceMixin
@@ -42,7 +41,7 @@ class _Vector2dStruct(BaseModel):
     # readers from incorrectly deserializing a `None` _Vector2dStruct field in a class
     # as a default-initialized object (e.g., getting _Vector2dStruct(0, ...) instead of None).
     x: MosaicoType.float64 = MosaicoField(
-        nullable=True, description="Vector x component"
+        nullable=True, description="Vector x component."
     )
     """
     The Vector X component
@@ -101,7 +100,7 @@ class _Vector2dStruct(BaseModel):
     """
 
     y: MosaicoType.float64 = MosaicoField(
-        nullable=True, description="Vector y component"
+        nullable=True, description="Vector y component."
     )
     """
     The Vector Y component
@@ -194,7 +193,7 @@ class _Vector3dStruct(BaseModel):
     # readers from incorrectly deserializing a `None` _Vector3dStruct field in a class
     # as a default-initialized object (e.g., getting _Vector3dStruct(0, ...) instead of None).
     x: MosaicoType.float64 = MosaicoField(
-        nullable=True, description="Vector x component"
+        nullable=True, description="Vector x component."
     )
     """
     The Vector X component
@@ -253,7 +252,7 @@ class _Vector3dStruct(BaseModel):
     """
 
     y: MosaicoType.float64 = MosaicoField(
-        nullable=True, description="Vector y component"
+        nullable=True, description="Vector y component."
     )
     """
     The Vector Y component
@@ -312,7 +311,7 @@ class _Vector3dStruct(BaseModel):
     """
 
     z: MosaicoType.float64 = MosaicoField(
-        nullable=True, description="Vector z component"
+        nullable=True, description="Vector z component."
     )
     """
     The Vector Z component
@@ -405,7 +404,7 @@ class _Vector4dStruct(BaseModel):
     # readers from incorrectly deserializing a `None` _Vector4dStruct field in a class
     # as a default-initialized object (e.g., getting _Vector4dStruct(0, ...) instead of None).
     x: MosaicoType.float64 = MosaicoField(
-        nullable=True, description="Vector x component"
+        nullable=True, description="Vector x component."
     )
     """
     The Vector X component
@@ -464,7 +463,7 @@ class _Vector4dStruct(BaseModel):
     """
 
     y: MosaicoType.float64 = MosaicoField(
-        nullable=True, description="Vector y component"
+        nullable=True, description="Vector y component."
     )
 
     """
@@ -524,7 +523,7 @@ class _Vector4dStruct(BaseModel):
     """
 
     z: MosaicoType.float64 = MosaicoField(
-        nullable=True, description="Vector z component"
+        nullable=True, description="Vector z component."
     )
 
     """
@@ -584,7 +583,7 @@ class _Vector4dStruct(BaseModel):
     """
 
     w: MosaicoType.float64 = MosaicoField(
-        nullable=True, description="Vector w component"
+        nullable=True, description="Vector w component."
     )
 
     """

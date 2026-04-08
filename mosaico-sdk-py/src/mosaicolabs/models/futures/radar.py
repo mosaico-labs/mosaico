@@ -5,10 +5,9 @@ This module defines the Radar ontology model, which represents a sparse point cl
 of detections obtained from a Radar sensor.
 """
 
-from typing import Any, Dict, Optional
+from typing import Optional
 
-from mosaicolabs.models import MosaicoType, Serializable
-from mosaicolabs.models.types import MosaicoField
+from mosaicolabs import MosaicoField, MosaicoType, Serializable
 
 
 class Radar(Serializable):
@@ -45,8 +44,7 @@ class Radar(Serializable):
         ax: X component of the acceleration of each detection in m/s² (optional).
         ay: Y component of the acceleration of each detection in m/s² (optional).
         radial_speed: Radial speed of each detection in m/s (optional).
-        extra_attributes: Additional manufacturer-specific attributes serialised as
-            raw binary data (optional).
+
 
     Note:
         MosaicoType.list_(-typed fields are **not queryable** via the `.Q` proxy. The `.Q` proxy
@@ -210,16 +208,4 @@ class Radar(Serializable):
     Represents the magnitude of the velocity component along the line of sight,
     without sign convention. Distinct from ``doppler_velocity``, which may carry
     a directional sign depending on the sensor's convention.
-    """
-
-    extra_attributes: Optional[Dict[MosaicoType.string, Any]] = MosaicoField(
-        default=None,
-        nullable=True,
-        description="extra attributes, manufacturer-specific.",
-    )
-    """
-    Additional manufacturer-specific attributes serialised as raw binary data.
-
-    Provides a forward-compatible escape hatch for vendor extensions that do
-    not map to any of the standardised fields above.
     """

@@ -11,7 +11,7 @@ These wrappers elevate basic data types to "first-class citizens" of the messagi
 
 from typing import Any
 
-from mosaicolabs.models.types import MosaicoField, MosaicoType
+from mosaicolabs import MosaicoField, MosaicoType
 
 from ..serializable import Serializable
 
@@ -58,7 +58,7 @@ class Integer8(Serializable):
         ```
     """
 
-    data: MosaicoType.int8 = MosaicoField(description="8-bit Integer data")
+    data: MosaicoType.int8 = MosaicoField(description="8-bit Integer data.")
     """
     The underlying integer value.
     
@@ -144,7 +144,7 @@ class Integer16(Serializable):
         ```
     """
 
-    data: MosaicoType.int16 = MosaicoField(description="16-bit Integer data")
+    data: MosaicoType.int16 = MosaicoField(description="16-bit Integer data.")
     """
     The underlying integer value.
     
@@ -230,7 +230,7 @@ class Integer32(Serializable):
         ```
     """
 
-    data: MosaicoType.int32 = MosaicoField(description="32-bit Integer data")
+    data: MosaicoType.int32 = MosaicoField(description="32-bit Integer data.")
     """
     The underlying integer value.
     
@@ -316,7 +316,7 @@ class Integer64(Serializable):
         ```
     """
 
-    data: MosaicoType.int64 = MosaicoField(description="64-bit Integer data")
+    data: MosaicoType.int64 = MosaicoField(description="64-bit Integer data.")
     """
     The underlying integer value.
     
@@ -405,7 +405,7 @@ class Unsigned8(Serializable):
         ```
     """
 
-    data: MosaicoType.uint8 = MosaicoField(description="8-bit Unsigned data")
+    data: MosaicoType.uint8 = MosaicoField(description="8-bit Unsigned data.")
     """
     The underlying unsigned integer value.
     
@@ -505,7 +505,7 @@ class Unsigned16(Serializable):
         ```
     """
 
-    data: MosaicoType.uint16 = MosaicoField(description="16-bit Unsigned data")
+    data: MosaicoType.uint16 = MosaicoField(description="16-bit Unsigned data.")
     """
     The underlying unsigned integer value.
     
@@ -605,7 +605,7 @@ class Unsigned32(Serializable):
         ```
     """
 
-    data: MosaicoType.uint32 = MosaicoField(description="32-bit Unsigned data")
+    data: MosaicoType.uint32 = MosaicoField(description="32-bit Unsigned data.")
     """
     The underlying unsigned integer value.
     
@@ -705,7 +705,7 @@ class Unsigned64(Serializable):
         ```
     """
 
-    data: MosaicoType.uint64 = MosaicoField(description="64-bit Unsigned data")
+    data: MosaicoType.uint64 = MosaicoField(description="64-bit Unsigned data.")
     """
     The underlying unsigned integer value.
     
@@ -802,7 +802,7 @@ class Floating16(Serializable):
         ```
     """
 
-    data: MosaicoType.float16 = MosaicoField(description="16-bit Floating-point data")
+    data: MosaicoType.float16 = MosaicoField(description="16-bit Floating-point data.")
     """
     The underlying single-precision float.
     
@@ -888,7 +888,7 @@ class Floating32(Serializable):
         ```
     """
 
-    data: MosaicoType.float32 = MosaicoField(description="32-bit Floating-point data")
+    data: MosaicoType.float32 = MosaicoField(description="32-bit Floating-point data.")
     """
     The underlying single-precision float.
     
@@ -974,7 +974,7 @@ class Floating64(Serializable):
         ```
     """
 
-    data: MosaicoType.float64 = MosaicoField(description="64-bit Floating-point data")
+    data: MosaicoType.float64 = MosaicoField(description="64-bit Floating-point data.")
     """
     The underlying single-precision float.
 
@@ -1060,7 +1060,7 @@ class Boolean(Serializable):
         ```
     """
 
-    data: MosaicoType.bool = MosaicoField(description="Boolean data")
+    data: MosaicoType.bool = MosaicoField(description="Boolean data.")
     """
     The underlying boolean value.
     
@@ -1146,7 +1146,7 @@ class String(Serializable):
         ```
     """
 
-    data: MosaicoType.string = MosaicoField(description="String data")
+    data: MosaicoType.string = MosaicoField(description="String data.")
     """
     The underlying string data.
     
@@ -1235,7 +1235,7 @@ class LargeString(Serializable):
         ```
     """
 
-    data: MosaicoType.large_string = MosaicoField(description="Large string data")
+    data: MosaicoType.large_string = MosaicoField(description="Large string data.")
     """
     The underlying large string data.
 

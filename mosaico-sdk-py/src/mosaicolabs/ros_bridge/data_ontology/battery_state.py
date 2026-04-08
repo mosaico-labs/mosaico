@@ -14,33 +14,8 @@ class BatteryState(Serializable):
         This model is still not included in the default ontology of Mosaico and is defined specifically for the ros-bridge module
     """
 
-    # __msco_pyarrow_struct__ = pa.struct(
-    #     [
-    #         # --- Power Metrics ---
-    #         pa.field("voltage", pa.float32(), metadata={"unit": "V"}),
-    #         pa.field("temperature", pa.float32(), metadata={"unit": "C"}),
-    #         pa.field("current", pa.float32(), metadata={"unit": "A"}),
-    #         pa.field("charge", pa.float32(), metadata={"unit": "Ah"}),
-    #         pa.field("capacity", pa.float32(), metadata={"unit": "Ah"}),
-    #         pa.field("design_capacity", pa.float32(), metadata={"unit": "Ah"}),
-    #         pa.field("percentage", pa.float32(), metadata={"range": "0-1"}),
-    #         # --- Status & ID ---
-    #         # Storing enums as integers to be efficient and language-agnostic
-    #         pa.field("power_supply_status", pa.uint8()),
-    #         pa.field("power_supply_health", pa.uint8()),
-    #         pa.field("power_supply_technology", pa.uint8()),
-    #         pa.field("present", pa.bool_()),
-    #         pa.field("location", pa.string()),
-    #         pa.field("serial_number", pa.string()),
-    #         # --- Cell Data ---
-    #         # Using lists for variable-length cell data
-    #         pa.field("cell_voltage", pa.list_(pa.float32()), nullable=True),
-    #         pa.field("cell_temperature", pa.list_(pa.float32()), nullable=True),
-    #     ]
-    # )
-
     # Core Metrics
-    voltage: MosaicoType.float32 = MosaicoField(description="The battery voltage")
+    voltage: MosaicoType.float32 = MosaicoField(description="The battery voltage in V.")
     """The battery voltage value"""
 
     temperature: Optional[MosaicoType.float32] = MosaicoField(

@@ -53,11 +53,13 @@ class PointCloud2(Serializable):
     """
 
     height: MosaicoType.uint32 = MosaicoField(
-        description="The height of the point cloud"
+        description="The height of the point cloud."
     )
     """The height of the point cloud."""
 
-    width: MosaicoType.uint32 = MosaicoField(description="The width of the point cloud")
+    width: MosaicoType.uint32 = MosaicoField(
+        description="The width of the point cloud."
+    )
     """The width of the point cloud."""
 
     fields: List[PointField] = MosaicoField(

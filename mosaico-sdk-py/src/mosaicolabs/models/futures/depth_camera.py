@@ -17,13 +17,11 @@ All three models share a common spatial core (``x``, ``y``, ``z``) and optional
 colour/intensity channels, and extend it with technology-specific fields.
 """
 
-from typing import Any, Dict, Optional, Tuple
+from typing import Optional, Tuple
 
 import numpy as np
 
-from mosaicolabs.models import BaseModel, MosaicoType
-from mosaicolabs.models.serializable import Serializable
-from mosaicolabs.models.types import MosaicoField
+from mosaicolabs.models import BaseModel, MosaicoField, MosaicoType, Serializable
 
 
 def pack_rgb(r: int, g: int, b: int) -> float:
@@ -43,7 +41,7 @@ def pack_rgb(r: int, g: int, b: int) -> float:
         The RGB color encoded as a 32-bit float.
     """
     packed = np.uint32((r << 16) | (g << 8) | b)
-    return np.frombuffer(packed.tobytes(), dtype=np.float32)[0]
+    return float(np.frombuffer(packed.tobytes(), dtype=np.float32)[0])
 
 
 def unpack_rgb(packed_rgb: float) -> Tuple[int, int, int]:
@@ -68,7 +66,7 @@ def unpack_rgb(packed_rgb: float) -> Tuple[int, int, int]:
     return red, green, blue
 
 
-class _DepthCamera(BaseModel):
+class _DepthCameraBase(BaseModel):
     """
     Internal base model shared by all depth camera ontologies.
 
@@ -85,8 +83,6 @@ class _DepthCamera(BaseModel):
         z: Depth values (distance along the optical axis) of each point, in meters.
         rgb: Packed RGB colour value per point (optional).
         intensity: Signal amplitude or intensity per point (optional).
-        extra_attributes: Additional vendor-specific attributes serialised as
-            raw binary data (optional).
     """
 
     x: MosaicoType.list_(MosaicoType.float32) = MosaicoField(
@@ -127,18 +123,8 @@ class _DepthCamera(BaseModel):
     )
     """Signal amplitude or intensity per point."""
 
-    extra_attributes: Optional[Dict[MosaicoType.string, Any]] = MosaicoField(
-        default=None, nullable=True, description="Vendor-specific attributes."
-    )
-    """
-    Additional vendor-specific attributes.
 
-    Provides a forward-compatible escape hatch for proprietary extensions that
-    do not map to any of the standardised fields above.
-    """
-
-
-class RGBDCamera(_DepthCamera, Serializable):
+class RGBDCamera(_DepthCameraBase, Serializable):
     """
     RGB-D camera ontology.
 
@@ -161,8 +147,6 @@ class RGBDCamera(_DepthCamera, Serializable):
         z: Depth values (distance along the optical axis) of each point, in meters.
         rgb: Packed RGB colour value per point (optional).
         intensity: Signal amplitude or intensity per point (optional).
-        extra_attributes: Additional vendor-specific attributes serialised as
-            raw binary data (optional).
 
     Note:
         List-typed fields are **not queryable** via the `.Q` proxy. The `.Q` proxy
@@ -186,7 +170,7 @@ class RGBDCamera(_DepthCamera, Serializable):
     ...
 
 
-class ToFCamera(_DepthCamera, Serializable):
+class ToFCamera(_DepthCameraBase, Serializable):
     """
     Time-of-Flight (ToF) camera ontology.
 
@@ -214,8 +198,6 @@ class ToFCamera(_DepthCamera, Serializable):
         intensity: Signal amplitude or intensity per point (optional).
         noise: Per-pixel noise estimate of the depth measurement (optional).
         grayscale: Passive greyscale amplitude per pixel (optional).
-        extra_attributes: Additional vendor-specific attributes serialised as
-            raw binary data (optional).
 
     Note:
         List-typed fields are **not queryable** via the `.Q` proxy. The `.Q` proxy
@@ -259,7 +241,7 @@ class ToFCamera(_DepthCamera, Serializable):
     """
 
 
-class StereoCamera(_DepthCamera, Serializable):
+class StereoCamera(_DepthCameraBase, Serializable):
     """
     Stereo camera ontology.
 
@@ -288,8 +270,6 @@ class StereoCamera(_DepthCamera, Serializable):
         luma: Luminance of the corresponding pixel in the rectified image (optional).
         cost: Stereo matching cost per point; lower values indicate higher
             disparity confidence (optional).
-        extra_attributes: Additional vendor-specific attributes serialised as
-            raw binary data (optional).
 
     Note:
         List-typed fields are **not queryable** via the `.Q` proxy. The `.Q` proxy

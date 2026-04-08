@@ -12,6 +12,7 @@ It implements a **Registry/Factory Pattern**:
 3.  **Query Capability**: It injects query proxies allowing users to write `IMU.Q.acc_x > 0`.
 """
 
+from enum import Enum
 from typing import (
     Annotated,
     Any,
@@ -72,8 +73,7 @@ class Serializable(BaseModel, _QueryProxyMixin):
     To create a valid custom ontology, your subclass must:
 
     1.  Inherit from `Serializable`.
-    2.  Define a `__msco_pyarrow_struct__` attribute using `pa.StructType` to specify the physical schema.
-    3.  Define the class fields (using Pydantic syntax) matching the Arrow structure.
+    2.  Define the attributes using [`MosaicoType`][mosaicolabs.models.MosaicoType] and [`MosaicoField`][mosaicolabs.models.types.MosaicoField]
 
     Tip: Automatic Registration
         Any subclass of `Serializable` is automatically registered in the global Mosaico registry upon definition. This enables the use of the factory methods and the `.Q` query proxy immediately.
@@ -106,18 +106,8 @@ class Serializable(BaseModel, _QueryProxyMixin):
             ValueError: If the generated or assigned tag collides with an existing one.
         """
         cls.__msco_pyarrow_struct__ = cls._build_ontology_struct(cls)
+        # TODO: check if is it correct call super here.
         super().__pydantic_init_subclass__(**kwargs)
-
-        # Schema Validation
-        if not hasattr(cls, "__msco_pyarrow_struct__") or not isinstance(
-            cls.__msco_pyarrow_struct__, pa.StructType
-        ):
-            raise AttributeError(
-                "Classes for Data Ontology must have a pyarrow '__msco_pyarrow_struct__' attribute."
-            )
-
-        # This ensures that names match exactly before registration
-        cls._validate_schema_alignment()
 
         # Tag Generation
         tag = cls.__ontology_tag__ or camel_to_snake(cls.__name__)
@@ -142,37 +132,6 @@ class Serializable(BaseModel, _QueryProxyMixin):
         )
 
     # --- Factory Methods ---
-
-    @classmethod
-    def _validate_schema_alignment(cls):
-        """
-        Ensures a 1:1 mapping between Pydantic fields and the PyArrow struct schema.
-        """
-        # Get the names from the PyArrow struct
-        pa_field_names = set(f.name for f in cls.__msco_pyarrow_struct__)
-
-        # Exclude the Serializable inner fields + the Query Proxy
-        ignore_fields = set(_QueryProxyMixin.__annotations__)
-
-        python_fields = set()
-        for base in cls.mro():
-            # Collect all annotations but filter out internal Mosaico or Python dunders
-            annotations = getattr(base, "__annotations__", {})
-            python_fields.update(
-                k
-                for k in annotations.keys()
-                if k not in ignore_fields and not k.startswith("_")
-            )
-
-        # Perform the Symmetric Difference check
-        discrepancies = pa_field_names ^ python_fields
-        if discrepancies:
-            raise TypeError(
-                f"Schema mismatch in ontology class '{cls.__name__}':\n"
-                f" - Fields in PyArrow but missing or renamed in class fields: {list(discrepancies)}\n"
-                f"Hint: Every field in the __msco_pyarrow_struct__ must have a "
-                f"corresponding type-hinted attribute in the class or its mixins."
-            )
 
     @classmethod
     def _create(cls, tag: str, *args, **kwargs) -> "Serializable":
@@ -271,6 +230,19 @@ class Serializable(BaseModel, _QueryProxyMixin):
 
     @classmethod
     def _build_ontology_struct(cls, model_class: type[BaseModel]) -> pa.StructType:
+        """
+        Recursively converts a Pydantic model into a PyArrow StructType.
+
+        This method iterates through the fields of a Pydantic model, resolves their
+        types into PyArrow equivalents, and preserves field descriptions as
+        PyArrow field metadata.
+
+        Args:
+            model_class: The Pydantic model class to convert.
+
+        Returns:
+            A pa.StructType representing the schema of the Pydantic model.
+        """
         pa_fields = []
         for field_name, field_info in model_class.model_fields.items():
             annotation = field_info.annotation
@@ -292,7 +264,29 @@ class Serializable(BaseModel, _QueryProxyMixin):
     def _resolve_type(
         cls, base_type: Any, suggested_type: Optional[Any] = None
     ) -> pa.DataType:
+        """
+        Maps Python/Pydantic types to their corresponding PyArrow DataType.
 
+        This method handles nested structures, including:
+        * Primitive types (via BASE_MAPPING).
+        * Complex types (List, Dict/Map).
+        * Pydantic models (nested structs).
+        * Enums (resolved to their base primitive type).
+        * Unions/Optionals (supports single-type Unions with None).
+        * Annotated types (extracts metadata for type hinting).
+
+        Args:
+            base_type: The Python type or type hint to resolve.
+            suggested_type: An optional pre-defined PyArrow DataType provided
+                via Annotated metadata.
+
+        Returns:
+            The resolved pa.DataType.
+
+        Raises:
+            NotImplementedError: If a Union contains more than one non-None type.
+            ValueError: If the type cannot be mapped to a known PyArrow type.
+        """
         if isinstance(suggested_type, pa.DataType):
             return suggested_type
 
@@ -332,7 +326,28 @@ class Serializable(BaseModel, _QueryProxyMixin):
 
         # fallback
         base_primitive = origin if origin is not None else base_type
-        return BASE_MAPPING.get(base_primitive, pa.string())
+        base_pa = BASE_MAPPING.get(base_primitive)
+
+        if base_pa is None:
+            # Enum resolver
+            if issubclass(base_primitive, Enum):
+                base_pa = next(
+                    (
+                        b
+                        for b in base_primitive.__mro__
+                        if b not in (base_primitive, Enum, object)
+                        and not issubclass(b, Enum)
+                    ),
+                    None,
+                )
+
+                return cls._resolve_type(base_pa)
+            else:
+                raise ValueError(
+                    f"{cls.__name__}: Base mapping not found for {base_primitive}. Any is not supported."
+                )
+
+        return base_pa
 
     @classmethod
     def is_registered(cls) -> bool:
