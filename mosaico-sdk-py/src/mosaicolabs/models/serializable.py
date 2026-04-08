@@ -330,7 +330,7 @@ class Serializable(BaseModel, _QueryProxyMixin):
 
         if base_pa is None:
             # Enum resolver
-            if issubclass(base_primitive, Enum):
+            if isinstance(base_primitive, type) and issubclass(base_primitive, Enum):
                 base_pa = next(
                     (
                         b
