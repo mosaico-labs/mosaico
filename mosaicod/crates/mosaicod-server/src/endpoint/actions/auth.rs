@@ -1,5 +1,4 @@
 use crate::ServerError;
-use crate::endpoint::Context;
 use log::info;
 use mosaicod_core::types;
 use mosaicod_facade as facade;
@@ -7,7 +6,7 @@ use mosaicod_marshal::ActionResponse;
 
 /// Creates a new api key with the given name and metadata.
 pub async fn api_key_create(
-    ctx: &Context,
+    ctx: &facade::Context,
     permissions: String,
     expires_at: Option<types::Timestamp>,
     description: String,
@@ -27,7 +26,7 @@ pub async fn api_key_create(
 
 /// Returns the status for the given api key.
 pub async fn api_key_status(
-    ctx: &Context,
+    ctx: &facade::Context,
     fingerprint: &str,
 ) -> Result<ActionResponse, ServerError> {
     info!("requested api key status");
@@ -37,7 +36,7 @@ pub async fn api_key_status(
 
 /// Revokes the selected api key.
 pub async fn api_key_revoke(
-    ctx: &Context,
+    ctx: &facade::Context,
     fingerprint: &str,
 ) -> Result<ActionResponse, ServerError> {
     info!("requested api key revocation");

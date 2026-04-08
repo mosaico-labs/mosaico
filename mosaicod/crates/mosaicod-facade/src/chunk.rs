@@ -1,4 +1,4 @@
-use super::Error;
+use super::{Context, Error, topic};
 use mosaicod_core::types;
 use mosaicod_db as db;
 
@@ -9,13 +9,17 @@ pub struct Chunk<'a> {
 
 impl<'a> Chunk<'a> {
     pub async fn create(
-        topic_id: i32,
+        topic_uuid: types::Uuid,
         datafile: impl AsRef<std::path::Path>,
         size_bytes: i64,
         row_count: i64,
-        db: &'a db::Database,
+        context: &'a Context,
     ) -> Result<Self, Error> {
-        let mut tx = db.transaction().await?;
+        let topic_id = topic::Handle::try_from_uuid(context, &topic_uuid)
+            .await?
+            .id();
+
+        let mut tx = context.db.transaction().await?;
 
         let chunk = db::chunk_create(
             &mut tx,
