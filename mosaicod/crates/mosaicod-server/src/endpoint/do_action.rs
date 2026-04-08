@@ -3,13 +3,11 @@
 //! This module implements the main dispatcher for Flight DoAction requests,
 //! delegating to specialized handler functions for each action category.
 
-use super::{
-    Context,
-    actions::{layer, misc, query as query_action, sequence, session, topic},
-};
+use super::actions::{layer, misc, query as query_action, sequence, session, topic};
 use crate::endpoint::actions::auth;
 use crate::errors::ServerError;
 use mosaicod_core::types::auth::Permission;
+use mosaicod_facade as facade;
 use mosaicod_marshal::{ActionRequest, ActionResponse};
 
 /// Dispatches a Flight action request to the appropriate handler.
@@ -17,7 +15,7 @@ use mosaicod_marshal::{ActionRequest, ActionResponse};
 /// This function serves as the main entry point for all Flight DoAction requests,
 /// routing each action type to its specialized handler function.
 pub async fn do_action(
-    ctx: Context,
+    ctx: &facade::Context,
     action: ActionRequest,
     perm: &Permission,
 ) -> Result<ActionResponse, ServerError> {
@@ -30,32 +28,31 @@ pub async fn do_action(
         // Sequence
         ActionRequest::SequenceCreate(data) => {
             let user_metadata = data.user_metadata()?;
-            sequence::create(&ctx, data.locator, user_metadata.as_str()).await
+            sequence::create(ctx, data.locator, user_metadata.as_str()).await
         }
-        ActionRequest::SequenceDelete(data) => sequence::delete(&ctx, data.locator).await,
+        ActionRequest::SequenceDelete(data) => sequence::delete(ctx, data.locator).await,
         ActionRequest::SequenceNotificationCreate(data) => {
-            sequence::notification_create(&ctx, data.locator, data.notification_type, data.msg)
-                .await
+            sequence::notification_create(ctx, data.locator, data.notification_type, data.msg).await
         }
         ActionRequest::SequenceNotificationList(data) => {
-            sequence::notification_list(&ctx, data.locator).await
+            sequence::notification_list(ctx, data.locator).await
         }
         ActionRequest::SequenceNotificationPurge(data) => {
-            sequence::notification_purge(&ctx, data.locator).await
+            sequence::notification_purge(ctx, data.locator).await
         }
 
         // ///////
         // Session
-        ActionRequest::SessionCreate(data) => session::create(&ctx, data.locator).await,
-        ActionRequest::SessionFinalize(data) => session::finalize(&ctx, data.session_uuid).await,
-        ActionRequest::SessionDelete(data) => session::delete(&ctx, data.session_uuid).await,
+        ActionRequest::SessionCreate(data) => session::create(ctx, data.locator).await,
+        ActionRequest::SessionFinalize(data) => session::finalize(ctx, data.session_uuid).await,
+        ActionRequest::SessionDelete(data) => session::delete(ctx, data.session_uuid).await,
 
         // /////
         // Topic
         ActionRequest::TopicCreate(data) => {
             let user_metadata = data.user_metadata()?;
             topic::create(
-                &ctx,
+                ctx,
                 data.locator,
                 data.session_uuid,
                 data.serialization_format.into(),
@@ -64,35 +61,35 @@ pub async fn do_action(
             )
             .await
         }
-        ActionRequest::TopicDelete(data) => topic::delete(&ctx, data.locator).await,
+        ActionRequest::TopicDelete(data) => topic::delete(ctx, data.locator).await,
         ActionRequest::TopicNotificationCreate(data) => {
-            topic::notification_create(&ctx, data.locator, data.notification_type, data.msg).await
+            topic::notification_create(ctx, data.locator, data.notification_type, data.msg).await
         }
         ActionRequest::TopicNotificationList(data) => {
-            topic::notification_list(&ctx, data.locator).await
+            topic::notification_list(ctx, data.locator).await
         }
         ActionRequest::TopicNotificationPurge(data) => {
-            topic::notification_purge(&ctx, data.locator).await
+            topic::notification_purge(ctx, data.locator).await
         }
 
         // /////
         // Layer
-        ActionRequest::LayerCreate(data) => layer::create(&ctx, data.name, data.description).await,
-        ActionRequest::LayerDelete(data) => layer::delete(&ctx, data.name).await,
+        ActionRequest::LayerCreate(data) => layer::create(ctx, data.name, data.description).await,
+        ActionRequest::LayerDelete(data) => layer::delete(ctx, data.name).await,
         ActionRequest::LayerUpdate(data) => {
-            layer::update(&ctx, data.prev_name, data.curr_name, data.curr_description).await
+            layer::update(ctx, data.prev_name, data.curr_name, data.curr_description).await
         }
-        ActionRequest::LayerList(_) => layer::list(&ctx).await,
+        ActionRequest::LayerList(_) => layer::list(ctx).await,
 
         // /////
         // Query
-        ActionRequest::Query(data) => query_action::execute(&ctx, data.query).await,
+        ActionRequest::Query(data) => query_action::execute(ctx, data.query).await,
 
         // ////
         // Api Key
         ActionRequest::ApiKeyCreate(data) => {
             auth::api_key_create(
-                &ctx,
+                ctx,
                 data.permissions,
                 data.expires_at_ns.map(Into::into),
                 data.description,
@@ -101,11 +98,11 @@ pub async fn do_action(
         }
 
         ActionRequest::ApiKeyStatus(data) => {
-            auth::api_key_status(&ctx, data.api_key_fingerprint.as_str()).await
+            auth::api_key_status(ctx, data.api_key_fingerprint.as_str()).await
         }
 
         ActionRequest::ApiKeyRevoke(data) => {
-            auth::api_key_revoke(&ctx, data.api_key_fingerprint.as_str()).await
+            auth::api_key_revoke(ctx, data.api_key_fingerprint.as_str()).await
         }
 
         // /////

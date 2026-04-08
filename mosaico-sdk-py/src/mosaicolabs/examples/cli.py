@@ -30,6 +30,13 @@ CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
 @click.option(
     "--port", default=6726, type=int, help="The Mosaico Server port.", show_default=True
 )
+@click.option("--tls", is_flag=True, help="Enables the TLS protocol.")
+@click.option(
+    "--api-key",
+    default=None,
+    help="The Mosaico API-Key (must have Write permission at least).",
+    show_default=True,
+)
 @click.option(
     "--log-level",
     "-l",
@@ -38,7 +45,7 @@ CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
     help="Set the logging level.",
     show_default=True,
 )
-def run_example_cli(example, host, port, log_level):
+def run_example_cli(example, host, port, tls, api_key, log_level):
     """
     Mosaico SDK Examples Runner.
 
@@ -51,9 +58,17 @@ def run_example_cli(example, host, port, log_level):
     # This ensures that when examples import MOSAICO_HOST, they get the CLI value
     config.MOSAICO_HOST = host
     config.MOSAICO_PORT = port
+    config.ENABLE_TLS = tls
+    config.API_KEY = api_key
+    config.LOG_LEVEL = log_level.upper()
 
     click.secho(f"Launching example: {example}", fg="cyan", bold=True)
-    click.echo(f"Target: {host}:{port}\n")
+    target_str = (
+        f"{host}:{port}"
+        + (" --tls" if config.ENABLE_TLS else "")
+        + ("--api-key" if config.API_KEY else "")
+    )
+    click.echo(f"Target Host: {target_str}\n")
 
     try:
         # Dynamically import the chosen example module

@@ -1,17 +1,18 @@
-use super::Context;
-use crate::{endpoint, errors::ServerError};
+use crate::errors::ServerError;
 use arrow::datatypes::SchemaRef;
 use arrow_flight::decode::{DecodedFlightData, DecodedPayload, FlightDataDecoder};
 use arrow_flight::flight_descriptor::DescriptorType;
 use futures::TryStreamExt;
 use log::{info, trace};
 use mosaicod_core::types;
-use mosaicod_db as db;
 use mosaicod_facade as facade;
 use mosaicod_marshal as marshal;
 use mosaicod_rw as rw;
 
-pub async fn do_put(ctx: Context, decoder: &mut FlightDataDecoder) -> Result<(), ServerError> {
+pub async fn do_put(
+    ctx: facade::Context,
+    decoder: &mut FlightDataDecoder,
+) -> Result<(), ServerError> {
     let (cmd, schema) = extract_command_and_schema_from_header_message(decoder).await?;
     do_put_topic_data(ctx, decoder, schema, cmd).await
 }
@@ -59,45 +60,45 @@ fn extract_command_from_flight_data(
 }
 
 async fn do_put_topic_data(
-    ctx: endpoint::Context,
+    ctx: facade::Context,
     decoder: &mut FlightDataDecoder,
     schema: SchemaRef,
     cmd: types::flight::DoPutCmd,
 ) -> Result<(), ServerError> {
     let locator = cmd.resource_locator;
-    let key = &cmd.key;
+    let uuid_str = &cmd.key;
 
     info!(
-        "client trying to upload topic '{}' using key `{}`",
-        locator, key
+        "client trying to upload topic '{}' using uuid `{}`",
+        locator, uuid_str
     );
 
     mosaicod_ext::arrow::check_schema(&schema)?;
 
-    let mut handle =
-        facade::Topic::try_from_locator(locator.into(), ctx.store.clone(), ctx.db.clone()).await?;
+    let topic_locator = types::TopicResourceLocator::from(locator);
 
-    // perform the match between received key and topic id
-    let r_id = handle.resource_id().await?;
-    let received_uuid: types::Uuid = key.parse()?;
-    if received_uuid != r_id.uuid {
+    let mut topic_handle = facade::topic::Handle::try_from_locator(&ctx, topic_locator).await?;
+
+    // perform the match between received uuid string and topic uuid
+    let topic_uuid = topic_handle.uuid().clone();
+    let received_uuid: types::Uuid = uuid_str.parse()?;
+    if received_uuid != topic_uuid {
         return Err(ServerError::BadKey);
     }
 
-    let mdata = handle.manifest().await?;
+    let mdata = facade::topic::manifest(&ctx, &topic_handle).await?;
 
     // Setup the callback that will be used to create the database record for the data catalog
     // and prepare variables that will be moved in the closure
     let ontology_tag = mdata.ontology_metadata.properties.ontology_tag;
     let serialization_format = mdata.ontology_metadata.properties.serialization_format;
-    let topic_id = r_id.id;
 
     trace!("creating topic writer");
-    let mut writer = handle.writer(ctx.timeseries_querier, serialization_format);
+    let mut writer = facade::topic::writer(ctx.clone(), &mut topic_handle, serialization_format);
 
     writer.on_chunk_created(move |target_path, cols_stats, chunk_metadata| {
-        let topic_id = topic_id;
-        let db_clone = ctx.db.clone();
+        let topic_uuid = topic_uuid.clone();
+        let ctx_clone = ctx.clone();
         let ontology_tag = ontology_tag.clone();
 
         async move {
@@ -108,8 +109,8 @@ async fn do_put_topic_data(
             );
 
             Ok(on_chunk_created(
-                db_clone,
-                topic_id,
+                &ctx_clone,
+                topic_uuid,
                 &ontology_tag,
                 target_path,
                 cols_stats,
@@ -154,19 +155,19 @@ async fn do_put_topic_data(
 }
 
 async fn on_chunk_created(
-    db: db::Database,
-    topic_id: i32,
+    context: &facade::Context,
+    topic_uuid: types::Uuid,
     ontology_tag: &str,
     target_path: impl AsRef<std::path::Path>,
     cstats: types::OntologyModelStats,
     chunk_metadata: rw::ChunkMetadata,
 ) -> Result<(), ServerError> {
     let mut handle = facade::Chunk::create(
-        topic_id,
+        topic_uuid,
         &target_path,
         chunk_metadata.size_bytes as i64,
         chunk_metadata.row_count as i64,
-        &db,
+        context,
     )
     .await?;
 

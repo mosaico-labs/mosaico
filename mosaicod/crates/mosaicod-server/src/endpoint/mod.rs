@@ -1,8 +1,5 @@
 mod actions;
 
-mod context;
-pub use context::Context;
-
 mod do_action;
 mod do_get;
 mod do_put;

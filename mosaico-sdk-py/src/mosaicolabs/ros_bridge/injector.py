@@ -186,6 +186,7 @@ class ROSInjectionConfig:
     """A mapping of topics to adapter overrides, allowing the use of specific adapters instead of the default for designated topics."""
 
     log_level: str = "INFO"
+    """The Log Level"""
 
     mosaico_api_key: Optional[str] = None
     """
@@ -197,6 +198,9 @@ class ROSInjectionConfig:
 
     tls_cert_path: Optional[str] = None
     """Path to the TLS certificate file for secure connection on the mosaico server. Defaults to None."""
+
+    enable_tls: bool = False
+    """Enable the TLS commmunication protocol. Defaults to False"""
 
 
 # --- UI / Progress Helper ---
@@ -408,6 +412,7 @@ class RosbagInjector:
                 host=self.cfg.host,
                 port=self.cfg.port,
                 api_key=self.cfg.mosaico_api_key,
+                enable_tls=self.cfg.enable_tls,
                 tls_cert_path=self.cfg.tls_cert_path,
             ) as mclient:
                 # Context: ROS Loader (File Access)

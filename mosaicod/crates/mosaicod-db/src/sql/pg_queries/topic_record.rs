@@ -39,7 +39,7 @@ pub async fn topic_find_by_ids(
     Ok(res)
 }
 
-/// Find a sequence given its name.
+/// Find a topic given its name.
 pub async fn topic_find_by_locator(
     exe: &mut impl AsExec,
     topic: &types::TopicResourceLocator,
@@ -49,6 +49,22 @@ pub async fn topic_find_by_locator(
         schema::TopicRecord,
         "SELECT * FROM topic_t WHERE locator_name=$1",
         topic.locator()
+    )
+    .fetch_one(exe.as_exec())
+    .await?;
+    Ok(res)
+}
+
+/// Find a topic given its UUID.
+pub async fn topic_find_by_uuid(
+    exe: &mut impl AsExec,
+    uuid: &types::Uuid,
+) -> Result<schema::TopicRecord, Error> {
+    trace!("searching by resource UUID `{}`", uuid);
+    let res = sqlx::query_as!(
+        schema::TopicRecord,
+        "SELECT * FROM topic_t WHERE topic_uuid=$1",
+        uuid.as_ref()
     )
     .fetch_one(exe.as_exec())
     .await?;

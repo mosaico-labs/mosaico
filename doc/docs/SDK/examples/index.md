@@ -26,12 +26,14 @@ The CLI supports several global flags to control the execution environment:
 | :--- | :--- | :--- |
 | `--host` | `localhost` | The hostname of your Mosaico Server. |
 | `--port` | `6726` | The Flight port of your Mosaico Server. |
+| `--tls` | -- | Enables the [one-way TLS](../client.md#1-encryption-tls) (server authenticated only - for server runing in [TLS mode](../../daemon/tls.md)). |
+| `--api-key` | -- | The Mosaico API-Key (for server runing in [auth mode](../../daemon/api_key.md)). |
 | `--log-level` | `INFO` | Set verbosity (`DEBUG`, `INFO`, `WARNING`, `ERROR`). |
 
 **Example with custom server:**
 
 ```bash
-mosaicolabs.examples data_inspection --host 192.168.1.50 --port 6276 --log-level DEBUG
+mosaicolabs.examples data_inspection --host 192.168.1.50 --port 6276 --log-level DEBUG --tls --api-key msco_s3l8gcdwuadege3pkhou0k0n2t5omfij_f9010b9e
 ```
 
 ### Available Blueprints

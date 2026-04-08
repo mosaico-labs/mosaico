@@ -194,9 +194,9 @@ class SequenceWriter(_BaseSessionWriter):
                 f"Triggering `SessionLevelErrorPolicy.Delete`."
             )
             # Delete the sequence
-            self._delete()
+            self._sequence_delete()
 
-    def _delete(self):
+    def _sequence_delete(self):
         """Internal: Sends Delete command (Delete policy)."""
         if self._status != SequenceStatus.Finalized:
             try:

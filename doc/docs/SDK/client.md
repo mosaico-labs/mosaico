@@ -44,7 +44,20 @@ As a senior architect, it is vital to emphasize that the **Security Layer** is n
 The Security Layer manages the confidentiality and integrity of the communication channel. It is composed of two primary mechanisms that work in tandem to harden the connection.
 
 ### 1. Encryption (TLS)
-For deployments over public or shared networks, the client supports [**Transport Layer Security (TLS)**](../daemon/tls.md). By providing a `tls_cert_path`, the client automatically switches from an insecure channel to an encrypted one. The SDK handles the heavy lifting of reading the certificate bytes and configuring the underlying Flight/gRPC drivers to verify the server's identity and encrypt the data stream.
+For deployments over public or shared networks, the client supports [**Transport Layer Security (TLS)**](../daemon/tls.md). Two connection modes are available via SDK, depending on the configuratiom of the Mosaico server:
+
+* **One-way TLS**, server authenticated only
+  ```python
+  MosaicoClient.connect("localhost", 6726, enable_tls=True)
+  ```
+* **Two-way TLS**, via providing a certificate file
+  ```python
+  MosaicoClient.connect("localhost", 6726, tls_cert_path="my/cert/file/path.pem")
+  ```
+
+In both modes, the client automatically switches from an insecure channel to an encrypted one via `grpc+tls` protocol. The **One-way TLS** mode is available by setting `enable_tls=True` when calling [`MosaicoClient.connect()`][mosaicolabs.comm.MosaicoClient.connect], and providing no certificate. 
+On the other hand, the **Two-way TLS** mode is available by passing the TLS certificate path via `tls_cert_path` parameter when calling [`MosaicoClient.connect()`][mosaicolabs.comm.MosaicoClient.connect]. 
+In such a case, there is no need to set the `enable_tls=True` flag.
 
 ### 2. Authentication (API Key)
 Mosaico uses an [**API Key** system](../daemon/api_key.md) to authorize every operation. When a key is provided, the client automatically attaches your unique credentials to the metadata of every gRPC and Flight call. This ensures that even if your endpoint is public, only requests with a valid, non-revoked key are processed by the server.

@@ -36,6 +36,7 @@ def _get_connection(
     host: str,
     port: int,
     timeout: int,
+    enable_tls: bool = False,
     tls_cert: Optional[bytes] = None,
     middlewares: Optional[dict[str, fl.ClientMiddlewareFactory]] = None,
 ) -> fl.FlightClient:
@@ -53,7 +54,7 @@ def _get_connection(
         fl.FlightClient: An active Flight client instance connected to the specified address.
     """
 
-    protocol = "grpc+tls" if tls_cert is not None else "grpc"
+    protocol = "grpc+tls" if enable_tls else "grpc"
     kwargs: dict[str, Any] = (
         {"tls_root_certs": tls_cert} if tls_cert is not None else {}
     )
@@ -92,6 +93,7 @@ class _ConnectionPool:
         port: int,
         pool_size: Optional[int],
         timeout: int,
+        enable_tls: bool,
         tls_cert: Optional[bytes],
         middlewares: Optional[dict[str, fl.ClientMiddlewareFactory]],
     ):
@@ -112,6 +114,7 @@ class _ConnectionPool:
         self._clients: List[fl.FlightClient] = []
         self._iterator = None
         self._tls_cert = tls_cert
+        self._enable_tls = enable_tls
         self._middlewares = middlewares
 
         self._initialize_pool(timeout)
@@ -141,6 +144,7 @@ class _ConnectionPool:
                         port=self._port,
                         timeout=timeout,
                         tls_cert=self._tls_cert,
+                        enable_tls=self._enable_tls,
                         middlewares=self._middlewares,
                     )
                 )

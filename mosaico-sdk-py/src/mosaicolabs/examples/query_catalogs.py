@@ -25,7 +25,7 @@ from mosaicolabs import (
     QueryTopic,
 )
 
-from .config import MOSAICO_HOST, MOSAICO_PORT
+from .config import API_KEY, ENABLE_TLS, MOSAICO_HOST, MOSAICO_PORT
 
 # Initialize Rich Console for beautiful terminal output
 console = Console()
@@ -129,7 +129,12 @@ def query_acceleration_camera_imu(client: MosaicoClient, test_num: int):
 
 def main():
     # Establish a connection
-    with MosaicoClient.connect(MOSAICO_HOST, MOSAICO_PORT) as client:
+    with MosaicoClient.connect(
+        host=MOSAICO_HOST,
+        port=MOSAICO_PORT,
+        enable_tls=ENABLE_TLS,
+        api_key=API_KEY,
+    ) as client:
         # Example 1
         query_by_topic_name_match(client=client, test_num=1)
         # Example 2

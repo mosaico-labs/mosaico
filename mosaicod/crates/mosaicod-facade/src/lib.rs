@@ -15,11 +15,11 @@
 //!   the system interacts with high-level entities like [`FacadeTopic`] rather than
 //!   manipulating raw database models.
 
-mod sequence;
-pub use sequence::*;
+pub mod sequence;
 
-mod topic;
-pub use topic::*;
+pub mod session;
+
+pub mod topic;
 
 mod layer;
 pub use layer::*;
@@ -36,5 +36,5 @@ pub use query::*;
 mod auth;
 pub use auth::*;
 
-mod session;
-pub use session::*;
+mod context;
+pub use context::Context;
