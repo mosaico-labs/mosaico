@@ -1,20 +1,20 @@
 //! Layer-related actions.
 
-use crate::{endpoint::Context, errors::ServerError};
+use crate::errors::ServerError;
 use log::{info, warn};
 use mosaicod_core::types;
-use mosaicod_facade::Layer;
+use mosaicod_facade as facade;
 use mosaicod_marshal::ActionResponse;
 
 /// Creates a new layer with the given name and description.
 pub async fn create(
-    ctx: &Context,
+    ctx: &facade::Context,
     name: String,
     description: String,
 ) -> Result<ActionResponse, ServerError> {
     info!("creating layer `{}`", name);
 
-    let handle = Layer::new(
+    let handle = facade::Layer::new(
         types::LayerLocator::from(name.as_str()),
         ctx.store.clone(),
         ctx.db.clone(),
@@ -25,10 +25,10 @@ pub async fn create(
 }
 
 /// Deletes a layer.
-pub async fn delete(ctx: &Context, name: String) -> Result<ActionResponse, ServerError> {
+pub async fn delete(ctx: &facade::Context, name: String) -> Result<ActionResponse, ServerError> {
     warn!("deleting layer `{}`", name);
 
-    let handle = Layer::new(
+    let handle = facade::Layer::new(
         types::LayerLocator::from(name.as_str()),
         ctx.store.clone(),
         ctx.db.clone(),
@@ -40,7 +40,7 @@ pub async fn delete(ctx: &Context, name: String) -> Result<ActionResponse, Serve
 
 /// Updates a layer's name and description.
 pub async fn update(
-    ctx: &Context,
+    ctx: &facade::Context,
     prev_name: String,
     curr_name: String,
     curr_description: String,
@@ -50,7 +50,7 @@ pub async fn update(
         prev_name, curr_name, curr_description
     );
 
-    let handle = Layer::new(
+    let handle = facade::Layer::new(
         types::LayerLocator::from(prev_name.as_str()),
         ctx.store.clone(),
         ctx.db.clone(),
@@ -66,10 +66,10 @@ pub async fn update(
 }
 
 /// Lists all layers.
-pub async fn list(ctx: &Context) -> Result<ActionResponse, ServerError> {
+pub async fn list(ctx: &facade::Context) -> Result<ActionResponse, ServerError> {
     info!("request layer list");
 
-    let layers = Layer::all(ctx.db.clone()).await?;
+    let layers = facade::Layer::all(ctx.db.clone()).await?;
 
     Ok(ActionResponse::LayerList(layers.into()))
 }

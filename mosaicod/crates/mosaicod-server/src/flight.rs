@@ -13,6 +13,7 @@ use log::{error, trace, warn};
 use mosaicod_core::{params, types};
 use mosaicod_db as db;
 use mosaicod_ext as ext;
+use mosaicod_facade as facade;
 use mosaicod_marshal as marshal;
 use mosaicod_query as query;
 use mosaicod_store as store;
@@ -155,7 +156,7 @@ pub async fn start(
 struct MosaicodFlight {
     store: store::StoreRef,
     db: db::Database,
-    ts_gw: query::TimeseriesRef,
+    ts_gw: query::TimeseriesEngineRef,
 
     api_key_management: bool,
 
@@ -165,7 +166,13 @@ struct MosaicodFlight {
 
 impl MosaicodFlight {
     pub fn try_new(store: store::StoreRef, db: db::Database) -> Result<Self, String> {
-        let ts_gw = Arc::new(query::Timeseries::try_new(store.clone()).map_err(|e| e.to_string())?);
+        let ts_gw = Arc::new(
+            query::TimeseriesEngine::try_new(
+                store.clone(),
+                params::params().query_engine_memory_pool_size,
+            )
+            .map_err(|e| e.to_string())?,
+        );
 
         Ok(MosaicodFlight {
             store,
@@ -182,8 +189,8 @@ impl MosaicodFlight {
         self.api_key_management = true;
     }
 
-    pub fn context(&self) -> endpoint::Context {
-        endpoint::Context::new(self.store.clone(), self.db.clone(), self.ts_gw.clone())
+    pub fn context(&self) -> facade::Context {
+        facade::Context::new(self.store.clone(), self.db.clone(), self.ts_gw.clone())
     }
 }
 
@@ -217,7 +224,7 @@ impl FlightService for MosaicodFlight {
 
         let criteria = request.into_inner();
 
-        let stream = endpoint::list_flights(self.context(), criteria)
+        let stream = endpoint::list_flights(&self.context(), criteria)
             .await
             .inspect_err(log_server_error)?;
 
@@ -235,7 +242,7 @@ impl FlightService for MosaicodFlight {
 
         let desc = request.into_inner();
 
-        let info = endpoint::get_flight_info(self.context(), desc)
+        let info = endpoint::get_flight_info(&self.context(), desc)
             .await
             .inspect_err(log_server_error)?;
 
@@ -271,7 +278,7 @@ impl FlightService for MosaicodFlight {
 
         let ticket = request.into_inner();
 
-        let data_stream = endpoint::do_get(self.context(), ticket)
+        let data_stream = endpoint::do_get(&self.context(), ticket)
             .await
             .inspect_err(log_server_error)?;
 
@@ -318,7 +325,7 @@ impl FlightService for MosaicodFlight {
             .map_err(ServerError::from)
             .inspect_err(log_server_error)?;
 
-        let response = endpoint::do_action(self.context(), action, auth_ctx.permissions())
+        let response = endpoint::do_action(&self.context(), action, auth_ctx.permissions())
             .await
             .inspect_err(log_server_error)?;
 

@@ -1,11 +1,9 @@
-use super::Context;
 use crate::errors::ServerError;
 use arrow::datatypes::SchemaRef;
 use arrow_flight::decode::{DecodedFlightData, DecodedPayload, FlightDataDecoder};
 use arrow_flight::flight_descriptor::DescriptorType;
 use futures::TryStreamExt;
 use mosaicod_core::types;
-use mosaicod_db as db;
 use mosaicod_facade as facade;
 use mosaicod_marshal as marshal;
 use mosaicod_rw as rw;
@@ -14,12 +12,12 @@ use std::time::Instant;
 use tracing::{debug, info};
 
 pub struct DoPutContext {
-    pub inner: Context,
+    pub inner: facade::Context,
     pub concurrent_writes_semaphore: Arc<tokio::sync::Semaphore>,
 }
 
 impl std::ops::Deref for DoPutContext {
-    type Target = Context;
+    type Target = facade::Context;
     fn deref(&self) -> &Self::Target {
         &self.inner
     }
@@ -79,38 +77,35 @@ async fn do_put_topic_data(
     cmd: types::flight::DoPutCmd,
 ) -> Result<(), ServerError> {
     let locator = cmd.resource_locator;
-    let key = &cmd.key;
+    let uuid_str = &cmd.key;
 
     info!(
-        "client trying to upload topic '{}' using key `{}`",
-        locator, key
+        target = "uploading topic",
+        locator = locator,
+        uuid = uuid_str,
     );
 
     mosaicod_ext::arrow::check_schema(&schema)?;
 
-    let handle =
-        facade::Topic::try_from_locator(locator.into(), ctx.store.clone(), ctx.db.clone()).await?;
+    let topic_locator = types::TopicResourceLocator::from(locator);
 
-    // Perform the match between received key and topic id
-    let r_id = handle.resource_id().await?;
-    let received_uuid: types::Uuid = key.parse()?;
-    if received_uuid != r_id.uuid {
+    let topic_handle = facade::topic::Handle::try_from_locator(&ctx, topic_locator).await?;
+
+    // perform the match between received uuid string and topic uuid
+    let topic_uuid = topic_handle.uuid().clone();
+    let received_uuid: types::Uuid = uuid_str.parse()?;
+    if received_uuid != topic_uuid {
         return Err(ServerError::BadKey);
     }
 
-    let mdata = handle.manifest().await?;
+    let mdata = facade::topic::manifest(&ctx, &topic_handle).await?;
 
     // Setup the callback that will be used to create the database record for the data catalog
     // and prepare variables that will be moved in the closure
     let ontology_tag = mdata.ontology_metadata.properties.ontology_tag;
     let serialization_format = mdata.ontology_metadata.properties.serialization_format;
-    let topic_id = r_id.id;
 
-    let mut writer = handle.writer(
-        ctx.timeseries_querier.clone(),
-        serialization_format,
-        schema.clone(),
-    );
+    let mut writer = facade::topic::writer(ctx.clone(), topic_handle, serialization_format, schema);
 
     // Consume all batches
     debug!("ready to receive batches");
@@ -122,11 +117,11 @@ async fn do_put_topic_data(
         match data.payload {
             DecodedPayload::RecordBatch(batch) => {
                 debug!(
-                    "received batch - cols: {}, rows: {}, msg_body_size: {} MB, batch_physical_size: {} MB",
-                    batch.columns().len(),
-                    batch.num_rows(),
-                    data.inner.data_body.len() / 1_000_000,
-                    batch.get_array_memory_size() / 1_000_000,
+                    target = "received batch",
+                    cols = batch.columns().len(),
+                    rows = batch.num_rows(),
+                    msg_body_size = data.inner.data_body.len() / 1_000_000,
+                    batch_physical_size = batch.get_array_memory_size() / 1_000_000,
                 );
 
                 // Trying to acquire a semaphore to limit the total amount of concurrent writes
@@ -146,8 +141,8 @@ async fn do_put_topic_data(
                 drop(permit);
 
                 on_chunk_created(
-                    &ctx.db,
-                    topic_id,
+                    &ctx,
+                    &topic_uuid,
                     &ontology_tag,
                     serialized_chunk.path,
                     serialized_chunk.ontology_stats,
@@ -175,23 +170,22 @@ async fn do_put_topic_data(
 }
 
 async fn on_chunk_created(
-    db: &db::Database,
-    topic_id: i32,
+    ctx: &DoPutContext,
+    topic_uuid: &types::Uuid,
     ontology_tag: &str,
     target_path: impl AsRef<std::path::Path>,
     cstats: types::OntologyModelStats,
     chunk_metadata: rw::ChunkMetadata,
 ) -> Result<(), ServerError> {
     let mut handle = facade::Chunk::create(
-        topic_id,
+        topic_uuid,
         &target_path,
         chunk_metadata.size_bytes as i64,
         chunk_metadata.row_count as i64,
-        db,
+        &ctx.inner,
     )
     .await?;
 
-    // Use batch insert for better performance (single INSERT per type instead of N)
     handle
         .push_ontology_model_stats(ontology_tag, cstats)
         .await?;

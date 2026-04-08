@@ -24,7 +24,7 @@ pub enum Error {
     DatabaseError(#[from] mosaicod_db::Error),
     #[error("sequence locked, unable to perform modifications")]
     SequenceLocked,
-    #[error("concurrecy error")]
+    #[error("concurrency error")]
     ConcurrencyError(String),
     #[error("query error")]
     QueryError(#[from] mosaicod_query::Error),

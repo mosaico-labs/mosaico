@@ -181,7 +181,7 @@ class _BaseSessionWriter(ABC):
             try:
                 # Normal Exit: Finalize everything
                 self._close_topics()
-                self._finalize()
+                self._session_finalize()
 
             except Exception as e:
                 # An exception occurred during cleanup or finalization
@@ -210,10 +210,10 @@ class _BaseSessionWriter(ABC):
             try:
                 if self._config.on_error == SessionLevelErrorPolicy.Delete:
                     # TODO: maybe convenient to explicitly deal with a possible "Unauthorized" error
-                    self._delete()
+                    self._session_delete()
                 else:
                     self._error_report(str(out_exc))
-                    self._finalize()
+                    self._session_finalize()
             except Exception as e:
                 self._logger.error(
                     f"Exception while handling error policy or finalizing the session {self._uuid}, sequence '{self._name}': '{e}'"
@@ -296,7 +296,7 @@ class _BaseSessionWriter(ABC):
             )
 
     # --- Private lifetime management methods ---
-    def _finalize(self):
+    def _session_finalize(self):
         """
         Finalizes the session on the server.
 
@@ -361,7 +361,7 @@ class _BaseSessionWriter(ABC):
                     e,
                 )
 
-    def _delete(self):
+    def _session_delete(self):
         """Internal: Sends Abort command (Delete policy)."""
         if self._status != SessionStatus.Finalized:
             try:
