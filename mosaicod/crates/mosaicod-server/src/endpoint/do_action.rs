@@ -3,7 +3,7 @@
 //! This module implements the main dispatcher for Flight DoAction requests,
 //! delegating to specialized handler functions for each action category.
 
-use super::actions::{layer, misc, query as query_action, sequence, session, topic};
+use super::actions::{misc, query as query_action, sequence, session, topic};
 use crate::endpoint::actions::auth;
 use crate::errors::ServerError;
 use mosaicod_core::types::auth::Permission;
@@ -73,15 +73,6 @@ pub async fn do_action(
         }
 
         // /////
-        // Layer
-        ActionRequest::LayerCreate(data) => layer::create(ctx, data.name, data.description).await,
-        ActionRequest::LayerDelete(data) => layer::delete(ctx, data.name).await,
-        ActionRequest::LayerUpdate(data) => {
-            layer::update(ctx, data.prev_name, data.curr_name, data.curr_description).await
-        }
-        ActionRequest::LayerList(_) => layer::list(ctx).await,
-
-        // /////
         // Query
         ActionRequest::Query(data) => query_action::execute(ctx, data.query).await,
 
@@ -120,20 +111,16 @@ fn has_permissions(action: &ActionRequest, perm: &Permission) -> bool {
         ActionRequest::TopicNotificationCreate(_) => perm.can_write(),
         ActionRequest::SessionCreate(_) => perm.can_write(),
         ActionRequest::SessionFinalize(_) => perm.can_write(),
-        ActionRequest::LayerCreate(_) => perm.can_write(),
-        ActionRequest::LayerUpdate(_) => perm.can_write(),
 
         ActionRequest::SequenceDelete(_) => perm.can_delete(),
         ActionRequest::SequenceNotificationPurge(_) => perm.can_delete(),
         ActionRequest::TopicDelete(_) => perm.can_delete(),
         ActionRequest::TopicNotificationPurge(_) => perm.can_delete(),
         ActionRequest::SessionDelete(_) => perm.can_delete(),
-        ActionRequest::LayerDelete(_) => perm.can_delete(),
 
         ActionRequest::Query(_) => perm.can_read(),
         ActionRequest::SequenceNotificationList(_) => perm.can_read(),
         ActionRequest::TopicNotificationList(_) => perm.can_read(),
-        ActionRequest::LayerList(_) => perm.can_read(),
 
         ActionRequest::ApiKeyCreate(_) => perm.can_manage(),
         ActionRequest::ApiKeyStatus(_) => perm.can_manage(),

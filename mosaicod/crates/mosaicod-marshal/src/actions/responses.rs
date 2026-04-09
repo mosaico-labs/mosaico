@@ -65,38 +65,6 @@ impl From<Vec<types::Notification>> for NotificationList {
     }
 }
 
-// ######
-// Layers
-// ######
-
-#[derive(Serialize, Debug)]
-pub struct ResponseLayerItem {
-    pub name: String,
-    pub description: String,
-}
-
-impl From<types::Layer> for ResponseLayerItem {
-    fn from(value: types::Layer) -> Self {
-        Self {
-            name: value.locator.name().to_owned(),
-            description: value.description,
-        }
-    }
-}
-
-#[derive(Serialize, Debug)]
-pub struct LayerList {
-    pub layers: Vec<ResponseLayerItem>,
-}
-
-impl From<Vec<types::Layer>> for LayerList {
-    fn from(v: Vec<types::Layer>) -> Self {
-        Self {
-            layers: v.into_iter().map(Into::into).collect(),
-        }
-    }
-}
-
 // #####
 // Query
 // #####

@@ -13,9 +13,6 @@ pub use notifications::*;
 mod data_catalog;
 pub use data_catalog::*;
 
-mod layer_record;
-pub use layer_record::*;
-
 mod session_record;
 pub use session_record::*;
 

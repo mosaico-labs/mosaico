@@ -21,9 +21,6 @@ pub mod session;
 
 pub mod topic;
 
-mod layer;
-pub use layer::*;
-
 mod error;
 pub use error::*;
 
