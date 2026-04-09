@@ -189,7 +189,7 @@ impl ParquetFormatProperties for ImageFormatProperties {
 
     fn buffer_capacity(&self) -> usize {
         // (cabba) NOTE: not tuned yet :)
-        ((params::params().parquet_in_memory_encoding_buffer_size as f64) * 1.1) as usize
+        ((params::params().parquet_in_memory_encoding_buffer_size as f64) * 1.3) as usize
     }
 }
 
