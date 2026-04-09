@@ -95,8 +95,10 @@ pub async fn try_create(
         return Err(Error::topic_already_exists(locator));
     }
 
-    // Ensure that uuid points to an unlocked session
-    if session::manifest(context, session_handle).await?.locked {
+    // Session must be unlocked (not finalized)
+    let session_locked = db::session_locked(&mut tx, session_handle.id()).await?;
+
+    if session_locked {
         return Err(Error::SessionLocked);
     }
 

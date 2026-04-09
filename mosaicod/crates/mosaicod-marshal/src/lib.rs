@@ -6,9 +6,6 @@ pub use metadata::*;
 mod format;
 pub use format::*;
 
-mod manifest;
-pub use manifest::*;
-
 mod actions;
 pub use actions::*;
 

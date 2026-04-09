@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT CASE WHEN completion_unix_tstamp IS NULL THEN 0 ELSE 1 END AS \"is_null!\" FROM session_t WHERE session_id=$1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "is_null!",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "d47f1e4bab1d59a78be283745c49985184921ed116473e8da2d0cf98114a9ae4"
+}

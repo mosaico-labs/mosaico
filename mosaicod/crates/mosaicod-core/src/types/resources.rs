@@ -1,5 +1,5 @@
 use super::{Format, TimestampRange};
-use super::{SessionManifest, Uuid};
+use super::{SessionMetadata, Uuid};
 use crate::{params, traits, types};
 use std::path;
 use thiserror::Error;
@@ -320,12 +320,6 @@ pub struct TopicDataInfo {
 pub struct SequenceResourceLocator(String);
 
 impl SequenceResourceLocator {
-    pub fn session_manifest(&self, uuid: &super::Uuid) -> std::path::PathBuf {
-        std::path::PathBuf::from(self.0.clone())
-            .join(format!("session-{}", uuid))
-            .with_extension(params::ext::JSON)
-    }
-
     /// Returns the location of the metadata file associated with the sequence.
     ///
     /// The metadata file may or may not exists, no check if performed by this function.
@@ -393,7 +387,7 @@ pub struct SequenceManifest {
     /// Timestamp of the sequence creation
     pub created_at: super::Timestamp,
     pub resource_locator: SequenceResourceLocator,
-    pub sessions: Vec<SessionManifest>,
+    pub sessions: Vec<SessionMetadata>,
 }
 
 // ////////////////////////////////////////////////////////////////////////////
