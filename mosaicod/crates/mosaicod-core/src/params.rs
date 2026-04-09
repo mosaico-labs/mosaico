@@ -63,10 +63,18 @@ pub struct Params {
     /// Maximum number of concurrent chunk queries during data catalog filtering.
     pub max_concurrent_chunk_queries: usize,
 
-    /// The maximum number of concurrent write operations allowed.
+    /// The maximum number of concurrent encoding and serialization operations.
     ///
-    /// Each operation is executed in a dedicated thread because it involves
-    /// a mix of CPU-intensive tasks (e.g., compression) and I/O-bound tasks (e.g., storage).
+    /// This setting controls how many data batches can be processed and sent to the object
+    /// store simultaneously. It is important to note that this does not limit the number
+    /// of topics the server can handle; rather, it constrains the parallel execution of
+    /// the encoding/serialization pipeline.
+    ///
+    /// Each operation runs in a dedicated thread to handle CPU-bound compression and
+    /// I/O-bound storage tasks. This value should be tuned based on available RAM and CPU.
+    /// Excessive parallelism may lead to scheduler thrashing or memory exhaustion.
+    ///
+    /// Defaults to `MOSAICOD_DEFAULT_PARALLELISM`.
     pub max_concurrent_writes: usize,
 
     /// Maximum batch size (number of elements inside a arrow record batch) used during data
@@ -80,6 +88,8 @@ pub struct Params {
     /// While this is typically detected automatically based on available hardware,
     /// this field allows for a manual override in environments where automatic
     /// detection might fail or be inaccurate.
+    ///
+    /// Default is computed at runtime based on the machine.
     pub default_parallelism: usize,
 
     /// Defines the amount of memory (in bytes) used by the query engine (DataFusion).

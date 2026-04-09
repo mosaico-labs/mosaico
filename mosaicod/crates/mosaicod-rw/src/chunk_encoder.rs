@@ -11,7 +11,7 @@ pub struct ChunkMetadata {
     pub row_count: usize,
 }
 
-/// The [`ChunkBlockEncoder`] is used to encode [`RecordBatch`] instances into a single in-memory block,
+/// The [`InMemoryChunkEncoder`] is used to encode [`RecordBatch`] instances into a single in-memory block,
 /// supporting multiple serialization formats. It encapsulates the underlying writer and manages the encoding
 /// process based on the specified format.
 ///
@@ -26,7 +26,7 @@ pub struct InMemoryChunkEncoder {
 }
 
 impl InMemoryChunkEncoder {
-    /// Creates a new [`ChunkBlockEncoder`] configured for a specific serialization format.
+    /// Creates a new [`InMemoryChunkEncoder`] configured for a specific serialization format.
     ///
     /// This fallible constructor initializes an appropriate underlying writer
     /// based on the provided `format`.

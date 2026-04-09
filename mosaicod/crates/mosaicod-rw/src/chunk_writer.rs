@@ -10,8 +10,8 @@ pub struct SerializedChunk {
     pub metadata: ChunkMetadata,
 }
 
-/// Writes [`RecordBatch`] into multiple chunks to a location. A location is a path like structure.
-/// Internally the [`ChunkedWriter`] can subdivide the batches in multiple files.
+/// Writes [`RecordBatch`] into multiple chunks to a location. A location is a path-like structure.
+/// Internally the [`ChunkWriter`] can subdivide the batches in multiple files.
 ///
 /// When `max_chunk_size` is set and the internal buffer exceeds this size
 /// after writing a batch, the current chunk is automatically finalized and
@@ -34,7 +34,7 @@ pub struct ChunkWriter<W> {
 }
 
 impl<W> ChunkWriter<W> {
-    /// Creates a new [`ChunkedWriter`].
+    /// Creates a new [`ChunkWriter`].
     /// This writer will split data when a `max_chunk_size` is reached (see
     /// [`ChunkedWriter::with_max_chunk_size`] for more details.
     pub fn new<F>(target: W, format: types::Format, schema: SchemaRef, path_provider: F) -> Self
@@ -52,10 +52,8 @@ impl<W> ChunkWriter<W> {
 
     /// Writes a [`RecordBatch`] into the chunked writer.
     ///
-    /// The [`ChunkedWriter`] will internally manage the creation of chunks
+    /// The [`ChunkWriter`] will internally manage the creation of chunks
     /// based on the serialization format and the maximum chunk size (if any).
-    /// To perform custom actions when a chunk is produced, use the
-    /// [`on_chunk_produced`] method to set a callback function.
     pub async fn write<A>(&mut self, batch: RecordBatch) -> Result<SerializedChunk, Error>
     where
         A: traits::AsyncWriteToPath,
