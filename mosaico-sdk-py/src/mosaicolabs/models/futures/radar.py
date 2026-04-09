@@ -47,7 +47,7 @@ class Radar(Serializable):
 
 
     Note:
-        MosaicoType.list_(-typed fields are **not queryable** via the `.Q` proxy. The `.Q` proxy
+        MosaicoType.list_() typed fields are **not queryable** via the `.Q` proxy. The `.Q` proxy
         is not available on this model.
 
     Example:
@@ -81,7 +81,7 @@ class Radar(Serializable):
     """Z coordinates of each detection, in meters."""
 
     range: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
-        default=None, nullable=True, description="radial distance in meters."
+        default=None, description="radial distance in meters."
     )
     """
     Radial distance from the sensor origin to each detection, in meters.
@@ -90,7 +90,7 @@ class Radar(Serializable):
     """
 
     azimuth: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
-        default=None, nullable=True, description="azimuth angle in radians."
+        default=None, description="azimuth angle in radians."
     )
     """
     Horizontal (azimuth) angle of each detection in radians.
@@ -100,7 +100,7 @@ class Radar(Serializable):
     """
 
     elevation: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
-        default=None, nullable=True, description="elevation angle in radians."
+        default=None, description="elevation angle in radians."
     )
     """
     Vertical (elevation) angle of each detection in radians.
@@ -109,7 +109,7 @@ class Radar(Serializable):
     """
 
     rcs: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
-        default=None, nullable=True, description="radar cross section in dBm."
+        default=None, description="radar cross section in dBm."
     )
     """
     Radar Cross Section (RCS) of each detection, in dBm.
@@ -120,7 +120,7 @@ class Radar(Serializable):
     """
 
     snr: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
-        default=None, nullable=True, description="signal to noise ratio in dB."
+        default=None, description="signal to noise ratio in dB."
     )
     """
     Signal-to-Noise Ratio (SNR) of each detection, in dB.
@@ -131,7 +131,7 @@ class Radar(Serializable):
     """
 
     doppler_velocity: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
-        default=None, nullable=True, description="doppler velocity in m/s."
+        default=None, description="doppler velocity in m/s."
     )
     """
     Doppler radial velocity of each detection, in m/s.
@@ -142,7 +142,7 @@ class Radar(Serializable):
     """
 
     vx: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
-        default=None, nullable=True, description="x velocity in m/s."
+        default=None, description="x velocity in m/s."
     )
     """
     X component of the estimated velocity of each detection, in m/s.
@@ -152,7 +152,7 @@ class Radar(Serializable):
     """
 
     vy: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
-        default=None, nullable=True, description="y velocity in m/s."
+        default=None, description="y velocity in m/s."
     )
     """
     Y component of the estimated velocity of each detection, in m/s.
@@ -161,7 +161,7 @@ class Radar(Serializable):
     """
 
     vx_comp: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
-        default=None, nullable=True, description="x compensated velocity in m/s."
+        default=None, description="x compensated velocity in m/s."
     )
     """
     Ego-motion-compensated X velocity of each detection, in m/s.
@@ -172,7 +172,7 @@ class Radar(Serializable):
     """
 
     vy_comp: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
-        default=None, nullable=True, description="y compensated velocity in m/s."
+        default=None, description="y compensated velocity in m/s."
     )
     """
     Ego-motion-compensated Y velocity of each detection, in m/s.
@@ -181,7 +181,7 @@ class Radar(Serializable):
     """
 
     ax: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
-        default=None, nullable=True, description="x acceleration in m/s^2."
+        default=None, description="x acceleration in m/s^2."
     )
     """
     X component of the estimated acceleration of each detection, in m/s².
@@ -191,7 +191,7 @@ class Radar(Serializable):
     """
 
     ay: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
-        default=None, nullable=True, description="y acceleration in m/s^2."
+        default=None, description="y acceleration in m/s^2."
     )
     """
     Y component of the estimated acceleration of each detection, in m/s².
@@ -200,7 +200,7 @@ class Radar(Serializable):
     """
 
     radial_speed: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
-        default=None, nullable=True, description="radial speed in m/s."
+        default=None, description="radial speed in m/s."
     )
     """
     Radial speed of each detection, in m/s.

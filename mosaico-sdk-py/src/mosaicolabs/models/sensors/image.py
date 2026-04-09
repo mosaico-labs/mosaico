@@ -333,7 +333,6 @@ class Image(Serializable):
 
     is_bigendian: Optional[MosaicoType.bool] = MosaicoField(
         default=None,
-        nullable=True,
         description="True if data is Big-Endian. Defaults to system endianness if null.",
     )
     """

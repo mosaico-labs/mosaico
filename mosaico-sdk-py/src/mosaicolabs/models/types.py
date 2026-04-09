@@ -78,6 +78,25 @@ class MosaicoType:
     large_string = Annotated[str, pa.large_string()]
 
     @staticmethod
+    def annotate(py_type: Type, pa_type: pa.DataType) -> Annotated:
+        """
+        Creates a type metadata binding between a Python type and a Pyarrow DataType.
+
+        This method uses Python's `Annotated` to wrap a standard type with specific
+        Pyarrow schema information. This allows Pydantic models to correctly
+        serialize and deserialize data into the desired Pyarrow format.
+
+        Args:
+            py_type (Type): The native Python type (e.g., int, str, or a Pydantic model).
+            pa_type (pa.DataType): The corresponding Pyarrow data type or logical type.
+
+        Returns:
+            Annotated: A type hint containing the Python type and Pyarrow metadata.
+
+        """
+        return Annotated[py_type, pa_type]
+
+    @staticmethod
     def list_(source_type: Any, list_size: Optional[int] = None) -> Any:
         """
         Build an ``Annotated[list, pa.list_(...)]`` type alias for list fields.
@@ -161,6 +180,6 @@ def MosaicoField(
     return Field(
         default=default,
         description=description,
-        json_schema_extra={"nullable": nullable},
+        json_schema_extra={"nullable": nullable if default is not None else True},
         **kwargs,
     )

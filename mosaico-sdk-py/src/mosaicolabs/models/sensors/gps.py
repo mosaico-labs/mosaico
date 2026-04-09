@@ -159,7 +159,7 @@ class GPSStatus(Serializable):
     """
 
     satellites: Optional[MosaicoType.int8] = MosaicoField(
-        default=None, nullable=True, description="Satellites visible/used."
+        default=None, description="Satellites visible/used."
     )
     """
     Satellites visible/used.
@@ -205,7 +205,7 @@ class GPSStatus(Serializable):
     """
 
     hdop: Optional[MosaicoType.float64] = MosaicoField(
-        default=None, nullable=True, description="Horizontal Dilution of Precision."
+        default=None, description="Horizontal Dilution of Precision."
     )
     """
     Horizontal Dilution of Precision.
@@ -251,7 +251,7 @@ class GPSStatus(Serializable):
     """
 
     vdop: Optional[MosaicoType.float64] = MosaicoField(
-        default=None, nullable=True, description="Vertical Dilution of Precision."
+        default=None, description="Vertical Dilution of Precision."
     )
     """
     Vertical Dilution of Precision.
@@ -396,7 +396,6 @@ class GPS(Serializable):
 
     velocity: Optional[Vector3d] = MosaicoField(
         default=None,
-        nullable=True,
         description="Velocity vector [North, East, Alt] m/s.",
     )
     """
@@ -445,7 +444,7 @@ class GPS(Serializable):
     """
 
     status: Optional[GPSStatus] = MosaicoField(
-        default=None, nullable=True, description="Receiver status info."
+        default=None, description="Receiver status info."
     )
     """
     Receiver status information.

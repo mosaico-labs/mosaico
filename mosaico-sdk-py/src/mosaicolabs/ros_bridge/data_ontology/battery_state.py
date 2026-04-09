@@ -80,11 +80,11 @@ class BatteryState(Serializable):
 
     # Cell Details (Optional because some drivers don't report them)
     cell_voltage: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
-        default=None, nullable=True, description="Battery cells voltage."
+        default=None, description="Battery cells voltage."
     )
     """The battery cells voltage"""
 
     cell_temperature: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
-        default=None, nullable=True, description="Battery cells temperature."
+        default=None, description="Battery cells temperature."
     )
     """The battery cells temperature"""

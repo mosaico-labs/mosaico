@@ -82,7 +82,7 @@ class Velocity(
     """
 
     linear: Optional[Vector3d] = MosaicoField(
-        default=None, nullable=True, description="3D linear velocity vector."
+        default=None, description="3D linear velocity vector."
     )
     """
     3D linear velocity vector
@@ -130,7 +130,7 @@ class Velocity(
     """
 
     angular: Optional[Vector3d] = MosaicoField(
-        default=None, nullable=True, description="3D angular velocity vector."
+        default=None, description="3D angular velocity vector."
     )
     """
     3D angular velocity vector
@@ -251,7 +251,7 @@ class Acceleration(
     """
 
     linear: Optional[Vector3d] = MosaicoField(
-        default=None, nullable=True, description="3D linear acceleration vector."
+        default=None, description="3D linear acceleration vector."
     )
     """
     3D linear acceleration vector
@@ -299,7 +299,7 @@ class Acceleration(
     """
 
     angular: Optional[Vector3d] = MosaicoField(
-        default=None, nullable=True, description="3D angular acceleration vector."
+        default=None, description="3D angular acceleration vector."
     )
     """
     3D angular acceleration vector
@@ -563,7 +563,6 @@ class MotionState(
 
     acceleration: Optional[Acceleration] = MosaicoField(
         default=None,
-        nullable=True,
         description="6D acceleration with optional time and covariance info.",
     )
     """

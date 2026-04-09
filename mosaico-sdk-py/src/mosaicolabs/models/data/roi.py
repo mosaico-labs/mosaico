@@ -195,7 +195,6 @@ class ROI(Serializable):
 
     do_rectify: Optional[MosaicoType.bool] = MosaicoField(
         default=None,
-        nullable=True,
         description="False if the full image is captured (ROI not used)"
         " and True if a subwindow is captured (ROI used) (optional). False if Null",
     )

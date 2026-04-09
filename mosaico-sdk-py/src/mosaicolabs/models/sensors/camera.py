@@ -205,7 +205,6 @@ class CameraInfo(Serializable):
 
     binning: Optional[Vector2d] = MosaicoField(
         default=None,
-        nullable=True,
         description="Hardware binning factor (x, y). If null, assumes (0, 0) (no binning).",
     )
     """
@@ -240,7 +239,6 @@ class CameraInfo(Serializable):
 
     roi: Optional[ROI] = MosaicoField(
         default=None,
-        nullable=True,
         description="Region of Interest. Used if the image is a sub-crop of the full resolution.",
     )
     """

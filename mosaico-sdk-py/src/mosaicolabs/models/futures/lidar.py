@@ -74,14 +74,12 @@ class Lidar(Serializable):
 
     intensity: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
         default=None,
-        nullable=True,
         description="Surface reflectivity per point.",
     )
     """Strength of the returned laser signal for each point."""
 
     reflectivity: Optional[MosaicoType.list_(MosaicoType.uint16)] = MosaicoField(
         default=None,
-        nullable=True,
         description="Surface reflectivity per point.",
     )
     """
@@ -93,7 +91,6 @@ class Lidar(Serializable):
 
     beam_id: Optional[MosaicoType.list_(MosaicoType.uint16)] = MosaicoField(
         default=None,
-        nullable=True,
         description="Laser beam index (ring / channel / line) that fired each point.",
     )
     """
@@ -106,7 +103,6 @@ class Lidar(Serializable):
 
     range: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
         default=None,
-        nullable=True,
         description="Distance from the sensor origin to each point, in meters.",
     )
     """
@@ -118,7 +114,6 @@ class Lidar(Serializable):
 
     near_ir: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
         default=None,
-        nullable=True,
         description="Near-infrared ambient light reading per point.",
     )
     """
@@ -131,21 +126,18 @@ class Lidar(Serializable):
 
     azimuth: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
         default=None,
-        nullable=True,
         description="Horizontal (azimuth) angle of each point in radians.",
     )
     """Horizontal (azimuth) angle of each point in radians."""
 
     elevation: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
         default=None,
-        nullable=True,
         description="Vertical (elevation) angle of each point in radians.",
     )
     """Vertical (elevation) angle of each point in radians."""
 
     confidence: Optional[MosaicoType.list_(MosaicoType.uint8)] = MosaicoField(
         default=None,
-        nullable=True,
         description="Per-point validity or confidence flags.",
     )
     """
@@ -158,7 +150,6 @@ class Lidar(Serializable):
 
     return_type: Optional[MosaicoType.list_(MosaicoType.uint8)] = MosaicoField(
         default=None,
-        nullable=True,
         description="Single/dual return classification per point.",
     )
     """
@@ -170,7 +161,6 @@ class Lidar(Serializable):
 
     point_timestamp: Optional[MosaicoType.list_(MosaicoType.float64)] = MosaicoField(
         default=None,
-        nullable=True,
         description="Per-point acquisition time offset from the scan start, in seconds.",
     )
     """

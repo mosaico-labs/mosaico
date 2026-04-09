@@ -90,7 +90,7 @@ The following sensors are supported as first-class data types in this module:
 ## MosaicoType & MosaicoField
 When defining ontologies in the Mosaico SDK, every class attribute carries two pieces of information:
 
-* **Python type** used by Pydantic for validatio and IDE support.
+* **Python type** used by Pydantic for validation and IDE support.
 * **PyArrow type** used for efficient columnar serialization to Parquet/Arrow.
 
 `MosaicoType` and `MosaicoField` let you express both in a single annotation, providing a clean **single-source-of-truth API** for ontology field declarations.
@@ -126,6 +126,9 @@ API Reference: [`mosaicolabs.models.MosaicoType`][mosaicolabs.models.MosaicoType
 | `MosaicoType.binary` | `bytes` | `pa.binary()` |
 | `MosaicoType.large_binary` | `bytes` | `pa.large_binary()` |
 
+#### Explicit type definition
+Using `MosaicoType` provides precise control over the underlying PyArrow schema:
+
 ```python
 from mosaicolabs import MosaicoField, MosaicoType, Serializable
 
@@ -135,20 +138,45 @@ class MyOntology(Serializable):
 
 ```
 
-In the above example `x` attribute will be converted in a **not nullable** pyarrow field, while `y` attribute will be converted in a **nullable** pyarrow field.
+* `x`: defined directly, will be converted in a **not nullable** PyArrow field.
+* `y`: wrapped in `Optional[...]`, will be converted in a **nullable** PyArrow field.
+
+#### Using Fallback types
+You can also use standard Python type hints.
+`Mosaico` automatically maps these to specific PyArrow types.
+
+```python
+class MyOntology(Serializable):
+    x: int
+    y: Optional[float] = None
+
+```
+
+In this scenario, the types are resolved using the following **fallback mapping**:
+
+| Python type | PyArrow equivalent |
+| ---| --- |
+| `int` | `pa.int64()` |
+| `float` | `pa.float64()` |
+| `str` | `pa.string()` |
+| `bool` | `pa.bool_()` |
+| `bytes` | `pa.bytes()` |
+
+!!! note "Note"
+    Just like with explicit types, using `Optional` with fallback types will correctly define the PyArrow field as **nullable**. If `Optional` is not used, the field is defined as **not nullable**.
 
 #### List types
- 
-For list fields, `MosaicoType` exposes a `list_()` static method that wraps a scalar type, either a `MosaicoType` alias or a raw Python primitive into the appropriate `pa.list_` Arrow type.
+
+For list fields, `MosaicoType` exposes a `list_()` static method that wraps a scalar type, either a `MosaicoType` alias or a raw Python primitive, into the appropriate `pa.list_` Arrow type.
 
 An optional `list_size` parameter produces a fixed-size list (`pa.list_(type, size)`), omitting it yields a variable-length list.
- 
+
 ```python
 from mosaicolabs import MosaicoField, MosaicoField, Serializable
 
 class MyOntology(Serializable):
     # Variable-length list of float32
-    scores: Optional[MosaicoType.list_(MosaicoType.float32)]
+    scores: Optional[MosaicoType.list_(MosaicoType.float32)] = None
  
     # Fixed-size list of 3 float32 (e.g. an RGB vector)
     color: MosaicoType.list_(MosaicoType.float32, list_size=3)
@@ -156,12 +184,51 @@ class MyOntology(Serializable):
     # Works with raw Python primitives too
     tags: MosaicoType.list_(str)
 
-    #Works with other Pydantic models with pyarrow struct
+    # Works with other Pydantic models with pyarrow struct
     vec: MosaicoType.list_(Vector3d)
+
+    # Fallback List
+    vec2: List[Vector2d]
 ```
+Using Python's built-in `list` (or `List` from `typing`) generates a **list of unfixed size** in the underlying Arrow schema.
+This means:
+
+- The list can hold **any number of elements** at runtime.
+- No size constraint is enforced at the schema level.
+- This is equivalent to calling `MosaicoType.list_(str)` with no `size` argument.
+
+
+`MosaicoType.list_()` accepts an optional `size` parameter. When provided, it maps to an Arrow **fixed-size list** (`pa.list_(type, list_size=N)`), which enforces that every value in the column contains exactly `N` elements.
+
+| | `list[str]` | `MosaicoType.list_(str)` | `MosaicoType.list_(str, 3)` |
+|---|---|---|---|
+| Arrow type | `pa.list_(pa.string())` | `pa.list_(pa.string())` | `pa.list_(pa.string(), 3)` |
+| Size enforced | No | No | Yes, exactly 3 |
+| Interoperable with Pydantic | Yes | Yes | Yes |
+| Supports nested models | Yes | Yes | Yes |
+
+Use `MosaicoType.list_()` with a `size` argument when:
+
+- The list represents a **fixed-dimensional structure**, such as a vector, a coordinate
+  tuple, or an RGB triplet.
+- You want the Arrow schema to **statically encode the size**, enabling optimised
+  columnar storage and stricter validation.
+- You are working with **embedding vectors** or other ML features where dimensionality
+  is always known and constant.
+
+If you do **not** pass a `size` argument, `MosaicoType.list_(T)` and `list[T]` produce
+an identical Arrow schema. The choice then becomes a matter of style or explicitness:
  
+```python
+tags: list[str]               # idiomatic Python - preferred for readability
+tags: MosaicoType.list_(str)  # explicit Mosaico style - equivalent result
+```
+
+!!! note "Note"
+    Explicit type definition and fallback types properties are hold in this case.
+
 #### Custom Arrow types
- 
+
 For specialised Arrow types not covered by the built-in aliases, you can always use a raw `Annotated` annotation embedding the PyArrow type directly. The schema builder resolves the embedded metadata transparently, exactly like a `MosaicoType` alias:
 
 ```python
@@ -189,11 +256,35 @@ class MyPointOntology(Serializable):
 ```
 
 With `MosaicoField` you can define the `default` value of your attribute, the `nullable` attribute of pyarrow field and also a `description`.
+In particular you can omit `nullable` if your `default = None`, in this case `nullable` will be set to `True` automatically.
 
 ### Nullability and Parquet V2
-The `nullable` flag in `MosaicoField` controls whether the Arrow schema emits the field as nullable. The default is `False`, fields are non-nullable unless explicitly stated otherwise.
 
-The distinction matters most when a reusable struct ontology is embedded inside a parent ontology as an optional field. Consider a `Quaternion`: its individual components (`x`, `y`, `z`, `w`) are logically required, a quaternion with missing components is meaningless and cannot be constructed. Therefore all four fields are declared nullable for pyarrow.
+The `nullable` flag in `MosaicoField` controls whether the Arrow schema emits the field
+as nullable. The default is `False`, fields are non-nullable unless explicitly stated
+otherwise.
+
+The distinction matters most when a reusable struct ontology is embedded inside a parent
+ontology as an optional field. Consider a `Quaternion`: its individual components
+(`x`, `y`, `z`, `w`) are logically required — a quaternion with missing components is
+meaningless and cannot be constructed.
+
+However, all four leaf fields must be declared as nullable due to how ParquetV2 handles
+`null` optional columns during data reading. Consider a parent class such as `IMU`,
+where `orientation` is declared as `Optional[Quaternion]`. If that column is `null` in
+the Parquet file but the inner fields are **not** nullable in the schema, ParquetV2
+cannot represent the absent struct correctly and instead reconstructs it as a
+zero-initialised instance:
+
+```python
+# wrong — should be None
+orientation = Quaternion(x=0, y=0, z=0, w=0)
+```
+
+Declaring all leaf fields as nullable prevents this silent corruption: a fully-null
+struct is preserved as `None` through the read/write round-trip, matching the original
+intent of the `Optional` annotation.
+
 
 ```python
 class Quaternion(Serializable):
@@ -203,11 +294,13 @@ class Quaternion(Serializable):
     w: MosaicoType.float32 = MosaicoField(description="W component", nullable=True)
 ```
 
-However, a parent ontology may choose to include the quaternion as an optional field, i.e. a detection without orientation data is still valid. In that case the *struct* itself must be nullable in the Arrow schema, even though its *internal fields* are not:
+A parent ontology may choose to include the quaternion as an optional field — for
+example, a detection without orientation data is still valid. In that case the *struct*
+itself must also be nullable in the Arrow schema:
 
 ```python
 class DetectionOntology(Serializable):
-    position: MosaicoType.float32  = MosaicoField(description="Position")
+    position: MosaicoType.float32 = MosaicoField(description="Position")
  
     # The quaternion struct as a whole is optional in this ontology,
     # but its internal fields remain required when it is present.
@@ -358,25 +451,25 @@ By leveraging these mixins, the platform can perform deep analysis on data quali
 One of the most powerful consequences of building on top of Pydantic model fields is how natural **mixin composition** becomes. Because every field, including its Arrow type metadata, lives in `model_fields`, you can split concerns into focused mixin classes and combine them freely without any additional registration or schema merging step.
 
 ```python
-from mosaicolabs import MosaicoType, MosaicoField, Serializable
+from mosaicolabs import BaseModel, MosaicoType, MosaicoField, Serializable
 
 
-class GeometryMixin(Serializable):
+class GeometryMixin(BaseModel):
     x: MosaicoType.float32 = MosaicoField(description="X coordinate")
     y: MosaicoType.float32 = MosaicoField(description="Y coordinate")
     z: MosaicoType.float32 = MosaicoField(description="Z coordinate")
 
 
-class ConfidenceMixin(Serializable):
+class ConfidenceMixin(BaseModel):
     confidence: MosaicoType.float32 = MosaicoField(description="Detection score [0, 1]")
 
-class MetadataMixin(Serializable):
+class MetadataMixin(BaseModel):
     label:     Optional[MosaicoType.string] = MosaicoField(default=None, nullable=True)
     sensor_id: MosaicoType.string = MosaicoField(description="Source sensor identifier")
     ts: Annotated[int, pa.timestamp("us", tz="UTC")]
 
 # Combine mixins, the Arrow schema aggregates all fields automatically
-class DetectionOntology(GeometryMixin, ConfidenceMixin, MetadataMixin):
+class DetectionOntology(Serializable, GeometryMixin, ConfidenceMixin, MetadataMixin):
     pass
 ```
 

@@ -1218,15 +1218,11 @@ def test_battery_state_struct():
     pyarrow_struct = pa.struct(
         [
             pa.field("voltage", pa.float32(), nullable=False, metadata={"unit": "V"}),
-            pa.field(
-                "temperature", pa.float32(), nullable=False, metadata={"unit": "C"}
-            ),
-            pa.field("current", pa.float32(), nullable=False, metadata={"unit": "A"}),
-            pa.field("charge", pa.float32(), nullable=False, metadata={"unit": "Ah"}),
-            pa.field("capacity", pa.float32(), nullable=False, metadata={"unit": "Ah"}),
-            pa.field(
-                "design_capacity", pa.float32(), nullable=False, metadata={"unit": "Ah"}
-            ),
+            pa.field("temperature", pa.float32(), metadata={"unit": "C"}),
+            pa.field("current", pa.float32(), metadata={"unit": "A"}),
+            pa.field("charge", pa.float32(), metadata={"unit": "Ah"}),
+            pa.field("capacity", pa.float32(), metadata={"unit": "Ah"}),
+            pa.field("design_capacity", pa.float32(), metadata={"unit": "Ah"}),
             pa.field(
                 "percentage", pa.float32(), nullable=False, metadata={"range": "0-1"}
             ),

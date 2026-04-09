@@ -107,7 +107,7 @@ class _DepthCameraBase(BaseModel):
     """
 
     rgb: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
-        default=None, nullable=True, description="Packed RGB color value."
+        default=None, description="Packed RGB color value."
     )
     """
     Packed RGB colour value per point.
@@ -119,7 +119,7 @@ class _DepthCameraBase(BaseModel):
     """
 
     intensity: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
-        default=None, nullable=True, description="Signal amplitude/intensity."
+        default=None, description="Signal amplitude/intensity."
     )
     """Signal amplitude or intensity per point."""
 
@@ -219,7 +219,7 @@ class ToFCamera(_DepthCameraBase, Serializable):
     """
 
     noise: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
-        default=None, nullable=True, description="Noise value per pixel."
+        default=None, description="Noise value per pixel."
     )
     """
     Per-pixel noise estimate of the depth measurement.
@@ -230,7 +230,7 @@ class ToFCamera(_DepthCameraBase, Serializable):
     """
 
     grayscale: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
-        default=None, nullable=True, description="Grayscale amplitude."
+        default=None, description="Grayscale amplitude."
     )
     """
     Passive greyscale amplitude per pixel.
@@ -292,7 +292,6 @@ class StereoCamera(_DepthCameraBase, Serializable):
 
     luma: Optional[MosaicoType.list_(MosaicoType.uint8)] = MosaicoField(
         default=None,
-        nullable=True,
         description="Luminance of the corresponding pixel in the rectified image.",
     )
     """
@@ -301,7 +300,6 @@ class StereoCamera(_DepthCameraBase, Serializable):
 
     cost: Optional[MosaicoType.list_(MosaicoType.uint8)] = MosaicoField(
         default=None,
-        nullable=True,
         description="Stereo matching cost (disparity confidence measure, 0 = high confidence).",
     )
     """

@@ -163,7 +163,6 @@ class IMU(Serializable):
 
     orientation: Optional[Quaternion] = MosaicoField(
         default=None,
-        nullable=True,
         description="Estimated orientation [qx, qy, qz, qw].",
     )
     """

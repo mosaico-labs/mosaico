@@ -402,7 +402,7 @@ class LaserScan(_LaserScanBase, Serializable):
     """
 
     intensities: Optional[SingleRange] = MosaicoField(
-        default=None, nullable=True, description="intensity data."
+        default=None, description="intensity data."
     )
     """
     Intensity measurements for each beam (optional).
@@ -501,7 +501,7 @@ class MultiEchoLaserScan(_LaserScanBase, Serializable):
     """
 
     intensities: Optional[MultiRange] = MosaicoField(
-        default=None, nullable=True, description="intensity data."
+        default=None, description="intensity data."
     )
     """
     Intensity measurements for each beam. (optional).
