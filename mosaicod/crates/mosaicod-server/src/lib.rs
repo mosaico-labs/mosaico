@@ -5,4 +5,4 @@ mod middleware;
 
 pub mod flight;
 pub use core::Server;
-pub use errors::ServerError;
+pub use errors::*;

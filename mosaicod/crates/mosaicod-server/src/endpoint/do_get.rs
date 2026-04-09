@@ -1,4 +1,4 @@
-use crate::errors::ServerError;
+use crate::errors::*;
 use arrow_flight::{
     Ticket,
     encode::{FlightDataEncoder, FlightDataEncoderBuilder},
@@ -10,10 +10,7 @@ use mosaicod_core::types;
 use mosaicod_facade as facade;
 use mosaicod_marshal as marshal;
 
-pub async fn do_get(
-    ctx: &facade::Context,
-    ticket: Ticket,
-) -> Result<FlightDataEncoder, ServerError> {
+pub async fn do_get(ctx: &facade::Context, ticket: Ticket) -> Result<FlightDataEncoder> {
     let ticket = marshal::flight::ticket_topic_from_binary(&ticket.ticket)?;
 
     info!("requesting data for ticket `{}`", ticket.locator);

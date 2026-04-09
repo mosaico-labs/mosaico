@@ -1,7 +1,7 @@
 use super::Error;
 use bincode::{Decode, Encode};
 use mosaicod_core::types;
-use mosaicod_core::types::{SessionManifest, UuidError};
+use mosaicod_core::types::SessionManifest;
 use serde::{Deserialize, Serialize};
 // ////////////////////////////////////////////////////////////////////////////
 // GET FLIGHT INFO CMD
@@ -151,10 +151,7 @@ impl TryFrom<SessionAppMetadata> for types::SessionManifest {
     type Error = super::Error;
 
     fn try_from(value: SessionAppMetadata) -> Result<Self, Self::Error> {
-        let uuid: types::Uuid = value
-            .uuid
-            .parse()
-            .map_err(|e: UuidError| Error::DeserializationError(e.to_string()))?;
+        let uuid: types::Uuid = value.uuid.parse().map_err(Error::DeserializationError)?;
 
         Ok(SessionManifest {
             uuid,

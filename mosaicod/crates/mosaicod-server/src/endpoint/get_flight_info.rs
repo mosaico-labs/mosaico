@@ -1,4 +1,4 @@
-use crate::errors::ServerError;
+use crate::errors::*;
 use arrow::datatypes::{Field, Schema};
 use arrow_flight::{
     FlightDescriptor, FlightEndpoint, FlightInfo, Ticket, flight_descriptor::DescriptorType,
@@ -13,10 +13,7 @@ use mosaicod_facade::Context;
 use mosaicod_marshal as marshal;
 use mosaicod_marshal::{JsonMetadataBlob, flight};
 
-pub async fn get_flight_info(
-    ctx: &facade::Context,
-    desc: FlightDescriptor,
-) -> Result<FlightInfo, ServerError> {
+pub async fn get_flight_info(ctx: &facade::Context, desc: FlightDescriptor) -> Result<FlightInfo> {
     match desc.r#type() {
         DescriptorType::Cmd => {
             let cmd = marshal::flight::get_flight_info_cmd(&desc.cmd)?;
@@ -75,7 +72,7 @@ pub async fn get_flight_info(
                                 .with_location(topic_handle.locator().url()?)
                                 .with_app_metadata(topic_app_mdata);
 
-                            Ok::<FlightEndpoint, ServerError>(e)
+                            Ok::<FlightEndpoint, BoxGrpcPublicError>(e)
                         })
                         .buffer_unordered(params::MAX_BUFFERED_FUTURES)
                         .try_collect::<Vec<FlightEndpoint>>()
@@ -147,7 +144,7 @@ pub async fn get_flight_info(
                 }
             }
         }
-        _ => Err(ServerError::UnsupportedDescriptor),
+        _ => Err(MosaicodFlightError::unsupported_descriptor())?,
     }
 }
 
@@ -171,7 +168,7 @@ async fn topic_arrow_schema_with_metadata(
     ontology_metadata: TopicOntologyMetadata<JsonMetadataBlob>,
     topic_handle: &facade::topic::Handle,
     context: &Context,
-) -> Result<Schema, facade::Error> {
+) -> Result<Schema> {
     trace!(
         "{} building schema (+platform metadata)",
         topic_handle.locator()
@@ -187,7 +184,7 @@ async fn topic_arrow_schema_with_metadata(
     {
         Ok(s) => s,
         Err(facade::Error::NotFound(_)) => mosaicod_ext::arrow::empty_schema_ref(),
-        Err(e) => return Err(e),
+        Err(e) => Err(e)?,
     };
 
     // Collect schema metadata

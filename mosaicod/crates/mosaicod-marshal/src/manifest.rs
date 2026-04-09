@@ -33,7 +33,7 @@ impl TryFrom<SessionManifest> for types::SessionManifest {
             uuid: value
                 .uuid
                 .parse()
-                .map_err(|e: types::UuidError| super::Error::DeserializationError(e.to_string()))?,
+                .map_err(|e: String| super::Error::DeserializationError(e))?,
             topics: value.topics.into_iter().map(Into::into).collect(),
             created_at: value.created_at.into(),
             completed_at: value.completed_at.map(Into::into),

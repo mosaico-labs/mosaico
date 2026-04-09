@@ -1,4 +1,4 @@
-use crate::errors::ServerError;
+use crate::errors::*;
 use arrow::datatypes::SchemaRef;
 use arrow_flight::decode::{DecodedFlightData, DecodedPayload, FlightDataDecoder};
 use arrow_flight::flight_descriptor::DescriptorType;
@@ -23,46 +23,44 @@ impl std::ops::Deref for DoPutContext {
     }
 }
 
-pub async fn do_put(ctx: DoPutContext, decoder: &mut FlightDataDecoder) -> Result<(), ServerError> {
+pub async fn do_put(ctx: DoPutContext, decoder: &mut FlightDataDecoder) -> Result<()> {
     let (cmd, schema) = extract_command_and_schema_from_header_message(decoder).await?;
     do_put_topic_data(ctx, decoder, schema, cmd).await
 }
 
 async fn extract_command_and_schema_from_header_message(
     decoder: &mut FlightDataDecoder,
-) -> Result<(types::flight::DoPutCmd, SchemaRef), ServerError> {
+) -> Result<(types::flight::DoPutCmd, SchemaRef)> {
     if let Some(data) = decoder
         .try_next()
         .await
-        .map_err(|e| ServerError::StreamError(e.to_string()))?
+        .map_err(|e| MosaicodFlightError::StreamInterrupted(e.to_string()))?
     {
         let cmd = extract_command_from_flight_data(&data)?;
         let schema = extract_schema_from_flight_data(&data)?;
         return Ok((cmd, schema));
     }
-    Err(ServerError::MissingDoPutHeaderMessage)
+    Err(MosaicodFlightError::missing_header())?
 }
 
-fn extract_schema_from_flight_data(data: &DecodedFlightData) -> Result<SchemaRef, ServerError> {
+fn extract_schema_from_flight_data(data: &DecodedFlightData) -> Result<SchemaRef> {
     if let DecodedPayload::Schema(schema) = &data.payload {
         return Ok(schema.clone());
     }
-    Err(ServerError::MissingSchema)
+    Err(MosaicodFlightError::missing_schema())?
 }
 
 /// Extract descriptor tag from flight decoded data
-fn extract_command_from_flight_data(
-    data: &DecodedFlightData,
-) -> Result<types::flight::DoPutCmd, ServerError> {
+fn extract_command_from_flight_data(data: &DecodedFlightData) -> Result<types::flight::DoPutCmd> {
     let desc = data
         .inner
         .flight_descriptor
         .as_ref()
-        .ok_or_else(|| ServerError::MissingDescriptor)?;
+        .ok_or_else(MosaicodFlightError::missing_descriptor)?;
 
     // Check if the descriptor if supported
     if desc.r#type() == DescriptorType::Path {
-        return Err(ServerError::UnsupportedDescriptor);
+        Err(MosaicodFlightError::unsupported_descriptor())?
     }
 
     let decoded = marshal::flight::do_put_cmd(&desc.cmd)?;
@@ -75,7 +73,7 @@ async fn do_put_topic_data(
     decoder: &mut FlightDataDecoder,
     schema: SchemaRef,
     cmd: types::flight::DoPutCmd,
-) -> Result<(), ServerError> {
+) -> Result<()> {
     let locator = cmd.resource_locator;
     let uuid_str = &cmd.key;
 
@@ -93,9 +91,12 @@ async fn do_put_topic_data(
 
     // perform the match between received uuid string and topic uuid
     let topic_uuid = topic_handle.uuid().clone();
-    let received_uuid: types::Uuid = uuid_str.parse()?;
+    let received_uuid: types::Uuid = uuid_str
+        .parse()
+        .map_err(|_| MosaicodFlightError::invalid_uuid(uuid_str))?;
+
     if received_uuid != topic_uuid {
-        return Err(ServerError::BadKey);
+        Err(MosaicodFlightError::unauthorized())?
     }
 
     let mdata = facade::topic::manifest(&ctx, &topic_handle).await?;
@@ -112,7 +113,7 @@ async fn do_put_topic_data(
     while let Some(data) = decoder
         .try_next()
         .await
-        .map_err(|e| ServerError::StreamError(e.to_string()))?
+        .map_err(|e| MosaicodFlightError::stream_interrupted(&e.to_string()))?
     {
         match data.payload {
             DecodedPayload::RecordBatch(batch) => {
@@ -135,7 +136,10 @@ async fn do_put_topic_data(
                     .acquire()
                     .await
                     .map_err(|e| {
-                        ServerError::internal_error(&format!("unable to acquire semaphore: {}", e))
+                        MosaicodFlightError::internal(&format!(
+                            "unable to acquire semaphore: {}",
+                            e
+                        ))
                     })?;
                 let serialized_chunk = writer.write(batch).await?;
                 drop(permit);
@@ -150,12 +154,8 @@ async fn do_put_topic_data(
                 )
                 .await?;
             }
-            DecodedPayload::Schema(_) => {
-                return Err(ServerError::DuplicateSchemaInPayload);
-            }
-            DecodedPayload::None => {
-                return Err(ServerError::NoData);
-            }
+            DecodedPayload::Schema(_) => Err(MosaicodFlightError::unsupported_message())?,
+            DecodedPayload::None => Err(MosaicodFlightError::missing_data())?,
         }
     }
 
@@ -176,7 +176,7 @@ async fn on_chunk_created(
     target_path: impl AsRef<std::path::Path>,
     cstats: types::OntologyModelStats,
     chunk_metadata: rw::ChunkMetadata,
-) -> Result<(), ServerError> {
+) -> Result<()> {
     let mut handle = facade::Chunk::create(
         topic_uuid,
         &target_path,

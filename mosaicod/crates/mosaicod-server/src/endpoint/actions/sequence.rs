@@ -1,6 +1,5 @@
 //! Sequence-related actions
-
-use crate::errors::ServerError;
+use crate::errors::*;
 use log::{info, trace, warn};
 use mosaicod_core::types::{self, MetadataBlob};
 use mosaicod_facade as facade;
@@ -11,7 +10,7 @@ pub async fn create(
     ctx: &facade::Context,
     locator: String,
     user_metadata_str: &str,
-) -> Result<ActionResponse, ServerError> {
+) -> Result<ActionResponse> {
     info!("requested resource {} creation", locator);
 
     let locator = types::SequenceResourceLocator::from(locator);
@@ -35,7 +34,7 @@ pub async fn create(
 }
 
 /// Deletes an unlocked sequence.
-pub async fn delete(ctx: &facade::Context, name: String) -> Result<ActionResponse, ServerError> {
+pub async fn delete(ctx: &facade::Context, name: String) -> Result<ActionResponse> {
     warn!("requested deletion of resource {}", name);
 
     let locator = types::SequenceResourceLocator::from(name);
@@ -54,24 +53,24 @@ pub async fn notification_create(
     name: String,
     notification_type: String,
     msg: String,
-) -> Result<ActionResponse, ServerError> {
+) -> Result<ActionResponse> {
     info!("new notification for {}", name);
 
     let locator = types::SequenceResourceLocator::from(name);
 
     let handle = facade::sequence::Handle::try_from_locator(ctx, locator).await?;
 
-    let ntype: types::NotificationType = notification_type.parse()?;
+    let ntype: types::NotificationType = notification_type
+        .parse()
+        .map_err(|_| MosaicodFlightError::invalid_notification_type(&notification_type))?;
+
     facade::sequence::notify(ctx, &handle, ntype, msg).await?;
 
     Ok(ActionResponse::sequence_notification_create())
 }
 
 /// Lists all notifications for a sequence.
-pub async fn notification_list(
-    ctx: &facade::Context,
-    name: String,
-) -> Result<ActionResponse, ServerError> {
+pub async fn notification_list(ctx: &facade::Context, name: String) -> Result<ActionResponse> {
     info!("notification list for {}", name);
 
     let locator = types::SequenceResourceLocator::from(name);
@@ -86,10 +85,7 @@ pub async fn notification_list(
 }
 
 /// Purges all notifications for a sequence.
-pub async fn notification_purge(
-    ctx: &facade::Context,
-    name: String,
-) -> Result<ActionResponse, ServerError> {
+pub async fn notification_purge(ctx: &facade::Context, name: String) -> Result<ActionResponse> {
     warn!("notification purge for {}", name);
 
     let locator = types::SequenceResourceLocator::from(name);

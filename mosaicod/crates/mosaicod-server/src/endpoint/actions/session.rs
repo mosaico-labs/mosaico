@@ -1,15 +1,12 @@
 //! Session related actions.
-use crate::ServerError;
+use crate::errors::*;
 use log::{info, trace, warn};
 use mosaicod_core::types;
 use mosaicod_facade as facade;
 use mosaicod_facade::session;
 use mosaicod_marshal::ActionResponse;
 
-pub async fn create(
-    ctx: &facade::Context,
-    sequence_locator: String,
-) -> Result<ActionResponse, ServerError> {
+pub async fn create(ctx: &facade::Context, sequence_locator: String) -> Result<ActionResponse> {
     info!("requested resource {} creation", sequence_locator);
 
     let sequence_locator = types::SequenceResourceLocator::from(sequence_locator);
@@ -23,13 +20,12 @@ pub async fn create(
     ))
 }
 
-pub async fn finalize(
-    ctx: &facade::Context,
-    session_uuid: String,
-) -> Result<ActionResponse, ServerError> {
+pub async fn finalize(ctx: &facade::Context, session_uuid: String) -> Result<ActionResponse> {
     info!("finalizing session {}", session_uuid);
 
-    let uuid: types::Uuid = session_uuid.parse()?;
+    let uuid: types::Uuid = session_uuid
+        .parse()
+        .map_err(|_| MosaicodFlightError::invalid_uuid(&session_uuid))?;
 
     let session_handle = session::Handle::try_from_uuid(ctx, &uuid).await?;
 
@@ -40,13 +36,12 @@ pub async fn finalize(
     Ok(ActionResponse::session_finalize())
 }
 
-pub async fn delete(
-    ctx: &facade::Context,
-    session_uuid: String,
-) -> Result<ActionResponse, ServerError> {
+pub async fn delete(ctx: &facade::Context, session_uuid: String) -> Result<ActionResponse> {
     warn!("deleting session `{}`", session_uuid);
 
-    let uuid: types::Uuid = session_uuid.parse()?;
+    let uuid: types::Uuid = session_uuid
+        .parse()
+        .map_err(|_| MosaicodFlightError::invalid_uuid(&session_uuid))?;
 
     let session_handle = session::Handle::try_from_uuid(ctx, &uuid).await?;
 

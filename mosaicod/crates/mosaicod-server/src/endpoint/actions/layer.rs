@@ -1,6 +1,6 @@
 //! Layer-related actions.
 
-use crate::errors::ServerError;
+use crate::errors::*;
 use log::{info, warn};
 use mosaicod_core::types;
 use mosaicod_facade as facade;
@@ -11,7 +11,7 @@ pub async fn create(
     ctx: &facade::Context,
     name: String,
     description: String,
-) -> Result<ActionResponse, ServerError> {
+) -> Result<ActionResponse> {
     info!("creating layer `{}`", name);
 
     let handle = facade::Layer::new(
@@ -25,7 +25,7 @@ pub async fn create(
 }
 
 /// Deletes a layer.
-pub async fn delete(ctx: &facade::Context, name: String) -> Result<ActionResponse, ServerError> {
+pub async fn delete(ctx: &facade::Context, name: String) -> Result<ActionResponse> {
     warn!("deleting layer `{}`", name);
 
     let handle = facade::Layer::new(
@@ -44,7 +44,7 @@ pub async fn update(
     prev_name: String,
     curr_name: String,
     curr_description: String,
-) -> Result<ActionResponse, ServerError> {
+) -> Result<ActionResponse> {
     info!(
         "updating layer `{}` with new name `{}` and new description `{}`",
         prev_name, curr_name, curr_description
@@ -66,7 +66,7 @@ pub async fn update(
 }
 
 /// Lists all layers.
-pub async fn list(ctx: &facade::Context) -> Result<ActionResponse, ServerError> {
+pub async fn list(ctx: &facade::Context) -> Result<ActionResponse> {
     info!("request layer list");
 
     let layers = facade::Layer::all(ctx.db.clone()).await?;

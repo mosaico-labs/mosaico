@@ -1,6 +1,6 @@
 //! Topic-related actions.
 
-use crate::errors::ServerError;
+use crate::errors::*;
 use log::{info, trace, warn};
 use mosaicod_core::types::{self, MetadataBlob};
 use mosaicod_facade as facade;
@@ -14,13 +14,15 @@ pub async fn create(
     serialization_format: types::Format,
     ontology_tag: String,
     user_metadata_str: &str,
-) -> Result<ActionResponse, ServerError> {
+) -> Result<ActionResponse> {
     info!("requested resource {} creation", name);
 
     let user_mdata =
         marshal::JsonMetadataBlob::try_from_str(user_metadata_str).map_err(facade::Error::from)?;
 
-    let received_uuid: types::Uuid = session_uuid.parse()?;
+    let received_uuid: types::Uuid = session_uuid
+        .parse()
+        .map_err(|_| MosaicodFlightError::invalid_uuid(&session_uuid))?;
 
     let ontology_metadata = types::TopicOntologyMetadata::new(
         types::TopicOntologyProperties {
@@ -48,7 +50,7 @@ pub async fn create(
 }
 
 /// Deletes an unlocked topic.
-pub async fn delete(ctx: &facade::Context, locator: String) -> Result<ActionResponse, ServerError> {
+pub async fn delete(ctx: &facade::Context, locator: String) -> Result<ActionResponse> {
     warn!("requested deletion of resource `{}`", locator);
 
     let topic_locator = types::TopicResourceLocator::from(locator);
@@ -60,7 +62,7 @@ pub async fn delete(ctx: &facade::Context, locator: String) -> Result<ActionResp
         .properties
         .locked
     {
-        return Err(ServerError::TopicLocked);
+        Err(MosaicodFlightError::Locked)?
     }
 
     facade::topic::delete_unlocked(ctx, topic_handle).await?;
@@ -75,23 +77,24 @@ pub async fn notification_create(
     locator: String,
     notification_type: String,
     msg: String,
-) -> Result<ActionResponse, ServerError> {
+) -> Result<ActionResponse> {
     info!("notification for {}", locator);
 
     let topic_locator = types::TopicResourceLocator::from(locator);
 
     let topic_handle = facade::topic::Handle::try_from_locator(ctx, topic_locator).await?;
 
-    facade::topic::notify(ctx, &topic_handle, notification_type.parse()?, msg).await?;
+    let notification_type = notification_type
+        .parse()
+        .map_err(|_| MosaicodFlightError::invalid_notification_type(&notification_type))?;
+
+    facade::topic::notify(ctx, &topic_handle, notification_type, msg).await?;
 
     Ok(ActionResponse::Empty)
 }
 
 /// Lists all notifications for a topic.
-pub async fn notification_list(
-    ctx: &facade::Context,
-    locator: String,
-) -> Result<ActionResponse, ServerError> {
+pub async fn notification_list(ctx: &facade::Context, locator: String) -> Result<ActionResponse> {
     info!("notification list for {}", locator);
 
     let topic_locator = types::TopicResourceLocator::from(locator);
@@ -104,10 +107,7 @@ pub async fn notification_list(
 }
 
 /// Purges all notifications for a topic.
-pub async fn notification_purge(
-    ctx: &facade::Context,
-    locator: String,
-) -> Result<ActionResponse, ServerError> {
+pub async fn notification_purge(ctx: &facade::Context, locator: String) -> Result<ActionResponse> {
     warn!("notification purge for {}", locator);
 
     let topic_locator = types::TopicResourceLocator::from(locator);

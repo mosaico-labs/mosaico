@@ -11,8 +11,8 @@ pub enum Error {
     ArrowError(#[from] arrow::error::ArrowError),
     #[error("io error")]
     IOError(#[from] std::io::Error),
-    #[error("chunk creation callback error with message `{0}`")]
-    ChunkCreationCallbackError(String),
+    // #[error("chunk creation callback error with message `{0}`")]
+    // ChunkCreationCallbackError(String),
     #[error("unsupported write format")]
     Unsupported,
     #[error("blocking operation failed: {0}")]
