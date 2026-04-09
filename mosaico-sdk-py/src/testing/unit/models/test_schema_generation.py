@@ -1318,6 +1318,9 @@ def test_no_MosaicoType():
     class Test7(Serializable):
         x: MosaicoType.list_(Annotated[int, pa.timestamp("us", tz="UTC")])
 
+    class Test8(Serializable):
+        x: MosaicoType.annotate(int, pa.timestamp("us", tz="UTC"))
+
     pyarrow_struct_1 = pa.struct([pa.field("x", pa.int64(), nullable=False)])
     pyarrow_struct_2 = pa.struct([pa.field("x", pa.float16(), nullable=False)])
     pyarrow_struct_3 = pa.struct(
@@ -1339,3 +1342,4 @@ def test_no_MosaicoType():
     assert Test5.__msco_pyarrow_struct__ == pyarrow_struct_5
     assert Test6.__msco_pyarrow_struct__ == pyarrow_struct_6
     assert Test7.__msco_pyarrow_struct__ == pyarrow_struct_7
+    assert Test8.__msco_pyarrow_struct__ == pyarrow_struct_3

@@ -229,13 +229,24 @@ tags: MosaicoType.list_(str)  # explicit Mosaico style - equivalent result
 
 #### Custom Arrow types
 
-For specialised Arrow types not covered by the built-in aliases, you can always use a raw `Annotated` annotation embedding the PyArrow type directly. The schema builder resolves the embedded metadata transparently, exactly like a `MosaicoType` alias:
+For specialised Arrow types not covered by the built-in aliases, you can always use `MosaicoType.annotate()` method.
+This utility allows you to embed a raw PyArrow type directly into your ontology while maintaining full compatibility with the Mosaico schema builder.
+
+`MosaicoType.annotate()` is a helper designed to bridge standard Python types with specific PyArrow configurations
+(like timestamp precision or timezones). It requires two arguments:
+
+* **The Python Fallback Type**: Used for runtime validation and Python-side type hinting (e.g., int, str).
+* **The PyArrow Type**: The specific pyarrow type object to be used in the schema.
 
 ```python
 from mosaicolabs import Serializable, MosaicoField
 class MyOntology(Serializable):
-    ts: Annotated[int, pa.timestamp("us", tz="UTC")] = MosaicoField(description="UTC timestamp.")
+    ts: MosaicoType.annotate(int, pa.timestamp("us", tz="UTC")) = MosaicoField(
+        description="UTC timestamp.")
 ```
+
+!!! info "Migration Note"
+    Using `MosaicoType.annotate(int, ...)` is functionally equivalent to the standard `Annotated[int, ...]`, but it provides a more explicit and optimized path for the Mosaico schema builder to resolve complex Arrow types.
 
 ### MosaicoField
 API Reference: [`mosaicolabs.models.types.MosaicoField`][mosaicolabs.models.types.MosaicoField]

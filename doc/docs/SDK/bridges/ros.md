@@ -387,9 +387,9 @@ While the underlying `rosbags` library supports the majority of standard ROS 2 b
     It includes the companion `PointField` model to describe each data channel (e.g., `x`, `y`, `z`, `intensity`).
   
   > **Note:** Although these are provisional additions, both `FrameTransform`, `BatteryState`, and `PointCloud2` inherit from [`Serializable`][mosaicolabs.models.Serializable]. This ensures they remain fully compatible with Mosaico’s existing serialization infrastructure.
-  
-  ### Supported Message Types Table
-  
+
+### Supported Message Types Table
+
   | ROS Message Type | Mosaico Ontology Type | Adapter |
   | :--- | :--- | :--- |
   | [`geometry_msgs/msg/Pose`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/Pose.html), [`PoseStamped`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/PoseStamped.html)... | [`Pose`][mosaicolabs.models.data.geometry.Pose] | `PoseAdapter` |
