@@ -1,12 +1,11 @@
 //! Common functions shared between multiple commands
 
-use crate::print;
-use log::{debug, info};
 use mosaicod_core::params;
 use mosaicod_db as db;
 use mosaicod_store as store;
 use std::sync::Arc;
 use std::sync::OnceLock;
+use tracing::{debug, info};
 
 pub type Error = Box<dyn std::error::Error>;
 
@@ -28,11 +27,6 @@ pub fn startup_time() -> &'static std::time::Instant {
 pub fn init_db(rt: &tokio::runtime::Runtime, config: &db::Config) -> Result<db::Database, Error> {
     let database = rt.block_on(async {
         let database = db::Database::try_new(config).await?;
-
-        let mut tx = database.transaction().await?;
-        db::layer_bootstrap(&mut tx).await?;
-        tx.commit().await?;
-
         Ok::<db::Database, Box<dyn std::error::Error>>(database)
     })?;
 
@@ -73,12 +67,6 @@ pub fn load_env_variables() -> Result<(), Error> {
     dotenv::dotenv().ok();
 
     params::load_params_from_env(params::ParamsLoadOptions::default())?;
-
-    if params::params().max_chunk_size_in_bytes == 0 {
-        print::warning(
-            "Max chunk size in bytes is 0: automatic chunk splitting is disabled. Large uploads may cause high memory usage.",
-        );
-    }
 
     debug!("{:#?}", params::params());
 

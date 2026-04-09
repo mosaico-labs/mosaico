@@ -82,18 +82,6 @@ pub enum ActionRequest {
     /// Perform a query in the system
     Query(requests::Query),
 
-    /// Creates a new layer in the database
-    LayerCreate(requests::LayerCreate),
-
-    /// Deletes an existing layer in the database
-    LayerDelete(requests::LayerDelete),
-
-    /// Updates the name and description of an existing layer
-    LayerUpdate(requests::LayerUpdate),
-
-    /// Ask for the list of existing layers in the system
-    LayerList(requests::Empty),
-
     /// Ask to create a new api key with given permissions and duration.
     ApiKeyCreate(requests::ApiKeyCreate),
 
@@ -132,11 +120,6 @@ impl ActionRequest {
             "session_finalize" => parse_action_req!(SessionFinalize, body),
             "session_delete" => parse_action_req!(SessionDelete, body),
 
-            "layer_create" => parse_action_req!(LayerCreate, body),
-            "layer_delete" => parse_action_req!(LayerDelete, body),
-            "layer_update" => parse_action_req!(LayerUpdate, body),
-            "layer_list" => parse_action_req!(LayerList, body),
-
             "query" => parse_action_req!(Query, body),
 
             "api_key_create" => parse_action_req!(ApiKeyCreate, body),
@@ -166,9 +149,6 @@ pub enum ActionResponse {
     SessionCreate(responses::ResourceUuid),
     SessionFinalize(()),
     SessionDelete(()),
-
-    /// Returns the list of layers
-    LayerList(responses::LayerList),
 
     Query(responses::Query),
 

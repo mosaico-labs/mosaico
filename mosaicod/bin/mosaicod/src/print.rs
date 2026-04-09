@@ -75,12 +75,13 @@ pub fn startup_info(
     println!();
 }
 
+#[allow(unused)]
 pub fn warning(msg: &str) {
-    println!("{:^12} {}", "WARNING".on_yellow().black(), msg);
+    println!("{:^12} {}", "warning: ".on_yellow().black(), msg);
 }
 
 pub fn error(msg: &str) {
-    eprintln!("{:^12} {}", "ERROR".on_red().black(), msg);
+    eprintln!("{} {}", "error: ".on_red().black(), msg);
 }
 
 fn format_db_host(db_config: &db::Config) -> String {

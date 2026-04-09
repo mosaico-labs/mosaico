@@ -76,31 +76,6 @@ pub struct NotificationCreate {
 }
 
 // ////////////////////////////////////////////////////////////////////////////
-// Layer
-// ////////////////////////////////////////////////////////////////////////////
-
-/// Creates a new layer
-#[derive(Deserialize, Debug)]
-pub struct LayerCreate {
-    pub name: String,
-    pub description: String,
-}
-
-/// Delete an existing layer identified by `name`
-#[derive(Deserialize, Debug)]
-pub struct LayerDelete {
-    pub name: String,
-}
-
-/// Update `name` and `description` on an existing layer
-#[derive(Deserialize, Debug)]
-pub struct LayerUpdate {
-    pub prev_name: String,
-    pub curr_name: String,
-    pub curr_description: String,
-}
-
-// ////////////////////////////////////////////////////////////////////////////
 // Query
 // ////////////////////////////////////////////////////////////////////////////
 

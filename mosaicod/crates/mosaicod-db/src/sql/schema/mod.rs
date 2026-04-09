@@ -3,9 +3,6 @@
 mod data_catalog;
 pub use data_catalog::*;
 
-mod layer_record;
-pub use layer_record::*;
-
 mod notifications;
 pub use notifications::*;
 

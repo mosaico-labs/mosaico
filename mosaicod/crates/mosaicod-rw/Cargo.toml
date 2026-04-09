@@ -10,14 +10,13 @@ license.workspace = true
 mosaicod-core = { workspace = true }
 mosaicod-ext = { workspace = true }
 
-log = { workspace = true }
 arrow = { workspace = true }
 parquet = { workspace = true }
 thiserror = { workspace = true }
 datafusion = { workspace = true }
 tokio = { workspace = true }
 bytes = { workspace = true }
+tracing = { workspace = true }
 
 [dev-dependencies]
-rand = { workspace = true }
 arrow-schema = { workspace = true }

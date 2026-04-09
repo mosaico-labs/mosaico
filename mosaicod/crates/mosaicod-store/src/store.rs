@@ -149,7 +149,6 @@ impl Store {
     }
 
     pub async fn read_bytes(&self, path: impl AsRef<std::path::Path>) -> Result<Vec<u8>, Error> {
-        trace!("reading bytes from {}", path.as_ref().display());
         Ok(self
             .driver
             .get(&to_object_path(&path))
@@ -164,8 +163,6 @@ impl Store {
         path: impl AsRef<std::path::Path>,
         bytes: impl Into<bytes::Bytes>,
     ) -> Result<(), Error> {
-        trace!("writing bytes to {}", path.as_ref().display());
-
         self.driver
             .put(&to_object_path(&path), PutPayload::from_bytes(bytes.into()))
             .await?;

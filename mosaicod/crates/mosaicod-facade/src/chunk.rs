@@ -9,13 +9,13 @@ pub struct Chunk<'a> {
 
 impl<'a> Chunk<'a> {
     pub async fn create(
-        topic_uuid: types::Uuid,
+        topic_uuid: &types::Uuid,
         datafile: impl AsRef<std::path::Path>,
         size_bytes: i64,
         row_count: i64,
         context: &'a Context,
     ) -> Result<Self, Error> {
-        let topic_id = topic::Handle::try_from_uuid(context, &topic_uuid)
+        let topic_id = topic::Handle::try_from_uuid(context, topic_uuid)
             .await?
             .id();
 

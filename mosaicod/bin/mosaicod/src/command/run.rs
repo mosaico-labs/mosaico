@@ -23,10 +23,13 @@ pub struct Run {
     pub local_store: Option<std::path::PathBuf>,
 
     /// Enable TLS. When enabled, the following envirnoment variables needs to be set
-    /// MOSAICOD_TLS_CERT_FILE: certificate file path, MOSAICOD_TLS_PRIVATE_KEY_FILE:
-    /// private key file path
+    /// MOSAICOD_TLS_CERT_FILE, MOSAICOD_TLS_PRIVATE_KEY_FILE.
     #[arg(long, default_value_t = false)]
     pub tls: bool,
+
+    /// Enable gzip compression for both incoming and outgoing messages
+    #[arg(long, default_value_t = false)]
+    pub gzip: bool,
 
     /// Require API keys to operate. When enabled the system will require API keys to
     /// perform any actions. See command `mosaicod api-key` for more info.
@@ -82,6 +85,10 @@ pub fn run(args: Run, json_format: bool) -> Result<(), common::Error> {
 
     if args.tls {
         server.flight_config.tls(tls_config());
+    }
+
+    if args.gzip {
+        server.flight_config.gzip(true);
     }
 
     let mut signals = Signals::new([SIGINT]).map_err(|e| e.to_string())?;

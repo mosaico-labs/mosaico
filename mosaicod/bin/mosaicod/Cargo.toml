@@ -16,7 +16,6 @@ mosaicod-server = { workspace = true }
 
 clap = { workspace = true }
 dotenv = { workspace = true }
-log = { workspace = true }
 mimalloc = { workspace = true }
 signal-hook = { workspace = true }
 colored = { workspace = true }

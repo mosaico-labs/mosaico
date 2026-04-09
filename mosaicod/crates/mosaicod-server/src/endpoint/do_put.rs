@@ -3,16 +3,27 @@ use arrow::datatypes::SchemaRef;
 use arrow_flight::decode::{DecodedFlightData, DecodedPayload, FlightDataDecoder};
 use arrow_flight::flight_descriptor::DescriptorType;
 use futures::TryStreamExt;
-use log::{info, trace};
 use mosaicod_core::types;
 use mosaicod_facade as facade;
 use mosaicod_marshal as marshal;
 use mosaicod_rw as rw;
+use std::sync::Arc;
+use std::time::Instant;
+use tracing::{debug, info};
 
-pub async fn do_put(
-    ctx: facade::Context,
-    decoder: &mut FlightDataDecoder,
-) -> Result<(), ServerError> {
+pub struct DoPutContext {
+    pub inner: facade::Context,
+    pub concurrent_writes_semaphore: Arc<tokio::sync::Semaphore>,
+}
+
+impl std::ops::Deref for DoPutContext {
+    type Target = facade::Context;
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+pub async fn do_put(ctx: DoPutContext, decoder: &mut FlightDataDecoder) -> Result<(), ServerError> {
     let (cmd, schema) = extract_command_and_schema_from_header_message(decoder).await?;
     do_put_topic_data(ctx, decoder, schema, cmd).await
 }
@@ -60,7 +71,7 @@ fn extract_command_from_flight_data(
 }
 
 async fn do_put_topic_data(
-    ctx: facade::Context,
+    ctx: DoPutContext,
     decoder: &mut FlightDataDecoder,
     schema: SchemaRef,
     cmd: types::flight::DoPutCmd,
@@ -69,15 +80,16 @@ async fn do_put_topic_data(
     let uuid_str = &cmd.key;
 
     info!(
-        "client trying to upload topic '{}' using uuid `{}`",
-        locator, uuid_str
+        target = "uploading topic",
+        locator = locator,
+        uuid = uuid_str,
     );
 
     mosaicod_ext::arrow::check_schema(&schema)?;
 
     let topic_locator = types::TopicResourceLocator::from(locator);
 
-    let mut topic_handle = facade::topic::Handle::try_from_locator(&ctx, topic_locator).await?;
+    let topic_handle = facade::topic::Handle::try_from_locator(&ctx, topic_locator).await?;
 
     // perform the match between received uuid string and topic uuid
     let topic_uuid = topic_handle.uuid().clone();
@@ -93,35 +105,10 @@ async fn do_put_topic_data(
     let ontology_tag = mdata.ontology_metadata.properties.ontology_tag;
     let serialization_format = mdata.ontology_metadata.properties.serialization_format;
 
-    trace!("creating topic writer");
-    let mut writer = facade::topic::writer(ctx.clone(), &mut topic_handle, serialization_format);
-
-    writer.on_chunk_created(move |target_path, cols_stats, chunk_metadata| {
-        let topic_uuid = topic_uuid.clone();
-        let ctx_clone = ctx.clone();
-        let ontology_tag = ontology_tag.clone();
-
-        async move {
-            trace!(
-                "calling chunk creation callback for `{}` {:?}",
-                target_path.to_string_lossy(),
-                cols_stats
-            );
-
-            Ok(on_chunk_created(
-                &ctx_clone,
-                topic_uuid,
-                &ontology_tag,
-                target_path,
-                cols_stats,
-                chunk_metadata,
-            )
-            .await?)
-        }
-    });
+    let mut writer = facade::topic::writer(ctx.clone(), topic_handle, serialization_format, schema);
 
     // Consume all batches
-    trace!("ready to consume batches");
+    debug!("ready to receive batches");
     while let Some(data) = decoder
         .try_next()
         .await
@@ -129,13 +116,39 @@ async fn do_put_topic_data(
     {
         match data.payload {
             DecodedPayload::RecordBatch(batch) => {
-                trace!(
-                    "received batch (cols: {}, rows: {}, memory_size: {})",
-                    batch.columns().len(),
-                    batch.num_rows(),
-                    batch.get_array_memory_size()
+                debug!(
+                    target = "received batch",
+                    cols = batch.columns().len(),
+                    rows = batch.num_rows(),
+                    msg_body_size = data.inner.data_body.len() / 1_000_000,
+                    batch_physical_size = batch.get_array_memory_size() / 1_000_000,
                 );
-                writer.write(&batch).await?;
+
+                // Trying to acquire a semaphore to limit the total amount of concurrent writes
+                // run by this instance. This is done in order to bound memory consumption and
+                // to limit CPU-bound operations.
+                //
+                // Since the `.write()` will encode-and-serialize in a single operation it is safe
+                // to acquire the semaphore without causing deadlocks.
+                let permit = ctx
+                    .concurrent_writes_semaphore
+                    .acquire()
+                    .await
+                    .map_err(|e| {
+                        ServerError::internal_error(&format!("unable to acquire semaphore: {}", e))
+                    })?;
+                let serialized_chunk = writer.write(batch).await?;
+                drop(permit);
+
+                on_chunk_created(
+                    &ctx,
+                    &topic_uuid,
+                    &ontology_tag,
+                    serialized_chunk.path,
+                    serialized_chunk.ontology_stats,
+                    serialized_chunk.metadata,
+                )
+                .await?;
             }
             DecodedPayload::Schema(_) => {
                 return Err(ServerError::DuplicateSchemaInPayload);
@@ -146,17 +159,19 @@ async fn do_put_topic_data(
         }
     }
 
-    // If the finalize fails (e.g. problems during stats computation) the topic will not be locked,
-    // this allows the reindexing (currently not implemented) of the topic
-    trace!("finializing data write");
+    let time = Instant::now();
     writer.finalize().await?;
+    debug!(
+        target = "topic finalization",
+        finalize_ms = time.elapsed().as_millis()
+    );
 
     Ok(())
 }
 
 async fn on_chunk_created(
-    context: &facade::Context,
-    topic_uuid: types::Uuid,
+    ctx: &DoPutContext,
+    topic_uuid: &types::Uuid,
     ontology_tag: &str,
     target_path: impl AsRef<std::path::Path>,
     cstats: types::OntologyModelStats,
@@ -167,11 +182,10 @@ async fn on_chunk_created(
         &target_path,
         chunk_metadata.size_bytes as i64,
         chunk_metadata.row_count as i64,
-        context,
+        &ctx.inner,
     )
     .await?;
 
-    // Use batch insert for better performance (single INSERT per type instead of N)
     handle
         .push_ontology_model_stats(ontology_tag, cstats)
         .await?;

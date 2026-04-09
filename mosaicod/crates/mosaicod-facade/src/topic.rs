@@ -247,32 +247,28 @@ async fn manifest_write_to_store(
 /// format `format`.
 pub fn writer(
     context: Context,
-    handle: &'_ mut Handle,
+    handle: Handle,
     format: types::Format,
-) -> TopicWriterGuard<'_> {
-    let max_chunk_size = {
-        let config_value = params::params().max_chunk_size_in_bytes;
-        if config_value == 0 {
-            None // 0 means unlimited (no automatic splitting)
-        } else {
-            Some(config_value)
-        }
-    };
-
+    schema: SchemaRef,
+) -> HandleWriter {
     let data_folder = handle.locator.path_data_folder(handle.uuid());
 
-    let cw = rw::ChunkedWriter::new(context.store.clone(), format, move |chunk_number| {
-        data_folder.join(types::TopicResourceLocator::data_file(
-            chunk_number,
-            format.to_properties().as_ref(),
-        ))
-    })
-    .with_max_chunk_size(max_chunk_size);
+    let writer = rw::ChunkWriter::new(
+        context.store.clone(),
+        format,
+        schema.clone(),
+        move |chunk_number| {
+            data_folder.join(types::TopicResourceLocator::data_file(
+                chunk_number,
+                format.to_properties().as_ref(),
+            ))
+        },
+    );
 
-    TopicWriterGuard {
+    HandleWriter {
         handle,
         format,
-        writer: cw,
+        writer,
         context,
     }
 }
@@ -467,53 +463,50 @@ pub async fn compute_optimal_batch_size(
 
     let params = params::params();
 
-    let target_size = params.target_message_size_in_bytes;
+    let target_size = params.target_message_size;
     let batch_size = (target_size as i64 * stats.total_row_count) / stats.total_size_bytes;
 
     Ok((batch_size as usize).min(params.max_batch_size))
 }
 
-/// A guard ensuring exclusive write access to a [`Topic`].
+/// A guard ensuring exclusive write access to [`Handle`].
 ///
 /// While this struct exists, the underlying topic is mutably borrowed, preventing
-/// any other operations (such as locking or concurrent reads) until [`TopicWriterGuard::finalize`] is called.
-pub struct TopicWriterGuard<'a> {
+/// any other operations (such as locking or concurrent reads) until [`TopicWriter::finalize`] is called.
+pub struct HandleWriter {
     /// Anchors the exclusive borrow of the handle, strictly tying the writer's lifetime
     /// to the topic's availability.
-    handle: &'a mut Handle,
+    handle: Handle,
 
     /// Serialization format used to write
     format: types::Format,
 
     /// The underlying writer handling the actual data operations.
-    writer: rw::ChunkedWriter<Arc<store::Store>>,
+    writer: rw::ChunkWriter<Arc<store::Store>>,
 
     /// Context containing query engine for timeseries data used to finalize topic data at the end of write process
     context: Context,
 }
 
-impl<'a> TopicWriterGuard<'a> {
+impl HandleWriter {
     /// Performs all the operations required to finalize the writing stream, consolidate topic data
     /// and lock the topic
     pub async fn finalize(self) -> Result<(), Error> {
-        trace!("internal writer finalized");
-        let _ = self.writer.finalize().await?;
-        finalize(&self.context, self.handle, self.format).await?;
+        finalize(&self.context, &self.handle, self.format).await?;
         Ok(())
     }
 }
 
-impl<'a> std::ops::Deref for TopicWriterGuard<'a> {
-    type Target = rw::ChunkedWriter<Arc<store::Store>>;
+impl std::ops::Deref for HandleWriter {
+    type Target = rw::ChunkWriter<Arc<store::Store>>;
 
     fn deref(&self) -> &Self::Target {
         &self.writer
     }
 }
 
-impl<'a> std::ops::DerefMut for TopicWriterGuard<'a> {
+impl std::ops::DerefMut for HandleWriter {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        trace!("dereferencing writer");
         &mut self.writer
     }
 }

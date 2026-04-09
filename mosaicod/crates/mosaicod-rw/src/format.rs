@@ -43,6 +43,16 @@ pub trait ParquetFormatProperties: FormatProperties {
 
     /// Returns DataFusion ListingOptions configured for reading files in this format.
     fn listing_options(&self) -> ListingOptions;
+
+    /// Preallocates memory for the internal writer buffer to avoid dynamic resizing.
+    ///
+    /// Set this close to your target chunk size, accounting for potential
+    /// serialization overshoot. Different compression formats and schemas
+    /// will affect the final peak memory footprint.
+    fn buffer_capacity(&self) -> usize {
+        // (cabba) NOTE: not tuned yet :)
+        ((params::params().parquet_in_memory_encoding_buffer_size as f64) * 1.1) as usize
+    }
 }
 
 // ////////////////////////////////////////////////////////////////////////////
@@ -139,7 +149,7 @@ pub struct ImageFormatProperties;
 impl ImageFormatProperties {
     /// Maximum ZSTD compression level for best compression ratio.
     /// Suitable for write-once, read-many image data.
-    const COMPRESSION_LEVEL: i32 = 22;
+    const COMPRESSION_LEVEL: i32 = 5;
 }
 
 impl AsExtension for ImageFormatProperties {
@@ -175,6 +185,11 @@ impl ParquetFormatProperties for ImageFormatProperties {
     fn listing_options(&self) -> ListingOptions {
         ListingOptions::new(Arc::new(ParquetFormat::default()))
             .with_file_extension(format!(".{}", self.as_extension()))
+    }
+
+    fn buffer_capacity(&self) -> usize {
+        // (cabba) NOTE: not tuned yet :)
+        ((params::params().parquet_in_memory_encoding_buffer_size as f64) * 1.3) as usize
     }
 }
 

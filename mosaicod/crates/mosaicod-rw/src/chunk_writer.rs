@@ -1,258 +1,111 @@
-use super::{Error, writer::Writer};
-use arrow::{array::RecordBatch, datatypes::Schema, datatypes::SchemaRef};
-use mosaicod_core::types;
-use mosaicod_ext;
-use std::sync::Arc;
+use super::*;
+use arrow::{array::RecordBatch, datatypes::SchemaRef};
+use mosaicod_core::{traits, types};
+use std::time::Instant;
+use tracing::debug;
 
-/// Metadata about a finalized chunk, including size and row count.
-#[derive(Debug, Clone)]
-pub struct ChunkMetadata {
-    pub size_bytes: usize,
-    pub row_count: usize,
+pub struct SerializedChunk {
+    pub path: std::path::PathBuf,
+    pub ontology_stats: types::OntologyModelStats,
+    pub metadata: ChunkMetadata,
 }
 
-/// The [`ChunkWriter`] is used to serialize [`RecordBatch`] instances into a single memory chunk,
-/// supporting multiple serialization formats. It encapsulates the underlying writer and manages the serialization
-/// process based on the specified format.
+/// Writes [`RecordBatch`] into multiple chunks to a location. A location is a path-like structure.
+/// Internally the [`ChunkWriter`] can subdivide the batches in multiple files.
 ///
-/// During the writing process, it also collects statistics about the data being serialized, which can be
-/// accessed via the [`ChunkStats::statistics`] method.
-pub struct ChunkWriter {
-    pub format: types::Format,
-    writer: Writer,
-    stats: types::OntologyModelStats,
+/// When `max_chunk_size` is set and the internal buffer exceeds this size
+/// after writing a batch, the current chunk is automatically finalized and
+/// written to storage. A new chunk is started for subsequent writes.
+pub struct ChunkWriter<W> {
+    format: types::Format,
+
+    /// Schema is here, even if can be deducted from a record batch to impose that a chunked writer
+    /// can work on a single schema.
     schema: SchemaRef,
-    row_count: usize,
+
+    /// Target of the write operation for this writer
+    write_target: W,
+
+    /// Number of chunks serialized
+    pub chunk_count: usize,
+
+    /// Callback used to format file path when new data needs to be serialized
+    path_provider: Box<dyn Fn(usize) -> std::path::PathBuf + Send>,
 }
 
-impl ChunkWriter {
-    /// Creates a new [`ChunkWriter`] configured for a specific serialization format.
-    ///
-    /// This fallible constructor initializes an appropriate underlying writer
-    /// based on the provided `format`.
-    pub fn try_new(schema: Arc<Schema>, format: types::Format) -> Result<Self, Error> {
-        Ok(ChunkWriter {
-            writer: Writer::new(&schema, format)?,
+impl<W> ChunkWriter<W> {
+    /// Creates a new [`ChunkWriter`].
+    /// This writer will split data when a `max_chunk_size` is reached (see
+    /// [`ChunkedWriter::with_max_chunk_size`] for more details.
+    pub fn new<F>(target: W, format: types::Format, schema: SchemaRef, path_provider: F) -> Self
+    where
+        F: Fn(usize) -> std::path::PathBuf + Send + 'static,
+    {
+        Self {
+            write_target: target,
             format,
-            stats: mosaicod_ext::arrow::ontology_model_stats_from_schema(&schema),
             schema,
-            row_count: 0,
+            chunk_count: 0,
+            path_provider: Box::new(path_provider),
+        }
+    }
+
+    /// Writes a [`RecordBatch`] into the chunked writer.
+    ///
+    /// The [`ChunkWriter`] will internally manage the creation of chunks
+    /// based on the serialization format and the maximum chunk size (if any).
+    pub async fn write<A>(&mut self, batch: RecordBatch) -> Result<SerializedChunk, Error>
+    where
+        A: traits::AsyncWriteToPath,
+        W: AsRef<A>,
+    {
+        let mut writer = InMemoryChunkEncoder::try_new(self.schema.clone(), self.format)?;
+
+        let encoding_time = Instant::now();
+
+        // Offload CPU-intensive parquet encoding/compression to blocking thread pool
+        let (buffer, stats, chunk_metadata) = tokio::task::spawn_blocking(move || {
+            writer.write(&batch)?;
+            writer.finalize()
+        })
+        .await
+        .map_err(|e| Error::BlockingOperationError(e.to_string()))??;
+
+        let buffer_len = buffer.len();
+        let encoding_time_ms = encoding_time.elapsed().as_millis();
+        let store_time = Instant::now();
+
+        let target_path = self.store(buffer).await?;
+        self.chunk_count += 1;
+
+        debug!(
+            target = "chunk encoding",
+            encoding_ms = encoding_time_ms,
+            store_ms = store_time.elapsed().as_millis(),
+            store_path = target_path.to_string_lossy().to_string(),
+            buffer_size_kb = buffer_len / 1000
+        );
+
+        Ok(SerializedChunk {
+            path: target_path,
+            ontology_stats: stats,
+            metadata: chunk_metadata,
         })
     }
 
-    /// Wrties the provided [`RecordBatch`].
-    ///
-    /// The `RecordBatch` is serialized according to the writer's format, and the internal statistics
-    /// are updated based on the data in the batch. The method returns an error if the serialization fails
-    pub fn write(&mut self, batch: &RecordBatch) -> Result<(), Error> {
-        match &mut self.writer {
-            Writer::Parquet(writer) => {
-                mosaicod_ext::arrow::ontology_model_stats_inspect_record_batch(
-                    &mut self.stats,
-                    batch,
-                )?;
-                writer.write(batch)?;
-            }
-        }
-        self.row_count += batch.num_rows();
-        Ok(())
-    }
+    /// Finalize the writing process of a single chunk
+    async fn store<A>(&mut self, buffer: Vec<u8>) -> Result<std::path::PathBuf, Error>
+    where
+        A: traits::AsyncWriteToPath,
+        W: AsRef<A>,
+    {
+        let path = (self.path_provider)(self.chunk_count);
 
-    /// Returns a reference to the current statistics of the serialized data.
-    pub fn statistics(&self) -> &types::OntologyModelStats {
-        &self.stats
-    }
+        self.write_target
+            .as_ref()
+            .write_to_path(&path, buffer)
+            .await?;
 
-    pub fn take_statistics(&mut self) -> types::OntologyModelStats {
-        std::mem::replace(
-            &mut self.stats,
-            mosaicod_ext::arrow::ontology_model_stats_from_schema(&self.schema),
-        )
-    }
-
-    /// Returns a mutable reference to the internal buffer containing the serialized data.
-    pub fn buffer_mut(&mut self) -> &mut Vec<u8> {
-        match &mut self.writer {
-            Writer::Parquet(writer) => writer.inner_mut(),
-        }
-    }
-
-    /// Returns a reference to the internal buffer containing the serialized data.
-    pub fn buffer(&self) -> &Vec<u8> {
-        match &self.writer {
-            Writer::Parquet(writer) => writer.inner(),
-        }
-    }
-
-    pub fn memory_size(&self) -> usize {
-        match &self.writer {
-            Writer::Parquet(writer) => writer.memory_size(),
-        }
-    }
-
-    /// Finalizes the writer, ensuring all buffered data and metadata are written to the file.
-    ///
-    /// This method must be called to complete the writing process. It consumes the writer object,
-    /// preventing any further writes.
-    ///
-    /// Returns the serialized buffer, column statistics, and chunk metadata (size and row count).
-    pub fn finalize(self) -> Result<(Vec<u8>, types::OntologyModelStats, ChunkMetadata), Error> {
-        // We are calling `finish`` since the implementation is the same as
-        // close but takes no ownership of the writer. And we return the internal data buffer.
-        let row_count = self.row_count;
-        let buffer = match self.writer {
-            Writer::Parquet(w) => w.into_inner()?,
-        };
-        let metadata = ChunkMetadata {
-            size_bytes: buffer.len(),
-            row_count,
-        };
-        Ok((buffer, self.stats, metadata))
-    }
-}
-
-#[cfg(test)]
-mod tests {
-
-    use super::*;
-    use arrow::array::{
-        ArrayRef, BinaryArray, BooleanArray, Float64Array, Int64Array, StringArray, StructArray,
-    };
-    use arrow::datatypes::Field;
-    use arrow_schema::DataType;
-    use mosaicod_core::params;
-
-    /// Helper function to create a test RecordBatch.
-    /// This provides a schema with numeric, string, and nested struct types,
-    /// along with nulls and NaN values to test the statistics generation.
-    fn create_test_batch() -> RecordBatch {
-        let schema = Arc::new(Schema::new(vec![
-            Field::new("timestamp", DataType::Int64, false),
-            Field::new("label", DataType::Utf8, true),
-            Field::new("is_braking", DataType::Boolean, false),
-            Field::new(
-                "pose",
-                DataType::Struct(
-                    vec![
-                        Field::new("x", DataType::Float64, false),
-                        Field::new("y", DataType::Float64, false),
-                    ]
-                    .into(),
-                ),
-                false,
-            ),
-            Field::new("image", DataType::Binary, false),
-        ]));
-
-        // Create arrays for each column
-        let timestamp_array: ArrayRef = Arc::new(Int64Array::from(vec![1, 2, 3]));
-        let label_array: ArrayRef = Arc::new(StringArray::from(vec![Some("a"), None, Some("c")]));
-        let image_array: ArrayRef = Arc::new(BinaryArray::from(vec![
-            b"BLOB-01" as &[u8],
-            b"BLOB-02",
-            b"BLOB-03",
-        ]));
-
-        let braking_array: ArrayRef = Arc::new(BooleanArray::from(vec![true, true, false]));
-        let x_array: ArrayRef = Arc::new(Float64Array::from(vec![0.1, 0.2, 0.3]));
-        let y_array: ArrayRef = Arc::new(Float64Array::from(vec![1.1, 1.2, 1.3]));
-        let pose_array: ArrayRef = Arc::new(StructArray::from(vec![
-            (Arc::new(Field::new("x", DataType::Float64, false)), x_array),
-            (Arc::new(Field::new("y", DataType::Float64, false)), y_array),
-        ]));
-
-        RecordBatch::try_new(
-            schema.clone(),
-            vec![
-                timestamp_array,
-                label_array,
-                braking_array,
-                pose_array,
-                image_array,
-            ],
-        )
-        .expect("Fail during record batch creation")
-    }
-
-    #[test]
-    fn chunk_writer_statistics() {
-        let batch = create_test_batch();
-        let schema = batch.schema();
-
-        let mut writer = ChunkWriter::try_new(schema, types::Format::Default)
-            .expect("Failed to create ChunkWriter");
-        writer.write(&batch).expect("Failed to write batch");
-        let cstats = writer.statistics();
-
-        dbg!(cstats);
-
-        // The schema should be flattened into 5 fields: timestamp, label, is_braking, pose.x, pose.y, image
-        assert_eq!(cstats.cols.len(), 6);
-
-        // Check stats for "timestamp"
-        if let Some(types::Stats::Numeric(s)) = cstats.cols.get("timestamp") {
-            assert_eq!(s.min, 1.0);
-            assert_eq!(s.max, 3.0);
-            assert!(!s.has_null);
-            assert!(!s.has_nan);
-        } else {
-            panic!("Missing or incorrect type for `timestamp` stats");
-        }
-
-        // Check  stats for "is_braking"
-        if let Some(types::Stats::Numeric(v)) = cstats.cols.get("is_braking") {
-            assert_eq!(v.min, 0.0);
-            assert_eq!(v.max, 1.0);
-            assert!(!v.has_null);
-            assert!(!v.has_nan);
-        } else {
-            panic!("Missing or incorrect type for `is_braking` stats");
-        }
-
-        // Check stats for "label", and check that the computed bloom filter has
-        // all the values in the set
-        if let Some(types::Stats::Textual(s)) = cstats.cols.get("label") {
-            assert_eq!(s.min.as_deref(), Some("a"));
-            assert_eq!(s.max.as_deref(), Some("c"));
-
-            assert!(s.has_null);
-        } else {
-            panic!("Missing or incorrect type for label stats");
-        }
-
-        // Check stats for "pose.x"
-        if let Some(types::Stats::Numeric(s)) = cstats.cols.get("pose.x") {
-            assert!((s.min - 0.1).abs() < params::EPSILON);
-            assert!((s.max - 0.3).abs() < params::EPSILON);
-            assert!(!s.has_null);
-            assert!(!s.has_nan);
-        } else {
-            panic!("Missing or incorrect type for pose.x stats");
-        }
-
-        // Check stats for "pose.y"
-        if let Some(types::Stats::Numeric(s)) = cstats.cols.get("pose.y") {
-            assert!((s.min - 1.1).abs() < params::EPSILON);
-            assert!((s.max - 1.3).abs() < params::EPSILON);
-            assert!(!s.has_null);
-            assert!(!s.has_nan);
-        } else {
-            panic!("Missing or incorrect type for pose.y stats");
-        }
-
-        // Check stats for "image", since this column holds binary data no statistics
-        // needs to be computed
-        assert_eq!(cstats.cols.get("image"), Some(&types::Stats::Unsupported));
-
-        // Finalize the writer (optional in test, but good practice)
-        let (buffer, _, metadata) = writer.finalize().expect("Failed to finalize writer");
-
-        // Ensure that buffer is not empty
-        dbg!(buffer.len());
-        assert!(!buffer.is_empty());
-
-        // Check metadata
-        assert_eq!(metadata.row_count, 3);
-        assert_eq!(metadata.size_bytes, buffer.len());
+        Ok(path)
     }
 }
