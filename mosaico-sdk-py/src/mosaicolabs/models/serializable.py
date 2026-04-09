@@ -6,7 +6,7 @@ specific ontology data types (e.g., IMU, Image, Odometry).
 
 It implements a **Registry/Factory Pattern**:
 1.  **Auto-Registration**: Any subclass defined in the code is automatically registered
-    via `__init_subclass__`.
+    via `__pydantic_init_subclass__`.
 2.  **Factory Creation**: The `._create()` method instantiates specific subclasses based
     on a string tag.
 3.  **Query Capability**: It injects query proxies allowing users to write `IMU.Q.acc_x > 0`.
@@ -243,13 +243,27 @@ class Serializable(BaseModel, _QueryProxyMixin):
         Returns:
             A pa.StructType representing the schema of the Pydantic model.
         """
+
+        cached_struct = model_class.__dict__.get("__msco_pyarrow_struct__")
+        if cached_struct and len(cached_struct) > 0:
+            return cached_struct
+
         pa_fields = []
         for field_name, field_info in model_class.model_fields.items():
             annotation = field_info.annotation
             metadata = field_info.metadata[0] if field_info.metadata else None
             pa_type = cls._resolve_type(annotation, metadata)
 
-            nullable = bool((field_info.json_schema_extra or {}).get("nullable", True))
+            # Get the nullable of json_schema_extra if MosaicoField is used otherwise "required" attribute from pydantic
+            nullable = (
+                bool(
+                    field_info.json_schema_extra.get(
+                        "nullable", not field_info.is_required()
+                    )
+                )
+                if field_info.json_schema_extra
+                else not field_info.is_required()
+            )
             metadata = None
 
             if field_info.description:
@@ -375,7 +389,7 @@ class Serializable(BaseModel, _QueryProxyMixin):
             The registered string tag for this class (e.g., `"imu"`, `"gps"`).
 
         Raises:
-            Exception: If the class was not properly initialized via `__init_subclass__`.
+            Exception: If the class was not properly initialized via `__pydantic_init_subclass__`.
 
         Hint: **Practical Application: Topic Filtering**
             This method is particularly useful when constructing [`QueryTopic`][mosaicolabs.models.query.builders.QueryTopic]

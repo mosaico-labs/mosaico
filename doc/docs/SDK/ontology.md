@@ -95,7 +95,7 @@ When defining ontologies in the Mosaico SDK, every class attribute carries two p
 
 `MosaicoType` and `MosaicoField` let you express both in a single annotation, providing a clean **single-source-of-truth API** for ontology field declarations.
 
-You annotate each attribute once, and the Arrow schema is derived automatically at class-definition time by introspecting Pydantic's `model_fields`, no separate schema declaration to maintain, no risk of the two representations drifting apart.
+You annotate each attribute once, and the Arrow schema is derived automatically at class-definition time by introspecting Pydantic's `model_fields`: no separate schema declaration to maintain, no risk of the two representations drifting apart.
  
 Because the whole mechanism is built on top of **Pydantic model fields** via `Annotated` metadata, extending or customising field behaviour is as simple as adding standard Pydantic `Field` kwargs: no subclassing, no metaclass magic, no separate schema registry to maintain.
 
@@ -131,8 +131,11 @@ from mosaicolabs import MosaicoField, MosaicoType, Serializable
 
 class MyOntology(Serializable):
     x: MosaicoType.float32
+    y: Optional[MosaicoType.float32] = None
 
 ```
+
+In the above example `x` attribute will be converted in a **not nullable** pyarrow field, while `y` attribute will be converted in a **nullable** pyarrow field.
 
 #### List types
  
@@ -145,14 +148,16 @@ from mosaicolabs import MosaicoField, MosaicoField, Serializable
 
 class MyOntology(Serializable):
     # Variable-length list of float32
-    scores: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
-          default=None)
+    scores: Optional[MosaicoType.list_(MosaicoType.float32)]
  
     # Fixed-size list of 3 float32 (e.g. an RGB vector)
     color: MosaicoType.list_(MosaicoType.float32, list_size=3)
  
     # Works with raw Python primitives too
-    tags: MosaicoType.list_(str) = MosaicoField(nullable=True)
+    tags: MosaicoType.list_(str)
+
+    #Works with other Pydantic models with pyarrow struct
+    vec: MosaicoType.list_(Vector3d)
 ```
  
 #### Custom Arrow types
@@ -182,6 +187,8 @@ class MyPointOntology(Serializable):
         default=None, description="Point label")
     score: MosaicoType.float32 = MosaicoField(nullable=True)
 ```
+
+With `MosaicoField` you can define the `default` value of your attribute, the `nullable` attribute of pyarrow field and also a `description`.
 
 ### Nullability and Parquet V2
 The `nullable` flag in `MosaicoField` controls whether the Arrow schema emits the field as nullable. The default is `False`, fields are non-nullable unless explicitly stated otherwise.
@@ -366,7 +373,7 @@ class ConfidenceMixin(Serializable):
 class MetadataMixin(Serializable):
     label:     Optional[MosaicoType.string] = MosaicoField(default=None, nullable=True)
     sensor_id: MosaicoType.string = MosaicoField(description="Source sensor identifier")
-    ts: Annotated[int, pa.timestamp("us", tz="UTC")] = MosaicoField()
+    ts: Annotated[int, pa.timestamp("us", tz="UTC")]
 
 # Combine mixins, the Arrow schema aggregates all fields automatically
 class DetectionOntology(GeometryMixin, ConfidenceMixin, MetadataMixin):

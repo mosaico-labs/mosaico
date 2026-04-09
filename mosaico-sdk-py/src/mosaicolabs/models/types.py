@@ -102,14 +102,23 @@ class MosaicoType:
             ValueError: If ``source_type`` does not resolve to a valid
                 ``pa.DataType``.
         """
-        pa_type = (
-            source_type.__metadata__[0]
-            if hasattr(source_type, "__metadata__")
-            else BASE_MAPPING.get(source_type)
-        )
+        from .serializable import Serializable
 
-        if not isinstance(pa_type, pa.DataType):
-            raise ValueError(f"Expected a valid pyarrow data type for {source_type}.")
+        if isinstance(source_type, type) and issubclass(source_type, Serializable):
+            pa_type = source_type._build_ontology_struct(source_type)
+        else:
+            pa_type = (
+                source_type.__metadata__[0]
+                if hasattr(source_type, "__metadata__")
+                else BASE_MAPPING.get(source_type)
+            )
+
+        if not isinstance(pa_type, pa.DataType) and not isinstance(
+            pa_type, pa.StructType
+        ):
+            raise ValueError(
+                f"Expected a valid pyarrow data/struct type for {source_type}."
+            )
 
         arrow_list_type = (
             pa.list_(pa_type, list_size) if list_size else pa.list_(pa_type)

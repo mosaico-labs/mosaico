@@ -1,4 +1,4 @@
-from typing import Any, Union
+from typing import Annotated, Any, Optional, Union
 
 import pyarrow as pa
 import pytest
@@ -1300,15 +1300,46 @@ def test_not_supported_annotation():
             test2: Union[int, float, str]
 
 
-def test_no_Mosaicofield():
+def test_no_MosaicoType():
     class Test1(Serializable):
         x: int
 
     class Test2(Serializable):
         x: MosaicoType.float16
 
-    pyarrow_struct_1 = pa.struct([pa.field("x", pa.int64())])
-    pyarrow_struct_2 = pa.struct([pa.field("x", pa.float16())])
+    class Test3(Serializable):
+        x: Annotated[int, pa.timestamp("us", tz="UTC")]
+
+    class Test4(Serializable):
+        x: Optional[MosaicoType.float32] = None
+
+    class Test5(Serializable):
+        x: MosaicoType.list_(str)
+
+    class Test6(Serializable):
+        x: MosaicoType.list_(Vector3d, list_size=3)
+
+    class Test7(Serializable):
+        x: MosaicoType.list_(Annotated[int, pa.timestamp("us", tz="UTC")])
+
+    pyarrow_struct_1 = pa.struct([pa.field("x", pa.int64(), nullable=False)])
+    pyarrow_struct_2 = pa.struct([pa.field("x", pa.float16(), nullable=False)])
+    pyarrow_struct_3 = pa.struct(
+        [pa.field("x", pa.timestamp("us", tz="UTC"), nullable=False)]
+    )
+    pyarrow_struct_4 = pa.struct([pa.field("x", pa.float32(), nullable=True)])
+    pyarrow_struct_5 = pa.struct([pa.field("x", pa.list_(pa.string()), nullable=False)])
+    pyarrow_struct_6 = pa.struct(
+        [pa.field("x", pa.list_(vector3d, list_size=3), nullable=False)]
+    )
+    pyarrow_struct_7 = pa.struct(
+        [pa.field("x", pa.list_(pa.timestamp("us", tz="UTC")), nullable=False)]
+    )
 
     assert Test1.__msco_pyarrow_struct__ == pyarrow_struct_1
     assert Test2.__msco_pyarrow_struct__ == pyarrow_struct_2
+    assert Test3.__msco_pyarrow_struct__ == pyarrow_struct_3
+    assert Test4.__msco_pyarrow_struct__ == pyarrow_struct_4
+    assert Test5.__msco_pyarrow_struct__ == pyarrow_struct_5
+    assert Test6.__msco_pyarrow_struct__ == pyarrow_struct_6
+    assert Test7.__msco_pyarrow_struct__ == pyarrow_struct_7
