@@ -56,21 +56,29 @@ def api_keys_list(host, port, with_auth, api_key_mgmt):
 
 
 @pytest.fixture(scope="function")
-def mosaico_client(host, port, tls_cert_path, api_key_mgmt):
+def mosaico_client(host, port, tls_cert_path, with_gzip, api_key_mgmt):
     """Open a client connection FOR EACH function using this fixture"""
 
     return MosaicoClient.connect(
-        host=host, port=port, tls_cert_path=tls_cert_path, api_key=api_key_mgmt
+        host=host,
+        port=port,
+        tls_cert_path=tls_cert_path,
+        api_key=api_key_mgmt,
+        enable_gzip=with_gzip,
     )
 
 
 @pytest.fixture(
     scope="session"
 )  # the first who calls this function, wins and avoid this is called multiple times
-def synthetic_sequence_data_stream(host, port, tls_cert_path, api_key_mgmt):
+def synthetic_sequence_data_stream(host, port, tls_cert_path, with_gzip, api_key_mgmt):
     """Generate synthetic data, create a sequence and pushes messages"""
     _client = MosaicoClient.connect(
-        host=host, port=port, tls_cert_path=tls_cert_path, api_key=api_key_mgmt
+        host=host,
+        port=port,
+        tls_cert_path=tls_cert_path,
+        api_key=api_key_mgmt,
+        enable_gzip=with_gzip,
     )
 
     start_time_sec = 1700000000
@@ -118,11 +126,15 @@ def synthetic_sequence_data_stream(host, port, tls_cert_path, api_key_mgmt):
 
 @pytest.fixture(scope="session")
 def inject_synthetic_sequence(
-    synthetic_sequence_data_stream, host, port, tls_cert_path, api_key_mgmt
+    synthetic_sequence_data_stream, host, port, tls_cert_path, api_key_mgmt, with_gzip
 ):
     """Generate synthetic data, create a sequence and pushes messages"""
     _client = MosaicoClient.connect(
-        host=host, port=port, tls_cert_path=tls_cert_path, api_key=api_key_mgmt
+        host=host,
+        port=port,
+        tls_cert_path=tls_cert_path,
+        api_key=api_key_mgmt,
+        enable_gzip=with_gzip,
     )
 
     with _client.sequence_create(
@@ -146,13 +158,18 @@ def inject_synthetic_sequence(
 
     # free resources
     _client.close()
+    raise RuntimeError("PIPPA")
 
 
 @pytest.fixture(scope="session")
-def inject_mockup_sequences(host, port, tls_cert_path, api_key_mgmt):
+def inject_mockup_sequences(host, port, tls_cert_path, api_key_mgmt, with_gzip):
     """Generate synthetic data, create a sequence and pushes messages"""
     _client = MosaicoClient.connect(
-        host=host, port=port, tls_cert_path=tls_cert_path, api_key=api_key_mgmt
+        host=host,
+        port=port,
+        tls_cert_path=tls_cert_path,
+        api_key=api_key_mgmt,
+        enable_gzip=with_gzip,
     )
     for sname, sdata in QUERY_SEQUENCES_MOCKUP.items():
         with _client.sequence_create(

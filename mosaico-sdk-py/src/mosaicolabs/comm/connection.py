@@ -31,9 +31,10 @@ def _get_connection(
     host: str,
     port: int,
     timeout: int,
-    enable_tls: bool = False,
-    tls_cert: Optional[bytes] = None,
-    middlewares: Optional[dict[str, fl.ClientMiddlewareFactory]] = None,
+    enable_tls: bool,
+    enable_gzip: bool,
+    tls_cert: Optional[bytes],
+    middlewares: Optional[dict[str, fl.ClientMiddlewareFactory]],
 ) -> fl.FlightClient:
     """
     Factory function to establish a single PyArrow Flight client connection.
@@ -55,6 +56,16 @@ def _get_connection(
     )
     if middlewares is not None:
         kwargs.update({"middleware": [midwr for midwr in middlewares.values()]})
+
+    if enable_gzip:
+        kwargs.update(
+            {
+                "generic_options": [
+                    ("grpc.default_compression_algorithm", 2),  # Enable GZIP
+                    ("grpc.compression_enabled", 1),
+                ]
+            }
+        )
 
     try:
         client = fl.FlightClient(f"{protocol}://{host}:{port}", **kwargs)

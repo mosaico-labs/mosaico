@@ -85,6 +85,7 @@ class MosaicoClient:
         control_client: fl.FlightClient,
         sentinel: object,
         enable_tls: bool,
+        enable_gzip: bool,
         tls_cert: Optional[bytes],
         api_key_fingerprint: Optional[str],
         middlewares: dict[str, fl.ClientMiddlewareFactory],
@@ -107,6 +108,7 @@ class MosaicoClient:
             control_client: The primary PyArrow Flight control client.
             sentinel: Private object used to verify factory-based instantiation.
             enable_tls: Enable TLS communication.
+            enable_gzip: Enable GZIP compression via gRPC.
             tls_cert: The TLS certificate.
             api_key_fingerprint: The fingerprint of the API key to use for authentication.
             middlewares: The middlewares to be used for the connection.
@@ -130,6 +132,8 @@ class MosaicoClient:
         """The path to the TLS certificate file."""
         self._enable_tls: bool = enable_tls
         """If True, enable the TLS commmunication protocol"""
+        self._enable_gzip: bool = enable_gzip
+        """If True, enable the GZIP compression via gRPC"""
         self._middlewares: dict[str, fl.ClientMiddlewareFactory] = middlewares
         """The middlewares to be used for the connection."""
         self._api_key_fingerprint: Optional[str] = api_key_fingerprint
@@ -148,6 +152,7 @@ class MosaicoClient:
         port: int,
         timeout: int = 5,
         enable_tls: bool = False,
+        enable_gzip: bool = False,
         tls_cert_path: Optional[str] = None,
         api_key: Optional[str] = None,
     ) -> "MosaicoClient":
@@ -176,6 +181,8 @@ class MosaicoClient:
                 Defaults to 5.
             enable_tls (bool): Enable the TLS standard one-way TLS (server authenticated only) communication protocol.
                 Defaults to False. If `tls_cert_path` is provided (not None), this flag does not have any effect.
+            enable_gzip (bool): Enable the GZIP compression of record batches sent via gRPC.
+                Defaults to False.
             tls_cert_path (Optional[str]): Path to the TLS certificate file. Defaults to None.
                 If `tls_cert_path=None` and `enable_tls=True`, a standard one-way TLS (server authenticated only) connection
                 is established.
@@ -225,6 +232,7 @@ class MosaicoClient:
                 port=port,
                 timeout=timeout,
                 enable_tls=enable_tls,
+                enable_gzip=enable_gzip,
                 tls_cert=resolved_tls_cert,
                 middlewares=middlewares,
             )
@@ -242,6 +250,7 @@ class MosaicoClient:
             sentinel=cls._CONNECT_SENTINEL,
             tls_cert=resolved_tls_cert,
             enable_tls=enable_tls,
+            enable_gzip=enable_gzip,
             api_key_fingerprint=api_key_fingerprint,
             middlewares=middlewares,
         )
