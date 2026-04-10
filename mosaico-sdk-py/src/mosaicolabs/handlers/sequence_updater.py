@@ -3,15 +3,13 @@ Sequence Updating Module.
 
 This module acts as the central controller for updating a sequence of data.
 It manages the lifecycle of the sequence on the server (Create -> Write -> Finalize)
-and distributes client resources (Connections, Executors) to individual Topics.
+and distributes client resources to individual Topics.
 """
 
 from typing import Any, Optional, Type
 
 import pyarrow.flight as fl
 
-from ..comm.connection import _ConnectionPool
-from ..comm.executor_pool import _ExecutorPool
 from ..enum import TopicLevelErrorPolicy
 from ..logging_config import get_logger
 from ..models import Serializable
@@ -28,14 +26,6 @@ class SequenceUpdater(_BaseSessionWriter):
     Orchestrates the sequence update and related data ingestion lifecycle of a Mosaico Sequence.
 
     The `SequenceUpdater` is the central controller for high-performance data writing.
-
-    ### Key Responsibilities
-    * **Lifecycle Management**: Coordinates new session creation, finalization, or abort signals with the server.
-    * **Resource Distribution**: Implements a "Multi-Lane" architecture by distributing network connections
-        from a Connection Pool and thread executors from an Executor Pool to individual
-        [`TopicWriter`][mosaicolabs.handlers.TopicWriter]
-        instances. This ensures strict isolation and maximum parallelism between
-        diverse data streams.
 
     Important: Usage Pattern
         This class **must** be used within a `with` statement (Context Manager).
@@ -54,8 +44,6 @@ class SequenceUpdater(_BaseSessionWriter):
         *,
         sequence_name: str,
         client: fl.FlightClient,
-        connection_pool: Optional[_ConnectionPool],
-        executor_pool: Optional[_ExecutorPool],
         config: SessionWriterConfig,
     ):
         """
@@ -80,8 +68,7 @@ class SequenceUpdater(_BaseSessionWriter):
                         # Start creating topics and pushing data
                         # (2)!
 
-                # Exiting the block automatically flushes all topic buffers, finalizes the sequence on the server
-                # and closes all connections and pools
+                # Exiting the block automatically flushes all topic buffers and finalizes the sequence on the server
             ```
 
             1. See also: [`SequenceHandler.update()`][mosaicolabs.handlers.SequenceHandler.update]
@@ -92,8 +79,6 @@ class SequenceUpdater(_BaseSessionWriter):
         Args:
             sequence_name: Unique name for the new sequence.
             client: The primary control FlightClient.
-            connection_pool: Shared pool of data connections for parallel writing.
-            executor_pool: Shared pool of thread executors for asynchronous I/O.
             config: Operational configuration (e.g., error policies, batch sizes).
         """
 
@@ -102,8 +87,6 @@ class SequenceUpdater(_BaseSessionWriter):
             sequence_name=sequence_name,
             client=client,
             config=config,
-            connection_pool=connection_pool,
-            executor_pool=executor_pool,
             logger=logger,
         )
 
@@ -130,10 +113,6 @@ class SequenceUpdater(_BaseSessionWriter):
         """
         Creates a new topic within the active sequence.
 
-        This method performs a "Multi-Lane" resource assignment, granting the new
-        [`TopicWriter`][mosaicolabs.handlers.TopicWriter], its own connection from the pool
-        and a dedicated executor for background serialization and I/O.
-
         Args:
             topic_name: The relative name of the new topic.
             metadata: Topic-specific user metadata.
@@ -152,7 +131,6 @@ class SequenceUpdater(_BaseSessionWriter):
                 # Start the Sequence Orchestrator
                 with client.sequence_create(...) as seq_writer: # (1)!
                     # Create individual Topic Writers
-                    # Each writer gets its own assigned resources from the pools
                     imu_writer = seq_writer.topic_create(
                         topic_name="sensors/imu", # The univocal topic name
                         metadata={ # The topic/sensor custom metadata
@@ -192,8 +170,7 @@ class SequenceUpdater(_BaseSessionWriter):
                     )
                     # ...
 
-                # Exiting the block automatically flushes all topic buffers, finalizes the sequence on the server
-                # and closes all connections and pools
+                # Exiting the block automatically flushes all topic buffers and finalizes the sequence on the server
             ```
 
             1. See also: [`MosaicoClient.sequence_create()`][mosaicolabs.comm.MosaicoClient.sequence_create]

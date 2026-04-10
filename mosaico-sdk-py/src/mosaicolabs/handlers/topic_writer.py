@@ -7,7 +7,6 @@ serialization, and connection management.
 """
 
 import json
-from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Optional, Type
 
 import pyarrow.flight as fl
@@ -28,11 +27,6 @@ from .internal.topic_write_state import _TopicWriteState
 logger = get_logger(__name__)
 
 
-# TODO: Better manage topic lifecycle and error policy handling
-# Policies:
-# - Report and Skip: Skip the current record and continue with the next one.
-# - Report and Close: Report via topic_notification_create and close the writer. Must manage writer disabling and actions on calling push on a disabled writer
-# - Report and Delete: Delete the topic and report the error via sequence_notification_create. Must manage writer disabling and actions on calling push on a disabled writer
 class TopicWriter:
     """
     Manages a high-performance data stream for a single Mosaico topic.
@@ -41,11 +35,6 @@ class TopicWriter:
     handling internal buffering, serialization, and network transmission.
     It accumulates records in memory and automatically flushes them to the server when
     configured batch limits—defined by either byte size or record count—are exceeded.
-
-    ### Performance & Parallelism
-    If an executor pool is provided by the parent client, the `TopicWriter` performs
-    data serialization on background threads, preventing I/O operations from blocking
-    the main application logic.
 
     Important: Obtaining a Writer
         End-users should not instantiate this class directly. Use the
@@ -76,7 +65,6 @@ class TopicWriter:
                 # Start the Sequence Orchestrator
                 with client.sequence_create(...) as seq_writer: # (1)!
                     # Create individual Topic Writers
-                    # Each writer gets its own assigned resources from the pools
                     imu_writer = seq_writer.topic_create( # (2)!
                         topic_name="sensors/imu", # The univocal topic name
                         metadata={ # The topic/sensor custom metadata
@@ -131,7 +119,6 @@ class TopicWriter:
         topic_name: str,
         topic_uuid: str,
         client: fl.FlightClient,
-        executor: Optional[ThreadPoolExecutor],
         ontology_type: Type[Serializable],
         config: TopicWriterConfig,
     ) -> "TopicWriter":
@@ -152,7 +139,6 @@ class TopicWriter:
             topic_name: Unique name for this topic stream.
             topic_uuid: authorization key provided by the server during creation.
             client: The connection to use for the data stream.
-            executor: Optional thread pool for background serialization.
             ontology_type: The data model class defining the record schema.
             config: Batching limits and error policies.
 
@@ -193,7 +179,6 @@ class TopicWriter:
             topic_name=topic_name,
             ontology_tag=ontology_type.__ontology_tag__,
             writer=writer,
-            executor=executor,
             max_batch_size_bytes=config.max_batch_size_bytes,
             max_batch_size_records=config.max_batch_size_records,
         )
@@ -314,7 +299,6 @@ class TopicWriter:
                 # Start the Sequence Orchestrator
                 with client.sequence_create(...) as seq_writer: # (1)!
                     # Create individual Topic Writers
-                    # Each writer gets its own assigned resources from the pools
                     imu_writer = seq_writer.topic_create( # (2)!
                         topic_name="sensors/imu", # The univocal topic name
                         metadata={ # The topic/sensor custom metadata

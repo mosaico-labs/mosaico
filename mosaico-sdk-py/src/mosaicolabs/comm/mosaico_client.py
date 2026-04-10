@@ -3,8 +3,8 @@ Mosaico Client Entry Point.
 
 This module provides the `MosaicoClient`, the primary interface for users to
 interact with the Mosaico system. It manages the connection lifecycle,
-resource pooling (connections and executors), and serves as a factory for
-creating resource handlers (sequences, topics) and executing queries.
+and serves as a factory for creating resource handlers (sequences, topics)
+and executing queries.
 """
 
 import os
@@ -30,7 +30,6 @@ from ..platform.api_key import APIKeyStatus
 from .connection import (
     DEFAULT_MAX_BATCH_BYTES,
     DEFAULT_MAX_BATCH_SIZE_RECORDS,
-    _ConnectionPool,
     _ConnectionStatus,
     _get_connection,
 )
@@ -41,7 +40,6 @@ from .do_action import (
     _DoActionResponseAPIKeyCreate,
     _DoActionResponseAPIKeyStatus,
 )
-from .executor_pool import _ExecutorPool
 from .middlewares import MosaicoAuthMiddlewareFactory
 
 # Set the hierarchical logger
@@ -52,13 +50,12 @@ class MosaicoClient:
     """
     The gateway to the Mosaico Data Platform.
 
-    This class centralizes connection management, resource pooling, and serves as a
-    factory for specialized handlers. It is designed to manage the lifecycle of
-    both network connections and asynchronous executors efficiently.
+    This class centralizes connection management, and serves as a
+    factory for specialized handlers.
 
     Tip: Context Manager Usage
-        The `MosaicoClient` is best used as a context manager to ensure all
-        internal pools and connections are gracefully closed.
+        The `MosaicoClient` is best used as a context manager to ensure
+        the connection is gracefully closed.
 
         ```python
         from mosaicolabs import MosaicoClient
@@ -86,8 +83,6 @@ class MosaicoClient:
         port: int,
         timeout: int,
         control_client: fl.FlightClient,
-        connection_pool: Optional[_ConnectionPool],
-        executor_pool: Optional[_ExecutorPool],
         sentinel: object,
         enable_tls: bool,
         tls_cert: Optional[bytes],
@@ -110,8 +105,6 @@ class MosaicoClient:
             port: The remote server port.
             timeout: The connection timeout.
             control_client: The primary PyArrow Flight control client.
-            connection_pool: Internal pool for data connections.
-            executor_pool: Internal pool for async I/O.
             sentinel: Private object used to verify factory-based instantiation.
             enable_tls: Enable TLS communication.
             tls_cert: The TLS certificate.
@@ -133,10 +126,6 @@ class MosaicoClient:
         """The primary PyArrow Flight client used for SDK-Server control operations (e.g., creating layers, querying)."""
         self._status: _ConnectionStatus = _ConnectionStatus.Open
         """Tracks the current connection status (Open/Closed)."""
-        self._connection_pool: Optional[_ConnectionPool] = connection_pool
-        """The pool of Flight clients used for parallel data writing."""
-        self._executor_pool: Optional[_ExecutorPool] = executor_pool
-        """The pool of thread executors used for offloading serialization and I/O."""
         self._tls_cert: Optional[bytes] = tls_cert
         """The path to the TLS certificate file."""
         self._enable_tls: bool = enable_tls
@@ -152,47 +141,6 @@ class MosaicoClient:
         self._topic_handlers_cache: Dict[str, TopicHandler] = {}
         """Cache for TopicHandler instances, keyed by their resource ('sequence_name/topic_name') name."""
 
-    def _init_pools(self):
-        """Initialize Connection and Executor pools"""
-        self._get_connection_pool()
-        self._get_executor_pool()
-
-    def _get_connection_pool(self) -> _ConnectionPool:
-        try:
-            # Attempt to create the connection pool. We use os.cpu_count()
-            # as a heuristic for the optimal pool size.
-            if self._connection_pool is None:
-                self._connection_pool = _ConnectionPool(
-                    host=self._host,
-                    port=self._port,
-                    pool_size=os.cpu_count(),
-                    timeout=self._timeout,
-                    tls_cert=self._tls_cert,
-                    enable_tls=self._enable_tls,
-                    middlewares=self._middlewares,
-                )
-
-            return self._connection_pool
-
-        except Exception as e:
-            raise ConnectionError(
-                f"Exception while initializing Connection pool.\nInner err. '{e}'"
-            )
-
-    def _get_executor_pool(self) -> _ExecutorPool:
-        try:
-            # Attempt to create the executor pool. We use os.cpu_count()
-            # as a heuristic for the optimal pool size.
-            if self._executor_pool is None:
-                self._executor_pool = _ExecutorPool(pool_size=os.cpu_count())
-
-            return self._executor_pool
-
-        except Exception as e:
-            raise Exception(
-                f"Exception while initializing Executor pool.\nInner err. '{e}'"
-            )
-
     @classmethod
     def connect(
         cls,
@@ -207,9 +155,8 @@ class MosaicoClient:
         The primary entry point to the Mosaico Data Platform.
 
         This factory method is the **only recommended way** to obtain a valid
-        `MosaicoClient` instance. It orchestrates the
-        necessary handshake, initializes the primary control channel, and prepares
-        the internal resource pools.
+        `MosaicoClient` instance. It orchestrates the necessary handshake,
+        and initializes the communication channel.
 
         Important: Factory Pattern
             Direct instantiation via `__init__` is restricted through a sentinel
@@ -292,8 +239,6 @@ class MosaicoClient:
             port=port,
             timeout=timeout,
             control_client=control_client,
-            connection_pool=None,
-            executor_pool=None,
             sentinel=cls._CONNECT_SENTINEL,
             tls_cert=resolved_tls_cert,
             enable_tls=enable_tls,
@@ -461,8 +406,6 @@ class MosaicoClient:
             sh = SequenceHandler._connect(
                 sequence_name=sequence_name,
                 client=self._control_client,
-                connection_pool_allocator=self._get_connection_pool,
-                executor_pool_allocator=self._get_executor_pool,
             )
             if not sh:
                 return None
@@ -618,17 +561,12 @@ class MosaicoClient:
             else DEFAULT_MAX_BATCH_SIZE_RECORDS
         )
 
-        # Init connection and executor pools
-        self._init_pools()
-
         # Safely convert to the right type
         on_error = SessionLevelErrorPolicy(on_error.value)
 
         return SequenceWriter(
             sequence_name=sequence_name,
             client=self._control_client,
-            connection_pool=None,
-            executor_pool=None,
             metadata=metadata,
             config=SessionWriterConfig(
                 on_error=on_error,
@@ -1221,9 +1159,9 @@ class MosaicoClient:
         Gracefully shuts down the Mosaico client and releases all underlying resources.
 
         This method ensures a clean termination of the client's lifecycle by:
+
         * **Closing Handlers:** Invalidates and closes all cached `SequenceHandlers` and `TopicHandlers` to prevent stale data access.
-        * **Network Cleanup:** Terminated the connection pool to the `mosaicod` backend.
-        * **Thread Termination:** Shuts down the internal thread executor pool responsible for asynchronous data fetching and background streaming.
+        * **Network Cleanup:** Closes the connection to the `mosaicod` backend.
 
         Note:
             If using the client as a context manager (via `with MosaicoClient.connect(...)`),
@@ -1253,12 +1191,6 @@ class MosaicoClient:
 
             self.clear_sequence_handlers_cache()
             self.clear_topic_handlers_cache()
-
-            # Close pools
-            if self._connection_pool:
-                self._connection_pool.close()
-            if self._executor_pool:
-                self._executor_pool.close()
 
             # Close main connection
             self._control_client.close()

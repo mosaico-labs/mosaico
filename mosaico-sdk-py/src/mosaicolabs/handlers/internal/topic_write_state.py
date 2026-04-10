@@ -2,14 +2,13 @@
 Internal Write State Module.
 
 This module handles the low-level data buffering, serialization, and transmission
-logic for a single topic. It implements an asynchronous pipeline with backpressure
-to optimize throughput while preventing memory exhaustion.
+logic for a single topic. It implements the remote transmission pipeline,
+while optimizing the throughput and preventing memory exhaustion.
 """
 
+import time
 from collections import defaultdict
-from concurrent.futures import Future, ThreadPoolExecutor, wait
 from enum import Enum
-from threading import BoundedSemaphore, Lock
 from typing import List, Optional
 
 import pyarrow as pa
@@ -59,10 +58,7 @@ class _TopicWriteState:
     1.  **Buffering**: Accumulates `Message` objects in `_current_data_batch`.
         -   Uses **Bytes Mode** for heavy data (Images) to respect Flight chunk limits.
         -   Uses **Count Mode** for light data (IMU, Odometry) for efficiency.
-    2.  **Async Dispatch**: Offloads serialization and network I/O to a `ThreadPoolExecutor`.
-    3.  **Backpressure**: Uses a `BoundedSemaphore` to limit the number of pending
-        async tasks. If the network is slower than the data producer, `push_record()`
-        will eventually block, naturally throttling the application.
+    2.  **Sync Dispatch**.
     """
 
     def __init__(
@@ -70,7 +66,6 @@ class _TopicWriteState:
         topic_name: str,
         ontology_tag: str,
         writer: Optional[fl.FlightStreamWriter],
-        executor: Optional[ThreadPoolExecutor] = None,
         max_batch_size_bytes: Optional[int] = None,
         max_batch_size_records: Optional[int] = None,
     ):
@@ -81,7 +76,6 @@ class _TopicWriteState:
             topic_name (str): Topic name.
             ontology_tag (str): Data ontology tag for schema resolution.
             writer (Optional[fl.FlightStreamWriter]): Active Flight stream writer.
-            executor (Optional[ThreadPoolExecutor]): Executor for async operations.
             max_batch_size_bytes (Optional[int]): flush threshold for byte mode.
             max_batch_size_records (Optional[int]): flush threshold for count mode.
         """
@@ -100,7 +94,6 @@ class _TopicWriteState:
         self.topic_name: str = topic_name
         self.writer: Optional[fl.FlightStreamWriter] = writer
         self.ontology_tag: str = ontology_tag
-        self.executor: Optional[ThreadPoolExecutor] = executor
         self.max_batch_size_bytes = max_batch_size_bytes
         self.max_batch_size_records = max_batch_size_records
 
@@ -120,23 +113,12 @@ class _TopicWriteState:
         self._current_data_batch: List[Message] = []
         self._current_batch_size_bytes: int = 0
 
-        # --- Async & Backpressure State ---
-        self._pending_writes: List[Future] = []
-        self._pending_writes_lock = Lock()
         self._written_records = 0
         self._pushed_records = 0
-
-        # Backpressure Settings:
-        # Allow max 3 pending batches. The 4th attempt will block the main thread.
-        self.max_pending_batches = 3
-        # Use BoundedSemaphore to manage shared I/O writing channel.
-        # Waiting (blocking) mechanism when length of pending batches is more than limit
-        self._pending_sem = BoundedSemaphore(self.max_pending_batches)
 
     def _get_record_batch(self, msgs: List[Message]) -> pa.RecordBatch:
         """
         [CPU Bound] Converts Python objects to Arrow RecordBatch.
-        Runs in worker thread during async mode.
         """
         if self.writer is None:
             raise ValueError("Writer is None")
@@ -241,11 +223,7 @@ class _TopicWriteState:
 
     def _submit_write_task(self, msgs_to_write: List[Message]):
         """
-        Dispatches the write operation to the executor.
-
-        **Backpressure Logic:**
-        Calls `self._pending_sem.acquire()`. If 3 tasks are already pending,
-        this call BLOCKS, pausing the main thread until a worker finishes.
+        Dispatches the write operation.
         """
         if self.writer is None:
             logger.error(
@@ -253,53 +231,18 @@ class _TopicWriteState:
             )
             return
 
-        # Worker Function
-        def full_write_task(records, topic_name, sem: Optional[BoundedSemaphore]):
-            try:
-                # Serialization (CPU)
-                batch = self._get_record_batch(records)
-                # Transmission (IO)
-                assert self.writer is not None
-                self.writer.write(batch)
-                self._written_records += len(msgs_to_write)
-            except Exception as e:
-                logger.error(f"Async write failed for topic '{topic_name}': '{e}'")
-            finally:
-                # Release Semaphore (Unblock main thread, if blocked)
-                if sem:
-                    sem.release()
-
-        if self.executor is not None:
-            # Backpressure Gate
-            # Attempt to acquire a slot. If the queue is full (max_pending_batches reached),
-            # this call blocks the main thread, effectively throttling the data producer.
-            self._pending_sem.acquire()
-
-            future = self.executor.submit(
-                full_write_task,
-                msgs_to_write,
-                self.topic_name,
-                self._pending_sem,
+        try:
+            # Serialization (CPU)
+            batch = self._get_record_batch(msgs_to_write)
+            # Transmission (IO)
+            tstart = time.time()
+            self.writer.write(batch)
+            logger.debug(
+                f"'writer.write' MB {self._get_serialized_size(batch) / (1024 * 1024)}, time: {time.time() - tstart}"
             )
-
-            # Resource Management
-            # Define a callback to automatically remove the future from the tracking list
-            # once execution completes, preventing infinite list growth.
-            def cleanup_callback(fut):
-                with self._pending_writes_lock:
-                    try:
-                        self._pending_writes.remove(fut)
-                    except ValueError:
-                        pass  # Future already removed
-
-            future.add_done_callback(cleanup_callback)
-
-            with self._pending_writes_lock:
-                self._pending_writes.append(future)
-
-        else:
-            # Sync Path: Run immediately on main thread
-            full_write_task(msgs_to_write, self.topic_name, None)
+            self._written_records += len(msgs_to_write)
+        except Exception as e:
+            raise Exception(f"Write failed for topic '{self.topic_name}': '{e}'")
 
     def _write_current_batch(self):
         """
@@ -317,26 +260,6 @@ class _TopicWriteState:
 
             self._submit_write_task(records)
 
-    def _wait_for_pending_writes(self):
-        """
-        Blocks until all async tasks are complete.
-        """
-        if self.writer is not None and self.executor is not None:
-            logger.info(
-                f"Waiting for pending writes termination, for topic '{self.topic_name}'..."
-            )
-
-            with self._pending_writes_lock:
-                futures = list(self._pending_writes)
-
-            if futures:
-                wait(futures)
-
-            # Check for silent failures
-            for f in futures:
-                if f.exception():
-                    logger.error(f"Async write error: '{f.exception()}'")
-
     def close(self, with_error: bool = False):
         """
         Finalizes the topic stream.
@@ -350,7 +273,6 @@ class _TopicWriteState:
                 if not with_error:
                     # Flush any data remaining in the buffer
                     self._write_current_batch()
-                    self._wait_for_pending_writes()
 
                 self.writer.done_writing()
                 logger.info(

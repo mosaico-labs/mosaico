@@ -37,7 +37,7 @@ The `run()` method is the heart of the ingestor. When called, it initiates a mul
 
 1. **Handshake & Registry**: Establishes a connection to the Mosaico server and registers any provided custom `.msg` definitions into the global [`ROSTypeRegistry`][mosaicolabs.ros_bridge.ROSTypeRegistry].
 2. **Sequence Creation**: Requests the server to initialize a new data sequence based on the provided name and metadata.
-3. **Adaptive Streaming**: Iterates through the ROS bag records. For each message, it identifies the correct adapter, translates the ROS dictionary into a Mosaico object, and pushes it into an optimized asynchronous write buffer.
+3. **Adaptive Streaming**: Iterates through the ROS bag records. For each message, it identifies the correct adapter, translates the ROS dictionary into a Mosaico object, and pushes it into an optimized write buffer.
 4. **Transaction Finalization**: Once the bag is exhausted, it flushes all remaining buffers and signals the server to commit the sequence.
 
 #### Configuring the Ingestion
@@ -354,8 +354,7 @@ The following table details the injection performance for the **NVIDIA R2B Datas
 #### Understanding Performance Factors
 
 * **Compression Factors**: Sequences like `r2b_galileo2` achieve high ratios (~70%) because Mosaico optimizes the underlying columnar storage for scalar telemetry. Conversely, sequences with pre-compressed video feeds show minimal gains (~1%) because the data is already in a dense format.
-* **Injection Time**: This metric includes the overhead of local MCAP/DB3 deserialization via [`ROSLoader`][mosaicolabs.ros_bridge.loader.ROSLoader], semantic translation through the [`ROSBridge`][mosaicolabs.ros_bridge.ROSBridge], and the asynchronous transmission to the Mosaico server.
-* **Hardware Impact**: On the **Apple M2 Pro**, the [`RosbagInjector`][mosaicolabs.ros_bridge.RosbagInjector] utilizes multi-threading for the **Adaptation Layer**, allowing serialization tasks to run in parallel while the main thread manages the Flight stream.
+* **Injection Time**: This metric includes the overhead of local MCAP/DB3 deserialization via [`ROSLoader`][mosaicolabs.ros_bridge.loader.ROSLoader], semantic translation through the [`ROSBridge`][mosaicolabs.ros_bridge.ROSBridge], and the transmission to the Mosaico server.
 
 #### Known Issues & Limitations
 
@@ -387,9 +386,9 @@ While the underlying `rosbags` library supports the majority of standard ROS 2 b
     It includes the companion `PointField` model to describe each data channel (e.g., `x`, `y`, `z`, `intensity`).
   
   > **Note:** Although these are provisional additions, both `FrameTransform`, `BatteryState`, and `PointCloud2` inherit from [`Serializable`][mosaicolabs.models.Serializable]. This ensures they remain fully compatible with Mosaico’s existing serialization infrastructure.
-  
-  ### Supported Message Types Table
-  
+
+### Supported Message Types Table
+
   | ROS Message Type | Mosaico Ontology Type | Adapter |
   | :--- | :--- | :--- |
   | [`geometry_msgs/msg/Pose`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/Pose.html), [`PoseStamped`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/PoseStamped.html)... | [`Pose`][mosaicolabs.models.data.geometry.Pose] | `PoseAdapter` |

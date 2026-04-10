@@ -50,7 +50,7 @@ pub async fn delete(
 
     let session_handle = session::Handle::try_from_uuid(ctx, &uuid).await?;
 
-    facade::session::delete(ctx, session_handle, false, types::allow_data_loss()).await?;
+    facade::session::delete(ctx, session_handle, types::allow_data_loss()).await?;
 
     warn!("session `{}` deleted", session_uuid);
 

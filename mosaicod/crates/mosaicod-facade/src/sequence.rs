@@ -230,7 +230,7 @@ pub async fn delete(
     // Retrieve sessions data and deletes it
     let sessions = session_list(context, &handle).await?;
     for session_handle in sessions {
-        session::delete(context, session_handle, false, allow_data_loss.clone()).await?;
+        session::delete(context, session_handle, allow_data_loss.clone()).await?;
     }
 
     // Delete sequence data
@@ -265,8 +265,8 @@ pub async fn manifest(
     let sessions = session_list(context, handle).await?;
 
     for session_handle in sessions {
-        let session_manifest = session::manifest(context, &session_handle).await?;
-        manifest.sessions.push(session_manifest);
+        let session_metadata = session::metadata(context, &session_handle).await?;
+        manifest.sessions.push(session_metadata);
     }
 
     Ok(manifest)

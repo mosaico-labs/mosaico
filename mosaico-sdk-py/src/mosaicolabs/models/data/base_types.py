@@ -11,7 +11,7 @@ These wrappers elevate basic data types to "first-class citizens" of the messagi
 
 from typing import Any
 
-import pyarrow as pa
+from mosaicolabs import MosaicoField, MosaicoType
 
 from ..serializable import Serializable
 
@@ -58,17 +58,7 @@ class Integer8(Serializable):
         ```
     """
 
-    __msco_pyarrow_struct__ = pa.struct(
-        [
-            pa.field(
-                "data",
-                pa.int8(),
-                nullable=False,
-                metadata={"description": "8-bit Integer data"},
-            ),
-        ]
-    )
-    data: int
+    data: MosaicoType.int8 = MosaicoField(description="8-bit Integer data.")
     """
     The underlying integer value.
     
@@ -154,17 +144,7 @@ class Integer16(Serializable):
         ```
     """
 
-    __msco_pyarrow_struct__ = pa.struct(
-        [
-            pa.field(
-                "data",
-                pa.int16(),
-                nullable=False,
-                metadata={"description": "16-bit Integer data"},
-            ),
-        ]
-    )
-    data: int
+    data: MosaicoType.int16 = MosaicoField(description="16-bit Integer data.")
     """
     The underlying integer value.
     
@@ -250,17 +230,7 @@ class Integer32(Serializable):
         ```
     """
 
-    __msco_pyarrow_struct__ = pa.struct(
-        [
-            pa.field(
-                "data",
-                pa.int32(),
-                nullable=False,
-                metadata={"description": "32-bit Integer data"},
-            ),
-        ]
-    )
-    data: int
+    data: MosaicoType.int32 = MosaicoField(description="32-bit Integer data.")
     """
     The underlying integer value.
     
@@ -346,17 +316,7 @@ class Integer64(Serializable):
         ```
     """
 
-    __msco_pyarrow_struct__ = pa.struct(
-        [
-            pa.field(
-                "data",
-                pa.int64(),
-                nullable=False,
-                metadata={"description": "64-bit Integer data"},
-            ),
-        ]
-    )
-    data: int
+    data: MosaicoType.int64 = MosaicoField(description="64-bit Integer data.")
     """
     The underlying integer value.
     
@@ -445,17 +405,7 @@ class Unsigned8(Serializable):
         ```
     """
 
-    __msco_pyarrow_struct__ = pa.struct(
-        [
-            pa.field(
-                "data",
-                pa.uint8(),
-                nullable=False,
-                metadata={"description": "8-bit Unsigned data"},
-            ),
-        ]
-    )
-    data: int
+    data: MosaicoType.uint8 = MosaicoField(description="8-bit Unsigned data.")
     """
     The underlying unsigned integer value.
     
@@ -555,17 +505,7 @@ class Unsigned16(Serializable):
         ```
     """
 
-    __msco_pyarrow_struct__ = pa.struct(
-        [
-            pa.field(
-                "data",
-                pa.uint16(),
-                nullable=False,
-                metadata={"description": "16-bit Unsigned data"},
-            ),
-        ]
-    )
-    data: int
+    data: MosaicoType.uint16 = MosaicoField(description="16-bit Unsigned data.")
     """
     The underlying unsigned integer value.
     
@@ -665,17 +605,7 @@ class Unsigned32(Serializable):
         ```
     """
 
-    __msco_pyarrow_struct__ = pa.struct(
-        [
-            pa.field(
-                "data",
-                pa.uint32(),
-                nullable=False,
-                metadata={"description": "32-bit Unsigned data"},
-            ),
-        ]
-    )
-    data: int
+    data: MosaicoType.uint32 = MosaicoField(description="32-bit Unsigned data.")
     """
     The underlying unsigned integer value.
     
@@ -775,17 +705,7 @@ class Unsigned64(Serializable):
         ```
     """
 
-    __msco_pyarrow_struct__ = pa.struct(
-        [
-            pa.field(
-                "data",
-                pa.uint64(),
-                nullable=False,
-                metadata={"description": "64-bit Unsigned data"},
-            ),
-        ]
-    )
-    data: int
+    data: MosaicoType.uint64 = MosaicoField(description="64-bit Unsigned data.")
     """
     The underlying unsigned integer value.
     
@@ -882,17 +802,7 @@ class Floating16(Serializable):
         ```
     """
 
-    __msco_pyarrow_struct__ = pa.struct(
-        [
-            pa.field(
-                "data",
-                pa.float16(),
-                nullable=False,
-                metadata={"description": "16-bit Floating-point data"},
-            ),
-        ]
-    )
-    data: float
+    data: MosaicoType.float16 = MosaicoField(description="16-bit Floating-point data.")
     """
     The underlying single-precision float.
     
@@ -978,17 +888,7 @@ class Floating32(Serializable):
         ```
     """
 
-    __msco_pyarrow_struct__ = pa.struct(
-        [
-            pa.field(
-                "data",
-                pa.float32(),
-                nullable=False,
-                metadata={"description": "32-bit Floating-point data"},
-            ),
-        ]
-    )
-    data: float
+    data: MosaicoType.float32 = MosaicoField(description="32-bit Floating-point data.")
     """
     The underlying single-precision float.
     
@@ -1074,17 +974,7 @@ class Floating64(Serializable):
         ```
     """
 
-    __msco_pyarrow_struct__ = pa.struct(
-        [
-            pa.field(
-                "data",
-                pa.float64(),
-                nullable=False,
-                metadata={"description": "64-bit Floating-point data"},
-            ),
-        ]
-    )
-    data: float
+    data: MosaicoType.float64 = MosaicoField(description="64-bit Floating-point data.")
     """
     The underlying single-precision float.
 
@@ -1170,17 +1060,7 @@ class Boolean(Serializable):
         ```
     """
 
-    __msco_pyarrow_struct__ = pa.struct(
-        [
-            pa.field(
-                "data",
-                pa.bool_(),
-                nullable=False,
-                metadata={"description": "Boolean data"},
-            ),
-        ]
-    )
-    data: bool
+    data: MosaicoType.bool = MosaicoField(description="Boolean data.")
     """
     The underlying boolean value.
     
@@ -1266,17 +1146,7 @@ class String(Serializable):
         ```
     """
 
-    __msco_pyarrow_struct__ = pa.struct(
-        [
-            pa.field(
-                "data",
-                pa.string(),
-                nullable=False,
-                metadata={"description": "String data"},
-            ),
-        ]
-    )
-    data: str
+    data: MosaicoType.string = MosaicoField(description="String data.")
     """
     The underlying string data.
     
@@ -1365,17 +1235,7 @@ class LargeString(Serializable):
         ```
     """
 
-    __msco_pyarrow_struct__ = pa.struct(
-        [
-            pa.field(
-                "data",
-                pa.large_string(),
-                nullable=False,
-                metadata={"description": "Large string data"},
-            ),
-        ]
-    )
-    data: str
+    data: MosaicoType.large_string = MosaicoField(description="Large string data.")
     """
     The underlying large string data.
 

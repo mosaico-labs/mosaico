@@ -1,8 +1,9 @@
 from enum import IntEnum
+from typing import List
 
-import pyarrow as pa
-
+from mosaicolabs.models import MosaicoType
 from mosaicolabs.models.serializable import Serializable
+from mosaicolabs.models.types import MosaicoField
 
 
 class PointFieldDataType(IntEnum):
@@ -27,22 +28,17 @@ class PointField(Serializable):
     modeled after: [sensor_msgs/msg/PointField](https://docs.ros2.org/foxy/api/sensor_msgs/msg/PointField.html)
     """
 
-    __msco_pyarrow_struct__ = pa.struct(
-        [
-            pa.field("name", pa.string()),
-            pa.field("offset", pa.uint32()),
-            pa.field("datatype", pa.uint8()),
-            pa.field("count", pa.uint32()),
-        ]
-    )
-
-    name: str
+    name: MosaicoType.string = MosaicoField(description="Name of the field.")
     """The name of the point field."""
-    offset: int
+    offset: MosaicoType.uint32 = MosaicoField(
+        description="Staring position of the field."
+    )
     """The Offset from start of point struct."""
-    datatype: PointFieldDataType
+    datatype: PointFieldDataType = MosaicoField(description="Datatype of the field.")
     """The data type of the point field, see `PointFieldDatatype`."""
-    count: int
+    count: MosaicoType.uint32 = MosaicoField(
+        description="Number of elements in the point field."
+    )
     """The number of elements in the point field."""
 
 
@@ -56,32 +52,40 @@ class PointCloud2(Serializable):
         This model is still not included in the default ontology of Mosaico and is defined specifically for the ros-bridge module
     """
 
-    __msco_pyarrow_struct__ = pa.struct(
-        [
-            pa.field("height", pa.uint32()),
-            pa.field("width", pa.uint32()),
-            pa.field("fields", pa.list_(PointField.__msco_pyarrow_struct__)),
-            pa.field("is_bigendian", pa.bool_()),
-            pa.field("point_step", pa.uint32()),
-            pa.field("row_step", pa.uint32()),
-            pa.field("data", pa.binary()),
-            pa.field("is_dense", pa.bool_()),
-        ]
+    height: MosaicoType.uint32 = MosaicoField(
+        description="The height of the point cloud."
     )
-
-    height: int
     """The height of the point cloud."""
-    width: int
+
+    width: MosaicoType.uint32 = MosaicoField(
+        description="The width of the point cloud."
+    )
     """The width of the point cloud."""
-    fields: list[PointField]
+
+    fields: List[PointField] = MosaicoField(
+        description="The fields of the point cloud."
+    )
     """The fields of the point cloud."""
-    is_bigendian: bool
+
+    is_bigendian: MosaicoType.bool = MosaicoField(
+        description="Whether the data is big-endian."
+    )
     """Whether the data is big-endian."""
-    point_step: int
+
+    point_step: MosaicoType.uint32 = MosaicoField(
+        description="Length of a point in bytes."
+    )
     """Length of a point in bytes."""
-    row_step: int
+
+    row_step: MosaicoType.uint32 = MosaicoField(description="Length of a row in bytes.")
     """Length of a row in bytes."""
-    data: bytes
+
+    data: MosaicoType.binary = MosaicoField(
+        description="The point cloud data. Expected size: row_step * height bytes."
+    )
     """The point cloud data. Expected size: row_step * height bytes."""
-    is_dense: bool
+
+    is_dense: MosaicoType.bool = MosaicoField(
+        description="True if there are no invalid points."
+    )
     """True if there are no invalid points."""

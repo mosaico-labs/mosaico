@@ -30,6 +30,7 @@ from mosaicolabs import (
     Quaternion,
     Range,
     RobotJoint,
+    Serializable,
     String,
     Temperature,
     Transform,
@@ -42,7 +43,6 @@ from mosaicolabs import (
     Vector4d,
     Velocity,
 )
-from mosaicolabs.models import Serializable
 from mosaicolabs.models.futures.depth_camera import (
     RGBDCamera,
     StereoCamera,
@@ -446,11 +446,11 @@ def test_lidar_roundtrip():
         beam_id=[1, 2, 3],
         range=[1.0, 2.0, 3.0],
         near_ir=[223.1, 231.3, 44.8],
-        azimuth=[43, 22, 99.1],
+        azimuth=[43.0, 22.0, 99.1],
         elevation=[30.1, 23.1, 43.1],
         confidence=[1, 0, 1],
         return_type=[0, 1, 1],
-        point_timestamp=[1_000_123, 1_000_124, 1_000_166],
+        point_timestamp=[1_000_123.0, 1_000_124.0, 1_000_166.0],
     )
 
     assert_roundtrip(model)
@@ -513,7 +513,7 @@ def test_rgbdcamera_roundtrip():
         intensity=[0.45, 0.91, 0.52, 0.30],
     )
 
-    assert_roundtrip(model)
+    assert_roundtrip(model, rel=1e-5, abs_tol=1e-40)
 
 
 def test_rgbdcamera_required_only_roundtrip():
@@ -523,7 +523,7 @@ def test_rgbdcamera_required_only_roundtrip():
         z=[8.0, 15.0, 6.5, 40.0],
     )
 
-    assert_roundtrip(model)
+    assert_roundtrip(model, rel=1e-5)
 
 
 def test_tofcamera_roundtrip():
@@ -542,7 +542,7 @@ def test_tofcamera_roundtrip():
         grayscale=[0.30, 0.45, 0.55, 0.72],
     )
 
-    assert_roundtrip(model)
+    assert_roundtrip(model, rel=1e-5)
 
 
 def test_tofcamera_required_only_roundtrip():
@@ -552,7 +552,7 @@ def test_tofcamera_required_only_roundtrip():
         z=[8.0, 15.0, 6.5, 40.0],
     )
 
-    assert_roundtrip(model)
+    assert_roundtrip(model, rel=1e-5)
 
 
 def test_stereocamera_roundtrip():
@@ -571,7 +571,7 @@ def test_stereocamera_roundtrip():
         cost=[4, 12, 7, 48],
     )
 
-    assert_roundtrip(model)
+    assert_roundtrip(model, rel=1e-5)
 
 
 def test_stereocamera_required_only_roundtrip():
@@ -581,7 +581,7 @@ def test_stereocamera_required_only_roundtrip():
         z=[8.0, 15.0, 6.5, 40.0],
     )
 
-    assert_roundtrip(model)
+    assert_roundtrip(model, rel=1e-5)
 
 
 def test_imu_roundtrip():

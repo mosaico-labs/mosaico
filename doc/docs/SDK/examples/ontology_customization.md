@@ -25,35 +25,42 @@ In Mosaico, data models are defined by inheriting from the **[`Serializable`][mo
 For this example, we will create a model for **`EncoderTicks`**, found in the [NVIDIA R2B Dataset 2024](https://catalog.ngc.nvidia.com/orgs/nvidia/teams/isaac/resources/r2bdataset2024?version=1).
 
 ```python
-import pyarrow as pa
-from mosaicolabs import Serializable
+from mosaicolabs import MosaicoField, MosaicoType, Serializable
 
-class EncoderTicks(
-    Serializable, # Automatically registers the model via `Serializable.__init_subclass__`
-):
+class EncoderTicks(Serializable):
     """
-    Custom model for hardware-level encoder tick readings.
+    Custom Mosaico model for NVIDIA Isaac Nova Encoder Ticks.
+
+    This model represents raw wheel encoder counts and their hardware-specific
+    timestamps, providing the base data for dead-reckoning and odometry calculations.
+
+    Attributes:
+        left_ticks: Cumulative tick count for the left wheel.
+        right_ticks: Cumulative tick count for the right wheel.
+        encoder_timestamp: Timestamp of the encoder ticks.
     """
 
-    # --- Wire Schema Definition (Apache Arrow) ---
-    # This defines the high-performance binary storage format on the server.
-    __msco_pyarrow_struct__ = pa.struct([
-        pa.field("left_ticks", pa.uint32(), nullable=False),
-        pa.field("right_ticks", pa.uint32(), nullable=False),
-        pa.field("encoder_timestamp", pa.uint64(), nullable=False),
-    ])
+    # --- Pydantic Fields ---
+    left_ticks: MosaicoType.uint32 = MosaicoField(
+        description="Cumulative counts from the left wheel encoder."
+    )
+    """Cumulative tick count for the left wheel."""
 
-    # --- Data Fields ---
-    # Names and types must strictly match the Apache Arrow schema above.
-    left_ticks: int
-    right_ticks: int
-    encoder_timestamp: int
+    right_ticks: MosaicoType.uint32 = MosaicoField(
+        description="Cumulative counts from the right wheel encoder."
+    )
+    """Cumulative tick count for the right wheel."""
+
+    encoder_timestamp: MosaicoType.uint64 = MosaicoField(
+        description="Timestamp of the encoder ticks."
+    )
+    """Timestamp of the encoder ticks."""
 
 ```
 
 ### Step 2: Ensure "Discovery" via Module Import
 
-It is a common pitfall to define a class and expect the platform to "see" it immediately. Mosaico utilizes the [`Serializable.__init_subclass__`][mosaicolabs.models.Serializable] hook to perform **automatic registration** the moment the class is loaded into memory by the Python interpreter.
+It is a common pitfall to define a class and expect the platform to "see" it immediately. Mosaico utilizes the [`Serializable.__pydantic_init_subclass__`][mosaicolabs.models.Serializable] hook to perform **automatic schema generation and registration** in the moment the class is loaded into memory by the Python interpreter.
 
 For your custom type to be available in your application (especially during ingestion or when using the [`ROSBridge`][mosaicolabs.ros_bridge.ROSBridge]), you **must** ensure the module containing the class is imported.
 

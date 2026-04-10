@@ -1,7 +1,7 @@
 use super::Error;
 use bincode::{Decode, Encode};
 use mosaicod_core::types;
-use mosaicod_core::types::{SessionManifest, UuidError};
+use mosaicod_core::types::{SessionMetadata, UuidError};
 use serde::{Deserialize, Serialize};
 // ////////////////////////////////////////////////////////////////////////////
 // GET FLIGHT INFO CMD
@@ -135,19 +135,19 @@ pub struct SessionAppMetadata {
     locked: bool,
 }
 
-impl From<types::SessionManifest> for SessionAppMetadata {
-    fn from(value: types::SessionManifest) -> Self {
+impl From<types::SessionMetadata> for SessionAppMetadata {
+    fn from(value: types::SessionMetadata) -> Self {
         Self {
             uuid: value.uuid.to_string(),
             created_at_ns: value.created_at.as_i64(),
             completed_at_ns: value.completed_at.map(Into::into),
             topics: value.topics.into_iter().map(Into::into).collect(),
-            locked: value.locked,
+            locked: value.completed_at.is_some(),
         }
     }
 }
 
-impl TryFrom<SessionAppMetadata> for types::SessionManifest {
+impl TryFrom<SessionAppMetadata> for types::SessionMetadata {
     type Error = super::Error;
 
     fn try_from(value: SessionAppMetadata) -> Result<Self, Self::Error> {
@@ -156,12 +156,11 @@ impl TryFrom<SessionAppMetadata> for types::SessionManifest {
             .parse()
             .map_err(|e: UuidError| Error::DeserializationError(e.to_string()))?;
 
-        Ok(SessionManifest {
+        Ok(SessionMetadata {
             uuid,
             created_at: value.created_at_ns.into(),
             completed_at: value.completed_at_ns.map(Into::into),
             topics: value.topics.into_iter().map(Into::into).collect(),
-            locked: value.locked,
         })
     }
 }

@@ -23,11 +23,12 @@ from typing import Any, Dict, List, Optional
 # dependencies for video handling
 import av
 import numpy as np
-import pyarrow as pa
 from PIL import Image as PILImage
 
 from mosaicolabs.enum import SerializationFormat
 from mosaicolabs.logging_config import get_logger
+from mosaicolabs.models import MosaicoType
+from mosaicolabs.models.types import MosaicoField
 
 from ..serializable import Serializable
 
@@ -159,62 +160,14 @@ class Image(Serializable):
         ```
     """
 
-    # --- Schema Definition ---
-    __msco_pyarrow_struct__ = pa.struct(
-        [
-            pa.field(
-                "data",
-                pa.binary(),
-                nullable=False,
-                metadata={"description": "The flattened image memory buffer."},
-            ),
-            pa.field(
-                "format",
-                pa.string(),
-                nullable=False,
-                metadata={"description": "Container format (e.g., 'raw', 'png')."},
-            ),
-            pa.field(
-                "width",
-                pa.int32(),
-                nullable=False,
-                metadata={"description": "Image width in pixels."},
-            ),
-            pa.field(
-                "height",
-                pa.int32(),
-                nullable=False,
-                metadata={"description": "Image height in pixels."},
-            ),
-            pa.field(
-                "stride",
-                pa.int32(),
-                nullable=False,
-                metadata={"description": "Bytes per row. Essential for alignment."},
-            ),
-            pa.field(
-                "encoding",
-                pa.string(),
-                nullable=False,
-                metadata={"description": "Pixel format (e.g., 'bgr8', 'mono16')."},
-            ),
-            pa.field(
-                "is_bigendian",
-                pa.bool_(),
-                nullable=True,
-                metadata={
-                    "description": "True if data is Big-Endian. Defaults to system endianness if null."
-                },
-            ),
-        ]
-    )
-
     # Sets the batching strategy to 'Bytes' (instead of 'Count') for better network performance
     __serialization_format__ = SerializationFormat.Image
     __supported_image_formats__ = [ImageFormat.PNG, ImageFormat.RAW]
 
     # Pydantic Fields
-    data: bytes
+    data: MosaicoType.binary = MosaicoField(
+        description="The flattened image memory buffer."
+    )
     """
     The flattened image memory buffer.
 
@@ -222,7 +175,9 @@ class Image(Serializable):
     The data is not queryable via the `data` field (bytes are not comparable).
     """
 
-    format: ImageFormat
+    format: ImageFormat = MosaicoField(
+        description="Container format (e.g., 'raw', 'png')."
+    )
     """
     The format used for serialization ('png' or 'raw').
 
@@ -252,7 +207,7 @@ class Image(Serializable):
         ```
     """
 
-    width: int
+    width: MosaicoType.int32 = MosaicoField(description="Image width in pixels.")
     """
     The width of the image in pixels.
 
@@ -282,7 +237,7 @@ class Image(Serializable):
         ```
     """
 
-    height: int
+    height: MosaicoType.int32 = MosaicoField(description="Image height in pixels.")
     """
     The height of the image in pixels.
 
@@ -312,7 +267,9 @@ class Image(Serializable):
         ```
     """
 
-    stride: int
+    stride: MosaicoType.int32 = MosaicoField(
+        description="Bytes per row. Essential for alignment."
+    )
     """
     The number of bytes per row of the image.
 
@@ -342,7 +299,9 @@ class Image(Serializable):
         ```
     """
 
-    encoding: str
+    encoding: MosaicoType.string = MosaicoField(
+        description="Pixel format (e.g., 'bgr8', 'mono16')."
+    )
     """
     The pixel encoding (e.g., 'bgr8', 'mono16'). Optional field.
 
@@ -372,7 +331,10 @@ class Image(Serializable):
         ```
     """
 
-    is_bigendian: Optional[bool] = None
+    is_bigendian: Optional[MosaicoType.bool] = MosaicoField(
+        default=None,
+        description="True if data is Big-Endian. Defaults to system endianness if null.",
+    )
     """
     Store if the original data is Big-Endian. Optional field.
 
@@ -888,30 +850,11 @@ class CompressedImage(Serializable):
         ```
     """
 
-    __msco_pyarrow_struct__ = pa.struct(
-        [
-            pa.field(
-                "data",
-                pa.binary(),
-                nullable=False,
-                metadata={
-                    "description": "The serialized (compressed) image data as bytes."
-                },
-            ),
-            pa.field(
-                "format",
-                pa.string(),
-                nullable=False,
-                metadata={
-                    "description": "The compression format (e.g., 'jpeg', 'png')."
-                },
-            ),
-        ]
-    )
-
     __serialization_format__ = SerializationFormat.Image
 
-    data: bytes
+    data: MosaicoType.binary = MosaicoField(
+        description="The serialized (compressed) image data as bytes."
+    )
     """
     The serialized (compressed) image data as bytes.
 
@@ -919,7 +862,9 @@ class CompressedImage(Serializable):
     The data is not queryable via the `data` field (bytes are not comparable).
     """
 
-    format: ImageFormat
+    format: ImageFormat = MosaicoField(
+        description="The compression format (e.g., 'jpeg', 'png')."
+    )
     """
     The compression format (e.g., 'jpeg', 'png').
 
