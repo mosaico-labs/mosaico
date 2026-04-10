@@ -27,7 +27,7 @@ class FlightAction(Enum):
     """Marks a session as complete and makes its data immutable."""
 
     SEQUENCE_NOTIFICATION_CREATE = "sequence_notification_create"
-    """Sends asynchronous notifications or error reports during the sequence creation phase."""
+    """Sends notifications or error reports during the sequence creation phase."""
 
     SEQUENCE_NOTIFICATION_LIST = "sequence_notification_list"
     """Request the list of notifications for a specific sequence"""

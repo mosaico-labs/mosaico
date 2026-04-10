@@ -47,6 +47,8 @@ from .models import (
     BaseModel as BaseModel,
     CovarianceMixin as CovarianceMixin,
     Message as Message,
+    MosaicoField as MosaicoField,
+    MosaicoType as MosaicoType,
     Serializable as Serializable,
     VarianceMixin as VarianceMixin,
 )
@@ -213,6 +215,9 @@ __all__ = [
     "Sequence",
     "Session",
     "Topic",
+    # Mosaico Type & MosaicoField
+    "MosaicoField",
+    "MosaicoType",
 ]
 
 

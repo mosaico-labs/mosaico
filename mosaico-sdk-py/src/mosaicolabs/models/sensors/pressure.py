@@ -6,7 +6,8 @@ Defines the data structure for pressure sensors.
 
 from typing import Optional
 
-import pyarrow as pa
+from mosaicolabs.models import MosaicoType
+from mosaicolabs.models.types import MosaicoField
 
 from ..mixins import VarianceMixin
 from ..serializable import Serializable
@@ -62,21 +63,9 @@ class Pressure(Serializable, VarianceMixin):
         ```
     """
 
-    # --- Schema Definition ---
-    __msco_pyarrow_struct__ = pa.struct(
-        [
-            pa.field(
-                "value",
-                pa.float64(),
-                nullable=False,
-                metadata={
-                    "description": "The absolute pressure reading from the sensor in Pascals."
-                },
-            ),
-        ]
+    value: MosaicoType.float64 = MosaicoField(
+        description="The absolute pressure reading from the sensor in Pascals."
     )
-
-    value: float
     """
     The absolute pressure reading from the sensor in Pascals.
 

@@ -17,19 +17,11 @@ All three models share a common spatial core (``x``, ``y``, ``z``) and optional
 colour/intensity channels, and extend it with technology-specific fields.
 """
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Optional, Tuple
 
 import numpy as np
 
-from mosaicolabs.models import BaseModel
-from mosaicolabs.models.serializable import Serializable
-
-from .internal.depthcamera_helper import (
-    _COMMON_FIELD,
-    _STEREO_FIELDS,
-    _TOF_FIELDS,
-    _build_struct,
-)
+from mosaicolabs.models import BaseModel, MosaicoField, MosaicoType, Serializable
 
 
 def pack_rgb(r: int, g: int, b: int) -> float:
@@ -49,7 +41,7 @@ def pack_rgb(r: int, g: int, b: int) -> float:
         The RGB color encoded as a 32-bit float.
     """
     packed = np.uint32((r << 16) | (g << 8) | b)
-    return np.frombuffer(packed.tobytes(), dtype=np.float32)[0]
+    return float(np.frombuffer(packed.tobytes(), dtype=np.float32)[0])
 
 
 def unpack_rgb(packed_rgb: float) -> Tuple[int, int, int]:
@@ -74,7 +66,7 @@ def unpack_rgb(packed_rgb: float) -> Tuple[int, int, int]:
     return red, green, blue
 
 
-class _DepthCamera(BaseModel):
+class _DepthCameraBase(BaseModel):
     """
     Internal base model shared by all depth camera ontologies.
 
@@ -91,17 +83,21 @@ class _DepthCamera(BaseModel):
         z: Depth values (distance along the optical axis) of each point, in meters.
         rgb: Packed RGB colour value per point (optional).
         intensity: Signal amplitude or intensity per point (optional).
-        extra_attributes: Additional vendor-specific attributes serialised as
-            raw binary data (optional).
     """
 
-    x: List[float]
+    x: MosaicoType.list_(MosaicoType.float32) = MosaicoField(
+        description="Horizontal position derived from depth."
+    )
     """Horizontal position of each point derived from the depth map, in meters."""
 
-    y: List[float]
+    y: MosaicoType.list_(MosaicoType.float32) = MosaicoField(
+        description="Vertical position derived from depth."
+    )
     """Vertical position of each point derived from the depth map, in meters."""
 
-    z: List[float]
+    z: MosaicoType.list_(MosaicoType.float32) = MosaicoField(
+        description="Depth value directly (distance along optical axis)."
+    )
     """
     Depth value of each point, in meters.
 
@@ -110,7 +106,9 @@ class _DepthCamera(BaseModel):
     the sensor's intrinsic parameters.
     """
 
-    rgb: Optional[List[float]] = None
+    rgb: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
+        default=None, description="Packed RGB color value."
+    )
     """
     Packed RGB colour value per point.
 
@@ -120,19 +118,13 @@ class _DepthCamera(BaseModel):
     There are useful utilities for [`pack_rgb()`][mosaicolabs.models.futures.depth_camera.pack_rgb] and [`unpack_rgb()`][mosaicolabs.models.futures.depth_camera.unpack_rgb] rgb in in the internal of depth camera.
     """
 
-    intensity: Optional[List[float]] = None
+    intensity: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
+        default=None, description="Signal amplitude/intensity."
+    )
     """Signal amplitude or intensity per point."""
 
-    extra_attributes: Optional[Dict[str, Any]] = None
-    """
-    Additional vendor-specific attributes serialised as raw binary data.
 
-    Provides a forward-compatible escape hatch for proprietary extensions that
-    do not map to any of the standardised fields above.
-    """
-
-
-class RGBDCamera(_DepthCamera, Serializable):
+class RGBDCamera(_DepthCameraBase, Serializable):
     """
     RGB-D camera ontology.
 
@@ -155,8 +147,6 @@ class RGBDCamera(_DepthCamera, Serializable):
         z: Depth values (distance along the optical axis) of each point, in meters.
         rgb: Packed RGB colour value per point (optional).
         intensity: Signal amplitude or intensity per point (optional).
-        extra_attributes: Additional vendor-specific attributes serialised as
-            raw binary data (optional).
 
     Note:
         List-typed fields are **not queryable** via the `.Q` proxy. The `.Q` proxy
@@ -177,10 +167,10 @@ class RGBDCamera(_DepthCamera, Serializable):
     ```
     """
 
-    __msco_pyarrow_struct__ = _build_struct(_COMMON_FIELD)
+    ...
 
 
-class ToFCamera(_DepthCamera, Serializable):
+class ToFCamera(_DepthCameraBase, Serializable):
     """
     Time-of-Flight (ToF) camera ontology.
 
@@ -208,8 +198,6 @@ class ToFCamera(_DepthCamera, Serializable):
         intensity: Signal amplitude or intensity per point (optional).
         noise: Per-pixel noise estimate of the depth measurement (optional).
         grayscale: Passive greyscale amplitude per pixel (optional).
-        extra_attributes: Additional vendor-specific attributes serialised as
-            raw binary data (optional).
 
     Note:
         List-typed fields are **not queryable** via the `.Q` proxy. The `.Q` proxy
@@ -230,9 +218,9 @@ class ToFCamera(_DepthCamera, Serializable):
         ```
     """
 
-    __msco_pyarrow_struct__ = _build_struct(_COMMON_FIELD, _TOF_FIELDS)
-
-    noise: Optional[List[float]] = None
+    noise: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
+        default=None, description="Noise value per pixel."
+    )
     """
     Per-pixel noise estimate of the depth measurement.
 
@@ -241,7 +229,9 @@ class ToFCamera(_DepthCamera, Serializable):
     motion blur, and should be treated with caution during downstream processing.
     """
 
-    grayscale: Optional[List[float]] = None
+    grayscale: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
+        default=None, description="Grayscale amplitude."
+    )
     """
     Passive greyscale amplitude per pixel.
 
@@ -251,7 +241,7 @@ class ToFCamera(_DepthCamera, Serializable):
     """
 
 
-class StereoCamera(_DepthCamera, Serializable):
+class StereoCamera(_DepthCameraBase, Serializable):
     """
     Stereo camera ontology.
 
@@ -280,8 +270,6 @@ class StereoCamera(_DepthCamera, Serializable):
         luma: Luminance of the corresponding pixel in the rectified image (optional).
         cost: Stereo matching cost per point; lower values indicate higher
             disparity confidence (optional).
-        extra_attributes: Additional vendor-specific attributes serialised as
-            raw binary data (optional).
 
     Note:
         List-typed fields are **not queryable** via the `.Q` proxy. The `.Q` proxy
@@ -302,14 +290,18 @@ class StereoCamera(_DepthCamera, Serializable):
     ```
     """
 
-    __msco_pyarrow_struct__ = _build_struct(_COMMON_FIELD, _STEREO_FIELDS)
-
-    luma: Optional[List[int]] = None
+    luma: Optional[MosaicoType.list_(MosaicoType.uint8)] = MosaicoField(
+        default=None,
+        description="Luminance of the corresponding pixel in the rectified image.",
+    )
     """
         Luminance of the corresponding pixel in the rectified image.
     """
 
-    cost: Optional[List[int]] = None
+    cost: Optional[MosaicoType.list_(MosaicoType.uint8)] = MosaicoField(
+        default=None,
+        description="Stereo matching cost (disparity confidence measure, 0 = high confidence).",
+    )
     """
         Stereo matching cost per point; lower values indicate higher
         disparity confidence.

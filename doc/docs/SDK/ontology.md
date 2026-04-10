@@ -87,6 +87,237 @@ The following sensors are supported as first-class data types in this module:
 !!! warning "Experimental Ontologies"
     The `futures` module is a transitional area where ontologies under active experimentation are hosted before graduating to the stable ontology set. Field definitions, unit conventions, and structural relationships are **not yet considered final** and will be refined based on feedback from real-world integrations and adopters. Once an ontology reaches sufficient maturity and coverage, it will be promoted out of `futures` and into the core, production-ready modules.
 
+## MosaicoType & MosaicoField
+When defining ontologies in the Mosaico SDK, every class attribute carries two pieces of information:
+
+* **Python type** used by Pydantic for validation and IDE support.
+* **PyArrow type** used for efficient columnar serialization to Parquet/Arrow.
+
+`MosaicoType` and `MosaicoField` let you express both in a single annotation, providing a clean **single-source-of-truth API** for ontology field declarations.
+
+You annotate each attribute once, and the Arrow schema is derived automatically at class-definition time by introspecting Pydantic's `model_fields`: no separate schema declaration to maintain, no risk of the two representations drifting apart.
+ 
+Because the whole mechanism is built on top of **Pydantic model fields** via `Annotated` metadata, extending or customising field behaviour is as simple as adding standard Pydantic `Field` kwargs: no subclassing, no metaclass magic, no separate schema registry to maintain.
+
+
+### MosaicoType
+API Reference: [`mosaicolabs.models.MosaicoType`][mosaicolabs.models.MosaicoType]
+
+`MosaicoType` is a collection of `Annotated` type aliases. Each alias bundles the corresponding Python primitive type with its PyArrow counterpart as inline metadata, making the Arrow type immediately visible to the schema auto-builder without any additional configuration.
+
+#### Scalar types
+
+| Alias | Python type | Arrow type |
+|---|---|---|
+| `MosaicoType.uint8` | `int` | `pa.uint8()` |
+| `MosaicoType.int8` | `int` | `pa.int8()` |
+| `MosaicoType.uint16` | `int` | `pa.uint16()` |
+| `MosaicoType.int16` | `int` | `pa.int16()` |
+| `MosaicoType.uint32` | `int` | `pa.uint32()` |
+| `MosaicoType.int32` | `int` | `pa.int32()` |
+| `MosaicoType.uint64` | `int` | `pa.uint64()` |
+| `MosaicoType.int64` | `int` | `pa.int64()` |
+| `MosaicoType.float16` | `float` | `pa.float16()` |
+| `MosaicoType.float32` | `float` | `pa.float32()` |
+| `MosaicoType.float64` | `float` | `pa.float64()` |
+| `MosaicoType.bool` | `bool` | `pa.bool_()` |
+| `MosaicoType.string` | `str` | `pa.string()` |
+| `MosaicoType.large_string` | `str` | `pa.large_string()` |
+| `MosaicoType.binary` | `bytes` | `pa.binary()` |
+| `MosaicoType.large_binary` | `bytes` | `pa.large_binary()` |
+
+#### Explicit type definition
+Using `MosaicoType` provides precise control over the underlying PyArrow schema:
+
+```python
+from mosaicolabs import MosaicoField, MosaicoType, Serializable
+
+class MyOntology(Serializable):
+    x: MosaicoType.float32
+    y: Optional[MosaicoType.float32] = None
+
+```
+
+* `x`: defined directly, will be converted in a **not nullable** PyArrow field.
+* `y`: wrapped in `Optional[...]`, will be converted in a **nullable** PyArrow field.
+
+#### Using Fallback types
+You can also use standard Python type hints.
+`Mosaico` automatically maps these to specific PyArrow types.
+
+```python
+class MyOntology(Serializable):
+    x: int
+    y: Optional[float] = None
+
+```
+
+In this scenario, the types are resolved using the following **fallback mapping**:
+
+| Python type | PyArrow equivalent |
+| ---| --- |
+| `int` | `pa.int64()` |
+| `float` | `pa.float64()` |
+| `str` | `pa.string()` |
+| `bool` | `pa.bool_()` |
+| `bytes` | `pa.bytes()` |
+
+!!! note "Note"
+    Just like with explicit types, using `Optional` with fallback types will correctly define the PyArrow field as **nullable**. If `Optional` is not used, the field is defined as **not nullable**.
+
+#### List types
+
+For list fields, `MosaicoType` exposes a `list_()` static method that wraps a scalar type, either a `MosaicoType` alias or a raw Python primitive, into the appropriate `pa.list_` Arrow type.
+
+An optional `list_size` parameter produces a fixed-size list (`pa.list_(type, size)`), omitting it yields a variable-length list.
+
+```python
+from mosaicolabs import MosaicoField, MosaicoField, Serializable
+
+class MyOntology(Serializable):
+    # Variable-length list of float32
+    scores: Optional[MosaicoType.list_(MosaicoType.float32)] = None
+ 
+    # Fixed-size list of 3 float32 (e.g. an RGB vector)
+    color: MosaicoType.list_(MosaicoType.float32, list_size=3)
+ 
+    # Works with raw Python primitives too
+    tags: MosaicoType.list_(str)
+
+    # Works with other Pydantic models with pyarrow struct
+    vec: MosaicoType.list_(Vector3d)
+
+    # Fallback List
+    vec2: List[Vector2d]
+```
+Using Python's built-in `list` (or `List` from `typing`) generates a **list of unfixed size** in the underlying Arrow schema.
+This means:
+
+- The list can hold **any number of elements** at runtime.
+- No size constraint is enforced at the schema level.
+- This is equivalent to calling `MosaicoType.list_(str)` with no `size` argument.
+
+
+`MosaicoType.list_()` accepts an optional `size` parameter. When provided, it maps to an Arrow **fixed-size list** (`pa.list_(type, list_size=N)`), which enforces that every value in the column contains exactly `N` elements.
+
+| | `list[str]` | `MosaicoType.list_(str)` | `MosaicoType.list_(str, 3)` |
+|---|---|---|---|
+| Arrow type | `pa.list_(pa.string())` | `pa.list_(pa.string())` | `pa.list_(pa.string(), 3)` |
+| Size enforced | No | No | Yes, exactly 3 |
+| Interoperable with Pydantic | Yes | Yes | Yes |
+| Supports nested models | Yes | Yes | Yes |
+
+Use `MosaicoType.list_()` with a `size` argument when:
+
+- The list represents a **fixed-dimensional structure**, such as a vector, a coordinate
+  tuple, or an RGB triplet.
+- You want the Arrow schema to **statically encode the size**, enabling optimised
+  columnar storage and stricter validation.
+- You are working with **embedding vectors** or other ML features where dimensionality
+  is always known and constant.
+
+If you do **not** pass a `size` argument, `MosaicoType.list_(T)` and `list[T]` produce
+an identical Arrow schema. The choice then becomes a matter of style or explicitness:
+ 
+```python
+tags: list[str]               # idiomatic Python - preferred for readability
+tags: MosaicoType.list_(str)  # explicit Mosaico style - equivalent result
+```
+
+!!! note "Note"
+    Explicit type definition and fallback types properties are hold in this case.
+
+#### Custom Arrow types
+
+For specialised Arrow types not covered by the built-in aliases, you can always use `MosaicoType.annotate()` method.
+This utility allows you to embed a raw PyArrow type directly into your ontology while maintaining full compatibility with the Mosaico schema builder.
+
+`MosaicoType.annotate()` is a helper designed to bridge standard Python types with specific PyArrow configurations
+(like timestamp precision or timezones). It requires two arguments:
+
+* **The Python Fallback Type**: Used for runtime validation and Python-side type hinting (e.g., int, str).
+* **The PyArrow Type**: The specific pyarrow type object to be used in the schema.
+
+```python
+from mosaicolabs import Serializable, MosaicoField
+class MyOntology(Serializable):
+    ts: MosaicoType.annotate(int, pa.timestamp("us", tz="UTC")) = MosaicoField(
+        description="UTC timestamp.")
+```
+
+!!! info "Migration Note"
+    Using `MosaicoType.annotate(int, ...)` is functionally equivalent to the standard `Annotated[int, ...]`, but it provides a more explicit and optimized path for the Mosaico schema builder to resolve complex Arrow types.
+
+### MosaicoField
+API Reference: [`mosaicolabs.models.types.MosaicoField`][mosaicolabs.models.types.MosaicoField]
+
+`MosaicoField` is a factory function that returns a standard Pydantic `Field` instance, adding Mosaico-specific semantics on top of the native `pydantic.Field`. Because the return type is a native Pydantic `Field`, every standard Pydantic feature like validators, aliases, `model_fields` introspection,  works out of the box.
+
+#### Basic usage
+
+```python
+from mosaicolabs import MosaicoType, MosaicoField, Serializable
+
+class MyPointOntology(Serializable):
+    x:     MosaicoType.float32 = MosaicoField(description="X coordinate")
+    y:     MosaicoType.float32 = MosaicoField(description="Y coordinate")
+    label: Optional[MosaicoType.string] = MosaicoField(
+        default=None, description="Point label")
+    score: MosaicoType.float32 = MosaicoField(nullable=True)
+```
+
+With `MosaicoField` you can define the `default` value of your attribute, the `nullable` attribute of pyarrow field and also a `description`.
+In particular you can omit `nullable` if your `default = None`, in this case `nullable` will be set to `True` automatically.
+
+### Nullability and Parquet V2
+
+The `nullable` flag in `MosaicoField` controls whether the Arrow schema emits the field
+as nullable. The default is `False`, fields are non-nullable unless explicitly stated
+otherwise.
+
+The distinction matters most when a reusable struct ontology is embedded inside a parent
+ontology as an optional field. Consider a `Quaternion`: its individual components
+(`x`, `y`, `z`, `w`) are logically required — a quaternion with missing components is
+meaningless and cannot be constructed.
+
+However, all four leaf fields must be declared as nullable due to how ParquetV2 handles
+`null` optional columns during data reading. Consider a parent class such as `IMU`,
+where `orientation` is declared as `Optional[Quaternion]`. If that column is `null` in
+the Parquet file but the inner fields are **not** nullable in the schema, ParquetV2
+cannot represent the absent struct correctly and instead reconstructs it as a
+zero-initialised instance:
+
+```python
+# wrong — should be None
+orientation = Quaternion(x=0, y=0, z=0, w=0)
+```
+
+Declaring all leaf fields as nullable prevents this silent corruption: a fully-null
+struct is preserved as `None` through the read/write round-trip, matching the original
+intent of the `Optional` annotation.
+
+
+```python
+class Quaternion(Serializable):
+    x: MosaicoType.float32 = MosaicoField(description="X component", nullable=True)
+    y: MosaicoType.float32 = MosaicoField(description="Y component", nullable=True)
+    z: MosaicoType.float32 = MosaicoField(description="Z component", nullable=True)
+    w: MosaicoType.float32 = MosaicoField(description="W component", nullable=True)
+```
+
+A parent ontology may choose to include the quaternion as an optional field — for
+example, a detection without orientation data is still valid. In that case the *struct*
+itself must also be nullable in the Arrow schema:
+
+```python
+class DetectionOntology(Serializable):
+    position: MosaicoType.float32 = MosaicoField(description="Position")
+ 
+    # The quaternion struct as a whole is optional in this ontology,
+    # but its internal fields remain required when it is present.
+    orientation: Optional[QuaternionOntology] = MosaicoField(nullable=True, default=None)
+```
+
 ## Architecture
 
 The ontology architecture relies on three primary abstractions: the **Factory** (`Serializable`), the **Envelope** (`Message`) and the **Mixins**
@@ -95,16 +326,15 @@ The ontology architecture relies on three primary abstractions: the **Factory** 
 API Reference: [`mosaicolabs.models.Serializable`][mosaicolabs.models.Serializable]
 
 Every data payload in Mosaico inherits from the `Serializable` class. It manages the global registry of data types and ensures that the system knows exactly how to convert a string tag like `"imu"` back into a Python class with a specific binary schema.
-`Serializable` uses the `__init_subclass__` hook, which is automatically called whenever a developer defines a new subclass.
+`Serializable` uses the `__pydantic_init_subclass__` hook, which is automatically called whenever a developer defines a new subclass.
 
 ```python
-class MyCustomSensor(Serializable):  # <--- __init_subclass__ triggers here
+class MyCustomSensor(Serializable):  # <--- __pydantic_init_subclass__ triggers here
     ...
 ```
 When this happens, `Serializable` performs the following steps automatically:
 
-1.  **Validates Schema:** Checks if the subclass defined the PyArrow struct schema (`__msco_pyarrow_struct__`). 
-If missing, it raises an error at definition time (import time), preventing runtime failures later.
+1.  **Generate the schema:** Introspect `model_fields` to extract the PyArrow type embedded in each field's `Annotated` metadata via `MosaicoType` aliases or raw `Annotated[T, pa.SomeType()]` annotations and build the `__msco_pyarrow_struct__` automatically. 
 2.  **Generates Tag:** If the class doesn't define `__ontology_tag__`, it auto-generates one from the class name (e.g., `MyCustomSensor` -> `"my_custom_sensor"`).
 3.  **Registers Class:** It adds the new class to the global types registry.
 4.  **Injects Query Proxy:** It dynamically adds a `.Q` attribute to the class, enabling the fluent query syntax (e.g., `MyCustomSensor.Q.voltage > 12.0`).
@@ -227,6 +457,38 @@ class MySensor(Serializable, VarianceMixin):
 
 By leveraging these mixins, the platform can perform deep analysis on data quality—such as filtering for only "high-confidence" segments—without requiring unique logic for every sensor type.
 
+### Extending with Mixins
+
+One of the most powerful consequences of building on top of Pydantic model fields is how natural **mixin composition** becomes. Because every field, including its Arrow type metadata, lives in `model_fields`, you can split concerns into focused mixin classes and combine them freely without any additional registration or schema merging step.
+
+```python
+from mosaicolabs import BaseModel, MosaicoType, MosaicoField, Serializable
+
+
+class GeometryMixin(BaseModel):
+    x: MosaicoType.float32 = MosaicoField(description="X coordinate")
+    y: MosaicoType.float32 = MosaicoField(description="Y coordinate")
+    z: MosaicoType.float32 = MosaicoField(description="Z coordinate")
+
+
+class ConfidenceMixin(BaseModel):
+    confidence: MosaicoType.float32 = MosaicoField(description="Detection score [0, 1]")
+
+class MetadataMixin(BaseModel):
+    label:     Optional[MosaicoType.string] = MosaicoField(default=None, nullable=True)
+    sensor_id: MosaicoType.string = MosaicoField(description="Source sensor identifier")
+    ts: Annotated[int, pa.timestamp("us", tz="UTC")]
+
+# Combine mixins, the Arrow schema aggregates all fields automatically
+class DetectionOntology(Serializable, GeometryMixin, ConfidenceMixin, MetadataMixin):
+    pass
+```
+
+When `DetectionOntology` is defined, `__pydantic_init_subclass__` calls `_build_ontology_struct`, which walks the full `model_fields` MRO chain, extracts the PyArrow metadata from each `Annotated` annotation, and produces a single consolidated `pa.struct`, no extra code required.
+
+This makes ontology composition **additive by default**: add a mixin to inherit its fields, remove it to drop them. The schema stays consistent with zero boilerplate.
+
+
 ## Querying Data Ontology with the Query (`.Q`) Proxy
 
 The Mosaico SDK allows you to perform deep discovery directly on the physical content of your sensor streams. Every class inheriting from [`Serializable`][mosaicolabs.models.Serializable], including standard sensors, geometric primitives, and custom user models, is automatically injected with a static **`.Q` proxy** attribute.
@@ -302,9 +564,9 @@ To align with the Mosaico ecosystem, use the following mixins:
 
 * **`CovarianceMixin`**: Used for data including measurement uncertainty, standardizing the storage of covariance matrices.
 
-### 2. Define the Wire Schema (`__msco_pyarrow_struct__`)
+### 2. Define the Wire Schema
 
-You must define a class-level `__msco_pyarrow_struct__` using `pyarrow.struct`. This explicitly dictates how your Python object is serialized into high-performance Apache Arrow/Parquet buffers for network transmission and storage.
+Annotate each field with a `MosaicoType` alias and wrap it with `MosaicoField`. Fields and schema are declared together in a single annotation — the `__msco_pyarrow_struct__` is derived automatically from `model_fields` at class-definition time, so there is no separate schema declaration to maintain.
 
 #### 2.1 Serialization Format Optimization
 API Reference: [`mosaicolabs.enum.SerializationFormat`][mosaicolabs.enum.SerializationFormat]
@@ -320,12 +582,6 @@ You can optimize remote server performance by overriding the `__serialization_fo
 
 If not explicitly set, the system defaults to `Default` format.
 
-### 3. Define Class Fields
-
-Define the Python attributes for your class using standard type hints. 
-Note that the names of your Python class fields **must match exactly** the field names defined in your `__msco_pyarrow_struct__` schema.
-
-
 ### Customization Example: `EnvironmentSensor`
 
 This example demonstrates a custom sensor for environmental monitoring that tracks temperature, humidity, and pressure.
@@ -335,26 +591,21 @@ This example demonstrates a custom sensor for environmental monitoring that trac
 
 from typing import Optional
 import pyarrow as pa
-from mosaicolabs.models import Serializable
+from mosaicolabs.models import MosaicoField, MosaicoType, Serializable
 
 class EnvironmentSensor(Serializable):
     """
     Custom sensor reading for Temperature, Humidity, and Pressure.
     """
 
-    # --- 1. Define the Wire Schema (PyArrow Layout) ---
-    __msco_pyarrow_struct__ = pa.struct(
-        [
-            pa.field("temperature", pa.float32(), nullable=False),
-            pa.field("humidity", pa.float32(), nullable=True),
-            pa.field("pressure", pa.float32(), nullable=True),
-        ]
-    )
-
-    # --- 2. Define Python Fields (Must match schema exactly) ---
-    temperature: float
-    humidity: Optional[float] = None
-    pressure: Optional[float] = None
+    # --- 1. Define the Wire Schema ---
+    temperature: MosaicoType.float32
+    
+    humidity: Optional[MosaicoType.float32] = MosaicoField(
+            default= None, nullable=True)
+    
+    pressure: Optional[MosaicoType.float32] = MosaicoField(
+            default= None, nullable=True)
 
 
 # --- Usage Example ---

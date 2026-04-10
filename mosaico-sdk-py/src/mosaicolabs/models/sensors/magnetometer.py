@@ -4,7 +4,7 @@ Magnetometer Ontology Module.
 Defines the data structure for magnetic field sensors.
 """
 
-import pyarrow as pa
+from mosaicolabs.models.types import MosaicoField
 
 from ..data import Vector3d
 from ..serializable import Serializable
@@ -56,21 +56,9 @@ class Magnetometer(Serializable):
         ```
     """
 
-    # --- Schema Definition ---
-    __msco_pyarrow_struct__ = pa.struct(
-        [
-            pa.field(
-                "magnetic_field",
-                Vector3d.__msco_pyarrow_struct__,
-                nullable=False,
-                metadata={
-                    "description": "Magnetic field vector [mx, my, mz] in microTesla."
-                },
-            ),
-        ]
+    magnetic_field: Vector3d = MosaicoField(
+        description="Magnetic field vector [mx, my, mz] in microTesla."
     )
-
-    magnetic_field: Vector3d
     """
     Magnetic field vector [mx, my, mz] in microTesla.
 

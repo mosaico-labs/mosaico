@@ -619,7 +619,7 @@ class _BaseSessionWriter(ABC):
 
                     # Data Transformation & Ingestion.
                     # The adapter converts the raw payload into a validated Mosaico object.
-                    # push() handles high-performance batching and asynchronous I/O to the rust backend.
+                    # push() handles high-performance batching and transmission to the rust backend.
                     twriter.push( # (1)!
                         message=Message(
                             timestamp_ns=ts,

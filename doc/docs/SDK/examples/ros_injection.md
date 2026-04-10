@@ -38,26 +38,28 @@ In Mosaico, data is strongly typed. When dealing with specialized hardware like 
 The `EncoderTicks` class defines the physical storage format.
 
 ```python
-import pyarrow as pa
-from mosaicolabs import Serializable
+from mosaicolabs import MosaicoField, MosaicoType, Serializable
 
 class EncoderTicks(Serializable): # (1)!
-    # --- Wire Schema Definition ---
-    __msco_pyarrow_struct__ = pa.struct([
-        pa.field("left_ticks", pa.uint32(), nullable=False),
-        pa.field("right_ticks", pa.uint32(), nullable=False),
-        pa.field("encoder_timestamp", pa.uint64(), nullable=False),
-    ])
 
-    # --- Pydantic Fields ---
-    left_ticks: int # (2)!
-    right_ticks: int
-    encoder_timestamp: int
+    left_ticks: MosaicoType.uint32 = MosaicoField(
+        description="Cumulative counts from the left wheel encoder."
+    )
+    """Cumulative tick count for the left wheel."""
+
+    right_ticks: MosaicoType.uint32 = MosaicoField(
+        description="Cumulative counts from the right wheel encoder."
+    )
+    """Cumulative tick count for the right wheel."""
+
+    encoder_timestamp: MosaicoType.uint64 = MosaicoField(
+        description="Timestamp of the encoder ticks."
+    )
+    """Timestamp of the encoder ticks."""
 
 ```
 
 1. Inheriting from [`Serializable`][mosaicolabs.models.Serializable] automatically registers your model in the Mosaico ecosystem, making it dispatchable to the data platform, and enables the `.Q` [query proxy](../query.md#the-q-proxy-mechanism).
-2. The field names in the `pa.struct` **must match exactly** the names of the Python attributes.
 
 ??? question "In Depth Explanation"
     * **[How-To: Customizing the Data Ontology](./ontology_customization.md)**

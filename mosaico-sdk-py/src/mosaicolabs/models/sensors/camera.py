@@ -10,7 +10,8 @@ and lens distortion model.
 
 from typing import Optional
 
-import pyarrow as pa
+from mosaicolabs.models import MosaicoType
+from mosaicolabs.models.types import MosaicoField
 
 from ..data import ROI, Vector2d
 from ..serializable import Serializable
@@ -57,89 +58,9 @@ class CameraInfo(Serializable):
         ```
     """
 
-    # --- Schema Definition ---
-    # Defines the memory layout for serialization.
-    __msco_pyarrow_struct__ = pa.struct(
-        [
-            pa.field(
-                "height",
-                pa.uint32(),
-                nullable=False,
-                metadata={
-                    "description": "Height in pixels of the image with which the camera was calibrated."
-                },
-            ),
-            pa.field(
-                "width",
-                pa.uint32(),
-                nullable=False,
-                metadata={
-                    "description": "Width in pixels of the image with which the camera was calibrated."
-                },
-            ),
-            pa.field(
-                "distortion_model",
-                pa.string(),
-                nullable=False,
-                metadata={
-                    "description": "The distortion model used (e.g., 'plumb_bob', 'rational_polynomial')."
-                },
-            ),
-            pa.field(
-                "distortion_parameters",
-                pa.list_(value_type=pa.float64()),
-                nullable=False,
-                metadata={
-                    "description": "The distortion coefficients (k1, k2, t1, t2, k3...). Size depends on the model."
-                },
-            ),
-            pa.field(
-                "intrinsic_parameters",
-                pa.list_(value_type=pa.float64(), list_size=9),
-                nullable=False,
-                metadata={
-                    "description": "The 3x3 Intrinsic Matrix (K) flattened row-major. "
-                    "Projects 3D points in the camera coordinate frame to 2D pixel coordinates."
-                },
-            ),
-            pa.field(
-                "rectification_parameters",
-                pa.list_(value_type=pa.float64(), list_size=9),
-                nullable=False,
-                metadata={
-                    "description": "The 3x3 Rectification Matrix (R) flattened row-major. "
-                    "Used for stereo cameras to align the two image planes."
-                },
-            ),
-            pa.field(
-                "projection_parameters",
-                pa.list_(value_type=pa.float64(), list_size=12),
-                nullable=False,
-                metadata={
-                    "description": "The 3x4 Projection Matrix (P) flattened row-major. "
-                    "Projects 3D world points directly into the rectified image pixel coordinates."
-                },
-            ),
-            pa.field(
-                "binning",
-                Vector2d.__msco_pyarrow_struct__,
-                nullable=True,
-                metadata={
-                    "description": "Hardware binning factor (x, y). If null, assumes (0, 0) (no binning)."
-                },
-            ),
-            pa.field(
-                "roi",
-                ROI.__msco_pyarrow_struct__,
-                nullable=True,
-                metadata={
-                    "description": "Region of Interest. Used if the image is a sub-crop of the full resolution."
-                },
-            ),
-        ]
+    height: MosaicoType.uint32 = MosaicoField(
+        description="Height in pixels of the image with which the camera was calibrated."
     )
-
-    height: int
     """
     Height in pixels of the image with which the camera was calibrated
 
@@ -169,7 +90,9 @@ class CameraInfo(Serializable):
         ```
     """
 
-    width: int
+    width: MosaicoType.uint32 = MosaicoField(
+        description="Width in pixels of the image with which the camera was calibrated."
+    )
     """
     Width in pixels of the image with which the camera was calibrated
 
@@ -199,7 +122,9 @@ class CameraInfo(Serializable):
         ```
     """
 
-    distortion_model: str
+    distortion_model: MosaicoType.string = MosaicoField(
+        description="The distortion model used (e.g., 'plumb_bob', 'rational_polynomial')."
+    )
     """
     The distortion model used
 
@@ -229,7 +154,9 @@ class CameraInfo(Serializable):
         ```
     """
 
-    distortion_parameters: list[float]
+    distortion_parameters: MosaicoType.list_(MosaicoType.float64) = MosaicoField(
+        description="The distortion coefficients (k1, k2, t1, t2, k3...). Size depends on the model."
+    )
     """
     The distortion coefficients (k1, k2, t1, t2, k3...). Size depends on the model.
 
@@ -237,7 +164,12 @@ class CameraInfo(Serializable):
     The distortion parameters are not queryable via the `.Q` proxy (Lists are not supported yet).
     """
 
-    intrinsic_parameters: list[float]
+    intrinsic_parameters: MosaicoType.list_(MosaicoType.float64, list_size=9) = (
+        MosaicoField(
+            description="The 3x3 Intrinsic Matrix (K) flattened row-major. "
+            "Projects 3D points in the camera coordinate frame to 2D pixel coordinates."
+        )
+    )
     """
     The 3x3 Intrinsic Matrix (K) flattened row-major.
 
@@ -245,7 +177,12 @@ class CameraInfo(Serializable):
     The intrinsic parameters are not queryable via the `.Q` proxy (Lists are not supported yet).
     """
 
-    rectification_parameters: list[float]
+    rectification_parameters: MosaicoType.list_(MosaicoType.float64, list_size=9) = (
+        MosaicoField(
+            description="The 3x3 Rectification Matrix (R) flattened row-major. "
+            "Used for stereo cameras to align the two image planes."
+        )
+    )
     """
     The 3x3 Rectification Matrix (R) flattened row-major.
 
@@ -253,7 +190,12 @@ class CameraInfo(Serializable):
     The rectification parameters cannot be queried via the `.Q` proxy (Lists are not supported yet).
     """
 
-    projection_parameters: list[float]
+    projection_parameters: MosaicoType.list_(MosaicoType.float64, list_size=12) = (
+        MosaicoField(
+            description="The 3x4 Projection Matrix (P) flattened row-major. "
+            "Projects 3D world points directly into the rectified image pixel coordinates."
+        )
+    )
     """
     The 3x4 Projection Matrix (P) flattened row-major.
 
@@ -261,7 +203,10 @@ class CameraInfo(Serializable):
     The projection parameters cannot be queried via the `.Q` proxy (Lists are not supported yet).
     """
 
-    binning: Optional[Vector2d] = None
+    binning: Optional[Vector2d] = MosaicoField(
+        default=None,
+        description="Hardware binning factor (x, y). If null, assumes (0, 0) (no binning).",
+    )
     """
     Hardware binning factor (x, y). If null, assumes (0, 0) (no binning).
 
@@ -292,7 +237,10 @@ class CameraInfo(Serializable):
         ```
     """
 
-    roi: Optional[ROI] = None
+    roi: Optional[ROI] = MosaicoField(
+        default=None,
+        description="Region of Interest. Used if the image is a sub-crop of the full resolution.",
+    )
     """
     Region of Interest. Used if the image is a sub-crop of the full resolution.
 

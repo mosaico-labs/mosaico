@@ -11,8 +11,9 @@ These can be assigned to Message.data field to send data to the platform.
 
 from typing import Optional
 
-import pyarrow as pa
 from pydantic import model_validator
+
+from mosaicolabs import MosaicoField, MosaicoType
 
 from ..mixins import CovarianceMixin
 from ..serializable import Serializable
@@ -80,24 +81,9 @@ class Velocity(
         ```
     """
 
-    __msco_pyarrow_struct__ = pa.struct(
-        [
-            pa.field(
-                "linear",
-                Vector3d.__msco_pyarrow_struct__,
-                nullable=True,
-                metadata={"description": "3D linear velocity vector"},
-            ),
-            pa.field(
-                "angular",
-                Vector3d.__msco_pyarrow_struct__,
-                nullable=True,
-                metadata={"description": "3D angular velocity vector"},
-            ),
-        ]
+    linear: Optional[Vector3d] = MosaicoField(
+        default=None, description="3D linear velocity vector."
     )
-
-    linear: Optional[Vector3d] = None
     """
     3D linear velocity vector
 
@@ -143,7 +129,9 @@ class Velocity(
         ```
     """
 
-    angular: Optional[Vector3d] = None
+    angular: Optional[Vector3d] = MosaicoField(
+        default=None, description="3D angular velocity vector."
+    )
     """
     3D angular velocity vector
 
@@ -262,24 +250,9 @@ class Acceleration(
         ```
     """
 
-    __msco_pyarrow_struct__ = pa.struct(
-        [
-            pa.field(
-                "linear",
-                Vector3d.__msco_pyarrow_struct__,
-                nullable=True,
-                metadata={"description": "3D linear acceleration vector"},
-            ),
-            pa.field(
-                "angular",
-                Vector3d.__msco_pyarrow_struct__,
-                nullable=True,
-                metadata={"description": "3D angular acceleration vector"},
-            ),
-        ]
+    linear: Optional[Vector3d] = MosaicoField(
+        default=None, description="3D linear acceleration vector."
     )
-
-    linear: Optional[Vector3d] = None
     """
     3D linear acceleration vector
 
@@ -325,7 +298,9 @@ class Acceleration(
         ```
     """
 
-    angular: Optional[Vector3d] = None
+    angular: Optional[Vector3d] = MosaicoField(
+        default=None, description="3D angular acceleration vector."
+    )
     """
     3D angular acceleration vector
 
@@ -451,42 +426,9 @@ class MotionState(
         ```
     """
 
-    __msco_pyarrow_struct__ = pa.struct(
-        [
-            pa.field(
-                "pose",
-                Pose.__msco_pyarrow_struct__,
-                nullable=False,
-                metadata={
-                    "description": "6D pose with optional time and covariance info."
-                },
-            ),
-            pa.field(
-                "velocity",
-                Velocity.__msco_pyarrow_struct__,
-                nullable=False,
-                metadata={
-                    "description": "6D velocity with optional time and covariance info."
-                },
-            ),
-            pa.field(
-                "target_frame_id",
-                pa.string(),
-                nullable=False,
-                metadata={"description": "Target frame identifier."},
-            ),
-            pa.field(
-                "acceleration",
-                Acceleration.__msco_pyarrow_struct__,
-                nullable=True,
-                metadata={
-                    "description": "6D acceleration with optional time and covariance info."
-                },
-            ),
-        ]
+    pose: Pose = MosaicoField(
+        description="6D pose with optional time and covariance info."
     )
-
-    pose: Pose
     """
     The 6D pose representing current position and orientation.
 
@@ -536,7 +478,9 @@ class MotionState(
         ```
     """
 
-    velocity: Velocity
+    velocity: Velocity = MosaicoField(
+        description="6D velocity with optional time and covariance info."
+    )
     """
     The 6D velocity (Twist) describing instantaneous motion.
 
@@ -586,7 +530,9 @@ class MotionState(
         ```
     """
 
-    target_frame_id: str
+    target_frame_id: MosaicoType.string = MosaicoField(
+        description="Target frame identifier."
+    )
     """
     Identifier for the destination coordinate frame.
 
@@ -615,7 +561,10 @@ class MotionState(
         ```
     """
 
-    acceleration: Optional[Acceleration] = None
+    acceleration: Optional[Acceleration] = MosaicoField(
+        default=None,
+        description="6D acceleration with optional time and covariance info.",
+    )
     """
     Optional 6D acceleration components.
 

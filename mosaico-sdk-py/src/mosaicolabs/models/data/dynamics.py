@@ -9,7 +9,7 @@ These models are designed to be assigned to the `data` field of a [`Message`][mo
 * **Uncertainty Quantification**: Inherits from [`CovarianceMixin`][mosaicolabs.models.mixins.CovarianceMixin] to support $6 \times 6$ covariance matrices, allowing for the transmission of sensor noise characteristics or estimation confidence.
 """
 
-import pyarrow as pa
+from mosaicolabs import MosaicoField
 
 from ..mixins import CovarianceMixin
 from ..serializable import Serializable
@@ -78,24 +78,7 @@ class ForceTorque(
         ```
     """
 
-    __msco_pyarrow_struct__ = pa.struct(
-        [
-            pa.field(
-                "force",
-                Vector3d.__msco_pyarrow_struct__,
-                nullable=False,
-                metadata={"description": "3D linear force vector"},
-            ),
-            pa.field(
-                "torque",
-                Vector3d.__msco_pyarrow_struct__,
-                nullable=False,
-                metadata={"description": "3D torque vector"},
-            ),
-        ]
-    )
-
-    force: Vector3d
+    force: Vector3d = MosaicoField(description="3D linear force.")
     """
     3D linear force vector
 
@@ -139,7 +122,7 @@ class ForceTorque(
         ```
     """
 
-    torque: Vector3d
+    torque: Vector3d = MosaicoField(description="3D torque vector.")
     """
     3D torque vector
 
