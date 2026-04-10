@@ -8,7 +8,8 @@ It includes Status flags, processed Fixes (Position/Velocity), and raw NMEA stri
 
 from typing import Optional
 
-import pyarrow as pa
+from mosaicolabs.models import MosaicoType
+from mosaicolabs.models.types import MosaicoField
 
 from ..data import Point3d, Vector3d
 from ..serializable import Serializable
@@ -67,42 +68,7 @@ class GPSStatus(Serializable):
         ```
     """
 
-    __msco_pyarrow_struct__ = pa.struct(
-        [
-            pa.field(
-                "status",
-                pa.int8(),
-                nullable=False,
-                metadata={"description": "Fix status."},
-            ),
-            pa.field(
-                "service",
-                pa.uint16(),
-                nullable=False,
-                metadata={"description": "Service used (GPS, GLONASS, etc)."},
-            ),
-            pa.field(
-                "satellites",
-                pa.int8(),
-                nullable=True,
-                metadata={"description": "Satellites visible/used."},
-            ),
-            pa.field(
-                "hdop",
-                pa.float64(),
-                nullable=True,
-                metadata={"description": "Horizontal Dilution of Precision."},
-            ),
-            pa.field(
-                "vdop",
-                pa.float64(),
-                nullable=True,
-                metadata={"description": "Vertical Dilution of Precision."},
-            ),
-        ]
-    )
-
-    status: int
+    status: MosaicoType.int8 = MosaicoField(description="Fix status.")
     """
     Fix status.
 
@@ -146,7 +112,9 @@ class GPSStatus(Serializable):
         ```
     """
 
-    service: int
+    service: MosaicoType.uint16 = MosaicoField(
+        description="Service used (GPS, GLONASS, etc)."
+    )
     """
     Service used (GPS, GLONASS, etc).
 
@@ -190,7 +158,9 @@ class GPSStatus(Serializable):
         ```
     """
 
-    satellites: Optional[int] = None
+    satellites: Optional[MosaicoType.int8] = MosaicoField(
+        default=None, description="Satellites visible/used."
+    )
     """
     Satellites visible/used.
 
@@ -234,7 +204,9 @@ class GPSStatus(Serializable):
         ```
     """
 
-    hdop: Optional[float] = None
+    hdop: Optional[MosaicoType.float64] = MosaicoField(
+        default=None, description="Horizontal Dilution of Precision."
+    )
     """
     Horizontal Dilution of Precision.
 
@@ -278,7 +250,9 @@ class GPSStatus(Serializable):
         ```
     """
 
-    vdop: Optional[float] = None
+    vdop: Optional[MosaicoType.float64] = MosaicoField(
+        default=None, description="Vertical Dilution of Precision."
+    )
     """
     Vertical Dilution of Precision.
 
@@ -374,30 +348,7 @@ class GPS(Serializable):
         ```
     """
 
-    __msco_pyarrow_struct__ = pa.struct(
-        [
-            pa.field(
-                "position",
-                Point3d.__msco_pyarrow_struct__,
-                nullable=False,
-                metadata={"description": "Lat/Lon/Alt (WGS 84)."},
-            ),
-            pa.field(
-                "velocity",
-                Vector3d.__msco_pyarrow_struct__,
-                nullable=True,
-                metadata={"description": "Velocity vector [North, East, Alt] m/s."},
-            ),
-            pa.field(
-                "status",
-                GPSStatus.__msco_pyarrow_struct__,
-                nullable=True,
-                metadata={"description": "Receiver status info."},
-            ),
-        ]
-    )
-
-    position: Point3d
+    position: Point3d = MosaicoField(description="Lat/Lon/Alt (WGS 84).")
     """
     Lat/Lon/Alt (WGS 84).
 
@@ -443,7 +394,10 @@ class GPS(Serializable):
         ```
     """
 
-    velocity: Optional[Vector3d] = None
+    velocity: Optional[Vector3d] = MosaicoField(
+        default=None,
+        description="Velocity vector [North, East, Alt] m/s.",
+    )
     """
     Velocity vector [North, East, Alt] m/s.
 
@@ -489,7 +443,9 @@ class GPS(Serializable):
         ```
     """
 
-    status: Optional[GPSStatus] = None
+    status: Optional[GPSStatus] = MosaicoField(
+        default=None, description="Receiver status info."
+    )
     """
     Receiver status information.
 
@@ -586,16 +542,5 @@ class NMEASentence(Serializable):
         ```
     """
 
-    __msco_pyarrow_struct__ = pa.struct(
-        [
-            pa.field(
-                "sentence",
-                pa.string(),
-                nullable=False,
-                metadata={"description": "Raw ASCII sentence."},
-            ),
-        ]
-    )
-
-    sentence: str
+    sentence: MosaicoType.string = MosaicoField(description="Raw ASCII sentence.")
     """Raw ASCII sentence."""

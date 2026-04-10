@@ -4,9 +4,11 @@ Range Ontology Module.
 Defines the data structure for range sensors.
 """
 
-import pyarrow as pa
 from pydantic import model_validator
 from typing_extensions import Self
+
+from mosaicolabs.models import MosaicoType
+from mosaicolabs.models.types import MosaicoField
 
 from ..mixins import VarianceMixin
 from ..serializable import Serializable
@@ -70,51 +72,9 @@ class Range(Serializable, VarianceMixin):
         ```
     """
 
-    # --- Schema Definition ---
-    __msco_pyarrow_struct__ = pa.struct(
-        [
-            pa.field(
-                "radiation_type",
-                pa.uint8(),
-                nullable=False,
-                metadata={"description": "Which type of radiation the sensor used."},
-            ),
-            pa.field(
-                "field_of_view",
-                pa.float32(),
-                nullable=False,
-                metadata={
-                    "description": "The arc angle, in radians, over which the distance reading is valid."
-                },
-            ),
-            pa.field(
-                "min_range",
-                pa.float32(),
-                nullable=False,
-                metadata={
-                    "description": "Minimum range value in meters. Fixed distance means that the minimum range"
-                    "must be equal to the maximum range."
-                },
-            ),
-            pa.field(
-                "max_range",
-                pa.float32(),
-                nullable=False,
-                metadata={
-                    "description": "Maximum range value in meters. Fixed distance means that the minimum range"
-                    "must be equal to the maximum range."
-                },
-            ),
-            pa.field(
-                "range",
-                pa.float32(),
-                nullable=False,
-                metadata={"description": "Range value in meters."},
-            ),
-        ]
+    radiation_type: MosaicoType.uint8 = MosaicoField(
+        description="Which type of radiation the sensor used."
     )
-
-    radiation_type: int
     """
     Which type of radiation the sensor used.
 
@@ -144,7 +104,9 @@ class Range(Serializable, VarianceMixin):
         ```
     """
 
-    field_of_view: float
+    field_of_view: MosaicoType.float32 = MosaicoField(
+        description="The arc angle, in radians, over which the distance reading is valid."
+    )
     """
     The arc angle, in radians, over which the distance reading is valid.
 
@@ -174,7 +136,10 @@ class Range(Serializable, VarianceMixin):
         ```
     """
 
-    min_range: float
+    min_range: MosaicoType.float32 = MosaicoField(
+        description="Minimum range value in meters. Fixed distance means that the minimum range"
+        "must be equal to the maximum range."
+    )
     """
     Minimum range value in meters. Fixed distance means that the minimum range must be equal to the maximum range.
 
@@ -204,7 +169,10 @@ class Range(Serializable, VarianceMixin):
         ```
     """
 
-    max_range: float
+    max_range: MosaicoType.float32 = MosaicoField(
+        description="Maximum range value in meters. Fixed distance means that the minimum range"
+        "must be equal to the maximum range."
+    )
     """
     Maximum range value in meters. Fixed distance means that the minimum range must be equal to the maximum range.
 
@@ -234,7 +202,7 @@ class Range(Serializable, VarianceMixin):
         ```
     """
 
-    range: float
+    range: MosaicoType.float32 = MosaicoField(description="Range value in meters.")
     """
     Range value in meters.
 

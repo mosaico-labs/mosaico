@@ -7,10 +7,8 @@
 //! finalized, all data associated with it becomes immutable.
 
 use crate::{Context, Error, sequence, topic};
-use log::trace;
 use mosaicod_core::types;
 use mosaicod_db as db;
-use mosaicod_marshal as marshal;
 
 /// Handle containing session identifiers.
 /// It's used by all functions (except creation) in this module to indicate the session to operate on.
@@ -74,48 +72,10 @@ pub async fn try_create(
 
     tx.commit().await?;
 
-    // Create session manifest (store)
-    let handle = Handle::try_from_uuid(context, &session.uuid()).await?;
-    create_manifest(context, &handle).await?;
-
     Ok(Handle {
         identifiers: session.into(),
         sequence_locator,
     })
-}
-
-/// Creates the session manifest and saves it on store
-/// TODO: find a better solution to create the manifest (without calling a method externally)
-pub async fn create_manifest(context: &Context, handle: &Handle) -> Result<(), Error> {
-    let mut cx = context.db.connection();
-
-    let db_session = db::session_find_by_id(&mut cx, handle.id()).await?;
-
-    let manifest =
-        types::SessionManifest::new(handle.uuid().clone(), db_session.creation_timestamp());
-    manifest_write_to_store(context, handle, manifest).await?;
-
-    Ok(())
-}
-
-async fn manifest_write_to_store(
-    context: &Context,
-    handle: &Handle,
-    manifest: types::SessionManifest,
-) -> Result<(), Error> {
-    let path = handle.sequence_locator.session_manifest(&manifest.uuid);
-
-    trace!("converting session manifest to bytes");
-    let json_manifest = marshal::SessionManifest::from(manifest);
-    let bytes: Vec<u8> = json_manifest.try_into()?;
-
-    trace!(
-        "writing session manifest `{}` to store",
-        &path.to_string_lossy()
-    );
-    context.store.write_bytes(&path, bytes).await?;
-
-    Ok(())
 }
 
 /// Finalizes the session, making it and all its associated data immutable.
@@ -124,12 +84,7 @@ async fn manifest_write_to_store(
 pub async fn finalize(context: &Context, handle: &Handle) -> Result<(), Error> {
     let mut tx = context.db.transaction().await?;
 
-    // Collect all topics associated with this session
-    let topics: Vec<topic::Handle> = db::session_find_all_topics(&mut tx, handle.uuid())
-        .await?
-        .into_iter()
-        .map(|record| topic::Handle::new(record.locator(), record.identifiers()))
-        .collect();
+    let topics = topic_list(context, handle).await?;
 
     // If the session does not contain any topic, return an error and leave the session unlocked.
     if topics.is_empty() {
@@ -152,26 +107,18 @@ pub async fn finalize(context: &Context, handle: &Handle) -> Result<(), Error> {
         return Err(Error::TopicUnlocked);
     }
 
-    // Update manifest (store).
-    let mut manifest = manifest(context, handle).await?;
-    manifest.locked = true;
-    manifest.completed_at = Some(types::Timestamp::now());
-    manifest.topics = topics
-        .into_iter()
-        .map(|handle| handle.locator().clone())
-        .collect();
-    manifest_write_to_store(context, handle, manifest).await?;
+    db::session_update_completion_tstamp(&mut tx, handle.id(), types::Timestamp::now().as_i64())
+        .await?;
 
     tx.commit().await?;
 
     Ok(())
 }
 
-/// Deletes all the topics associated with this session, deletes also the session manifest and
-/// the session record from the db.
+/// Deletes all the topics associated with this session, and the session record from the db.
 ///
-/// Since the session delete involves multiple deletes across the system, topics data and
-/// session manifest, if operation fails a notification will be created. The notification will
+/// Since the session delete involves multiple deletes across the system,
+/// if the operation fails a notification will be created. The notification will
 /// enable the user to manually delete dangling resources if required.
 ///
 /// # Errors
@@ -181,7 +128,6 @@ pub async fn finalize(context: &Context, handle: &Handle) -> Result<(), Error> {
 pub async fn delete(
     context: &Context,
     handle: Handle,
-    only_if_unlocked: bool,
     allow_data_loss: types::DataLossToken,
 ) -> Result<(), Error> {
     let mut tx = context.db.transaction().await?;
@@ -191,12 +137,6 @@ pub async fn delete(
         handle.uuid()
     );
     let mut error_report = types::ErrorReport::new(error_report_msg);
-
-    let session_locked = manifest(context, &handle).await?.locked;
-
-    if only_if_unlocked && session_locked {
-        return Err(Error::SessionLocked);
-    }
 
     // Deletes topic data
     let topics = topic_list(context, &handle).await?;
@@ -210,20 +150,6 @@ pub async fn delete(
                 .errors
                 .push(types::ErrorReportItem::new(topic_locator_str, e));
         }
-    }
-
-    // Deletes the session manifest if session was previously locked (unlocked
-    // sessions have no manifest)
-    if session_locked
-        && let Err(e) = context
-            .store
-            .delete(handle.sequence_locator.session_manifest(handle.uuid()))
-            .await
-    {
-        error_report.errors.push(types::ErrorReportItem::new(
-            handle.sequence_locator.clone(),
-            e,
-        ));
     }
 
     let error_occurs = error_report.has_errors();
@@ -278,21 +204,23 @@ pub async fn topic_list(context: &Context, handle: &Handle) -> Result<Vec<topic:
         .collect())
 }
 
-pub async fn manifest(context: &Context, handle: &Handle) -> Result<types::SessionManifest, Error> {
-    let path = handle.sequence_locator.session_manifest(handle.uuid());
+pub async fn metadata(context: &Context, handle: &Handle) -> Result<types::SessionMetadata, Error> {
+    let mut cx = context.db.connection();
 
-    if !context.store.exists(&path).await? {
-        return Err(Error::NotFound(format!(
-            "missing manifest file for session `{}`",
-            handle.uuid()
-        )));
-    }
+    let db_session = db::session_find_by_id(&mut cx, handle.id()).await?;
 
-    let bytes = context.store.read_bytes(path).await?;
+    let topics = topic_list(context, handle)
+        .await?
+        .into_iter()
+        .map(|handle| handle.locator().clone())
+        .collect();
 
-    let data: marshal::SessionManifest = bytes.try_into()?;
-
-    Ok(data.try_into()?)
+    Ok(types::SessionMetadata {
+        uuid: db_session.uuid(),
+        created_at: db_session.creation_timestamp(),
+        completed_at: db_session.completion_timestamp(),
+        topics,
+    })
 }
 
 #[cfg(test)]
@@ -347,7 +275,7 @@ mod tests {
         assert!(db_session.creation_timestamp().as_i64() > 0);
         assert!(db_session.completion_timestamp().is_none());
 
-        delete(&context, session_handle, false, types::allow_data_loss())
+        delete(&context, session_handle, types::allow_data_loss())
             .await
             .expect("Unable to delete session");
 

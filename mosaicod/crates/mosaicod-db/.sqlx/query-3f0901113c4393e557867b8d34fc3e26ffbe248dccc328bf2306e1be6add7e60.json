@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT (completion_unix_tstamp IS NOT NULL) AS \"locked!\" FROM session_t WHERE session_id=$1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "locked!",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "3f0901113c4393e557867b8d34fc3e26ffbe248dccc328bf2306e1be6add7e60"
+}

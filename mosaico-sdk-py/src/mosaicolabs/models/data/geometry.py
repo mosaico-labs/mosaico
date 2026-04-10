@@ -13,7 +13,7 @@ The module follows a **Two-Tier Architecture** to optimize both internal efficie
 
 from typing import Optional
 
-import pyarrow as pa
+from mosaicolabs import MosaicoField, MosaicoType
 
 from ..base_model import BaseModel
 from ..mixins import CovarianceMixin
@@ -40,24 +40,9 @@ class _Vector2dStruct(BaseModel):
     # All fields are explicitly set to `nullable=True`. This prevents Parquet V2
     # readers from incorrectly deserializing a `None` _Vector2dStruct field in a class
     # as a default-initialized object (e.g., getting _Vector2dStruct(0, ...) instead of None).
-    __msco_pyarrow_struct__ = pa.struct(
-        [
-            pa.field(
-                "x",
-                pa.float64(),
-                nullable=True,
-                metadata={"description": "Vector x component"},
-            ),
-            pa.field(
-                "y",
-                pa.float64(),
-                nullable=True,
-                metadata={"description": "Vector y component"},
-            ),
-        ]
+    x: MosaicoType.float64 = MosaicoField(
+        nullable=True, description="Vector x component."
     )
-
-    x: float
     """
     The Vector X component
     
@@ -114,7 +99,9 @@ class _Vector2dStruct(BaseModel):
         ```
     """
 
-    y: float
+    y: MosaicoType.float64 = MosaicoField(
+        nullable=True, description="Vector y component."
+    )
     """
     The Vector Y component
     
@@ -205,30 +192,9 @@ class _Vector3dStruct(BaseModel):
     # All fields are explicitly set to `nullable=True`. This prevents Parquet V2
     # readers from incorrectly deserializing a `None` _Vector3dStruct field in a class
     # as a default-initialized object (e.g., getting _Vector3dStruct(0, ...) instead of None).
-    __msco_pyarrow_struct__ = pa.struct(
-        [
-            pa.field(
-                "x",
-                pa.float64(),
-                nullable=True,
-                metadata={"description": "Vector x component"},
-            ),
-            pa.field(
-                "y",
-                pa.float64(),
-                nullable=True,
-                metadata={"description": "Vector y component"},
-            ),
-            pa.field(
-                "z",
-                pa.float64(),
-                nullable=True,
-                metadata={"description": "Vector z component"},
-            ),
-        ]
+    x: MosaicoType.float64 = MosaicoField(
+        nullable=True, description="Vector x component."
     )
-
-    x: float
     """
     The Vector X component
     
@@ -285,7 +251,9 @@ class _Vector3dStruct(BaseModel):
         ```
     """
 
-    y: float
+    y: MosaicoType.float64 = MosaicoField(
+        nullable=True, description="Vector y component."
+    )
     """
     The Vector Y component
     
@@ -342,7 +310,9 @@ class _Vector3dStruct(BaseModel):
         ```
     """
 
-    z: float
+    z: MosaicoType.float64 = MosaicoField(
+        nullable=True, description="Vector z component."
+    )
     """
     The Vector Z component
     
@@ -433,36 +403,9 @@ class _Vector4dStruct(BaseModel):
     # All fields are explicitly set to `nullable=True`. This prevents Parquet V2
     # readers from incorrectly deserializing a `None` _Vector4dStruct field in a class
     # as a default-initialized object (e.g., getting _Vector4dStruct(0, ...) instead of None).
-    __msco_pyarrow_struct__ = pa.struct(
-        [
-            pa.field(
-                "x",
-                pa.float64(),
-                nullable=True,
-                metadata={"description": "Vector x component"},
-            ),
-            pa.field(
-                "y",
-                pa.float64(),
-                nullable=True,
-                metadata={"description": "Vector y component"},
-            ),
-            pa.field(
-                "z",
-                pa.float64(),
-                nullable=True,
-                metadata={"description": "Vector z component"},
-            ),
-            pa.field(
-                "w",
-                pa.float64(),
-                nullable=True,
-                metadata={"description": "Vector w component"},
-            ),
-        ]
+    x: MosaicoType.float64 = MosaicoField(
+        nullable=True, description="Vector x component."
     )
-
-    x: float
     """
     The Vector X component
     
@@ -519,7 +462,10 @@ class _Vector4dStruct(BaseModel):
         ```
     """
 
-    y: float
+    y: MosaicoType.float64 = MosaicoField(
+        nullable=True, description="Vector y component."
+    )
+
     """
     The Vector Y component
     
@@ -576,7 +522,10 @@ class _Vector4dStruct(BaseModel):
         ```
     """
 
-    z: float
+    z: MosaicoType.float64 = MosaicoField(
+        nullable=True, description="Vector z component."
+    )
+
     """
     The Vector Z component
     
@@ -633,7 +582,10 @@ class _Vector4dStruct(BaseModel):
         ```
     """
 
-    w: float
+    w: MosaicoType.float64 = MosaicoField(
+        nullable=True, description="Vector w component."
+    )
+
     """
     The Vector W component
     
@@ -1144,30 +1096,7 @@ class Transform(
         ```
     """
 
-    __msco_pyarrow_struct__ = pa.struct(
-        [
-            pa.field(
-                "translation",
-                Vector3d.__msco_pyarrow_struct__,
-                nullable=False,
-                metadata={"description": "3D translation vector"},
-            ),
-            pa.field(
-                "rotation",
-                Quaternion.__msco_pyarrow_struct__,
-                nullable=False,
-                metadata={"description": "Quaternion representing rotation."},
-            ),
-            pa.field(
-                "target_frame_id",
-                pa.string(),
-                nullable=True,
-                metadata={"description": "Target frame identifier."},
-            ),
-        ]
-    )
-
-    translation: Vector3d
+    translation: Vector3d = MosaicoField(description="3D translation vector.")
     """
     The 3D translation vector component.
 
@@ -1214,7 +1143,7 @@ class Transform(
         ```
     """
 
-    rotation: Quaternion
+    rotation: Quaternion = MosaicoField(description="Quaternion representing rotation.")
     """
     The rotation quaternion component (x, y, z, w).
 
@@ -1263,7 +1192,9 @@ class Transform(
         ```
     """
 
-    target_frame_id: Optional[str] = None
+    target_frame_id: Optional[MosaicoType.string] = MosaicoField(
+        default=None, description="Target frame identifier."
+    )
     """
     Target coordinate frame identifier.
 
@@ -1364,24 +1295,7 @@ class Pose(
 
     """
 
-    __msco_pyarrow_struct__ = pa.struct(
-        [
-            pa.field(
-                "position",
-                Point3d.__msco_pyarrow_struct__,
-                nullable=False,
-                metadata={"description": "3D translation vector"},
-            ),
-            pa.field(
-                "orientation",
-                Quaternion.__msco_pyarrow_struct__,
-                nullable=False,
-                metadata={"description": "Quaternion representing rotation."},
-            ),
-        ]
-    )
-
-    position: Point3d
+    position: Point3d = MosaicoField(description="3D translation vector.")
     """
     The 3D position vector component.
 
@@ -1427,7 +1341,9 @@ class Pose(
         ```
     """
 
-    orientation: Quaternion
+    orientation: Quaternion = MosaicoField(
+        description="Quaternion representing rotation."
+    )
     """
     The orientation quaternion component (x, y, z, w).
 

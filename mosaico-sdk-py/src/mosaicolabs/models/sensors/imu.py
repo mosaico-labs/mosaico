@@ -8,7 +8,7 @@ It aggregates data from accelerometers and gyroscopes.
 
 from typing import Optional
 
-import pyarrow as pa
+from mosaicolabs.models.types import MosaicoField
 
 from ..data import Quaternion, Vector3d
 from ..serializable import Serializable
@@ -65,37 +65,9 @@ class IMU(Serializable):
         ```
     """
 
-    # --- Schema Definition ---
-    __msco_pyarrow_struct__ = pa.struct(
-        [
-            pa.field(
-                "acceleration",
-                Vector3d.__msco_pyarrow_struct__,
-                nullable=False,
-                metadata={
-                    "description": "Linear acceleration vector [ax, ay, az] in m/s^2."
-                },
-            ),
-            pa.field(
-                "angular_velocity",
-                Vector3d.__msco_pyarrow_struct__,
-                nullable=False,
-                metadata={
-                    "description": "Angular velocity vector [wx, wy, wz] in rad/s."
-                },
-            ),
-            pa.field(
-                "orientation",
-                Quaternion.__msco_pyarrow_struct__,
-                nullable=True,
-                metadata={
-                    "description": "Estimated orientation [qx, qy, qz, qw] (optional)."
-                },
-            ),
-        ]
+    acceleration: Vector3d = MosaicoField(
+        description="Linear acceleration vector [ax, ay, az] in m/s^2."
     )
-
-    acceleration: Vector3d
     """
     Linear acceleration component.
 
@@ -141,7 +113,9 @@ class IMU(Serializable):
         ```
     """
 
-    angular_velocity: Vector3d
+    angular_velocity: Vector3d = MosaicoField(
+        description="Angular velocity vector [wx, wy, wz] in rad/s."
+    )
     """
     Angular velocity component.
 
@@ -187,7 +161,10 @@ class IMU(Serializable):
         ```
     """
 
-    orientation: Optional[Quaternion] = None
+    orientation: Optional[Quaternion] = MosaicoField(
+        default=None,
+        description="Estimated orientation [qx, qy, qz, qw].",
+    )
     """
     Estimated orientation [qx, qy, qz, qw] (optional).
         

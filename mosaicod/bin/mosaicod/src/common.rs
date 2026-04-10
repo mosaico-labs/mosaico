@@ -27,11 +27,6 @@ pub fn startup_time() -> &'static std::time::Instant {
 pub fn init_db(rt: &tokio::runtime::Runtime, config: &db::Config) -> Result<db::Database, Error> {
     let database = rt.block_on(async {
         let database = db::Database::try_new(config).await?;
-
-        let mut tx = database.transaction().await?;
-        db::layer_bootstrap(&mut tx).await?;
-        tx.commit().await?;
-
         Ok::<db::Database, Box<dyn std::error::Error>>(database)
     })?;
 

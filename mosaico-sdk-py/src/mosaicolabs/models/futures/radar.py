@@ -5,11 +5,9 @@ This module defines the Radar ontology model, which represents a sparse point cl
 of detections obtained from a Radar sensor.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Optional
 
-import pyarrow as pa
-
-from mosaicolabs.models import Serializable
+from mosaicolabs import MosaicoField, MosaicoType, Serializable
 
 
 class Radar(Serializable):
@@ -46,11 +44,10 @@ class Radar(Serializable):
         ax: X component of the acceleration of each detection in m/s² (optional).
         ay: Y component of the acceleration of each detection in m/s² (optional).
         radial_speed: Radial speed of each detection in m/s (optional).
-        extra_attributes: Additional manufacturer-specific attributes serialised as
-            raw binary data (optional).
+
 
     Note:
-        List-typed fields are **not queryable** via the `.Q` proxy. The `.Q` proxy
+        MosaicoType.list_() typed fields are **not queryable** via the `.Q` proxy. The `.Q` proxy
         is not available on this model.
 
     Example:
@@ -68,131 +65,33 @@ class Radar(Serializable):
         ```
     """
 
-    # --- Schema Definition ---
-    __msco_pyarrow_struct__ = pa.struct(
-        [
-            pa.field(
-                "x",
-                pa.list_(pa.float32()),
-                nullable=False,
-                metadata={"description": "x coordinates in meters."},
-            ),
-            pa.field(
-                "y",
-                pa.list_(pa.float32()),
-                nullable=False,
-                metadata={"description": "y coordinates in meters."},
-            ),
-            pa.field(
-                "z",
-                pa.list_(pa.float32()),
-                nullable=False,
-                metadata={"description": "z coordinates in meters."},
-            ),
-            pa.field(
-                "range",
-                pa.list_(pa.float32()),
-                nullable=True,
-                metadata={"description": "radial distance in meters."},
-            ),
-            pa.field(
-                "azimuth",
-                pa.list_(pa.float32()),
-                nullable=True,
-                metadata={"description": "azimuth angle in radians."},
-            ),
-            pa.field(
-                "elevation",
-                pa.list_(pa.float32()),
-                nullable=True,
-                metadata={"description": "elevation angle in radians."},
-            ),
-            pa.field(
-                "rcs",
-                pa.list_(pa.float32()),
-                nullable=True,
-                metadata={"description": "radar cross section in dBm."},
-            ),
-            pa.field(
-                "snr",
-                pa.list_(pa.float32()),
-                nullable=True,
-                metadata={"description": "signal to noise ratio in dB."},
-            ),
-            pa.field(
-                "doppler_velocity",
-                pa.list_(pa.float32()),
-                nullable=True,
-                metadata={"description": "doppler velocity in m/s."},
-            ),
-            pa.field(
-                "vx",
-                pa.list_(pa.float32()),
-                nullable=True,
-                metadata={"description": "x velocity in m/s."},
-            ),
-            pa.field(
-                "vy",
-                pa.list_(pa.float32()),
-                nullable=True,
-                metadata={"description": "y velocity in m/s."},
-            ),
-            pa.field(
-                "vx_comp",
-                pa.list_(pa.float32()),
-                nullable=True,
-                metadata={"description": "x compensated velocity in m/s."},
-            ),
-            pa.field(
-                "vy_comp",
-                pa.list_(pa.float32()),
-                nullable=True,
-                metadata={"description": "y compensated velocity in m/s."},
-            ),
-            pa.field(
-                "ax",
-                pa.list_(pa.float32()),
-                nullable=True,
-                metadata={"description": "x acceleration in m/s^2."},
-            ),
-            pa.field(
-                "ay",
-                pa.list_(pa.float32()),
-                nullable=True,
-                metadata={"description": "y acceleration in m/s^2."},
-            ),
-            pa.field(
-                "radial_speed",
-                pa.list_(pa.float32()),
-                nullable=True,
-                metadata={"description": "radial speed in m/s."},
-            ),
-            pa.field(
-                "extra_attributes",
-                pa.string(),
-                nullable=True,
-                metadata={"description": "extra attributes, manufacturer-specific"},
-            ),
-        ]
+    x: MosaicoType.list_(MosaicoType.float32) = MosaicoField(
+        description="x coordinates in meters."
     )
-
-    x: List[float]
     """X coordinates of each detection, in meters."""
 
-    y: List[float]
+    y: MosaicoType.list_(MosaicoType.float32) = MosaicoField(
+        description="y coordinates in meters."
+    )
     """Y coordinates of each detection, in meters."""
 
-    z: List[float]
+    z: MosaicoType.list_(MosaicoType.float32) = MosaicoField(
+        description="z coordinates in meters."
+    )
     """Z coordinates of each detection, in meters."""
 
-    range: Optional[List[float]] = None
+    range: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
+        default=None, description="radial distance in meters."
+    )
     """
     Radial distance from the sensor origin to each detection, in meters.
 
     Represents the straight-line distance along the beam axis.
     """
 
-    azimuth: Optional[List[float]] = None
+    azimuth: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
+        default=None, description="azimuth angle in radians."
+    )
     """
     Horizontal (azimuth) angle of each detection in radians.
 
@@ -200,14 +99,18 @@ class Radar(Serializable):
     with 0 aligned to the sensor's forward axis.
     """
 
-    elevation: Optional[List[float]] = None
+    elevation: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
+        default=None, description="elevation angle in radians."
+    )
     """
     Vertical (elevation) angle of each detection in radians.
 
     Measured from the sensor's horizontal plane; positive values point upward.
     """
 
-    rcs: Optional[List[float]] = None
+    rcs: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
+        default=None, description="radar cross section in dBm."
+    )
     """
     Radar Cross Section (RCS) of each detection, in dBm.
 
@@ -216,7 +119,9 @@ class Radar(Serializable):
     objects. Useful for target classification and false-positive filtering.
     """
 
-    snr: Optional[List[float]] = None
+    snr: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
+        default=None, description="signal to noise ratio in dB."
+    )
     """
     Signal-to-Noise Ratio (SNR) of each detection, in dB.
 
@@ -225,7 +130,9 @@ class Radar(Serializable):
     during object-level processing.
     """
 
-    doppler_velocity: Optional[List[float]] = None
+    doppler_velocity: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
+        default=None, description="doppler velocity in m/s."
+    )
     """
     Doppler radial velocity of each detection, in m/s.
 
@@ -234,7 +141,9 @@ class Radar(Serializable):
     signal. Positive values conventionally indicate motion away from the sensor.
     """
 
-    vx: Optional[List[float]] = None
+    vx: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
+        default=None, description="x velocity in m/s."
+    )
     """
     X component of the estimated velocity of each detection, in m/s.
 
@@ -242,14 +151,18 @@ class Radar(Serializable):
     target velocity, as opposed to the purely radial ``doppler_velocity``.
     """
 
-    vy: Optional[List[float]] = None
+    vy: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
+        default=None, description="y velocity in m/s."
+    )
     """
     Y component of the estimated velocity of each detection, in m/s.
 
     Expressed in the sensor frame. See ``vx`` for further context.
     """
 
-    vx_comp: Optional[List[float]] = None
+    vx_comp: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
+        default=None, description="x compensated velocity in m/s."
+    )
     """
     Ego-motion-compensated X velocity of each detection, in m/s.
 
@@ -258,14 +171,18 @@ class Radar(Serializable):
     X axis.
     """
 
-    vy_comp: Optional[List[float]] = None
+    vy_comp: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
+        default=None, description="y compensated velocity in m/s."
+    )
     """
     Ego-motion-compensated Y velocity of each detection, in m/s.
 
     Analogous to ``vx_comp`` along the Y axis. See ``vx_comp`` for further context.
     """
 
-    ax: Optional[List[float]] = None
+    ax: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
+        default=None, description="x acceleration in m/s^2."
+    )
     """
     X component of the estimated acceleration of each detection, in m/s².
 
@@ -273,26 +190,22 @@ class Radar(Serializable):
     report per-point kinematic state (e.g. high-level object-list outputs).
     """
 
-    ay: Optional[List[float]] = None
+    ay: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
+        default=None, description="y acceleration in m/s^2."
+    )
     """
     Y component of the estimated acceleration of each detection, in m/s².
 
     Analogous to ``ax`` along the Y axis. See ``ax`` for further context.
     """
 
-    radial_speed: Optional[List[float]] = None
+    radial_speed: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
+        default=None, description="radial speed in m/s."
+    )
     """
     Radial speed of each detection, in m/s.
 
     Represents the magnitude of the velocity component along the line of sight,
     without sign convention. Distinct from ``doppler_velocity``, which may carry
     a directional sign depending on the sensor's convention.
-    """
-
-    extra_attributes: Optional[Dict[str, Any]] = None
-    """
-    Additional manufacturer-specific attributes serialised as raw binary data.
-
-    Provides a forward-compatible escape hatch for vendor extensions that do
-    not map to any of the standardised fields above.
     """

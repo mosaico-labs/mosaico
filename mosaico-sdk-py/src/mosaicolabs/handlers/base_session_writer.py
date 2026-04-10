@@ -3,7 +3,7 @@ Session (Base) Writing Module.
 
 This module acts as the central controller for writing a session in an existing sequence.
 It manages the lifecycle of the session on the server (Create -> Write -> Finalize/Abort)
-and distributes client resources (Connections, Executors) to individual Topics.
+and distributes client resources to individual Topics.
 """
 
 from abc import ABC, abstractmethod
@@ -13,9 +13,7 @@ from typing import Any, Dict, Optional, Type
 
 import pyarrow.flight as fl
 
-from mosaicolabs.comm.connection import _ConnectionPool
 from mosaicolabs.comm.do_action import _do_action, _DoActionResponseUUID
-from mosaicolabs.comm.executor_pool import _ExecutorPool
 from mosaicolabs.enum import (
     FlightAction,
     SessionLevelErrorPolicy,
@@ -43,14 +41,10 @@ class _BaseSessionWriter(ABC):
 
     This is the central controller for high-performance managing:
 
-    ### Key Responsibilities
-    * **Distribution** of shared client resources (Connection and Executor pools) across multiple isolated `TopicWriter` instances.
+    ### Key Responsibilities:
+
+    * **Distribution** of the client across multiple isolated `TopicWriter` instances.
     * **Lifecycle Management**: Coordinates creation, finalization, or abort signals with the server.
-    * **Resource Distribution**: Implements a "Multi-Lane" architecture by distributing network connections
-        from a Connection Pool and thread executors from an Executor Pool to individual
-        [`TopicWriter`][mosaicolabs.handlers.TopicWriter]
-        instances. This ensures strict isolation and maximum parallelism between
-        diverse data streams.
 
     **Implementation Note:**
     This class follows the Template Method pattern. Subclasses must implement
@@ -65,8 +59,6 @@ class _BaseSessionWriter(ABC):
         *,
         sequence_name: str,
         client: fl.FlightClient,
-        connection_pool: Optional[_ConnectionPool],
-        executor_pool: Optional[_ExecutorPool],
         config: SessionWriterConfig,
         logger: Logger,
     ):
@@ -81,8 +73,6 @@ class _BaseSessionWriter(ABC):
         Args:
             sequence_name: Unique name for the sequence corresponding to the session.
             client: The primary control FlightClient.
-            connection_pool: Shared pool of data connections for parallel writing.
-            executor_pool: Shared pool of thread executors for asynchronous I/O.
             config: Operational configuration (e.g., error policies, batch sizes).
         """
         self._name: str = sequence_name
@@ -93,10 +83,6 @@ class _BaseSessionWriter(ABC):
         """The cache of the spawned topic writers"""
         self._control_client: fl.FlightClient = client
         """The FlightClient used for operations (creating topics, finalizing session)."""
-        self._connection_pool: Optional[_ConnectionPool] = connection_pool
-        """The pool of FlightClients available for data streaming."""
-        self._executor_pool: Optional[_ExecutorPool] = executor_pool
-        """The pool of ThreadPoolExecutors available for asynch I/O."""
         self._status: SessionStatus = SessionStatus.Null
         """The status of the new session"""
         self._uuid: str = ""
@@ -423,10 +409,6 @@ class _BaseSessionWriter(ABC):
         """
         Creates a new topic within the active session.
 
-        This method performs a "Multi-Lane" resource assignment, granting the new
-        [`TopicWriter`][mosaicolabs.handlers.TopicWriter], its own connection from the pool
-        and a dedicated executor for background serialization and I/O.
-
         Note:
             The class verifies that the topic name is valid and that the metadata is valid (i.e. it is a dict).
 
@@ -485,17 +467,6 @@ class _BaseSessionWriter(ABC):
             self._logger.error(f"Action '{ACTION.value}' returned no response.")
             return None
 
-        # --- Resource Assignment Strategy ---
-        if self._connection_pool:
-            # Round-Robin assignment from the pool (Async mode)
-            data_client = self._connection_pool.get_next()
-        else:
-            # Reuse control client (Sync mode)
-            data_client = self._control_client
-
-        # Assign executor if pool is available
-        executor = self._executor_pool.get_next() if self._executor_pool else None
-
         # Copy the common values in TopicWriterConfig from SessionWriterConfig
         # and add the TopicLevelErrorPolicy
         session_writer_config_data = asdict(self._config)
@@ -512,8 +483,7 @@ class _BaseSessionWriter(ABC):
                 sequence_name=self._name,
                 topic_name=topic_name,
                 topic_uuid=act_resp.uuid,
-                client=data_client,
-                executor=executor,
+                client=self._control_client,
                 ontology_type=ontology_type,
                 config=topic_writer_config,
             )
@@ -649,7 +619,7 @@ class _BaseSessionWriter(ABC):
 
                     # Data Transformation & Ingestion.
                     # The adapter converts the raw payload into a validated Mosaico object.
-                    # push() handles high-performance batching and asynchronous I/O to the rust backend.
+                    # push() handles high-performance batching and transmission to the rust backend.
                     twriter.push( # (1)!
                         message=Message(
                             timestamp_ns=ts,

@@ -6,7 +6,8 @@ Defines the data structure for temperature sensors.
 
 from typing import Optional
 
-import pyarrow as pa
+from mosaicolabs.models import MosaicoType
+from mosaicolabs.models.types import MosaicoField
 
 from ..mixins import VarianceMixin
 from ..serializable import Serializable
@@ -61,19 +62,9 @@ class Temperature(Serializable, VarianceMixin):
         ```
     """
 
-    # --- Schema Definition ---
-    __msco_pyarrow_struct__ = pa.struct(
-        [
-            pa.field(
-                "value",
-                pa.float64(),
-                nullable=False,
-                metadata={"description": "Temperature value in Kelvin."},
-            ),
-        ]
+    value: MosaicoType.float64 = MosaicoField(
+        description="Temperature value in Kelvin."
     )
-
-    value: float
     """
     Temperature value in Kelvin.
 

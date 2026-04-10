@@ -46,9 +46,9 @@ Mosaico provides a series of [Ontology Models](SDK/ontology.md) for all the main
 
 ```python
 class GPS:
-    latitude: float
-    longitude: float
-    altitude: float
+    latitude: MosaicoType.float32
+    longitude: MosaicoType.float32
+    altitude: MosaicoType.float32
 ```
 
 An image classification algorithm can be represented with an ontology model like:
@@ -57,8 +57,8 @@ An image classification algorithm can be represented with an ontology model like
 class SimpleImageClassification:
     top_left_corner: mosaicolabs.Vector2d
     bottom_right: mosaicolabs.Vector2d
-    label: str
-    confidence: float
+    label: MosaicoType.string
+    confidence: MosaicoType.float32
 ```
 
 Users can easily extend the platform by defining their own [Ontology Models](SDK/ontology.md). 

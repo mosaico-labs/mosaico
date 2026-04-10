@@ -121,7 +121,7 @@ In this specific case, the data are instances of the [`IMU`][mosaicolabs.models.
 To write data, we first establish a connection to the Mosaico server via the [`MosaicoClient.connect()`][mosaicolabs.comm.MosaicoClient.connect] method and create a [`SequenceWriter`][mosaicolabs.handlers.SequenceWriter].
 A sequence writer acts as a logical container for related sensor data streams (topics).
 
-When initializing your data handling pipeline, it is highly recommended to wrap the **Mosaico Client** within a `with` statement. This context manager pattern ensures that underlying network connections and shared resource pools are correctly shut down and released when your operations conclude.
+When initializing your data handling pipeline, it is highly recommended to wrap the **Mosaico Client** within a `with` statement. This context manager pattern ensures that the network resources are correctly shut down and released when your operations conclude.
 
 ```python title="Connect to the Mosaico server and create a sequence writer"
 setup_sdk_logging(level="INFO", pretty=True) # Configure the mosaico logging
@@ -161,7 +161,7 @@ The behavior of the orchestrator during a failure is governed by the `on_error` 
 
 ### Step 3: Topic Creation and Resource Allocation
 
-Inside the sequence, we create individual **Topic Writers** to manage data streams. Each writer is an independent "lane" assigned its own internal buffer and background thread for serialization.
+Inside the sequence, we create individual **Topic Writers** to manage data streams.
 
 ```python
 with client.sequence_create(...) as swriter:

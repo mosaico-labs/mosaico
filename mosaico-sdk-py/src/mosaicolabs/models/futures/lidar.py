@@ -5,11 +5,9 @@ This module defines the LiDAR ontology model, which represents a 3D point cloud
 obtained from a LiDAR sensor.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Optional
 
-import pyarrow as pa
-
-from mosaicolabs.models.serializable import Serializable
+from mosaicolabs import MosaicoField, MosaicoType, Serializable
 
 
 class Lidar(Serializable):
@@ -38,8 +36,7 @@ class Lidar(Serializable):
         return_type: Single/dual return classification, manufacturer-specific (optional).
         point_timestamp: Per-point acquisition time offset from the scan start,
             in seconds (optional).
-        extra_attributes: Additional manufacturer-specific attributes serialised as
-            raw binary data (optional).
+
 
     Note:
         List-typed fields are **not queryable** via the `.Q` proxy. The `.Q` proxy
@@ -60,119 +57,31 @@ class Lidar(Serializable):
         ```
     """
 
-    # --- Schema Definition ---
-    __msco_pyarrow_struct__ = pa.struct(
-        [
-            pa.field(
-                "x",
-                pa.list_(pa.float32()),
-                nullable=False,
-                metadata={"description": "x coordinates in meters"},
-            ),
-            pa.field(
-                "y",
-                pa.list_(pa.float32()),
-                nullable=False,
-                metadata={"description": "y coordinates in meters"},
-            ),
-            pa.field(
-                "z",
-                pa.list_(pa.float32()),
-                nullable=False,
-                metadata={"description": "z coordinates in meters"},
-            ),
-            pa.field(
-                "intensity",
-                pa.list_(pa.float32()),
-                nullable=True,
-                metadata={"description": "strength of the returned signal"},
-            ),
-            pa.field(
-                "reflectivity",
-                pa.list_(pa.uint16()),
-                nullable=True,
-                metadata={"description": "Surface reflectivity"},
-            ),
-            pa.field(
-                "beam_id",
-                pa.list_(pa.uint16()),
-                nullable=True,
-                metadata={
-                    "description": "beam index (ring, channel, line), identifies which laser fired the point"
-                },
-            ),
-            pa.field(
-                "range",
-                pa.list_(pa.float32()),
-                nullable=True,
-                metadata={"description": "range in meters"},
-            ),
-            pa.field(
-                "near_ir",
-                pa.list_(pa.float32()),
-                nullable=True,
-                metadata={
-                    "description": "near-infrared ambient light (noise, ambient)"
-                },
-            ),
-            pa.field(
-                "azimuth",
-                pa.list_(pa.float32()),
-                nullable=True,
-                metadata={"description": "azimuth angle in radians"},
-            ),
-            pa.field(
-                "elevation",
-                pa.list_(pa.float32()),
-                nullable=True,
-                metadata={"description": "elevation angle in radians"},
-            ),
-            pa.field(
-                "confidence",
-                pa.list_(pa.uint8()),
-                nullable=True,
-                metadata={
-                    "description": "per-point validity/confidence flags (tag, flags), manufacturer-specific bitmask"
-                },
-            ),
-            pa.field(
-                "return_type",
-                pa.list_(pa.uint8()),
-                nullable=True,
-                metadata={
-                    "description": "single/dual return classification, manufacturer-specific"
-                },
-            ),
-            pa.field(
-                "point_timestamp",
-                pa.list_(pa.float64()),
-                nullable=True,
-                metadata={
-                    "description": "per-point acquisition time offset from scan start"
-                },
-            ),
-            pa.field(
-                "extra_attributes",
-                pa.string(),
-                nullable=True,
-                metadata={"description": "extra attributes, manufacturer-specific"},
-            ),
-        ]
+    x: MosaicoType.list_(MosaicoType.float32) = MosaicoField(
+        description="x coordinates in meters"
     )
-
-    x: List[float]
     """X coordinates of each point in the cloud, in meters."""
 
-    y: List[float]
+    y: MosaicoType.list_(MosaicoType.float32) = MosaicoField(
+        description="y coordinates in meters"
+    )
     """Y coordinates of each point in the cloud, in meters."""
 
-    z: List[float]
+    z: MosaicoType.list_(MosaicoType.float32) = MosaicoField(
+        description="z coordinates in meters"
+    )
     """Z coordinates of each point in the cloud, in meters."""
 
-    intensity: Optional[List[float]] = None
+    intensity: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
+        default=None,
+        description="Surface reflectivity per point.",
+    )
     """Strength of the returned laser signal for each point."""
 
-    reflectivity: Optional[List[int]] = None
+    reflectivity: Optional[MosaicoType.list_(MosaicoType.uint16)] = MosaicoField(
+        default=None,
+        description="Surface reflectivity per point.",
+    )
     """
     Surface reflectivity per point.
 
@@ -180,7 +89,10 @@ class Lidar(Serializable):
     independently of the distance. Manufacturer-specific scaling applies.
     """
 
-    beam_id: Optional[List[int]] = None
+    beam_id: Optional[MosaicoType.list_(MosaicoType.uint16)] = MosaicoField(
+        default=None,
+        description="Laser beam index (ring / channel / line) that fired each point.",
+    )
     """
     Laser beam index (ring / channel / line) that fired each point.
 
@@ -189,7 +101,10 @@ class Lidar(Serializable):
     from multi-beam sensors such as Velodyne or Ouster.
     """
 
-    range: Optional[List[float]] = None
+    range: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
+        default=None,
+        description="Distance from the sensor origin to each point, in meters.",
+    )
     """
     Distance from the sensor origin to each point, in meters.
 
@@ -197,7 +112,10 @@ class Lidar(Serializable):
     onto Cartesian coordinates. Not always provided by all sensor drivers.
     """
 
-    near_ir: Optional[List[float]] = None
+    near_ir: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
+        default=None,
+        description="Near-infrared ambient light reading per point.",
+    )
     """
     Near-infrared ambient light reading per point.
 
@@ -206,13 +124,22 @@ class Lidar(Serializable):
     Exposed as the ``ambient`` channel in Ouster drivers.
     """
 
-    azimuth: Optional[List[float]] = None
+    azimuth: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
+        default=None,
+        description="Horizontal (azimuth) angle of each point in radians.",
+    )
     """Horizontal (azimuth) angle of each point in radians."""
 
-    elevation: Optional[List[float]] = None
+    elevation: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
+        default=None,
+        description="Vertical (elevation) angle of each point in radians.",
+    )
     """Vertical (elevation) angle of each point in radians."""
 
-    confidence: Optional[List[int]] = None
+    confidence: Optional[MosaicoType.list_(MosaicoType.uint8)] = MosaicoField(
+        default=None,
+        description="Per-point validity or confidence flags.",
+    )
     """
     Per-point validity or confidence flags.
     
@@ -221,7 +148,10 @@ class Lidar(Serializable):
     saturated returns, calibration issues, or other quality indicators.
     """
 
-    return_type: Optional[List[int]] = None
+    return_type: Optional[MosaicoType.list_(MosaicoType.uint8)] = MosaicoField(
+        default=None,
+        description="Single/dual return classification per point.",
+    )
     """
     Single/dual return classification per point.
     
@@ -229,19 +159,14 @@ class Lidar(Serializable):
     strongest return, etc. Encoding is manufacturer-specific.
     """
 
-    point_timestamp: Optional[List[float]] = None
+    point_timestamp: Optional[MosaicoType.list_(MosaicoType.float64)] = MosaicoField(
+        default=None,
+        description="Per-point acquisition time offset from the scan start, in seconds.",
+    )
     """
     Per-point acquisition time offset from the scan start, in seconds.
     
     Allows precise temporal localisation of individual points within a single
     sweep, which is important for motion-distortion correction during
     point-cloud registration.
-    """
-
-    extra_attributes: Optional[Dict[str, Any]] = None
-    """
-    Additional manufacturer-specific attributes serialised as raw binary data.
-    
-    Provides a forward-compatible escape hatch for vendor extensions that do
-    not map to any of the standardised fields above.
     """

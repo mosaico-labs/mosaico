@@ -15,7 +15,7 @@ use mosaicod_core::params;
 /// The concrete database type used throughout this module.
 pub type DatabaseType = sqlx::Postgres;
 
-/// If the layer has this id is not registered in the database
+/// If the record has this id is not registered in the database
 pub const UNREGISTERED: i32 = -1;
 
 /// A trait for types that can provide a [`sqlx::Executor`].

@@ -2,6 +2,7 @@
 
 use mosaicod_core as core;
 use mosaicod_core::types;
+use mosaicod_core::types::Resource;
 use mosaicod_db as db;
 use mosaicod_ext as ext;
 use mosaicod_marshal as marshal;
@@ -92,7 +93,6 @@ async fn sequence_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
     assert_eq!(sequence_manifest.sessions[0].uuid, session_uuid);
     assert_ne!(sequence_manifest.sessions[0].created_at.as_i64(), 0);
     assert!(sequence_manifest.sessions[0].completed_at.is_none());
-    assert!(!sequence_manifest.sessions[0].locked);
     assert!(sequence_manifest.sessions[0].topics.is_empty());
 
     let topic_name = "test_sequence/my_topic";
@@ -135,8 +135,11 @@ async fn sequence_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
     assert_eq!(sequence_manifest.sessions[0].uuid, session_uuid);
     assert_ne!(sequence_manifest.sessions[0].created_at.as_i64(), 0);
     assert!(sequence_manifest.sessions[0].completed_at.is_none());
-    assert!(!sequence_manifest.sessions[0].locked);
-    assert!(sequence_manifest.sessions[0].topics.is_empty());
+    assert_eq!(sequence_manifest.sessions[0].topics.len(), 1);
+    assert_eq!(
+        sequence_manifest.sessions[0].topics[0].locator(),
+        topic_name
+    );
 
     let _ = actions::session_finalize(&mut client, &session_uuid).await;
 

@@ -5,7 +5,7 @@ description: Architecture and design of the MosaicoClient.
 
 API Reference: [`mosaicolabs.comm.MosaicoClient`][mosaicolabs.comm.MosaicoClient].
 
-The `MosaicoClient` is a resource manager designed to orchestrate three distinct **Layers** of communication and processing. 
+The `MosaicoClient` is a resource manager designed to orchestrate distinct **Layers** of communication and processing. 
 This layered architecture ensures that high-throughput sensor data does not block critical control operations or application logic.
 
 Creating a new client is done via the [`MosaicoClient.connect()`][mosaicolabs.comm.MosaicoClient.connect] factory method. It is recomended to always use the client inside a `with` context to ensure resources in all layers are cleanly released.
@@ -16,28 +16,18 @@ from mosaicolabs import MosaicoClient
 with MosaicoClient.connect("localhost", 6726) as client:
     # Logic goes here
     pass
-# Pools and connections are closed automatically
+# The connection with the server is closed automatically
 
 ```
 
 ## Control Layer
-
-A single, dedicated connection is maintained for metadata operations. 
-This layer handles lightweight tasks such as creating sequences, querying the catalog, and managing schema definitions. 
-By isolating control traffic, the client ensures that critical commands (like `sequence_finalize`) are never queued behind heavy data transfers.
+A single connection is maintained for metadata operations, schema management, and lifecycle control. This layer handles lightweight tasks such as creating sequences and querying the catalog. By using a dedicated control flow, the client ensures that critical state commands (like `sequence_finalize`) remain responsive and synchronized with the data stream.
 
 ## Data Layer
-
-For high-bandwidth data ingestion (e.g., uploading 4x 1080p cameras simultaneously), the client maintains a **Connection Pool** of multiple Flight clients. 
-The SDK automatically stripes writes across these connections in a round-robin fashion, allowing the application to saturate the available network bandwidth.
+Data ingestion and retrieval are handled through a **unified single-stream connection**. By consolidating data traffic into a single pipe, the SDK reduces network overhead and ensures strict sequential ordering of data packets. This simplified approach eliminates the complexity of connection handshakes and is optimized for stable, predictable throughput in environments where network jitter must be minimized.
 
 ## Processing Layer
-
-Serialization of complex sensor data (like compressing images or encoding LIDAR point clouds) is CPU-intensive. 
-The SDK uses an **Executor Pool** of background threads to offload these tasks. 
-This ensures that while one thread is serializing the *next* batch of data, another thread is already transmitting the *previous* batch over the network.
-
-As a senior architect, it is vital to emphasize that the **Security Layer** is not an "add-on" but a foundational component of the `MosaicoClient` lifecycle. In robotics, where data often moves from edge devices to centralized clusters, this layer ensures that your Physical AI assets remain protected against unauthorized access and intercept.
+The SDK operates on a **Synchronous Processing Model**, where serialization and transmission occur within the calling thread’s context. For complex sensor data (like image compression or LIDAR encoding), the SDK performs inline serialization immediately prior to transmission. This "lock-step" execution ensures maximum data integrity and minimizes memory pressure, as it avoids the overhead of background thread synchronization and context switching.
 
 ## Security Layer
 

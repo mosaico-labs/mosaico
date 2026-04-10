@@ -77,7 +77,7 @@ In this specific case, the data is an instance of the [`IMU`][mosaicolabs.models
 To write data, we first establish a connection to the Mosaico server via the [`MosaicoClient.connect()`][mosaicolabs.comm.MosaicoClient.connect] method and create a [`SequenceWriter`][mosaicolabs.handlers.SequenceWriter].
 A sequence writer acts as a logical container for related data streams (topics).
 
-When initializing your data handling pipeline, it is highly recommended to wrap the `MosaicoClient` within a `with` statement. This context manager pattern ensures that underlying network connections and shared resource pools are correctly shut down and released when your operations conclude.
+When initializing your data handling pipeline, it is highly recommended to wrap the `MosaicoClient` within a `with` statement. This context manager pattern ensures that the network resources are correctly shut down and released when your operations conclude.
 
 ```python title="Connect to the Mosaico server and create a sequence writer"
 setup_sdk_logging(level="INFO", pretty=True) # Configure the mosaico logging

@@ -211,7 +211,7 @@ class ProgressManager:
     Visual management system for ROS injection tracking.
 
     This class decouples the UI presentation logic from the data processing pipeline.
-    It utilizes the `rich` library to provide real-time feedback through multi-lane progress bars,
+    It utilizes the `rich` library to provide real-time feedback through progress bars,
     tracking individual topic throughput and aggregate global progress.
 
 

@@ -62,7 +62,7 @@ pub async fn session_find_by_uuid(
     Ok(res)
 }
 
-/// Find a sequence by resource lookup
+/// Find a session by resource lookup
 pub async fn session_lookup(
     exec: &mut impl AsExec,
     id_lookup: &types::IdLookup,
@@ -71,6 +71,18 @@ pub async fn session_lookup(
         types::IdLookup::Id(id) => session_find_by_id(exec, *id).await,
         types::IdLookup::Uuid(uuid) => session_find_by_uuid(exec, uuid).await,
     }
+}
+
+/// Returns true if the session is locked.
+pub async fn session_locked(exe: &mut impl AsExec, session_id: i32) -> Result<bool, Error> {
+    trace!("session (id=`{}`) locked? ", session_id);
+    let locked = sqlx::query_scalar!(
+        r#"SELECT (completion_unix_tstamp IS NOT NULL) AS "locked!" FROM session_t WHERE session_id=$1"#,
+        session_id
+    )
+        .fetch_one(exe.as_exec())
+        .await?;
+    Ok(locked)
 }
 
 /// Deletes a session record from the database by its name, **bypassing any lock state**.
@@ -108,4 +120,28 @@ pub async fn session_find_all_topics(
     )
     .fetch_all(exe.as_exec())
     .await?)
+}
+
+pub async fn session_update_completion_tstamp(
+    exe: &mut impl AsExec,
+    session_id: i32,
+    completion_ts: i64,
+) -> Result<(), Error> {
+    trace!(
+        "updating completion timestamp to `{}` for session `{}`",
+        completion_ts, session_id
+    );
+    sqlx::query!(
+        r#"
+            UPDATE session_t
+            SET completion_unix_tstamp = $1
+            WHERE session_id = $2
+    "#,
+        completion_ts,
+        session_id,
+    )
+    .execute(exe.as_exec())
+    .await?;
+
+    Ok(())
 }

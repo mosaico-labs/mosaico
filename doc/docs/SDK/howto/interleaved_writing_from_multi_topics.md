@@ -182,7 +182,7 @@ In this specific case, the data are instances of the [`IMU`][mosaicolabs.models.
 To write data, we first establish a connection to the Mosaico server via the [`MosaicoClient.connect()`][mosaicolabs.comm.MosaicoClient.connect] method and create a [`SequenceWriter`][mosaicolabs.handlers.SequenceWriter].
 A sequence writer acts as a logical container for related sensor data streams (topics).
 
-When initializing your data handling pipeline, it is highly recommended to wrap the **Mosaico Client** within a `with` statement. This context manager pattern ensures that underlying network connections and shared resource pools are correctly shut down and released when your operations conclude.
+When initializing your data handling pipeline, it is highly recommended to wrap the **Mosaico Client** within a `with` statement. This context manager pattern ensures that the network resources are correctly shut down and released when your operations conclude.
 
 ```python title="Connect to the Mosaico server and create a sequence writer"
 from mcap.reader import make_reader
@@ -227,7 +227,7 @@ The behavior of the orchestrator during a failure is governed by the `on_error` 
 
 ### Step 3: Topic Creation and Resource Allocation
 
-Inside the sequence, we can stream interleaved data without loading the entire file into memory. We automatically create individual **Topic Writers** per each channel in the MCAP file to manage data streams. Each writer is an independent "lane" assigned its own internal buffer and background thread for serialization. The [`swriter.get_topic_writer`][mosaicolabs.handlers.SequenceWriter.get_topic_writer] pattern removes the need to pre-scan the file. **Topics are created only when they are first encountered**.
+Inside the sequence, we can stream interleaved data without loading the entire file into memory. We automatically create individual **Topic Writers** per each channel in the MCAP file to manage data streams. The [`swriter.get_topic_writer`][mosaicolabs.handlers.SequenceWriter.get_topic_writer] pattern removes the need to pre-scan the file. **Topics are created only when they are first encountered**.
 
 ```python
 with client.sequence_create(...) as swriter:

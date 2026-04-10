@@ -370,7 +370,7 @@ def test_delete_policy(
         assert session.locked is False
         # The session is not finalized!
         assert session.completed_timestamp is None
-        assert session.topics == []
+        assert session.topics == ["/test_topic"]
 
         # free resources
         mosaico_client.sequence_delete("unauthorized_sequence_abort")

@@ -1,12 +1,16 @@
-use super::error::{PublicErrorGrpcExt, Result, ToStatusExt};
-use super::*;
-use arrow_flight::decode::FlightDataDecoder;
+use super::{
+    error::{PublicErrorGrpcExt, Result, ToStatusExt},
+    middleware,
+};
+use crate::endpoint;
 use arrow_flight::{
     Action as FlightAction, ActionType, Criteria, Empty, FlightData, FlightDescriptor, FlightInfo,
     HandshakeRequest, HandshakeResponse, PollInfo, PutResult, SchemaResult, Ticket,
-    flight_service_server::FlightService, flight_service_server::FlightServiceServer,
+    decode::FlightDataDecoder, flight_service_server::FlightService,
+    flight_service_server::FlightServiceServer,
 };
 use futures::{StreamExt, TryStreamExt, stream::BoxStream};
+use log::{debug, error, info, warn};
 use mosaicod_core::{self as core, params, types};
 use mosaicod_db as db;
 use mosaicod_ext as ext;
@@ -16,8 +20,7 @@ use mosaicod_query as query;
 use mosaicod_store as store;
 use std::sync::Arc;
 use tokio::sync::Notify;
-use tonic::{Request, Response, Status, Streaming, transport::Server};
-use tracing::{error, trace, warn};
+use tonic::{Request, Response, Status, Streaming, codec::CompressionEncoding, transport::Server};
 
 /// To stop the server use the following command on
 /// `ShutdownNotifier`
@@ -59,6 +62,9 @@ pub struct Config {
 
     /// If this option is true the server will require API keys for every operation
     enable_api_key_management: bool,
+
+    /// Enable gzip encoding in gRPC
+    gzip: bool,
 }
 
 impl Config {
@@ -68,12 +74,18 @@ impl Config {
             port,
             tls: None,
             enable_api_key_management: false,
+            gzip: false,
         }
     }
 
     /// Enable TLS
     pub fn tls(&mut self, tls: TlsConfig) {
         self.tls = Some(tls);
+    }
+
+    /// Enables gzip compression for both incoming and outgoing gRPC messages.
+    pub fn gzip(&mut self, enable: bool) {
+        self.gzip = enable;
     }
 
     /// Enable API key management
@@ -135,13 +147,20 @@ pub async fn start(
         .max_decoding_message_size(params::params().max_grpc_message_size)
         .max_encoding_message_size(params::params().max_grpc_message_size);
 
+    if config.gzip {
+        svc = svc
+            .send_compressed(CompressionEncoding::Gzip)
+            .accept_compressed(CompressionEncoding::Gzip);
+        info!("gzip compression for gRPC requests is enabled");
+    }
+
     let server = builder.layer(layer).add_service(svc);
 
     if let Some(shutdown_notifier) = shutdown {
         server
             .serve_with_shutdown(addr, async {
                 shutdown_notifier.wait_for_shutdown().await;
-                trace!("received shutdown notification");
+                debug!("received shutdown notification");
             })
             .await?;
     } else {
