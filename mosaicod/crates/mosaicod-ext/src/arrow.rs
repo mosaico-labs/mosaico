@@ -1,7 +1,7 @@
 use arrow::array::{ArrayRef, AsArray, RecordBatch, StructArray};
 use arrow::datatypes::{DataType, Field, FieldRef, Schema, SchemaRef};
 use arrow::error::ArrowError;
-use mosaicod_core::{params, types};
+use mosaicod_core::{self as core, params, types};
 use parquet::arrow::async_reader::{AsyncFileReader, ParquetObjectReader};
 use parquet::arrow::parquet_to_arrow_schema;
 use std::collections::VecDeque;
@@ -14,6 +14,12 @@ pub enum SchemaError {
     MissingTimestampInSchema,
     #[error("wrong timestamp field type, expected int64")]
     WrongTimestampType,
+}
+
+impl core::error::PublicError for SchemaError {
+    fn error_kind(&self) -> core::error::ErrorKind {
+        core::error::unsupported_schema(self.to_string())
+    }
 }
 
 pub type Error = ArrowError;

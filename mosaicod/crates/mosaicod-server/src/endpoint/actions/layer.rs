@@ -1,6 +1,6 @@
 //! Layer-related actions.
 
-use crate::errors::*;
+use crate::error::*;
 use log::{info, warn};
 use mosaicod_core::types;
 use mosaicod_facade as facade;

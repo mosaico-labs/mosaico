@@ -1,12 +1,16 @@
-use crate::errors::*;
+use crate::error::Result;
 use arrow::datatypes::{Field, Schema};
 use arrow_flight::{
     FlightDescriptor, FlightEndpoint, FlightInfo, Ticket, flight_descriptor::DescriptorType,
 };
 use futures::stream::{self, StreamExt, TryStreamExt};
 use log::{info, trace};
-use mosaicod_core::params;
-use mosaicod_core::types::{self, Resource, TopicOntologyMetadata};
+use mosaicod_core::{
+    self as core,
+    error::BoxPublicError,
+    params,
+    types::{self, Resource, TopicOntologyMetadata},
+};
 use mosaicod_db as db;
 use mosaicod_facade as facade;
 use mosaicod_facade::Context;
@@ -72,7 +76,7 @@ pub async fn get_flight_info(ctx: &facade::Context, desc: FlightDescriptor) -> R
                                 .with_location(topic_handle.locator().url()?)
                                 .with_app_metadata(topic_app_mdata);
 
-                            Ok::<FlightEndpoint, BoxGrpcPublicError>(e)
+                            Ok::<FlightEndpoint, BoxPublicError>(e)
                         })
                         .buffer_unordered(params::MAX_BUFFERED_FUTURES)
                         .try_collect::<Vec<FlightEndpoint>>()
@@ -88,7 +92,8 @@ pub async fn get_flight_info(ctx: &facade::Context, desc: FlightDescriptor) -> R
                     let mut flight_info = FlightInfo::new()
                         .with_descriptor(desc.clone())
                         .with_app_metadata(manifest)
-                        .try_with_schema(&schema)?;
+                        .try_with_schema(&schema)
+                        .map_err(|_| core::error::internal())?;
 
                     for endpoint in endpoints {
                         flight_info = flight_info.with_endpoint(endpoint);
@@ -137,14 +142,15 @@ pub async fn get_flight_info(ctx: &facade::Context, desc: FlightDescriptor) -> R
                     let flight_info = FlightInfo::new()
                         .with_descriptor(desc.clone())
                         .with_endpoint(endpoint)
-                        .try_with_schema(&schema)?;
+                        .try_with_schema(&schema)
+                        .map_err(|_| core::error::internal())?;
 
                     trace!("{} done", topic_handle.locator());
                     Ok(flight_info)
                 }
             }
         }
-        _ => Err(MosaicodFlightError::unsupported_descriptor())?,
+        _ => Err(core::error::unsupported_descriptor())?,
     }
 }
 

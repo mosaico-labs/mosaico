@@ -1,3 +1,4 @@
+use mosaicod_core as core;
 use parquet::errors::ParquetError;
 use thiserror::Error;
 
@@ -17,4 +18,10 @@ pub enum Error {
     Unsupported,
     #[error("blocking operation failed: {0}")]
     BlockingOperationError(String),
+}
+
+impl core::error::PublicError for Error {
+    fn error_kind(&self) -> core::error::ErrorKind {
+        core::error::internal()
+    }
 }

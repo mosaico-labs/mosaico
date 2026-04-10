@@ -1,6 +1,6 @@
 //! Query-related actions.
 
-use crate::errors::*;
+use crate::error::*;
 use log::{info, trace};
 use mosaicod_facade as facade;
 use mosaicod_marshal::{self as marshal, ActionResponse};

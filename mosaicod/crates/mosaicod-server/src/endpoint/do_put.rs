@@ -1,8 +1,9 @@
-use crate::errors::*;
+use crate::error::{self, Result};
 use arrow::datatypes::SchemaRef;
 use arrow_flight::decode::{DecodedFlightData, DecodedPayload, FlightDataDecoder};
 use arrow_flight::flight_descriptor::DescriptorType;
 use futures::TryStreamExt;
+use mosaicod_core as core;
 use mosaicod_core::types;
 use mosaicod_facade as facade;
 use mosaicod_marshal as marshal;
@@ -34,20 +35,20 @@ async fn extract_command_and_schema_from_header_message(
     if let Some(data) = decoder
         .try_next()
         .await
-        .map_err(|e| MosaicodFlightError::StreamInterrupted(e.to_string()))?
+        .map_err(core::error::stream_error)?
     {
         let cmd = extract_command_from_flight_data(&data)?;
         let schema = extract_schema_from_flight_data(&data)?;
         return Ok((cmd, schema));
     }
-    Err(MosaicodFlightError::missing_header())?
+    Err(core::error::missing_header())?
 }
 
 fn extract_schema_from_flight_data(data: &DecodedFlightData) -> Result<SchemaRef> {
     if let DecodedPayload::Schema(schema) = &data.payload {
         return Ok(schema.clone());
     }
-    Err(MosaicodFlightError::missing_schema())?
+    Err(core::error::missing_schema())?
 }
 
 /// Extract descriptor tag from flight decoded data
@@ -56,11 +57,11 @@ fn extract_command_from_flight_data(data: &DecodedFlightData) -> Result<types::f
         .inner
         .flight_descriptor
         .as_ref()
-        .ok_or_else(MosaicodFlightError::missing_descriptor)?;
+        .ok_or_else(core::error::missing_descriptor)?;
 
     // Check if the descriptor if supported
     if desc.r#type() == DescriptorType::Path {
-        Err(MosaicodFlightError::unsupported_descriptor())?
+        Err(core::error::unsupported_descriptor())?
     }
 
     let decoded = marshal::flight::do_put_cmd(&desc.cmd)?;
@@ -93,10 +94,10 @@ async fn do_put_topic_data(
     let topic_uuid = topic_handle.uuid().clone();
     let received_uuid: types::Uuid = uuid_str
         .parse()
-        .map_err(|_| MosaicodFlightError::invalid_uuid(uuid_str))?;
+        .map_err(|_| error::invalid_uuid(uuid_str))?;
 
     if received_uuid != topic_uuid {
-        Err(MosaicodFlightError::unauthorized())?
+        Err(core::error::unauthorized())?
     }
 
     let mdata = facade::topic::manifest(&ctx, &topic_handle).await?;
@@ -113,7 +114,7 @@ async fn do_put_topic_data(
     while let Some(data) = decoder
         .try_next()
         .await
-        .map_err(|e| MosaicodFlightError::stream_interrupted(&e.to_string()))?
+        .map_err(core::error::stream_error)?
     {
         match data.payload {
             DecodedPayload::RecordBatch(batch) => {
@@ -135,12 +136,7 @@ async fn do_put_topic_data(
                     .concurrent_writes_semaphore
                     .acquire()
                     .await
-                    .map_err(|e| {
-                        MosaicodFlightError::internal(&format!(
-                            "unable to acquire semaphore: {}",
-                            e
-                        ))
-                    })?;
+                    .map_err(|_| error::semaphore_closed())?;
                 let serialized_chunk = writer.write(batch).await?;
                 drop(permit);
 
@@ -154,8 +150,8 @@ async fn do_put_topic_data(
                 )
                 .await?;
             }
-            DecodedPayload::Schema(_) => Err(MosaicodFlightError::unsupported_message())?,
-            DecodedPayload::None => Err(MosaicodFlightError::missing_data())?,
+            DecodedPayload::Schema(_) => Err(core::error::unsupported_message())?,
+            DecodedPayload::None => Err(core::error::unsupported_message())?,
         }
     }
 

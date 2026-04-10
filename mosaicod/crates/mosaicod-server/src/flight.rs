@@ -1,3 +1,4 @@
+use super::error::{PublicErrorGrpcExt, Result, ToStatusExt};
 use super::*;
 use arrow_flight::decode::FlightDataDecoder;
 use arrow_flight::{
@@ -6,7 +7,7 @@ use arrow_flight::{
     flight_service_server::FlightService, flight_service_server::FlightServiceServer,
 };
 use futures::{StreamExt, TryStreamExt, stream::BoxStream};
-use mosaicod_core::{params, types};
+use mosaicod_core::{self as core, params, types};
 use mosaicod_db as db;
 use mosaicod_ext as ext;
 use mosaicod_facade as facade;
@@ -205,28 +206,31 @@ impl FlightService for MosaicodFlight {
         &self,
         _request: Request<Streaming<HandshakeRequest>>,
     ) -> std::result::Result<Response<Self::HandshakeStream>, Status> {
-        Err(Status::unimplemented(
-            "handshake is currently unimplemented",
-        ))
+        Err(core::error::unimplemented()
+            .to_public_error()
+            .log_to_status())
     }
 
     async fn list_flights(
         &self,
         request: Request<Criteria>,
     ) -> std::result::Result<Response<Self::ListFlightsStream>, Status> {
-        let auth_ctx = auth_context(&request)?;
+        let auth_ctx = auth_context(&request).log_to_status()?;
+
         if !auth_ctx.permissions().can_read() {
-            Err(MosaicodFlightError::unauthorized().to_status())?;
+            return Err(core::error::unauthorized()
+                .to_public_error()
+                .log_to_status())?;
         }
 
         let criteria = request.into_inner();
 
         let stream = endpoint::list_flights(&self.context(), criteria)
             .await
-            .inspect_err(log_server_error)?;
+            .log_to_status()?;
 
         // Convert the returned stream inner result error to tonis::Status
-        let stream = stream.map(|item| item.map_err(|e| e.to_status()));
+        let stream = stream.map(|item| item.log_to_status());
 
         Ok(Response::new(Box::pin(stream)))
     }
@@ -235,16 +239,18 @@ impl FlightService for MosaicodFlight {
         &self,
         request: Request<FlightDescriptor>,
     ) -> std::result::Result<Response<FlightInfo>, Status> {
-        let auth_ctx = auth_context(&request)?;
+        let auth_ctx = auth_context(&request).log_to_status()?;
         if !auth_ctx.permissions().can_read() {
-            Err(MosaicodFlightError::unauthorized().to_status())?;
+            Err(core::error::unauthorized()
+                .to_public_error()
+                .log_to_status())?;
         }
 
         let desc = request.into_inner();
 
         let info = endpoint::get_flight_info(&self.context(), desc)
             .await
-            .inspect_err(log_server_error)?;
+            .log_to_status()?;
 
         Ok(Response::new(info))
     }
@@ -253,34 +259,36 @@ impl FlightService for MosaicodFlight {
         &self,
         _request: Request<FlightDescriptor>,
     ) -> std::result::Result<Response<PollInfo>, Status> {
-        Err(Status::unimplemented(
-            "poll_flight_info is currently unimplemented",
-        ))
+        Err(core::error::unimplemented()
+            .to_public_error()
+            .log_to_status())
     }
 
     async fn get_schema(
         &self,
         _request: Request<FlightDescriptor>,
     ) -> std::result::Result<Response<SchemaResult>, Status> {
-        Err(Status::unimplemented(
-            "get_schema is currently unimplemented",
-        ))
+        Err(core::error::unimplemented()
+            .to_public_error()
+            .log_to_status())
     }
 
     async fn do_get(
         &self,
         request: Request<Ticket>,
     ) -> std::result::Result<Response<Self::DoGetStream>, Status> {
-        let auth_ctx = auth_context(&request)?;
+        let auth_ctx = auth_context(&request).log_to_status()?;
         if !auth_ctx.permissions().can_read() {
-            Err(MosaicodFlightError::unauthorized().to_status())?;
+            Err(core::error::unauthorized()
+                .to_public_error()
+                .log_to_status())?;
         }
 
         let ticket = request.into_inner();
 
         let data_stream = endpoint::do_get(&self.context(), ticket)
             .await
-            .inspect_err(log_server_error)?;
+            .log_to_status()?;
 
         // map data stream error (flight error) to a tonic one
         let out_stream = data_stream
@@ -294,9 +302,11 @@ impl FlightService for MosaicodFlight {
         &self,
         request: Request<Streaming<FlightData>>,
     ) -> std::result::Result<Response<Self::DoPutStream>, Status> {
-        let auth_ctx = auth_context(&request)?;
+        let auth_ctx = auth_context(&request).log_to_status()?;
         if !auth_ctx.permissions().can_write() {
-            Err(MosaicodFlightError::unauthorized().to_status())?
+            Err(core::error::unauthorized()
+                .to_public_error()
+                .log_to_status())?
         }
 
         let stream = request.into_inner();
@@ -307,9 +317,7 @@ impl FlightService for MosaicodFlight {
             concurrent_writes_semaphore: self.concurrent_writes_semaphore.clone(),
         };
 
-        endpoint::do_put(ctx, &mut decoder)
-            .await
-            .inspect_err(log_server_error)?;
+        endpoint::do_put(ctx, &mut decoder).await.log_to_status()?;
 
         Ok(Response::new(Box::pin(futures::stream::empty())))
     }
@@ -318,24 +326,25 @@ impl FlightService for MosaicodFlight {
         &self,
         request: Request<FlightAction>,
     ) -> std::result::Result<Response<Self::DoActionStream>, Status> {
-        let auth_ctx = auth_context(&request)?;
+        let auth_ctx = auth_context(&request).log_to_status()?;
 
         let action = request.into_inner();
         let action = marshal::ActionRequest::try_new(action.r#type.as_str(), &action.body)
-            .map_err(Into::into)
-            .inspect_err(log_server_error)?;
+            .map_err(core::error::BoxPublicError::from)
+            .log_to_status()?;
 
         let response = endpoint::do_action(&self.context(), action, auth_ctx.permissions())
             .await
-            .inspect_err(log_server_error)?;
+            .log_to_status()?;
 
         let bytes = response
             .bytes()
-            .map_err(Into::into)
-            .inspect_err(log_server_error)?;
+            .map_err(core::error::BoxPublicError::from)
+            .log_to_status()?;
 
         // Create the stream from the flight result
         let stream = futures::stream::iter(vec![Ok(arrow_flight::Result::new(bytes))]);
+
         Ok(Response::new(Box::pin(stream)))
     }
 
@@ -358,27 +367,9 @@ impl FlightService for MosaicodFlight {
     }
 }
 
-fn log_server_error(e: &BoxGrpcPublicError) {
-    e.log();
-}
-
 fn auth_context<T>(req: &Request<T>) -> Result<middleware::AuthContext> {
     req.extensions()
         .get::<middleware::AuthContext>()
         .cloned()
-        .ok_or_else(|| MosaicodFlightError::Unauthorized.into())
-}
-
-#[cfg(test)]
-mod tests {
-
-    use super::*;
-
-    #[test]
-    fn error_logging() {
-        fn my_function() -> Result<()> {
-            Err(MosaicodFlightError::Unimplemented)?
-        }
-        let _ = my_function().inspect_err(log_server_error);
-    }
+        .ok_or_else(|| core::error::unauthorized().into())
 }

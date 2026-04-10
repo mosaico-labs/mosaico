@@ -1,4 +1,4 @@
-use crate::errors::*;
+use crate::error::Result;
 use arrow_flight::{
     Ticket,
     encode::{FlightDataEncoder, FlightDataEncoderBuilder},

@@ -1,5 +1,5 @@
-use crate::errors::*;
-use mosaicod_core::types;
+use crate::error::{PublicErrorGrpcExt, Result};
+use mosaicod_core::{self as core, types};
 use mosaicod_db as db;
 use mosaicod_facade as facade;
 use std::{
@@ -112,7 +112,7 @@ where
             Box::pin(async move {
                 let auth_ctx_result: Result<AuthContext> = async {
                     if token.is_empty() {
-                        Err(MosaicodFlightError::missing_api_key_token())?
+                        Err(core::error::missing_api_key())?
                     }
 
                     let token: types::auth::Token = token.parse()?;
@@ -131,10 +131,7 @@ where
                         let response = inner.call(req).await?;
                         Ok(response)
                     }
-                    Err(err) => {
-                        err.log();
-                        Ok(err.to_status().into_http())
-                    }
+                    Err(err) => Ok(err.log_to_status().into_http()),
                 }
             })
         }

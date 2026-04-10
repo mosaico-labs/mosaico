@@ -5,8 +5,8 @@
 
 use super::actions::{layer, misc, query as query_action, sequence, session, topic};
 use crate::endpoint::actions::auth;
-use crate::errors::*;
-use mosaicod_core::types::auth::Permission;
+use crate::error::Result;
+use mosaicod_core::{self as core, types::auth::Permission};
 use mosaicod_facade as facade;
 use mosaicod_marshal::{ActionRequest, ActionResponse};
 
@@ -20,7 +20,7 @@ pub async fn do_action(
     perm: &Permission,
 ) -> Result<ActionResponse> {
     if !has_permissions(&action, perm) {
-        return Err(MosaicodFlightError::Unauthorized.into());
+        Err(core::error::unauthorized())?;
     }
 
     match action {

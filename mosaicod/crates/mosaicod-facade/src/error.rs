@@ -1,4 +1,4 @@
-use mosaicod_core::types;
+use mosaicod_core::{self as core, types};
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
@@ -78,5 +78,11 @@ impl Error {
     /// A topic with the same resource locator already exists.
     pub fn topic_already_exists(locator: types::TopicResourceLocator) -> Self {
         Self::TopicAlreadyExists(locator.into())
+    }
+}
+
+impl core::error::PublicError for Error {
+    fn error_kind(&self) -> core::error::ErrorKind {
+        core::error::internal()
     }
 }

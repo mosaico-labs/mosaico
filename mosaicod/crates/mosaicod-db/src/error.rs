@@ -1,3 +1,4 @@
+use mosaicod_core as core;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -30,4 +31,10 @@ pub enum Error {
     /// The query received contains an unsupported operation
     #[error("query error")]
     QueryError(#[from] mosaicod_query::Error),
+}
+
+impl core::error::PublicError for Error {
+    fn error_kind(&self) -> core::error::ErrorKind {
+        core::error::internal()
+    }
 }

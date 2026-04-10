@@ -1,10 +1,11 @@
 //! Implementation of the Arrow Flight `list_flights` endpoint.
 //!
 //! Returns a stream of all available sequences when queried at the root level.
-use crate::errors::*;
+use crate::error::*;
 use arrow_flight::{Criteria, FlightDescriptor, FlightEndpoint, FlightInfo, Ticket};
 use futures::stream::BoxStream;
 use log::{info, trace};
+use mosaicod_core as core;
 use mosaicod_facade as facade;
 
 /// Lists all available flights (sequences) in the database.
@@ -21,7 +22,7 @@ pub async fn list_flights(
     let is_root_query = expression.is_empty() || expression == "/";
 
     if !is_root_query {
-        Err(MosaicodFlightError::unsupported_descriptor())?
+        Err(core::error::unsupported_descriptor())?
     }
 
     info!("listing all sequences");

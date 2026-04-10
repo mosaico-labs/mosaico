@@ -1,6 +1,6 @@
 use super::{Format, TimestampRange};
 use super::{SessionManifest, Uuid};
-use crate::{params, traits, types};
+use crate::{error, params, traits, types};
 use std::path;
 use thiserror::Error;
 
@@ -62,6 +62,12 @@ pub enum ResourceType {
 pub enum ResourceError {
     #[error("error encoding resource to url")]
     UrlError(#[from] url::ParseError),
+}
+
+impl error::PublicError for ResourceError {
+    fn error_kind(&self) -> error::ErrorKind {
+        error::internal()
+    }
 }
 
 pub trait Resource: std::fmt::Display + Send + Sync {

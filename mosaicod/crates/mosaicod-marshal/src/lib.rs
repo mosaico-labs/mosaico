@@ -15,8 +15,8 @@ pub use actions::*;
 mod query;
 pub use query::*;
 
-mod errors;
-pub use errors::*;
+mod error;
+pub use error::*;
 
 mod cli;
 pub use cli::*;

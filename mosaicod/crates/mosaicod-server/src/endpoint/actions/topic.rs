@@ -1,8 +1,11 @@
 //! Topic-related actions.
 
-use crate::errors::*;
+use crate::error::{self, Result};
 use log::{info, trace, warn};
-use mosaicod_core::types::{self, MetadataBlob};
+use mosaicod_core::{
+    self as core,
+    types::{self, MetadataBlob},
+};
 use mosaicod_facade as facade;
 use mosaicod_marshal::{self as marshal, ActionResponse};
 
@@ -22,7 +25,7 @@ pub async fn create(
 
     let received_uuid: types::Uuid = session_uuid
         .parse()
-        .map_err(|_| MosaicodFlightError::invalid_uuid(&session_uuid))?;
+        .map_err(|_| error::invalid_uuid(&session_uuid))?;
 
     let ontology_metadata = types::TopicOntologyMetadata::new(
         types::TopicOntologyProperties {
@@ -62,7 +65,7 @@ pub async fn delete(ctx: &facade::Context, locator: String) -> Result<ActionResp
         .properties
         .locked
     {
-        Err(MosaicodFlightError::Locked)?
+        Err(core::error::locked_topic(topic_locator.clone().into()))?
     }
 
     facade::topic::delete_unlocked(ctx, topic_handle).await?;
@@ -86,7 +89,7 @@ pub async fn notification_create(
 
     let notification_type = notification_type
         .parse()
-        .map_err(|_| MosaicodFlightError::invalid_notification_type(&notification_type))?;
+        .map_err(|_| error::invalid_notification_type(&notification_type))?;
 
     facade::topic::notify(ctx, &topic_handle, notification_type, msg).await?;
 
