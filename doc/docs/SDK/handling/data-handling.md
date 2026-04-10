@@ -3,7 +3,7 @@ title: Writing & Reading Data
 description: Handlers, Writers, and Streamers.
 ---
 
-The **Data Handling** module serves as the high-performance operational core of the Mosaico SDK, providing a unified interface for moving multi-modal sensor data between local applications and the Mosaico Data Platform. Engineered to solve the "Big Data" challenges of robotics and autonomous systems, this module abstracts the complexities of network I/O, asynchronous buffering, and high-precision temporal alignment.
+The **Data Handling** module serves as the high-performance operational core of the Mosaico SDK, providing a unified interface for moving multi-modal sensor data between local applications and the Mosaico Data Platform. Engineered to solve the "Big Data" challenges of robotics and autonomous systems, this module abstracts the complexities of network I/O, buffering, and high-precision temporal alignment.
 
 ### Asymmetric Architecture
 

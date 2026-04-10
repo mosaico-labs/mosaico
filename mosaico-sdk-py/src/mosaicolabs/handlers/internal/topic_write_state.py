@@ -2,8 +2,8 @@
 Internal Write State Module.
 
 This module handles the low-level data buffering, serialization, and transmission
-logic for a single topic. It implements an asynchronous pipeline with backpressure
-to optimize throughput while preventing memory exhaustion.
+logic for a single topic. It implements the remote transmission pipeline,
+while optimizing the throughput and preventing memory exhaustion.
 """
 
 import time
@@ -242,7 +242,7 @@ class _TopicWriteState:
             )
             self._written_records += len(msgs_to_write)
         except Exception as e:
-            logger.error(f"Async write failed for topic '{self.topic_name}': '{e}'")
+            raise Exception(f"Write failed for topic '{self.topic_name}': '{e}'")
 
     def _write_current_batch(self):
         """
