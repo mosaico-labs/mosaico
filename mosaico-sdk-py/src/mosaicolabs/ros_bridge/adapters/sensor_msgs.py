@@ -1242,7 +1242,7 @@ _LT = TypeVar("_LT", LaserScan, MultiEchoLaserScan)
 
 class LaserScannerAdapterBase(ROSAdapterBase[_LT]):
     """
-    Base adapter for translating ROS LaserScan messages to Mosaico `LaserScan`/`MultiEchoLaserScan` .
+    Base adapter for translating ROS LaserScan and MultiEchoLaserScan messages to Mosaico `LaserScan` and `MultiEchoLaserScan` .
     """
 
     _REQUIRED_KEYS = (
@@ -1258,11 +1258,7 @@ class LaserScannerAdapterBase(ROSAdapterBase[_LT]):
     )
 
     @classmethod
-    def translate(
-        cls,
-        ros_msg: ROSMessage,  # ROSMessage
-        **kwargs: Any,
-    ) -> Message:
+    def translate(cls, ros_msg: ROSMessage, **kwargs: Any) -> Message:
         return super().translate(ros_msg, **kwargs)
 
     @classmethod
