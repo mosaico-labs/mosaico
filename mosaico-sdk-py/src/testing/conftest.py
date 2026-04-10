@@ -3,6 +3,7 @@ from typing import Optional
 
 import pytest
 
+from mosaicolabs.enum.grpc_compression import GRPCCompressionAlgorithm
 from mosaicolabs.logging_config import setup_sdk_logging
 
 
@@ -81,6 +82,15 @@ def with_tls(request):
 @pytest.fixture(scope="session")
 def with_gzip(request):
     return request.config.getoption("--gzip")
+
+
+@pytest.fixture(scope="session")
+def compression(with_gzip):
+    return (
+        GRPCCompressionAlgorithm.StreamGzip
+        if with_gzip
+        else GRPCCompressionAlgorithm.Null
+    )
 
 
 @pytest.fixture(scope="session")

@@ -1,5 +1,9 @@
 from .api_key_permission import APIKeyPermissionEnum as APIKeyPermissionEnum
 from .flight_action import FlightAction as FlightAction
+from .grpc_compression import (
+    GRPCCompressionAlgorithm as GRPCCompressionAlgorithm,
+    GRPCCompressionLevel as GRPCCompressionLevel,
+)
 from .on_error_policy import OnErrorPolicy as OnErrorPolicy
 from .serialization_format import SerializationFormat as SerializationFormat
 from .session_level_error_policy import (

@@ -37,7 +37,7 @@ def test_sequence_report(mosaico_client: MosaicoClient):
     snotifies = mosaico_client.list_sequence_notifications(sequence_name=sequence_name)
     assert len(snotifies) == 1
     assert snotifies[0].sequence_name == sequence_name
-    assert snotifies[0].type == NotificationType.ERROR
+    assert snotifies[0].type == NotificationType.Error
     assert "Inner err: '__exception_in_test__'" in snotifies[0].message
 
     tnotifies = mosaico_client.list_topic_notifications(
@@ -46,7 +46,7 @@ def test_sequence_report(mosaico_client: MosaicoClient):
     assert len(tnotifies) == 1
     assert tnotifies[0].sequence_name == sequence_name
     assert tnotifies[0].topic_name == topic_name
-    assert tnotifies[0].type == NotificationType.ERROR
+    assert tnotifies[0].type == NotificationType.Error
     assert "Inner err: '__exception_in_test__'" in snotifies[0].message
 
     mosaico_client.clear_sequence_notifications(sequence_name=sequence_name)
@@ -396,7 +396,7 @@ def test_sequence_report_deprecated_policy(mosaico_client: MosaicoClient):
     snotifies = mosaico_client.list_sequence_notifications(sequence_name=sequence_name)
     assert len(snotifies) == 1
     assert snotifies[0].sequence_name == sequence_name
-    assert snotifies[0].type == NotificationType.ERROR
+    assert snotifies[0].type == NotificationType.Error
     assert "Inner err: '__exception_in_test__'" in snotifies[0].message
 
     tnotifies = mosaico_client.list_topic_notifications(
@@ -405,7 +405,7 @@ def test_sequence_report_deprecated_policy(mosaico_client: MosaicoClient):
     assert len(tnotifies) == 1
     assert tnotifies[0].sequence_name == sequence_name
     assert tnotifies[0].topic_name == topic_name
-    assert tnotifies[0].type == NotificationType.ERROR
+    assert tnotifies[0].type == NotificationType.Error
     assert "Inner err: '__exception_in_test__'" in snotifies[0].message
 
     mosaico_client.clear_sequence_notifications(sequence_name=sequence_name)

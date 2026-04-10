@@ -14,10 +14,12 @@ Example:
 """
 
 # --- Client ---
-from .comm import MosaicoClient as MosaicoClient
+from .comm import GRPCCompression as GRPCCompression, MosaicoClient as MosaicoClient
 
 # --- Enums ---
 from .enum import (
+    GRPCCompressionAlgorithm as GRPCCompressionAlgorithm,
+    GRPCCompressionLevel as GRPCCompressionLevel,
     OnErrorPolicy as OnErrorPolicy,
     SequenceStatus as SequenceStatus,
     SerializationFormat as SerializationFormat,
@@ -131,6 +133,7 @@ from .types import Time as Time
 __all__ = [
     # Client
     "MosaicoClient",
+    "GRPCCompression",
     # Logging
     "get_logger",
     "setup_sdk_logging",
@@ -211,6 +214,8 @@ __all__ = [
     "SessionLevelErrorPolicy",
     "TopicLevelErrorPolicy",
     "TopicWriterStatus",
+    "GRPCCompressionAlgorithm",
+    "GRPCCompressionLevel",
     # Platform
     "Sequence",
     "Session",
