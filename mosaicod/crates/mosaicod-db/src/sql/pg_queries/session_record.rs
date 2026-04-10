@@ -77,11 +77,11 @@ pub async fn session_lookup(
 pub async fn session_locked(exe: &mut impl AsExec, session_id: i32) -> Result<bool, Error> {
     trace!("session (id=`{}`) locked? ", session_id);
     let locked = sqlx::query_scalar!(
-        r#"SELECT CASE WHEN completion_unix_tstamp IS NULL THEN 0 ELSE 1 END AS "is_null!" FROM session_t WHERE session_id=$1"#,
+        r#"SELECT (completion_unix_tstamp IS NOT NULL) AS "locked!" FROM session_t WHERE session_id=$1"#,
         session_id
     )
         .fetch_one(exe.as_exec())
-        .await? != 0;
+        .await?;
     Ok(locked)
 }
 
@@ -122,7 +122,7 @@ pub async fn session_find_all_topics(
     .await?)
 }
 
-pub async fn session_update_completion_ts(
+pub async fn session_update_completion_tstamp(
     exe: &mut impl AsExec,
     session_id: i32,
     completion_ts: i64,

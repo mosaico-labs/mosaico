@@ -107,7 +107,7 @@ pub async fn finalize(context: &Context, handle: &Handle) -> Result<(), Error> {
         return Err(Error::TopicUnlocked);
     }
 
-    db::session_update_completion_ts(&mut tx, handle.id(), types::Timestamp::now().as_i64())
+    db::session_update_completion_tstamp(&mut tx, handle.id(), types::Timestamp::now().as_i64())
         .await?;
 
     tx.commit().await?;
