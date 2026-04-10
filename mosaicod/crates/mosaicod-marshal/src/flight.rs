@@ -270,11 +270,11 @@ pub struct TopicAppMetadata {
 }
 
 impl TopicAppMetadata {
-    pub fn new(metadata: types::TopicProperties) -> Self {
+    pub fn new(metadata: types::TopicMetadataProperties) -> Self {
         Self {
             created_at_ns: metadata.created_at.as_i64(),
             completed_at_ns: metadata.completed_at.map(Into::into),
-            locked: metadata.locked,
+            locked: metadata.completed_at.is_some(),
             resource_locator: metadata.resource_locator.to_string(),
             info: None,
         }

@@ -166,9 +166,9 @@ impl TopicResourceLocator {
         self.path().join(format!("data:{cropped_uuid}"))
     }
 
-    /// Return the full path of the manifest file
-    pub fn path_manifest(&self) -> path::PathBuf {
-        path::Path::new(self.locator()).join("manifest.json")
+    /// Return the full path of the metadata file
+    pub fn path_metadata(&self) -> path::PathBuf {
+        path::Path::new(self.locator()).join("metadata.json")
     }
 }
 
@@ -238,13 +238,16 @@ impl<M> TopicOntologyMetadata<M> {
 }
 
 #[derive(Debug)]
-pub struct TopicManifest<M> {
-    pub properties: TopicProperties,
+pub struct TopicMetadata<M> {
+    pub properties: TopicMetadataProperties,
     pub ontology_metadata: TopicOntologyMetadata<M>,
 }
 
-impl<M> TopicManifest<M> {
-    pub fn new(properties: TopicProperties, ontology_metadata: TopicOntologyMetadata<M>) -> Self
+impl<M> TopicMetadata<M> {
+    pub fn new(
+        properties: TopicMetadataProperties,
+        ontology_metadata: TopicOntologyMetadata<M>,
+    ) -> Self
     where
         M: super::MetadataBlob,
     {
@@ -264,15 +267,14 @@ pub struct TopicChunksStats {
 
 /// Metadata properties associated to a topic.
 #[derive(Debug)]
-pub struct TopicProperties {
+pub struct TopicMetadataProperties {
     pub created_at: types::Timestamp,
     pub completed_at: Option<types::Timestamp>,
-    pub locked: bool,
     pub session_uuid: Uuid,
     pub resource_locator: TopicResourceLocator,
 }
 
-impl TopicProperties {
+impl TopicMetadataProperties {
     pub fn new(resource_locator: TopicResourceLocator, session_uuid: Uuid) -> Self {
         Self::new_with_created_at(resource_locator, session_uuid, types::Timestamp::now())
     }
@@ -283,7 +285,6 @@ impl TopicProperties {
         created_at: types::Timestamp,
     ) -> Self {
         Self {
-            locked: false,
             resource_locator,
             created_at,
             completed_at: None,

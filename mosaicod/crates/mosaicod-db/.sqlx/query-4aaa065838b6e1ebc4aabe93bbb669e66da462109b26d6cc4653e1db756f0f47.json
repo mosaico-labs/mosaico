@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT (completion_unix_tstamp IS NOT NULL) AS \"is_missing!\" FROM topic_t WHERE topic_id=$1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "is_missing!",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "4aaa065838b6e1ebc4aabe93bbb669e66da462109b26d6cc4653e1db756f0f47"
+}

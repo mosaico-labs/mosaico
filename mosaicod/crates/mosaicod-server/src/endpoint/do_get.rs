@@ -24,7 +24,7 @@ pub async fn do_get(
     let topic_handle = facade::topic::Handle::try_from_locator(ctx, topic_locator).await?;
 
     // Read metadata from topic
-    let metadata = facade::topic::manifest(ctx, &topic_handle).await?;
+    let metadata = facade::topic::metadata(ctx, &topic_handle).await?;
 
     trace!("{:?}", metadata);
 
@@ -40,7 +40,7 @@ pub async fn do_get(
         .await?;
 
     // Append JSON metadata to original data schema
-    let metadata = marshal::JsonTopicManifest::from(metadata);
+    let metadata = marshal::JsonTopicMetadata::from(metadata);
     let flatten_mdata = metadata
         .ontology_metadata
         .to_flat_hashmap()

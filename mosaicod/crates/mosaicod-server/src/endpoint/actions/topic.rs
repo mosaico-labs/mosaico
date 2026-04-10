@@ -55,11 +55,7 @@ pub async fn delete(ctx: &facade::Context, locator: String) -> Result<ActionResp
 
     let topic_handle = facade::topic::Handle::try_from_locator(ctx, topic_locator.clone()).await?;
 
-    if facade::topic::manifest(ctx, &topic_handle)
-        .await?
-        .properties
-        .locked
-    {
+    if facade::topic::archived(ctx, &topic_handle).await? {
         return Err(ServerError::TopicLocked);
     }
 

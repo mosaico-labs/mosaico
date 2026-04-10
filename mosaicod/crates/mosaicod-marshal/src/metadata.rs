@@ -31,6 +31,12 @@ impl From<JsonMetadataBlob> for serde_json::Value {
     }
 }
 
+impl From<serde_json::Value> for JsonMetadataBlob {
+    fn from(value: serde_json::Value) -> Self {
+        Self(value)
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct JsonSequenceMetadata {
     pub user_metadata: JsonMetadataBlob,
@@ -153,15 +159,15 @@ impl From<types::TopicOntologyMetadata<JsonMetadataBlob>> for JsonTopicOntologyM
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct JsonTopicManifest {
+pub struct JsonTopicMetadata {
     pub properties: JsonTopicProperties,
     pub ontology_metadata: JsonTopicOntologyMetadata,
 }
 
-impl TryFrom<JsonTopicManifest> for types::TopicManifest<JsonMetadataBlob> {
+impl TryFrom<JsonTopicMetadata> for types::TopicMetadata<JsonMetadataBlob> {
     type Error = Error;
 
-    fn try_from(v: JsonTopicManifest) -> Result<Self, Error> {
+    fn try_from(v: JsonTopicMetadata) -> Result<Self, Error> {
         Ok(Self {
             ontology_metadata: v.ontology_metadata.into(),
             properties: JsonTopicProperties::try_into(v.properties)?,
@@ -169,8 +175,8 @@ impl TryFrom<JsonTopicManifest> for types::TopicManifest<JsonMetadataBlob> {
     }
 }
 
-impl From<types::TopicManifest<JsonMetadataBlob>> for JsonTopicManifest {
-    fn from(value: types::TopicManifest<JsonMetadataBlob>) -> Self {
+impl From<types::TopicMetadata<JsonMetadataBlob>> for JsonTopicMetadata {
+    fn from(value: types::TopicMetadata<JsonMetadataBlob>) -> Self {
         Self {
             ontology_metadata: value.ontology_metadata.into(),
             properties: value.properties.into(),
@@ -178,14 +184,14 @@ impl From<types::TopicManifest<JsonMetadataBlob>> for JsonTopicManifest {
     }
 }
 
-impl TryFrom<Vec<u8>> for JsonTopicManifest {
+impl TryFrom<Vec<u8>> for JsonTopicMetadata {
     type Error = Error;
     fn try_from(bytes: Vec<u8>) -> Result<Self, Self::Error> {
         Ok(serde_json::from_slice(&bytes).map_err(|e| Error::DeserializationError(e.to_string())))?
     }
 }
 
-impl TryInto<Vec<u8>> for JsonTopicManifest {
+impl TryInto<Vec<u8>> for JsonTopicMetadata {
     type Error = Error;
     fn try_into(self) -> Result<Vec<u8>, Self::Error> {
         Ok(serde_json::to_vec(&self).map_err(|e| Error::SerializationError(e.to_string())))?
@@ -196,19 +202,17 @@ impl TryInto<Vec<u8>> for JsonTopicManifest {
 pub struct JsonTopicProperties {
     pub created_at: i64,
     pub completed_at: Option<i64>,
-    pub locked: bool,
     pub session_uuid: String,
     pub resource_locator: String,
 }
 
-impl TryFrom<JsonTopicProperties> for types::TopicProperties {
+impl TryFrom<JsonTopicProperties> for types::TopicMetadataProperties {
     type Error = Error;
 
     fn try_from(value: JsonTopicProperties) -> Result<Self, Error> {
         Ok(Self {
             created_at: value.created_at.into(),
             completed_at: value.completed_at.map(Into::into),
-            locked: value.locked,
             session_uuid: value.session_uuid.parse().map_err(|_| {
                 MetadataError::DeserializationError(format!(
                     "error parsing session UUID ({}) for topic {}",
@@ -220,12 +224,11 @@ impl TryFrom<JsonTopicProperties> for types::TopicProperties {
     }
 }
 
-impl From<types::TopicProperties> for JsonTopicProperties {
-    fn from(value: types::TopicProperties) -> Self {
+impl From<types::TopicMetadataProperties> for JsonTopicProperties {
+    fn from(value: types::TopicMetadataProperties) -> Self {
         Self {
             created_at: value.created_at.as_i64(),
             completed_at: value.completed_at.map(Into::into),
-            locked: value.locked,
             session_uuid: value.session_uuid.to_string(),
             resource_locator: value.resource_locator.into(),
         }

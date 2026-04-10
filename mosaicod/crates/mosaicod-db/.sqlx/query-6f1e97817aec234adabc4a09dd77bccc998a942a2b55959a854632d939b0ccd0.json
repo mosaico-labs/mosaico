@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            UPDATE topic_t\n            SET chunks_number = $1, total_bytes = $2, start_index_timestamp = $3, end_index_timestamp = $4\n            WHERE locator_name = $5\n            RETURNING *\n    ",
+  "query": "SELECT * FROM topic_t WHERE topic_id=$1",
   "describe": {
     "columns": [
       {
@@ -76,11 +76,7 @@
     ],
     "parameters": {
       "Left": [
-        "Int8",
-        "Int8",
-        "Int8",
-        "Int8",
-        "Text"
+        "Int4"
       ]
     },
     "nullable": [
@@ -100,5 +96,5 @@
       true
     ]
   },
-  "hash": "fdecc6f84635b7ab92c4911880e03abf628519df3f5492b21389f8fffd0e39d7"
+  "hash": "6f1e97817aec234adabc4a09dd77bccc998a942a2b55959a854632d939b0ccd0"
 }

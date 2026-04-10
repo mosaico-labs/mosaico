@@ -137,16 +137,14 @@ pub async fn finalize(context: &Context, handle: &Handle) -> Result<(), Error> {
     }
 
     // If not all topics are locked, return an error and leave the session unlocked.
-    let all_topics_locked = futures::future::join_all(
-        topics
-            .iter()
-            .map(async |topic_handle| topic::manifest(context, topic_handle).await),
-    )
-    .await
-    .into_iter()
-    .collect::<Result<Vec<_>, _>>()?
-    .into_iter()
-    .all(|v| v.properties.locked);
+    let mut all_topics_locked = true;
+
+    for handle in &topics {
+        if !topic::archived(context, handle).await? {
+            all_topics_locked = false;
+            break;
+        }
+    }
 
     if !all_topics_locked {
         return Err(Error::TopicUnlocked);
