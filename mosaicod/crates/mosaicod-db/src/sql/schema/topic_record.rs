@@ -15,8 +15,7 @@ pub struct TopicRecord {
 
     pub(crate) serialization_format: String,
 
-    /// This metadata field is only for database query access and
-    /// should not be exposed
+    // Do not expose directly this field
     pub(crate) user_metadata: Option<serde_json::Value>,
 
     /// UNIX timestamp in milliseconds from the creation
