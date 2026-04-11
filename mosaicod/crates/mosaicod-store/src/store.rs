@@ -6,7 +6,9 @@ use datafusion::execution::object_store::{DefaultObjectStoreRegistry, ObjectStor
 use futures::stream::TryStreamExt;
 use log::trace;
 use mosaicod_core::{params, traits};
-use object_store::{ObjectStore, PutPayload, aws::AmazonS3Builder, local::LocalFileSystem};
+use object_store::{
+    ObjectStore, ObjectStoreExt, PutPayload, aws::AmazonS3Builder, local::LocalFileSystem,
+};
 use parquet::arrow::async_reader::ParquetObjectReader;
 use std::sync::Arc;
 use thiserror::Error;
