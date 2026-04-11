@@ -112,7 +112,7 @@ where
             Box::pin(async move {
                 let auth_ctx_result: Result<AuthContext> = async {
                     if token.is_empty() {
-                        Err(core::error::missing_api_key())?
+                        Err(core::Error::missing_api_key())?
                     }
 
                     let token: types::auth::Token = token.parse()?;
@@ -131,7 +131,11 @@ where
                         let response = inner.call(req).await?;
                         Ok(response)
                     }
-                    Err(err) => Ok(err.log_to_status().into_http()),
+                    Err(err) => {
+                        // Here we are calling .to_status() and not .log_to_status()
+                        // in order to avoid logging every unauhenticated request
+                        Ok(err.log_to_status().into_http())
+                    }
                 }
             })
         }

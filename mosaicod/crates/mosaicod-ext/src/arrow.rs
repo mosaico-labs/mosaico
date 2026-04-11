@@ -17,8 +17,8 @@ pub enum SchemaError {
 }
 
 impl core::error::PublicError for SchemaError {
-    fn error_kind(&self) -> core::error::ErrorKind {
-        core::error::unsupported_schema(self.to_string())
+    fn error(&self) -> core::Error {
+        core::Error::unsupported_schema(self.to_string())
     }
 }
 

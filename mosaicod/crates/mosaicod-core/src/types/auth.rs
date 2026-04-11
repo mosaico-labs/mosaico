@@ -1,5 +1,5 @@
 use super::*;
-use crate::{error, types};
+use crate::{Error, error::PublicError, types};
 use crc32fast::Hasher;
 use std::str::FromStr;
 
@@ -33,11 +33,11 @@ pub enum ApiKeyError {
     MissingPermissions,
 }
 
-impl error::PublicError for ApiKeyError {
-    fn error_kind(&self) -> error::ErrorKind {
+impl PublicError for ApiKeyError {
+    fn error(&self) -> Error {
         match self {
-            Self::MissingPermissions => error::unauthorized(),
-            _ => error::bad_request(self.to_string()),
+            Self::MissingPermissions => Error::unauthorized(),
+            _ => Error::bad_request(self.to_string()),
         }
     }
 }

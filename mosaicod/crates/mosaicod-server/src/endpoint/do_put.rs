@@ -35,20 +35,20 @@ async fn extract_command_and_schema_from_header_message(
     if let Some(data) = decoder
         .try_next()
         .await
-        .map_err(core::error::stream_error)?
+        .map_err(core::Error::stream_error)?
     {
         let cmd = extract_command_from_flight_data(&data)?;
         let schema = extract_schema_from_flight_data(&data)?;
         return Ok((cmd, schema));
     }
-    Err(core::error::missing_header())?
+    Err(core::Error::missing_header())?
 }
 
 fn extract_schema_from_flight_data(data: &DecodedFlightData) -> Result<SchemaRef> {
     if let DecodedPayload::Schema(schema) = &data.payload {
         return Ok(schema.clone());
     }
-    Err(core::error::missing_schema())?
+    Err(core::Error::missing_schema())?
 }
 
 /// Extract descriptor tag from flight decoded data
@@ -57,11 +57,11 @@ fn extract_command_from_flight_data(data: &DecodedFlightData) -> Result<types::f
         .inner
         .flight_descriptor
         .as_ref()
-        .ok_or_else(core::error::missing_descriptor)?;
+        .ok_or_else(core::Error::missing_descriptor)?;
 
     // Check if the descriptor if supported
     if desc.r#type() == DescriptorType::Path {
-        Err(core::error::unsupported_descriptor())?
+        Err(core::Error::unsupported_descriptor())?
     }
 
     let decoded = marshal::flight::do_put_cmd(&desc.cmd)?;
@@ -97,7 +97,7 @@ async fn do_put_topic_data(
         .map_err(|_| error::invalid_uuid(uuid_str))?;
 
     if received_uuid != topic_uuid {
-        Err(core::error::unauthorized())?
+        Err(core::Error::unauthorized())?
     }
 
     let mdata = facade::topic::manifest(&ctx, &topic_handle).await?;
@@ -114,7 +114,7 @@ async fn do_put_topic_data(
     while let Some(data) = decoder
         .try_next()
         .await
-        .map_err(core::error::stream_error)?
+        .map_err(core::Error::stream_error)?
     {
         match data.payload {
             DecodedPayload::RecordBatch(batch) => {
@@ -150,8 +150,8 @@ async fn do_put_topic_data(
                 )
                 .await?;
             }
-            DecodedPayload::Schema(_) => Err(core::error::unsupported_message())?,
-            DecodedPayload::None => Err(core::error::unsupported_message())?,
+            DecodedPayload::Schema(_) => Err(core::Error::unsupported_stream_message())?,
+            DecodedPayload::None => Err(core::Error::unsupported_stream_message())?,
         }
     }
 

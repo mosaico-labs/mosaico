@@ -93,7 +93,7 @@ pub async fn get_flight_info(ctx: &facade::Context, desc: FlightDescriptor) -> R
                         .with_descriptor(desc.clone())
                         .with_app_metadata(manifest)
                         .try_with_schema(&schema)
-                        .map_err(|_| core::error::internal())?;
+                        .map_err(|_| core::Error::internal())?;
 
                     for endpoint in endpoints {
                         flight_info = flight_info.with_endpoint(endpoint);
@@ -143,14 +143,14 @@ pub async fn get_flight_info(ctx: &facade::Context, desc: FlightDescriptor) -> R
                         .with_descriptor(desc.clone())
                         .with_endpoint(endpoint)
                         .try_with_schema(&schema)
-                        .map_err(|_| core::error::internal())?;
+                        .map_err(|_| core::Error::internal())?;
 
                     trace!("{} done", topic_handle.locator());
                     Ok(flight_info)
                 }
             }
         }
-        _ => Err(core::error::unsupported_descriptor())?,
+        _ => Err(core::Error::unsupported_descriptor())?,
     }
 }
 

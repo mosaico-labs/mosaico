@@ -1,6 +1,6 @@
 use super::{Format, TimestampRange};
 use super::{SessionMetadata, Uuid};
-use crate::{error, params, traits, types};
+use crate::{Error, error::PublicError, params, traits, types};
 use std::path;
 use thiserror::Error;
 
@@ -64,9 +64,9 @@ pub enum ResourceError {
     UrlError(#[from] url::ParseError),
 }
 
-impl error::PublicError for ResourceError {
-    fn error_kind(&self) -> error::ErrorKind {
-        error::internal()
+impl PublicError for ResourceError {
+    fn error(&self) -> Error {
+        Error::internal()
     }
 }
 

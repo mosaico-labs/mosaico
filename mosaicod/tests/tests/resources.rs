@@ -34,8 +34,8 @@ async fn sequence_create(pool: sqlx::Pool<db::DatabaseType>) -> sqlx::Result<()>
         actions::sequence_create(&mut client, "test_malformed_sequence", Some("{"))
             .await
             .unwrap_err()
-            .message(),
-        "action error"
+            .code(),
+        tonic::Code::InvalidArgument
     );
 
     server.shutdown().await;
@@ -231,8 +231,8 @@ async fn topic_create(pool: sqlx::Pool<db::DatabaseType>) -> sqlx::Result<()> {
         actions::topic_create(&mut client, &uuid, "test_sequence/my_topic", Some("{"))
             .await
             .unwrap_err()
-            .message(),
-        "action error"
+            .code(),
+        tonic::Code::InvalidArgument
     );
 
     server.shutdown().await;
@@ -412,8 +412,8 @@ async fn do_put(pool: sqlx::Pool<db::DatabaseType>) {
         actions::do_put(&mut client, &uuid, "test_sequence/my_topic", batches, true)
             .await
             .unwrap_err()
-            .message(),
-        "missing descriptor in request"
+            .code(),
+        tonic::Code::InvalidArgument,
     );
 
     server.shutdown().await;
@@ -448,8 +448,8 @@ async fn session_finalize(pool: sqlx::Pool<db::DatabaseType>) {
         actions::session_finalize(&mut client, &session_uuid)
             .await
             .unwrap_err()
-            .message(),
-        "facade error"
+            .code(),
+        tonic::Code::Internal,
     );
 
     let batches = vec![ext::arrow::testing::dummy_batch()];
@@ -474,8 +474,8 @@ async fn session_finalize(pool: sqlx::Pool<db::DatabaseType>) {
         actions::session_finalize(&mut client, &session_uuid)
             .await
             .unwrap_err()
-            .message(),
-        "facade error"
+            .code(),
+        tonic::Code::Internal,
     );
 
     server.shutdown().await;

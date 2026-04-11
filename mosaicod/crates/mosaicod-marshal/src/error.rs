@@ -9,10 +9,10 @@ pub enum Error {
 }
 
 impl core::error::PublicError for Error {
-    fn error_kind(&self) -> core::error::ErrorKind {
+    fn error(&self) -> core::Error {
         match self {
-            Self::DeserializationError(msg) => core::error::bad_request(msg.to_owned()),
-            Self::SerializationError(_) => core::error::internal(),
+            Self::DeserializationError(msg) => core::Error::bad_request(msg.to_owned()),
+            Self::SerializationError(_) => core::Error::internal(),
         }
     }
 }

@@ -65,7 +65,7 @@ pub async fn delete(ctx: &facade::Context, locator: String) -> Result<ActionResp
         .properties
         .locked
     {
-        Err(core::error::locked_topic(topic_locator.clone().into()))?
+        Err(core::Error::locked_topic(topic_locator.clone().into()))?
     }
 
     facade::topic::delete_unlocked(ctx, topic_handle).await?;

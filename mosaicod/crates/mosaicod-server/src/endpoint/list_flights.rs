@@ -22,7 +22,7 @@ pub async fn list_flights(
     let is_root_query = expression.is_empty() || expression == "/";
 
     if !is_root_query {
-        Err(core::error::unsupported_descriptor())?
+        Err(core::Error::unsupported_descriptor())?
     }
 
     info!("listing all sequences");

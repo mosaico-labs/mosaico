@@ -22,12 +22,12 @@ pub enum ActionError {
 }
 
 impl core::error::PublicError for ActionError {
-    fn error_kind(&self) -> core::error::ErrorKind {
+    fn error(&self) -> core::Error {
         match self {
             Self::MissingAction(_) | Self::BodyDeserializationError(_) => {
-                core::error::bad_request(self.to_string())
+                core::Error::bad_request(self.to_string())
             }
-            Self::ResponseSerializationError(_) => core::error::internal(),
+            Self::ResponseSerializationError(_) => core::Error::internal(),
         }
     }
 }

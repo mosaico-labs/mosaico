@@ -2,6 +2,8 @@ from typing import List, Tuple
 
 import pytest
 
+from pyarrow.flight import FlightUnauthorizedError
+
 from mosaicolabs.comm import MosaicoClient
 from mosaicolabs.enum import APIKeyPermissionEnum, SessionLevelErrorPolicy
 from mosaicolabs.models.query.builders import QuerySequence
@@ -53,19 +55,19 @@ def _test_read_pass(client: MosaicoClient):
 
 def _test_write_fail(client: MosaicoClient):
     # Create a new Sequence: must fail
-    with pytest.raises(Exception, match="unauthorized"):
+    with pytest.raises(FlightUnauthorizedError):
         with client.sequence_create("unauthorized_sequence_create", {}) as _:
             pass
 
     sh = client.sequence_handler(UPLOADED_SEQUENCE_NAME)
     assert sh is not None
     # Update a Sequence: must fail
-    with pytest.raises(Exception, match="unauthorized"):
+    with pytest.raises(FlightUnauthorizedError):
         with sh.update(SessionLevelErrorPolicy.Delete) as _:
             pass
 
     # Delete a Sequence: must fail
-    with pytest.raises(Exception, match="unauthorized"):
+    with pytest.raises(FlightUnauthorizedError):
         client.sequence_delete(UPLOADED_SEQUENCE_NAME)
 
 
@@ -94,11 +96,11 @@ def _test_write_pass(
 
 def _test_delete_fail(del_disabled_client: MosaicoClient):
     # Delete a Sequence: must fail
-    with pytest.raises(Exception, match="unauthorized"):
+    with pytest.raises(FlightUnauthorizedError):
         del_disabled_client.sequence_delete(UPLOADED_SEQUENCE_NAME)
-    with pytest.raises(Exception, match="unauthorized"):
+    with pytest.raises(FlightUnauthorizedError):
         del_disabled_client.clear_sequence_notifications(UPLOADED_SEQUENCE_NAME)
-    with pytest.raises(Exception, match="unauthorized"):
+    with pytest.raises(FlightUnauthorizedError):
         del_disabled_client.clear_topic_notifications(
             UPLOADED_SEQUENCE_NAME, UPLOADED_GPS_TOPIC
         )
@@ -123,18 +125,18 @@ def _test_delete_pass(del_enabled_client: MosaicoClient):
 
 def _test_manage_fail(manage_disabled_client: MosaicoClient):
     # Create a new API Key
-    with pytest.raises(Exception, match="unauthorized"):
+    with pytest.raises(FlightUnauthorizedError):
         manage_disabled_client.api_key_create(
             permission=APIKeyPermissionEnum.Read,
             description="unauthorized api creation",
         )
 
     # Read the status
-    with pytest.raises(Exception, match="unauthorized"):
+    with pytest.raises(FlightUnauthorizedError):
         manage_disabled_client.api_key_status("abcd1234")
 
     # Revoke
-    with pytest.raises(Exception, match="unauthorized"):
+    with pytest.raises(FlightUnauthorizedError):
         manage_disabled_client.api_key_revoke("abcd1234")
 
 
@@ -202,7 +204,7 @@ def test_no_auth_failure(
     if not with_auth:
         pytest.skip("Tests run without '--api-key'")
 
-    with pytest.raises(ConnectionError, match="unauthorized error"):
+    with pytest.raises(ConnectionError):
         MosaicoClient.connect(host=host, port=port, timeout=1)
 
 
@@ -214,7 +216,7 @@ def test_wrong_auth(
     if not with_auth:
         pytest.skip("Tests run without '--api-key'")
 
-    with pytest.raises(ConnectionError, match="unauthorized error"):
+    with pytest.raises(ConnectionError):
         MosaicoClient.connect(
             host=host, port=port, timeout=1, api_key="msco_wrongauthapikey123_abc12345"
         )

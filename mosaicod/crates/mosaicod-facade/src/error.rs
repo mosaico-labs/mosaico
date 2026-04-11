@@ -82,7 +82,7 @@ impl Error {
 }
 
 impl core::error::PublicError for Error {
-    fn error_kind(&self) -> core::error::ErrorKind {
-        core::error::internal()
+    fn error(&self) -> core::Error {
+        core::Error::internal()
     }
 }

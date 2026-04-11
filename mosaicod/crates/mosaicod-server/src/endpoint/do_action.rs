@@ -20,7 +20,7 @@ pub async fn do_action(
     perm: &Permission,
 ) -> Result<ActionResponse> {
     if !has_permissions(&action, perm) {
-        Err(core::error::unauthorized())?;
+        Err(core::Error::unauthorized())?;
     }
 
     match action {

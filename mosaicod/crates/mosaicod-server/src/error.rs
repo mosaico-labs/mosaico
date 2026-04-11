@@ -1,16 +1,13 @@
-use mosaicod_core as core;
+use mosaicod_core::{self as core, error::PublicError};
 use thiserror::Error;
 
-pub type Result<T> = core::error::Result<T>;
+pub type Result<T> = core::error::PublicResult<T>;
 
 /// Extension trait used to associate gRPC information
-/// to a core error.
+/// to a public error.
 pub trait PublicErrorGrpcExt {
     /// The gRPC error code associated with the error.
     fn grpc_code(&self) -> tonic::Code;
-
-    /// Format the error to a client readable string.
-    fn to_client_string(&self) -> String;
 
     /// Sends a log error message
     fn log(&self);
@@ -22,66 +19,53 @@ pub trait PublicErrorGrpcExt {
     fn log_to_status(self) -> tonic::Status;
 }
 
+/// Implementation of extension trait [`PublicErrorGrpcExt`] for [`PublicError`]
 impl<E> PublicErrorGrpcExt for E
 where
-    E: AsRef<dyn core::error::PublicError + Send + Sync>,
+    E: AsRef<dyn PublicError + Send + Sync>,
 {
     fn grpc_code(&self) -> tonic::Code {
-        use core::error::ErrorKind;
+        use core::error::Error;
         use tonic::Code;
 
-        let code = self.as_ref().error_kind();
+        let code = self.as_ref().error();
         match code {
-            ErrorKind::AlreadyExists => Code::AlreadyExists,
-            ErrorKind::Unimplemented => Code::Unimplemented,
-            ErrorKind::Internal => Code::Internal,
-            ErrorKind::BadUuid => Code::InvalidArgument,
-            ErrorKind::BadRequest(_) => Code::InvalidArgument,
-            ErrorKind::BadHeader(_) => Code::InvalidArgument,
-            ErrorKind::NotFound => Code::NotFound,
-            ErrorKind::BadLocator => Code::InvalidArgument,
-            ErrorKind::Unauthorized => Code::Unauthenticated,
-            ErrorKind::MissingSchema => Code::InvalidArgument,
-            ErrorKind::MissingDescriptor => Code::InvalidArgument,
-            ErrorKind::MissingApiKey => Code::InvalidArgument,
-            ErrorKind::StreamError(_) => Code::Cancelled,
-            ErrorKind::MissingHeader => Code::InvalidArgument,
-            ErrorKind::LockedTopic(_) => Code::FailedPrecondition,
-            ErrorKind::LockedSession(_) => Code::FailedPrecondition,
-            ErrorKind::UnlockedTopic(_) => Code::FailedPrecondition,
-            ErrorKind::UnsupportedMessage => Code::Aborted,
-            ErrorKind::UnsupportedLocator => Code::InvalidArgument,
-            ErrorKind::UnsupportedOperation => Code::InvalidArgument,
-            ErrorKind::UnsupportedDescriptor => Code::InvalidArgument,
-            ErrorKind::UnsupportedSchema(_) => Code::InvalidArgument,
+            Error::AlreadyExists => Code::AlreadyExists,
+            Error::Unimplemented => Code::Unimplemented,
+            Error::Internal => Code::Internal,
+            Error::BadUuid => Code::InvalidArgument,
+            Error::BadRequest(_) => Code::InvalidArgument,
+            Error::BadHeader(_) => Code::InvalidArgument,
+            Error::NotFound => Code::NotFound,
+            Error::BadLocator => Code::InvalidArgument,
+            Error::Unauthorized => Code::PermissionDenied,
+            Error::Unauthenticated => Code::Unauthenticated,
+            Error::MissingSchema => Code::InvalidArgument,
+            Error::MissingDescriptor => Code::InvalidArgument,
+            Error::MissingApiKey => Code::Unauthenticated,
+            Error::StreamError(_) => Code::Cancelled,
+            Error::MissingHeader => Code::InvalidArgument,
+            Error::LockedTopic(_) => Code::FailedPrecondition,
+            Error::LockedSession(_) => Code::FailedPrecondition,
+            Error::UnlockedTopic(_) => Code::FailedPrecondition,
+            Error::UnsupportedStreamMessage => Code::Aborted,
+            Error::UnsupportedLocator => Code::InvalidArgument,
+            Error::UnsupportedOperation => Code::InvalidArgument,
+            Error::UnsupportedDescriptor => Code::InvalidArgument,
+            Error::UnsupportedSchema(_) => Code::InvalidArgument,
         }
-    }
-
-    fn to_client_string(&self) -> String {
-        let mut client_string = self.as_ref().public_error();
-
-        // Ensure that the line ends with a `.`
-        if !client_string.ends_with('.') {
-            client_string.push('.');
-        }
-
-        if let Some(link) = self.as_ref().documentation_link() {
-            client_string.push_str(&format!("See {link} for more details."));
-        }
-
-        client_string
     }
 
     fn log(&self) {
         tracing::error!(
-            user_error = self.as_ref().public_error(),
+            user_error = self.as_ref().error_string(),
             grpc_code = self.grpc_code() as u8,
             internal_error = format!("{:?}", self.as_ref()),
         );
     }
 
     fn to_status(self) -> tonic::Status {
-        tonic::Status::new(self.grpc_code(), self.to_client_string())
+        tonic::Status::new(self.grpc_code(), self.as_ref().to_string())
     }
 
     fn log_to_status(self) -> tonic::Status {
@@ -140,13 +124,13 @@ pub fn not_a_semver(msg: String) -> Error {
 }
 
 impl core::error::PublicError for Error {
-    fn error_kind(&self) -> core::error::ErrorKind {
+    fn error(&self) -> core::Error {
         match self {
-            Self::InvalidUuid(uuid) => core::error::bad_request(format!("invalid uuid {uuid}")),
+            Self::InvalidUuid(uuid) => core::Error::bad_request(format!("invalid uuid {uuid}")),
             Self::InvalidNotificationType(ntype) => {
-                core::error::bad_request(format!("invalid notification type `{ntype}`"))
+                core::Error::bad_request(format!("invalid notification type `{ntype}`"))
             }
-            Self::SemaphoreClosed | Self::NotASemVer(_) => core::error::internal(),
+            Self::SemaphoreClosed | Self::NotASemVer(_) => core::Error::internal(),
         }
     }
 }
