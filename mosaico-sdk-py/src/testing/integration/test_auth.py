@@ -1,7 +1,6 @@
 from typing import List, Tuple
 
 import pytest
-
 from pyarrow.flight import FlightUnauthorizedError
 
 from mosaicolabs.comm import MosaicoClient
