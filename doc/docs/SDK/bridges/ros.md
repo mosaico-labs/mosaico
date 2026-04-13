@@ -258,7 +258,7 @@ from .my_adapter import MyLidarAdapter
 
 config = ROSInjectionConfig(
     file_path=Path("sensor_data.mcap"),
-    sequence_name="custom_laser_run",
+    sequence_name="custom_lidar_run",
     # Explicitly tell the bridge to use your custom adapter for this topic
     adapter_override={
         "/lidar/front/pointcloud": MyLidarAdapter,
