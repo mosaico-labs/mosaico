@@ -162,22 +162,55 @@ Through the **`adapter_override`** parameter in the `ROSInjectionConfig`, you ca
 !!! important "Override adapter usage"
     Use adapter overrides for versatile message types like [`sensor_msgs/msg/PointCloud2`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/PointCloud2.html), where different sensors (LiDAR, Radar, etc.) share the same ROS type but require unique parsing logic. Overrides should be defined and used when a given ROS message type has its own **default adapter** registered in the `ROSBridge` registry, but such an adapter cannot satisfy topic-specific requirements. If your message type is used consistently across all topics, simply use the [`@register_default_adapter`][mosaicolabs.ros_bridge.register_default_adapter] decorator to establish a global fallback.
 
-##### Implementing a Custom Adapter Override
-To create a custom adapter, you must inherit from `ROSAdapterBase` and define the transformation logic.
-Here is a structural example of a custom LiDAR adapter; note that the adapter is not registered as **default**, since the message type `sensor_msgs/msg/PointCloud2` already has it:
+##### Available Adapters override 
+
+Built-in adapters are provided for the most common sensor types and are ready to use out of the box:
+
+| Sensor type   | Adapter class         |
+|---------------|-----------------------|
+| LiDAR         | [`LidarAdapter`][mosaicolabs.ros_bridge.adapters.override_msgs.LidarAdapter]        |
+| Radar         | [`RadarAdapter`][mosaicolabs.ros_bridge.adapters.override_msgs.RadarAdapter]        |
+| RGBD Camera   | [`RGBDCameraAdapter`][mosaicolabs.ros_bridge.adapters.override_msgs.RGBDCameraAdapter]   |
+| ToF Camera    | [`ToFCameraAdapter`][mosaicolabs.ros_bridge.adapters.override_msgs.ToFCameraAdapter]    |
+| Stereo Camera | [`StereoCameraAdapter`][mosaicolabs.ros_bridge.adapters.override_msgs.StereoCameraAdapter] |
+
+All of them extend [`PointCloudAdapterBase`][mosaicolabs.ros_bridge.adapters.sensor_msgs.PointCloudAdapterBase], which exposes the following interface:
+
+- **`decode`**: deserializes the binary buffer of a `PointCloud2` message into named field arrays.
+- **`_build`** *(abstract)*: constructs and returns an instance of the target ontology object from the decoded fields. Must be overridden in every concrete subclass.
+- **`from_dict`**: validates that all required fields of the ontology are present before delegating to `_build`. A field is considered required when its [`MosaicoField`][mosaicolabs.models.MosaicoField] declaration has no explicit default (i.e. `default=...`) or it is declared **no Optional**.
+
+##### Implementing a Custom PointCloud2 Adapter Override
+To create a custom `PointCloud2` adapter, inherit from [`PointCloudAdapterBase`][mosaicolabs.ros_bridge.adapters.sensor_msgs.PointCloudAdapterBase].
+You only need to define:
+
+- `_build`: the mapping logic from decoded field arrays to your ontology instance.
+- `_REQUIRED_FIELDS`: the list of fields that must be present in the decoded payload.
+- `__mosaico_ontology_type__`: the target ontology class.
+
+All core business logic is encapsulated inside `PointCloudAdapterBase`.
+
+The following example shows a custom LiDAR adapter whose encoding differs from the generic [`LidarAdapter`][mosaicolabs.ros_bridge.adapters.override_msgs.LidarAdapter] already provided by Mosaico. 
+Note that the adapter is **not** registered as default, since `sensor_msgs/msg/PointCloud2` already has one.
 
 ```python
-from typing import Any, Optional, Type, Tuple
-from mosaicolabs.ros_bridge import ROSAdapterBase, ROSMessage
+from typing import Any, Optional, Type
+from mosaicolabs.ros_bridge import PointCloudAdapterBase, ROSMessage
 from mosaicolabs.models import Message
 from my_ontology import MyLidar # Your target Ontology class
 
-class MyCustomLidarAdapter(ROSAdapterBase[MyLidar]):
-    # Define which ROS type this adapter handles
-    ros_msgtype: str | Tuple[str, ...] = "sensor_msgs/msg/PointCloud2"
-
+class MyLidarAdapter(PointCloudAdapterBase[MyVelodyneLidar]):
     # Define the target Mosaico Ontology class
-    __mosaico_ontology_type__: Type[MyLidar] = MyLidar
+    __mosaico_ontology_type__: Type[MyLidar] = MyVelodyneLidar
+
+    _REQUIRED_FIELDS = [
+        name for name, field in MyLidar.model_fields.items() 
+        if field.is_required()
+    ]
+
+    @classmethod
+    def _build(cls, decoded_fields: dict[str, list]) -> MyLidar:
+        return MyLidar(...)
 
     @classmethod
     def translate(
@@ -200,9 +233,7 @@ class MyCustomLidarAdapter(ROSAdapterBase[MyLidar]):
         Converts the deserialized ROS dictionary into a Mosaico object.
         """
         # Core transformation logic: map raw ROS fields to your ontology type.
-        return MyLidar(
-            # ... map ros_data fields to MyLidar fields
-        )
+        return super().from_dict(ros_data)
 
 
     @classmethod
@@ -214,18 +245,14 @@ class MyCustomLidarAdapter(ROSAdapterBase[MyLidar]):
         return None
 ```
 
-##### Key Methods
-**`from_dict(ros_data)`**: This is the most important method. It receives the ROS message as a Python dictionary and must return an instance of your target Mosaico Ontology class.
-
-**`translate(ros_msg)`**: This is the entry point called by the ROSBridge. It just calls `from_dict`, but you can override it if you need access to the message metadata during conversion.
-
-**`schema_metadata(ros_data)`**: Use this to extract metadata information about the sensor configuration that is useful for the platform to know.
+!!! tip "Optional overrides"
+    Only `_build` is mandatory. Override `translate`, `from_dict`, or `schema_metadata` only when the default behaviour of the base class does not meet your needs.
 
 ##### Registering the Override
 Once implemented, the adapter is registered against a specific topic via `adapter_override` in [ROSInjectionConfig][mosaicolabs.ros_bridge.ROSInjectionConfig]:
 
 ```python
-from .my_adapter import MyCustomLidarAdapter
+from .my_adapter import MyLidarAdapter
 
 ...
 
@@ -234,7 +261,7 @@ config = ROSInjectionConfig(
     sequence_name="custom_lidar_run",
     # Explicitly tell the bridge to use your custom adapter for this topic
     adapter_override={
-        "/lidar/front/pointcloud": MyCustomLidarAdapter,
+        "/lidar/front/pointcloud": MyLidarAdapter,
     }
 )
 
@@ -244,9 +271,13 @@ ingestor = RosbagInjector(config)
 ingestor.run()
 ```
 
-With this configuration, all the [`sensor_msgs/msg/PointCloud2`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/PointCloud2.html) message received on `/lidar/front/pointcloud`, will be processed exclusively by `MyCustomLidarAdapter`. All other topics continue to use the standard resolution logic.
+With this configuration, all the [`sensor_msgs/msg/PointCloud2`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/PointCloud2.html) message received on `/lidar/front/pointcloud`, will be processed exclusively by `MyLidarAdapter`. All other topics continue to use the standard resolution logic.
 
 By using this pattern, you can maintain a clean separation between your raw ROS data and your high-level Mosaico data models, ensuring that even the most "exotic" sensor data is correctly ingested and indexed.
+
+##### Implementing a Custom Adapter Override
+To create a custom adapter that overrides a existing ROS message, you must inherit from `ROSAdapterBase` and define the transformation logic.
+Follow the steps described [here](#extending-the-bridge-custom-adapters) with the only caveat not to register the adapter with `@register_default_adapter` but insted [register the override](#registering-the-override)
 
 #### CLI Usage
 

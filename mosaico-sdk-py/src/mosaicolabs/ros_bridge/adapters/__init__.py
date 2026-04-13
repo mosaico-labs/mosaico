@@ -12,6 +12,13 @@ from .geometry_msgs import (
 from .nav_msgs import (
     OdometryAdapter as OdometryAdapter,
 )
+from .override_msgs import (
+    LidarAdapter as LidarAdapter,
+    RadarAdapter as RadarAdapter,
+    RGBDCameraAdapter as RGBDCameraAdapter,
+    StereoCameraAdapter as StereoCameraAdapter,
+    ToFCameraAdapter as ToFCameraAdapter,
+)
 from .sensor_msgs import (
     BatteryStateAdapter as BatteryStateAdapter,
     CameraInfoAdapter as CameraInfoAdapter,
@@ -19,9 +26,12 @@ from .sensor_msgs import (
     GPSAdapter as GPSAdapter,
     ImageAdapter as ImageAdapter,
     IMUAdapter as IMUAdapter,
+    LaserScanAdapter as LaserScanAdapter,
+    MultiEchoLaserScanAdapter as MultiEchoLaserScanAdapter,
     NavSatStatusAdapter as NavSatStatusAdapter,
     NMEASentenceAdapter as NMEASentenceAdapter,
     PointCloudAdapter as PointCloudAdapter,
+    PointCloudAdapterBase as PointCloudAdapterBase,
     RobotJointAdapter as RobotJointAdapter,
     ROIAdapter as ROIAdapter,
 )

@@ -1,6 +1,5 @@
 #![allow(unused_crate_dependencies)]
 
-use mosaicod_core as core;
 use mosaicod_core::types;
 use mosaicod_core::types::Resource;
 use mosaicod_db as db;
@@ -64,14 +63,15 @@ async fn sequence_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
         .unwrap();
 
     let app_metadata: marshal::flight::SequenceAppMetadata = info.app_metadata.try_into().unwrap();
-    let sequence_manifest: core::types::SequenceManifest = app_metadata.try_into().unwrap();
+    let sequence_metadata: types::SequenceMetadata<marshal::JsonMetadataBlob> =
+        app_metadata.try_into().unwrap();
 
-    assert!(sequence_manifest.sessions.is_empty());
+    assert!(sequence_metadata.sessions.is_empty());
     assert_eq!(
-        sequence_manifest.resource_locator.to_string(),
+        sequence_metadata.resource_locator.to_string(),
         sequence_name
     );
-    assert_ne!(sequence_manifest.created_at.as_i64(), 0);
+    assert_ne!(sequence_metadata.created_at.as_i64(), 0);
 
     let session_uuid = actions::session_create(&mut client, sequence_name).await;
     assert!(session_uuid.is_valid());
@@ -82,7 +82,8 @@ async fn sequence_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
         .unwrap();
 
     let app_metadata: marshal::flight::SequenceAppMetadata = info.app_metadata.try_into().unwrap();
-    let sequence_manifest: core::types::SequenceManifest = app_metadata.try_into().unwrap();
+    let sequence_manifest: types::SequenceMetadata<marshal::JsonMetadataBlob> =
+        app_metadata.try_into().unwrap();
 
     assert_eq!(
         sequence_manifest.resource_locator.to_string(),
@@ -124,7 +125,8 @@ async fn sequence_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
         .unwrap();
 
     let app_metadata: marshal::flight::SequenceAppMetadata = info.app_metadata.try_into().unwrap();
-    let sequence_manifest: core::types::SequenceManifest = app_metadata.try_into().unwrap();
+    let sequence_manifest: types::SequenceMetadata<marshal::JsonMetadataBlob> =
+        app_metadata.try_into().unwrap();
 
     assert_eq!(
         sequence_manifest.resource_locator.to_string(),
@@ -149,7 +151,8 @@ async fn sequence_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
         .unwrap();
 
     let app_metadata: marshal::flight::SequenceAppMetadata = info.app_metadata.try_into().unwrap();
-    let sequence_manifest: core::types::SequenceManifest = app_metadata.try_into().unwrap();
+    let sequence_manifest: types::SequenceMetadata<marshal::JsonMetadataBlob> =
+        app_metadata.try_into().unwrap();
 
     assert_eq!(
         sequence_manifest.resource_locator.to_string(),

@@ -80,8 +80,8 @@ pub struct SequenceAppMetadata {
     sessions: Vec<SessionAppMetadata>,
 }
 
-impl From<types::SequenceManifest> for SequenceAppMetadata {
-    fn from(value: types::SequenceManifest) -> Self {
+impl<M> From<types::SequenceMetadata<M>> for SequenceAppMetadata {
+    fn from(value: types::SequenceMetadata<M>) -> Self {
         Self {
             created_at_ns: value.created_at.as_i64(),
             resource_locator: value.resource_locator.into(),
@@ -90,7 +90,7 @@ impl From<types::SequenceManifest> for SequenceAppMetadata {
     }
 }
 
-impl TryFrom<SequenceAppMetadata> for types::SequenceManifest {
+impl<M> TryFrom<SequenceAppMetadata> for types::SequenceMetadata<M> {
     type Error = super::Error;
 
     fn try_from(value: SequenceAppMetadata) -> Result<Self, Self::Error> {
@@ -102,6 +102,7 @@ impl TryFrom<SequenceAppMetadata> for types::SequenceManifest {
                 .into_iter()
                 .map(TryInto::try_into)
                 .collect::<Result<Vec<_>, _>>()?,
+            user_metadata: None,
         };
 
         Ok(res)

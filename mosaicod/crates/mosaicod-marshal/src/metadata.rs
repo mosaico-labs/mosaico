@@ -42,22 +42,6 @@ pub struct JsonSequenceMetadata {
     pub user_metadata: JsonMetadataBlob,
 }
 
-impl From<JsonSequenceMetadata> for types::SequenceMetadata<JsonMetadataBlob> {
-    fn from(value: JsonSequenceMetadata) -> Self {
-        Self {
-            user_metadata: value.user_metadata,
-        }
-    }
-}
-
-impl From<types::SequenceMetadata<JsonMetadataBlob>> for JsonSequenceMetadata {
-    fn from(value: types::SequenceMetadata<JsonMetadataBlob>) -> Self {
-        Self {
-            user_metadata: value.user_metadata,
-        }
-    }
-}
-
 impl TryFrom<Vec<u8>> for JsonSequenceMetadata {
     type Error = Error;
     fn try_from(bytes: Vec<u8>) -> Result<Self, Self::Error> {

@@ -62,13 +62,11 @@ impl SequenceRecord {
         types::Timestamp::from(self.creation_unix_tstamp)
     }
 
-    /// Exposes user metadata for testing purposes
-    #[cfg(any(test, feature = "testing"))]
-    pub fn user_metadata(&self) -> Option<&serde_json::Value> {
-        self.user_metadata.as_ref()
+    pub fn user_metadata(&self) -> Option<marshal::JsonMetadataBlob> {
+        self.user_metadata.clone().map(Into::into)
     }
 
-    /// Returns the sequence recource locator for this sequence
+    /// Returns the sequence resource locator for this sequence
     pub fn resource_locator(&self) -> types::SequenceResourceLocator {
         self.locator_name.to_owned().into()
     }

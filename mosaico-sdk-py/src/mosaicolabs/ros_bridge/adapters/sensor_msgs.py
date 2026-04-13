@@ -1,7 +1,15 @@
-from typing import Any, List, Optional, Tuple, Type
+from abc import abstractmethod
+from typing import Any, List, Optional, Tuple, Type, TypeVar
 
+import numpy as np
+
+from mosaicolabs import Serializable
 from mosaicolabs.models import Message
 from mosaicolabs.models.data import ROI, Point3d, Vector2d
+from mosaicolabs.models.futures import (
+    LaserScan,
+    MultiEchoLaserScan,
+)
 from mosaicolabs.models.sensors import (
     GPS,
     IMU,
@@ -21,7 +29,7 @@ from .geometry_msgs import (
     QuaternionAdapter,
     Vector3Adapter,
 )
-from .helpers import _validate_msgdata
+from .helpers import _validate_msgdata, _validate_required_fields
 
 
 @register_default_adapter
@@ -1111,52 +1119,19 @@ class RobotJointAdapter(ROSAdapterBase[RobotJoint]):
         return None
 
 
-@register_default_adapter
-class PointCloudAdapter(ROSAdapterBase[PointCloud2]):
+PointCloudModel = TypeVar(
+    "PointCloudModel",
+    bound=Serializable,
+)
+
+
+class PointCloudAdapterBase(ROSAdapterBase[PointCloudModel]):
     """
-        Adapter for translating ROS PointCloud2 messages to Mosaico `PointCloud2`.
-
-        **Supported ROS Types:**
-
-        - [`sensor_msgs/msg/PointCloud2`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/PointCloud2.html)
-
-        Example:
-        ```python
-            ros_msg = ROSMessage(
-                timestamp=17000,
-                topic="/point_cloud",
-                msg_type="sensor_msgs/PointCloud2",
-                data={
-                    "height": 1,
-                    "width": 3,
-                    "fields": [
-                        {"name": "x", "offset": 0,  "datatype": 7, "count": 1},
-                        {"name": "y", "offset": 4,  "datatype": 7, "count": 1},
-                        {"name": "z", "offset": 8,  "datatype": 7, "count": 1},
-                    ],
-                    "is_bigendian": False,
-                    "point_step": 12,
-                    "row_step": 36,
-                    "data": b'\x00\x00\x80\x3f'  # x=1.0
-                            b'\x00\x00\x00\x40'  # y=2.0
-                            b'\x00\x00\x40\x40'  # z=3.0
-                            b'\x00\x00\x80\x3f'  # x=1.0
-                            b'\x00\x00\x00\x40'  # y=2.0
-                            b'\x00\x00\x40\x40'  # z=3.0
-                            b'\x00\x00\x80\x3f'  # x=1.0
-                            b'\x00\x00\x00\x40'  # y=2.0
-                            b'\x00\x00\x40\x40', # z=3.0
-                    "is_dense": True,
-                }
-            )
-            # Automatically resolves to a flat Mosaico PointCloud2 with attached metadata
-            mosaico_point_cloud = PointCloudAdapter.translate(ros_msg)
-    ```
+    Base adapter for translating ROS PointCloud2 message to Mosaico specific ontology.
     """
 
-    ros_msgtype: str | Tuple[str, ...] = "sensor_msgs/msg/PointCloud2"
+    ros_msgtype: str = "sensor_msgs/msg/PointCloud2"
 
-    __mosaico_ontology_type__: Type[PointCloud2] = PointCloud2
     _REQUIRED_KEYS = (
         "height",
         "width",
@@ -1168,12 +1143,164 @@ class PointCloudAdapter(ROSAdapterBase[PointCloud2]):
         "is_dense",
     )
 
+    _REQUIRED_FIELDS: list[str] = []
+
+    _DATATYPE_MAP = {
+        1: (1, np.int8),
+        2: (1, np.uint8),
+        3: (2, np.int16),
+        4: (2, np.uint16),
+        5: (4, np.int32),
+        6: (4, np.uint32),
+        7: (4, np.float32),
+        8: (8, np.float64),
+    }
+
     @classmethod
-    def translate(
-        cls,
-        ros_msg: ROSMessage,  # ROSMessage
-        **kwargs: Any,
-    ) -> Message:
+    def decode(cls, ros_data: dict) -> dict[str, list]:
+        """
+        Deserialize the binary buffer of a ROS [`sensor_msgs/msg/PointCloud2`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/PointCloud2.html) message into named field arrays.
+
+        Args:
+            ros_data: Raw ROS message payload. Relevant keys: `data`, `height`, `width`,
+                    `fields`, `is_bigendian`, `point_step`.
+
+        Returns:
+            Dictionary mapping each field name to a list of decoded values. Returns empty lists for all fields if `height * width == 0`.
+
+        Raises:
+            ValueError: If a field exposes an unsupported `datatype`.
+
+        """
+        _validate_msgdata(cls, ros_data)
+
+        height = ros_data["height"]
+        width = ros_data["width"]
+        fields = [PointField(**f) for f in ros_data["fields"]]
+        is_bigendian = ros_data["is_bigendian"]
+        point_step = ros_data["point_step"]
+        data = bytes(ros_data["data"])
+
+        num_points = height * width
+
+        if num_points == 0:
+            return {field.name: [] for field in fields}
+
+        endian_prefix = ">" if is_bigendian else "<"
+
+        raw = np.frombuffer(bytes(data), dtype=np.uint8).reshape(num_points, point_step)
+
+        result = {}
+        for field in fields:
+            itemsize, np_dtype = cls._DATATYPE_MAP.get(field.datatype, (None, None))
+
+            if np_dtype is None:
+                raise ValueError(
+                    f"field datatype = {field.datatype} not supported. Supported data types: {cls._DATATYPE_MAP.items()}"
+                )
+
+            dtype = np.dtype(np_dtype).newbyteorder(endian_prefix)
+
+            field_raw = np.ascontiguousarray(
+                raw[:, field.offset : field.offset + itemsize * field.count]
+            )
+            values = field_raw.view(dtype)
+            if field.count == 1:
+                values = values.reshape(num_points)
+
+            result[field.name] = values.astype(np_dtype, copy=False)
+
+        return {name: arr.tolist() for name, arr in result.items()}
+
+    @classmethod
+    @abstractmethod
+    def _build(cls, decoded_fields: dict[str, list]) -> PointCloudModel: ...
+
+    @classmethod
+    def from_dict(cls, ros_data: dict) -> PointCloudModel:
+        """
+        Convert a raw ROS PointCloud2 message dictionary into a typed Mosaico model.
+
+        Args:
+            ros_data: Raw ROS message payload as a dictionary.
+
+        Returns:
+            A fully populated instance of the target `PointCloudModel` subtype (e.g. `Lidar`, `Radar`, `RGBDCamera`, ...).
+
+        Raises:
+            ValueError: If any required message key is missing from `ros_data`,
+                or if any required field is absent after decoding.
+
+        Note:
+            This method is **not** meant to be overridden in most subclasses.
+            Only [`PointCloudAdapter`][mosaicolabs.ros_bridge.adapters.sensor_msgs.PointCloudAdapter] overrides it,
+            as it operates at a different abstraction level, returning the raw
+            [`PointCloud2`][mosaicolabs.ros_bridge.data_ontology.PointCloud2] message instead of a decoded model.
+        """
+        decoded_fields = cls.decode(ros_data)
+        _validate_required_fields(cls, cls._REQUIRED_FIELDS, decoded_fields)
+        return cls._build(decoded_fields)
+
+    @classmethod
+    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
+        """
+        Extract the ROS message specific schema metadata, if any.
+        """
+        return None
+
+
+@register_default_adapter
+class PointCloudAdapter(PointCloudAdapterBase[PointCloud2]):
+    """
+    Adapter for translating ROS PointCloud2 messages to Mosaico `PointCloud2`.
+
+    **Supported ROS Types:**
+
+    - [`sensor_msgs/msg/PointCloud2`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/PointCloud2.html)
+
+    Example:
+    ```python
+    ros_msg = ROSMessage(
+                timestamp=17000,
+                topic="/point_cloud",
+                msg_type="sensor_msgs/PointCloud2",
+                data = {
+                    "height": 1,
+                    "width": 3,
+                    "fields": [
+                        {"name": "x", "offset": 0,  "datatype": 7, "count": 1},
+                        {"name": "y", "offset": 4,  "datatype": 7, "count": 1},
+                        {"name": "z", "offset": 8,  "datatype": 7, "count": 1},
+                    ],
+                "is_bigendian": False,
+                "point_step": 12,
+                "row_step": 36,
+                "data": ...,
+                "is_dense": True,
+                }
+            )
+    # Automatically resolves to a flat Mosaico PointCloud2 with attached metadata
+    mosaico_point_cloud = PointCloudAdapter.translate(ros_msg)
+    ```
+    """
+
+    __mosaico_ontology_type__: Type[PointCloud2] = PointCloud2
+
+    @classmethod
+    def _build(cls, decoded_fields: dict[str, list]) -> PointCloud2:
+        raise NotImplementedError("PointCloudAdapter uses from_dict directly.")
+
+    @classmethod
+    def translate(cls, ros_msg: ROSMessage, **kwargs: Any) -> Message:
+        """
+        Translates a ROS message into a Mosaico Message.
+
+        Returns:
+            Message: The translated message containing a `PointCloud2` object.
+
+        Raises:
+            Exception: Wraps any translation error with context (topic name, timestamp).
+        """
         return super().translate(ros_msg, **kwargs)
 
     @classmethod
@@ -1182,37 +1309,37 @@ class PointCloudAdapter(ROSAdapterBase[PointCloud2]):
         Converts the raw dictionary data into the specific Mosaico type.
 
         Example:
-            ```python
-            ros_data = {
-                "height": 1,           # unorganized point cloud = 1 row
-                "width": 3,            # 3 points
-                "fields": [
-                    {
-                        "name": "x",
-                        "offset": 0,
-                        "datatype": 7,  # FLOAT32
-                        "count": 1
-                    },
-                    {
-                        "name": "y",
-                        "offset": 4,
-                        "datatype": 7,  # FLOAT32
-                        "count": 1
-                    },
-                    {
-                        "name": "z",
-                        "offset": 8,
-                        "datatype": 7,  # FLOAT32
-                        "count": 1
-                    },
-                ],
-                "is_bigendian": False,
-                "point_step": 12,      # 3 fields * 4 bytes (float32) = 12 bytes per point
-                "row_step": 36,        # point_step * width = 12 * 3 = 36 bytes per row
-                "data": b'\x00\x00\x80\x3f'  # x=1.0
-                        b'\x00\x00\x00\x40'  # y=2.0
-                        b'\x00\x00\x40\x40'  # z=3.0
+        ```python
+        ros_data = {
+            "height": 1,           # unorganized point cloud = 1 row
+            "width": 3,            # 3 points
+            "fields": [
+                {
+                    "name": "x",
+                    "offset": 0,
+                    "datatype": 7,  # FLOAT32
+                    "count": 1
+                },
+                {
+                    "name": "y",
+                    "offset": 4,
+                    "datatype": 7,  # FLOAT32
+                    "count": 1
+                },
+                {
+                    "name": "z",
+                    "offset": 8,
+                    "datatype": 7,  # FLOAT32
+                    "count": 1
+                },
+            ],
+            "is_bigendian": False,
+            "point_step": 12,      # 3 fields * 4 bytes (float32) = 12 bytes per point
+            "row_step": 36,        # point_step * width = 12 * 3 = 36 bytes per row
+            "data": ...,
+            "is_dense": True
             }
+        ```
         """
 
         _validate_msgdata(cls, ros_data)
@@ -1234,3 +1361,155 @@ class PointCloudAdapter(ROSAdapterBase[PointCloud2]):
         Extract the ROS message specific schema metadata, if any.
         """
         return None
+
+
+_LT = TypeVar("_LT", LaserScan, MultiEchoLaserScan)
+
+
+class LaserScannerAdapterBase(ROSAdapterBase[_LT]):
+    """
+    Base adapter for translating ROS LaserScan and MultiEchoLaserScan messages to Mosaico `LaserScan` and `MultiEchoLaserScan` .
+    """
+
+    _REQUIRED_KEYS = (
+        "angle_min",
+        "angle_max",
+        "angle_increment",
+        "time_increment",
+        "scan_time",
+        "range_min",
+        "range_max",
+        "ranges",
+        "intensities",
+    )
+
+    @classmethod
+    def from_dict(cls, ros_data: dict) -> _LT:
+        """
+        Create a LaserScan/MultiEchoLaserScan instance from a ROS message dictionary.
+        """
+        _validate_msgdata(cls, ros_data)
+        return cls.__mosaico_ontology_type__(
+            angle_min=ros_data["angle_min"],
+            angle_max=ros_data["angle_max"],
+            angle_increment=ros_data["angle_increment"],
+            time_increment=ros_data["time_increment"],
+            scan_time=ros_data["scan_time"],
+            range_min=ros_data["range_min"],
+            range_max=ros_data["range_max"],
+            ranges=ros_data["ranges"],
+            intensities=ros_data["intensities"],
+        )
+
+    @classmethod
+    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
+        """
+        Extract the ROS message specific schema metadata, if any.
+        """
+        return None
+
+
+@register_default_adapter
+class LaserScanAdapter(LaserScannerAdapterBase[LaserScan]):
+    """
+    Adapter for translating ROS LaserScan messages to Mosaico `LaserScan`.
+
+    **Supported ROS Types:**
+
+    - [`sensor_msgs/msg/LaserScan`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/LaserScan.html)
+
+    """
+
+    ros_msgtype: str | Tuple[str, ...] = "sensor_msgs/msg/LaserScan"
+
+    __mosaico_ontology_type__: Type[LaserScan] = LaserScan
+
+    @classmethod
+    def translate(cls, ros_msg: ROSMessage, **kwargs: Any) -> Message:
+        """
+        Translates a ROS message into a Mosaico Message.
+
+        Returns:
+            Message: The translated message containing a `LaserScan` object.
+
+        Raises:
+            Exception: Wraps any translation error with context (topic name, timestamp).
+        """
+        return super().translate(ros_msg, **kwargs)
+
+    @classmethod
+    def from_dict(cls, ros_data: dict) -> LaserScan:
+        """
+        Create a LaserScan instance from a ROS message dictionary.
+
+        Example:
+        ```python
+        ros_data = {
+            "angle_min": -1.57,
+            "angle_max":  1.57,
+            "angle_increment": 0.01,
+            "time_increment": 0.0,
+            "scan_time": 0.1,
+            "range_min": 0.2,
+            "range_max": 10.0,
+            "ranges": [1.0, 1.1, 1.2],
+            "intensities": [100.0, 110.0, 120.0],
+        }
+        # Automatically resolves to a flat Mosaico LaserScan with attached data
+        mosaico_laser_scan = LaserScanAdapter.from_dict(ros_data)
+        ```
+        """
+        return super().from_dict(ros_data)
+
+
+@register_default_adapter
+class MultiEchoLaserScanAdapter(LaserScannerAdapterBase[MultiEchoLaserScan]):
+    """
+    Adapter for translating ROS MultiEchoLaserScan messages to Mosaico `MultiEchoLaserScan`.
+
+    **Supported ROS Types:**
+
+    - [`sensor_msgs/msg/MultiEchoLaserScan`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/MultiEchoLaserScan.html)
+
+    """
+
+    ros_msgtype: str | Tuple[str, ...] = "sensor_msgs/msg/MultiEchoLaserScan"
+
+    __mosaico_ontology_type__: Type[MultiEchoLaserScan] = MultiEchoLaserScan
+
+    @classmethod
+    def translate(cls, ros_msg: ROSMessage, **kwargs: Any) -> Message:
+        """
+        Translates a ROS message into a Mosaico Message.
+
+        Returns:
+            Message: The translated message containing a `MultiEchoLaserScan` object.
+
+        Raises:
+            Exception: Wraps any translation error with context (topic name, timestamp).
+        """
+        return super().translate(ros_msg, **kwargs)
+
+    @classmethod
+    def from_dict(cls, ros_data: dict) -> MultiEchoLaserScan:
+        """
+        Create a MultiEchoLaserScan instance from a ROS message dictionary.
+
+        Example:
+        ```python
+        ros_data = {
+            "angle_min": -1.57,
+            "angle_max":  1.57,
+            "angle_increment": 0.01,
+            "time_increment": 0.0,
+            "scan_time": 0.1,
+            "range_min": 0.2,
+            "range_max": 10.0,
+            "ranges": [[1.0, 1.1, 1.2], [2.0, 2.1, 2.2], [3.0, 3.1, 3.2]],
+            "intensities": [[100.0, 110.0, 120.0], [200.0, 210.0, 220.0], [300.0, 310.0, 320.0]],
+        }
+        # Automatically resolves to a flat Mosaico MultiEchoLaserScanAdapter with attached data
+        mosaico_laser_scan = MultiEchoLaserScanAdapter.from_dict(ros_data)
+        ```
+        """
+        return super().from_dict(ros_data)
