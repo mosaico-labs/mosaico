@@ -113,6 +113,7 @@ nav:
                       - SDK/API_reference/bridges/ros/adapters/sensor_msgs.md
                       - SDK/API_reference/bridges/ros/adapters/nav_msgs.md
                       - SDK/API_reference/bridges/ros/adapters/tf2_msgs.md
+                      - SDK/API_reference/bridges/ros/adapters/override_msgs.md
   - Daemon:
       - daemon/index.md
       - daemon/install.md
