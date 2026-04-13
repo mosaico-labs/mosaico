@@ -173,7 +173,7 @@ pub async fn archived(context: &Context, handle: &Handle) -> Result<bool, Error>
 
 /// Finalize the write procedure of the topic. The topic is locked and additional data are
 /// consolidated (e.g. metadata, timestamp bounds). This function is intended to be called by
-/// [`TopicWriterGuard`] to finalize the writing process.
+/// [`HandleWriter`] to finalize the writing process.
 async fn finalize(context: &Context, handle: &Handle, format: types::Format) -> Result<(), Error> {
     let mut tx = context.db.transaction().await?;
 
@@ -483,7 +483,7 @@ pub async fn compute_optimal_batch_size(
 /// A guard ensuring exclusive write access to [`Handle`].
 ///
 /// While this struct exists, the underlying topic is mutably borrowed, preventing
-/// any other operations (such as locking or concurrent reads) until [`TopicWriter::finalize`] is called.
+/// any other operations (such as locking or concurrent reads) until [`HandleWriter::finalize`] is called.
 pub struct HandleWriter {
     /// Anchors the exclusive borrow of the handle, strictly tying the writer's lifetime
     /// to the topic's availability.
