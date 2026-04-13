@@ -368,27 +368,12 @@ impl AsRef<str> for SequenceResourceLocator {
     }
 }
 
-pub struct SequenceMetadata<M>
-where
-    M: super::MetadataBlob,
-{
-    pub user_metadata: M,
-}
-
-impl<M> SequenceMetadata<M>
-where
-    M: super::MetadataBlob,
-{
-    pub fn new(user_metadata: M) -> Self {
-        Self { user_metadata }
-    }
-}
-
-pub struct SequenceManifest {
+pub struct SequenceMetadata<M> {
     /// Timestamp of the sequence creation
     pub created_at: super::Timestamp,
     pub resource_locator: SequenceResourceLocator,
     pub sessions: Vec<SessionMetadata>,
+    pub user_metadata: Option<M>,
 }
 
 // ////////////////////////////////////////////////////////////////////////////

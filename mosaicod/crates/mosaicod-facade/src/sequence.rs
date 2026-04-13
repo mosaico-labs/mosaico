@@ -9,6 +9,8 @@ use mosaicod_db as db;
 use mosaicod_marshal as marshal;
 
 /// Define sequence metadata type contaning json user metadata
+type SequenceUserMetadata = marshal::JsonMetadataBlob;
+
 type SequenceMetadata = types::SequenceMetadata<marshal::JsonMetadataBlob>;
 
 /// Handle containing sequence identifiers.
@@ -71,14 +73,14 @@ impl Handle {
 pub async fn try_create(
     context: &Context,
     locator: types::SequenceResourceLocator,
-    metadata: Option<SequenceMetadata>,
+    metadata: Option<SequenceUserMetadata>,
 ) -> Result<Handle, Error> {
     let mut tx = context.db.transaction().await?;
 
     let mut record = db::SequenceRecord::new(locator.locator());
 
     if let Some(mdata) = &metadata {
-        record = record.with_user_metadata(mdata.user_metadata.clone());
+        record = record.with_user_metadata(mdata.clone());
     }
 
     let record = db::sequence_create(&mut tx, &record).await?;
@@ -115,12 +117,14 @@ pub async fn all(context: &Context) -> Result<Vec<Handle>, Error> {
 async fn metadata_write_to_store(
     context: &Context,
     locator: &types::SequenceResourceLocator,
-    metadata: SequenceMetadata,
+    metadata: SequenceUserMetadata,
 ) -> Result<(), Error> {
     let path = locator.path_metadata();
 
     trace!("converting sequence metadata to bytes");
-    let json_mdata = marshal::JsonSequenceMetadata::from(metadata);
+    let json_mdata = marshal::JsonSequenceMetadata {
+        user_metadata: metadata,
+    };
     let bytes: Vec<u8> = json_mdata.try_into()?;
 
     trace!(
@@ -182,14 +186,28 @@ pub async fn notification_purge(context: &Context, handle: &Handle) -> Result<()
     Ok(())
 }
 
-/// Read the metadata from the store and returns an `HashMap` containing all the metadata
+/// Creates [`SequenceMetadata`] associated to the given session [`Handle`].
 pub async fn metadata(context: &Context, handle: &Handle) -> Result<SequenceMetadata, Error> {
-    let path = handle.locator.path_metadata();
-    let bytes = context.store.read_bytes(&path).await?;
+    let mut cx = context.db.connection();
 
-    let data: marshal::JsonSequenceMetadata = bytes.try_into()?;
+    let db_sequence = db::sequence_find_by_id(&mut cx, handle.id()).await?;
 
-    Ok(data.into())
+    let sessions = session_list(handle, &mut cx).await?;
+
+    let mut sequence_metadata = SequenceMetadata {
+        created_at: db_sequence.creation_timestamp(),
+        resource_locator: handle.locator.clone(),
+        sessions: vec![],
+        user_metadata: db_sequence.user_metadata(),
+    };
+
+    for session_handle in sessions {
+        sequence_metadata
+            .sessions
+            .push(session::metadata(context, &session_handle).await?);
+    }
+
+    Ok(sequence_metadata)
 }
 
 /// Returns the topic list for the given sequence
@@ -205,11 +223,10 @@ pub async fn topic_list(context: &Context, handle: &Handle) -> Result<Vec<topic:
 
 /// Returns the session list associated with this sequence as vector of session UUIDs
 pub async fn session_list(
-    context: &Context,
     handle: &Handle,
+    exe: &mut impl db::AsExec,
 ) -> Result<Vec<session::Handle>, Error> {
-    let mut cx = context.db.connection();
-    Ok(db::sequence_find_all_sessions(&mut cx, &handle.locator)
+    Ok(db::sequence_find_all_sessions(exe, &handle.locator)
         .await?
         .into_iter()
         .map(|record| session::Handle::new(handle.locator.clone(), record.identifiers()))
@@ -228,7 +245,7 @@ pub async fn delete(
     let mut tx = context.db.transaction().await?;
 
     // Retrieve sessions data and deletes it
-    let sessions = session_list(context, &handle).await?;
+    let sessions = session_list(&handle, &mut tx).await?;
     for session_handle in sessions {
         session::delete(context, session_handle, allow_data_loss.clone()).await?;
     }
@@ -245,31 +262,6 @@ pub async fn delete(
     tx.commit().await?;
 
     Ok(())
-}
-
-pub async fn manifest(
-    context: &Context,
-    handle: &Handle,
-) -> Result<types::SequenceManifest, Error> {
-    let mut cx = context.db.connection();
-
-    // Check that sequence still exists on DB.
-    let db_sequence = db::sequence_find_by_id(&mut cx, handle.id()).await?;
-
-    let mut manifest = types::SequenceManifest {
-        resource_locator: handle.locator.clone(),
-        created_at: db_sequence.creation_timestamp(),
-        sessions: Vec::new(),
-    };
-
-    let sessions = session_list(context, handle).await?;
-
-    for session_handle in sessions {
-        let session_metadata = session::metadata(context, &session_handle).await?;
-        manifest.sessions.push(session_metadata);
-    }
-
-    Ok(manifest)
 }
 
 #[cfg(test)]
@@ -301,7 +293,7 @@ mod tests {
             "weather": "sunny"
         }"#;
         dbg!(&mdata);
-        let mdata = SequenceMetadata::new(marshal::JsonMetadataBlob::try_from_str(mdata).unwrap());
+        let mdata = marshal::JsonMetadataBlob::try_from_str(mdata).unwrap();
 
         let seq_locator = types::SequenceResourceLocator::from("test_sequence".to_string());
 
@@ -316,9 +308,11 @@ mod tests {
             .expect("Unable to find the created sequence");
 
         // Check database user metadata
-        let user_mdata = sequence
+        let user_mdata: serde_json::Value = sequence
             .user_metadata()
-            .expect("Unable to find user metadata in database record");
+            .expect("Unable to find user metadata in database record")
+            .into();
+
         assert_eq!(user_mdata["driver"].as_str().unwrap(), "john");
         assert_eq!(user_mdata["weather"].as_str().unwrap(), "sunny");
 

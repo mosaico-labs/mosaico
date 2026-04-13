@@ -20,8 +20,7 @@ pub async fn create(
         marshal::JsonMetadataBlob::try_from_str(user_metadata_str).map_err(facade::Error::from)?;
 
     // No sequence record was found, let's write it
-    let metadata = types::SequenceMetadata::new(user_mdata);
-    let sequence_handle = facade::sequence::try_create(ctx, locator, Some(metadata))
+    let sequence_handle = facade::sequence::try_create(ctx, locator, Some(user_mdata))
         .await
         .inspect_err(|e| println!("error in sequence create: {}", e))?;
 

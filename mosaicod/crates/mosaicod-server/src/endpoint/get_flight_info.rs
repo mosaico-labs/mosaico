@@ -40,13 +40,19 @@ pub async fn get_flight_info(
                         sequence_handle.locator()
                     );
 
-                    // Collect metadata
-                    let metadata = marshal::JsonSequenceMetadata::from(metadata);
-                    let flatten_metadata =
-                        metadata.to_flat_hashmap().map_err(facade::Error::from)?;
+                    let mut schema = Schema::new(Vec::<Field>::new());
 
-                    // Collect schema
-                    let schema = Schema::new_with_metadata(Vec::<Field>::new(), flatten_metadata);
+                    // Collect user metadata
+                    if let Some(user_metadata) = &metadata.user_metadata {
+                        let user_metadata = marshal::JsonSequenceMetadata {
+                            user_metadata: user_metadata.clone(),
+                        };
+                        let flatten_user_metadata = user_metadata
+                            .to_flat_hashmap()
+                            .map_err(facade::Error::from)?;
+
+                        schema = schema.with_metadata(flatten_user_metadata);
+                    }
 
                     trace!("{} generating endpoints", sequence_handle.locator());
                     let topics = facade::sequence::topic_list(ctx, &sequence_handle).await?;
@@ -81,16 +87,12 @@ pub async fn get_flight_info(
                         .try_collect::<Vec<FlightEndpoint>>()
                         .await?;
 
-                    // Get sequence manifest, if it exists, and send it as app metadata.
-                    let manifest: flight::SequenceAppMetadata =
-                        match facade::sequence::manifest(ctx, &sequence_handle).await {
-                            Ok(m) => m.into(),
-                            Err(e) => return Err(e.into()),
-                        };
+                    // Get sequence metadata and convert it to flight appmetadata.
+                    let app_metadata: flight::SequenceAppMetadata = metadata.into();
 
                     let mut flight_info = FlightInfo::new()
                         .with_descriptor(desc.clone())
-                        .with_app_metadata(manifest)
+                        .with_app_metadata(app_metadata)
                         .try_with_schema(&schema)?;
 
                     for endpoint in endpoints {
