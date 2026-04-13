@@ -154,26 +154,38 @@ pub async fn try_create(
     Ok(topic_handle)
 }
 
+/// Private method to tell if the topic has finished uploading
+///
+/// Note: please use this function instead of [`archived`] if you need to call it internally
+/// (from another function in this module that already has an active transaction)
+async fn impl_archived(handle: &Handle, exe: &mut impl db::AsExec) -> Result<bool, Error> {
+    Ok(db::topic_archived(exe, handle.id()).await?)
+}
+
+/// Tells if the topic has finished uploading
+///
+/// Note: if you need to call this method internally (from another function in this module that
+/// already has an active transaction), please use [`impl_archived`]
 pub async fn archived(context: &Context, handle: &Handle) -> Result<bool, Error> {
     let mut cx = context.db.connection();
-    Ok(db::topic_locked(&mut cx, handle.id()).await?)
+    impl_archived(handle, &mut cx).await
 }
 
 /// Finalize the write procedure of the topic. The topic is locked and additional data are
 /// consolidated (e.g. metadata, timestamp bounds). This function is intended to be called by
 /// [`TopicWriterGuard`] to finalize the writing process.
 async fn finalize(context: &Context, handle: &Handle, format: types::Format) -> Result<(), Error> {
-    let info = compute_data_info(context, handle, format).await?;
+    let mut tx = context.db.transaction().await?;
+
+    let info = compute_data_info(context, handle, &mut tx, format).await?;
     data_info_write_to_db(context, handle, info).await?;
 
     // Check if topic is already locked.
-    if archived(context, handle).await? {
+    if impl_archived(handle, &mut tx).await? {
         return Err(Error::TopicLocked);
     }
 
     // Update completion timestamp in DB and Store
-    let mut tx = context.db.transaction().await?;
-
     db::topic_update_completion_tstamp(&mut tx, handle.id(), types::Timestamp::now().as_i64())
         .await?;
 
@@ -375,6 +387,7 @@ pub async fn chunks_stats(
 async fn compute_data_info(
     context: &Context,
     handle: &Handle,
+    exe: &mut impl db::AsExec,
     format: types::Format,
 ) -> Result<types::TopicDataInfo, Error> {
     let timeseries_res = context
@@ -390,8 +403,7 @@ async fn compute_data_info(
         Err(_) => types::TimestampRange::unbounded(),
     };
 
-    let mut cx = context.db.connection();
-    let record = db::topic_find_by_locator(&mut cx, &handle.locator).await?;
+    let record = db::topic_find_by_locator(exe, &handle.locator).await?;
 
     let format = record
         .serialization_format()

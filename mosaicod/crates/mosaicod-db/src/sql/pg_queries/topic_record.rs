@@ -375,8 +375,8 @@ pub async fn topic_from_query_filter(
     r.into_iter().collect()
 }
 
-/// Returns true if the topic is locked.
-pub async fn topic_locked(exe: &mut impl AsExec, topic_id: i32) -> Result<bool, Error> {
+/// Returns true if the topic is archived (upload completed).
+pub async fn topic_archived(exe: &mut impl AsExec, topic_id: i32) -> Result<bool, Error> {
     trace!("topic (id=`{}`) locked? ", topic_id);
 
     Ok(sqlx::query_scalar!(
