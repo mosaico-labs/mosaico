@@ -61,7 +61,7 @@ impl std::fmt::Display for dyn PublicError + Send + Sync {
     }
 }
 
-/// Shortand alias for a boxed public error
+/// Shorthand alias for a boxed public error
 pub type BoxPublicError = Box<dyn PublicError + Send + Sync + 'static>;
 
 /// mosaicod custom public error result alias

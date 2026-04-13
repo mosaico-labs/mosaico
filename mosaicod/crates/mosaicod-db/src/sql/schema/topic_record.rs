@@ -15,12 +15,12 @@ pub struct TopicRecord {
 
     pub(crate) serialization_format: String,
 
-    /// This metadata field is only for database query access and
-    /// should not be exposed
+    // Do not expose directly this field
     pub(crate) user_metadata: Option<serde_json::Value>,
 
     /// UNIX timestamp in milliseconds from the creation
     pub(crate) creation_unix_tstamp: i64,
+    pub(crate) completion_unix_tstamp: Option<i64>,
 
     /// System info.
     /// ATTENTION: They actually contain UNSIGNED int 64bit values,
@@ -60,6 +60,7 @@ impl TopicRecord {
             serialization_format: serialization_format.to_owned(),
             user_metadata: None,
             creation_unix_tstamp: types::Timestamp::now().into(),
+            completion_unix_tstamp: None,
             chunks_number: None,
             total_bytes: None,
             start_index_timestamp: None,
@@ -93,8 +94,16 @@ impl TopicRecord {
             .ok()
     }
 
+    pub fn user_metadata(&self) -> Option<marshal::JsonMetadataBlob> {
+        self.user_metadata.clone().map(Into::into)
+    }
+
     pub fn creation_timestamp(&self) -> types::Timestamp {
         types::Timestamp::from(self.creation_unix_tstamp)
+    }
+
+    pub fn completion_timestamp(&self) -> Option<types::Timestamp> {
+        self.completion_unix_tstamp.map(|ts| ts.into())
     }
 
     /// Either all the fields are set, or none.

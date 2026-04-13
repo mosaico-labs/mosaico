@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 const NUMERIC_MIN_PLACEHOLDER: f64 = f64::MAX;
 const NUMERIC_MAX_PLACEHOLDER: f64 = f64::MIN;
@@ -6,13 +6,13 @@ const NUMERIC_MAX_PLACEHOLDER: f64 = f64::MIN;
 /// Store [`Stats`] for each field of a given ontology model
 #[derive(Debug)]
 pub struct OntologyModelStats {
-    pub cols: HashMap<String, Stats>,
+    pub cols: BTreeMap<String, Stats>,
 }
 
 impl OntologyModelStats {
     pub fn empty() -> Self {
         Self {
-            cols: HashMap::new(),
+            cols: BTreeMap::new(),
         }
     }
 }

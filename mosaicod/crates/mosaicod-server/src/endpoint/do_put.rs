@@ -100,7 +100,7 @@ async fn do_put_topic_data(
         Err(core::Error::unauthorized())?
     }
 
-    let mdata = facade::topic::manifest(&ctx, &topic_handle).await?;
+    let mdata = facade::topic::metadata(&ctx, &topic_handle).await?;
 
     // Setup the callback that will be used to create the database record for the data catalog
     // and prepare variables that will be moved in the closure

@@ -84,7 +84,7 @@ pub async fn try_create(
 pub async fn finalize(context: &Context, handle: &Handle) -> Result<(), Error> {
     let mut tx = context.db.transaction().await?;
 
-    let topics = topic_list(context, handle).await?;
+    let topics = topic_list(handle, &mut tx).await?;
 
     // If the session does not contain any topic, return an error and leave the session unlocked.
     if topics.is_empty() {
@@ -92,16 +92,14 @@ pub async fn finalize(context: &Context, handle: &Handle) -> Result<(), Error> {
     }
 
     // If not all topics are locked, return an error and leave the session unlocked.
-    let all_topics_locked = futures::future::join_all(
-        topics
-            .iter()
-            .map(async |topic_handle| topic::manifest(context, topic_handle).await),
-    )
-    .await
-    .into_iter()
-    .collect::<Result<Vec<_>, _>>()?
-    .into_iter()
-    .all(|v| v.properties.locked);
+    let mut all_topics_locked = true;
+
+    for handle in &topics {
+        if !topic::archived(context, handle).await? {
+            all_topics_locked = false;
+            break;
+        }
+    }
 
     if !all_topics_locked {
         return Err(Error::TopicUnlocked);
@@ -139,7 +137,7 @@ pub async fn delete(
     let mut error_report = types::ErrorReport::new(error_report_msg);
 
     // Deletes topic data
-    let topics = topic_list(context, &handle).await?;
+    let topics = topic_list(&handle, &mut tx).await?;
     for topic_handle in topics {
         let topic_locator_str = topic_handle.locator().to_string();
 
@@ -193,10 +191,11 @@ pub async fn delete(
 }
 
 /// Returns the topic list associated with this session.
-pub async fn topic_list(context: &Context, handle: &Handle) -> Result<Vec<topic::Handle>, Error> {
-    let mut cx = context.db.connection();
-
-    let topics = db::session_find_all_topics(&mut cx, handle.uuid()).await?;
+async fn topic_list(
+    handle: &Handle,
+    exe: &mut impl db::AsExec,
+) -> Result<Vec<topic::Handle>, Error> {
+    let topics = db::session_find_all_topics(exe, handle.uuid()).await?;
 
     Ok(topics
         .into_iter()
@@ -205,11 +204,11 @@ pub async fn topic_list(context: &Context, handle: &Handle) -> Result<Vec<topic:
 }
 
 pub async fn metadata(context: &Context, handle: &Handle) -> Result<types::SessionMetadata, Error> {
-    let mut cx = context.db.connection();
+    let mut tx = context.db.transaction().await?;
 
-    let db_session = db::session_find_by_id(&mut cx, handle.id()).await?;
+    let db_session = db::session_find_by_id(&mut tx, handle.id()).await?;
 
-    let topics = topic_list(context, handle)
+    let topics = topic_list(handle, &mut tx)
         .await?
         .into_iter()
         .map(|handle| handle.locator().clone())

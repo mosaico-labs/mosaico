@@ -50,21 +50,26 @@
       },
       {
         "ordinal": 9,
-        "name": "chunks_number",
+        "name": "completion_unix_tstamp",
         "type_info": "Int8"
       },
       {
         "ordinal": 10,
-        "name": "total_bytes",
+        "name": "chunks_number",
         "type_info": "Int8"
       },
       {
         "ordinal": 11,
-        "name": "start_index_timestamp",
+        "name": "total_bytes",
         "type_info": "Int8"
       },
       {
         "ordinal": 12,
+        "name": "start_index_timestamp",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 13,
         "name": "end_index_timestamp",
         "type_info": "Int8"
       }
@@ -82,6 +87,7 @@
       false,
       false,
       false,
+      true,
       true,
       true,
       true,

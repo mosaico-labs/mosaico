@@ -28,7 +28,7 @@ services:
 
   mosaicod:
     image: ghcr.io/mosaico-labs/mosaicod
-    container_name: mosaicod
+    container_name: mosaicod:latest # (5)!
     networks:
       - mosaico
     environment: # (4)!
@@ -59,12 +59,25 @@ networks:
 
 4. Additional environment variables can be set here to configure the daemon's behavior, see [environment variables](env.md) for a complete list of options.
 
+5. There are other available [predefined tags](#container-tags) that you can use.
+
 This configuration provisions both Postgres and mosaicod within a private Docker network. Only the daemon instance is exposed to the host.
 
 ???warning "Security"
     In this basic prototyping setup, TLS and API key management are disabled.
 
     The port mapping is restricted to `127.0.0.1`. If you need to access this from an external network, consider configuring `mosaicod` to [enable TLS](tls.md) or use a reverse proxy to handle SSL termination.
+
+### Container tags
+
+`mosaicod` images provides four types of container tags.
+
+| Tag Type | Description |
+| :--- | :--- |
+| **`latest`** | Always points to the most recent official stable release. This is the default choice for general use. |
+| **`x.y`** | Points to the latest minor release, like `0.3`. Use this to receive critical patches within a specific version series while avoiding major breaking changes. |
+| **`x.y.z`** | Points to a specific, immutable stable release, like `0.3.12`. This is the recommended choice for production environments requiring maximum consistency. |
+| **`nightly`** | Updated daily with the latest code from the main branch. Use this to test new features and bug fixes before they are officially released. |
 
 ## Building from Source
 

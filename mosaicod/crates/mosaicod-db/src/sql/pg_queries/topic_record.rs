@@ -16,6 +16,7 @@ fn cast_topic_data(row: PgRow) -> Result<schema::TopicRecord, Error> {
         serialization_format: row.try_get("serialization_format")?,
         user_metadata: row.try_get("user_metadata")?,
         creation_unix_tstamp: row.try_get("creation_unix_tstamp")?,
+        completion_unix_tstamp: row.try_get("completion_unix_tstamp")?,
         chunks_number: row.try_get("chunks_number")?,
         total_bytes: row.try_get("total_bytes")?,
         start_index_timestamp: row.try_get("start_index_timestamp")?,
@@ -71,7 +72,23 @@ pub async fn topic_find_by_uuid(
     Ok(res)
 }
 
-/// Return all sequences
+/// Find a topic given its id.
+pub async fn topic_find_by_id(
+    exe: &mut impl AsExec,
+    topic_id: i32,
+) -> Result<schema::TopicRecord, Error> {
+    trace!("searching topic by id `{}`", topic_id);
+    let res = sqlx::query_as!(
+        schema::TopicRecord,
+        "SELECT * FROM topic_t WHERE topic_id=$1",
+        topic_id
+    )
+    .fetch_one(exe.as_exec())
+    .await?;
+    Ok(res)
+}
+
+/// Return all topics
 pub async fn topic_find_all(exe: &mut impl AsExec) -> Result<Vec<schema::TopicRecord>, Error> {
     trace!("retrieving all topics");
     Ok(
@@ -233,6 +250,30 @@ pub async fn topic_update_system_info(
     Ok(res)
 }
 
+pub async fn topic_update_completion_tstamp(
+    exe: &mut impl AsExec,
+    topic_id: i32,
+    completion_ts: i64,
+) -> Result<(), Error> {
+    trace!(
+        "updating completion timestamp to `{}` for topic `{}`",
+        completion_ts, topic_id
+    );
+    sqlx::query!(
+        r#"
+            UPDATE topic_t
+            SET completion_unix_tstamp = $1
+            WHERE topic_id = $2
+    "#,
+        completion_ts,
+        topic_id,
+    )
+    .execute(exe.as_exec())
+    .await?;
+
+    Ok(())
+}
+
 pub async fn topic_from_query_filter(
     exe: &mut impl AsExec,
     filter_seq: Option<query::SequenceFilter>,
@@ -332,4 +373,16 @@ pub async fn topic_from_query_filter(
     let r = r.map(cast_topic_data).fetch_all(exe.as_exec()).await?;
     trace!("query returned {} results", r.len());
     r.into_iter().collect()
+}
+
+/// Returns true if the topic is archived (upload completed).
+pub async fn topic_archived(exe: &mut impl AsExec, topic_id: i32) -> Result<bool, Error> {
+    trace!("topic (id=`{}`) locked? ", topic_id);
+
+    Ok(sqlx::query_scalar!(
+        r#"SELECT (completion_unix_tstamp IS NOT NULL) AS "is_missing!" FROM topic_t WHERE topic_id=$1"#,
+        topic_id
+    )
+    .fetch_one(exe.as_exec())
+    .await?)
 }

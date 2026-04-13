@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE topic_t\n            SET completion_unix_tstamp = $1\n            WHERE topic_id = $2\n    ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "baaa9744253c84f2828a424cb9bfd4de44b9d69029e6a0e645866f38f6f663c4"
+}

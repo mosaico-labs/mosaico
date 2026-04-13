@@ -27,7 +27,8 @@ CREATE TABLE topic_t(
   serialization_format  TEXT NOT NULL,
   ontology_tag          TEXT NOT NULL,
 
-  creation_unix_tstamp BIGINT NOT NULL,
+  creation_unix_tstamp   BIGINT NOT NULL,
+  completion_unix_tstamp BIGINT,
 
   -- These fields store unsigned int 64bit numbers. Casting is required before usage.
   chunks_number     BIGINT,

@@ -1,6 +1,7 @@
 use super::{Context, Error, session};
 use arrow::datatypes::SchemaRef;
 use log::trace;
+use mosaicod_core::types::TopicMetadataProperties;
 use mosaicod_core::{
     params,
     types::{self, Resource},
@@ -12,8 +13,8 @@ use mosaicod_rw::{self as rw, ToProperties};
 use mosaicod_store as store;
 use std::sync::Arc;
 
-/// Define topic manifest type containing JSON user metadata
-type TopicManifest = types::TopicManifest<marshal::JsonMetadataBlob>;
+/// Define topic metadata type containing JSON user metadata
+type TopicMetadata = types::TopicMetadata<marshal::JsonMetadataBlob>;
 type TopicOntologyMetadata = types::TopicOntologyMetadata<marshal::JsonMetadataBlob>;
 
 /// Handle containing topic identifiers.
@@ -135,8 +136,8 @@ pub async fn try_create(
         },
     };
 
-    let manifest = types::TopicManifest::new(
-        types::TopicProperties::new_with_created_at(
+    let metadata = types::TopicMetadata::new(
+        types::TopicMetadataProperties::new_with_created_at(
             locator,
             session_handle.uuid().clone(),
             record.creation_timestamp(),
@@ -145,62 +146,91 @@ pub async fn try_create(
     );
 
     // This operation is done at the end to avoid deleting or reverting changes
-    // to manifest file on store if some error causes a rollback on the database
-    manifest_write_to_store(context, &topic_handle, manifest).await?;
+    // to metadata file on store if some error causes a rollback on the database
+    metadata_write_to_store(context, &topic_handle, metadata).await?;
 
     tx.commit().await?;
 
     Ok(topic_handle)
 }
 
+/// Private method to tell if the topic has finished uploading
+///
+/// Note: please use this function instead of [`archived`] if you need to call it internally
+/// (from another function in this module that already has an active transaction)
+async fn impl_archived(handle: &Handle, exe: &mut impl db::AsExec) -> Result<bool, Error> {
+    Ok(db::topic_archived(exe, handle.id()).await?)
+}
+
+/// Tells if the topic has finished uploading
+///
+/// Note: if you need to call this method internally (from another function in this module that
+/// already has an active transaction), please use [`impl_archived`]
+pub async fn archived(context: &Context, handle: &Handle) -> Result<bool, Error> {
+    let mut cx = context.db.connection();
+    impl_archived(handle, &mut cx).await
+}
+
 /// Finalize the write procedure of the topic. The topic is locked and additional data are
-/// consolidated (e.g. manifest, timestamp bounds). This function is intended to be called by
-/// [`TopicWriterGuard`] to finalize the writing process.
+/// consolidated (e.g. metadata, timestamp bounds). This function is intended to be called by
+/// [`HandleWriter`] to finalize the writing process.
 async fn finalize(context: &Context, handle: &Handle, format: types::Format) -> Result<(), Error> {
-    let info = compute_data_info(context, handle, format).await?;
+    let mut tx = context.db.transaction().await?;
+
+    let info = compute_data_info(context, handle, &mut tx, format).await?;
     data_info_write_to_db(context, handle, info).await?;
 
-    // Update manifest
-    let mut manifest = manifest(context, handle).await?;
-
     // Check if topic is already locked.
-    if manifest.properties.locked {
+    if impl_archived(handle, &mut tx).await? {
         return Err(Error::TopicLocked);
     }
 
-    manifest.properties.completed_at = Some(types::Timestamp::now());
-    manifest.properties.locked = true;
-    manifest_write_to_store(context, handle, manifest).await?;
+    // Update completion timestamp in DB and Store
+    db::topic_update_completion_tstamp(&mut tx, handle.id(), types::Timestamp::now().as_i64())
+        .await?;
+
+    // This operation is done at the end to avoid deleting or reverting changes
+    // to metadata file on store if some error causes a rollback on the database
+    let mut metadata = metadata(context, handle).await?;
+    metadata.properties.completed_at = Some(types::Timestamp::now());
+    metadata_write_to_store(context, handle, metadata).await?;
+
+    tx.commit().await?;
 
     Ok(())
 }
 
-/// Reads [`TopicManifest`] associated to the given topic [`Handle`].
-///
-/// # Errors
-///
-/// Returns [`HandleError::ReadError`] if reading or deserializing fails.
-/// Returns an error if manifest file does not exist.
-pub async fn manifest(context: &Context, handle: &Handle) -> Result<TopicManifest, Error> {
-    let path = handle.locator.path_manifest();
+/// Creates [`TopicMetadata`] associated to the given topic [`Handle`].
+pub async fn metadata(context: &Context, handle: &Handle) -> Result<TopicMetadata, Error> {
+    let mut cx = context.db.connection();
 
-    if !context.store.exists(&path).await? {
-        return Err(Error::NotFound(format!(
-            "missing manifest file for topic {}",
-            handle.locator
-        )));
-    }
+    let db_topic = db::topic_find_by_id(&mut cx, handle.id()).await?;
+    let session_uuid = db::session_find_by_id(&mut cx, db_topic.session_id)
+        .await?
+        .uuid();
 
-    let bytes = context.store.read_bytes(path).await?;
-
-    let data: marshal::JsonTopicManifest = bytes.try_into()?;
-
-    Ok(data.try_into()?)
+    Ok(TopicMetadata {
+        properties: TopicMetadataProperties {
+            created_at: db_topic.creation_timestamp(),
+            completed_at: db_topic.completion_timestamp(),
+            session_uuid,
+            resource_locator: handle.locator.clone(),
+        },
+        ontology_metadata: TopicOntologyMetadata {
+            properties: types::TopicOntologyProperties {
+                serialization_format: db_topic.serialization_format().ok_or_else(|| {
+                    Error::MissingMetadataField("serialization_format".to_owned())
+                })?,
+                ontology_tag: db_topic.ontology_tag.clone(),
+            },
+            user_metadata: db_topic.user_metadata(),
+        },
+    })
 }
 
 /// Returns the topic arrow schema.
 /// The serialization format is required to extract the schema.
-/// It can be retrieved using [`Topic::manifest`] function.
+/// It can be retrieved using [`metadata`] function.
 ///
 /// If no arrow_schema is found a [`Error::NotFound`] error is returned
 pub async fn arrow_schema(
@@ -224,20 +254,20 @@ pub async fn arrow_schema(
     Ok(schema)
 }
 
-/// Serializes and writes [`TopicManifest`] to the object store.
+/// Serializes and writes [`TopicMetadata`] to the object store.
 ///
 /// # Errors
 ///
 /// Returns [`Error::NotFound`] or [`Error::WriteError`] if serialization or writing fails.
-async fn manifest_write_to_store(
+async fn metadata_write_to_store(
     context: &Context,
     handle: &Handle,
-    manifest: TopicManifest,
+    manifest: TopicMetadata,
 ) -> Result<(), Error> {
     trace!("writing manifest to store to `{}`", handle.locator);
-    let path = handle.locator.path_manifest();
+    let path = handle.locator.path_metadata();
 
-    let json_manifest = marshal::JsonTopicManifest::from(manifest);
+    let json_manifest = marshal::JsonTopicMetadata::from(manifest);
     let bytes: Vec<u8> = json_manifest.try_into()?;
 
     context.store.write_bytes(&path, bytes).await?;
@@ -273,27 +303,6 @@ pub fn writer(
         writer,
         context,
     }
-}
-
-/// Deletes this topic, if unlocked
-pub async fn delete_unlocked(context: &Context, handle: Handle) -> Result<(), Error> {
-    let mut tx = context.db.transaction().await?;
-
-    if manifest(context, &handle).await?.properties.locked {
-        return Err(Error::TopicLocked);
-    }
-
-    db::topic_delete(&mut tx, &handle.locator, types::allow_data_loss()).await?;
-
-    // Delete files
-    context
-        .store
-        .delete_recursive(&handle.locator.path())
-        .await?;
-
-    tx.commit().await?;
-
-    Ok(())
 }
 
 /// Permanently deletes a topic and all its data, be caution
@@ -378,6 +387,7 @@ pub async fn chunks_stats(
 async fn compute_data_info(
     context: &Context,
     handle: &Handle,
+    exe: &mut impl db::AsExec,
     format: types::Format,
 ) -> Result<types::TopicDataInfo, Error> {
     let timeseries_res = context
@@ -393,8 +403,7 @@ async fn compute_data_info(
         Err(_) => types::TimestampRange::unbounded(),
     };
 
-    let mut cx = context.db.connection();
-    let record = db::topic_find_by_locator(&mut cx, &handle.locator).await?;
+    let record = db::topic_find_by_locator(exe, &handle.locator).await?;
 
     let format = record
         .serialization_format()
@@ -474,7 +483,7 @@ pub async fn compute_optimal_batch_size(
 /// A guard ensuring exclusive write access to [`Handle`].
 ///
 /// While this struct exists, the underlying topic is mutably borrowed, preventing
-/// any other operations (such as locking or concurrent reads) until [`TopicWriter::finalize`] is called.
+/// any other operations (such as locking or concurrent reads) until [`HandleWriter::finalize`] is called.
 pub struct HandleWriter {
     /// Anchors the exclusive borrow of the handle, strictly tying the writer's lifetime
     /// to the topic's availability.

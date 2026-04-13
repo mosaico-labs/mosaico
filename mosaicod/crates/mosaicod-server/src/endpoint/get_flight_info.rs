@@ -61,7 +61,7 @@ pub async fn get_flight_info(ctx: &facade::Context, desc: FlightDescriptor) -> R
                             };
 
                             let topic_app_mdata = build_topic_app_metadata(
-                                facade::topic::manifest(ctx, &topic_handle)
+                                facade::topic::metadata(ctx, &topic_handle)
                                     .await?
                                     .properties,
                                 &topic_handle,
@@ -109,7 +109,7 @@ pub async fn get_flight_info(ctx: &facade::Context, desc: FlightDescriptor) -> R
                     let topic_handle =
                         facade::topic::Handle::try_from_locator(ctx, topic_locator).await?;
 
-                    let manifest = facade::topic::manifest(ctx, &topic_handle).await?;
+                    let metadata = facade::topic::metadata(ctx, &topic_handle).await?;
 
                     let ticket = types::flight::TicketTopic {
                         locator: topic_handle.locator().clone().into(),
@@ -123,7 +123,7 @@ pub async fn get_flight_info(ctx: &facade::Context, desc: FlightDescriptor) -> R
                         })
                         .with_location(topic_handle.locator().url()?)
                         .with_app_metadata(
-                            build_topic_app_metadata(manifest.properties, &topic_handle, ctx).await,
+                            build_topic_app_metadata(metadata.properties, &topic_handle, ctx).await,
                         );
 
                     trace!(
@@ -133,7 +133,7 @@ pub async fn get_flight_info(ctx: &facade::Context, desc: FlightDescriptor) -> R
                     );
 
                     let schema = topic_arrow_schema_with_metadata(
-                        manifest.ontology_metadata,
+                        metadata.ontology_metadata,
                         &topic_handle,
                         ctx,
                     )
@@ -156,7 +156,7 @@ pub async fn get_flight_info(ctx: &facade::Context, desc: FlightDescriptor) -> R
 
 /// Build topic app_metadata.
 async fn build_topic_app_metadata(
-    metadata_props: types::TopicProperties,
+    metadata_props: types::TopicMetadataProperties,
     topic_handle: &facade::topic::Handle,
     context: &Context,
 ) -> marshal::flight::TopicAppMetadata {
