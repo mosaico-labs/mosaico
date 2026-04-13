@@ -1,6 +1,6 @@
 //! Topic-related actions.
 
-use crate::error::{self, Result};
+use crate::error::{Error, Result};
 use log::{info, trace, warn};
 use mosaicod_core::types::{self, MetadataBlob};
 use mosaicod_facade as facade;
@@ -22,7 +22,7 @@ pub async fn create(
 
     let received_uuid: types::Uuid = session_uuid
         .parse()
-        .map_err(|_| error::invalid_uuid(&session_uuid))?;
+        .map_err(|_| Error::invalid_uuid(&session_uuid))?;
 
     let ontology_metadata = types::TopicOntologyMetadata::new(
         types::TopicOntologyProperties {
@@ -79,7 +79,7 @@ pub async fn notification_create(
 
     let notification_type = notification_type
         .parse()
-        .map_err(|_| error::invalid_notification_type(&notification_type))?;
+        .map_err(|_| Error::invalid_notification_type(&notification_type))?;
 
     facade::topic::notify(ctx, &topic_handle, notification_type, msg).await?;
 

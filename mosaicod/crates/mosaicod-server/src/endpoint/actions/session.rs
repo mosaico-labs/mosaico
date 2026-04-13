@@ -1,5 +1,5 @@
 //! Session related actions.
-use crate::error::{self, Result};
+use crate::error::{Error, Result};
 use log::{info, trace, warn};
 use mosaicod_core::types;
 use mosaicod_facade as facade;
@@ -25,7 +25,7 @@ pub async fn finalize(ctx: &facade::Context, session_uuid: String) -> Result<Act
 
     let uuid: types::Uuid = session_uuid
         .parse()
-        .map_err(|_| error::invalid_uuid(&session_uuid))?;
+        .map_err(|_| Error::invalid_uuid(&session_uuid))?;
 
     let session_handle = session::Handle::try_from_uuid(ctx, &uuid).await?;
 
@@ -41,7 +41,7 @@ pub async fn delete(ctx: &facade::Context, session_uuid: String) -> Result<Actio
 
     let uuid: types::Uuid = session_uuid
         .parse()
-        .map_err(|_| error::invalid_uuid(&session_uuid))?;
+        .map_err(|_| Error::invalid_uuid(&session_uuid))?;
 
     let session_handle = session::Handle::try_from_uuid(ctx, &uuid).await?;
 

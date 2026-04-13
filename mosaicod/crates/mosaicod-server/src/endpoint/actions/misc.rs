@@ -1,4 +1,4 @@
-use crate::error::{self, Result};
+use crate::error::{Error, Result};
 use log::info;
 use mosaicod_core::params;
 use mosaicod_marshal::ActionResponse;
@@ -8,7 +8,7 @@ use semver;
 pub fn version() -> Result<ActionResponse> {
     info!("requested server version");
     Ok(ActionResponse::Version(params::version().parse().map_err(
-        |e: semver::Error| error::not_a_semver(e.to_string()),
+        |e: semver::Error| Error::not_a_semver(e.to_string()),
     )?))
 }
 

@@ -1,4 +1,4 @@
-use crate::error::{self, Result};
+use crate::error::{Error, Result};
 use arrow::datatypes::SchemaRef;
 use arrow_flight::decode::{DecodedFlightData, DecodedPayload, FlightDataDecoder};
 use arrow_flight::flight_descriptor::DescriptorType;
@@ -94,7 +94,7 @@ async fn do_put_topic_data(
     let topic_uuid = topic_handle.uuid().clone();
     let received_uuid: types::Uuid = uuid_str
         .parse()
-        .map_err(|_| error::invalid_uuid(uuid_str))?;
+        .map_err(|_| Error::invalid_uuid(uuid_str))?;
 
     if received_uuid != topic_uuid {
         Err(core::Error::unauthorized())?
@@ -136,7 +136,7 @@ async fn do_put_topic_data(
                     .concurrent_writes_semaphore
                     .acquire()
                     .await
-                    .map_err(|_| error::semaphore_closed())?;
+                    .map_err(|_| Error::semaphore_closed())?;
                 let serialized_chunk = writer.write(batch).await?;
                 drop(permit);
 

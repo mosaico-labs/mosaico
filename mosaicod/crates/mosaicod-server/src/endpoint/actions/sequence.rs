@@ -1,5 +1,5 @@
 //! Sequence-related actions
-use crate::error::{self, Result};
+use crate::error::{Error, Result};
 use log::{info, trace, warn};
 use mosaicod_core::types::{self, MetadataBlob};
 use mosaicod_facade as facade;
@@ -62,7 +62,7 @@ pub async fn notification_create(
 
     let ntype: types::NotificationType = notification_type
         .parse()
-        .map_err(|_| error::invalid_notification_type(&notification_type))?;
+        .map_err(|_| Error::invalid_notification_type(&notification_type))?;
 
     facade::sequence::notify(ctx, &handle, ntype, msg).await?;
 

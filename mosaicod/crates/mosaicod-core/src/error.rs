@@ -31,22 +31,16 @@ pub trait PublicError: std::fmt::Debug {
     /// Returns an optional URL pointing to detailed documentation about the error.
     fn documentation_link(&self) -> Option<url::Url> {
         let err = self.error();
-        match err {
-            Error::Internal => Some("https://c.xkcd.com/random/comic/".parse().unwrap()),
+        match err.kind() {
+            ErrorKind::Internal => Some("https://c.xkcd.com/random/comic/".parse().unwrap()),
             _ => None,
         }
-    }
-
-    /// Generates the human-readable string representation of the inner error message.
-    fn error_string(&self) -> String {
-        let code = self.error();
-        format!("{}", code)
     }
 }
 
 impl std::fmt::Display for dyn PublicError + Send + Sync {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut client_string = self.error_string();
+        let mut client_string = self.error().to_string();
 
         // Ensure that the line ends with a `.`
         if !client_string.ends_with('.') {
@@ -90,7 +84,7 @@ where
 /// [`Error::to_public_error`] method, which allows for additional
 /// information to be provided about the error such as a documentation link.
 #[derive(thiserror::Error, Debug, Clone)]
-pub enum Error {
+pub enum ErrorKind {
     #[error("Not found")]
     NotFound,
     #[error("Already exists")]
@@ -101,12 +95,14 @@ pub enum Error {
     Unauthenticated,
     #[error("Unimplemented")]
     Unimplemented,
-    #[error("Unable to fullfill request, session `{0}` is locked.")]
+    #[error("Session `{0}` is locked.")]
     LockedSession(String),
-    #[error("Unable to fullfill request, topic `{0}` is locked.")]
+    #[error("Topic `{0}` is locked.")]
     LockedTopic(String),
-    #[error("Unable to fullfill request, topic `{0}` is unlocked.")]
+    #[error("Topic `{0}` is unlocked.")]
     UnlockedTopic(String),
+    #[error("Session `{0} is empty.`")]
+    EmptySession(String),
     #[error("Locator contains unsupported characters")]
     BadLocator,
     #[error("Bad UUID: are you sure it's a valid UUID?")]
@@ -139,101 +135,118 @@ pub enum Error {
     Internal,
 }
 
+#[derive(Debug, Clone)]
+pub struct Error(ErrorKind);
+
 impl Error {
+    pub fn kind(&self) -> &ErrorKind {
+        &self.0
+    }
+
     pub fn not_found() -> Self {
-        Self::NotFound
+        Self(ErrorKind::NotFound)
     }
 
     pub fn already_exists() -> Self {
-        Self::AlreadyExists
+        Self(ErrorKind::AlreadyExists)
     }
 
     pub fn locked_session(locator: String) -> Self {
-        Self::LockedSession(locator)
+        Self(ErrorKind::LockedSession(locator))
     }
 
     pub fn locked_topic(locator: String) -> Self {
-        Self::LockedTopic(locator)
+        Self(ErrorKind::LockedTopic(locator))
     }
 
     pub fn unlocked_topic(locator: String) -> Self {
-        Self::UnlockedTopic(locator)
+        Self(ErrorKind::UnlockedTopic(locator))
+    }
+
+    pub fn empty_session(locator: String) -> Self {
+        Self(ErrorKind::EmptySession(locator))
     }
 
     pub fn stream_error(err: impl std::error::Error) -> Self {
-        Self::StreamError(err.to_string())
+        Self(ErrorKind::StreamError(err.to_string()))
     }
 
     pub fn unauthorized() -> Self {
-        Self::Unauthorized
+        Self(ErrorKind::Unauthorized)
     }
 
     pub fn unauthenticated() -> Self {
-        Self::Unauthenticated
+        Self(ErrorKind::Unauthenticated)
     }
 
     pub fn unimplemented() -> Self {
-        Self::Unimplemented
+        Self(ErrorKind::Unimplemented)
     }
 
     pub fn bad_locator() -> Self {
-        Self::BadLocator
+        Self(ErrorKind::BadLocator)
     }
 
     pub fn bad_uuid() -> Self {
-        Self::BadUuid
+        Self(ErrorKind::BadUuid)
     }
 
     pub fn bad_request(msg: String) -> Self {
-        Self::BadRequest(msg)
+        Self(ErrorKind::BadRequest(msg))
     }
 
     pub fn bad_header(msg: String) -> Self {
-        Self::BadHeader(msg)
+        Self(ErrorKind::BadHeader(msg))
     }
 
     pub fn missing_api_key() -> Self {
-        Self::MissingApiKey
+        Self(ErrorKind::MissingApiKey)
     }
 
     pub fn missing_schema() -> Self {
-        Self::MissingSchema
+        Self(ErrorKind::MissingSchema)
     }
 
     pub fn missing_header() -> Self {
-        Self::MissingHeader
+        Self(ErrorKind::MissingHeader)
     }
 
     pub fn missing_descriptor() -> Self {
-        Self::MissingDescriptor
+        Self(ErrorKind::MissingDescriptor)
     }
 
     pub fn unsupported_descriptor() -> Self {
-        Self::UnsupportedDescriptor
+        Self(ErrorKind::UnsupportedDescriptor)
     }
 
     pub fn unsupported_stream_message() -> Self {
-        Self::UnsupportedStreamMessage
+        Self(ErrorKind::UnsupportedStreamMessage)
     }
 
     pub fn unsupported_locator() -> Self {
-        Self::UnsupportedLocator
+        Self(ErrorKind::UnsupportedLocator)
     }
 
     pub fn unsupported_operation() -> Self {
-        Self::UnsupportedOperation
+        Self(ErrorKind::UnsupportedOperation)
     }
 
     pub fn unsupported_schema(msg: String) -> Self {
-        Self::UnsupportedSchema(msg)
+        Self(ErrorKind::UnsupportedSchema(msg))
     }
 
     pub fn internal() -> Self {
-        Self::Internal
+        Self(ErrorKind::Internal)
     }
 
     pub fn to_public_error(self) -> BoxPublicError {
         self.into()
+    }
+}
+
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{err}", err = self.0)
     }
 }
 
