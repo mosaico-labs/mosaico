@@ -1,4 +1,4 @@
-use super::{Context, Error, session, topic};
+use super::{Context, Error, session};
 use arrow::datatypes::SchemaRef;
 use log::trace;
 use mosaicod_core::types::TopicMetadataProperties;
@@ -291,27 +291,6 @@ pub fn writer(
         writer,
         context,
     }
-}
-
-/// Deletes this topic, if unlocked
-pub async fn delete_unlocked(context: &Context, handle: Handle) -> Result<(), Error> {
-    let mut tx = context.db.transaction().await?;
-
-    if topic::archived(context, &handle).await? {
-        return Err(Error::TopicLocked);
-    }
-
-    db::topic_delete(&mut tx, &handle.locator, types::allow_data_loss()).await?;
-
-    // Delete files
-    context
-        .store
-        .delete_recursive(&handle.locator.path())
-        .await?;
-
-    tx.commit().await?;
-
-    Ok(())
 }
 
 /// Permanently deletes a topic and all its data, be caution

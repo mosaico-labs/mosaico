@@ -47,7 +47,7 @@ pub async fn create(
     ))
 }
 
-/// Deletes an unlocked topic.
+/// Deletes a topic (it doesn't matter if it's still open or archived).
 pub async fn delete(ctx: &facade::Context, locator: String) -> Result<ActionResponse, ServerError> {
     warn!("requested deletion of resource `{}`", locator);
 
@@ -55,11 +55,7 @@ pub async fn delete(ctx: &facade::Context, locator: String) -> Result<ActionResp
 
     let topic_handle = facade::topic::Handle::try_from_locator(ctx, topic_locator.clone()).await?;
 
-    if facade::topic::archived(ctx, &topic_handle).await? {
-        return Err(ServerError::TopicLocked);
-    }
-
-    facade::topic::delete_unlocked(ctx, topic_handle).await?;
+    facade::topic::delete(ctx, topic_handle, types::allow_data_loss()).await?;
     warn!("resource {} deleted", topic_locator);
 
     Ok(ActionResponse::Empty)
