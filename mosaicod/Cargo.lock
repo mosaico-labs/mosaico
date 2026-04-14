@@ -2644,7 +2644,6 @@ dependencies = [
  "mosaicod-store",
  "serde_json",
  "sqlx",
- "thiserror",
  "tokio",
 ]
 

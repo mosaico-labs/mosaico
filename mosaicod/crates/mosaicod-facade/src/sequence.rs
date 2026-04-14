@@ -1,10 +1,12 @@
 //! This module provides the high-level API for managing a persistent **Sequence**
 //! entity within the application.
 
-use super::{Context, Error, session, topic};
+use super::{Context, session, topic};
 use log::trace;
-use mosaicod_core::types;
-use mosaicod_core::types::Resource;
+use mosaicod_core::{
+    error::PublicResult as Result,
+    types::{self, Resource},
+};
 use mosaicod_db as db;
 use mosaicod_marshal as marshal;
 
@@ -26,7 +28,7 @@ impl Handle {
     pub async fn try_from_locator(
         context: &Context,
         locator: types::SequenceResourceLocator,
-    ) -> Result<Handle, Error> {
+    ) -> Result<Handle> {
         let mut cx = context.db.connection();
 
         let db_sequence = db::sequence_find_by_locator(&mut cx, &locator).await?;
@@ -39,7 +41,7 @@ impl Handle {
 
     /// Try to obtain a handle from a sequence UUID.
     /// Returns an error if the sequence does not exist.
-    pub async fn try_from_uuid(context: &Context, uuid: &types::Uuid) -> Result<Handle, Error> {
+    pub async fn try_from_uuid(context: &Context, uuid: &types::Uuid) -> Result<Handle> {
         let mut cx = context.db.connection();
 
         let db_sequence = db::sequence_find_by_uuid(&mut cx, uuid).await?;
@@ -74,7 +76,7 @@ pub async fn try_create(
     context: &Context,
     locator: types::SequenceResourceLocator,
     metadata: Option<SequenceUserMetadata>,
-) -> Result<Handle, Error> {
+) -> Result<Handle> {
     let mut tx = context.db.transaction().await?;
 
     let mut record = db::SequenceRecord::new(locator.locator());
@@ -101,7 +103,7 @@ pub async fn try_create(
 ///
 /// Returns a list of all available sequences as [`Handle`] objects.
 /// This is primarily used for catalog discovery operations.
-pub async fn all(context: &Context) -> Result<Vec<Handle>, Error> {
+pub async fn all(context: &Context) -> Result<Vec<Handle>> {
     let mut cx = context.db.connection();
     let records = db::sequence_find_all(&mut cx).await?;
 
@@ -118,7 +120,7 @@ async fn metadata_write_to_store(
     context: &Context,
     locator: &types::SequenceResourceLocator,
     metadata: SequenceUserMetadata,
-) -> Result<(), Error> {
+) -> Result<()> {
     let path = locator.path_metadata();
 
     trace!("converting sequence metadata to bytes");
@@ -142,7 +144,7 @@ pub async fn notify(
     handle: &Handle,
     ntype: types::NotificationType,
     msg: String,
-) -> Result<types::Notification, Error> {
+) -> Result<types::Notification> {
     let mut tx = context.db.transaction().await?;
 
     // Note: no need to check the sequence existence for it is already done internally
@@ -159,7 +161,7 @@ pub async fn notify(
 pub async fn notification_list(
     context: &Context,
     handle: &Handle,
-) -> Result<Vec<types::Notification>, Error> {
+) -> Result<Vec<types::Notification>> {
     let mut trans = context.db.transaction().await?;
     let notifications =
         db::sequence_notifications_find_by_sequence_id(&mut trans, handle.id()).await?;
@@ -171,7 +173,7 @@ pub async fn notification_list(
 }
 
 /// Deletes all the notifications associated with the sequence
-pub async fn notification_purge(context: &Context, handle: &Handle) -> Result<(), Error> {
+pub async fn notification_purge(context: &Context, handle: &Handle) -> Result<()> {
     let mut trans = context.db.transaction().await?;
 
     let notifications =
@@ -187,7 +189,7 @@ pub async fn notification_purge(context: &Context, handle: &Handle) -> Result<()
 }
 
 /// Creates [`SequenceMetadata`] associated to the given session [`Handle`].
-pub async fn metadata(context: &Context, handle: &Handle) -> Result<SequenceMetadata, Error> {
+pub async fn metadata(context: &Context, handle: &Handle) -> Result<SequenceMetadata> {
     let mut cx = context.db.connection();
 
     let db_sequence = db::sequence_find_by_id(&mut cx, handle.id()).await?;
@@ -211,7 +213,7 @@ pub async fn metadata(context: &Context, handle: &Handle) -> Result<SequenceMeta
 }
 
 /// Returns the topic list for the given sequence
-pub async fn topic_list(context: &Context, handle: &Handle) -> Result<Vec<topic::Handle>, Error> {
+pub async fn topic_list(context: &Context, handle: &Handle) -> Result<Vec<topic::Handle>> {
     let mut cx = context.db.connection();
 
     Ok(db::sequence_find_all_topics(&mut cx, &handle.locator)
@@ -225,7 +227,7 @@ pub async fn topic_list(context: &Context, handle: &Handle) -> Result<Vec<topic:
 pub async fn session_list(
     handle: &Handle,
     exe: &mut impl db::AsExec,
-) -> Result<Vec<session::Handle>, Error> {
+) -> Result<Vec<session::Handle>> {
     Ok(db::sequence_find_all_sessions(exe, &handle.locator)
         .await?
         .into_iter()
@@ -241,7 +243,7 @@ pub async fn delete(
     context: &Context,
     handle: Handle,
     allow_data_loss: types::DataLossToken,
-) -> Result<(), Error> {
+) -> Result<()> {
     let mut tx = context.db.transaction().await?;
 
     // Retrieve sessions data and deletes it

@@ -1,5 +1,4 @@
-use super::Error;
-use mosaicod_core::types;
+use mosaicod_core::{error::PublicResult as Result, types};
 use mosaicod_db as db;
 
 pub struct Auth {
@@ -17,7 +16,7 @@ impl Auth {
     }
 
     /// Lookup an API key using its fingerprint
-    pub async fn try_from_fingerprint(fingerprint: &str, db: db::Database) -> Result<Self, Error> {
+    pub async fn try_from_fingerprint(fingerprint: &str, db: db::Database) -> Result<Self> {
         let mut cx = db.connection();
 
         let api_key = db::api_key_find_by_fingerprint(&mut cx, fingerprint).await?;
@@ -31,7 +30,7 @@ impl Auth {
         description: String,
         expires_at: Option<types::Timestamp>,
         db: db::Database,
-    ) -> Result<Self, Error> {
+    ) -> Result<Self> {
         let mut tx = db.transaction().await?;
 
         let api_key = types::ApiKey::new(permissions, description, expires_at);
@@ -43,14 +42,14 @@ impl Auth {
     }
 
     /// Returns a list of all API keys in the system
-    pub async fn all_keys(db: db::Database) -> Result<Vec<types::ApiKey>, Error> {
+    pub async fn all_keys(db: db::Database) -> Result<Vec<types::ApiKey>> {
         let mut cx = db.connection();
 
         Ok(db::api_key_find_all(&mut cx).await?)
     }
 
     /// Deletes the current API key
-    pub async fn delete(self) -> Result<(), Error> {
+    pub async fn delete(self) -> Result<()> {
         let mut tx = self.db.transaction().await?;
 
         db::api_key_delete(&mut tx, self.api_key.key.fingerprint()).await?;

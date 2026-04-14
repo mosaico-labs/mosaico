@@ -17,8 +17,7 @@ pub async fn create(
 ) -> Result<ActionResponse> {
     info!("requested resource {} creation", name);
 
-    let user_mdata =
-        marshal::JsonMetadataBlob::try_from_str(user_metadata_str).map_err(facade::Error::from)?;
+    let user_mdata = marshal::JsonMetadataBlob::try_from_str(user_metadata_str)?;
 
     let received_uuid: types::Uuid = session_uuid
         .parse()

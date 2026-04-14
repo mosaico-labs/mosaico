@@ -38,10 +38,8 @@ pub async fn do_get(ctx: &facade::Context, ticket: Ticket) -> Result<FlightDataE
 
     // Append JSON metadata to original data schema
     let metadata = marshal::JsonTopicMetadata::from(metadata);
-    let flatten_mdata = metadata
-        .ontology_metadata
-        .to_flat_hashmap()
-        .map_err(facade::Error::from)?;
+    let flatten_mdata = metadata.ontology_metadata.to_flat_hashmap()?;
+
     let schema = query_result.schema_with_metadata(flatten_mdata);
     trace!("{:?}", schema);
 

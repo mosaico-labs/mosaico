@@ -48,9 +48,7 @@ pub async fn get_flight_info(ctx: &facade::Context, desc: FlightDescriptor) -> R
                         let user_metadata = marshal::JsonSequenceMetadata {
                             user_metadata: user_metadata.clone(),
                         };
-                        let flatten_user_metadata = user_metadata
-                            .to_flat_hashmap()
-                            .map_err(facade::Error::from)?;
+                        let flatten_user_metadata = user_metadata.to_flat_hashmap()?;
 
                         schema = schema.with_metadata(flatten_user_metadata);
                     }
@@ -191,15 +189,18 @@ async fn topic_arrow_schema_with_metadata(
     .await
     {
         Ok(s) => s,
-        Err(facade::Error::NotFound(_)) => mosaicod_ext::arrow::empty_schema_ref(),
-        Err(e) => Err(e)?,
+        Err(e) => {
+            if matches!(e.error().kind(), core::error::ErrorKind::NotFound) {
+                mosaicod_ext::arrow::empty_schema_ref()
+            } else {
+                Err(e)?
+            }
+        }
     };
 
     // Collect schema metadata
     let json_ontology_metadata = marshal::JsonTopicOntologyMetadata::from(ontology_metadata);
-    let flatten_ontology_metadata = json_ontology_metadata
-        .to_flat_hashmap()
-        .map_err(facade::Error::from)?;
+    let flatten_ontology_metadata = json_ontology_metadata.to_flat_hashmap()?;
 
     Ok(Schema::new_with_metadata(
         schema.fields().clone(),

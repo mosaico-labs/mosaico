@@ -15,8 +15,7 @@ pub async fn create(
 
     let locator = types::SequenceResourceLocator::from(locator);
 
-    let user_mdata =
-        marshal::JsonMetadataBlob::try_from_str(user_metadata_str).map_err(facade::Error::from)?;
+    let user_mdata = marshal::JsonMetadataBlob::try_from_str(user_metadata_str)?;
 
     // No sequence record was found, let's write it
     let sequence_handle = facade::sequence::try_create(ctx, locator, Some(user_mdata))

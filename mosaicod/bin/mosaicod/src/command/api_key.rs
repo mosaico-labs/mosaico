@@ -1,7 +1,7 @@
 use crate::common;
 use clap::{ArgGroup, Subcommand};
 use colored::Colorize;
-use mosaicod_core::{params, types};
+use mosaicod_core::{self as core, error::PublicResult as Result, params, types};
 use mosaicod_db as db;
 use mosaicod_facade as facade;
 
@@ -49,7 +49,7 @@ pub enum ApiKey {
     List,
 }
 
-pub fn auth(auth: ApiKey) -> Result<(), common::Error> {
+pub fn auth(auth: ApiKey) -> Result<()> {
     common::load_env_variables()?;
 
     let rt = common::init_runtime()?;
@@ -57,7 +57,12 @@ pub fn auth(auth: ApiKey) -> Result<(), common::Error> {
     let db = common::init_db(
         &rt,
         &db::Config {
-            db_url: params::params().db_url.parse()?,
+            db_url: params::params().db_url.value.parse().map_err(|_| {
+                core::Error::invalid_configuration(
+                    params::params().db_url.env.clone(),
+                    "unable to parse".to_string(),
+                )
+            })?,
         },
     )?;
 
@@ -70,19 +75,27 @@ pub fn auth(auth: ApiKey) -> Result<(), common::Error> {
         } => {
             let permissions = permissions.parse()?;
 
-            // Only onw at a time between expires_at and expires_in can be set.
+            // Only one at a time between expires_at and expires_in can be set.
             let expiration_datetime: Option<types::Timestamp> = if let Some(expires_in) = expires_in
             {
-                Some(types::Timestamp::now() + expires_in.parse::<iso8601::Duration>()?.into())
+                Some(
+                    types::Timestamp::now()
+                        + expires_in
+                            .parse::<iso8601::Duration>()
+                            .map_err(|e| core::Error::unsupported_time(e.to_string()))?
+                            .into(),
+                )
             } else if let Some(expires_at) = expires_at {
                 let parsed_datetime: types::Timestamp =
                     chrono::DateTime::parse_from_rfc3339(&expires_at)
-                        .map_err(|_| format!("error parsing datetime string {}", expires_at))?
+                        .map_err(|e| core::Error::unsupported_time(e.to_string()))?
                         .with_timezone(&chrono::Utc)
                         .into();
 
                 if parsed_datetime < types::Timestamp::now() {
-                    Err("provided datetime is invalid (past date)")?;
+                    Err(core::Error::unsupported_time(
+                        "invalid (past date)".to_owned(),
+                    ))?;
                 }
 
                 Some(parsed_datetime)
@@ -93,7 +106,7 @@ pub fn auth(auth: ApiKey) -> Result<(), common::Error> {
             // If no description is provided use the empty string
             let description = description.unwrap_or_default();
 
-            let policy: Result<types::ApiKey, facade::Error> = rt.block_on(async {
+            let policy: core::error::PublicResult<types::ApiKey> = rt.block_on(async {
                 let fauth =
                     facade::Auth::create(permissions, description, expiration_datetime, db).await?;
                 Ok(fauth.into_api_key())
@@ -105,7 +118,7 @@ pub fn auth(auth: ApiKey) -> Result<(), common::Error> {
         }
 
         ApiKey::Revoke { fingerprint } => {
-            let res: Result<(), facade::Error> = rt.block_on(async {
+            let res: core::error::PublicResult<()> = rt.block_on(async {
                 let fauth = facade::Auth::try_from_fingerprint(&fingerprint, db).await?;
 
                 fauth.delete().await?;
@@ -117,7 +130,7 @@ pub fn auth(auth: ApiKey) -> Result<(), common::Error> {
         }
 
         ApiKey::Status { fingerprint } => {
-            let res: Result<(), facade::Error> = rt.block_on(async {
+            let res: Result<()> = rt.block_on(async {
                 let fauth = facade::Auth::try_from_fingerprint(&fingerprint, db).await?;
 
                 let policy = fauth.into_api_key();
@@ -131,7 +144,7 @@ pub fn auth(auth: ApiKey) -> Result<(), common::Error> {
         }
 
         ApiKey::List => {
-            let res: Result<(), facade::Error> = rt.block_on(async {
+            let res: Result<()> = rt.block_on(async {
                 let policies = facade::Auth::all_keys(db).await?;
 
                 print_authz_policy_list(policies);

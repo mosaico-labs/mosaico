@@ -1,7 +1,7 @@
 //! Module for reading and writing data in various formats.
 
-pub mod errors;
-pub use errors::Error;
+pub mod error;
+pub use error::Error;
 
 pub mod format;
 pub use format::*;

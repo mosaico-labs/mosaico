@@ -3,6 +3,8 @@ use arrow::datatypes::SchemaRef;
 use log::trace;
 use mosaicod_core::types::TopicMetadataProperties;
 use mosaicod_core::{
+    self as core,
+    error::PublicResult as Result,
     params,
     types::{self, Resource},
 };
@@ -40,7 +42,7 @@ impl Handle {
     pub async fn try_from_locator(
         context: &Context,
         locator: types::TopicResourceLocator,
-    ) -> Result<Self, Error> {
+    ) -> Result<Self> {
         let mut cx = context.db.connection();
 
         let db_topic = db::topic_find_by_locator(&mut cx, &locator).await?;
@@ -53,7 +55,7 @@ impl Handle {
 
     /// Try to obtain a handle from a topic UUID.
     /// Returns an error if the topic does not exist.
-    pub async fn try_from_uuid(context: &Context, uuid: &types::Uuid) -> Result<Self, Error> {
+    pub async fn try_from_uuid(context: &Context, uuid: &types::Uuid) -> Result<Self> {
         let mut cx = context.db.connection();
 
         let db_topic = db::topic_find_by_uuid(&mut cx, uuid).await?;
@@ -88,19 +90,23 @@ pub async fn try_create(
     locator: types::TopicResourceLocator,
     session_handle: &session::Handle,
     ontology_metadata: TopicOntologyMetadata,
-) -> Result<Handle, Error> {
+) -> Result<Handle> {
     let mut tx = context.db.transaction().await?;
 
     // Check that there are not other topics with the same locator
     if db::topic_find_by_locator(&mut tx, &locator).await.is_ok() {
-        return Err(Error::topic_already_exists(locator));
+        Err(core::Error::already_exists())?;
     }
 
     // Session must be unlocked (not finalized)
     let session_locked = db::session_locked(&mut tx, session_handle.id()).await?;
 
     if session_locked {
-        return Err(Error::SessionLocked);
+        // (cabba) NOTE: Now i'm returning the uuid as session identifier
+        // we need to substitute this with the session "locator" when implemented
+        Err(core::Error::locked_session(
+            session_handle.uuid().to_string(),
+        ))?;
     }
 
     // Find parent sequence and ensure that this topic is child of the provided
@@ -108,7 +114,7 @@ pub async fn try_create(
     let seq_rec = db::sequence_find_by_locator(&mut tx, session_handle.sequence_locator()).await?;
 
     if !locator.is_sub_resource(session_handle.sequence_locator()) {
-        return Err(Error::Unauthorized);
+        Err(core::Error::unauthorized())?;
     }
 
     let mut record = db::TopicRecord::new(
@@ -158,7 +164,7 @@ pub async fn try_create(
 ///
 /// Note: please use this function instead of [`archived`] if you need to call it internally
 /// (from another function in this module that already has an active transaction)
-async fn impl_archived(handle: &Handle, exe: &mut impl db::AsExec) -> Result<bool, Error> {
+async fn impl_archived(handle: &Handle, exe: &mut impl db::AsExec) -> Result<bool> {
     Ok(db::topic_archived(exe, handle.id()).await?)
 }
 
@@ -166,7 +172,7 @@ async fn impl_archived(handle: &Handle, exe: &mut impl db::AsExec) -> Result<boo
 ///
 /// Note: if you need to call this method internally (from another function in this module that
 /// already has an active transaction), please use [`impl_archived`]
-pub async fn archived(context: &Context, handle: &Handle) -> Result<bool, Error> {
+pub async fn archived(context: &Context, handle: &Handle) -> Result<bool> {
     let mut cx = context.db.connection();
     impl_archived(handle, &mut cx).await
 }
@@ -174,7 +180,7 @@ pub async fn archived(context: &Context, handle: &Handle) -> Result<bool, Error>
 /// Finalize the write procedure of the topic. The topic is locked and additional data are
 /// consolidated (e.g. metadata, timestamp bounds). This function is intended to be called by
 /// [`HandleWriter`] to finalize the writing process.
-async fn finalize(context: &Context, handle: &Handle, format: types::Format) -> Result<(), Error> {
+async fn finalize(context: &Context, handle: &Handle, format: types::Format) -> Result<()> {
     let mut tx = context.db.transaction().await?;
 
     let info = compute_data_info(context, handle, &mut tx, format).await?;
@@ -182,7 +188,7 @@ async fn finalize(context: &Context, handle: &Handle, format: types::Format) -> 
 
     // Check if topic is already locked.
     if impl_archived(handle, &mut tx).await? {
-        return Err(Error::TopicLocked);
+        Err(core::Error::locked_topic(handle.locator().to_string()))?;
     }
 
     // Update completion timestamp in DB and Store
@@ -201,7 +207,7 @@ async fn finalize(context: &Context, handle: &Handle, format: types::Format) -> 
 }
 
 /// Creates [`TopicMetadata`] associated to the given topic [`Handle`].
-pub async fn metadata(context: &Context, handle: &Handle) -> Result<TopicMetadata, Error> {
+pub async fn metadata(context: &Context, handle: &Handle) -> Result<TopicMetadata> {
     let mut cx = context.db.connection();
 
     let db_topic = db::topic_find_by_id(&mut cx, handle.id()).await?;
@@ -218,9 +224,9 @@ pub async fn metadata(context: &Context, handle: &Handle) -> Result<TopicMetadat
         },
         ontology_metadata: TopicOntologyMetadata {
             properties: types::TopicOntologyProperties {
-                serialization_format: db_topic.serialization_format().ok_or_else(|| {
-                    Error::MissingMetadataField("serialization_format".to_owned())
-                })?,
+                serialization_format: db_topic
+                    .serialization_format()
+                    .ok_or_else(|| Error::MissingDbData("serialization_format".to_owned()))?,
                 ontology_tag: db_topic.ontology_tag.clone(),
             },
             user_metadata: db_topic.user_metadata(),
@@ -237,14 +243,14 @@ pub async fn arrow_schema(
     context: &Context,
     handle: &Handle,
     format: types::Format,
-) -> Result<SchemaRef, Error> {
+) -> Result<SchemaRef> {
     // Get chunk 0 since this chunk needs to exist always
     let path = handle
         .locator
         .path_data(handle.uuid(), 0, format.to_properties().as_ref());
 
     if !context.store.exists(&path).await? {
-        return Err(Error::NotFound(path.to_string_lossy().to_string()));
+        Err(core::Error::not_found())?;
     }
 
     // Build a parquet reader reading in memory a file
@@ -263,7 +269,7 @@ async fn metadata_write_to_store(
     context: &Context,
     handle: &Handle,
     manifest: TopicMetadata,
-) -> Result<(), Error> {
+) -> Result<()> {
     trace!("writing manifest to store to `{}`", handle.locator);
     let path = handle.locator.path_metadata();
 
@@ -312,7 +318,7 @@ pub async fn delete(
     context: &Context,
     handle: Handle,
     allowed_data_loss: types::DataLossToken,
-) -> Result<(), Error> {
+) -> Result<()> {
     let mut tx = context.db.transaction().await?;
 
     // Delete the record from DB first, then from the store. Order matters (think in case of rollback).
@@ -333,7 +339,7 @@ pub async fn notify(
     handle: &Handle,
     ntype: types::NotificationType,
     msg: String,
-) -> Result<types::Notification, Error> {
+) -> Result<types::Notification> {
     let mut tx = context.db.transaction().await?;
 
     let record = db::topic_find_by_locator(&mut tx, &handle.locator).await?;
@@ -349,7 +355,7 @@ pub async fn notify(
 pub async fn notification_list(
     context: &Context,
     handle: &Handle,
-) -> Result<Vec<types::Notification>, Error> {
+) -> Result<Vec<types::Notification>> {
     let mut cx = context.db.connection();
     let notifications = db::topic_notifications_find_by_locator(&mut cx, &handle.locator).await?;
     Ok(notifications
@@ -359,7 +365,7 @@ pub async fn notification_list(
 }
 
 /// Deletes all the notifications associated with the sequence
-pub async fn notification_purge(context: &Context, handle: &Handle) -> Result<(), Error> {
+pub async fn notification_purge(context: &Context, handle: &Handle) -> Result<()> {
     let mut tx = context.db.transaction().await?;
 
     let notifications = db::topic_notifications_find_by_locator(&mut tx, &handle.locator).await?;
@@ -373,10 +379,7 @@ pub async fn notification_purge(context: &Context, handle: &Handle) -> Result<()
 }
 
 /// Returns the statistics about topic's chunks
-pub async fn chunks_stats(
-    context: &Context,
-    handle: &Handle,
-) -> Result<types::TopicChunksStats, Error> {
+pub async fn chunks_stats(context: &Context, handle: &Handle) -> Result<types::TopicChunksStats> {
     let mut cx = context.db.connection();
     let stats = db::topic_get_stats(&mut cx, &handle.locator).await?;
     Ok(stats)
@@ -389,7 +392,7 @@ async fn compute_data_info(
     handle: &Handle,
     exe: &mut impl db::AsExec,
     format: types::Format,
-) -> Result<types::TopicDataInfo, Error> {
+) -> Result<types::TopicDataInfo> {
     let timeseries_res = context
         .timeseries_querier
         .read(handle.locator.path_data_folder(handle.uuid()), format, None)
@@ -407,7 +410,7 @@ async fn compute_data_info(
 
     let format = record
         .serialization_format()
-        .ok_or_else(|| Error::MissingMetadataField("serialization_format".to_owned()))?;
+        .ok_or_else(|| Error::MissingDbData("serialization_format".to_owned()))?;
 
     let datafiles = context
         .store
@@ -436,7 +439,7 @@ async fn data_info_write_to_db(
     context: &Context,
     handle: &Handle,
     system_info: types::TopicDataInfo,
-) -> Result<(), Error> {
+) -> Result<()> {
     let mut tx = context.db.transaction().await?;
     db::topic_update_system_info(&mut tx, &handle.locator, &system_info).await?;
     tx.commit().await?;
@@ -444,14 +447,13 @@ async fn data_info_write_to_db(
 }
 
 /// Retrieves system info for the topic from db. Returns an error if not present.
-pub async fn data_info(context: &Context, handle: &Handle) -> Result<types::TopicDataInfo, Error> {
+pub async fn data_info(context: &Context, handle: &Handle) -> Result<types::TopicDataInfo> {
     let mut cx = context.db.connection();
     let record = db::topic_find_by_locator(&mut cx, &handle.locator).await?;
     let topic_info = record.info();
-    topic_info.ok_or(Error::MissingData(format!(
-        "missing info on DB for topic {}",
-        handle.locator
-    )))
+    topic_info.ok_or(
+        Error::MissingDbData(format!("missing info on DB for topic {}", handle.locator)).into(),
+    )
 }
 
 /// Computes the optimal batch size based on topic statistics from the database.
@@ -460,24 +462,21 @@ pub async fn data_info(context: &Context, handle: &Handle) -> Result<types::Topi
 ///
 /// Returns `Some(batch_size)` if statistics are available, `None` otherwise
 /// (e.g., for empty topics).
-pub async fn compute_optimal_batch_size(
-    context: &Context,
-    handle: &Handle,
-) -> Result<usize, Error> {
+pub async fn compute_optimal_batch_size(context: &Context, handle: &Handle) -> Result<usize> {
     let stats = chunks_stats(context, handle).await?;
 
     if stats.total_size_bytes == 0 || stats.total_row_count == 0 {
-        return Err(Error::missing_data(
+        Err(Error::MissingDbData(
             "unable to compute optimal batch size".to_owned(),
-        ));
+        ))?;
     }
 
     let params = params::params();
 
-    let target_size = params.target_message_size;
+    let target_size = params.target_message_size.value;
     let batch_size = (target_size as i64 * stats.total_row_count) / stats.total_size_bytes;
 
-    Ok((batch_size as usize).min(params.max_batch_size))
+    Ok((batch_size as usize).min(params.max_batch_size.value))
 }
 
 /// A guard ensuring exclusive write access to [`Handle`].
@@ -502,7 +501,7 @@ pub struct HandleWriter {
 impl HandleWriter {
     /// Performs all the operations required to finalize the writing stream, consolidate topic data
     /// and lock the topic
-    pub async fn finalize(self) -> Result<(), Error> {
+    pub async fn finalize(self) -> Result<()> {
         finalize(&self.context, &self.handle, self.format).await?;
         Ok(())
     }

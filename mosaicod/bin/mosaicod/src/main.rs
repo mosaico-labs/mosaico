@@ -8,6 +8,7 @@ mod log;
 mod print;
 
 use clap::{Parser, Subcommand};
+use mosaicod_core::error::PublicResult as Result;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -35,7 +36,7 @@ enum Commands {
     Auth(command::ApiKey),
 }
 
-fn start() -> Result<Option<String>, common::Error> {
+fn start() -> Result<Option<String>> {
     let cli_parse_res = Cli::try_parse().map_err(|e| e.to_string());
 
     // Avoid to show error message when parsing cli commands
@@ -61,8 +62,6 @@ fn start() -> Result<Option<String>, common::Error> {
     Ok(None)
 }
 
-use colored::Colorize;
-
 fn main() {
     common::pin_startup_time();
 
@@ -75,11 +74,7 @@ fn main() {
             }
         }
         Err(e) => {
-            print::error(&e.to_string());
-            println!(
-                "Please refer to {} for more informations.",
-                "https://docs.mosaico.dev/daemon".cyan()
-            )
+            print::error(e);
         }
     }
 }

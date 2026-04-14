@@ -18,7 +18,6 @@ mosaicod-rw = { workspace = true }
 mosaicod-query = { workspace = true }
 mosaicod-db = { workspace = true, features = ["postgres"] }
 
-thiserror = { workspace = true }
 arrow = { workspace = true }
 log = { workspace = true }
 futures = { workspace = true }

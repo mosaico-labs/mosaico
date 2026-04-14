@@ -54,6 +54,8 @@ where
             ErrorKind::UnsupportedOperation => Code::InvalidArgument,
             ErrorKind::UnsupportedDescriptor => Code::InvalidArgument,
             ErrorKind::UnsupportedSchema(_) => Code::InvalidArgument,
+            ErrorKind::InvalidConfiguration(_, _) => Code::Unknown,
+            ErrorKind::UnsupportedTime(_) => Code::InvalidArgument,
         }
     }
 

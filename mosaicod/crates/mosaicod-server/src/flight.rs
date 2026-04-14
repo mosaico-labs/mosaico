@@ -144,8 +144,8 @@ pub async fn start(
     }
 
     svc = svc
-        .max_decoding_message_size(params::params().max_grpc_message_size)
-        .max_encoding_message_size(params::params().max_grpc_message_size);
+        .max_decoding_message_size(params::params().max_grpc_message_size.value)
+        .max_encoding_message_size(params::params().max_grpc_message_size.value);
 
     if config.gzip {
         svc = svc
@@ -186,7 +186,7 @@ impl MosaicodFlight {
         let ts_gw = Arc::new(
             query::TimeseriesEngine::try_new(
                 store.clone(),
-                params::params().query_engine_memory_pool_size,
+                params::params().query_engine_memory_pool_size.value,
             )
             .map_err(|e| e.to_string())?,
         );
@@ -197,7 +197,7 @@ impl MosaicodFlight {
             ts_gw,
             api_key_management: false,
             concurrent_writes_semaphore: Arc::new(tokio::sync::Semaphore::new(
-                params::params().max_concurrent_writes,
+                params::params().max_concurrent_writes.value,
             )),
         })
     }

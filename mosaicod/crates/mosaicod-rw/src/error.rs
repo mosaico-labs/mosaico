@@ -1,4 +1,5 @@
 use mosaicod_core as core;
+use mosaicod_ext as ext;
 use parquet::errors::ParquetError;
 use thiserror::Error;
 
@@ -7,7 +8,7 @@ pub enum Error {
     #[error("parquet error")]
     ParquetError(#[from] ParquetError),
     #[error("arrow error")]
-    ArrowError(#[from] arrow::error::ArrowError),
+    ArrowError(#[from] ext::arrow::Error),
     #[error("io error")]
     IOError(#[from] std::io::Error),
     #[error("unsupported write format")]
