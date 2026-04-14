@@ -1,15 +1,12 @@
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-import pyarrow.flight as fl
+from pyarrow.flight import FlightEndpoint
 
 from mosaicolabs.logging_config import get_logger
 
 from ..helpers.helpers import unpack_topic_full_path
 from .helpers import _decode_app_metadata
-from .resource_info import (
-    TopicResourceInfo,
-)
 
 # Set the hierarchical logger
 logger = get_logger(__name__)
@@ -40,43 +37,29 @@ class TopicResourceManifest:
         name (str): The standardized name of the resource.
         sequence_name (str): The name of the sequence the resource belongs to.
         created_timestamp (int): The creation timestamp of the resource in nanoseconds.
-        completed_timestamp (Optional[int]): The completion timestamp of the resource in nanoseconds.
         locked (bool): Whether the resource is locked.
-        resource_info (TopicResourceInfo): The server side system info of the resource.
+        total_size_bytes (int): The aggregate size of all data chunks in bytes.
+        chunks_number (int): The total count of data partitions (chunks)
+            stored on the server.
+        completed_timestamp (Optional[int]): The completion timestamp of the resource in nanoseconds.
+        timestamp_ns_min (Optional[int]): The minimum timestamp of the data in the topic.
+        timestamp_ns_max (Optional[int]): The maximum timestamp of the data in the topic.
     """
 
     name: str
     sequence_name: str
-    resource_info: TopicResourceInfo
     created_timestamp: int
     locked: bool
+    total_size_bytes: int
+    chunks_number: int
     completed_timestamp: Optional[int]
+    timestamp_ns_min: Optional[int]
+    timestamp_ns_max: Optional[int]
 
     @classmethod
-    def _get_topic_name_from_locations(cls, locations: List[fl.Location]) -> str:
-        # Flight endpoints can technically have multiple locations for redundancy,
-        # but our specific domain logic expects exactly one primary location.
-        if not locations:
-            raise TopicManifestError(
-                "Endpoint contains no locations; cannot resolve topic."
-            )
-
-        if len(locations) > 1:
-            raise TopicManifestError(
-                f"Multi-location endpoints not supported. Found: {len(locations)}"
-            )
-        # Extract URI (stored as bytes in pyarrow.flight)
-        uri_bytes = locations[0].uri
-
-        # Delegate parsing logic to the internal static helper
-        _, topic_name = cls._parse_uri(uri_bytes)
-
-        return topic_name
-
-    @classmethod
-    def _from_app_metadata(
+    def _from_flight_endpoint(
         cls,
-        app_mdata: Union[bytes, str],
+        endpoint: FlightEndpoint,
     ) -> "TopicResourceManifest":
         """
         Factory method to create a manifest from an Arrow Flight app_metadata.
@@ -88,25 +71,44 @@ class TopicResourceManifest:
             TopicResourceMetadata: An immutable instance containing parsed data.
 
         Raises:
-            TopicParsingError: If the endpoint has no locations, multiple
-                locations, or if the URI format is invalid.
+            TopicManifestError: If the endpoint `app_metadata` misses required keys or it is not possible
+                to unpack topic and sequence names from the locator.
         """
         try:
-            mdata = _decode_app_metadata(app_mdata)
+            app_mdata = _decode_app_metadata(endpoint.app_metadata)
 
-            created_timestamp = mdata.get("created_at_ns")
-            locked = mdata.get("locked")
-            resource_locator = mdata.get("resource_locator")
-            if created_timestamp is None or locked is None or resource_locator is None:
+            resrc_loc = app_mdata.get("resource_locator")
+            if resrc_loc is None:
+                raise ValueError(
+                    "Expected `resource_locator` key in `endpoint.app_metadata`."
+                )
+            info_mdata = app_mdata.get("info", {})
+            if not isinstance(info_mdata, dict):
+                raise ValueError(
+                    f"Unrecognized format for TopicResourceInfo in manifest: type {type(info_mdata).__name__}, expected a JSON."
+                )
+
+            chunks_number = info_mdata.get("chunks_number")
+            total_size_bytes = info_mdata.get("total_bytes")
+
+            if chunks_number is None or total_size_bytes is None:
+                raise ValueError(
+                    "TopicResourceInfo in manifest misses required fields."
+                )
+
+            tmin, tmax = cls._parse_timestamp_range(info_mdata.get("timestamp", {}))
+
+            created_timestamp = app_mdata.get("created_at_ns")
+            locked = app_mdata.get("locked")
+            if created_timestamp is None or locked is None:
                 raise TopicManifestError(
                     "Invalid format for TopicResourceManifest: missing required fields. The related topic can be malformed."
                 )
 
-            resource_info = TopicResourceInfo._from_info_metadata(mdata.get("info", {}))
-            locator_tuple = unpack_topic_full_path(resource_locator)
+            locator_tuple = unpack_topic_full_path(resrc_loc)
             if locator_tuple is None:
                 raise TopicManifestError(
-                    f"Invalid format for TopicResourceManifest: cannot deduce sequence and topic name from locator '{resource_locator}'."
+                    f"Invalid format for TopicResourceManifest: cannot deduce sequence and topic name from locator '{resrc_loc}'."
                 )
 
             seq_name, top_name = locator_tuple
@@ -115,9 +117,12 @@ class TopicResourceManifest:
                 name=top_name,
                 sequence_name=seq_name,
                 created_timestamp=created_timestamp,
-                completed_timestamp=mdata.get("completed_at_ns"),
+                completed_timestamp=app_mdata.get("completed_at_ns"),
                 locked=locked,
-                resource_info=resource_info,
+                total_size_bytes=total_size_bytes,
+                chunks_number=chunks_number,
+                timestamp_ns_min=tmin,
+                timestamp_ns_max=tmax,
             )
 
         except Exception as e:
@@ -128,32 +133,32 @@ class TopicResourceManifest:
             ) from e
 
     @staticmethod
-    def _parse_uri(uri_bytes: bytes) -> Tuple[str, str]:
+    def _parse_timestamp_range(
+        tstamp_mdata: dict,
+    ) -> Tuple[Optional[int], Optional[int]]:
         """
-        Decodes and validates the raw URI string.
+        Parses the minimum and maximum timestamps of the resource.
 
-        Internal helper that handles the 'mosaico:' protocol stripping
-        and string splitting logic.
+        Args:
+            tstamp_mdata (dict): The timestamp metadata.
+
+        Returns:
+            Tuple[Optional[int], Optional[int]]: The minimum and maximum timestamps.
         """
-        # Decode bytes to string and protocol validation (mosaico resource)
-        decoded_uri = uri_bytes.decode("utf-8")
-        if not decoded_uri.startswith("mosaico:"):
-            raise TopicManifestError(
-                f"URI missing required 'mosaico:' prefix: {decoded_uri}"
-            )
+        # (can be missing in manifest - i.e. degenerate Topics with no data stream)
+        tmin = None
+        tmax = None
+        # Can be null (i.e. "timestamp" present but empty)
+        if isinstance(tstamp_mdata, dict):
+            tmin = tstamp_mdata.get("start_ns")
+            tmax = tstamp_mdata.get("end_ns")
+            # Ensure both keys exist
+            if (tmin is None) != (tmax is None):
+                logger.error(
+                    f"Wrong format of 'timestamp' field: 'min' or 'max' are None, but not both, {tstamp_mdata}"
+                )
 
-        # Path Extraction
-        path = decoded_uri.removeprefix("mosaico:")
-
-        # Domain-specific unpacking (expects a tuple of strings)
-        result = unpack_topic_full_path(path)
-
-        if not result or len(result) != 2:
-            raise TopicManifestError(
-                f"Path '{path}' is not a valid sequence/topic pair."
-            )
-
-        return result
+        return tmin, tmax
 
 
 @dataclass

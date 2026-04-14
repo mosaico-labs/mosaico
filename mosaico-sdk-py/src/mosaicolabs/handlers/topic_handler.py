@@ -134,9 +134,7 @@ class TopicHandler:
         topic_resrc_manifest: Optional[TopicResourceManifest] = None
         for ep in flight_info.endpoints:
             try:
-                topic_resrc_manifest = TopicResourceManifest._from_app_metadata(
-                    ep.app_metadata
-                )
+                topic_resrc_manifest = TopicResourceManifest._from_flight_endpoint(ep)
             except TopicManifestError as e:
                 logger.error(f"Skipping invalid topic endpoint, err: '{e}'")
                 continue
@@ -164,8 +162,8 @@ class TopicHandler:
             client=client,
             topic_model=topic_model,
             ticket=ticket,
-            timestamp_ns_min=topic_resrc_manifest.resource_info.timestamp_ns_min,
-            timestamp_ns_max=topic_resrc_manifest.resource_info.timestamp_ns_max,
+            timestamp_ns_min=topic_resrc_manifest.timestamp_ns_min,
+            timestamp_ns_max=topic_resrc_manifest.timestamp_ns_max,
         )
 
     # -------------------- Public methods --------------------

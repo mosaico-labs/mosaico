@@ -11,8 +11,6 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import pyarrow.flight as fl
 
-from mosaicolabs.platform.resource_info import TopicResourceInfo
-
 from ..comm.connection import (
     DEFAULT_MAX_BATCH_BYTES,
     DEFAULT_MAX_BATCH_SIZE_RECORDS,
@@ -25,6 +23,7 @@ from ..platform.metadata import SequenceMetadata, _decode_schema_metadata
 from ..platform.resource_manifests import (
     SequenceResourceManifest,
     TopicManifestError,
+    TopicResourceManifest,
 )
 from .config import SessionWriterConfig
 from .sequence_reader import SequenceDataStreamer
@@ -168,19 +167,19 @@ class SequenceHandler:
         total_size_bytes = 0
         for ep in flight_info.endpoints:
             try:
-                topic_resrc_info = TopicResourceInfo._from_flight_endpoint(ep)
+                topic_manifest = TopicResourceManifest._from_flight_endpoint(ep)
             except TopicManifestError as e:
                 logger.error(f"Skipping invalid topic endpoint, err: '{e}'")
                 continue
             # Collect the 'min'/'max' timestamps, as we are at a sequence-level
             if (
-                topic_resrc_info.timestamp_ns_min is not None
-                and topic_resrc_info.timestamp_ns_max is not None
+                topic_manifest.timestamp_ns_min is not None
+                and topic_manifest.timestamp_ns_max is not None
             ):
-                tstamps_ns_min.append(topic_resrc_info.timestamp_ns_min)
-                tstamps_ns_max.append(topic_resrc_info.timestamp_ns_max)
+                tstamps_ns_min.append(topic_manifest.timestamp_ns_min)
+                tstamps_ns_max.append(topic_manifest.timestamp_ns_max)
 
-            total_size_bytes += topic_resrc_info.total_size_bytes
+            total_size_bytes += topic_manifest.total_size_bytes
 
         sequence_model = Sequence._from_resource_info(
             name=_stzd_sequence_name,
