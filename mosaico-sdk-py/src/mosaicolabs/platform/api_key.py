@@ -1,5 +1,3 @@
-from curses.ascii import isalnum
-
 from ..types import Time
 
 
