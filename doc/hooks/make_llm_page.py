@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 from markdownify import markdownify as md
 
-# Contenitori dinamici
+# Dynamic containers
 categories = {
     "INDEX": [],
     "SDK_HOWTO": [],
@@ -20,7 +20,7 @@ def on_page_content(html, page, config, files):
     # Markdown clean-up (remove links, scripts, images)
     clean_markdown = md(html, heading_style="ATX", strip=["a", "script", "img"])
 
-    # Add na header with the file source (help AI to contextualize)
+    # Add an header with the file source (help AI to contextualize)
     content_with_header = f"## SOURCE: {src_path}\n\n{clean_markdown}"
     content_map[src_path] = content_with_header
 
@@ -46,7 +46,7 @@ def on_page_content(html, page, config, files):
 
 
 def _generate_file(filename, title, notice, path_lists, config):
-    """Funzione helper per generare i vari file .txt"""
+    """Helper method for generating the .txt files"""
     output_dir = Path(config["site_dir"]) / "llms"
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / filename

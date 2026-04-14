@@ -13,7 +13,7 @@ Working with robotics and multi-modal datasets presents three primary technical 
 
 
 ## From Sequences to DataFrames
-???question "API Reference"
+??? question "API Reference"
     [`mosaicolabs.ml.DataFrameExtractor`][mosaicolabs.ml.DataFrameExtractor]
 
 The [`DataFrameExtractor`][mosaicolabs.ml.DataFrameExtractor] is a specialized utility designed to convert Mosaico sequences into tabular formats. Unlike standard streamers that instantiate individual Python objects, this extractor operates at the **Batch Level** by pulling raw `RecordBatch` objects directly from the underlying stream to maximize throughput.
@@ -77,7 +77,7 @@ with MosaicoClient.connect("localhost", 6726):
 ```
 
 ## Sparse to Dense Representation
-???question "API Reference"
+??? question "API Reference"
     [`mosaicolabs.ml.SyncTransformer`][mosaicolabs.ml.SyncTransformer]
 
 The [`SyncTransformer`][mosaicolabs.ml.SyncTransformer] is a temporal resampler designed to solve the **Heterogeneous Sampling** problem inherent in robotics and Physical AI. 
@@ -111,7 +111,7 @@ When [`transform()`][mosaicolabs.ml.SyncTransformer.transform] is called on a ne
 3.  **Policy Delegation**: The actual mathematical mapping is delegated to the configured [`SyncPolicy`][mosaicolabs.ml.SyncPolicy], which yields the final dense values for the synthesized grid.
 
 
-!!!danger "The 'Re-instantiation' Trap"
+!!! danger "The 'Re-instantiation' Trap"
     A common architectural error is re-instantiating the `SyncTransformer` inside a processing loop. Because the transformer is stateful, **it must be instantiated once outside the loop** to function correctly.
 
     Re-instantiating the transformer inside the loop destroys the internal cache, causing signal discontinuities and potential data "hallucination" at the start of every chunk.
@@ -139,7 +139,7 @@ When [`transform()`][mosaicolabs.ml.SyncTransformer.transform] is called on a ne
     If you need to reuse the same transformer instance for a different recording or sequence, you must call the [`.reset()`][mosaicolabs.ml.SyncTransformer.reset] method to clear the internal buffers and prepare for a new grid alignment.
 
 ### Implemented Synchronization Policies
-???question "API Reference"
+??? question "API Reference"
     [`mosaicolabs.ml.SyncPolicy`][mosaicolabs.ml.SyncPolicy]
 
 Each policy defines a specific logic for how the transformer bridges temporal gaps between sparse data points.

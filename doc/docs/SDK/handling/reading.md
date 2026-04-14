@@ -18,7 +18,7 @@ Handlers are lightweight objects that represent a server-side resource. Their pr
 Mosaico provides two specialized handler types: `SequenceHandler` and `TopicHandler`.
 
 #### `SequenceHandler`
-???question "API Reference"
+??? question "API Reference"
     [`mosaicolabs.handlers.SequenceHandler`][mosaicolabs.handlers.SequenceHandler].
 
 Represents a complete recording session. It provides a holistic view, allowing you to inspect all available topic names, global sequence metadata, and the overall temporal bounds (earliest and latest timestamps) of the session.
@@ -48,7 +48,7 @@ with MosaicoClient.connect("localhost", 6726) as client:
 
 
 #### `TopicHandler`
-???question "API Reference"
+??? question "API Reference"
     [`mosaicolabs.handlers.TopicHandler`][mosaicolabs.handlers.TopicHandler].
 
 Represents a specific data channel within a sequence (e.g., a single IMU or Camera). It provides granular system info, such as the specific ontology model used and the data volume of that individual stream.
@@ -83,7 +83,7 @@ Both handlers serve as **factories**; once you have identified the resource you 
 Streamers are the active components that manage the physical data exchange between the server and your application. They handle the complexities of network buffering, batch management, and the de-serialization of raw bytes into Mosaico `Message` objects.
 
 #### `SequenceDataStreamer` (Unified Replay)
-???question "API Reference"
+??? question "API Reference"
     [`mosaicolabs.handlers.SequenceDataStreamer`][mosaicolabs.handlers.SequenceDataStreamer].
 
 The **`SequenceDataStreamer`** is a unified engine designed specifically for sensor fusion and full-system replay. It allows you to consume multiple data streams as if they were a single, coherent timeline.
@@ -129,7 +129,7 @@ with MosaicoClient.connect("localhost", 6726) as client:
 
 
 #### `TopicDataStreamer` (Targeted Access)
-???question "API Reference"
+??? question "API Reference"
     [`mosaicolabs.handlers.TopicDataStreamer`][mosaicolabs.handlers.TopicDataStreamer].
 
 The **`TopicDataStreamer`** provides a dedicated, high-throughput channel for interacting with a single data resource. By bypassing the complex synchronization logic required for merging multiple topics, it offers the lowest possible overhead for tasks requiring isolated data streams, such as training models on specific camera frames or IMU logs.

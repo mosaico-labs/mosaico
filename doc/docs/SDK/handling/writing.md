@@ -10,7 +10,7 @@ The **Writing Workflow** in Mosaico is designed for high-throughput data ingesti
 
 
 ## `SequenceWriter`
-???question "API Reference"
+??? question "API Reference"
     [`mosaicolabs.handlers.SequenceWriter`][mosaicolabs.handlers.SequenceWriter].
 
 The `SequenceWriter` acts as the central controller for a recording session. It manages the high-level lifecycle of the data on the server and serves as the factory for individual sensor streams. 
@@ -60,7 +60,7 @@ with MosaicoClient.connect("localhost", 6726) as client:
 1. The metadata fields will be queryable via the [`Query` mechanism](../query.md). The mechanism allows creating queries like: `QuerySequence().with_user_metadata("vehicle.software_stack.planning", eq="plan-4.1.7")`
 
 ### Sequence-Level Error Handling
-???question "API Reference"
+??? question "API Reference"
     [`mosaicolabs.enum.SessionLevelErrorPolicy`][mosaicolabs.enum.SessionLevelErrorPolicy].
 
 ??? warning "Deprecated OnErrorPolicy"
@@ -81,7 +81,7 @@ An example schematic rationale for deciding between the two policies can be:
 | **Ground Truth Generation** | `SessionLevelErrorPolicy.Delete` | Integrity: Ensures only 100% verified, complete sequences enter the database. |
 
 ## `TopicWriter`
-???question "API Reference"
+??? question "API Reference"
     [`mosaicolabs.handlers.TopicWriter`][mosaicolabs.handlers.TopicWriter].
 
 Once a topic is created via [`SequenceWriter.topic_create`][mosaicolabs.handlers.SequenceWriter.topic_create], a `TopicWriter` is spawned to handle the actual transmission of data for that specific stream. It abstracts the underlying networking protocols, allowing you to simply "push" Python objects while it handles the heavy lifting.
@@ -173,7 +173,7 @@ When creating a topic via the `SequenceWriter.topic_create` function, users can 
 * `TopicLevelErrorPolicy.Finalize`: Reports the error to the server and finalizes the topic, but does not interrupt the ingestion process.
 
 ## `SequenceUpdater`
-???question "API Reference"
+??? question "API Reference"
     [`mosaicolabs.handlers.SequenceUpdater`][mosaicolabs.handlers.SequenceUpdater].
 
 The `SequenceUpdater` is used to update an existing sequence on the server. Updating a sequence means adding new topics only, by opening a new writing Session. The `SequenceUpdater` cannot be used to update the metadata of a sequence or its existing topics.

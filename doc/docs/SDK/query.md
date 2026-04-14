@@ -209,7 +209,7 @@ response = client.query(
 Mosaico organizes data into three distinct architectural layers, each with its own specialized Query Builder:
 
 #### [`QuerySequence`][mosaicolabs.models.query.builders.QuerySequence] (Sequence Layer)
-???question "API Reference"
+??? question "API Reference"
     [`mosaicolabs.models.query.builders.QuerySequence`][mosaicolabs.models.query.builders.QuerySequence].
 
 Filters recordings based on high-level session metadata, such as the sequence name or the time it was created.
@@ -236,7 +236,7 @@ with MosaicoClient.connect("localhost", 6726) as client:
 
 
 #### [`QueryTopic`][mosaicolabs.models.query.builders.QueryTopic] (Topic Layer)
-???question "API Reference"
+??? question "API Reference"
     [`mosaicolabs.models.query.builders.QueryTopic`][mosaicolabs.models.query.builders.QueryTopic].
 
 Targets specific data channels within a sequence. You can search for topics by name pattern or by their specific Ontology type (e.g., "Find all GPS topics").
@@ -265,7 +265,7 @@ with MosaicoClient.connect("localhost", 6726) as client:
 
 
 #### [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog] (Ontology Catalog Layer)
-???question "API Reference"
+??? question "API Reference"
     [`mosaicolabs.models.query.builders.QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog].
 
 Filters based on the **actual time-series content** of the sensors (e.g., "Find events where `acceleration.z` exceeded a specific value").
@@ -398,7 +398,7 @@ class IMU(Serializable):
 
 The `.Q` proxy enables you to navigate the data exactly as it is defined in the model. By following the `IMU.Q` instruction, you can drill down through nested fields and inherited mixins using standard dot notation until you reach a base queryable type.
 
-???question "API Reference"
+??? question "API Reference"
     [`mosaicolabs.models.sensors.IMU`][mosaicolabs.models.sensors.IMU--querying-with-the-q-proxy]
 
 The proxy automatically flattens the hierarchy, assigning the correct queryable type and operators to each leaf node:

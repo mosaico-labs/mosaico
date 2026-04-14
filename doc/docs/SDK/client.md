@@ -3,7 +3,7 @@ title: Client
 description: Architecture and design of the MosaicoClient.
 ---
 
-???question "API Reference"
+??? question "API Reference"
     [`mosaicolabs.comm.MosaicoClient`][mosaicolabs.comm.MosaicoClient].
 
 The `MosaicoClient` is a resource manager designed to orchestrate distinct **Layers** of communication and processing. 
