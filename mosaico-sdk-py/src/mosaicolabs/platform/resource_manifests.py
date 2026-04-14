@@ -13,13 +13,19 @@ logger = get_logger(__name__)
 
 
 class TopicManifestError(Exception):
-    """Raised when TopicResourceMetadata cannot be extracted from an endpoint."""
+    """Raised when TopicResourceManifest cannot be extracted from an endpoint."""
 
     pass
 
 
 class SequenceManifestError(Exception):
-    """Raised when SequenceResourceMetadata cannot be extracted from an endpoint."""
+    """Raised when SequenceResourceManifest cannot be extracted from `app_metadata`."""
+
+    pass
+
+
+class SessionManifestError(Exception):
+    """Raised when SessionResourceManifest cannot be extracted from `app_metadata`."""
 
     pass
 
@@ -79,21 +85,21 @@ class TopicResourceManifest:
 
             resrc_loc = app_mdata.get("resource_locator")
             if resrc_loc is None:
-                raise ValueError(
-                    "Expected `resource_locator` key in `endpoint.app_metadata`."
+                raise TopicManifestError(
+                    "Expected `resource_locator` key in app_metadata."
                 )
             info_mdata = app_mdata.get("info", {})
             if not isinstance(info_mdata, dict):
-                raise ValueError(
-                    f"Unrecognized format for TopicResourceInfo in manifest: type {type(info_mdata).__name__}, expected a JSON."
+                raise TopicManifestError(
+                    f"Unrecognized format for key 'info' in app_metadata: type {type(info_mdata).__name__}, expected a JSON."
                 )
 
             chunks_number = info_mdata.get("chunks_number")
             total_size_bytes = info_mdata.get("total_bytes")
 
             if chunks_number is None or total_size_bytes is None:
-                raise ValueError(
-                    "TopicResourceInfo in manifest misses required fields."
+                raise TopicManifestError(
+                    "'info' data in app_metadata misses required fields."
                 )
 
             tmin, tmax = cls._parse_timestamp_range(info_mdata.get("timestamp", {}))
@@ -102,13 +108,13 @@ class TopicResourceManifest:
             locked = app_mdata.get("locked")
             if created_timestamp is None or locked is None:
                 raise TopicManifestError(
-                    "Invalid format for TopicResourceManifest: missing required fields. The related topic can be malformed."
+                    "Invalid format for 'info' data in app_metadata: missing required fields. The related topic can be malformed."
                 )
 
             locator_tuple = unpack_topic_full_path(resrc_loc)
             if locator_tuple is None:
                 raise TopicManifestError(
-                    f"Invalid format for TopicResourceManifest: cannot deduce sequence and topic name from locator '{resrc_loc}'."
+                    f"Invalid format for 'resource_locator': cannot deduce sequence and topic name from '{resrc_loc}'."
                 )
 
             seq_name, top_name = locator_tuple
@@ -173,6 +179,7 @@ class SessionResourceManifest:
         uuid (str): The UUID of the session.
         created_timestamp (int): The UTC timestamp of when the
             resource was first initialized.
+        locked (bool): Whether the session is locked.
         completed_timestamp (int): The UTC timestamp of when the
             resource was completed.
         topics (list[str]): The list of topics in the session.
@@ -197,22 +204,25 @@ class SessionResourceManifest:
 
         Returns:
             SessionResourceManifest: The SessionResourceManifest object.
+
+        Raises:
+            SessionManifestError: If the endpoint `app_metadata` misses required keys.
         """
 
         # This should never happen. If it does, it's a malformed session.
         if not isinstance(session_mdata, dict):
-            raise ValueError(
-                f"Unrecognized type {type(session_mdata).__name__} for 'session_mdata' field."
+            raise SessionManifestError(
+                f"Unrecognized type {type(session_mdata).__name__} for 'session' field in app_metadata."
             )
 
         session_uuid = session_mdata.get("uuid")
         created_timestamp = session_mdata.get("created_at_ns")
-        locked = session_mdata.get("locked", False)
+        locked = session_mdata.get("locked")
 
         # This should never happen. If it does, it's a malformed session.
-        if session_uuid is None or created_timestamp is None:
-            raise ValueError(
-                f"Missing required 'uuid' or 'created_at' in session-related app_metadata: {session_mdata}."
+        if session_uuid is None or created_timestamp is None or locked is None:
+            raise SessionManifestError(
+                f"Missing required 'uuid' or 'created_at' or 'locked' in session-related app_metadata: {session_mdata}."
             )
 
         return SessionResourceManifest(
@@ -258,8 +268,7 @@ class SequenceResourceManifest:
             SequenceResourceManifest: An immutable instance containing parsed data.
 
         Raises:
-            SequenceManifestError: If the endpoint has no locations, multiple
-                locations, or if the URI format is invalid.
+            SequenceManifestError: If the endpoint `app_metadata` misses required keys.
         """
 
         try:
@@ -291,5 +300,5 @@ class SequenceResourceManifest:
             # Wrap internal errors (like UnicodeDecode or Unpacking errors)
             # into a domain-specific exception for the caller to handle.
             raise SequenceManifestError(
-                f"Failed to parse metadata from endpoint: {e}"
+                f"Failed to parse metadata from app_metadata: {e}"
             ) from e
