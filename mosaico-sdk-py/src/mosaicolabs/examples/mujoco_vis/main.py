@@ -127,13 +127,9 @@ def main():
                 rob_joints_stream = top_handler.get_data_streamer()
 
                 for joint_msg in rob_joints_stream:
+                    relative_ts = joint_msg.timestamp_ns - top_handler.timestamp_ns_min
                     robot_joints_timeseries.update(
-                        {
-                            joint_msg.timestamp_ns
-                            - top_handler.timestamp_ns_min: joint_msg.get_data(
-                                RobotJoint
-                            )
-                        }
+                        {relative_ts: joint_msg.get_data(RobotJoint)}
                     )
 
                 rob_joints_stream.close()
