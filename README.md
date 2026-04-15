@@ -30,7 +30,7 @@ Instead of treating data as generic byte arrays, Mosaico enforces a semantic und
 This guarantees data is validatable, optimized for transport, and deeply queryable by physical values.
 
 <p align="center">
-  <img src="https://mosaico.dev/mosaico-framework.webp" width="400px" />
+  <img src="https://mosaico.dev/test.webp" width="400px" />
 </p>
 
 Retrieval is highly efficient thanks to a modern data lake approach. 
