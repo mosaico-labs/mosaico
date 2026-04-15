@@ -47,7 +47,7 @@ except Exception:
     sys.exit(1)
 
 try:
-    pass
+    import matplotlib.pyplot as plt
 except Exception:
     console.print_exception()
     console.print("[bold red]Please run:[/ red bold] poetry add matplotlib ")
@@ -77,7 +77,15 @@ def main():
         )
     )
 
-    robot_joints_timeseries: list[RobotJoint] = []
+    # Dict containing all the joint timeseries. Organised as the following
+    # {
+    #   t1: [j1, j2, ..., j6],
+    #   t2: [j1, j2, ..., j6],
+    #   ...
+    #   tn: [j1, j2, ..., j6],
+    # }
+    robot_joints_timeseries: dict[int, list[RobotJoint]] = {}
+
     with MosaicoClient.connect(
         host=MOSAICO_HOST,
         port=MOSAICO_PORT,
@@ -119,22 +127,52 @@ def main():
                 rob_joints_stream = top_handler.get_data_streamer()
 
                 for joint_msg in rob_joints_stream:
-                    robot_joints_timeseries.append(joint_msg.get_data(RobotJoint))
+                    robot_joints_timeseries.update(
+                        {
+                            joint_msg.timestamp_ns
+                            - top_handler.timestamp_ns_min: joint_msg.get_data(
+                                RobotJoint
+                            )
+                        }
+                    )
 
                 rob_joints_stream.close()
 
         # To begin with, visualise them on a table
-        MAX_TABLE_ROWS = 50
+        MAX_TABLE_ROWS = 100
         table = Table(title="Joint position values")
-        for j_name in robot_joints_timeseries[0].names:
+        table.add_column("timestep relative [s]")
+        for j_name in list(robot_joints_timeseries.values())[0].names:
             table.add_column(j_name)
 
-        for rob_joint in robot_joints_timeseries[:MAX_TABLE_ROWS]:
-            table.add_row(*[f"{j:.8f}" for j in rob_joint.positions])
+        for timestep, rob_joint in list(robot_joints_timeseries.items())[
+            :MAX_TABLE_ROWS
+        ]:
+            timestep_s = timestep / 1.0e9
+            table.add_row(f"{timestep_s}", *[f"{j:.8f}" for j in rob_joint.positions])
 
         console.print(table)
 
         # --- PHASE 3: TODO ---
+
+        timestamps = [t for t in robot_joints_timeseries.keys()]
+        joint_values = list(robot_joints_timeseries.values())
+        joint_names = joint_values[0].names
+
+        fig, ax = plt.subplots(2, 3, figsize=(14, 7))
+        fig.suptitle("Robot Joint Positions over Time", fontsize=14, fontweight="bold")
+
+        for idx, (row, col) in enumerate(
+            [(0, 0), (0, 1), (0, 2), (1, 0), (1, 1), (1, 2)]
+        ):
+            ax[row, col].plot(timestamps, [rj.positions[idx] for rj in joint_values])
+            ax[row, col].set_title(joint_names[idx])
+            ax[row, col].set_xlabel("time [s]")
+            ax[row, col].set_ylabel("position [rad]")
+            ax[row, col].grid(True)
+
+        fig.tight_layout()
+        plt.show()
 
 
 if __name__ == "__main__":
