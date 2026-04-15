@@ -26,7 +26,7 @@
 Mosaico it does one thing exceptionally well: transforms monolithic sensor logs into a structured, queryable archive built for multi-modal data.
 
 Retrieval is highly efficient thanks to a modern data lake approach. 
-Leveraging **zero-copy architecture** eliminates serialization overhead, surpassing the limitations of traditional ROS bag or MCAP storage by enabling direct, random access to specific signals without parsing entire files.
+Leveraging **zero-copy architecture** eliminates serialization overhead, surpassing the limitations of `.bag` or `.mcap` storage by enabling direct, random access to specific signals without parsing entire files.
 Streams are automatically indexed, allowing the query engine to prune irrelevant data and stream only the precise slices required.
 
 <p align="center">
