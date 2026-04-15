@@ -239,8 +239,8 @@ class MyOntology(Serializable):
     # Fully variable matrix of float32
     heatmap: Optional[MosaicoType.matrix(MosaicoType.float32)] = None
 
-    # Fixed 4×4 transformation matrix
-    transform: MosaicoType.matrix(MosaicoType.float32, rows=4, cols=4)
+    # Fixed 4×4 matrix
+    t: MosaicoType.matrix(MosaicoType.float32, rows=4, cols=4)
 
     # Fixed-width rows, variable number of rows (e.g. token embeddings)
     embeddings: MosaicoType.matrix(MosaicoType.float32, cols=768)
@@ -263,7 +263,7 @@ class MyOntology(Serializable):
 
 Use [`MosaicoType.matrix()`][mosaicolabs.models.MosaicoType.matrix] with explicit `rows` and/or `cols` when:
 
-- The field represents a **fixed-shape 2-D structure**, such as a transformation matrix, a confusion matrix, or a pixel grid.
+- The field represents a **fixed-shape 2-D structure**.
 - You want the Arrow schema to **statically encode both dimensions**, enabling optimised columnar storage and stricter validation.
 - You are working with **fixed-width embedding matrices** where the column dimension (feature size) is always constant but the number of rows may vary.
 
@@ -284,11 +284,11 @@ class MyOntology(Serializable):
     # Fully variable 3-D tensor of float32
     volume: Optional[MosaicoType.tensor3d(MosaicoType.float32)] = None
 
-    # Fixed-depth stack of variable matrices (e.g. video frames)
-    frames: MosaicoType.tensor3d(MosaicoType.float32, depth=16)
+    # Fixed-depth stack of variable matrices
+    f: MosaicoType.tensor3d(MosaicoType.float32, depth=16)
 
-    # Fully fixed RGB image tensor — shape (3, 224, 224)
-    image: MosaicoType.tensor3d(MosaicoType.float32, depth=3, rows=224, cols=224)
+    # Fully fixed tensor
+    j: MosaicoType.tensor3d(MosaicoType.float32, depth=3, rows=4, cols=5)
 
     # Works with raw Python primitives too
     cube: MosaicoType.tensor3d(int, depth=8, rows=8, cols=8)
@@ -308,7 +308,7 @@ class MyOntology(Serializable):
 
 Use [`MosaicoType.tensor3d()`][mosaicolabs.models.MosaicoType.tensor3d] with explicit dimensions when:
 
-- The field represents a **fixed-shape volumetric structure**, such as an RGB image `(3, H, W)`, a voxel grid, or a batch of fixed-size feature maps.
+- The field represents a **fixed-shape volumetric structure**.
 - You want the Arrow schema to **statically encode all three dimensions**, enabling stricter schema validation and more efficient columnar storage.
 - You are working with **multi-channel ML features** (e.g. convolutional layer outputs) where depth, height, and width are always known and constant.
 

@@ -42,13 +42,13 @@ class _LaserScanBase(BaseModel):
             this threshold should be discarded.
         range_max: Maximum valid range value in meters; measurements above
             this threshold should be discarded.
-        ranges: Range measurements for each beam. Shape depends on ``T``.
+        ranges: Range measurements for each beam. Shape depends on `T`.
         intensities: Intensity measurements for each beam, co-indexed with
-            ``ranges`` (optional). Shape depends on ``T``.
+            `ranges` (optional). Shape depends on `T`.
 
     ### Querying with the **`.Q` Proxy**
     Scalar fields on this model are fully queryable via the **`.Q` proxy**.
-    List-typed fields (``ranges``, ``intensities``) are **not queryable**.
+    List-typed fields (`ranges`, `intensities`) are **not queryable**.
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
@@ -99,7 +99,7 @@ class _LaserScanBase(BaseModel):
     """
     Start angle of the scan in radians.
 
-    Defines the angular position of the first beam in the sweep.Together with ``angle_max`` and ``angle_increment``, it fully characterises the angular coverage of the scan.
+    Defines the angular position of the first beam in the sweep.Together with `angle_max` and `angle_increment`, it fully characterises the angular coverage of the scan.
 
 
     ### Querying with the **`.Q` Proxy**
@@ -132,7 +132,7 @@ class _LaserScanBase(BaseModel):
     End angle of the scan in radians.
 
     Defines the angular position of the last beam in the sweep.
-    The total field of view of the scanner is ``angle_max - angle_min``.
+    The total field of view of the scanner is `angle_max - angle_min`.
 
     ### Querying with the **`.Q` Proxy**
 
@@ -164,7 +164,7 @@ class _LaserScanBase(BaseModel):
     """
     Angular step between consecutive beams in radians.
 
-    The number of beams in a sweep can be derived as ``round((angle_max - angle_min) / angle_increment) + 1``.
+    The number of beams in a sweep can be derived as `round((angle_max - angle_min) / angle_increment) + 1`.
     A negative value indicates a clockwise scan direction.
 
     ### Querying with the **`.Q` Proxy**
@@ -327,7 +327,7 @@ class LaserScan(_LaserScanBase, Serializable):
     This model represents one sweep of a single-return laser range finder.
     Each beam yields exactly one range measurement, corresponding to the strongest or first detected echo.
 
-    ``ranges`` and ``intensities`` are flat ``List[float]`` whose *i*-th element corresponds to the beam at angular position ``angle_min + i * angle_increment``.
+    `ranges` and `intensities` are flat `List[float]` whose *i*-th element corresponds to the beam at angular position `angle_min + i * angle_increment`.
 
     Attributes:
         angle_min: Start angle of the scan in radians.
@@ -346,7 +346,7 @@ class LaserScan(_LaserScanBase, Serializable):
 
     ### Querying with the **`.Q` Proxy**
        Scalar fields are fully queryable via the **`.Q` proxy**.
-       ``ranges`` and ``intensities`` are **not queryable**.
+       `ranges` and `intensities` are **not queryable**.
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
@@ -396,9 +396,9 @@ class LaserScan(_LaserScanBase, Serializable):
     """
     Range measurements for each beam.
     
-    A flat list of ``float`` values, one per beam, representing the measured distance in meters.
+    A flat list of `float` values, one per beam, representing the measured distance in meters.
 
-    Values outside the ``[range_min, range_max]`` interval should be considered invalid.
+    Values outside the `[range_min, range_max]` interval should be considered invalid.
     """
 
     intensities: Optional[SingleRange] = MosaicoField(
@@ -407,7 +407,7 @@ class LaserScan(_LaserScanBase, Serializable):
     """
     Intensity measurements for each beam (optional).
     
-    A flat list of ``float`` values, carries the signal amplitude of each beam. 
+    A flat list of `float` values, carries the signal amplitude of each beam. 
     """
 
 
@@ -420,9 +420,9 @@ class MultiEchoLaserScan(_LaserScanBase, Serializable):
     detect overlapping surfaces, semi-transparent objects such as vegetation
     or rain drops, and retroreflective targets simultaneously.
 
-    ``ranges`` and ``intensities`` are ``List[List[float]]`` arrays
+    `ranges` and `intensities` are `List[List[float]]` arrays
     where the *i*-th inner list contains all echo returns for the beam at
-    angular position ``angle_min + i * angle_increment``, ordered from nearest
+    angular position `angle_min + i * angle_increment`, ordered from nearest
     to farthest. An empty inner list indicates no valid return for that beam.
 
     Attributes:
@@ -436,7 +436,7 @@ class MultiEchoLaserScan(_LaserScanBase, Serializable):
         ranges: List of echo distances per beam in meters; may contain
             multiple returns per beam.
         intensities: List of echo amplitudes per beam, co-indexed with
-            ``ranges`` (optional).
+            `ranges` (optional).
 
     Note:
         List-typed fields are **not queryable** via the `.Q` proxy. The `.Q`
@@ -444,7 +444,7 @@ class MultiEchoLaserScan(_LaserScanBase, Serializable):
 
     ### Querying with the **`.Q` Proxy**
     Scalar fields are fully queryable via the **`.Q` proxy**.
-    ``ranges`` and ``intensities`` are **not queryable**.
+    `ranges` and `intensities` are **not queryable**.
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
@@ -497,7 +497,7 @@ class MultiEchoLaserScan(_LaserScanBase, Serializable):
     A list of lists, where the *i*-th inner list contains all echo distances returned by the
     *i*-th beam, ordered from nearest to farthest. An empty inner list indicates no valid return for that beam.
     
-    Values outside the ``[range_min, range_max]`` interval should be considered invalid.
+    Values outside the `[range_min, range_max]` interval should be considered invalid.
     """
 
     intensities: Optional[MultiRange] = MosaicoField(
@@ -506,5 +506,5 @@ class MultiEchoLaserScan(_LaserScanBase, Serializable):
     """
     Intensity measurements for each beam. (optional).
 
-    A flat list of list of ``float`` value carries the signal amplitude of each returned echo.
+    A flat list of list of `float` value carries the signal amplitude of each returned echo.
     """

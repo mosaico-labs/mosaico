@@ -13,7 +13,7 @@ variants are provided, each targeting a specific acquisition technology:
   disparity between a rectified left/right image pair
   (e.g. ZED, Stereolabs OAK-D).
 
-All three models share a common spatial core (``x``, ``y``, ``z``) and optional
+All three models share a common spatial core (`x`, `y`, `z`) and optional
 colour/intensity channels, and extend it with technology-specific fields.
 """
 
@@ -102,7 +102,7 @@ class _DepthCameraBase(BaseModel):
     Depth value of each point, in meters.
 
     Represents the distance along the camera's optical axis (Z-forward convention).
-    This is the primary measurement from which ``x`` and ``y`` are projected using
+    This is the primary measurement from which `x` and `y` are projected using
     the sensor's intrinsic parameters.
     """
 
@@ -114,7 +114,7 @@ class _DepthCameraBase(BaseModel):
 
     Each element encodes the red, green, and blue channels of the pixel
     co-registered with the corresponding depth sample. The packing convention
-    ``rgb`` field (bits 16–23 = R, 8–15 = G, 0–7 = B, stored as a float32 reinterpretation of a uint32).
+    `rgb` field (bits 16–23 = R, 8–15 = G, 0–7 = B, stored as a float32 reinterpretation of a uint32).
     There are useful utilities for [`pack_rgb()`][mosaicolabs.models.futures.depth_camera.pack_rgb] and [`unpack_rgb()`][mosaicolabs.models.futures.depth_camera.unpack_rgb] rgb in in the internal of depth camera.
     """
 
@@ -182,8 +182,8 @@ class ToFCamera(_DepthCameraBase, Serializable):
 
     In addition to the common spatial and colour channels inherited from
     `_DepthCamera`, this model exposes two ToF-specific fields:
-        ``noise``, which quantifies the per-pixel measurement uncertainty, and
-        ``grayscale``, which carries the passive greyscale amplitude captured
+        `noise`, which quantifies the per-pixel measurement uncertainty, and
+        `grayscale`, which carries the passive greyscale amplitude captured
         alongside the active depth measurement.
 
     Each field is a flat list whose *i*-th element corresponds to the *i*-th
@@ -253,8 +253,8 @@ class StereoCamera(_DepthCameraBase, Serializable):
 
     In addition to the common spatial and colour channels inherited from
     `_DepthCamera`, this model exposes two stereo-specific fields:
-    ``luma``, which carries the luminance of the source rectified image pixel,
-    and ``cost``, which encodes the confidence of the disparity estimate at
+    `luma`, which carries the luminance of the source rectified image pixel,
+    and `cost`, which encodes the confidence of the disparity estimate at
     each point.
 
     Each field is a flat list whose *i*-th element corresponds to the *i*-th

@@ -1,9 +1,6 @@
 from enum import IntEnum
-from typing import List
 
-from mosaicolabs.models import MosaicoType
-from mosaicolabs.models.serializable import Serializable
-from mosaicolabs.models.types import MosaicoField
+from mosaicolabs import MosaicoField, MosaicoType, Serializable
 
 
 class PointFieldDataType(IntEnum):
@@ -62,7 +59,7 @@ class PointCloud2(Serializable):
     )
     """The width of the point cloud."""
 
-    fields: List[PointField] = MosaicoField(
+    fields: MosaicoType.list_(PointField) = MosaicoField(
         description="The fields of the point cloud."
     )
     """The fields of the point cloud."""

@@ -1,7 +1,6 @@
 from typing import Optional
 
-from mosaicolabs.models import MosaicoType, Serializable
-from mosaicolabs.models.types import MosaicoField
+from mosaicolabs import MosaicoField, MosaicoType, Serializable
 
 
 class BatteryState(Serializable):

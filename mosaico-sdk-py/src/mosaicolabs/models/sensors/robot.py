@@ -5,8 +5,7 @@ Defines the `RobotJoint` model for capturing the state (position, velocity, effo
 of a robot's actuators.
 """
 
-from mosaicolabs.models import MosaicoType
-from mosaicolabs.models.types import MosaicoField
+from mosaicolabs.models import MosaicoField, MosaicoType
 
 from ..serializable import Serializable
 
@@ -58,10 +57,10 @@ class RobotJoint(Serializable):
     """
 
     efforts: MosaicoType.list_(MosaicoType.float64) = MosaicoField(
-        description="Efforts ([N] or [N/m]) applied to the different robot joints"
+        description="Efforts ([N] or [N*m]) applied to the different robot joints"
     )
     """
-    Efforts ([N] or [N/m]) applied to the different robot joints
+    Efforts ([N] or [N*m]) applied to the different robot joints
 
     ### Querying with the **`.Q` Proxy**
     The efforts are not queryable via the `.Q` proxy (Lists are not supported yet).
