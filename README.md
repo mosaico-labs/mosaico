@@ -22,20 +22,20 @@
 
 # The Data Platform for Robotics and Physical AI
 
-**Mosaico** is a *blazing-fast* data platform designed to bridge the gap between Robotics and Physical AI.
+**Mosaico** is a *blazing-fast* data platform designed to close the loop between physical world data and scalable, production-grade systems.
 Mosaico it does one thing exceptionally well: transforms monolithic sensor logs into a structured, queryable archive built for multi-modal data.
 
-At its foundation is a strictly-typed **Data Ontology**. 
-Instead of treating data as generic byte arrays, Mosaico enforces a semantic understanding of every object. 
-This guarantees data is validatable, optimized for transport, and deeply queryable by physical values.
+Retrieval is highly efficient thanks to a modern data lake approach. 
+Leveraging **zero-copy architecture** eliminates serialization overhead, surpassing the limitations of traditional ROS bag or MCAP storage by enabling direct, random access to specific signals without parsing entire files.
+Streams are automatically indexed, allowing the query engine to prune irrelevant data and stream only the precise slices required.
 
 <p align="center">
   <img src="https://mosaico.dev/mosaico-framework.webp" width="400px" />
 </p>
 
-Retrieval is highly efficient thanks to a modern data lake approach. 
-Leveraging **zero-copy architecture**, columnar data exchange eliminates serialization overhead. 
-Streams are automatically indexed, allowing the query engine to prune irrelevant data and stream only the precise slices required.
+At its foundation is a strictly-typed **data ontology**. 
+Instead of treating data as generic byte arrays, Mosaico enforces a semantic understanding of every object. 
+This guarantees data is validatable, optimized for transport, and deeply queryable by physical values.
 
 Targeting durable **long-term storage** and strict **data lineage**, Mosaico rejects traditional versioning, which introduces query ambiguity. 
 Instead, it uses immutable data layers. 
