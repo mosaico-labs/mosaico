@@ -27,7 +27,8 @@ The ontology is designed to solve the "generic data" problem in robotics by ensu
 The Mosaico SDK provides a comprehensive library of models that transform raw binary streams into validated, queryable Python objects. These are grouped by their physical and logical application below.
 
 ### Base Data Models
-API Reference: [Base Data Types](./API_reference/models/data_types.md)
+??? question "API Reference"
+    [Base Data Types](./API_reference/models/data_types.md)
 
 These models serve as timestamped, metadata-aware wrappers for standard primitives. They allow simple diagnostic or scalar values to be treated as first-class members of the platform.
 
@@ -40,7 +41,8 @@ These models serve as timestamped, metadata-aware wrappers for standard primitiv
 | **Floating Point** | [`Floating16`][mosaicolabs.models.data.base_types.Floating16], [`Floating32`][mosaicolabs.models.data.base_types.Floating32], [`Floating64`][mosaicolabs.models.data.base_types.Floating64] | Real numbers for high-precision physical values. |
 
 ### Geometry & Kinematics Models
-API Reference: [Geometry Models](./API_reference/models/geometry.md)
+??? question "API Reference"
+    [Geometry Models](./API_reference/models/geometry.md)
 
 These structures define spatial relationships and the movement states of objects in 2D or 3D coordinate frames.
 
@@ -53,7 +55,8 @@ These structures define spatial relationships and the movement states of objects
 | **Aggregated State** | [`MotionState`][mosaicolabs.models.data.kinematics.MotionState] | An atomic snapshot combining Pose, Velocity, and Acceleration. |
 
 ### Sensor Models
-API Reference: [Sensor Models](./API_reference/models/sensors.md)
+??? question "API Reference"
+    [Sensor Models](./API_reference/models/sensors.md)
 
 High-level models representing physical hardware devices and their processed outputs.
 
@@ -68,7 +71,8 @@ High-level models representing physical hardware devices and their processed out
 | **Robotics** | [`RobotJoint`][mosaicolabs.models.sensors.RobotJoint] | States (position, velocity, effort) for index-aligned actuator arrays. |
 
 #### Futures
-API Reference: [Futures Models](./API_reference/models/futures.md)
+??? question "API Reference"
+    [Futures Models](./API_reference/models/futures.md)
 
 Prospective high-level models representing emerging or not yet fully standardized sensor hardware. The `futures` module acts as a **transitional space** where experimental ontologies are introduced and iteratively refined before being promoted to the stable, production-ready ontology set.
 
@@ -101,7 +105,8 @@ Because the whole mechanism is built on top of **Pydantic model fields** via `An
 
 
 ### MosaicoType
-API Reference: [`mosaicolabs.models.MosaicoType`][mosaicolabs.models.MosaicoType]
+??? question "API Reference"
+    [`mosaicolabs.models.MosaicoType`][mosaicolabs.models.MosaicoType]
 
 `MosaicoType` is a collection of `Annotated` type aliases. Each alias bundles the corresponding Python primitive type with its PyArrow counterpart as inline metadata, making the Arrow type immediately visible to the schema auto-builder without any additional configuration.
 
@@ -249,7 +254,8 @@ class MyOntology(Serializable):
     Using `MosaicoType.annotate(int, ...)` is functionally equivalent to the standard `Annotated[int, ...]`, but it provides a more explicit and optimized path for the Mosaico schema builder to resolve complex Arrow types.
 
 ### MosaicoField
-API Reference: [`mosaicolabs.models.types.MosaicoField`][mosaicolabs.models.types.MosaicoField]
+??? question "API Reference"
+    [`mosaicolabs.models.types.MosaicoField`][mosaicolabs.models.types.MosaicoField]
 
 `MosaicoField` is a factory function that returns a standard Pydantic `Field` instance, adding Mosaico-specific semantics on top of the native `pydantic.Field`. Because the return type is a native Pydantic `Field`, every standard Pydantic feature like validators, aliases, `model_fields` introspection,  works out of the box.
 
@@ -323,7 +329,8 @@ class DetectionOntology(Serializable):
 The ontology architecture relies on three primary abstractions: the **Factory** (`Serializable`), the **Envelope** (`Message`) and the **Mixins**
 
 ### `Serializable` (The Factory)
-API Reference: [`mosaicolabs.models.Serializable`][mosaicolabs.models.Serializable]
+??? question "API Reference"
+    [`mosaicolabs.models.Serializable`][mosaicolabs.models.Serializable]
 
 Every data payload in Mosaico inherits from the `Serializable` class. It manages the global registry of data types and ensures that the system knows exactly how to convert a string tag like `"imu"` back into a Python class with a specific binary schema.
 `Serializable` uses the `__pydantic_init_subclass__` hook, which is automatically called whenever a developer defines a new subclass.
@@ -341,7 +348,8 @@ When this happens, `Serializable` performs the following steps automatically:
 
 ### `Message` (The Envelope)
 
-API Reference: [`mosaicolabs.models.Message`][mosaicolabs.models.Message]
+??? question "API Reference"
+    [`mosaicolabs.models.Message`][mosaicolabs.models.Message]
 
 The **`Message`** class is the universal transport envelope for all data within the Mosaico platform. It acts as the "Source of Truth" for synchronization and spatial context, combining specific sensor data (the payload) with critical middleware-level metadata. By centralizing metadata at the envelope level, Mosaico ensures that every data point—regardless of its complexity—carries a consistent temporal and spatial identity.
 
@@ -431,7 +439,8 @@ Mosaico uses **Mixins** to inject standard uncertainty fields across different d
 
 #### `CovarianceMixin`
 
-API Reference: [`mosaicolabs.models.mixins.CovarianceMixin`][mosaicolabs.models.mixins.CovarianceMixin]
+??? question "API Reference"
+    [`mosaicolabs.models.mixins.CovarianceMixin`][mosaicolabs.models.mixins.CovarianceMixin]
 
 Injects multidimensional uncertainty fields, typically used for flattened covariance matrices (e.g., 3x3 or 6x6) in sensor fusion applications.
 
@@ -444,7 +453,8 @@ class MySensor(Serializable, CovarianceMixin):
 
 #### `VarianceMixin`
 
-API Reference: [`mosaicolabs.models.mixins.VarianceMixin`][mosaicolabs.models.mixins.VarianceMixin]
+??? question "API Reference"
+    [`mosaicolabs.models.mixins.VarianceMixin`][mosaicolabs.models.mixins.VarianceMixin]
 
 Injects monodimensional uncertainty fields, useful for sensors with 1-dimensional uncertain data like `Temperature` or `Pressure`.
 
@@ -545,10 +555,11 @@ with MosaicoClient.connect("localhost", 6726) as client:
 
 For a comprehensive list of all supported operators and advanced filtering strategies (such as query chaining), see the **[Full Query Documentation](./query.md)** and the Ontology types SDK Reference in the **API Reference**:
 
-* [Base Data Models](./API_reference/models/data_types.md)
-* [Sensors Models](./API_reference/models/sensors.md)
-* [Geometry Models](./API_reference/models/geometry.md)
-* [Platform Models](./API_reference/models/platform.md)
+??? question "API Reference"
+    * [Base Data Models](./API_reference/models/data_types.md)
+    * [Sensors Models](./API_reference/models/sensors.md)
+    * [Geometry Models](./API_reference/models/geometry.md)
+    * [Platform Models](./API_reference/models/platform.md)
 
 ## Customizing the Ontology
 
@@ -569,7 +580,8 @@ To align with the Mosaico ecosystem, use the following mixins:
 Annotate each field with a `MosaicoType` alias and wrap it with `MosaicoField`. Fields and schema are declared together in a single annotation — the `__msco_pyarrow_struct__` is derived automatically from `model_fields` at class-definition time, so there is no separate schema declaration to maintain.
 
 #### 2.1 Serialization Format Optimization
-API Reference: [`mosaicolabs.enum.SerializationFormat`][mosaicolabs.enum.SerializationFormat]
+??? question "API Reference"
+    [`mosaicolabs.enum.SerializationFormat`][mosaicolabs.enum.SerializationFormat]
 
 You can optimize remote server performance by overriding the `__serialization_format__` attribute. This controls how the server compresses and organizes your data.
 

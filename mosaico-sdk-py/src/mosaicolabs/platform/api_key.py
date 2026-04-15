@@ -12,12 +12,6 @@ def _get_fingerprint(api_key: str) -> str:
         ValueError: If the API key is not in the correct format
     """
 
-    def has_both(s: str):
-        # .isalnum() checks if ALL chars are letters or numbers
-        # .isalpha() is False if there's at least one number
-        # .isdigit() is False if there's at least one letter
-        return s.isalnum() and not s.isalpha() and not s.isdigit()
-
     parts = api_key.split("_")
     if len(parts) != 3:
         raise ValueError("Invalid format for API Key (wrong number of parts)")
@@ -27,7 +21,7 @@ def _get_fingerprint(api_key: str) -> str:
     if header != "msco":
         raise ValueError("Invalid format for API Key (missing 'msco')")
 
-    if not (has_both(payload) and fingerprint.isalnum()):
+    if not (payload.isalnum() and fingerprint.isalnum()):
         raise ValueError("Invalid format for API Key (not alnum)")
 
     if len(fingerprint) != 8:

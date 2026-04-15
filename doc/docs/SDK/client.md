@@ -3,7 +3,8 @@ title: Client
 description: Architecture and design of the MosaicoClient.
 ---
 
-API Reference: [`mosaicolabs.comm.MosaicoClient`][mosaicolabs.comm.MosaicoClient].
+??? question "API Reference"
+    [`mosaicolabs.comm.MosaicoClient`][mosaicolabs.comm.MosaicoClient].
 
 The `MosaicoClient` is a resource manager designed to orchestrate distinct **Layers** of communication and processing. 
 This layered architecture ensures that high-throughput sensor data does not block critical control operations or application logic.

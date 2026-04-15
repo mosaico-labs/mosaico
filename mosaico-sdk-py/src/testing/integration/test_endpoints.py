@@ -74,7 +74,7 @@ def test_topic_name_in_endpoint_from_topic_handler(
     # Topic exists!
     assert len(flight_info.endpoints) == 1 and "Expected 1 endpoint"
     ep = flight_info.endpoints[0]
-    topic_manifest = TopicResourceManifest._from_app_metadata(ep.app_metadata)
+    topic_manifest = TopicResourceManifest._from_flight_endpoint(ep)
     # Topic exists!
     assert (
         topic_manifest.name == topic
@@ -108,7 +108,7 @@ def test_topic_names_in_endpoints_from_sequence_handler(
         and f"Expected {len(topic_list)} endpoints, got {len(flight_info.endpoints)}"
     )
     for ep in flight_info.endpoints:
-        topic_manifest = TopicResourceManifest._from_app_metadata(ep.app_metadata)
+        topic_manifest = TopicResourceManifest._from_flight_endpoint(ep)
         # Topic exists!
         assert (
             topic_manifest.name in topic_list
@@ -154,15 +154,14 @@ def test_topics_manifest_timestamps(
     )
     # The length of the 'endpoints' list is tested elsewhere
     ep = flight_info.endpoints[0]
-    topic_manifest = TopicResourceManifest._from_app_metadata(ep.app_metadata)
+    topic_manifest = TopicResourceManifest._from_flight_endpoint(ep)
     # Not asked for time-windowed stream: the min/max timestamps must be equal to start/end
     assert (
-        _cached_topic_data_stream[0].msg.timestamp_ns
-        == topic_manifest.resource_info.timestamp_ns_min
+        _cached_topic_data_stream[0].msg.timestamp_ns == topic_manifest.timestamp_ns_min
     )
     assert (
         _cached_topic_data_stream[-1].msg.timestamp_ns
-        == topic_manifest.resource_info.timestamp_ns_max
+        == topic_manifest.timestamp_ns_max
     )
 
     # free resources
@@ -205,15 +204,14 @@ def test_topic_streamer_manifest_timestamps(
     )
     # The length of the 'endpoints' list is tested elsewhere
     ep = flight_info.endpoints[0]
-    topic_manifest = TopicResourceManifest._from_app_metadata(ep.app_metadata)
+    topic_manifest = TopicResourceManifest._from_flight_endpoint(ep)
     # The start/end timestamp must be equal to the first/last message timestamps of the topic data stream
     # min and max are still the lowest and highest timestamp in the whole topic stream
     assert (
-        topic_manifest.resource_info.timestamp_ns_min
-        == _cached_topic_data_stream[0].msg.timestamp_ns
+        topic_manifest.timestamp_ns_min == _cached_topic_data_stream[0].msg.timestamp_ns
     )
     assert (
-        topic_manifest.resource_info.timestamp_ns_max
+        topic_manifest.timestamp_ns_max
         == _cached_topic_data_stream[-1].msg.timestamp_ns
     )
 

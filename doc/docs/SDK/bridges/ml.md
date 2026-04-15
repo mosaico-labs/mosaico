@@ -13,7 +13,8 @@ Working with robotics and multi-modal datasets presents three primary technical 
 
 
 ## From Sequences to DataFrames
-API Reference: [`mosaicolabs.ml.DataFrameExtractor`][mosaicolabs.ml.DataFrameExtractor]
+??? question "API Reference"
+    [`mosaicolabs.ml.DataFrameExtractor`][mosaicolabs.ml.DataFrameExtractor]
 
 The [`DataFrameExtractor`][mosaicolabs.ml.DataFrameExtractor] is a specialized utility designed to convert Mosaico sequences into tabular formats. Unlike standard streamers that instantiate individual Python objects, this extractor operates at the **Batch Level** by pulling raw `RecordBatch` objects directly from the underlying stream to maximize throughput.
 
@@ -76,7 +77,8 @@ with MosaicoClient.connect("localhost", 6726):
 ```
 
 ## Sparse to Dense Representation
-API Reference: [`mosaicolabs.ml.SyncTransformer`][mosaicolabs.ml.SyncTransformer]
+??? question "API Reference"
+    [`mosaicolabs.ml.SyncTransformer`][mosaicolabs.ml.SyncTransformer]
 
 The [`SyncTransformer`][mosaicolabs.ml.SyncTransformer] is a temporal resampler designed to solve the **Heterogeneous Sampling** problem inherent in robotics and Physical AI. 
 It aligns multi-rate sensor streams (for example, an IMU at 100Hz and a GPS at 5Hz) onto a uniform, fixed-frequency grid to prepare them for machine learning models.
@@ -88,11 +90,57 @@ Unlike standard resamplers that treat each data batch in isolation, this transfo
 * **Stateful Continuity**: It maintains an internal cache of the last known sensor values and the next expected grid tick, allowing signals to bridge the gap between independent DataFrame chunks.
 * **Semantic Integrity**: It respects the physical reality of data acquisition by yielding `None` for grid ticks that occur before a sensor's first physical measurement, avoiding data "hallucination".
 * **Vectorized Performance**: Internal kernels leverage high-speed lookups for high-throughput processing.
-* **Protocol-Based Extensibility**: The mathematical logic for resampling is decoupled through a `SynchPolicy` protocol, allowing for custom kernel injection.
+* **Protocol-Based Extensibility**: The mathematical logic for resampling is decoupled through a [`SyncPolicy`][mosaicolabs.ml.SyncPolicy] protocol, allowing for custom kernel injection.
 
+### Implementation and Stateful Lifecycle
+
+Architecturally, the [`SyncTransformer`][mosaicolabs.ml.SyncTransformer] is implemented as a **stateful state-machine** designed to maintain signal continuity across independent data chunks. Unlike standard library resamplers that often treat each input batch as an isolated event, this transformer is engineered to "stitch" the temporal gaps between the windowed DataFrames yielded by the [`DataFrameExtractor`][mosaicolabs.ml.DataFrameExtractor].
+
+#### Internal State Management
+The transformer maintains two critical internal buffers that persist for its entire lifecycle:
+
+* **`_next_timestamp_ns`**: A scalar value tracking the exact nanosecond where the next grid tick must occur. This prevents temporal drift across hours of recording by ensuring the fixed-frequency grid remains globally aligned.
+* **`_last_values`**: A dictionary that caches the final (timestamp, value) tuple for every topic processed in the previous chunk.
+
+
+#### The Transformation Pipeline
+When [`transform()`][mosaicolabs.ml.SyncTransformer.transform] is called on a new `sparse_chunk`, the following internal operations occur:
+
+1.  **Grid Synthesis**: The transformer generates a new time grid starting precisely from `_next_timestamp_ns` and extending to the end of the current chunk.
+2.  **Data Prepending**: Through the `_prepare_data` method, the transformer retrieves the last known value of each topic and **prepends** it to the current chunk's arrays. This ensures that the resampling algorithm (e.g., [`SyncHold`][mosaicolabs.ml.SyncHold]) has a reference point to fill the gap at the very beginning of the new window.
+3.  **Policy Delegation**: The actual mathematical mapping is delegated to the configured [`SyncPolicy`][mosaicolabs.ml.SyncPolicy], which yields the final dense values for the synthesized grid.
+
+
+!!! danger "The 'Re-instantiation' Trap"
+    A common architectural error is re-instantiating the `SyncTransformer` inside a processing loop. Because the transformer is stateful, **it must be instantiated once outside the loop** to function correctly.
+
+    Re-instantiating the transformer inside the loop destroys the internal cache, causing signal discontinuities and potential data "hallucination" at the start of every chunk.
+
+    ```python
+    # ERROR: Transformer is created inside the loop
+    for sparse_chunk in extractor.to_pandas_chunks():
+        # This resets the grid and last_values every iteration!
+        transformer = SyncTransformer(target_fps=50) 
+        dense_chunk = transformer.transform(sparse_chunk)
+    ```
+
+    #### Correct Pattern (Persistent State)
+    By keeping the instance outside the loop, the transformer correctly bridges the gap between `sparse_chunk_N` and `sparse_chunk_N+1`.
+
+    ```python
+    # CORRECT: Instantiate once
+    transformer = SyncTransformer(target_fps=50)
+
+    for sparse_chunk in extractor.to_pandas_chunks():
+        # transform() updates internal state and prepares it for the next call
+        dense_chunk = transformer.transform(sparse_chunk)
+    ```
+
+    If you need to reuse the same transformer instance for a different recording or sequence, you must call the [`.reset()`][mosaicolabs.ml.SyncTransformer.reset] method to clear the internal buffers and prepare for a new grid alignment.
 
 ### Implemented Synchronization Policies
-API Reference: [`mosaicolabs.ml.SyncPolicy`][mosaicolabs.ml.SyncPolicy]
+??? question "API Reference"
+    [`mosaicolabs.ml.SyncPolicy`][mosaicolabs.ml.SyncPolicy]
 
 Each policy defines a specific logic for how the transformer bridges temporal gaps between sparse data points.
 
@@ -111,6 +159,39 @@ Each policy defines a specific logic for how the transformer bridges temporal ga
 * **Behavior**: Ensures a grid tick only receives a value if a new measurement actually occurred within that specific grid interval; otherwise, it returns `None`.
 * **Best For**: Downsampling high-frequency data where a strict 1-to-1 relationship between windows and unique hardware events is required.
 
+### Memory & Performance Best Practices
+
+The memory footprint of your ML pipeline is primarily governed by the product of two variables: the temporal window size (`window_sec`) in [`DataFrameExtractor.to_pandas_chunks()`][mosaicolabs.ml.DataFrameExtractor.to_pandas_chunks] and the synthesis frequency (`target_fps`) in [`SyncTransformer.transform()`][mosaicolabs.ml.SyncTransformer.transform].
+
+#### Resource Consumption Matrix
+
+| Parameter Configuration | Memory Impact | CPU Impact | Use Case |
+| :--- | :--- | :--- | :--- |
+| **Small Window / Low FPS**<br>(1s / 10Hz) | **Minimal**: Lowest RAM overhead per chunk. | Low | Real-time monitoring, low-power edge devices. |
+| **Large Window / Low FPS**<br>(60s / 10Hz) | **Moderate**: High memory usage in the `DataFrameExtractor` due to large sparse buffers. | Moderate | Batch analysis where global context is needed before transformation. |
+| **Small Window / High FPS**<br>(1s / 1000Hz) | **High**: Rapid creation of many dense rows. Heavy overhead on Python's Garbage Collector. | High | High-fidelity signal processing (e.g., vibration analysis). |
+| **Large Window / High FPS**<br>(60s / 1000Hz) | **Critical**: Risk of `MemoryError`. Can generate millions of rows in a single `transform()` call. | Very High | Deep Learning training on high-end workstations with 64GB+ RAM. |
+
+#### Optimization Strategies
+
+1.  **Avoid the "Full Load" Trap**:
+    The `DataFrameExtractor` is designed for (batched) streaming. If you set `window_sec` to a value greater than the total sequence duration, the extractor will fall back to a "Full Load" mode, attempting to load the entire recording into RAM, which can mean multi-GB batch for heavy datasets.
+
+2.  **The Rule of 100k Rows**:
+    As a general architectural guideline, aim for a configuration where `window_sec * target_fps < 100,000` rows per chunk (for time-series). This keeps the Pandas operations within the L3 cache limits of most modern CPUs and ensures the garbage collector can keep up with the loop iterations.
+
+3.  **Downsampling before Transformation**:
+    If you have high-frequency raw data (e.g., IMU at 400Hz) but only need 50Hz for your ML model, use the `SyncDrop` policy. It is significantly faster than `SyncHold` because it discards redundant intermediate samples before the dense grid is synthesized, reducing the internal array sizes during the `_prepare_data` phase.
+
+4.  **Garbage Collection in Long Loops**:
+    When processing sequences that span several hours, Python's automatic reference counting may not trigger fast enough. If you observe a "memory leak" (steadily increasing RAM usage), explicitly delete the `dense_chunk` at the end of your loop:
+
+    ```python
+    for sparse_chunk in extractor.to_pandas_chunks():
+        dense_chunk = transformer.transform(sparse_chunk)
+        # ... process ...
+        del dense_chunk # Explicitly signal for GC
+    ```
 
 ### Scikit-Learn Compatibility
 

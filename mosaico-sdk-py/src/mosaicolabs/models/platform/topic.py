@@ -145,7 +145,7 @@ class Topic(pydantic.BaseModel, _QueryProxyMixin):
             platform_metadata: The metadata of the platform resource.
             resrc_manifest: The manifest of the platform resource.
         """
-        self._total_size_bytes = resrc_manifest.resource_info.total_size_bytes
+        self._total_size_bytes = resrc_manifest.total_size_bytes
         self._created_timestamp = resrc_manifest.created_timestamp
         self._name = name
         self._sequence_name = sequence_name
@@ -153,7 +153,7 @@ class Topic(pydantic.BaseModel, _QueryProxyMixin):
         self._serialization_format = (
             platform_metadata.properties.serialization_format.value
         )
-        self._chunks_number = resrc_manifest.resource_info.chunks_number
+        self._chunks_number = resrc_manifest.chunks_number
         self._locked = resrc_manifest.locked
 
     # --- Properties ---

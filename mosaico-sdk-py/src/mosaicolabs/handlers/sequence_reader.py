@@ -13,7 +13,6 @@ import pyarrow.flight as fl
 from mosaicolabs.models.message import Message
 
 from ..logging_config import get_logger
-from ..platform.resource_info import TopicResourceInfo
 from ..platform.resource_manifests import (
     TopicManifestError,
     TopicResourceManifest,
@@ -163,17 +162,15 @@ class SequenceDataStreamer:
         # Extract the Topics resource manifests data and their tickets
         for ep in flight_info.endpoints:
             try:
-                topic_name = TopicResourceManifest._get_topic_name_from_locations(
-                    ep.locations
-                )
-                topic_resrc_info = TopicResourceInfo._from_flight_endpoint(ep)
+                topic_manifest = TopicResourceManifest._from_flight_endpoint(ep)
+                topic_name = topic_manifest.name
             except TopicManifestError as e:
                 logger.error(f"Skipping invalid topic endpoint, err: '{e}'")
                 continue
             # Skip topics with no data
             if (
-                topic_resrc_info.timestamp_ns_min is None
-                or topic_resrc_info.timestamp_ns_max is None
+                topic_manifest.timestamp_ns_min is None
+                or topic_manifest.timestamp_ns_max is None
             ):
                 continue
             # If not in the selected topics
