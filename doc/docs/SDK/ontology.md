@@ -127,7 +127,7 @@ API Reference: [`mosaicolabs.models.MosaicoType`][mosaicolabs.models.MosaicoType
 | `MosaicoType.large_binary` | `bytes` | `pa.large_binary()` |
 
 #### Explicit type definition
-Using `MosaicoType` provides precise control over the underlying PyArrow schema:
+Using [`MosaicoType`][mosaicolabs.models.MosaicoType] provides precise control over the underlying PyArrow schema:
 
 ```python
 from mosaicolabs import MosaicoField, MosaicoType, Serializable
@@ -167,7 +167,7 @@ In this scenario, the types are resolved using the following **fallback mapping*
 
 #### List types
 
-For list fields, `MosaicoType` exposes a `list_()` static method that wraps a scalar type, either a `MosaicoType` alias or a raw Python primitive, into the appropriate `pa.list_` Arrow type.
+For list fields, `MosaicoType` exposes a [`list_()`][mosaicolabs.models.MosaicoType.list_] static method that wraps a scalar type, either a `MosaicoType` alias or a raw Python primitive, into the appropriate `pa.list_` Arrow type.
 
 An optional `list_size` parameter produces a fixed-size list (`pa.list_(type, size)`), omitting it yields a variable-length list.
 
@@ -198,7 +198,7 @@ This means:
 - This is equivalent to calling `MosaicoType.list_(str)` with no `size` argument.
 
 
-`MosaicoType.list_()` accepts an optional `size` parameter. When provided, it maps to an Arrow **fixed-size list** (`pa.list_(type, list_size=N)`), which enforces that every value in the column contains exactly `N` elements.
+[`MosaicoType.list_()`][mosaicolabs.models.MosaicoType.list_] accepts an optional `size` parameter. When provided, it maps to an Arrow **fixed-size list** (`pa.list_(type, list_size=N)`), which enforces that every value in the column contains exactly `N` elements.
 
 | | `list[str]` | `MosaicoType.list_(str)` | `MosaicoType.list_(str, 3)` |
 |---|---|---|---|
@@ -207,7 +207,7 @@ This means:
 | Interoperable with Pydantic | Yes | Yes | Yes |
 | Supports nested models | Yes | Yes | Yes |
 
-Use `MosaicoType.list_()` with a `size` argument when:
+Use [`MosaicoType.list_()`][mosaicolabs.models.MosaicoType.list_] with a `size` argument when:
 
 - The list represents a **fixed-dimensional structure**, such as a vector, a coordinate
   tuple, or an RGB triplet.
@@ -227,12 +227,102 @@ tags: MosaicoType.list_(str)  # explicit Mosaico style - equivalent result
 !!! note "Note"
     Explicit type definition and fallback types properties are hold in this case.
 
+#### Matrix types
+
+For 2-D matrix fields, `MosaicoType` exposes a [`matrix()`][mosaicolabs.models.MosaicoType.matrix] static method that composes two nested [`list_()`][mosaicolabs.models.MosaicoType.list_] calls to represent a rectangular grid of shape `(rows, cols)`.
+Both dimensions are optional: omitting a dimension produces a variable-length axis, while supplying an integer value produces a fixed-size axis via Arrow's `pa.list_(type, list_size=N)`.
+
+```python
+from mosaicolabs import MosaicoField, Serializable
+
+class MyOntology(Serializable):
+    # Fully variable matrix of float32
+    heatmap: Optional[MosaicoType.matrix(MosaicoType.float32)] = None
+
+    # Fixed 4×4 transformation matrix
+    transform: MosaicoType.matrix(MosaicoType.float32, rows=4, cols=4)
+
+    # Fixed-width rows, variable number of rows (e.g. token embeddings)
+    embeddings: MosaicoType.matrix(MosaicoType.float32, cols=768)
+
+    # Works with raw Python primitives too
+    grid: MosaicoType.matrix(int, rows=8, cols=8)
+    
+    # Works also with other ontologies
+    onto: MosaicoType.matrix(Vector3d)
+
+```
+
+| | `matrix(T)` | `matrix(T, cols=N)` | `matrix(T, rows=M, cols=N)` |
+|---|---|---|---|
+| Arrow type | `pa.list_(pa.list_(T))` | `pa.list_(pa.list_(T, N))` | `pa.list_(pa.list_(T, N), M)` |
+| Row count enforced | No | No | Yes, exactly M |
+| Column count enforced | No | Yes, exactly N | Yes, exactly N |
+| Interoperable with Pydantic | Yes | Yes | Yes |
+| Support nested models | Yes | Yes | Yes |
+
+Use [`MosaicoType.matrix()`][mosaicolabs.models.MosaicoType.matrix] with explicit `rows` and/or `cols` when:
+
+- The field represents a **fixed-shape 2-D structure**, such as a transformation matrix, a confusion matrix, or a pixel grid.
+- You want the Arrow schema to **statically encode both dimensions**, enabling optimised columnar storage and stricter validation.
+- You are working with **fixed-width embedding matrices** where the column dimension (feature size) is always constant but the number of rows may vary.
+
+If neither dimension is provided, `MosaicoType.matrix(T)` produces a fully variable nested list, equivalent to `list[list[T]]`.
+
+!!! note "Note"
+    Explicit type definition and fallback type properties apply here as well.
+
+#### Tensor3d types
+
+For 3-D tensor fields, `MosaicoType` exposes a [`tensor3d()`][mosaicolabs.models.MosaicoType.tensor3d] static method that composes a [`matrix()`][mosaicolabs.models.MosaicoType.matrix] call with an outer [`list_()`][mosaicolabs.models.MosaicoType.list_] call to represent a volume of shape `(depth, rows, cols)`.
+All three dimensions are optional and follow the same convention as `matrix()`: omitting a dimension yields a variable-length axis; supplying an integer value produces a fixed-size axis.
+
+```python
+from mosaicolabs import MosaicoField, Serializable
+
+class MyOntology(Serializable):
+    # Fully variable 3-D tensor of float32
+    volume: Optional[MosaicoType.tensor3d(MosaicoType.float32)] = None
+
+    # Fixed-depth stack of variable matrices (e.g. video frames)
+    frames: MosaicoType.tensor3d(MosaicoType.float32, depth=16)
+
+    # Fully fixed RGB image tensor — shape (3, 224, 224)
+    image: MosaicoType.tensor3d(MosaicoType.float32, depth=3, rows=224, cols=224)
+
+    # Works with raw Python primitives too
+    cube: MosaicoType.tensor3d(int, depth=8, rows=8, cols=8)
+
+    # Works also with other Ontology model
+    onto: MosaicoType.tensor3d(Vector3d)
+```
+
+| | `tensor3d(T)` | `tensor3d(T, depth=D)` | `tensor3d(T, depth=D, rows=M, cols=N)` |
+|---|---|---|---|
+| Arrow type | `pa.list_(pa.list_(pa.list_(T)))` | `pa.list_(pa.list_(pa.list_(T)), D)` | `pa.list_(pa.list_(pa.list_(T, N), M), D)` |
+| Depth enforced | No | Yes, exactly D | Yes, exactly D |
+| Row count enforced | No | No | Yes, exactly M |
+| Column count enforced | No | No | Yes, exactly N |
+| Interoperable with Pydantic | Yes | Yes | Yes |
+| Supoprt nested model | Yes | Yes | Yes |
+
+Use [`MosaicoType.tensor3d()`][mosaicolabs.models.MosaicoType.tensor3d] with explicit dimensions when:
+
+- The field represents a **fixed-shape volumetric structure**, such as an RGB image `(3, H, W)`, a voxel grid, or a batch of fixed-size feature maps.
+- You want the Arrow schema to **statically encode all three dimensions**, enabling stricter schema validation and more efficient columnar storage.
+- You are working with **multi-channel ML features** (e.g. convolutional layer outputs) where depth, height, and width are always known and constant.
+
+If none of the dimensions are provided, `MosaicoType.tensor3d(T)` produces a fully variable nested list, equivalent to three nested `list[list[list[T]]]`.
+
+!!! note "Note"
+    Explicit type definition and fallback type properties apply here as well. When all dimensions are fixed, the Arrow schema enforces shape constraints at the column level, making `tensor3d` the recommended choice for any ML pipeline where tensor dimensionality is statically known.
+
 #### Custom Arrow types
 
-For specialised Arrow types not covered by the built-in aliases, you can always use `MosaicoType.annotate()` method.
+For specialised Arrow types not covered by the built-in aliases, you can always use [`MosaicoType.annotate()`][mosaicolabs.models.MosaicoType.annotate] method.
 This utility allows you to embed a raw PyArrow type directly into your ontology while maintaining full compatibility with the Mosaico schema builder.
 
-`MosaicoType.annotate()` is a helper designed to bridge standard Python types with specific PyArrow configurations
+[`MosaicoType.annotate()`][mosaicolabs.models.MosaicoType.annotate] is a helper designed to bridge standard Python types with specific PyArrow configurations
 (like timestamp precision or timezones). It requires two arguments:
 
 * **The Python Fallback Type**: Used for runtime validation and Python-side type hinting (e.g., int, str).

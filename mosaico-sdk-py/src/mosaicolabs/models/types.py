@@ -144,6 +144,69 @@ class MosaicoType:
         )
         return Annotated[list, arrow_list_type]
 
+    @staticmethod
+    def matrix(
+        source_type: Any, rows: Optional[int] = None, cols: Optional[int] = None
+    ) -> Annotated:
+        """
+        Build an ``Annotated[list, pa.list_(...)]`` type alias for 2D matrix fields.
+
+        Composes two nested ``MosaicoType.list_()`` calls to represent a matrix
+        of shape ``(rows, cols)``. Both dimensions are optional: if ``None``,
+        the dimension is variable-length; if provided, it is fixed-size.
+
+        Args:
+            source_type: A ``MosaicoType`` alias or a raw Python primitive type
+                whose PyArrow equivalent is defined in ``BASE_MAPPING``.
+            rows: If provided, the outer list is fixed-size. If ``None``,
+                the outer list is variable-length.
+            cols: If provided, the inner list is fixed-size. If ``None``,
+                the inner list is variable-length.
+
+        Returns:
+            An ``Annotated[list, pa.ListType]`` alias representing a 2D matrix, ready to be used as a field annotation in a ``Serializable`` subclass.
+
+        Raises:
+            ValueError: If ``source_type`` does not resolve to a valid
+                ``pa.DataType``.
+        """
+        inner_list = MosaicoType.list_(source_type, list_size=cols)
+        return MosaicoType.list_(inner_list, list_size=rows)
+
+    @staticmethod
+    def tensor3d(
+        source_type: Any,
+        depth: Optional[int] = None,
+        rows: Optional[int] = None,
+        cols: Optional[int] = None,
+    ) -> Annotated:
+        """
+        Build an ``Annotated[list, pa.list_(...)]`` type alias for 3D tensor fields.
+
+        Composes ``MosaicoType.matrix()`` and ``MosaicoType.list_()`` to represent
+        a tensor of shape ``(depth, rows, cols)``. All dimensions are optional:
+        if ``None``, the dimension is variable-length; if provided, it is fixed-size.
+
+        Args:
+            source_type: A ``MosaicoType`` alias or a raw Python primitive type
+                whose PyArrow equivalent is defined in ``BASE_MAPPING``.
+            rows: If provided, the matrix rows are fixed-size. If ``None``,
+                the matrix rows are variable-length.
+            cols: If provided, the matrix cols are fixed-size. If ``None``,
+                the matrix cols are variable-length.
+            depth: If provided, the outer list is fixed-size. If ``None``,
+                the outer list is variable-length.
+
+        Returns:
+            An ``Annotated[list, pa.ListType]`` alias representing a 3D tensor, ready to be used as a field annotation in a ``Serializable`` subclass.
+
+        Raises:
+            ValueError: If ``source_type`` does not resolve to a valid
+                ``pa.DataType``.
+        """
+        inner_matrix = MosaicoType.matrix(source_type, rows=rows, cols=cols)
+        return MosaicoType.list_(inner_matrix, list_size=depth)
+
 
 def MosaicoField(
     nullable: bool = False,
