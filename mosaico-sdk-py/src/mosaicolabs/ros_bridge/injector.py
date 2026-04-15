@@ -94,10 +94,9 @@ class ROSInjectionConfig:
             Set to a `Dict[str, TopicLevelErrorPolicy]` to apply different policies to different (subset of) topics.
         custom_msgs (Optional[List[Tuple]]): List of custom .msg definitions to register before loading.
         topics (Optional[List[str]]): List of topic patterns used to filter available topics.
-            Supports shell-style glob patterns (e.g., ["/cam/\\*"]).
-            Patterns starting with "!" are treated as exclusions (e.g., "\\!/cam/debug\\*").
-            If at least one inclusion pattern is provided, only matching topics are considered.
-            If only exclusion patterns are provided, all topics are included except those excluded.
+            Supports shell-style glob patterns (e.g., ["/cam/\\*", "\\*camera_info"]).
+            Patterns starting with "!" are treated as exclusions (e.g., ["\\!/cam/debug\\*"]).
+            Patterns are evaluated in ORDER (gitignore-like semantics). If None, all available topics are loaded.
         adapter_overrides (Optional[Dict[str, Type[ROSAdapterBase]]]): Mapping of topics to adapter overrides,
             allowing the use of specific adapters instead of the default for designated topics.
             Deafult: None
@@ -186,11 +185,16 @@ class ROSInjectionConfig:
     topics: Optional[List[str]] = None
     """List of topic patterns used to filter available topics.
 
-    Supports shell-style glob patterns (e.g., "/cam/\\*", "\\*camera_info").
-    Patterns starting with '!' are treated as exclusions (e.g., "\\!/cam/debug\\*").
+    Supports shell-style glob patterns (e.g., "/cam/*", "*camera_info").
+    Patterns starting with '!' are treated as exclusions (e.g., "!/cam/debug*").
+    
+    **Pattern order matters**:
+        - Each non-'!' pattern adds matching topics to the selection.
+        - Each '!' pattern removes matching topics from the selection.
+        - Later patterns override earlier ones.
+        - If no inclusion pattern is provided, selection starts from ALL topics,
+          and only exclusion patterns reduce the set.
 
-    If at least one inclusion pattern is provided, only matching topics are selected.
-    If only exclusion patterns are provided, all topics are included except those excluded.
     If None, all topics are loaded.
     """
 
@@ -669,7 +673,8 @@ def ros_injector():
             "Topic patterns to filter (supports glob wildcards like '/cam/*' or '*camera_info'). "
             "Prefix a pattern with '!' to exclude it (e.g., '/cam/*' '!/cam/debug*'). "
             "If only exclusions are provided, all topics are included except those excluded. "
-            "NOTE: in some shells (e.g., zsh), '!' triggers history expansion, so patterns "
+            "Patterns are evaluated in ORDER. "
+            "Note: in some shells (e.g., zsh), '!' triggers history expansion, so patterns "
             'should be quoted or escaped (e.g., "!/cam/debug*" or \\\\!/cam/debug*). '
         ),
     )
