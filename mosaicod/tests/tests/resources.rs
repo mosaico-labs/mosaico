@@ -452,7 +452,7 @@ async fn session_finalize(pool: sqlx::Pool<db::DatabaseType>) {
             .await
             .unwrap_err()
             .code(),
-        tonic::Code::Internal,
+        tonic::Code::FailedPrecondition,
     );
 
     let batches = vec![ext::arrow::testing::dummy_batch()];
@@ -478,7 +478,7 @@ async fn session_finalize(pool: sqlx::Pool<db::DatabaseType>) {
             .await
             .unwrap_err()
             .code(),
-        tonic::Code::Internal,
+        tonic::Code::FailedPrecondition,
     );
 
     server.shutdown().await;
