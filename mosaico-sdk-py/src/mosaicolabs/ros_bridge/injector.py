@@ -93,7 +93,11 @@ class ROSInjectionConfig:
             Set to a [`TopicLevelErrorPolicy`][mosaicolabs.enum.TopicLevelErrorPolicy] to apply the same policy to all topics.
             Set to a `Dict[str, TopicLevelErrorPolicy]` to apply different policies to different (subset of) topics.
         custom_msgs (Optional[List[Tuple]]): List of custom .msg definitions to register before loading.
-        topics (Optional[List[str]]): List of topics to filter, supporting glob patterns (e.g., ["/cam/*"]).
+        topics (Optional[List[str]]): List of topic patterns used to filter available topics.
+            Supports shell-style glob patterns (e.g., ["/cam/\\*"]).
+            Patterns starting with "!" are treated as exclusions (e.g., "\\!/cam/debug\\*").
+            If at least one inclusion pattern is provided, only matching topics are considered.
+            If only exclusion patterns are provided, all topics are included except those excluded.
         adapter_overrides (Optional[Dict[str, Type[ROSAdapterBase]]]): Mapping of topics to adapter overrides,
             allowing the use of specific adapters instead of the default for designated topics.
             Deafult: None
@@ -180,7 +184,15 @@ class ROSInjectionConfig:
     """
 
     topics: Optional[List[str]] = None
-    """A list of specific topics to filter (supports glob patterns). If None, all compatible topics are loaded."""
+    """List of topic patterns used to filter available topics.
+
+    Supports shell-style glob patterns (e.g., "/cam/\\*", "\\*camera_info").
+    Patterns starting with '!' are treated as exclusions (e.g., "\\!/cam/debug\\*").
+
+    If at least one inclusion pattern is provided, only matching topics are selected.
+    If only exclusion patterns are provided, all topics are included except those excluded.
+    If None, all topics are loaded.
+    """
 
     adapter_overrides: Optional[Dict[str, Type[ROSAdapterBase]]] = None
     """A mapping of topics to adapter overrides, allowing the use of specific adapters instead of the default for designated topics."""
@@ -653,7 +665,13 @@ def ros_injector():
     parser.add_argument(
         "--topics",
         nargs="+",
-        help="Specific topics to filter (supports glob patterns like /cam/*)",
+        help=(
+            "Topic patterns to filter (supports glob wildcards like '/cam/*' or '*camera_info'). "
+            "Prefix a pattern with '!' to exclude it (e.g., '/cam/*' '!/cam/debug*'). "
+            "If only exclusions are provided, all topics are included except those excluded. "
+            "NOTE: in some shells (e.g., zsh), '!' triggers history expansion, so patterns "
+            'should be quoted or escaped (e.g., "!/cam/debug*" or \\\\!/cam/debug*). '
+        ),
     )
 
     # Metadata Arguments
