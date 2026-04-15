@@ -77,7 +77,7 @@ pub fn startup_info(
 }
 
 pub fn error(err: impl AsRef<dyn PublicError + Send + Sync>) {
-    eprintln!("{msg}.", msg = err.as_ref().error().to_string());
+    eprintln!("{msg}.", msg = err.as_ref().error());
     if let Some(link) = err.as_ref().documentation_link() {
         eprintln!(
             "\nFor more information visit {doc}",
