@@ -7,7 +7,7 @@ and access reading interfaces (`SequenceDataStreamer`).
 """
 
 import json
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple
 
 import pyarrow.flight as fl
 
@@ -15,7 +15,7 @@ from ..comm.connection import (
     DEFAULT_MAX_BATCH_BYTES,
     DEFAULT_MAX_BATCH_SIZE_RECORDS,
 )
-from ..enum import OnErrorPolicy, SessionLevelErrorPolicy
+from ..enum import SessionLevelErrorPolicy
 from ..helpers import sanitize_sequence_name
 from ..logging_config import get_logger
 from ..models.platform import Sequence, Session
@@ -224,7 +224,7 @@ class SequenceHandler:
         Returns:
             The unique name of the sequence.
         """
-        return self._sequence._name
+        return self._sequence.name
 
     @property
     def topics(self) -> List[str]:
@@ -468,9 +468,7 @@ class SequenceHandler:
 
     def update(
         self,
-        on_error: Union[
-            SessionLevelErrorPolicy, OnErrorPolicy
-        ] = SessionLevelErrorPolicy.Report,
+        on_error: SessionLevelErrorPolicy = SessionLevelErrorPolicy.Report,
         max_batch_size_bytes: Optional[int] = None,
         max_batch_size_records: Optional[int] = None,
     ) -> SequenceUpdater:
@@ -482,13 +480,8 @@ class SequenceHandler:
             RuntimeError is raised.
 
         Args:
-            on_error (SessionLevelErrorPolicy | OnErrorPolicy): Behavior on write failure. Defaults to
+            on_error (SessionLevelErrorPolicy): Behavior on write failure. Defaults to
                 [`SessionLevelErrorPolicy.Report`][mosaicolabs.enum.SessionLevelErrorPolicy.Report].
-
-                Deprecated:
-                    [`OnErrorPolicy`][mosaicolabs.enum.OnErrorPolicy] is deprecated since v0.3.0; use
-                    [`SessionLevelErrorPolicy`][mosaicolabs.enum.SessionLevelErrorPolicy] instead.
-                    It will be removed in v0.4.0.
 
             max_batch_size_bytes (Optional[int]): Max bytes per Arrow batch.
             max_batch_size_records (Optional[int]): Max records per Arrow batch.
@@ -534,9 +527,6 @@ class SequenceHandler:
             if max_batch_size_records is not None
             else DEFAULT_MAX_BATCH_SIZE_RECORDS
         )
-
-        if isinstance(on_error, OnErrorPolicy):
-            on_error = SessionLevelErrorPolicy(on_error.value)
 
         return SequenceUpdater(
             sequence_name=self._sequence.name,

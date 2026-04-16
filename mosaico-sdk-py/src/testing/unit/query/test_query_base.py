@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Type
 
 import pytest
 
@@ -40,16 +40,16 @@ _QUERY_EXPRESSION_TYPES = [
     "query_type",
     _QUERY_TYPES,
 )
-def test_query_base_succeeds(query_type: type[QueryableProtocol]):
+def test_query_base_succeeds(query_type: Type[QueryableProtocol]):
     """Tests the validation that prevents two instances of the same query builder."""
 
     # Single expression
     qexprt = query_type.__supported_query_expressions__[0]
-    query_type(qexprt("tag.key", "$eq", 0))
+    query_type._from_expressions(qexprt("tag.key", "$eq", 0))
 
     # Multiple expressions
     qexprt = query_type.__supported_query_expressions__[0]
-    query_type(
+    query_type._from_expressions(
         qexprt("tag.key", "$eq", 0),
         qexprt("tag.another_key", "$eq", 1),
         qexprt("tag.key.field", "$eq", 2),
@@ -61,7 +61,7 @@ def test_query_base_succeeds(query_type: type[QueryableProtocol]):
     "query_type",
     _QUERY_TYPES,
 )
-def test_query_base_fails_on_duplicate_type(query_type: type[QueryableProtocol]):
+def test_query_base_fails_on_duplicate_type(query_type: Type[QueryableProtocol]):
     """Tests the validation that prevents two instances of the same query builder."""
 
     qdc = query_type()
@@ -85,23 +85,23 @@ def test_query_base_fails_on_duplicate_type(query_type: type[QueryableProtocol])
     "query_type",
     _QUERY_TYPES,
 )
-def test_query_base_fails_on_bad_expression_type(query_type):
+def test_query_base_fails_on_bad_expression_type(query_type: Type[QueryableProtocol]):
     """Tests the validation that prevents wrong expressions in query builders."""
     for query_expr_type in _QUERY_EXPRESSION_TYPES:
         qexpr = query_expr_type("key.field", "$eq", 0)
         if query_expr_type not in query_type.__supported_query_expressions__:
             with pytest.raises(TypeError, match="Invalid expression type"):
-                query_type(qexpr)
+                query_type._from_expressions(qexpr)
         else:
             # must pass
-            query_type(qexpr)
+            query_type._from_expressions(qexpr)
 
 
 @pytest.mark.parametrize(
     "query_type",
     _QUERY_TYPES,
 )
-def test_query_base_fails_on_duplicate_key(query_type: type[QueryableProtocol]):
+def test_query_base_fails_on_duplicate_key(query_type: Type[QueryableProtocol]):
     """Tests the validation that prevents two instances of the same query builder."""
 
     # Fail on __init__
@@ -110,15 +110,16 @@ def test_query_base_fails_on_duplicate_key(query_type: type[QueryableProtocol]):
     with pytest.raises(
         NotImplementedError, match="Query builder already contains the key"
     ):
-        qdc = query_type(qexpr, qexpr)
+        qdc = query_type._from_expressions(qexpr, qexpr)
 
     qdc = query_type()
     # Fail on with_expression
-    with pytest.raises(
-        NotImplementedError, match="Query builder already contains the key"
-    ):
-        # implement a fake expression, just for generating duplicate keys
-        qdc.with_expression(qexpr).with_expression(qexpr)
+    if hasattr(qdc, "with_expression"):
+        with pytest.raises(
+            NotImplementedError, match="Query builder already contains the key"
+        ):
+            # implement a fake expression, just for generating duplicate keys
+            qdc.with_expression(qexpr).with_expression(qexpr)  # type: ignore
 
 
 def test_query_succeed_on_metadata_multi_key():
@@ -200,17 +201,21 @@ def test_invalid_construction_query_from_response():
     "query_type",
     _QUERY_TYPES,
 )
-def test_query_base_fails_on_bad_operator_format(query_type: type[QueryableProtocol]):
+def test_query_base_fails_on_bad_operator_format(query_type: Type[QueryableProtocol]):
     """Tests the validation that prevents two instances of the same query builder."""
 
-    qdc = query_type()
     qexpr = query_type.__supported_query_expressions__[0]
     # Fail on __init__
     with pytest.raises(ValueError):
         # implement a fake expression, just for generating duplicate keys
-        qdc.with_expression(
+        query_type._from_expressions(
             qexpr("key", "eq", 0),
         )
+    if hasattr(query_type, "with_expression"):
+        with pytest.raises(ValueError):
+            query_type().with_expression(
+                qexpr("key", "eq", 0),
+            )
 
 
 _ALL_TESTING_TYPES = [int, float, str, bool]

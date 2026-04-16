@@ -63,9 +63,6 @@ with MosaicoClient.connect("localhost", 6726) as client:
 ??? question "API Reference"
     [`mosaicolabs.enum.SessionLevelErrorPolicy`][mosaicolabs.enum.SessionLevelErrorPolicy].
 
-??? warning "Deprecated OnErrorPolicy"
-    In release 0.3.0, the [`OnErrorPolicy`][mosaicolabs.enum.OnErrorPolicy] is declared **`deprecated`** in favor of the [`SessionLevelErrorPolicy`][mosaicolabs.enum.SessionLevelErrorPolicy]. The support for the class will be removed in the release 0.4.0. No changes are made to the enum values of the new class `SessionLevelErrorPolicy`, which are identical to the ones of the deprecated class.    
-
 Configured when instantiating a new [`SequenceWriter`][mosaicolabs.handlers.SequenceWriter] via the `on_error` parameter, these policies dictate how the server handles a sequence if an unhandled exception bubbles up to the `SequenceWriter` context manager. By default, this policy is set to [`SessionLevelErrorPolicy.Report`][mosaicolabs.enum.SessionLevelErrorPolicy.Report], which means an error notification is sent to the server, allowing the platform to flag the sequence as failed while retaining whatever records were successfully transmitted before the error occurred. Alternatively, the [`SessionLevelErrorPolicy.Delete`][mosaicolabs.enum.SessionLevelErrorPolicy.Delete] policy will signal the server to physically remove the incomplete sequence and its associated topic directories, if any errors occurred.
 
 !!! info "Error Handling and API-Key"

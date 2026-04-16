@@ -18,7 +18,6 @@ from .comm import MosaicoClient as MosaicoClient
 
 # --- Enums ---
 from .enum import (
-    OnErrorPolicy as OnErrorPolicy,
     SequenceStatus as SequenceStatus,
     SerializationFormat as SerializationFormat,
     SessionLevelErrorPolicy as SessionLevelErrorPolicy,

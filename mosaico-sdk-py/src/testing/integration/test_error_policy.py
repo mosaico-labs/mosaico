@@ -5,7 +5,6 @@ import pytest
 from mosaicolabs.comm import MosaicoClient
 from mosaicolabs.comm.notifications import NotificationType
 from mosaicolabs.enum import (
-    OnErrorPolicy,
     SessionLevelErrorPolicy,
     TopicLevelErrorPolicy,
 )
@@ -357,97 +356,6 @@ def test_sequence_abort(mosaico_client: MosaicoClient):
     with pytest.raises(Exception, match="__exception_in_test__"):
         with mosaico_client.sequence_create(
             sequence_name, {}, on_error=SessionLevelErrorPolicy.Delete
-        ) as wseq:
-            log.info("Expected one (1) error after this line...")
-            wseq.topic_create(topic_name, {}, IMU)
-            # raise and exception to exit the context
-            raise Exception("__exception_in_test__")
-    # The sequence is not available anymore (all the resources freed)
-    log.info("Expected one (1) error after this line...")
-
-    # Free resources
-    shandler = mosaico_client.sequence_handler(sequence_name)
-    assert shandler is None
-
-    # free resources
-    mosaico_client.close()
-
-
-# TODO: Delete before 0.4.0
-def test_sequence_report_deprecated_policy(mosaico_client: MosaicoClient):
-    sequence_name = "sequence-to-report"
-    topic_name = "/topic1"
-
-    # It is necessary to make the exception propagate until the SequenceWriter.__exit__
-    # which triggers the report condition
-    with pytest.raises(Exception, match="__exception_in_test__"):
-        with mosaico_client.sequence_create(
-            sequence_name, {}, on_error=OnErrorPolicy.Report
-        ) as wseq:
-            # There must be no problem in asking for a new TopicWriter
-            assert wseq.topic_create(topic_name, {}, IMU) is not None
-            # 'topic_name' already exist: must fail and return None
-            log.info("Expected one (1) error after this line...")
-            assert wseq.topic_create(topic_name, {}, IMU) is None
-            # raise and exception to exit the context
-            log.info("Expected one (1) error after this line...")
-            raise Exception("__exception_in_test__")
-
-    snotifies = mosaico_client.list_sequence_notifications(sequence_name=sequence_name)
-    assert len(snotifies) == 1
-    assert snotifies[0].sequence_name == sequence_name
-    assert snotifies[0].type == NotificationType.ERROR
-    assert "Inner err: '__exception_in_test__'" in snotifies[0].message
-
-    tnotifies = mosaico_client.list_topic_notifications(
-        sequence_name=sequence_name, topic_name=topic_name
-    )
-    assert len(tnotifies) == 1
-    assert tnotifies[0].sequence_name == sequence_name
-    assert tnotifies[0].topic_name == topic_name
-    assert tnotifies[0].type == NotificationType.ERROR
-    assert "Inner err: '__exception_in_test__'" in snotifies[0].message
-
-    mosaico_client.clear_sequence_notifications(sequence_name=sequence_name)
-    snotifies = mosaico_client.list_sequence_notifications(sequence_name=sequence_name)
-    assert len(snotifies) == 0
-
-    mosaico_client.clear_topic_notifications(
-        sequence_name=sequence_name, topic_name=topic_name
-    )
-    tnotifies = mosaico_client.list_topic_notifications(
-        sequence_name=sequence_name, topic_name=topic_name
-    )
-    assert len(tnotifies) == 0
-
-    # The sequence is still present and not deleted (on_error=OnErrorPolicy.Report)
-    shandler = mosaico_client.sequence_handler(sequence_name)
-    # The sequence is still on the server
-    assert shandler is not None
-    # The list of registered topics corresponds to [topic_name]
-    assert shandler.topics == [topic_name]
-    # The topic exists although contains no data and no schema
-    assert mosaico_client.topic_handler(sequence_name, topic_name) is not None
-
-    # Free resources
-    mosaico_client.sequence_delete(sequence_name)
-    # This must be True...
-    log.info("Expected one (1) error after this line...")
-    assert mosaico_client.sequence_handler(sequence_name) is None
-
-    # free resources
-    mosaico_client.close()
-
-
-def test_sequence_abort_deprecated_policy(mosaico_client: MosaicoClient):
-    sequence_name = "sequence-to-delete"
-    topic_name = "/topic1"
-
-    # It is necessary to make the exception propagate until the SequenceWriter.__exit__
-    # which triggers the delete condition
-    with pytest.raises(Exception, match="__exception_in_test__"):
-        with mosaico_client.sequence_create(
-            sequence_name, {}, on_error=OnErrorPolicy.Delete
         ) as wseq:
             log.info("Expected one (1) error after this line...")
             wseq.topic_create(topic_name, {}, IMU)

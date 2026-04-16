@@ -184,11 +184,11 @@ class QueryResponse:
             raise ValueError(
                 "Cannot create a 'QuerySequence' builder from an empty response"
             )
-        return QuerySequence(
+        return QuerySequence._from_expressions(
             _QuerySequenceExpression(
-                "locator",
-                "$in",
-                [it.sequence.name for it in self.items],
+                full_path="locator",
+                op="$in",
+                value=[it.sequence.name for it in self.items],
             )
         )
 
@@ -229,7 +229,7 @@ class QueryResponse:
             raise ValueError(
                 "Cannot create a 'QueryTopic' builder from an empty response"
             )
-        return QueryTopic(
+        return QueryTopic._from_expressions(
             _QueryTopicExpression(
                 "locator",
                 "$in",

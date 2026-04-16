@@ -205,7 +205,7 @@ class TopicHandler:
         Returns:
             The UTC timestamp indicating when the entity was created on the server.
         """
-        return self._topic._created_timestamp
+        return self._topic.created_timestamp
 
     @property
     def locked(self) -> bool:
@@ -218,7 +218,7 @@ class TopicHandler:
         Returns:
             True if the resource is currently locked, False otherwise.
         """
-        return self._topic._locked
+        return self._topic.locked
 
     @property
     def chunks_number(self) -> Optional[int]:
@@ -228,7 +228,7 @@ class TopicHandler:
         Returns:
             The number of physical data chunks stored for this topic, or `None` if the server did not provide detailed storage statistics.
         """
-        return self._topic._chunks_number
+        return self._topic.chunks_number
 
     @property
     def ontology_tag(self) -> str:
@@ -241,7 +241,7 @@ class TopicHandler:
         Returns:
             The ontology type identifier.
         """
-        return self._topic._ontology_tag
+        return self._topic.ontology_tag
 
     @property
     def serialization_format(self) -> str:
@@ -253,7 +253,7 @@ class TopicHandler:
         Returns:
             The serialization format.
         """
-        return self._topic._serialization_format
+        return self._topic.serialization_format
 
     @property
     def total_size_bytes(self) -> int:
@@ -263,7 +263,7 @@ class TopicHandler:
         Returns:
             The total physical storage footprint of the entity on the server in bytes.
         """
-        return self._topic._total_size_bytes
+        return self._topic.total_size_bytes
 
     @property
     def timestamp_ns_min(self) -> Optional[int]:

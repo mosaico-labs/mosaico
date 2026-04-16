@@ -42,7 +42,6 @@ from rosbags.typesys import Stores
 
 from mosaicolabs.comm.mosaico_client import MosaicoClient
 from mosaicolabs.enum import (
-    OnErrorPolicy,
     SequenceStatus,
     SessionLevelErrorPolicy,
     TopicLevelErrorPolicy,
@@ -82,12 +81,8 @@ class ROSInjectionConfig:
         port (int): Port of the Mosaico server. Defaults to 6726.
         ros_distro (Optional[Stores]): The target ROS distribution for message parsing (e.g., Stores.ROS2_HUMBLE).
             See [`rosbags.typesys.Stores`](https://ternaris.gitlab.io/rosbags/topics/typesys.html#type-stores).
-        on_error (Union[SessionLevelErrorPolicy, OnErrorPolicy]): Behavior when an ingestion error occurs (Delete the partial sequence or Report the error).
+        on_error (SessionLevelErrorPolicy): Behavior when an ingestion error occurs (Delete the partial sequence or Report the error).
             Default: [`SessionLevelErrorPolicy.Report`][mosaicolabs.enum.SessionLevelErrorPolicy.Report]
-            Deprecated:
-                    [`OnErrorPolicy`][mosaicolabs.enum.OnErrorPolicy] is deprecated since v0.3.0; use
-                    [`SessionLevelErrorPolicy`][mosaicolabs.enum.SessionLevelErrorPolicy] instead.
-                    It will be removed in v0.4.0.
         topics_on_error (Union[TopicLevelErrorPolicy, Dict[str, TopicLevelErrorPolicy]]): Behavior when a topic write fails.
             Default: [`TopicLevelErrorPolicy.Raise`][mosaicolabs.enum.TopicLevelErrorPolicy.Raise]
             Set to a [`TopicLevelErrorPolicy`][mosaicolabs.enum.TopicLevelErrorPolicy] to apply the same policy to all topics.
@@ -155,7 +150,7 @@ class ROSInjectionConfig:
     See [`rosbags.typesys.Stores`](https://ternaris.gitlab.io/rosbags/topics/typesys.html#type-stores).
     """
 
-    on_error: Union[SessionLevelErrorPolicy, OnErrorPolicy] = _DEFAULT_SESSION_ON_ERROR
+    on_error: SessionLevelErrorPolicy = _DEFAULT_SESSION_ON_ERROR
     """the `SequenceWriter` `on_error` behavior when a sequence write fails (Report vs Delete)"""
 
     topics_on_error: Union[TopicLevelErrorPolicy, Dict[str, TopicLevelErrorPolicy]] = (

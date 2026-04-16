@@ -8,7 +8,7 @@ and executing queries.
 """
 
 import os
-from typing import Any, Dict, List, Optional, Type, Union
+from typing import Any, Dict, List, Optional, Type
 
 import pyarrow.flight as fl
 
@@ -19,7 +19,6 @@ from mosaicolabs.models.query.protocols import QueryableProtocol
 from ..enum import (
     APIKeyPermissionEnum,
     FlightAction,
-    OnErrorPolicy,
     SessionLevelErrorPolicy,
 )
 from ..handlers import SequenceHandler, SequenceWriter, TopicHandler
@@ -474,9 +473,7 @@ class MosaicoClient:
         self,
         sequence_name: str,
         metadata: dict[str, Any],
-        on_error: Union[
-            SessionLevelErrorPolicy, OnErrorPolicy
-        ] = SessionLevelErrorPolicy.Report,
+        on_error: SessionLevelErrorPolicy = SessionLevelErrorPolicy.Report,
         max_batch_size_bytes: Optional[int] = None,
         max_batch_size_records: Optional[int] = None,
     ) -> SequenceWriter:
@@ -495,13 +492,8 @@ class MosaicoClient:
         Args:
             sequence_name (str): Unique name for the sequence.
             metadata (dict[str, Any]): User-defined metadata to attach.
-            on_error (SessionLevelErrorPolicy | OnErrorPolicy): Behavior on write failure. Defaults to
+            on_error (SessionLevelErrorPolicy): Behavior on write failure. Defaults to
                 [`SessionLevelErrorPolicy.Report`][mosaicolabs.enum.SessionLevelErrorPolicy.Report].
-
-                Deprecated:
-                    [`OnErrorPolicy`][mosaicolabs.enum.OnErrorPolicy] is deprecated since v0.3.0; use
-                    [`SessionLevelErrorPolicy`][mosaicolabs.enum.SessionLevelErrorPolicy] instead.
-                    It will be removed in v0.4.0.
 
             max_batch_size_bytes (Optional[int]): Max bytes per Arrow batch.
             max_batch_size_records (Optional[int]): Max records per Arrow batch.
