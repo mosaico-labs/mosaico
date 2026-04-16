@@ -23,6 +23,39 @@ def test_no_patterns_returns_all(available_topics):
 
     assert set(result.keys()) == set(available_topics.keys())
 
+    requested_topics = []
+
+    result = _filter_topics(available_topics, requested_topics)
+
+    assert set(result.keys()) == set(available_topics.keys())
+
+
+def test_unmatched_patterns_returns_empty(available_topics):
+    """Verify that when no patterns are provided, all available topics are returned unchanged."""
+    requested_topics = ["unmatched/topic*"]
+
+    result = _filter_topics(available_topics, requested_topics)
+
+    assert not result
+
+
+def test_exclude_all_returns_empty(available_topics):
+    """Verify that when no patterns are provided, all available topics are returned unchanged."""
+    requested_topics = ["!*"]
+
+    result = _filter_topics(available_topics, requested_topics)
+
+    assert not result
+
+
+def test_include_all_returns_all(available_topics):
+    """Verify that when no patterns are provided, all available topics are returned unchanged."""
+    requested_topics = ["*"]
+
+    result = _filter_topics(available_topics, requested_topics)
+
+    assert set(result.keys()) == set(available_topics.keys())
+
 
 def test_include_only(available_topics):
     """Verify that a single include glob pattern selects only matching topics."""

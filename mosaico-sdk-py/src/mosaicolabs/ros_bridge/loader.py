@@ -69,6 +69,13 @@ def _filter_topics(
         - If no inclusion pattern is present, the initial set is ALL available topics,
           which are then filtered by subsequent exclusion patterns.
 
+    Args:
+        available_topics (Dict[str, TopicInfo]):
+            Mapping of topic names to their associated metadata.
+        requested_topics (Optional[List[str]]):
+            Optional list of topic names or patterns to filter results.
+            Only topics matching any of the provided values will be returned.
+
     Examples:
         ["/gps/*", "!/gps/leica/time_reference"]
             → include all /gps/* topics except the Leica time_reference topic
@@ -87,10 +94,6 @@ def _filter_topics(
 
     Warnings:
         - A warning is logged if a pattern matches no topics.
-
-    Args:
-        available_topics (Dict[str, TopicInfo]):
-            Mapping of topic names to their associated metadata.
 
     Side Effects:
         - Returns a filtered dictionary of topics (no longer sets internal state).
