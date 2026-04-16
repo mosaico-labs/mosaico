@@ -12,7 +12,7 @@ impl error::PublicError for MetadataError {
     /// Metadata errors will be always converted to
     /// internal errors, since are completely handled by the platform
     fn error(&self) -> error::Error {
-        error::Error::internal()
+        error::Error::internal(Some("marshalling failed".to_owned()))
     }
 }
 

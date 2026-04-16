@@ -66,7 +66,7 @@ pub enum ResourceError {
 
 impl PublicError for ResourceError {
     fn error(&self) -> Error {
-        Error::internal()
+        Error::internal(None)
     }
 }
 

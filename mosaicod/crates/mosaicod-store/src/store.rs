@@ -28,7 +28,7 @@ pub enum Error {
 
 impl mosaicod_core::error::PublicError for Error {
     fn error(&self) -> mosaicod_core::Error {
-        mosaicod_core::Error::internal()
+        mosaicod_core::Error::internal(Some("store failed".to_owned()))
     }
 }
 

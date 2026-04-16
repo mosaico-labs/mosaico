@@ -18,7 +18,7 @@
 ///
 /// impl PublicError for MyCustomError {
 ///     fn error(&self) -> Error {
-///         Error::internal()
+///         Error::internal(None)
 ///     }
 /// }
 /// ```
@@ -117,8 +117,8 @@ pub enum ErrorKind {
     MissingHeader,
     #[error("Request has no descriptor")]
     MissingDescriptor,
-    #[error("Invalid configuration: {0}, {1}")]
-    InvalidConfiguration(String, String),
+    #[error("Invalid configuration: {0}")]
+    InvalidConfiguration(String),
     #[error("Unsupported descriptor")]
     UnsupportedDescriptor,
     #[error("Unsupported stream message, stream aborted.")]
@@ -131,8 +131,8 @@ pub enum ErrorKind {
     UnsupportedSchema(String),
     #[error("Unsupported time: {0}")]
     UnsupportedTime(String),
-    #[error("Internal error")]
-    Internal,
+    #[error("Internal error{0:?}")]
+    Internal(String),
 }
 
 #[derive(Debug, Clone)]
@@ -217,7 +217,9 @@ impl Error {
 
     /// Used when a configuration variable is missing or is unable to read
     pub fn invalid_configuration(var_name: String, why: String) -> Self {
-        Self(ErrorKind::InvalidConfiguration(var_name, why))
+        Self(ErrorKind::InvalidConfiguration(format!(
+            "{var_name}, {why}"
+        )))
     }
 
     pub fn unsupported_descriptor() -> Self {
@@ -244,8 +246,14 @@ impl Error {
         Self(ErrorKind::UnsupportedTime(msg))
     }
 
-    pub fn internal() -> Self {
-        Self(ErrorKind::Internal)
+    pub fn internal(details: Option<String>) -> Self {
+        let msg = if let Some(details) = details {
+            format!(": {details}")
+        } else {
+            "".to_owned()
+        };
+
+        Self(ErrorKind::Internal(msg))
     }
 
     pub fn to_public_error(self) -> BoxPublicError {
@@ -267,10 +275,10 @@ impl PublicError for Error {
     fn documentation_link(&self) -> Option<url::Url> {
         let err = self.error();
         match err.kind() {
-            ErrorKind::InvalidConfiguration(_, _) => {
+            ErrorKind::InvalidConfiguration(_) => {
                 Some("https://docs.mosaico.dev/daemon/env".parse().unwrap())
             }
-            ErrorKind::Internal => Some("https://c.xkcd.com/random/comic/".parse().unwrap()),
+            ErrorKind::Internal(_) => Some("https://c.xkcd.com/random/comic/".parse().unwrap()),
             _ => None,
         }
     }

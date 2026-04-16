@@ -35,7 +35,7 @@ pub fn init_runtime() -> Result<tokio::runtime::Runtime> {
     Ok(tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()
-        .map_err(|_| core::Error::internal())?)
+        .map_err(|_| core::Error::internal(Some("event loop startup failure".to_owned())))?)
 }
 
 pub fn init_local_store(path: impl AsRef<std::path::Path>) -> Result<store::StoreRef> {

@@ -35,6 +35,6 @@ pub enum Error {
 
 impl core::error::PublicError for Error {
     fn error(&self) -> core::Error {
-        core::Error::internal()
+        core::Error::internal(Some("database failure".to_owned()))
     }
 }

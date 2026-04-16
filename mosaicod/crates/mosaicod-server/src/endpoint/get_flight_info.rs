@@ -17,6 +17,9 @@ use mosaicod_facade::Context;
 use mosaicod_marshal as marshal;
 use mosaicod_marshal::{JsonMetadataBlob, flight};
 
+/// Message provided when an error occurs when building flight info data
+const UNABLE_TO_BUILD_FLIGHT_INFO: &str = "unable to build flight info data";
+
 pub async fn get_flight_info(ctx: &facade::Context, desc: FlightDescriptor) -> Result<FlightInfo> {
     match desc.r#type() {
         DescriptorType::Cmd => {
@@ -93,7 +96,9 @@ pub async fn get_flight_info(ctx: &facade::Context, desc: FlightDescriptor) -> R
                         .with_descriptor(desc.clone())
                         .with_app_metadata(app_metadata)
                         .try_with_schema(&schema)
-                        .map_err(|_| core::Error::internal())?;
+                        .map_err(|_| {
+                            core::Error::internal(Some(UNABLE_TO_BUILD_FLIGHT_INFO.to_owned()))
+                        })?;
 
                     for endpoint in endpoints {
                         flight_info = flight_info.with_endpoint(endpoint);
@@ -143,7 +148,9 @@ pub async fn get_flight_info(ctx: &facade::Context, desc: FlightDescriptor) -> R
                         .with_descriptor(desc.clone())
                         .with_endpoint(endpoint)
                         .try_with_schema(&schema)
-                        .map_err(|_| core::Error::internal())?;
+                        .map_err(|_| {
+                            core::Error::internal(Some(UNABLE_TO_BUILD_FLIGHT_INFO.to_owned()))
+                        })?;
 
                     trace!("{} done", topic_handle.locator());
                     Ok(flight_info)

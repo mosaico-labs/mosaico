@@ -97,7 +97,9 @@ pub fn run(args: Run, json_format: bool) -> Result<()> {
     }
 
     // (cabba) NOTE: maybe we need to return a more specific error ?
-    let mut signals = Signals::new([SIGINT]).map_err(|_| core::Error::internal())?;
+    let mut signals = Signals::new([SIGINT]).map_err(|_| {
+        core::Error::internal(Some("unable to create termination signal".to_owned()))
+    })?;
 
     let shutdown = server.shutdown.clone();
     thread::spawn(move || {

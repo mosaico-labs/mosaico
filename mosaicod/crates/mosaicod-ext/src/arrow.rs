@@ -38,7 +38,7 @@ impl From<parquet::errors::ParquetError> for Error {
 
 impl core::error::PublicError for Error {
     fn error(&self) -> mosaicod_core::Error {
-        core::Error::internal()
+        core::Error::internal(None)
     }
 }
 

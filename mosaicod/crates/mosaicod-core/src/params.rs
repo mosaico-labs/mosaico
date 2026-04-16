@@ -42,7 +42,7 @@ pub enum Error {
 /// Marker trait for parameters visibility
 pub trait ParamVisibility {}
 
-/// Marker used to specify that a parameers needs to be hide from prints
+/// Marker used to specify that a parameers needs to be hidden from prints
 #[derive(Default)]
 pub struct Hidden;
 impl ParamVisibility for Hidden {}
