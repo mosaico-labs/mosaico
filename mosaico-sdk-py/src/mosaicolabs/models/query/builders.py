@@ -373,7 +373,7 @@ class QueryTopic:
         using a fluent interface.
 
         Args:
-            expr: A `_QueryTopicExpression` constructed via a `Topic.Q` proxy.
+            expr: A `_QueryTopicExpression`.
 
         Returns:
             The `QueryTopic` instance for method chaining.
@@ -393,10 +393,6 @@ class QueryTopic:
 
         This method simplifies metadata discovery by allowing direct filtering on the `user_metadata`
         dictionary of the Topic. Each call adds a logical AND condition to the query.
-
-        Note:
-            The previous method using `Topic.Q.user_metadata` is maintained for backward
-            compatibility but is scheduled for removal in release **0.4.0**.
 
         Args:
             key (str): The metadata key to filter on (e.g., "sensor_id"). Supports dot-notation
@@ -754,7 +750,7 @@ class QuerySequence:
         using a fluent interface.
 
         Args:
-            expr: A `_QuerySequenceExpression` constructed via a `Sequence.Q` proxy.
+            expr: A `_QuerySequenceExpression`.
 
         Returns:
             The `QuerySequence` instance for method chaining.
@@ -773,10 +769,6 @@ class QuerySequence:
 
         This method simplifies metadata discovery by allowing direct filtering on the `user_metadata`
         dictionary of the Sequence. Each call adds a logical AND condition to the query.
-
-        Note:
-            The previous method using `Sequence.Q.user_metadata` is maintained for backward
-            compatibility but is scheduled for removal in release **0.4.0**.
 
         Args:
             key (str): The metadata key to filter on (e.g., "project"). Supports dot-notation
