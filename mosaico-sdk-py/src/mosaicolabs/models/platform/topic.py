@@ -6,9 +6,9 @@ Topic's metadata in the platform catalog. It is used primarily for inspection
 (listing topics) and query construction.
 """
 
+from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
-from attr import dataclass
 from typing_extensions import Self
 
 from mosaicolabs.platform.metadata import TopicMetadata
