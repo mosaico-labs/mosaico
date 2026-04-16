@@ -36,9 +36,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cargo/bin/cross
-          key: ${{ runner.os }}-cross-v1 # Change version to force an update
+          key: ${{ runner.os }}-cross-v1
 
-      # Install cross if not in cache
       - name: Install Cross
         if: steps.cache-cross.outputs.cache-hit != 'true'
         run: cargo install cross --git https://github.com/cross-rs/cross.git
@@ -52,16 +51,20 @@ jobs:
       - name: Build Binary
         run: |
           cd mosaicod
-          # Usiamo il binario dalla cache o appena installato
           ~/.cargo/bin/cross build --release --bin mosaicod --target ${{ matrix.target }}
 
-      - name: Package Tarball
+      - name: Package and Checksum
         run: |
+          # Tarball
           tar -czvf mosaicod-${{ matrix.arch }}.tar.gz -C mosaicod/target/${{ matrix.target }}/release mosaicod
+          # Checksum
+          sha256sum mosaicod-${{ matrix.arch }}.tar.gz > mosaicod-${{ matrix.arch }}.tar.gz.sha256
 
       - name: Upload to Release
         uses: softprops/action-gh-release@v2
         with:
-          files: mosaicod-${{ matrix.arch }}.tar.gz
+          files: |
+            mosaicod-${{ matrix.arch }}.tar.gz
+            mosaicod-${{ matrix.arch }}.tar.gz.sha256
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
