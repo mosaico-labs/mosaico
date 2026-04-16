@@ -36,7 +36,7 @@ services:
     volumes:
       - mosaico-data:/data
     command: | # (1)!
-      run --host 127.0.0.1 --port 6726 --log-level info --local-store /data 
+      run --host 0.0.0.0 --port 6726 --log-level info --local-store /data 
     depends_on:
       database:
         condition: service_healthy
