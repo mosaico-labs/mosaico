@@ -4,6 +4,7 @@ use mosaicod_core::error::PublicError;
 use mosaicod_db as db;
 use mosaicod_store as store;
 use std::{net::IpAddr, time::Instant};
+use tracing::error;
 
 fn format_addr(is_loopback: bool, msg: String) {
     println!(
@@ -78,6 +79,7 @@ pub fn startup_info(
 
 pub fn error(err: impl AsRef<dyn PublicError + Send + Sync>) {
     eprintln!("{msg}.", msg = err.as_ref().error());
+    error!("{:?}", err.as_ref());
     if let Some(link) = err.as_ref().documentation_link() {
         eprintln!(
             "\nFor more information visit {doc}",
