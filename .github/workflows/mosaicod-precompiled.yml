@@ -37,7 +37,7 @@ jobs:
       - name: Build Binary
         run: |
           cd mosaicod
-          cross build --release --target ${{ matrix.target }}
+          cross build --release --bin mosaicod --target ${{ matrix.target }}
 
       - name: Package Tarball
         run: |
