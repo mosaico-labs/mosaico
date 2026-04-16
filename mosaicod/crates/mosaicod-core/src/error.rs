@@ -248,7 +248,7 @@ impl Error {
 
     pub fn internal(details: Option<String>) -> Self {
         let msg = if let Some(details) = details {
-            format!("{details}")
+            details
         } else {
             "undefined".to_owned()
         };
