@@ -68,9 +68,7 @@ impl From<sqlx::Error> for Error {
     fn from(value: sqlx::Error) -> Self {
         match &value {
             sqlx::Error::Database(err) => {
-                if let Some(code) = err.code()
-                    && code == "23505"
-                {
+                if err.is_unique_violation() {
                     Self::AlreadyExists
                 } else {
                     Self::BackendError(value)
