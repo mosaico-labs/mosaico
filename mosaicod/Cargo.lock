@@ -2567,7 +2567,7 @@ dependencies = [
 
 [[package]]
 name = "mosaicod"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "chrono",
  "clap",
@@ -2589,7 +2589,7 @@ dependencies = [
 
 [[package]]
 name = "mosaicod-core"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "bytes",
  "chrono",
@@ -2603,7 +2603,7 @@ dependencies = [
 
 [[package]]
 name = "mosaicod-db"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "log",
  "mosaicod-core",
@@ -2617,7 +2617,7 @@ dependencies = [
 
 [[package]]
 name = "mosaicod-ext"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "arrow",
  "arrow-cast",
@@ -2630,7 +2630,7 @@ dependencies = [
 
 [[package]]
 name = "mosaicod-facade"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "arrow",
  "futures",
@@ -2650,7 +2650,7 @@ dependencies = [
 
 [[package]]
 name = "mosaicod-marshal"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "bincode",
  "bytes",
@@ -2664,7 +2664,7 @@ dependencies = [
 
 [[package]]
 name = "mosaicod-query"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "arrow",
  "datafusion",
@@ -2681,7 +2681,7 @@ dependencies = [
 
 [[package]]
 name = "mosaicod-rw"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "arrow",
  "arrow-schema",
@@ -2697,7 +2697,7 @@ dependencies = [
 
 [[package]]
 name = "mosaicod-server"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "arrow",
  "arrow-flight",
@@ -2723,7 +2723,7 @@ dependencies = [
 
 [[package]]
 name = "mosaicod-store"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "bytes",
  "datafusion",
@@ -4095,7 +4095,7 @@ dependencies = [
 
 [[package]]
 name = "tests"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "arrow",
  "arrow-flight",
