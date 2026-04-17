@@ -86,7 +86,7 @@ async fn do_put_topic_data(
 
     mosaicod_ext::arrow::check_schema(&schema)?;
 
-    let topic_locator = types::TopicResourceLocator::from(locator);
+    let topic_locator = locator.parse::<types::TopicLocator>()?;
 
     let topic_handle = facade::topic::Handle::try_from_locator(&ctx, topic_locator).await?;
 
@@ -107,7 +107,8 @@ async fn do_put_topic_data(
     let ontology_tag = mdata.ontology_metadata.properties.ontology_tag;
     let serialization_format = mdata.ontology_metadata.properties.serialization_format;
 
-    let mut writer = facade::topic::writer(ctx.clone(), topic_handle, serialization_format, schema);
+    let mut writer =
+        facade::topic::writer(ctx.clone(), topic_handle, serialization_format, schema)?;
 
     // Consume all batches
     debug!("ready to receive batches");

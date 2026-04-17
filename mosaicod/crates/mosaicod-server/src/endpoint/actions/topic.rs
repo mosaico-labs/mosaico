@@ -31,7 +31,7 @@ pub async fn create(
         Some(user_mdata),
     );
 
-    let topic_locator = types::TopicResourceLocator::from(name);
+    let topic_locator = name.parse::<types::TopicLocator>()?;
 
     let session_handle = facade::session::Handle::try_from_uuid(ctx, &received_uuid).await?;
     let topic_handle =
@@ -52,7 +52,7 @@ pub async fn create(
 pub async fn delete(ctx: &facade::Context, locator: String) -> Result<ActionResponse> {
     warn!("requested deletion of resource `{}`", locator);
 
-    let topic_locator = types::TopicResourceLocator::from(locator);
+    let topic_locator = locator.parse::<types::TopicLocator>()?;
 
     let topic_handle = facade::topic::Handle::try_from_locator(ctx, topic_locator.clone()).await?;
 
@@ -72,7 +72,7 @@ pub async fn notification_create(
 ) -> Result<ActionResponse> {
     info!("notification for {}", locator);
 
-    let topic_locator = types::TopicResourceLocator::from(locator);
+    let topic_locator = locator.parse::<types::TopicLocator>()?;
 
     let topic_handle = facade::topic::Handle::try_from_locator(ctx, topic_locator).await?;
 
@@ -89,7 +89,7 @@ pub async fn notification_create(
 pub async fn notification_list(ctx: &facade::Context, locator: String) -> Result<ActionResponse> {
     info!("notification list for {}", locator);
 
-    let topic_locator = types::TopicResourceLocator::from(locator);
+    let topic_locator = locator.parse::<types::TopicLocator>()?;
 
     let topic_handle = facade::topic::Handle::try_from_locator(ctx, topic_locator).await?;
 
@@ -102,7 +102,7 @@ pub async fn notification_list(ctx: &facade::Context, locator: String) -> Result
 pub async fn notification_purge(ctx: &facade::Context, locator: String) -> Result<ActionResponse> {
     warn!("notification purge for {}", locator);
 
-    let topic_locator = types::TopicResourceLocator::from(locator);
+    let topic_locator = locator.parse::<types::TopicLocator>()?;
 
     let topic_handle = facade::topic::Handle::try_from_locator(ctx, topic_locator).await?;
 

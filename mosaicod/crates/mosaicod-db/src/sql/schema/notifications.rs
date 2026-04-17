@@ -37,10 +37,10 @@ impl SequenceNotificationRecord {
         }
     }
 
-    pub fn into_notification(self, loc: types::SequenceResourceLocator) -> types::Notification {
+    pub fn into_notification(self, loc: types::SequenceLocator) -> types::Notification {
         types::Notification {
             uuid: self.sequence_notification_uuid.into(),
-            target: Box::new(loc),
+            target: loc.into(),
             notification_type: self.notification_type(),
             msg: self.msg,
             created_at: types::Timestamp::from(self.creation_unix_tstamp).into(),
@@ -107,10 +107,10 @@ impl TopicNotificationRecord {
         }
     }
 
-    pub fn into_notification(self, loc: types::TopicResourceLocator) -> types::Notification {
+    pub fn into_notification(self, loc: types::TopicLocator) -> types::Notification {
         types::Notification {
             uuid: self.topic_notification_uuid.into(),
-            target: Box::new(loc),
+            target: loc.into(),
             notification_type: self.notification_type(),
             msg: self.msg,
             created_at: types::Timestamp::from(self.creation_unix_tstamp).into(),

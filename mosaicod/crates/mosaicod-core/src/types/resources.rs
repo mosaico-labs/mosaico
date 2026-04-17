@@ -1,107 +1,158 @@
-use super::{Format, TimestampRange};
-use super::{SessionMetadata, Uuid};
+use super::{Format, SessionMetadata, TimestampRange, Uuid};
 use crate::{Error, error::PublicError, params, traits, types};
+use std::cmp::PartialEq;
+use std::ops::Deref;
 use std::path;
+use std::str::FromStr;
 use thiserror::Error;
 
 // ////////////////////////////////////////////////////////////////////////////
-// RESOURCE
+// RESOURCE LOCATOR
 // ////////////////////////////////////////////////////////////////////////////
 
-/// Represents the unique identifiers of a record.
-pub struct Identifiers {
-    /// The internal, numeric ID of the resource (e.g., a database primary key).
-    pub id: i32,
-    /// The universally unique identifier (UUID) for the resource.
-    pub uuid: Uuid,
+#[derive(Debug, Error)]
+pub enum ResourceError {
+    #[error("{0} is not a valid locator")]
+    InvalidLocator(String),
+    #[error("{1} is not a valid {0} locator")]
+    LocatorKindMismatch(ResourceKind, String),
 }
 
-pub enum IdLookup {
-    Id(i32),
-    Uuid(Uuid),
-}
-
-impl std::fmt::Display for IdLookup {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl PublicError for ResourceError {
+    fn error(&self) -> Error {
         match self {
-            Self::Id(id) => write!(f, "id:{}", id),
-            Self::Uuid(uuid) => write!(f, "uuid:{}", uuid),
-        }
-    }
-}
-
-/// Defines the different ways a resource (topic, sequence and sessions) can be looked up.
-pub enum ResourceLookup {
-    /// Lookup by the internal numeric ID.
-    Id(i32),
-    /// Lookup by its unique string locator (e.g., `my/sequence/my/topic`).
-    Locator(String),
-    /// Lookup by its universally unique identifier.
-    Uuid(Uuid),
-}
-
-impl std::fmt::Display for ResourceLookup {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Id(id) => write!(f, "id:{}", id),
-            Self::Uuid(uuid) => write!(f, "uuid:{}", uuid),
-            Self::Locator(locator) => write!(f, "locator:{}", locator),
+            ResourceError::InvalidLocator(_) => Error::bad_locator(),
+            ResourceError::LocatorKindMismatch(_, _) => Error::bad_locator(),
         }
     }
 }
 
 /// Enumerates the types of resources available in Mosaico.
-pub enum ResourceType {
-    /// A resource that represents a collection of related topics.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ResourceKind {
+    /// A resource that represents a collection of sessions and topics.
     Sequence,
+    /// A resource that represents a group of topics uploaded together.
+    Session,
     /// A resource that represents a stream of data.
     Topic,
 }
 
-#[derive(Debug, Error)]
-pub enum ResourceError {
-    #[error("error encoding resource to url")]
-    UrlError(#[from] url::ParseError),
-}
-
-impl PublicError for ResourceError {
-    fn error(&self) -> Error {
-        Error::internal(None)
+impl std::fmt::Display for ResourceKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let kind = match self {
+            ResourceKind::Sequence => "Sequence",
+            ResourceKind::Session => "Session",
+            ResourceKind::Topic => "Topic",
+        };
+        write!(f, "{}", kind)
     }
 }
 
-pub trait Resource: std::fmt::Display + Send + Sync {
-    fn locator(&self) -> &str;
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Locator {
+    inner: String,
+    pub kind: ResourceKind,
+}
 
-    fn resource_type(&self) -> ResourceType;
-
-    /// Return the URL representing the resource
-    /// For now the URL is without authority.
-    ///
-    /// # Example
-    /// `mosaico:/sequence_name/topic/subtopic/sensor`
-    fn url(&self) -> Result<url::Url, ResourceError> {
-        let schema = params::MOSAICO_URL_SCHEMA;
-        let path = self.locator();
-        Ok(url::Url::parse(&format!("{schema}:/{path}"))?)
+impl Locator {
+    pub fn is_sub_locator(&self, parent: &Locator) -> bool {
+        self.starts_with(&parent.inner)
     }
 
-    fn is_sub_resource(&self, parent: &dyn Resource) -> bool {
-        self.locator().starts_with(parent.locator())
+    /// Checks if the provided name is a valid locator.
+    ///
+    /// The following criteria must be met:
+    /// - string must be non-empty
+    /// - non-ASCII chars are not allowed
+    /// - special symbols `! " ' * £ $ % &` are not allowed
+    fn valid_locator_name(name: &str) -> bool {
+        if name.is_empty() {
+            return false;
+        }
+        let invalid_chars = vec!['!', '\"', '\'', '*', '£', '$', '%', '&', '.', ' '];
+        !name
+            .chars()
+            .any(|c| !c.is_ascii() || invalid_chars.contains(&c))
     }
 
-    /// Return the resource path
+    /// Builds a sanitized resource name.
     ///
-    /// # Example
-    /// ```txt, ignore
-    /// sequence/my/topic
-    /// ```
-    /// or
-    /// ```txt, ignore
-    /// sequence
-    /// ```
-    fn path(&self) -> &path::Path {
-        path::Path::new(self.locator())
+    /// Sanitized resource names have the following requirements:
+    /// - remove any leading and trailing spaces
+    /// - remove any leading `/`
+    fn sanitize_name(name: &str) -> String {
+        name.trim().trim_start_matches('/').to_owned()
+    }
+}
+
+impl FromStr for Locator {
+    type Err = ResourceError;
+
+    /// Performs checks on the input string and tries to recognize its [`ResourceKind`].
+    /// Returns a [`ResourceError::InvalidLocator`] in case of failure.
+    fn from_str(s: &str) -> Result<Self, ResourceError> {
+        let sanitized_name = Self::sanitize_name(s);
+
+        if !Self::valid_locator_name(&sanitized_name) {
+            return Err(ResourceError::InvalidLocator(s.to_owned()));
+        }
+
+        let colon_count = sanitized_name.chars().filter(|c| c == &':').count();
+        let slash_count = sanitized_name.chars().filter(|c| c == &'/').count();
+
+        if colon_count == 0 {
+            return if slash_count == 0 {
+                Ok(Self {
+                    inner: sanitized_name,
+                    kind: ResourceKind::Sequence,
+                })
+            } else {
+                Ok(Self {
+                    inner: sanitized_name,
+                    kind: ResourceKind::Topic,
+                })
+            };
+        } else if colon_count == 1 && slash_count == 0 {
+            return Ok(Self {
+                inner: sanitized_name,
+                kind: ResourceKind::Session,
+            });
+        }
+
+        Err(ResourceError::InvalidLocator(s.to_owned()))
+    }
+}
+
+impl From<Locator> for String {
+    fn from(locator: Locator) -> String {
+        locator.inner
+    }
+}
+
+impl Deref for Locator {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+impl std::fmt::Display for Locator {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.inner)
+    }
+}
+
+impl PartialEq<&str> for Locator {
+    fn eq(&self, other: &&str) -> bool {
+        self.inner == *other
+    }
+}
+
+impl PartialEq<Locator> for &str {
+    fn eq(&self, other: &Locator) -> bool {
+        self == &other.inner
     }
 }
 
@@ -113,18 +164,110 @@ pub trait Resource: std::fmt::Display + Send + Sync {
 ///
 /// This locator combines a string-based path (`locator`) with an optional
 /// [`TimestampRange`] to specify a subset of data within the topic.
-#[derive(Default, Debug, Clone)]
-pub struct TopicResourceLocator {
-    /// The unique string identifier for the topic (e.g., `my/sequence/my/topic`).
-    locator: String,
+#[derive(Debug, Clone)]
+pub struct TopicLocator {
+    /// The unique string identifier for the topic (e.g., `my_sequence/my/topic`).
+    inner: Locator,
     /// An optional time range to filter data within the topic.
     pub timestamp_range: Option<TimestampRange>,
 }
 
-impl TopicResourceLocator {
+impl TopicLocator {
     pub fn with_timestamp_range(mut self, ts: TimestampRange) -> Self {
         self.timestamp_range = Some(ts);
         self
+    }
+}
+
+impl FromStr for TopicLocator {
+    type Err = ResourceError;
+    fn from_str(s: &str) -> Result<Self, ResourceError> {
+        let locator = Locator::from_str(s)?;
+
+        if locator.kind != ResourceKind::Topic {
+            return Err(ResourceError::LocatorKindMismatch(
+                ResourceKind::Topic,
+                locator.into(),
+            ));
+        }
+
+        Ok(Self {
+            inner: locator,
+            timestamp_range: None,
+        })
+    }
+}
+
+impl From<TopicLocator> for String {
+    fn from(locator: TopicLocator) -> Self {
+        locator.inner.into()
+    }
+}
+
+impl From<TopicLocator> for Locator {
+    fn from(locator: TopicLocator) -> Self {
+        locator.inner
+    }
+}
+
+impl From<Locator> for TopicLocator {
+    fn from(locator: Locator) -> Self {
+        Self {
+            inner: locator,
+            timestamp_range: None,
+        }
+    }
+}
+
+impl Deref for TopicLocator {
+    type Target = Locator;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+impl PartialEq for TopicLocator {
+    fn eq(&self, other: &Self) -> bool {
+        self.inner == other.inner
+    }
+}
+
+impl PartialEq<&str> for TopicLocator {
+    fn eq(&self, other: &&str) -> bool {
+        self.inner == *other
+    }
+}
+
+impl PartialEq<TopicLocator> for &str {
+    fn eq(&self, other: &TopicLocator) -> bool {
+        self == &other.inner
+    }
+}
+
+impl std::fmt::Display for TopicLocator {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.inner)
+    }
+}
+
+/// Path inside object store of the topic's root folder.
+#[derive(Debug, Clone)]
+pub struct TopicPathInStore(String);
+
+impl TopicPathInStore {
+    fn generate_random_folder_name() -> String {
+        let id = ulid::Ulid::new();
+        format!("tp_{}", id)
+    }
+
+    #[allow(clippy::new_without_default)]
+    pub fn new() -> Self {
+        Self(Self::generate_random_folder_name())
+    }
+
+    pub fn root(&self) -> &path::Path {
+        path::Path::new(&self.0)
     }
 
     /// Returns the filename of the data file.
@@ -138,10 +281,6 @@ impl TopicResourceLocator {
             "data-{chunk_number:05}.{ext}",
             ext = extension.as_extension()
         )
-    }
-
-    pub fn into_parts(self) -> (String, Option<TimestampRange>) {
-        (self.locator, self.timestamp_range)
     }
 
     /// Returns the complete path of a specific data file.
@@ -160,7 +299,7 @@ impl TopicResourceLocator {
         self.path_data_folder(uuid).join(filename)
     }
 
-    /// Return the complete path of the folder contianing all data
+    /// Return the complete path of the folder containing all data
     ///
     /// # Example
     /// ```txt, ignore
@@ -168,53 +307,31 @@ impl TopicResourceLocator {
     /// ```
     pub fn path_data_folder(&self, uuid: &Uuid) -> path::PathBuf {
         let cropped_uuid: String = uuid.non_hyphened_string().chars().take(5).collect();
-
-        self.path().join(format!("data:{cropped_uuid}"))
+        self.root().join(format!("data:{cropped_uuid}"))
     }
 
     /// Return the full path of the metadata file
     pub fn path_metadata(&self) -> path::PathBuf {
-        path::Path::new(self.locator()).join("metadata.json")
+        self.root().join("metadata.json")
     }
 }
 
-impl Resource for TopicResourceLocator {
-    fn locator(&self) -> &str {
-        &self.locator
-    }
-
-    fn resource_type(&self) -> ResourceType {
-        ResourceType::Topic
+impl From<String> for TopicPathInStore {
+    /// WARNING: No checks performed on the input string.
+    fn from(s: String) -> Self {
+        Self(s)
     }
 }
 
-impl<T> From<T> for TopicResourceLocator
-where
-    T: AsRef<path::Path>,
-{
-    fn from(value: T) -> Self {
-        Self {
-            locator: sanitize_name(&value.as_ref().to_string_lossy()),
-            ..Default::default()
-        }
+impl From<TopicPathInStore> for String {
+    fn from(s: TopicPathInStore) -> Self {
+        s.0
     }
 }
 
-impl std::fmt::Display for TopicResourceLocator {
+impl std::fmt::Display for TopicPathInStore {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.locator)
-    }
-}
-
-impl From<TopicResourceLocator> for String {
-    fn from(value: TopicResourceLocator) -> Self {
-        value.locator
-    }
-}
-
-impl AsRef<str> for TopicResourceLocator {
-    fn as_ref(&self) -> &str {
-        self.locator.as_ref()
+        write!(f, "{}", self.0)
     }
 }
 
@@ -277,16 +394,16 @@ pub struct TopicMetadataProperties {
     pub created_at: types::Timestamp,
     pub completed_at: Option<types::Timestamp>,
     pub session_uuid: Uuid,
-    pub resource_locator: TopicResourceLocator,
+    pub resource_locator: TopicLocator,
 }
 
 impl TopicMetadataProperties {
-    pub fn new(resource_locator: TopicResourceLocator, session_uuid: Uuid) -> Self {
+    pub fn new(resource_locator: TopicLocator, session_uuid: Uuid) -> Self {
         Self::new_with_created_at(resource_locator, session_uuid, types::Timestamp::now())
     }
 
     pub fn new_with_created_at(
-        resource_locator: TopicResourceLocator,
+        resource_locator: TopicLocator,
         session_uuid: Uuid,
         created_at: types::Timestamp,
     ) -> Self {
@@ -321,65 +438,205 @@ pub struct TopicDataInfo {
 /// Uniquely identifies a sequence resource.
 ///
 /// A sequence acts as a container for a collection of related topics. This locator
-/// is a sanitized, path-like string (e.g., `my/sequence`) that provides a
+/// is a sanitized, path-like string (e.g., `my_sequence`) that provides a
 /// human-readable and stable identifier for the sequence.
-#[derive(Debug, Clone)]
-pub struct SequenceResourceLocator(String);
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SequenceLocator {
+    /// The unique string identifier for the sequence (e.g., `my_sequence`).
+    inner: Locator,
+}
 
-impl SequenceResourceLocator {
+impl Deref for SequenceLocator {
+    type Target = Locator;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+impl From<SequenceLocator> for Locator {
+    fn from(locator: SequenceLocator) -> Self {
+        locator.inner
+    }
+}
+
+impl From<Locator> for SequenceLocator {
+    fn from(locator: Locator) -> Self {
+        Self { inner: locator }
+    }
+}
+
+impl FromStr for SequenceLocator {
+    type Err = ResourceError;
+
+    fn from_str(s: &str) -> Result<Self, ResourceError> {
+        let locator = Locator::from_str(s)?;
+
+        if locator.kind != ResourceKind::Sequence {
+            return Err(ResourceError::LocatorKindMismatch(
+                ResourceKind::Sequence,
+                locator.into(),
+            ));
+        }
+
+        Ok(Self { inner: locator })
+    }
+}
+
+impl From<SequenceLocator> for String {
+    fn from(locator: SequenceLocator) -> Self {
+        locator.inner.into()
+    }
+}
+
+impl PartialEq<&str> for SequenceLocator {
+    fn eq(&self, other: &&str) -> bool {
+        &self.inner == other
+    }
+}
+
+impl PartialEq<SequenceLocator> for &str {
+    fn eq(&self, other: &SequenceLocator) -> bool {
+        self == &other.inner
+    }
+}
+
+impl std::fmt::Display for SequenceLocator {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.inner)
+    }
+}
+
+/// Path inside object store of the sequence's root folder.
+#[derive(Debug, Clone)]
+pub struct SequencePathInStore(String);
+
+impl SequencePathInStore {
+    #[allow(clippy::new_without_default)]
+    pub fn new() -> Self {
+        Self(Self::generate_random_folder_name())
+    }
+
+    pub fn root(&self) -> &path::Path {
+        path::Path::new(&self.0)
+    }
+
     /// Returns the location of the metadata file associated with the sequence.
     ///
-    /// The metadata file may or may not exists, no check if performed by this function.
+    /// The metadata file may or may not exist, no check performed by this function.
     pub fn path_metadata(&self) -> path::PathBuf {
-        let mut path = path::Path::new(self.locator()).join("metadata");
+        let mut path = self.root().join("metadata");
         path.set_extension(params::ext::JSON);
         path
     }
-}
 
-impl Resource for SequenceResourceLocator {
-    fn locator(&self) -> &str {
-        &self.0
-    }
-
-    fn resource_type(&self) -> ResourceType {
-        ResourceType::Sequence
+    fn generate_random_folder_name() -> String {
+        let id = ulid::Ulid::new();
+        format!("sq_{}", id)
     }
 }
 
-impl<T> From<T> for SequenceResourceLocator
-where
-    T: AsRef<path::Path>,
-{
-    fn from(value: T) -> Self {
-        Self(sanitize_name(&value.as_ref().to_string_lossy()))
+impl From<String> for SequencePathInStore {
+    /// WARNING: No checks performed on the input string.
+    fn from(s: String) -> Self {
+        Self(s)
     }
 }
 
-impl std::fmt::Display for SequenceResourceLocator {
+impl From<SequencePathInStore> for String {
+    fn from(s: SequencePathInStore) -> Self {
+        s.0
+    }
+}
+
+impl std::fmt::Display for SequencePathInStore {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
-    }
-}
-
-impl From<SequenceResourceLocator> for String {
-    fn from(value: SequenceResourceLocator) -> String {
-        value.0
-    }
-}
-
-impl AsRef<str> for SequenceResourceLocator {
-    fn as_ref(&self) -> &str {
-        self.0.as_ref()
     }
 }
 
 pub struct SequenceMetadata<M> {
     /// Timestamp of the sequence creation
     pub created_at: super::Timestamp,
-    pub resource_locator: SequenceResourceLocator,
+    pub resource_locator: SequenceLocator,
     pub sessions: Vec<SessionMetadata>,
     pub user_metadata: Option<M>,
+}
+
+// ////////////////////////////////////////////////////////////////////////////
+// SESSION
+// ////////////////////////////////////////////////////////////////////////////
+
+/// Uniquely identifies a session resource.
+///
+/// A session is a collection of topics uploaded all together. This locator
+/// is a sanitized, path-like string (e.g., `my_sequence:my_session`) that provides a
+/// human-readable and stable identifier for the sequence.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SessionLocator {
+    /// The unique string identifier for the session (e.g., `my_sequence:my_session`).
+    inner: Locator,
+}
+
+impl Deref for SessionLocator {
+    type Target = Locator;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+impl From<SessionLocator> for Locator {
+    fn from(locator: SessionLocator) -> Self {
+        locator.inner
+    }
+}
+
+impl From<Locator> for SessionLocator {
+    fn from(locator: Locator) -> Self {
+        Self { inner: locator }
+    }
+}
+
+impl FromStr for SessionLocator {
+    type Err = ResourceError;
+
+    fn from_str(s: &str) -> Result<Self, ResourceError> {
+        let locator = Locator::from_str(s)?;
+
+        if locator.kind != ResourceKind::Session {
+            return Err(ResourceError::LocatorKindMismatch(
+                ResourceKind::Session,
+                locator.into(),
+            ));
+        }
+
+        Ok(Self { inner: locator })
+    }
+}
+
+impl From<SessionLocator> for String {
+    fn from(locator: SessionLocator) -> Self {
+        locator.inner.into()
+    }
+}
+
+impl PartialEq<&str> for SessionLocator {
+    fn eq(&self, other: &&str) -> bool {
+        &self.inner == other
+    }
+}
+
+impl PartialEq<SessionLocator> for &str {
+    fn eq(&self, other: &SessionLocator) -> bool {
+        self == &other.inner
+    }
+}
+
+impl std::fmt::Display for SessionLocator {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.inner)
+    }
 }
 
 // ////////////////////////////////////////////////////////////////////////////
@@ -388,19 +645,19 @@ pub struct SequenceMetadata<M> {
 
 /// Groups a specific sequence with its associated topics and an optional time filter.
 ///
-/// This structure acts as a container to link a [`SequenceResourceLocator`] with multiple [`TopicResourceLocator`]s.
+/// This structure acts as a container to link a [`SequenceLocator`] with multiple [`TopicLocator`]s.
 #[derive(Debug)]
 pub struct SequenceTopicGroup {
-    pub sequence: SequenceResourceLocator,
-    pub topics: Vec<TopicResourceLocator>,
+    pub sequence: SequenceLocator,
+    pub topics: Vec<TopicLocator>,
 }
 
 impl SequenceTopicGroup {
-    pub fn new(sequence: SequenceResourceLocator, topics: Vec<TopicResourceLocator>) -> Self {
+    pub fn new(sequence: SequenceLocator, topics: Vec<TopicLocator>) -> Self {
         Self { sequence, topics }
     }
 
-    pub fn into_parts(self) -> (SequenceResourceLocator, Vec<TopicResourceLocator>) {
+    pub fn into_parts(self) -> (SequenceLocator, Vec<TopicLocator>) {
         (self.sequence, self.topics)
     }
 }
@@ -443,21 +700,19 @@ impl SequenceTopicGroupSet {
 
         groups
             .0
-            .sort_unstable_by(|a, b| a.sequence.locator().cmp(b.sequence.locator()));
+            .sort_unstable_by(|a, b| a.sequence.cmp(b.sequence.as_ref()));
 
         for mut self_grp in self.0 {
-            let found = groups.0.binary_search_by(|grp_aux| {
-                grp_aux.sequence.locator().cmp(self_grp.sequence.locator())
-            });
+            let found = groups
+                .0
+                .binary_search_by(|grp_aux| grp_aux.sequence.cmp(self_grp.sequence.as_ref()));
 
             if let Ok(found) = found {
                 self_grp.topics.extend(groups.0[found].topics.clone());
 
                 // Sort and remove duplicates
-                self_grp
-                    .topics
-                    .sort_unstable_by(|a, b| a.locator().cmp(b.locator()));
-                self_grp.topics.dedup_by(|a, b| a.locator() == b.locator());
+                self_grp.topics.sort_unstable_by(|a, b| a.cmp(b.as_ref()));
+                self_grp.topics.dedup_by(|a, b| a == b);
 
                 result.push(self_grp);
             }
@@ -485,97 +740,62 @@ impl From<SequenceTopicGroupSet> for Vec<SequenceTopicGroup> {
     }
 }
 
-/// Builds a sanitized resource name
-///
-/// Sanitized resource names have the following requirements:
-/// - remove any space
-/// - remove any leading `/`
-/// - any non-alphanumeric char as first element is removed
-/// - these symbol `! " ' * £ $ % &` are removed
-/// - any non-ASCII char is replaced with a `?`
-fn sanitize_name(name: &str) -> String {
-    let chars_to_replace = vec!["!", "\"", "'", "*", "£", "$", "%", "&", "."];
-
-    let mut sanitized: String = name
-        .replace(" ", "")
-        .trim()
-        .trim_start_matches('/')
-        .to_owned();
-
-    sanitized = sanitized
-        .chars()
-        .map(|c| if c.is_ascii() { c } else { '?' })
-        .collect();
-
-    for c in chars_to_replace {
-        sanitized = sanitized.replace(c, "");
-    }
-
-    sanitized
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn resource_name() {
+    fn test_resource_name() {
         let target = "my/resource/name";
-        let san = sanitize_name("/my/resource/name");
-        assert_eq!(san, target);
 
-        let san = sanitize_name("    my/resource/name   ");
-        assert_eq!(san, target);
+        assert_eq!(Locator::sanitize_name("/my/resource/name"), target);
 
-        let san = sanitize_name("//my/resource/name");
-        assert_eq!(san, target);
+        assert_eq!(Locator::sanitize_name("    my/resource/name   "), target);
 
-        let san = sanitize_name("/ /my/resource/name");
-        assert_eq!(san, target);
+        assert_eq!(Locator::sanitize_name("    /my/resource/name   "), target);
 
-        let san = sanitize_name("/ //my/resource/name");
-        assert_eq!(san, target);
+        assert_eq!(Locator::sanitize_name("//my/resource/name"), target);
 
-        let san = sanitize_name("/!\"my/resource/name");
-        assert_eq!(san, target);
+        assert_ne!(Locator::sanitize_name("/ /my/resource/name"), target);
 
-        let san = sanitize_name("/my/resource/na.me");
-        assert_eq!(san, target);
+        assert_ne!(Locator::sanitize_name("/ //my/resource/name"), target);
 
-        let san = sanitize_name("/èmy/resource/name");
-        assert_eq!(san, "?my/resource/name");
+        assert!(!Locator::valid_locator_name("/!\"my/resource/name"));
 
-        let san = sanitize_name("my/resourcè/name");
-        assert_eq!(san, "my/resourc?/name");
+        assert!(!Locator::valid_locator_name("/my/resource/na.me"));
+
+        assert!(!Locator::valid_locator_name("/èmy/resource/name"));
+
+        assert!(!Locator::valid_locator_name("my/resourcè/name"));
     }
 
     #[test]
-    fn merge_sequence_topic_groups() {
+    fn test_merge_sequence_topic_groups() {
         let groups1 = SequenceTopicGroupSet::new(vec![
             SequenceTopicGroup::new(
-                SequenceResourceLocator::from("sequence_1"),
+                SequenceLocator::from_str("sequence_1").unwrap(),
                 vec![
-                    TopicResourceLocator::from("topic_1"),
-                    TopicResourceLocator::from("topic_2"),
+                    TopicLocator::from_str("sequence_1/topic_1").unwrap(),
+                    TopicLocator::from_str("sequence_1/topic_2").unwrap(),
                 ],
             ),
             SequenceTopicGroup::new(
-                SequenceResourceLocator::from("sequence_2"),
-                vec![TopicResourceLocator::from("topic_1")],
+                SequenceLocator::from_str("sequence_2").unwrap(),
+                vec![TopicLocator::from_str("sequence_2/topic_1").unwrap()],
             ),
         ]);
 
         let groups2 = SequenceTopicGroupSet::new(vec![
             SequenceTopicGroup::new(
-                SequenceResourceLocator::from("sequence_1"),
+                SequenceLocator::from_str("sequence_1").unwrap(),
                 vec![
-                    TopicResourceLocator::from("topic_1"),
-                    TopicResourceLocator::from("topic_3"),
+                    TopicLocator::from_str("sequence_1/topic_1").unwrap(),
+                    TopicLocator::from_str("sequence_1/topic_3").unwrap(),
                 ],
             ),
             SequenceTopicGroup::new(
-                SequenceResourceLocator::from("sequence_3"),
-                vec![TopicResourceLocator::from("topic_1")],
+                SequenceLocator::from_str("sequence_3").unwrap(),
+                vec![TopicLocator::from_str("sequence_3/topic_1").unwrap()],
             ),
         ]);
 
@@ -584,7 +804,106 @@ mod tests {
         dbg!(&merged);
 
         assert_eq!(merged.len(), 1);
-        assert_eq!(merged[0].sequence.locator(), "sequence_1");
+        assert_eq!(merged[0].sequence, "sequence_1");
         assert_eq!(merged[0].topics.len(), 3);
+    }
+
+    #[test]
+    fn test_str_to_locator_conversion() {
+        let t1 = TopicLocator::from_str("my_sequence/topic_1").unwrap();
+        assert!(Locator::valid_locator_name(&t1))
+    }
+
+    #[test]
+    fn test_sequence_locator() {
+        assert!("/my/wrong/sequence".parse::<SequenceLocator>().is_err());
+        assert!("/ wrong/sequence".parse::<SequenceLocator>().is_err());
+        assert!(
+            "/another:wrong_sequence"
+                .parse::<SequenceLocator>()
+                .is_err()
+        );
+
+        let loc = "my_sequence".parse::<SequenceLocator>().unwrap();
+        assert_eq!(loc, "my_sequence");
+
+        let loc = "/my_sequence".parse::<SequenceLocator>().unwrap();
+        assert_eq!(loc, "my_sequence");
+
+        let loc = "  my_sequence  ".parse::<SequenceLocator>().unwrap();
+        assert_eq!(loc, "my_sequence");
+    }
+
+    #[test]
+    fn test_session_locator() {
+        assert!("/wrong_session".parse::<SessionLocator>().is_err());
+        assert!("/sequence:wrong session".parse::<SessionLocator>().is_err());
+        assert!("sequence:wrong/session".parse::<SessionLocator>().is_err());
+        assert!("sequence:wrong:session".parse::<SessionLocator>().is_err());
+        assert!("sequence:wrong/session".parse::<SessionLocator>().is_err());
+
+        let loc = "my_sequence:my_session".parse::<SessionLocator>().unwrap();
+        assert_eq!(loc, "my_sequence:my_session");
+
+        let loc = "/my_sequence:my_session".parse::<SessionLocator>().unwrap();
+        assert_eq!(loc, "my_sequence:my_session");
+
+        let loc = "  my_sequence:my_session  "
+            .parse::<SessionLocator>()
+            .unwrap();
+        assert_eq!(loc, "my_sequence:my_session");
+    }
+
+    #[test]
+    fn test_topic_locator() {
+        assert!("/wrong_topic".parse::<TopicLocator>().is_err());
+        assert!("/wrong topic".parse::<TopicLocator>().is_err());
+        assert!("sequence/wrong topic".parse::<TopicLocator>().is_err());
+        assert!("/another:wrong_topic".parse::<TopicLocator>().is_err());
+
+        let loc = "my_sequence/my_topic".parse::<TopicLocator>().unwrap();
+        assert_eq!(loc, "my_sequence/my_topic");
+
+        let loc = "/my_sequence/my_topic".parse::<TopicLocator>().unwrap();
+        assert_eq!(loc, "my_sequence/my_topic");
+
+        let loc = "  my_sequence/my_topic  ".parse::<TopicLocator>().unwrap();
+        assert_eq!(loc, "my_sequence/my_topic");
+    }
+
+    #[test]
+    fn test_sequence_path_in_store() {
+        let rand_dir = SequencePathInStore::generate_random_folder_name();
+        assert_eq!(rand_dir.len(), 29);
+        assert!(rand_dir.starts_with("sq_"));
+
+        let pis = SequencePathInStore::new();
+        assert!(!pis.root().has_root());
+        let metadata = pis.path_metadata();
+        assert!(metadata.starts_with(pis.root()));
+        assert_eq!(metadata.extension().unwrap(), params::ext::JSON);
+        assert!(metadata.ends_with("metadata.json"));
+    }
+
+    #[test]
+    fn test_topic_path_in_store() {
+        let rand_dir = TopicPathInStore::generate_random_folder_name();
+        assert_eq!(rand_dir.len(), 29);
+        assert!(rand_dir.starts_with("tp_"));
+
+        let pis = TopicPathInStore::new();
+        assert!(!pis.root().has_root());
+        let metadata = pis.path_metadata();
+        assert!(metadata.starts_with(pis.root()));
+        assert_eq!(metadata.extension().unwrap(), params::ext::JSON);
+        assert!(metadata.ends_with("metadata.json"));
+
+        let uuid: Uuid = uuid::Uuid::parse_str("02f09a3f-1624-3b1d-8409-44eff7708208")
+            .unwrap()
+            .into();
+
+        let data_folder = pis.path_data_folder(&uuid);
+        assert!(&data_folder.starts_with(pis.root()));
+        assert!(&data_folder.ends_with("data:02f09"));
     }
 }

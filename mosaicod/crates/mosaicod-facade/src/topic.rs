@@ -6,13 +6,14 @@ use mosaicod_core::{
     self as core,
     error::PublicResult as Result,
     params,
-    types::{self, Resource},
+    types::{self},
 };
 use mosaicod_db as db;
 use mosaicod_ext as ext;
 use mosaicod_marshal as marshal;
 use mosaicod_rw::{self as rw, ToProperties};
 use mosaicod_store as store;
+use std::path;
 use std::sync::Arc;
 
 /// Define topic metadata type containing JSON user metadata
@@ -22,34 +23,39 @@ type TopicOntologyMetadata = types::TopicOntologyMetadata<marshal::JsonMetadataB
 /// Handle containing topic identifiers.
 /// It's used by all functions (except creation) in this module to indicate the topic to operate on.
 pub struct Handle {
-    locator: types::TopicResourceLocator,
-    identifiers: types::Identifiers,
+    id: i32,
+    uuid: types::Uuid,
+    locator: types::TopicLocator,
+    path_in_store: Option<types::TopicPathInStore>,
 }
 
 impl Handle {
     pub(super) fn new(
-        locator: types::TopicResourceLocator,
-        identifiers: types::Identifiers,
+        locator: types::TopicLocator,
+        id: i32,
+        uuid: types::Uuid,
+        path_in_store: Option<types::TopicPathInStore>,
     ) -> Self {
         Self {
             locator,
-            identifiers,
+            id,
+            uuid,
+            path_in_store,
         }
     }
 
     /// Try to obtain a handle from a topic locator.
     /// Returns an error if the topic does not exist.
-    pub async fn try_from_locator(
-        context: &Context,
-        locator: types::TopicResourceLocator,
-    ) -> Result<Self> {
+    pub async fn try_from_locator(context: &Context, locator: types::TopicLocator) -> Result<Self> {
         let mut cx = context.db.connection();
 
         let db_topic = db::topic_find_by_locator(&mut cx, &locator).await?;
 
         Ok(Self {
             locator,
-            identifiers: db_topic.identifiers(),
+            id: db_topic.topic_id,
+            uuid: db_topic.uuid(),
+            path_in_store: db_topic.path_in_store(),
         })
     }
 
@@ -62,20 +68,26 @@ impl Handle {
 
         Ok(Self {
             locator: db_topic.locator(),
-            identifiers: db_topic.identifiers(),
+            id: db_topic.topic_id,
+            uuid: db_topic.uuid(),
+            path_in_store: db_topic.path_in_store(),
         })
     }
 
     pub fn uuid(&self) -> &types::Uuid {
-        &self.identifiers.uuid
+        &self.uuid
     }
 
-    pub fn locator(&self) -> &types::TopicResourceLocator {
+    pub fn locator(&self) -> &types::TopicLocator {
         &self.locator
     }
 
     pub(super) fn id(&self) -> i32 {
-        self.identifiers.id
+        self.id
+    }
+
+    pub fn path_in_store(&self) -> Option<&types::TopicPathInStore> {
+        self.path_in_store.as_ref()
     }
 }
 
@@ -87,10 +99,12 @@ impl Handle {
 /// not a child of the related sequence locator an error [`Error::Unauthorized`] is returned.
 pub async fn try_create(
     context: &Context,
-    locator: types::TopicResourceLocator,
+    locator: types::TopicLocator,
     session_handle: &session::Handle,
     ontology_metadata: TopicOntologyMetadata,
 ) -> Result<Handle> {
+    let path_in_store = types::TopicPathInStore::new();
+
     let mut tx = context.db.transaction().await?;
 
     // Check that there are not other topics with the same locator
@@ -113,12 +127,12 @@ pub async fn try_create(
     // sequence, i.e. they are related with the same name structure
     let seq_rec = db::sequence_find_by_locator(&mut tx, session_handle.sequence_locator()).await?;
 
-    if !locator.is_sub_resource(session_handle.sequence_locator()) {
+    if !locator.is_sub_locator(session_handle.sequence_locator()) {
         Err(core::Error::unauthorized())?;
     }
 
     let mut record = db::TopicRecord::new(
-        locator.locator(),
+        locator.clone(),
         seq_rec.sequence_id,
         session_handle.id(),
         &ontology_metadata.properties.ontology_tag,
@@ -126,6 +140,7 @@ pub async fn try_create(
             .properties
             .serialization_format
             .to_string(),
+        Some(path_in_store.clone()),
     );
 
     if let Some(user_metadata) = &ontology_metadata.user_metadata {
@@ -136,10 +151,9 @@ pub async fn try_create(
 
     let topic_handle = Handle {
         locator: locator.clone(),
-        identifiers: types::Identifiers {
-            id: record.topic_id,
-            uuid: record.uuid(),
-        },
+        id: record.topic_id,
+        uuid: record.uuid(),
+        path_in_store: Some(path_in_store.clone()),
     };
 
     let metadata = types::TopicMetadata::new(
@@ -153,7 +167,7 @@ pub async fn try_create(
 
     // This operation is done at the end to avoid deleting or reverting changes
     // to metadata file on store if some error causes a rollback on the database
-    metadata_write_to_store(context, &topic_handle, metadata).await?;
+    metadata_write_to_store(context, path_in_store.path_metadata().as_path(), metadata).await?;
 
     tx.commit().await?;
 
@@ -199,7 +213,13 @@ async fn finalize(context: &Context, handle: &Handle, format: types::Format) -> 
     // to metadata file on store if some error causes a rollback on the database
     let mut metadata = metadata(context, handle).await?;
     metadata.properties.completed_at = Some(types::Timestamp::now());
-    metadata_write_to_store(context, handle, metadata).await?;
+
+    let path_in_store = handle
+        .path_in_store
+        .clone()
+        .ok_or(core::Error::not_found())?;
+
+    metadata_write_to_store(context, path_in_store.path_metadata().as_path(), metadata).await?;
 
     tx.commit().await?;
 
@@ -244,10 +264,13 @@ pub async fn arrow_schema(
     handle: &Handle,
     format: types::Format,
 ) -> Result<SchemaRef> {
+    let path_in_store = handle
+        .path_in_store
+        .clone()
+        .ok_or(core::Error::not_found())?;
+
     // Get chunk 0 since this chunk needs to exist always
-    let path = handle
-        .locator
-        .path_data(handle.uuid(), 0, format.to_properties().as_ref());
+    let path = path_in_store.path_data(handle.uuid(), 0, format.to_properties().as_ref());
 
     if !context.store.exists(&path).await? {
         Err(core::Error::not_found())?;
@@ -267,13 +290,12 @@ pub async fn arrow_schema(
 /// Returns [`Error::NotFound`] or [`Error::WriteError`] if serialization or writing fails.
 async fn metadata_write_to_store(
     context: &Context,
-    handle: &Handle,
-    manifest: TopicMetadata,
+    path: &path::Path,
+    metadata: TopicMetadata,
 ) -> Result<()> {
-    trace!("writing manifest to store to `{}`", handle.locator);
-    let path = handle.locator.path_metadata();
+    trace!("writing topic metadata `{}` to store", path.display());
 
-    let json_manifest = marshal::JsonTopicMetadata::from(manifest);
+    let json_manifest = marshal::JsonTopicMetadata::from(metadata);
     let bytes: Vec<u8> = json_manifest.try_into()?;
 
     context.store.write_bytes(&path, bytes).await?;
@@ -288,27 +310,32 @@ pub fn writer(
     handle: Handle,
     format: types::Format,
     schema: SchemaRef,
-) -> HandleWriter {
-    let data_folder = handle.locator.path_data_folder(handle.uuid());
+) -> Result<HandleWriter> {
+    let path_in_store = handle
+        .path_in_store
+        .clone()
+        .ok_or(core::Error::not_found())?;
+
+    let data_folder = path_in_store.path_data_folder(handle.uuid());
 
     let writer = rw::ChunkWriter::new(
         context.store.clone(),
         format,
         schema.clone(),
         move |chunk_number| {
-            data_folder.join(types::TopicResourceLocator::data_file(
+            data_folder.join(types::TopicPathInStore::data_file(
                 chunk_number,
                 format.to_properties().as_ref(),
             ))
         },
     );
 
-    HandleWriter {
+    Ok(HandleWriter {
         handle,
         format,
         writer,
         context,
-    }
+    })
 }
 
 /// Permanently deletes a topic and all its data, be caution
@@ -321,12 +348,14 @@ pub async fn delete(
 ) -> Result<()> {
     let mut tx = context.db.transaction().await?;
 
+    let db_topic = db::topic_find_by_id(&mut tx, handle.id).await?;
+
     // Delete the record from DB first, then from the store. Order matters (think in case of rollback).
     db::topic_delete(&mut tx, &handle.locator, allowed_data_loss).await?;
-    context
-        .store
-        .delete_recursive(&handle.locator.path())
-        .await?;
+
+    if let Some(path_in_store) = db_topic.path_in_store() {
+        context.store.delete_recursive(path_in_store.root()).await?;
+    }
 
     tx.commit().await?;
 
@@ -351,7 +380,7 @@ pub async fn notify(
     Ok(notification.into_notification(handle.locator.clone()))
 }
 
-/// Returns a list of all notifications for the this topic
+/// Returns a list of all notifications for the topic
 pub async fn notification_list(
     context: &Context,
     handle: &Handle,
@@ -385,7 +414,7 @@ pub async fn chunks_stats(context: &Context, handle: &Handle) -> Result<types::T
     Ok(stats)
 }
 
-/// Computes metrics about topic's stored data
+/// Computes metrics about the topic's stored data
 /// (e.g. total size in bytes, first and last timestamps recorded in the topic)
 async fn compute_data_info(
     context: &Context,
@@ -393,9 +422,14 @@ async fn compute_data_info(
     exe: &mut impl db::AsExec,
     format: types::Format,
 ) -> Result<types::TopicDataInfo> {
+    let path_in_store = handle
+        .path_in_store
+        .clone()
+        .ok_or(core::Error::not_found())?;
+
     let timeseries_res = context
         .timeseries_querier
-        .read(handle.locator.path_data_folder(handle.uuid()), format, None)
+        .read(path_in_store.path_data_folder(handle.uuid()), format, None)
         .await;
 
     let timestamp_range = match timeseries_res {
@@ -415,7 +449,7 @@ async fn compute_data_info(
     let datafiles = context
         .store
         .list(
-            &handle.locator.locator(),
+            path_in_store.root(),
             Some(&format.to_properties().as_extension()),
         )
         .await?;
@@ -527,7 +561,6 @@ mod tests {
     use crate::sequence;
     use mosaicod_core::types::NotificationType;
     use mosaicod_query as query;
-    use types::Resource;
 
     fn test_context(pool: sqlx::Pool<db::DatabaseType>) -> Context {
         let database = db::testing::Database::new(pool);
@@ -551,7 +584,7 @@ mod tests {
     async fn topic_create_and_delete(pool: sqlx::Pool<db::DatabaseType>) {
         let context = test_context(pool);
 
-        let seq_locator = types::SequenceResourceLocator::from("test_sequence");
+        let seq_locator = "test_sequence".parse::<types::SequenceLocator>().unwrap();
 
         let seq_handle = sequence::try_create(&context, seq_locator, None)
             .await
@@ -564,13 +597,15 @@ mod tests {
             .expect("Unable to find the created sequence");
 
         // Check sequence locator
-        assert_eq!(seq_handle.locator().locator(), sequence.locator_name);
+        assert_eq!(*seq_handle.locator(), sequence.locator());
 
         let session_handle = session::try_create(&context, seq_handle.locator().clone())
             .await
             .unwrap();
 
-        let topic_locator = types::TopicResourceLocator::from("test_sequence/test_topic");
+        let topic_locator = "test_sequence/test_topic"
+            .parse::<types::TopicLocator>()
+            .unwrap();
 
         let topic_handle = try_create(
             &context,
@@ -588,9 +623,22 @@ mod tests {
             .expect("Unable to find the created topic");
 
         // Check topic locator.
-        assert_eq!(
-            topic_handle.locator().locator(),
-            topic.locator().to_string()
+        assert_eq!(*topic_handle.locator(), topic.locator());
+
+        // Check path in store
+        assert!(
+            context
+                .store
+                .exists(topic.path_in_store().unwrap().path_metadata())
+                .await
+                .unwrap()
+        );
+
+        // Root path in store must be a valid ULID (excluded the tp_ prefix)
+        assert!(
+            topic.path_in_store().unwrap().root().to_str().unwrap()[3..]
+                .parse::<ulid::Ulid>()
+                .is_ok()
         );
 
         // Check topic deletion.
@@ -599,7 +647,7 @@ mod tests {
             .unwrap();
 
         assert!(
-            db::topic_find_by_locator(&mut cx, &"test_sequence/test_topic".into())
+            db::topic_find_by_locator(&mut cx, &"test_sequence/test_topic".parse().unwrap())
                 .await
                 .is_err()
         );
@@ -609,7 +657,7 @@ mod tests {
     async fn topic_notify_and_notify_purge(pool: sqlx::Pool<db::DatabaseType>) {
         let context = test_context(pool);
 
-        let seq_locator = types::SequenceResourceLocator::from("test_sequence");
+        let seq_locator = "test_sequence".parse::<types::SequenceLocator>().unwrap();
 
         let seq_handle = sequence::try_create(&context, seq_locator, None)
             .await
@@ -623,14 +671,14 @@ mod tests {
             .expect("Unable to find the created sequence");
 
         // Check sequence locator
-        assert_eq!(seq_handle.locator().locator(), sequence.locator_name);
+        assert_eq!(*seq_handle.locator(), sequence.locator());
 
         let session_handle = session::try_create(&context, seq_handle.locator().clone())
             .await
             .expect("Unable to create session");
         assert!(session_handle.uuid().is_valid());
 
-        let topic_locator: types::TopicResourceLocator = "test_sequence/test_topic".into();
+        let topic_locator: types::TopicLocator = "test_sequence/test_topic".parse().unwrap();
 
         let topic_handle = try_create(
             &context,

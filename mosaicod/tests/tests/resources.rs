@@ -1,7 +1,6 @@
 #![allow(unused_crate_dependencies)]
 
 use mosaicod_core::types;
-use mosaicod_core::types::Resource;
 use mosaicod_db as db;
 use mosaicod_ext as ext;
 use mosaicod_marshal as marshal;
@@ -138,10 +137,7 @@ async fn sequence_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
     assert_ne!(sequence_manifest.sessions[0].created_at.as_i64(), 0);
     assert!(sequence_manifest.sessions[0].completed_at.is_none());
     assert_eq!(sequence_manifest.sessions[0].topics.len(), 1);
-    assert_eq!(
-        sequence_manifest.sessions[0].topics[0].locator(),
-        topic_name
-    );
+    assert_eq!(sequence_manifest.sessions[0].topics[0], topic_name);
 
     let _ = actions::session_finalize(&mut client, &session_uuid).await;
 
@@ -165,7 +161,7 @@ async fn sequence_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
     assert_ne!(sm.created_at.as_i64(), 0);
     assert_ne!(sm.completed_at.unwrap().as_i64(), 0);
     assert_eq!(sm.topics.len(), 1);
-    assert_eq!(sm.topics[0].clone().into_parts().0, topic_name);
+    assert_eq!(sm.topics[0].clone(), topic_name);
 
     assert_eq!(info.endpoint.len(), 1);
     let ep_metadata: marshal::flight::TopicAppMetadata =

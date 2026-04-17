@@ -13,7 +13,7 @@ pub async fn create(
 ) -> Result<ActionResponse> {
     info!("requested resource {} creation", locator);
 
-    let locator = types::SequenceResourceLocator::from(locator);
+    let locator = locator.parse::<types::SequenceLocator>()?;
 
     let user_mdata = marshal::JsonMetadataBlob::try_from_str(user_metadata_str)?;
 
@@ -35,7 +35,7 @@ pub async fn create(
 pub async fn delete(ctx: &facade::Context, name: String) -> Result<ActionResponse> {
     warn!("requested deletion of resource {}", name);
 
-    let locator = types::SequenceResourceLocator::from(name);
+    let locator = name.parse::<types::SequenceLocator>()?;
 
     let handle = facade::sequence::Handle::try_from_locator(ctx, locator.clone()).await?;
 
@@ -54,7 +54,7 @@ pub async fn notification_create(
 ) -> Result<ActionResponse> {
     info!("new notification for {}", name);
 
-    let locator = types::SequenceResourceLocator::from(name);
+    let locator = name.parse::<types::SequenceLocator>()?;
 
     let handle = facade::sequence::Handle::try_from_locator(ctx, locator).await?;
 
@@ -71,7 +71,7 @@ pub async fn notification_create(
 pub async fn notification_list(ctx: &facade::Context, name: String) -> Result<ActionResponse> {
     info!("notification list for {}", name);
 
-    let locator = types::SequenceResourceLocator::from(name);
+    let locator = name.parse::<types::SequenceLocator>()?;
 
     let handle = facade::sequence::Handle::try_from_locator(ctx, locator).await?;
 
@@ -86,7 +86,7 @@ pub async fn notification_list(ctx: &facade::Context, name: String) -> Result<Ac
 pub async fn notification_purge(ctx: &facade::Context, name: String) -> Result<ActionResponse> {
     warn!("notification purge for {}", name);
 
-    let locator = types::SequenceResourceLocator::from(name);
+    let locator = name.parse::<types::SequenceLocator>()?;
 
     let handle = facade::sequence::Handle::try_from_locator(ctx, locator).await?;
 

@@ -175,7 +175,7 @@ impl Store {
     /// Returns a list of elements located at the given `path`.
     ///
     /// If an extension is provided, the results will be filtered to include only
-    /// the elements whose extension matches exactly.es extacly
+    /// the elements whose extension matches exactly.es exactly
     pub async fn list(
         &self,
         path: impl AsRef<std::path::Path>,

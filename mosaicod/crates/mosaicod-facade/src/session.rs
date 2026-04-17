@@ -13,18 +13,21 @@ use mosaicod_db as db;
 /// Handle containing session identifiers.
 /// It's used by all functions (except creation) in this module to indicate the session to operate on.
 pub struct Handle {
-    identifiers: types::Identifiers,
-    sequence_locator: types::SequenceResourceLocator,
+    id: i32,
+    uuid: types::Uuid,
+    sequence_locator: types::SequenceLocator,
 }
 
 impl Handle {
     pub(super) fn new(
-        sequence_locator: types::SequenceResourceLocator,
-        identifiers: types::Identifiers,
+        sequence_locator: types::SequenceLocator,
+        id: i32,
+        uuid: types::Uuid,
     ) -> Self {
         Self {
             sequence_locator,
-            identifiers,
+            id,
+            uuid,
         }
     }
 
@@ -37,35 +40,32 @@ impl Handle {
         let db_sequence = db::sequence_find_by_id(&mut cx, db_session.sequence_id).await?;
 
         Ok(Self {
-            identifiers: db_session.identifiers(),
-            sequence_locator: db_sequence.resource_locator(),
+            id: db_session.session_id,
+            uuid: db_session.uuid(),
+            sequence_locator: db_sequence.locator(),
         })
     }
 
     pub fn uuid(&self) -> &types::Uuid {
-        &self.identifiers.uuid
+        &self.uuid
     }
 
-    pub fn sequence_locator(&self) -> &types::SequenceResourceLocator {
+    pub fn sequence_locator(&self) -> &types::SequenceLocator {
         &self.sequence_locator
     }
 
     pub(super) fn id(&self) -> i32 {
-        self.identifiers.id
+        self.id
     }
 }
 
 pub async fn try_create(
     context: &Context,
-    sequence_locator: types::SequenceResourceLocator,
+    sequence_locator: types::SequenceLocator,
 ) -> Result<Handle> {
     let mut tx = context.db.transaction().await?;
 
-    let sequence = db::sequence_lookup(
-        &mut tx,
-        &types::ResourceLookup::Locator(sequence_locator.to_string()),
-    )
-    .await?;
+    let sequence = db::sequence_find_by_locator(&mut tx, &sequence_locator).await?;
 
     let session = db::SessionRecord::new(sequence.sequence_id);
     let session = db::session_create(&mut tx, &session).await?;
@@ -73,7 +73,8 @@ pub async fn try_create(
     tx.commit().await?;
 
     Ok(Handle {
-        identifiers: session.into(),
+        id: session.session_id,
+        uuid: session.uuid(),
         sequence_locator,
     })
 }
@@ -143,7 +144,14 @@ async fn topic_list(handle: &Handle, exe: &mut impl db::AsExec) -> Result<Vec<to
 
     Ok(topics
         .into_iter()
-        .map(|record| topic::Handle::new(record.locator(), record.identifiers()))
+        .map(|record| {
+            topic::Handle::new(
+                record.locator(),
+                record.topic_id,
+                record.uuid(),
+                record.path_in_store(),
+            )
+        })
         .collect())
 }
 
@@ -174,7 +182,6 @@ mod tests {
     use std::sync::Arc;
 
     use crate::{sequence, session};
-    use types::Resource;
 
     fn test_context(pool: sqlx::Pool<db::DatabaseType>) -> Context {
         let database = db::testing::Database::new(pool);
@@ -190,7 +197,7 @@ mod tests {
     ) -> sqlx::Result<()> {
         let context = test_context(pool);
 
-        let seq_locator = types::SequenceResourceLocator::from("test_sequence".to_string());
+        let seq_locator = "test_sequence".parse::<types::SequenceLocator>().unwrap();
 
         let seq_handle = sequence::try_create(&context, seq_locator, None)
             .await
@@ -200,10 +207,7 @@ mod tests {
             .await
             .expect("Error creating session");
 
-        assert_eq!(
-            session_handle.sequence_locator.locator(),
-            seq_handle.locator().locator()
-        );
+        assert_eq!(session_handle.sequence_locator, *seq_handle.locator());
 
         let session_uuid = session_handle.uuid().clone();
 

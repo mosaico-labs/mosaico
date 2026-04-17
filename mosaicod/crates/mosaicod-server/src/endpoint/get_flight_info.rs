@@ -9,9 +9,8 @@ use mosaicod_core::{
     self as core,
     error::BoxPublicError,
     params,
-    types::{self, Resource, TopicOntologyMetadata},
+    types::{self, TopicOntologyMetadata},
 };
-use mosaicod_db as db;
 use mosaicod_facade as facade;
 use mosaicod_facade::Context;
 use mosaicod_marshal as marshal;
@@ -28,11 +27,11 @@ pub async fn get_flight_info(ctx: &facade::Context, desc: FlightDescriptor) -> R
 
             info!("requesting info for resource {}", resource_name);
 
-            let resource = db::get_resource_locator_from_name(&ctx.db, resource_name).await?;
+            let locator = resource_name.parse::<types::Locator>()?;
 
-            match resource.resource_type() {
-                types::ResourceType::Sequence => {
-                    let sequence_locator = types::SequenceResourceLocator::from(resource.locator());
+            match locator.kind {
+                types::ResourceKind::Sequence => {
+                    let sequence_locator: types::SequenceLocator = locator.into();
 
                     let sequence_handle =
                         facade::sequence::Handle::try_from_locator(ctx, sequence_locator).await?;
@@ -63,7 +62,7 @@ pub async fn get_flight_info(ctx: &facade::Context, desc: FlightDescriptor) -> R
                     let endpoints = stream::iter(topics)
                         .map(async |topic_handle: facade::topic::Handle| {
                             let ticket = types::flight::TicketTopic {
-                                locator: topic_handle.locator().to_string(),
+                                locator: topic_handle.locator().clone(),
                                 timestamp_range: cmd.timestamp_range.clone(),
                             };
 
@@ -80,7 +79,6 @@ pub async fn get_flight_info(ctx: &facade::Context, desc: FlightDescriptor) -> R
                                 .with_ticket(Ticket {
                                     ticket: marshal::flight::ticket_topic_to_binary(ticket)?.into(),
                                 })
-                                .with_location(topic_handle.locator().url()?)
                                 .with_app_metadata(topic_app_mdata);
 
                             Ok::<FlightEndpoint, BoxPublicError>(e)
@@ -108,8 +106,8 @@ pub async fn get_flight_info(ctx: &facade::Context, desc: FlightDescriptor) -> R
                     Ok(flight_info)
                 }
 
-                types::ResourceType::Topic => {
-                    let topic_locator = types::TopicResourceLocator::from(resource.locator());
+                types::ResourceKind::Topic => {
+                    let topic_locator: types::TopicLocator = locator.into();
 
                     let topic_handle =
                         facade::topic::Handle::try_from_locator(ctx, topic_locator).await?;
@@ -117,7 +115,7 @@ pub async fn get_flight_info(ctx: &facade::Context, desc: FlightDescriptor) -> R
                     let metadata = facade::topic::metadata(ctx, &topic_handle).await?;
 
                     let ticket = types::flight::TicketTopic {
-                        locator: topic_handle.locator().clone().into(),
+                        locator: topic_handle.locator().clone(),
                         timestamp_range: cmd.timestamp_range,
                     };
 
@@ -126,7 +124,6 @@ pub async fn get_flight_info(ctx: &facade::Context, desc: FlightDescriptor) -> R
                         .with_ticket(Ticket {
                             ticket: marshal::flight::ticket_topic_to_binary(ticket)?.into(),
                         })
-                        .with_location(topic_handle.locator().url()?)
                         .with_app_metadata(
                             build_topic_app_metadata(metadata.properties, &topic_handle, ctx).await,
                         );
@@ -155,6 +152,8 @@ pub async fn get_flight_info(ctx: &facade::Context, desc: FlightDescriptor) -> R
                     trace!("{} done", topic_handle.locator());
                     Ok(flight_info)
                 }
+
+                _ => Err(core::Error::unimplemented())?,
             }
         }
         _ => Err(core::Error::unsupported_descriptor())?,

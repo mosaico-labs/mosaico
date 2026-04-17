@@ -62,17 +62,6 @@ pub async fn session_find_by_uuid(
     Ok(res)
 }
 
-/// Find a session by resource lookup
-pub async fn session_lookup(
-    exec: &mut impl AsExec,
-    id_lookup: &types::IdLookup,
-) -> Result<schema::SessionRecord, Error> {
-    match id_lookup {
-        types::IdLookup::Id(id) => session_find_by_id(exec, *id).await,
-        types::IdLookup::Uuid(uuid) => session_find_by_uuid(exec, uuid).await,
-    }
-}
-
 /// Returns true if the session is locked.
 pub async fn session_locked(exe: &mut impl AsExec, session_id: i32) -> Result<bool, Error> {
     trace!("session (id=`{}`) locked? ", session_id);

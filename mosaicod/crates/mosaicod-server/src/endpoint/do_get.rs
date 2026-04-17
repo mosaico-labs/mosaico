@@ -6,6 +6,7 @@ use arrow_flight::{
 };
 use futures::TryStreamExt;
 use log::{debug, info, trace};
+use mosaicod_core as core;
 use mosaicod_core::types;
 use mosaicod_facade as facade;
 use mosaicod_marshal as marshal;
@@ -16,7 +17,7 @@ pub async fn do_get(ctx: &facade::Context, ticket: Ticket) -> Result<FlightDataE
     info!("requesting data for ticket `{}`", ticket.locator);
 
     // Create topic handle
-    let topic_locator = types::TopicResourceLocator::from(ticket.locator);
+    let topic_locator = ticket.locator.parse::<types::TopicLocator>()?;
 
     let topic_handle = facade::topic::Handle::try_from_locator(ctx, topic_locator).await?;
 
@@ -27,10 +28,17 @@ pub async fn do_get(ctx: &facade::Context, ticket: Ticket) -> Result<FlightDataE
 
     let batch_size = facade::topic::compute_optimal_batch_size(ctx, &topic_handle).await?;
 
+    let path_in_store = topic_handle
+        .path_in_store()
+        .ok_or(core::error::Error::internal(Some(format!(
+            "Path in store not set for topic {}",
+            topic_handle.locator()
+        ))))?;
+
     let mut query_result = ctx
         .timeseries_querier
         .read(
-            &topic_handle.locator().path_data_folder(topic_handle.uuid()),
+            &path_in_store.path_data_folder(topic_handle.uuid()),
             metadata.ontology_metadata.properties.serialization_format,
             Some(batch_size),
         )
