@@ -2611,7 +2611,6 @@ dependencies = [
  "mosaicod-query",
  "serde_json",
  "sqlx",
- "thiserror",
  "url",
  "uuid",
 ]

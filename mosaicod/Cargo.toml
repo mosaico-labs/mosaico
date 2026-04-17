@@ -3,7 +3,7 @@ members = ["crates/*", "bin/*", "tests/"]
 resolver = "3"
 
 [workspace.package]
-version = "0.3.0"
+version = "0.4.0"
 authors = ["Mosaico Labs <info@mosaico.dev>"]
 homepage = "https://mosaico.dev"
 repository = "https://github.com/mosaico-labs/mosaico"

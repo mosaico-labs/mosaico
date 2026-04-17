@@ -55,8 +55,6 @@ pub fn init_s3_store() -> Result<store::StoreRef> {
     // This will return and error if the s3 confuration has some problems
     config.validate()?;
 
-    debug!("{:#?}", config);
-
     Ok(Arc::new(store::Store::try_from_s3_store(config)?))
 }
 

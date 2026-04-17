@@ -131,7 +131,7 @@ pub enum ErrorKind {
     UnsupportedSchema(String),
     #[error("Unsupported time: {0}")]
     UnsupportedTime(String),
-    #[error("Internal error{0:?}")]
+    #[error("Internal error: {0}")]
     Internal(String),
 }
 
@@ -248,9 +248,9 @@ impl Error {
 
     pub fn internal(details: Option<String>) -> Self {
         let msg = if let Some(details) = details {
-            format!(": {details}")
+            details
         } else {
-            "".to_owned()
+            "undefined".to_owned()
         };
 
         Self(ErrorKind::Internal(msg))

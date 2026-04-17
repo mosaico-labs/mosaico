@@ -75,6 +75,7 @@ fn main() {
         }
         Err(e) => {
             print::error(e);
+            std::process::exit(-1);
         }
     }
 }
