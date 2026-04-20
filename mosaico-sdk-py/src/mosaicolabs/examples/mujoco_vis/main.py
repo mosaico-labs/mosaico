@@ -154,58 +154,56 @@ def main():
 
         console.print(table)
 
-        # --- PHASE 3: Plot joint trajectories ---
-        timestamps = deque(t / 1.0e9 for t in robot_joints_timeseries.keys())
-        joint_values = deque(rj for rj in robot_joints_timeseries.values())
-        joint_names = joint_values[0].names
+    # --- PHASE 3: Plot joint trajectories ---
+    timestamps = deque(t / 1.0e9 for t in robot_joints_timeseries.keys())
+    joint_values = deque(rj for rj in robot_joints_timeseries.values())
+    joint_names = joint_values[0].names
 
-        fig, ax = plt.subplots(2, 3, figsize=(14, 7))
-        fig.suptitle("Robot Joint Positions over Time", fontsize=14, fontweight="bold")
+    fig, ax = plt.subplots(2, 3, figsize=(14, 7))
+    fig.suptitle("Robot Joint Positions over Time", fontsize=14, fontweight="bold")
 
-        for idx, (row, col) in enumerate(
-            [(0, 0), (0, 1), (0, 2), (1, 0), (1, 1), (1, 2)]
-        ):
-            ax[row, col].plot(timestamps, [rj.positions[idx] for rj in joint_values])
-            ax[row, col].set_title(joint_names[idx])
-            ax[row, col].set_xlabel("time [s]")
-            ax[row, col].set_ylabel("position [rad]")
-            ax[row, col].grid(True)
+    for idx, (row, col) in enumerate([(0, 0), (0, 1), (0, 2), (1, 0), (1, 1), (1, 2)]):
+        ax[row, col].plot(timestamps, [rj.positions[idx] for rj in joint_values])
+        ax[row, col].set_title(joint_names[idx])
+        ax[row, col].set_xlabel("time [s]")
+        ax[row, col].set_ylabel("position [rad]")
+        ax[row, col].grid(True)
 
-        fig.tight_layout()
-        plt.show()
+    fig.tight_layout()
+    plt.show()
 
-        # --- PHASE 4: Replay in MuJoCo ---
-        model = mujoco.MjModel.from_xml_path(MUJOCO_XML_SCENE_PATH)
-        data = mujoco.MjData(model)
+    # --- PHASE 4: Replay in MuJoCo ---
+    model = mujoco.MjModel.from_xml_path(MUJOCO_XML_SCENE_PATH)
+    data = mujoco.MjData(model)
 
-        # Set robot to initial configuration
-        start_joints = joint_values[0]
+    # Set robot to initial configuration
+    start_joints = joint_values[0]
 
-        for jn, jp in zip(joint_names, start_joints.positions):
-            id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, jn)
-            data.qpos[id] = jp
-            data.ctrl[id] = jp
+    for jn, jp in zip(joint_names, start_joints.positions):
+        id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, jn)
+        data.qpos[id] = jp
+        data.ctrl[id] = jp
 
-        ctrl_action = start_joints.positions
-        mujoco.mj_step(model, data)
+    ctrl_action = start_joints.positions
+    mujoco.mj_step(model, data)
 
-        with mujoco.viewer.launch_passive(model, data) as viewer:
+    with mujoco.viewer.launch_passive(model, data) as viewer:
+        viewer.sync()
+
+        while viewer.is_running() and timestamps:
+            with viewer.lock():
+                # Set joint positions control input — update only when requested
+                if data.time > timestamps[0]:
+                    timestamps.popleft()
+                    ctrl_action = joint_values.popleft().positions
+
+            for jn, jp in zip(joint_names, ctrl_action):
+                id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, jn)
+                data.ctrl[id] = jp
+
+            mujoco.mj_step(model, data)
+
             viewer.sync()
-
-            while viewer.is_running() and timestamps:
-                with viewer.lock():
-                    # Set joint positions control input — update only when requested
-                    if data.time > timestamps[0]:
-                        timestamps.popleft()
-                        ctrl_action = joint_values.popleft().positions
-
-                for jn, jp in zip(joint_names, ctrl_action):
-                    id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, jn)
-                    data.ctrl[id] = jp
-
-                mujoco.mj_step(model, data)
-
-                viewer.sync()
 
 
 if __name__ == "__main__":
