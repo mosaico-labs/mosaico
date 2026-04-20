@@ -60,29 +60,29 @@ impl Locator {
         self.starts_with(&parent.inner)
     }
 
-    /// Checks if the provided name is a valid locator.
+    /// Checks if value is a valid locator.
     ///
     /// The following criteria must be met:
     /// - string must be non-empty
     /// - non-ASCII chars are not allowed
     /// - special symbols `! " ' * £ $ % &` are not allowed
-    fn valid_locator_name(name: &str) -> bool {
-        if name.is_empty() {
+    fn is_valid_locator(value: &str) -> bool {
+        if value.is_empty() {
             return false;
         }
         let invalid_chars = vec!['!', '\"', '\'', '*', '£', '$', '%', '&', '.', ' '];
-        !name
+        !value
             .chars()
             .any(|c| !c.is_ascii() || invalid_chars.contains(&c))
     }
 
-    /// Builds a sanitized resource name.
+    /// Builds a sanitized resource locator.
     ///
-    /// Sanitized resource names have the following requirements:
-    /// - remove any leading and trailing spaces
-    /// - remove any leading `/`
-    fn sanitize_name(name: &str) -> String {
-        name.trim().trim_start_matches('/').to_owned()
+    /// Sanitized resource locators have the following requirements:
+    /// - no leading and trailing spaces
+    /// - no leading `/`
+    fn sanitize(value: &str) -> String {
+        value.trim().trim_start_matches('/').to_owned()
     }
 }
 
@@ -92,9 +92,9 @@ impl FromStr for Locator {
     /// Performs checks on the input string and tries to recognize its [`ResourceKind`].
     /// Returns a [`ResourceError::InvalidLocator`] in case of failure.
     fn from_str(s: &str) -> Result<Self, ResourceError> {
-        let sanitized_name = Self::sanitize_name(s);
+        let sanitized_name = Self::sanitize(s);
 
-        if !Self::valid_locator_name(&sanitized_name) {
+        if !Self::is_valid_locator(&sanitized_name) {
             return Err(ResourceError::InvalidLocator(s.to_owned()));
         }
 
@@ -748,25 +748,25 @@ mod tests {
     fn test_resource_name() {
         let target = "my/resource/name";
 
-        assert_eq!(Locator::sanitize_name("/my/resource/name"), target);
+        assert_eq!(Locator::sanitize("/my/resource/name"), target);
 
-        assert_eq!(Locator::sanitize_name("    my/resource/name   "), target);
+        assert_eq!(Locator::sanitize("    my/resource/name   "), target);
 
-        assert_eq!(Locator::sanitize_name("    /my/resource/name   "), target);
+        assert_eq!(Locator::sanitize("    /my/resource/name   "), target);
 
-        assert_eq!(Locator::sanitize_name("//my/resource/name"), target);
+        assert_eq!(Locator::sanitize("//my/resource/name"), target);
 
-        assert_ne!(Locator::sanitize_name("/ /my/resource/name"), target);
+        assert_ne!(Locator::sanitize("/ /my/resource/name"), target);
 
-        assert_ne!(Locator::sanitize_name("/ //my/resource/name"), target);
+        assert_ne!(Locator::sanitize("/ //my/resource/name"), target);
 
-        assert!(!Locator::valid_locator_name("/!\"my/resource/name"));
+        assert!(!Locator::is_valid_locator("/!\"my/resource/name"));
 
-        assert!(!Locator::valid_locator_name("/my/resource/na.me"));
+        assert!(!Locator::is_valid_locator("/my/resource/na.me"));
 
-        assert!(!Locator::valid_locator_name("/èmy/resource/name"));
+        assert!(!Locator::is_valid_locator("/èmy/resource/name"));
 
-        assert!(!Locator::valid_locator_name("my/resourcè/name"));
+        assert!(!Locator::is_valid_locator("my/resourcè/name"));
     }
 
     #[test]
@@ -811,7 +811,7 @@ mod tests {
     #[test]
     fn test_str_to_locator_conversion() {
         let t1 = TopicLocator::from_str("my_sequence/topic_1").unwrap();
-        assert!(Locator::valid_locator_name(&t1))
+        assert!(Locator::is_valid_locator(&t1))
     }
 
     #[test]

@@ -2,12 +2,7 @@ use super::{Context, Error, session};
 use arrow::datatypes::SchemaRef;
 use log::trace;
 use mosaicod_core::types::TopicMetadataProperties;
-use mosaicod_core::{
-    self as core,
-    error::PublicResult as Result,
-    params,
-    types::{self},
-};
+use mosaicod_core::{self as core, error::PublicResult as Result, params, types};
 use mosaicod_db as db;
 use mosaicod_ext as ext;
 use mosaicod_marshal as marshal;

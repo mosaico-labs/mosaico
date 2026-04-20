@@ -1,6 +1,6 @@
 use crate::{Error, core::AsExec, sql::schema};
 use log::{trace, warn};
-use mosaicod_core::types::{self};
+use mosaicod_core::types;
 
 /// Find a sequence given its id.
 pub async fn sequence_find_by_id(

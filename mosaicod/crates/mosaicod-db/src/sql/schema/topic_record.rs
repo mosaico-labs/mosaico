@@ -72,6 +72,11 @@ impl TopicRecord {
         self.topic_uuid.into()
     }
 
+    /// Returns the resource locator for this topic.
+    ///
+    /// Because a [`TopicRecord`] should only be created using [`TopicRecord::new`], that requires a [`types::TopicLocator`],
+    /// we can assume the locator value inside the DB is always valid. It should panic only if somebody
+    /// changed it manually directly inside the database.
     pub fn locator(&self) -> types::TopicLocator {
         self.locator_name
             .parse()
