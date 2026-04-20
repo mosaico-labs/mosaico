@@ -8,6 +8,7 @@ rust-version.workspace = true
 name = "mosaicod"
 
 [dependencies]
+mosaicod-build = { workspace = true }
 mosaicod-core = { workspace = true }
 mosaicod-db = { workspace = true }
 mosaicod-store = { workspace = true }
