@@ -193,10 +193,10 @@ def main():
     with mujoco.viewer.launch_passive(model, data) as viewer:
         viewer.sync()
 
-        while viewer.is_running() and timestamps:
+        while viewer.is_running():
             with viewer.lock():
                 # Set joint positions control input — update only when requested
-                if data.time > timestamps[0]:
+                if timestamps and data.time > timestamps[0]:
                     timestamps.popleft()
                     ctrl_action = joint_values.popleft().positions
 
