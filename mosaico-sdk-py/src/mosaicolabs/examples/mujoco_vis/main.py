@@ -20,6 +20,7 @@ mosaicolabs.examples mujoco_vis
 import logging as log
 import sys
 from collections import deque
+from pathlib import Path
 
 from rich.console import Console
 from rich.panel import Panel
@@ -60,7 +61,9 @@ except Exception:
 ROBOT_SEQUENCE_NAME = "r2b_robotarm_0"
 
 # Path to mujoco scene
-MUJOCO_XML_SCENE_PATH = "assets/universal_robots_ur10e/scene.xml"
+MUJOCO_XML_SCENE_PATH = str(
+    Path(__file__).parent / "assets/universal_robots_ur10e/scene.xml"
+)
 
 
 def main():
