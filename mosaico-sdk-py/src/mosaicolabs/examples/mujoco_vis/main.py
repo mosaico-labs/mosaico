@@ -19,6 +19,7 @@ mosaicolabs.examples mujoco_vis
 
 import logging as log
 import sys
+from collections import deque
 
 from rich.console import Console
 from rich.panel import Panel
@@ -38,9 +39,10 @@ from ..config import (
 # Initialize Rich Console for beautiful terminal output
 console = Console()
 
-# Try importing non-standard mosaico dependencies (mujoco, matplotlib):
+# Try importing non-standard mosaico dependencies (mujoco, mediapy, matplotlib):
 try:
-    pass
+    import mujoco as mujoco
+    import mujoco.viewer
 except Exception:
     console.print_exception()
     console.print("[bold red]Please run:[/bold red] poetry add mujoco")
@@ -57,6 +59,9 @@ except Exception:
 # This sequence has been injested during ros_injestion example (https://docs.mosaico.dev/SDK/examples/ros_injection/)
 ROBOT_SEQUENCE_NAME = "r2b_robotarm_0"
 
+# Path to mujoco scene
+MUJOCO_XML_SCENE_PATH = "assets/universal_robots_ur10e/scene.xml"
+
 
 def main():
     """
@@ -65,26 +70,26 @@ def main():
     The phases are:
     1. Connect & retrieve sequence metadata: get from backend a specific sequence with a query.
     2. Stream joint state topic: from query response, check that the expected data exist
-    3. Plot joint trajectories: # TODO
-    4. Replay in MuJoCo: # TODO
+    3. Plot joint trajectories: use matplotlib to plot the trajectory for each robot joint
+    4. Replay in MuJoCo: replay robot motion in Mujoco accordingly to timestamps
     """
 
     # --- PHASE 1: Connect & retrieve sequence metadata ---
     # Connect to the client using a context manager to ensure resource cleanup + query creation.
     console.print(
         Panel(
-            "[bold green]Phase 1: Connect & retrieve sequence metadata {ROBOT_SEQUENCE_NAME}[/bold green]"
+            f"[bold green]Phase 1: Connect & retrieve sequence metadata {ROBOT_SEQUENCE_NAME}[/bold green]"
         )
     )
 
     # Dict containing all the joint timeseries. Organised as the following
     # {
-    #   t1: [j1, j2, ..., j6],
-    #   t2: [j1, j2, ..., j6],
+    #   t1: RobotJoint,
+    #   t2: RobotJoint,
     #   ...
-    #   tn: [j1, j2, ..., j6],
+    #   tn: RobotJoint,
     # }
-    robot_joints_timeseries: dict[int, list[RobotJoint]] = {}
+    robot_joints_timeseries: dict[int, RobotJoint] = {}
 
     with MosaicoClient.connect(
         host=MOSAICO_HOST,
@@ -149,10 +154,9 @@ def main():
 
         console.print(table)
 
-        # --- PHASE 3: TODO ---
-
-        timestamps = [t for t in robot_joints_timeseries.keys()]
-        joint_values = list(robot_joints_timeseries.values())
+        # --- PHASE 3: Plot joint trajectories ---
+        timestamps = deque(t / 1.0e9 for t in robot_joints_timeseries.keys())
+        joint_values = deque(rj for rj in robot_joints_timeseries.values())
         joint_names = joint_values[0].names
 
         fig, ax = plt.subplots(2, 3, figsize=(14, 7))
@@ -169,6 +173,39 @@ def main():
 
         fig.tight_layout()
         plt.show()
+
+        # --- PHASE 4: Replay in MuJoCo ---
+        model = mujoco.MjModel.from_xml_path(MUJOCO_XML_SCENE_PATH)
+        data = mujoco.MjData(model)
+
+        # Set robot to initial configuration
+        start_joints = joint_values[0]
+
+        for jn, jp in zip(joint_names, start_joints.positions):
+            id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, jn)
+            data.qpos[id] = jp
+            data.ctrl[id] = jp
+
+        ctrl_action = start_joints.positions
+        mujoco.mj_step(model, data)
+
+        with mujoco.viewer.launch_passive(model, data) as viewer:
+            viewer.sync()
+
+            while viewer.is_running() and timestamps:
+                with viewer.lock():
+                    # Set joint positions control input — update only when requested
+                    if data.time > timestamps[0]:
+                        timestamps.popleft()
+                        ctrl_action = joint_values.popleft().positions
+
+                for jn, jp in zip(joint_names, ctrl_action):
+                    id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, jn)
+                    data.ctrl[id] = jp
+
+                mujoco.mj_step(model, data)
+
+                viewer.sync()
 
 
 if __name__ == "__main__":
