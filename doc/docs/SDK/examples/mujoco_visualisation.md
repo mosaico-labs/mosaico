@@ -29,7 +29,7 @@ By following this guide, you will learn how to:
     ```
 
 !!! abstract "Full Code"
-    The full code of the example is available [**here**](https://github.com/mosaico-labs/mosaico/blob/issue/385/mosaico-sdk-py/src/mosaicolabs/examples/mujoco_vis/main.py).
+    The full code of the example is available [**here**](https://github.com/mosaico-labs/mosaico/blob/main/mosaico-sdk-py/src/mosaicolabs/examples/mujoco_vis/main.py).
 
 ??? question "In Depth Explanation"
     * **[API Reference: Query Builders](../API_reference/query/builders.md)**
@@ -46,8 +46,8 @@ with MosaicoClient.connect(
     port=MOSAICO_PORT,
 ) as client:
     result = client.query(
-        QuerySequence().with_name(ROBOT_SEQUENCE_NAME),
-        QueryTopic().with_ontology_tag(RobotJoint.ontology_tag()),
+        QuerySequence().with_name(ROBOT_SEQUENCE_NAME), # (1)!
+        QueryTopic().with_ontology_tag(RobotJoint.ontology_tag()), # (2)!
     )
 
     if result is None:
@@ -78,7 +78,7 @@ if top_handler.ontology_tag != RobotJoint.ontology_tag():
     continue
 ```
 
-This ensures that only the requested [RobotJoint][mosaicolabs.models.sensors.robot.RobotJoint] data are downloaded from the Mosaico Server.
+> Notice that checking again the topic ontology tag is redundant since the initial query already filters out all the topics that are not a [RobotJoint][mosaicolabs.models.sensors.robot.RobotJoint] ontology
 
 ```python
 rob_joints_stream = top_handler.get_data_streamer()
