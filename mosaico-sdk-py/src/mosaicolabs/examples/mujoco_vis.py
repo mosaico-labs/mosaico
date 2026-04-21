@@ -18,6 +18,7 @@ mosaicolabs.examples mujoco_vis
 """
 
 import logging as log
+import os
 import sys
 from collections import deque
 from pathlib import Path
@@ -30,8 +31,9 @@ from rich.table import Table
 from mosaicolabs import MosaicoClient, QuerySequence, QueryTopic, RobotJoint
 
 # Example Imports
-from ..config import (
+from .config import (
     API_KEY,
+    ASSET_DIR,
     ENABLE_TLS,
     MOSAICO_HOST,
     MOSAICO_PORT,
@@ -40,20 +42,27 @@ from ..config import (
 # Initialize Rich Console for beautiful terminal output
 console = Console()
 
-# Try importing non-standard mosaico dependencies (mujoco, mediapy, matplotlib):
+# Try importing non-standard mosaico dependencies (mujoco, gitdir, matplotlib):
 try:
     import mujoco as mujoco
     import mujoco.viewer
 except Exception:
     console.print_exception()
-    console.print("[bold red]Please run:[/bold red] poetry add mujoco")
+    console.print("[bold red]Please run:[/bold red] pip install mujoco")
+    sys.exit(1)
+
+try:
+    from gitdir import gitdir
+except Exception:
+    console.print_exception()
+    console.print("[bold red]Please run:[/bold red] pip install gitdir")
     sys.exit(1)
 
 try:
     import matplotlib.pyplot as plt
 except Exception:
     console.print_exception()
-    console.print("[bold red]Please run:[/ red bold] poetry add matplotlib ")
+    console.print("[bold red]Please run:[/ red bold] pip install matplotlib ")
     sys.exit(1)
 
 # NVIDIA R2B Dataset 2024 - Verified compatible with Mosaico: https://catalog.ngc.nvidia.com/orgs/nvidia/teams/isaac/resources/r2bdataset2024?version=1
@@ -61,9 +70,10 @@ except Exception:
 ROBOT_SEQUENCE_NAME = "r2b_robotarm_0"
 
 # Path to mujoco scene
-MUJOCO_XML_SCENE_PATH = str(
-    Path(__file__).parent / "assets/universal_robots_ur10e/scene.xml"
+MUJOCO_MENAGERIE_URL = str(
+    "https://github.com/google-deepmind/mujoco_menagerie/tree/main/universal_robots_ur10e"
 )
+MUJOCO_XML_SCENE_PATH = str(Path(ASSET_DIR) / "universal_robots_ur10e/scene.xml")
 
 
 def main():
@@ -176,6 +186,17 @@ def main():
     plt.show()
 
     # --- PHASE 4: Replay in MuJoCo ---
+
+    # Getting the assets from mujoco manageries
+    if not Path(MUJOCO_XML_SCENE_PATH).exists():
+        console.print("[bold yellow]Downloading MuJoCo assets[/bold yellow]")
+        os.chdir(ASSET_DIR)  # This is necessary because of a bug from gitdir
+        gitdir.download(MUJOCO_MENAGERIE_URL)
+    else:
+        console.print(
+            "[bold yellow]MuJoCo assets already present. Skipping download... [/bold yellow]"
+        )
+
     model = mujoco.MjModel.from_xml_path(MUJOCO_XML_SCENE_PATH)
     data = mujoco.MjData(model)
 
