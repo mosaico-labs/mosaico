@@ -1,10 +1,9 @@
 use std::sync::OnceLock;
 
 pub const BUILD_PROFILE: &str = env!("BUILD_PROFILE");
-pub const SEMVER: &str = env!("VERSION");
+pub const SEMVER: &str = env!("CARGO_PKG_VERSION");
 pub const GIT_HASH: &str = env!("GIT_HASH");
 pub const BUILD_TIME: &str = env!("BUILD_TIME");
-pub const GIT_TAG: &str = env!("GIT_TAG");
 
 static VERSION: OnceLock<String> = OnceLock::new();
 
