@@ -12,11 +12,11 @@ use crate as db;
 use mosaicod_core::types;
 use mosaicod_marshal as marshal;
 
-#[derive(Debug, Eq, PartialEq, Hash)]
+#[derive(Debug, PartialEq)]
 pub struct SequenceRecord {
     pub sequence_id: i32,
     pub(crate) sequence_uuid: uuid::Uuid,
-    pub locator_name: String,
+    pub(crate) locator_name: String,
 
     /// This metadata field is only for database query access and
     /// should not be exposed
@@ -24,15 +24,9 @@ pub struct SequenceRecord {
 
     /// UNIX timestamp in milliseconds from the creation
     pub(crate) creation_unix_tstamp: i64,
-}
 
-impl From<SequenceRecord> for types::Identifiers {
-    fn from(value: SequenceRecord) -> Self {
-        Self {
-            id: value.sequence_id,
-            uuid: value.sequence_uuid.into(),
-        }
-    }
+    /// Path inside Object store where to find backup files and other sequence info.
+    pub(crate) path_in_store: String,
 }
 
 impl SequenceRecord {
@@ -43,13 +37,17 @@ impl SequenceRecord {
     ///
     /// **Note**: This function only creates a local instance. The record will not be present
     /// in the database until [`sequence_create`] is called.
-    pub fn new(name: &str) -> Self {
+    pub fn new(
+        locator_name: types::SequenceLocator,
+        path_in_store: types::SequencePathInStore,
+    ) -> Self {
         Self {
             sequence_id: db::UNREGISTERED,
             sequence_uuid: uuid::Uuid::new_v4(),
-            locator_name: name.to_owned(),
+            locator_name: types::Locator::from(locator_name).into(),
             creation_unix_tstamp: types::Timestamp::now().into(),
             user_metadata: None,
+            path_in_store: path_in_store.into(),
         }
     }
 
@@ -66,19 +64,22 @@ impl SequenceRecord {
         self.user_metadata.clone().map(Into::into)
     }
 
-    /// Returns the sequence resource locator for this sequence
-    pub fn resource_locator(&self) -> types::SequenceResourceLocator {
-        self.locator_name.to_owned().into()
+    /// Returns the resource locator for this sequence.
+    ///
+    /// Because a [`SequenceRecord`] should only be created using [`SequenceRecord::new`], that requires a [`types::SequenceLocator`],
+    /// we can assume the locator value inside the DB is always valid. It should panic only if somebody
+    /// changed it manually directly inside the database.
+    pub fn locator(&self) -> types::SequenceLocator {
+        self.locator_name
+            .parse()
+            .unwrap_or_else(|_| panic!("Invalid sequence locator in DB {}", self.locator_name))
     }
 
     pub fn uuid(&self) -> types::Uuid {
         self.sequence_uuid.into()
     }
 
-    pub fn identifiers(&self) -> types::Identifiers {
-        types::Identifiers {
-            uuid: self.uuid(),
-            id: self.sequence_id,
-        }
+    pub fn path_in_store(&self) -> types::SequencePathInStore {
+        self.path_in_store.to_owned().into()
     }
 }

@@ -28,12 +28,16 @@ class QueryableProtocol(Protocol):
 
     __supported_query_expressions__: Tuple[Type[_QueryExpression], ...]
 
-    def with_expression(self, expr: _QueryExpression) -> "QueryableProtocol":
+    @classmethod
+    def _from_expressions(cls, *exprs: _QueryExpression) -> "QueryableProtocol":
         """
-        Appends a new filter expression using a fluent interface.
+        Internal method for creating a new query builder from a list of expressions.
 
         Args:
-            expr: A valid `_QueryExpression`
+            exprs: A list of `_QueryExpression` instances.
+
+        Returns:
+            A new `QueryableProtocol` instance containing the provided expressions.
         """
         ...
 

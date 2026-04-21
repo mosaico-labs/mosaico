@@ -3,7 +3,9 @@ CREATE TABLE sequence_t(
   sequence_uuid UUID UNIQUE NOT NULL,
   locator_name  TEXT UNIQUE NOT NULL,
   user_metadata JSONB,
-  
+
+  path_in_store TEXT NOT NULL,
+
   creation_unix_tstamp BIGINT NOT NULL
 );
 
@@ -23,7 +25,9 @@ CREATE TABLE topic_t(
   session_id    INTEGER REFERENCES session_t(session_id) NOT NULL,
   locator_name  TEXT UNIQUE NOT NULL,
   user_metadata JSONB,
-  
+
+  path_in_store TEXT,
+
   serialization_format  TEXT NOT NULL,
   ontology_tag          TEXT NOT NULL,
 

@@ -6,66 +6,66 @@
 //! Multiple sessions can occur in parallel for the same sequence. Once a session is
 //! finalized, all data associated with it becomes immutable.
 
-use crate::{Context, Error, sequence, topic};
-use mosaicod_core::types;
+use crate::{Context, topic};
+use mosaicod_core::{self as core, error::PublicResult as Result, types};
 use mosaicod_db as db;
 
 /// Handle containing session identifiers.
 /// It's used by all functions (except creation) in this module to indicate the session to operate on.
 pub struct Handle {
-    identifiers: types::Identifiers,
-    sequence_locator: types::SequenceResourceLocator,
+    id: i32,
+    uuid: types::Uuid,
+    sequence_locator: types::SequenceLocator,
 }
 
 impl Handle {
     pub(super) fn new(
-        sequence_locator: types::SequenceResourceLocator,
-        identifiers: types::Identifiers,
+        sequence_locator: types::SequenceLocator,
+        id: i32,
+        uuid: types::Uuid,
     ) -> Self {
         Self {
             sequence_locator,
-            identifiers,
+            id,
+            uuid,
         }
     }
 
     /// Try to obtain a handle from a session UUID.
     /// Returns an error if the session does not exist.
-    pub async fn try_from_uuid(context: &Context, uuid: &types::Uuid) -> Result<Self, Error> {
+    pub async fn try_from_uuid(context: &Context, uuid: &types::Uuid) -> Result<Self> {
         let mut cx = context.db.connection();
 
         let db_session = db::session_find_by_uuid(&mut cx, uuid).await?;
         let db_sequence = db::sequence_find_by_id(&mut cx, db_session.sequence_id).await?;
 
         Ok(Self {
-            identifiers: db_session.identifiers(),
-            sequence_locator: db_sequence.resource_locator(),
+            id: db_session.session_id,
+            uuid: db_session.uuid(),
+            sequence_locator: db_sequence.locator(),
         })
     }
 
     pub fn uuid(&self) -> &types::Uuid {
-        &self.identifiers.uuid
+        &self.uuid
     }
 
-    pub fn sequence_locator(&self) -> &types::SequenceResourceLocator {
+    pub fn sequence_locator(&self) -> &types::SequenceLocator {
         &self.sequence_locator
     }
 
     pub(super) fn id(&self) -> i32 {
-        self.identifiers.id
+        self.id
     }
 }
 
 pub async fn try_create(
     context: &Context,
-    sequence_locator: types::SequenceResourceLocator,
-) -> Result<Handle, Error> {
+    sequence_locator: types::SequenceLocator,
+) -> Result<Handle> {
     let mut tx = context.db.transaction().await?;
 
-    let sequence = db::sequence_lookup(
-        &mut tx,
-        &types::ResourceLookup::Locator(sequence_locator.to_string()),
-    )
-    .await?;
+    let sequence = db::sequence_find_by_locator(&mut tx, &sequence_locator).await?;
 
     let session = db::SessionRecord::new(sequence.sequence_id);
     let session = db::session_create(&mut tx, &session).await?;
@@ -73,7 +73,8 @@ pub async fn try_create(
     tx.commit().await?;
 
     Ok(Handle {
-        identifiers: session.into(),
+        id: session.session_id,
+        uuid: session.uuid(),
         sequence_locator,
     })
 }
@@ -81,28 +82,29 @@ pub async fn try_create(
 /// Finalizes the session, making it and all its associated data immutable.
 ///
 /// Once a session is finalized, no more topics can be added to it.
-pub async fn finalize(context: &Context, handle: &Handle) -> Result<(), Error> {
+pub async fn finalize(context: &Context, handle: &Handle) -> Result<()> {
     let mut tx = context.db.transaction().await?;
 
     let topics = topic_list(handle, &mut tx).await?;
 
     // If the session does not contain any topic, return an error and leave the session unlocked.
     if topics.is_empty() {
-        return Err(Error::SessionEmpty);
+        // (cabba) NOTE: substitue uuid with session "locator" when implemented
+        Err(core::Error::empty_session(handle.uuid().to_string()))?
     }
 
-    // If not all topics are locked, return an error and leave the session unlocked.
-    let mut all_topics_locked = true;
+    // If not all topics are locked, return the locator of the first unlocked topic
+    let mut unlocked_topic_locator = None;
 
     for handle in &topics {
         if !topic::archived(context, handle).await? {
-            all_topics_locked = false;
+            unlocked_topic_locator = Some(handle.locator());
             break;
         }
     }
 
-    if !all_topics_locked {
-        return Err(Error::TopicUnlocked);
+    if let Some(locator) = unlocked_topic_locator {
+        Err(core::Error::unlocked_topic(locator.to_string()))?
     }
 
     db::session_update_completion_tstamp(&mut tx, handle.id(), types::Timestamp::now().as_i64())
@@ -114,96 +116,46 @@ pub async fn finalize(context: &Context, handle: &Handle) -> Result<(), Error> {
 }
 
 /// Deletes all the topics associated with this session, and the session record from the db.
-///
-/// Since the session delete involves multiple deletes across the system,
-/// if the operation fails a notification will be created. The notification will
-/// enable the user to manually delete dangling resources if required.
-///
-/// # Errors
-///
-/// * [`Error::FailedAndNotified`]: if the error is correctly reported and notified.
-/// * [`Error::FailedAndUnableToNotify`]: if the notification creation failed.
 pub async fn delete(
     context: &Context,
     handle: Handle,
     allow_data_loss: types::DataLossToken,
-) -> Result<(), Error> {
+) -> Result<()> {
     let mut tx = context.db.transaction().await?;
 
-    let error_report_msg = format!(
-        "Some error occurred while deleting session `{}`",
-        handle.uuid()
-    );
-    let mut error_report = types::ErrorReport::new(error_report_msg);
-
-    // Deletes topic data
+    // Deletes topics data
     let topics = topic_list(&handle, &mut tx).await?;
     for topic_handle in topics {
-        let topic_locator_str = topic_handle.locator().to_string();
-
-        // We collect all the errors to build a sequence notification reporting all error if
-        // something fails.
-        if let Err(e) = topic::delete(context, topic_handle, types::allow_data_loss()).await {
-            error_report
-                .errors
-                .push(types::ErrorReportItem::new(topic_locator_str, e));
-        }
+        topic::delete(context, topic_handle, types::allow_data_loss()).await?;
     }
 
-    let error_occurs = error_report.has_errors();
-    let mut notification = None;
-    let mut msg = "".to_owned();
-
-    // If some error occurs create a notification with all errors stacked otherwise
-    // if no error occurs delete the session record
-    if error_occurs {
-        msg = error_report.into();
-
-        let sequence_handle =
-            sequence::Handle::try_from_locator(context, handle.sequence_locator).await?;
-
-        notification = Some(
-            sequence::notify(
-                context,
-                &sequence_handle,
-                types::NotificationType::Error,
-                msg.clone(),
-            )
-            .await?,
-        );
-    } else {
-        // This is done as last operation, otherwise multiple calls to this function will fail
-        // since a session lookup is made above
-        db::session_delete(&mut tx, handle.uuid(), allow_data_loss).await?;
-    }
+    // This is done as last operation, otherwise multiple calls to this function will fail
+    // since a session lookup is made above
+    db::session_delete(&mut tx, handle.uuid(), allow_data_loss).await?;
 
     tx.commit().await?;
-
-    if error_occurs {
-        return if let Some(notification) = notification {
-            Err(Error::failed_and_notified(notification.uuid))
-        } else {
-            Err(Error::failed_and_unable_to_notify(msg))
-        };
-    }
 
     Ok(())
 }
 
 /// Returns the topic list associated with this session.
-async fn topic_list(
-    handle: &Handle,
-    exe: &mut impl db::AsExec,
-) -> Result<Vec<topic::Handle>, Error> {
+async fn topic_list(handle: &Handle, exe: &mut impl db::AsExec) -> Result<Vec<topic::Handle>> {
     let topics = db::session_find_all_topics(exe, handle.uuid()).await?;
 
     Ok(topics
         .into_iter()
-        .map(|record| topic::Handle::new(record.locator(), record.identifiers()))
+        .map(|record| {
+            topic::Handle::new(
+                record.locator(),
+                record.topic_id,
+                record.uuid(),
+                record.path_in_store(),
+            )
+        })
         .collect())
 }
 
-pub async fn metadata(context: &Context, handle: &Handle) -> Result<types::SessionMetadata, Error> {
+pub async fn metadata(context: &Context, handle: &Handle) -> Result<types::SessionMetadata> {
     let mut tx = context.db.transaction().await?;
 
     let db_session = db::session_find_by_id(&mut tx, handle.id()).await?;
@@ -229,8 +181,7 @@ mod tests {
     use mosaicod_store as store;
     use std::sync::Arc;
 
-    use crate::session;
-    use types::Resource;
+    use crate::{sequence, session};
 
     fn test_context(pool: sqlx::Pool<db::DatabaseType>) -> Context {
         let database = db::testing::Database::new(pool);
@@ -246,7 +197,7 @@ mod tests {
     ) -> sqlx::Result<()> {
         let context = test_context(pool);
 
-        let seq_locator = types::SequenceResourceLocator::from("test_sequence".to_string());
+        let seq_locator = "test_sequence".parse::<types::SequenceLocator>().unwrap();
 
         let seq_handle = sequence::try_create(&context, seq_locator, None)
             .await
@@ -256,10 +207,7 @@ mod tests {
             .await
             .expect("Error creating session");
 
-        assert_eq!(
-            session_handle.sequence_locator.locator(),
-            seq_handle.locator().locator()
-        );
+        assert_eq!(session_handle.sequence_locator, *seq_handle.locator());
 
         let session_uuid = session_handle.uuid().clone();
 

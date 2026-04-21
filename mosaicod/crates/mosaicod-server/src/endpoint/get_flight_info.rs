@@ -9,13 +9,15 @@ use mosaicod_core::{
     self as core,
     error::BoxPublicError,
     params,
-    types::{self, Resource, TopicOntologyMetadata},
+    types::{self, TopicOntologyMetadata},
 };
-use mosaicod_db as db;
 use mosaicod_facade as facade;
 use mosaicod_facade::Context;
 use mosaicod_marshal as marshal;
 use mosaicod_marshal::{JsonMetadataBlob, flight};
+
+/// Message provided when an error occurs when building flight info data
+const UNABLE_TO_BUILD_FLIGHT_INFO: &str = "unable to build flight info data";
 
 pub async fn get_flight_info(ctx: &facade::Context, desc: FlightDescriptor) -> Result<FlightInfo> {
     match desc.r#type() {
@@ -25,11 +27,11 @@ pub async fn get_flight_info(ctx: &facade::Context, desc: FlightDescriptor) -> R
 
             info!("requesting info for resource {}", resource_name);
 
-            let resource = db::get_resource_locator_from_name(&ctx.db, resource_name).await?;
+            let locator = resource_name.parse::<types::Locator>()?;
 
-            match resource.resource_type() {
-                types::ResourceType::Sequence => {
-                    let sequence_locator = types::SequenceResourceLocator::from(resource.locator());
+            match locator.kind {
+                types::ResourceKind::Sequence => {
+                    let sequence_locator: types::SequenceLocator = locator.into();
 
                     let sequence_handle =
                         facade::sequence::Handle::try_from_locator(ctx, sequence_locator).await?;
@@ -48,9 +50,7 @@ pub async fn get_flight_info(ctx: &facade::Context, desc: FlightDescriptor) -> R
                         let user_metadata = marshal::JsonSequenceMetadata {
                             user_metadata: user_metadata.clone(),
                         };
-                        let flatten_user_metadata = user_metadata
-                            .to_flat_hashmap()
-                            .map_err(facade::Error::from)?;
+                        let flatten_user_metadata = user_metadata.to_flat_hashmap()?;
 
                         schema = schema.with_metadata(flatten_user_metadata);
                     }
@@ -62,7 +62,7 @@ pub async fn get_flight_info(ctx: &facade::Context, desc: FlightDescriptor) -> R
                     let endpoints = stream::iter(topics)
                         .map(async |topic_handle: facade::topic::Handle| {
                             let ticket = types::flight::TicketTopic {
-                                locator: topic_handle.locator().to_string(),
+                                locator: topic_handle.locator().clone(),
                                 timestamp_range: cmd.timestamp_range.clone(),
                             };
 
@@ -79,7 +79,6 @@ pub async fn get_flight_info(ctx: &facade::Context, desc: FlightDescriptor) -> R
                                 .with_ticket(Ticket {
                                     ticket: marshal::flight::ticket_topic_to_binary(ticket)?.into(),
                                 })
-                                .with_location(topic_handle.locator().url()?)
                                 .with_app_metadata(topic_app_mdata);
 
                             Ok::<FlightEndpoint, BoxPublicError>(e)
@@ -95,7 +94,9 @@ pub async fn get_flight_info(ctx: &facade::Context, desc: FlightDescriptor) -> R
                         .with_descriptor(desc.clone())
                         .with_app_metadata(app_metadata)
                         .try_with_schema(&schema)
-                        .map_err(|_| core::Error::internal())?;
+                        .map_err(|_| {
+                            core::Error::internal(Some(UNABLE_TO_BUILD_FLIGHT_INFO.to_owned()))
+                        })?;
 
                     for endpoint in endpoints {
                         flight_info = flight_info.with_endpoint(endpoint);
@@ -105,8 +106,8 @@ pub async fn get_flight_info(ctx: &facade::Context, desc: FlightDescriptor) -> R
                     Ok(flight_info)
                 }
 
-                types::ResourceType::Topic => {
-                    let topic_locator = types::TopicResourceLocator::from(resource.locator());
+                types::ResourceKind::Topic => {
+                    let topic_locator: types::TopicLocator = locator.into();
 
                     let topic_handle =
                         facade::topic::Handle::try_from_locator(ctx, topic_locator).await?;
@@ -114,7 +115,7 @@ pub async fn get_flight_info(ctx: &facade::Context, desc: FlightDescriptor) -> R
                     let metadata = facade::topic::metadata(ctx, &topic_handle).await?;
 
                     let ticket = types::flight::TicketTopic {
-                        locator: topic_handle.locator().clone().into(),
+                        locator: topic_handle.locator().clone(),
                         timestamp_range: cmd.timestamp_range,
                     };
 
@@ -123,7 +124,6 @@ pub async fn get_flight_info(ctx: &facade::Context, desc: FlightDescriptor) -> R
                         .with_ticket(Ticket {
                             ticket: marshal::flight::ticket_topic_to_binary(ticket)?.into(),
                         })
-                        .with_location(topic_handle.locator().url()?)
                         .with_app_metadata(
                             build_topic_app_metadata(metadata.properties, &topic_handle, ctx).await,
                         );
@@ -145,11 +145,15 @@ pub async fn get_flight_info(ctx: &facade::Context, desc: FlightDescriptor) -> R
                         .with_descriptor(desc.clone())
                         .with_endpoint(endpoint)
                         .try_with_schema(&schema)
-                        .map_err(|_| core::Error::internal())?;
+                        .map_err(|_| {
+                            core::Error::internal(Some(UNABLE_TO_BUILD_FLIGHT_INFO.to_owned()))
+                        })?;
 
                     trace!("{} done", topic_handle.locator());
                     Ok(flight_info)
                 }
+
+                _ => Err(core::Error::unimplemented())?,
             }
         }
         _ => Err(core::Error::unsupported_descriptor())?,
@@ -191,15 +195,18 @@ async fn topic_arrow_schema_with_metadata(
     .await
     {
         Ok(s) => s,
-        Err(facade::Error::NotFound(_)) => mosaicod_ext::arrow::empty_schema_ref(),
-        Err(e) => Err(e)?,
+        Err(e) => {
+            if matches!(e.error().kind(), core::error::ErrorKind::NotFound) {
+                mosaicod_ext::arrow::empty_schema_ref()
+            } else {
+                Err(e)?
+            }
+        }
     };
 
     // Collect schema metadata
     let json_ontology_metadata = marshal::JsonTopicOntologyMetadata::from(ontology_metadata);
-    let flatten_ontology_metadata = json_ontology_metadata
-        .to_flat_hashmap()
-        .map_err(facade::Error::from)?;
+    let flatten_ontology_metadata = json_ontology_metadata.to_flat_hashmap()?;
 
     Ok(Schema::new_with_metadata(
         schema.fields().clone(),

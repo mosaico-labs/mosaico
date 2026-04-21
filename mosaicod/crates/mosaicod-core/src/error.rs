@@ -18,7 +18,7 @@
 ///
 /// impl PublicError for MyCustomError {
 ///     fn error(&self) -> Error {
-///         Error::internal()
+///         Error::internal(None)
 ///     }
 /// }
 /// ```
@@ -30,11 +30,7 @@ pub trait PublicError: std::fmt::Debug {
 
     /// Returns an optional URL pointing to detailed documentation about the error.
     fn documentation_link(&self) -> Option<url::Url> {
-        let err = self.error();
-        match err.kind() {
-            ErrorKind::Internal => Some("https://c.xkcd.com/random/comic/".parse().unwrap()),
-            _ => None,
-        }
+        None
     }
 }
 
@@ -121,6 +117,8 @@ pub enum ErrorKind {
     MissingHeader,
     #[error("Request has no descriptor")]
     MissingDescriptor,
+    #[error("Invalid configuration: {0}")]
+    InvalidConfiguration(String),
     #[error("Unsupported descriptor")]
     UnsupportedDescriptor,
     #[error("Unsupported stream message, stream aborted.")]
@@ -131,8 +129,10 @@ pub enum ErrorKind {
     UnsupportedOperation,
     #[error("Unsupported schema: {0}")]
     UnsupportedSchema(String),
-    #[error("Internal error")]
-    Internal,
+    #[error("Unsupported time: {0}")]
+    UnsupportedTime(String),
+    #[error("Internal error: {0}")]
+    Internal(String),
 }
 
 #[derive(Debug, Clone)]
@@ -151,8 +151,8 @@ impl Error {
         Self(ErrorKind::AlreadyExists)
     }
 
-    pub fn locked_session(locator: String) -> Self {
-        Self(ErrorKind::LockedSession(locator))
+    pub fn locked_session(uuid: String) -> Self {
+        Self(ErrorKind::LockedSession(uuid))
     }
 
     pub fn locked_topic(locator: String) -> Self {
@@ -215,6 +215,13 @@ impl Error {
         Self(ErrorKind::MissingDescriptor)
     }
 
+    /// Used when a configuration variable is missing or is unable to read
+    pub fn invalid_configuration(var_name: String, why: String) -> Self {
+        Self(ErrorKind::InvalidConfiguration(format!(
+            "{var_name}, {why}"
+        )))
+    }
+
     pub fn unsupported_descriptor() -> Self {
         Self(ErrorKind::UnsupportedDescriptor)
     }
@@ -235,8 +242,18 @@ impl Error {
         Self(ErrorKind::UnsupportedSchema(msg))
     }
 
-    pub fn internal() -> Self {
-        Self(ErrorKind::Internal)
+    pub fn unsupported_time(msg: String) -> Self {
+        Self(ErrorKind::UnsupportedTime(msg))
+    }
+
+    pub fn internal(details: Option<String>) -> Self {
+        let msg = if let Some(details) = details {
+            details
+        } else {
+            "undefined".to_owned()
+        };
+
+        Self(ErrorKind::Internal(msg))
     }
 
     pub fn to_public_error(self) -> BoxPublicError {
@@ -253,5 +270,16 @@ impl std::fmt::Display for Error {
 impl PublicError for Error {
     fn error(&self) -> Error {
         self.clone()
+    }
+
+    fn documentation_link(&self) -> Option<url::Url> {
+        let err = self.error();
+        match err.kind() {
+            ErrorKind::InvalidConfiguration(_) => {
+                Some("https://docs.mosaico.dev/daemon/env".parse().unwrap())
+            }
+            ErrorKind::Internal(_) => Some("https://c.xkcd.com/random/comic/".parse().unwrap()),
+            _ => None,
+        }
     }
 }

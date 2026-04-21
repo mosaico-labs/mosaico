@@ -1,6 +1,6 @@
 use crate::{common, print};
 use clap::Args;
-use mosaicod_core::params;
+use mosaicod_core::{self as core, error::PublicResult as Result, params};
 use mosaicod_db as db;
 use mosaicod_server as server;
 use mosaicod_store as store;
@@ -37,7 +37,7 @@ pub struct Run {
     pub api_key: bool,
 }
 
-fn get_store(cmds: &Run) -> Result<store::StoreRef, common::Error> {
+fn get_store(cmds: &Run) -> Result<store::StoreRef> {
     if let Some(path) = &cmds.local_store {
         info!("initializing filesystem store");
         Ok(common::init_local_store(path)?)
@@ -49,8 +49,8 @@ fn get_store(cmds: &Run) -> Result<store::StoreRef, common::Error> {
 
 fn tls_config() -> server::flight::TlsConfig {
     server::flight::TlsConfig {
-        certificate_file: params::params().tls_certificate_file.clone().into(),
-        private_key_file: params::params().tls_private_key_file.clone().into(),
+        certificate_file: params::params().tls_certificate_file.value.clone().into(),
+        private_key_file: params::params().tls_private_key_file.value.clone().into(),
     }
 }
 
@@ -58,7 +58,7 @@ fn tls_config() -> server::flight::TlsConfig {
 ///
 /// If `json_log` is enabled logs will be formatted in JSON format and startup info
 /// are hidden.
-pub fn run(args: Run, json_format: bool) -> Result<(), common::Error> {
+pub fn run(args: Run, json_format: bool) -> Result<()> {
     info!("startup store");
     let store = get_store(&args)?;
     let store_display_name = print::store_display_name(&store);
@@ -67,7 +67,12 @@ pub fn run(args: Run, json_format: bool) -> Result<(), common::Error> {
     let rt = common::init_runtime()?;
 
     let db_config = db::Config {
-        db_url: params::params().db_url.parse()?,
+        db_url: params::params().db_url.value.parse().map_err(|_| {
+            core::Error::invalid_configuration(
+                params::params().db_url.env.clone(),
+                "unable to parse".to_owned(),
+            )
+        })?,
     };
 
     info!("startup database connection");
@@ -91,7 +96,11 @@ pub fn run(args: Run, json_format: bool) -> Result<(), common::Error> {
         server.flight_config.gzip(true);
     }
 
-    let mut signals = Signals::new([SIGINT]).map_err(|e| e.to_string())?;
+    // (cabba) NOTE: maybe we need to return a more specific error ?
+    let mut signals = Signals::new([SIGINT]).map_err(|_| {
+        core::Error::internal(Some("unable to create termination signal".to_owned()))
+    })?;
+
     let shutdown = server.shutdown.clone();
     thread::spawn(move || {
         for sig in signals.forever() {

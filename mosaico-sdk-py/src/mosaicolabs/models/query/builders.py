@@ -12,9 +12,7 @@ It implements a Domain-Specific Language that allows users to filter **Sequences
 * [**`QuerySequence`**][mosaicolabs.models.query.builders.QuerySequence]: Specifically for filtering sequence-level metadata.
 """
 
-from typing import Any, Dict, List, Optional, Tuple, Type, get_origin
-
-from typing_extensions import deprecated
+from typing import Any, Dict, List, Optional, Tuple, Type
 
 # Import custom types used in helper methods
 from mosaicolabs.types import Time
@@ -209,14 +207,24 @@ class QueryOntologyCatalog:
         self._expressions = []
         self._include_tstamp_range = include_timestamp_range
         # Call the helper for each expression
-        for expr in list(expressions):
-            _validate_expression_type(
-                expr,
-                self.__supported_query_expressions__,
-            )
+        for expr in expressions:
+            _validate_expression_type(expr, self.__supported_query_expressions__)
             _validate_expression_operator_format(expr)
             _validate_expression_unique_key(self._expressions, expr.key)
             self._expressions.append(expr)
+
+    @classmethod
+    def _from_expressions(cls, *exprs: _QueryExpression) -> "QueryOntologyCatalog":
+        """
+        Internal method for creating a new query builder from a list of expressions.
+
+        Args:
+            exprs: A list of `_QueryExpression` instances.
+
+        Returns:
+            A new `QueryOntologyCatalog` instance containing the provided expressions.
+        """
+        return cls(*exprs)
 
     def with_expression(self, expr: _QueryExpression) -> "QueryOntologyCatalog":
         """
@@ -332,34 +340,32 @@ class QueryTopic:
         _QueryTopicExpression,
     )
 
-    def __init__(self, *expressions: "_QueryExpression"):
+    def __init__(self):
         """
-        The constructor initializes the query with an optional list of
-        [`_QueryTopicExpression`][mosaicolabs.models.query.expressions._QueryTopicExpression] objects, generated
-        via `Topic.Q.` proxy.
-
-        Warning: Deprecated
-            The constructor is deprecated. Use the [`with_user_metadata()`][mosaicolabs.models.query.builders.QueryTopic.with_user_metadata]
-            convenience method instead, if wanting to query the user metadata.
-
-        Args:
-            *expressions: A variable number of `Topic.Q` (`_QueryTopicExpression`) expression objects.
-
-        Raises:
-            TypeError: If an expression is not of the supported `Topic.Q` type.
-            ValueError: If an operator does not follow the required internal '$' prefix format.
-            NotImplementedError: If a duplicate key is detected, as the current implementation enforces unique keys per query.
+        The constructor initializes an empty query builder
         """
         self._expressions = []
-        # Call the helper for each expression
-        for expr in list(expressions):
-            _validate_expression_type(
-                expr,
-                self.__supported_query_expressions__,
-            )
+
+    @classmethod
+    def _from_expressions(cls, *exprs: _QueryExpression) -> "QueryTopic":
+        """
+        Internal method for creating a new query builder from a list of expressions.
+
+        Args:
+            exprs: A list of `_QueryTopicExpression` instances.
+
+        Returns:
+            A new `QueryTopic` instance containing the provided expressions.
+        """
+        instance = cls()
+
+        for expr in exprs:
+            _validate_expression_type(expr, cls.__supported_query_expressions__)
             _validate_expression_operator_format(expr)
-            _validate_expression_unique_key(self._expressions, expr.key)
-            self._expressions.append(expr)
+            _validate_expression_unique_key(instance._expressions, expr.key)
+            instance._expressions.append(expr)
+
+        return instance
 
     def _with_expression(self, expr: _QueryExpression) -> "QueryTopic":
         """
@@ -367,42 +373,17 @@ class QueryTopic:
         using a fluent interface.
 
         Args:
-            expr: A `_QueryTopicExpression` constructed via a `Topic.Q` proxy.
+            expr: A `_QueryTopicExpression`.
 
         Returns:
             The `QueryTopic` instance for method chaining.
         """
 
-        _validate_expression_type(
-            expr,
-            self.__supported_query_expressions__,
-        )
+        _validate_expression_type(expr, self.__supported_query_expressions__)
         _validate_expression_operator_format(expr)
         _validate_expression_unique_key(self._expressions, expr.key)
         self._expressions.append(expr)
         return self
-
-    # --- Public API ---
-    @deprecated(
-        "This function is deprecated and will be removed in release 0.4.0. Use `with_user_metadata` instead"
-    )
-    def with_expression(self, expr: _QueryExpression) -> "QueryTopic":
-        """
-        Adds a new expression to the query using a fluent interface.
-
-        Warning: Deprecated API
-            This is the old way to add filters for nested metadata. Use the
-            [`with_user_metadata`][mosaicolabs.models.query.builders.QueryTopic.with_user_metadata]
-            convenience method
-
-        Args:
-            expr: A `_QueryTopicExpression` constructed via a `Topic.Q` proxy.
-
-        Returns:
-            The `QueryTopic` instance for method chaining.
-        """
-
-        return self._with_expression(expr=expr)
 
     # --- Helper methods for common fields ---
 
@@ -412,10 +393,6 @@ class QueryTopic:
 
         This method simplifies metadata discovery by allowing direct filtering on the `user_metadata`
         dictionary of the Topic. Each call adds a logical AND condition to the query.
-
-        Note:
-            The previous method using `Topic.Q.user_metadata` is maintained for backward
-            compatibility but is scheduled for removal in release **0.4.0**.
 
         Args:
             key (str): The metadata key to filter on (e.g., "sensor_id"). Supports dot-notation
@@ -651,14 +628,10 @@ class QueryTopic:
         Returns:
             A dictionary representation of the query, e.g., `{"locator": {"$eq": "..."}, "user_metadata": {"key": {"$eq": "..."}}}`.
         """
-        # Delayed import to avoid circular dependency
-        from ..platform.topic import Topic
 
-        # Identify all fields that are dictionaries (like user_metadata)
+        # Set all fields that are dictionaries (like user_metadata)
         metadata_field_names = {
-            fname
-            for fname, finfo in Topic.model_fields.items()
-            if get_origin(finfo.annotation) is dict
+            "user_metadata",
         }
 
         # Partition all expressions into "normal" or "metadata"
@@ -744,56 +717,51 @@ class QuerySequence:
         _QuerySequenceExpression,
     )
 
-    def __init__(self, *expressions: "_QueryExpression"):
+    def __init__(self):
         """
-        The constructor initializes the query with an optional list of
-        [`_QuerySequenceExpression`][mosaicolabs.models.query.expressions._QuerySequenceExpression] objects, generated
-        via `Sequence.Q.` proxy.
-
-        Warning: Deprecated
-            The constructor is deprecated. Use the [`with_user_metadata()`][mosaicolabs.models.query.builders.QuerySequence.with_user_metadata]
-            convenience method instead, if wanting to query the user metadata.
-
-        Args:
-            *expressions: A variable number of `Sequence.Q` (`_QuerySequenceExpression`) objects.
-
-        Raises:
-            TypeError: If an expression is not of the supported `Sequence.Q` type.
-            ValueError: If an operator does not follow the required internal '$' prefix format.
-            NotImplementedError: If a duplicate key is detected, as the current implementation enforces unique keys per query.
+        The constructor initializes an empty query builder
         """
         self._expressions = []
-        # Call the helper for each expression
-        for expr in list(expressions):
-            _validate_expression_type(
-                expr,
-                self.__supported_query_expressions__,
-            )
-            _validate_expression_operator_format(expr)
-            _validate_expression_unique_key(self._expressions, expr.key)
-            self._expressions.append(expr)
 
-    @deprecated(
-        "This function is deprecated and will be removed in release 0.4.0. Use `with_user_metadata` instead"
-    )
-    def with_expression(self, expr: _QueryExpression) -> "QuerySequence":
+    @classmethod
+    def _from_expressions(cls, *exprs: _QueryExpression) -> "QuerySequence":
         """
-        Adds a new expression to the query using a fluent interface.
-
-        Warning: Deprecated API
-            This is the old way to add filters for nested metadata. Use the
-            [`with_user_metadata`][mosaicolabs.models.query.builders.QuerySequence.with_user_metadata]
-            convenience method
+        Internal method for creating a new query builder from a list of expressions.
 
         Args:
-            expr: A `_QuerySequenceExpression` constructed via a `Sequence.Q` proxy.
+            exprs: A list of `_QuerySequenceExpression` instances.
+
+        Returns:
+            A new `QuerySequence` instance containing the provided expressions.
+        """
+        instance = cls()
+
+        for expr in exprs:
+            _validate_expression_type(expr, cls.__supported_query_expressions__)
+            _validate_expression_operator_format(expr)
+            _validate_expression_unique_key(instance._expressions, expr.key)
+            instance._expressions.append(expr)
+
+        return instance
+
+    def _with_expression(self, expr: _QueryExpression) -> "QuerySequence":
+        """
+        Internal method for adding a new expression to the query inner list
+        using a fluent interface.
+
+        Args:
+            expr: A `_QuerySequenceExpression`.
 
         Returns:
             The `QuerySequence` instance for method chaining.
 
         """
+        _validate_expression_type(expr, self.__supported_query_expressions__)
+        _validate_expression_operator_format(expr)
+        _validate_expression_unique_key(self._expressions, expr.key)
 
-        return self._with_expression(expr=expr)
+        self._expressions.append(expr)
+        return self
 
     def with_user_metadata(self, key: str, **operator_kwargs: Any) -> "QuerySequence":
         """
@@ -801,10 +769,6 @@ class QuerySequence:
 
         This method simplifies metadata discovery by allowing direct filtering on the `user_metadata`
         dictionary of the Sequence. Each call adds a logical AND condition to the query.
-
-        Note:
-            The previous method using `Sequence.Q.user_metadata` is maintained for backward
-            compatibility but is scheduled for removal in release **0.4.0**.
 
         Args:
             key (str): The metadata key to filter on (e.g., "project"). Supports dot-notation
@@ -853,28 +817,6 @@ class QuerySequence:
         op_callback = getattr(qfield_inst, op)
 
         return self._with_expression(op_callback(value))
-
-    def _with_expression(self, expr: _QueryExpression) -> "QuerySequence":
-        """
-        Internal method for adding a new expression to the query inner list
-        using a fluent interface.
-
-        Args:
-            expr: A `_QuerySequenceExpression` constructed via a `Sequence.Q` proxy.
-
-        Returns:
-            The `QuerySequence` instance for method chaining.
-
-        """
-        _validate_expression_type(
-            expr,
-            self.__supported_query_expressions__,
-        )
-        _validate_expression_operator_format(expr)
-        _validate_expression_unique_key(self._expressions, expr.key)
-
-        self._expressions.append(expr)
-        return self
 
     # --- Helper methods for common fields ---
     def with_name(self, name: str) -> "QuerySequence":
@@ -1024,14 +966,9 @@ class QuerySequence:
         Returns:
             A dictionary representation preserving the hierarchical structure.
         """
-        # Delayed import to avoid circular dependency
-        from ..platform.sequence import Sequence
-
         # Identify all fields that are dictionaries (like user_metadata)
         metadata_field_names = {
-            fname
-            for fname, finfo in Sequence.model_fields.items()
-            if get_origin(finfo.annotation) is dict
+            "user_metadata",
         }
 
         # Partition all expressions into "normal" or "metadata"

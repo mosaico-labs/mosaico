@@ -7,17 +7,15 @@ and access reading interfaces (`SequenceDataStreamer`).
 """
 
 import json
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple
 
 import pyarrow.flight as fl
-
-from mosaicolabs.platform.resource_info import TopicResourceInfo
 
 from ..comm.connection import (
     DEFAULT_MAX_BATCH_BYTES,
     DEFAULT_MAX_BATCH_SIZE_RECORDS,
 )
-from ..enum import OnErrorPolicy, SessionLevelErrorPolicy
+from ..enum import SessionLevelErrorPolicy
 from ..helpers import sanitize_sequence_name
 from ..logging_config import get_logger
 from ..models.platform import Sequence, Session
@@ -25,6 +23,7 @@ from ..platform.metadata import SequenceMetadata, _decode_schema_metadata
 from ..platform.resource_manifests import (
     SequenceResourceManifest,
     TopicManifestError,
+    TopicResourceManifest,
 )
 from .config import SessionWriterConfig
 from .sequence_reader import SequenceDataStreamer
@@ -168,19 +167,19 @@ class SequenceHandler:
         total_size_bytes = 0
         for ep in flight_info.endpoints:
             try:
-                topic_resrc_info = TopicResourceInfo._from_flight_endpoint(ep)
+                topic_manifest = TopicResourceManifest._from_flight_endpoint(ep)
             except TopicManifestError as e:
                 logger.error(f"Skipping invalid topic endpoint, err: '{e}'")
                 continue
             # Collect the 'min'/'max' timestamps, as we are at a sequence-level
             if (
-                topic_resrc_info.timestamp_ns_min is not None
-                and topic_resrc_info.timestamp_ns_max is not None
+                topic_manifest.timestamp_ns_min is not None
+                and topic_manifest.timestamp_ns_max is not None
             ):
-                tstamps_ns_min.append(topic_resrc_info.timestamp_ns_min)
-                tstamps_ns_max.append(topic_resrc_info.timestamp_ns_max)
+                tstamps_ns_min.append(topic_manifest.timestamp_ns_min)
+                tstamps_ns_max.append(topic_manifest.timestamp_ns_max)
 
-            total_size_bytes += topic_resrc_info.total_size_bytes
+            total_size_bytes += topic_manifest.total_size_bytes
 
         sequence_model = Sequence._from_resource_info(
             name=_stzd_sequence_name,
@@ -225,7 +224,7 @@ class SequenceHandler:
         Returns:
             The unique name of the sequence.
         """
-        return self._sequence._name
+        return self._sequence.name
 
     @property
     def topics(self) -> List[str]:
@@ -469,9 +468,7 @@ class SequenceHandler:
 
     def update(
         self,
-        on_error: Union[
-            SessionLevelErrorPolicy, OnErrorPolicy
-        ] = SessionLevelErrorPolicy.Report,
+        on_error: SessionLevelErrorPolicy = SessionLevelErrorPolicy.Report,
         max_batch_size_bytes: Optional[int] = None,
         max_batch_size_records: Optional[int] = None,
     ) -> SequenceUpdater:
@@ -483,13 +480,8 @@ class SequenceHandler:
             RuntimeError is raised.
 
         Args:
-            on_error (SessionLevelErrorPolicy | OnErrorPolicy): Behavior on write failure. Defaults to
+            on_error (SessionLevelErrorPolicy): Behavior on write failure. Defaults to
                 [`SessionLevelErrorPolicy.Report`][mosaicolabs.enum.SessionLevelErrorPolicy.Report].
-
-                Deprecated:
-                    [`OnErrorPolicy`][mosaicolabs.enum.OnErrorPolicy] is deprecated since v0.3.0; use
-                    [`SessionLevelErrorPolicy`][mosaicolabs.enum.SessionLevelErrorPolicy] instead.
-                    It will be removed in v0.4.0.
 
             max_batch_size_bytes (Optional[int]): Max bytes per Arrow batch.
             max_batch_size_records (Optional[int]): Max records per Arrow batch.
@@ -535,9 +527,6 @@ class SequenceHandler:
             if max_batch_size_records is not None
             else DEFAULT_MAX_BATCH_SIZE_RECORDS
         )
-
-        if isinstance(on_error, OnErrorPolicy):
-            on_error = SessionLevelErrorPolicy(on_error.value)
 
         return SequenceUpdater(
             sequence_name=self._sequence.name,

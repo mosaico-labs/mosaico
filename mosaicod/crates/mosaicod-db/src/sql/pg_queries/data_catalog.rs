@@ -1,6 +1,6 @@
 use crate::{Error, core::AsExec, sql::schema};
 use log::trace;
-use mosaicod_core::types::{self, Resource};
+use mosaicod_core::types::{self};
 use mosaicod_query as query;
 use sqlx::{Row, postgres::PgRow};
 
@@ -198,7 +198,7 @@ fn cast_chunk_data(row: PgRow) -> Result<schema::ChunkRecord, Error> {
 /// Returns aggregated size and row count statistics for all chunks belonging to a topic.
 pub async fn topic_get_stats(
     exec: &mut impl AsExec,
-    loc: &types::TopicResourceLocator,
+    loc: &types::TopicLocator,
 ) -> Result<types::TopicChunksStats, Error> {
     let res = sqlx::query!(
         r#"SELECT
@@ -206,7 +206,7 @@ pub async fn topic_get_stats(
             COALESCE(SUM(row_count), 0)::BIGINT as "total_row_count!"
         FROM chunk_t
         WHERE topic_id = (SELECT topic_id FROM topic_t WHERE locator_name = $1)"#,
-        loc.locator(),
+        loc as &str,
     )
     .fetch_one(exec.as_exec())
     .await?;

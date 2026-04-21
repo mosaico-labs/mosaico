@@ -1,8 +1,7 @@
+use super::*;
 use crate::{Error, core::AsExec, sql::schema};
 use mosaicod_core::types;
 use std::collections::HashMap;
-
-use super::*;
 
 pub async fn sequences_group_from_topics(
     exe: &mut impl AsExec,
@@ -13,18 +12,26 @@ pub async fn sequences_group_from_topics(
     for topic in topics {
         let group = ret.get_mut(&topic.sequence_id);
         if let Some(group) = group {
-            group.topics.push(types::TopicResourceLocator::from(
-                topic.locator_name.clone(),
-            ));
+            group.topics.push(
+                topic
+                    .locator_name
+                    .parse()
+                    .map_err(|_| Error::BadData(topic.locator_name.clone()))?,
+            );
         } else {
             let seq = sequence_find_by_id(exe, topic.sequence_id).await?;
             ret.insert(
                 seq.sequence_id,
                 types::SequenceTopicGroup::new(
-                    types::SequenceResourceLocator::from(seq.locator_name),
-                    vec![types::TopicResourceLocator::from(
-                        topic.locator_name.clone(),
-                    )],
+                    seq.locator_name
+                        .parse::<types::SequenceLocator>()
+                        .map_err(|_| Error::BadData(seq.locator_name))?,
+                    vec![
+                        topic
+                            .locator_name
+                            .parse()
+                            .map_err(|_| Error::BadData(topic.locator_name.clone()))?,
+                    ],
                 ),
             );
         }

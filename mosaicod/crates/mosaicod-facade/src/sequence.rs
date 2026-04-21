@@ -1,12 +1,15 @@
 //! This module provides the high-level API for managing a persistent **Sequence**
 //! entity within the application.
 
-use super::{Context, Error, session, topic};
+use super::{Context, session, topic};
 use log::trace;
-use mosaicod_core::types;
-use mosaicod_core::types::Resource;
+use mosaicod_core::{
+    error::PublicResult as Result,
+    types::{self, SequencePathInStore},
+};
 use mosaicod_db as db;
 use mosaicod_marshal as marshal;
+use std::path;
 
 /// Define sequence metadata type contaning json user metadata
 type SequenceUserMetadata = marshal::JsonMetadataBlob;
@@ -16,8 +19,9 @@ type SequenceMetadata = types::SequenceMetadata<marshal::JsonMetadataBlob>;
 /// Handle containing sequence identifiers.
 /// It's used by all functions (except creation) in this module to indicate the sequence to operate on.
 pub struct Handle {
-    locator: types::SequenceResourceLocator,
-    identifiers: types::Identifiers,
+    locator: types::SequenceLocator,
+    id: i32,
+    uuid: types::Uuid,
 }
 
 impl Handle {
@@ -25,41 +29,43 @@ impl Handle {
     /// Returns an error if the sequence does not exist.
     pub async fn try_from_locator(
         context: &Context,
-        locator: types::SequenceResourceLocator,
-    ) -> Result<Handle, Error> {
+        locator: types::SequenceLocator,
+    ) -> Result<Handle> {
         let mut cx = context.db.connection();
 
         let db_sequence = db::sequence_find_by_locator(&mut cx, &locator).await?;
 
         Ok(Self {
             locator,
-            identifiers: db_sequence.identifiers(),
+            id: db_sequence.sequence_id,
+            uuid: db_sequence.uuid(),
         })
     }
 
     /// Try to obtain a handle from a sequence UUID.
     /// Returns an error if the sequence does not exist.
-    pub async fn try_from_uuid(context: &Context, uuid: &types::Uuid) -> Result<Handle, Error> {
+    pub async fn try_from_uuid(context: &Context, uuid: &types::Uuid) -> Result<Handle> {
         let mut cx = context.db.connection();
 
         let db_sequence = db::sequence_find_by_uuid(&mut cx, uuid).await?;
 
         Ok(Self {
-            locator: types::SequenceResourceLocator::from(&db_sequence.locator_name),
-            identifiers: db_sequence.identifiers(),
+            locator: db_sequence.locator(),
+            id: db_sequence.sequence_id,
+            uuid: db_sequence.uuid(),
         })
     }
 
     pub fn uuid(&self) -> &types::Uuid {
-        &self.identifiers.uuid
+        &self.uuid
     }
 
-    pub fn locator(&self) -> &types::SequenceResourceLocator {
+    pub fn locator(&self) -> &types::SequenceLocator {
         &self.locator
     }
 
     pub(super) fn id(&self) -> i32 {
-        self.identifiers.id
+        self.id
     }
 }
 
@@ -72,12 +78,15 @@ impl Handle {
 /// the database transaction is rolled back, restoring the previous state.
 pub async fn try_create(
     context: &Context,
-    locator: types::SequenceResourceLocator,
+    locator: types::SequenceLocator,
     metadata: Option<SequenceUserMetadata>,
-) -> Result<Handle, Error> {
+) -> Result<Handle> {
+    // Creates a random name for the folder on Object Store.
+    let path_in_store = SequencePathInStore::new();
+
     let mut tx = context.db.transaction().await?;
 
-    let mut record = db::SequenceRecord::new(locator.locator());
+    let mut record = db::SequenceRecord::new(locator.clone(), path_in_store.clone());
 
     if let Some(mdata) = &metadata {
         record = record.with_user_metadata(mdata.clone());
@@ -86,14 +95,15 @@ pub async fn try_create(
     let record = db::sequence_create(&mut tx, &record).await?;
 
     if let Some(mdata) = metadata {
-        metadata_write_to_store(context, &locator, mdata).await?;
+        metadata_write_to_store(context, path_in_store.path_metadata().as_path(), mdata).await?;
     }
 
     tx.commit().await?;
 
     Ok(Handle {
         locator,
-        identifiers: record.into(),
+        id: record.sequence_id,
+        uuid: record.uuid(),
     })
 }
 
@@ -101,36 +111,33 @@ pub async fn try_create(
 ///
 /// Returns a list of all available sequences as [`Handle`] objects.
 /// This is primarily used for catalog discovery operations.
-pub async fn all(context: &Context) -> Result<Vec<Handle>, Error> {
+pub async fn all(context: &Context) -> Result<Vec<Handle>> {
     let mut cx = context.db.connection();
     let records = db::sequence_find_all(&mut cx).await?;
 
     Ok(records
         .into_iter()
         .map(|record| Handle {
-            identifiers: record.identifiers(),
-            locator: types::SequenceResourceLocator::from(record.locator_name),
+            id: record.sequence_id,
+            uuid: record.uuid(),
+            locator: record.locator(),
         })
         .collect())
 }
 
 async fn metadata_write_to_store(
     context: &Context,
-    locator: &types::SequenceResourceLocator,
+    path: &path::Path,
     metadata: SequenceUserMetadata,
-) -> Result<(), Error> {
-    let path = locator.path_metadata();
-
+) -> Result<()> {
     trace!("converting sequence metadata to bytes");
     let json_mdata = marshal::JsonSequenceMetadata {
         user_metadata: metadata,
     };
     let bytes: Vec<u8> = json_mdata.try_into()?;
 
-    trace!(
-        "writing sequence metadata `{}` to store",
-        &path.to_string_lossy()
-    );
+    trace!("writing sequence metadata `{}` to store", path.display());
+
     context.store.write_bytes(&path, bytes).await?;
 
     Ok(())
@@ -142,7 +149,7 @@ pub async fn notify(
     handle: &Handle,
     ntype: types::NotificationType,
     msg: String,
-) -> Result<types::Notification, Error> {
+) -> Result<types::Notification> {
     let mut tx = context.db.transaction().await?;
 
     // Note: no need to check the sequence existence for it is already done internally
@@ -159,7 +166,7 @@ pub async fn notify(
 pub async fn notification_list(
     context: &Context,
     handle: &Handle,
-) -> Result<Vec<types::Notification>, Error> {
+) -> Result<Vec<types::Notification>> {
     let mut trans = context.db.transaction().await?;
     let notifications =
         db::sequence_notifications_find_by_sequence_id(&mut trans, handle.id()).await?;
@@ -171,7 +178,7 @@ pub async fn notification_list(
 }
 
 /// Deletes all the notifications associated with the sequence
-pub async fn notification_purge(context: &Context, handle: &Handle) -> Result<(), Error> {
+pub async fn notification_purge(context: &Context, handle: &Handle) -> Result<()> {
     let mut trans = context.db.transaction().await?;
 
     let notifications =
@@ -187,7 +194,7 @@ pub async fn notification_purge(context: &Context, handle: &Handle) -> Result<()
 }
 
 /// Creates [`SequenceMetadata`] associated to the given session [`Handle`].
-pub async fn metadata(context: &Context, handle: &Handle) -> Result<SequenceMetadata, Error> {
+pub async fn metadata(context: &Context, handle: &Handle) -> Result<SequenceMetadata> {
     let mut cx = context.db.connection();
 
     let db_sequence = db::sequence_find_by_id(&mut cx, handle.id()).await?;
@@ -211,13 +218,20 @@ pub async fn metadata(context: &Context, handle: &Handle) -> Result<SequenceMeta
 }
 
 /// Returns the topic list for the given sequence
-pub async fn topic_list(context: &Context, handle: &Handle) -> Result<Vec<topic::Handle>, Error> {
+pub async fn topic_list(context: &Context, handle: &Handle) -> Result<Vec<topic::Handle>> {
     let mut cx = context.db.connection();
 
     Ok(db::sequence_find_all_topics(&mut cx, &handle.locator)
         .await?
         .into_iter()
-        .map(|record| topic::Handle::new(record.locator(), record.identifiers()))
+        .map(|record| {
+            topic::Handle::new(
+                record.locator(),
+                record.topic_id,
+                record.uuid(),
+                record.path_in_store(),
+            )
+        })
         .collect())
 }
 
@@ -225,11 +239,13 @@ pub async fn topic_list(context: &Context, handle: &Handle) -> Result<Vec<topic:
 pub async fn session_list(
     handle: &Handle,
     exe: &mut impl db::AsExec,
-) -> Result<Vec<session::Handle>, Error> {
+) -> Result<Vec<session::Handle>> {
     Ok(db::sequence_find_all_sessions(exe, &handle.locator)
         .await?
         .into_iter()
-        .map(|record| session::Handle::new(handle.locator.clone(), record.identifiers()))
+        .map(|record| {
+            session::Handle::new(handle.locator.clone(), record.session_id, record.uuid())
+        })
         .collect())
 }
 
@@ -241,7 +257,7 @@ pub async fn delete(
     context: &Context,
     handle: Handle,
     allow_data_loss: types::DataLossToken,
-) -> Result<(), Error> {
+) -> Result<()> {
     let mut tx = context.db.transaction().await?;
 
     // Retrieve sessions data and deletes it
@@ -251,12 +267,14 @@ pub async fn delete(
     }
 
     // Delete sequence data
+    let db_sequence = db::sequence_find_by_id(&mut tx, handle.id()).await?;
+
     db::sequence_delete_by_id(&mut tx, handle.id(), types::allow_data_loss()).await?;
 
     // Delete all remaining data
     context
         .store
-        .delete_recursive(handle.locator.locator())
+        .delete_recursive(db_sequence.path_in_store().root())
         .await?;
 
     tx.commit().await?;
@@ -272,7 +290,7 @@ mod tests {
     use mosaicod_store as store;
     use std::sync::Arc;
 
-    use types::{MetadataBlob, Resource};
+    use types::MetadataBlob;
 
     fn test_context(pool: sqlx::Pool<db::DatabaseType>) -> Context {
         let database = db::testing::Database::new(pool);
@@ -295,7 +313,7 @@ mod tests {
         dbg!(&mdata);
         let mdata = marshal::JsonMetadataBlob::try_from_str(mdata).unwrap();
 
-        let seq_locator = types::SequenceResourceLocator::from("test_sequence".to_string());
+        let seq_locator = "test_sequence".parse().unwrap();
 
         let handle = try_create(&context, seq_locator, Some(mdata))
             .await
@@ -317,7 +335,23 @@ mod tests {
         assert_eq!(user_mdata["weather"].as_str().unwrap(), "sunny");
 
         // Check sequence locator
-        assert_eq!(handle.locator.locator(), sequence.locator_name);
+        assert_eq!(handle.locator, sequence.locator());
+
+        // Check path in store
+        assert!(
+            context
+                .store
+                .exists(sequence.path_in_store().path_metadata())
+                .await
+                .unwrap()
+        );
+
+        // Root path in store must be a valid ULID (excluded the sq_ prefix)
+        assert!(
+            sequence.path_in_store().root().to_str().unwrap()[3..]
+                .parse::<ulid::Ulid>()
+                .is_ok()
+        );
 
         delete(&context, handle, types::allow_data_loss())
             .await
@@ -330,7 +364,7 @@ mod tests {
     async fn sequence_notify_and_notification_purge(pool: sqlx::Pool<db::DatabaseType>) {
         let context = test_context(pool);
 
-        let seq_locator = types::SequenceResourceLocator::from("test_sequence".to_string());
+        let seq_locator = "test_sequence".parse::<types::SequenceLocator>().unwrap();
 
         let handle = try_create(&context, seq_locator, None)
             .await

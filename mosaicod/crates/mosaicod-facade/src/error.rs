@@ -1,88 +1,58 @@
-use mosaicod_core::{self as core, types};
+use mosaicod_core::{self as core};
 
-#[derive(thiserror::Error, Debug)]
+#[derive(Debug)]
 pub enum Error {
-    #[error("unable to find `{0}`")]
-    NotFound(String),
-    #[error("missing metadata field `{0}`")]
-    MissingMetadataField(String),
-    #[error("missing serialization format for resource {0}")]
-    MissingSerializationFormat(String),
-    #[error("operation failed, sequence notification `{0}` has been added")]
-    FailedAndNotified(types::Uuid),
-    #[error(
-        "an error occurred, but the system was unable to notify it. The original message is: {0}"
-    )]
-    FailedAndUnableToNotify(String),
-    #[error("sequence locked, unable to perform modifications")]
-    SequenceLocked,
-    #[error("concurrency error")]
-    ConcurrencyError(String),
-    #[error("topic locked, unable to perform modifications")]
-    TopicLocked,
-    #[error("session locked, unable to perform modifications")]
-    SessionLocked,
-    #[error("topic with the same locator already exists")]
-    TopicAlreadyExists(String),
-    #[error("session empty, unable to perform the requested operation")]
-    SessionEmpty,
-    #[error("topic unlocked, unable to perform the requested operation over an unlocked topic")]
-    TopicUnlocked,
-    #[error("unimplemented")]
-    Unimplemented,
-    #[error("unauthorized")]
-    Unauthorized,
-    #[error("missing data")]
-    MissingData(String),
-    #[error(transparent)]
-    StoreError(#[from] mosaicod_store::Error),
-    #[error(transparent)]
-    DataSerializationError(#[from] mosaicod_rw::Error),
-    #[error(transparent)]
-    MetadataError(#[from] types::MetadataError),
-    #[error(transparent)]
-    DatabaseError(#[from] mosaicod_db::Error),
-    #[error(transparent)]
-    QueryError(#[from] mosaicod_query::Error),
-    #[error(transparent)]
-    MarshallingError(#[from] mosaicod_marshal::Error),
-    #[error(transparent)]
-    UnableToReadArrowSchema(#[from] mosaicod_ext::arrow::Error),
+    MissingDbData(String),
+    Internal(Box<dyn std::error::Error + Send + Sync>),
 }
 
-impl Error {
-    /// Report an error due to some missing data, `msg` is used to
-    /// give additional infos about the missing data (e.g. which data are missing).
-    pub fn missing_data(msg: String) -> Self {
-        Self::MissingData(msg)
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::MissingDbData(msg) => write!(f, "{msg}"),
+            Self::Internal(_) => write!(f, "internal"),
+        }
     }
+}
 
-    /// The requested resource was not found
-    pub fn not_found(msg: String) -> Self {
-        Self::NotFound(msg)
+impl From<String> for Error {
+    fn from(err: String) -> Self {
+        Self::Internal(Box::new(StringError(err)))
     }
+}
 
-    /// Used to report a failure and a corresponding notification,
-    /// the notification will be used by the users to see advanced
-    /// details about the error.
-    pub fn failed_and_notified(notification_uuid: types::Uuid) -> Self {
-        Self::FailedAndNotified(notification_uuid)
+impl From<mosaicod_db::Error> for Error {
+    fn from(err: mosaicod_db::Error) -> Self {
+        Self::Internal(Box::new(err))
     }
+}
 
-    /// Used when something has failed, similar to [`Error::failed_and_notified`],
-    /// but a notification has not been created.
-    pub fn failed_and_unable_to_notify(msg: String) -> Self {
-        Self::FailedAndUnableToNotify(msg)
+impl From<mosaicod_query::Error> for Error {
+    fn from(err: mosaicod_query::Error) -> Self {
+        Self::Internal(Box::new(err))
     }
+}
 
-    /// A topic with the same resource locator already exists.
-    pub fn topic_already_exists(locator: types::TopicResourceLocator) -> Self {
-        Self::TopicAlreadyExists(locator.into())
+impl From<tokio::sync::AcquireError> for Error {
+    fn from(err: tokio::sync::AcquireError) -> Self {
+        Self::Internal(Box::new(err))
     }
 }
 
 impl core::error::PublicError for Error {
     fn error(&self) -> core::Error {
-        core::Error::internal()
+        core::Error::internal(None)
     }
 }
+
+/// Internal type used to map string to [`Error::Internal`]
+#[derive(Debug)]
+struct StringError(String);
+
+impl std::fmt::Display for StringError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl std::error::Error for StringError {}

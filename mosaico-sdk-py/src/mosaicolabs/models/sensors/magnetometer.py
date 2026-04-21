@@ -4,7 +4,7 @@ Magnetometer Ontology Module.
 Defines the data structure for magnetic field sensors.
 """
 
-from mosaicolabs.models.types import MosaicoField
+from mosaicolabs.models import MosaicoField
 
 from ..data import Vector3d
 from ..serializable import Serializable

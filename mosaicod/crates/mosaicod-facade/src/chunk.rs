@@ -1,5 +1,5 @@
-use super::{Context, Error, topic};
-use mosaicod_core::types;
+use super::{Context, topic};
+use mosaicod_core::{error::PublicResult as Result, types};
 use mosaicod_db as db;
 
 pub struct Chunk<'a> {
@@ -14,7 +14,7 @@ impl<'a> Chunk<'a> {
         size_bytes: i64,
         row_count: i64,
         context: &'a Context,
-    ) -> Result<Self, Error> {
+    ) -> Result<Self> {
         let topic_id = topic::Handle::try_from_uuid(context, topic_uuid)
             .await?
             .id();
@@ -37,7 +37,7 @@ impl<'a> Chunk<'a> {
         &mut self,
         ontology_tag: &str,
         cstats: types::OntologyModelStats,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         let mut numeric_batch: Vec<db::ColumnChunkNumericRecord> = Vec::new();
         let mut textual_batch: Vec<db::ColumnChunkTextualRecord> = Vec::new();
 
@@ -80,7 +80,7 @@ impl<'a> Chunk<'a> {
         Ok(())
     }
 
-    pub async fn finalize(self) -> Result<(), Error> {
+    pub async fn finalize(self) -> Result<()> {
         self.tx.commit().await?;
         Ok(())
     }

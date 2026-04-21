@@ -9,7 +9,7 @@ use mosaicod_marshal::ActionResponse;
 pub async fn create(ctx: &facade::Context, sequence_locator: String) -> Result<ActionResponse> {
     info!("requested resource {} creation", sequence_locator);
 
-    let sequence_locator = types::SequenceResourceLocator::from(sequence_locator);
+    let sequence_locator = sequence_locator.parse::<types::SequenceLocator>()?;
 
     let session_handle = facade::session::try_create(ctx, sequence_locator).await?;
 

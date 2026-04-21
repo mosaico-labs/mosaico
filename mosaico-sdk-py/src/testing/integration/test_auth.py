@@ -174,20 +174,18 @@ def test_get_fingerprint():
     with pytest.raises(ValueError, match="wrong number of parts"):
         _get_fingerprint("msco_58qb7dssul32r1bewpziy3rfjuewd0a3")
 
-    with pytest.raises(ValueError, match="not alnum"):
-        # Payload not alpha AND num
-        _get_fingerprint("msco_123457678_abcd1234")
+    # Payload only num
+    _get_fingerprint("msco_123457678_abcd1234")
+
+    # Payload only alpha
+    _get_fingerprint("msco_abcdefghi_abcd1234")
 
     with pytest.raises(ValueError, match="not alnum"):
-        # Payload not alpha AND num
-        _get_fingerprint("msco_abcdefghi_abcd1234")
-
-    with pytest.raises(ValueError, match="not alnum"):
-        # Payload not alpha AND num
+        # Fingerprint not alnum
         _get_fingerprint("msco_abcde12345_abcd1234!:")
 
     with pytest.raises(ValueError, match="not alnum"):
-        # Payload not alpha AND num
+        # Payload not alnum
         _get_fingerprint("msco_abcde12345!:_abcd1234")
 
     with pytest.raises(ValueError, match="fingerprint"):

@@ -12,7 +12,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/mosaico-labs/mosaico/pkgs/container/mosaicod"><img src="https://img.shields.io/badge/mosaicod-v0.3.0-orange" /></a>
+  <a href="https://github.com/mosaico-labs/mosaico/pkgs/container/mosaicod"><img src="https://img.shields.io/badge/mosaicod-v0.4.0-orange" /></a>
   <a href="https://pypi.org/project/mosaicolabs"><img src="https://img.shields.io/pypi/v/mosaicolabs?color=blue" /></a>
 </p>
 

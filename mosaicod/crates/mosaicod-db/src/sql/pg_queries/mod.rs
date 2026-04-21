@@ -1,6 +1,3 @@
-mod resource;
-pub use resource::*;
-
 mod sequence_record;
 pub use sequence_record::*;
 

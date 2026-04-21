@@ -118,17 +118,21 @@ class SyncTransformer:
 
             with MosaicoClient.connect("localhost", 6726) as client:
                 sequence_handler = client.get_sequence_handler("example_sequence")
+                # Resample at 30Hz and fill the NaNs with a `Hold` policy
+                sync_transformer = SyncTransformer(
+                    target_fps = 30,
+                ) # (1)!
+
                 for df in DataFrameExtractor(sequence_handler).to_pandas_chunks(
                     topics = ["/front/imu", "/front/camera/image_raw"]
                 ):
-                    # Synch the data at 30 Hz:
-                    sync_transformer = SyncTransformer(
-                        target_fps = 30, # resample at 30 Hz and fill the Nans with a `Hold` policy
-                    )
-                    synced_df = sync_transformer.transform(df)
-                    # Do something with the synced dataframe
+                    synched_df = sync_transformer.transform(df)
+                    # Do something with the synched dataframe
                     # ...
             ```
+
+            1. Note: the `SyncTransformer` is created outside the chunk-related `for` loop: the transformer is
+                a **stateful state-machine** designed to maintain signal continuity across independent data chunks.
         """
         if self._timestamp_column not in X.columns:
             raise ValueError(

@@ -27,8 +27,7 @@ from PIL import Image as PILImage
 
 from mosaicolabs.enum import SerializationFormat
 from mosaicolabs.logging_config import get_logger
-from mosaicolabs.models import MosaicoType
-from mosaicolabs.models.types import MosaicoField
+from mosaicolabs.models import MosaicoField, MosaicoType
 
 from ..serializable import Serializable
 

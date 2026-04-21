@@ -1,4 +1,4 @@
-from typing import List, Type
+from typing import List, Optional, Type
 
 from ..adapter_base import ROSAdapterBase
 
@@ -44,3 +44,22 @@ def _validate_required_fields(
             f"Required fields of {cls.__name__} are missing: "
             f"Required = {cls._REQUIRED_KEYS}, Actual =  {data.keys()}"
         )
+
+
+def _is_valid_covariance(covariance_list: Optional[List[float]]) -> bool:
+    """
+    Check if a ROS covariance matrix is valid (i.e., not the 'all zeros' sentinel).
+
+    In ROS messages, a covariance matrix filled with all zeros indicates that
+    the covariance is unknown or not provided.
+
+    Args:
+        covariance_list (Optional[List[float]]): Flattened covariance matrix (usually 3x3 or 6x6).
+
+    Returns:
+        bool: True if covariance contains meaningful values, False otherwise.
+    """
+    if not covariance_list:
+        return False
+
+    return any(value != 0.0 for value in covariance_list)

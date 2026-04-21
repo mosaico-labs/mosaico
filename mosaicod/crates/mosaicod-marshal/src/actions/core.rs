@@ -27,7 +27,9 @@ impl core::error::PublicError for ActionError {
             Self::MissingAction(_) | Self::BodyDeserializationError(_) => {
                 core::Error::bad_request(self.to_string())
             }
-            Self::ResponseSerializationError(_) => core::Error::internal(),
+            Self::ResponseSerializationError(_) => {
+                core::Error::internal(Some("internal serialization failed".to_owned()))
+            }
         }
     }
 }

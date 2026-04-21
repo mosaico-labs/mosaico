@@ -1,6 +1,6 @@
 use crate::{Error, core::AsExec, sql::schema};
 use log::{trace, warn};
-use mosaicod_core::types::{self, Resource};
+use mosaicod_core::types;
 use mosaicod_marshal as marshal;
 use mosaicod_query as query;
 use sqlx::{Row, postgres::PgRow};
@@ -15,6 +15,7 @@ fn cast_topic_data(row: PgRow) -> Result<schema::TopicRecord, Error> {
         ontology_tag: row.try_get("ontology_tag")?,
         serialization_format: row.try_get("serialization_format")?,
         user_metadata: row.try_get("user_metadata")?,
+        path_in_store: row.try_get("path_in_store")?,
         creation_unix_tstamp: row.try_get("creation_unix_tstamp")?,
         completion_unix_tstamp: row.try_get("completion_unix_tstamp")?,
         chunks_number: row.try_get("chunks_number")?,
@@ -43,13 +44,13 @@ pub async fn topic_find_by_ids(
 /// Find a topic given its name.
 pub async fn topic_find_by_locator(
     exe: &mut impl AsExec,
-    topic: &types::TopicResourceLocator,
+    topic: &types::TopicLocator,
 ) -> Result<schema::TopicRecord, Error> {
     trace!("searching by resource name `{}`", topic);
     let res = sqlx::query_as!(
         schema::TopicRecord,
         "SELECT * FROM topic_t WHERE locator_name=$1",
-        topic.locator()
+        topic as &str
     )
     .fetch_one(exe.as_exec())
     .await?;
@@ -105,11 +106,11 @@ pub async fn topic_find_all(exe: &mut impl AsExec) -> Result<Vec<schema::TopicRe
 /// elsewhere. Improper use can lead to data inconsistency or loss.
 pub async fn topic_delete(
     exe: &mut impl AsExec,
-    loc: &types::TopicResourceLocator,
+    loc: &types::TopicLocator,
     _: types::DataLossToken,
 ) -> Result<(), Error> {
     warn!("(data loss) deleting topic `{}`", loc);
-    sqlx::query!("DELETE FROM topic_t WHERE locator_name=$1", loc.locator())
+    sqlx::query!("DELETE FROM topic_t WHERE locator_name=$1", loc as &str)
         .execute(exe.as_exec())
         .await?;
     Ok(())
@@ -127,10 +128,10 @@ pub async fn topic_create(
                 (
                     topic_uuid, sequence_id, session_id, locator_name, creation_unix_tstamp,
                     serialization_format, ontology_tag, user_metadata, chunks_number,
-                    total_bytes, start_index_timestamp, end_index_timestamp
+                    total_bytes, start_index_timestamp, end_index_timestamp, path_in_store
                 ) 
             VALUES 
-                ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+                ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
             RETURNING 
                 *
     "#,
@@ -146,6 +147,7 @@ pub async fn topic_create(
         record.total_bytes,
         record.start_index_timestamp,
         record.end_index_timestamp,
+        record.path_in_store,
     )
     .fetch_one(exe.as_exec())
     .await?;
@@ -154,7 +156,7 @@ pub async fn topic_create(
 
 pub async fn topic_update_serialization_format(
     exe: &mut impl AsExec,
-    loc: &types::TopicResourceLocator,
+    loc: &types::TopicLocator,
     serialization_format: &str,
 ) -> Result<schema::TopicRecord, Error> {
     trace!(
@@ -170,7 +172,7 @@ pub async fn topic_update_serialization_format(
             RETURNING * 
     "#,
         serialization_format,
-        loc.locator()
+        loc as &str
     )
     .fetch_one(exe.as_exec())
     .await?;
@@ -179,7 +181,7 @@ pub async fn topic_update_serialization_format(
 
 pub async fn topic_update_ontology_tag(
     exe: &mut impl AsExec,
-    loc: &types::TopicResourceLocator,
+    loc: &types::TopicLocator,
     ontology_tag: &str,
 ) -> Result<schema::TopicRecord, Error> {
     trace!("updating ontology_tag to `{}` for `{}`", ontology_tag, loc);
@@ -192,7 +194,7 @@ pub async fn topic_update_ontology_tag(
             RETURNING * 
     "#,
         ontology_tag,
-        loc.locator(),
+        loc as &str,
     )
     .fetch_one(exe.as_exec())
     .await?;
@@ -202,7 +204,7 @@ pub async fn topic_update_ontology_tag(
 
 pub async fn topic_update_user_metadata(
     exe: &mut impl AsExec,
-    loc: &types::TopicResourceLocator,
+    loc: &types::TopicLocator,
     user_metadata: marshal::JsonMetadataBlob,
 ) -> Result<schema::TopicRecord, Error> {
     trace!("updating user_metadata for `{}`", loc);
@@ -216,7 +218,7 @@ pub async fn topic_update_user_metadata(
             RETURNING * 
     "#,
         metadata,
-        loc.locator(),
+        loc as &str,
     )
     .fetch_one(exe.as_exec())
     .await?;
@@ -226,7 +228,7 @@ pub async fn topic_update_user_metadata(
 
 pub async fn topic_update_system_info(
     exe: &mut impl AsExec,
-    loc: &types::TopicResourceLocator,
+    loc: &types::TopicLocator,
     system_info: &types::TopicDataInfo,
 ) -> Result<schema::TopicRecord, Error> {
     trace!("updating system info to `{:?}` for `{}`", system_info, loc);
@@ -242,7 +244,7 @@ pub async fn topic_update_system_info(
         system_info.total_bytes as i64,
         system_info.timestamp_range.start.as_i64(),
         system_info.timestamp_range.end.as_i64(),
-        loc.locator(),
+        loc as &str,
     )
     .fetch_one(exe.as_exec())
     .await?;

@@ -434,6 +434,8 @@ While the underlying `rosbags` library supports the majority of standard ROS 2 b
   | [`nmea_msgs/msg/Sentence`](https://docs.ros2.org/foxy/api/nmea_msgs/msg/Sentence.html) | [`NMEASentence`][mosaicolabs.models.sensors.NMEASentence] | `NMEASentenceAdapter` |
   | [`sensor_msgs/msg/Image`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/Image.html), [`CompressedImage`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/CompressedImage.html) | [`Image`][mosaicolabs.models.sensors.Image], [`CompressedImage`][mosaicolabs.models.sensors.CompressedImage] | `ImageAdapter`, `CompressedImageAdapter` |
   | [`sensor_msgs/msg/Imu`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/Imu.html) | [`IMU`][mosaicolabs.models.sensors.IMU] | `IMUAdapter` |
+  | [`sensor_msgs/msg/MagneticField`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/MagneticField.html) | [`Magnetometer`][mosaicolabs.models.sensors.Magnetometer] | `MagneticFieldAdapter` |
+  | [`sensor_msgs/msg/Joy`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/Joy.html) | [`Joy`][mosaicolabs.models.sensors.Joy] | `JoyAdapter` |
   | [`sensor_msgs/msg/NavSatFix`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/NavSatFix.html) | [`GPS`][mosaicolabs.models.sensors.GPS], [`GPSStatus`][mosaicolabs.models.sensors.GPSStatus] | `GPSAdapter`, `NavSatStatusAdapter` |
   | [`sensor_msgs/msg/CameraInfo`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/CameraInfo.html) | [`CameraInfo`][mosaicolabs.models.sensors.CameraInfo] | `CameraInfoAdapter` |
   | [`sensor_msgs/msg/RegionOfInterest`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/RegionOfInterest.html) | [`ROI`][mosaicolabs.models.data.ROI] | `ROIAdapter` |

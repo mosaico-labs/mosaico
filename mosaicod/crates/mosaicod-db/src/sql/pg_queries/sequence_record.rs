@@ -1,6 +1,6 @@
 use crate::{Error, core::AsExec, sql::schema};
 use log::{trace, warn};
-use mosaicod_core::types::{self, Resource};
+use mosaicod_core::types;
 
 /// Find a sequence given its id.
 pub async fn sequence_find_by_id(
@@ -37,13 +37,13 @@ pub async fn sequence_find_by_uuid(
 /// Find a sequence given its name.
 pub async fn sequence_find_by_locator(
     exe: &mut impl AsExec,
-    loc: &types::SequenceResourceLocator,
+    loc: &types::SequenceLocator,
 ) -> Result<schema::SequenceRecord, Error> {
     trace!("searching by locator `{}`", loc);
     let res = sqlx::query_as!(
         schema::SequenceRecord,
         "SELECT * FROM sequence_t WHERE locator_name=$1",
-        loc.locator(),
+        loc as &str,
     )
     .fetch_one(exe.as_exec())
     .await?;
@@ -51,25 +51,9 @@ pub async fn sequence_find_by_locator(
     Ok(res)
 }
 
-/// Find a sequence by resource lookup
-pub async fn sequence_lookup(
-    exec: &mut impl AsExec,
-    resource_lookup: &types::ResourceLookup,
-) -> Result<schema::SequenceRecord, Error> {
-    match resource_lookup {
-        types::ResourceLookup::Id(id) => sequence_find_by_id(exec, *id).await,
-        types::ResourceLookup::Uuid(uuid) => sequence_find_by_uuid(exec, uuid).await,
-        types::ResourceLookup::Locator(locator) => {
-            // (cabba) FIXME: we need to find a way to avoid locator copy
-            let locator = locator.to_owned().into();
-            sequence_find_by_locator(exec, &locator).await
-        }
-    }
-}
-
 pub async fn sequence_find_all_topics(
     exe: &mut impl AsExec,
-    loc: &types::SequenceResourceLocator,
+    loc: &types::SequenceLocator,
 ) -> Result<Vec<schema::TopicRecord>, Error> {
     trace!("searching topics for sequence `{}`", loc);
     Ok(sqlx::query_as!(
@@ -80,7 +64,7 @@ pub async fn sequence_find_all_topics(
         JOIN sequence_t AS sequence ON topic.sequence_id = sequence.sequence_id
         WHERE sequence.locator_name = $1
         "#,
-        loc.locator()
+        loc as &str
     )
     .fetch_all(exe.as_exec())
     .await?)
@@ -88,7 +72,7 @@ pub async fn sequence_find_all_topics(
 
 pub async fn sequence_find_all_sessions(
     exe: &mut impl AsExec,
-    loc: &types::SequenceResourceLocator,
+    loc: &types::SequenceLocator,
 ) -> Result<Vec<schema::SessionRecord>, Error> {
     trace!("searching sessions for sequence `{}`", loc);
     Ok(sqlx::query_as!(
@@ -99,7 +83,7 @@ pub async fn sequence_find_all_sessions(
         JOIN sequence_t AS sequence ON session.sequence_id = sequence.sequence_id
         WHERE sequence.locator_name = $1
         "#,
-        loc.locator()
+        loc as &str
     )
     .fetch_all(exe.as_exec())
     .await?)
@@ -124,16 +108,13 @@ pub async fn sequence_find_all(
 /// Improper use can lead to data inconsistency or loss.
 pub async fn sequence_delete_by_locator(
     exe: &mut impl AsExec,
-    loc: &types::SequenceResourceLocator,
+    loc: &types::SequenceLocator,
     _: types::DataLossToken,
 ) -> Result<(), Error> {
     warn!("(data loss) deleting sequence `{}`", loc);
-    sqlx::query!(
-        "DELETE FROM sequence_t WHERE locator_name=$1",
-        loc.locator()
-    )
-    .execute(exe.as_exec())
-    .await?;
+    sqlx::query!("DELETE FROM sequence_t WHERE locator_name=$1", loc as &str)
+        .execute(exe.as_exec())
+        .await?;
     Ok(())
 }
 
@@ -163,16 +144,17 @@ pub async fn sequence_create(
         schema::SequenceRecord,
         r#"
             INSERT INTO sequence_t
-                (sequence_uuid, locator_name, creation_unix_tstamp, user_metadata) 
+                (sequence_uuid, locator_name, creation_unix_tstamp, user_metadata, path_in_store)
             VALUES 
-                ($1, $2, $3, $4) 
+                ($1, $2, $3, $4, $5)
             RETURNING 
                 *
     "#,
         record.sequence_uuid,
         record.locator_name,
         record.creation_unix_tstamp,
-        record.user_metadata
+        record.user_metadata,
+        record.path_in_store
     )
     .fetch_one(exe.as_exec())
     .await?;
@@ -187,7 +169,10 @@ mod tests {
 
     #[sqlx::test]
     async fn test_create(pool: Pool<DatabaseType>) -> sqlx::Result<()> {
-        let record = schema::SequenceRecord::new("/my/path");
+        let record = schema::SequenceRecord::new(
+            "/my_sequence".parse().unwrap(),
+            "/my/path/in/store".to_owned().into(),
+        );
         let database = testing::Database::new(pool);
         let rrecord = sequence_create(&mut database.connection(), &record)
             .await

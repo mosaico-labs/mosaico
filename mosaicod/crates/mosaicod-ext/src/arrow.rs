@@ -1,6 +1,5 @@
 use arrow::array::{ArrayRef, AsArray, RecordBatch, StructArray};
 use arrow::datatypes::{DataType, Field, FieldRef, Schema, SchemaRef};
-use arrow::error::ArrowError;
 use mosaicod_core::{self as core, params, types};
 use parquet::arrow::async_reader::{AsyncFileReader, ParquetObjectReader};
 use parquet::arrow::parquet_to_arrow_schema;
@@ -22,7 +21,38 @@ impl core::error::PublicError for SchemaError {
     }
 }
 
-pub type Error = ArrowError;
+#[derive(Debug)]
+pub struct Error(Box<dyn std::error::Error + Send + Sync>);
+
+impl From<arrow::error::ArrowError> for Error {
+    fn from(value: arrow::error::ArrowError) -> Self {
+        Error(Box::new(value))
+    }
+}
+
+impl From<parquet::errors::ParquetError> for Error {
+    fn from(value: parquet::errors::ParquetError) -> Self {
+        Error(Box::new(value))
+    }
+}
+
+impl core::error::PublicError for Error {
+    fn error(&self) -> mosaicod_core::Error {
+        core::Error::internal(None)
+    }
+}
+
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "arrow extension error: {}", self.0)
+    }
+}
+
+impl std::error::Error for Error {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        Some(self.0.as_ref())
+    }
+}
 
 /// Validates that the provided Arrow schema meets certain structural requirements.
 ///
@@ -52,7 +82,7 @@ pub fn empty_schema_ref() -> Arc<Schema> {
 /// Extract the schemna from a parquet reader object
 pub async fn schema_from_parquet_reader(
     reader: &mut ParquetObjectReader,
-) -> Result<SchemaRef, ArrowError> {
+) -> Result<SchemaRef, Error> {
     let metadata = reader.get_metadata(None).await?;
     let file_metadata = metadata.file_metadata();
 
@@ -100,7 +130,7 @@ pub fn is_textual(data_type: &DataType) -> bool {
 }
 
 /// Converts an arrow [`Array`] to a text type array (Utf8)
-pub fn cast_array_to_textual(array: &ArrayRef) -> Result<ArrayRef, ArrowError> {
+pub fn cast_array_to_textual(array: &ArrayRef) -> Result<ArrayRef, Error> {
     if is_textual(array.data_type()) {
         Ok(arrow_cast::cast(
             array.as_ref(),
@@ -109,12 +139,12 @@ pub fn cast_array_to_textual(array: &ArrayRef) -> Result<ArrayRef, ArrowError> {
     } else {
         Err(arrow::error::ArrowError::CastError(
             "unable to cast arrow array to textual type".to_owned(),
-        ))
+        ))?
     }
 }
 
 /// Converts an arrow [`Array`] to a numberic type array (f64)
-pub fn cast_array_to_numeric(array: &ArrayRef) -> Result<ArrayRef, ArrowError> {
+pub fn cast_array_to_numeric(array: &ArrayRef) -> Result<ArrayRef, Error> {
     if is_numeric(array.data_type()) {
         Ok(arrow_cast::cast(
             array.as_ref(),
@@ -123,7 +153,7 @@ pub fn cast_array_to_numeric(array: &ArrayRef) -> Result<ArrayRef, ArrowError> {
     } else {
         Err(arrow::error::ArrowError::CastError(
             "unable to cast arrow array to numeric type".to_owned(),
-        ))
+        ))?
     }
 }
 
@@ -135,17 +165,20 @@ pub fn cast_array_to_numeric(array: &ArrayRef) -> Result<ArrayRef, ArrowError> {
 pub fn array_from_flat_field_name(
     flattened_field_name: &str,
     batch: &RecordBatch,
-) -> Result<ArrayRef, ArrowError> {
+) -> Result<ArrayRef, Error> {
     let subfields: Vec<&str> = flattened_field_name.split('.').collect();
     if subfields.is_empty() {
-        return Err(ArrowError::InvalidArgumentError(
+        Err(arrow::error::ArrowError::InvalidArgumentError(
             "empty field not supported".to_owned(),
-        ));
+        ))?;
     }
 
     let top_level_name = subfields[0];
     let mut current_array = batch.column_by_name(top_level_name).ok_or_else(|| {
-        ArrowError::SchemaError(format!("can't find top level field `{0}`", top_level_name))
+        arrow::error::ArrowError::SchemaError(format!(
+            "can't find top level field `{0}`",
+            top_level_name
+        ))
     })?;
 
     // Iterate and traverse the remaining nested path components
@@ -156,14 +189,14 @@ pub fn array_from_flat_field_name(
             .as_any()
             .downcast_ref::<StructArray>()
             .ok_or_else(|| {
-                ArrowError::SchemaError(format!(
+                arrow::error::ArrowError::SchemaError(format!(
                     "can't downcast to struct subfield `{0}` for top level field `{1}`",
                     subfield, top_level_name
                 ))
             })?;
 
         current_array = struct_array.column_by_name(subfield).ok_or_else(|| {
-            ArrowError::SchemaError(format!(
+            arrow::error::ArrowError::SchemaError(format!(
                 "can't find subfield `{0}` for top level field `{1}`",
                 subfield, top_level_name
             ))
@@ -270,7 +303,7 @@ pub fn stats_from_arrow_field(field: &Field) -> types::Stats {
 }
 
 /// Inspects an array and updates the provided statistics using SIMD-optimized Arrow compute kernels.
-pub fn stats_inspect_array(stats: &mut types::Stats, array: &ArrayRef) -> Result<(), ArrowError> {
+pub fn stats_inspect_array(stats: &mut types::Stats, array: &ArrayRef) -> Result<(), Error> {
     use arrow::array::Array;
     use arrow::compute;
     use types::Stats;
@@ -316,7 +349,7 @@ pub fn stats_inspect_array(stats: &mut types::Stats, array: &ArrayRef) -> Result
 pub fn ontology_model_stats_inspect_record_batch(
     cstats: &mut types::OntologyModelStats,
     batch: &RecordBatch,
-) -> Result<(), ArrowError> {
+) -> Result<(), Error> {
     for (col_name, stats) in &mut cstats.cols {
         let array = array_from_flat_field_name(col_name, batch)?;
         stats_inspect_array(stats, &array)?;

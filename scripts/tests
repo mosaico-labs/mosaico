@@ -187,6 +187,13 @@ run_full_stack_tests() {
 
                 shift 
                 ;;
+            --gzip)
+                MOSAICOD_OPTS="--gzip"
+                PYTEST_OPTS_K="integration"
+                PYTEST_OPTS="--gzip"
+
+                shift 
+                ;;
             --api-key)
                 MOSAICOD_OPTS="--api-key"
                 PYTEST_OPTS_K="integration"
@@ -255,6 +262,7 @@ main() {
     local run_sdk_python=false
     local run_full_stack=false
     local run_full_stack_tls=false
+    local run_full_stack_gzip=false
     local run_full_stack_api_key=false
     local run_all=false
     local run_selected=false # true if at least a run option is selected
@@ -283,6 +291,11 @@ main() {
                 ;;
             --full-stack-tls)
                 run_full_stack_tls=true
+                run_selected=true
+                shift
+                ;;
+            --full-stack-gzip)
+                run_full_stack_gzip=true
                 run_selected=true
                 shift
                 ;;
@@ -328,6 +341,7 @@ main() {
         run_full_stack_tests --title "full-stack tests"
         run_full_stack_tests --title "full-stack tests (TLS)" --tls
         run_full_stack_tests --title "full-stack tests (API KEY)" --api-key
+        run_full_stack_tests --title "full-stack tests (GZIP)" --gzip
     else
         if [ "$run_mosaicod" = true ]; then
             run_mosaicod_tests
@@ -340,6 +354,9 @@ main() {
         fi
         if [ "$run_full_stack_tls" = true ]; then
             run_full_stack_tests --title "full-stack tests (TLS)" --tls
+        fi
+        if [ "$run_full_stack_gzip" = true ]; then
+            run_full_stack_tests --title "full-stack tests (GZIP)" --gzip
         fi
         if [ "$run_full_stack_api_key" = true ]; then
             run_full_stack_tests --title "full-stack tests (API KEY)" --api-key

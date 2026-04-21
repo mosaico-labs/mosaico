@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            INSERT INTO topic_t\n                (\n                    topic_uuid, sequence_id, session_id, locator_name, creation_unix_tstamp,\n                    serialization_format, ontology_tag, user_metadata, chunks_number,\n                    total_bytes, start_index_timestamp, end_index_timestamp\n                ) \n            VALUES \n                ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)\n            RETURNING \n                *\n    ",
+  "query": "\n            INSERT INTO topic_t\n                (\n                    topic_uuid, sequence_id, session_id, locator_name, creation_unix_tstamp,\n                    serialization_format, ontology_tag, user_metadata, chunks_number,\n                    total_bytes, start_index_timestamp, end_index_timestamp, path_in_store\n                ) \n            VALUES \n                ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)\n            RETURNING \n                *\n    ",
   "describe": {
     "columns": [
       {
@@ -35,41 +35,46 @@
       },
       {
         "ordinal": 6,
-        "name": "serialization_format",
+        "name": "path_in_store",
         "type_info": "Text"
       },
       {
         "ordinal": 7,
-        "name": "ontology_tag",
+        "name": "serialization_format",
         "type_info": "Text"
       },
       {
         "ordinal": 8,
+        "name": "ontology_tag",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 9,
         "name": "creation_unix_tstamp",
         "type_info": "Int8"
       },
       {
-        "ordinal": 9,
+        "ordinal": 10,
         "name": "completion_unix_tstamp",
         "type_info": "Int8"
       },
       {
-        "ordinal": 10,
+        "ordinal": 11,
         "name": "chunks_number",
         "type_info": "Int8"
       },
       {
-        "ordinal": 11,
+        "ordinal": 12,
         "name": "total_bytes",
         "type_info": "Int8"
       },
       {
-        "ordinal": 12,
+        "ordinal": 13,
         "name": "start_index_timestamp",
         "type_info": "Int8"
       },
       {
-        "ordinal": 13,
+        "ordinal": 14,
         "name": "end_index_timestamp",
         "type_info": "Int8"
       }
@@ -87,7 +92,8 @@
         "Int8",
         "Int8",
         "Int8",
-        "Int8"
+        "Int8",
+        "Text"
       ]
     },
     "nullable": [
@@ -96,6 +102,7 @@
       false,
       false,
       false,
+      true,
       true,
       false,
       false,
@@ -107,5 +114,5 @@
       true
     ]
   },
-  "hash": "9fa960ddada9316ad8f9940bd0c95aae232ce9acbd7403ec27d148974a355bef"
+  "hash": "3eba4c036fbaf0392cabdcc06d654e5c88b5e8a94e04d1ed0ec431e541e0a81d"
 }

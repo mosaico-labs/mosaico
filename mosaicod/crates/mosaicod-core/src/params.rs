@@ -5,6 +5,9 @@
 //! For retrieving parameters that can be configured during startup (with env variables),
 //! see the [`load_configurables_from_env`] function and the [`configurables`] accessor.
 
+use super::error;
+use std::marker::PhantomData;
+
 /// Header name for client requests
 pub const MOSAICO_API_KEY_HEADER: &str = "mosaico-api-key-token";
 
@@ -36,6 +39,94 @@ pub enum Error {
     RetrieveError(String, String),
 }
 
+/// Marker trait for parameters visibility
+pub trait ParamVisibility {}
+
+/// Marker used to specify that a parameers needs to be hidden from prints
+#[derive(Default)]
+pub struct Hidden;
+impl ParamVisibility for Hidden {}
+
+/// Marker for default parameter visibility
+#[derive(Default)]
+pub struct Plain;
+impl ParamVisibility for Plain {}
+
+#[derive(Default)]
+pub struct Param<T, V = Plain>
+where
+    V: ParamVisibility,
+{
+    /// Name of the environment variable
+    pub env: String,
+
+    /// Value
+    pub value: T,
+
+    _visibility: PhantomData<V>,
+}
+
+impl<T, V> Param<T, V>
+where
+    V: ParamVisibility,
+{
+    pub fn optional(name: &str, default: T) -> Self
+    where
+        T: std::str::FromStr,
+        <T as FromStr>::Err: std::fmt::Debug,
+    {
+        let value = match env::var(name) {
+            Ok(value) => value
+                .parse()
+                .unwrap_or_else(|_| panic!("unable to parse variable `{}`", name)),
+            Err(_) => default,
+        };
+
+        Self {
+            value,
+            env: name.to_owned(),
+            _visibility: PhantomData,
+        }
+    }
+
+    pub fn required(name: &str) -> error::PublicResult<Param<T, V>>
+    where
+        T: std::str::FromStr,
+        <T as FromStr>::Err: std::fmt::Debug,
+    {
+        let value = env::var(name)
+            .map_err(|e| error::Error::invalid_configuration(name.to_owned(), e.to_string()))?;
+
+        let t = value.parse().map_err(|_| {
+            error::Error::invalid_configuration(name.into(), "unable to parse".to_owned())
+        })?;
+
+        Ok(Self {
+            value: t,
+            env: name.to_owned(),
+            _visibility: PhantomData,
+        })
+    }
+}
+
+impl<T> std::fmt::Debug for Param<T, Hidden>
+where
+    T: std::fmt::Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "*********")
+    }
+}
+
+impl<T> std::fmt::Debug for Param<T, Plain>
+where
+    T: std::fmt::Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self.value)
+    }
+}
+
 /// Required and configurables parameters of mosaico
 #[derive(Debug)]
 pub struct Params {
@@ -45,7 +136,7 @@ pub struct Params {
     /// smaller than [`Params::parquet_in_memory_encoding_buffer_size`].
     ///
     /// Defaults to 25 MB.
-    pub max_grpc_message_size: usize,
+    pub max_grpc_message_size: Param<usize>,
 
     /// Target message size (in bytes) used during data streaming. Mosaicod will try to
     /// aggregate a number of Arrow RecordBatches to create a sufficiently large
@@ -53,10 +144,10 @@ pub struct Params {
     /// [`Params::max_batch_size`].
     ///
     /// Defaults to 25MB.
-    pub target_message_size: usize,
+    pub target_message_size: Param<usize>,
 
     /// Maximum number of concurrent chunk queries during data catalog filtering.
-    pub max_concurrent_chunk_queries: usize,
+    pub max_concurrent_chunk_queries: Param<usize>,
 
     /// The maximum number of concurrent encoding and serialization operations.
     ///
@@ -70,13 +161,13 @@ pub struct Params {
     /// Excessive parallelism may lead to scheduler thrashing or memory exhaustion.
     ///
     /// Defaults to `MOSAICOD_DEFAULT_PARALLELISM`.
-    pub max_concurrent_writes: usize,
+    pub max_concurrent_writes: Param<usize>,
 
     /// Maximum batch size (number of elements inside a arrow record batch) used during data
     /// streaming
     ///
     /// Defaults to default data fusion batch size 8192.
-    pub max_batch_size: usize,
+    pub max_batch_size: Param<usize>,
 
     /// Sets the degree of parallelism.
     ///
@@ -85,7 +176,7 @@ pub struct Params {
     /// detection might fail or be inaccurate.
     ///
     /// Default is computed at runtime based on the machine.
-    pub default_parallelism: usize,
+    pub default_parallelism: Param<usize>,
 
     /// Defines the amount of memory (in bytes) used by the query engine (DataFusion).
     /// Set this value to a number greater than 0 to enforce a hard limit
@@ -93,28 +184,28 @@ pub struct Params {
     /// mosaicod encounters OOM (Out Of Memory) errors.
     ///
     /// Defaults to 0 (no limit).
-    pub query_engine_memory_pool_size: usize,
+    pub query_engine_memory_pool_size: Param<usize>,
 
     /// Size (in bytes) of the in-memory buffer used for encoding parquet data.
     ///
     /// Default to 50 MB
-    pub parquet_in_memory_encoding_buffer_size: usize,
+    pub parquet_in_memory_encoding_buffer_size: Param<usize>,
 
     /// Path of the `cert.pem` file used as TLS certificate
-    pub tls_certificate_file: String,
+    pub tls_certificate_file: Param<String>,
 
     /// Path of the `key.pem` file used as private key for TLS
-    pub tls_private_key_file: String,
+    pub tls_private_key_file: Param<String>,
 
-    pub db_url: String,
+    pub db_url: Param<String>,
 
     /// Maximum number of database connections in the pool
-    pub max_db_connections: u32,
+    pub max_db_connections: Param<u32>,
 
-    pub store_endpoint: String,
-    pub store_bucket: String,
-    pub store_secret_key: Hidden,
-    pub store_access_key: String,
+    pub store_endpoint: Param<String>,
+    pub store_bucket: Param<String>,
+    pub store_secret_key: Param<String, Hidden>,
+    pub store_access_key: Param<String>,
 }
 
 /// Options for loading parameters from environment variables
@@ -139,42 +230,45 @@ impl ParamsLoadOptions {
     }
 }
 
-pub fn load_params_from_env(config: ParamsLoadOptions) -> Result<(), Error> {
+pub fn load_params_from_env(config: ParamsLoadOptions) -> error::PublicResult<()> {
     let default_parallelism = std::thread::available_parallelism()
         .expect("Unable to detect default parallelism, please define MOSAICOD_DEFAULT_PARALLELISM")
         .get();
 
     let ev = Params {
         // general
-        max_grpc_message_size: optional("MOSAICOD_MAX_GRPC_MESSAGE_SIZE", 25 * 1_000_000),
-        target_message_size: optional("MOSAICOD_TARGET_MESSAGE_SIZE", 25 * 1_000_000),
-        max_concurrent_chunk_queries: optional("MOSAICOD_MAX_CONCURRENT_CHUNK_QUERIES", 4),
-        max_db_connections: optional("MOSAICOD_MAX_DB_CONNECTIONS", 10),
-        max_concurrent_writes: optional("MOSAICOD_MAX_CONCURRENT_WRITES", default_parallelism),
-        default_parallelism: optional("MOSAICOD_DEFAULT_PARALLELISM", default_parallelism),
-        parquet_in_memory_encoding_buffer_size: optional(
+        max_grpc_message_size: Param::optional("MOSAICOD_MAX_GRPC_MESSAGE_SIZE", 25 * 1_000_000),
+        target_message_size: Param::optional("MOSAICOD_TARGET_MESSAGE_SIZE", 25 * 1_000_000),
+        max_concurrent_chunk_queries: Param::optional("MOSAICOD_MAX_CONCURRENT_CHUNK_QUERIES", 4),
+        max_db_connections: Param::optional("MOSAICOD_MAX_DB_CONNECTIONS", 10),
+        max_concurrent_writes: Param::optional(
+            "MOSAICOD_MAX_CONCURRENT_WRITES",
+            default_parallelism,
+        ),
+        default_parallelism: Param::optional("MOSAICOD_DEFAULT_PARALLELISM", default_parallelism),
+        parquet_in_memory_encoding_buffer_size: Param::optional(
             "MOSAICOD_PARQUET_IN_MEMORY_ENCODING_BUFFER_SIZE",
             50 * 1_000_000,
         ),
-        max_batch_size: optional("MOSAICOD_MAX_BATCH_SIZE", 8192),
-        query_engine_memory_pool_size: optional("MOSAICOD_QUERY_ENGINE_MEMORY_POOL_SIZE", 0),
+        max_batch_size: Param::optional("MOSAICOD_MAX_BATCH_SIZE", 8192),
+        query_engine_memory_pool_size: Param::optional("MOSAICOD_QUERY_ENGINE_MEMORY_POOL_SIZE", 0),
 
         // tls
-        tls_certificate_file: optional("MOSAICOD_TLS_CERT_FILE", "".to_owned()),
-        tls_private_key_file: optional("MOSAICOD_TLS_PRIVATE_KEY_FILE", "".to_owned()),
+        tls_certificate_file: Param::optional("MOSAICOD_TLS_CERT_FILE", "".to_owned()),
+        tls_private_key_file: Param::optional("MOSAICOD_TLS_PRIVATE_KEY_FILE", "".to_owned()),
 
         // database
         db_url: if config.skip_db_url {
-            "".to_owned()
+            Param::default()
         } else {
-            required("MOSAICOD_DB_URL")?
+            Param::required("MOSAICOD_DB_URL")?
         },
 
         // store
-        store_endpoint: optional("MOSAICOD_STORE_ENDPOINT", "".to_owned()),
-        store_bucket: optional("MOSAICOD_STORE_BUCKET", "".to_owned()),
-        store_secret_key: Hidden::from(optional("MOSAICOD_STORE_SECRET_KEY", "".to_owned())),
-        store_access_key: optional("MOSAICOD_STORE_ACCESS_KEY", "".to_owned()),
+        store_endpoint: Param::optional("MOSAICOD_STORE_ENDPOINT", "".to_owned()),
+        store_bucket: Param::optional("MOSAICOD_STORE_BUCKET", "".to_owned()),
+        store_secret_key: Param::optional("MOSAICOD_STORE_SECRET_KEY", "".to_owned()),
+        store_access_key: Param::optional("MOSAICOD_STORE_ACCESS_KEY", "".to_owned()),
     };
 
     let _ = ENV.set(ev);
@@ -186,70 +280,6 @@ static ENV: OnceLock<Params> = OnceLock::new();
 
 pub fn params() -> &'static Params {
     ENV.get().expect("paramenters not initialized, plase call `params::load_params_from_env()` before accessing an env variable.")
-}
-
-fn optional<T>(name: &str, default: T) -> T
-where
-    T: std::str::FromStr,
-    <T as FromStr>::Err: std::fmt::Debug,
-{
-    match env::var(name) {
-        Ok(value) => value
-            .parse()
-            .unwrap_or_else(|_| panic!("unable to parse variable `{}`", name)),
-        Err(_) => default,
-    }
-}
-
-fn required<T>(name: &str) -> Result<T, Error>
-where
-    T: std::str::FromStr,
-    <T as FromStr>::Err: std::fmt::Debug,
-{
-    let value = env::var(name).map_err(|e| Error::RetrieveError(name.into(), e.to_string()))?;
-
-    let t = value
-        .parse()
-        .map_err(|_| Error::UnableToParse(name.into()))?;
-
-    Ok(t)
-}
-
-/// This staruct is used to hold sensitive information that should not be
-/// printed in logs or debug output.
-#[derive(Clone)]
-pub struct Hidden(String);
-
-impl Hidden {
-    pub fn get(&self) -> &String {
-        &self.0
-    }
-
-    pub fn take(self) -> String {
-        self.0
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
-    }
-}
-
-impl From<String> for Hidden {
-    fn from(value: String) -> Self {
-        Self(value)
-    }
-}
-
-impl std::fmt::Debug for Hidden {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "**********")
-    }
-}
-
-impl std::fmt::Display for Hidden {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "**********")
-    }
 }
 
 /// Returns mosaicod version.

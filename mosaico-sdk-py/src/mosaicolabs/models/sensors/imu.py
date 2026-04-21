@@ -8,7 +8,7 @@ It aggregates data from accelerometers and gyroscopes.
 
 from typing import Optional
 
-from mosaicolabs.models.types import MosaicoField
+from mosaicolabs.models import MosaicoField
 
 from ..data import Quaternion, Vector3d
 from ..serializable import Serializable

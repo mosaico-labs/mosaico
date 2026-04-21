@@ -32,7 +32,7 @@ where
         match err.kind() {
             ErrorKind::AlreadyExists => Code::AlreadyExists,
             ErrorKind::Unimplemented => Code::Unimplemented,
-            ErrorKind::Internal => Code::Internal,
+            ErrorKind::Internal(_) => Code::Internal,
             ErrorKind::BadUuid => Code::InvalidArgument,
             ErrorKind::BadRequest(_) => Code::InvalidArgument,
             ErrorKind::BadHeader(_) => Code::InvalidArgument,
@@ -54,6 +54,8 @@ where
             ErrorKind::UnsupportedOperation => Code::InvalidArgument,
             ErrorKind::UnsupportedDescriptor => Code::InvalidArgument,
             ErrorKind::UnsupportedSchema(_) => Code::InvalidArgument,
+            ErrorKind::InvalidConfiguration(_) => Code::Unknown,
+            ErrorKind::UnsupportedTime(_) => Code::InvalidArgument,
         }
     }
 
@@ -138,7 +140,7 @@ impl core::error::PublicError for Error {
             ErrorKind::InvalidNotificationType(ntype) => {
                 core::Error::bad_request(format!("invalid notification type `{ntype}`"))
             }
-            ErrorKind::SemaphoreClosed | ErrorKind::NotASemVer(_) => core::Error::internal(),
+            ErrorKind::SemaphoreClosed | ErrorKind::NotASemVer(_) => core::Error::internal(None),
         }
     }
 }

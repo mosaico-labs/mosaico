@@ -5,7 +5,7 @@ This module provides helper classes used to inject standard
 fields (covariance and variance) into ontology models via composition.
 """
 
-from typing import List, Optional
+from typing import Optional
 
 from .base_model import BaseModel
 from .types import MosaicoField, MosaicoType
@@ -75,7 +75,7 @@ class CovarianceMixin(BaseModel):
         ```
     """
 
-    covariance: Optional[List[MosaicoType.float64]] = MosaicoField(
+    covariance: Optional[MosaicoType.list_(MosaicoType.float64)] = MosaicoField(
         default=None,
         nullable=True,
         description="The covariance matrix (flattened) of the data.",
@@ -139,54 +139,6 @@ class CovarianceMixin(BaseModel):
 
         ```
     """
-
-    # def __init_subclass__(cls, **kwargs):
-    #     """
-    #     Dynamically appends covariance-related fields to the child class's PyArrow struct.
-    #
-    #     Raises:
-    #         ValueError: If 'covariance' or 'covariance_type' keys collide with existing fields.
-    #     """
-    #     super().__init_subclass__(**kwargs)
-    #
-    #     # Define the fields to inject
-    #     _FIELDS = [
-    #         pa.field(
-    #             "covariance",
-    #             pa.list_(value_type=pa.float64()),
-    #             nullable=True,
-    #             metadata={
-    #                 "description": "The covariance matrix (flattened) of the data."
-    #             },
-    #         ),
-    #         pa.field(
-    #             "covariance_type",
-    #             pa.int16(),
-    #             nullable=True,
-    #             metadata={
-    #                 "description": "Enum integer representing the covariance parameterization."
-    #             },
-    #         ),
-    #     ]
-    #
-    #     # Retrieve existing schema fields
-    #     current_pa_fields = []
-    #     if hasattr(cls, "__msco_pyarrow_struct__") and isinstance(
-    #         cls.__msco_pyarrow_struct__, pa.StructType
-    #     ):
-    #         current_pa_fields = list(cls.__msco_pyarrow_struct__)
-    #
-    #     # Collision Check
-    #     existing_pa_names = [f.name for f in current_pa_fields]
-    #     if "covariance" in existing_pa_names or "covariance_type" in existing_pa_names:
-    #         raise ValueError(
-    #             f"Class '{cls.__name__}' has conflicting 'covariance' or 'covariance_type' schema keys."
-    #         )
-    #
-    #     # Append and Update
-    #     new_fields = current_pa_fields + _FIELDS
-    #     cls.__msco_pyarrow_struct__ = pa.struct(new_fields)
-    #
 
 
 # ---- VarianceMixin ----
@@ -343,48 +295,3 @@ class VarianceMixin(BaseModel):
 
         ```
     """
-
-    # def __init_subclass__(cls, **kwargs):
-    #     """
-    #     Dynamically appends variance-related fields to the child class's PyArrow struct.
-    #
-    #     Raises:
-    #         ValueError: If 'variance' or 'variance_type' keys collide with existing fields.
-    #     """
-    #     super().__init_subclass__(**kwargs)
-    #
-    #     # Define the fields to inject
-    #     _FIELDS = [
-    #         pa.field(
-    #             "variance",
-    #             pa.float64(),
-    #             nullable=True,
-    #             metadata={"description": "The variance of the data."},
-    #         ),
-    #         pa.field(
-    #             "variance_type",
-    #             pa.int16(),
-    #             nullable=True,
-    #             metadata={
-    #                 "description": "Enum integer representing the variance parameterization."
-    #             },
-    #         ),
-    #     ]
-    #
-    #     # Retrieve existing schema fields
-    #     current_pa_fields = []
-    #     if hasattr(cls, "__msco_pyarrow_struct__") and isinstance(
-    #         cls.__msco_pyarrow_struct__, pa.StructType
-    #     ):
-    #         current_pa_fields = list(cls.__msco_pyarrow_struct__)
-    #
-    #     # Collision Check
-    #     existing_pa_names = [f.name for f in current_pa_fields]
-    #     if "variance" in existing_pa_names or "variance_type" in existing_pa_names:
-    #         raise ValueError(
-    #             f"Class '{cls.__name__}' has conflicting 'variance' or 'variance_type' schema keys."
-    #         )
-    #
-    #     # Append and Update
-    #     new_fields = current_pa_fields + _FIELDS
-    #     cls.__msco_pyarrow_struct__ = pa.struct(new_fields)

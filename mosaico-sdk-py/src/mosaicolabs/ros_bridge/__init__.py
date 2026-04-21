@@ -12,6 +12,7 @@ from .injector import (
     RosbagInjector as RosbagInjector,
     ROSInjectionConfig as ROSInjectionConfig,
 )
+from .loader import LoaderErrorPolicy as LoaderErrorPolicy, ROSLoader as ROSLoader
 from .registry import ROSTypeRegistry as ROSTypeRegistry
 from .ros_bridge import (
     ROSBridge as ROSBridge,

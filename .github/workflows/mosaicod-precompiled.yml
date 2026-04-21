@@ -1,0 +1,70 @@
+name: mosaicod Precompiled Binaries
+
+on:
+  push:
+    tags:
+      - 'mosaicod/v[0-9]+.[0-9]+.[0-9]+'
+      - 'mosaicod/v[0-9]+.[0-9]+.[0-9]+-*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-release:
+    name: Build for ${{ matrix.target }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-musl
+            arch: linux-amd64
+          - target: aarch64-unknown-linux-musl
+            arch: linux-arm64
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Cache Cross Binary
+        id: cache-cross
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/cross
+          key: ${{ runner.os }}-cross-v1
+
+      - name: Install Cross
+        if: steps.cache-cross.outputs.cache-hit != 'true'
+        run: cargo install cross --git https://github.com/cross-rs/cross.git
+
+      - name: Rust Cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "mosaicod -> target"
+          key: ${{ matrix.target }}
+
+      - name: Build Binary
+        run: |
+          cd mosaicod
+          ~/.cargo/bin/cross build --release --bin mosaicod --target ${{ matrix.target }}
+
+      - name: Package and Checksum
+        run: |
+          # Tarball
+          tar -czvf mosaicod-${{ matrix.arch }}.tar.gz -C mosaicod/target/${{ matrix.target }}/release mosaicod
+          # Checksum
+          sha256sum mosaicod-${{ matrix.arch }}.tar.gz > mosaicod-${{ matrix.arch }}.tar.gz.sha256
+
+      - name: Upload to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            mosaicod-${{ matrix.arch }}.tar.gz
+            mosaicod-${{ matrix.arch }}.tar.gz.sha256
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -201,9 +201,8 @@ class TopicDataStreamer:
             )
         for ep in flight_info.endpoints:
             try:
-                tname = TopicResourceManifest._get_topic_name_from_locations(
-                    ep.locations
-                )
+                topic_manifest = TopicResourceManifest._from_flight_endpoint(ep)
+                tname = topic_manifest.name
             except TopicManifestError as e:
                 logger.error(f"Skipping invalid topic endpoint, err: '{e}'")
                 continue

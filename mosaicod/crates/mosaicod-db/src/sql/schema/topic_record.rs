@@ -2,7 +2,6 @@ use crate as db;
 use log::error;
 use mosaicod_core::types;
 use mosaicod_marshal as marshal;
-use std::str::FromStr;
 
 #[derive(Debug, Clone)]
 pub struct TopicRecord {
@@ -17,6 +16,9 @@ pub struct TopicRecord {
 
     // Do not expose directly this field
     pub(crate) user_metadata: Option<serde_json::Value>,
+
+    /// Path inside Object store where to find data and backup files.
+    pub(crate) path_in_store: Option<String>,
 
     /// UNIX timestamp in milliseconds from the creation
     pub(crate) creation_unix_tstamp: i64,
@@ -33,32 +35,25 @@ pub struct TopicRecord {
     pub(crate) end_index_timestamp: Option<i64>,
 }
 
-impl From<TopicRecord> for types::Identifiers {
-    fn from(value: TopicRecord) -> Self {
-        Self {
-            id: value.topic_id,
-            uuid: value.topic_uuid.into(),
-        }
-    }
-}
-
 impl TopicRecord {
     pub fn new(
-        locator: &str,
+        locator: types::TopicLocator,
         sequence_id: i32,
         session_id: i32,
         ontology_tag: &str,
         serialization_format: &str,
+        path_in_store: Option<types::TopicPathInStore>,
     ) -> Self {
         Self {
             topic_id: db::UNREGISTERED,
             topic_uuid: types::Uuid::new().into(),
             sequence_id,
             session_id,
-            locator_name: locator.to_owned(),
+            locator_name: types::Locator::from(locator).into(),
             ontology_tag: ontology_tag.to_owned(),
             serialization_format: serialization_format.to_owned(),
             user_metadata: None,
+            path_in_store: path_in_store.map(Into::into),
             creation_unix_tstamp: types::Timestamp::now().into(),
             completion_unix_tstamp: None,
             chunks_number: None,
@@ -77,19 +72,24 @@ impl TopicRecord {
         self.topic_uuid.into()
     }
 
-    pub fn locator(&self) -> types::TopicResourceLocator {
-        self.locator_name.clone().into()
+    /// Returns the resource locator for this topic.
+    ///
+    /// Because a [`TopicRecord`] should only be created using [`TopicRecord::new`], that requires a [`types::TopicLocator`],
+    /// we can assume the locator value inside the DB is always valid. It should panic only if somebody
+    /// changed it manually directly inside the database.
+    pub fn locator(&self) -> types::TopicLocator {
+        self.locator_name
+            .parse()
+            .unwrap_or_else(|_| panic!("Invalid topic locator in DB {}", self.locator_name))
     }
 
-    pub fn identifiers(&self) -> types::Identifiers {
-        types::Identifiers {
-            uuid: self.uuid(),
-            id: self.topic_id,
-        }
+    pub fn path_in_store(&self) -> Option<types::TopicPathInStore> {
+        self.path_in_store.clone().map(Into::into)
     }
 
     pub fn serialization_format(&self) -> Option<types::Format> {
-        types::Format::from_str(self.serialization_format.as_ref())
+        self.serialization_format
+            .parse()
             .inspect_err(|e| error!("BUG: invalid serialization format in database: {}", e))
             .ok()
     }

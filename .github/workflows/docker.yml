@@ -98,7 +98,7 @@ jobs:
             # Tag with x.y.z
             type=match,pattern=mosaicod/v(.*),group=1
             
-            # Tag with .y
+            # Tag with x.y
             type=match,pattern=mosaicod/v(\d+\.\d+)\.\d+,group=1
             
             # Tag with latest

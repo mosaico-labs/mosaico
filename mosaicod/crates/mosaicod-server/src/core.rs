@@ -1,4 +1,5 @@
 use super::flight;
+use mosaicod_core::error::PublicResult as Result;
 use mosaicod_db as db;
 use mosaicod_store as store;
 use tracing::{debug, error};
@@ -34,11 +35,7 @@ impl Server {
     /// The `on_start` callback is called once the server has started.
     ///
     /// This method startup a Tokio runtime to handle async operations.
-    pub fn start_and_wait<F>(
-        &self,
-        rt: tokio::runtime::Runtime,
-        on_start: F,
-    ) -> Result<(), Box<dyn std::error::Error>>
+    pub fn start_and_wait<F>(&self, rt: tokio::runtime::Runtime, on_start: F) -> Result<()>
     where
         F: FnOnce(),
     {

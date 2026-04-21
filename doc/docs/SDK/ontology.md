@@ -27,7 +27,8 @@ The ontology is designed to solve the "generic data" problem in robotics by ensu
 The Mosaico SDK provides a comprehensive library of models that transform raw binary streams into validated, queryable Python objects. These are grouped by their physical and logical application below.
 
 ### Base Data Models
-API Reference: [Base Data Types](./API_reference/models/data_types.md)
+??? question "API Reference"
+    [Base Data Types](./API_reference/models/data_types.md)
 
 These models serve as timestamped, metadata-aware wrappers for standard primitives. They allow simple diagnostic or scalar values to be treated as first-class members of the platform.
 
@@ -40,7 +41,8 @@ These models serve as timestamped, metadata-aware wrappers for standard primitiv
 | **Floating Point** | [`Floating16`][mosaicolabs.models.data.base_types.Floating16], [`Floating32`][mosaicolabs.models.data.base_types.Floating32], [`Floating64`][mosaicolabs.models.data.base_types.Floating64] | Real numbers for high-precision physical values. |
 
 ### Geometry & Kinematics Models
-API Reference: [Geometry Models](./API_reference/models/geometry.md)
+??? question "API Reference"
+    [Geometry Models](./API_reference/models/geometry.md)
 
 These structures define spatial relationships and the movement states of objects in 2D or 3D coordinate frames.
 
@@ -53,7 +55,8 @@ These structures define spatial relationships and the movement states of objects
 | **Aggregated State** | [`MotionState`][mosaicolabs.models.data.kinematics.MotionState] | An atomic snapshot combining Pose, Velocity, and Acceleration. |
 
 ### Sensor Models
-API Reference: [Sensor Models](./API_reference/models/sensors.md)
+??? question "API Reference"
+    [Sensor Models](./API_reference/models/sensors.md)
 
 High-level models representing physical hardware devices and their processed outputs.
 
@@ -68,7 +71,8 @@ High-level models representing physical hardware devices and their processed out
 | **Robotics** | [`RobotJoint`][mosaicolabs.models.sensors.RobotJoint] | States (position, velocity, effort) for index-aligned actuator arrays. |
 
 #### Futures
-API Reference: [Futures Models](./API_reference/models/futures.md)
+??? question "API Reference"
+    [Futures Models](./API_reference/models/futures.md)
 
 Prospective high-level models representing emerging or not yet fully standardized sensor hardware. The `futures` module acts as a **transitional space** where experimental ontologies are introduced and iteratively refined before being promoted to the stable, production-ready ontology set.
 
@@ -101,7 +105,8 @@ Because the whole mechanism is built on top of **Pydantic model fields** via `An
 
 
 ### MosaicoType
-API Reference: [`mosaicolabs.models.MosaicoType`][mosaicolabs.models.MosaicoType]
+??? question "API Reference"
+    [`mosaicolabs.models.MosaicoType`][mosaicolabs.models.MosaicoType]
 
 `MosaicoType` is a collection of `Annotated` type aliases. Each alias bundles the corresponding Python primitive type with its PyArrow counterpart as inline metadata, making the Arrow type immediately visible to the schema auto-builder without any additional configuration.
 
@@ -127,7 +132,7 @@ API Reference: [`mosaicolabs.models.MosaicoType`][mosaicolabs.models.MosaicoType
 | `MosaicoType.large_binary` | `bytes` | `pa.large_binary()` |
 
 #### Explicit type definition
-Using `MosaicoType` provides precise control over the underlying PyArrow schema:
+Using [`MosaicoType`][mosaicolabs.models.MosaicoType] provides precise control over the underlying PyArrow schema:
 
 ```python
 from mosaicolabs import MosaicoField, MosaicoType, Serializable
@@ -167,7 +172,7 @@ In this scenario, the types are resolved using the following **fallback mapping*
 
 #### List types
 
-For list fields, `MosaicoType` exposes a `list_()` static method that wraps a scalar type, either a `MosaicoType` alias or a raw Python primitive, into the appropriate `pa.list_` Arrow type.
+For list fields, `MosaicoType` exposes a [`list_()`][mosaicolabs.models.MosaicoType.list_] static method that wraps a scalar type, either a `MosaicoType` alias or a raw Python primitive, into the appropriate `pa.list_` Arrow type.
 
 An optional `list_size` parameter produces a fixed-size list (`pa.list_(type, size)`), omitting it yields a variable-length list.
 
@@ -198,7 +203,7 @@ This means:
 - This is equivalent to calling `MosaicoType.list_(str)` with no `size` argument.
 
 
-`MosaicoType.list_()` accepts an optional `size` parameter. When provided, it maps to an Arrow **fixed-size list** (`pa.list_(type, list_size=N)`), which enforces that every value in the column contains exactly `N` elements.
+[`MosaicoType.list_()`][mosaicolabs.models.MosaicoType.list_] accepts an optional `size` parameter. When provided, it maps to an Arrow **fixed-size list** (`pa.list_(type, list_size=N)`), which enforces that every value in the column contains exactly `N` elements.
 
 | | `list[str]` | `MosaicoType.list_(str)` | `MosaicoType.list_(str, 3)` |
 |---|---|---|---|
@@ -207,7 +212,7 @@ This means:
 | Interoperable with Pydantic | Yes | Yes | Yes |
 | Supports nested models | Yes | Yes | Yes |
 
-Use `MosaicoType.list_()` with a `size` argument when:
+Use [`MosaicoType.list_()`][mosaicolabs.models.MosaicoType.list_] with a `size` argument when:
 
 - The list represents a **fixed-dimensional structure**, such as a vector, a coordinate
   tuple, or an RGB triplet.
@@ -227,12 +232,102 @@ tags: MosaicoType.list_(str)  # explicit Mosaico style - equivalent result
 !!! note "Note"
     Explicit type definition and fallback types properties are hold in this case.
 
+#### Matrix types
+
+For 2-D matrix fields, `MosaicoType` exposes a [`matrix()`][mosaicolabs.models.MosaicoType.matrix] static method that composes two nested [`list_()`][mosaicolabs.models.MosaicoType.list_] calls to represent a rectangular grid of shape `(rows, cols)`.
+Both dimensions are optional: omitting a dimension produces a variable-length axis, while supplying an integer value produces a fixed-size axis via Arrow's `pa.list_(type, list_size=N)`.
+
+```python
+from mosaicolabs import MosaicoField, Serializable
+
+class MyOntology(Serializable):
+    # Fully variable matrix of float32
+    heatmap: Optional[MosaicoType.matrix(MosaicoType.float32)] = None
+
+    # Fixed 4×4 matrix
+    t: MosaicoType.matrix(MosaicoType.float32, rows=4, cols=4)
+
+    # Fixed-width rows, variable number of rows (e.g. token embeddings)
+    embeddings: MosaicoType.matrix(MosaicoType.float32, cols=768)
+
+    # Works with raw Python primitives too
+    grid: MosaicoType.matrix(int, rows=8, cols=8)
+    
+    # Works also with other ontologies
+    onto: MosaicoType.matrix(Vector3d)
+
+```
+
+| | `matrix(T)` | `matrix(T, cols=N)` | `matrix(T, rows=M, cols=N)` |
+|---|---|---|---|
+| Arrow type | `pa.list_(pa.list_(T))` | `pa.list_(pa.list_(T, N))` | `pa.list_(pa.list_(T, N), M)` |
+| Row count enforced | No | No | Yes, exactly M |
+| Column count enforced | No | Yes, exactly N | Yes, exactly N |
+| Interoperable with Pydantic | Yes | Yes | Yes |
+| Support nested models | Yes | Yes | Yes |
+
+Use [`MosaicoType.matrix()`][mosaicolabs.models.MosaicoType.matrix] with explicit `rows` and/or `cols` when:
+
+- The field represents a **fixed-shape 2-D structure**.
+- You want the Arrow schema to **statically encode both dimensions**, enabling optimised columnar storage and stricter validation.
+- You are working with **fixed-width embedding matrices** where the column dimension (feature size) is always constant but the number of rows may vary.
+
+If neither dimension is provided, `MosaicoType.matrix(T)` produces a fully variable nested list, equivalent to `list[list[T]]`.
+
+!!! note "Note"
+    Explicit type definition and fallback type properties apply here as well.
+
+#### Tensor3d types
+
+For 3-D tensor fields, `MosaicoType` exposes a [`tensor3d()`][mosaicolabs.models.MosaicoType.tensor3d] static method that composes a [`matrix()`][mosaicolabs.models.MosaicoType.matrix] call with an outer [`list_()`][mosaicolabs.models.MosaicoType.list_] call to represent a volume of shape `(depth, rows, cols)`.
+All three dimensions are optional and follow the same convention as `matrix()`: omitting a dimension yields a variable-length axis; supplying an integer value produces a fixed-size axis.
+
+```python
+from mosaicolabs import MosaicoField, Serializable
+
+class MyOntology(Serializable):
+    # Fully variable 3-D tensor of float32
+    volume: Optional[MosaicoType.tensor3d(MosaicoType.float32)] = None
+
+    # Fixed-depth stack of variable matrices
+    f: MosaicoType.tensor3d(MosaicoType.float32, depth=16)
+
+    # Fully fixed tensor
+    j: MosaicoType.tensor3d(MosaicoType.float32, depth=3, rows=4, cols=5)
+
+    # Works with raw Python primitives too
+    cube: MosaicoType.tensor3d(int, depth=8, rows=8, cols=8)
+
+    # Works also with other Ontology model
+    onto: MosaicoType.tensor3d(Vector3d)
+```
+
+| | `tensor3d(T)` | `tensor3d(T, depth=D)` | `tensor3d(T, depth=D, rows=M, cols=N)` |
+|---|---|---|---|
+| Arrow type | `pa.list_(pa.list_(pa.list_(T)))` | `pa.list_(pa.list_(pa.list_(T)), D)` | `pa.list_(pa.list_(pa.list_(T, N), M), D)` |
+| Depth enforced | No | Yes, exactly D | Yes, exactly D |
+| Row count enforced | No | No | Yes, exactly M |
+| Column count enforced | No | No | Yes, exactly N |
+| Interoperable with Pydantic | Yes | Yes | Yes |
+| Supoprt nested model | Yes | Yes | Yes |
+
+Use [`MosaicoType.tensor3d()`][mosaicolabs.models.MosaicoType.tensor3d] with explicit dimensions when:
+
+- The field represents a **fixed-shape volumetric structure**.
+- You want the Arrow schema to **statically encode all three dimensions**, enabling stricter schema validation and more efficient columnar storage.
+- You are working with **multi-channel ML features** (e.g. convolutional layer outputs) where depth, height, and width are always known and constant.
+
+If none of the dimensions are provided, `MosaicoType.tensor3d(T)` produces a fully variable nested list, equivalent to three nested `list[list[list[T]]]`.
+
+!!! note "Note"
+    Explicit type definition and fallback type properties apply here as well. When all dimensions are fixed, the Arrow schema enforces shape constraints at the column level, making `tensor3d` the recommended choice for any ML pipeline where tensor dimensionality is statically known.
+
 #### Custom Arrow types
 
-For specialised Arrow types not covered by the built-in aliases, you can always use `MosaicoType.annotate()` method.
+For specialised Arrow types not covered by the built-in aliases, you can always use [`MosaicoType.annotate()`][mosaicolabs.models.MosaicoType.annotate] method.
 This utility allows you to embed a raw PyArrow type directly into your ontology while maintaining full compatibility with the Mosaico schema builder.
 
-`MosaicoType.annotate()` is a helper designed to bridge standard Python types with specific PyArrow configurations
+[`MosaicoType.annotate()`][mosaicolabs.models.MosaicoType.annotate] is a helper designed to bridge standard Python types with specific PyArrow configurations
 (like timestamp precision or timezones). It requires two arguments:
 
 * **The Python Fallback Type**: Used for runtime validation and Python-side type hinting (e.g., int, str).
@@ -249,7 +344,8 @@ class MyOntology(Serializable):
     Using `MosaicoType.annotate(int, ...)` is functionally equivalent to the standard `Annotated[int, ...]`, but it provides a more explicit and optimized path for the Mosaico schema builder to resolve complex Arrow types.
 
 ### MosaicoField
-API Reference: [`mosaicolabs.models.types.MosaicoField`][mosaicolabs.models.types.MosaicoField]
+??? question "API Reference"
+    [`mosaicolabs.models.types.MosaicoField`][mosaicolabs.models.types.MosaicoField]
 
 `MosaicoField` is a factory function that returns a standard Pydantic `Field` instance, adding Mosaico-specific semantics on top of the native `pydantic.Field`. Because the return type is a native Pydantic `Field`, every standard Pydantic feature like validators, aliases, `model_fields` introspection,  works out of the box.
 
@@ -323,7 +419,8 @@ class DetectionOntology(Serializable):
 The ontology architecture relies on three primary abstractions: the **Factory** (`Serializable`), the **Envelope** (`Message`) and the **Mixins**
 
 ### `Serializable` (The Factory)
-API Reference: [`mosaicolabs.models.Serializable`][mosaicolabs.models.Serializable]
+??? question "API Reference"
+    [`mosaicolabs.models.Serializable`][mosaicolabs.models.Serializable]
 
 Every data payload in Mosaico inherits from the `Serializable` class. It manages the global registry of data types and ensures that the system knows exactly how to convert a string tag like `"imu"` back into a Python class with a specific binary schema.
 `Serializable` uses the `__pydantic_init_subclass__` hook, which is automatically called whenever a developer defines a new subclass.
@@ -341,7 +438,8 @@ When this happens, `Serializable` performs the following steps automatically:
 
 ### `Message` (The Envelope)
 
-API Reference: [`mosaicolabs.models.Message`][mosaicolabs.models.Message]
+??? question "API Reference"
+    [`mosaicolabs.models.Message`][mosaicolabs.models.Message]
 
 The **`Message`** class is the universal transport envelope for all data within the Mosaico platform. It acts as the "Source of Truth" for synchronization and spatial context, combining specific sensor data (the payload) with critical middleware-level metadata. By centralizing metadata at the envelope level, Mosaico ensures that every data point—regardless of its complexity—carries a consistent temporal and spatial identity.
 
@@ -431,7 +529,8 @@ Mosaico uses **Mixins** to inject standard uncertainty fields across different d
 
 #### `CovarianceMixin`
 
-API Reference: [`mosaicolabs.models.mixins.CovarianceMixin`][mosaicolabs.models.mixins.CovarianceMixin]
+??? question "API Reference"
+    [`mosaicolabs.models.mixins.CovarianceMixin`][mosaicolabs.models.mixins.CovarianceMixin]
 
 Injects multidimensional uncertainty fields, typically used for flattened covariance matrices (e.g., 3x3 or 6x6) in sensor fusion applications.
 
@@ -444,7 +543,8 @@ class MySensor(Serializable, CovarianceMixin):
 
 #### `VarianceMixin`
 
-API Reference: [`mosaicolabs.models.mixins.VarianceMixin`][mosaicolabs.models.mixins.VarianceMixin]
+??? question "API Reference"
+    [`mosaicolabs.models.mixins.VarianceMixin`][mosaicolabs.models.mixins.VarianceMixin]
 
 Injects monodimensional uncertainty fields, useful for sensors with 1-dimensional uncertain data like `Temperature` or `Pressure`.
 
@@ -545,10 +645,11 @@ with MosaicoClient.connect("localhost", 6726) as client:
 
 For a comprehensive list of all supported operators and advanced filtering strategies (such as query chaining), see the **[Full Query Documentation](./query.md)** and the Ontology types SDK Reference in the **API Reference**:
 
-* [Base Data Models](./API_reference/models/data_types.md)
-* [Sensors Models](./API_reference/models/sensors.md)
-* [Geometry Models](./API_reference/models/geometry.md)
-* [Platform Models](./API_reference/models/platform.md)
+??? question "API Reference"
+    * [Base Data Models](./API_reference/models/data_types.md)
+    * [Sensors Models](./API_reference/models/sensors.md)
+    * [Geometry Models](./API_reference/models/geometry.md)
+    * [Platform Models](./API_reference/models/platform.md)
 
 ## Customizing the Ontology
 
@@ -569,7 +670,8 @@ To align with the Mosaico ecosystem, use the following mixins:
 Annotate each field with a `MosaicoType` alias and wrap it with `MosaicoField`. Fields and schema are declared together in a single annotation — the `__msco_pyarrow_struct__` is derived automatically from `model_fields` at class-definition time, so there is no separate schema declaration to maintain.
 
 #### 2.1 Serialization Format Optimization
-API Reference: [`mosaicolabs.enum.SerializationFormat`][mosaicolabs.enum.SerializationFormat]
+??? question "API Reference"
+    [`mosaicolabs.enum.SerializationFormat`][mosaicolabs.enum.SerializationFormat]
 
 You can optimize remote server performance by overriding the `__serialization_format__` attribute. This controls how the server compresses and organizes your data.
 
