@@ -81,22 +81,28 @@ pub async fn try_create(
     locator: types::SequenceLocator,
     metadata: Option<SequenceUserMetadata>,
 ) -> Result<Handle> {
-    // Creates a random name for the folder on Object Store.
+    // 1. Creates a random name for the folder on Object Store and save metadata file (optional).
     let path_in_store = SequencePathInStore::new();
 
+    if let Some(mdata) = &metadata {
+        metadata_write_to_store(
+            context,
+            path_in_store.path_metadata().as_path(),
+            mdata.clone(),
+        )
+        .await?;
+    }
+
+    // 2. Create sequence in database.
     let mut tx = context.db.transaction().await?;
 
     let mut record = db::SequenceRecord::new(locator.clone(), path_in_store.clone());
 
-    if let Some(mdata) = &metadata {
-        record = record.with_user_metadata(mdata.clone());
+    if let Some(mdata) = metadata {
+        record = record.with_user_metadata(mdata);
     }
 
     let record = db::sequence_create(&mut tx, &record).await?;
-
-    if let Some(mdata) = metadata {
-        metadata_write_to_store(context, path_in_store.path_metadata().as_path(), mdata).await?;
-    }
 
     tx.commit().await?;
 
@@ -249,36 +255,16 @@ pub async fn session_list(
         .collect())
 }
 
-/// Deletes a sequence and all its associated sessions and topics from the system.
+/// Deletes a sequence and all its associated sessions and topics from the database.
 ///
-/// Sequences, sessions and topics will be removed from the store and the database.
 /// The [`types::DataLossToken`] is required since this function will lead to data loss.
 pub async fn delete(
     context: &Context,
     handle: Handle,
     allow_data_loss: types::DataLossToken,
 ) -> Result<()> {
-    let mut tx = context.db.transaction().await?;
-
-    // Retrieve sessions data and deletes it
-    let sessions = session_list(&handle, &mut tx).await?;
-    for session_handle in sessions {
-        session::delete(context, session_handle, allow_data_loss.clone()).await?;
-    }
-
-    // Delete sequence data
-    let db_sequence = db::sequence_find_by_id(&mut tx, handle.id()).await?;
-
-    db::sequence_delete_by_id(&mut tx, handle.id(), types::allow_data_loss()).await?;
-
-    // Delete all remaining data
-    context
-        .store
-        .delete_recursive(db_sequence.path_in_store().root())
-        .await?;
-
-    tx.commit().await?;
-
+    let mut cx = context.db.connection();
+    db::sequence_delete_by_id(&mut cx, handle.id(), allow_data_loss).await?;
     Ok(())
 }
 

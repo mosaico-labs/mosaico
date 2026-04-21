@@ -91,12 +91,16 @@ pub enum ErrorKind {
     Unauthenticated,
     #[error("Unimplemented")]
     Unimplemented,
-    #[error("Session `{0}` is locked.")]
-    LockedSession(String),
-    #[error("Topic `{0}` is locked.")]
-    LockedTopic(String),
-    #[error("Topic `{0}` is unlocked.")]
-    UnlockedTopic(String),
+    #[error("Session `{0}` already finalized.")]
+    SessionAlreadyFinalized(String),
+    #[error("Topic `{0}` has already been uploaded and finalized.")]
+    TopicAlreadyFinalized(String),
+    #[error(
+        "DoPut not called for topic `{0}`. At least one with an empty batch is required to finalize the topic."
+    )]
+    MissingDoPut(String),
+    #[error("Topic `{0}` is already uploading data.")]
+    TopicUploadInProgress(String),
     #[error("Session `{0} is empty.`")]
     EmptySession(String),
     #[error("Locator contains unsupported characters")]
@@ -151,16 +155,20 @@ impl Error {
         Self(ErrorKind::AlreadyExists)
     }
 
-    pub fn locked_session(uuid: String) -> Self {
-        Self(ErrorKind::LockedSession(uuid))
+    pub fn session_already_finalized(uuid: String) -> Self {
+        Self(ErrorKind::SessionAlreadyFinalized(uuid))
     }
 
-    pub fn locked_topic(locator: String) -> Self {
-        Self(ErrorKind::LockedTopic(locator))
+    pub fn topic_upload_in_progress(locator: String) -> Self {
+        Self(ErrorKind::TopicUploadInProgress(locator))
     }
 
-    pub fn unlocked_topic(locator: String) -> Self {
-        Self(ErrorKind::UnlockedTopic(locator))
+    pub fn topic_already_finalized(locator: String) -> Self {
+        Self(ErrorKind::TopicAlreadyFinalized(locator))
+    }
+
+    pub fn missing_doput(locator: String) -> Self {
+        Self(ErrorKind::MissingDoPut(locator))
     }
 
     pub fn empty_session(locator: String) -> Self {

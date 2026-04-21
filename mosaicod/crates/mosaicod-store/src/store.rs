@@ -338,16 +338,17 @@ mod test {
         let path = format!("/tmp/{}", bucket_name);
         let store = Store::try_from_filesystem(path).unwrap();
 
-        let sample = r#"
-            Some example text
-        "#;
+        let sample = r#"Some example text"#;
         let buffer = sample.as_bytes();
+
         let target = "write_text";
-
         store.write_to_path(&target, buffer).await.unwrap();
-
         let read_buffer = store.read_bytes(&target).await.unwrap();
+        assert_eq!(buffer, read_buffer);
 
+        let target = "test_dir/write_text";
+        store.write_to_path(&target, buffer).await.unwrap();
+        let read_buffer = store.read_bytes(&target).await.unwrap();
         assert_eq!(buffer, read_buffer);
     }
 }

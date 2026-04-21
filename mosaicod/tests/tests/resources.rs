@@ -373,7 +373,7 @@ async fn topic_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
 }
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
-async fn do_put(pool: sqlx::Pool<db::DatabaseType>) {
+async fn test_do_put(pool: sqlx::Pool<db::DatabaseType>) {
     let port = common::random_port();
 
     let server = common::ServerBuilder::new(common::HOST, port, pool)
@@ -387,8 +387,10 @@ async fn do_put(pool: sqlx::Pool<db::DatabaseType>) {
     actions::sequence_create(&mut client, sequence_name, None)
         .await
         .unwrap();
+
     let uuid = actions::session_create(&mut client, sequence_name).await;
     assert!(uuid.is_valid());
+
     let uuid = actions::topic_create(&mut client, &uuid, "test_sequence/my_topic", None)
         .await
         .unwrap();
@@ -419,7 +421,7 @@ async fn do_put(pool: sqlx::Pool<db::DatabaseType>) {
 }
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
-async fn session_finalize(pool: sqlx::Pool<db::DatabaseType>) {
+async fn test_session_finalize(pool: sqlx::Pool<db::DatabaseType>) {
     let port = common::random_port();
 
     let server = common::ServerBuilder::new(common::HOST, port, pool)
@@ -481,7 +483,7 @@ async fn session_finalize(pool: sqlx::Pool<db::DatabaseType>) {
 }
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
-async fn session_delete(pool: sqlx::Pool<db::DatabaseType>) {
+async fn test_session_delete(pool: sqlx::Pool<db::DatabaseType>) {
     let port = common::random_port();
 
     let server = common::ServerBuilder::new(common::HOST, port, pool)
@@ -527,7 +529,7 @@ async fn session_delete(pool: sqlx::Pool<db::DatabaseType>) {
 }
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
-async fn sequence_delete(pool: sqlx::Pool<db::DatabaseType>) {
+async fn test_sequence_delete(pool: sqlx::Pool<db::DatabaseType>) {
     let port = common::random_port();
 
     let server = common::ServerBuilder::new(common::HOST, port, pool)
@@ -541,8 +543,10 @@ async fn sequence_delete(pool: sqlx::Pool<db::DatabaseType>) {
     actions::sequence_create(&mut client, sequence_name, None)
         .await
         .unwrap();
+
     let session_uuid = actions::session_create(&mut client, sequence_name).await;
     assert!(session_uuid.is_valid());
+
     let uuid = actions::topic_create(&mut client, &session_uuid, "test_sequence/my_topic", None)
         .await
         .unwrap();

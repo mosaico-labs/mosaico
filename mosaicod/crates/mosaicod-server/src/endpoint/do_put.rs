@@ -100,15 +100,7 @@ async fn do_put_topic_data(
         Err(core::Error::unauthorized())?
     }
 
-    let mdata = facade::topic::metadata(&ctx, &topic_handle).await?;
-
-    // Setup the callback that will be used to create the database record for the data catalog
-    // and prepare variables that will be moved in the closure
-    let ontology_tag = mdata.ontology_metadata.properties.ontology_tag;
-    let serialization_format = mdata.ontology_metadata.properties.serialization_format;
-
-    let mut writer =
-        facade::topic::writer(ctx.clone(), topic_handle, serialization_format, schema)?;
+    let mut writer = facade::topic::writer(ctx.clone(), topic_handle, schema).await?;
 
     // Consume all batches
     debug!("ready to receive batches");
@@ -144,7 +136,7 @@ async fn do_put_topic_data(
                 on_chunk_created(
                     &ctx,
                     &topic_uuid,
-                    &ontology_tag,
+                    writer.ontology_tag(),
                     serialized_chunk.path,
                     serialized_chunk.ontology_stats,
                     serialized_chunk.metadata,

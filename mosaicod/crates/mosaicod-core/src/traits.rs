@@ -1,4 +1,4 @@
-/// Used to write asyncrously data to a path (tipically over network)
+/// Used to write asynchronously data to a path (usually over network)
 pub trait AsyncWriteToPath {
     /// Writes the provided buffer to the specified path.
     ///
