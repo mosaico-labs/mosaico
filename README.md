@@ -1,6 +1,6 @@
 <div align="center">
   <picture>
-    <a href="https://mosaico.dev"><img alt="Mosaico logo" src="https://mosaico.dev/mosaico-headline.gif" width="600px"></a>
+    <a href="https://mosaico.dev"><img alt="Mosaico logo" src="https://mosaico.dev/repo-hero.webp" width="600px"></a>
   </picture>
 </div>
 <br/>
