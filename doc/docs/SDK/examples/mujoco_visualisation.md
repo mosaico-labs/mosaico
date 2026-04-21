@@ -13,7 +13,7 @@ By following this guide, you will learn how to:
 
 !!! info "Prerequisites"
     1. This tutorial assumes you have already ingested data into your Mosaico instance, using the example described in the [ROS Ingestion](./ros_injection.md) example.
-    2. This tutorial requires some additional dependencies that are not included by default. Please run: `poetry add mujoco matplotlib`
+    2. This tutorial requires some additional dependencies that are not included by default. So to avoid polluting Poetry dependencies, please run: `pip install mujoco matplotlib gitdir`
 
 !!! example "Experiment Yourself"
     This guide is **fully executable**.
