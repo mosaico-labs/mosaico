@@ -1,4 +1,4 @@
-use crate::errors::ServerError;
+use crate::error::Result;
 use arrow_flight::{
     Ticket,
     encode::{FlightDataEncoder, FlightDataEncoderBuilder},
@@ -6,45 +6,48 @@ use arrow_flight::{
 };
 use futures::TryStreamExt;
 use log::{debug, info, trace};
+use mosaicod_core as core;
 use mosaicod_core::types;
 use mosaicod_facade as facade;
 use mosaicod_marshal as marshal;
 
-pub async fn do_get(
-    ctx: &facade::Context,
-    ticket: Ticket,
-) -> Result<FlightDataEncoder, ServerError> {
+pub async fn do_get(ctx: &facade::Context, ticket: Ticket) -> Result<FlightDataEncoder> {
     let ticket = marshal::flight::ticket_topic_from_binary(&ticket.ticket)?;
 
     info!("requesting data for ticket `{}`", ticket.locator);
 
     // Create topic handle
-    let topic_locator = types::TopicResourceLocator::from(ticket.locator);
+    let topic_locator = ticket.locator.parse::<types::TopicLocator>()?;
 
     let topic_handle = facade::topic::Handle::try_from_locator(ctx, topic_locator).await?;
 
     // Read metadata from topic
-    let metadata = facade::topic::manifest(ctx, &topic_handle).await?;
+    let metadata = facade::topic::metadata(ctx, &topic_handle).await?;
 
     trace!("{:?}", metadata);
 
     let batch_size = facade::topic::compute_optimal_batch_size(ctx, &topic_handle).await?;
 
+    let path_in_store = topic_handle
+        .path_in_store()
+        .ok_or(core::error::Error::internal(Some(format!(
+            "Path in store not set for topic {}",
+            topic_handle.locator()
+        ))))?;
+
     let mut query_result = ctx
         .timeseries_querier
         .read(
-            &topic_handle.locator().path_data_folder(topic_handle.uuid()),
+            &path_in_store.path_data_folder(topic_handle.uuid()),
             metadata.ontology_metadata.properties.serialization_format,
             Some(batch_size),
         )
         .await?;
 
     // Append JSON metadata to original data schema
-    let metadata = marshal::JsonTopicManifest::from(metadata);
-    let flatten_mdata = metadata
-        .ontology_metadata
-        .to_flat_hashmap()
-        .map_err(facade::Error::from)?;
+    let metadata = marshal::JsonTopicMetadata::from(metadata);
+    let flatten_mdata = metadata.ontology_metadata.to_flat_hashmap()?;
+
     let schema = query_result.schema_with_metadata(flatten_mdata);
     trace!("{:?}", schema);
 

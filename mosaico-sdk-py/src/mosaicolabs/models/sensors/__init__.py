@@ -7,6 +7,7 @@ from .image import (
     StatefulDecodingSession as StatefulDecodingSession,
 )
 from .imu import IMU as IMU
+from .joy import Joy as Joy
 from .magnetometer import Magnetometer as Magnetometer
 from .pressure import Pressure as Pressure
 from .range import Range as Range

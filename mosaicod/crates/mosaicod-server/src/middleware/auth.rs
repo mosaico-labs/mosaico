@@ -1,5 +1,5 @@
-use crate::ServerError;
-use mosaicod_core::types;
+use crate::error::{PublicErrorGrpcExt, Result};
+use mosaicod_core::{self as core, types};
 use mosaicod_db as db;
 use mosaicod_facade as facade;
 use std::{
@@ -79,9 +79,9 @@ where
 {
     type Response = S::Response;
     type Error = S::Error;
-    type Future = BoxFuture<'static, Result<Self::Response, Self::Error>>;
+    type Future = BoxFuture<'static, std::result::Result<Self::Response, Self::Error>>;
 
-    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+    fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<std::result::Result<(), Self::Error>> {
         self.inner.poll_ready(cx)
     }
 
@@ -110,42 +110,34 @@ where
             let db = self.db.clone();
 
             Box::pin(async move {
-                if token.is_empty() {
-                    return Ok(to_http_error(ServerError::MissingApiKeyToken));
+                let auth_ctx_result: Result<AuthContext> = async {
+                    if token.is_empty() {
+                        Err(core::Error::missing_api_key())?
+                    }
+
+                    let token: types::auth::Token = token.parse()?;
+
+                    let fauth = facade::Auth::try_from_fingerprint(token.fingerprint(), db).await?;
+
+                    Ok(AuthContext {
+                        permissions: fauth.into_api_key().permission,
+                    })
                 }
+                .await;
 
-                let token: Result<types::auth::Token, types::auth::ApiKeyError> = token.parse();
-                match token {
-                    Ok(token) => {
-                        let fauth =
-                            match facade::Auth::try_from_fingerprint(token.fingerprint(), db).await
-                            {
-                                Ok(fauth) => fauth,
-                                Err(_) => {
-                                    return Ok(to_http_error(ServerError::Unauthorized));
-                                }
-                            };
-
-                        req.extensions_mut().insert(AuthContext {
-                            permissions: fauth.into_api_key().permission,
-                        });
-
+                match auth_ctx_result {
+                    Ok(auth_ctx) => {
+                        req.extensions_mut().insert(auth_ctx);
                         let response = inner.call(req).await?;
-
                         Ok(response)
                     }
-                    Err(_) => Ok(to_http_error(ServerError::Unauthorized)),
+                    Err(err) => {
+                        // Here we are calling .to_status() and not .log_to_status()
+                        // in order to avoid logging every unauhenticated request
+                        Ok(err.log_to_status().into_http())
+                    }
                 }
             })
         }
     }
-}
-
-fn to_http_error<ResBody>(err: ServerError) -> http::Response<ResBody>
-where
-    ResBody: Default,
-{
-    tracing::error!("{}", err.unroll());
-    let status: tonic::Status = err.into();
-    status.into_http()
 }

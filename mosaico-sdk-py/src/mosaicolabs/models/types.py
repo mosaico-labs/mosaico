@@ -15,17 +15,17 @@ BASE_MAPPING: Dict[Type, pa.DataType] = {
 
 class MosaicoType:
     """
-    Collection of ``Annotated`` type aliases mapping Python primitives to
+    Collection of `Annotated` type aliases mapping Python primitives to
     their PyArrow counterparts.
 
-    Each class attribute is an ``Annotated[PythonType, pa.DataType]`` alias.
-    When used as a field annotation in a ``Serializable`` subclass, the
-    embedded ``pa.DataType`` is extracted by ``_build_ontology_struct`` at
-    class-definition time to derive the ``__msco_pyarrow_struct__``
+    Each class attribute is an `Annotated[PythonType, pa.DataType]` alias.
+    When used as a field annotation in a `Serializable` subclass, the
+    embedded `pa.DataType` is extracted by `_build_ontology_struct` at
+    class-definition time to derive the `__msco_pyarrow_struct__`
     automatically — no manual schema declaration required.
 
     For Arrow types not covered by the built-in aliases, fall back to a raw
-    ``Annotated[T, pa.SomeType()]`` annotation; the schema builder resolves
+    `Annotated[T, pa.SomeType()]` annotation; the schema builder resolves
     it transparently.
 
     Scalar aliases:
@@ -33,22 +33,22 @@ class MosaicoType:
 
     | Alias                        | Python type | Arrow type            |
     |------------------------------|-------------|-----------------------|
-    | ``MosaicoType.uint8``        | ``int``     | ``pa.uint8()``        |
-    | ``MosaicoType.int8``         | ``int``     | ``pa.int8()``         |
-    | ``MosaicoType.uint16``       | ``int``     | ``pa.uint16()``       |
-    | ``MosaicoType.int16``        | ``int``     | ``pa.int16()``        |
-    | ``MosaicoType.uint32``       | ``int``     | ``pa.uint32()``       |
-    | ``MosaicoType.int32``        | ``int``     | ``pa.int32()``        |
-    | ``MosaicoType.uint64``       | ``int``     | ``pa.uint64()``       |
-    | ``MosaicoType.int64``        | ``int``     | ``pa.int64()``        |
-    | ``MosaicoType.float16``      | ``float``   | ``pa.float16()``      |
-    | ``MosaicoType.float32``      | ``float``   | ``pa.float32()``      |
-    | ``MosaicoType.float64``      | ``float``   | ``pa.float64()``      |
-    | ``MosaicoType.bool``         | ``bool``    | ``pa.bool_()``        |
-    | ``MosaicoType.string``       | ``str``     | ``pa.string()``       |
-    | ``MosaicoType.large_string`` | ``str``     | ``pa.large_string()`` |
-    | ``MosaicoType.binary``       | ``bytes``   | ``pa.binary()``       |
-    | ``MosaicoType.large_binary`` | ``bytes``   | ``pa.large_binary()`` |
+    | `MosaicoType.uint8`        | `int`     | `pa.uint8()`        |
+    | `MosaicoType.int8`         | `int`     | `pa.int8()`         |
+    | `MosaicoType.uint16`       | `int`     | `pa.uint16()`       |
+    | `MosaicoType.int16`        | `int`     | `pa.int16()`        |
+    | `MosaicoType.uint32`       | `int`     | `pa.uint32()`       |
+    | `MosaicoType.int32`        | `int`     | `pa.int32()`        |
+    | `MosaicoType.uint64`       | `int`     | `pa.uint64()`       |
+    | `MosaicoType.int64`        | `int`     | `pa.int64()`        |
+    | `MosaicoType.float16`      | `float`   | `pa.float16()`      |
+    | `MosaicoType.float32`      | `float`   | `pa.float32()`      |
+    | `MosaicoType.float64`      | `float`   | `pa.float64()`      |
+    | `MosaicoType.bool`         | `bool`    | `pa.bool_()`        |
+    | `MosaicoType.string`       | `str`     | `pa.string()`       |
+    | `MosaicoType.large_string` | `str`     | `pa.large_string()` |
+    | `MosaicoType.binary`       | `bytes`   | `pa.binary()`       |
+    | `MosaicoType.large_binary` | `bytes`   | `pa.large_binary()` |
 
 
     """
@@ -99,27 +99,27 @@ class MosaicoType:
     @staticmethod
     def list_(source_type: Any, list_size: Optional[int] = None) -> Any:
         """
-        Build an ``Annotated[list, pa.list_(...)]`` type alias for list fields.
+        Build an `Annotated[list, pa.list_(...)]` type alias for list fields.
 
-        Accepts either a ``MosaicoType`` alias (i.e. any type carrying
-        ``__metadata__`` with a ``pa.DataType``) or a raw Python primitive
-        present in ``BASE_MAPPING`` (``int``, ``float``, ``str``, ``bool``,
-        ``bytes``).
+        Accepts either a `MosaicoType` alias (i.e. any type carrying
+        `__metadata__` with a `pa.DataType`) or a raw Python primitive
+        present in `BASE_MAPPING` (`int`, `float`, `str`, `bool`,
+        `bytes`).
 
         Args:
-            source_type: A ``MosaicoType`` alias or a raw Python primitive type
-                whose PyArrow equivalent is defined in ``BASE_MAPPING``.
+            source_type: A `MosaicoType` alias or a raw Python primitive type
+                whose PyArrow equivalent is defined in `BASE_MAPPING`.
             list_size: If provided, produces a fixed-size Arrow list
-                (``pa.list_(type, list_size)``). If ``None``, produces a
-                variable-length Arrow list (``pa.list_(type)``).
+                (`pa.list_(type, list_size)`). If `None`, produces a
+                variable-length Arrow list (`pa.list_(type)`).
 
         Returns:
-            An ``Annotated[list, pa.ListType]`` alias ready to be used as a
-            field annotation in a ``Serializable`` subclass.
+            An `Annotated[list, pa.ListType]` alias ready to be used as a
+            field annotation in a `Serializable` subclass.
 
         Raises:
-            ValueError: If ``source_type`` does not resolve to a valid
-                ``pa.DataType``.
+            ValueError: If `source_type` does not resolve to a valid
+                `pa.DataType`.
         """
         from .serializable import Serializable
 
@@ -144,6 +144,69 @@ class MosaicoType:
         )
         return Annotated[list, arrow_list_type]
 
+    @staticmethod
+    def matrix(
+        source_type: Any, rows: Optional[int] = None, cols: Optional[int] = None
+    ) -> Annotated:
+        """
+        Build an `Annotated[list, pa.list_(...)]` type alias for 2D matrix fields.
+
+        Composes two nested `MosaicoType.list_()` calls to represent a matrix
+        of shape `(rows, cols)`. Both dimensions are optional: if `None`,
+        the dimension is variable-length; if provided, it is fixed-size.
+
+        Args:
+            source_type: A `MosaicoType` alias or a raw Python primitive type
+                whose PyArrow equivalent is defined in `BASE_MAPPING`.
+            rows: If provided, the outer list is fixed-size. If `None`,
+                the outer list is variable-length.
+            cols: If provided, the inner list is fixed-size. If `None`,
+                the inner list is variable-length.
+
+        Returns:
+            An `Annotated[list, pa.ListType]` alias representing a 2D matrix, ready to be used as a field annotation in a `Serializable` subclass.
+
+        Raises:
+            ValueError: If `source_type` does not resolve to a valid
+                `pa.DataType`.
+        """
+        inner_list = MosaicoType.list_(source_type, list_size=cols)
+        return MosaicoType.list_(inner_list, list_size=rows)
+
+    @staticmethod
+    def tensor3d(
+        source_type: Any,
+        depth: Optional[int] = None,
+        rows: Optional[int] = None,
+        cols: Optional[int] = None,
+    ) -> Annotated:
+        """
+        Build an `Annotated[list, pa.list_(...)]` type alias for 3D tensor fields.
+
+        Composes `MosaicoType.matrix()` and `MosaicoType.list_()` to represent
+        a tensor of shape `(depth, rows, cols)`. All dimensions are optional:
+        if `None`, the dimension is variable-length; if provided, it is fixed-size.
+
+        Args:
+            source_type: A `MosaicoType` alias or a raw Python primitive type
+                whose PyArrow equivalent is defined in `BASE_MAPPING`.
+            rows: If provided, the matrix rows are fixed-size. If `None`,
+                the matrix rows are variable-length.
+            cols: If provided, the matrix cols are fixed-size. If `None`,
+                the matrix cols are variable-length.
+            depth: If provided, the outer list is fixed-size. If `None`,
+                the outer list is variable-length.
+
+        Returns:
+            An `Annotated[list, pa.ListType]` alias representing a 3D tensor, ready to be used as a field annotation in a `Serializable` subclass.
+
+        Raises:
+            ValueError: If `source_type` does not resolve to a valid
+                `pa.DataType`.
+        """
+        inner_matrix = MosaicoType.matrix(source_type, rows=rows, cols=cols)
+        return MosaicoType.list_(inner_matrix, list_size=depth)
+
 
 def MosaicoField(
     nullable: bool = False,
@@ -152,28 +215,28 @@ def MosaicoField(
     **kwargs: Any,
 ) -> Any:
     """
-    Factory for Pydantic ``FieldInfo`` instances carrying Mosaico-specific
+    Factory for Pydantic `FieldInfo` instances carrying Mosaico-specific
     Arrow metadata.
 
-    Acts as a drop-in replacement for ``pydantic.Field`` within
-    ``Serializable`` subclasses. The ``nullable`` flag is stored in
-    ``json_schema_extra`` and consumed by ``_build_ontology_struct`` when
-    deriving the ``__msco_pyarrow_struct__`` at class-definition time.
+    Acts as a drop-in replacement for `pydantic.Field` within
+    `Serializable` subclasses. The `nullable` flag is stored in
+    `json_schema_extra` and consumed by `_build_ontology_struct` when
+    deriving the `__msco_pyarrow_struct__` at class-definition time.
 
     Args:
         nullable: Whether the corresponding Arrow field should be declared
-            as nullable in the generated ``pa.struct``. Defaults to
-            ``False``.
-        default: Default value for the field. Use ``...`` (the default) to
+            as nullable in the generated `pa.struct`. Defaults to
+            `False`.
+        default: Default value for the field. Use `...` (the default) to
             mark the field as required. Any other value makes the field
             optional and sets its fallback.
         description: Human-readable description of the field, forwarded to
             Pydantic and surfaced in the JSON Schema output.
         **kwargs: Additional keyword arguments forwarded verbatim to
-            ``pydantic.Field``.
+            `pydantic.Field`.
 
     Returns:
-        A ``pydantic.FieldInfo`` instance with Mosaico nullability metadata
+        A `pydantic.FieldInfo` instance with Mosaico nullability metadata
         attached.
     """
 

@@ -5,10 +5,9 @@ This module defines the `Sequence` class, which represents a read-only view of a
 Sequence's platform_metadata. A Sequence is a logical grouping of multiple Topics.
 """
 
+from dataclasses import dataclass
 from typing import Any, Dict, List
 
-import pydantic
-from pydantic import PrivateAttr
 from typing_extensions import Self
 
 from mosaicolabs.platform.metadata import SequenceMetadata
@@ -16,18 +15,11 @@ from mosaicolabs.platform.resource_manifests import (
     SequenceResourceManifest,
 )
 
-from ..query.expressions import _QuerySequenceExpression
-from ..query.generation.api import _QueryProxyMixin, queryable
-from ..query.generation.pydantic_mapper import PydanticFieldMapper
 from .session import Session
 
 
-@queryable(
-    mapper_type=PydanticFieldMapper,
-    prefix="",
-    query_expression_type=_QuerySequenceExpression,
-)
-class Sequence(pydantic.BaseModel, _QueryProxyMixin):
+@dataclass(frozen=True)
+class Sequence:
     """
     Represents a read-only view of a server-side Sequence platform resource.
 
@@ -42,20 +34,20 @@ class Sequence(pydantic.BaseModel, _QueryProxyMixin):
         method from a [`SequenceHandler`][mosaicolabs.handlers.SequenceHandler]
         instance.
 
-    ### Querying with the **`.Q` Proxy**
-    Warning: Deprecated
-        Querying the sequence user-custom metadata via the `user_metadata` field of this class is deprecated.
-        Use the [`QuerySequence.with_user_metadata()`][mosaicolabs.models.query.builders.QuerySequence.with_user_metadata] builder instead.
+    ### Querying with **Query Builders**
+    Querying Sequence specific attributes (like `user_metadata` or `name`) can be made using the
+    [QuerySequence()][mosaicolabs.models.query.builders.QuerySequence] query builder.
 
     Example:
         ```python
-        from mosaicolabs import MosaicoClient, Sequence, QuerySequence
+        from mosaicolabs import MosaicoClient, QuerySequence
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for a specific data value (using constructor)
             qresponse = client.query(
                 QuerySequence()
-                .with_user_metadata("project", eq="Apollo")
+                .with_name_match("test_winter_") # (1)!
+                .with_user_metadata("project", eq="Apollo") # (2)!
                 .with_user_metadata("vehicle.software_stack.planning", eq="plan-4.1.7")
             )
 
@@ -66,33 +58,120 @@ class Sequence(pydantic.BaseModel, _QueryProxyMixin):
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
         ```
+
+        1. Find all the sequences which name matches the pattern
+        2. Query the (key, value) in the `user_metadata` JSON
     """
 
     user_metadata: Dict[str, Any]
     """
     Custom user-defined key-value pairs associated with the entity.
 
-    ### Querying with the **`.Q` Proxy**
-    Warning: Deprecated
-        Querying the sequence user-custom metadata via the `user_metadata` field of this class is deprecated.
-        Use the [`QuerySequence.with_user_metadata()`][mosaicolabs.models.query.builders.QuerySequence.with_user_metadata] builder instead.
+    ### Querying with **Query Builders**
+    The `user_metadata` attribute is queryable when constructing a [`QuerySequence`][mosaicolabs.models.query.QuerySequence]
+    via the convenience method:
+
+    * [`QuerySequence.with_user_metadata()`][mosaicolabs.models.query.builders.QuerySequence.with_user_metadata]
+
+    Example:
+        ```python
+        from mosaicolabs import MosaicoClient, Sequence, QuerySequence
+
+        with MosaicoClient.connect("localhost", 6726) as client:
+            # Filter for a specific data value (using constructor)
+            qresponse = client.query(
+                QuerySequence()
+                .with_user_metadata("project", eq="Apollo") # (1)!
+                .with_user_metadata("vehicle.software_stack.planning", eq="plan-4.1.7")
+            )
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {[topic.name for topic in item.topics]}")
+        ```
+
+        1. Query the (key, value) in the `user_metadata` JSON
 
     """
 
-    # --- Private Fields ---
-    # They are excluded from the standard Pydantic __init__ to prevent users
-    # from manually setting system-controlled values.
-    _created_timestamp: int = PrivateAttr()
-    """The UTC timestamp when the sequence was created."""
+    created_timestamp: int
+    """
+    The UTC timestamp when the sequence was created.
 
-    _name: str = PrivateAttr()
-    """The name of the sequence."""
+    ### Querying with **Query Builders**
+        The `created_timestamp` attribute is queryable when constructing a [`QuerySequence`][mosaicolabs.models.query.QuerySequence]
+        via the convenience method:
 
-    _total_size_bytes: int = PrivateAttr()
-    """The aggregated total size of the sequence in bytes"""
+        * [`QuerySequence.with_created_timestamp()`][mosaicolabs.models.query.builders.QuerySequence.with_created_timestamp]
 
-    _sessions: List[Session] = PrivateAttr(default_factory=list)
-    """The list of sessions in the sequence"""
+        Example:
+            ```python
+            from mosaicolabs import MosaicoClient, QuerySequence, Time
+
+            with MosaicoClient.connect("localhost", 6726) as client:
+                # Filter for a specific sequence creation time
+                qresponse = client.query(
+                    QuerySequence().with_created_timestamp(time_start=Time.from_float(1765432100)),
+                )
+
+                # Inspect the response
+                if qresponse is not None:
+                    # Results are automatically grouped by Sequence for easier data management
+                    for item in qresponse:
+                        print(f"Sequence: {item.sequence.name}")
+                        print(f"Topics: {[topic.name for topic in item.topics]}")
+            ```
+    """
+
+    name: str
+    """
+    The name of the sequence.
+
+    ### Querying with **Query Builders**
+        The `name` attribute is queryable when constructing a [`QuerySequence`][mosaicolabs.models.query.QuerySequence]
+        via the convenience methods:
+
+        * [`QuerySequence.with_name()`][mosaicolabs.models.query.builders.QuerySequence.with_name]
+        * [`QuerySequence.with_name_match()`][mosaicolabs.models.query.builders.QuerySequence.with_name_match]
+
+        Example:
+            ```python
+            from mosaicolabs import MosaicoClient, QuerySequence
+
+            with MosaicoClient.connect("localhost", 6726) as client:
+                # Filter for a specific data value (using constructor)
+                qresponse = client.query(
+                    QuerySequence().with_name_match("test_winter_2025_01_"),
+                )
+
+                # Inspect the response
+                if qresponse is not None:
+                    # Results are automatically grouped by Sequence for easier data management
+                    for item in qresponse:
+                        print(f"Sequence: {item.sequence.name}")
+                        print(f"Topics: {[topic.name for topic in item.topics]}")
+            ```
+    """
+
+    total_size_bytes: int
+    """
+    The aggregated total size of the sequence in bytes
+    
+    ### Querying with **Query Builders**
+        The `total_size_bytes` attribute is not queryable.
+    """
+
+    sessions: List[Session]
+    """
+    The list of sessions in the sequence
+    
+    ### Querying with **Query Builders**
+        The `sessions` attribute is not queryable.
+        
+    """
 
     @classmethod
     def _from_resource_info(
@@ -122,10 +201,8 @@ class Sequence(pydantic.BaseModel, _QueryProxyMixin):
         if user_metadata is None:
             raise ValueError("Metadata must have a `user_metadata` attribute.")
 
-        instance = cls(user_metadata=user_metadata)
-
-        # Initialize shared private attrs
-        instance._init_base_private(
+        return cls(
+            user_metadata=user_metadata,
             name=name,
             total_size_bytes=total_size_bytes,
             created_timestamp=resrc_manifest.created_timestamp,
@@ -133,33 +210,6 @@ class Sequence(pydantic.BaseModel, _QueryProxyMixin):
                 Session._from_resource_manifest(s) for s in resrc_manifest.sessions
             ],
         )
-
-        return instance
-
-    def _init_base_private(
-        self,
-        *,
-        name: str,
-        created_timestamp: int,
-        total_size_bytes: int,
-        sessions: List[Session],
-    ) -> None:
-        """
-        Internal helper to populate system-controlled private attributes.
-
-        This is used by factory methods (`_from_resource_info`) to set attributes
-        that are strictly read-only for the user.
-
-        Args:
-            name: The unique resource name.
-            created_timestamp: The UTC timestamp of creation.
-            total_size_bytes: The total size of the sequence in bytes.
-            sessions: The list of sessions associated with this sequence.
-        """
-        self._created_timestamp = created_timestamp
-        self._name = name
-        self._sessions = sessions
-        self._total_size_bytes = total_size_bytes
 
     # --- Properties ---
     @property
@@ -174,7 +224,11 @@ class Sequence(pydantic.BaseModel, _QueryProxyMixin):
             factory.
 
         ### Querying with **Query Builders**
-        The `topics` property is not queryable directly. Use [`QueryTopic`][mosaicolabs.models.query.QueryTopic] to query for topics.
+        The `topics` property is queryable via the [`QueryTopic`][mosaicolabs.models.query.QueryTopic] builder,
+        through the convenience methods:
+
+        * [`QueryTopic.with_name()`][mosaicolabs.models.query.builders.QueryTopic.with_name]
+        * [`QueryTopic.with_name_match()`][mosaicolabs.models.query.builders.QueryTopic.with_name_match]
 
         Example:
             ```python
@@ -194,70 +248,7 @@ class Sequence(pydantic.BaseModel, _QueryProxyMixin):
                         print(f"Topics: {[topic.name for topic in item.topics]}")
             ```
         """
-        return [t for s in self._sessions for t in s.topics]
-
-    @property
-    def name(self) -> str:
-        """
-        The unique identifier or resource name of the entity.
-
-        ### Querying with **Query Builders**
-        The `name` property is queryable when constructing a [`QuerySequence`][mosaicolabs.models.query.QuerySequence]
-        via the convenience methods:
-
-        * [`QuerySequence.with_name()`][mosaicolabs.models.query.builders.QuerySequence.with_name]
-        * [`QuerySequence.with_name_match()`][mosaicolabs.models.query.builders.QuerySequence.with_name_match]
-
-        Example:
-            ```python
-            from mosaicolabs import MosaicoClient, QuerySequence
-
-            with MosaicoClient.connect("localhost", 6726) as client:
-                # Filter for a specific data value (using constructor)
-                qresponse = client.query(
-                    QuerySequence().with_name_match("test_winter_2025_01_"),
-                )
-
-                # Inspect the response
-                if qresponse is not None:
-                    # Results are automatically grouped by Sequence for easier data management
-                    for item in qresponse:
-                        print(f"Sequence: {item.sequence.name}")
-                        print(f"Topics: {[topic.name for topic in item.topics]}")
-            ```
-        """
-        return self._name
-
-    @property
-    def created_timestamp(self) -> int:
-        """
-        The UTC timestamp indicating when the entity was created on the server.
-
-        ### Querying with **Query Builders**
-        The `created_timestamp` property is queryable when constructing a [`QuerySequence`][mosaicolabs.models.query.QuerySequence]
-        via the convenience method:
-
-        * [`QuerySequence.with_created_timestamp()`][mosaicolabs.models.query.builders.QuerySequence.with_created_timestamp]
-
-        Example:
-            ```python
-            from mosaicolabs import MosaicoClient, QuerySequence, Time
-
-            with MosaicoClient.connect("localhost", 6726) as client:
-                # Filter for a specific sequence creation time
-                qresponse = client.query(
-                    QuerySequence().with_created_timestamp(time_start=Time.from_float(1765432100)),
-                )
-
-                # Inspect the response
-                if qresponse is not None:
-                    # Results are automatically grouped by Sequence for easier data management
-                    for item in qresponse:
-                        print(f"Sequence: {item.sequence.name}")
-                        print(f"Topics: {[topic.name for topic in item.topics]}")
-            ```
-        """
-        return self._created_timestamp
+        return [t for s in self.sessions for t in s.topics]
 
     @property
     def updated_timestamps(self) -> List[int]:
@@ -267,24 +258,4 @@ class Sequence(pydantic.BaseModel, _QueryProxyMixin):
         ### Querying with **Query Builders**
         The `updated_timestamps` property is not queryable.
         """
-        return [s.created_timestamp for s in self._sessions]
-
-    @property
-    def sessions(self) -> List[Session]:
-        """
-        The list of sessions associated with this sequence.
-
-        ### Querying with **Query Builders**
-        The `sessions` property is not queryable.
-        """
-        return self._sessions
-
-    @property
-    def total_size_bytes(self) -> int:
-        """
-        The total physical storage footprint of the entity on the server in bytes.
-
-        ### Querying with **Query Builders**
-        The `total_size_bytes` property is not queryable.
-        """
-        return self._total_size_bytes
+        return [s.created_timestamp for s in self.sessions]

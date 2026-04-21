@@ -1,10 +1,7 @@
 use super::Error;
 use futures::stream::{FuturesUnordered, StreamExt};
 use log::{debug, trace};
-use mosaicod_core::{
-    params,
-    types::{self, Resource},
-};
+use mosaicod_core::{error::PublicResult as Result, params, types};
 use mosaicod_db as db;
 use mosaicod_query as query;
 use std::collections::{HashMap, HashSet};
@@ -24,7 +21,7 @@ impl Query {
         filter: query::Filter,
         ts_gw: query::TimeseriesEngineRef,
         db: db::Database,
-    ) -> Result<types::SequenceTopicGroupSet, Error> {
+    ) -> Result<types::SequenceTopicGroupSet> {
         let mut result: Option<types::SequenceTopicGroupSet> = None;
 
         let (seq_filt, top_filt, on_filt) = filter.into_parts();
@@ -75,13 +72,15 @@ impl Query {
                 );
 
                 let ts_engine = ts_gw.clone();
-                let max_concurrent = params::params().max_concurrent_chunk_queries;
+                let max_concurrent = params::params().max_concurrent_chunk_queries.value;
                 let semaphore = Arc::new(Semaphore::new(max_concurrent));
                 let mut search_jobs = FuturesUnordered::new();
 
-                let permit = semaphore.clone().acquire_owned().await.map_err(|e| {
-                    Error::ConcurrencyError(format!("semaphore acquire failed: {e}"))
-                })?;
+                let permit = semaphore
+                    .clone()
+                    .acquire_owned()
+                    .await
+                    .map_err(Error::from)?;
 
                 let db_clone = db.clone();
                 let on_topics = on_topics.clone();
@@ -96,6 +95,7 @@ impl Query {
                         Some(&on_topics),
                     )
                     .await?;
+
                     trace!("found {} chunks for provided filter", chunks.len());
 
                     // Extract a lookup structure holding all the topics for the current chunk set
@@ -131,9 +131,10 @@ impl Query {
 
                         let serialization_format =
                             topic.serialization_format().ok_or_else(|| {
-                                Error::MissingSerializationFormat(
-                                    topic.locator().to_owned().to_string(),
-                                )
+                                Error::MissingDbData(format!(
+                                    "missing serialization_format in topic `{locator}`",
+                                    locator = topic.locator()
+                                ))
                             })?;
 
                         let qr = ts_engine
@@ -176,6 +177,7 @@ impl Query {
                     let topics = topics_map
                         .values()
                         .filter(|e| topics_with_data.contains(&e.topic_id));
+
                     let mut groups = db::sequences_group_from_topics(&mut cx, topics).await?;
 
                     if include_timestamp_range {
@@ -184,11 +186,11 @@ impl Query {
                             .flat_map(|grp| &mut grp.topics)
                             .for_each(|topic| {
                                 topic.timestamp_range =
-                                    topics_timestamp_range.remove(topic.locator());
+                                    topics_timestamp_range.remove(&topic.to_string());
                             });
                     }
 
-                    Ok::<_, Error>(groups.into())
+                    Ok(groups.into())
                 });
 
                 // Collect results from all concurrent routines
@@ -228,7 +230,7 @@ async fn pre_fetch_topics(
     cx: &mut db::Cx<'_>,
     chunks: &[db::ChunkRecord],
     on_topics: Option<&Arc<Vec<db::TopicRecord>>>,
-) -> Result<TopicMap, Error> {
+) -> std::result::Result<TopicMap, Error> {
     let topic_map = if let Some(topics) = on_topics {
         topics.iter().map(|t| (t.topic_id, t.clone())).collect()
     } else {

@@ -1,4 +1,4 @@
-name: mosaicod Container
+name: mosaicod Release Container
 
 on:
   push:
@@ -95,8 +95,14 @@ jobs:
         with:
           images: ghcr.io/${{ github.repository_owner }}/mosaicod
           tags: |
-            type=match,pattern=mosaicod/(v.*),group=1
-            type=match,pattern=mosaicod/v(.*),group=1,suffix=
+            # Tag with x.y.z
+            type=match,pattern=mosaicod/v(.*),group=1
+            
+            # Tag with x.y
+            type=match,pattern=mosaicod/v(\d+\.\d+)\.\d+,group=1
+            
+            # Tag with latest
+            type=raw,value=latest
 
       - name: Create manifest list and push
         env:

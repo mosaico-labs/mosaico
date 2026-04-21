@@ -42,7 +42,6 @@ from rosbags.typesys import Stores
 
 from mosaicolabs.comm.mosaico_client import MosaicoClient
 from mosaicolabs.enum import (
-    OnErrorPolicy,
     SequenceStatus,
     SessionLevelErrorPolicy,
     TopicLevelErrorPolicy,
@@ -82,18 +81,17 @@ class ROSInjectionConfig:
         port (int): Port of the Mosaico server. Defaults to 6726.
         ros_distro (Optional[Stores]): The target ROS distribution for message parsing (e.g., Stores.ROS2_HUMBLE).
             See [`rosbags.typesys.Stores`](https://ternaris.gitlab.io/rosbags/topics/typesys.html#type-stores).
-        on_error (Union[SessionLevelErrorPolicy, OnErrorPolicy]): Behavior when an ingestion error occurs (Delete the partial sequence or Report the error).
+        on_error (SessionLevelErrorPolicy): Behavior when an ingestion error occurs (Delete the partial sequence or Report the error).
             Default: [`SessionLevelErrorPolicy.Report`][mosaicolabs.enum.SessionLevelErrorPolicy.Report]
-            Deprecated:
-                    [`OnErrorPolicy`][mosaicolabs.enum.OnErrorPolicy] is deprecated since v0.3.0; use
-                    [`SessionLevelErrorPolicy`][mosaicolabs.enum.SessionLevelErrorPolicy] instead.
-                    It will be removed in v0.4.0.
         topics_on_error (Union[TopicLevelErrorPolicy, Dict[str, TopicLevelErrorPolicy]]): Behavior when a topic write fails.
             Default: [`TopicLevelErrorPolicy.Raise`][mosaicolabs.enum.TopicLevelErrorPolicy.Raise]
             Set to a [`TopicLevelErrorPolicy`][mosaicolabs.enum.TopicLevelErrorPolicy] to apply the same policy to all topics.
             Set to a `Dict[str, TopicLevelErrorPolicy]` to apply different policies to different (subset of) topics.
         custom_msgs (Optional[List[Tuple]]): List of custom .msg definitions to register before loading.
-        topics (Optional[List[str]]): List of topics to filter, supporting glob patterns (e.g., ["/cam/*"]).
+        topics (Optional[List[str]]): List of topic patterns used to filter available topics.
+            Supports shell-style glob patterns (e.g., ["/cam/\\*", "\\*camera_info"]).
+            Patterns starting with "!" are treated as exclusions (e.g., ["\\!/cam/debug\\*"]).
+            Patterns are evaluated in ORDER (gitignore-like semantics). If None, all available topics are loaded.
         adapter_overrides (Optional[Dict[str, Type[ROSAdapterBase]]]): Mapping of topics to adapter overrides,
             allowing the use of specific adapters instead of the default for designated topics.
             Deafult: None
@@ -155,7 +153,7 @@ class ROSInjectionConfig:
     See [`rosbags.typesys.Stores`](https://ternaris.gitlab.io/rosbags/topics/typesys.html#type-stores).
     """
 
-    on_error: Union[SessionLevelErrorPolicy, OnErrorPolicy] = _DEFAULT_SESSION_ON_ERROR
+    on_error: SessionLevelErrorPolicy = _DEFAULT_SESSION_ON_ERROR
     """the `SequenceWriter` `on_error` behavior when a sequence write fails (Report vs Delete)"""
 
     topics_on_error: Union[TopicLevelErrorPolicy, Dict[str, TopicLevelErrorPolicy]] = (
@@ -180,7 +178,20 @@ class ROSInjectionConfig:
     """
 
     topics: Optional[List[str]] = None
-    """A list of specific topics to filter (supports glob patterns). If None, all compatible topics are loaded."""
+    """List of topic patterns used to filter available topics.
+
+    Supports shell-style glob patterns (e.g., "/cam/*", "*camera_info").
+    Patterns starting with '!' are treated as exclusions (e.g., "!/cam/debug*").
+    
+    **Pattern order matters**:
+        - Each non-'!' pattern adds matching topics to the selection.
+        - Each '!' pattern removes matching topics from the selection.
+        - Later patterns override earlier ones.
+        - If no inclusion pattern is provided, selection starts from ALL topics,
+          and only exclusion patterns reduce the set.
+
+    If None, all topics are loaded.
+    """
 
     adapter_overrides: Optional[Dict[str, Type[ROSAdapterBase]]] = None
     """A mapping of topics to adapter overrides, allowing the use of specific adapters instead of the default for designated topics."""
@@ -658,7 +669,14 @@ def ros_injector():
     parser.add_argument(
         "--topics",
         nargs="+",
-        help="Specific topics to filter (supports glob patterns like /cam/*)",
+        help=(
+            "Topic patterns to filter (supports glob wildcards like '/cam/*' or '*camera_info'). "
+            "Prefix a pattern with '!' to exclude it (e.g., '/cam/*' '!/cam/debug*'). "
+            "If only exclusions are provided, all topics are included except those excluded. "
+            "Patterns are evaluated in ORDER. "
+            "Note: in some shells (e.g., zsh), '!' triggers history expansion, so patterns "
+            'should be quoted or escaped (e.g., "!/cam/debug*" or \\\\!/cam/debug*). '
+        ),
     )
 
     # Metadata Arguments

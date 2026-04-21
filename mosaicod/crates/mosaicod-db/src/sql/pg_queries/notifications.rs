@@ -1,6 +1,6 @@
 use crate::{Error, core::AsExec, sql::schema};
 use log::trace;
-use mosaicod_core::types::{self, Resource};
+use mosaicod_core::types;
 
 /// Creates a new notification associated with a topic
 pub async fn topic_notification_create(
@@ -32,7 +32,7 @@ pub async fn topic_notification_create(
 /// Find all notifications associated with a topic name
 pub async fn topic_notifications_find_by_locator(
     exe: &mut impl AsExec,
-    loc: &types::TopicResourceLocator,
+    loc: &types::TopicLocator,
 ) -> Result<Vec<schema::TopicNotificationRecord>, Error> {
     trace!("searching notifications for {}", loc);
     let res = sqlx::query_as!(
@@ -42,7 +42,7 @@ pub async fn topic_notifications_find_by_locator(
           JOIN topic_t AS topic ON notification.topic_id = topic.topic_id
           WHERE topic.locator_name=$1
     "#,
-        loc.locator(),
+        loc as &str,
     )
     .fetch_all(exe.as_exec())
     .await?;
@@ -92,7 +92,7 @@ pub async fn sequence_notification_create(
 /// Find all reports associated to the sequence with the given name
 pub async fn sequence_notifications_find_by_name(
     exe: &mut impl AsExec,
-    loc: &types::SequenceResourceLocator,
+    loc: &types::SequenceLocator,
 ) -> Result<Vec<schema::SequenceNotificationRecord>, Error> {
     trace!("searching notifications for `{}`", loc);
     let res = sqlx::query_as!(
@@ -102,7 +102,7 @@ pub async fn sequence_notifications_find_by_name(
           JOIN sequence_t AS seq ON notification.sequence_id = seq.sequence_id
           WHERE seq.locator_name=$1
     "#,
-        loc.locator(),
+        loc as &str,
     )
     .fetch_all(exe.as_exec())
     .await?;

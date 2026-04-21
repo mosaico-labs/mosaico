@@ -1,8 +1,4 @@
-from typing import List
-
-from mosaicolabs.models import Serializable
-from mosaicolabs.models.data import Transform
-from mosaicolabs.models.types import MosaicoField
+from mosaicolabs import MosaicoField, MosaicoType, Serializable, Transform
 
 
 class FrameTransform(Serializable):
@@ -15,7 +11,7 @@ class FrameTransform(Serializable):
         This model is not included in the default ontology of Mosaico and is defined specifically for the ros-bridge module
     """
 
-    transforms: List[Transform] = MosaicoField(
+    transforms: MosaicoType.list_(Transform) = MosaicoField(
         description="List of coordinate frames transformations."
     )
     """List of coordinate frames transformations."""

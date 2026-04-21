@@ -1,12 +1,4 @@
 use std::str::FromStr;
-use thiserror::Error;
-
-/// Errors that can occur when working with [`Uuid`].
-#[derive(Error, Debug)]
-pub enum UuidError {
-    #[error("error while parsing uuid from string")]
-    FromStringParse(String),
-}
 
 /// A wrapper around the [`uuid::Uuid`] type to provide a Mosaico-specific UUID implementation.
 ///
@@ -64,10 +56,8 @@ impl From<Uuid> for uuid::Uuid {
 }
 
 impl FromStr for Uuid {
-    type Err = UuidError;
+    type Err = String;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(Self(
-            uuid::Uuid::try_parse(s).map_err(|e| UuidError::FromStringParse(e.to_string()))?,
-        ))
+        Ok(Self(uuid::Uuid::try_parse(s).map_err(|e| e.to_string())?))
     }
 }

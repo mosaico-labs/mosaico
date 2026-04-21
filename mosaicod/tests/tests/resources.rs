@@ -1,6 +1,5 @@
 #![allow(unused_crate_dependencies)]
 
-use mosaicod_core as core;
 use mosaicod_core::types;
 use mosaicod_db as db;
 use mosaicod_ext as ext;
@@ -33,8 +32,8 @@ async fn sequence_create(pool: sqlx::Pool<db::DatabaseType>) -> sqlx::Result<()>
         actions::sequence_create(&mut client, "test_malformed_sequence", Some("{"))
             .await
             .unwrap_err()
-            .message(),
-        "action error"
+            .code(),
+        tonic::Code::InvalidArgument
     );
 
     server.shutdown().await;
@@ -63,14 +62,15 @@ async fn sequence_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
         .unwrap();
 
     let app_metadata: marshal::flight::SequenceAppMetadata = info.app_metadata.try_into().unwrap();
-    let sequence_manifest: core::types::SequenceManifest = app_metadata.try_into().unwrap();
+    let sequence_metadata: types::SequenceMetadata<marshal::JsonMetadataBlob> =
+        app_metadata.try_into().unwrap();
 
-    assert!(sequence_manifest.sessions.is_empty());
+    assert!(sequence_metadata.sessions.is_empty());
     assert_eq!(
-        sequence_manifest.resource_locator.to_string(),
+        sequence_metadata.resource_locator.to_string(),
         sequence_name
     );
-    assert_ne!(sequence_manifest.created_at.as_i64(), 0);
+    assert_ne!(sequence_metadata.created_at.as_i64(), 0);
 
     let session_uuid = actions::session_create(&mut client, sequence_name).await;
     assert!(session_uuid.is_valid());
@@ -81,7 +81,8 @@ async fn sequence_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
         .unwrap();
 
     let app_metadata: marshal::flight::SequenceAppMetadata = info.app_metadata.try_into().unwrap();
-    let sequence_manifest: core::types::SequenceManifest = app_metadata.try_into().unwrap();
+    let sequence_manifest: types::SequenceMetadata<marshal::JsonMetadataBlob> =
+        app_metadata.try_into().unwrap();
 
     assert_eq!(
         sequence_manifest.resource_locator.to_string(),
@@ -92,7 +93,6 @@ async fn sequence_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
     assert_eq!(sequence_manifest.sessions[0].uuid, session_uuid);
     assert_ne!(sequence_manifest.sessions[0].created_at.as_i64(), 0);
     assert!(sequence_manifest.sessions[0].completed_at.is_none());
-    assert!(!sequence_manifest.sessions[0].locked);
     assert!(sequence_manifest.sessions[0].topics.is_empty());
 
     let topic_name = "test_sequence/my_topic";
@@ -124,7 +124,8 @@ async fn sequence_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
         .unwrap();
 
     let app_metadata: marshal::flight::SequenceAppMetadata = info.app_metadata.try_into().unwrap();
-    let sequence_manifest: core::types::SequenceManifest = app_metadata.try_into().unwrap();
+    let sequence_manifest: types::SequenceMetadata<marshal::JsonMetadataBlob> =
+        app_metadata.try_into().unwrap();
 
     assert_eq!(
         sequence_manifest.resource_locator.to_string(),
@@ -135,8 +136,8 @@ async fn sequence_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
     assert_eq!(sequence_manifest.sessions[0].uuid, session_uuid);
     assert_ne!(sequence_manifest.sessions[0].created_at.as_i64(), 0);
     assert!(sequence_manifest.sessions[0].completed_at.is_none());
-    assert!(!sequence_manifest.sessions[0].locked);
-    assert!(sequence_manifest.sessions[0].topics.is_empty());
+    assert_eq!(sequence_manifest.sessions[0].topics.len(), 1);
+    assert_eq!(sequence_manifest.sessions[0].topics[0], topic_name);
 
     let _ = actions::session_finalize(&mut client, &session_uuid).await;
 
@@ -146,7 +147,8 @@ async fn sequence_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
         .unwrap();
 
     let app_metadata: marshal::flight::SequenceAppMetadata = info.app_metadata.try_into().unwrap();
-    let sequence_manifest: core::types::SequenceManifest = app_metadata.try_into().unwrap();
+    let sequence_manifest: types::SequenceMetadata<marshal::JsonMetadataBlob> =
+        app_metadata.try_into().unwrap();
 
     assert_eq!(
         sequence_manifest.resource_locator.to_string(),
@@ -159,7 +161,7 @@ async fn sequence_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
     assert_ne!(sm.created_at.as_i64(), 0);
     assert_ne!(sm.completed_at.unwrap().as_i64(), 0);
     assert_eq!(sm.topics.len(), 1);
-    assert_eq!(sm.topics[0].clone().into_parts().0, topic_name);
+    assert_eq!(sm.topics[0].clone(), topic_name);
 
     assert_eq!(info.endpoint.len(), 1);
     let ep_metadata: marshal::flight::TopicAppMetadata =
@@ -228,8 +230,8 @@ async fn topic_create(pool: sqlx::Pool<db::DatabaseType>) -> sqlx::Result<()> {
         actions::topic_create(&mut client, &uuid, "test_sequence/my_topic", Some("{"))
             .await
             .unwrap_err()
-            .message(),
-        "action error"
+            .code(),
+        tonic::Code::InvalidArgument
     );
 
     server.shutdown().await;
@@ -409,8 +411,8 @@ async fn do_put(pool: sqlx::Pool<db::DatabaseType>) {
         actions::do_put(&mut client, &uuid, "test_sequence/my_topic", batches, true)
             .await
             .unwrap_err()
-            .message(),
-        "missing descriptor in request"
+            .code(),
+        tonic::Code::InvalidArgument,
     );
 
     server.shutdown().await;
@@ -445,8 +447,8 @@ async fn session_finalize(pool: sqlx::Pool<db::DatabaseType>) {
         actions::session_finalize(&mut client, &session_uuid)
             .await
             .unwrap_err()
-            .message(),
-        "facade error"
+            .code(),
+        tonic::Code::FailedPrecondition,
     );
 
     let batches = vec![ext::arrow::testing::dummy_batch()];
@@ -471,8 +473,8 @@ async fn session_finalize(pool: sqlx::Pool<db::DatabaseType>) {
         actions::session_finalize(&mut client, &session_uuid)
             .await
             .unwrap_err()
-            .message(),
-        "facade error"
+            .code(),
+        tonic::Code::FailedPrecondition,
     );
 
     server.shutdown().await;

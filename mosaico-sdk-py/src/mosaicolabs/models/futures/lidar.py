@@ -97,7 +97,7 @@ class Lidar(Serializable):
     Laser beam index (ring / channel / line) that fired each point.
 
     Identifies which physical emitter in the sensor array produced the return.
-    Equivalent to the ``ring`` field commonly found in ROS ``PointCloud2`` messages
+    Equivalent to the `ring` field commonly found in ROS `PointCloud2` messages
     from multi-beam sensors such as Velodyne or Ouster.
     """
 
@@ -121,7 +121,7 @@ class Lidar(Serializable):
 
     Captured passively by the sensor between laser pulses. Useful as a proxy
     for ambient illumination or for filtering sun-noise artefacts.
-    Exposed as the ``ambient`` channel in Ouster drivers.
+    Exposed as the `ambient` channel in Ouster drivers.
     """
 
     azimuth: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
@@ -143,8 +143,8 @@ class Lidar(Serializable):
     """
     Per-point validity or confidence flags.
     
-    Stored as a manufacturer-specific bitmask (equivalent to the ``tag`` or
-    ``flags`` fields in Ouster point clouds). Individual bits may signal
+    Stored as a manufacturer-specific bitmask (equivalent to the `tag` or
+    `flags` fields in Ouster point clouds). Individual bits may signal
     saturated returns, calibration issues, or other quality indicators.
     """
 

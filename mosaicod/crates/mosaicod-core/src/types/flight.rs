@@ -1,3 +1,4 @@
+use crate::types;
 use crate::types::TimestampRange;
 
 /// Message used to initiate the flight communication to upload a new datastream
@@ -14,7 +15,7 @@ pub struct GetFlightInfoCmd {
 
 pub struct TicketTopic {
     /// Locator for the topic
-    pub locator: String, //(cabba) TODO: replace this with a resource locator
+    pub locator: types::TopicLocator,
     /// Optional timestamp range used to limit the data stream
     pub timestamp_range: Option<TimestampRange>,
 }

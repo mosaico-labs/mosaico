@@ -21,11 +21,9 @@ def test_invalid_timestamp_column(
     assert seqhandler is not None
     # --- Topic 1 ---
 
+    stransformer = SyncTransformer(target_fps=1, timestamp_column="invalid-name")
     for chunk in DataFrameExtractor(seqhandler).to_pandas_chunks():
         with pytest.raises(ValueError, match="Unable to find time column"):
-            stransformer = SyncTransformer(
-                target_fps=1, timestamp_column="invalid-name"
-            )
             _ = stransformer.transform(chunk)
 
     # free resources
@@ -60,11 +58,11 @@ def test_sync_unbounded(
     min_timestamp_ns = min(imu_tstamps_ns[0], gps_tstamps_ns[0])
     max_timestamp_ns = max(imu_tstamps_ns[-1], gps_tstamps_ns[-1])
 
+    stransformer = SyncTransformer(target_fps=target_fps)
     for chunk in DataFrameExtractor(seqhandler).to_pandas_chunks(
         topics=selection,
         window_sec=1,
     ):
-        stransformer = SyncTransformer(target_fps=target_fps)
         synched_df = stransformer.transform(chunk)
         # remove the first diff which is NaN
         deltas = synched_df["timestamp_ns"].diff(1)[1:]

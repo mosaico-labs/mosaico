@@ -25,6 +25,11 @@
       },
       {
         "ordinal": 4,
+        "name": "path_in_store",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
         "name": "creation_unix_tstamp",
         "type_info": "Int8"
       }
@@ -37,6 +42,7 @@
       false,
       false,
       true,
+      false,
       false
     ]
   },

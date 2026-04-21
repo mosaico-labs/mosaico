@@ -5,8 +5,10 @@
 use datafusion::execution::object_store::{DefaultObjectStoreRegistry, ObjectStoreRegistry};
 use futures::stream::TryStreamExt;
 use log::trace;
-use mosaicod_core::{params, traits};
-use object_store::{ObjectStore, PutPayload, aws::AmazonS3Builder, local::LocalFileSystem};
+use mosaicod_core::traits;
+use object_store::{
+    ObjectStore, ObjectStoreExt, PutPayload, aws::AmazonS3Builder, local::LocalFileSystem,
+};
 use parquet::arrow::async_reader::ParquetObjectReader;
 use std::sync::Arc;
 use thiserror::Error;
@@ -16,17 +18,17 @@ use url::Url;
 pub enum Error {
     #[error("storage backend error")]
     BackendError(#[from] object_store::Error),
+    #[error("unable to configure object store: missing {0}")]
+    BadConfiguration(String),
     #[error("bad url")]
     BadUrl(#[from] url::ParseError),
     #[error("io error")]
     IoError(#[from] std::io::Error),
-    #[error("unable to configure object store: missing {0}")]
-    BadConfiguration(String),
 }
 
-impl Error {
-    pub fn bad_configuration(field: &str) -> Self {
-        Self::BadConfiguration(field.to_owned())
+impl mosaicod_core::error::PublicError for Error {
+    fn error(&self) -> mosaicod_core::Error {
+        mosaicod_core::Error::internal(Some("store failed".to_owned()))
     }
 }
 
@@ -43,23 +45,23 @@ pub struct S3Config {
     /// Endpoint name
     pub endpoint: String,
     pub access_key: String,
-    pub secret_key: params::Hidden,
+    pub secret_key: String,
 }
 
 impl S3Config {
     /// Returns an error is the configuration contains empty fields.
     pub fn validate(&self) -> Result<(), Error> {
         if self.bucket.is_empty() {
-            return Err(Error::bad_configuration("bucket"));
+            return Err(Error::BadConfiguration("bucket".to_owned()));
         }
         if self.endpoint.is_empty() {
-            return Err(Error::bad_configuration("endpoint"));
+            return Err(Error::BadConfiguration("endpoint".to_owned()));
         }
         if self.access_key.is_empty() {
-            return Err(Error::bad_configuration("access key"));
+            return Err(Error::BadConfiguration("access key".to_owned()));
         }
         if self.secret_key.is_empty() {
-            return Err(Error::bad_configuration("secret key"));
+            return Err(Error::BadConfiguration("secret key".to_owned()));
         }
         Ok(())
     }
@@ -123,7 +125,7 @@ impl Store {
                 .with_endpoint(&config.endpoint)
                 .with_bucket_name(&config.bucket)
                 .with_access_key_id(config.access_key)
-                .with_secret_access_key(config.secret_key.take())
+                .with_secret_access_key(config.secret_key)
                 .with_allow_http(true)
                 .build()?,
         );
@@ -173,7 +175,7 @@ impl Store {
     /// Returns a list of elements located at the given `path`.
     ///
     /// If an extension is provided, the results will be filtered to include only
-    /// the elements whose extension matches exactly.es extacly
+    /// the elements whose extension matches exactly.es exactly
     pub async fn list(
         &self,
         path: impl AsRef<std::path::Path>,

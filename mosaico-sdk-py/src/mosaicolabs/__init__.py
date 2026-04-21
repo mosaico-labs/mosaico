@@ -20,7 +20,6 @@ from .comm import GRPCCompression as GRPCCompression, MosaicoClient as MosaicoCl
 from .enum import (
     GRPCCompressionAlgorithm as GRPCCompressionAlgorithm,
     GRPCCompressionLevel as GRPCCompressionLevel,
-    OnErrorPolicy as OnErrorPolicy,
     SequenceStatus as SequenceStatus,
     SerializationFormat as SerializationFormat,
     SessionLevelErrorPolicy as SessionLevelErrorPolicy,
@@ -119,6 +118,7 @@ from .models.sensors import (
     GPSStatus as GPSStatus,
     Image as Image,
     ImageFormat as ImageFormat,
+    Joy as Joy,
     Magnetometer as Magnetometer,
     NMEASentence as NMEASentence,
     Pressure as Pressure,

@@ -1,7 +1,7 @@
 use super::Error;
 use bincode::{Decode, Encode};
 use mosaicod_core::types;
-use mosaicod_core::types::{SessionManifest, UuidError};
+use mosaicod_core::types::{SessionMetadata, TopicLocator};
 use serde::{Deserialize, Serialize};
 // ////////////////////////////////////////////////////////////////////////////
 // GET FLIGHT INFO CMD
@@ -80,28 +80,33 @@ pub struct SequenceAppMetadata {
     sessions: Vec<SessionAppMetadata>,
 }
 
-impl From<types::SequenceManifest> for SequenceAppMetadata {
-    fn from(value: types::SequenceManifest) -> Self {
+impl<M> From<types::SequenceMetadata<M>> for SequenceAppMetadata {
+    fn from(value: types::SequenceMetadata<M>) -> Self {
         Self {
             created_at_ns: value.created_at.as_i64(),
-            resource_locator: value.resource_locator.into(),
+            resource_locator: value.resource_locator.to_string(),
             sessions: value.sessions.into_iter().map(Into::into).collect(),
         }
     }
 }
 
-impl TryFrom<SequenceAppMetadata> for types::SequenceManifest {
+/// Used for testing.
+impl<M> TryFrom<SequenceAppMetadata> for types::SequenceMetadata<M> {
     type Error = super::Error;
 
     fn try_from(value: SequenceAppMetadata) -> Result<Self, Self::Error> {
         let res = Self {
             created_at: value.created_at_ns.into(),
-            resource_locator: value.resource_locator.into(),
+            resource_locator: value
+                .resource_locator
+                .parse()
+                .map_err(|_| Error::DeserializationError(value.resource_locator))?,
             sessions: value
                 .sessions
                 .into_iter()
                 .map(TryInto::try_into)
                 .collect::<Result<Vec<_>, _>>()?,
+            user_metadata: None,
         };
 
         Ok(res)
@@ -135,33 +140,34 @@ pub struct SessionAppMetadata {
     locked: bool,
 }
 
-impl From<types::SessionManifest> for SessionAppMetadata {
-    fn from(value: types::SessionManifest) -> Self {
+impl From<types::SessionMetadata> for SessionAppMetadata {
+    fn from(value: types::SessionMetadata) -> Self {
         Self {
             uuid: value.uuid.to_string(),
             created_at_ns: value.created_at.as_i64(),
             completed_at_ns: value.completed_at.map(Into::into),
-            topics: value.topics.into_iter().map(Into::into).collect(),
-            locked: value.locked,
+            topics: value.topics.into_iter().map(|x| x.to_string()).collect(),
+            locked: value.completed_at.is_some(),
         }
     }
 }
 
-impl TryFrom<SessionAppMetadata> for types::SessionManifest {
+// Used for debug.
+impl TryFrom<SessionAppMetadata> for types::SessionMetadata {
     type Error = super::Error;
 
     fn try_from(value: SessionAppMetadata) -> Result<Self, Self::Error> {
-        let uuid: types::Uuid = value
-            .uuid
-            .parse()
-            .map_err(|e: UuidError| Error::DeserializationError(e.to_string()))?;
+        let uuid: types::Uuid = value.uuid.parse().map_err(Error::DeserializationError)?;
 
-        Ok(SessionManifest {
+        Ok(SessionMetadata {
             uuid,
             created_at: value.created_at_ns.into(),
             completed_at: value.completed_at_ns.map(Into::into),
-            topics: value.topics.into_iter().map(Into::into).collect(),
-            locked: value.locked,
+            topics: value
+                .topics
+                .into_iter()
+                .map(|x| x.parse().map_err(|_| Error::DeserializationError(x)))
+                .collect::<Result<Vec<TopicLocator>, _>>()?,
         })
     }
 }
@@ -179,15 +185,17 @@ struct TicketTopic {
 impl From<types::flight::TicketTopic> for TicketTopic {
     fn from(value: types::flight::TicketTopic) -> Self {
         Self {
-            locator: value.locator,
+            locator: value.locator.into(),
             timestamp_ns_start: value.timestamp_range.as_ref().map(|tsr| tsr.start.into()),
             timestamp_ns_end: value.timestamp_range.map(|tsr| tsr.end.into()),
         }
     }
 }
 
-impl From<TicketTopic> for types::flight::TicketTopic {
-    fn from(value: TicketTopic) -> Self {
+impl TryFrom<TicketTopic> for types::flight::TicketTopic {
+    type Error = super::Error;
+
+    fn try_from(value: TicketTopic) -> Result<Self, Error> {
         let ub: types::Timestamp = value
             .timestamp_ns_end
             .map_or_else(types::Timestamp::unbounded_pos, |v| v.into());
@@ -199,10 +207,13 @@ impl From<TicketTopic> for types::flight::TicketTopic {
 
         let timestamp_range = if ts.is_unbounded() { None } else { Some(ts) };
 
-        Self {
-            locator: value.locator,
+        Ok(Self {
+            locator: value
+                .locator
+                .parse::<types::TopicLocator>()
+                .map_err(|_| Error::DeserializationError(value.locator))?,
             timestamp_range,
-        }
+        })
     }
 }
 
@@ -219,7 +230,7 @@ pub fn ticket_topic_from_binary(v: &[u8]) -> Result<types::flight::TicketTopic, 
     let (ticket, _): (TicketTopic, usize) = bincode::decode_from_slice(v, config)
         .map_err(|e| super::Error::DeserializationError(e.to_string()))?;
 
-    Ok(ticket.into())
+    ticket.try_into()
 }
 
 // ////////////////////////////////////////////////////////////////////////////
@@ -270,11 +281,11 @@ pub struct TopicAppMetadata {
 }
 
 impl TopicAppMetadata {
-    pub fn new(metadata: types::TopicProperties) -> Self {
+    pub fn new(metadata: types::TopicMetadataProperties) -> Self {
         Self {
             created_at_ns: metadata.created_at.as_i64(),
             completed_at_ns: metadata.completed_at.map(Into::into),
-            locked: metadata.locked,
+            locked: metadata.completed_at.is_some(),
             resource_locator: metadata.resource_locator.to_string(),
             info: None,
         }

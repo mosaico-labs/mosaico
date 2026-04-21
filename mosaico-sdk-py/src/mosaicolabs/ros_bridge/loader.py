@@ -44,6 +44,95 @@ class LoaderErrorPolicy(Enum):
     """Immediately halts execution and raises the exception. Best used for critical data ingestion where missing even a single record is unacceptable."""
 
 
+# Keep free to ease testing
+def _filter_topics(
+    available_topics: Dict[str, TopicInfo], requested_topics: Optional[List[str]]
+) -> Dict[str, TopicInfo]:
+    """
+    Resolve the set of topics to be processed based on user-provided glob patterns.
+
+    This method filters `available_topics` according to the patterns defined in
+    `self._requested_topics`, using ORDER-DEPENDENT (gitignore-like) semantics.
+    Pattern semantics:
+        - Patterns use standard shell-style wildcards (via `fnmatch`):
+            * "*" matches any sequence of characters
+            * "?" matches any single character
+        - Patterns NOT starting with "!" are treated as inclusion patterns.
+        - Patterns starting with "!" are treated as exclusion patterns.
+
+    Patterns are evaluated sequentially, and each pattern modifies the current
+    selection of topics. Evaluation rules:
+        - Patterns are processed in the order they appear.
+        - Each non-"!" pattern adds matching topics to the result set.
+        - Each "!" pattern removes matching topics from the result set.
+        - Later patterns override earlier ones.
+        - If no inclusion pattern is present, the initial set is ALL available topics,
+          which are then filtered by subsequent exclusion patterns.
+
+    Args:
+        available_topics (Dict[str, TopicInfo]):
+            Mapping of topic names to their associated metadata.
+        requested_topics (Optional[List[str]]):
+            Optional list of topic names or patterns to filter results.
+            Only topics matching any of the provided values will be returned.
+
+    Examples:
+        ["/gps/*", "!/gps/leica/time_reference"]
+            → include all /gps/* topics except the Leica time_reference topic
+
+        ["!/gps/*", "/gps/leica/time_reference"]
+            → exclude all /gps/* topics, then re-include the specific topic
+
+        ["foo*"]
+            → include only topics starting with "foo"
+
+        ["!foo*"]
+            → include all topics except those starting with "foo"
+
+        []
+            → include all available topics
+
+    Warnings:
+        - A warning is logged if a pattern matches no topics.
+
+    Side Effects:
+        - Returns a filtered dictionary of topics (no longer sets internal state).
+    """
+
+    if not requested_topics:
+        return available_topics
+
+    all_keys = set(available_topics.keys())
+
+    # If there is at least one include pattern, we start empty.
+    # Otherwise we start from all topics (implicit include-all).
+    has_include = any(not p.startswith("!") for p in requested_topics)
+
+    if has_include:
+        resolved_keys = set()
+    else:
+        resolved_keys = set(all_keys)
+
+    for pattern in requested_topics:
+        exclude_me = pattern.startswith("!")
+        raw_pattern = pattern[1:] if exclude_me else pattern
+
+        matches = fnmatch.filter(all_keys, raw_pattern)
+
+        if not matches:
+            logger.warning(f"Topic pattern '{pattern}' matched nothing in this bag.")
+            continue
+
+        match_set = set(matches)
+
+        if exclude_me:
+            resolved_keys -= match_set
+        else:
+            resolved_keys |= match_set
+
+    return {key: val for key, val in available_topics.items() if key in resolved_keys}
+
+
 class ROSLoader:
     """
     Unified loader for reading and deserializing ROS 1 (.bag) and ROS 2 (.mcap, .db3) data.
@@ -55,7 +144,8 @@ class ROSLoader:
 
     ### Key Features
     * **Multi-Format Support**: Automatically detects and handles ROS 1 and ROS 2 bag containers.
-    * **Semantic Filtering**: Supports glob-style patterns (e.g., `/sensors/*`) to load only relevant data channels.
+    * **Semantic Filtering**: Supports glob-style patterns (e.g., `/sensors/*`, `*camera_info`) to include relevant data channels,
+        with `!`-prefixed patterns for exclusion (e.g., `!/sensors/debug*`). Patterns are evaluated in ORDER (gitignore-like semantics).
     * **Dynamic Schema Resolution**: Integrates with the [`ROSTypeRegistry`][mosaicolabs.ros_bridge.ROSTypeRegistry] to resolve proprietary message types on-the-fly.
     * **Memory Efficient**: Implements a generator-based iteration pattern to process large bags without loading them into RAM.
 
@@ -99,7 +189,8 @@ class ROSLoader:
 
         Args:
             file_path: Path to the bag file or directory.
-            topics: A single topic name, a list of names, or glob patterns.
+            topics: A single topic name, a list of names, or glob patterns. Patterns are evaluated in ORDER (gitignore-like semantics).
+                If None, all available topics are loaded.
             typestore_name: The target ROS distribution for default message schemas.
                 See [`rosbags.typesys.Stores`](https://ternaris.gitlab.io/rosbags/topics/typesys.html#type-stores).
             error_policy: How to handle errors during message iteration.
@@ -172,38 +263,20 @@ class ROSLoader:
         except Exception as e:
             raise IOError(f"Could not open bag file: '{e}'") from e
 
-        available_topics = self._reader.topics
         self._connections = []
-        self._resolved_topics = {}
-
-        # If no specific topics requested, take all
-        if not self._requested_topics:
-            self._connections = self._reader.connections
-            self._resolved_topics = available_topics
-            return
-
-        # Smart Filtering: Handle Glob patterns (e.g. "/cam_*/image")
-        target_topics = {}
-        for pattern in self._requested_topics:
-            # fnmatch allows using * and ? wildcards
-            matches = fnmatch.filter(available_topics.keys(), pattern)
-            if not matches:
-                logger.warning(
-                    f"Topic pattern '{pattern}' matched nothing in this bag."
-                )
-            target_topics.update(
-                {key: val for key, val in available_topics.items() if key in matches}
-            )
-
-        self._resolved_topics = target_topics
+        self._resolved_topics = _filter_topics(
+            self._reader.topics, self._requested_topics
+        )
 
         # Filter connections
         for conn in self._reader.connections:
-            if conn.topic in target_topics:
+            if conn.topic in self._resolved_topics:
                 self._connections.append(conn)
 
         if not self._connections:
-            logger.warning("Loader initialized, but no connections matched criteria.")
+            raise RuntimeError(
+                "Unanble to initialize ROSLoader: No connections matched criteria. Try checking the topics filter, if any."
+            )
 
     # --- Properties ---
     def msg_count(self, topic: Optional[str] = None) -> int:

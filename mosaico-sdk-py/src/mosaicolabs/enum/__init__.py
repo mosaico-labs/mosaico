@@ -4,7 +4,6 @@ from .grpc_compression import (
     GRPCCompressionAlgorithm as GRPCCompressionAlgorithm,
     GRPCCompressionLevel as GRPCCompressionLevel,
 )
-from .on_error_policy import OnErrorPolicy as OnErrorPolicy
 from .serialization_format import SerializationFormat as SerializationFormat
 from .session_level_error_policy import (
     SessionLevelErrorPolicy as SessionLevelErrorPolicy,

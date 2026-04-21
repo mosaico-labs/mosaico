@@ -22,15 +22,6 @@ pub struct SessionRecord {
     pub(crate) completion_unix_tstamp: Option<i64>,
 }
 
-impl From<SessionRecord> for types::Identifiers {
-    fn from(value: SessionRecord) -> Self {
-        Self {
-            id: value.session_id,
-            uuid: value.session_uuid.into(),
-        }
-    }
-}
-
 impl SessionRecord {
     /// Creates a new `SessionRecord` for a given sequence.
     ///
@@ -57,12 +48,5 @@ impl SessionRecord {
 
     pub fn uuid(&self) -> types::Uuid {
         self.session_uuid.into()
-    }
-
-    pub fn identifiers(&self) -> types::Identifiers {
-        types::Identifiers {
-            uuid: self.uuid(),
-            id: self.session_id,
-        }
     }
 }

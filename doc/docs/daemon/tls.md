@@ -12,7 +12,7 @@ It looks for these credentials via the following [environment variables](env.md#
 * `MOSAICOD_TLS_CERT_FILE`: The path to the PEM-encoded X.509 certificate.
 * `MOSAICOD_TLS_PRIVATE_KEY_FILE`: The path to the file containing the PEM-encoded RSA private key.
 
-???tip "Use a reverse proxy for TLS termination"
+??? tip "Use a reverse proxy for TLS termination"
     If you prefer to manage TLS termination separately, you can run `mosaicod` without the `--tls` flag and use a reverse proxy (like [Nginx](https://nginx.org/) or [Caddy](https://caddyserver.com/)) to handle SSL termination. 
     This allows you to centralize TLS management and offload encryption tasks from the daemon.
 

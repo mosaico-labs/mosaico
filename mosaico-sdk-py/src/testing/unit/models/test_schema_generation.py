@@ -1296,50 +1296,129 @@ def test_not_supported_annotation():
             test2: Union[int, float, str]
 
 
-def test_no_MosaicoType():
-    class Test1(Serializable):
+def test_MosaicoType_required_fields():
+    class Test_required_fields(Serializable):
         x: int
+        y: MosaicoType.float16
 
-    class Test2(Serializable):
-        x: MosaicoType.float16
+    pyarrow_struct_test_required_fields = pa.struct(
+        [
+            pa.field("x", pa.int64(), nullable=False),
+            pa.field("y", pa.float16(), nullable=False),
+        ]
+    )
 
-    class Test3(Serializable):
-        x: Annotated[int, pa.timestamp("us", tz="UTC")]
+    assert (
+        Test_required_fields.__msco_pyarrow_struct__
+        == pyarrow_struct_test_required_fields
+    )
 
-    class Test4(Serializable):
+
+def test_MosaicoType_optional_fields():
+    class Test_optional_fields(Serializable):
         x: Optional[MosaicoType.float32] = None
+        y: Optional[float] = None
 
-    class Test5(Serializable):
+    pyarrow_struct_test_optional_fields = pa.struct(
+        [
+            pa.field("x", pa.float32(), nullable=True),
+            pa.field("y", pa.float64(), nullable=True),
+        ]
+    )
+
+    assert (
+        Test_optional_fields.__msco_pyarrow_struct__
+        == pyarrow_struct_test_optional_fields
+    )
+
+
+def test_MosaicoType_annotate():
+    class Test_annotate(Serializable):
+        x: Annotated[int, pa.timestamp("us", tz="UTC")]
+        y: MosaicoType.annotate(int, pa.timestamp("us", tz="UTC"))
+
+    pyarrow_struct_test_annotate = pa.struct(
+        [
+            pa.field("x", pa.timestamp("us", tz="UTC"), nullable=False),
+            pa.field("y", pa.timestamp("us", tz="UTC"), nullable=False),
+        ]
+    )
+
+    assert Test_annotate.__msco_pyarrow_struct__ == pyarrow_struct_test_annotate
+
+
+def test_MosaicoType_list():
+    class Test_list(Serializable):
         x: MosaicoType.list_(str)
+        y: MosaicoType.list_(Vector3d, list_size=3)
+        z: MosaicoType.list_(Annotated[int, pa.timestamp("us", tz="UTC")])
+        w: MosaicoType.list_(MosaicoType.annotate(int, pa.timestamp("us", tz="UTC")))
 
-    class Test6(Serializable):
-        x: MosaicoType.list_(Vector3d, list_size=3)
-
-    class Test7(Serializable):
-        x: MosaicoType.list_(Annotated[int, pa.timestamp("us", tz="UTC")])
-
-    class Test8(Serializable):
-        x: MosaicoType.annotate(int, pa.timestamp("us", tz="UTC"))
-
-    pyarrow_struct_1 = pa.struct([pa.field("x", pa.int64(), nullable=False)])
-    pyarrow_struct_2 = pa.struct([pa.field("x", pa.float16(), nullable=False)])
-    pyarrow_struct_3 = pa.struct(
-        [pa.field("x", pa.timestamp("us", tz="UTC"), nullable=False)]
-    )
-    pyarrow_struct_4 = pa.struct([pa.field("x", pa.float32(), nullable=True)])
-    pyarrow_struct_5 = pa.struct([pa.field("x", pa.list_(pa.string()), nullable=False)])
-    pyarrow_struct_6 = pa.struct(
-        [pa.field("x", pa.list_(vector3d, list_size=3), nullable=False)]
-    )
-    pyarrow_struct_7 = pa.struct(
-        [pa.field("x", pa.list_(pa.timestamp("us", tz="UTC")), nullable=False)]
+    pyarrow_struct_test_list = pa.struct(
+        [
+            pa.field("x", pa.list_(pa.string()), nullable=False),
+            pa.field("y", pa.list_(vector3d, list_size=3), nullable=False),
+            pa.field("z", pa.list_(pa.timestamp("us", tz="UTC")), nullable=False),
+            pa.field("w", pa.list_(pa.timestamp("us", tz="UTC")), nullable=False),
+        ]
     )
 
-    assert Test1.__msco_pyarrow_struct__ == pyarrow_struct_1
-    assert Test2.__msco_pyarrow_struct__ == pyarrow_struct_2
-    assert Test3.__msco_pyarrow_struct__ == pyarrow_struct_3
-    assert Test4.__msco_pyarrow_struct__ == pyarrow_struct_4
-    assert Test5.__msco_pyarrow_struct__ == pyarrow_struct_5
-    assert Test6.__msco_pyarrow_struct__ == pyarrow_struct_6
-    assert Test7.__msco_pyarrow_struct__ == pyarrow_struct_7
-    assert Test8.__msco_pyarrow_struct__ == pyarrow_struct_3
+    assert Test_list.__msco_pyarrow_struct__ == pyarrow_struct_test_list
+
+
+def test_MosaicoType_matrix():
+    class Test_matrix(Serializable):
+        x: MosaicoType.matrix(MosaicoType.float64)
+        k: MosaicoType.matrix(MosaicoType.float16, rows=2)
+        j: MosaicoType.matrix(MosaicoType.binary, cols=4)
+        y: MosaicoType.matrix(MosaicoType.float64, 3, 9)
+        z: MosaicoType.matrix(int)
+        w: MosaicoType.matrix(Vector3d)
+
+    pyarrow_struct_test_matrix = pa.struct(
+        [
+            pa.field("x", pa.list_(pa.list_(pa.float64())), nullable=False),
+            pa.field("k", pa.list_(pa.list_(pa.float16()), 2), nullable=False),
+            pa.field("j", pa.list_(pa.list_(pa.binary(), 4)), nullable=False),
+            pa.field("y", pa.list_(pa.list_(pa.float64(), 9), 3), nullable=False),
+            pa.field("z", pa.list_(pa.list_(pa.int64())), nullable=False),
+            pa.field("w", pa.list_(pa.list_(vector3d)), nullable=False),
+        ]
+    )
+
+    assert Test_matrix.__msco_pyarrow_struct__ == pyarrow_struct_test_matrix
+
+
+def test_MosaicoType_tensor():
+    class Test_tensor(Serializable):
+        x: MosaicoType.tensor3d(MosaicoType.float64)
+        k: MosaicoType.tensor3d(MosaicoType.float16, depth=3)
+        j: MosaicoType.tensor3d(MosaicoType.float16, rows=3)
+        ll: MosaicoType.tensor3d(MosaicoType.float16, cols=10)
+        y: MosaicoType.tensor3d(MosaicoType.float64, 10, 2, 3)
+        z: MosaicoType.tensor3d(int)
+        w: MosaicoType.tensor3d(Vector3d)
+
+    pyarrow_struct_test_tensor = pa.struct(
+        [
+            pa.field("x", pa.list_(pa.list_(pa.list_(pa.float64()))), nullable=False),
+            pa.field(
+                "k", pa.list_(pa.list_(pa.list_(pa.float16())), 3), nullable=False
+            ),
+            pa.field(
+                "j", pa.list_(pa.list_(pa.list_(pa.float16()), 3)), nullable=False
+            ),
+            pa.field(
+                "ll", pa.list_(pa.list_(pa.list_(pa.float16(), 10))), nullable=False
+            ),
+            pa.field(
+                "y",
+                pa.list_(pa.list_(pa.list_(pa.float64(), 3), 2), 10),
+                nullable=False,
+            ),
+            pa.field("z", pa.list_(pa.list_(pa.list_(pa.int64()))), nullable=False),
+            pa.field("w", pa.list_(pa.list_(pa.list_(vector3d))), nullable=False),
+        ]
+    )
+
+    assert Test_tensor.__msco_pyarrow_struct__ == pyarrow_struct_test_tensor

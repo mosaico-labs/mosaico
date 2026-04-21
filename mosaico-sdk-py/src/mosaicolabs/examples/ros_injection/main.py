@@ -83,7 +83,6 @@ def main():
             port=MOSAICO_PORT,
             enable_tls=ENABLE_TLS,
             mosaico_api_key=API_KEY,
-            # on_error=OnErrorPolicy.Report,
             file_path=out_bag_file,
             sequence_name=out_bag_file.stem,  # Sequence name derived from filename
             metadata={

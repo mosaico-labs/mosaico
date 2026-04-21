@@ -1,3 +1,5 @@
+use mosaicod_core as core;
+
 /// Errors that can occur during the construction or deserialization of a Query.
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -34,5 +36,11 @@ impl Error {
 
     pub fn bad_field(field_name: String) -> Self {
         Self::BadField { field: field_name }
+    }
+}
+
+impl core::error::PublicError for Error {
+    fn error(&self) -> core::Error {
+        core::Error::internal(Some("query engine failed".to_owned()))
     }
 }

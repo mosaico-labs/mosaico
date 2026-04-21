@@ -1,4 +1,5 @@
 use super::{requests, responses};
+use mosaicod_core as core;
 use serde::Serialize;
 use thiserror::Error;
 
@@ -18,6 +19,19 @@ pub enum ActionError {
     /// Failed to serialize the response.
     #[error("response serialization error: {0}")]
     ResponseSerializationError(String),
+}
+
+impl core::error::PublicError for ActionError {
+    fn error(&self) -> core::Error {
+        match self {
+            Self::MissingAction(_) | Self::BodyDeserializationError(_) => {
+                core::Error::bad_request(self.to_string())
+            }
+            Self::ResponseSerializationError(_) => {
+                core::Error::internal(Some("internal serialization failed".to_owned()))
+            }
+        }
+    }
 }
 
 /// Represents the list of actions allowed in the system.

@@ -4,6 +4,7 @@ description: API Reference for Sensors Models
 ---
 
 ::: mosaicolabs.models.sensors.IMU
+::: mosaicolabs.models.sensors.Joy
 ::: mosaicolabs.models.sensors.GPSStatus
 ::: mosaicolabs.models.sensors.GPS
 ::: mosaicolabs.models.sensors.NMEASentence

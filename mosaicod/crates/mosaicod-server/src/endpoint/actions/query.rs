@@ -1,15 +1,12 @@
 //! Query-related actions.
 
-use crate::errors::ServerError;
+use crate::error::*;
 use log::{info, trace};
 use mosaicod_facade as facade;
 use mosaicod_marshal::{self as marshal, ActionResponse};
 
 /// Executes a query and returns matching groups.
-pub async fn execute(
-    ctx: &facade::Context,
-    query: serde_json::Value,
-) -> Result<ActionResponse, ServerError> {
+pub async fn execute(ctx: &facade::Context, query: serde_json::Value) -> Result<ActionResponse> {
     info!("performing a query");
 
     let filter = marshal::query_filter_from_serde_value(query)?;

@@ -28,7 +28,7 @@ impl std::str::FromStr for NotificationType {
 
 pub struct Notification {
     pub uuid: Uuid,
-    pub target: Box<dyn Resource>,
+    pub target: Locator,
     pub notification_type: NotificationType,
     pub msg: Option<String>,
     pub created_at: DateTime,

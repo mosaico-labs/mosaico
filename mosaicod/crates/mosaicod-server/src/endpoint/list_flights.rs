@@ -1,12 +1,12 @@
 //! Implementation of the Arrow Flight `list_flights` endpoint.
 //!
 //! Returns a stream of all available sequences when queried at the root level.
-use crate::errors::ServerError;
+use crate::error::*;
 use arrow_flight::{Criteria, FlightDescriptor, FlightEndpoint, FlightInfo, Ticket};
 use futures::stream::BoxStream;
 use log::{info, trace};
+use mosaicod_core as core;
 use mosaicod_facade as facade;
-use tonic::Status;
 
 /// Lists all available flights (sequences) in the database.
 ///
@@ -16,13 +16,13 @@ use tonic::Status;
 pub async fn list_flights(
     ctx: &facade::Context,
     criteria: Criteria,
-) -> Result<BoxStream<'static, Result<FlightInfo, Status>>, ServerError> {
+) -> Result<BoxStream<'static, Result<FlightInfo>>> {
     // Validate criteria - only root-level queries are supported
     let expression = String::from_utf8_lossy(&criteria.expression);
     let is_root_query = expression.is_empty() || expression == "/";
 
     if !is_root_query {
-        return Err(ServerError::UnsupportedDescriptor);
+        Err(core::Error::unsupported_descriptor())?
     }
 
     info!("listing all sequences");
@@ -33,7 +33,7 @@ pub async fn list_flights(
     trace!("found {} sequences", sequences.len());
 
     // Convert each sequence locator to a minimal FlightInfo
-    let flight_infos: Vec<Result<FlightInfo, Status>> = sequences
+    let flight_infos: Vec<Result<FlightInfo>> = sequences
         .into_iter()
         .map(|sequence_handle| {
             let sequence_name = sequence_handle.locator().to_string();

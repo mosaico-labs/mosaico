@@ -1,5 +1,5 @@
 use super::*;
-use crate::types;
+use crate::{Error, error::PublicError, types};
 use crc32fast::Hasher;
 use std::str::FromStr;
 
@@ -31,6 +31,15 @@ pub enum ApiKeyError {
 
     #[error("missing permissions")]
     MissingPermissions,
+}
+
+impl PublicError for ApiKeyError {
+    fn error(&self) -> Error {
+        match self {
+            Self::MissingPermissions => Error::unauthorized(),
+            _ => Error::bad_request(self.to_string()),
+        }
+    }
 }
 
 pub type TokenPayload = [u8; Token::PAYLOAD_LENGTH];

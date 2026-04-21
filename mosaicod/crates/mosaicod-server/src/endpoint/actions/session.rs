@@ -1,18 +1,15 @@
 //! Session related actions.
-use crate::ServerError;
+use crate::error::{Error, Result};
 use log::{info, trace, warn};
 use mosaicod_core::types;
 use mosaicod_facade as facade;
 use mosaicod_facade::session;
 use mosaicod_marshal::ActionResponse;
 
-pub async fn create(
-    ctx: &facade::Context,
-    sequence_locator: String,
-) -> Result<ActionResponse, ServerError> {
+pub async fn create(ctx: &facade::Context, sequence_locator: String) -> Result<ActionResponse> {
     info!("requested resource {} creation", sequence_locator);
 
-    let sequence_locator = types::SequenceResourceLocator::from(sequence_locator);
+    let sequence_locator = sequence_locator.parse::<types::SequenceLocator>()?;
 
     let session_handle = facade::session::try_create(ctx, sequence_locator).await?;
 
@@ -23,13 +20,12 @@ pub async fn create(
     ))
 }
 
-pub async fn finalize(
-    ctx: &facade::Context,
-    session_uuid: String,
-) -> Result<ActionResponse, ServerError> {
+pub async fn finalize(ctx: &facade::Context, session_uuid: String) -> Result<ActionResponse> {
     info!("finalizing session {}", session_uuid);
 
-    let uuid: types::Uuid = session_uuid.parse()?;
+    let uuid: types::Uuid = session_uuid
+        .parse()
+        .map_err(|_| Error::invalid_uuid(&session_uuid))?;
 
     let session_handle = session::Handle::try_from_uuid(ctx, &uuid).await?;
 
@@ -40,17 +36,16 @@ pub async fn finalize(
     Ok(ActionResponse::session_finalize())
 }
 
-pub async fn delete(
-    ctx: &facade::Context,
-    session_uuid: String,
-) -> Result<ActionResponse, ServerError> {
+pub async fn delete(ctx: &facade::Context, session_uuid: String) -> Result<ActionResponse> {
     warn!("deleting session `{}`", session_uuid);
 
-    let uuid: types::Uuid = session_uuid.parse()?;
+    let uuid: types::Uuid = session_uuid
+        .parse()
+        .map_err(|_| Error::invalid_uuid(&session_uuid))?;
 
     let session_handle = session::Handle::try_from_uuid(ctx, &uuid).await?;
 
-    facade::session::delete(ctx, session_handle, false, types::allow_data_loss()).await?;
+    facade::session::delete(ctx, session_handle, types::allow_data_loss()).await?;
 
     warn!("session `{}` deleted", session_uuid);
 
