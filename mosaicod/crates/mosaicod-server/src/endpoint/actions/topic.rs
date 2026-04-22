@@ -43,7 +43,7 @@ pub async fn create(
         topic_handle.uuid(),
     );
 
-    Ok(ActionResponse::TopicCreate(
+    Ok(ActionResponse::topic_create(
         topic_handle.uuid().clone().into(),
     ))
 }
@@ -60,7 +60,7 @@ pub async fn delete(ctx: &facade::Context, locator: String) -> Result<ActionResp
 
     warn!("resource {} deleted", topic_locator);
 
-    Ok(ActionResponse::Empty)
+    Ok(ActionResponse::topic_delete())
 }
 
 /// Creates a notification for a topic.
@@ -82,7 +82,7 @@ pub async fn notification_create(
 
     facade::topic::notify(ctx, &topic_handle, notification_type, msg).await?;
 
-    Ok(ActionResponse::Empty)
+    Ok(ActionResponse::topic_notification_create())
 }
 
 /// Lists all notifications for a topic.
@@ -95,7 +95,9 @@ pub async fn notification_list(ctx: &facade::Context, locator: String) -> Result
 
     let notifications = facade::topic::notification_list(ctx, &topic_handle).await?;
 
-    Ok(ActionResponse::TopicNotificationList(notifications.into()))
+    Ok(ActionResponse::topic_notification_list(
+        notifications.into(),
+    ))
 }
 
 /// Purges all notifications for a topic.
@@ -108,5 +110,5 @@ pub async fn notification_purge(ctx: &facade::Context, locator: String) -> Resul
 
     facade::topic::notification_purge(ctx, &topic_handle).await?;
 
-    Ok(ActionResponse::Empty)
+    Ok(ActionResponse::topic_notification_purge())
 }

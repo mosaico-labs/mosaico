@@ -251,6 +251,7 @@ pub struct ActionResponse {
     ///
     /// // Extract a Number (returns Option<u64>)
     /// let id = r.response["id"].as_u64().expect("id is not a number");
+    /// ```
     pub response: serde_json::Value,
 }
 

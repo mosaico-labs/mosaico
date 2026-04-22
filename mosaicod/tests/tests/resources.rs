@@ -1,10 +1,14 @@
 #![allow(unused_crate_dependencies)]
 
-use mosaicod_core::types;
+use mosaicod_core::types::{self, NotificationType};
 use mosaicod_db as db;
 use mosaicod_ext as ext;
 use mosaicod_marshal as marshal;
-use tests::{self, actions, common};
+use tests::{
+    self,
+    actions::{self, sequence_notification_list, topic_notification_list},
+    common::{self, Client},
+};
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn sequence_create(pool: sqlx::Pool<db::DatabaseType>) -> sqlx::Result<()> {
@@ -233,6 +237,47 @@ async fn topic_create(pool: sqlx::Pool<db::DatabaseType>) -> sqlx::Result<()> {
             .code(),
         tonic::Code::InvalidArgument
     );
+
+    server.shutdown().await;
+    Ok(())
+}
+
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn topic_delete(pool: sqlx::Pool<db::DatabaseType>) -> sqlx::Result<()> {
+    let port: u16 = common::random_port();
+
+    let server = common::ServerBuilder::new(common::HOST, port, pool)
+        .build()
+        .await;
+
+    let mut client = common::ClientBuilder::new(common::HOST, port).build().await;
+
+    let sequence_name = "test_sequence";
+    let temp = format!("{}/my_topic", sequence_name);
+    let topic_name = temp.as_str();
+
+    actions::sequence_create(&mut client, sequence_name, None)
+        .await
+        .unwrap();
+
+    let session_uuid = actions::session_create(&mut client, sequence_name).await;
+    assert!(session_uuid.is_valid());
+
+    let topic_uuid = actions::topic_create(&mut client, &session_uuid, topic_name, None)
+        .await
+        .unwrap();
+    assert!(topic_uuid.is_valid());
+
+    let batches = vec![ext::arrow::testing::dummy_batch()];
+    actions::do_put(&mut client, &topic_uuid, topic_name, batches, false)
+        .await
+        .unwrap();
+
+    actions::session_finalize(&mut client, &session_uuid)
+        .await
+        .unwrap();
+
+    actions::topic_delete(&mut client, topic_name).await;
 
     server.shutdown().await;
     Ok(())
@@ -573,6 +618,249 @@ async fn get_server_version(pool: sqlx::Pool<db::DatabaseType>) {
     let mut client = common::ClientBuilder::new(common::HOST, port).build().await;
 
     actions::server_version(&mut client).await;
+
+    server.shutdown().await;
+}
+
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_sequence_notification_create(pool: sqlx::Pool<db::DatabaseType>) {
+    let port: u16 = common::random_port();
+
+    let server = common::ServerBuilder::new(common::HOST, port, pool)
+        .build()
+        .await;
+
+    let mut client = common::ClientBuilder::new(common::HOST, port).build().await;
+
+    let sequence_name = "test_sequence_notification_create";
+    actions::sequence_create(&mut client, sequence_name, None)
+        .await
+        .unwrap();
+
+    actions::sequence_notification_create(
+        &mut client,
+        sequence_name,
+        NotificationType::Error.to_string(),
+        "Error test_sequence_notification_create".to_string(),
+    )
+    .await;
+
+    server.shutdown().await;
+}
+
+/// Helper function to create sequence notifications.
+async fn setup_sequence_with_notifications(
+    client: &mut Client,
+    sequence_name: &str,
+    notifications_size: usize,
+) {
+    actions::sequence_create(client, sequence_name, None)
+        .await
+        .unwrap();
+    for i in 0..notifications_size {
+        let error_msg = format!("Error {}_{}", sequence_name, i + 1);
+        actions::sequence_notification_create(
+            client,
+            sequence_name,
+            NotificationType::Error.to_string(),
+            error_msg,
+        )
+        .await;
+    }
+}
+
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_sequence_notification_list(pool: sqlx::Pool<db::DatabaseType>) {
+    let port: u16 = common::random_port();
+
+    let server = common::ServerBuilder::new(common::HOST, port, pool)
+        .build()
+        .await;
+
+    let mut client = common::ClientBuilder::new(common::HOST, port).build().await;
+
+    let sequence_name = "test_sequence_notification_list";
+    let notifications_size: usize = 5;
+    setup_sequence_with_notifications(&mut client, sequence_name, notifications_size).await;
+
+    let r = sequence_notification_list(&mut client, sequence_name)
+        .await
+        .unwrap();
+
+    let notifications = r["notifications"].as_array().unwrap();
+    assert_eq!(notifications.len(), notifications_size);
+
+    for (i, notification) in notifications.iter().enumerate() {
+        let error_msg = format!("Error {}_{}", sequence_name, i + 1);
+        assert_eq!(notification["notification_type"], "error");
+        assert_eq!(notification["name"], sequence_name);
+        assert_eq!(notification["msg"], error_msg);
+    }
+
+    server.shutdown().await;
+}
+
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_sequence_notification_purge(pool: sqlx::Pool<db::DatabaseType>) {
+    let port: u16 = common::random_port();
+
+    let server = common::ServerBuilder::new(common::HOST, port, pool)
+        .build()
+        .await;
+
+    let mut client = common::ClientBuilder::new(common::HOST, port).build().await;
+
+    let sequence_name = "test_sequence_notification_purge";
+    let notifications_size = 10;
+    setup_sequence_with_notifications(&mut client, sequence_name, notifications_size).await;
+
+    actions::sequence_notification_purge(&mut client, sequence_name).await;
+
+    let r = actions::sequence_notification_list(&mut client, sequence_name)
+        .await
+        .unwrap();
+
+    let notifications = r["notifications"].as_array().unwrap();
+    assert_eq!(notifications.len(), 0);
+
+    server.shutdown().await;
+}
+
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_topic_notification_create(pool: sqlx::Pool<db::DatabaseType>) {
+    let port = common::random_port();
+
+    let server = common::ServerBuilder::new(common::HOST, port, pool)
+        .build()
+        .await;
+
+    let mut client = common::ClientBuilder::new(common::HOST, port).build().await;
+
+    let sequence_name = "test_sequence_topic_notification_create";
+    let temp = format!("{}/my_topic", sequence_name);
+    let topic_name = temp.as_str();
+
+    actions::sequence_create(&mut client, sequence_name, None)
+        .await
+        .unwrap();
+    let session_uuid = actions::session_create(&mut client, sequence_name).await;
+    let topic_uuid = actions::topic_create(&mut client, &session_uuid, topic_name, None)
+        .await
+        .unwrap();
+
+    let batches = vec![ext::arrow::testing::dummy_batch()];
+    actions::do_put(&mut client, &topic_uuid, topic_name, batches, false)
+        .await
+        .unwrap();
+
+    actions::session_finalize(&mut client, &session_uuid)
+        .await
+        .unwrap();
+
+    let error_msg = format!("Error in {}", topic_name);
+    actions::topic_notification_create(
+        &mut client,
+        topic_name,
+        NotificationType::Error.to_string(),
+        error_msg,
+    )
+    .await;
+
+    server.shutdown().await;
+}
+
+/// Helper function to create sequence notifications.
+async fn setup_topic_with_notifications(
+    client: &mut Client,
+    sequence_name: &str,
+    topic_name: &str,
+    notifications_size: usize,
+) {
+    actions::sequence_create(client, sequence_name, None)
+        .await
+        .unwrap();
+    let session_uuid = actions::session_create(client, sequence_name).await;
+    let topic_uuid = actions::topic_create(client, &session_uuid, topic_name, None)
+        .await
+        .unwrap();
+
+    let batches = vec![ext::arrow::testing::dummy_batch()];
+    actions::do_put(client, &topic_uuid, topic_name, batches, false)
+        .await
+        .unwrap();
+
+    actions::session_finalize(client, &session_uuid)
+        .await
+        .unwrap();
+
+    for i in 0..notifications_size {
+        let error_msg = format!("Error {}_{}", topic_name, i + 1);
+        actions::topic_notification_create(
+            client,
+            topic_name,
+            NotificationType::Error.to_string(),
+            error_msg,
+        )
+        .await;
+    }
+}
+
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_topic_notification_list(pool: sqlx::Pool<db::DatabaseType>) {
+    let port: u16 = common::random_port();
+
+    let server = common::ServerBuilder::new(common::HOST, port, pool)
+        .build()
+        .await;
+
+    let mut client = common::ClientBuilder::new(common::HOST, port).build().await;
+    let sequence_name = "test_sequence_topic_notification_create";
+    let temp = format!("{}/my_topic", sequence_name);
+    let topic_name = temp.as_str();
+    let notifications_size = 5;
+
+    setup_topic_with_notifications(&mut client, sequence_name, topic_name, notifications_size)
+        .await;
+
+    let r = topic_notification_list(&mut client, topic_name)
+        .await
+        .unwrap();
+    let notifications = r["notifications"].as_array().unwrap();
+    assert_eq!(notifications.len(), notifications_size);
+
+    for (i, notification) in notifications.iter().enumerate() {
+        let error_msg = format!("Error {}_{}", topic_name, i + 1);
+        assert_eq!(notification["notification_type"], "error");
+        assert_eq!(notification["name"], topic_name);
+        assert_eq!(notification["msg"], error_msg);
+    }
+
+    server.shutdown().await;
+}
+
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_topic_notification_purge(pool: sqlx::Pool<db::DatabaseType>) {
+    let port: u16 = common::random_port();
+
+    let server = common::ServerBuilder::new(common::HOST, port, pool)
+        .build()
+        .await;
+
+    let mut client = common::ClientBuilder::new(common::HOST, port).build().await;
+    let sequence_name = "test_sequence_topic_notification_create";
+    let temp = format!("{}/my_topic", sequence_name);
+    let topic_name = temp.as_str();
+    let notifications_size = 5;
+
+    setup_topic_with_notifications(&mut client, sequence_name, topic_name, notifications_size)
+        .await;
+
+    actions::topic_notification_purge(&mut client, topic_name).await;
+    let r = actions::topic_notification_list(&mut client, topic_name)
+        .await
+        .unwrap();
+    let notifications = r["notifications"].as_array().unwrap();
+    assert_eq!(notifications.len(), 0);
 
     server.shutdown().await;
 }

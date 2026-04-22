@@ -1,11 +1,10 @@
 use super::common::{ActionResponse, Client};
+use arrow::array::RecordBatch;
 use arrow_flight::encode::FlightDataEncoderBuilder;
 use arrow_flight::{Action, FlightDescriptor, FlightInfo, PutResult};
+use futures::StreamExt;
 use mosaicod_core::types;
 use tonic::Streaming;
-
-use arrow::array::RecordBatch;
-use futures::StreamExt;
 
 /// Create a new sequence.
 /// Returns the `key` of the newly created sequence, this key is required to perform action
@@ -219,6 +218,34 @@ pub async fn topic_create(
     Ok(key.expect("Unable to return key"))
 }
 
+pub async fn topic_delete(client: &mut Client, locator: &str) {
+    let action = Action {
+        r#type: "topic_delete".to_owned(),
+        body: format!(
+            r#"
+        {{
+            "locator": "{}"
+        }}
+        "#,
+            locator,
+        )
+        .into(),
+    };
+
+    dbg!(&action);
+
+    let mut stream = client.do_action(action).await.unwrap().into_inner();
+
+    while let Some(result) = stream.message().await.expect("Problem while streaming") {
+        dbg!(&result);
+        let r = ActionResponse::from_body(&result.body);
+        assert_eq!(r.action, "topic_delete");
+
+        let available_keys = r.response.as_object().map(|o| o.len()).unwrap_or(0);
+        assert_eq!(available_keys, 0);
+    }
+}
+
 pub async fn do_put(
     client: &mut Client,
     topic_uuid: &types::Uuid,
@@ -421,4 +448,130 @@ pub async fn api_key_revoke(client: &mut Client, fingerprint: &str) -> Result<()
     }
 
     Ok(())
+}
+
+pub async fn sequence_notification_create(
+    client: &mut Client,
+    locator: &str,
+    notification_type: String,
+    msg: String,
+) {
+    let action = Action {
+        r#type: "sequence_notification_create".to_owned(),
+        body: format!(
+            r#"{{"locator":"{}", "notification_type": "{}", "msg": "{}"}}"#,
+            locator, notification_type, msg
+        )
+        .into(),
+    };
+
+    dbg!(&action);
+
+    let mut stream = client.do_action(action).await.unwrap().into_inner();
+
+    while let Some(result) = stream.message().await.expect("Problem while streaming") {
+        dbg!(&result);
+        let r = ActionResponse::from_body(&result.body);
+        assert_eq!(r.action, "sequence_notification_create");
+    }
+}
+
+pub async fn sequence_notification_list(
+    client: &mut Client,
+    locator: &str,
+) -> Result<serde_json::Value, tonic::Status> {
+    let action = Action {
+        r#type: "sequence_notification_list".to_owned(),
+        body: format!(r#"{{ "locator" : "{}" }}"#, locator).into(),
+    };
+
+    dbg!(&action);
+    let mut ret = serde_json::Value::Null;
+    let mut stream = client.do_action(action).await?.into_inner();
+    while let Some(result) = stream.message().await.expect("Problem while streaming") {
+        dbg!(&result);
+        let r = ActionResponse::from_body(&result.body);
+        assert_eq!(r.action, "sequence_notification_list");
+        ret = r.response;
+    }
+
+    Ok(ret)
+}
+
+pub async fn sequence_notification_purge(client: &mut Client, locator: &str) {
+    let action = Action {
+        r#type: "sequence_notification_purge".to_owned(),
+        body: format!(r#"{{ "locator" : "{}" }}"#, locator).into(),
+    };
+
+    dbg!(&action);
+    let mut stream = client.do_action(action).await.unwrap().into_inner();
+    while let Some(result) = stream.message().await.expect("Problem while streaming") {
+        dbg!(&result);
+        let r = ActionResponse::from_body(&result.body);
+        assert_eq!(r.action, "sequence_notification_purge");
+    }
+}
+
+pub async fn topic_notification_create(
+    client: &mut Client,
+    locator: &str,
+    notification_type: String,
+    msg: String,
+) {
+    let action = Action {
+        r#type: "topic_notification_create".to_owned(),
+        body: format!(
+            r#"{{"locator":"{}", "notification_type": "{}", "msg": "{}"}}"#,
+            locator, notification_type, msg
+        )
+        .into(),
+    };
+
+    dbg!(&action);
+
+    let mut stream = client.do_action(action).await.unwrap().into_inner();
+
+    while let Some(result) = stream.message().await.expect("Problem while streaming") {
+        dbg!(&result);
+        let r = ActionResponse::from_body(&result.body);
+        assert_eq!(r.action, "topic_notification_create");
+    }
+}
+
+pub async fn topic_notification_list(
+    client: &mut Client,
+    locator: &str,
+) -> Result<serde_json::Value, tonic::Status> {
+    let action = Action {
+        r#type: "topic_notification_list".to_owned(),
+        body: format!(r#"{{ "locator" : "{}" }}"#, locator).into(),
+    };
+
+    dbg!(&action);
+    let mut ret = serde_json::Value::Null;
+    let mut stream = client.do_action(action).await?.into_inner();
+    while let Some(result) = stream.message().await.expect("Problem while streaming") {
+        dbg!(&result);
+        let r = ActionResponse::from_body(&result.body);
+        assert_eq!(r.action, "topic_notification_list");
+        ret = r.response;
+    }
+
+    Ok(ret)
+}
+
+pub async fn topic_notification_purge(client: &mut Client, locator: &str) {
+    let action = Action {
+        r#type: "topic_notification_purge".to_owned(),
+        body: format!(r#"{{ "locator" : "{}" }}"#, locator).into(),
+    };
+
+    dbg!(&action);
+    let mut stream = client.do_action(action).await.unwrap().into_inner();
+    while let Some(result) = stream.message().await.expect("Problem while streaming") {
+        dbg!(&result);
+        let r = ActionResponse::from_body(&result.body);
+        assert_eq!(r.action, "topic_notification_purge");
+    }
 }
