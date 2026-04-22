@@ -17,15 +17,14 @@ mosaicolabs.examples mujoco_vis
 ```
 """
 
+import json
 import logging as log
-import os
 import sys
-from collections import deque
+import urllib.request
 from pathlib import Path
 
 from rich.console import Console
 from rich.panel import Panel
-from rich.table import Table
 
 # Mosaico SDK Imports
 from mosaicolabs import MosaicoClient, QuerySequence, QueryTopic, RobotJoint
@@ -51,20 +50,6 @@ except Exception:
     console.print("[bold red]Please run:[/bold red] pip install mujoco")
     sys.exit(1)
 
-try:
-    from gitdir import gitdir
-except Exception:
-    console.print_exception()
-    console.print("[bold red]Please run:[/bold red] pip install gitdir")
-    sys.exit(1)
-
-try:
-    import matplotlib.pyplot as plt
-except Exception:
-    console.print_exception()
-    console.print("[bold red]Please run:[/ red bold] pip install matplotlib ")
-    sys.exit(1)
-
 # NVIDIA R2B Dataset 2024 - Verified compatible with Mosaico: https://catalog.ngc.nvidia.com/orgs/nvidia/teams/isaac/resources/r2bdataset2024?version=1
 # This sequence has been injested during ros_injestion example (https://docs.mosaico.dev/SDK/examples/ros_injection/)
 ROBOT_SEQUENCE_NAME = "r2b_robotarm_0"
@@ -74,6 +59,60 @@ MUJOCO_MENAGERIE_URL = str(
     "https://github.com/google-deepmind/mujoco_menagerie/tree/main/universal_robots_ur10e"
 )
 MUJOCO_XML_SCENE_PATH = str(Path(ASSET_DIR) / "universal_robots_ur10e/scene.xml")
+
+
+def download_assets(url: str, output_dir: str) -> None:
+    """
+    Downloads all files from a GitHub folder URL into output_dir,
+    preserving the directory structure.
+
+    Args:
+        url:        GitHub tree URL, e.g.
+                    https://github.com/owner/repo/tree/branch/path/to/folder
+        output_dir: Local directory where files will be saved.
+    """
+    # Expected format: https://github.com/<owner>/<repo>/tree/<branch>/<path>
+    parts = url.rstrip("/").replace("https://github.com/", "").split("/")
+    owner, repo = parts[0], parts[1]
+    branch = parts[3]
+    folder_path = "/".join(parts[4:])
+
+    output_root = Path(output_dir)
+    output_root.mkdir(parents=True, exist_ok=True)
+
+    _download_folder(owner, repo, branch, folder_path, output_root)
+
+
+def _download_folder(
+    owner: str,
+    repo: str,
+    branch: str,
+    folder_path: str,
+    output_dir: Path,
+) -> None:
+    api_url = (
+        f"https://api.github.com/repos/{owner}/{repo}"
+        f"/contents/{folder_path}?ref={branch}"
+    )
+    req = urllib.request.Request(
+        api_url,
+        headers={"Accept": "application/vnd.github+json"},
+    )
+
+    with urllib.request.urlopen(req) as response:
+        items = json.loads(response.read().decode())
+
+    for item in items:
+        item_output = output_dir / item["name"]
+
+        if item["type"] == "file":
+            print(f"Downloading {item['path']} …")
+            with urllib.request.urlopen(item["download_url"]) as response:
+                item_output.write_bytes(response.read())
+
+        elif item["type"] == "dir":
+            item_output.mkdir(parents=True, exist_ok=True)
+            _download_folder(owner, repo, branch, item["path"], item_output)
 
 
 def main():
@@ -94,15 +133,6 @@ def main():
             f"[bold green]Phase 1: Connect & retrieve sequence metadata {ROBOT_SEQUENCE_NAME}[/bold green]"
         )
     )
-
-    # Dict containing all the joint timeseries. Organised as the following
-    # {
-    #   t1: RobotJoint,
-    #   t2: RobotJoint,
-    #   ...
-    #   tn: RobotJoint,
-    # }
-    robot_joints_timeseries: dict[int, RobotJoint] = {}
 
     with MosaicoClient.connect(
         host=MOSAICO_HOST,
@@ -144,90 +174,55 @@ def main():
 
                 rob_joints_stream = top_handler.get_data_streamer()
 
-                for joint_msg in rob_joints_stream:
-                    relative_ts = joint_msg.timestamp_ns - top_handler.timestamp_ns_min
-                    robot_joints_timeseries.update(
-                        {relative_ts: joint_msg.get_data(RobotJoint)}
+                if not Path(MUJOCO_XML_SCENE_PATH).exists():
+                    console.print(
+                        "[bold yellow]Downloading MuJoCo assets[/bold yellow]"
+                    )
+                    download_assets(
+                        MUJOCO_MENAGERIE_URL, ASSET_DIR + "/universal_robots_ur10e"
+                    )
+                else:
+                    console.print(
+                        "[bold yellow]MuJoCo assets already present. Skipping download... [/bold yellow]"
                     )
 
-                rob_joints_stream.close()
+                model = mujoco.MjModel.from_xml_path(MUJOCO_XML_SCENE_PATH)
+                data = mujoco.MjData(model)
 
-        # To begin with, visualise them on a table
-        MAX_TABLE_ROWS = 100
-        table = Table(title="Joint position values")
-        table.add_column("timestep relative [s]")
-        for j_name in list(robot_joints_timeseries.values())[0].names:
-            table.add_column(j_name)
+                mujoco.mj_step(model, data)
 
-        for timestep, rob_joint in list(robot_joints_timeseries.items())[
-            :MAX_TABLE_ROWS
-        ]:
-            timestep_s = timestep / 1.0e9
-            table.add_row(f"{timestep_s}", *[f"{j:.8f}" for j in rob_joint.positions])
+                with mujoco.viewer.launch_passive(model, data) as viewer:
+                    for joint_msg in rob_joints_stream:
+                        relative_ts = (
+                            joint_msg.timestamp_ns - top_handler.timestamp_ns_min
+                        ) / 1.0e9
 
-        console.print(table)
+                        joints = joint_msg.get_data(RobotJoint)
 
-    # --- PHASE 3: Plot joint trajectories ---
-    timestamps = deque(t / 1.0e9 for t in robot_joints_timeseries.keys())
-    joint_values = deque(rj for rj in robot_joints_timeseries.values())
-    joint_names = joint_values[0].names
+                        # Set robot to initial configuration (only at start)
+                        initial_config = False
 
-    fig, ax = plt.subplots(2, 3, figsize=(14, 7))
-    fig.suptitle("Robot Joint Positions over Time", fontsize=14, fontweight="bold")
+                        if not viewer.is_running():
+                            continue
 
-    for idx, (row, col) in enumerate([(0, 0), (0, 1), (0, 2), (1, 0), (1, 1), (1, 2)]):
-        ax[row, col].plot(timestamps, [rj.positions[idx] for rj in joint_values])
-        ax[row, col].set_title(joint_names[idx])
-        ax[row, col].set_xlabel("time [s]")
-        ax[row, col].set_ylabel("position [rad]")
-        ax[row, col].grid(True)
+                        with viewer.lock():
+                            while data.time < relative_ts:
+                                for jn, jp in zip(joints.names, joints.positions):
+                                    id = mujoco.mj_name2id(
+                                        model, mujoco.mjtObj.mjOBJ_JOINT, jn
+                                    )
 
-    fig.tight_layout()
-    plt.show()
+                                    if not initial_config:
+                                        initial_config = True
+                                        data.qpos[id] = jp
 
-    # --- PHASE 4: Replay in MuJoCo ---
+                                    data.ctrl[id] = jp
 
-    # Getting the assets from mujoco manageries
-    if not Path(MUJOCO_XML_SCENE_PATH).exists():
-        console.print("[bold yellow]Downloading MuJoCo assets[/bold yellow]")
-        os.chdir(ASSET_DIR)  # This is necessary because of a bug from gitdir
-        gitdir.download(MUJOCO_MENAGERIE_URL)
-    else:
-        console.print(
-            "[bold yellow]MuJoCo assets already present. Skipping download... [/bold yellow]"
-        )
+                                mujoco.mj_step(model, data)
 
-    model = mujoco.MjModel.from_xml_path(MUJOCO_XML_SCENE_PATH)
-    data = mujoco.MjData(model)
+                        viewer.sync()
 
-    # Set robot to initial configuration
-    start_joints = joint_values[0]
-
-    for jn, jp in zip(joint_names, start_joints.positions):
-        id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, jn)
-        data.qpos[id] = jp
-        data.ctrl[id] = jp
-
-    ctrl_action = start_joints.positions
-    mujoco.mj_step(model, data)
-
-    with mujoco.viewer.launch_passive(model, data) as viewer:
-        viewer.sync()
-
-        while viewer.is_running():
-            with viewer.lock():
-                # Set joint positions control input — update only when requested
-                if timestamps and data.time > timestamps[0]:
-                    timestamps.popleft()
-                    ctrl_action = joint_values.popleft().positions
-
-            for jn, jp in zip(joint_names, ctrl_action):
-                id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, jn)
-                data.ctrl[id] = jp
-
-            mujoco.mj_step(model, data)
-
-            viewer.sync()
+                    rob_joints_stream.close()
 
 
 if __name__ == "__main__":
