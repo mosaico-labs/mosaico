@@ -3,7 +3,7 @@ title: Mujoco Visualisation
 description: Example how-to for reproducing and visualising ingested data in MuJoCo
 ---
 
-In this example, you will learn how to query a specific Topic from a specific Sequence and visualise its data through both graphs and simulation. In particular, robot joint trajectories will be reproduced in [MuJoCo](https://mujoco.org/).
+In this example, you will learn how to query a specific Topic from a specific Sequence and visualise its data through MuJoCo simulation. In particular, robot joint trajectories will be reproduced in [MuJoCo](https://mujoco.org/).
 By following this guide, you will learn how to:
 
 1.  **Connect & retrieve sequence metadata**: get a specific sequence from the backend.
