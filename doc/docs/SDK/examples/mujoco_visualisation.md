@@ -3,17 +3,16 @@ title: Mujoco Visualisation
 description: Example how-to for reproducing and visualising ingested data in MuJoCo
 ---
 
-In this example, you will learn how to query a specific Topic from a specific Sequence and visualise its data through both graphs and simulation. In particular, robot joint trajectories will be displayed first in [Matplotlib](https://matplotlib.org/) and then reproduced in [MuJoCo](https://mujoco.org/). 
+In this example, you will learn how to query a specific Topic from a specific Sequence and visualise its data through both graphs and simulation. In particular, robot joint trajectories will be reproduced in [MuJoCo](https://mujoco.org/). 
 By following this guide, you will learn how to:
 
 1.  **Connect & retrieve sequence metadata**: get from backend a specific sequence.
 2.  **Stream joint state topic**: from query response, check that the expected data exist.
-3.  **Plot joint trajectories**: use matplotlib to plot the trajectory for each robot joint.
-4.  **Replay in MuJoCo**: replay robot motion in MuJoCo according to timestamps.
+3.  **Replay in MuJoCo**: replay robot motion in MuJoCo according to timestamps.
 
 !!! info "Prerequisites"
     1. This tutorial assumes you have already ingested data into your Mosaico instance, using the example described in the [ROS Ingestion](./ros_injection.md) example.
-    2. This tutorial requires some additional dependencies that are not included by default. So to avoid polluting Poetry dependencies, please run: `pip install mujoco matplotlib gitdir`
+    2. This tutorial requires some additional dependencies that are not included by default. To avoid polluting Poetry dependencies, please run: `pip install mujoco`
 
 !!! example "Experiment Yourself"
     This guide is **fully executable**.
@@ -80,23 +79,18 @@ if top_handler.ontology_tag != RobotJoint.ontology_tag():
 
 > Notice that checking again the topic ontology tag is redundant since the initial query already filters out all the topics that are not a [RobotJoint][mosaicolabs.models.sensors.robot.RobotJoint] ontology
 
-```python
-rob_joints_stream = top_handler.get_data_streamer()
+Finally data are streamed from Mosaico server and the timestamps are converted to the trajectory start time. 
 
+```python
 for joint_msg in rob_joints_stream:
-    relative_ts = joint_msg.timestamp_ns - top_handler.timestamp_ns_min
-    robot_joints_timeseries.update(
-        {relative_ts: joint_msg.get_data(RobotJoint)}
-    )
+    relative_ts = (
+        joint_msg.timestamp_ns - top_handler.timestamp_ns_min
+    ) / 1.0e9
+
+    joints = joint_msg.get_data(RobotJoint)
 ```
 
-## Practical Application: Replaying the "Robot Trajectory"
-## Step 3: Plot joint trajectories
-Once you have the data, you can plot them using your favourite tool. In this example, we are visualising the robot joint trajectories over time:
-
-![alt text](../../assets/robot_joints_plot.png "Robot joints plot")
-
-## Step 4: Replay in MuJoCo
+## Step 3: Replay in MuJoCo
 
 Finally, it is possible to reproduce the robot's trajectory in a simulated environment like MuJoCo:
 
