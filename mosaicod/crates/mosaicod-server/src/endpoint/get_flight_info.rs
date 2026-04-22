@@ -186,23 +186,13 @@ async fn topic_arrow_schema_with_metadata(
         topic_handle.locator()
     );
 
-    // Collect schema, if no schema was found generate an empty schema
-    let schema = match facade::topic::arrow_schema(
+    // Collect schema.
+    let schema = facade::topic::arrow_schema(
         context,
         topic_handle,
         ontology_metadata.properties.serialization_format,
     )
-    .await
-    {
-        Ok(s) => s,
-        Err(e) => {
-            if matches!(e.error().kind(), core::error::ErrorKind::NotFound) {
-                mosaicod_ext::arrow::empty_schema_ref()
-            } else {
-                Err(e)?
-            }
-        }
-    };
+    .await?;
 
     // Collect schema metadata
     let json_ontology_metadata = marshal::JsonTopicOntologyMetadata::from(ontology_metadata);

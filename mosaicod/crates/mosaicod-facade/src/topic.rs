@@ -218,22 +218,21 @@ pub async fn metadata(context: &Context, handle: &Handle) -> Result<TopicMetadat
 /// The serialization format is required to extract the schema.
 /// It can be retrieved using [`metadata`] function.
 ///
-/// If no arrow_schema is found a [`Error::NotFound`] error is returned
+/// If no arrow_schema is found an empty one is returned.
 pub async fn arrow_schema(
     context: &Context,
     handle: &Handle,
     format: types::Format,
 ) -> Result<SchemaRef> {
-    let path_in_store = handle
-        .path_in_store
-        .clone()
-        .ok_or(core::Error::not_found())?;
+    let Some(path_in_store) = &handle.path_in_store else {
+        return Ok(mosaicod_ext::arrow::empty_schema_ref());
+    };
 
     // Get chunk 0 since this chunk needs to exist always
     let path = path_in_store.path_data(0, format.to_properties().as_ref());
 
     if !context.store.exists(&path).await? {
-        Err(core::Error::not_found())?;
+        return Ok(mosaicod_ext::arrow::empty_schema_ref());
     }
 
     // Build a parquet reader reading in memory a file
@@ -400,10 +399,10 @@ async fn compute_data_info(
     let path_in_store = handle
         .path_in_store
         .clone()
-        .ok_or(core::Error::internal(Some(format!(
+        .ok_or(Error::MissingDbData(format!(
             "No path in store set for topic {}",
             handle.locator
-        ))))?;
+        )))?;
 
     let timeseries_res = context
         .timeseries_querier
@@ -573,9 +572,9 @@ mod tests {
     fn test_context(pool: sqlx::Pool<db::DatabaseType>) -> Context {
         let database = db::testing::Database::new(pool);
         let store = store::testing::Store::new_random_on_tmp().unwrap();
-        let ts_gw = Arc::new(query::TimeseriesEngine::try_new(store.clone(), 0).unwrap());
+        let ts_gw = Arc::new(query::TimeseriesEngine::try_new((*store).clone(), 0).unwrap());
 
-        Context::new(store.clone(), database.clone(), ts_gw)
+        Context::new((*store).clone(), (*database).clone(), ts_gw)
     }
 
     fn dummy_ontology_metadata() -> TopicOntologyMetadata {
