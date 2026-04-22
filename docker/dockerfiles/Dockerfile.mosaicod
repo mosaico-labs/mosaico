@@ -1,5 +1,7 @@
 FROM rust:1.92-slim-bullseye AS builder
 
+ARG GIT_HASH=undefined
+
 WORKDIR /mosaicod
 
 RUN apt-get update && \
@@ -14,7 +16,7 @@ COPY crates ./crates
 COPY tests ./tests
 COPY bin ./bin
 
-RUN SQLX_OFFLINE=true cargo build --bin mosaicod --profile docker
+RUN GIT_HASH=${GIT_HASH} SQLX_OFFLINE=true cargo build --bin mosaicod --profile docker
 
 FROM gcr.io/distroless/cc-debian11
 

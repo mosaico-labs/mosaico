@@ -50,6 +50,8 @@ jobs:
           context: mosaicod
           file: docker/dockerfiles/Dockerfile.mosaicod
           platforms: ${{ matrix.platform }}
+          build-args: |
+            GIT_HASH=${{ github.sha }}
           outputs: type=image,name=ghcr.io/${{ github.repository_owner }}/mosaicod,push-by-digest=true,name-canonical=true,push=true
           cache-from: type=gha
           cache-to: type=gha,mode=max
