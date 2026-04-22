@@ -3,11 +3,11 @@ title: Mujoco Visualisation
 description: Example how-to for reproducing and visualising ingested data in MuJoCo
 ---
 
-In this example, you will learn how to query a specific Topic from a specific Sequence and visualise its data through both graphs and simulation. In particular, robot joint trajectories will be reproduced in [MuJoCo](https://mujoco.org/). 
+In this example, you will learn how to query a specific Topic from a specific Sequence and visualise its data through both graphs and simulation. In particular, robot joint trajectories will be reproduced in [MuJoCo](https://mujoco.org/).
 By following this guide, you will learn how to:
 
-1.  **Connect & retrieve sequence metadata**: get from backend a specific sequence.
-2.  **Stream joint state topic**: from query response, check that the expected data exist.
+1.  **Connect & retrieve sequence metadata**: get a specific sequence from the backend.
+2.  **Stream joint state topic**: from the query response, check that the expected data exists.
 3.  **Replay in MuJoCo**: replay robot motion in MuJoCo according to timestamps.
 
 !!! info "Prerequisites"
@@ -55,13 +55,13 @@ with MosaicoClient.connect(
         )
 ```
 
-1. The [`with_name`][mosaicolabs.models.query.builders.QueryTopic.with_name] method allows you to filter for sequences that match an exact pattern. 
+1. The [`with_name`][mosaicolabs.models.query.builders.QueryTopic.with_name] method allows you to filter for sequences that match an exact pattern.
 
 2. The [`ontology_tag()`][mosaicolabs.models.Serializable.ontology_tag] method returns the unique identifier for the ontology class.
 
 ## Step 2: Stream joint state topic
 
-As detailed in the [data inspection](data_inspection.md) example, it is possible to narrow down the search for a specific sensor stream through its metadata, without downloading all the data associated with the other Sequence's topics. We use [`TopicHandler`][mosaicolabs.handlers.TopicHandler] plus [RobotJoint][mosaicolabs.models.sensors.robot.RobotJoint] ontology for granular inspection.
+As detailed in the [data inspection](data_inspection.md) example, it is possible to narrow down the search for a specific sensor stream through its metadata, without downloading all the data associated with the other sequence's topics. We use [`TopicHandler`][mosaicolabs.handlers.TopicHandler] plus [RobotJoint][mosaicolabs.models.sensors.robot.RobotJoint] ontology for granular inspection.
 
 ```python
 top_handler = client.topic_handler(items.sequence.name, topic.name)
@@ -77,9 +77,9 @@ if top_handler.ontology_tag != RobotJoint.ontology_tag():
     continue
 ```
 
-> Notice that checking again the topic ontology tag is redundant since the initial query already filters out all the topics that are not a [RobotJoint][mosaicolabs.models.sensors.robot.RobotJoint] ontology
+> Notice that checking the topic ontology tag again is redundant since the initial query already filters out all the topics that are not a [RobotJoint][mosaicolabs.models.sensors.robot.RobotJoint] ontology.
 
-Finally data are streamed from Mosaico server and the timestamps are converted to the trajectory start time. 
+Finally, data is streamed from the Mosaico server and the timestamps are converted relative to the trajectory start time.
 
 ```python
 for joint_msg in rob_joints_stream:
