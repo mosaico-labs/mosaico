@@ -7,7 +7,7 @@ use mosaicod_marshal as marshal;
 use tests::{self, actions, common};
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
-async fn sequence_create(pool: sqlx::Pool<db::DatabaseType>) -> sqlx::Result<()> {
+async fn test_sequence_create(pool: sqlx::Pool<db::DatabaseType>) -> sqlx::Result<()> {
     let port = common::random_port();
 
     let server = common::ServerBuilder::new(common::HOST, port, pool)
@@ -41,7 +41,7 @@ async fn sequence_create(pool: sqlx::Pool<db::DatabaseType>) -> sqlx::Result<()>
 }
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
-async fn sequence_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
+async fn test_sequence_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
     let port = common::random_port();
 
     let server = common::ServerBuilder::new(common::HOST, port, pool)
@@ -182,7 +182,7 @@ async fn sequence_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
 }
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
-async fn session_create(pool: sqlx::Pool<db::DatabaseType>) -> sqlx::Result<()> {
+async fn test_session_create(pool: sqlx::Pool<db::DatabaseType>) -> sqlx::Result<()> {
     let port = common::random_port();
 
     let server = common::ServerBuilder::new(common::HOST, port, pool)
@@ -204,7 +204,9 @@ async fn session_create(pool: sqlx::Pool<db::DatabaseType>) -> sqlx::Result<()> 
 }
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
-async fn topic_create(pool: sqlx::Pool<db::DatabaseType>) -> sqlx::Result<()> {
+async fn test_topic_create(pool: sqlx::Pool<db::DatabaseType>) -> sqlx::Result<()> {
+    let _ = tracing_subscriber::fmt::try_init();
+
     let port = common::random_port();
 
     let server = common::ServerBuilder::new(common::HOST, port, pool)
@@ -218,20 +220,74 @@ async fn topic_create(pool: sqlx::Pool<db::DatabaseType>) -> sqlx::Result<()> {
     actions::sequence_create(&mut client, sequence_name, None)
         .await
         .unwrap();
-    let uuid = actions::session_create(&mut client, sequence_name).await;
-    assert!(uuid.is_valid());
-    let uuid = actions::topic_create(&mut client, &uuid, "test_sequence/my_topic", None)
+
+    let session_uuid = actions::session_create(&mut client, sequence_name).await;
+    assert!(session_uuid.is_valid());
+
+    let topic_uuid =
+        actions::topic_create(&mut client, &session_uuid, "test_sequence/my_topic", None)
+            .await
+            .unwrap();
+    assert!(topic_uuid.is_valid());
+
+    // Passing a wrong session uuid should trigger a NotFound error.
+    let err = actions::topic_create(
+        &mut client,
+        &topic_uuid, // wrong uuid
+        "test_sequence/my_topic",
+        None,
+    )
+    .await
+    .unwrap_err();
+    assert_eq!(err.code(), tonic::Code::NotFound);
+
+    // Creating a topic with same name should trigger an ALreadyExists error.
+    let err = actions::topic_create(&mut client, &session_uuid, "test_sequence/my_topic", None)
+        .await
+        .unwrap_err();
+    assert_eq!(err.code(), tonic::Code::AlreadyExists);
+
+    // Create topic with malformed metadata should give an InvalidArgument error.
+    assert_eq!(
+        actions::topic_create(
+            &mut client,
+            &session_uuid,
+            "test_sequence/my_topic",
+            Some("{")
+        )
+        .await
+        .unwrap_err()
+        .code(),
+        tonic::Code::InvalidArgument
+    );
+
+    // Trying to create a topic inside an already finalized session should return a FailedPrecondition error.
+    let batches = vec![ext::arrow::testing::dummy_batch()];
+
+    let response = actions::do_put(
+        &mut client,
+        &topic_uuid,
+        "test_sequence/my_topic",
+        batches,
+        false,
+    )
+    .await
+    .unwrap();
+
+    if response.into_inner().message().await.unwrap().is_some() {
+        panic!("Received a not-empty response!");
+    }
+
+    actions::session_finalize(&mut client, &session_uuid)
         .await
         .unwrap();
-    assert!(uuid.is_valid());
 
-    // Create topic with malformed metadata.
     assert_eq!(
-        actions::topic_create(&mut client, &uuid, "test_sequence/my_topic", Some("{"))
+        actions::topic_create(&mut client, &session_uuid, "test_sequence/my_topic2", None)
             .await
             .unwrap_err()
             .code(),
-        tonic::Code::InvalidArgument
+        tonic::Code::FailedPrecondition
     );
 
     server.shutdown().await;
@@ -239,7 +295,9 @@ async fn topic_create(pool: sqlx::Pool<db::DatabaseType>) -> sqlx::Result<()> {
 }
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
-async fn topic_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
+async fn test_topic_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
+    let _ = tracing_subscriber::fmt::try_init();
+
     let port = common::random_port();
 
     let server = common::ServerBuilder::new(common::HOST, port, pool)
@@ -561,13 +619,18 @@ async fn test_sequence_delete(pool: sqlx::Pool<db::DatabaseType>) {
         .await
         .unwrap();
 
+    assert_eq!(server.store.list("", None).await.unwrap().len(), 3);
+
     actions::sequence_delete(&mut client, "test_sequence").await;
+
+    // Make sure that delete command did not actually remove any file from Store.
+    assert_eq!(server.store.list("", None).await.unwrap().len(), 3);
 
     server.shutdown().await;
 }
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
-async fn get_server_version(pool: sqlx::Pool<db::DatabaseType>) {
+async fn test_get_server_version(pool: sqlx::Pool<db::DatabaseType>) {
     let port = common::random_port();
 
     let server = common::ServerBuilder::new(common::HOST, port, pool)

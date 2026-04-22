@@ -41,7 +41,11 @@ async fn start_server(
     pool: sqlx::Pool<db::DatabaseType>,
     shutdown: ShutdownNotifier,
     tls: Option<server::flight::TlsConfig>,
-) -> tokio::task::JoinHandle<()> {
+) -> (
+    tokio::task::JoinHandle<()>,
+    db::testing::Database,
+    store::testing::Store,
+) {
     // Ensure that params are loaded
     params::load_params_from_env(params::ParamsLoadOptions::testing()).unwrap();
 
@@ -53,24 +57,21 @@ async fn start_server(
         config.tls(tls);
     }
 
+    let store_clone = store.clone();
+    let db_clone = database.clone();
+
     let handle = tokio::task::spawn(async move {
-        if let Err(err) = server::flight::start(
-            config,
-            (*store).clone(),
-            (*database).clone(),
-            Some(shutdown),
-        )
-        .await
+        if let Err(err) = server::flight::start(config, store_clone, db_clone, Some(shutdown)).await
         {
             panic!("flight server error: {}", err);
         }
         println!("server stopped");
     });
 
-    // Wait a little to be sure that server port is binded
+    // Wait a little to be sure that server port is bound
     tokio::time::sleep(std::time::Duration::from_millis(100)).await;
 
-    handle
+    (handle, database, store)
 }
 
 pub struct ServerBuilder {
@@ -100,16 +101,15 @@ impl ServerBuilder {
 
     pub async fn build(self) -> Server {
         let shutdown = ShutdownNotifier::default();
+
+        let (server_join_handle, db, store) =
+            start_server(&self.host, self.port, self.pool, shutdown.clone(), self.tls).await;
+
         Server {
-            server_join_handle: start_server(
-                &self.host,
-                self.port,
-                self.pool,
-                shutdown.clone(),
-                self.tls,
-            )
-            .await,
+            server_join_handle,
             shutdown,
+            db,
+            store,
         }
     }
 }
@@ -131,6 +131,8 @@ impl ServerBuilder {
 pub struct Server {
     shutdown: ShutdownNotifier,
     server_join_handle: tokio::task::JoinHandle<()>,
+    pub db: db::testing::Database,
+    pub store: store::testing::Store,
 }
 
 impl Server {

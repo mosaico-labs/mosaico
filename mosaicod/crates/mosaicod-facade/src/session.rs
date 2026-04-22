@@ -184,9 +184,9 @@ mod tests {
     fn test_context(pool: sqlx::Pool<db::DatabaseType>) -> Context {
         let database = db::testing::Database::new(pool);
         let store = store::testing::Store::new_random_on_tmp().unwrap();
-        let ts_gw = Arc::new(query::TimeseriesEngine::try_new(store.clone(), 0).unwrap());
+        let ts_gw = Arc::new(query::TimeseriesEngine::try_new((*store).clone(), 0).unwrap());
 
-        Context::new(store.clone(), database.clone(), ts_gw)
+        Context::new((*store).clone(), (*database).clone(), ts_gw)
     }
 
     #[sqlx::test(migrator = "db::testing::MIGRATOR")]

@@ -94,7 +94,7 @@ async fn do_put_topic_data(
     let topic_uuid = topic_handle.uuid().clone();
     let received_uuid: types::Uuid = uuid_str
         .parse()
-        .map_err(|_| Error::invalid_uuid(uuid_str))?;
+        .map_err(|_| core::Error::bad_uuid(uuid_str.clone()))?;
 
     if received_uuid != topic_uuid {
         Err(core::Error::unauthorized())?

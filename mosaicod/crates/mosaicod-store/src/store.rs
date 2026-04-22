@@ -275,7 +275,7 @@ pub mod testing {
 
     pub struct Store {
         inner: super::StoreRef,
-        root: std::path::PathBuf,
+        pub root: std::path::PathBuf,
     }
 
     impl Store {
@@ -350,5 +350,7 @@ mod test {
         store.write_to_path(&target, buffer).await.unwrap();
         let read_buffer = store.read_bytes(&target).await.unwrap();
         assert_eq!(buffer, read_buffer);
+
+        assert_eq!(store.list("", None).await.unwrap().len(), 2);
     }
 }

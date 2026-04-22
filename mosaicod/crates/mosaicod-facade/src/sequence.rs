@@ -281,9 +281,9 @@ mod tests {
     fn test_context(pool: sqlx::Pool<db::DatabaseType>) -> Context {
         let database = db::testing::Database::new(pool);
         let store = store::testing::Store::new_random_on_tmp().unwrap();
-        let ts_gw = Arc::new(query::TimeseriesEngine::try_new(store.clone(), 0).unwrap());
+        let ts_gw = Arc::new(query::TimeseriesEngine::try_new((*store).clone(), 0).unwrap());
 
-        Context::new(store.clone(), database.clone(), ts_gw)
+        Context::new((*store).clone(), (*database).clone(), ts_gw)
     }
 
     #[sqlx::test(migrator = "db::testing::MIGRATOR")]
@@ -331,6 +331,12 @@ mod tests {
                 .await
                 .unwrap()
         );
+
+        let metadata = metadata(&context, &handle).await.unwrap();
+        assert!(metadata.created_at.as_i64() > 0);
+        assert!(metadata.user_metadata.is_some());
+        assert!(metadata.sessions.is_empty());
+        assert_eq!(metadata.resource_locator, handle.locator);
 
         // Root path in store must be a valid ULID (excluded the sq_ prefix)
         assert!(

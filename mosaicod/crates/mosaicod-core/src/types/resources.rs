@@ -21,8 +21,10 @@ pub enum ResourceError {
 impl PublicError for ResourceError {
     fn error(&self) -> Error {
         match self {
-            ResourceError::InvalidLocator(_) => Error::bad_locator(),
-            ResourceError::LocatorKindMismatch(_, _) => Error::bad_locator(),
+            ResourceError::InvalidLocator(locator) => Error::bad_locator(locator.clone()),
+            ResourceError::LocatorKindMismatch(kind, locator) => {
+                Error::locator_kind_mismatch(locator.clone(), kind.to_string())
+            }
         }
     }
 }
