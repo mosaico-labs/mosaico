@@ -12,6 +12,7 @@ mosaicod-core = { workspace = true }
 mosaicod-db = { workspace = true, features = ["testing"] }
 mosaicod-store = { workspace = true, features = ["testing"] }
 mosaicod-server = { workspace = true }
+mosaicod-ext = { workspace = true, features = ["testing"] }
 
 arrow-flight = { workspace = true }
 tonic = { workspace = true }
@@ -25,5 +26,4 @@ arrow = { workspace = true }
 url = { workspace = true }
 
 [dev-dependencies]
-mosaicod-ext = { workspace = true, features = ["testing"] }
 mosaicod-marshal = { workspace = true }
