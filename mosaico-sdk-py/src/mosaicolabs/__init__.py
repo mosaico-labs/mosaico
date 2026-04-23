@@ -14,10 +14,12 @@ Example:
 """
 
 # --- Client ---
-from .comm import MosaicoClient as MosaicoClient
+from .comm import GRPCCompression as GRPCCompression, MosaicoClient as MosaicoClient
 
 # --- Enums ---
 from .enum import (
+    GRPCCompressionAlgorithm as GRPCCompressionAlgorithm,
+    GRPCCompressionLevel as GRPCCompressionLevel,
     SequenceStatus as SequenceStatus,
     SerializationFormat as SerializationFormat,
     SessionLevelErrorPolicy as SessionLevelErrorPolicy,
@@ -64,6 +66,7 @@ from .models.data import (
     Floating32 as Floating32,
     Floating64 as Floating64,
     ForceTorque as ForceTorque,
+    Inertia as Inertia,
     Integer8 as Integer8,
     Integer16 as Integer16,
     Integer32 as Integer32,
@@ -72,6 +75,7 @@ from .models.data import (
     MotionState as MotionState,
     Point2d as Point2d,
     Point3d as Point3d,
+    Polygon as Polygon,
     Pose as Pose,
     Quaternion as Quaternion,
     String as String,
@@ -116,6 +120,7 @@ from .models.sensors import (
     GPSStatus as GPSStatus,
     Image as Image,
     ImageFormat as ImageFormat,
+    Joy as Joy,
     Magnetometer as Magnetometer,
     NMEASentence as NMEASentence,
     Pressure as Pressure,
@@ -130,6 +135,7 @@ from .types import Time as Time
 __all__ = [
     # Client
     "MosaicoClient",
+    "GRPCCompression",
     # Logging
     "get_logger",
     "setup_sdk_logging",
@@ -155,6 +161,7 @@ __all__ = [
     "NMEASentence",
     "Image",
     "ImageFormat",
+    "Joy",
     "CompressedImage",
     "IMU",
     "Magnetometer",
@@ -180,6 +187,7 @@ __all__ = [
     # Geometry
     "Point2d",
     "Point3d",
+    "Polygon",
     "Vector2d",
     "Vector3d",
     "Vector4d",
@@ -188,6 +196,7 @@ __all__ = [
     "Transform",
     # Dynamics & Kinematics
     "ForceTorque",
+    "Inertia",
     "Acceleration",
     "Velocity",
     "MotionState",
@@ -210,6 +219,8 @@ __all__ = [
     "SessionLevelErrorPolicy",
     "TopicLevelErrorPolicy",
     "TopicWriterStatus",
+    "GRPCCompressionAlgorithm",
+    "GRPCCompressionLevel",
     # Platform
     "Sequence",
     "Session",

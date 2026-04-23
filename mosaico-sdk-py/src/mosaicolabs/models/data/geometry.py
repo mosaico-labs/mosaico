@@ -1391,3 +1391,27 @@ class Pose(
                                 for topic in item.topics}}")
         ```
     """
+
+
+class Polygon(Serializable):
+    """
+    Polygon geometry defined by a list of points.
+
+    Each point represents a vertex of the polygon in 3D space.
+
+    Attributes:
+        points: List of polygon vertices.
+
+    ### Querying with the **`.Q` Proxy**
+    The points field is not queryable via the `.Q` proxy (lists are not supported yet).
+    """
+
+    points: MosaicoType.list_(Point3d) = MosaicoField(
+        description="List of polygon vertices as 3D points."
+    )
+    """
+    List of polygon vertices as 3D points.
+
+    ### Querying with the **`.Q` Proxy**
+    The points field is not queryable via the `.Q` proxy (lists are not supported yet).
+    """

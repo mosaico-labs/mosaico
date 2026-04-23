@@ -8,7 +8,7 @@ and executing queries.
 """
 
 import os
-from typing import Any, Dict, List, Optional, Type
+from typing import Any, Dict, List, Optional, Type, Union
 
 import pyarrow.flight as fl
 
@@ -19,6 +19,7 @@ from mosaicolabs.models.query.protocols import QueryableProtocol
 from ..enum import (
     APIKeyPermissionEnum,
     FlightAction,
+    GRPCCompressionAlgorithm,
     SessionLevelErrorPolicy,
 )
 from ..handlers import SequenceHandler, SequenceWriter, TopicHandler
@@ -29,6 +30,7 @@ from ..platform.api_key import APIKeyStatus
 from .connection import (
     DEFAULT_MAX_BATCH_BYTES,
     DEFAULT_MAX_BATCH_SIZE_RECORDS,
+    GRPCCompression,
     _ConnectionStatus,
     _get_connection,
 )
@@ -84,6 +86,7 @@ class MosaicoClient:
         control_client: fl.FlightClient,
         sentinel: object,
         enable_tls: bool,
+        compression: GRPCCompression,
         tls_cert: Optional[bytes],
         api_key_fingerprint: Optional[str],
         middlewares: dict[str, fl.ClientMiddlewareFactory],
@@ -106,6 +109,7 @@ class MosaicoClient:
             control_client: The primary PyArrow Flight control client.
             sentinel: Private object used to verify factory-based instantiation.
             enable_tls: Enable TLS communication.
+            compression: The compression configuration for gRPC.
             tls_cert: The TLS certificate.
             api_key_fingerprint: The fingerprint of the API key to use for authentication.
             middlewares: The middlewares to be used for the connection.
@@ -129,6 +133,8 @@ class MosaicoClient:
         """The path to the TLS certificate file."""
         self._enable_tls: bool = enable_tls
         """If True, enable the TLS commmunication protocol"""
+        self._compression: GRPCCompression = compression
+        """The compression configuration for gRPC"""
         self._middlewares: dict[str, fl.ClientMiddlewareFactory] = middlewares
         """The middlewares to be used for the connection."""
         self._api_key_fingerprint: Optional[str] = api_key_fingerprint
@@ -147,6 +153,9 @@ class MosaicoClient:
         port: int,
         timeout: int = 5,
         enable_tls: bool = False,
+        compression: Union[
+            GRPCCompressionAlgorithm, GRPCCompression
+        ] = GRPCCompressionAlgorithm.Null,
         tls_cert_path: Optional[str] = None,
         api_key: Optional[str] = None,
     ) -> "MosaicoClient":
@@ -175,6 +184,8 @@ class MosaicoClient:
                 Defaults to 5.
             enable_tls (bool): Enable the TLS standard one-way TLS (server authenticated only) communication protocol.
                 Defaults to False. If `tls_cert_path` is provided (not None), this flag does not have any effect.
+            compression (Union[GRPCCompressionAlgorithm, GRPCCompression]): Enable the compression of record batches sent via gRPC.
+                Defaults to GRPCCompressionAlgorithm.Null (uncompressed).
             tls_cert_path (Optional[str]): Path to the TLS certificate file. Defaults to None.
                 If `tls_cert_path=None` and `enable_tls=True`, a standard one-way TLS (server authenticated only) connection
                 is established.
@@ -218,12 +229,15 @@ class MosaicoClient:
             middlewares["mosaico_auth"] = auth_mware
             api_key_fingerprint = auth_mware.api_key_fingerprint
 
+        if isinstance(compression, GRPCCompressionAlgorithm):
+            compression = GRPCCompression(algorithm=compression)
         try:
             control_client: fl.FlightClient = _get_connection(
                 host=host,
                 port=port,
                 timeout=timeout,
                 enable_tls=enable_tls,
+                compression=compression,
                 tls_cert=resolved_tls_cert,
                 middlewares=middlewares,
             )
@@ -241,6 +255,7 @@ class MosaicoClient:
             sentinel=cls._CONNECT_SENTINEL,
             tls_cert=resolved_tls_cert,
             enable_tls=enable_tls,
+            compression=compression,
             api_key_fingerprint=api_key_fingerprint,
             middlewares=middlewares,
         )

@@ -27,7 +27,7 @@ class NotificationType(Enum):
             writing interruption or serialization fault.
     """
 
-    ERROR = "error"
+    Error = "error"
     """Critical error notification."""
 
 

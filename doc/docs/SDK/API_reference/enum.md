@@ -13,3 +13,7 @@ description: API Reference for Enum Module
 ::: mosaicolabs.enum.TopicLevelErrorPolicy
 ::: mosaicolabs.enum.SessionLevelErrorPolicy
 ::: mosaicolabs.enum.FlightAction
+::: mosaicolabs.enum.GRPCCompressionAlgorithm
+::: mosaicolabs.enum.GRPCCompressionLevel
+
+

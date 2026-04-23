@@ -70,6 +70,7 @@ nav:
           - SDK/examples/data_inspection.md
           - SDK/examples/query_catalogs.md
           - SDK/examples/ontology_customization.md
+          - SDK/examples/mujoco_visualisation.md
 
       - In Depth:
           - SDK/client.md

@@ -31,7 +31,6 @@ Data ingestion and retrieval are handled through a **unified single-stream conne
 The SDK operates on a **Synchronous Processing Model**, where serialization and transmission occur within the calling thread’s context. For complex sensor data (like image compression or LIDAR encoding), the SDK performs inline serialization immediately prior to transmission. This "lock-step" execution ensures maximum data integrity and minimizes memory pressure, as it avoids the overhead of background thread synchronization and context switching.
 
 ## Security Layer
-
 The Security Layer manages the confidentiality and integrity of the communication channel. It is composed of two primary mechanisms that work in tandem to harden the connection.
 
 ### 1. Encryption (TLS)
@@ -115,3 +114,69 @@ with MosaicoClient.from_env(host="mosaico.internal", port=6726) as client:
     # Security is initialized automatically from the environment
     print(client.version())
 ```
+
+## Compression
+
+The `MosaicoClient` supports **gRPC-level compression** to reduce bandwidth usage when transmitting data over the network. Compression is applied transparently to all record batches sent through the Data Layer.
+
+Compression is configured via the `compression` parameter of [`MosaicoClient.connect()`][mosaicolabs.comm.MosaicoClient.connect]. It accepts either a [`GRPCCompressionAlgorithm`][mosaicolabs.enum.GRPCCompressionAlgorithm] shorthand (**algorithm only**, no level control) or a [`GRPCCompression`][mosaicolabs.comm.GRPCCompression] dataclass (full control over both **algorithm and level**).
+
+The library supports the following compression algorithms:
+
+| Algorithm | Description |
+| :--- | :--- |
+| [`GRPCCompressionAlgorithm.Null`][mosaicolabs.enum.GRPCCompressionAlgorithm.Null] | No compression (default). Data is transmitted uncompressed. |
+| [`GRPCCompressionAlgorithm.Gzip`][mosaicolabs.enum.GRPCCompressionAlgorithm.Gzip] | Standard GZIP compression. Best for general-purpose use. |
+| [`GRPCCompressionAlgorithm.StreamGzip`][mosaicolabs.enum.GRPCCompressionAlgorithm.StreamGzip] | Experimental stream-level GZIP. Applied to the raw gRPC stream rather than individual messages. |
+
+When using an algorithm that supports intensity tuning, an optional [`GRPCCompressionLevel`][mosaicolabs.enum.GRPCCompressionLevel] can be specified to trade off CPU usage against compression ratio.
+
+| Level | Description |
+| :--- | :--- |
+| [`GRPCCompressionLevel.Low`][mosaicolabs.enum.GRPCCompressionLevel.Low] | Fastest compression, lowest CPU overhead, largest output size. |
+| [`GRPCCompressionLevel.Medium`][mosaicolabs.enum.GRPCCompressionLevel.Medium] | Balanced trade-off between speed and compression ratio. |
+| [`GRPCCompressionLevel.High`][mosaicolabs.enum.GRPCCompressionLevel.High] | Highest compression ratio, greatest CPU overhead. |
+
+If no level is specified, the underlying gRPC protocol implementation chooses a sensible default for the selected algorithm.
+
+#### Shorthand (algorithm only)
+
+Pass a [`GRPCCompressionAlgorithm`][mosaicolabs.enum.GRPCCompressionAlgorithm] value directly. The compression level is left to the gRPC default.
+
+```python
+from mosaicolabs import MosaicoClient
+from mosaicolabs.enum import GRPCCompressionAlgorithm
+
+with MosaicoClient.connect(
+    "localhost",
+    6726,
+    compression=GRPCCompressionAlgorithm.Gzip,
+) as client:
+    # ... Perform operations
+```
+
+#### Full control (algorithm + level)
+
+Use the [`GRPCCompression`][mosaicolabs.comm.GRPCCompression] dataclass to explicitly set both the algorithm and the compression level.
+
+```python
+from mosaicolabs import MosaicoClient
+from mosaicolabs.comm import GRPCCompression
+from mosaicolabs.enum import GRPCCompressionAlgorithm, GRPCCompressionLevel
+
+with MosaicoClient.connect(
+    "localhost",
+    6726,
+    compression=GRPCCompression(
+        algorithm=GRPCCompressionAlgorithm.Gzip,
+        level=GRPCCompressionLevel.High,
+    ),
+) as client:
+    # ... Perform operations
+```
+
+!!! tip "When to enable compression"
+    Compression is most beneficial when the network link is the bottleneck (e.g., remote deployments over WAN or metered connections). For local or LAN deployments, the CPU overhead of compression may outweigh the bandwidth savings, so the default `GRPCCompressionAlgorithm.Null` is recommended.
+
+!!! warning "StreamGzip is experimental"
+    `GRPCCompressionAlgorithm.StreamGzip` applies compression at the raw gRPC stream level. It is currently marked as **experimental** and may not be stable in all environments. Prefer `GRPCCompressionAlgorithm.Gzip` for production use.
