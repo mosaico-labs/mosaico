@@ -1,6 +1,6 @@
 <div align="center">
   <picture>
-    <a href="https://mosaico.dev"><img alt="Mosaico logo" src="https://mosaico.dev/repo-hero.webp" width="600px"></a>
+    <a href="https://mosaico.dev"><img alt="Mosaico logo" src="https://mosaico.dev/github-hero.webp" width="600px"></a>
   </picture>
 </div>
 <br/>
@@ -30,7 +30,7 @@ Leveraging **zero-copy architecture** eliminates serialization overhead, surpass
 Streams are automatically indexed, allowing the query engine to prune irrelevant data and stream only the precise slices required.
 
 <p align="center">
-  <img src="https://mosaico.dev/mosaico-framework.webp" width="400px" />
+  <img src="https://mosaico.dev/stack.webp" width="400px" />
 </p>
 
 At its foundation is a strictly-typed **data ontology**. 
