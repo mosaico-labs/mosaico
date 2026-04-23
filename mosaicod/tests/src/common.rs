@@ -98,6 +98,14 @@ impl ServerBuilder {
         self
     }
 
+    pub fn enable_tls_with(mut self, cert: &str, private_key: &str) -> Self {
+        self.tls = Some(server::flight::TlsConfig {
+            certificate_file: cert.to_owned().into(),
+            private_key_file: private_key.to_owned().into(),
+        });
+        self
+    }
+
     pub async fn build(self) -> Server {
         let shutdown = ShutdownNotifier::default();
         Server {
@@ -139,6 +147,10 @@ impl Server {
         self.shutdown.shutdown();
         let _ = tokio::join!(self.server_join_handle);
     }
+
+    pub async fn is_crashed(&self) -> bool {
+        self.server_join_handle.is_finished()
+    }
 }
 
 pub struct ClientBuilder {
@@ -178,6 +190,33 @@ impl ClientBuilder {
         );
 
         self
+    }
+
+    pub fn enable_tls_with(
+        mut self,
+        tls_ca_file: &str,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
+        let cert_str =
+            fs::read(tls_ca_file).map_err(|e| format!("Unable to read certificate: {e}"))?;
+        let cert = tonic::transport::Certificate::from_pem(cert_str);
+
+        self.url = format_endpoint(
+            &self.url.host().unwrap().to_string(),
+            self.url.port().unwrap(),
+            true,
+        )
+        .parse()?;
+
+        dbg!(&self.url.to_string());
+        dbg!(&self.url.domain());
+
+        self.tls = Some(
+            tonic::transport::ClientTlsConfig::new()
+                .ca_certificate(cert)
+                .domain_name("127.0.0.1"),
+        );
+
+        Ok(self)
     }
 
     /// Establishes a connection to a Flight server at the specified host and port.
