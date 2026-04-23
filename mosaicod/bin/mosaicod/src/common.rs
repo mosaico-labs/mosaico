@@ -38,24 +38,26 @@ pub fn init_runtime() -> Result<tokio::runtime::Runtime> {
         .map_err(|_| core::Error::internal(Some("event loop startup failure".to_owned())))?)
 }
 
-pub fn init_local_store(path: impl AsRef<std::path::Path>) -> Result<store::StoreRef> {
-    Ok(Arc::new(store::Store::try_from_filesystem(path)?))
-}
-
-pub fn init_s3_store() -> Result<store::StoreRef> {
+pub fn init_store() -> Result<store::StoreRef> {
     let params = params::params();
 
-    let config = store::S3Config {
-        endpoint: params.store_endpoint.value.clone(),
-        bucket: params.store_bucket.value.clone(),
-        secret_key: params.store_secret_key.value.clone(),
-        access_key: params.store_access_key.value.clone(),
-    };
+    let endpoint_url: url::Url = params.store_endpoint.value.parse().map_err(|_| {
+        core::Error::invalid_configuration(
+            params.store_endpoint.env.clone(),
+            "not a valid URL".to_owned(),
+        )
+    })?;
 
-    // This will return and error if the s3 confuration has some problems
-    config.validate()?;
+    let mut builder = store::Builder::new(endpoint_url, params.store_bucket.value.clone());
 
-    Ok(Arc::new(store::Store::try_from_s3_store(config)?))
+    let secret_key = params.store_secret_key.value.clone();
+    let access_key = params.store_access_key.value.clone();
+
+    if !access_key.is_empty() && !secret_key.is_empty() {
+        builder = builder.with_credentials(access_key, secret_key);
+    }
+
+    Ok(Arc::new(builder.build()?))
 }
 
 /// Load the defined env variables from the system.
