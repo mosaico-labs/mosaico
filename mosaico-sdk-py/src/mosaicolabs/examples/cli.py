@@ -11,6 +11,7 @@ EXAMPLES_MAP = {
     "ros_injection": "mosaicolabs.examples.ros_injection.main",
     "data_inspection": "mosaicolabs.examples.data_inspection",
     "query_catalogs": "mosaicolabs.examples.query_catalogs",
+    "mujoco_vis": "mosaicolabs.examples.mujoco_vis",
 }
 
 CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])

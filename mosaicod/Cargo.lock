@@ -2576,6 +2576,7 @@ dependencies = [
  "if-addrs",
  "iso8601",
  "mimalloc",
+ "mosaicod-build",
  "mosaicod-core",
  "mosaicod-db",
  "mosaicod-facade",
@@ -2585,6 +2586,13 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "mosaicod-build"
+version = "0.4.0"
+dependencies = [
+ "chrono",
 ]
 
 [[package]]

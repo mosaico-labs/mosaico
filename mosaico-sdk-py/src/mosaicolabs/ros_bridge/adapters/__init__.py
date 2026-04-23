@@ -1,7 +1,9 @@
 from . import std_msgs as std_msgs
 from .geometry_msgs import (
     AccelAdapter as AccelAdapter,
+    InertiaAdapter as InertiaAdapter,
     PointAdapter as PointAdapter,
+    PolygonAdapter as PolygonAdapter,
     PoseAdapter as PoseAdapter,
     QuaternionAdapter as QuaternionAdapter,
     TransformAdapter as TransformAdapter,

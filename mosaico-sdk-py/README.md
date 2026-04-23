@@ -71,6 +71,7 @@ mosaicolabs.examples data_inspection
   * `ros_injection`: Demonstrates downloading a sample dataset and ingesting it.
   * `data_inspection`: Shows how to list sequences and inspect topic metadata.
   * `query_catalogs`: Advanced querying based on ontology tags and sensor values.
+  * `mujoco_vis`: Advanced querying and result visualization.
 
 ### ROS Data Injector
 
