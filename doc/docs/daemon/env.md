@@ -34,7 +34,7 @@ Here we provide a complete list of environment variables that can be used to con
 
 ## Store
 
-- `MOSAICOD_STORE_ENDPOINT`: Endpoint URL for the object storage service (e.g., S3). Default is an empty string.
+- `MOSAICOD_STORE_ENDPOINT`: Endpoint URL for the object storage service (e.g., S3). Use `file:///some/absolute/path` to set up a local storage directory. **Required**.
+- `MOSAICOD_STORE_BUCKET`: Name of the bucket in the object storage service where data will be stored. When using the local filesystem endpoint, the system creates a new directory named after the bucket within the endpoint path. **Required**.
 - `MOSAICOD_STORE_ACCESS_KEY`: Access key for the object storage service. Default is an empty string.
 - `MOSAICOD_STORE_SECRET_KEY`: Secret key for the object storage service. Default is an empty string.
-- `MOSAICOD_STORE_BUCKET`: Name of the bucket in the object storage service where data will be stored. Default is an empty string.

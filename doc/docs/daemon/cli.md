@@ -14,7 +14,6 @@ mosaicod run [OPTIONS]
 | :--- | --- | :--- |
 | `--host <HOST>` | `127.0.0.1` |  Specify a host address. |
 | `--port <PORT>` | `6726` | Port to listen on. |
-| `--local-store <PATH>` | `None` | Enable storage of objects on the local filesystem at the specified directory path. |
 | `--tls` | `false` | Enable TLS. When enabled, the following envirnoment variables needs to be set `MOSAICOD_TLS_CERT_FILE` and `MOSAICOD_TLS_PRIVATE_KEY_FILE` | 
 | `--api-key` | `false` | Require API keys to operate. When enabled the system will require API keys to perform any actions. |
 
