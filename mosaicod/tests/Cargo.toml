@@ -12,6 +12,7 @@ mosaicod-core = { workspace = true }
 mosaicod-db = { workspace = true, features = ["testing"] }
 mosaicod-store = { workspace = true, features = ["testing"] }
 mosaicod-server = { workspace = true }
+mosaicod-facade = { workspace = true }
 mosaicod-ext = { workspace = true, features = ["testing"] }
 
 arrow-flight = { workspace = true }
@@ -24,6 +25,7 @@ rand = { workspace = true }
 futures = { workspace = true }
 arrow = { workspace = true }
 url = { workspace = true }
+tower = {workspace = true}
 
 [dev-dependencies]
 mosaicod-marshal = { workspace = true }

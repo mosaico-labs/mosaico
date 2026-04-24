@@ -2,10 +2,13 @@ use std::fs;
 
 use arrow_flight::flight_service_client::FlightServiceClient;
 use mosaicod_core::params;
+use mosaicod_core::types;
 use mosaicod_db as db;
+use mosaicod_facade::Auth;
 use mosaicod_server::{self as server, flight::ShutdownNotifier};
 use mosaicod_store as store;
 use serde::Deserialize;
+use tonic::service::interceptor;
 
 /// The local loopback address for testing.
 pub const HOST: &str = "127.0.0.1";
@@ -78,6 +81,7 @@ pub struct ServerBuilder {
     port: u16,
     pool: sqlx::Pool<db::DatabaseType>,
     tls: Option<server::flight::TlsConfig>,
+    api_key: Option<Auth>,
 }
 
 impl ServerBuilder {
@@ -87,7 +91,19 @@ impl ServerBuilder {
             port,
             pool,
             tls: None,
+            api_key: None,
         }
+    }
+
+    pub async fn create_api_key(&mut self, permissions: types::auth::Permission) -> types::ApiKey {
+        let db = db::testing::Database::new(self.pool.clone());
+        self.api_key = Some(
+            Auth::create(permissions, "".to_string(), None, (*db).clone())
+                .await
+                .expect("Failed to create api."),
+        );
+
+        self.api_key.as_ref().unwrap().api_key().clone()
     }
 
     pub fn enable_tls(mut self) -> Self {
@@ -153,9 +169,28 @@ impl Server {
     }
 }
 
+type InterceptedChannel =
+    interceptor::InterceptedService<tonic::transport::Channel, ApiKeyInterceptor>;
+
+#[derive(Clone)]
+pub struct ApiKeyInterceptor {
+    api_key: Option<String>,
+}
+
+impl tonic::service::Interceptor for ApiKeyInterceptor {
+    fn call(&mut self, mut req: tonic::Request<()>) -> Result<tonic::Request<()>, tonic::Status> {
+        if let Some(key) = &self.api_key {
+            req.metadata_mut()
+                .insert("authorization", format!("Bearer {}", key).parse().unwrap());
+        }
+        Ok(req)
+    }
+}
+
 pub struct ClientBuilder {
     url: url::Url,
     tls: Option<tonic::transport::ClientTlsConfig>,
+    api_key_interceptor: Option<ApiKeyInterceptor>,
 }
 
 impl ClientBuilder {
@@ -165,6 +200,7 @@ impl ClientBuilder {
                 .parse()
                 .expect("unable to convert host"),
             tls: None,
+            api_key_interceptor: None,
         }
     }
 
@@ -219,6 +255,13 @@ impl ClientBuilder {
         Ok(self)
     }
 
+    pub fn with_api_key(mut self, api_key: String) -> Self {
+        self.api_key_interceptor = Some(ApiKeyInterceptor {
+            api_key: Some(api_key),
+        });
+        self
+    }
+
     /// Establishes a connection to a Flight server at the specified host and port.
     pub async fn build(self) -> Client {
         let url = self.url.as_str().trim_end_matches('/').to_owned();
@@ -240,27 +283,28 @@ impl ClientBuilder {
             }
         });
 
-        let client = FlightServiceClient::new(channel);
+        let client =
+            FlightServiceClient::with_interceptor(channel, self.api_key_interceptor.unwrap());
 
         Client { client }
     }
 }
 
 /// A dummy client that communicates to mosaicod.
-pub struct Client {
-    client: FlightServiceClient<tonic::transport::Channel>,
+pub struct Client<T = InterceptedChannel> {
+    client: FlightServiceClient<T>,
 }
 
 impl Client {}
 
-impl std::ops::Deref for Client {
-    type Target = FlightServiceClient<tonic::transport::Channel>;
+impl<T> std::ops::Deref for Client<T> {
+    type Target = FlightServiceClient<T>;
     fn deref(&self) -> &Self::Target {
         &self.client
     }
 }
 
-impl std::ops::DerefMut for Client {
+impl<T> std::ops::DerefMut for Client<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.client
     }

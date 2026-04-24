@@ -4111,6 +4111,7 @@ dependencies = [
  "mosaicod-core",
  "mosaicod-db",
  "mosaicod-ext",
+ "mosaicod-facade",
  "mosaicod-marshal",
  "mosaicod-server",
  "mosaicod-store",
@@ -4120,6 +4121,7 @@ dependencies = [
  "sqlx",
  "tokio",
  "tonic",
+ "tower",
  "url",
 ]
 

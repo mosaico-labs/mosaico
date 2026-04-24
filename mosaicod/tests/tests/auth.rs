@@ -1,6 +1,6 @@
 #![allow(unused_crate_dependencies)]
 
-use mosaicod_core::types;
+use mosaicod_core::types::{self, auth};
 use mosaicod_db as db;
 use tests::{self, actions, common};
 
@@ -181,6 +181,29 @@ async fn test_api_key_revoke(pool: sqlx::Pool<db::DatabaseType>) {
             .await
             .is_err()
     );
+
+    server.shutdown().await;
+}
+
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_api_key_invalid_read(pool: sqlx::Pool<db::DatabaseType>) {
+    let port = common::random_port();
+
+    let mut builder = common::ServerBuilder::new(common::HOST, port, pool).enable_tls();
+
+    let api_key = builder.create_api_key(auth::Permission::Read).await;
+    dbg!(&api_key.key.to_string());
+
+    let server = builder.build().await;
+
+    let mut client = common::ClientBuilder::new(common::HOST, port)
+        .enable_tls()
+        .with_api_key(api_key.key.to_string())
+        .build()
+        .await;
+
+    let res = actions::sequence_create(&mut client, "test_api_key_invalid_read", None).await;
+    assert!(res.is_err());
 
     server.shutdown().await;
 }
