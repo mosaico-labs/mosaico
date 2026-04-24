@@ -59,7 +59,7 @@ sqlx = { version = "0.8.6", features = [
 thiserror = "2.0.18"
 tokio = { version = "1.50.0", features = ["rt-multi-thread"] }
 url = "2.5.8"
-uuid = { version = "1.23.0", features = [ "v4" ] }
+uuid = { version = "1.23.1", features = [ "v4" ] }
 ulid = "1.2.1"
 crc32fast = "1.5.0"
 iso8601 = "0.6.3"
