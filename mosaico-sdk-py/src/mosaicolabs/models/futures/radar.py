@@ -7,7 +7,7 @@ of detections obtained from a Radar sensor.
 
 from typing import Optional
 
-from mosaicolabs import MosaicoField, MosaicoType, Serializable
+from mosaicolabs.models import MosaicoField, MosaicoType, Serializable
 
 
 class Radar(Serializable):
