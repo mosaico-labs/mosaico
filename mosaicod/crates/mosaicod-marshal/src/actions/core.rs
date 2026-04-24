@@ -84,7 +84,7 @@ pub enum ActionRequest {
     /// Deletes all notifications associated with a topic
     TopicNotificationPurge(requests::ResourceLocator),
 
-    /// Creates a new upload session for a sequence
+    /// Creates a new upload session for the given sequence.
     SessionCreate(requests::ResourceLocator),
 
     /// Finalizes the upload session

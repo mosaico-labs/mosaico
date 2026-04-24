@@ -7,7 +7,6 @@ use arrow_flight::{
 use futures::TryStreamExt;
 use log::{debug, info, trace};
 use mosaicod_core as core;
-use mosaicod_core::types;
 use mosaicod_facade as facade;
 use mosaicod_marshal as marshal;
 
@@ -17,9 +16,7 @@ pub async fn do_get(ctx: &facade::Context, ticket: Ticket) -> Result<FlightDataE
     info!("requesting data for ticket `{}`", ticket.locator);
 
     // Create topic handle
-    let topic_locator = ticket.locator.parse::<types::TopicLocator>()?;
-
-    let topic_handle = facade::topic::Handle::try_from_locator(ctx, topic_locator).await?;
+    let topic_handle = facade::topic::Handle::try_from_locator(ctx, ticket.locator).await?;
 
     // Read metadata from topic
     let metadata = facade::topic::metadata(ctx, &topic_handle).await?;

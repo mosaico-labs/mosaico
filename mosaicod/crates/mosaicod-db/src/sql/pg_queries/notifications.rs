@@ -42,7 +42,7 @@ pub async fn topic_notifications_find_by_locator(
           JOIN topic_t AS topic ON notification.topic_id = topic.topic_id
           WHERE topic.locator_name=$1
     "#,
-        loc as &str,
+        loc.to_string(),
     )
     .fetch_all(exe.as_exec())
     .await?;

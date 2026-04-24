@@ -170,7 +170,7 @@ mod tests {
     #[sqlx::test]
     async fn test_create(pool: Pool<DatabaseType>) -> sqlx::Result<()> {
         let record = schema::SequenceRecord::new(
-            "/my_sequence".parse().unwrap(),
+            "my_sequence".parse().unwrap(),
             "/my/path/in/store".to_owned().into(),
         );
         let database = testing::Database::new(pool);

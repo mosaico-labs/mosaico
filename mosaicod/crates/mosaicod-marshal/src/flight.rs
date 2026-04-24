@@ -185,7 +185,7 @@ struct TicketTopic {
 impl From<types::flight::TicketTopic> for TicketTopic {
     fn from(value: types::flight::TicketTopic) -> Self {
         Self {
-            locator: value.locator.into(),
+            locator: value.locator.to_string(),
             timestamp_ns_start: value.timestamp_range.as_ref().map(|tsr| tsr.start.into()),
             timestamp_ns_end: value.timestamp_range.map(|tsr| tsr.end.into()),
         }

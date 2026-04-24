@@ -51,7 +51,7 @@ where
             ErrorKind::SessionAlreadyFinalized(_) => Code::FailedPrecondition,
             ErrorKind::EmptySession(_) => Code::FailedPrecondition,
             ErrorKind::UnsupportedStreamMessage => Code::Aborted,
-            ErrorKind::UnsupportedLocator => Code::InvalidArgument,
+            ErrorKind::UnsupportedLocator(_) => Code::InvalidArgument,
             ErrorKind::UnsupportedOperation => Code::InvalidArgument,
             ErrorKind::UnsupportedDescriptor => Code::InvalidArgument,
             ErrorKind::UnsupportedSchema(_) => Code::InvalidArgument,

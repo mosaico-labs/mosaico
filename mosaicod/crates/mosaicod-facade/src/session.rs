@@ -15,7 +15,7 @@ use mosaicod_db as db;
 pub struct Handle {
     id: i32,
     uuid: types::Uuid,
-    sequence_locator: types::SequenceLocator,
+    locator: types::SequenceLocator,
 }
 
 impl Handle {
@@ -25,7 +25,7 @@ impl Handle {
         uuid: types::Uuid,
     ) -> Self {
         Self {
-            sequence_locator,
+            locator: sequence_locator,
             id,
             uuid,
         }
@@ -42,7 +42,7 @@ impl Handle {
         Ok(Self {
             id: db_session.session_id,
             uuid: db_session.uuid(),
-            sequence_locator: db_sequence.locator(),
+            locator: db_sequence.locator(),
         })
     }
 
@@ -51,7 +51,7 @@ impl Handle {
     }
 
     pub fn sequence_locator(&self) -> &types::SequenceLocator {
-        &self.sequence_locator
+        &self.locator
     }
 
     pub(super) fn id(&self) -> i32 {
@@ -76,7 +76,7 @@ pub async fn try_create(
     Ok(Handle {
         id: session.session_id,
         uuid: session.uuid(),
-        sequence_locator,
+        locator: sequence_locator, //types::SessionLocator::new(sequence_locator),
     })
 }
 
@@ -205,7 +205,7 @@ mod tests {
             .await
             .expect("Error creating session");
 
-        assert_eq!(session_handle.sequence_locator, *seq_handle.locator());
+        assert_eq!(session_handle.locator, *seq_handle.locator());
 
         let session_uuid = session_handle.uuid().clone();
 

@@ -44,7 +44,7 @@ impl SequenceRecord {
         Self {
             sequence_id: db::UNREGISTERED,
             sequence_uuid: uuid::Uuid::new_v4(),
-            locator_name: types::Locator::from(locator_name).into(),
+            locator_name: locator_name.into(),
             creation_unix_tstamp: types::Timestamp::now().into(),
             user_metadata: None,
             path_in_store: path_in_store.into(),

@@ -49,7 +49,7 @@ impl TopicRecord {
             topic_uuid: types::Uuid::new().into(),
             sequence_id,
             session_id,
-            locator_name: types::Locator::from(locator).into(),
+            locator_name: locator.to_string(),
             ontology_tag: ontology_tag.to_owned(),
             serialization_format: serialization_format.to_owned(),
             user_metadata: None,

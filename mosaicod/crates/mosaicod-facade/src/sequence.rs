@@ -155,7 +155,7 @@ pub async fn notify(
     handle: &Handle,
     ntype: types::NotificationType,
     msg: String,
-) -> Result<types::Notification> {
+) -> Result<types::Notification<types::SequenceLocator>> {
     let mut tx = context.db.transaction().await?;
 
     // Note: no need to check the sequence existence for it is already done internally
@@ -172,7 +172,7 @@ pub async fn notify(
 pub async fn notification_list(
     context: &Context,
     handle: &Handle,
-) -> Result<Vec<types::Notification>> {
+) -> Result<Vec<types::Notification<types::SequenceLocator>>> {
     let mut trans = context.db.transaction().await?;
     let notifications =
         db::sequence_notifications_find_by_sequence_id(&mut trans, handle.id()).await?;
