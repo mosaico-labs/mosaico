@@ -48,7 +48,7 @@ mimalloc = { version = "0.1", default-features = false }
 rand = "0.9.2"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
-signal-hook = "0.4.3"
+signal-hook = "0.4.4"
 sqlx = { version = "0.8.6", features = [
     "postgres",
     "macros",
