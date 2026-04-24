@@ -12,7 +12,7 @@ async fn test_tls_with_valid_cert(pool: sqlx::Pool<db::DatabaseType>) -> sqlx::R
         .build()
         .await;
 
-    let res = server.is_crashed().await;
+    let res = server.is_shutdown().await;
     assert!(!res);
 
     let mut client = common::ClientBuilder::new(common::HOST, port)
@@ -38,7 +38,7 @@ async fn test_tls_server_with_invalid_cert(pool: sqlx::Pool<db::DatabaseType>) -
         .build()
         .await;
 
-    let res = server.is_crashed().await;
+    let res = server.is_shutdown().await;
     assert!(res);
     Ok(())
 }
@@ -52,7 +52,7 @@ async fn test_tls_server_with_no_cert(pool: sqlx::Pool<db::DatabaseType>) -> sql
         .build()
         .await;
 
-    let res = server.is_crashed().await;
+    let res = server.is_shutdown().await;
     assert!(res);
     Ok(())
 }
@@ -83,7 +83,7 @@ async fn test_tls_client_with_invalid_cert(pool: sqlx::Pool<db::DatabaseType>) {
         .build()
         .await;
 
-    let res = server.is_crashed().await;
+    let res = server.is_shutdown().await;
     assert!(!res);
 
     let _client = common::ClientBuilder::new(common::HOST, port)

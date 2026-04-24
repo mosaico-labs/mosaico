@@ -148,7 +148,7 @@ impl Server {
         let _ = tokio::join!(self.server_join_handle);
     }
 
-    pub async fn is_crashed(&self) -> bool {
+    pub async fn is_shutdown(&self) -> bool {
         self.server_join_handle.is_finished()
     }
 }
