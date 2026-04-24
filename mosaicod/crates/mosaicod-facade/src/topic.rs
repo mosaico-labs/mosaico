@@ -123,9 +123,9 @@ pub async fn try_create(
 
     // Find parent sequence and ensure that this topic is child of the provided
     // sequence, i.e. they are related with the same name structure
-    let seq_rec = db::sequence_find_by_locator(&mut tx, session_handle.sequence_locator()).await?;
+    let seq_rec = db::sequence_find_by_locator(&mut tx, &session_handle.locator().sequence).await?;
 
-    if locator.sequence != *session_handle.sequence_locator() {
+    if locator.sequence != session_handle.locator().sequence {
         Err(core::Error::unauthorized())?;
     }
 

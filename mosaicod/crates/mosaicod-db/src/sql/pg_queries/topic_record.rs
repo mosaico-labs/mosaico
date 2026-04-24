@@ -46,7 +46,7 @@ pub async fn topic_find_by_locator(
     exe: &mut impl AsExec,
     topic: &types::TopicLocator,
 ) -> Result<schema::TopicRecord, Error> {
-    trace!("searching by resource name `{}`", topic);
+    trace!("searching topic by locator name `{}`", topic);
     let res = sqlx::query_as!(
         schema::TopicRecord,
         "SELECT * FROM topic_t WHERE locator_name=$1",

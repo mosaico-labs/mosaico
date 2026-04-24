@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            INSERT INTO session_t \n                (\n                    session_uuid, sequence_id,\n                    creation_unix_tstamp, completion_unix_tstamp\n                ) \n            VALUES \n                ($1, $2, $3, $4)\n            RETURNING \n                *\n    ",
+  "query": "SELECT * FROM session_t WHERE locator_name=$1",
   "describe": {
     "columns": [
       {
@@ -15,26 +15,28 @@
       },
       {
         "ordinal": 2,
+        "name": "locator_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
         "name": "sequence_id",
         "type_info": "Int4"
       },
       {
-        "ordinal": 3,
+        "ordinal": 4,
         "name": "creation_unix_tstamp",
         "type_info": "Int8"
       },
       {
-        "ordinal": 4,
+        "ordinal": 5,
         "name": "completion_unix_tstamp",
         "type_info": "Int8"
       }
     ],
     "parameters": {
       "Left": [
-        "Uuid",
-        "Int4",
-        "Int8",
-        "Int8"
+        "Text"
       ]
     },
     "nullable": [
@@ -42,8 +44,9 @@
       false,
       false,
       false,
+      false,
       true
     ]
   },
-  "hash": "8f8cd465db9743b6bcb393f110c0507d2c08a8d3da1a06de5c20a1cdf66ad235"
+  "hash": "5f543617fa4527f3d71e6f61d4723ed185e7b0b2c053698bfa8a106e4d4898c2"
 }

@@ -39,7 +39,7 @@ pub async fn sequence_find_by_locator(
     exe: &mut impl AsExec,
     loc: &types::SequenceLocator,
 ) -> Result<schema::SequenceRecord, Error> {
-    trace!("searching by locator `{}`", loc);
+    trace!("searching sequence by locator name `{}`", loc);
     let res = sqlx::query_as!(
         schema::SequenceRecord,
         "SELECT * FROM sequence_t WHERE locator_name=$1",

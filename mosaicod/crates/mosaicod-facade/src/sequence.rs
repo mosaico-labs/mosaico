@@ -249,9 +249,7 @@ pub async fn session_list(
     Ok(db::sequence_find_all_sessions(exe, &handle.locator)
         .await?
         .into_iter()
-        .map(|record| {
-            session::Handle::new(handle.locator.clone(), record.session_id, record.uuid())
-        })
+        .map(|record| session::Handle::new(record.locator(), record.session_id, record.uuid()))
         .collect())
 }
 

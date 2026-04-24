@@ -13,7 +13,10 @@ pub async fn create(ctx: &facade::Context, sequence_locator: String) -> Result<A
 
     let session_handle = facade::session::try_create(ctx, sequence_locator).await?;
 
-    trace!("created session for {}", session_handle.sequence_locator());
+    trace!(
+        "created session for sequence {}",
+        session_handle.locator().sequence
+    );
 
     Ok(ActionResponse::session_create(
         session_handle.uuid().clone().into(),

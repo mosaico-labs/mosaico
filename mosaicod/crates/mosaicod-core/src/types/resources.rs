@@ -343,7 +343,7 @@ impl SessionLocator {
     /// Creates a new session locator for the given parent sequence.
     pub fn new(parent: SequenceLocator) -> Self {
         Self {
-            name: format!("{}:{}", parent, ulid::Ulid::new()),
+            name: format!("{}", ulid::Ulid::new()),
             sequence: parent,
         }
     }
