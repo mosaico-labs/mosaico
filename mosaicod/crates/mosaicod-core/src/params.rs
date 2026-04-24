@@ -188,7 +188,7 @@ pub struct Params {
 
     /// Size (in bytes) of the in-memory buffer used for encoding parquet data.
     ///
-    /// Default to 50 MB
+    /// Default to 75 MB
     pub parquet_in_memory_encoding_buffer_size: Param<usize>,
 
     /// Path of the `cert.pem` file used as TLS certificate

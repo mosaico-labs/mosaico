@@ -25,7 +25,7 @@ mosaicod-server = { path = "crates/mosaicod-server" }
 mosaicod-store = { path = "crates/mosaicod-store" }
 
 # Arrow stack dependencies
-arrow = { version = "58.1.0", features = ["prettyprint"] }
+arrow = { version = "58.1.0", features = ["prettyprint", "ipc_compression"] }
 arrow-cast = "58.1.0"
 arrow-flight = "58.1.0"
 arrow-schema = "58.1.0"
