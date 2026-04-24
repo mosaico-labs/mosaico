@@ -30,7 +30,7 @@ arrow-cast = "58.1.0"
 arrow-flight = "58.1.0"
 arrow-schema = "58.1.0"
 parquet = "58.1.0"
-datafusion = { version = "53.0.0", default-features = false, features = ["compression", "parquet", "sql", "recursive_protection"] }
+datafusion = { version = "53.1.0", default-features = false, features = ["compression", "parquet", "sql", "recursive_protection"] }
 tonic = { version = "0.14.5", features = ["tls-ring", "gzip"] }
 object_store = { version = "0.13.2", features = ["aws", "fs"] }
 
