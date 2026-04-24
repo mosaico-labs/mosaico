@@ -17,9 +17,6 @@ pub struct Run {
     #[arg(long, default_value_t = 6726)]
     pub port: u16,
 
-    // /// Enable to store objects on the local filesystem at the specified directory path
-    // #[arg(long)]
-    // pub local_store: Option<std::path::PathBuf>,
     /// Enable TLS. When enabled, the following envirnoment variables needs to be set
     /// MOSAICOD_TLS_CERT_FILE, MOSAICOD_TLS_PRIVATE_KEY_FILE.
     #[arg(long, default_value_t = false)]

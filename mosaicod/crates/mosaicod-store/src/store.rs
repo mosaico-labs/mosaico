@@ -114,15 +114,15 @@ impl Builder {
         }
 
         if self.endpoint.scheme() == "file" {
-            // If the user provided a `file://some/local/path` the
+            // If the user provided a `file:///some/local/path` the
             // url will contain a domain == "some"
             if self.endpoint.domain().is_some() {
                 return Err(Error::InvalidEndpoint(
-                    "relative path are not supported, use `file:///` with an absolute path"
+                    "relative path are not supported, please provide an absolute path using the `file:///` URI scheme."
                         .to_owned(),
                 ));
             }
-            // Merge the endpoitn path and the bucket in a unique path.
+            // Merge the endpoint path and the bucket in a unique path.
             // For example if the endpoint is `file:///tmp` and the bucket
             // is `mosaico` file will be saved into /tmp/mosaico
             let path = self
@@ -178,7 +178,7 @@ impl Store {
 
         let storage = Arc::new(LocalFileSystem::new_with_prefix(path.as_ref())?);
 
-        // Here we use unwrap wince `file:///` IS a valid url
+        // Here we use unwrap since `file://` IS a valid url
         let bucket_url = Url::parse("file://").unwrap();
 
         // Create object store registry (for datafusion support)
