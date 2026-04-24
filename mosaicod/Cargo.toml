@@ -63,7 +63,7 @@ uuid = { version = "1.23.0", features = [ "v4" ] }
 ulid = "1.2.1"
 crc32fast = "1.5.0"
 iso8601 = "0.6.3"
-semver = "1.0.27"
+semver = "1.0.28"
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["json", "env-filter"] }
 
