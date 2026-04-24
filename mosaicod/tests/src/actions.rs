@@ -1,12 +1,11 @@
 use super::common::{ActionResponse, Client};
+use arrow::array::RecordBatch;
 use arrow_flight::encode::FlightDataEncoderBuilder;
 use arrow_flight::{Action, FlightDescriptor, FlightInfo, PutResult};
-use mosaicod_core::types;
-use tonic::Streaming;
-
-use arrow::array::RecordBatch;
 use futures::StreamExt;
-
+use mosaicod_core::types;
+use mosaicod_ext as ext;
+use tonic::Streaming;
 /// Create a new sequence.
 /// Returns the `key` of the newly created sequence, this key is required to perform action
 /// like create/upload topics, etc.
@@ -34,7 +33,7 @@ pub async fn sequence_create(
 
     let mut stream = client.do_action(action).await?.into_inner();
 
-    while let Some(result) = stream.message().await.expect("Problem while streaming") {
+    while let Some(result) = stream.message().await? {
         dbg!(&result);
         let r = ActionResponse::from_body(&result.body);
         assert_eq!(r.action, "sequence_create");
@@ -46,7 +45,7 @@ pub async fn sequence_create(
     Ok(())
 }
 
-pub async fn sequence_delete(client: &mut Client, locator: &str) {
+pub async fn sequence_delete(client: &mut Client, locator: &str) -> Result<(), tonic::Status> {
     let action = Action {
         r#type: "sequence_delete".to_owned(),
         body: format!(
@@ -62,9 +61,9 @@ pub async fn sequence_delete(client: &mut Client, locator: &str) {
 
     dbg!(&action);
 
-    let mut stream = client.do_action(action).await.unwrap().into_inner();
+    let mut stream = client.do_action(action).await?.into_inner();
 
-    while let Some(result) = stream.message().await.expect("Problem while streaming") {
+    while let Some(result) = stream.message().await? {
         dbg!(&result);
         let r = ActionResponse::from_body(&result.body);
         assert_eq!(r.action, "sequence_delete");
@@ -72,9 +71,14 @@ pub async fn sequence_delete(client: &mut Client, locator: &str) {
         let available_keys = r.response.as_object().map(|o| o.len()).unwrap_or(0);
         assert_eq!(available_keys, 0);
     }
+
+    Ok(())
 }
 
-pub async fn session_create(client: &mut Client, sequence_name: &str) -> types::Uuid {
+pub async fn session_create(
+    client: &mut Client,
+    sequence_name: &str,
+) -> Result<types::Uuid, tonic::Status> {
     let action = Action {
         r#type: "session_create".to_owned(),
         body: format!(
@@ -90,25 +94,25 @@ pub async fn session_create(client: &mut Client, sequence_name: &str) -> types::
 
     dbg!(&action);
 
-    let mut stream = client.do_action(action).await.unwrap().into_inner();
+    let mut stream = client.do_action(action).await?.into_inner();
 
     let mut key: Option<types::Uuid> = None;
 
-    while let Some(result) = stream.message().await.expect("Problem while streaming") {
+    while let Some(result) = stream.message().await? {
         dbg!(&result);
         let r = ActionResponse::from_body(&result.body);
         assert_eq!(r.action, "session_create");
 
         let uuid: types::Uuid = r.response["uuid"]
             .as_str()
-            .expect("Error casting to string")
-            .parse()
-            .expect("Error parsing uuid");
+            .ok_or_else(|| tonic::Status::internal("uuid is not a string"))?
+            .parse::<types::Uuid>()
+            .map_err(|e| tonic::Status::internal(format!("Failed to parse uuid: {e}")))?;
 
         key = Some(uuid);
     }
 
-    key.expect("Unable to return key")
+    key.ok_or_else(|| tonic::Status::internal("Unable to return key"))
 }
 
 pub async fn session_finalize(
@@ -144,7 +148,10 @@ pub async fn session_finalize(
 }
 
 /// Send an action to delete the current session
-pub async fn session_delete(client: &mut Client, session_uuid: &types::Uuid) {
+pub async fn session_delete(
+    client: &mut Client,
+    session_uuid: &types::Uuid,
+) -> Result<(), tonic::Status> {
     let action = Action {
         r#type: "session_delete".to_owned(),
         body: format!(
@@ -160,14 +167,16 @@ pub async fn session_delete(client: &mut Client, session_uuid: &types::Uuid) {
 
     dbg!(&action);
 
-    let mut stream = client.do_action(action).await.unwrap().into_inner();
+    let mut stream = client.do_action(action).await?.into_inner();
 
-    while let Some(result) = stream.message().await.expect("Problem while streaming") {
+    while let Some(result) = stream.message().await? {
         dbg!(&result);
         let r = ActionResponse::from_body(&result.body);
         assert_eq!(r.action, "session_delete");
         assert!(r.response.as_object().is_none());
     }
+
+    Ok(())
 }
 
 /// Create a new topic.
@@ -209,14 +218,44 @@ pub async fn topic_create(
 
         let uuid: types::Uuid = r.response["uuid"]
             .as_str()
-            .expect("Error casting to string")
-            .parse()
-            .expect("Error parsing uuid");
+            .ok_or_else(|| tonic::Status::internal("uuid is not a string"))?
+            .parse::<types::Uuid>()
+            .map_err(|e| tonic::Status::internal(format!("Failed to parse uuid: {e}")))?;
 
         key = Some(uuid);
     }
 
-    Ok(key.expect("Unable to return key"))
+    key.ok_or_else(|| tonic::Status::internal("Unable to return key"))
+}
+
+pub async fn topic_delete(client: &mut Client, locator: &str) -> Result<(), tonic::Status> {
+    let action = Action {
+        r#type: "topic_delete".to_owned(),
+        body: format!(
+            r#"
+        {{
+            "locator": "{}"
+        }}
+        "#,
+            locator,
+        )
+        .into(),
+    };
+
+    dbg!(&action);
+
+    let mut stream = client.do_action(action).await?.into_inner();
+
+    while let Some(result) = stream.message().await? {
+        dbg!(&result);
+        let r = ActionResponse::from_body(&result.body);
+        assert_eq!(r.action, "topic_delete");
+
+        let available_keys = r.response.as_object().map(|o| o.len()).unwrap_or(0);
+        assert_eq!(available_keys, 0);
+    }
+
+    Ok(())
 }
 
 pub async fn do_put(
@@ -250,7 +289,7 @@ pub async fn do_put(
     client.do_put(flight_data_stream).await
 }
 
-pub async fn server_version(client: &mut Client) {
+pub async fn server_version(client: &mut Client) -> Result<(), tonic::Status> {
     let action = Action {
         r#type: "version".to_owned(),
         body: r#"{}"#.to_string().into(),
@@ -258,9 +297,9 @@ pub async fn server_version(client: &mut Client) {
 
     dbg!(&action);
 
-    let mut stream = client.do_action(action).await.unwrap().into_inner();
+    let mut stream = client.do_action(action).await?.into_inner();
 
-    while let Some(result) = stream.message().await.expect("Problem while streaming") {
+    while let Some(result) = stream.message().await? {
         dbg!(&result);
         let r = ActionResponse::from_body(&result.body);
         assert_eq!(r.action, "version");
@@ -283,6 +322,8 @@ pub async fn server_version(client: &mut Client) {
             assert!(pre.is_string());
         }
     }
+
+    Ok(())
 }
 
 /// Returns flight info data for a sequence or a topic.
@@ -335,7 +376,7 @@ pub async fn api_key_create(
 
     let mut api_key_token: Option<types::auth::Token> = None;
 
-    while let Some(result) = stream.message().await.expect("Problem while streaming") {
+    while let Some(result) = stream.message().await? {
         dbg!(&result);
         let r = ActionResponse::from_body(&result.body);
         assert_eq!(r.action, "api_key_create");
@@ -343,13 +384,15 @@ pub async fn api_key_create(
         api_key_token = Some(
             r.response["api_key_token"]
                 .as_str()
-                .expect("Error casting api key token to string")
+                .ok_or_else(|| tonic::Status::internal("api_key_token is not a string"))?
                 .parse()
-                .unwrap(),
+                .map_err(|e| {
+                    tonic::Status::internal(format!("Failed to parse api_key_token: {e}"))
+                })?,
         );
     }
 
-    Ok(api_key_token.expect("unable to read api key token"))
+    api_key_token.ok_or_else(|| tonic::Status::internal("unable to read api key token"))
 }
 
 pub async fn api_key_status(
@@ -373,7 +416,7 @@ pub async fn api_key_status(
 
     let mut api_key_status = None;
 
-    while let Some(result) = stream.message().await.expect("Problem while streaming") {
+    while let Some(result) = stream.message().await? {
         dbg!(&result);
         let r = ActionResponse::from_body(&result.body);
         assert_eq!(r.action, "api_key_status");
@@ -381,20 +424,24 @@ pub async fn api_key_status(
         api_key_status = Some((
             r.response["api_key_fingerprint"]
                 .as_str()
-                .expect("Error casting api key fingerprint to string")
+                .ok_or_else(|| {
+                    tonic::Status::internal("Error casting api key fingerprint to string")
+                })?
                 .to_string(),
             r.response["description"]
                 .as_str()
-                .expect("Error casting api key description to string")
+                .ok_or_else(|| {
+                    tonic::Status::internal("Error casting api key description to string")
+                })?
                 .to_string(),
-            r.response["created_at_ns"]
-                .as_i64()
-                .expect("Error casting api key created_at_ns into an i64"),
+            r.response["created_at_ns"].as_i64().ok_or_else(|| {
+                tonic::Status::internal("Error casting api key created_at_ns into an i64")
+            })?,
             r.response["expires_at_ns"].as_i64(),
         ));
     }
 
-    Ok(api_key_status.expect("unable to read api key status"))
+    api_key_status.ok_or_else(|| tonic::Status::internal("unable to read api key status"))
 }
 
 pub async fn api_key_revoke(client: &mut Client, fingerprint: &str) -> Result<(), tonic::Status> {
@@ -413,11 +460,197 @@ pub async fn api_key_revoke(client: &mut Client, fingerprint: &str) -> Result<()
 
     let mut stream = client.do_action(action).await?.into_inner();
 
-    while let Some(result) = stream.message().await.expect("Problem while streaming") {
+    while let Some(result) = stream.message().await? {
         dbg!(&result);
         let r = ActionResponse::from_body(&result.body);
         assert_eq!(r.action, "api_key_revoke");
         assert!(r.response.as_object().is_none());
+    }
+
+    Ok(())
+}
+
+pub async fn sequence_notification_create(
+    client: &mut Client,
+    locator: &str,
+    notification_type: String,
+    msg: String,
+) -> Result<(), tonic::Status> {
+    let action = Action {
+        r#type: "sequence_notification_create".to_owned(),
+        body: format!(
+            r#"{{"locator":"{}", "notification_type": "{}", "msg": "{}"}}"#,
+            locator, notification_type, msg
+        )
+        .into(),
+    };
+
+    dbg!(&action);
+
+    let mut stream = client.do_action(action).await?.into_inner();
+
+    while let Some(result) = stream.message().await? {
+        dbg!(&result);
+        let r = ActionResponse::from_body(&result.body);
+        assert_eq!(r.action, "sequence_notification_create");
+    }
+
+    Ok(())
+}
+
+pub async fn sequence_notification_list(
+    client: &mut Client,
+    locator: &str,
+) -> Result<serde_json::Value, tonic::Status> {
+    let action = Action {
+        r#type: "sequence_notification_list".to_owned(),
+        body: format!(r#"{{ "locator" : "{}" }}"#, locator).into(),
+    };
+
+    dbg!(&action);
+    let mut ret = serde_json::Value::Null;
+    let mut stream = client.do_action(action).await?.into_inner();
+    while let Some(result) = stream.message().await? {
+        dbg!(&result);
+        let r = ActionResponse::from_body(&result.body);
+        assert_eq!(r.action, "sequence_notification_list");
+        ret = r.response;
+    }
+
+    Ok(ret)
+}
+
+pub async fn sequence_notification_purge(
+    client: &mut Client,
+    locator: &str,
+) -> Result<(), tonic::Status> {
+    let action = Action {
+        r#type: "sequence_notification_purge".to_owned(),
+        body: format!(r#"{{ "locator" : "{}" }}"#, locator).into(),
+    };
+
+    dbg!(&action);
+    let mut stream = client.do_action(action).await?.into_inner();
+    while let Some(result) = stream.message().await? {
+        dbg!(&result);
+        let r = ActionResponse::from_body(&result.body);
+        assert_eq!(r.action, "sequence_notification_purge");
+    }
+
+    Ok(())
+}
+
+pub async fn topic_notification_create(
+    client: &mut Client,
+    locator: &str,
+    notification_type: String,
+    msg: String,
+) -> Result<(), tonic::Status> {
+    let action = Action {
+        r#type: "topic_notification_create".to_owned(),
+        body: format!(
+            r#"{{"locator":"{}", "notification_type": "{}", "msg": "{}"}}"#,
+            locator, notification_type, msg
+        )
+        .into(),
+    };
+
+    dbg!(&action);
+
+    let mut stream = client.do_action(action).await?.into_inner();
+
+    while let Some(result) = stream.message().await? {
+        dbg!(&result);
+        let r = ActionResponse::from_body(&result.body);
+        assert_eq!(r.action, "topic_notification_create");
+    }
+
+    Ok(())
+}
+
+pub async fn topic_notification_list(
+    client: &mut Client,
+    locator: &str,
+) -> Result<serde_json::Value, tonic::Status> {
+    let action = Action {
+        r#type: "topic_notification_list".to_owned(),
+        body: format!(r#"{{ "locator" : "{}" }}"#, locator).into(),
+    };
+
+    dbg!(&action);
+    let mut ret = serde_json::Value::Null;
+    let mut stream = client.do_action(action).await?.into_inner();
+    while let Some(result) = stream.message().await? {
+        dbg!(&result);
+        let r = ActionResponse::from_body(&result.body);
+        assert_eq!(r.action, "topic_notification_list");
+        ret = r.response;
+    }
+
+    Ok(ret)
+}
+
+pub async fn topic_notification_purge(
+    client: &mut Client,
+    locator: &str,
+) -> Result<(), tonic::Status> {
+    let action = Action {
+        r#type: "topic_notification_purge".to_owned(),
+        body: format!(r#"{{ "locator" : "{}" }}"#, locator).into(),
+    };
+
+    dbg!(&action);
+    let mut stream = client.do_action(action).await?.into_inner();
+    while let Some(result) = stream.message().await? {
+        dbg!(&result);
+        let r = ActionResponse::from_body(&result.body);
+        assert_eq!(r.action, "topic_notification_purge");
+    }
+
+    Ok(())
+}
+
+/// Helper function to create sequence notifications.
+pub async fn setup_sequence_with_notifications(
+    client: &mut Client,
+    sequence_name: &str,
+    notification_type: String,
+    notifications_size: usize,
+) -> Result<(), tonic::Status> {
+    sequence_create(client, sequence_name, None).await.unwrap();
+    for i in 0..notifications_size {
+        let error_msg = format!("Error {}_{}", sequence_name, i + 1);
+        sequence_notification_create(client, sequence_name, notification_type.clone(), error_msg)
+            .await?;
+    }
+
+    Ok(())
+}
+
+/// Helper function to create sequence notifications.
+pub async fn setup_topic_with_notifications(
+    client: &mut Client,
+    sequence_name: &str,
+    topic_name: &str,
+    notification_type: String,
+    notifications_size: usize,
+) -> Result<(), tonic::Status> {
+    sequence_create(client, sequence_name, None).await.unwrap();
+    let session_uuid = session_create(client, sequence_name).await.unwrap();
+    let topic_uuid = topic_create(client, &session_uuid, topic_name, None)
+        .await
+        .unwrap();
+
+    let batches = vec![ext::arrow::testing::dummy_batch()];
+    do_put(client, &topic_uuid, topic_name, batches, false)
+        .await
+        .unwrap();
+
+    session_finalize(client, &session_uuid).await.unwrap();
+
+    for i in 0..notifications_size {
+        let error_msg = format!("Error {}_{}", topic_name, i + 1);
+        topic_notification_create(client, topic_name, notification_type.clone(), error_msg).await?;
     }
 
     Ok(())

@@ -157,6 +157,9 @@ pub enum ActionResponse {
     SequenceNotificationList(responses::NotificationList),
 
     TopicCreate(responses::ResourceUuid),
+    TopicDelete(()),
+    TopicNotificationCreate(()),
+    TopicNotificationPurge(()),
     TopicNotificationList(responses::NotificationList),
 
     /// Returns the response key associated with the session just created
@@ -200,6 +203,26 @@ impl ActionResponse {
 
     pub fn sequence_notification_list(response: responses::NotificationList) -> Self {
         Self::SequenceNotificationList(response)
+    }
+
+    pub fn topic_create(response: responses::ResourceUuid) -> Self {
+        Self::TopicCreate(response)
+    }
+
+    pub fn topic_delete() -> Self {
+        Self::TopicDelete(())
+    }
+
+    pub fn topic_notification_create() -> Self {
+        Self::TopicNotificationCreate(())
+    }
+
+    pub fn topic_notification_purge() -> Self {
+        Self::TopicNotificationPurge(())
+    }
+
+    pub fn topic_notification_list(response: responses::NotificationList) -> Self {
+        Self::TopicNotificationList(response)
     }
 
     pub fn session_create(response: responses::ResourceUuid) -> Self {
