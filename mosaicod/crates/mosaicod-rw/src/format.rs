@@ -7,6 +7,7 @@
 
 use datafusion::datasource::file_format::parquet::ParquetFormat;
 use datafusion::datasource::listing::ListingOptions;
+use datafusion::prelude::*;
 use mosaicod_core::{params, traits::AsExtension, types};
 use parquet::{
     basic::{Compression, ZstdLevel},
@@ -88,6 +89,9 @@ impl ParquetFormatProperties for DefaultFormatProperties {
     fn listing_options(&self) -> ListingOptions {
         ListingOptions::new(Arc::new(ParquetFormat::default()))
             .with_file_extension(format!(".{}", self.as_extension()))
+            .with_file_sort_order(vec![vec![
+                col(params::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP).sort(true, true),
+            ]])
     }
 }
 
@@ -138,6 +142,9 @@ impl ParquetFormatProperties for RaggedFormatProperties {
     fn listing_options(&self) -> ListingOptions {
         ListingOptions::new(Arc::new(ParquetFormat::default()))
             .with_file_extension(format!(".{}", self.as_extension()))
+            .with_file_sort_order(vec![vec![
+                col(params::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP).sort(true, true),
+            ]])
     }
 }
 
@@ -188,6 +195,9 @@ impl ParquetFormatProperties for ImageFormatProperties {
     fn listing_options(&self) -> ListingOptions {
         ListingOptions::new(Arc::new(ParquetFormat::default()))
             .with_file_extension(format!(".{}", self.as_extension()))
+            .with_file_sort_order(vec![vec![
+                col(params::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP).sort(true, true),
+            ]])
     }
 
     fn buffer_capacity(&self) -> usize {
