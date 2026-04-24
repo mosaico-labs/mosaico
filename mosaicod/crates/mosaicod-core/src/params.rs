@@ -135,7 +135,7 @@ pub struct Params {
     /// If you need to update this value be aware that this value is tipically
     /// smaller than [`Params::parquet_in_memory_encoding_buffer_size`].
     ///
-    /// Defaults to 25 MB.
+    /// Defaults to 50 MB.
     pub max_grpc_message_size: Param<usize>,
 
     /// Target message size (in bytes) used during data streaming. Mosaicod will try to
@@ -188,7 +188,7 @@ pub struct Params {
 
     /// Size (in bytes) of the in-memory buffer used for encoding parquet data.
     ///
-    /// Default to 50 MB
+    /// Default to 75 MB
     pub parquet_in_memory_encoding_buffer_size: Param<usize>,
 
     /// Path of the `cert.pem` file used as TLS certificate
@@ -237,7 +237,7 @@ pub fn load_params_from_env(config: ParamsLoadOptions) -> error::PublicResult<()
 
     let ev = Params {
         // general
-        max_grpc_message_size: Param::optional("MOSAICOD_MAX_GRPC_MESSAGE_SIZE", 25 * 1_000_000),
+        max_grpc_message_size: Param::optional("MOSAICOD_MAX_GRPC_MESSAGE_SIZE", 50 * 1_000_000),
         target_message_size: Param::optional("MOSAICOD_TARGET_MESSAGE_SIZE", 25 * 1_000_000),
         max_concurrent_chunk_queries: Param::optional("MOSAICOD_MAX_CONCURRENT_CHUNK_QUERIES", 4),
         max_db_connections: Param::optional("MOSAICOD_MAX_DB_CONNECTIONS", 10),
@@ -248,7 +248,7 @@ pub fn load_params_from_env(config: ParamsLoadOptions) -> error::PublicResult<()
         default_parallelism: Param::optional("MOSAICOD_DEFAULT_PARALLELISM", default_parallelism),
         parquet_in_memory_encoding_buffer_size: Param::optional(
             "MOSAICOD_PARQUET_IN_MEMORY_ENCODING_BUFFER_SIZE",
-            50 * 1_000_000,
+            75 * 1_000_000,
         ),
         max_batch_size: Param::optional("MOSAICOD_MAX_BATCH_SIZE", 8192),
         query_engine_memory_pool_size: Param::optional("MOSAICOD_QUERY_ENGINE_MEMORY_POOL_SIZE", 0),

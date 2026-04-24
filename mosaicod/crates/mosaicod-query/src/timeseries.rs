@@ -74,7 +74,13 @@ impl TimeseriesEngine {
 
         let mut conf = SessionConfig::new();
         if let Some(batch_size) = batch_size {
-            conf = conf.with_batch_size(batch_size);
+            conf = conf
+                .with_batch_size(batch_size)
+                // Reduce the number of partition used to avoid management overhead
+                .with_target_partitions(1)
+                // Parquet specific optimizations
+                .set_bool("datafusion.execution.parquet.pushdown_filters", true)
+                .set_bool("datafusion.execution.parquet.reorder_filters", true);
         }
 
         let ctx = SessionContext::new_with_config_rt(conf, self.runtime.clone());
