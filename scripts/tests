@@ -7,27 +7,22 @@ MOSAICOD_OUTPUT="/tmp/mosaicod_e2e_testing.out"
 PYTHON_SDK_DIR="mosaico-sdk-py"
 MOSAICOD_DIR="mosaicod"
 DOCKER_DIR="docker/testing"
-TEST_DIRECTORY="/tmp/__mosaico_auto_testing__"
 
 # Environment variables (with defaults)
-RUST_LOG="mosaico=trace"
-MOSAICOD_DB_URL="postgresql://postgres:password@localhost:6543/mosaico"
-RUST_BACKTRACE="${RUST_BACKTRACE:-1}"
-SQLX_OFFLINE="true"
+export RUST_LOG="mosaico=trace"
+export MOSAICOD_DB_URL="postgresql://postgres:password@localhost:6543/mosaico"
+export MOSAICOD_STORE_ENDPOINT="file:///tmp"
+export MOSAICOD_STORE_BUCKET="mosaico-auto-testing"
+export RUST_BACKTRACE="${RUST_BACKTRACE:-1}"
+export SQLX_OFFLINE="true"
+export DATABASE_URL="${MOSAICOD_DB_URL}"
 
 # Resolve paths
 FILE_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 PROJECT_DIR=$(readlink -f "${FILE_DIR}/..")
-DATABASE_URL="${MOSAICOD_DB_URL}"
 MOSAICOD_PATH="${PROJECT_DIR}/${MOSAICOD_DIR}"
 PYTHON_SDK_PATH="${PROJECT_DIR}/${PYTHON_SDK_DIR}"
 DOCKER_PATH="${PROJECT_DIR}/${DOCKER_DIR}"
-
-export DATABASE_URL
-export RUST_LOG
-export SQLX_OFFLINE
-export MOSAICOD_DB_URL
-export RUST_BACKTRACE
 
 # Colors (with fallback for non-interactive terminals)
 setup_colors() {
@@ -68,8 +63,6 @@ cleanup() {
         wait "$MOSAICOD_PID" 2>/dev/null || true
         echo "${DIM}mosaicod ($MOSAICOD_PID) terminated.${RESET}"
     fi
-
-    rm -rf "${TEST_DIRECTORY}" 2>/dev/null || true
 
     if [ "$DOCKER_STARTED" = true ]; then
         cd "${DOCKER_PATH}"
@@ -232,20 +225,17 @@ run_full_stack_tests() {
         PYTEST_OPTS="--api-key ${MOSAICO_API_KEY_MANAGE}"
     fi
 
-    # Create test directory
-    mkdir -p "${TEST_DIRECTORY}"
-
     # Start mosaicod
     title "mosaicod startup" "." "${BLUE}"
-    ./target/debug/mosaicod run --port 6276 --local-store "${TEST_DIRECTORY}" ${MOSAICOD_OPTS} > "${MOSAICOD_OUTPUT}" 2>&1 &
+    ./target/debug/mosaicod run --port 6276 ${MOSAICOD_OPTS} > "${MOSAICOD_OUTPUT}" 2>&1 &
     MOSAICOD_PID=$!
     echo "Starting mosaicod as background service (pid ${MOSAICOD_PID})"
     echo "mosaicod logs can be found in ${DIM}${MOSAICOD_OUTPUT}${RESET}"
     echo "Waiting starver to startup ..."
     sleep 1
 
-    # Run integration tests
-    title "running integration tests" "." "${BLUE}"
+    # Run full-stack tests
+    title "running full-stack tests" "." "${BLUE}"
     cd "${PYTHON_SDK_PATH}"
 
     poetry run pytest ./src/testing -k "${PYTEST_OPTS_K}" ${PYTEST_OPTS}

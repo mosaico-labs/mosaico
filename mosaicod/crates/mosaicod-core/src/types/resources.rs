@@ -21,8 +21,10 @@ pub enum ResourceError {
 impl PublicError for ResourceError {
     fn error(&self) -> Error {
         match self {
-            ResourceError::InvalidLocator(_) => Error::bad_locator(),
-            ResourceError::LocatorKindMismatch(_, _) => Error::bad_locator(),
+            ResourceError::InvalidLocator(locator) => Error::bad_locator(locator.clone()),
+            ResourceError::LocatorKindMismatch(kind, locator) => {
+                Error::locator_kind_mismatch(locator.clone(), kind.to_string())
+            }
         }
     }
 }
@@ -274,40 +276,35 @@ impl TopicPathInStore {
     ///
     /// The data file is composed as follows:
     /// ```txt,ignore
-    /// data-[chunk_number].[extension]
+    /// [chunk_number].[extension]
     /// ```
     pub fn data_file(chunk_number: usize, extension: &dyn traits::AsExtension) -> String {
-        format!(
-            "data-{chunk_number:05}.{ext}",
-            ext = extension.as_extension()
-        )
+        format!("{chunk_number:05}.{ext}", ext = extension.as_extension())
     }
 
     /// Returns the complete path of a specific data file.
     ///
     /// # Example
     /// ```txt, ignore
-    /// sequence/my/topic/2sr5g/data-0000.parquet
+    /// sequence/my/topic/data/0000.parquet
     /// ```
     pub fn path_data(
         &self,
-        uuid: &Uuid,
         chunk_number: usize,
         extension: &dyn traits::AsExtension,
     ) -> path::PathBuf {
         let filename = Self::data_file(chunk_number, extension);
-        self.path_data_folder(uuid).join(filename)
+        self.data_folder_path().join(filename)
     }
 
     /// Return the complete path of the folder containing all data
     ///
     /// # Example
     /// ```txt, ignore
-    /// sequence/my/topic/2sr5g
+    /// sequence/my/topic/data
     /// ```
-    pub fn path_data_folder(&self, uuid: &Uuid) -> path::PathBuf {
-        let cropped_uuid: String = uuid.non_hyphened_string().chars().take(5).collect();
-        self.root().join(format!("data:{cropped_uuid}"))
+    pub fn data_folder_path(&self) -> path::PathBuf {
+        self.root().join("data")
     }
 
     /// Return the full path of the metadata file
@@ -898,12 +895,8 @@ mod tests {
         assert_eq!(metadata.extension().unwrap(), params::ext::JSON);
         assert!(metadata.ends_with("metadata.json"));
 
-        let uuid: Uuid = uuid::Uuid::parse_str("02f09a3f-1624-3b1d-8409-44eff7708208")
-            .unwrap()
-            .into();
-
-        let data_folder = pis.path_data_folder(&uuid);
+        let data_folder = pis.data_folder_path();
         assert!(&data_folder.starts_with(pis.root()));
-        assert!(&data_folder.ends_with("data:02f09"));
+        assert!(&data_folder.ends_with("data"));
     }
 }

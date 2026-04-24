@@ -59,6 +59,7 @@ impl Handle {
     }
 }
 
+/// Creates a new session in the database for the given sequence.
 pub async fn try_create(
     context: &Context,
     sequence_locator: types::SequenceLocator,
@@ -89,22 +90,31 @@ pub async fn finalize(context: &Context, handle: &Handle) -> Result<()> {
 
     // If the session does not contain any topic, return an error and leave the session unlocked.
     if topics.is_empty() {
-        // (cabba) NOTE: substitue uuid with session "locator" when implemented
+        // (cabba) NOTE: replace uuid with session "locator" when implemented
         Err(core::Error::empty_session(handle.uuid().to_string()))?
     }
 
-    // If not all topics are locked, return the locator of the first unlocked topic
-    let mut unlocked_topic_locator = None;
+    // If not all topics are finalized, return the locator of the first one still open.
+    let mut topic_not_finalized = None;
 
     for handle in &topics {
-        if !topic::archived(context, handle).await? {
-            unlocked_topic_locator = Some(handle.locator());
+        let status = topic::status(context, handle).await?;
+        if status != topic::Status::Finalized {
+            topic_not_finalized = Some((handle.locator(), status));
             break;
         }
     }
 
-    if let Some(locator) = unlocked_topic_locator {
-        Err(core::Error::unlocked_topic(locator.to_string()))?
+    if let Some(topic_not_finalized) = topic_not_finalized {
+        match topic_not_finalized {
+            (locator, topic::Status::Empty) => {
+                Err(core::Error::missing_doput(locator.to_string()))?
+            }
+            (locator, topic::Status::Uploading) => {
+                Err(core::Error::topic_upload_in_progress(locator.to_string()))?
+            }
+            (_, topic::Status::Finalized) => (),
+        }
     }
 
     db::session_update_completion_tstamp(&mut tx, handle.id(), types::Timestamp::now().as_i64())
@@ -115,26 +125,14 @@ pub async fn finalize(context: &Context, handle: &Handle) -> Result<()> {
     Ok(())
 }
 
-/// Deletes all the topics associated with this session, and the session record from the db.
+/// Deletes the session from the database.
 pub async fn delete(
     context: &Context,
     handle: Handle,
     allow_data_loss: types::DataLossToken,
 ) -> Result<()> {
-    let mut tx = context.db.transaction().await?;
-
-    // Deletes topics data
-    let topics = topic_list(&handle, &mut tx).await?;
-    for topic_handle in topics {
-        topic::delete(context, topic_handle, types::allow_data_loss()).await?;
-    }
-
-    // This is done as last operation, otherwise multiple calls to this function will fail
-    // since a session lookup is made above
-    db::session_delete(&mut tx, handle.uuid(), allow_data_loss).await?;
-
-    tx.commit().await?;
-
+    let mut cx = context.db.connection();
+    db::session_delete(&mut cx, handle.uuid(), allow_data_loss).await?;
     Ok(())
 }
 
@@ -186,9 +184,9 @@ mod tests {
     fn test_context(pool: sqlx::Pool<db::DatabaseType>) -> Context {
         let database = db::testing::Database::new(pool);
         let store = store::testing::Store::new_random_on_tmp().unwrap();
-        let ts_gw = Arc::new(query::TimeseriesEngine::try_new(store.clone(), 0).unwrap());
+        let ts_gw = Arc::new(query::TimeseriesEngine::try_new((*store).clone(), 0).unwrap());
 
-        Context::new(store.clone(), database.clone(), ts_gw)
+        Context::new((*store).clone(), (*database).clone(), ts_gw)
     }
 
     #[sqlx::test(migrator = "db::testing::MIGRATOR")]

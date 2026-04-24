@@ -18,17 +18,37 @@ use url::Url;
 pub enum Error {
     #[error("storage backend error")]
     BackendError(#[from] object_store::Error),
-    #[error("unable to configure object store: missing {0}")]
-    BadConfiguration(String),
-    #[error("bad url")]
-    BadUrl(#[from] url::ParseError),
-    #[error("io error")]
-    IoError(#[from] std::io::Error),
+    #[error("{0}")]
+    MissingCredentials(String),
+    #[error("the provided bucket `{0}` is not valid")]
+    InvalidBucket(String),
+    #[error("the provided endpoint `{0}` is not valid")]
+    InvalidEndpoint(String),
+    #[error("unable to create directory `{0}`: {1}")]
+    DirCreationFailed(String, std::io::Error),
 }
 
 impl mosaicod_core::error::PublicError for Error {
     fn error(&self) -> mosaicod_core::Error {
-        mosaicod_core::Error::internal(Some("store failed".to_owned()))
+        use mosaicod_core::Error;
+
+        match self {
+            Self::MissingCredentials(_) => Error::invalid_configuration(
+                "object store credentials".to_owned(),
+                self.to_string(),
+            ),
+            Self::InvalidEndpoint(_) => {
+                Error::invalid_configuration("object store endpoint".to_owned(), self.to_string())
+            }
+            Self::InvalidBucket(_) => {
+                Error::invalid_configuration("object store bucket".to_owned(), self.to_string())
+            }
+            Self::DirCreationFailed(_, _) => Error::invalid_configuration(
+                "object store local directory".to_owned(),
+                self.to_string(),
+            ),
+            _ => Error::internal(Some("store failed".to_owned())),
+        }
     }
 }
 
@@ -38,39 +58,98 @@ fn to_object_path(path: impl AsRef<std::path::Path>) -> object_store::path::Path
     object_store::path::Path::from(path.as_ref().to_string_lossy().into_owned())
 }
 
-#[derive(Debug, Clone)]
-pub struct S3Config {
-    /// Bucket name.
-    pub bucket: String,
-    /// Endpoint name
-    pub endpoint: String,
-    pub access_key: String,
-    pub secret_key: String,
+#[inline]
+/// Check if a given bucket name is valid
+fn is_valid_bucket_name(bucket: &str) -> bool {
+    bucket
+        .chars()
+        .filter(|c| !c.is_alphabetic() && !c.is_numeric() && !matches!(c, '.' | '-'))
+        .count()
+        == 0
 }
 
-impl S3Config {
-    /// Returns an error is the configuration contains empty fields.
-    pub fn validate(&self) -> Result<(), Error> {
-        if self.bucket.is_empty() {
-            return Err(Error::BadConfiguration("bucket".to_owned()));
+/// A configuration builder for initializing a storage backend.
+#[derive(Debug, Clone)]
+pub struct Builder {
+    /// The base URL of the storage service.
+    ///
+    /// To configure the store to use local filesystem use `file:///`
+    pub endpoint: url::Url,
+
+    /// The name of the specific bucket to access.
+    pub bucket: String,
+
+    /// The access key for the storage bucket
+    ///
+    /// This field is **required** to work with remote object store.
+    pub access_key: Option<String>,
+
+    /// The secret key of the storage bucket
+    ///
+    /// This field is **required** to work with remote object store.
+    pub secret_key: Option<String>,
+}
+
+impl Builder {
+    pub fn new(endpoint: url::Url, bucket: String) -> Self {
+        Self {
+            endpoint,
+            bucket,
+            access_key: None,
+            secret_key: None,
         }
-        if self.endpoint.is_empty() {
-            return Err(Error::BadConfiguration("endpoint".to_owned()));
+    }
+
+    /// Configure credentials to access the object store
+    pub fn with_credentials(mut self, key: String, secret: String) -> Self {
+        self.access_key = Some(key);
+        self.secret_key = Some(secret);
+        self
+    }
+
+    /// Create a new store backend
+    pub fn build(self) -> Result<Store, Error> {
+        if !is_valid_bucket_name(&self.bucket) {
+            return Err(Error::InvalidBucket(self.bucket));
         }
-        if self.access_key.is_empty() {
-            return Err(Error::BadConfiguration("access key".to_owned()));
+
+        if self.endpoint.scheme() == "file" {
+            // If the user provided a `file:///some/local/path` the
+            // url will contain a domain == "some"
+            if self.endpoint.domain().is_some() {
+                return Err(Error::InvalidEndpoint(
+                    "relative path are not supported, please provide an absolute path using the `file:///` URI scheme."
+                        .to_owned(),
+                ));
+            }
+            // Merge the endpoint path and the bucket in a unique path.
+            // For example if the endpoint is `file:///tmp` and the bucket
+            // is `mosaico` file will be saved into /tmp/mosaico
+            let path = self
+                .endpoint
+                .to_file_path()
+                .map_err(|_| Error::InvalidEndpoint(self.endpoint.to_string()))?;
+
+            let path = path.join(self.bucket);
+            return Store::try_from_filesystem(&path);
         }
-        if self.secret_key.is_empty() {
-            return Err(Error::BadConfiguration("secret key".to_owned()));
-        }
-        Ok(())
+
+        let Some(access_key) = self.access_key else {
+            return Err(Error::MissingCredentials("access key".to_owned()));
+        };
+
+        let Some(secret_key) = self.secret_key else {
+            return Err(Error::MissingCredentials("secret key".to_owned()));
+        };
+
+        Store::try_from_s3_store(self.endpoint, self.bucket, access_key, secret_key)
     }
 }
 
 #[derive(Debug, Clone)]
-pub enum StoreTarget {
-    Filesystem(String),
-    S3Compatible(String),
+pub enum Target {
+    Filesystem(std::path::PathBuf),
+    S3Compatible(url::Url),
 }
 
 /// Implements the object storage client for the application.
@@ -80,7 +159,9 @@ pub enum StoreTarget {
 #[derive(Debug, Clone)]
 pub struct Store {
     pub url_schema: Url,
-    target: StoreTarget,
+
+    target: Target,
+
     driver: Arc<dyn ObjectStore>,
     registry: Arc<dyn ObjectStoreRegistry>,
 }
@@ -88,15 +169,17 @@ pub struct Store {
 pub type StoreRef = Arc<Store>;
 
 impl Store {
-    pub fn try_from_filesystem(root: impl AsRef<std::path::Path>) -> Result<Self, Error> {
+    /// Create a new store configured to work with the local filesystem
+    pub fn try_from_filesystem(path: impl AsRef<std::path::Path>) -> Result<Self, Error> {
         // Create the directory structure if not existing
-        std::fs::create_dir_all(&root)?;
+        std::fs::create_dir_all(&path).map_err(|e| {
+            Error::DirCreationFailed(path.as_ref().to_string_lossy().to_string(), e)
+        })?;
 
-        let target = root.as_ref().to_string_lossy().to_string();
+        let storage = Arc::new(LocalFileSystem::new_with_prefix(path.as_ref())?);
 
-        let storage = Arc::new(LocalFileSystem::new_with_prefix(root)?);
-
-        let bucket_url = Url::parse("file://")?;
+        // Here we use unwrap since `file://` IS a valid url
+        let bucket_url = Url::parse("file://").unwrap();
 
         // Create object store registry (for datafusion support)
         let registry = Arc::new(DefaultObjectStoreRegistry::default());
@@ -104,28 +187,37 @@ impl Store {
 
         Ok(Self {
             url_schema: bucket_url,
-            target: StoreTarget::Filesystem(target),
+            target: Target::Filesystem(path.as_ref().to_owned()),
             driver: storage.clone(),
             registry,
         })
     }
 
-    pub fn try_from_s3_store(config: S3Config) -> Result<Self, Error> {
+    /// Create a new store configured to work with an s3-compatible system
+    pub fn try_from_s3_store(
+        endpoint: url::Url,
+        bucket: String,
+        access_key: String,
+        secret_key: String,
+    ) -> Result<Self, Error> {
         trace!(
             "creating object driver for a s3 compatible store, endpoint: {}",
-            config.endpoint
+            endpoint
         );
 
-        let bucket_url = Url::parse(&format!("s3://{}", config.bucket))?;
+        // We map a url parse error into a bad bucket since `s3://` is a valid url
+        // and only problem we can get from this is a bucket name non url safe
+        let bucket_url = Url::parse(&format!("s3://{}", bucket))
+            .map_err(|_| Error::InvalidBucket("non URL safe string".to_owned()))?;
 
         // Setup connection with object storage service
-        // (cabba) TODO: add region support
+        // (cabba) TODO: add region support (??)
         let storage = Arc::new(
             AmazonS3Builder::new()
-                .with_endpoint(&config.endpoint)
-                .with_bucket_name(&config.bucket)
-                .with_access_key_id(config.access_key)
-                .with_secret_access_key(config.secret_key)
+                .with_endpoint(endpoint.to_string())
+                .with_bucket_name(&bucket)
+                .with_access_key_id(access_key)
+                .with_secret_access_key(secret_key)
                 .with_allow_http(true)
                 .build()?,
         );
@@ -136,7 +228,7 @@ impl Store {
 
         Ok(Self {
             url_schema: bucket_url,
-            target: StoreTarget::S3Compatible(config.bucket),
+            target: Target::S3Compatible(endpoint),
             driver: storage.clone(),
             registry: registry.clone(),
         })
@@ -146,7 +238,7 @@ impl Store {
         self.registry.clone()
     }
 
-    pub fn target(&self) -> &StoreTarget {
+    pub fn target(&self) -> &Target {
         &self.target
     }
 
@@ -275,7 +367,7 @@ pub mod testing {
 
     pub struct Store {
         inner: super::StoreRef,
-        root: std::path::PathBuf,
+        pub root: std::path::PathBuf,
     }
 
     impl Store {
@@ -283,17 +375,19 @@ pub mod testing {
         ///
         /// The path **must not** exist, as it will be created by this function
         /// and recursively deleted when the returned [`Store`] is dropped.
-        pub fn new(root: impl AsRef<std::path::Path>) -> Result<Self, Box<dyn std::error::Error>> {
-            if root.as_ref().exists() {
+        pub fn new(path: impl AsRef<std::path::Path>) -> Result<Self, Box<dyn std::error::Error>> {
+            if path.as_ref().exists() {
                 Err(format!(
                     "directory {:?} already exist, can't be used as temporary store since at the end will be deleted",
-                    root.as_ref()
+                    path.as_ref()
                 ))?;
             }
 
+            let store = super::Store::try_from_filesystem(path.as_ref())?;
+
             Ok(Self {
-                root: root.as_ref().to_path_buf(),
-                inner: Arc::new(super::Store::try_from_filesystem(root)?),
+                root: path.as_ref().to_path_buf(),
+                inner: Arc::new(store),
             })
         }
 
@@ -302,8 +396,9 @@ pub mod testing {
         /// The store's directory will be automatically deleted when the [`Store`] is dropped.
         /// The directory name is based on the current timestamp.
         pub fn new_random_on_tmp() -> Result<Self, Box<dyn std::error::Error>> {
-            let random_location = format!("/tmp/{}", mosaicod_core::random::alphabetic(10));
-            Self::new(random_location)
+            let random_location = mosaicod_core::random::alphabetic(10);
+            let path: std::path::PathBuf = format!("/tmp/{}", random_location).parse()?;
+            Self::new(path)
         }
     }
 
@@ -334,20 +429,78 @@ mod test {
     /// To avoid to delete system files the test directories are created in `/tmp` and are not removed automatically
     #[tokio::test]
     async fn test_filesystem_store() {
-        let bucket_name = types::DateTime::now().fmt_to_ms();
-        let path = format!("/tmp/{}", bucket_name);
-        let store = Store::try_from_filesystem(path).unwrap();
+        let bucket = types::DateTime::now().fmt_to_ms();
+        let endpoint = "file:///tmp".parse().unwrap();
 
-        let sample = r#"
-            Some example text
-        "#;
+        let store = Builder::new(endpoint, bucket).build().unwrap();
+
+        let sample = r#"Some example text"#;
         let buffer = sample.as_bytes();
+
         let target = "write_text";
-
         store.write_to_path(&target, buffer).await.unwrap();
-
         let read_buffer = store.read_bytes(&target).await.unwrap();
-
         assert_eq!(buffer, read_buffer);
+
+        let target = "test_dir/write_text";
+        store.write_to_path(&target, buffer).await.unwrap();
+        let read_buffer = store.read_bytes(&target).await.unwrap();
+        assert_eq!(buffer, read_buffer);
+
+        assert_eq!(store.list("", None).await.unwrap().len(), 2);
+    }
+
+    #[test]
+    fn test_filesystem_store_endpoint_fs_relative() {
+        let bucket = types::DateTime::now().fmt_to_ms();
+        // Now we are testing a file:// non RFC8089 filesystem
+        // url that should throw an error
+        let endpoint = "file://tmp".parse().unwrap();
+
+        let res = Builder::new(endpoint, bucket).build();
+
+        dbg!(&res);
+        assert!(matches!(res, Err(Error::InvalidEndpoint(_))));
+    }
+
+    #[test]
+    fn test_filesystem_store_endpoint_fs_bad_bucket() {
+        // We are testing a bad bucket name contaning additonal slashes
+        let bucket = "bad/bucket".to_owned();
+
+        let endpoint = "file://tmp".parse().unwrap();
+
+        let res = Builder::new(endpoint, bucket).build();
+
+        dbg!(&res);
+        assert!(matches!(res, Err(Error::InvalidBucket(_))));
+    }
+
+    #[test]
+    fn test_filesystem_store_remote_missing_credentials() {
+        let bucket = "my-bucket".to_owned();
+
+        let endpoint = "dummy://fake.url".parse().unwrap();
+
+        let res = Builder::new(endpoint, bucket).build();
+
+        dbg!(&res);
+
+        // A non `file:///` store should require credentials
+        assert!(matches!(res, Err(Error::MissingCredentials(_))));
+    }
+
+    #[test]
+    fn test_filesystem_store_remote() {
+        let bucket = "my-bucket".to_owned();
+
+        let endpoint = "dummy://fake.url".parse().unwrap();
+
+        let res = Builder::new(endpoint, bucket)
+            .with_credentials("access-key".to_owned(), "secret".to_owned())
+            .build();
+
+        dbg!(&res);
+        assert!(res.is_ok());
     }
 }

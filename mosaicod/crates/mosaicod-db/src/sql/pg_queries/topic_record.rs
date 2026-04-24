@@ -99,18 +99,18 @@ pub async fn topic_find_all(exe: &mut impl AsExec) -> Result<Vec<schema::TopicRe
     )
 }
 
-/// Deletes a topic record from the database by its name, **bypassing any lock state**.
+/// Deletes a topic record from the database by its id, **bypassing any lock state**.
 ///
 /// This function requires a [`DataLossToken`] since permanently removes the record
 /// from the database without checking whether it is locked or referenced
 /// elsewhere. Improper use can lead to data inconsistency or loss.
 pub async fn topic_delete(
     exe: &mut impl AsExec,
-    loc: &types::TopicLocator,
+    topic_id: i32,
     _: types::DataLossToken,
 ) -> Result<(), Error> {
-    warn!("(data loss) deleting topic `{}`", loc);
-    sqlx::query!("DELETE FROM topic_t WHERE locator_name=$1", loc as &str)
+    warn!("(data loss) deleting topic record with id={}", topic_id);
+    sqlx::query!("DELETE FROM topic_t WHERE topic_id=$1", topic_id)
         .execute(exe.as_exec())
         .await?;
     Ok(())
@@ -246,8 +246,8 @@ pub async fn topic_update_system_info(
         system_info.timestamp_range.end.as_i64(),
         loc as &str,
     )
-    .fetch_one(exe.as_exec())
-    .await?;
+        .fetch_one(exe.as_exec())
+        .await?;
 
     Ok(res)
 }
@@ -268,6 +268,30 @@ pub async fn topic_update_completion_tstamp(
             WHERE topic_id = $2
     "#,
         completion_ts,
+        topic_id,
+    )
+    .execute(exe.as_exec())
+    .await?;
+
+    Ok(())
+}
+
+pub async fn topic_update_path_in_store(
+    exe: &mut impl AsExec,
+    topic_id: i32,
+    path_in_store: types::TopicPathInStore,
+) -> Result<(), Error> {
+    trace!(
+        "updating path_in_store to `{}` for topic with id {}",
+        path_in_store, topic_id
+    );
+    sqlx::query!(
+        r#"
+            UPDATE topic_t
+            SET path_in_store = $1
+            WHERE topic_id = $2
+    "#,
+        Some(String::from(path_in_store)),
         topic_id,
     )
     .execute(exe.as_exec())
@@ -375,16 +399,4 @@ pub async fn topic_from_query_filter(
     let r = r.map(cast_topic_data).fetch_all(exe.as_exec()).await?;
     trace!("query returned {} results", r.len());
     r.into_iter().collect()
-}
-
-/// Returns true if the topic is archived (upload completed).
-pub async fn topic_archived(exe: &mut impl AsExec, topic_id: i32) -> Result<bool, Error> {
-    trace!("topic (id=`{}`) locked? ", topic_id);
-
-    Ok(sqlx::query_scalar!(
-        r#"SELECT (completion_unix_tstamp IS NOT NULL) AS "is_missing!" FROM topic_t WHERE topic_id=$1"#,
-        topic_id
-    )
-    .fetch_one(exe.as_exec())
-    .await?)
 }

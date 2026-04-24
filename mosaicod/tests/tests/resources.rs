@@ -222,22 +222,76 @@ async fn test_topic_create(pool: sqlx::Pool<db::DatabaseType>) -> sqlx::Result<(
     actions::sequence_create(&mut client, sequence_name, None)
         .await
         .unwrap();
-    let uuid = actions::session_create(&mut client, sequence_name)
-        .await
-        .unwrap();
-    assert!(uuid.is_valid());
-    let uuid = actions::topic_create(&mut client, &uuid, "test_sequence/my_topic", None)
-        .await
-        .unwrap();
-    assert!(uuid.is_valid());
 
-    // Create topic with malformed metadata.
+    let session_uuid = actions::session_create(&mut client, sequence_name)
+        .await
+        .unwrap();
+    assert!(session_uuid.is_valid());
+
+    let topic_uuid =
+        actions::topic_create(&mut client, &session_uuid, "test_sequence/my_topic", None)
+            .await
+            .unwrap();
+    assert!(topic_uuid.is_valid());
+
+    // Passing a wrong session uuid should trigger a NotFound error.
+    let err = actions::topic_create(
+        &mut client,
+        &topic_uuid, // wrong uuid
+        "test_sequence/my_topic",
+        None,
+    )
+    .await
+    .unwrap_err();
+    assert_eq!(err.code(), tonic::Code::NotFound);
+
+    // Creating a topic with same name should trigger an ALreadyExists error.
+    let err = actions::topic_create(&mut client, &session_uuid, "test_sequence/my_topic", None)
+        .await
+        .unwrap_err();
+    assert_eq!(err.code(), tonic::Code::AlreadyExists);
+
+    // Create topic with malformed metadata should give an InvalidArgument error.
     assert_eq!(
-        actions::topic_create(&mut client, &uuid, "test_sequence/my_topic", Some("{"))
+        actions::topic_create(
+            &mut client,
+            &session_uuid,
+            "test_sequence/my_topic",
+            Some("{")
+        )
+        .await
+        .unwrap_err()
+        .code(),
+        tonic::Code::InvalidArgument
+    );
+
+    // Trying to create a topic inside an already finalized session should return a FailedPrecondition error.
+    let batches = vec![ext::arrow::testing::dummy_batch()];
+
+    let response = actions::do_put(
+        &mut client,
+        &topic_uuid,
+        "test_sequence/my_topic",
+        batches,
+        false,
+    )
+    .await
+    .unwrap();
+
+    if response.into_inner().message().await.unwrap().is_some() {
+        panic!("Received a not-empty response!");
+    }
+
+    actions::session_finalize(&mut client, &session_uuid)
+        .await
+        .unwrap();
+
+    assert_eq!(
+        actions::topic_create(&mut client, &session_uuid, "test_sequence/my_topic2", None)
             .await
             .unwrap_err()
             .code(),
-        tonic::Code::InvalidArgument
+        tonic::Code::FailedPrecondition
     );
 
     server.shutdown().await;
@@ -439,10 +493,12 @@ async fn test_do_put(pool: sqlx::Pool<db::DatabaseType>) {
     actions::sequence_create(&mut client, sequence_name, None)
         .await
         .unwrap();
+
     let uuid = actions::session_create(&mut client, sequence_name)
         .await
         .unwrap();
     assert!(uuid.is_valid());
+
     let uuid = actions::topic_create(&mut client, &uuid, "test_sequence/my_topic", None)
         .await
         .unwrap();
@@ -607,10 +663,12 @@ async fn test_sequence_delete(pool: sqlx::Pool<db::DatabaseType>) {
     actions::sequence_create(&mut client, sequence_name, None)
         .await
         .unwrap();
+
     let session_uuid = actions::session_create(&mut client, sequence_name)
         .await
         .unwrap();
     assert!(session_uuid.is_valid());
+
     let uuid = actions::topic_create(&mut client, &session_uuid, "test_sequence/my_topic", None)
         .await
         .unwrap();
@@ -625,9 +683,14 @@ async fn test_sequence_delete(pool: sqlx::Pool<db::DatabaseType>) {
         .await
         .unwrap();
 
+    assert_eq!(server.store.list("", None).await.unwrap().len(), 3);
+
     actions::sequence_delete(&mut client, "test_sequence")
         .await
         .unwrap();
+
+    // Make sure that delete command did not actually remove any file from Store.
+    assert_eq!(server.store.list("", None).await.unwrap().len(), 3);
 
     server.shutdown().await;
 }

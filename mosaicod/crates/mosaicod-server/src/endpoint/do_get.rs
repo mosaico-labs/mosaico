@@ -38,7 +38,7 @@ pub async fn do_get(ctx: &facade::Context, ticket: Ticket) -> Result<FlightDataE
     let mut query_result = ctx
         .timeseries_querier
         .read(
-            &path_in_store.path_data_folder(topic_handle.uuid()),
+            &path_in_store.data_folder_path(),
             metadata.ontology_metadata.properties.serialization_format,
             Some(batch_size),
         )

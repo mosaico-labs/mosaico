@@ -1,6 +1,6 @@
 use super::{Context, Error, session};
 use arrow::datatypes::SchemaRef;
-use log::trace;
+use log::{trace, warn};
 use mosaicod_core::types::TopicMetadataProperties;
 use mosaicod_core::{self as core, error::PublicResult as Result, params, types};
 use mosaicod_db as db;
@@ -14,6 +14,16 @@ use std::sync::Arc;
 /// Define topic metadata type containing JSON user metadata
 type TopicMetadata = types::TopicMetadata<marshal::JsonMetadataBlob>;
 type TopicOntologyMetadata = types::TopicOntologyMetadata<marshal::JsonMetadataBlob>;
+
+#[derive(PartialEq)]
+pub enum Status {
+    /// The topic has just been created. Still no data has been uploaded.
+    Empty,
+    /// The topic is uploading data.
+    Uploading,
+    /// The topic has been completely uploaded and finalized.
+    Finalized,
+}
 
 /// Handle containing topic identifiers.
 /// It's used by all functions (except creation) in this module to indicate the topic to operate on.
@@ -98,22 +108,15 @@ pub async fn try_create(
     session_handle: &session::Handle,
     ontology_metadata: TopicOntologyMetadata,
 ) -> Result<Handle> {
-    let path_in_store = types::TopicPathInStore::new();
-
     let mut tx = context.db.transaction().await?;
-
-    // Check that there are not other topics with the same locator
-    if db::topic_find_by_locator(&mut tx, &locator).await.is_ok() {
-        Err(core::Error::already_exists())?;
-    }
 
     // Session must be unlocked (not finalized)
     let session_locked = db::session_locked(&mut tx, session_handle.id()).await?;
 
     if session_locked {
-        // (cabba) NOTE: Now i'm returning the uuid as session identifier
+        // (cabba) NOTE: Now I'm returning the uuid as session identifier
         // we need to substitute this with the session "locator" when implemented
-        Err(core::Error::locked_session(
+        Err(core::Error::session_already_finalized(
             session_handle.uuid().to_string(),
         ))?;
     }
@@ -135,7 +138,7 @@ pub async fn try_create(
             .properties
             .serialization_format
             .to_string(),
-        Some(path_in_store.clone()),
+        None,
     );
 
     if let Some(user_metadata) = &ontology_metadata.user_metadata {
@@ -144,81 +147,43 @@ pub async fn try_create(
 
     let record = db::topic_create(&mut tx, &record).await?;
 
+    tx.commit().await?;
+
     let topic_handle = Handle {
         locator: locator.clone(),
         id: record.topic_id,
         uuid: record.uuid(),
-        path_in_store: Some(path_in_store.clone()),
+        path_in_store: None,
     };
-
-    let metadata = types::TopicMetadata::new(
-        types::TopicMetadataProperties::new_with_created_at(
-            locator,
-            session_handle.uuid().clone(),
-            record.creation_timestamp(),
-        ),
-        ontology_metadata,
-    );
-
-    // This operation is done at the end to avoid deleting or reverting changes
-    // to metadata file on store if some error causes a rollback on the database
-    metadata_write_to_store(context, path_in_store.path_metadata().as_path(), metadata).await?;
-
-    tx.commit().await?;
 
     Ok(topic_handle)
 }
 
-/// Private method to tell if the topic has finished uploading
+/// Private method to tell the topic status (just created, uploading data, finalized).
 ///
-/// Note: please use this function instead of [`archived`] if you need to call it internally
+/// Note: please use this function instead of [`status`] if you need to call it internally
 /// (from another function in this module that already has an active transaction)
-async fn impl_archived(handle: &Handle, exe: &mut impl db::AsExec) -> Result<bool> {
-    Ok(db::topic_archived(exe, handle.id()).await?)
-}
+async fn impl_status(handle: &Handle, exe: &mut impl db::AsExec) -> Result<Status> {
+    let db_topic = db::topic_find_by_id(exe, handle.id()).await?;
 
-/// Tells if the topic has finished uploading
-///
-/// Note: if you need to call this method internally (from another function in this module that
-/// already has an active transaction), please use [`impl_archived`]
-pub async fn archived(context: &Context, handle: &Handle) -> Result<bool> {
-    let mut cx = context.db.connection();
-    impl_archived(handle, &mut cx).await
-}
-
-/// Finalize the write procedure of the topic. The topic is locked and additional data are
-/// consolidated (e.g. metadata, timestamp bounds). This function is intended to be called by
-/// [`HandleWriter`] to finalize the writing process.
-async fn finalize(context: &Context, handle: &Handle, format: types::Format) -> Result<()> {
-    let mut tx = context.db.transaction().await?;
-
-    let info = compute_data_info(context, handle, &mut tx, format).await?;
-    data_info_write_to_db(context, handle, info).await?;
-
-    // Check if topic is already locked.
-    if impl_archived(handle, &mut tx).await? {
-        Err(core::Error::locked_topic(handle.locator().to_string()))?;
+    if db_topic.path_in_store().is_none() {
+        debug_assert!(db_topic.completion_timestamp().is_none());
+        return Ok(Status::Empty);
+    } else if db_topic.completion_timestamp().is_none() {
+        return Ok(Status::Uploading);
     }
 
-    // Update completion timestamp in DB and Store
-    db::topic_update_completion_tstamp(&mut tx, handle.id(), types::Timestamp::now().as_i64())
-        .await?;
+    debug_assert!(db_topic.path_in_store().is_some() && db_topic.completion_timestamp().is_some());
+    Ok(Status::Finalized)
+}
 
-    // This operation is done at the end to avoid deleting or reverting changes
-    // to metadata file on store if some error causes a rollback on the database
-    let mut metadata = metadata(context, handle).await?;
-    metadata.properties.completed_at = Some(types::Timestamp::now());
-
-    let path_in_store = handle
-        .path_in_store
-        .clone()
-        .ok_or(core::Error::not_found())?;
-
-    metadata_write_to_store(context, path_in_store.path_metadata().as_path(), metadata).await?;
-
-    tx.commit().await?;
-
-    Ok(())
+/// Tells the topic status (just created, uploading data, finalized).
+///
+/// Note: if you need to call this method internally (from another function in this module that
+/// already has an active transaction), please use [`impl_status`]
+pub async fn status(context: &Context, handle: &Handle) -> Result<Status> {
+    let mut cx = context.db.connection();
+    impl_status(handle, &mut cx).await
 }
 
 /// Creates [`TopicMetadata`] associated to the given topic [`Handle`].
@@ -253,22 +218,21 @@ pub async fn metadata(context: &Context, handle: &Handle) -> Result<TopicMetadat
 /// The serialization format is required to extract the schema.
 /// It can be retrieved using [`metadata`] function.
 ///
-/// If no arrow_schema is found a [`Error::NotFound`] error is returned
+/// If no arrow_schema is found an empty one is returned.
 pub async fn arrow_schema(
     context: &Context,
     handle: &Handle,
     format: types::Format,
 ) -> Result<SchemaRef> {
-    let path_in_store = handle
-        .path_in_store
-        .clone()
-        .ok_or(core::Error::not_found())?;
+    let Some(path_in_store) = &handle.path_in_store else {
+        return Ok(mosaicod_ext::arrow::empty_schema_ref());
+    };
 
     // Get chunk 0 since this chunk needs to exist always
-    let path = path_in_store.path_data(handle.uuid(), 0, format.to_properties().as_ref());
+    let path = path_in_store.path_data(0, format.to_properties().as_ref());
 
     if !context.store.exists(&path).await? {
-        Err(core::Error::not_found())?;
+        return Ok(mosaicod_ext::arrow::empty_schema_ref());
     }
 
     // Build a parquet reader reading in memory a file
@@ -293,25 +257,47 @@ async fn metadata_write_to_store(
     let json_manifest = marshal::JsonTopicMetadata::from(metadata);
     let bytes: Vec<u8> = json_manifest.try_into()?;
 
-    context.store.write_bytes(&path, bytes).await?;
+    context.store.write_bytes(path, bytes).await?;
 
     Ok(())
 }
 
 /// Returns a writer used to write chunked record batches using a specified serialization
 /// format `format`.
-pub fn writer(
+pub async fn writer(
     context: Context,
-    handle: Handle,
-    format: types::Format,
+    mut handle: Handle,
     schema: SchemaRef,
 ) -> Result<HandleWriter> {
-    let path_in_store = handle
-        .path_in_store
-        .clone()
-        .ok_or(core::Error::not_found())?;
+    // Precondition: check if topic has already been finalized or if someone else is already uploading data.
+    let topic_status = status(&context, &handle).await?;
+    match topic_status {
+        Status::Empty => (),
+        Status::Uploading => Err(core::Error::topic_upload_in_progress(
+            handle.locator.to_string(),
+        ))?,
+        Status::Finalized => Err(core::Error::topic_already_finalized(
+            handle.locator.to_string(),
+        ))?,
+    }
 
-    let data_folder = path_in_store.path_data_folder(handle.uuid());
+    let mdata = metadata(&context, &handle).await?;
+
+    // Set up the callback that will be used to create the database record for the data catalog
+    // and prepare variables that will be moved in the closure
+    let ontology_tag = mdata.ontology_metadata.properties.ontology_tag.clone();
+    let format = mdata.ontology_metadata.properties.serialization_format;
+
+    // 1. Create folder in Store and save metadata.
+    let path_in_store = types::TopicPathInStore::new();
+
+    metadata_write_to_store(&context, path_in_store.path_metadata().as_path(), mdata).await?;
+
+    let data_folder = path_in_store.data_folder_path();
+
+    // 2. Save path_in_store on DB.
+    let mut cx = context.db.connection();
+    db::topic_update_path_in_store(&mut cx, handle.id, path_in_store.clone()).await?;
 
     let writer = rw::ChunkWriter::new(
         context.store.clone(),
@@ -325,9 +311,12 @@ pub fn writer(
         },
     );
 
+    handle.path_in_store = Some(path_in_store);
+
     Ok(HandleWriter {
         handle,
         format,
+        ontology_tag,
         writer,
         context,
     })
@@ -341,19 +330,9 @@ pub async fn delete(
     handle: Handle,
     allowed_data_loss: types::DataLossToken,
 ) -> Result<()> {
-    let mut tx = context.db.transaction().await?;
-
-    let db_topic = db::topic_find_by_id(&mut tx, handle.id).await?;
-
-    // Delete the record from DB first, then from the store. Order matters (think in case of rollback).
-    db::topic_delete(&mut tx, &handle.locator, allowed_data_loss).await?;
-
-    if let Some(path_in_store) = db_topic.path_in_store() {
-        context.store.delete_recursive(path_in_store.root()).await?;
-    }
-
-    tx.commit().await?;
-
+    warn!("(data loss) deleting topic '{}'", handle.locator);
+    let mut cx = context.db.connection();
+    db::topic_delete(&mut cx, handle.id, allowed_data_loss).await?;
     Ok(())
 }
 
@@ -420,11 +399,14 @@ async fn compute_data_info(
     let path_in_store = handle
         .path_in_store
         .clone()
-        .ok_or(core::Error::not_found())?;
+        .ok_or(Error::MissingDbData(format!(
+            "No path in store set for topic {}",
+            handle.locator
+        )))?;
 
     let timeseries_res = context
         .timeseries_querier
-        .read(path_in_store.path_data_folder(handle.uuid()), format, None)
+        .read(path_in_store.data_folder_path(), format, None)
         .await;
 
     let timestamp_range = match timeseries_res {
@@ -459,20 +441,6 @@ async fn compute_data_info(
         total_bytes,
         timestamp_range,
     })
-}
-
-/// Caches metrics about topic's data.
-///
-/// Since they can be recalculated at any time, it's enough to save them in the DB.
-async fn data_info_write_to_db(
-    context: &Context,
-    handle: &Handle,
-    system_info: types::TopicDataInfo,
-) -> Result<()> {
-    let mut tx = context.db.transaction().await?;
-    db::topic_update_system_info(&mut tx, &handle.locator, &system_info).await?;
-    tx.commit().await?;
-    Ok(())
 }
 
 /// Retrieves system info for the topic from db. Returns an error if not present.
@@ -520,6 +488,8 @@ pub struct HandleWriter {
     /// Serialization format used to write
     format: types::Format,
 
+    ontology_tag: String,
+
     /// The underlying writer handling the actual data operations.
     writer: rw::ChunkWriter<Arc<store::Store>>,
 
@@ -528,10 +498,52 @@ pub struct HandleWriter {
 }
 
 impl HandleWriter {
-    /// Performs all the operations required to finalize the writing stream, consolidate topic data
-    /// and lock the topic
+    pub fn ontology_tag(&self) -> &str {
+        &self.ontology_tag
+    }
+
+    /// Finalize the write procedure of the topic. The topic is locked and additional data are
+    /// consolidated (e.g. metadata, timestamp bounds).
     pub async fn finalize(self) -> Result<()> {
-        finalize(&self.context, &self.handle, self.format).await?;
+        // 1. Update topic record in database.
+        let mut tx = self.context.db.transaction().await?;
+
+        let info = compute_data_info(&self.context, &self.handle, &mut tx, self.format).await?;
+        db::topic_update_system_info(&mut tx, &self.handle.locator, &info).await?;
+
+        // Check if topic has already been uploaded and finalized.
+        if let Status::Finalized = impl_status(&self.handle, &mut tx).await? {
+            return Err(core::Error::topic_already_finalized(
+                self.handle.locator().to_string(),
+            ))?;
+        }
+
+        // Update completion timestamp
+        db::topic_update_completion_tstamp(
+            &mut tx,
+            self.handle.id(),
+            types::Timestamp::now().as_i64(),
+        )
+        .await?;
+
+        tx.commit().await?;
+
+        // 2. Update metadata in Store (read entirely from DB and save to Store).
+        let metadata = metadata(&self.context, &self.handle).await?;
+
+        // Path in store is expected to be set inside handle while creating the HandleWriter.
+        // Here it should be safe to unwrap it.
+        let Some(path_in_store) = &self.handle.path_in_store else {
+            panic!("No path in store set for topic {}", self.handle.locator);
+        };
+
+        metadata_write_to_store(
+            &self.context,
+            path_in_store.path_metadata().as_path(),
+            metadata,
+        )
+        .await?;
+
         Ok(())
     }
 }
@@ -560,9 +572,9 @@ mod tests {
     fn test_context(pool: sqlx::Pool<db::DatabaseType>) -> Context {
         let database = db::testing::Database::new(pool);
         let store = store::testing::Store::new_random_on_tmp().unwrap();
-        let ts_gw = Arc::new(query::TimeseriesEngine::try_new(store.clone(), 0).unwrap());
+        let ts_gw = Arc::new(query::TimeseriesEngine::try_new((*store).clone(), 0).unwrap());
 
-        Context::new(store.clone(), database.clone(), ts_gw)
+        Context::new((*store).clone(), (*database).clone(), ts_gw)
     }
 
     fn dummy_ontology_metadata() -> TopicOntologyMetadata {
@@ -621,20 +633,7 @@ mod tests {
         assert_eq!(*topic_handle.locator(), topic.locator());
 
         // Check path in store
-        assert!(
-            context
-                .store
-                .exists(topic.path_in_store().unwrap().path_metadata())
-                .await
-                .unwrap()
-        );
-
-        // Root path in store must be a valid ULID (excluded the tp_ prefix)
-        assert!(
-            topic.path_in_store().unwrap().root().to_str().unwrap()[3..]
-                .parse::<ulid::Ulid>()
-                .is_ok()
-        );
+        assert!(topic.path_in_store().is_none());
 
         // Check topic deletion.
         delete(&context, topic_handle, types::allow_data_loss())

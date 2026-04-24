@@ -29,3 +29,4 @@ tower = {workspace = true}
 
 [dev-dependencies]
 mosaicod-marshal = { workspace = true }
+tracing-subscriber = { workspace = true }

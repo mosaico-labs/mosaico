@@ -81,28 +81,34 @@ where
 /// information to be provided about the error such as a documentation link.
 #[derive(thiserror::Error, Debug, Clone)]
 pub enum ErrorKind {
-    #[error("Not found")]
-    NotFound,
-    #[error("Already exists")]
-    AlreadyExists,
+    #[error("{0} not found")]
+    NotFound(String),
+    #[error("{0} already exists")]
+    AlreadyExists(String),
     #[error("Unauthorized")]
     Unauthorized,
     #[error("Unauthenticated")]
     Unauthenticated,
     #[error("Unimplemented")]
     Unimplemented,
-    #[error("Session `{0}` is locked.")]
-    LockedSession(String),
-    #[error("Topic `{0}` is locked.")]
-    LockedTopic(String),
-    #[error("Topic `{0}` is unlocked.")]
-    UnlockedTopic(String),
+    #[error("Session `{0}` already finalized.")]
+    SessionAlreadyFinalized(String),
+    #[error("Topic `{0}` has already been uploaded and finalized.")]
+    TopicAlreadyFinalized(String),
+    #[error(
+        "DoPut not called for topic `{0}`. At least one with an empty batch is required to finalize the topic."
+    )]
+    MissingDoPut(String),
+    #[error("Topic `{0}` is already uploading data.")]
+    TopicUploadInProgress(String),
     #[error("Session `{0} is empty.`")]
     EmptySession(String),
-    #[error("Locator contains unsupported characters")]
-    BadLocator,
-    #[error("Bad UUID: are you sure it's a valid UUID?")]
-    BadUuid,
+    #[error("{0} is not a valid {1} locator")]
+    LocatorKindMismatch(String, String),
+    #[error("{0} is not a valid locator")]
+    BadLocator(String),
+    #[error("{0} is not a valid UUID")]
+    BadUuid(String),
     #[error("Bad request: {0}")]
     BadRequest(String),
     #[error("Bad header: {0}")]
@@ -143,24 +149,28 @@ impl Error {
         &self.0
     }
 
-    pub fn not_found() -> Self {
-        Self(ErrorKind::NotFound)
+    pub fn not_found(resource: String) -> Self {
+        Self(ErrorKind::NotFound(resource))
     }
 
-    pub fn already_exists() -> Self {
-        Self(ErrorKind::AlreadyExists)
+    pub fn already_exists(resource: String) -> Self {
+        Self(ErrorKind::AlreadyExists(resource))
     }
 
-    pub fn locked_session(uuid: String) -> Self {
-        Self(ErrorKind::LockedSession(uuid))
+    pub fn session_already_finalized(uuid: String) -> Self {
+        Self(ErrorKind::SessionAlreadyFinalized(uuid))
     }
 
-    pub fn locked_topic(locator: String) -> Self {
-        Self(ErrorKind::LockedTopic(locator))
+    pub fn topic_upload_in_progress(locator: String) -> Self {
+        Self(ErrorKind::TopicUploadInProgress(locator))
     }
 
-    pub fn unlocked_topic(locator: String) -> Self {
-        Self(ErrorKind::UnlockedTopic(locator))
+    pub fn topic_already_finalized(locator: String) -> Self {
+        Self(ErrorKind::TopicAlreadyFinalized(locator))
+    }
+
+    pub fn missing_doput(locator: String) -> Self {
+        Self(ErrorKind::MissingDoPut(locator))
     }
 
     pub fn empty_session(locator: String) -> Self {
@@ -183,12 +193,16 @@ impl Error {
         Self(ErrorKind::Unimplemented)
     }
 
-    pub fn bad_locator() -> Self {
-        Self(ErrorKind::BadLocator)
+    pub fn locator_kind_mismatch(locator: String, kind: String) -> Self {
+        Self(ErrorKind::LocatorKindMismatch(locator, kind))
     }
 
-    pub fn bad_uuid() -> Self {
-        Self(ErrorKind::BadUuid)
+    pub fn bad_locator(locator: String) -> Self {
+        Self(ErrorKind::BadLocator(locator))
+    }
+
+    pub fn bad_uuid(uuid: String) -> Self {
+        Self(ErrorKind::BadUuid(uuid))
     }
 
     pub fn bad_request(msg: String) -> Self {

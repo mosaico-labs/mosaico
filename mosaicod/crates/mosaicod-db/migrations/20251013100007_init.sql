@@ -12,17 +12,22 @@ CREATE TABLE sequence_t(
 CREATE TABLE session_t(
   session_id    SERIAL PRIMARY KEY,
   session_uuid  UUID UNIQUE NOT NULL,
-  sequence_id   INTEGER REFERENCES sequence_t(sequence_id) NOT NULL,
+  sequence_id   INTEGER NOT NULL,
 
   creation_unix_tstamp    BIGINT NOT NULL,
-  completion_unix_tstamp  BIGINT
+  completion_unix_tstamp  BIGINT,
+
+  CONSTRAINT fk_sequence
+      FOREIGN KEY (sequence_id)
+      REFERENCES sequence_t (sequence_id)
+      ON DELETE CASCADE
 );
 
 CREATE TABLE topic_t(
   topic_id      SERIAL PRIMARY KEY,
   topic_uuid    UUID UNIQUE NOT NULL,
-  sequence_id   INTEGER REFERENCES sequence_t(sequence_id) NOT NULL,
-  session_id    INTEGER REFERENCES session_t(session_id) NOT NULL,
+  sequence_id   INTEGER NOT NULL,
+  session_id    INTEGER NOT NULL,
   locator_name  TEXT UNIQUE NOT NULL,
   user_metadata JSONB,
 
@@ -39,5 +44,15 @@ CREATE TABLE topic_t(
   total_bytes       BIGINT,
 
   start_index_timestamp   BIGINT,
-  end_index_timestamp     BIGINT
+  end_index_timestamp     BIGINT,
+
+  CONSTRAINT fk_sequence
+      FOREIGN KEY (sequence_id)
+      REFERENCES sequence_t (sequence_id)
+      ON DELETE CASCADE,
+
+  CONSTRAINT fk_session
+      FOREIGN KEY (session_id)
+      REFERENCES session_t (session_id)
+      ON DELETE CASCADE
 );

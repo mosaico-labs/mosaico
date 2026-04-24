@@ -2,7 +2,10 @@
 
 use crate::error::{Error, Result};
 use log::{info, trace, warn};
-use mosaicod_core::types::{self, MetadataBlob};
+use mosaicod_core::{
+    self as core,
+    types::{self, MetadataBlob},
+};
 use mosaicod_facade as facade;
 use mosaicod_marshal::{self as marshal, ActionResponse};
 
@@ -21,7 +24,7 @@ pub async fn create(
 
     let received_uuid: types::Uuid = session_uuid
         .parse()
-        .map_err(|_| Error::invalid_uuid(&session_uuid))?;
+        .map_err(|_| core::Error::bad_uuid(session_uuid))?;
 
     let ontology_metadata = types::TopicOntologyMetadata::new(
         types::TopicOntologyProperties {
@@ -34,6 +37,7 @@ pub async fn create(
     let topic_locator = name.parse::<types::TopicLocator>()?;
 
     let session_handle = facade::session::Handle::try_from_uuid(ctx, &received_uuid).await?;
+
     let topic_handle =
         facade::topic::try_create(ctx, topic_locator, &session_handle, ontology_metadata).await?;
 
