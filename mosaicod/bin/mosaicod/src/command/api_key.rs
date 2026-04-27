@@ -33,9 +33,10 @@ pub enum ApiKey {
 
     /// Revoke a key
     Revoke {
-        /// Fingerprint of the key to revoke. The fingerprint are the last 8 digits of
-        /// the API key.
-        fingerprint: String,
+        /// Fingerprints of the keys to revoke.
+        /// The fingerprint is the last 8 digits of the API key.
+        #[arg(required = true, num_args = 1..)]
+        fingerprints: Vec<String>,
     },
 
     /// Return the status of a key
@@ -63,6 +64,9 @@ pub fn auth(auth: ApiKey) -> Result<()> {
                     "unable to parse".to_string(),
                 )
             })?,
+            // Here we are using only one connection since
+            // its a CLI command
+            max_connections: 1,
         },
     )?;
 
@@ -117,11 +121,15 @@ pub fn auth(auth: ApiKey) -> Result<()> {
             println!("{}", policy.key);
         }
 
-        ApiKey::Revoke { fingerprint } => {
+        ApiKey::Revoke { fingerprints } => {
             let res: core::error::PublicResult<()> = rt.block_on(async {
-                let fauth = facade::Auth::try_from_fingerprint(&fingerprint, db).await?;
+                for fingerprint in fingerprints {
+                    let fauth = facade::Auth::try_from_fingerprint(&fingerprint, db.clone())
+                        .await
+                        .map_err(|_| core::Error::invalid_fingerprint(fingerprint.clone()))?;
 
-                fauth.delete().await?;
+                    fauth.delete().await?;
+                }
 
                 Ok(())
             });

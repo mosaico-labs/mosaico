@@ -25,7 +25,7 @@ mosaicod-server = { path = "crates/mosaicod-server" }
 mosaicod-store = { path = "crates/mosaicod-store" }
 
 # Arrow stack dependencies
-arrow = { version = "58.1.0", features = ["prettyprint"] }
+arrow = { version = "58.1.0", features = ["prettyprint", "ipc_compression"] }
 arrow-cast = "58.1.0"
 arrow-flight = "58.1.0"
 arrow-schema = "58.1.0"
@@ -48,7 +48,7 @@ mimalloc = { version = "0.1", default-features = false }
 rand = "0.9.2"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
-signal-hook = "0.4.3"
+signal-hook = "0.4.4"
 sqlx = { version = "0.8.6", features = [
     "postgres",
     "macros",
@@ -59,11 +59,11 @@ sqlx = { version = "0.8.6", features = [
 thiserror = "2.0.18"
 tokio = { version = "1.50.0", features = ["rt-multi-thread"] }
 url = "2.5.8"
-uuid = { version = "1.23.0", features = [ "v4" ] }
+uuid = { version = "1.23.1", features = [ "v4" ] }
 ulid = "1.2.1"
 crc32fast = "1.5.0"
 iso8601 = "0.6.3"
-semver = "1.0.27"
+semver = "1.0.28"
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["json", "env-filter"] }
 

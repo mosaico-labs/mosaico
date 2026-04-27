@@ -1,4 +1,6 @@
 use crate::error::Result;
+use arrow::ipc::CompressionType;
+use arrow::ipc::writer::IpcWriteOptions;
 use arrow_flight::{
     Ticket,
     encode::{FlightDataEncoder, FlightDataEncoderBuilder},
@@ -62,7 +64,17 @@ pub async fn do_get(ctx: &facade::Context, ticket: Ticket) -> Result<FlightDataE
     // Convert the data stream to a flight stream casting the returned error
     let stream = stream.map_err(|e| FlightError::ExternalError(Box::new(e)));
 
+    // We enable by default LZ4_FRAME compression for all streams.
+    // As `.try_with_compression()` states the function throws an error at runtime
+    // if the ipc_compression feature is not enabled. So we should never see this terror.
+    let ipc_options = IpcWriteOptions::default()
+        .try_with_compression(Some(CompressionType::LZ4_FRAME))
+        .map_err(|_| {
+            core::Error::internal(Some("arrow ipc lz4 compression not available".to_owned()))
+        })?;
+
     Ok(FlightDataEncoderBuilder::new()
         .with_schema(schema)
+        .with_options(ipc_options)
         .build(stream))
 }
