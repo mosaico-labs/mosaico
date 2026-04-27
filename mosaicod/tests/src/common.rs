@@ -41,9 +41,10 @@ pub fn format_endpoint(host: &str, port: u16, tls: bool) -> String {
 async fn start_server(
     host: &str,
     port: u16,
-    pool: sqlx::Pool<db::DatabaseType>,
+    database: db::testing::Database,
     shutdown: ShutdownNotifier,
     tls: Option<server::flight::TlsConfig>,
+    enable_api_key: Option<bool>,
 ) -> (
     tokio::task::JoinHandle<()>,
     db::testing::Database,
@@ -52,12 +53,15 @@ async fn start_server(
     // Ensure that params are loaded
     params::load_params_from_env(params::ParamsLoadOptions::testing()).unwrap();
 
-    let database = db::testing::Database::new(pool);
     let store = store::testing::Store::new_random_on_tmp().unwrap();
     let mut config = server::flight::Config::new(host.to_owned(), port);
 
     if let Some(tls) = tls {
         config.tls(tls);
+    }
+
+    if enable_api_key.unwrap_or(false) {
+        config.enable_api_key_management();
     }
 
     let store_clone = store.clone();
@@ -80,31 +84,27 @@ async fn start_server(
 pub struct ServerBuilder {
     host: String,
     port: u16,
-    pool: sqlx::Pool<db::DatabaseType>,
     tls: Option<server::flight::TlsConfig>,
-    api_key: Option<Auth>,
+    db: db::testing::Database,
+    enable_api_key: Option<bool>,
 }
 
 impl ServerBuilder {
     pub fn new(host: &str, port: u16, pool: sqlx::Pool<db::DatabaseType>) -> Self {
+        let db = db::testing::Database::new(pool.clone());
+
         Self {
             host: host.to_owned(),
             port,
-            pool,
             tls: None,
-            api_key: None,
+            db,
+            enable_api_key: None,
         }
     }
 
-    pub async fn create_api_key(&mut self, permissions: types::auth::Permission) -> types::ApiKey {
-        let db = db::testing::Database::new(self.pool.clone());
-        self.api_key = Some(
-            Auth::create(permissions, "".to_string(), None, (*db).clone())
-                .await
-                .expect("Failed to create api."),
-        );
-
-        self.api_key.as_ref().unwrap().api_key().clone()
+    pub fn enable_api_key(mut self) -> Self {
+        self.enable_api_key = Some(true);
+        self
     }
 
     pub fn enable_tls(mut self) -> Self {
@@ -126,8 +126,15 @@ impl ServerBuilder {
     pub async fn build(self) -> Server {
         let shutdown = ShutdownNotifier::default();
 
-        let (server_join_handle, db, store) =
-            start_server(&self.host, self.port, self.pool, shutdown.clone(), self.tls).await;
+        let (server_join_handle, db, store) = start_server(
+            &self.host,
+            self.port,
+            self.db,
+            shutdown.clone(),
+            self.tls,
+            self.enable_api_key,
+        )
+        .await;
 
         Server {
             server_join_handle,
@@ -166,8 +173,21 @@ impl Server {
         let _ = tokio::join!(self.server_join_handle);
     }
 
+    /// Check if the server is running.
     pub async fn is_shutdown(&self) -> bool {
         self.server_join_handle.is_finished()
+    }
+
+    pub async fn create_api_key(
+        &mut self,
+        permissions: types::auth::Permission,
+        expires_at: Option<types::Timestamp>,
+    ) -> types::ApiKey {
+        let token = Auth::create(permissions, "".to_string(), expires_at, self.db.clone())
+            .await
+            .expect("Failed to create api.");
+
+        token.api_key().clone()
     }
 }
 
@@ -183,8 +203,9 @@ impl tonic::service::Interceptor for ApiKeyInterceptor {
     fn call(&mut self, mut req: tonic::Request<()>) -> Result<tonic::Request<()>, tonic::Status> {
         if let Some(key) = &self.api_key {
             req.metadata_mut()
-                .insert("authorization", format!("Bearer {}", key).parse().unwrap());
+                .insert("mosaico-api-key-token", key.parse().unwrap());
         }
+
         Ok(req)
     }
 }
@@ -285,13 +306,15 @@ impl ClientBuilder {
             }
         });
 
-        let client =
-            FlightServiceClient::with_interceptor(channel, self.api_key_interceptor.unwrap());
+        let interceptor = self
+            .api_key_interceptor
+            .unwrap_or(ApiKeyInterceptor { api_key: None });
 
-        Client { client }
+        Client {
+            client: FlightServiceClient::with_interceptor(channel, interceptor),
+        }
     }
 }
-
 /// A dummy client that communicates to mosaicod.
 pub struct Client<T = InterceptedChannel> {
     client: FlightServiceClient<T>,

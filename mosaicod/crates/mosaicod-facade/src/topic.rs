@@ -126,7 +126,9 @@ pub async fn try_create(
     let seq_rec = db::sequence_find_by_locator(&mut tx, session_handle.sequence_locator()).await?;
 
     if !locator.is_sub_locator(session_handle.sequence_locator()) {
-        Err(core::Error::unauthorized())?;
+        Err(core::Error::unauthorized(
+            "Provided topic locator and session do not share the same sequence".to_string(),
+        ))?;
     }
 
     let mut record = db::TopicRecord::new(

@@ -20,7 +20,8 @@ pub async fn do_action(
     perm: &Permission,
 ) -> Result<ActionResponse> {
     if !has_permissions(&action, perm) {
-        Err(core::Error::unauthorized())?;
+        let err_msg = format!("{} has not enough permission to be executed.", action);
+        Err(core::Error::unauthorized(err_msg))?;
     }
 
     match action {

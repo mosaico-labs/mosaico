@@ -117,7 +117,20 @@ where
 
                     let token: types::auth::Token = token.parse()?;
 
-                    let fauth = facade::Auth::try_from_fingerprint(token.fingerprint(), db).await?;
+                    let fauth = facade::Auth::try_from_fingerprint(token.fingerprint(), db)
+                        .await
+                        .map_err(|e| match e.error().kind() {
+                            core::error::ErrorKind::NotFound(_) => {
+                                core::Error::unauthorized("API key does not exist.".to_string())
+                            }
+                            _ => e.error(),
+                        })?;
+
+                    if fauth.api_key().is_expired() {
+                        Err(core::Error::unauthorized(
+                            "API key is exipired.".to_string(),
+                        ))?;
+                    }
 
                     Ok(AuthContext {
                         permissions: fauth.into_api_key().permission,

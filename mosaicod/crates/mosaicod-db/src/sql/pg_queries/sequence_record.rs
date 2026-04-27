@@ -129,9 +129,14 @@ pub async fn sequence_delete_by_id(
     _: types::DataLossToken,
 ) -> Result<(), Error> {
     warn!("(data loss) deleting sequence with id `{}`", sequence_id);
-    sqlx::query!("DELETE FROM sequence_t WHERE sequence_id=$1", sequence_id)
+    let result = sqlx::query!("DELETE FROM sequence_t WHERE sequence_id=$1", sequence_id)
         .execute(exe.as_exec())
         .await?;
+
+    if result.rows_affected() == 0 {
+        return Err(Error::NotFound);
+    }
+
     Ok(())
 }
 

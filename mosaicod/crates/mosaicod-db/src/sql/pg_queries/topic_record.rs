@@ -110,9 +110,14 @@ pub async fn topic_delete(
     _: types::DataLossToken,
 ) -> Result<(), Error> {
     warn!("(data loss) deleting topic record with id={}", topic_id);
-    sqlx::query!("DELETE FROM topic_t WHERE topic_id=$1", topic_id)
+    let result = sqlx::query!("DELETE FROM topic_t WHERE topic_id=$1", topic_id)
         .execute(exe.as_exec())
         .await?;
+
+    if result.rows_affected() == 0 {
+        return Err(Error::NotFound);
+    }
+
     Ok(())
 }
 

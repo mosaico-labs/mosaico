@@ -84,9 +84,14 @@ pub async fn session_delete(
     _: types::DataLossToken,
 ) -> Result<(), Error> {
     warn!("(data loss) deleting session `{}`", uuid);
-    sqlx::query!("DELETE FROM session_t WHERE session_uuid=$1", uuid.as_ref())
+    let result = sqlx::query!("DELETE FROM session_t WHERE session_uuid=$1", uuid.as_ref())
         .execute(exe.as_exec())
         .await?;
+
+    if result.rows_affected() == 0 {
+        return Err(Error::NotFound);
+    }
+
     Ok(())
 }
 
