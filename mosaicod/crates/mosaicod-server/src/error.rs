@@ -57,6 +57,7 @@ where
             ErrorKind::UnsupportedSchema(_) => Code::InvalidArgument,
             ErrorKind::InvalidConfiguration(_) => Code::Unknown,
             ErrorKind::UnsupportedTime(_) => Code::InvalidArgument,
+            ErrorKind::InvalidFingerprint(_) => Code::InvalidArgument,
             ErrorKind::LocatorKindMismatch(_, _) => Code::InvalidArgument,
         }
     }
