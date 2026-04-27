@@ -126,7 +126,7 @@ impl std::fmt::Display for ActionRequest {
             Self::SessionCreate(_) => write!(f, "SessionCreate"),
             Self::SessionFinalize(_) => write!(f, "SessionFinalize"),
             Self::SessionDelete(_) => write!(f, "SessionDelete"),
-            Self::Query(_) => write!(f, "Query()"),
+            Self::Query(_) => write!(f, "Query"),
             Self::ApiKeyCreate(_) => write!(f, "ApiKeyCreate"),
             Self::ApiKeyStatus(_) => write!(f, "ApiKeyStatus"),
             Self::ApiKeyRevoke(_) => write!(f, "ApiKeyRevoke"),
