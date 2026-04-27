@@ -1,13 +1,14 @@
-use std::fs;
-
 use arrow_flight::flight_service_client::FlightServiceClient;
 use mosaicod_core::params;
 use mosaicod_core::types;
 use mosaicod_db as db;
-use mosaicod_facade::Auth;
+use mosaicod_facade as facade;
+use mosaicod_query as query;
 use mosaicod_server::{self as server, flight::ShutdownNotifier};
 use mosaicod_store as store;
 use serde::Deserialize;
+use std::fs;
+use std::sync::Arc;
 use tonic::service::interceptor;
 
 /// The local loopback address for testing.
@@ -49,11 +50,21 @@ async fn start_server(
     tokio::task::JoinHandle<()>,
     db::testing::Database,
     store::testing::Store,
+    query::TimeseriesEngineRef,
 ) {
     // Ensure that params are loaded
     params::load_params_from_env(params::ParamsLoadOptions::testing()).unwrap();
 
     let store = store::testing::Store::new_random_on_tmp().unwrap();
+
+    let ts_gw = Arc::new(
+        query::TimeseriesEngine::try_new(
+            (*store).clone(),
+            params::params().query_engine_memory_pool_size.value,
+        )
+        .unwrap(),
+    );
+
     let mut config = server::flight::Config::new(host.to_owned(), port);
 
     if let Some(tls) = tls {
@@ -78,7 +89,7 @@ async fn start_server(
     // Wait a little to be sure that server port is bound
     tokio::time::sleep(std::time::Duration::from_millis(100)).await;
 
-    (handle, database, store)
+    (handle, database, store, ts_gw)
 }
 
 pub struct ServerBuilder {
@@ -126,7 +137,7 @@ impl ServerBuilder {
     pub async fn build(self) -> Server {
         let shutdown = ShutdownNotifier::default();
 
-        let (server_join_handle, db, store) = start_server(
+        let (server_join_handle, db, store, ts_gw) = start_server(
             &self.host,
             self.port,
             self.db,
@@ -141,6 +152,7 @@ impl ServerBuilder {
             shutdown,
             db,
             store,
+            ts_gw,
         }
     }
 }
@@ -164,6 +176,7 @@ pub struct Server {
     server_join_handle: tokio::task::JoinHandle<()>,
     pub db: db::testing::Database,
     pub store: store::testing::Store,
+    pub ts_gw: query::TimeseriesEngineRef,
 }
 
 impl Server {
@@ -178,16 +191,20 @@ impl Server {
         self.server_join_handle.is_finished()
     }
 
+    pub fn context(&self) -> facade::Context {
+        facade::Context::new(self.store.clone(), self.db.clone(), self.ts_gw.clone())
+    }
+
     pub async fn create_api_key(
         &mut self,
         permissions: types::auth::Permission,
         expires_at: Option<types::Timestamp>,
     ) -> types::ApiKey {
-        let token = Auth::create(permissions, "".to_string(), expires_at, self.db.clone())
+        let handle = facade::auth::create(&self.context(), permissions, "".to_string(), expires_at)
             .await
             .expect("Failed to create api.");
 
-        token.api_key().clone()
+        handle.api_key().clone()
     }
 }
 

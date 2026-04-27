@@ -30,8 +30,7 @@ pub use chunk::*;
 mod query;
 pub use query::*;
 
-mod auth;
-pub use auth::*;
+pub mod auth;
 
 mod context;
 pub use context::Context;

@@ -4,6 +4,8 @@ use colored::Colorize;
 use mosaicod_core::{self as core, error::PublicResult as Result, params, types};
 use mosaicod_db as db;
 use mosaicod_facade as facade;
+use mosaicod_query as query;
+use std::sync::Arc;
 
 #[derive(Subcommand, Debug)]
 pub enum ApiKey {
@@ -55,6 +57,13 @@ pub fn auth(auth: ApiKey) -> Result<()> {
 
     let rt = common::init_runtime()?;
 
+    let store = common::init_store()?;
+
+    let ts_gw = Arc::new(query::TimeseriesEngine::try_new(
+        store.clone(),
+        params::params().query_engine_memory_pool_size.value,
+    )?);
+
     let db = common::init_db(
         &rt,
         &db::Config {
@@ -64,11 +73,16 @@ pub fn auth(auth: ApiKey) -> Result<()> {
                     "unable to parse".to_string(),
                 )
             })?,
-            // Here we are using only one connection since
-            // its a CLI command
+            // Here we are using only one connection since it's a CLI command
             max_connections: 1,
         },
     )?;
+
+    let context = facade::Context {
+        store: store.clone(),
+        db: db.clone(),
+        timeseries_querier: ts_gw.clone(),
+    };
 
     match auth {
         ApiKey::Create {
@@ -111,9 +125,10 @@ pub fn auth(auth: ApiKey) -> Result<()> {
             let description = description.unwrap_or_default();
 
             let policy: core::error::PublicResult<types::ApiKey> = rt.block_on(async {
-                let fauth =
-                    facade::Auth::create(permissions, description, expiration_datetime, db).await?;
-                Ok(fauth.into_api_key())
+                let handle =
+                    facade::auth::create(&context, permissions, description, expiration_datetime)
+                        .await?;
+                Ok(handle.into())
             });
 
             let policy = policy?;
@@ -124,11 +139,11 @@ pub fn auth(auth: ApiKey) -> Result<()> {
         ApiKey::Revoke { fingerprints } => {
             let res: core::error::PublicResult<()> = rt.block_on(async {
                 for fingerprint in fingerprints {
-                    let fauth = facade::Auth::try_from_fingerprint(&fingerprint, db.clone())
+                    let handle = facade::auth::Handle::try_from_fingerprint(&context, &fingerprint)
                         .await
                         .map_err(|_| core::Error::invalid_fingerprint(fingerprint.clone()))?;
 
-                    fauth.delete().await?;
+                    facade::auth::delete(&context, handle).await?;
                 }
 
                 Ok(())
@@ -139,11 +154,10 @@ pub fn auth(auth: ApiKey) -> Result<()> {
 
         ApiKey::Status { fingerprint } => {
             let res: Result<()> = rt.block_on(async {
-                let fauth = facade::Auth::try_from_fingerprint(&fingerprint, db).await?;
+                let handle =
+                    facade::auth::Handle::try_from_fingerprint(&context, &fingerprint).await?;
 
-                let policy = fauth.into_api_key();
-
-                print_authz_policy_details(policy);
+                print_authz_policy_details(handle.into());
 
                 Ok(())
             });
@@ -153,7 +167,7 @@ pub fn auth(auth: ApiKey) -> Result<()> {
 
         ApiKey::List => {
             let res: Result<()> = rt.block_on(async {
-                let policies = facade::Auth::all_keys(db).await?;
+                let policies = facade::auth::all_keys(&context).await?;
 
                 print_authz_policy_list(policies);
 
