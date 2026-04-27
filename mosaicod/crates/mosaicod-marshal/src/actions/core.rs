@@ -91,7 +91,7 @@ pub enum ActionRequest {
     SessionFinalize(requests::SessionUuid),
 
     /// Deletes the selected session.
-    SessionDelete(requests::SessionUuid),
+    SessionDelete(requests::ResourceLocator),
 
     /// Perform a query in the system
     Query(requests::Query),

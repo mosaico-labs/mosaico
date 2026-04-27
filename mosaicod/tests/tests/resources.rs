@@ -620,7 +620,7 @@ async fn test_session_delete(pool: sqlx::Pool<db::DatabaseType>) {
         .await
         .unwrap();
 
-    let (_, session_uuid) = actions::session_create(&mut client, sequence_name)
+    let (session_locator, session_uuid) = actions::session_create(&mut client, sequence_name)
         .await
         .unwrap();
     assert!(session_uuid.is_valid());
@@ -640,18 +640,18 @@ async fn test_session_delete(pool: sqlx::Pool<db::DatabaseType>) {
         panic!("Received a not-empty response!");
     }
 
-    // Delete must work on both unlocked and locked sessions.
+    // Delete must work on both open and finalized sessions.
     actions::session_finalize(&mut client, &session_uuid)
         .await
         .unwrap();
-    actions::session_delete(&mut client, &session_uuid)
+    actions::session_delete(&mut client, &session_locator)
         .await
         .unwrap();
 
-    let (_, session_uuid) = actions::session_create(&mut client, sequence_name)
+    let (session_locator, _) = actions::session_create(&mut client, sequence_name)
         .await
         .unwrap();
-    actions::session_delete(&mut client, &session_uuid)
+    actions::session_delete(&mut client, &session_locator)
         .await
         .unwrap();
 

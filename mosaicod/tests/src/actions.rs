@@ -158,17 +158,17 @@ pub async fn session_finalize(
 /// Send an action to delete the current session
 pub async fn session_delete(
     client: &mut Client,
-    session_uuid: &types::Uuid,
+    session_locator: &types::SessionLocator,
 ) -> Result<(), tonic::Status> {
     let action = Action {
         r#type: "session_delete".to_owned(),
         body: format!(
             r#"
         {{
-            "session_uuid": "{}"
+            "locator": "{}"
         }}
         "#,
-            session_uuid
+            session_locator
         )
         .into(),
     };

@@ -41,18 +41,16 @@ pub async fn finalize(ctx: &facade::Context, session_uuid: String) -> Result<Act
     Ok(ActionResponse::session_finalize())
 }
 
-pub async fn delete(ctx: &facade::Context, session_uuid: String) -> Result<ActionResponse> {
-    warn!("deleting session `{}`", session_uuid);
+pub async fn delete(ctx: &facade::Context, session_locator: String) -> Result<ActionResponse> {
+    warn!("deleting session `{}`", session_locator);
 
-    let uuid: types::Uuid = session_uuid
-        .parse()
-        .map_err(|_| core::Error::bad_uuid(session_uuid.clone()))?;
+    let locator = session_locator.parse::<types::SessionLocator>()?;
 
-    let session_handle = session::Handle::try_from_uuid(ctx, &uuid).await?;
+    let session_handle = session::Handle::try_from_locator(ctx, locator).await?;
 
     facade::session::delete(ctx, session_handle, types::allow_data_loss()).await?;
 
-    warn!("session `{}` deleted", session_uuid);
+    warn!("session `{}` deleted", session_locator);
 
     Ok(ActionResponse::session_delete())
 }
