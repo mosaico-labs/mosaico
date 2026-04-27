@@ -163,7 +163,7 @@ pub enum ActionResponse {
     TopicNotificationList(responses::NotificationList),
 
     /// Returns the response key associated with the session just created
-    SessionCreate(responses::ResourceUuid),
+    SessionCreate(responses::SessionCreate),
     SessionFinalize(()),
     SessionDelete(()),
 
@@ -225,8 +225,14 @@ impl ActionResponse {
         Self::TopicNotificationList(response)
     }
 
-    pub fn session_create(response: responses::ResourceUuid) -> Self {
-        Self::SessionCreate(response)
+    pub fn session_create(
+        session_locator: core::types::SessionLocator,
+        session_uuid: core::types::Uuid,
+    ) -> Self {
+        Self::SessionCreate(responses::SessionCreate {
+            locator: session_locator.to_string(),
+            uuid: session_uuid.to_string(),
+        })
     }
 
     pub fn session_finalize() -> Self {

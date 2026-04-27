@@ -24,6 +24,7 @@ rand = { workspace = true }
 futures = { workspace = true }
 arrow = { workspace = true }
 url = { workspace = true }
+ulid = { workspace = true }
 
 [dev-dependencies]
 mosaicod-marshal = { workspace = true }

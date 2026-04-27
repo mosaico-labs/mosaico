@@ -22,6 +22,16 @@ impl From<types::Uuid> for ResourceUuid {
 }
 
 // ########
+// Session
+// ########
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct SessionCreate {
+    pub uuid: String,
+    pub locator: String,
+}
+
+// ########
 // Notifications
 // ########
 
