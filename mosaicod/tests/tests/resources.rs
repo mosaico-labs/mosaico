@@ -72,7 +72,7 @@ async fn test_sequence_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
     );
     assert_ne!(sequence_metadata.created_at.as_i64(), 0);
 
-    let (_, session_uuid) = actions::session_create(&mut client, sequence_name)
+    let (session_locator, session_uuid) = actions::session_create(&mut client, sequence_name)
         .await
         .unwrap();
     assert!(session_uuid.is_valid());
@@ -92,7 +92,7 @@ async fn test_sequence_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
     );
     assert_ne!(sequence_manifest.created_at.as_i64(), 0);
     assert_eq!(sequence_manifest.sessions.len(), 1);
-    assert_eq!(sequence_manifest.sessions[0].uuid, session_uuid);
+    assert_eq!(sequence_manifest.sessions[0].locator, session_locator);
     assert_ne!(sequence_manifest.sessions[0].created_at.as_i64(), 0);
     assert!(sequence_manifest.sessions[0].completed_at.is_none());
     assert!(sequence_manifest.sessions[0].topics.is_empty());
@@ -135,7 +135,7 @@ async fn test_sequence_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
     );
     assert_ne!(sequence_manifest.created_at.as_i64(), 0);
     assert_eq!(sequence_manifest.sessions.len(), 1);
-    assert_eq!(sequence_manifest.sessions[0].uuid, session_uuid);
+    assert_eq!(sequence_manifest.sessions[0].locator, session_locator);
     assert_ne!(sequence_manifest.sessions[0].created_at.as_i64(), 0);
     assert!(sequence_manifest.sessions[0].completed_at.is_none());
     assert_eq!(sequence_manifest.sessions[0].topics.len(), 1);
@@ -162,7 +162,7 @@ async fn test_sequence_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
     assert_ne!(sequence_manifest.created_at.as_i64(), 0);
     assert_eq!(sequence_manifest.sessions.len(), 1);
     let sm = &sequence_manifest.sessions[0];
-    assert_eq!(sm.uuid, session_uuid);
+    assert_eq!(sm.locator, session_locator);
     assert_ne!(sm.created_at.as_i64(), 0);
     assert_ne!(sm.completed_at.unwrap().as_i64(), 0);
     assert_eq!(sm.topics.len(), 1);

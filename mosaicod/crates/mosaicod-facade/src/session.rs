@@ -100,8 +100,7 @@ pub async fn finalize(context: &Context, handle: &Handle) -> Result<()> {
 
     // If the session does not contain any topic, return an error and leave the session unlocked.
     if topics.is_empty() {
-        // (cabba) NOTE: replace uuid with session "locator" when implemented
-        Err(core::Error::empty_session(handle.uuid().to_string()))?
+        Err(core::Error::empty_session(handle.locator().to_string()))?
     }
 
     // If not all topics are finalized, return the locator of the first one still open.
@@ -175,7 +174,7 @@ pub async fn metadata(context: &Context, handle: &Handle) -> Result<types::Sessi
         .collect();
 
     Ok(types::SessionMetadata {
-        uuid: db_session.uuid(),
+        locator: db_session.locator(),
         created_at: db_session.creation_timestamp(),
         completed_at: db_session.completion_timestamp(),
         topics,
