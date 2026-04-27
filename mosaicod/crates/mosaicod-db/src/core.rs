@@ -10,7 +10,6 @@ use sqlx::Pool;
 use url::Url;
 
 use super::Error;
-use mosaicod_core::params;
 
 /// The concrete database type used throughout this module.
 pub type DatabaseType = sqlx::Postgres;
@@ -71,7 +70,11 @@ impl<'a> AsExec for Cx<'a> {
 
 /// Configuration structure for initializing the [`Database`].
 pub struct Config {
+    /// Database URL
     pub db_url: Url,
+
+    /// Maximum number of connections established with the DMBS
+    pub max_connections: u32,
 }
 
 #[derive(Clone)]
@@ -82,9 +85,8 @@ pub struct Database {
 impl Database {
     pub async fn try_new(config: &Config) -> Result<Self, Error> {
         debug!("creating database connection pool");
-        let max_connections = params::params().max_db_connections.value;
         let pool = sqlx::postgres::PgPoolOptions::new()
-            .max_connections(max_connections)
+            .max_connections(config.max_connections)
             .connect(config.db_url.as_str())
             .await?;
 

@@ -64,6 +64,9 @@ pub fn auth(auth: ApiKey) -> Result<()> {
                     "unable to parse".to_string(),
                 )
             })?,
+            // Here we are using only one connection since
+            // its a CLI command
+            max_connections: 1,
         },
     )?;
 

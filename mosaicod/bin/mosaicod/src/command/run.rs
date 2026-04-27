@@ -51,13 +51,16 @@ pub fn run(args: Run, json_format: bool) -> Result<()> {
     info!("startup multi-threaded runtime");
     let rt = common::init_runtime()?;
 
+    let params = params::params();
+
     let db_config = db::Config {
-        db_url: params::params().db_url.value.parse().map_err(|_| {
+        db_url: params.db_url.value.parse().map_err(|_| {
             core::Error::invalid_configuration(
                 params::params().db_url.env.clone(),
                 "unable to parse".to_owned(),
             )
         })?,
+        max_connections: params.max_db_connections.value,
     };
 
     info!("startup database connection");
