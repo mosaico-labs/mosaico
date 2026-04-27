@@ -228,7 +228,7 @@ impl MosaicodFlight {
 
         if !auth_ctx.permissions().can_read() {
             Err(core::Error::unauthorized(
-                "Provided API key does not have READ permissions.".to_string(),
+                "provided API key does not have READ permissions.".to_string(),
             ))?;
         }
 
@@ -247,7 +247,7 @@ impl MosaicodFlight {
 
         if !auth_ctx.permissions().can_read() {
             Err(core::Error::unauthorized(
-                "Provided API key does not have READ permissions.".to_string(),
+                "provided API key does not have READ permissions.".to_string(),
             ))?;
         }
 
@@ -265,7 +265,7 @@ impl MosaicodFlight {
         let auth_ctx = auth_context(&request)?;
         if !auth_ctx.permissions().can_read() {
             Err(core::Error::unauthorized(
-                "Provided API key does not have READ permissions.".to_string(),
+                "provided API key does not have READ permissions.".to_string(),
             ))?;
         }
 
@@ -288,7 +288,7 @@ impl MosaicodFlight {
         let auth_ctx = auth_context(&request)?;
         if !auth_ctx.permissions().can_write() {
             Err(core::Error::unauthorized(
-                "Provided API key does not have WRITE permissions.".to_string(),
+                "provided API key does not have WRITE permissions.".to_string(),
             ))?;
         }
 

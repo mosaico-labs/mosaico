@@ -98,7 +98,7 @@ async fn do_put_topic_data(
 
     if received_uuid != topic_uuid {
         Err(core::Error::unauthorized(
-            "Received uuid does not match the topic uuid.".to_string(),
+            "received uuid does not match the topic uuid.".to_string(),
         ))?
     }
 

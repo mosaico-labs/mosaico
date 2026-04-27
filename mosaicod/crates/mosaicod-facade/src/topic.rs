@@ -127,7 +127,7 @@ pub async fn try_create(
 
     if !locator.is_sub_locator(session_handle.sequence_locator()) {
         Err(core::Error::unauthorized(
-            "Provided topic locator and session do not share the same sequence".to_string(),
+            "provided topic locator and session do not share the same sequence".to_string(),
         ))?;
     }
 

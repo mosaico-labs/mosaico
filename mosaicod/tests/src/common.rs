@@ -44,7 +44,7 @@ async fn start_server(
     database: db::testing::Database,
     shutdown: ShutdownNotifier,
     tls: Option<server::flight::TlsConfig>,
-    enable_api_key: Option<bool>,
+    enable_api_key: bool,
 ) -> (
     tokio::task::JoinHandle<()>,
     db::testing::Database,
@@ -60,7 +60,7 @@ async fn start_server(
         config.tls(tls);
     }
 
-    if enable_api_key.unwrap_or(false) {
+    if enable_api_key {
         config.enable_api_key_management();
     }
 
@@ -86,7 +86,7 @@ pub struct ServerBuilder {
     port: u16,
     tls: Option<server::flight::TlsConfig>,
     db: db::testing::Database,
-    enable_api_key: Option<bool>,
+    enable_api_key: bool,
 }
 
 impl ServerBuilder {
@@ -98,12 +98,12 @@ impl ServerBuilder {
             port,
             tls: None,
             db,
-            enable_api_key: None,
+            enable_api_key: false,
         }
     }
 
     pub fn enable_api_key(mut self) -> Self {
-        self.enable_api_key = Some(true);
+        self.enable_api_key = true;
         self
     }
 
