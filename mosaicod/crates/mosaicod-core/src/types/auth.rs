@@ -36,7 +36,7 @@ pub enum ApiKeyError {
 impl PublicError for ApiKeyError {
     fn error(&self) -> Error {
         match self {
-            Self::MissingPermissions => Error::unauthorized(),
+            Self::MissingPermissions => Error::unauthorized("missing permissions".to_string()),
             _ => Error::bad_request(self.to_string()),
         }
     }

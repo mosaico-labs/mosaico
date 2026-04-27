@@ -97,7 +97,9 @@ async fn do_put_topic_data(
         .map_err(|_| core::Error::bad_uuid(uuid_str.clone()))?;
 
     if received_uuid != topic_uuid {
-        Err(core::Error::unauthorized())?
+        Err(core::Error::unauthorized(
+            "received uuid does not match the topic uuid.".to_string(),
+        ))?
     }
 
     let mut writer = facade::topic::writer(ctx.clone(), topic_handle, schema).await?;

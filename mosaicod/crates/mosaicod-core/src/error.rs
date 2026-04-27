@@ -85,8 +85,8 @@ pub enum ErrorKind {
     NotFound(String),
     #[error("{0} already exists")]
     AlreadyExists(String),
-    #[error("Unauthorized")]
-    Unauthorized,
+    #[error("Unauthorized: {0}")]
+    Unauthorized(String),
     #[error("Unauthenticated")]
     Unauthenticated,
     #[error("Unimplemented")]
@@ -183,8 +183,8 @@ impl Error {
         Self(ErrorKind::StreamError(err.to_string()))
     }
 
-    pub fn unauthorized() -> Self {
-        Self(ErrorKind::Unauthorized)
+    pub fn unauthorized(msg: String) -> Self {
+        Self(ErrorKind::Unauthorized(msg))
     }
 
     pub fn unauthenticated() -> Self {

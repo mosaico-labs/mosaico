@@ -108,6 +108,33 @@ pub enum ActionRequest {
     Version(requests::Empty),
 }
 
+impl std::fmt::Display for ActionRequest {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::SequenceCreate(_) => write!(f, "SequenceCreate"),
+            Self::SequenceDelete(_) => write!(f, "SequenceDelete"),
+            Self::SequenceNotificationCreate(_) => {
+                write!(f, "SequenceNotificationCreate")
+            }
+            Self::SequenceNotificationList(_) => write!(f, "SequenceNotificationList"),
+            Self::SequenceNotificationPurge(_) => write!(f, "SequenceNotificationPurge"),
+            Self::TopicCreate(_) => write!(f, "TopicCreate"),
+            Self::TopicDelete(_) => write!(f, "TopicDelete"),
+            Self::TopicNotificationCreate(_) => write!(f, "TopicNotificationCreate"),
+            Self::TopicNotificationList(_) => write!(f, "TopicNotificationList"),
+            Self::TopicNotificationPurge(_) => write!(f, "TopicNotificationPurge"),
+            Self::SessionCreate(_) => write!(f, "SessionCreate"),
+            Self::SessionFinalize(_) => write!(f, "SessionFinalize"),
+            Self::SessionDelete(_) => write!(f, "SessionDelete"),
+            Self::Query(_) => write!(f, "Query"),
+            Self::ApiKeyCreate(_) => write!(f, "ApiKeyCreate"),
+            Self::ApiKeyStatus(_) => write!(f, "ApiKeyStatus"),
+            Self::ApiKeyRevoke(_) => write!(f, "ApiKeyRevoke"),
+            Self::Version(_) => write!(f, "Version"),
+        }
+    }
+}
+
 /// Internal macro used to parse action requests
 macro_rules! parse_action_req {
     ($variant:ident, $body:expr) => {

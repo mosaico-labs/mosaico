@@ -20,7 +20,11 @@ pub async fn do_action(
     perm: &Permission,
 ) -> Result<ActionResponse> {
     if !has_permissions(&action, perm) {
-        Err(core::Error::unauthorized())?;
+        let err_msg = format!(
+            "provided API key has not enough permissions to execute {} action.",
+            action
+        );
+        Err(core::Error::unauthorized(err_msg))?;
     }
 
     match action {

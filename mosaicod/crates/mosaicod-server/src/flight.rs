@@ -227,7 +227,9 @@ impl MosaicodFlight {
         let auth_ctx = auth_context(&request)?;
 
         if !auth_ctx.permissions().can_read() {
-            Err(core::Error::unauthorized())?;
+            Err(core::Error::unauthorized(
+                "provided API key does not have READ permissions.".to_string(),
+            ))?;
         }
 
         let desc = request.into_inner();
@@ -244,7 +246,9 @@ impl MosaicodFlight {
         let auth_ctx = auth_context(&request)?;
 
         if !auth_ctx.permissions().can_read() {
-            Err(core::Error::unauthorized())?;
+            Err(core::Error::unauthorized(
+                "provided API key does not have READ permissions.".to_string(),
+            ))?;
         }
 
         let criteria = request.into_inner();
@@ -260,7 +264,9 @@ impl MosaicodFlight {
     async fn impl_do_get(&self, request: Request<Ticket>) -> Result<Response<DoGetStream>> {
         let auth_ctx = auth_context(&request)?;
         if !auth_ctx.permissions().can_read() {
-            Err(core::Error::unauthorized())?;
+            Err(core::Error::unauthorized(
+                "provided API key does not have READ permissions.".to_string(),
+            ))?;
         }
 
         let ticket = request.into_inner();
@@ -281,7 +287,9 @@ impl MosaicodFlight {
     ) -> Result<Response<DoPutStream>> {
         let auth_ctx = auth_context(&request)?;
         if !auth_ctx.permissions().can_write() {
-            Err(core::Error::unauthorized())?;
+            Err(core::Error::unauthorized(
+                "provided API key does not have WRITE permissions.".to_string(),
+            ))?;
         }
 
         let stream = request.into_inner();
