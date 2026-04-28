@@ -618,7 +618,7 @@ class MosaicoClient:
             )
             raise
 
-    def session_delete(self, session_uuid: str):
+    def session_delete(self, locator: str):
         """
         Permanently deletes a session and all its associated data from the server.
 
@@ -632,7 +632,14 @@ class MosaicoClient:
             permission.
 
         Args:
-            session_uuid (str): The unique identifier of the session to remove.
+            locator (str): The unique locator identifier of the session to remove.
+                The locator format is the complete '`sequence_name`:`session_identifier`'.
+                Obtaining the locator, is possible via:
+
+                * the [`SequenceUpdater.session_locator`][mosaicolabs.handlers.SequenceUpdater.session_locator]
+                    property, when updating a sequence, or;
+                * [`SequenceHandler.sessions`][mosaicolabs.handlers.SequenceHandler.sessions] property and then the
+                    related [`Session.locator`][mosaicolabs.models.platform.Session.locator] property.
 
         Raises:
             Exception: If any error occurs during session deletion.
@@ -641,13 +648,13 @@ class MosaicoClient:
             _do_action(
                 client=self._control_client,
                 action=FlightAction.SESSION_DELETE,
-                payload={"session_uuid": session_uuid},
+                payload={"locator": locator},
                 expected_type=None,
             )
 
         except Exception as e:
             logger.error(
-                f"Server error (do_action) while asking for Session '{session_uuid}' deletion, '{e}'"
+                f"Server error (do_action) while asking for Session '{locator}' deletion, '{e}'"
             )
             raise
 
