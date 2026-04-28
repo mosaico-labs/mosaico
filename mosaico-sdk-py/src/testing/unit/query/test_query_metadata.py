@@ -46,6 +46,15 @@ class TestQueryTopicMetadataAPI:
         ):
             QueryTopic().with_user_metadata("some-field", lt="some_value")
 
+    def test_expected_operators(self):
+        # Simulate the User Query
+        QueryTopic().with_user_metadata("some-field", eq="some_value")
+        QueryTopic().with_user_metadata("some-field", lt=0)
+        QueryTopic().with_user_metadata("some-field", gt=0)
+        QueryTopic().with_user_metadata("some-field", geq=0)
+        QueryTopic().with_user_metadata("some-field", leq=0)
+        QueryTopic().with_user_metadata("some-field", between=[0, 1])
+
 
 class TestQuerySequenceMetadataAPI:
     def test_expression_generation(self):
@@ -86,3 +95,12 @@ class TestQuerySequenceMetadataAPI:
             match="Invalid type for '_QueryableDynamicValueField' comparison",
         ):
             QuerySequence().with_user_metadata("some-field", lt="some_value")
+
+    def test_expected_operators(self):
+        # Simulate the User Query
+        QuerySequence().with_user_metadata("some-field", eq="some_value")
+        QuerySequence().with_user_metadata("some-field", lt=0)
+        QuerySequence().with_user_metadata("some-field", gt=0)
+        QuerySequence().with_user_metadata("some-field", geq=0)
+        QuerySequence().with_user_metadata("some-field", leq=0)
+        QuerySequence().with_user_metadata("some-field", between=[0, 1])

@@ -1,3 +1,7 @@
+import subprocess
+import sys
+import textwrap
+
 import pydantic
 import pytest
 
@@ -47,3 +51,32 @@ def test_message_generation():
     ):
         # This must fail: Unregistered type cannot be sent to mosaico
         Message(timestamp_ns=0, data=UnregisteredSensor(field=0))  # type: ignore (disable pylance complaining)
+
+
+def test_futures_registration():
+    code = textwrap.dedent(
+        # Generate a fresh environmnent
+        """
+            from mosaicolabs.models.serializable import Serializable
+
+            _FUTURES_TAGS = [
+                "rgbd_camera",
+                "tof_camera",
+                "stereo_camera",
+                "laser_scan",
+                "multi_echolaser_scan",
+                "lidar",
+                "radar",
+            ]
+
+            assert all(Serializable._is_registered(tag) for tag in _FUTURES_TAGS)
+        """
+    )
+
+    result = subprocess.run(
+        [sys.executable, "-c", code],
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
