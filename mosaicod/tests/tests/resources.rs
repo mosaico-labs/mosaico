@@ -1198,7 +1198,7 @@ async fn test_session_finalize(pool: sqlx::Pool<db::DatabaseType>) {
         .await
         .unwrap();
 
-    let (_, session_uuid) = actions::session_create(&mut client, sequence_name)
+    let (session_locator, session_uuid) = actions::session_create(&mut client, sequence_name)
         .await
         .unwrap();
     assert!(session_uuid.is_valid());
@@ -1231,6 +1231,13 @@ async fn test_session_finalize(pool: sqlx::Pool<db::DatabaseType>) {
     actions::session_finalize(&mut client, &session_uuid)
         .await
         .unwrap();
+
+    let ctx = server.context();
+    let mut cx = ctx.db.connection();
+    let db_session = db::session_find_by_locator(&mut cx, &session_locator)
+        .await
+        .unwrap();
+    assert!(db_session.completion_timestamp().unwrap().as_i64() > 0);
 
     // Finalize on an empty session should fail.
     let (_, session_uuid) = actions::session_create(&mut client, sequence_name)
@@ -1900,10 +1907,7 @@ async fn test_concurrent_session_finalize(pool: sqlx::Pool<db::DatabaseType>) {
     for r in [&r1, &r2] {
         if let Err(e) = r {
             assert!(
-                matches!(
-                    e.code(),
-                    tonic::Code::FailedPrecondition | tonic::Code::NotFound
-                ),
+                matches!(e.code(), tonic::Code::FailedPrecondition),
                 "unexpected error code: {:?}",
                 e.code()
             );

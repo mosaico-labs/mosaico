@@ -1,11 +1,11 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT (completion_unix_tstamp IS NOT NULL) AS \"locked!\" FROM session_t WHERE session_id=$1",
+  "query": "SELECT (completion_unix_tstamp IS NOT NULL) AS \"finalized!\" FROM session_t WHERE session_id=$1",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "locked!",
+        "name": "finalized!",
         "type_info": "Bool"
       }
     ],
@@ -18,5 +18,5 @@
       null
     ]
   },
-  "hash": "3f0901113c4393e557867b8d34fc3e26ffbe248dccc328bf2306e1be6add7e60"
+  "hash": "1ace1d27f353c6864fe1fe4e580bb77b55cc9ba5b7498261a5624db7f615a195"
 }

@@ -110,10 +110,10 @@ pub async fn try_create(
 ) -> Result<Handle> {
     let mut tx = context.db.transaction().await?;
 
-    // Session must be unlocked (not finalized)
-    let session_locked = db::session_locked(&mut tx, session_handle.id()).await?;
+    // Session must not be already finalized.
+    let session_already_finalized = db::session_finalized(&mut tx, session_handle.id()).await?;
 
-    if session_locked {
+    if session_already_finalized {
         // (cabba) NOTE: Now I'm returning the uuid as session identifier
         // we need to substitute this with the session "locator" when implemented
         Err(core::Error::session_already_finalized(

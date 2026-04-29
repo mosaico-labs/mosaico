@@ -96,6 +96,15 @@ pub async fn try_create(
 pub async fn finalize(context: &Context, handle: &Handle) -> Result<()> {
     let mut tx = context.db.transaction().await?;
 
+    // Return an error if session has already been finalized.
+    // Note: here two concurrent finalized could pass this check,
+    // that's why we need later to update the completion timestamp if not already present atomically.
+    if db::session_finalized(&mut tx, handle.id()).await? {
+        Err(core::Error::session_already_finalized(
+            handle.locator().to_string(),
+        ))?;
+    }
+
     let topics = topic_list(handle, &mut tx).await?;
 
     // If the session does not contain any topic, return an error and leave the session unlocked.
@@ -126,8 +135,19 @@ pub async fn finalize(context: &Context, handle: &Handle) -> Result<()> {
         }
     }
 
-    db::session_update_completion_tstamp(&mut tx, handle.id(), types::Timestamp::now().as_i64())
-        .await?;
+    // If updating the completion timestamp fails it means somebody else did it in the meantime.
+    let finalize_ok = db::session_try_update_completion_tstamp(
+        &mut tx,
+        handle.id(),
+        types::Timestamp::now().as_i64(),
+    )
+    .await?;
+
+    if !finalize_ok {
+        Err(core::Error::session_already_finalized(
+            handle.locator().to_string(),
+        ))?;
+    }
 
     tx.commit().await?;
 
