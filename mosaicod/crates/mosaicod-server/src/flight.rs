@@ -109,9 +109,9 @@ pub async fn start(
         flight_service.enable_api_key_manegement();
     }
 
-    let mut svc = FlightServiceServer::new(flight_service);
+    let mut auth_layer = middleware::AuthLayer::new(flight_service.context());
 
-    let mut auth_layer = middleware::AuthLayer::new(db);
+    let mut svc = FlightServiceServer::new(flight_service);
 
     // If API key management is disabled define a custom permission with all permissions
     // and enable permissions passthrough in the auth middleware

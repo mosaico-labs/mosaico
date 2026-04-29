@@ -14,6 +14,7 @@ mosaicod-db = { workspace = true }
 mosaicod-store = { workspace = true }
 mosaicod-facade = {workspace = true}
 mosaicod-server = { workspace = true }
+mosaicod-query = { workspace = true }
 
 clap = { workspace = true }
 dotenv = { workspace = true }
