@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT * FROM session_t WHERE session_uuid=$1",
+  "query": "\n            INSERT INTO session_t \n                (\n                    locator_name, session_uuid, sequence_id,\n                    creation_unix_tstamp, completion_unix_tstamp\n                ) \n            VALUES \n                ($1, $2, $3, $4, $5)\n            RETURNING \n                *\n    ",
   "describe": {
     "columns": [
       {
@@ -36,7 +36,11 @@
     ],
     "parameters": {
       "Left": [
-        "Uuid"
+        "Text",
+        "Uuid",
+        "Int4",
+        "Int8",
+        "Int8"
       ]
     },
     "nullable": [
@@ -48,5 +52,5 @@
       true
     ]
   },
-  "hash": "a821bbc94386890c4d65877c05e05a255d7598065ee314052ae39775eb78c9e3"
+  "hash": "4487816ade7489e934c64054e44cf2c5a12d27d9cac09062c6c7187cb7031125"
 }

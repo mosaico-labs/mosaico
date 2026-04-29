@@ -129,8 +129,8 @@ pub enum ErrorKind {
     UnsupportedDescriptor,
     #[error("Unsupported stream message, stream aborted.")]
     UnsupportedStreamMessage,
-    #[error("Unsupported locator")]
-    UnsupportedLocator,
+    #[error("Unsupported locator: {0}")]
+    UnsupportedLocator(String),
     #[error("Unsupported operation")]
     UnsupportedOperation,
     #[error("Unsupported schema: {0}")]
@@ -246,8 +246,8 @@ impl Error {
         Self(ErrorKind::UnsupportedStreamMessage)
     }
 
-    pub fn unsupported_locator() -> Self {
-        Self(ErrorKind::UnsupportedLocator)
+    pub fn unsupported_locator(locator: String) -> Self {
+        Self(ErrorKind::UnsupportedLocator(locator))
     }
 
     pub fn unsupported_operation() -> Self {

@@ -32,8 +32,13 @@ class Session:
     The session fields are not queryable via the **`.Q` proxy**.
     """
 
-    uuid: str
-    """The session UUID"""
+    locator: str
+    """
+    The session locator. 
+    
+    The locator is in the form '`sequence_name`:`session_identifier`', 
+    e.g.: 'test-sequence-datastream:01KQ9XQ0HJ3V39F87CBP6PYA1T'
+    """
 
     created_timestamp: int
     """The UTC timestamp [ns] when the writing session started"""
@@ -67,7 +72,7 @@ class Session:
             topics.append(tname)
 
         return cls(
-            uuid=resrc_manifest.uuid,
+            locator=resrc_manifest.locator,
             completed_timestamp=resrc_manifest.completed_timestamp,
             created_timestamp=resrc_manifest.created_timestamp,
             topics=topics,

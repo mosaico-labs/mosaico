@@ -39,7 +39,7 @@ pub async fn sequence_find_by_locator(
     exe: &mut impl AsExec,
     loc: &types::SequenceLocator,
 ) -> Result<schema::SequenceRecord, Error> {
-    trace!("searching by locator `{}`", loc);
+    trace!("searching sequence by locator name `{}`", loc);
     let res = sqlx::query_as!(
         schema::SequenceRecord,
         "SELECT * FROM sequence_t WHERE locator_name=$1",
@@ -175,7 +175,7 @@ mod tests {
     #[sqlx::test]
     async fn test_create(pool: Pool<DatabaseType>) -> sqlx::Result<()> {
         let record = schema::SequenceRecord::new(
-            "/my_sequence".parse().unwrap(),
+            "my_sequence".parse().unwrap(),
             "/my/path/in/store".to_owned().into(),
         );
         let database = testing::Database::new(pool);

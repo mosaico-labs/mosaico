@@ -52,6 +52,11 @@ from .models import (
     MosaicoType as MosaicoType,
     Serializable as Serializable,
     VarianceMixin as VarianceMixin,
+    # Force registration into Serializable registry
+    # (fix deserializing messages from topics that contain these data types,
+    # with no registration side-effects)
+    # !!DO NOT REMOVE!!
+    futures as futures,
 )
 
 # --- Base Types ---
@@ -128,6 +133,12 @@ from .models.sensors import (
     RobotJoint as RobotJoint,
     Temperature as Temperature,
 )
+
+# Force registration into Serializable registry
+# (fix deserializing messages from topics that contain these data types,
+# with no registration side-effects)
+# !!DO NOT REMOVE!!
+from .ros_bridge import data_ontology  # noqa: F401
 
 # --- Types ---
 from .types import Time as Time

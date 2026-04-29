@@ -1,6 +1,5 @@
 use crate::error::{PublicErrorGrpcExt, Result};
 use mosaicod_core::{self as core, types};
-use mosaicod_db as db;
 use mosaicod_facade as facade;
 use std::{
     pin::Pin,
@@ -9,6 +8,8 @@ use std::{
 use tower::{Layer, Service};
 
 // Skeleton from: https://github.com/hyperium/tonic/blob/master/examples/src/tower/server.rs
+
+const MOSAICO_API_KEY_TOKEN: &str = "mosaico-api-key-token";
 
 /// Context used to pass auth data
 #[derive(Clone)]
@@ -24,7 +25,7 @@ impl AuthContext {
 
 #[derive(Clone)]
 pub struct AuthLayer {
-    db: db::Database,
+    context: facade::Context,
 
     /// If permissions passthrough is enabled no auth check is performed
     /// and a fake permission token with all permission is
@@ -33,9 +34,9 @@ pub struct AuthLayer {
 }
 
 impl AuthLayer {
-    pub fn new(db: db::Database) -> Self {
+    pub fn new(context: facade::Context) -> Self {
         Self {
-            db,
+            context,
             permissions_passthrough: None,
         }
     }
@@ -55,7 +56,7 @@ impl<S> Layer<S> for AuthLayer {
     fn layer(&self, service: S) -> Self::Service {
         AuthMiddleware {
             inner: service,
-            db: self.db.clone(),
+            context: self.context.clone(),
             permissions_passthrough: self.permissions_passthrough,
         }
     }
@@ -64,7 +65,7 @@ impl<S> Layer<S> for AuthLayer {
 #[derive(Clone)]
 pub struct AuthMiddleware<S> {
     inner: S,
-    db: db::Database,
+    context: facade::Context,
     permissions_passthrough: Option<types::auth::Permission>,
 }
 
@@ -102,12 +103,12 @@ where
         } else {
             let token = req
                 .headers()
-                .get("mosaico-api-key-token")
+                .get(MOSAICO_API_KEY_TOKEN)
                 .and_then(|v| v.to_str().ok())
                 .unwrap_or_default()
                 .to_string();
 
-            let db = self.db.clone();
+            let context = self.context.clone();
 
             Box::pin(async move {
                 let auth_ctx_result: Result<AuthContext> = async {
@@ -117,23 +118,22 @@ where
 
                     let token: types::auth::Token = token.parse()?;
 
-                    let fauth = facade::Auth::try_from_fingerprint(token.fingerprint(), db)
-                        .await
-                        .map_err(|e| match e.error().kind() {
-                            core::error::ErrorKind::NotFound(_) => {
-                                core::Error::unauthorized("API key does not exist.".to_string())
-                            }
-                            _ => e.error(),
-                        })?;
+                    let handle =
+                        facade::auth::Handle::try_from_fingerprint(&context, token.fingerprint())
+                            .await
+                            .map_err(|e| match e.error().kind() {
+                                core::error::ErrorKind::NotFound(_) => {
+                                    core::Error::unauthorized("API key does not exist.".to_string())
+                                }
+                                _ => e.error(),
+                            })?;
 
-                    if fauth.api_key().is_expired() {
-                        Err(core::Error::unauthorized(
-                            "API key is exipired.".to_string(),
-                        ))?;
+                    if handle.api_key().is_expired() {
+                        Err(core::Error::unauthorized("API key is expired.".to_string()))?;
                     }
 
                     Ok(AuthContext {
-                        permissions: fauth.into_api_key().permission,
+                        permissions: handle.api_key().permission,
                     })
                 }
                 .await;
@@ -146,8 +146,8 @@ where
                     }
                     Err(err) => {
                         // Here we are calling .to_status() and not .log_to_status()
-                        // in order to avoid logging every unauhenticated request
-                        Ok(err.log_to_status().into_http())
+                        // in order to avoid logging every unauthenticated request
+                        Ok(err.to_status().into_http())
                     }
                 }
             })

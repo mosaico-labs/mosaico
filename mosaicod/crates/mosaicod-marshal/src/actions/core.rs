@@ -84,14 +84,14 @@ pub enum ActionRequest {
     /// Deletes all notifications associated with a topic
     TopicNotificationPurge(requests::ResourceLocator),
 
-    /// Creates a new upload session for a sequence
+    /// Creates a new upload session for the given sequence.
     SessionCreate(requests::ResourceLocator),
 
     /// Finalizes the upload session
     SessionFinalize(requests::SessionUuid),
 
     /// Deletes the selected session.
-    SessionDelete(requests::SessionUuid),
+    SessionDelete(requests::ResourceLocator),
 
     /// Perform a query in the system
     Query(requests::Query),
@@ -190,7 +190,7 @@ pub enum ActionResponse {
     TopicNotificationList(responses::NotificationList),
 
     /// Returns the response key associated with the session just created
-    SessionCreate(responses::ResourceUuid),
+    SessionCreate(responses::SessionCreate),
     SessionFinalize(()),
     SessionDelete(()),
 
@@ -252,8 +252,14 @@ impl ActionResponse {
         Self::TopicNotificationList(response)
     }
 
-    pub fn session_create(response: responses::ResourceUuid) -> Self {
-        Self::SessionCreate(response)
+    pub fn session_create(
+        session_locator: core::types::SessionLocator,
+        session_uuid: core::types::Uuid,
+    ) -> Self {
+        Self::SessionCreate(responses::SessionCreate {
+            locator: session_locator.to_string(),
+            uuid: session_uuid.to_string(),
+        })
     }
 
     pub fn session_finalize() -> Self {

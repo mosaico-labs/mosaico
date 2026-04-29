@@ -15,20 +15,29 @@ use mosaicod_db as db;
 pub struct Handle {
     id: i32,
     uuid: types::Uuid,
-    sequence_locator: types::SequenceLocator,
+    locator: types::SessionLocator,
 }
 
 impl Handle {
-    pub(super) fn new(
-        sequence_locator: types::SequenceLocator,
-        id: i32,
-        uuid: types::Uuid,
-    ) -> Self {
-        Self {
-            sequence_locator,
-            id,
-            uuid,
-        }
+    pub(super) fn new(locator: types::SessionLocator, id: i32, uuid: types::Uuid) -> Self {
+        Self { locator, id, uuid }
+    }
+
+    /// Try to obtain a handle from a session locator.
+    /// Returns an error if the session does not exist.
+    pub async fn try_from_locator(
+        context: &Context,
+        locator: types::SessionLocator,
+    ) -> Result<Handle> {
+        let mut cx = context.db.connection();
+
+        let db_session = db::session_find_by_locator(&mut cx, &locator).await?;
+
+        Ok(Self {
+            locator,
+            id: db_session.sequence_id,
+            uuid: db_session.uuid(),
+        })
     }
 
     /// Try to obtain a handle from a session UUID.
@@ -37,12 +46,11 @@ impl Handle {
         let mut cx = context.db.connection();
 
         let db_session = db::session_find_by_uuid(&mut cx, uuid).await?;
-        let db_sequence = db::sequence_find_by_id(&mut cx, db_session.sequence_id).await?;
 
         Ok(Self {
             id: db_session.session_id,
             uuid: db_session.uuid(),
-            sequence_locator: db_sequence.locator(),
+            locator: db_session.locator(),
         })
     }
 
@@ -50,8 +58,8 @@ impl Handle {
         &self.uuid
     }
 
-    pub fn sequence_locator(&self) -> &types::SequenceLocator {
-        &self.sequence_locator
+    pub fn locator(&self) -> &types::SessionLocator {
+        &self.locator
     }
 
     pub(super) fn id(&self) -> i32 {
@@ -68,7 +76,9 @@ pub async fn try_create(
 
     let sequence = db::sequence_find_by_locator(&mut tx, &sequence_locator).await?;
 
-    let session = db::SessionRecord::new(sequence.sequence_id);
+    let locator = types::SessionLocator::new(sequence_locator);
+
+    let session = db::SessionRecord::new(locator.clone(), sequence.sequence_id);
     let session = db::session_create(&mut tx, &session).await?;
 
     tx.commit().await?;
@@ -76,7 +86,7 @@ pub async fn try_create(
     Ok(Handle {
         id: session.session_id,
         uuid: session.uuid(),
-        sequence_locator,
+        locator,
     })
 }
 
@@ -90,8 +100,7 @@ pub async fn finalize(context: &Context, handle: &Handle) -> Result<()> {
 
     // If the session does not contain any topic, return an error and leave the session unlocked.
     if topics.is_empty() {
-        // (cabba) NOTE: replace uuid with session "locator" when implemented
-        Err(core::Error::empty_session(handle.uuid().to_string()))?
+        Err(core::Error::empty_session(handle.locator().to_string()))?
     }
 
     // If not all topics are finalized, return the locator of the first one still open.
@@ -165,7 +174,7 @@ pub async fn metadata(context: &Context, handle: &Handle) -> Result<types::Sessi
         .collect();
 
     Ok(types::SessionMetadata {
-        uuid: db_session.uuid(),
+        locator: db_session.locator(),
         created_at: db_session.creation_timestamp(),
         completed_at: db_session.completion_timestamp(),
         topics,
@@ -205,7 +214,7 @@ mod tests {
             .await
             .expect("Error creating session");
 
-        assert_eq!(session_handle.sequence_locator, *seq_handle.locator());
+        assert_eq!(session_handle.locator.sequence, *seq_handle.locator());
 
         let session_uuid = session_handle.uuid().clone();
 

@@ -12,14 +12,15 @@ pub async fn session_create(
         r#"
             INSERT INTO session_t 
                 (
-                    session_uuid, sequence_id,
+                    locator_name, session_uuid, sequence_id,
                     creation_unix_tstamp, completion_unix_tstamp
                 ) 
             VALUES 
-                ($1, $2, $3, $4)
+                ($1, $2, $3, $4, $5)
             RETURNING 
                 *
     "#,
+        record.locator_name,
         record.session_uuid,
         record.sequence_id,
         record.creation_unix_tstamp,
@@ -56,6 +57,22 @@ pub async fn session_find_by_uuid(
         schema::SessionRecord,
         "SELECT * FROM session_t WHERE session_uuid=$1",
         uuid.as_ref()
+    )
+    .fetch_one(exe.as_exec())
+    .await?;
+    Ok(res)
+}
+
+/// Find a sequence given its locator.
+pub async fn session_find_by_locator(
+    exe: &mut impl AsExec,
+    session_locator: &types::SessionLocator,
+) -> Result<schema::SessionRecord, Error> {
+    trace!("searching session by locator name `{}`", session_locator);
+    let res = sqlx::query_as!(
+        schema::SessionRecord,
+        "SELECT * FROM session_t WHERE locator_name=$1",
+        session_locator.to_string()
     )
     .fetch_one(exe.as_exec())
     .await?;

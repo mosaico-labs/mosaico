@@ -176,7 +176,8 @@ class SessionResourceManifest:
     session on the server, retrieved via the get_fligh_info enpoint (for a sequence).
 
     Attributes:
-        uuid (str): The UUID of the session.
+        locator (str): The locator of the session.
+            The locator format is: '`sequence_name`:`session_identifier`'.
         created_timestamp (int): The UTC timestamp of when the
             resource was first initialized.
         locked (bool): Whether the session is locked.
@@ -185,7 +186,7 @@ class SessionResourceManifest:
         topics (list[str]): The list of topics in the session.
     """
 
-    uuid: str
+    locator: str
     created_timestamp: int
     locked: bool
     completed_timestamp: Optional[int]
@@ -215,18 +216,18 @@ class SessionResourceManifest:
                 f"Unrecognized type {type(session_mdata).__name__} for 'session' field in app_metadata."
             )
 
-        session_uuid = session_mdata.get("uuid")
+        locator = session_mdata.get("locator")
         created_timestamp = session_mdata.get("created_at_ns")
         locked = session_mdata.get("locked")
 
         # This should never happen. If it does, it's a malformed session.
-        if session_uuid is None or created_timestamp is None or locked is None:
+        if locator is None or created_timestamp is None or locked is None:
             raise SessionManifestError(
-                f"Missing required 'uuid' or 'created_at' or 'locked' in session-related app_metadata: {session_mdata}."
+                f"Missing required 'locator' or 'created_at' or 'locked' in session-related app_metadata: {session_mdata}."
             )
 
         return SessionResourceManifest(
-            uuid=session_uuid,
+            locator=locator,
             created_timestamp=created_timestamp,
             completed_timestamp=session_mdata.get("completed_at_ns"),
             locked=locked,
@@ -244,12 +245,12 @@ class SequenceResourceManifest:
     ensures the metadata remains immutable and hashable throughout its lifecycle.
 
     Attributes:
-        resource_locator (str): The standardized name of the resource sequence.
+        locator (str): The standardized name of the sequence resource.
         created_timestamp (int): The creation timestamp of the sequence in nanoseconds.
         sessions (List[SessionResourceManifest]): The list of sessions manifests composing the sequence.
     """
 
-    resource_locator: str
+    locator: str
     created_timestamp: int
     sessions: List[SessionResourceManifest]
 
@@ -288,7 +289,7 @@ class SequenceResourceManifest:
                 sessions = []
 
             return cls(
-                resource_locator=resource_locator,
+                locator=resource_locator,
                 created_timestamp=created_timestamp,
                 sessions=[
                     SessionResourceManifest._from_app_metadata(session)

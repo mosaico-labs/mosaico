@@ -12,6 +12,7 @@ CREATE TABLE sequence_t(
 CREATE TABLE session_t(
   session_id    SERIAL PRIMARY KEY,
   session_uuid  UUID UNIQUE NOT NULL,
+  locator_name  TEXT UNIQUE NOT NULL,
   sequence_id   INTEGER NOT NULL,
 
   creation_unix_tstamp    BIGINT NOT NULL,

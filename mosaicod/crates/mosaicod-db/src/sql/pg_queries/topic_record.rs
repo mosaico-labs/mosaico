@@ -46,11 +46,11 @@ pub async fn topic_find_by_locator(
     exe: &mut impl AsExec,
     topic: &types::TopicLocator,
 ) -> Result<schema::TopicRecord, Error> {
-    trace!("searching by resource name `{}`", topic);
+    trace!("searching topic by locator name `{}`", topic);
     let res = sqlx::query_as!(
         schema::TopicRecord,
         "SELECT * FROM topic_t WHERE locator_name=$1",
-        topic as &str
+        topic.to_string()
     )
     .fetch_one(exe.as_exec())
     .await?;
@@ -177,7 +177,7 @@ pub async fn topic_update_serialization_format(
             RETURNING * 
     "#,
         serialization_format,
-        loc as &str
+        loc.to_string()
     )
     .fetch_one(exe.as_exec())
     .await?;
@@ -199,7 +199,7 @@ pub async fn topic_update_ontology_tag(
             RETURNING * 
     "#,
         ontology_tag,
-        loc as &str,
+        loc.to_string(),
     )
     .fetch_one(exe.as_exec())
     .await?;
@@ -223,7 +223,7 @@ pub async fn topic_update_user_metadata(
             RETURNING * 
     "#,
         metadata,
-        loc as &str,
+        loc.to_string(),
     )
     .fetch_one(exe.as_exec())
     .await?;
@@ -249,7 +249,7 @@ pub async fn topic_update_system_info(
         system_info.total_bytes as i64,
         system_info.timestamp_range.start.as_i64(),
         system_info.timestamp_range.end.as_i64(),
-        loc as &str,
+        loc.to_string(),
     )
         .fetch_one(exe.as_exec())
         .await?;

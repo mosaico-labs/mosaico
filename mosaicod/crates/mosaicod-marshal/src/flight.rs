@@ -133,7 +133,7 @@ impl TryFrom<bytes::Bytes> for SequenceAppMetadata {
 
 #[derive(Serialize, Deserialize)]
 pub struct SessionAppMetadata {
-    uuid: String,
+    locator: String,
     created_at_ns: i64,
     completed_at_ns: Option<i64>,
     topics: Vec<String>,
@@ -143,7 +143,7 @@ pub struct SessionAppMetadata {
 impl From<types::SessionMetadata> for SessionAppMetadata {
     fn from(value: types::SessionMetadata) -> Self {
         Self {
-            uuid: value.uuid.to_string(),
+            locator: value.locator.to_string(),
             created_at_ns: value.created_at.as_i64(),
             completed_at_ns: value.completed_at.map(Into::into),
             topics: value.topics.into_iter().map(|x| x.to_string()).collect(),
@@ -157,10 +157,13 @@ impl TryFrom<SessionAppMetadata> for types::SessionMetadata {
     type Error = super::Error;
 
     fn try_from(value: SessionAppMetadata) -> Result<Self, Self::Error> {
-        let uuid: types::Uuid = value.uuid.parse().map_err(Error::DeserializationError)?;
+        let locator = value
+            .locator
+            .parse::<types::SessionLocator>()
+            .map_err(|e| Error::DeserializationError(e.to_string()))?;
 
         Ok(SessionMetadata {
-            uuid,
+            locator,
             created_at: value.created_at_ns.into(),
             completed_at: value.completed_at_ns.map(Into::into),
             topics: value
@@ -185,7 +188,7 @@ struct TicketTopic {
 impl From<types::flight::TicketTopic> for TicketTopic {
     fn from(value: types::flight::TicketTopic) -> Self {
         Self {
-            locator: value.locator.into(),
+            locator: value.locator.to_string(),
             timestamp_ns_start: value.timestamp_range.as_ref().map(|tsr| tsr.start.into()),
             timestamp_ns_end: value.timestamp_range.map(|tsr| tsr.end.into()),
         }

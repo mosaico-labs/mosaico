@@ -7,7 +7,7 @@ obtained from a LiDAR sensor.
 
 from typing import Optional
 
-from mosaicolabs import MosaicoField, MosaicoType, Serializable
+from mosaicolabs.models import MosaicoField, MosaicoType, Serializable
 
 
 class Lidar(Serializable):

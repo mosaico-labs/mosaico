@@ -123,9 +123,9 @@ pub async fn try_create(
 
     // Find parent sequence and ensure that this topic is child of the provided
     // sequence, i.e. they are related with the same name structure
-    let seq_rec = db::sequence_find_by_locator(&mut tx, session_handle.sequence_locator()).await?;
+    let seq_rec = db::sequence_find_by_locator(&mut tx, &session_handle.locator().sequence).await?;
 
-    if !locator.is_sub_locator(session_handle.sequence_locator()) {
+    if locator.sequence != session_handle.locator().sequence {
         Err(core::Error::unauthorized(
             "provided topic locator and session do not share the same sequence".to_string(),
         ))?;
@@ -344,7 +344,7 @@ pub async fn notify(
     handle: &Handle,
     ntype: types::NotificationType,
     msg: String,
-) -> Result<types::Notification> {
+) -> Result<types::Notification<types::TopicLocator>> {
     let mut tx = context.db.transaction().await?;
 
     let record = db::topic_find_by_locator(&mut tx, &handle.locator).await?;
@@ -360,7 +360,7 @@ pub async fn notify(
 pub async fn notification_list(
     context: &Context,
     handle: &Handle,
-) -> Result<Vec<types::Notification>> {
+) -> Result<Vec<types::Notification<types::TopicLocator>>> {
     let mut cx = context.db.connection();
     let notifications = db::topic_notifications_find_by_locator(&mut cx, &handle.locator).await?;
     Ok(notifications

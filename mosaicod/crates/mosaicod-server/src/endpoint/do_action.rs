@@ -49,7 +49,7 @@ pub async fn do_action(
         // Session
         ActionRequest::SessionCreate(data) => session::create(ctx, data.locator).await,
         ActionRequest::SessionFinalize(data) => session::finalize(ctx, data.session_uuid).await,
-        ActionRequest::SessionDelete(data) => session::delete(ctx, data.session_uuid).await,
+        ActionRequest::SessionDelete(data) => session::delete(ctx, data.locator).await,
 
         // /////
         // Topic

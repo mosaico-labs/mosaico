@@ -3,13 +3,12 @@ use arrow::ipc::CompressionType;
 use arrow::ipc::writer::IpcWriteOptions;
 use arrow_flight::{
     Ticket,
-    encode::{FlightDataEncoder, FlightDataEncoderBuilder},
+    encode::{FlightDataEncoder, FlightDataEncoderBuilder, GRPC_TARGET_MAX_FLIGHT_SIZE_BYTES},
     error::FlightError,
 };
 use futures::TryStreamExt;
 use log::{debug, info, trace};
-use mosaicod_core as core;
-use mosaicod_core::types;
+use mosaicod_core::{self as core, params};
 use mosaicod_facade as facade;
 use mosaicod_marshal as marshal;
 
@@ -19,9 +18,7 @@ pub async fn do_get(ctx: &facade::Context, ticket: Ticket) -> Result<FlightDataE
     info!("requesting data for ticket `{}`", ticket.locator);
 
     // Create topic handle
-    let topic_locator = ticket.locator.parse::<types::TopicLocator>()?;
-
-    let topic_handle = facade::topic::Handle::try_from_locator(ctx, topic_locator).await?;
+    let topic_handle = facade::topic::Handle::try_from_locator(ctx, ticket.locator).await?;
 
     // If topic is empty (no data has been loaded yet), do_get must fail.
     let topic_status = facade::topic::status(ctx, &topic_handle).await?;
@@ -85,8 +82,18 @@ pub async fn do_get(ctx: &facade::Context, ticket: Ticket) -> Result<FlightDataE
             core::Error::internal(Some("arrow ipc lz4 compression not available".to_owned()))
         })?;
 
+    // Set max flight message size to our gRPC limit minus 2MB headroom,
+    // matching the same conservative margin used by the Flight default.
+    //
+    // If our value is below the default we keep the default.
+    let max_flight_data_size = usize::max(
+        GRPC_TARGET_MAX_FLIGHT_SIZE_BYTES,
+        params::params().max_grpc_message_size.value - 2_000_000,
+    );
+
     Ok(FlightDataEncoderBuilder::new()
         .with_schema(schema)
         .with_options(ipc_options)
+        .with_max_flight_data_size(max_flight_data_size)
         .build(stream))
 }

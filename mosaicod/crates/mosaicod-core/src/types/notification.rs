@@ -26,9 +26,9 @@ impl std::str::FromStr for NotificationType {
     }
 }
 
-pub struct Notification {
+pub struct Notification<L: Locator> {
     pub uuid: Uuid,
-    pub target: Locator,
+    pub target: L,
     pub notification_type: NotificationType,
     pub msg: Option<String>,
     pub created_at: DateTime,

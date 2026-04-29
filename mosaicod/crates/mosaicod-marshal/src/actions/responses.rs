@@ -1,7 +1,7 @@
 //! This module defines the formatting structure for
 //! responses.
 
-use mosaicod_core::types::{self, auth};
+use mosaicod_core::types::{self, Locator, auth};
 use semver;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
@@ -22,6 +22,16 @@ impl From<types::Uuid> for ResourceUuid {
 }
 
 // ########
+// Session
+// ########
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct SessionCreate {
+    pub uuid: String,
+    pub locator: String,
+}
+
+// ########
 // Notifications
 // ########
 
@@ -33,8 +43,8 @@ pub struct ResponseNotificationItem {
     pub created_datetime: String,
 }
 
-impl From<types::Notification> for ResponseNotificationItem {
-    fn from(value: types::Notification) -> Self {
+impl<L: Locator> From<types::Notification<L>> for ResponseNotificationItem {
+    fn from(value: types::Notification<L>) -> Self {
         Self {
             name: value.target.to_string(),
             notification_type: value.notification_type.to_string(),
@@ -49,8 +59,8 @@ pub struct NotificationList {
     pub notifications: Vec<ResponseNotificationItem>,
 }
 
-impl From<Vec<types::Notification>> for NotificationList {
-    fn from(value: Vec<types::Notification>) -> Self {
+impl<L: Locator> From<Vec<types::Notification<L>>> for NotificationList {
+    fn from(value: Vec<types::Notification<L>>) -> Self {
         Self {
             notifications: value.into_iter().map(Into::into).collect(),
         }
@@ -192,16 +202,16 @@ mod tests {
 
     #[test]
     fn response_query_item() {
-        let sequence = "/my_sequence".parse().unwrap();
+        let sequence = "my_sequence".parse().unwrap();
         let topics = vec![
-            "/my_sequence/topic1/subtopic"
+            "my_sequence/topic1/subtopic"
                 .parse::<types::TopicLocator>()
                 .unwrap()
                 .with_timestamp_range(types::TimestampRange {
                     start: 1000.into(),
                     end: 1001.into(),
                 }),
-            "/my_sequence/topic2/subtopic"
+            "my_sequence/topic2/subtopic"
                 .parse::<types::TopicLocator>()
                 .unwrap(),
         ];
