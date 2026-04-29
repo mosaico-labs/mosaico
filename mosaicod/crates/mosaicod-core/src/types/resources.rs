@@ -9,6 +9,9 @@ use std::str::FromStr;
 // RESOURCE LOCATOR
 // ////////////////////////////////////////////////////////////////////////////
 
+/// List of invalid symbols in a locator name.
+static INVALID_CHARS: &[char] = &['!', '\"', '\'', '*', '£', '$', '%', '&', '.', ' '];
+
 /// Enumerates the types of resources available in Mosaico.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ResourceKind {
@@ -41,15 +44,9 @@ pub trait Locator: std::fmt::Display {
 /// - non-ASCII chars are not allowed
 /// - special symbols `! " ' * £ $ % &` are not allowed
 fn has_invalid_symbols(value: &str, others: Option<&[char]>) -> bool {
-    let mut invalid_chars = vec!['!', '\"', '\'', '*', '£', '$', '%', '&', '.', ' '];
-
-    if let Some(others) = others {
-        invalid_chars.extend(others);
-    };
-
-    value
-        .chars()
-        .any(|c| !c.is_ascii() || invalid_chars.contains(&c))
+    value.chars().any(|c| {
+        !c.is_ascii() || INVALID_CHARS.contains(&c) || others.is_some_and(|o| o.contains(&c))
+    })
 }
 
 // ////////////////////////////////////////////////////////////////////////////
@@ -132,12 +129,9 @@ impl PartialOrd for TopicLocator {
 
 impl Ord for TopicLocator {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        let ord = self.sequence.cmp(&other.sequence);
-        if ord == std::cmp::Ordering::Equal {
-            self.name.cmp(&other.name)
-        } else {
-            ord
-        }
+        self.sequence
+            .cmp(&other.sequence)
+            .then_with(|| self.name.cmp(&other.name))
     }
 }
 
@@ -343,7 +337,7 @@ impl SessionLocator {
     /// Creates a new session locator for the given parent sequence.
     pub fn new(parent: SequenceLocator) -> Self {
         Self {
-            name: format!("{}", ulid::Ulid::new()),
+            name: ulid::Ulid::new().to_string(),
             sequence: parent,
         }
     }
