@@ -82,13 +82,13 @@ pub async fn session_find_by_locator(
 /// Returns true if the session has already been finalized.
 pub async fn session_finalized(exe: &mut impl AsExec, session_id: i32) -> Result<bool, Error> {
     trace!("session (id=`{}`) locked? ", session_id);
-    let finelized = sqlx::query_scalar!(
+    let finalized = sqlx::query_scalar!(
         r#"SELECT (completion_unix_tstamp IS NOT NULL) AS "finalized!" FROM session_t WHERE session_id=$1"#,
         session_id
     )
         .fetch_one(exe.as_exec())
         .await?;
-    Ok(finelized)
+    Ok(finalized)
 }
 
 /// Deletes a session record from the database by its name, **bypassing any lock state**.
