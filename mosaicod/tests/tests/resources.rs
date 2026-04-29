@@ -1606,11 +1606,13 @@ async fn test_do_get_empty_topic(pool: sqlx::Pool<db::DatabaseType>) {
         .unwrap();
     let ticket = info.endpoint[0].ticket.clone().unwrap();
 
-    let received = actions::do_get_with_ticket(&mut client, ticket)
-        .await
-        .unwrap();
-    let total_rows: usize = received.iter().map(|b| b.num_rows()).sum();
-    assert_eq!(total_rows, 0);
+    assert_eq!(
+        actions::do_get_with_ticket(&mut client, ticket)
+            .await
+            .unwrap_err()
+            .code(),
+        tonic::Code::FailedPrecondition
+    );
 
     server.shutdown().await;
 }
