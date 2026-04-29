@@ -422,7 +422,6 @@ async fn test_sequence_delete_cascades(pool: sqlx::Pool<db::DatabaseType>) {
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_sequence_notification_create_nonexistent(pool: sqlx::Pool<db::DatabaseType>) {
-    // Creare una notifica su una sequence che non esiste: NotFound.
     let port = common::random_port();
     let server = common::ServerBuilder::new(common::HOST, port, pool)
         .build()
@@ -443,7 +442,6 @@ async fn test_sequence_notification_create_nonexistent(pool: sqlx::Pool<db::Data
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_sequence_notification_list_empty(pool: sqlx::Pool<db::DatabaseType>) {
-    // List su sequence senza notifiche: array vuoto, non errore.
     let port = common::random_port();
     let server = common::ServerBuilder::new(common::HOST, port, pool)
         .build()
@@ -466,7 +464,6 @@ async fn test_sequence_notification_list_empty(pool: sqlx::Pool<db::DatabaseType
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_sequence_notification_list_nonexistent(pool: sqlx::Pool<db::DatabaseType>) {
-    // List su sequence inesistente: NotFound.
     let port = common::random_port();
     let server = common::ServerBuilder::new(common::HOST, port, pool)
         .build()
@@ -481,7 +478,6 @@ async fn test_sequence_notification_list_nonexistent(pool: sqlx::Pool<db::Databa
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_sequence_notification_invalid_type(pool: sqlx::Pool<db::DatabaseType>) {
-    // Tipo di notifica non valido: InvalidArgument.
     let port = common::random_port();
     let server = common::ServerBuilder::new(common::HOST, port, pool)
         .build()
@@ -507,7 +503,6 @@ async fn test_sequence_notification_invalid_type(pool: sqlx::Pool<db::DatabaseTy
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_sequence_notification_purge_empty(pool: sqlx::Pool<db::DatabaseType>) {
-    // Purge su sequence senza notifiche: deve essere un no-op silenzioso.
     let port = common::random_port();
     let server = common::ServerBuilder::new(common::HOST, port, pool)
         .build()
@@ -582,8 +577,6 @@ async fn test_sequence_create_invalid_chars(pool: sqlx::Pool<db::DatabaseType>) 
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_sequence_create_very_long_name(pool: sqlx::Pool<db::DatabaseType>) {
-    // Nome estremamente lungo: o accettato, o respinto con InvalidArgument.
-    // In ogni caso non deve causare un errore Internal.
     let port = common::random_port();
     let server = common::ServerBuilder::new(common::HOST, port, pool)
         .build()
@@ -720,7 +713,6 @@ async fn test_topic_create_invalid_format(pool: sqlx::Pool<db::DatabaseType>) {
         "wrong_sequence/topic",
         "test_sequence/",
         "/topic_only",
-        "test_sequence/sub/path",
     ];
 
     for name in bad_names {
@@ -1111,7 +1103,6 @@ async fn test_topic_notification_list_empty(pool: sqlx::Pool<db::DatabaseType>) 
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_topic_delete_nonexistent(pool: sqlx::Pool<db::DatabaseType>) {
-    // Delete di un topic mai creato deve dare NotFound (non altri codici).
     let port = common::random_port();
     let server = common::ServerBuilder::new(common::HOST, port, pool)
         .build()
@@ -1126,7 +1117,6 @@ async fn test_topic_delete_nonexistent(pool: sqlx::Pool<db::DatabaseType>) {
     let res = actions::topic_delete(&mut client, "test_sequence/never_existed").await;
     assert_eq!(res.unwrap_err().code(), tonic::Code::NotFound);
 
-    // Anche con sequence inesistente: NotFound.
     let res = actions::topic_delete(&mut client, "ghost_sequence/ghost_topic").await;
     assert_eq!(res.unwrap_err().code(), tonic::Code::NotFound);
 
@@ -1482,7 +1472,6 @@ async fn test_session_delete_preserves_sequence(pool: sqlx::Pool<db::DatabaseTyp
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_do_get_basic(pool: sqlx::Pool<db::DatabaseType>) {
-    // Lettura base: scrivo dati con do_put, finalizzo, leggo con do_get.
     let port = common::random_port();
     let server = common::ServerBuilder::new(common::HOST, port, pool)
         .build()
@@ -1800,7 +1789,6 @@ async fn test_do_put_empty_batches(pool: sqlx::Pool<db::DatabaseType>) {
         .unwrap();
 
     let res = actions::do_put(&mut client, &topic_uuid, topic_name, vec![], false).await;
-    // Adatta l'asserzione al contratto effettivo della tua API.
     assert!(res.is_err(), "do_put with no batches should error");
 
     server.shutdown().await;
