@@ -48,7 +48,7 @@ pub async fn all_keys(context: &Context) -> Result<Vec<types::ApiKey>> {
 /// Deletes the current API key
 pub async fn delete(context: &Context, handle: Handle) -> Result<()> {
     let mut cx = context.db.connection();
-    db::api_key_delete(&mut cx, handle.api_key.key.fingerprint()).await?;
+    db::api_key_delete(&mut cx, handle.api_key.token().fingerprint()).await?;
     Ok(())
 }
 

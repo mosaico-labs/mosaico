@@ -9,6 +9,8 @@ use tower::{Layer, Service};
 
 // Skeleton from: https://github.com/hyperium/tonic/blob/master/examples/src/tower/server.rs
 
+const MOSAICO_API_KEY_TOKEN: &str = "mosaico-api-key-token";
+
 /// Context used to pass auth data
 #[derive(Clone)]
 pub struct AuthContext {
@@ -101,7 +103,7 @@ where
         } else {
             let token = req
                 .headers()
-                .get("mosaico-api-key-token")
+                .get(MOSAICO_API_KEY_TOKEN)
                 .and_then(|v| v.to_str().ok())
                 .unwrap_or_default()
                 .to_string();
@@ -145,7 +147,7 @@ where
                     Err(err) => {
                         // Here we are calling .to_status() and not .log_to_status()
                         // in order to avoid logging every unauthenticated request
-                        Ok(err.log_to_status().into_http())
+                        Ok(err.to_status().into_http())
                     }
                 }
             })
