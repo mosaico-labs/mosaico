@@ -1,10 +1,16 @@
 use super::common::{ActionResponse, Client};
 use arrow::array::RecordBatch;
+use arrow_flight::decode::FlightRecordBatchStream;
 use arrow_flight::encode::FlightDataEncoderBuilder;
 use arrow_flight::{Action, FlightDescriptor, FlightInfo, PutResult};
 use futures::StreamExt;
+use futures::TryStreamExt;
 use mosaicod_core::types;
 use mosaicod_ext as ext;
+
+use arrow_flight::Ticket;
+use mosaicod_marshal as marshal;
+
 use tonic::Streaming;
 /// Create a new sequence.
 /// Returns the `key` of the newly created sequence, this key is required to perform action
@@ -287,6 +293,40 @@ pub async fn do_put(
         .map(|v| v.unwrap());
 
     client.do_put(flight_data_stream).await
+}
+
+pub async fn do_get(
+    client: &mut Client,
+    topic_name: &str,
+) -> Result<Vec<RecordBatch>, tonic::Status> {
+    let locator = topic_name.parse().unwrap();
+    let ticket_payload = types::flight::TicketTopic {
+        locator,
+        timestamp_range: None,
+    };
+
+    let ticket = Ticket {
+        ticket: marshal::flight::ticket_topic_to_binary(ticket_payload)
+            .unwrap()
+            .into(),
+    };
+
+    do_get_with_ticket(client, ticket).await
+}
+
+pub async fn do_get_with_ticket(
+    client: &mut Client,
+    ticket: arrow_flight::Ticket,
+) -> Result<Vec<RecordBatch>, tonic::Status> {
+    let stream = client.do_get(ticket).await?.into_inner();
+
+    let record_batch_stream =
+        FlightRecordBatchStream::new_from_flight_data(stream.map_err(|e| e.into()));
+
+    record_batch_stream
+        .try_collect::<Vec<_>>()
+        .await
+        .map_err(|e| tonic::Status::internal(format!("do_get decode error: {e}")))
 }
 
 pub async fn server_version(client: &mut Client) -> Result<(), tonic::Status> {

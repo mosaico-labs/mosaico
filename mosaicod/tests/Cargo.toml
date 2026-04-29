@@ -14,6 +14,7 @@ mosaicod-store = { workspace = true, features = ["testing"] }
 mosaicod-server = { workspace = true }
 mosaicod-facade = { workspace = true }
 mosaicod-ext = { workspace = true, features = ["testing"] }
+mosaicod-marshal = { workspace = true}
 
 arrow-flight = { workspace = true }
 tonic = { workspace = true }
