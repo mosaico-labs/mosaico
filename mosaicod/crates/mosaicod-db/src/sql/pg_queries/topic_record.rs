@@ -305,6 +305,22 @@ pub async fn topic_update_path_in_store(
     Ok(())
 }
 
+pub async fn topic_delete_path_in_store(exe: &mut impl AsExec, topic_id: i32) -> Result<(), Error> {
+    trace!("removing path_in_store for topic with id {}", topic_id);
+    sqlx::query!(
+        r#"
+            UPDATE topic_t
+            SET path_in_store = NULL
+            WHERE topic_id = $1
+    "#,
+        topic_id,
+    )
+    .execute(exe.as_exec())
+    .await?;
+
+    Ok(())
+}
+
 pub async fn topic_from_query_filter(
     exe: &mut impl AsExec,
     filter_seq: Option<query::SequenceFilter>,

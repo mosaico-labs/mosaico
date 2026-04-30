@@ -288,17 +288,25 @@ pub async fn writer(
     let ontology_tag = mdata.ontology_metadata.properties.ontology_tag.clone();
     let format = mdata.ontology_metadata.properties.serialization_format;
 
-    // 1. Create folder in Store and save metadata.
+    // Create random folder for the Store.
     let path_in_store = types::TopicPathInStore::new();
 
-    metadata_write_to_store(&context, path_in_store.path_metadata().as_path(), mdata).await?;
-
-    let data_folder = path_in_store.data_folder_path();
-
-    // 2. Save path_in_store on DB.
+    // 1. Save path_in_store on DB.
     let mut cx = context.db.connection();
     db::topic_update_path_in_store(&mut cx, handle.id, path_in_store.clone()).await?;
 
+    // 2. Save metadata to Store.
+    let res =
+        metadata_write_to_store(&context, path_in_store.path_metadata().as_path(), mdata).await;
+
+    // Rollback: remove path_in_store from the topic db entry.
+    if let Err(e) = res {
+        db::topic_delete_path_in_store(&mut cx, handle.id).await?;
+        return Err(e);
+    }
+
+    // 3. Create ChunkWriter.
+    let data_folder = path_in_store.data_folder_path();
     let writer = rw::ChunkWriter::new(
         context.store.clone(),
         format,
