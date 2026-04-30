@@ -199,16 +199,17 @@ class SyncTransformer(BaseEstimator, TransformerMixin):
         """
         Prepends the carried-over sample from the previous chunk to ensure continuity.
         """
-        current_ts = samples[self._timestamp_column].values
-        current_val = samples.iloc[:, 1].values
+
+        current_ts = samples[self._timestamp_column].to_numpy()
+        current_val = samples.iloc[:, 1].to_numpy()
 
         if col_name in self._last_values:
             last_ts, last_val = self._last_values[col_name]
-            # Prepend stateful data to the start of current arrays
-            s_ts = np.concatenate(([last_ts], np.array(current_ts)))
-            s_val = np.concatenate(([last_val], np.array(current_val)))
+
+            s_ts = np.concatenate((np.atleast_1d(last_ts), current_ts))
+            s_val = np.concatenate((np.atleast_1d(last_val), current_val))
         else:
-            s_ts = np.array(current_ts)
-            s_val = np.array(current_val)
+            s_ts = current_ts
+            s_val = current_val
 
         return s_ts, s_val
