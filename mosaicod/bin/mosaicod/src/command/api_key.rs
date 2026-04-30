@@ -213,7 +213,7 @@ pub fn auth(auth: ApiKey) -> Result<()> {
                         .collect::<Vec<_>>()
                         .join("\n");
 
-                    return Err(mosaicod_core::Error::internal(Some(format!(
+                    return Err(core::Error::internal(Some(format!(
                         "failed to purge {} keys: \n{}",
                         errors.len(),
                         details

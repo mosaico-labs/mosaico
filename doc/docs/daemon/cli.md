@@ -79,9 +79,9 @@ Remove API keys in bulk. By default, only expired keys are removed; use the `--a
 mosaicod api-key purge [OPTIONS]
 ```
 
-| Option          | Default | Description                                                        |
-| --------------- | ------- | ------------------------------------------------------------------ |
-| `-A`, `--all`   | `false` | Remove **all** API keys, including those that have not yet expired. |
+| Option          |  Description                                                        |
+| --------------- |  ------------------------------------------------------------------ |
+| `-A`, `--all`   |  Remove **all** API keys, including those that have not yet expired. |
 
 #### Examples
 
@@ -91,7 +91,7 @@ Remove only expired keys:
 mosaicod api-key purge
 ```
 
-Remove every API key:
+Remove all API key:
 
 ```bash
 mosaicod api-key purge --all
