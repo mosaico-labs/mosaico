@@ -6,6 +6,7 @@ use mosaicod_db as db;
 use mosaicod_facade as facade;
 use mosaicod_query as query;
 use std::sync::Arc;
+use tracing::error;
 
 #[derive(Subcommand, Debug)]
 pub enum ApiKey {
@@ -207,16 +208,13 @@ pub fn auth(auth: ApiKey) -> Result<()> {
                 }
 
                 if !errors.is_empty() {
-                    let details = errors
-                        .iter()
-                        .map(|(fp, err)| format!("  {}: {}", fp, err))
-                        .collect::<Vec<_>>()
-                        .join("\n");
+                    for (fingerprint, err) in &errors {
+                        error!(fingerprint, ?err);
+                    }
 
                     return Err(core::Error::internal(Some(format!(
-                        "failed to purge {} keys: \n{}",
+                        "failed to purge {} keys",
                         errors.len(),
-                        details
                     )))
                     .to_public_error());
                 }
