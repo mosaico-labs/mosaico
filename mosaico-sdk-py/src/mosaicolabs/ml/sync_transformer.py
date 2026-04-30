@@ -207,7 +207,15 @@ class SyncTransformer(BaseEstimator, TransformerMixin):
             last_ts, last_val = self._last_values[col_name]
 
             s_ts = np.concatenate((np.atleast_1d(last_ts), current_ts))
-            s_val = np.concatenate((np.atleast_1d(last_val), current_val))
+
+            # Prevent numpy from flattening the last_val if it's an array itself
+            # (which happens when the dataframe column dtype is 'object')
+            if current_val.dtype == object:
+                last_val_arr = np.empty(1, dtype=object)
+                last_val_arr[0] = last_val
+                s_val = np.concatenate((last_val_arr, current_val))
+            else:
+                s_val = np.concatenate((np.atleast_1d(last_val), current_val))
         else:
             s_ts = current_ts
             s_val = current_val
