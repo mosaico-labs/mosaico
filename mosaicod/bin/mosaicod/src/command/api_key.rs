@@ -50,6 +50,14 @@ pub enum ApiKey {
 
     /// List all keys
     List,
+
+    /// Purge keys
+    Purge {
+        /// If no option is provided, all expired keys are removed.
+        /// With --all  or -A, all keys are removed.
+        #[arg(short = 'A', long = "all")]
+        all: bool,
+    },
 }
 
 pub fn auth(auth: ApiKey) -> Result<()> {
@@ -175,6 +183,26 @@ pub fn auth(auth: ApiKey) -> Result<()> {
             });
 
             res?;
+        }
+
+        ApiKey::Purge { all } => {
+            let res: Result<()> = rt.block_on(async {
+                let keys = facade::auth::all_keys(&context).await?;
+                for key in keys.iter() {
+                    if all || key.is_expired() {
+                        let handle = facade::auth::Handle::try_from_fingerprint(
+                            &context,
+                            key.token().fingerprint(),
+                        )
+                        .await?;
+                        facade::auth::delete(&context, handle).await?;
+                    }
+                }
+
+                Ok(())
+            });
+
+            res?
         }
     };
 
