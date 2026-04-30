@@ -114,10 +114,8 @@ pub async fn try_create(
     let session_already_finalized = db::session_finalized(&mut tx, session_handle.id()).await?;
 
     if session_already_finalized {
-        // (cabba) NOTE: Now I'm returning the uuid as session identifier
-        // we need to substitute this with the session "locator" when implemented
         Err(core::Error::session_already_finalized(
-            session_handle.uuid().to_string(),
+            session_handle.locator().to_string(),
         ))?;
     }
 
