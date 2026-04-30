@@ -187,16 +187,38 @@ pub fn auth(auth: ApiKey) -> Result<()> {
 
         ApiKey::Purge { all } => {
             let res: Result<()> = rt.block_on(async {
+                let mut errors = Vec::new();
                 let keys = facade::auth::all_keys(&context).await?;
-                for key in keys.iter() {
-                    if all || key.is_expired() {
-                        let handle = facade::auth::Handle::try_from_fingerprint(
-                            &context,
-                            key.token().fingerprint(),
-                        )
-                        .await?;
+                for key in keys.iter().filter(|k| all || k.is_expired()) {
+                    let fingerprint = key.token().fingerprint();
+
+                    let result: Result<()> = async {
+                        let handle =
+                            facade::auth::Handle::try_from_fingerprint(&context, fingerprint)
+                                .await?;
                         facade::auth::delete(&context, handle).await?;
+                        Ok(())
                     }
+                    .await;
+
+                    if let Err(e) = result {
+                        errors.push((fingerprint, e));
+                    }
+                }
+
+                if !errors.is_empty() {
+                    let details = errors
+                        .iter()
+                        .map(|(fp, err)| format!("  {}: {}", fp, err))
+                        .collect::<Vec<_>>()
+                        .join("\n");
+
+                    return Err(mosaicod_core::Error::internal(Some(format!(
+                        "failed to purge {} keys: \n{}",
+                        errors.len(),
+                        details
+                    )))
+                    .to_public_error());
                 }
 
                 Ok(())
