@@ -1,4 +1,5 @@
 use arrow_flight::flight_service_client::FlightServiceClient;
+use futures::lock::Mutex;
 use mosaicod_core::params;
 use mosaicod_core::types;
 use mosaicod_db as db;
@@ -8,6 +9,7 @@ use mosaicod_server::{self as server, flight::ShutdownNotifier};
 use mosaicod_store as store;
 use serde::Deserialize;
 use std::fs;
+use std::net::TcpListener;
 use std::sync::Arc;
 use tonic::service::interceptor;
 
@@ -20,13 +22,21 @@ pub const TLS_PRIVATE_KEY_FILE: &str = "./data/key.pem";
 
 /// Generates a random port in the ephemeral range [49152, 65535].
 /// Use this in tests to avoid `Address In Use` errors during parallel execution.
+static PORT_LOCK: Mutex<()> = Mutex::new(());
+
 pub fn random_port() -> u16 {
-    use rand::Rng;
+    let _guard = PORT_LOCK.lock();
 
-    let mut rng = rand::rng();
-    rng.random_range(49152..=65535)
+    let port = TcpListener::bind(format!("{}:0", HOST))
+        .unwrap()
+        .local_addr()
+        .unwrap()
+        .port();
+
+    std::thread::sleep(std::time::Duration::from_millis(50));
+
+    port
 }
-
 /// Formats host and port into a valid endpoint string.
 ///
 /// FIXME:
