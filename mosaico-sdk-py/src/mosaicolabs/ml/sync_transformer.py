@@ -5,13 +5,15 @@ import pandas as pd
 
 from mosaicolabs.logging_config import get_logger
 
+# Import the base classes from the parent __init__.py
+from . import BaseEstimator, TransformerMixin
 from .sync_policies.hold import SyncHold
 from .sync_policy import SyncPolicy
 
 logger = get_logger(__name__)
 
 
-class SyncTransformer:
+class SyncTransformer(BaseEstimator, TransformerMixin):
     """
     Stateful resampler for Mosaico DataFrames.
 
@@ -117,7 +119,7 @@ class SyncTransformer:
             from mosaicolabs.ml import DataFrameExtractor, SyncTransformer
 
             with MosaicoClient.connect("localhost", 6726) as client:
-                sequence_handler = client.get_sequence_handler("example_sequence")
+                sequence_handler = client.sequence_handler("example_sequence")
                 # Resample at 30Hz and fill the NaNs with a `Hold` policy
                 sync_transformer = SyncTransformer(
                     target_fps = 30,
@@ -126,7 +128,7 @@ class SyncTransformer:
                 for df in DataFrameExtractor(sequence_handler).to_pandas_chunks(
                     topics = ["/front/imu", "/front/camera/image_raw"]
                 ):
-                    synched_df = sync_transformer.transform(df)
+                    synched_df = sync_transformer.fit(df).transform(df)
                     # Do something with the synched dataframe
                     # ...
             ```
@@ -163,12 +165,6 @@ class SyncTransformer:
             dense_df[col] = self._policy.apply(tstamp_grid, s_ts, s_val)
 
         return dense_df
-
-    def fit_transform(self, X: pd.DataFrame, y=None) -> pd.DataFrame:
-        """
-        Fits the transformer to the data and then transforms it.
-        """
-        return self.fit(X, y).transform(X)
 
     def reset(self):
         """Resets the internal temporal state and cached sensor values."""

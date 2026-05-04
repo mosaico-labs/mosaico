@@ -541,7 +541,7 @@ class Message(BaseModel):
             from mosaicolabs.ml import DataFrameExtractor, SyncTransformer
 
             with MosaicoClient.connect("localhost", 6726) as client:
-                sequence_handler = client.get_sequence_handler("example_sequence")
+                sequence_handler = client.sequence_handler("example_sequence")
                 for df in DataFrameExtractor(sequence_handler).to_pandas_chunks(
                     topics = ["/front/imu", "/front/camera/image_raw"]
                 ):
