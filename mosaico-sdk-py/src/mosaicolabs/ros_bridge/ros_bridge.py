@@ -1,5 +1,7 @@
 from typing import Any, Dict, Generic, Optional, Type, TypeVar
 
+from rosbags.typesys import Stores, get_typestore
+
 from mosaicolabs.models import Message, Serializable
 
 from .adapter_base import ROSAdapterBase
@@ -30,13 +32,21 @@ class ROSBridge(Generic[T]):
 
     # Maps ROS Message Type (e.g., sensor_msgs.msg.Imu) to its default Adapter Class
     _default_adapters: Dict[str, Type[ROSAdapterBase]] = {}
+    # Maps Mosaico Message Type (e.g., Imu) to its default Adapter Class
+    _default_mosaico_adapters: Dict[str, Type[ROSAdapterBase]] = {}
 
     @classmethod
     def get_default_adapters(cls):
         return cls._default_adapters
 
     @classmethod
-    def _register_default_adapter(cls, adapter_class: Type[ROSAdapterBase]):
+    def get_default_mosaico_adapters(cls):
+        return cls._default_mosaico_adapters
+
+    @classmethod
+    def _register_default_adapter(
+        cls, adapter_class: Type[ROSAdapterBase], is_default: bool = False
+    ):
         """
         Internal helper for registering a default adapter class for one or more specific ROS message types.
 
@@ -52,6 +62,7 @@ class ROSBridge(Generic[T]):
                 defined in the `adapter_class`.
         """
         ros_types = adapter_class.ros_msgtype
+        adapter_class.__is_default_adapter__ = is_default
 
         # Normalize to tuple
         if isinstance(ros_types, str):
@@ -63,6 +74,21 @@ class ROSBridge(Generic[T]):
                     f"Adapter for ROS message type '{ros_type}' is already registered."
                 )
             cls._default_adapters[ros_type] = adapter_class
+
+        if not is_default:
+            return
+
+        ontology_tag = adapter_class.ontology_data_type().ontology_tag()
+
+        if ontology_tag in cls._default_mosaico_adapters:
+            found_adapter = cls._default_mosaico_adapters.get(ontology_tag)
+
+            raise ValueError(
+                f"{ontology_tag} already maps {found_adapter.__name__} adapter and cannot therefore map also '{adapter_class.__name__}'. \
+                    Are both adapters defined as default?"
+            )
+
+        cls._default_mosaico_adapters[ontology_tag] = adapter_class
 
     @classmethod
     def get_default_adapter(cls, ros_msg_type: str) -> Optional[Type[ROSAdapterBase]]:
@@ -78,6 +104,15 @@ class ROSBridge(Generic[T]):
         return cls._default_adapters.get(ros_msg_type)
 
     @classmethod
+    def get_default_mosaico_adapter(
+        cls, mosaico_type: str
+    ) -> Optional[Type[ROSAdapterBase]]:
+        """
+        TODO
+        """
+        return cls._default_mosaico_adapters.get(mosaico_type)
+
+    @classmethod
     def is_msgtype_adapted(cls, ros_msg_type: str) -> bool:
         """
         Checks if a specific ROS message type has a registered translator.
@@ -86,6 +121,13 @@ class ROSBridge(Generic[T]):
             bool: True if the type is supported, False otherwise.
         """
         return ros_msg_type in cls._default_adapters
+
+    @classmethod
+    def is_mosaico_type_adapted(cls, mosaico_type: str) -> bool:
+        """
+        TODO
+        """
+        return mosaico_type in cls._default_mosaico_adapters
 
     @classmethod
     def is_adapted(cls, mosaico_cls: T) -> bool:
@@ -136,8 +178,22 @@ class ROSBridge(Generic[T]):
         # Delegate the translation to the specific adapter
         return adapter_class.translate(ros_msg, **kwargs)
 
+    @classmethod
+    def from_mosaico_message(
+        cls, mosaico_msg: Message, store: Stores, ros_msg_type: Optional[str] = None
+    ):  # TODO: is this useful?
 
-def register_default_adapter(cls: Type["ROSAdapterBase"]) -> Type["ROSAdapterBase"]:
+        adapter_class = cls._default_mosaico_adapters.get(mosaico_msg.ontology_tag())
+        if adapter_class is None:
+            return None
+
+        # Delegate the translation to the specific adapter
+        return adapter_class.to_ros(mosaico_msg, get_typestore(store), ros_msg_type)
+
+
+def register_default_adapter(
+    cls: Type["ROSAdapterBase"], is_default: bool = False
+) -> Type["ROSAdapterBase"]:
     """
     A class decorator for streamlined default adapter registration.
 
@@ -160,5 +216,5 @@ def register_default_adapter(cls: Type["ROSAdapterBase"]) -> Type["ROSAdapterBas
     Returns:
         The same class, unmodified, after successful registration.
     """
-    ROSBridge._register_default_adapter(cls)
+    ROSBridge._register_default_adapter(cls, is_default)
     return cls
