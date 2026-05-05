@@ -1,7 +1,23 @@
+import sys
 from abc import abstractmethod
-from typing import Any, List, Optional, Tuple, Type, TypeVar
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    List,
+    Optional,
+    Tuple,
+    Type,
+    TypeVar,
+    Union,
+    get_args,
+    get_origin,
+)
 
 import numpy as np
+from rosbags.typesys.store import Typestore
+
+if TYPE_CHECKING:
+    from rosbags.typesys.store import MsgType
 
 from mosaicolabs import Serializable
 from mosaicolabs.models import Message
@@ -24,7 +40,7 @@ from mosaicolabs.models.sensors import (
 )
 
 from ..adapter_base import ROSAdapterBase
-from ..data_ontology import BatteryState, PointCloud2, PointField
+from ..data_ontology import BatteryState, PointCloud2, PointField, PointFieldDataType
 from ..ros_bridge import register_default_adapter
 from ..ros_message import ROSMessage
 from .geometry_msgs import (
@@ -166,6 +182,51 @@ class CameraInfoAdapter(ROSAdapterBase[CameraInfo]):
         )
 
     @classmethod
+    def to_ros(
+        cls,
+        mosaico_data: Union[Message, CameraInfo],
+        typestore: Typestore,
+        input_ros_msg_type: Optional[str] = None,
+    ) -> "Optional[MsgType]":
+        """
+        TODO
+        """
+
+        # Resolve ROS message to translate Mosaico message to if not defined in input
+        resolved_rosmsg_type = input_ros_msg_type or cls.get_default_ros_msg()
+        if not cls.is_rosmsg_type_valid(resolved_rosmsg_type):
+            return None
+
+        # Checking presence in typestore of requested message
+        if typestore.types.get(resolved_rosmsg_type) is None:
+            return None
+
+        # Unpacking Mosaico message / type
+        camera_info_data, ms_header = cls.unpack_mosaico_msg(mosaico_data)
+
+        # Filling the data
+        RosCameraInfo = typestore.types["sensor_msgs/msg/CameraInfo"]
+
+        if resolved_rosmsg_type == "sensor_msgs/msg/CameraInfo":
+            return RosCameraInfo(
+                header=ms_header.to_ros(),
+                height=camera_info_data.height,
+                width=camera_info_data.width,
+                distortion_model=camera_info_data.distortion_model,
+                d=np.asarray(camera_info_data.distortion_parameters, dtype=np.float64),
+                k=np.asarray(camera_info_data.intrinsic_parameters, dtype=np.float64),
+                r=np.asarray(
+                    camera_info_data.rectification_parameters, dtype=np.float64
+                ),
+                p=np.asarray(camera_info_data.projection_parameters, dtype=np.float64),
+                binning_x=camera_info_data.binning.x,
+                binning_y=camera_info_data.binning.y,
+                roi=ROIAdapter.to_ros(camera_info_data.roi, typestore),
+            )
+
+        return None
+
+    @classmethod
     def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
@@ -179,14 +240,14 @@ class NavSatStatusAdapter(ROSAdapterBase[GPSStatus]):
 
     **Supported ROS Types:**
 
-    - [`sensor_msgs/msg/NavSatFix`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/NavSatFix.html)
+    - [`sensor_msgs/msg/NavSatStatus`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/NavSatStatus.html)
 
     Example:
         ```python
         ros_msg = ROSMessage(
             timestamp=17000,
             topic="/gps_status",
-            msg_type="sensor_msgs/msg/NavSatFix",
+            msg_type="sensor_msgs/msg/NavSatStatus",
             data=
             {
                 "status": 0,
@@ -198,7 +259,7 @@ class NavSatStatusAdapter(ROSAdapterBase[GPSStatus]):
         ```
     """
 
-    ros_msgtype: str | Tuple[str, ...] = "sensor_msgs/msg/NavSatFix"
+    ros_msgtype: str | Tuple[str, ...] = "sensor_msgs/msg/NavSatStatus"
 
     __mosaico_ontology_type__: Type[GPSStatus] = GPSStatus
     _REQUIRED_KEYS = ("status", "service")
@@ -244,6 +305,39 @@ class NavSatStatusAdapter(ROSAdapterBase[GPSStatus]):
         """
         _validate_msgdata(cls, ros_data)
         return GPSStatus(status=ros_data["status"], service=ros_data["service"])
+
+    @classmethod
+    def to_ros(
+        cls,
+        mosaico_data: Union[Message, GPSStatus],
+        typestore: Typestore,
+        input_ros_msg_type: Optional[str] = None,
+    ) -> "Optional[MsgType]":
+        """
+        TODO
+        """
+
+        # Resolve ROS message to translate Mosaico message to if not defined in input
+        resolved_rosmsg_type = input_ros_msg_type or cls.get_default_ros_msg()
+        if not cls.is_rosmsg_type_valid(resolved_rosmsg_type):
+            return None
+
+        # Checking presence in typestore of requested message
+        if typestore.types.get(resolved_rosmsg_type) is None:
+            return None
+
+        # Unpacking Mosaico message / type
+        gps_status_data, _ = cls.unpack_mosaico_msg(mosaico_data)
+
+        # Filling the data
+        RosNavSatStatus = typestore.types["sensor_msgs/msg/NavSatStatus"]
+
+        if resolved_rosmsg_type == "sensor_msgs/msg/NavSatStatus":
+            return RosNavSatStatus(
+                status=gps_status_data.status, service=gps_status_data.service
+            )
+
+        return None
 
     @classmethod
     def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
@@ -356,6 +450,47 @@ class GPSAdapter(ROSAdapterBase[GPS]):
             ),
             status=NavSatStatusAdapter.from_dict(ros_data["status"]),
         )
+
+    @classmethod
+    def to_ros(
+        cls,
+        mosaico_data: Union[Message, GPS],
+        typestore: Typestore,
+        input_ros_msg_type: Optional[str] = None,
+    ) -> "Optional[MsgType]":
+        """
+        TODO
+        """
+
+        # Resolve ROS message to translate Mosaico message to if not defined in input
+        resolved_rosmsg_type = input_ros_msg_type or cls.get_default_ros_msg()
+        if not cls.is_rosmsg_type_valid(resolved_rosmsg_type):
+            return None
+
+        # Checking presence in typestore of requested message
+        if typestore.types.get(resolved_rosmsg_type) is None:
+            return None
+
+        # Unpacking Mosaico message / type
+        gps_data, ms_header = cls.unpack_mosaico_msg(mosaico_data)
+
+        # Filling the data
+        RosNavSatFix = typestore.types["sensor_msgs/msg/NavSatFix"]
+
+        if resolved_rosmsg_type == "sensor_msgs/msg/NavSatFix":
+            return RosNavSatFix(
+                header=ms_header.to_ros(),
+                status=NavSatStatusAdapter.to_ros(gps_data.status, typestore),
+                latitude=gps_data.position.x,
+                longitude=gps_data.position.y,
+                altitude=gps_data.position.z,
+                position_covariance=np.asarray(
+                    gps_data.position.covariance, dtype=np.float64
+                ),
+                position_covariance_type=gps_data.position.covariance_type,  # TODO: in ROS is uint8 in Mosaico int16. Is this a problem?
+            )
+
+        return None
 
     @classmethod
     def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
@@ -574,6 +709,40 @@ class NMEASentenceAdapter(ROSAdapterBase[NMEASentence]):
         return NMEASentence(sentence=ros_data["sentence"])
 
     @classmethod
+    def to_ros(
+        cls,
+        mosaico_data: Union[Message, NMEASentence],
+        typestore: Typestore,
+        input_ros_msg_type: Optional[str] = None,
+    ) -> "Optional[MsgType]":
+        """
+        TODO
+        """
+
+        # Resolve ROS message to translate Mosaico message to if not defined in input
+        resolved_rosmsg_type = input_ros_msg_type or cls.get_default_ros_msg()
+        if not cls.is_rosmsg_type_valid(resolved_rosmsg_type):
+            return None
+
+        # Checking presence in typestore of requested message
+        if typestore.types.get(resolved_rosmsg_type) is None:
+            return None
+
+        # Unpacking Mosaico message / type
+        nmea_sentence_data, ms_header = cls.unpack_mosaico_msg(mosaico_data)
+
+        # Filling the data
+        RosSentence = typestore.types["nmea_msgs/msg/Sentence"]
+
+        if resolved_rosmsg_type == "nmea_msgs/msg/Sentence":
+            return RosSentence(
+                header=ms_header.to_ros(),
+                sentence=nmea_sentence_data.sentence,
+            )
+
+        return None
+
+    @classmethod
     def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
@@ -676,6 +845,45 @@ class ImageAdapter(ROSAdapterBase[Image]):
         )
 
     @classmethod
+    def to_ros(
+        cls,
+        mosaico_data: Union[Message, Image],
+        typestore: Typestore,
+        input_ros_msg_type: Optional[str] = None,
+    ) -> "Optional[MsgType]":
+        """
+        TODO
+        """
+
+        # Resolve ROS message to translate Mosaico message to if not defined in input
+        resolved_rosmsg_type = input_ros_msg_type or cls.get_default_ros_msg()
+        if not cls.is_rosmsg_type_valid(resolved_rosmsg_type):
+            return None
+
+        # Checking presence in typestore of requested message
+        if typestore.types.get(resolved_rosmsg_type) is None:
+            return None
+
+        # Unpacking Mosaico message / type
+        image_data, ms_header = cls.unpack_mosaico_msg(mosaico_data)
+
+        # Filling the data
+        RosImage = typestore.types["sensor_msgs/msg/Image"]
+
+        if resolved_rosmsg_type == "sensor_msgs/msg/Image":
+            return RosImage(
+                header=ms_header.to_ros(),
+                height=image_data.height,
+                width=image_data.width,
+                encoding=image_data.encoding,
+                is_bigendian=int(image_data.is_bigendian),
+                step=image_data.stride,
+                data=np.frombuffer(image_data.data, dtype=np.uint8),
+            )
+
+        return None
+
+    @classmethod
     def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
@@ -759,6 +967,41 @@ class CompressedImageAdapter(ROSAdapterBase[CompressedImage]):
         _validate_msgdata(cls, ros_data)
 
         return CompressedImage(data=bytes(ros_data["data"]), format=ros_data["format"])
+
+    @classmethod
+    def to_ros(
+        cls,
+        mosaico_data: Union[Message, CompressedImage],
+        typestore: Typestore,
+        input_ros_msg_type: Optional[str] = None,
+    ) -> "Optional[MsgType]":
+        """
+        TODO
+        """
+
+        # Resolve ROS message to translate Mosaico message to if not defined in input
+        resolved_rosmsg_type = input_ros_msg_type or cls.get_default_ros_msg()
+        if not cls.is_rosmsg_type_valid(resolved_rosmsg_type):
+            return None
+
+        # Checking presence in typestore of requested message
+        if typestore.types.get(resolved_rosmsg_type) is None:
+            return None
+
+        # Unpacking Mosaico message / type
+        compressed_image_data, ms_header = cls.unpack_mosaico_msg(mosaico_data)
+
+        # Filling the data
+        RosCompressedImage = typestore.types["sensor_msgs/msg/CompressedImage"]
+
+        if resolved_rosmsg_type == "sensor_msgs/msg/CompressedImage":
+            return RosCompressedImage(
+                header=ms_header.to_ros(),
+                format=compressed_image_data.format,
+                data=np.frombuffer(compressed_image_data.data, dtype=np.uint8),
+            )
+
+        return None
 
     @classmethod
     def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
@@ -851,6 +1094,43 @@ class ROIAdapter(ROSAdapterBase[ROI]):
             width=ros_data["width"],
             do_rectify=ros_data.get("do_rectify"),
         )
+
+    @classmethod
+    def to_ros(
+        cls,
+        mosaico_data: Union[Message, ROI],
+        typestore: Typestore,
+        input_ros_msg_type: Optional[str] = None,
+    ) -> "Optional[MsgType]":
+        """
+        TODO
+        """
+
+        # Resolve ROS message to translate Mosaico message to if not defined in input
+        resolved_rosmsg_type = input_ros_msg_type or cls.get_default_ros_msg()
+        if not cls.is_rosmsg_type_valid(resolved_rosmsg_type):
+            return None
+
+        # Checking presence in typestore of requested message
+        if typestore.types.get(resolved_rosmsg_type) is None:
+            return None
+
+        # Unpacking Mosaico message / type
+        roi_data, _ = cls.unpack_mosaico_msg(mosaico_data)
+
+        # Filling the data
+        RosRegionOfInterest = typestore.types["sensor_msgs/msg/RegionOfInterest"]
+
+        if resolved_rosmsg_type == "sensor_msgs/msg/RegionOfInterest":
+            return RosRegionOfInterest(
+                x_offset=roi_data.offset.x,
+                y_offset=roi_data.offset.y,
+                height=roi_data.height,
+                width=roi_data.width,
+                do_rectify=roi_data.do_rectify,
+            )
+
+        return None
 
     @classmethod
     def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
@@ -1102,6 +1382,43 @@ class RobotJointAdapter(ROSAdapterBase[RobotJoint]):
         )
 
     @classmethod
+    def to_ros(
+        cls,
+        mosaico_data: Union[Message, RobotJoint],
+        typestore: Typestore,
+        input_ros_msg_type: Optional[str] = None,
+    ) -> "Optional[MsgType]":
+        """
+        TODO
+        """
+
+        # Resolve ROS message to translate Mosaico message to if not defined in input
+        resolved_rosmsg_type = input_ros_msg_type or cls.get_default_ros_msg()
+        if not cls.is_rosmsg_type_valid(resolved_rosmsg_type):
+            return None
+
+        # Checking presence in typestore of requested message
+        if typestore.types.get(resolved_rosmsg_type) is None:
+            return None
+
+        # Unpacking Mosaico message / type
+        robot_joint_data, ms_header = cls.unpack_mosaico_msg(mosaico_data)
+
+        # Filling the data
+        RosJointState = typestore.types["sensor_msgs/msg/JointState"]
+
+        if resolved_rosmsg_type == "sensor_msgs/msg/JointState":
+            return RosJointState(
+                header=ms_header.to_ros(),
+                name=robot_joint_data.names,
+                position=np.asarray(robot_joint_data.positions, dtype=np.float64),
+                velocity=np.asarray(robot_joint_data.velocities, dtype=np.float64),
+                effort=np.asarray(robot_joint_data.efforts, dtype=np.float64),
+            )
+
+        return None
+
+    @classmethod
     def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
@@ -1135,7 +1452,7 @@ class PointCloudAdapterBase(ROSAdapterBase[PointCloudModel]):
 
     _REQUIRED_FIELDS: list[str] = []
 
-    _DATATYPE_MAP = {
+    _FROM_POINTCLOUD_MAP = {
         1: (1, np.int8),
         2: (1, np.uint8),
         3: (2, np.int16),
@@ -1145,6 +1462,41 @@ class PointCloudAdapterBase(ROSAdapterBase[PointCloudModel]):
         7: (4, np.float32),
         8: (8, np.float64),
     }
+
+    _TO_POINTCLOUD_MAP = {
+        np.int8: (np.dtype(np.int8).itemsize, PointFieldDataType.INT8),
+        np.uint8: (np.dtype(np.uint8).itemsize, PointFieldDataType.UINT8),
+        np.int16: (np.dtype(np.int16).itemsize, PointFieldDataType.INT16),
+        np.uint16: (np.dtype(np.uint16).itemsize, PointFieldDataType.UINT16),
+        np.int32: (np.dtype(np.int32).itemsize, PointFieldDataType.INT32),
+        np.uint32: (np.dtype(np.uint32).itemsize, PointFieldDataType.UINT32),
+        np.float32: (np.dtype(np.float32).itemsize, PointFieldDataType.FLOAT32),
+        np.float64: (np.dtype(np.float64).itemsize, PointFieldDataType.FLOAT64),
+    }
+
+    @classmethod
+    def _extract_pa_list_type(cls, field_name: str):
+        """
+        # TODO
+        """
+        field_info = cls.__mosaico_ontology_type__.model_fields[field_name]
+
+        # Required field: Pydantic extracts the Annotated metadata directly.
+        if field_info.metadata:
+            return field_info.metadata[0]
+
+        origin = get_origin(field_info.annotation)
+        args = get_args(field_info.annotation)
+
+        if origin is Union:
+            non_none = [a for a in args if a is not type(None)]
+            if len(non_none) == 1:
+                return non_none[0].__metadata__[0]
+            raise NotImplementedError(
+                f"Union with multiple types is not supported: {args}"
+            )
+
+        return None
 
     @classmethod
     def decode(cls, ros_data: dict) -> dict[str, list]:
@@ -1182,11 +1534,13 @@ class PointCloudAdapterBase(ROSAdapterBase[PointCloudModel]):
 
         result = {}
         for field in fields:
-            itemsize, np_dtype = cls._DATATYPE_MAP.get(field.datatype, (None, None))
+            itemsize, np_dtype = cls._FROM_POINTCLOUD_MAP.get(
+                field.datatype, (None, None)
+            )
 
             if np_dtype is None:
                 raise ValueError(
-                    f"field datatype = {field.datatype} not supported. Supported data types: {cls._DATATYPE_MAP.items()}"
+                    f"field datatype = {field.datatype} not supported. Supported data types: {cls._FROM_POINTCLOUD_MAP.items()}"
                 )
 
             dtype = np.dtype(np_dtype).newbyteorder(endian_prefix)
@@ -1201,6 +1555,92 @@ class PointCloudAdapterBase(ROSAdapterBase[PointCloudModel]):
             result[field.name] = values.astype(np_dtype, copy=False)
 
         return {name: arr.tolist() for name, arr in result.items()}
+
+    @classmethod
+    def to_ros(
+        cls,
+        mosaico_data: Union[Message, PointCloudModel],
+        typestore: Typestore,
+        input_ros_msg_type: Optional[str] = None,
+    ) -> "Optional[MsgType]":
+        """
+        TODO
+        """
+
+        # Resolve ROS message to translate Mosaico message to if not defined in input
+        resolved_rosmsg_type = input_ros_msg_type or cls.get_default_ros_msg()
+        if not cls.is_rosmsg_type_valid(resolved_rosmsg_type):
+            return None
+
+        # Checking presence in typestore of requested message
+        if typestore.types.get(resolved_rosmsg_type) is None:
+            return None
+
+        # Unpacking Mosaico message / type
+        pcl_data, ms_header = cls.unpack_mosaico_msg(mosaico_data)
+
+        # Filling the data
+        RosPointField = typestore.types["sensor_msgs/msg/PointField"]
+        RosPointCloud2 = typestore.types["sensor_msgs/msg/PointCloud2"]
+
+        # Exclude None fields; they won't appear in the PointCloud2 fields list.
+        model = pcl_data.model_dump(exclude_none=True)
+
+        n_points = len(next(iter(model.values())))
+        field_arrays: list[
+            tuple[int, int, np.ndarray]
+        ] = []  # (offset, bytesize, array)
+
+        point_fields = []
+        offset = 0
+        is_bigendian = sys.byteorder == "big"
+
+        for field_name, field_values in model.items():
+            pa_datatype = cls._extract_pa_list_type(field_name)
+            np_type = pa_datatype.value_type.to_pandas_dtype()
+            bytesize, pf_datatype = cls._TO_POINTCLOUD_MAP[np_type]
+
+            point_fields.append(
+                RosPointField(
+                    name=field_name,
+                    offset=offset,
+                    datatype=pf_datatype,
+                    count=1,
+                )
+            )
+
+            endian_prefix = ">" if is_bigendian else "<"
+            dtype = np.dtype(np_type).newbyteorder(endian_prefix)
+
+            field_arrays.append((offset, bytesize, np.array(field_values, dtype=dtype)))
+
+            offset += bytesize
+
+        point_step = offset
+
+        # Build the interleaved binary buffer (n_points × point_step bytes).
+        buffer = np.zeros((n_points, point_step), dtype=np.uint8)
+        for field_offset, bytesize, arr in field_arrays:
+            arr_bytes = arr.view(np.uint8).reshape(n_points, bytesize)
+            buffer[:, field_offset : field_offset + bytesize] = arr_bytes
+
+        pointcloud = RosPointCloud2(
+            header=ms_header.to_ros(),
+            height=1,
+            width=n_points,
+            fields=point_fields,
+            is_bigendian=is_bigendian,
+            point_step=point_step,
+            row_step=point_step
+            * n_points,  # Since it is not organised. it is the size of the whole pointcloud
+            data=buffer.flatten(),  # np.ndarray[tuple[int, ...], np.dtype[np.uint8]]
+            is_dense=True,
+        )
+
+        if resolved_rosmsg_type == "sensor_msgs/msg/PointCloud2":
+            return pointcloud
+
+        return None
 
     @classmethod
     @abstractmethod
@@ -1344,6 +1784,60 @@ class PointCloudAdapter(PointCloudAdapterBase[PointCloud2]):
             data=bytes(ros_data["data"]),
             is_dense=ros_data["is_dense"],
         )
+
+    @classmethod
+    def to_ros(
+        cls,
+        mosaico_data: Union[Message, PointCloud2],
+        typestore: Typestore,
+        input_ros_msg_type: Optional[str] = None,
+    ) -> "Optional[MsgType]":
+        """
+        TODO
+        """
+
+        # Resolve ROS message to translate Mosaico message to if not defined in input
+        resolved_rosmsg_type = input_ros_msg_type or cls.get_default_ros_msg()
+        if not cls.is_rosmsg_type_valid(resolved_rosmsg_type):
+            return None
+
+        # Checking presence in typestore of requested message
+        if typestore.types.get(resolved_rosmsg_type) is None:
+            return None
+
+        # Unpacking Mosaico message / type
+        pointcloud_data, ms_header = cls.unpack_mosaico_msg(mosaico_data)
+
+        # Filling the data
+        RosPointField = typestore.types["sensor_msgs/msg/PointField"]
+        RosPointCloud2 = typestore.types["sensor_msgs/msg/PointCloud2"]
+
+        point_fields = [
+            RosPointField(
+                name=field.name,
+                offset=field.offset,
+                datatype=field.datatype,
+                count=field.count,
+            )
+            for field in pointcloud_data.fields
+        ]
+
+        pose = RosPointCloud2(
+            header=ms_header.to_ros(),
+            height=pointcloud_data.height,
+            width=pointcloud_data.width,
+            fields=point_fields,
+            is_bigendian=pointcloud_data.is_bigendian,
+            point_step=pointcloud_data.point_step,
+            row_step=pointcloud_data.row_step,
+            data=np.frombuffer(pointcloud_data.data, dtype=np.uint8),
+            is_dense=pointcloud_data.is_dense,
+        )
+
+        if resolved_rosmsg_type == "sensor_msgs/msg/PointCloud2":
+            return pose
+
+        return None
 
     @classmethod
     def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
