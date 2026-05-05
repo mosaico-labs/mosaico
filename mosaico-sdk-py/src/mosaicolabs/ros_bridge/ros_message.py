@@ -1,5 +1,10 @@
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
+
+from rosbags.typesys.store import Typestore
+
+if TYPE_CHECKING:
+    from rosbags.typesys.store import MsgType
 
 from mosaicolabs.types import Time
 
@@ -78,6 +83,17 @@ class ROSHeader:
                 seconds=data["stamp"]["sec"], nanoseconds=data["stamp"]["nanosec"]
             ),
         )
+
+    def to_ros(self, typestore: Typestore) -> "MsgType":
+        """
+        TODO
+        """
+        RosTime = typestore.types["builtin_interfaces/msg/Time"]
+        RosHeader = typestore.types["std_msgs/msg/Header"]
+
+        ros_time = RosTime(sec=self.stamp.seconds, nanosec=self.stamp.nanoseconds)
+
+        return RosHeader(stamp=ros_time, frame_id=self.frame_id)
 
 
 @dataclass
