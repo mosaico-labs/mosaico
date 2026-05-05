@@ -6,11 +6,10 @@ from rosbags.typesys.store import Typestore
 if TYPE_CHECKING:
     from rosbags.typesys.store import MsgType
 
-from mosaicolabs import Time
 from mosaicolabs.models.message import Message
 
 from ..models import Serializable
-from .ros_message import ROSHeader, ROSMessage
+from .ros_message import ROSHeader, ROSMessage, Time
 
 T = TypeVar("T", bound=Serializable)
 
@@ -50,7 +49,7 @@ class ROSAdapterBase(ABC, Generic[T]):
             return cls.ros_msg_type()
 
         elif isinstance(
-            cls.ros_msgtype, Tuple[str, ...]
+            cls.ros_msgtype, Tuple
         ):  # In case of a tuple, default ros message is the first tuple element
             return cls.ros_msg_type()[0]
 

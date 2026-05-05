@@ -93,7 +93,11 @@ class ROSHeader:
 
         ros_time = RosTime(sec=self.stamp.seconds, nanosec=self.stamp.nanoseconds)
 
-        return RosHeader(stamp=ros_time, frame_id=self.frame_id)
+        # Handling ROS1 that has seq in Header
+        if "seq" in RosHeader.__dataclass_fields__:
+            return RosHeader(seq=self.seq or 0, stamp=ros_time, frame_id=self.frame_id)
+        else:
+            return RosHeader(stamp=ros_time, frame_id=self.frame_id)
 
 
 @dataclass

@@ -111,6 +111,7 @@ class OdometryAdapter(ROSAdapterBase[MotionState]):
             velocity=TwistAdapter.from_dict(ros_data["twist"]),
         )
 
+    @classmethod
     def to_ros(
         cls,
         mosaico_data: Union[Message, MotionState],
@@ -136,12 +137,14 @@ class OdometryAdapter(ROSAdapterBase[MotionState]):
         if resolved_rosmsg_type == "nav_msgs/msg/Odometry":
             return RosOdometry(
                 header=header_ms.to_ros(),
-                child_frame=motion_data.target_frame_id,
+                child_frame_id=motion_data.target_frame_id,
                 pose=PoseAdapter.to_ros(
                     motion_data.pose, typestore, "geometry_msgs/msg/PoseWithCovariance"
                 ),
                 twist=TwistAdapter.to_ros(
-                    motion_data.pose, typestore, "geometry_msgs/msg/TwistWithCovariance"
+                    motion_data.velocity,
+                    typestore,
+                    "geometry_msgs/msg/TwistWithCovariance",
                 ),
             )
 

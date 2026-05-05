@@ -31,7 +31,7 @@ from mosaicolabs.models.data import (
 
 from ..adapter_base import ROSAdapterBase
 from ..ros_bridge import register_default_adapter
-from ..ros_message import ROSMessage
+from ..ros_message import ROSHeader, ROSMessage
 from .helpers import _validate_msgdata
 
 
@@ -203,20 +203,23 @@ class PoseAdapter(ROSAdapterBase[Pose]):
             orientation=QuaternionAdapter.to_ros(pose_data.orientation, typestore),
         )
 
+        # In case covariance is None, a flatted 6x6 full of zeros is provided
+        pose_covariance = pose_data.covariance or [0.0] * 36
+
         if resolved_rosmsg_type == "geometry_msgs/msg/Pose":
             return pose
         elif resolved_rosmsg_type == "geometry_msgs/msg/PoseStamped":
-            return RosPoseStamped(pose=pose, header=ms_header.to_ros())
+            return RosPoseStamped(pose=pose, header=ms_header.to_ros(typestore))
         elif resolved_rosmsg_type == "geometry_msgs/msg/PoseWithCovariance":
             return RosPoseWithCovariance(
-                pose=pose, covariance=np.asarray(pose_data.covariance, dtype=np.float64)
+                pose=pose, covariance=np.asarray(pose_covariance, dtype=np.float64)
             )
         elif resolved_rosmsg_type == "geometry_msgs/msg/PoseWithCovarianceStamped":
             pose_w_cov = RosPoseWithCovariance(
-                pose=pose, covariance=np.asarray(pose_data.covariance, dtype=np.float64)
+                pose=pose, covariance=np.asarray(pose_covariance, dtype=np.float64)
             )
             return RosPoseWithCovarianceStamped(
-                pose=pose_w_cov, header=ms_header.to_ros()
+                pose=pose_w_cov, header=ms_header.to_ros(typestore)
             )
 
         return None
@@ -388,22 +391,25 @@ class TwistAdapter(ROSAdapterBase[Velocity]):
             angular=Vector3Adapter.to_ros(velocity_data.angular, typestore),
         )
 
+        # In case covariance is None, a flatted 6x6 full of zeros is provided
+        twist_covariance = velocity_data.covariance or [0.0] * 36
+
         if resolved_rosmsg_type == "geometry_msgs/msg/Twist":
             return twist
         elif resolved_rosmsg_type == "geometry_msgs/msg/TwistStamped":
-            return RosTwistStamped(twist=twist, header=ms_header.to_ros())
+            return RosTwistStamped(twist=twist, header=ms_header.to_ros(typestore))
         elif resolved_rosmsg_type == "geometry_msgs/msg/TwistWithCovariance":
             return RosTwistWithCovariance(
                 twist=twist,
-                covariance=np.asarray(velocity_data.covariance, dtype=np.float64),
+                covariance=np.asarray(twist_covariance, dtype=np.float64),
             )
         elif resolved_rosmsg_type == "geometry_msgs/msg/TwistWithCovarianceStamped":
             twist_w_cov = RosTwistWithCovariance(
                 twist=twist,
-                covariance=np.asarray(velocity_data.covariance, dtype=np.float64),
+                covariance=np.asarray(twist_covariance, dtype=np.float64),
             )
             return RosTwistWithCovarianceStamped(
-                twist=twist_w_cov, header=ms_header.to_ros()
+                twist=twist_w_cov, header=ms_header.to_ros(typestore)
             )
 
         return None
@@ -687,7 +693,7 @@ class Vector3Adapter(ROSAdapterBase[Vector3d]):
         if resolved_rosmsg_type == "geometry_msgs/msg/Vector3":
             return vector
         elif resolved_rosmsg_type == "geometry_msgs/msg/Vector3Stamped":
-            return RosVector3Stamped(vector=vector, header=ms_header.to_ros())
+            return RosVector3Stamped(vector=vector, header=ms_header.to_ros(typestore))
 
         return None
 
@@ -834,7 +840,7 @@ class PointAdapter(ROSAdapterBase[Point3d]):
         if resolved_rosmsg_type == "geometry_msgs/msg/Point":
             return point
         elif resolved_rosmsg_type == "geometry_msgs/msg/PointStamped":
-            return RosPointStamped(header=ms_header.to_ros(), point=point)
+            return RosPointStamped(header=ms_header.to_ros(typestore), point=point)
 
         return None
 
@@ -953,6 +959,7 @@ class QuaternionAdapter(ROSAdapterBase[Quaternion]):
                 w=ros_data["w"],
             )
 
+    @classmethod
     def to_ros(
         cls,
         mosaico_data: Union[Message, Quaternion],
@@ -987,7 +994,7 @@ class QuaternionAdapter(ROSAdapterBase[Quaternion]):
             return quaternion
         elif resolved_rosmsg_type == "geometry_msgs/msg/QuaternionStamped":
             return RosQuaternionStamped(
-                header=ms_header.to_ros(), quaternion=quaternion
+                header=ms_header.to_ros(typestore), quaternion=quaternion
             )
 
         return None
@@ -1028,8 +1035,8 @@ class TransformAdapter(ROSAdapterBase[Transform]):
     """
 
     ros_msgtype: str | Tuple[str, ...] = (
-        "geometry_msgs/msg/TransformStamped",
         "geometry_msgs/msg/Transform",
+        "geometry_msgs/msg/TransformStamped",
     )
 
     __mosaico_ontology_type__: Type[Transform] = Transform
@@ -1096,6 +1103,9 @@ class TransformAdapter(ROSAdapterBase[Transform]):
             out_transf = cls.from_dict(transf_dict)
 
             # Apply metadata
+            out_transf.source_frame_id = ROSHeader.from_dict(
+                ros_data["header"]
+            ).frame_id
             out_transf.target_frame_id = ros_data.get("child_frame_id")
             return out_transf
 
@@ -1108,6 +1118,7 @@ class TransformAdapter(ROSAdapterBase[Transform]):
                 rotation=QuaternionAdapter.from_dict(ros_data["rotation"]),
             )
 
+    @classmethod
     def to_ros(
         cls,
         mosaico_data: Union[Message, Transform],
@@ -1140,7 +1151,7 @@ class TransformAdapter(ROSAdapterBase[Transform]):
             return transform
         elif resolved_rosmsg_type == "geometry_msgs/msg/TransformStamped":
             return RosTransformStamped(
-                header=ms_header.to_ros(),
+                header=ms_header.to_ros(typestore),
                 child_frame_id=transform_data.target_frame_id,
                 transform=transform,
             )  # TODO: how to handle child_frame_id? Is target_frame_id the same thing?
@@ -1183,8 +1194,8 @@ class WrenchAdapter(ROSAdapterBase[ForceTorque]):
     """
 
     ros_msgtype: str | Tuple[str, ...] = (
-        "geometry_msgs/msg/WrenchStamped",
         "geometry_msgs/msg/Wrench",
+        "geometry_msgs/msg/WrenchStamped",
     )
 
     __mosaico_ontology_type__: Type[ForceTorque] = ForceTorque

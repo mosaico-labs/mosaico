@@ -167,6 +167,7 @@ class GenericStdAdapter(ROSAdapterBase[Serializable]):
             data=ros_data["data"],
         )
 
+    @classmethod
     def to_ros(
         cls,
         mosaico_data: Union[Message, Serializable],

@@ -1025,7 +1025,7 @@ class ROIAdapter(ROSAdapterBase[ROI]):
         ros_msg = ROSMessage(
             timestamp=17000,
             topic="/roi",
-            msg_type="sensor_msgs/RegionOfInterest",
+            msg_type="sensor_msgs/msg/RegionOfInterest",
             data=
             {
                 "height": 1,
@@ -1039,7 +1039,7 @@ class ROIAdapter(ROSAdapterBase[ROI]):
         ```
     """
 
-    ros_msgtype: str | Tuple[str, ...] = "sensor_msgs/RegionOfInterest"
+    ros_msgtype: str | Tuple[str, ...] = "sensor_msgs/msg/RegionOfInterest"
 
     __mosaico_ontology_type__: Type[ROI] = ROI
 
