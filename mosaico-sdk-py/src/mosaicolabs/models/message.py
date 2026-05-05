@@ -457,10 +457,7 @@ class Message(BaseModel):
             target_type: The expected `Serializable` subclass type.
 
         Returns:
-            The data object cast to the requested type.
-
-        Raises:
-            TypeError: If the actual data type does not match the requested `target_type`.
+            The data object cast to the requested type or None if cannot be casted.
 
         Example:
             ```python
