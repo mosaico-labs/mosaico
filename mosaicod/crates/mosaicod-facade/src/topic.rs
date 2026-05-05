@@ -441,7 +441,14 @@ async fn compute_data_info(
 
     let mut total_bytes = 0;
     for file in &datafiles {
-        total_bytes += context.store.size(file).await? as u64;
+        let meta = context
+            .store
+            .meta(file)
+            .await?
+            .ok_or(core::Error::internal(
+                format!("File {} not found in Store", file).into(),
+            ))?;
+        total_bytes += meta.size as u64;
     }
 
     Ok(types::TopicDataInfo {

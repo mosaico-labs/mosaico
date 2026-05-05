@@ -1623,6 +1623,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "37909eebbb50d72f9059c3b6d82c0463f2ff062c9e95845c43a6c9c0355411be"
 
 [[package]]
+name = "filetime"
+version = "0.2.27"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f98844151eee8917efc50bd9e8318cb963ae8b297431495d3f758616ea5c57db"
+dependencies = [
+ "cfg-if",
+ "libc",
+ "libredox",
+]
+
+[[package]]
 name = "find-msvc-tools"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2614,12 +2625,14 @@ dependencies = [
 name = "mosaicod-db"
 version = "0.4.0"
 dependencies = [
+ "chrono",
  "log",
  "mosaicod-core",
  "mosaicod-marshal",
  "mosaicod-query",
  "serde_json",
  "sqlx",
+ "tokio",
  "url",
  "uuid",
 ]
@@ -2735,6 +2748,7 @@ name = "mosaicod-store"
 version = "0.4.0"
 dependencies = [
  "bytes",
+ "chrono",
  "datafusion",
  "futures",
  "log",
@@ -2744,6 +2758,23 @@ dependencies = [
  "thiserror",
  "tokio",
  "url",
+]
+
+[[package]]
+name = "mosaicod-task"
+version = "0.4.0"
+dependencies = [
+ "chrono",
+ "filetime",
+ "log",
+ "mosaicod-core",
+ "mosaicod-db",
+ "mosaicod-facade",
+ "mosaicod-query",
+ "mosaicod-store",
+ "rand 0.9.2",
+ "sqlx",
+ "tokio",
 ]
 
 [[package]]

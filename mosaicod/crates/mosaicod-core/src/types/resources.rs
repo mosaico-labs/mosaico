@@ -53,6 +53,8 @@ fn has_invalid_symbols(value: &str, others: Option<&[char]>) -> bool {
 // TOPIC
 // ////////////////////////////////////////////////////////////////////////////
 
+pub const TOPIC_FOLDER_PREFIX: &str = "tp_";
+
 /// Uniquely identifies a topic resource and an optional time-based filter.
 ///
 /// This locator combines a string-based path (`locator`) with an optional
@@ -148,7 +150,7 @@ pub struct TopicPathInStore(String);
 impl TopicPathInStore {
     fn generate_random_folder_name() -> String {
         let id = ulid::Ulid::new();
-        format!("tp_{}", id)
+        format!("{}{}", TOPIC_FOLDER_PREFIX, id)
     }
 
     #[allow(clippy::new_without_default)]
@@ -384,6 +386,8 @@ impl std::fmt::Display for SessionLocator {
 // SEQUENCE
 // ////////////////////////////////////////////////////////////////////////////
 
+pub const SEQUENCE_FOLDER_PREFIX: &str = "sq_";
+
 /// Uniquely identifies a sequence resource.
 ///
 /// A sequence acts as a container for a collection of related topics. This locator
@@ -476,7 +480,7 @@ impl SequencePathInStore {
 
     fn generate_random_folder_name() -> String {
         let id = ulid::Ulid::new();
-        format!("sq_{}", id)
+        format!("{}{}", SEQUENCE_FOLDER_PREFIX, id)
     }
 }
 

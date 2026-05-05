@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE cleanup_log_t\n         SET end_unix_tstamp_secs = $1\n         WHERE cleanup_id = (SELECT cleanup_id FROM cleanup_log_t ORDER BY cleanup_id DESC LIMIT 1) AND end_unix_tstamp_secs IS NULL",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "9b2a49123ed2e00bc8ad13fd6842cef64e78fce401107a4e835b18be35547931"
+}

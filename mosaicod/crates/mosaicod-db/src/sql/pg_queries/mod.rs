@@ -24,3 +24,6 @@ pub use api_key_record::*;
 
 mod builders;
 use builders::*;
+
+mod cleanup_log_record;
+pub use cleanup_log_record::*;

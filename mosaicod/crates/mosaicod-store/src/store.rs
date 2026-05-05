@@ -146,6 +146,11 @@ impl Builder {
     }
 }
 
+pub struct ObjectMeta {
+    pub size: usize,
+    pub last_modified: chrono::DateTime<chrono::Utc>,
+}
+
 #[derive(Debug, Clone)]
 pub enum Target {
     Filesystem(std::path::PathBuf),
@@ -267,7 +272,7 @@ impl Store {
     /// Returns a list of elements located at the given `path`.
     ///
     /// If an extension is provided, the results will be filtered to include only
-    /// the elements whose extension matches exactly.es exactly
+    /// the elements whose extension matches exactly.
     pub async fn list(
         &self,
         path: impl AsRef<std::path::Path>,
@@ -298,6 +303,26 @@ impl Store {
         Ok(locations)
     }
 
+    /// Returns a list of elements located at the given `path`.
+    ///
+    /// If an extension is provided, the results will be filtered to include only
+    /// the elements whose extension matches exactly.
+    pub async fn list_subfolders(
+        &self,
+        path: impl AsRef<std::path::Path>,
+    ) -> Result<Vec<String>, Error> {
+        let subfolders = self
+            .driver
+            .list_with_delimiter(Some(&to_object_path(&path)))
+            .await?
+            .common_prefixes
+            .into_iter()
+            .map(|p| p.into())
+            .collect();
+
+        Ok(subfolders)
+    }
+
     pub async fn exists(&self, path: impl AsRef<std::path::Path>) -> Result<bool, Error> {
         match self.driver.head(&to_object_path(&path)).await {
             Ok(_) => Ok(true),
@@ -306,11 +331,26 @@ impl Store {
         }
     }
 
-    pub async fn size(&self, path: impl AsRef<std::path::Path>) -> Result<usize, Error> {
-        let head = self.driver.head(&to_object_path(&path)).await?;
+    pub async fn meta(
+        &self,
+        path: impl AsRef<std::path::Path>,
+    ) -> Result<Option<ObjectMeta>, Error> {
+        let head_res = self.driver.head(&to_object_path(&path)).await;
 
-        Ok(head.size as usize)
+        match head_res {
+            Ok(head) => Ok(Some(ObjectMeta {
+                last_modified: head.last_modified,
+                size: head.size as usize,
+            })),
+            Err(object_store::Error::NotFound { .. }) => Ok(None),
+            Err(e) => Err(e)?,
+        }
     }
+
+    // pub async fn size(&self, path: impl AsRef<std::path::Path>) -> Result<usize, Error> {
+    //     let head = self.driver.head(&to_object_path(&path)).await?;
+    //     Ok(head.size as usize)
+    // }
 
     pub async fn delete(&self, path: impl AsRef<std::path::Path>) -> Result<(), Error> {
         Ok(self.driver.delete(&to_object_path(&path)).await?)

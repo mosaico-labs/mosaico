@@ -1,0 +1,26 @@
+[package]
+name = "mosaicod-task"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[lib]
+name = "mosaicod_task"
+
+[dependencies]
+mosaicod-core = { workspace = true }
+mosaicod-db = { workspace = true, features = ["postgres"] }
+mosaicod-facade = { workspace = true }
+chrono = { workspace = true }
+log = { workspace = true }
+
+[dev-dependencies]
+mosaicod-db = { workspace = true, features = ["postgres", "testing"] }
+mosaicod-store = { workspace = true, features = ["testing"] }
+mosaicod-query = { workspace = true }
+sqlx = { workspace = true }
+tokio = { workspace = true }
+rand = { workspace = true }
+filetime = { workspace = true }
