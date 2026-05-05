@@ -16,7 +16,12 @@ Architecture:
     in the ROSBridge.
 """
 
-from typing import Any, Dict, Optional, Tuple, Type
+from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple, Type, Union
+
+from rosbags.typesys.store import Typestore
+
+if TYPE_CHECKING:
+    from rosbags.typesys.store import MsgType
 
 from mosaicolabs.models import Message, Serializable
 from mosaicolabs.models.data import (
@@ -161,6 +166,33 @@ class GenericStdAdapter(ROSAdapterBase[Serializable]):
         return cls.__mosaico_ontology_type__(
             data=ros_data["data"],
         )
+
+    def to_ros(
+        cls,
+        mosaico_data: Union[Message, Serializable],
+        typestore: Typestore,
+        input_ros_msg_type: Optional[str] = None,
+    ) -> "Optional[MsgType]":
+
+        # Resolve ROS message to translate Mosaico message to if not defined in input
+        resolved_rosmsg_type = input_ros_msg_type or cls.get_default_ros_msg()
+        if not cls.is_rosmsg_type_valid(resolved_rosmsg_type):
+            return None
+
+        # Checking presence in typestore of requested message
+        if typestore.types.get(resolved_rosmsg_type) is None:
+            return None
+
+        # Unpacking Mosaico message / type
+        std_data, _ = cls.unpack_mosaico_msg(mosaico_data)
+
+        # Filling the data (this is the only case where you can actually use a resolved_rosmsg_type)
+        # since all the ros data structures contain only 'data' as parameter
+        RosStdMsg = typestore.types[
+            resolved_rosmsg_type
+        ]  # TODO: double check whether this works
+
+        return RosStdMsg(data=std_data.data)
 
     @classmethod
     def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
