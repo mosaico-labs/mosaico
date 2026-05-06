@@ -1542,8 +1542,8 @@ class InertiaAdapter(ROSAdapterBase[Inertia]):
     """
 
     ros_msgtype: str | Tuple[str, ...] = (
-        "geometry_msgs/msg/InertiaStamped",
         "geometry_msgs/msg/Inertia",
+        "geometry_msgs/msg/InertiaStamped",
     )
 
     __mosaico_ontology_type__: Type[Inertia] = Inertia
@@ -1628,6 +1628,50 @@ class InertiaAdapter(ROSAdapterBase[Inertia]):
                 center_of_mass=center_of_mass,
                 inertia=inertia_tensor,
             )
+
+    @classmethod
+    def to_ros(
+        cls,
+        mosaico_data: Union[Message, Inertia],
+        typestore: Typestore,
+        input_ros_msg_type: Optional[str] = None,
+    ) -> "Optional[MsgType]":
+
+        # Resolve ROS message to translate Mosaico message to if not defined in input
+        resolved_rosmsg_type = input_ros_msg_type or cls.get_default_ros_msg()
+        if not cls.is_rosmsg_type_valid(resolved_rosmsg_type):
+            return None
+
+        # Checking presence in typestore of requested message
+        if typestore.types.get(resolved_rosmsg_type) is None:
+            return None
+
+        # Unpacking Mosaico message / type
+        inertia_data, ms_header = cls.unpack_mosaico_msg(mosaico_data)
+
+        # Filling the data
+        RosInertia = typestore.types["geometry_msgs/msg/Inertia"]
+        RosInertiaStamped = typestore.types["geometry_msgs/msg/InertiaStamped"]
+
+        inertia = RosInertia(
+            m=inertia_data.mass,
+            com=Vector3Adapter.to_ros(inertia_data.center_of_mass, typestore),
+            ixx=inertia_data.inertia[0],
+            ixy=inertia_data.inertia[1],
+            ixz=inertia_data.inertia[2],
+            iyy=inertia_data.inertia[3],
+            iyz=inertia_data.inertia[4],
+            izz=inertia_data.inertia[5],
+        )
+
+        if resolved_rosmsg_type == "geometry_msgs/msg/Inertia":
+            return inertia
+        elif resolved_rosmsg_type == "geometry_msgs/msg/InertiaStamped":
+            return RosInertiaStamped(
+                header=ms_header.to_ros(typestore), inertia=inertia
+            )
+
+        return None
 
     @classmethod
     def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:

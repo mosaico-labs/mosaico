@@ -5,6 +5,7 @@ from rosbags.typesys.stores import Stores, Typestore, get_typestore
 from mosaicolabs import (
     Acceleration,
     ForceTorque,
+    Inertia,
     Message,
     Point3d,
     Polygon,
@@ -12,15 +13,18 @@ from mosaicolabs import (
     Quaternion,
     Serializable,
     Time,
+    Transform,
     Vector3d,
     Velocity,
 )
 from mosaicolabs.ros_bridge.adapters import (
     AccelAdapter,
+    InertiaAdapter,
     PointAdapter,
     PolygonAdapter,
     PoseAdapter,
     QuaternionAdapter,
+    TransformAdapter,
     TwistAdapter,
     Vector3Adapter,
     WrenchAdapter,
@@ -272,6 +276,100 @@ class TestQuaternionAdapter:
 
 
 ###############################################################################
+############################ TestTransformAdapter ############################
+###############################################################################
+
+
+@pytest.fixture
+def transform():
+    return Transform(
+        translation=Vector3d(x=1.0, y=2.0, z=3.0),
+        rotation=Quaternion(x=0.0, y=0.0, z=0.0, w=1.0),
+        source_frame_id="frame1",
+        target_frame_id="frame2",
+    )
+
+
+@pytest.fixture
+def transform_msg(transform):
+    return Message(
+        data=transform,
+        timestamp_ns=100,
+        frame_id="base_link",
+    )
+
+
+class TestTransformAdapter:
+    # def test_translate_transform(self): ...  # TODO
+    # def test_translate_transform_stamped(self): ...  # TODO
+    # def test_translate_raise_transform_not_dict(self): ...  # TODO
+    # def test_translate_raise_missing_required_key(self): ...  # TODO
+
+    @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
+    def test_to_ros_transform(self, transform: Transform, typestore: Typestore):
+        ros_msg = TransformAdapter.to_ros(
+            transform, typestore, "geometry_msgs/msg/Transform"
+        )
+
+        assert transform.translation.x == ros_msg.translation.x
+        assert transform.translation.y == ros_msg.translation.y
+        assert transform.translation.z == ros_msg.translation.z
+        assert transform.rotation.x == ros_msg.rotation.x
+        assert transform.rotation.y == ros_msg.rotation.y
+        assert transform.rotation.z == ros_msg.rotation.z
+        assert transform.rotation.w == ros_msg.rotation.w
+
+    @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
+    def test_to_ros_transform_stamped(
+        self, transform_msg: Message, typestore: Typestore
+    ):
+        transform = transform_msg.get_data(Transform)
+        ros_msg = TransformAdapter.to_ros(
+            transform_msg, typestore, "geometry_msgs/msg/TransformStamped"
+        )
+
+        assert (
+            transform_msg.timestamp_ns
+            == Time(
+                seconds=ros_msg.header.stamp.sec,
+                nanoseconds=ros_msg.header.stamp.nanosec,
+            ).to_nanoseconds()
+        )
+        assert transform_msg.frame_id == ros_msg.header.frame_id
+        assert transform.target_frame_id == ros_msg.child_frame_id
+        assert transform.translation.x == ros_msg.transform.translation.x
+        assert transform.translation.y == ros_msg.transform.translation.y
+        assert transform.translation.z == ros_msg.transform.translation.z
+        assert transform.rotation.z == ros_msg.transform.rotation.z
+        assert transform.rotation.z == ros_msg.transform.rotation.z
+        assert transform.rotation.z == ros_msg.transform.rotation.z
+        assert transform.rotation.z == ros_msg.transform.rotation.z
+
+    @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
+    def test_to_ros_default_type(self, transform: Transform, typestore: Typestore):
+        ros_msg = TransformAdapter.to_ros(transform, typestore)
+
+        assert transform.translation.x == ros_msg.translation.x
+        assert transform.translation.y == ros_msg.translation.y
+        assert transform.translation.z == ros_msg.translation.z
+        assert transform.rotation.z == ros_msg.rotation.z
+        assert transform.rotation.z == ros_msg.rotation.z
+        assert transform.rotation.z == ros_msg.rotation.z
+        assert transform.rotation.z == ros_msg.rotation.z
+
+    def test_to_ros_invalid_rosmsg_type(self, transform: Transform):
+        ros_msg = TransformAdapter.to_ros(
+            transform, get_typestore(Stores.LATEST), "geometry_msgs/msg/Bogus"
+        )
+
+        assert ros_msg is None
+
+    def test_to_ros_invalid_mosaico_type(self, invalid_ms_msg):
+        with pytest.raises(TypeError):
+            TransformAdapter.to_ros(invalid_ms_msg, get_typestore(Stores.LATEST))
+
+
+###############################################################################
 ############################### TestWrenchAdapter #############################
 ###############################################################################
 
@@ -437,6 +535,110 @@ class TestPolygonAdapter:
     def test_to_ros_invalid_mosaico_type(self, invalid_ms_msg):
         with pytest.raises(TypeError):
             PolygonAdapter.to_ros(invalid_ms_msg, get_typestore(Stores.LATEST))
+
+
+###############################################################################
+############################## TestInertiaAdapter #############################
+###############################################################################
+
+
+@pytest.fixture
+def inertia():
+    return Inertia(
+        mass=1,
+        center_of_mass=Vector3d(x=1.0, y=2.0, z=3.0),
+        inertia=list(range(0, 6)),
+    )
+
+
+@pytest.fixture
+def inertia_msg(inertia):
+    return Message(
+        data=inertia,
+        timestamp_ns=100,
+        frame_id="base_link",
+    )
+
+
+class TestInertiaAdapter:
+    # def test_translate_inertia(self): ...  # TODO
+    # def test_translate_inertia_stamped(self): ...  # TODO
+    # def test_translate_raise_inertia_not_dict(self): ...  # TODO
+    # def test_translate_raise_missing_required_key(self): ...  # TODO
+
+    @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
+    def test_to_ros_inertia(self, inertia: Inertia, typestore: Typestore):
+        ros_msg = InertiaAdapter.to_ros(inertia, typestore, "geometry_msgs/msg/Inertia")
+
+        assert inertia.mass == ros_msg.m
+        assert inertia.center_of_mass.x == ros_msg.com.x
+        assert inertia.center_of_mass.y == ros_msg.com.y
+        assert inertia.center_of_mass.z == ros_msg.com.z
+        assert inertia.inertia == [
+            ros_msg.ixx,
+            ros_msg.ixy,
+            ros_msg.ixz,
+            ros_msg.iyy,
+            ros_msg.iyz,
+            ros_msg.izz,
+        ]
+
+    @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
+    def test_to_ros_inertia_stamped(self, inertia_msg: Message, typestore: Typestore):
+        inertia = inertia_msg.get_data(Inertia)
+        ros_msg = InertiaAdapter.to_ros(
+            inertia_msg, typestore, "geometry_msgs/msg/InertiaStamped"
+        )
+
+        assert (
+            inertia_msg.timestamp_ns
+            == Time(
+                seconds=ros_msg.header.stamp.sec,
+                nanoseconds=ros_msg.header.stamp.nanosec,
+            ).to_nanoseconds()
+        )
+
+        assert inertia_msg.frame_id == ros_msg.header.frame_id
+        assert inertia.mass == ros_msg.inertia.m
+        assert inertia.center_of_mass.x == ros_msg.inertia.com.x
+        assert inertia.center_of_mass.y == ros_msg.inertia.com.y
+        assert inertia.center_of_mass.z == ros_msg.inertia.com.z
+        assert inertia.inertia == [
+            ros_msg.inertia.ixx,
+            ros_msg.inertia.ixy,
+            ros_msg.inertia.ixz,
+            ros_msg.inertia.iyy,
+            ros_msg.inertia.iyz,
+            ros_msg.inertia.izz,
+        ]
+
+    @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
+    def test_to_ros_default_type(self, inertia: Inertia, typestore: Typestore):
+        ros_msg = InertiaAdapter.to_ros(inertia, typestore)
+
+        assert inertia.mass == ros_msg.m
+        assert inertia.center_of_mass.x == ros_msg.com.x
+        assert inertia.center_of_mass.y == ros_msg.com.y
+        assert inertia.center_of_mass.z == ros_msg.com.z
+        assert inertia.inertia == [
+            ros_msg.ixx,
+            ros_msg.ixy,
+            ros_msg.ixz,
+            ros_msg.iyy,
+            ros_msg.iyz,
+            ros_msg.izz,
+        ]
+
+    def test_to_ros_invalid_rosmsg_type(self, inertia: Inertia):
+        ros_msg = InertiaAdapter.to_ros(
+            inertia, get_typestore(Stores.LATEST), "geometry_msgs/msg/Bogus"
+        )
+
+        assert ros_msg is None
+
+    def test_to_ros_invalid_mosaico_type(self, invalid_ms_msg):
+        with pytest.raises(TypeError):
+            InertiaAdapter.to_ros(invalid_ms_msg, get_typestore(Stores.LATEST))
 
 
 ###############################################################################
