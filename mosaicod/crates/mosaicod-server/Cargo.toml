@@ -18,6 +18,7 @@ mosaicod-db = { workspace = true }
 mosaicod-facade = { workspace = true }
 mosaicod-store = { workspace = true }
 mosaicod-query = { workspace = true }
+mosaicod-task = { workspace = true }
 
 thiserror = { workspace = true }
 tokio = { workspace = true }

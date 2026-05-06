@@ -212,8 +212,13 @@ pub struct Params {
     ///
     /// Note: set it to 0 if you want to prevent the background routine from running on this server instance.
     ///
-    /// Defaults to 86400 secs (1 day)
+    /// Defaults to 86400 secs (1 day).
     pub cleanup_time_interval: Param<u32>,
+
+    /// Maximum period expressed in seconds to keep an obsolete file in store before permanently delete it.
+    ///
+    /// Defaults to 86400 secs (1 day).
+    pub cleanup_retention_duration: Param<u32>,
 }
 
 /// Options for loading parameters from environment variables
@@ -280,6 +285,7 @@ pub fn load_params_from_env(config: ParamsLoadOptions) -> error::PublicResult<()
 
         // task
         cleanup_time_interval: Param::optional("MOSAICOD_CLEANUP_TIME_INTERVAL", 86400),
+        cleanup_retention_duration: Param::optional("MOSAICOD_CLEANUP_RETENTION_DURATION", 86400),
     };
 
     let _ = ENV.set(ev);

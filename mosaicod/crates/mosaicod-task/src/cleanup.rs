@@ -4,41 +4,71 @@
 use log::warn;
 use mosaicod_core::{error::PublicResult as Result, types};
 use mosaicod_db as db;
-use mosaicod_facade as facade;
+use mosaicod_store as store;
+use std::ops::Deref;
 
 const TO_DELETE_MARKER_FILE_NAME: &str = "TO_DELETE";
+
+/// Utility type to accept only non-negative durations (u32).
+#[derive(Debug, Clone, Copy)]
+pub struct Duration(chrono::Duration);
+
+impl Duration {
+    pub fn seconds(secs: u32) -> Self {
+        Self(chrono::Duration::seconds(secs as i64))
+    }
+
+    pub fn minutes(mins: u32) -> Self {
+        Self(chrono::Duration::minutes(mins as i64))
+    }
+
+    pub fn hours(hours: u32) -> Self {
+        Self(chrono::Duration::hours(hours as i64))
+    }
+
+    pub fn days(days: u32) -> Self {
+        Self(chrono::Duration::days(days as i64))
+    }
+}
+
+impl Deref for Duration {
+    type Target = chrono::Duration;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
 
 /// Checks if the conditions to start a new cleanup are met.
 ///
 /// It can start:
 /// - if it's the first cleanup running in absolute
-/// - if the latest cleanup has finished and its end time + cleanup time interval (secs) <= current time.
+/// - if the latest cleanup has finished and its end time + cleanup time interval <= current time.
 ///
-/// When [`time_interval`] = 0, the cleanup must NOT start.
-pub async fn cleanup_can_start(context: &facade::Context, time_interval_secs: u32) -> Result<bool> {
-    if time_interval_secs == 0 {
+/// The cleanup must NOT start if [`time_interval`] is set to 0,
+pub async fn cleanup_can_start(db: &db::Database, time_interval: Duration) -> Result<bool> {
+    if time_interval.is_zero() {
         return Ok(false);
     }
 
-    let mut cx = context.db.connection();
+    let mut cx = db.connection();
     let latest_cleanup = db::cleanup_log_latest(&mut cx).await?;
 
     Ok(latest_cleanup.is_none_or(|cleanup_log| {
-        cleanup_log.end_datetime().is_some_and(|end_dt| {
-            end_dt + chrono::Duration::seconds(time_interval_secs as i64) <= chrono::Utc::now()
-        })
+        cleanup_log
+            .end_datetime()
+            .is_some_and(|end_dt| end_dt + *time_interval <= chrono::Utc::now())
     }))
 }
 
-/// Launches the cleanup of the Store.
+/// Launches the cleanup of the store.
 ///
 /// Returns how many folders have been marked TO_DELETE and how many folder have actually been deleted.
 pub async fn cleanup_start(
-    context: &facade::Context,
-    retention_duration: chrono::Duration,
+    db: &db::Database,
+    store: &store::StoreRef,
+    retention_duration: Duration,
 ) -> Result<(Vec<String>, Vec<String>)> {
-    let store = context.store.clone();
-
     let root_subfolders = store.list_subfolders("").await?;
 
     let mut marked_folders = Vec::new();
@@ -51,32 +81,38 @@ pub async fn cleanup_start(
         let file_meta = store.meta(&to_delete_marker_file_path).await?;
 
         if let Some(meta) = file_meta {
-            // Permanently delete the folder.
-            if meta.last_modified + retention_duration <= chrono::Utc::now() {
+            // Marker exists. Check if it's expired.
+            if meta.last_modified + *retention_duration <= chrono::Utc::now() {
                 store.delete_recursive(&dir).await?;
                 deleted_folders.push(dir);
             }
-        } else if !find_db_reference(context, &dir).await? {
-            // Mark it as TO_DELETE.
-            store
-                .write_bytes(to_delete_marker_file_path, vec![])
-                .await?;
-            marked_folders.push(dir);
+        } else if !find_db_reference(db, &dir).await? {
+            // If retention duration is equal to 0, delete the directory right away.
+            // Otherwise, mark the directory as TO_DELETE.
+            if retention_duration.is_zero() {
+                store.delete_recursive(&dir).await?;
+                deleted_folders.push(dir);
+            } else {
+                store
+                    .write_bytes(to_delete_marker_file_path, vec![])
+                    .await?;
+                marked_folders.push(dir);
+            }
         }
     }
 
     Ok((marked_folders, deleted_folders))
 }
 
-async fn find_db_reference(context: &facade::Context, path_in_store: &str) -> Result<bool> {
-    let mut cx = context.db.connection();
+async fn find_db_reference(db: &db::Database, path_in_store: &str) -> Result<bool> {
+    let mut cx = db.connection();
     if path_in_store.starts_with(types::SEQUENCE_FOLDER_PREFIX) {
         return Ok(db::sequence_find_path_in_store(&mut cx, path_in_store).await?);
     } else if path_in_store.starts_with(types::TOPIC_FOLDER_PREFIX) {
         return Ok(db::topic_find_path_in_store(&mut cx, path_in_store).await?);
     } else {
         warn!(
-            "Found unexpected file in Store: {}. Was it added manually?",
+            "Found unexpected file in store: {}. Was it added manually?",
             path_in_store
         );
     }
@@ -88,34 +124,21 @@ async fn find_db_reference(context: &facade::Context, path_in_store: &str) -> Re
 mod tests {
     use super::*;
     use mosaicod_core::types;
-    use mosaicod_query as query;
     use mosaicod_store as store;
     use rand::seq::IteratorRandom;
-    use std::sync::Arc;
 
     struct TestContext {
         db: db::testing::Database,
         store: store::testing::Store,
-        ts_gw: query::TimeseriesEngineRef,
-    }
-
-    impl TestContext {
-        fn facade_context(&self) -> facade::Context {
-            facade::Context::new(
-                (*self.store).clone(),
-                (*self.db).clone(),
-                self.ts_gw.clone(),
-            )
-        }
     }
 
     async fn create_fake_cleanup_logs(
-        ctx: &facade::Context,
+        context: &TestContext,
         nums: u16,
         min_duration: Option<u16>,
         max_duration: Option<u16>,
     ) {
-        let mut tx = ctx.db.transaction().await.unwrap();
+        let mut tx = context.db.transaction().await.unwrap();
 
         for i in 1..=nums {
             let record = db::schema::CleanupLogRecord::default();
@@ -136,21 +159,21 @@ mod tests {
         tx.commit().await.unwrap();
     }
 
-    /// Populates the Store with the given number of sequences [`num_seqs`] and topics [`num_topics`].
+    /// Populates the store with the given number of sequences [`num_seqs`] and topics [`num_topics`].
     ///
     /// [`retention_duration`] value must be the same passed to [`cleanup_start`]
     ///
     /// Returns two vectors as output, both containing a tuple with:
-    /// - the path in store generated within the function (sequence or topic)
-    /// - the record on DB (randomly chosen when to create it)
-    /// - the TO_DELETE file creation unix timestamp (whether to create or not this file for a
-    ///   sequence is randomly chosen within this test function. For the Topics this file is created
-    ///   if it has been created also for the parent sequence).
+    /// 1. the path in store generated within the function (sequence or topic)
+    /// 2. the record on DB (randomly chosen when to create it)
+    /// 3. the TO_DELETE file creation unix timestamp (whether to create or not this file for a
+    ///    sequence is randomly chosen within this test function. For the Topics this file is created
+    ///    if it has been created also for the parent sequence).
     async fn populate_random_store(
         context: &TestContext,
         num_seqs: u16,
         num_topics: u16,
-        retention_duration: chrono::Duration,
+        retention_duration: Duration,
     ) -> (
         Vec<(
             types::SequencePathInStore,
@@ -171,6 +194,11 @@ mod tests {
 
         let mut tx = context.db.transaction().await.unwrap();
 
+        // For each sequence:
+        // 1. Create a fake metadata.json in the store
+        // 1. Randomly decide whether to create the corresponding sequence record on DB or not.
+        // 2. If no DB record is created, randomly decide whether to create the TO_DELETE file
+        //    with a random last modified timestamp that can goes back until retention_duration*2
         for i in 0..num_seqs {
             let pis = types::SequencePathInStore::new();
 
@@ -209,6 +237,12 @@ mod tests {
             }
         }
 
+        // For each topic:
+        // 1. Create a fake metadata.json in the store
+        // 2. Randomly decide whether to create the corresponding topic record on DB or not,
+        //    associating it to a random sequence for which the DB record was created at the previous step.
+        // 3. If no DB record is created, randomly decide whether to create the TO_DELETE file
+        //    with the same last modified timestamp as the parent sequence.
         for i in 0..num_topics {
             let pis = types::TopicPathInStore::new();
 
@@ -282,53 +316,95 @@ mod tests {
     fn test_context(pool: sqlx::Pool<db::DatabaseType>) -> TestContext {
         let db = db::testing::Database::new(pool);
         let store = store::testing::Store::new_random_on_tmp().unwrap();
-        let ts_gw = Arc::new(query::TimeseriesEngine::try_new((*store).clone(), 0).unwrap());
 
-        TestContext { store, db, ts_gw }
+        TestContext { store, db }
     }
 
     #[sqlx::test(migrator = "db::testing::MIGRATOR")]
     async fn test_cleanup_can_start(pool: sqlx::Pool<db::DatabaseType>) {
-        let ctx = test_context(pool).facade_context();
+        let ctx = test_context(pool);
 
         // Cleanup must not start if time_interval = 0.
-        assert!(!cleanup_can_start(&ctx, 0).await.unwrap());
+        assert!(
+            !cleanup_can_start(&ctx.db, Duration::seconds(0))
+                .await
+                .unwrap()
+        );
 
         // Cleanup can always start if it's the first time ever.
-        assert!(cleanup_can_start(&ctx, 1).await.unwrap());
-        assert!(cleanup_can_start(&ctx, 100).await.unwrap());
-        assert!(cleanup_can_start(&ctx, 10000).await.unwrap());
-        assert!(cleanup_can_start(&ctx, u32::MAX).await.unwrap());
+        assert!(
+            cleanup_can_start(&ctx.db, Duration::seconds(1))
+                .await
+                .unwrap()
+        );
+        assert!(
+            cleanup_can_start(&ctx.db, Duration::seconds(100))
+                .await
+                .unwrap()
+        );
+        assert!(
+            cleanup_can_start(&ctx.db, Duration::seconds(10000))
+                .await
+                .unwrap()
+        );
+        assert!(
+            cleanup_can_start(&ctx.db, Duration::seconds(u32::MAX))
+                .await
+                .unwrap()
+        );
 
         // Cleanup should start based on latest cleanup end time.
         create_fake_cleanup_logs(&ctx, 1, Some(100), Some(100)).await;
 
-        assert!(!cleanup_can_start(&ctx, 0).await.unwrap());
-        assert!(!cleanup_can_start(&ctx, 1).await.unwrap());
-        assert!(!cleanup_can_start(&ctx, 10).await.unwrap());
+        assert!(
+            !cleanup_can_start(&ctx.db, Duration::seconds(0))
+                .await
+                .unwrap()
+        );
+        assert!(
+            !cleanup_can_start(&ctx.db, Duration::seconds(1))
+                .await
+                .unwrap()
+        );
+        assert!(
+            !cleanup_can_start(&ctx.db, Duration::seconds(10))
+                .await
+                .unwrap()
+        );
 
         tokio::time::sleep(std::time::Duration::from_secs(2)).await;
 
-        assert!(cleanup_can_start(&ctx, 1).await.unwrap());
-        assert!(!cleanup_can_start(&ctx, 5).await.unwrap());
-        assert!(!cleanup_can_start(&ctx, 10).await.unwrap());
+        assert!(
+            cleanup_can_start(&ctx.db, Duration::seconds(1))
+                .await
+                .unwrap()
+        );
+        assert!(
+            !cleanup_can_start(&ctx.db, Duration::seconds(5))
+                .await
+                .unwrap()
+        );
+        assert!(
+            !cleanup_can_start(&ctx.db, Duration::seconds(10))
+                .await
+                .unwrap()
+        );
     }
 
     #[sqlx::test(migrator = "db::testing::MIGRATOR")]
     async fn test_cleanup_start(pool: sqlx::Pool<db::DatabaseType>) {
         let context = test_context(pool);
-        let facade_context = context.facade_context();
 
         let num_seqs = rand::random_range(1..=20);
         let num_topics = rand::random_range(1..=50);
 
-        let retention_duration = chrono::Duration::days(rand::random_range(1..180));
+        let retention_duration = Duration::days(rand::random_range(1..180));
 
         let stats = populate_random_store(&context, num_seqs, num_topics, retention_duration).await;
 
         let now_unix_ts = filetime::FileTime::now().unix_seconds();
 
-        let res = cleanup_start(&facade_context, retention_duration)
+        let res = cleanup_start(&context.db, &context.store, retention_duration)
             .await
             .unwrap();
 
@@ -387,6 +463,7 @@ mod tests {
                         .await
                         .unwrap()
                 );
+                assert!(context.store.exists(seq.0.path_metadata()).await.unwrap());
             } else {
                 assert!(!context.store.exists(seq.0.root()).await.unwrap());
             }
@@ -413,6 +490,7 @@ mod tests {
                         .await
                         .unwrap()
                 );
+                assert!(context.store.exists(topic.0.path_metadata()).await.unwrap());
             } else {
                 assert!(!context.store.exists(topic.0.root()).await.unwrap());
             }

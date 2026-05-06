@@ -36,6 +36,10 @@ impl ShutdownNotifier {
     pub async fn wait_for_shutdown(&self) {
         self.0.notified().await;
     }
+
+    pub fn inner(&self) -> &Notify {
+        &self.0
+    }
 }
 
 impl Default for ShutdownNotifier {

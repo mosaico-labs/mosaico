@@ -1,8 +1,9 @@
 use super::flight;
-use mosaicod_core::error::PublicResult as Result;
+use mosaicod_core::{error::PublicResult as Result, params};
 use mosaicod_db as db;
 use mosaicod_store as store;
-use tracing::{debug, error};
+use mosaicod_task as task;
+use tracing::{debug, error, info};
 
 /// Mosaico server.
 /// Handles incoming requests and manages the database and store.
@@ -40,24 +41,80 @@ impl Server {
         F: FnOnce(),
     {
         let shutdown = self.shutdown.clone();
-
-        let store = self.store.clone();
-        let database = self.db.clone();
+        let shutdown_cleanup = self.shutdown.clone();
 
         let config = self.flight_config.clone();
 
         rt.block_on(async {
+            let cleanup_store = self.store.clone();
+            let cleanup_db = self.db.clone();
+
+            // Start cleanup background task.
+            let handle_cleanup_task = rt.spawn(async move {
+                let cleanup_time_interval = task::cleanup::Duration::seconds(
+                    params::params().cleanup_time_interval.value,
+                );
+
+                let retention_duration = task::cleanup::Duration::seconds(
+                    params::params().cleanup_retention_duration.value,
+                );
+
+                loop {
+                    match task::cleanup_can_start(&cleanup_db, cleanup_time_interval).await {
+                        Ok(can_start) => {
+                            if can_start {
+                                info!("Starting cleanup background routine");
+
+                                let cleanup_res = task::cleanup_start(&cleanup_db, &cleanup_store, retention_duration).await;
+
+                                match cleanup_res {
+                                    Ok(res) => {
+                                        info!(
+                            "Cleanup completed. {} items marked as ready to be deleted. {} items deleted.",
+                            res.0.len(),
+                            res.1.len());
+                                    }
+                                    Err(e) => {
+                                        // Exit the cleanup routine if something went wrong.
+                                        error!("{}", e);
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            // Exit the cleanup routine if something went wrong.
+                            error!("{}", e);
+                            break;
+                        }
+                    }
+
+                    tokio::select! {
+                        // Here we can call .unwrap() safely because duration is non-negative by construction.
+                        _ = tokio::time::sleep(cleanup_time_interval.to_std().unwrap()) => {
+                        }
+                        _ = shutdown_cleanup.inner().notified() => {
+                            info!("Exiting cleanup background routine. Shutdown received.");
+                            break; // Exit the loop immediately
+                        }
+                    }
+                }
+            });
+
+            let server_store = self.store.clone();
+            let server_db = self.db.clone();
+
             // Create a thread in tokio runtime to handle flight requests
             let handle_flight = rt.spawn(async move {
                 debug!("flight service starting");
-                if let Err(err) = flight::start(config, store, database, Some(shutdown)).await {
+                if let Err(err) = flight::start(config, server_store, server_db, Some(shutdown)).await {
                     error!("{}", err);
                 }
             });
 
             on_start();
 
-            let _ = tokio::join!(handle_flight);
+            let _ = tokio::join!(handle_flight, handle_cleanup_task);
         });
 
         debug!("flight service stopped");
