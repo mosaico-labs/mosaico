@@ -208,17 +208,43 @@ class CameraInfoAdapter(ROSAdapterBase[CameraInfo]):
         RosCameraInfo = typestore.types["sensor_msgs/msg/CameraInfo"]
 
         if resolved_rosmsg_type == "sensor_msgs/msg/CameraInfo":
+            if set(["D", "K", "R", "P"]).issubset(RosCameraInfo.__dataclass_fields__):
+                ros_dep_data = {  # ROS1
+                    "D": np.asarray(
+                        camera_info_data.distortion_parameters, dtype=np.float64
+                    ),
+                    "K": np.asarray(
+                        camera_info_data.intrinsic_parameters, dtype=np.float64
+                    ),
+                    "R": np.asarray(
+                        camera_info_data.rectification_parameters, dtype=np.float64
+                    ),
+                    "P": np.asarray(
+                        camera_info_data.projection_parameters, dtype=np.float64
+                    ),
+                }
+            else:
+                ros_dep_data = {  # ROS2
+                    "d": np.asarray(
+                        camera_info_data.distortion_parameters, dtype=np.float64
+                    ),
+                    "k": np.asarray(
+                        camera_info_data.intrinsic_parameters, dtype=np.float64
+                    ),
+                    "r": np.asarray(
+                        camera_info_data.rectification_parameters, dtype=np.float64
+                    ),
+                    "p": np.asarray(
+                        camera_info_data.projection_parameters, dtype=np.float64
+                    ),
+                }
+
             return RosCameraInfo(
-                header=ms_header.to_ros(),
+                header=ms_header.to_ros(typestore),
                 height=camera_info_data.height,
                 width=camera_info_data.width,
                 distortion_model=camera_info_data.distortion_model,
-                d=np.asarray(camera_info_data.distortion_parameters, dtype=np.float64),
-                k=np.asarray(camera_info_data.intrinsic_parameters, dtype=np.float64),
-                r=np.asarray(
-                    camera_info_data.rectification_parameters, dtype=np.float64
-                ),
-                p=np.asarray(camera_info_data.projection_parameters, dtype=np.float64),
+                **ros_dep_data,
                 binning_x=camera_info_data.binning.x,
                 binning_y=camera_info_data.binning.y,
                 roi=ROIAdapter.to_ros(camera_info_data.roi, typestore),
@@ -477,17 +503,18 @@ class GPSAdapter(ROSAdapterBase[GPS]):
         # Filling the data
         RosNavSatFix = typestore.types["sensor_msgs/msg/NavSatFix"]
 
+        position_cov = gps_data.position.covariance or [0.0] * 9
+        covariance_type = gps_data.position.covariance_type or 0
+
         if resolved_rosmsg_type == "sensor_msgs/msg/NavSatFix":
             return RosNavSatFix(
-                header=ms_header.to_ros(),
+                header=ms_header.to_ros(typestore),
                 status=NavSatStatusAdapter.to_ros(gps_data.status, typestore),
                 latitude=gps_data.position.x,
                 longitude=gps_data.position.y,
                 altitude=gps_data.position.z,
-                position_covariance=np.asarray(
-                    gps_data.position.covariance, dtype=np.float64
-                ),
-                position_covariance_type=gps_data.position.covariance_type,  # TODO: in ROS is uint8 in Mosaico int16. Is this a problem?
+                position_covariance=np.asarray(position_cov, dtype=np.float64),
+                position_covariance_type=covariance_type,
             )
 
         return None
@@ -633,6 +660,55 @@ class IMUAdapter(ROSAdapterBase[IMU]):
         )
 
     @classmethod
+    def to_ros(
+        cls,
+        mosaico_data: Union[Message, IMU],
+        typestore: Typestore,
+        input_ros_msg_type: Optional[str] = None,
+    ) -> "Optional[MsgType]":
+        """
+        TODO
+        """
+
+        # Resolve ROS message to translate Mosaico message to if not defined in input
+        resolved_rosmsg_type = input_ros_msg_type or cls.get_default_ros_msg()
+        if not cls.is_rosmsg_type_valid(resolved_rosmsg_type):
+            return None
+
+        # Checking presence in typestore of requested message
+        if typestore.types.get(resolved_rosmsg_type) is None:
+            return None
+
+        # Unpacking Mosaico message / type
+        imu_data, ms_header = cls.unpack_mosaico_msg(mosaico_data)
+
+        # Filling the data
+        RosImu = typestore.types["sensor_msgs/msg/Imu"]
+
+        orientation_cov = imu_data.orientation.covariance or [0.0] * 9
+        ang_vel_cov = imu_data.angular_velocity.covariance or [0.0] * 9
+        lin_acc_cov = imu_data.acceleration.covariance or [0.0] * 9
+
+        if resolved_rosmsg_type == "sensor_msgs/msg/Imu":
+            return RosImu(
+                header=ms_header.to_ros(typestore),
+                orientation=QuaternionAdapter.to_ros(imu_data.orientation, typestore),
+                angular_velocity=Vector3Adapter.to_ros(
+                    imu_data.angular_velocity, typestore
+                ),
+                linear_acceleration=Vector3Adapter.to_ros(
+                    imu_data.acceleration, typestore
+                ),
+                orientation_covariance=np.asarray(orientation_cov, dtype=np.float64),
+                angular_velocity_covariance=np.asarray(ang_vel_cov, dtype=np.float64),
+                linear_acceleration_covariance=np.asarray(
+                    lin_acc_cov, dtype=np.float64
+                ),
+            )
+
+        return None
+
+    @classmethod
     def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
@@ -736,7 +812,7 @@ class NMEASentenceAdapter(ROSAdapterBase[NMEASentence]):
 
         if resolved_rosmsg_type == "nmea_msgs/msg/Sentence":
             return RosSentence(
-                header=ms_header.to_ros(),
+                header=ms_header.to_ros(typestore),
                 sentence=nmea_sentence_data.sentence,
             )
 
@@ -872,7 +948,7 @@ class ImageAdapter(ROSAdapterBase[Image]):
 
         if resolved_rosmsg_type == "sensor_msgs/msg/Image":
             return RosImage(
-                header=ms_header.to_ros(),
+                header=ms_header.to_ros(typestore),
                 height=image_data.height,
                 width=image_data.width,
                 encoding=image_data.encoding,
@@ -996,7 +1072,7 @@ class CompressedImageAdapter(ROSAdapterBase[CompressedImage]):
 
         if resolved_rosmsg_type == "sensor_msgs/msg/CompressedImage":
             return RosCompressedImage(
-                header=ms_header.to_ros(),
+                header=ms_header.to_ros(typestore),
                 format=compressed_image_data.format,
                 data=np.frombuffer(compressed_image_data.data, dtype=np.uint8),
             )
@@ -1409,7 +1485,7 @@ class RobotJointAdapter(ROSAdapterBase[RobotJoint]):
 
         if resolved_rosmsg_type == "sensor_msgs/msg/JointState":
             return RosJointState(
-                header=ms_header.to_ros(),
+                header=ms_header.to_ros(typestore),
                 name=robot_joint_data.names,
                 position=np.asarray(robot_joint_data.positions, dtype=np.float64),
                 velocity=np.asarray(robot_joint_data.velocities, dtype=np.float64),
@@ -1625,7 +1701,7 @@ class PointCloudAdapterBase(ROSAdapterBase[PointCloudModel]):
             buffer[:, field_offset : field_offset + bytesize] = arr_bytes
 
         pointcloud = RosPointCloud2(
-            header=ms_header.to_ros(),
+            header=ms_header.to_ros(typestore),
             height=1,
             width=n_points,
             fields=point_fields,
@@ -1823,7 +1899,7 @@ class PointCloudAdapter(PointCloudAdapterBase[PointCloud2]):
         ]
 
         pose = RosPointCloud2(
-            header=ms_header.to_ros(),
+            header=ms_header.to_ros(typestore),
             height=pointcloud_data.height,
             width=pointcloud_data.width,
             fields=point_fields,

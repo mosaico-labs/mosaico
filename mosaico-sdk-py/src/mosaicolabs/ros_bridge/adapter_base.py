@@ -102,16 +102,11 @@ class ROSAdapterBase(ABC, Generic[T]):
         TODO
         """
         if isinstance(cls.ros_msgtype, str):
-            adapter_msgtypes = tuple(
-                cls.ros_msgtype,
-            )
-        else:
-            adapter_msgtypes = cls.ros_msgtype
+            return type_to_validate == cls.ros_msgtype
+        elif isinstance(cls.ros_msgtype, Tuple):
+            return type_to_validate in cls.ros_msgtype
 
-        if type_to_validate not in adapter_msgtypes:
-            return False
-
-        return True
+        return False
 
     # TODO: ask for correctness
     @classmethod
