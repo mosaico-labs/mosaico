@@ -13,6 +13,9 @@ use std::sync::Arc;
 use std::sync::Mutex;
 use tonic::service::interceptor;
 
+/// This lock prevents a race condition between releasing the TCP listener (used to find a
+/// free port) and binding the Apache Flight server to that port. Without it, a parallel
+/// test could grab the port in between, breaking the Flight bind and raising a TCPError.
 static PORT_LOCK: Mutex<()> = Mutex::new(());
 
 /// The local loopback address for testing.
@@ -32,66 +35,6 @@ pub fn format_endpoint(host: &str, port: u16, tls: bool) -> String {
         return format!("https://{host}:{port}");
     }
     format!("http://{host}:{port}")
-}
-
-async fn start_server(
-    host: &str,
-    database: db::testing::Database,
-    shutdown: ShutdownNotifier,
-    tls: Option<server::flight::TlsConfig>,
-    enable_api_key: bool,
-) -> (
-    tokio::task::JoinHandle<()>,
-    db::testing::Database,
-    store::testing::Store,
-    query::TimeseriesEngineRef,
-    u16,
-) {
-    // Ensure that params are loaded
-    params::load_params_from_env(params::ParamsLoadOptions::testing()).unwrap();
-
-    let store = store::testing::Store::new_random_on_tmp().unwrap();
-
-    let ts_gw = Arc::new(
-        query::TimeseriesEngine::try_new(
-            (*store).clone(),
-            params::params().query_engine_memory_pool_size.value,
-        )
-        .unwrap(),
-    );
-
-    let guard = PORT_LOCK.lock();
-
-    let port = {
-        let tcp_listner = TcpListener::bind(format!("{}:0", HOST)).unwrap();
-        tcp_listner.local_addr().unwrap().port()
-    };
-
-    let mut config = server::flight::Config::new(host.to_owned(), port);
-
-    if let Some(tls) = tls {
-        config.tls(tls);
-    }
-
-    if enable_api_key {
-        config.enable_api_key_management();
-    }
-
-    let store_clone = store.clone();
-    let db_clone = database.clone();
-    let handle = tokio::task::spawn(async move {
-        if let Err(err) = server::flight::start(config, store_clone, db_clone, Some(shutdown)).await
-        {
-            panic!("flight server error: {}", err);
-        }
-        println!("server stopped");
-    });
-
-    drop(guard);
-    // Wait a little to be sure that server port is bound
-    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-
-    (handle, database, store, ts_gw, port)
 }
 
 pub struct ServerBuilder {
@@ -135,16 +78,57 @@ impl ServerBuilder {
     }
 
     pub async fn build(self) -> Server {
-        let shutdown = ShutdownNotifier::default();
+        // Ensure that params are loaded
+        params::load_params_from_env(params::ParamsLoadOptions::testing()).unwrap();
 
-        let (server_join_handle, db, store, ts_gw, port) = start_server(
-            &self.host,
-            self.db,
-            shutdown.clone(),
-            self.tls,
-            self.enable_api_key,
-        )
-        .await;
+        let store = store::testing::Store::new_random_on_tmp().unwrap();
+
+        let ts_gw = Arc::new(
+            query::TimeseriesEngine::try_new(
+                (*store).clone(),
+                params::params().query_engine_memory_pool_size.value,
+            )
+            .unwrap(),
+        );
+
+        let _guard = PORT_LOCK.lock();
+
+        // Get a free port from the OS by binding a temporary TCP listener to port 0,
+        // then drop the listener so the port is released and available for the Apache Flight
+        // server to bind to.
+        let port = {
+            let tcp_listner = TcpListener::bind(format!("{}:0", HOST)).unwrap();
+            tcp_listner.local_addr().unwrap().port()
+        };
+
+        let mut config = server::flight::Config::new(self.host.to_owned(), port);
+
+        if let Some(tls) = self.tls {
+            config.tls(tls);
+        }
+
+        if self.enable_api_key {
+            config.enable_api_key_management();
+        }
+
+        let shutdown = ShutdownNotifier::default();
+        let db = self.db;
+
+        let server_join_handle = tokio::task::spawn({
+            let shutdown = shutdown.clone();
+            let store = store.clone();
+            let db = db.clone();
+
+            async move {
+                if let Err(err) = server::flight::start(config, store, db, Some(shutdown)).await {
+                    panic!("flight server error: {}", err);
+                }
+                println!("server stopped");
+            }
+        });
+
+        // Wait a little to be sure that server port is bound
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
 
         Server {
             server_join_handle,
