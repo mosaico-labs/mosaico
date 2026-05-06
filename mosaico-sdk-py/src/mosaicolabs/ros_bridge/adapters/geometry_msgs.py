@@ -544,6 +544,65 @@ class AccelAdapter(ROSAdapterBase[Acceleration]):
             )
 
     @classmethod
+    def to_ros(
+        cls,
+        mosaico_data: Union[Message, Acceleration],
+        typestore: Typestore,
+        input_ros_msg_type: Optional[str] = None,
+    ) -> "Optional[MsgType]":
+        """
+        TODO
+        """
+
+        # Resolve ROS message to translate Mosaico message to if not defined in input
+        resolved_rosmsg_type = input_ros_msg_type or cls.get_default_ros_msg()
+        if not cls.is_rosmsg_type_valid(resolved_rosmsg_type):
+            return None
+
+        # Checking presence in typestore of requested message
+        if typestore.types.get(resolved_rosmsg_type) is None:
+            return None
+
+        # Unpacking Mosaico message / type
+        accel_data, ms_header = cls.unpack_mosaico_msg(mosaico_data)
+
+        # Filling the data
+        RosAccel = typestore.types["geometry_msgs/msg/Accel"]
+        RosAccelStamped = typestore.types["geometry_msgs/msg/AccelStamped"]
+        RosAccelWithCovariance = typestore.types[
+            "geometry_msgs/msg/AccelWithCovariance"
+        ]
+        RosAccelWithCovarianceStamped = typestore.types[
+            "geometry_msgs/msg/AccelWithCovarianceStamped"
+        ]
+
+        accel = RosAccel(
+            linear=Vector3Adapter.to_ros(accel_data.linear, typestore),
+            angular=Vector3Adapter.to_ros(accel_data.angular, typestore),
+        )
+
+        # In case covariance is None, a flatted 6x6 full of zeros is provided
+        accel_covariance = accel_data.covariance or [0.0] * 36
+
+        if resolved_rosmsg_type == "geometry_msgs/msg/Accel":
+            return accel
+        elif resolved_rosmsg_type == "geometry_msgs/msg/AccelStamped":
+            return RosAccelStamped(accel=accel, header=ms_header.to_ros(typestore))
+        elif resolved_rosmsg_type == "geometry_msgs/msg/AccelWithCovariance":
+            return RosAccelWithCovariance(
+                accel=accel, covariance=np.asarray(accel_covariance, dtype=np.float64)
+            )
+        elif resolved_rosmsg_type == "geometry_msgs/msg/AccelWithCovarianceStamped":
+            accel_w_cov = RosAccelWithCovariance(
+                accel=accel, covariance=np.asarray(accel_covariance, dtype=np.float64)
+            )
+            return RosAccelWithCovarianceStamped(
+                accel=accel_w_cov, header=ms_header.to_ros(typestore)
+            )
+
+        return None
+
+    @classmethod
     def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
         return None
 
@@ -1265,6 +1324,45 @@ class WrenchAdapter(ROSAdapterBase[ForceTorque]):
             )
 
     @classmethod
+    def to_ros(
+        cls,
+        mosaico_data: Union[Message, ForceTorque],
+        typestore: Typestore,
+        input_ros_msg_type: Optional[str] = None,
+    ) -> "Optional[MsgType]":
+        """
+        TODO
+        """
+
+        # Resolve ROS message to translate Mosaico message to if not defined in input
+        resolved_rosmsg_type = input_ros_msg_type or cls.get_default_ros_msg()
+        if not cls.is_rosmsg_type_valid(resolved_rosmsg_type):
+            return None
+
+        # Checking presence in typestore of requested message
+        if typestore.types.get(resolved_rosmsg_type) is None:
+            return None
+
+        # Unpacking Mosaico message / type
+        force_torque_data, ms_header = cls.unpack_mosaico_msg(mosaico_data)
+
+        # Filling the data
+        RosWrench = typestore.types["geometry_msgs/msg/Wrench"]
+        RosWrenchStamped = typestore.types["geometry_msgs/msg/WrenchStamped"]
+
+        wrench = RosWrench(
+            force=Vector3Adapter.to_ros(force_torque_data.force, typestore),
+            torque=Vector3Adapter.to_ros(force_torque_data.torque, typestore),
+        )
+
+        if resolved_rosmsg_type == "geometry_msgs/msg/Wrench":
+            return wrench
+        elif resolved_rosmsg_type == "geometry_msgs/msg/WrenchStamped":
+            return RosWrenchStamped(wrench=wrench, header=ms_header.to_ros(typestore))
+
+        return None
+
+    @classmethod
     def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
         return None
 
@@ -1301,8 +1399,8 @@ class PolygonAdapter(ROSAdapterBase[Polygon]):
     """
 
     ros_msgtype: str | Tuple[str, ...] = (
-        "geometry_msgs/msg/PolygonStamped",
         "geometry_msgs/msg/Polygon",
+        "geometry_msgs/msg/PolygonStamped",
     )
 
     __mosaico_ontology_type__: Type[Polygon] = Polygon
@@ -1359,6 +1457,49 @@ class PolygonAdapter(ROSAdapterBase[Polygon]):
             points = [PointAdapter.from_dict(p) for p in ros_data["points"]]
 
             return Polygon(points=points)
+
+    @classmethod
+    def to_ros(
+        cls,
+        mosaico_data: Union[Message, Polygon],
+        typestore: Typestore,
+        input_ros_msg_type: Optional[str] = None,
+    ) -> "Optional[MsgType]":
+        """
+        TODO
+        """
+
+        # Resolve ROS message to translate Mosaico message to if not defined in input
+        resolved_rosmsg_type = input_ros_msg_type or cls.get_default_ros_msg()
+        if not cls.is_rosmsg_type_valid(resolved_rosmsg_type):
+            return None
+
+        # Checking presence in typestore of requested message
+        if typestore.types.get(resolved_rosmsg_type) is None:
+            return None
+
+        # Unpacking Mosaico message / type
+        polygon_data, ms_header = cls.unpack_mosaico_msg(mosaico_data)
+
+        # Filling the data
+        RosPolygon = typestore.types["geometry_msgs/msg/Polygon"]
+        RosPolygonStamped = typestore.types["geometry_msgs/msg/PolygonStamped"]
+
+        polygon = RosPolygon(
+            points=[
+                PointAdapter.to_ros(point3d, typestore)
+                for point3d in polygon_data.points
+            ],
+        )
+
+        if resolved_rosmsg_type == "geometry_msgs/msg/Polygon":
+            return polygon
+        elif resolved_rosmsg_type == "geometry_msgs/msg/PolygonStamped":
+            return RosPolygonStamped(
+                polygon=polygon, header=ms_header.to_ros(typestore)
+            )
+
+        return None
 
     @classmethod
     def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
