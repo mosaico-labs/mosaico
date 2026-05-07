@@ -1,0 +1,94 @@
+#!/bin/bash
+
+MOSAICOD_DIR="mosaicod"
+PY_DIR="mosaico-sdk-py"
+
+FILE_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+PROJECT_DIR=$(readlink -f "${FILE_DIR}/..")
+CARGO_PATH="${PROJECT_DIR}/${MOSAICOD_DIR}/Cargo.toml"
+PYPROJECT_PATH="${PROJECT_DIR}/${PY_DIR}/pyproject.toml"
+
+MINOR_REGEX="^[0-9]+\.[0-9]+$"
+
+show_help() {
+    cat << EOF
+Mosaico cut-release tool. Creates release branches from main for a given X.Y version.
+
+Usage: cut-release X.Y
+
+Arguments:
+    X.Y     Major.minor version to release (e.g. 0.7)
+EOF
+}
+
+if [[ "$1" == "--help" || "$1" == "-h" ]]; then
+    show_help
+    exit 0
+fi
+
+if [[ -z "$1" ]]; then
+    echo "Error: version argument required (e.g. 0.7)"
+    show_help
+    exit 1
+fi
+
+VERSION="$1"
+
+if [[ ! "$VERSION" =~ $MINOR_REGEX ]]; then
+    echo "Error: '$VERSION' is not a valid X.Y version."
+    exit 1
+fi
+
+# Must run from main
+CURRENT_BRANCH=$(git -C "$PROJECT_DIR" rev-parse --abbrev-ref HEAD)
+if [[ "$CURRENT_BRANCH" != "main" ]]; then
+    echo "Error: must be run from the 'main' branch (currently on '$CURRENT_BRANCH')."
+    exit 1
+fi
+
+# Fail early if there are uncommitted changes
+if ! git -C "$PROJECT_DIR" diff --quiet || ! git -C "$PROJECT_DIR" diff --cached --quiet; then
+    echo "Error: uncommitted changes detected. Please commit or stash them before cutting a release."
+    exit 1
+fi
+
+read_version() {
+    grep -m1 '^version = ' "$1" | sed 's/version = "\(.*\)"/\1/'
+}
+
+MOSAICOD_CURRENT=$(read_version "$CARGO_PATH")
+PY_CURRENT=$(read_version "$PYPROJECT_PATH")
+RC_VERSION="${VERSION}.0-rc"
+
+echo "Cutting release branches for v$VERSION"
+echo ""
+echo "  release/v$VERSION      mosaicod: $MOSAICOD_CURRENT → $RC_VERSION"
+echo "  release/py/v$VERSION   Python SDK: $PY_CURRENT → $RC_VERSION"
+echo "  release/doc/v$VERSION  (no version change)"
+echo ""
+read -r -p "Continue? [y/N] " confirm
+[[ ! "$confirm" =~ ^[yY]$ ]] && echo "Aborted." && exit 0
+
+# release/vX.Y — mosaicod
+git -C "$PROJECT_DIR" checkout -b "release/v$VERSION"
+sed -i "0,/^version = \".*\"/{s/^version = \".*\"/version = \"$RC_VERSION\"/}" "$CARGO_PATH"
+git -C "$PROJECT_DIR" add "$CARGO_PATH"
+git -C "$PROJECT_DIR" commit -m "Cut release branch for mosaicod v$VERSION (RC)"
+git -C "$PROJECT_DIR" checkout main
+
+# release/doc/vX.Y — documentation (branch only, no version change)
+git -C "$PROJECT_DIR" checkout -b "release/doc/v$VERSION"
+git -C "$PROJECT_DIR" checkout main
+
+# release/py/vX.Y — Python SDK
+git -C "$PROJECT_DIR" checkout -b "release/py/v$VERSION"
+sed -i.bak "s/^version = \".*\"/version = \"$RC_VERSION\"/" "$PYPROJECT_PATH" && rm -f "$PYPROJECT_PATH.bak"
+git -C "$PROJECT_DIR" add "$PYPROJECT_PATH"
+git -C "$PROJECT_DIR" commit -m "Cut release branch for mosaico Python SDK v$VERSION (RC)"
+git -C "$PROJECT_DIR" checkout main
+
+echo ""
+echo "Done. Branches created:"
+echo "  release/v$VERSION"
+echo "  release/doc/v$VERSION"
+echo "  release/py/v$VERSION"
