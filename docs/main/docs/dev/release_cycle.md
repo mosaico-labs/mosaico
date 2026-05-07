@@ -35,4 +35,6 @@ These tags are also used to generate prebuilt binaries, docker images and deploy
 | ---------- | ---------------------- |
 | Daemon        | `vX.Y.Z`            |
 | Python SDK    | `py/vX.Y.Z`         |
-| Documentation | `doc/vX.Y`          |
+| Documentation | `doc/vX.Y` (lightweight) |
+
+Documentation uses a lightweight tag because it is a rolling release branch — the tag is moved forward on each documentation update rather than pinning a specific commit.

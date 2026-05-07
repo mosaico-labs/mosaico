@@ -45,7 +45,7 @@ class SimpleImageClassification:
     confidence: MosaicoType.float32
 ```
 
-Any structure can be expressed this way. The full set of available types and how to define your own models is covered in the [Ontology Models](https://docs.mosaico.dev/SDK/ontology) reference.
+Any structure can be expressed this way. The full set of available types and how to define your own models is covered in the [Ontology Models](https://docs.mosaico.dev/sdk/SDK/ontology/) reference.
 
 ### Topics and Sequences
 
@@ -73,4 +73,4 @@ The ontology is what makes this possible. Instead of preserving the identity of 
 
 The deeper motivation behind this architecture is the shift from classical robotics to Physical AI. Classical robotic pipelines are event-driven: sensors fire asynchronously at different rates a Lidar at 10Hz, an IMU at 100Hz, a camera at 30Hz and the resulting streams drift relative to one another, stored in files that are hard to align after the fact. Physical AI models have the opposite requirements: they expect synchronous, dense, tabular input, fixed-size tensors at a constant frequency, such as a batch of state vectors at exactly 50Hz.
 
-Bridging that gap by hand is tedious and error-prone. Mosaico's [ML module](https://docs.mosaico.dev/SDK/bridges/ml) automates it entirely. It ingests raw, unsynchronized sensor data and transforms it on the fly into the aligned, flattened formats that training pipelines expect, eliminating both the intermediate files and the brittle preprocessing scripts that would otherwise generate them.
+Bridging that gap by hand is tedious and error-prone. Mosaico's [ML module](https://docs.mosaico.dev/sdk/SDK/bridges/ml/) automates it entirely. It ingests raw, unsynchronized sensor data and transforms it on the fly into the aligned, flattened formats that training pipelines expect, eliminating both the intermediate files and the brittle preprocessing scripts that would otherwise generate them.

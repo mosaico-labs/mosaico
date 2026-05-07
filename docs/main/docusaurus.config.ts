@@ -108,7 +108,7 @@ const config: Config = {
           position: 'left'
         },
         {
-          href: 'https://github.com/facebook/docusaurus',
+          href: 'https://github.com/mosaico-labs/mosaico',
           label: 'GitHub',
           position: 'right',
         },

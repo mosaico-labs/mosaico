@@ -19,7 +19,7 @@ Install it via `pip`:
 pip install mosaicolabs
 ```
 
-See the [Python SDK documentation](https://docs.mosaico.dev/sdk) for the full reference, or jump straight into the how-to guides on [writing data](https://docs.mosaico.dev/sdk/howto/serialized_writing_from_csv) and [querying sequences](https://docs.mosaico.dev/sdk/howto/query_sequences).
+See the [Python SDK documentation](https://docs.mosaico.dev/sdk) for the full reference, or jump straight into the how-to guides on [writing data](https://docs.mosaico.dev/sdk/SDK/howto/serialized_writing_from_csv/) and [querying sequences](https://docs.mosaico.dev/sdk/SDK/howto/query_sequences/).
 
 ## LLM-Friendly Docs
 
