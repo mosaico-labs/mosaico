@@ -1349,6 +1349,58 @@ class BatteryStateAdapter(ROSAdapterBase[BatteryState]):
         )
 
     @classmethod
+    def to_ros(
+        cls,
+        mosaico_data: Union[Message, BatteryState],
+        typestore: Typestore,
+        input_ros_msg_type: Optional[str] = None,
+    ) -> "Optional[MsgType]":
+        """
+        TODO
+        """
+
+        # Resolve ROS message to translate Mosaico message to if not defined in input
+        resolved_rosmsg_type = input_ros_msg_type or cls.get_default_ros_msg()
+        if not cls.is_rosmsg_type_valid(resolved_rosmsg_type):
+            return None
+
+        # Checking presence in typestore of requested message
+        if typestore.types.get(resolved_rosmsg_type) is None:
+            return None
+
+        # Unpacking Mosaico message / type
+        battery_state_data, header = cls.unpack_mosaico_msg(mosaico_data)
+
+        # Filling the data
+        RosBatteryState = typestore.types["sensor_msgs/msg/BatteryState"]
+
+        if resolved_rosmsg_type == "sensor_msgs/msg/BatteryState":
+            return RosBatteryState(
+                header=header.to_ros(typestore),
+                voltage=battery_state_data.voltage,
+                temperature=battery_state_data.temperature,
+                current=battery_state_data.current,
+                charge=battery_state_data.charge,
+                capacity=battery_state_data.capacity,
+                design_capacity=battery_state_data.design_capacity,
+                percentage=battery_state_data.percentage,
+                power_supply_status=battery_state_data.power_supply_status,
+                power_supply_health=battery_state_data.power_supply_health,
+                power_supply_technology=battery_state_data.power_supply_technology,
+                present=battery_state_data.present,
+                cell_voltage=np.asarray(
+                    battery_state_data.cell_voltage, dtype=np.float32
+                ),
+                cell_temperature=np.asarray(
+                    battery_state_data.cell_temperature, dtype=np.float32
+                ),
+                location=battery_state_data.location,
+                serial_number=battery_state_data.serial_number,
+            )
+
+        return None
+
+    @classmethod
     def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
