@@ -46,6 +46,8 @@
   --ifm-font-family-monospace: 'JetBrains Mono', monospace;
 
   --docsearch-highlight-color: rgb(var(--mosaico-color-blue));
+  --docsearch-hit-background: var(--mosaico-background);
+  --docsearch-hit-highlight-color: rgba(255, 255, 255, 0.05);
   --docsearch-subtle-color: var(--mosaico-border-color);
   --docsearch-modal-background: var(--mosaico-background);
   --docsearch-icon-color: white;
