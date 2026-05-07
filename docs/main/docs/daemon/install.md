@@ -5,7 +5,7 @@ sidebar_position: 2
 
 ## Precompiled Binaries
 
-Precompiled binaries for `mosaicod` are available for several platforms and can be downloaded directly from the [GitHub Releases page](https://github.com/mosaico-labs/mosaico/releases). 
+Precompiled binaries for `mosaicod` are available for several platforms and can be downloaded directly from the [GitHub Releases page](https://github.com/mosaico-labs/mosaico/releases).
 
 ## Running with Containers
 
@@ -159,4 +159,51 @@ export MOSAICOD_STORE_BUCKET=bucket-name
 ```
 
 and run `mosaicod run`.
+
+## Advanced
+
+### Bare Metal Deployment
+
+When running `mosaicod` on a bare metal server, a few tuning knobs can significantly improve resource efficiency and network throughput.
+
+#### Limit Tokio Worker Threads
+
+By default, the async runtime used by `mosaicod` spawns one worker thread per logical CPU core. On machines with many cores but limited memory, this can lead to excessive memory usage and unnecessary thread scheduling overhead. Use `TOKIO_WORKER_THREADS` to cap the thread pool to a number appropriate for your workload:
+
+```sh
+export TOKIO_WORKER_THREADS=8
+```
+
+Start with the number of physical cores and adjust based on observed CPU utilisation.
+
+#### Tune Allocator Memory Release
+
+`mosaicod` uses [mimalloc](https://github.com/microsoft/mimalloc) as its allocator. By default, mimalloc defers returning freed memory pages to the OS for several seconds. On a long-running server this can make resident memory appear higher than the actual working set. Set the following variables to release pages back to the OS immediately after they are freed:
+
+```bash
+export MIMALLOC_PURGE_DELAY=0
+export MIMALLOC_PURGE_DECOMMITS=1
+```
+
+#### Enable BBR Congestion Control
+
+On high-throughput bare metal servers, switching the TCP congestion control algorithm from the [default](https://en.wikipedia.org/wiki/CUBIC_TCP) (`cubic`) to [BBR](https://www.ietf.org/archive/id/draft-cardwell-iccrg-bbr-congestion-control-01.html) reduces latency and improves throughput, especially under load. BBR measures actual bottleneck bandwidth instead of reacting to packet loss, so it keeps the link fully utilised without overfilling buffers, this matters most when streaming large payloads over high-latency or mildly lossy connections. Run the following commands as root to enable it system-wide:
+
+```shell
+# Load the BBR kernel module
+modprobe tcp_bbr
+
+# Set BBR as the active congestion control algorithm
+sysctl -w net.ipv4.tcp_congestion_control=bbr
+
+# Enable the FQ packet scheduler, which BBR requires
+sysctl -w net.core.default_qdisc=fq
+```
+
+To make the settings persistent across reboots, add them to `/etc/sysctl.d/99-bbr.conf`:
+
+```ini title="/etc/sysctl.d/99-bbr.conf"
+net.core.default_qdisc=fq
+net.ipv4.tcp_congestion_control=bbr
+```
 

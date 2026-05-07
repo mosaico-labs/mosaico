@@ -129,6 +129,7 @@ const config: Config = {
       copyright: `© ${new Date().getFullYear()} Mosaico. All your base are belong to us.`,
     },
     prism: {
+      additionalLanguages: ['bash'],
       theme: prismThemes.palenight,
       darkTheme: prismThemes.vsDark,
     },

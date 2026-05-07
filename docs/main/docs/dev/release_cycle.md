@@ -5,36 +5,84 @@ position: 1
 
 ## Monorepo
 
-Mosaico utilizes a monorepo structure to simplify integration and testing between `mosaicod` daemon and the SDK.
-While these components reside in the same repository, they are decoupled: each component maintains its own release schedule and both follow [semantic versioning](https://semver.org).
+Mosaico uses a monorepo to keep `mosaicod` and the SDK in sync.
+Both components live in the same repository but are independently versioned and released, each following [semantic versioning](https://semver.org) on its own schedule.
 
-## Development workflow
 
-The development workflow relies on a specific set of branches and tags to manage stability and feature development.
+## Branches
 
-- `main`: the primary integration branch. All features and fixes land here. The version on `main` is always a development snapshot, suffixed with `-dev` (e.g. `v0.7.0-dev`).
-- `issue/<num>`: feature or bug-fix branches linked to a specific GitHub issue. Branched from *main* and merged back via pull request upon completion.
-- `release/[py|doc]/vX.Y`: release and maintenance branches. Created from `main` when a release cycle begins, or from an existing version tag when a critical hotfix is required for an older release. For example: `release/v0.7` for the daemon, `release/py/v0.7` for the Python SDK, `release/doc/v0.7` for the documentation.
+The repository uses a small, deliberate set of branch types.
+Understanding their purpose is the key to understanding how work flows from idea to release.
+
+### `main`
+
+The central integration branch. **All finished work lands here.**
+
+- Every feature and bug-fix branch is opened from `main` and merged back via pull request.
+- The version on `main` is always a `-dev` snapshot (e.g. `v0.7.0-dev`), reflecting work-in-progress toward the *next* release.
+- `main` should always be in a buildable and testable state, but it is never directly released.
+
+### `issue/<num>`
+
+Short-lived branches for a single feature or bug fix, linked to a GitHub issue.
+
+- Always branched from `main`.
+- Merged back into `main` via pull request once the work is reviewed and approved.
+- Deleted after merging.
+
+### `release/[py|doc]/vX.Y`
+
+Stabilization and maintenance branches for a specific release.
+
+- **Created from `main`** when enough changes have accumulated to warrant a new release.
+- Once cut, the release branch is isolated from ongoing development on `main` — only targeted fixes are backported into it.
+- A single `release/vX.Y` branch covers the full `vX.Y.*` patch series for the daemon. The Python SDK and documentation have their own parallel branches: `release/py/vX.Y` and `release/doc/vX.Y`.
+- If a critical fix is needed for an older version that is no longer on `main`, the release branch is re-opened from the relevant version tag.
+
+---
 
 ## Release process
 
-Releases follow a structured cycle designed to keep `main` always in a releasable state while allowing stabilization work to happen in isolation.
+The release cycle is designed to keep `main` always moving forward while stabilization work happens in isolation on a dedicated branch.
 
-**Opening a release branch.** When enough changes have accumulated on `main` to warrant a new release, a `release/vX.Y` branch is cut. At that point, two version bumps happen simultaneously: the version on `main` is incremented to `vX.(Y+1).0-dev`, opening the next development cycle, while the release branch is set to `vX.Y.0-rc`, marking the start of the stabilization phase.
+### 1. Cut the release branch
 
-**Release candidates.** Every commit on the release branch automatically produces a Docker image. Two tags are published for each build: a floating `vX.Y.Z-rc` tag pointing to the latest candidate, and a fixed short-SHA tag (e.g. `vX.Y.Z-rc-abc1234`) that permanently identifies that specific build. This makes it possible to pin a deployment to any particular candidate for testing or rollback.
+When `main` is ready for a new release, a `release/vX.Y` branch is created from it.
+At that moment two version bumps happen simultaneously:
 
-**Promoting to stable.** Once a release candidate is ready, the version is changed to `vX.Y.Z` and the commit is tagged. This tag triggers the CI/CD pipeline to produce the final release artifacts: prebuilt binaries, stable Docker images, and a documentation deployment.
+- **On `main`**: the version advances to `vX.(Y+1).0-dev`, opening the next development cycle immediately.
+- **On the release branch**: the version is set to `vX.Y.0-rc`, marking the start of stabilization.
+
+From this point forward, `main` and the release branch diverge. New features continue to land on `main` while the release branch receives only bug fixes and stability improvements.
+
+### 2. Release candidates
+
+Every commit on the release branch automatically produces a Docker image with two tags:
+
+- A **floating tag** (`vX.Y.Z-rc`) that always points to the latest candidate.
+- A **fixed short-SHA tag** (e.g. `vX.Y.Z-rc-abc1234`) that permanently identifies that exact build.
+
+The fixed tag makes it possible to pin a deployment to a specific candidate for validation or rollback.
+
+### 3. Promote to stable
+
+When the release candidate is considered ready, the version string is changed from `vX.Y.Z-rc` to `vX.Y.Z` and the commit is tagged.
+This tag is the trigger for the CI/CD pipeline to produce the final release artifacts: prebuilt binaries, stable Docker images, and a documentation deployment.
+
+### 4. Patch releases
+
+If a bug is found after a stable release, fixes are committed directly to the `release/vX.Y` branch (or backported from `main`), the patch version is incremented, and the process repeats from step 2.
+
+---
 
 ## Tags
 
-We use specific tag prefixes to trigger CI/CD pipelines and distinguish between *stable releases* of the daemon, SDK and documentation.
-These tags are also used to generate prebuilt binaries, docker images and deployements.
+Tags are the mechanism that triggers CI/CD and distinguishes stable releases across components.
 
-| Component  | Tag                    |
-| ---------- | ---------------------- |
-| Daemon        | `vX.Y.Z`            |
-| Python SDK    | `py/vX.Y.Z`         |
-| Documentation | `doc/vX.Y` (lightweight) |
+| Component     | Tag format               | Notes                                                                 |
+| ------------- | ------------------------ | --------------------------------------------------------------------- |
+| Daemon        | `vX.Y.Z`                 | Triggers binary and Docker image builds                               |
+| Python SDK    | `py/vX.Y.Z`              | Triggers PyPI publish and SDK artifacts                               |
+| Documentation | `doc/vX.Y` (lightweight) | Moved forward on each doc update; triggers a documentation deployment |
 
-Documentation uses a lightweight tag because it is a rolling release branch — the tag is moved forward on each documentation update rather than pinning a specific commit.
+Documentation uses a lightweight (non-annotated) tag because it is a rolling release, the tag is advanced with each update rather than pinning a specific commit.
