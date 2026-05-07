@@ -1685,6 +1685,66 @@ class PointCloudAdapterBase(ROSAdapterBase[PointCloudModel]):
         return {name: arr.tolist() for name, arr in result.items()}
 
     @classmethod
+    def encode(cls, pcl_model: dict[str, list]) -> dict:
+        """
+        TODO
+        """
+
+        is_bigendian = sys.byteorder == "big"
+        out: dict = {
+            "height": 1,
+            "width": None,
+            "fields": [],
+            "is_bigendian": is_bigendian,
+            "point_step": None,
+            "row_step": None,
+            "data": None,
+            "is_dense": True,
+        }
+
+        pcl_field_names = pcl_model.keys()
+        pcl_field_values = pcl_model.values()
+
+        n_points = len(next(iter(pcl_field_values)))
+        out["width"] = n_points
+
+        # Dictionary necessary to later setup the points as np.array structure
+        point_field_dict: dict = {"names": [], "formats": [], "offsets": []}
+
+        offset = 0
+        for field_name in pcl_field_names:
+            pa_datatype = cls._extract_pa_list_type(field_name)
+            np_type = pa_datatype.value_type.to_pandas_dtype()
+
+            point_field_dict["names"].append(field_name)
+            point_field_dict["formats"].append(np_type)
+            point_field_dict["offsets"].append(offset)
+
+            bytesize, pf_datatype = cls._TO_POINTCLOUD_MAP[np_type]
+
+            out["fields"].append(
+                {
+                    "name": field_name,
+                    "offset": offset,
+                    "datatype": pf_datatype,
+                    "count": 1,
+                }
+            )
+
+            offset += bytesize
+        out["point_step"] = offset
+        out["row_step"] = offset * n_points  # Only 1 row
+
+        endian_prefix = ">" if is_bigendian else "<"
+        dtype = np.dtype(point_field_dict).newbyteorder(endian_prefix)
+
+        points = list(zip(*pcl_field_values))
+        buffer = np.array(points, dtype=dtype).view(np.uint8)
+        out["data"] = buffer
+
+        return out
+
+    @classmethod
     def to_ros(
         cls,
         mosaico_data: Union[Message, PointCloudModel],
@@ -1713,56 +1773,18 @@ class PointCloudAdapterBase(ROSAdapterBase[PointCloudModel]):
 
         # Exclude None fields; they won't appear in the PointCloud2 fields list.
         model = pcl_data.model_dump(exclude_none=True)
-
-        n_points = len(next(iter(model.values())))
-        field_arrays: list[
-            tuple[int, int, np.ndarray]
-        ] = []  # (offset, bytesize, array)
-
-        point_fields = []
-        offset = 0
-        is_bigendian = sys.byteorder == "big"
-
-        for field_name, field_values in model.items():
-            pa_datatype = cls._extract_pa_list_type(field_name)
-            np_type = pa_datatype.value_type.to_pandas_dtype()
-            bytesize, pf_datatype = cls._TO_POINTCLOUD_MAP[np_type]
-
-            point_fields.append(
-                RosPointField(
-                    name=field_name,
-                    offset=offset,
-                    datatype=pf_datatype,
-                    count=1,
-                )
-            )
-
-            endian_prefix = ">" if is_bigendian else "<"
-            dtype = np.dtype(np_type).newbyteorder(endian_prefix)
-
-            field_arrays.append((offset, bytesize, np.array(field_values, dtype=dtype)))
-
-            offset += bytesize
-
-        point_step = offset
-
-        # Build the interleaved binary buffer (n_points × point_step bytes).
-        buffer = np.zeros((n_points, point_step), dtype=np.uint8)
-        for field_offset, bytesize, arr in field_arrays:
-            arr_bytes = arr.view(np.uint8).reshape(n_points, bytesize)
-            buffer[:, field_offset : field_offset + bytesize] = arr_bytes
+        pcl_dict = cls.encode(model)
 
         pointcloud = RosPointCloud2(
             header=ms_header.to_ros(typestore),
-            height=1,
-            width=n_points,
-            fields=point_fields,
-            is_bigendian=is_bigendian,
-            point_step=point_step,
-            row_step=point_step
-            * n_points,  # Since it is not organised. it is the size of the whole pointcloud
-            data=buffer.flatten(),  # np.ndarray[tuple[int, ...], np.dtype[np.uint8]]
-            is_dense=True,
+            height=pcl_dict["height"],
+            width=pcl_dict["width"],
+            fields=[RosPointField(**field) for field in pcl_dict["fields"]],
+            is_bigendian=pcl_dict["is_bigendian"],
+            point_step=pcl_dict["point_step"],
+            row_step=pcl_dict["row_step"],
+            data=pcl_dict["data"],
+            is_dense=pcl_dict["is_dense"],
         )
 
         if resolved_rosmsg_type == "sensor_msgs/msg/PointCloud2":
