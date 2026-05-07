@@ -11,13 +11,11 @@ use tests::{self, actions, common};
 // ===========================================================================
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_sequence_create(pool: sqlx::Pool<db::DatabaseType>) -> sqlx::Result<()> {
-    let port = common::random_port();
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
 
-    let server = common::ServerBuilder::new(common::HOST, port, pool)
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
         .build()
         .await;
-
-    let mut client = common::ClientBuilder::new(common::HOST, port).build().await;
 
     actions::sequence_create(&mut client, "test_sequence", None)
         .await
@@ -45,13 +43,11 @@ async fn test_sequence_create(pool: sqlx::Pool<db::DatabaseType>) -> sqlx::Resul
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_sequence_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
-    let port = common::random_port();
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
 
-    let server = common::ServerBuilder::new(common::HOST, port, pool)
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
         .build()
         .await;
-
-    let mut client = common::ClientBuilder::new(common::HOST, port).build().await;
 
     let sequence_name = "test_sequence";
 
@@ -191,13 +187,11 @@ async fn test_sequence_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_sequence_delete(pool: sqlx::Pool<db::DatabaseType>) {
-    let port = common::random_port();
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
 
-    let server = common::ServerBuilder::new(common::HOST, port, pool)
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
         .build()
         .await;
-
-    let mut client = common::ClientBuilder::new(common::HOST, port).build().await;
 
     let sequence_name = "test_sequence";
     let topic_name = &format!("{}/my_topic", sequence_name);
@@ -248,13 +242,11 @@ async fn test_sequence_delete(pool: sqlx::Pool<db::DatabaseType>) {
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_sequence_notification_create(pool: sqlx::Pool<db::DatabaseType>) {
-    let port: u16 = common::random_port();
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
 
-    let server = common::ServerBuilder::new(common::HOST, port, pool)
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
         .build()
         .await;
-
-    let mut client = common::ClientBuilder::new(common::HOST, port).build().await;
 
     let sequence_name = "test_sequence_notification_create";
     actions::sequence_create(&mut client, sequence_name, None)
@@ -275,13 +267,11 @@ async fn test_sequence_notification_create(pool: sqlx::Pool<db::DatabaseType>) {
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_sequence_notification_list(pool: sqlx::Pool<db::DatabaseType>) {
-    let port: u16 = common::random_port();
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
 
-    let server = common::ServerBuilder::new(common::HOST, port, pool)
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
         .build()
         .await;
-
-    let mut client = common::ClientBuilder::new(common::HOST, port).build().await;
 
     let sequence_name = "test_sequence_notification_list";
     let notifications_size = 5;
@@ -314,13 +304,11 @@ async fn test_sequence_notification_list(pool: sqlx::Pool<db::DatabaseType>) {
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_sequence_notification_purge(pool: sqlx::Pool<db::DatabaseType>) {
-    let port: u16 = common::random_port();
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
 
-    let server = common::ServerBuilder::new(common::HOST, port, pool)
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
         .build()
         .await;
-
-    let mut client = common::ClientBuilder::new(common::HOST, port).build().await;
 
     let sequence_name = "test_sequence_notification_purge";
     let notification_type = types::NotificationType::Error.to_string();
@@ -351,11 +339,10 @@ async fn test_sequence_notification_purge(pool: sqlx::Pool<db::DatabaseType>) {
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_sequence_delete_with_active_session(pool: sqlx::Pool<db::DatabaseType>) {
-    let port = common::random_port();
-    let server = common::ServerBuilder::new(common::HOST, port, pool)
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
         .build()
         .await;
-    let mut client = common::ClientBuilder::new(common::HOST, port).build().await;
 
     let sequence_name = "test_sequence";
     actions::sequence_create(&mut client, sequence_name, None)
@@ -377,11 +364,10 @@ async fn test_sequence_delete_with_active_session(pool: sqlx::Pool<db::DatabaseT
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_sequence_delete_cascades(pool: sqlx::Pool<db::DatabaseType>) {
-    let port = common::random_port();
-    let server = common::ServerBuilder::new(common::HOST, port, pool)
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
         .build()
         .await;
-    let mut client = common::ClientBuilder::new(common::HOST, port).build().await;
 
     let sequence_name = "test_sequence";
     let topic_name = &format!("{}/my_topic", sequence_name);
@@ -422,11 +408,10 @@ async fn test_sequence_delete_cascades(pool: sqlx::Pool<db::DatabaseType>) {
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_sequence_notification_create_nonexistent(pool: sqlx::Pool<db::DatabaseType>) {
-    let port = common::random_port();
-    let server = common::ServerBuilder::new(common::HOST, port, pool)
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
         .build()
         .await;
-    let mut client = common::ClientBuilder::new(common::HOST, port).build().await;
 
     let res = actions::sequence_notification_create(
         &mut client,
@@ -442,11 +427,10 @@ async fn test_sequence_notification_create_nonexistent(pool: sqlx::Pool<db::Data
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_sequence_notification_list_empty(pool: sqlx::Pool<db::DatabaseType>) {
-    let port = common::random_port();
-    let server = common::ServerBuilder::new(common::HOST, port, pool)
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
         .build()
         .await;
-    let mut client = common::ClientBuilder::new(common::HOST, port).build().await;
 
     let sequence_name = "test_sequence";
     actions::sequence_create(&mut client, sequence_name, None)
@@ -464,11 +448,10 @@ async fn test_sequence_notification_list_empty(pool: sqlx::Pool<db::DatabaseType
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_sequence_notification_list_nonexistent(pool: sqlx::Pool<db::DatabaseType>) {
-    let port = common::random_port();
-    let server = common::ServerBuilder::new(common::HOST, port, pool)
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
         .build()
         .await;
-    let mut client = common::ClientBuilder::new(common::HOST, port).build().await;
 
     let res = actions::sequence_notification_list(&mut client, "ghost_sequence").await;
     assert_eq!(res.unwrap_err().code(), tonic::Code::NotFound);
@@ -478,11 +461,10 @@ async fn test_sequence_notification_list_nonexistent(pool: sqlx::Pool<db::Databa
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_sequence_notification_invalid_type(pool: sqlx::Pool<db::DatabaseType>) {
-    let port = common::random_port();
-    let server = common::ServerBuilder::new(common::HOST, port, pool)
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
         .build()
         .await;
-    let mut client = common::ClientBuilder::new(common::HOST, port).build().await;
 
     let sequence_name = "test_sequence";
     actions::sequence_create(&mut client, sequence_name, None)
@@ -503,11 +485,10 @@ async fn test_sequence_notification_invalid_type(pool: sqlx::Pool<db::DatabaseTy
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_sequence_notification_purge_empty(pool: sqlx::Pool<db::DatabaseType>) {
-    let port = common::random_port();
-    let server = common::ServerBuilder::new(common::HOST, port, pool)
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
         .build()
         .await;
-    let mut client = common::ClientBuilder::new(common::HOST, port).build().await;
 
     let sequence_name = "test_sequence";
     actions::sequence_create(&mut client, sequence_name, None)
@@ -523,11 +504,10 @@ async fn test_sequence_notification_purge_empty(pool: sqlx::Pool<db::DatabaseTyp
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_sequence_create_empty_name(pool: sqlx::Pool<db::DatabaseType>) {
-    let port = common::random_port();
-    let server = common::ServerBuilder::new(common::HOST, port, pool)
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
         .build()
         .await;
-    let mut client = common::ClientBuilder::new(common::HOST, port).build().await;
 
     let res = actions::sequence_create(&mut client, "", None).await;
     assert_eq!(res.unwrap_err().code(), tonic::Code::InvalidArgument);
@@ -537,11 +517,10 @@ async fn test_sequence_create_empty_name(pool: sqlx::Pool<db::DatabaseType>) {
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_sequence_create_invalid_chars(pool: sqlx::Pool<db::DatabaseType>) {
-    let port = common::random_port();
-    let server = common::ServerBuilder::new(common::HOST, port, pool)
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
         .build()
         .await;
-    let mut client = common::ClientBuilder::new(common::HOST, port).build().await;
 
     let bad_names = [
         "with space",
@@ -577,11 +556,10 @@ async fn test_sequence_create_invalid_chars(pool: sqlx::Pool<db::DatabaseType>) 
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_sequence_create_very_long_name(pool: sqlx::Pool<db::DatabaseType>) {
-    let port = common::random_port();
-    let server = common::ServerBuilder::new(common::HOST, port, pool)
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
         .build()
         .await;
-    let mut client = common::ClientBuilder::new(common::HOST, port).build().await;
 
     let long_name = "a".repeat(10_000);
     let res = actions::sequence_create(&mut client, &long_name, None).await;
@@ -603,13 +581,11 @@ async fn test_sequence_create_very_long_name(pool: sqlx::Pool<db::DatabaseType>)
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_topic_create(pool: sqlx::Pool<db::DatabaseType>) -> sqlx::Result<()> {
-    let port = common::random_port();
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
 
-    let server = common::ServerBuilder::new(common::HOST, port, pool)
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
         .build()
         .await;
-
-    let mut client = common::ClientBuilder::new(common::HOST, port).build().await;
 
     let sequence_name = "test_sequence";
 
@@ -694,11 +670,10 @@ async fn test_topic_create(pool: sqlx::Pool<db::DatabaseType>) -> sqlx::Result<(
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_topic_create_invalid_format(pool: sqlx::Pool<db::DatabaseType>) {
-    let port = common::random_port();
-    let server = common::ServerBuilder::new(common::HOST, port, pool)
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
         .build()
         .await;
-    let mut client = common::ClientBuilder::new(common::HOST, port).build().await;
 
     let sequence_name = "test_sequence";
     actions::sequence_create(&mut client, sequence_name, None)
@@ -737,13 +712,11 @@ async fn test_topic_create_invalid_format(pool: sqlx::Pool<db::DatabaseType>) {
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_topic_delete(pool: sqlx::Pool<db::DatabaseType>) -> sqlx::Result<()> {
-    let port: u16 = common::random_port();
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
 
-    let server = common::ServerBuilder::new(common::HOST, port, pool)
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
         .build()
         .await;
-
-    let mut client = common::ClientBuilder::new(common::HOST, port).build().await;
 
     let sequence_name = "test_sequence";
     let topic_name = &format!("{}/my_topic", sequence_name);
@@ -784,13 +757,11 @@ async fn test_topic_delete(pool: sqlx::Pool<db::DatabaseType>) -> sqlx::Result<(
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_topic_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
-    let port = common::random_port();
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
 
-    let server = common::ServerBuilder::new(common::HOST, port, pool)
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
         .build()
         .await;
-
-    let mut client = common::ClientBuilder::new(common::HOST, port).build().await;
 
     let sequence_name = "test_sequence";
 
@@ -920,13 +891,11 @@ async fn test_topic_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_topic_notification_create(pool: sqlx::Pool<db::DatabaseType>) {
-    let port = common::random_port();
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
 
-    let server = common::ServerBuilder::new(common::HOST, port, pool)
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
         .build()
         .await;
-
-    let mut client = common::ClientBuilder::new(common::HOST, port).build().await;
 
     let sequence_name = "test_sequence_topic_notification_create";
     let topic_name = &format!("{}/my_topic", sequence_name);
@@ -965,13 +934,11 @@ async fn test_topic_notification_create(pool: sqlx::Pool<db::DatabaseType>) {
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_topic_notification_list(pool: sqlx::Pool<db::DatabaseType>) {
-    let port: u16 = common::random_port();
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
 
-    let server = common::ServerBuilder::new(common::HOST, port, pool)
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
         .build()
         .await;
-
-    let mut client = common::ClientBuilder::new(common::HOST, port).build().await;
     let sequence_name = "test_sequence_topic_notification_create";
     let topic_name = &format!("{}/my_topic", sequence_name);
     let notification_type = types::NotificationType::Error.to_string();
@@ -1005,13 +972,11 @@ async fn test_topic_notification_list(pool: sqlx::Pool<db::DatabaseType>) {
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_topic_notification_purge(pool: sqlx::Pool<db::DatabaseType>) {
-    let port: u16 = common::random_port();
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
 
-    let server = common::ServerBuilder::new(common::HOST, port, pool)
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
         .build()
         .await;
-
-    let mut client = common::ClientBuilder::new(common::HOST, port).build().await;
     let sequence_name = "test_sequence_topic_notification_create";
     let topic_name = &format!("{}/my_topic", sequence_name);
     let notification_type = types::NotificationType::Error.to_string();
@@ -1041,11 +1006,10 @@ async fn test_topic_notification_purge(pool: sqlx::Pool<db::DatabaseType>) {
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_topic_notification_create_nonexistent(pool: sqlx::Pool<db::DatabaseType>) {
-    let port = common::random_port();
-    let server = common::ServerBuilder::new(common::HOST, port, pool)
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
         .build()
         .await;
-    let mut client = common::ClientBuilder::new(common::HOST, port).build().await;
 
     let sequence_name = "test_sequence";
     actions::sequence_create(&mut client, sequence_name, None)
@@ -1066,11 +1030,10 @@ async fn test_topic_notification_create_nonexistent(pool: sqlx::Pool<db::Databas
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_topic_notification_list_empty(pool: sqlx::Pool<db::DatabaseType>) {
-    let port = common::random_port();
-    let server = common::ServerBuilder::new(common::HOST, port, pool)
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
         .build()
         .await;
-    let mut client = common::ClientBuilder::new(common::HOST, port).build().await;
 
     let sequence_name = "test_sequence";
     let topic_name = &format!("{}/my_topic", sequence_name);
@@ -1103,11 +1066,10 @@ async fn test_topic_notification_list_empty(pool: sqlx::Pool<db::DatabaseType>) 
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_topic_delete_nonexistent(pool: sqlx::Pool<db::DatabaseType>) {
-    let port = common::random_port();
-    let server = common::ServerBuilder::new(common::HOST, port, pool)
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
         .build()
         .await;
-    let mut client = common::ClientBuilder::new(common::HOST, port).build().await;
 
     let sequence_name = "test_sequence";
     actions::sequence_create(&mut client, sequence_name, None)
@@ -1125,11 +1087,10 @@ async fn test_topic_delete_nonexistent(pool: sqlx::Pool<db::DatabaseType>) {
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_topic_delete_unlocked(pool: sqlx::Pool<db::DatabaseType>) {
-    let port = common::random_port();
-    let server = common::ServerBuilder::new(common::HOST, port, pool)
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
         .build()
         .await;
-    let mut client = common::ClientBuilder::new(common::HOST, port).build().await;
 
     let sequence_name = "test_sequence";
     let topic_name = &format!("{}/unlocked_topic", sequence_name);
@@ -1160,13 +1121,11 @@ async fn test_topic_delete_unlocked(pool: sqlx::Pool<db::DatabaseType>) {
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_session_create(pool: sqlx::Pool<db::DatabaseType>) -> sqlx::Result<()> {
-    let port = common::random_port();
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
 
-    let server = common::ServerBuilder::new(common::HOST, port, pool)
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
         .build()
         .await;
-
-    let mut client = common::ClientBuilder::new(common::HOST, port).build().await;
 
     let sequence_name = "test_sequence";
 
@@ -1184,13 +1143,11 @@ async fn test_session_create(pool: sqlx::Pool<db::DatabaseType>) -> sqlx::Result
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_session_finalize(pool: sqlx::Pool<db::DatabaseType>) {
-    let port = common::random_port();
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
 
-    let server = common::ServerBuilder::new(common::HOST, port, pool)
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
         .build()
         .await;
-
-    let mut client = common::ClientBuilder::new(common::HOST, port).build().await;
 
     let sequence_name = "test_sequence";
 
@@ -1257,13 +1214,11 @@ async fn test_session_finalize(pool: sqlx::Pool<db::DatabaseType>) {
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_session_delete(pool: sqlx::Pool<db::DatabaseType>) {
-    let port = common::random_port();
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
 
-    let server = common::ServerBuilder::new(common::HOST, port, pool)
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
         .build()
         .await;
-
-    let mut client = common::ClientBuilder::new(common::HOST, port).build().await;
 
     let sequence_name = "test_sequence";
     let topic_name = &format!("{}/my_topic", sequence_name);
@@ -1328,11 +1283,10 @@ async fn test_session_delete(pool: sqlx::Pool<db::DatabaseType>) {
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_session_delete_idempotent(pool: sqlx::Pool<db::DatabaseType>) {
-    let port = common::random_port();
-    let server = common::ServerBuilder::new(common::HOST, port, pool)
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
         .build()
         .await;
-    let mut client = common::ClientBuilder::new(common::HOST, port).build().await;
 
     let sequence_name = "test_sequence";
     actions::sequence_create(&mut client, sequence_name, None)
@@ -1356,11 +1310,10 @@ async fn test_session_delete_idempotent(pool: sqlx::Pool<db::DatabaseType>) {
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_session_delete_unlocked_with_data(pool: sqlx::Pool<db::DatabaseType>) {
-    let port = common::random_port();
-    let server = common::ServerBuilder::new(common::HOST, port, pool)
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
         .build()
         .await;
-    let mut client = common::ClientBuilder::new(common::HOST, port).build().await;
 
     let sequence_name = "test_sequence";
     let topic_name = &format!("{}/unfinalized_topic", sequence_name);
@@ -1393,11 +1346,10 @@ async fn test_session_delete_unlocked_with_data(pool: sqlx::Pool<db::DatabaseTyp
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_session_delete_cascades_to_topics(pool: sqlx::Pool<db::DatabaseType>) {
-    let port = common::random_port();
-    let server = common::ServerBuilder::new(common::HOST, port, pool)
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
         .build()
         .await;
-    let mut client = common::ClientBuilder::new(common::HOST, port).build().await;
 
     let sequence_name = "test_sequence";
     let topic_name_a = &format!("{}/topic_a", sequence_name);
@@ -1448,11 +1400,10 @@ async fn test_session_delete_cascades_to_topics(pool: sqlx::Pool<db::DatabaseTyp
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_session_delete_preserves_sequence(pool: sqlx::Pool<db::DatabaseType>) {
-    let port = common::random_port();
-    let server = common::ServerBuilder::new(common::HOST, port, pool)
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
         .build()
         .await;
-    let mut client = common::ClientBuilder::new(common::HOST, port).build().await;
 
     let sequence_name = "test_sequence";
     actions::sequence_create(&mut client, sequence_name, None)
@@ -1479,11 +1430,10 @@ async fn test_session_delete_preserves_sequence(pool: sqlx::Pool<db::DatabaseTyp
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_do_get_basic(pool: sqlx::Pool<db::DatabaseType>) {
-    let port = common::random_port();
-    let server = common::ServerBuilder::new(common::HOST, port, pool)
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
         .build()
         .await;
-    let mut client = common::ClientBuilder::new(common::HOST, port).build().await;
 
     let sequence_name = "test_sequence";
     let topic_name = &format!("{}/my_topic", sequence_name);
@@ -1527,11 +1477,10 @@ async fn test_do_get_basic(pool: sqlx::Pool<db::DatabaseType>) {
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_do_get_unlocked_topic(pool: sqlx::Pool<db::DatabaseType>) {
-    let port = common::random_port();
-    let server = common::ServerBuilder::new(common::HOST, port, pool)
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
         .build()
         .await;
-    let mut client = common::ClientBuilder::new(common::HOST, port).build().await;
 
     let sequence_name = "test_sequence";
     let topic_name = &format!("{}/unlocked", sequence_name);
@@ -1563,11 +1512,10 @@ async fn test_do_get_unlocked_topic(pool: sqlx::Pool<db::DatabaseType>) {
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_do_get_nonexistent_topic(pool: sqlx::Pool<db::DatabaseType>) {
-    let port = common::random_port();
-    let server = common::ServerBuilder::new(common::HOST, port, pool)
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
         .build()
         .await;
-    let mut client = common::ClientBuilder::new(common::HOST, port).build().await;
 
     let fake_locator = "ghost_sequence/ghost_topic".parse().unwrap();
     let ticket_payload = types::flight::TicketTopic {
@@ -1589,11 +1537,10 @@ async fn test_do_get_nonexistent_topic(pool: sqlx::Pool<db::DatabaseType>) {
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_do_get_empty_topic(pool: sqlx::Pool<db::DatabaseType>) {
-    let port = common::random_port();
-    let server = common::ServerBuilder::new(common::HOST, port, pool)
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
         .build()
         .await;
-    let mut client = common::ClientBuilder::new(common::HOST, port).build().await;
 
     let sequence_name = "test_sequence";
     let topic_name = &format!("{}/empty_topic", sequence_name);
@@ -1629,13 +1576,11 @@ async fn test_do_get_empty_topic(pool: sqlx::Pool<db::DatabaseType>) {
 // ===========================================================================
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_do_put(pool: sqlx::Pool<db::DatabaseType>) {
-    let port = common::random_port();
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
 
-    let server = common::ServerBuilder::new(common::HOST, port, pool)
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
         .build()
         .await;
-
-    let mut client = common::ClientBuilder::new(common::HOST, port).build().await;
 
     let sequence_name = "test_sequence";
 
@@ -1679,11 +1624,10 @@ async fn test_do_put(pool: sqlx::Pool<db::DatabaseType>) {
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_do_put_nonexistent_topic_uuid(pool: sqlx::Pool<db::DatabaseType>) {
-    let port = common::random_port();
-    let server = common::ServerBuilder::new(common::HOST, port, pool)
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
         .build()
         .await;
-    let mut client = common::ClientBuilder::new(common::HOST, port).build().await;
 
     let sequence_name = "test_sequence";
     actions::sequence_create(&mut client, sequence_name, None)
@@ -1708,11 +1652,10 @@ async fn test_do_put_nonexistent_topic_uuid(pool: sqlx::Pool<db::DatabaseType>) 
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_do_put_on_locked_topic(pool: sqlx::Pool<db::DatabaseType>) {
-    let port = common::random_port();
-    let server = common::ServerBuilder::new(common::HOST, port, pool)
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
         .build()
         .await;
-    let mut client = common::ClientBuilder::new(common::HOST, port).build().await;
 
     let sequence_name = "test_sequence";
     let topic_name = &format!("{}/locked", sequence_name);
@@ -1744,11 +1687,10 @@ async fn test_do_put_on_locked_topic(pool: sqlx::Pool<db::DatabaseType>) {
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_do_put_descriptor_mismatch(pool: sqlx::Pool<db::DatabaseType>) {
-    let port = common::random_port();
-    let server = common::ServerBuilder::new(common::HOST, port, pool)
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
         .build()
         .await;
-    let mut client = common::ClientBuilder::new(common::HOST, port).build().await;
 
     let sequence_name = "test_sequence";
     let topic_a = &format!("{}/topic_a", sequence_name);
@@ -1776,11 +1718,10 @@ async fn test_do_put_descriptor_mismatch(pool: sqlx::Pool<db::DatabaseType>) {
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_do_put_empty_batches(pool: sqlx::Pool<db::DatabaseType>) {
-    let port = common::random_port();
-    let server = common::ServerBuilder::new(common::HOST, port, pool)
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
         .build()
         .await;
-    let mut client = common::ClientBuilder::new(common::HOST, port).build().await;
 
     let sequence_name = "test_sequence";
     let topic_name = &format!("{}/no_batches", sequence_name);
@@ -1807,13 +1748,11 @@ async fn test_do_put_empty_batches(pool: sqlx::Pool<db::DatabaseType>) {
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_get_server_version(pool: sqlx::Pool<db::DatabaseType>) {
-    let port = common::random_port();
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
 
-    let server = common::ServerBuilder::new(common::HOST, port, pool)
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
         .build()
         .await;
-
-    let mut client = common::ClientBuilder::new(common::HOST, port).build().await;
 
     actions::server_version(&mut client).await.unwrap();
 
@@ -1826,11 +1765,8 @@ async fn test_get_server_version(pool: sqlx::Pool<db::DatabaseType>) {
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_concurrent_sequence_create(pool: sqlx::Pool<db::DatabaseType>) {
-    let port = common::random_port();
-    let server = common::ServerBuilder::new(common::HOST, port, pool)
-        .build()
-        .await;
-
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let port = server.port();
     let sequence_name = "concurrent_seq";
 
     let mut client1 = common::ClientBuilder::new(common::HOST, port).build().await;
@@ -1867,10 +1803,8 @@ async fn test_concurrent_sequence_create(pool: sqlx::Pool<db::DatabaseType>) {
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_concurrent_session_finalize(pool: sqlx::Pool<db::DatabaseType>) {
-    let port = common::random_port();
-    let server = common::ServerBuilder::new(common::HOST, port, pool)
-        .build()
-        .await;
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let port = server.port();
     let mut client = common::ClientBuilder::new(common::HOST, port).build().await;
 
     let sequence_name = "test_sequence";
@@ -1919,10 +1853,8 @@ async fn test_concurrent_session_finalize(pool: sqlx::Pool<db::DatabaseType>) {
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_concurrent_do_put_same_topic(pool: sqlx::Pool<db::DatabaseType>) {
-    let port = common::random_port();
-    let server = common::ServerBuilder::new(common::HOST, port, pool)
-        .build()
-        .await;
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let port = server.port();
     let mut client = common::ClientBuilder::new(common::HOST, port).build().await;
 
     let sequence_name = "test_sequence";
@@ -1992,10 +1924,8 @@ async fn test_concurrent_do_put_same_topic(pool: sqlx::Pool<db::DatabaseType>) {
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_concurrent_topic_create_during_finalize(pool: sqlx::Pool<db::DatabaseType>) {
-    let port = common::random_port();
-    let server = common::ServerBuilder::new(common::HOST, port, pool)
-        .build()
-        .await;
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let port = server.port();
     let mut client = common::ClientBuilder::new(common::HOST, port).build().await;
 
     let sequence_name = "test_sequence";
@@ -2056,10 +1986,8 @@ async fn test_concurrent_topic_create_during_finalize(pool: sqlx::Pool<db::Datab
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_concurrent_read_during_write(pool: sqlx::Pool<db::DatabaseType>) {
-    let port = common::random_port();
-    let server = common::ServerBuilder::new(common::HOST, port, pool)
-        .build()
-        .await;
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let port = server.port();
     let mut client = common::ClientBuilder::new(common::HOST, port).build().await;
 
     let sequence_name = "test_sequence";
@@ -2117,10 +2045,9 @@ async fn test_concurrent_read_during_write(pool: sqlx::Pool<db::DatabaseType>) {
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_concurrent_notification_create(pool: sqlx::Pool<db::DatabaseType>) {
-    let port = common::random_port();
-    let server = common::ServerBuilder::new(common::HOST, port, pool)
-        .build()
-        .await;
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let port = server.port();
+
     let mut client = common::ClientBuilder::new(common::HOST, port).build().await;
 
     let sequence_name = "test_sequence";
@@ -2164,10 +2091,9 @@ async fn test_concurrent_notification_create(pool: sqlx::Pool<db::DatabaseType>)
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_concurrent_sequence_create_and_delete(pool: sqlx::Pool<db::DatabaseType>) {
-    let port = common::random_port();
-    let server = common::ServerBuilder::new(common::HOST, port, pool)
-        .build()
-        .await;
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let port = server.port();
+
     let mut setup = common::ClientBuilder::new(common::HOST, port).build().await;
 
     let sequence_name = "race_seq";
@@ -2196,13 +2122,11 @@ async fn test_concurrent_sequence_create_and_delete(pool: sqlx::Pool<db::Databas
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_stress_many_sequences_in_parallel(pool: sqlx::Pool<db::DatabaseType>) {
-    let port = common::random_port();
-    let server = common::ServerBuilder::new(common::HOST, port, pool)
-        .build()
-        .await;
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
 
     let n_sequences = 50;
     let mut handles = Vec::with_capacity(n_sequences);
+    let port = server.port();
 
     for i in 0..n_sequences {
         let mut c = common::ClientBuilder::new(common::HOST, port).build().await;

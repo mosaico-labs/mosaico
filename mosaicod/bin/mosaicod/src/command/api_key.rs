@@ -6,6 +6,7 @@ use mosaicod_db as db;
 use mosaicod_facade as facade;
 use mosaicod_query as query;
 use std::sync::Arc;
+use tracing::error;
 
 #[derive(Subcommand, Debug)]
 pub enum ApiKey {
@@ -50,6 +51,14 @@ pub enum ApiKey {
 
     /// List all keys
     List,
+
+    /// Purge keys
+    Purge {
+        /// If no option is provided, all expired keys are removed.
+        /// With --all  or -A, all keys are removed.
+        #[arg(short = 'A', long = "all")]
+        all: bool,
+    },
 }
 
 pub fn auth(auth: ApiKey) -> Result<()> {
@@ -175,6 +184,45 @@ pub fn auth(auth: ApiKey) -> Result<()> {
             });
 
             res?;
+        }
+
+        ApiKey::Purge { all } => {
+            let res: Result<()> = rt.block_on(async {
+                let mut errors = Vec::new();
+                let keys = facade::auth::all_keys(&context).await?;
+                for key in keys.iter().filter(|k| all || k.is_expired()) {
+                    let fingerprint = key.token().fingerprint();
+
+                    let result: Result<()> = async {
+                        let handle =
+                            facade::auth::Handle::try_from_fingerprint(&context, fingerprint)
+                                .await?;
+                        facade::auth::delete(&context, handle).await?;
+                        Ok(())
+                    }
+                    .await;
+
+                    if let Err(e) = result {
+                        errors.push((fingerprint, e));
+                    }
+                }
+
+                if !errors.is_empty() {
+                    for (fingerprint, err) in &errors {
+                        error!(fingerprint, ?err);
+                    }
+
+                    return Err(core::Error::internal(Some(format!(
+                        "failed to purge {} keys",
+                        errors.len(),
+                    )))
+                    .to_public_error());
+                }
+
+                Ok(())
+            });
+
+            res?
         }
     };
 

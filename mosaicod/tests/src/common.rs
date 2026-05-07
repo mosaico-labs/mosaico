@@ -8,8 +8,15 @@ use mosaicod_server::{self as server, flight::ShutdownNotifier};
 use mosaicod_store as store;
 use serde::Deserialize;
 use std::fs;
+use std::net::TcpListener;
 use std::sync::Arc;
+use std::sync::Mutex;
 use tonic::service::interceptor;
+
+/// This lock prevents a race condition between releasing the TCP listener (used to find a
+/// free port) and binding the Apache Flight server to that port. Without it, a parallel
+/// test could grab the port in between, breaking the Flight bind and raising a TCPError.
+static PORT_LOCK: Mutex<()> = Mutex::new(());
 
 /// The local loopback address for testing.
 pub const HOST: &str = "127.0.0.1";
@@ -17,15 +24,6 @@ pub const HOST: &str = "127.0.0.1";
 pub const TLS_CERT_FILE: &str = "./data/cert.pem";
 pub const TLS_CA_FILE: &str = "./data/ca.pem";
 pub const TLS_PRIVATE_KEY_FILE: &str = "./data/key.pem";
-
-/// Generates a random port in the ephemeral range [49152, 65535].
-/// Use this in tests to avoid `Address In Use` errors during parallel execution.
-pub fn random_port() -> u16 {
-    use rand::Rng;
-
-    let mut rng = rand::rng();
-    rng.random_range(49152..=65535)
-}
 
 /// Formats host and port into a valid endpoint string.
 ///
@@ -39,74 +37,19 @@ pub fn format_endpoint(host: &str, port: u16, tls: bool) -> String {
     format!("http://{host}:{port}")
 }
 
-async fn start_server(
-    host: &str,
-    port: u16,
-    database: db::testing::Database,
-    shutdown: ShutdownNotifier,
-    tls: Option<server::flight::TlsConfig>,
-    enable_api_key: bool,
-) -> (
-    tokio::task::JoinHandle<()>,
-    db::testing::Database,
-    store::testing::Store,
-    query::TimeseriesEngineRef,
-) {
-    // Ensure that params are loaded
-    params::load_params_from_env(params::ParamsLoadOptions::testing()).unwrap();
-
-    let store = store::testing::Store::new_random_on_tmp().unwrap();
-
-    let ts_gw = Arc::new(
-        query::TimeseriesEngine::try_new(
-            (*store).clone(),
-            params::params().query_engine_memory_pool_size.value,
-        )
-        .unwrap(),
-    );
-
-    let mut config = server::flight::Config::new(host.to_owned(), port);
-
-    if let Some(tls) = tls {
-        config.tls(tls);
-    }
-
-    if enable_api_key {
-        config.enable_api_key_management();
-    }
-
-    let store_clone = store.clone();
-    let db_clone = database.clone();
-
-    let handle = tokio::task::spawn(async move {
-        if let Err(err) = server::flight::start(config, store_clone, db_clone, Some(shutdown)).await
-        {
-            panic!("flight server error: {}", err);
-        }
-        println!("server stopped");
-    });
-
-    // Wait a little to be sure that server port is bound
-    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-
-    (handle, database, store, ts_gw)
-}
-
 pub struct ServerBuilder {
     host: String,
-    port: u16,
     tls: Option<server::flight::TlsConfig>,
     db: db::testing::Database,
     enable_api_key: bool,
 }
 
 impl ServerBuilder {
-    pub fn new(host: &str, port: u16, pool: sqlx::Pool<db::DatabaseType>) -> Self {
+    pub fn new(host: &str, pool: sqlx::Pool<db::DatabaseType>) -> Self {
         let db = db::testing::Database::new(pool.clone());
 
         Self {
             host: host.to_owned(),
-            port,
             tls: None,
             db,
             enable_api_key: false,
@@ -135,21 +78,62 @@ impl ServerBuilder {
     }
 
     pub async fn build(self) -> Server {
-        let shutdown = ShutdownNotifier::default();
+        // Ensure that params are loaded
+        params::load_params_from_env(params::ParamsLoadOptions::testing()).unwrap();
 
-        let (server_join_handle, db, store, ts_gw) = start_server(
-            &self.host,
-            self.port,
-            self.db,
-            shutdown.clone(),
-            self.tls,
-            self.enable_api_key,
-        )
-        .await;
+        let store = store::testing::Store::new_random_on_tmp().unwrap();
+
+        let ts_gw = Arc::new(
+            query::TimeseriesEngine::try_new(
+                (*store).clone(),
+                params::params().query_engine_memory_pool_size.value,
+            )
+            .unwrap(),
+        );
+
+        let _guard = PORT_LOCK.lock();
+
+        // Get a free port from the OS by binding a temporary TCP listener to port 0,
+        // then drop the listener so the port is released and available for the Apache Flight
+        // server to bind to.
+        let port = {
+            let tcp_listner = TcpListener::bind(format!("{}:0", HOST)).unwrap();
+            tcp_listner.local_addr().unwrap().port()
+        };
+
+        let mut config = server::flight::Config::new(self.host.to_owned(), port);
+
+        if let Some(tls) = self.tls {
+            config.tls(tls);
+        }
+
+        if self.enable_api_key {
+            config.enable_api_key_management();
+        }
+
+        let shutdown = ShutdownNotifier::default();
+        let db = self.db;
+
+        let server_join_handle = tokio::task::spawn({
+            let shutdown = shutdown.clone();
+            let store = store.clone();
+            let db = db.clone();
+
+            async move {
+                if let Err(err) = server::flight::start(config, store, db, Some(shutdown)).await {
+                    panic!("flight server error: {}", err);
+                }
+                println!("server stopped");
+            }
+        });
+
+        // Wait a little to be sure that server port is bound
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
 
         Server {
             server_join_handle,
             shutdown,
+            port,
             db,
             store,
             ts_gw,
@@ -165,8 +149,7 @@ impl ServerBuilder {
 /// use mosaicod_db as db;
 ///
 /// async fn test(pool: sqlx::Pool<db::DatabaseType>) {
-///     let port = common::random_port();
-///     let server = common::ServerBuilder::new(common::HOST, port, pool).build().await;
+///     let server = common::ServerBuilder::new(common::HOST, pool).build().await;
 ///     // ... run tests ...
 ///     server.shutdown().await;
 /// }
@@ -174,6 +157,7 @@ impl ServerBuilder {
 pub struct Server {
     shutdown: ShutdownNotifier,
     server_join_handle: tokio::task::JoinHandle<()>,
+    port: u16,
     pub db: db::testing::Database,
     pub store: store::testing::Store,
     pub ts_gw: query::TimeseriesEngineRef,
@@ -189,6 +173,10 @@ impl Server {
     /// Check if the server is running.
     pub async fn is_shutdown(&self) -> bool {
         self.server_join_handle.is_finished()
+    }
+
+    pub fn port(&self) -> u16 {
+        self.port
     }
 
     pub fn context(&self) -> facade::Context {

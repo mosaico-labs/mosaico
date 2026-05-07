@@ -6,14 +6,12 @@ use tests::{self, actions, common};
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_api_key_create(pool: sqlx::Pool<db::DatabaseType>) {
-    let port = common::random_port();
-
-    let server = common::ServerBuilder::new(common::HOST, port, pool)
+    let server = common::ServerBuilder::new(common::HOST, pool)
         .enable_tls() // enable tls in the server
         .build()
         .await;
 
-    let mut client = common::ClientBuilder::new(common::HOST, port)
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
         .enable_tls() // enable tls also in the client
         .build()
         .await;
@@ -49,14 +47,12 @@ async fn test_api_key_create(pool: sqlx::Pool<db::DatabaseType>) {
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_api_key_status(pool: sqlx::Pool<db::DatabaseType>) {
-    let port = common::random_port();
-
-    let server = common::ServerBuilder::new(common::HOST, port, pool)
+    let server = common::ServerBuilder::new(common::HOST, pool)
         .enable_tls() // enable tls in the server
         .build()
         .await;
 
-    let mut client = common::ClientBuilder::new(common::HOST, port)
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
         .enable_tls() // enable tls also in the client
         .build()
         .await;
@@ -113,14 +109,12 @@ async fn test_api_key_status(pool: sqlx::Pool<db::DatabaseType>) {
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_api_key_revoke(pool: sqlx::Pool<db::DatabaseType>) {
-    let port = common::random_port();
-
-    let server = common::ServerBuilder::new(common::HOST, port, pool)
+    let server = common::ServerBuilder::new(common::HOST, pool)
         .enable_tls() // enable tls in the server
         .build()
         .await;
 
-    let mut client = common::ClientBuilder::new(common::HOST, port)
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
         .enable_tls() // enable tls also in the client
         .build()
         .await;
@@ -215,9 +209,7 @@ async fn valid_write_helper(client: &mut common::Client, sequence_name: &str) {
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_api_key_invalid_write(pool: sqlx::Pool<db::DatabaseType>) {
-    let port = common::random_port();
-
-    let mut server = common::ServerBuilder::new(common::HOST, port, pool)
+    let mut server = common::ServerBuilder::new(common::HOST, pool)
         .enable_tls()
         .enable_api_key()
         .build()
@@ -227,7 +219,7 @@ async fn test_api_key_invalid_write(pool: sqlx::Pool<db::DatabaseType>) {
         .create_api_key(types::auth::Permission::Read, None)
         .await;
 
-    let mut client = make_client(&api_key.key, port).await;
+    let mut client = make_client(&api_key.key, server.port()).await;
 
     assert!(!api_key.permission.can_write());
 
@@ -242,9 +234,7 @@ async fn test_api_key_invalid_write(pool: sqlx::Pool<db::DatabaseType>) {
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_api_key_valid_write(pool: sqlx::Pool<db::DatabaseType>) {
-    let port = common::random_port();
-
-    let mut server = common::ServerBuilder::new(common::HOST, port, pool)
+    let mut server = common::ServerBuilder::new(common::HOST, pool)
         .enable_tls()
         .enable_api_key()
         .build()
@@ -260,6 +250,7 @@ async fn test_api_key_valid_write(pool: sqlx::Pool<db::DatabaseType>) {
         .create_api_key(types::auth::Permission::Manage, None)
         .await;
 
+    let port = server.port();
     let mut client_write = make_client(&api_key_1.key, port).await;
     let mut client_delete = make_client(&api_key_2.key, port).await;
     let mut client_manage = make_client(&api_key_3.key, port).await;
@@ -277,9 +268,7 @@ async fn test_api_key_valid_write(pool: sqlx::Pool<db::DatabaseType>) {
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_api_key_valid_delete(pool: sqlx::Pool<db::DatabaseType>) {
-    let port = common::random_port();
-
-    let mut server = common::ServerBuilder::new(common::HOST, port, pool)
+    let mut server = common::ServerBuilder::new(common::HOST, pool)
         .enable_tls()
         .enable_api_key()
         .build()
@@ -292,6 +281,7 @@ async fn test_api_key_valid_delete(pool: sqlx::Pool<db::DatabaseType>) {
         .create_api_key(types::auth::Permission::Manage, None)
         .await;
 
+    let port = server.port();
     let mut client_delete = make_client(&api_key_1.key, port).await;
     let mut client_manage = make_client(&api_key_2.key, port).await;
 
@@ -306,9 +296,7 @@ async fn test_api_key_valid_delete(pool: sqlx::Pool<db::DatabaseType>) {
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_api_key_invalid_delete(pool: sqlx::Pool<db::DatabaseType>) {
-    let port = common::random_port();
-
-    let mut server = common::ServerBuilder::new(common::HOST, port, pool)
+    let mut server = common::ServerBuilder::new(common::HOST, pool)
         .enable_tls()
         .enable_api_key()
         .build()
@@ -321,6 +309,7 @@ async fn test_api_key_invalid_delete(pool: sqlx::Pool<db::DatabaseType>) {
         .create_api_key(types::auth::Permission::Write, None)
         .await;
 
+    let port = server.port();
     let mut client_read = make_client(&api_key_1.key, port).await;
     let mut client_write = make_client(&api_key_2.key, port).await;
 
@@ -345,9 +334,7 @@ async fn test_api_key_invalid_delete(pool: sqlx::Pool<db::DatabaseType>) {
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_api_key_valid_manage(pool: sqlx::Pool<db::DatabaseType>) {
-    let port = common::random_port();
-
-    let mut server = common::ServerBuilder::new(common::HOST, port, pool)
+    let mut server = common::ServerBuilder::new(common::HOST, pool)
         .enable_tls()
         .enable_api_key()
         .build()
@@ -366,7 +353,7 @@ async fn test_api_key_valid_manage(pool: sqlx::Pool<db::DatabaseType>) {
         .create_api_key(types::auth::Permission::Manage, None)
         .await;
 
-    let mut client = common::ClientBuilder::new(common::HOST, port)
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
         .enable_tls()
         .with_api_key(api_key_4.key.to_string())
         .build()
@@ -404,9 +391,7 @@ async fn test_api_key_valid_manage(pool: sqlx::Pool<db::DatabaseType>) {
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_api_key_invalid_manage(pool: sqlx::Pool<db::DatabaseType>) {
-    let port = common::random_port();
-
-    let mut server = common::ServerBuilder::new(common::HOST, port, pool)
+    let mut server = common::ServerBuilder::new(common::HOST, pool)
         .enable_tls()
         .enable_api_key()
         .build()
@@ -425,6 +410,7 @@ async fn test_api_key_invalid_manage(pool: sqlx::Pool<db::DatabaseType>) {
         .create_api_key(types::auth::Permission::Manage, None)
         .await;
 
+    let port = server.port();
     let mut client_read = make_client(&api_key_1.key, port).await;
     let mut client_write = make_client(&api_key_2.key, port).await;
     let mut client_delete = make_client(&api_key_3.key, port).await;
@@ -450,14 +436,13 @@ async fn test_api_key_invalid_manage(pool: sqlx::Pool<db::DatabaseType>) {
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_api_key_invalid_token(pool: sqlx::Pool<db::DatabaseType>) {
-    let port = common::random_port();
-
-    let server = common::ServerBuilder::new(common::HOST, port, pool)
+    let server = common::ServerBuilder::new(common::HOST, pool)
         .enable_tls()
         .enable_api_key()
         .build()
         .await;
 
+    let port = server.port();
     let mut client_1 = common::ClientBuilder::new(common::HOST, port)
         .enable_tls()
         .with_api_key("invalid_key".to_string())
@@ -524,9 +509,7 @@ async fn test_api_key_invalid_token(pool: sqlx::Pool<db::DatabaseType>) {
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_api_key_expiration(pool: sqlx::Pool<db::DatabaseType>) {
-    let port = common::random_port();
-
-    let mut server = common::ServerBuilder::new(common::HOST, port, pool)
+    let mut server = common::ServerBuilder::new(common::HOST, pool)
         .enable_tls()
         .enable_api_key()
         .build()
@@ -543,6 +526,7 @@ async fn test_api_key_expiration(pool: sqlx::Pool<db::DatabaseType>) {
         .create_api_key(types::auth::Permission::Manage, None)
         .await;
 
+    let port = server.port();
     let mut client_expiring = make_client(&expiring_key.key, port).await;
     let mut client_manage = make_client(&manage_key.key, port).await;
 
@@ -566,8 +550,7 @@ async fn test_api_key_expiration(pool: sqlx::Pool<db::DatabaseType>) {
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_api_key_lifecycle_cross_revoke(pool: sqlx::Pool<db::DatabaseType>) {
-    let port = common::random_port();
-    let mut server = common::ServerBuilder::new(common::HOST, port, pool)
+    let mut server = common::ServerBuilder::new(common::HOST, pool)
         .enable_tls()
         .enable_api_key()
         .build()
@@ -586,6 +569,7 @@ async fn test_api_key_lifecycle_cross_revoke(pool: sqlx::Pool<db::DatabaseType>)
         .create_api_key(types::auth::Permission::Manage, None)
         .await;
 
+    let port = server.port();
     let mut client_write = make_client(&api_key_write.key, port).await;
     let mut client_delete = make_client(&api_key_delete.key, port).await;
     let mut client_manage1 = make_client(&api_key_manage1.key, port).await;
@@ -640,9 +624,7 @@ async fn test_api_key_lifecycle_cross_revoke(pool: sqlx::Pool<db::DatabaseType>)
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_api_key_manage_self_revoke(pool: sqlx::Pool<db::DatabaseType>) {
-    let port = common::random_port();
-
-    let mut server = common::ServerBuilder::new(common::HOST, port, pool)
+    let mut server = common::ServerBuilder::new(common::HOST, pool)
         .enable_tls()
         .enable_api_key()
         .build()
@@ -655,6 +637,7 @@ async fn test_api_key_manage_self_revoke(pool: sqlx::Pool<db::DatabaseType>) {
         .create_api_key(types::auth::Permission::Manage, None)
         .await;
 
+    let port = server.port();
     let mut client_1 = make_client(&manage_key_1.key, port).await;
     let mut client_2 = make_client(&manage_key_2.key, port).await;
 
@@ -689,9 +672,7 @@ async fn test_api_key_manage_self_revoke(pool: sqlx::Pool<db::DatabaseType>) {
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_api_key_concurrent_same_sequence(pool: sqlx::Pool<db::DatabaseType>) {
-    let port = common::random_port();
-
-    let mut server = common::ServerBuilder::new(common::HOST, port, pool)
+    let mut server = common::ServerBuilder::new(common::HOST, pool)
         .enable_tls()
         .enable_api_key()
         .build()
@@ -710,6 +691,7 @@ async fn test_api_key_concurrent_same_sequence(pool: sqlx::Pool<db::DatabaseType
         .create_api_key(types::auth::Permission::Delete, None)
         .await;
 
+    let port = server.port();
     let mut client_w1 = make_client(&api_key_w1.key, port).await;
     let mut client_w2 = make_client(&api_key_w2.key, port).await;
     let mut client_d1 = make_client(&api_key_d1.key, port).await;
