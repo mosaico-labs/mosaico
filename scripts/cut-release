@@ -8,35 +8,20 @@ PROJECT_DIR=$(readlink -f "${FILE_DIR}/..")
 CARGO_PATH="${PROJECT_DIR}/${MOSAICOD_DIR}/Cargo.toml"
 PYPROJECT_PATH="${PROJECT_DIR}/${PY_DIR}/pyproject.toml"
 
-MINOR_REGEX="^[0-9]+\.[0-9]+$"
-
 show_help() {
     cat << EOF
-Mosaico cut-release tool. Creates release branches from main for a given X.Y version.
+Mosaico cut-release tool. Creates release branches from main based on the current version.
 
-Usage: cut-release X.Y
+Usage: cut-release [--help]
 
-Arguments:
-    X.Y     Major.minor version to release (e.g. 0.7)
+The version is read from Cargo.toml and pyproject.toml. Both must be on the same
+X.Y and suffixed with -dev (e.g. 0.7.0-dev).
 EOF
 }
 
 if [[ "$1" == "--help" || "$1" == "-h" ]]; then
     show_help
     exit 0
-fi
-
-if [[ -z "$1" ]]; then
-    echo "Error: version argument required (e.g. 0.7)"
-    show_help
-    exit 1
-fi
-
-VERSION="$1"
-
-if [[ ! "$VERSION" =~ $MINOR_REGEX ]]; then
-    echo "Error: '$VERSION' is not a valid X.Y version."
-    exit 1
 fi
 
 # Must run from main
@@ -58,6 +43,26 @@ read_version() {
 
 MOSAICOD_CURRENT=$(read_version "$CARGO_PATH")
 PY_CURRENT=$(read_version "$PYPROJECT_PATH")
+
+# Both versions must be -dev
+if [[ ! "$MOSAICOD_CURRENT" =~ -dev$ ]]; then
+    echo "Error: mosaicod version '$MOSAICOD_CURRENT' is not a development version (-dev). Aborting."
+    exit 1
+fi
+if [[ ! "$PY_CURRENT" =~ -dev$ ]]; then
+    echo "Error: Python SDK version '$PY_CURRENT' is not a development version (-dev). Aborting."
+    exit 1
+fi
+
+# Derive X.Y from mosaicod version (X.Y.Z-dev → X.Y)
+VERSION=$(echo "$MOSAICOD_CURRENT" | sed 's/\([0-9]*\.[0-9]*\)\..*/\1/')
+
+# Check Python SDK is on the same X.Y
+if [[ "$PY_CURRENT" != ${VERSION}.* ]]; then
+    echo "Error: version mismatch — mosaicod is on v$MOSAICOD_CURRENT but Python SDK is on v$PY_CURRENT."
+    exit 1
+fi
+
 RC_VERSION="${VERSION}.0-rc"
 
 echo "Cutting release branches for v$VERSION"

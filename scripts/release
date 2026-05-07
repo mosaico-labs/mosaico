@@ -72,6 +72,13 @@ bump_patch_rc() {
 release_py() {
     [[ ! -f $PYPROJECT_PATH ]] && echo "Error: $PYPROJECT_PATH not found." && exit 1
 
+    local branch
+    branch=$(git -C "$PROJECT_DIR" rev-parse --abbrev-ref HEAD)
+    if [[ ! "$branch" =~ ^release/py/v[0-9]+\.[0-9]+$ ]]; then
+        echo "Error: --py must be run from a 'release/py/vX.Y' branch (currently on '$branch')."
+        exit 1
+    fi
+
     local current
     current=$(read_version "$PYPROJECT_PATH")
 
@@ -107,6 +114,13 @@ release_py() {
 release_mosaicod() {
     [[ ! -f $CARGO_PATH ]] && echo "Error: $CARGO_PATH not found." && exit 1
     [[ ! -f $README_PATH ]] && echo "Error: $README_PATH not found." && exit 1
+
+    local branch
+    branch=$(git -C "$PROJECT_DIR" rev-parse --abbrev-ref HEAD)
+    if [[ ! "$branch" =~ ^release/v[0-9]+\.[0-9]+$ ]]; then
+        echo "Error: --mosaicod must be run from a 'release/vX.Y' branch (currently on '$branch')."
+        exit 1
+    fi
 
     local current
     current=$(read_version "$CARGO_PATH")
