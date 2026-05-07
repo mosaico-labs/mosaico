@@ -136,7 +136,7 @@ jobs:
 
           docker buildx imagetools create \
             -t "${IMAGE}:${VERSION}" \
-            -t "${IMAGE}:${SHORT_SHA}" \
+            -t "${IMAGE}:${VERSION}-${SHORT_SHA}" \
             ${DIGESTS}
 
       - name: Inspect image

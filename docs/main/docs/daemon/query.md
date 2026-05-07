@@ -5,7 +5,7 @@ sidebar_position: 7
 
 Mosaico distinguishes itself from simple file stores with a powerful **Query System** capable of filtering data based on both high-level metadata and content values. The query engine operates through the [`query`](actions.md#query) action, accepting structured JSON-based filter expressions that can span the entire data hierarchy.
 
-## Query Architecture
+## Architecture
 
 The query engine is designed around a three-tier filtering model that allows you to construct complex, multi-dimensional searches:
 
@@ -67,7 +67,7 @@ The query engine supports a rich set of comparison operators. Each operator is p
 | `$ex` | Field exists |
 | `$nex` | Field does not exist |
 
-## Query Syntax
+## Syntax
 
 Queries are submitted as JSON objects. Each field is mapped to an operator and value. Multiple conditions are combined with implicit AND logic.
 
@@ -148,7 +148,7 @@ It returns the time window `[min, max]` where the filter conditions were met for
     The `timestamp_range` field is included only when ontology filters are applied and `include_timestamp_range` is set to `true` inside the `ontology` filter. 
 :::
 
-## Performance Characteristics
+### Performance Characteristics
 
 The query engine is optimized for high performance by minimizing unnecessary data retrieval and I/O operations. 
 During execution, the engine uses index-based pruning to evaluate precomputed min/max statistics and skip indices, allowing it to bypass irrelevant data chunks without reading the underlying files. 

@@ -1,0 +1,66 @@
+name: Docs
+
+on:
+  push:
+    tags:
+      - 'doc/v[0-9]+.[0-9]+'
+
+jobs:
+  deploy-main:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: docs/main/package-lock.json
+
+      - name: Install dependencies
+        working-directory: docs/main
+        run: npm ci
+
+      - name: Build Docusaurus
+        working-directory: docs/main
+        run: npm run build
+
+      - name: Upload to Bucket
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        run: |
+          aws s3 sync docs/main/build s3://mosaico-docs/latest \
+            --endpoint-url https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com \
+            --region auto \
+            --delete
+  
+  deploy-py:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+
+      - name: Install dependencies
+        working-directory: docs/py
+        run: poetry install --no-root
+
+      - name: Build MkDocs
+        working-directory: docs/py
+        run: poetry run mkdocs build
+
+      - name: Upload to Bucket
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        run: |
+          aws s3 sync docs/py/site s3://mosaico-docs/sdk/ \
+            --endpoint-url https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com \
+            --region auto \
+            --delete
