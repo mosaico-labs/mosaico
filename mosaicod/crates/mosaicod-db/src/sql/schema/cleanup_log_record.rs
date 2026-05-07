@@ -10,6 +10,10 @@ pub struct CleanupLogRecord {
     pub cleanup_id: i32,
     pub(crate) start_unix_tstamp_secs: i64,
     pub(crate) end_unix_tstamp_secs: Option<i64>,
+
+    pub(crate) marked_folders: Option<serde_json::Value>,
+    pub(crate) deleted_folders: Option<serde_json::Value>,
+    pub(crate) failed_folders: Option<serde_json::Value>,
 }
 
 impl Default for CleanupLogRecord {
@@ -18,6 +22,9 @@ impl Default for CleanupLogRecord {
             cleanup_id: db::UNREGISTERED,
             start_unix_tstamp_secs: chrono::Utc::now().timestamp(),
             end_unix_tstamp_secs: None,
+            marked_folders: None,
+            deleted_folders: None,
+            failed_folders: None,
         }
     }
 }
@@ -41,5 +48,47 @@ impl CleanupLogRecord {
                 )
             })
         })
+    }
+
+    pub fn marked_folders(&self) -> Option<Vec<String>> {
+        self.marked_folders
+            .iter()
+            .map(|v| {
+                serde_json::from_value(v.clone()).unwrap_or_else(|e| {
+                    panic!(
+                        "Error deserializing marked folders in cleanup log {}: {}",
+                        self.cleanup_id, e
+                    )
+                })
+            })
+            .collect()
+    }
+
+    pub fn deleted_folders(&self) -> Option<Vec<String>> {
+        self.deleted_folders
+            .iter()
+            .map(|v| {
+                serde_json::from_value(v.clone()).unwrap_or_else(|e| {
+                    panic!(
+                        "Error deserializing deleted folders in cleanup log {}: {}",
+                        self.cleanup_id, e
+                    )
+                })
+            })
+            .collect()
+    }
+
+    pub fn failed_folders(&self) -> Option<Vec<(String, String)>> {
+        self.failed_folders
+            .iter()
+            .map(|v| {
+                serde_json::from_value(v.clone()).unwrap_or_else(|e| {
+                    panic!(
+                        "Error deserializing failed folders in cleanup log {}: {}",
+                        self.cleanup_id, e
+                    )
+                })
+            })
+            .collect()
     }
 }

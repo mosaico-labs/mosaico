@@ -10,6 +10,8 @@ use tokio::sync::Notify;
 use tracing::{error, info, warn};
 
 const TO_DELETE_MARKER_FILE_NAME: &str = "TO_DELETE";
+const DEFAULT_TIME_INTERVAL: u32 = 86400;
+const DEFAULT_RETENTION_DURATION: u32 = 86400;
 
 /// Utility type to accept only non-negative durations (u32).
 #[derive(Debug, Clone, Copy)]
@@ -41,141 +43,186 @@ impl Deref for Duration {
     }
 }
 
-/// Starts the cleanup routine that every [`time_interval`] tries to actually perform a cleanup of the store.
-pub async fn cleanup_routine(
+pub struct Cleanup {
     db: db::Database,
     store: store::StoreRef,
-    shutdown_notifier: Arc<Notify>,
     time_interval: Duration,
     retention_duration: Duration,
-) {
-    info!("Launching cleanup background routine");
 
-    loop {
-        match cleanup_can_start(&db, time_interval).await {
-            Ok(can_start) => {
-                if can_start {
-                    info!("Cleanup started");
+    marked_folders: Vec<String>,
+    deleted_folders: Vec<String>,
+    // First value is the folder, second is the error.
+    failed_folders: Vec<(String, String)>,
+}
 
-                    let cleanup_res = do_cleanup(&db, &store, retention_duration).await;
+impl Cleanup {
+    pub fn new(db: db::Database, store: store::StoreRef) -> Self {
+        Self {
+            db,
+            store,
+            time_interval: Duration::seconds(DEFAULT_TIME_INTERVAL),
+            retention_duration: Duration::seconds(DEFAULT_RETENTION_DURATION),
+            marked_folders: vec![],
+            deleted_folders: vec![],
+            failed_folders: vec![],
+        }
+    }
 
-                    match cleanup_res {
-                        Ok(res) => {
-                            info!(
-                                "Cleanup completed. {} items marked as ready to be deleted. {} items deleted.",
-                                res.0.len(),
-                                res.1.len()
-                            );
-                        }
-                        Err(e) => {
-                            // Exit the cleanup routine if something went wrong.
-                            error!("{}", e);
+    pub fn with_time_interval(mut self, time_interval: Duration) -> Self {
+        self.time_interval = time_interval;
+        self
+    }
+
+    pub fn with_retention_duration(mut self, retention_duration: Duration) -> Self {
+        self.retention_duration = retention_duration;
+        self
+    }
+
+    /// Starts the cleanup routine that every [`time_interval`] tries to actually perform a cleanup of the store.
+    pub async fn run(mut self, shutdown_notifier: Arc<Notify>) {
+        info!("Launching cleanup background routine");
+
+        loop {
+            match self.can_start().await {
+                Ok(can_start) => {
+                    if can_start {
+                        info!("Cleanup started");
+
+                        let cleanup_res = self.do_cleanup().await;
+
+                        match cleanup_res {
+                            Ok(_) => {
+                                info!(
+                                    "Cleanup completed. {} items marked as ready to be deleted. {} items deleted.",
+                                    self.marked_folders.len(),
+                                    self.deleted_folders.len()
+                                );
+                            }
+                            Err(e) => {
+                                // Exit the cleanup routine if something went wrong.
+                                error!("Cleanup failed. {}", e);
+                            }
                         }
                     }
                 }
+                Err(e) => {
+                    // Exit the cleanup routine if something went wrong.
+                    error!("{}", e);
+                }
             }
-            Err(e) => {
-                // Exit the cleanup routine if something went wrong.
-                error!("{}", e);
-            }
-        }
 
-        tokio::select! {
-            // Here we can call .unwrap() safely because duration is non-negative by construction.
-            _ = tokio::time::sleep(time_interval.to_std().unwrap()) => {
-            }
-            _ = shutdown_notifier.notified() => {
-                info!("Exiting cleanup background routine. Shutdown received.");
-                break; // Exit the loop immediately
+            tokio::select! {
+                // Here we can call .unwrap() safely because duration is non-negative by construction.
+                _ = tokio::time::sleep(self.time_interval.to_std().unwrap()) => {
+                }
+                _ = shutdown_notifier.notified() => {
+                    info!("Exiting cleanup background routine. Shutdown received.");
+                    break; // Exit the loop immediately
+                }
             }
         }
     }
-}
 
-/// Checks if the conditions to start a new cleanup are met.
-///
-/// It can start:
-/// - if it's the first cleanup running in absolute
-/// - if the latest cleanup has finished and its end time + cleanup time interval <= current time.
-///
-/// The cleanup must NOT start if [`time_interval`] is set to 0,
-async fn cleanup_can_start(db: &db::Database, time_interval: Duration) -> Result<bool> {
-    if time_interval.is_zero() {
-        return Ok(false);
+    /// Checks if the conditions to start a new cleanup are met.
+    ///
+    /// It can start:
+    /// - if it's the first cleanup running in absolute
+    /// - if the latest cleanup has finished and its end time + cleanup time interval <= current time.
+    ///
+    /// The cleanup must NOT start if [`time_interval`] is set to 0,
+    async fn can_start(&self) -> Result<bool> {
+        if self.time_interval.is_zero() {
+            return Ok(false);
+        }
+
+        let mut cx = self.db.connection();
+        let latest_cleanup = db::cleanup_log_latest(&mut cx).await?;
+
+        Ok(latest_cleanup.is_none_or(|cleanup_log| {
+            cleanup_log
+                .end_datetime()
+                .is_some_and(|end_dt| end_dt + *self.time_interval <= chrono::Utc::now())
+        }))
     }
 
-    let mut cx = db.connection();
-    let latest_cleanup = db::cleanup_log_latest(&mut cx).await?;
+    /// Launches the cleanup of the store.
+    ///
+    /// Returns how many folders have been marked TO_DELETE and how many folder have actually been deleted.
+    pub async fn do_cleanup(&mut self) -> Result<()> {
+        self.marked_folders.clear();
+        self.deleted_folders.clear();
+        self.failed_folders.clear();
 
-    Ok(latest_cleanup.is_none_or(|cleanup_log| {
-        cleanup_log
-            .end_datetime()
-            .is_some_and(|end_dt| end_dt + *time_interval <= chrono::Utc::now())
-    }))
-}
+        db::cleanup_log_create(
+            &mut self.db.connection(),
+            &db::schema::CleanupLogRecord::default(),
+        )
+        .await?;
 
-/// Launches the cleanup of the store.
-///
-/// Returns how many folders have been marked TO_DELETE and how many folder have actually been deleted.
-pub async fn do_cleanup(
-    db: &db::Database,
-    store: &store::StoreRef,
-    retention_duration: Duration,
-) -> Result<(Vec<String>, Vec<String>)> {
-    let mut cx = db.connection();
-    db::cleanup_log_create(&mut cx, &db::schema::CleanupLogRecord::default()).await?;
+        let root_subfolders = self.store.list_subfolders("").await?;
 
-    let root_subfolders = store.list_subfolders("").await?;
+        for folder in root_subfolders {
+            if let Err(e) = self.analyze_folder(folder.clone()).await {
+                self.failed_folders.push((folder, e.to_string()));
+            }
+        }
 
-    let mut marked_folders = Vec::new();
-    let mut deleted_folders = Vec::new();
+        db::cleanup_log_close(
+            &mut self.db.connection(),
+            chrono::Utc::now().timestamp(),
+            Some(&self.marked_folders).filter(|mf| !mf.is_empty()),
+            Some(&self.deleted_folders).filter(|df| !df.is_empty()),
+            Some(&self.failed_folders).filter(|ff| !ff.is_empty()),
+        )
+        .await?;
 
-    for dir in root_subfolders {
+        Ok(())
+    }
+
+    async fn analyze_folder(&mut self, folder: String) -> Result<()> {
         let to_delete_marker_file_path =
-            std::path::PathBuf::from(dir.clone()).join(TO_DELETE_MARKER_FILE_NAME);
+            std::path::PathBuf::from(folder.clone()).join(TO_DELETE_MARKER_FILE_NAME);
 
-        let file_meta = store.meta(&to_delete_marker_file_path).await?;
+        let file_meta = self.store.meta(&to_delete_marker_file_path).await?;
 
         if let Some(meta) = file_meta {
             // Marker exists. Check if it's expired.
-            if meta.last_modified + *retention_duration <= chrono::Utc::now() {
-                store.delete_recursive(&dir).await?;
-                deleted_folders.push(dir);
+            if meta.last_modified + *self.retention_duration <= chrono::Utc::now() {
+                self.store.delete_recursive(&folder).await?;
+                self.deleted_folders.push(folder);
             }
-        } else if !find_db_reference(db, &dir).await? {
+        } else if !self.find_db_reference(&folder).await? {
             // If retention duration is equal to 0, delete the directory right away.
             // Otherwise, mark the directory as TO_DELETE.
-            if retention_duration.is_zero() {
-                store.delete_recursive(&dir).await?;
-                deleted_folders.push(dir);
+            if self.retention_duration.is_zero() {
+                self.store.delete_recursive(&folder).await?;
+                self.deleted_folders.push(folder);
             } else {
-                store
+                self.store
                     .write_bytes(to_delete_marker_file_path, vec![])
                     .await?;
-                marked_folders.push(dir);
+                self.marked_folders.push(folder);
             }
         }
+
+        Ok(())
     }
 
-    db::cleanup_log_close(&mut cx, chrono::Utc::now().timestamp()).await?;
+    async fn find_db_reference(&self, path_in_store: &str) -> Result<bool> {
+        let mut cx = self.db.connection();
+        if path_in_store.starts_with(types::SEQUENCE_FOLDER_PREFIX) {
+            return Ok(db::sequence_find_path_in_store(&mut cx, path_in_store).await?);
+        } else if path_in_store.starts_with(types::TOPIC_FOLDER_PREFIX) {
+            return Ok(db::topic_find_path_in_store(&mut cx, path_in_store).await?);
+        } else {
+            warn!(
+                "Found unexpected file in store: {}. Was it added manually?",
+                path_in_store
+            );
+        }
 
-    Ok((marked_folders, deleted_folders))
-}
-
-async fn find_db_reference(db: &db::Database, path_in_store: &str) -> Result<bool> {
-    let mut cx = db.connection();
-    if path_in_store.starts_with(types::SEQUENCE_FOLDER_PREFIX) {
-        return Ok(db::sequence_find_path_in_store(&mut cx, path_in_store).await?);
-    } else if path_in_store.starts_with(types::TOPIC_FOLDER_PREFIX) {
-        return Ok(db::topic_find_path_in_store(&mut cx, path_in_store).await?);
-    } else {
-        warn!(
-            "Found unexpected file in store: {}. Was it added manually?",
-            path_in_store
-        );
+        Ok(false)
     }
-
-    Ok(false)
 }
 
 #[cfg(test)]
@@ -208,7 +255,7 @@ mod tests {
             tokio::time::sleep(std::time::Duration::from_millis(rnd_sleep_time as u64)).await;
 
             assert!(
-                db::cleanup_log_close(&mut cx, chrono::Utc::now().timestamp())
+                db::cleanup_log_close(&mut cx, chrono::Utc::now().timestamp(), None, None, None)
                     .await
                     .unwrap()
             );
@@ -380,71 +427,47 @@ mod tests {
     async fn test_cleanup_can_start(pool: sqlx::Pool<db::DatabaseType>) {
         let ctx = test_context(pool);
 
+        let mut cleanup = Cleanup::new((*ctx.db).clone(), (*ctx.store).clone());
+
         // Cleanup must not start if time_interval = 0.
-        assert!(
-            !cleanup_can_start(&ctx.db, Duration::seconds(0))
-                .await
-                .unwrap()
-        );
+        cleanup = cleanup.with_time_interval(Duration::seconds(0));
+        assert!(!cleanup.can_start().await.unwrap());
 
         // Cleanup can always start if it's the first time ever.
-        assert!(
-            cleanup_can_start(&ctx.db, Duration::seconds(1))
-                .await
-                .unwrap()
-        );
-        assert!(
-            cleanup_can_start(&ctx.db, Duration::seconds(100))
-                .await
-                .unwrap()
-        );
-        assert!(
-            cleanup_can_start(&ctx.db, Duration::seconds(10000))
-                .await
-                .unwrap()
-        );
-        assert!(
-            cleanup_can_start(&ctx.db, Duration::seconds(u32::MAX))
-                .await
-                .unwrap()
-        );
+        cleanup = cleanup.with_time_interval(Duration::seconds(1));
+        assert!(cleanup.can_start().await.unwrap());
+
+        cleanup = cleanup.with_time_interval(Duration::seconds(100));
+        assert!(cleanup.can_start().await.unwrap());
+
+        cleanup = cleanup.with_time_interval(Duration::seconds(10000));
+        assert!(cleanup.can_start().await.unwrap());
+
+        cleanup = cleanup.with_time_interval(Duration::seconds(u32::MAX));
+        assert!(cleanup.can_start().await.unwrap());
 
         // Cleanup should start based on latest cleanup end time.
         create_fake_cleanup_logs(&ctx, 1, Some(100), Some(100)).await;
 
-        assert!(
-            !cleanup_can_start(&ctx.db, Duration::seconds(0))
-                .await
-                .unwrap()
-        );
-        assert!(
-            !cleanup_can_start(&ctx.db, Duration::seconds(1))
-                .await
-                .unwrap()
-        );
-        assert!(
-            !cleanup_can_start(&ctx.db, Duration::seconds(10))
-                .await
-                .unwrap()
-        );
+        cleanup = cleanup.with_time_interval(Duration::seconds(0));
+        assert!(!cleanup.can_start().await.unwrap());
+
+        cleanup = cleanup.with_time_interval(Duration::seconds(1));
+        assert!(!cleanup.can_start().await.unwrap());
+
+        cleanup = cleanup.with_time_interval(Duration::seconds(10));
+        assert!(!cleanup.can_start().await.unwrap());
 
         tokio::time::sleep(std::time::Duration::from_secs(2)).await;
 
-        assert!(
-            cleanup_can_start(&ctx.db, Duration::seconds(1))
-                .await
-                .unwrap()
-        );
-        assert!(
-            !cleanup_can_start(&ctx.db, Duration::seconds(5))
-                .await
-                .unwrap()
-        );
-        assert!(
-            !cleanup_can_start(&ctx.db, Duration::seconds(10))
-                .await
-                .unwrap()
-        );
+        cleanup = cleanup.with_time_interval(Duration::seconds(1));
+        assert!(cleanup.can_start().await.unwrap());
+
+        cleanup = cleanup.with_time_interval(Duration::seconds(5));
+        assert!(!cleanup.can_start().await.unwrap());
+
+        cleanup = cleanup.with_time_interval(Duration::seconds(10));
+        assert!(!cleanup.can_start().await.unwrap());
     }
 
     #[sqlx::test(migrator = "db::testing::MIGRATOR")]
@@ -460,9 +483,10 @@ mod tests {
 
         let now_unix_ts = filetime::FileTime::now().unix_seconds();
 
-        let res = do_cleanup(&context.db, &context.store, retention_duration)
-            .await
-            .unwrap();
+        let mut cleanup = Cleanup::new((*context.db).clone(), (*context.store).clone());
+        cleanup = cleanup.with_retention_duration(retention_duration);
+
+        cleanup.do_cleanup().await.unwrap();
 
         let mut cx = context.db.connection();
         let latest_cleanup = db::cleanup_log_latest(&mut cx).await.unwrap().unwrap();
@@ -487,7 +511,10 @@ mod tests {
             .filter(|x| x.1.is_none() && x.2.is_none())
             .count();
 
-        assert_eq!(res.0.len(), test_marked_seqs + test_marked_topics);
+        assert_eq!(
+            cleanup.marked_folders.len(),
+            test_marked_seqs + test_marked_topics
+        );
 
         let test_deleted_seqs = stats
             .0
@@ -508,7 +535,10 @@ mod tests {
             })
             .count();
 
-        assert_eq!(res.1.len(), test_deleted_seqs + test_deleted_topics);
+        assert_eq!(
+            cleanup.deleted_folders.len(),
+            test_deleted_seqs + test_deleted_topics
+        );
 
         for seq in stats.0 {
             if seq.1.is_some() {

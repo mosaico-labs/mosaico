@@ -52,16 +52,22 @@ pub async fn cleanup_log_latest(
 pub async fn cleanup_log_close(
     exe: &mut impl AsExec,
     end_unix_tstamp_secs: i64,
+    marked_folders: Option<&Vec<String>>,
+    deleted_folders: Option<&Vec<String>>,
+    failed_folders: Option<&Vec<(String, String)>>,
 ) -> Result<bool, Error> {
     trace!(
-        "updating cleanup log last end UNIX timestamp `{}`",
+        "closing last cleanup log. End timestamp: `{}`",
         end_unix_tstamp_secs
     );
     let res = sqlx::query!(
         "UPDATE cleanup_log_t
-         SET end_unix_tstamp_secs = $1
+         SET end_unix_tstamp_secs = $1, marked_folders = $2, deleted_folders = $3, failed_folders = $4
          WHERE cleanup_id = (SELECT cleanup_id FROM cleanup_log_t ORDER BY cleanup_id DESC LIMIT 1) AND end_unix_tstamp_secs IS NULL",
-        end_unix_tstamp_secs
+        end_unix_tstamp_secs,
+        serde_json::to_value(marked_folders)?,
+serde_json::to_value(deleted_folders)?,
+serde_json::to_value(failed_folders)?,
     )
     .execute(exe.as_exec())
     .await?;
@@ -137,7 +143,11 @@ mod tests {
         assert_eq!(record.cleanup_id, 11);
 
         let end_unix_ts = chrono::Utc::now().timestamp();
-        assert!(cleanup_log_close(&mut cx, end_unix_ts).await.unwrap());
+        assert!(
+            cleanup_log_close(&mut cx, end_unix_ts, None, None, None)
+                .await
+                .unwrap()
+        );
 
         let latest_log = cleanup_log_latest(&mut cx).await.unwrap().unwrap();
         assert_eq!(latest_log.cleanup_id, 11);
@@ -159,7 +169,11 @@ mod tests {
         tokio::time::sleep(std::time::Duration::from_millis(200)).await;
 
         let end_unix_ts = chrono::Utc::now().timestamp();
-        assert!(cleanup_log_close(&mut cx, end_unix_ts).await.unwrap());
+        assert!(
+            cleanup_log_close(&mut cx, end_unix_ts, None, None, None)
+                .await
+                .unwrap()
+        );
 
         let latest_log = cleanup_log_latest(&mut cx).await.unwrap().unwrap();
         assert_eq!(latest_log.cleanup_id, 1);

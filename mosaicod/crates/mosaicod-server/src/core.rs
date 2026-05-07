@@ -52,14 +52,17 @@ impl Server {
             let cleanup_retention_duration =
                 task::cleanup::Duration::seconds(params::params().cleanup_retention_duration.value);
 
+            let cleanup_store = self.store.clone();
+            let cleanup_db = self.db.clone();
+
             // Start cleanup background task.
-            let handle_cleanup_task = rt.spawn(task::cleanup_routine(
-                self.db.clone(),
-                self.store.clone(),
-                (*shutdown_cleanup.inner()).clone(),
-                cleanup_time_interval,
-                cleanup_retention_duration,
-            ));
+            let handle_cleanup_task = rt.spawn(async move {
+                let cleanup = task::Cleanup::new(cleanup_db, cleanup_store)
+                    .with_time_interval(cleanup_time_interval)
+                    .with_retention_duration(cleanup_retention_duration);
+
+                cleanup.run((*shutdown_cleanup.inner()).clone()).await
+            });
 
             let server_store = self.store.clone();
             let server_db = self.db.clone();

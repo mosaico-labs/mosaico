@@ -17,6 +17,21 @@
         "ordinal": 2,
         "name": "end_unix_tstamp_secs",
         "type_info": "Int8"
+      },
+      {
+        "ordinal": 3,
+        "name": "marked_folders",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 4,
+        "name": "deleted_folders",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 5,
+        "name": "failed_folders",
+        "type_info": "Jsonb"
       }
     ],
     "parameters": {
@@ -25,6 +40,9 @@
     "nullable": [
       false,
       false,
+      true,
+      true,
+      true,
       true
     ]
   },
