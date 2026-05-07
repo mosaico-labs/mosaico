@@ -22,8 +22,6 @@ jobs:
         run: npm ci
 
       - name: Build Docusaurus
-        env:
-          BUILD_TARGET: Latest
         working-directory: docs/main
         run: npm run build
 

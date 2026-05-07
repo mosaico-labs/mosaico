@@ -2,8 +2,6 @@ import { themes as prismThemes } from 'prism-react-renderer';
 import type { Config } from '@docusaurus/types';
 import type * as Preset from '@docusaurus/preset-classic';
 
-require('dotenv').config();
-
 // This runs in Node.js - Don't use client-side code here (browser APIs, JSX...)
 const config: Config = {
   title: 'Mosaico Doc',
@@ -108,21 +106,6 @@ const config: Config = {
           label: 'SDK',
           target: "_self",
           position: 'left'
-        },
-        {
-          label: process.env.BUILD_TARGET,
-          type: "dropdown",
-          position: "right",
-          items: [
-            {
-              label: 'Latest',
-              to: 'https://docs.mosaico.dev',
-            },
-            {
-              label: 'Nightly',
-              to: 'https://docs.mosaico.dev/nightly',
-            }
-          ]
         },
         {
           href: 'https://github.com/facebook/docusaurus',
