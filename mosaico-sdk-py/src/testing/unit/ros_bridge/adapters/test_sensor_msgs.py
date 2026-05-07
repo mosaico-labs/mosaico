@@ -1,5 +1,6 @@
 import numpy as np
 import pytest
+from rosbags.typesys import get_types_from_msg
 from rosbags.typesys.stores import Stores, Typestore, get_typestore
 
 from mosaicolabs import (
@@ -7,21 +8,33 @@ from mosaicolabs import (
     IMU,
     ROI,
     CameraInfo,
+    CompressedImage,
     GPSStatus,
+    Image,
+    ImageFormat,
     Message,
+    NMEASentence,
     Point3d,
     Quaternion,
+    RobotJoint,
     Serializable,
     Time,
     Vector2d,
     Vector3d,
 )
 from mosaicolabs.ros_bridge.adapters import (
+    BatteryStateAdapter,
     CameraInfoAdapter,
+    CompressedImageAdapter,
     GPSAdapter,
+    ImageAdapter,
     IMUAdapter,
     NavSatStatusAdapter,
+    NMEASentenceAdapter,
+    RobotJointAdapter,
+    ROIAdapter,
 )
+from mosaicolabs.ros_bridge.data_ontology import BatteryState
 
 ROS_TYPESTORE_TO_TEST = [
     get_typestore(Stores.LATEST),
@@ -449,3 +462,438 @@ class TestIMUAdapter:
     def test_to_ros_invalid_mosaico_type(self, invalid_ms_msg):
         with pytest.raises(TypeError):
             IMUAdapter.to_ros(invalid_ms_msg, get_typestore(Stores.LATEST))
+
+
+###############################################################################
+########################### TestNMEASentenceAdapter ###########################
+###############################################################################
+
+
+def register_nmea_sentence(typestore: Typestore):
+    add_types = get_types_from_msg(
+        "std_msgs/Header header\nstring sentence",
+        "nmea_msgs/msg/Sentence",
+    )
+    typestore.register(add_types)
+    return typestore
+
+
+@pytest.fixture
+def nmea_sentence():
+    return NMEASentence(sentence="A sentence")
+
+
+@pytest.fixture
+def nmea_sentence_msg(nmea_sentence):
+    return Message(data=nmea_sentence, timestamp_ns=100, frame_id="satellite_link")
+
+
+class TestNMEASentenceAdapter:
+    def assert_nmea_sentence(self, nmea_sentence: NMEASentence, ros_msg):
+        assert nmea_sentence.sentence == ros_msg.sentence
+
+    @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
+    def test_to_ros_nmea_sentence(
+        self, nmea_sentence: NMEASentence, typestore: Typestore
+    ):
+
+        typestore = register_nmea_sentence(typestore)
+        ros_msg = NMEASentenceAdapter.to_ros(
+            nmea_sentence, typestore, "nmea_msgs/msg/Sentence"
+        )
+        self.assert_nmea_sentence(nmea_sentence, ros_msg)
+
+    @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
+    def test_to_ros_nmea_sentence_message(
+        self, nmea_sentence_msg: Message, typestore: Typestore
+    ):
+        typestore = register_nmea_sentence(typestore)
+        nmea_sentence = nmea_sentence_msg.get_data(NMEASentence)
+        ros_msg = NMEASentenceAdapter.to_ros(
+            nmea_sentence_msg, typestore, "nmea_msgs/msg/Sentence"
+        )
+        self.assert_nmea_sentence(nmea_sentence, ros_msg)
+
+    @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
+    def test_to_ros_default_type(
+        self, nmea_sentence: NMEASentence, typestore: Typestore
+    ):
+        typestore = register_nmea_sentence(typestore)
+        ros_msg = NMEASentenceAdapter.to_ros(nmea_sentence, typestore)
+        self.assert_nmea_sentence(nmea_sentence, ros_msg)
+
+    def test_to_ros_invalid_rosmsg_type(self, nmea_sentence: NMEASentence):
+        ros_msg = NMEASentenceAdapter.to_ros(
+            nmea_sentence, get_typestore(Stores.LATEST), "sensor_msgs/msg/Bogus"
+        )
+        assert ros_msg is None
+
+    def test_to_ros_invalid_mosaico_type(self, invalid_ms_msg):
+        typestore = register_nmea_sentence(get_typestore(Stores.LATEST))
+        with pytest.raises(TypeError):
+            NMEASentenceAdapter.to_ros(invalid_ms_msg, typestore)
+
+
+###############################################################################
+############################# TestImageAdapter ################################
+###############################################################################
+
+
+@pytest.fixture
+def image_raw():
+    # 2x2 bgr8: stride = 2 pixels × 3 bytes = 6 bytes/row, total = 12 bytes
+    return Image.from_linear_pixels(
+        data=list(range(12)),
+        stride=6,
+        width=2,
+        height=2,
+        encoding="bgr8",
+        is_bigendian=False,
+        format=ImageFormat.RAW,
+    )
+
+
+@pytest.fixture
+def image_png():
+    # 2x2 bgr8: stride = 2 pixels × 3 bytes = 6 bytes/row, total = 12 bytes
+    return Image.from_linear_pixels(
+        data=list(range(12)),
+        stride=6,
+        width=2,
+        height=2,
+        encoding="rgb8",
+        is_bigendian=False,
+        format=ImageFormat.PNG,
+    )
+
+
+@pytest.fixture
+def image_msg(image_raw):
+    return Message(data=image_raw, timestamp_ns=100, frame_id="camera_link")
+
+
+class TestImageAdapter:
+    def assert_image(self, image: Image, ros_msg):
+        assert image.height == ros_msg.height
+        assert image.width == ros_msg.width
+        assert image.encoding == ros_msg.encoding
+        assert int(image.is_bigendian) == ros_msg.is_bigendian
+        assert image.stride == ros_msg.step
+        assert np.array_equal(np.frombuffer(image.data, dtype=np.uint8), ros_msg.data)
+
+    @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
+    def test_to_ros_image_raw(self, image_raw: Image, typestore: Typestore):
+        ros_msg = ImageAdapter.to_ros(image_raw, typestore, "sensor_msgs/msg/Image")
+        self.assert_image(image_raw, ros_msg)
+
+    @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
+    def test_to_ros_image_png(self, image_png: Image, typestore: Typestore):
+        ros_msg = ImageAdapter.to_ros(image_png, typestore, "sensor_msgs/msg/Image")
+        self.assert_image(image_png, ros_msg)
+
+    @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
+    def test_to_ros_image_message(self, image_msg: Message, typestore: Typestore):
+        image = image_msg.get_data(Image)
+        ros_msg = ImageAdapter.to_ros(image_msg, typestore, "sensor_msgs/msg/Image")
+        assert image_msg.frame_id == ros_msg.header.frame_id
+        assert (
+            image_msg.timestamp_ns
+            == Time(
+                seconds=ros_msg.header.stamp.sec,
+                nanoseconds=ros_msg.header.stamp.nanosec,
+            ).to_nanoseconds()
+        )
+        self.assert_image(image, ros_msg)
+
+    @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
+    def test_to_ros_default_type(self, image_raw: Image, typestore: Typestore):
+        ros_msg = ImageAdapter.to_ros(image_raw, typestore)
+        self.assert_image(image_raw, ros_msg)
+
+    def test_to_ros_invalid_rosmsg_type(self, image_raw: Image):
+        ros_msg = ImageAdapter.to_ros(
+            image_raw, get_typestore(Stores.LATEST), "sensor_msgs/msg/Bogus"
+        )
+        assert ros_msg is None
+
+    def test_to_ros_invalid_mosaico_type(self, invalid_ms_msg):
+        with pytest.raises(TypeError):
+            ImageAdapter.to_ros(invalid_ms_msg, get_typestore(Stores.LATEST))
+
+
+###############################################################################
+###################### TestCompressedImageAdapter ############################
+###############################################################################
+
+
+@pytest.fixture
+def compressed_image():
+    return CompressedImage(data=bytes(range(16)), format=ImageFormat.JPEG)
+
+
+@pytest.fixture
+def compressed_image_msg(compressed_image):
+    return Message(data=compressed_image, timestamp_ns=100, frame_id="camera_link")
+
+
+class TestCompressedImageAdapter:
+    def assert_compressed_image(self, compressed_image: CompressedImage, ros_msg):
+        assert compressed_image.format == ros_msg.format
+        assert np.array_equal(
+            np.frombuffer(compressed_image.data, dtype=np.uint8), ros_msg.data
+        )
+
+    @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
+    def test_to_ros_compressed_image(
+        self, compressed_image: CompressedImage, typestore: Typestore
+    ):
+        ros_msg = CompressedImageAdapter.to_ros(
+            compressed_image, typestore, "sensor_msgs/msg/CompressedImage"
+        )
+        self.assert_compressed_image(compressed_image, ros_msg)
+
+    @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
+    def test_to_ros_compressed_image_message(
+        self, compressed_image_msg: Message, typestore: Typestore
+    ):
+        compressed_image = compressed_image_msg.get_data(CompressedImage)
+        ros_msg = CompressedImageAdapter.to_ros(
+            compressed_image_msg, typestore, "sensor_msgs/msg/CompressedImage"
+        )
+        assert compressed_image_msg.frame_id == ros_msg.header.frame_id
+        assert (
+            compressed_image_msg.timestamp_ns
+            == Time(
+                seconds=ros_msg.header.stamp.sec,
+                nanoseconds=ros_msg.header.stamp.nanosec,
+            ).to_nanoseconds()
+        )
+        self.assert_compressed_image(compressed_image, ros_msg)
+
+    @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
+    def test_to_ros_default_type(
+        self, compressed_image: CompressedImage, typestore: Typestore
+    ):
+        ros_msg = CompressedImageAdapter.to_ros(compressed_image, typestore)
+        self.assert_compressed_image(compressed_image, ros_msg)
+
+    def test_to_ros_invalid_rosmsg_type(self, compressed_image: CompressedImage):
+        ros_msg = CompressedImageAdapter.to_ros(
+            compressed_image, get_typestore(Stores.LATEST), "sensor_msgs/msg/Bogus"
+        )
+        assert ros_msg is None
+
+    def test_to_ros_invalid_mosaico_type(self, invalid_ms_msg):
+        with pytest.raises(TypeError):
+            CompressedImageAdapter.to_ros(invalid_ms_msg, get_typestore(Stores.LATEST))
+
+
+###############################################################################
+################################ TestROIAdapter ###############################
+###############################################################################
+
+
+@pytest.fixture
+def roi():
+    return ROI(
+        offset=Vector2d(x=10.0, y=20.0),
+        height=100,
+        width=200,
+        do_rectify=True,
+    )
+
+
+@pytest.fixture
+def roi_msg(roi):
+    return Message(data=roi, timestamp_ns=100, frame_id="camera_link")
+
+
+class TestROIAdapter:
+    def assert_roi(self, roi: ROI, ros_msg):
+        assert roi.offset.x == ros_msg.x_offset
+        assert roi.offset.y == ros_msg.y_offset
+        assert roi.height == ros_msg.height
+        assert roi.width == ros_msg.width
+        assert roi.do_rectify == ros_msg.do_rectify
+
+    @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
+    def test_to_ros_roi(self, roi: ROI, typestore: Typestore):
+        ros_msg = ROIAdapter.to_ros(roi, typestore, "sensor_msgs/msg/RegionOfInterest")
+        self.assert_roi(roi, ros_msg)
+
+    @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
+    def test_to_ros_roi_message(self, roi_msg: Message, typestore: Typestore):
+        roi = roi_msg.get_data(ROI)
+        ros_msg = ROIAdapter.to_ros(
+            roi_msg, typestore, "sensor_msgs/msg/RegionOfInterest"
+        )
+        self.assert_roi(roi, ros_msg)
+
+    @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
+    def test_to_ros_default_type(self, roi: ROI, typestore: Typestore):
+        ros_msg = ROIAdapter.to_ros(roi, typestore)
+        self.assert_roi(roi, ros_msg)
+
+    def test_to_ros_invalid_rosmsg_type(self, roi: ROI):
+        ros_msg = ROIAdapter.to_ros(
+            roi, get_typestore(Stores.LATEST), "sensor_msgs/msg/Bogus"
+        )
+        assert ros_msg is None
+
+    def test_to_ros_invalid_mosaico_type(self, invalid_ms_msg):
+        with pytest.raises(TypeError):
+            ROIAdapter.to_ros(invalid_ms_msg, get_typestore(Stores.LATEST))
+
+
+###############################################################################
+############################ TestBatteryStateAdapter ##########################
+###############################################################################
+
+
+@pytest.fixture
+def battery_state():
+    return BatteryState(
+        voltage=10.0,
+        temperature=50.0,
+        current=1.0,
+        charge=70.0,
+        capacity=100.0,
+        design_capacity=210.0,
+        percentage=20.0,
+        power_supply_status=6,
+        power_supply_health=7,
+        power_supply_technology=8,
+        present=True,
+        location="car",
+        serial_number="123456789",
+        cell_voltage=[1.0, 2.0, 3.0],
+        cell_temperature=[4.0, 5.0, 6.0],
+    )
+
+
+@pytest.fixture
+def battery_state_msg(battery_state):
+    return Message(data=battery_state, timestamp_ns=100, frame_id="car_link")
+
+
+class TestBatteryStateAdapter:
+    def assert_battery_state(self, battery_state: BatteryState, ros_msg):
+        assert battery_state.voltage == ros_msg.voltage
+        assert battery_state.temperature == ros_msg.temperature
+        assert battery_state.current == ros_msg.current
+        assert battery_state.charge == ros_msg.charge
+        assert battery_state.capacity == ros_msg.capacity
+        assert battery_state.design_capacity == ros_msg.design_capacity
+        assert battery_state.percentage == ros_msg.percentage
+        assert battery_state.power_supply_status == ros_msg.power_supply_status
+        assert battery_state.power_supply_health == ros_msg.power_supply_health
+        assert battery_state.power_supply_technology == ros_msg.power_supply_technology
+        assert battery_state.present == ros_msg.present
+        assert battery_state.location == ros_msg.location
+        assert battery_state.serial_number == ros_msg.serial_number
+        assert np.array_equal(battery_state.cell_voltage, ros_msg.cell_voltage)
+        assert np.array_equal(battery_state.cell_temperature, ros_msg.cell_temperature)
+
+    @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
+    def test_to_ros_battery_state(
+        self, battery_state: BatteryState, typestore: Typestore
+    ):
+        ros_msg = BatteryStateAdapter.to_ros(
+            battery_state, typestore, "sensor_msgs/msg/BatteryState"
+        )
+        self.assert_battery_state(battery_state, ros_msg)
+
+    @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
+    def test_to_ros_battery_state_message(
+        self, battery_state_msg: Message, typestore: Typestore
+    ):
+        battery_state = battery_state_msg.get_data(BatteryState)
+        ros_msg = BatteryStateAdapter.to_ros(
+            battery_state_msg, typestore, "sensor_msgs/msg/BatteryState"
+        )
+        self.assert_battery_state(battery_state, ros_msg)
+
+    @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
+    def test_to_ros_default_type(
+        self, battery_state: BatteryState, typestore: Typestore
+    ):
+        ros_msg = BatteryStateAdapter.to_ros(battery_state, typestore)
+        self.assert_battery_state(battery_state, ros_msg)
+
+    def test_to_ros_invalid_rosmsg_type(self, battery_state: BatteryState):
+        ros_msg = BatteryStateAdapter.to_ros(
+            battery_state, get_typestore(Stores.LATEST), "sensor_msgs/msg/Bogus"
+        )
+        assert ros_msg is None
+
+    def test_to_ros_invalid_mosaico_type(self, invalid_ms_msg):
+        with pytest.raises(TypeError):
+            BatteryStateAdapter.to_ros(invalid_ms_msg, get_typestore(Stores.LATEST))
+
+
+###############################################################################
+########################## TestRobotJointAdapter ##############################
+###############################################################################
+
+
+@pytest.fixture
+def robot_joint():
+    return RobotJoint(
+        names=["joint1", "joint2"],
+        positions=[0.0, 1.57],
+        velocities=[0.1, 0.2],
+        efforts=[10.0, 20.0],
+    )
+
+
+@pytest.fixture
+def robot_joint_msg(robot_joint):
+    return Message(data=robot_joint, timestamp_ns=100, frame_id="base_link")
+
+
+class TestRobotJointAdapter:
+    def assert_robot_joint(self, robot_joint: RobotJoint, ros_msg):
+        assert robot_joint.names == ros_msg.name
+        assert np.array_equal(robot_joint.positions, ros_msg.position)
+        assert np.array_equal(robot_joint.velocities, ros_msg.velocity)
+        assert np.array_equal(robot_joint.efforts, ros_msg.effort)
+
+    @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
+    def test_to_ros_joint_state(self, robot_joint: RobotJoint, typestore: Typestore):
+        ros_msg = RobotJointAdapter.to_ros(
+            robot_joint, typestore, "sensor_msgs/msg/JointState"
+        )
+        self.assert_robot_joint(robot_joint, ros_msg)
+
+    @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
+    def test_to_ros_joint_state_message(
+        self, robot_joint_msg: Message, typestore: Typestore
+    ):
+        robot_joint = robot_joint_msg.get_data(RobotJoint)
+        ros_msg = RobotJointAdapter.to_ros(
+            robot_joint_msg, typestore, "sensor_msgs/msg/JointState"
+        )
+        assert robot_joint_msg.frame_id == ros_msg.header.frame_id
+        assert (
+            robot_joint_msg.timestamp_ns
+            == Time(
+                seconds=ros_msg.header.stamp.sec,
+                nanoseconds=ros_msg.header.stamp.nanosec,
+            ).to_nanoseconds()
+        )
+        self.assert_robot_joint(robot_joint, ros_msg)
+
+    @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
+    def test_to_ros_default_type(self, robot_joint: RobotJoint, typestore: Typestore):
+        ros_msg = RobotJointAdapter.to_ros(robot_joint, typestore)
+        self.assert_robot_joint(robot_joint, ros_msg)
+
+    def test_to_ros_invalid_rosmsg_type(self, robot_joint: RobotJoint):
+        ros_msg = RobotJointAdapter.to_ros(
+            robot_joint, get_typestore(Stores.LATEST), "sensor_msgs/msg/Bogus"
+        )
+        assert ros_msg is None
+
+    def test_to_ros_invalid_mosaico_type(self, invalid_ms_msg):
+        with pytest.raises(TypeError):
+            RobotJointAdapter.to_ros(invalid_ms_msg, get_typestore(Stores.LATEST))
