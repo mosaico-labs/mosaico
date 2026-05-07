@@ -1,11 +1,13 @@
 //! This module provides the cleanup routine in charge of deleting obsolete files
 //! (not associated with any entry in the database) from the object storage.
 
-use log::warn;
 use mosaicod_core::{error::PublicResult as Result, types};
 use mosaicod_db as db;
 use mosaicod_store as store;
 use std::ops::Deref;
+use std::sync::Arc;
+use tokio::sync::Notify;
+use tracing::{error, info, warn};
 
 const TO_DELETE_MARKER_FILE_NAME: &str = "TO_DELETE";
 
@@ -39,6 +41,57 @@ impl Deref for Duration {
     }
 }
 
+/// Starts the cleanup routine that every [`time_interval`] tries to actually perform a cleanup of the store.
+pub async fn cleanup_routine(
+    db: db::Database,
+    store: store::StoreRef,
+    shutdown_notifier: Arc<Notify>,
+    time_interval: Duration,
+    retention_duration: Duration,
+) {
+    info!("Launching cleanup background routine");
+
+    loop {
+        match cleanup_can_start(&db, time_interval).await {
+            Ok(can_start) => {
+                if can_start {
+                    info!("Cleanup started");
+
+                    let cleanup_res = do_cleanup(&db, &store, retention_duration).await;
+
+                    match cleanup_res {
+                        Ok(res) => {
+                            info!(
+                                "Cleanup completed. {} items marked as ready to be deleted. {} items deleted.",
+                                res.0.len(),
+                                res.1.len()
+                            );
+                        }
+                        Err(e) => {
+                            // Exit the cleanup routine if something went wrong.
+                            error!("{}", e);
+                        }
+                    }
+                }
+            }
+            Err(e) => {
+                // Exit the cleanup routine if something went wrong.
+                error!("{}", e);
+            }
+        }
+
+        tokio::select! {
+            // Here we can call .unwrap() safely because duration is non-negative by construction.
+            _ = tokio::time::sleep(time_interval.to_std().unwrap()) => {
+            }
+            _ = shutdown_notifier.notified() => {
+                info!("Exiting cleanup background routine. Shutdown received.");
+                break; // Exit the loop immediately
+            }
+        }
+    }
+}
+
 /// Checks if the conditions to start a new cleanup are met.
 ///
 /// It can start:
@@ -46,7 +99,7 @@ impl Deref for Duration {
 /// - if the latest cleanup has finished and its end time + cleanup time interval <= current time.
 ///
 /// The cleanup must NOT start if [`time_interval`] is set to 0,
-pub async fn cleanup_can_start(db: &db::Database, time_interval: Duration) -> Result<bool> {
+async fn cleanup_can_start(db: &db::Database, time_interval: Duration) -> Result<bool> {
     if time_interval.is_zero() {
         return Ok(false);
     }
@@ -64,11 +117,14 @@ pub async fn cleanup_can_start(db: &db::Database, time_interval: Duration) -> Re
 /// Launches the cleanup of the store.
 ///
 /// Returns how many folders have been marked TO_DELETE and how many folder have actually been deleted.
-pub async fn cleanup_start(
+pub async fn do_cleanup(
     db: &db::Database,
     store: &store::StoreRef,
     retention_duration: Duration,
 ) -> Result<(Vec<String>, Vec<String>)> {
+    let mut cx = db.connection();
+    db::cleanup_log_create(&mut cx, &db::schema::CleanupLogRecord::default()).await?;
+
     let root_subfolders = store.list_subfolders("").await?;
 
     let mut marked_folders = Vec::new();
@@ -100,6 +156,8 @@ pub async fn cleanup_start(
             }
         }
     }
+
+    db::cleanup_log_close(&mut cx, chrono::Utc::now().timestamp()).await?;
 
     Ok((marked_folders, deleted_folders))
 }
@@ -138,11 +196,11 @@ mod tests {
         min_duration: Option<u16>,
         max_duration: Option<u16>,
     ) {
-        let mut tx = context.db.transaction().await.unwrap();
+        let mut cx = context.db.connection();
 
         for i in 1..=nums {
             let record = db::schema::CleanupLogRecord::default();
-            let record = db::cleanup_log_create(&mut tx, &record).await.unwrap();
+            let record = db::cleanup_log_create(&mut cx, &record).await.unwrap();
             assert_eq!(record.cleanup_id, i as i32);
 
             let rnd_sleep_time =
@@ -150,18 +208,16 @@ mod tests {
             tokio::time::sleep(std::time::Duration::from_millis(rnd_sleep_time as u64)).await;
 
             assert!(
-                db::cleanup_log_close(&mut tx, chrono::Utc::now().timestamp())
+                db::cleanup_log_close(&mut cx, chrono::Utc::now().timestamp())
                     .await
                     .unwrap()
             );
         }
-
-        tx.commit().await.unwrap();
     }
 
     /// Populates the store with the given number of sequences [`num_seqs`] and topics [`num_topics`].
     ///
-    /// [`retention_duration`] value must be the same passed to [`cleanup_start`]
+    /// [`retention_duration`] value must be the same passed to [`cleanup`]
     ///
     /// Returns two vectors as output, both containing a tuple with:
     /// 1. the path in store generated within the function (sequence or topic)
@@ -392,7 +448,7 @@ mod tests {
     }
 
     #[sqlx::test(migrator = "db::testing::MIGRATOR")]
-    async fn test_cleanup_start(pool: sqlx::Pool<db::DatabaseType>) {
+    async fn test_do_cleanup(pool: sqlx::Pool<db::DatabaseType>) {
         let context = test_context(pool);
 
         let num_seqs = rand::random_range(1..=20);
@@ -404,9 +460,21 @@ mod tests {
 
         let now_unix_ts = filetime::FileTime::now().unix_seconds();
 
-        let res = cleanup_start(&context.db, &context.store, retention_duration)
+        let res = do_cleanup(&context.db, &context.store, retention_duration)
             .await
             .unwrap();
+
+        let mut cx = context.db.connection();
+        let latest_cleanup = db::cleanup_log_latest(&mut cx).await.unwrap().unwrap();
+        assert!(
+            latest_cleanup.start_datetime().timestamp() > 0
+                && latest_cleanup.start_datetime().timestamp() <= chrono::Utc::now().timestamp()
+        );
+        assert!(
+            latest_cleanup.end_datetime().unwrap().timestamp() > 0
+                && latest_cleanup.end_datetime().unwrap().timestamp()
+                    <= chrono::Utc::now().timestamp()
+        );
 
         let test_marked_seqs = stats
             .0

@@ -14,12 +14,12 @@ mosaicod-core = { workspace = true }
 mosaicod-db = { workspace = true, features = ["postgres"] }
 mosaicod-store = { workspace = true }
 chrono = { workspace = true }
-log = { workspace = true }
+tracing = { workspace = true }
+tokio = { workspace = true }
 
 [dev-dependencies]
 mosaicod-db = { workspace = true, features = ["postgres", "testing"] }
 mosaicod-store = { workspace = true, features = ["testing"] }
 sqlx = { workspace = true }
-tokio = { workspace = true }
 rand = { workspace = true }
 filetime = { workspace = true }

@@ -37,7 +37,7 @@ impl ShutdownNotifier {
         self.0.notified().await;
     }
 
-    pub fn inner(&self) -> &Notify {
+    pub fn inner(&self) -> &Arc<Notify> {
         &self.0
     }
 }

@@ -2767,13 +2767,13 @@ version = "0.4.0"
 dependencies = [
  "chrono",
  "filetime",
- "log",
  "mosaicod-core",
  "mosaicod-db",
  "mosaicod-store",
  "rand 0.9.2",
  "sqlx",
  "tokio",
+ "tracing",
 ]
 
 [[package]]

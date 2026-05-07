@@ -1,3 +1,3 @@
 pub mod cleanup;
-pub use cleanup::cleanup_can_start;
-pub use cleanup::cleanup_start;
+pub use cleanup::cleanup_routine;
+pub use cleanup::do_cleanup;
