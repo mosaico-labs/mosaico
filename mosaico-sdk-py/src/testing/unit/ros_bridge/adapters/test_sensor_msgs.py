@@ -21,6 +21,7 @@ from mosaicolabs import (
     Time,
     Vector2d,
     Vector3d,
+    futures,
 )
 from mosaicolabs.ros_bridge.adapters import (
     BatteryStateAdapter,
@@ -29,12 +30,20 @@ from mosaicolabs.ros_bridge.adapters import (
     GPSAdapter,
     ImageAdapter,
     IMUAdapter,
+    LidarAdapter,
     NavSatStatusAdapter,
     NMEASentenceAdapter,
+    PointCloudAdapterBase,
+    RadarAdapter,
+    RGBDCameraAdapter,
     RobotJointAdapter,
     ROIAdapter,
+    StereoCameraAdapter,
+    ToFCameraAdapter,
 )
-from mosaicolabs.ros_bridge.data_ontology import BatteryState
+from mosaicolabs.ros_bridge.data_ontology import (
+    BatteryState,
+)
 
 ROS_TYPESTORE_TO_TEST = [
     get_typestore(Stores.LATEST),
@@ -897,3 +906,209 @@ class TestRobotJointAdapter:
     def test_to_ros_invalid_mosaico_type(self, invalid_ms_msg):
         with pytest.raises(TypeError):
             RobotJointAdapter.to_ros(invalid_ms_msg, get_typestore(Stores.LATEST))
+
+
+###############################################################################
+########################### TestPointCloud2Adapter ############################
+###############################################################################
+
+
+# def pcl2():
+#     return PointCloud2(
+#         height=10,
+#         width=20,
+#         fields=[
+#             PointField(name="x", offset=0, datatype=PointFieldDataType.FLOAT32, count=1),
+#             PointField(name="y", offset=0, datatype=PointFieldDataType.FLOAT32, count=1),
+#             PointField(name="z", offset=0, datatype=PointFieldDataType.FLOAT32, count=1),
+#         ],
+#         is_bigendian=sys.byteorder == "big",
+#         point_step=12,  # 3 floats
+#         row_step=80,  # 4 * width
+#         data=bytes(range(0, 100)),
+#         is_dense=True,
+#     )
+
+
+# TODO
+
+
+###############################################################################
+############################# TestOverrideAdapter #############################
+###############################################################################
+
+
+def lidar():
+    return futures.Lidar(
+        x=list(range(0, 5)),
+        y=list(range(5, 10)),
+        z=list(range(10, 15)),
+        intensity=list(range(15, 20)),
+        reflectivity=list(range(20, 25)),
+        beam_id=list(range(25, 30)),
+        range=list(range(30, 35)),
+        near_ir=list(range(35, 40)),
+        azimuth=list(range(40, 45)),
+        elevation=list(range(45, 50)),
+        confidence=list(range(50, 55)),
+        return_type=list(range(55, 60)),
+        point_timestamp=list(range(60, 65)),
+    )
+
+
+def radar():
+    return futures.Radar(
+        x=list(range(0, 5)),
+        y=list(range(5, 10)),
+        z=list(range(10, 15)),
+        range=list(range(15, 20)),
+        azimuth=list(range(20, 25)),
+        elevation=list(range(25, 30)),
+        rcs=list(range(30, 35)),
+        snr=list(range(35, 40)),
+        doppler_velocity=list(range(40, 45)),
+        vx=list(range(45, 50)),
+        vy=list(range(50, 55)),
+        vx_comp=list(range(55, 60)),
+        vy_comp=list(range(60, 65)),
+        ax=list(range(65, 70)),
+        ay=list(range(70, 75)),
+        radial_speed=list(range(75, 80)),
+    )
+
+
+def rgbd_camera():
+    return futures.RGBDCamera(
+        x=list(range(0, 5)),
+        y=list(range(5, 10)),
+        z=list(range(10, 15)),
+        rgb=list(range(15, 20)),
+        intensity=list(range(20, 25)),
+    )
+
+
+def tof_camera():
+    return futures.ToFCamera(
+        x=list(range(0, 5)),
+        y=list(range(5, 10)),
+        z=list(range(10, 15)),
+        rgb=list(range(15, 20)),
+        intensity=list(range(20, 25)),
+        noise=list(range(25, 30)),
+        grayscale=list(range(30, 35)),
+    )
+
+
+def stereo_camera():
+    return futures.StereoCamera(
+        x=list(range(0, 5)),
+        y=list(range(5, 10)),
+        z=list(range(10, 15)),
+        rgb=list(range(15, 20)),
+        intensity=list(range(20, 25)),
+        luma=list(range(25, 30)),
+        cost=list(range(30, 35)),
+    )
+
+
+PCL_ADAPTER_PAIR = [
+    (lidar(), LidarAdapter),
+    (radar(), RadarAdapter),
+    (rgbd_camera(), RGBDCameraAdapter),
+    (tof_camera(), ToFCameraAdapter),
+    (stereo_camera(), StereoCameraAdapter),
+]
+
+
+def lidar_message(lidar):
+    return Message(data=lidar, timestamp_ns=10, frame_id="base_link")
+
+
+def radar_message(radar):
+    return Message(data=radar, timestamp_ns=10, frame_id="base_link")
+
+
+def rgbd_camera_message(rgbd_camera):
+    return Message(data=rgbd_camera, timestamp_ns=10, frame_id="camera_link")
+
+
+def tof_camera_message(tof_camera):
+    return Message(data=tof_camera, timestamp_ns=10, frame_id="camera_link")
+
+
+def stereo_camera_message(stereo_camera):
+    return Message(data=stereo_camera, timestamp_ns=10, frame_id="camera_link")
+
+
+MESSAGE_ADAPTER_PAIR = [
+    (lidar_message(lidar()), LidarAdapter),
+    (radar_message(radar()), RadarAdapter),
+    (rgbd_camera_message(rgbd_camera()), RGBDCameraAdapter),
+    (tof_camera_message(tof_camera()), ToFCameraAdapter),
+    (stereo_camera_message(stereo_camera()), StereoCameraAdapter),
+]
+
+
+class TestOverrideAdapter:
+    def assert_pcl(self, adapter: PointCloudAdapterBase, pcl: Serializable, ros_msg):
+        model = pcl.model_dump(exclude_none=True)
+
+        pcl_dict = adapter.encode(model)
+
+        assert pcl_dict["height"] == ros_msg.height
+        assert pcl_dict["width"] == ros_msg.width
+
+        for field, ros_field in zip(pcl_dict["fields"], ros_msg.fields):
+            assert field["name"] == ros_field.name
+            assert field["offset"] == ros_field.offset
+            assert field["datatype"] == ros_field.datatype
+            assert field["count"] == ros_field.count
+
+        assert pcl_dict["is_bigendian"] == ros_msg.is_bigendian
+        assert pcl_dict["point_step"] == ros_msg.point_step
+        assert pcl_dict["row_step"] == ros_msg.row_step
+        assert np.array_equal(pcl_dict["data"], ros_msg.data)
+        assert pcl_dict["is_dense"] == ros_msg.is_dense
+
+    @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
+    @pytest.mark.parametrize("pcl, adapter", PCL_ADAPTER_PAIR)
+    def test_to_ros_pointcloud2(self, pcl, adapter: PointCloudAdapterBase, typestore):
+        ros_msg = adapter.to_ros(pcl, typestore, "sensor_msgs/msg/PointCloud2")
+        self.assert_pcl(adapter, pcl, ros_msg)
+
+    @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
+    @pytest.mark.parametrize("message, adapter", MESSAGE_ADAPTER_PAIR)
+    def test_to_ros_pointcloud2_message(
+        self, message: Message, adapter: PointCloudAdapterBase, typestore: Typestore
+    ):
+        pcl = message.get_data(adapter.__mosaico_ontology_type__)
+        ros_msg = adapter.to_ros(message, typestore, "sensor_msgs/msg/PointCloud2")
+        assert message.frame_id == ros_msg.header.frame_id
+        assert (
+            message.timestamp_ns
+            == Time(
+                seconds=ros_msg.header.stamp.sec,
+                nanoseconds=ros_msg.header.stamp.nanosec,
+            ).to_nanoseconds()
+        )
+        self.assert_pcl(adapter, pcl, ros_msg)
+
+    @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
+    @pytest.mark.parametrize("pcl, adapter", PCL_ADAPTER_PAIR)
+    def test_to_ros_default_type(
+        self, pcl, adapter: PointCloudAdapterBase, typestore: Typestore
+    ):
+        ros_msg = adapter.to_ros(pcl, typestore)
+        self.assert_pcl(adapter, pcl, ros_msg)
+
+    @pytest.mark.parametrize("pcl, adapter", PCL_ADAPTER_PAIR)
+    def test_to_ros_invalid_rosmsg_type(self, pcl, adapter):
+        ros_msg = adapter.to_ros(
+            pcl, get_typestore(Stores.LATEST), "sensor_msgs/msg/Bogus"
+        )
+        assert ros_msg is None
+
+    @pytest.mark.parametrize("pcl, adapter", PCL_ADAPTER_PAIR)
+    def test_to_ros_invalid_mosaico_type(self, invalid_ms_msg, pcl, adapter):
+        with pytest.raises(TypeError):
+            adapter.to_ros(invalid_ms_msg, get_typestore(Stores.LATEST))
