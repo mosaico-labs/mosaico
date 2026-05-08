@@ -2095,6 +2095,50 @@ class LaserScanAdapter(LaserScannerAdapterBase[LaserScan]):
         """
         return super().from_dict(ros_data)
 
+    @classmethod
+    def to_ros(
+        cls,
+        mosaico_data: Union[Message, LaserScan],
+        typestore: Typestore,
+        input_ros_msg_type: Optional[str] = None,
+    ) -> "Optional[MsgType]":
+        """
+        TODO
+        """
+
+        # Resolve ROS message to translate Mosaico message to if not defined in input
+        resolved_rosmsg_type = input_ros_msg_type or cls.get_default_ros_msg()
+        if not cls.is_rosmsg_type_valid(resolved_rosmsg_type):
+            return None
+
+        # Checking presence in typestore of requested message
+        if typestore.types.get(resolved_rosmsg_type) is None:
+            return None
+
+        # Unpacking Mosaico message / type
+        laser_scanner_data, ms_header = cls.unpack_mosaico_msg(mosaico_data)
+
+        # Filling the data
+        RosLaserScanner = typestore.types["sensor_msgs/msg/LaserScan"]
+
+        if resolved_rosmsg_type == "sensor_msgs/msg/LaserScan":
+            return RosLaserScanner(
+                header=ms_header.to_ros(typestore),
+                angle_min=laser_scanner_data.angle_min,
+                angle_max=laser_scanner_data.angle_max,
+                angle_increment=laser_scanner_data.angle_increment,
+                time_increment=laser_scanner_data.time_increment,
+                scan_time=laser_scanner_data.scan_time,
+                range_min=laser_scanner_data.range_min,
+                range_max=laser_scanner_data.range_max,
+                ranges=np.asarray(laser_scanner_data.ranges, dtype=np.float32),
+                intensities=np.asarray(
+                    laser_scanner_data.intensities or [], dtype=np.float32
+                ),
+            )
+
+        return None
+
 
 @register_default_adapter
 class MultiEchoLaserScanAdapter(LaserScannerAdapterBase[MultiEchoLaserScan]):
@@ -2147,6 +2191,59 @@ class MultiEchoLaserScanAdapter(LaserScannerAdapterBase[MultiEchoLaserScan]):
         ```
         """
         return super().from_dict(ros_data)
+
+    @classmethod
+    def to_ros(
+        cls,
+        mosaico_data: Union[Message, MultiEchoLaserScan],
+        typestore: Typestore,
+        input_ros_msg_type: Optional[str] = None,
+    ) -> "Optional[MsgType]":
+        """
+        TODO
+        """
+
+        # Resolve ROS message to translate Mosaico message to if not defined in input
+        resolved_rosmsg_type = input_ros_msg_type or cls.get_default_ros_msg()
+        if not cls.is_rosmsg_type_valid(resolved_rosmsg_type):
+            return None
+
+        # Checking presence in typestore of requested message
+        if typestore.types.get(resolved_rosmsg_type) is None:
+            return None
+
+        # Unpacking Mosaico message / type
+        multi_laser_scanner_data, ms_header = cls.unpack_mosaico_msg(mosaico_data)
+
+        # Filling the data
+        RosLaserEcho = typestore.types["sensor_msgs/msg/LaserEcho"]
+        RosMultiEchoLaserScanner = typestore.types["sensor_msgs/msg/MultiEchoLaserScan"]
+
+        ranges_echoes = [
+            RosLaserEcho(echoes=np.asarray(scan, dtype=np.float32))
+            for scan in multi_laser_scanner_data.ranges
+        ]
+
+        intensities_echoes = [
+            RosLaserEcho(echoes=np.asarray(scan, dtype=np.float32))
+            for scan in multi_laser_scanner_data.intensities or []
+        ]
+
+        if resolved_rosmsg_type == "sensor_msgs/msg/MultiEchoLaserScan":
+            return RosMultiEchoLaserScanner(
+                header=ms_header.to_ros(typestore),
+                angle_min=multi_laser_scanner_data.angle_min,
+                angle_max=multi_laser_scanner_data.angle_max,
+                angle_increment=multi_laser_scanner_data.angle_increment,
+                time_increment=multi_laser_scanner_data.time_increment,
+                scan_time=multi_laser_scanner_data.scan_time,
+                range_min=multi_laser_scanner_data.range_min,
+                range_max=multi_laser_scanner_data.range_max,
+                ranges=ranges_echoes,
+                intensities=intensities_echoes,
+            )
+
+        return None
 
 
 @register_default_adapter
@@ -2221,6 +2318,44 @@ class MagneticFieldAdapter(ROSAdapterBase[Magnetometer]):
         return Magnetometer(magnetic_field=mag)
 
     @classmethod
+    def to_ros(
+        cls,
+        mosaico_data: Union[Message, Magnetometer],
+        typestore: Typestore,
+        input_ros_msg_type: Optional[str] = None,
+    ) -> "Optional[MsgType]":
+        """
+        TODO
+        """
+
+        # Resolve ROS message to translate Mosaico message to if not defined in input
+        resolved_rosmsg_type = input_ros_msg_type or cls.get_default_ros_msg()
+        if not cls.is_rosmsg_type_valid(resolved_rosmsg_type):
+            return None
+
+        # Checking presence in typestore of requested message
+        if typestore.types.get(resolved_rosmsg_type) is None:
+            return None
+
+        # Unpacking Mosaico message / type
+        magnetic_field_data, ms_header = cls.unpack_mosaico_msg(mosaico_data)
+
+        # Filling the data
+        RosMagneticField = typestore.types["sensor_msgs/msg/MagneticField"]
+        cov = magnetic_field_data.magnetic_field.covariance or [0.0] * 9
+
+        if resolved_rosmsg_type == "sensor_msgs/msg/MagneticField":
+            return RosMagneticField(
+                header=ms_header.to_ros(typestore),
+                magnetic_field=Vector3Adapter.to_ros(
+                    magnetic_field_data.magnetic_field, typestore
+                ),
+                magnetic_field_covariance=np.asarray(cov, dtype=np.float64),
+            )
+
+        return None
+
+    @classmethod
     def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
@@ -2293,6 +2428,41 @@ class JoyAdapter(ROSAdapterBase[Joy]):
             axes=ros_data.get("axes", []),
             buttons=ros_data.get("buttons", []),
         )
+
+    @classmethod
+    def to_ros(
+        cls,
+        mosaico_data: Union[Message, Joy],
+        typestore: Typestore,
+        input_ros_msg_type: Optional[str] = None,
+    ) -> "Optional[MsgType]":
+        """
+        TODO
+        """
+
+        # Resolve ROS message to translate Mosaico message to if not defined in input
+        resolved_rosmsg_type = input_ros_msg_type or cls.get_default_ros_msg()
+        if not cls.is_rosmsg_type_valid(resolved_rosmsg_type):
+            return None
+
+        # Checking presence in typestore of requested message
+        if typestore.types.get(resolved_rosmsg_type) is None:
+            return None
+
+        # Unpacking Mosaico message / type
+        joy_data, ms_header = cls.unpack_mosaico_msg(mosaico_data)
+
+        # Filling the data
+        RosJoy = typestore.types["sensor_msgs/msg/Joy"]
+
+        if resolved_rosmsg_type == "sensor_msgs/msg/Joy":
+            return RosJoy(
+                header=ms_header.to_ros(typestore),
+                axes=np.asarray(joy_data.axes, dtype=np.float32),
+                buttons=np.asarray(joy_data.buttons, dtype=np.int32),
+            )
+
+        return None
 
     @classmethod
     def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:

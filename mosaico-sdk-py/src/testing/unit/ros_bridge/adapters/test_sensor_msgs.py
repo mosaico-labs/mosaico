@@ -1,3 +1,5 @@
+import sys
+
 import numpy as np
 import pytest
 from rosbags.typesys import get_types_from_msg
@@ -12,6 +14,8 @@ from mosaicolabs import (
     GPSStatus,
     Image,
     ImageFormat,
+    Joy,
+    Magnetometer,
     Message,
     NMEASentence,
     Point3d,
@@ -30,9 +34,14 @@ from mosaicolabs.ros_bridge.adapters import (
     GPSAdapter,
     ImageAdapter,
     IMUAdapter,
+    JoyAdapter,
+    LaserScanAdapter,
     LidarAdapter,
+    MagneticFieldAdapter,
+    MultiEchoLaserScanAdapter,
     NavSatStatusAdapter,
     NMEASentenceAdapter,
+    PointCloudAdapter,
     PointCloudAdapterBase,
     RadarAdapter,
     RGBDCameraAdapter,
@@ -43,6 +52,9 @@ from mosaicolabs.ros_bridge.adapters import (
 )
 from mosaicolabs.ros_bridge.data_ontology import (
     BatteryState,
+    PointCloud2,
+    PointField,
+    PointFieldDataType,
 )
 
 ROS_TYPESTORE_TO_TEST = [
@@ -909,31 +921,6 @@ class TestRobotJointAdapter:
 
 
 ###############################################################################
-########################### TestPointCloud2Adapter ############################
-###############################################################################
-
-
-# def pcl2():
-#     return PointCloud2(
-#         height=10,
-#         width=20,
-#         fields=[
-#             PointField(name="x", offset=0, datatype=PointFieldDataType.FLOAT32, count=1),
-#             PointField(name="y", offset=0, datatype=PointFieldDataType.FLOAT32, count=1),
-#             PointField(name="z", offset=0, datatype=PointFieldDataType.FLOAT32, count=1),
-#         ],
-#         is_bigendian=sys.byteorder == "big",
-#         point_step=12,  # 3 floats
-#         row_step=80,  # 4 * width
-#         data=bytes(range(0, 100)),
-#         is_dense=True,
-#     )
-
-
-# TODO
-
-
-###############################################################################
 ############################# TestOverrideAdapter #############################
 ###############################################################################
 
@@ -1051,24 +1038,31 @@ MESSAGE_ADAPTER_PAIR = [
 
 class TestOverrideAdapter:
     def assert_pcl(self, adapter: PointCloudAdapterBase, pcl: Serializable, ros_msg):
-        model = pcl.model_dump(exclude_none=True)
+        pcl_model = pcl.model_dump(exclude_none=True)
 
-        pcl_dict = adapter.encode(model)
+        assert [f.name for f in ros_msg.fields] == list(pcl_model.keys())
 
-        assert pcl_dict["height"] == ros_msg.height
-        assert pcl_dict["width"] == ros_msg.width
-
-        for field, ros_field in zip(pcl_dict["fields"], ros_msg.fields):
-            assert field["name"] == ros_field.name
-            assert field["offset"] == ros_field.offset
-            assert field["datatype"] == ros_field.datatype
-            assert field["count"] == ros_field.count
-
-        assert pcl_dict["is_bigendian"] == ros_msg.is_bigendian
-        assert pcl_dict["point_step"] == ros_msg.point_step
-        assert pcl_dict["row_step"] == ros_msg.row_step
-        assert np.array_equal(pcl_dict["data"], ros_msg.data)
-        assert pcl_dict["is_dense"] == ros_msg.is_dense
+        # Round-trip: recreate Mosaico PointCloud2 message from ros message
+        assert pcl == adapter.from_dict(
+            {
+                "height": ros_msg.height,
+                "width": ros_msg.width,
+                "fields": [
+                    {
+                        "name": f.name,
+                        "offset": f.offset,
+                        "datatype": f.datatype,
+                        "count": f.count,
+                    }
+                    for f in ros_msg.fields
+                ],
+                "is_bigendian": ros_msg.is_bigendian,
+                "point_step": ros_msg.point_step,
+                "row_step": ros_msg.row_step,
+                "data": bytes(ros_msg.data),
+                "is_dense": ros_msg.is_dense,
+            }
+        )
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     @pytest.mark.parametrize("pcl, adapter", PCL_ADAPTER_PAIR)
@@ -1112,3 +1106,421 @@ class TestOverrideAdapter:
     def test_to_ros_invalid_mosaico_type(self, invalid_ms_msg, pcl, adapter):
         with pytest.raises(TypeError):
             adapter.to_ros(invalid_ms_msg, get_typestore(Stores.LATEST))
+
+
+###############################################################################
+########################### TestPointCloud2Adapter ############################
+###############################################################################
+
+
+@pytest.fixture
+def pcl2():
+    return PointCloud2(
+        height=10,
+        width=20,
+        fields=[
+            PointField(
+                name="x", offset=0, datatype=PointFieldDataType.FLOAT32, count=1
+            ),
+            PointField(
+                name="y", offset=4, datatype=PointFieldDataType.FLOAT32, count=1
+            ),
+            PointField(
+                name="z", offset=8, datatype=PointFieldDataType.FLOAT32, count=1
+            ),
+        ],
+        is_bigendian=sys.byteorder == "big",
+        point_step=12,  # 3 points * 4 bytes
+        row_step=240,  # 12 * width
+        data=bytes([10] * 2400),
+        is_dense=True,
+    )
+
+
+@pytest.fixture
+def pcl2_msg(pcl2):
+    return Message(data=pcl2, timestamp_ns=100, frame_id="base_link")
+
+
+class TestPointCloud2Adapter:
+    def assert_pcl2(self, pcl2: PointCloud2, ros_msg):
+
+        assert pcl2.height == ros_msg.height
+        assert pcl2.width == ros_msg.width
+
+        for field, ros_field in zip(pcl2.fields, ros_msg.fields):
+            assert field.name == ros_field.name
+            assert field.offset == ros_field.offset
+            assert field.datatype == ros_field.datatype
+            assert field.count == ros_field.count
+
+        assert pcl2.is_bigendian == ros_msg.is_bigendian
+        assert pcl2.point_step == ros_msg.point_step
+        assert pcl2.row_step == ros_msg.row_step
+
+        buffer = np.frombuffer(pcl2.data, dtype=np.uint8)
+        assert np.array_equal(buffer, ros_msg.data)
+        assert pcl2.is_dense == ros_msg.is_dense
+
+    @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
+    def test_to_ros_pointcloud2(self, pcl2: PointCloud2, typestore: Typestore):
+        ros_msg = PointCloudAdapter.to_ros(
+            pcl2, typestore, "sensor_msgs/msg/PointCloud2"
+        )
+        self.assert_pcl2(pcl2, ros_msg)
+
+    @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
+    def test_to_ros_pointcloud2_message(self, pcl2_msg: Message, typestore: Typestore):
+        pcl2 = pcl2_msg.get_data(PointCloud2)
+        ros_msg = PointCloudAdapter.to_ros(
+            pcl2_msg, typestore, "sensor_msgs/msg/PointCloud2"
+        )
+        assert pcl2_msg.frame_id == ros_msg.header.frame_id
+        assert (
+            pcl2_msg.timestamp_ns
+            == Time(
+                seconds=ros_msg.header.stamp.sec,
+                nanoseconds=ros_msg.header.stamp.nanosec,
+            ).to_nanoseconds()
+        )
+        self.assert_pcl2(pcl2, ros_msg)
+
+    @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
+    def test_to_ros_default_type(self, pcl2: PointCloud2, typestore: Typestore):
+        ros_msg = PointCloudAdapter.to_ros(pcl2, typestore)
+        self.assert_pcl2(pcl2, ros_msg)
+
+    def test_to_ros_invalid_rosmsg_type(self, pcl2: PointCloud2):
+        ros_msg = PointCloudAdapter.to_ros(
+            pcl2, get_typestore(Stores.LATEST), "sensor_msgs/msg/Bogus"
+        )
+        assert ros_msg is None
+
+    def test_to_ros_invalid_mosaico_type(self, invalid_ms_msg):
+        with pytest.raises(TypeError):
+            PointCloudAdapter.to_ros(invalid_ms_msg, get_typestore(Stores.LATEST))
+
+
+###############################################################################
+############################# TestLaserScanAdapter ############################
+###############################################################################
+
+
+@pytest.fixture
+def laserscan():
+    return futures.LaserScan(
+        angle_min=-1.57,
+        angle_max=1.57,
+        angle_increment=0.01,
+        time_increment=0.0,
+        scan_time=0.1,
+        range_min=0.2,
+        range_max=10.0,
+        ranges=[1.0, 2.0, 3.0],
+        intensities=[100.0, 200.0, 300.0],
+    )
+
+
+@pytest.fixture
+def laserscan_msg(laserscan):
+    return Message(data=laserscan, timestamp_ns=100, frame_id="base_link")
+
+
+class TestLaserScannerAdapter:
+    def assert_laserscan(self, laserscan: futures.LaserScan, ros_msg):
+        assert laserscan.angle_min == ros_msg.angle_min
+        assert laserscan.angle_max == ros_msg.angle_max
+        assert laserscan.angle_increment == ros_msg.angle_increment
+        assert laserscan.time_increment == ros_msg.time_increment
+        assert laserscan.scan_time == ros_msg.scan_time
+        assert laserscan.range_min == ros_msg.range_min
+        assert laserscan.range_max == ros_msg.range_max
+        assert np.array_equal(laserscan.ranges, ros_msg.ranges)
+        if laserscan.intensities is not None:
+            assert np.array_equal(laserscan.intensities, ros_msg.intensities)
+        else:
+            assert len(ros_msg.intensities) == 0
+
+    @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
+    def test_to_ros_laserscan(self, laserscan: futures.LaserScan, typestore: Typestore):
+        ros_msg = LaserScanAdapter.to_ros(
+            laserscan, typestore, "sensor_msgs/msg/LaserScan"
+        )
+        self.assert_laserscan(laserscan, ros_msg)
+
+    @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
+    def test_to_ros_laserscan_message(
+        self, laserscan_msg: Message, typestore: Typestore
+    ):
+        laserscan = laserscan_msg.get_data(futures.LaserScan)
+        ros_msg = LaserScanAdapter.to_ros(
+            laserscan_msg, typestore, "sensor_msgs/msg/LaserScan"
+        )
+        assert laserscan_msg.frame_id == ros_msg.header.frame_id
+        assert (
+            laserscan_msg.timestamp_ns
+            == Time(
+                seconds=ros_msg.header.stamp.sec,
+                nanoseconds=ros_msg.header.stamp.nanosec,
+            ).to_nanoseconds()
+        )
+        self.assert_laserscan(laserscan, ros_msg)
+
+    @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
+    def test_to_ros_default_type(
+        self, laserscan: futures.LaserScan, typestore: Typestore
+    ):
+        ros_msg = LaserScanAdapter.to_ros(laserscan, typestore)
+        self.assert_laserscan(laserscan, ros_msg)
+
+    def test_to_ros_invalid_rosmsg_type(self, laserscan: futures.LaserScan):
+        ros_msg = LaserScanAdapter.to_ros(
+            laserscan, get_typestore(Stores.LATEST), "sensor_msgs/msg/Bogus"
+        )
+        assert ros_msg is None
+
+    def test_to_ros_invalid_mosaico_type(self, invalid_ms_msg):
+        with pytest.raises(TypeError):
+            LaserScanAdapter.to_ros(invalid_ms_msg, get_typestore(Stores.LATEST))
+
+
+###############################################################################
+######################## TestMultiEchoLaserScanAdapter ########################
+###############################################################################
+
+
+@pytest.fixture
+def multi_echo_laserscan():
+    return futures.MultiEchoLaserScan(
+        angle_min=-1.57,
+        angle_max=1.57,
+        angle_increment=0.01,
+        time_increment=0.0,
+        scan_time=0.1,
+        range_min=0.2,
+        range_max=10.0,
+        ranges=[[1.0, 1.1], [2.0, 2.1], [3.0, 3.1]],
+        intensities=[[100.0, 110.0], [200.0, 210.0], [300.0, 310.0]],
+    )
+
+
+@pytest.fixture
+def multi_echo_laserscan_msg(multi_echo_laserscan):
+    return Message(data=multi_echo_laserscan, timestamp_ns=100, frame_id="base_link")
+
+
+class TestMultiEchoLaserScanAdapter:
+    def assert_multi_echo_laserscan(self, mels: futures.MultiEchoLaserScan, ros_msg):
+        assert mels.angle_min == ros_msg.angle_min
+        assert mels.angle_max == ros_msg.angle_max
+        assert mels.angle_increment == ros_msg.angle_increment
+        assert mels.time_increment == ros_msg.time_increment
+        assert mels.scan_time == ros_msg.scan_time
+        assert mels.range_min == ros_msg.range_min
+        assert mels.range_max == ros_msg.range_max
+        for range, ros_range in zip(mels.ranges, ros_msg.ranges):
+            assert np.array_equal(np.asarray(range, dtype=np.float32), ros_range.echoes)
+        if mels.intensities is not None:
+            for intensity, ros_intensity in zip(mels.intensities, ros_msg.intensities):
+                assert np.array_equal(
+                    np.asarray(intensity, dtype=np.float32), ros_intensity.echoes
+                )
+        else:
+            assert len(ros_msg.intensities) == 0
+
+    @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
+    def test_to_ros_multi_echo_laserscan(
+        self, multi_echo_laserscan: futures.MultiEchoLaserScan, typestore: Typestore
+    ):
+        ros_msg = MultiEchoLaserScanAdapter.to_ros(
+            multi_echo_laserscan, typestore, "sensor_msgs/msg/MultiEchoLaserScan"
+        )
+        self.assert_multi_echo_laserscan(multi_echo_laserscan, ros_msg)
+
+    @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
+    def test_to_ros_multi_echo_laserscan_message(
+        self, multi_echo_laserscan_msg: Message, typestore: Typestore
+    ):
+        mels = multi_echo_laserscan_msg.get_data(futures.MultiEchoLaserScan)
+        ros_msg = MultiEchoLaserScanAdapter.to_ros(
+            multi_echo_laserscan_msg, typestore, "sensor_msgs/msg/MultiEchoLaserScan"
+        )
+        assert multi_echo_laserscan_msg.frame_id == ros_msg.header.frame_id
+        assert (
+            multi_echo_laserscan_msg.timestamp_ns
+            == Time(
+                seconds=ros_msg.header.stamp.sec,
+                nanoseconds=ros_msg.header.stamp.nanosec,
+            ).to_nanoseconds()
+        )
+        self.assert_multi_echo_laserscan(mels, ros_msg)
+
+    @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
+    def test_to_ros_default_type(
+        self, multi_echo_laserscan: futures.MultiEchoLaserScan, typestore: Typestore
+    ):
+        ros_msg = MultiEchoLaserScanAdapter.to_ros(multi_echo_laserscan, typestore)
+        self.assert_multi_echo_laserscan(multi_echo_laserscan, ros_msg)
+
+    def test_to_ros_invalid_rosmsg_type(
+        self, multi_echo_laserscan: futures.MultiEchoLaserScan
+    ):
+        ros_msg = MultiEchoLaserScanAdapter.to_ros(
+            multi_echo_laserscan, get_typestore(Stores.LATEST), "sensor_msgs/msg/Bogus"
+        )
+        assert ros_msg is None
+
+    def test_to_ros_invalid_mosaico_type(self, invalid_ms_msg):
+        with pytest.raises(TypeError):
+            MultiEchoLaserScanAdapter.to_ros(
+                invalid_ms_msg, get_typestore(Stores.LATEST)
+            )
+
+
+###############################################################################
+############################## TestJoyAdapter #################################
+###############################################################################
+
+
+@pytest.fixture
+def joy():
+    return Joy(
+        axes=[0.0, -1.0, 0.5],
+        buttons=[0, 1, 0, 1],
+    )
+
+
+@pytest.fixture
+def joy_msg(joy):
+    return Message(data=joy, timestamp_ns=100, frame_id="base_link")
+
+
+class TestJoyAdapter:
+    def assert_joy(self, joy: Joy, ros_msg):
+        assert np.array_equal(np.asarray(joy.axes, dtype=np.float32), ros_msg.axes)
+        assert np.array_equal(np.asarray(joy.buttons, dtype=np.int32), ros_msg.buttons)
+
+    @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
+    def test_to_ros_joy(self, joy: Joy, typestore: Typestore):
+        ros_msg = JoyAdapter.to_ros(joy, typestore, "sensor_msgs/msg/Joy")
+        self.assert_joy(joy, ros_msg)
+
+    @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
+    def test_to_ros_joy_message(self, joy_msg: Message, typestore: Typestore):
+        joy = joy_msg.get_data(Joy)
+        ros_msg = JoyAdapter.to_ros(joy_msg, typestore, "sensor_msgs/msg/Joy")
+        assert joy_msg.frame_id == ros_msg.header.frame_id
+        assert (
+            joy_msg.timestamp_ns
+            == Time(
+                seconds=ros_msg.header.stamp.sec,
+                nanoseconds=ros_msg.header.stamp.nanosec,
+            ).to_nanoseconds()
+        )
+        self.assert_joy(joy, ros_msg)
+
+    @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
+    def test_to_ros_default_type(self, joy: Joy, typestore: Typestore):
+        ros_msg = JoyAdapter.to_ros(joy, typestore)
+        self.assert_joy(joy, ros_msg)
+
+    def test_to_ros_invalid_rosmsg_type(self, joy: Joy):
+        ros_msg = JoyAdapter.to_ros(
+            joy, get_typestore(Stores.LATEST), "sensor_msgs/msg/Bogus"
+        )
+        assert ros_msg is None
+
+    def test_to_ros_invalid_mosaico_type(self, invalid_ms_msg):
+        with pytest.raises(TypeError):
+            JoyAdapter.to_ros(invalid_ms_msg, get_typestore(Stores.LATEST))
+
+
+###############################################################################
+########################## TestMagneticFieldAdapter ###########################
+###############################################################################
+
+
+@pytest.fixture
+def magnetometer():
+    return Magnetometer(magnetic_field=Vector3d(x=0.12, y=-0.05, z=0.98))
+
+
+@pytest.fixture
+def magnetometer_w_cov():
+    return Magnetometer(
+        magnetic_field=Vector3d(x=0.12, y=-0.05, z=0.98, covariance=range(0, 9))
+    )
+
+
+@pytest.fixture
+def magnetometer_msg(magnetometer):
+    return Message(data=magnetometer, timestamp_ns=100, frame_id="imu_link")
+
+
+class TestMagneticFieldAdapter:
+    def assert_magnetometer(self, magnetometer: Magnetometer, ros_msg):
+        assert magnetometer.magnetic_field.x == ros_msg.magnetic_field.x
+        assert magnetometer.magnetic_field.y == ros_msg.magnetic_field.y
+        assert magnetometer.magnetic_field.z == ros_msg.magnetic_field.z
+
+        if magnetometer.magnetic_field.covariance is not None:
+            np.array_equal(
+                np.asarray(magnetometer.magnetic_field.covariance),
+                ros_msg.magnetic_field_covariance,
+            )
+
+        else:
+            np.array_equal(np.asarray([0] * 9), ros_msg.magnetic_field_covariance)
+
+    @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
+    def test_to_ros_magnetic_field(
+        self, magnetometer: Magnetometer, typestore: Typestore
+    ):
+        ros_msg = MagneticFieldAdapter.to_ros(
+            magnetometer, typestore, "sensor_msgs/msg/MagneticField"
+        )
+        self.assert_magnetometer(magnetometer, ros_msg)
+
+    @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
+    def test_to_ros_magnetic_field_w_cov(
+        self, magnetometer_w_cov: Magnetometer, typestore: Typestore
+    ):
+        ros_msg = MagneticFieldAdapter.to_ros(
+            magnetometer_w_cov, typestore, "sensor_msgs/msg/MagneticField"
+        )
+        self.assert_magnetometer(magnetometer_w_cov, ros_msg)
+
+    @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
+    def test_to_ros_magnetic_field_message(
+        self, magnetometer_msg: Message, typestore: Typestore
+    ):
+        magnetometer = magnetometer_msg.get_data(Magnetometer)
+        ros_msg = MagneticFieldAdapter.to_ros(
+            magnetometer_msg, typestore, "sensor_msgs/msg/MagneticField"
+        )
+        assert magnetometer_msg.frame_id == ros_msg.header.frame_id
+        assert (
+            magnetometer_msg.timestamp_ns
+            == Time(
+                seconds=ros_msg.header.stamp.sec,
+                nanoseconds=ros_msg.header.stamp.nanosec,
+            ).to_nanoseconds()
+        )
+        self.assert_magnetometer(magnetometer, ros_msg)
+
+    @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
+    def test_to_ros_default_type(
+        self, magnetometer: Magnetometer, typestore: Typestore
+    ):
+        ros_msg = MagneticFieldAdapter.to_ros(magnetometer, typestore)
+        self.assert_magnetometer(magnetometer, ros_msg)
+
+    def test_to_ros_invalid_rosmsg_type(self, magnetometer: Magnetometer):
+        ros_msg = MagneticFieldAdapter.to_ros(
+            magnetometer, get_typestore(Stores.LATEST), "sensor_msgs/msg/Bogus"
+        )
+        assert ros_msg is None
+
+    def test_to_ros_invalid_mosaico_type(self, invalid_ms_msg):
+        with pytest.raises(TypeError):
+            MagneticFieldAdapter.to_ros(invalid_ms_msg, get_typestore(Stores.LATEST))
