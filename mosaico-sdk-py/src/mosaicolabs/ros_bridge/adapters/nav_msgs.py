@@ -136,7 +136,7 @@ class OdometryAdapter(ROSAdapterBase[MotionState]):
 
         if resolved_rosmsg_type == "nav_msgs/msg/Odometry":
             return RosOdometry(
-                header=header_ms.to_ros(),
+                header=header_ms.to_ros(typestore),
                 child_frame_id=motion_data.target_frame_id,
                 pose=PoseAdapter.to_ros(
                     motion_data.pose, typestore, "geometry_msgs/msg/PoseWithCovariance"

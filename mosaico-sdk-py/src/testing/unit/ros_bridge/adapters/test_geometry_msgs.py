@@ -678,17 +678,7 @@ def pose_w_cov_msg(pose_w_cov) -> Message:
 
 
 class TestPoseAdapter:
-    # def test_translate_pose(self): ...  # TODO
-    # def test_translate_pose_stamped(self): ...  # TODO
-    # def test_translate_pose_with_covariance(self): ...  # TODO
-    # def test_translate_pose_with_covariance_stamped(self): ...  # TODO
-    # def test_translate_raise_pose_not_dict(self): ...  # TODO
-    # def test_translate_raise_missing_required_key(self): ...  # TODO
-
-    @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
-    def test_to_ros_pose(self, pose: Pose, typestore: Typestore):
-        ros_msg = PoseAdapter.to_ros(pose, typestore, "geometry_msgs/msg/Pose")
-
+    def assert_pose(self, pose, ros_msg):
         assert pose.position.x == ros_msg.position.x
         assert pose.position.y == ros_msg.position.y
         assert pose.position.z == ros_msg.position.z
@@ -697,20 +687,28 @@ class TestPoseAdapter:
         assert pose.orientation.z == ros_msg.orientation.z
         assert pose.orientation.w == ros_msg.orientation.w
 
+    def asset_pose_w_cov(self, pose_w_cov, ros_msg):
+
+        self.assert_pose(pose_w_cov, ros_msg.pose)
+
+        if pose_w_cov.covariance is None:
+            assert (ros_msg.covariance == 0).all()
+        else:
+            assert np.array_equal(pose_w_cov.covariance, ros_msg.covariance)
+
+    @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
+    def test_to_ros_pose(self, pose: Pose, typestore: Typestore):
+        ros_msg = PoseAdapter.to_ros(pose, typestore, "geometry_msgs/msg/Pose")
+
+        self.assert_pose(pose, ros_msg)
+
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_null_cov(self, pose: Pose, typestore: Typestore):
         ros_msg = PoseAdapter.to_ros(
             pose, typestore, "geometry_msgs/msg/PoseWithCovariance"
         )
 
-        assert (ros_msg.covariance == 0).all()
-        assert pose.position.x == ros_msg.pose.position.x
-        assert pose.position.y == ros_msg.pose.position.y
-        assert pose.position.z == ros_msg.pose.position.z
-        assert pose.orientation.x == ros_msg.pose.orientation.x
-        assert pose.orientation.y == ros_msg.pose.orientation.y
-        assert pose.orientation.z == ros_msg.pose.orientation.z
-        assert pose.orientation.w == ros_msg.pose.orientation.w
+        self.asset_pose_w_cov(pose, ros_msg)
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_with_cov(self, pose_w_cov: Pose, typestore: Typestore):
@@ -718,14 +716,7 @@ class TestPoseAdapter:
             pose_w_cov, typestore, "geometry_msgs/msg/PoseWithCovariance"
         )
 
-        assert np.array_equal(pose_w_cov.covariance, ros_msg.covariance)
-        assert pose_w_cov.position.x == ros_msg.pose.position.x
-        assert pose_w_cov.position.y == ros_msg.pose.position.y
-        assert pose_w_cov.position.z == ros_msg.pose.position.z
-        assert pose_w_cov.orientation.x == ros_msg.pose.orientation.x
-        assert pose_w_cov.orientation.y == ros_msg.pose.orientation.y
-        assert pose_w_cov.orientation.z == ros_msg.pose.orientation.z
-        assert pose_w_cov.orientation.w == ros_msg.pose.orientation.w
+        self.asset_pose_w_cov(pose_w_cov, ros_msg)
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_pose_stamped(self, pose_msg: Message, typestore: Typestore):
@@ -742,13 +733,7 @@ class TestPoseAdapter:
             ).to_nanoseconds()
         )
         assert pose_msg.frame_id == ros_msg.header.frame_id
-        assert pose.position.x == ros_msg.pose.position.x
-        assert pose.position.y == ros_msg.pose.position.y
-        assert pose.position.z == ros_msg.pose.position.z
-        assert pose.orientation.x == ros_msg.pose.orientation.x
-        assert pose.orientation.y == ros_msg.pose.orientation.y
-        assert pose.orientation.z == ros_msg.pose.orientation.z
-        assert pose.orientation.w == ros_msg.pose.orientation.w
+        self.assert_pose(pose, ros_msg.pose)
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_pose_stamped_w_cov(
@@ -768,27 +753,13 @@ class TestPoseAdapter:
                 nanoseconds=ros_msg.header.stamp.nanosec,
             ).to_nanoseconds()
         )
-        assert pose_w_cov_msg.frame_id == ros_msg.header.frame_id
-        assert np.array_equal(pose_w_cov.covariance, ros_msg.pose.covariance)
-        assert pose_w_cov.position.x == ros_msg.pose.pose.position.x
-        assert pose_w_cov.position.y == ros_msg.pose.pose.position.y
-        assert pose_w_cov.position.z == ros_msg.pose.pose.position.z
-        assert pose_w_cov.orientation.x == ros_msg.pose.pose.orientation.x
-        assert pose_w_cov.orientation.y == ros_msg.pose.pose.orientation.y
-        assert pose_w_cov.orientation.z == ros_msg.pose.pose.orientation.z
-        assert pose_w_cov.orientation.w == ros_msg.pose.pose.orientation.w
+        self.asset_pose_w_cov(pose_w_cov, ros_msg.pose)
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_default_type(self, pose: Pose, typestore: Typestore):
         ros_msg = PoseAdapter.to_ros(pose, typestore)
 
-        assert pose.position.x == ros_msg.position.x
-        assert pose.position.y == ros_msg.position.y
-        assert pose.position.z == ros_msg.position.z
-        assert pose.orientation.x == ros_msg.orientation.x
-        assert pose.orientation.y == ros_msg.orientation.y
-        assert pose.orientation.z == ros_msg.orientation.z
-        assert pose.orientation.w == ros_msg.orientation.w
+        self.assert_pose(pose, ros_msg)
 
     def test_to_ros_invalid_rosmsg_type(self, pose: Pose):
         ros_msg = PoseAdapter.to_ros(

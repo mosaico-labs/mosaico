@@ -189,9 +189,7 @@ class GenericStdAdapter(ROSAdapterBase[Serializable]):
 
         # Filling the data (this is the only case where you can actually use a resolved_rosmsg_type)
         # since all the ros data structures contain only 'data' as parameter
-        RosStdMsg = typestore.types[
-            resolved_rosmsg_type
-        ]  # TODO: double check whether this works
+        RosStdMsg = typestore.types[resolved_rosmsg_type]
 
         return RosStdMsg(data=std_data.data)
 
