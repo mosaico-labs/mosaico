@@ -2,6 +2,7 @@
 title: CLI Reference
 sidebar_position: 8
 ---
+
 ## mosaicod run
 
 Start the server locally
@@ -31,13 +32,14 @@ Manage API keys.
 |`revoke`|Revoke an existing API key|
 |`status`|Check the status of an API key|
 |`list`|List all API keys|
+|`purge`|Purge expired/all keys|
 
 ### mosaicod api-key create
 
 Create a new API key.
 
 ```bash
-mosaicod api-key create --permission [read|write|delete|manage] [OPTIONS]
+mosaicod api-key create --permissions [read|write|delete|manage] [OPTIONS]
 ```
 
 | Option | Default | Description |
@@ -73,12 +75,46 @@ List all API keys.
 mosaicod api-key list
 ```
 
+### mosaicod api-key purge
+Remove API keys in bulk. By default, only expired keys are removed; use the `--all` flag to remove every key, regardless of its expiration status.
+
+```bash
+mosaicod api-key purge [OPTIONS]
+```
+
+| Option          |  Description                                                        |
+| --------------- |  ------------------------------------------------------------------ |
+| `-A`, `--all`   |  Remove **all** API keys, including those that have not yet expired. |
+
+#### Examples
+
+Remove only expired keys:
+
+```bash
+mosaicod api-key purge
+```
+
+Remove all API key:
+
+```bash
+mosaicod api-key purge --all
+```
+
+or, equivalently:
+
+```bash
+mosaicod api-key purge -A
+```
+
+:::warning
+    Using `--all` is irreversible: every API key will be permanently revoked, including keys currently in use by services or integrations. Make sure you have a way to reissue the keys before running this command.
+:::
 
 ## Common Options
 
 Each `mosaicod` command shares the following common options:
 
-| Options | Default | Description |
+| Options| Default | Description |
 | :--- | --- | :--- |
 | `--log-format <LOG_FORMAT>` | `pretty` | Set the log output format. Available values are: `json`, `pretty`, `plain`|
 | `--log-level <LOG_LEVEL>` | `warning` | Set the log level. Possible values: warning, info, debug |
