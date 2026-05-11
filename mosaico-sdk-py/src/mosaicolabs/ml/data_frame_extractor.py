@@ -28,14 +28,22 @@ class DataFrameExtractor:
       (using `NaN` for missing values at specific timestamps).
     """
 
-    def __init__(self, sequence_handler: "SequenceHandler"):
+    def __init__(
+        self,
+        sequence_handler: "SequenceHandler",
+        timestamp_column_name: Optional[str] = None,
+    ):
         """
         Initializes the DataFrameExtractor.
 
         Args:
             sequence_handler (SequenceHandler): An active handle to a Mosaico sequence.
+            timestamp_column_name (str, optional): Name of the timestamp column.
+                Defaults to `None`, in which case "timestamp_ns" will be used.
+
         """
         self._sequence_handler = sequence_handler
+        self._timestamp_column_name = timestamp_column_name or "timestamp_ns"
 
     def to_pandas_chunks(
         self,
@@ -73,25 +81,14 @@ class DataFrameExtractor:
             ```python
             # Obtain a dataframe with DataFrameExtractor
             from mosaicolabs import MosaicoClient, IMU, Image
-            from mosaicolabs.ml import DataFrameExtractor, SyncTransformer
+            from mosaicolabs.ml import DataFrameExtractor
 
             with MosaicoClient.connect("localhost", 6726) as client:
-                sequence_handler = client.get_sequence_handler("example_sequence")
+                sequence_handler = client.sequence_handler("example_sequence")
                 for df in DataFrameExtractor(sequence_handler).to_pandas_chunks(
                     topics = ["/front/imu", "/front/camera/image_raw"]
                 ):
                     # Do something with the dataframe.
-                    # For example, you can sync the data using the `SyncTransformer`:
-                    sync_transformer = SyncTransformer(
-                        target_fps = 30, # resample at 30 Hz and fill the Nans with a Hold policy
-                    )
-                    synced_df = sync_transformer.transform(df)
-
-                    # Reconstruct the image message from a dataframe row
-                    image_msg = Message.from_dataframe_row(synced_df, "/front/camera/image_raw")
-                    image_data = image_msg.get_data(Image)
-                    # Show the image
-                    image_data.to_pillow().show()
                     # ...
             ```
         """
@@ -170,7 +167,8 @@ class DataFrameExtractor:
                     # Fetch raw batches from the state until the window is covered
                     while (
                         df_topic.empty
-                        or df_topic["timestamp_ns"].max() < current_window_end
+                        or df_topic[self._timestamp_column_name].max()
+                        < current_window_end
                     ):
                         batch = reader._fetch_next_batch()
                         if not batch:
@@ -191,8 +189,12 @@ class DataFrameExtractor:
                         else:
                             # Split data: [Current Window] | [Future Data (Carry-over)]
                             mask = (
-                                df_topic["timestamp_ns"] >= current_window_start
-                            ) & (df_topic["timestamp_ns"] < current_window_end)
+                                df_topic[self._timestamp_column_name]
+                                >= current_window_start
+                            ) & (
+                                df_topic[self._timestamp_column_name]
+                                < current_window_end
+                            )
 
                             window_parts.append(df_topic[mask])
                             carry_over[t_name] = df_topic.loc[~mask]
@@ -202,7 +204,7 @@ class DataFrameExtractor:
                     # Concatenate all topics; missing values at specific timestamps become NaNs
                     yield pd.concat(
                         window_parts, axis=0, ignore_index=True
-                    ).sort_values("timestamp_ns")
+                    ).sort_values(self._timestamp_column_name)
 
                 # In full_load, we have finished after the first yield
                 if is_full_load:
@@ -244,37 +246,8 @@ class DataFrameExtractor:
                 if ontology_tag
                 else f"{topic_name}.{c}"
             )
-            if c != "timestamp_ns"
+            if c != self._timestamp_column_name
             else c
             for c in df.columns
         ]
         return df
-
-    def _match_columns(self, columns: pd.Index, fields: List[str]) -> List[str]:
-        """
-        Filters and expands the requested fields against the available DataFrame columns.
-
-        Args:
-            columns (pd.Index): The columns present in the DataFrame.
-            fields (List[str]): The list of fields/prefixes to match.
-
-        Returns:
-            List[str]: A list of matched column names.
-
-        Raises:
-            ValueError: If a requested field is not found in the columns.
-        """
-        prefixes = tuple(f + "." for f in fields)
-        fields_set = set(fields)
-
-        for f in fields:
-            if not (f in columns or any(c.startswith(f + ".") for c in columns)):
-                raise ValueError(f"The field '{f}' does not exist in the columns.")
-
-        cols = [
-            c
-            for c in columns
-            if c == "timestamp_ns" or c in fields_set or c.startswith(prefixes)
-        ]
-
-        return cols

@@ -541,19 +541,15 @@ class Message(BaseModel):
             from mosaicolabs.ml import DataFrameExtractor, SyncTransformer
 
             with MosaicoClient.connect("localhost", 6726) as client:
-                sequence_handler = client.get_sequence_handler("example_sequence")
+                sequence_handler = client.sequence_handler("example_sequence")
                 for df in DataFrameExtractor(sequence_handler).to_pandas_chunks(
                     topics = ["/front/imu", "/front/camera/image_raw"]
                 ):
                     # Do something with the dataframe.
-                    # For example, you can sync the data using the `SyncTransformer`:
-                    sync_transformer = SyncTransformer(
-                        target_fps = 30, # resample at 30 Hz and fill the Nans with a Hold policy
+                    # e.g. reconstruct the image message from a dataframe row
+                    image_msg = Message.from_dataframe_row(
+                        row=df, topic_name="/front/camera/image_raw"
                     )
-                    synced_df = sync_transformer.transform(df)
-
-                    # Reconstruct the image message from a dataframe row
-                    image_msg = Message.from_dataframe_row(synced_df, "/front/camera/image_raw")
                     image_data = image_msg.get_data(Image)
                     # Show the image
                     image_data.to_pillow().show()
