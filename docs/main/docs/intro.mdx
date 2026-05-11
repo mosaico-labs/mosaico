@@ -13,7 +13,7 @@ Robots produce data continuously: cameras, Lidar units, IMUs, GPS receivers, and
 Equally important, Mosaico follows a strictly **code-first approach**. Engineers should not have to learn a proprietary query sublanguage to move data around. The SDK exposes all platform capabilities, ingestion, retrieval, querying as ordinary function calls.
 
 <center>
-    <img src={require("./img/stack.webp").default} width="400px" alt="" />
+    <img src={require("@site/static/img/overview.webp").default} width="500px" alt="" />
 </center>
 
 ## Core Concepts
@@ -59,8 +59,15 @@ At runtime, Mosaico operates as a client-server system. The SDK is the user-faci
 
 `mosaicod` handles all core operations: [ingestion](daemon/ingestion.md), [retrieval](daemon/retrieval.md), and [query](daemon/query.md). Metadata and system state are managed in a database, which accelerates lookups and powers the internal event queue for asynchronous tasks. Data itself is stored in an [object store](https://en.wikipedia.org/wiki/Object_storage), [S3](https://aws.amazon.com/s3/), [MinIO](https://www.min.io/), or the local filesystem, for durable, scalable persistence. The result is a system that can handle complex multi-modal data at high throughput while exposing a clean, code-first interface to the user.
 
+import StackSvg from '@site/static/img/stack.svg'
+
 <center>
-     <img src={require("./img/stack.png").default} width="500px" alt="" />
+    <StackSvg 
+        role="img" 
+        width="400px"
+        height="auto"
+        title="Architecture Stack" 
+    />
 </center>
 
 ## Bring Your Own Pipeline
