@@ -170,7 +170,7 @@ class FrameTransformAdapter(ROSAdapterBase[FrameTransform]):
             )
 
             ros_transform_stamped = RosTransformStamped(
-                header=header.to_ros(),
+                header=header.to_ros(typestore),
                 child_frame_id=transform_data.target_frame_id,
                 transform=ros_transform,
             )  # TODO: how to handle child_frame_id? Is target_frame_id the same thing?

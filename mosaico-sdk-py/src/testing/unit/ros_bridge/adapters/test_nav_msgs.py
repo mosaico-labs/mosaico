@@ -123,7 +123,7 @@ class TestOdometryAdapter:
         self.assert_motion_state(motion_state, ros_msg)
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
-    def test_to_ros_odometry_message(
+    def test_to_ros_motion_state_message(
         self, motion_state_msg: Message, typestore: Typestore
     ):
         motion_state = motion_state_msg.get_data(MotionState)
