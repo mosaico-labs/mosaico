@@ -386,13 +386,15 @@ class TwistAdapter(ROSAdapterBase[Velocity]):
             "geometry_msgs/msg/TwistWithCovarianceStamped"
         ]
 
-        twist = RosTwist(
-            linear=Vector3Adapter.to_ros(velocity_data.linear, typestore),
-            angular=Vector3Adapter.to_ros(velocity_data.angular, typestore),
-        )
-
         # In case covariance is None, a flatted 6x6 full of zeros is provided
+        twist_linear = velocity_data.linear or Vector3d(x=0, y=0, z=0)
+        twist_angular = velocity_data.angular or Vector3d(x=0, y=0, z=0)
         twist_covariance = velocity_data.covariance or [0.0] * 36
+
+        twist = RosTwist(
+            linear=Vector3Adapter.to_ros(twist_linear, typestore),
+            angular=Vector3Adapter.to_ros(twist_angular, typestore),
+        )
 
         if resolved_rosmsg_type == "geometry_msgs/msg/Twist":
             return twist
@@ -576,13 +578,15 @@ class AccelAdapter(ROSAdapterBase[Acceleration]):
             "geometry_msgs/msg/AccelWithCovarianceStamped"
         ]
 
-        accel = RosAccel(
-            linear=Vector3Adapter.to_ros(accel_data.linear, typestore),
-            angular=Vector3Adapter.to_ros(accel_data.angular, typestore),
-        )
-
         # In case covariance is None, a flatted 6x6 full of zeros is provided
+        accel_linear = accel_data.linear or Vector3d(x=0.0, y=0.0, z=0.0)
+        accel_angular = accel_data.angular or Vector3d(x=0.0, y=0.0, z=0.0)
         accel_covariance = accel_data.covariance or [0.0] * 36
+
+        accel = RosAccel(
+            linear=Vector3Adapter.to_ros(accel_linear, typestore),
+            angular=Vector3Adapter.to_ros(accel_angular, typestore),
+        )
 
         if resolved_rosmsg_type == "geometry_msgs/msg/Accel":
             return accel
@@ -1198,6 +1202,9 @@ class TransformAdapter(ROSAdapterBase[Transform]):
         transform_data, ms_header = cls.unpack_mosaico_msg(mosaico_data)
 
         # Filling the data
+        # source_frame_id = transform_data.source_frame_id or ""
+        target_frame_id = transform_data.target_frame_id or ""
+
         RosTransform = typestore.types["geometry_msgs/msg/Transform"]
         RosTransformStamped = typestore.types["geometry_msgs/msg/TransformStamped"]
 
@@ -1211,9 +1218,9 @@ class TransformAdapter(ROSAdapterBase[Transform]):
         elif resolved_rosmsg_type == "geometry_msgs/msg/TransformStamped":
             return RosTransformStamped(
                 header=ms_header.to_ros(typestore),
-                child_frame_id=transform_data.target_frame_id,
+                child_frame_id=target_frame_id,
                 transform=transform,
-            )  # TODO: how to handle child_frame_id? Is target_frame_id the same thing?
+            )
 
         return None
 

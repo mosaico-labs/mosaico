@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 
 from mosaicolabs import Serializable
 from mosaicolabs.models import Message
-from mosaicolabs.models.data import ROI, Point3d, Vector2d, Vector3d
+from mosaicolabs.models.data import ROI, Point3d, Quaternion, Vector2d, Vector3d
 from mosaicolabs.models.futures import (
     LaserScan,
     MultiEchoLaserScan,
@@ -239,6 +239,10 @@ class CameraInfoAdapter(ROSAdapterBase[CameraInfo]):
                     ),
                 }
 
+            camera_roi = camera_info_data.roi or ROI(
+                offset=0, height=0, width=0, do_rectify=False
+            )
+
             return RosCameraInfo(
                 header=ms_header.to_ros(typestore),
                 height=camera_info_data.height,
@@ -247,7 +251,7 @@ class CameraInfoAdapter(ROSAdapterBase[CameraInfo]):
                 **ros_dep_data,
                 binning_x=camera_info_data.binning.x,
                 binning_y=camera_info_data.binning.y,
-                roi=ROIAdapter.to_ros(camera_info_data.roi, typestore),
+                roi=ROIAdapter.to_ros(camera_roi, typestore),
             )
 
         return None
@@ -503,13 +507,15 @@ class GPSAdapter(ROSAdapterBase[GPS]):
         # Filling the data
         RosNavSatFix = typestore.types["sensor_msgs/msg/NavSatFix"]
 
+        # NOTE: # status is valid when status >= STATUS_FIX (0).
+        gps_status = gps_data.status or GPSStatus(status=-1, service=0)
         position_cov = gps_data.position.covariance or [0.0] * 9
         covariance_type = gps_data.position.covariance_type or 0
 
         if resolved_rosmsg_type == "sensor_msgs/msg/NavSatFix":
             return RosNavSatFix(
                 header=ms_header.to_ros(typestore),
-                status=NavSatStatusAdapter.to_ros(gps_data.status, typestore),
+                status=NavSatStatusAdapter.to_ros(gps_status, typestore),
                 latitude=gps_data.position.x,
                 longitude=gps_data.position.y,
                 altitude=gps_data.position.z,
@@ -685,14 +691,20 @@ class IMUAdapter(ROSAdapterBase[IMU]):
         # Filling the data
         RosImu = typestore.types["sensor_msgs/msg/Imu"]
 
-        orientation_cov = imu_data.orientation.covariance or [0.0] * 9
+        # NOTE: # If you have no estimate for one of the data elements,
+        # please set element 0 of the associated covariance matrix to -1
+        imu_orientation = imu_data.orientation or Quaternion(
+            x=0, y=0, z=0, w=0, covariance=[-1]
+        )
+
+        orientation_cov = imu_orientation.covariance or [0.0] * 9
         ang_vel_cov = imu_data.angular_velocity.covariance or [0.0] * 9
         lin_acc_cov = imu_data.acceleration.covariance or [0.0] * 9
 
         if resolved_rosmsg_type == "sensor_msgs/msg/Imu":
             return RosImu(
                 header=ms_header.to_ros(typestore),
-                orientation=QuaternionAdapter.to_ros(imu_data.orientation, typestore),
+                orientation=QuaternionAdapter.to_ros(imu_orientation, typestore),
                 angular_velocity=Vector3Adapter.to_ros(
                     imu_data.angular_velocity, typestore
                 ),
@@ -943,6 +955,8 @@ class ImageAdapter(ROSAdapterBase[Image]):
         # Unpacking Mosaico message / type
         image_data, ms_header = cls.unpack_mosaico_msg(mosaico_data)
 
+        is_bigendian = image_data.is_bigendian or sys.byteorder == "big"
+
         # Filling the data
         RosImage = typestore.types["sensor_msgs/msg/Image"]
 
@@ -952,7 +966,7 @@ class ImageAdapter(ROSAdapterBase[Image]):
                 height=image_data.height,
                 width=image_data.width,
                 encoding=image_data.encoding,
-                is_bigendian=int(image_data.is_bigendian),
+                is_bigendian=int(is_bigendian),
                 step=image_data.stride,
                 data=np.frombuffer(image_data.data, dtype=np.uint8),
             )
@@ -1194,6 +1208,8 @@ class ROIAdapter(ROSAdapterBase[ROI]):
         # Unpacking Mosaico message / type
         roi_data, _ = cls.unpack_mosaico_msg(mosaico_data)
 
+        do_rectify = roi_data.do_rectify or False
+
         # Filling the data
         RosRegionOfInterest = typestore.types["sensor_msgs/msg/RegionOfInterest"]
 
@@ -1203,7 +1219,7 @@ class ROIAdapter(ROSAdapterBase[ROI]):
                 y_offset=roi_data.offset.y,
                 height=roi_data.height,
                 width=roi_data.width,
-                do_rectify=roi_data.do_rectify,
+                do_rectify=do_rectify,
             )
 
         return None
@@ -1371,6 +1387,15 @@ class BatteryStateAdapter(ROSAdapterBase[BatteryState]):
         # Unpacking Mosaico message / type
         battery_state_data, header = cls.unpack_mosaico_msg(mosaico_data)
 
+        # (If unmeasured NaN)
+        battery_temperature = battery_state_data.temperature or np.nan
+        battery_current = battery_state_data.current or np.nan
+        battery_charge = battery_state_data.charge or np.nan
+        battery_capacity = battery_state_data.capacity or np.nan
+        battery_design_capacity = battery_state_data.design_capacity or np.nan
+        battery_cell_voltage = battery_state_data.cell_voltage or []
+        battery_cell_temperature = battery_state_data.cell_temperature or []
+
         # Filling the data
         RosBatteryState = typestore.types["sensor_msgs/msg/BatteryState"]
 
@@ -1378,22 +1403,18 @@ class BatteryStateAdapter(ROSAdapterBase[BatteryState]):
             return RosBatteryState(
                 header=header.to_ros(typestore),
                 voltage=battery_state_data.voltage,
-                temperature=battery_state_data.temperature,
-                current=battery_state_data.current,
-                charge=battery_state_data.charge,
-                capacity=battery_state_data.capacity,
-                design_capacity=battery_state_data.design_capacity,
+                temperature=battery_temperature,
+                current=battery_current,
+                charge=battery_charge,
+                capacity=battery_capacity,
+                design_capacity=battery_design_capacity,
                 percentage=battery_state_data.percentage,
                 power_supply_status=battery_state_data.power_supply_status,
                 power_supply_health=battery_state_data.power_supply_health,
                 power_supply_technology=battery_state_data.power_supply_technology,
                 present=battery_state_data.present,
-                cell_voltage=np.asarray(
-                    battery_state_data.cell_voltage, dtype=np.float32
-                ),
-                cell_temperature=np.asarray(
-                    battery_state_data.cell_temperature, dtype=np.float32
-                ),
+                cell_voltage=np.asarray(battery_cell_voltage, dtype=np.float32),
+                cell_temperature=np.asarray(battery_cell_temperature, dtype=np.float32),
                 location=battery_state_data.location,
                 serial_number=battery_state_data.serial_number,
             )
@@ -1581,14 +1602,14 @@ class PointCloudAdapterBase(ROSAdapterBase[PointCloudModel]):
     _REQUIRED_FIELDS: list[str] = []
 
     _FROM_POINTCLOUD_MAP = {
-        1: (1, np.int8),
-        2: (1, np.uint8),
-        3: (2, np.int16),
-        4: (2, np.uint16),
-        5: (4, np.int32),
-        6: (4, np.uint32),
-        7: (4, np.float32),
-        8: (8, np.float64),
+        PointFieldDataType.INT8: (np.dtype(np.int8).itemsize, np.int8),
+        PointFieldDataType.UINT8: (np.dtype(np.uint8).itemsize, np.uint8),
+        PointFieldDataType.INT16: (np.dtype(np.int16).itemsize, np.int16),
+        PointFieldDataType.UINT16: (np.dtype(np.uint16).itemsize, np.uint16),
+        PointFieldDataType.INT32: (np.dtype(np.int32).itemsize, np.int32),
+        PointFieldDataType.UINT32: (np.dtype(np.uint32).itemsize, np.uint32),
+        PointFieldDataType.FLOAT32: (np.dtype(np.float32).itemsize, np.float32),
+        PointFieldDataType.FLOAT64: (np.dtype(np.float64).itemsize, np.float64),
     }
 
     _TO_POINTCLOUD_MAP = {

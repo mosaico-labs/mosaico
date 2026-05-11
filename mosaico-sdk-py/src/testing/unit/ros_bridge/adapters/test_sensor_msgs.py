@@ -777,7 +777,7 @@ def battery_state():
         voltage=10.0,
         temperature=50.0,
         current=1.0,
-        charge=70.0,
+        # charge=70.0, # To simulate None
         capacity=100.0,
         design_capacity=210.0,
         percentage=20.0,
@@ -787,7 +787,7 @@ def battery_state():
         present=True,
         location="car",
         serial_number="123456789",
-        cell_voltage=[1.0, 2.0, 3.0],
+        # cell_voltage=[1.0, 2.0, 3.0], # To simulate None
         cell_temperature=[4.0, 5.0, 6.0],
     )
 
@@ -802,7 +802,12 @@ class TestBatteryStateAdapter:
         assert battery_state.voltage == ros_msg.voltage
         assert battery_state.temperature == ros_msg.temperature
         assert battery_state.current == ros_msg.current
-        assert battery_state.charge == ros_msg.charge
+
+        if battery_state.charge:
+            assert battery_state.charge == ros_msg.charge
+        else:
+            np.isnan(ros_msg.charge)
+
         assert battery_state.capacity == ros_msg.capacity
         assert battery_state.design_capacity == ros_msg.design_capacity
         assert battery_state.percentage == ros_msg.percentage
@@ -812,7 +817,12 @@ class TestBatteryStateAdapter:
         assert battery_state.present == ros_msg.present
         assert battery_state.location == ros_msg.location
         assert battery_state.serial_number == ros_msg.serial_number
-        assert np.array_equal(battery_state.cell_voltage, ros_msg.cell_voltage)
+
+        if battery_state.cell_voltage:
+            assert np.array_equal(battery_state.cell_voltage, ros_msg.cell_voltage)
+        else:
+            ros_msg.cell_voltage.size == 0
+
         assert np.array_equal(battery_state.cell_temperature, ros_msg.cell_temperature)
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
