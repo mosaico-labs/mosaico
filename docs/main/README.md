@@ -1,41 +1,19 @@
-# Website
+This is the primary documentation site for Mosaico, built with [Docusaurus](https://docusaurus.io/).
 
-This website is built using [Docusaurus](https://docusaurus.io/), a modern static website generator.
-
-## Installation
+## Running locally
 
 ```bash
-yarn
+npm start       # start dev server with live reload
+npm run build   # build the static site
 ```
 
-## Local Development
+## Build output
 
-```bash
-yarn start
-```
+After `npm run build`, the `build/` directory contains the complete static website along with:
 
-This command starts a local development server and opens up a browser window. Most changes are reflected live without having to restart the server.
+- `build/llms.txt` — concise site index for LLMs
+- `build/llms-full.txt` — full content dump for LLMs
 
-## Build
+## Search
 
-```bash
-yarn build
-```
-
-This command generates static content into the `build` directory and can be served using any static contents hosting service.
-
-## Deployment
-
-Using SSH:
-
-```bash
-USE_SSH=true yarn deploy
-```
-
-Not using SSH:
-
-```bash
-GIT_USER=<Your GitHub username> yarn deploy
-```
-
-If you are using GitHub pages for hosting, this command is a convenient way to build the website and push to the `gh-pages` branch.
+The site uses [Algolia DocSearch](https://docsearch.algolia.com/) for full-text search.
