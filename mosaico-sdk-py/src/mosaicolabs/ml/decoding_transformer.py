@@ -2,6 +2,7 @@ from typing import List
 
 import pandas as pd
 
+from mosaicolabs.logging_config import get_logger
 from mosaicolabs.models.sensors.image import (
     ImageFormat,
     StatefulDecodingSession,
@@ -10,6 +11,9 @@ from mosaicolabs.models.sensors.image import (
 
 # Import the base classes from the parent __init__.py
 from . import BaseEstimator, TransformerMixin
+
+# Set the hierarchical logger
+logger = get_logger(__name__)
 
 
 class VideoDecodingTransformer(BaseEstimator, TransformerMixin):
@@ -109,17 +113,17 @@ class VideoDecodingTransformer(BaseEstimator, TransformerMixin):
                 # Resample at 30Hz and fill the NaNs with a `Hold` policy
                 vdec_transf = VideoDecodingTransformer(
                     topics=["/front_stereo_camera/left/image_compressed"]
-                )
-                # (1)!
+                ) # (1)!
 
                 for df in DataFrameExtractor(sequence_handler).to_pandas_chunks():
-                    decoded_df = vdec_transf.fit_transform(df)
-                    # Do something with the synched dataframe
+                    decoded_df = vdec_transf.fit_transform(df) # (2)!
+                    # Do something with the decoded dataframe
                     # ...
             ```
 
             1. Note: the `VideoDecodingTransformer` is created outside the chunk-related `for` loop: the transformer is
                 a **stateful state-machine** designed to maintain signal continuity across different data chunks.
+            2. The decoded image is here: `decoded_df["/front_stereo_camera/left/image_compressed.compressed_image.decoded"]`
 
         Args:
             X (pd.DataFrame): A chronologically ordered sparse chunk from the `DataFrameExtractor`,
@@ -177,6 +181,9 @@ class VideoDecodingTransformer(BaseEstimator, TransformerMixin):
                     pil_img = self._stateless_codec.decode(
                         img_bytes=img_bytes, format=img_format
                     )
+
+                if pil_img is None:
+                    logger.warning("Unable to decode the image. Storing as 'None'")
 
                 decoded_images.append(pil_img)
 
