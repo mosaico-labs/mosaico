@@ -1,5 +1,5 @@
 site_name: Mosaico Python SDK
-site_url: https://docs.mosaico.dev/sdk/
+site_url: https://docs.mosaico.dev/python-sdk/
 repo_url: https://github.com/mosaico-labs/mosaico
 
 markdown_extensions:
