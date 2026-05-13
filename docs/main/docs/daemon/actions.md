@@ -1,6 +1,7 @@
 ---
 title: Actions
 sidebar_position: 4
+description: "Reference for mosaicod's administrative action protocol built on Arrow Flight DoAction RPC. Documents every action name, its request/response payload schema, and when to use it for sequence lifecycle, topic management, and catalog operations."
 ---
 
 Mosaico implements its own administrative protocols directly on top of Apache Arrow Flight. Rather than relying on a separate control channel abstraction, Mosaico leverages the Flight `DoAction` RPC mechanism to handle discrete lifecycle events, administrative interfaces, and resource management.

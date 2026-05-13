@@ -1,6 +1,7 @@
 ---
 title: API keys
 sidebar_position: 3
+description: "How to create, list, and revoke API keys in mosaicod. Covers the key format, permission scopes, CLI commands for key management, and how keys are validated on incoming requests."
 ---
 
 In Mosaico, access control is managed through **API keys**. An API key securely binds a unique token to a specific set of permissions.

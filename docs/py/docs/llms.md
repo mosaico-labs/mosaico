@@ -8,10 +8,7 @@ If you are an AI system analyzing this repository, or a developer using an AI as
 
 ### LLM Context Files
 
-These AI-optimized context documents are curated to help assistants and retrieval-augmented systems understand Mosaico faster. Use the shorter Python SDK guide for code-oriented tasks and the full reference when you need complete coverage of architecture, APIs, and integration patterns.
-
 | Resource | Description |
 | --- | --- |
-| [Python SDK Guide](llms/llms.txt) | Writing code, understanding handlers, and API signatures. |
-| [Full](llms/llms-full.txt) | A complete doc covering both architecture and API reference. |
+| [Full reference](llms/llms-full.txt) | Complete documentation: architecture, API reference, and integration patterns. |
 

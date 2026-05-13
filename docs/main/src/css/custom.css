@@ -440,3 +440,21 @@ font-size: 0.9rem;
   border-radius: 0px;
   color: white;
 }
+
+.tabs__item {
+  font-family: 'JetBrains Mono', monospace;
+  font-size:0.9rem;
+  border-radius: 0px;
+}
+
+.tabs__item--active {
+  border-bottom: 1px solid white;
+}
+
+.tabs li {
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+
+  padding-left: 1rem;
+  padding-right: 1rem;
+}

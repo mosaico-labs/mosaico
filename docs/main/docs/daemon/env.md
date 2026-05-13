@@ -1,6 +1,7 @@
 ---
 title: Environment Variables
 sidebar_position: 10
+description: "Complete reference for all environment variables accepted by mosaicod. Covers storage path, gRPC port, TLS certificate paths, log level, retention policy, and other runtime configuration options."
 ---
 
 Here we provide a complete list of environment variables that can be used to configure the daemon. These variables allow you to customize various aspects of the daemon's behavior, including database connections, storage options and more.

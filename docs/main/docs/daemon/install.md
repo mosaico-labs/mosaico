@@ -1,6 +1,7 @@
 ---
 title: Setup
 sidebar_position: 2
+description: "How to download, install, and start mosaicod. Covers binary distribution via GitHub Releases, platform support, initial configuration, and verifying the daemon is running."
 ---
 
 ## Precompiled Binaries

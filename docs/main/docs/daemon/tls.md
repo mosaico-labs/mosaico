@@ -1,6 +1,7 @@
 ---
 title: TLS
 sidebar_position: 9
+description: "How to enable and configure TLS on mosaicod. Covers certificate and private key file setup, environment variable configuration, self-signed certificate generation, and client verification modes."
 ---
 
 Securing your Mosaico instance is straightforward, as [TLS (Transport Layer Security)](https://en.wikipedia.org/wiki/Transport_Layer_Security) is fully supported out of the box. 

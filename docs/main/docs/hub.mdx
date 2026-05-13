@@ -1,0 +1,39 @@
+---
+title: Hub
+sidebar_position: 0
+description: "Top-level documentation index for Mosaico. Links to the daemon reference, SDK how-to guides, and all content covering ingestion, querying, streaming, and secure connections."
+---
+
+import DocCardGrid, { Section, Card } from '@site/src/components/DocCardGrid';
+
+# Mosaico Doc Hub
+
+Mosaico is a high-performance data platform for Robotics and Physical AI.
+These docs cover everything from running the daemon to writing your first sensor stream, pick a section to get started.
+
+<DocCardGrid>
+  <Section title="Discover">
+    <Card full title="Overview" href="/" icon="book">What Mosaico is, why it exists, and how its pieces fit together.</Card>
+    <Card full title="Getting Started" href="/getting_started" icon="rocket">Spin up mosaicod locally and send your first data in under five minutes.</Card>
+    <Card full title="Daemon" href="/daemon/" icon="grid">How mosaicod works: storage, catalog management, ingestion, and retrieval.</Card>
+  </Section>
+  <Section title="Ingress & Egress">
+    <Card title="Write a Single Topic" href="/learn/writing_single_topic" icon="download">Step-by-step guide to ingesting structured data into a single sensor stream.</Card>
+    <Card title="Write Multiple Topics" href="/learn/writing_multiple_topics" icon="list">Ingest several sensor streams in one session, each with its own topic and type.</Card>
+    <Card title="Write Interleaved Topics" href="/learn/writing_interleaved_topics" icon="tree">Ingest from an `.mcap` file where messages from multiple sensors are interleaved chronologically.</Card>
+    <Card title="Stream Data" href="/learn/streaming_data" icon="waveform">Read back sequences and topics as a live stream rather than a batch load.</Card>
+  </Section>
+  <Section title="Queries">
+    <Card title="Query Sequences" href="/learn/query_sequences" icon="search">Filter and retrieve sequences from the catalog using the SDK.</Card>
+    <Card title="Query Topics" href="/learn/query_topics" icon="binoculars">Narrow queries down to specific topic streams within a sequence.</Card>
+    <Card title="Multi-Domain Query" href="/learn/multi_domain_query" icon="robot">Combine sequence, topic, and ontology filters in a single query call.</Card>
+    <Card title="Chained Queries" href="/learn/chained_queries" icon="tree">Use the result of one query to scope a second, correlating data across topic types.</Card>
+  </Section>
+  <Section title="Integrations">
+    <Card title="Visualization" href="/integrations/visualization" icon="chart">Using Mosaico with visualization tools.</Card>
+    <Card title="Diagnostics" href="/integrations/diagnostics" icon="wrench">Fault-driven capture: turn raw diagnostic events into a queryable fleet-wide catalog.</Card>
+  </Section>
+  <Section title="SDKs">
+    <Card title="Python SDK" href="https://docs.mosaico.dev/sdk" icon="code">Full API reference for the mosaicolabs Python package.</Card>
+  </Section>
+</DocCardGrid>

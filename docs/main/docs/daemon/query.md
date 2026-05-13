@@ -1,6 +1,7 @@
 ---
 title: Query
 sidebar_position: 7
+description: "How mosaicod's query engine works. Covers the JSON filter expression format, hierarchy traversal across Sequences, Topics, and Ontology field values, and the query action API used by SDK clients."
 ---
 
 Mosaico distinguishes itself from simple file stores with a powerful **Query System** capable of filtering data based on both high-level metadata and content values. The query engine operates through the [`query`](actions.md#query) action, accepting structured JSON-based filter expressions that can span the entire data hierarchy.
@@ -100,7 +101,7 @@ This query searches for:
 - And the y-axis acceleration is between -2.0 and 2.0
 
 :::tip
-`include_timestamp_range` filed is optional, if set to `true` the query returns the [timestamp ranges](#timestamps)
+`include_timestamp_range` field is optional, if set to `true` the query returns the [timestamp ranges](#timestamps)
 :::
 
 ## Response Structure

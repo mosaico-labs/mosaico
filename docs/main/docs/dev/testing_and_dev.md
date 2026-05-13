@@ -1,6 +1,7 @@
 --- 
 title: Testing & Development
 position: 2
+description: "Development environment setup and contribution procedures for the Mosaico project. Covers local orchestration, database schema migration, and the test suite required before submitting changes."
 ---
 
 This section outlines the standard procedures for contributing to the project. It covers local environment orchestration, database schema management, and the verification suite required to maintain code quality.

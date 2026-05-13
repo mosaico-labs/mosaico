@@ -1,6 +1,7 @@
 ---
 title: Release Cycle
 position: 1
+description: "Mosaico's monorepo branching strategy, semantic versioning policy, and release process for mosaicod and the SDK. Covers the relationship between daemon and SDK versions and how breaking changes are communicated."
 ---
 
 ## Monorepo

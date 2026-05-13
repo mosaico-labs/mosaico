@@ -1,6 +1,7 @@
 ---
 title: Retrieval
 sidebar_position: 6
+description: "How mosaicod streams data back to clients via the Arrow Flight Get path. Covers time-range slicing, columnar Arrow record batch streaming, and the retrieval action API."
 ---
 
 Unlike simple file downloads, this protocol provides an interface for requesting precise data slices, dynamically assembled and streamed back as optimized stream of Arrow record batches.

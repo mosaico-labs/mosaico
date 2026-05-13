@@ -1,6 +1,7 @@
 ---
 title: Ingestion
 sidebar_position: 5
+description: "How mosaicod handles high-throughput data ingestion via the Arrow Flight Put path. Covers write batching, the separation of ingestion traffic from administrative traffic, and the guarantees provided for typed, append-only Topic streams."
 ---
 
 Data ingestion in Mosaico is explicitly engineered to handle write-heavy workloads, enabling the system to absorb high-bandwidth sensor data, such as 4K video streams or high-frequency Lidar point clouds, without contending with administrative traffic.

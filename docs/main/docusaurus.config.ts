@@ -54,6 +54,7 @@ const config: Config = {
     {
       generateLLMsTxt: true,
       generateLLMsFullTxt: true,
+      generateMarkdownFiles: true,
       customSections: [
         {
           title: 'SDKs',
@@ -95,18 +96,6 @@ const config: Config = {
         src: 'img/logo.svg',
       },
       items: [
-        {
-          type: 'docSidebar',
-          sidebarId: 'tutorialSidebar',
-          position: 'left',
-          label: 'MOSAICO',
-        },
-        {
-          to: 'https://docs.mosaico.dev/SDK/',
-          label: 'SDK',
-          target: "_self",
-          position: 'left'
-        },
         {
           href: 'https://github.com/mosaico-labs/mosaico',
           label: 'GitHub',

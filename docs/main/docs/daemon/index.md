@@ -1,6 +1,7 @@
 ---
 title: Overview
 sidebar_position: 1
+description: "Architecture overview of mosaicod, the Mosaico daemon written in Rust. Covers its role as the central data arbiter, the Apache Arrow Flight protocol, the Ontology type system, and how it handles typed storage, ingestion, querying, and retrieval."
 ---
 
 The **Mosaico Daemon**, a.k.a. `mosaicod`, acts as engine of the data platform. Developed in **Rust**, it is engineered to be the high-performance arbiter for all data interactions, guaranteeing that every byte of robotics data is strictly typed, atomically stored, and efficiently retrievable.

@@ -1,6 +1,7 @@
 ---
 title: Getting Started
 sidebar_position: 2
+description: "Quickstart for Mosaico. Covers downloading and running mosaicod, installing a client SDK, and pushing your first typed sensor data in under five minutes."
 ---
 
 Interacting with Mosaico requires two components: `mosaicod`, which runs server-side and manages all data operations, and a client SDK to communicate with it from your code.

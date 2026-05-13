@@ -158,7 +158,7 @@ Once a topic is created via [`SequenceWriter.topic_create`][mosaicolabs.handlers
 
 ### Topic-Level Error Handling
 
-By default, the `SequenceWriter` context manager cannot natively distinguish which specific topic failed during custom processing or data pushing. An unhandled exception in one stream will bubble up and trigger the global **Sequence-Level Error Policy**, potentially aborting the entire upload. To prevent this, the SDK introduces native **Topic-Level Error Policies**, which automate the "Defensive Ingestion" pattern directly within the `TopicWriter`. This pattern is highly recommended, in paerticular for complex ingestion pipelines (see for example the [interleaved ingestion how-to](../howto/interleaved_writing_from_multi_topics.md)).
+By default, the `SequenceWriter` context manager cannot natively distinguish which specific topic failed during custom processing or data pushing. An unhandled exception in one stream will bubble up and trigger the global **Sequence-Level Error Policy**, potentially aborting the entire upload. To prevent this, the SDK introduces native **Topic-Level Error Policies**, which automate the "Defensive Ingestion" pattern directly within the `TopicWriter`. This pattern is highly recommended, in paerticular for complex ingestion pipelines (see for example the [interleaved ingestion how-to](https://docs.mosaico.dev/learn/writing_interleaved_topics)).
 
 !!! note:
     The error handling is only possible inside the `TopicWriter` context manager, i.e. by wrapping the processing and pushing code inside a `with topic_writer:` block.
