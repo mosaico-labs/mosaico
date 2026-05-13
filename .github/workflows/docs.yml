@@ -30,10 +30,17 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
         run: |
-          aws s3 sync docs/main/build s3://mosaico-docs/latest \
+          # Remove all existing files in the 'latest' path
+          aws s3 rm s3://mosaico-docs/latest \
             --endpoint-url https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com \
             --region auto \
-            --delete
+            --recursive
+
+          # Upload the new build fresh
+          aws s3 cp docs/main/build s3://mosaico-docs/latest \
+            --endpoint-url https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com \
+            --region auto \
+            --recursive
   
   deploy-py:
     runs-on: ubuntu-latest
@@ -60,7 +67,14 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
         run: |
-          aws s3 sync docs/py/site s3://mosaico-docs/sdk/ \
+          # 1. Wipe the destination folder
+          aws s3 rm s3://mosaico-docs/python-sdk/ \
             --endpoint-url https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com \
             --region auto \
-            --delete
+            --recursive
+
+          # 2. Upload the new files
+          aws s3 cp docs/py/site s3://mosaico-docs/python-sdk/ \
+            --endpoint-url https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com \
+            --region auto \
+            --recursive
