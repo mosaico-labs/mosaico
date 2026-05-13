@@ -108,7 +108,6 @@ class ROSAdapterBase(ABC, Generic[T]):
 
         return False
 
-    # TODO: ask for correctness
     @classmethod
     def unpack_mosaico_msg(cls, mosaico_msg: Union[Message, T]) -> tuple[T, ROSHeader]:
         """
@@ -124,8 +123,8 @@ class ROSAdapterBase(ABC, Generic[T]):
             mosaico_time = Time.from_nanoseconds(mosaico_msg.timestamp_ns)
             header = ROSHeader.from_dict(
                 {
-                    "seq": None,
-                    "frame_id": mosaico_msg.frame_id,
+                    "seq": mosaico_msg.sequence_id or 0,
+                    "frame_id": mosaico_msg.frame_id or "",
                     "stamp": {
                         "sec": mosaico_time.seconds,
                         "nanosec": mosaico_time.nanoseconds,
@@ -136,7 +135,7 @@ class ROSAdapterBase(ABC, Generic[T]):
         elif isinstance(mosaico_msg, cls.__mosaico_ontology_type__):
             data = mosaico_msg
             header = ROSHeader.from_dict(
-                {"seq": None, "frame_id": "", "stamp": {"sec": 0, "nanosec": 0}}
+                {"seq": 0, "frame_id": "", "stamp": {"sec": 0, "nanosec": 0}}
             )
 
         else:
