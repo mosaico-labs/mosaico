@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            INSERT INTO cleanup_log_t (start_unix_tstamp_secs, end_unix_tstamp_secs)\n            VALUES ($1, $2)\n            RETURNING *\n    ",
+  "query": "SELECT * FROM cleanup_log_t ORDER BY start_unix_tstamp_secs DESC LIMIT $1",
   "describe": {
     "columns": [
       {
@@ -36,7 +36,6 @@
     ],
     "parameters": {
       "Left": [
-        "Int8",
         "Int8"
       ]
     },
@@ -44,10 +43,10 @@
       false,
       false,
       true,
-      true,
-      true,
-      true
+      false,
+      false,
+      false
     ]
   },
-  "hash": "bd26210166d0ba3bb128512a45b6a1a3b17455ad6f2487ec55d3650956c82397"
+  "hash": "b0f7cb54e39259110e4e7404d7e0eb443ba12c1c91e010b9d67e958a1f89b7b4"
 }

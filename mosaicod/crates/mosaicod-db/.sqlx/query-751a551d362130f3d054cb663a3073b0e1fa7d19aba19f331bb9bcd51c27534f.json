@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT * FROM cleanup_log_t ORDER BY start_unix_tstamp_secs DESC LIMIT 1",
+  "query": "\n            INSERT INTO cleanup_log_t (start_unix_tstamp_secs, marked_folders, deleted_folders, failed_folders)\n            VALUES ($1, '[]'::jsonb, '[]'::jsonb, '[]'::jsonb)\n            RETURNING *\n    ",
   "describe": {
     "columns": [
       {
@@ -35,16 +35,18 @@
       }
     ],
     "parameters": {
-      "Left": []
+      "Left": [
+        "Int8"
+      ]
     },
     "nullable": [
       false,
       false,
       true,
-      true,
-      true,
-      true
+      false,
+      false,
+      false
     ]
   },
-  "hash": "525c04bb1881800ab4fc6070e292221a004c359b335ff7aa78277e833fd79fab"
+  "hash": "751a551d362130f3d054cb663a3073b0e1fa7d19aba19f331bb9bcd51c27534f"
 }

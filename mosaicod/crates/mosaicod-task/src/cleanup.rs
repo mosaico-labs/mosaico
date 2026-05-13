@@ -43,28 +43,38 @@ impl Deref for Duration {
     }
 }
 
+/// Statistics resulting from a performed cleaning operation.
+#[derive(Debug, Default)]
+pub struct CleanupStats {
+    marked_folders: Vec<String>,
+    deleted_folders: Vec<String>,
+    // First string is the folder, second is the error.
+    failed_folders: Vec<(String, String)>,
+}
+
+/// Describes the possible actions performed on a folder in the store.
+enum ActionPerformed {
+    None,
+    Marked,
+    Deleted,
+}
+
+/// This is the entry point to create, configure and run a cleanup routine.
 pub struct Cleanup {
     db: db::Database,
     store: store::StoreRef,
     time_interval: Duration,
     retention_duration: Duration,
-
-    marked_folders: Vec<String>,
-    deleted_folders: Vec<String>,
-    // First value is the folder, second is the error.
-    failed_folders: Vec<(String, String)>,
 }
 
 impl Cleanup {
+    /// Creates a new cleanup routine with default [`time_interval`] and [`retention_duration`].
     pub fn new(db: db::Database, store: store::StoreRef) -> Self {
         Self {
             db,
             store,
             time_interval: Duration::seconds(DEFAULT_TIME_INTERVAL),
             retention_duration: Duration::seconds(DEFAULT_RETENTION_DURATION),
-            marked_folders: vec![],
-            deleted_folders: vec![],
-            failed_folders: vec![],
         }
     }
 
@@ -91,22 +101,22 @@ impl Cleanup {
                         let cleanup_res = self.do_cleanup().await;
 
                         match cleanup_res {
-                            Ok(_) => {
+                            Ok(stats) => {
                                 info!(
                                     "Cleanup completed. {} items marked as ready to be deleted. {} items deleted.",
-                                    self.marked_folders.len(),
-                                    self.deleted_folders.len()
+                                    stats.marked_folders.len(),
+                                    stats.deleted_folders.len()
                                 );
                             }
                             Err(e) => {
-                                // Exit the cleanup routine if something went wrong.
+                                // Don't exit the cleanup routine if something went wrong. Just log the error.
                                 error!("Cleanup failed. {}", e);
                             }
                         }
                     }
                 }
                 Err(e) => {
-                    // Exit the cleanup routine if something went wrong.
+                    // Don't exit the cleanup routine if something went wrong. Just log the error.
                     error!("{}", e);
                 }
             }
@@ -148,64 +158,77 @@ impl Cleanup {
     /// Launches the cleanup of the store.
     ///
     /// Returns how many folders have been marked TO_DELETE and how many folder have actually been deleted.
-    pub async fn do_cleanup(&mut self) -> Result<()> {
-        self.marked_folders.clear();
-        self.deleted_folders.clear();
-        self.failed_folders.clear();
+    pub async fn do_cleanup(&mut self) -> Result<CleanupStats> {
+        let mut stats = CleanupStats::default();
 
-        db::cleanup_log_create(
-            &mut self.db.connection(),
-            &db::schema::CleanupLogRecord::default(),
-        )
-        .await?;
+        let start_time = chrono::Utc::now();
+
+        db::cleanup_log_create(&mut self.db.connection(), start_time.timestamp()).await?;
 
         let root_subfolders = self.store.list_subfolders("").await?;
 
         for folder in root_subfolders {
-            if let Err(e) = self.analyze_folder(folder.clone()).await {
-                self.failed_folders.push((folder, e.to_string()));
+            match self.analyze_folder(&folder, start_time).await {
+                Ok(action_performed) => match action_performed {
+                    ActionPerformed::Deleted => {
+                        stats.deleted_folders.push(folder);
+                    }
+                    ActionPerformed::Marked => {
+                        stats.marked_folders.push(folder);
+                    }
+                    ActionPerformed::None => {
+                        // Do nothing.
+                    }
+                },
+                Err(e) => {
+                    stats.failed_folders.push((folder, e.to_string()));
+                }
             }
         }
 
         db::cleanup_log_close(
             &mut self.db.connection(),
             chrono::Utc::now().timestamp(),
-            Some(&self.marked_folders).filter(|mf| !mf.is_empty()),
-            Some(&self.deleted_folders).filter(|df| !df.is_empty()),
-            Some(&self.failed_folders).filter(|ff| !ff.is_empty()),
+            &stats.marked_folders,
+            &stats.deleted_folders,
+            &stats.failed_folders,
         )
         .await?;
 
-        Ok(())
+        Ok(stats)
     }
 
-    async fn analyze_folder(&mut self, folder: String) -> Result<()> {
+    async fn analyze_folder(
+        &mut self,
+        folder: &str,
+        now: chrono::DateTime<chrono::Utc>,
+    ) -> Result<ActionPerformed> {
         let to_delete_marker_file_path =
-            std::path::PathBuf::from(folder.clone()).join(TO_DELETE_MARKER_FILE_NAME);
+            std::path::PathBuf::from(folder.to_owned()).join(TO_DELETE_MARKER_FILE_NAME);
 
         let file_meta = self.store.meta(&to_delete_marker_file_path).await?;
 
         if let Some(meta) = file_meta {
             // Marker exists. Check if it's expired.
-            if meta.last_modified + *self.retention_duration <= chrono::Utc::now() {
-                self.store.delete_recursive(&folder).await?;
-                self.deleted_folders.push(folder);
+            if meta.last_modified + *self.retention_duration <= now {
+                self.store.delete_recursive(folder).await?;
+                return Ok(ActionPerformed::Deleted);
             }
-        } else if !self.find_db_reference(&folder).await? {
+        } else if !self.find_db_reference(folder).await? {
             // If retention duration is equal to 0, delete the directory right away.
             // Otherwise, mark the directory as TO_DELETE.
-            if self.retention_duration.is_zero() {
-                self.store.delete_recursive(&folder).await?;
-                self.deleted_folders.push(folder);
+            return if self.retention_duration.is_zero() {
+                self.store.delete_recursive(folder).await?;
+                Ok(ActionPerformed::Deleted)
             } else {
                 self.store
                     .write_bytes(to_delete_marker_file_path, vec![])
                     .await?;
-                self.marked_folders.push(folder);
-            }
+                Ok(ActionPerformed::Marked)
+            };
         }
 
-        Ok(())
+        Ok(ActionPerformed::None)
     }
 
     async fn find_db_reference(&self, path_in_store: &str) -> Result<bool> {
@@ -231,6 +254,8 @@ mod tests {
     use mosaicod_core::types;
     use mosaicod_store as store;
     use rand::seq::IteratorRandom;
+    use std::sync::Arc;
+    use tokio::sync::Notify;
 
     struct TestContext {
         db: db::testing::Database,
@@ -246,8 +271,9 @@ mod tests {
         let mut cx = context.db.connection();
 
         for i in 1..=nums {
-            let record = db::schema::CleanupLogRecord::default();
-            let record = db::cleanup_log_create(&mut cx, &record).await.unwrap();
+            let record = db::cleanup_log_create(&mut cx, chrono::Utc::now().timestamp())
+                .await
+                .unwrap();
             assert_eq!(record.cleanup_id, i as i32);
 
             let rnd_sleep_time =
@@ -255,9 +281,15 @@ mod tests {
             tokio::time::sleep(std::time::Duration::from_millis(rnd_sleep_time as u64)).await;
 
             assert!(
-                db::cleanup_log_close(&mut cx, chrono::Utc::now().timestamp(), None, None, None)
-                    .await
-                    .unwrap()
+                db::cleanup_log_close(
+                    &mut cx,
+                    chrono::Utc::now().timestamp(),
+                    &vec![],
+                    &vec![],
+                    &vec![]
+                )
+                .await
+                .unwrap()
             );
         }
     }
@@ -340,6 +372,8 @@ mod tests {
             }
         }
 
+        let seqs_with_db_ref = seqs_info.iter().filter(|s| s.1.is_some()).count() as u16;
+
         // For each topic:
         // 1. Create a fake metadata.json in the store
         // 2. Randomly decide whether to create the corresponding topic record on DB or not,
@@ -355,7 +389,7 @@ mod tests {
                 .await
                 .unwrap();
 
-            if rand::random() {
+            if seqs_with_db_ref == num_seqs || (seqs_with_db_ref > 0 && rand::random()) {
                 let parent_seq_id = seqs_info
                     .iter()
                     .filter_map(|x| x.1.as_ref())
@@ -477,16 +511,17 @@ mod tests {
         let num_seqs = rand::random_range(1..=20);
         let num_topics = rand::random_range(1..=50);
 
-        let retention_duration = Duration::days(rand::random_range(1..180));
+        let retention_duration = Duration::days(rand::random_range(0..=1));
 
         let stats = populate_random_store(&context, num_seqs, num_topics, retention_duration).await;
-
-        let now_unix_ts = filetime::FileTime::now().unix_seconds();
 
         let mut cleanup = Cleanup::new((*context.db).clone(), (*context.store).clone());
         cleanup = cleanup.with_retention_duration(retention_duration);
 
-        cleanup.do_cleanup().await.unwrap();
+        // This should simulate the internal time used by do_cleanup() to check against retention_duration.
+        let now_unix_ts = filetime::FileTime::now().unix_seconds();
+
+        let cleanup_stats = cleanup.do_cleanup().await.unwrap();
 
         let mut cx = context.db.connection();
         let latest_cleanup = db::cleanup_log_latest(&mut cx).await.unwrap().unwrap();
@@ -503,16 +538,16 @@ mod tests {
         let test_marked_seqs = stats
             .0
             .iter()
-            .filter(|x| x.1.is_none() && x.2.is_none())
+            .filter(|x| x.1.is_none() && x.2.is_none() && retention_duration.num_seconds() > 0)
             .count();
         let test_marked_topics = stats
             .1
             .iter()
-            .filter(|x| x.1.is_none() && x.2.is_none())
+            .filter(|x| x.1.is_none() && x.2.is_none() && retention_duration.num_seconds() > 0)
             .count();
 
         assert_eq!(
-            cleanup.marked_folders.len(),
+            cleanup_stats.marked_folders.len(),
             test_marked_seqs + test_marked_topics
         );
 
@@ -521,8 +556,9 @@ mod tests {
             .iter()
             .filter(|x| {
                 x.1.is_none()
-                    && x.2
-                        .is_some_and(|t| now_unix_ts > t + retention_duration.num_seconds())
+                    && (retention_duration.num_seconds() == 0
+                        || x.2
+                            .is_some_and(|t| now_unix_ts >= t + retention_duration.num_seconds()))
             })
             .count();
         let test_deleted_topics = stats
@@ -530,18 +566,20 @@ mod tests {
             .iter()
             .filter(|x| {
                 x.1.is_none()
-                    && x.2
-                        .is_some_and(|t| now_unix_ts > t + retention_duration.num_seconds())
+                    && (retention_duration.num_seconds() == 0
+                        || x.2
+                            .is_some_and(|t| now_unix_ts >= t + retention_duration.num_seconds()))
             })
             .count();
 
         assert_eq!(
-            cleanup.deleted_folders.len(),
+            cleanup_stats.deleted_folders.len(),
             test_deleted_seqs + test_deleted_topics
         );
 
         for seq in stats.0 {
             if seq.1.is_some() {
+                // Folder does not need to be deleted.
                 assert!(context.store.exists(seq.0.path_metadata()).await.unwrap());
                 assert!(
                     !context
@@ -550,10 +588,12 @@ mod tests {
                         .await
                         .unwrap()
                 );
-            } else if seq
-                .2
-                .is_none_or(|t| now_unix_ts <= t + retention_duration.num_seconds())
+            } else if retention_duration.num_seconds() > 0
+                && seq
+                    .2
+                    .is_none_or(|t| now_unix_ts <= t + retention_duration.num_seconds())
             {
+                // Folder near to deletion.
                 assert!(
                     context
                         .store
@@ -563,12 +603,14 @@ mod tests {
                 );
                 assert!(context.store.exists(seq.0.path_metadata()).await.unwrap());
             } else {
-                assert!(!context.store.exists(seq.0.root()).await.unwrap());
+                // Folder must have been deleted.
+                assert!(!context.store.exists(seq.0.path_metadata()).await.unwrap());
             }
         }
 
         for topic in stats.1 {
             if topic.1.is_some() {
+                // Folder does not need to be deleted.
                 assert!(context.store.exists(topic.0.path_metadata()).await.unwrap());
                 assert!(
                     !context
@@ -577,10 +619,12 @@ mod tests {
                         .await
                         .unwrap()
                 );
-            } else if topic
-                .2
-                .is_none_or(|t| now_unix_ts <= t + retention_duration.num_seconds())
+            } else if retention_duration.num_seconds() > 0
+                && topic
+                    .2
+                    .is_none_or(|t| now_unix_ts <= t + retention_duration.num_seconds())
             {
+                // Folder near to deletion.
                 assert!(
                     context
                         .store
@@ -590,8 +634,156 @@ mod tests {
                 );
                 assert!(context.store.exists(topic.0.path_metadata()).await.unwrap());
             } else {
-                assert!(!context.store.exists(topic.0.root()).await.unwrap());
+                // Folder must have been deleted.
+                assert!(!context.store.exists(topic.0.path_metadata()).await.unwrap());
             }
         }
+    }
+
+    #[sqlx::test(migrator = "db::testing::MIGRATOR")]
+    async fn test_run(pool: sqlx::Pool<db::DatabaseType>) {
+        let context = test_context(pool);
+
+        let num_seqs = rand::random_range(1..=20);
+        let num_topics = rand::random_range(0..=50);
+
+        let time_interval = Duration::seconds(3);
+        let retention_duration = Duration::seconds(1);
+
+        let test_stats =
+            populate_random_store(&context, num_seqs, num_topics, retention_duration).await;
+
+        let notifier = Arc::new(Notify::new());
+
+        let notifier_clone = notifier.clone();
+
+        let db_clone = (*context.db).clone();
+        let store_clone = (*context.store).clone();
+
+        // This should simulate the internal time used by the first do_cleanup() to check against retention_duration.
+        let now_unix_ts = filetime::FileTime::now().unix_seconds();
+
+        let handle_cleanup_task = tokio::spawn(async move {
+            let cleanup = Cleanup::new(db_clone, store_clone)
+                .with_time_interval(time_interval)
+                .with_retention_duration(retention_duration);
+
+            cleanup.run(notifier_clone).await
+        });
+
+        tokio::time::sleep(std::time::Duration::from_secs(10)).await;
+
+        notifier.notify_one();
+
+        let _ = tokio::join!(handle_cleanup_task);
+
+        let mut cx = context.db.connection();
+        let cleanup_history = db::cleanup_log_history(&mut cx, 10).await.unwrap();
+        assert_eq!(cleanup_history.len(), 4);
+
+        assert!(
+            cleanup_history
+                .iter()
+                .zip(cleanup_history.iter().skip(1))
+                .all(|x| x.0.start_datetime() > x.1.start_datetime())
+        );
+
+        let first_cleanup_log = cleanup_history.last().unwrap();
+
+        let test_marked_seqs_1st_cleanup = test_stats
+            .0
+            .iter()
+            .filter(|x| x.1.is_none() && x.2.is_none() && retention_duration.num_seconds() > 0)
+            .count();
+        let test_marked_topics_1st_cleanup = test_stats
+            .1
+            .iter()
+            .filter(|x| x.1.is_none() && x.2.is_none() && retention_duration.num_seconds() > 0)
+            .count();
+
+        assert_eq!(
+            first_cleanup_log.marked_folders().len(),
+            test_marked_seqs_1st_cleanup + test_marked_topics_1st_cleanup
+        );
+
+        let test_deleted_seqs_1st_cleanup = test_stats
+            .0
+            .iter()
+            .filter(|x| {
+                x.1.is_none()
+                    && (retention_duration.num_seconds() == 0
+                        || x.2
+                            .is_some_and(|t| now_unix_ts >= t + retention_duration.num_seconds()))
+            })
+            .count();
+        let test_deleted_topics_1st_cleanup = test_stats
+            .1
+            .iter()
+            .filter(|x| {
+                x.1.is_none()
+                    && (retention_duration.num_seconds() == 0
+                        || x.2
+                            .is_some_and(|t| now_unix_ts >= t + retention_duration.num_seconds()))
+            })
+            .count();
+
+        assert_eq!(
+            first_cleanup_log.deleted_folders().len(),
+            test_deleted_seqs_1st_cleanup + test_deleted_topics_1st_cleanup
+        );
+
+        assert!(first_cleanup_log.failed_folders().is_empty());
+
+        // During the second cleanup, all the marked folder at the previous cleanup must have been deleted,
+        // plus other folders with a TO_DELETE exceeding the retention duration.
+        let test_deleted_seqs_2nd_cleanup = test_stats
+            .0
+            .iter()
+            .filter(|x| {
+                x.1.is_none()
+                    && (retention_duration.num_seconds() == 0
+                        || x.2.is_some_and(|t| {
+                            // Exclude the elements that should have been deleted during the first cleanup
+                            // and keep the ones left with a TO_DELETE exceeding the retention period.
+                            now_unix_ts < t + retention_duration.num_seconds()
+                                && now_unix_ts + time_interval.num_seconds()
+                                    >= t + retention_duration.num_seconds()
+                        }))
+            })
+            .count();
+        let test_deleted_topics_2nd_cleanup = test_stats
+            .1
+            .iter()
+            .filter(|x| {
+                x.1.is_none()
+                    && (retention_duration.num_seconds() == 0
+                        || x.2.is_some_and(|t| {
+                            // Exclude the elements that should have been deleted during the first cleanup
+                            // and keep the ones left with a TO_DELETE exceeding the retention period.
+                            now_unix_ts < t + retention_duration.num_seconds()
+                                && now_unix_ts + time_interval.num_seconds()
+                                    >= t + retention_duration.num_seconds()
+                        }))
+            })
+            .count();
+
+        let second_cleanup_log = &cleanup_history[2];
+
+        assert_eq!(
+            second_cleanup_log.deleted_folders().len(),
+            first_cleanup_log.marked_folders().len()
+                + test_deleted_seqs_2nd_cleanup
+                + test_deleted_topics_2nd_cleanup
+        );
+
+        assert!(second_cleanup_log.marked_folders().is_empty());
+        assert!(second_cleanup_log.failed_folders().is_empty());
+
+        // All subsequent cleanup must not have marked or deleted anything.
+        assert!(cleanup_history.iter().rev().skip(2).all(|x| {
+            x.failed_folders().is_empty()
+                && x.deleted_folders().is_empty()
+                && x.marked_folders().is_empty()
+        }));
     }
 }
