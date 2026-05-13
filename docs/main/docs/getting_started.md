@@ -62,7 +62,7 @@ with MosaicoClient.connect(host="localhost", port=6726) as client:
     print(f"Connected! Found sequences: {sequences}")
 ```
 
-See the [Python SDK documentation](https://docs.mosaico.dev/sdk) for the full reference, or jump straight into the how-to guides on [writing data](https://docs.mosaico.dev/sdk/SDK/howto/serialized_writing_from_csv/) and [querying sequences](https://docs.mosaico.dev/sdk/SDK/howto/query_sequences/).
+See the [Python SDK documentation](https://docs.mosaico.dev/python-sdk) for the full reference, or jump straight into the how-to guides on [writing data](https://docs.mosaico.dev/python-sdk/SDK/howto/serialized_writing_from_csv/) and [querying sequences](https://docs.mosaico.dev/python-sdk/SDK/howto/query_sequences/).
 
 ## LLM-Friendly Docs
 
@@ -72,5 +72,5 @@ Mosaico provides machine-readable documentation in the [`/llms.txt`](https://llm
 | :--- | :--- |
 | [`llms.txt`](https://docs.mosaico.dev/llms.txt) | Concise platform and architecture overview |
 | [`llms-full.txt`](https://docs.mosaico.dev/llms-full.txt) | Complete platform and architecture docs |
-| [`py/llms.txt`](https://docs.mosaico.dev/sdk/llms/llms.txt) | Concise Python SDK overview |
-| [`py/llms-full.txt`](https://docs.mosaico.dev/sdk/llms/llms-full.txt) | Complete Python SDK docs |
+| [`py/llms.txt`](https://docs.mosaico.dev/python-sdk/llms/llms.txt) | Concise Python SDK overview |
+| [`py/llms-full.txt`](https://docs.mosaico.dev/python-sdk/llms/llms-full.txt) | Complete Python SDK docs |

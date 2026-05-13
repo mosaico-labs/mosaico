@@ -5,4 +5,4 @@ description: "Entry point for the Mosaico Python SDK (mosaicolabs package). Link
 
 ---
 
-For detailed implementation guides and class references, see the [Mosaico Python SDK Documentation](https://docs.mosaico.dev/sdk/).
+For detailed implementation guides and class references, see the [Mosaico Python SDK Documentation](https://docs.mosaico.dev/python-sdk/).
