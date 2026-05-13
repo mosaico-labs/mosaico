@@ -152,7 +152,7 @@ class FrameTransformAdapter(ROSAdapterBase[FrameTransform]):
             return None
 
         # Unpacking Mosaico message / type
-        frame_transform_data, header = cls.unpack_mosaico_msg(mosaico_data)
+        frame_transform_data, ms_header = cls.unpack_mosaico_msg(mosaico_data)
 
         # Filling the data
         RosTFMessage = typestore.types["tf2_msgs/msg/TFMessage"]
@@ -162,6 +162,9 @@ class FrameTransformAdapter(ROSAdapterBase[FrameTransform]):
         # TODO: is there a better way to handle this?
         tf_transforms = []
         for transform_data in frame_transform_data.transforms:
+            header = ms_header.to_ros(typestore)
+            header.frame_id = transform_data.source_frame_id
+
             ros_transform = RosTransform(
                 translation=Vector3Adapter.to_ros(
                     transform_data.translation, typestore
@@ -170,7 +173,7 @@ class FrameTransformAdapter(ROSAdapterBase[FrameTransform]):
             )
 
             ros_transform_stamped = RosTransformStamped(
-                header=header.to_ros(typestore),
+                header=header,
                 child_frame_id=transform_data.target_frame_id,
                 transform=ros_transform,
             )  # TODO: how to handle child_frame_id? Is target_frame_id the same thing?

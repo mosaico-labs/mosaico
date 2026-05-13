@@ -1192,6 +1192,13 @@ class Transform(
         ```
     """
 
+    source_frame_id: Optional[MosaicoType.string] = MosaicoField(
+        default=None, description="Source frame identifier."
+    )
+    """
+    Source coordinate frame identifier.
+    """
+
     target_frame_id: Optional[MosaicoType.string] = MosaicoField(
         default=None, description="Target frame identifier."
     )
