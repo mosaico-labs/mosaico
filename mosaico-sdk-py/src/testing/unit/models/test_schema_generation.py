@@ -307,6 +307,12 @@ _TRANSFORM_FIELDS = [
         metadata={"description": "Quaternion representing rotation."},
     ),
     pa.field(
+        "source_frame_id",
+        pa.string(),
+        nullable=True,
+        metadata={"description": "Source frame identifier."},
+    ),
+    pa.field(
         "target_frame_id",
         pa.string(),
         nullable=True,
@@ -421,6 +427,12 @@ def test_transform_struct():
                 quaternion,
                 nullable=False,
                 metadata={"description": "Quaternion representing rotation."},
+            ),
+            pa.field(
+                "source_frame_id",
+                pa.string(),
+                nullable=True,
+                metadata={"description": "Source frame identifier."},
             ),
             pa.field(
                 "target_frame_id",
