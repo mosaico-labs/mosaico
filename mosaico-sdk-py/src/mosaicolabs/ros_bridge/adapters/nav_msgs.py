@@ -15,7 +15,7 @@ from .geometry_msgs import PoseAdapter, TwistAdapter
 from .helpers import _validate_msgdata
 
 
-@register_default_adapter
+@register_default_adapter(is_default=True)
 class OdometryAdapter(ROSAdapterBase[MotionState]):
     """
     Adapter for translating ROS Odometry messages to Mosaico `MotionState`.

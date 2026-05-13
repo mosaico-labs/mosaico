@@ -15,7 +15,7 @@ from .geometry_msgs import QuaternionAdapter, TransformAdapter, Vector3Adapter
 from .helpers import _validate_msgdata
 
 
-@register_default_adapter
+@register_default_adapter(is_default=True)
 class FrameTransformAdapter(ROSAdapterBase[FrameTransform]):
     """
     Adapter for translating ROS TF2 messages to Mosaico `FrameTransform`.

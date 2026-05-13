@@ -223,4 +223,4 @@ for ros_type, msco_type in _ROS_MSGTYPE_MSCO_BASE_TYPE_MAP.items():
 
     # Register the new class with the global adapter registry
     # This makes it available to the ROS Bridge for automatic resolution.
-    register_default_adapter(new_adapter_cls)
+    register_default_adapter(is_default=True)(new_adapter_cls)

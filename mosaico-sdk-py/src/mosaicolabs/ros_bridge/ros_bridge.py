@@ -191,9 +191,7 @@ class ROSBridge(Generic[T]):
         return adapter_class.to_ros(mosaico_msg, get_typestore(store), ros_msg_type)
 
 
-def register_default_adapter(
-    cls: Type["ROSAdapterBase"], is_default: bool = False
-) -> Type["ROSAdapterBase"]:
+def register_default_adapter(is_default: bool = False):
     """
     A class decorator for streamlined default adapter registration.
 
@@ -212,9 +210,14 @@ def register_default_adapter(
 
     Args:
         cls: The adapter class to register.
+        is_default: flag indicating that this adapter should be used when traslating from Mosaico to ROS
 
     Returns:
         The same class, unmodified, after successful registration.
     """
-    ROSBridge._register_default_adapter(cls, is_default)
-    return cls
+
+    def wrapper(cls: Type["ROSAdapterBase"]) -> Type["ROSAdapterBase"]:
+        ROSBridge._register_default_adapter(cls, is_default)
+        return cls
+
+    return wrapper
