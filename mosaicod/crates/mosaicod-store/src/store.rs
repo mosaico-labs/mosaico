@@ -3,8 +3,9 @@
 //! essential CRUD (Create, Read, Update, Delete) methods for byte-level data access.
 
 use datafusion::execution::object_store::{DefaultObjectStoreRegistry, ObjectStoreRegistry};
-use futures::stream::TryStreamExt;
+use futures::stream::{StreamExt, TryStreamExt};
 use log::trace;
+use mosaicod_core::params;
 use mosaicod_core::traits;
 use object_store::{
     ObjectStore, ObjectStoreExt, PutPayload, aws::AmazonS3Builder, local::LocalFileSystem,
@@ -181,7 +182,8 @@ impl Store {
             Error::DirCreationFailed(path.as_ref().to_string_lossy().to_string(), e)
         })?;
 
-        let storage = Arc::new(LocalFileSystem::new_with_prefix(path.as_ref())?);
+        let storage =
+            Arc::new(LocalFileSystem::new_with_prefix(path.as_ref())?.with_automatic_cleanup(true));
 
         // Here we use unwrap since `file://` IS a valid url
         let bucket_url = Url::parse("file://").unwrap();
@@ -347,22 +349,18 @@ impl Store {
         }
     }
 
-    // pub async fn size(&self, path: impl AsRef<std::path::Path>) -> Result<usize, Error> {
-    //     let head = self.driver.head(&to_object_path(&path)).await?;
-    //     Ok(head.size as usize)
-    // }
-
     pub async fn delete(&self, path: impl AsRef<std::path::Path>) -> Result<(), Error> {
         Ok(self.driver.delete(&to_object_path(&path)).await?)
     }
 
     /// Deletes recursively all objects under a given path
     pub async fn delete_recursive(&self, path: impl AsRef<std::path::Path>) -> Result<(), Error> {
-        let mut list_stream = self.driver.list(Some(&to_object_path(&path)));
-
-        while let Some(e) = list_stream.try_next().await? {
-            self.driver.delete(&e.location).await?;
-        }
+        self.driver
+            .list(Some(&to_object_path(&path)))
+            .map(|meta| async move { self.driver.delete(&meta?.location).await })
+            .buffer_unordered(params::MAX_BUFFERED_FUTURES)
+            .try_collect::<()>()
+            .await?;
 
         Ok(())
     }
@@ -459,7 +457,6 @@ pub mod testing {
 
 #[cfg(test)]
 mod test {
-
     use mosaicod_core::{traits::AsyncWriteToPath, types};
 
     use super::*;
