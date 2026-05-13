@@ -63,12 +63,16 @@ pub async fn api_key_find_by_fingerprint(
 }
 
 pub async fn api_key_delete(exe: &mut impl AsExec, fingerprint: &str) -> Result<(), Error> {
-    sqlx::query!(
+    let res = sqlx::query!(
         "DELETE FROM api_key_t WHERE fingerprint=$1",
         fingerprint.as_bytes()
     )
     .execute(exe.as_exec())
     .await?;
+
+    if res.rows_affected() == 0 {
+        return Err(Error::NotFound);
+    }
 
     Ok(())
 }

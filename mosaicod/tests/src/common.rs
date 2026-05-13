@@ -1,11 +1,22 @@
-use std::fs;
-
 use arrow_flight::flight_service_client::FlightServiceClient;
 use mosaicod_core::params;
+use mosaicod_core::types;
 use mosaicod_db as db;
+use mosaicod_facade as facade;
+use mosaicod_query as query;
 use mosaicod_server::{self as server, flight::ShutdownNotifier};
 use mosaicod_store as store;
 use serde::Deserialize;
+use std::fs;
+use std::net::TcpListener;
+use std::sync::Arc;
+use std::sync::Mutex;
+use tonic::service::interceptor;
+
+/// This lock prevents a race condition between releasing the TCP listener (used to find a
+/// free port) and binding the Apache Flight server to that port. Without it, a parallel
+/// test could grab the port in between, breaking the Flight bind and raising a TCPError.
+static PORT_LOCK: Mutex<()> = Mutex::new(());
 
 /// The local loopback address for testing.
 pub const HOST: &str = "127.0.0.1";
@@ -13,15 +24,6 @@ pub const HOST: &str = "127.0.0.1";
 pub const TLS_CERT_FILE: &str = "./data/cert.pem";
 pub const TLS_CA_FILE: &str = "./data/ca.pem";
 pub const TLS_PRIVATE_KEY_FILE: &str = "./data/key.pem";
-
-/// Generates a random port in the ephemeral range [49152, 65535].
-/// Use this in tests to avoid `Address In Use` errors during parallel execution.
-pub fn random_port() -> u16 {
-    use rand::Rng;
-
-    let mut rng = rand::rng();
-    rng.random_range(49152..=65535)
-}
 
 /// Formats host and port into a valid endpoint string.
 ///
@@ -35,59 +37,28 @@ pub fn format_endpoint(host: &str, port: u16, tls: bool) -> String {
     format!("http://{host}:{port}")
 }
 
-async fn start_server(
-    host: &str,
-    port: u16,
-    pool: sqlx::Pool<db::DatabaseType>,
-    shutdown: ShutdownNotifier,
-    tls: Option<server::flight::TlsConfig>,
-) -> tokio::task::JoinHandle<()> {
-    // Ensure that params are loaded
-    params::load_params_from_env(params::ParamsLoadOptions::testing()).unwrap();
-
-    let database = db::testing::Database::new(pool);
-    let store = store::testing::Store::new_random_on_tmp().unwrap();
-    let mut config = server::flight::Config::new(host.to_owned(), port);
-
-    if let Some(tls) = tls {
-        config.tls(tls);
-    }
-
-    let handle = tokio::task::spawn(async move {
-        if let Err(err) = server::flight::start(
-            config,
-            (*store).clone(),
-            (*database).clone(),
-            Some(shutdown),
-        )
-        .await
-        {
-            panic!("flight server error: {}", err);
-        }
-        println!("server stopped");
-    });
-
-    // Wait a little to be sure that server port is binded
-    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-
-    handle
-}
-
 pub struct ServerBuilder {
     host: String,
-    port: u16,
-    pool: sqlx::Pool<db::DatabaseType>,
     tls: Option<server::flight::TlsConfig>,
+    db: db::testing::Database,
+    enable_api_key: bool,
 }
 
 impl ServerBuilder {
-    pub fn new(host: &str, port: u16, pool: sqlx::Pool<db::DatabaseType>) -> Self {
+    pub fn new(host: &str, pool: sqlx::Pool<db::DatabaseType>) -> Self {
+        let db = db::testing::Database::new(pool.clone());
+
         Self {
             host: host.to_owned(),
-            port,
-            pool,
             tls: None,
+            db,
+            enable_api_key: false,
         }
+    }
+
+    pub fn enable_api_key(mut self) -> Self {
+        self.enable_api_key = true;
+        self
     }
 
     pub fn enable_tls(mut self) -> Self {
@@ -98,18 +69,74 @@ impl ServerBuilder {
         self
     }
 
+    pub fn enable_tls_with(mut self, cert: &str, private_key: &str) -> Self {
+        self.tls = Some(server::flight::TlsConfig {
+            certificate_file: cert.to_owned().into(),
+            private_key_file: private_key.to_owned().into(),
+        });
+        self
+    }
+
     pub async fn build(self) -> Server {
-        let shutdown = ShutdownNotifier::default();
-        Server {
-            server_join_handle: start_server(
-                &self.host,
-                self.port,
-                self.pool,
-                shutdown.clone(),
-                self.tls,
+        // Ensure that params are loaded
+        params::load_params_from_env(params::ParamsLoadOptions::testing()).unwrap();
+
+        let store = store::testing::Store::new_random_on_tmp().unwrap();
+
+        let ts_gw = Arc::new(
+            query::TimeseriesEngine::try_new(
+                (*store).clone(),
+                params::params().query_engine_memory_pool_size.value,
             )
-            .await,
+            .unwrap(),
+        );
+
+        let _guard = PORT_LOCK.lock();
+
+        // Get a free port from the OS by binding a temporary TCP listener to port 0,
+        // then drop the listener so the port is released and available for the Apache Flight
+        // server to bind to.
+        let port = {
+            let tcp_listner = TcpListener::bind(format!("{}:0", HOST)).unwrap();
+            tcp_listner.local_addr().unwrap().port()
+        };
+
+        let mut config = server::flight::Config::new(self.host.to_owned(), port);
+
+        if let Some(tls) = self.tls {
+            config.tls(tls);
+        }
+
+        if self.enable_api_key {
+            config.enable_api_key_management();
+        }
+
+        let shutdown = ShutdownNotifier::default();
+        let db = self.db;
+
+        let server_join_handle = tokio::task::spawn({
+            let shutdown = shutdown.clone();
+            let store = store.clone();
+            let db = db.clone();
+
+            async move {
+                if let Err(err) = server::flight::start(config, store, db, Some(shutdown)).await {
+                    panic!("flight server error: {}", err);
+                }
+                println!("server stopped");
+            }
+        });
+
+        // Wait a little to be sure that server port is bound
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+
+        Server {
+            server_join_handle,
             shutdown,
+            port,
+            db,
+            store,
+            ts_gw,
         }
     }
 }
@@ -122,8 +149,7 @@ impl ServerBuilder {
 /// use mosaicod_db as db;
 ///
 /// async fn test(pool: sqlx::Pool<db::DatabaseType>) {
-///     let port = common::random_port();
-///     let server = common::ServerBuilder::new(common::HOST, port, pool).build().await;
+///     let server = common::ServerBuilder::new(common::HOST, pool).build().await;
 ///     // ... run tests ...
 ///     server.shutdown().await;
 /// }
@@ -131,6 +157,10 @@ impl ServerBuilder {
 pub struct Server {
     shutdown: ShutdownNotifier,
     server_join_handle: tokio::task::JoinHandle<()>,
+    port: u16,
+    pub db: db::testing::Database,
+    pub store: store::testing::Store,
+    pub ts_gw: query::TimeseriesEngineRef,
 }
 
 impl Server {
@@ -139,11 +169,56 @@ impl Server {
         self.shutdown.shutdown();
         let _ = tokio::join!(self.server_join_handle);
     }
+
+    /// Check if the server is running.
+    pub async fn is_shutdown(&self) -> bool {
+        self.server_join_handle.is_finished()
+    }
+
+    pub fn port(&self) -> u16 {
+        self.port
+    }
+
+    pub fn context(&self) -> facade::Context {
+        facade::Context::new(self.store.clone(), self.db.clone(), self.ts_gw.clone())
+    }
+
+    pub async fn create_api_key(
+        &mut self,
+        permissions: types::auth::Permission,
+        expires_at: Option<types::Timestamp>,
+    ) -> types::ApiKey {
+        let handle = facade::auth::create(&self.context(), permissions, "".to_string(), expires_at)
+            .await
+            .expect("Failed to create api.");
+
+        handle.api_key().clone()
+    }
+}
+
+type InterceptedChannel =
+    interceptor::InterceptedService<tonic::transport::Channel, ApiKeyInterceptor>;
+
+#[derive(Clone)]
+pub struct ApiKeyInterceptor {
+    api_key: Option<String>,
+}
+
+impl tonic::service::Interceptor for ApiKeyInterceptor {
+    fn call(&mut self, mut req: tonic::Request<()>) -> Result<tonic::Request<()>, tonic::Status> {
+        if let Some(key) = &self.api_key {
+            req.metadata_mut()
+                .insert("mosaico-api-key-token", key.parse().unwrap());
+        }
+
+        Ok(req)
+    }
 }
 
 pub struct ClientBuilder {
     url: url::Url,
     tls: Option<tonic::transport::ClientTlsConfig>,
+    api_key_interceptor: Option<ApiKeyInterceptor>,
 }
 
 impl ClientBuilder {
@@ -153,6 +228,7 @@ impl ClientBuilder {
                 .parse()
                 .expect("unable to convert host"),
             tls: None,
+            api_key_interceptor: None,
         }
     }
 
@@ -180,6 +256,40 @@ impl ClientBuilder {
         self
     }
 
+    pub fn enable_tls_with(
+        mut self,
+        tls_ca_file: &str,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
+        let cert_str =
+            fs::read(tls_ca_file).map_err(|e| format!("Unable to read certificate: {e}"))?;
+        let cert = tonic::transport::Certificate::from_pem(cert_str);
+
+        self.url = format_endpoint(
+            &self.url.host().unwrap().to_string(),
+            self.url.port().unwrap(),
+            true,
+        )
+        .parse()?;
+
+        dbg!(&self.url.to_string());
+        dbg!(&self.url.domain());
+
+        self.tls = Some(
+            tonic::transport::ClientTlsConfig::new()
+                .ca_certificate(cert)
+                .domain_name("127.0.0.1"),
+        );
+
+        Ok(self)
+    }
+
+    pub fn with_api_key(mut self, api_key: String) -> Self {
+        self.api_key_interceptor = Some(ApiKeyInterceptor {
+            api_key: Some(api_key),
+        });
+        self
+    }
+
     /// Establishes a connection to a Flight server at the specified host and port.
     pub async fn build(self) -> Client {
         let url = self.url.as_str().trim_end_matches('/').to_owned();
@@ -201,27 +311,30 @@ impl ClientBuilder {
             }
         });
 
-        let client = FlightServiceClient::new(channel);
+        let interceptor = self
+            .api_key_interceptor
+            .unwrap_or(ApiKeyInterceptor { api_key: None });
 
-        Client { client }
+        Client {
+            client: FlightServiceClient::with_interceptor(channel, interceptor),
+        }
     }
 }
-
 /// A dummy client that communicates to mosaicod.
-pub struct Client {
-    client: FlightServiceClient<tonic::transport::Channel>,
+pub struct Client<T = InterceptedChannel> {
+    client: FlightServiceClient<T>,
 }
 
 impl Client {}
 
-impl std::ops::Deref for Client {
-    type Target = FlightServiceClient<tonic::transport::Channel>;
+impl<T> std::ops::Deref for Client<T> {
+    type Target = FlightServiceClient<T>;
     fn deref(&self) -> &Self::Target {
         &self.client
     }
 }
 
-impl std::ops::DerefMut for Client {
+impl<T> std::ops::DerefMut for Client<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.client
     }
@@ -251,6 +364,7 @@ pub struct ActionResponse {
     ///
     /// // Extract a Number (returns Option<u64>)
     /// let id = r.response["id"].as_u64().expect("id is not a number");
+    /// ```
     pub response: serde_json::Value,
 }
 

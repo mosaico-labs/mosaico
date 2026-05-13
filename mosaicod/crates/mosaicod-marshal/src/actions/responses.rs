@@ -1,7 +1,7 @@
 //! This module defines the formatting structure for
 //! responses.
 
-use mosaicod_core::types::{self, Resource, auth};
+use mosaicod_core::types::{self, Locator, auth};
 use semver;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
@@ -13,20 +13,22 @@ pub struct ResourceUuid {
     pub uuid: String,
 }
 
-impl From<types::Identifiers> for ResourceUuid {
-    fn from(value: types::Identifiers) -> Self {
-        Self {
-            uuid: value.uuid.to_string(),
-        }
-    }
-}
-
 impl From<types::Uuid> for ResourceUuid {
     fn from(value: types::Uuid) -> Self {
         Self {
             uuid: value.to_string(),
         }
     }
+}
+
+// ########
+// Session
+// ########
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct SessionCreate {
+    pub uuid: String,
+    pub locator: String,
 }
 
 // ########
@@ -41,10 +43,10 @@ pub struct ResponseNotificationItem {
     pub created_datetime: String,
 }
 
-impl From<types::Notification> for ResponseNotificationItem {
-    fn from(value: types::Notification) -> Self {
+impl<L: Locator> From<types::Notification<L>> for ResponseNotificationItem {
+    fn from(value: types::Notification<L>) -> Self {
         Self {
-            name: value.target.locator().to_string(),
+            name: value.target.to_string(),
             notification_type: value.notification_type.to_string(),
             msg: value.msg.unwrap_or_default(),
             created_datetime: value.created_at.to_string(),
@@ -57,8 +59,8 @@ pub struct NotificationList {
     pub notifications: Vec<ResponseNotificationItem>,
 }
 
-impl From<Vec<types::Notification>> for NotificationList {
-    fn from(value: Vec<types::Notification>) -> Self {
+impl<L: Locator> From<Vec<types::Notification<L>>> for NotificationList {
+    fn from(value: Vec<types::Notification<L>>) -> Self {
         Self {
             notifications: value.into_iter().map(Into::into).collect(),
         }
@@ -83,10 +85,10 @@ pub struct ResponseQueryItemTopic {
     pub timestamp_range: Option<(i64, i64)>,
 }
 
-impl From<types::TopicResourceLocator> for ResponseQueryItemTopic {
-    fn from(value: types::TopicResourceLocator) -> Self {
+impl From<types::TopicLocator> for ResponseQueryItemTopic {
+    fn from(value: types::TopicLocator) -> Self {
         Self {
-            locator: value.locator().to_owned(),
+            locator: value.to_string(),
             timestamp_range: value
                 .timestamp_range
                 .map(|e| (e.start.into(), e.end.into())),
@@ -103,7 +105,7 @@ pub struct ResponseQueryItem {
 impl From<types::SequenceTopicGroup> for ResponseQueryItem {
     fn from(value: types::SequenceTopicGroup) -> Self {
         Self {
-            sequence: value.sequence.locator().to_string(),
+            sequence: value.sequence.to_string(),
             topics: value.topics.into_iter().map(Into::into).collect(),
         }
     }
@@ -197,24 +199,24 @@ impl FromStr for ServerVersion {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     #[test]
     fn response_query_item() {
-        use types::{
-            SequenceResourceLocator, SequenceTopicGroup, TimestampRange, TopicResourceLocator,
-        };
-
-        let sequence = SequenceResourceLocator::from("/my_sequence");
+        let sequence = "my_sequence".parse().unwrap();
         let topics = vec![
-            TopicResourceLocator::from("/my_sequence/topic1/subtopic").with_timestamp_range(
-                TimestampRange {
+            "my_sequence/topic1/subtopic"
+                .parse::<types::TopicLocator>()
+                .unwrap()
+                .with_timestamp_range(types::TimestampRange {
                     start: 1000.into(),
                     end: 1001.into(),
-                },
-            ),
-            TopicResourceLocator::from("/my_sequence/topic2/subtopic"),
+                }),
+            "my_sequence/topic2/subtopic"
+                .parse::<types::TopicLocator>()
+                .unwrap(),
         ];
 
-        let group = SequenceTopicGroup::new(sequence, topics);
+        let group = types::SequenceTopicGroup::new(sequence, topics);
         let response: ResponseQueryItem = group.into();
 
         let body = serde_json::to_string(&response).unwrap();

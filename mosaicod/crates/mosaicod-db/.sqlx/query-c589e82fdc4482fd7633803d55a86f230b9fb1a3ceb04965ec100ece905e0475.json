@@ -1,0 +1,56 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO sequence_t\n                (sequence_uuid, locator_name, creation_unix_tstamp, user_metadata, path_in_store)\n            VALUES \n                ($1, $2, $3, $4, $5)\n            RETURNING \n                *\n    ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "sequence_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "sequence_uuid",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 2,
+        "name": "locator_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "user_metadata",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 4,
+        "name": "path_in_store",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "creation_unix_tstamp",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Int8",
+        "Jsonb",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "c589e82fdc4482fd7633803d55a86f230b9fb1a3ceb04965ec100ece905e0475"
+}

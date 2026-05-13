@@ -9,7 +9,7 @@ These models are designed to be assigned to the `data` field of a [`Message`][mo
 * **Uncertainty Quantification**: Inherits from [`CovarianceMixin`][mosaicolabs.models.mixins.CovarianceMixin] to support $6 \times 6$ covariance matrices, allowing for the transmission of sensor noise characteristics or estimation confidence.
 """
 
-from mosaicolabs import MosaicoField
+from mosaicolabs import MosaicoField, MosaicoType
 
 from ..mixins import CovarianceMixin
 from ..serializable import Serializable
@@ -164,4 +164,56 @@ class ForceTorque(
                                 [topic.timestamp_range.start, topic.timestamp_range.end]
                                 for topic in item.topics}}")
         ```
+    """
+
+
+class Inertia(Serializable):
+    """
+    Inertia properties of a rigid body.
+
+    Includes mass, center of mass, and inertia tensor.
+
+    Attributes:
+        mass: Mass of the object.
+        center_of_mass: Center of mass position.
+        inertia: Inertia tensor (flattened 3x3 matrix).
+
+    ### Querying with the **`.Q` Proxy**
+    Only scalar fields are queryable.
+    """
+
+    mass: MosaicoType.float64 = MosaicoField(description="Mass of the object.")
+    """
+    Mass of the object.
+
+    ### Querying with the **`.Q` Proxy**
+    The mass field is queryable.
+
+    | Field Access Path | Queryable Type | Supported Operators |
+    | :--- | :--- | :--- |
+    | `Inertia.Q.mass` | Numeric | `.eq()`, `.neq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    """
+
+    center_of_mass: Vector3d = MosaicoField(description="Center of mass of the object.")
+    """
+    Center of mass of the object.
+
+    ### Querying with the **`.Q` Proxy**
+    The center of mass is queryable via its components.
+
+    | Field Access Path | Queryable Type | Supported Operators |
+    | :--- | :--- | :--- |
+    | `Inertia.Q.center_of_mass.x` | Numeric | `.eq()`, `.neq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `Inertia.Q.center_of_mass.y` | Numeric | `.eq()`, `.neq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `Inertia.Q.center_of_mass.z` | Numeric | `.eq()`, `.neq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    """
+
+    inertia: MosaicoType.list_(MosaicoType.float64, list_size=6) = MosaicoField(
+        description="Inertia tensor components [ixx, ixy, ixz, iyy, iyz, izz]."
+    )
+    """
+    Inertia tensor represented by its 6 unique components [ixx, ixy, ixz, iyy, iyz, izz].
+
+    ### Querying with the **`.Q` Proxy**
+    This field is not queryable via the `.Q` proxy (lists are not supported yet).
     """

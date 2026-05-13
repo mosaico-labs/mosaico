@@ -12,29 +12,21 @@ pub async fn api_key_create(
     description: String,
 ) -> Result<ActionResponse> {
     info!("requested new api key");
-
-    let auth = facade::Auth::create(
-        permissions.parse()?,
-        description,
-        expires_at,
-        ctx.db.clone(),
-    )
-    .await?;
-
-    Ok(ActionResponse::api_key_create(auth.api_key().key.into()))
+    let handle = facade::auth::create(ctx, permissions.parse()?, description, expires_at).await?;
+    Ok(ActionResponse::api_key_create(handle.api_key().key.into()))
 }
 
 /// Returns the status for the given api key.
 pub async fn api_key_status(ctx: &facade::Context, fingerprint: &str) -> Result<ActionResponse> {
     info!("requested api key status");
-    let auth = facade::Auth::try_from_fingerprint(fingerprint, ctx.db.clone()).await?;
-    Ok(ActionResponse::api_key_status(auth.api_key().into()))
+    let handle = facade::auth::Handle::try_from_fingerprint(ctx, fingerprint).await?;
+    Ok(ActionResponse::api_key_status(handle.api_key().into()))
 }
 
 /// Revokes the selected api key.
 pub async fn api_key_revoke(ctx: &facade::Context, fingerprint: &str) -> Result<ActionResponse> {
     info!("requested api key revocation");
-    let auth = facade::Auth::try_from_fingerprint(fingerprint, ctx.db.clone()).await?;
-    auth.delete().await?;
+    let handle = facade::auth::Handle::try_from_fingerprint(ctx, fingerprint).await?;
+    facade::auth::delete(ctx, handle).await?;
     Ok(ActionResponse::api_key_revoke())
 }

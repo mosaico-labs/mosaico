@@ -84,13 +84,13 @@ def _test_write_pass(
     sh = write_enabled_client.sequence_handler(UPLOADED_SEQUENCE_NAME)
     assert sh is not None
     # Update a Sequence: must pass
-    suuid = ""
+    slocator = ""
     with sh.update(SessionLevelErrorPolicy.Delete) as su:
-        suuid = su.session_uuid
+        slocator = su.session_locator
         su.topic_create("test_topic", {}, IMU)
         pass
 
-    full_fledged_client.session_delete(suuid)
+    full_fledged_client.session_delete(slocator)
 
 
 def _test_delete_fail(del_disabled_client: MosaicoClient):
@@ -347,14 +347,14 @@ def test_delete_policy(
     write_only_key = _get_api_key(api_keys_list, APIKeyPermissionEnum.Write)
 
     with MosaicoClient.connect(host=host, port=port, api_key=write_only_key) as client:
-        session_uuid = ""
+        session_locator = ""
         with pytest.raises(Exception, match="unauthorized"):
             with client.sequence_create(
                 "unauthorized_sequence_abort",
                 {},
                 SessionLevelErrorPolicy.Delete,
             ) as sw:
-                session_uuid = sw._uuid
+                session_locator = sw._locator
                 sw.topic_create("test_topic", {}, IMU)
                 raise RuntimeError("__aborted_sequence_creation__")
 
@@ -364,7 +364,7 @@ def test_delete_policy(
         # Just one session
         assert len(sh.sessions) == 1
         session = sh.sessions[0]
-        assert session.uuid == session_uuid
+        assert session.locator == session_locator
         # The session is unlocked
         assert session.locked is False
         # The session is not finalized!

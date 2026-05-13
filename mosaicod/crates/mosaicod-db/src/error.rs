@@ -42,7 +42,7 @@ impl std::fmt::Display for Error {
             Self::MigrationError(_) => write!(f, "migration error"),
             Self::SerializationError(_) => write!(f, "serialization error"),
             Self::BadData(msg) => write!(f, "bad data: {0}", msg),
-            Self::UnknownNotificationType(_) => write!(f, "unkwnown notification type"),
+            Self::UnknownNotificationType(_) => write!(f, "unknown notification type"),
             Self::EmptyField => write!(f, "empty field"),
             Self::EmptyQuery => write!(f, "empty query"),
             Self::NotFound => write!(f, "not found"),
@@ -74,6 +74,7 @@ impl From<sqlx::Error> for Error {
                     Self::BackendError(value)
                 }
             }
+            sqlx::Error::RowNotFound => Self::NotFound,
             _ => Self::BackendError(value),
         }
     }
@@ -99,6 +100,10 @@ impl From<serde_json::Error> for Error {
 
 impl core::error::PublicError for Error {
     fn error(&self) -> core::Error {
-        core::Error::internal(Some("database failure".to_owned()))
+        match self {
+            Self::NotFound => core::Error::not_found(String::new()),
+            Self::AlreadyExists => core::Error::already_exists(String::new()),
+            _ => core::Error::internal(Some("database failure".to_owned())),
+        }
     }
 }

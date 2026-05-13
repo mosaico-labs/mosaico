@@ -1,11 +1,7 @@
 use super::Error;
 use futures::stream::{FuturesUnordered, StreamExt};
 use log::{debug, trace};
-use mosaicod_core::{
-    error::PublicResult as Result,
-    params,
-    types::{self, Resource},
-};
+use mosaicod_core::{error::PublicResult as Result, params, types};
 use mosaicod_db as db;
 use mosaicod_query as query;
 use std::collections::{HashMap, HashSet};
@@ -190,11 +186,11 @@ impl Query {
                             .flat_map(|grp| &mut grp.topics)
                             .for_each(|topic| {
                                 topic.timestamp_range =
-                                    topics_timestamp_range.remove(topic.locator());
+                                    topics_timestamp_range.remove(&topic.to_string());
                             });
                     }
 
-                    Ok::<_, Error>(groups.into())
+                    Ok(groups.into())
                 });
 
                 // Collect results from all concurrent routines

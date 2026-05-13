@@ -12,14 +12,15 @@ pub async fn session_create(
         r#"
             INSERT INTO session_t 
                 (
-                    session_uuid, sequence_id,
+                    locator_name, session_uuid, sequence_id,
                     creation_unix_tstamp, completion_unix_tstamp
                 ) 
             VALUES 
-                ($1, $2, $3, $4)
+                ($1, $2, $3, $4, $5)
             RETURNING 
                 *
     "#,
+        record.locator_name,
         record.session_uuid,
         record.sequence_id,
         record.creation_unix_tstamp,
@@ -62,27 +63,32 @@ pub async fn session_find_by_uuid(
     Ok(res)
 }
 
-/// Find a session by resource lookup
-pub async fn session_lookup(
-    exec: &mut impl AsExec,
-    id_lookup: &types::IdLookup,
+/// Find a sequence given its locator.
+pub async fn session_find_by_locator(
+    exe: &mut impl AsExec,
+    session_locator: &types::SessionLocator,
 ) -> Result<schema::SessionRecord, Error> {
-    match id_lookup {
-        types::IdLookup::Id(id) => session_find_by_id(exec, *id).await,
-        types::IdLookup::Uuid(uuid) => session_find_by_uuid(exec, uuid).await,
-    }
+    trace!("searching session by locator name `{}`", session_locator);
+    let res = sqlx::query_as!(
+        schema::SessionRecord,
+        "SELECT * FROM session_t WHERE locator_name=$1",
+        session_locator.to_string()
+    )
+    .fetch_one(exe.as_exec())
+    .await?;
+    Ok(res)
 }
 
-/// Returns true if the session is locked.
-pub async fn session_locked(exe: &mut impl AsExec, session_id: i32) -> Result<bool, Error> {
+/// Returns true if the session has already been finalized.
+pub async fn session_finalized(exe: &mut impl AsExec, session_id: i32) -> Result<bool, Error> {
     trace!("session (id=`{}`) locked? ", session_id);
-    let locked = sqlx::query_scalar!(
-        r#"SELECT (completion_unix_tstamp IS NOT NULL) AS "locked!" FROM session_t WHERE session_id=$1"#,
+    let finalized = sqlx::query_scalar!(
+        r#"SELECT (completion_unix_tstamp IS NOT NULL) AS "finalized!" FROM session_t WHERE session_id=$1"#,
         session_id
     )
         .fetch_one(exe.as_exec())
         .await?;
-    Ok(locked)
+    Ok(finalized)
 }
 
 /// Deletes a session record from the database by its name, **bypassing any lock state**.
@@ -95,9 +101,14 @@ pub async fn session_delete(
     _: types::DataLossToken,
 ) -> Result<(), Error> {
     warn!("(data loss) deleting session `{}`", uuid);
-    sqlx::query!("DELETE FROM session_t WHERE session_uuid=$1", uuid.as_ref())
+    let result = sqlx::query!("DELETE FROM session_t WHERE session_uuid=$1", uuid.as_ref())
         .execute(exe.as_exec())
         .await?;
+
+    if result.rows_affected() == 0 {
+        return Err(Error::NotFound);
+    }
+
     Ok(())
 }
 
@@ -122,20 +133,23 @@ pub async fn session_find_all_topics(
     .await?)
 }
 
-pub async fn session_update_completion_tstamp(
+/// Tries to update completion_unix_tstamp column for the given session.
+///
+/// Returns False if the value was already set, otherwise True.
+pub async fn session_try_update_completion_tstamp(
     exe: &mut impl AsExec,
     session_id: i32,
     completion_ts: i64,
-) -> Result<(), Error> {
+) -> Result<bool, Error> {
     trace!(
         "updating completion timestamp to `{}` for session `{}`",
         completion_ts, session_id
     );
-    sqlx::query!(
+    let res = sqlx::query!(
         r#"
             UPDATE session_t
             SET completion_unix_tstamp = $1
-            WHERE session_id = $2
+            WHERE session_id = $2 AND completion_unix_tstamp IS NULL
     "#,
         completion_ts,
         session_id,
@@ -143,5 +157,5 @@ pub async fn session_update_completion_tstamp(
     .execute(exe.as_exec())
     .await?;
 
-    Ok(())
+    Ok(res.rows_affected() != 0)
 }

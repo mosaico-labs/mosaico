@@ -185,17 +185,31 @@ def _do_action(
 
 
 @dataclass
-class _DoActionResponseUUID(_DoActionResponse):
-    """Response containing a generated resource key (e.g., after creation)."""
+class _DoActionSessionCreateResponse(_DoActionResponse):
+    """Response containing the metadata of the 'session_create' DoAction."""
 
     actions: ClassVar[list[FlightAction]] = [
         FlightAction.SESSION_CREATE,
+    ]
+    uuid: str
+    locator: str
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "_DoActionSessionCreateResponse":
+        return cls(**data)
+
+
+@dataclass
+class _DoActionTopicCreateResponse(_DoActionResponse):
+    """Response containing the metadata of the 'topic_create' DoAction."""
+
+    actions: ClassVar[list[FlightAction]] = [
         FlightAction.TOPIC_CREATE,
     ]
     uuid: str
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "_DoActionResponseUUID":
+    def from_dict(cls, data: Dict[str, Any]) -> "_DoActionTopicCreateResponse":
         return cls(**data)
 
 

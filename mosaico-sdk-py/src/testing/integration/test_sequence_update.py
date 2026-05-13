@@ -36,9 +36,9 @@ def test_sequence_update_on_error_report(
     seqhandler = mosaico_client.sequence_handler(UPLOADED_SEQUENCE_NAME)
     # Sequence must exist
     assert seqhandler is not None
-    session_uuid = ""
+    session_locator = ""
     with seqhandler.update() as seq_updater:  # default SessionLevelErrorPolicy.Report
-        session_uuid = seq_updater.session_uuid
+        session_locator = seq_updater.session_locator
         with pytest.raises(RuntimeError, match="__inner_exception__"):
             seq_updater.topic_create(
                 "test_topic_report",
@@ -52,7 +52,7 @@ def test_sequence_update_on_error_report(
     # The session and its data are still on the server
     assert "/test_topic_report" in seqhandler.topics
 
-    mosaico_client.session_delete(session_uuid)
+    mosaico_client.session_delete(session_locator)
 
 
 def test_sequence_update_on_error_delete(
@@ -85,9 +85,9 @@ def test_sequence_update(
     seqhandler = mosaico_client.sequence_handler(UPLOADED_SEQUENCE_NAME)
     # Sequence must exist
     assert seqhandler is not None
-    session_uuid = ""
+    session_locator = ""
     with seqhandler.update() as seq_updater:
-        session_uuid = seq_updater.session_uuid
+        session_locator = seq_updater.session_locator
         twriter = seq_updater.topic_create(
             "/updated_topic/pressure",
             {"sensor_id": "pressure_1"},
@@ -161,4 +161,4 @@ def test_sequence_update(
     assert len(query_resp[0].topics) == 1
     assert query_resp[0].topics[0].name == "/updated_topic/pressure"
 
-    mosaico_client.session_delete(session_uuid)
+    mosaico_client.session_delete(session_locator)

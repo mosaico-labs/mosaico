@@ -35,41 +35,46 @@
       },
       {
         "ordinal": 6,
-        "name": "serialization_format",
+        "name": "path_in_store",
         "type_info": "Text"
       },
       {
         "ordinal": 7,
-        "name": "ontology_tag",
+        "name": "serialization_format",
         "type_info": "Text"
       },
       {
         "ordinal": 8,
+        "name": "ontology_tag",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 9,
         "name": "creation_unix_tstamp",
         "type_info": "Int8"
       },
       {
-        "ordinal": 9,
+        "ordinal": 10,
         "name": "completion_unix_tstamp",
         "type_info": "Int8"
       },
       {
-        "ordinal": 10,
+        "ordinal": 11,
         "name": "chunks_number",
         "type_info": "Int8"
       },
       {
-        "ordinal": 11,
+        "ordinal": 12,
         "name": "total_bytes",
         "type_info": "Int8"
       },
       {
-        "ordinal": 12,
+        "ordinal": 13,
         "name": "start_index_timestamp",
         "type_info": "Int8"
       },
       {
-        "ordinal": 13,
+        "ordinal": 14,
         "name": "end_index_timestamp",
         "type_info": "Int8"
       }
@@ -83,6 +88,7 @@
       false,
       false,
       false,
+      true,
       true,
       false,
       false,

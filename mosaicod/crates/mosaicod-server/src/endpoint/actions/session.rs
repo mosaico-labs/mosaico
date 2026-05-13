@@ -1,7 +1,7 @@
 //! Session related actions.
-use crate::error::{Error, Result};
+use crate::error::Result;
 use log::{info, trace, warn};
-use mosaicod_core::types;
+use mosaicod_core::{self as core, types};
 use mosaicod_facade as facade;
 use mosaicod_facade::session;
 use mosaicod_marshal::ActionResponse;
@@ -9,14 +9,19 @@ use mosaicod_marshal::ActionResponse;
 pub async fn create(ctx: &facade::Context, sequence_locator: String) -> Result<ActionResponse> {
     info!("requested resource {} creation", sequence_locator);
 
-    let sequence_locator = types::SequenceResourceLocator::from(sequence_locator);
+    let sequence_locator = sequence_locator.parse::<types::SequenceLocator>()?;
 
     let session_handle = facade::session::try_create(ctx, sequence_locator).await?;
 
-    trace!("created session for {}", session_handle.sequence_locator());
+    trace!(
+        "created session {} with uuid {}",
+        session_handle.locator(),
+        session_handle.uuid()
+    );
 
     Ok(ActionResponse::session_create(
-        session_handle.uuid().clone().into(),
+        session_handle.locator().clone(),
+        session_handle.uuid().clone(),
     ))
 }
 
@@ -25,7 +30,7 @@ pub async fn finalize(ctx: &facade::Context, session_uuid: String) -> Result<Act
 
     let uuid: types::Uuid = session_uuid
         .parse()
-        .map_err(|_| Error::invalid_uuid(&session_uuid))?;
+        .map_err(|_| core::Error::bad_uuid(session_uuid))?;
 
     let session_handle = session::Handle::try_from_uuid(ctx, &uuid).await?;
 
@@ -36,18 +41,16 @@ pub async fn finalize(ctx: &facade::Context, session_uuid: String) -> Result<Act
     Ok(ActionResponse::session_finalize())
 }
 
-pub async fn delete(ctx: &facade::Context, session_uuid: String) -> Result<ActionResponse> {
-    warn!("deleting session `{}`", session_uuid);
+pub async fn delete(ctx: &facade::Context, session_locator: String) -> Result<ActionResponse> {
+    warn!("deleting session `{}`", session_locator);
 
-    let uuid: types::Uuid = session_uuid
-        .parse()
-        .map_err(|_| Error::invalid_uuid(&session_uuid))?;
+    let locator = session_locator.parse::<types::SessionLocator>()?;
 
-    let session_handle = session::Handle::try_from_uuid(ctx, &uuid).await?;
+    let session_handle = session::Handle::try_from_locator(ctx, locator).await?;
 
     facade::session::delete(ctx, session_handle, types::allow_data_loss()).await?;
 
-    warn!("session `{}` deleted", session_uuid);
+    warn!("session `{}` deleted", session_locator);
 
     Ok(ActionResponse::session_delete())
 }

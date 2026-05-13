@@ -8,12 +8,13 @@ PYTHON_SDK_DIR="mosaico-sdk-py"
 MOSAICOD_DIR="mosaicod"
 # Directory containing the docker compose.yml file for setup the test infra
 DOCKER_DIR="docker/testing"
-# This directory will be used to configure mosaicod store and will be deleted at the end of the process
-TEST_DIRECTORY="/tmp/__mosaico_dev_env__"
 # Log level for mosaicod
 RUST_LOG=mosaico=trace
 # Database URL (see docker compose if you need to change the params)
 MOSAICOD_DB_URL="postgresql://postgres:password@localhost:6543/mosaico"
+# Configure storage
+MOSAICOD_STORE_ENDPOINT="file:///tmp"
+MOSAICOD_STORE_BUCKET="mosaico-dev-env"
 
 # This flag should be always `true`, otherwise a running database with live migration
 # is required to compile the code (and also we need to reinstall sqlx at each run).
@@ -38,6 +39,8 @@ export DATABASE_URL
 export RUST_LOG
 export SQLX_OFFLINE
 export MOSAICOD_DB_URL
+export MOSAICOD_STORE_ENDPOINT
+export MOSAICOD_STORE_BUCKET
 export RUST_BACKTRACE
 
 
@@ -107,8 +110,6 @@ function cleanup() {
         echo "${DIM}mosaicod ($MOSAICOD_PID) terminated.${RESET}"
     fi
     
-    rm -r ${TEST_DIRECTORY} 2> /dev/null
-
     cd ${PROJECT_DIR}/docker/testing
     docker compose down -v 2> /dev/null
 }
@@ -151,8 +152,6 @@ main() {
                 ;;
         esac
     done
-
-    mkdir -p "${TEST_DIRECTORY}"
 
     title "development environment" "#" ${GREEN}
 
@@ -201,7 +200,7 @@ EOF
 
     title "running" "." ${BLUE}
     "./target/$MOSAICOD_BUILD_TARGET/mosaicod" run \
-      --port 6276 --local-store "$TEST_DIRECTORY" ${MOSAICOD_OPTS}
+      --port 6276 ${MOSAICOD_OPTS}
 
     MOSAICOD_PID=$!
 

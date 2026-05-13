@@ -1,12 +1,14 @@
 use crate::error::Result;
+use arrow::ipc::CompressionType;
+use arrow::ipc::writer::IpcWriteOptions;
 use arrow_flight::{
     Ticket,
-    encode::{FlightDataEncoder, FlightDataEncoderBuilder},
+    encode::{FlightDataEncoder, FlightDataEncoderBuilder, GRPC_TARGET_MAX_FLIGHT_SIZE_BYTES},
     error::FlightError,
 };
 use futures::TryStreamExt;
 use log::{debug, info, trace};
-use mosaicod_core::types;
+use mosaicod_core::{self as core, params};
 use mosaicod_facade as facade;
 use mosaicod_marshal as marshal;
 
@@ -16,9 +18,16 @@ pub async fn do_get(ctx: &facade::Context, ticket: Ticket) -> Result<FlightDataE
     info!("requesting data for ticket `{}`", ticket.locator);
 
     // Create topic handle
-    let topic_locator = types::TopicResourceLocator::from(ticket.locator);
+    let topic_handle = facade::topic::Handle::try_from_locator(ctx, ticket.locator).await?;
 
-    let topic_handle = facade::topic::Handle::try_from_locator(ctx, topic_locator).await?;
+    // If topic is empty (no data has been loaded yet), do_get must fail.
+    let topic_status = facade::topic::status(ctx, &topic_handle).await?;
+
+    if topic_status == facade::topic::Status::Empty {
+        Err(core::Error::missing_doput(
+            topic_handle.locator().to_string(),
+        ))?
+    }
 
     // Read metadata from topic
     let metadata = facade::topic::metadata(ctx, &topic_handle).await?;
@@ -27,10 +36,20 @@ pub async fn do_get(ctx: &facade::Context, ticket: Ticket) -> Result<FlightDataE
 
     let batch_size = facade::topic::compute_optimal_batch_size(ctx, &topic_handle).await?;
 
+    // Here path_in_store should be already set and available,
+    // otherwise the check on the topic status should have failed.
+    // That's why an internal error is returned.
+    let path_in_store = topic_handle
+        .path_in_store()
+        .ok_or(core::error::Error::internal(Some(format!(
+            "Path in store not set for topic {}",
+            topic_handle.locator()
+        ))))?;
+
     let mut query_result = ctx
         .timeseries_querier
         .read(
-            &topic_handle.locator().path_data_folder(topic_handle.uuid()),
+            &path_in_store.data_folder_path(),
             metadata.ontology_metadata.properties.serialization_format,
             Some(batch_size),
         )
@@ -54,7 +73,27 @@ pub async fn do_get(ctx: &facade::Context, ticket: Ticket) -> Result<FlightDataE
     // Convert the data stream to a flight stream casting the returned error
     let stream = stream.map_err(|e| FlightError::ExternalError(Box::new(e)));
 
+    // We enable by default LZ4_FRAME compression for all streams.
+    // As `.try_with_compression()` states the function throws an error at runtime
+    // if the ipc_compression feature is not enabled. So we should never see this terror.
+    let ipc_options = IpcWriteOptions::default()
+        .try_with_compression(Some(CompressionType::LZ4_FRAME))
+        .map_err(|_| {
+            core::Error::internal(Some("arrow ipc lz4 compression not available".to_owned()))
+        })?;
+
+    // Set max flight message size to our gRPC limit minus 2MB headroom,
+    // matching the same conservative margin used by the Flight default.
+    //
+    // If our value is below the default we keep the default.
+    let max_flight_data_size = usize::max(
+        GRPC_TARGET_MAX_FLIGHT_SIZE_BYTES,
+        params::params().max_grpc_message_size.value - 2_000_000,
+    );
+
     Ok(FlightDataEncoderBuilder::new()
         .with_schema(schema)
+        .with_options(ipc_options)
+        .with_max_flight_data_size(max_flight_data_size)
         .build(stream))
 }

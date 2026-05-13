@@ -86,7 +86,7 @@ async fn do_put_topic_data(
 
     mosaicod_ext::arrow::check_schema(&schema)?;
 
-    let topic_locator = types::TopicResourceLocator::from(locator);
+    let topic_locator = locator.parse::<types::TopicLocator>()?;
 
     let topic_handle = facade::topic::Handle::try_from_locator(&ctx, topic_locator).await?;
 
@@ -94,20 +94,15 @@ async fn do_put_topic_data(
     let topic_uuid = topic_handle.uuid().clone();
     let received_uuid: types::Uuid = uuid_str
         .parse()
-        .map_err(|_| Error::invalid_uuid(uuid_str))?;
+        .map_err(|_| core::Error::bad_uuid(uuid_str.clone()))?;
 
     if received_uuid != topic_uuid {
-        Err(core::Error::unauthorized())?
+        Err(core::Error::unauthorized(
+            "received uuid does not match the topic uuid.".to_string(),
+        ))?
     }
 
-    let mdata = facade::topic::metadata(&ctx, &topic_handle).await?;
-
-    // Setup the callback that will be used to create the database record for the data catalog
-    // and prepare variables that will be moved in the closure
-    let ontology_tag = mdata.ontology_metadata.properties.ontology_tag;
-    let serialization_format = mdata.ontology_metadata.properties.serialization_format;
-
-    let mut writer = facade::topic::writer(ctx.clone(), topic_handle, serialization_format, schema);
+    let mut writer = facade::topic::writer(ctx.clone(), topic_handle, schema).await?;
 
     // Consume all batches
     debug!("ready to receive batches");
@@ -143,7 +138,7 @@ async fn do_put_topic_data(
                 on_chunk_created(
                     &ctx,
                     &topic_uuid,
-                    &ontology_tag,
+                    writer.ontology_tag(),
                     serialized_chunk.path,
                     serialized_chunk.ontology_stats,
                     serialized_chunk.metadata,

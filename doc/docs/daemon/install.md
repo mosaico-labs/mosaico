@@ -4,7 +4,7 @@
 
 For rapid prototyping, we provide a standard Docker Compose configuration. This creates an isolated network environment containing the `mosaicod` server and its required PostgreSQL database.
 
-```yaml title="Daemon compose file", hl_lines="31-32"
+```yaml title="Daemon compose file", hl_lines="29-30"
 name: "mosaico"
 services:
   
@@ -28,15 +28,17 @@ services:
 
   mosaicod:
     image: ghcr.io/mosaico-labs/mosaicod
-    container_name: mosaicod:latest # (5)!
+    container_name: mosaicod:latest # (4)!
     networks:
       - mosaico
-    environment: # (4)!
+    environment: # (1)!
       MOSAICOD_DB_URL: postgresql://postgres:password@db:5432/mosaico
+      MOSAICOD_STORE_ENDPOINT: file:///
+      MOSAICOD_STORE_BUCKET: data
     volumes:
       - mosaico-data:/data
-    command: | # (1)!
-      run --host 0.0.0.0 --port 6726 --log-level info --local-store /data 
+    command: | 
+      run --host 0.0.0.0 --port 6726 --log-level info 
     depends_on:
       database:
         condition: service_healthy
@@ -51,15 +53,13 @@ networks:
   mosaico:
 ```
 
-1. Here you can list any additional command line options for `mosaicod`. In this example, we configure the server to use the local filesystem for storage, which is mounted to the `/data` directory in the container. This allows you to persist data across container restarts and easily access it from the host machine. If you prefer to use S3-compatible storage, simply remove the `--local-store` option and set the [appropriate environment](#remote-storage-configuration) variables for your object storage configuration.
+1. Here you can list any additional command line options for `mosaicod`. In this example, we configure the server to use the local filesystem for storage, which is mounted to the `/data` directory in the container. This allows you to persist data across container restarts and easily access it from the host machine. Additional environment variables can be set here to configure the daemon's behavior, see [environment variables](env.md) for a complete list of options.
 
 2. Remove `127.0.0.1` to expose this service to external networks. By default, this configuration restricts access to the local machine for security reasons. If you need to access the server from other machines on the network, you can modify the port mapping to allow external connections.
 
 3. The `healthcheck` ensures that the `mosaicod` service only starts after the PostgreSQL database is ready to accept connections. This prevents startup errors related to database connectivity.
 
-4. Additional environment variables can be set here to configure the daemon's behavior, see [environment variables](env.md) for a complete list of options.
-
-5. There are other available [predefined tags](#container-tags) that you can use.
+4. There are other available [predefined tags](#container-tags) that you can use.
 
 This configuration provisions both Postgres and mosaicod within a private Docker network. Only the daemon instance is exposed to the host.
 
@@ -140,8 +140,12 @@ For production deployments, `mosaicod` should be configured to use an S3-compati
 
 ### Local Storage Configuration
 
-This command will start a `mosaicod` instance using the local filesystem as storage layer. 
-```bash
+This command will start a `mosaicod` instance using the local filesystem as storage layer.
 
-mosaicod run --local-store /tmp/mosaicod
+```bash
+export MOSAICOD_STORE_ENDPOINT=file:///some/local/directory
+export MOSAICOD_STORE_BUCKET=bucket-name
 ```
+
+and run `mosaicod run`.
+

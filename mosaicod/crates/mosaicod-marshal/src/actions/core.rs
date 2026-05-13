@@ -84,14 +84,14 @@ pub enum ActionRequest {
     /// Deletes all notifications associated with a topic
     TopicNotificationPurge(requests::ResourceLocator),
 
-    /// Creates a new upload session for a sequence
+    /// Creates a new upload session for the given sequence.
     SessionCreate(requests::ResourceLocator),
 
     /// Finalizes the upload session
     SessionFinalize(requests::SessionUuid),
 
     /// Deletes the selected session.
-    SessionDelete(requests::SessionUuid),
+    SessionDelete(requests::ResourceLocator),
 
     /// Perform a query in the system
     Query(requests::Query),
@@ -106,6 +106,33 @@ pub enum ActionRequest {
     ApiKeyRevoke(requests::ApiKeyFingerprint),
 
     Version(requests::Empty),
+}
+
+impl std::fmt::Display for ActionRequest {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::SequenceCreate(_) => write!(f, "SequenceCreate"),
+            Self::SequenceDelete(_) => write!(f, "SequenceDelete"),
+            Self::SequenceNotificationCreate(_) => {
+                write!(f, "SequenceNotificationCreate")
+            }
+            Self::SequenceNotificationList(_) => write!(f, "SequenceNotificationList"),
+            Self::SequenceNotificationPurge(_) => write!(f, "SequenceNotificationPurge"),
+            Self::TopicCreate(_) => write!(f, "TopicCreate"),
+            Self::TopicDelete(_) => write!(f, "TopicDelete"),
+            Self::TopicNotificationCreate(_) => write!(f, "TopicNotificationCreate"),
+            Self::TopicNotificationList(_) => write!(f, "TopicNotificationList"),
+            Self::TopicNotificationPurge(_) => write!(f, "TopicNotificationPurge"),
+            Self::SessionCreate(_) => write!(f, "SessionCreate"),
+            Self::SessionFinalize(_) => write!(f, "SessionFinalize"),
+            Self::SessionDelete(_) => write!(f, "SessionDelete"),
+            Self::Query(_) => write!(f, "Query"),
+            Self::ApiKeyCreate(_) => write!(f, "ApiKeyCreate"),
+            Self::ApiKeyStatus(_) => write!(f, "ApiKeyStatus"),
+            Self::ApiKeyRevoke(_) => write!(f, "ApiKeyRevoke"),
+            Self::Version(_) => write!(f, "Version"),
+        }
+    }
 }
 
 /// Internal macro used to parse action requests
@@ -157,10 +184,13 @@ pub enum ActionResponse {
     SequenceNotificationList(responses::NotificationList),
 
     TopicCreate(responses::ResourceUuid),
+    TopicDelete(()),
+    TopicNotificationCreate(()),
+    TopicNotificationPurge(()),
     TopicNotificationList(responses::NotificationList),
 
     /// Returns the response key associated with the session just created
-    SessionCreate(responses::ResourceUuid),
+    SessionCreate(responses::SessionCreate),
     SessionFinalize(()),
     SessionDelete(()),
 
@@ -202,8 +232,34 @@ impl ActionResponse {
         Self::SequenceNotificationList(response)
     }
 
-    pub fn session_create(response: responses::ResourceUuid) -> Self {
-        Self::SessionCreate(response)
+    pub fn topic_create(response: responses::ResourceUuid) -> Self {
+        Self::TopicCreate(response)
+    }
+
+    pub fn topic_delete() -> Self {
+        Self::TopicDelete(())
+    }
+
+    pub fn topic_notification_create() -> Self {
+        Self::TopicNotificationCreate(())
+    }
+
+    pub fn topic_notification_purge() -> Self {
+        Self::TopicNotificationPurge(())
+    }
+
+    pub fn topic_notification_list(response: responses::NotificationList) -> Self {
+        Self::TopicNotificationList(response)
+    }
+
+    pub fn session_create(
+        session_locator: core::types::SessionLocator,
+        session_uuid: core::types::Uuid,
+    ) -> Self {
+        Self::SessionCreate(responses::SessionCreate {
+            locator: session_locator.to_string(),
+            uuid: session_uuid.to_string(),
+        })
     }
 
     pub fn session_finalize() -> Self {

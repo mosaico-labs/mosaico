@@ -4,7 +4,7 @@ Here we provide a complete list of environment variables that can be used to con
 
 ## General
 
-- `MOSAICOD_MAX_GRPC_MESSAGE_SIZE`: The maximum allowed [gRPC](https://grpc.io/) message size in bytes. If a message exceeds this size, a protocol error will be returned. Default is `25 MB`. *If you need to update this value be aware that this value is tipically smaller than `Params::parquet_in_memory_encoding_buffer_size`.
+- `MOSAICOD_MAX_GRPC_MESSAGE_SIZE`: The maximum allowed [gRPC](https://grpc.io/) message size in bytes. If a message exceeds this size, a protocol error will be returned. Default is `50 MB`. **If you need to update this value** be aware that this value is tipically smaller than `Params::parquet_in_memory_encoding_buffer_size`.
 
 - `MOSAICOD_TARGET_MESSAGE_SIZE`: Target message size in bytes used during data streaming. The daemon will try to aggregate a number of [`RecordBatches`](https://arrow.apache.org/docs/python/generated/pyarrow.RecordBatch.html) to create a sufficiently large message. If the resulting batch size exceeds the limit, it will be capped by `MOSAICOD_MAX_BATCH_SIZE`. Defaults to `25MB`.
 
@@ -18,7 +18,7 @@ Here we provide a complete list of environment variables that can be used to con
 
 - `MOSAICOD_QUERY_ENGINE_MEMORY_POOL_SIZE`: Defines the amount of memory (in bytes) used by the query engine. Set this value to a number greater than 0 to enforce a hard limit on the memory allocated by the query engine. Use this setting if mosaicod encounters OOM (Out Of Memory) errors or you plan to use `mosaicod` in a memory constrained environment. Defaults to `0` (no limit).
 
-- `MOSAICOD_PARQUET_IN_MEMORY_ENCODING_BUFFER_SIZE`: Size (in bytes) of the in-memory buffer used for encoding parquet data. Defaults to `50MB`.
+- `MOSAICOD_PARQUET_IN_MEMORY_ENCODING_BUFFER_SIZE`: Size (in bytes) of the in-memory buffer used for encoding parquet data. Defaults to `75MB`.
 
 ## TLS
 
@@ -34,7 +34,7 @@ Here we provide a complete list of environment variables that can be used to con
 
 ## Store
 
-- `MOSAICOD_STORE_ENDPOINT`: Endpoint URL for the object storage service (e.g., S3). Default is an empty string.
+- `MOSAICOD_STORE_ENDPOINT`: Endpoint URL for the object storage service (e.g., S3). Use `file:///some/absolute/path` to set up a local storage directory. **Required**.
+- `MOSAICOD_STORE_BUCKET`: Name of the bucket in the object storage service where data will be stored. When using the local filesystem endpoint, the system creates a new directory named after the bucket within the endpoint path. **Required**.
 - `MOSAICOD_STORE_ACCESS_KEY`: Access key for the object storage service. Default is an empty string.
 - `MOSAICOD_STORE_SECRET_KEY`: Secret key for the object storage service. Default is an empty string.
-- `MOSAICOD_STORE_BUCKET`: Name of the bucket in the object storage service where data will be stored. Default is an empty string.

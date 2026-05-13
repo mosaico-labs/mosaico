@@ -15,16 +15,21 @@
       },
       {
         "ordinal": 2,
+        "name": "locator_name",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
         "name": "sequence_id",
         "type_info": "Int4"
       },
       {
-        "ordinal": 3,
+        "ordinal": 4,
         "name": "creation_unix_tstamp",
         "type_info": "Int8"
       },
       {
-        "ordinal": 4,
+        "ordinal": 5,
         "name": "completion_unix_tstamp",
         "type_info": "Int8"
       }
@@ -35,6 +40,7 @@
       ]
     },
     "nullable": [
+      false,
       false,
       false,
       false,
