@@ -25,17 +25,7 @@ mosaicod run [OPTIONS]
 
 Manage API keys.
 
-### Subcommands
-
-|Command|Description|
-|---|---|
-|`create`|Create a new API key with a custom scope|
-|`revoke`|Revoke an existing API key|
-|`status`|Check the status of an API key|
-|`list`|List all API keys|
-|`purge`|Purge expired/all keys|
-
-### mosaicod api-key create
+### create
 
 Create a new API key.
 
@@ -49,7 +39,7 @@ mosaicod api-key create --permissions [read|write|delete|manage] [OPTIONS]
 | `--expires-in <EXPIRES_IN>` | | Define a time duration, using the ISO8601 format, after which the key in no longer valid (e.g. `P1Y2M3D` 1 year 2 months and 3 days) |
 | `--expires-at <EXPIRES_AT>` | | Define a datetime, using the rfc3339 format, after which the key in no longer valid (e.g `2026-03-27T12:20:00Z`) |
 
-### mosaicod api-key revoke
+### revoke
 
 Revoke an existing API key.
 
@@ -58,7 +48,7 @@ mosaicod api-key revoke <FINGERPRINT>
 ```
 The [fingerprint](api_key.md#token-structure) are the last 8 digits of the API key.
 
-### mosaicod api-key status
+### status
 
 Check the status of an API key.
 
@@ -68,7 +58,7 @@ mosaicod api-key status <FINGERPRINT>
 
 The [fingerprint](api_key.md#token-structure) are the last 8 digits of the API key.
 
-### mosaicod api-key list
+### list
 
 List all API keys.
 
@@ -76,7 +66,7 @@ List all API keys.
 mosaicod api-key list
 ```
 
-### mosaicod api-key purge
+### purge
 Remove API keys in bulk. By default, only expired keys are removed; use the `--all` flag to remove every key, regardless of its expiration status.
 
 ```bash

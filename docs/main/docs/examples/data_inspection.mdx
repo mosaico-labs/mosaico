@@ -1,7 +1,7 @@
 ---
 title: Data Discovery and Inspection
 sidebar_position: 2
-description: "Runnable demo showing how to browse a Mosaico catalog without downloading bulk data. Covers listing sequences, reading session metadata (size, timestamps) via SequenceHandler, and inspecting individual Topics via TopicHandler using the lazy handler pattern."
+description: "Runnable example showing how to browse a Mosaico catalog without downloading bulk data. Covers listing sequences, reading session metadata (size, timestamps) via SequenceHandler, and inspecting individual Topics via TopicHandler using the lazy handler pattern."
 ---
 
 Walks through the catalog of a running Mosaico instance, printing each sequence's size, time bounds, and a per-topic breakdown of sensor types and durations — without downloading any raw sensor data.
@@ -12,7 +12,10 @@ mosaicolabs.examples data_inspection
 
 Run the command with `--help` to see all available options.
 
-The daemon must be running and contain at least one ingested sequence. Run the [ROS Ingestion](./ros_ingestion) demo first to populate it. The full source is on [GitHub](https://github.com/mosaico-labs/mosaico/blob/main/mosaico-sdk-py/src/mosaicolabs/examples/data_inspection.py).
+The daemon must be running and contain at least one ingested sequence. 
+Run the [ROS Ingestion](./ros_ingestion) example first to populate it. 
+
+The full source is on [GitHub](https://github.com/mosaico-labs/mosaico/blob/main/mosaico-sdk-py/src/mosaicolabs/examples/data_inspection.py).
 
 ## Connecting and Listing Sequences
 

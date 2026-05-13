@@ -1,7 +1,7 @@
 ---
 title: ROS Ingestion
 sidebar_position: 1
-description: "Runnable demo that downloads the NVIDIA R2B Dataset 2024 and ingests it from MCAP-format ROS 2 bags into Mosaico. Covers defining a custom EncoderTicks ontology type, implementing a ROSAdapterBase translator, and running the RosbagInjector pipeline with verification."
+description: "Runnable example that downloads the NVIDIA R2B Dataset 2024 and ingests it from MCAP-format ROS 2 bags into Mosaico. Covers defining a custom EncoderTicks ontology type, implementing a ROSAdapterBase translator, and running the RosbagInjector pipeline with verification."
 ---
 
 Downloads the [NVIDIA R2B Dataset 2024](https://catalog.ngc.nvidia.com/orgs/nvidia/teams/isaac/resources/r2bdataset2024?version=1) and ingests it from `.mcap` ROS 2 bags into a structured, queryable Mosaico archive. Asset download, type translation, batching, and catalog verification are all handled automatically.
@@ -12,7 +12,9 @@ mosaicolabs.examples ros_injection
 
 Run the command with `--help` to see all available options.
 
-The daemon must be running before you start. See the [setup guide](/daemon/install) if you have not started it yet. The full source is on [GitHub](https://github.com/mosaico-labs/mosaico/blob/main/mosaico-sdk-py/src/mosaicolabs/examples/ros_injection/main.py).
+The daemon must be running before you start. See the [setup guide](/daemon/install) if you have not started it yet. 
+
+The full source is on [GitHub](https://github.com/mosaico-labs/mosaico/blob/main/mosaico-sdk-py/src/mosaicolabs/examples/ros_injection/main.py).
 
 ## Custom Ontology Definition
 
@@ -66,7 +68,7 @@ class EncoderTicksAdapter(ROSAdapterBase[EncoderTicks]):
 
 ## Ingestion Pipeline
 
-The demo loops over each bag file in the dataset and runs three phases: download, ingest, verify.
+The example loops over each bag file in the dataset and runs three phases: download, ingest, verify.
 
 **Download.** `download_asset` fetches the raw `.mcap` from NVIDIA with a progress bar and caches it locally so re-runs skip the download.
 
@@ -97,4 +99,4 @@ for bag_path in BAG_FILES_PATH:
 ```
 
 
-Once complete, the ingested sequences are available for the [Data Inspection](./data_inspection), [Querying Catalogs](./querying_catalogs), and [MuJoCo Visualisation](./mujoco_visualisation) demos.
+Once complete, the ingested sequences are available for the [Data Inspection](./data_inspection), [Querying Catalogs](./querying_catalogs), and [MuJoCo Visualisation](./mujoco_visualisation) examples.

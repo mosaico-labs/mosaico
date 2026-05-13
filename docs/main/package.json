@@ -25,7 +25,8 @@
     "dotenv": "^17.4.2",
     "prism-react-renderer": "^2.3.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "simple-icons": "^16.19.0"
   },
   "devDependencies": {
     "@docusaurus/module-type-aliases": "3.10.0",

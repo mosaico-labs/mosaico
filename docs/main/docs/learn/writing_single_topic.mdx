@@ -7,11 +7,12 @@ description: "How to ingest a single typed sensor stream into Mosaico using the 
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-This guide demonstrates how to ingest data into Mosaico. The example uses a CSV file as the data source, chosen purely for its simplicity: no dependencies, no binary tooling, just text you can open in any editor. The CSV is a teaching device, not a recommendation.
+This guide demonstrates how to ingest data into Mosaico. 
+The example uses a CSV file as the data source, chosen purely for its simplicity.
 
 :::info
 In production, your source data will almost certainly come from a binary container rather than a CSV. 
-Mosaico's SDK is format-agnostic: it does not care where your `Message` objects come from. 
+Mosaico's SDK is **format-agnostic**: it does not care where your data come from. 
 The same `push()` call works whether you are reading an `.mcap` file, a `.bag`, a `.hdf5` archive, a proprietary binary log from your hardware vendor, or a live data stream from a running robot. 
 
 The only thing that changes between formats is the loader code that converts raw bytes into typed ontology model, the connection to the daemon, topic and sequence management, and the push logic are identical regardless of source.

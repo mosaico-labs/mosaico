@@ -1,7 +1,7 @@
 ---
 title: Querying Catalogs
 sidebar_position: 4
-description: "Runnable demo showing how to search the Mosaico catalog using query builders. Covers fuzzy topic name matching with QueryTopic, filtering by Ontology type with ontology_tag(), multi-domain queries combining QueryOntologyCatalog and the .Q proxy, and slicing results for event replay."
+description: "Runnable example showing how to search the Mosaico catalog using query builders. Covers fuzzy topic name matching with QueryTopic, filtering by Ontology type with ontology_tag(), multi-domain queries combining QueryOntologyCatalog and the .Q proxy, and slicing results for event replay."
 ---
 
 Demonstrates three levels of catalog search: finding topics by partial name, filtering by sensor type, and running a multi-domain query that locates specific physical events — such as IMU lateral acceleration spikes — across the entire dataset in a single server-side call.
@@ -12,7 +12,7 @@ mosaicolabs.examples query_catalogs
 
 Run the command with `--help` to see all available options.
 
-The daemon must be running and contain data ingested via the [ROS Ingestion](./ros_ingestion) demo. The full source is on [GitHub](https://github.com/mosaico-labs/mosaico/blob/main/mosaico-sdk-py/src/mosaicolabs/examples/query_catalogs.py).
+The daemon must be running and contain data ingested via the [ROS Ingestion](./ros_ingestion) example. The full source is on [GitHub](https://github.com/mosaico-labs/mosaico/blob/main/mosaico-sdk-py/src/mosaicolabs/examples/query_catalogs.py).
 
 ## The Query Builder Pattern
 
