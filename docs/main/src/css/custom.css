@@ -458,3 +458,11 @@ font-size: 0.9rem;
   padding-left: 1rem;
   padding-right: 1rem;
 }
+
+.theme-announcement-bar {
+  background: linear-gradient(
+    to right,
+    rgb(var(--mosaico-color-purple)),
+    rgb(var(--mosaico-color-blue))
+  );
+}

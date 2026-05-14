@@ -89,6 +89,13 @@ const config: Config = {
       disableSwitch: true,
       respectPrefersColorScheme: false,
     },
+    announcementBar: {
+      id: 'support_us',
+      content:
+        'Ready to explore? Connect to <a target="_blank" rel="noopener noreferrer" href="https://demo.mosaico.dev">demo.mosaico.dev</a> to claim your API key.',
+      textColor: '#FFFFFF',
+      isCloseable: false,
+    },
     navbar: {
       logo: {
         alt: 'Mosaico',
