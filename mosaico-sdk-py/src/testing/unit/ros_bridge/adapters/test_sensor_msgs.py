@@ -600,7 +600,9 @@ class TestImageAdapter:
         assert image.encoding == ros_msg.encoding
         assert int(image.is_bigendian) == ros_msg.is_bigendian
         assert image.stride == ros_msg.step
-        assert np.array_equal(np.frombuffer(image.data, dtype=np.uint8), ros_msg.data)
+        assert np.array_equal(
+            np.frombuffer(bytes(image.to_linear_pixels()), dtype=np.uint8), ros_msg.data
+        )
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_image_raw(self, image_raw: Image, typestore: Typestore):

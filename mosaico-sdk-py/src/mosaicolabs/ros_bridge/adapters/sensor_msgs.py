@@ -968,7 +968,9 @@ class ImageAdapter(ROSAdapterBase[Image]):
                 encoding=image_data.encoding,
                 is_bigendian=int(is_bigendian),
                 step=image_data.stride,
-                data=np.frombuffer(image_data.data, dtype=np.uint8),
+                data=np.frombuffer(
+                    bytes(image_data.to_linear_pixels()), dtype=np.uint8
+                ),
             )
 
         return None
