@@ -85,6 +85,8 @@ pub async fn try_create(
     let path_in_store = SequencePathInStore::new();
 
     // 1. Create sequence in database.
+    // Note: we want to prevent the newly created folder in the store from being marked as TO_DELETE by the cleanup routine.
+    // That's why we create the DB record as first thing.
     let mut tx = context.db.transaction().await?;
 
     let mut record = db::SequenceRecord::new(locator.clone(), path_in_store.clone());

@@ -292,6 +292,8 @@ pub async fn writer(
     let path_in_store = types::TopicPathInStore::new();
 
     // 1. Save path_in_store on DB.
+    // Note: we want to prevent the newly created folder in the store from being marked as TO_DELETE by the cleanup routine.
+    // That's why we update the DB record as first thing.
     let mut cx = context.db.connection();
     db::topic_update_path_in_store(&mut cx, handle.id, path_in_store.clone()).await?;
 
