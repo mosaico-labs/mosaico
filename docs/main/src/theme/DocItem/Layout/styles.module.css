@@ -1,0 +1,85 @@
+.docItemContainer header + *,
+.docItemContainer article > *:first-child {
+  margin-top: 0;
+}
+
+@media (min-width: 997px) {
+  .docItemCol {
+    max-width: 75% !important;
+  }
+}
+
+.docToolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.75rem;
+}
+
+.rawBtn {
+  position: relative;
+  display: inline-flex;
+}
+
+.rawBtnTrigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.6rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.65);
+  background: transparent;
+  border: 1px solid var(--mosaico-border-color);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+  line-height: 1;
+}
+
+.rawBtnTrigger:hover {
+  color: rgba(255, 255, 255, 0.75);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.rawBtnCopied {
+  color: rgb(var(--mosaico-color-blue)) !important;
+  border-color: rgb(var(--mosaico-color-blue)) !important;
+}
+
+.rawBtnDropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  min-width: 200px;
+  background-color: var(--mosaico-background);
+  border: 1px solid var(--mosaico-border-color);
+}
+
+.rawBtnItem {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.55);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--mosaico-border-color);
+  cursor: pointer;
+  text-decoration: none !important;
+  text-align: left;
+  transition: color 0.15s, background-color 0.15s;
+  width: 100%;
+}
+
+.rawBtnItem:last-child {
+  border-bottom: none;
+}
+
+.rawBtnItem:hover {
+  color: #ffffff !important;
+  background-color: rgba(255, 255, 255, 0.05);
+}
