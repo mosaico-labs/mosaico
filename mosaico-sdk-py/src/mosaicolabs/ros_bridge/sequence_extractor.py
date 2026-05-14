@@ -21,6 +21,7 @@ from mosaicolabs.comm.mosaico_client import MosaicoClient
 from mosaicolabs.logging_config import get_logger, setup_sdk_logging
 from mosaicolabs.ros_bridge import ROSBridge
 from mosaicolabs.ros_bridge.helpers import _filter_topics_from_list
+from mosaicolabs.ros_bridge.qos import get_qos_for_topic
 
 # Set the hierarchical logger
 logger = get_logger(__name__)
@@ -132,10 +133,6 @@ class ROSExtractorConfig:
     """Timestamp (in nanoseconds) to finish extracting data of specified sequence"""
 
 
-# class ROSBagWriter:
-#     ...
-
-
 # --- Main Deinjector Class ---
 
 
@@ -163,7 +160,7 @@ class ROSSequenceExtractor:
         if self.bagwriter is None:
             # TODO: understand how to infeer correct version
             self.bagwriter = Writer(
-                self.cfg.rosbag_path, storage_plugin=self.cfg.storage_plugin, version=9
+                self.cfg.rosbag_path, storage_plugin=self.cfg.storage_plugin, version=8
             )
         return self.bagwriter
 
@@ -197,9 +194,10 @@ class ROSSequenceExtractor:
                     )
 
                     if seq_handler is None:
+                        all_seq = mclient.list_sequences()
                         raise (
                             ValueError(
-                                f"Sequence called {self.cfg.sequence_name} could not be found"
+                                f"Your requested sequence '{self.cfg.sequence_name}' could not be found. The available Sequences are: {all_seq}"
                             )
                         )
 
@@ -243,7 +241,10 @@ class ROSSequenceExtractor:
                             ms_topic not in self.accepted_connections
                         ):  # New connection available
                             new_connection = bag_writer.add_connection(
-                                ms_topic, ros_msgtype, typestore=self.typestore
+                                ms_topic,
+                                ros_msgtype,
+                                typestore=self.typestore,
+                                offered_qos_profiles=get_qos_for_topic(ms_topic),
                             )
                             self.accepted_connections.update({ms_topic: new_connection})
 
