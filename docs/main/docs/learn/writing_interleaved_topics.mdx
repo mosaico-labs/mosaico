@@ -9,6 +9,26 @@ import TabItem from '@theme/TabItem';
 
 This guide demonstrates how to ingest data from a single MCAP container file that holds interleaved messages from multiple sensors. Because messages from different topics are interleaved in the file, topic writers are created lazily on first encounter rather than up front.
 
+<Tabs>
+
+<TabItem value="python" label="Python" default>
+:::tip[Learn]
+[Doc: The Writing Workflow](https://docs.mosaico.dev/python-sdk/SDK/handling/writing/)
+
+[API Reference: Writing Data](https://docs.mosaico.dev/python-sdk/SDK/API_reference/handlers/writing/)
+:::
+</TabItem>
+
+<TabItem value="cpp" label="C++">
+The C++ SDK is currently in development.
+</TabItem>
+
+<TabItem value="rust" label="Rust">
+The Rust SDK is currently in development.
+</TabItem>
+
+</Tabs>
+
 ## What MCAP Is and Why Interleaved Ingestion Matters
 
 MCAP is a high-performance, self-describing container format designed for robotics and autonomous systems data, widely used in ROS 2 and beyond. Unlike a simple CSV where each file contains one type of data, an MCAP file encodes all sensor streams together in a single binary file, with messages ordered chronologically by timestamp. At `10:00:00.000` you might find an IMU record, immediately followed by a GPS fix at `10:00:00.001`, then a pressure reading at `10:00:00.002`, then another IMU record, all interleaved in the order they were originally recorded. This layout is efficient for playback and cross-sensor analysis, but it poses a challenge for ingestion: you cannot know in advance which sensor topics appear in the file, or in what order they first appear.

@@ -160,7 +160,7 @@ Once a topic is created via [`SequenceWriter.topic_create`][mosaicolabs.handlers
 
 By default, the `SequenceWriter` context manager cannot natively distinguish which specific topic failed during custom processing or data pushing. An unhandled exception in one stream will bubble up and trigger the global **Sequence-Level Error Policy**, potentially aborting the entire upload. To prevent this, the SDK introduces native **Topic-Level Error Policies**, which automate the "Defensive Ingestion" pattern directly within the `TopicWriter`. This pattern is highly recommended, in paerticular for complex ingestion pipelines (see for example the [interleaved ingestion how-to](https://docs.mosaico.dev/learn/writing_interleaved_topics)).
 
-!!! note:
+!!! note
     The error handling is only possible inside the `TopicWriter` context manager, i.e. by wrapping the processing and pushing code inside a `with topic_writer:` block.
 
 When creating a topic via the `SequenceWriter.topic_create` function, users can specify a [`TopicLevelErrorPolicy`][mosaicolabs.enum.TopicLevelErrorPolicy] that isolates failures to that specific data "lane". This ensures that a single malformed message or transformation error does not compromise the high-level sequence. By defining these behaviors at the configuration level, the user can eliminate the need for boilerplate error-handling code around every topic writer context. The `TopicLevelErrorPolicy` can be set to:

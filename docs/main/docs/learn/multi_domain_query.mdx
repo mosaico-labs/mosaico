@@ -19,6 +19,28 @@ There are three layers you can combine, and each one narrows the result set from
 
 All three builders passed to `client.query()` are joined with AND. A result is returned only when a sequence, topic, and data window all satisfy every condition you specified.
 
+<Tabs>
+
+<TabItem value="python" label="Python" default>
+:::tip[Learn]
+[Doc: The Query Workflow](https://docs.mosaico.dev/python-sdk/SDK/query/)
+
+[API Reference: Query Builders](https://docs.mosaico.dev/python-sdk/SDK/API_reference/query/builders/)
+
+[API Reference: Query Response](https://docs.mosaico.dev/python-sdk/SDK/API_reference/query/response/)
+:::
+</TabItem>
+
+<TabItem value="cpp" label="C++">
+The C++ SDK is currently in development.
+</TabItem>
+
+<TabItem value="rust" label="Rust">
+The Rust SDK is currently in development.
+</TabItem>
+
+</Tabs>
+
 ### The `.Q` Proxy
 
 Every Ontology model in the SDK (such as `IMU`, `GPS`, `String`) exposes a `.Q` class attribute. This proxy generates type-safe field path expressions that the server can evaluate. When you write `IMU.Q.acceleration.x.gt(5.0)`, you are saying "the X component of the acceleration vector is greater than 5.0". The IDE can autocomplete field names because `.Q` mirrors the structure of the ontology type, so typos in field paths are caught before the query ever runs.

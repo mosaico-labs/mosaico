@@ -13,6 +13,26 @@ By default, the Mosaico SDK communicates with the `mosaicod` daemon over plain g
 
 These two mechanisms are independent and complementary. TLS protects the data in transit so that no one on the network path can read or tamper with your queries and results. API keys prove to the daemon that the caller is authorised to make requests at all. In a production setup you will usually want both.
 
+<Tabs>
+
+<TabItem value="python" label="Python" default>
+:::tip[Learn]
+[Doc: Client](https://docs.mosaico.dev/python-sdk/SDK/client/)
+
+[API Reference: Communication Module](https://docs.mosaico.dev/python-sdk/SDK/API_reference/comm/)
+:::
+</TabItem>
+
+<TabItem value="cpp" label="C++">
+The C++ SDK is currently in development.
+</TabItem>
+
+<TabItem value="rust" label="Rust">
+The Rust SDK is currently in development.
+</TabItem>
+
+</Tabs>
+
 ### TLS: Encrypting the Connection
 
 Mosaico supports two TLS modes that correspond to the same distinction you encounter with HTTPS:
