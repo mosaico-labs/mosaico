@@ -17,6 +17,28 @@ Chained queries solve this. The pattern is to run an initial broad query to find
 A single `client.query()` call applies AND across all conditions for a single **topic**. A topic cannot be both a `GPS` stream and a `String` log, so chaining is required to correlate two different topics within the same sequence.
 :::
 
+<Tabs>
+
+<TabItem value="python" label="Python" default>
+:::tip[Learn]
+[Doc: The Query Workflow](https://docs.mosaico.dev/python-sdk/SDK/query/)
+
+[API Reference: Query Builders](https://docs.mosaico.dev/python-sdk/SDK/API_reference/query/builders/)
+
+[API Reference: Query Response](https://docs.mosaico.dev/python-sdk/SDK/API_reference/query/response/)
+:::
+</TabItem>
+
+<TabItem value="cpp" label="C++">
+The C++ SDK is currently in development.
+</TabItem>
+
+<TabItem value="rust" label="Rust">
+The Rust SDK is currently in development.
+</TabItem>
+
+</Tabs>
+
 ### How Chaining Works
 
 **Broad search.** The first query casts a wide net. You may use only a `QueryOntologyCatalog` filter here, or combine it with a `QuerySequence` if you already know something about the sessions you care about. The result is a `QueryResponse` containing every sequence where the condition was satisfied.

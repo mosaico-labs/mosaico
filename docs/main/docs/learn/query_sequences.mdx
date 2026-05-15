@@ -11,6 +11,28 @@ As the number of recording sessions in your platform grows, browsing them manual
 
 Sequence-level queries are the right tool when the criteria you care about live at the session level: the name of the mission, environment conditions logged at recording time, project identifiers, or any other metadata you attached to the Sequence when you created it. You are not yet asking questions about what sensor data is inside; you are asking questions about the recording session itself.
 
+<Tabs>
+
+<TabItem value="python" label="Python" default>
+:::tip[Learn]
+[Doc: The Query Workflow](https://docs.mosaico.dev/python-sdk/SDK/query/)
+
+[API Reference: Query Builders](https://docs.mosaico.dev/python-sdk/SDK/API_reference/query/builders/)
+
+[API Reference: Query Response](https://docs.mosaico.dev/python-sdk/SDK/API_reference/query/response/)
+:::
+</TabItem>
+
+<TabItem value="cpp" label="C++">
+The C++ SDK is currently in development.
+</TabItem>
+
+<TabItem value="rust" label="Rust">
+The Rust SDK is currently in development.
+</TabItem>
+
+</Tabs>
+
 ## Querying Sequences by Name and Metadata
 
 The `QuerySequence` builder constructs a filter by method chaining. Every `.with_*()` call you add becomes an additional AND condition: the daemon only returns sessions that satisfy every constraint you have specified. This makes it natural to start broad and progressively narrow; you can add conditions one at a time and the semantics are always "all of the above must be true."

@@ -9,6 +9,26 @@ import TabItem from '@theme/TabItem';
 
 This guide demonstrates how to ingest data from multiple CSV files into Mosaico, writing several topics serially within a single sequence. The example covers IMU, GPS, and Pressure sensors, each sourced from a separate CSV file.
 
+<Tabs>
+
+<TabItem value="python" label="Python" default>
+:::tip[Learn]
+[Doc: The Writing Workflow](https://docs.mosaico.dev/python-sdk/SDK/handling/writing/)
+
+[API Reference: Writing Data](https://docs.mosaico.dev/python-sdk/SDK/API_reference/handlers/writing/)
+:::
+</TabItem>
+
+<TabItem value="cpp" label="C++">
+The C++ SDK is currently in development.
+</TabItem>
+
+<TabItem value="rust" label="Rust">
+The Rust SDK is currently in development.
+</TabItem>
+
+</Tabs>
+
 ## Why Multiple Topics in One Sequence
 
 In real robotics deployments, a robot rarely records just one sensor. A field mission might simultaneously produce IMU readings at 200 Hz, GPS fixes at 10 Hz, and barometric pressure samples at 50 Hz. All of these streams are causally related; they describe the same vehicle, in the same environment, during the same run. Storing them in separate, unrelated records would destroy that relationship and make cross-sensor queries needlessly complex.
@@ -135,10 +155,32 @@ Each `TopicWriter` is bound to exactly one Ontology type. Attempting to push a `
 <TabItem value="python" label="Python">
 
 ```python title="Create topic writers"
-imu_twriter = swriter.topic_create(topic_name="sensors/imu", metadata={"sensor_id": "accel_01"}, ontology_type=IMU)
-gps_twriter = swriter.topic_create(topic_name="sensors/gps", metadata={"sensor_id": "gps_01"}, ontology_type=GPS)
-pressure_twriter = swriter.topic_create(topic_name="sensors/pressure", metadata={"sensor_id": "pressure_01"}, ontology_type=Pressure)
+imu_twriter = swriter.topic_create(
+    topic_name="sensors/imu",
+    metadata={"sensor_id": "accel_01"},
+    ontology_type=IMU,
+    on_error=TopicLevelErrorPolicy.Ignore,
+)
+gps_twriter = swriter.topic_create(
+    topic_name="sensors/gps",
+    metadata={"sensor_id": "gps_01"},
+    ontology_type=GPS,
+    on_error=TopicLevelErrorPolicy.Ignore,
+)
+pressure_twriter = swriter.topic_create(
+    topic_name="sensors/pressure",
+    metadata={"sensor_id": "pressure_01"},
+    ontology_type=Pressure,
+    on_error=TopicLevelErrorPolicy.Ignore,
+)
 ```
+
+:::info[Topic-Level Error Policy]
+The `TopicLevelErrorPolicy.Ignore` error policy will log on the server any error happening within the `TopicWriter` context
+(e.g. while pushing a message), and then will ignore it, keeping the injestion stream up and active. For a more detailed explanation,
+refer to the [Topic-Level Error Handling](https://docs.mosaico.dev/python-sdk/SDK/handling/writing/#topic-level-error-handling) Section.
+
+:::
 
 </TabItem>
 <TabItem value="cpp" label="C++">
@@ -158,40 +200,43 @@ The Rust SDK is currently in development.
 <Tabs groupId="lang" defaultValue="python">
 <TabItem value="python" label="Python">
 
-With all three writers registered, we iterate over each generator and push its messages. The three `for` loops run one after the other: first all IMU messages, then all GPS messages, then all Pressure messages. Each loop is independent and isolated from the others by its own `try-except` around each push call.
+With all three writers registered, we iterate over each generator and push its messages. The three `for` loops run one after the other: first all IMU messages, then all GPS messages, then all Pressure messages.
+Each loop is independent and isolated from the others by its own `with` context around each push call.
 
-This per-topic error isolation is the critical design choice in multi-topic ingestion. If an exception escapes a push call and is not caught at the topic level, it will propagate up through the generator loop, exit the `with swriter:` block abnormally, and trigger the sequence-level `on_error` policy, potentially deleting everything. By wrapping each `push()` call in a `try-except`, you contain errors to the individual message that caused them. The affected timestamp is logged, and ingestion continues with the next message. The GPS and Pressure loops are completely unaffected by any errors in the IMU loop. Each sensor's data reaches the daemon independently, and the sequence is finalized successfully at the end.
+This per-topic error isolation is the critical design choice in multi-topic ingestion: it allows the SDK to correctly handle errors inside the context,
+by means of the selected `TopicLevelErrorPolicy` policy.
 
 ```python title="Push messages"
 # Push IMU
 for msg in stream_imu_from_csv("imu.csv"):
-    if msg is None:
-        continue
-    try:
+    with imu_twriter:
         imu_twriter.push(message=msg)
-    except Exception as e:
-        print(f"IMU error at {msg.timestamp_ns}: {e}")
+    if imu_twriter.status == TopicWriterStatus.IgnoredLastError:
+        # Last cycle produced an error
+        print(f"IMU message skipped with error: {imu_twriter.last_error}")
 
 # Push GPS
 for msg in stream_gps_from_csv("gps.csv"):
-    if msg is None:
-        continue
-    try:
+    with gps_twriter:
         gps_twriter.push(message=msg)
-    except Exception as e:
-        print(f"GPS error at {msg.timestamp_ns}: {e}")
+    if gps_twriter.status == TopicWriterStatus.IgnoredLastError:
+        # Last cycle produced an error
+        print(f"GPS message skipped with error: {gps_twriter.last_error}")
 
 # Push Pressure
 for msg in stream_pressure_from_csv("pressure.csv"):
-    if msg is None:
-        continue
-    try:
+    with pressure_twriter:
         pressure_twriter.push(message=msg)
-    except Exception as e:
-        print(f"Pressure error at {msg.timestamp_ns}: {e}")
+    if pressure_twriter.status == TopicWriterStatus.IgnoredLastError:
+        # Last cycle produced an error
+        print(f"Pressure message skipped with error: {pressure_twriter.last_error}")
 ```
 
-**Topic-Level Error Management**: The `try-except` around each `push()` call catches exceptions at the message level and logs the nanosecond timestamp, giving you enough context to trace the failure back to a row in the source CSV. Individual bad records do not abort the session. When you later query the platform, you can compare the logged error timestamps against the ingested data to understand exactly which records are missing. This is far more actionable than a session-level abort that leaves you with nothing.
+**Topic-Level Error Management**: The **`with`** context around each `push()` call is important.
+If an error occurs at the push level, for example a network hiccup or a type validation failure for a particular message, it will propagate up through the generator loop,
+exit the `SequenceWriter` context block abnormally, and trigger the sequence-level `on_error` policy, potentially deleting everything.
+By wrapping each operation related to a topic in the related `TopicWriter` context, you contain errors to the individual message that caused them.
+In this case, since the `TopicLevelErrorPolicy.Ignore` policy has been selected, The affected timestamp is logged remotely, and ingestion continues with the next message.
 
 </TabItem>
 <TabItem value="cpp" label="C++">
@@ -267,29 +312,29 @@ def main():
             gps_twriter = swriter.topic_create(topic_name="sensors/gps", metadata={"sensor_id": "gps_01"}, ontology_type=GPS)
             pressure_twriter = swriter.topic_create(topic_name="sensors/pressure", metadata={"sensor_id": "pressure_01"}, ontology_type=Pressure)
 
+            # Push IMU
             for msg in stream_imu_from_csv("imu.csv"):
-                if msg is None:
-                    continue
-                try:
+                with imu_twriter:
                     imu_twriter.push(message=msg)
-                except Exception as e:
-                    print(f"IMU error at {msg.timestamp_ns}: {e}")
+                if imu_twriter.status == TopicWriterStatus.IgnoredLastError:
+                    # Last cycle produced an error
+                    print(f"IMU message skipped with error: {imu_twriter.last_error}")
 
+            # Push GPS
             for msg in stream_gps_from_csv("gps.csv"):
-                if msg is None:
-                    continue
-                try:
+                with gps_twriter:
                     gps_twriter.push(message=msg)
-                except Exception as e:
-                    print(f"GPS error at {msg.timestamp_ns}: {e}")
+                if gps_twriter.status == TopicWriterStatus.IgnoredLastError:
+                    # Last cycle produced an error
+                    print(f"GPS message skipped with error: {gps_twriter.last_error}")
 
+            # Push Pressure
             for msg in stream_pressure_from_csv("pressure.csv"):
-                if msg is None:
-                    continue
-                try:
+                with pressure_twriter:
                     pressure_twriter.push(message=msg)
-                except Exception as e:
-                    print(f"Pressure error at {msg.timestamp_ns}: {e}")
+                if pressure_twriter.status == TopicWriterStatus.IgnoredLastError:
+                    # Last cycle produced an error
+                    print(f"Pressure message skipped with error: {pressure_twriter.last_error}")
 
         print("Successfully injected multi-sensor data from CSV into Mosaico!")
 

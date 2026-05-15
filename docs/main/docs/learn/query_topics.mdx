@@ -11,6 +11,28 @@ While Sequence queries let you find recording sessions by their session-level me
 
 The `QueryTopic` builder works the same way as `QuerySequence`: each `.with_*()` call you chain onto it adds another AND condition, and the daemon evaluates all conditions together on the server side. Only Topics that satisfy every constraint are returned.
 
+<Tabs>
+
+<TabItem value="python" label="Python" default>
+:::tip[Learn]
+[Doc: The Query Workflow](https://docs.mosaico.dev/python-sdk/SDK/query/)
+
+[API Reference: Query Builders](https://docs.mosaico.dev/python-sdk/SDK/API_reference/query/builders/)
+
+[API Reference: Query Response](https://docs.mosaico.dev/python-sdk/SDK/API_reference/query/response/)
+:::
+</TabItem>
+
+<TabItem value="cpp" label="C++">
+The C++ SDK is currently in development.
+</TabItem>
+
+<TabItem value="rust" label="Rust">
+The Rust SDK is currently in development.
+</TabItem>
+
+</Tabs>
+
 ## Querying Topics by Type and Metadata
 
 The key filter in a Topic query is `with_ontology_tag()`. Every type in Mosaico's Ontology (`IMU`, `GPS`, `Pressure`, `String`, and so on) has a unique identifier called an ontology tag. Calling `IMU.ontology_tag()` returns that identifier, and passing it to `with_ontology_tag()` tells the daemon to restrict results to Topics that carry IMU data. This is how you express "I want topics of this type" without knowing their names in advance.

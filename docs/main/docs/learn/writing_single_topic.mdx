@@ -20,6 +20,26 @@ The only thing that changes between formats is the loader code that converts raw
 For a real-world example using MCAP, see the [Writing Interleaved Topics](./writing_interleaved_topics.mdx) guide.
 :::
 
+<Tabs>
+
+<TabItem value="python" label="Python" default>
+:::tip[Learn]
+[Doc: The Writing Workflow](https://docs.mosaico.dev/python-sdk/SDK/handling/writing/)
+
+[API Reference: Writing Data](https://docs.mosaico.dev/python-sdk/SDK/API_reference/handlers/writing/)
+:::
+</TabItem>
+
+<TabItem value="cpp" label="C++">
+The C++ SDK is currently in development.
+</TabItem>
+
+<TabItem value="rust" label="Rust">
+The Rust SDK is currently in development.
+</TabItem>
+
+</Tabs>
+
 ## Understanding the Mosaico Data Model
 
 Before writing a single line of ingestion code, it helps to understand the four concepts you will interact with in this guide: the Sequence, the Topic, the Message, and the Ontology.
@@ -146,8 +166,16 @@ with client.sequence_create(...) as swriter:
         topic_name="sensors/imu",
         metadata={"sensor_id": "accel_01"},
         ontology_type=IMU,
+        on_error=TopicLevelErrorPolicy.Ignore
     )
 ```
+
+:::info[Topic-Level Error Policy]
+The `TopicLevelErrorPolicy.Ignore` error policy will log on the server any error happening within the `TopicWriter` context
+(e.g. while pushing a message), and then will ignore it, keeping the injestion stream up and active. For a more detailed explanation,
+refer to the [Topic-Level Error Handling](https://docs.mosaico.dev/python-sdk/SDK/handling/writing/#topic-level-error-handling) Section.
+:::
+
 
 </TabItem>
 <TabItem value="cpp" label="C++">
@@ -167,20 +195,28 @@ The Rust SDK is currently in development.
 <Tabs groupId="lang" defaultValue="python">
 <TabItem value="python" label="Python">
 
-With the `TopicWriter` in hand, you iterate over the **generator** and push each message. The SDK serializes each `Message` using Apache Arrow, batches it with preceding messages, and transmits batches to the daemon over gRPC. From your perspective, the call is a simple method invocation; the network and serialization complexity is hidden.
+With the `TopicWriter` in hand, you iterate over the **generator** and push each message. The SDK serializes each `Message`
+using Apache Arrow, batches it with preceding messages, and transmits batches to the daemon over gRPC.
+From your perspective, the call is a simple method invocation; the network and serialization complexity is hidden.
+Wrapping the operations related to a topic inside a `with` context block, allows the SDK to correctly handle errors inside the context,
+by means of the selected `TopicLevelErrorPolicy` policy.
 
 ```python title="Push messages"
     for msg in stream_imu_from_csv("imu_data.csv"):
-        if msg is None:
-            print("Skipping row due to parsing error")
-            continue
-        try:
+        with imu_twriter:
+            # Any exception inside here will trigger the `TopicLevelErrorPolicy.Ignore`
             imu_twriter.push(message=msg)
-        except Exception as e:
-            print(f"Error at time: {msg.timestamp_ns}. Inner err: {e}")
+        if imu_twriter.status == TopicWriterStatus.IgnoredLastError:
+            # Last cycle produced an error
+            print(f"IMU message skipped with error: {imu_twriter.last_error}")
+
 ```
 
-**Topic-Level Error Management**: The **`try-except`** around each `push()` call is important. If an error occurs at the push level, for example a network hiccup or a type validation failure for a particular message, catching it here prevents it from propagating up to the `SequenceWriter`'s **context manager**. If an unhandled exception reaches the sequence level, the `on_error` policy fires and potentially deletes everything you have already uploaded. By catching errors at the topic level, you can log the problematic timestamp and continue ingesting the rest of the data, letting the sequence complete successfully.
+**Topic-Level Error Management**: The **`with`** context around each `push()` call is important.
+If an error occurs at the push level, for example a network hiccup or a type validation failure for a particular message, it will propagate up through the generator loop,
+exit the `SequenceWriter` context block abnormally, and trigger the sequence-level `on_error` policy, potentially deleting everything.
+By wrapping each operation related to a topic in the related `TopicWriter` context, you contain errors to the individual message that caused them.
+In this case, since the `TopicLevelErrorPolicy.Ignore` policy has been selected, The affected timestamp is logged remotely, and ingestion continues with the next message.
 
 </TabItem>
 <TabItem value="cpp" label="C++">
@@ -254,15 +290,13 @@ def main():
                 topic_name="sensors/imu",
                 metadata={"sensor_id": "accel_01"},
                 ontology_type=IMU,
+                on_error=TopicLevelErrorPolicy.Ignore,
             )
             for msg in stream_imu_from_csv("imu.csv"):
-                if msg is None:
-                    print("Skipping row due to parsing error")
-                    continue
-                try:
+                with imu_twriter::
                     imu_twriter.push(message=msg)
-                except Exception as e:
-                    print(f"Error processing IMU at time: {msg.timestamp_ns}. Inner err: {e}")
+                if imu_twriter.status == TopicWriterStatus.IgnoredLastError:
+                    print(f"IMU message skipped with error: {imu_twriter.last_error}")
         print("Successfully injected data from CSV into Mosaico!")
 
 if __name__ == "__main__":
