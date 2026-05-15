@@ -4,7 +4,32 @@ sidebar_position: 4
 description: "Runnable example showing how to search the Mosaico catalog using query builders. Covers fuzzy topic name matching with QueryTopic, filtering by Ontology type with ontology_tag(), multi-domain queries combining QueryOntologyCatalog and the .Q proxy, and slicing results for event replay."
 ---
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
 Demonstrates three levels of catalog search: finding topics by partial name, filtering by sensor type, and running a multi-domain query that locates specific physical events — such as IMU lateral acceleration spikes — across the entire dataset in a single server-side call.
+
+<Tabs>
+
+<TabItem value="python" label="Python" default>
+:::tip[Learn]
+[Doc: The Query Workflow](https://docs.mosaico.dev/python-sdk/SDK/query/)
+
+[API Reference: Query Builders](https://docs.mosaico.dev/python-sdk/SDK/API_reference/query/builders/)
+
+[API Reference: Query Response](https://docs.mosaico.dev/python-sdk/SDK/API_reference/query/response/)
+:::
+</TabItem>
+
+<TabItem value="cpp" label="C++">
+The C++ SDK is currently in development.
+</TabItem>
+
+<TabItem value="rust" label="Rust">
+The Rust SDK is currently in development.
+</TabItem>
+
+</Tabs>
 
 ```bash title="Run"
 mosaicolabs.examples query_catalogs

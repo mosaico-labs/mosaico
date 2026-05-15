@@ -160,7 +160,10 @@ if __name__ == "__main__":
 :::
 
 :::warning[Topic-Level Error Policy]
-`TopicLevelErrorPolicy.Finalize` closes the affected topic writer on error, allowing the remaining topics in the sequence to continue ingesting. Without this policy, a single bad message could trigger the sequence-level error policy and abort the entire upload. For interleaved ingestion where multiple sensors share a single chronological stream, this policy is strongly recommended.
+`TopicLevelErrorPolicy.Finalize` closes the affected topic writer on error, allowing the remaining topics in the sequence to continue ingesting.
+Without this policy, a single bad message could trigger the sequence-level error policy and abort the entire upload.
+Note that before proceeding with topic-related operations (deserializing, pushing, ...) the `if twriter.is_active` guard is used: this is necessary when using `TopicLevelErrorPolicy.Finalize`,
+to avoid keeping writing on finalized topics, which would produce runtime errors.
 :::
 
 </TabItem>

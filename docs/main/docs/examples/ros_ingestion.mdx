@@ -4,7 +4,31 @@ sidebar_position: 1
 description: "Runnable example that downloads the NVIDIA R2B Dataset 2024 and ingests it from MCAP-format ROS 2 bags into Mosaico. Covers defining a custom EncoderTicks ontology type, implementing a ROSAdapterBase translator, and running the RosbagInjector pipeline with verification."
 ---
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
 Downloads the [NVIDIA R2B Dataset 2024](https://catalog.ngc.nvidia.com/orgs/nvidia/teams/isaac/resources/r2bdataset2024?version=1) and ingests it from `.mcap` ROS 2 bags into a structured, queryable Mosaico archive. Asset download, type translation, batching, and catalog verification are all handled automatically.
+
+<Tabs>
+
+<TabItem value="python" label="Python" default>
+:::tip[Learn]
+[Doc: ROS Bridge](https://docs.mosaico.dev/python-sdk/SDK/bridges/ros/)
+
+[API Reference: ROS Bridge](https://docs.mosaico.dev/python-sdk/SDK/API_reference/bridges/ros/ros/)
+
+:::
+</TabItem>
+
+<TabItem value="cpp" label="C++">
+The C++ SDK is currently in development.
+</TabItem>
+
+<TabItem value="rust" label="Rust">
+The Rust SDK is currently in development.
+</TabItem>
+
+</Tabs>
 
 ```bash title="Run"
 mosaicolabs.examples ros_injection

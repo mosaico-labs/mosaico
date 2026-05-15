@@ -4,7 +4,31 @@ sidebar_position: 3
 description: "Runnable example showing how to extend Mosaico with custom data models for hardware not covered by the built-in ontology. Covers Serializable subclassing, MosaicoField and MosaicoType declarations, automatic schema registration via module import, and verifying registration status."
 ---
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
 Demonstrates how to define and register a custom data model for the NVIDIA Isaac Nova wheel encoder, a hardware type not present in the built-in Mosaico ontology. This is the ontology code that underpins the [ROS Ingestion](./ros_ingestion) example.
+
+<Tabs>
+
+<TabItem value="python" label="Python" default>
+:::tip[Learn]
+[Doc: Data Models & Ontology](https://docs.mosaico.dev/python-sdk/SDK/ontology/)
+
+[API Reference: Base Models and Mixins](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/base/)
+
+:::
+</TabItem>
+
+<TabItem value="cpp" label="C++">
+The C++ SDK is currently in development.
+</TabItem>
+
+<TabItem value="rust" label="Rust">
+The Rust SDK is currently in development.
+</TabItem>
+
+</Tabs>
 
 ```bash title="Run"
 mosaicolabs.examples ros_injection

@@ -3,8 +3,31 @@ title: Data Discovery and Inspection
 sidebar_position: 2
 description: "Runnable example showing how to browse a Mosaico catalog without downloading bulk data. Covers listing sequences, reading session metadata (size, timestamps) via SequenceHandler, and inspecting individual Topics via TopicHandler using the lazy handler pattern."
 ---
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
 
 Walks through the catalog of a running Mosaico instance, printing each sequence's size, time bounds, and a per-topic breakdown of sensor types and durations — without downloading any raw sensor data.
+
+<Tabs>
+
+<TabItem value="python" label="Python" default>
+:::tip[Learn]
+[Doc: The Reading Workflow](https://docs.mosaico.dev/python-sdk/SDK/handling/reading/)
+
+[API Reference: Data Retrieval](https://docs.mosaico.dev/python-sdk/SDK/API_reference/handlers/reading/)
+:::
+</TabItem>
+
+<TabItem value="cpp" label="C++">
+The C++ SDK is currently in development.
+</TabItem>
+
+<TabItem value="rust" label="Rust">
+The Rust SDK is currently in development.
+</TabItem>
+
+</Tabs>
 
 ```bash title="Run"
 mosaicolabs.examples data_inspection
