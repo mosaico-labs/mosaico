@@ -10,3 +10,4 @@ description: API Reference for Machine Learning Module
 ::: mosaicolabs.ml.SyncHold
 ::: mosaicolabs.ml.SyncAsOf
 ::: mosaicolabs.ml.SyncDrop
+::: mosaicolabs.ml.VideoDecodingTransformer

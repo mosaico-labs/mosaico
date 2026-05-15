@@ -73,6 +73,49 @@ If you intend to modify critical portions of the project (e.g., the core Rust en
 
 This allows us to verify that your proposed changes align with the Mosaico roadmap and do not conflict with ongoing developments.
 
+## Commit messages (Conventional Commits)
+
+We use the [Conventional Commits](https://www.conventionalcommits.org/) format for commit messages.
+
+### Format
+
+```
+<type>(<scope>): <short summary>
+```
+
+If a change is **breaking**, add `!` after the type: `<type>(<scope>)!: ...`
+
+### Types
+
+Use one of the following types:
+
+- **feat**: new feature or capability
+- **fix**: bug fix
+- **docs**: documentation-only changes
+- **refactor**: code change that neither fixes a bug nor adds a feature
+- **perf**: performance improvements
+- **test**: add or update tests
+- **build**: build system / dependencies / packaging (Cargo, Python packaging, etc.)
+- **ci**: CI configuration changes
+- **chore**: maintenance tasks that don't affect runtime behavior (formatting, cleanup)
+- **revert**: revert a previous commit
+
+### Scopes
+
+Use one of these scopes (pick the closest one):
+
+- **mosaicod**: daemon-wide changes or cross-crate refactors
+- **py**: Python SDK (`mosaico-sdk-py`)
+
+### Examples
+
+```
+feat(mosaicod): support concurrent session uploads
+fix(spy): prevent duplicate topic locator insert
+docs: clarify ingestion protocol steps
+refactor: simplify topic finalization flow
+```
+
 ## Pre-Release Checklist
 Ensure the following files are updated to the target version number:
 - **Rust**: `mosaicod/Cargo.toml`
