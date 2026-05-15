@@ -3,6 +3,7 @@ TODO
 """
 
 import argparse
+import shutil
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
@@ -14,11 +15,6 @@ from rosbags.typesys import Stores, get_typestore
 from rosbags.typesys.store import Typestore
 
 from mosaicolabs import Message, MosaicoClient
-
-# from mosaicolabs.enum import (
-#     SessionLevelErrorPolicy,
-#     TopicLevelErrorPolicy,
-# )
 from mosaicolabs.logging_config import get_logger, setup_sdk_logging
 from mosaicolabs.ros_bridge import ROSBridge
 from mosaicolabs.ros_bridge.loader import MosaicoLoader, ProgressManager
@@ -26,9 +22,6 @@ from mosaicolabs.ros_bridge.qos import get_qos_for_topic
 
 # Set the hierarchical logger
 logger = get_logger(__name__)
-
-# _DEFAULT_TOPIC_ON_ERROR = TopicLevelErrorPolicy.Raise
-# _DEFAULT_SESSION_ON_ERROR = SessionLevelErrorPolicy.Report
 
 
 # --- Configuration ---
@@ -133,6 +126,9 @@ class ROSExtractorConfig:
     end_timestamp_ns: Optional[int] = None
     """Timestamp (in nanoseconds) to finish extracting data of specified sequence"""
 
+    overwrite: bool = False
+    """If True, delete and recreate the rosbag path if it already exists. Defaults to False."""
+
 
 # --- Main Deinjector Class ---
 
@@ -202,9 +198,7 @@ class ROSSequenceExtractor:
 
         # --- Resolve Check ---
         ros_msgtype = ros_msg.__msgtype__
-        ros_recording_timestamp_ns = (
-            ms_msg.recording_timestamp_ns
-        )  # TODO: this should be offsetted by start_timestamp_ns if present?
+        ros_recording_timestamp_ns = ms_msg.recording_timestamp_ns
 
         # --- Resolve Connection check ---
         if ms_topic not in self.accepted_connections:  # New connection available
@@ -239,11 +233,18 @@ class ROSSequenceExtractor:
         TODO
         """
 
-        # TODO: validate rosbag path:
-        # 1) check that the path exists in the system
-        # 2) if something already exists, override it?
-
         # self.register_custom_types() # TODO: is this useful?
+
+        # Check whether rosbag exists
+        rosbag_path = self.cfg.rosbag_path
+        rosbag_path.parent.mkdir(parents=True, exist_ok=True)
+        if rosbag_path.exists():
+            if not self.cfg.overwrite:
+                raise FileExistsError(
+                    f"Rosbag path '{rosbag_path}' already exists. "
+                    "Pass overwrite=True (or --overwrite on CLI) to replace it."
+                )
+            shutil.rmtree(rosbag_path)
 
         try:
             with MosaicoClient.connect(
@@ -362,6 +363,12 @@ def ros_sequence_extractor():
     parser.add_argument(
         "--enable_tls", default=False, help="Whether Mosaico Server requires tls"
     )
+    parser.add_argument(
+        "--overwrite",
+        action="store_true",
+        default=False,
+        help="Delete and recreate the rosbag path if it already exists",
+    )
 
     parser.add_argument(
         "--log",
@@ -392,6 +399,7 @@ def ros_sequence_extractor():
         enable_tls=args.enable_tls,
         start_timestamp_ns=args.start_timestamp_ns,
         end_timestamp_ns=args.end_timestamp_ns,
+        overwrite=args.overwrite,
     )
 
     # --- Execution ---

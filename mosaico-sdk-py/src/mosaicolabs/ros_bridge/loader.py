@@ -521,8 +521,28 @@ class MosaicoLoader:
                 "Unanble to initialize MoisaicoLoader: No topic matched criteria. Try checking the topics filter, if any."
             )
 
-        # TODO: you should check that if a time window is provided by the user,
-        # TODO: it is not outside the min and max sequence timestamps
+        # Clipping requested start/end timestamp to start/end sequence timestamp if existing
+        if (
+            self.start_timestamp_ns is not None
+            and self.start_timestamp_ns < self.seq_handler.timestamp_ns_min
+        ):
+            logger.warning(
+                f"Provided start_timestamp_ns is lower than sequence timestamp_ns_min: {self.start_timestamp_ns} < {self.seq_handler.timestamp_ns_min}. Clipping start_timestamp_ns to sequence timestamp_ns_min"
+            )
+            self.start_timestamp_ns = max(
+                self.start_timestamp_ns, self.seq_handler.timestamp_ns_min
+            )
+
+        if (
+            self.end_timestamp_ns is not None
+            and self.end_timestamp_ns > self.seq_handler.timestamp_ns_max
+        ):
+            logger.warning(
+                f"Provided end_timestamp_ns is higher than sequence timestamp_ns_max: {self.end_timestamp_ns} > {self.seq_handler.timestamp_ns_max}. Clipping end_timestamp_ns to sequence timestamp_ns_max"
+            )
+            self.end_timestamp_ns = min(
+                self.end_timestamp_ns, self.seq_handler.timestamp_ns_max
+            )
 
         # Resolving streamer
         self.streamer = self.seq_handler.get_data_streamer(
@@ -558,7 +578,10 @@ class MosaicoLoader:
         """
         self._resolve_sequence()
 
-        if self.seq_handler.timestamp_ns_max and self.seq_handler.timestamp_ns_min:
+        if (
+            self.seq_handler.timestamp_ns_max is not None
+            and self.seq_handler.timestamp_ns_min is not None
+        ):
             return self.seq_handler.timestamp_ns_max - self.seq_handler.timestamp_ns_min
 
         return 0
@@ -579,19 +602,15 @@ class MosaicoLoader:
         """
         self._resolve_sequence()
 
-        return [ms_msg.ontology_tag() for _, ms_msg in self.streamer]
+        return [
+            t_handler.ontology_tag
+            if (t_handler := self.seq_handler.get_topic_handler(topic)) is not None
+            else None
+            for topic in self.resolved_topics
+        ]
 
     def __iter__(self) -> SequenceDataStreamer:
 
         self._resolve_sequence()
 
         return self.streamer
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self):
-
-        if self.seq_handler:
-            self.seq_handler.close()
-            self.seq_handler = None
