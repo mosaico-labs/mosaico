@@ -135,7 +135,7 @@ const config: Config = {
       // Public API key: it is safe to commit it
       apiKey: 'f2da1153b86c45b9ab7f0418f8dafbd1',
 
-      indexName: 'Demo Documentation',
+      indexName: 'mosaico-doc-prod',
 
       // Optional: see doc section below
       contextualSearch: true,
