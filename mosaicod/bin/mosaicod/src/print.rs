@@ -78,7 +78,7 @@ pub fn startup_info(
 }
 
 pub fn error(err: impl AsRef<dyn PublicError + Send + Sync>) {
-    eprintln!("{msg}.", msg = err.as_ref().error());
+    eprintln!("{} {msg}.", "error:".red(), msg = err.as_ref().error());
     error!("{:?}", err.as_ref());
     if let Some(link) = err.as_ref().documentation_link() {
         eprintln!(
@@ -102,20 +102,20 @@ fn format_db_host(db_config: &db::Config) -> String {
 /// Returns the name to display on the console for the current in use store
 pub fn store_display_name(store: &store::StoreRef) -> String {
     match store.target() {
-        store::StoreTarget::Filesystem(path) => {
+        store::Target::Filesystem(path) => {
             format!(
                 "{} {}{}{}",
-                path.yellow(),
+                path.to_string_lossy().yellow(),
                 "[".dimmed(),
                 "local".cyan(),
                 "]".dimmed()
             )
         }
-        store::StoreTarget::S3Compatible(bucket) => {
+        store::Target::S3Compatible(bucket) => {
             format!(
                 "{}{} {}{}{}",
                 "s3://".yellow(),
-                bucket.yellow(),
+                bucket.to_string().yellow(),
                 "[".dimmed(),
                 "remote".cyan(),
                 "]".dimmed(),

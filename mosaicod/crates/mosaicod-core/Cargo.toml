@@ -17,4 +17,5 @@ chrono = { workspace = true }
 thiserror = { workspace = true }
 crc32fast = { workspace = true }
 bytes = { workspace = true }
+ulid = { workspace = true }
 

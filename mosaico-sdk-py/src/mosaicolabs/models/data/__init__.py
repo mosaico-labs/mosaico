@@ -14,10 +14,14 @@ from .base_types import (
     Unsigned32 as Unsigned32,
     Unsigned64 as Unsigned64,
 )
-from .dynamics import ForceTorque as ForceTorque
+from .dynamics import (
+    ForceTorque as ForceTorque,
+    Inertia as Inertia,
+)
 from .geometry import (
     Point2d as Point2d,
     Point3d as Point3d,
+    Polygon as Polygon,
     Pose as Pose,
     Quaternion as Quaternion,
     Transform as Transform,

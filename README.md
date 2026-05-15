@@ -1,6 +1,6 @@
 <div align="center">
   <picture>
-    <a href="https://mosaico.dev"><img alt="Mosaico logo" src="https://mosaico.dev/mosaico-loop@920px-25fps-crop.gif" width="600px"></a>
+    <a href="https://mosaico.dev"><img alt="Mosaico logo" src="https://mosaico.dev/github-hero.webp" width="600px"></a>
   </picture>
 </div>
 <br/>
@@ -22,7 +22,35 @@
 
 # The Data Platform for Robotics and Physical AI
 
-**Mosaico** is a *blazing-fast* data platform designed to bridge the gap between Robotics and Physical AI. It streamlines data management, compression, and search by replacing monolithic files with a structured archive powered by Rust and Python.
+**Mosaico** is a *blazing-fast* data platform designed to close the loop between physical world data and scalable, production-grade systems.
+Mosaico it does one thing exceptionally well: transforms monolithic sensor logs into a structured, queryable archive built for multi-modal data.
+
+Retrieval is highly efficient thanks to a modern data lake approach. 
+Leveraging **zero-copy architecture** eliminates serialization overhead, surpassing the limitations of `.bag` or `.mcap` storage by enabling direct, random access to specific signals without parsing entire files.
+Streams are automatically indexed, allowing the query engine to prune irrelevant data and stream only the precise slices required.
+
+<p align="center">
+  <img src="https://mosaico.dev/stack.webp" width="400px" />
+</p>
+
+At its foundation is a strictly-typed **data ontology**. 
+Instead of treating data as generic byte arrays, Mosaico enforces a semantic understanding of every object. 
+This guarantees data is validatable, optimized for transport, and deeply queryable by physical values.
+
+Targeting durable **long-term storage** and strict **data lineage**, Mosaico rejects traditional versioning, which introduces query ambiguity. 
+Instead, it uses immutable data layers. 
+This horizontal growth ensures query history remains deterministic and absolutely immutable.
+
+## What you'll find
+This repo contains both the Python SDK (`mosaico-sdk-py`) and the Rust backend (`mosaicod`). We have chosen to keep the code in a monorepo configuration to simplify the testing and reduce compatibility issues.
+
+Mosaico takes a strictly code-first approach. 
+We didn't want to force you to learn yet another SQL-like sublanguage just to move data around. 
+Instead, we provide native SDKs (starting with [Python](https://docs.mosaico.dev/SDK)) so you can query and upload data using the programming language you are already comfortable with.
+
+Under the hood, the system operates on a standard client-server model. 
+The server daemon, [`mosaicod`](https://docs.mosaico.dev/daemon), acts as the central hub that takes care of the heavy lifting, like data conversion, compression, and organized storage. 
+On the other side, the client SDK is what you actually import into your scripts; it manages the communication logic and abstracts away the implementation details to keep your API usage stable, even as the platform evolves in the background.
 
 ## Streamlining Data for Physical AI
 The transition from classical robotics to Physical AI represents a fundamental shift in data requirements.
@@ -35,17 +63,6 @@ The transition from classical robotics to Physical AI represents a fundamental s
 **Physical AI** requires synchronous, dense, and tabular data. Models expect fixed-size tensors arriving at a constant frequency (e.g., a batch of state vectors at exactly 50Hz).
 
 Mosaico’s [ML module](https://docs.mosaico.dev/SDK/bridges/ml/) automates this tedious *data plumbing*. It ingests raw, unsynchronized data and transforms it on the fly into the aligned, flattened formats ready for model training, eliminating the need for massive intermediate CSV files.
-
-## What you'll find
-This repo contains both the Python SDK (`mosaico-sdk-py`) and the Rust backend (`mosaicod`). We have chosen to keep the code in a monorepo configuration to simplify the testing and reduce compatibility issues.
-
-Mosaico takes a strictly code-first approach. 
-We didn't want to force you to learn yet another SQL-like sublanguage just to move data around. 
-Instead, we provide native SDKs (starting with [Python](https://docs.mosaico.dev/SDK)) so you can query and upload data using the programming language you are already comfortable with.
-
-Under the hood, the system operates on a standard client-server model. 
-The server daemon, [`mosaicod`](https://docs.mosaico.dev/daemon), acts as the central hub that takes care of the heavy lifting, like data conversion, compression, and organized storage. 
-On the other side, the client SDK is what you actually import into your scripts; it manages the communication logic and abstracts away the implementation details to keep your API usage stable, even as the platform evolves in the background.
 
 ## Documentation
 For a comprehensive description, please visit our [documentation](https://docs.mosaico.dev). If you are building with AI, you can find specialized technical guides in the [Agent-ready](https://docs.mosaico.dev/agents_docs) section.

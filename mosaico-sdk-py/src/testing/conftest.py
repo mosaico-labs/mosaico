@@ -3,6 +3,7 @@ from typing import Optional
 
 import pytest
 
+from mosaicolabs.enum.grpc_compression import GRPCCompressionAlgorithm
 from mosaicolabs.logging_config import setup_sdk_logging
 
 
@@ -36,7 +37,13 @@ def pytest_addoption(parser):
         "--tls",
         action="store_true",
         default=False,
-        help="Enable TLS connection with the server",
+        help="Enable TLS connection with the server.",
+    )
+    parser.addoption(
+        "--gzip",
+        action="store_true",
+        default=False,
+        help="Enable GZIP compression via gRPC.",
     )
     parser.addoption(
         "--api-key",
@@ -70,6 +77,20 @@ def api_key_mgmt(request):
 @pytest.fixture(scope="session")
 def with_tls(request):
     return request.config.getoption("--tls")
+
+
+@pytest.fixture(scope="session")
+def with_gzip(request):
+    return request.config.getoption("--gzip")
+
+
+@pytest.fixture(scope="session")
+def compression(with_gzip):
+    return (
+        GRPCCompressionAlgorithm.StreamGzip
+        if with_gzip
+        else GRPCCompressionAlgorithm.Null
+    )
 
 
 @pytest.fixture(scope="session")

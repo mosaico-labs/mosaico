@@ -12,6 +12,8 @@ pub struct SessionRecord {
     /// The ID of the sequence this session belongs to.
     pub sequence_id: i32,
 
+    pub(crate) locator_name: String,
+
     /// The unique UUID for the session.
     pub(crate) session_uuid: uuid::Uuid,
 
@@ -22,27 +24,30 @@ pub struct SessionRecord {
     pub(crate) completion_unix_tstamp: Option<i64>,
 }
 
-impl From<SessionRecord> for types::Identifiers {
-    fn from(value: SessionRecord) -> Self {
-        Self {
-            id: value.session_id,
-            uuid: value.session_uuid.into(),
-        }
-    }
-}
-
 impl SessionRecord {
     /// Creates a new `SessionRecord` for a given sequence.
     ///
     /// The record is not persisted until an explicit database operation is called.
-    pub fn new(sequence_id: i32) -> Self {
+    pub fn new(locator: types::SessionLocator, sequence_id: i32) -> Self {
         Self {
             session_id: db::UNREGISTERED,
             session_uuid: types::Uuid::new().into(),
             sequence_id,
+            locator_name: locator.to_string(),
             creation_unix_tstamp: types::Timestamp::now().into(),
             completion_unix_tstamp: None,
         }
+    }
+
+    /// Returns the resource locator for this session.
+    ///
+    /// Because a [`SessionRecord`] should only be created using [`SessionRecord::new`], that requires a [`types::SessionLocator`],
+    /// we can assume the locator value inside the DB is always valid. It should panic only if somebody
+    /// changed it manually directly inside the database.
+    pub fn locator(&self) -> types::SessionLocator {
+        self.locator_name
+            .parse()
+            .unwrap_or_else(|_| panic!("Invalid session locator in DB {}", self.locator_name))
     }
 
     /// Returns the creation timestamp of the session.
@@ -57,12 +62,5 @@ impl SessionRecord {
 
     pub fn uuid(&self) -> types::Uuid {
         self.session_uuid.into()
-    }
-
-    pub fn identifiers(&self) -> types::Identifiers {
-        types::Identifiers {
-            uuid: self.uuid(),
-            id: self.session_id,
-        }
     }
 }

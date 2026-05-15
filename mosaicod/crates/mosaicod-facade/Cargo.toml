@@ -28,3 +28,4 @@ sqlx = { workspace = true }
 mosaicod-store = { workspace = true, features = ["testing"] }
 mosaicod-db = { workspace = true, features = ["postgres", "testing"] }
 serde_json = { workspace = true }
+ulid = { workspace = true }

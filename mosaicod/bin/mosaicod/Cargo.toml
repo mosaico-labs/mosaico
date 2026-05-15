@@ -8,11 +8,13 @@ rust-version.workspace = true
 name = "mosaicod"
 
 [dependencies]
+mosaicod-build = { workspace = true }
 mosaicod-core = { workspace = true }
 mosaicod-db = { workspace = true }
 mosaicod-store = { workspace = true }
 mosaicod-facade = {workspace = true}
 mosaicod-server = { workspace = true }
+mosaicod-query = { workspace = true }
 
 clap = { workspace = true }
 dotenv = { workspace = true }
@@ -25,3 +27,4 @@ iso8601 = { workspace = true }
 chrono = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
+url = { workspace = true }

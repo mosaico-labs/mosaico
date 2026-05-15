@@ -12,6 +12,10 @@ mosaicod-core = { workspace = true }
 mosaicod-db = { workspace = true, features = ["testing"] }
 mosaicod-store = { workspace = true, features = ["testing"] }
 mosaicod-server = { workspace = true }
+mosaicod-facade = { workspace = true }
+mosaicod-query = { workspace = true }
+mosaicod-ext = { workspace = true, features = ["testing"] }
+mosaicod-marshal = { workspace = true}
 
 arrow-flight = { workspace = true }
 tonic = { workspace = true }
@@ -23,7 +27,9 @@ rand = { workspace = true }
 futures = { workspace = true }
 arrow = { workspace = true }
 url = { workspace = true }
+tower = { workspace = true }
+ulid = { workspace = true }
 
 [dev-dependencies]
-mosaicod-ext = { workspace = true, features = ["testing"] }
 mosaicod-marshal = { workspace = true }
+tracing-subscriber = { workspace = true }

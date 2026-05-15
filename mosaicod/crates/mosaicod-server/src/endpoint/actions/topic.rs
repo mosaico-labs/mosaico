@@ -2,7 +2,10 @@
 
 use crate::error::{Error, Result};
 use log::{info, trace, warn};
-use mosaicod_core::types::{self, MetadataBlob};
+use mosaicod_core::{
+    self as core,
+    types::{self, MetadataBlob},
+};
 use mosaicod_facade as facade;
 use mosaicod_marshal::{self as marshal, ActionResponse};
 
@@ -21,7 +24,7 @@ pub async fn create(
 
     let received_uuid: types::Uuid = session_uuid
         .parse()
-        .map_err(|_| Error::invalid_uuid(&session_uuid))?;
+        .map_err(|_| core::Error::bad_uuid(session_uuid))?;
 
     let ontology_metadata = types::TopicOntologyMetadata::new(
         types::TopicOntologyProperties {
@@ -31,9 +34,10 @@ pub async fn create(
         Some(user_mdata),
     );
 
-    let topic_locator = types::TopicResourceLocator::from(name);
+    let topic_locator = name.parse::<types::TopicLocator>()?;
 
     let session_handle = facade::session::Handle::try_from_uuid(ctx, &received_uuid).await?;
+
     let topic_handle =
         facade::topic::try_create(ctx, topic_locator, &session_handle, ontology_metadata).await?;
 
@@ -43,7 +47,7 @@ pub async fn create(
         topic_handle.uuid(),
     );
 
-    Ok(ActionResponse::TopicCreate(
+    Ok(ActionResponse::topic_create(
         topic_handle.uuid().clone().into(),
     ))
 }
@@ -52,7 +56,7 @@ pub async fn create(
 pub async fn delete(ctx: &facade::Context, locator: String) -> Result<ActionResponse> {
     warn!("requested deletion of resource `{}`", locator);
 
-    let topic_locator = types::TopicResourceLocator::from(locator);
+    let topic_locator = locator.parse::<types::TopicLocator>()?;
 
     let topic_handle = facade::topic::Handle::try_from_locator(ctx, topic_locator.clone()).await?;
 
@@ -60,7 +64,7 @@ pub async fn delete(ctx: &facade::Context, locator: String) -> Result<ActionResp
 
     warn!("resource {} deleted", topic_locator);
 
-    Ok(ActionResponse::Empty)
+    Ok(ActionResponse::topic_delete())
 }
 
 /// Creates a notification for a topic.
@@ -72,7 +76,7 @@ pub async fn notification_create(
 ) -> Result<ActionResponse> {
     info!("notification for {}", locator);
 
-    let topic_locator = types::TopicResourceLocator::from(locator);
+    let topic_locator = locator.parse::<types::TopicLocator>()?;
 
     let topic_handle = facade::topic::Handle::try_from_locator(ctx, topic_locator).await?;
 
@@ -82,31 +86,33 @@ pub async fn notification_create(
 
     facade::topic::notify(ctx, &topic_handle, notification_type, msg).await?;
 
-    Ok(ActionResponse::Empty)
+    Ok(ActionResponse::topic_notification_create())
 }
 
 /// Lists all notifications for a topic.
 pub async fn notification_list(ctx: &facade::Context, locator: String) -> Result<ActionResponse> {
     info!("notification list for {}", locator);
 
-    let topic_locator = types::TopicResourceLocator::from(locator);
+    let topic_locator = locator.parse::<types::TopicLocator>()?;
 
     let topic_handle = facade::topic::Handle::try_from_locator(ctx, topic_locator).await?;
 
     let notifications = facade::topic::notification_list(ctx, &topic_handle).await?;
 
-    Ok(ActionResponse::TopicNotificationList(notifications.into()))
+    Ok(ActionResponse::topic_notification_list(
+        notifications.into(),
+    ))
 }
 
 /// Purges all notifications for a topic.
 pub async fn notification_purge(ctx: &facade::Context, locator: String) -> Result<ActionResponse> {
     warn!("notification purge for {}", locator);
 
-    let topic_locator = types::TopicResourceLocator::from(locator);
+    let topic_locator = locator.parse::<types::TopicLocator>()?;
 
     let topic_handle = facade::topic::Handle::try_from_locator(ctx, topic_locator).await?;
 
     facade::topic::notification_purge(ctx, &topic_handle).await?;
 
-    Ok(ActionResponse::Empty)
+    Ok(ActionResponse::topic_notification_purge())
 }

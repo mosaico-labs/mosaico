@@ -7,11 +7,11 @@ mod common;
 mod log;
 mod print;
 
-use clap::{Parser, Subcommand};
+use clap::{CommandFactory, FromArgMatches, Parser, Subcommand};
 use mosaicod_core::error::PublicResult as Result;
 
 #[derive(Parser, Debug)]
-#[command(version, about, long_about = None)]
+#[command(about, long_about = None)]
 /// mosaicod - Mosaico high-performance daemon
 struct Cli {
     /// Set the log output format
@@ -28,7 +28,7 @@ struct Cli {
 
 #[derive(Subcommand, Debug)]
 enum Commands {
-    /// Start the mosaico server
+    /// Start mosaicod daemon
     Run(command::Run),
 
     /// Manage mosaico API keys
@@ -37,13 +37,22 @@ enum Commands {
 }
 
 fn start() -> Result<Option<String>> {
-    let cli_parse_res = Cli::try_parse().map_err(|e| e.to_string());
+    let mut cmd = Cli::command();
+
+    cmd = cmd.long_version(mosaicod_build::version_description());
 
     // Avoid to show error message when parsing cli commands
-    let args = match cli_parse_res {
+    let matches = match cmd.try_get_matches() {
         Ok(args) => args,
         Err(err) => {
-            return Ok(Some(err.to_string()));
+            return Ok(Some(err.render().ansi().to_string()));
+        }
+    };
+
+    let args = match Cli::from_arg_matches(&matches) {
+        Ok(args) => args,
+        Err(err) => {
+            return Ok(Some(err.render().ansi().to_string()));
         }
     };
 
@@ -70,7 +79,7 @@ fn main() {
     match res {
         Ok(opt_msg) => {
             if let Some(msg) = opt_msg {
-                println!("{msg}");
+                print!("{msg}");
             }
         }
         Err(e) => {

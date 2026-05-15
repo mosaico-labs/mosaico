@@ -1,6 +1,6 @@
 use crate::{Error, core::AsExec, sql::schema};
 use log::{trace, warn};
-use mosaicod_core::types::{self, Resource};
+use mosaicod_core::types;
 use mosaicod_marshal as marshal;
 use mosaicod_query as query;
 use sqlx::{Row, postgres::PgRow};
@@ -15,6 +15,7 @@ fn cast_topic_data(row: PgRow) -> Result<schema::TopicRecord, Error> {
         ontology_tag: row.try_get("ontology_tag")?,
         serialization_format: row.try_get("serialization_format")?,
         user_metadata: row.try_get("user_metadata")?,
+        path_in_store: row.try_get("path_in_store")?,
         creation_unix_tstamp: row.try_get("creation_unix_tstamp")?,
         completion_unix_tstamp: row.try_get("completion_unix_tstamp")?,
         chunks_number: row.try_get("chunks_number")?,
@@ -43,13 +44,13 @@ pub async fn topic_find_by_ids(
 /// Find a topic given its name.
 pub async fn topic_find_by_locator(
     exe: &mut impl AsExec,
-    topic: &types::TopicResourceLocator,
+    topic: &types::TopicLocator,
 ) -> Result<schema::TopicRecord, Error> {
-    trace!("searching by resource name `{}`", topic);
+    trace!("searching topic by locator name `{}`", topic);
     let res = sqlx::query_as!(
         schema::TopicRecord,
         "SELECT * FROM topic_t WHERE locator_name=$1",
-        topic.locator()
+        topic.to_string()
     )
     .fetch_one(exe.as_exec())
     .await?;
@@ -98,20 +99,25 @@ pub async fn topic_find_all(exe: &mut impl AsExec) -> Result<Vec<schema::TopicRe
     )
 }
 
-/// Deletes a topic record from the database by its name, **bypassing any lock state**.
+/// Deletes a topic record from the database by its id, **bypassing any lock state**.
 ///
 /// This function requires a [`DataLossToken`] since permanently removes the record
 /// from the database without checking whether it is locked or referenced
 /// elsewhere. Improper use can lead to data inconsistency or loss.
 pub async fn topic_delete(
     exe: &mut impl AsExec,
-    loc: &types::TopicResourceLocator,
+    topic_id: i32,
     _: types::DataLossToken,
 ) -> Result<(), Error> {
-    warn!("(data loss) deleting topic `{}`", loc);
-    sqlx::query!("DELETE FROM topic_t WHERE locator_name=$1", loc.locator())
+    warn!("(data loss) deleting topic record with id={}", topic_id);
+    let result = sqlx::query!("DELETE FROM topic_t WHERE topic_id=$1", topic_id)
         .execute(exe.as_exec())
         .await?;
+
+    if result.rows_affected() == 0 {
+        return Err(Error::NotFound);
+    }
+
     Ok(())
 }
 
@@ -127,10 +133,10 @@ pub async fn topic_create(
                 (
                     topic_uuid, sequence_id, session_id, locator_name, creation_unix_tstamp,
                     serialization_format, ontology_tag, user_metadata, chunks_number,
-                    total_bytes, start_index_timestamp, end_index_timestamp
+                    total_bytes, start_index_timestamp, end_index_timestamp, path_in_store
                 ) 
             VALUES 
-                ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+                ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
             RETURNING 
                 *
     "#,
@@ -146,6 +152,7 @@ pub async fn topic_create(
         record.total_bytes,
         record.start_index_timestamp,
         record.end_index_timestamp,
+        record.path_in_store,
     )
     .fetch_one(exe.as_exec())
     .await?;
@@ -154,7 +161,7 @@ pub async fn topic_create(
 
 pub async fn topic_update_serialization_format(
     exe: &mut impl AsExec,
-    loc: &types::TopicResourceLocator,
+    loc: &types::TopicLocator,
     serialization_format: &str,
 ) -> Result<schema::TopicRecord, Error> {
     trace!(
@@ -170,7 +177,7 @@ pub async fn topic_update_serialization_format(
             RETURNING * 
     "#,
         serialization_format,
-        loc.locator()
+        loc.to_string()
     )
     .fetch_one(exe.as_exec())
     .await?;
@@ -179,7 +186,7 @@ pub async fn topic_update_serialization_format(
 
 pub async fn topic_update_ontology_tag(
     exe: &mut impl AsExec,
-    loc: &types::TopicResourceLocator,
+    loc: &types::TopicLocator,
     ontology_tag: &str,
 ) -> Result<schema::TopicRecord, Error> {
     trace!("updating ontology_tag to `{}` for `{}`", ontology_tag, loc);
@@ -192,7 +199,7 @@ pub async fn topic_update_ontology_tag(
             RETURNING * 
     "#,
         ontology_tag,
-        loc.locator(),
+        loc.to_string(),
     )
     .fetch_one(exe.as_exec())
     .await?;
@@ -202,7 +209,7 @@ pub async fn topic_update_ontology_tag(
 
 pub async fn topic_update_user_metadata(
     exe: &mut impl AsExec,
-    loc: &types::TopicResourceLocator,
+    loc: &types::TopicLocator,
     user_metadata: marshal::JsonMetadataBlob,
 ) -> Result<schema::TopicRecord, Error> {
     trace!("updating user_metadata for `{}`", loc);
@@ -216,7 +223,7 @@ pub async fn topic_update_user_metadata(
             RETURNING * 
     "#,
         metadata,
-        loc.locator(),
+        loc.to_string(),
     )
     .fetch_one(exe.as_exec())
     .await?;
@@ -226,7 +233,7 @@ pub async fn topic_update_user_metadata(
 
 pub async fn topic_update_system_info(
     exe: &mut impl AsExec,
-    loc: &types::TopicResourceLocator,
+    loc: &types::TopicLocator,
     system_info: &types::TopicDataInfo,
 ) -> Result<schema::TopicRecord, Error> {
     trace!("updating system info to `{:?}` for `{}`", system_info, loc);
@@ -242,10 +249,10 @@ pub async fn topic_update_system_info(
         system_info.total_bytes as i64,
         system_info.timestamp_range.start.as_i64(),
         system_info.timestamp_range.end.as_i64(),
-        loc.locator(),
+        loc.to_string(),
     )
-    .fetch_one(exe.as_exec())
-    .await?;
+        .fetch_one(exe.as_exec())
+        .await?;
 
     Ok(res)
 }
@@ -266,6 +273,30 @@ pub async fn topic_update_completion_tstamp(
             WHERE topic_id = $2
     "#,
         completion_ts,
+        topic_id,
+    )
+    .execute(exe.as_exec())
+    .await?;
+
+    Ok(())
+}
+
+pub async fn topic_update_path_in_store(
+    exe: &mut impl AsExec,
+    topic_id: i32,
+    path_in_store: types::TopicPathInStore,
+) -> Result<(), Error> {
+    trace!(
+        "updating path_in_store to `{}` for topic with id {}",
+        path_in_store, topic_id
+    );
+    sqlx::query!(
+        r#"
+            UPDATE topic_t
+            SET path_in_store = $1
+            WHERE topic_id = $2
+    "#,
+        Some(String::from(path_in_store)),
         topic_id,
     )
     .execute(exe.as_exec())
@@ -373,16 +404,4 @@ pub async fn topic_from_query_filter(
     let r = r.map(cast_topic_data).fetch_all(exe.as_exec()).await?;
     trace!("query returned {} results", r.len());
     r.into_iter().collect()
-}
-
-/// Returns true if the topic is archived (upload completed).
-pub async fn topic_archived(exe: &mut impl AsExec, topic_id: i32) -> Result<bool, Error> {
-    trace!("topic (id=`{}`) locked? ", topic_id);
-
-    Ok(sqlx::query_scalar!(
-        r#"SELECT (completion_unix_tstamp IS NOT NULL) AS "is_missing!" FROM topic_t WHERE topic_id=$1"#,
-        topic_id
-    )
-    .fetch_one(exe.as_exec())
-    .await?)
 }

@@ -13,7 +13,9 @@ from mosaicolabs.models import Message
 from mosaicolabs.models.data import (
     Acceleration,
     ForceTorque,
+    Inertia,
     Point3d,
+    Polygon,
     Pose,
     Quaternion,
     Transform,
@@ -980,6 +982,230 @@ class WrenchAdapter(ROSAdapterBase[ForceTorque]):
             return ForceTorque(
                 force=Vector3Adapter.from_dict(ros_data["force"]),
                 torque=Vector3Adapter.from_dict(ros_data["torque"]),
+            )
+
+    @classmethod
+    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
+        return None
+
+
+@register_default_adapter
+class PolygonAdapter(ROSAdapterBase[Polygon]):
+    """
+    Adapter for translating ROS Polygon messages to Mosaico `Polygon`.
+
+    **Supported ROS Types:**
+
+    - [`geometry_msgs/msg/Polygon`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/Polygon.html)
+    - [`geometry_msgs/msg/PolygonStamped`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/PolygonStamped.html)
+
+    **Recursive Unwrapping Strategy:**
+    The adapter checks for nested 'polygon' keys (as in PolygonStamped) and recursively unwraps to the base structure.
+
+    Example:
+    ```python
+    ros_msg = ROSMessage(
+        topic="/polygon",
+        timestamp=17000,
+        msg_type="geometry_msgs/msg/Polygon",
+        data={
+            "points": [
+                {"x": 1.0, "y": 2.0, "z": 0.0},
+                {"x": 3.0, "y": 4.0, "z": 0.0},
+            ]
+        }
+    )
+
+    mosaico_polygon = PolygonAdapter.translate(ros_msg)
+    ```
+    """
+
+    ros_msgtype: str | Tuple[str, ...] = (
+        "geometry_msgs/msg/PolygonStamped",
+        "geometry_msgs/msg/Polygon",
+    )
+
+    __mosaico_ontology_type__: Type[Polygon] = Polygon
+    _REQUIRED_KEYS = ("points",)
+
+    @classmethod
+    def translate(
+        cls,
+        ros_msg: ROSMessage,
+        **kwargs: Any,
+    ) -> Message:
+        """
+        Translates a ROS message into a Mosaico Message.
+
+        Returns:
+            Message: The translated message containing a `Polygon` object.
+
+        Raises:
+            Exception: Wraps any translation error with context (topic name, timestamp).
+        """
+        return super().translate(ros_msg, **kwargs)
+
+    @classmethod
+    def from_dict(cls, ros_data: dict) -> Polygon:
+        """
+        Parses ROS Polygon data. Handles both nested ('PolygonStamped') and flat structures.
+
+        Strategy:
+            - **Recurse**: If a 'polygon' key is found, unwrap and process the inner structure.
+            - **Leaf Node**: Convert the list of ROS points into Mosaico `Point3d` objects
+            and construct a `Polygon`.
+
+        Args:
+            ros_data (dict): The raw dictionary from the ROS message.
+
+        Returns:
+            Polygon: The constructed Mosaico Polygon object.
+        """
+        out_poly: Optional[Polygon] = None
+
+        # Recursive Step (PolygonStamped)
+        poly_dict = ros_data.get("polygon")
+        if poly_dict:
+            if not isinstance(poly_dict, dict):
+                raise ValueError(
+                    f"Invalid type for 'polygon': expected dict, got {type(poly_dict).__name__}"
+                )
+            return cls.from_dict(poly_dict)
+
+        # Base Case
+        if not out_poly:
+            _validate_msgdata(cls, ros_data)
+
+            points = [PointAdapter.from_dict(p) for p in ros_data["points"]]
+
+            return Polygon(points=points)
+
+    @classmethod
+    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
+        return None
+
+
+@register_default_adapter
+class InertiaAdapter(ROSAdapterBase[Inertia]):
+    """
+    Adapter for translating ROS Inertia messages to Mosaico `Inertia`.
+
+    **Supported ROS Types:**
+
+    - [`geometry_msgs/msg/Inertia`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/Inertia.html)
+    - [`geometry_msgs/msg/InertiaStamped`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/InertiaStamped.html)
+
+    **Recursive Unwrapping Strategy:**
+    The adapter checks for nested 'inertia' keys (as in InertiaStamped) and recursively unwraps to the base structure.
+
+    Example:
+    ```python
+    ros_msg = ROSMessage(
+        topic="/inertia",
+        timestamp=17000,
+        msg_type="geometry_msgs/msg/Inertia",
+        data={
+            "m": 10.0,
+            "com": {"x": 0.0, "y": 0.0, "z": 0.0},
+            "ixx": 1.0,
+            "ixy": 0.0,
+            "ixz": 0.0,
+            "iyy": 1.0,
+            "iyz": 0.0,
+            "izz": 1.0,
+        }
+    )
+
+    mosaico_inertia = InertiaAdapter.translate(ros_msg)
+    ```
+    """
+
+    ros_msgtype: str | Tuple[str, ...] = (
+        "geometry_msgs/msg/InertiaStamped",
+        "geometry_msgs/msg/Inertia",
+    )
+
+    __mosaico_ontology_type__: Type[Inertia] = Inertia
+
+    _REQUIRED_KEYS = (
+        "m",
+        "com",
+        "ixx",
+        "ixy",
+        "ixz",
+        "iyy",
+        "iyz",
+        "izz",
+    )
+
+    @classmethod
+    def translate(
+        cls,
+        ros_msg: ROSMessage,
+        **kwargs: Any,
+    ) -> Message:
+        """
+        Translates a ROS message into a Mosaico Message.
+
+        Returns:
+            Message: The translated message containing a `Inertia` object.
+
+        Raises:
+            Exception: Wraps any translation error with context (topic name, timestamp).
+        """
+        return super().translate(ros_msg, **kwargs)
+
+    @classmethod
+    def from_dict(cls, ros_data: dict) -> Inertia:
+        """
+        Parses ROS Inertia data. Handles both nested ('InertiaStamped') and flat structures.
+
+        Strategy:
+            - **Recurse**: If an 'inertia' key is found, unwrap and process the inner structure.
+            - **Leaf Node**:
+                - Map 'com' to a Mosaico `Vector3d`.
+                - Construct the inertia tensor from scalar components (ixx, ixy, etc.).
+                - Build the `Inertia` object.
+
+        Args:
+            ros_data (dict): The raw dictionary from the ROS message.
+
+        Returns:
+            Inertia: The constructed Mosaico Inertia object.
+        """
+        out_inertia: Optional[Inertia] = None
+
+        # Recursive Step (InertiaStamped)
+        inertia_dict = ros_data.get("inertia")
+        if inertia_dict:
+            if not isinstance(inertia_dict, dict):
+                raise ValueError(
+                    f"Invalid type for 'inertia': expected dict, got {type(inertia_dict).__name__}"
+                )
+            return cls.from_dict(inertia_dict)
+
+        # Base Case
+        if not out_inertia:
+            _validate_msgdata(cls, ros_data)
+
+            center_of_mass = Vector3Adapter.from_dict(ros_data["com"])
+
+            inertia_tensor = [
+                ros_data["ixx"],
+                ros_data["ixy"],
+                ros_data["ixz"],
+                ros_data["ixy"],
+                ros_data["iyy"],
+                ros_data["iyz"],
+                ros_data["ixz"],
+                ros_data["iyz"],
+                ros_data["izz"],
+            ]
+
+            return Inertia(
+                mass=ros_data["m"],
+                center_of_mass=center_of_mass,
+                inertia=inertia_tensor,
             )
 
     @classmethod

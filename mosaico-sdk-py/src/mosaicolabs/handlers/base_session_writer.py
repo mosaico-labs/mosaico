@@ -13,7 +13,11 @@ from typing import Any, Dict, Optional, Type
 
 import pyarrow.flight as fl
 
-from mosaicolabs.comm.do_action import _do_action, _DoActionResponseUUID
+from mosaicolabs.comm.do_action import (
+    _do_action,
+    _DoActionSessionCreateResponse,
+    _DoActionTopicCreateResponse,
+)
 from mosaicolabs.enum import (
     FlightAction,
     SessionLevelErrorPolicy,
@@ -74,6 +78,7 @@ class _BaseSessionWriter(ABC):
             sequence_name: Unique name for the sequence corresponding to the session.
             client: The primary control FlightClient.
             config: Operational configuration (e.g., error policies, batch sizes).
+            logger: The `Logger` instance
         """
         self._name: str = sequence_name
         """The name of the sequence this session refers to"""
@@ -87,6 +92,8 @@ class _BaseSessionWriter(ABC):
         """The status of the new session"""
         self._uuid: str = ""
         """The session uuid for remote handshaking"""
+        self._locator: str = ""
+        """The session locator"""
         self._entered: bool = False
         """Tag for inspecting if the writer is used in a 'with' context"""
         self._logger: Logger = logger
@@ -111,7 +118,7 @@ class _BaseSessionWriter(ABC):
             payload={
                 "locator": sequence_name,
             },
-            expected_type=_DoActionResponseUUID,
+            expected_type=_DoActionSessionCreateResponse,
         )
         if act_resp is None:
             raise Exception(
@@ -119,6 +126,7 @@ class _BaseSessionWriter(ABC):
             )
 
         self._uuid = act_resp.uuid
+        self._locator = act_resp.locator
         self._entered = True
         self._status = SessionStatus.Pending
 
@@ -172,7 +180,7 @@ class _BaseSessionWriter(ABC):
             except Exception as e:
                 # An exception occurred during cleanup or finalization
                 self._logger.error(
-                    f"Exception during __exit__ for session {self._uuid}, sequence '{self._name}': '{e}'"
+                    f"Exception during __exit__ for session {self._locator}, sequence '{self._name}': '{e}'"
                 )
                 # notify error and go on
                 out_exc = e
@@ -182,13 +190,13 @@ class _BaseSessionWriter(ABC):
         if error_in_block:  # either in with block or after close operations
             # Exception occurred: Clean up and handle policy
             self._logger.error(
-                f"Exception caught in _BaseSessionWriter block for session {self._uuid}, sequence  '{self._name}'. Inner err: '{out_exc}'"
+                f"Exception caught in _BaseSessionWriter block for session {self._locator}, sequence  '{self._name}'. Inner err: '{out_exc}'"
             )
             try:
                 self._close_topics(error=out_exc)
             except Exception as e:
                 self._logger.error(
-                    f"Exception while finalizing topics for session {self._uuid}, sequence '{self._name}': '{e}'"
+                    f"Exception while finalizing topics for session {self._locator}, sequence '{self._name}': '{e}'"
                 )
                 out_exc = e
 
@@ -202,7 +210,7 @@ class _BaseSessionWriter(ABC):
                     self._session_finalize()
             except Exception as e:
                 self._logger.error(
-                    f"Exception while handling error policy or finalizing the session {self._uuid}, sequence '{self._name}': '{e}'"
+                    f"Exception while handling error policy or finalizing the session {self._locator}, sequence '{self._name}': '{e}'"
                 )
                 out_exc = e
 
@@ -309,14 +317,14 @@ class _BaseSessionWriter(ABC):
                 )
                 self._status = SessionStatus.Finalized
                 self._logger.info(
-                    f"Session {self._uuid}, sequence '{self._name}' finalized successfully."
+                    f"Session {self._locator}, sequence '{self._name}' finalized successfully."
                 )
                 return
             except Exception as e:
                 # _do_action raised: re-raise
                 self._status = SessionStatus.Error  # Sets status to Error
                 raise _make_exception(
-                    f"Error sending 'finalize' action for session {self._uuid}, sequence '{self._name}'. Server state may be inconsistent.",
+                    f"Error sending 'finalize' action for session {self._locator}, sequence '{self._name}'. Server state may be inconsistent.",
                     e,
                 )
 
@@ -325,7 +333,7 @@ class _BaseSessionWriter(ABC):
         if self._status == SessionStatus.Pending:
             err_msg = (
                 f"Exception caught in _BaseSessionWriter block for session "
-                f"{self._uuid}, sequence  '{self._name}'.\nInner err: '{err}'"
+                f"{self._locator}, sequence  '{self._name}'.\nInner err: '{err}'"
             )
             try:
                 _do_action(
@@ -339,11 +347,11 @@ class _BaseSessionWriter(ABC):
                     expected_type=None,
                 )
                 self._logger.info(
-                    f"Session {self._uuid}, sequence '{self._name}' reported error: '{err_msg}'"
+                    f"Session {self._locator}, sequence '{self._name}' reported error: '{err_msg}'"
                 )
             except Exception as e:
                 raise _make_exception(
-                    f"Error sending 'sequence_report_error' for session '{self._uuid}', sequence '{self._name}'.",
+                    f"Error sending 'sequence_report_error' for session '{self._locator}', sequence '{self._name}'.",
                     e,
                 )
 
@@ -355,17 +363,17 @@ class _BaseSessionWriter(ABC):
                     client=self._control_client,
                     action=FlightAction.SESSION_DELETE,
                     payload={
-                        "session_uuid": self._uuid,
+                        "locator": self._locator,
                     },
                     expected_type=None,
                 )
                 self._logger.info(
-                    f"Session {self._uuid}, sequence '{self._name}' aborted successfully."
+                    f"Session {self._locator}, sequence '{self._name}' aborted successfully."
                 )
                 self._status = SessionStatus.Error
             except Exception as e:
                 raise _make_exception(
-                    f"Error sending 'abort' for session {self._uuid}, sequence '{self._name}'.",
+                    f"Error sending 'abort' for session {self._locator}, sequence '{self._name}'.",
                     e,
                 )
 
@@ -374,7 +382,7 @@ class _BaseSessionWriter(ABC):
         Iterates over all TopicWriters and finalizes them.
         """
         self._logger.info(
-            f"Freeing TopicWriters {'WITH ERROR' if error is not None else ''} for session {self._uuid}, sequence '{self._name}'."
+            f"Freeing TopicWriters {'WITH ERROR' if error is not None else ''} for session {self._locator}, sequence '{self._name}'."
         )
         errors = []
         for topic_name, twriter in self._topic_writers.items():
@@ -383,7 +391,7 @@ class _BaseSessionWriter(ABC):
                     twriter._finalize(error=error)
             except Exception as e:
                 self._logger.error(
-                    f"Failed to finalize topic '{topic_name}' for session {self._uuid}, sequence '{self._name}'.: '{e}'"
+                    f"Failed to finalize topic '{topic_name}' for session {self._locator}, sequence '{self._name}'.: '{e}'"
                 )
                 errors.append(e)
 
@@ -394,7 +402,7 @@ class _BaseSessionWriter(ABC):
             first_error = errors[0]
             # Raise for the `_on_context_exit` to handle the error
             raise _make_exception(
-                f"Errors occurred closing topics for session {self._uuid}, sequence '{self._name}': {len(errors)} topic(s) failed to finalize.",
+                f"Errors occurred closing topics for session {self._locator}, sequence '{self._name}': {len(errors)} topic(s) failed to finalize.",
                 first_error,
             )
 
@@ -450,13 +458,13 @@ class _BaseSessionWriter(ABC):
                     "ontology_tag": ontology_type.__ontology_tag__,
                     "user_metadata": metadata,
                 },
-                expected_type=_DoActionResponseUUID,
+                expected_type=_DoActionTopicCreateResponse,
             )
         except Exception as e:
             self._logger.error(
                 str(
                     _make_exception(
-                        f"Failed to execute '{ACTION.value}' action for session {self._uuid}, sequence '{self._name}', topic '{topic_name}'.",
+                        f"Failed to execute '{ACTION.value}' action for session {self._locator}, sequence '{self._name}', topic '{topic_name}'.",
                         e,
                     )
                 )
@@ -493,7 +501,7 @@ class _BaseSessionWriter(ABC):
             self._logger.error(
                 str(
                     _make_exception(
-                        f"Failed to initialize 'TopicWriter' for session {self._uuid}, sequence '{self._name}', topic '{topic_name}'. Topic will be deleted from db.",
+                        f"Failed to initialize 'TopicWriter' for session {self._locator}, sequence '{self._name}', topic '{topic_name}'. Topic will be deleted from db.",
                         e,
                     )
                 )
@@ -511,7 +519,7 @@ class _BaseSessionWriter(ABC):
                 self._logger.error(
                     str(
                         _make_exception(
-                            f"Failed to send TOPIC_DELETE do_action for session {self._uuid}, sequence '{self._name}', topic '{topic_name}'.",
+                            f"Failed to send TOPIC_DELETE do_action for session {self._locator}, sequence '{self._name}', topic '{topic_name}'.",
                             e,
                         )
                     )
@@ -532,15 +540,16 @@ class _BaseSessionWriter(ABC):
         return self._status
 
     @property
-    def session_uuid(self) -> str:
+    def session_locator(self) -> str:
         """
-        Returns the UUID of the session corresponding to this sequence write or update.
+        Returns the locator of the session corresponding to this sequence write or update.
+        The locator format is: '`sequence_name`:`session_identifier`'.
 
         Returns:
-            The UUID of the session.
+            The locator of the session.
         """
         self._check_entered()
-        return self._uuid
+        return self._locator
 
     def topic_writer_exists(self, topic_name: str) -> bool:
         """

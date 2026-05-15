@@ -74,7 +74,8 @@ release_py() {
         exit 1
     fi
     echo "Updating pyproject.toml to $PY_VERSION"
-    sed -i "s/^version = \".*\"/version = \"$PY_VERSION\"/" "$PYPROJECT_PATH"
+    # sed -i "s/^version = \".*\"/version = \"$PY_VERSION\"/" "$PYPROJECT_PATH"
+    sed -i.bak "s/^version = \".*\"/version = \"$PY_VERSION\"/" "$PYPROJECT_PATH" && rm -f "$PYPROJECT_PATH.bak" #Cross Platform 
     
     git add "$PYPROJECT_PATH"
     git commit -m "Release mosaico Python SDK v$PY_VERSION"

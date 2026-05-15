@@ -203,7 +203,12 @@ impl TryFrom<JsonTopicProperties> for types::TopicMetadataProperties {
                     value.session_uuid, value.resource_locator
                 ))
             })?,
-            resource_locator: value.resource_locator.into(),
+            resource_locator: value.resource_locator.parse().map_err(|_| {
+                MetadataError::DeserializationError(format!(
+                    "error parsing topic resource locator: {}",
+                    value.resource_locator
+                ))
+            })?,
         })
     }
 }
@@ -214,7 +219,7 @@ impl From<types::TopicMetadataProperties> for JsonTopicProperties {
             created_at: value.created_at.as_i64(),
             completed_at: value.completed_at.map(Into::into),
             session_uuid: value.session_uuid.to_string(),
-            resource_locator: value.resource_locator.into(),
+            resource_locator: value.resource_locator.to_string(),
         }
     }
 }
