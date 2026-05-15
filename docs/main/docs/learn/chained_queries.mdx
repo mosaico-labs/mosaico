@@ -1,0 +1,95 @@
+---
+title: Chained Queries
+sidebar_position: 8
+description: "How to correlate conditions across two different Topic types using chained queries. Covers converting a QueryResponse into a locked QuerySequence domain with to_query_sequence(), then running a second targeted query restricted to only the matching sessions."
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+## Using Results to Scope a Second Query
+
+A single `client.query()` call applies AND across all conditions for a single **topic**. That constraint is fundamental: a topic has exactly one declared type, so it cannot simultaneously be a `GPS` stream and a `String` log. If you need to ask "find me sessions that have high-precision GPS data *and* contain error log messages", you cannot express that in one shot; those two conditions live on two different topics of two different types.
+
+Chained queries solve this. The pattern is to run an initial broad query to find candidate sequences, convert the response into a new query builder scoped to exactly those sequences, then run a second query within that narrowed domain. You get the intersection of both conditions without loading any data client-side.
+
+:::info[Why is Chaining Necessary?]
+A single `client.query()` call applies AND across all conditions for a single **topic**. A topic cannot be both a `GPS` stream and a `String` log, so chaining is required to correlate two different topics within the same sequence.
+:::
+
+<Tabs>
+
+<TabItem value="python" label="Python" default>
+:::tip[Learn]
+[Doc: The Query Workflow](https://docs.mosaico.dev/python-sdk/SDK/query/)
+
+[API Reference: Query Builders](https://docs.mosaico.dev/python-sdk/SDK/API_reference/query/builders/)
+
+[API Reference: Query Response](https://docs.mosaico.dev/python-sdk/SDK/API_reference/query/response/)
+:::
+</TabItem>
+
+<TabItem value="cpp" label="C++">
+The C++ SDK is currently in development.
+</TabItem>
+
+<TabItem value="rust" label="Rust">
+The Rust SDK is currently in development.
+</TabItem>
+
+</Tabs>
+
+### How Chaining Works
+
+**Broad search.** The first query casts a wide net. You may use only a `QueryOntologyCatalog` filter here, or combine it with a `QuerySequence` if you already know something about the sessions you care about. The result is a `QueryResponse` containing every sequence where the condition was satisfied.
+
+**Domain locking.** Call `to_query_sequence()` on the response. This converts the `QueryResponse` into a new `QuerySequence` builder that is already pre-filtered to the sequence IDs returned by the first query. The second query will only search within those sessions; the daemon will not touch any other data. This is what makes chaining both correct and efficient: you are not re-scanning the entire catalog, just the sessions you already know are relevant.
+
+**Targeted refinement.** Pass the locked `QuerySequence` as the first argument of a new `client.query()` call, then add whichever `QueryTopic` and `QueryOntologyCatalog` conditions you need. The daemon evaluates the combination and returns only sessions that satisfy every condition across both queries.
+
+<Tabs>
+<TabItem value="python" label="Python" default>
+```python title="Chained query"
+from mosaicolabs import MosaicoClient, QueryTopic, QueryOntologyCatalog, GPS, String
+
+with MosaicoClient.connect("localhost", 6726) as client:
+    # Step 1: find all sequences with high-precision GPS
+    initial_response = client.query(
+        QueryOntologyCatalog(GPS.Q.status.status.eq(2))
+    )
+
+    if initial_response:
+        # Step 2: lock the search domain to those sequences
+        refined_domain = initial_response.to_query_sequence()
+
+        # Step 3: within those sequences, find error log messages
+        final_results = client.query(
+            refined_domain,
+            QueryTopic().with_name("/localization/log_string"),
+            QueryOntologyCatalog(String.Q.data.match("[ERR]"))
+        )
+
+        if final_results:
+            for item in final_results:
+                print(f"Error found in: {item.sequence.name}")
+```
+</TabItem>
+<TabItem value="cpp" label="C++">
+
+The C++ SDK is currently in development.
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+The Rust SDK is currently in development.
+
+</TabItem>
+</Tabs>
+
+## Key Concepts
+
+**`to_query_sequence()`** is the bridge between the two queries. When called on a `QueryResponse`, it produces a `QuerySequence` builder pre-populated with the IDs of all sequences that appeared in the response. Passing this builder as the first argument of the next `client.query()` call tells the daemon to restrict the search scope to those sessions only. No session outside that set will ever be evaluated, regardless of what the other filters say.
+
+**`to_query_topic()`** is the topic-level equivalent. Instead of locking down to a set of sequences, it produces a `QueryTopic` builder pre-scoped to the specific topic paths returned by the previous response. Use this when you want to chain on exact topic identity, for instance when the first query already narrowed you to a particular channel and you want the second query to be applied to that same channel without re-specifying its name.
+
+**Why not just filter client-side?** You could collect all sequence IDs from the first response and write a loop in Python. Chaining is preferable because both queries run entirely server-side. The daemon evaluates the second filter against only the relevant data without transferring intermediate results over the network. For large catalogs, the difference in latency is significant.

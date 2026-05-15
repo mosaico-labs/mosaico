@@ -1,0 +1,59 @@
+name: mosaicod
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "**.rs"
+      - "**/Cargo.toml"
+      - "**/Cargo.lock"
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "**.rs"
+      - "**/Cargo.toml"
+      - "**/Cargo.lock"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  static-analysis:
+    name: "Static analysis"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2.8.2
+        with:
+          workspaces: "mosaicod -> target"
+      
+      - name: Backend Lint
+        working-directory: mosaicod
+        run: |
+          cargo fmt -- --check
+          cargo clippy -- -D warnings
+
+  unit-tests:
+    name: "Backend: unit tests"
+    needs: [static-analysis]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Install System Dependencies (Linux)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libpq-dev
+
+      - name: Unit Tests
+        run: ./scripts/tests --mosaicod
+

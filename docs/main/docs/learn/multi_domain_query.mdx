@@ -1,0 +1,110 @@
+---
+title: Multi-Domain Query
+sidebar_position: 7
+description: "How to combine QuerySequence, QueryTopic, and QueryOntologyCatalog filters in a single client.query() call. The daemon evaluates all layers simultaneously server-side, avoiding round-trips and client-side joins."
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+## Combining Sequence, Topic, and Ontology Filters
+
+Multi-domain queries are the most powerful form of search in Mosaico. By passing multiple query builders to a single `client.query()` call, you instruct the daemon to evaluate all filter layers simultaneously in one round trip. This is far more efficient than running separate queries and joining results on the client side; the server does all the work and returns only what matches every condition.
+
+There are three layers you can combine, and each one narrows the result set from a different angle:
+
+- **QuerySequence** filters at the session level. It looks at recording metadata such as the project name, robot identifier, environment conditions, or any custom tag you attached when the recording was created. Use this to restrict results to a meaningful subset of your data catalog before the other filters even run.
+- **QueryTopic** narrows within the matched sessions down to a specific channel. It matches on the topic name path (e.g. `/front/camera/imu`) and on the declared data type. This ensures you are only inspecting the right stream, not every stream in the session.
+- **QueryOntologyCatalog** goes one level deeper: it inspects the actual stored data values. It leverages Mosaico's ontology, the type system that gives every field a declared type and name, to evaluate expressions directly against the recorded measurements.
+
+All three builders passed to `client.query()` are joined with AND. A result is returned only when a sequence, topic, and data window all satisfy every condition you specified.
+
+<Tabs>
+
+<TabItem value="python" label="Python" default>
+:::tip[Learn]
+[Doc: The Query Workflow](https://docs.mosaico.dev/python-sdk/SDK/query/)
+
+[API Reference: Query Builders](https://docs.mosaico.dev/python-sdk/SDK/API_reference/query/builders/)
+
+[API Reference: Query Response](https://docs.mosaico.dev/python-sdk/SDK/API_reference/query/response/)
+:::
+</TabItem>
+
+<TabItem value="cpp" label="C++">
+The C++ SDK is currently in development.
+</TabItem>
+
+<TabItem value="rust" label="Rust">
+The Rust SDK is currently in development.
+</TabItem>
+
+</Tabs>
+
+### The `.Q` Proxy
+
+Every Ontology model in the SDK (such as `IMU`, `GPS`, `String`) exposes a `.Q` class attribute. This proxy generates type-safe field path expressions that the server can evaluate. When you write `IMU.Q.acceleration.x.gt(5.0)`, you are saying "the X component of the acceleration vector is greater than 5.0". The IDE can autocomplete field names because `.Q` mirrors the structure of the ontology type, so typos in field paths are caught before the query ever runs.
+
+The comparison operators available on a field path (`.gt()`, `.lt()`, `.eq()`, `.between()`, `.match()`, and others) correspond to server-side predicates. Nothing is evaluated in Python; the expression is serialised and sent to the daemon, which applies it during the scan.
+
+### Timestamp Ranges
+
+When `include_timestamp_range=True` is passed to `QueryOntologyCatalog`, the response includes the exact start and end nanosecond timestamps of the matching event window within each topic. This is useful when you want to replay or analyse only the interval where the condition held true, rather than loading an entire recording. The timestamps are precise enough to feed directly into a streamer or a data export without any further alignment work.
+
+<Tabs>
+<TabItem value="python" label="Python" default>
+```python title="Multi-domain query"
+from mosaicolabs import MosaicoClient, QuerySequence, QueryTopic, QueryOntologyCatalog, IMU
+
+with MosaicoClient.connect("localhost", 6726) as client:
+    results = client.query(
+        QuerySequence()
+            .with_user_metadata("project.name", eq="Apollo"),
+        QueryTopic()
+            .with_name("/front/camera/imu"),
+        QueryOntologyCatalog(include_timestamp_range=True)
+            .with_expression(IMU.Q.acceleration.x.gt(5.0))
+    )
+
+    if results:
+        for item in results:
+            print(f"Sequence: {item.sequence.name}")
+            for topic in item.topics:
+                print(f"  - Match in Topic: {topic.name}")
+                start = topic.timestamp_range.start
+                end = topic.timestamp_range.end
+                print(f"    Event Window: {start} to {end} ns")
+```
+</TabItem>
+<TabItem value="cpp" label="C++">
+
+The C++ SDK is currently in development.
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+The Rust SDK is currently in development.
+
+</TabItem>
+</Tabs>
+
+## Understanding the Response
+
+`client.query()` always returns the same `QueryResponse` type, which behaves as a list of `QueryResponseItem` objects. In a multi-domain query, each item carries:
+
+- `item.sequence`: the matched sequence (recording session) with its name and metadata
+- `item.topics`: the list of topics within that sequence that satisfied the Topic and OntologyCatalog conditions
+
+When `include_timestamp_range=True` was set on the `QueryOntologyCatalog`, each topic in `item.topics` has its `timestamp_range` populated:
+
+- `topic.timestamp_range.start`: nanosecond timestamp marking the beginning of the matching data window
+- `topic.timestamp_range.end`: nanosecond timestamp marking the end of the matching data window
+
+Without `include_timestamp_range`, the `timestamp_range` field is absent and you receive only the structural match (which sequence and which topic). With it, you get a precise temporal slice ready for downstream processing.
+
+## Key Concepts
+
+- **Single round trip**: all builders passed to `client.query()` are AND-joined and evaluated server-side in one request, avoiding multiple network calls and client-side joins
+- **`.Q` Proxy**: every Ontology model exposes a `.Q` attribute for type-safe, IDE-autocomplete-friendly field path expressions
+- **Three filter layers**: Sequence (session metadata) → Topic (channel + type) → OntologyCatalog (actual data values)
+- **Temporal windows**: `include_timestamp_range=True` populates `topic.timestamp_range` with the exact nanosecond start and end of the matching event window

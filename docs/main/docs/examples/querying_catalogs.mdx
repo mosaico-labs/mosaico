@@ -1,0 +1,112 @@
+---
+title: Querying Catalogs
+sidebar_position: 4
+description: "Runnable example showing how to search the Mosaico catalog using query builders. Covers fuzzy topic name matching with QueryTopic, filtering by Ontology type with ontology_tag(), multi-domain queries combining QueryOntologyCatalog and the .Q proxy, and slicing results for event replay."
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+Demonstrates three levels of catalog search: finding topics by partial name, filtering by sensor type, and running a multi-domain query that locates specific physical events — such as IMU lateral acceleration spikes — across the entire dataset in a single server-side call.
+
+<Tabs>
+
+<TabItem value="python" label="Python" default>
+:::tip[Learn]
+[Doc: The Query Workflow](https://docs.mosaico.dev/python-sdk/SDK/query/)
+
+[API Reference: Query Builders](https://docs.mosaico.dev/python-sdk/SDK/API_reference/query/builders/)
+
+[API Reference: Query Response](https://docs.mosaico.dev/python-sdk/SDK/API_reference/query/response/)
+:::
+</TabItem>
+
+<TabItem value="cpp" label="C++">
+The C++ SDK is currently in development.
+</TabItem>
+
+<TabItem value="rust" label="Rust">
+The Rust SDK is currently in development.
+</TabItem>
+
+</Tabs>
+
+```bash title="Run"
+mosaicolabs.examples query_catalogs
+```
+
+Run the command with `--help` to see all available options.
+
+The daemon must be running and contain data ingested via the [ROS Ingestion](./ros_ingestion) example. The full source is on [GitHub](https://github.com/mosaico-labs/mosaico/blob/main/mosaico-sdk-py/src/mosaicolabs/examples/query_catalogs.py).
+
+## The Query Builder Pattern
+
+Mosaico's query API uses fluent builder objects. Passing multiple builders to `client.query()` joins them with a logical AND, evaluated entirely server-side in a single round trip. Nothing is joined or filtered on the client side.
+
+## Finding Topics by Name
+
+`QueryTopic.with_name_match()` performs a substring search across all topic paths in the catalog, equivalent to SQL `LIKE '%pattern%'`. The result is a `QueryResponse` grouped by sequence, so each item contains the parent session name alongside the matching topic list.
+
+```python title="Fuzzy topic name search"
+from mosaicolabs import MosaicoClient, QueryTopic
+
+with MosaicoClient.connect(host="localhost", port=6726) as client:
+    results = client.query(
+        QueryTopic().with_name_match("image_raw")
+    )
+    if results:
+        for item in results:
+            print(f"Sequence: {item.sequence.name}")
+            for topic in item.topics:
+                print(f"  {topic.name}")
+```
+
+
+## Filtering by Sensor Type
+
+`with_ontology_tag()` queries by the semantic type of the data rather than by path string. The query stays valid if topics are renamed, as long as the sensor type is unchanged.
+
+```python title="Filter by sensor type"
+from mosaicolabs import IMU, QueryTopic
+
+results = client.query(
+    QueryTopic().with_ontology_tag(IMU.ontology_tag())
+)
+# Returns every IMU topic across all sequences in the catalog.
+```
+
+
+## Multi-Domain Queries
+
+`QueryOntologyCatalog` combined with `QueryTopic` lets you filter by both sensor type and field value in one call. The `.Q` proxy provides type-safe dot-notation expressions: `IMU.Q.acceleration.y.geq(1.0)` means "find messages where IMU y-axis acceleration is >= 1.0 m/s²". Setting `include_timestamp_range=True` tells the server to return the first and last timestamps of the matching window, enabling precise data slicing.
+
+```python title="Multi-domain query with physics filter"
+from mosaicolabs import IMU, QueryOntologyCatalog, QueryTopic
+
+results = client.query(
+    QueryOntologyCatalog(
+        IMU.Q.acceleration.y.geq(1.0),
+        include_timestamp_range=True
+    ),
+    QueryTopic().with_name("/front_stereo_imu/imu")
+)
+```
+
+
+## Replaying an Event
+
+The `timestamp_range` returned by a query can be used directly to slice a data stream to the exact window containing the event. The example adds one second of padding on each side to capture the run-up and recovery.
+
+```python title="Slice and replay the event window"
+if results:
+    for item in results:
+        for topic in item.topics:
+            streamer = client.sequence_handler(item.sequence.name).get_data_streamer(
+                topics=[topic.name],
+                start_timestamp_ns=topic.timestamp_range.start - 1_000_000_000,
+                end_timestamp_ns=topic.timestamp_range.end   + 1_000_000_000,
+            )
+            for msg in streamer:
+                pass  # process the event window
+```
+
