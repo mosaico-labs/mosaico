@@ -7,12 +7,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
+from rich.live import Live
 from rosbags.interfaces import Connection
 from rosbags.rosbag2 import StoragePlugin, Writer
 from rosbags.typesys import Stores, get_typestore
 from rosbags.typesys.store import Typestore
 
-from mosaicolabs.comm.mosaico_client import MosaicoClient
+from mosaicolabs import Message, MosaicoClient
 
 # from mosaicolabs.enum import (
 #     SessionLevelErrorPolicy,
@@ -20,7 +21,7 @@ from mosaicolabs.comm.mosaico_client import MosaicoClient
 # )
 from mosaicolabs.logging_config import get_logger, setup_sdk_logging
 from mosaicolabs.ros_bridge import ROSBridge
-from mosaicolabs.ros_bridge.helpers import _filter_topics_from_list
+from mosaicolabs.ros_bridge.loader import MosaicoLoader, ProgressManager
 from mosaicolabs.ros_bridge.qos import get_qos_for_topic
 
 # Set the hierarchical logger
@@ -164,12 +165,83 @@ class ROSSequenceExtractor:
             )
         return self.bagwriter
 
+    def _process_message(
+        self, bag_writer: Writer, ms_topic: str, ms_msg: Message, ui: ProgressManager
+    ):
+        """
+        Internal business logic for processing a single Mosaico message.
+
+        Steps:
+        1. **Resolve Adapter**: Locates the appropriate Mosaico Adapter for the message type.
+        2. **Translate**: Obtains or creates a `RosMsg` for the specific topic.
+        3. **Resolve Connection**: Obtains or creates a `Connection` for the specific topic.
+        4. **Write**: Writes the RosMsg into the rosbag.
+        """
+
+        if ms_topic in self.ignored_topics:
+            ui.advance_global()
+            return
+
+        # --- Resolve Adapter Check ---
+        # For each Mosaico type Message find its adapter
+        mosaico_type = ms_msg.ontology_tag()
+        adapter = ROSBridge.get_default_mosaico_adapter(mosaico_type)
+
+        # If no adapter can be found, ingore the topics from now on
+        if adapter is None:
+            self.ignored_topics.add(ms_topic)
+            logger.warning(
+                f"Could not find Adapter for topic '{ms_topic}' of type '{mosaico_type}'. Skipping the topic associated to this message"
+            )
+            ui.update_status(ms_topic, "No Adapter", str="yellow")
+            ui.advance_global()
+            return
+
+        # --- Translate Check ---
+        ros_msg = adapter.to_ros(ms_msg, self.typestore)
+
+        # --- Resolve Check ---
+        ros_msgtype = ros_msg.__msgtype__
+        ros_recording_timestamp_ns = (
+            ms_msg.recording_timestamp_ns
+        )  # TODO: this should be offsetted by start_timestamp_ns if present?
+
+        # --- Resolve Connection check ---
+        if ms_topic not in self.accepted_connections:  # New connection available
+            new_connection = bag_writer.add_connection(
+                ms_topic,
+                ros_msgtype,
+                typestore=self.typestore,
+                offered_qos_profiles=get_qos_for_topic(ms_topic),
+            )
+            self.accepted_connections.update({ms_topic: new_connection})
+
+        connection = self.accepted_connections.get(ms_topic)
+
+        # --- Write check ---
+        if self.cfg.ros_distro == Stores.ROS1_NOETIC:  # ROS1
+            bag_writer.write(
+                connection,
+                ros_recording_timestamp_ns,
+                self.typestore.serialize_ros1(ros_msg, ros_msgtype),
+            )
+        else:  # ROS2
+            bag_writer.write(
+                connection,
+                ros_recording_timestamp_ns,
+                self.typestore.serialize_cdr(ros_msg, ros_msgtype),
+            )
+
+        ui.advance_all(ms_topic)
+
     def run(self):
         """
         TODO
         """
 
-        # TODO: validate rosbag path!
+        # TODO: validate rosbag path:
+        # 1) check that the path exists in the system
+        # 2) if something already exists, override it?
 
         # self.register_custom_types() # TODO: is this useful?
 
@@ -185,87 +257,20 @@ class ROSSequenceExtractor:
 
                 # Creating the ROSUnloader
                 with self.open_or_get_bagwriter() as bag_writer:
-                    # ui = ProgressManager(ros_sequence_writer)
-                    # ui.setup()
-
-                    # Getting requested Sequence from Mosaico backend
-                    seq_handler = mclient.sequence_handler(
-                        sequence_name=self.cfg.sequence_name
+                    ms_loader = MosaicoLoader(
+                        mclient,
+                        self.cfg.sequence_name,
+                        self.cfg.topics,
+                        self.cfg.start_timestamp_ns,
+                        self.cfg.end_timestamp_ns,
                     )
 
-                    if seq_handler is None:
-                        all_seq = mclient.list_sequences()
-                        raise (
-                            ValueError(
-                                f"Your requested sequence '{self.cfg.sequence_name}' could not be found. The available Sequences are: {all_seq}"
-                            )
-                        )
+                    ui = ProgressManager(ms_loader)
+                    ui.setup()
 
-                    # TODO: you should check that if a time window is provided by the user,
-                    # TODO: it is not outside the min and max sequence timestamps
-
-                    # Filtering topics
-                    filtered_topics = _filter_topics_from_list(
-                        seq_handler.topics, self.cfg.topics
-                    )
-
-                    streamer = seq_handler.get_data_streamer(
-                        topics=filtered_topics,
-                        start_timestamp_ns=self.cfg.start_timestamp_ns,
-                        end_timestamp_ns=self.cfg.end_timestamp_ns,
-                    )
-
-                    for ms_topic, ms_msg in streamer:
-                        if ms_topic in self.ignored_topics:
-                            continue
-
-                        # For each Message find its adapter based on Mosaico type. If fails, add to self.ignored_topics
-                        # --- Adapter Resolution ---
-                        mosaico_type = ms_msg.ontology_tag()
-                        adapter = ROSBridge.get_default_mosaico_adapter(mosaico_type)
-
-                        if adapter is None:
-                            self.ignored_topics.add(ms_topic)
-                            logger.warning(
-                                f"Could not find Adapter for topic '{ms_topic}' of type '{mosaico_type}'. Skipping the topic associated to this message"
-                            )
-                            continue
-
-                        # Call from the adapter the to_ros()
-                        ros_msg = adapter.to_ros(ms_msg, self.typestore)
-                        ros_msgtype = ros_msg.__msgtype__
-                        ros_timestamp = ms_msg.timestamp_ns  # TODO: this should be offsetted by start_timestamp_ns if present!
-
-                        # Resolve connection
-                        if (
-                            ms_topic not in self.accepted_connections
-                        ):  # New connection available
-                            new_connection = bag_writer.add_connection(
-                                ms_topic,
-                                ros_msgtype,
-                                typestore=self.typestore,
-                                offered_qos_profiles=get_qos_for_topic(ms_topic),
-                            )
-                            self.accepted_connections.update({ms_topic: new_connection})
-
-                        connection = self.accepted_connections.get(ms_topic)
-
-                        # Write the encoded ros_msg to rosbag through Writer
-                        if self.cfg.ros_distro == Stores.ROS1_NOETIC:  # ROS1
-                            bag_writer.write(
-                                connection,
-                                ros_timestamp,
-                                self.typestore.serialize_ros1(ros_msg, ros_msgtype),
-                            )
-                        else:  # ROS2
-                            bag_writer.write(
-                                connection,
-                                ros_timestamp,
-                                self.typestore.serialize_cdr(ros_msg, ros_msgtype),
-                            )
-
-                    # # Finalize the reading channel to release server resources
-                    seq_handler.close()
+                    with Live(ui.progress, console=self.console):
+                        for ms_topic, ms_msg in ms_loader:
+                            self._process_message(bag_writer, ms_topic, ms_msg, ui)
 
         except KeyboardInterrupt:
             logger.warning("Operation cancelled by user. Shutting down...")
