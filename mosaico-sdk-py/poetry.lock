@@ -1103,14 +1103,14 @@ jupyter = ["ipywidgets (>=7.5.1,<9)"]
 
 [[package]]
 name = "rosbags"
-version = "0.11.1"
+version = "0.11.2"
 description = "Pure Python library to read, modify, convert, and write rosbag files."
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "rosbags-0.11.1-py3-none-any.whl", hash = "sha256:4c01698654aca1b6fbad29c2c666afdf48395bd7f8571a9e8f9232f85e49535d"},
-    {file = "rosbags-0.11.1.tar.gz", hash = "sha256:e121ed86818587544e0ba197e0aa95424b655fc262bc9530bffb5a1bec803965"},
+    {file = "rosbags-0.11.2-py3-none-any.whl", hash = "sha256:5a151a7fe911423deaf043cf19a9bbc22dbc620bff83a41e564b8079492dca22"},
+    {file = "rosbags-0.11.2.tar.gz", hash = "sha256:d6c0d78794270fe21c779b857a8ac9eca525818e36b5b8d6134eb69b5efc3997"},
 ]
 
 [package.dependencies]
