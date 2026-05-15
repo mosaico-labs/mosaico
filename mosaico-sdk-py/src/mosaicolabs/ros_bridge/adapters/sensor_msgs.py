@@ -694,7 +694,7 @@ class IMUAdapter(ROSAdapterBase[IMU]):
         # NOTE: # If you have no estimate for one of the data elements,
         # please set element 0 of the associated covariance matrix to -1
         imu_orientation = imu_data.orientation or Quaternion(
-            x=0, y=0, z=0, w=0, covariance=[-1]
+            x=0, y=0, z=0, w=0, covariance=[-1] * 9
         )
 
         orientation_cov = imu_orientation.covariance or [0.0] * 9
