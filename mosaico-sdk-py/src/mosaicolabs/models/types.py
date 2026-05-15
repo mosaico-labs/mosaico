@@ -142,7 +142,7 @@ class MosaicoType:
         arrow_list_type = (
             pa.list_(pa_type, list_size) if list_size else pa.list_(pa_type)
         )
-        return Annotated[list, arrow_list_type]
+        return Annotated[list[source_type], arrow_list_type]
 
     @staticmethod
     def matrix(
