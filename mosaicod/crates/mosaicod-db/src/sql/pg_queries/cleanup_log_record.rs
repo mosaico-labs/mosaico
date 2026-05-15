@@ -1,25 +1,38 @@
 use crate::{Error, core::AsExec, sql::schema};
 use log::trace;
 
-/// Creates a new cleanup log entry, leaving end timestamp column empty.
-pub async fn cleanup_log_create(
+/// Tries to create a new cleanup log entry, leaving end timestamp column empty.
+/// A new cleanup log is added if the last one is older than [`start_unix_tstamp_secs`] - [`time_interval_secs`].
+pub async fn cleanup_log_try_create(
     exe: &mut impl AsExec,
     start_unix_tstamp_secs: i64,
-) -> Result<schema::CleanupLogRecord, Error> {
+    time_interval_secs: i64,
+) -> Result<Option<schema::CleanupLogRecord>, Error> {
     trace!(
-        "creating a new cleanup log record starting at {}",
+        "trying to create a new cleanup log record starting at {}",
         start_unix_tstamp_secs
     );
+
+    // Acquire a transaction-level advisory lock to prevent race conditions.
+    sqlx::query!("SELECT pg_advisory_xact_lock(777777)")
+        .execute(exe.as_exec())
+        .await?;
+
     let res = sqlx::query_as!(
         schema::CleanupLogRecord,
         r#"
             INSERT INTO cleanup_log_t (start_unix_tstamp_secs, marked_folders, deleted_folders, failed_folders)
-            VALUES ($1, '[]'::jsonb, '[]'::jsonb, '[]'::jsonb)
+            SELECT $1, '[]'::jsonb, '[]'::jsonb, '[]'::jsonb
+            WHERE NOT EXISTS (
+                SELECT 1 FROM cleanup_log_t
+                WHERE start_unix_tstamp_secs > ($1::bigint - $2::bigint)
+            )
             RETURNING *
     "#,
         start_unix_tstamp_secs,
+        time_interval_secs
     )
-    .fetch_one(exe.as_exec())
+    .fetch_optional(exe.as_exec())
     .await?;
 
     Ok(res)
@@ -96,11 +109,12 @@ mod tests {
     use sqlx::Pool;
 
     #[sqlx::test]
-    async fn test_cleanup_log_create(pool: Pool<DatabaseType>) -> sqlx::Result<()> {
+    async fn test_cleanup_log_try_create(pool: Pool<DatabaseType>) -> sqlx::Result<()> {
         let start_ts = chrono::Utc::now().timestamp();
         let database = testing::Database::new(pool);
-        let rrecord = cleanup_log_create(&mut database.connection(), start_ts)
+        let rrecord = cleanup_log_try_create(&mut database.connection(), start_ts, 1)
             .await
+            .unwrap()
             .unwrap();
 
         assert_eq!(start_ts, rrecord.start_unix_tstamp_secs);
@@ -123,7 +137,7 @@ mod tests {
 
         // Check with one log.
         let start_ts = chrono::Utc::now().timestamp();
-        cleanup_log_create(&mut cx, start_ts).await.unwrap();
+        cleanup_log_try_create(&mut cx, start_ts, 1).await.unwrap();
         tokio::time::sleep(std::time::Duration::from_secs(1)).await;
 
         let latest_log = cleanup_log_latest(&mut cx).await.unwrap().unwrap();
@@ -132,14 +146,14 @@ mod tests {
 
         // Check with more than one log.
         for _ in 0..8 {
-            cleanup_log_create(&mut cx, chrono::Utc::now().timestamp())
+            cleanup_log_try_create(&mut cx, chrono::Utc::now().timestamp(), 0)
                 .await
                 .unwrap();
             tokio::time::sleep(std::time::Duration::from_secs(1)).await;
         }
 
         let start_ts = chrono::Utc::now().timestamp();
-        cleanup_log_create(&mut cx, start_ts).await.unwrap();
+        cleanup_log_try_create(&mut cx, start_ts, 0).await.unwrap();
 
         let latest_log = cleanup_log_latest(&mut cx).await.unwrap().unwrap();
         assert_eq!(latest_log.cleanup_id, 10);
@@ -150,8 +164,9 @@ mod tests {
 
         tokio::time::sleep(std::time::Duration::from_secs(1)).await;
 
-        let record = cleanup_log_create(&mut cx, chrono::Utc::now().timestamp())
+        let record = cleanup_log_try_create(&mut cx, chrono::Utc::now().timestamp(), 0)
             .await
+            .unwrap()
             .unwrap();
         assert_eq!(record.cleanup_id, 11);
 
@@ -179,7 +194,9 @@ mod tests {
 
         let start_unix_ts = chrono::Utc::now().timestamp();
 
-        cleanup_log_create(&mut cx, start_unix_ts).await.unwrap();
+        cleanup_log_try_create(&mut cx, start_unix_ts, 0)
+            .await
+            .unwrap();
         tokio::time::sleep(std::time::Duration::from_millis(200)).await;
 
         let end_unix_ts = chrono::Utc::now().timestamp();

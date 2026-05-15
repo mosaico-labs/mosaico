@@ -4138,6 +4138,7 @@ version = "0.4.0"
 dependencies = [
  "arrow",
  "arrow-flight",
+ "chrono",
  "futures",
  "mosaicod-core",
  "mosaicod-db",
@@ -4147,6 +4148,7 @@ dependencies = [
  "mosaicod-query",
  "mosaicod-server",
  "mosaicod-store",
+ "mosaicod-task",
  "rand 0.9.2",
  "serde",
  "serde_json",

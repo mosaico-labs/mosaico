@@ -16,6 +16,7 @@ mosaicod-facade = { workspace = true }
 mosaicod-query = { workspace = true }
 mosaicod-ext = { workspace = true, features = ["testing"] }
 mosaicod-marshal = { workspace = true}
+mosaicod-task = { workspace = true}
 
 arrow-flight = { workspace = true }
 tonic = { workspace = true }
@@ -29,6 +30,7 @@ arrow = { workspace = true }
 url = { workspace = true }
 tower = { workspace = true }
 ulid = { workspace = true }
+chrono = { workspace = true }
 
 [dev-dependencies]
 mosaicod-marshal = { workspace = true }

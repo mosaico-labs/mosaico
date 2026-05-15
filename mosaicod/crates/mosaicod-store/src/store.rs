@@ -401,8 +401,10 @@ impl traits::AsyncWriteToPath for Store {
 #[cfg(any(test, feature = "testing"))]
 pub mod testing {
     use super::*;
+    use log::error;
     use std::ops::Deref;
 
+    #[derive(Clone)]
     pub struct Store {
         inner: super::StoreRef,
         pub root: std::path::PathBuf,
@@ -442,7 +444,12 @@ pub mod testing {
 
     impl Drop for Store {
         fn drop(&mut self) {
-            std::fs::remove_dir_all(&self.root).unwrap();
+            if let Err(e) = std::fs::remove_dir_all(&self.root) {
+                // Don't do anything if somebody else has already deleted the folder.
+                if e.kind() != std::io::ErrorKind::NotFound {
+                    error!("Error: failed to delete test store directory: {}", e);
+                }
+            }
         }
     }
 
