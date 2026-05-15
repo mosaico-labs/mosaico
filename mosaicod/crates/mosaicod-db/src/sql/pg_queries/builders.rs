@@ -97,7 +97,7 @@ impl query::CompileClause for ChunkQueryBuilder {
                 let column_name = column_table_name_by_value(&v);
 
                 let clause = format!(
-                    "{column_name} = {field} AND __stats__.min_value >= {p} AND __stats__.max_value <= {p}"
+                    "{column_name} = {field} AND __stats__.min_value <= {p} AND __stats__.max_value >= {p}"
                 );
                 query::CompiledClause::new(build_clause(clause, &v), vec![v])
             }

@@ -2,8 +2,8 @@
 
 MOSAICOD_DIR="mosaicod"
 PY_DIR="mosaico-sdk-py"
-PY_VERSION=""
-MOSAICOD_VERSION=""
+DO_PY=false
+DO_MOSAICOD=false
 PUSH=false
 
 FILE_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
@@ -14,106 +14,153 @@ CARGO_PATH="$MOSAICOD_PATH/Cargo.toml"
 PYPROJECT_PATH="$PY_PATH/pyproject.toml"
 README_PATH="$PROJECT_DIR/README.md"
 
-
-# SemVer Regex: Matches x.y.z (with optional pre-release/build metadata)
-SEMVER_REGEX="^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$"
-
-validate_semver() {
-    if [[ ! $1 =~ $SEMVER_REGEX ]]; then
-        echo "Error: '$1' is not a valid SemVer string (expected x.y.z)."
-        exit 1
-    fi
-}
-
 show_help() {
     cat << EOF
-Mosaico release tool.
+Mosaico release tool. Promotes a release candidate to stable and bumps to the next RC.
 
 Usage: release [OPTIONS]
 
 Options:
-    --mosaicod [SEMVER]         Creates a new mosaicod version
-    --py       [SEMVER]         Creaes a new python sdk version 
-    --push                      Pushes changes to remote
-    --help                      Show this help message
+    --mosaicod      Release the mosaicod daemon
+    --py            Release the Python SDK
+    --push          Push commits and tags to remote
+    --help          Show this help message
 EOF
 }
 
+# Fail early if there are uncommitted changes
+if ! git -C "$PROJECT_DIR" diff --quiet || ! git -C "$PROJECT_DIR" diff --cached --quiet; then
+    echo "Error: uncommitted changes detected. Please commit or stash them before releasing."
+    exit 1
+fi
 
 # Parse arguments
 while [[ "$#" -gt 0 ]]; do
     case $1 in
-        --py) 
-            validate_semver "$2"
-            PY_VERSION="$2"
-            shift 
+        --py)
+            DO_PY=true
             ;;
-        --mosaicod) 
-            validate_semver "$2"
-            MOSAICOD_VERSION="$2"
-            shift 
+        --mosaicod)
+            DO_MOSAICOD=true
             ;;
-        --push) 
+        --push)
             PUSH=true
             ;;
         --help)
             show_help
             exit 0
             ;;
-        *) 
+        *)
             echo "Unknown parameter: $1"
-            exit 1 
+            exit 1
             ;;
     esac
     shift
 done
 
+read_version() {
+    grep -m1 '^version = ' "$1" | sed 's/version = "\(.*\)"/\1/'
+}
+
+bump_patch_rc() {
+    local version="$1"
+    local major minor patch
+    IFS='.' read -r major minor patch <<< "$version"
+    echo "$major.$minor.$((patch + 1))-rc"
+}
+
 release_py() {
-    if [[ ! -f $PYPROJECT_PATH ]]; then
-        echo "Error: $PYPROJECT_PATH not found."
+    [[ ! -f $PYPROJECT_PATH ]] && echo "Error: $PYPROJECT_PATH not found." && exit 1
+
+    local branch
+    branch=$(git -C "$PROJECT_DIR" rev-parse --abbrev-ref HEAD)
+    if [[ ! "$branch" =~ ^release/py/v[0-9]+\.[0-9]+$ ]]; then
+        echo "Error: --py must be run from a 'release/py/vX.Y' branch (currently on '$branch')."
         exit 1
     fi
-    echo "Updating pyproject.toml to $PY_VERSION"
-    # sed -i "s/^version = \".*\"/version = \"$PY_VERSION\"/" "$PYPROJECT_PATH"
-    sed -i.bak "s/^version = \".*\"/version = \"$PY_VERSION\"/" "$PYPROJECT_PATH" && rm -f "$PYPROJECT_PATH.bak" #Cross Platform 
-    
+
+    local current
+    current=$(read_version "$PYPROJECT_PATH")
+
+    if [[ ! "$current" =~ -rc$ ]]; then
+        echo "Error: current Python SDK version '$current' is not a release candidate (-rc). Aborting."
+        exit 1
+    fi
+
+    local stable="${current%-rc}"
+    local next
+    next=$(bump_patch_rc "$stable")
+
+    echo "Python SDK"
+    echo "  Current: $current"
+    echo "  Release: $stable  →  tag: py/v$stable"
+    echo "  Next RC: $next"
+    echo ""
+    read -r -p "Continue? [y/N] " confirm
+    [[ ! "$confirm" =~ ^[yY]$ ]] && echo "Aborted." && exit 0
+
+    # Commit 1 - Promote to stable and tag
+    sed -i.bak "s/^version = \".*\"/version = \"$stable\"/" "$PYPROJECT_PATH" && rm -f "$PYPROJECT_PATH.bak"
     git add "$PYPROJECT_PATH"
-    git commit -m "Release mosaico Python SDK v$PY_VERSION"
-    git tag -a "mosaico-py/v$PY_VERSION" -m "Mosaico python SDK release v$PY_VERSION"
+    git commit -m "Release mosaico Python SDK v$stable"
+    git tag -a "py/v$stable" -m "Mosaico Python SDK release v$stable"
+
+    # Commit 2 - Bump to next RC
+    sed -i.bak "s/^version = \".*\"/version = \"$next\"/" "$PYPROJECT_PATH" && rm -f "$PYPROJECT_PATH.bak"
+    git add "$PYPROJECT_PATH"
+    git commit -m "Bump mosaico Python SDK version to $next"
 }
 
-# Function to handle Mosaicod release
 release_mosaicod() {
-    if [[ ! -f $CARGO_PATH ]]; then
-        echo "Error: $CARGO_PATH not found."
-        exit 1
-    fi
-    if [[ ! -f $README_PATH ]]; then
-        echo "Error: $README_PATH not found."
-        exit 1
-    fi
-    echo "Updating $CARGO_PATH to $MOSAICOD_VERSION"
-    # Only replaces the first instance (the package version)
-    sed -i "0,/^version = \".*\"/{s/^version = \".*\"/version = \"$MOSAICOD_VERSION\"/}" "$CARGO_PATH"
+    [[ ! -f $CARGO_PATH ]] && echo "Error: $CARGO_PATH not found." && exit 1
+    [[ ! -f $README_PATH ]] && echo "Error: $README_PATH not found." && exit 1
 
-    echo "Updating README.md mosaicod badge to $MOSAICOD_VERSION"
-    sed -i "s|img.shields.io/badge/mosaicod-v[0-9.]*|img.shields.io/badge/mosaicod-v$MOSAICOD_VERSION|g" "$README_PATH"
-    
-    git add "$CARGO_PATH $README_PATH"
-    echo "Committing changes"
-    git commit -m "Release mosaicod v$MOSAICOD_VERSION"
-    echo "Creating tags"
-    git tag -a "mosaicod/v$MOSAICOD_VERSION" -m "mosaicod release v$MOSAICOD_VERSION"
+    local branch
+    branch=$(git -C "$PROJECT_DIR" rev-parse --abbrev-ref HEAD)
+    if [[ ! "$branch" =~ ^release/v[0-9]+\.[0-9]+$ ]]; then
+        echo "Error: --mosaicod must be run from a 'release/vX.Y' branch (currently on '$branch')."
+        exit 1
+    fi
+
+    local current
+    current=$(read_version "$CARGO_PATH")
+
+    if [[ ! "$current" =~ -rc$ ]]; then
+        echo "Error: current mosaicod version '$current' is not a release candidate (-rc). Aborting."
+        exit 1
+    fi
+
+    local stable="${current%-rc}"
+    local next
+    next=$(bump_patch_rc "$stable")
+
+    echo "mosaicod"
+    echo "  Current: $current"
+    echo "  Release: $stable  →  tag: v$stable"
+    echo "  Next RC: $next"
+    echo ""
+    read -r -p "Continue? [y/N] " confirm
+    [[ ! "$confirm" =~ ^[yY]$ ]] && echo "Aborted." && exit 0
+
+    # Commit 1 - Promote to stable, update README badge, and tag
+    sed -i "0,/^version = \".*\"/{s/^version = \".*\"/version = \"$stable\"/}" "$CARGO_PATH"
+    sed -i "s|img.shields.io/badge/mosaicod-v[0-9.]*|img.shields.io/badge/mosaicod-v$stable|g" "$README_PATH"
+    git add "$CARGO_PATH" "$README_PATH"
+    git commit -m "Release mosaicod v$stable"
+    git tag -a "v$stable" -m "mosaicod release v$stable"
+
+    # Commit 2 - Bump to next RC
+    sed -i "0,/^version = \".*\"/{s/^version = \".*\"/version = \"$next\"/}" "$CARGO_PATH"
+    git add "$CARGO_PATH"
+    git commit -m "Bump mosaicod version to $next"
 }
 
-# Execute updates
-[ -n "$PY_VERSION" ] && release_py
-[ -n "$MOSAICOD_VERSION" ] && release_mosaicod
+[ "$DO_PY" = true ] && release_py
+[ "$DO_MOSAICOD" = true ] && release_mosaicod
 
-# Push logic
 if [ "$PUSH" = true ]; then
     echo "Pushing changes and tags"
-    git push origin main --follow-tags
+    git push origin HEAD --follow-tags
 else
     echo "Dry run: skipping push."
 fi

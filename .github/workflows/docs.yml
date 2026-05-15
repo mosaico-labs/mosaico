@@ -1,40 +1,80 @@
-# Copied from original mkdocs docs: https://squidfunk.github.io/mkdocs-material/publishing-your-site/
+name: Docs
 
-name: Docs Deploy
 on:
-  workflow_dispatch:
   push:
     tags:
-      - 'mosaicod/v[0-9]+.[0-9]+.[0-9]+'
-      - 'mosaicod/v[0-9]+.[0-9]+.[0-9]+-*'
+      - 'doc/v[0-9]+.[0-9]+'
 
-      - 'mosaico-py/v[0-9]+.[0-9]+.[0-9]+'
-      - 'mosaico-py/v[0-9]+.[0-9]+.[0-9]+-*'
-
-permissions:
-  contents: write
 jobs:
-  deploy:
+  deploy-main:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Configure Git Credentials
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: docs/main/package-lock.json
+
+      - name: Install dependencies
+        working-directory: docs/main
+        run: npm ci
+
+      - name: Build Docusaurus
+        working-directory: docs/main
+        run: npm run build
+
+      - name: Upload to Bucket
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
         run: |
-          git config user.name github-actions[bot]
-          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          # Remove all existing files in the 'latest' path
+          aws s3 rm s3://mosaico-docs/latest \
+            --endpoint-url https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com \
+            --region auto \
+            --recursive
+
+          # Upload the new build fresh
+          aws s3 cp docs/main/build s3://mosaico-docs/latest \
+            --endpoint-url https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com \
+            --region auto \
+            --recursive
+  
+  deploy-py:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
-          python-version: 3.x
+          python-version: '3.13'
 
-      - run: echo "cache_id=$(date --utc '+%V')" >> $GITHUB_ENV 
-      - uses: actions/cache@v4
-        with:
-          key: mkdocs-material-${{ env.cache_id }}
-          path: ~/.cache 
-          restore-keys: |
-            mkdocs-material-
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
 
-      - run: pip install mkdocs-material 'mkdocstrings[python]' ruff markdownify
+      - name: Install dependencies
+        working-directory: docs/py
+        run: poetry install --no-root
 
-      - run: mkdocs gh-deploy --force
-        working-directory: ./doc
+      - name: Build MkDocs
+        working-directory: docs/py
+        run: poetry run mkdocs build
+
+      - name: Upload to Bucket
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        run: |
+          # 1. Wipe the destination folder
+          aws s3 rm s3://mosaico-docs/python-sdk/ \
+            --endpoint-url https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com \
+            --region auto \
+            --recursive
+
+          # 2. Upload the new files
+          aws s3 cp docs/py/site s3://mosaico-docs/python-sdk/ \
+            --endpoint-url https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com \
+            --region auto \
+            --recursive

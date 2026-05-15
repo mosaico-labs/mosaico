@@ -1,0 +1,58 @@
+name: Full Stack
+
+on:
+  push:
+    branches: ["main", "release/v*.*", "release/py/v*.*"]
+    paths:
+      - "**.rs"
+      - "**.py"
+      - "**/Cargo.toml"
+      - "**/Cargo.lock"
+      - "**/pyproject.toml"
+      - "**/poetry.lock"
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "**.rs"
+      - "**.py"
+      - "**/Cargo.toml"
+      - "**/Cargo.lock"
+      - "**/pyproject.toml"
+      - "**/poetry.lock"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  full-stack-tests:
+    name: "Tests on (Py ${{ matrix.python-version }})"
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.13"]
+    runs-on: ubuntu-24.04
+    env:
+      PYTHON_KEYRING_BACKEND: keyring.backends.null.Keyring
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: stable
+      
+      - name: Install Dependencies (Linux)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libpq-dev
+
+      - name: Install Poetry
+        run: pipx install poetry
+      - uses: actions/setup-python@v6.1.0
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "poetry"
+
+      - name: Integration Tests
+        run: |
+          ./scripts/tests --full-stack
+          ./scripts/tests --full-stack-tls

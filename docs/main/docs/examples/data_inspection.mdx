@@ -1,0 +1,106 @@
+---
+title: Data Discovery and Inspection
+sidebar_position: 2
+description: "Runnable example showing how to browse a Mosaico catalog without downloading bulk data. Covers listing sequences, reading session metadata (size, timestamps) via SequenceHandler, and inspecting individual Topics via TopicHandler using the lazy handler pattern."
+---
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+
+Walks through the catalog of a running Mosaico instance, printing each sequence's size, time bounds, and a per-topic breakdown of sensor types and durations — without downloading any raw sensor data.
+
+<Tabs>
+
+<TabItem value="python" label="Python" default>
+:::tip[Learn]
+[Doc: The Reading Workflow](https://docs.mosaico.dev/python-sdk/SDK/handling/reading/)
+
+[API Reference: Data Retrieval](https://docs.mosaico.dev/python-sdk/SDK/API_reference/handlers/reading/)
+:::
+</TabItem>
+
+<TabItem value="cpp" label="C++">
+The C++ SDK is currently in development.
+</TabItem>
+
+<TabItem value="rust" label="Rust">
+The Rust SDK is currently in development.
+</TabItem>
+
+</Tabs>
+
+```bash title="Run"
+mosaicolabs.examples data_inspection
+```
+
+Run the command with `--help` to see all available options.
+
+The daemon must be running and contain at least one ingested sequence. 
+Run the [ROS Ingestion](./ros_ingestion) example first to populate it. 
+
+The full source is on [GitHub](https://github.com/mosaico-labs/mosaico/blob/main/mosaico-sdk-py/src/mosaicolabs/examples/data_inspection.py).
+
+## Connecting and Listing Sequences
+
+`MosaicoClient.connect()` opens a gRPC channel to the daemon. `list_sequences()` returns the names of all sequences currently in the catalog; no data is transferred, only identifiers.
+
+```python title="List all sequences"
+from mosaicolabs import MosaicoClient
+
+with MosaicoClient.connect(host=MOSAICO_HOST, port=MOSAICO_PORT) as client:
+    seq_list = client.list_sequences()
+    print(f"Discovered {len(seq_list)} sequences on the server.")
+```
+
+
+## Inspecting Sequence Metadata
+
+`client.sequence_handler()` returns a `SequenceHandler`, a lightweight proxy that fetches only catalog metadata from the server. It gives you the total storage size, creation timestamp, and the global time bounds of the session without touching the underlying sensor records.
+
+```python title="Read sequence metadata"
+for sequence_name in seq_list:
+    shandler = client.sequence_handler(sequence_name)
+
+    if shandler:
+        size_mb = shandler.total_size_bytes / (1024 * 1024)
+        print(f"Sequence: {shandler.name}")
+        print(f"  Remote Size:  {size_mb:.2f} MB")
+        print(f"  Created At:   {shandler.created_datetime}")
+        print(f"  Time Span:    {shandler.timestamp_ns_min} to {shandler.timestamp_ns_max} ns")
+```
+
+
+## Inspecting Individual Topics
+
+`shandler.get_topic_handler()` returns a `TopicHandler` for a specific channel. Like the sequence handler, it operates at the catalog layer: you can read the ontology tag, per-topic time bounds, and message count without initiating a data stream.
+
+```python title="Inspect topics within a sequence"
+for topic_name in shandler.topics:
+    thandler = shandler.get_topic_handler(topic_name)
+    duration_sec = 0
+    if thandler.timestamp_ns_min and thandler.timestamp_ns_max:
+        duration_sec = (thandler.timestamp_ns_max - thandler.timestamp_ns_min) / 1e9
+    print(f"  [{thandler.ontology_tag}] {topic_name}: {duration_sec:.2f}s")
+```
+
+
+## Reference
+
+### Sequence Handler vs. Topic Handler
+
+| Feature | Sequence Handler | Topic Handler |
+| :--- | :--- | :--- |
+| **Scope** | Entire recording session | Single sensor channel |
+| **Metadata** | Mission-wide (size, creation time) | Sensor-specific (ontology tag, bounds) |
+| **Time Bounds** | Global min/max across all topics | Min/max for that specific stream |
+| **Topic List** | All available channels | N/A |
+
+### Handlers vs. Streamers
+
+Handlers fetch metadata only; they never download sensor records. Streamers initiate an Arrow Flight Get and deliver typed messages. Use handlers for discovery; switch to a streamer only when you need the actual data.
+
+| | Handlers | Streamers |
+| :--- | :--- | :--- |
+| **Use** | Discovery and inspection | High-volume data retrieval |
+| **Types** | `SequenceHandler`, `TopicHandler` | `SequenceDataStreamer`, `TopicDataStreamer` |
+| **Data** | Size, timestamps, ontology tags | Raw typed sensor messages |

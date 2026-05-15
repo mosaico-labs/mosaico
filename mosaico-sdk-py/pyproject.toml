@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "mosaicolabs"
-version = "0.4.2"
+version = "0.5.0-dev"
 description = "Python SDK for Mosaico Data-Platform"
 authors = ["Mosaico Labs <info@mosaico.dev>"]
 readme = "README.md"

@@ -1,0 +1,83 @@
+---
+sidebar_position: 1
+title: Overview
+description: "Architecture overview of Mosaico: a high-performance, open-source data platform for Robotics and Physical AI. Covers the daemon/SDK split, the Ontology type system, Sequences, Topics, Messages, and the core design principles behind typed, timestamped sensor storage."
+---
+
+# Mosaico
+
+**Mosaico** is a high-performance, open-source data platform engineered to bridge the gap between **Robotics** and **Physical AI**.
+
+Robots produce data continuously: cameras, Lidar units, IMUs, GPS receivers, and custom sensors all fire at different rates, generating heterogeneous streams that need to be recorded, stored, and later retrieved for analysis or model training. Traditional approaches to this problem rely on monolithic file formats like [ROS bag](https://wiki.ros.org/Bags), which store data as a linear sequence of messages, simple to write, but difficult to index, query, or stream efficiently at scale. Mosaico was built to replace that model. Rather than appending bytes to a file, it stores data in a structured, queryable archive, designed from the ground up for the throughput demands of multi-modal sensor data.
+
+Equally important, Mosaico follows a strictly **code-first approach**. Engineers should not have to learn a proprietary query sublanguage to move data around. The SDK exposes all platform capabilities, ingestion, retrieval, querying as ordinary function calls.
+
+<center>
+    <img src={require("@site/static/img/overview.webp").default} width="500px" alt="" />
+</center>
+
+## Core Concepts
+
+What makes structured storage possible is a shared vocabulary for describing data. Mosaico provides this through three interlocking concepts: **Ontology**, **Topic**, and **Sequence**.
+
+### The Ontology
+
+The Ontology is the structural backbone of the platform. Rather than storing data as raw bytes, Mosaico requires every piece of data to have a declared type, a model that describes its shape and semantics. Because all data is treated as a **time series** (even a single data point is a degenerate time series of length one), the ontology's job is to define the structure of each series: the fields it contains, their types, and their meaning.
+
+This declaration is what allows the platform to do more than just store data. By understanding what data *is*, Mosaico can apply targeted processing, custom compression, semantic indexing, efficient storage layout, tuned to each type rather than treating everything as opaque bytes.
+
+To make this concrete, consider how a GPS sensor might be expressed as an Ontology Model:
+
+```python
+class GPS:
+    latitude: MosaicoType.float32
+    longitude: MosaicoType.float32
+    altitude: MosaicoType.float32
+```
+
+Or the output of an image classification algorithm:
+
+```python
+class SimpleImageClassification:
+    top_left_corner: mosaicolabs.Vector2d
+    bottom_right: mosaicolabs.Vector2d
+    label: MosaicoType.string
+    confidence: MosaicoType.float32
+```
+
+Any structure can be expressed this way. The full set of available types and how to define your own models is covered in the [Ontology Models](https://docs.mosaico.dev/python-sdk/SDK/ontology/) reference.
+
+### Topics and Sequences
+
+With a type declared, data needs somewhere to live. A **Topic** is a concrete instance of an Ontology Model, a container for a single time series of that type. The relationship is strictly one-to-one: one Topic, one model. This constraint is deliberate; it is what allows the platform to index and query topics by their semantic structure, not just by name or timestamp.
+
+Topics, however, rarely exist in isolation. A robot recording session produces many streams simultaneously, Lidar, GPS, camera, accelerometer, and these streams belong together. The **Sequence** is the container that groups them. Where a Topic represents a single sensor stream, a Sequence represents the session as a whole: a coherent, time-bounded collection of related Topics. Both levels support arbitrary metadata, so context can travel alongside the data.
+
+## Architecture
+
+At runtime, Mosaico operates as a client-server system. The SDK is the user-facing interface; it communicates with `mosaicod`, a high-performance daemon written in Rust, over [Apache Arrow](https://arrow.apache.org/), a columnar data format that eliminates serialization overhead and allows zero-copy data exchange between processes.
+
+`mosaicod` handles all core operations: [ingestion](daemon/ingestion.md), [retrieval](daemon/retrieval.md), and [query](daemon/query.md). Metadata and system state are managed in a database, which accelerates lookups and powers the internal event queue for asynchronous tasks. Data itself is stored in an [object store](https://en.wikipedia.org/wiki/Object_storage), [S3](https://aws.amazon.com/s3/), [MinIO](https://www.min.io/), or the local filesystem, for durable, scalable persistence. The result is a system that can handle complex multi-modal data at high throughput while exposing a clean, code-first interface to the user.
+
+import StackSvg from '@site/static/img/stack.svg'
+
+<center>
+    <StackSvg 
+        role="img" 
+        width="350px"
+        height="auto"
+        title="Architecture Stack" 
+    />
+</center>
+
+## Bring Your Own Pipeline
+
+Mosaico places no requirements on how data was collected. The platform is **middleware-agnostic**: existing collection frameworks, proprietary embedded loggers, direct hardware drivers, and synthetic data from simulation environments are all first-class citizens. Any source that can produce structured data can feed into Mosaico.
+
+The ontology is what makes this possible. Instead of preserving the identity of "Topic A from Robot B", every stream is normalized on ingestion into a typed semantic representation a `Pose`, an `IMU` reading, an `Image`. Once data is in the platform, where it came from becomes irrelevant; what it *is* is all that matters. Custom types are automatically validatable, serializable, and queryable alongside built-in types, so the ontology grows with the domain without requiring changes to the underlying infrastructure.
+
+## Streamlining Data for Physical AI
+
+The deeper motivation behind this architecture is the shift from classical robotics to Physical AI. Classical robotic pipelines are event-driven: sensors fire asynchronously at different rates a Lidar at 10Hz, an IMU at 100Hz, a camera at 30Hz and the resulting streams drift relative to one another, stored in files that are hard to align after the fact. Physical AI models have the opposite requirements: they expect synchronous, dense, tabular input, fixed-size tensors at a constant frequency, such as a batch of state vectors at exactly 50Hz.
+
+Bridging that gap by hand is tedious and error-prone. Mosaico's [ML module](https://docs.mosaico.dev/python-sdk/SDK/bridges/ml/) automates it entirely. It ingests raw, unsynchronized sensor data and transforms it on the fly into the aligned, flattened formats that training pipelines expect, eliminating both the intermediate files and the brittle preprocessing scripts that would otherwise generate them.

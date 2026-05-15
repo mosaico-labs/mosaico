@@ -1,0 +1,169 @@
+---
+title: Secure Connection
+sidebar_position: 9
+description: "How to secure SDK connections to mosaicod in production. Covers one-way TLS with a CA-signed certificate, two-way TLS with a custom certificate file, API key injection, and reading credentials from environment variables."
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+## Security Model
+
+By default, the Mosaico SDK communicates with the `mosaicod` daemon over plain gRPC. That is acceptable for local development on a single machine or inside a trusted private network where traffic never leaves a controlled environment. For production deployments where the daemon is reachable over the public internet, a cloud network, or a shared internal network, two security layers should be enabled: **transport encryption via TLS** and **caller authentication via API keys**.
+
+These two mechanisms are independent and complementary. TLS protects the data in transit so that no one on the network path can read or tamper with your queries and results. API keys prove to the daemon that the caller is authorised to make requests at all. In a production setup you will usually want both.
+
+<Tabs>
+
+<TabItem value="python" label="Python" default>
+:::tip[Learn]
+[Doc: Client](https://docs.mosaico.dev/python-sdk/SDK/client/)
+
+[API Reference: Communication Module](https://docs.mosaico.dev/python-sdk/SDK/API_reference/comm/)
+:::
+</TabItem>
+
+<TabItem value="cpp" label="C++">
+The C++ SDK is currently in development.
+</TabItem>
+
+<TabItem value="rust" label="Rust">
+The Rust SDK is currently in development.
+</TabItem>
+
+</Tabs>
+
+### TLS: Encrypting the Connection
+
+Mosaico supports two TLS modes that correspond to the same distinction you encounter with HTTPS:
+
+**One-way TLS** (`enable_tls=True`) works like standard HTTPS. The server presents a certificate during the TLS handshake; the client verifies it against a trusted Certificate Authority. The server is authenticated, but the client presents no certificate of its own. Use this mode when `mosaicod` is deployed behind a cloud load balancer or a reverse proxy that holds a CA-signed certificate (e.g. Let's Encrypt or a managed certificate from your cloud provider).
+
+**Two-way TLS with a certificate file** (`tls_cert_path`) is used when you need the client to validate the server against a specific certificate, typically a self-signed certificate or one issued by an internal PKI that is not in the system's default CA bundle. You point `tls_cert_path` at the PEM file for the server's CA certificate, and the SDK uses that file exclusively to verify the server identity. This is the right choice for on-premise deployments, edge robots with a private certificate authority, or any environment where you manage your own PKI.
+
+### API Keys: Authenticating the Caller
+
+API keys are opaque tokens that the SDK injects as gRPC metadata on every call to the daemon. The daemon validates the key server-side before executing any request. Keys are created and revoked through the daemon's key management commands; consult the CLI reference for the exact commands.
+
+Never hard-code an API key in source code that gets committed to version control. If the key is exposed it must be rotated immediately. In production code, read credentials from environment variables or a secrets manager at runtime.
+
+## Option 1: One-Way TLS
+
+Use this when your daemon has a CA-signed certificate and you want encrypted transport without managing certificate files yourself.
+
+<Tabs>
+<TabItem value="python" label="Python" default>
+```python title="One-way TLS"
+from mosaicolabs import MosaicoClient
+
+MOSAICO_HOST = "mosaico.production.yourdomain.com"
+MOSAICO_PORT = 6726
+MY_API_KEY = "msco_vy9lqa7u4lr7w3vimhz5t8bvvc0xbmk2_9c94a86"
+
+with MosaicoClient.connect(
+    host=MOSAICO_HOST,
+    port=MOSAICO_PORT,
+    api_key=MY_API_KEY,
+    enable_tls=True
+) as client:
+    print(f"Connected to version: {client.version()}")
+    sequences = client.list_sequences()
+```
+</TabItem>
+<TabItem value="cpp" label="C++">
+
+The C++ SDK is currently in development.
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+The Rust SDK is currently in development.
+
+</TabItem>
+</Tabs>
+
+## Option 2: Two-Way TLS with Certificate
+
+Use this when the daemon uses a self-signed certificate or an internal CA certificate that is not in your system's default trust store. The `tls_cert_path` parameter tells the SDK exactly which certificate to trust when verifying the server.
+
+<Tabs>
+<TabItem value="python" label="Python" default>
+```python title="Two-way TLS with certificate"
+from mosaicolabs import MosaicoClient
+
+MOSAICO_HOST = "mosaico.production.yourdomain.com"
+MOSAICO_PORT = 6726
+CERT_PATH = "/etc/mosaico/certs/server_ca.pem"
+MY_API_KEY = "msco_vy9lqa7u4lr7w3vimhz5t8bvvc0xbmk2_9c94a86"
+
+with MosaicoClient.connect(
+    host=MOSAICO_HOST,
+    port=MOSAICO_PORT,
+    api_key=MY_API_KEY,
+    tls_cert_path=CERT_PATH
+) as client:
+    print(f"Connected to version: {client.version()}")
+    sequences = client.list_sequences()
+```
+</TabItem>
+<TabItem value="cpp" label="C++">
+
+The C++ SDK is currently in development.
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+The Rust SDK is currently in development.
+
+</TabItem>
+</Tabs>
+
+## Production Best Practice: Use Environment Variables
+
+Hard-coding credentials in source code is a security risk. If the file is accidentally committed to a repository or shared in a log, the key must be rotated immediately. The safe pattern is to read all credentials from environment variables at runtime.
+
+:::tip[Keep credentials out of source code]
+```python title="Read credentials from environment"
+import os
+MY_API_KEY = os.environ["MOSAICO_API_KEY"]
+CERT_PATH = os.environ.get("MOSAICO_CERT_PATH")
+```
+Use a secrets manager (such as AWS Secrets Manager, HashiCorp Vault, or Kubernetes Secrets) to inject these variables into the process environment at deploy time. Never commit `.env` files that contain real keys.
+:::
+
+The example below shows a fully environment-driven connection that handles both TLS modes automatically: if `MOSAICO_CERT_PATH` is set, the SDK uses the certificate file; if not, it falls back to `None` (no TLS or plain `enable_tls` depending on your deployment).
+
+<Tabs>
+<TabItem value="python" label="Python" default>
+```python title="Environment-driven connection"
+import os
+from mosaicolabs import MosaicoClient
+
+with MosaicoClient.connect(
+    host=os.environ["MOSAICO_HOST"],
+    port=int(os.environ.get("MOSAICO_PORT", "6726")),
+    api_key=os.environ["MOSAICO_API_KEY"],
+    tls_cert_path=os.environ.get("MOSAICO_CERT_PATH"),
+) as client:
+    sequences = client.list_sequences()
+```
+</TabItem>
+<TabItem value="cpp" label="C++">
+
+The C++ SDK is currently in development.
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+The Rust SDK is currently in development.
+
+</TabItem>
+</Tabs>
+
+## Key Concepts
+
+- **Plain gRPC** is the default and is suitable for localhost or trusted private networks
+- **`enable_tls=True`** enables one-way TLS; the server is authenticated using the system CA bundle; use this for cloud deployments with CA-signed certificates
+- **`tls_cert_path`** enables TLS with a specific certificate file; use this for self-signed certificates or internal PKI
+- **API keys** are injected as gRPC metadata on every call; they are created and managed via the `mosaicod` key management CLI commands
+- **Never hard-code credentials**; read them from environment variables or a secrets manager at runtime

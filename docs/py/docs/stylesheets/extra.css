@@ -1,0 +1,110 @@
+:root {
+  /* Mosaico.dev Brand Colors */
+  --mosaico-bg: #111111;           /* Deep dark background */
+  --mosaico-bg-hi: #1a1a1a;        /* Slightly lighter dark background */
+
+  --mosaico-primary: white;
+  --mosaico-primary-dim: #afafaf;
+
+  --mosaico-orange-hi: hsl(12, 88%, 64%);
+  --mosaico-purple-hi: hsl(304, 54%, 78%);
+  --mosaico-blue-hi: hsl(195, 76%, 43%);
+
+  --mosaico-orange: hsl(12, 88%, 54%);
+  --mosaico-purple: hsl(304, 54%, 48%);
+  --mosaico-blue: hsl(195, 76%, 43%);
+
+  --mosaico-orange-low: hsl(12, 88%, 39%);
+  --mosaico-purple-low: hsl(304, 54%, 32%);
+  --mosaico-blue-low: hsl(195, 76%, 28%);
+
+}
+
+[data-md-color-scheme="slate"] {
+    --md-primary-fg-color: var(--mosaico-bg);
+    --md-primary-fg-color--light: var(--mosaico-bg-hi);
+    --md-primary-fg-color--dark: var(--mosaico-bg);
+
+    --md-default-bg-color: var(--mosaico-bg);
+
+    --md-accent-fg-color:                #ffffff;
+    --md-accent-fg-color--transparent:   rgb(27, 27, 27);
+    --md-accent-bg-color:                hsla(0, 0%, 100%, 1);
+    --md-accent-bg-color--light:         hsla(0, 0%, 100%, 0.7);
+ 
+    --md-footer-bg-color: var(var(--mosaico-bg));
+
+    --md-typeset-a-color: var(--mosaico-purple-hi);
+    --md-typeset-color:  var( --mosaico-primary-dim);
+
+    --md-code-bg-color: hsla(0, 0%, 14%, 1);
+    --md-code-bg-color--light: hsla(0, 0%, 14%, 0.7); 
+    --md-code-bg-color--lighter: hsla(0, 0%, 14%, 0.3);
+
+    --md-shadow-z1:
+    0 0.25rem 0.625rem hsla(304, 54%, 35%, 0.05),
+    0 0      0.0625rem  hsla(304, 54%, 35%, 0.1);
+
+    --md-shadow-z2:
+    0 0.25rem 0.625rem hsla(304, 54%, 35%, 0.1),
+    0 0      0.0625rem  hsla(304, 54%, 35%, 0.25);
+
+    --md-shadow-z3:
+    0 0.25rem 0.625rem hsla(304, 54%, 35%, 0.2),
+    0 0      0.0625rem  hsla(304, 54%, 35%, 0.35);
+}
+
+
+[data-md-color-scheme="slate"]  .md-header {
+    background-color: var(--mosaico-bg-hi);
+}
+
+[data-md-color-scheme="slate"]  .md-tooltip {
+    background-color: var(--mosaico-bg-hi);
+}
+
+[data-md-color-scheme="slate"]  .md-tooltip .md-typeset {
+    font-size: 0.7rem;
+}
+
+[data-md-color-scheme="slate"] .md-code__content {
+    font-size: 0.65rem;
+}
+
+.md-tabs {
+    background: linear-gradient(90deg, var(--mosaico-orange-low), var(--mosaico-purple-low), var(--mosaico-blue-low));
+}
+
+.md-typeset {
+    font-size: 0.9rem;
+}
+
+/* Page title */
+.md-typeset h1,h2,h3 {
+    color: white;
+    font-weight: 500;
+}
+
+.md-footer {
+    background-color: var(--mosaico-bg);
+}
+
+.md-footer-meta {
+    background-color: var(--mosaico-bg);
+}
+
+/* .md-sidebar{ */
+/*     border-right: 1px solid #2C2C2C; */
+/* } */
+
+.md-search form {
+    background-color: var(--mosaico-bg-hi);
+}
+
+aside .md-annotation a{
+    transform: scale(0.5);
+}
+
+code.nowrap {
+  white-space: nowrap;
+}
