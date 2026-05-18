@@ -47,11 +47,13 @@ def make_imu_front_msg(meas_time: Time):
                 x=random.uniform(0, 1),
                 y=random.uniform(0, 1),
                 z=random.uniform(0, 1),
+                covariance=list(range(9)),
             ),
             angular_velocity=Vector3d(
                 x=random.uniform(0, 1),
                 y=random.uniform(0, 1),
                 z=random.uniform(0, 1),
+                covariance=list(range(9)),
             ),
         ),
     )
@@ -66,11 +68,13 @@ def make_imu_cam_msg(meas_time: Time):
                 x=random.uniform(0, 1),
                 y=random.uniform(0, 1),
                 z=random.uniform(0, 1),
+                covariance=list(range(9)),
             ),
             angular_velocity=Vector3d(
                 x=random.uniform(0, 1),
                 y=random.uniform(0, 1),
                 z=random.uniform(0, 1),
+                covariance=list(range(9)),
             ),
         ),
     )
@@ -85,11 +89,13 @@ def make_gps_msg(meas_time: Time):
                 x=random.uniform(0, 1),
                 y=random.uniform(0, 1),
                 z=random.uniform(0, 1),
+                covariance=list(range(9)),
+                covariance_type=1,
             ),
             status=GPSStatus(
                 status=0,
                 service=2,
-                satellites=int(random.uniform(4, 20)),
+                # satellites=int(random.uniform(4, 20)),
             ),
         ),
     )
@@ -104,6 +110,7 @@ def make_magn_msg(meas_time: Time):
                 x=random.uniform(0, 1),
                 y=random.uniform(0, 1),
                 z=random.uniform(0, 1),
+                covariance=list(range(9)),
             ),
         ),
     )

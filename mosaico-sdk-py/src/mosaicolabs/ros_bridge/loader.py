@@ -553,7 +553,6 @@ class MosaicoLoader:
             topics=self.resolved_topics,
             start_timestamp_ns=self.start_timestamp_ns,
             end_timestamp_ns=self.end_timestamp_ns,
-            timestamp_colum_name="recording_timestamp_ns",
         )
 
     def msg_count(self, topic: Optional[str] = None) -> int:

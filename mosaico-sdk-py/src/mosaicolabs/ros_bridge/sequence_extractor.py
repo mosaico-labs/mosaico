@@ -34,7 +34,7 @@ class ROSExtractorConfig:
 
     rosbag_path: Path
     """
-    The path where to extract the ROS bag file.
+    The path where to save the ROS bag file.
     """
 
     sequence_name: str
@@ -173,7 +173,7 @@ class ROSSequenceExtractor:
             except Exception as e:
                 logger.warning(f"Failed to register type '{msg_type}': '{e}'")
 
-    def open_or_get_bagwriter(self) -> Writer:
+    def open_or_get_bagwriter(self, path: Path) -> Writer:
         if self.bagwriter is None:
             # Register custom ROS messages to ROSTypeRegistry
             self._register_custom_types()
@@ -183,21 +183,31 @@ class ROSSequenceExtractor:
             if custom_types:
                 self._register_definitions(custom_types)
 
-            # Deducing rosbag version from ROS_DISTRO
-            if (
-                self.cfg.ros_distro is Stores.ROS2_JAZZY
-                or self.cfg.ros_distro is Stores.ROS2_KILTED
-                or self.cfg.ros_distro is Stores.LATEST
-            ):
-                bagversion = 9
-            else:
-                bagversion = 8
+            # Importing correct writer
+            if self.cfg.ros_distro is Stores.ROS1_NOETIC:
+                from rosbags.rosbag1 import Writer
 
-            self.bagwriter = Writer(
-                self.cfg.rosbag_path,
-                storage_plugin=self.cfg.storage_plugin,
-                version=bagversion,
-            )
+                path.mkdir(parents=True, exist_ok=True)
+                full_path = path / (path.name + ".bag")
+                self.bagwriter = Writer(full_path)
+
+            else:
+                from rosbags.rosbag2 import Writer
+
+                # Deducing rosbag2 version from ROS_DISTRO
+                if (
+                    self.cfg.ros_distro is Stores.ROS2_JAZZY
+                    or self.cfg.ros_distro is Stores.ROS2_KILTED
+                    or self.cfg.ros_distro is Stores.LATEST
+                ):
+                    bagversion = 9
+                else:
+                    bagversion = 8
+
+                self.bagwriter = Writer(
+                    path, storage_plugin=self.cfg.storage_plugin, version=bagversion
+                )
+
         return self.bagwriter
 
     def _process_message(
@@ -228,25 +238,43 @@ class ROSSequenceExtractor:
             logger.warning(
                 f"Could not find Adapter for topic '{ms_topic}' of type '{mosaico_type}'. Skipping the topic associated to this message"
             )
-            ui.update_status(ms_topic, "No Adapter", str="yellow")
+            ui.update_status(ms_topic, "No Adapter", style="yellow")
             ui.advance_global()
             return
 
         # --- Translate Check ---
         ros_msg = adapter.to_ros(ms_msg, self.typestore)
 
+        if not ros_msg:
+            self.ignored_topics.add(ms_topic)
+            logger.warning(
+                f"Could not encode to ros '{mosaico_type}' type. Skipping the topic associated to this message"
+            )
+            ui.update_status(ms_topic, "Failed encoding", style="yellow")
+            ui.advance_global()
+            return
+
         # --- Resolve Check ---
         ros_msgtype = ros_msg.__msgtype__
-        ros_recording_timestamp_ns = ms_msg.recording_timestamp_ns
+        ros_recording_timestamp_ns = (
+            ms_msg.recording_timestamp_ns or ms_msg.timestamp_ns
+        )  # Fallback to timestamp if recording_timestamp_ns is not available
 
         # --- Resolve Connection check ---
         if ms_topic not in self.accepted_connections:  # New connection available
-            new_connection = bag_writer.add_connection(
-                ms_topic,
-                ros_msgtype,
-                typestore=self.typestore,
-                offered_qos_profiles=get_qos_for_topic(ms_topic),
-            )
+            if self.cfg.ros_distro is Stores.ROS1_NOETIC:
+                new_connection = bag_writer.add_connection(
+                    ms_topic,
+                    ros_msgtype,
+                    typestore=self.typestore,
+                )
+            else:
+                new_connection = bag_writer.add_connection(
+                    ms_topic,
+                    ros_msgtype,
+                    typestore=self.typestore,
+                    offered_qos_profiles=get_qos_for_topic(ms_topic),
+                )
             self.accepted_connections.update({ms_topic: new_connection})
 
         connection = self.accepted_connections.get(ms_topic)
@@ -273,8 +301,8 @@ class ROSSequenceExtractor:
         """
 
         # Check whether rosbag exists
-        rosbag_path = self.cfg.rosbag_path
-        rosbag_path.parent.mkdir(parents=True, exist_ok=True)
+        rosbag_path = self.cfg.rosbag_path / self.cfg.sequence_name
+        rosbag_path.mkdir(parents=True, exist_ok=True)
         if rosbag_path.exists():
             if not self.cfg.overwrite:
                 raise FileExistsError(
@@ -294,7 +322,7 @@ class ROSSequenceExtractor:
                 logger.info(f"Writing bag '{self.cfg.rosbag_path}'")
 
                 # Creating the ROSUnloader
-                with self.open_or_get_bagwriter() as bag_writer:
+                with self.open_or_get_bagwriter(rosbag_path) as bag_writer:
                     ms_loader = MosaicoLoader(
                         mclient,
                         self.cfg.sequence_name,
@@ -313,9 +341,9 @@ class ROSSequenceExtractor:
         except KeyboardInterrupt:
             logger.warning("Operation cancelled by user. Shutting down...")
             return
-        except Exception as e:
-            logger.exception(f"Fatal error during sequence extraction: '{e}'")
-            return
+        # except Exception as e:
+        #     logger.exception(f"Fatal error during sequence extraction: '{e}'")
+        #     return
 
 
 # --- CLI Entry Point ---
@@ -368,9 +396,9 @@ def ros_sequence_extractor():
 
     parser.add_argument(
         "--rosbag_path",
-        default=Path("./rosbag"),
+        default=Path("."),
         type=Path,
-        help="Path where to save the rosbag file where to save Mosaico Sequence",
+        help="Path where to save the rosbag file",
     )
 
     parser.add_argument(

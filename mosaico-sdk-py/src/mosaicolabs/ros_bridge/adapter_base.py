@@ -152,7 +152,7 @@ class ROSAdapterBase(ABC, Generic[T]):
         mosaico_msg: Union[Message, Serializable],
         typestore: Typestore,
         ros_msg_type: Optional[str] = None,
-    ) -> "MsgType":
+    ) -> Optional["MsgType"]:
         """
         TODO
         """
