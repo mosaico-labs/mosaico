@@ -145,6 +145,7 @@ fn extract_timestamps<'a>(
 mod tests {
     use super::*;
     use arrow::array::UInt64Array;
+    use arrow::datatypes::DataType;
     use arrow::datatypes::{Field, Schema};
     use futures::stream;
     use std::sync::Arc;
