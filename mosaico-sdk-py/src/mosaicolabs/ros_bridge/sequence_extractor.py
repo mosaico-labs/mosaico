@@ -19,6 +19,7 @@ from mosaicolabs.logging_config import get_logger, setup_sdk_logging
 from mosaicolabs.ros_bridge import ROSBridge
 from mosaicolabs.ros_bridge.loader import MosaicoLoader, ProgressManager
 from mosaicolabs.ros_bridge.qos import get_qos_for_topic
+from mosaicolabs.ros_bridge.registry import ROSTypeRegistry
 
 # Set the hierarchical logger
 logger = get_logger(__name__)
@@ -57,19 +58,6 @@ class ROSExtractorConfig:
 
     See [`rosbags.typesys.Stores`](https://ternaris.gitlab.io/rosbags/topics/typesys.html#type-stores).
     """
-
-    # on_error: SessionLevelErrorPolicy = _DEFAULT_SESSION_ON_ERROR
-    # """the `SequenceWriter` `on_error` behavior when a sequence write fails (Report vs Delete)"""
-
-    # topics_on_error: Union[TopicLevelErrorPolicy, Dict[str, TopicLevelErrorPolicy]] = (
-    #     _DEFAULT_TOPIC_ON_ERROR
-    # )
-    # """
-    # The TopicWriter `on_error` behavior ([`TopicLevelErrorPolicy`][mosaicolabs.enum.TopicLevelErrorPolicy]) when a topic write fails.
-    # Default is `TopicLevelErrorPolicy.Raise` for all topics.
-    # Set to a `TopicLevelErrorPolicy` to apply the same policy to all topics.
-    # Set to a `Dict[str, TopicLevelErrorPolicy]` to apply different policies to different topics.
-    # """
 
     storage_plugin: StoragePlugin = StoragePlugin.SQLITE3
     """
@@ -153,11 +141,62 @@ class ROSSequenceExtractor:
         self.typestore: Typestore = get_typestore(self.cfg.ros_distro)
         self.bagwriter = None
 
+    def _register_custom_types(self):
+        """
+        Loads custom ROS message definitions into the global `ROSTypeRegistry`.
+
+        This enables the extractor to correctly deserialize proprietary message types
+        found within the bag file.
+        """
+        if not self.cfg.custom_msgs:
+            return
+
+        # Register Global Types (Registry Pattern)
+        logger.info("Registering custom message definitions...")
+        for package, path, store in self.cfg.custom_msgs:
+            try:
+                ROSTypeRegistry.register_directory(
+                    package_name=package, dir_path=path, store=store
+                )
+                logger.debug(f"Registered package '{package}' from '{path}'")
+            except Exception as e:
+                logger.error(f"Failed to register custom msgs at '{path}': '{e}'")
+
+    def _register_definitions(self, types_map: dict[str, str]):
+        """Safe registration wrapper."""
+        from rosbags.typesys import get_types_from_msg
+
+        for msg_type, msg_def in types_map.items():
+            try:
+                add_types = get_types_from_msg(msg_def, msg_type)
+                self.typestore.register(add_types)
+            except Exception as e:
+                logger.warning(f"Failed to register type '{msg_type}': '{e}'")
+
     def open_or_get_bagwriter(self) -> Writer:
         if self.bagwriter is None:
-            # TODO: understand how to infeer correct version
+            # Register custom ROS messages to ROSTypeRegistry
+            self._register_custom_types()
+
+            # Register all ROS messages to typestore
+            custom_types = ROSTypeRegistry.get_types(self.cfg.ros_distro)
+            if custom_types:
+                self._register_definitions(custom_types)
+
+            # Deducing rosbag version from ROS_DISTRO
+            if (
+                self.cfg.ros_distro is Stores.ROS2_JAZZY
+                or self.cfg.ros_distro is Stores.ROS2_KILTED
+                or self.cfg.ros_distro is Stores.LATEST
+            ):
+                bagversion = 9
+            else:
+                bagversion = 8
+
             self.bagwriter = Writer(
-                self.cfg.rosbag_path, storage_plugin=self.cfg.storage_plugin, version=8
+                self.cfg.rosbag_path,
+                storage_plugin=self.cfg.storage_plugin,
+                version=bagversion,
             )
         return self.bagwriter
 
@@ -232,8 +271,6 @@ class ROSSequenceExtractor:
         """
         TODO
         """
-
-        # self.register_custom_types() # TODO: is this useful?
 
         # Check whether rosbag exists
         rosbag_path = self.cfg.rosbag_path

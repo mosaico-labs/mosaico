@@ -54,6 +54,10 @@ class LoaderErrorPolicy(Enum):
 
 
 class Loader(Protocol):
+    """
+    TODO
+    """
+
     @property
     def duration(self) -> int:
         """This should return the duration of the loaded data as int"""
