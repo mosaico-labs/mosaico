@@ -1,5 +1,5 @@
 use arrow::array::AsArray;
-use arrow::datatypes::{DataType, UInt64Type};
+use arrow::datatypes::UInt64Type;
 use arrow::error::ArrowError;
 use arrow::record_batch::RecordBatch;
 use futures::{Stream, StreamExt};
@@ -13,9 +13,6 @@ pub enum ClusteringError {
 
     #[error("timestamp column `{0}` has null values")]
     HasNulls(String),
-
-    #[error("column `{0}` has unsupported type {1:?} (expected UInt64)")]
-    UnsupportedType(String, DataType),
 
     #[error("output channel closed")]
     ChannelClosed,
@@ -396,20 +393,6 @@ mod tests {
     async fn missing_column_returns_error() {
         let err = run_err(vec![batch(&[1, 2, 3])], 5, "does_not_exist").await;
         assert!(matches!(err, ClusteringError::ColumnNotFound(name) if name == "does_not_exist"));
-    }
-
-    #[tokio::test]
-    async fn wrong_column_type_returns_error() {
-        use arrow::array::Int64Array;
-        let schema = Arc::new(Schema::new(vec![Field::new("ts", DataType::Int64, false)]));
-        let arr = Int64Array::from(vec![1_i64, 2, 3]);
-        let b = RecordBatch::try_new(schema, vec![Arc::new(arr)]).unwrap();
-
-        let err = run_err(vec![b], 5, "ts").await;
-        assert!(matches!(
-            err,
-            ClusteringError::UnsupportedType(_, DataType::Int64)
-        ));
     }
 
     #[tokio::test]
