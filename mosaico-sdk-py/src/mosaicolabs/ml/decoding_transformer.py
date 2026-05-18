@@ -57,7 +57,7 @@ class VideoDecodingTransformer(BaseEstimator, TransformerMixin):
         self._session = None
         self._stateless_codec = stateless_codec
 
-    def fit(self, X: pd.DataFrame, y=None):
+    def fit(self, X: pd.DataFrame, y=None) -> "VideoDecodingTransformer":
         """
         Initializes the persistent decoding session.
 

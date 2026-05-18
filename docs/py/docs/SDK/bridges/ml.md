@@ -76,6 +76,64 @@ with MosaicoClient.connect("localhost", 6726):
 
 ```
 
+## Video Decoding for ML Pipelines
+
+??? question "API Reference"
+[`mosaicolabs.ml.VideoDecodingTransformer`][mosaicolabs.ml.VideoDecodingTransformer]
+
+When handling multi-camera robotics datasets, managing image data presents a fundamental architectural conflict between video compression mechanics and machine learning dataloader strategies.
+
+Stateful video compression formats like H.264 and HEVC rely on inter-frame dependencies to achieve high compression ratios. They transmit a complete image (an I-frame or Keyframe) followed by a sequence of delta-frames (P-frames or B-frames) that encode only the pixel differences from the preceding frames.
+
+This creates a critical issue for ML pipelines:
+
+* **Randomization Conflict:** If a dataloader shuffles or randomizes DataFrame rows before decoding, the decoder receives delta-frames without the necessary reference buffers, resulting in severe visual artifacts or outright crashes.
+* **Synchronization Conflict:** If [temporal synchronization](#sparse-to-dense-representation) (like [`SyncTransformer`][mosaicolabs.ml.SyncTransformer] with a `SyncHold` policy) is applied *before* decoding, the exact same compressed delta-frame bytes are fed into the decoder multiple times, instantly corrupting the C-level state machine of the codec.
+
+To resolve this, the ML module introduces the [`VideoDecodingTransformer`][mosaicolabs.ml.VideoDecodingTransformer], which enforces a strict **"Decode First, Sync Second, Shuffle Last"** architecture.
+
+### Key Technical Features
+
+* **Stateful Chronological Decoding**: The transformer maintains a persistent [`StatefulDecodingSession`][mosaicolabs.models.sensors.StatefulDecodingSession] across sequential DataFrame chunks. It unpacks the raw byte streams into fully reconstructed `PIL.Image` objects while the timeline is still perfectly sequential and unaltered.
+* **Intelligent Format Routing**: The transformer inspects the [`ImageFormat`][mosaicolabs.models.sensors.ImageFormat] metadata of each row. Stateful streams (H.264, HEVC) are securely routed to the isolated, stateful C-level decoders, while stateless formats (JPEG, PNG) automatically fall back to lightweight stateless codecs.
+* **Lazy Resource Allocation**: To ensure complete compatibility with [Scikit-Learn](https://pypi.org/project/scikit-learn/)'s `clone` utility and multiprocessing tools like `joblib`, the underlying C-level FFmpeg/PyAV pointers are never instantiated during `__init__`. The session is lazily allocated during the `fit()` phase, preventing pickling errors when distributing ML pipelines across multiple CPU cores.
+* **Aggressive Memory Management**: Immediately after reconstructing the `PIL.Image`, the transformer drops the raw `compressed_image.data` byte columns from the Pandas DataFrame. This actively mitigates RAM saturation before the data reaches the downstream model.
+* **Zero-Bloat Soft Dependency**: The transformer uses a soft-dependency architecture. If `scikit-learn` is installed, it inherits natively from `BaseEstimator` and `TransformerMixin`. If not, it safely falls back to dummy classes, ensuring Mosaico remains lightweight for users who only require core extraction features.
+
+### Pipeline Integration
+
+Because the `VideoDecodingTransformer` implements the standard Scikit-Learn `fit`/`transform` contract, it can be chained with the `SyncTransformer`. Once the data exits this pipeline, it is dense, fully synchronized, completely decoded, and safe to shuffle for PyTorch or TensorFlow dataloaders.
+
+```python
+from sklearn.pipeline import Pipeline
+from mosaicolabs import MosaicoClient
+from mosaicolabs.ml import DataFrameExtractor, SyncTransformer, VideoDecodingTransformer
+from mosaicolabs.ml.sync_policies import SyncHold
+
+# 1. Define the execution pipeline order (Decode -> Sync)
+pipeline = Pipeline([
+    ('decoder', VideoDecodingTransformer(topics=["/front/camera/image"])),
+])
+
+with MosaicoClient.connect("localhost", 6726) as client:
+    seq_handler = client.sequence_handler("multi_camera_mission")
+    extractor = DataFrameExtractor(seq_handler)
+
+    # 2. Process sequential row-based chunks
+    for sparse_chunk in extractor.to_pandas_chunks(
+        topics=["/front/camera/image", "/chassis/imu"],
+        batch_size=2048 
+    ):
+        # The decoder reconstructs video frames chronologically.
+        decoded_chunk = pipeline.transform(sparse_chunk)
+        
+        # 'decoded_chunk' now contains arrays of usable PIL.Image objects.
+        # It is now perfectly safe to shuffle, batch, or convert to PyTorch Tensors.
+        
+        del decoded_chunk # Explicitly signal for garbage collection
+
+```
+
 ## Sparse to Dense Representation
 ??? question "API Reference"
     [`mosaicolabs.ml.SyncTransformer`][mosaicolabs.ml.SyncTransformer]
@@ -195,7 +253,7 @@ The memory footprint of your ML pipeline is primarily governed by the product of
 
 ### Scikit-Learn Compatibility
 
-By implementing the standard `fit`/`transform` interface, the [`SyncTransformer`][mosaicolabs.ml.SyncTransformer] makes robotics data a "first-class citizen" of the [Scikit-learn](https://scikit-learn.org/stable/) ecosystem. This allows for the plug-and-play integration of multi-rate sensor data into standard [pipelines](https://scikit-learn.org/stable/api/sklearn.pipeline.html).
+By implementing the standard `fit`/`transform` interface, the [`SyncTransformer`][mosaicolabs.ml.SyncTransformer] makes robotics data a "first-class citizen" of the [Scikit-learn](https://pypi.org/project/scikit-learn/) ecosystem. This allows for the plug-and-play integration of multi-rate sensor data into standard [pipelines](https://scikit-learn.org/stable/api/sklearn.pipeline.html).
 
 ```python
 from sklearn.pipeline import Pipeline
