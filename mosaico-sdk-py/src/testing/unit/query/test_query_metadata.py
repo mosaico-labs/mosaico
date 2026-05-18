@@ -44,7 +44,12 @@ class TestQueryTopicMetadataAPI:
             TypeError,
             match="Invalid type for '_QueryableDynamicValueField' comparison",
         ):
-            QueryTopic().with_user_metadata("some-field", lt="some_value")
+            QueryTopic().with_user_metadata("some-field", ex="some_value")
+        with pytest.raises(
+            TypeError,
+            match="Invalid type for '_QueryableDynamicValueField' comparison",
+        ):
+            QueryTopic().with_user_metadata("some-field", ex=3.2)
 
     def test_expected_operators(self):
         # Simulate the User Query
@@ -53,6 +58,12 @@ class TestQueryTopicMetadataAPI:
         QueryTopic().with_user_metadata("some-field", gt=0)
         QueryTopic().with_user_metadata("some-field", geq=0)
         QueryTopic().with_user_metadata("some-field", leq=0)
+        QueryTopic().with_user_metadata("some-field", lt="abcd")
+        QueryTopic().with_user_metadata("some-field", gt="abcd")
+        QueryTopic().with_user_metadata("some-field", geq="abcd")
+        QueryTopic().with_user_metadata("some-field", leq="abcd")
+        QueryTopic().with_user_metadata("some-field", ex=True)
+        QueryTopic().with_user_metadata("some-field", ex=False)
         QueryTopic().with_user_metadata("some-field", between=[0, 1])
 
 
@@ -94,7 +105,12 @@ class TestQuerySequenceMetadataAPI:
             TypeError,
             match="Invalid type for '_QueryableDynamicValueField' comparison",
         ):
-            QuerySequence().with_user_metadata("some-field", lt="some_value")
+            QuerySequence().with_user_metadata("some-field", ex="some_value")
+        with pytest.raises(
+            TypeError,
+            match="Invalid type for '_QueryableDynamicValueField' comparison",
+        ):
+            QuerySequence().with_user_metadata("some-field", ex=3.2)
 
     def test_expected_operators(self):
         # Simulate the User Query
@@ -103,4 +119,10 @@ class TestQuerySequenceMetadataAPI:
         QuerySequence().with_user_metadata("some-field", gt=0)
         QuerySequence().with_user_metadata("some-field", geq=0)
         QuerySequence().with_user_metadata("some-field", leq=0)
+        QuerySequence().with_user_metadata("some-field", lt="abcd")
+        QuerySequence().with_user_metadata("some-field", gt="abcd")
+        QuerySequence().with_user_metadata("some-field", geq="abcd")
+        QuerySequence().with_user_metadata("some-field", leq="abcd")
+        QuerySequence().with_user_metadata("some-field", ex=True)
+        QuerySequence().with_user_metadata("some-field", ex=False)
         QuerySequence().with_user_metadata("some-field", between=[0, 1])

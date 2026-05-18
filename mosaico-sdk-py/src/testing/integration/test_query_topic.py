@@ -4,8 +4,11 @@ from mosaicolabs.comm import MosaicoClient
 from mosaicolabs.models.query import QuerySequence, QueryTopic
 from mosaicolabs.types import Time
 from testing.integration.config import (
+    QUERY_SEQUENCES_MOCKUP,
+    UPLOADED_GPS_TOPIC,
     UPLOADED_IMU_CAMERA_TOPIC,
     UPLOADED_IMU_FRONT_TOPIC,
+    UPLOADED_MAGNETOMETER_TOPIC,
     UPLOADED_SEQUENCE_NAME,
 )
 
@@ -198,6 +201,23 @@ def test_query_topic_metadata(
     assert query_resp[0].topics[0].name == expected_topic_name
     _validate_returned_topic_name(query_resp[0].topics[0].name)
 
+    # Test != operator on simple strings
+    query_resp = mosaico_client.query(
+        QueryTopic().with_user_metadata("calibration_version", neq="cal-2025.01.01"),
+    )
+    # We do expect a successful query
+    assert query_resp is not None and not query_resp.is_empty()
+
+    assert len(query_resp) == 1
+    expected_topic_names = [
+        UPLOADED_IMU_CAMERA_TOPIC,
+        UPLOADED_GPS_TOPIC,
+        UPLOADED_MAGNETOMETER_TOPIC,
+    ]
+    # N topics may correspond to this query
+    assert len(query_resp[0].topics) == len(expected_topic_names)
+    assert all([t.name in expected_topic_names for t in query_resp[0].topics])
+
     # Test with single condition
     query_resp = mosaico_client.query(
         QueryTopic().with_user_metadata("serial_number", eq="IMUF-9A31D72X")
@@ -265,6 +285,106 @@ def test_query_topic_metadata(
 
     _validate_returned_topic_name(query_resp[0].topics[0].name)
     assert query_resp[0].topics[0].name == expected_topic_name
+
+    # Test 'ex' operator
+    query_resp = mosaico_client.query(
+        QueryTopic().with_user_metadata("accuracy_m", ex=True)
+    )
+    # We do expect a successful query
+    assert query_resp is not None and not query_resp.is_empty()
+    # One (1) sequence corresponds to this query
+    assert len(query_resp) == 1
+    # The target topic is 'UPLOADED_GPS_TOPIC'
+    expected_topic_names = [
+        UPLOADED_GPS_TOPIC,
+    ]
+    assert len(expected_topic_names) == len(query_resp[0].topics)
+    # all the expected topics, and only them
+    [_validate_returned_topic_name(topic.name) for topic in query_resp[0].topics]
+    assert all([t.name in expected_topic_names for t in query_resp[0].topics])
+
+    # Test 'nex' operator
+    query_resp = mosaico_client.query(
+        QueryTopic().with_user_metadata("accuracy_m", ex=False)
+    )
+    # We do expect a successful query
+    assert query_resp is not None and not query_resp.is_empty()
+    # Five (5) sequences corresponds to this query (data stream sequence + mockups)
+    assert len(query_resp) == 5
+    # The target topics are 'UPLOADED_IMU_FRONT_TOPIC' and 'UPLOADED_IMU_CAMERA_TOPIC'
+    expected_topic_names = [
+        UPLOADED_IMU_FRONT_TOPIC,
+        UPLOADED_IMU_CAMERA_TOPIC,
+        UPLOADED_MAGNETOMETER_TOPIC,
+    ] + [
+        topic["name"]
+        for sequence_info in QUERY_SEQUENCES_MOCKUP.values()
+        for topic in sequence_info["topics"]
+    ]
+    assert len(expected_topic_names) == sum(len(resp.topics) for resp in query_resp)
+    assert all(
+        [
+            topic.name in expected_topic_names
+            for resp in query_resp
+            for topic in resp.topics
+        ]
+    )
+
+    # Test with nested field
+    # free resources
+    mosaico_client.close()
+
+
+def test_query_topic_lexicographic_comparison(
+    mosaico_client: MosaicoClient,
+    inject_synthetic_sequence,  # Ensure the data are available on the data platform
+):
+    # Test > operator on simple strings
+    query_resp = mosaico_client.query(
+        QueryTopic().with_user_metadata("calibration_version", gt="cal-2025.04"),
+    )
+    # We do expect a successful query
+    assert query_resp is not None and not query_resp.is_empty()
+    # One (1) sequence corresponds to this query
+    assert len(query_resp) == 1
+    expected_topic_names = [UPLOADED_MAGNETOMETER_TOPIC]
+    # N topics may correspond to this query
+    assert len(query_resp[0].topics) == len(expected_topic_names)
+    # all the expected topics, and only them
+    [_validate_returned_topic_name(topic.name) for topic in query_resp[0].topics]
+    assert all([t.name in expected_topic_names for t in query_resp[0].topics])
+
+    # Test > operator on iso timestamps
+    query_resp = mosaico_client.query(
+        QueryTopic().with_user_metadata("last_calibrated_at", gt="2025-03-01T09"),
+    )
+    # We do expect a successful query
+    assert query_resp is not None and not query_resp.is_empty()
+    # One (1) sequence corresponds to this query
+    assert len(query_resp) == 1
+    expected_topic_names = [UPLOADED_MAGNETOMETER_TOPIC]
+    # N topics may correspond to this query
+    assert len(query_resp[0].topics) == len(expected_topic_names)
+    # all the expected topics, and only them
+    [_validate_returned_topic_name(topic.name) for topic in query_resp[0].topics]
+    assert all([t.name in expected_topic_names for t in query_resp[0].topics])
+
+    # Test <= operator on iso timestamps
+    query_resp = mosaico_client.query(
+        QueryTopic().with_user_metadata(
+            "last_calibrated_at", leq="2025-03-01T07:17:08"
+        ),
+    )
+    # We do expect a successful query
+    assert query_resp is not None and not query_resp.is_empty()
+    # One (1) sequence corresponds to this query
+    assert len(query_resp) == 1
+    expected_topic_names = [UPLOADED_IMU_CAMERA_TOPIC, UPLOADED_IMU_FRONT_TOPIC]
+    # N topics may correspond to this query
+    assert len(query_resp[0].topics) == len(expected_topic_names)
+    # all the expected topics, and only them
+    [_validate_returned_topic_name(topic.name) for topic in query_resp[0].topics]
+    assert all([t.name in expected_topic_names for t in query_resp[0].topics])
 
     # free resources
     mosaico_client.close()
