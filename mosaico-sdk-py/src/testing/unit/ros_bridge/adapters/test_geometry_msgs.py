@@ -11,7 +11,6 @@ from mosaicolabs import (
     Polygon,
     Pose,
     Quaternion,
-    Serializable,
     Time,
     Transform,
     Vector3d,
@@ -44,22 +43,9 @@ ROS_TYPESTORE_TO_TEST = [
 ]
 
 
-@pytest.fixture
-def invalid_ms_msg() -> Message:
-    return Message(
-        data=Serializable(),
-        timestamp_ns=0,
-    )
-
-
 ###############################################################################
 ############################# TestVector3Adapter ##############################
 ###############################################################################
-
-
-@pytest.fixture
-def vector3d():
-    return Vector3d(x=1.0, y=2.0, z=3.0)
 
 
 @pytest.fixture
@@ -132,11 +118,6 @@ class TestVectoradapter:
 
 
 @pytest.fixture
-def point3d():
-    return Point3d(x=1.0, y=2.0, z=3.0)
-
-
-@pytest.fixture
 def point3d_msg(point3d):
     return Message(
         data=point3d,
@@ -201,11 +182,6 @@ class TestPointadapter:
 ###############################################################################
 ############################ TestQuaternionAdapter ############################
 ###############################################################################
-
-
-@pytest.fixture
-def quaternion():
-    return Quaternion(x=0.0, y=0.0, z=0.0, w=1.0)
 
 
 @pytest.fixture

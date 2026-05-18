@@ -4,12 +4,8 @@ from rosbags.typesys.stores import Stores, Typestore, get_typestore
 from mosaicolabs import (
     Message,
     MotionState,
-    Point3d,
     Pose,
-    Quaternion,
-    Serializable,
     Time,
-    Vector3d,
     Velocity,
 )
 from mosaicolabs.ros_bridge.adapters import (
@@ -31,44 +27,13 @@ ROS_TYPESTORE_TO_TEST = [
 
 
 @pytest.fixture
-def invalid_ms_msg() -> Message:
-    return Message(
-        data=Serializable(),
-        timestamp_ns=0,
-    )
-
-
-@pytest.fixture
-def vector3():
-    return Vector3d(
-        x=1.0,
-        y=2.0,
-        z=3.0,
-    )
-
-
-@pytest.fixture
-def point3d():
-    return Point3d(
-        x=1.0,
-        y=2.0,
-        z=3.0,
-    )
-
-
-@pytest.fixture
-def quaternion():
-    return Quaternion(x=0.0, y=0.0, z=0.0, w=1.0)
-
-
-@pytest.fixture
 def pose(point3d, quaternion):
     return Pose(position=point3d, orientation=quaternion)
 
 
 @pytest.fixture
-def velocity(vector3):
-    return Velocity(linear=vector3, angular=vector3)
+def velocity(vector3d):
+    return Velocity(linear=vector3d, angular=vector3d)
 
 
 ###############################################################################

@@ -34,14 +34,6 @@ ROS_TYPESTORE_TO_TEST = [
 ]
 
 
-@pytest.fixture
-def invalid_ms_msg() -> Message:
-    return Message(
-        data=Serializable(),
-        timestamp_ns=0,
-    )
-
-
 ###############################################################################
 ############################ TestGenericStdAdapter ############################
 ###############################################################################

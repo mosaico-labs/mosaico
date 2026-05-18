@@ -4,10 +4,7 @@ from rosbags.typesys.stores import Stores, Typestore, get_typestore
 
 from mosaicolabs import (
     Message,
-    Quaternion,
-    Serializable,
     Transform,
-    Vector3d,
 )
 from mosaicolabs.ros_bridge.adapters import (
     FrameTransformAdapter,
@@ -29,30 +26,8 @@ ROS_TYPESTORE_TO_TEST = [
 
 
 @pytest.fixture
-def invalid_ms_msg() -> Message:
-    return Message(
-        data=Serializable(),
-        timestamp_ns=0,
-    )
-
-
-@pytest.fixture
-def vector3():
-    return Vector3d(
-        x=1.0,
-        y=2.0,
-        z=3.0,
-    )
-
-
-@pytest.fixture
-def quaternion():
-    return Quaternion(x=0.0, y=0.0, z=0.0, w=1.0)
-
-
-@pytest.fixture
-def transform(vector3, quaternion):
-    return Transform(translation=vector3, rotation=quaternion)
+def transform(vector3d, quaternion):
+    return Transform(translation=vector3d, rotation=quaternion)
 
 
 ###############################################################################
