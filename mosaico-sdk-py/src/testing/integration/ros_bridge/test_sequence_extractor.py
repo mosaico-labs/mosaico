@@ -27,16 +27,16 @@ ROS_DISTRO = [
 STORAGE_PLUGINS = [StoragePlugin.MCAP, StoragePlugin.SQLITE3]
 
 
-def get_sequence_extractor(
+def override_ext_configs(
     seq_ext_config: ROSExtractorConfig,
     ros_distro: Stores,
     storage_plugin: StoragePlugin,
 ) -> ROSSequenceExtractor:
-    """Overrides default SequenceExtractor configs with passed ROS_DISTRO and create the object"""
+    """Overrides default SequenceExtractor configs with passed ros_distro and storage_plugin"""
     seq_ext_config.ros_distro = ros_distro
     seq_ext_config.storage_plugin = storage_plugin
 
-    return ROSSequenceExtractor(seq_ext_config)
+    return seq_ext_config
 
 
 def get_rosbagfile_path(configs: ROSExtractorConfig) -> Path:
@@ -64,9 +64,10 @@ def test_run_rosbag_existance(
     storage_plugin,
 ):
 
-    sequence_ext = get_sequence_extractor(
+    overwritten_configs = override_ext_configs(
         default_extractor_config, ros_distro, storage_plugin
     )
+    sequence_ext = ROSSequenceExtractor(overwritten_configs)
     sequence_ext.run()
 
     rosbag_file_path = get_rosbagfile_path(default_extractor_config)
@@ -84,9 +85,10 @@ def test_run_data_correctness(
     storage_plugin,
 ):
 
-    sequence_ext = get_sequence_extractor(
+    overwritten_configs = override_ext_configs(
         default_extractor_config, ros_distro, storage_plugin
     )
+    sequence_ext = ROSSequenceExtractor(overwritten_configs)
     sequence_ext.run()
 
     rosbag_file_path = get_rosbagfile_path(default_extractor_config)
@@ -102,3 +104,45 @@ def test_run_data_correctness(
         assert reconstructed_ms_msg.timestamp_ns == data_steam_item.msg.timestamp_ns
         assert reconstructed_ms_msg.frame_id == data_steam_item.msg.frame_id
         assert reconstructed_ms_msg.data == data_steam_item.msg.data
+
+
+def test_overwrite_false_raise_on_existing_path(
+    default_extractor_config,
+    inject_synthetic_sequence,  # necessary to trigger sequence ingestion in backed
+):
+
+    # Creating rosbag from loaded sequence
+    sequence_ext1 = ROSSequenceExtractor(default_extractor_config)
+    sequence_ext1.run()
+
+    # Creating the rosbag again with overwrite False should Raise a FileExistsError
+    default_extractor_config.overwrite = False
+    sequence_ext2 = ROSSequenceExtractor(default_extractor_config)
+
+    with pytest.raises(FileExistsError):
+        sequence_ext2.run()
+
+
+def test_overwrite_true_replaces_existing_bag(
+    default_extractor_config,
+    inject_synthetic_sequence,  # necessary to trigger sequence ingestion in backed
+):
+
+    # Creating rosbag from loaded sequence
+    sequence_ext1 = ROSSequenceExtractor(default_extractor_config)
+    sequence_ext1.run()
+
+    # Creating the rosbag again with overwrite False should Raise a FileExistsError
+    sequence_ext2 = ROSSequenceExtractor(default_extractor_config)
+    sequence_ext2.run()
+
+    assert get_rosbagfile_path(default_extractor_config).exists()
+
+
+def test_not_existing_sequence_name(default_extractor_config):
+    default_extractor_config.sequence_name = "not-existing-sequence-name"
+
+    sequence_ext = ROSSequenceExtractor(default_extractor_config)
+
+    with pytest.raises(ValueError):
+        sequence_ext.run()

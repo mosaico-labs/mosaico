@@ -210,6 +210,22 @@ class ROSSequenceExtractor:
 
         return self.bagwriter
 
+    def _prepare_output_path(self):
+        """
+        TODO
+        """
+        rosbag_path = self.cfg.rosbag_path / self.cfg.sequence_name
+
+        if rosbag_path.exists():
+            if not self.cfg.overwrite:
+                raise FileExistsError(
+                    f"Rosbag path '{rosbag_path}' already exists. "
+                    "Pass overwrite=True (or --overwrite on CLI) to replace it."
+                )
+            shutil.rmtree(rosbag_path)
+
+        return rosbag_path
+
     def _process_message(
         self, bag_writer: Writer, ms_topic: str, ms_msg: Message, ui: ProgressManager
     ):
@@ -280,7 +296,7 @@ class ROSSequenceExtractor:
         connection = self.accepted_connections.get(ms_topic)
 
         # --- Write check ---
-        if self.cfg.ros_distro == Stores.ROS1_NOETIC:  # ROS1
+        if self.cfg.ros_distro is Stores.ROS1_NOETIC:  # ROS1
             bag_writer.write(
                 connection,
                 ros_recording_timestamp_ns,
@@ -300,16 +316,8 @@ class ROSSequenceExtractor:
         TODO
         """
 
-        # Check whether rosbag exists
-        rosbag_path = self.cfg.rosbag_path / self.cfg.sequence_name
-        rosbag_path.mkdir(parents=True, exist_ok=True)
-        if rosbag_path.exists():
-            if not self.cfg.overwrite:
-                raise FileExistsError(
-                    f"Rosbag path '{rosbag_path}' already exists. "
-                    "Pass overwrite=True (or --overwrite on CLI) to replace it."
-                )
-            shutil.rmtree(rosbag_path)
+        # Create rosbag path and check whether it already exists
+        rosbag_path = self._prepare_output_path()
 
         try:
             with MosaicoClient.connect(
