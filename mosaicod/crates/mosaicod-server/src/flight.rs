@@ -19,32 +19,32 @@ use mosaicod_marshal as marshal;
 use mosaicod_query as query;
 use mosaicod_store as store;
 use std::sync::Arc;
-use tokio::sync::Notify;
+use tokio_util::sync::CancellationToken;
 use tonic::{Request, Response, Status, Streaming, codec::CompressionEncoding, transport::Server};
 
 /// To stop the server use the following command on
 /// `ShutdownNotifier`
-#[derive(Clone)]
-pub struct ShutdownNotifier(Arc<Notify>);
+#[derive(Clone, Default, Debug)]
+pub struct ShutdownNotifier(CancellationToken);
 
 impl ShutdownNotifier {
-    // Notifies the server to be shut down
+    // Notifies the server to be shutdown
     pub fn shutdown(&self) {
-        self.0.notify_waiters();
+        self.0.cancel();
     }
 
     pub async fn wait_for_shutdown(&self) {
-        self.0.notified().await;
+        self.0.cancelled().await;
     }
 
-    pub fn inner(&self) -> &Arc<Notify> {
-        &self.0
+    pub fn is_shutdown(&self) -> bool {
+        self.0.is_cancelled()
     }
-}
 
-impl Default for ShutdownNotifier {
-    fn default() -> Self {
-        Self(Arc::new(Notify::new()))
+    /// Returns a cloned cancellation token for use across crate boundaries
+    /// (e.g. passing to background tasks defined in other crates).
+    pub fn token(&self) -> CancellationToken {
+        self.0.clone()
     }
 }
 

@@ -16,6 +16,7 @@ mosaicod-store = { workspace = true }
 chrono = { workspace = true }
 tracing = { workspace = true }
 tokio = { workspace = true }
+tokio-util = { workspace = true }
 
 [dev-dependencies]
 mosaicod-db = { workspace = true, features = ["postgres", "testing"] }

@@ -61,7 +61,7 @@ impl Server {
                     .with_time_interval(cleanup_time_interval)
                     .with_retention_duration(cleanup_retention_duration);
 
-                cleanup.run((*shutdown_cleanup.inner()).clone()).await
+                cleanup.run((shutdown_cleanup.token()).clone()).await
             });
 
             let server_store = self.store.clone();

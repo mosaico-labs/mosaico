@@ -155,7 +155,7 @@ impl ServerBuilder {
                     .with_time_interval(cleanup_time_interval)
                     .with_retention_duration(cleanup_retention_duration);
 
-                cleanup.run((*cleanup_shutdown.inner()).clone()).await
+                cleanup.run(cleanup_shutdown.token()).await
             }
         });
 

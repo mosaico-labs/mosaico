@@ -5,8 +5,7 @@ use mosaicod_core::{error::PublicResult as Result, types};
 use mosaicod_db as db;
 use mosaicod_store as store;
 use std::ops::Deref;
-use std::sync::Arc;
-use tokio::sync::Notify;
+use tokio_util::sync::CancellationToken;
 use tracing::{error, info, warn};
 
 const TO_DELETE_MARKER_FILE_NAME: &str = "TO_DELETE";
@@ -90,7 +89,7 @@ impl Cleanup {
     }
 
     /// Starts the cleanup routine that every [`time_interval`] tries to actually perform a cleanup of the store.
-    pub async fn run(mut self, shutdown_notifier: Arc<Notify>) {
+    pub async fn run(mut self, shutdown_notifier: CancellationToken) {
         info!("Launching cleanup background routine");
 
         loop {
@@ -147,7 +146,7 @@ impl Cleanup {
                 // Here we can call .unwrap() safely because duration is non-negative by construction.
                 _ = tokio::time::sleep(self.time_interval.to_std().unwrap()) => {
                 }
-                _ = shutdown_notifier.notified() => {
+                _ = shutdown_notifier.cancelled() => {
                     info!("Exiting cleanup background routine. Shutdown received.");
                     break; // Exit the loop immediately
                 }
@@ -270,8 +269,6 @@ mod tests {
     use mosaicod_core::types;
     use mosaicod_store as store;
     use rand::seq::IteratorRandom;
-    use std::sync::Arc;
-    use tokio::sync::Notify;
 
     struct TestContext {
         db: db::testing::Database,
@@ -592,7 +589,7 @@ mod tests {
         let test_stats =
             populate_random_store(&context, num_seqs, num_topics, retention_duration).await;
 
-        let notifier = Arc::new(Notify::new());
+        let notifier = CancellationToken::new();
 
         let notifier_clone = notifier.clone();
 
@@ -612,7 +609,7 @@ mod tests {
 
         tokio::time::sleep(std::time::Duration::from_secs(10)).await;
 
-        notifier.notify_one();
+        notifier.cancel();
 
         let _ = tokio::join!(handle_cleanup_task);
 

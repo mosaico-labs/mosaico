@@ -22,6 +22,7 @@ mosaicod-task = { workspace = true }
 
 thiserror = { workspace = true }
 tokio = { workspace = true }
+tokio-util = { workspace = true }
 log = { workspace = true }
 serde_json = { workspace = true }
 futures = { workspace = true }
