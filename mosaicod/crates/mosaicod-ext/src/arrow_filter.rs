@@ -17,6 +17,9 @@ pub enum ClusteringError {
     #[error("output channel closed")]
     ChannelClosed,
 
+    #[error("clustering_dt_ns must be greater than 0")]
+    UnsupportedClusteringDt,
+
     #[error(transparent)]
     Arrow(#[from] ArrowError),
 }
@@ -28,7 +31,6 @@ pub struct Cluster {
     pub id: u64,
 }
 
-/// Clusters monotonically-ordered timestamps from a single topic's filtered
 /// Clusters strictly monotonically increasing timestamps from a single topic's
 /// filtered [`RecordBatch`] stream, forwarding each closed cluster on `out`.
 ///
@@ -43,9 +45,6 @@ pub struct Cluster {
 ///   batches (not validated; violations yield undefined clusters).
 /// * `clustering_dt_ns >= 1`. The `dt = 0` case is short-circuited upstream
 ///   (via Parquet metadata) and never reaches this function.
-/// * `timestamp_column` must be a non-nullable `UInt64` column.
-/// * The input stream is expected to be pre-filtered to a single topic and
-///   projected to the columns of interest by the caller.
 ///
 /// # Arguments
 ///
@@ -57,13 +56,8 @@ pub struct Cluster {
 ///   [`ClusteringError::ChannelClosed`] without consuming the remainder of
 ///   `input`, and any open cluster is discarded.
 ///
-/// # Errors
-///
-/// Returns [`ClusteringError`] if the column is missing, has an unsupported
-/// type, contains nulls, the input stream yields an Arrow error, or the
-/// output channel is closed.
 pub async fn topic_filter_clusterize<S>(
-    mut input: S,
+    mut batch_stream: S,
     clustering_dt_ns: u64,
     timestamp_column: &str,
     out: mpsc::Sender<Cluster>,
@@ -75,7 +69,11 @@ where
     let mut prev_ts: Option<u64> = None;
     let mut id: u64 = 0;
 
-    while let Some(batch) = input.next().await {
+    if clustering_dt_ns == 0 {
+        return Err(ClusteringError::UnsupportedClusteringDt);
+    }
+
+    while let Some(batch) = batch_stream.next().await {
         let batch = batch?;
         let ts = extract_timestamps(&batch, timestamp_column)?;
 
