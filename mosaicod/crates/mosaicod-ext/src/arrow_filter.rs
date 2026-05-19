@@ -430,7 +430,6 @@ mod tests {
 
     #[tokio::test]
     async fn empty_batch_in_middle_of_cluster_does_not_break_it() {
-        // Verifica che prev_ts non venga resettato attraversando un batch vuoto.
         let clusters = run(vec![batch(&[10, 11]), batch(&[]), batch(&[12, 13])], 5).await;
         assert_eq!(
             clusters,
