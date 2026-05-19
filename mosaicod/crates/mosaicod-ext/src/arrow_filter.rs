@@ -43,12 +43,10 @@ pub struct Cluster {
 ///
 /// * Timestamps must be strictly monotonically increasing within and across
 ///   batches (not validated; violations yield undefined clusters).
-/// * `clustering_dt_ns >= 1`. The `dt = 0` case is short-circuited upstream
-///   (via Parquet metadata) and never reaches this function.
-///
+/// * `clustering_dt_ns >= 1`.
 /// # Arguments
 ///
-/// * `input`: stream of `Result<RecordBatch, ArrowError>` produced upstream.
+/// * `batch_stream`: stream of `Result<RecordBatch, ArrowError>` produced upstream.
 /// * `clustering_dt_ns`: inclusive gap threshold in nanoseconds.
 /// * `timestamp_column`: name of the `UInt64` column carrying timestamps.
 /// * `out`: channel for emitted [`Cluster`]s. If the receiver is dropped, the
