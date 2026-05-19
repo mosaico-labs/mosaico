@@ -90,7 +90,7 @@ class ROSAdapterBase(ABC, Generic[T]):
     @abstractmethod
     def from_dict(cls, ros_data: dict) -> T:
         """
-        Maps the raw ROS dictionary to the EncoderTicks Pydantic model.
+        Maps the raw ROS dictionary to the Pydantic model.
 
         This method performs field validation and reconstruction.
         """

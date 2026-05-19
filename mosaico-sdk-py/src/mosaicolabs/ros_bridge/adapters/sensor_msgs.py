@@ -1,3 +1,4 @@
+import math
 import sys
 from abc import abstractmethod
 from typing import (
@@ -165,20 +166,31 @@ class CameraInfoAdapter(ROSAdapterBase[CameraInfo]):
         # validate case insensitive keys (specific for this message - ROS1/2 variations)
         _validate_msgdata(cls, ros_data, case_insensitive=True)
 
+        binning = None
+        if ros_data["binning_x"] > 1 and ros_data["binning_y"] > 1:
+            binning = Vector2d(x=ros_data["binning_x"], y=ros_data["binning_y"])
+
+        roi = ROIAdapter.from_dict(ros_data["roi"])
+        if (
+            roi.offset.x == 0
+            and roi.offset.y == 0
+            and roi.offset.height == 0
+            and roi.offset.width == 0
+            and roi.offset.do_rectify is False
+        ):
+            roi = None
+
         # Manage differences between ROS1 and ROS2s
         return CameraInfo(
             height=ros_data["height"],
             width=ros_data["width"],
-            binning=Vector2d(
-                x=ros_data["binning_x"],
-                y=ros_data["binning_y"],
-            ),
+            binning=binning,
             distortion_model=ros_data["distortion_model"],
             distortion_parameters=ros_data.get("d") or ros_data.get("D"),
             intrinsic_parameters=ros_data.get("k") or ros_data.get("K"),
             projection_parameters=ros_data.get("p") or ros_data.get("P"),
             rectification_parameters=ros_data.get("r") or ros_data.get("R"),
-            roi=ROIAdapter.from_dict(ros_data["roi"]),
+            roi=roi,
         )
 
     @classmethod
@@ -239,8 +251,9 @@ class CameraInfoAdapter(ROSAdapterBase[CameraInfo]):
                     ),
                 }
 
+            binning = camera_info_data.binning or Vector2d(x=0.0, y=0.0)
             camera_roi = camera_info_data.roi or ROI(
-                offset=0, height=0, width=0, do_rectify=False
+                offset=Vector2d(x=0.0, y=0.0), height=0, width=0, do_rectify=False
             )
 
             return RosCameraInfo(
@@ -249,8 +262,8 @@ class CameraInfoAdapter(ROSAdapterBase[CameraInfo]):
                 width=camera_info_data.width,
                 distortion_model=camera_info_data.distortion_model,
                 **ros_dep_data,
-                binning_x=int(camera_info_data.binning.x),
-                binning_y=int(camera_info_data.binning.y),
+                binning_x=int(binning.x),
+                binning_y=int(binning.y),
                 roi=ROIAdapter.to_ros(camera_roi, typestore),
             )
 
@@ -470,15 +483,26 @@ class GPSAdapter(ROSAdapterBase[GPS]):
         """
         _validate_msgdata(cls, ros_data)
 
+        covariance = None
+        covariance_type = None
+        if _is_valid_covariance(ros_data.get("position_covariance")):
+            covariance = ros_data.get("position_covariance")
+            covariance_type = ros_data.get("position_covariance_type")
+
+        # valid when status.status >= STATUS_FIX (-1)
+        status = None
+        if ros_data["status"]["status"] >= -1:
+            status = NavSatStatusAdapter.from_dict(ros_data["status"])
+
         return GPS(
             position=Point3d(
                 x=ros_data["latitude"],
                 y=ros_data["longitude"],
                 z=ros_data["altitude"],
-                covariance=ros_data.get("position_covariance"),
-                covariance_type=ros_data.get("position_covariance_type"),
+                covariance=covariance,
+                covariance_type=covariance_type,
             ),
-            status=NavSatStatusAdapter.from_dict(ros_data["status"]),
+            status=status,
         )
 
     @classmethod
@@ -1348,20 +1372,38 @@ class BatteryStateAdapter(ROSAdapterBase[BatteryState]):
         """
         _validate_msgdata(cls, ros_data)
 
+        temperature = (
+            ros_data["temperature"] if not math.isnan(ros_data["temperature"]) else None
+        )
+        current = ros_data["current"] if not math.isnan(ros_data["current"]) else None
+        charge = ros_data["charge"] if not math.isnan(ros_data["charge"]) else None
+        capacity = (
+            ros_data["capacity"] if not math.isnan(ros_data["capacity"]) else None
+        )
+        design_capacity = (
+            ros_data["design_capacity"]
+            if not math.isnan(ros_data["design_capacity"])
+            else None
+        )
+        cell_voltage = ros_data["cell_voltage"] if ros_data["cell_voltage"] else None
+        cell_temperature = (
+            ros_data["cell_temperature"] if ros_data["cell_temperature"] else None
+        )
+
         return BatteryState(
             voltage=ros_data["voltage"],
-            temperature=ros_data["temperature"],
-            current=ros_data["current"],
-            charge=ros_data["charge"],
-            capacity=ros_data["capacity"],
-            design_capacity=ros_data["design_capacity"],
+            temperature=temperature,
+            current=current,
+            charge=charge,
+            capacity=capacity,
+            design_capacity=design_capacity,
             percentage=ros_data["percentage"],
             power_supply_status=ros_data["power_supply_status"],
             power_supply_health=ros_data["power_supply_health"],
             power_supply_technology=ros_data["power_supply_technology"],
             present=ros_data["present"],
-            cell_voltage=ros_data["cell_voltage"],
-            cell_temperature=ros_data["cell_temperature"],
+            cell_voltage=cell_voltage,
+            cell_temperature=cell_temperature,
             location=ros_data["location"],
             serial_number=ros_data["serial_number"],
         )
@@ -1390,11 +1432,11 @@ class BatteryStateAdapter(ROSAdapterBase[BatteryState]):
         battery_state_data, header = cls.unpack_mosaico_msg(mosaico_data)
 
         # (If unmeasured NaN)
-        battery_temperature = battery_state_data.temperature or np.nan
-        battery_current = battery_state_data.current or np.nan
-        battery_charge = battery_state_data.charge or np.nan
-        battery_capacity = battery_state_data.capacity or np.nan
-        battery_design_capacity = battery_state_data.design_capacity or np.nan
+        battery_temperature = battery_state_data.temperature or math.nan
+        battery_current = battery_state_data.current or math.nan
+        battery_charge = battery_state_data.charge or math.nan
+        battery_capacity = battery_state_data.capacity or math.nan
+        battery_design_capacity = battery_state_data.design_capacity or math.nan
         battery_cell_voltage = battery_state_data.cell_voltage or []
         battery_cell_temperature = battery_state_data.cell_temperature or []
 
@@ -2045,6 +2087,9 @@ class LaserScannerAdapterBase(ROSAdapterBase[_LT]):
         """
         Create a LaserScan/MultiEchoLaserScan instance from a ROS message dictionary.
         """
+
+        intensities = ros_data["intensities"] if ros_data["intensities"] else None
+
         _validate_msgdata(cls, ros_data)
         return cls.__mosaico_ontology_type__(
             angle_min=ros_data["angle_min"],
@@ -2055,7 +2100,7 @@ class LaserScannerAdapterBase(ROSAdapterBase[_LT]):
             range_min=ros_data["range_min"],
             range_max=ros_data["range_max"],
             ranges=ros_data["ranges"],
-            intensities=ros_data["intensities"],
+            intensities=intensities,
         )
 
     @classmethod
