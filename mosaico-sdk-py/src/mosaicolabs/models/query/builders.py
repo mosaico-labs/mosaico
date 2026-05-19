@@ -398,7 +398,7 @@ class QueryTopic:
             key (str): The metadata key to filter on (e.g., "sensor_id"). Supports dot-notation
                 for nested dictionary access (e.g., "calibration.focal_length").
             **operator_kwargs: A single keyword argument where the key is the operator
-                and the value is the comparison target, e.g. `eq="value"`, `lt=100`, etc.
+                and the value is the comparison target, e.g. `eq="value"`, `lt=100`, `ex=False`, etc.
 
         Raises:
             ValueError: If no operator is provided, if multiple operators are provided in
@@ -412,6 +412,7 @@ class QueryTopic:
             * `lt`: Less than
             * `leq`: Less than or equal to
             * `between`: Range filter (expects a list of [min, max])
+            * `ex`: The key exist (ex=True) or does not exist (ex=False)
 
         Example:
             ```python
@@ -788,6 +789,7 @@ class QuerySequence:
             * `lt`: Less than
             * `leq`: Less than or equal to
             * `between`: Range filter (expects a list of [min, max])
+            * `ex`: The key exist (ex=True) or does not exist (ex=False)
 
         Example:
             ```python
