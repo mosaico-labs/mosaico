@@ -24,3 +24,8 @@ def point3d():
 @pytest.fixture
 def quaternion():
     return Quaternion(x=0.0, y=0.0, z=0.0, w=1.0)
+
+
+@pytest.fixture
+def ros_header():
+    return {"frame_id": "base_link", "stamp": {"sec": 0, "nanosec": 100}}

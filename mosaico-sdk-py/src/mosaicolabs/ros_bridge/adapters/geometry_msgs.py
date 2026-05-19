@@ -1634,10 +1634,7 @@ class InertiaAdapter(ROSAdapterBase[Inertia]):
                 ros_data["ixx"],
                 ros_data["ixy"],
                 ros_data["ixz"],
-                ros_data["ixy"],
                 ros_data["iyy"],
-                ros_data["iyz"],
-                ros_data["ixz"],
                 ros_data["iyz"],
                 ros_data["izz"],
             ]
