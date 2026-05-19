@@ -410,17 +410,17 @@ The proxy automatically flattens the hierarchy, assigning the correct queryable 
 | **[`IMU.Q.orientation.x/y/z/w`][mosaicolabs.models.sensors.IMU.orientation--querying-with-the-q-proxy]** | **Numeric** | `.gt()`, `.lt()`, `.geq()`, `.leq()`, `.eq()`, `.between()`, `.in_()` |
 | **[`IMU.Q.timestamp_ns`][mosaicolabs.models.Message.timestamp_ns--querying-with-the-q-proxy]** | **Numeric** | `.gt()`, `.lt()`, `.geq()`, `.leq()`, `.eq()`, `.between()`, `.in_()` |
 | **[`IMU.Q.recording_timestamp_ns`][mosaicolabs.models.Message.recording_timestamp_ns--querying-with-the-q-proxy]** | **Numeric** | `.gt()`, `.lt()`, `.geq()`, `.leq()`, `.eq()`, `.between()`, `.in_()` |
-| **[`IMU.Q.frame_id`][mosaicolabs.models.Message.frame_id--querying-with-the-q-proxy]** | **String** | `.eq()`, `.neq()`, `.match()`, `in_()` |
+| **[`IMU.Q.frame_id`][mosaicolabs.models.Message.frame_id--querying-with-the-q-proxy]** | **String** | `.eq()`, `.match()`, `.in_()`, `.lt()`, `.gt()`, `.leq()`, `.geq()` |
 | **[`IMU.Q.sequence_id`][mosaicolabs.models.Message.sequence_id--querying-with-the-q-proxy]** | **Numeric** | `.gt()`, `.lt()`, `.geq()`, `.leq()`, `.eq()`, `.between()`, `.in_()` |
 
 The following table lists the supported operators for each data type:
 
 | Data Type | Operators |
 | --- | --- |
-| **Numeric** | `.eq()`, `.neq()`, `.lt()`, `.leq()`, `.gt()`, `.geq()`, `.between()`, `.in_()` |
-| **String** | `.eq()`, `.neq()`, `.match()` (i.e. substring), `.in_()` |
+| **Numeric** | `.eq()`, `.lt()`, `.leq()`, `.gt()`, `.geq()`, `.between()`, `.in_()` |
+| **String** | `.eq()`, `.match()` (i.e. substring), `.in_()`, `.lt()`, `.gt()`, `.leq()`, `.geq()` |
 | **Boolean** | `.eq(True/False)` |
-| **Dictionary** | `.eq()`, `.lt()`, `.leq()`, `.gt()`, `.geq()`, `.between()`|
+| **Dictionary** | `.eq()`, `.lt()`, `.leq()`, `.gt()`, `.geq()`, `.between()`, `.ex()`|
 
 #### Supported vs. Unsupported Types
 

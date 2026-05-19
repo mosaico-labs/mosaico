@@ -183,13 +183,29 @@ class _QueryableString:
         getattr(self, "_validate_value_type")(value, self.__mixin_supported_types__)
         return getattr(self, "_cmp")("$eq", value)
 
-    def neq(self, value: Any) -> "_QueryExpression":
-        getattr(self, "_validate_value_type")(value, self.__mixin_supported_types__)
-        return getattr(self, "_cmp")("$neq", value)
+    # def neq(self, value: Any) -> "_QueryExpression":
+    #     getattr(self, "_validate_value_type")(value, self.__mixin_supported_types__)
+    #     return getattr(self, "_cmp")("$neq", value)
 
     def match(self, value: Any) -> "_QueryExpression":
         getattr(self, "_validate_value_type")(value, self.__mixin_supported_types__)
         return getattr(self, "_cmp")("$match", value)
+
+    def lt(self, value: Any):
+        getattr(self, "_validate_value_type")(value, self.__mixin_supported_types__)
+        return getattr(self, "_cmp")("$lt", value)
+
+    def leq(self, value: Any):
+        getattr(self, "_validate_value_type")(value, self.__mixin_supported_types__)
+        return getattr(self, "_cmp")("$leq", value)
+
+    def gt(self, value: Any):
+        getattr(self, "_validate_value_type")(value, self.__mixin_supported_types__)
+        return getattr(self, "_cmp")("$gt", value)
+
+    def geq(self, value: Any):
+        getattr(self, "_validate_value_type")(value, self.__mixin_supported_types__)
+        return getattr(self, "_cmp")("$geq", value)
 
     def in_(self, *values):
         """
@@ -227,6 +243,15 @@ class _QueryableDynamicValue:
         )
         return getattr(self, "_cmp")("$eq", value)
 
+    def neq(self, value: Any):
+        getattr(self, "_validate_value_type")(
+            value,
+            _QueryableComparable.__mixin_supported_types__
+            + _QueryableString.__mixin_supported_types__
+            + _QueryableBool.__mixin_supported_types__,
+        )
+        return getattr(self, "_cmp")("$neq", value)
+
     # TODO: Check with backend guys if those are available
     # def match(self, value: Any):
     #     getattr(self, "_validate_value_type")(
@@ -239,25 +264,33 @@ class _QueryableDynamicValue:
 
     def lt(self, value: Any):
         getattr(self, "_validate_value_type")(
-            value, _QueryableComparable.__mixin_supported_types__
+            value,
+            _QueryableComparable.__mixin_supported_types__
+            + _QueryableString.__mixin_supported_types__,
         )
         return getattr(self, "_cmp")("$lt", value)
 
     def leq(self, value: Any):
         getattr(self, "_validate_value_type")(
-            value, _QueryableComparable.__mixin_supported_types__
+            value,
+            _QueryableComparable.__mixin_supported_types__
+            + _QueryableString.__mixin_supported_types__,
         )
         return getattr(self, "_cmp")("$leq", value)
 
     def gt(self, value: Any):
         getattr(self, "_validate_value_type")(
-            value, _QueryableComparable.__mixin_supported_types__
+            value,
+            _QueryableComparable.__mixin_supported_types__
+            + _QueryableString.__mixin_supported_types__,
         )
         return getattr(self, "_cmp")("$gt", value)
 
     def geq(self, value: Any):
         getattr(self, "_validate_value_type")(
-            value, _QueryableComparable.__mixin_supported_types__
+            value,
+            _QueryableComparable.__mixin_supported_types__
+            + _QueryableString.__mixin_supported_types__,
         )
         return getattr(self, "_cmp")("$geq", value)
 
@@ -267,6 +300,17 @@ class _QueryableDynamicValue:
         Accept either between(v1, v2, ...) or between([v1, v2, ...])
         """
         return getattr(self, "_between")(*values, allowed_types=None)
+
+    def ex(self, value: bool):
+        """Checks for existence of the key in the dictionary field."""
+        getattr(self, "_validate_value_type")(
+            value,
+            _QueryableBool.__mixin_supported_types__,
+        )
+        if value:
+            return getattr(self, "_cmp")("$ex", None)
+        else:
+            return getattr(self, "_cmp")("$nex", None)
 
 
 class _DynamicFieldFactoryMixin:

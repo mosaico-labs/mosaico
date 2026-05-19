@@ -121,7 +121,7 @@ impl IsSupportedOp for Value {
 
     fn support_ordering(&self) -> bool {
         match self {
-            Self::Text(_) => false,
+            Self::Text(_) => true,
             Self::Boolean(_) => false,
             Self::Integer(_) => true,
             Self::Float(_) => true,
