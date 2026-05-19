@@ -202,7 +202,7 @@ def test_invalid_construction_query_from_response():
     _QUERY_TYPES,
 )
 def test_query_base_fails_on_bad_operator_format(query_type: Type[QueryableProtocol]):
-    """Tests the validation that prevents two instances of the same query builder."""
+    """Tests the validation that checks the operator syntax."""
 
     qexpr = query_type.__supported_query_expressions__[0]
     # Fail on __init__
@@ -332,7 +332,7 @@ class TestQueryableComparable:
 
 class TestQueryableString:
     _allowed_types = [str]
-    _allowed_unary_operators = ["eq", "neq", "match"]
+    _allowed_unary_operators = ["eq", "match", "lt", "gt", "leq", "geq"]
     _allowed_varargs_operators = ["in_"]
 
     @pytest.mark.parametrize("value_type", _allowed_types)
@@ -369,7 +369,7 @@ class TestQueryableBool:
 
 class TestQueryableDynamic:
     _allowed_types = _ALL_TESTING_TYPES
-    _allowed_unary_operators = ["eq", "lt", "leq", "gt", "geq"]
+    _allowed_unary_operators = ["eq", "neq", "lt", "leq", "gt", "geq"]
     _allowed_varargs_operators = ["between"]
 
     @pytest.mark.parametrize("value_type", _allowed_types)
@@ -383,7 +383,7 @@ class TestQueryableDynamic:
                 _QueryableDynamicValue,
                 operator,
                 value_type,
-                [int, float],
+                [int, float, str],
                 self._allowed_unary_operators + self._allowed_varargs_operators,
                 None,
             )

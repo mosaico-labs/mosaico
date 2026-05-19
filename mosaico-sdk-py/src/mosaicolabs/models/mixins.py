@@ -43,7 +43,7 @@ class CovarianceMixin(BaseModel):
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `<Model>.Q.covariance_type` | `Numeric` | `.eq()`, `.neq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `<Model>.Q.covariance_type` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
     | `<Model>.Q.covariance` | ***Non-Queryable*** | None |
 
     Note: Universal Compatibility
@@ -107,7 +107,7 @@ class CovarianceMixin(BaseModel):
 
     | Field Access Path | Queryable Type | Supported Operators |
     | --- | --- | --- |
-    | `<Model>.Q.covariance_type` | `Numeric` | `.eq()`, `.neq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `<Model>.Q.covariance_type` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
 
     The `<Model>` placeholder adapts based on how the `CovarianceMixin` is integrated into your data structure:
 
@@ -169,8 +169,8 @@ class VarianceMixin(BaseModel):
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `<Model>.Q.variance` | `Numeric` | `.eq()`, `.neq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
-    | `<Model>.Q.variance_type` | `Numeric` | `.eq()`, `.neq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `<Model>.Q.variance` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `<Model>.Q.variance_type` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
 
     Note: Universal Compatibility
         The `<Model>` placeholder adapts based on how the `VarianceMixin` is integrated into the data structure:
@@ -225,7 +225,7 @@ class VarianceMixin(BaseModel):
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `<Model>.Q.variance` | `Numeric` | `.eq()`, `.neq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `<Model>.Q.variance` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
 
     The `<Model>` placeholder adapts based on how the `VarianceMixin` is integrated into the data structure:
 
@@ -269,7 +269,7 @@ class VarianceMixin(BaseModel):
     
     | Field Access Path | Queryable Type | Supported Operators |
     | --- | --- | --- |
-    | `<Model>.Q.variance_type` | `Numeric` | `.eq()`, `.neq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `<Model>.Q.variance_type` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
 
     The `<Model>` placeholder adapts based on how the `VarianceMixin` is integrated into the data structure:
 
