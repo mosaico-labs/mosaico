@@ -1,3 +1,5 @@
+import math
+
 import numpy as np
 
 from mosaicolabs import (
@@ -6,18 +8,25 @@ from mosaicolabs import (
     ROI,
     Acceleration,
     CameraInfo,
+    CompressedImage,
     ForceTorque,
     GPSStatus,
+    Image,
     Inertia,
+    Joy,
+    Magnetometer,
+    NMEASentence,
     Point3d,
     Polygon,
     Pose,
     Quaternion,
+    RobotJoint,
     Transform,
     Vector2d,
     Vector3d,
     Velocity,
 )
+from mosaicolabs.ros_bridge.data_ontology import BatteryState
 
 
 def assert_vector2(vector2d: Vector2d, ros_msg: dict):
@@ -196,3 +205,77 @@ def assert_imu(imu: IMU, ros_msg):
         assert np.array_equal(
             imu.acceleration.covariance, ros_msg["linear_acceleration_covariance"]
         )
+
+
+def assert_nmea_sentence(nmea_sentence: NMEASentence, ros_msg: dict):
+    assert nmea_sentence.sentence == ros_msg["sentence"]
+
+
+def assert_compressed_image(compressed_image: CompressedImage, ros_msg: dict):
+    assert compressed_image.format == ros_msg["format"]
+    assert np.array_equal(
+        np.frombuffer(compressed_image.data, dtype=np.uint8), ros_msg["data"]
+    )
+
+
+def assert_image(image: Image, ros_msg):
+    assert image.height == ros_msg["height"]
+    assert image.width == ros_msg["width"]
+    assert image.encoding == ros_msg["encoding"]
+    assert int(image.is_bigendian) == ros_msg["is_bigendian"]
+    assert image.stride == ros_msg["step"]
+    assert np.array_equal(
+        np.frombuffer(bytes(image.to_linear_pixels()), dtype=np.uint8), ros_msg["data"]
+    )
+
+
+def assert_battery_state(battery_state: BatteryState, ros_msg):
+    assert battery_state.voltage == ros_msg["voltage"]
+    assert battery_state.temperature == ros_msg["temperature"]
+    assert battery_state.current == ros_msg["current"]
+
+    if battery_state.charge:
+        assert battery_state.charge == ros_msg["charge"]
+    else:
+        assert math.isnan(ros_msg["charge"])
+
+    assert battery_state.capacity == ros_msg["capacity"]
+    assert battery_state.design_capacity == ros_msg["design_capacity"]
+    assert battery_state.percentage == ros_msg["percentage"]
+    assert battery_state.power_supply_status == ros_msg["power_supply_status"]
+    assert battery_state.power_supply_health == ros_msg["power_supply_health"]
+    assert battery_state.power_supply_technology == ros_msg["power_supply_technology"]
+    assert battery_state.present == ros_msg["present"]
+    assert battery_state.location == ros_msg["location"]
+    assert battery_state.serial_number == ros_msg["serial_number"]
+
+    if battery_state.cell_voltage:
+        assert np.array_equal(battery_state.cell_voltage, ros_msg["cell_voltage"])
+    else:
+        assert len(ros_msg["cell_voltage"]) == 0
+
+    assert np.array_equal(battery_state.cell_temperature, ros_msg["cell_temperature"])
+
+
+def assert_robot_joint(robot_joint: RobotJoint, ros_msg: dict):
+    assert robot_joint.names == ros_msg["name"]
+    assert np.array_equal(robot_joint.positions, ros_msg["position"])
+    assert np.array_equal(robot_joint.velocities, ros_msg["velocity"])
+    assert np.array_equal(robot_joint.efforts, ros_msg["effort"])
+
+
+def assert_joy(joy: Joy, ros_msg: dict):
+    assert np.array_equal(joy.axes, ros_msg["axes"])
+    assert np.array_equal(joy.buttons, ros_msg["buttons"])
+
+
+def assert_magnetometer(magnetometer: Magnetometer, ros_msg: dict):
+    assert_vector3(magnetometer.magnetic_field, ros_msg["magnetic_field"])
+
+    if magnetometer.magnetic_field.covariance is not None:
+        assert np.array_equal(
+            magnetometer.magnetic_field.covariance,
+            ros_msg["magnetic_field_covariance"],
+        )
+    else:
+        assert np.array_equal([0] * 9, ros_msg["magnetic_field_covariance"])

@@ -1,3 +1,4 @@
+import math
 import sys
 from dataclasses import asdict
 
@@ -59,10 +60,17 @@ from mosaicolabs.ros_bridge.data_ontology import (
     PointFieldDataType,
 )
 from testing.unit.ros_bridge.adapters.helper import (
+    assert_battery_state,
     assert_camera_info,
+    assert_compressed_image,
     assert_gps,
     assert_gps_status,
+    assert_image,
     assert_imu,
+    assert_joy,
+    assert_magnetometer,
+    assert_nmea_sentence,
+    assert_robot_joint,
     assert_roi,
 )
 
@@ -607,12 +615,33 @@ def nmea_sentence_msg(nmea_sentence):
     return Message(data=nmea_sentence, timestamp_ns=100, frame_id="satellite_link")
 
 
-class TestNMEASentenceAdapter:
-    # def test_translate_nmea_sentence(self): ...  # TODO
-    # def test_translate_raise_missing_required_key(self): ...  # TODO
+@pytest.fixture
+def nmea_sentence_rosmsg(ros_header):
+    return ROSMessage(
+        bag_timestamp_ns=100,
+        topic="/nmea_sentence",
+        msg_type="nmea_msgs/msg/Sentence",
+        data={
+            "header": ros_header,
+            "sentence": "Another sentence",
+        },
+    )
 
-    def assert_nmea_sentence(self, nmea_sentence: NMEASentence, ros_msg):
-        assert nmea_sentence.sentence == ros_msg.sentence
+
+class TestNMEASentenceAdapter:
+    def test_translate_nmea_sentence(self, nmea_sentence_rosmsg: ROSMessage):
+        ms_msg = NMEASentenceAdapter.translate(nmea_sentence_rosmsg)
+
+        assert ms_msg.timestamp_ns == nmea_sentence_rosmsg.header.stamp.to_nanoseconds()
+        assert_nmea_sentence(ms_msg.get_data(NMEASentence), nmea_sentence_rosmsg.data)
+
+    def test_translate_raise_missing_required_key(
+        self, nmea_sentence_rosmsg: ROSMessage
+    ):
+        data = nmea_sentence_rosmsg.data
+        data.pop("sentence")
+        with pytest.raises(ValueError):
+            NMEASentenceAdapter.from_dict(data)
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_nmea_sentence(
@@ -623,7 +652,7 @@ class TestNMEASentenceAdapter:
         ros_msg = NMEASentenceAdapter.to_ros(
             nmea_sentence, typestore, "nmea_msgs/msg/Sentence"
         )
-        self.assert_nmea_sentence(nmea_sentence, ros_msg)
+        assert_nmea_sentence(nmea_sentence, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_nmea_sentence_message(
@@ -634,7 +663,7 @@ class TestNMEASentenceAdapter:
         ros_msg = NMEASentenceAdapter.to_ros(
             nmea_sentence_msg, typestore, "nmea_msgs/msg/Sentence"
         )
-        self.assert_nmea_sentence(nmea_sentence, ros_msg)
+        assert_nmea_sentence(nmea_sentence, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_default_type(
@@ -642,7 +671,7 @@ class TestNMEASentenceAdapter:
     ):
         typestore = register_nmea_sentence(typestore)
         ros_msg = NMEASentenceAdapter.to_ros(nmea_sentence, typestore)
-        self.assert_nmea_sentence(nmea_sentence, ros_msg)
+        assert_nmea_sentence(nmea_sentence, asdict(ros_msg))
 
     def test_to_ros_invalid_rosmsg_type(self, nmea_sentence: NMEASentence):
         ros_msg = NMEASentenceAdapter.to_ros(
@@ -694,29 +723,48 @@ def image_msg(image_raw):
     return Message(data=image_raw, timestamp_ns=100, frame_id="camera_link")
 
 
-class TestImageAdapter:
-    # def test_translate_image_sentence(self): ...  # TODO
-    # def test_translate_raise_missing_required_key(self): ...  # TODO
+@pytest.fixture
+def image_rosmsg(ros_header):
+    return ROSMessage(
+        bag_timestamp_ns=100,
+        topic="/image",
+        msg_type="sensor_msgs/msg/Image",
+        data={
+            "header": ros_header,
+            "height": 2,
+            "width": 2,
+            "encoding": "rgb8",  # defined in src/image_encodings.cpp
+            "is_bigendian": sys.byteorder == "big",
+            "step": 6,
+            "data": np.array(
+                [1, 200, 15, 200, 231, 123, 1, 200, 15, 200, 231, 123], dtype=np.uint8
+            ),
+        },
+    )
 
-    def assert_image(self, image: Image, ros_msg):
-        assert image.height == ros_msg.height
-        assert image.width == ros_msg.width
-        assert image.encoding == ros_msg.encoding
-        assert int(image.is_bigendian) == ros_msg.is_bigendian
-        assert image.stride == ros_msg.step
-        assert np.array_equal(
-            np.frombuffer(bytes(image.to_linear_pixels()), dtype=np.uint8), ros_msg.data
-        )
+
+class TestImageAdapter:
+    def test_translate_image_sentence(self, image_rosmsg: ROSMessage):
+        ms_msg = ImageAdapter.translate(image_rosmsg)
+
+        assert ms_msg.timestamp_ns == image_rosmsg.header.stamp.to_nanoseconds()
+        assert_image(ms_msg.get_data(Image), image_rosmsg.data)
+
+    def test_translate_raise_missing_required_key(self, image_rosmsg: ROSMessage):
+        data = image_rosmsg.data
+        data.pop("width")
+        with pytest.raises(ValueError):
+            ImageAdapter.from_dict(data)
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_image_raw(self, image_raw: Image, typestore: Typestore):
         ros_msg = ImageAdapter.to_ros(image_raw, typestore, "sensor_msgs/msg/Image")
-        self.assert_image(image_raw, ros_msg)
+        assert_image(image_raw, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_image_png(self, image_png: Image, typestore: Typestore):
         ros_msg = ImageAdapter.to_ros(image_png, typestore, "sensor_msgs/msg/Image")
-        self.assert_image(image_png, ros_msg)
+        assert_image(image_png, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_image_message(self, image_msg: Message, typestore: Typestore):
@@ -730,12 +778,12 @@ class TestImageAdapter:
                 nanoseconds=ros_msg.header.stamp.nanosec,
             ).to_nanoseconds()
         )
-        self.assert_image(image, ros_msg)
+        assert_image(image, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_default_type(self, image_raw: Image, typestore: Typestore):
         ros_msg = ImageAdapter.to_ros(image_raw, typestore)
-        self.assert_image(image_raw, ros_msg)
+        assert_image(image_raw, asdict(ros_msg))
 
     def test_to_ros_invalid_rosmsg_type(self, image_raw: Image):
         ros_msg = ImageAdapter.to_ros(
@@ -763,15 +811,38 @@ def compressed_image_msg(compressed_image):
     return Message(data=compressed_image, timestamp_ns=100, frame_id="camera_link")
 
 
-class TestCompressedImageAdapter:
-    # def test_translate_image_compressed(self): ...  # TODO
-    # def test_translate_raise_missing_required_key(self): ...  # TODO
+@pytest.fixture
+def compressed_image_rosmsg(ros_header, compressed_image: CompressedImage):
+    return ROSMessage(
+        bag_timestamp_ns=100,
+        topic="/compressed_image",
+        msg_type="sensor_msgs/msg/CompressedImage",
+        data={
+            "header": ros_header,
+            "format": compressed_image.format,
+            "data": np.frombuffer(compressed_image.data, dtype=np.uint8),
+        },
+    )
 
-    def assert_compressed_image(self, compressed_image: CompressedImage, ros_msg):
-        assert compressed_image.format == ros_msg.format
-        assert np.array_equal(
-            np.frombuffer(compressed_image.data, dtype=np.uint8), ros_msg.data
+
+class TestCompressedImageAdapter:
+    def test_translate_image_compressed(self, compressed_image_rosmsg: ROSMessage):
+        ms_msg = CompressedImageAdapter.translate(compressed_image_rosmsg)
+
+        assert (
+            ms_msg.timestamp_ns == compressed_image_rosmsg.header.stamp.to_nanoseconds()
         )
+        assert_compressed_image(
+            ms_msg.get_data(CompressedImage), compressed_image_rosmsg.data
+        )
+
+    def test_translate_raise_missing_required_key(
+        self, compressed_image_rosmsg: ROSMessage
+    ):
+        data = compressed_image_rosmsg.data
+        data.pop("format")
+        with pytest.raises(ValueError):
+            CompressedImageAdapter.from_dict(data)
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_compressed_image(
@@ -780,7 +851,7 @@ class TestCompressedImageAdapter:
         ros_msg = CompressedImageAdapter.to_ros(
             compressed_image, typestore, "sensor_msgs/msg/CompressedImage"
         )
-        self.assert_compressed_image(compressed_image, ros_msg)
+        assert_compressed_image(compressed_image, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_compressed_image_message(
@@ -798,14 +869,14 @@ class TestCompressedImageAdapter:
                 nanoseconds=ros_msg.header.stamp.nanosec,
             ).to_nanoseconds()
         )
-        self.assert_compressed_image(compressed_image, ros_msg)
+        assert_compressed_image(compressed_image, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_default_type(
         self, compressed_image: CompressedImage, typestore: Typestore
     ):
         ros_msg = CompressedImageAdapter.to_ros(compressed_image, typestore)
-        self.assert_compressed_image(compressed_image, ros_msg)
+        assert_compressed_image(compressed_image, asdict(ros_msg))
 
     def test_to_ros_invalid_rosmsg_type(self, compressed_image: CompressedImage):
         ros_msg = CompressedImageAdapter.to_ros(
@@ -891,7 +962,7 @@ def battery_state():
         voltage=10.0,
         temperature=50.0,
         current=1.0,
-        # charge=70.0, # To simulate None
+        charge=None,
         capacity=100.0,
         design_capacity=210.0,
         percentage=20.0,
@@ -901,7 +972,7 @@ def battery_state():
         present=True,
         location="car",
         serial_number="123456789",
-        # cell_voltage=[1.0, 2.0, 3.0], # To simulate None
+        cell_voltage=None,
         cell_temperature=[4.0, 5.0, 6.0],
     )
 
@@ -911,36 +982,47 @@ def battery_state_msg(battery_state):
     return Message(data=battery_state, timestamp_ns=100, frame_id="car_link")
 
 
+@pytest.fixture
+def battery_state_rosmsg(ros_header, battery_state: BatteryState):
+    return ROSMessage(
+        bag_timestamp_ns=100,
+        topic="/battery_state",
+        msg_type="sensor_msgs/msg/BatteryState",
+        data={
+            "header": ros_header,
+            "voltage": battery_state.voltage,
+            "temperature": battery_state.temperature or math.nan,
+            "current": battery_state.current or math.nan,
+            "charge": battery_state.charge or math.nan,
+            "capacity": battery_state.capacity or math.nan,
+            "design_capacity": battery_state.design_capacity or math.nan,
+            "percentage": battery_state.percentage,
+            "power_supply_status": battery_state.power_supply_status,
+            "power_supply_health": battery_state.power_supply_health,
+            "power_supply_technology": battery_state.power_supply_technology,
+            "present": battery_state.present,
+            "cell_voltage": battery_state.cell_voltage or [],
+            "cell_temperature": battery_state.cell_temperature or [],
+            "location": battery_state.location,
+            "serial_number": battery_state.serial_number,
+        },
+    )
+
+
 class TestBatteryStateAdapter:
-    def assert_battery_state(self, battery_state: BatteryState, ros_msg):
-        assert battery_state.voltage == ros_msg.voltage
-        assert battery_state.temperature == ros_msg.temperature
-        assert battery_state.current == ros_msg.current
+    def test_translate_battery_state(self, battery_state_rosmsg: ROSMessage):
+        ms_msg = BatteryStateAdapter.translate(battery_state_rosmsg)
 
-        if battery_state.charge:
-            assert battery_state.charge == ros_msg.charge
-        else:
-            np.isnan(ros_msg.charge)
+        assert ms_msg.timestamp_ns == battery_state_rosmsg.header.stamp.to_nanoseconds()
+        assert_battery_state(ms_msg.get_data(BatteryState), battery_state_rosmsg.data)
 
-        assert battery_state.capacity == ros_msg.capacity
-        assert battery_state.design_capacity == ros_msg.design_capacity
-        assert battery_state.percentage == ros_msg.percentage
-        assert battery_state.power_supply_status == ros_msg.power_supply_status
-        assert battery_state.power_supply_health == ros_msg.power_supply_health
-        assert battery_state.power_supply_technology == ros_msg.power_supply_technology
-        assert battery_state.present == ros_msg.present
-        assert battery_state.location == ros_msg.location
-        assert battery_state.serial_number == ros_msg.serial_number
-
-        if battery_state.cell_voltage:
-            assert np.array_equal(battery_state.cell_voltage, ros_msg.cell_voltage)
-        else:
-            ros_msg.cell_voltage.size == 0
-
-        assert np.array_equal(battery_state.cell_temperature, ros_msg.cell_temperature)
-
-    # def test_translate_battery_state_sentence(self): ...  # TODO
-    # def test_translate_raise_missing_required_key(self): ...  # TODO
+    def test_translate_raise_missing_required_key(
+        self, battery_state_rosmsg: ROSMessage
+    ):
+        data = battery_state_rosmsg.data
+        data.pop("voltage")
+        with pytest.raises(ValueError):
+            BatteryStateAdapter.from_dict(data)
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_battery_state(
@@ -949,7 +1031,7 @@ class TestBatteryStateAdapter:
         ros_msg = BatteryStateAdapter.to_ros(
             battery_state, typestore, "sensor_msgs/msg/BatteryState"
         )
-        self.assert_battery_state(battery_state, ros_msg)
+        assert_battery_state(battery_state, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_battery_state_message(
@@ -959,14 +1041,14 @@ class TestBatteryStateAdapter:
         ros_msg = BatteryStateAdapter.to_ros(
             battery_state_msg, typestore, "sensor_msgs/msg/BatteryState"
         )
-        self.assert_battery_state(battery_state, ros_msg)
+        assert_battery_state(battery_state, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_default_type(
         self, battery_state: BatteryState, typestore: Typestore
     ):
         ros_msg = BatteryStateAdapter.to_ros(battery_state, typestore)
-        self.assert_battery_state(battery_state, ros_msg)
+        assert_battery_state(battery_state, asdict(ros_msg))
 
     def test_to_ros_invalid_rosmsg_type(self, battery_state: BatteryState):
         ros_msg = BatteryStateAdapter.to_ros(
@@ -999,22 +1081,41 @@ def robot_joint_msg(robot_joint):
     return Message(data=robot_joint, timestamp_ns=100, frame_id="base_link")
 
 
-class TestRobotJointAdapter:
-    def assert_robot_joint(self, robot_joint: RobotJoint, ros_msg):
-        assert robot_joint.names == ros_msg.name
-        assert np.array_equal(robot_joint.positions, ros_msg.position)
-        assert np.array_equal(robot_joint.velocities, ros_msg.velocity)
-        assert np.array_equal(robot_joint.efforts, ros_msg.effort)
+@pytest.fixture
+def robot_joint_rosmsg(ros_header, robot_joint: RobotJoint):
+    return ROSMessage(
+        bag_timestamp_ns=100,
+        topic="/joint_states",
+        msg_type="sensor_msgs/msg/JointState",
+        data={
+            "header": ros_header,
+            "name": robot_joint.names,
+            "position": robot_joint.positions,
+            "velocity": robot_joint.velocities,
+            "effort": robot_joint.efforts,
+        },
+    )
 
-    # def test_translate_robot_joint(self): ...  # TODO
-    # def test_translate_raise_missing_required_key(self): ...  # TODO
+
+class TestRobotJointAdapter:
+    def test_translate_robot_joint(self, robot_joint_rosmsg: ROSMessage):
+        ms_msg = RobotJointAdapter.translate(robot_joint_rosmsg)
+
+        assert ms_msg.timestamp_ns == robot_joint_rosmsg.header.stamp.to_nanoseconds()
+        assert_robot_joint(ms_msg.get_data(RobotJoint), robot_joint_rosmsg.data)
+
+    def test_translate_raise_missing_required_key(self, robot_joint_rosmsg: ROSMessage):
+        data = robot_joint_rosmsg.data
+        data.pop("name")
+        with pytest.raises(ValueError):
+            RobotJointAdapter.from_dict(data)
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_joint_state(self, robot_joint: RobotJoint, typestore: Typestore):
         ros_msg = RobotJointAdapter.to_ros(
             robot_joint, typestore, "sensor_msgs/msg/JointState"
         )
-        self.assert_robot_joint(robot_joint, ros_msg)
+        assert_robot_joint(robot_joint, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_joint_state_message(
@@ -1032,12 +1133,12 @@ class TestRobotJointAdapter:
                 nanoseconds=ros_msg.header.stamp.nanosec,
             ).to_nanoseconds()
         )
-        self.assert_robot_joint(robot_joint, ros_msg)
+        assert_robot_joint(robot_joint, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_default_type(self, robot_joint: RobotJoint, typestore: Typestore):
         ros_msg = RobotJointAdapter.to_ros(robot_joint, typestore)
-        self.assert_robot_joint(robot_joint, ros_msg)
+        assert_robot_joint(robot_joint, asdict(ros_msg))
 
     def test_to_ros_invalid_rosmsg_type(self, robot_joint: RobotJoint):
         ros_msg = RobotJointAdapter.to_ros(
@@ -1073,6 +1174,16 @@ def lidar():
     )
 
 
+def lidar_pcl():
+    encoded = LidarAdapter.encode(lidar().model_dump(exclude_none=True))
+    return ROSMessage(
+        bag_timestamp_ns=100,
+        topic="/lidar",
+        msg_type="sensor_msgs/msg/PointCloud2",
+        data=encoded,
+    )
+
+
 def radar():
     return futures.Radar(
         x=list(range(0, 5)),
@@ -1094,6 +1205,16 @@ def radar():
     )
 
 
+def radar_pcl():
+    encoded = RadarAdapter.encode(radar().model_dump(exclude_none=True))
+    return ROSMessage(
+        bag_timestamp_ns=100,
+        topic="/radar",
+        msg_type="sensor_msgs/msg/PointCloud2",
+        data=encoded,
+    )
+
+
 def rgbd_camera():
     return futures.RGBDCamera(
         x=list(range(0, 5)),
@@ -1101,6 +1222,16 @@ def rgbd_camera():
         z=list(range(10, 15)),
         rgb=list(range(15, 20)),
         intensity=list(range(20, 25)),
+    )
+
+
+def rgbd_camera_pcl():
+    encoded = RGBDCameraAdapter.encode(rgbd_camera().model_dump(exclude_none=True))
+    return ROSMessage(
+        bag_timestamp_ns=100,
+        topic="/rgbd",
+        msg_type="sensor_msgs/msg/PointCloud2",
+        data=encoded,
     )
 
 
@@ -1116,6 +1247,16 @@ def tof_camera():
     )
 
 
+def tof_camera_pcl():
+    encoded = ToFCameraAdapter.encode(tof_camera().model_dump(exclude_none=True))
+    return ROSMessage(
+        bag_timestamp_ns=100,
+        topic="/tof",
+        msg_type="sensor_msgs/msg/PointCloud2",
+        data=encoded,
+    )
+
+
 def stereo_camera():
     return futures.StereoCamera(
         x=list(range(0, 5)),
@@ -1128,12 +1269,31 @@ def stereo_camera():
     )
 
 
+def stereo_camera_pcl():
+    encoded = StereoCameraAdapter.encode(stereo_camera().model_dump(exclude_none=True))
+    return ROSMessage(
+        bag_timestamp_ns=100,
+        topic="/stereo",
+        msg_type="sensor_msgs/msg/PointCloud2",
+        data=encoded,
+    )
+
+
 PCL_ADAPTER_PAIR = [
     (lidar(), LidarAdapter),
     (radar(), RadarAdapter),
     (rgbd_camera(), RGBDCameraAdapter),
     (tof_camera(), ToFCameraAdapter),
     (stereo_camera(), StereoCameraAdapter),
+]
+
+
+PCL_ROSPCL_ADAPTER = [
+    (lidar(), lidar_pcl(), LidarAdapter),
+    (radar(), radar_pcl(), RadarAdapter),
+    (rgbd_camera(), rgbd_camera_pcl(), RGBDCameraAdapter),
+    (tof_camera(), tof_camera_pcl(), ToFCameraAdapter),
+    (stereo_camera(), stereo_camera_pcl(), StereoCameraAdapter),
 ]
 
 
@@ -1194,8 +1354,13 @@ class TestOverrideAdapter:
             }
         )
 
-    # def test_translate_override_adapter(self): ...  # TODO ????
-    # def test_translate_raise_missing_required_key(self): ...  # TODO
+    @pytest.mark.parametrize("ms_pcl, ros_pcl, adapter", PCL_ROSPCL_ADAPTER)
+    def test_translate_override_adapter(
+        self, ms_pcl, ros_pcl: ROSMessage, adapter: PointCloudAdapterBase
+    ):
+        ms_msg = adapter.translate(ros_pcl)
+
+        assert ms_msg.data == ms_pcl
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     @pytest.mark.parametrize("pcl, adapter", PCL_ADAPTER_PAIR)
@@ -1528,15 +1693,37 @@ def joy_msg(joy):
     return Message(data=joy, timestamp_ns=100, frame_id="base_link")
 
 
+@pytest.fixture
+def joy_rosmsg(ros_header, joy: Joy):
+    return ROSMessage(
+        bag_timestamp_ns=100,
+        topic="/joy",
+        msg_type="sensor_msgs/msg/Joy",
+        data={
+            "header": ros_header,
+            "axes": np.asarray(joy.axes, dtype=np.float32),
+            "buttons": np.asarray(joy.buttons, dtype=np.int32),
+        },
+    )
+
+
 class TestJoyAdapter:
-    def assert_joy(self, joy: Joy, ros_msg):
-        assert np.array_equal(np.asarray(joy.axes, dtype=np.float32), ros_msg.axes)
-        assert np.array_equal(np.asarray(joy.buttons, dtype=np.int32), ros_msg.buttons)
+    def test_translate_joy(self, joy_rosmsg: ROSMessage):
+        ms_msg = JoyAdapter.translate(joy_rosmsg)
+
+        assert ms_msg.timestamp_ns == joy_rosmsg.header.stamp.to_nanoseconds()
+        assert_joy(ms_msg.get_data(Joy), joy_rosmsg.data)
+
+    def test_translate_raise_missing_required_key(self, joy_rosmsg: ROSMessage):
+        data = joy_rosmsg.data
+        data.pop("axes")
+        with pytest.raises(ValueError):
+            JoyAdapter.from_dict(data)
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_joy(self, joy: Joy, typestore: Typestore):
         ros_msg = JoyAdapter.to_ros(joy, typestore, "sensor_msgs/msg/Joy")
-        self.assert_joy(joy, ros_msg)
+        assert_joy(joy, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_joy_message(self, joy_msg: Message, typestore: Typestore):
@@ -1550,12 +1737,12 @@ class TestJoyAdapter:
                 nanoseconds=ros_msg.header.stamp.nanosec,
             ).to_nanoseconds()
         )
-        self.assert_joy(joy, ros_msg)
+        assert_joy(joy, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_default_type(self, joy: Joy, typestore: Typestore):
         ros_msg = JoyAdapter.to_ros(joy, typestore)
-        self.assert_joy(joy, ros_msg)
+        assert_joy(joy, asdict(ros_msg))
 
     def test_to_ros_invalid_rosmsg_type(self, joy: Joy):
         ros_msg = JoyAdapter.to_ros(
@@ -1590,20 +1777,67 @@ def magnetometer_msg(magnetometer):
     return Message(data=magnetometer, timestamp_ns=100, frame_id="imu_link")
 
 
+@pytest.fixture
+def magnetometer_rosmsg(ros_header, magnetometer: Magnetometer):
+    return ROSMessage(
+        bag_timestamp_ns=100,
+        topic="/magnetic_field",
+        msg_type="sensor_msgs/msg/MagneticField",
+        data={
+            "header": ros_header,
+            "magnetic_field": {
+                "x": magnetometer.magnetic_field.x,
+                "y": magnetometer.magnetic_field.y,
+                "z": magnetometer.magnetic_field.z,
+            },
+            "magnetic_field_covariance": [0.0] * 9,
+        },
+    )
+
+
+@pytest.fixture
+def magnetometer_w_cov_rosmsg(ros_header, magnetometer_w_cov: Magnetometer):
+    return ROSMessage(
+        bag_timestamp_ns=100,
+        topic="/magnetic_field",
+        msg_type="sensor_msgs/msg/MagneticField",
+        data={
+            "header": ros_header,
+            "magnetic_field": {
+                "x": magnetometer_w_cov.magnetic_field.x,
+                "y": magnetometer_w_cov.magnetic_field.y,
+                "z": magnetometer_w_cov.magnetic_field.z,
+            },
+            "magnetic_field_covariance": list(range(9)),
+        },
+    )
+
+
 class TestMagneticFieldAdapter:
-    def assert_magnetometer(self, magnetometer: Magnetometer, ros_msg):
-        assert magnetometer.magnetic_field.x == ros_msg.magnetic_field.x
-        assert magnetometer.magnetic_field.y == ros_msg.magnetic_field.y
-        assert magnetometer.magnetic_field.z == ros_msg.magnetic_field.z
+    def test_translate_magnetometer(self, magnetometer_rosmsg: ROSMessage):
+        ms_msg = MagneticFieldAdapter.translate(magnetometer_rosmsg)
 
-        if magnetometer.magnetic_field.covariance is not None:
-            np.array_equal(
-                np.asarray(magnetometer.magnetic_field.covariance),
-                ros_msg.magnetic_field_covariance,
-            )
+        assert ms_msg.timestamp_ns == magnetometer_rosmsg.header.stamp.to_nanoseconds()
+        assert_magnetometer(ms_msg.get_data(Magnetometer), magnetometer_rosmsg.data)
 
-        else:
-            np.array_equal(np.asarray([0] * 9), ros_msg.magnetic_field_covariance)
+    def test_translate_magnetometer_w_cov(self, magnetometer_w_cov_rosmsg: ROSMessage):
+        ms_msg = MagneticFieldAdapter.translate(magnetometer_w_cov_rosmsg)
+
+        assert (
+            ms_msg.timestamp_ns
+            == magnetometer_w_cov_rosmsg.header.stamp.to_nanoseconds()
+        )
+        assert_magnetometer(
+            ms_msg.get_data(Magnetometer), magnetometer_w_cov_rosmsg.data
+        )
+
+    def test_translate_raise_missing_required_key(
+        self, magnetometer_rosmsg: ROSMessage
+    ):
+        data = magnetometer_rosmsg.data
+        data.pop("magnetic_field")
+        with pytest.raises(ValueError):
+            MagneticFieldAdapter.from_dict(data)
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_magnetic_field(
@@ -1612,7 +1846,7 @@ class TestMagneticFieldAdapter:
         ros_msg = MagneticFieldAdapter.to_ros(
             magnetometer, typestore, "sensor_msgs/msg/MagneticField"
         )
-        self.assert_magnetometer(magnetometer, ros_msg)
+        assert_magnetometer(magnetometer, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_magnetic_field_w_cov(
@@ -1621,7 +1855,7 @@ class TestMagneticFieldAdapter:
         ros_msg = MagneticFieldAdapter.to_ros(
             magnetometer_w_cov, typestore, "sensor_msgs/msg/MagneticField"
         )
-        self.assert_magnetometer(magnetometer_w_cov, ros_msg)
+        assert_magnetometer(magnetometer_w_cov, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_magnetic_field_message(
@@ -1639,14 +1873,14 @@ class TestMagneticFieldAdapter:
                 nanoseconds=ros_msg.header.stamp.nanosec,
             ).to_nanoseconds()
         )
-        self.assert_magnetometer(magnetometer, ros_msg)
+        assert_magnetometer(magnetometer, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_default_type(
         self, magnetometer: Magnetometer, typestore: Typestore
     ):
         ros_msg = MagneticFieldAdapter.to_ros(magnetometer, typestore)
-        self.assert_magnetometer(magnetometer, ros_msg)
+        assert_magnetometer(magnetometer, asdict(ros_msg))
 
     def test_to_ros_invalid_rosmsg_type(self, magnetometer: Magnetometer):
         ros_msg = MagneticFieldAdapter.to_ros(
