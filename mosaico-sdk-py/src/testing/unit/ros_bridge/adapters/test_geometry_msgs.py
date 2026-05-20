@@ -117,8 +117,8 @@ class TestVectoradapter:
             ms_msg.get_data(Vector3d), vector3d_rosmsg_stamped.data["vector"]
         )
 
-    def test_translate_raise_missing_required_key(self, vector3d: Vector3d):
-        data = vector3d.model_dump(exclude_none=True)
+    def test_translate_raise_missing_required_key(self, vector3d_rosmsg: ROSMessage):
+        data = vector3d_rosmsg.data
         data.pop("z")
         with pytest.raises(ValueError):
             Vector3Adapter.from_dict(data)
@@ -216,8 +216,8 @@ class TestPointadapter:
         assert ms_msg.frame_id == point3d_rosmsg_stamped.header.frame_id
         assert_point3d(ms_msg.get_data(Point3d), point3d_rosmsg_stamped.data["point"])
 
-    def test_translate_raise_missing_required_key(self, point3d: Point3d):
-        data = point3d.model_dump(exclude_none=True)
+    def test_translate_raise_missing_required_key(self, point3d_rosmsg: ROSMessage):
+        data = point3d_rosmsg.data
         data.pop("z")
         with pytest.raises(ValueError):
             PointAdapter.from_dict(data)
@@ -319,8 +319,8 @@ class TestQuaternionAdapter:
             ms_msg.get_data(Quaternion), quaternion_rosmsg_stamped.data["quaternion"]
         )
 
-    def test_translate_raise_missing_required_key(self, quaternion: Quaternion):
-        data = quaternion.model_dump(exclude_none=True)
+    def test_translate_raise_missing_required_key(self, quaternion_rosmsg: ROSMessage):
+        data = quaternion_rosmsg.data
         data.pop("w")
         with pytest.raises(ValueError):
             QuaternionAdapter.from_dict(data)
@@ -421,13 +421,13 @@ def transform_rosmsg_stamped(transform: Transform, ros_header):
 
 
 class TestTransformAdapter:
-    def test_translate_transform(self, transform_rosmsg):
+    def test_translate_transform(self, transform_rosmsg: ROSMessage):
         ms_msg = TransformAdapter.translate(transform_rosmsg)
 
         assert_transform(ms_msg.get_data(Transform), transform_rosmsg.data)
         assert ms_msg.timestamp_ns == transform_rosmsg.bag_timestamp_ns
 
-    def test_translate_transform_stamped(self, transform_rosmsg_stamped):
+    def test_translate_transform_stamped(self, transform_rosmsg_stamped: ROSMessage):
         ms_msg = TransformAdapter.translate(transform_rosmsg_stamped)
 
         assert_transform(
@@ -439,8 +439,8 @@ class TestTransformAdapter:
         )
         assert ms_msg.frame_id == transform_rosmsg_stamped.header.frame_id
 
-    def test_translate_raise_missing_required_key(self, transform):
-        data = transform.model_dump(exclude_none=True)
+    def test_translate_raise_missing_required_key(self, transform_rosmsg: ROSMessage):
+        data = transform_rosmsg.data
         data.pop("translation")
         with pytest.raises(ValueError):
             QuaternionAdapter.from_dict(data)
@@ -558,8 +558,10 @@ class TestWrenchAdapter:
         with pytest.raises(ValueError):
             WrenchAdapter.from_dict({"wrench": "not_a_dict"})
 
-    def test_translate_raise_missing_required_key(self, force_torque: ForceTorque):
-        data = force_torque.model_dump(exclude_none=True)
+    def test_translate_raise_missing_required_key(
+        self, force_torque_ros_msg: ROSMessage
+    ):
+        data = force_torque_ros_msg.data
         data.pop("torque")
         with pytest.raises(ValueError):
             WrenchAdapter.from_dict(data)
@@ -672,12 +674,8 @@ class TestPolygonAdapter:
             ms_msg.get_data(Polygon), polygon_ros_msg_stamped.data["polygon"]
         )
 
-    def test_translate_raise_polygon_not_dict(self):
-        with pytest.raises(ValueError):
-            PolygonAdapter.from_dict({"polygon": "not_a_dict"})
-
-    def test_translate_raise_missing_required_key(self, polygon: Polygon):
-        data = polygon.model_dump(exclude_none=True)
+    def test_translate_raise_missing_required_key(self, polygon_ros_msg: ROSMessage):
+        data = polygon_ros_msg.data
         data.pop("points")
         with pytest.raises(ValueError):
             PolygonAdapter.from_dict(data)
@@ -813,12 +811,8 @@ class TestInertiaAdapter:
             ms_msg.get_data(Inertia), inertia_ros_msg_stamped.data["inertia"]
         )
 
-    def test_translate_raise_inertia_not_dict(self):
-        with pytest.raises(ValueError):
-            InertiaAdapter.from_dict({"inertia": "not_a_dict"})
-
     def test_translate_raise_missing_required_key(self, inertia_ros_msg: ROSMessage):
-        data = dict(inertia_ros_msg.data)
+        data = inertia_ros_msg.data
         data.pop("m")
         with pytest.raises(ValueError):
             InertiaAdapter.from_dict(data)
@@ -985,8 +979,8 @@ class TestPoseAdapter:
 
         assert_pose_w_cov(ms_msg.get_data(Pose), pose_w_cov_stamped_rosmsg.data["pose"])
 
-    def test_translate_raise_missing_required_key(self, pose_rosmsg):
-        data = dict(pose_rosmsg.data)
+    def test_translate_raise_missing_required_key(self, pose_rosmsg: ROSMessage):
+        data = pose_rosmsg.data
         data.pop("position")
         with pytest.raises(ValueError):
             InertiaAdapter.from_dict(data)
@@ -1196,8 +1190,8 @@ class TestTwistAdapter:
             == twist_w_cov_stamped_rosmsg.header.stamp.to_nanoseconds()
         )
 
-    def test_translate_raise_missing_required_key(self, twist_rosmsg):
-        data = dict(twist_rosmsg.data)
+    def test_translate_raise_missing_required_key(self, twist_rosmsg: ROSMessage):
+        data = twist_rosmsg.data
         data.pop("linear")
         with pytest.raises(ValueError):
             InertiaAdapter.from_dict(data)
@@ -1407,7 +1401,11 @@ class TestAccelAdapter:
             ms_msg.get_data(Acceleration), accel_w_cov_stamped_rosmsg.data["accel"]
         )
 
-    def test_translate_raise_missing_required_key(self, accel_rosmsg: ROSMessage): ...
+    def test_translate_raise_missing_required_key(self, accel_rosmsg: ROSMessage):
+        data = accel_rosmsg.data
+        data.pop("linear")
+        with pytest.raises(ValueError):
+            AccelAdapter.from_dict(data)
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_accel(self, accel: Acceleration, typestore: Typestore):

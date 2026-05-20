@@ -1,17 +1,28 @@
 import numpy as np
 
 from mosaicolabs import (
+    GPS,
+    IMU,
+    ROI,
     Acceleration,
+    CameraInfo,
     ForceTorque,
+    GPSStatus,
     Inertia,
     Point3d,
     Polygon,
     Pose,
     Quaternion,
     Transform,
+    Vector2d,
     Vector3d,
     Velocity,
 )
+
+
+def assert_vector2(vector2d: Vector2d, ros_msg: dict):
+    assert vector2d.x == ros_msg["x"]
+    assert vector2d.y == ros_msg["y"]
 
 
 def assert_vector3(vector3d: Vector3d, ros_msg: dict):
@@ -19,15 +30,11 @@ def assert_vector3(vector3d: Vector3d, ros_msg: dict):
     assert vector3d.y == ros_msg["y"]
     assert vector3d.z == ros_msg["z"]
 
-    assert vector3d.covariance == ros_msg.get("covariance")
-
 
 def assert_point3d(point3d: Point3d, ros_msg: dict):
     assert point3d.x == ros_msg["x"]
     assert point3d.y == ros_msg["y"]
     assert point3d.z == ros_msg["z"]
-
-    assert point3d.covariance == ros_msg.get("covariance")
 
 
 def assert_quaternion(quaternion: Quaternion, ros_msg: dict):
@@ -35,8 +42,6 @@ def assert_quaternion(quaternion: Quaternion, ros_msg: dict):
     assert quaternion.y == ros_msg["y"]
     assert quaternion.z == ros_msg["z"]
     assert quaternion.w == ros_msg["w"]
-
-    assert quaternion.covariance == ros_msg.get("covariance")
 
 
 def assert_transform(transform: Transform, ros_msg: dict):
@@ -108,3 +113,86 @@ def assert_accel_w_cov(accel_w_cov: Acceleration, ros_msg):
         assert (ros_msg["covariance"] == 0).all()
     else:
         assert np.array_equal(accel_w_cov.covariance, ros_msg["covariance"])
+
+
+def assert_roi(roi: ROI, ros_msg):
+    assert roi.offset.x == ros_msg["x_offset"]
+    assert roi.offset.y == ros_msg["y_offset"]
+    assert roi.height == ros_msg["height"]
+    assert roi.width == ros_msg["width"]
+    assert roi.do_rectify == ros_msg["do_rectify"]
+
+
+def assert_camera_info(camera_info: CameraInfo, ros_msg):
+    assert camera_info.height == ros_msg["height"]
+    assert camera_info.width == ros_msg["width"]
+    assert camera_info.distortion_model == ros_msg["distortion_model"]
+
+    if "d" in ros_msg:  # ROS2
+        assert camera_info.distortion_parameters == list(ros_msg["d"])
+    else:
+        assert camera_info.distortion_parameters == list(ros_msg["D"])
+
+    if "k" in ros_msg:  # ROS2
+        assert camera_info.intrinsic_parameters == list(ros_msg["k"])
+    else:
+        assert camera_info.intrinsic_parameters == list(ros_msg["K"])
+
+    if "r" in ros_msg:  # ROS2
+        assert camera_info.rectification_parameters == list(ros_msg["r"])
+    else:
+        assert camera_info.rectification_parameters == list(ros_msg["R"])
+
+    if "p" in ros_msg:  # ROS2
+        assert camera_info.projection_parameters == list(ros_msg["p"])
+    else:
+        assert camera_info.projection_parameters == list(ros_msg["P"])
+
+    assert camera_info.binning.x == ros_msg["binning_x"]
+    assert camera_info.binning.y == ros_msg["binning_y"]
+    assert_roi(camera_info.roi, ros_msg["roi"])
+
+
+def assert_gps_status(gps_status: GPSStatus, ros_msg):
+    assert gps_status.status == ros_msg["status"]
+    assert gps_status.service == ros_msg["service"]
+
+
+def assert_gps(gps: GPS, ros_msg):
+    assert_gps_status(gps.status, ros_msg["status"])
+    assert gps.position.x == ros_msg["latitude"]
+    assert gps.position.y == ros_msg["longitude"]
+    assert gps.position.z == ros_msg["altitude"]
+
+    if gps.position.covariance is None:
+        assert (ros_msg["position_covariance"] == 0.0).all()
+    else:
+        assert np.array_equal(gps.position.covariance, ros_msg["position_covariance"])
+        assert gps.position.covariance_type == ros_msg["position_covariance_type"]
+
+
+def assert_imu(imu: IMU, ros_msg):
+    assert_quaternion(imu.orientation, ros_msg["orientation"])
+    assert_vector3(imu.angular_velocity, ros_msg["angular_velocity"])
+    assert_vector3(imu.acceleration, ros_msg["linear_acceleration"])
+
+    if imu.orientation.covariance is None:
+        assert all(v == 0 for v in ros_msg["orientation_covariance"])
+    else:
+        assert np.array_equal(
+            imu.orientation.covariance, ros_msg["orientation_covariance"]
+        )
+
+    if imu.angular_velocity.covariance is None:
+        assert all(v == 0 for v in ros_msg["angular_velocity_covariance"])
+    else:
+        assert np.array_equal(
+            imu.angular_velocity.covariance, ros_msg["angular_velocity_covariance"]
+        )
+
+    if imu.acceleration.covariance is None:
+        assert all(v == 0 for v in ros_msg["angular_velocity_covariance"])
+    else:
+        assert np.array_equal(
+            imu.acceleration.covariance, ros_msg["linear_acceleration_covariance"]
+        )

@@ -1,4 +1,5 @@
 import sys
+from dataclasses import asdict
 
 import numpy as np
 import pytest
@@ -27,6 +28,7 @@ from mosaicolabs import (
     Vector3d,
     futures,
 )
+from mosaicolabs.ros_bridge import ROSMessage
 from mosaicolabs.ros_bridge.adapters import (
     BatteryStateAdapter,
     CameraInfoAdapter,
@@ -55,6 +57,13 @@ from mosaicolabs.ros_bridge.data_ontology import (
     PointCloud2,
     PointField,
     PointFieldDataType,
+)
+from testing.unit.ros_bridge.adapters.helper import (
+    assert_camera_info,
+    assert_gps,
+    assert_gps_status,
+    assert_imu,
+    assert_roi,
 )
 
 ROS_TYPESTORE_TO_TEST = [
@@ -100,44 +109,86 @@ def camera_info_msg(camera_info):
     )
 
 
+@pytest.fixture
+def roi_rosmsg():
+    return ROSMessage(
+        bag_timestamp_ns=100,
+        topic="/roi",
+        msg_type="sensor_msgs/msg/RegionOfInterest",
+        data={
+            "x_offset": 10,
+            "y_offset": 20,
+            "height": 100,
+            "width": 200,
+            "do_rectify": True,
+        },
+    )
+
+
+@pytest.fixture
+def camera_info_ros1msg(ros_header, roi_rosmsg):
+    return ROSMessage(
+        bag_timestamp_ns=100,
+        topic="/camera_info",
+        msg_type="sensor_msgs/msg/CameraInfo",
+        data={
+            "header": ros_header,
+            "height": 1080,
+            "width": 1920,
+            "distortion_model": "plumb_bob",
+            "D": list(range(0, 6)),
+            "K": list(range(0, 9)),
+            "R": list(range(0, 9)),
+            "P": list(range(0, 12)),
+            "binning_x": 3,
+            "binning_y": 3,
+            "roi": roi_rosmsg.data,
+        },
+    )
+
+
+@pytest.fixture
+def camera_info_ros2msg(ros_header, roi_rosmsg):
+    return ROSMessage(
+        bag_timestamp_ns=100,
+        topic="/camera_info",
+        msg_type="sensor_msgs/msg/CameraInfo",
+        data={
+            "header": ros_header,
+            "height": 1080,
+            "width": 1920,
+            "distortion_model": "plumb_bob",
+            "d": list(range(0, 6)),
+            "k": list(range(0, 9)),
+            "r": list(range(0, 9)),
+            "p": list(range(0, 12)),
+            "binning_x": 3,
+            "binning_y": 3,
+            "roi": roi_rosmsg.data,
+        },
+    )
+
+
 class TestCameraInfoAdapter:
-    # def test_translate_camera_info(self): ...  # TODO
-    # def test_translate_camera_info_stamped(self): ...  # TODO
-    # def test_translate_raise_camera_info_not_dict(self): ...  # TODO
-    # def test_translate_raise_missing_required_key(self): ...  # TODO
+    def test_translate_camera_info1(self, camera_info_ros1msg: ROSMessage):
+        ms_msg = CameraInfoAdapter.translate(camera_info_ros1msg)
 
-    def assert_camera_info(self, camera_info, ros_msg):
-        assert camera_info.height == ros_msg.height
-        assert camera_info.width == ros_msg.width
-        assert camera_info.distortion_model == ros_msg.distortion_model
+        assert_camera_info(ms_msg.get_data(CameraInfo), camera_info_ros1msg.data)
+        assert ms_msg.timestamp_ns == camera_info_ros1msg.header.stamp.to_nanoseconds()
 
-        if "d" in ros_msg.__dataclass_fields__:  # ROS2
-            assert (camera_info.distortion_parameters == ros_msg.d).all()
-        else:
-            assert (camera_info.distortion_parameters == ros_msg.D).all()
+    def test_translate_camera_info2(self, camera_info_ros2msg: ROSMessage):
+        ms_msg = CameraInfoAdapter.translate(camera_info_ros2msg)
 
-        if "k" in ros_msg.__dataclass_fields__:  # ROS2
-            assert (camera_info.intrinsic_parameters == ros_msg.k).all()
-        else:
-            assert (camera_info.intrinsic_parameters == ros_msg.K).all()
+        assert_camera_info(ms_msg.get_data(CameraInfo), camera_info_ros2msg.data)
+        assert ms_msg.timestamp_ns == camera_info_ros2msg.header.stamp.to_nanoseconds()
 
-        if "r" in ros_msg.__dataclass_fields__:  # ROS2
-            assert (camera_info.rectification_parameters == ros_msg.r).all()
-        else:
-            assert (camera_info.rectification_parameters == ros_msg.R).all()
-
-        if "p" in ros_msg.__dataclass_fields__:  # ROS2
-            assert (camera_info.projection_parameters == ros_msg.p).all()
-        else:
-            assert (camera_info.projection_parameters == ros_msg.P).all()
-
-        assert camera_info.binning.x == ros_msg.binning_x
-        assert camera_info.binning.y == ros_msg.binning_y
-        assert camera_info.roi.offset.x == ros_msg.roi.x_offset
-        assert camera_info.roi.offset.y == ros_msg.roi.y_offset
-        assert camera_info.roi.height == ros_msg.roi.height
-        assert camera_info.roi.width == ros_msg.roi.width
-        assert camera_info.roi.do_rectify == ros_msg.roi.do_rectify
+    def test_translate_raise_missing_required_key(
+        self, camera_info_ros1msg: ROSMessage
+    ):
+        data = camera_info_ros1msg.data
+        data.pop("height")
+        with pytest.raises(ValueError):
+            CameraInfoAdapter.from_dict(data)
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_camera_info(self, camera_info: CameraInfo, typestore: Typestore):
@@ -145,7 +196,7 @@ class TestCameraInfoAdapter:
             camera_info, typestore, "sensor_msgs/msg/CameraInfo"
         )
 
-        self.assert_camera_info(camera_info, ros_msg)
+        assert_camera_info(camera_info, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_camera_info_message(
@@ -156,13 +207,21 @@ class TestCameraInfoAdapter:
             camera_info_msg, typestore, "sensor_msgs/msg/CameraInfo"
         )
 
-        self.assert_camera_info(camera_info, ros_msg)
+        assert camera_info_msg.frame_id == ros_msg.header.frame_id
+        assert (
+            camera_info_msg.timestamp_ns
+            == Time(
+                seconds=ros_msg.header.stamp.sec,
+                nanoseconds=ros_msg.header.stamp.nanosec,
+            ).to_nanoseconds()
+        )
+        assert_camera_info(camera_info, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_default_type(self, camera_info: CameraInfo, typestore: Typestore):
         ros_msg = CameraInfoAdapter.to_ros(camera_info, typestore)
 
-        self.assert_camera_info(camera_info, ros_msg)
+        assert_camera_info(camera_info, asdict(ros_msg))
 
     def test_to_ros_invalid_rosmsg_type(self, camera_info: CameraInfo):
         ros_msg = CameraInfoAdapter.to_ros(
@@ -198,11 +257,30 @@ def gps_status_msg(gps_status):
     )
 
 
+@pytest.fixture
+def nav_sat_status_rosmsg(gps_status: GPSStatus):
+    return ROSMessage(
+        bag_timestamp_ns=100,
+        topic="/nav_sat_status",
+        msg_type="sensor_msgs/msg/NavSatStatus",
+        data=gps_status.model_dump(exclude_none=True),
+    )
+
+
 class TestNavSatStatusAdapter:
-    # def test_translate_nav_sat_status(self): ...  # TODO
-    # def test_translate_nav_sat_status_stamped(self): ...  # TODO
-    # def test_translate_raise_nav_sat_status_not_dict(self): ...  # TODO
-    # def test_translate_raise_missing_required_key(self): ...  # TODO
+    def test_translate_nav_sat_status(self, nav_sat_status_rosmsg: ROSMessage):
+        ms_msg = NavSatStatusAdapter.translate(nav_sat_status_rosmsg)
+
+        assert ms_msg.timestamp_ns == nav_sat_status_rosmsg.bag_timestamp_ns
+        assert_gps_status(ms_msg.get_data(GPSStatus), nav_sat_status_rosmsg.data)
+
+    def test_translate_raise_missing_required_key(
+        self, nav_sat_status_rosmsg: ROSMessage
+    ):
+        data = nav_sat_status_rosmsg.data
+        data.pop("status")
+        with pytest.raises(ValueError):
+            NavSatStatusAdapter.from_dict(data)
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_nav_sat_status(self, gps_status: GPSStatus, typestore: Typestore):
@@ -210,8 +288,7 @@ class TestNavSatStatusAdapter:
             gps_status, typestore, "sensor_msgs/msg/NavSatStatus"
         )
 
-        assert gps_status.status == ros_msg.status
-        assert gps_status.service == ros_msg.service
+        assert_gps_status(gps_status, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_nav_sat_status_message(
@@ -222,15 +299,13 @@ class TestNavSatStatusAdapter:
             gps_status_msg, typestore, "sensor_msgs/msg/NavSatStatus"
         )
 
-        assert gps_status.status == ros_msg.status
-        assert gps_status.service == ros_msg.service
+        assert_gps_status(gps_status, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_default_type(self, gps_status: GPSStatus, typestore: Typestore):
         ros_msg = NavSatStatusAdapter.to_ros(gps_status, typestore)
 
-        assert gps_status.status == ros_msg.status
-        assert gps_status.service == ros_msg.service
+        assert_gps_status(gps_status, asdict(ros_msg))
 
     def test_to_ros_invalid_rosmsg_type(self, gps_status: GPSStatus):
         ros_msg = NavSatStatusAdapter.to_ros(
@@ -276,36 +351,49 @@ def gps_msg(gps):
     )
 
 
+@pytest.fixture
+def nav_sat_fix_rosmsg(ros_header, gps_status: GPSStatus):
+    return ROSMessage(
+        bag_timestamp_ns=100,
+        topic="/nav_sat_fix",
+        msg_type="sensor_msgs/msg/NavSatFix",
+        data={
+            "header": ros_header,
+            "status": gps_status.model_dump(),
+            "latitude": 10.0,
+            "longitude": 20.0,
+            "altitude": 30.0,
+            "position_covariance": list(range(9)),
+            "position_covariance_type": 2,
+        },
+    )
+
+
 class TestGPSAdapter:
-    # def test_translate_nav_sat_fix(self): ...  # TODO
-    # def test_translate_nav_sat_fix_stamped(self): ...  # TODO
-    # def test_translate_raise_nav_sat_fix_not_dict(self): ...  # TODO
-    # def test_translate_raise_missing_required_key(self): ...  # TODO
+    def test_translate_nav_sat_fix(self, nav_sat_fix_rosmsg: ROSMessage):
+        ms_msg = GPSAdapter.translate(nav_sat_fix_rosmsg)
+
+        assert ms_msg.frame_id == nav_sat_fix_rosmsg.header.frame_id
+        assert ms_msg.timestamp_ns == nav_sat_fix_rosmsg.header.stamp.to_nanoseconds()
+        assert_gps(ms_msg.get_data(GPS), nav_sat_fix_rosmsg.data)
+
+    def test_translate_raise_missing_required_key(self, nav_sat_fix_rosmsg: ROSMessage):
+        data = nav_sat_fix_rosmsg.data
+        data.pop("status")
+        with pytest.raises(ValueError):
+            GPSAdapter.from_dict(data)
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_nav_sat_fix(self, gps: GPS, typestore: Typestore):
         ros_msg = GPSAdapter.to_ros(gps, typestore, "sensor_msgs/msg/NavSatFix")
 
-        assert gps.status.status == ros_msg.status.status
-        assert gps.status.service == ros_msg.status.service
-        assert gps.position.x == ros_msg.latitude
-        assert gps.position.y == ros_msg.longitude
-        assert gps.position.z == ros_msg.altitude
-        assert (ros_msg.position_covariance == 0.0).all()
+        assert_gps(gps, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_nav_sat_fix_w_cov(self, gps_w_cov: GPS, typestore: Typestore):
         ros_msg = GPSAdapter.to_ros(gps_w_cov, typestore, "sensor_msgs/msg/NavSatFix")
 
-        assert gps_w_cov.status.status == ros_msg.status.status
-        assert gps_w_cov.status.service == ros_msg.status.service
-        assert gps_w_cov.position.x == ros_msg.latitude
-        assert gps_w_cov.position.y == ros_msg.longitude
-        assert gps_w_cov.position.z == ros_msg.altitude
-        assert np.array_equal(
-            gps_w_cov.position.covariance, ros_msg.position_covariance
-        )
-        assert gps_w_cov.position.covariance_type == ros_msg.position_covariance_type
+        assert_gps(gps_w_cov, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_nav_sat_fix_message(self, gps_msg: Message, typestore: Typestore):
@@ -320,23 +408,13 @@ class TestGPSAdapter:
                 nanoseconds=ros_msg.header.stamp.nanosec,
             ).to_nanoseconds()
         )
-        assert gps.status.status == ros_msg.status.status
-        assert gps.status.service == ros_msg.status.service
-        assert gps.position.x == ros_msg.latitude
-        assert gps.position.y == ros_msg.longitude
-        assert gps.position.z == ros_msg.altitude
-        assert (ros_msg.position_covariance == 0.0).all()
+        assert_gps(gps, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_default_type(self, gps: GPS, typestore: Typestore):
         ros_msg = GPSAdapter.to_ros(gps, typestore)
 
-        assert gps.status.status == ros_msg.status.status
-        assert gps.status.service == ros_msg.status.service
-        assert gps.position.x == ros_msg.latitude
-        assert gps.position.y == ros_msg.longitude
-        assert gps.position.z == ros_msg.altitude
-        assert (ros_msg.position_covariance == 0.0).all()
+        assert_gps(gps, asdict(ros_msg))
 
     def test_to_ros_invalid_rosmsg_type(self, gps: GPS):
         ros_msg = GPSAdapter.to_ros(
@@ -403,46 +481,74 @@ def imu_msg(imu):
     )
 
 
-class TestIMUAdapter:
-    # def test_translate_imu(self): ...  # TODO
-    # def test_translate_imu_stamped(self): ...  # TODO
-    # def test_translate_raise_imu_not_dict(self): ...  # TODO
-    # def test_translate_raise_missing_required_key(self): ...  # TODO
+@pytest.fixture
+def imu_rosmsg(ros_header, imu: IMU):
+    return ROSMessage(
+        bag_timestamp_ns=100,
+        topic="/imu",
+        msg_type="sensor_msgs/msg/imu",
+        data={
+            "header": ros_header,
+            "orientation": {"x": 0.0, "y": 0.0, "z": 0.0, "w": 1.0},
+            "orientation_covariance": [0.0] * 9,
+            "angular_velocity": {"x": 1.0, "y": 2.0, "z": 3.0},
+            "angular_velocity_covariance": [0.0] * 9,
+            "linear_acceleration": {"x": 1.0, "y": 2.0, "z": 3.0},
+            "linear_acceleration_covariance": [0.0] * 9,
+        },
+    )
 
-    def assert_imu(self, imu: IMU, ros_msg):
-        assert imu.orientation.x == ros_msg.orientation.x
-        assert imu.orientation.y == ros_msg.orientation.y
-        assert imu.orientation.z == ros_msg.orientation.z
-        assert imu.angular_velocity.x == ros_msg.angular_velocity.x
-        assert imu.angular_velocity.y == ros_msg.angular_velocity.y
-        assert imu.angular_velocity.z == ros_msg.angular_velocity.z
-        assert imu.acceleration.x == ros_msg.linear_acceleration.x
-        assert imu.acceleration.y == ros_msg.linear_acceleration.y
-        assert imu.acceleration.z == ros_msg.linear_acceleration.z
+
+@pytest.fixture
+def imu_w_cov_rosmsg(ros_header, imu: IMU):
+    tmp = ROSMessage(
+        bag_timestamp_ns=100,
+        topic="/imu",
+        msg_type="sensor_msgs/msg/imu",
+        data={
+            "header": ros_header,
+            "orientation": {"x": 0.0, "y": 0.0, "z": 0.0, "w": 1.0},
+            "orientation_covariance": list(range(9)),
+            "angular_velocity": {"x": 1.0, "y": 2.0, "z": 3.0},
+            "angular_velocity_covariance": list(range(9)),
+            "linear_acceleration": {"x": 1.0, "y": 2.0, "z": 3.0},
+            "linear_acceleration_covariance": list(range(9)),
+        },
+    )
+
+    return tmp
+
+
+class TestIMUAdapter:
+    def test_translate_imu(self, imu_rosmsg: ROSMessage):
+        ms_msg = IMUAdapter.translate(imu_rosmsg)
+
+        assert ms_msg.timestamp_ns == imu_rosmsg.header.stamp.to_nanoseconds()
+        assert_imu(ms_msg.get_data(IMU), imu_rosmsg.data)
+
+    def test_translate_imu_w_cov(self, imu_w_cov_rosmsg: ROSMessage):
+        ms_msg = IMUAdapter.translate(imu_w_cov_rosmsg)
+
+        assert ms_msg.timestamp_ns == imu_w_cov_rosmsg.header.stamp.to_nanoseconds()
+        assert_imu(ms_msg.get_data(IMU), imu_w_cov_rosmsg.data)
+
+    def test_translate_raise_missing_required_key(self, imu_w_cov_rosmsg: ROSMessage):
+        data = imu_w_cov_rosmsg.data
+        data.pop("angular_velocity")
+        with pytest.raises(ValueError):
+            IMUAdapter.from_dict(data)
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_imu(self, imu: IMU, typestore: Typestore):
         ros_msg = IMUAdapter.to_ros(imu, typestore, "sensor_msgs/msg/Imu")
 
-        self.assert_imu(imu, ros_msg)
-        assert (ros_msg.orientation_covariance == 0.0).all()
-        assert (ros_msg.angular_velocity_covariance == 0.0).all()
-        assert (ros_msg.linear_acceleration_covariance == 0.0).all()
+        assert_imu(imu, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_imu_w_cov(self, imu_w_cov: IMU, typestore: Typestore):
         ros_msg = IMUAdapter.to_ros(imu_w_cov, typestore, "sensor_msgs/msg/Imu")
 
-        self.assert_imu(imu_w_cov, ros_msg)
-        assert np.array_equal(
-            imu_w_cov.orientation.covariance, ros_msg.orientation_covariance
-        )
-        assert np.array_equal(
-            imu_w_cov.angular_velocity.covariance, ros_msg.angular_velocity_covariance
-        )
-        assert np.array_equal(
-            imu_w_cov.acceleration.covariance, ros_msg.linear_acceleration_covariance
-        )
+        assert_imu(imu_w_cov, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_imu_message(self, imu_msg: Message, typestore: Typestore):
@@ -457,13 +563,13 @@ class TestIMUAdapter:
                 nanoseconds=ros_msg.header.stamp.nanosec,
             ).to_nanoseconds()
         )
-        self.assert_imu(imu, ros_msg)
+        assert_imu(imu, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_default_type(self, imu: IMU, typestore: Typestore):
         ros_msg = IMUAdapter.to_ros(imu, typestore)
 
-        self.assert_imu(imu, ros_msg)
+        assert_imu(imu, asdict(ros_msg))
 
     def test_to_ros_invalid_rosmsg_type(self, imu: IMU):
         ros_msg = IMUAdapter.to_ros(
@@ -502,6 +608,9 @@ def nmea_sentence_msg(nmea_sentence):
 
 
 class TestNMEASentenceAdapter:
+    # def test_translate_nmea_sentence(self): ...  # TODO
+    # def test_translate_raise_missing_required_key(self): ...  # TODO
+
     def assert_nmea_sentence(self, nmea_sentence: NMEASentence, ros_msg):
         assert nmea_sentence.sentence == ros_msg.sentence
 
@@ -586,6 +695,9 @@ def image_msg(image_raw):
 
 
 class TestImageAdapter:
+    # def test_translate_image_sentence(self): ...  # TODO
+    # def test_translate_raise_missing_required_key(self): ...  # TODO
+
     def assert_image(self, image: Image, ros_msg):
         assert image.height == ros_msg.height
         assert image.width == ros_msg.width
@@ -652,6 +764,9 @@ def compressed_image_msg(compressed_image):
 
 
 class TestCompressedImageAdapter:
+    # def test_translate_image_compressed(self): ...  # TODO
+    # def test_translate_raise_missing_required_key(self): ...  # TODO
+
     def assert_compressed_image(self, compressed_image: CompressedImage, ros_msg):
         assert compressed_image.format == ros_msg.format
         assert np.array_equal(
@@ -724,17 +839,22 @@ def roi_msg(roi):
 
 
 class TestROIAdapter:
-    def assert_roi(self, roi: ROI, ros_msg):
-        assert roi.offset.x == ros_msg.x_offset
-        assert roi.offset.y == ros_msg.y_offset
-        assert roi.height == ros_msg.height
-        assert roi.width == ros_msg.width
-        assert roi.do_rectify == ros_msg.do_rectify
+    def test_translate_roi_sentence(self, roi_rosmsg: ROSMessage):
+        ms_msg = ROIAdapter.translate(roi_rosmsg)
+
+        assert_roi(ms_msg.get_data(ROI), roi_rosmsg.data)
+        assert ms_msg.timestamp_ns == roi_rosmsg.bag_timestamp_ns
+
+    def test_translate_raise_missing_required_key(self, roi_rosmsg: ROSMessage):
+        data = roi_rosmsg.data
+        data.pop("height")
+        with pytest.raises(ValueError):
+            ROIAdapter.from_dict(data)
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_roi(self, roi: ROI, typestore: Typestore):
         ros_msg = ROIAdapter.to_ros(roi, typestore, "sensor_msgs/msg/RegionOfInterest")
-        self.assert_roi(roi, ros_msg)
+        assert_roi(roi, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_roi_message(self, roi_msg: Message, typestore: Typestore):
@@ -742,12 +862,12 @@ class TestROIAdapter:
         ros_msg = ROIAdapter.to_ros(
             roi_msg, typestore, "sensor_msgs/msg/RegionOfInterest"
         )
-        self.assert_roi(roi, ros_msg)
+        assert_roi(roi, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_default_type(self, roi: ROI, typestore: Typestore):
         ros_msg = ROIAdapter.to_ros(roi, typestore)
-        self.assert_roi(roi, ros_msg)
+        assert_roi(roi, asdict(ros_msg))
 
     def test_to_ros_invalid_rosmsg_type(self, roi: ROI):
         ros_msg = ROIAdapter.to_ros(
@@ -819,6 +939,9 @@ class TestBatteryStateAdapter:
 
         assert np.array_equal(battery_state.cell_temperature, ros_msg.cell_temperature)
 
+    # def test_translate_battery_state_sentence(self): ...  # TODO
+    # def test_translate_raise_missing_required_key(self): ...  # TODO
+
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_battery_state(
         self, battery_state: BatteryState, typestore: Typestore
@@ -882,6 +1005,9 @@ class TestRobotJointAdapter:
         assert np.array_equal(robot_joint.positions, ros_msg.position)
         assert np.array_equal(robot_joint.velocities, ros_msg.velocity)
         assert np.array_equal(robot_joint.efforts, ros_msg.effort)
+
+    # def test_translate_robot_joint(self): ...  # TODO
+    # def test_translate_raise_missing_required_key(self): ...  # TODO
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_joint_state(self, robot_joint: RobotJoint, typestore: Typestore):
@@ -1067,6 +1193,9 @@ class TestOverrideAdapter:
                 "is_dense": ros_msg.is_dense,
             }
         )
+
+    # def test_translate_override_adapter(self): ...  # TODO ????
+    # def test_translate_raise_missing_required_key(self): ...  # TODO
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     @pytest.mark.parametrize("pcl, adapter", PCL_ADAPTER_PAIR)
