@@ -1,6 +1,5 @@
 from dataclasses import asdict
 
-import numpy as np
 import pytest
 from rosbags.typesys.stores import Stores, Typestore, get_typestore
 
@@ -32,15 +31,19 @@ from mosaicolabs.ros_bridge.adapters import (
 )
 from mosaicolabs.ros_bridge.ros_message import ROSMessage
 from testing.unit.ros_bridge.adapters.helper import (
+    assert_accel,
+    assert_accel_w_cov,
     assert_force_torque,
     assert_inertia,
     assert_point3d,
     assert_polygon,
     assert_pose,
+    assert_pose_w_cov,
     assert_quaternion,
     assert_transform,
+    assert_twist,
+    assert_twist_w_cov,
     assert_vector3,
-    asset_pose_w_cov,
 )
 
 ROS_TYPESTORE_TO_TEST = [
@@ -77,7 +80,7 @@ def vector3d_rosmsg(vector3d: Vector3d):
         bag_timestamp_ns=100,
         topic="/vector3",
         msg_type="geometry_msgs/msg/Vector3",
-        data=vector3d.model_dump(),
+        data=vector3d.model_dump(exclude_none=True),
     )
 
 
@@ -87,7 +90,7 @@ def vector3d_rosmsg_stamped(vector3d: Vector3d, ros_header):
         bag_timestamp_ns=100,
         topic="/vector3",
         msg_type="geometry_msgs/msg/Vector3Stamped",
-        data={"header": ros_header, "vector": vector3d.model_dump()},
+        data={"header": ros_header, "vector": vector3d.model_dump(exclude_none=True)},
     )
 
 
@@ -115,7 +118,7 @@ class TestVectoradapter:
         )
 
     def test_translate_raise_missing_required_key(self, vector3d: Vector3d):
-        data = vector3d.model_dump()
+        data = vector3d.model_dump(exclude_none=True)
         data.pop("z")
         with pytest.raises(ValueError):
             Vector3Adapter.from_dict(data)
@@ -183,7 +186,7 @@ def point3d_rosmsg(point3d: Point3d):
         bag_timestamp_ns=100,
         topic="/point3",
         msg_type="geometry_msgs/msg/Point",
-        data=point3d.model_dump(),
+        data=point3d.model_dump(exclude_none=True),
     )
 
 
@@ -193,7 +196,7 @@ def point3d_rosmsg_stamped(point3d: Point3d, ros_header):
         bag_timestamp_ns=100,
         topic="/point3",
         msg_type="geometry_msgs/msg/PointStamped",
-        data={"header": ros_header, "point": point3d.model_dump()},
+        data={"header": ros_header, "point": point3d.model_dump(exclude_none=True)},
     )
 
 
@@ -214,7 +217,7 @@ class TestPointadapter:
         assert_point3d(ms_msg.get_data(Point3d), point3d_rosmsg_stamped.data["point"])
 
     def test_translate_raise_missing_required_key(self, point3d: Point3d):
-        data = point3d.model_dump()
+        data = point3d.model_dump(exclude_none=True)
         data.pop("z")
         with pytest.raises(ValueError):
             PointAdapter.from_dict(data)
@@ -280,7 +283,7 @@ def quaternion_rosmsg(quaternion: Quaternion):
         bag_timestamp_ns=100,
         topic="/quaternion",
         msg_type="geometry_msgs/msg/Quaternion",
-        data=quaternion.model_dump(),
+        data=quaternion.model_dump(exclude_none=True),
     )
 
 
@@ -290,7 +293,10 @@ def quaternion_rosmsg_stamped(quaternion: Quaternion, ros_header):
         bag_timestamp_ns=100,
         topic="/quaternion",
         msg_type="geometry_msgs/msg/QuaternionStamped",
-        data={"header": ros_header, "quaternion": quaternion.model_dump()},
+        data={
+            "header": ros_header,
+            "quaternion": quaternion.model_dump(exclude_none=True),
+        },
     )
 
 
@@ -314,7 +320,7 @@ class TestQuaternionAdapter:
         )
 
     def test_translate_raise_missing_required_key(self, quaternion: Quaternion):
-        data = quaternion.model_dump()
+        data = quaternion.model_dump(exclude_none=True)
         data.pop("w")
         with pytest.raises(ValueError):
             QuaternionAdapter.from_dict(data)
@@ -392,7 +398,9 @@ def transform_rosmsg(transform: Transform):
         bag_timestamp_ns=100,
         topic="/transform",
         msg_type="geometry_msgs/msg/Transform",
-        data=transform.model_dump(),
+        data=transform.model_dump(
+            exclude_none=True, exclude={"source_frame_id", "target_frame_id"}
+        ),
     )
 
 
@@ -404,8 +412,10 @@ def transform_rosmsg_stamped(transform: Transform, ros_header):
         msg_type="geometry_msgs/msg/TransformStamped",
         data={
             "header": ros_header,
-            "frame_id": "base_link",
-            "transform": transform.model_dump(),
+            "frame_id": transform.target_frame_id,
+            "transform": transform.model_dump(
+                exclude_none=True, exclude={"source_frame_id", "target_frame_id"}
+            ),
         },
     )
 
@@ -430,7 +440,7 @@ class TestTransformAdapter:
         assert ms_msg.frame_id == transform_rosmsg_stamped.header.frame_id
 
     def test_translate_raise_missing_required_key(self, transform):
-        data = transform.model_dump()
+        data = transform.model_dump(exclude_none=True)
         data.pop("translation")
         with pytest.raises(ValueError):
             QuaternionAdapter.from_dict(data)
@@ -508,7 +518,7 @@ def force_torque_ros_msg(force_torque: ForceTorque):
         bag_timestamp_ns=100,
         topic="/wrench",
         msg_type="geometry_msgs/msg/Wrench",
-        data=force_torque.model_dump(),
+        data=force_torque.model_dump(exclude_none=True),
     )
 
 
@@ -518,7 +528,10 @@ def force_torque_ros_msg_stamped(force_torque: ForceTorque, ros_header):
         bag_timestamp_ns=100,
         topic="/wrench",
         msg_type="geometry_msgs/msg/WrenchStamped",
-        data={"header": ros_header, "wrench": force_torque.model_dump()},
+        data={
+            "header": ros_header,
+            "wrench": force_torque.model_dump(exclude_none=True),
+        },
     )
 
 
@@ -546,7 +559,7 @@ class TestWrenchAdapter:
             WrenchAdapter.from_dict({"wrench": "not_a_dict"})
 
     def test_translate_raise_missing_required_key(self, force_torque: ForceTorque):
-        data = force_torque.model_dump()
+        data = force_torque.model_dump(exclude_none=True)
         data.pop("torque")
         with pytest.raises(ValueError):
             WrenchAdapter.from_dict(data)
@@ -627,7 +640,7 @@ def polygon_ros_msg(polygon: Polygon):
         bag_timestamp_ns=100,
         topic="/polygon",
         msg_type="geometry_msgs/msg/Polygon",
-        data=polygon.model_dump(),
+        data=polygon.model_dump(exclude_none=True),
     )
 
 
@@ -637,7 +650,7 @@ def polygon_ros_msg_stamped(polygon: Polygon, ros_header):
         bag_timestamp_ns=100,
         topic="/polygon",
         msg_type="geometry_msgs/msg/PolygonStamped",
-        data={"header": ros_header, "polygon": polygon.model_dump()},
+        data={"header": ros_header, "polygon": polygon.model_dump(exclude_none=True)},
     )
 
 
@@ -664,7 +677,7 @@ class TestPolygonAdapter:
             PolygonAdapter.from_dict({"polygon": "not_a_dict"})
 
     def test_translate_raise_missing_required_key(self, polygon: Polygon):
-        data = polygon.model_dump()
+        data = polygon.model_dump(exclude_none=True)
         data.pop("points")
         with pytest.raises(ValueError):
             PolygonAdapter.from_dict(data)
@@ -893,7 +906,17 @@ def pose_rosmsg(pose: Pose):
         bag_timestamp_ns=100,
         topic="/pose",
         msg_type="geometry_msgs/msg/Pose",
-        data=pose.model_dump(),
+        data=pose.model_dump(exclude_none=True),
+    )
+
+
+@pytest.fixture
+def pose_stamped_rosmsg(pose: Pose, ros_header):
+    return ROSMessage(
+        bag_timestamp_ns=100,
+        topic="/pose_stamped",
+        msg_type="geometry_msgs/msg/PoseStamped",
+        data={"header": ros_header, "pose": pose.model_dump(exclude_none=True)},
     )
 
 
@@ -901,36 +924,72 @@ def pose_rosmsg(pose: Pose):
 def pose_w_cov_rosmsg(pose_w_cov: Pose):
     return ROSMessage(
         bag_timestamp_ns=100,
-        topic="/pose",
-        msg_type="geometry_msgs/msg/Pose",
-        data=pose_w_cov.model_dump(),
+        topic="/pose_w_cov",
+        msg_type="geometry_msgs/msg/PoseWithCovariance",
+        data={
+            "pose": pose_w_cov.model_dump(
+                exclude_none=True, exclude={"covariance", "covariance_type"}
+            ),
+            "covariance": pose_w_cov.covariance,
+        },
     )
 
 
 @pytest.fixture
-def pose_rosmsg_stamped(pose: Pose, ros_header):
+def pose_w_cov_stamped_rosmsg(pose_w_cov: Pose, ros_header):
     return ROSMessage(
         bag_timestamp_ns=100,
-        topic="/pose",
-        msg_type="geometry_msgs/msg/PoseStamped",
+        topic="/pose_w_cov_stamped",
+        msg_type="geometry_msgs/msg/PoseWithCovarianceStamped",
         data={
             "header": ros_header,
-            "frame_id": "base_link",
-            "pose": pose.model_dump(),
+            "pose": {
+                "pose": pose_w_cov.model_dump(
+                    exclude_none=True, exclude={"covariance", "covariance_type"}
+                ),
+                "covariance": pose_w_cov.covariance,
+            },
         },
     )
 
 
 class TestPoseAdapter:
-    def test_translate_pose(self, pose_rosmsg):
+    def test_translate_pose(self, pose_rosmsg: ROSMessage):
         ms_msg = PoseAdapter.translate(pose_rosmsg)
 
         assert_pose(ms_msg.get_data(Pose), pose_rosmsg.data)
-        assert pose_rosmsg.bag_timestamp_ns == ms_msg.recording_timestamp_ns
+        assert pose_rosmsg.bag_timestamp_ns == ms_msg.timestamp_ns
 
-    # def test_translate_pose_stamped(self): ...  # TODO
-    # def test_translate_pose_w_cov_stamped(self): ...  # TODO
-    # def test_translate_raise_missing_required_key(self): ...  # TODO
+    def test_translate_pose_stamped(self, pose_stamped_rosmsg: ROSMessage):
+        ms_msg = PoseAdapter.translate(pose_stamped_rosmsg)
+
+        assert pose_stamped_rosmsg.header.frame_id == ms_msg.frame_id
+        assert pose_stamped_rosmsg.header.stamp.to_nanoseconds() == ms_msg.timestamp_ns
+
+        assert_pose(ms_msg.get_data(Pose), pose_stamped_rosmsg.data["pose"])
+
+    def test_translate_pose_w_cov(self, pose_w_cov_rosmsg: ROSMessage):
+        ms_msg = PoseAdapter.translate(pose_w_cov_rosmsg)
+
+        assert pose_w_cov_rosmsg.bag_timestamp_ns == ms_msg.timestamp_ns
+        assert_pose_w_cov(ms_msg.get_data(Pose), pose_w_cov_rosmsg.data)
+
+    def test_translate_pose_w_cov_stamped(self, pose_w_cov_stamped_rosmsg: ROSMessage):
+        ms_msg = PoseAdapter.translate(pose_w_cov_stamped_rosmsg)
+
+        assert pose_w_cov_stamped_rosmsg.header.frame_id == ms_msg.frame_id
+        assert (
+            pose_w_cov_stamped_rosmsg.header.stamp.to_nanoseconds()
+            == ms_msg.timestamp_ns
+        )
+
+        assert_pose_w_cov(ms_msg.get_data(Pose), pose_w_cov_stamped_rosmsg.data["pose"])
+
+    def test_translate_raise_missing_required_key(self, pose_rosmsg):
+        data = dict(pose_rosmsg.data)
+        data.pop("position")
+        with pytest.raises(ValueError):
+            InertiaAdapter.from_dict(data)
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_pose(self, pose: Pose, typestore: Typestore):
@@ -944,15 +1003,15 @@ class TestPoseAdapter:
             pose, typestore, "geometry_msgs/msg/PoseWithCovariance"
         )
 
-        asset_pose_w_cov(pose, asdict(ros_msg))
+        assert_pose_w_cov(pose, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
-    def test_to_ros_with_cov(self, pose_w_cov: Pose, typestore: Typestore):
+    def test_to_ros_w_cov(self, pose_w_cov: Pose, typestore: Typestore):
         ros_msg = PoseAdapter.to_ros(
             pose_w_cov, typestore, "geometry_msgs/msg/PoseWithCovariance"
         )
 
-        asset_pose_w_cov(pose_w_cov, asdict(ros_msg))
+        assert_pose_w_cov(pose_w_cov, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_pose_stamped(self, pose_msg: Message, typestore: Typestore):
@@ -989,7 +1048,7 @@ class TestPoseAdapter:
                 nanoseconds=ros_msg.header.stamp.nanosec,
             ).to_nanoseconds()
         )
-        asset_pose_w_cov(pose_w_cov, asdict(ros_msg.pose))
+        assert_pose_w_cov(pose_w_cov, asdict(ros_msg.pose))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_default_type(self, pose: Pose, typestore: Typestore):
@@ -1050,23 +1109,104 @@ def twist_w_cov_msg(twist_w_cov):
     )
 
 
+@pytest.fixture
+def twist_rosmsg(twist: Velocity):
+    return ROSMessage(
+        bag_timestamp_ns=100,
+        topic="/twist",
+        msg_type="geometry_msgs/msg/Twist",
+        data=twist.model_dump(exclude_none=True),
+    )
+
+
+@pytest.fixture
+def twist_stamped_rosmsg(twist: Velocity, ros_header):
+    return ROSMessage(
+        bag_timestamp_ns=100,
+        topic="/twist_stamped",
+        msg_type="geometry_msgs/msg/TwistStamped",
+        data={"header": ros_header, "twist": twist.model_dump(exclude_none=True)},
+    )
+
+
+@pytest.fixture
+def twist_w_cov_rosmsg(twist_w_cov: Velocity):
+    return ROSMessage(
+        bag_timestamp_ns=100,
+        topic="/twist_w_cov",
+        msg_type="geometry_msgs/msg/TwistWithCovariance",
+        data={
+            "twist": twist_w_cov.model_dump(
+                exclude_none=True, exclude={"covariance", "covariance_type"}
+            ),
+            "covariance": twist_w_cov.covariance,
+        },
+    )
+
+
+@pytest.fixture
+def twist_w_cov_stamped_rosmsg(twist_w_cov: Velocity, ros_header):
+    return ROSMessage(
+        bag_timestamp_ns=100,
+        topic="/twist_w_cov_stamped",
+        msg_type="geometry_msgs/msg/TwistWithCovarianceStamped",
+        data={
+            "header": ros_header,
+            "twist": {
+                "twist": twist_w_cov.model_dump(
+                    exclude_none=True, exclude={"covariance", "covariance_type"}
+                ),
+                "covariance": twist_w_cov.covariance,
+            },
+        },
+    )
+
+
 class TestTwistAdapter:
-    # def test_translate_twist(self): ...  # TODO
-    # def test_translate_twist_stamped(self): ...  # TODO
-    # def test_translate_twist_with_covariance(self): ...  # TODO
-    # def test_translate_twist_with_covariance_stamped(self): ...  # TODO
-    # def test_translate_raise_missing_required_key(self): ...  # TODO
+    def test_translate_twist(self, twist_rosmsg: ROSMessage):
+        ms_msg = TwistAdapter.translate(twist_rosmsg)
+
+        assert_twist(ms_msg.get_data(Velocity), twist_rosmsg.data)
+        assert ms_msg.timestamp_ns == twist_rosmsg.bag_timestamp_ns
+
+    def test_translate_twist_stamped(self, twist_stamped_rosmsg: ROSMessage):
+        ms_msg = TwistAdapter.translate(twist_stamped_rosmsg)
+
+        assert_twist(ms_msg.get_data(Velocity), twist_stamped_rosmsg.data["twist"])
+        assert ms_msg.frame_id == twist_stamped_rosmsg.header.frame_id
+        assert ms_msg.timestamp_ns == twist_stamped_rosmsg.header.stamp.to_nanoseconds()
+
+    def test_translate_twist_w_cov(self, twist_w_cov_rosmsg: ROSMessage):
+        ms_msg = TwistAdapter.translate(twist_w_cov_rosmsg)
+
+        assert_twist_w_cov(ms_msg.get_data(Velocity), twist_w_cov_rosmsg.data)
+        assert ms_msg.timestamp_ns == twist_w_cov_rosmsg.bag_timestamp_ns
+
+    def test_translate_twist_w_cov_stamped(
+        self, twist_w_cov_stamped_rosmsg: ROSMessage
+    ):
+        ms_msg = TwistAdapter.translate(twist_w_cov_stamped_rosmsg)
+
+        assert_twist_w_cov(
+            ms_msg.get_data(Velocity), twist_w_cov_stamped_rosmsg.data["twist"]
+        )
+        assert ms_msg.frame_id == twist_w_cov_stamped_rosmsg.header.frame_id
+        assert (
+            ms_msg.timestamp_ns
+            == twist_w_cov_stamped_rosmsg.header.stamp.to_nanoseconds()
+        )
+
+    def test_translate_raise_missing_required_key(self, twist_rosmsg):
+        data = dict(twist_rosmsg.data)
+        data.pop("linear")
+        with pytest.raises(ValueError):
+            InertiaAdapter.from_dict(data)
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_twist(self, twist: Velocity, typestore: Typestore):
         ros_msg = TwistAdapter.to_ros(twist, typestore, "geometry_msgs/msg/Twist")
 
-        assert twist.linear.x == ros_msg.linear.x
-        assert twist.linear.y == ros_msg.linear.y
-        assert twist.linear.z == ros_msg.linear.z
-        assert twist.angular.x == ros_msg.angular.x
-        assert twist.angular.y == ros_msg.angular.y
-        assert twist.angular.z == ros_msg.angular.z
+        assert_twist(twist, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_null_cov(self, twist: Velocity, typestore: Typestore):
@@ -1074,27 +1214,15 @@ class TestTwistAdapter:
             twist, typestore, "geometry_msgs/msg/TwistWithCovariance"
         )
 
-        assert (ros_msg.covariance == 0).all()
-        assert twist.linear.x == ros_msg.twist.linear.x
-        assert twist.linear.y == ros_msg.twist.linear.y
-        assert twist.linear.z == ros_msg.twist.linear.z
-        assert twist.angular.x == ros_msg.twist.angular.x
-        assert twist.angular.y == ros_msg.twist.angular.y
-        assert twist.angular.z == ros_msg.twist.angular.z
+        assert_twist_w_cov(twist, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
-    def test_to_ros_with_cov(self, twist_w_cov: Velocity, typestore: Typestore):
+    def test_to_ros_w_cov(self, twist_w_cov: Velocity, typestore: Typestore):
         ros_msg = TwistAdapter.to_ros(
             twist_w_cov, typestore, "geometry_msgs/msg/TwistWithCovariance"
         )
 
-        assert np.array_equal(twist_w_cov.covariance, ros_msg.covariance)
-        assert twist_w_cov.linear.x == ros_msg.twist.linear.x
-        assert twist_w_cov.linear.y == ros_msg.twist.linear.y
-        assert twist_w_cov.linear.z == ros_msg.twist.linear.z
-        assert twist_w_cov.angular.x == ros_msg.twist.angular.x
-        assert twist_w_cov.angular.y == ros_msg.twist.angular.y
-        assert twist_w_cov.angular.z == ros_msg.twist.angular.z
+        assert_twist_w_cov(twist_w_cov, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_twist_stamped(self, twist_msg: Message, typestore: Typestore):
@@ -1111,12 +1239,7 @@ class TestTwistAdapter:
             ).to_nanoseconds()
         )
         assert twist_msg.frame_id == ros_msg.header.frame_id
-        assert twist.linear.x == ros_msg.twist.linear.x
-        assert twist.linear.y == ros_msg.twist.linear.y
-        assert twist.linear.z == ros_msg.twist.linear.z
-        assert twist.angular.x == ros_msg.twist.angular.x
-        assert twist.angular.y == ros_msg.twist.angular.y
-        assert twist.angular.z == ros_msg.twist.angular.z
+        assert_twist(twist, asdict(ros_msg.twist))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_twist_stamped_w_cov(
@@ -1135,24 +1258,13 @@ class TestTwistAdapter:
             ).to_nanoseconds()
         )
         assert twist_w_cov_msg.frame_id == ros_msg.header.frame_id
-        assert np.array_equal(twist_w_cov.covariance, ros_msg.twist.covariance)
-        assert twist_w_cov.linear.x == ros_msg.twist.twist.linear.x
-        assert twist_w_cov.linear.y == ros_msg.twist.twist.linear.y
-        assert twist_w_cov.linear.z == ros_msg.twist.twist.linear.z
-        assert twist_w_cov.angular.x == ros_msg.twist.twist.angular.x
-        assert twist_w_cov.angular.y == ros_msg.twist.twist.angular.y
-        assert twist_w_cov.angular.z == ros_msg.twist.twist.angular.z
+        assert_twist_w_cov(twist_w_cov, asdict(ros_msg.twist))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_default_type(self, twist: Velocity, typestore: Typestore):
         ros_msg = TwistAdapter.to_ros(twist, typestore)
 
-        assert twist.linear.x == ros_msg.linear.x
-        assert twist.linear.y == ros_msg.linear.y
-        assert twist.linear.z == ros_msg.linear.z
-        assert twist.angular.x == ros_msg.angular.x
-        assert twist.angular.y == ros_msg.angular.y
-        assert twist.angular.z == ros_msg.angular.z
+        assert_twist(twist, asdict(ros_msg))
 
     def test_to_ros_invalid_rosmsg_type(self, twist: Velocity):
         ros_msg = TwistAdapter.to_ros(
@@ -1206,23 +1318,102 @@ def accel_w_cov_msg(accel_w_cov):
     )
 
 
+@pytest.fixture
+def accel_rosmsg(accel: Acceleration):
+    return ROSMessage(
+        bag_timestamp_ns=100,
+        topic="/accel",
+        msg_type="geometry_msgs/msg/Accel",
+        data=accel.model_dump(exclude_none=True),
+    )
+
+
+@pytest.fixture
+def accel_stamped_rosmsg(accel: Acceleration, ros_header):
+    return ROSMessage(
+        bag_timestamp_ns=100,
+        topic="/accel_stamped",
+        msg_type="geometry_msgs/msg/AccelStamped",
+        data={"header": ros_header, "accel": accel.model_dump(exclude_none=True)},
+    )
+
+
+@pytest.fixture
+def accel_w_cov_rosmsg(accel_w_cov: Acceleration):
+    return ROSMessage(
+        bag_timestamp_ns=100,
+        topic="/accel_w_cov",
+        msg_type="geometry_msgs/msg/AccelWithCovariance",
+        data={
+            "accel": accel_w_cov.model_dump(
+                exclude_none=True, exclude={"covariance", "covariance_type"}
+            ),
+            "covariance": accel_w_cov.covariance,
+        },
+    )
+
+
+@pytest.fixture
+def accel_w_cov_stamped_rosmsg(accel_w_cov: Acceleration, ros_header):
+    return ROSMessage(
+        bag_timestamp_ns=100,
+        topic="/accel_w_cov_stamped",
+        msg_type="geometry_msgs/msg/AccelWithCovarianceStamped",
+        data={
+            "header": ros_header,
+            "accel": {
+                "accel": accel_w_cov.model_dump(
+                    exclude_none=True, exclude={"covariance", "covariance_type"}
+                ),
+                "covariance": accel_w_cov.covariance,
+            },
+        },
+    )
+
+
 class TestAccelAdapter:
-    # def test_translate_accel(self): ...  # TODO
-    # def test_translate_accel_stamped(self): ...  # TODO
-    # def test_translate_accel_with_covariance(self): ...  # TODO
-    # def test_translate_accel_with_covariance_stamped(self): ...  # TODO
-    # def test_translate_raise_missing_required_key(self): ...  # TODO
+    def test_translate_accel(self, accel_rosmsg: ROSMessage):
+        ms_msg = AccelAdapter.translate(accel_rosmsg)
+
+        assert_accel(ms_msg.get_data(Acceleration), accel_rosmsg.data)
+        assert ms_msg.timestamp_ns == accel_rosmsg.bag_timestamp_ns
+
+    def test_translate_accel_stamped(self, accel_stamped_rosmsg: ROSMessage):
+        ms_msg = AccelAdapter.translate(accel_stamped_rosmsg)
+
+        assert ms_msg.frame_id == accel_stamped_rosmsg.header.frame_id
+        assert ms_msg.timestamp_ns == accel_stamped_rosmsg.header.stamp.to_nanoseconds()
+
+        assert_accel(ms_msg.get_data(Acceleration), accel_stamped_rosmsg.data["accel"])
+
+    def test_translate_accel_w_cov(self, accel_w_cov_rosmsg: ROSMessage):
+        ms_msg = AccelAdapter.translate(accel_w_cov_rosmsg)
+
+        assert_accel_w_cov(ms_msg.get_data(Acceleration), accel_w_cov_rosmsg.data)
+        assert ms_msg.timestamp_ns == accel_w_cov_rosmsg.bag_timestamp_ns
+
+    def test_translate_accel_w_cov_stamped(
+        self, accel_w_cov_stamped_rosmsg: ROSMessage
+    ):
+        ms_msg = AccelAdapter.translate(accel_w_cov_stamped_rosmsg)
+
+        assert ms_msg.frame_id == accel_w_cov_stamped_rosmsg.header.frame_id
+        assert (
+            ms_msg.timestamp_ns
+            == accel_w_cov_stamped_rosmsg.header.stamp.to_nanoseconds()
+        )
+
+        assert_accel_w_cov(
+            ms_msg.get_data(Acceleration), accel_w_cov_stamped_rosmsg.data["accel"]
+        )
+
+    def test_translate_raise_missing_required_key(self, accel_rosmsg: ROSMessage): ...
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_accel(self, accel: Acceleration, typestore: Typestore):
         ros_msg = AccelAdapter.to_ros(accel, typestore, "geometry_msgs/msg/Accel")
 
-        assert accel.linear.x == ros_msg.linear.x
-        assert accel.linear.y == ros_msg.linear.y
-        assert accel.linear.z == ros_msg.linear.z
-        assert accel.angular.x == ros_msg.angular.x
-        assert accel.angular.y == ros_msg.angular.y
-        assert accel.angular.z == ros_msg.angular.z
+        assert_accel(accel, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_null_cov(self, accel: Acceleration, typestore: Typestore):
@@ -1230,27 +1421,15 @@ class TestAccelAdapter:
             accel, typestore, "geometry_msgs/msg/AccelWithCovariance"
         )
 
-        assert (ros_msg.covariance == 0).all()
-        assert accel.linear.x == ros_msg.accel.linear.x
-        assert accel.linear.y == ros_msg.accel.linear.y
-        assert accel.linear.z == ros_msg.accel.linear.z
-        assert accel.angular.x == ros_msg.accel.angular.x
-        assert accel.angular.y == ros_msg.accel.angular.y
-        assert accel.angular.z == ros_msg.accel.angular.z
+        assert_accel_w_cov(accel, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
-    def test_to_ros_with_cov(self, accel_w_cov: Acceleration, typestore: Typestore):
+    def test_to_ros_w_cov(self, accel_w_cov: Acceleration, typestore: Typestore):
         ros_msg = AccelAdapter.to_ros(
             accel_w_cov, typestore, "geometry_msgs/msg/AccelWithCovariance"
         )
 
-        assert np.array_equal(accel_w_cov.covariance, ros_msg.covariance)
-        assert accel_w_cov.linear.x == ros_msg.accel.linear.x
-        assert accel_w_cov.linear.y == ros_msg.accel.linear.y
-        assert accel_w_cov.linear.z == ros_msg.accel.linear.z
-        assert accel_w_cov.angular.x == ros_msg.accel.angular.x
-        assert accel_w_cov.angular.y == ros_msg.accel.angular.y
-        assert accel_w_cov.angular.z == ros_msg.accel.angular.z
+        assert_accel_w_cov(accel_w_cov, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_accel_stamped(self, accel_msg: Message, typestore: Typestore):
@@ -1267,12 +1446,7 @@ class TestAccelAdapter:
             ).to_nanoseconds()
         )
         assert accel_msg.frame_id == ros_msg.header.frame_id
-        assert accel.linear.x == ros_msg.accel.linear.x
-        assert accel.linear.y == ros_msg.accel.linear.y
-        assert accel.linear.z == ros_msg.accel.linear.z
-        assert accel.angular.x == ros_msg.accel.angular.x
-        assert accel.angular.y == ros_msg.accel.angular.y
-        assert accel.angular.z == ros_msg.accel.angular.z
+        assert_accel(accel, asdict(ros_msg.accel))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_accel_stamped_w_cov(
@@ -1291,24 +1465,13 @@ class TestAccelAdapter:
             ).to_nanoseconds()
         )
         assert accel_w_cov_msg.frame_id == ros_msg.header.frame_id
-        assert np.array_equal(accel_w_cov.covariance, ros_msg.accel.covariance)
-        assert accel_w_cov.linear.x == ros_msg.accel.accel.linear.x
-        assert accel_w_cov.linear.y == ros_msg.accel.accel.linear.y
-        assert accel_w_cov.linear.z == ros_msg.accel.accel.linear.z
-        assert accel_w_cov.angular.x == ros_msg.accel.accel.angular.x
-        assert accel_w_cov.angular.y == ros_msg.accel.accel.angular.y
-        assert accel_w_cov.angular.z == ros_msg.accel.accel.angular.z
+        assert_accel_w_cov(accel_w_cov, asdict(ros_msg.accel))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_default_type(self, accel: Acceleration, typestore: Typestore):
         ros_msg = AccelAdapter.to_ros(accel, typestore)
 
-        assert accel.linear.x == ros_msg.linear.x
-        assert accel.linear.y == ros_msg.linear.y
-        assert accel.linear.z == ros_msg.linear.z
-        assert accel.angular.x == ros_msg.angular.x
-        assert accel.angular.y == ros_msg.angular.y
-        assert accel.angular.z == ros_msg.angular.z
+        assert_accel(accel, asdict(ros_msg))
 
     def test_to_ros_invalid_rosmsg_type(self, accel: Acceleration):
         ros_msg = AccelAdapter.to_ros(

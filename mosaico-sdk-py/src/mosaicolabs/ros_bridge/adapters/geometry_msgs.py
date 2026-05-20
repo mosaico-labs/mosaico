@@ -156,11 +156,13 @@ class PoseAdapter(ROSAdapterBase[Pose]):
             out_pose = cls.from_dict(pose_dict)
 
             # While unwinding recursion, attach metadata found at this level
-            covariance = None
-            if _is_valid_covariance(ros_data.get("covariance")):
-                covariance = ros_data.get("covariance")
+            if ros_data.get("covariance"):
+                covariance = None
+                if _is_valid_covariance(ros_data.get("covariance")):
+                    covariance = ros_data.get("covariance")
 
-            out_pose.covariance = covariance
+                out_pose.covariance = covariance
+
             return out_pose
 
         # Base Case: We are at the leaf node (no nested 'pose' key)
@@ -345,11 +347,12 @@ class TwistAdapter(ROSAdapterBase[Velocity]):
             out_twist = cls.from_dict(twist_dict)
 
             # Apply metadata from wrapper levels
-            covariance = None
-            if _is_valid_covariance(ros_data.get("covariance")):
-                covariance = ros_data.get("covariance")
+            if ros_data.get("covariance"):
+                covariance = None
+                if _is_valid_covariance(ros_data.get("covariance")):
+                    covariance = ros_data.get("covariance")
 
-            out_twist.covariance = covariance
+                out_twist.covariance = covariance
             return out_twist
 
         # Base Case: Leaf node
@@ -541,11 +544,13 @@ class AccelAdapter(ROSAdapterBase[Acceleration]):
             out_accel = cls.from_dict(accel_dict)
 
             # Apply metadata from wrapper levels
-            covariance = None
-            if _is_valid_covariance(ros_data.get("covariance")):
-                covariance = ros_data.get("covariance")
+            if ros_data.get("covariance"):
+                covariance = None
+                if _is_valid_covariance(ros_data.get("covariance")):
+                    covariance = ros_data.get("covariance")
 
-            out_accel.covariance = covariance
+                out_accel.covariance = covariance
+
             return out_accel
 
         # Base Case: Leaf node
