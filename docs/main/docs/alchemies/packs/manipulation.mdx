@@ -1,0 +1,358 @@
+---
+title: Manipulation
+sidebar_position: 1
+---
+
+The **Manipulation Pack** is a curated collection of heterogeneous open-source robotic manipulation datasets, each individually studied, analyzed, and mapped into Mosaico's unified semantic ontology.
+Every dataset was manually inspected to identify its internal topics and source formats, from HDF5 to Parquet, from TensorFlow Records to ROS bags.
+
+The result is a single, ready-to-use ingestion suite where a [`RobotJoint`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/sensors/#mosaicolabs.models.sensors.RobotJoint) topic originating from a ROS bag looks and behaves exactly like a [`RobotJoint`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/sensors/#mosaicolabs.models.sensors.RobotJoint) topic coming from a DeepMind TFRecord. This is the core value proposition: proving that Mosaico acts as the universal standard for semantic sensor data description across deeply fragmented ecosystems.
+
+### Installation
+
+Clone the [repository](https://github.com/mosaico-labs/mosaico-alchemy), then install and run the project with **Poetry**:
+
+```bash
+git clone git@github.com:mosaico-labs/mosaico-alchemy.git
+cd mosaico-alchemy
+
+# Install via Poetry
+poetry install
+eval $(poetry env activate)
+```
+*Note: Requires Python 3.11 or higher.*
+
+To test the installation, from your terminal use the following command:
+
+```bash
+mosaico-alchemy manipulation --help
+```
+
+To start ingesting the data, download the datasets from the related repositories (see [Supported Datasets](#supported-datasets)) and then run the `mosaico-alchemy manipulation` command followed by your dataset directories:
+
+```bash
+mosaico-alchemy manipulation --datasets /path/to/dataset
+```
+
+### Configuration Options
+
+The CLI supports the following flags to control the execution environment:
+
+| Option | Default | Description |
+| :--- | :--- | :--- |
+| `--datasets` | Required | One or more space-separated dataset roots to ingest. |
+| `--host` | `localhost` | The hostname of your Mosaico Server. |
+| `--port` | `6726` | The Flight port of your Mosaico Server. |
+| `--log-level` | `INFO` | Set verbosity (`DEBUG`, `INFO`, `WARNING`, `ERROR`). |
+| `--write-mode` | `sync` | Topic execution mode for file-backed data (`sync` or `async`). |
+
+### Supported Datasets
+
+We provide built-in support for multiple open-source formats. We recommend exploring them in the following order to understand the offered capabilities:
+
+#### [Reassemble](https://researchdata.tuwien.ac.at/records/0ewrv-8cb44)
+
+4,551 contact-rich assembly and disassembly demonstrations across 17 objects, with multimodal sensing from event cameras, force-torque sensors, microphones and multi-view RGB cameras.
+
+:::info[Execution Backend]
+File (HDF5)
+:::
+
+:::tip[Topics Ingested into Mosaico]
+| Topic | Ontology Type |
+| :--- | :--- |
+| `capture_node-camera-image` | [`CompressedImage`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/sensors/#mosaicolabs.models.sensors.CompressedImage) |
+| `events` | [*`EventCamera`*](https://github.com/mosaico-labs/mosaico-alchemy/blob/main/src/mosaico_alchemy/manipulation/ontology/event_camera.py)\* |
+| `hama1` | [`CompressedImage`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/sensors/#mosaicolabs.models.sensors.CompressedImage) |
+| `hama1_audio` | [*`AudioDataStamped`*](https://github.com/mosaico-labs/mosaico-alchemy/blob/main/src/mosaico_alchemy/manipulation/ontology/audio.py)\* |
+| `hama2` | [`CompressedImage`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/sensors/#mosaicolabs.models.sensors.CompressedImage) |
+| `hama2_audio` | [*`AudioDataStamped`*](https://github.com/mosaico-labs/mosaico-alchemy/blob/main/src/mosaico_alchemy/manipulation/ontology/audio.py)\* |
+| `hand` | [`CompressedImage`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/sensors/#mosaicolabs.models.sensors.CompressedImage) |
+| `hand_audio` | [*`AudioDataStamped`*](https://github.com/mosaico-labs/mosaico-alchemy/blob/main/src/mosaico_alchemy/manipulation/ontology/audio.py)\* |
+| `grasp_failure_label`| [*`SegmentInfo`*](https://github.com/mosaico-labs/mosaico-alchemy/blob/main/src/mosaico_alchemy/manipulation/ontology/segment_info.py)\* |
+| `robot_state/joint_state` | [`RobotJoint`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/sensors/#mosaicolabs.models.sensors.RobotJoint) |
+| `robot_state/pose` | [`Pose`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/geometry/#mosaicolabs.models.data.geometry.Pose) |
+| `robot_state/velocity` | [`Velocity`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/geometry/#mosaicolabs.models.data.kinematics.Velocity) |
+| `robot_state/compensated_base_force_torque` | [`ForceTorque`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/geometry/#mosaicolabs.models.data.dynamics.ForceTorque) |
+| `robot_state/measured_force_torque` | [`ForceTorque`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/geometry/#mosaicolabs.models.data.dynamics.ForceTorque) |
+| `robot_state/end_effector` | [*`EndEffector`*](https://github.com/mosaico-labs/mosaico-alchemy/blob/main/src/mosaico_alchemy/manipulation/ontology/end_effector.py)\* |
+
+\**The custom ontology models defined within the pack module*
+:::
+
+#### [RT-1 (Fractal)](https://www.tensorflow.org/datasets/catalog/fractal20220817_data)
+
+87,212 pick-and-place episodes across 17 objects in Google micro kitchen environments, with RGB observations, natural language instructions, 512D task embeddings and full end-effector action space.
+
+:::info[Execution Backend]
+File (TFDS)
+:::
+
+:::tip[Topics Ingested into Mosaico]
+| Topic | Ontology Type |
+| :--- | :--- |
+| `step/observation/image` | [`CompressedImage`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/sensors/#mosaicolabs.models.sensors.CompressedImage) |
+| `step/observation/base_pose_tool_reached` | [`Pose`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/geometry/#mosaicolabs.models.data.geometry.Pose) |
+| `step/observation/orientation_start` | [`Quaternion`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/geometry/#mosaicolabs.models.data.geometry.Quaternion) |
+| `step/observation/src_rotation` | [`Quaternion`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/geometry/#mosaicolabs.models.data.geometry.Quaternion) |
+| `step/observation/natural_language_instruction` | [`String`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/data_types/#mosaicolabs.models.data.base_types.String) |
+| `step/observation/natural_language_embedding` | [*`TextEmbedding`*](https://github.com/mosaico-labs/mosaico-alchemy/blob/main/src/mosaico_alchemy/manipulation/ontology/text_embedding.py)\* |
+| `step/observation/gripper_closed` | [`Floating32`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/data_types/#mosaicolabs.models.data.base_types.Floating32) |
+| `step/observation/gripper_closedness_commanded` | [`Floating32`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/data_types/#mosaicolabs.models.data.base_types.Floating32) |
+| `step/observation/height_to_bottom` | [`Floating32`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/data_types/#mosaicolabs.models.data.base_types.Floating32) |
+| `step/observation/rotation_delta_to_go` | [`Vector3d`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/geometry/#mosaicolabs.models.data.geometry.Vector3d) |
+| `step/observation/vector_to_go` | [`Vector3d`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/geometry/#mosaicolabs.models.data.geometry.Vector3d) |
+| `step/observation/orientation_box` | [*`Vector3dBounds`*](https://github.com/mosaico-labs/mosaico-alchemy/blob/main/src/mosaico_alchemy/manipulation/ontology/spatial_bounds.py)\* |
+| `step/observation/robot_orientation_positions_box` | [*`Vector3dFrame`*](https://github.com/mosaico-labs/mosaico-alchemy/blob/main/src/mosaico_alchemy/manipulation/ontology/spatial_bounds.py)\* |
+| `step/observation/workspace_bounds` | [*`WorkspaceBounds`*](https://github.com/mosaico-labs/mosaico-alchemy/blob/main/src/mosaico_alchemy/manipulation/ontology/spatial_bounds.py)\* |
+| `step/action/world_vector` | [`Vector3d`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/geometry/#mosaicolabs.models.data.geometry.Vector3d) |
+| `step/action/rotation_delta` | [`Vector3d`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/geometry/#mosaicolabs.models.data.geometry.Vector3d) |
+| `step/action/base_displacement_vector` | [`Vector3d`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/geometry/#mosaicolabs.models.data.geometry.Vector2d) |
+| `step/action/base_displacement_vertical_rotation` |  [`Floating32`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/data_types/#mosaicolabs.models.data.base_types.Floating32) |
+| `step/action/gripper_closedness_action` |  [`Floating32`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/data_types/#mosaicolabs.models.data.base_types.Floating32) |
+| `step/action/terminate_episode` | [*`TerminateEpisode`*](https://github.com/mosaico-labs/mosaico-alchemy/blob/main/src/mosaico_alchemy/manipulation/ontology/terminate_episode.py)\* |
+| `step/reward` |  [`Floating32`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/data_types/#mosaicolabs.models.data.base_types.Floating32) |
+| `step/is_first` |  [`Boolean`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/data_types/#mosaicolabs.models.data.base_types.Boolean) |
+| `step/is_last` |  [`Boolean`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/data_types/#mosaicolabs.models.data.base_types.Boolean) |
+| `step/is_terminal` |  [`Boolean`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/data_types/#mosaicolabs.models.data.base_types.Boolean) |
+
+\**The custom ontology models defined within the pack module*
+:::
+
+#### [LeRobot DROID](https://huggingface.co/datasets/lerobot/droid_1.0.1)
+
+95,658 manipulation episodes collected at 13 research institutions, with wrist and dual exterior stereo cameras, joint and Cartesian state, end-effector position and embedded camera extrinsics.
+
+:::info[Execution Backend]
+File (Parquet)
+:::
+
+:::tip[Topics Ingested into Mosaico]
+| Topic | Ontology Type |
+| :--- | :--- |
+| `/observation/images/wrist_left` | [`CompressedImage`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/sensors/#mosaicolabs.models.sensors.CompressedImage) |
+| `/observation/images/exterior_1_left` | [`CompressedImage`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/sensors/#mosaicolabs.models.sensors.CompressedImage) |
+| `/observation/images/exterior_2_left` | [`CompressedImage`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/sensors/#mosaicolabs.models.sensors.CompressedImage) |
+| `/observation/state/joint_position` | [`RobotJoint`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/sensors/#mosaicolabs.models.sensors.RobotJoint) |
+| `/observation/state/cartesian_position` | [`Pose`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/geometry/#mosaicolabs.models.data.geometry.Pose) |
+| `/observation/state/gripper_position` | [*`EndEffector`*](https://github.com/mosaico-labs/mosaico-alchemy/blob/main/src/mosaico_alchemy/manipulation/ontology/end_effector.py)\* |
+| `/action/joint_position` | [`RobotJoint`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/sensors/#mosaicolabs.models.sensors.RobotJoint) |
+| `/action/cartesian_position` | [`Pose`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/geometry/#mosaicolabs.models.data.geometry.Pose) |
+| `/action/cartesian_velocity` | [`Velocity`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/geometry/#mosaicolabs.models.data.kinematics.Velocity) |
+| `/action/gripper_position` | [*`EndEffector`*](https://github.com/mosaico-labs/mosaico-alchemy/blob/main/src/mosaico_alchemy/manipulation/ontology/end_effector.py)\* |
+| `/camera_extrinsics/wrist_left` | [`Pose`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/geometry/#mosaicolabs.models.data.geometry.Pose) |
+| `/camera_extrinsics/exterior_1_left` | [`Pose`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/geometry/#mosaicolabs.models.data.geometry.Pose) |
+| `/camera_extrinsics/exterior_2_left` | [`Pose`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/geometry/#mosaicolabs.models.data.geometry.Pose) |
+| `/step/reward` | [`Floating64`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/data_types/#mosaicolabs.models.data.base_types.Floating64) |
+| `/step/discount` | [`Floating64`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/data_types/#mosaicolabs.models.data.base_types.Floating64) |
+| `/step/task_index` | [`Integer64`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/data_types/#mosaicolabs.models.data.base_types.Integer64) |
+| `/step/frame_index` | [`Integer64`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/data_types/#mosaicolabs.models.data.base_types.Integer64) |
+| `/step/is_first` |  [`Boolean`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/data_types/#mosaicolabs.models.data.base_types.Boolean) |
+| `/step/is_last` |  [`Boolean`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/data_types/#mosaicolabs.models.data.base_types.Boolean) |
+| `/step/is_terminal` |  [`Boolean`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/data_types/#mosaicolabs.models.data.base_types.Boolean) |
+
+\**The custom ontology models defined within the pack module*
+:::
+
+#### [Multimodal Manipulation Learning](https://zenodo.org/records/6372438)
+
+300 ROS bag recordings of a Kuka IIWA robot with Allegro hand, combining Tekscan tactile pressure, microphone audio, torque commands and joint states across 5 material classes.
+
+:::info[Execution Backend]
+ROS `.bag`
+:::
+
+:::tip[Topics Ingested into Mosaico]
+| Topic | Ontology Type |
+| :--- | :--- |
+| `/allegro_hand_right/joint_states` | [`RobotJoint`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/sensors/#mosaicolabs.models.sensors.RobotJoint) |
+| `/iiwa/joint_states` | [`RobotJoint`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/sensors/#mosaicolabs.models.sensors.RobotJoint) |
+| `/iiwa/eePose` | [`Pose`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/geometry/#mosaicolabs.models.data.geometry.Pose) |
+| `/iiwa/TorqueController/command` | [*`JointTorqueCommand`*](https://github.com/mosaico-labs/mosaico-alchemy/blob/main/src/mosaico_alchemy/manipulation/ontology/joint_torque_command.py)\*|
+| `/tekscan/frame` | [*`TekscanSensor`*](https://github.com/mosaico-labs/mosaico-alchemy/blob/main/src/mosaico_alchemy/manipulation/ontology/tekscan_sensor.py)\* |
+| `/audio/audio` | [*`AudioDataStamped`*](https://github.com/mosaico-labs/mosaico-alchemy/blob/main/src/mosaico_alchemy/manipulation/ontology/audio.py)\* |
+| `/audio/audio_info` | [*`AudioInfo`*](https://github.com/mosaico-labs/mosaico-alchemy/blob/main/src/mosaico_alchemy/manipulation/ontology/audio.py)\* |
+| `/trialInfo` | [`String`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/data_types/#mosaicolabs.models.data.base_types.String) |
+
+\**The custom ontology models defined within the pack module*
+:::
+
+### A Note about the Custom Ontology Models
+
+Some datasets include application-specific data types that do not map cleanly to Mosaico’s built-in ontology models; for example, the `TerminateEpisode` model is highly specific to the data format defined in the Fractal dataset.
+Defining custom ontology models lets you represent these data structures precisely, with typed fields, validation rules,
+and consistent semantics for your own sensors or proprietary message formats.
+
+Mosaico provides a [fast path](https://docs.mosaico.dev/python-sdk/SDK/ontology/#customizing-the-ontology) to define and automatically register custom data models. Once registered, they behave like native models and are accepted by the platform without extra integration work.
+
+
+### Ready to start?
+
+If your robotic data is saved in a proprietary format and isn't supported out-of-the-box, the module is fully extensible. 
+We recommend jumping directly to the **[Integrating a Dataset](./manipulation.mdx#customizing-the-pack)** guide to build your own plugin, custom ontologies and adapters.
+
+## Customizing the Pack
+This guide explains how to extend the Manipulation Pack to support your own custom dataset formats alongside the built-in ones. 
+
+:::tip[In Depth Explanation]
+* **[Documentation: Data Models & Ontology](https://docs.mosaico.dev/python-sdk/SDK/ontology)**
+* **[Example: Customizing the Data Ontology](https://docs.mosaico.dev/examples/custom_ontology)**
+* **[API Reference: Base Models and Mixins](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/base)**
+* **[Documentation: The ROS Bridge](https://docs.mosaico.dev/python-sdk/SDK/bridges/ros)**
+:::
+
+By following this guide, you will:
+
+* **Select an Execution Backend**: Decide whether to rely natively on ROS bag architectures or to construct a structured File descriptor pipeline.
+* **Define Ontologies and Adapters**: Choose the Mosaico types that model your sensor streams and implement the adapters that translate raw dictionaries into them.
+* **Implement the Dataset Plugin**: Assemble the ingestion plan that wires your iterators, ontologies, and adapters into a declarative sequence descriptor.
+* **Register Your Components**: Expose your plugin and adapters to the CLI layer so they are discovered at runtime.
+
+### Step 1: Choosing the Execution Backend
+
+Your first architectural decision is deciding how the data should be accessed. If your dataset relies on standard file and database formats such as HDF5, Parquet, JSON, or custom binary files, you will utilize the file-backed executor by generating a `SequenceDescriptor`. 
+
+Alternatively, if your dataset consists of native ROS bags and maps naturally to ROS topics, you should use a `RosbagSequenceDescriptor`. This allows the plugin to validate the required topics and immediately delegate the demanding ingestion effort directly to the ROS bridge.
+
+### Step 2: Applying Ontologies and Implementing Adapters
+
+For each data stream, you define how it maps to a Mosaico ontology type. If you cannot reuse an existing SDK ontology, you can define your own custom class. We highly recommend reviewing the **[Ontology Customization Guide](https://docs.mosaico.dev/SDK/examples/ontology_customization)** to see exactly how to write and register your own custom data models.
+
+#### The Custom Adapter
+
+With your ontologies defining the target structure, you implement a custom adapter.
+
+```python
+from mosaicolabs import Message
+from mosaicolabs.packs.manipulation.adapters.base import BaseAdapter
+
+class MyDatasetCustomAdapter(BaseAdapter[CustomSensorModel]): # (1)!
+    adapter_id = "mydataset.custom_sensor" # (2)!
+    _REQUIRED_KEYS: tuple[str, ...] = ("timestamp","sensor_readings") # (3)!
+
+    @classmethod
+    def translate(cls, payload: dict) -> Message: # (4)!
+        """
+        Translates a raw custom dictionary into a Mosaico Message container.
+        """
+        cls._validate_payload(
+            payload=payload,
+            constraints={"sensor_readings": {"len": 4}} # (5)!
+        )
+        return Message(
+            timestamp_ns=int(payload["timestamp"] * 1e9), # (6)!
+            data=CustomSensorModel(values=payload["sensor_readings"]),
+        )
+```
+
+1. The Mosaico ontology type (defined from the base `Serializable` structures) that this adapter handles.
+2. The global identifier that will be referenced by name in your `TopicDescriptor`.
+3. Define the fields required in the payload, to be validated in the `translate` function via `cls._validate_payload`.
+4. This is the heart of the translator. An adapter receives the raw payload dictionary from your custom iterator and returns an instantiated Mosaico message.
+5. Set the constraints to expected list size to 4.
+6. Conversion from arbitrary time structures into native Mosaico nanosecond formats.
+
+### Step 3: Developing the Dataset Plugin
+
+With adapters in place, you implement the dataset plugin class. This class satisfies a straightforward internal protocol to detect your dataset format, discover its logical sequences, and assemble the ingestion plan that wires everything together.
+
+#### The Plugin Protocol
+
+```python
+class DatasetPlugin(Protocol):
+    dataset_id: str # (1)!
+
+    def supports(self, root: Path) -> bool: ... # (2)!
+    def discover_sequences(self, root: Path) -> Iterable[Path]: ... # (3)!
+    def create_ingestion_plan(self, sequence_path: Path) -> IngestionDescriptor: ... # (4)!
+```
+
+1. A unique string identifier used in downstream logging and operator prompts.
+2. A fast, deterministic method to verify if a given folder matches the dataset signature (e.g., checking for `*.h5` files) avoiding expensive full-dataset scans.
+3. A method to discover the logical sequences contained in the root folder, such as individual robot episodes.
+4. The core logic to create an ingestion plan for each sequence, returning an `IngestionDescriptor`.
+
+#### Extracting Raw Data
+
+To keep your plugin code clean and maintainable, raw file I/O operations must be completely separated from the orchestration step. You should create dedicated iterator functions following the **factory pattern**: each function accepts static configuration parameters (file paths, field names) and returns a `Callable[[Path], Iterable[dict]]`. The runner calls that callable later with the actual sequence path to stream the raw payloads. Each payload dict must include a `"timestamp"` key expressed in seconds as a float.
+
+```python
+def iter_video_frames(video_path: str, timestamps_path: str) -> Callable[[Path], Iterable[dict]]:
+    def _fn(sequence_path: Path) -> Iterable[dict]:
+        # open sequence_path and read the data at video_path / timestamps_path
+        yield {"timestamp": 1234.56, "image": b"..."}
+    return _fn
+
+def count_video_frames(timestamps_path: str) -> Callable[[Path], int]:
+    def _fn(sequence_path: Path) -> int:
+        # count the number of frames at timestamps_path
+        return total_frames
+    return _fn
+```
+
+#### Structuring the Ingestion Plan
+
+The plugin implements `create_ingestion_plan` to declare the sequence name, its metadata, and the full list of topics. Each topic references the iterators and adapters you built in the previous steps.
+
+```python
+return SequenceDescriptor(
+    # The unique name of the target sequence being constructed.
+    sequence_name=f"{self.dataset_id}_{sequence_path.stem}",
+    # The custom metadata of this sequence.
+    sequence_metadata={
+        "dataset_id": self.dataset_id,
+        "ingestion_backend": "file",
+    },
+    topics=[
+        TopicDescriptor(
+            # The topic name that will handle this data stream.
+            topic_name="/camera/front",
+            # The Mosaico ontology type that models this data stream.
+            ontology_type=CompressedImage,
+            #The identifier of the adapter responsible for translating this specific topic.
+            adapter_id=f"{self.dataset_id}.video_frame",
+            # The runner calls this callable later with the sequence path to obtain the raw payload stream.
+            payload_iter=iter_video_frames("path/to/video", "path/to/timestamps"),
+            # The runner uses this to count the total messages ahead of time for progress reporting.
+            # It must match the number of items `payload_iter` will yield.
+            message_count=count_video_frames("path/to/timestamps"),
+        ),
+    ],
+)
+```
+
+### Step 4: Registering Your Components
+
+Once your dataset plugin, functional iterators, and adapters are implemented, they must be made discoverable to the CLI layer. There are two separate registries to update: one for the dataset plugin and one for the adapter.
+
+#### Registering the Dataset Plugin
+
+```python
+from mosaico_alchemy.manipulation.datasets import DatasetRegistry
+
+# DatasetRegistry is a singleton pre-populated with the built-in plugins.
+# Registering here makes your plugin visible everywhere the registry is used.
+registry = DatasetRegistry()
+registry.register(MyDatasetPlugin())
+```
+
+Importing `DatasetRegistry` triggers the default registry setup automatically, so the instance returned by `DatasetRegistry()` already contains all built-in plugins.
+Calling `register` on it adds your plugin to the same shared instance, making it available across both the CLI and the runner without any further wiring:
+
+- **CLI** — your dataset appears alongside the built-in options in the interactive selection prompt.
+- **Runner** — auto-detection via `registry.resolve(root)` will call your plugin's `supports` method against the dataset root.
+
+#### Registering the Adapter
+
+The adapter must also be registered in the `AdapterRegistry`. Without this step, the file executor will not be able to resolve the `adapter_id` declared in your `TopicDescriptor` and the ingestion will fail.
+
+```python
+from mosaico_alchemy.manipulation.adapters import AdapterRegistry
+
+# AdapterRegistry is a singleton pre-populated with the built-in adapters.
+# Registering here makes your adapter visible everywhere the registry is used.
+registry = AdapterRegistry()
+registry.register(MyDatasetCustomAdapter)
+```
+
+After registering both components, your dataset plugin is ready to be executed.
