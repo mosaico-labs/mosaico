@@ -181,7 +181,25 @@ class PoseAdapter(ROSAdapterBase[Pose]):
         input_ros_msg_type: Optional[str] = None,
     ) -> "Optional[MsgType]":
         """
-        TODO
+        Converts a Mosaico ``Pose`` (or a ``Message`` wrapping one) into the
+        corresponding ROS geometry message.
+
+        Supported output types (selectable via *input_ros_msg_type*):
+
+        - ``geometry_msgs/msg/Pose``
+        - ``geometry_msgs/msg/PoseStamped``
+        - ``geometry_msgs/msg/PoseWithCovariance``
+        - ``geometry_msgs/msg/PoseWithCovarianceStamped``
+
+        Args:
+            mosaico_data: A ``Message`` wrapping a ``Pose`` instance, or a raw ``Pose``.
+            typestore: The rosbags typestore for target type resolution.
+            input_ros_msg_type: Override for the output ROS type. Defaults to
+                ``geometry_msgs/msg/Pose`` if ``None``.
+
+        Returns:
+            The constructed ROS message, or ``None`` if the type is unsupported or
+            absent from the typestore.
         """
 
         # Resolve ROS message to translate Mosaico message to if not defined in input
@@ -372,7 +390,25 @@ class TwistAdapter(ROSAdapterBase[Velocity]):
         input_ros_msg_type: Optional[str] = None,
     ) -> "Optional[MsgType]":
         """
-        TODO
+        Converts a Mosaico ``Velocity`` (or a ``Message`` wrapping one) into the
+        corresponding ROS Twist message.
+
+        Supported output types (selectable via *input_ros_msg_type*):
+
+        - ``geometry_msgs/msg/Twist``
+        - ``geometry_msgs/msg/TwistStamped``
+        - ``geometry_msgs/msg/TwistWithCovariance``
+        - ``geometry_msgs/msg/TwistWithCovarianceStamped``
+
+        Args:
+            mosaico_data: A ``Message`` wrapping a ``Velocity`` instance, or a raw ``Velocity``.
+            typestore: The rosbags typestore for target type resolution.
+            input_ros_msg_type: Override for the output ROS type. Defaults to
+                ``geometry_msgs/msg/Twist`` if ``None``.
+
+        Returns:
+            The constructed ROS message, or ``None`` if the type is unsupported or
+            absent from the typestore.
         """
 
         # Resolve ROS message to translate Mosaico message to if not defined in input
@@ -570,7 +606,25 @@ class AccelAdapter(ROSAdapterBase[Acceleration]):
         input_ros_msg_type: Optional[str] = None,
     ) -> "Optional[MsgType]":
         """
-        TODO
+        Converts a Mosaico ``Acceleration`` (or a ``Message`` wrapping one) into the
+        corresponding ROS Accel message.
+
+        Supported output types (selectable via *input_ros_msg_type*):
+
+        - ``geometry_msgs/msg/Accel``
+        - ``geometry_msgs/msg/AccelStamped``
+        - ``geometry_msgs/msg/AccelWithCovariance``
+        - ``geometry_msgs/msg/AccelWithCovarianceStamped``
+
+        Args:
+            mosaico_data: A ``Message`` wrapping an ``Acceleration`` instance, or a raw ``Acceleration``.
+            typestore: The rosbags typestore for target type resolution.
+            input_ros_msg_type: Override for the output ROS type. Defaults to
+                ``geometry_msgs/msg/Accel`` if ``None``.
+
+        Returns:
+            The constructed ROS message, or ``None`` if the type is unsupported or
+            absent from the typestore.
         """
 
         # Resolve ROS message to translate Mosaico message to if not defined in input
@@ -745,7 +799,23 @@ class Vector3Adapter(ROSAdapterBase[Vector3d]):
         input_ros_msg_type: Optional[str] = None,
     ) -> "Optional[MsgType]":
         """
-        TODO
+        Converts a Mosaico ``Vector3d`` (or a ``Message`` wrapping one) into the
+        corresponding ROS Vector3 message.
+
+        Supported output types (selectable via *input_ros_msg_type*):
+
+        - ``geometry_msgs/msg/Vector3``
+        - ``geometry_msgs/msg/Vector3Stamped``
+
+        Args:
+            mosaico_data: A ``Message`` wrapping a ``Vector3d`` instance, or a raw ``Vector3d``.
+            typestore: The rosbags typestore for target type resolution.
+            input_ros_msg_type: Override for the output ROS type. Defaults to
+                ``geometry_msgs/msg/Vector3`` if ``None``.
+
+        Returns:
+            The constructed ROS message, or ``None`` if the type is unsupported or
+            absent from the typestore.
         """
 
         # Resolve ROS message to translate Mosaico message to if not defined in input
@@ -898,6 +968,25 @@ class PointAdapter(ROSAdapterBase[Point3d]):
         typestore: Typestore,
         input_ros_msg_type: Optional[str] = None,
     ) -> "Optional[MsgType]":
+        """
+        Converts a Mosaico ``Point3d`` (or a ``Message`` wrapping one) into the
+        corresponding ROS Point message.
+
+        Supported output types (selectable via *input_ros_msg_type*):
+
+        - ``geometry_msgs/msg/Point``
+        - ``geometry_msgs/msg/PointStamped``
+
+        Args:
+            mosaico_data: A ``Message`` wrapping a ``Point3d`` instance, or a raw ``Point3d``.
+            typestore: The rosbags typestore for target type resolution.
+            input_ros_msg_type: Override for the output ROS type. Defaults to
+                ``geometry_msgs/msg/Point`` if ``None``.
+
+        Returns:
+            The constructed ROS message, or ``None`` if the type is unsupported or
+            absent from the typestore.
+        """
 
         # Resolve ROS message to translate Mosaico message to if not defined in input
         resolved_rosmsg_type = input_ros_msg_type or cls.get_default_ros_msg()
@@ -1046,6 +1135,25 @@ class QuaternionAdapter(ROSAdapterBase[Quaternion]):
         typestore: Typestore,
         input_ros_msg_type: Optional[str] = None,
     ) -> "Optional[MsgType]":
+        """
+        Converts a Mosaico ``Quaternion`` (or a ``Message`` wrapping one) into the
+        corresponding ROS Quaternion message.
+
+        Supported output types (selectable via *input_ros_msg_type*):
+
+        - ``geometry_msgs/msg/Quaternion``
+        - ``geometry_msgs/msg/QuaternionStamped``
+
+        Args:
+            mosaico_data: A ``Message`` wrapping a ``Quaternion`` instance, or a raw ``Quaternion``.
+            typestore: The rosbags typestore for target type resolution.
+            input_ros_msg_type: Override for the output ROS type. Defaults to
+                ``geometry_msgs/msg/Quaternion`` if ``None``.
+
+        Returns:
+            The constructed ROS message, or ``None`` if the type is unsupported or
+            absent from the typestore.
+        """
 
         # Resolve ROS message to translate Mosaico message to if not defined in input
         resolved_rosmsg_type = input_ros_msg_type or cls.get_default_ros_msg()
@@ -1205,6 +1313,25 @@ class TransformAdapter(ROSAdapterBase[Transform]):
         typestore: Typestore,
         input_ros_msg_type: Optional[str] = None,
     ) -> "Optional[MsgType]":
+        """
+        Converts a Mosaico ``Transform`` (or a ``Message`` wrapping one) into the
+        corresponding ROS Transform message.
+
+        Supported output types (selectable via *input_ros_msg_type*):
+
+        - ``geometry_msgs/msg/Transform``
+        - ``geometry_msgs/msg/TransformStamped``
+
+        Args:
+            mosaico_data: A ``Message`` wrapping a ``Transform`` instance, or a raw ``Transform``.
+            typestore: The rosbags typestore for target type resolution.
+            input_ros_msg_type: Override for the output ROS type. Defaults to
+                ``geometry_msgs/msg/Transform`` if ``None``.
+
+        Returns:
+            The constructed ROS message, or ``None`` if the type is unsupported or
+            absent from the typestore.
+        """
 
         # Resolve ROS message to translate Mosaico message to if not defined in input
         resolved_rosmsg_type = input_ros_msg_type or cls.get_default_ros_msg()
@@ -1355,7 +1482,23 @@ class WrenchAdapter(ROSAdapterBase[ForceTorque]):
         input_ros_msg_type: Optional[str] = None,
     ) -> "Optional[MsgType]":
         """
-        TODO
+        Converts a Mosaico ``ForceTorque`` (or a ``Message`` wrapping one) into the
+        corresponding ROS Wrench message.
+
+        Supported output types (selectable via *input_ros_msg_type*):
+
+        - ``geometry_msgs/msg/Wrench``
+        - ``geometry_msgs/msg/WrenchStamped``
+
+        Args:
+            mosaico_data: A ``Message`` wrapping a ``ForceTorque`` instance, or a raw ``ForceTorque``.
+            typestore: The rosbags typestore for target type resolution.
+            input_ros_msg_type: Override for the output ROS type. Defaults to
+                ``geometry_msgs/msg/Wrench`` if ``None``.
+
+        Returns:
+            The constructed ROS message, or ``None`` if the type is unsupported or
+            absent from the typestore.
         """
 
         # Resolve ROS message to translate Mosaico message to if not defined in input
@@ -1490,7 +1633,23 @@ class PolygonAdapter(ROSAdapterBase[Polygon]):
         input_ros_msg_type: Optional[str] = None,
     ) -> "Optional[MsgType]":
         """
-        TODO
+        Converts a Mosaico ``Polygon`` (or a ``Message`` wrapping one) into the
+        corresponding ROS Polygon message.
+
+        Supported output types (selectable via *input_ros_msg_type*):
+
+        - ``geometry_msgs/msg/Polygon``
+        - ``geometry_msgs/msg/PolygonStamped``
+
+        Args:
+            mosaico_data: A ``Message`` wrapping a ``Polygon`` instance, or a raw ``Polygon``.
+            typestore: The rosbags typestore for target type resolution.
+            input_ros_msg_type: Override for the output ROS type. Defaults to
+                ``geometry_msgs/msg/Polygon`` if ``None``.
+
+        Returns:
+            The constructed ROS message, or ``None`` if the type is unsupported or
+            absent from the typestore.
         """
 
         # Resolve ROS message to translate Mosaico message to if not defined in input
@@ -1657,6 +1816,25 @@ class InertiaAdapter(ROSAdapterBase[Inertia]):
         typestore: Typestore,
         input_ros_msg_type: Optional[str] = None,
     ) -> "Optional[MsgType]":
+        """
+        Converts a Mosaico ``Inertia`` (or a ``Message`` wrapping one) into the
+        corresponding ROS Inertia message.
+
+        Supported output types (selectable via *input_ros_msg_type*):
+
+        - ``geometry_msgs/msg/Inertia``
+        - ``geometry_msgs/msg/InertiaStamped``
+
+        Args:
+            mosaico_data: A ``Message`` wrapping an ``Inertia`` instance, or a raw ``Inertia``.
+            typestore: The rosbags typestore for target type resolution.
+            input_ros_msg_type: Override for the output ROS type. Defaults to
+                ``geometry_msgs/msg/Inertia`` if ``None``.
+
+        Returns:
+            The constructed ROS message, or ``None`` if the type is unsupported or
+            absent from the typestore.
+        """
 
         # Resolve ROS message to translate Mosaico message to if not defined in input
         resolved_rosmsg_type = input_ros_msg_type or cls.get_default_ros_msg()

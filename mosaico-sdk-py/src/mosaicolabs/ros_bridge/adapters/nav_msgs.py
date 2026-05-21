@@ -118,6 +118,20 @@ class OdometryAdapter(ROSAdapterBase[MotionState]):
         typestore: Typestore,
         input_ros_msg_type: Optional[str] = None,
     ) -> "Optional[MsgType]":
+        """
+        Converts a Mosaico ``MotionState`` (or a ``Message`` wrapping one) into a
+        ``nav_msgs/msg/Odometry`` message.
+
+        Args:
+            mosaico_data: A ``Message`` wrapping a ``MotionState`` instance, or a raw ``MotionState``.
+            typestore: The rosbags typestore for target type resolution.
+            input_ros_msg_type: Override for the output ROS type. Only
+                ``nav_msgs/msg/Odometry`` is supported.
+
+        Returns:
+            A ``nav_msgs/msg/Odometry`` instance, or ``None`` if the type is
+            unsupported or absent from the typestore.
+        """
 
         # Resolve ROS message to translate Mosaico message to if not defined in input
         resolved_rosmsg_type = input_ros_msg_type or cls.get_default_ros_msg()

@@ -55,7 +55,11 @@ class LoaderErrorPolicy(Enum):
 
 class Loader(Protocol):
     """
-    TODO
+    Structural protocol for data loaders consumed by :class:`ProgressManager`.
+
+    Both :class:`ROSLoader` and :class:`MosaicoLoader` satisfy this protocol,
+    allowing :class:`ProgressManager` to set up progress bars without depending
+    on a concrete loader class.
     """
 
     @property
@@ -304,7 +308,7 @@ class ROSLoader:
 
         if not self._connections:
             raise RuntimeError(
-                "Unanble to initialize ROSLoader: No connections matched criteria. Try checking the topics filter, if any."
+                "Unable to initialize ROSLoader: No connections matched criteria. Try checking the topics filter, if any."
             )
 
     # --- Properties ---
@@ -470,7 +474,24 @@ class ROSLoader:
 
 class MosaicoLoader:
     """
-    TODO
+    Lazy data loader that streams messages from a Mosaico sequence.
+
+    Connects to the Mosaico server on first access, resolves the requested
+    sequence and topic filter, clips the time window to valid sequence bounds,
+    and exposes a :class:`SequenceDataStreamer` for iteration.
+
+    Conforms to the :class:`Loader` protocol, making it usable with
+    :class:`ProgressManager` for live progress reporting.
+
+    Args:
+        m_client: An open :class:`MosaicoClient` connection.
+        sequence_name: Name of the Mosaico sequence to load.
+        topics: Optional topic-name filter patterns (glob-style, ``!``-prefixed for
+            exclusions). ``None`` loads all topics.
+        start_timestamp_ns: Lower bound for the time window (nanoseconds). Clipped
+            to the sequence minimum if out of range.
+        end_timestamp_ns: Upper bound for the time window (nanoseconds). Clipped to
+            the sequence maximum if out of range.
     """
 
     def __init__(
@@ -502,7 +523,19 @@ class MosaicoLoader:
 
     def _resolve_sequence(self):
         """
-        TODO
+        Lazily initializes the sequence handler, resolved topic list, and streamer.
+
+        Called automatically on first access to any property or iterator. Performs
+        the following steps:
+
+        1. Fetches the :class:`SequenceHandler` for the configured sequence name
+           and validates it exists.
+        2. Applies the topic filter via :func:`_filter_topics_from_list`.
+        3. Clips ``start_timestamp_ns`` / ``end_timestamp_ns`` to the sequence bounds,
+           logging a warning if clipping occurs.
+        4. Creates the :class:`SequenceDataStreamer` that will be returned by
+           :meth:`__iter__`.
+
         """
         if self.seq_handler is not None:
             return
@@ -522,7 +555,7 @@ class MosaicoLoader:
 
         if not self.resolved_topics:
             raise RuntimeError(
-                "Unanble to initialize MoisaicoLoader: No topic matched criteria. Try checking the topics filter, if any."
+                "Unable to initialize MosaicoLoader: No topic matched criteria. Try checking the topics filter, if any."
             )
 
         # Clipping requested start/end timestamp to start/end sequence timestamp if existing
@@ -557,15 +590,27 @@ class MosaicoLoader:
 
     def msg_count(self, topic: Optional[str] = None) -> int:
         """
-        TODO
+        Returns the total number of messages for the given topic, or for all
+        resolved topics combined.
+
+        Note:
+            This performs a full traversal of each topic's data streamer to produce
+            the count, which may be slow for large sequences.
+
+        Args:
+            topic: If provided, count messages for that specific topic only.
+                If ``None``, sum across all resolved topics.
+
+        Returns:
+            The total message count.
         """
         self._resolve_sequence()
 
-        topic_msgs_to_count = [topic] if topic else self.resolved_topics
+        topics_to_count = [topic] if topic else self.resolved_topics
 
         total_msg_count = 0
-        for topic in topic_msgs_to_count:
-            t_handler = self.seq_handler.get_topic_handler(topic)
+        for t in topics_to_count:
+            t_handler = self.seq_handler.get_topic_handler(t)
 
             total_msg_count += sum(1 for _ in t_handler.get_data_streamer())
 
@@ -592,7 +637,12 @@ class MosaicoLoader:
     @property
     def topics(self) -> List[str]:
         """
-        TODO
+        Returns the list of topic names resolved after applying the topic filter.
+
+        Triggers lazy initialization on first access.
+
+        Returns:
+            List[str]: Filtered topic names available in the sequence.
         """
         self._resolve_sequence()
 
@@ -601,7 +651,16 @@ class MosaicoLoader:
     @property
     def msg_types(self) -> List[str | None]:
         """
-        TODO
+        Returns the Mosaico ontology type tags for each resolved topic.
+
+        Entries appear in the same order as :attr:`topics`. A ``None`` entry
+        indicates that the topic handler could not be found.
+
+        Triggers lazy initialization on first access.
+
+        Returns:
+            List[str | None]: Ontology tag strings (e.g. ``"imu"``, ``"image"``)
+            or ``None`` for unresolvable topics.
         """
         self._resolve_sequence()
 

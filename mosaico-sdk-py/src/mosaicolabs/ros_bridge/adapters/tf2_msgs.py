@@ -139,7 +139,18 @@ class FrameTransformAdapter(ROSAdapterBase[FrameTransform]):
         input_ros_msg_type: Optional[str] = None,
     ) -> "Optional[MsgType]":
         """
-        TODO
+        Converts a Mosaico ``FrameTransform`` (or a ``Message`` wrapping one) into a
+        ``tf2_msgs/msg/TFMessage``.
+
+        Args:
+            mosaico_data: A ``Message`` wrapping a ``FrameTransform``, or a raw ``FrameTransform``.
+            typestore: The rosbags typestore for target type resolution.
+            input_ros_msg_type: Override for the output ROS type. Only
+                ``tf2_msgs/msg/TFMessage`` is supported.
+
+        Returns:
+            A ``tf2_msgs/msg/TFMessage`` instance, or ``None`` if the type is
+            unsupported or absent from the typestore.
         """
 
         # Resolve ROS message to translate Mosaico message to if not defined in input
@@ -159,7 +170,7 @@ class FrameTransformAdapter(ROSAdapterBase[FrameTransform]):
         RosTransform = typestore.types["geometry_msgs/msg/Transform"]
         RosTransformStamped = typestore.types["geometry_msgs/msg/TransformStamped"]
 
-        # TODO: is there a better way to handle this?
+        # TODO: limitation -> each TransformStamped has the same Header since in Mosaico we do not save the header of each Transform?
         tf_transforms = []
         for transform_data in frame_transform_data.transforms:
             header = ms_header.to_ros(typestore)
@@ -176,7 +187,7 @@ class FrameTransformAdapter(ROSAdapterBase[FrameTransform]):
                 header=header,
                 child_frame_id=transform_data.target_frame_id,
                 transform=ros_transform,
-            )  # TODO: how to handle child_frame_id? Is target_frame_id the same thing?
+            )
 
             tf_transforms.append(ros_transform_stamped)
 

@@ -86,7 +86,16 @@ class ROSHeader:
 
     def to_ros(self, typestore: Typestore) -> "MsgType":
         """
-        TODO
+        Serializes this ``ROSHeader`` into a native ROS ``std_msgs/msg/Header`` message.
+
+        Handles both ROS 1 (which includes a ``seq`` field) and ROS 2 (which omits it)
+        by inspecting the dataclass fields available in the typestore.
+
+        Args:
+            typestore: The rosbags typestore
+
+        Returns:
+            A native ROS ``Header`` instance populated with the stamp and frame_id.
         """
         RosTime = typestore.types["builtin_interfaces/msg/Time"]
         RosHeader = typestore.types["std_msgs/msg/Header"]

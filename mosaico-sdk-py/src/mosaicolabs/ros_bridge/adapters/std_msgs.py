@@ -174,6 +174,21 @@ class GenericStdAdapter(ROSAdapterBase[Serializable]):
         typestore: Typestore,
         input_ros_msg_type: Optional[str] = None,
     ) -> "Optional[MsgType]":
+        """
+        Converts a Mosaico scalar wrapper (or a ``Message`` wrapping one) into the
+        corresponding ``std_msgs`` ROS message.
+
+        Args:
+            mosaico_data: A ``Message`` wrapping a scalar ``Serializable`` (e.g. ``String``,
+                ``Integer32``), or the raw scalar instance directly.
+            typestore: The rosbags typestore for target type resolution.
+            input_ros_msg_type: Override for the output ROS type. If ``None``, defaults
+                to ``cls.get_default_ros_msg()``.
+
+        Returns:
+            The constructed ``std_msgs`` ROS message, or ``None`` if the requested type
+            is unsupported or absent from the typestore.
+        """
 
         # Resolve ROS message to translate Mosaico message to if not defined in input
         resolved_rosmsg_type = input_ros_msg_type or cls.get_default_ros_msg()

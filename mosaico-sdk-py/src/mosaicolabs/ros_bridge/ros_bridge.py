@@ -108,7 +108,17 @@ class ROSBridge(Generic[T]):
         cls, mosaico_type: str
     ) -> Optional[Type[ROSAdapterBase]]:
         """
-        TODO
+        Retrieves the default adapter for a given Mosaico ontology type tag.
+
+        Only adapters registered with ``is_default=True`` are returned; these are
+        the canonical choices for Mosaico → ROS translation.
+
+        Args:
+            mosaico_type: The ontology tag string (e.g., ``"imu"``, ``"image"``).
+
+        Returns:
+            The corresponding ``ROSAdapterBase`` subclass if one is registered,
+            otherwise ``None``.
         """
         return cls._default_mosaico_adapters.get(mosaico_type)
 
@@ -125,7 +135,14 @@ class ROSBridge(Generic[T]):
     @classmethod
     def is_mosaico_type_adapted(cls, mosaico_type: str) -> bool:
         """
-        TODO
+        Checks whether a Mosaico ontology type has a registered default adapter
+        for reverse translation (Mosaico → ROS).
+
+        Args:
+            mosaico_type: The ontology tag string to check.
+
+        Returns:
+            ``True`` if a default adapter exists for this type, ``False`` otherwise.
         """
         return mosaico_type in cls._default_mosaico_adapters
 
@@ -202,7 +219,7 @@ def register_default_adapter(is_default: bool = False):
         ```python
         from mosaicolabs.ros_bridge import register_default_adapter, ROSAdapterBase
 
-        @register_default_adapter
+        @register_default_adapter(is_default: bool = False):
         class MySensorAdapter(ROSAdapterBase):
             ros_msgtype = "sensor_msgs/msg/Temperature"
             # ...

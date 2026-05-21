@@ -1,5 +1,17 @@
 """
-TODO
+ROSSequenceExtractor — extracts a Mosaico sequence and writes it as a ROS bag file.
+
+Provides :class:`ROSSequenceExtractor` and the :class:`ROSExtractorConfig` dataclass
+that drive the extraction pipeline:
+
+1. Connect to the Mosaico server.
+2. Stream every message in the requested sequence (optionally filtered by topic or
+   time window).
+3. Convert each message to its ROS equivalent via the registered :class:`ROSBridge` adapters.
+4. Write the result into a new ROS 1 (``.bag``) or ROS 2 (``.mcap`` / ``.db3``) bag file.
+
+The module also exposes ``ros_sequence_extractor()``, the console-script entry point
+installed by the package.
 """
 
 import argparse
@@ -29,7 +41,11 @@ logger = get_logger(__name__)
 @dataclass
 class ROSExtractorConfig:
     """
-    TODO
+    Configuration for :class:`ROSSequenceExtractor`.
+
+    Collects all parameters needed to connect to the Mosaico server, select the
+    target sequence, control topic and time-window filtering, and control the
+    ROS bag output format and storage location.
     """
 
     rosbag_path: Path
@@ -123,7 +139,19 @@ class ROSExtractorConfig:
 
 class ROSSequenceExtractor:
     """
-    TODO
+    Orchestrates the extraction of a Mosaico sequence into a ROS bag file.
+
+    On each call to :meth:`run`, the extractor:
+
+    1. Prepares (and optionally clears) the output directory.
+    2. Connects to the Mosaico server via :class:`MosaicoClient`.
+    3. Opens a :class:`MosaicoLoader` to stream messages for the configured sequence.
+    4. For every message, looks up the appropriate :class:`ROSAdapterBase` via
+       :class:`ROSBridge`, converts the payload to a native ROS type, and writes it
+       to the bag.
+
+    Topics that have no registered adapter, or whose ``to_ros()`` call fails, are
+    silently skipped after logging a warning.
     """
 
     def __init__(self, config: ROSExtractorConfig):
@@ -138,7 +166,7 @@ class ROSSequenceExtractor:
 
         self.ignored_topics: set[str] = set()
         self.accepted_connections: dict[str, Connection] = {}
-        self.typestore: Typestore = get_typestore(self.cfg.ros_distro)
+        self.typestore: Typestore = get_typestore(self.cfg.ros_distro or Stores.EMPTY)
         self.bagwriter = None
 
     def _register_custom_types(self):
@@ -174,6 +202,26 @@ class ROSSequenceExtractor:
                 logger.warning(f"Failed to register type '{msg_type}': '{e}'")
 
     def open_or_get_bagwriter(self, path: Path) -> Writer:
+        """
+        Returns the bag writer for the given path, creating it on first call.
+
+        On first invocation this method:
+
+        1. Registers any custom ROS message types from the ``ROSTypeRegistry``.
+        2. For **ROS 1** (``Stores.ROS1_NOETIC``): creates the output directory and
+           opens a ``rosbags.rosbag1.Writer`` targeting ``<path>/<path.name>.bag``.
+        3. For **ROS 2**: opens a ``rosbags.rosbag2.Writer`` with the requested
+           ``storage_plugin``. The bag format version is inferred from the distro
+           (version 9 for Jazzy / Kilted / LATEST, version 8 for all others).
+
+        Subsequent calls return the cached writer without re-initializing.
+
+        Args:
+            path: The output directory for the bag file.
+
+        Returns:
+            The open bag writer instance.
+        """
         if self.bagwriter is None:
             # Register custom ROS messages to ROSTypeRegistry
             self._register_custom_types()
@@ -212,7 +260,20 @@ class ROSSequenceExtractor:
 
     def _prepare_output_path(self):
         """
-        TODO
+        Resolves the final rosbag output directory and enforces the overwrite policy.
+
+        The output path is ``cfg.rosbag_path / cfg.sequence_name``. If that path
+        already exists:
+
+        - ``overwrite=False`` (default): raises :class:`FileExistsError`.
+        - ``overwrite=True``: the existing directory is deleted recursively before
+          the path is returned.
+
+        Returns:
+            Path: The prepared (non-existent) output directory ready for the bag writer.
+
+        Raises:
+            FileExistsError: If the path exists and ``cfg.overwrite`` is ``False``.
         """
         rosbag_path = self.cfg.rosbag_path / self.cfg.sequence_name
 
@@ -313,7 +374,18 @@ class ROSSequenceExtractor:
 
     def run(self):
         """
-        TODO
+        Executes the full extraction pipeline.
+
+        Steps:
+
+        1. Calls :meth:`_prepare_output_path` to validate / clear the output location.
+        2. Opens a :class:`MosaicoClient` connection and a bag writer.
+        3. Instantiates a :class:`MosaicoLoader` to stream the sequence messages.
+        4. For each ``(topic, message)`` pair, delegates to
+           :meth:`_process_message` which translates and writes the ROS message.
+
+        Progress is displayed in real-time via a ``rich`` live progress bar.
+        A ``KeyboardInterrupt`` exits cleanly with a warning log.
         """
 
         # Create rosbag path and check whether it already exists

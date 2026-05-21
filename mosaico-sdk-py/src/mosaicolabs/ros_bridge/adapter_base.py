@@ -99,7 +99,14 @@ class ROSAdapterBase(ABC, Generic[T]):
     @classmethod
     def is_rosmsg_type_valid(cls, type_to_validate: str) -> bool:
         """
-        TODO
+        Checks whether a given ROS message type string is handled by this adapter.
+
+        Args:
+            type_to_validate: The full ROS message type string to check
+                (e.g., ``"sensor_msgs/msg/Imu"``).
+
+        Returns:
+            ``True`` if the adapter supports this type, ``False`` otherwise.
         """
         if isinstance(cls.ros_msgtype, str):
             return type_to_validate == cls.ros_msgtype
@@ -111,7 +118,27 @@ class ROSAdapterBase(ABC, Generic[T]):
     @classmethod
     def unpack_mosaico_msg(cls, mosaico_msg: Union[Message, T]) -> tuple[T, ROSHeader]:
         """
-        TODO
+        Extracts the typed Mosaico payload and a ``ROSHeader`` from a wrapped or bare message.
+
+        Handles two input cases:
+
+        - **``Message`` wrapper**: the typed data is extracted via ``get_data()``;
+          a ``ROSHeader`` is reconstructed from the message's ``timestamp_ns``,
+          ``frame_id``, and ``sequence_id`` metadata.
+        - **Raw ontology instance**: returned as-is with a zeroed ``ROSHeader``
+          (seq=0, frame_id="", stamp=0).
+
+        Args:
+            mosaico_msg: Either a ``Message`` envelope or a raw instance of
+                ``cls.__mosaico_ontology_type__``.
+
+        Returns:
+            A ``(data, header)`` tuple where *data* is the typed ontology object and
+            *header* is the corresponding ``ROSHeader``.
+
+        Raises:
+            TypeError: If *mosaico_msg* is neither a ``Message`` nor an instance of
+                the expected ontology type.
         """
         if isinstance(mosaico_msg, Message):
             data: T = mosaico_msg.get_data(cls.__mosaico_ontology_type__)
@@ -154,7 +181,16 @@ class ROSAdapterBase(ABC, Generic[T]):
         ros_msg_type: Optional[str] = None,
     ) -> Optional["MsgType"]:
         """
-        TODO
+        Converts a Mosaico message or ontology object back into a native ROS message.
+
+        Args:
+            mosaico_msg: A ``Message`` wrapper or a raw ``Serializable`` ontology instance.
+            typestore: The rosbags typestore used to resolve and construct target ROS types.
+            ros_msg_type: Override for the output ROS type string. If ``None``, the adapter
+                defaults to ``cls.get_default_ros_msg()``.
+
+        Returns:
+            The constructed ROS message instance, or ``None`` if the type is unsupported.
         """
         pass
 

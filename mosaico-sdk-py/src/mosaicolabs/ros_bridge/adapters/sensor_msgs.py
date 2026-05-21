@@ -201,7 +201,21 @@ class CameraInfoAdapter(ROSAdapterBase[CameraInfo]):
         input_ros_msg_type: Optional[str] = None,
     ) -> "Optional[MsgType]":
         """
-        TODO
+        Converts a Mosaico ``CameraInfo`` (or a ``Message`` wrapping one) into a
+        ``sensor_msgs/msg/CameraInfo`` message.
+
+        Handles both ROS 1 (uppercase field names ``D``, ``K``, ``R``, ``P``) and
+        ROS 2 (lowercase ``d``, ``k``, ``r``, ``p``) field conventions.
+
+        Args:
+            mosaico_data: A ``Message`` wrapping a ``CameraInfo`` instance, or a raw ``CameraInfo``.
+            typestore: The rosbags typestore for target type resolution.
+            input_ros_msg_type: Override for the output ROS type. Only
+                ``sensor_msgs/msg/CameraInfo`` is supported.
+
+        Returns:
+            A ``sensor_msgs/msg/CameraInfo`` instance, or ``None`` if the type is
+            unsupported or absent from the typestore.
         """
 
         # Resolve ROS message to translate Mosaico message to if not defined in input
@@ -357,7 +371,18 @@ class NavSatStatusAdapter(ROSAdapterBase[GPSStatus]):
         input_ros_msg_type: Optional[str] = None,
     ) -> "Optional[MsgType]":
         """
-        TODO
+        Converts a Mosaico ``GPSStatus`` (or a ``Message`` wrapping one) into a
+        ``sensor_msgs/msg/NavSatStatus`` message.
+
+        Args:
+            mosaico_data: A ``Message`` wrapping a ``GPSStatus`` instance, or a raw ``GPSStatus``.
+            typestore: The rosbags typestore for target type resolution.
+            input_ros_msg_type: Override for the output ROS type. Only
+                ``sensor_msgs/msg/NavSatStatus`` is supported.
+
+        Returns:
+            A ``sensor_msgs/msg/NavSatStatus`` instance, or ``None`` if the type is
+            unsupported or absent from the typestore.
         """
 
         # Resolve ROS message to translate Mosaico message to if not defined in input
@@ -513,7 +538,18 @@ class GPSAdapter(ROSAdapterBase[GPS]):
         input_ros_msg_type: Optional[str] = None,
     ) -> "Optional[MsgType]":
         """
-        TODO
+        Converts a Mosaico ``GPS`` (or a ``Message`` wrapping one) into a
+        ``sensor_msgs/msg/NavSatFix`` message.
+
+        Args:
+            mosaico_data: A ``Message`` wrapping a ``GPS`` instance, or a raw ``GPS``.
+            typestore: The rosbags typestore for target type resolution.
+            input_ros_msg_type: Override for the output ROS type. Only
+                ``sensor_msgs/msg/NavSatFix`` is supported.
+
+        Returns:
+            A ``sensor_msgs/msg/NavSatFix`` instance, or ``None`` if the type is
+            unsupported or absent from the typestore.
         """
 
         # Resolve ROS message to translate Mosaico message to if not defined in input
@@ -697,7 +733,18 @@ class IMUAdapter(ROSAdapterBase[IMU]):
         input_ros_msg_type: Optional[str] = None,
     ) -> "Optional[MsgType]":
         """
-        TODO
+        Converts a Mosaico ``IMU`` (or a ``Message`` wrapping one) into a
+        ``sensor_msgs/msg/Imu`` message.
+
+        Args:
+            mosaico_data: A ``Message`` wrapping an ``IMU`` instance, or a raw ``IMU``.
+            typestore: The rosbags typestore for target type resolution.
+            input_ros_msg_type: Override for the output ROS type. Only
+                ``sensor_msgs/msg/Imu`` is supported.
+
+        Returns:
+            A ``sensor_msgs/msg/Imu`` instance, or ``None`` if the type is
+            unsupported or absent from the typestore.
         """
 
         # Resolve ROS message to translate Mosaico message to if not defined in input
@@ -828,7 +875,18 @@ class NMEASentenceAdapter(ROSAdapterBase[NMEASentence]):
         input_ros_msg_type: Optional[str] = None,
     ) -> "Optional[MsgType]":
         """
-        TODO
+        Converts a Mosaico ``NMEASentence`` (or a ``Message`` wrapping one) into a
+        ``nmea_msgs/msg/Sentence`` message.
+
+        Args:
+            mosaico_data: A ``Message`` wrapping a ``NMEASentence`` instance, or a raw ``NMEASentence``.
+            typestore: The rosbags typestore for target type resolution.
+            input_ros_msg_type: Override for the output ROS type. Only
+                ``nmea_msgs/msg/Sentence`` is supported.
+
+        Returns:
+            A ``nmea_msgs/msg/Sentence`` instance, or ``None`` if the type is
+            unsupported or absent from the typestore.
         """
 
         # Resolve ROS message to translate Mosaico message to if not defined in input
@@ -964,7 +1022,18 @@ class ImageAdapter(ROSAdapterBase[Image]):
         input_ros_msg_type: Optional[str] = None,
     ) -> "Optional[MsgType]":
         """
-        TODO
+        Converts a Mosaico ``Image`` (or a ``Message`` wrapping one) into a
+        ``sensor_msgs/msg/Image`` message.
+
+        Args:
+            mosaico_data: A ``Message`` wrapping an ``Image`` instance, or a raw ``Image``.
+            typestore: The rosbags typestore for target type resolution.
+            input_ros_msg_type: Override for the output ROS type. Only
+                ``sensor_msgs/msg/Image`` is supported.
+
+        Returns:
+            A ``sensor_msgs/msg/Image`` instance, or ``None`` if the type is
+            unsupported or absent from the typestore.
         """
 
         # Resolve ROS message to translate Mosaico message to if not defined in input
@@ -1092,7 +1161,18 @@ class CompressedImageAdapter(ROSAdapterBase[CompressedImage]):
         input_ros_msg_type: Optional[str] = None,
     ) -> "Optional[MsgType]":
         """
-        TODO
+        Converts a Mosaico ``CompressedImage`` (or a ``Message`` wrapping one) into a
+        ``sensor_msgs/msg/CompressedImage`` message.
+
+        Args:
+            mosaico_data: A ``Message`` wrapping a ``CompressedImage`` instance, or a raw ``CompressedImage``.
+            typestore: The rosbags typestore for target type resolution.
+            input_ros_msg_type: Override for the output ROS type. Only
+                ``sensor_msgs/msg/CompressedImage`` is supported.
+
+        Returns:
+            A ``sensor_msgs/msg/CompressedImage`` instance, or ``None`` if the type is
+            unsupported or absent from the typestore.
         """
 
         # Resolve ROS message to translate Mosaico message to if not defined in input
@@ -1219,7 +1299,18 @@ class ROIAdapter(ROSAdapterBase[ROI]):
         input_ros_msg_type: Optional[str] = None,
     ) -> "Optional[MsgType]":
         """
-        TODO
+        Converts a Mosaico ``ROI`` (or a ``Message`` wrapping one) into a
+        ``sensor_msgs/msg/RegionOfInterest`` message.
+
+        Args:
+            mosaico_data: A ``Message`` wrapping a ``ROI`` instance, or a raw ``ROI``.
+            typestore: The rosbags typestore for target type resolution.
+            input_ros_msg_type: Override for the output ROS type. Only
+                ``sensor_msgs/msg/RegionOfInterest`` is supported.
+
+        Returns:
+            A ``sensor_msgs/msg/RegionOfInterest`` instance, or ``None`` if the type is
+            unsupported or absent from the typestore.
         """
 
         # Resolve ROS message to translate Mosaico message to if not defined in input
@@ -1416,7 +1507,18 @@ class BatteryStateAdapter(ROSAdapterBase[BatteryState]):
         input_ros_msg_type: Optional[str] = None,
     ) -> "Optional[MsgType]":
         """
-        TODO
+        Converts a Mosaico ``BatteryState`` (or a ``Message`` wrapping one) into a
+        ``sensor_msgs/msg/BatteryState`` message.
+
+        Args:
+            mosaico_data: A ``Message`` wrapping a ``BatteryState`` instance, or a raw ``BatteryState``.
+            typestore: The rosbags typestore for target type resolution.
+            input_ros_msg_type: Override for the output ROS type. Only
+                ``sensor_msgs/msg/BatteryState`` is supported.
+
+        Returns:
+            A ``sensor_msgs/msg/BatteryState`` instance, or ``None`` if the type is
+            unsupported or absent from the typestore.
         """
 
         # Resolve ROS message to translate Mosaico message to if not defined in input
@@ -1582,7 +1684,18 @@ class RobotJointAdapter(ROSAdapterBase[RobotJoint]):
         input_ros_msg_type: Optional[str] = None,
     ) -> "Optional[MsgType]":
         """
-        TODO
+        Converts a Mosaico ``RobotJoint`` (or a ``Message`` wrapping one) into a
+        ``sensor_msgs/msg/JointState`` message.
+
+        Args:
+            mosaico_data: A ``Message`` wrapping a ``RobotJoint`` instance, or a raw ``RobotJoint``.
+            typestore: The rosbags typestore for target type resolution.
+            input_ros_msg_type: Override for the output ROS type. Only
+                ``sensor_msgs/msg/JointState`` is supported.
+
+        Returns:
+            A ``sensor_msgs/msg/JointState`` instance, or ``None`` if the type is
+            unsupported or absent from the typestore.
         """
 
         # Resolve ROS message to translate Mosaico message to if not defined in input
@@ -1670,7 +1783,22 @@ class PointCloudAdapterBase(ROSAdapterBase[PointCloudModel]):
     @classmethod
     def _extract_pa_list_type(cls, field_name: str):
         """
-        # TODO
+        Introspects the PyArrow list element type annotation for a named field on
+        the Mosaico ontology model.
+
+        Used by :meth:`encode` to determine the NumPy dtype when serializing each
+        PointCloud field into the binary buffer.
+
+        Args:
+            field_name: The model attribute name to inspect (e.g. ``"x"``, ``"intensity"``).
+
+        Returns:
+            The PyArrow ``list_`` annotation object for the field
+            (e.g. ``pa.list_(pa.float32())``).
+
+        Raises:
+            NotImplementedError: If the field annotation is a Union with multiple
+                non-None types.
         """
         field_info = cls.__mosaico_ontology_type__.model_fields[field_name]
 
@@ -1752,7 +1880,18 @@ class PointCloudAdapterBase(ROSAdapterBase[PointCloudModel]):
     @classmethod
     def encode(cls, pcl_model: dict[str, list]) -> dict:
         """
-        TODO
+        Serializes a dictionary of named field arrays into the binary layout required
+        by a ``sensor_msgs/msg/PointCloud2`` message. This is the inverse operation of :meth:`decode`.
+
+        Args:
+            pcl_model: Mapping from field name to a list of scalar values, one per
+                point. ``None``-valued fields should be excluded before calling
+                (e.g., via ``model_dump(exclude_none=True)``).
+
+        Returns:
+            A dictionary with all keys required to populate a ``PointCloud2`` message:
+            ``height``, ``width``, ``fields``, ``is_bigendian``, ``point_step``,
+            ``row_step``, ``data``, and ``is_dense``.
         """
 
         is_bigendian = sys.byteorder == "big"
@@ -1817,7 +1956,22 @@ class PointCloudAdapterBase(ROSAdapterBase[PointCloudModel]):
         input_ros_msg_type: Optional[str] = None,
     ) -> "Optional[MsgType]":
         """
-        TODO
+        Converts a Mosaico ``PointCloudModel`` subtype (or a ``Message`` wrapping one)
+        into a ``sensor_msgs/msg/PointCloud2`` message.
+
+        Fields are serialized via :meth:`encode`. Only non-``None`` model fields are
+        included in the output point cloud.
+
+        Args:
+            mosaico_data: A ``Message`` wrapping a ``PointCloudModel`` instance, or a
+                raw ``PointCloudModel`` directly.
+            typestore: The rosbags typestore for target type resolution.
+            input_ros_msg_type: Override for the output ROS type. Only
+                ``sensor_msgs/msg/PointCloud2`` is supported.
+
+        Returns:
+            A ``sensor_msgs/msg/PointCloud2`` instance, or ``None`` if the type is
+            unsupported or absent from the typestore.
         """
 
         # Resolve ROS message to translate Mosaico message to if not defined in input
@@ -2008,7 +2162,18 @@ class PointCloudAdapter(PointCloudAdapterBase[PointCloud2]):
         input_ros_msg_type: Optional[str] = None,
     ) -> "Optional[MsgType]":
         """
-        TODO
+        Converts a Mosaico ``PointCloud2`` (or a ``Message`` wrapping one) into a
+        ``sensor_msgs/msg/PointCloud2`` message.
+
+        Args:
+            mosaico_data: A ``Message`` wrapping a ``PointCloud2`` instance, or a raw ``PointCloud2``.
+            typestore: The rosbags typestore for target type resolution.
+            input_ros_msg_type: Override for the output ROS type. Only
+                ``sensor_msgs/msg/PointCloud2`` is supported.
+
+        Returns:
+            A ``sensor_msgs/msg/PointCloud2`` instance, or ``None`` if the type is
+            unsupported or absent from the typestore.
         """
 
         # Resolve ROS message to translate Mosaico message to if not defined in input
@@ -2163,7 +2328,18 @@ class LaserScanAdapter(LaserScannerAdapterBase[LaserScan]):
         input_ros_msg_type: Optional[str] = None,
     ) -> "Optional[MsgType]":
         """
-        TODO
+        Converts a Mosaico ``LaserScan`` (or a ``Message`` wrapping one) into a
+        ``sensor_msgs/msg/LaserScan`` message.
+
+        Args:
+            mosaico_data: A ``Message`` wrapping a ``LaserScan`` instance, or a raw ``LaserScan``.
+            typestore: The rosbags typestore for target type resolution.
+            input_ros_msg_type: Override for the output ROS type. Only
+                ``sensor_msgs/msg/LaserScan`` is supported.
+
+        Returns:
+            A ``sensor_msgs/msg/LaserScan`` instance, or ``None`` if the type is
+            unsupported or absent from the typestore.
         """
 
         # Resolve ROS message to translate Mosaico message to if not defined in input
@@ -2265,7 +2441,18 @@ class MultiEchoLaserScanAdapter(LaserScannerAdapterBase[MultiEchoLaserScan]):
         input_ros_msg_type: Optional[str] = None,
     ) -> "Optional[MsgType]":
         """
-        TODO
+        Converts a Mosaico ``MultiEchoLaserScan`` (or a ``Message`` wrapping one) into a
+        ``sensor_msgs/msg/MultiEchoLaserScan`` message.
+
+        Args:
+            mosaico_data: A ``Message`` wrapping a ``MultiEchoLaserScan`` instance, or a raw ``MultiEchoLaserScan``.
+            typestore: The rosbags typestore for target type resolution.
+            input_ros_msg_type: Override for the output ROS type. Only
+                ``sensor_msgs/msg/MultiEchoLaserScan`` is supported.
+
+        Returns:
+            A ``sensor_msgs/msg/MultiEchoLaserScan`` instance, or ``None`` if the type is
+            unsupported or absent from the typestore.
         """
 
         # Resolve ROS message to translate Mosaico message to if not defined in input
@@ -2390,7 +2577,18 @@ class MagneticFieldAdapter(ROSAdapterBase[Magnetometer]):
         input_ros_msg_type: Optional[str] = None,
     ) -> "Optional[MsgType]":
         """
-        TODO
+        Converts a Mosaico ``Magnetometer`` (or a ``Message`` wrapping one) into a
+        ``sensor_msgs/msg/MagneticField`` message.
+
+        Args:
+            mosaico_data: A ``Message`` wrapping a ``Magnetometer`` instance, or a raw ``Magnetometer``.
+            typestore: The rosbags typestore for target type resolution.
+            input_ros_msg_type: Override for the output ROS type. Only
+                ``sensor_msgs/msg/MagneticField`` is supported.
+
+        Returns:
+            A ``sensor_msgs/msg/MagneticField`` instance, or ``None`` if the type is
+            unsupported or absent from the typestore.
         """
 
         # Resolve ROS message to translate Mosaico message to if not defined in input
@@ -2502,7 +2700,18 @@ class JoyAdapter(ROSAdapterBase[Joy]):
         input_ros_msg_type: Optional[str] = None,
     ) -> "Optional[MsgType]":
         """
-        TODO
+        Converts a Mosaico ``Joy`` (or a ``Message`` wrapping one) into a
+        ``sensor_msgs/msg/Joy`` message.
+
+        Args:
+            mosaico_data: A ``Message`` wrapping a ``Joy`` instance, or a raw ``Joy``.
+            typestore: The rosbags typestore for target type resolution.
+            input_ros_msg_type: Override for the output ROS type. Only
+                ``sensor_msgs/msg/Joy`` is supported.
+
+        Returns:
+            A ``sensor_msgs/msg/Joy`` instance, or ``None`` if the type is
+            unsupported or absent from the typestore.
         """
 
         # Resolve ROS message to translate Mosaico message to if not defined in input
