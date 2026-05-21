@@ -219,7 +219,7 @@ type HandshakeStream = BoxStream<'static, std::result::Result<HandshakeResponse,
 type ListFlightsStream = BoxStream<'static, std::result::Result<FlightInfo, Status>>;
 type DoGetStream = BoxStream<'static, std::result::Result<FlightData, Status>>;
 type DoPutStream = BoxStream<'static, std::result::Result<PutResult, Status>>;
-type DoActionStream = BoxStream<'static, std::result::Result<arrow_flight::Result, Status>>;
+pub type DoActionStream = BoxStream<'static, std::result::Result<arrow_flight::Result, Status>>;
 type ListActionsStream = BoxStream<'static, std::result::Result<ActionType, Status>>;
 type DoExchangeStream = BoxStream<'static, std::result::Result<FlightData, Status>>;
 
@@ -318,13 +318,9 @@ impl MosaicodFlight {
         let action = request.into_inner();
         let action = marshal::ActionRequest::try_new(action.r#type.as_str(), &action.body)?;
 
-        let response = endpoint::do_action(&self.context(), action, auth_ctx.permissions()).await?;
-
-        let bytes = response.bytes()?;
+        let stream = endpoint::do_action(&self.context(), action, auth_ctx.permissions()).await?;
 
         // Create the stream from the flight result
-        let stream = futures::stream::iter(vec![Ok(arrow_flight::Result::new(bytes))]);
-
         Ok(Response::new(Box::pin(stream)))
     }
 }

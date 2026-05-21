@@ -1,13 +1,24 @@
 //! Topic-related actions.
-
-use crate::error::{Error, Result};
+use crate::{
+    error::{Error, Result},
+    flight::DoActionStream,
+};
 use log::{info, trace, warn};
 use mosaicod_core::{
     self as core,
     types::{self, MetadataBlob},
 };
-use mosaicod_facade as facade;
-use mosaicod_marshal::{self as marshal, ActionResponse};
+use mosaicod_facade::{self as facade};
+use mosaicod_marshal::{
+    self as marshal, ActionResponse, ClusterTimestampRange, Ontology, flight::FilterTimestampRange,
+    responses,
+};
+use std::time::Duration;
+
+use tokio::sync::mpsc;
+use tokio_stream::wrappers::ReceiverStream;
+
+const MAX_BUFFER_CHANNEL_SIZE: usize = 128;
 
 /// Creates a new topic with the given name and metadata.
 pub async fn create(
@@ -115,4 +126,64 @@ pub async fn notification_purge(ctx: &facade::Context, locator: String) -> Resul
     facade::topic::notification_purge(ctx, &topic_handle).await?;
 
     Ok(ActionResponse::topic_notification_purge())
+}
+
+pub async fn filter_clusterize(
+    _ctx: &facade::Context,
+    locator: String,
+    _clustering_dt_ns: u64,
+    ontology: Ontology,
+    timestamp_range: Option<FilterTimestampRange>,
+) -> Result<DoActionStream> {
+    info!("filter clusterize for {}", locator);
+
+    if let Some(ts) = &timestamp_range {
+        ts.validate()?;
+    }
+
+    if ontology.len() > 1 || ontology.is_empty() {
+        return Err(core::Error::bad_request(format!(
+            "Only 1 filtering condition is allowed, found {}",
+            ontology.len()
+        )))?;
+    }
+
+    let (tx, rx) = mpsc::channel::<std::result::Result<arrow_flight::Result, tonic::Status>>(
+        MAX_BUFFER_CHANNEL_SIZE,
+    );
+
+    tokio::spawn(async move {
+        for id in 0u64..10 {
+            let res = responses::TopicFilterClusterize {
+                ts: ClusterTimestampRange {
+                    start_ns: id * 10,
+                    end_ns: id * 10 + 5,
+                },
+                id,
+            };
+
+            let bytes = match ActionResponse::topic_filter_clusterize(res).bytes() {
+                Ok(b) => b,
+                Err(e) => {
+                    let _ = tx.send(Err(tonic::Status::internal(e.to_string()))).await;
+                    return;
+                }
+            };
+
+            let mut payload = bytes.to_vec();
+            payload.push(b'\n');
+
+            if tx
+                .send(Ok(arrow_flight::Result::new(payload)))
+                .await
+                .is_err()
+            {
+                warn!("client disconnected, aborting clusterize stream");
+                return;
+            }
+            tokio::time::sleep(Duration::from_secs(1)).await;
+        }
+    });
+
+    Ok(Box::pin(ReceiverStream::new(rx)))
 }

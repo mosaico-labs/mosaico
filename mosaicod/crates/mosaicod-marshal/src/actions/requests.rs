@@ -1,5 +1,7 @@
 use super::ActionError;
 use crate::Format;
+use crate::Ontology;
+use crate::flight::FilterTimestampRange;
 use serde::Deserialize;
 
 #[derive(Deserialize, Debug)]
@@ -41,6 +43,16 @@ impl TopicCreate {
     pub fn user_metadata(&self) -> Result<String, ActionError> {
         Ok(serde_json::to_string(&self.user_metadata)?)
     }
+}
+
+/// Specialized message used to filter a topic by ontology and timestamp range,
+/// then cluster matching timestamps by a time-gap threshold
+#[derive(Deserialize, Debug)]
+pub struct TopicFilterClusterize {
+    pub locator: String,
+    pub clustering_dt_ns: u64,
+    pub ontology: Ontology,
+    pub timestamp_range: Option<FilterTimestampRange>,
 }
 
 // ////////////////////////////////////////////////////////////////////////////

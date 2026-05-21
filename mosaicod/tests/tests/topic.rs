@@ -2,9 +2,9 @@
 use mosaicod_core::types;
 use mosaicod_db as db;
 use mosaicod_ext as ext;
-use mosaicod_marshal as marshal;
+use mosaicod_marshal::{self as marshal, Ontology, flight::FilterTimestampRange};
+use serde_json::json;
 use tests::{self, actions, common};
-
 // ===========================================================================
 // Topic tests
 // ===========================================================================
@@ -543,4 +543,101 @@ async fn test_topic_delete_unlocked(pool: sqlx::Pool<db::DatabaseType>) {
     assert_eq!(res.unwrap_err().code(), tonic::Code::NotFound);
 
     server.shutdown().await;
+}
+
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_topic_filter_clusterize_stub(pool: sqlx::Pool<db::DatabaseType>) {
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
+        .build()
+        .await;
+
+    let sequence_name = "test_sequence";
+    let topic_name = &format!("{}/test_topic", sequence_name);
+    let clustering_dt_ns: u64 = 10;
+    let ontology: Ontology = serde_json::from_value(json!({
+        "imu.acceleration.x": { "$gt": 5 }
+    }))
+    .unwrap();
+
+    let res =
+        actions::topic_filter_clusterize(&mut client, topic_name, clustering_dt_ns, ontology, None)
+            .await
+            .unwrap();
+
+    for (i, x) in res.iter().enumerate() {
+        let start = x["ts"]["start_ns"].as_u64().unwrap();
+        let end = x["ts"]["end_ns"].as_u64().unwrap();
+        let id = x["id"].as_u64().unwrap();
+
+        assert_eq!(start, i as u64 * 10);
+        assert_eq!(end, i as u64 * 10 + 5);
+        assert_eq!(id, i as u64);
+    }
+}
+
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_topic_filter_clusterize_wrong_timestamp(pool: sqlx::Pool<db::DatabaseType>) {
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
+        .build()
+        .await;
+
+    let sequence_name = "test_sequence";
+    let topic_name = &format!("{}/test_topic", sequence_name);
+    let clustering_dt_ns: u64 = 10;
+    let ontology: Ontology = serde_json::from_value(json!({
+        "imu.acceleration.x": { "$gt": 5 }
+    }))
+    .unwrap();
+
+    let timestamp: FilterTimestampRange = serde_json::from_value(json!({
+        "start_ns": 10000, "end_ns": 3000
+    }))
+    .unwrap();
+
+    let res = actions::topic_filter_clusterize(
+        &mut client,
+        topic_name,
+        clustering_dt_ns,
+        ontology,
+        Some(timestamp),
+    )
+    .await;
+
+    assert!(res.is_err());
+    assert_eq!(res.unwrap_err().code(), tonic::Code::InvalidArgument);
+}
+
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_topic_filter_clusterize_more_ontology(pool: sqlx::Pool<db::DatabaseType>) {
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
+        .build()
+        .await;
+
+    let sequence_name = "test_sequence";
+    let topic_name = &format!("{}/test_topic", sequence_name);
+    let clustering_dt_ns: u64 = 10;
+    let ontology: Ontology = serde_json::from_value(json!({
+        "imu.acceleration.x": { "$gt": 5 }, "imu.acceleration.y": { "$gt": 1 }
+    }))
+    .unwrap();
+
+    let timestamp: FilterTimestampRange = serde_json::from_value(json!({
+        "start_ns": 10000, "end_ns": 3000000
+    }))
+    .unwrap();
+
+    let res = actions::topic_filter_clusterize(
+        &mut client,
+        topic_name,
+        clustering_dt_ns,
+        ontology,
+        Some(timestamp),
+    )
+    .await;
+
+    assert!(res.is_err());
+    assert_eq!(res.unwrap_err().code(), tonic::Code::InvalidArgument);
 }

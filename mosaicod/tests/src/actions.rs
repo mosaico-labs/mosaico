@@ -9,9 +9,12 @@ use mosaicod_core::types;
 use mosaicod_ext as ext;
 
 use arrow_flight::Ticket;
-use mosaicod_marshal as marshal;
+use mosaicod_marshal::flight::FilterTimestampRange;
+use mosaicod_marshal::{self as marshal, Ontology};
 
+use serde_json::json;
 use tonic::Streaming;
+
 /// Create a new sequence.
 /// Returns the `key` of the newly created sequence, this key is required to perform action
 /// like create/upload topics, etc.
@@ -656,6 +659,40 @@ pub async fn topic_notification_purge(
     }
 
     Ok(())
+}
+
+pub async fn topic_filter_clusterize(
+    client: &mut Client,
+    locator: &str,
+    clustering_dt_ns: u64,
+    ontology: Ontology,
+    timestamp_range: Option<FilterTimestampRange>,
+) -> Result<Vec<serde_json::Value>, tonic::Status> {
+    let body = json!({
+        "locator": locator,
+        "clustering_dt_ns": clustering_dt_ns,
+        "ontology": ontology,
+        "timestamp_range": timestamp_range,
+    });
+
+    let action = Action {
+        r#type: "topic_filter_clusterize".to_owned(),
+        body: serde_json::to_vec(&body)
+            .map_err(|e| tonic::Status::internal(e.to_string()))?
+            .into(),
+    };
+
+    dbg!(&action);
+    let mut ret: Vec<serde_json::Value> = Vec::new();
+    let mut stream = client.do_action(action).await?.into_inner();
+    while let Some(result) = stream.message().await? {
+        dbg!(&result);
+        let r = ActionResponse::from_body(&result.body);
+        assert_eq!(r.action, "topic_filter_clusterize");
+        ret.push(r.response);
+    }
+
+    Ok(ret)
 }
 
 /// Helper function to create sequence notifications.
