@@ -58,27 +58,27 @@ We provide built-in support for multiple open-source formats. We recommend explo
 File (HDF5)
 :::
 
-:::tip[Topics Ingested into Mosaico]
-| Topic | Ontology Type |
-| :--- | :--- |
-| `capture_node-camera-image` | [`CompressedImage`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/sensors/#mosaicolabs.models.sensors.CompressedImage) |
-| `events` | [*`EventCamera`*](https://github.com/mosaico-labs/mosaico-alchemy/blob/main/src/mosaico_alchemy/manipulation/ontology/event_camera.py)\* |
-| `hama1` | [`CompressedImage`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/sensors/#mosaicolabs.models.sensors.CompressedImage) |
-| `hama1_audio` | [*`AudioDataStamped`*](https://github.com/mosaico-labs/mosaico-alchemy/blob/main/src/mosaico_alchemy/manipulation/ontology/audio.py)\* |
-| `hama2` | [`CompressedImage`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/sensors/#mosaicolabs.models.sensors.CompressedImage) |
-| `hama2_audio` | [*`AudioDataStamped`*](https://github.com/mosaico-labs/mosaico-alchemy/blob/main/src/mosaico_alchemy/manipulation/ontology/audio.py)\* |
-| `hand` | [`CompressedImage`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/sensors/#mosaicolabs.models.sensors.CompressedImage) |
-| `hand_audio` | [*`AudioDataStamped`*](https://github.com/mosaico-labs/mosaico-alchemy/blob/main/src/mosaico_alchemy/manipulation/ontology/audio.py)\* |
-| `grasp_failure_label`| [*`SegmentInfo`*](https://github.com/mosaico-labs/mosaico-alchemy/blob/main/src/mosaico_alchemy/manipulation/ontology/segment_info.py)\* |
-| `robot_state/joint_state` | [`RobotJoint`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/sensors/#mosaicolabs.models.sensors.RobotJoint) |
-| `robot_state/pose` | [`Pose`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/geometry/#mosaicolabs.models.data.geometry.Pose) |
-| `robot_state/velocity` | [`Velocity`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/geometry/#mosaicolabs.models.data.kinematics.Velocity) |
-| `robot_state/compensated_base_force_torque` | [`ForceTorque`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/geometry/#mosaicolabs.models.data.dynamics.ForceTorque) |
-| `robot_state/measured_force_torque` | [`ForceTorque`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/geometry/#mosaicolabs.models.data.dynamics.ForceTorque) |
-| `robot_state/end_effector` | [*`EndEffector`*](https://github.com/mosaico-labs/mosaico-alchemy/blob/main/src/mosaico_alchemy/manipulation/ontology/end_effector.py)\* |
+##### Topics Ingested into Mosaico
+
+| Topic | Ontology Type | Description |
+| :--- | :--- | :--- |
+| `/capture_node-camera-image` | [`CompressedImage`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/sensors/#mosaicolabs.models.sensors.CompressedImage) | RGB video from the DAVIS346 event camera's integrated frame sensor, facing the workspace. |
+| `/events` | [*`EventCamera`*](https://github.com/mosaico-labs/mosaico-alchemy/blob/main/src/mosaico_alchemy/manipulation/ontology/event_camera.py)\* | Asynchronous pixel-level brightness change events `[x, y, polarity]` from the event camera. |
+| `/hama1` | [`CompressedImage`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/sensors/#mosaicolabs.models.sensors.CompressedImage) | RGB video from the first external camera observing the robot. |
+| `/hama1_audio` | [*`AudioDataStamped`*](https://github.com/mosaico-labs/mosaico-alchemy/blob/main/src/mosaico_alchemy/manipulation/ontology/audio.py)\* | Audio stream from the microphone co-located with the first external camera. |
+| `/hama2` | [`CompressedImage`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/sensors/#mosaicolabs.models.sensors.CompressedImage) | RGB video from the second external camera observing the robot. |
+| `/hama2_audio` | [*`AudioDataStamped`*](https://github.com/mosaico-labs/mosaico-alchemy/blob/main/src/mosaico_alchemy/manipulation/ontology/audio.py)\* | Audio stream from the microphone co-located with the second external camera. |
+| `/hand` | [`CompressedImage`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/sensors/#mosaicolabs.models.sensors.CompressedImage) | RGB video from the hand-mounted camera observing the worktable. |
+| `/hand_audio` | [*`AudioDataStamped`*](https://github.com/mosaico-labs/mosaico-alchemy/blob/main/src/mosaico_alchemy/manipulation/ontology/audio.py)\* | Audio stream from the microphone co-located with the hand camera. |
+| `/grasp_failure_label`| [*`SegmentInfo`*](https://github.com/mosaico-labs/mosaico-alchemy/blob/main/src/mosaico_alchemy/manipulation/ontology/segment_info.py)\* | Hierarchical temporal segmentation of the episode into labelled high-level and low-level action segments, each with start/end timestamps and a success flag. |
+| `/robot_state/joint_state` | [`RobotJoint`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/sensors/#mosaicolabs.models.sensors.RobotJoint) | Position, velocity, and effort for each of the 7 robot arm joints. |
+| `/robot_state/pose` | [`Pose`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/geometry/#mosaicolabs.models.data.geometry.Pose) | End-effector Cartesian pose `[x, y, z, qx, qy, qz, qw]` in world frame. |
+| `/robot_state/velocity` | [`Velocity`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/geometry/#mosaicolabs.models.data.kinematics.Velocity) | End-effector Cartesian velocity `[vx, vy, vz, wx, wy, wz]` in m/s and rad/s. |
+| `/robot_state/compensated_base_force_torque` | [`ForceTorque`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/geometry/#mosaicolabs.models.data.dynamics.ForceTorque) | 3D force and torque at the robot base, gravity-compensated. |
+| `/robot_state/measured_force_torque` | [`ForceTorque`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/geometry/#mosaicolabs.models.data.dynamics.ForceTorque) | Raw 3D force and torque measured at the end-effector F/T sensor. |
+| `/robot_state/end_effector` | [*`EndEffector`*](https://github.com/mosaico-labs/mosaico-alchemy/blob/main/src/mosaico_alchemy/manipulation/ontology/end_effector.py)\* | Position, velocity, and effort for each of the 2 gripper fingers. |
 
 \**The custom ontology models defined within the pack module*
-:::
 
 #### [RT-1 (Fractal)](https://www.tensorflow.org/datasets/catalog/fractal20220817_data)
 
@@ -88,36 +88,36 @@ File (HDF5)
 File (TFDS)
 :::
 
-:::tip[Topics Ingested into Mosaico]
-| Topic | Ontology Type |
-| :--- | :--- |
-| `step/observation/image` | [`CompressedImage`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/sensors/#mosaicolabs.models.sensors.CompressedImage) |
-| `step/observation/base_pose_tool_reached` | [`Pose`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/geometry/#mosaicolabs.models.data.geometry.Pose) |
-| `step/observation/orientation_start` | [`Quaternion`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/geometry/#mosaicolabs.models.data.geometry.Quaternion) |
-| `step/observation/src_rotation` | [`Quaternion`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/geometry/#mosaicolabs.models.data.geometry.Quaternion) |
-| `step/observation/natural_language_instruction` | [`String`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/data_types/#mosaicolabs.models.data.base_types.String) |
-| `step/observation/natural_language_embedding` | [*`TextEmbedding`*](https://github.com/mosaico-labs/mosaico-alchemy/blob/main/src/mosaico_alchemy/manipulation/ontology/text_embedding.py)\* |
-| `step/observation/gripper_closed` | [`Floating32`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/data_types/#mosaicolabs.models.data.base_types.Floating32) |
-| `step/observation/gripper_closedness_commanded` | [`Floating32`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/data_types/#mosaicolabs.models.data.base_types.Floating32) |
-| `step/observation/height_to_bottom` | [`Floating32`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/data_types/#mosaicolabs.models.data.base_types.Floating32) |
-| `step/observation/rotation_delta_to_go` | [`Vector3d`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/geometry/#mosaicolabs.models.data.geometry.Vector3d) |
-| `step/observation/vector_to_go` | [`Vector3d`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/geometry/#mosaicolabs.models.data.geometry.Vector3d) |
-| `step/observation/orientation_box` | [*`Vector3dBounds`*](https://github.com/mosaico-labs/mosaico-alchemy/blob/main/src/mosaico_alchemy/manipulation/ontology/spatial_bounds.py)\* |
-| `step/observation/robot_orientation_positions_box` | [*`Vector3dFrame`*](https://github.com/mosaico-labs/mosaico-alchemy/blob/main/src/mosaico_alchemy/manipulation/ontology/spatial_bounds.py)\* |
-| `step/observation/workspace_bounds` | [*`WorkspaceBounds`*](https://github.com/mosaico-labs/mosaico-alchemy/blob/main/src/mosaico_alchemy/manipulation/ontology/spatial_bounds.py)\* |
-| `step/action/world_vector` | [`Vector3d`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/geometry/#mosaicolabs.models.data.geometry.Vector3d) |
-| `step/action/rotation_delta` | [`Vector3d`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/geometry/#mosaicolabs.models.data.geometry.Vector3d) |
-| `step/action/base_displacement_vector` | [`Vector3d`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/geometry/#mosaicolabs.models.data.geometry.Vector2d) |
-| `step/action/base_displacement_vertical_rotation` |  [`Floating32`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/data_types/#mosaicolabs.models.data.base_types.Floating32) |
-| `step/action/gripper_closedness_action` |  [`Floating32`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/data_types/#mosaicolabs.models.data.base_types.Floating32) |
-| `step/action/terminate_episode` | [*`TerminateEpisode`*](https://github.com/mosaico-labs/mosaico-alchemy/blob/main/src/mosaico_alchemy/manipulation/ontology/terminate_episode.py)\* |
-| `step/reward` |  [`Floating32`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/data_types/#mosaicolabs.models.data.base_types.Floating32) |
-| `step/is_first` |  [`Boolean`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/data_types/#mosaicolabs.models.data.base_types.Boolean) |
-| `step/is_last` |  [`Boolean`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/data_types/#mosaicolabs.models.data.base_types.Boolean) |
-| `step/is_terminal` |  [`Boolean`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/data_types/#mosaicolabs.models.data.base_types.Boolean) |
+##### Topics Ingested into Mosaico
+
+| Topic | Ontology Type | Description |
+| :--- | :--- | :--- |
+| `step/observation/image` | [`CompressedImage`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/sensors/#mosaicolabs.models.sensors.CompressedImage) | RGB camera frame `(256×320×3)` from the robot's onboard camera. |
+| `step/observation/base_pose_tool_reached` | [`Pose`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/geometry/#mosaicolabs.models.data.geometry.Pose) | Current end-effector pose `[x, y, z, qx, qy, qz, qw]` in base-relative frame. |
+| `step/observation/orientation_start` | [`Quaternion`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/geometry/#mosaicolabs.models.data.geometry.Quaternion) | End-effector orientation quaternion at the start of the episode (`t=0`), used to normalise subsequent rotations. |
+| `step/observation/src_rotation` | [`Quaternion`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/geometry/#mosaicolabs.models.data.geometry.Quaternion) | Reference orientation quaternion for the current phase of the task. |
+| `step/observation/natural_language_instruction` | [`String`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/data_types/#mosaicolabs.models.data.base_types.String) | Free-text task instruction (e.g. *"pick rxbar chocolate from bottom drawer and place on counter"*). |
+| `step/observation/natural_language_embedding` | [*`TextEmbedding`*](https://github.com/mosaico-labs/mosaico-alchemy/blob/main/src/mosaico_alchemy/manipulation/ontology/text_embedding.py)\* | 512-dimensional float embedding of the natural language instruction. |
+| `step/observation/gripper_closed` | [`Floating32`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/data_types/#mosaicolabs.models.data.base_types.Floating32) | Binary-like indicator of whether the gripper is currently closed (`1`) or open (`0`). |
+| `step/observation/gripper_closedness_commanded` | [`Floating32`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/data_types/#mosaicolabs.models.data.base_types.Floating32) | Previously commanded continuous gripper position `[0, 1]`; comparing with `gripper_closed` reveals execution error or physical resistance. |
+| `step/observation/height_to_bottom` | [`Floating32`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/data_types/#mosaicolabs.models.data.base_types.Floating32) | Altitude of the end-effector above the ground plane, in metres. |
+| `step/observation/rotation_delta_to_go` | [`Vector3d`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/geometry/#mosaicolabs.models.data.geometry.Vector3d) | Remaining rotational displacement `[roll, pitch, yaw]` from current orientation to target, in radians. |
+| `step/observation/vector_to_go` | [`Vector3d`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/geometry/#mosaicolabs.models.data.geometry.Vector3d) | Displacement `[Δx, Δy, Δz]` from the current end-effector position to the target; used as a closed-loop control signal. |
+| `step/observation/orientation_box` | [*`Vector3dBounds`*](https://github.com/mosaico-labs/mosaico-alchemy/blob/main/src/mosaico_alchemy/manipulation/ontology/spatial_bounds.py)\* | Min/max rotational bounds `(2×3)` defining the allowed orientation range for an object of interest, in radians. |
+| `step/observation/robot_orientation_positions_box` | [*`Vector3dFrame`*](https://github.com/mosaico-labs/mosaico-alchemy/blob/main/src/mosaico_alchemy/manipulation/ontology/spatial_bounds.py)\* | `3×3` matrix describing the robot body's position and orientation in 3D space. |
+| `step/observation/workspace_bounds` | [*`WorkspaceBounds`*](https://github.com/mosaico-labs/mosaico-alchemy/blob/main/src/mosaico_alchemy/manipulation/ontology/spatial_bounds.py)\* | `3×3` matrix defining the per-axis spatial limits within which the robot is authorised to operate. |
+| `step/action/world_vector` | [`Vector3d`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/geometry/#mosaicolabs.models.data.geometry.Vector3d) | Commanded Cartesian displacement `[Δx, Δy, Δz]` of the end-effector in base-relative frame. |
+| `step/action/rotation_delta` | [`Vector3d`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/geometry/#mosaicolabs.models.data.geometry.Vector3d) | Commanded orientation change `[roll, pitch, yaw]` in base-relative frame, in radians. |
+| `step/action/base_displacement_vector` | [`Vector3d`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/geometry/#mosaicolabs.models.data.geometry.Vector2d) | Commanded robot base translation `[x, y]` on the horizontal plane, in metres. |
+| `step/action/base_displacement_vertical_rotation` | [`Floating32`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/data_types/#mosaicolabs.models.data.base_types.Floating32) | Commanded robot base yaw rotation (rotation about the vertical Z axis), in radians. |
+| `step/action/gripper_closedness_action` | [`Floating32`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/data_types/#mosaicolabs.models.data.base_types.Floating32) | Target gripper closure `[0, 1]` commanding how tightly to grasp an object. |
+| `step/action/terminate_episode` | [*`TerminateEpisode`*](https://github.com/mosaico-labs/mosaico-alchemy/blob/main/src/mosaico_alchemy/manipulation/ontology/terminate_episode.py)\* | 3-element signal indicating whether the model believes the task is complete, ongoing, or in error. |
+| `step/reward` | [`Floating32`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/data_types/#mosaicolabs.models.data.base_types.Floating32) | Scalar reward for the action taken at this step. |
+| `step/is_first` | [`Boolean`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/data_types/#mosaicolabs.models.data.base_types.Boolean) | True for the initial step of an episode. |
+| `step/is_last` | [`Boolean`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/data_types/#mosaicolabs.models.data.base_types.Boolean) | True for the final step of an episode. |
+| `step/is_terminal` | [`Boolean`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/data_types/#mosaicolabs.models.data.base_types.Boolean) | True when the episode ends (by success or failure), triggering a reset of the expected value computation. |
 
 \**The custom ontology models defined within the pack module*
-:::
 
 #### [LeRobot DROID](https://huggingface.co/datasets/lerobot/droid_1.0.1)
 
@@ -127,32 +127,32 @@ File (TFDS)
 File (Parquet)
 :::
 
-:::tip[Topics Ingested into Mosaico]
-| Topic | Ontology Type |
-| :--- | :--- |
-| `/observation/images/wrist_left` | [`CompressedImage`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/sensors/#mosaicolabs.models.sensors.CompressedImage) |
-| `/observation/images/exterior_1_left` | [`CompressedImage`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/sensors/#mosaicolabs.models.sensors.CompressedImage) |
-| `/observation/images/exterior_2_left` | [`CompressedImage`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/sensors/#mosaicolabs.models.sensors.CompressedImage) |
-| `/observation/state/joint_position` | [`RobotJoint`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/sensors/#mosaicolabs.models.sensors.RobotJoint) |
-| `/observation/state/cartesian_position` | [`Pose`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/geometry/#mosaicolabs.models.data.geometry.Pose) |
-| `/observation/state/gripper_position` | [*`EndEffector`*](https://github.com/mosaico-labs/mosaico-alchemy/blob/main/src/mosaico_alchemy/manipulation/ontology/end_effector.py)\* |
-| `/action/joint_position` | [`RobotJoint`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/sensors/#mosaicolabs.models.sensors.RobotJoint) |
-| `/action/cartesian_position` | [`Pose`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/geometry/#mosaicolabs.models.data.geometry.Pose) |
-| `/action/cartesian_velocity` | [`Velocity`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/geometry/#mosaicolabs.models.data.kinematics.Velocity) |
-| `/action/gripper_position` | [*`EndEffector`*](https://github.com/mosaico-labs/mosaico-alchemy/blob/main/src/mosaico_alchemy/manipulation/ontology/end_effector.py)\* |
-| `/camera_extrinsics/wrist_left` | [`Pose`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/geometry/#mosaicolabs.models.data.geometry.Pose) |
-| `/camera_extrinsics/exterior_1_left` | [`Pose`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/geometry/#mosaicolabs.models.data.geometry.Pose) |
-| `/camera_extrinsics/exterior_2_left` | [`Pose`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/geometry/#mosaicolabs.models.data.geometry.Pose) |
-| `/step/reward` | [`Floating64`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/data_types/#mosaicolabs.models.data.base_types.Floating64) |
-| `/step/discount` | [`Floating64`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/data_types/#mosaicolabs.models.data.base_types.Floating64) |
-| `/step/task_index` | [`Integer64`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/data_types/#mosaicolabs.models.data.base_types.Integer64) |
-| `/step/frame_index` | [`Integer64`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/data_types/#mosaicolabs.models.data.base_types.Integer64) |
-| `/step/is_first` |  [`Boolean`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/data_types/#mosaicolabs.models.data.base_types.Boolean) |
-| `/step/is_last` |  [`Boolean`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/data_types/#mosaicolabs.models.data.base_types.Boolean) |
-| `/step/is_terminal` |  [`Boolean`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/data_types/#mosaicolabs.models.data.base_types.Boolean) |
+##### Topics Ingested into Mosaico
+
+| Topic | Ontology Type | Description |
+| :--- | :--- | :--- |
+| `/observation/images/wrist_left` | [`CompressedImage`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/sensors/#mosaicolabs.models.sensors.CompressedImage) | RGB video `(180×320×3)` from the wrist-mounted camera near the end-effector. |
+| `/observation/images/exterior_1_left` | [`CompressedImage`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/sensors/#mosaicolabs.models.sensors.CompressedImage) | RGB video `(180×320×3)` from the first external scene camera. |
+| `/observation/images/exterior_2_left` | [`CompressedImage`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/sensors/#mosaicolabs.models.sensors.CompressedImage) | RGB video `(180×320×3)` from the second external scene camera. |
+| `/observation/state/joint_position` | [`RobotJoint`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/sensors/#mosaicolabs.models.sensors.RobotJoint) | Current positions of the 7 Franka arm joints, in radians. |
+| `/observation/state/cartesian_position` | [`Pose`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/geometry/#mosaicolabs.models.data.geometry.Pose) | Current end-effector Cartesian pose `[x, y, z, roll, pitch, yaw]` in world frame. |
+| `/observation/state/gripper_position` | [*`EndEffector`*](https://github.com/mosaico-labs/mosaico-alchemy/blob/main/src/mosaico_alchemy/manipulation/ontology/end_effector.py)\* | Current gripper opening/closing state as a scalar. |
+| `/action/joint_position` | [`RobotJoint`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/sensors/#mosaicolabs.models.sensors.RobotJoint) | Target positions commanded to the 7 Franka arm joints. |
+| `/action/cartesian_position` | [`Pose`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/geometry/#mosaicolabs.models.data.geometry.Pose) | Target end-effector Cartesian pose `[x, y, z, roll, pitch, yaw]` commanded at this step. |
+| `/action/cartesian_velocity` | [`Velocity`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/geometry/#mosaicolabs.models.data.kinematics.Velocity) | Target end-effector Cartesian velocity `[vx, vy, vz, vroll, vpitch, vyaw]` commanded at this step. |
+| `/action/gripper_position` | [*`EndEffector`*](https://github.com/mosaico-labs/mosaico-alchemy/blob/main/src/mosaico_alchemy/manipulation/ontology/end_effector.py)\* | Target gripper position commanded at this step. |
+| `/camera_extrinsics/wrist_left` | [`Pose`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/geometry/#mosaicolabs.models.data.geometry.Pose) | Extrinsic pose `[x, y, z, roll, pitch, yaw]` of the wrist camera relative to the robot. |
+| `/camera_extrinsics/exterior_1_left` | [`Pose`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/geometry/#mosaicolabs.models.data.geometry.Pose) | Extrinsic pose `[x, y, z, roll, pitch, yaw]` of the first external camera. |
+| `/camera_extrinsics/exterior_2_left` | [`Pose`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/geometry/#mosaicolabs.models.data.geometry.Pose) | Extrinsic pose `[x, y, z, roll, pitch, yaw]` of the second external camera. |
+| `/step/reward` | [`Floating64`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/data_types/#mosaicolabs.models.data.base_types.Floating64) | Scalar reward for the action taken at this step, ranging from 0 to 1. |
+| `/step/discount` | [`Floating64`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/data_types/#mosaicolabs.models.data.base_types.Floating64) | Discount factor applied to future rewards during training. |
+| `/step/task_index` | [`Integer64`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/data_types/#mosaicolabs.models.data.base_types.Integer64) | Numeric index identifying the task type for this episode. |
+| `/step/frame_index` | [`Integer64`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/data_types/#mosaicolabs.models.data.base_types.Integer64) | Positional index of this step within its episode. |
+| `/step/is_first` | [`Boolean`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/data_types/#mosaicolabs.models.data.base_types.Boolean) | True for the initial step of an episode. |
+| `/step/is_last` | [`Boolean`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/data_types/#mosaicolabs.models.data.base_types.Boolean) | True for the final stored step of an episode. |
+| `/step/is_terminal` | [`Boolean`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/data_types/#mosaicolabs.models.data.base_types.Boolean) | True when the episode ends by reaching a terminal state. |
 
 \**The custom ontology models defined within the pack module*
-:::
 
 #### [Multimodal Manipulation Learning](https://zenodo.org/records/6372438)
 
@@ -162,20 +162,20 @@ File (Parquet)
 ROS `.bag`
 :::
 
-:::tip[Topics Ingested into Mosaico]
-| Topic | Ontology Type |
-| :--- | :--- |
-| `/allegro_hand_right/joint_states` | [`RobotJoint`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/sensors/#mosaicolabs.models.sensors.RobotJoint) |
-| `/iiwa/joint_states` | [`RobotJoint`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/sensors/#mosaicolabs.models.sensors.RobotJoint) |
-| `/iiwa/eePose` | [`Pose`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/geometry/#mosaicolabs.models.data.geometry.Pose) |
-| `/iiwa/TorqueController/command` | [*`JointTorqueCommand`*](https://github.com/mosaico-labs/mosaico-alchemy/blob/main/src/mosaico_alchemy/manipulation/ontology/joint_torque_command.py)\*|
-| `/tekscan/frame` | [*`TekscanSensor`*](https://github.com/mosaico-labs/mosaico-alchemy/blob/main/src/mosaico_alchemy/manipulation/ontology/tekscan_sensor.py)\* |
-| `/audio/audio` | [*`AudioDataStamped`*](https://github.com/mosaico-labs/mosaico-alchemy/blob/main/src/mosaico_alchemy/manipulation/ontology/audio.py)\* |
-| `/audio/audio_info` | [*`AudioInfo`*](https://github.com/mosaico-labs/mosaico-alchemy/blob/main/src/mosaico_alchemy/manipulation/ontology/audio.py)\* |
-| `/trialInfo` | [`String`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/data_types/#mosaicolabs.models.data.base_types.String) |
+##### Topics Ingested into Mosaico
+
+| Topic | Ontology Type | Description |
+| :--- | :--- | :--- |
+| `/allegro_hand_right/joint_states` | [`RobotJoint`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/sensors/#mosaicolabs.models.sensors.RobotJoint) | Position, velocity, and effort for the 16 joints of the Allegro dexterous hand. |
+| `/iiwa/joint_states` | [`RobotJoint`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/sensors/#mosaicolabs.models.sensors.RobotJoint) | Position, velocity, and effort for the 7 joints of the KUKA iiwa arm. |
+| `/iiwa/eePose` | [`Pose`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/geometry/#mosaicolabs.models.data.geometry.Pose) | End-effector Cartesian pose `[x, y, z, qx, qy, qz, qw]` in world frame. |
+| `/iiwa/TorqueController/command` | [*`JointTorqueCommand`*](https://github.com/mosaico-labs/mosaico-alchemy/blob/main/src/mosaico_alchemy/manipulation/ontology/joint_torque_command.py)\* | Torque-space control command sent to the 7 iiwa joints at each control cycle, in Nm. |
+| `/tekscan/frame` | [*`TekscanSensor`*](https://github.com/mosaico-labs/mosaico-alchemy/blob/main/src/mosaico_alchemy/manipulation/ontology/tekscan_sensor.py)\* | Tactile pressure frame from the Tekscan sensor, represented as a 2944-element array interpretable as a `46×64` pressure matrix. |
+| `/audio/audio` | [*`AudioDataStamped`*](https://github.com/mosaico-labs/mosaico-alchemy/blob/main/src/mosaico_alchemy/manipulation/ontology/audio.py)\* | Raw mono audio chunks captured during the manipulation trial. |
+| `/audio/audio_info` | [*`AudioInfo`*](https://github.com/mosaico-labs/mosaico-alchemy/blob/main/src/mosaico_alchemy/manipulation/ontology/audio.py)\* | Audio stream metadata: sample rate (16 kHz), format (S16LE), and codec (MP3). |
+| `/trialInfo` | [`String`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/data_types/#mosaicolabs.models.data.base_types.String) | Trial metadata and discrete event markers: the first message contains a YAML block with motion parameters and controller configuration; subsequent messages mark events such as shake start or stop. |
 
 \**The custom ontology models defined within the pack module*
-:::
 
 ### A Note about the Custom Ontology Models
 
@@ -186,21 +186,9 @@ and consistent semantics for your own sensors or proprietary message formats.
 Mosaico provides a [fast path](https://docs.mosaico.dev/python-sdk/SDK/ontology/#customizing-the-ontology) to define and automatically register custom data models. Once registered, they behave like native models and are accepted by the platform without extra integration work.
 
 
-### Ready to start?
-
-If your robotic data is saved in a proprietary format and isn't supported out-of-the-box, the module is fully extensible. 
-We recommend jumping directly to the **[Integrating a Dataset](./manipulation.mdx#customizing-the-pack)** guide to build your own plugin, custom ontologies and adapters.
-
 ## Customizing the Pack
-This guide explains how to extend the Manipulation Pack to support your own custom dataset formats alongside the built-in ones. 
-
-:::tip[In Depth Explanation]
-* **[Documentation: Data Models & Ontology](https://docs.mosaico.dev/python-sdk/SDK/ontology)**
-* **[Example: Customizing the Data Ontology](https://docs.mosaico.dev/examples/custom_ontology)**
-* **[API Reference: Base Models and Mixins](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/base)**
-* **[Documentation: The ROS Bridge](https://docs.mosaico.dev/python-sdk/SDK/bridges/ros)**
-:::
-
+If your robotic data is saved in a proprietary format and isn't supported out-of-the-box, the module is fully extensible. 
+This section explains how to extend the **Manipulation Pack** to support your own custom dataset formats alongside the built-in ones. 
 By following this guide, you will:
 
 * **Select an Execution Backend**: Decide whether to rely natively on ROS bag architectures or to construct a structured File descriptor pipeline.
@@ -208,15 +196,23 @@ By following this guide, you will:
 * **Implement the Dataset Plugin**: Assemble the ingestion plan that wires your iterators, ontologies, and adapters into a declarative sequence descriptor.
 * **Register Your Components**: Expose your plugin and adapters to the CLI layer so they are discovered at runtime.
 
-### Step 1: Choosing the Execution Backend
+:::tip[Learn from Mosaico]
+* **[Documentation: Data Models & Ontology](https://docs.mosaico.dev/python-sdk/SDK/ontology)**
+* **[Example: Customizing the Data Ontology](https://docs.mosaico.dev/examples/custom_ontology)**
+* **[API Reference: Base Models and Mixins](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/base)**
+* **[Documentation: The ROS Bridge](https://docs.mosaico.dev/python-sdk/SDK/bridges/ros)**
+:::
+
+
+### Choose the Execution Backend
 
 Your first architectural decision is deciding how the data should be accessed. If your dataset relies on standard file and database formats such as HDF5, Parquet, JSON, or custom binary files, you will utilize the file-backed executor by generating a `SequenceDescriptor`. 
 
 Alternatively, if your dataset consists of native ROS bags and maps naturally to ROS topics, you should use a `RosbagSequenceDescriptor`. This allows the plugin to validate the required topics and immediately delegate the demanding ingestion effort directly to the ROS bridge.
 
-### Step 2: Applying Ontologies and Implementing Adapters
+### Apply Ontologies and Implement Adapters
 
-For each data stream, you define how it maps to a Mosaico ontology type. If you cannot reuse an existing SDK ontology, you can define your own custom class. We highly recommend reviewing the **[Ontology Customization Guide](https://docs.mosaico.dev/SDK/examples/ontology_customization)** to see exactly how to write and register your own custom data models.
+For each data stream, you define how it maps to a Mosaico ontology type. If you cannot reuse an existing SDK ontology, you can define your own custom class. We highly recommend reviewing the **[Ontology Customization Guide](https://docs.mosaico.dev/examples/custom_ontology)** to see exactly how to write and register your own custom data models.
 
 #### The Custom Adapter
 
@@ -226,33 +222,38 @@ With your ontologies defining the target structure, you implement a custom adapt
 from mosaicolabs import Message
 from mosaicolabs.packs.manipulation.adapters.base import BaseAdapter
 
-class MyDatasetCustomAdapter(BaseAdapter[CustomSensorModel]): # (1)!
-    adapter_id = "mydataset.custom_sensor" # (2)!
-    _REQUIRED_KEYS: tuple[str, ...] = ("timestamp","sensor_readings") # (3)!
+# Adapters are generic on the ontology type they produce.
+# Specialising BaseAdapter[CustomSensorModel] binds the translate() return type
+# and restricts this adapter to messages carrying CustomSensorModel payloads only.
+class MyDatasetCustomAdapter(BaseAdapter[CustomSensorModel]):
+    # The global identifier that will be referenced by name in your `TopicDescriptor`.
+    adapter_id = "mydataset.custom_sensor"
+    # Define the fields required in the payload, to be validated
+    # in the `translate` function.
+    _REQUIRED_KEYS: tuple[str, ...] = ("timestamp","sensor_readings")
 
+    # The translator factory: an adapter receives the raw payload dictionary
+    # and returns an instantiated Mosaico `Message`.
     @classmethod
-    def translate(cls, payload: dict) -> Message: # (4)!
+    def translate(cls, payload: dict) -> Message:
         """
         Translates a raw custom dictionary into a Mosaico Message container.
         """
+        # Guard against malformed payloads before any field access:
+        # sensor_readings must be present and contain exactly 4 elements.
         cls._validate_payload(
             payload=payload,
-            constraints={"sensor_readings": {"len": 4}} # (5)!
+            constraints={"sensor_readings": {"len": 4}}
         )
         return Message(
-            timestamp_ns=int(payload["timestamp"] * 1e9), # (6)!
+            # Conversion from arbitrary time structures into native
+            # Mosaico nanosecond formats.
+            timestamp_ns=int(payload["timestamp"] * 1e9),
             data=CustomSensorModel(values=payload["sensor_readings"]),
         )
 ```
 
-1. The Mosaico ontology type (defined from the base `Serializable` structures) that this adapter handles.
-2. The global identifier that will be referenced by name in your `TopicDescriptor`.
-3. Define the fields required in the payload, to be validated in the `translate` function via `cls._validate_payload`.
-4. This is the heart of the translator. An adapter receives the raw payload dictionary from your custom iterator and returns an instantiated Mosaico message.
-5. Set the constraints to expected list size to 4.
-6. Conversion from arbitrary time structures into native Mosaico nanosecond formats.
-
-### Step 3: Developing the Dataset Plugin
+### Develop the Dataset Plugin
 
 With adapters in place, you implement the dataset plugin class. This class satisfies a straightforward internal protocol to detect your dataset format, discover its logical sequences, and assemble the ingestion plan that wires everything together.
 
@@ -260,17 +261,19 @@ With adapters in place, you implement the dataset plugin class. This class satis
 
 ```python
 class DatasetPlugin(Protocol):
-    dataset_id: str # (1)!
+    # A unique string identifier used in downstream logging and operator prompts.
+    dataset_id: str
 
-    def supports(self, root: Path) -> bool: ... # (2)!
-    def discover_sequences(self, root: Path) -> Iterable[Path]: ... # (3)!
-    def create_ingestion_plan(self, sequence_path: Path) -> IngestionDescriptor: ... # (4)!
+    # A method to verify if a given folder matches the dataset signature
+    # (e.g., checking for `*.h5` files) avoiding expensive full-dataset scans.
+    def supports(self, root: Path) -> bool: ...
+    # A method to discover the logical sequences contained in the root folder,
+    # such as individual robot episodes.
+    def discover_sequences(self, root: Path) -> Iterable[Path]: ...
+    # The core logic to create an ingestion plan for each sequence,
+    # returning an `IngestionDescriptor`.
+    def create_ingestion_plan(self, sequence_path: Path) -> IngestionDescriptor: ...
 ```
-
-1. A unique string identifier used in downstream logging and operator prompts.
-2. A fast, deterministic method to verify if a given folder matches the dataset signature (e.g., checking for `*.h5` files) avoiding expensive full-dataset scans.
-3. A method to discover the logical sequences contained in the root folder, such as individual robot episodes.
-4. The core logic to create an ingestion plan for each sequence, returning an `IngestionDescriptor`.
 
 #### Extracting Raw Data
 
@@ -311,17 +314,18 @@ return SequenceDescriptor(
             ontology_type=CompressedImage,
             #The identifier of the adapter responsible for translating this specific topic.
             adapter_id=f"{self.dataset_id}.video_frame",
-            # The runner calls this callable later with the sequence path to obtain the raw payload stream.
+            # The runner calls this callable later with the sequence path
+            # to obtain the raw payload stream.
             payload_iter=iter_video_frames("path/to/video", "path/to/timestamps"),
-            # The runner uses this to count the total messages ahead of time for progress reporting.
-            # It must match the number of items `payload_iter` will yield.
+            # The runner uses this to count the total messages ahead of time for progress
+            # reporting. It must match the number of items `payload_iter` will yield.
             message_count=count_video_frames("path/to/timestamps"),
         ),
     ],
 )
 ```
 
-### Step 4: Registering Your Components
+### Register Your Components
 
 Once your dataset plugin, functional iterators, and adapters are implemented, they must be made discoverable to the CLI layer. There are two separate registries to update: one for the dataset plugin and one for the adapter.
 
