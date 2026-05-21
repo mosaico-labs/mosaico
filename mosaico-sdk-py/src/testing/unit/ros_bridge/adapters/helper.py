@@ -15,6 +15,7 @@ from mosaicolabs import (
     Inertia,
     Joy,
     Magnetometer,
+    MotionState,
     NMEASentence,
     Point3d,
     Polygon,
@@ -27,7 +28,11 @@ from mosaicolabs import (
     Velocity,
     futures,
 )
-from mosaicolabs.ros_bridge.data_ontology import BatteryState, PointCloud2
+from mosaicolabs.ros_bridge.data_ontology import (
+    BatteryState,
+    FrameTransform,
+    PointCloud2,
+)
 
 
 def assert_vector2(vector2d: Vector2d, ros_msg: dict):
@@ -90,7 +95,7 @@ def assert_pose_w_cov(pose_w_cov: Pose, ros_msg):
     assert_pose(pose_w_cov, ros_msg["pose"])
 
     if pose_w_cov.covariance is None:
-        assert (ros_msg["covariance"] == 0).all()
+        assert np.array_equal(ros_msg["covariance"], np.array(([0.0] * 36)))
     else:
         assert np.array_equal(pose_w_cov.covariance, ros_msg["covariance"])
 
@@ -105,7 +110,7 @@ def assert_twist_w_cov(twist_w_cov: Velocity, ros_msg):
     assert_twist(twist_w_cov, ros_msg["twist"])
 
     if twist_w_cov.covariance is None:
-        assert (ros_msg["covariance"] == 0).all()
+        assert np.array_equal(ros_msg["covariance"], np.array(([0.0] * 36)))
     else:
         assert np.array_equal(twist_w_cov.covariance, ros_msg["covariance"])
 
@@ -120,7 +125,7 @@ def assert_accel_w_cov(accel_w_cov: Acceleration, ros_msg):
     assert_accel(accel_w_cov, ros_msg["accel"])
 
     if accel_w_cov.covariance is None:
-        assert (ros_msg["covariance"] == 0).all()
+        assert np.array_equal(ros_msg["covariance"], np.array(([0.0] * 36)))
     else:
         assert np.array_equal(accel_w_cov.covariance, ros_msg["covariance"])
 
@@ -175,7 +180,7 @@ def assert_gps(gps: GPS, ros_msg):
     assert gps.position.z == ros_msg["altitude"]
 
     if gps.position.covariance is None:
-        assert (ros_msg["position_covariance"] == 0.0).all()
+        assert np.array_equal(ros_msg["position_covariance"], np.array(([0.0] * 9)))
     else:
         assert np.array_equal(gps.position.covariance, ros_msg["position_covariance"])
         assert gps.position.covariance_type == ros_msg["position_covariance_type"]
@@ -332,3 +337,21 @@ def assert_multiecho_laserscan(mels: futures.MultiEchoLaserScan, ros_msg):
             assert np.array_equal(intensity, ros_intensity["echoes"])
     else:
         assert len(ros_msg["intensities"]) == 0
+
+
+def assert_motion_state(motion_state: MotionState, ros_msg):
+
+    assert_pose_w_cov(motion_state.pose, ros_msg["pose"])
+    assert_twist_w_cov(motion_state.velocity, ros_msg["twist"])
+
+    assert motion_state.target_frame_id == ros_msg["child_frame_id"]
+
+
+def assert_frame_transform(frame_trasform: FrameTransform, ros_msg):
+
+    for mosaico_transform, ros_transform in zip(
+        frame_trasform.transforms, ros_msg["transforms"]
+    ):
+        # assert mosaico_transform.source_frame_id == ros_transform.header.frame_id # TODO
+        assert mosaico_transform.target_frame_id == ros_transform["child_frame_id"]
+        assert_transform(mosaico_transform, ros_transform["transform"])

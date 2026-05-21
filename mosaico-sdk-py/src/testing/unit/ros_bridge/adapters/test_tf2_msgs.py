@@ -1,3 +1,5 @@
+from dataclasses import asdict
+
 import pytest
 from rosbags.typesys import get_types_from_msg
 from rosbags.typesys.stores import Stores, Typestore, get_typestore
@@ -10,6 +12,8 @@ from mosaicolabs.ros_bridge.adapters import (
     FrameTransformAdapter,
 )
 from mosaicolabs.ros_bridge.data_ontology import FrameTransform
+from mosaicolabs.ros_bridge.ros_message import ROSMessage
+from testing.unit.ros_bridge.adapters.helper import assert_frame_transform
 
 ROS_TYPESTORE_TO_TEST = [
     get_typestore(Stores.LATEST),
@@ -57,6 +61,40 @@ def frame_transform(transform):
 
 
 @pytest.fixture
+def frame_transform_rosmsg(ros_header, transform):
+    return ROSMessage(
+        bag_timestamp_ns=100,
+        topic="/tf",
+        msg_type="tf2_msgs/msg/TFMessage",
+        data={
+            "transforms": [
+                {
+                    "header": ros_header,
+                    "child_frame_id": "base_link",
+                    "transform": transform.model_dump(
+                        exclude_none=True,
+                    ),
+                },
+                {
+                    "header": ros_header,
+                    "child_frame_id": "camera",
+                    "transform": transform.model_dump(
+                        exclude_none=True,
+                    ),
+                },
+                {
+                    "header": ros_header,
+                    "child_frame_id": "end_effector",
+                    "transform": transform.model_dump(
+                        exclude_none=True,
+                    ),
+                },
+            ],
+        },
+    )
+
+
+@pytest.fixture
 def frame_transform_msg(frame_transform):
     return Message(
         data=frame_transform,
@@ -66,26 +104,20 @@ def frame_transform_msg(frame_transform):
 
 
 class TestFrameTransformAdapter:
-    def assert_frame_transform(self, frame_trasform: FrameTransform, ros_msg):
+    def test_translate_nav_sat_fix(self, frame_transform_rosmsg: ROSMessage):
+        ms_msg = FrameTransformAdapter.translate(frame_transform_rosmsg)
 
-        for mosaico_transform, ros_transform in zip(
-            frame_trasform.transforms, ros_msg.transforms
-        ):
-            # assert mosaico_transform.source_frame_id == ros_transform.header.frame_id # TODO
-            assert mosaico_transform.target_frame_id == ros_transform.child_frame_id
-            assert (
-                mosaico_transform.translation.x == ros_transform.transform.translation.x
-            )
-            assert (
-                mosaico_transform.translation.y == ros_transform.transform.translation.y
-            )
-            assert (
-                mosaico_transform.translation.z == ros_transform.transform.translation.z
-            )
-            assert mosaico_transform.rotation.x == ros_transform.transform.rotation.x
-            assert mosaico_transform.rotation.y == ros_transform.transform.rotation.y
-            assert mosaico_transform.rotation.z == ros_transform.transform.rotation.z
-            assert mosaico_transform.rotation.w == ros_transform.transform.rotation.w
+        assert_frame_transform(
+            ms_msg.get_data(FrameTransform), frame_transform_rosmsg.data
+        )
+
+    def test_translate_raise_missing_required_key(
+        self, frame_transform_rosmsg: ROSMessage
+    ):
+        data = frame_transform_rosmsg.data
+        data.pop("transforms")
+        with pytest.raises(ValueError):
+            FrameTransformAdapter.from_dict(data)
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_frame_transform(
@@ -96,7 +128,7 @@ class TestFrameTransformAdapter:
             frame_transform, typestore, "tf2_msgs/msg/TFMessage"
         )
 
-        self.assert_frame_transform(frame_transform, ros_msg)
+        assert_frame_transform(frame_transform, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_frame_transform_message(
@@ -108,7 +140,7 @@ class TestFrameTransformAdapter:
             frame_transform_msg, typestore, "tf2_msgs/msg/TFMessage"
         )
 
-        self.assert_frame_transform(frame_transform, ros_msg)
+        assert_frame_transform(frame_transform, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_default_type(
@@ -117,7 +149,7 @@ class TestFrameTransformAdapter:
         typestore = register_tf2_messages(typestore)
         ros_msg = FrameTransformAdapter.to_ros(frame_transform, typestore)
 
-        self.assert_frame_transform(frame_transform, ros_msg)
+        assert_frame_transform(frame_transform, asdict(ros_msg))
 
     def test_to_ros_invalid_rosmsg_type(self, frame_transform: FrameTransform):
         ros_msg = FrameTransformAdapter.to_ros(

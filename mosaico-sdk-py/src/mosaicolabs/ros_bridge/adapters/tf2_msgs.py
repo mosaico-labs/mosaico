@@ -39,8 +39,8 @@ class FrameTransformAdapter(ROSAdapterBase[FrameTransform]):
                                 "nanosec": 0,
                             },
                             "frame_id": "map",
-                            "child_frame_id": "base_link",
                         },
+                        "child_frame_id": "base_link"
                         "transform": {
                             "translation": {
                                 "x": 0.0,
@@ -101,8 +101,8 @@ class FrameTransformAdapter(ROSAdapterBase[FrameTransform]):
                                 "nanosec": 0,
                             },
                             "frame_id": "map",
-                            "child_frame_id": "base_link",
                         },
+                        "child_frame_id": "base_link"
                         "transform": {
                             "translation": {
                                 "x": 0.0,

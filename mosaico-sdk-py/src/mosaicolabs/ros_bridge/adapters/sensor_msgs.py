@@ -174,9 +174,9 @@ class CameraInfoAdapter(ROSAdapterBase[CameraInfo]):
         if (
             roi.offset.x == 0
             and roi.offset.y == 0
-            and roi.offset.height == 0
-            and roi.offset.width == 0
-            and roi.offset.do_rectify is False
+            and roi.height == 0
+            and roi.width == 0
+            and roi.do_rectify is False
         ):
             roi = None
 

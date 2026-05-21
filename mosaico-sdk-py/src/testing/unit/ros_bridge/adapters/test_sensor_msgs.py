@@ -127,8 +127,8 @@ def roi_rosmsg():
         topic="/roi",
         msg_type="sensor_msgs/msg/RegionOfInterest",
         data={
-            "x_offset": 10,
-            "y_offset": 20,
+            "x_offset": 0,
+            "y_offset": 0,
             "height": 100,
             "width": 200,
             "do_rectify": True,
@@ -493,7 +493,7 @@ def imu_msg(imu):
 
 
 @pytest.fixture
-def imu_rosmsg(ros_header, imu: IMU):
+def imu_rosmsg(ros_header):
     return ROSMessage(
         bag_timestamp_ns=100,
         topic="/imu",
@@ -1177,6 +1177,7 @@ def lidar():
     )
 
 
+# As of now, we do not have data to test starting from ROS data. Therefore, we use the encode() data to create the ROSMessage
 def lidar_pcl():
     encoded = LidarAdapter.encode(lidar().model_dump(exclude_none=True))
     return ROSMessage(
@@ -1208,6 +1209,7 @@ def radar():
     )
 
 
+# As of now, we do not have data to test starting from ROS data. Therefore, we use the encode() data to create the ROSMessage
 def radar_pcl():
     encoded = RadarAdapter.encode(radar().model_dump(exclude_none=True))
     return ROSMessage(
@@ -1228,6 +1230,7 @@ def rgbd_camera():
     )
 
 
+# As of now, we do not have data to test starting from ROS data. Therefore, we use the encode() data to create the ROSMessage
 def rgbd_camera_pcl():
     encoded = RGBDCameraAdapter.encode(rgbd_camera().model_dump(exclude_none=True))
     return ROSMessage(
@@ -1250,6 +1253,7 @@ def tof_camera():
     )
 
 
+# As of now, we do not have data to test starting from ROS data. Therefore, we use the encode() data to create the ROSMessage
 def tof_camera_pcl():
     encoded = ToFCameraAdapter.encode(tof_camera().model_dump(exclude_none=True))
     return ROSMessage(
@@ -1272,6 +1276,7 @@ def stereo_camera():
     )
 
 
+# As of now, we do not have data to test starting from ROS data. Therefore, we use the encode() data to create the ROSMessage
 def stereo_camera_pcl():
     encoded = StereoCameraAdapter.encode(stereo_camera().model_dump(exclude_none=True))
     return ROSMessage(

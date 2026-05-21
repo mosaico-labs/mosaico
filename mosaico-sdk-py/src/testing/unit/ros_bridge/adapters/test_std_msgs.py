@@ -19,6 +19,7 @@ from mosaicolabs import (
 )
 from mosaicolabs.ros_bridge import ROSBridge
 from mosaicolabs.ros_bridge.adapters.std_msgs import ROSAdapterBase
+from mosaicolabs.ros_bridge.ros_message import ROSMessage
 
 ROS_TYPESTORE_TO_TEST = [
     get_typestore(Stores.LATEST),
@@ -67,7 +68,7 @@ ADAPTERS_TO_TEST = [
     BoolAdapter,
 ]
 
-STD_MSGS_TO_TEST = [
+MS_STD_MSGS_TO_TEST = [
     (String(data="mosaico_string"), StringAdapter, "std_msgs/msg/String"),
     (Integer8(data=42), Int8Adapter, "std_msgs/msg/Int8"),
     (Integer16(data=42), Int16Adapter, "std_msgs/msg/Int16"),
@@ -83,14 +84,39 @@ STD_MSGS_TO_TEST = [
 ]
 
 
+def to_ROSMessage(data: Serializable):
+    return ROSMessage(
+        bag_timestamp_ns=100,
+        topic="/camera_info",
+        msg_type="sensor_msgs/msg/CameraInfo",
+        data={"data": data},
+    )
+
+
+ROS_STD_MSGS_TO_TEST = [
+    (to_ROSMessage("my_string"), StringAdapter),
+    (to_ROSMessage(1), Int8Adapter),
+    (to_ROSMessage(2), Int16Adapter),
+    (to_ROSMessage(3), Int32Adapter),
+    (to_ROSMessage(4), Int64Adapter),
+    (to_ROSMessage(5), UInt8Adapter),
+    (to_ROSMessage(6), UInt16Adapter),
+    (to_ROSMessage(7), UInt32Adapter),
+    (to_ROSMessage(8), UInt64Adapter),
+    (to_ROSMessage(9.0), Float32Adapter),
+    (to_ROSMessage(10.0), Float64Adapter),
+    (to_ROSMessage(True), BoolAdapter),
+]
+
+
 def to_ms_message(ms_type_instance: Serializable):
     return Message(data=ms_type_instance, timestamp_ns=100, frame_id="base_link")
 
 
-# MESSAGE_TO_TEST = [ms_type_instance, adapter for (ms_type_instance, adapter) in STD_MSGS_TO_TEST]
+# MESSAGE_TO_TEST = [ms_type_instance, adapter for (ms_type_instance, adapter) in MS_STD_MSGS_TO_TEST]
 MESSAGE_TO_TEST = [
     (to_ms_message(ms_type_instance), adapter, rosmsg_type)
-    for ms_type_instance, adapter, rosmsg_type in STD_MSGS_TO_TEST
+    for ms_type_instance, adapter, rosmsg_type in MS_STD_MSGS_TO_TEST
 ]
 
 
@@ -98,8 +124,18 @@ class TestGenericStdAdapter:
     def assert_std_msg(self, ms_std_msg, ros_msg):
         assert ms_std_msg.data == ros_msg.data
 
+    @pytest.mark.parametrize("std_rosmsg, adapter", ROS_STD_MSGS_TO_TEST)
+    def test_translate_std_msg_rosmsg(self, std_rosmsg, adapter: ROSAdapterBase):
+
+        ms_msg = adapter.translate(std_rosmsg)
+
+        assert (
+            ms_msg.get_data(adapter.__mosaico_ontology_type__).data
+            == std_rosmsg.data["data"]
+        )
+
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
-    @pytest.mark.parametrize("ms_type, adapter, rosmsg_type", STD_MSGS_TO_TEST)
+    @pytest.mark.parametrize("ms_type, adapter, rosmsg_type", MS_STD_MSGS_TO_TEST)
     def test_to_ros_std_msg(
         self,
         ms_type: Serializable,
@@ -126,7 +162,7 @@ class TestGenericStdAdapter:
         self.assert_std_msg(std_msg, ros_msg)
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
-    @pytest.mark.parametrize("ms_type, adapter, rosmsg_type", STD_MSGS_TO_TEST)
+    @pytest.mark.parametrize("ms_type, adapter, rosmsg_type", MS_STD_MSGS_TO_TEST)
     def test_to_ros_default_type(
         self,
         ms_type: Serializable,
@@ -138,7 +174,7 @@ class TestGenericStdAdapter:
 
         self.assert_std_msg(ms_type, ros_msg)
 
-    @pytest.mark.parametrize("ms_type, adapter, rosmsg_type", STD_MSGS_TO_TEST)
+    @pytest.mark.parametrize("ms_type, adapter, rosmsg_type", MS_STD_MSGS_TO_TEST)
     def test_to_ros_invalid_rosmsg_type(
         self, ms_type: Serializable, adapter: ROSAdapterBase, rosmsg_type: str
     ):
