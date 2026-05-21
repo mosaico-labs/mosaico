@@ -25,8 +25,9 @@ from mosaicolabs import (
     Vector2d,
     Vector3d,
     Velocity,
+    futures,
 )
-from mosaicolabs.ros_bridge.data_ontology import BatteryState
+from mosaicolabs.ros_bridge.data_ontology import BatteryState, PointCloud2
 
 
 def assert_vector2(vector2d: Vector2d, ros_msg: dict):
@@ -279,3 +280,55 @@ def assert_magnetometer(magnetometer: Magnetometer, ros_msg: dict):
         )
     else:
         assert np.array_equal([0] * 9, ros_msg["magnetic_field_covariance"])
+
+
+def assert_pcl2(pcl2: PointCloud2, ros_msg):
+
+    assert pcl2.height == ros_msg["height"]
+    assert pcl2.width == ros_msg["width"]
+
+    for field, ros_field in zip(pcl2.fields, ros_msg["fields"]):
+        assert field.name == ros_field["name"]
+        assert field.offset == ros_field["offset"]
+        assert field.datatype == ros_field["datatype"]
+        assert field.count == ros_field["count"]
+
+    assert pcl2.is_bigendian == ros_msg["is_bigendian"]
+    assert pcl2.point_step == ros_msg["point_step"]
+    assert pcl2.row_step == ros_msg["row_step"]
+
+    buffer = np.frombuffer(pcl2.data, dtype=np.uint8)
+    assert np.array_equal(buffer, ros_msg["data"])
+    assert pcl2.is_dense == ros_msg["is_dense"]
+
+
+def assert_laserscan(laserscan: futures.LaserScan, ros_msg):
+    assert laserscan.angle_min == ros_msg["angle_min"]
+    assert laserscan.angle_max == ros_msg["angle_max"]
+    assert laserscan.angle_increment == ros_msg["angle_increment"]
+    assert laserscan.time_increment == ros_msg["time_increment"]
+    assert laserscan.scan_time == ros_msg["scan_time"]
+    assert laserscan.range_min == ros_msg["range_min"]
+    assert laserscan.range_max == ros_msg["range_max"]
+    assert np.array_equal(laserscan.ranges, ros_msg["ranges"])
+    if laserscan.intensities is not None:
+        assert np.array_equal(laserscan.intensities, ros_msg["intensities"])
+    else:
+        assert len(ros_msg["intensities"]) == 0
+
+
+def assert_multiecho_laserscan(mels: futures.MultiEchoLaserScan, ros_msg):
+    assert mels.angle_min == ros_msg["angle_min"]
+    assert mels.angle_max == ros_msg["angle_max"]
+    assert mels.angle_increment == ros_msg["angle_increment"]
+    assert mels.time_increment == ros_msg["time_increment"]
+    assert mels.scan_time == ros_msg["scan_time"]
+    assert mels.range_min == ros_msg["range_min"]
+    assert mels.range_max == ros_msg["range_max"]
+    for mels_range, ros_range in zip(mels.ranges, ros_msg["ranges"]):
+        assert np.array_equal(mels_range, ros_range["echoes"])
+    if mels.intensities is not None:
+        for intensity, ros_intensity in zip(mels.intensities, ros_msg["intensities"]):
+            assert np.array_equal(intensity, ros_intensity["echoes"])
+    else:
+        assert len(ros_msg["intensities"]) == 0

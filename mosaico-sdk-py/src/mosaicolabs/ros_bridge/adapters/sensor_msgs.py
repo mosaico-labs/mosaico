@@ -2083,25 +2083,17 @@ class LaserScannerAdapterBase(ROSAdapterBase[_LT]):
     )
 
     @classmethod
-    def from_dict(cls, ros_data: dict) -> _LT:
+    def translate(cls, ros_msg: ROSMessage, **kwargs: Any) -> Message:
         """
-        Create a LaserScan/MultiEchoLaserScan instance from a ROS message dictionary.
+        Translates a ROS message into a Mosaico Message.
+
+        Returns:
+            Message: The translated message containing a `LaserScan` or `MultiEchoLaserScan` object.
+
+        Raises:
+            Exception: Wraps any translation error with context (topic name, timestamp).
         """
-
-        intensities = ros_data["intensities"] if ros_data["intensities"] else None
-
-        _validate_msgdata(cls, ros_data)
-        return cls.__mosaico_ontology_type__(
-            angle_min=ros_data["angle_min"],
-            angle_max=ros_data["angle_max"],
-            angle_increment=ros_data["angle_increment"],
-            time_increment=ros_data["time_increment"],
-            scan_time=ros_data["scan_time"],
-            range_min=ros_data["range_min"],
-            range_max=ros_data["range_max"],
-            ranges=ros_data["ranges"],
-            intensities=intensities,
-        )
+        return super().translate(ros_msg, **kwargs)
 
     @classmethod
     def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
@@ -2127,19 +2119,6 @@ class LaserScanAdapter(LaserScannerAdapterBase[LaserScan]):
     __mosaico_ontology_type__: Type[LaserScan] = LaserScan
 
     @classmethod
-    def translate(cls, ros_msg: ROSMessage, **kwargs: Any) -> Message:
-        """
-        Translates a ROS message into a Mosaico Message.
-
-        Returns:
-            Message: The translated message containing a `LaserScan` object.
-
-        Raises:
-            Exception: Wraps any translation error with context (topic name, timestamp).
-        """
-        return super().translate(ros_msg, **kwargs)
-
-    @classmethod
     def from_dict(cls, ros_data: dict) -> LaserScan:
         """
         Create a LaserScan instance from a ROS message dictionary.
@@ -2161,7 +2140,20 @@ class LaserScanAdapter(LaserScannerAdapterBase[LaserScan]):
         mosaico_laser_scan = LaserScanAdapter.from_dict(ros_data)
         ```
         """
-        return super().from_dict(ros_data)
+        intensities = ros_data["intensities"] if ros_data["intensities"] else None
+
+        _validate_msgdata(cls, ros_data)
+        return cls.__mosaico_ontology_type__(
+            angle_min=ros_data["angle_min"],
+            angle_max=ros_data["angle_max"],
+            angle_increment=ros_data["angle_increment"],
+            time_increment=ros_data["time_increment"],
+            scan_time=ros_data["scan_time"],
+            range_min=ros_data["range_min"],
+            range_max=ros_data["range_max"],
+            ranges=ros_data["ranges"],
+            intensities=intensities,
+        )
 
     @classmethod
     def to_ros(
@@ -2224,19 +2216,6 @@ class MultiEchoLaserScanAdapter(LaserScannerAdapterBase[MultiEchoLaserScan]):
     __mosaico_ontology_type__: Type[MultiEchoLaserScan] = MultiEchoLaserScan
 
     @classmethod
-    def translate(cls, ros_msg: ROSMessage, **kwargs: Any) -> Message:
-        """
-        Translates a ROS message into a Mosaico Message.
-
-        Returns:
-            Message: The translated message containing a `MultiEchoLaserScan` object.
-
-        Raises:
-            Exception: Wraps any translation error with context (topic name, timestamp).
-        """
-        return super().translate(ros_msg, **kwargs)
-
-    @classmethod
     def from_dict(cls, ros_data: dict) -> MultiEchoLaserScan:
         """
         Create a MultiEchoLaserScan instance from a ROS message dictionary.
@@ -2251,14 +2230,32 @@ class MultiEchoLaserScanAdapter(LaserScannerAdapterBase[MultiEchoLaserScan]):
             "scan_time": 0.1,
             "range_min": 0.2,
             "range_max": 10.0,
-            "ranges": [[1.0, 1.1, 1.2], [2.0, 2.1, 2.2], [3.0, 3.1, 3.2]],
-            "intensities": [[100.0, 110.0, 120.0], [200.0, 210.0, 220.0], [300.0, 310.0, 320.0]],
+            "ranges": [{echoes: [1.0, 1.1, 1.2]}, {echoes: [2.0, 2.1, 2.2]}, {echoes: [3.0, 3.1, 3.2]}],
+            "intensities": [{echoes: [100.0, 110.0, 120.0]}, {echoes: [200.0, 210.0, 220.0]}, {echoes: [300.0, 310.0, 320.0]}],
         }
         # Automatically resolves to a flat Mosaico MultiEchoLaserScanAdapter with attached data
         mosaico_laser_scan = MultiEchoLaserScanAdapter.from_dict(ros_data)
         ```
         """
-        return super().from_dict(ros_data)
+        ranges = [x["echoes"] for x in ros_data["ranges"]]
+        intensities = (
+            [x["echoes"] for x in ros_data["intensities"]]
+            if ros_data["intensities"]
+            else None
+        )
+
+        _validate_msgdata(cls, ros_data)
+        return cls.__mosaico_ontology_type__(
+            angle_min=ros_data["angle_min"],
+            angle_max=ros_data["angle_max"],
+            angle_increment=ros_data["angle_increment"],
+            time_increment=ros_data["time_increment"],
+            scan_time=ros_data["scan_time"],
+            range_min=ros_data["range_min"],
+            range_max=ros_data["range_max"],
+            ranges=ranges,
+            intensities=intensities,
+        )
 
     @classmethod
     def to_ros(

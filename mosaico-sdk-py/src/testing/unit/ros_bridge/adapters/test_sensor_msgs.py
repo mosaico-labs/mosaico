@@ -68,8 +68,11 @@ from testing.unit.ros_bridge.adapters.helper import (
     assert_image,
     assert_imu,
     assert_joy,
+    assert_laserscan,
     assert_magnetometer,
+    assert_multiecho_laserscan,
     assert_nmea_sentence,
+    assert_pcl2,
     assert_robot_joint,
     assert_roi,
 )
@@ -1436,36 +1439,57 @@ def pcl2():
 
 
 @pytest.fixture
+def pcl2_rosmsg(ros_header, pcl2: PointCloud2):
+    return ROSMessage(
+        bag_timestamp_ns=100,
+        topic="/pointcloud2",
+        msg_type="sensor_msgs/msg/PointCloud2",
+        data={
+            "header": ros_header,
+            "height": pcl2.height,
+            "width": pcl2.width,
+            "fields": [
+                {
+                    "name": field.name,
+                    "offset": field.offset,
+                    "datatype": field.datatype,
+                    "count": field.count,
+                }
+                for field in pcl2.fields
+            ],
+            "is_bigendian": pcl2.is_bigendian,
+            "point_step": pcl2.point_step,
+            "row_step": pcl2.row_step,
+            "data": list(pcl2.data),
+            "is_dense": pcl2.is_dense,
+        },
+    )
+
+
+@pytest.fixture
 def pcl2_msg(pcl2):
     return Message(data=pcl2, timestamp_ns=100, frame_id="base_link")
 
 
 class TestPointCloud2Adapter:
-    def assert_pcl2(self, pcl2: PointCloud2, ros_msg):
+    def test_translate_pcl2(self, pcl2_rosmsg: ROSMessage):
+        ms_msg = PointCloudAdapter.translate(pcl2_rosmsg)
 
-        assert pcl2.height == ros_msg.height
-        assert pcl2.width == ros_msg.width
+        assert ms_msg.timestamp_ns == pcl2_rosmsg.header.stamp.to_nanoseconds()
+        assert_pcl2(ms_msg.get_data(PointCloud2), pcl2_rosmsg.data)
 
-        for field, ros_field in zip(pcl2.fields, ros_msg.fields):
-            assert field.name == ros_field.name
-            assert field.offset == ros_field.offset
-            assert field.datatype == ros_field.datatype
-            assert field.count == ros_field.count
-
-        assert pcl2.is_bigendian == ros_msg.is_bigendian
-        assert pcl2.point_step == ros_msg.point_step
-        assert pcl2.row_step == ros_msg.row_step
-
-        buffer = np.frombuffer(pcl2.data, dtype=np.uint8)
-        assert np.array_equal(buffer, ros_msg.data)
-        assert pcl2.is_dense == ros_msg.is_dense
+    def test_translate_raise_missing_required_key(self, pcl2_rosmsg: ROSMessage):
+        data = pcl2_rosmsg.data
+        data.pop("width")
+        with pytest.raises(ValueError):
+            PointCloudAdapter.from_dict(data)
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_pointcloud2(self, pcl2: PointCloud2, typestore: Typestore):
         ros_msg = PointCloudAdapter.to_ros(
             pcl2, typestore, "sensor_msgs/msg/PointCloud2"
         )
-        self.assert_pcl2(pcl2, ros_msg)
+        assert_pcl2(pcl2, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_pointcloud2_message(self, pcl2_msg: Message, typestore: Typestore):
@@ -1481,12 +1505,12 @@ class TestPointCloud2Adapter:
                 nanoseconds=ros_msg.header.stamp.nanosec,
             ).to_nanoseconds()
         )
-        self.assert_pcl2(pcl2, ros_msg)
+        assert_pcl2(pcl2, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_default_type(self, pcl2: PointCloud2, typestore: Typestore):
         ros_msg = PointCloudAdapter.to_ros(pcl2, typestore)
-        self.assert_pcl2(pcl2, ros_msg)
+        assert_pcl2(pcl2, asdict(ros_msg))
 
     def test_to_ros_invalid_rosmsg_type(self, pcl2: PointCloud2):
         ros_msg = PointCloudAdapter.to_ros(
@@ -1514,8 +1538,29 @@ def laserscan():
         scan_time=0.1,
         range_min=0.2,
         range_max=10.0,
-        ranges=[1.0, 2.0, 3.0],
-        intensities=[100.0, 200.0, 300.0],
+        ranges=list(np.array([1.1, 2.1, 3.1], dtype=np.float32)),
+        intensities=list(np.array([100.0, 200.0, 300.0], dtype=np.float32)),
+    )
+
+
+@pytest.fixture
+def laserscan_rosmsg(ros_header, laserscan: futures.LaserScan):
+    return ROSMessage(
+        bag_timestamp_ns=100,
+        topic="/laserscan",
+        msg_type="sensor_msgs/msg/LaserScan",
+        data={
+            "header": ros_header,
+            "angle_min": laserscan.angle_min,
+            "angle_max": laserscan.angle_max,
+            "angle_increment": laserscan.angle_increment,
+            "time_increment": laserscan.time_increment,
+            "scan_time": laserscan.scan_time,
+            "range_min": laserscan.range_min,
+            "range_max": laserscan.range_max,
+            "ranges": laserscan.ranges,
+            "intensities": laserscan.intensities,
+        },
     )
 
 
@@ -1525,26 +1570,24 @@ def laserscan_msg(laserscan):
 
 
 class TestLaserScannerAdapter:
-    def assert_laserscan(self, laserscan: futures.LaserScan, ros_msg):
-        assert laserscan.angle_min == ros_msg.angle_min
-        assert laserscan.angle_max == ros_msg.angle_max
-        assert laserscan.angle_increment == ros_msg.angle_increment
-        assert laserscan.time_increment == ros_msg.time_increment
-        assert laserscan.scan_time == ros_msg.scan_time
-        assert laserscan.range_min == ros_msg.range_min
-        assert laserscan.range_max == ros_msg.range_max
-        assert np.array_equal(laserscan.ranges, ros_msg.ranges)
-        if laserscan.intensities is not None:
-            assert np.array_equal(laserscan.intensities, ros_msg.intensities)
-        else:
-            assert len(ros_msg.intensities) == 0
+    def test_translate_laser_scanner(self, laserscan_rosmsg: ROSMessage):
+        ms_msg = LaserScanAdapter.translate(laserscan_rosmsg)
+
+        assert ms_msg.timestamp_ns == laserscan_rosmsg.header.stamp.to_nanoseconds()
+        assert_laserscan(ms_msg.get_data(futures.LaserScan), laserscan_rosmsg.data)
+
+    def test_translate_raise_missing_required_key(self, laserscan_rosmsg: ROSMessage):
+        data = laserscan_rosmsg.data
+        data.pop("angle_min")
+        with pytest.raises(ValueError):
+            LaserScanAdapter.from_dict(data)
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_laserscan(self, laserscan: futures.LaserScan, typestore: Typestore):
         ros_msg = LaserScanAdapter.to_ros(
             laserscan, typestore, "sensor_msgs/msg/LaserScan"
         )
-        self.assert_laserscan(laserscan, ros_msg)
+        assert_laserscan(laserscan, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_laserscan_message(
@@ -1562,14 +1605,14 @@ class TestLaserScannerAdapter:
                 nanoseconds=ros_msg.header.stamp.nanosec,
             ).to_nanoseconds()
         )
-        self.assert_laserscan(laserscan, ros_msg)
+        assert_laserscan(laserscan, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_default_type(
         self, laserscan: futures.LaserScan, typestore: Typestore
     ):
         ros_msg = LaserScanAdapter.to_ros(laserscan, typestore)
-        self.assert_laserscan(laserscan, ros_msg)
+        assert_laserscan(laserscan, asdict(ros_msg))
 
     def test_to_ros_invalid_rosmsg_type(self, laserscan: futures.LaserScan):
         ros_msg = LaserScanAdapter.to_ros(
@@ -1588,7 +1631,7 @@ class TestLaserScannerAdapter:
 
 
 @pytest.fixture
-def multi_echo_laserscan():
+def multiecho_laserscan():
     return futures.MultiEchoLaserScan(
         angle_min=-1.57,
         angle_max=1.57,
@@ -1597,74 +1640,102 @@ def multi_echo_laserscan():
         scan_time=0.1,
         range_min=0.2,
         range_max=10.0,
-        ranges=[[1.0, 1.1], [2.0, 2.1], [3.0, 3.1]],
-        intensities=[[100.0, 110.0], [200.0, 210.0], [300.0, 310.0]],
+        ranges=list(np.array([[1.0, 1.1], [2.0, 2.1], [3.0, 3.1]], dtype=np.float32)),
+        intensities=list(
+            np.array([[100.0, 110.0], [200.0, 210.0], [300.0, 310.0]], dtype=np.float32)
+        ),
     )
 
 
 @pytest.fixture
-def multi_echo_laserscan_msg(multi_echo_laserscan):
-    return Message(data=multi_echo_laserscan, timestamp_ns=100, frame_id="base_link")
+def multiecho_laserscan_rosmsg(
+    ros_header, multiecho_laserscan: futures.MultiEchoLaserScan
+):
+    return ROSMessage(
+        bag_timestamp_ns=100,
+        topic="/multiecho_laserscan",
+        msg_type="sensor_msgs/msg/MultiEchoLaserScan",
+        data={
+            "header": ros_header,
+            "angle_min": multiecho_laserscan.angle_min,
+            "angle_max": multiecho_laserscan.angle_max,
+            "angle_increment": multiecho_laserscan.angle_increment,
+            "time_increment": multiecho_laserscan.time_increment,
+            "scan_time": multiecho_laserscan.scan_time,
+            "range_min": multiecho_laserscan.range_min,
+            "range_max": multiecho_laserscan.range_max,
+            "ranges": [{"echoes": x} for x in multiecho_laserscan.ranges],
+            "intensities": [{"echoes": x} for x in multiecho_laserscan.intensities],
+        },
+    )
+
+
+@pytest.fixture
+def multiecho_laserscan_msg(multiecho_laserscan):
+    return Message(data=multiecho_laserscan, timestamp_ns=100, frame_id="base_link")
 
 
 class TestMultiEchoLaserScanAdapter:
-    def assert_multi_echo_laserscan(self, mels: futures.MultiEchoLaserScan, ros_msg):
-        assert mels.angle_min == ros_msg.angle_min
-        assert mels.angle_max == ros_msg.angle_max
-        assert mels.angle_increment == ros_msg.angle_increment
-        assert mels.time_increment == ros_msg.time_increment
-        assert mels.scan_time == ros_msg.scan_time
-        assert mels.range_min == ros_msg.range_min
-        assert mels.range_max == ros_msg.range_max
-        for range, ros_range in zip(mels.ranges, ros_msg.ranges):
-            assert np.array_equal(np.asarray(range, dtype=np.float32), ros_range.echoes)
-        if mels.intensities is not None:
-            for intensity, ros_intensity in zip(mels.intensities, ros_msg.intensities):
-                assert np.array_equal(
-                    np.asarray(intensity, dtype=np.float32), ros_intensity.echoes
-                )
-        else:
-            assert len(ros_msg.intensities) == 0
-
-    @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
-    def test_to_ros_multi_echo_laserscan(
-        self, multi_echo_laserscan: futures.MultiEchoLaserScan, typestore: Typestore
+    def test_translate_multi_echo_laser_scanner(
+        self, multiecho_laserscan_rosmsg: ROSMessage
     ):
-        ros_msg = MultiEchoLaserScanAdapter.to_ros(
-            multi_echo_laserscan, typestore, "sensor_msgs/msg/MultiEchoLaserScan"
-        )
-        self.assert_multi_echo_laserscan(multi_echo_laserscan, ros_msg)
+        ms_msg = MultiEchoLaserScanAdapter.translate(multiecho_laserscan_rosmsg)
 
-    @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
-    def test_to_ros_multi_echo_laserscan_message(
-        self, multi_echo_laserscan_msg: Message, typestore: Typestore
-    ):
-        mels = multi_echo_laserscan_msg.get_data(futures.MultiEchoLaserScan)
-        ros_msg = MultiEchoLaserScanAdapter.to_ros(
-            multi_echo_laserscan_msg, typestore, "sensor_msgs/msg/MultiEchoLaserScan"
-        )
-        assert multi_echo_laserscan_msg.frame_id == ros_msg.header.frame_id
         assert (
-            multi_echo_laserscan_msg.timestamp_ns
+            ms_msg.timestamp_ns
+            == multiecho_laserscan_rosmsg.header.stamp.to_nanoseconds()
+        )
+        assert_multiecho_laserscan(
+            ms_msg.get_data(futures.MultiEchoLaserScan), multiecho_laserscan_rosmsg.data
+        )
+
+    def test_translate_raise_missing_required_key(
+        self, multiecho_laserscan_rosmsg: ROSMessage
+    ):
+        data = multiecho_laserscan_rosmsg.data
+        data.pop("angle_min")
+        with pytest.raises(ValueError):
+            MultiEchoLaserScanAdapter.from_dict(data)
+
+    @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
+    def test_to_ros_multiecho_laserscan(
+        self, multiecho_laserscan: futures.MultiEchoLaserScan, typestore: Typestore
+    ):
+        ros_msg = MultiEchoLaserScanAdapter.to_ros(
+            multiecho_laserscan, typestore, "sensor_msgs/msg/MultiEchoLaserScan"
+        )
+        assert_multiecho_laserscan(multiecho_laserscan, asdict(ros_msg))
+
+    @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
+    def test_to_ros_multiecho_laserscan_message(
+        self, multiecho_laserscan_msg: Message, typestore: Typestore
+    ):
+        mels = multiecho_laserscan_msg.get_data(futures.MultiEchoLaserScan)
+        ros_msg = MultiEchoLaserScanAdapter.to_ros(
+            multiecho_laserscan_msg, typestore, "sensor_msgs/msg/MultiEchoLaserScan"
+        )
+        assert multiecho_laserscan_msg.frame_id == ros_msg.header.frame_id
+        assert (
+            multiecho_laserscan_msg.timestamp_ns
             == Time(
                 seconds=ros_msg.header.stamp.sec,
                 nanoseconds=ros_msg.header.stamp.nanosec,
             ).to_nanoseconds()
         )
-        self.assert_multi_echo_laserscan(mels, ros_msg)
+        assert_multiecho_laserscan(mels, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_default_type(
-        self, multi_echo_laserscan: futures.MultiEchoLaserScan, typestore: Typestore
+        self, multiecho_laserscan: futures.MultiEchoLaserScan, typestore: Typestore
     ):
-        ros_msg = MultiEchoLaserScanAdapter.to_ros(multi_echo_laserscan, typestore)
-        self.assert_multi_echo_laserscan(multi_echo_laserscan, ros_msg)
+        ros_msg = MultiEchoLaserScanAdapter.to_ros(multiecho_laserscan, typestore)
+        assert_multiecho_laserscan(multiecho_laserscan, asdict(ros_msg))
 
     def test_to_ros_invalid_rosmsg_type(
-        self, multi_echo_laserscan: futures.MultiEchoLaserScan
+        self, multiecho_laserscan: futures.MultiEchoLaserScan
     ):
         ros_msg = MultiEchoLaserScanAdapter.to_ros(
-            multi_echo_laserscan, get_typestore(Stores.LATEST), "sensor_msgs/msg/Bogus"
+            multiecho_laserscan, get_typestore(Stores.LATEST), "sensor_msgs/msg/Bogus"
         )
         assert ros_msg is None
 
