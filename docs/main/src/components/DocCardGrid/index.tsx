@@ -1,4 +1,4 @@
-import type {ReactNode} from 'react';
+import type { ReactNode } from 'react';
 import Link from '@docusaurus/Link';
 import {
   BookOpenTextIcon,
@@ -19,13 +19,14 @@ import {
   FileCIcon,
   FileCodeIcon,
   CaretRightIcon,
+  RobotIcon,
 } from '@phosphor-icons/react';
 import { siPython, siRust, siCplusplus, siC } from 'simple-icons';
 import styles from './styles.module.css';
 
-const ICON_PROPS = {size: 20, weight: 'fill'} as const;
+const ICON_PROPS = { size: 20, weight: 'fill' } as const;
 
-function SimpleIcon({icon, size = 20}: {icon: {path: string}; size?: number}): ReactNode {
+function SimpleIcon({ icon, size = 20 }: { icon: { path: string }; size?: number }): ReactNode {
   return (
     <svg role="img" viewBox="0 0 24 24" width={size} height={size} fill="currentColor">
       <path d={icon.path} />
@@ -34,27 +35,28 @@ function SimpleIcon({icon, size = 20}: {icon: {path: string}; size?: number}): R
 }
 
 const ICONS: Record<string, ReactNode> = {
-  book:        <BookOpenTextIcon {...ICON_PROPS} />,
-  rocket:      <RocketIcon {...ICON_PROPS} />,
-  cpu:         <EngineIcon {...ICON_PROPS} />,
-  tray_up:     <TrayArrowUpIcon {...ICON_PROPS} />,
-  stack_plus:  <StackPlusIcon {...ICON_PROPS} />,
-  shuffle:     <ShuffleIcon {...ICON_PROPS} />,
-  broadcast:   <BroadcastIcon {...ICON_PROPS} />,
-  funnel:      <FunnelIcon {...ICON_PROPS} />,
-  sliders:     <SlidersHorizontalIcon {...ICON_PROPS} />,
-  intersect:   <IntersectThreeIcon {...ICON_PROPS} />,
-  flow:        <FlowArrowIcon {...ICON_PROPS} />,
-  chart:       <ChartLineIcon {...ICON_PROPS} />,
-  pulse:       <PulseIcon {...ICON_PROPS} />,
-  python:      <SimpleIcon icon={siPython} />,
-  rust:        <SimpleIcon icon={siRust} />,
-  cpp:         <SimpleIcon icon={siCplusplus} />,
-  c:           <SimpleIcon icon={siC} />,
-  file_py:     <FilePyIcon {...ICON_PROPS} />,
-  file_cpp:    <FileCppIcon {...ICON_PROPS} />,
-  file_c:      <FileCIcon {...ICON_PROPS} />,
-  file_rs:     <FileCodeIcon {...ICON_PROPS} />,
+  book: <BookOpenTextIcon {...ICON_PROPS} />,
+  rocket: <RocketIcon {...ICON_PROPS} />,
+  cpu: <EngineIcon {...ICON_PROPS} />,
+  tray_up: <TrayArrowUpIcon {...ICON_PROPS} />,
+  stack_plus: <StackPlusIcon {...ICON_PROPS} />,
+  shuffle: <ShuffleIcon {...ICON_PROPS} />,
+  broadcast: <BroadcastIcon {...ICON_PROPS} />,
+  funnel: <FunnelIcon {...ICON_PROPS} />,
+  sliders: <SlidersHorizontalIcon {...ICON_PROPS} />,
+  intersect: <IntersectThreeIcon {...ICON_PROPS} />,
+  flow: <FlowArrowIcon {...ICON_PROPS} />,
+  chart: <ChartLineIcon {...ICON_PROPS} />,
+  pulse: <PulseIcon {...ICON_PROPS} />,
+  robot: <RobotIcon {...ICON_PROPS} />,
+  python: <SimpleIcon icon={siPython} />,
+  rust: <SimpleIcon icon={siRust} />,
+  cpp: <SimpleIcon icon={siCplusplus} />,
+  c: <SimpleIcon icon={siC} />,
+  file_py: <FilePyIcon {...ICON_PROPS} />,
+  file_cpp: <FileCppIcon {...ICON_PROPS} />,
+  file_c: <FileCIcon {...ICON_PROPS} />,
+  file_rs: <FileCodeIcon {...ICON_PROPS} />,
 };
 
 type CardProps = {
@@ -71,7 +73,7 @@ type SectionProps = {
   children: ReactNode;
 };
 
-export function Card({title, href, icon, full, children}: CardProps): ReactNode {
+export function Card({ title, href, icon, full, children }: CardProps): ReactNode {
   return (
     <Link to={href} className={`${styles.card}${full ? ` ${styles.cardFull}` : ''}`}>
       {icon && ICONS[icon] && <span className={styles.icon}>{ICONS[icon]}</span>}
@@ -84,7 +86,7 @@ export function Card({title, href, icon, full, children}: CardProps): ReactNode 
   );
 }
 
-export function Section({title, description, children}: SectionProps): ReactNode {
+export function Section({ title, description, children }: SectionProps): ReactNode {
   return (
     <div className={styles.section}>
       <div className={styles.sectionTitle}>{title}</div>
@@ -94,6 +96,6 @@ export function Section({title, description, children}: SectionProps): ReactNode
   );
 }
 
-export default function DocCardGrid({children}: {children: ReactNode}): ReactNode {
+export default function DocCardGrid({ children }: { children: ReactNode }): ReactNode {
   return <div>{children}</div>;
 }
