@@ -223,11 +223,11 @@ pub type DoActionStream = BoxStream<'static, std::result::Result<arrow_flight::R
 type ListActionsStream = BoxStream<'static, std::result::Result<ActionType, Status>>;
 type DoExchangeStream = BoxStream<'static, std::result::Result<FlightData, Status>>;
 
-pub trait IntoStreamExt {
+pub trait IntoStream {
     fn into_stream(self) -> Result<DoActionStream>;
 }
 
-impl IntoStreamExt for marshal::ActionResponse {
+impl IntoStream for marshal::ActionResponse {
     /// Wraps a single ActionResponse into a one-item
     /// DoActionStream, as expected by Arrow Flight's do_action endpoint.
     ///

@@ -5,7 +5,7 @@
 
 use super::actions::{misc, query as query_action, sequence, session, topic};
 use crate::error::Result;
-use crate::flight::IntoStreamExt;
+use crate::flight::IntoStream;
 use crate::{endpoint::actions::auth, flight::DoActionStream};
 use mosaicod_core::{self as core, types::auth::Permission};
 use mosaicod_facade as facade;
