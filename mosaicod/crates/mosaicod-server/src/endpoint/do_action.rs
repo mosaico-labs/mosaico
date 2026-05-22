@@ -5,22 +5,11 @@
 
 use super::actions::{misc, query as query_action, sequence, session, topic};
 use crate::error::Result;
+use crate::flight::IntoStreamExt;
 use crate::{endpoint::actions::auth, flight::DoActionStream};
 use mosaicod_core::{self as core, types::auth::Permission};
 use mosaicod_facade as facade;
-use mosaicod_marshal::{ActionRequest, ActionResponse};
-
-/// Adapter that wraps a single ActionResponse into a one-item
-/// DoActionStream, as expected by Arrow Flight's do_action endpoint.
-///
-/// Use this when the handler produces a single payload rather than a
-/// stream of results.
-pub fn single_stream(resp: ActionResponse) -> Result<DoActionStream> {
-    let bytes = resp.bytes()?;
-    Ok(Box::pin(futures::stream::once(async move {
-        Ok(arrow_flight::Result::new(bytes))
-    })))
-}
+use mosaicod_marshal::ActionRequest;
 
 /// Dispatches a Flight action request to the appropriate handler.
 ///
@@ -44,60 +33,69 @@ pub async fn do_action(
         // Sequence
         ActionRequest::SequenceCreate(data) => {
             let user_metadata = data.user_metadata()?;
-            single_stream(sequence::create(ctx, data.locator, user_metadata.as_str()).await?)
+            sequence::create(ctx, data.locator, user_metadata.as_str())
+                .await?
+                .into_stream()
         }
         ActionRequest::SequenceDelete(data) => {
-            single_stream(sequence::delete(ctx, data.locator).await?)
+            sequence::delete(ctx, data.locator).await?.into_stream()
         }
-        ActionRequest::SequenceNotificationCreate(data) => single_stream(
+        ActionRequest::SequenceNotificationCreate(data) => {
             sequence::notification_create(ctx, data.locator, data.notification_type, data.msg)
-                .await?,
-        ),
+                .await?
+                .into_stream()
+        }
         ActionRequest::SequenceNotificationList(data) => {
-            single_stream(sequence::notification_list(ctx, data.locator).await?)
+            sequence::notification_list(ctx, data.locator)
+                .await?
+                .into_stream()
         }
         ActionRequest::SequenceNotificationPurge(data) => {
-            single_stream(sequence::notification_purge(ctx, data.locator).await?)
+            sequence::notification_purge(ctx, data.locator)
+                .await?
+                .into_stream()
         }
 
         // ///////
         // Session
         ActionRequest::SessionCreate(data) => {
-            single_stream(session::create(ctx, data.locator).await?)
+            session::create(ctx, data.locator).await?.into_stream()
         }
-        ActionRequest::SessionFinalize(data) => {
-            single_stream(session::finalize(ctx, data.session_uuid).await?)
-        }
+        ActionRequest::SessionFinalize(data) => session::finalize(ctx, data.session_uuid)
+            .await?
+            .into_stream(),
         ActionRequest::SessionDelete(data) => {
-            single_stream(session::delete(ctx, data.locator).await?)
+            session::delete(ctx, data.locator).await?.into_stream()
         }
 
         // /////
         // Topic
         ActionRequest::TopicCreate(data) => {
             let user_metadata = data.user_metadata()?;
-            single_stream(
-                topic::create(
-                    ctx,
-                    data.locator,
-                    data.session_uuid,
-                    data.serialization_format.into(),
-                    data.ontology_tag,
-                    user_metadata.as_str(),
-                )
-                .await?,
+
+            topic::create(
+                ctx,
+                data.locator,
+                data.session_uuid,
+                data.serialization_format.into(),
+                data.ontology_tag,
+                user_metadata.as_str(),
             )
+            .await?
+            .into_stream()
         }
-        ActionRequest::TopicDelete(data) => single_stream(topic::delete(ctx, data.locator).await?),
-        ActionRequest::TopicNotificationCreate(data) => single_stream(
-            topic::notification_create(ctx, data.locator, data.notification_type, data.msg).await?,
-        ),
-        ActionRequest::TopicNotificationList(data) => {
-            single_stream(topic::notification_list(ctx, data.locator).await?)
+        ActionRequest::TopicDelete(data) => topic::delete(ctx, data.locator).await?.into_stream(),
+        ActionRequest::TopicNotificationCreate(data) => {
+            topic::notification_create(ctx, data.locator, data.notification_type, data.msg)
+                .await?
+                .into_stream()
         }
-        ActionRequest::TopicNotificationPurge(data) => {
-            single_stream(topic::notification_purge(ctx, data.locator).await?)
-        }
+        ActionRequest::TopicNotificationList(data) => topic::notification_list(ctx, data.locator)
+            .await?
+            .into_stream(),
+        ActionRequest::TopicNotificationPurge(data) => topic::notification_purge(ctx, data.locator)
+            .await?
+            .into_stream(),
         ActionRequest::TopicFilterClusterize(data) => {
             topic::filter_clusterize(
                 ctx,
@@ -111,31 +109,34 @@ pub async fn do_action(
 
         // /////
         // Query
-        ActionRequest::Query(data) => single_stream(query_action::execute(ctx, data.query).await?),
+        ActionRequest::Query(data) => query_action::execute(ctx, data.query).await?.into_stream(),
 
         // ////
         // Api Key
-        ActionRequest::ApiKeyCreate(data) => single_stream(
-            auth::api_key_create(
-                ctx,
-                data.permissions,
-                data.expires_at_ns.map(Into::into),
-                data.description,
-            )
-            .await?,
-        ),
+        ActionRequest::ApiKeyCreate(data) => auth::api_key_create(
+            ctx,
+            data.permissions,
+            data.expires_at_ns.map(Into::into),
+            data.description,
+        )
+        .await?
+        .into_stream(),
 
         ActionRequest::ApiKeyStatus(data) => {
-            single_stream(auth::api_key_status(ctx, data.api_key_fingerprint.as_str()).await?)
+            auth::api_key_status(ctx, data.api_key_fingerprint.as_str())
+                .await?
+                .into_stream()
         }
 
         ActionRequest::ApiKeyRevoke(data) => {
-            single_stream(auth::api_key_revoke(ctx, data.api_key_fingerprint.as_str()).await?)
+            auth::api_key_revoke(ctx, data.api_key_fingerprint.as_str())
+                .await?
+                .into_stream()
         }
 
         // /////
         // Misc
-        ActionRequest::Version(_) => single_stream(misc::version()?),
+        ActionRequest::Version(_) => misc::version()?.into_stream(),
     }
 }
 

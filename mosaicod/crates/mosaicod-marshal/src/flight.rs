@@ -1,6 +1,5 @@
 use super::Error;
 use bincode::{Decode, Encode};
-use mosaicod_core::Error as coreError;
 use mosaicod_core::types;
 use mosaicod_core::types::{SessionMetadata, TopicLocator};
 use serde::{Deserialize, Serialize};
@@ -335,9 +334,9 @@ pub struct FilterTimestampRange {
 }
 
 impl FilterTimestampRange {
-    pub fn validate(&self) -> Result<(), coreError> {
+    pub fn validate(&self) -> Result<(), mosaicod_core::Error> {
         if self.start_ns >= self.end_ns {
-            return Err(coreError::bad_request(format!(
+            return Err(mosaicod_core::Error::bad_request(format!(
                 "invalid timestamp range: start_ns ({}) must be < end_ns ({})",
                 self.start_ns, self.end_ns
             )));

@@ -223,6 +223,24 @@ pub type DoActionStream = BoxStream<'static, std::result::Result<arrow_flight::R
 type ListActionsStream = BoxStream<'static, std::result::Result<ActionType, Status>>;
 type DoExchangeStream = BoxStream<'static, std::result::Result<FlightData, Status>>;
 
+pub trait IntoStreamExt {
+    fn into_stream(self) -> Result<DoActionStream>;
+}
+
+impl IntoStreamExt for marshal::ActionResponse {
+    /// Wraps a single ActionResponse into a one-item
+    /// DoActionStream, as expected by Arrow Flight's do_action endpoint.
+    ///
+    /// Use this when the handler produces a single payload rather than a
+    /// stream of results.
+    fn into_stream(self) -> Result<DoActionStream> {
+        let bytes = self.bytes()?;
+        Ok(Box::pin(futures::stream::once(async move {
+            Ok(arrow_flight::Result::new(bytes))
+        })))
+    }
+}
+
 impl MosaicodFlight {
     async fn impl_get_flight_info(
         &self,
