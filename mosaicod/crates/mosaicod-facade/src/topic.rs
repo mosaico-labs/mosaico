@@ -1,11 +1,13 @@
 use super::{Context, Error, session};
 use arrow::datatypes::SchemaRef;
+use datafusion::physical_plan::SendableRecordBatchStream;
 use log::{trace, warn};
 use mosaicod_core::types::TopicMetadataProperties;
 use mosaicod_core::{self as core, error::PublicResult as Result, params, types};
 use mosaicod_db as db;
 use mosaicod_ext as ext;
 use mosaicod_marshal as marshal;
+use mosaicod_query::OntologyFilter;
 use mosaicod_rw::{self as rw, ToProperties};
 use mosaicod_store as store;
 use std::path;
@@ -577,6 +579,34 @@ impl std::ops::DerefMut for HandleWriter {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.writer
     }
+}
+
+pub async fn query_by_timestamp(
+    context: &Context,
+    handle: &Handle,
+    ts: Option<types::TimestampRange>,
+    ontology_filter: OntologyFilter,
+) -> Result<SendableRecordBatchStream> {
+    let meta = metadata(context, handle).await?;
+    let format = meta.ontology_metadata.properties.serialization_format;
+    let batch_size = compute_optimal_batch_size(context, handle).await.ok();
+
+    let path_in_store = handle
+        .path_in_store()
+        .ok_or(core::Error::not_found(handle.locator().to_string()))?;
+
+    let mut result = context
+        .timeseries_querier
+        .read(path_in_store.data_folder_path(), format, batch_size)
+        .await?;
+
+    if let Some(ts_range) = ts {
+        result = result.filter_by_timestamp_range(ts_range)?;
+    }
+
+    result = result.filter(ontology_filter.into_expr_group())?;
+
+    Ok(result.stream().await?)
 }
 
 #[cfg(test)]

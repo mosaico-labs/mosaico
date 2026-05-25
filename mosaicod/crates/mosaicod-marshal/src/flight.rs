@@ -346,6 +346,52 @@ impl FilterTimestampRange {
     }
 }
 
+impl TryFrom<types::TimestampRange> for FilterTimestampRange {
+    type Error = mosaicod_core::Error;
+
+    fn try_from(value: types::TimestampRange) -> Result<Self, Self::Error> {
+        let start_ns = if value.start.is_unbounded_neg() {
+            0
+        } else {
+            u64::try_from(value.start.as_i64()).map_err(|_| {
+                mosaicod_core::Error::bad_request(format!(
+                    "negative start timestamp not allowed: {}",
+                    value.start
+                ))
+            })?
+        };
+
+        let end_ns = if value.end.is_unbounded_pos() {
+            u64::MAX
+        } else {
+            u64::try_from(value.end.as_i64()).map_err(|_| {
+                mosaicod_core::Error::bad_request(format!(
+                    "negative end timestamp not allowed: {}",
+                    value.end
+                ))
+            })?
+        };
+
+        Ok(Self { start_ns, end_ns })
+    }
+}
+
+impl From<&FilterTimestampRange> for types::TimestampRange {
+    fn from(value: &FilterTimestampRange) -> Self {
+        let start = if value.start_ns == 0 {
+            types::Timestamp::unbounded_neg()
+        } else {
+            types::Timestamp::from(value.start_ns as i64)
+        };
+        let end = if value.end_ns == u64::MAX {
+            types::Timestamp::unbounded_pos()
+        } else {
+            types::Timestamp::from(value.end_ns as i64)
+        };
+        types::TimestampRange::between(start, end)
+    }
+}
+
 // ////////////////////////////////////////////////////////////////////////////
 // TESTS
 // ////////////////////////////////////////////////////////////////////////////

@@ -22,6 +22,7 @@ arrow = { workspace = true }
 log = { workspace = true }
 futures = { workspace = true }
 tokio = { workspace = true }
+datafusion = { workspace = true }
 
 [dev-dependencies]
 sqlx = { workspace = true }

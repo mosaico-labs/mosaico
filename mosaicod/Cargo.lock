@@ -2657,6 +2657,7 @@ name = "mosaicod-facade"
 version = "0.6.0-dev"
 dependencies = [
  "arrow",
+ "datafusion",
  "futures",
  "log",
  "mosaicod-core",

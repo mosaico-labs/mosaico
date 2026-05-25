@@ -375,8 +375,8 @@ pub fn ontology_model_stats_from_schema(schema: &SchemaRef) -> types::OntologyMo
 pub mod testing {
     use super::*;
 
-    use arrow::array::Int64Array;
-    use arrow::datatypes::Schema;
+    use arrow::array::{Int64Array, RecordBatch};
+    use arrow::datatypes::{DataType, Field, Schema};
 
     pub fn dummy_empty_batch() -> RecordBatch {
         let schema = Arc::new(Schema::new(vec![
@@ -417,6 +417,32 @@ pub mod testing {
                     10000, 10005, 10010, 10015, 10020, 10025, 10030,
                 ])),
                 Arc::new(Int64Array::from(vec![1, 2, 3, 4, 5, 6, 7])),
+            ],
+        )
+        .unwrap()
+    }
+
+    pub fn clustering_test_batch(timestamps: &[i64], values: &[i64]) -> RecordBatch {
+        assert_eq!(
+            timestamps.len(),
+            values.len(),
+            "timestamps and values must have the same length"
+        );
+
+        let schema = Arc::new(Schema::new(vec![
+            Field::new(
+                params::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP,
+                DataType::Int64,
+                false,
+            ),
+            Field::new("value", DataType::Int64, false),
+        ]));
+
+        RecordBatch::try_new(
+            schema,
+            vec![
+                Arc::new(Int64Array::from(timestamps.to_vec())),
+                Arc::new(Int64Array::from(values.to_vec())),
             ],
         )
         .unwrap()

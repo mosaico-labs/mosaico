@@ -2,6 +2,7 @@
 use mosaicod_core::types;
 use mosaicod_db as db;
 use mosaicod_ext as ext;
+use mosaicod_ext::arrow::testing::clustering_test_batch;
 use mosaicod_marshal::{self as marshal, Ontology, flight::FilterTimestampRange};
 use serde_json::json;
 use tests::{self, actions, common};
@@ -545,35 +546,348 @@ async fn test_topic_delete_unlocked(pool: sqlx::Pool<db::DatabaseType>) {
     server.shutdown().await;
 }
 
+/// Setup: sequence + session + topic + batch upload + finalize.
+async fn setup_topic_with_batches(
+    client: &mut common::Client,
+    sequence_name: &str,
+    topic_name: &str,
+    batches: Vec<arrow::array::RecordBatch>,
+) {
+    actions::sequence_create(client, sequence_name, None)
+        .await
+        .unwrap();
+    let (_, session_uuid) = actions::session_create(client, sequence_name)
+        .await
+        .unwrap();
+    let topic_uuid = actions::topic_create(client, &session_uuid, topic_name, None)
+        .await
+        .unwrap();
+
+    actions::do_put(client, &topic_uuid, topic_name, batches, false)
+        .await
+        .unwrap();
+    actions::session_finalize(client, &session_uuid)
+        .await
+        .unwrap();
+}
+
+fn ontology_accel_x_gt_5() -> Ontology {
+    serde_json::from_value(json!({
+        "imu.value": { "$gt": 5 }
+    }))
+    .unwrap()
+}
+
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
-async fn test_topic_filter_clusterize_stub(pool: sqlx::Pool<db::DatabaseType>) {
+async fn test_topic_filter_clusterize_three_clusters(pool: sqlx::Pool<db::DatabaseType>) {
     let server = common::ServerBuilder::new(common::HOST, pool).build().await;
     let mut client = common::ClientBuilder::new(common::HOST, server.port())
         .build()
         .await;
 
-    let sequence_name = "test_sequence";
-    let topic_name = &format!("{}/test_topic", sequence_name);
-    let clustering_dt_ns: u64 = 10;
-    let ontology: Ontology = serde_json::from_value(json!({
-        "imu.acceleration.x": { "$gt": 5 }
-    }))
+    let sequence_name = "seq_three";
+    let topic_name = &format!("{sequence_name}/topic");
+
+    let ts: Vec<i64> = vec![100, 110, 120, 200, 210, 220, 300, 310, 320];
+    let val: Vec<i64> = vec![10, 10, 10, 10, 10, 10, 10, 10, 10];
+    let batch = clustering_test_batch(&ts, &val);
+
+    setup_topic_with_batches(&mut client, sequence_name, topic_name, vec![batch]).await;
+
+    let clusters = actions::topic_filter_clusterize(
+        &mut client,
+        topic_name,
+        50,
+        ontology_accel_x_gt_5(),
+        None,
+    )
+    .await
     .unwrap();
 
-    let res =
-        actions::topic_filter_clusterize(&mut client, topic_name, clustering_dt_ns, ontology, None)
+    assert_eq!(clusters.len(), 3, "expected 3 clusters, got: {clusters:?}");
+
+    let expected = [(100u64, 120u64), (200, 220), (300, 320)];
+    for (i, (exp_start, exp_end)) in expected.iter().enumerate() {
+        let start = clusters[i]["ts"]["start_ns"].as_u64().unwrap();
+        let end = clusters[i]["ts"]["end_ns"].as_u64().unwrap();
+        let id = clusters[i]["id"].as_u64().unwrap();
+        assert_eq!(start, *exp_start, "cluster {i} start");
+        assert_eq!(end, *exp_end, "cluster {i} end");
+        assert_eq!(id, i as u64, "cluster {i} id");
+    }
+
+    server.shutdown().await;
+}
+
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_topic_filter_clusterize_single_cluster_via_gap(pool: sqlx::Pool<db::DatabaseType>) {
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
+        .build()
+        .await;
+
+    let sequence_name = "seq_single";
+    let topic_name = &format!("{sequence_name}/topic");
+
+    let ts: Vec<i64> = vec![1_000, 1_010, 1_020, 1_030, 1_040, 1_050];
+    let val: Vec<i64> = vec![10; 6];
+    let batch = clustering_test_batch(&ts, &val);
+
+    setup_topic_with_batches(&mut client, sequence_name, topic_name, vec![batch]).await;
+
+    let clusters = actions::topic_filter_clusterize(
+        &mut client,
+        topic_name,
+        100, // dt_ns >> max gap → un cluster
+        ontology_accel_x_gt_5(),
+        None,
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(clusters.len(), 1);
+    assert_eq!(clusters[0]["ts"]["start_ns"].as_u64().unwrap(), 1_000);
+    assert_eq!(clusters[0]["ts"]["end_ns"].as_u64().unwrap(), 1_050);
+
+    server.shutdown().await;
+}
+
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_topic_filter_clusterize_dt_zero_returns_full_range(
+    pool: sqlx::Pool<db::DatabaseType>,
+) {
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
+        .build()
+        .await;
+
+    let sequence_name = "seq_dt_zero";
+    let topic_name = &format!("{sequence_name}/topic");
+
+    let ts: Vec<i64> = vec![100, 500, 1_000, 5_000, 10_000];
+    let val: Vec<i64> = vec![10; 5];
+    let batch = clustering_test_batch(&ts, &val);
+
+    setup_topic_with_batches(&mut client, sequence_name, topic_name, vec![batch]).await;
+
+    let clusters =
+        actions::topic_filter_clusterize(&mut client, topic_name, 0, ontology_accel_x_gt_5(), None)
             .await
             .unwrap();
 
-    for (i, x) in res.iter().enumerate() {
-        let start = x["ts"]["start_ns"].as_u64().unwrap();
-        let end = x["ts"]["end_ns"].as_u64().unwrap();
-        let id = x["id"].as_u64().unwrap();
+    assert_eq!(clusters.len(), 1, "dt_ns=0 must yield exactly one cluster");
+    assert_eq!(clusters[0]["ts"]["start_ns"].as_u64().unwrap(), 100);
+    assert_eq!(clusters[0]["ts"]["end_ns"].as_u64().unwrap(), 10_000);
 
-        assert_eq!(start, i as u64 * 10);
-        assert_eq!(end, i as u64 * 10 + 5);
-        assert_eq!(id, i as u64);
-    }
+    server.shutdown().await;
+}
+
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_topic_filter_clusterize_ontology_actually_filters(
+    pool: sqlx::Pool<db::DatabaseType>,
+) {
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
+        .build()
+        .await;
+
+    let sequence_name = "seq_filter";
+    let topic_name = &format!("{sequence_name}/topic");
+
+    let ts: Vec<i64> = vec![100, 110, 120, 130, 140, 500, 510, 520];
+    let val: Vec<i64> = vec![10, 1, 10, 1, 10, 10, 1, 10];
+    let batch = clustering_test_batch(&ts, &val);
+
+    setup_topic_with_batches(&mut client, sequence_name, topic_name, vec![batch]).await;
+
+    let clusters = actions::topic_filter_clusterize(
+        &mut client,
+        topic_name,
+        50,
+        ontology_accel_x_gt_5(),
+        None,
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(clusters.len(), 2, "got: {clusters:?}");
+    assert_eq!(clusters[0]["ts"]["start_ns"].as_u64().unwrap(), 100);
+    assert_eq!(clusters[0]["ts"]["end_ns"].as_u64().unwrap(), 140);
+    assert_eq!(clusters[1]["ts"]["start_ns"].as_u64().unwrap(), 500);
+    assert_eq!(clusters[1]["ts"]["end_ns"].as_u64().unwrap(), 520);
+
+    server.shutdown().await;
+}
+
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_topic_filter_clusterize_empty_result(pool: sqlx::Pool<db::DatabaseType>) {
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
+        .build()
+        .await;
+
+    let sequence_name = "seq_empty";
+    let topic_name = &format!("{sequence_name}/topic");
+
+    let ts: Vec<i64> = vec![100, 200, 300];
+    let val: Vec<i64> = vec![1, 2, 3];
+    let batch = clustering_test_batch(&ts, &val);
+
+    setup_topic_with_batches(&mut client, sequence_name, topic_name, vec![batch]).await;
+
+    let clusters = actions::topic_filter_clusterize(
+        &mut client,
+        topic_name,
+        50,
+        ontology_accel_x_gt_5(),
+        None,
+    )
+    .await
+    .unwrap();
+
+    assert!(
+        clusters.is_empty(),
+        "expected 0 clusters, got: {clusters:?}"
+    );
+
+    server.shutdown().await;
+}
+
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_topic_filter_clusterize_with_time_range(pool: sqlx::Pool<db::DatabaseType>) {
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
+        .build()
+        .await;
+
+    let sequence_name = "seq_range";
+    let topic_name = &format!("{sequence_name}/topic");
+
+    let ts: Vec<i64> = vec![100, 200, 300, 1_000, 1_100, 2_000, 2_100];
+    let val: Vec<i64> = vec![10; 7];
+    let batch = clustering_test_batch(&ts, &val);
+
+    setup_topic_with_batches(&mut client, sequence_name, topic_name, vec![batch]).await;
+
+    let ts_range: FilterTimestampRange = serde_json::from_value(json!({
+        "start_ns": 500u64, "end_ns": 1_500u64
+    }))
+    .unwrap();
+
+    let clusters = actions::topic_filter_clusterize(
+        &mut client,
+        topic_name,
+        100,
+        ontology_accel_x_gt_5(),
+        Some(ts_range),
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(clusters.len(), 1);
+    assert_eq!(clusters[0]["ts"]["start_ns"].as_u64().unwrap(), 1_000);
+    assert_eq!(clusters[0]["ts"]["end_ns"].as_u64().unwrap(), 1_100);
+
+    server.shutdown().await;
+}
+
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_topic_filter_clusterize_single_row(pool: sqlx::Pool<db::DatabaseType>) {
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
+        .build()
+        .await;
+
+    let sequence_name = "seq_one_row";
+    let topic_name = &format!("{sequence_name}/topic");
+
+    let ts: Vec<i64> = vec![100, 200, 300];
+    let val: Vec<i64> = vec![1, 10, 1];
+    let batch = clustering_test_batch(&ts, &val);
+
+    setup_topic_with_batches(&mut client, sequence_name, topic_name, vec![batch]).await;
+
+    let clusters = actions::topic_filter_clusterize(
+        &mut client,
+        topic_name,
+        50,
+        ontology_accel_x_gt_5(),
+        None,
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(clusters.len(), 1);
+    assert_eq!(clusters[0]["ts"]["start_ns"].as_u64().unwrap(), 200);
+    assert_eq!(clusters[0]["ts"]["end_ns"].as_u64().unwrap(), 200);
+
+    server.shutdown().await;
+}
+
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_topic_filter_clusterize_across_batches(pool: sqlx::Pool<db::DatabaseType>) {
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
+        .build()
+        .await;
+
+    let sequence_name = "seq_multi";
+    let topic_name = &format!("{sequence_name}/topic");
+
+    let b1 = clustering_test_batch(&[100, 110, 120], &[10; 3]);
+    let b2 = clustering_test_batch(&[130, 140], &[10; 2]);
+    let b3 = clustering_test_batch(&[1_000, 1_010], &[10; 2]);
+
+    setup_topic_with_batches(&mut client, sequence_name, topic_name, vec![b1, b2, b3]).await;
+
+    let clusters = actions::topic_filter_clusterize(
+        &mut client,
+        topic_name,
+        50,
+        ontology_accel_x_gt_5(),
+        None,
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(clusters.len(), 2, "got: {clusters:?}");
+    assert_eq!(clusters[0]["ts"]["start_ns"].as_u64().unwrap(), 100);
+    assert_eq!(clusters[0]["ts"]["end_ns"].as_u64().unwrap(), 140);
+    assert_eq!(clusters[1]["ts"]["start_ns"].as_u64().unwrap(), 1_000);
+    assert_eq!(clusters[1]["ts"]["end_ns"].as_u64().unwrap(), 1_010);
+
+    server.shutdown().await;
+}
+
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_topic_filter_clusterize_gap_equals_dt(pool: sqlx::Pool<db::DatabaseType>) {
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
+        .build()
+        .await;
+
+    let sequence_name = "seq_gap_eq";
+    let topic_name = &format!("{sequence_name}/topic");
+
+    let ts: Vec<i64> = vec![100, 150, 200, 250];
+    let val: Vec<i64> = vec![10; 4];
+    let batch = clustering_test_batch(&ts, &val);
+
+    setup_topic_with_batches(&mut client, sequence_name, topic_name, vec![batch]).await;
+
+    let clusters = actions::topic_filter_clusterize(
+        &mut client,
+        topic_name,
+        50,
+        ontology_accel_x_gt_5(),
+        None,
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(clusters.len(), 1, "got: {clusters:?}");
+
+    server.shutdown().await;
 }
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]

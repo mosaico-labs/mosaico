@@ -1,5 +1,5 @@
 use arrow::array::AsArray;
-use arrow::datatypes::UInt64Type;
+use arrow::datatypes::Int64Type;
 use arrow::error::ArrowError;
 use arrow::record_batch::RecordBatch;
 use futures::{Stream, StreamExt};
@@ -133,13 +133,32 @@ fn extract_timestamps<'a>(
     }
 
     // unwrap here is safe because the timestamp's datatype is enforced in do_put session.
-    let timestamp_array = timestamp_array.as_primitive_opt::<UInt64Type>().unwrap();
-    Ok(timestamp_array.values())
+    let timestamp_array = timestamp_array
+        .as_primitive_opt::<Int64Type>()
+        .unwrap()
+        .values();
+
+    // SAFETY: reinterpreting &[i64] as &[u64] is sound here because:
+    //   - i64 and u64 have the same size (8 bytes) and alignment, so the
+    //     pointer cast preserves the memory layout of the slice;
+    //   - the timestamp column is enforced to be Int64 at ingest time
+    //     (do_put session), so we never reach this code with a different type;
+    //   - timestamps represent nanoseconds since the Unix epoch and are always
+    //     non-negative, hence every value fits in the positive range of i64
+    //     and maps one-to-one to u64 without any change in numeric meaning;
+    let ts: &[u64] = unsafe {
+        std::slice::from_raw_parts(
+            timestamp_array.as_ptr() as *const u64,
+            timestamp_array.len(),
+        )
+    };
+    Ok(ts)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use arrow::array::Int64Array;
     use arrow::array::UInt64Array;
     use arrow::datatypes::DataType;
     use arrow::datatypes::{Field, Schema};
@@ -147,8 +166,9 @@ mod tests {
     use std::sync::Arc;
 
     fn batch(ts: &[u64]) -> RecordBatch {
-        let schema = Arc::new(Schema::new(vec![Field::new("ts", DataType::UInt64, false)]));
-        let array = UInt64Array::from(ts.to_vec());
+        let schema = Arc::new(Schema::new(vec![Field::new("ts", DataType::Int64, false)]));
+        let ts: Vec<i64> = ts.iter().map(|&v| v as i64).collect();
+        let array = Int64Array::from(ts);
         RecordBatch::try_new(schema, vec![Arc::new(array)]).unwrap()
     }
 
