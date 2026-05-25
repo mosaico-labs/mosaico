@@ -24,7 +24,7 @@ poetry run mkdocs serve
 To start the local development server and preview your changes in real-time, execute:
 
 ```bash
-poetry run mkdocs serve --livereload -w ../mosaico-sdk-py/src
+poetry run mkdocs serve --livereload -w ../../mosaico-sdk-py/src
 ```
 
 The documentation will be available for viewing at [http://localhost:8000](https://localhost:8000).
