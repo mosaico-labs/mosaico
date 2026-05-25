@@ -9,7 +9,7 @@ The **Query Workflow** in Mosaico provides a high-performance, **fluent** interf
     When the connection is established via the authorization middleware (i.e. using an [API-Key](./client.md#2-authentication-api-key)), the query workflow requires the minimum [`APIKeyPermissionEnum.Read`][mosaicolabs.enum.APIKeyPermissionEnum.Read] permission.
 
 !!! example "Try-It Out"
-    You can experiment yourself the Query module via the **[Querying Catalogs](https://docs.mosaico.dev/demo/querying_catalogs) Example**.
+    You can experiment yourself the Query module via the **[Querying Catalogs](https://docs.mosaico.dev/examples/querying_catalogs) Example**.
 
 A typical query workflow involves chaining methods within specialized builders to create a unified request that the server executes atomically. In the example below, the code orchestrates a multi-domain search to isolate high-interest data segments. Specifically, it queries for:
 

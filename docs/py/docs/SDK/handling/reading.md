@@ -9,7 +9,7 @@ The **Reading Workflow** in Mosaico is architected to separate resource discover
     When the connection is established via the authorization middleware (i.e. using an [API-Key](../client.md#2-authentication-api-key)), the reading workflow requires the minimum [`APIKeyPermissionEnum.Read`][mosaicolabs.enum.APIKeyPermissionEnum.Read] permission.
 
 !!! example "Try-It Out"
-    You can experiment yourself the Handlers module via the **[Data Discovery and Inspection](https://docs.mosaico.dev/demo/querying_catalogs) Example**.
+    You can experiment yourself the Handlers module via the **[Data Discovery and Inspection](https://docs.mosaico.dev/examples/data_inspection) Example**.
 
 ### Handlers: The Catalog Layer
 
