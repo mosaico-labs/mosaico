@@ -58,6 +58,21 @@ We provide built-in support for multiple open-source formats. We recommend explo
 File (HDF5)
 :::
 
+##### Dataset Properties
+
+| Property | Value |
+| :--- | :--- |
+| **Episodes** | 4,551 total (4,035 successful, 516 failed) |
+| **Robot** | Franka Emika arm with parallel-jaw gripper |
+| **Task type** | Contact-rich assembly and disassembly of connectors |
+| **Objects** | 17 object types (e.g. Ethernet cable, USB-A, HDMI) |
+| **Annotations** | Hierarchical: high-level task segments + low-level primitives (Grasp, Approach, Align, Lift, Insert), each with timestamps and a success flag |
+| **Source format** | HDF5 (`.h5`), one file per episode |
+| **Modalities** | Event camera (DAVIS346), 3× RGB cameras, 3× microphones, robot proprioception (7 joints), gripper state, force/torque sensor |
+| **Control frequency** | ~1 kHz robot state; ~30 Hz RGB cameras; ~120 Hz event camera |
+
+The episode structure is not step-based: each `.h5` file stores independently timestamped streams that must be aligned during loading. The `segments_info` field provides the ground-truth temporal segmentation of the episode into labelled high-level and low-level action phases.
+
 ##### Topics Ingested into Mosaico
 
 | Topic | Ontology Type | Description |
@@ -87,6 +102,21 @@ File (HDF5)
 :::info[Execution Backend]
 File (TFDS)
 :::
+
+##### Dataset Properties
+
+| Property | Value |
+| :--- | :--- |
+| **Episodes** | 87,212 total; ~4.43% failure rate (episodes where `is_terminal = true` and no positive reward was observed) |
+| **Robot** | Google RT-1 mobile manipulator with 7-DoF arm |
+| **Task type** | Pick-and-place in kitchen micro-environments |
+| **Objects** | 17 object families (snacks, containers, drawers, etc.) |
+| **Annotations** | Per-step scalar reward; episode-level `aspects` and `attributes` metadata (unpopulated in the public release) |
+| **Source format** | TensorFlow Dataset (TFDS / TFRecord), split into `train` shards |
+| **Modalities** | Single RGB camera `(256×320×3)`, natural language instruction, 512-dimensional task embedding |
+| **Control frequency** | ~3 Hz |
+
+The public release omits the `aspects` and `attributes` fields (all values are `UNSPECIFIED`). Episode success must therefore be inferred indirectly: an episode is considered failed when `is_terminal = true` on the last step and no step carries a positive reward. The action space covers end-effector displacement (`world_vector`), orientation change (`rotation_delta`), gripper closure, and base navigation in addition to the termination signal.
 
 ##### Topics Ingested into Mosaico
 
@@ -127,6 +157,21 @@ File (TFDS)
 File (Parquet)
 :::
 
+##### Dataset Properties
+
+| Property | Value |
+| :--- | :--- |
+| **Episodes** | 95,617 (LeRobot `droid_1.0.1` release); 27,618,651 total frames |
+| **Robot** | Franka Emika arm |
+| **Task type** | Open-vocabulary manipulation collected "in-the-wild" across 564 scenes |
+| **Data collectors** | 50 operators across 13 research institutions |
+| **Annotations** | Up to 3 natural language reformulations per episode; boolean `is_episode_successful` flag; scalar reward `[0, 1]`; collection metadata (building, collector ID, date, task category) |
+| **Source format** | Parquet shards (LeRobot format), one row per timestep |
+| **Modalities** | 3× RGB video `(180×320×3)` — wrist + 2 external cameras; joint positions `(7,)`; Cartesian pose `(6,)`; gripper position `(1,)`; camera extrinsics `(6,)` per camera |
+| **Control frequency** | 15 fps |
+
+An episode is reconstructed from Parquet rows by grouping on `episode_index`, ordered by `frame_index`. The dataset exposes both joint-space and Cartesian-space representations of state and action simultaneously, making it suitable for policies trained in either control space. Note that some episodes carry empty language instruction strings; filtering by `language_instruction != ""` is recommended for language-conditioned training.
+
 ##### Topics Ingested into Mosaico
 
 | Topic | Ontology Type | Description |
@@ -161,6 +206,22 @@ File (Parquet)
 :::info[Execution Backend]
 ROS `.bag`
 :::
+
+##### Dataset Properties
+
+| Property | Value |
+| :--- | :--- |
+| **Episodes** | 300 (one `.bag` file per episode) |
+| **Robot** | KUKA iiwa 7-DoF arm + Allegro 16-DoF dexterous hand |
+| **Task type** | Object shaking to classify contents by sound and touch |
+| **Motion families** | `vertical` (150 episodes), `rotation` (150 episodes) |
+| **Object classes** | `cornflakes`, `empty`, `gummies`, `rice`, `vitamins` — 30 episodes per combination |
+| **Annotations** | Trial metadata via `/trialInfo` YAML (motion parameters, controller gains); discrete event markers for shake start/stop |
+| **Source format** | ROS1 `.bag`, naming convention `YYYYMMDD_<motion>_<object>_<trial_idx>.bag` |
+| **Modalities** | KUKA iiwa joint states `(7,)`, Allegro hand joint states `(16,)`, end-effector pose, torque commands `(7,)`, Tekscan tactile pressure `(46×64)`, mono audio (16 kHz MP3) |
+| **Recording dates** | 2021-08-25 (150 bags), 2021-08-26 (90 bags), 2021-09-13 (60 bags) |
+
+There is no RGB camera stream in this dataset. The primary sensing modalities are tactile (Tekscan pressure matrix) and acoustic (microphone). The `46×64` grid shape for the tactile sensor is inferred from the 2,944-element flat array; the ROS layout field is empty and does not declare the geometry explicitly.
 
 ##### Topics Ingested into Mosaico
 
