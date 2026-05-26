@@ -8,7 +8,7 @@ Every dataset was manually inspected to identify its internal topics and source 
 
 The result is a single, ready-to-use ingestion suite where a [`RobotJoint`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/sensors/#mosaicolabs.models.sensors.RobotJoint) topic originating from a ROS bag looks and behaves exactly like a [`RobotJoint`](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/sensors/#mosaicolabs.models.sensors.RobotJoint) topic coming from a DeepMind TFRecord. This is the core value proposition: proving that Mosaico acts as the universal standard for semantic sensor data description across deeply fragmented ecosystems.
 
-### Installation
+## Installation
 
 Clone the [repository](https://github.com/mosaico-labs/mosaico-alchemy), then install and run the project with **Poetry**:
 
@@ -34,7 +34,7 @@ To start ingesting the data, download the datasets from the related repositories
 mosaico-alchemy manipulation --datasets /path/to/dataset
 ```
 
-### Configuration Options
+## Configuration Options
 
 The CLI supports the following flags to control the execution environment:
 
@@ -46,11 +46,11 @@ The CLI supports the following flags to control the execution environment:
 | `--log-level` | `INFO` | Set verbosity (`DEBUG`, `INFO`, `WARNING`, `ERROR`). |
 | `--write-mode` | `sync` | Topic execution mode for file-backed data (`sync` or `async`). |
 
-### Supported Datasets
+## Supported Datasets
 
 We provide built-in support for multiple open-source formats. We recommend exploring them in the following order to understand the offered capabilities:
 
-#### [Reassemble](https://researchdata.tuwien.ac.at/records/0ewrv-8cb44)
+### [Reassemble](https://researchdata.tuwien.ac.at/records/0ewrv-8cb44)
 
 4,551 contact-rich assembly and disassembly demonstrations across 17 objects, with multimodal sensing from event cameras, force-torque sensors, microphones and multi-view RGB cameras.
 
@@ -58,7 +58,43 @@ We provide built-in support for multiple open-source formats. We recommend explo
 File (HDF5)
 :::
 
-##### Topics Ingested into Mosaico
+#### Downloading the Dataset
+
+Download and extract the archive into your dataset root directory:
+
+```bash
+cd <dataset_dir>
+# From the dataset root directory
+curl -L "https://researchdata.tuwien.ac.at/records/0ewrv-8cb44/files/data.zip?download=1" \
+    -o reassemble_data.zip && \
+    unzip reassemble_data.zip && \
+    rm reassemble_data.zip
+```
+
+The dataset directory structure will look like:
+
+```text
+<dataset_dir>/
+└── ...
+└── reassemble_data/
+```
+
+#### Dataset Properties
+
+| Property | Value |
+| :--- | :--- |
+| **Episodes** | 4,551 total (4,035 successful, 516 failed) |
+| **Robot** | Franka Emika arm with parallel-jaw gripper |
+| **Task type** | Contact-rich assembly and disassembly of connectors |
+| **Objects** | 17 object types (e.g. Ethernet cable, USB-A, HDMI) |
+| **Annotations** | Hierarchical: high-level task segments + low-level primitives (Grasp, Approach, Align, Lift, Insert), each with timestamps and a success flag |
+| **Source format** | HDF5 (`.h5`), one file per episode |
+| **Modalities** | Event camera (DAVIS346), 3× RGB cameras, 3× microphones, robot proprioception (7 joints), gripper state, force/torque sensor |
+| **Control frequency** | ~1 kHz robot state; ~30 Hz RGB cameras; ~120 Hz event camera |
+
+The episode structure is not step-based: each `.h5` file stores independently timestamped streams that must be aligned during loading. The `segments_info` field provides the ground-truth temporal segmentation of the episode into labelled high-level and low-level action phases.
+
+#### Topics Ingested into Mosaico
 
 | Topic | Ontology Type | Description |
 | :--- | :--- | :--- |
@@ -80,7 +116,7 @@ File (HDF5)
 
 \**The custom ontology models defined within the pack module*
 
-#### [RT-1 (Fractal)](https://www.tensorflow.org/datasets/catalog/fractal20220817_data)
+### [RT-1 (Fractal)](https://www.tensorflow.org/datasets/catalog/fractal20220817_data)
 
 87,212 pick-and-place episodes across 17 objects in Google micro kitchen environments, with RGB observations, natural language instructions, 512D task embeddings and full end-effector action space.
 
@@ -88,7 +124,53 @@ File (HDF5)
 File (TFDS)
 :::
 
-##### Topics Ingested into Mosaico
+#### Downloading the Dataset
+
+Install the Google Cloud SDK (required for `gcloud`) and authenticate your account:
+
+```bash
+brew install --cask google-cloud-sdk
+gcloud auth login
+```
+
+Then download the dataset into your dataset root directory:
+
+```bash
+cd <dataset_dir>
+# From the dataset root directory
+mkdir -p fractal_data
+
+gcloud storage cp -r \
+  gs://gresearch/robotics/fractal20220817_data/0.1.0 \
+  ./fractal_data/
+```
+
+The dataset directory structure will look like:
+
+```text
+<dataset_dir>/
+└── ...
+└── fractal_data/
+    └── 0.1.0/
+```
+
+
+#### Dataset Properties
+
+| Property | Value |
+| :--- | :--- |
+| **Episodes** | 87,212 total; ~4.43% failure rate (episodes where `is_terminal = true` and no positive reward was observed) |
+| **Robot** | Google RT-1 mobile manipulator with 7-DoF arm |
+| **Task type** | Pick-and-place in kitchen micro-environments |
+| **Objects** | 17 object families (snacks, containers, drawers, etc.) |
+| **Annotations** | Per-step scalar reward; episode-level `aspects` and `attributes` metadata (unpopulated in the public release) |
+| **Source format** | TensorFlow Dataset (TFDS / TFRecord), split into `train` shards |
+| **Modalities** | Single RGB camera `(256×320×3)`, natural language instruction, 512-dimensional task embedding |
+| **Control frequency** | ~3 Hz |
+
+The public release omits the `aspects` and `attributes` fields (all values are `UNSPECIFIED`). Episode success must therefore be inferred indirectly: an episode is considered failed when `is_terminal = true` on the last step and no step carries a positive reward. The action space covers end-effector displacement (`world_vector`), orientation change (`rotation_delta`), gripper closure, and base navigation in addition to the termination signal.
+
+#### Topics Ingested into Mosaico
 
 | Topic | Ontology Type | Description |
 | :--- | :--- | :--- |
@@ -119,7 +201,7 @@ File (TFDS)
 
 \**The custom ontology models defined within the pack module*
 
-#### [LeRobot DROID](https://huggingface.co/datasets/lerobot/droid_1.0.1)
+### [LeRobot DROID](https://huggingface.co/datasets/lerobot/droid_1.0.1)
 
 95,658 manipulation episodes collected at 13 research institutions, with wrist and dual exterior stereo cameras, joint and Cartesian state, end-effector position and embedded camera extrinsics.
 
@@ -127,7 +209,54 @@ File (TFDS)
 File (Parquet)
 :::
 
-##### Topics Ingested into Mosaico
+#### Downloading the Dataset
+
+Install the Hugging Face CLI and authenticate your account:
+
+```bash
+brew install huggingface-cli
+hf auth login
+```
+
+Then download the dataset into your dataset root directory:
+
+```bash
+cd <dataset_dir>
+# From the dataset root directory
+hf download lerobot/droid_1.0.1 \
+  --repo-type dataset \
+  --local-dir ./droid_1.0.1 \
+  --max-workers 8
+```
+
+The dataset directory structure will look like:
+
+```text
+<dataset_dir>/
+└── ...
+└── droid_1.0.1/
+    ├── data/
+    ├── meta/
+    └── videos/
+```
+
+
+#### Dataset Properties
+
+| Property | Value |
+| :--- | :--- |
+| **Episodes** | 95,617 (LeRobot `droid_1.0.1` release); 27,618,651 total frames |
+| **Robot** | Franka Emika arm |
+| **Task type** | Open-vocabulary manipulation collected "in-the-wild" across 564 scenes |
+| **Data collectors** | 50 operators across 13 research institutions |
+| **Annotations** | Up to 3 natural language reformulations per episode; boolean `is_episode_successful` flag; scalar reward `[0, 1]`; collection metadata (building, collector ID, date, task category) |
+| **Source format** | Parquet shards (LeRobot format), one row per timestep |
+| **Modalities** | 3× RGB video `(180×320×3)` — wrist + 2 external cameras; joint positions `(7,)`; Cartesian pose `(6,)`; gripper position `(1,)`; camera extrinsics `(6,)` per camera |
+| **Control frequency** | 15 fps |
+
+An episode is reconstructed from Parquet rows by grouping on `episode_index`, ordered by `frame_index`. The dataset exposes both joint-space and Cartesian-space representations of state and action simultaneously, making it suitable for policies trained in either control space. Note that some episodes carry empty language instruction strings; filtering by `language_instruction != ""` is recommended for language-conditioned training.
+
+#### Topics Ingested into Mosaico
 
 | Topic | Ontology Type | Description |
 | :--- | :--- | :--- |
@@ -154,7 +283,7 @@ File (Parquet)
 
 \**The custom ontology models defined within the pack module*
 
-#### [Multimodal Manipulation Learning](https://zenodo.org/records/6372438)
+### [Multimodal Manipulation Learning](https://zenodo.org/records/6372438)
 
 300 ROS bag recordings of a Kuka IIWA robot with Allegro hand, combining Tekscan tactile pressure, microphone audio, torque commands and joint states across 5 material classes.
 
@@ -162,7 +291,43 @@ File (Parquet)
 ROS `.bag`
 :::
 
-##### Topics Ingested into Mosaico
+#### Downloading the Dataset
+
+Download and extract the archive into your dataset root directory:
+
+```bash
+cd <dataset_dir>
+curl -L "https://zenodo.org/records/6372438/files/annotated_bags_mml.zip?download=1" \
+    -o mml_data.zip && \
+    unzip mml_data.zip && \
+    rm mml_data.zip
+```
+
+The dataset directory structure will look like:
+
+```text
+<dataset_dir>/
+└── ...
+└── mml_data/
+```
+
+#### Dataset Properties
+
+| Property | Value |
+| :--- | :--- |
+| **Episodes** | 300 (one `.bag` file per episode) |
+| **Robot** | KUKA iiwa 7-DoF arm + Allegro 16-DoF dexterous hand |
+| **Task type** | Object shaking to classify contents by sound and touch |
+| **Motion families** | `vertical` (150 episodes), `rotation` (150 episodes) |
+| **Object classes** | `cornflakes`, `empty`, `gummies`, `rice`, `vitamins` — 30 episodes per combination |
+| **Annotations** | Trial metadata via `/trialInfo` YAML (motion parameters, controller gains); discrete event markers for shake start/stop |
+| **Source format** | ROS1 `.bag`, naming convention `YYYYMMDD_<motion>_<object>_<trial_idx>.bag` |
+| **Modalities** | KUKA iiwa joint states `(7,)`, Allegro hand joint states `(16,)`, end-effector pose, torque commands `(7,)`, Tekscan tactile pressure `(46×64)`, mono audio (16 kHz MP3) |
+| **Recording dates** | 2021-08-25 (150 bags), 2021-08-26 (90 bags), 2021-09-13 (60 bags) |
+
+There is no RGB camera stream in this dataset. The primary sensing modalities are tactile (Tekscan pressure matrix) and acoustic (microphone). The `46×64` grid shape for the tactile sensor is inferred from the 2,944-element flat array; the ROS layout field is empty and does not declare the geometry explicitly.
+
+#### Topics Ingested into Mosaico
 
 | Topic | Ontology Type | Description |
 | :--- | :--- | :--- |
@@ -177,7 +342,7 @@ ROS `.bag`
 
 \**The custom ontology models defined within the pack module*
 
-### A Note about the Custom Ontology Models
+## A Note about the Custom Ontology Models
 
 Some datasets include application-specific data types that do not map cleanly to Mosaico’s built-in ontology models; for example, the `TerminateEpisode` model is highly specific to the data format defined in the Fractal dataset.
 Defining custom ontology models lets you represent these data structures precisely, with typed fields, validation rules,
@@ -186,15 +351,43 @@ and consistent semantics for your own sensors or proprietary message formats.
 Mosaico provides a [fast path](https://docs.mosaico.dev/python-sdk/SDK/ontology/#customizing-the-ontology) to define and automatically register custom data models. Once registered, they behave like native models and are accepted by the platform without extra integration work.
 
 
-## Customizing the Pack
-If your robotic data is saved in a proprietary format and isn't supported out-of-the-box, the module is fully extensible. 
-This section explains how to extend the **Manipulation Pack** to support your own custom dataset formats alongside the built-in ones. 
+## Extending the Pack
+
+Extending the pack means contributing to the project. The recommended workflow is to fork the repository, add your dataset as a self-contained module following the structure below, wire it into the shared registries, and open a pull request.
+
+The source tree for manipulation datasets and adapters is:
+
+```text, {9-11,19-21}
+src/mosaico_alchemy/manipulation/
+├── adapters/
+│   ├── __init__.py               ← built-in registrations
+│   ├── registry.py               ← AdapterRegistry definition
+│   ├── droid/
+│   ├── fractal_rt1/
+│   ├── mml/
+│   ├── reassemble/
+│   └── my_dataset/               ← add your adapter module here
+│       └── __init__.py           ← def register_adapters():... here
+│       └── <adapters>
+├── datasets/
+│   ├── __init__.py               ← built-in registrations
+│   ├── registry.py               ← DatasetRegistry definition
+│   ├── droid/
+│   ├── fractal_rt1/
+│   ├── mml/
+│   ├── reassemble/
+│   └── my_dataset/               ← add your dataset plugin module here
+│       └── __init__.py           ← def register_plugin():... here
+│       └── plugin.py             ← class MyDatasetPlugin:... here
+...
+```
+
 By following this guide, you will:
 
-* **Select an Execution Backend**: Decide whether to rely natively on ROS bag architectures or to construct a structured File descriptor pipeline.
-* **Define Ontologies and Adapters**: Choose the Mosaico types that model your sensor streams and implement the adapters that translate raw dictionaries into them.
-* **Implement the Dataset Plugin**: Assemble the ingestion plan that wires your iterators, ontologies, and adapters into a declarative sequence descriptor.
-* **Register Your Components**: Expose your plugin and adapters to the CLI layer so they are discovered at runtime.
+* **Select an Execution Backend**: decide whether to use a file-backed `SequenceDescriptor` or a native `RosbagSequenceDescriptor`.
+* **Define Ontologies and Adapters**: choose the Mosaico types that model your sensor streams and implement the adapters that translate raw payloads into them.
+* **Implement the Dataset Plugin**: assemble the ingestion plan that wires your iterators, ontologies, and adapters into a declarative sequence descriptor.
+* **Register Your Components**: expose your plugin and adapters to the CLI by hooking into the shared registries.
 
 :::tip[Learn from Mosaico]
 * **[Documentation: Data Models & Ontology](https://docs.mosaico.dev/python-sdk/SDK/ontology)**
@@ -202,7 +395,6 @@ By following this guide, you will:
 * **[API Reference: Base Models and Mixins](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/base)**
 * **[Documentation: The ROS Bridge](https://docs.mosaico.dev/python-sdk/SDK/bridges/ros)**
 :::
-
 
 ### Choose the Execution Backend
 
@@ -214,23 +406,22 @@ Alternatively, if your dataset consists of native ROS bags and maps naturally to
 
 For each data stream, you define how it maps to a Mosaico ontology type. If you cannot reuse an existing SDK ontology, you can define your own custom class. We highly recommend reviewing the **[Ontology Customization Guide](https://docs.mosaico.dev/examples/custom_ontology)** to see exactly how to write and register your own custom data models.
 
-#### The Custom Adapter
+As an example, assuming that your dataset contains a `"video_frame"` data stream representing a stream of JPEG images, you must define how the payload
+of each message in such a data stream maps with the mosaico standard `CompressedImage` ontology model. This can be done by defining an adapter.
 
-With your ontologies defining the target structure, you implement a custom adapter.
-
-```python
-from mosaicolabs import Message
+```python title="adapters/my_dataset/video_frame.py"
+from mosaicolabs import Message, CompressedImage
 from mosaicolabs.packs.manipulation.adapters.base import BaseAdapter
 
 # Adapters are generic on the ontology type they produce.
-# Specialising BaseAdapter[CustomSensorModel] binds the translate() return type
-# and restricts this adapter to messages carrying CustomSensorModel payloads only.
-class MyDatasetCustomAdapter(BaseAdapter[CustomSensorModel]):
+# Specialising BaseAdapter[CompressedImage] binds the translate() return type
+# and restricts this adapter to messages carrying CompressedImage payloads only.
+class MyDatasetVideoFrameAdapter(BaseAdapter[CompressedImage]):
     # The global identifier that will be referenced by name in your `TopicDescriptor`.
-    adapter_id = "mydataset.custom_sensor"
+    adapter_id = "mydataset.video_frame"
     # Define the fields required in the payload, to be validated
     # in the `translate` function.
-    _REQUIRED_KEYS: tuple[str, ...] = ("timestamp","sensor_readings")
+    _REQUIRED_KEYS: tuple[str, ...] = ("timestamp","image")
 
     # The translator factory: an adapter receives the raw payload dictionary
     # and returns an instantiated Mosaico `Message`.
@@ -240,26 +431,28 @@ class MyDatasetCustomAdapter(BaseAdapter[CustomSensorModel]):
         Translates a raw custom dictionary into a Mosaico Message container.
         """
         # Guard against malformed payloads before any field access:
-        # sensor_readings must be present and contain exactly 4 elements.
-        cls._validate_payload(
-            payload=payload,
-            constraints={"sensor_readings": {"len": 4}}
-        )
+        # joint_positions must be present and contain exactly 7 elements.
+        cls._validate_payload(payload=payload)
+
         return Message(
             # Conversion from arbitrary time structures into native
             # Mosaico nanosecond formats.
             timestamp_ns=int(payload["timestamp"] * 1e9),
-            data=CustomSensorModel(values=payload["sensor_readings"]),
+            data=CompressedImage(
+                data=payload["image"],
+                format=ImageFormat.JPEG,
+            ),
         )
 ```
 
-### Develop the Dataset Plugin
+Such a class must be defined for each data dispatched with
 
-With adapters in place, you implement the dataset plugin class. This class satisfies a straightforward internal protocol to detect your dataset format, discover its logical sequences, and assemble the ingestion plan that wires everything together.
+#### Develop the Dataset Plugin
 
-#### The Plugin Protocol
+With adapters in place, you implement the dataset plugin class. This class satisfies a straightforward internal `DatasetPlugin` protocol to detect your dataset format,
+discover its logical sequences, and assemble the ingestion plan that wires everything together.
 
-```python
+```python title="Dataset-Plugin Protocol"
 class DatasetPlugin(Protocol):
     # A unique string identifier used in downstream logging and operator prompts.
     dataset_id: str
@@ -275,11 +468,9 @@ class DatasetPlugin(Protocol):
     def create_ingestion_plan(self, sequence_path: Path) -> IngestionDescriptor: ...
 ```
 
-#### Extracting Raw Data
-
 To keep your plugin code clean and maintainable, raw file I/O operations must be completely separated from the orchestration step. You should create dedicated iterator functions following the **factory pattern**: each function accepts static configuration parameters (file paths, field names) and returns a `Callable[[Path], Iterable[dict]]`. The runner calls that callable later with the actual sequence path to stream the raw payloads. Each payload dict must include a `"timestamp"` key expressed in seconds as a float.
 
-```python
+```python title="datasets/my_dataset/iterators.py"
 def iter_video_frames(video_path: str, timestamps_path: str) -> Callable[[Path], Iterable[dict]]:
     def _fn(sequence_path: Path) -> Iterable[dict]:
         # open sequence_path and read the data at video_path / timestamps_path
@@ -293,70 +484,106 @@ def count_video_frames(timestamps_path: str) -> Callable[[Path], int]:
     return _fn
 ```
 
-#### Structuring the Ingestion Plan
+### Structuring the Ingestion Plan
 
 The plugin implements `create_ingestion_plan` to declare the sequence name, its metadata, and the full list of topics. Each topic references the iterators and adapters you built in the previous steps.
 
-```python
-return SequenceDescriptor(
-    # The unique name of the target sequence being constructed.
-    sequence_name=f"{self.dataset_id}_{sequence_path.stem}",
-    # The custom metadata of this sequence.
-    sequence_metadata={
-        "dataset_id": self.dataset_id,
-        "ingestion_backend": "file",
-    },
-    topics=[
-        TopicDescriptor(
-            # The topic name that will handle this data stream.
-            topic_name="/camera/front",
-            # The Mosaico ontology type that models this data stream.
-            ontology_type=CompressedImage,
-            #The identifier of the adapter responsible for translating this specific topic.
-            adapter_id=f"{self.dataset_id}.video_frame",
-            # The runner calls this callable later with the sequence path
-            # to obtain the raw payload stream.
-            payload_iter=iter_video_frames("path/to/video", "path/to/timestamps"),
-            # The runner uses this to count the total messages ahead of time for progress
-            # reporting. It must match the number of items `payload_iter` will yield.
-            message_count=count_video_frames("path/to/timestamps"),
-        ),
-    ],
-)
+```python title="datasets/my_dataset/plugin.py"
+class MyDatasetPlugin:
+    # ....
+    def create_ingestion_plan(self, sequence_path: Path) -> SequenceDescriptor:
+        return SequenceDescriptor(
+            # The unique name of the target sequence being constructed.
+            sequence_name=f"{self.dataset_id}_{sequence_path.stem}",
+            # The custom metadata of this sequence.
+            sequence_metadata={
+                "dataset_id": self.dataset_id,
+                "ingestion_backend": "file",
+            },
+            topics=[
+                TopicDescriptor(
+                    # The topic name that will handle this data stream.
+                    topic_name="/camera/front",
+                    # The Mosaico ontology type that models this data stream.
+                    ontology_type=CompressedImage,
+                    #The identifier of the adapter responsible for translating this specific topic.
+                    adapter_id=f"{self.dataset_id}.video_frame",
+                    # The runner calls this callable later with the sequence path
+                    # to obtain the raw payload stream.
+                    payload_iter=iter_video_frames("path/to/video", "path/to/timestamps"),
+                    # The runner uses this to count the total messages ahead of time for progress
+                    # reporting. It must match the number of items `payload_iter` will yield.
+                    message_count=count_video_frames("path/to/timestamps"),
+                ),
+                # ... Other descriptors here
+            ],
+        )
 ```
 
 ### Register Your Components
 
-Once your dataset plugin, functional iterators, and adapters are implemented, they must be made discoverable to the CLI layer. There are two separate registries to update: one for the dataset plugin and one for the adapter.
+Once your dataset plugin, functional iterators, and adapters are implemented, they must be made discoverable to the CLI layer. Both `DatasetRegistry` and `AdapterRegistry` are singletons.
+Plugin and adapter registration are kept intentionally separate: each registry has its own `__init__.py` that lists its registrations as a flat, explicit call sequence.
+
+#### Registering the Adapters
+
+Inside your adapter module, define a `register_adapters()` function that registers every adapter for your dataset into the singleton:
+
+```python title="adapters/my_dataset/__init__.py"
+from mosaico_alchemy.manipulation.adapters.registry import AdapterRegistry
+from .video_frame import MyDatasetVideoFrameAdapter
+from .joint_state import MyDatasetJointAdapter
+
+def register_adapters() -> None:
+    registry = AdapterRegistry()
+    registry.register(MyDatasetVideoFrameAdapter)
+    registry.register(MyDatasetJointAdapter)
+```
+
+Then call it from `adapters/__init__.py`, alongside the other built-in datasets:
+
+```python title="adapters/__init__.py", {2,8}
+from mosaico_alchemy.manipulation.adapters import droid, fractal_rt1, reassemble
+from mosaico_alchemy.manipulation.adapters import my_dataset  # add this import
+
+droid.register_adapters()
+fractal_rt1.register_adapters()
+reassemble.register_adapters()
+
+my_dataset.register_adapters()  # <- add this call
+```
+
+ROS-based datasets (such as MML) delegate ingestion entirely to the ROS bridge, which resolves topics directly from the bag — no adapter registration is required for them.
 
 #### Registering the Dataset Plugin
 
-```python
-from mosaico_alchemy.manipulation.datasets import DatasetRegistry
+Inside your dataset module, define a `register_plugin()` function that registers your plugin into the singleton:
 
-# DatasetRegistry is a singleton pre-populated with the built-in plugins.
-# Registering here makes your plugin visible everywhere the registry is used.
-registry = DatasetRegistry()
-registry.register(MyDatasetPlugin())
+```python title="datasets/my_dataset/__init__.py"
+from mosaico_alchemy.manipulation.datasets.registry import DatasetRegistry
+from .plugin import MyDatasetPlugin
+
+def register_plugin() -> None:
+    DatasetRegistry().register(MyDatasetPlugin())
 ```
 
-Importing `DatasetRegistry` triggers the default registry setup automatically, so the instance returned by `DatasetRegistry()` already contains all built-in plugins.
-Calling `register` on it adds your plugin to the same shared instance, making it available across both the CLI and the runner without any further wiring:
+Then call it from `datasets/__init__.py`, alongside the other built-in datasets:
+
+```python title="datasets/__init__.py", {2,9}
+from mosaico_alchemy.manipulation.datasets import droid, fractal_rt1, mml, reassemble
+from mosaico_alchemy.manipulation.datasets import my_dataset  # add this import
+
+droid.register_plugin()
+fractal_rt1.register_plugin()
+mml.register_plugin()
+reassemble.register_plugin()
+
+my_dataset.register_plugin()  # <- add this call
+```
+
+Adding a new dataset to the pack is therefore a two-line change in each `__init__.py` — one import and one call — with all registration logic contained inside the dataset's own module.
+
+Once registered:
 
 - **CLI** — your dataset appears alongside the built-in options in the interactive selection prompt.
-- **Runner** — auto-detection via `registry.resolve(root)` will call your plugin's `supports` method against the dataset root.
-
-#### Registering the Adapter
-
-The adapter must also be registered in the `AdapterRegistry`. Without this step, the file executor will not be able to resolve the `adapter_id` declared in your `TopicDescriptor` and the ingestion will fail.
-
-```python
-from mosaico_alchemy.manipulation.adapters import AdapterRegistry
-
-# AdapterRegistry is a singleton pre-populated with the built-in adapters.
-# Registering here makes your adapter visible everywhere the registry is used.
-registry = AdapterRegistry()
-registry.register(MyDatasetCustomAdapter)
-```
-
-After registering both components, your dataset plugin is ready to be executed.
+- **Runner** — auto-detection via `registry.resolve(root)` will call your plugin's `supports` method against the dataset root, with no further wiring required.
