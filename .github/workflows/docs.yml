@@ -3,7 +3,7 @@ name: Docs
 on:
   push:
     tags:
-      - 'doc/v[0-9]+.[0-9]+'
+      - 'doc/v[0-9].*'
 
 jobs:
   deploy-main:
