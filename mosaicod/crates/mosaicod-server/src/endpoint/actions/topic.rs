@@ -150,7 +150,7 @@ pub async fn query_by_timestamp(
 
     let path_in_store = handle
         .path_in_store()
-        .ok_or(core::Error::not_found(handle.locator().to_string()))?;
+        .ok_or(facade::Error::MissingDbData(handle.locator().to_string()))?;
 
     let mut result = context
         .timeseries_querier
@@ -230,7 +230,7 @@ pub async fn filter_clusterize(
 
     let stream = ReceiverStream::new(rx).map(|res| match res {
         Ok(cluster) => cluster_to_flight_result(cluster),
-        Err(e) => Err(mosaicod_ext::arrow_filter::clustering_error_to_status(e)),
+        Err(e) => Err(e.to_status()),
     });
 
     Ok(Box::pin(stream))

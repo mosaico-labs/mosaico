@@ -24,20 +24,22 @@ pub enum ClusteringError {
     Arrow(#[from] ArrowError),
 }
 
-pub fn clustering_error_to_status(e: ClusteringError) -> tonic::Status {
-    use tonic::Status;
-    match e {
-        ClusteringError::ColumnNotFound(col) => {
-            Status::failed_precondition(format!("timestamp column `{col}` not found"))
+impl ClusteringError {
+    pub fn to_status(&self) -> tonic::Status {
+        use tonic::Status;
+        match self {
+            ClusteringError::ColumnNotFound(col) => {
+                Status::failed_precondition(format!("timestamp column `{col}` not found"))
+            }
+            ClusteringError::HasNulls(col) => {
+                Status::data_loss(format!("timestamp column `{col}` has null values"))
+            }
+            ClusteringError::UnsupportedClusteringDt => {
+                Status::invalid_argument("clustering_dt_ns must be greater than 0")
+            }
+            ClusteringError::Arrow(arr) => Status::internal(format!("arrow error: {arr}")),
+            ClusteringError::ChannelClosed => Status::cancelled("client disconnected"),
         }
-        ClusteringError::HasNulls(col) => {
-            Status::data_loss(format!("timestamp column `{col}` has null values"))
-        }
-        ClusteringError::UnsupportedClusteringDt => {
-            Status::invalid_argument("clustering_dt_ns must be greater than 0")
-        }
-        ClusteringError::Arrow(arr) => Status::internal(format!("arrow error: {arr}")),
-        ClusteringError::ChannelClosed => Status::cancelled("client disconnected"),
     }
 }
 
@@ -636,10 +638,8 @@ mod tests {
 
     #[tokio::test]
     async fn error_arrives_in_order_after_successful_clusters() {
-        // Primo batch: produce un cluster che si chiude (gap > dt)
-        let good = batch(&[1, 100]); // dt=10 → flush di {1,1,id:0}, apre {100,100,id:1}
+        let good = batch(&[1, 100]);
 
-        // Secondo batch: colonna sbagliata → errore
         let schema = Arc::new(Schema::new(vec![Field::new(
             "not_ts",
             DataType::Int64,
