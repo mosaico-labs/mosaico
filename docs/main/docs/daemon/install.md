@@ -12,7 +12,7 @@ Precompiled binaries for `mosaicod` are available for several platforms and can 
 
 For rapid prototyping, we provide a standard Docker Compose configuration. This creates an isolated network environment containing the `mosaicod` server and its required PostgreSQL database.
 
-```yaml title="compose.yml", {25,34-37,50}
+```yaml title="compose.yml", {24,34-37,50}
 name: "mosaico"
 services:
   
@@ -35,9 +35,9 @@ services:
       retries: 5
 
   mosaicod:
-    image: ghcr.io/mosaico-labs/mosaicod
     # There are other available predefined tags that you can use.
-    container_name: mosaicod:latest
+    image: ghcr.io/mosaico-labs/mosaicod:latest
+    container_name: mosaicod
     networks:
       - mosaico
     # Here you can list any additional command line options for `mosaicod`. 
