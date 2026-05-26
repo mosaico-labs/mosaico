@@ -24,11 +24,42 @@ pub enum ClusteringError {
     Arrow(#[from] ArrowError),
 }
 
+pub fn clustering_error_to_status(e: ClusteringError) -> tonic::Status {
+    use tonic::Status;
+    match e {
+        ClusteringError::ColumnNotFound(col) => {
+            Status::failed_precondition(format!("timestamp column `{col}` not found"))
+        }
+        ClusteringError::HasNulls(col) => {
+            Status::data_loss(format!("timestamp column `{col}` has null values"))
+        }
+        ClusteringError::UnsupportedClusteringDt => {
+            Status::invalid_argument("clustering_dt_ns must be greater than 0")
+        }
+        ClusteringError::Arrow(arr) => Status::internal(format!("arrow error: {arr}")),
+        ClusteringError::ChannelClosed => Status::cancelled("client disconnected"),
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Cluster {
     pub start_ns: u64,
     pub end_ns: u64,
     pub id: u64,
+}
+
+/// Sends a clustering error through the output channel.
+///
+/// Returns Ok(()) if the error was delivered (which is the only "success" path
+/// from the caller's perspective: it means the consumer will see the error).
+/// Returns `Err(ChannelClosed)` if the channel is closed.
+async fn forward_err(
+    out: mpsc::Sender<std::result::Result<Cluster, ClusteringError>>,
+    e: ClusteringError,
+) -> std::result::Result<(), ClusteringError> {
+    out.send(Err(e))
+        .await
+        .map_err(|_| ClusteringError::ChannelClosed)
 }
 
 /// Clusters strictly monotonically increasing timestamps from a single topic's
@@ -58,7 +89,7 @@ pub async fn topic_filter_clusterize<S>(
     mut batch_stream: S,
     clustering_dt_ns: u64,
     timestamp_column: &str,
-    out: mpsc::Sender<Cluster>,
+    out: mpsc::Sender<Result<Cluster, ClusteringError>>,
 ) -> Result<(), ClusteringError>
 where
     S: Stream<Item = Result<RecordBatch, ArrowError>> + Unpin,
@@ -68,12 +99,19 @@ where
     let mut id: u64 = 0;
 
     if clustering_dt_ns == 0 {
-        return Err(ClusteringError::UnsupportedClusteringDt);
+        return forward_err(out, ClusteringError::UnsupportedClusteringDt).await;
     }
 
     while let Some(batch) = batch_stream.next().await {
-        let batch = batch?;
-        let ts = extract_timestamps(&batch, timestamp_column)?;
+        let batch = match batch {
+            Ok(b) => b,
+            Err(e) => return forward_err(out, ClusteringError::Arrow(e)).await,
+        };
+
+        let ts = match extract_timestamps(&batch, timestamp_column) {
+            Ok(ts) => ts,
+            Err(e) => return forward_err(out, e).await,
+        };
 
         if ts.is_empty() {
             continue;
@@ -92,7 +130,7 @@ where
                     if (t - prev) <= clustering_dt_ns {
                         curr.end_ns = t;
                     } else {
-                        out.send(*curr)
+                        out.send(Ok(*curr))
                             .await
                             .map_err(|_| ClusteringError::ChannelClosed)?;
                         id += 1;
@@ -112,7 +150,7 @@ where
     }
 
     if let Some(cluster) = current {
-        out.send(cluster)
+        out.send(Ok(cluster))
             .await
             .map_err(|_| ClusteringError::ChannelClosed)?;
     }
@@ -172,9 +210,12 @@ mod tests {
         RecordBatch::try_new(schema, vec![Arc::new(array)]).unwrap()
     }
 
-    async fn run(batches: Vec<RecordBatch>, clustering_dt: u64) -> Vec<Cluster> {
+    async fn run_raw(
+        batches: Vec<RecordBatch>,
+        clustering_dt: u64,
+    ) -> Vec<std::result::Result<Cluster, ClusteringError>> {
         let s = stream::iter(batches.into_iter().map(Ok::<_, ArrowError>));
-        let (tx, mut rx) = mpsc::channel(64);
+        let (tx, mut rx) = mpsc::channel::<std::result::Result<Cluster, ClusteringError>>(64);
 
         let handle =
             tokio::spawn(async move { topic_filter_clusterize(s, clustering_dt, "ts", tx).await });
@@ -183,11 +224,20 @@ mod tests {
         while let Some(c) = rx.recv().await {
             out.push(c);
         }
+
         handle
             .await
             .expect("task panicked")
-            .expect("clustering failed");
+            .expect("task returned ChannelClosed unexpectedly");
         out
+    }
+
+    async fn run(batches: Vec<RecordBatch>, clustering_dt: u64) -> Vec<Cluster> {
+        run_raw(batches, clustering_dt)
+            .await
+            .into_iter()
+            .map(|item| item.expect("clustering returned an error"))
+            .collect()
     }
 
     async fn run_err(
@@ -196,20 +246,26 @@ mod tests {
         column: &'static str,
     ) -> ClusteringError {
         let s = stream::iter(batches.into_iter().map(Ok::<_, ArrowError>));
-        let (tx, mut rx) = mpsc::channel(64);
+        let (tx, mut rx) = mpsc::channel::<std::result::Result<Cluster, ClusteringError>>(64);
 
         let handle =
             tokio::spawn(
                 async move { topic_filter_clusterize(s, clustering_dt, column, tx).await },
             );
 
-        while rx.recv().await.is_some() {}
+        let mut captured = None;
+        while let Some(item) = rx.recv().await {
+            if let Err(e) = item {
+                captured = Some(e);
+            }
+        }
+
         handle
             .await
             .expect("task panicked")
-            .expect_err("expected clustering error")
+            .expect("task returned ChannelClosed unexpectedly");
+        captured.expect("expected clustering error in channel, found none")
     }
-
     #[tokio::test]
     async fn empty_stream_emits_nothing() {
         let clusters = run(vec![], 100).await;
@@ -495,10 +551,13 @@ mod tests {
             received.push(c);
         }
 
-        let result = handle.await.expect("task panicked");
-        assert!(matches!(result, Err(ClusteringError::Arrow(_))));
+        handle
+            .await
+            .expect("task panicked")
+            .expect("task returned ChannelClosed unexpectedly");
 
-        assert!(received.is_empty());
+        assert_eq!(received.len(), 1);
+        assert!(matches!(received[0], Err(ClusteringError::Arrow(_))));
     }
 
     #[tokio::test]
@@ -508,11 +567,11 @@ mod tests {
                 .into_iter()
                 .map(Ok::<_, ArrowError>),
         );
-        let (tx, mut rx) = mpsc::channel(1);
+        let (tx, mut rx) = mpsc::channel::<std::result::Result<Cluster, ClusteringError>>(1);
 
         let handle = tokio::spawn(async move { topic_filter_clusterize(s, 5, "ts", tx).await });
 
-        let mut got = Vec::new();
+        let mut got: Vec<std::result::Result<Cluster, ClusteringError>> = Vec::new();
         while let Some(c) = rx.recv().await {
             got.push(c);
         }
@@ -525,11 +584,11 @@ mod tests {
         for (i, c) in got.iter().enumerate() {
             let ts = (i as u64) * 100;
             assert_eq!(
-                *c,
+                *c.as_ref().unwrap(),
                 Cluster {
                     start_ns: ts,
                     end_ns: ts,
-                    id: i as u64
+                    id: i as u64,
                 }
             );
         }
@@ -573,5 +632,58 @@ mod tests {
             assert_eq!(c.start_ns, c.end_ns);
             assert_eq!(c.start_ns, (i as u64) * 1_000);
         }
+    }
+
+    #[tokio::test]
+    async fn error_arrives_in_order_after_successful_clusters() {
+        // Primo batch: produce un cluster che si chiude (gap > dt)
+        let good = batch(&[1, 100]); // dt=10 → flush di {1,1,id:0}, apre {100,100,id:1}
+
+        // Secondo batch: colonna sbagliata → errore
+        let schema = Arc::new(Schema::new(vec![Field::new(
+            "not_ts",
+            DataType::Int64,
+            false,
+        )]));
+        let arr = Int64Array::from(vec![200i64]);
+        let bad = RecordBatch::try_new(schema, vec![Arc::new(arr)]).unwrap();
+
+        let items = run_raw(vec![good, bad], 10).await;
+
+        assert_eq!(items.len(), 2);
+        assert_eq!(
+            items[0].as_ref().unwrap(),
+            &Cluster {
+                start_ns: 1,
+                end_ns: 1,
+                id: 0
+            }
+        );
+        assert!(matches!(items[1], Err(ClusteringError::ColumnNotFound(_))));
+    }
+
+    #[tokio::test]
+    async fn dropping_receiver_returns_channel_closed() {
+        let s = stream::iter(
+            vec![batch(&[0, 100, 200])]
+                .into_iter()
+                .map(Ok::<_, ArrowError>),
+        );
+        let (tx, rx) = mpsc::channel::<std::result::Result<Cluster, ClusteringError>>(1);
+
+        drop(rx);
+
+        let result = topic_filter_clusterize(s, 5, "ts", tx).await;
+        assert!(matches!(result, Err(ClusteringError::ChannelClosed)));
+    }
+
+    #[tokio::test]
+    async fn dt_zero_is_reported_through_channel() {
+        let items = run_raw(vec![batch(&[1, 2, 3])], 0).await;
+        assert_eq!(items.len(), 1);
+        assert!(matches!(
+            items[0],
+            Err(ClusteringError::UnsupportedClusteringDt)
+        ));
     }
 }

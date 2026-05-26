@@ -2657,7 +2657,6 @@ name = "mosaicod-facade"
 version = "0.6.0-dev"
 dependencies = [
  "arrow",
- "datafusion",
  "futures",
  "log",
  "mosaicod-core",
@@ -2726,6 +2725,7 @@ version = "0.6.0-dev"
 dependencies = [
  "arrow",
  "arrow-flight",
+ "datafusion",
  "futures",
  "http",
  "log",

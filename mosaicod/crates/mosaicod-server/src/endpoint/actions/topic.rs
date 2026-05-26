@@ -3,6 +3,9 @@ use crate::{
     error::{Error, Result},
     flight::DoActionStream,
 };
+use arrow::error::ArrowError;
+use datafusion::physical_plan::SendableRecordBatchStream;
+use futures::StreamExt;
 use log::{info, trace, warn};
 use mosaicod_core::{
     self as core,
@@ -14,9 +17,7 @@ use mosaicod_marshal::{
     self as marshal, ActionResponse, ClusterTimestampRange, Ontology, flight::FilterTimestampRange,
     responses,
 };
-
-use arrow::error::ArrowError;
-use futures::StreamExt;
+use mosaicod_query as query;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 
@@ -130,7 +131,40 @@ pub async fn notification_purge(ctx: &facade::Context, locator: String) -> Resul
     Ok(ActionResponse::topic_notification_purge())
 }
 
-type FlightTx = mpsc::Sender<std::result::Result<arrow_flight::Result, tonic::Status>>;
+/// Builds a filtered streaming query over a topic.
+///
+/// Reads the topic's Parquet data with the provided ontology_filter and
+/// optional ts window applied as predicate pushdown, returning a lazy
+/// SendableRecordBatchStream of matching record batches.
+pub async fn query_by_timestamp(
+    context: &facade::Context,
+    handle: &facade::topic::Handle,
+    ts: Option<types::TimestampRange>,
+    ontology_filter: query::OntologyFilter,
+) -> Result<SendableRecordBatchStream> {
+    let meta = facade::topic::metadata(context, handle).await?;
+    let format = meta.ontology_metadata.properties.serialization_format;
+    let batch_size = facade::topic::compute_optimal_batch_size(context, handle)
+        .await
+        .ok();
+
+    let path_in_store = handle
+        .path_in_store()
+        .ok_or(core::Error::not_found(handle.locator().to_string()))?;
+
+    let mut result = context
+        .timeseries_querier
+        .read(path_in_store.data_folder_path(), format, batch_size)
+        .await?;
+
+    if let Some(ts_range) = ts {
+        result = result.filter_by_timestamp_range(ts_range)?;
+    }
+
+    result = result.filter(ontology_filter.into_expr_group())?;
+
+    Ok(result.stream().await?)
+}
 
 pub async fn filter_clusterize(
     ctx: &facade::Context,
@@ -172,73 +206,34 @@ pub async fn filter_clusterize(
     let ontology_filter = ontology.try_into()?;
 
     // 5. RecordBatch stram filtered by timestamp if any and ontology
-    let batch_stream = facade::topic::query_by_timestamp(ctx, &topic_handle, ts, ontology_filter)
+    let batch_stream = query_by_timestamp(ctx, &topic_handle, ts, ontology_filter)
         .await?
         .map(|item| item.map_err(|e| ArrowError::ExternalError(Box::new(e))));
 
     // 6. Channel setup
-    let (tx, rx) = mpsc::channel::<std::result::Result<arrow_flight::Result, tonic::Status>>(
-        MAX_BUFFER_CHANNEL_SIZE,
-    );
-    let (cluster_tx, cluster_rx) =
-        mpsc::channel::<mosaicod_ext::arrow_filter::Cluster>(MAX_BUFFER_CHANNEL_SIZE);
+    let (tx, rx) = mpsc::channel::<
+        std::result::Result<
+            mosaicod_ext::arrow_filter::Cluster,
+            mosaicod_ext::arrow_filter::ClusteringError,
+        >,
+    >(MAX_BUFFER_CHANNEL_SIZE);
 
-    // 7. Spawn task
-    spawn_clusterize_task(
-        batch_stream,
-        dt_ns,
-        timestamp_column,
-        cluster_tx,
-        tx.clone(),
-    );
-    spawn_cluster_to_flight_bridge(cluster_rx, tx);
-
-    Ok(Box::pin(ReceiverStream::new(rx)))
-}
-
-fn spawn_clusterize_task<S>(
-    batch_stream: S,
-    clustering_dt_ns: u64,
-    timestamp_column: String,
-    cluster_tx: mpsc::Sender<mosaicod_ext::arrow_filter::Cluster>,
-    flight_tx: FlightTx,
-) where
-    S: futures::Stream<Item = std::result::Result<arrow::record_batch::RecordBatch, ArrowError>>
-        + Send
-        + Unpin
-        + 'static,
-{
     tokio::spawn(async move {
-        let result = mosaicod_ext::arrow_filter::topic_filter_clusterize(
+        let _ = mosaicod_ext::arrow_filter::topic_filter_clusterize(
             batch_stream,
-            clustering_dt_ns,
+            dt_ns,
             &timestamp_column,
-            cluster_tx,
+            tx,
         )
         .await;
-        if let Err(e) = result {
-            let _ = flight_tx
-                .send(Err(tonic::Status::internal(format!(
-                    "clustering error: {e}"
-                ))))
-                .await;
-        }
     });
-}
 
-fn spawn_cluster_to_flight_bridge(
-    mut cluster_rx: mpsc::Receiver<mosaicod_ext::arrow_filter::Cluster>,
-    flight_tx: FlightTx,
-) {
-    tokio::spawn(async move {
-        while let Some(cluster) = cluster_rx.recv().await {
-            let msg = cluster_to_flight_result(cluster);
-            if flight_tx.send(msg).await.is_err() {
-                warn!("client disconnected, aborting clusterize stream");
-                return;
-            }
-        }
+    let stream = ReceiverStream::new(rx).map(|res| match res {
+        Ok(cluster) => cluster_to_flight_result(cluster),
+        Err(e) => Err(mosaicod_ext::arrow_filter::clustering_error_to_status(e)),
     });
+
+    Ok(Box::pin(stream))
 }
 
 fn cluster_to_flight_result(

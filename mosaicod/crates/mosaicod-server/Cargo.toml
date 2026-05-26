@@ -34,6 +34,7 @@ semver = { workspace = true }
 tower = { workspace = true }
 http = { workspace = true }
 tracing = { workspace = true }
+datafusion = { workspace = true }
 
 [dev-dependencies]
 mosaicod-store = { workspace = true, features = ["testing"]}
