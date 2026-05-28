@@ -695,6 +695,34 @@ pub async fn topic_filter_clusterize(
     Ok(ret)
 }
 
+pub async fn query(
+    client: &mut Client,
+    filter: serde_json::Value,
+) -> Result<Vec<serde_json::Value>, tonic::Status> {
+    let action = Action {
+        r#type: "query".to_owned(),
+        body: serde_json::to_vec(&filter)
+            .map_err(|e| tonic::Status::internal(e.to_string()))?
+            .into(),
+    };
+
+    dbg!(&action);
+
+    let mut items: Vec<serde_json::Value> = Vec::new();
+    let mut stream = client.do_action(action).await?.into_inner();
+
+    while let Some(result) = stream.message().await? {
+        dbg!(&result);
+        let r = ActionResponse::from_body(&result.body);
+        assert_eq!(r.action, "query");
+        if let Some(arr) = r.response["items"].as_array() {
+            items.extend(arr.iter().cloned());
+        }
+    }
+
+    Ok(items)
+}
+
 /// Helper function to create sequence notifications.
 pub async fn setup_sequence_with_notifications(
     client: &mut Client,

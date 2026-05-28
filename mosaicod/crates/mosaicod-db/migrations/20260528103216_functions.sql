@@ -1,0 +1,7 @@
+CREATE OR REPLACE FUNCTION mosaico_regex_func(value TEXT, pattern TEXT)
+RETURNS BOOLEAN
+LANGUAGE SQL
+IMMUTABLE STRICT PARALLEL SAFE
+AS $$
+    SELECT value ~ pattern
+$$;

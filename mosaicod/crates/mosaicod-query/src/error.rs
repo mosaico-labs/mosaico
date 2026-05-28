@@ -34,6 +34,20 @@ impl Error {
         }
     }
 
+    pub fn empty_in(field_name: String) -> Self {
+        Self::OpError {
+            field: field_name,
+            err: super::OpError::EmptyIn,
+        }
+    }
+
+    pub fn empty_pattern(field_name: String) -> Self {
+        Self::OpError {
+            field: field_name,
+            err: super::OpError::EmptyPattern,
+        }
+    }
+
     pub fn bad_field(field_name: String) -> Self {
         Self::BadField { field: field_name }
     }
