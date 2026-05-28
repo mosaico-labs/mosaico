@@ -1,4 +1,4 @@
-use mosaicod_core::{self as core, error::PublicError};
+use mosaicod_core::{self as core};
 
 #[derive(Debug)]
 pub enum Error {
