@@ -137,7 +137,10 @@ impl IsSupportedOp for Value {
     }
 
     fn support_in(&self) -> bool {
-        matches!(self, Self::Integer(_) | Self::Float(_) | Self::Text(_))
+        matches!(
+            self,
+            Self::Integer(_) | Self::Float(_) | Self::Text(_) | Self::Boolean(_)
+        )
     }
 
     fn support_match(&self) -> bool {
@@ -147,6 +150,10 @@ impl IsSupportedOp for Value {
 
 impl IsSupportedOp for bool {
     fn support_eq(&self) -> bool {
+        true
+    }
+
+    fn support_in(&self) -> bool {
         true
     }
 }

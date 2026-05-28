@@ -306,7 +306,7 @@ mod internal {
                             return Err(query::Error::empty_pattern(field.to_owned()));
                         }
                         let clause = format!(
-                            "mosaico_regex_func({field}, {})",
+                            "mosaico_regex_match({field}, {})",
                             self.consume_placeholder()
                         );
                         query::CompiledClause::new(clause, vec![query::Value::Text(text)])
@@ -443,7 +443,7 @@ mod tests {
         dbg!(&qr);
 
         let found = qr.clauses.iter().any(|c| {
-            c.contains(r#"mosaico_regex_func(topic.user_metadata #>> '{vehicle,name}', $1)"#)
+            c.contains(r#"mosaico_regex_match(topic.user_metadata #>> '{vehicle,name}', $1)"#)
         });
         assert!(found, "match clause not found in {:?}", qr.clauses);
         assert_eq!(qr.values[0], query::Value::Text("^truck".to_owned()));

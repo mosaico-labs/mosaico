@@ -248,22 +248,37 @@ async fn test_query_match_on_boolean_is_rejected(pool: sqlx::Pool<db::DatabaseTy
 }
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
-async fn test_query_in_with_booleans_is_rejected(pool: sqlx::Pool<db::DatabaseType>) {
+async fn test_query_in_with_booleans_is_allowed(pool: sqlx::Pool<db::DatabaseType>) {
     let server = common::ServerBuilder::new(common::HOST, pool).build().await;
     let mut client = common::ClientBuilder::new(common::HOST, server.port())
         .build()
         .await;
 
-    let err = actions::query(
+    let seq = "my_seq";
+
+    setup_topics_with_metadata(
+        &mut client,
+        seq,
+        &[("topic_truck", json!({"is_on_the_way": "true"}))],
+    )
+    .await;
+
+    let item = actions::query(
         &mut client,
         json!({
-            "topic": { "user_metadata": { "flag": { "$in": [true, false] } } }
+            "topic": { "user_metadata": { "is_on_the_way": { "$in": [true, false] } } }
         }),
     )
     .await
-    .unwrap_err();
+    .unwrap();
 
-    assert_eq!(err.code(), tonic::Code::Internal);
+    let locators = topic_locators(&item);
+    assert_eq!(
+        locators.len(),
+        1,
+        "expected 1 matching topic, got: {locators:?}"
+    );
+    assert!(locators.contains(&format!("{seq}/topic_truck")));
 
     server.shutdown().await;
 }
@@ -290,6 +305,8 @@ async fn test_query_in_with_empty_list_is_rejected(pool: sqlx::Pool<db::Database
         result.is_err(),
         "empty $in should not silently return results"
     );
+
+    assert_eq!(result.unwrap_err().code(), tonic::Code::Internal);
 
     server.shutdown().await;
 }
