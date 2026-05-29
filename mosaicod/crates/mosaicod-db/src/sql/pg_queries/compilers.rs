@@ -165,20 +165,8 @@ mod internal {
             format!("${}", current_idx)
         }
 
-        fn fmt_value(&self, field: &str, v: &query::Value) -> String {
-            match v {
-                query::Value::Integer(_) | query::Value::Float(_) => format!("({field})::numeric"),
-                query::Value::Text(_) => field.to_owned(),
-                query::Value::Boolean(_) => format!("({field})::boolean"),
-            }
-        }
-
         fn fmt_clause(&self, subfield: &str) -> String {
-            let subfield = format!(
-                "{{{}}}",
-                subfield.split(".").collect::<Vec<&str>>().join(",")
-            );
-            format!("{} #>> '{subfield}'", self.field)
+            format!("$.{}", subfield)
         }
     }
 
@@ -200,76 +188,78 @@ mod internal {
             let r = match op {
                 query::Op::Eq(v) => {
                     let v: query::Value = v.into();
+                    let placeholder = self.consume_placeholder();
                     query::CompiledClause::new(
                         format!(
-                            "{} = {}",
-                            self.fmt_value(field, &v),
-                            self.consume_placeholder()
+                            "jsonb_path_exists({}, '{} ? (@ == $val)', jsonb_build_object('val', {}))",
+                            self.field, field, placeholder
                         ),
                         vec![v],
                     )
                 }
                 query::Op::Neq(v) => {
                     let v: query::Value = v.into();
+                    let placeholder = self.consume_placeholder();
                     query::CompiledClause::new(
                         format!(
-                            "{} != {}",
-                            self.fmt_value(field, &v),
-                            self.consume_placeholder()
+                            "jsonb_path_exists({}, '{} ? (@ != $val)', jsonb_build_object('val', {}))",
+                            self.field, field, placeholder
                         ),
                         vec![v],
                     )
                 }
                 query::Op::Leq(v) => {
                     let v: query::Value = v.into();
+                    let placeholder = self.consume_placeholder();
                     query::CompiledClause::new(
                         format!(
-                            "{} <= {}",
-                            self.fmt_value(field, &v),
-                            self.consume_placeholder()
+                            "jsonb_path_exists({}, '{} ? (@ <= $val)', jsonb_build_object('val', {}))",
+                            self.field, field, placeholder
                         ),
                         vec![v],
                     )
                 }
                 query::Op::Geq(v) => {
                     let v: query::Value = v.into();
+                    let placeholder = self.consume_placeholder();
                     query::CompiledClause::new(
                         format!(
-                            "{} >= {}",
-                            self.fmt_value(field, &v),
-                            self.consume_placeholder()
+                            "jsonb_path_exists({}, '{} ? (@ >= $val)', jsonb_build_object('val', {}))",
+                            self.field, field, placeholder
                         ),
                         vec![v],
                     )
                 }
                 query::Op::Lt(v) => {
                     let v: query::Value = v.into();
+                    let placeholder = self.consume_placeholder();
                     query::CompiledClause::new(
                         format!(
-                            "{} < {}",
-                            self.fmt_value(field, &v),
-                            self.consume_placeholder()
+                            "jsonb_path_exists({}, '{} ? (@ < $val)', jsonb_build_object('val', {}))",
+                            self.field, field, placeholder
                         ),
                         vec![v],
                     )
                 }
                 query::Op::Gt(v) => {
                     let v: query::Value = v.into();
+                    let placeholder = self.consume_placeholder();
                     query::CompiledClause::new(
                         format!(
-                            "{} > {}",
-                            self.fmt_value(field, &v),
-                            self.consume_placeholder()
+                            "jsonb_path_exists({}, '{} ? (@ > $val)', jsonb_build_object('val', {}))",
+                            self.field, field, placeholder
                         ),
                         vec![v],
                     )
                 }
-                query::Op::Ex => {
-                    query::CompiledClause::new(format!("({field}) IS NOT NULL"), Vec::new())
-                }
-                query::Op::Nex => {
-                    query::CompiledClause::new(format!("({field}) IS NULL"), Vec::new())
-                }
+                query::Op::Ex => query::CompiledClause::new(
+                    format!("jsonb_path_exists({}, '{}')", self.field, field,),
+                    Vec::new(),
+                ),
+                query::Op::Nex => query::CompiledClause::new(
+                    format!("NOT jsonb_path_exists({}, '{}')", self.field, field,),
+                    Vec::new(),
+                ),
                 query::Op::Between(range) => {
                     let min: query::Value = range.min.into();
                     let max: query::Value = range.max.into();
@@ -277,19 +267,17 @@ mod internal {
                     let pmin = self.consume_placeholder();
                     let pmax = self.consume_placeholder();
 
-                    // Here we are passing min, but we could also pass max since they have the same type
-                    // by design
-                    let field = self.fmt_value(field, &min);
-
-                    let clause = format!("({field} >= {pmin}) AND ({field} <= {pmax})");
-
-                    query::CompiledClause::new(clause, vec![min, max])
+                    query::CompiledClause::new(
+                        format!(
+                            "jsonb_path_exists({}, '{} ? (@ >= $min && @ <= $max)', jsonb_build_object('min', {}), jsonb_build_object('max', {}))",
+                            self.field, field, pmin, pmax
+                        ),
+                        vec![min, max],
+                    )
                 }
                 query::Op::In(_) => return Err(query::Error::unsupported_op(field.to_owned())),
                 query::Op::Match(_) => return Err(query::Error::unsupported_op(field.to_owned())),
             };
-
-            // r.clause = self.fmt_clause(&r.clause);
 
             Ok(r)
         }
@@ -387,12 +375,12 @@ mod tests {
         dbg!(&qr);
 
         if let Some(idx) = qr.clauses.iter().position(|c| {
-            c.contains(r#"(topic.user_metadata #>> '{my,custom,field,1}')::numeric = $"#)
+            c.contains(r#"jsonb_path_exists(topic.user_metadata, '$.my.custom.field.1 ? (@ == $val)', jsonb_build_object('val', $"#)
         }) {
             // check that the placeholder has the correct value
             assert_eq!(
-                qr.clauses[idx].chars().last(),
-                (idx + 1).to_string().chars().last()
+                qr.clauses[idx].chars().nth_back(2).unwrap(),
+                (idx + 1).to_string().chars().last().unwrap()
             );
             assert_eq!(qr.values[idx], query::Value::Float(10.0));
         } else {
@@ -400,12 +388,12 @@ mod tests {
         }
 
         if let Some(idx) = qr.clauses.iter().position(|c| {
-            c.contains(r#"(topic.user_metadata #>> '{my,custom,field,2}')::boolean != $"#)
+            c.contains(r#"jsonb_path_exists(topic.user_metadata, '$.my.custom.field.2 ? (@ != $val)', jsonb_build_object('val', $"#)
         }) {
             // check that the placeholder has the correct value
             assert_eq!(
-                qr.clauses[idx].chars().last(),
-                (idx + 1).to_string().chars().last()
+                qr.clauses[idx].chars().nth_back(2).unwrap(),
+                (idx + 1).to_string().chars().last().unwrap()
             );
             assert_eq!(qr.values[idx], query::Value::Boolean(true));
         } else {
