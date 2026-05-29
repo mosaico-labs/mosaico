@@ -221,7 +221,7 @@ async fn test_query_match_on_integer_is_rejected(pool: sqlx::Pool<db::DatabaseTy
     .await
     .unwrap_err();
 
-    assert_eq!(err.code(), tonic::Code::Internal);
+    assert_eq!(err.code(), tonic::Code::InvalidArgument);
 
     server.shutdown().await;
 }
@@ -242,7 +242,7 @@ async fn test_query_match_on_boolean_is_rejected(pool: sqlx::Pool<db::DatabaseTy
     .await
     .unwrap_err();
 
-    assert_eq!(err.code(), tonic::Code::Internal);
+    assert_eq!(err.code(), tonic::Code::InvalidArgument);
 
     server.shutdown().await;
 }
@@ -306,7 +306,7 @@ async fn test_query_in_with_empty_list_is_rejected(pool: sqlx::Pool<db::Database
         "empty $in should not silently return results"
     );
 
-    assert_eq!(result.unwrap_err().code(), tonic::Code::Internal);
+    assert_eq!(result.unwrap_err().code(), tonic::Code::InvalidArgument);
 
     server.shutdown().await;
 }
@@ -512,7 +512,7 @@ async fn test_query_match_empty_pattern_rejected(pool: sqlx::Pool<db::DatabaseTy
     .await
     .unwrap_err();
 
-    assert_eq!(res.code(), tonic::Code::Internal);
+    assert_eq!(res.code(), tonic::Code::InvalidArgument);
 
     server.shutdown().await;
 }

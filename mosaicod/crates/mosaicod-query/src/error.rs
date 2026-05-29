@@ -16,9 +16,6 @@ pub enum Error {
     #[error("datafusion backend error")]
     DataFusion(#[from] datafusion::error::DataFusionError),
 
-    #[error("not found")]
-    NotFound,
-
     #[error("bad path")]
     BadPath(#[from] url::ParseError),
 
@@ -55,6 +52,14 @@ impl Error {
 
 impl core::error::PublicError for Error {
     fn error(&self) -> core::Error {
-        core::Error::internal(Some("query engine failed".to_owned()))
+        match self {
+            Self::BadField { field } => core::Error::bad_request(field.to_owned()),
+            Self::OpError { field, err } => core::Error::bad_request(format!("{field} : {err}")),
+            Self::StoreError(e) => e.error(),
+            Self::DeserializationError(msg) => core::Error::bad_request(msg.to_owned()),
+            Self::DataFusion(_) | Self::BadPath(_) => {
+                core::Error::internal(Some("query engine failed".to_owned()))
+            }
+        }
     }
 }

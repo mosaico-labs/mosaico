@@ -186,10 +186,10 @@ impl TimeseriesResult {
     ///
     /// # Errors
     ///
-    /// This function will return a [`Error::DataFusion`] if backend fails, a [`Error::NotFound`] if
-    /// no value is returned or an [`Error::BadField`] is there is some problem retrieving the
+    /// This function will return a [`Error::DataFusion`] if backend fails or
+    /// an [`Error::BadField`] if there is some problem retrieving the
     /// timestamp values (very rare since schema are checked before data upload)
-    pub async fn timestamp_range(self) -> Result<types::TimestampRange, Error> {
+    pub async fn timestamp_range(self) -> Result<Option<types::TimestampRange>, Error> {
         let stats = self.data_frame.aggregate(
             vec![],
             vec![
@@ -211,10 +211,10 @@ impl TimeseriesResult {
                 Error::bad_field(params::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP.to_owned())
             })?;
 
-            return Ok(types::TimestampRange::between(ts_min, ts_max));
+            return Ok(Some(types::TimestampRange::between(ts_min, ts_max)));
         }
 
-        Err(Error::NotFound)
+        Ok(None)
     }
 }
 
@@ -343,7 +343,9 @@ mod tests {
 
         let ts_range = res.timestamp_range().await.unwrap();
 
-        assert_eq!(ts_range.start, 10010.into());
-        assert_eq!(ts_range.end, 10020.into());
+        if let Some(ts) = ts_range {
+            assert_eq!(ts.start, 10010.into());
+            assert_eq!(ts.end, 10020.into());
+        }
     }
 }
