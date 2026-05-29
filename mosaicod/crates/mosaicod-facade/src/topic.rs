@@ -421,11 +421,13 @@ async fn compute_data_info(
         .await;
 
     let timestamp_range = match timeseries_res {
-        Ok(res) => {
-            let ts_range = res.timestamp_range().await;
-            ts_range.unwrap_or(Some(types::TimestampRange::unbounded()))
-        }
-        Err(_) => Some(types::TimestampRange::unbounded()),
+        Ok(res) => res
+            .timestamp_range()
+            .await
+            .ok()
+            .flatten()
+            .unwrap_or(types::TimestampRange::unbounded()),
+        Err(_) => types::TimestampRange::unbounded(),
     };
 
     let record = db::topic_find_by_locator(exe, &handle.locator).await?;
@@ -457,7 +459,7 @@ async fn compute_data_info(
     Ok(types::TopicDataInfo {
         chunks_number: datafiles.len() as u64,
         total_bytes,
-        timestamp_range: timestamp_range.unwrap(),
+        timestamp_range,
     })
 }
 
