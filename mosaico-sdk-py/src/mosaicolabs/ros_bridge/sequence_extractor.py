@@ -75,7 +75,7 @@ class ROSExtractorConfig:
     See [`rosbags.typesys.Stores`](https://ternaris.gitlab.io/rosbags/topics/typesys.html#type-stores).
     """
 
-    storage_plugin: StoragePlugin = StoragePlugin.SQLITE3
+    storage_plugin: StoragePlugin = StoragePlugin.MCAP
     """
     Storage plugin to use. Available: StoragePlugin.SQLITE3 or StoragePlugin.MCAP
     """
@@ -119,10 +119,16 @@ class ROSExtractorConfig:
     """
 
     tls_cert_path: Optional[str] = None
-    """Path to the TLS certificate file for secure connection on the mosaico server. Defaults to None."""
+    """
+    Path to the TLS certificate file for secure connection on the mosaico server. Defaults to None. 
+    If tls_cert_path=None and enable_tls=True, a standard one-way TLS (server authenticated only) connection is established
+    """
 
     enable_tls: bool = False
-    """Enable the TLS commmunication protocol. Defaults to False"""
+    """
+    Enable the TLS standard one-way TLS (server authenticated only) communication protocol. Defaults to False. 
+    If tls_cert_path is provided (not None), this flag does not have any effect.
+    """
 
     start_timestamp_ns: Optional[int] = None
     """Timestamp (in nanoseconds) from where to start extracting data of specified sequence"""
