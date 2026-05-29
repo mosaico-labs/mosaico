@@ -378,7 +378,7 @@ def transform():
     return Transform(
         translation=Vector3d(x=1.0, y=2.0, z=3.0),
         rotation=Quaternion(x=0.0, y=0.0, z=0.0, w=1.0),
-        source_frame_id="frame1",
+        source_frame_id="base_link",
         target_frame_id="frame2",
     )
 
