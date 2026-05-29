@@ -7,7 +7,7 @@ version = "0.6.0-dev"
 authors = ["Mosaico Labs <info@mosaico.dev>"]
 homepage = "https://mosaico.dev"
 repository = "https://github.com/mosaico-labs/mosaico"
-license = "AGPL-3.0"
+license = "Apache-2.0"
 edition = "2024"
 rust-version = "1.92"
 
