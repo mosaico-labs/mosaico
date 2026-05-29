@@ -146,7 +146,7 @@ pub async fn query_by_timestamp(
     let format = meta.ontology_metadata.properties.serialization_format;
     let topic_tag = &meta.ontology_metadata.properties.ontology_tag;
 
-    // check if topic tag is already registered
+    // check if filter tag is registered before execute query
     for filter_tag in ontology_filter.ontology_tags() {
         if filter_tag != topic_tag {
             return Err(core::Error::bad_request(format!(
