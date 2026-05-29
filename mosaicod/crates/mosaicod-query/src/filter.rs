@@ -388,6 +388,10 @@ impl OntologyFilter {
         self.ontology.get(field)
     }
 
+    pub fn ontology_tags(&self) -> impl Iterator<Item = &str> + '_ {
+        self.ontology.keys().map(|f| f.ontology_tag())
+    }
+
     /// Exports filter data as a unique expression group
     pub fn into_expr_group(self) -> OntologyExprGroup<Value> {
         OntologyExprGroup {
