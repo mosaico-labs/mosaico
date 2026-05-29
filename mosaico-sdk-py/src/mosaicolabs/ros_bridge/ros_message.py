@@ -1,5 +1,10 @@
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
+
+from rosbags.typesys.store import Typestore
+
+if TYPE_CHECKING:
+    from rosbags.typesys.store import MsgType
 
 from mosaicolabs.types import Time
 
@@ -78,6 +83,30 @@ class ROSHeader:
                 seconds=data["stamp"]["sec"], nanoseconds=data["stamp"]["nanosec"]
             ),
         )
+
+    def to_ros(self, typestore: Typestore) -> "MsgType":
+        """
+        Serializes this ``ROSHeader`` into a native ROS ``std_msgs/msg/Header`` message.
+
+        Handles both ROS 1 (which includes a ``seq`` field) and ROS 2 (which omits it)
+        by inspecting the dataclass fields available in the typestore.
+
+        Args:
+            typestore: The rosbags typestore
+
+        Returns:
+            A native ROS ``Header`` instance populated with the stamp and frame_id.
+        """
+        RosTime = typestore.types["builtin_interfaces/msg/Time"]
+        RosHeader = typestore.types["std_msgs/msg/Header"]
+
+        ros_time = RosTime(sec=self.stamp.seconds, nanosec=self.stamp.nanoseconds)
+
+        # Handling ROS1 that has seq in Header
+        if "seq" in RosHeader.__dataclass_fields__:
+            return RosHeader(seq=self.seq or 0, stamp=ros_time, frame_id=self.frame_id)
+        else:
+            return RosHeader(stamp=ros_time, frame_id=self.frame_id)
 
 
 @dataclass

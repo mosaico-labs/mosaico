@@ -19,3 +19,7 @@ from .ros_bridge import (
     register_default_adapter as register_default_adapter,
 )
 from .ros_message import ROSHeader as ROSHeader, ROSMessage as ROSMessage
+from .sequence_extractor import (
+    ROSExtractorConfig as ROSExtractorConfig,
+    ROSSequenceExtractor as ROSSequenceExtractor,
+)

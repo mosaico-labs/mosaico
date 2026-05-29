@@ -1,15 +1,24 @@
-import fnmatch
 from enum import Enum
 from pathlib import Path
-from typing import Dict, Generator, List, Optional, Tuple, Union
+from typing import Dict, Generator, List, Optional, Protocol, Tuple, Union
 
+from rich.progress import (
+    BarColumn,
+    MofNCompleteColumn,
+    Progress,
+    TaskID,
+    TextColumn,
+    TimeElapsedColumn,
+    TimeRemainingColumn,
+)
 from rosbags.highlevel import AnyReader
 from rosbags.interfaces import Connection, TopicInfo
 from rosbags.typesys import Stores, get_typestore
 
+from mosaicolabs import MosaicoClient, SequenceDataStreamer
 from mosaicolabs.logging_config import get_logger
 
-from .helpers import _to_dict
+from .helpers import _filter_topics_from_dict, _filter_topics_from_list, _to_dict
 from .registry import ROSTypeRegistry
 from .ros_bridge import ROSMessage
 
@@ -44,93 +53,117 @@ class LoaderErrorPolicy(Enum):
     """Immediately halts execution and raises the exception. Best used for critical data ingestion where missing even a single record is unacceptable."""
 
 
-# Keep free to ease testing
-def _filter_topics(
-    available_topics: Dict[str, TopicInfo], requested_topics: Optional[List[str]]
-) -> Dict[str, TopicInfo]:
+class Loader(Protocol):
     """
-    Resolve the set of topics to be processed based on user-provided glob patterns.
+    Structural protocol for data loaders consumed by :class:`ProgressManager`.
 
-    This method filters `available_topics` according to the patterns defined in
-    `self._requested_topics`, using ORDER-DEPENDENT (gitignore-like) semantics.
-    Pattern semantics:
-        - Patterns use standard shell-style wildcards (via `fnmatch`):
-            * "*" matches any sequence of characters
-            * "?" matches any single character
-        - Patterns NOT starting with "!" are treated as inclusion patterns.
-        - Patterns starting with "!" are treated as exclusion patterns.
-
-    Patterns are evaluated sequentially, and each pattern modifies the current
-    selection of topics. Evaluation rules:
-        - Patterns are processed in the order they appear.
-        - Each non-"!" pattern adds matching topics to the result set.
-        - Each "!" pattern removes matching topics from the result set.
-        - Later patterns override earlier ones.
-        - If no inclusion pattern is present, the initial set is ALL available topics,
-          which are then filtered by subsequent exclusion patterns.
-
-    Args:
-        available_topics (Dict[str, TopicInfo]):
-            Mapping of topic names to their associated metadata.
-        requested_topics (Optional[List[str]]):
-            Optional list of topic names or patterns to filter results.
-            Only topics matching any of the provided values will be returned.
-
-    Examples:
-        ["/gps/*", "!/gps/leica/time_reference"]
-            → include all /gps/* topics except the Leica time_reference topic
-
-        ["!/gps/*", "/gps/leica/time_reference"]
-            → exclude all /gps/* topics, then re-include the specific topic
-
-        ["foo*"]
-            → include only topics starting with "foo"
-
-        ["!foo*"]
-            → include all topics except those starting with "foo"
-
-        []
-            → include all available topics
-
-    Warnings:
-        - A warning is logged if a pattern matches no topics.
-
-    Side Effects:
-        - Returns a filtered dictionary of topics (no longer sets internal state).
+    Both :class:`ROSLoader` and :class:`MosaicoLoader` satisfy this protocol,
+    allowing :class:`ProgressManager` to set up progress bars without depending
+    on a concrete loader class.
     """
 
-    if not requested_topics:
-        return available_topics
+    @property
+    def duration(self) -> int:
+        """This should return the duration of the loaded data as int"""
 
-    all_keys = set(available_topics.keys())
+    @property
+    def topics(self) -> List[str]:
+        """This should return the topics of the loaded data as strings"""
 
-    # If there is at least one include pattern, we start empty.
-    # Otherwise we start from all topics (implicit include-all).
-    has_include = any(not p.startswith("!") for p in requested_topics)
+    @property
+    def msg_types(self) -> List[str | None]:
+        """This should return the types of the loaded data as strings"""
 
-    if has_include:
-        resolved_keys = set()
-    else:
-        resolved_keys = set(all_keys)
+    def msg_count(self, topic: Optional[str] = None) -> int:
+        """This should return the total number of messages in the passed
+        topic if not None. Otherwise returns all messages in all topics"""
 
-    for pattern in requested_topics:
-        exclude_me = pattern.startswith("!")
-        raw_pattern = pattern[1:] if exclude_me else pattern
 
-        matches = fnmatch.filter(all_keys, raw_pattern)
+# --- UI / Progress Helper ---
 
-        if not matches:
-            logger.warning(f"Topic pattern '{pattern}' matched nothing in this bag.")
-            continue
 
-        match_set = set(matches)
+class ProgressManager:
+    """
+    Visual management system for loader tracking.
 
-        if exclude_me:
-            resolved_keys -= match_set
-        else:
-            resolved_keys |= match_set
+    This class decouples the UI presentation logic from the data processing pipeline.
+    It utilizes the `rich` library to provide real-time feedback through progress bars,
+    tracking individual topic throughput and aggregate global progress.
 
-    return {key: val for key, val in available_topics.items() if key in resolved_keys}
+
+    Methods:
+        setup(): Initializes the progress tracking tasks by querying message counts from the loader.
+        update_status(topic, status, style): Modifies the label of a specific topic bar (e.g., to show "No Adapter").
+        advance_global(): Increments the master progress bar without affecting individual topic bars.
+        advance_all(topic): Increments both the specific topic task and the global master task.
+    """
+
+    def __init__(self, loader: Loader):
+        """
+        Initialize the progress manager.
+
+        Args:
+            loader (Loader): The initialized data loader. Used to query total
+                                message counts for setting up progress bars.
+        """
+        self.loader = loader
+        self.progress = Progress(
+            TextColumn("[bold cyan]{task.fields[name]}"),
+            BarColumn(),
+            MofNCompleteColumn(),
+            "[progress.percentage]{task.percentage:>3.1f}%",
+            "•",
+            TimeRemainingColumn(),
+            "•",
+            TimeElapsedColumn(),
+            expand=True,
+        )
+        self.tasks: Dict[str, TaskID] = {}
+        self.global_task: Optional[TaskID] = None
+
+    def setup(self):
+        """
+        Calculates totals and creates the visual progress tasks.
+        Must be called before the main processing loop starts.
+        """
+        # Create individual progress bars for each topic
+        for topic in self.loader.topics:
+            count = self.loader.msg_count(topic)
+            self.tasks[topic] = self.progress.add_task("", total=count, name=topic)
+
+        # Create a master progress bar for the aggregate total
+        total_msgs = sum(self.loader.msg_count(t) for t in self.loader.topics)
+        self.global_task = self.progress.add_task(
+            "Total", total=total_msgs, name="Total Upload"
+        )
+
+    def update_status(self, topic: str, status: str, style: str = "white"):
+        """
+        Updates the text description of a specific topic's progress bar.
+        Useful for indicating errors or skipped topics (e.g. "[red]No Adapter").
+
+        Args:
+            topic: The topic name.
+            status: The status message to display.
+            style: The rich style string (e.g., 'red', 'bold yellow').
+        """
+        if topic in self.tasks:
+            self.progress.update(
+                self.tasks[topic],
+                name=f"[{style}]{topic}: {status}",
+            )
+
+    def advance_global(self):
+        """Advances only the global progress bar (used when skipping messages)."""
+        if self.global_task is not None:
+            self.progress.advance(self.global_task)
+
+    def advance_all(self, topic: str):
+        """Advances both the specific topic's bar and the global bar."""
+        if topic in self.tasks:
+            self.progress.advance(self.tasks[topic])
+        if self.global_task is not None:
+            self.progress.advance(self.global_task)
 
 
 class ROSLoader:
@@ -264,7 +297,7 @@ class ROSLoader:
             raise IOError(f"Could not open bag file: '{e}'") from e
 
         self._connections = []
-        self._resolved_topics = _filter_topics(
+        self._resolved_topics = _filter_topics_from_dict(
             self._reader.topics, self._requested_topics
         )
 
@@ -275,7 +308,7 @@ class ROSLoader:
 
         if not self._connections:
             raise RuntimeError(
-                "Unanble to initialize ROSLoader: No connections matched criteria. Try checking the topics filter, if any."
+                "Unable to initialize ROSLoader: No connections matched criteria. Try checking the topics filter, if any."
             )
 
     # --- Properties ---
@@ -437,3 +470,208 @@ class ROSLoader:
     def __exit__(self, exc_type, exc_val, exc_tb):
         """Ensures resources are released even if an error occurs in the `with` block."""
         self.close()
+
+
+class MosaicoLoader:
+    """
+    Lazy data loader that streams messages from a Mosaico sequence.
+
+    Connects to the Mosaico server on first access, resolves the requested
+    sequence and topic filter, clips the time window to valid sequence bounds,
+    and exposes a :class:`SequenceDataStreamer` for iteration.
+
+    Conforms to the :class:`Loader` protocol, making it usable with
+    :class:`ProgressManager` for live progress reporting.
+
+    Args:
+        m_client: An open :class:`MosaicoClient` connection.
+        sequence_name: Name of the Mosaico sequence to load.
+        topics: Optional topic-name filter patterns (glob-style, ``!``-prefixed for
+            exclusions). ``None`` loads all topics.
+        start_timestamp_ns: Lower bound for the time window (nanoseconds). Clipped
+            to the sequence minimum if out of range.
+        end_timestamp_ns: Upper bound for the time window (nanoseconds). Clipped to
+            the sequence maximum if out of range.
+    """
+
+    def __init__(
+        self,
+        m_client: MosaicoClient,
+        sequence_name: str,
+        topics: Optional[List[str]],
+        start_timestamp_ns: Optional[int],
+        end_timestamp_ns: Optional[int],
+    ):
+
+        self.client = m_client
+        self.sequence_name = sequence_name
+        self.requested_topics = topics
+        self.start_timestamp_ns = start_timestamp_ns
+        self.end_timestamp_ns = end_timestamp_ns
+
+        self.seq_handler = None
+        self.streamer = None
+
+    def validate_sequence(self):
+        if self.seq_handler is None:
+            raise (
+                ValueError(
+                    f"Your requested sequence '{self.sequence_name}' could not be found!"
+                )
+            )
+
+    def _resolve_sequence(self):
+        """
+        Lazily initializes the sequence handler, resolved topic list, and streamer.
+
+        Called automatically on first access to any property or iterator. Performs
+        the following steps:
+
+        1. Fetches the :class:`SequenceHandler` for the configured sequence name
+           and validates it exists.
+        2. Applies the topic filter via :func:`_filter_topics_from_list`.
+        3. Clips ``start_timestamp_ns`` / ``end_timestamp_ns`` to the sequence bounds,
+           logging a warning if clipping occurs.
+        4. Creates the :class:`SequenceDataStreamer` that will be returned by
+           :meth:`__iter__`.
+
+        """
+        if self.seq_handler is not None:
+            return
+
+        # Get requested sequence + validation
+
+        self.seq_handler = self.client.sequence_handler(
+            sequence_name=self.sequence_name
+        )
+
+        self.validate_sequence()
+
+        # Filter topics
+        self.resolved_topics = _filter_topics_from_list(
+            self.seq_handler.topics, self.requested_topics
+        )
+
+        if not self.resolved_topics:
+            raise RuntimeError(
+                "Unable to initialize MosaicoLoader: No topic matched criteria. Try checking the topics filter, if any."
+            )
+
+        # Clipping requested start/end timestamp to start/end sequence timestamp if existing
+        if (
+            self.start_timestamp_ns is not None
+            and self.start_timestamp_ns < self.seq_handler.timestamp_ns_min
+        ):
+            logger.warning(
+                f"Provided start_timestamp_ns is lower than sequence timestamp_ns_min: {self.start_timestamp_ns} < {self.seq_handler.timestamp_ns_min}. Clipping start_timestamp_ns to sequence timestamp_ns_min"
+            )
+            self.start_timestamp_ns = max(
+                self.start_timestamp_ns, self.seq_handler.timestamp_ns_min
+            )
+
+        if (
+            self.end_timestamp_ns is not None
+            and self.end_timestamp_ns > self.seq_handler.timestamp_ns_max
+        ):
+            logger.warning(
+                f"Provided end_timestamp_ns is higher than sequence timestamp_ns_max: {self.end_timestamp_ns} > {self.seq_handler.timestamp_ns_max}. Clipping end_timestamp_ns to sequence timestamp_ns_max"
+            )
+            self.end_timestamp_ns = min(
+                self.end_timestamp_ns, self.seq_handler.timestamp_ns_max
+            )
+
+        # Resolving streamer
+        self.streamer = self.seq_handler.get_data_streamer(
+            topics=self.resolved_topics,
+            start_timestamp_ns=self.start_timestamp_ns,
+            end_timestamp_ns=self.end_timestamp_ns,
+        )
+
+    def msg_count(self, topic: Optional[str] = None) -> int:
+        """
+        Returns the total number of messages for the given topic, or for all
+        resolved topics combined.
+
+        Note:
+            This performs a full traversal of each topic's data streamer to produce
+            the count, which may be slow for large sequences.
+
+        Args:
+            topic: If provided, count messages for that specific topic only.
+                If ``None``, sum across all resolved topics.
+
+        Returns:
+            The total message count.
+        """
+        self._resolve_sequence()
+
+        topics_to_count = [topic] if topic else self.resolved_topics
+
+        total_msg_count = 0
+        for t in topics_to_count:
+            t_handler = self.seq_handler.get_topic_handler(t)
+
+            total_msg_count += sum(1 for _ in t_handler.get_data_streamer())
+
+        return total_msg_count
+
+    @property
+    def duration(self) -> int:
+        """
+        Returns the duration of the sequence in nanoseconds.
+
+        Returns:
+            int: The duration of the sequence in nanoseconds. Returns 0 if sequence is not valid
+        """
+        self._resolve_sequence()
+
+        if (
+            self.seq_handler.timestamp_ns_max is not None
+            and self.seq_handler.timestamp_ns_min is not None
+        ):
+            return self.seq_handler.timestamp_ns_max - self.seq_handler.timestamp_ns_min
+
+        return 0
+
+    @property
+    def topics(self) -> List[str]:
+        """
+        Returns the list of topic names resolved after applying the topic filter.
+
+        Triggers lazy initialization on first access.
+
+        Returns:
+            List[str]: Filtered topic names available in the sequence.
+        """
+        self._resolve_sequence()
+
+        return self.resolved_topics
+
+    @property
+    def msg_types(self) -> List[str | None]:
+        """
+        Returns the Mosaico ontology type tags for each resolved topic.
+
+        Entries appear in the same order as :attr:`topics`. A ``None`` entry
+        indicates that the topic handler could not be found.
+
+        Triggers lazy initialization on first access.
+
+        Returns:
+            List[str | None]: Ontology tag strings (e.g. ``"imu"``, ``"image"``)
+            or ``None`` for unresolvable topics.
+        """
+        self._resolve_sequence()
+
+        return [
+            t_handler.ontology_tag
+            if (t_handler := self.seq_handler.get_topic_handler(topic)) is not None
+            else None
+            for topic in self.resolved_topics
+        ]
+
+    def __iter__(self) -> SequenceDataStreamer:
+
+        self._resolve_sequence()
+
+        return self.streamer

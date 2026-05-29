@@ -62,4 +62,4 @@ def _is_valid_covariance(covariance_list: Optional[List[float]]) -> bool:
     if not covariance_list:
         return False
 
-    return any(value != 0.0 for value in covariance_list)
+    return any(value > 0.0 for value in covariance_list)

@@ -175,7 +175,7 @@ pub async fn filter_clusterize(
 ) -> Result<DoActionStream> {
     info!("filter clusterize for {}", locator);
 
-    // 1. Validation and conversion to TimestampRange
+    // Validation and conversion to TimestampRange
     let ts: Option<types::TimestampRange> = match timestamp_range.as_ref() {
         Some(ftr) => {
             ftr.validate()?;
@@ -184,7 +184,7 @@ pub async fn filter_clusterize(
         None => None,
     };
 
-    // 2. Check ontology parameter
+    // Check ontology parameter
     if ontology.len() > 1 || ontology.is_empty() {
         return Err(core::Error::bad_request(format!(
             "Only 1 filtering condition is allowed, found {}",
@@ -192,25 +192,31 @@ pub async fn filter_clusterize(
         )))?;
     }
 
-    // 3. Check clustering_dt_ns
+    // Check clustering_dt_ns
     let dt_ns = if clustering_dt_ns == 0 {
         u64::MAX
     } else {
         clustering_dt_ns
     };
 
-    // 4. Setup query
+    // Setup query
     let topic_locator = locator.parse::<types::TopicLocator>()?;
     let topic_handle = facade::topic::Handle::try_from_locator(ctx, topic_locator).await?;
     let timestamp_column = core::params::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP.to_owned();
     let ontology_filter = ontology.try_into()?;
 
-    // 5. RecordBatch stram filtered by timestamp if any and ontology
+    // RecordBatch stram filtered by timestamp if any and ontology
     let batch_stream = query_by_timestamp(ctx, &topic_handle, ts, ontology_filter)
         .await?
         .map(|item| item.map_err(|e| ArrowError::ExternalError(Box::new(e))));
 
-    // 6. Channel setup
+    // Channel Setup
+    // Bridges the background clustering task with the gRPC response stream.
+    // The channel carries Result<Cluster, ClusteringError>: the task pushes
+    // successful clusters and streaming-time errors, in the order they occur.
+    // The downstream `map` converts each variant into the corresponding Flight
+    // payload or tonic::Status, so the client sees errors interleaved with
+    // data at the exact position where they happened.
     let (tx, rx) = mpsc::channel::<
         std::result::Result<
             mosaicod_ext::arrow_filter::Cluster,

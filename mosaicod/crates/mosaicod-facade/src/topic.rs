@@ -421,10 +421,12 @@ async fn compute_data_info(
         .await;
 
     let timestamp_range = match timeseries_res {
-        Ok(res) => {
-            let ts_range = res.timestamp_range().await;
-            ts_range.unwrap_or(types::TimestampRange::unbounded())
-        }
+        Ok(res) => res
+            .timestamp_range()
+            .await
+            .ok()
+            .flatten()
+            .unwrap_or(types::TimestampRange::unbounded()),
         Err(_) => types::TimestampRange::unbounded(),
     };
 

@@ -1,0 +1,562 @@
+"""
+ROSSequenceExtractor — extracts a Mosaico sequence and writes it as a ROS bag file.
+
+Provides :class:`ROSSequenceExtractor` and the :class:`ROSExtractorConfig` dataclass
+that drive the extraction pipeline:
+
+1. Connect to the Mosaico server.
+2. Stream every message in the requested sequence (optionally filtered by topic or
+   time window).
+3. Convert each message to its ROS equivalent via the registered :class:`ROSBridge` adapters.
+4. Write the result into a new ROS 1 (``.bag``) or ROS 2 (``.mcap`` / ``.db3``) bag file.
+
+The module also exposes ``ros_sequence_extractor()``, the console-script entry point
+installed by the package.
+"""
+
+import argparse
+import shutil
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Optional
+
+from rich.live import Live
+from rosbags.interfaces import Connection
+from rosbags.rosbag2 import StoragePlugin, Writer
+from rosbags.typesys import Stores, get_typestore
+from rosbags.typesys.store import Typestore
+
+from mosaicolabs import Message, MosaicoClient
+from mosaicolabs.logging_config import get_logger, setup_sdk_logging
+from mosaicolabs.ros_bridge import ROSBridge
+from mosaicolabs.ros_bridge.loader import MosaicoLoader, ProgressManager
+from mosaicolabs.ros_bridge.qos import get_qos_for_topic
+from mosaicolabs.ros_bridge.registry import ROSTypeRegistry
+
+# Set the hierarchical logger
+logger = get_logger(__name__)
+
+
+# --- Configuration ---
+@dataclass
+class ROSExtractorConfig:
+    """
+    Configuration for :class:`ROSSequenceExtractor`.
+
+    Collects all parameters needed to connect to the Mosaico server, select the
+    target sequence, control topic and time-window filtering, and control the
+    ROS bag output format and storage location.
+    """
+
+    rosbag_path: Path
+    """
+    The path where to save the ROS bag file.
+    """
+
+    sequence_name: str
+    """
+    The name of the sequence to extract.
+    """
+
+    host: str = "localhost"
+    """
+    The hostname of the Mosaico server.
+    """
+
+    port: int = 6726
+    """
+    The port of the Mosaico server.
+    """
+
+    ros_distro: Optional[Stores] = None
+    """
+    The specific ROS distribution to use for message parsing (e.g., Stores.ROS2_HUMBLE). If None, defaults to Empty/Auto.
+
+    See [`rosbags.typesys.Stores`](https://ternaris.gitlab.io/rosbags/topics/typesys.html#type-stores).
+    """
+
+    storage_plugin: StoragePlugin = StoragePlugin.MCAP
+    """
+    Storage plugin to use. Available: StoragePlugin.SQLITE3 or StoragePlugin.MCAP
+    """
+
+    custom_msgs: Optional[list[tuple[str, Path, Optional[Stores]]]] = None
+    """
+    A list of tuples (package_name, path, store) to register custom .msg definitions before loading.
+
+    For example, for "my_robot_msgs/msg/Location" pass:
+
+    package_name = "my_robot_msgs"; path = path/to/Location.msg; store = Stores.ROS2_HUMBLE (e.g.) or None
+
+    See [`rosbags.typesys.Stores`](https://ternaris.gitlab.io/rosbags/topics/typesys.html#type-stores).
+    """
+
+    topics: Optional[list[str]] = None
+    """List of topic patterns used to filter available topics.
+
+    Supports shell-style glob patterns (e.g., "/cam/*", "*camera_info").
+    Patterns starting with '!' are treated as exclusions (e.g., "!/cam/debug*").
+    
+    **Pattern order matters**:
+        - Each non-'!' pattern adds matching topics to the selection.
+        - Each '!' pattern removes matching topics from the selection.
+        - Later patterns override earlier ones.
+        - If no inclusion pattern is provided, selection starts from ALL topics,
+          and only exclusion patterns reduce the set.
+
+    If None, all topics are loaded.
+    """
+
+    log_level: str = "INFO"
+    """The Log Level"""
+
+    mosaico_api_key: Optional[str] = None
+    """
+    The API key for authentication on the mosaico server. Defaults to None.
+    
+    If provided it must be have at least [`APIKeyPermissionEnum.Write`][mosaicolabs.enum.APIKeyPermissionEnum.Write]
+    permission.
+    """
+
+    tls_cert_path: Optional[str] = None
+    """
+    Path to the TLS certificate file for secure connection on the mosaico server. Defaults to None. 
+    If tls_cert_path=None and enable_tls=True, a standard one-way TLS (server authenticated only) connection is established
+    """
+
+    enable_tls: bool = False
+    """
+    Enable the TLS standard one-way TLS (server authenticated only) communication protocol. Defaults to False. 
+    If tls_cert_path is provided (not None), this flag does not have any effect.
+    """
+
+    start_timestamp_ns: Optional[int] = None
+    """Timestamp (in nanoseconds) from where to start extracting data of specified sequence"""
+
+    end_timestamp_ns: Optional[int] = None
+    """Timestamp (in nanoseconds) to finish extracting data of specified sequence"""
+
+    overwrite: bool = False
+    """If True, delete and recreate the rosbag path if it already exists. Defaults to False."""
+
+
+# --- Main Deinjector Class ---
+
+
+class ROSSequenceExtractor:
+    """
+    Orchestrates the extraction of a Mosaico sequence into a ROS bag file.
+
+    On each call to :meth:`run`, the extractor:
+
+    1. Prepares (and optionally clears) the output directory.
+    2. Connects to the Mosaico server via :class:`MosaicoClient`.
+    3. Opens a :class:`MosaicoLoader` to stream messages for the configured sequence.
+    4. For every message, looks up the appropriate :class:`ROSAdapterBase` via
+       :class:`ROSBridge`, converts the payload to a native ROS type, and writes it
+       to the bag.
+
+    Topics that have no registered adapter, or whose ``to_ros()`` call fails, are
+    silently skipped after logging a warning.
+    """
+
+    def __init__(self, config: ROSExtractorConfig):
+        self.cfg = config
+
+        from rich.console import Console
+
+        self.console = Console(stderr=True)
+        setup_sdk_logging(
+            level=self.cfg.log_level.upper(), pretty=True, console=self.console
+        )
+
+        self.ignored_topics: set[str] = set()
+        self.accepted_connections: dict[str, Connection] = {}
+        self.typestore: Typestore = get_typestore(self.cfg.ros_distro or Stores.EMPTY)
+        self.bagwriter = None
+
+    def _register_custom_types(self):
+        """
+        Loads custom ROS message definitions into the global `ROSTypeRegistry`.
+
+        This enables the extractor to correctly deserialize proprietary message types
+        found within the bag file.
+        """
+        if not self.cfg.custom_msgs:
+            return
+
+        # Register Global Types (Registry Pattern)
+        logger.info("Registering custom message definitions...")
+        for package, path, store in self.cfg.custom_msgs:
+            try:
+                ROSTypeRegistry.register_directory(
+                    package_name=package, dir_path=path, store=store
+                )
+                logger.debug(f"Registered package '{package}' from '{path}'")
+            except Exception as e:
+                logger.error(f"Failed to register custom msgs at '{path}': '{e}'")
+
+    def _register_definitions(self, types_map: dict[str, str]):
+        """Safe registration wrapper."""
+        from rosbags.typesys import get_types_from_msg
+
+        for msg_type, msg_def in types_map.items():
+            try:
+                add_types = get_types_from_msg(msg_def, msg_type)
+                self.typestore.register(add_types)
+            except Exception as e:
+                logger.warning(f"Failed to register type '{msg_type}': '{e}'")
+
+    def open_or_get_bagwriter(self, path: Path) -> Writer:
+        """
+        Returns the bag writer for the given path, creating it on first call.
+
+        On first invocation this method:
+
+        1. Registers any custom ROS message types from the ``ROSTypeRegistry``.
+        2. For **ROS 1** (``Stores.ROS1_NOETIC``): creates the output directory and
+           opens a ``rosbags.rosbag1.Writer`` targeting ``<path>/<path.name>.bag``.
+        3. For **ROS 2**: opens a ``rosbags.rosbag2.Writer`` with the requested
+           ``storage_plugin``. The bag format version is inferred from the distro
+           (version 9 for Jazzy / Kilted / LATEST, version 8 for all others).
+
+        Subsequent calls return the cached writer without re-initializing.
+
+        Args:
+            path: The output directory for the bag file.
+
+        Returns:
+            The open bag writer instance.
+        """
+        if self.bagwriter is None:
+            # Register custom ROS messages to ROSTypeRegistry
+            self._register_custom_types()
+
+            # Register all ROS messages to typestore
+            custom_types = ROSTypeRegistry.get_types(self.cfg.ros_distro)
+            if custom_types:
+                self._register_definitions(custom_types)
+
+            # Importing correct writer
+            if self.cfg.ros_distro is Stores.ROS1_NOETIC:
+                from rosbags.rosbag1 import Writer
+
+                path.mkdir(parents=True, exist_ok=True)
+                full_path = path / (path.name + ".bag")
+                self.bagwriter = Writer(full_path)
+
+            else:
+                from rosbags.rosbag2 import Writer
+
+                # Deducing rosbag2 version from ROS_DISTRO
+                if (
+                    self.cfg.ros_distro is Stores.ROS2_JAZZY
+                    or self.cfg.ros_distro is Stores.ROS2_KILTED
+                    or self.cfg.ros_distro is Stores.LATEST
+                ):
+                    bagversion = 9
+                else:
+                    bagversion = 8
+
+                self.bagwriter = Writer(
+                    path, storage_plugin=self.cfg.storage_plugin, version=bagversion
+                )
+
+        return self.bagwriter
+
+    def _prepare_output_path(self):
+        """
+        Resolves the final rosbag output directory and enforces the overwrite policy.
+
+        The output path is ``cfg.rosbag_path / cfg.sequence_name``. If that path
+        already exists:
+
+        - ``overwrite=False`` (default): raises :class:`FileExistsError`.
+        - ``overwrite=True``: the existing directory is deleted recursively before
+          the path is returned.
+
+        Returns:
+            Path: The prepared (non-existent) output directory ready for the bag writer.
+
+        Raises:
+            FileExistsError: If the path exists and ``cfg.overwrite`` is ``False``.
+        """
+        rosbag_path = self.cfg.rosbag_path / self.cfg.sequence_name
+
+        if rosbag_path.exists():
+            if not self.cfg.overwrite:
+                raise FileExistsError(
+                    f"Rosbag path '{rosbag_path}' already exists. "
+                    "Pass overwrite=True (or --overwrite on CLI) to replace it."
+                )
+            shutil.rmtree(rosbag_path)
+
+        return rosbag_path
+
+    def _process_message(
+        self, bag_writer: Writer, ms_topic: str, ms_msg: Message, ui: ProgressManager
+    ):
+        """
+        Internal business logic for processing a single Mosaico message.
+
+        Steps:
+        1. **Resolve Adapter**: Locates the appropriate Mosaico Adapter for the message type.
+        2. **Translate**: Obtains or creates a `RosMsg` for the specific topic.
+        3. **Resolve Connection**: Obtains or creates a `Connection` for the specific topic.
+        4. **Write**: Writes the RosMsg into the rosbag.
+        """
+
+        if ms_topic in self.ignored_topics:
+            ui.advance_global()
+            return
+
+        # --- Resolve Adapter Check ---
+        # For each Mosaico type Message find its adapter
+        mosaico_type = ms_msg.ontology_tag()
+        adapter = ROSBridge.get_default_mosaico_adapter(mosaico_type)
+
+        # If no adapter can be found, ingore the topics from now on
+        if adapter is None:
+            self.ignored_topics.add(ms_topic)
+            logger.warning(
+                f"Could not find Adapter for topic '{ms_topic}' of type '{mosaico_type}'. Skipping the topic associated to this message"
+            )
+            ui.update_status(ms_topic, "No Adapter", style="yellow")
+            ui.advance_global()
+            return
+
+        # --- Translate Check ---
+        ros_msg = adapter.to_ros(ms_msg, self.typestore)
+
+        if not ros_msg:
+            self.ignored_topics.add(ms_topic)
+            logger.warning(
+                f"Could not encode to ros '{mosaico_type}' type. Skipping the topic associated to this message"
+            )
+            ui.update_status(ms_topic, "Failed encoding", style="yellow")
+            ui.advance_global()
+            return
+
+        # --- Resolve Check ---
+        ros_msgtype = ros_msg.__msgtype__
+        ros_recording_timestamp_ns = (
+            ms_msg.recording_timestamp_ns or ms_msg.timestamp_ns
+        )  # Fallback to timestamp if recording_timestamp_ns is not available
+
+        # --- Resolve Connection check ---
+        if ms_topic not in self.accepted_connections:  # New connection available
+            if self.cfg.ros_distro is Stores.ROS1_NOETIC:
+                new_connection = bag_writer.add_connection(
+                    ms_topic,
+                    ros_msgtype,
+                    typestore=self.typestore,
+                )
+            else:
+                new_connection = bag_writer.add_connection(
+                    ms_topic,
+                    ros_msgtype,
+                    typestore=self.typestore,
+                    offered_qos_profiles=get_qos_for_topic(ms_topic),
+                )
+            self.accepted_connections.update({ms_topic: new_connection})
+
+        connection = self.accepted_connections.get(ms_topic)
+
+        # --- Write check ---
+        if self.cfg.ros_distro is Stores.ROS1_NOETIC:  # ROS1
+            bag_writer.write(
+                connection,
+                ros_recording_timestamp_ns,
+                self.typestore.serialize_ros1(ros_msg, ros_msgtype),
+            )
+        else:  # ROS2
+            bag_writer.write(
+                connection,
+                ros_recording_timestamp_ns,
+                self.typestore.serialize_cdr(ros_msg, ros_msgtype),
+            )
+
+        ui.advance_all(ms_topic)
+
+    def run(self):
+        """
+        Executes the full extraction pipeline.
+
+        Steps:
+
+        1. Calls :meth:`_prepare_output_path` to validate / clear the output location.
+        2. Opens a :class:`MosaicoClient` connection and a bag writer.
+        3. Instantiates a :class:`MosaicoLoader` to stream the sequence messages.
+        4. For each ``(topic, message)`` pair, delegates to
+           :meth:`_process_message` which translates and writes the ROS message.
+
+        Progress is displayed in real-time via a ``rich`` live progress bar.
+        A ``KeyboardInterrupt`` exits cleanly with a warning log.
+        """
+
+        # Create rosbag path and check whether it already exists
+        rosbag_path = self._prepare_output_path()
+
+        try:
+            with MosaicoClient.connect(
+                host=self.cfg.host,
+                port=self.cfg.port,
+                api_key=self.cfg.mosaico_api_key,
+                enable_tls=self.cfg.enable_tls,
+                tls_cert_path=self.cfg.tls_cert_path,
+            ) as mclient:
+                logger.info(f"Writing bag '{self.cfg.rosbag_path}'")
+
+                # Creating the ROSUnloader
+                with self.open_or_get_bagwriter(rosbag_path) as bag_writer:
+                    ms_loader = MosaicoLoader(
+                        mclient,
+                        self.cfg.sequence_name,
+                        self.cfg.topics,
+                        self.cfg.start_timestamp_ns,
+                        self.cfg.end_timestamp_ns,
+                    )
+
+                    ui = ProgressManager(ms_loader)
+                    ui.setup()
+
+                    with Live(ui.progress, console=self.console):
+                        for ms_topic, ms_msg in ms_loader:
+                            self._process_message(bag_writer, ms_topic, ms_msg, ui)
+
+        except KeyboardInterrupt:
+            logger.warning("Operation cancelled by user. Shutting down...")
+            return
+        # except Exception as e:
+        #     logger.exception(f"Fatal error during sequence extraction: '{e}'")
+        #     return
+
+
+# --- CLI Entry Point ---
+
+
+def ros_sequence_extractor():
+    """
+    Console script entrypointy.
+    Parses arguments. sets up configuration, and initiates the sequence extractor
+    """
+
+    parser = argparse.ArgumentParser(
+        description="Extracts sequences from Mosaico and encode them as rosbags"
+    )
+
+    # Required Arguments
+    parser.add_argument(
+        "sequence_name",
+        type=str,
+        help="Name of the Mosaico sequence to extract",
+    )
+
+    # ROS arguments
+    parser.add_argument(
+        "--ros_distro",
+        default="ROS2_JAZZY",
+        choices=[s.name for s in Stores],
+        help="Target ROS distribution for messages. If not set defaults to ROS2_HUMBLE",
+    )
+    parser.add_argument(
+        "--storage_plugin",
+        default="MCAP",
+        choices=[sp.name for sp in StoragePlugin],
+        help="Storage plugin to save rosbag. If not set defaults to MCAP",
+    )
+
+    # Filter Arguments
+    parser.add_argument(
+        "--topics",
+        nargs="+",
+        help=(
+            "Topic patterns to filter (supports glob wildcards like '/cam/*' or '*camera_info'). "
+            "Prefix a pattern with '!' to exclude it (e.g., '/cam/*' '!/cam/debug*'). "
+            "If only exclusions are provided, all topics are included except those excluded. "
+            "Patterns are evaluated in ORDER. "
+            "Note: in some shells (e.g., zsh), '!' triggers history expansion, so patterns "
+            'should be quoted or escaped (e.g., "!/cam/debug*" or \\\\!/cam/debug*). '
+        ),
+    )
+
+    parser.add_argument(
+        "--rosbag_path",
+        default=Path("."),
+        type=Path,
+        help="Path where to save the rosbag file",
+    )
+
+    parser.add_argument(
+        "--start_timestamp_ns",
+        default=None,
+        help="Timestamp from where to start extractiong from sequence and create rosbag. None by default",
+    )
+    parser.add_argument(
+        "--end_timestamp_ns",
+        default=None,
+        help="Timestamp from where to stop extractiong from sequence and create rosbag. None by default",
+    )
+
+    # Connection Arguments
+    parser.add_argument("--host", default="localhost", help="Mosaico Server Host")
+    parser.add_argument(
+        "--port", type=int, default=6726, help="Mosaico Server Port (Default: 6726)"
+    )
+
+    # Advanced Arguments
+    parser.add_argument(
+        "--mosaico_api_key", default=None, help="The API key for authentification"
+    )
+    parser.add_argument(
+        "--tls_cert_path", default=None, help="Path to the TLS certificate file"
+    )
+    parser.add_argument(
+        "--enable_tls", default=False, help="Whether Mosaico Server requires tls"
+    )
+    parser.add_argument(
+        "--overwrite",
+        action="store_true",
+        default=False,
+        help="Delete and recreate the rosbag path if it already exists",
+    )
+
+    parser.add_argument(
+        "--log",
+        "-l",
+        type=str.upper,  # Automatically converts input (e.g., 'debug') to uppercase
+        default="INFO",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+        help="Set the logging verbosity level. Default is INFO",
+    )
+
+    args = parser.parse_args()
+
+    selected_distro = Stores.__members__.get(args.ros_distro)
+    selected_storage_plugin = StoragePlugin.__members__.get(args.storage_plugin)
+
+    configs = ROSExtractorConfig(
+        rosbag_path=args.rosbag_path,
+        sequence_name=args.sequence_name,
+        host=args.host,
+        port=args.port,
+        ros_distro=selected_distro,
+        storage_plugin=selected_storage_plugin,
+        # custom_msgs=,
+        topics=args.topics,
+        log_level=args.log,
+        mosaico_api_key=args.mosaico_api_key,
+        tls_cert_path=args.tls_cert_path,
+        enable_tls=args.enable_tls,
+        start_timestamp_ns=args.start_timestamp_ns,
+        end_timestamp_ns=args.end_timestamp_ns,
+        overwrite=args.overwrite,
+    )
+
+    # --- Execution ---
+    extractor = ROSSequenceExtractor(configs)
+    extractor.run()
+
+
+if __name__ == "__main__":
+    ros_sequence_extractor()

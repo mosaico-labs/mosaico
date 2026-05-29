@@ -149,16 +149,16 @@ impl Query {
                         if include_timestamp_range {
                             match qr.timestamp_range().await {
                                 Ok(ts_range) => {
-                                    topics_with_data.insert(topic.topic_id);
-                                    topics_timestamp_range
-                                        .insert(topic.locator().to_string(), ts_range);
+                                    if let Some(ts) = ts_range {
+                                        topics_with_data.insert(topic.topic_id);
+                                        topics_timestamp_range
+                                            .insert(topic.locator().to_string(), ts);
+                                    } else {
+                                        is_discarded = true;
+                                    }
                                 }
                                 Err(err) => {
-                                    if let query::Error::NotFound = err {
-                                        is_discarded = true;
-                                    } else {
-                                        return Err(err.into());
-                                    }
+                                    return Err(err.into());
                                 }
                             }
                         } else if qr.has_rows().await? {

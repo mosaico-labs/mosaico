@@ -89,7 +89,7 @@ def make_gps_msg(meas_time: Time):
             status=GPSStatus(
                 status=0,
                 service=2,
-                satellites=int(random.uniform(4, 20)),
+                # satellites=int(random.uniform(4, 20)),
             ),
         ),
     )

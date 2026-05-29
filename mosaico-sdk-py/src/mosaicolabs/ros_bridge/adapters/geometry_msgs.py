@@ -7,7 +7,13 @@ ROS patterns, such as "Stamped" envelopes and covariance wrappers, ensuring that
 spatial data is normalized before ingestion.
 """
 
-from typing import Any, Optional, Tuple, Type
+from typing import TYPE_CHECKING, Any, Optional, Tuple, Type, Union
+
+import numpy as np
+from rosbags.typesys.store import Typestore
+
+if TYPE_CHECKING:
+    from rosbags.typesys.store import MsgType
 
 from mosaicolabs.models import Message
 from mosaicolabs.models.data import (
@@ -25,11 +31,11 @@ from mosaicolabs.models.data import (
 
 from ..adapter_base import ROSAdapterBase
 from ..ros_bridge import register_default_adapter
-from ..ros_message import ROSMessage
-from .helpers import _validate_msgdata
+from ..ros_message import ROSHeader, ROSMessage
+from .helpers import _is_valid_covariance, _validate_msgdata
 
 
-@register_default_adapter
+@register_default_adapter(is_default=True)
 class PoseAdapter(ROSAdapterBase[Pose]):
     """
     Adapter for translating ROS Pose-related messages to Mosaico `Pose`.
@@ -150,7 +156,14 @@ class PoseAdapter(ROSAdapterBase[Pose]):
             out_pose = cls.from_dict(pose_dict)
 
             # While unwinding recursion, attach metadata found at this level
-            out_pose.covariance = ros_data.get("covariance")
+            ros_covariance = ros_data.get("covariance")
+            if ros_covariance:
+                covariance = None
+                if _is_valid_covariance(ros_covariance):
+                    covariance = ros_covariance
+
+                out_pose.covariance = covariance
+
             return out_pose
 
         # Base Case: We are at the leaf node (no nested 'pose' key)
@@ -161,8 +174,83 @@ class PoseAdapter(ROSAdapterBase[Pose]):
                 orientation=QuaternionAdapter.from_dict(ros_data["orientation"]),
             )
 
+    @classmethod
+    def to_ros(
+        cls,
+        mosaico_data: Union[Message, Pose],
+        typestore: Typestore,
+        input_ros_msg_type: Optional[str] = None,
+    ) -> "Optional[MsgType]":
+        """
+        Converts a Mosaico ``Pose`` (or a ``Message`` wrapping one) into the
+        corresponding ROS geometry message.
 
-@register_default_adapter
+        Supported output types (selectable via *input_ros_msg_type*):
+
+        - ``geometry_msgs/msg/Pose``
+        - ``geometry_msgs/msg/PoseStamped``
+        - ``geometry_msgs/msg/PoseWithCovariance``
+        - ``geometry_msgs/msg/PoseWithCovarianceStamped``
+
+        Args:
+            mosaico_data: A ``Message`` wrapping a ``Pose`` instance, or a raw ``Pose``.
+            typestore: The rosbags typestore for target type resolution.
+            input_ros_msg_type: Override for the output ROS type. Defaults to
+                ``geometry_msgs/msg/Pose`` if ``None``.
+
+        Returns:
+            The constructed ROS message, or ``None`` if the type is unsupported or
+            absent from the typestore.
+        """
+
+        # Resolve ROS message to translate Mosaico message to if not defined in input
+        resolved_rosmsg_type = input_ros_msg_type or cls.get_default_ros_msg()
+        if not cls.is_rosmsg_type_valid(resolved_rosmsg_type):
+            return None
+
+        # Checking presence in typestore of requested message
+        if typestore.types.get(resolved_rosmsg_type) is None:
+            return None
+
+        # Unpacking Mosaico message / type
+        pose_data, ms_header = cls.unpack_mosaico_msg(mosaico_data)
+
+        # Filling the data
+        RosPose = typestore.types["geometry_msgs/msg/Pose"]
+        RosPoseStamped = typestore.types["geometry_msgs/msg/PoseStamped"]
+        RosPoseWithCovariance = typestore.types["geometry_msgs/msg/PoseWithCovariance"]
+        RosPoseWithCovarianceStamped = typestore.types[
+            "geometry_msgs/msg/PoseWithCovarianceStamped"
+        ]
+
+        pose = RosPose(
+            position=PointAdapter.to_ros(pose_data.position, typestore),
+            orientation=QuaternionAdapter.to_ros(pose_data.orientation, typestore),
+        )
+
+        # In case covariance is None, a flatted 6x6 full of zeros is provided
+        pose_covariance = pose_data.covariance or [0.0] * 36
+
+        if resolved_rosmsg_type == "geometry_msgs/msg/Pose":
+            return pose
+        elif resolved_rosmsg_type == "geometry_msgs/msg/PoseStamped":
+            return RosPoseStamped(pose=pose, header=ms_header.to_ros(typestore))
+        elif resolved_rosmsg_type == "geometry_msgs/msg/PoseWithCovariance":
+            return RosPoseWithCovariance(
+                pose=pose, covariance=np.asarray(pose_covariance, dtype=np.float64)
+            )
+        elif resolved_rosmsg_type == "geometry_msgs/msg/PoseWithCovarianceStamped":
+            pose_w_cov = RosPoseWithCovariance(
+                pose=pose, covariance=np.asarray(pose_covariance, dtype=np.float64)
+            )
+            return RosPoseWithCovarianceStamped(
+                pose=pose_w_cov, header=ms_header.to_ros(typestore)
+            )
+
+        return None
+
+
+@register_default_adapter(is_default=True)
 class TwistAdapter(ROSAdapterBase[Velocity]):
     """
     Adapter for translating ROS Twist-related messages to Mosaico `Velocity`.
@@ -278,7 +366,13 @@ class TwistAdapter(ROSAdapterBase[Velocity]):
             out_twist = cls.from_dict(twist_dict)
 
             # Apply metadata from wrapper levels
-            out_twist.covariance = ros_data.get("covariance")
+            ros_covariance = ros_data.get("covariance")
+            if ros_covariance:
+                covariance = None
+                if _is_valid_covariance(ros_covariance):
+                    covariance = ros_covariance
+
+                out_twist.covariance = covariance
             return out_twist
 
         # Base Case: Leaf node
@@ -291,11 +385,92 @@ class TwistAdapter(ROSAdapterBase[Velocity]):
             )
 
     @classmethod
+    def to_ros(
+        cls,
+        mosaico_data: Union[Message, Velocity],
+        typestore: Typestore,
+        input_ros_msg_type: Optional[str] = None,
+    ) -> "Optional[MsgType]":
+        """
+        Converts a Mosaico ``Velocity`` (or a ``Message`` wrapping one) into the
+        corresponding ROS Twist message.
+
+        Supported output types (selectable via *input_ros_msg_type*):
+
+        - ``geometry_msgs/msg/Twist``
+        - ``geometry_msgs/msg/TwistStamped``
+        - ``geometry_msgs/msg/TwistWithCovariance``
+        - ``geometry_msgs/msg/TwistWithCovarianceStamped``
+
+        Args:
+            mosaico_data: A ``Message`` wrapping a ``Velocity`` instance, or a raw ``Velocity``.
+            typestore: The rosbags typestore for target type resolution.
+            input_ros_msg_type: Override for the output ROS type. Defaults to
+                ``geometry_msgs/msg/Twist`` if ``None``.
+
+        Returns:
+            The constructed ROS message, or ``None`` if the type is unsupported or
+            absent from the typestore.
+        """
+
+        # Resolve ROS message to translate Mosaico message to if not defined in input
+        resolved_rosmsg_type = input_ros_msg_type or cls.get_default_ros_msg()
+        if not cls.is_rosmsg_type_valid(resolved_rosmsg_type):
+            return None
+
+        # Checking presence in typestore of requested message
+        if typestore.types.get(resolved_rosmsg_type) is None:
+            return None
+
+        # Unpacking Mosaico message / type
+        velocity_data, ms_header = cls.unpack_mosaico_msg(mosaico_data)
+
+        # Filling the data
+        RosTwist = typestore.types["geometry_msgs/msg/Twist"]
+        RosTwistStamped = typestore.types["geometry_msgs/msg/TwistStamped"]
+        RosTwistWithCovariance = typestore.types[
+            "geometry_msgs/msg/TwistWithCovariance"
+        ]
+        RosTwistWithCovarianceStamped = typestore.types[
+            "geometry_msgs/msg/TwistWithCovarianceStamped"
+        ]
+
+        # In case covariance is None, a flatted 6x6 full of zeros is provided
+        twist_linear = velocity_data.linear or Vector3d(x=0, y=0, z=0)
+        twist_angular = velocity_data.angular or Vector3d(x=0, y=0, z=0)
+        twist_covariance = velocity_data.covariance or [0.0] * 36
+
+        twist = RosTwist(
+            linear=Vector3Adapter.to_ros(twist_linear, typestore),
+            angular=Vector3Adapter.to_ros(twist_angular, typestore),
+        )
+
+        if resolved_rosmsg_type == "geometry_msgs/msg/Twist":
+            return twist
+        elif resolved_rosmsg_type == "geometry_msgs/msg/TwistStamped":
+            return RosTwistStamped(twist=twist, header=ms_header.to_ros(typestore))
+        elif resolved_rosmsg_type == "geometry_msgs/msg/TwistWithCovariance":
+            return RosTwistWithCovariance(
+                twist=twist,
+                covariance=np.asarray(twist_covariance, dtype=np.float64),
+            )
+        elif resolved_rosmsg_type == "geometry_msgs/msg/TwistWithCovarianceStamped":
+            twist_w_cov = RosTwistWithCovariance(
+                twist=twist,
+                covariance=np.asarray(twist_covariance, dtype=np.float64),
+            )
+            return RosTwistWithCovarianceStamped(
+                twist=twist_w_cov, header=ms_header.to_ros(typestore)
+            )
+
+        return None
+
+    @classmethod
     def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
         return None
 
 
-@register_default_adapter
+@register_default_adapter(is_default=True)
 class AccelAdapter(ROSAdapterBase[Acceleration]):
     """
     Adapter for translating ROS Accel-related messages to Mosaico `Acceleration`.
@@ -407,7 +582,14 @@ class AccelAdapter(ROSAdapterBase[Acceleration]):
             out_accel = cls.from_dict(accel_dict)
 
             # Apply metadata from wrapper levels
-            out_accel.covariance = ros_data.get("covariance")
+            ros_covariance = ros_data.get("covariance")
+            if ros_covariance:
+                covariance = None
+                if _is_valid_covariance(ros_covariance):
+                    covariance = ros_covariance
+
+                out_accel.covariance = covariance
+
             return out_accel
 
         # Base Case: Leaf node
@@ -420,11 +602,90 @@ class AccelAdapter(ROSAdapterBase[Acceleration]):
             )
 
     @classmethod
+    def to_ros(
+        cls,
+        mosaico_data: Union[Message, Acceleration],
+        typestore: Typestore,
+        input_ros_msg_type: Optional[str] = None,
+    ) -> "Optional[MsgType]":
+        """
+        Converts a Mosaico ``Acceleration`` (or a ``Message`` wrapping one) into the
+        corresponding ROS Accel message.
+
+        Supported output types (selectable via *input_ros_msg_type*):
+
+        - ``geometry_msgs/msg/Accel``
+        - ``geometry_msgs/msg/AccelStamped``
+        - ``geometry_msgs/msg/AccelWithCovariance``
+        - ``geometry_msgs/msg/AccelWithCovarianceStamped``
+
+        Args:
+            mosaico_data: A ``Message`` wrapping an ``Acceleration`` instance, or a raw ``Acceleration``.
+            typestore: The rosbags typestore for target type resolution.
+            input_ros_msg_type: Override for the output ROS type. Defaults to
+                ``geometry_msgs/msg/Accel`` if ``None``.
+
+        Returns:
+            The constructed ROS message, or ``None`` if the type is unsupported or
+            absent from the typestore.
+        """
+
+        # Resolve ROS message to translate Mosaico message to if not defined in input
+        resolved_rosmsg_type = input_ros_msg_type or cls.get_default_ros_msg()
+        if not cls.is_rosmsg_type_valid(resolved_rosmsg_type):
+            return None
+
+        # Checking presence in typestore of requested message
+        if typestore.types.get(resolved_rosmsg_type) is None:
+            return None
+
+        # Unpacking Mosaico message / type
+        accel_data, ms_header = cls.unpack_mosaico_msg(mosaico_data)
+
+        # Filling the data
+        RosAccel = typestore.types["geometry_msgs/msg/Accel"]
+        RosAccelStamped = typestore.types["geometry_msgs/msg/AccelStamped"]
+        RosAccelWithCovariance = typestore.types[
+            "geometry_msgs/msg/AccelWithCovariance"
+        ]
+        RosAccelWithCovarianceStamped = typestore.types[
+            "geometry_msgs/msg/AccelWithCovarianceStamped"
+        ]
+
+        # In case covariance is None, a flatted 6x6 full of zeros is provided
+        accel_linear = accel_data.linear or Vector3d(x=0.0, y=0.0, z=0.0)
+        accel_angular = accel_data.angular or Vector3d(x=0.0, y=0.0, z=0.0)
+        accel_covariance = accel_data.covariance or [0.0] * 36
+
+        accel = RosAccel(
+            linear=Vector3Adapter.to_ros(accel_linear, typestore),
+            angular=Vector3Adapter.to_ros(accel_angular, typestore),
+        )
+
+        if resolved_rosmsg_type == "geometry_msgs/msg/Accel":
+            return accel
+        elif resolved_rosmsg_type == "geometry_msgs/msg/AccelStamped":
+            return RosAccelStamped(accel=accel, header=ms_header.to_ros(typestore))
+        elif resolved_rosmsg_type == "geometry_msgs/msg/AccelWithCovariance":
+            return RosAccelWithCovariance(
+                accel=accel, covariance=np.asarray(accel_covariance, dtype=np.float64)
+            )
+        elif resolved_rosmsg_type == "geometry_msgs/msg/AccelWithCovarianceStamped":
+            accel_w_cov = RosAccelWithCovariance(
+                accel=accel, covariance=np.asarray(accel_covariance, dtype=np.float64)
+            )
+            return RosAccelWithCovarianceStamped(
+                accel=accel_w_cov, header=ms_header.to_ros(typestore)
+            )
+
+        return None
+
+    @classmethod
     def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
         return None
 
 
-@register_default_adapter
+@register_default_adapter(is_default=True)
 class Vector3Adapter(ROSAdapterBase[Vector3d]):
     """
     Adapter for translating ROS Vector3 messages to Mosaico [`Vector3d`][mosaicolabs.models.data.Vector3d].
@@ -534,11 +795,67 @@ class Vector3Adapter(ROSAdapterBase[Vector3d]):
             )
 
     @classmethod
+    def to_ros(
+        cls,
+        mosaico_data: Union[Message, Vector3d],
+        typestore: Typestore,
+        input_ros_msg_type: Optional[str] = None,
+    ) -> "Optional[MsgType]":
+        """
+        Converts a Mosaico ``Vector3d`` (or a ``Message`` wrapping one) into the
+        corresponding ROS Vector3 message.
+
+        Supported output types (selectable via *input_ros_msg_type*):
+
+        - ``geometry_msgs/msg/Vector3``
+        - ``geometry_msgs/msg/Vector3Stamped``
+
+        Args:
+            mosaico_data: A ``Message`` wrapping a ``Vector3d`` instance, or a raw ``Vector3d``.
+            typestore: The rosbags typestore for target type resolution.
+            input_ros_msg_type: Override for the output ROS type. Defaults to
+                ``geometry_msgs/msg/Vector3`` if ``None``.
+
+        Returns:
+            The constructed ROS message, or ``None`` if the type is unsupported or
+            absent from the typestore.
+        """
+
+        # Resolve ROS message to translate Mosaico message to if not defined in input
+        resolved_rosmsg_type = input_ros_msg_type or cls.get_default_ros_msg()
+        if not cls.is_rosmsg_type_valid(resolved_rosmsg_type):
+            return None
+
+        # Checking presence in typestore of requested message
+        if typestore.types.get(resolved_rosmsg_type) is None:
+            return None
+
+        # Unpacking Mosaico message / type
+        vector3d_data, ms_header = cls.unpack_mosaico_msg(mosaico_data)
+
+        # Filling the data
+        RosVector3 = typestore.types["geometry_msgs/msg/Vector3"]
+        RosVector3Stamped = typestore.types["geometry_msgs/msg/Vector3Stamped"]
+
+        vector = RosVector3(
+            x=vector3d_data.x,
+            y=vector3d_data.y,
+            z=vector3d_data.z,
+        )
+
+        if resolved_rosmsg_type == "geometry_msgs/msg/Vector3":
+            return vector
+        elif resolved_rosmsg_type == "geometry_msgs/msg/Vector3Stamped":
+            return RosVector3Stamped(vector=vector, header=ms_header.to_ros(typestore))
+
+        return None
+
+    @classmethod
     def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
         return None
 
 
-@register_default_adapter
+@register_default_adapter(is_default=True)
 class PointAdapter(ROSAdapterBase[Point3d]):
     """
     Adapter for translating ROS Point messages to Mosaico `Point3d`.
@@ -648,11 +965,63 @@ class PointAdapter(ROSAdapterBase[Point3d]):
             )
 
     @classmethod
+    def to_ros(
+        cls,
+        mosaico_data: Union[Message, Point3d],
+        typestore: Typestore,
+        input_ros_msg_type: Optional[str] = None,
+    ) -> "Optional[MsgType]":
+        """
+        Converts a Mosaico ``Point3d`` (or a ``Message`` wrapping one) into the
+        corresponding ROS Point message.
+
+        Supported output types (selectable via *input_ros_msg_type*):
+
+        - ``geometry_msgs/msg/Point``
+        - ``geometry_msgs/msg/PointStamped``
+
+        Args:
+            mosaico_data: A ``Message`` wrapping a ``Point3d`` instance, or a raw ``Point3d``.
+            typestore: The rosbags typestore for target type resolution.
+            input_ros_msg_type: Override for the output ROS type. Defaults to
+                ``geometry_msgs/msg/Point`` if ``None``.
+
+        Returns:
+            The constructed ROS message, or ``None`` if the type is unsupported or
+            absent from the typestore.
+        """
+
+        # Resolve ROS message to translate Mosaico message to if not defined in input
+        resolved_rosmsg_type = input_ros_msg_type or cls.get_default_ros_msg()
+        if not cls.is_rosmsg_type_valid(resolved_rosmsg_type):
+            return None
+
+        # Checking presence in typestore of requested message
+        if typestore.types.get(resolved_rosmsg_type) is None:
+            return None
+
+        # Unpacking Mosaico message / type
+        point_data, ms_header = cls.unpack_mosaico_msg(mosaico_data)
+
+        # Filling the data
+        RosPoint = typestore.types["geometry_msgs/msg/Point"]
+        RosPointStamped = typestore.types["geometry_msgs/msg/PointStamped"]
+
+        point = RosPoint(x=point_data.x, y=point_data.y, z=point_data.z)
+
+        if resolved_rosmsg_type == "geometry_msgs/msg/Point":
+            return point
+        elif resolved_rosmsg_type == "geometry_msgs/msg/PointStamped":
+            return RosPointStamped(header=ms_header.to_ros(typestore), point=point)
+
+        return None
+
+    @classmethod
     def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
         return None
 
 
-@register_default_adapter
+@register_default_adapter(is_default=True)
 class QuaternionAdapter(ROSAdapterBase[Quaternion]):
     """
     Adapter for translating ROS Quaternion messages to Mosaico `Quaternion`.
@@ -763,11 +1132,70 @@ class QuaternionAdapter(ROSAdapterBase[Quaternion]):
             )
 
     @classmethod
+    def to_ros(
+        cls,
+        mosaico_data: Union[Message, Quaternion],
+        typestore: Typestore,
+        input_ros_msg_type: Optional[str] = None,
+    ) -> "Optional[MsgType]":
+        """
+        Converts a Mosaico ``Quaternion`` (or a ``Message`` wrapping one) into the
+        corresponding ROS Quaternion message.
+
+        Supported output types (selectable via *input_ros_msg_type*):
+
+        - ``geometry_msgs/msg/Quaternion``
+        - ``geometry_msgs/msg/QuaternionStamped``
+
+        Args:
+            mosaico_data: A ``Message`` wrapping a ``Quaternion`` instance, or a raw ``Quaternion``.
+            typestore: The rosbags typestore for target type resolution.
+            input_ros_msg_type: Override for the output ROS type. Defaults to
+                ``geometry_msgs/msg/Quaternion`` if ``None``.
+
+        Returns:
+            The constructed ROS message, or ``None`` if the type is unsupported or
+            absent from the typestore.
+        """
+
+        # Resolve ROS message to translate Mosaico message to if not defined in input
+        resolved_rosmsg_type = input_ros_msg_type or cls.get_default_ros_msg()
+        if not cls.is_rosmsg_type_valid(resolved_rosmsg_type):
+            return None
+
+        # Checking presence in typestore of requested message
+        if typestore.types.get(resolved_rosmsg_type) is None:
+            return None
+
+        # Unpacking Mosaico message / type
+        quaternion_data, ms_header = cls.unpack_mosaico_msg(mosaico_data)
+
+        # Filling the data
+        RosQuaternion = typestore.types["geometry_msgs/msg/Quaternion"]
+        RosQuaternionStamped = typestore.types["geometry_msgs/msg/QuaternionStamped"]
+
+        quaternion = RosQuaternion(
+            x=quaternion_data.x,
+            y=quaternion_data.y,
+            z=quaternion_data.z,
+            w=quaternion_data.w,
+        )
+
+        if resolved_rosmsg_type == "geometry_msgs/msg/Quaternion":
+            return quaternion
+        elif resolved_rosmsg_type == "geometry_msgs/msg/QuaternionStamped":
+            return RosQuaternionStamped(
+                header=ms_header.to_ros(typestore), quaternion=quaternion
+            )
+
+        return None
+
+    @classmethod
     def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
         return None
 
 
-@register_default_adapter
+@register_default_adapter(is_default=True)
 class TransformAdapter(ROSAdapterBase[Transform]):
     """
     Adapter for translating ROS Transform messages to Mosaico `Transform`.
@@ -798,8 +1226,8 @@ class TransformAdapter(ROSAdapterBase[Transform]):
     """
 
     ros_msgtype: str | Tuple[str, ...] = (
-        "geometry_msgs/msg/TransformStamped",
         "geometry_msgs/msg/Transform",
+        "geometry_msgs/msg/TransformStamped",
     )
 
     __mosaico_ontology_type__: Type[Transform] = Transform
@@ -866,6 +1294,9 @@ class TransformAdapter(ROSAdapterBase[Transform]):
             out_transf = cls.from_dict(transf_dict)
 
             # Apply metadata
+            out_transf.source_frame_id = ROSHeader.from_dict(
+                ros_data["header"]
+            ).frame_id
             out_transf.target_frame_id = ros_data.get("child_frame_id")
             return out_transf
 
@@ -879,11 +1310,73 @@ class TransformAdapter(ROSAdapterBase[Transform]):
             )
 
     @classmethod
+    def to_ros(
+        cls,
+        mosaico_data: Union[Message, Transform],
+        typestore: Typestore,
+        input_ros_msg_type: Optional[str] = None,
+    ) -> "Optional[MsgType]":
+        """
+        Converts a Mosaico ``Transform`` (or a ``Message`` wrapping one) into the
+        corresponding ROS Transform message.
+
+        Supported output types (selectable via *input_ros_msg_type*):
+
+        - ``geometry_msgs/msg/Transform``
+        - ``geometry_msgs/msg/TransformStamped``
+
+        Args:
+            mosaico_data: A ``Message`` wrapping a ``Transform`` instance, or a raw ``Transform``.
+            typestore: The rosbags typestore for target type resolution.
+            input_ros_msg_type: Override for the output ROS type. Defaults to
+                ``geometry_msgs/msg/Transform`` if ``None``.
+
+        Returns:
+            The constructed ROS message, or ``None`` if the type is unsupported or
+            absent from the typestore.
+        """
+
+        # Resolve ROS message to translate Mosaico message to if not defined in input
+        resolved_rosmsg_type = input_ros_msg_type or cls.get_default_ros_msg()
+        if not cls.is_rosmsg_type_valid(resolved_rosmsg_type):
+            return None
+
+        # Checking presence in typestore of requested message
+        if typestore.types.get(resolved_rosmsg_type) is None:
+            return None
+
+        # Unpacking Mosaico message / type
+        transform_data, ms_header = cls.unpack_mosaico_msg(mosaico_data)
+
+        # Filling the data
+        ms_header.frame_id = transform_data.source_frame_id or ""
+        target_frame_id = transform_data.target_frame_id or ""
+
+        RosTransform = typestore.types["geometry_msgs/msg/Transform"]
+        RosTransformStamped = typestore.types["geometry_msgs/msg/TransformStamped"]
+
+        transform = RosTransform(
+            translation=Vector3Adapter.to_ros(transform_data.translation, typestore),
+            rotation=QuaternionAdapter.to_ros(transform_data.rotation, typestore),
+        )
+
+        if resolved_rosmsg_type == "geometry_msgs/msg/Transform":
+            return transform
+        elif resolved_rosmsg_type == "geometry_msgs/msg/TransformStamped":
+            return RosTransformStamped(
+                header=ms_header.to_ros(typestore),
+                child_frame_id=target_frame_id,
+                transform=transform,
+            )
+
+        return None
+
+    @classmethod
     def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
         return None
 
 
-@register_default_adapter
+@register_default_adapter(is_default=True)
 class WrenchAdapter(ROSAdapterBase[ForceTorque]):
     """
     Adapter for translating ROS Wrench messages to Mosaico `ForceTorque`.
@@ -914,8 +1407,8 @@ class WrenchAdapter(ROSAdapterBase[ForceTorque]):
     """
 
     ros_msgtype: str | Tuple[str, ...] = (
-        "geometry_msgs/msg/WrenchStamped",
         "geometry_msgs/msg/Wrench",
+        "geometry_msgs/msg/WrenchStamped",
     )
 
     __mosaico_ontology_type__: Type[ForceTorque] = ForceTorque
@@ -985,11 +1478,66 @@ class WrenchAdapter(ROSAdapterBase[ForceTorque]):
             )
 
     @classmethod
+    def to_ros(
+        cls,
+        mosaico_data: Union[Message, ForceTorque],
+        typestore: Typestore,
+        input_ros_msg_type: Optional[str] = None,
+    ) -> "Optional[MsgType]":
+        """
+        Converts a Mosaico ``ForceTorque`` (or a ``Message`` wrapping one) into the
+        corresponding ROS Wrench message.
+
+        Supported output types (selectable via *input_ros_msg_type*):
+
+        - ``geometry_msgs/msg/Wrench``
+        - ``geometry_msgs/msg/WrenchStamped``
+
+        Args:
+            mosaico_data: A ``Message`` wrapping a ``ForceTorque`` instance, or a raw ``ForceTorque``.
+            typestore: The rosbags typestore for target type resolution.
+            input_ros_msg_type: Override for the output ROS type. Defaults to
+                ``geometry_msgs/msg/Wrench`` if ``None``.
+
+        Returns:
+            The constructed ROS message, or ``None`` if the type is unsupported or
+            absent from the typestore.
+        """
+
+        # Resolve ROS message to translate Mosaico message to if not defined in input
+        resolved_rosmsg_type = input_ros_msg_type or cls.get_default_ros_msg()
+        if not cls.is_rosmsg_type_valid(resolved_rosmsg_type):
+            return None
+
+        # Checking presence in typestore of requested message
+        if typestore.types.get(resolved_rosmsg_type) is None:
+            return None
+
+        # Unpacking Mosaico message / type
+        force_torque_data, ms_header = cls.unpack_mosaico_msg(mosaico_data)
+
+        # Filling the data
+        RosWrench = typestore.types["geometry_msgs/msg/Wrench"]
+        RosWrenchStamped = typestore.types["geometry_msgs/msg/WrenchStamped"]
+
+        wrench = RosWrench(
+            force=Vector3Adapter.to_ros(force_torque_data.force, typestore),
+            torque=Vector3Adapter.to_ros(force_torque_data.torque, typestore),
+        )
+
+        if resolved_rosmsg_type == "geometry_msgs/msg/Wrench":
+            return wrench
+        elif resolved_rosmsg_type == "geometry_msgs/msg/WrenchStamped":
+            return RosWrenchStamped(wrench=wrench, header=ms_header.to_ros(typestore))
+
+        return None
+
+    @classmethod
     def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
         return None
 
 
-@register_default_adapter
+@register_default_adapter(is_default=True)
 class PolygonAdapter(ROSAdapterBase[Polygon]):
     """
     Adapter for translating ROS Polygon messages to Mosaico `Polygon`.
@@ -1021,8 +1569,8 @@ class PolygonAdapter(ROSAdapterBase[Polygon]):
     """
 
     ros_msgtype: str | Tuple[str, ...] = (
-        "geometry_msgs/msg/PolygonStamped",
         "geometry_msgs/msg/Polygon",
+        "geometry_msgs/msg/PolygonStamped",
     )
 
     __mosaico_ontology_type__: Type[Polygon] = Polygon
@@ -1081,11 +1629,70 @@ class PolygonAdapter(ROSAdapterBase[Polygon]):
             return Polygon(points=points)
 
     @classmethod
+    def to_ros(
+        cls,
+        mosaico_data: Union[Message, Polygon],
+        typestore: Typestore,
+        input_ros_msg_type: Optional[str] = None,
+    ) -> "Optional[MsgType]":
+        """
+        Converts a Mosaico ``Polygon`` (or a ``Message`` wrapping one) into the
+        corresponding ROS Polygon message.
+
+        Supported output types (selectable via *input_ros_msg_type*):
+
+        - ``geometry_msgs/msg/Polygon``
+        - ``geometry_msgs/msg/PolygonStamped``
+
+        Args:
+            mosaico_data: A ``Message`` wrapping a ``Polygon`` instance, or a raw ``Polygon``.
+            typestore: The rosbags typestore for target type resolution.
+            input_ros_msg_type: Override for the output ROS type. Defaults to
+                ``geometry_msgs/msg/Polygon`` if ``None``.
+
+        Returns:
+            The constructed ROS message, or ``None`` if the type is unsupported or
+            absent from the typestore.
+        """
+
+        # Resolve ROS message to translate Mosaico message to if not defined in input
+        resolved_rosmsg_type = input_ros_msg_type or cls.get_default_ros_msg()
+        if not cls.is_rosmsg_type_valid(resolved_rosmsg_type):
+            return None
+
+        # Checking presence in typestore of requested message
+        if typestore.types.get(resolved_rosmsg_type) is None:
+            return None
+
+        # Unpacking Mosaico message / type
+        polygon_data, ms_header = cls.unpack_mosaico_msg(mosaico_data)
+
+        # Filling the data
+        RosPolygon = typestore.types["geometry_msgs/msg/Polygon"]
+        RosPolygonStamped = typestore.types["geometry_msgs/msg/PolygonStamped"]
+
+        polygon = RosPolygon(
+            points=[
+                PointAdapter.to_ros(point3d, typestore)
+                for point3d in polygon_data.points
+            ],
+        )
+
+        if resolved_rosmsg_type == "geometry_msgs/msg/Polygon":
+            return polygon
+        elif resolved_rosmsg_type == "geometry_msgs/msg/PolygonStamped":
+            return RosPolygonStamped(
+                polygon=polygon, header=ms_header.to_ros(typestore)
+            )
+
+        return None
+
+    @classmethod
     def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
         return None
 
 
-@register_default_adapter
+@register_default_adapter(is_default=True)
 class InertiaAdapter(ROSAdapterBase[Inertia]):
     """
     Adapter for translating ROS Inertia messages to Mosaico `Inertia`.
@@ -1121,8 +1728,8 @@ class InertiaAdapter(ROSAdapterBase[Inertia]):
     """
 
     ros_msgtype: str | Tuple[str, ...] = (
-        "geometry_msgs/msg/InertiaStamped",
         "geometry_msgs/msg/Inertia",
+        "geometry_msgs/msg/InertiaStamped",
     )
 
     __mosaico_ontology_type__: Type[Inertia] = Inertia
@@ -1194,10 +1801,7 @@ class InertiaAdapter(ROSAdapterBase[Inertia]):
                 ros_data["ixx"],
                 ros_data["ixy"],
                 ros_data["ixz"],
-                ros_data["ixy"],
                 ros_data["iyy"],
-                ros_data["iyz"],
-                ros_data["ixz"],
                 ros_data["iyz"],
                 ros_data["izz"],
             ]
@@ -1207,6 +1811,69 @@ class InertiaAdapter(ROSAdapterBase[Inertia]):
                 center_of_mass=center_of_mass,
                 inertia=inertia_tensor,
             )
+
+    @classmethod
+    def to_ros(
+        cls,
+        mosaico_data: Union[Message, Inertia],
+        typestore: Typestore,
+        input_ros_msg_type: Optional[str] = None,
+    ) -> "Optional[MsgType]":
+        """
+        Converts a Mosaico ``Inertia`` (or a ``Message`` wrapping one) into the
+        corresponding ROS Inertia message.
+
+        Supported output types (selectable via *input_ros_msg_type*):
+
+        - ``geometry_msgs/msg/Inertia``
+        - ``geometry_msgs/msg/InertiaStamped``
+
+        Args:
+            mosaico_data: A ``Message`` wrapping an ``Inertia`` instance, or a raw ``Inertia``.
+            typestore: The rosbags typestore for target type resolution.
+            input_ros_msg_type: Override for the output ROS type. Defaults to
+                ``geometry_msgs/msg/Inertia`` if ``None``.
+
+        Returns:
+            The constructed ROS message, or ``None`` if the type is unsupported or
+            absent from the typestore.
+        """
+
+        # Resolve ROS message to translate Mosaico message to if not defined in input
+        resolved_rosmsg_type = input_ros_msg_type or cls.get_default_ros_msg()
+        if not cls.is_rosmsg_type_valid(resolved_rosmsg_type):
+            return None
+
+        # Checking presence in typestore of requested message
+        if typestore.types.get(resolved_rosmsg_type) is None:
+            return None
+
+        # Unpacking Mosaico message / type
+        inertia_data, ms_header = cls.unpack_mosaico_msg(mosaico_data)
+
+        # Filling the data
+        RosInertia = typestore.types["geometry_msgs/msg/Inertia"]
+        RosInertiaStamped = typestore.types["geometry_msgs/msg/InertiaStamped"]
+
+        inertia = RosInertia(
+            m=inertia_data.mass,
+            com=Vector3Adapter.to_ros(inertia_data.center_of_mass, typestore),
+            ixx=inertia_data.inertia[0],
+            ixy=inertia_data.inertia[1],
+            ixz=inertia_data.inertia[2],
+            iyy=inertia_data.inertia[3],
+            iyz=inertia_data.inertia[4],
+            izz=inertia_data.inertia[5],
+        )
+
+        if resolved_rosmsg_type == "geometry_msgs/msg/Inertia":
+            return inertia
+        elif resolved_rosmsg_type == "geometry_msgs/msg/InertiaStamped":
+            return RosInertiaStamped(
+                header=ms_header.to_ros(typestore), inertia=inertia
+            )
+
+        return None
 
     @classmethod
     def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:

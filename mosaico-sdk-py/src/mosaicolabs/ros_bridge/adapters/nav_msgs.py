@@ -1,4 +1,9 @@
-from typing import Any, Optional, Tuple, Type
+from typing import TYPE_CHECKING, Any, Optional, Tuple, Type, Union
+
+from rosbags.typesys.store import Typestore
+
+if TYPE_CHECKING:
+    from rosbags.typesys.store import MsgType
 
 from mosaicolabs.models import Message
 from mosaicolabs.models.data import MotionState
@@ -10,7 +15,7 @@ from .geometry_msgs import PoseAdapter, TwistAdapter
 from .helpers import _validate_msgdata
 
 
-@register_default_adapter
+@register_default_adapter(is_default=True)
 class OdometryAdapter(ROSAdapterBase[MotionState]):
     """
     Adapter for translating ROS Odometry messages to Mosaico `MotionState`.
@@ -105,6 +110,59 @@ class OdometryAdapter(ROSAdapterBase[MotionState]):
             pose=PoseAdapter.from_dict(ros_data["pose"]),
             velocity=TwistAdapter.from_dict(ros_data["twist"]),
         )
+
+    @classmethod
+    def to_ros(
+        cls,
+        mosaico_data: Union[Message, MotionState],
+        typestore: Typestore,
+        input_ros_msg_type: Optional[str] = None,
+    ) -> "Optional[MsgType]":
+        """
+        Converts a Mosaico ``MotionState`` (or a ``Message`` wrapping one) into a
+        ``nav_msgs/msg/Odometry`` message.
+
+        Args:
+            mosaico_data: A ``Message`` wrapping a ``MotionState`` instance, or a raw ``MotionState``.
+            typestore: The rosbags typestore for target type resolution.
+            input_ros_msg_type: Override for the output ROS type. Only
+                ``nav_msgs/msg/Odometry`` is supported.
+
+        Returns:
+            A ``nav_msgs/msg/Odometry`` instance, or ``None`` if the type is
+            unsupported or absent from the typestore.
+        """
+
+        # Resolve ROS message to translate Mosaico message to if not defined in input
+        resolved_rosmsg_type = input_ros_msg_type or cls.get_default_ros_msg()
+        if not cls.is_rosmsg_type_valid(resolved_rosmsg_type):
+            return None
+
+        # Checking presence in typestore of requested message
+        if typestore.types.get(resolved_rosmsg_type) is None:
+            return None
+
+        # Unpacking Mosaico message / type
+        motion_data, header_ms = cls.unpack_mosaico_msg(mosaico_data)
+
+        # Filling the data
+        RosOdometry = typestore.types["nav_msgs/msg/Odometry"]
+
+        if resolved_rosmsg_type == "nav_msgs/msg/Odometry":
+            return RosOdometry(
+                header=header_ms.to_ros(typestore),
+                child_frame_id=motion_data.target_frame_id,
+                pose=PoseAdapter.to_ros(
+                    motion_data.pose, typestore, "geometry_msgs/msg/PoseWithCovariance"
+                ),
+                twist=TwistAdapter.to_ros(
+                    motion_data.velocity,
+                    typestore,
+                    "geometry_msgs/msg/TwistWithCovariance",
+                ),
+            )
+
+        return None
 
     @classmethod
     def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
