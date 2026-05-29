@@ -1349,7 +1349,7 @@ class TransformAdapter(ROSAdapterBase[Transform]):
         transform_data, ms_header = cls.unpack_mosaico_msg(mosaico_data)
 
         # Filling the data
-        # source_frame_id = transform_data.source_frame_id or ""
+        ms_header.frame_id = transform_data.source_frame_id or ""
         target_frame_id = transform_data.target_frame_id or ""
 
         RosTransform = typestore.types["geometry_msgs/msg/Transform"]
