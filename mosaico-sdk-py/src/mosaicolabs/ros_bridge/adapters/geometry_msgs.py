@@ -156,10 +156,11 @@ class PoseAdapter(ROSAdapterBase[Pose]):
             out_pose = cls.from_dict(pose_dict)
 
             # While unwinding recursion, attach metadata found at this level
-            if ros_data.get("covariance"):
+            ros_covariance = ros_data.get("covariance")
+            if ros_covariance:
                 covariance = None
-                if _is_valid_covariance(ros_data.get("covariance")):
-                    covariance = ros_data.get("covariance")
+                if _is_valid_covariance(ros_covariance):
+                    covariance = ros_covariance
 
                 out_pose.covariance = covariance
 
@@ -365,10 +366,11 @@ class TwistAdapter(ROSAdapterBase[Velocity]):
             out_twist = cls.from_dict(twist_dict)
 
             # Apply metadata from wrapper levels
-            if ros_data.get("covariance"):
+            ros_covariance = ros_data.get("covariance")
+            if ros_covariance:
                 covariance = None
-                if _is_valid_covariance(ros_data.get("covariance")):
-                    covariance = ros_data.get("covariance")
+                if _is_valid_covariance(ros_covariance):
+                    covariance = ros_covariance
 
                 out_twist.covariance = covariance
             return out_twist
@@ -580,10 +582,11 @@ class AccelAdapter(ROSAdapterBase[Acceleration]):
             out_accel = cls.from_dict(accel_dict)
 
             # Apply metadata from wrapper levels
-            if ros_data.get("covariance"):
+            ros_covariance = ros_data.get("covariance")
+            if ros_covariance:
                 covariance = None
-                if _is_valid_covariance(ros_data.get("covariance")):
-                    covariance = ros_data.get("covariance")
+                if _is_valid_covariance(ros_covariance):
+                    covariance = ros_covariance
 
                 out_accel.covariance = covariance
 

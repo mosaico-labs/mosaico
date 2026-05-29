@@ -510,8 +510,9 @@ class GPSAdapter(ROSAdapterBase[GPS]):
 
         covariance = None
         covariance_type = None
-        if _is_valid_covariance(ros_data.get("position_covariance")):
-            covariance = ros_data.get("position_covariance")
+        ros_covariance = ros_data.get("position_covariance")
+        if _is_valid_covariance(ros_covariance):
+            covariance = ros_covariance
             covariance_type = ros_data.get("position_covariance_type")
 
         # valid when status.status >= STATUS_FIX (-1)
@@ -704,20 +705,23 @@ class IMUAdapter(ROSAdapterBase[IMU]):
         # Optional Field Conversions (Attitude)
         # Check if the orientation is valid
         orientation = None
-        if cls._is_data_available(ros_data.get("orientation_covariance")):
+        ros_orientation_cov = ros_data.get("orientation_covariance")
+        if cls._is_data_available(ros_orientation_cov):
             ori_dict = ros_data.get("orientation")
             orientation = QuaternionAdapter.from_dict(ori_dict) if ori_dict else None
-        if orientation and _is_valid_covariance(ros_data.get("orientation_covariance")):
-            orientation.covariance = ros_data.get("orientation_covariance")
+        if orientation and _is_valid_covariance(ros_orientation_cov):
+            orientation.covariance = ros_orientation_cov
 
         # Optional Field Conversions (Covariance)
-        if _is_valid_covariance(ros_data.get("linear_acceleration_covariance")):
+        ros_acc_cov = ros_data.get("linear_acceleration_covariance")
+        if _is_valid_covariance(ros_acc_cov):
             # ROS covariance is a 9-element array (row-major 3x3).
             # Vector9d is assumed to take these 9 elements directly.
-            accel.covariance = ros_data.get("linear_acceleration_covariance")
+            accel.covariance = ros_acc_cov
 
-        if _is_valid_covariance(ros_data.get("angular_velocity_covariance")):
-            angular_vel.covariance = ros_data.get("angular_velocity_covariance")
+        ros_ang_vel_cov = ros_data.get("angular_velocity_covariance")
+        if _is_valid_covariance(ros_ang_vel_cov):
+            angular_vel.covariance = ros_ang_vel_cov
 
         return IMU(
             acceleration=accel,
