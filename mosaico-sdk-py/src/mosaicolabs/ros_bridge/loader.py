@@ -514,10 +514,9 @@ class MosaicoLoader:
 
     def validate_sequence(self):
         if self.seq_handler is None:
-            all_seq = self.client.list_sequences()
             raise (
                 ValueError(
-                    f"Your requested sequence '{self.sequence_name}' could not be found. The available Sequences are: {all_seq}"
+                    f"Your requested sequence '{self.sequence_name}' could not be found!"
                 )
             )
 
