@@ -16,11 +16,13 @@ mosaicod-facade = { workspace = true }
 mosaicod-query = { workspace = true }
 mosaicod-ext = { workspace = true, features = ["testing"] }
 mosaicod-marshal = { workspace = true}
+mosaicod-task = { workspace = true}
 
 arrow-flight = { workspace = true }
 tonic = { workspace = true }
 sqlx = { workspace = true }
 tokio = { workspace = true }
+tokio-util = { workspace = true }
 serde_json = { workspace = true }
 serde = { workspace = true }
 rand = { workspace = true }
@@ -29,6 +31,7 @@ arrow = { workspace = true }
 url = { workspace = true }
 tower = { workspace = true }
 ulid = { workspace = true }
+chrono = { workspace = true }
 
 [dev-dependencies]
 mosaicod-marshal = { workspace = true }

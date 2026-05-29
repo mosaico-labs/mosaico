@@ -1,0 +1,52 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT * FROM cleanup_log_t ORDER BY start_unix_tstamp_secs DESC LIMIT $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "cleanup_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "start_unix_tstamp_secs",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "end_unix_tstamp_secs",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 3,
+        "name": "marked_folders",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 4,
+        "name": "deleted_folders",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 5,
+        "name": "failed_folders",
+        "type_info": "Jsonb"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "b0f7cb54e39259110e4e7404d7e0eb443ba12c1c91e010b9d67e958a1f89b7b4"
+}

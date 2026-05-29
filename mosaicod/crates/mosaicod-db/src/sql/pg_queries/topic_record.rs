@@ -89,6 +89,25 @@ pub async fn topic_find_by_id(
     Ok(res)
 }
 
+/// Search for a topic with the given path_in_store.
+pub async fn topic_find_path_in_store(
+    exe: &mut impl AsExec,
+    path_in_store: &str,
+) -> Result<bool, Error> {
+    trace!(
+        "searching if path_in_store `{}` is assigned to a topic",
+        path_in_store
+    );
+    let found: bool = sqlx::query_scalar!(
+        r#"SELECT EXISTS(SELECT 1 FROM topic_t WHERE path_in_store=$1) as "found!""#,
+        path_in_store
+    )
+    .fetch_one(exe.as_exec())
+    .await?;
+
+    Ok(found)
+}
+
 /// Return all topics
 pub async fn topic_find_all(exe: &mut impl AsExec) -> Result<Vec<schema::TopicRecord>, Error> {
     trace!("retrieving all topics");
@@ -297,6 +316,22 @@ pub async fn topic_update_path_in_store(
             WHERE topic_id = $2
     "#,
         Some(String::from(path_in_store)),
+        topic_id,
+    )
+    .execute(exe.as_exec())
+    .await?;
+
+    Ok(())
+}
+
+pub async fn topic_delete_path_in_store(exe: &mut impl AsExec, topic_id: i32) -> Result<(), Error> {
+    trace!("removing path_in_store for topic with id {}", topic_id);
+    sqlx::query!(
+        r#"
+            UPDATE topic_t
+            SET path_in_store = NULL
+            WHERE topic_id = $1
+    "#,
         topic_id,
     )
     .execute(exe.as_exec())

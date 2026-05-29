@@ -619,9 +619,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.6.0"
+version = "4.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b193af5b67834b676abd72466a96c1024e6a6ad978a1f484bd90b85c94041351"
+checksum = "1ddb117e43bbf7dacf0a4190fef4d345b9bad68dfc649cb349e7d17d28428e51"
 dependencies = [
  "clap_builder",
  "clap_derive",
@@ -641,9 +641,9 @@ dependencies = [
 
 [[package]]
 name = "clap_derive"
-version = "4.6.0"
+version = "4.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1110bd8a634a1ab8cb04345d8d878267d57c3cf1b38d91b71af6686408bbca6a"
+checksum = "f2ce8604710f6733aa641a2b3731eaa1e8b3d9973d5e3565da11800813f997a9"
 dependencies = [
  "heck",
  "proc-macro2",
@@ -1623,6 +1623,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "37909eebbb50d72f9059c3b6d82c0463f2ff062c9e95845c43a6c9c0355411be"
 
 [[package]]
+name = "filetime"
+version = "0.2.27"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f98844151eee8917efc50bd9e8318cb963ae8b297431495d3f758616ea5c57db"
+dependencies = [
+ "cfg-if",
+ "libc",
+ "libredox",
+]
+
+[[package]]
 name = "find-msvc-tools"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2566,7 +2577,7 @@ dependencies = [
 
 [[package]]
 name = "mosaicod"
-version = "0.4.0"
+version = "0.6.0-dev"
 dependencies = [
  "chrono",
  "clap",
@@ -2591,14 +2602,14 @@ dependencies = [
 
 [[package]]
 name = "mosaicod-build"
-version = "0.4.0"
+version = "0.6.0-dev"
 dependencies = [
  "chrono",
 ]
 
 [[package]]
 name = "mosaicod-core"
-version = "0.4.0"
+version = "0.6.0-dev"
 dependencies = [
  "bytes",
  "chrono",
@@ -2612,34 +2623,38 @@ dependencies = [
 
 [[package]]
 name = "mosaicod-db"
-version = "0.4.0"
+version = "0.6.0-dev"
 dependencies = [
+ "chrono",
  "log",
  "mosaicod-core",
  "mosaicod-marshal",
  "mosaicod-query",
  "serde_json",
  "sqlx",
+ "tokio",
  "url",
  "uuid",
 ]
 
 [[package]]
 name = "mosaicod-ext"
-version = "0.4.0"
+version = "0.6.0-dev"
 dependencies = [
  "arrow",
  "arrow-cast",
  "arrow-schema",
+ "futures",
  "mosaicod-core",
  "parquet",
  "thiserror",
+ "tokio",
  "tonic",
 ]
 
 [[package]]
 name = "mosaicod-facade"
-version = "0.4.0"
+version = "0.6.0-dev"
 dependencies = [
  "arrow",
  "futures",
@@ -2659,7 +2674,7 @@ dependencies = [
 
 [[package]]
 name = "mosaicod-marshal"
-version = "0.4.0"
+version = "0.6.0-dev"
 dependencies = [
  "bincode",
  "bytes",
@@ -2673,7 +2688,7 @@ dependencies = [
 
 [[package]]
 name = "mosaicod-query"
-version = "0.4.0"
+version = "0.6.0-dev"
 dependencies = [
  "arrow",
  "datafusion",
@@ -2690,7 +2705,7 @@ dependencies = [
 
 [[package]]
 name = "mosaicod-rw"
-version = "0.4.0"
+version = "0.6.0-dev"
 dependencies = [
  "arrow",
  "arrow-schema",
@@ -2706,10 +2721,11 @@ dependencies = [
 
 [[package]]
 name = "mosaicod-server"
-version = "0.4.0"
+version = "0.6.0-dev"
 dependencies = [
  "arrow",
  "arrow-flight",
+ "datafusion",
  "futures",
  "http",
  "log",
@@ -2721,10 +2737,13 @@ dependencies = [
  "mosaicod-query",
  "mosaicod-rw",
  "mosaicod-store",
+ "mosaicod-task",
  "semver",
  "serde_json",
  "thiserror",
  "tokio",
+ "tokio-stream",
+ "tokio-util",
  "tonic",
  "tower",
  "tracing",
@@ -2732,9 +2751,10 @@ dependencies = [
 
 [[package]]
 name = "mosaicod-store"
-version = "0.4.0"
+version = "0.6.0-dev"
 dependencies = [
  "bytes",
+ "chrono",
  "datafusion",
  "futures",
  "log",
@@ -2744,6 +2764,22 @@ dependencies = [
  "thiserror",
  "tokio",
  "url",
+]
+
+[[package]]
+name = "mosaicod-task"
+version = "0.6.0-dev"
+dependencies = [
+ "chrono",
+ "filetime",
+ "mosaicod-core",
+ "mosaicod-db",
+ "mosaicod-store",
+ "rand 0.9.2",
+ "sqlx",
+ "tokio",
+ "tokio-util",
+ "tracing",
 ]
 
 [[package]]
@@ -4104,10 +4140,11 @@ dependencies = [
 
 [[package]]
 name = "tests"
-version = "0.4.0"
+version = "0.6.0-dev"
 dependencies = [
  "arrow",
  "arrow-flight",
+ "chrono",
  "futures",
  "mosaicod-core",
  "mosaicod-db",
@@ -4117,11 +4154,13 @@ dependencies = [
  "mosaicod-query",
  "mosaicod-server",
  "mosaicod-store",
+ "mosaicod-task",
  "rand 0.9.2",
  "serde",
  "serde_json",
  "sqlx",
  "tokio",
+ "tokio-util",
  "tonic",
  "tower",
  "tracing-subscriber",

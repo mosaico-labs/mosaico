@@ -2,26 +2,16 @@
   <img src="https://raw.githubusercontent.com/mosaico-labs/mosaico/main/logo/mono_black.svg" width="300" alt="Mosaico Logo">
 </p>
 
-[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
-[![Python Version](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/downloads/)
-[![GitHub release](https://img.shields.io/github/v/release/mosaico-labs/mosaico)](https://github.com/mosaico-labs/mosaico/releases)
+<center>
+  [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
+  [![Python Version](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/downloads/)
+</center>
 
 # Mosaico SDK
 
 The **Mosaico SDK** is the primary interface for interacting with the **Mosaico Data Platform**, a high-performance system designed for the ingestion, storage, and retrieval of multi-modal sensor data (Robotics, IoT, and Computer Vision).
 
-It provides a seamless bridge between raw data formats (like ROS bags) and the Mosaico high-performance storage layer, leveraging technologies like **PyArrow**, **Pandas**, and **Pydantic**.
-
-For full documentation, see the [Mosaico SDK Documentation](https://docs.mosaico.dev/SDK/).
-
-## Key Features
-
-  * **High-Performance Ingestion**: Native support for ROS 1 and ROS 2 data via `rosbags`.
-  * **Unified Client**: A simple, context-managed `MosaicoClient` for data retrieval and catalog querying.
-  * **Multi-Modal Support**: Optimized for IMU, Camera, LiDAR, and custom telemetry data.
-  * **Built-in CLI Tools**: Integrated utilities for data injection and interactive examples.
-  * **Rich Visualization**: Beautiful terminal output powered by `rich`.
-
+For full documentation, see the [Mosaico SDK Documentation](https://docs.mosaico.dev/sdk/).
 
 ## Installation
 
@@ -31,18 +21,10 @@ Install the SDK via `pip`:
 pip install mosaicolabs
 ```
 
-*Note: Requires Python 3.10 or higher.*
-
-
-## CLI Utilities
-
-The SDK comes with built-in command-line tools to speed up your workflow.
-
 ### Infrastructure Prerequisite
 
 Before running any mosaico service via SDK, ensure your **Mosaico Infrastructure** is active and running. 
-The easiest way to start is using the provided **Quick Start environment**.
-Please, refer to the **[daemon Setup](https://docs.mosaico.dev/daemon/install/)** for setting up the environment.
+The easiest way to follow the [documentation](https://docs.mosaico.dev/daemon/install/).
 
 ```python
 from mosaicolabs import MosaicoClient

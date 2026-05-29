@@ -48,6 +48,14 @@ pub enum OpError {
     /// Occurs when constructing a [`Range`] where `min > max`.
     #[error("empty range")]
     EmptyRange,
+
+    /// Occurs when `Op::In` is constructed with an empty list of values.
+    #[error("in operator requires at least one value")]
+    EmptyIn,
+
+    /// Occurs when `Op::Match` is constructed with an empty pattern string.
+    #[error("match pattern cannot be empty")]
+    EmptyPattern,
 }
 
 /// A wrapper enum to allow heterogeneous values (Numbers and Strings)
@@ -121,7 +129,7 @@ impl IsSupportedOp for Value {
 
     fn support_ordering(&self) -> bool {
         match self {
-            Self::Text(_) => false,
+            Self::Text(_) => true,
             Self::Boolean(_) => false,
             Self::Integer(_) => true,
             Self::Float(_) => true,
@@ -129,7 +137,10 @@ impl IsSupportedOp for Value {
     }
 
     fn support_in(&self) -> bool {
-        matches!(self, Self::Boolean(_))
+        matches!(
+            self,
+            Self::Integer(_) | Self::Float(_) | Self::Text(_) | Self::Boolean(_)
+        )
     }
 
     fn support_match(&self) -> bool {
@@ -139,6 +150,10 @@ impl IsSupportedOp for Value {
 
 impl IsSupportedOp for bool {
     fn support_eq(&self) -> bool {
+        true
+    }
+
+    fn support_in(&self) -> bool {
         true
     }
 }

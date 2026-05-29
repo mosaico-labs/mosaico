@@ -1,7 +1,8 @@
 use super::flight;
-use mosaicod_core::error::PublicResult as Result;
+use mosaicod_core::{error::PublicResult as Result, params};
 use mosaicod_db as db;
 use mosaicod_store as store;
+use mosaicod_task as task;
 use tracing::{debug, error};
 
 /// Mosaico server.
@@ -40,24 +41,45 @@ impl Server {
         F: FnOnce(),
     {
         let shutdown = self.shutdown.clone();
-
-        let store = self.store.clone();
-        let database = self.db.clone();
+        let shutdown_cleanup = self.shutdown.clone();
 
         let config = self.flight_config.clone();
 
         rt.block_on(async {
+            let cleanup_time_interval =
+                task::cleanup::Duration::seconds(params::params().cleanup_time_interval.value);
+
+            let cleanup_retention_duration =
+                task::cleanup::Duration::seconds(params::params().cleanup_retention_duration.value);
+
+            let cleanup_store = self.store.clone();
+            let cleanup_db = self.db.clone();
+
+            // Start cleanup background task.
+            let handle_cleanup_task = rt.spawn(async move {
+                let cleanup = task::Cleanup::new(cleanup_db, cleanup_store)
+                    .with_time_interval(cleanup_time_interval)
+                    .with_retention_duration(cleanup_retention_duration);
+
+                cleanup.run((shutdown_cleanup.token()).clone()).await
+            });
+
+            let server_store = self.store.clone();
+            let server_db = self.db.clone();
+
             // Create a thread in tokio runtime to handle flight requests
             let handle_flight = rt.spawn(async move {
                 debug!("flight service starting");
-                if let Err(err) = flight::start(config, store, database, Some(shutdown)).await {
+                if let Err(err) =
+                    flight::start(config, server_store, server_db, Some(shutdown)).await
+                {
                     error!("{}", err);
                 }
             });
 
             on_start();
 
-            let _ = tokio::join!(handle_flight);
+            let _ = tokio::join!(handle_flight, handle_cleanup_task);
         });
 
         debug!("flight service stopped");

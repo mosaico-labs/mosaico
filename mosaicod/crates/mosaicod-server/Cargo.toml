@@ -18,9 +18,12 @@ mosaicod-db = { workspace = true }
 mosaicod-facade = { workspace = true }
 mosaicod-store = { workspace = true }
 mosaicod-query = { workspace = true }
+mosaicod-task = { workspace = true }
 
 thiserror = { workspace = true }
 tokio = { workspace = true }
+tokio-util = { workspace = true }
+tokio-stream = { workspace = true }
 log = { workspace = true }
 serde_json = { workspace = true }
 futures = { workspace = true }
@@ -31,6 +34,7 @@ semver = { workspace = true }
 tower = { workspace = true }
 http = { workspace = true }
 tracing = { workspace = true }
+datafusion = { workspace = true }
 
 [dev-dependencies]
 mosaicod-store = { workspace = true, features = ["testing"]}

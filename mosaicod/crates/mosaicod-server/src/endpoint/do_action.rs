@@ -4,11 +4,12 @@
 //! delegating to specialized handler functions for each action category.
 
 use super::actions::{misc, query as query_action, sequence, session, topic};
-use crate::endpoint::actions::auth;
 use crate::error::Result;
+use crate::flight::IntoStream;
+use crate::{endpoint::actions::auth, flight::DoActionStream};
 use mosaicod_core::{self as core, types::auth::Permission};
 use mosaicod_facade as facade;
-use mosaicod_marshal::{ActionRequest, ActionResponse};
+use mosaicod_marshal::ActionRequest;
 
 /// Dispatches a Flight action request to the appropriate handler.
 ///
@@ -18,7 +19,7 @@ pub async fn do_action(
     ctx: &facade::Context,
     action: ActionRequest,
     perm: &Permission,
-) -> Result<ActionResponse> {
+) -> Result<DoActionStream> {
     if !has_permissions(&action, perm) {
         let err_msg = format!(
             "provided API key has not enough permissions to execute {} action.",
@@ -32,29 +33,46 @@ pub async fn do_action(
         // Sequence
         ActionRequest::SequenceCreate(data) => {
             let user_metadata = data.user_metadata()?;
-            sequence::create(ctx, data.locator, user_metadata.as_str()).await
+            sequence::create(ctx, data.locator, user_metadata.as_str())
+                .await?
+                .into_stream()
         }
-        ActionRequest::SequenceDelete(data) => sequence::delete(ctx, data.locator).await,
+        ActionRequest::SequenceDelete(data) => {
+            sequence::delete(ctx, data.locator).await?.into_stream()
+        }
         ActionRequest::SequenceNotificationCreate(data) => {
-            sequence::notification_create(ctx, data.locator, data.notification_type, data.msg).await
+            sequence::notification_create(ctx, data.locator, data.notification_type, data.msg)
+                .await?
+                .into_stream()
         }
         ActionRequest::SequenceNotificationList(data) => {
-            sequence::notification_list(ctx, data.locator).await
+            sequence::notification_list(ctx, data.locator)
+                .await?
+                .into_stream()
         }
         ActionRequest::SequenceNotificationPurge(data) => {
-            sequence::notification_purge(ctx, data.locator).await
+            sequence::notification_purge(ctx, data.locator)
+                .await?
+                .into_stream()
         }
 
         // ///////
         // Session
-        ActionRequest::SessionCreate(data) => session::create(ctx, data.locator).await,
-        ActionRequest::SessionFinalize(data) => session::finalize(ctx, data.session_uuid).await,
-        ActionRequest::SessionDelete(data) => session::delete(ctx, data.locator).await,
+        ActionRequest::SessionCreate(data) => {
+            session::create(ctx, data.locator).await?.into_stream()
+        }
+        ActionRequest::SessionFinalize(data) => session::finalize(ctx, data.session_uuid)
+            .await?
+            .into_stream(),
+        ActionRequest::SessionDelete(data) => {
+            session::delete(ctx, data.locator).await?.into_stream()
+        }
 
         // /////
         // Topic
         ActionRequest::TopicCreate(data) => {
             let user_metadata = data.user_metadata()?;
+
             topic::create(
                 ctx,
                 data.locator,
@@ -63,46 +81,62 @@ pub async fn do_action(
                 data.ontology_tag,
                 user_metadata.as_str(),
             )
-            .await
+            .await?
+            .into_stream()
         }
-        ActionRequest::TopicDelete(data) => topic::delete(ctx, data.locator).await,
+        ActionRequest::TopicDelete(data) => topic::delete(ctx, data.locator).await?.into_stream(),
         ActionRequest::TopicNotificationCreate(data) => {
-            topic::notification_create(ctx, data.locator, data.notification_type, data.msg).await
+            topic::notification_create(ctx, data.locator, data.notification_type, data.msg)
+                .await?
+                .into_stream()
         }
-        ActionRequest::TopicNotificationList(data) => {
-            topic::notification_list(ctx, data.locator).await
-        }
-        ActionRequest::TopicNotificationPurge(data) => {
-            topic::notification_purge(ctx, data.locator).await
-        }
-
-        // /////
-        // Query
-        ActionRequest::Query(data) => query_action::execute(ctx, data.query).await,
-
-        // ////
-        // Api Key
-        ActionRequest::ApiKeyCreate(data) => {
-            auth::api_key_create(
+        ActionRequest::TopicNotificationList(data) => topic::notification_list(ctx, data.locator)
+            .await?
+            .into_stream(),
+        ActionRequest::TopicNotificationPurge(data) => topic::notification_purge(ctx, data.locator)
+            .await?
+            .into_stream(),
+        ActionRequest::TopicFilterClusterize(data) => {
+            topic::filter_clusterize(
                 ctx,
-                data.permissions,
-                data.expires_at_ns.map(Into::into),
-                data.description,
+                data.locator,
+                data.clustering_dt_ns,
+                data.ontology,
+                data.timestamp_range,
             )
             .await
         }
 
+        // /////
+        // Query
+        ActionRequest::Query(data) => query_action::execute(ctx, data.query).await?.into_stream(),
+
+        // ////
+        // Api Key
+        ActionRequest::ApiKeyCreate(data) => auth::api_key_create(
+            ctx,
+            data.permissions,
+            data.expires_at_ns.map(Into::into),
+            data.description,
+        )
+        .await?
+        .into_stream(),
+
         ActionRequest::ApiKeyStatus(data) => {
-            auth::api_key_status(ctx, data.api_key_fingerprint.as_str()).await
+            auth::api_key_status(ctx, data.api_key_fingerprint.as_str())
+                .await?
+                .into_stream()
         }
 
         ActionRequest::ApiKeyRevoke(data) => {
-            auth::api_key_revoke(ctx, data.api_key_fingerprint.as_str()).await
+            auth::api_key_revoke(ctx, data.api_key_fingerprint.as_str())
+                .await?
+                .into_stream()
         }
 
         // /////
         // Misc
-        ActionRequest::Version(_) => misc::version(),
+        ActionRequest::Version(_) => misc::version()?.into_stream(),
     }
 }
 
@@ -125,6 +159,7 @@ fn has_permissions(action: &ActionRequest, perm: &Permission) -> bool {
         ActionRequest::Query(_) => perm.can_read(),
         ActionRequest::SequenceNotificationList(_) => perm.can_read(),
         ActionRequest::TopicNotificationList(_) => perm.can_read(),
+        ActionRequest::TopicFilterClusterize(_) => perm.can_read(),
 
         ActionRequest::ApiKeyCreate(_) => perm.can_manage(),
         ActionRequest::ApiKeyStatus(_) => perm.can_manage(),

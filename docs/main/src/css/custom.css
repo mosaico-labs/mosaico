@@ -1,0 +1,469 @@
+/**
+ * Any CSS included here will be global. The classic template
+ * bundles Infima by default. Infima is a CSS framework designed to
+ * work well for content-centric websites.
+ */
+
+/* You can override the default Infima variables here. */
+:root {
+  --mosaico-color-orange: 241, 75, 35;
+  --mosaico-color-blue: 26, 153, 195;
+  --mosaico-color-purple: 189, 56, 180;
+
+  --ifm-color-primary: #2e8555;
+  --ifm-color-primary-dark: #29784c;
+  --ifm-color-primary-darker: #277148;
+  --ifm-color-primary-darkest: #205d3b;
+  --ifm-color-primary-light: #33925d;
+  --ifm-color-primary-lighter: #359962;
+  --ifm-color-primary-lightest: #3cad6e;
+  --ifm-code-font-size: 90%;
+  --ifm-font-color-base: rgba(255, 255, 255, 0.7);
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
+
+
+  /* Set global border radius to 0 for a sharp look */
+  --ifm-button-border-radius: 0;
+
+  /* Optional: If you want to make other elements sharp too */
+  --ifm-pagination-nav-border-radius: 0;
+  --ifm-card-border-radius: 0;
+
+  --mosaico-background: #0C0C0C;
+  --mosaico-border-color: #2F2F2F;
+
+  --ifm-color-emphasis-200: var(--mosaico-border-color);
+  --ifm-color-emphasis-300: var(--mosaico-border-color);
+  --ifm-hr-border-color: var(--mosaico-border-color);
+  --ifm-table-border-color: var(--mosaico-border-color);
+  --ifm-toc-border-color: var(--mosaico-border-color);
+
+  --ifm-code-border-radius: 0px;
+  --ifm-code-background: rgba(40, 44, 52, 0.5);
+
+  --ifm-font-family-base: 'Noto Sans', sans-serif;
+  --ifm-heading-font-family: 'Space Grotesk', sans-serif;
+  --ifm-font-family-monospace: 'JetBrains Mono', monospace;
+
+  --docsearch-highlight-color: rgb(var(--mosaico-color-blue));
+  --docsearch-hit-background: var(--mosaico-background);
+  --docsearch-hit-highlight-color: rgba(255, 255, 255, 0.05);
+  --docsearch-subtle-color: var(--mosaico-border-color);
+  --docsearch-modal-background: var(--mosaico-background);
+  --docsearch-icon-color: white;
+}
+
+
+/* For readability concerns, you should choose a lighter palette in dark mode. */
+[data-theme='dark'] {
+  --ifm-color-primary: #e6e6e6;
+  --ifm-color-primary-dark: #cfcfcf;
+  --ifm-color-primary-darker: #c4c4c4;
+  --ifm-color-primary-darkest: #a1a1a1;
+  --ifm-color-primary-light: #fdfdfd;
+  --ifm-color-primary-lighter: #ffffff;
+  --ifm-color-primary-lightest: #ffffff;
+  --ifm-background-color: #0c0c0c;
+
+  --ifm-navbar-background-color: var(--mosaico-background);
+}
+
+.hidden {
+  display: none !important;
+}
+
+article a {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+}
+
+article a:hover {
+  text-decoration-thickness: 2px;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+.navbar__title,
+.footer__title {
+  color: #ffffff;
+  opacity: 1;
+}
+
+/** Navbar **/
+
+.navbar {
+  /* Defines the thickness, style, and color */
+  border-bottom: 1px solid var(--mosaico-border-color);
+  /* Optional: adds a slight shadow for depth */
+  box-shadow: var(--ifm-navbar-shadow);
+}
+
+.navbar__brand {
+  margin-right: 2.5rem;
+}
+
+.navbar__item {
+  opacity: 0.6;
+  transition: opacity 0.2s ease, color 0.2s ease;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.navbar__item:hover {
+  opacity: 1;
+  text-decoration: none;
+  color: var(--ifm-color-light);
+}
+
+.navbar__link--active {
+  opacity: 1 !important;
+  color: var(--ifm-color-primary-light) !important;
+  font-weight: 700;
+}
+
+.header-github-link {
+  opacity: 0.6;
+}
+
+.header-github-link:hover {
+  opacity: 1;
+}
+
+.navbar__item {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 500;
+  font-size: 0.9rem;
+  /* Medium weight looks great for mono fonts */
+}
+
+.navbar__item {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 500;
+  font-size: 0.9rem;
+  /* Medium weight looks great for mono fonts */
+}
+
+/** Sidebar **/
+
+.menu {
+  border-right: 1px solid var(--mosaico-border-color);
+  scrollbar-gutter: auto;
+}
+
+.menu__link {
+  font-size: 0.85rem;
+  font-weight: 400;
+  opacity: 0.75;
+}
+
+.dropdown__menu {
+  border-radius: 0px;
+  border: 1px solid var(--mosaico-border-color);
+  background-color: var(--mosaico-background);
+}
+
+.dropdown__menu a:hover {
+  background-color: transparent;
+  color: white;
+}
+
+
+.menu__list-item-collapsible>.menu__link {
+  font-size: 0.9rem;
+  font-weight: 800;
+  opacity: 1;
+  color: #ffffff;
+  border: 0px;
+  border-radius: 0px;
+  font-family: "Space Grotesk", sans-serif;
+}
+
+.menu__list-item-collapsible:hover {
+  border-radius: 0px;
+}
+
+.menu__link:hover {
+  opacity: 1;
+  border-radius: 0px;
+}
+
+.menu__link--active {
+  opacity: 1;
+  color: #ffffff;
+  border: 1px solid var(--mosaico-border-color);
+  border-right: 0px;
+  border-radius: 0px;
+}
+
+.theme-doc-sidebar-container {
+  border-right: none;
+}
+
+.theme-doc-sidebar-container {
+  box-shadow: none;
+}
+
+
+/**
+ * Footer
+ **/
+
+.footer {
+  /* Docker's deep black background */
+  background-color: var(--mosaico-background);
+  /* 1px dark border at the top */
+  border-top: 1px solid var(--mosaico-border-color);
+  /* Compact padding */
+  padding: 1.5rem 0;
+  color: #ffffff;
+  box-shadow: none;
+}
+
+/* 1. Layout: Pushing elements to the sides */
+.footer__links {
+  display: flex;
+  justify-content: space-between;
+  /* This pushes one group left and one right */
+  align-items: center;
+  max-width: var(--ifm-container-width);
+  margin: 0 auto 1rem auto;
+  padding: 0 var(--ifm-spacing-horizontal);
+}
+
+/* 2. Flatten the columns into horizontal rows */
+.footer__col {
+  flex: 0 0 auto;
+  margin-bottom: 0 !important;
+  padding: 0 !important;
+}
+
+.footer__items {
+  display: flex;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  gap: 1.5rem;
+  justify-content: center;
+}
+
+/* Typography  */
+.footer__link-item {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.5) !important;
+  transition: color 0.2s ease;
+  text-decoration: none;
+}
+
+.footer__link-item:hover {
+  color: #ffffff !important;
+  text-decoration: none;
+}
+
+/* Hide the column titles (like "Products" or "Socials") for a cleaner look */
+.footer__title {
+  display: none;
+}
+
+/* 4. The Bottom Section (Copyright) */
+.footer__bottom {
+  text-align: center;
+  margin-top: 0rem;
+  padding-top: 0rem;
+}
+
+
+.footer__copyright {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* Responsive: Stack them on small screens */
+@media (max-width: 768px) {
+  .footer__links {
+    flex-direction: column;
+    gap: 1rem;
+    text-align: center;
+  }
+
+  .footer__items {
+    justify-content: center;
+  }
+}
+
+/**
+ * Code
+ ** /
+/* 1. The Container Wrapper */
+.theme-code-block {
+  margin-bottom: var(--ifm-spacing-vertical);
+  box-shadow: none;
+}
+
+.theme-code-block {
+  border: 1px solid var(--mosaico-border-color);
+}
+
+[class^='codeBlockTitle'] {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+  color: rgb(66, 155, 210) !important;
+  border-bottom: 1px solid var(--mosaico-border-color);
+  border-radius: 0 !important;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 0.5rem 1rem !important;
+}
+
+.theme-code-block-highlighted-line {
+  background-color: rgba(var(--mosaico-color-purple), 0.1);
+}
+
+.prism-code {
+  border-radius: 0px;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.table-of-contents__link--active {
+  color: rgb(199, 132, 222);
+}
+
+.pagination-nav a {
+  border: 0px;
+}
+
+.pagination-nav a:hover {
+  background-color: rgba(255, 255, 255, 0.04);
+}
+
+.theme-doc-toc-mobile {
+  border-radius: 0px;
+  border: 1px solid var(--mosaico-border-color);
+  background-color: var(--mosaico-background);
+
+}
+
+.navbar-sidebar__back {
+  border-top: 1px solid var(--mosaico-border-color);
+  border-bottom: 1px solid var(--mosaico-border-color);
+}
+
+.navbar-sidebar__brand {
+  border-right: 1px solid var(--mosaico-border-color);
+}
+
+.theme-layout-navbar-sidebar-panel.navbar-sidebar__item.menu {
+  padding-right: 0px;
+}
+
+.theme-admonition {
+  border-radius: 0px;
+  background-color: rgba(255, 255, 255, 0.05);
+  color: #bcbcbc;
+  border-left-width: 4px;
+}
+
+
+.pagination-nav {
+  font-family: 'JetBrains Mono', monospace;
+ }
+
+.pagination-nav__sublabel {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.theme-admonition-note {
+  border-image: linear-gradient(
+    to bottom,
+    rgb(var(--mosaico-color-orange)),
+    rgb(var(--mosaico-color-purple))
+  ) 1;
+}
+
+.theme-admonition-info {
+  border-image: linear-gradient(
+    to bottom,
+    rgb(var(--mosaico-color-purple)),
+    rgb(var(--mosaico-color-blue))
+  ) 1;
+}
+
+/** Search Bar **/
+
+.DocSearch-Button {
+  border: 1px solid var(--mosaico-border-color);
+  background-color: rgba(255, 255, 255, 0.06);
+  border-radius:  0px;
+  font-family: 'JetBrains Mono', monospace;
+  
+}
+
+.DocSearch-Button-Placeholder{
+font-size: 0.9rem;
+}
+
+.DocSearch-Modal {
+  border: 1px solid var(--mosaico-border-color);
+  font-family: 'JetBrains Mono', monospace;
+  border-radius: 0px;
+}
+
+.DocSearch-Form {
+  border-radius: 0px;
+}
+
+.DocSearch-Footer {
+  border-radius: 0px;
+}
+
+.DocSearch-Clear {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.DocSearch-Clear:hover {
+  color: white;
+}
+
+.DocSearch-Screen-Icon {
+  display: none;
+}
+
+.DocSearch-Button-Key, .DocSearch-Commands-Key{
+  background-color: rgba(255, 255, 255, 0.05);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  border: 1px solid var(--mosaico-border-color);
+  border-radius: 0px;
+  color: white;
+}
+
+.tabs__item {
+  font-family: 'JetBrains Mono', monospace;
+  font-size:0.9rem;
+  border-radius: 0px;
+}
+
+.tabs__item--active {
+  border-bottom: 1px solid white;
+}
+
+.tabs li {
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+.theme-announcement-bar {
+  background: linear-gradient(
+    to right,
+    rgb(var(--mosaico-color-purple)),
+    rgb(var(--mosaico-color-blue))
+  );
+}
+

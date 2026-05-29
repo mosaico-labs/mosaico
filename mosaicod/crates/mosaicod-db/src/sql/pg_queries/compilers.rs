@@ -110,7 +110,7 @@ impl query::CompileClause for SqlQueryCompiler {
             }
             query::Op::In(items) => {
                 if items.is_empty() {
-                    return Ok(query::CompiledClause::empty());
+                    return Err(query::Error::empty_in(field.to_owned()));
                 }
 
                 // Generate placeholders and collect values
@@ -125,6 +125,9 @@ impl query::CompileClause for SqlQueryCompiler {
             query::Op::Match(v) => {
                 let value: query::Value = v.into();
                 if let query::Value::Text(text) = value {
+                    if text.is_empty() {
+                        return Err(query::Error::empty_pattern(field.to_owned()));
+                    }
                     let value = query::Value::Text(format!("%{}%", text));
                     let clause = format!("{} LIKE {}", field, self.consume_placeholder());
                     query::CompiledClause::new(clause, vec![value])
@@ -285,8 +288,32 @@ mod internal {
 
                     query::CompiledClause::new(clause, vec![min, max])
                 }
-                query::Op::In(_) => return Err(query::Error::unsupported_op(field.to_owned())),
-                query::Op::Match(_) => return Err(query::Error::unsupported_op(field.to_owned())),
+                query::Op::In(items) => {
+                    if items.is_empty() {
+                        return Err(query::Error::empty_in(field.to_owned()));
+                    }
+                    let values: Vec<query::Value> = items.into_iter().map(Into::into).collect();
+                    let cast_field = self.fmt_value(field, &values[0]);
+                    let placeholders: Vec<String> =
+                        values.iter().map(|_| self.consume_placeholder()).collect();
+                    let clause = format!("{} IN ({})", cast_field, placeholders.join(", "));
+                    query::CompiledClause::new(clause, values)
+                }
+                query::Op::Match(v) => {
+                    let value: query::Value = v.into();
+                    if let query::Value::Text(text) = value {
+                        if text.is_empty() {
+                            return Err(query::Error::empty_pattern(field.to_owned()));
+                        }
+                        let clause = format!(
+                            "mosaico_regex_match({field}, {})",
+                            self.consume_placeholder()
+                        );
+                        query::CompiledClause::new(clause, vec![query::Value::Text(text)])
+                    } else {
+                        return Err(query::Error::unsupported_op(field.to_owned()));
+                    }
+                }
             };
 
             // r.clause = self.fmt_clause(&r.clause);
@@ -359,6 +386,67 @@ mod tests {
         } else {
             panic!("match not found");
         }
+    }
+
+    #[test]
+    fn user_metadata_in() {
+        let mdata: HashMap<String, query::Op<query::Value>> = HashMap::from([(
+            "imu.acceleration.x".to_owned(),
+            query::Op::In(vec![
+                query::Value::Integer(1),
+                query::Value::Integer(6),
+                query::Value::Integer(-1),
+            ]),
+        )]);
+
+        let placeholder = query::Placeholder::new();
+        let mut jqc = JsonQueryCompiler::new(placeholder);
+        let fmt = jqc.with_field("topic.user_metadata".to_owned());
+
+        let mut cc = ClausesCompiler::new();
+        for (k, v) in mdata {
+            cc = cc.expr(&k, v, fmt);
+        }
+        let qr = cc.compile().expect("problem building query");
+
+        dbg!(&qr);
+
+        let found = qr.clauses.iter().any(|c| {
+            c.contains(
+                r#"(topic.user_metadata #>> '{imu,acceleration,x}')::numeric IN ($1, $2, $3)"#,
+            )
+        });
+        assert!(found, "in clause not found in {:?}", qr.clauses);
+
+        assert_eq!(qr.values[0], query::Value::Integer(1));
+        assert_eq!(qr.values[1], query::Value::Integer(6));
+        assert_eq!(qr.values[2], query::Value::Integer(-1));
+    }
+
+    #[test]
+    fn user_metadata_match() {
+        let mdata: HashMap<String, query::Op<query::Value>> = HashMap::from([(
+            "vehicle.name".to_owned(),
+            query::Op::Match(query::Value::Text("^truck".to_owned())),
+        )]);
+
+        let placeholder = query::Placeholder::new();
+        let mut jqc = JsonQueryCompiler::new(placeholder);
+        let fmt = jqc.with_field("topic.user_metadata".to_owned());
+
+        let mut cc = ClausesCompiler::new();
+        for (k, v) in mdata {
+            cc = cc.expr(&k, v, fmt);
+        }
+        let qr = cc.compile().expect("problem building query");
+
+        dbg!(&qr);
+
+        let found = qr.clauses.iter().any(|c| {
+            c.contains(r#"mosaico_regex_match(topic.user_metadata #>> '{vehicle,name}', $1)"#)
+        });
+        assert!(found, "match clause not found in {:?}", qr.clauses);
+        assert_eq!(qr.values[0], query::Value::Text("^truck".to_owned()));
     }
 
     #[test]

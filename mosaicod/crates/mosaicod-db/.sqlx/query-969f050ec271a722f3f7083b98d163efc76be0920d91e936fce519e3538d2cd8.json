@@ -1,0 +1,53 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO cleanup_log_t (start_unix_tstamp_secs, marked_folders, deleted_folders, failed_folders)\n            SELECT $1, '[]'::jsonb, '[]'::jsonb, '[]'::jsonb\n            WHERE NOT EXISTS (\n                SELECT 1 FROM cleanup_log_t\n                WHERE start_unix_tstamp_secs > ($1::bigint - $2::bigint)\n            )\n            RETURNING *\n    ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "cleanup_id",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "start_unix_tstamp_secs",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 2,
+        "name": "end_unix_tstamp_secs",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 3,
+        "name": "marked_folders",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 4,
+        "name": "deleted_folders",
+        "type_info": "Jsonb"
+      },
+      {
+        "ordinal": 5,
+        "name": "failed_folders",
+        "type_info": "Jsonb"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "969f050ec271a722f3f7083b98d163efc76be0920d91e936fce519e3538d2cd8"
+}

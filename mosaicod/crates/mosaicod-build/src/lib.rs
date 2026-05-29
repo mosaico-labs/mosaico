@@ -12,6 +12,8 @@ pub const BUILD_TIME: &str = env!("MOSAICOD_BUILD_TIME");
 static VERSION: OnceLock<String> = OnceLock::new();
 
 pub fn version_description() -> &'static str {
+    let hash = GIT_HASH.get(..8).unwrap_or("undefined");
+
     VERSION.get_or_init(|| {
         format!(
             r#"version {semver} ({hash})
@@ -21,7 +23,6 @@ Arch:     {arch}
 Built:    {time}"#,
             semver = SEMVER,
             profile = BUILD_PROFILE,
-            hash = &GIT_HASH[..8],
             time = BUILD_TIME,
             arch = BUILD_ARCH,
             opt_level = BUILD_OPT_LEVEL,

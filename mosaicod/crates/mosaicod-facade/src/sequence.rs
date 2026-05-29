@@ -81,30 +81,45 @@ pub async fn try_create(
     locator: types::SequenceLocator,
     metadata: Option<SequenceUserMetadata>,
 ) -> Result<Handle> {
-    // 1. Creates a random name for the folder on Object Store and save metadata file (optional).
+    // Create a random name for the folder on Object Store.
     let path_in_store = SequencePathInStore::new();
 
-    if let Some(mdata) = &metadata {
-        metadata_write_to_store(
-            context,
-            path_in_store.path_metadata().as_path(),
-            mdata.clone(),
-        )
-        .await?;
-    }
-
-    // 2. Create sequence in database.
+    // 1. Create sequence in database.
+    // Note: we want to prevent the newly created folder in the store from being marked as TO_DELETE by the cleanup routine.
+    // That's why we create the DB record as first thing.
     let mut tx = context.db.transaction().await?;
 
     let mut record = db::SequenceRecord::new(locator.clone(), path_in_store.clone());
 
-    if let Some(mdata) = metadata {
-        record = record.with_user_metadata(mdata);
+    if let Some(mdata) = &metadata {
+        record = record.with_user_metadata(mdata.clone());
     }
 
     let record = db::sequence_create(&mut tx, &record).await?;
 
     tx.commit().await?;
+
+    // 2. If metadata are present, save them to Store too.
+    if let Some(mdata) = metadata {
+        let res =
+            metadata_write_to_store(context, path_in_store.path_metadata().as_path(), mdata).await;
+
+        // Rollback: remove the newly created sequence from the database.
+        if let Err(e) = res {
+            let mut cx = context.db.connection();
+            let delete_res =
+                db::sequence_delete_by_id(&mut cx, record.sequence_id, types::allow_data_loss())
+                    .await;
+
+            // If the sequence is not in the DB it means that somebody else did the job for us,
+            // then there is no need to throw this specific error.
+            if !matches!(delete_res, Err(db::Error::NotFound)) {
+                delete_res?
+            }
+
+            return Err(e);
+        }
+    }
 
     Ok(Handle {
         locator,

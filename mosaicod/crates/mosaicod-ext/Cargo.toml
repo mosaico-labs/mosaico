@@ -18,3 +18,7 @@ arrow-schema = { workspace = true }
 tonic = { workspace = true }
 thiserror = { workspace = true }
 parquet = { workspace = true }
+futures = { workspace = true}
+tokio = {workspace = true}
+
+

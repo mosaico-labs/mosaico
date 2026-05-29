@@ -3,7 +3,7 @@ members = ["crates/*", "bin/*", "tests/"]
 resolver = "3"
 
 [workspace.package]
-version = "0.4.0"
+version = "0.6.0-dev"
 authors = ["Mosaico Labs <info@mosaico.dev>"]
 homepage = "https://mosaico.dev"
 repository = "https://github.com/mosaico-labs/mosaico"
@@ -23,6 +23,7 @@ mosaicod-query = { path = "crates/mosaicod-query" }
 mosaicod-rw = { path = "crates/mosaicod-rw" }
 mosaicod-server = { path = "crates/mosaicod-server" }
 mosaicod-store = { path = "crates/mosaicod-store" }
+mosaicod-task = { path = "crates/mosaicod-task" }
 
 # Arrow stack dependencies
 arrow = { version = "58.1.0", features = ["prettyprint", "ipc_compression"] }
@@ -38,7 +39,7 @@ base64 = "0.22.1"
 bincode = { version = "2.0.1", features = ["serde"] }
 bytes = "1.11.1"
 chrono = "0.4.44"
-clap = { version = "4.5.60", features = ["derive"] }
+clap = { version = "4.6.1", features = ["derive"] }
 colored = "3.1.1"
 dotenv = "0.15.0"
 futures = "0.3.32"
@@ -58,6 +59,8 @@ sqlx = { version = "0.8.6", features = [
 ] }
 thiserror = "2.0.18"
 tokio = { version = "1.50.0", features = ["rt-multi-thread"] }
+tokio-util = { version = "0.7" }
+tokio-stream = { version = "0.1"}
 url = "2.5.8"
 uuid = { version = "1.23.1", features = [ "v4" ] }
 ulid = "1.2.1"
@@ -66,6 +69,9 @@ iso8601 = "0.6.3"
 semver = "1.0.28"
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["json", "env-filter"] }
+
+# Used for testing
+filetime = "0.2.27"
 
 # Used to implement middlewares in mosaicod-server crate 
 tower = "0.5.3"

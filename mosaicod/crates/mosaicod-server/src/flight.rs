@@ -19,28 +19,32 @@ use mosaicod_marshal as marshal;
 use mosaicod_query as query;
 use mosaicod_store as store;
 use std::sync::Arc;
-use tokio::sync::Notify;
+use tokio_util::sync::CancellationToken;
 use tonic::{Request, Response, Status, Streaming, codec::CompressionEncoding, transport::Server};
 
 /// To stop the server use the following command on
 /// `ShutdownNotifier`
-#[derive(Clone)]
-pub struct ShutdownNotifier(Arc<Notify>);
+#[derive(Clone, Default, Debug)]
+pub struct ShutdownNotifier(CancellationToken);
 
 impl ShutdownNotifier {
-    // Notifies the server to be shut down
+    // Notifies the server to be shutdown
     pub fn shutdown(&self) {
-        self.0.notify_waiters();
+        self.0.cancel();
     }
 
     pub async fn wait_for_shutdown(&self) {
-        self.0.notified().await;
+        self.0.cancelled().await;
     }
-}
 
-impl Default for ShutdownNotifier {
-    fn default() -> Self {
-        Self(Arc::new(Notify::new()))
+    pub fn is_shutdown(&self) -> bool {
+        self.0.is_cancelled()
+    }
+
+    /// Returns a cloned cancellation token for use across crate boundaries
+    /// (e.g. passing to background tasks defined in other crates).
+    pub fn token(&self) -> CancellationToken {
+        self.0.clone()
     }
 }
 
@@ -215,9 +219,27 @@ type HandshakeStream = BoxStream<'static, std::result::Result<HandshakeResponse,
 type ListFlightsStream = BoxStream<'static, std::result::Result<FlightInfo, Status>>;
 type DoGetStream = BoxStream<'static, std::result::Result<FlightData, Status>>;
 type DoPutStream = BoxStream<'static, std::result::Result<PutResult, Status>>;
-type DoActionStream = BoxStream<'static, std::result::Result<arrow_flight::Result, Status>>;
+pub type DoActionStream = BoxStream<'static, std::result::Result<arrow_flight::Result, Status>>;
 type ListActionsStream = BoxStream<'static, std::result::Result<ActionType, Status>>;
 type DoExchangeStream = BoxStream<'static, std::result::Result<FlightData, Status>>;
+
+pub trait IntoStream {
+    fn into_stream(self) -> Result<DoActionStream>;
+}
+
+impl IntoStream for marshal::ActionResponse {
+    /// Wraps a single ActionResponse into a one-item
+    /// DoActionStream, as expected by Arrow Flight's do_action endpoint.
+    ///
+    /// Use this when the handler produces a single payload rather than a
+    /// stream of results.
+    fn into_stream(self) -> Result<DoActionStream> {
+        let bytes = self.bytes()?;
+        Ok(Box::pin(futures::stream::once(async move {
+            Ok(arrow_flight::Result::new(bytes))
+        })))
+    }
+}
 
 impl MosaicodFlight {
     async fn impl_get_flight_info(
@@ -314,13 +336,9 @@ impl MosaicodFlight {
         let action = request.into_inner();
         let action = marshal::ActionRequest::try_new(action.r#type.as_str(), &action.body)?;
 
-        let response = endpoint::do_action(&self.context(), action, auth_ctx.permissions()).await?;
-
-        let bytes = response.bytes()?;
+        let stream = endpoint::do_action(&self.context(), action, auth_ctx.permissions()).await?;
 
         // Create the stream from the flight result
-        let stream = futures::stream::iter(vec![Ok(arrow_flight::Result::new(bytes))]);
-
         Ok(Response::new(Box::pin(stream)))
     }
 }

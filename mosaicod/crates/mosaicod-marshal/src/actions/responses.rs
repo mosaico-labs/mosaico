@@ -157,9 +157,27 @@ impl From<&auth::ApiKey> for ApiKeyStatus {
 }
 
 // ####
-// Misc
+// Clustering
 // ####
 
+/// Timestamp range of a cluster, in nanoseconds.
+#[derive(Serialize, Debug)]
+pub struct ClusterTimestampRange {
+    pub start_ns: u64,
+    pub end_ns: u64,
+}
+
+/// Single JSONL record emitted as response to a TopicFilterClusterize request:
+/// one cluster per line, identified by a progressive `id` and bounded by ts.
+#[derive(Serialize, Debug)]
+pub struct TopicFilterClusterize {
+    pub ts: ClusterTimestampRange,
+    pub id: u64,
+}
+
+// ####
+// Misc
+// ####
 #[derive(Serialize, Debug)]
 pub struct SemVerItem {
     pub major: u64,

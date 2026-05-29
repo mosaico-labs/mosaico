@@ -1,0 +1,125 @@
+.section {
+  margin: 2.5rem 0;
+}
+
+.sectionTitle {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--ifm-color-emphasis-500);
+  margin-bottom: 0.5rem;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.sectionDescription {
+  font-size: 0.88rem;
+  color: rgba(255, 255, 255, 0.55);
+  line-height: 1.6;
+  margin-bottom: 1rem;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+}
+
+.cardFull {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 768px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.card {
+  position: relative;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.25rem 1.4rem;
+  border: 1px solid var(--mosaico-border-color);
+  border-radius: 0px;
+  text-decoration: none !important;
+  color: var(--ifm-font-color-base) !important;
+  background: rgba(255, 255, 255, 0.03);
+  transition: border-color 0.5s, background 0.5s;
+}
+
+.card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  background: linear-gradient(to right, rgb(var(--mosaico-color-orange)), rgb(var(--mosaico-color-purple)), rgb(var(--mosaico-color-blue)));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 0.5s;
+  pointer-events: none;
+}
+
+.card:hover {
+  border-color: transparent;
+  background: rgba(255, 255, 255, 0.06);
+  text-decoration: none !important;
+}
+
+.card:hover::before {
+  opacity: 1;
+}
+
+.icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: 0.5s;
+}
+
+.card:hover .icon {
+  color: white;
+  scale: 1.1;
+}
+
+.cardText {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.cardTitle {
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.2;
+  font-family: 'JetBrains Mono', monospace;
+  color: white;
+  transition: 0.5s;
+}
+
+
+.cardDescription {
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.6);
+  line-height: 1.5;
+}
+
+
+.chevron {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+  flex-shrink: 0;
+  color: rgba(255, 255, 255, 0.3);
+  transition: 1s;
+}
+
+.card:hover .chevron {
+  color: white;
+}

@@ -51,6 +51,25 @@ pub async fn sequence_find_by_locator(
     Ok(res)
 }
 
+/// Search for a sequence with the given path_in_store.
+pub async fn sequence_find_path_in_store(
+    exe: &mut impl AsExec,
+    path_in_store: &str,
+) -> Result<bool, Error> {
+    trace!(
+        "searching if path_in_store `{}` is assigned to a sequence",
+        path_in_store
+    );
+    let found: bool = sqlx::query_scalar!(
+        r#"SELECT EXISTS(SELECT 1 FROM sequence_t WHERE path_in_store=$1) as "found!""#,
+        path_in_store
+    )
+    .fetch_one(exe.as_exec())
+    .await?;
+
+    Ok(found)
+}
+
 pub async fn sequence_find_all_topics(
     exe: &mut impl AsExec,
     loc: &types::SequenceLocator,

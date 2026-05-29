@@ -57,10 +57,10 @@ class Message(BaseModel):
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `<Model>.Q.timestamp_ns` | `Numeric` | `.eq()`, `.neq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
-    | `<Model>.Q.recording_timestamp_ns` | `Numeric` | `.eq()`, `.neq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
-    | `<Model>.Q.frame_id` | `String` | `.eq()`, `.neq()`, `.match()`, `.in_()` |
-    | `<Model>.Q.sequence_id` | `Numeric` | `.eq()`, `.neq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `<Model>.Q.timestamp_ns` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `<Model>.Q.recording_timestamp_ns` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `<Model>.Q.frame_id` | `String` | `.eq()`, `.match()`, `.in_()`, `.lt()`, `.gt()`, `.leq()`, `.geq()` |
+    | `<Model>.Q.sequence_id` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
 
     Note: Universal Compatibility
         The `<Model>` placeholder represents any Mosaico ontology class (e.g., `IMU`, `GPS`, `Floating64`)
@@ -162,7 +162,7 @@ class Message(BaseModel):
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `<Model>.Q.timestamp_ns` | `Numeric` | `.eq()`, `.neq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `<Model>.Q.timestamp_ns` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
     
     The `<Model>` placeholder represents any Mosaico ontology class (e.g., `IMU`, `GPS`, `Floating64`)
     or any custom user-defined class that is a subclass of [`Serializable`][mosaicolabs.models.Serializable].
@@ -217,7 +217,7 @@ class Message(BaseModel):
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `<Model>.Q.recording_timestamp_ns` | `Numeric` | `.eq()`, `.neq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `<Model>.Q.recording_timestamp_ns` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
     
     The `<Model>` placeholder represents any Mosaico ontology class (e.g., `IMU`, `GPS`, `Floating64`)
     or any custom user-defined class that is a subclass of [`Serializable`][mosaicolabs.models.Serializable]
@@ -250,7 +250,7 @@ class Message(BaseModel):
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `<Model>.Q.frame_id` | `String` | `.eq()`, `.neq()`, `.in_()`, `.match()` |
+    | `<Model>.Q.frame_id` | `String` | `.eq()`, `.match()`, `.in_()`, `.lt()`, `.gt()`, `.leq()`, `.geq()` |
     
     The `<Model>` placeholder represents any Mosaico ontology class (e.g., `IMU`, `GPS`, `Floating64`)
     or any custom user-defined class that is a subclass of [`Serializable`][mosaicolabs.models.Serializable]
@@ -283,7 +283,7 @@ class Message(BaseModel):
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `<Model>.Q.sequence_id` | `Numeric` | `.eq()`, `.neq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `<Model>.Q.sequence_id` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
     
     The `<Model>` placeholder represents any Mosaico ontology class (e.g., `IMU`, `GPS`, `Floating64`)
     or any custom user-defined class that is a subclass of [`Serializable`][mosaicolabs.models.Serializable]
@@ -538,19 +538,15 @@ class Message(BaseModel):
             from mosaicolabs.ml import DataFrameExtractor, SyncTransformer
 
             with MosaicoClient.connect("localhost", 6726) as client:
-                sequence_handler = client.get_sequence_handler("example_sequence")
+                sequence_handler = client.sequence_handler("example_sequence")
                 for df in DataFrameExtractor(sequence_handler).to_pandas_chunks(
                     topics = ["/front/imu", "/front/camera/image_raw"]
                 ):
                     # Do something with the dataframe.
-                    # For example, you can sync the data using the `SyncTransformer`:
-                    sync_transformer = SyncTransformer(
-                        target_fps = 30, # resample at 30 Hz and fill the Nans with a Hold policy
+                    # e.g. reconstruct the image message from a dataframe row
+                    image_msg = Message.from_dataframe_row(
+                        row=df, topic_name="/front/camera/image_raw"
                     )
-                    synced_df = sync_transformer.transform(df)
-
-                    # Reconstruct the image message from a dataframe row
-                    image_msg = Message.from_dataframe_row(synced_df, "/front/camera/image_raw")
                     image_data = image_msg.get_data(Image)
                     # Show the image
                     image_data.to_pillow().show()

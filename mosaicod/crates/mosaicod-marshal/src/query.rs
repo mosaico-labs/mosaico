@@ -1,8 +1,8 @@
 use mosaicod_query as query;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(untagged)]
 enum Value {
     Integer(i64),
@@ -62,7 +62,7 @@ impl TryInto<query::Timestamp> for Value {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 enum Op {
     #[serde(rename = "$eq")]
     Eq(Value),
@@ -176,11 +176,20 @@ impl TryInto<query::Filter> for Query {
     }
 }
 
-#[derive(Debug, Deserialize)]
-struct Ontology {
+#[derive(Debug, Deserialize, Serialize)]
+pub struct Ontology {
     #[serde(flatten)]
     filter: HashMap<String, Op>,
     include_timestamp_range: Option<bool>,
+}
+
+impl Ontology {
+    pub fn len(&self) -> usize {
+        self.filter.len()
+    }
+    pub fn is_empty(&self) -> bool {
+        self.filter.is_empty()
+    }
 }
 
 impl TryInto<query::OntologyFilter> for Ontology {

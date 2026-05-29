@@ -1,4 +1,4 @@
-use mosaicod_core as core;
+use mosaicod_core::{self as core};
 
 #[derive(Debug)]
 pub enum Error {
@@ -103,6 +103,7 @@ impl core::error::PublicError for Error {
         match self {
             Self::NotFound => core::Error::not_found(String::new()),
             Self::AlreadyExists => core::Error::already_exists(String::new()),
+            Self::QueryError(e) => e.error(),
             _ => core::Error::internal(Some("database failure".to_owned())),
         }
     }

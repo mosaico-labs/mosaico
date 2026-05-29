@@ -52,6 +52,7 @@ from mosaicolabs.models.futures.depth_camera import (
 from mosaicolabs.models.futures.laser import LaserScan, MultiEchoLaserScan
 from mosaicolabs.models.futures.lidar import Lidar
 from mosaicolabs.models.futures.radar import Radar
+from mosaicolabs.ros_bridge import FrameTransform
 
 
 def assert_helper(expected, actual, rel=1e-4, abs_tol=None):
@@ -86,6 +87,17 @@ def assert_helper(expected, actual, rel=1e-4, abs_tol=None):
                 f"Value mismatch (expected != actual): {expected} != {actual}"
             )
 
+    elif isinstance(expected, Serializable) and isinstance(actual, Serializable):
+        exp_f_keys = expected.__class_type__.model_fields
+        act_f_keys = actual.__class_type__.model_fields
+
+        assert exp_f_keys == act_f_keys
+
+        for exp_f_k, act_f_k in zip(exp_f_keys, act_f_keys):
+            a = getattr(expected, exp_f_k)
+            b = getattr(actual, act_f_k)
+            assert_helper(a, b, rel, abs_tol)
+
     else:
         assert expected == actual, (
             f"Value mismatch(expected != actual): {expected} != {actual}"
@@ -101,10 +113,7 @@ def assert_roundtrip(model: Serializable, rel=1e-4, abs_tol=None):
     msg_decoded = Message._from_pa_record_batch(rb, model.ontology_tag())
     assert msg_decoded is not None
 
-    a = model.model_dump()
-    b = msg_decoded.data.model_dump()
-
-    assert_helper(a, b, rel, abs_tol)
+    assert_helper(model, msg_decoded.data, rel, abs_tol)
 
 
 def test_integer8_roundtrip():
@@ -857,4 +866,34 @@ def test_camera_info_required_only_roundtrip():
             0.0,
         ],
     )
+    assert_roundtrip(model)
+
+
+def test_frame_transform_roundtrip():
+
+    transform1 = Transform(
+        translation=Vector3d(x=1.0, y=0.0, z=0.5),
+        rotation=Quaternion(x=0.0, y=0.0, z=0.0, w=1.0),
+        target_frame_id="base_link",
+        covariance=[0.01] * 69,
+        covariance_type=1,
+    )
+
+    transform2 = Transform(
+        translation=Vector3d(x=2.0, y=3.0, z=4.5),
+        rotation=Quaternion(x=0.0, y=0.0, z=0.0, w=1.0),
+        target_frame_id="base_inertia",
+        covariance=[0.01] * 69,
+        covariance_type=1,
+    )
+
+    transform3 = Transform(
+        translation=Vector3d(x=2.0, y=3.0, z=4.5),
+        rotation=Quaternion(x=0.0, y=0.0, z=0.0, w=1.0),
+        target_frame_id="base_inertia_2",
+        covariance=[0.01] * 69,
+        covariance_type=1,
+    )
+
+    model = FrameTransform(transforms=[transform1, transform2, transform3])
     assert_roundtrip(model)

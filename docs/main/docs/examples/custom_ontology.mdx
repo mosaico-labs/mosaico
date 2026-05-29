@@ -1,0 +1,90 @@
+---
+title: Custom Ontology
+sidebar_position: 3
+description: "Runnable example showing how to extend Mosaico with custom data models for hardware not covered by the built-in ontology. Covers Serializable subclassing, MosaicoField and MosaicoType declarations, automatic schema registration via module import, and verifying registration status."
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+Demonstrates how to define and register a custom data model for the NVIDIA Isaac Nova wheel encoder, a hardware type not present in the built-in Mosaico ontology. This is the ontology code that underpins the [ROS Ingestion](./ros_ingestion) example.
+
+<Tabs>
+
+<TabItem value="python" label="Python" default>
+:::tip[Learn]
+[Doc: Data Models & Ontology](https://docs.mosaico.dev/python-sdk/SDK/ontology/)
+
+[API Reference: Base Models and Mixins](https://docs.mosaico.dev/python-sdk/SDK/API_reference/models/base/)
+
+:::
+</TabItem>
+
+<TabItem value="cpp" label="C++">
+The C++ SDK is currently in development.
+</TabItem>
+
+<TabItem value="rust" label="Rust">
+The Rust SDK is currently in development.
+</TabItem>
+
+</Tabs>
+
+```bash title="Run"
+mosaicolabs.examples ros_injection
+```
+
+Run the command with `--help` to see all available options.
+
+The custom ontology is loaded as part of the ROS Ingestion example. The full source is on [GitHub](https://github.com/mosaico-labs/mosaico/blob/main/mosaico-sdk-py/src/mosaicolabs/examples/ros_injection/custom_ontology).
+
+## Defining the Model
+
+Data models in Mosaico are defined by inheriting from `Serializable`. This triggers automatic Apache Arrow schema generation and registers the type in the internal ontology registry the moment the class is loaded by the Python interpreter. The type is then valid as an `ontology_type` in `topic_create()` and its fields become available through the `.Q` query proxy for content-based filtering.
+
+`MosaicoType` provides the available primitive types (`uint32`, `uint64`, `float32`, `string`, and more). `MosaicoField` attaches a human-readable description to each field, which is stored alongside the data in the catalog.
+
+```python title="EncoderTicks custom model"
+from mosaicolabs import MosaicoField, MosaicoType, Serializable
+
+class EncoderTicks(Serializable):
+    left_ticks: MosaicoType.uint32 = MosaicoField(
+        description="Cumulative counts from the left wheel encoder."
+    )
+    right_ticks: MosaicoType.uint32 = MosaicoField(
+        description="Cumulative counts from the right wheel encoder."
+    )
+    encoder_timestamp: MosaicoType.uint64 = MosaicoField(
+        description="Timestamp of the encoder ticks."
+    )
+```
+
+
+## Registration via Module Import
+
+Registration happens at class definition time, not at application startup. If the module containing the `Serializable` subclass is never imported, the type is never registered and the platform will not recognize it when you pass it to `topic_create()` or `client.query()`.
+
+The safe pattern is to import your ontology module explicitly at the application entry point before any SDK calls are made.
+
+```python title="Import to trigger registration"
+import my_project.ontology.encoders as encoders  # registration happens here
+
+from mosaicolabs import MosaicoClient
+
+with MosaicoClient.connect(...) as client:
+    with client.sequence_create(name="test") as sw:
+        tw = sw.topic_create("ticks", ontology_type=encoders.EncoderTicks)
+```
+
+
+## Verifying Registration
+
+`is_registered()` lets you assert that a type is in the registry before relying on it. This is useful in test setups and during debugging.
+
+```python title="Check registration status"
+import my_project.ontology.encoders as encoders
+
+if encoders.EncoderTicks.is_registered():
+    print("Registration successful.")
+```
+

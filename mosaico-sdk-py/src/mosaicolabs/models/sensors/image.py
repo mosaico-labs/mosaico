@@ -185,7 +185,7 @@ class Image(Serializable):
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `Image.Q.format` | `String` | `.eq()`, `.neq()`, `.match()`, `.in_()` |
+    | `Image.Q.format` | `String` | `.eq()`, `.match()`, `.in_()`, `.lt()`, `.gt()`, `.leq()`, `.geq()` |
 
     Example:
         ```python
@@ -215,7 +215,7 @@ class Image(Serializable):
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `Image.Q.width` | `Integer` | `.eq()`, `.neq()`, `.gt()`, `.gte()`, `.lt()`, `.lte()`, `.between()` |
+    | `Image.Q.width` | `Numeric` | `.eq()`, `.gt()`, `.gte()`, `.lt()`, `.lte()`, `.between()` |
 
     Example:
         ```python
@@ -245,7 +245,7 @@ class Image(Serializable):
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `Image.Q.height` | `Integer` | `.eq()`, `.neq()`, `.gt()`, `.gte()`, `.lt()`, `.lte()`, `.between()` |
+    | `Image.Q.height` | `Numeric` | `.eq()`, `.gt()`, `.gte()`, `.lt()`, `.lte()`, `.between()` |
 
     Example:
         ```python
@@ -277,7 +277,7 @@ class Image(Serializable):
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `Image.Q.stride` | `Integer` | `.eq()`, `.neq()`, `.gt()`, `.gte()`, `.lt()`, `.lte()`, `.between()` |
+    | `Image.Q.stride` | `Numeric` | `.eq()`, `.gt()`, `.gte()`, `.lt()`, `.lte()`, `.between()` |
 
     Example:
         ```python
@@ -309,7 +309,7 @@ class Image(Serializable):
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `Image.Q.encoding` | `String` | `.eq()`, `.neq()`, `.match()`, `.in_()` |
+    | `Image.Q.encoding` | `String` | `.eq()`, `.match()`, `.in_()`, `.lt()`, `.gt()`, `.leq()`, `.geq()` |
 
     Example:
         ```python
@@ -870,7 +870,7 @@ class CompressedImage(Serializable):
     ### Querying with the **`.Q` Proxy**
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `CompressedImage.Q.format` | `String` | `.eq()`, `.neq()`, `.match()`, `.in_()` |
+    | `CompressedImage.Q.format` | `String` | `.eq()`, `.match()`, `.in_()`, `.lt()`, `.gt()`, `.leq()`, `.geq()` |
 
     Example:
         ```python
