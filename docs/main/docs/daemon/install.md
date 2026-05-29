@@ -10,7 +10,7 @@ Precompiled binaries for `mosaicod` are available for several platforms and can 
 
 ## Running with Containers
 
-For rapid prototyping, we provide a standard Docker Compose configuration. This creates an isolated network environment containing the `mosaicod` server and its required PostgreSQL database.
+For rapid prototyping, we provide a standard compose configuration. This creates an isolated network environment containing the `mosaicod` server and its required PostgreSQL database.
 
 ```yaml title="compose.yml", {24,34-37,50}
 name: "mosaico"
@@ -72,13 +72,19 @@ networks:
   mosaico:
 ```
 
-This configuration provisions both Postgres and mosaicod within a private Docker network. Only the daemon instance is exposed to the host.
+This configuration provisions both Postgres and mosaicod within a private network. Only the daemon instance is exposed to the host.
 
 :::warning
     In this basic prototyping setup, TLS and API key management are disabled.
 
     The port mapping is restricted to `127.0.0.1`. If you need to access this from an external network, consider configuring `mosaicod` to [enable TLS](tls.md) or use a reverse proxy to handle SSL termination.
 :::
+
+PostgreSQL data is persisted in the `pg-data` volume. To remove it along with the containers, run:
+
+```bash
+docker compose down -v
+```
 
 ### Container tags
 
