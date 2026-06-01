@@ -388,6 +388,7 @@ impl OntologyFilter {
         self.ontology.get(field)
     }
 
+    /// Returns an iterator over the ontology tags.
     pub fn ontology_tags(&self) -> impl Iterator<Item = &str> + '_ {
         self.ontology.keys().map(|f| f.ontology_tag())
     }

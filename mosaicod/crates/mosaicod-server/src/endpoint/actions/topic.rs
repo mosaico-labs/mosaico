@@ -150,7 +150,7 @@ pub async fn query_by_timestamp(
     for filter_tag in ontology_filter.ontology_tags() {
         if filter_tag != topic_tag {
             return Err(core::Error::bad_request(format!(
-                "unknown ontology tag {filter_tag}, topic uses {topic_tag}"
+                "wrong ontology tag {filter_tag}, topic uses {topic_tag}"
             )))?;
         }
     }
