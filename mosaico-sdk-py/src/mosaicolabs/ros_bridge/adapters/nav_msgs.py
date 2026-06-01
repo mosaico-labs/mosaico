@@ -5,6 +5,8 @@ from rosbags.typesys.store import Typestore
 if TYPE_CHECKING:
     from rosbags.typesys.store import MsgType
 
+import numpy as np
+
 from mosaicolabs.models import Message
 from mosaicolabs.models.data import MotionState, Point3d, RobotPath
 from mosaicolabs.models.futures import (
@@ -17,7 +19,7 @@ from mosaicolabs.types import Time
 from ..adapter_base import ROSAdapterBase
 from ..ros_bridge import register_default_adapter
 from ..ros_message import ROSMessage
-from .geometry_msgs import PoseAdapter, TwistAdapter
+from .geometry_msgs import PointAdapter, PoseAdapter, TwistAdapter
 from .helpers import _validate_msgdata
 
 
@@ -353,7 +355,7 @@ class RobotPathAdapter(ROSAdapterBase[RobotPath]):
         return None
 
 
-@register_default_adapter
+@register_default_adapter(is_default=True)
 class GridCellsAdapter(ROSAdapterBase[GridCells]):
     """
     Adapter for translating ROS GridCells messages to Mosaico `GridCells`.
@@ -436,23 +438,67 @@ class GridCellsAdapter(ROSAdapterBase[GridCells]):
                     x=point["x"],
                     y=point["y"],
                     z=point["z"],
-                    covariance=point["covariance"],
-                    covariance_type=point["covariance_type"],
                 )
                 for point in ros_data["cells"]
             ],
         )
 
     @classmethod
-    def to_ros(cls) -> GridCells:
-        pass  # ! TODO
+    def to_ros(
+        cls,
+        mosaico_data: Union[Message, GridCells],
+        typestore: Typestore,
+        input_ros_msg_type: Optional[str] = None,
+    ) -> "Optional[MsgType]":
+        """
+        Converts a Mosaico ``GridCells`` (or a ``Message`` wrapping one) into a
+        ``nav_msgs/msg/GridCells`` message.
+
+        Args:
+            mosaico_data: A ``Message`` wrapping a ``GridCells`` instance, or a raw ``GridCells``.
+            typestore: The rosbags typestore for target type resolution.
+            input_ros_msg_type: Override for the output ROS type. Only
+                ``nav_msgs/msg/GridCells`` is supported.
+
+        Returns:
+            A ``nav_msgs/msg/GridCells`` instance, or ``None`` if the type is
+            unsupported or absent from the typestore.
+        """
+
+        # Resolve ROS message to translate Mosaico message to if not defined in input
+        resolved_rosmsg_type = input_ros_msg_type or cls.get_default_ros_msg()
+        if not cls.is_rosmsg_type_valid(resolved_rosmsg_type):
+            return None
+
+        # Checking presence in typestore of requested message
+        if typestore.types.get(resolved_rosmsg_type) is None:
+            return None
+
+        # Unpacking Mosaico message / type
+        gridcell_data, header_ms = cls.unpack_mosaico_msg(mosaico_data)
+
+        # Filling the data
+        RosGridCell = typestore.types["nav_msgs/msg/GridCells"]
+
+        if resolved_rosmsg_type == "nav_msgs/msg/GridCells":
+            return RosGridCell(
+                header=header_ms.to_ros(typestore),
+                cell_width=gridcell_data.cell_width,
+                cell_height=gridcell_data.cell_height,
+                cells=[
+                    PointAdapter.to_ros(point, typestore)
+                    for point in gridcell_data.cells
+                ],
+            )
+
+        return None
 
     @classmethod
     def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
         return None
 
 
-@register_default_adapter
+@register_default_adapter(is_default=True)
 class MapMetadataAdapter(ROSAdapterBase[MapMetadata]):
     """
     Adapter for translating ROS MapMetadata messages to Mosaico `MapMetadata`.
@@ -469,8 +515,8 @@ class MapMetadataAdapter(ROSAdapterBase[MapMetadata]):
         msg_type="nav_msgs/msg/MapMetaData",
         data={
             "map_load_time": {
-                "seconds": 100000,
-                "nanoseconds": 1000
+                "sec": 100000,
+                "nanosec": 1000
             },
             "resolution": 10000,
             "width": 100,
@@ -490,7 +536,7 @@ class MapMetadataAdapter(ROSAdapterBase[MapMetadata]):
 
     __mosaico_ontology_type__: Type[MapMetadata] = MapMetadata
     _REQUIRED_KEYS = (
-        "time",
+        "map_load_time",
         "resolution",
         "width",
         "height",
@@ -527,9 +573,9 @@ class MapMetadataAdapter(ROSAdapterBase[MapMetadata]):
         """
         _validate_msgdata(cls, ros_data)
         return MapMetadata(
-            time=Time(
-                seconds=ros_data["map_load_time"]["seconds"],
-                nanoseconds=ros_data["map_load_time"]["nanoseconds"],
+            map_load_time=Time(
+                seconds=ros_data["map_load_time"]["sec"],
+                nanoseconds=ros_data["map_load_time"]["nanosec"],
             ).to_nanoseconds(),  # TODO: this needs to be changed to Time
             resolution=ros_data["resolution"],
             width=ros_data["width"],
@@ -538,15 +584,63 @@ class MapMetadataAdapter(ROSAdapterBase[MapMetadata]):
         )
 
     @classmethod
-    def to_ros(cls):
-        pass  # ! TODO
+    def to_ros(
+        cls,
+        mosaico_data: Union[Message, MapMetadata],
+        typestore: Typestore,
+        input_ros_msg_type: Optional[str] = None,
+    ) -> "Optional[MsgType]":
+        """
+        Converts a Mosaico ``MapMetadata`` (or a ``Message`` wrapping one) into a
+        ``nav_msgs/msg/MapMetaData`` message.
+
+        Args:
+            mosaico_data: A ``Message`` wrapping a ``MapMetadata`` instance, or a raw ``MapMetadata``.
+            typestore: The rosbags typestore for target type resolution.
+            input_ros_msg_type: Override for the output ROS type. Only
+                ``nav_msgs/msg/MapMetaData`` is supported.
+
+        Returns:
+            A ``nav_msgs/msg/MapMetaData`` instance, or ``None`` if the type is
+            unsupported or absent from the typestore.
+        """
+
+        # Resolve ROS message to translate Mosaico message to if not defined in input
+        resolved_rosmsg_type = input_ros_msg_type or cls.get_default_ros_msg()
+        if not cls.is_rosmsg_type_valid(resolved_rosmsg_type):
+            return None
+
+        # Checking presence in typestore of requested message
+        if typestore.types.get(resolved_rosmsg_type) is None:
+            return None
+
+        # Unpacking Mosaico message / type
+        map_metadata_data, header_ms = cls.unpack_mosaico_msg(mosaico_data)
+
+        # Filling the data
+        RosTime = typestore.types["builtin_interfaces/msg/Time"]
+        RosMapMetadata = typestore.types["nav_msgs/msg/MapMetaData"]
+
+        ms_time = Time.from_nanoseconds(map_metadata_data.map_load_time)
+        ros_time = RosTime(sec=ms_time.seconds, nanosec=ms_time.nanoseconds)
+
+        if resolved_rosmsg_type == "nav_msgs/msg/MapMetaData":
+            return RosMapMetadata(
+                map_load_time=ros_time,
+                resolution=map_metadata_data.resolution,
+                width=map_metadata_data.width,
+                height=map_metadata_data.height,
+                origin=PoseAdapter.to_ros(map_metadata_data.origin, typestore),
+            )
+
+        return None
 
     @classmethod
     def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
         return None
 
 
-@register_default_adapter
+@register_default_adapter(is_default=True)
 class OccupancyGridAdapter(ROSAdapterBase[OccupancyGrid]):
     """
     Adapter for translating ROS OccupancyGrid messages to Mosaico `OccupancyGrid`.
@@ -564,8 +658,8 @@ class OccupancyGridAdapter(ROSAdapterBase[OccupancyGrid]):
         data={
             "info": {
                 "map_load_time": {
-                    "seconds": 100000,
-                    "nanoseconds": 1000
+                    "sec": 100000,
+                    "nanosec": 1000
                 },
                 "resolution": 4,
                 "width": 2,
@@ -625,8 +719,50 @@ class OccupancyGridAdapter(ROSAdapterBase[OccupancyGrid]):
         )
 
     @classmethod
-    def to_ros(cls):
-        pass  # ! TODO
+    def to_ros(
+        cls,
+        mosaico_data: Union[Message, OccupancyGrid],
+        typestore: Typestore,
+        input_ros_msg_type: Optional[str] = None,
+    ) -> "Optional[MsgType]":
+        """
+        Converts a Mosaico ``OccupancyGrid`` (or a ``Message`` wrapping one) into a
+        ``nav_msgs/msg/OccupancyGrid`` message.
+
+        Args:
+            mosaico_data: A ``Message`` wrapping a ``OccupancyGrid`` instance, or a raw ``OccupancyGrid``.
+            typestore: The rosbags typestore for target type resolution.
+            input_ros_msg_type: Override for the output ROS type. Only
+                ``nav_msgs/msg/OccupancyGrid`` is supported.
+
+        Returns:
+            A ``nav_msgs/msg/OccupancyGrid`` instance, or ``None`` if the type is
+            unsupported or absent from the typestore.
+        """
+
+        # Resolve ROS message to translate Mosaico message to if not defined in input
+        resolved_rosmsg_type = input_ros_msg_type or cls.get_default_ros_msg()
+        if not cls.is_rosmsg_type_valid(resolved_rosmsg_type):
+            return None
+
+        # Checking presence in typestore of requested message
+        if typestore.types.get(resolved_rosmsg_type) is None:
+            return None
+
+        # Unpacking Mosaico message / type
+        occupancy_grid_data, header_ms = cls.unpack_mosaico_msg(mosaico_data)
+
+        # Filling the data
+        RosOccupancyGrid = typestore.types["nav_msgs/msg/OccupancyGrid"]
+
+        if resolved_rosmsg_type == "nav_msgs/msg/OccupancyGrid":
+            return RosOccupancyGrid(
+                header=header_ms.to_ros(typestore),
+                info=MapMetadataAdapter.to_ros(occupancy_grid_data.info, typestore),
+                data=np.asarray(occupancy_grid_data.data, dtype=np.int8),
+            )
+
+        return None
 
     @classmethod
     def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:

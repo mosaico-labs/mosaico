@@ -167,7 +167,7 @@ class MapMetadata(
     Typically used in combination with OccupancyGrid
 
     Attributes:
-        time: A `Time` representing the time at which the map has
+        map_load_time: A `Time` representing the time at which the map has
             been loaded.
         resolution: A `MosaicoType.float32` representing the resolution
             of the map.
@@ -217,7 +217,7 @@ class MapMetadata(
     """
 
     # TODO: this needs to be changed to Time Ontology
-    time: MosaicoType.uint64 = MosaicoField(
+    map_load_time: MosaicoType.uint64 = MosaicoField(
         description="Time (in nanoseconds) at which the map has been loaded."
     )
     """
