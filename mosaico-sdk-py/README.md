@@ -2,10 +2,10 @@
   <img src="https://raw.githubusercontent.com/mosaico-labs/mosaico/main/logo/mono_black.svg" width="300" alt="Mosaico Logo">
 </p>
 
-<center>
-  [![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
-  [![Python Version](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/downloads/)
-</center>
+<p align="center">
+  <a href="https://www.apache.org/licenses/LICENSE-2.0"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" /></a>
+  <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.10%2B-blue" /></a>
+</p>
 
 # Mosaico SDK
 
