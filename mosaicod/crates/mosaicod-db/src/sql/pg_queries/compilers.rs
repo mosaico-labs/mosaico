@@ -128,9 +128,11 @@ impl query::CompileClause for SqlQueryCompiler {
                     if text.is_empty() {
                         return Err(query::Error::empty_pattern(field.to_owned()));
                     }
-                    let value = query::Value::Text(format!("%{}%", text));
-                    let clause = format!("{} LIKE {}", field, self.consume_placeholder());
-                    query::CompiledClause::new(clause, vec![value])
+                    let clause = format!(
+                        "mosaico_regex_match({field}, {})",
+                        self.consume_placeholder()
+                    );
+                    query::CompiledClause::new(clause, vec![query::Value::Text(text)])
                 } else {
                     return Err(query::Error::unsupported_op(field.to_owned()));
                 }
@@ -367,9 +369,9 @@ mod tests {
         if let Some(idx) = qr
             .clauses
             .iter()
-            .position(|c| c == r#"topic.locator_name LIKE $1"#)
+            .position(|c| c == r#"mosaico_regex_match(topic.locator_name, $1)"#)
         {
-            assert_eq!(qr.values[idx], query::Value::Text("%my-topic%".to_owned()));
+            assert_eq!(qr.values[idx], query::Value::Text("my-topic".to_owned()));
         } else {
             panic!("match not found");
         }

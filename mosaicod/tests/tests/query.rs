@@ -516,3 +516,98 @@ async fn test_query_match_empty_pattern_rejected(pool: sqlx::Pool<db::DatabaseTy
 
     server.shutdown().await;
 }
+
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_query_topic_name_match_percent(pool: sqlx::Pool<db::DatabaseType>) {
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
+        .build()
+        .await;
+
+    let seq = "seq_topic_match";
+    setup_topics_with_metadata(
+        &mut client,
+        seq,
+        &[("topic_a", json!({})), ("topic_b", json!({}))],
+    )
+    .await;
+
+    let result = actions::query(
+        &mut client,
+        json!({
+            "topic": { "locator": { "$match": "%" } }
+        }),
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(result.len(), 0);
+
+    server.shutdown().await;
+}
+
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_query_topic_name_match_all(pool: sqlx::Pool<db::DatabaseType>) {
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
+        .build()
+        .await;
+
+    let seq = "seq_topic_match_1";
+    setup_topics_with_metadata(
+        &mut client,
+        seq,
+        &[("topic_a", json!({})), ("topic_b", json!({}))],
+    )
+    .await;
+
+    let seq = "seq_topic_match_2";
+    setup_topics_with_metadata(
+        &mut client,
+        seq,
+        &[("topic_c", json!({})), ("topic_d", json!({}))],
+    )
+    .await;
+
+    let result = actions::query(
+        &mut client,
+        json!({
+            "topic": { "locator": { "$match": ".*" } }
+        }),
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(result.len(), 2);
+
+    server.shutdown().await;
+}
+
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_query_topic_name_match_empty_is_rejected(pool: sqlx::Pool<db::DatabaseType>) {
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
+        .build()
+        .await;
+
+    let seq = "seq_topic_match";
+    setup_topics_with_metadata(
+        &mut client,
+        seq,
+        &[("topic_a", json!({})), ("topic_b", json!({}))],
+    )
+    .await;
+
+    let result = actions::query(
+        &mut client,
+        json!({
+            "topic": { "locator": { "$match": "" } }
+        }),
+    )
+    .await
+    .unwrap_err();
+
+    assert_eq!(result.code(), tonic::Code::InvalidArgument);
+
+    server.shutdown().await;
+}
