@@ -14,7 +14,7 @@ Example:
 """
 
 # --- Client ---
-from .comm import GRPCCompression as GRPCCompression, MosaicoClient as MosaicoClient
+from .comm import GRPCCompression as GRPCCompression, MosaicoClient as MosaicoClient  # noqa: I001
 
 # --- Enums ---
 from .enum import (
@@ -52,11 +52,6 @@ from .models import (
     MosaicoType as MosaicoType,
     Serializable as Serializable,
     VarianceMixin as VarianceMixin,
-    # Force registration into Serializable registry
-    # (fix deserializing messages from topics that contain these data types,
-    # with no registration side-effects)
-    # !!DO NOT REMOVE!!
-    futures as futures,
 )
 
 # --- Base Types ---
@@ -94,6 +89,14 @@ from .models.data import (
     Vector3d as Vector3d,
     Vector4d as Vector4d,
     Velocity as Velocity,
+)
+
+from .models import (
+    # Force registration into Serializable registry
+    # (fix deserializing messages from topics that contain these data types,
+    # with no registration side-effects)
+    # !!DO NOT REMOVE!!
+    futures as futures,
 )
 
 # --- Platform ---

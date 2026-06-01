@@ -1,0 +1,574 @@
+"""
+
+This module defines the fundamental building blocks for grids and maps representation, including grid cells, map metadata and occupancy grids.
+
+"""
+
+from mosaicolabs.models.data import Point3d, Pose
+from mosaicolabs.models.serializable import Serializable
+from mosaicolabs.models.types import MosaicoField, MosaicoType
+
+
+class GridCells(Serializable):
+    """
+    Grid Cells data.
+
+    This class represents the grid cells.
+
+    Attributes:
+        cell_width: A `MosaicoType.float32` that represents the width of each cell.
+        cell_height: A `MosaicoType.float32` that represents the width of each cell.
+        cells: A `MosaicoType.list_(Point2d)` that represents the center point of
+            each cell.
+
+    ### Querying with the **`.Q` Proxy**
+    This class is partially queryable via the **`.Q` proxy**. You can filter grid cells data based
+    on cell_width or cell_height field values within a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog].
+
+    Example:
+        ```python
+        from mosaicolabs import MosaicoClient, GridCells, QueryOntologyCatalog
+
+        with MosaicoClient.connect("localhost", 6726) as client:
+            # Filter for cell grid width field values within a specific range
+            qresponse = client.query(
+                QueryOntologyCatalog(GridCells.Q.cell_width.between(100, 200))
+            )
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {[topic.name for topic in item.topics]}")
+
+            # Filter for a specific component value and extract the first and last occurrence times
+            qresponse = client.query(
+                QueryOntologyCatalog(GridCells.Q.cell_width.between(100, 200), include_timestamp_range=True)
+            )
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {{topic.name:
+                                [topic.timestamp_range.start, topic.timestamp_range.end]
+                                for topic in item.topics}}")
+        ```
+    """
+
+    cell_width: MosaicoType.float32 = MosaicoField(description="Width of each cell.")
+    """
+    Width of each cell.
+
+    ### Querying with the **`.Q` Proxy**
+    The grid cells width is queryable via the `cell_width` field.
+
+    | Field Access Path | Queryable Type | Supported Operators |
+    | :--- | :--- | :--- |
+    | `GridCells.Q.cell_width` | `Numeric` | `.eq()`, `.neq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    
+    
+    Example:
+        ```python
+        from mosaicolabs import MosaicoClient, GridCells, QueryOntologyCatalog
+
+        with MosaicoClient.connect("localhost", 6726) as client:
+            # Filter for cell width within a specific range
+            qresponse = client.query(
+                QueryOntologyCatalog(GridCells.Q.cell_width.between([100, 200]))
+            )
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {[topic.name for topic in item.topics]}")
+
+            # Filter for a specific component value and extract the first and last occurrence times
+            qresponse = client.query(
+                QueryOntologyCatalog(GridCells.Q.cell_width.between([100, 200]), include_timestamp_range=True)
+            )
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {{topic.name:
+                                [topic.timestamp_range.start, topic.timestamp_range.end]
+                                for topic in item.topics}}")
+        ```
+    """
+
+    cell_height: MosaicoType.float32 = MosaicoField(description="Height of each cell.")
+    """
+    Height of each cell.
+
+    ### Querying with the **`.Q` Proxy**
+    The grid cells height is queryable via the `cell_height` field.
+
+    | Field Access Path | Queryable Type | Supported Operators |
+    | :--- | :--- | :--- |
+    | `GridCells.Q.cell_height` | `Numeric` | `.eq()`, `.neq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    
+    
+    Example:
+        ```python
+        from mosaicolabs import MosaicoClient, GridCells, QueryOntologyCatalog
+
+        with MosaicoClient.connect("localhost", 6726) as client:
+            # Filter for cell width within a specific range
+            qresponse = client.query(
+                QueryOntologyCatalog(GridCells.Q.cell_height.between([100, 200]))
+            )
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {[topic.name for topic in item.topics]}")
+
+            # Filter for a specific component value and extract the first and last occurrence times
+            qresponse = client.query(
+                QueryOntologyCatalog(GridCells.Q.cell_height.between([100, 200]), include_timestamp_range=True)
+            )
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {{topic.name:
+                                [topic.timestamp_range.start, topic.timestamp_range.end]
+                                for topic in item.topics}}")
+        ```
+    """
+
+    cells: MosaicoType.list_(Point3d) = MosaicoField(
+        description="The cell represented by a point at it's center."
+    )
+    """
+    The cell represented by a point at it's center.
+
+    ### Querying with the **`.Q` Proxy**
+    The cells field is not queryable via the `.Q` proxy (lists are not supported yet).
+    """
+
+
+class MapMetadata(
+    Serializable,
+):
+    """
+    Represents metadata about the map, like it's width and height.
+    Typically used in combination with OccupancyGrid
+
+    Attributes:
+        time: A `Time` representing the time at which the map has
+            been loaded.
+        resolution: A `MosaicoType.float32` representing the resolution
+            of the map.
+        width: A `MosaicoType.uint32` representing the number of cells that
+            represent the width of the map.
+        height: A `MosaicoType.uint32` representing the number of cells that
+            represent the height of the map.
+        origin: A `Pose` that represents where the map starts in the real world.
+
+    ### Querying with the **`.Q` Proxy**
+    This class fields are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
+    via the **`.Q` proxy**. Check the fields documentation for detailed description.
+
+    Example:
+        ```python
+        from mosaicolabs import MosaicoClient, MapMetadata, QueryOntologyCatalog
+
+        with MosaicoClient.connect("localhost", 6726) as client:
+            # Filter MapMetadatas with width AND height
+            qresponse = client.query(
+                QueryOntologyCatalog(MapMetadata.Q.width.gt(100))
+                .with_expression(MapMetadata.Q.height.lt(200))
+            )
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {[topic.name for topic in item.topics]}")
+
+            # Filter for a specific component value and extract the first and last occurrence times
+            qresponse = client.query(
+                QueryOntologyCatalog(MapMetadata.Q.width.between(100, 200), include_timestamp_range=True)
+            )
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {{topic.name:
+                                [topic.timestamp_range.start, topic.timestamp_range.end]
+                                for topic in item.topics}}")
+        ```
+
+    """
+
+    # TODO: this needs to be changed to Time Ontology
+    time: MosaicoType.uint64 = MosaicoField(
+        description="Time (in nanoseconds) at which the map has been loaded."
+    )
+    """
+    Time (in nanoseconds) at which the map has been loaded.
+
+    ### Querying with the **`.Q` Proxy**
+    The map metadata time is queryable via the `time` field.
+
+    | Field Access Path | Queryable Type | Supported Operators |
+    | :--- | :--- | :--- |
+    | `MapMetadata.Q.time.seconds` | `Numeric` | `.eq()`, `.neq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `MapMetadata.Q.time.nanoseconds` | `Numeric` | `.eq()`, `.neq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+
+    
+    Example:
+        ```python
+        from mosaicolabs import MosaicoClient, MapMetadata, QueryOntologyCatalog
+
+        with MosaicoClient.connect("localhost", 6726) as client:
+            # Filter for time seconds within a specific range
+            qresponse = client.query(
+                QueryOntologyCatalog(MapMetadata.Q.time.between([100000, 200000]))
+            )
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {[topic.name for topic in item.topics]}")
+
+            # Filter for a specific component value and extract the first and last occurrence times
+            qresponse = client.query(
+                QueryOntologyCatalog(MapMetadata.Q.time.between([100000, 200000]), include_timestamp_range=True)
+            )
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {{topic.name:
+                                [topic.timestamp_range.start, topic.timestamp_range.end]
+                                for topic in item.topics}}")
+        ```
+    """
+
+    resolution: MosaicoType.float32 = MosaicoField(
+        description="Resolution of the map [m/cell]."
+    )
+    """
+    Resolution of the map.
+
+    ### Querying with the **`.Q` Proxy**
+    The map metadata resolution is queryable via the `resolution` field.
+
+    | Field Access Path | Queryable Type | Supported Operators |
+    | :--- | :--- | :--- |
+    | `MapMetadata.Q.resolution` | `Numeric` | `.eq()`, `.neq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    
+    Example:
+        ```python
+        from mosaicolabs import MosaicoClient, MapMetadata, QueryOntologyCatalog
+
+        with MosaicoClient.connect("localhost", 6726) as client:
+            # Filter for resolution within a specific range
+            qresponse = client.query(
+                QueryOntologyCatalog(MapMetadata.Q.resolution.between([100000, 200000]))
+            )
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {[topic.name for topic in item.topics]}")
+
+            # Filter for a specific component value and extract the first and last occurrence times
+            qresponse = client.query(
+                QueryOntologyCatalog(MapMetadata.Q.resolution.between([100000, 200000]), include_timestamp_range=True)
+            )
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {{topic.name:
+                                [topic.timestamp_range.start, topic.timestamp_range.end]
+                                for topic in item.topics}}")
+        ```
+    """
+
+    width: MosaicoType.uint32 = MosaicoField(
+        description="Number of cells representing the width of the map [cells]."
+    )
+    """
+    Number of cells representing the width of the map.
+
+    ### Querying with the **`.Q` Proxy**
+    The map metadata width is queryable via the `width` field.
+
+    | Field Access Path | Queryable Type | Supported Operators |
+    | :--- | :--- | :--- |
+    | `MapMetadata.Q.width` | `Numeric` | `.eq()`, `.neq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    
+    Example:
+        ```python
+        from mosaicolabs import MosaicoClient, MapMetadata, QueryOntologyCatalog
+
+        with MosaicoClient.connect("localhost", 6726) as client:
+            # Filter for width within a specific range
+            qresponse = client.query(
+                QueryOntologyCatalog(MapMetadata.Q.width.between([10, 20]))
+            )
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {[topic.name for topic in item.topics]}")
+
+            # Filter for a specific component value and extract the first and last occurrence times
+            qresponse = client.query(
+                QueryOntologyCatalog(MapMetadata.Q.width.between([10, 20]), include_timestamp_range=True)
+            )
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {{topic.name:
+                                [topic.timestamp_range.start, topic.timestamp_range.end]
+                                for topic in item.topics}}")
+        ```
+    """
+
+    height: MosaicoType.uint32 = MosaicoField(
+        description="Number of cells representing the height of the map [cells]."
+    )
+    """
+    Number of cells representing the height of the map.
+
+    ### Querying with the **`.Q` Proxy**
+    The map metadata height is queryable via the `height` field.
+
+    | Field Access Path | Queryable Type | Supported Operators |
+    | :--- | :--- | :--- |
+    | `MapMetadata.Q.height` | `Numeric` | `.eq()`, `.neq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    
+    Example:
+        ```python
+        from mosaicolabs import MosaicoClient, MapMetadata, QueryOntologyCatalog
+
+        with MosaicoClient.connect("localhost", 6726) as client:
+            # Filter for height within a specific range
+            qresponse = client.query(
+                QueryOntologyCatalog(MapMetadata.Q.height.between([10, 20]))
+            )
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {[topic.name for topic in item.topics]}")
+
+            # Filter for a specific component value and extract the first and last occurrence times
+            qresponse = client.query(
+                QueryOntologyCatalog(MapMetadata.Q.width.between([10, 20]), include_timestamp_range=True)
+            )
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {{topic.name:
+                                [topic.timestamp_range.start, topic.timestamp_range.end]
+                                for topic in item.topics}}")
+        ```
+    """
+
+    origin: Pose = MosaicoField(description="Where the map starts in the real world.")
+    """
+
+    The origin of the map [m, m, rad]. This is the real-world pose of the
+    bottom left corner of cell (0,0) in the map.
+
+    ### Querying with the **`.Q` Proxy**
+    The map metadata origin is queryable via the `origin` field.
+
+    | Field Access Path | Queryable Type | Supported Operators |
+    | :--- | :--- | :--- |
+    | `MapMetadata.Q.origin.position.x` | `Numeric` | `.eq()`, `.neq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `MapMetadata.Q.origin.position.y` | `Numeric` | `.eq()`, `.neq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `MapMetadata.Q.origin.position.z` | `Numeric` | `.eq()`, `.neq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `MapMetadata.Q.origin.orientation.x` | `Numeric` | `.eq()`, `.neq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `MapMetadata.Q.origin.orientation.y` | `Numeric` | `.eq()`, `.neq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `MapMetadata.Q.origin.orientation.z` | `Numeric` | `.eq()`, `.neq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `MapMetadata.Q.origin.orientation.w` | `Numeric` | `.eq()`, `.neq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+
+    Example:
+        ```python
+        from mosaicolabs import MosaicoClient, MapMetadata, QueryOntologyCatalog
+
+        with MosaicoClient.connect("localhost", 6726) as client:
+            # Filter map metadata where the object is beyond a specific X-coordinate
+            qresponse = client.query(
+                QueryOntologyCatalog(MapMetadata.Q.origin.position.x.gt(500.0))
+            )
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {[topic.name for topic in item.topics]}")
+
+            # Filter for a specific component value and extract the first and last occurrence times
+            qresponse = client.query(
+                QueryOntologyCatalog(MapMetadata.Q.origin.position.x.gt(500.0), include_timestamp_range=True)
+            )
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {{topic.name:
+                                [topic.timestamp_range.start, topic.timestamp_range.end]
+                                for topic in item.topics}}")
+        ```
+    """
+
+
+class OccupancyGrid(Serializable):
+    """
+    Occupancy Grid data.
+
+    This class represents the occupancy grid.
+
+    Attributes:
+        info: A `MapMetadata` describing the occupancy grid.
+        data: A `MosaicoType.list_(MosaicoType.int8)` representing data contained in the occupancy grid.
+
+    ### Querying with the **`.Q` Proxy**
+    This class is parrtially queryable via the **`.Q` proxy**. You can filter occupancy grid data based
+    on info field values within a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog].
+
+    Example:
+        ```python
+        from mosaicolabs import MosaicoClient, OccupancyGrid, QueryOntologyCatalog
+
+        with MosaicoClient.connect("localhost", 6726) as client:
+            # Filter for grid width field values within a specific range
+            qresponse = client.query(
+                QueryOntologyCatalog(OccupancyGrid.Q.info.width.between(-100, 100))
+            )
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {[topic.name for topic in item.topics]}")
+
+            # Filter for a specific component value and extract the first and last occurrence times
+            qresponse = client.query(
+                QueryOntologyCatalog(OccupancyGrid.Q.info.width.between(-100, 100), include_timestamp_range=True)
+            )
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {{topic.name:
+                                [topic.timestamp_range.start, topic.timestamp_range.end]
+                                for topic in item.topics}}")
+        ```
+    """
+
+    info: MapMetadata = MosaicoField(
+        description="Info about the map like it's width and height."
+    )
+    """
+    Info about the map like it's width and height.
+
+    ### Querying with the **`.Q` Proxy**
+    The occupancy grid info is queryable via the `info` field.
+
+    | Field Access Path | Queryable Type | Supported Operators |
+    | :--- | :--- | :--- |
+    | `OccupancyGrid.Q.info.time.seconds` | `Numeric` | `.eq()`, `.neq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `OccupancyGrid.Q.info.time.nanoseconds` | `Numeric` | `.eq()`, `.neq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `OccupancyGrid.Q.info.resolution` | `Numeric` | `.eq()`, `.neq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `OccupancyGrid.Q.info.width` | `Numeric` | `.eq()`, `.neq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `OccupancyGrid.Q.info.height` | `Numeric` | `.eq()`, `.neq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `OccupancyGrid.Q.info.origin.position.x` | `Numeric` | `.eq()`, `.neq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `OccupancyGrid.Q.info.origin.position.y` | `Numeric` | `.eq()`, `.neq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `OccupancyGrid.Q.info.origin.position.z` | `Numeric` | `.eq()`, `.neq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `OccupancyGrid.Q.info.origin.orientation.x` | `Numeric` | `.eq()`, `.neq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `OccupancyGrid.Q.info.origin.orientation.y` | `Numeric` | `.eq()`, `.neq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `OccupancyGrid.Q.info.origin.orientation.z` | `Numeric` | `.eq()`, `.neq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `OccupancyGrid.Q.info.origin.orientation.w` | `Numeric` | `.eq()`, `.neq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+
+    
+    Example:
+        ```python
+        from mosaicolabs import MosaicoClient, OccupancyGrid, QueryOntologyCatalog
+
+        with MosaicoClient.connect("localhost", 6726) as client:
+            # Filter for time seconds within a specific range
+            qresponse = client.query(
+                QueryOntologyCatalog(OccupancyGrid.Q.info.time.seconds.between([100000, 200000]))
+            )
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {[topic.name for topic in item.topics]}")
+
+            # Filter for a specific component value and extract the first and last occurrence times
+            qresponse = client.query(
+                QueryOntologyCatalog(OccupancyGrid.Q.info.time.seconds.between([100000, 200000]), include_timestamp_range=True)
+            )
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {{topic.name:
+                                [topic.timestamp_range.start, topic.timestamp_range.end]
+                                for topic in item.topics}}")
+        ```
+    """
+
+    data: MosaicoType.list_(MosaicoType.int8) = MosaicoField(
+        description="Occupancy probability: 1 means occupied, 0 means unoccupied and -1 means unkown."
+    )
+    """
+
+    The map data, in row-major order, starting with (0,0).  
+    Occupancy probabilities are in the range [0,100].  Unknown is -1.
+
+    ### Querying with the **`.Q` Proxy**
+    The data field is not queryable via the `.Q` proxy (lists are not supported yet).
+    """

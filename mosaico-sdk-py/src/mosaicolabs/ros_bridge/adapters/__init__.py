@@ -12,6 +12,9 @@ from .geometry_msgs import (
     WrenchAdapter as WrenchAdapter,
 )
 from .nav_msgs import (
+    GridCellsAdapter as GridCellsAdapter,
+    MapMetadataAdapter as MapMetadataAdapter,
+    OccupancyGridAdapter as OccupancyGridAdapter,
     OdometryAdapter as OdometryAdapter,
     RobotPathAdapter as RobotPathAdapter,
 )

@@ -6,7 +6,13 @@ if TYPE_CHECKING:
     from rosbags.typesys.store import MsgType
 
 from mosaicolabs.models import Message
-from mosaicolabs.models.data import MotionState, RobotPath
+from mosaicolabs.models.data import MotionState, Point3d, RobotPath
+from mosaicolabs.models.futures import (
+    GridCells,
+    MapMetadata,
+    OccupancyGrid,
+)
+from mosaicolabs.types import Time
 
 from ..adapter_base import ROSAdapterBase
 from ..ros_bridge import register_default_adapter
@@ -344,4 +350,284 @@ class RobotPathAdapter(ROSAdapterBase[RobotPath]):
         """
         Extract the ROS message specific schema metadata, if any.
         """
+        return None
+
+
+@register_default_adapter
+class GridCellsAdapter(ROSAdapterBase[GridCells]):
+    """
+    Adapter for translating ROS GridCells messages to Mosaico `GridCells`.
+
+    **Supported ROS Types:**
+
+    - [`nav_msgs/msg/GridCells`](https://docs.ros2.org/foxy/api/nav_msgs/msg/GridCells.html)
+
+    Example:
+    ```python
+    ros_msg = ROSMessage(
+        topic="/gridcells",
+        timestamp=17000,
+        msg_type="nav_msgs/msg/GridCells",
+        data={
+            "cell_width": 10,
+            "cell_height": 10,
+            "cells": [
+                {
+                    "x": 1,
+                    "y": 2
+                    "z": 4
+                },
+                {
+                    "x": 40,
+                    "y": 39
+                    "z": 10
+                },
+            ]
+        }
+    )
+
+    mosaico_grid_cells = GridCellsAdapter.translate(ros_msg)
+    ```
+    """
+
+    ros_msgtype: str | Tuple[str, ...] = ("nav_msgs/msg/GridCells",)
+
+    __mosaico_ontology_type__: Type[GridCells] = GridCells
+    _REQUIRED_KEYS = (
+        "cell_width",
+        "cell_height",
+        "cells",
+    )
+
+    @classmethod
+    def translate(
+        cls,
+        ros_msg: ROSMessage,
+        **kwargs: Any,
+    ) -> Message:
+        """
+        Translates a ROS message into a Mosaico Message.
+
+        Returns:
+            Message: The translated message containing a `GridCells` object.
+
+        Raises:
+            Exception: Wraps any translation error with context (topic name, timestamp).
+        """
+        return super().translate(ros_msg, **kwargs)
+
+    @classmethod
+    def from_dict(cls, ros_data: dict) -> GridCells:
+        """
+        Parses ROS GridCells data.
+
+        Args:
+            ros_data (dict): The raw dictionary from the ROS message.
+
+        Returns:
+            GridCells: The constructed Mosaico GridCells object.
+        """
+        _validate_msgdata(cls, ros_data)
+        return GridCells(
+            cell_width=ros_data["cell_width"],
+            cell_height=ros_data["cell_height"],
+            cells=[
+                Point3d(
+                    x=point["x"],
+                    y=point["y"],
+                    z=point["z"],
+                    covariance=point["covariance"],
+                    covariance_type=point["covariance_type"],
+                )
+                for point in ros_data["cells"]
+            ],
+        )
+
+    @classmethod
+    def to_ros(cls) -> GridCells:
+        pass  # ! TODO
+
+    @classmethod
+    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
+        return None
+
+
+@register_default_adapter
+class MapMetadataAdapter(ROSAdapterBase[MapMetadata]):
+    """
+    Adapter for translating ROS MapMetadata messages to Mosaico `MapMetadata`.
+
+    **Supported ROS Types:**
+
+    - [`nav_msgs/msg/MapMetaData`](https://docs.ros2.org/foxy/api/nav_msgs/msg/MapMetaData.html)
+
+    Example:
+    ```python
+    ros_msg = ROSMessage(
+        topic="/mapmetadata",
+        timestamp=17000,
+        msg_type="nav_msgs/msg/MapMetaData",
+        data={
+            "map_load_time": {
+                "seconds": 100000,
+                "nanoseconds": 1000
+            },
+            "resolution": 10000,
+            "width": 100,
+            "height": 100,
+            "origin": {
+                "position": {"x": 1.0, "y": 2.0, "z": 0.0},
+                "orientation": {"x": 0, "y": 0, "z": 0, "w": 1}
+            }
+        }
+    )
+
+    mosaico_map_metadata = MapMetadataAdapter.translate(ros_msg)
+    ```
+    """
+
+    ros_msgtype: str | Tuple[str, ...] = ("nav_msgs/msg/MapMetaData",)
+
+    __mosaico_ontology_type__: Type[MapMetadata] = MapMetadata
+    _REQUIRED_KEYS = (
+        "time",
+        "resolution",
+        "width",
+        "height",
+        "origin",
+    )
+
+    @classmethod
+    def translate(
+        cls,
+        ros_msg: ROSMessage,
+        **kwargs: Any,
+    ) -> Message:
+        """
+        Translates a ROS message into a Mosaico Message.
+
+        Returns:
+            Message: The translated message containing a `MapMetadata` object.
+
+        Raises:
+            Exception: Wraps any translation error with context (topic name, timestamp).
+        """
+        return super().translate(ros_msg, **kwargs)
+
+    @classmethod
+    def from_dict(cls, ros_data: dict) -> MapMetadata:
+        """
+        Parses ROS MapMetadata data.
+
+        Args:
+            ros_data (dict): The raw dictionary from the ROS message.
+
+        Returns:
+            MapMetadata: The constructed Mosaico MapMetadata object.
+        """
+        _validate_msgdata(cls, ros_data)
+        return MapMetadata(
+            time=Time(
+                seconds=ros_data["map_load_time"]["seconds"],
+                nanoseconds=ros_data["map_load_time"]["nanoseconds"],
+            ).to_nanoseconds(),  # TODO: this needs to be changed to Time
+            resolution=ros_data["resolution"],
+            width=ros_data["width"],
+            height=ros_data["height"],
+            origin=PoseAdapter.from_dict(ros_data["origin"]),
+        )
+
+    @classmethod
+    def to_ros(cls):
+        pass  # ! TODO
+
+    @classmethod
+    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
+        return None
+
+
+@register_default_adapter
+class OccupancyGridAdapter(ROSAdapterBase[OccupancyGrid]):
+    """
+    Adapter for translating ROS OccupancyGrid messages to Mosaico `OccupancyGrid`.
+
+    **Supported ROS Types:**
+
+    - [`nav_msgs/msg/OccupancyGrid`](https://docs.ros2.org/foxy/api/nav_msgs/msg/OccupancyGrid.html)
+
+    Example:
+    ```python
+    ros_msg = ROSMessage(
+        topic="/occupancygrid",
+        timestamp=17000,
+        msg_type="nav_msgs/msg/OccupancyGrid",
+        data={
+            "info": {
+                "map_load_time": {
+                    "seconds": 100000,
+                    "nanoseconds": 1000
+                },
+                "resolution": 4,
+                "width": 2,
+                "height": 2,
+                "origin": {
+                    "position": {"x": 1.0, "y": 2.0, "z": 0.0},
+                    "orientation": {"x": 0, "y": 0, "z": 0, "w": 1}
+                }
+            },
+            data: [1, -1, 0.5, 0]
+        }
+    )
+
+    mosaico_occupancy_grid = OccupancyGridAdapter.translate(ros_msg)
+    ```
+    """
+
+    ros_msgtype: str | Tuple[str, ...] = ("nav_msgs/msg/OccupancyGrid",)
+
+    __mosaico_ontology_type__: Type[OccupancyGrid] = OccupancyGrid
+    _REQUIRED_KEYS = (
+        "info",
+        "data",
+    )
+
+    @classmethod
+    def translate(
+        cls,
+        ros_msg: ROSMessage,
+        **kwargs: Any,
+    ) -> Message:
+        """
+        Translates a ROS message into a Mosaico Message.
+
+        Returns:
+            Message: The translated message containing a `OccupancyGrid` object.
+
+        Raises:
+            Exception: Wraps any translation error with context (topic name, timestamp).
+        """
+        return super().translate(ros_msg, **kwargs)
+
+    @classmethod
+    def from_dict(cls, ros_data: dict) -> OccupancyGrid:
+        """
+        Parses ROS OccupancyGrid data.
+
+        Args:
+            ros_data (dict): The raw dictionary from the ROS message.
+
+        Returns:
+            OccupancyGrid: The constructed Mosaico OccupancyGrid object.
+        """
+        _validate_msgdata(cls, ros_data)
+        return OccupancyGrid(
+            info=MapMetadataAdapter.from_dict(ros_data["info"]), data=ros_data["data"]
+        )
+
+    @classmethod
+    def to_ros(cls):
+        pass  # ! TODO
+
+    @classmethod
+    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
         return None
