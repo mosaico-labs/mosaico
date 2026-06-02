@@ -1,16 +1,18 @@
 //! Session related actions.
-use crate::error::Result;
 use log::{info, trace, warn};
 use mosaicod_core::{self as core, types};
 use mosaicod_facade as facade;
 use mosaicod_facade::session;
+use mosaicod_grpc_common as grpc_common;
 use mosaicod_marshal::ActionResponse;
 
-pub async fn create(ctx: &facade::Context, sequence_locator: String) -> Result<ActionResponse> {
+pub async fn create(
+    ctx: &facade::Context,
+    sequence_locator: String,
+) -> grpc_common::Result<ActionResponse> {
     info!("requested resource {} creation", sequence_locator);
 
     let sequence_locator = sequence_locator.parse::<types::SequenceLocator>()?;
-
     let session_handle = facade::session::try_create(ctx, sequence_locator).await?;
 
     trace!(
@@ -25,7 +27,10 @@ pub async fn create(ctx: &facade::Context, sequence_locator: String) -> Result<A
     ))
 }
 
-pub async fn finalize(ctx: &facade::Context, session_uuid: String) -> Result<ActionResponse> {
+pub async fn finalize(
+    ctx: &facade::Context,
+    session_uuid: String,
+) -> grpc_common::Result<ActionResponse> {
     info!("finalizing session {}", session_uuid);
 
     let uuid: types::Uuid = session_uuid
@@ -33,7 +38,6 @@ pub async fn finalize(ctx: &facade::Context, session_uuid: String) -> Result<Act
         .map_err(|_| core::Error::bad_uuid(session_uuid))?;
 
     let session_handle = session::Handle::try_from_uuid(ctx, &uuid).await?;
-
     facade::session::finalize(ctx, &session_handle).await?;
 
     trace!("session `{}` finalized", uuid);
@@ -41,11 +45,13 @@ pub async fn finalize(ctx: &facade::Context, session_uuid: String) -> Result<Act
     Ok(ActionResponse::session_finalize())
 }
 
-pub async fn delete(ctx: &facade::Context, session_locator: String) -> Result<ActionResponse> {
+pub async fn delete(
+    ctx: &facade::Context,
+    session_locator: String,
+) -> grpc_common::Result<ActionResponse> {
     warn!("deleting session `{}`", session_locator);
 
     let locator = session_locator.parse::<types::SessionLocator>()?;
-
     let session_handle = session::Handle::try_from_locator(ctx, locator).await?;
 
     facade::session::delete(ctx, session_handle, types::allow_data_loss()).await?;

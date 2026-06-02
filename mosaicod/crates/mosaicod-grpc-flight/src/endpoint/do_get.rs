@@ -1,4 +1,3 @@
-use crate::error::Result;
 use arrow::ipc::CompressionType;
 use arrow::ipc::writer::IpcWriteOptions;
 use arrow_flight::{
@@ -10,9 +9,13 @@ use futures::TryStreamExt;
 use log::{debug, info, trace};
 use mosaicod_core::{self as core, params};
 use mosaicod_facade as facade;
+use mosaicod_grpc_common as grpc_common;
 use mosaicod_marshal as marshal;
 
-pub async fn do_get(ctx: &facade::Context, ticket: Ticket) -> Result<FlightDataEncoder> {
+pub async fn do_get(
+    ctx: &facade::Context,
+    ticket: Ticket,
+) -> grpc_common::Result<FlightDataEncoder> {
     let ticket = marshal::flight::ticket_topic_from_binary(&ticket.ticket)?;
 
     info!("requesting data for ticket `{}`", ticket.locator);

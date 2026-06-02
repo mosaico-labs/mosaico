@@ -1,8 +1,4 @@
 //! Topic-related actions.
-use crate::{
-    error::{Error, Result},
-    flight::DoActionStream,
-};
 use arrow::error::ArrowError;
 use datafusion::physical_plan::SendableRecordBatchStream;
 use futures::StreamExt;
@@ -13,6 +9,7 @@ use mosaicod_core::{
 };
 use mosaicod_ext;
 use mosaicod_facade::{self as facade};
+use mosaicod_grpc_common as grpc_common;
 use mosaicod_marshal::{
     self as marshal, ActionResponse, ClusterTimestampRange, Ontology, flight::FilterTimestampRange,
     responses,
@@ -20,6 +17,8 @@ use mosaicod_marshal::{
 use mosaicod_query as query;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
+
+use crate::flight::DoActionStream;
 
 const MAX_BUFFER_CHANNEL_SIZE: usize = 128;
 
@@ -31,7 +30,7 @@ pub async fn create(
     serialization_format: types::Format,
     ontology_tag: String,
     user_metadata_str: &str,
-) -> Result<ActionResponse> {
+) -> grpc_common::Result<ActionResponse> {
     info!("requested resource {} creation", name);
 
     let user_mdata = marshal::JsonMetadataBlob::try_from_str(user_metadata_str)?;
@@ -49,9 +48,7 @@ pub async fn create(
     );
 
     let topic_locator = name.parse::<types::TopicLocator>()?;
-
     let session_handle = facade::session::Handle::try_from_uuid(ctx, &received_uuid).await?;
-
     let topic_handle =
         facade::topic::try_create(ctx, topic_locator, &session_handle, ontology_metadata).await?;
 
@@ -67,11 +64,10 @@ pub async fn create(
 }
 
 /// Deletes a topic (it doesn't matter if it's still open or archived).
-pub async fn delete(ctx: &facade::Context, locator: String) -> Result<ActionResponse> {
+pub async fn delete(ctx: &facade::Context, locator: String) -> grpc_common::Result<ActionResponse> {
     warn!("requested deletion of resource `{}`", locator);
 
     let topic_locator = locator.parse::<types::TopicLocator>()?;
-
     let topic_handle = facade::topic::Handle::try_from_locator(ctx, topic_locator.clone()).await?;
 
     facade::topic::delete(ctx, topic_handle, types::allow_data_loss()).await?;
@@ -87,16 +83,15 @@ pub async fn notification_create(
     locator: String,
     notification_type: String,
     msg: String,
-) -> Result<ActionResponse> {
+) -> grpc_common::Result<ActionResponse> {
     info!("notification for {}", locator);
 
     let topic_locator = locator.parse::<types::TopicLocator>()?;
-
     let topic_handle = facade::topic::Handle::try_from_locator(ctx, topic_locator).await?;
 
     let notification_type = notification_type
         .parse()
-        .map_err(|_| Error::invalid_notification_type(&notification_type))?;
+        .map_err(|_| grpc_common::Error::invalid_notification_type(&notification_type))?;
 
     facade::topic::notify(ctx, &topic_handle, notification_type, msg).await?;
 
@@ -104,13 +99,14 @@ pub async fn notification_create(
 }
 
 /// Lists all notifications for a topic.
-pub async fn notification_list(ctx: &facade::Context, locator: String) -> Result<ActionResponse> {
+pub async fn notification_list(
+    ctx: &facade::Context,
+    locator: String,
+) -> grpc_common::Result<ActionResponse> {
     info!("notification list for {}", locator);
 
     let topic_locator = locator.parse::<types::TopicLocator>()?;
-
     let topic_handle = facade::topic::Handle::try_from_locator(ctx, topic_locator).await?;
-
     let notifications = facade::topic::notification_list(ctx, &topic_handle).await?;
 
     Ok(ActionResponse::topic_notification_list(
@@ -119,11 +115,13 @@ pub async fn notification_list(ctx: &facade::Context, locator: String) -> Result
 }
 
 /// Purges all notifications for a topic.
-pub async fn notification_purge(ctx: &facade::Context, locator: String) -> Result<ActionResponse> {
+pub async fn notification_purge(
+    ctx: &facade::Context,
+    locator: String,
+) -> grpc_common::Result<ActionResponse> {
     warn!("notification purge for {}", locator);
 
     let topic_locator = locator.parse::<types::TopicLocator>()?;
-
     let topic_handle = facade::topic::Handle::try_from_locator(ctx, topic_locator).await?;
 
     facade::topic::notification_purge(ctx, &topic_handle).await?;
@@ -141,12 +139,12 @@ pub async fn query_by_timestamp(
     handle: &facade::topic::Handle,
     ts: Option<types::TimestampRange>,
     ontology_filter: query::OntologyFilter,
-) -> Result<SendableRecordBatchStream> {
+) -> grpc_common::Result<SendableRecordBatchStream> {
     let meta = facade::topic::metadata(context, handle).await?;
     let format = meta.ontology_metadata.properties.serialization_format;
     let topic_tag = &meta.ontology_metadata.properties.ontology_tag;
 
-    // check if filter tag is registered before execute query
+    // Check if filter tag is registered before execute query
     for filter_tag in ontology_filter.ontology_tags() {
         if filter_tag != topic_tag {
             return Err(core::Error::bad_request(format!(
@@ -183,7 +181,7 @@ pub async fn filter_clusterize(
     clustering_dt_ns: u64,
     ontology: Ontology,
     timestamp_range: Option<FilterTimestampRange>,
-) -> Result<DoActionStream> {
+) -> grpc_common::Result<DoActionStream> {
     info!("filter clusterize for {}", locator);
 
     // Validation and conversion to TimestampRange
@@ -223,10 +221,10 @@ pub async fn filter_clusterize(
 
     // Channel Setup
     // Bridges the background clustering task with the gRPC response stream.
-    // The channel carries Result<Cluster, ClusteringError>: the task pushes
+    // The channel carries ['Result<Cluster, ClusteringError>`]: the task pushes
     // successful clusters and streaming-time errors, in the order they occur.
     // The downstream `map` converts each variant into the corresponding Flight
-    // payload or tonic::Status, so the client sees errors interleaved with
+    // payload or [`tonic::Status`], so the client sees errors interleaved with
     // data at the exact position where they happened.
     let (tx, rx) = mpsc::channel::<
         std::result::Result<

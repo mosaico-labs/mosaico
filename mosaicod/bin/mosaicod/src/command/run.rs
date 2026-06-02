@@ -2,7 +2,8 @@ use crate::{common, print};
 use clap::Args;
 use mosaicod_core::{self as core, error::PublicResult as Result, params};
 use mosaicod_db as db;
-use mosaicod_server as server;
+use mosaicod_grpc as grpc;
+use mosaicod_grpc_flight as grpc_flight;
 use signal_hook::{consts::SIGINT, iterator::Signals};
 use std::thread;
 use tracing::{debug, info};
@@ -32,8 +33,8 @@ pub struct Run {
     pub api_key: bool,
 }
 
-fn tls_config() -> server::flight::TlsConfig {
-    server::flight::TlsConfig {
+fn tls_config() -> grpc_flight::TlsConfig {
+    grpc_flight::TlsConfig {
         certificate_file: params::params().tls_certificate_file.value.clone().into(),
         private_key_file: params::params().tls_private_key_file.value.clone().into(),
     }
@@ -70,7 +71,7 @@ pub fn run(args: Run, json_format: bool) -> Result<()> {
     let host_is_specified = args.host.is_some();
     let host = args.host.unwrap_or("127.0.0.1".to_owned());
 
-    let mut server = server::Server::new(host, args.port, store, db);
+    let mut server = grpc::Server::new(host, args.port, store, db);
 
     if args.api_key {
         server.flight_config.enable_api_key_management();

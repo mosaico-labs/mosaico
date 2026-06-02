@@ -1,7 +1,3 @@
-use super::{
-    error::{PublicErrorGrpcExt, Result, ToStatusExt},
-    middleware,
-};
 use crate::endpoint;
 use arrow_flight::{
     Action as FlightAction, ActionType, Criteria, Empty, FlightData, FlightDescriptor, FlightInfo,
@@ -15,38 +11,12 @@ use mosaicod_core::{self as core, params, types};
 use mosaicod_db as db;
 use mosaicod_ext as ext;
 use mosaicod_facade as facade;
+use mosaicod_grpc_common::{self as grpc_common, PublicErrorGrpcExt, ToStatusExt, middleware};
 use mosaicod_marshal as marshal;
 use mosaicod_query as query;
 use mosaicod_store as store;
 use std::sync::Arc;
-use tokio_util::sync::CancellationToken;
 use tonic::{Request, Response, Status, Streaming, codec::CompressionEncoding, transport::Server};
-
-/// To stop the server use the following command on
-/// `ShutdownNotifier`
-#[derive(Clone, Default, Debug)]
-pub struct ShutdownNotifier(CancellationToken);
-
-impl ShutdownNotifier {
-    // Notifies the server to be shutdown
-    pub fn shutdown(&self) {
-        self.0.cancel();
-    }
-
-    pub async fn wait_for_shutdown(&self) {
-        self.0.cancelled().await;
-    }
-
-    pub fn is_shutdown(&self) -> bool {
-        self.0.is_cancelled()
-    }
-
-    /// Returns a cloned cancellation token for use across crate boundaries
-    /// (e.g. passing to background tasks defined in other crates).
-    pub fn token(&self) -> CancellationToken {
-        self.0.clone()
-    }
-}
 
 #[derive(Clone)]
 pub struct TlsConfig {
@@ -103,7 +73,7 @@ pub async fn start(
     config: Config,
     store: store::StoreRef,
     db: db::Database,
-    shutdown: Option<ShutdownNotifier>,
+    shutdown: Option<grpc_common::ShutdownNotifier>,
 ) -> std::result::Result<(), Box<dyn std::error::Error>> {
     let addr = format!("{}:{}", config.host, config.port).parse()?;
 
@@ -117,8 +87,6 @@ pub async fn start(
 
     let mut svc = FlightServiceServer::new(flight_service);
 
-    // If API key management is disabled define a custom permission with all permissions
-    // and enable permissions passthrough in the auth middleware
     if !config.enable_api_key_management {
         auth_layer = auth_layer.with_permission_passthrough(types::auth::Permission::Manage);
     }
@@ -139,6 +107,9 @@ pub async fn start(
     if !tls_enabled {
         warn!("TLS is currently disabled. Traffic is being sent unencrypted.");
     }
+
+    // If API key management is disabled define a custom permission with all permissions
+    // and enable permissions passthrough in the auth middleware
     if !config.enable_api_key_management {
         warn!("API key management is currently disabled.");
     } else if !tls_enabled {
@@ -178,9 +149,7 @@ struct MosaicodFlight {
     store: store::StoreRef,
     db: db::Database,
     ts_gw: query::TimeseriesEngineRef,
-
     api_key_management: bool,
-
     /// Semaphore used to controll the maximum number of concurrent writers
     concurrent_writes_semaphore: Arc<tokio::sync::Semaphore>,
 }
@@ -224,7 +193,7 @@ type ListActionsStream = BoxStream<'static, std::result::Result<ActionType, Stat
 type DoExchangeStream = BoxStream<'static, std::result::Result<FlightData, Status>>;
 
 pub trait IntoStream {
-    fn into_stream(self) -> Result<DoActionStream>;
+    fn into_stream(self) -> grpc_common::Result<DoActionStream>;
 }
 
 impl IntoStream for marshal::ActionResponse {
@@ -233,7 +202,7 @@ impl IntoStream for marshal::ActionResponse {
     ///
     /// Use this when the handler produces a single payload rather than a
     /// stream of results.
-    fn into_stream(self) -> Result<DoActionStream> {
+    fn into_stream(self) -> grpc_common::Result<DoActionStream> {
         let bytes = self.bytes()?;
         Ok(Box::pin(futures::stream::once(async move {
             Ok(arrow_flight::Result::new(bytes))
@@ -245,8 +214,8 @@ impl MosaicodFlight {
     async fn impl_get_flight_info(
         &self,
         request: Request<FlightDescriptor>,
-    ) -> Result<Response<FlightInfo>> {
-        let auth_ctx = auth_context(&request)?;
+    ) -> grpc_common::Result<Response<FlightInfo>> {
+        let auth_ctx = middleware::auth_context(&request)?;
 
         if !auth_ctx.permissions().can_read() {
             Err(core::Error::unauthorized(
@@ -255,17 +224,15 @@ impl MosaicodFlight {
         }
 
         let desc = request.into_inner();
-
         let info = endpoint::get_flight_info(&self.context(), desc).await?;
-
         Ok(Response::new(info))
     }
 
     async fn impl_list_flights(
         &self,
         request: Request<Criteria>,
-    ) -> Result<Response<ListFlightsStream>> {
-        let auth_ctx = auth_context(&request)?;
+    ) -> grpc_common::Result<Response<ListFlightsStream>> {
+        let auth_ctx = middleware::auth_context(&request)?;
 
         if !auth_ctx.permissions().can_read() {
             Err(core::Error::unauthorized(
@@ -274,17 +241,18 @@ impl MosaicodFlight {
         }
 
         let criteria = request.into_inner();
-
         let stream = endpoint::list_flights(&self.context(), criteria).await?;
 
         // Convert the returned stream inner result error to tonis::Status
         let stream = stream.map(|item| item.log_to_status());
-
         Ok(Response::new(Box::pin(stream)))
     }
 
-    async fn impl_do_get(&self, request: Request<Ticket>) -> Result<Response<DoGetStream>> {
-        let auth_ctx = auth_context(&request)?;
+    async fn impl_do_get(
+        &self,
+        request: Request<Ticket>,
+    ) -> grpc_common::Result<Response<DoGetStream>> {
+        let auth_ctx = middleware::auth_context(&request)?;
         if !auth_ctx.permissions().can_read() {
             Err(core::Error::unauthorized(
                 "provided API key does not have READ permissions.".to_string(),
@@ -292,10 +260,9 @@ impl MosaicodFlight {
         }
 
         let ticket = request.into_inner();
-
         let data_stream = endpoint::do_get(&self.context(), ticket).await?;
 
-        // map data stream error (flight error) to a tonic one
+        // Map data stream error (flight error) to a tonic one
         let out_stream = data_stream
             .inspect_err(|e| error!("flight encoding error: {}", e))
             .map_err(|e| Status::internal(format!("flight encoding error: {}", e)));
@@ -306,8 +273,8 @@ impl MosaicodFlight {
     async fn impl_do_put(
         &self,
         request: Request<Streaming<FlightData>>,
-    ) -> Result<Response<DoPutStream>> {
-        let auth_ctx = auth_context(&request)?;
+    ) -> grpc_common::Result<Response<DoPutStream>> {
+        let auth_ctx = middleware::auth_context(&request)?;
         if !auth_ctx.permissions().can_write() {
             Err(core::Error::unauthorized(
                 "provided API key does not have WRITE permissions.".to_string(),
@@ -330,8 +297,8 @@ impl MosaicodFlight {
     async fn impl_do_action(
         &self,
         request: Request<FlightAction>,
-    ) -> Result<Response<DoActionStream>> {
-        let auth_ctx = auth_context(&request)?;
+    ) -> grpc_common::Result<Response<DoActionStream>> {
+        let auth_ctx = middleware::auth_context(&request)?;
 
         let action = request.into_inner();
         let action = marshal::ActionRequest::try_new(action.r#type.as_str(), &action.body)?;
@@ -438,11 +405,4 @@ impl FlightService for MosaicodFlight {
             "do_exchange is currently unimplemented",
         ))
     }
-}
-
-fn auth_context<T>(req: &Request<T>) -> Result<middleware::AuthContext> {
-    req.extensions()
-        .get::<middleware::AuthContext>()
-        .cloned()
-        .ok_or_else(|| core::Error::unauthenticated().into())
 }

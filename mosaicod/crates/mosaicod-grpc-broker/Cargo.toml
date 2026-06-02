@@ -1,0 +1,22 @@
+[package]
+name = "mosaicod-grpc-broker"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[lib]
+name = "mosaicod_grpc_broker"
+
+[dependencies]
+mosaicod-grpc-common = { workspace = true }
+mosaicod-core = { workspace = true }
+mosaicod-db = { workspace = true }
+mosaicod-facade = { workspace = true }
+
+tonic = { workspace = true }
+tokio = { workspace = true }
+tower = { workspace = true }
+http = { workspace = true }
+tracing = { workspace = true }

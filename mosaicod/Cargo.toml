@@ -21,7 +21,9 @@ mosaicod-ext = { path = "crates/mosaicod-ext" }
 mosaicod-marshal = { path = "crates/mosaicod-marshal" }
 mosaicod-query = { path = "crates/mosaicod-query" }
 mosaicod-rw = { path = "crates/mosaicod-rw" }
-mosaicod-server = { path = "crates/mosaicod-server" }
+mosaicod-grpc = { path = "crates/mosaicod-grpc" }
+mosaicod-grpc-flight = { path = "crates/mosaicod-grpc-flight" }
+mosaicod-grpc-common = { path = "crates/mosaicod-grpc-common" }
 mosaicod-store = { path = "crates/mosaicod-store" }
 mosaicod-task = { path = "crates/mosaicod-task" }
 

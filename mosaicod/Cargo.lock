@@ -2590,8 +2590,9 @@ dependencies = [
  "mosaicod-core",
  "mosaicod-db",
  "mosaicod-facade",
+ "mosaicod-grpc",
+ "mosaicod-grpc-flight",
  "mosaicod-query",
- "mosaicod-server",
  "mosaicod-store",
  "signal-hook",
  "tokio",
@@ -2673,6 +2674,76 @@ dependencies = [
 ]
 
 [[package]]
+name = "mosaicod-grpc"
+version = "0.6.0-dev"
+dependencies = [
+ "mosaicod-core",
+ "mosaicod-db",
+ "mosaicod-grpc-common",
+ "mosaicod-grpc-flight",
+ "mosaicod-store",
+ "mosaicod-task",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "mosaicod-grpc-broker"
+version = "0.6.0-dev"
+dependencies = [
+ "http",
+ "mosaicod-core",
+ "mosaicod-db",
+ "mosaicod-facade",
+ "mosaicod-grpc-common",
+ "tokio",
+ "tonic",
+ "tower",
+ "tracing",
+]
+
+[[package]]
+name = "mosaicod-grpc-common"
+version = "0.6.0-dev"
+dependencies = [
+ "http",
+ "mosaicod-core",
+ "mosaicod-facade",
+ "thiserror",
+ "tokio-util",
+ "tonic",
+ "tower",
+ "tracing",
+]
+
+[[package]]
+name = "mosaicod-grpc-flight"
+version = "0.6.0-dev"
+dependencies = [
+ "arrow",
+ "arrow-flight",
+ "datafusion",
+ "futures",
+ "log",
+ "mosaicod-core",
+ "mosaicod-db",
+ "mosaicod-ext",
+ "mosaicod-facade",
+ "mosaicod-grpc-common",
+ "mosaicod-marshal",
+ "mosaicod-query",
+ "mosaicod-rw",
+ "mosaicod-store",
+ "semver",
+ "serde_json",
+ "tokio",
+ "tokio-stream",
+ "tonic",
+ "tower",
+ "tracing",
+]
+
+[[package]]
 name = "mosaicod-marshal"
 version = "0.6.0-dev"
 dependencies = [
@@ -2716,36 +2787,6 @@ dependencies = [
  "parquet",
  "thiserror",
  "tokio",
- "tracing",
-]
-
-[[package]]
-name = "mosaicod-server"
-version = "0.6.0-dev"
-dependencies = [
- "arrow",
- "arrow-flight",
- "datafusion",
- "futures",
- "http",
- "log",
- "mosaicod-core",
- "mosaicod-db",
- "mosaicod-ext",
- "mosaicod-facade",
- "mosaicod-marshal",
- "mosaicod-query",
- "mosaicod-rw",
- "mosaicod-store",
- "mosaicod-task",
- "semver",
- "serde_json",
- "thiserror",
- "tokio",
- "tokio-stream",
- "tokio-util",
- "tonic",
- "tower",
  "tracing",
 ]
 
@@ -4150,9 +4191,11 @@ dependencies = [
  "mosaicod-db",
  "mosaicod-ext",
  "mosaicod-facade",
+ "mosaicod-grpc",
+ "mosaicod-grpc-common",
+ "mosaicod-grpc-flight",
  "mosaicod-marshal",
  "mosaicod-query",
- "mosaicod-server",
  "mosaicod-store",
  "mosaicod-task",
  "rand 0.9.2",

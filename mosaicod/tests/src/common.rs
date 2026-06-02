@@ -4,8 +4,9 @@ use mosaicod_core::params;
 use mosaicod_core::types;
 use mosaicod_db as db;
 use mosaicod_facade as facade;
+use mosaicod_grpc_common as grpc_common;
+use mosaicod_grpc_flight as grpc_flight;
 use mosaicod_query as query;
-use mosaicod_server::{self as server, flight::ShutdownNotifier};
 use mosaicod_store as store;
 use mosaicod_task as task;
 use serde::Deserialize;
@@ -46,7 +47,7 @@ pub struct CleanupIntervalConfig {
 
 pub struct ServerBuilder {
     host: String,
-    tls: Option<server::flight::TlsConfig>,
+    tls: Option<grpc_flight::TlsConfig>,
     cleanup_config: Option<CleanupIntervalConfig>,
     db: db::testing::Database,
     enable_api_key: bool,
@@ -79,7 +80,7 @@ impl ServerBuilder {
     }
 
     pub fn enable_tls(mut self) -> Self {
-        self.tls = Some(server::flight::TlsConfig {
+        self.tls = Some(grpc_flight::TlsConfig {
             certificate_file: TLS_CERT_FILE.to_owned().into(),
             private_key_file: TLS_PRIVATE_KEY_FILE.to_owned().into(),
         });
@@ -87,7 +88,7 @@ impl ServerBuilder {
     }
 
     pub fn enable_tls_with(mut self, cert: &str, private_key: &str) -> Self {
-        self.tls = Some(server::flight::TlsConfig {
+        self.tls = Some(grpc_flight::TlsConfig {
             certificate_file: cert.to_owned().into(),
             private_key_file: private_key.to_owned().into(),
         });
@@ -121,7 +122,7 @@ impl ServerBuilder {
             tcp_listner.local_addr().unwrap().port()
         };
 
-        let mut config = server::flight::Config::new(self.host.to_owned(), port);
+        let mut config = grpc_flight::Config::new(self.host.to_owned(), port);
 
         if let Some(tls) = self.tls {
             config.tls(tls);
@@ -131,7 +132,7 @@ impl ServerBuilder {
             config.enable_api_key_management();
         }
 
-        let shutdown = ShutdownNotifier::default();
+        let shutdown = grpc_common::ShutdownNotifier::default();
         let db = self.db;
 
         let cleanup_time_interval = self.cleanup_config.as_ref().map_or(
@@ -165,7 +166,7 @@ impl ServerBuilder {
             let db = db.clone();
 
             async move {
-                if let Err(err) = server::flight::start(config, store, db, Some(shutdown)).await {
+                if let Err(err) = grpc_flight::start(config, store, db, Some(shutdown)).await {
                     panic!("flight server error: {}", err);
                 }
                 println!("server stopped");
@@ -200,7 +201,7 @@ impl ServerBuilder {
 /// }
 /// ```
 pub struct Server {
-    shutdown: ShutdownNotifier,
+    shutdown: grpc_common::ShutdownNotifier,
     server_join_handle: (tokio::task::JoinHandle<()>, tokio::task::JoinHandle<()>),
     port: u16,
     pub db: db::testing::Database,
