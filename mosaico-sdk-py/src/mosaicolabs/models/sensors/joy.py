@@ -4,9 +4,8 @@ Joy Ontology Module.
 Represents joystick input state.
 """
 
-from mosaicolabs.models import MosaicoField, MosaicoType
-
 from ..serializable import Serializable
+from ..types import MosaicoField, MosaicoType
 
 
 class Joy(Serializable):

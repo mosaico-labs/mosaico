@@ -21,7 +21,9 @@ from typing import Optional, Tuple
 
 import numpy as np
 
-from mosaicolabs.models import BaseModel, MosaicoField, MosaicoType, Serializable
+from ..base_model import BaseModel
+from ..serializable import Serializable
+from ..types import MosaicoField, MosaicoType
 
 
 def pack_rgb(r: int, g: int, b: int) -> float:

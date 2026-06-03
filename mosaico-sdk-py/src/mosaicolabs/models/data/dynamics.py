@@ -9,10 +9,9 @@ These models are designed to be assigned to the `data` field of a [`Message`][mo
 * **Uncertainty Quantification**: Inherits from [`CovarianceMixin`][mosaicolabs.models.mixins.CovarianceMixin] to support $6 \times 6$ covariance matrices, allowing for the transmission of sensor noise characteristics or estimation confidence.
 """
 
-from mosaicolabs import MosaicoField, MosaicoType
-
 from ..mixins import CovarianceMixin
 from ..serializable import Serializable
+from ..types import MosaicoField, MosaicoType
 from .geometry import Vector3d
 
 

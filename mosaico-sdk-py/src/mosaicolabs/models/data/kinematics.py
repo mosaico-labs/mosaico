@@ -13,10 +13,9 @@ from typing import Optional
 
 from pydantic import model_validator
 
-from mosaicolabs import MosaicoField, MosaicoType
-
 from ..mixins import CovarianceMixin
 from ..serializable import Serializable
+from ..types import MosaicoField, MosaicoType
 from .geometry import Pose, Vector3d
 
 

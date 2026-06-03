@@ -8,10 +8,9 @@ It aggregates data from accelerometers and gyroscopes.
 
 from typing import Optional
 
-from mosaicolabs.models import MosaicoField
-
 from ..data import Quaternion, Vector3d
 from ..serializable import Serializable
+from ..types import MosaicoField
 
 
 class IMU(Serializable):

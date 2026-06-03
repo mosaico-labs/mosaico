@@ -10,10 +10,9 @@ and lens distortion model.
 
 from typing import Optional
 
-from mosaicolabs.models import MosaicoField, MosaicoType
-
 from ..data import ROI, Vector2d
 from ..serializable import Serializable
+from ..types import MosaicoField, MosaicoType
 
 
 class CameraInfo(Serializable):

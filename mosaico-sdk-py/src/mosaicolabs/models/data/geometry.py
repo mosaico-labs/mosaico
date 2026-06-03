@@ -13,11 +13,10 @@ The module follows a **Two-Tier Architecture** to optimize both internal efficie
 
 from typing import Optional
 
-from mosaicolabs import MosaicoField, MosaicoType
-
 from ..base_model import BaseModel
 from ..mixins import CovarianceMixin
 from ..serializable import Serializable
+from ..types import MosaicoField, MosaicoType
 
 # ---------------------------------------------------------------------------
 # Vector STRUCT classes

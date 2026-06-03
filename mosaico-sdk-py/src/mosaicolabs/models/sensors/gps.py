@@ -8,10 +8,9 @@ It includes Status flags, processed Fixes (Position/Velocity), and raw NMEA stri
 
 from typing import Optional
 
-from mosaicolabs.models import MosaicoField, MosaicoType
-
 from ..data import Point3d, Vector3d
 from ..serializable import Serializable
+from ..types import MosaicoField, MosaicoType
 
 
 class GPSStatus(Serializable):

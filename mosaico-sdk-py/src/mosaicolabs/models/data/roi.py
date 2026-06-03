@@ -1,8 +1,7 @@
 from typing import Optional
 
-from mosaicolabs import MosaicoField, MosaicoType
-
 from ..serializable import Serializable
+from ..types import MosaicoField, MosaicoType
 from .geometry import Vector2d
 
 

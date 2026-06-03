@@ -6,10 +6,9 @@ Defines the data structure for pressure sensors.
 
 from typing import Optional
 
-from mosaicolabs.models import MosaicoField, MosaicoType
-
 from ..mixins import VarianceMixin
 from ..serializable import Serializable
+from ..types import MosaicoField, MosaicoType
 
 
 class Pressure(Serializable, VarianceMixin):
