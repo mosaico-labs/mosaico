@@ -272,7 +272,7 @@ mod internal {
 
                     query::CompiledClause::new(
                         format!(
-                            "jsonb_path_exists({}, '{} ? (@ >= $min && @ <= $max)', jsonb_build_object('min', {}), jsonb_build_object('max', {}))",
+                            "jsonb_path_exists({}, '{} ? (@ >= $min && @ <= $max)', jsonb_build_object('min', {}, 'max', {}))",
                             self.field, field, pmin, pmax
                         ),
                         vec![min, max],
@@ -283,21 +283,44 @@ mod internal {
                         return Err(query::Error::empty_in(field.to_owned()));
                     }
                     let values: Vec<query::Value> = items.into_iter().map(Into::into).collect();
-                    let cast_field = self.fmt_value(field, &values[0]);
-                    let placeholders: Vec<String> =
-                        values.iter().map(|_| self.consume_placeholder()).collect();
-                    let clause = format!("{} IN ({})", cast_field, placeholders.join(", "));
+                    let condition = values
+                        .iter()
+                        .enumerate()
+                        .map(|(i, _)| format!("@ == $val{i}"))
+                        .collect::<Vec<String>>()
+                        .join(" || ");
+                    let placeholders = values
+                        .iter()
+                        .enumerate()
+                        .map(|(i, _)| format!("'val{}', {}", i, self.consume_placeholder()))
+                        .collect::<Vec<String>>()
+                        .join(", ");
+                    let clause = format!(
+                        "jsonb_path_exists({}, '{} ? ({})', jsonb_build_object({}))",
+                        self.field, field, condition, placeholders
+                    );
                     query::CompiledClause::new(clause, values)
                 }
                 query::Op::Match(v) => {
+                    // NOTE: here we can't use Json path, because it uses its own regex syntax based
+                    // on the DBMS(POSIX for Postgres and XPath for others).
+
                     let value: query::Value = v.into();
                     if let query::Value::Text(text) = value {
                         if text.is_empty() {
                             return Err(query::Error::empty_pattern(field.to_owned()));
                         }
+
+                        let placeholder = self.consume_placeholder();
+
+                        let subfield = format!(
+                            "{{{}}}",
+                            field.chars().skip(2).collect::<String>().replace(".", ",")
+                        );
+
                         let clause = format!(
-                            "mosaico_regex_match({field}, {})",
-                            self.consume_placeholder()
+                            "mosaico_regex_match({} #>> '{}', {})",
+                            self.field, subfield, placeholder
                         );
                         query::CompiledClause::new(clause, vec![query::Value::Text(text)])
                     } else {
@@ -313,7 +336,6 @@ mod internal {
 
 #[cfg(test)]
 mod tests {
-
     use super::*;
     use mosaicod_query::{ClausesCompiler, Op};
     use std::collections::HashMap;
@@ -401,7 +423,7 @@ mod tests {
 
         let found = qr.clauses.iter().any(|c| {
             c.contains(
-                r#"(topic.user_metadata #>> '{imu,acceleration,x}')::numeric IN ($1, $2, $3)"#,
+                r#"jsonb_path_exists(topic.user_metadata, '$.imu.acceleration.x ? (@ == $val0 || @ == $val1 || @ == $val2)', jsonb_build_object('val0', $1, 'val1', $2, 'val2', $3))"#,
             )
         });
         assert!(found, "in clause not found in {:?}", qr.clauses);

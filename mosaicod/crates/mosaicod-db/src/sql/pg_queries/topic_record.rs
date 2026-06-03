@@ -519,7 +519,7 @@ mod tests {
         let sequence_record = sequence_create(&mut cx, &record).await.unwrap();
 
         let metadata = marshal::JsonMetadataBlob::try_from_str(
-            r#"{"key1": "value1", "key2": [ {"key1": 4, "key6": 5}, {"key3": false, "key4": "value"} ], "key3": { "key4": "value2", "key5": { "key6": "value6", "key7": [ 1, 3, 6 ], "key1": "value1" } }, "key4": "value2" }"#,
+            r#"{"key1": "value1", "key2": [ {"key1": 4, "key6": 5}, {"key3": false, "key4": "value"} ], "key3": { "key4": "value2", "key5": { "key6": "value6", "key7": [ 1, 3, 6 ], "key1": "value1" } }, "key4": "value2", "key6": 1 }"#,
         )
             .unwrap();
         let record = schema::TopicRecord::new(
@@ -584,6 +584,18 @@ mod tests {
 
         assert_eq!(res.len(), 1);
         assert_eq!(res[0].locator_name, "my_sequence2/topic");
+
+        // Search for any key with value in [1, 100, 200] at first level inside topics' user metadata.
+        let filter = r#"{"topic": {"locator": {"$match": "topic"}, "user_metadata": {"*": {"$in": [1, 100, 200]}}}}"#;
+        let filter = marshal::query_filter_from_string(filter).unwrap();
+        let res = topic_from_query_filter(&mut cx, filter.sequence, filter.topic)
+            .await
+            .unwrap();
+
+        assert_eq!(res.len(), 3);
+        assert_eq!(res[0].locator_name, "my_sequence/topic");
+        assert_eq!(res[1].locator_name, "my_sequence/topic2");
+        assert_eq!(res[2].locator_name, "my_sequence2/topic");
     }
 
     #[sqlx::test]
@@ -615,5 +627,26 @@ mod tests {
         assert_eq!(res.len(), 2);
         assert_eq!(res[0].locator_name, "my_sequence/topic2");
         assert_eq!(res[1].locator_name, "my_sequence2/topic");
+
+        // Search for any key with value in [1, 100, 200] at any level inside topics' user metadata.
+        let filter = r#"{"topic": {"locator": {"$match": "topic"}, "user_metadata": {"**": {"$in": ["value5", "value6", true]}}}}"#;
+        let filter = marshal::query_filter_from_string(filter).unwrap();
+        let res = topic_from_query_filter(&mut cx, filter.sequence, filter.topic)
+            .await
+            .unwrap();
+
+        assert_eq!(res.len(), 2);
+        assert_eq!(res[0].locator_name, "my_sequence/topic2");
+        assert_eq!(res[1].locator_name, "my_sequence2/topic");
+
+        // Search for any key with value in [1, 100, 200] at any level inside topics' user metadata.
+        let filter = r#"{"topic": {"locator": {"$match": "topic"}, "user_metadata": {"**[*]": {"$eq": false}}}}"#;
+        let filter = marshal::query_filter_from_string(filter).unwrap();
+        let res = topic_from_query_filter(&mut cx, filter.sequence, filter.topic)
+            .await
+            .unwrap();
+
+        assert_eq!(res.len(), 1);
+        assert_eq!(res[0].locator_name, "my_sequence2/topic");
     }
 }
