@@ -112,7 +112,7 @@ class TestOdometryAdapter:
     ):
         data = motion_state_rosmsg.data
         data.pop("child_frame_id")
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="missing required keys"):
             OdometryAdapter.from_dict(data)
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
@@ -211,7 +211,7 @@ class TestRobotPathAdapter:
     def test_translate_raise_missing_required_key(self, path_rosmsg: ROSMessage):
         data = path_rosmsg.data
         data.pop("poses")
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="missing required keys"):
             RobotPathAdapter.from_dict(data)
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
@@ -302,7 +302,7 @@ class TestGridCellsAdapter:
     def test_translate_raise_missing_required_key(self, grid_cells_rosmsg: ROSMessage):
         data = grid_cells_rosmsg.data
         data.pop("cell_width")
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="missing required keys"):
             GridCellsAdapter.from_dict(data)
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
@@ -415,7 +415,7 @@ class TestMapMetadataAdapter:
     ):
         data = map_metadata_rosmsg.data
         data.pop("map_load_time")
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="missing required keys"):
             MapMetadataAdapter.from_dict(data)
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
@@ -522,7 +522,7 @@ class TestOccupancyGridAdapter:
     ):
         data = occupancy_grid_rosmsg.data
         data.pop("info")
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="missing required keys"):
             OccupancyGridAdapter.from_dict(data)
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
