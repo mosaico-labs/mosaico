@@ -1411,11 +1411,11 @@ class RobotPath(
     Notice that all waypoints need to be referenced wrt the same frame.
 
     Attributes:
-        frame_id: A `String` representing the frame name the waypoints refer to
+        path_frame: A `String` representing the frame name the waypoints refer to
         poses: A list of `Pose` describing the waypoints to be followed.
 
     ### Querying with the **`.Q` Proxy**
-    Only frame_id field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
+    Only path_frame field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
     via the **`.Q` proxy**. Check the fields documentation for detailed description.
 
     Example:
@@ -1425,7 +1425,7 @@ class RobotPath(
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for a specific component value.
             qresponse = client.query(
-                QueryOntologyCatalog(Path.Q.frame_id.eq("base_link"))
+                QueryOntologyCatalog(Path.Q.path_frame.eq("base_link"))
             )
 
             # Inspect the response
@@ -1445,21 +1445,21 @@ class RobotPath(
     The Frame Id component of the reference framme the waypoints refer to.
 
     ### Querying with the **`.Q` Proxy**
-    Frame ID components are queryable through the `frame_id` field prefix.
+    Frame ID components are queryable through the `path_frame` field prefix.
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `Path.Q.frame_id` | `String` | `.eq()`, `.neq()`, `.match_()`, `.in_()` |
+    | `Path.Q.path_frame` | `String` | `.eq()`, `.neq()`, `.match_()`, `.in_()` |
 
     Example:
         ```python
         from mosaicolabs import MosaicoClient, Transform, QueryOntologyCatalog
         
         with MosaicoClient.connect("localhost", 6726) as client:
-            # Find path whose frame_id is "robot_link"
+            # Find path whose path_frame is "robot_link"
             qresponse = client.query(
                 QueryOntologyCatalog()
-                .with_expression(Transform.Q.frame_id.eq("base_link"))
+                .with_expression(Transform.Q.path_frame.eq("base_link"))
             )
 
             # Inspect the response

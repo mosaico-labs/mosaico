@@ -224,22 +224,21 @@ class MapMetadata(
     Time (in nanoseconds) at which the map has been loaded.
 
     ### Querying with the **`.Q` Proxy**
-    The map metadata time is queryable via the `time` field.
+    The map metadata time is queryable via the `map_load_time` field.
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `MapMetadata.Q.time.seconds` | `Numeric` | `.eq()`, `.neq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
-    | `MapMetadata.Q.time.nanoseconds` | `Numeric` | `.eq()`, `.neq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
-
+    | `MapMetadata.Q.map_load_time` | `Numeric` | `.eq()`, `.neq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    
     
     Example:
         ```python
         from mosaicolabs import MosaicoClient, MapMetadata, QueryOntologyCatalog
 
         with MosaicoClient.connect("localhost", 6726) as client:
-            # Filter for time seconds within a specific range
+            # Filter for map_load_time in nanoseconds within a specific range
             qresponse = client.query(
-                QueryOntologyCatalog(MapMetadata.Q.time.between([100000, 200000]))
+                QueryOntologyCatalog(MapMetadata.Q.map_load_time.between([100000, 200000]))
             )
 
             # Inspect the response
@@ -251,7 +250,7 @@ class MapMetadata(
 
             # Filter for a specific component value and extract the first and last occurrence times
             qresponse = client.query(
-                QueryOntologyCatalog(MapMetadata.Q.time.between([100000, 200000]), include_timestamp_range=True)
+                QueryOntologyCatalog(MapMetadata.Q.map_load_time.between([100000, 200000]), include_timestamp_range=True)
             )
 
             # Inspect the response
@@ -514,8 +513,7 @@ class OccupancyGrid(Serializable):
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `OccupancyGrid.Q.info.time.seconds` | `Numeric` | `.eq()`, `.neq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
-    | `OccupancyGrid.Q.info.time.nanoseconds` | `Numeric` | `.eq()`, `.neq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `OccupancyGrid.Q.info.map_load_time` | `Numeric` | `.eq()`, `.neq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
     | `OccupancyGrid.Q.info.resolution` | `Numeric` | `.eq()`, `.neq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
     | `OccupancyGrid.Q.info.width` | `Numeric` | `.eq()`, `.neq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
     | `OccupancyGrid.Q.info.height` | `Numeric` | `.eq()`, `.neq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
@@ -535,7 +533,7 @@ class OccupancyGrid(Serializable):
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for time seconds within a specific range
             qresponse = client.query(
-                QueryOntologyCatalog(OccupancyGrid.Q.info.time.seconds.between([100000, 200000]))
+                QueryOntologyCatalog(OccupancyGrid.Q.info.map_load_time.between([100000, 200000]))
             )
 
             # Inspect the response
@@ -547,7 +545,7 @@ class OccupancyGrid(Serializable):
 
             # Filter for a specific component value and extract the first and last occurrence times
             qresponse = client.query(
-                QueryOntologyCatalog(OccupancyGrid.Q.info.time.seconds.between([100000, 200000]), include_timestamp_range=True)
+                QueryOntologyCatalog(OccupancyGrid.Q.info.map_load_time.between([100000, 200000]), include_timestamp_range=True)
             )
 
             # Inspect the response
