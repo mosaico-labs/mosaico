@@ -313,9 +313,10 @@ mod internal {
 
                         let placeholder = self.consume_placeholder();
 
+                        // Here we still use the #>> operator and not jsonpath.
                         let subfield = format!(
                             "{{{}}}",
-                            field.chars().skip(2).collect::<String>().replace(".", ",")
+                            field.strip_prefix("$.").unwrap().replace(".", ",")
                         );
 
                         let clause = format!(
