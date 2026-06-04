@@ -66,6 +66,9 @@ pub enum Value {
     Float(Float),
     Text(Text),
     Boolean(bool),
+    IntegerArray(Vec<Integer>),
+    FloatArray(Vec<Float>),
+    TextArray(Vec<Text>),
 }
 
 impl From<&str> for Value {
@@ -133,6 +136,7 @@ impl IsSupportedOp for Value {
             Self::Boolean(_) => false,
             Self::Integer(_) => true,
             Self::Float(_) => true,
+            Self::IntegerArray(_) | Self::FloatArray(_) | Self::TextArray(_) => false,
         }
     }
 

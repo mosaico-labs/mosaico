@@ -177,6 +177,9 @@ pub async fn chunks_from_filters(
             query::Value::Text(v) => r = r.bind(v),
             // Cast boolean value to numeric, since for now there is no custom column for boolean values
             query::Value::Boolean(v) => r = r.bind(if v { 1.0 } else { 0.0 }),
+            query::Value::IntegerArray(v) => r = r.bind(v),
+            query::Value::FloatArray(v) => r = r.bind(v),
+            query::Value::TextArray(v) => r = r.bind(v),
         }
     }
 

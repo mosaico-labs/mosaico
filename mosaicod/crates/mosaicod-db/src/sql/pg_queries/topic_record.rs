@@ -433,6 +433,11 @@ pub async fn topic_from_query_filter(
             query::Value::Float(v) => r = r.bind(v),
             query::Value::Text(v) => r = r.bind(v),
             query::Value::Boolean(v) => r = r.bind(v),
+            query::Value::IntegerArray(_)
+            | query::Value::FloatArray(_)
+            | query::Value::TextArray(_) => {
+                unreachable!("array values are not produced by SQL/JSON query compilers")
+            }
         }
     }
 

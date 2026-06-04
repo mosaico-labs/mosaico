@@ -11,6 +11,7 @@ use datafusion::execution::disk_manager::DiskManagerBuilder;
 use datafusion::execution::memory_pool::FairSpillPool;
 use datafusion::execution::runtime_env::{RuntimeEnv, RuntimeEnvBuilder};
 use datafusion::functions::core::expr_ext::FieldAccessor;
+use datafusion::functions::regex::expr_fn::regexp_like;
 use datafusion::functions_aggregate::expr_fn::{max, min};
 use datafusion::prelude::*;
 use datafusion::scalar::ScalarValue;
@@ -266,7 +267,11 @@ where
                     .collect();
                 Some(unfold_field(&field).in_list(list, false))
             }
-            Op::Match(v) => Some(unfold_field(&field).like(value_to_df_expr(v.into()))),
+            Op::Match(v) => Some(regexp_like(
+                unfold_field(&field),
+                value_to_df_expr(v.into()),
+                None,
+            )),
         };
 
         if let Some(expr) = expr {
@@ -287,6 +292,11 @@ fn value_to_df_expr(v: Value) -> Expr {
         Value::Float(v) => lit(v),
         Value::Text(v) => lit(v),
         Value::Boolean(v) => lit(v),
+        Value::IntegerArray(_) | Value::FloatArray(_) | Value::TextArray(_) => {
+            unreachable!(
+                "array values are only used as bound parameters, not as DataFusion literals"
+            )
+        }
     }
 }
 

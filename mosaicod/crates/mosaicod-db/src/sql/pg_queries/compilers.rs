@@ -175,6 +175,11 @@ mod internal {
                 query::Value::Integer(_) | query::Value::Float(_) => format!("({field})::numeric"),
                 query::Value::Text(_) => field.to_owned(),
                 query::Value::Boolean(_) => format!("({field})::boolean"),
+                query::Value::IntegerArray(_)
+                | query::Value::FloatArray(_)
+                | query::Value::TextArray(_) => {
+                    unreachable!("array values are only used as bound parameters")
+                }
             }
         }
 
