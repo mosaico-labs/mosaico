@@ -295,7 +295,7 @@ async fn test_ontology_in_returns_chunks_overlapping_any_value(pool: sqlx::Pool<
     )
     .await;
 
-    // [5, 103]: 5 is in [1,7] and 103 is in [100,106] → both match
+    // [5, 103]: 5 is in [1,7] and 103 is in [100,106] -> both match
     let items = actions::query(
         &mut client,
         json!({ "ontology": { "mock.value": { "$in": [5, 103] } } }),
@@ -312,7 +312,7 @@ async fn test_ontology_in_returns_chunks_overlapping_any_value(pool: sqlx::Pool<
         "topic_b should match (103 is in range [100,106])"
     );
 
-    // [50]: not in [1,7] and not in [100,106] → no match
+    // [50]: not in [1,7] and not in [100,106] -> no match
     let items = actions::query(
         &mut client,
         json!({ "ontology": { "mock.value": { "$in": [50] } } }),

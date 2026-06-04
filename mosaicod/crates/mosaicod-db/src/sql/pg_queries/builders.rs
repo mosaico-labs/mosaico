@@ -191,8 +191,9 @@ impl query::CompileClause for ChunkQueryBuilder {
 
             query::Op::In(items) => {
                 let values: Vec<query::Value> = items.into_iter().map(Into::into).collect();
+
                 if values.is_empty() {
-                    return Ok(query::CompiledClause::empty());
+                    return Err(query::Error::empty_in(field.to_owned()));
                 }
 
                 // Check if all the values inside array are of same type
@@ -266,6 +267,13 @@ impl query::CompileClause for ChunkQueryBuilder {
             }
             query::Op::Match(v) => {
                 let v = v.into();
+
+                if let query::Value::Text(text) = &v
+                    && text.is_empty()
+                {
+                    return Err(query::Error::empty_pattern(field.to_owned()));
+                }
+
                 let column_name = column_table_name();
                 // Regex cannot be pruned using [min_value, max_value] stats: even if the pattern
                 // falls lexicographically within the range, the chunk may not contain any matching
