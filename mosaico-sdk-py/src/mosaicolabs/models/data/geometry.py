@@ -14,7 +14,7 @@ The module follows a **Two-Tier Architecture** to optimize both internal efficie
 from typing import Optional
 
 from ..base_model import BaseModel
-from ..mixins import CovarianceMixin
+from ..mixins import CovarianceMixin, HeaderMixin
 from ..serializable import Serializable
 from ..types import MosaicoField, MosaicoType
 
@@ -849,6 +849,7 @@ class Point2d(
     _Vector2dStruct,  # Inherits fields (x, y)
     Serializable,  # Adds Registry/Factory logic
     CovarianceMixin,  # Adds Covariance matrix support
+    HeaderMixin,  # Adds Header support
 ):
     """
     Semantically represents a specific location (Point) in 2D space.
@@ -910,6 +911,7 @@ class Point3d(
     _Vector3dStruct,  # Inherits fields (x, y, z)
     Serializable,  # Adds Registry/Factory logic
     CovarianceMixin,  # Adds Covariance matrix support
+    HeaderMixin,  # Adds Header support
 ):
     """
     Semantically represents a specific location (Point) in 3D space.
@@ -972,6 +974,7 @@ class Quaternion(
     _Vector4dStruct,  # Inherits fields (x, y, z, w)
     Serializable,  # Adds Registry/Factory logic
     CovarianceMixin,  # Adds Covariance matrix support
+    HeaderMixin,  # Adds Header support
 ):
     """
     Represents a rotation in 3D space using normalized quaternions.
@@ -1039,6 +1042,7 @@ class Quaternion(
 class Transform(
     Serializable,  # Adds Registry/Factory logic
     CovarianceMixin,  # Adds Covariance matrix support
+    HeaderMixin,  # Adds Header support
 ):
     """
     Represents a rigid-body transformation between two coordinate frames.
@@ -1245,6 +1249,7 @@ class Transform(
 class Pose(
     Serializable,  # Adds Registry/Factory logic
     CovarianceMixin,  # Adds Covariance matrix support
+    HeaderMixin,  # Adds Header support
 ):
     """
     Represents the position and orientation of an object in a global or local frame.
@@ -1401,6 +1406,7 @@ class Pose(
 
 class RobotPath(
     Serializable,  # Adds Registry/Factory logic
+    HeaderMixin,  # Adds Header support
 ):
     """
     Represents a series of waypoints in operational space independent from time.

@@ -22,6 +22,7 @@ from typing import Optional, Tuple
 import numpy as np
 
 from ..base_model import BaseModel
+from ..mixins import HeaderMixin
 from ..serializable import Serializable
 from ..types import MosaicoField, MosaicoType
 
@@ -68,7 +69,10 @@ def unpack_rgb(packed_rgb: float) -> Tuple[int, int, int]:
     return red, green, blue
 
 
-class _DepthCameraBase(BaseModel):
+class _DepthCameraBase(
+    BaseModel,
+    HeaderMixin,  # Adds Header support
+):
     """
     Internal base model shared by all depth camera ontologies.
 

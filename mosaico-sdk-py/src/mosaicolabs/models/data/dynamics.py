@@ -9,7 +9,7 @@ These models are designed to be assigned to the `data` field of a [`Message`][mo
 * **Uncertainty Quantification**: Inherits from [`CovarianceMixin`][mosaicolabs.models.mixins.CovarianceMixin] to support $6 \times 6$ covariance matrices, allowing for the transmission of sensor noise characteristics or estimation confidence.
 """
 
-from ..mixins import CovarianceMixin
+from ..mixins import CovarianceMixin, HeaderMixin
 from ..serializable import Serializable
 from ..types import MosaicoField, MosaicoType
 from .geometry import Vector3d
@@ -18,6 +18,7 @@ from .geometry import Vector3d
 class ForceTorque(
     Serializable,  # Adds Registry/Factory logic
     CovarianceMixin,  # Adds Covariance matrix support
+    HeaderMixin,  # Adds header support
 ):
     """
     Represents a Wrench (Force and Torque) applied to a rigid body.
@@ -166,7 +167,7 @@ class ForceTorque(
     """
 
 
-class Inertia(Serializable):
+class Inertia(Serializable, HeaderMixin):
     """
     Inertia properties of a rigid body.
 

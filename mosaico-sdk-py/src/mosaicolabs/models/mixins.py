@@ -8,6 +8,7 @@ fields (covariance and variance) into ontology models via composition.
 from typing import Optional
 
 from .base_model import BaseModel
+from .time import Time
 from .types import MosaicoField, MosaicoType
 
 # ---- CovarianceMixin ----
@@ -295,3 +296,18 @@ class VarianceMixin(BaseModel):
 
         ```
     """
+
+
+# ---- TimeMixin ----
+class HeaderMixin(BaseModel):
+    meas_timestamp: Optional[Time] = MosaicoField(
+        nullable=True,
+        default=None,
+        description="Timestamp representing when the data has been measured",
+    )
+
+    # frame_id: Optional[MosaicoType.string] = MosaicoField(
+    #     nullable=True,
+    #     default=None,
+    #     description="Frame id representing the acquired data reference system",
+    # )

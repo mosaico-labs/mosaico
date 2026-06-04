@@ -6,12 +6,16 @@ Defines the data structure for temperature sensors.
 
 from typing import Optional
 
-from ..mixins import VarianceMixin
+from ..mixins import HeaderMixin, VarianceMixin
 from ..serializable import Serializable
 from ..types import MosaicoField, MosaicoType
 
 
-class Temperature(Serializable, VarianceMixin):
+class Temperature(
+    Serializable,
+    HeaderMixin,  # Adds Header support
+    VarianceMixin,
+):
     """
     Represents a thermodynamic temperature. The internal representation is always stored in **Kelvin (K)**.
 

@@ -5,11 +5,15 @@ Defines the `RobotJoint` model for capturing the state (position, velocity, effo
 of a robot's actuators.
 """
 
+from ..mixins import HeaderMixin
 from ..serializable import Serializable
 from ..types import MosaicoField, MosaicoType
 
 
-class RobotJoint(Serializable):
+class RobotJoint(
+    Serializable,
+    HeaderMixin,  # Adds Header support
+):
     """
     Snapshot of robot joint states.
 

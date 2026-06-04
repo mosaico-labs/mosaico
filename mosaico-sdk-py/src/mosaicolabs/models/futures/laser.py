@@ -15,6 +15,7 @@ return mode:
 from typing import List, Optional
 
 from ..base_model import BaseModel
+from ..mixins import HeaderMixin
 from ..serializable import Serializable
 from ..types import MosaicoField, MosaicoType
 
@@ -25,7 +26,10 @@ MultiRange = List[List[MosaicoType.float32]]
 """Type alias for a multi-echo range array: a list of distance values per beam."""
 
 
-class _LaserScanBase(BaseModel):
+class _LaserScanBase(
+    BaseModel,
+    HeaderMixin,  # Adds Header support
+):
     """
     Internal generic base model shared by laser scan ontologies.
 

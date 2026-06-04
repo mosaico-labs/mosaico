@@ -28,6 +28,7 @@ from PIL import Image as PILImage
 from mosaicolabs.enum import SerializationFormat
 from mosaicolabs.logging_config import get_logger
 
+from ..mixins import HeaderMixin
 from ..serializable import Serializable
 from ..types import MosaicoField, MosaicoType
 
@@ -115,7 +116,10 @@ _IMG_ENCODING_MAP: dict = {
 _DEFAULT_IMG_FORMAT = ImageFormat.PNG
 
 
-class Image(Serializable):
+class Image(
+    Serializable,
+    HeaderMixin,  # Adds Header support
+):
     """
     Represents raw, uncompressed image data.
 
@@ -793,7 +797,10 @@ class _StatelessDefaultCodec:
 # --- Data Structure ---
 
 
-class CompressedImage(Serializable):
+class CompressedImage(
+    Serializable,
+    HeaderMixin,  # Adds Header support
+):
     """
     Represents image data stored as a compressed binary blob (e.g. JPEG, PNG, H264, ...).
 

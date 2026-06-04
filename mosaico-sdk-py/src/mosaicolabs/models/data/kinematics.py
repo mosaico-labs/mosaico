@@ -13,7 +13,7 @@ from typing import Optional
 
 from pydantic import model_validator
 
-from ..mixins import CovarianceMixin
+from ..mixins import CovarianceMixin, HeaderMixin
 from ..serializable import Serializable
 from ..types import MosaicoField, MosaicoType
 from .geometry import Pose, Vector3d
@@ -22,6 +22,7 @@ from .geometry import Pose, Vector3d
 class Velocity(
     Serializable,  # Adds Registry/Factory logic
     CovarianceMixin,  # Adds Covariance matrix support
+    HeaderMixin,  # Adds Header support
 ):
     """
     Represents 6-Degree-of-Freedom Velocity, commonly referred to as a Twist.
@@ -192,6 +193,7 @@ class Velocity(
 class Acceleration(
     Serializable,  # Adds Registry/Factory logic
     CovarianceMixin,  # Adds Covariance matrix support
+    HeaderMixin,  # Adds Header support
 ):
     """
     Represents 6-Degree-of-Freedom Acceleration.
@@ -361,6 +363,7 @@ class Acceleration(
 class MotionState(
     Serializable,  # Adds Registry/Factory logic
     CovarianceMixin,  # Adds Covariance matrix support
+    HeaderMixin,  # Adds Header support
 ):
     """
     Aggregated Kinematic State.

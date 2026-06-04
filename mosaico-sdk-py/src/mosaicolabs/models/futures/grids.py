@@ -4,12 +4,16 @@ This module defines the fundamental building blocks for grids and maps represent
 
 """
 
-from mosaicolabs.models.data import Point3d, Pose
-from mosaicolabs.models.serializable import Serializable
-from mosaicolabs.models.types import MosaicoField, MosaicoType
+from ..data import Point3d, Pose
+from ..mixins import HeaderMixin
+from ..serializable import Serializable
+from ..types import MosaicoField, MosaicoType
 
 
-class GridCells(Serializable):
+class GridCells(
+    Serializable,
+    HeaderMixin,  # Adds Header support
+):
     """
     Grid Cells data.
 
@@ -455,7 +459,10 @@ class MapMetadata(
     """
 
 
-class OccupancyGrid(Serializable):
+class OccupancyGrid(
+    Serializable,
+    HeaderMixin,  # Adds Header support
+):
     """
     Occupancy Grid data.
 

@@ -9,6 +9,7 @@ It includes Status flags, processed Fixes (Position/Velocity), and raw NMEA stri
 from typing import Optional
 
 from ..data import Point3d, Vector3d
+from ..mixins import HeaderMixin
 from ..serializable import Serializable
 from ..types import MosaicoField, MosaicoType
 
@@ -295,7 +296,10 @@ class GPSStatus(Serializable):
     """
 
 
-class GPS(Serializable):
+class GPS(
+    Serializable,
+    HeaderMixin,  # Adds Header support
+):
     """
     Processed GNSS fix containing Position, Velocity, and Status.
 
@@ -492,7 +496,10 @@ class GPS(Serializable):
     """
 
 
-class NMEASentence(Serializable):
+class NMEASentence(
+    Serializable,
+    HeaderMixin,  # Adds Header support
+):
     """
     Raw NMEA 0183 sentence string.
 

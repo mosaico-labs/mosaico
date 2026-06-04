@@ -6,12 +6,16 @@ Defines the data structure for pressure sensors.
 
 from typing import Optional
 
-from ..mixins import VarianceMixin
+from ..mixins import HeaderMixin, VarianceMixin
 from ..serializable import Serializable
 from ..types import MosaicoField, MosaicoType
 
 
-class Pressure(Serializable, VarianceMixin):
+class Pressure(
+    Serializable,
+    HeaderMixin,  # Adds Header support
+    VarianceMixin,
+):
     """
     Represents a physical pressure value. The internal representation is always stored in **Pascals (Pa)**.
 

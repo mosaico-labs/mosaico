@@ -5,11 +5,15 @@ Defines the data structure for magnetic field sensors.
 """
 
 from ..data import Vector3d
+from ..mixins import HeaderMixin
 from ..serializable import Serializable
 from ..types import MosaicoField
 
 
-class Magnetometer(Serializable):
+class Magnetometer(
+    Serializable,
+    HeaderMixin,  # Adds Header support
+):
     """
     Magnetic field measurement data.
 

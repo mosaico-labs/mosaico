@@ -9,11 +9,15 @@ It aggregates data from accelerometers and gyroscopes.
 from typing import Optional
 
 from ..data import Quaternion, Vector3d
+from ..mixins import HeaderMixin
 from ..serializable import Serializable
 from ..types import MosaicoField
 
 
-class IMU(Serializable):
+class IMU(
+    Serializable,
+    HeaderMixin,  # Adds Header support
+):
     """
     Inertial Measurement Unit data.
 

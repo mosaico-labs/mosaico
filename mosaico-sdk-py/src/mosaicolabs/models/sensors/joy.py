@@ -4,11 +4,15 @@ Joy Ontology Module.
 Represents joystick input state.
 """
 
+from ..mixins import HeaderMixin
 from ..serializable import Serializable
 from ..types import MosaicoField, MosaicoType
 
 
-class Joy(Serializable):
+class Joy(
+    Serializable,
+    HeaderMixin,  # Adds Header support
+):
     """
     Joystick input data.
 

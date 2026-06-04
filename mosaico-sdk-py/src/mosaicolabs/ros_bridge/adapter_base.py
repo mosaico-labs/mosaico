@@ -75,11 +75,8 @@ class ROSAdapterBase(ABC, Generic[T]):
 
         try:
             return Message(
-                timestamp_ns=ros_msg.header.stamp.to_nanoseconds()
-                if ros_msg.header
-                else ros_msg.bag_timestamp_ns,
+                timestamp_ns=ros_msg.bag_timestamp_ns,
                 data=cls.from_dict(ros_msg.data),
-                recording_timestamp_ns=ros_msg.bag_timestamp_ns,
                 frame_id=ros_msg.header.frame_id if ros_msg.header else None,
                 sequence_id=ros_msg.header.seq if ros_msg.header else None,
             )
