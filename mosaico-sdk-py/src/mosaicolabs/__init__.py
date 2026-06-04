@@ -47,6 +47,7 @@ from .logging_config import (
 from .models import (
     BaseModel as BaseModel,
     CovarianceMixin as CovarianceMixin,
+    HeaderMixin as HeaderMixin,
     Message as Message,
     MosaicoField as MosaicoField,
     MosaicoType as MosaicoType,
@@ -163,6 +164,7 @@ __all__ = [
     "Time",
     "Message",
     "CovarianceMixin",
+    "HeaderMixin",
     "VarianceMixin",
     # Sensors
     "CameraInfo",

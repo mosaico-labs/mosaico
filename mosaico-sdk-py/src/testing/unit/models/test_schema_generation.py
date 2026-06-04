@@ -69,13 +69,13 @@ _TIME_FIELD = [
     pa.field(
         "seconds",
         pa.int64(),
-        nullable=True,
+        nullable=False,
         metadata={"description": "Time in seconds"},
     ),
     pa.field(
         "nanoseconds",
         pa.uint64(),
-        nullable=True,
+        nullable=False,
         metadata={"description": "Time in nanoseconds"},
     ),
 ]

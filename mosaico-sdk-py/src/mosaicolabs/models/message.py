@@ -20,7 +20,6 @@ from ..logging_config import get_logger
 from .base_model import BaseModel
 from .internal.helpers import _fix_empty_dicts
 from .serializable import Serializable
-from .time import Time
 
 # Set the hierarchical logger
 logger = get_logger(__name__)
@@ -133,7 +132,7 @@ class Message(BaseModel):
     data: Serializable
     """The actual ontology data payload (e.g., an IMU or GPS instance)."""
 
-    timestamp_ns: Optional[int]
+    timestamp_ns: Optional[int] = None
     """
     Ingestion timestamp in nanoseconds (record time).
 
@@ -286,17 +285,19 @@ class Message(BaseModel):
             )
             if not meas_timestamp_field:
                 raise ValueError(
-                    "Impossible to instantiate a Message that has neither meas_timestamp inside payload nor timestamp_ns inside Message defined."
-                    "Please define at least one among the two!"
+                    f"{self.data.__class_type__.__name__} does not support timestamp and Message does not define one."
+                    "Please define at least one among the two!",
                 )
 
             # Check that meas_timestamp value is valid
             meas_timestamp = getattr(self.data, "meas_timestamp")
             if not meas_timestamp:
                 raise ValueError(
-                    "Impossible to instantiate a Message that has neither meas_timestamp defined inside payload nor timestamp_ns inside Message defined."
+                    f"Neither {self.data.__class_type__.__name__} nor Message define a valid timestamp."
                     "Please define at least one among the two!"
                 )
+
+            from .time import Time
 
             if not isinstance(meas_timestamp, Time):
                 raise ValueError(
