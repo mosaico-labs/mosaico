@@ -480,10 +480,6 @@ async fn test_ontology_in_unnest_no_false_positives(pool: sqlx::Pool<db::Databas
     server.shutdown().await;
 }
 
-// ---------------------------------------------------------------------------
-// $in on text values
-// ---------------------------------------------------------------------------
-
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_ontology_in_text_values(pool: sqlx::Pool<db::DatabaseType>) {
     let server = common::ServerBuilder::new(common::HOST, pool).build().await;
