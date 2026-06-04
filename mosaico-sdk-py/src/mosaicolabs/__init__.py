@@ -51,6 +51,7 @@ from .models import (
     MosaicoField as MosaicoField,
     MosaicoType as MosaicoType,
     Serializable as Serializable,
+    Time as Time,
     VarianceMixin as VarianceMixin,
     # Force registration into Serializable registry
     # (fix deserializing messages from topics that contain these data types,
@@ -140,9 +141,6 @@ from .models.sensors import (
 # with no registration side-effects)
 # !!DO NOT REMOVE!!
 from .ros_bridge import data_ontology  # noqa: F401
-
-# --- Types ---
-from .types import Time as Time
 
 __all__ = [
     # Client

@@ -7,14 +7,13 @@ if TYPE_CHECKING:
 
 import numpy as np
 
-from mosaicolabs.models import Message
+from mosaicolabs.models import Message, Time
 from mosaicolabs.models.data import MotionState, Point3d, RobotPath
 from mosaicolabs.models.futures import (
     GridCells,
     MapMetadata,
     OccupancyGrid,
 )
-from mosaicolabs.types import Time
 
 from ..adapter_base import ROSAdapterBase
 from ..ros_bridge import register_default_adapter

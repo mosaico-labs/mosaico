@@ -1,8 +1,8 @@
 import pytest
 
 from mosaicolabs.comm import MosaicoClient
+from mosaicolabs.models import Time
 from mosaicolabs.models.query import QuerySequence
-from mosaicolabs.types import Time
 from testing.integration.config import (
     UPLOADED_SEQUENCE_NAME,
 )

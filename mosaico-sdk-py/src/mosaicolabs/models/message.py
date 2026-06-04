@@ -20,6 +20,7 @@ from ..logging_config import get_logger
 from .base_model import BaseModel
 from .internal.helpers import _fix_empty_dicts
 from .serializable import Serializable
+from .time import Time
 
 # Set the hierarchical logger
 logger = get_logger(__name__)
@@ -276,6 +277,33 @@ class Message(BaseModel):
                 f"Fields name collision detected between class '{type(self.data).__name__}' "
                 f"and Message envelope. Colliding fields: {colliding_fields}."
             )
+
+        # Infer the timestamp from payload data in case user does not provide one
+        if self.timestamp_ns is None:
+            # Check that meas_timestamp field exists
+            meas_timestamp_field = self.data.__class_type__.model_fields.get(
+                "meas_timestamp"
+            )
+            if not meas_timestamp_field:
+                raise ValueError(
+                    "Impossible to instantiate a Message that has neither meas_timestamp inside payload nor timestamp_ns inside Message defined."
+                    "Please define at least one among the two!"
+                )
+
+            # Check that meas_timestamp value is valid
+            meas_timestamp = getattr(self.data, "meas_timestamp")
+            if not meas_timestamp:
+                raise ValueError(
+                    "Impossible to instantiate a Message that has neither meas_timestamp defined inside payload nor timestamp_ns inside Message defined."
+                    "Please define at least one among the two!"
+                )
+
+            if not isinstance(meas_timestamp, Time):
+                raise ValueError(
+                    f"Error: meas_timestamp should be of Time type. Got {meas_timestamp.__class__.__name__}."
+                )
+
+            self.timestamp_ns = meas_timestamp.to_nanoseconds()
 
     def ontology_type(self) -> Type[Serializable]:
         """Retrieves the class type of the ontology object stored in the `data` field."""

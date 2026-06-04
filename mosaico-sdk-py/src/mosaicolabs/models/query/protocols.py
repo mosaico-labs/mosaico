@@ -79,3 +79,15 @@ class FieldMapperProtocol(Protocol):
             path_prefix: The current path prefix.
         """
         ...
+
+
+class TimeProtocol(Protocol):
+    """
+    TODO
+    """
+
+    def to_nanoseconds() -> int:
+        """
+        Returns the time in nanoseconds
+        """
+        ...

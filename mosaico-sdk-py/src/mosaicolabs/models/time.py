@@ -9,10 +9,13 @@ import math
 import time
 from datetime import datetime, timezone
 
-from pydantic import BaseModel, field_validator
+from pydantic import field_validator
+
+from .serializable import Serializable
+from .types import MosaicoField, MosaicoType
 
 
-class Time(BaseModel):
+class Time(Serializable):
     """
     A high-precision time representation.
 
@@ -24,10 +27,10 @@ class Time(BaseModel):
         nanoseconds: Nanoseconds component within the current second, ranging from 0 to 999,999,999.
     """
 
-    seconds: int
+    seconds: MosaicoType.int64 = MosaicoField(description="Time in seconds.")
     """Seconds since the epoch (Unix time)."""
 
-    nanoseconds: int
+    nanoseconds: MosaicoType.uint64 = MosaicoField(description="Time in nanoseconds.")
     """Nanoseconds component within the current second, ranging from 0 to 999,999,999."""
 
     @field_validator("nanoseconds")

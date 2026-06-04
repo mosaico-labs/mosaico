@@ -339,9 +339,7 @@ class ROSSequenceExtractor:
 
         # --- Resolve Check ---
         ros_msgtype = ros_msg.__msgtype__
-        ros_recording_timestamp_ns = (
-            ms_msg.recording_timestamp_ns or ms_msg.timestamp_ns
-        )  # Fallback to timestamp if recording_timestamp_ns is not available
+        ros_recording_timestamp_ns = ms_msg.timestamp_ns
 
         # --- Resolve Connection check ---
         if ms_topic not in self.accepted_connections:  # New connection available

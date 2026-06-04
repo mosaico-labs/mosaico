@@ -71,7 +71,6 @@ def unpack_rgb(packed_rgb: float) -> Tuple[int, int, int]:
 
 class _DepthCameraBase(
     BaseModel,
-    HeaderMixin,  # Adds Header support
 ):
     """
     Internal base model shared by all depth camera ontologies.
@@ -130,7 +129,11 @@ class _DepthCameraBase(
     """Signal amplitude or intensity per point."""
 
 
-class RGBDCamera(_DepthCameraBase, Serializable):
+class RGBDCamera(
+    _DepthCameraBase,
+    Serializable,
+    HeaderMixin,  # Adds Header support
+):
     """
     RGB-D camera ontology.
 
@@ -176,7 +179,11 @@ class RGBDCamera(_DepthCameraBase, Serializable):
     ...
 
 
-class ToFCamera(_DepthCameraBase, Serializable):
+class ToFCamera(
+    _DepthCameraBase,
+    Serializable,
+    HeaderMixin,  # Adds Header support
+):
     """
     Time-of-Flight (ToF) camera ontology.
 
@@ -247,7 +254,11 @@ class ToFCamera(_DepthCameraBase, Serializable):
     """
 
 
-class StereoCamera(_DepthCameraBase, Serializable):
+class StereoCamera(
+    _DepthCameraBase,
+    Serializable,
+    HeaderMixin,  # Adds Header support
+):
     """
     Stereo camera ontology.
 

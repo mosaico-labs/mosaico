@@ -80,7 +80,7 @@ class PyarrowFieldMapper:
         nested Pydantic models and creating queryable field objects
         for simple types.
         """
-        from mosaicolabs.models.message import Message
+        from ..message import Message
 
         cls_pa_fields = []
         if class_type.__msco_pyarrow_struct__ is not Message.__msco_pyarrow_struct__:

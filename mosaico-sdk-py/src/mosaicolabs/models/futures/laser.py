@@ -26,10 +26,7 @@ MultiRange = List[List[MosaicoType.float32]]
 """Type alias for a multi-echo range array: a list of distance values per beam."""
 
 
-class _LaserScanBase(
-    BaseModel,
-    HeaderMixin,  # Adds Header support
-):
+class _LaserScanBase(BaseModel):
     """
     Internal generic base model shared by laser scan ontologies.
 
@@ -326,7 +323,11 @@ class _LaserScanBase(
     """
 
 
-class LaserScan(_LaserScanBase, Serializable):
+class LaserScan(
+    _LaserScanBase,
+    Serializable,
+    HeaderMixin,  # Adds Header support
+):
     """
     Single-return 2D laser scan data.
 
@@ -417,7 +418,11 @@ class LaserScan(_LaserScanBase, Serializable):
     """
 
 
-class MultiEchoLaserScan(_LaserScanBase, Serializable):
+class MultiEchoLaserScan(
+    _LaserScanBase,
+    Serializable,
+    HeaderMixin,  # Adds Header support
+):
     """
     Multi-echo 2D laser scan data.
 

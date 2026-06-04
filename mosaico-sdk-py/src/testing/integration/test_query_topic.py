@@ -1,8 +1,8 @@
 import pytest
 
 from mosaicolabs.comm import MosaicoClient
+from mosaicolabs.models import Time
 from mosaicolabs.models.query import QuerySequence, QueryTopic
-from mosaicolabs.types import Time
 from testing.integration.config import (
     QUERY_SEQUENCES_MOCKUP,
     UPLOADED_GPS_TOPIC,

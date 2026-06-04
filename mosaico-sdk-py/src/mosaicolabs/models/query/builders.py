@@ -14,9 +14,6 @@ It implements a Domain-Specific Language that allows users to filter **Sequences
 
 from typing import Any, Dict, List, Optional, Tuple, Type
 
-# Import custom types used in helper methods
-from mosaicolabs.types import Time
-
 # Import the building blocks for expressions and how they are combined
 from .expressions import (
     _QueryCatalogExpression,
@@ -25,7 +22,7 @@ from .expressions import (
     _QueryTopicExpression,
 )
 from .generation.mixins import _make_queryable_field_intance, _QueryableDynamicValue
-from .protocols import QueryableProtocol
+from .protocols import QueryableProtocol, TimeProtocol
 
 
 def _get_tag_from_expr_key(key: str):
@@ -551,7 +548,9 @@ class QueryTopic:
         )
 
     def with_created_timestamp(
-        self, time_start: Optional[Time] = None, time_end: Optional[Time] = None
+        self,
+        time_start: Optional[TimeProtocol] = None,
+        time_end: Optional[TimeProtocol] = None,
     ) -> "QueryTopic":
         """
         Adds a filter for the 'created_at_ns' field using high-precision Time.
@@ -888,7 +887,9 @@ class QuerySequence:
         )
 
     def with_created_timestamp(
-        self, time_start: Optional[Time] = None, time_end: Optional[Time] = None
+        self,
+        time_start: Optional[TimeProtocol] = None,
+        time_end: Optional[TimeProtocol] = None,
     ) -> "QuerySequence":
         """
         Adds a filter for the 'created_at_ns' field using high-precision Time.
