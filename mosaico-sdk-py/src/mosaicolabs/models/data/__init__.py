@@ -36,3 +36,4 @@ from .kinematics import (
     Velocity as Velocity,
 )
 from .roi import ROI as ROI
+from .time import Header as Header, HeaderMixin as HeaderMixin, Time as Time

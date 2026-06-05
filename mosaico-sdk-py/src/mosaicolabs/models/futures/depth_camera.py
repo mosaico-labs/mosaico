@@ -22,7 +22,7 @@ from typing import Optional, Tuple
 import numpy as np
 
 from ..base_model import BaseModel
-from ..mixins import HeaderMixin
+from ..data.time import HeaderMixin
 from ..serializable import Serializable
 from ..types import MosaicoField, MosaicoType
 

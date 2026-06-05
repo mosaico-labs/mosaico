@@ -47,12 +47,10 @@ from .logging_config import (
 from .models import (
     BaseModel as BaseModel,
     CovarianceMixin as CovarianceMixin,
-    HeaderMixin as HeaderMixin,
     Message as Message,
     MosaicoField as MosaicoField,
     MosaicoType as MosaicoType,
     Serializable as Serializable,
-    Time as Time,
     VarianceMixin as VarianceMixin,
     # Force registration into Serializable registry
     # (fix deserializing messages from topics that contain these data types,
@@ -73,6 +71,8 @@ from .models.data import (
     Floating32 as Floating32,
     Floating64 as Floating64,
     ForceTorque as ForceTorque,
+    Header as Header,
+    HeaderMixin as HeaderMixin,
     Inertia as Inertia,
     Integer8 as Integer8,
     Integer16 as Integer16,
@@ -87,6 +87,7 @@ from .models.data import (
     Quaternion as Quaternion,
     RobotPath as RobotPath,
     String as String,
+    Time as Time,
     Transform as Transform,
     Unsigned8 as Unsigned8,
     Unsigned16 as Unsigned16,
@@ -164,7 +165,6 @@ __all__ = [
     "Time",
     "Message",
     "CovarianceMixin",
-    "HeaderMixin",
     "VarianceMixin",
     # Sensors
     "CameraInfo",
@@ -196,6 +196,9 @@ __all__ = [
     "Floating64",
     "String",
     "LargeString",
+    "Time",
+    "Header",
+    "HeaderMixin",
     # Geometry
     "Point2d",
     "Point3d",

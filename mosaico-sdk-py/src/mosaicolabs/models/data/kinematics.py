@@ -13,10 +13,11 @@ from typing import Optional
 
 from pydantic import model_validator
 
-from ..mixins import CovarianceMixin, HeaderMixin
+from ..mixins import CovarianceMixin
 from ..serializable import Serializable
 from ..types import MosaicoField, MosaicoType
 from .geometry import Pose, Vector3d
+from .time import HeaderMixin
 
 
 class Velocity(
@@ -37,6 +38,7 @@ class Velocity(
             the uncertainty of the point measurement.
         covariance_type: Enum integer representing the parameterization of the
             covariance matrix.
+        header (optional[Header]): Optional heading containing measurement metadata
 
     Note: Input Validation
         A valid `Velocity` object must contain at least a `linear` or an `angular`
@@ -208,6 +210,7 @@ class Acceleration(
             the uncertainty of the point measurement.
         covariance_type: Enum integer representing the parameterization of the
             covariance matrix.
+        header (optional[Header]): Optional heading containing measurement metadata
 
     Note: Input Validation
         Similar to the [`Velocity`][mosaicolabs.models.data.kinematics.Velocity] class, an `Acceleration` instance requires
@@ -388,6 +391,7 @@ class MotionState(
             the uncertainty of the Pose+Velocity+[Acceleration] measurement.
         covariance_type: Enum integer representing the parameterization of the
             covariance matrix.
+        header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
     This class fields are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]

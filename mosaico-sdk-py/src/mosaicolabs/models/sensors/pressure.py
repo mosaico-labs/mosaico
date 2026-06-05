@@ -6,7 +6,8 @@ Defines the data structure for pressure sensors.
 
 from typing import Optional
 
-from ..mixins import HeaderMixin, VarianceMixin
+from ..data.time import HeaderMixin
+from ..mixins import VarianceMixin
 from ..serializable import Serializable
 from ..types import MosaicoField, MosaicoType
 
@@ -27,6 +28,7 @@ class Pressure(
             the value **must** be provided in Pascals.
         variance (Optional[float]): The variance of the data.
         variance_type (Optional[int]): Enum integer representing the variance parameterization.
+        header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
     This class is fully queryable via the **`.Q` proxy**. You can filter pressure data based

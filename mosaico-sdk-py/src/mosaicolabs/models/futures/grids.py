@@ -5,7 +5,7 @@ This module defines the fundamental building blocks for grids and maps represent
 """
 
 from ..data import Point3d, Pose
-from ..mixins import HeaderMixin
+from ..data.time import HeaderMixin
 from ..serializable import Serializable
 from ..types import MosaicoField, MosaicoType
 

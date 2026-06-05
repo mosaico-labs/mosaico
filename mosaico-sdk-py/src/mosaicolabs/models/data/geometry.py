@@ -14,9 +14,10 @@ The module follows a **Two-Tier Architecture** to optimize both internal efficie
 from typing import Optional
 
 from ..base_model import BaseModel
-from ..mixins import CovarianceMixin, HeaderMixin
+from ..mixins import CovarianceMixin
 from ..serializable import Serializable
 from ..types import MosaicoField, MosaicoType
+from .time import HeaderMixin
 
 # ---------------------------------------------------------------------------
 # Vector STRUCT classes
@@ -666,6 +667,7 @@ class Vector2d(
     _Vector2dStruct,  # Inherits fields (x, y)
     Serializable,  # Adds Registry/Factory logic
     CovarianceMixin,  # Adds Covariance matrix support
+    HeaderMixin,  # Adds header support
 ):
     """
     A public 2D Vector for platform-wide transmission.
@@ -680,6 +682,7 @@ class Vector2d(
             the uncertainty of the vector measurement.
         covariance_type: Enum integer representing the parameterization of the
             covariance matrix.
+        header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
     This class fields are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
@@ -726,6 +729,7 @@ class Vector3d(
     _Vector3dStruct,  # Inherits fields (x, y, z)
     Serializable,  # Adds Registry/Factory logic
     CovarianceMixin,  # Adds Covariance matrix support
+    HeaderMixin,  # Adds header support
 ):
     """
     A public 3D Vector for platform-wide transmission.
@@ -741,6 +745,7 @@ class Vector3d(
             the uncertainty of the vector measurement.
         covariance_type: Enum integer representing the parameterization of the
             covariance matrix.
+        header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
     This class fields are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
@@ -787,6 +792,7 @@ class Vector4d(
     _Vector4dStruct,  # Inherits fields (x, y, z, w)
     Serializable,  # Adds Registry/Factory logic
     CovarianceMixin,  # Adds Covariance matrix support
+    HeaderMixin,  # Adds header support
 ):
     """
     A public 4D Vector for platform-wide transmission.
@@ -803,6 +809,7 @@ class Vector4d(
             the uncertainty of the vector measurement.
         covariance_type: Enum integer representing the parameterization of the
             covariance matrix.
+        header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
     This class fields are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
@@ -865,6 +872,7 @@ class Point2d(
             the uncertainty of the point measurement.
         covariance_type: Enum integer representing the parameterization of the
             covariance matrix.
+        header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
     This class fields are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
@@ -928,6 +936,7 @@ class Point3d(
             the uncertainty of the point measurement.
         covariance_type: Enum integer representing the parameterization of the
             covariance matrix.
+        header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
     This class fields are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
@@ -992,6 +1001,7 @@ class Quaternion(
             the uncertainty of the quaternion measurement.
         covariance_type: Enum integer representing the parameterization of the
             covariance matrix.
+        header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
     This class fields are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
@@ -1059,6 +1069,7 @@ class Transform(
             the uncertainty of the Translation+Rotation.
         covariance_type: Enum integer representing the parameterization of the
             covariance matrix.
+        header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
     This class fields are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
@@ -1265,6 +1276,7 @@ class Pose(
             the uncertainty of the Translation+Rotation.
         covariance_type: Enum integer representing the parameterization of the
             covariance matrix.
+        header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
     This class fields are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
@@ -1418,6 +1430,7 @@ class RobotPath(
     Attributes:
         path_frame: A `String` representing the frame name the waypoints refer to
         poses: A list of `Pose` describing the waypoints to be followed.
+        header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
     Only path_frame field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
@@ -1487,7 +1500,10 @@ class RobotPath(
     """
 
 
-class Polygon(Serializable):
+class Polygon(
+    Serializable,
+    HeaderMixin,  # Adds Header support
+):
     """
     Polygon geometry defined by a list of points.
 
@@ -1495,6 +1511,7 @@ class Polygon(Serializable):
 
     Attributes:
         points: List of polygon vertices.
+        header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
     The points field is not queryable via the `.Q` proxy (lists are not supported yet).

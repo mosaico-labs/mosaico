@@ -1,5 +1,5 @@
+from mosaicolabs import Time
 from mosaicolabs.comm import MosaicoClient
-from mosaicolabs.models import Time
 from mosaicolabs.models.query import QueryOntologyCatalog, QueryTopic
 from mosaicolabs.models.sensors import GPS, IMU
 from testing.integration.config import (

@@ -9,10 +9,11 @@ These models are designed to be assigned to the `data` field of a [`Message`][mo
 * **Uncertainty Quantification**: Inherits from [`CovarianceMixin`][mosaicolabs.models.mixins.CovarianceMixin] to support $6 \times 6$ covariance matrices, allowing for the transmission of sensor noise characteristics or estimation confidence.
 """
 
-from ..mixins import CovarianceMixin, HeaderMixin
+from ..mixins import CovarianceMixin
 from ..serializable import Serializable
 from ..types import MosaicoField, MosaicoType
 from .geometry import Vector3d
+from .time import HeaderMixin
 
 
 class ForceTorque(
@@ -35,6 +36,7 @@ class ForceTorque(
             the uncertainty of the force-torque measurement.
         covariance_type: Enum integer representing the parameterization of the
             covariance matrix.
+        header (optional[Header]): Optional heading containing measurement metadata
 
     Note: Unit Standards
         To ensure platform-wide consistency, all force components should be
@@ -167,7 +169,10 @@ class ForceTorque(
     """
 
 
-class Inertia(Serializable, HeaderMixin):
+class Inertia(
+    Serializable,
+    HeaderMixin,  # Adds header support
+):
     """
     Inertia properties of a rigid body.
 
@@ -177,6 +182,7 @@ class Inertia(Serializable, HeaderMixin):
         mass: Mass of the object.
         center_of_mass: Center of mass position.
         inertia: Inertia tensor (flattened 3x3 matrix).
+        header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
     Only scalar fields are queryable.

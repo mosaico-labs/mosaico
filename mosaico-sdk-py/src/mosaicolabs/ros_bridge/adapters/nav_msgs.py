@@ -7,8 +7,8 @@ if TYPE_CHECKING:
 
 import numpy as np
 
-from mosaicolabs.models import Message, Time
-from mosaicolabs.models.data import MotionState, Point3d, RobotPath
+from mosaicolabs.models import Message
+from mosaicolabs.models.data import MotionState, Point3d, RobotPath, Time
 from mosaicolabs.models.futures import (
     GridCells,
     MapMetadata,

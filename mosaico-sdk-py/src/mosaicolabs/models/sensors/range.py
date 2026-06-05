@@ -7,7 +7,8 @@ Defines the data structure for range sensors.
 from pydantic import model_validator
 from typing_extensions import Self
 
-from ..mixins import HeaderMixin, VarianceMixin
+from ..data.time import HeaderMixin
+from ..mixins import VarianceMixin
 from ..serializable import Serializable
 from ..types import MosaicoField, MosaicoType
 
@@ -32,6 +33,7 @@ class Range(
         range (float): Range value in **Meters (m)**.
         variance (Optional[float]): The variance of the data.
         variance_type (Optional[int]): Enum integer representing the variance parameterization.
+        header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
     This class is fully queryable via the **`.Q` proxy**. You can filter range data based

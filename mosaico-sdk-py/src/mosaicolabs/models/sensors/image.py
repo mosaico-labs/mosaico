@@ -28,7 +28,7 @@ from PIL import Image as PILImage
 from mosaicolabs.enum import SerializationFormat
 from mosaicolabs.logging_config import get_logger
 
-from ..mixins import HeaderMixin
+from ..data.time import HeaderMixin
 from ..serializable import Serializable
 from ..types import MosaicoField, MosaicoType
 
@@ -137,6 +137,7 @@ class Image(
         stride (int): Bytes per row. Essential for alignment.
         encoding (str): Pixel format (e.g., 'bgr8', 'mono16').
         is_bigendian (bool): True if data is Big-Endian. Defaults to system endianness if null.
+        header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
     This class is fully queryable via the **`.Q` proxy**. You can filter image data based
@@ -814,6 +815,7 @@ class CompressedImage(
     Attributes:
         data (bytes): The compressed binary payload.
         format (str): The format identifier string (e.g., 'jpeg', 'png').
+        header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
     This class is fully queryable via the **`.Q` proxy**. You can filter image data based

@@ -114,18 +114,18 @@ class Message(BaseModel):
             #         "(like rosbags, parquet files, etc.)"
             #     },
             # ),
-            pa.field(
-                "frame_id",
-                pa.string(),
-                nullable=True,
-                metadata={"description": "Coordinate frame ID."},
-            ),
-            pa.field(
-                "sequence_id",
-                pa.uint32(),
-                nullable=True,
-                metadata={"description": "Sequence ID. Legacy field."},
-            ),
+            # pa.field(
+            #     "frame_id",
+            #     pa.string(),
+            #     nullable=True,
+            #     metadata={"description": "Coordinate frame ID."},
+            # ),
+            # pa.field(
+            #     "sequence_id",
+            #     pa.uint32(),
+            #     nullable=True,
+            #     metadata={"description": "Sequence ID. Legacy field."},
+            # ),
         ]
     )
 
@@ -187,72 +187,6 @@ class Message(BaseModel):
         ```
     """
 
-    frame_id: Optional[str] = None
-    """
-    A string identifier for the coordinate frame (spatial context).
-    
-    ### Querying with the **`.Q` Proxy**
-    The frame_id field is queryable using the `.Q` proxy.
-
-    | Field Access Path | Queryable Type | Supported Operators |
-    | :--- | :--- | :--- |
-    | `<Model>.Q.frame_id` | `String` | `.eq()`, `.match()`, `.in_()`, `.lt()`, `.gt()`, `.leq()`, `.geq()` |
-    
-    The `<Model>` placeholder represents any Mosaico ontology class (e.g., `IMU`, `GPS`, `Floating64`)
-    or any custom user-defined class that is a subclass of [`Serializable`][mosaicolabs.models.Serializable]
-    
-    Example:
-        ```python
-        from mosaicolabs import MosaicoClient, IMU, QueryOntologyCatalog
-
-        with MosaicoClient.connect("localhost", 6726) as client:
-            # Filter IMU data by a specific frame_id
-            qresponse = client.query(
-                QueryOntologyCatalog(IMU.Q.frame_id.eq("base_link"))
-            )
-
-            # Inspect the response
-            if qresponse is not None:
-                # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
-                    print(f"Sequence: {item.sequence.name}")
-                    print(f"Topics: {[topic.name for topic in item.topics]}")
-        ```
-    """
-
-    sequence_id: Optional[int] = None
-    """
-    An optional sequence ID, primarily used for legacy tracking.
-    
-    ### Querying with the **`.Q` Proxy**
-    The sequence_id field is queryable using the `.Q` proxy.
-
-    | Field Access Path | Queryable Type | Supported Operators |
-    | :--- | :--- | :--- |
-    | `<Model>.Q.sequence_id` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
-    
-    The `<Model>` placeholder represents any Mosaico ontology class (e.g., `IMU`, `GPS`, `Floating64`)
-    or any custom user-defined class that is a subclass of [`Serializable`][mosaicolabs.models.Serializable]
-    
-    Example:
-        ```python
-        from mosaicolabs import MosaicoClient, IMU, QueryOntologyCatalog
-
-        with MosaicoClient.connect("localhost", 6726) as client:
-            # Filter IMU data by a specific sequence_id
-            qresponse = client.query(
-                QueryOntologyCatalog(IMU.Q.sequence_id.eq(123))
-            )
-
-            # Inspect the response
-            if qresponse is not None:
-                # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
-                    print(f"Sequence: {item.sequence.name}")
-                    print(f"Topics: {[topic.name for topic in item.topics]}")
-        ```
-    """
-
     # Internal cache for efficient field separation during encoding
     _self_model_keys: set[str] = PrivateAttr(default_factory=set)
     _data_model_keys: set[str] = PrivateAttr(default_factory=set)
@@ -276,35 +210,6 @@ class Message(BaseModel):
                 f"Fields name collision detected between class '{type(self.data).__name__}' "
                 f"and Message envelope. Colliding fields: {colliding_fields}."
             )
-
-        # Infer the timestamp from payload data in case user does not provide one
-        if self.timestamp_ns is None:
-            # Check that meas_timestamp field exists
-            meas_timestamp_field = self.data.__class_type__.model_fields.get(
-                "meas_timestamp"
-            )
-            if not meas_timestamp_field:
-                raise ValueError(
-                    f"{self.data.__class_type__.__name__} does not support timestamp and Message does not define one."
-                    "Please define at least one among the two!",
-                )
-
-            # Check that meas_timestamp value is valid
-            meas_timestamp = getattr(self.data, "meas_timestamp")
-            if not meas_timestamp:
-                raise ValueError(
-                    f"Neither {self.data.__class_type__.__name__} nor Message define a valid timestamp."
-                    "Please define at least one among the two!"
-                )
-
-            from .time import Time
-
-            if not isinstance(meas_timestamp, Time):
-                raise ValueError(
-                    f"Error: meas_timestamp should be of Time type. Got {meas_timestamp.__class__.__name__}."
-                )
-
-            self.timestamp_ns = meas_timestamp.to_nanoseconds()
 
     def ontology_type(self) -> Type[Serializable]:
         """Retrieves the class type of the ontology object stored in the `data` field."""

@@ -12,10 +12,8 @@ from rosbags.typesys.store import Typestore
 if TYPE_CHECKING:
     from rosbags.typesys.store import MsgType
 
-from mosaicolabs.models import (
-    Message,
-    Time,
-)
+from mosaicolabs import Time
+from mosaicolabs.models import Message
 
 from ..adapter_base import ROSAdapterBase
 from ..ros_bridge import register_default_adapter

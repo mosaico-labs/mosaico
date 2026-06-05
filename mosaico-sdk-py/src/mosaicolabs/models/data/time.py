@@ -1,0 +1,587 @@
+"""
+Time Definitions.
+
+This module defines the standard `Time` class used to provide temporal context to ontology data.
+It includes a high-precision `Time` class to handle ROS-style seconds/nanoseconds splitting.
+"""
+
+import math
+import time
+from datetime import datetime, timezone
+from typing import Optional
+
+from pydantic import field_validator
+
+from ..base_model import BaseModel
+from ..serializable import Serializable
+from ..types import MosaicoField, MosaicoType
+
+
+class Time(Serializable):
+    """
+    A high-precision time representation.
+
+    The `Time` class splits a timestamp into a 64-bit integer for seconds and a 32-bit
+    unsigned integer for nanoseconds.
+
+    Attributes:
+        seconds: Seconds passed since the epoch (Unix time) or process start (clock time).
+        nanoseconds: Nanoseconds component within the current second, ranging from 0 to 999,999,999.
+
+    ### Querying with the **`.Q` Proxy**
+    This class fields are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
+    via the **`.Q` proxy**. Check the fields documentation for detailed description.
+
+    Example:
+    ```python
+    from mosaicolabs import MosaicoClient, Time, QueryOntologyCatalog
+
+    with MosaicoClient.connect("localhost", 6726) as client:
+        # Filter Time with time seconds-component AND time nanoseconds-component
+        qresponse = client.query(
+            QueryOntologyCatalog(Time.Q.seconds.lt(20.0))
+                .with_expression(Time.Q.nanoseconds.gt(100000))
+        )
+
+        # Inspect the response
+        if qresponse is not None:
+            # Results are automatically grouped by Sequence for easier data management
+            for item in qresponse:
+                print(f"Sequence: {item.sequence.name}")
+                print(f"Topics: {[topic.name for topic in item.topics]}")
+
+        # Filter for a specific data value and extract the first and last occurrence times
+        qresponse = client.query(
+            QueryOntologyCatalog(Time.Q.seconds.gt(5.0), include_timestamp_range=True)
+        )
+
+        # Inspect the response
+        if qresponse is not None:
+            # Results are automatically grouped by Sequence for easier data management
+            for item in qresponse:
+                print(f"Sequence: {item.sequence.name}")
+                print(f"Topics: {{topic.name:
+                            [topic.timestamp_range.start, topic.timestamp_range.end]
+                            for topic in item.topics}}")
+    ```
+
+    """
+
+    seconds: MosaicoType.int64 = MosaicoField(description="Time in seconds.")
+    """
+    Seconds since the epoch (Unix time) or since process start (clock time).
+
+    ### Querying with the **`.Q` Proxy**
+    Seconds components are queryable through the `seconds` field prefix.
+
+    | Field Access Path | Queryable Type | Supported Operators |
+    | :--- | :--- | :--- |
+    | `Time.Q.seconds` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+
+    Example:
+        ```python
+        from mosaicolabs import MosaicoClient, Time, QueryOntologyCatalog
+
+        with MosaicoClient.connect("localhost", 6726) as client:
+            # Find where the measurements exceeding 50 seconds mark
+            qresponse = client.query(QueryOntologyCatalog(Time.Q.seconds.gt(50.0)))
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {[topic.name for topic in item.topics]}")
+
+            # Filter for a specific data value and extract the first and last occurrence times
+            qresponse = client.query(
+                QueryOntologyCatalog(Time.Q.seconds.gt(5.0), include_timestamp_range=True)
+            )
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {{topic.name:
+                                [topic.timestamp_range.start, topic.timestamp_range.end]
+                                for topic in item.topics}}")
+        ```
+    """
+
+    nanoseconds: MosaicoType.uint64 = MosaicoField(description="Time in nanoseconds.")
+    """Nanoseconds component within the current second, ranging from 0 to 999,999,999
+
+    ### Querying with the **`.Q` Proxy**
+    Nanoseconds components are queryable through the `nanoseconds` field prefix.
+
+    | Field Access Path | Queryable Type | Supported Operators |
+    | :--- | :--- | :--- |
+    | `Time.Q.nanoseconds` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+
+    Example:
+        ```python
+        from mosaicolabs import MosaicoClient, Time, QueryOntologyCatalog
+
+        with MosaicoClient.connect("localhost", 6726) as client:
+            # Find where the measurements exceeding 50000 nanoseconds mark
+            qresponse = client.query(QueryOntologyCatalog(Time.Q.nanoseconds.gt(50000.0)))
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {[topic.name for topic in item.topics]}")
+
+            # Filter for a specific data value and extract the first and last occurrence times
+            qresponse = client.query(
+                QueryOntologyCatalog(Time.Q.nanoseconds.gt(5.0), include_timestamp_range=True)
+            )
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {{topic.name:
+                                [topic.timestamp_range.start, topic.timestamp_range.end]
+                                for topic in item.topics}}")
+        ```
+    """
+
+    @field_validator("nanoseconds")
+    @classmethod
+    def validate_nanosec(cls, v: int) -> int:
+        """Ensures nanoseconds are within the valid [0, 1e9) range."""
+        if not (0 <= v < 1_000_000_000):
+            raise ValueError(f"Nanoseconds must be in [0, 1e9). Got {v}")
+        return v
+
+    @classmethod
+    def from_float(cls, ftime: float) -> "Time":
+        """
+        Factory method to create a Time object from a float (seconds since epoch).
+
+        This method carefully handles floating-point artifacts by using rounding for
+        the fractional part to ensure stable nanosecond conversion.
+
+        Args:
+            ftime: Total seconds since epoch (e.g., from `time.time()`).
+
+        Returns:
+            A normalized `Time` instance.
+        """
+        # Handle negative timestamps (although this is assumed a wrong behavior)
+        # We must account for nanoseconds to be unsigned. This must be handled by borrowing from the seconds component.
+        if ftime < 0:
+            # e.g. -1.5 => sec = -2
+            sec = math.floor(ftime)
+            # Calculate remainder to reach the next second
+            nanosec = int(round((ftime - sec) * 1e9))
+        else:
+            sec = int(ftime)
+            frac_part = ftime - sec
+            # Use round() to handle floating point artifacts (e.g., 0.999999 -> 1.0)
+            nanosec = int(round(frac_part * 1e9))
+
+        # Normalize if rounding pushed nanosec to 1 second
+        if nanosec >= 1_000_000_000:
+            sec += 1
+            nanosec = 0
+
+        return cls(seconds=sec, nanoseconds=nanosec)
+
+    @classmethod
+    def from_milliseconds(cls, total_milliseconds: int) -> "Time":
+        """
+        Factory method to create a Time object from a total count of milliseconds.
+
+        Args:
+            total_milliseconds: Total time elapsed in milliseconds.
+
+        Returns:
+            A `Time` instance with split sec/nanosec components.
+        """
+        sec = total_milliseconds // 1_000
+        nanosec = (total_milliseconds % 1_000) * 1_000_000
+        return cls(seconds=sec, nanoseconds=nanosec)
+
+    @classmethod
+    def from_nanoseconds(cls, total_nanoseconds: int) -> "Time":
+        """
+        Factory method to create a Time object from a total count of nanoseconds.
+
+        Args:
+            total_nanoseconds: Total time elapsed in nanoseconds.
+
+        Returns:
+            A `Time` instance with split sec/nanosec components.
+        """
+        sec = total_nanoseconds // 1_000_000_000
+        nanosec = total_nanoseconds % 1_000_000_000
+        return cls(seconds=sec, nanoseconds=nanosec)
+
+    @classmethod
+    def from_datetime(cls, dt: datetime) -> "Time":
+        """
+        Factory method to create a Time object from a Python `datetime` instance.
+
+        Args:
+            dt: A standard Python `datetime` object.
+
+        Returns:
+            A `Time` instance reflecting the datetime's timestamp.
+        """
+        # Note: dt.timestamp() handles timezone conversion if aware
+        timestamp = dt.timestamp()
+        return cls.from_float(timestamp)
+
+    @classmethod
+    def now(cls) -> "Time":
+        """Factory method that returns the current system UTC time in high precision."""
+        return cls.from_float(time.time())
+
+    def to_float(self) -> float:
+        """
+        Converts the high-precision time to a float.
+
+        Warning: Precision Loss
+            Converting to a 64-bit float may result in the loss of nanosecond
+            precision due to mantissa limitations.
+        """
+        return float(self.seconds) + float(self.nanoseconds) * 1e-9
+
+    def to_nanoseconds(self) -> int:
+        """
+        Converts the time to a total integer of nanoseconds.
+
+        This conversion preserves full precision.
+        """
+        return (self.seconds * 1_000_000_000) + self.nanoseconds
+
+    def to_milliseconds(self) -> int:
+        """
+        Converts the time to a total integer of milliseconds.
+
+        This conversion preserves full precision.
+        """
+        return (self.seconds * 1_000) + int(self.nanoseconds / 1_000_000)
+
+    def to_datetime(self) -> datetime:
+        """
+        Converts the time to a Python UTC `datetime` object.
+
+        Warning: Microsecond Limitation
+            Python's `datetime` objects typically support microsecond precision;
+            nanosecond data below that threshold will be truncated.
+        """
+        return datetime.fromtimestamp(self.to_float(), tz=timezone.utc)
+
+
+class Header(Serializable):
+    """
+    A heading, typically associated with a sensor measurement
+
+    It is composed of Optional fields depending on the type contained information in the
+    sensor measurement.
+
+    Attributes:
+        timestamp: Time (seconds and nanoseconds) passed since the epoch (Unix time) or process start (clock time). It can be omitted if not available.
+        frame_id: Reference frame name used for the measurement. It can be omitted if not available.
+        sample_counter: Integer indicating the number of samples elapsed since process start. It can be omitted if not available.
+
+    ### Querying with the **`.Q` Proxy**
+    This class fields are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
+    via the **`.Q` proxy**. Check the fields documentation for detailed description.
+
+    Example:
+    ```python
+    from mosaicolabs import MosaicoClient, Header, QueryOntologyCatalog
+
+    with MosaicoClient.connect("localhost", 6726) as client:
+        # Filter Header with time seconds-component AND time nanoseconds-component
+        qresponse = client.query(
+            QueryOntologyCatalog(Header.Q.timestamp.seconds.lt(20.0))
+                .with_expression(Header.Q.timestamp.nanoseconds.gt(100000))
+        )
+
+        # Inspect the response
+        if qresponse is not None:
+            # Results are automatically grouped by Sequence for easier data management
+            for item in qresponse:
+                print(f"Sequence: {item.sequence.name}")
+                print(f"Topics: {[topic.name for topic in item.topics]}")
+
+        # Filter for a specific data value and extract the first and last occurrence times
+        qresponse = client.query(
+            QueryOntologyCatalog(Header.Q.frame_id.eq("base_link"), include_timestamp_range=True)
+        )
+
+        # Inspect the response
+        if qresponse is not None:
+            # Results are automatically grouped by Sequence for easier data management
+            for item in qresponse:
+                print(f"Sequence: {item.sequence.name}")
+                print(f"Topics: {{topic.name:
+                            [topic.timestamp_range.start, topic.timestamp_range.end]
+                            for topic in item.topics}}")
+    ```
+
+    """
+
+    timestamp: Optional[Time] = MosaicoField(
+        nullable=True,
+        default=None,
+        description="Timestamp representing when the data has been measured",
+    )
+    """
+    Time (seconds and nanoseconds) passed since the epoch (Unix time) or process start (clock time).
+
+    ### Querying with the **`.Q` Proxy**
+    Timestamp components are queryable through the `timestamp` field prefix.
+
+    | Field Access Path | Queryable Type | Supported Operators |
+    | :--- | :--- | :--- |
+    | `Header.Q.timestamp.seconds` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `Header.Q.timestamp.nanoseconds` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+
+    Example:
+        ```python
+        from mosaicolabs import MosaicoClient, Header, QueryOntologyCatalog
+        
+        with MosaicoClient.connect("localhost", 6726) as client:
+            # Find headers where the timestamp exceeds 5 seconds
+            qresponse = client.query(
+                QueryOntologyCatalog(Header.Q.timestamp.seconds.gt(5.0))
+            )
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {[topic.name for topic in item.topics]}")
+
+            # Filter for a specific component value and extract the first and last occurrence times
+            qresponse = client.query(
+                QueryOntologyCatalog(Header.Q.timestamp.nanoseconds.gt(50000.0), include_timestamp_range=True)
+            )
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {{topic.name:
+                                [topic.timestamp_range.start, topic.timestamp_range.end]
+                                for topic in item.topics}}")
+        ```
+    """
+
+    frame_id: Optional[MosaicoType.string] = MosaicoField(
+        nullable=True,
+        default=None,
+        description="String representing the acquired data reference system name",
+    )
+    """
+    String representing the acquired data reference system name. It may be None if it is unknown or the
+    measurement does not support one (like an audio stream).
+
+    ### Querying with the **`.Q` Proxy**
+    Frame id component is queryable through the `sample_counter` field prefix.
+
+    | Field Access Path | Queryable Type | Supported Operators |
+    | :--- | :--- | :--- |
+    | `Header.Q.frame_id` | `String` | `.eq()`, `.match()`, `.in_()`, `.lt()`, `.gt()`, `.leq()`, `.geq()` |
+
+    Example:
+        ```python
+        from mosaicolabs import MosaicoClient, Header, QueryOntologyCatalog
+        
+        with MosaicoClient.connect("localhost", 6726) as client:
+            # Find headers where reference system is base_link
+            qresponse = client.query(
+                QueryOntologyCatalog(Header.Q.frame_id.eq("base_link"))
+            )
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {[topic.name for topic in item.topics]}")
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {{topic.name:
+                                [topic.timestamp_range.start, topic.timestamp_range.end]
+                                for topic in item.topics}}")
+        ```
+    """
+
+    sample_counter: Optional[MosaicoType.uint64] = MosaicoField(
+        nullable=True,
+        default=None,
+        description="An optional counter used to track how many samples have been processed. It needs to be monotonically increasing",
+    )
+    """
+    Counter used to track how many samples have been processed by the sensor. 
+    It should always be monotonically increasing.
+
+    ### Querying with the **`.Q` Proxy**
+    Sample counters component is queryable through the `sample_counter` field prefix.
+
+    | Field Access Path | Queryable Type | Supported Operators |
+    | :--- | :--- | :--- |
+    | `Header.Q.sample_counter` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+
+    Example:
+        ```python
+        from mosaicolabs import MosaicoClient, Header, QueryOntologyCatalog
+        
+        with MosaicoClient.connect("localhost", 6726) as client:
+            # Find headers where the sample counters exceeds 300-th sample
+            qresponse = client.query(
+                QueryOntologyCatalog(Header.Q.sample_counter.gt(300.0))
+            )
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {[topic.name for topic in item.topics]}")
+
+            # Filter for a specific component value and extract the first and last occurrence times
+            qresponse = client.query(
+                QueryOntologyCatalog(Header.Q.sample_counter.lt(50000.0), include_timestamp_range=True)
+            )
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {{topic.name:
+                                [topic.timestamp_range.start, topic.timestamp_range.end]
+                                for topic in item.topics}}")
+        ```
+    """
+
+
+# ---- TimeMixin ----
+class HeaderMixin(BaseModel):
+    """
+    A mixin that adds header fields.
+
+    Recommended for sensors that provide a timestamp, a reference system or the number of produced samples.
+
+    ### Dynamic Schema Injection
+    This mixin uses the `__init_subclass__` hook to perform a **Schema Append** operation:
+
+    1. It inspects the child class's existing `__msco_pyarrow_struct__`.
+    2. It appends a `header` field.
+    3. It reconstructs the final `pa.struct` for the class.
+
+    Important: Collision Safety
+        The mixin performs a collision check during class definition. If the child
+        class already defines a `header` field in its PyArrow struct, a `ValueError`
+        will be raised to prevent schema corruption.
+
+    ### Querying with the **`.Q` Proxy** {: #queryability }
+    When constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog],
+    the class fields are queryable across any model inheriting from this mixin, according to the following table:
+
+    | Field Access Path | Queryable Type | Supported Operators |
+    | :--- | :--- | :--- |
+    | `<Model>.Q.header.timestamp.seconds` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `<Model>.Q.header.timestamp.nanoseconds` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `<Model>.Q.header.frame_id` | `String` | `.eq()`, `.match()`, `.in_()`, `.lt()`, `.gt()`, `.leq()`, `.geq()` |
+    | `<Model>.Q.header.sample_counter` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+
+    Note: Universal Compatibility
+        The `<Model>` placeholder adapts based on how the `HeaderMixin` is integrated into the data structure:
+
+    Example:
+        ```python
+        from mosaicolabs import MosaicoClient, ForceTorque, QueryOntologyCatalog
+
+        with MosaicoClient.connect("localhost", 6726) as client:
+            # Find where the measure lasts at least 10 seconds
+            qresponse = client.query(QueryOntologyCatalog(ForceTorque.Q.header.seconds.gt(10.0)))
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {[topic.name for topic in item.topics]}")
+
+            # Filter for a specific data value and extract the first and last occurrence times
+            qresponse = client.query(
+                QueryOntologyCatalog(ForceTorque.Q.header.frame_id.eq("camera_link"), include_timestamp_range=True)
+            )
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {{topic.name:
+                                [topic.timestamp_range.start, topic.timestamp_range.end]
+                                for topic in item.topics}}")
+        ```
+    """
+
+    header: Optional[Header] = MosaicoField(
+        nullable=True,
+        default=None,
+        description="Contains measure metadata like timestamp, reference frame and samples counter.",
+    )
+    """
+    Measure header containing measurement timestamp and reference frame.
+
+    ### Querying with the **`.Q` Proxy**
+    Header components are queryable through the `header` field prefix.
+
+    | Field Access Path | Queryable Type | Supported Operators |
+    | :--- | :--- | :--- |
+    | `<Model>.Q.timestamp.seconds` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `<Model>.Q.header.timestamp.nanoseconds` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `<Model>.Q.header.frame_id` | `String` | `.eq()`, `.match()`, `.in_()`, `.lt()`, `.gt()`, `.leq()`, `.geq()` |
+    | `<Model>.Q.header.sample_counter` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+
+    Example:
+        ```python
+        from mosaicolabs import MosaicoClient, ForceTorque, QueryOntologyCatalog
+
+        with MosaicoClient.connect("localhost", 6726) as client:
+            # Find where the measure lasts at least 10 seconds
+            qresponse = client.query(QueryOntologyCatalog(ForceTorque.Q.header.seconds.gt(10.0)))
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {[topic.name for topic in item.topics]}")
+
+            # Filter for a specific data value and extract the first and last occurrence times
+            qresponse = client.query(
+                QueryOntologyCatalog(ForceTorque.Q.header.frame_id.eq("camera_link"), include_timestamp_range=True)
+            )
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {{topic.name:
+                                [topic.timestamp_range.start, topic.timestamp_range.end]
+                                for topic in item.topics}}")
+        ```
+    """

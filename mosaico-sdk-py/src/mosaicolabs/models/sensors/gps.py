@@ -9,7 +9,7 @@ It includes Status flags, processed Fixes (Position/Velocity), and raw NMEA stri
 from typing import Optional
 
 from ..data import Point3d, Vector3d
-from ..mixins import HeaderMixin
+from ..data.time import HeaderMixin
 from ..serializable import Serializable
 from ..types import MosaicoField, MosaicoType
 
@@ -310,6 +310,7 @@ class GPS(
         position: Lat/Lon/Alt (WGS 84) represented as a [`Point3d`][mosaicolabs.models.data.geometry.Point3d].
         velocity: Velocity vector [North, East, Alt] in $m/s$.
         status: Receiver status info including fix type and satellite count.
+        header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
     This class is fully queryable via the **`.Q` proxy**. You can filter GPS data based
@@ -505,6 +506,7 @@ class NMEASentence(
 
     Attributes:
         sentence: The NMEA 0183 sentence string.
+        header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
     This class is fully queryable via the **`.Q` proxy**. You can filter NMEA data based

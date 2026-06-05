@@ -9,7 +9,7 @@ It aggregates data from accelerometers and gyroscopes.
 from typing import Optional
 
 from ..data import Quaternion, Vector3d
-from ..mixins import HeaderMixin
+from ..data.time import HeaderMixin
 from ..serializable import Serializable
 from ..types import MosaicoField
 
@@ -28,6 +28,7 @@ class IMU(
         acceleration: Linear acceleration vector [ax, ay, az] in $m/s^2$.
         angular_velocity: Angular velocity vector [wx, wy, wz] in $rad/s$.
         orientation: Optional estimated orientation expressed as a quaternion.
+        header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
     This class is fully queryable via the **`.Q` proxy**. You can filter IMU data based

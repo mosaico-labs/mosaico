@@ -15,7 +15,7 @@ return mode:
 from typing import List, Optional
 
 from ..base_model import BaseModel
-from ..mixins import HeaderMixin
+from ..data.time import HeaderMixin
 from ..serializable import Serializable
 from ..types import MosaicoField, MosaicoType
 

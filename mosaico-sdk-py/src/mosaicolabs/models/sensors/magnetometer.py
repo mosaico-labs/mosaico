@@ -5,7 +5,7 @@ Defines the data structure for magnetic field sensors.
 """
 
 from ..data import Vector3d
-from ..mixins import HeaderMixin
+from ..data.time import HeaderMixin
 from ..serializable import Serializable
 from ..types import MosaicoField
 
@@ -21,6 +21,7 @@ class Magnetometer(
 
     Attributes:
         magnetic_field: Magnetic field vector [mx, my, mz] in microTesla.
+        header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
     This class is fully queryable via the **`.Q` proxy**. You can filter magnetometer data based
