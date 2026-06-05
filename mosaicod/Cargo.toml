@@ -29,7 +29,7 @@ mosaicod-task = { path = "crates/mosaicod-task" }
 arrow = { version = "58.1.0", features = ["prettyprint", "ipc_compression"] }
 arrow-cast = "58.1.0"
 arrow-flight = "58.1.0"
-arrow-schema = "58.1.0"
+arrow-schema = "58.3.0"
 parquet = "58.1.0"
 datafusion = { version = "53.1.0", default-features = false, features = ["compression", "parquet", "sql", "recursive_protection"] }
 tonic = { version = "0.14.6", features = ["tls-ring", "gzip"] }
