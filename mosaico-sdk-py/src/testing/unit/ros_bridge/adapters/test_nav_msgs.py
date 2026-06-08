@@ -74,19 +74,21 @@ def motion_state_rosmsg(ros_header, motion_state: MotionState):
         msg_type="nav_msgs/msg/Odometry",
         data={
             "header": ros_header,
-            "child_frame_id": motion_state.target_frame_id,
             "pose": {
-                "pose": motion_state.pose.model_dump(
-                    exclude={"covariance", "covariance_type"}
-                ),
+                "pose": {
+                    "position": {"x": 1.0, "y": 2.0, "z": 0.0},
+                    "orientation": {"x": 0, "y": 0, "z": 0, "w": 1},
+                },
                 "covariance": [0.0] * 36,
             },
             "twist": {
-                "twist": motion_state.velocity.model_dump(
-                    exclude={"covariance", "covariance_type"}
-                ),
+                "twist": {
+                    "linear": {"x": 0.0, "y": 0.0, "z": 0.0},
+                    "angular": {"x": 0.0, "y": 0.0, "z": 0.0},
+                },
                 "covariance": [0.0] * 36,
             },
+            "child_frame_id": "base_link",
         },
     )
 
@@ -104,7 +106,6 @@ class TestOdometryAdapter:
     def test_translate_motion_state(self, motion_state_rosmsg: ROSMessage):
         ms_msg = OdometryAdapter.translate(motion_state_rosmsg)
 
-        assert ms_msg.timestamp_ns == motion_state_rosmsg.header.stamp.to_nanoseconds()
         assert_motion_state(ms_msg.get_data(MotionState), motion_state_rosmsg.data)
 
     def test_translate_raise_missing_required_key(
@@ -132,14 +133,6 @@ class TestOdometryAdapter:
             motion_state_msg, typestore, "nav_msgs/msg/Odometry"
         )
 
-        assert (
-            motion_state_msg.timestamp_ns
-            == Time(
-                seconds=ros_msg.header.stamp.sec,
-                nanoseconds=ros_msg.header.stamp.nanosec,
-            ).to_nanoseconds()
-        )
-        assert motion_state_msg.frame_id == ros_msg.header.frame_id
         assert_motion_state(motion_state, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)

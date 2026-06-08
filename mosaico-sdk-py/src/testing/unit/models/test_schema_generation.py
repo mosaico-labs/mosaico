@@ -874,7 +874,8 @@ def test_nmea_sentence_struct():
 
 def test_camera_info_struct():
     pyarrow_struct = pa.struct(
-        [
+        _HEADER_MIXIN
+        + [
             pa.field(
                 "height",
                 pa.uint32(),
@@ -1298,7 +1299,8 @@ def test_multiecholaserscan_struct():
 
 def test_battery_state_struct():
     pyarrow_struct = pa.struct(
-        [
+        _HEADER_MIXIN
+        + [
             pa.field("voltage", pa.float32(), nullable=False, metadata={"unit": "V"}),
             pa.field("temperature", pa.float32(), metadata={"unit": "C"}),
             pa.field("current", pa.float32(), metadata={"unit": "A"}),
@@ -1347,7 +1349,8 @@ def test_pointcloud2_struct():
     )
 
     pyarrow_struct = pa.struct(
-        [
+        _HEADER_MIXIN
+        + [
             pa.field("height", pa.uint32(), nullable=False),
             pa.field("width", pa.uint32(), nullable=False),
             pa.field("fields", pa.list_(point_field_struct), nullable=False),

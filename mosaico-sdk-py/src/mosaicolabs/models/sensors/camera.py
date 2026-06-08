@@ -11,11 +11,12 @@ and lens distortion model.
 from typing import Optional
 
 from ..data import ROI, Vector2d
+from ..data.time import HeaderMixin
 from ..serializable import Serializable
 from ..types import MosaicoField, MosaicoType
 
 
-class CameraInfo(Serializable):
+class CameraInfo(Serializable, HeaderMixin):
     """
     Meta-information for interpreting images from a calibrated camera.
 

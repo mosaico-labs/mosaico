@@ -4,7 +4,7 @@ This module defines the fundamental building blocks for grids and maps represent
 
 """
 
-from ..data import Point3d, Pose
+from ..data import Point3d, Pose, Time
 from ..data.time import HeaderMixin
 from ..serializable import Serializable
 from ..types import MosaicoField, MosaicoType
@@ -220,8 +220,7 @@ class MapMetadata(
 
     """
 
-    # TODO: this needs to be changed to Time Ontology
-    map_load_time: MosaicoType.uint64 = MosaicoField(
+    map_load_time: Time = MosaicoField(
         description="Time (in nanoseconds) at which the map has been loaded."
     )
     """

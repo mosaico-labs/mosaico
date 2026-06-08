@@ -90,10 +90,10 @@ class TimeAdapter(ROSAdapterBase[Time]):
             ros_data (dict): The raw dictionary from the ROS message.
 
         Returns:
-            Pose: The constructed Mosaico Pose object.
+            Time: The constructed Mosaico Time object.
 
         Raises:
-            ValueError: If the recursive 'pose' key exists but is not a dict, or if required keys are missing.
+            ValueError: If required keys are missing.
         """
 
         _validate_msgdata(cls, ros_data)
@@ -110,8 +110,8 @@ class TimeAdapter(ROSAdapterBase[Time]):
         input_ros_msg_type: Optional[str] = None,
     ) -> "Optional[MsgType]":
         """
-        Converts a Mosaico ``Time`` (or a ``Message`` wrapping one) into the
-        corresponding ROS geometry message.
+        Converts a Mosaico ``Time`` (or a ``Message`` wrapping one) into a
+        ``builtin_interfaces/msg/Time`` message.
 
         Supported output types (selectable via *input_ros_msg_type*):
         - ``builtin_interfaces/msg/Time``

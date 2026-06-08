@@ -1,6 +1,6 @@
 from enum import IntEnum
 
-from mosaicolabs import MosaicoField, MosaicoType, Serializable
+from mosaicolabs import HeaderMixin, MosaicoField, MosaicoType, Serializable
 
 
 class PointFieldDataType(IntEnum):
@@ -39,7 +39,7 @@ class PointField(Serializable):
     """The number of elements in the point field."""
 
 
-class PointCloud2(Serializable):
+class PointCloud2(Serializable, HeaderMixin):
     """
      Represents a point cloud in ROS2.
 

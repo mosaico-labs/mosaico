@@ -8,7 +8,7 @@ if TYPE_CHECKING:
 import numpy as np
 
 from mosaicolabs.models import Message
-from mosaicolabs.models.data import MotionState, Point3d, RobotPath, Time
+from mosaicolabs.models.data import MotionState, Point3d, RobotPath
 from mosaicolabs.models.futures import (
     GridCells,
     MapMetadata,
@@ -18,8 +18,10 @@ from mosaicolabs.models.futures import (
 from ..adapter_base import ROSAdapterBase
 from ..ros_bridge import register_default_adapter
 from ..ros_message import ROSMessage
+from .builtin_interfaces import TimeAdapter
 from .geometry_msgs import PointAdapter, PoseAdapter, TwistAdapter
 from .helpers import _validate_msgdata
+from .std_msgs import HeaderAdapter
 
 
 @register_default_adapter(is_default=True)
@@ -112,10 +114,14 @@ class OdometryAdapter(ROSAdapterBase[MotionState]):
             ValueError: If the recursive 'pose' key exists but is not a dict, or if required keys are missing.
         """
         _validate_msgdata(cls, ros_data)
+
         return MotionState(
             target_frame_id=ros_data["child_frame_id"],
             pose=PoseAdapter.from_dict(ros_data["pose"]),
             velocity=TwistAdapter.from_dict(ros_data["twist"]),
+            header=HeaderAdapter.from_dict(ros_data["header"])
+            if ros_data.get("header")
+            else None,
         )
 
     @classmethod
@@ -150,14 +156,14 @@ class OdometryAdapter(ROSAdapterBase[MotionState]):
             return None
 
         # Unpacking Mosaico message / type
-        motion_data, header_ms = cls.unpack_mosaico_msg(mosaico_data)
+        motion_data, ms_header = cls.unpack_mosaico_msg(mosaico_data)
 
         # Filling the data
         RosOdometry = typestore.types["nav_msgs/msg/Odometry"]
 
         if resolved_rosmsg_type == "nav_msgs/msg/Odometry":
             return RosOdometry(
-                header=header_ms.to_ros(typestore),
+                header=HeaderAdapter.to_ros(ms_header, typestore),
                 child_frame_id=motion_data.target_frame_id,
                 pose=PoseAdapter.to_ros(
                     motion_data.pose, typestore, "geometry_msgs/msg/PoseWithCovariance"
@@ -293,8 +299,10 @@ class RobotPathAdapter(ROSAdapterBase[RobotPath]):
             )
 
         return RobotPath(
-            path_frame=ros_data["header"]["frame_id"],
             poses=[PoseAdapter.from_dict(ros_pose) for ros_pose in poses],
+            header=HeaderAdapter.from_dict(ros_data["header"])
+            if ros_data.get("header")
+            else None,
         )
 
     @classmethod
@@ -329,15 +337,14 @@ class RobotPathAdapter(ROSAdapterBase[RobotPath]):
             return None
 
         # Unpacking Mosaico message / type
-        path_data, header_ms = cls.unpack_mosaico_msg(mosaico_data)
-        header_ms.frame_id = path_data.path_frame
+        path_data, ms_header = cls.unpack_mosaico_msg(mosaico_data)
 
         # Filling the data
         RosPath = typestore.types["nav_msgs/msg/Path"]
 
         if resolved_rosmsg_type == "nav_msgs/msg/Path":
             return RosPath(
-                header=header_ms.to_ros(typestore),
+                header=HeaderAdapter.to_ros(ms_header, typestore),
                 poses=[
                     PoseAdapter.to_ros(pose, typestore, "geometry_msgs/msg/PoseStamped")
                     for pose in path_data.poses
@@ -429,6 +436,7 @@ class GridCellsAdapter(ROSAdapterBase[GridCells]):
             GridCells: The constructed Mosaico GridCells object.
         """
         _validate_msgdata(cls, ros_data)
+
         return GridCells(
             cell_width=ros_data["cell_width"],
             cell_height=ros_data["cell_height"],
@@ -440,6 +448,9 @@ class GridCellsAdapter(ROSAdapterBase[GridCells]):
                 )
                 for point in ros_data["cells"]
             ],
+            header=HeaderAdapter.from_dict(ros_data["header"])
+            if ros_data.get("header")
+            else None,
         )
 
     @classmethod
@@ -474,14 +485,14 @@ class GridCellsAdapter(ROSAdapterBase[GridCells]):
             return None
 
         # Unpacking Mosaico message / type
-        gridcell_data, header_ms = cls.unpack_mosaico_msg(mosaico_data)
+        gridcell_data, ms_header = cls.unpack_mosaico_msg(mosaico_data)
 
         # Filling the data
         RosGridCell = typestore.types["nav_msgs/msg/GridCells"]
 
         if resolved_rosmsg_type == "nav_msgs/msg/GridCells":
             return RosGridCell(
-                header=header_ms.to_ros(typestore),
+                header=HeaderAdapter.to_ros(ms_header, typestore),
                 cell_width=gridcell_data.cell_width,
                 cell_height=gridcell_data.cell_height,
                 cells=[
@@ -572,10 +583,7 @@ class MapMetadataAdapter(ROSAdapterBase[MapMetadata]):
         """
         _validate_msgdata(cls, ros_data)
         return MapMetadata(
-            map_load_time=Time(
-                seconds=ros_data["map_load_time"]["sec"],
-                nanoseconds=ros_data["map_load_time"]["nanosec"],
-            ).to_nanoseconds(),  # TODO: this needs to be changed to Time
+            map_load_time=TimeAdapter.from_dict(ros_data["map_load_time"]),
             resolution=ros_data["resolution"],
             width=ros_data["width"],
             height=ros_data["height"],
@@ -614,18 +622,14 @@ class MapMetadataAdapter(ROSAdapterBase[MapMetadata]):
             return None
 
         # Unpacking Mosaico message / type
-        map_metadata_data, header_ms = cls.unpack_mosaico_msg(mosaico_data)
+        map_metadata_data, _ = cls.unpack_mosaico_msg(mosaico_data)
 
         # Filling the data
-        RosTime = typestore.types["builtin_interfaces/msg/Time"]
         RosMapMetadata = typestore.types["nav_msgs/msg/MapMetaData"]
-
-        ms_time = Time.from_nanoseconds(map_metadata_data.map_load_time)
-        ros_time = RosTime(sec=ms_time.seconds, nanosec=ms_time.nanoseconds)
 
         if resolved_rosmsg_type == "nav_msgs/msg/MapMetaData":
             return RosMapMetadata(
-                map_load_time=ros_time,
+                map_load_time=TimeAdapter.to_ros(map_metadata_data.map_load_time),
                 resolution=map_metadata_data.resolution,
                 width=map_metadata_data.width,
                 height=map_metadata_data.height,
@@ -714,7 +718,11 @@ class OccupancyGridAdapter(ROSAdapterBase[OccupancyGrid]):
         """
         _validate_msgdata(cls, ros_data)
         return OccupancyGrid(
-            info=MapMetadataAdapter.from_dict(ros_data["info"]), data=ros_data["data"]
+            info=MapMetadataAdapter.from_dict(ros_data["info"]),
+            data=ros_data["data"],
+            header=HeaderAdapter.from_dict(ros_data["header"])
+            if ros_data.get("header")
+            else None,
         )
 
     @classmethod
@@ -749,14 +757,14 @@ class OccupancyGridAdapter(ROSAdapterBase[OccupancyGrid]):
             return None
 
         # Unpacking Mosaico message / type
-        occupancy_grid_data, header_ms = cls.unpack_mosaico_msg(mosaico_data)
+        occupancy_grid_data, ms_header = cls.unpack_mosaico_msg(mosaico_data)
 
         # Filling the data
         RosOccupancyGrid = typestore.types["nav_msgs/msg/OccupancyGrid"]
 
         if resolved_rosmsg_type == "nav_msgs/msg/OccupancyGrid":
             return RosOccupancyGrid(
-                header=header_ms.to_ros(typestore),
+                header=HeaderAdapter.to_ros(ms_header, typestore),
                 info=MapMetadataAdapter.to_ros(occupancy_grid_data.info, typestore),
                 data=np.asarray(occupancy_grid_data.data, dtype=np.int8),
             )

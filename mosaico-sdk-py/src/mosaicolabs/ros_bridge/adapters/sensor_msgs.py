@@ -51,7 +51,12 @@ from .geometry_msgs import (
     QuaternionAdapter,
     Vector3Adapter,
 )
-from .helpers import _is_valid_covariance, _validate_msgdata, _validate_required_fields
+from .helpers import (
+    _is_valid_covariance,
+    _validate_msgdata,
+    _validate_required_fields,
+)
+from .std_msgs import HeaderAdapter
 
 
 @register_default_adapter(is_default=True)
@@ -185,6 +190,9 @@ class CameraInfoAdapter(ROSAdapterBase[CameraInfo]):
 
         # Manage differences between ROS1 and ROS2s
         return CameraInfo(
+            header=HeaderAdapter.from_dict(ros_data["header"])
+            if ros_data.get("header")
+            else None,
             height=ros_data["height"],
             width=ros_data["width"],
             binning=binning,
@@ -274,7 +282,7 @@ class CameraInfoAdapter(ROSAdapterBase[CameraInfo]):
             )
 
             return RosCameraInfo(
-                header=ms_header.to_ros(typestore),
+                header=HeaderAdapter.to_ros(ms_header, typestore),
                 height=camera_info_data.height,
                 width=camera_info_data.width,
                 distortion_model=camera_info_data.distortion_model,
@@ -532,6 +540,9 @@ class GPSAdapter(ROSAdapterBase[GPS]):
                 covariance_type=covariance_type,
             ),
             status=status,
+            header=HeaderAdapter.from_dict(ros_data["header"])
+            if ros_data.get("header")
+            else None,
         )
 
     @classmethod
@@ -578,7 +589,7 @@ class GPSAdapter(ROSAdapterBase[GPS]):
 
         if resolved_rosmsg_type == "sensor_msgs/msg/NavSatFix":
             return RosNavSatFix(
-                header=ms_header.to_ros(typestore),
+                header=HeaderAdapter.to_ros(ms_header, typestore),
                 status=NavSatStatusAdapter.to_ros(gps_status, typestore),
                 latitude=gps_data.position.x,
                 longitude=gps_data.position.y,
@@ -726,10 +737,17 @@ class IMUAdapter(ROSAdapterBase[IMU]):
         if _is_valid_covariance(ros_ang_vel_cov):
             angular_vel.covariance = ros_ang_vel_cov
 
+        ms_header = (
+            HeaderAdapter.from_dict(ros_data["header"])
+            if ros_data.get("header")
+            else None
+        )
+
         return IMU(
             acceleration=accel,
             angular_velocity=angular_vel,
             orientation=orientation,
+            header=ms_header,
         )
 
     @classmethod
@@ -781,7 +799,7 @@ class IMUAdapter(ROSAdapterBase[IMU]):
 
         if resolved_rosmsg_type == "sensor_msgs/msg/Imu":
             return RosImu(
-                header=ms_header.to_ros(typestore),
+                header=HeaderAdapter.to_ros(ms_header, typestore),
                 orientation=QuaternionAdapter.to_ros(imu_orientation, typestore),
                 angular_velocity=Vector3Adapter.to_ros(
                     imu_data.angular_velocity, typestore
@@ -872,7 +890,14 @@ class NMEASentenceAdapter(ROSAdapterBase[NMEASentence]):
             NMEASentence: The constructed Mosaico NMEASentence object.
         """
         _validate_msgdata(cls, ros_data)
-        return NMEASentence(sentence=ros_data["sentence"])
+
+        ms_header = (
+            HeaderAdapter.from_dict(ros_data["header"])
+            if ros_data.get("header")
+            else None
+        )
+
+        return NMEASentence(sentence=ros_data["sentence"], header=ms_header)
 
     @classmethod
     def to_ros(
@@ -913,7 +938,7 @@ class NMEASentenceAdapter(ROSAdapterBase[NMEASentence]):
 
         if resolved_rosmsg_type == "nmea_msgs/msg/Sentence":
             return RosSentence(
-                header=ms_header.to_ros(typestore),
+                header=HeaderAdapter.to_ros(ms_header, typestore),
                 sentence=nmea_sentence_data.sentence,
             )
 
@@ -1010,6 +1035,12 @@ class ImageAdapter(ROSAdapterBase[Image]):
         """
         _validate_msgdata(cls, ros_data)
 
+        ms_header = (
+            HeaderAdapter.from_dict(ros_data["header"])
+            if ros_data.get("header")
+            else None
+        )
+
         return Image.from_linear_pixels(
             data=ros_data["data"],
             # if .get is None, the encode function will use a default format internally
@@ -1019,6 +1050,7 @@ class ImageAdapter(ROSAdapterBase[Image]):
             stride=ros_data["step"],
             is_bigendian=ros_data.get("is_bigendian"),
             encoding=ros_data["encoding"],
+            header=ms_header,
         )
 
     @classmethod
@@ -1062,7 +1094,7 @@ class ImageAdapter(ROSAdapterBase[Image]):
 
         if resolved_rosmsg_type == "sensor_msgs/msg/Image":
             return RosImage(
-                header=ms_header.to_ros(typestore),
+                header=HeaderAdapter.to_ros(ms_header, typestore),
                 height=image_data.height,
                 width=image_data.width,
                 encoding=image_data.encoding,
@@ -1158,13 +1190,21 @@ class CompressedImageAdapter(ROSAdapterBase[CompressedImage]):
         """
         _validate_msgdata(cls, ros_data)
 
+        ms_header = (
+            HeaderAdapter.from_dict(ros_data["header"])
+            if ros_data.get("header")
+            else None
+        )
+
         # Please check doc how format is constructed
         # https://docs.ros.org/en/noetic/api/sensor_msgs/html/msg/CompressedImage.html
         # or https://docs.ros2.org/foxy/api/sensor_msgs/msg/CompressedImage.html
         img_format = ros_data["format"]
 
         if not img_format:  # In case nothig is specified -> PNG
-            return CompressedImage(data=bytes(ros_data["data"]), format=ImageFormat.PNG)
+            return CompressedImage(
+                data=bytes(ros_data["data"]), format=ImageFormat.PNG, header=ms_header
+            )
 
         parts = img_format.split()
 
@@ -1190,7 +1230,9 @@ class CompressedImageAdapter(ROSAdapterBase[CompressedImage]):
             else:
                 codec = parts[2] if len(parts) > 2 else "png"
 
-        return CompressedImage(data=bytes(ros_data["data"]), format=codec)
+        return CompressedImage(
+            data=bytes(ros_data["data"]), format=codec, header=ms_header
+        )
 
     @classmethod
     def to_ros(
@@ -1231,7 +1273,7 @@ class CompressedImageAdapter(ROSAdapterBase[CompressedImage]):
 
         if resolved_rosmsg_type == "sensor_msgs/msg/CompressedImage":
             return RosCompressedImage(
-                header=ms_header.to_ros(typestore),
+                header=HeaderAdapter.to_ros(ms_header, typestore),
                 format=compressed_image_data.format,
                 data=np.frombuffer(compressed_image_data.data, dtype=np.uint8),
             )
@@ -1521,6 +1563,9 @@ class BatteryStateAdapter(ROSAdapterBase[BatteryState]):
         )
 
         return BatteryState(
+            header=HeaderAdapter.from_dict(ros_data["header"])
+            if ros_data.get("header")
+            else None,
             voltage=ros_data["voltage"],
             temperature=temperature,
             current=current,
@@ -1570,7 +1615,7 @@ class BatteryStateAdapter(ROSAdapterBase[BatteryState]):
             return None
 
         # Unpacking Mosaico message / type
-        battery_state_data, header = cls.unpack_mosaico_msg(mosaico_data)
+        battery_state_data, ms_header = cls.unpack_mosaico_msg(mosaico_data)
 
         # (If unmeasured NaN)
         battery_temperature = battery_state_data.temperature or math.nan
@@ -1586,7 +1631,7 @@ class BatteryStateAdapter(ROSAdapterBase[BatteryState]):
 
         if resolved_rosmsg_type == "sensor_msgs/msg/BatteryState":
             return RosBatteryState(
-                header=header.to_ros(typestore),
+                header=HeaderAdapter.to_ros(ms_header, typestore),
                 voltage=battery_state_data.voltage,
                 temperature=battery_temperature,
                 current=battery_current,
@@ -1713,6 +1758,9 @@ class RobotJointAdapter(ROSAdapterBase[RobotJoint]):
             positions=ros_data["position"],
             velocities=ros_data["velocity"],
             efforts=ros_data["effort"],
+            header=HeaderAdapter.from_dict(ros_data["header"])
+            if ros_data.get("header")
+            else None,
         )
 
     @classmethod
@@ -1754,7 +1802,7 @@ class RobotJointAdapter(ROSAdapterBase[RobotJoint]):
 
         if resolved_rosmsg_type == "sensor_msgs/msg/JointState":
             return RosJointState(
-                header=ms_header.to_ros(typestore),
+                header=HeaderAdapter.to_ros(ms_header, typestore),
                 name=robot_joint_data.names,
                 position=np.asarray(robot_joint_data.positions, dtype=np.float64),
                 velocity=np.asarray(robot_joint_data.velocities, dtype=np.float64),
@@ -2034,7 +2082,7 @@ class PointCloudAdapterBase(ROSAdapterBase[PointCloudModel]):
         pcl_dict = cls.encode(model)
 
         pointcloud = RosPointCloud2(
-            header=ms_header.to_ros(typestore),
+            header=HeaderAdapter.to_ros(ms_header, typestore),
             height=pcl_dict["height"],
             width=pcl_dict["width"],
             fields=[RosPointField(**field) for field in pcl_dict["fields"]],
@@ -2077,7 +2125,13 @@ class PointCloudAdapterBase(ROSAdapterBase[PointCloudModel]):
         """
         decoded_fields = cls.decode(ros_data)
         _validate_required_fields(cls, cls._REQUIRED_FIELDS, decoded_fields)
-        return cls._build(decoded_fields)
+        pcl = cls._build(decoded_fields)
+        pcl.header = (
+            HeaderAdapter.from_dict(ros_data["header"])
+            if ros_data.get("header")
+            else None
+        )
+        return pcl
 
     @classmethod
     def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
@@ -2242,7 +2296,7 @@ class PointCloudAdapter(PointCloudAdapterBase[PointCloud2]):
         ]
 
         pose = RosPointCloud2(
-            header=ms_header.to_ros(typestore),
+            header=HeaderAdapter.to_ros(ms_header, typestore),
             height=pointcloud_data.height,
             width=pointcloud_data.width,
             fields=point_fields,
@@ -2347,6 +2401,13 @@ class LaserScanAdapter(LaserScannerAdapterBase[LaserScan]):
         intensities = ros_data["intensities"] if ros_data["intensities"] else None
 
         _validate_msgdata(cls, ros_data)
+
+        ms_header = (
+            HeaderAdapter.from_dict(ros_data["header"])
+            if ros_data.get("header")
+            else None
+        )
+
         return cls.__mosaico_ontology_type__(
             angle_min=ros_data["angle_min"],
             angle_max=ros_data["angle_max"],
@@ -2357,6 +2418,7 @@ class LaserScanAdapter(LaserScannerAdapterBase[LaserScan]):
             range_max=ros_data["range_max"],
             ranges=ros_data["ranges"],
             intensities=intensities,
+            header=ms_header,
         )
 
     @classmethod
@@ -2398,7 +2460,7 @@ class LaserScanAdapter(LaserScannerAdapterBase[LaserScan]):
 
         if resolved_rosmsg_type == "sensor_msgs/msg/LaserScan":
             return RosLaserScanner(
-                header=ms_header.to_ros(typestore),
+                header=HeaderAdapter.to_ros(ms_header, typestore),
                 angle_min=laser_scanner_data.angle_min,
                 angle_max=laser_scanner_data.angle_max,
                 angle_increment=laser_scanner_data.angle_increment,
@@ -2460,6 +2522,13 @@ class MultiEchoLaserScanAdapter(LaserScannerAdapterBase[MultiEchoLaserScan]):
         )
 
         _validate_msgdata(cls, ros_data)
+
+        ms_header = (
+            HeaderAdapter.from_dict(ros_data["header"])
+            if ros_data.get("header")
+            else None
+        )
+
         return cls.__mosaico_ontology_type__(
             angle_min=ros_data["angle_min"],
             angle_max=ros_data["angle_max"],
@@ -2470,6 +2539,7 @@ class MultiEchoLaserScanAdapter(LaserScannerAdapterBase[MultiEchoLaserScan]):
             range_max=ros_data["range_max"],
             ranges=ranges,
             intensities=intensities,
+            header=ms_header,
         )
 
     @classmethod
@@ -2522,7 +2592,7 @@ class MultiEchoLaserScanAdapter(LaserScannerAdapterBase[MultiEchoLaserScan]):
 
         if resolved_rosmsg_type == "sensor_msgs/msg/MultiEchoLaserScan":
             return RosMultiEchoLaserScanner(
-                header=ms_header.to_ros(typestore),
+                header=HeaderAdapter.to_ros(ms_header, typestore),
                 angle_min=multi_laser_scanner_data.angle_min,
                 angle_max=multi_laser_scanner_data.angle_max,
                 angle_increment=multi_laser_scanner_data.angle_increment,
@@ -2594,6 +2664,12 @@ class MagneticFieldAdapter(ROSAdapterBase[Magnetometer]):
         """
         _validate_msgdata(cls, ros_data)
 
+        ms_header = (
+            HeaderAdapter.from_dict(ros_data["header"])
+            if ros_data.get("header")
+            else None
+        )
+
         field = ros_data["magnetic_field"]
 
         mag = Vector3d(
@@ -2606,7 +2682,7 @@ class MagneticFieldAdapter(ROSAdapterBase[Magnetometer]):
         if _is_valid_covariance(cov):
             mag.covariance = cov
 
-        return Magnetometer(magnetic_field=mag)
+        return Magnetometer(magnetic_field=mag, header=ms_header)
 
     @classmethod
     def to_ros(
@@ -2648,7 +2724,7 @@ class MagneticFieldAdapter(ROSAdapterBase[Magnetometer]):
 
         if resolved_rosmsg_type == "sensor_msgs/msg/MagneticField":
             return RosMagneticField(
-                header=ms_header.to_ros(typestore),
+                header=HeaderAdapter.to_ros(ms_header, typestore),
                 magnetic_field=Vector3Adapter.to_ros(
                     magnetic_field_data.magnetic_field, typestore
                 ),
@@ -2726,9 +2802,16 @@ class JoyAdapter(ROSAdapterBase[Joy]):
         """
         _validate_msgdata(cls, ros_data)
 
+        ms_header = (
+            HeaderAdapter.from_dict(ros_data["header"])
+            if ros_data.get("header")
+            else None
+        )
+
         return Joy(
             axes=ros_data.get("axes", []),
             buttons=ros_data.get("buttons", []),
+            header=ms_header,
         )
 
     @classmethod
@@ -2770,7 +2853,7 @@ class JoyAdapter(ROSAdapterBase[Joy]):
 
         if resolved_rosmsg_type == "sensor_msgs/msg/Joy":
             return RosJoy(
-                header=ms_header.to_ros(typestore),
+                header=HeaderAdapter.to_ros(ms_header, typestore),
                 axes=np.asarray(joy_data.axes, dtype=np.float32),
                 buttons=np.asarray(joy_data.buttons, dtype=np.int32),
             )
@@ -2847,9 +2930,15 @@ class TemperatureAdapter(ROSAdapterBase[Temperature]):
         if ros_data["variance"] and ros_data["variance"] > 0:
             variance = ros_data["variance"]
 
-        return Temperature.from_celsius(
+        temperature = Temperature.from_celsius(
             value=ros_data["temperature"], variance=variance
         )
+        temperature.header = (
+            HeaderAdapter.from_dict(ros_data["header"])
+            if ros_data.get("header")
+            else None
+        )
+        return temperature
 
     @classmethod
     def to_ros(
@@ -2890,7 +2979,7 @@ class TemperatureAdapter(ROSAdapterBase[Temperature]):
 
         if resolved_rosmsg_type == "sensor_msgs/msg/Temperature":
             return RosTemperature(
-                header=ms_header.to_ros(typestore),
+                header=HeaderAdapter.to_ros(ms_header, typestore),
                 temperature=temperature_data.to_celsius(),
                 variance=temperature_data.variance or 0.0,
             )
@@ -2962,12 +3051,20 @@ class PressureAdapter(ROSAdapterBase[Pressure]):
         """
         _validate_msgdata(cls, ros_data)
 
+        ms_header = (
+            HeaderAdapter.from_dict(ros_data["header"])
+            if ros_data.get("header")
+            else None
+        )
+
         # 0 is interpreted as variance unknown
         variance = None
         if ros_data["variance"] and ros_data["variance"] > 0:
             variance = ros_data["variance"]
 
-        return Pressure(value=ros_data["fluid_pressure"], variance=variance)
+        return Pressure(
+            value=ros_data["fluid_pressure"], variance=variance, header=ms_header
+        )
 
     @classmethod
     def to_ros(
@@ -3008,7 +3105,7 @@ class PressureAdapter(ROSAdapterBase[Pressure]):
 
         if resolved_rosmsg_type == "sensor_msgs/msg/FluidPressure":
             return RosFluidPressure(
-                header=ms_header.to_ros(typestore),
+                header=HeaderAdapter.to_ros(ms_header, typestore),
                 fluid_pressure=pressure_data.value,
                 variance=pressure_data.variance or 0.0,
             )

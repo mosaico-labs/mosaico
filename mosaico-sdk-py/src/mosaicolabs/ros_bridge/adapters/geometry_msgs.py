@@ -31,8 +31,9 @@ from mosaicolabs.models.data import (
 
 from ..adapter_base import ROSAdapterBase
 from ..ros_bridge import register_default_adapter
-from ..ros_message import ROSHeader, ROSMessage
+from ..ros_message import ROSMessage
 from .helpers import _is_valid_covariance, _validate_msgdata
+from .std_msgs import HeaderAdapter
 
 
 @register_default_adapter(is_default=True)
@@ -156,6 +157,12 @@ class PoseAdapter(ROSAdapterBase[Pose]):
             out_pose = cls.from_dict(pose_dict)
 
             # While unwinding recursion, attach metadata found at this level
+            out_pose.header = (
+                HeaderAdapter.from_dict(ros_data["header"])
+                if ros_data.get("header")
+                else None
+            )
+
             ros_covariance = ros_data.get("covariance")
             if ros_covariance:
                 covariance = None
@@ -234,7 +241,9 @@ class PoseAdapter(ROSAdapterBase[Pose]):
         if resolved_rosmsg_type == "geometry_msgs/msg/Pose":
             return pose
         elif resolved_rosmsg_type == "geometry_msgs/msg/PoseStamped":
-            return RosPoseStamped(pose=pose, header=ms_header.to_ros(typestore))
+            return RosPoseStamped(
+                pose=pose, header=HeaderAdapter.to_ros(ms_header, typestore)
+            )
         elif resolved_rosmsg_type == "geometry_msgs/msg/PoseWithCovariance":
             return RosPoseWithCovariance(
                 pose=pose, covariance=np.asarray(pose_covariance, dtype=np.float64)
@@ -244,7 +253,7 @@ class PoseAdapter(ROSAdapterBase[Pose]):
                 pose=pose, covariance=np.asarray(pose_covariance, dtype=np.float64)
             )
             return RosPoseWithCovarianceStamped(
-                pose=pose_w_cov, header=ms_header.to_ros(typestore)
+                pose=pose_w_cov, header=HeaderAdapter.to_ros(ms_header, typestore)
             )
 
         return None
@@ -365,6 +374,13 @@ class TwistAdapter(ROSAdapterBase[Velocity]):
 
             out_twist = cls.from_dict(twist_dict)
 
+            # While unwinding recursion, attach metadata found at this level
+            out_twist.header = (
+                HeaderAdapter.from_dict(ros_data["header"])
+                if ros_data.get("header")
+                else None
+            )
+
             # Apply metadata from wrapper levels
             ros_covariance = ros_data.get("covariance")
             if ros_covariance:
@@ -448,7 +464,9 @@ class TwistAdapter(ROSAdapterBase[Velocity]):
         if resolved_rosmsg_type == "geometry_msgs/msg/Twist":
             return twist
         elif resolved_rosmsg_type == "geometry_msgs/msg/TwistStamped":
-            return RosTwistStamped(twist=twist, header=ms_header.to_ros(typestore))
+            return RosTwistStamped(
+                twist=twist, header=HeaderAdapter.to_ros(ms_header, typestore)
+            )
         elif resolved_rosmsg_type == "geometry_msgs/msg/TwistWithCovariance":
             return RosTwistWithCovariance(
                 twist=twist,
@@ -460,7 +478,7 @@ class TwistAdapter(ROSAdapterBase[Velocity]):
                 covariance=np.asarray(twist_covariance, dtype=np.float64),
             )
             return RosTwistWithCovarianceStamped(
-                twist=twist_w_cov, header=ms_header.to_ros(typestore)
+                twist=twist_w_cov, header=HeaderAdapter.to_ros(ms_header, typestore)
             )
 
         return None
@@ -581,6 +599,13 @@ class AccelAdapter(ROSAdapterBase[Acceleration]):
 
             out_accel = cls.from_dict(accel_dict)
 
+            # While unwinding recursion, attach metadata found at this level
+            out_accel.header = (
+                HeaderAdapter.from_dict(ros_data["header"])
+                if ros_data.get("header")
+                else None
+            )
+
             # Apply metadata from wrapper levels
             ros_covariance = ros_data.get("covariance")
             if ros_covariance:
@@ -665,7 +690,9 @@ class AccelAdapter(ROSAdapterBase[Acceleration]):
         if resolved_rosmsg_type == "geometry_msgs/msg/Accel":
             return accel
         elif resolved_rosmsg_type == "geometry_msgs/msg/AccelStamped":
-            return RosAccelStamped(accel=accel, header=ms_header.to_ros(typestore))
+            return RosAccelStamped(
+                accel=accel, header=HeaderAdapter.to_ros(ms_header, typestore)
+            )
         elif resolved_rosmsg_type == "geometry_msgs/msg/AccelWithCovariance":
             return RosAccelWithCovariance(
                 accel=accel, covariance=np.asarray(accel_covariance, dtype=np.float64)
@@ -675,7 +702,7 @@ class AccelAdapter(ROSAdapterBase[Acceleration]):
                 accel=accel, covariance=np.asarray(accel_covariance, dtype=np.float64)
             )
             return RosAccelWithCovarianceStamped(
-                accel=accel_w_cov, header=ms_header.to_ros(typestore)
+                accel=accel_w_cov, header=HeaderAdapter.to_ros(ms_header, typestore)
             )
 
         return None
@@ -783,6 +810,12 @@ class Vector3Adapter(ROSAdapterBase[Vector3d]):
             out_vec3 = cls.from_dict(vec3_dict)
 
             # Apply metadata
+            out_vec3.header = (
+                HeaderAdapter.from_dict(ros_data["header"])
+                if ros_data.get("header")
+                else None
+            )
+
             return out_vec3
 
         # Base Case: Leaf node
@@ -846,7 +879,9 @@ class Vector3Adapter(ROSAdapterBase[Vector3d]):
         if resolved_rosmsg_type == "geometry_msgs/msg/Vector3":
             return vector
         elif resolved_rosmsg_type == "geometry_msgs/msg/Vector3Stamped":
-            return RosVector3Stamped(vector=vector, header=ms_header.to_ros(typestore))
+            return RosVector3Stamped(
+                vector=vector, header=HeaderAdapter.to_ros(ms_header, typestore)
+            )
 
         return None
 
@@ -952,6 +987,13 @@ class PointAdapter(ROSAdapterBase[Point3d]):
 
             out_point = cls.from_dict(point_dict)
 
+            # While unwinding recursion, attach metadata found at this level
+            out_point.header = (
+                HeaderAdapter.from_dict(ros_data["header"])
+                if ros_data.get("header")
+                else None
+            )
+
             # Apply metadata
             return out_point
 
@@ -1012,7 +1054,9 @@ class PointAdapter(ROSAdapterBase[Point3d]):
         if resolved_rosmsg_type == "geometry_msgs/msg/Point":
             return point
         elif resolved_rosmsg_type == "geometry_msgs/msg/PointStamped":
-            return RosPointStamped(header=ms_header.to_ros(typestore), point=point)
+            return RosPointStamped(
+                header=HeaderAdapter.to_ros(ms_header, typestore), point=point
+            )
 
         return None
 
@@ -1118,6 +1162,13 @@ class QuaternionAdapter(ROSAdapterBase[Quaternion]):
 
             out_quat = cls.from_dict(quat_dict)
 
+            # While unwinding recursion, attach metadata found at this level
+            out_quat.header = (
+                HeaderAdapter.from_dict(ros_data["header"])
+                if ros_data.get("header")
+                else None
+            )
+
             # Apply metadata
             return out_quat
 
@@ -1185,7 +1236,7 @@ class QuaternionAdapter(ROSAdapterBase[Quaternion]):
             return quaternion
         elif resolved_rosmsg_type == "geometry_msgs/msg/QuaternionStamped":
             return RosQuaternionStamped(
-                header=ms_header.to_ros(typestore), quaternion=quaternion
+                header=HeaderAdapter.to_ros(ms_header, typestore), quaternion=quaternion
             )
 
         return None
@@ -1293,10 +1344,17 @@ class TransformAdapter(ROSAdapterBase[Transform]):
 
             out_transf = cls.from_dict(transf_dict)
 
-            # Apply metadata
-            out_transf.source_frame_id = ROSHeader.from_dict(
-                ros_data["header"]
-            ).frame_id
+            # While unwinding recursion, attach metadata found at this level
+            ms_header = (
+                HeaderAdapter.from_dict(ros_data["header"])
+                if ros_data.get("header")
+                else None
+            )
+            out_transf.header = ms_header
+            if ms_header:
+                # Notice that header frame_id coincides with the Transform reference frame
+                out_transf.source_frame_id = ms_header.frame_id
+
             out_transf.target_frame_id = ros_data.get("child_frame_id")
             return out_transf
 
@@ -1349,6 +1407,11 @@ class TransformAdapter(ROSAdapterBase[Transform]):
         transform_data, ms_header = cls.unpack_mosaico_msg(mosaico_data)
 
         # Filling the data
+        if ms_header.frame_id != transform_data.source_frame_id:
+            raise ValueError(
+                f"Missmatch between header frame_id: {ms_header.frame_id or ''} and source_frame_id: {transform_data.source_frame_id or ''} in transform!"
+            )
+
         ms_header.frame_id = transform_data.source_frame_id or ""
         target_frame_id = transform_data.target_frame_id or ""
 
@@ -1364,7 +1427,7 @@ class TransformAdapter(ROSAdapterBase[Transform]):
             return transform
         elif resolved_rosmsg_type == "geometry_msgs/msg/TransformStamped":
             return RosTransformStamped(
-                header=ms_header.to_ros(typestore),
+                header=HeaderAdapter.to_ros(ms_header, typestore),
                 child_frame_id=target_frame_id,
                 transform=transform,
             )
@@ -1465,6 +1528,13 @@ class WrenchAdapter(ROSAdapterBase[ForceTorque]):
 
             out_ft = cls.from_dict(wrench_dict)
 
+            # While unwinding recursion, attach metadata found at this level
+            out_ft.header = (
+                HeaderAdapter.from_dict(ros_data["header"])
+                if ros_data.get("header")
+                else None
+            )
+
             # Apply metadata
             return out_ft
 
@@ -1528,7 +1598,9 @@ class WrenchAdapter(ROSAdapterBase[ForceTorque]):
         if resolved_rosmsg_type == "geometry_msgs/msg/Wrench":
             return wrench
         elif resolved_rosmsg_type == "geometry_msgs/msg/WrenchStamped":
-            return RosWrenchStamped(wrench=wrench, header=ms_header.to_ros(typestore))
+            return RosWrenchStamped(
+                wrench=wrench, header=HeaderAdapter.to_ros(ms_header, typestore)
+            )
 
         return None
 
@@ -1618,7 +1690,17 @@ class PolygonAdapter(ROSAdapterBase[Polygon]):
                 raise ValueError(
                     f"Invalid type for 'polygon': expected dict, got {type(poly_dict).__name__}"
                 )
-            return cls.from_dict(poly_dict)
+
+            out_poly = cls.from_dict(poly_dict)
+
+            # While unwinding recursion, attach metadata found at this level
+            out_poly.header = (
+                HeaderAdapter.from_dict(ros_data["header"])
+                if ros_data.get("header")
+                else None
+            )
+
+            return out_poly
 
         # Base Case
         if not out_poly:
@@ -1682,7 +1764,7 @@ class PolygonAdapter(ROSAdapterBase[Polygon]):
             return polygon
         elif resolved_rosmsg_type == "geometry_msgs/msg/PolygonStamped":
             return RosPolygonStamped(
-                polygon=polygon, header=ms_header.to_ros(typestore)
+                polygon=polygon, header=HeaderAdapter.to_ros(ms_header, typestore)
             )
 
         return None
@@ -1789,7 +1871,17 @@ class InertiaAdapter(ROSAdapterBase[Inertia]):
                 raise ValueError(
                     f"Invalid type for 'inertia': expected dict, got {type(inertia_dict).__name__}"
                 )
-            return cls.from_dict(inertia_dict)
+
+            out_inertia = cls.from_dict(inertia_dict)
+
+            # While unwinding recursion, attach metadata found at this level
+            out_inertia.header = (
+                HeaderAdapter.from_dict(ros_data["header"])
+                if ros_data.get("header")
+                else None
+            )
+
+            return out_inertia
 
         # Base Case
         if not out_inertia:
@@ -1870,7 +1962,7 @@ class InertiaAdapter(ROSAdapterBase[Inertia]):
             return inertia
         elif resolved_rosmsg_type == "geometry_msgs/msg/InertiaStamped":
             return RosInertiaStamped(
-                header=ms_header.to_ros(typestore), inertia=inertia
+                header=HeaderAdapter.to_ros(ms_header, typestore), inertia=inertia
             )
 
         return None

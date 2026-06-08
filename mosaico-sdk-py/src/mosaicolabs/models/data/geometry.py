@@ -1456,39 +1456,6 @@ class RobotPath(
         ```
     """
 
-    path_frame: MosaicoType.string = MosaicoField(
-        description="The frame name the waypoints refer to."
-    )
-    """
-    The Frame Id component of the reference framme the waypoints refer to.
-
-    ### Querying with the **`.Q` Proxy**
-    Frame ID components are queryable through the `path_frame` field prefix.
-
-    | Field Access Path | Queryable Type | Supported Operators |
-    | :--- | :--- | :--- |
-    | `Path.Q.path_frame` | `String` | `.eq()`, `.neq()`, `.match_()`, `.in_()` |
-
-    Example:
-        ```python
-        from mosaicolabs import MosaicoClient, Transform, QueryOntologyCatalog
-        
-        with MosaicoClient.connect("localhost", 6726) as client:
-            # Find path whose path_frame is "robot_link"
-            qresponse = client.query(
-                QueryOntologyCatalog()
-                .with_expression(Transform.Q.path_frame.eq("base_link"))
-            )
-
-            # Inspect the response
-            if qresponse is not None:
-                # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
-                    print(f"Sequence: {item.sequence.name}")
-                    print(f"Topics: {[topic.name for topic in item.topics]}")
-        ```
-    """
-
     poses: MosaicoType.list_(Pose) = MosaicoField(
         description="Series of waypoints the robot needs to follow."
     )

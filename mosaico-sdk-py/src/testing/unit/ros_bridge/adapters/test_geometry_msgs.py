@@ -6,13 +6,13 @@ from rosbags.typesys.stores import Stores, Typestore, get_typestore
 from mosaicolabs import (
     Acceleration,
     ForceTorque,
+    Header,
     Inertia,
     Message,
     Point3d,
     Polygon,
     Pose,
     Quaternion,
-    Time,
     Transform,
     Vector3d,
     Velocity,
@@ -95,27 +95,15 @@ def vector3d_rosmsg_stamped(vector3d: Vector3d, ros_header):
 
 
 class TestVectoradapter:
-    def assert_vector3(self, vector3d: Vector3d, ros_msg: dict):
-        assert vector3d.x == ros_msg["x"]
-        assert vector3d.y == ros_msg["y"]
-        assert vector3d.z == ros_msg["z"]
-
     def test_translate_vector(self, vector3d_rosmsg: ROSMessage):
         ms_msg = Vector3Adapter.translate(vector3d_rosmsg)
 
         assert_vector3(ms_msg.get_data(Vector3d), vector3d_rosmsg.data)
-        assert ms_msg.timestamp_ns == vector3d_rosmsg.bag_timestamp_ns
 
     def test_translate_vector_stamped(self, vector3d_rosmsg_stamped: ROSMessage):
         ms_msg = Vector3Adapter.translate(vector3d_rosmsg_stamped)
 
-        assert (
-            ms_msg.timestamp_ns == vector3d_rosmsg_stamped.header.stamp.to_nanoseconds()
-        )
-        assert ms_msg.frame_id == vector3d_rosmsg_stamped.header.frame_id
-        assert_vector3(
-            ms_msg.get_data(Vector3d), vector3d_rosmsg_stamped.data["vector"]
-        )
+        assert_vector3(ms_msg.get_data(Vector3d), vector3d_rosmsg_stamped.data)
 
     def test_translate_raise_missing_required_key(self, vector3d_rosmsg: ROSMessage):
         data = vector3d_rosmsg.data
@@ -138,15 +126,7 @@ class TestVectoradapter:
             vector3d_msg, typestore, "geometry_msgs/msg/Vector3Stamped"
         )
 
-        assert (
-            vector3d_msg.timestamp_ns
-            == Time(
-                seconds=ros_msg.header.stamp.sec,
-                nanoseconds=ros_msg.header.stamp.nanosec,
-            ).to_nanoseconds()
-        )
-        assert vector3d_msg.frame_id == ros_msg.header.frame_id
-        assert_vector3(vector3d, asdict(ros_msg.vector))
+        assert_vector3(vector3d, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_default_type(self, vector3d: Vector3d, typestore: Typestore):
@@ -205,16 +185,11 @@ class TestPointadapter:
         ms_msg = PointAdapter.translate(point3d_rosmsg)
 
         assert_point3d(ms_msg.get_data(Point3d), point3d_rosmsg.data)
-        assert ms_msg.timestamp_ns == point3d_rosmsg.bag_timestamp_ns
 
     def test_translate_point_stamped(self, point3d_rosmsg_stamped: ROSMessage):
         ms_msg = PointAdapter.translate(point3d_rosmsg_stamped)
 
-        assert (
-            ms_msg.timestamp_ns == point3d_rosmsg_stamped.header.stamp.to_nanoseconds()
-        )
-        assert ms_msg.frame_id == point3d_rosmsg_stamped.header.frame_id
-        assert_point3d(ms_msg.get_data(Point3d), point3d_rosmsg_stamped.data["point"])
+        assert_point3d(ms_msg.get_data(Point3d), point3d_rosmsg_stamped.data)
 
     def test_translate_raise_missing_required_key(self, point3d_rosmsg: ROSMessage):
         data = point3d_rosmsg.data
@@ -235,15 +210,7 @@ class TestPointadapter:
             point3d_msg, typestore, "geometry_msgs/msg/PointStamped"
         )
 
-        assert (
-            point3d_msg.timestamp_ns
-            == Time(
-                seconds=ros_msg.header.stamp.sec,
-                nanoseconds=ros_msg.header.stamp.nanosec,
-            ).to_nanoseconds()
-        )
-        assert point3d_msg.frame_id == ros_msg.header.frame_id
-        assert_point3d(point3d, asdict(ros_msg.point))
+        assert_point3d(point3d, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_default_type(self, point3d: Point3d, typestore: Typestore):
@@ -305,19 +272,11 @@ class TestQuaternionAdapter:
         ms_msg = QuaternionAdapter.translate(quaternion_rosmsg)
 
         assert_quaternion(ms_msg.get_data(Quaternion), quaternion_rosmsg.data)
-        assert ms_msg.timestamp_ns == quaternion_rosmsg.bag_timestamp_ns
 
     def test_translate_quaternion_stamped(self, quaternion_rosmsg_stamped: ROSMessage):
         ms_msg = QuaternionAdapter.translate(quaternion_rosmsg_stamped)
 
-        assert (
-            ms_msg.timestamp_ns
-            == quaternion_rosmsg_stamped.header.stamp.to_nanoseconds()
-        )
-        assert ms_msg.frame_id == quaternion_rosmsg_stamped.header.frame_id
-        assert_quaternion(
-            ms_msg.get_data(Quaternion), quaternion_rosmsg_stamped.data["quaternion"]
-        )
+        assert_quaternion(ms_msg.get_data(Quaternion), quaternion_rosmsg_stamped.data)
 
     def test_translate_raise_missing_required_key(self, quaternion_rosmsg: ROSMessage):
         data = quaternion_rosmsg.data
@@ -340,15 +299,7 @@ class TestQuaternionAdapter:
             quat_msg, typestore, "geometry_msgs/msg/QuaternionStamped"
         )
 
-        assert (
-            quat_msg.timestamp_ns
-            == Time(
-                seconds=ros_msg.header.stamp.sec,
-                nanoseconds=ros_msg.header.stamp.nanosec,
-            ).to_nanoseconds()
-        )
-        assert quat_msg.frame_id == ros_msg.header.frame_id
-        assert_quaternion(quaternion, asdict(ros_msg.quaternion))
+        assert_quaternion(quaternion, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_default_type(self, quaternion: Quaternion, typestore: Typestore):
@@ -374,12 +325,13 @@ class TestQuaternionAdapter:
 
 
 @pytest.fixture
-def transform():
+def transform(ms_header: Header):
     return Transform(
         translation=Vector3d(x=1.0, y=2.0, z=3.0),
         rotation=Quaternion(x=0.0, y=0.0, z=0.0, w=1.0),
-        source_frame_id="base_link",
+        source_frame_id=ms_header.frame_id,
         target_frame_id="frame2",
+        header=ms_header,
     )
 
 
@@ -388,7 +340,6 @@ def transform_msg(transform):
     return Message(
         data=transform,
         timestamp_ns=100,
-        frame_id="base_link",
     )
 
 
@@ -398,9 +349,19 @@ def transform_rosmsg(transform: Transform):
         bag_timestamp_ns=100,
         topic="/transform",
         msg_type="geometry_msgs/msg/Transform",
-        data=transform.model_dump(
-            exclude_none=True, exclude={"source_frame_id", "target_frame_id"}
-        ),
+        data={
+            "rotation": {
+                "x": transform.rotation.x,
+                "y": transform.rotation.y,
+                "z": transform.rotation.z,
+                "w": transform.rotation.w,
+            },
+            "translation": {
+                "x": transform.translation.x,
+                "y": transform.translation.y,
+                "z": transform.translation.z,
+            },
+        },
     )
 
 
@@ -412,10 +373,20 @@ def transform_rosmsg_stamped(transform: Transform, ros_header):
         msg_type="geometry_msgs/msg/TransformStamped",
         data={
             "header": ros_header,
-            "frame_id": transform.target_frame_id,
-            "transform": transform.model_dump(
-                exclude_none=True, exclude={"source_frame_id", "target_frame_id"}
-            ),
+            "child_frame_id": transform.target_frame_id,
+            "transform": {
+                "rotation": {
+                    "x": transform.rotation.x,
+                    "y": transform.rotation.y,
+                    "z": transform.rotation.z,
+                    "w": transform.rotation.w,
+                },
+                "translation": {
+                    "x": transform.translation.x,
+                    "y": transform.translation.y,
+                    "z": transform.translation.z,
+                },
+            },
         },
     )
 
@@ -425,19 +396,11 @@ class TestTransformAdapter:
         ms_msg = TransformAdapter.translate(transform_rosmsg)
 
         assert_transform(ms_msg.get_data(Transform), transform_rosmsg.data)
-        assert ms_msg.timestamp_ns == transform_rosmsg.bag_timestamp_ns
 
     def test_translate_transform_stamped(self, transform_rosmsg_stamped: ROSMessage):
         ms_msg = TransformAdapter.translate(transform_rosmsg_stamped)
 
-        assert_transform(
-            ms_msg.get_data(Transform), transform_rosmsg_stamped.data["transform"]
-        )
-        assert (
-            ms_msg.timestamp_ns
-            == transform_rosmsg_stamped.header.stamp.to_nanoseconds()
-        )
-        assert ms_msg.frame_id == transform_rosmsg_stamped.header.frame_id
+        assert_transform(ms_msg.get_data(Transform), transform_rosmsg_stamped.data)
 
     def test_translate_raise_missing_required_key(self, transform_rosmsg: ROSMessage):
         data = transform_rosmsg.data
@@ -462,16 +425,7 @@ class TestTransformAdapter:
             transform_msg, typestore, "geometry_msgs/msg/TransformStamped"
         )
 
-        assert (
-            transform_msg.timestamp_ns
-            == Time(
-                seconds=ros_msg.header.stamp.sec,
-                nanoseconds=ros_msg.header.stamp.nanosec,
-            ).to_nanoseconds()
-        )
-        assert transform_msg.frame_id == ros_msg.header.frame_id
-        assert transform.target_frame_id == ros_msg.child_frame_id
-        assert_transform(transform, asdict(ros_msg.transform))
+        assert_transform(transform, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_default_type(self, transform: Transform, typestore: Typestore):
@@ -540,18 +494,12 @@ class TestWrenchAdapter:
         ms_msg = WrenchAdapter.translate(force_torque_ros_msg)
 
         assert_force_torque(ms_msg.get_data(ForceTorque), force_torque_ros_msg.data)
-        assert ms_msg.timestamp_ns == force_torque_ros_msg.bag_timestamp_ns
 
     def test_translate_wrench_stamped(self, force_torque_ros_msg_stamped: ROSMessage):
         ms_msg = WrenchAdapter.translate(force_torque_ros_msg_stamped)
 
-        assert (
-            ms_msg.timestamp_ns
-            == force_torque_ros_msg_stamped.header.stamp.to_nanoseconds()
-        )
-        assert ms_msg.frame_id == force_torque_ros_msg_stamped.header.frame_id
         assert_force_torque(
-            ms_msg.get_data(ForceTorque), force_torque_ros_msg_stamped.data["wrench"]
+            ms_msg.get_data(ForceTorque), force_torque_ros_msg_stamped.data
         )
 
     def test_translate_raise_wrench_not_dict(self):
@@ -586,15 +534,7 @@ class TestWrenchAdapter:
             force_torque_msg, typestore, "geometry_msgs/msg/WrenchStamped"
         )
 
-        assert (
-            force_torque_msg.timestamp_ns
-            == Time(
-                seconds=ros_msg.header.stamp.sec,
-                nanoseconds=ros_msg.header.stamp.nanosec,
-            ).to_nanoseconds()
-        )
-        assert force_torque_msg.frame_id == ros_msg.header.frame_id
-        assert_force_torque(force_torque, asdict(ros_msg.wrench))
+        assert_force_torque(force_torque, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_default_type(self, force_torque: ForceTorque, typestore: Typestore):
@@ -664,18 +604,11 @@ class TestPolygonAdapter:
         ms_msg = PolygonAdapter.translate(polygon_ros_msg)
 
         assert_polygon(ms_msg.get_data(Polygon), polygon_ros_msg.data)
-        assert ms_msg.timestamp_ns == polygon_ros_msg.bag_timestamp_ns
 
     def test_translate_polygon_stamped(self, polygon_ros_msg_stamped: ROSMessage):
         ms_msg = PolygonAdapter.translate(polygon_ros_msg_stamped)
 
-        assert (
-            ms_msg.timestamp_ns == polygon_ros_msg_stamped.header.stamp.to_nanoseconds()
-        )
-        assert ms_msg.frame_id == polygon_ros_msg_stamped.header.frame_id
-        assert_polygon(
-            ms_msg.get_data(Polygon), polygon_ros_msg_stamped.data["polygon"]
-        )
+        assert_polygon(ms_msg.get_data(Polygon), polygon_ros_msg_stamped.data)
 
     def test_translate_raise_missing_required_key(self, polygon_ros_msg: ROSMessage):
         data = polygon_ros_msg.data
@@ -696,15 +629,7 @@ class TestPolygonAdapter:
             polygon_msg, typestore, "geometry_msgs/msg/PolygonStamped"
         )
 
-        assert (
-            polygon_msg.timestamp_ns
-            == Time(
-                seconds=ros_msg.header.stamp.sec,
-                nanoseconds=ros_msg.header.stamp.nanosec,
-            ).to_nanoseconds()
-        )
-        assert polygon_msg.frame_id == ros_msg.header.frame_id
-        assert_polygon(polygon, asdict(ros_msg.polygon))
+        assert_polygon(polygon, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_default_type(self, polygon: Polygon, typestore: Typestore):
@@ -801,18 +726,11 @@ class TestInertiaAdapter:
         ms_msg = InertiaAdapter.translate(inertia_ros_msg)
 
         assert_inertia(ms_msg.get_data(Inertia), inertia_ros_msg.data)
-        assert ms_msg.timestamp_ns == inertia_ros_msg.bag_timestamp_ns
 
     def test_translate_inertia_stamped(self, inertia_ros_msg_stamped: ROSMessage):
         ms_msg = InertiaAdapter.translate(inertia_ros_msg_stamped)
 
-        assert (
-            ms_msg.timestamp_ns == inertia_ros_msg_stamped.header.stamp.to_nanoseconds()
-        )
-        assert ms_msg.frame_id == inertia_ros_msg_stamped.header.frame_id
-        assert_inertia(
-            ms_msg.get_data(Inertia), inertia_ros_msg_stamped.data["inertia"]
-        )
+        assert_inertia(ms_msg.get_data(Inertia), inertia_ros_msg_stamped.data)
 
     def test_translate_raise_missing_required_key(self, inertia_ros_msg: ROSMessage):
         data = inertia_ros_msg.data
@@ -833,15 +751,7 @@ class TestInertiaAdapter:
             inertia_msg, typestore, "geometry_msgs/msg/InertiaStamped"
         )
 
-        assert (
-            inertia_msg.timestamp_ns
-            == Time(
-                seconds=ros_msg.header.stamp.sec,
-                nanoseconds=ros_msg.header.stamp.nanosec,
-            ).to_nanoseconds()
-        )
-        assert inertia_msg.frame_id == ros_msg.header.frame_id
-        assert_inertia(inertia, asdict(ros_msg.inertia))
+        assert_inertia(inertia, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_default_type(self, inertia: Inertia, typestore: Typestore):
@@ -955,32 +865,21 @@ class TestPoseAdapter:
         ms_msg = PoseAdapter.translate(pose_rosmsg)
 
         assert_pose(ms_msg.get_data(Pose), pose_rosmsg.data)
-        assert pose_rosmsg.bag_timestamp_ns == ms_msg.timestamp_ns
 
     def test_translate_pose_stamped(self, pose_stamped_rosmsg: ROSMessage):
         ms_msg = PoseAdapter.translate(pose_stamped_rosmsg)
 
-        assert pose_stamped_rosmsg.header.frame_id == ms_msg.frame_id
-        assert pose_stamped_rosmsg.header.stamp.to_nanoseconds() == ms_msg.timestamp_ns
-
-        assert_pose(ms_msg.get_data(Pose), pose_stamped_rosmsg.data["pose"])
+        assert_pose(ms_msg.get_data(Pose), pose_stamped_rosmsg.data)
 
     def test_translate_pose_w_cov(self, pose_w_cov_rosmsg: ROSMessage):
         ms_msg = PoseAdapter.translate(pose_w_cov_rosmsg)
 
-        assert pose_w_cov_rosmsg.bag_timestamp_ns == ms_msg.timestamp_ns
         assert_pose_w_cov(ms_msg.get_data(Pose), pose_w_cov_rosmsg.data)
 
     def test_translate_pose_w_cov_stamped(self, pose_w_cov_stamped_rosmsg: ROSMessage):
         ms_msg = PoseAdapter.translate(pose_w_cov_stamped_rosmsg)
 
-        assert pose_w_cov_stamped_rosmsg.header.frame_id == ms_msg.frame_id
-        assert (
-            pose_w_cov_stamped_rosmsg.header.stamp.to_nanoseconds()
-            == ms_msg.timestamp_ns
-        )
-
-        assert_pose_w_cov(ms_msg.get_data(Pose), pose_w_cov_stamped_rosmsg.data["pose"])
+        assert_pose_w_cov(ms_msg.get_data(Pose), pose_w_cov_stamped_rosmsg.data)
 
     def test_translate_raise_missing_required_key(self, pose_rosmsg: ROSMessage):
         data = pose_rosmsg.data
@@ -1017,15 +916,7 @@ class TestPoseAdapter:
             pose_msg, typestore, "geometry_msgs/msg/PoseStamped"
         )
 
-        assert (
-            pose_msg.timestamp_ns
-            == Time(
-                seconds=ros_msg.header.stamp.sec,
-                nanoseconds=ros_msg.header.stamp.nanosec,
-            ).to_nanoseconds()
-        )
-        assert pose_msg.frame_id == ros_msg.header.frame_id
-        assert_pose(pose, asdict(ros_msg.pose))
+        assert_pose(pose, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_pose_stamped_w_cov(
@@ -1038,14 +929,7 @@ class TestPoseAdapter:
             "geometry_msgs/msg/PoseWithCovarianceStamped",
         )
 
-        assert (
-            pose_w_cov_msg.timestamp_ns
-            == Time(
-                seconds=ros_msg.header.stamp.sec,
-                nanoseconds=ros_msg.header.stamp.nanosec,
-            ).to_nanoseconds()
-        )
-        assert_pose_w_cov(pose_w_cov, asdict(ros_msg.pose))
+        assert_pose_w_cov(pose_w_cov, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_default_type(self, pose: Pose, typestore: Typestore):
@@ -1164,34 +1048,23 @@ class TestTwistAdapter:
         ms_msg = TwistAdapter.translate(twist_rosmsg)
 
         assert_twist(ms_msg.get_data(Velocity), twist_rosmsg.data)
-        assert ms_msg.timestamp_ns == twist_rosmsg.bag_timestamp_ns
 
     def test_translate_twist_stamped(self, twist_stamped_rosmsg: ROSMessage):
         ms_msg = TwistAdapter.translate(twist_stamped_rosmsg)
 
-        assert_twist(ms_msg.get_data(Velocity), twist_stamped_rosmsg.data["twist"])
-        assert ms_msg.frame_id == twist_stamped_rosmsg.header.frame_id
-        assert ms_msg.timestamp_ns == twist_stamped_rosmsg.header.stamp.to_nanoseconds()
+        assert_twist(ms_msg.get_data(Velocity), twist_stamped_rosmsg.data)
 
     def test_translate_twist_w_cov(self, twist_w_cov_rosmsg: ROSMessage):
         ms_msg = TwistAdapter.translate(twist_w_cov_rosmsg)
 
         assert_twist_w_cov(ms_msg.get_data(Velocity), twist_w_cov_rosmsg.data)
-        assert ms_msg.timestamp_ns == twist_w_cov_rosmsg.bag_timestamp_ns
 
     def test_translate_twist_w_cov_stamped(
         self, twist_w_cov_stamped_rosmsg: ROSMessage
     ):
         ms_msg = TwistAdapter.translate(twist_w_cov_stamped_rosmsg)
 
-        assert_twist_w_cov(
-            ms_msg.get_data(Velocity), twist_w_cov_stamped_rosmsg.data["twist"]
-        )
-        assert ms_msg.frame_id == twist_w_cov_stamped_rosmsg.header.frame_id
-        assert (
-            ms_msg.timestamp_ns
-            == twist_w_cov_stamped_rosmsg.header.stamp.to_nanoseconds()
-        )
+        assert_twist_w_cov(ms_msg.get_data(Velocity), twist_w_cov_stamped_rosmsg.data)
 
     def test_translate_raise_missing_required_key(self, twist_rosmsg: ROSMessage):
         data = twist_rosmsg.data
@@ -1228,15 +1101,7 @@ class TestTwistAdapter:
             twist_msg, typestore, "geometry_msgs/msg/TwistStamped"
         )
 
-        assert (
-            twist_msg.timestamp_ns
-            == Time(
-                seconds=ros_msg.header.stamp.sec,
-                nanoseconds=ros_msg.header.stamp.nanosec,
-            ).to_nanoseconds()
-        )
-        assert twist_msg.frame_id == ros_msg.header.frame_id
-        assert_twist(twist, asdict(ros_msg.twist))
+        assert_twist(twist, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_twist_stamped_w_cov(
@@ -1247,15 +1112,7 @@ class TestTwistAdapter:
             twist_w_cov_msg, typestore, "geometry_msgs/msg/TwistWithCovarianceStamped"
         )
 
-        assert (
-            twist_w_cov_msg.timestamp_ns
-            == Time(
-                seconds=ros_msg.header.stamp.sec,
-                nanoseconds=ros_msg.header.stamp.nanosec,
-            ).to_nanoseconds()
-        )
-        assert twist_w_cov_msg.frame_id == ros_msg.header.frame_id
-        assert_twist_w_cov(twist_w_cov, asdict(ros_msg.twist))
+        assert_twist_w_cov(twist_w_cov, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_default_type(self, twist: Velocity, typestore: Typestore):
@@ -1373,35 +1230,24 @@ class TestAccelAdapter:
         ms_msg = AccelAdapter.translate(accel_rosmsg)
 
         assert_accel(ms_msg.get_data(Acceleration), accel_rosmsg.data)
-        assert ms_msg.timestamp_ns == accel_rosmsg.bag_timestamp_ns
 
     def test_translate_accel_stamped(self, accel_stamped_rosmsg: ROSMessage):
         ms_msg = AccelAdapter.translate(accel_stamped_rosmsg)
 
-        assert ms_msg.frame_id == accel_stamped_rosmsg.header.frame_id
-        assert ms_msg.timestamp_ns == accel_stamped_rosmsg.header.stamp.to_nanoseconds()
-
-        assert_accel(ms_msg.get_data(Acceleration), accel_stamped_rosmsg.data["accel"])
+        assert_accel(ms_msg.get_data(Acceleration), accel_stamped_rosmsg.data)
 
     def test_translate_accel_w_cov(self, accel_w_cov_rosmsg: ROSMessage):
         ms_msg = AccelAdapter.translate(accel_w_cov_rosmsg)
 
         assert_accel_w_cov(ms_msg.get_data(Acceleration), accel_w_cov_rosmsg.data)
-        assert ms_msg.timestamp_ns == accel_w_cov_rosmsg.bag_timestamp_ns
 
     def test_translate_accel_w_cov_stamped(
         self, accel_w_cov_stamped_rosmsg: ROSMessage
     ):
         ms_msg = AccelAdapter.translate(accel_w_cov_stamped_rosmsg)
 
-        assert ms_msg.frame_id == accel_w_cov_stamped_rosmsg.header.frame_id
-        assert (
-            ms_msg.timestamp_ns
-            == accel_w_cov_stamped_rosmsg.header.stamp.to_nanoseconds()
-        )
-
         assert_accel_w_cov(
-            ms_msg.get_data(Acceleration), accel_w_cov_stamped_rosmsg.data["accel"]
+            ms_msg.get_data(Acceleration), accel_w_cov_stamped_rosmsg.data
         )
 
     def test_translate_raise_missing_required_key(self, accel_rosmsg: ROSMessage):
@@ -1439,15 +1285,7 @@ class TestAccelAdapter:
             accel_msg, typestore, "geometry_msgs/msg/AccelStamped"
         )
 
-        assert (
-            accel_msg.timestamp_ns
-            == Time(
-                seconds=ros_msg.header.stamp.sec,
-                nanoseconds=ros_msg.header.stamp.nanosec,
-            ).to_nanoseconds()
-        )
-        assert accel_msg.frame_id == ros_msg.header.frame_id
-        assert_accel(accel, asdict(ros_msg.accel))
+        assert_accel(accel, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_accel_stamped_w_cov(
@@ -1458,15 +1296,7 @@ class TestAccelAdapter:
             accel_w_cov_msg, typestore, "geometry_msgs/msg/AccelWithCovarianceStamped"
         )
 
-        assert (
-            accel_w_cov_msg.timestamp_ns
-            == Time(
-                seconds=ros_msg.header.stamp.sec,
-                nanoseconds=ros_msg.header.stamp.nanosec,
-            ).to_nanoseconds()
-        )
-        assert accel_w_cov_msg.frame_id == ros_msg.header.frame_id
-        assert_accel_w_cov(accel_w_cov, asdict(ros_msg.accel))
+        assert_accel_w_cov(accel_w_cov, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_default_type(self, accel: Acceleration, typestore: Typestore):

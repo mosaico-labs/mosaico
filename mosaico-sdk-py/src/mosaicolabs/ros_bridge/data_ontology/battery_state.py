@@ -1,9 +1,9 @@
 from typing import Optional
 
-from mosaicolabs import MosaicoField, MosaicoType, Serializable
+from mosaicolabs import HeaderMixin, MosaicoField, MosaicoType, Serializable
 
 
-class BatteryState(Serializable):
+class BatteryState(Serializable, HeaderMixin):
     """
     Represents the state of a battery power supply.
 

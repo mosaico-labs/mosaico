@@ -11,7 +11,7 @@ from ..adapter_base import ROSAdapterBase
 from ..data_ontology import FrameTransform
 from ..ros_bridge import register_default_adapter
 from ..ros_message import ROSMessage
-from .geometry_msgs import QuaternionAdapter, TransformAdapter, Vector3Adapter
+from .geometry_msgs import TransformAdapter
 from .helpers import _validate_msgdata
 
 
@@ -163,33 +163,17 @@ class FrameTransformAdapter(ROSAdapterBase[FrameTransform]):
             return None
 
         # Unpacking Mosaico message / type
-        frame_transform_data, ms_header = cls.unpack_mosaico_msg(mosaico_data)
+        frame_transform_data, _ = cls.unpack_mosaico_msg(mosaico_data)
 
         # Filling the data
         RosTFMessage = typestore.types["tf2_msgs/msg/TFMessage"]
-        RosTransform = typestore.types["geometry_msgs/msg/Transform"]
-        RosTransformStamped = typestore.types["geometry_msgs/msg/TransformStamped"]
 
-        # TODO: limitation -> each TransformStamped has the same Header since in Mosaico we do not save the header of each Transform?
-        tf_transforms = []
-        for transform_data in frame_transform_data.transforms:
-            header = ms_header.to_ros(typestore)
-            header.frame_id = transform_data.source_frame_id
-
-            ros_transform = RosTransform(
-                translation=Vector3Adapter.to_ros(
-                    transform_data.translation, typestore
-                ),
-                rotation=QuaternionAdapter.to_ros(transform_data.rotation, typestore),
+        tf_transforms = [
+            TransformAdapter.to_ros(
+                transform, typestore, "geometry_msgs/msg/TransformStamped"
             )
-
-            ros_transform_stamped = RosTransformStamped(
-                header=header,
-                child_frame_id=transform_data.target_frame_id,
-                transform=ros_transform,
-            )
-
-            tf_transforms.append(ros_transform_stamped)
+            for transform in frame_transform_data.transforms
+        ]
 
         if resolved_rosmsg_type == "tf2_msgs/msg/TFMessage":
             return RosTFMessage(transforms=tf_transforms)

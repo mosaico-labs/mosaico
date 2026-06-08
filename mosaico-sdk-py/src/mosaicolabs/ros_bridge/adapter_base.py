@@ -6,10 +6,11 @@ from rosbags.typesys.store import Typestore
 if TYPE_CHECKING:
     from rosbags.typesys.store import MsgType
 
+from mosaicolabs import Header, Time
 from mosaicolabs.models.message import Message
 
 from ..models import Serializable
-from .ros_message import ROSHeader, ROSMessage, Time
+from .ros_message import ROSMessage
 
 T = TypeVar("T", bound=Serializable)
 
@@ -77,8 +78,6 @@ class ROSAdapterBase(ABC, Generic[T]):
             return Message(
                 timestamp_ns=ros_msg.bag_timestamp_ns,
                 data=cls.from_dict(ros_msg.data),
-                frame_id=ros_msg.header.frame_id if ros_msg.header else None,
-                sequence_id=ros_msg.header.seq if ros_msg.header else None,
             )
         except Exception as e:
             raise Exception(f"Translation failed for {ros_msg.topic}: {e}")
@@ -113,17 +112,16 @@ class ROSAdapterBase(ABC, Generic[T]):
         return False
 
     @classmethod
-    def unpack_mosaico_msg(cls, mosaico_msg: Union[Message, T]) -> tuple[T, ROSHeader]:
+    def unpack_mosaico_msg(cls, mosaico_msg: Union[Message, T]) -> tuple[T, Header]:
         """
-        Extracts the typed Mosaico payload and a ``ROSHeader`` from a wrapped or bare message.
+        Extracts the typed Mosaico payload and its ``Header`` (if present) from a wrapped or bare message.
 
         Handles two input cases:
 
-        - **``Message`` wrapper**: the typed data is extracted via ``get_data()``;
-          a ``ROSHeader`` is reconstructed from the message's ``timestamp_ns``,
-          ``frame_id``, and ``sequence_id`` metadata.
-        - **Raw ontology instance**: returned as-is with a zeroed ``ROSHeader``
-          (seq=0, frame_id="", stamp=0).
+        - **``Message`` wrapper**: the typed data is extracted via ``get_data()``.
+        - **Raw ontology instance**: returned as-is with
+
+        the ``Header`` is extracted from the message's payload if it contains it, otherwise a empty Header (no frame_id a zero time) is returned.
 
         Args:
             mosaico_msg: Either a ``Message`` envelope or a raw instance of
@@ -131,7 +129,7 @@ class ROSAdapterBase(ABC, Generic[T]):
 
         Returns:
             A ``(data, header)`` tuple where *data* is the typed ontology object and
-            *header* is the corresponding ``ROSHeader``.
+            *header* is the corresponding ``Header`` or None if not present.
 
         Raises:
             TypeError: If *mosaico_msg* is neither a ``Message`` nor an instance of
@@ -144,28 +142,26 @@ class ROSAdapterBase(ABC, Generic[T]):
                     f"Adapter {cls.__name__} cannot handle {mosaico_msg.ontology_tag()} Mosaico type"
                 )
 
-            mosaico_time = Time.from_nanoseconds(mosaico_msg.timestamp_ns)
-            header = ROSHeader.from_dict(
-                {
-                    "seq": mosaico_msg.sequence_id or 0,
-                    "frame_id": mosaico_msg.frame_id or "",
-                    "stamp": {
-                        "sec": mosaico_time.seconds,
-                        "nanosec": mosaico_time.nanoseconds,
-                    },
-                }
-            )
-
         elif isinstance(mosaico_msg, cls.__mosaico_ontology_type__):
             data = mosaico_msg
-            header = ROSHeader.from_dict(
-                {"seq": 0, "frame_id": "", "stamp": {"sec": 0, "nanosec": 0}}
-            )
 
         else:
             raise TypeError(
                 f"Mosaico data passed to {cls.__name__} Adapter has type {type(mosaico_msg)} and it is neither a Message nor a {cls.__mosaico_ontology_type__.ontology_tag()}"
             )
+
+        header = Header(frame_id="", timestamp=Time(seconds=0, nanoseconds=0))
+        if hasattr(data, "header"):
+            tmp = getattr(data, "header")
+
+            if not tmp:
+                header = Header(frame_id="", timestamp=Time(seconds=0, nanoseconds=0))
+            elif tmp and not isinstance(header, Header):
+                raise TypeError(
+                    f"Message {mosaico_msg.ontology_tag()} has a field called `header` that is not of type {Header.__class__.__name__}. Please rename it!"
+                )
+            else:
+                header = tmp
 
         return data, header
 
