@@ -14,7 +14,10 @@ keywords = [
     "ros",
 ]
 
-packages = [{ include = "mosaicolabs", from = "src" }]
+packages = [
+    { include = "mosaicolabs", from = "src" },
+    { include = "mosaicolabs_cli", from = "src" },
+]
 
 [tool.poetry.dependencies]
 python = ">=3.10,<4"
@@ -28,6 +31,11 @@ rosbags = "^0.11.2"
 typing-extensions = "^4.15.0"
 av = "^17.0.0"
 click = "^8.3.1"
+typer = { version = "^0.25.1", optional = true }
+tomli = { version = "^2.0.0", python = "<3.11", optional = true }
+
+[tool.poetry.extras]
+cli = ["typer", "tomli"]
 
 [tool.poetry.group.dev.dependencies]
 pytest = ">=8.4.2"
@@ -62,3 +70,4 @@ build-backend = "poetry.core.masonry.api"
 "mosaicolabs.ros_injector" = "mosaicolabs.ros_bridge.injector:ros_injector"
 "mosaicolabs.examples" = "mosaicolabs.examples.cli:run_example_cli"
 "mosaicolabs.testing" = "testing.testing:mosaico_testing"
+"mosaico" = "mosaicolabs_cli.main:app"
