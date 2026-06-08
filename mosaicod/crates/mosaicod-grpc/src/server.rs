@@ -1,6 +1,7 @@
-use super::flight;
 use mosaicod_core::{error::PublicResult as Result, params};
 use mosaicod_db as db;
+use mosaicod_grpc_common as grpc_common;
+use mosaicod_grpc_flight as grpc_flight;
 use mosaicod_store as store;
 use mosaicod_task as task;
 use tracing::{debug, error};
@@ -9,13 +10,10 @@ use tracing::{debug, error};
 /// Handles incoming requests and manages the database and store.
 pub struct Server {
     /// Shutdown notifier used to signal server shutdown
-    pub shutdown: flight::ShutdownNotifier,
-
-    pub flight_config: flight::Config,
-
+    pub shutdown: grpc_common::ShutdownNotifier,
+    pub flight_config: grpc_flight::Config,
     /// Store engine
     store: store::StoreRef,
-
     /// Database handler
     db: db::Database,
 }
@@ -24,10 +22,10 @@ impl Server {
     /// Creates a new server.
     pub fn new(host: String, port: u16, store: store::StoreRef, db: db::Database) -> Self {
         Self {
-            flight_config: flight::Config::new(host, port),
+            flight_config: grpc_flight::Config::new(host, port),
             store,
             db,
-            shutdown: flight::ShutdownNotifier::default(),
+            shutdown: grpc_common::ShutdownNotifier::default(),
         }
     }
 
@@ -42,7 +40,6 @@ impl Server {
     {
         let shutdown = self.shutdown.clone();
         let shutdown_cleanup = self.shutdown.clone();
-
         let config = self.flight_config.clone();
 
         rt.block_on(async {
@@ -69,9 +66,9 @@ impl Server {
 
             // Create a thread in tokio runtime to handle flight requests
             let handle_flight = rt.spawn(async move {
-                debug!("flight service starting");
+                debug!("grpc server starting");
                 if let Err(err) =
-                    flight::start(config, server_store, server_db, Some(shutdown)).await
+                    grpc_flight::start(config, server_store, server_db, Some(shutdown)).await
                 {
                     error!("{}", err);
                 }
@@ -82,7 +79,7 @@ impl Server {
             let _ = tokio::join!(handle_flight, handle_cleanup_task);
         });
 
-        debug!("flight service stopped");
+        debug!("grpc server stopped");
 
         Ok(())
     }

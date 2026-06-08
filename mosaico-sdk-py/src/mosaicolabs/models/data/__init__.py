@@ -24,6 +24,7 @@ from .geometry import (
     Polygon as Polygon,
     Pose as Pose,
     Quaternion as Quaternion,
+    RobotPath as RobotPath,
     Transform as Transform,
     Vector2d as Vector2d,
     Vector3d as Vector3d,

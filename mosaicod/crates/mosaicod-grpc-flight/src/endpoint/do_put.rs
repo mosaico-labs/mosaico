@@ -1,4 +1,3 @@
-use crate::error::{Error, Result};
 use arrow::datatypes::SchemaRef;
 use arrow_flight::decode::{DecodedFlightData, DecodedPayload, FlightDataDecoder};
 use arrow_flight::flight_descriptor::DescriptorType;
@@ -6,6 +5,7 @@ use futures::TryStreamExt;
 use mosaicod_core as core;
 use mosaicod_core::types;
 use mosaicod_facade as facade;
+use mosaicod_grpc_common as grpc_common;
 use mosaicod_marshal as marshal;
 use mosaicod_rw as rw;
 use std::sync::Arc;
@@ -24,14 +24,14 @@ impl std::ops::Deref for DoPutContext {
     }
 }
 
-pub async fn do_put(ctx: DoPutContext, decoder: &mut FlightDataDecoder) -> Result<()> {
+pub async fn do_put(ctx: DoPutContext, decoder: &mut FlightDataDecoder) -> grpc_common::Result<()> {
     let (cmd, schema) = extract_command_and_schema_from_header_message(decoder).await?;
     do_put_topic_data(ctx, decoder, schema, cmd).await
 }
 
 async fn extract_command_and_schema_from_header_message(
     decoder: &mut FlightDataDecoder,
-) -> Result<(types::flight::DoPutCmd, SchemaRef)> {
+) -> grpc_common::Result<(types::flight::DoPutCmd, SchemaRef)> {
     if let Some(data) = decoder
         .try_next()
         .await
@@ -44,7 +44,7 @@ async fn extract_command_and_schema_from_header_message(
     Err(core::Error::missing_header())?
 }
 
-fn extract_schema_from_flight_data(data: &DecodedFlightData) -> Result<SchemaRef> {
+fn extract_schema_from_flight_data(data: &DecodedFlightData) -> grpc_common::Result<SchemaRef> {
     if let DecodedPayload::Schema(schema) = &data.payload {
         return Ok(schema.clone());
     }
@@ -52,7 +52,9 @@ fn extract_schema_from_flight_data(data: &DecodedFlightData) -> Result<SchemaRef
 }
 
 /// Extract descriptor tag from flight decoded data
-fn extract_command_from_flight_data(data: &DecodedFlightData) -> Result<types::flight::DoPutCmd> {
+fn extract_command_from_flight_data(
+    data: &DecodedFlightData,
+) -> grpc_common::Result<types::flight::DoPutCmd> {
     let desc = data
         .inner
         .flight_descriptor
@@ -74,7 +76,7 @@ async fn do_put_topic_data(
     decoder: &mut FlightDataDecoder,
     schema: SchemaRef,
     cmd: types::flight::DoPutCmd,
-) -> Result<()> {
+) -> grpc_common::Result<()> {
     let locator = cmd.resource_locator;
     let uuid_str = &cmd.key;
 
@@ -90,7 +92,7 @@ async fn do_put_topic_data(
 
     let topic_handle = facade::topic::Handle::try_from_locator(&ctx, topic_locator).await?;
 
-    // perform the match between received uuid string and topic uuid
+    // Perform the match between received uuid string and topic uuid
     let topic_uuid = topic_handle.uuid().clone();
     let received_uuid: types::Uuid = uuid_str
         .parse()
@@ -131,7 +133,7 @@ async fn do_put_topic_data(
                     .concurrent_writes_semaphore
                     .acquire()
                     .await
-                    .map_err(|_| Error::semaphore_closed())?;
+                    .map_err(|_| grpc_common::Error::semaphore_closed())?;
                 let serialized_chunk = writer.write(batch).await?;
                 drop(permit);
 
@@ -167,7 +169,7 @@ async fn on_chunk_created(
     target_path: impl AsRef<std::path::Path>,
     cstats: types::OntologyModelStats,
     chunk_metadata: rw::ChunkMetadata,
-) -> Result<()> {
+) -> grpc_common::Result<()> {
     let mut handle = facade::Chunk::create(
         topic_uuid,
         &target_path,

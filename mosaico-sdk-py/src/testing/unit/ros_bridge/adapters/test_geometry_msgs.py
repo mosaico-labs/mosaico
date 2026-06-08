@@ -120,7 +120,7 @@ class TestVectoradapter:
     def test_translate_raise_missing_required_key(self, vector3d_rosmsg: ROSMessage):
         data = vector3d_rosmsg.data
         data.pop("z")
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="missing required keys"):
             Vector3Adapter.from_dict(data)
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
@@ -219,7 +219,7 @@ class TestPointadapter:
     def test_translate_raise_missing_required_key(self, point3d_rosmsg: ROSMessage):
         data = point3d_rosmsg.data
         data.pop("z")
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="missing required keys"):
             PointAdapter.from_dict(data)
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
@@ -322,7 +322,7 @@ class TestQuaternionAdapter:
     def test_translate_raise_missing_required_key(self, quaternion_rosmsg: ROSMessage):
         data = quaternion_rosmsg.data
         data.pop("w")
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="missing required keys"):
             QuaternionAdapter.from_dict(data)
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
@@ -442,7 +442,7 @@ class TestTransformAdapter:
     def test_translate_raise_missing_required_key(self, transform_rosmsg: ROSMessage):
         data = transform_rosmsg.data
         data.pop("translation")
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="missing required keys"):
             QuaternionAdapter.from_dict(data)
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
@@ -555,7 +555,10 @@ class TestWrenchAdapter:
         )
 
     def test_translate_raise_wrench_not_dict(self):
-        with pytest.raises(ValueError):
+        with pytest.raises(
+            ValueError,
+            match="Invalid type for 'wrench' value in ros message: expected 'dict' found 'str'",
+        ):
             WrenchAdapter.from_dict({"wrench": "not_a_dict"})
 
     def test_translate_raise_missing_required_key(
@@ -563,7 +566,7 @@ class TestWrenchAdapter:
     ):
         data = force_torque_ros_msg.data
         data.pop("torque")
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="missing required keys"):
             WrenchAdapter.from_dict(data)
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
@@ -677,7 +680,7 @@ class TestPolygonAdapter:
     def test_translate_raise_missing_required_key(self, polygon_ros_msg: ROSMessage):
         data = polygon_ros_msg.data
         data.pop("points")
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="missing required keys"):
             PolygonAdapter.from_dict(data)
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
@@ -814,7 +817,7 @@ class TestInertiaAdapter:
     def test_translate_raise_missing_required_key(self, inertia_ros_msg: ROSMessage):
         data = inertia_ros_msg.data
         data.pop("m")
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="missing required keys"):
             InertiaAdapter.from_dict(data)
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
@@ -982,7 +985,7 @@ class TestPoseAdapter:
     def test_translate_raise_missing_required_key(self, pose_rosmsg: ROSMessage):
         data = pose_rosmsg.data
         data.pop("position")
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="missing required keys"):
             InertiaAdapter.from_dict(data)
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
@@ -1193,7 +1196,7 @@ class TestTwistAdapter:
     def test_translate_raise_missing_required_key(self, twist_rosmsg: ROSMessage):
         data = twist_rosmsg.data
         data.pop("linear")
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="missing required keys"):
             InertiaAdapter.from_dict(data)
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
@@ -1404,7 +1407,7 @@ class TestAccelAdapter:
     def test_translate_raise_missing_required_key(self, accel_rosmsg: ROSMessage):
         data = accel_rosmsg.data
         data.pop("linear")
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="missing required keys"):
             AccelAdapter.from_dict(data)
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)

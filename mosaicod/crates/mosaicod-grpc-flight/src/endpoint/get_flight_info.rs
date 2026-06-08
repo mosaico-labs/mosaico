@@ -1,4 +1,3 @@
-use crate::error::Result;
 use arrow::datatypes::{Field, Schema};
 use arrow_flight::{
     FlightDescriptor, FlightEndpoint, FlightInfo, Ticket, flight_descriptor::DescriptorType,
@@ -13,6 +12,7 @@ use mosaicod_core::{
 };
 use mosaicod_facade as facade;
 use mosaicod_facade::Context;
+use mosaicod_grpc_common as grpc_common;
 use mosaicod_marshal as marshal;
 use mosaicod_marshal::{JsonMetadataBlob, flight};
 
@@ -20,7 +20,10 @@ use mosaicod_marshal::{JsonMetadataBlob, flight};
 const UNABLE_TO_BUILD_FLIGHT_INFO: &str = "unable to build flight info data";
 
 /// Returns the [`FlightInfo`] for the requested resource (Sequence or Topic).
-pub async fn get_flight_info(ctx: &facade::Context, desc: FlightDescriptor) -> Result<FlightInfo> {
+pub async fn get_flight_info(
+    ctx: &facade::Context,
+    desc: FlightDescriptor,
+) -> grpc_common::Result<FlightInfo> {
     match desc.r#type() {
         DescriptorType::Cmd => {
             let cmd = marshal::flight::get_flight_info_cmd(&desc.cmd)?;
@@ -37,7 +40,7 @@ async fn do_get_flight_info(
     ctx: &facade::Context,
     desc: FlightDescriptor,
     cmd: types::flight::GetFlightInfoCmd,
-) -> Result<FlightInfo> {
+) -> grpc_common::Result<FlightInfo> {
     let resource_name = &cmd.resource_locator;
 
     info!("requesting info for resource {}", resource_name);
@@ -61,9 +64,8 @@ async fn sequence_flight_info(
     desc: FlightDescriptor,
     sequence_locator: types::SequenceLocator,
     timestamp_range: Option<types::TimestampRange>,
-) -> Result<FlightInfo> {
+) -> grpc_common::Result<FlightInfo> {
     let sequence_handle = facade::sequence::Handle::try_from_locator(ctx, sequence_locator).await?;
-
     let metadata = facade::sequence::metadata(ctx, &sequence_handle).await?;
 
     trace!(
@@ -79,7 +81,6 @@ async fn sequence_flight_info(
             user_metadata: user_metadata.clone(),
         };
         let flatten_user_metadata = user_metadata.to_flat_hashmap()?;
-
         schema = schema.with_metadata(flatten_user_metadata);
     }
 
@@ -126,9 +127,8 @@ async fn topic_flight_info(
     desc: FlightDescriptor,
     topic_locator: types::TopicLocator,
     timestamp_range: Option<types::TimestampRange>,
-) -> Result<FlightInfo> {
+) -> grpc_common::Result<FlightInfo> {
     let topic_handle = facade::topic::Handle::try_from_locator(ctx, topic_locator).await?;
-
     let metadata = facade::topic::metadata(ctx, &topic_handle).await?;
 
     let endpoint =
@@ -153,7 +153,7 @@ async fn build_topic_endpoint(
     topic_handle: &facade::topic::Handle,
     timestamp_range: Option<types::TimestampRange>,
     metadata: types::TopicMetadataProperties,
-) -> Result<FlightEndpoint> {
+) -> grpc_common::Result<FlightEndpoint> {
     let ticket = types::flight::TicketTopic {
         locator: topic_handle.locator().clone(),
         timestamp_range,
@@ -184,7 +184,7 @@ async fn topic_arrow_schema_with_metadata(
     ontology_metadata: TopicOntologyMetadata<JsonMetadataBlob>,
     topic_handle: &facade::topic::Handle,
     context: &Context,
-) -> Result<Schema> {
+) -> grpc_common::Result<Schema> {
     trace!(
         "{} building schema (+platform metadata)",
         topic_handle.locator()

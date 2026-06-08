@@ -433,6 +433,10 @@ While the underlying `rosbags` library supports the majority of standard ROS 2 b
   | [`geometry_msgs/msg/Polygon`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/Polygon.html), [`PolygonStamped`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/PolygonStamped.html) | [`Polygon`][mosaicolabs.models.data.geometry.Polygon] | `PolygonAdapter` |
   | [`geometry_msgs/msg/Inertia`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/Inertia.html), [`InertiaStamped`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/InertiaStamped.html) | [`Inertia`][mosaicolabs.models.data.dynamics.Inertia] | `InertiaAdapter` |
   | [`nav_msgs/msg/Odometry`](https://docs.ros2.org/foxy/api/nav_msgs/msg/Odometry.html) | [`MotionState`][mosaicolabs.models.data.kinematics.MotionState] | `OdometryAdapter` |
+  | [`nav_msgs/msg/OccupancyGrid`](https://docs.ros2.org/foxy/api/nav_msgs/msg/OccupancyGrid.html) | [`OccupancyGrid`][mosaicolabs.ros_bridge.data_ontology.OccupancyGrid] (ROS-specific)| `OccupancyGridAdapter` |
+  | [`nav_msgs/msg/GridCells`](https://docs.ros2.org/foxy/api/nav_msgs/msg/GridCells.html) | [`GridCells`][mosaicolabs.ros_bridge.data_ontology.GridCells] (ROS-specific)| `GridCellsAdapter` |
+  | [`nav_msgs/msg/MapMetaData`](https://docs.ros2.org/foxy/api/nav_msgs/msg/MapMetaData.html) | [`MapMetadata`][mosaicolabs.ros_bridge.data_ontology.MapMetadata] (ROS-specific)| `MapMetadataAdapter` |
+  | [`nav_msgs/msg/Path`](https://docs.ros2.org/foxy/api/nav_msgs/msg/Path.html) | [`Path`][mosaicolabs.models.data.geometry.RobotPath] (ROS-specific)| `PathAdapter` |
   | [`nmea_msgs/msg/Sentence`](https://docs.ros2.org/foxy/api/nmea_msgs/msg/Sentence.html) | [`NMEASentence`][mosaicolabs.models.sensors.NMEASentence] | `NMEASentenceAdapter` |
   | [`sensor_msgs/msg/Image`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/Image.html), [`CompressedImage`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/CompressedImage.html) | [`Image`][mosaicolabs.models.sensors.Image], [`CompressedImage`][mosaicolabs.models.sensors.CompressedImage] | `ImageAdapter`, `CompressedImageAdapter` |
   | [`sensor_msgs/msg/Imu`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/Imu.html) | [`IMU`][mosaicolabs.models.sensors.IMU] | `IMUAdapter` |
@@ -443,6 +447,8 @@ While the underlying `rosbags` library supports the majority of standard ROS 2 b
   | [`sensor_msgs/msg/RegionOfInterest`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/RegionOfInterest.html) | [`ROI`][mosaicolabs.models.data.ROI] | `ROIAdapter` |
   | [`sensor_msgs/msg/JointState`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/JointState.html) | [`RobotJoint`][mosaicolabs.models.sensors.RobotJoint] | `RobotJointAdapter` |
   | [`sensor_msgs/msg/BatteryState`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/BatteryState.html) | [`BatteryState`][mosaicolabs.ros_bridge.data_ontology.BatteryState] (ROS-specific)| `BatteryStateAdapter` |
+  | [`sensor_msgs/msg/Temperature`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/Temperature.html) | [`Temperature`][mosaicolabs.models.sensors.Temperature] (ROS-specific)| `TemperatureAdapter` |
+  | [`sensor_msgs/msg/FluidPressure`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/FluidPressure.html) | [`FluidPressure`][mosaicolabs.models.sensors.Pressure] (ROS-specific)| `PressureAdapter` |
   | [`std_msgs/msg/String`](https://docs.ros2.org/foxy/api/std_msgs/msg/String.html)| [`String`][mosaicolabs.models.data.String]| `_GenericStdAdapter` |
   | [`std_msgs/msg/Int8(16,32,64)`](https://docs.ros2.org/foxy/api/std_msgs/msg/Int8.html) | [`Integer8(16,32,64)`][mosaicolabs.models.data.Integer8]| `_GenericStdAdapter` |
   | [`std_msgs/msg/UInt8(16,32,64)`](https://docs.ros2.org/foxy/api/std_msgs/msg/UInt8.html) | [`Unsigned8(16,32,64)`][mosaicolabs.models.data.Unsigned8]| `_GenericStdAdapter` |

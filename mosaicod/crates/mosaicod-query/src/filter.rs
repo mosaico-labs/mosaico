@@ -66,6 +66,9 @@ pub enum Value {
     Float(Float),
     Text(Text),
     Boolean(bool),
+    IntegerArray(Vec<Integer>),
+    FloatArray(Vec<Float>),
+    TextArray(Vec<Text>),
 }
 
 impl From<&str> for Value {
@@ -133,6 +136,7 @@ impl IsSupportedOp for Value {
             Self::Boolean(_) => false,
             Self::Integer(_) => true,
             Self::Float(_) => true,
+            Self::IntegerArray(_) | Self::FloatArray(_) | Self::TextArray(_) => false,
         }
     }
 
@@ -386,6 +390,11 @@ impl OntologyFilter {
     /// Retrieves the operation associated with a specific metadata field.
     pub fn get_op(&self, field: &str) -> Option<&Op<Value>> {
         self.ontology.get(field)
+    }
+
+    /// Returns an iterator over the ontology tags.
+    pub fn ontology_tags(&self) -> impl Iterator<Item = &str> + '_ {
+        self.ontology.keys().map(|f| f.ontology_tag())
     }
 
     /// Exports filter data as a unique expression group

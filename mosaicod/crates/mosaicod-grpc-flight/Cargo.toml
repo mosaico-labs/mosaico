@@ -1,5 +1,5 @@
 [package]
-name = "mosaicod-server"
+name = "mosaicod-grpc-flight"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -7,9 +7,10 @@ authors.workspace = true
 license.workspace = true
 
 [lib]
-name = "mosaicod_server"
+name = "mosaicod_grpc_flight"
 
 [dependencies]
+mosaicod-grpc-common = { workspace = true }
 mosaicod-core = { workspace = true }
 mosaicod-marshal = { workspace = true }
 mosaicod-rw = { workspace = true }
@@ -18,11 +19,7 @@ mosaicod-db = { workspace = true }
 mosaicod-facade = { workspace = true }
 mosaicod-store = { workspace = true }
 mosaicod-query = { workspace = true }
-mosaicod-task = { workspace = true }
-
-thiserror = { workspace = true }
 tokio = { workspace = true }
-tokio-util = { workspace = true }
 tokio-stream = { workspace = true }
 log = { workspace = true }
 serde_json = { workspace = true }
@@ -32,10 +29,9 @@ arrow-flight = { workspace = true }
 arrow = { workspace = true }
 semver = { workspace = true }
 tower = { workspace = true }
-http = { workspace = true }
 tracing = { workspace = true }
 datafusion = { workspace = true }
 
 [dev-dependencies]
-mosaicod-store = { workspace = true, features = ["testing"]}
-mosaicod-db = { workspace = true, features = ["testing"]}
+mosaicod-store = { workspace = true, features = ["testing"] }
+mosaicod-db = { workspace = true, features = ["testing"] }

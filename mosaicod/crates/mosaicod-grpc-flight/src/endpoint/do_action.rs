@@ -4,12 +4,13 @@
 //! delegating to specialized handler functions for each action category.
 
 use super::actions::{misc, query as query_action, sequence, session, topic};
-use crate::error::Result;
-use crate::flight::IntoStream;
-use crate::{endpoint::actions::auth, flight::DoActionStream};
+use crate::flight::{DoActionStream, IntoStream};
 use mosaicod_core::{self as core, types::auth::Permission};
 use mosaicod_facade as facade;
+use mosaicod_grpc_common as grpc_common;
 use mosaicod_marshal::ActionRequest;
+
+use super::actions::auth;
 
 /// Dispatches a Flight action request to the appropriate handler.
 ///
@@ -19,7 +20,7 @@ pub async fn do_action(
     ctx: &facade::Context,
     action: ActionRequest,
     perm: &Permission,
-) -> Result<DoActionStream> {
+) -> grpc_common::Result<DoActionStream> {
     if !has_permissions(&action, perm) {
         let err_msg = format!(
             "provided API key has not enough permissions to execute {} action.",
@@ -29,7 +30,6 @@ pub async fn do_action(
     }
 
     match action {
-        // ////////
         // Sequence
         ActionRequest::SequenceCreate(data) => {
             let user_metadata = data.user_metadata()?;
@@ -56,7 +56,6 @@ pub async fn do_action(
                 .into_stream()
         }
 
-        // ///////
         // Session
         ActionRequest::SessionCreate(data) => {
             session::create(ctx, data.locator).await?.into_stream()
@@ -68,11 +67,9 @@ pub async fn do_action(
             session::delete(ctx, data.locator).await?.into_stream()
         }
 
-        // /////
         // Topic
         ActionRequest::TopicCreate(data) => {
             let user_metadata = data.user_metadata()?;
-
             topic::create(
                 ctx,
                 data.locator,
@@ -107,11 +104,9 @@ pub async fn do_action(
             .await
         }
 
-        // /////
         // Query
         ActionRequest::Query(data) => query_action::execute(ctx, data.query).await?.into_stream(),
 
-        // ////
         // Api Key
         ActionRequest::ApiKeyCreate(data) => auth::api_key_create(
             ctx,
@@ -121,20 +116,17 @@ pub async fn do_action(
         )
         .await?
         .into_stream(),
-
         ActionRequest::ApiKeyStatus(data) => {
             auth::api_key_status(ctx, data.api_key_fingerprint.as_str())
                 .await?
                 .into_stream()
         }
-
         ActionRequest::ApiKeyRevoke(data) => {
             auth::api_key_revoke(ctx, data.api_key_fingerprint.as_str())
                 .await?
                 .into_stream()
         }
 
-        // /////
         // Misc
         ActionRequest::Version(_) => misc::version()?.into_stream(),
     }

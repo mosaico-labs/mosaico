@@ -11,9 +11,8 @@ These wrappers elevate basic data types to "first-class citizens" of the messagi
 
 from typing import Any
 
-from mosaicolabs import MosaicoField, MosaicoType
-
 from ..serializable import Serializable
+from ..types import MosaicoField, MosaicoType
 
 
 class Integer8(Serializable):

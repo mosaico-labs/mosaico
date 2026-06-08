@@ -573,7 +573,7 @@ async fn setup_topic_with_batches(
 
 fn ontology_accel_x_gt_5() -> Ontology {
     serde_json::from_value(json!({
-        "imu.value": { "$gt": 5 }
+        "mock.value": { "$gt": 5 }
     }))
     .unwrap()
 }

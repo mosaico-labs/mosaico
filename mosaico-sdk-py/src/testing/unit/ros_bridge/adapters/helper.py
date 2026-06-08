@@ -20,14 +20,19 @@ from mosaicolabs import (
     Point3d,
     Polygon,
     Pose,
+    Pressure,
     Quaternion,
     RobotJoint,
+    RobotPath,
+    Temperature,
+    Time,
     Transform,
     Vector2d,
     Vector3d,
     Velocity,
     futures,
 )
+from mosaicolabs.models.futures import GridCells, MapMetadata, OccupancyGrid
 from mosaicolabs.ros_bridge.data_ontology import (
     BatteryState,
     FrameTransform,
@@ -355,3 +360,57 @@ def assert_frame_transform(frame_trasform: FrameTransform, ros_msg):
         # assert mosaico_transform.source_frame_id == ros_transform.header.frame_id # TODO
         assert mosaico_transform.target_frame_id == ros_transform["child_frame_id"]
         assert_transform(mosaico_transform, ros_transform["transform"])
+
+
+def assert_temperature(temperature: Temperature, ros_msg):
+
+    assert temperature.to_celsius() == ros_msg["temperature"]
+
+    if temperature.variance is not None:
+        assert temperature.variance == ros_msg["variance"]
+    else:
+        assert ros_msg["variance"] == 0
+
+
+def assert_pressure(pressure: Pressure, ros_msg):
+
+    assert pressure.value == ros_msg["fluid_pressure"]
+
+    if pressure.variance is not None:
+        assert pressure.variance == ros_msg["variance"]
+    else:
+        assert ros_msg["variance"] == 0
+
+
+def assert_path(path: RobotPath, ros_msg):
+
+    assert path.path_frame == ros_msg["header"]["frame_id"]
+
+    for pose, pose_stamped_ros in zip(path.poses, ros_msg["poses"]):
+        assert_pose(pose, pose_stamped_ros["pose"])
+
+
+def assert_grid_cells(grid_cells: GridCells, ros_msg: dict):
+    assert grid_cells.cell_width == ros_msg["cell_width"]
+    assert grid_cells.cell_height == ros_msg["cell_height"]
+    for cell, ros_cell in zip(grid_cells.cells, ros_msg["cells"]):
+        assert cell.x == ros_cell["x"]
+        assert cell.y == ros_cell["y"]
+        assert cell.z == ros_cell["z"]
+
+
+def assert_map_metadata(map_metadata: MapMetadata, ros_msg: dict):
+    expected_time = Time(
+        seconds=ros_msg["map_load_time"]["sec"],
+        nanoseconds=ros_msg["map_load_time"]["nanosec"],
+    ).to_nanoseconds()
+    assert map_metadata.map_load_time == expected_time
+    assert map_metadata.resolution == ros_msg["resolution"]
+    assert map_metadata.width == ros_msg["width"]
+    assert map_metadata.height == ros_msg["height"]
+    assert_pose(map_metadata.origin, ros_msg["origin"])
+
+
+def assert_occupancy_grid(occupancy_grid: OccupancyGrid, ros_msg: dict):
+    assert_map_metadata(occupancy_grid.info, ros_msg["info"])
+    assert list(occupancy_grid.data) == list(ros_msg["data"])

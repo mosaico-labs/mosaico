@@ -1,12 +1,12 @@
 //! Implementation of the Arrow Flight `list_flights` endpoint.
 //!
 //! Returns a stream of all available sequences when queried at the root level.
-use crate::error::*;
 use arrow_flight::{Criteria, FlightDescriptor, FlightEndpoint, FlightInfo, Ticket};
 use futures::stream::BoxStream;
 use log::{info, trace};
 use mosaicod_core as core;
 use mosaicod_facade as facade;
+use mosaicod_grpc_common as grpc_common;
 
 /// Lists all available flights (sequences) in the database.
 ///
@@ -16,7 +16,7 @@ use mosaicod_facade as facade;
 pub async fn list_flights(
     ctx: &facade::Context,
     criteria: Criteria,
-) -> Result<BoxStream<'static, Result<FlightInfo>>> {
+) -> grpc_common::Result<BoxStream<'static, grpc_common::Result<FlightInfo>>> {
     // Validate criteria - only root-level queries are supported
     let expression = String::from_utf8_lossy(&criteria.expression);
     let is_root_query = expression.is_empty() || expression == "/";
@@ -33,7 +33,7 @@ pub async fn list_flights(
     trace!("found {} sequences", sequences.len());
 
     // Convert each sequence locator to a minimal FlightInfo
-    let flight_infos: Vec<Result<FlightInfo>> = sequences
+    let flight_infos: Vec<grpc_common::Result<FlightInfo>> = sequences
         .into_iter()
         .map(|sequence_handle| {
             let sequence_name = sequence_handle.locator().to_string();
@@ -45,15 +45,12 @@ pub async fn list_flights(
             let endpoint = FlightEndpoint::new().with_ticket(Ticket {
                 ticket: sequence_name.into(),
             });
-
             let flight_info = FlightInfo::new()
                 .with_descriptor(descriptor)
                 .with_endpoint(endpoint);
-
             Ok(flight_info)
         })
         .collect();
-
     // Create the stream from the vector
     let stream = futures::stream::iter(flight_infos);
 

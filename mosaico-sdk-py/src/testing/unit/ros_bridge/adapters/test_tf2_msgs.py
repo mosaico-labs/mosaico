@@ -116,7 +116,7 @@ class TestFrameTransformAdapter:
     ):
         data = frame_transform_rosmsg.data
         data.pop("transforms")
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="missing required keys"):
             FrameTransformAdapter.from_dict(data)
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)

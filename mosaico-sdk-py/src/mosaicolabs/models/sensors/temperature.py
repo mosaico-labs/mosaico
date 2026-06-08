@@ -6,11 +6,9 @@ Defines the data structure for temperature sensors.
 
 from typing import Optional
 
-from mosaicolabs.models import MosaicoType
-from mosaicolabs.models.types import MosaicoField
-
 from ..mixins import VarianceMixin
 from ..serializable import Serializable
+from ..types import MosaicoField, MosaicoType
 
 
 class Temperature(Serializable, VarianceMixin):

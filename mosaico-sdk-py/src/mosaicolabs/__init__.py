@@ -83,6 +83,7 @@ from .models.data import (
     Polygon as Polygon,
     Pose as Pose,
     Quaternion as Quaternion,
+    RobotPath as RobotPath,
     String as String,
     Transform as Transform,
     Unsigned8 as Unsigned8,

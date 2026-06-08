@@ -2,10 +2,10 @@
   <img src="https://raw.githubusercontent.com/mosaico-labs/mosaico/main/logo/mono_black.svg" width="300" alt="Mosaico Logo">
 </p>
 
-<center>
-  [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
-  [![Python Version](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/downloads/)
-</center>
+<p align="center">
+  <a href="https://www.apache.org/licenses/LICENSE-2.0"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" /></a>
+  <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.10%2B-blue" /></a>
+</p>
 
 # Mosaico SDK
 
@@ -84,7 +84,7 @@ with MosaicoClient.connect(host="localhost", port=6726) as client:
 
 ## License
 
-This project is licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)**. See the [LICENSE](https://github.com/mosaico-labs/mosaico?tab=AGPL-3.0-1-ov-file#readme) file for more details.
+This project is licensed under the Apache-2.0 licence.
 
 
 ## Contributing

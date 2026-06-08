@@ -54,21 +54,41 @@ pub fn build_query(joined_clauses: String) -> String {
     )
 }
 
+fn build_clause_union(where_clauses: &str) -> String {
+    let numeric = format!(
+        "SELECT chunk_id FROM chunk_t
+        JOIN column_chunk_numeric_t __stats__ USING(chunk_id)
+        JOIN column_t __column__ USING(column_id)
+        WHERE {where_clauses}"
+    );
+    let textual = format!(
+        "SELECT chunk_id FROM chunk_t
+        JOIN column_chunk_textual_t __stats__ USING(chunk_id)
+        JOIN column_t __column__ USING(column_id)
+        WHERE {where_clauses}"
+    );
+    format!("({numeric}) UNION ({textual})")
+}
+
 fn build_clause(where_clauses: String, v: &query::Value) -> String {
     match v {
-        query::Value::Integer(_) | query::Value::Float(_) | query::Value::Boolean(_) => {
+        query::Value::Integer(_)
+        | query::Value::Float(_)
+        | query::Value::Boolean(_)
+        | query::Value::IntegerArray(_)
+        | query::Value::FloatArray(_) => {
             let select = r#"
-            SELECT chunk_id FROM chunk_t 
+            SELECT chunk_id FROM chunk_t
             JOIN column_chunk_numeric_t __stats__ USING(chunk_id)
             JOIN column_t __column__ USING(column_id)
             "#;
 
             format!("{select} WHERE {where_clauses}")
         }
-        query::Value::Text(_) => {
+        query::Value::Text(_) | query::Value::TextArray(_) => {
             let select = r#"
-            SELECT chunk_id FROM chunk_t 
-            JOIN column_chunk_textual_t __stats__ USING(chunk_id) 
+            SELECT chunk_id FROM chunk_t
+            JOIN column_chunk_textual_t __stats__ USING(chunk_id)
             JOIN column_t __column__ USING(column_id)
             "#;
 
@@ -77,7 +97,7 @@ fn build_clause(where_clauses: String, v: &query::Value) -> String {
     }
 }
 
-fn column_table_name_by_value(_v: &query::Value) -> String {
+fn column_table_name() -> String {
     "(__column__.ontology_tag || '.' || __column__.column_name)".into()
 }
 
@@ -94,18 +114,27 @@ impl query::CompileClause for ChunkQueryBuilder {
             query::Op::Eq(v) => {
                 let v = v.into();
                 let p = self.consume_placeholder();
-                let column_name = column_table_name_by_value(&v);
+                let column_name = column_table_name();
 
                 let clause = format!(
                     "{column_name} = {field} AND __stats__.min_value <= {p} AND __stats__.max_value >= {p}"
                 );
                 query::CompiledClause::new(build_clause(clause, &v), vec![v])
             }
-            query::Op::Neq(_) => return Err(query::Error::unsupported_op(field.into())),
+            query::Op::Neq(v) => {
+                let v = v.into();
+                let p = self.consume_placeholder();
+                let column_name = column_table_name();
+
+                let clause = format!(
+                    "{column_name} = {field} AND (__stats__.min_value > {p} OR __stats__.max_value < {p})"
+                );
+                query::CompiledClause::new(build_clause(clause, &v), vec![v])
+            }
             query::Op::Leq(v) => {
                 let v = v.into();
                 let p = self.consume_placeholder();
-                let column_name = column_table_name_by_value(&v);
+                let column_name = column_table_name();
 
                 let clause = format!("{column_name} = {field} AND __stats__.min_value <= {p}");
                 query::CompiledClause::new(build_clause(clause, &v), vec![v])
@@ -113,7 +142,7 @@ impl query::CompileClause for ChunkQueryBuilder {
             query::Op::Geq(v) => {
                 let v = v.into();
                 let p = self.consume_placeholder();
-                let column_name = column_table_name_by_value(&v);
+                let column_name = column_table_name();
 
                 let clause = format!("{column_name} = {field} AND __stats__.max_value >= {p}");
                 query::CompiledClause::new(build_clause(clause, &v), vec![v])
@@ -121,7 +150,7 @@ impl query::CompileClause for ChunkQueryBuilder {
             query::Op::Lt(v) => {
                 let v = v.into();
                 let p = self.consume_placeholder();
-                let column_name = column_table_name_by_value(&v);
+                let column_name = column_table_name();
 
                 let clause = format!("{column_name} = {field} AND __stats__.min_value < {p}");
                 query::CompiledClause::new(build_clause(clause, &v), vec![v])
@@ -129,21 +158,29 @@ impl query::CompileClause for ChunkQueryBuilder {
             query::Op::Gt(v) => {
                 let v = v.into();
                 let p = self.consume_placeholder();
-                let column_name = column_table_name_by_value(&v);
+                let column_name = column_table_name();
 
                 let clause = format!("{column_name} = {field} AND __stats__.max_value > {p}");
                 query::CompiledClause::new(build_clause(clause, &v), vec![v])
             }
 
-            query::Op::Ex => return Err(query::Error::unsupported_op(field.into())),
-            query::Op::Nex => return Err(query::Error::unsupported_op(field.into())),
+            query::Op::Ex => {
+                let col = column_table_name();
+                let clause = format!("{col} = {field}");
+                query::CompiledClause::new(build_clause_union(&clause), vec![])
+            }
+            query::Op::Nex => {
+                let col = column_table_name();
+                let clause = format!("{col} = {field} AND __stats__.has_null = TRUE");
+                query::CompiledClause::new(build_clause_union(&clause), vec![])
+            }
 
             query::Op::Between(range) => {
                 let vmin = range.min.into();
                 let vmax = range.max.into();
                 let pmin = self.consume_placeholder();
                 let pmax = self.consume_placeholder();
-                let column_name = column_table_name_by_value(&vmin);
+                let column_name = column_table_name();
 
                 let clause = format!(
                     "{column_name} = {field} AND __stats__.min_value <= {pmax} AND __stats__.max_value >= {pmin}"
@@ -152,8 +189,100 @@ impl query::CompileClause for ChunkQueryBuilder {
                 query::CompiledClause::new(build_clause(clause, &vmin), vec![vmin, vmax])
             }
 
-            query::Op::In(_) => return Err(query::Error::unsupported_op(field.into())),
-            query::Op::Match(_) => return Err(query::Error::unsupported_op(field.into())),
+            query::Op::In(items) => {
+                let values: Vec<query::Value> = items.into_iter().map(Into::into).collect();
+
+                if values.is_empty() {
+                    return Err(query::Error::empty_in(field.to_owned()));
+                }
+
+                // Check if all the values inside array are of same type
+                let first = std::mem::discriminant(&values[0]);
+                if values.iter().any(|v| std::mem::discriminant(v) != first) {
+                    return Err(query::Error::unsupported_op(field.into()));
+                }
+
+                let p = self.consume_placeholder();
+                let column_name = column_table_name();
+
+                let (cast, array_value) = match &values[0] {
+                    query::Value::Integer(_) => {
+                        let arr: Vec<i64> = values
+                            .iter()
+                            .map(|v| match v {
+                                query::Value::Integer(i) => *i,
+                                _ => unreachable!(),
+                            })
+                            .collect();
+                        // float8 because min and max are saved as float8
+                        ("float8", query::Value::IntegerArray(arr))
+                    }
+                    query::Value::Float(_) => {
+                        let arr: Vec<f64> = values
+                            .iter()
+                            .map(|v| match v {
+                                query::Value::Float(f) => *f,
+                                _ => unreachable!(),
+                            })
+                            .collect();
+                        ("float8", query::Value::FloatArray(arr))
+                    }
+                    query::Value::Text(_) => {
+                        let arr: Vec<String> = values
+                            .iter()
+                            .map(|v| match v {
+                                query::Value::Text(t) => t.clone(),
+                                _ => unreachable!(),
+                            })
+                            .collect();
+                        ("text", query::Value::TextArray(arr))
+                    }
+                    query::Value::Boolean(_) => {
+                        let arr: Vec<f64> = values
+                            .iter()
+                            .map(|v| match v {
+                                query::Value::Boolean(b) => {
+                                    if *b {
+                                        1.0
+                                    } else {
+                                        0.0
+                                    }
+                                }
+                                _ => unreachable!(),
+                            })
+                            .collect();
+                        ("float8", query::Value::FloatArray(arr))
+                    }
+                    _ => return Err(query::Error::unsupported_op(field.into())),
+                };
+
+                let clause = format!(
+                    "{column_name} = {field} AND EXISTS (
+                        SELECT 1 FROM UNNEST({p}::{cast}[]) AS v
+                        WHERE __stats__.min_value <= v AND __stats__.max_value >= v
+                    )"
+                );
+
+                query::CompiledClause::new(build_clause(clause, &values[0]), vec![array_value])
+            }
+            query::Op::Match(v) => {
+                let v = v.into();
+
+                if let query::Value::Text(text) = &v
+                    && text.is_empty()
+                {
+                    return Err(query::Error::empty_pattern(field.to_owned()));
+                }
+
+                let column_name = column_table_name();
+                // Regex cannot be pruned using [min_value, max_value] stats: even if the pattern
+                // falls lexicographically within the range, the chunk may not contain any matching
+                // value (e.g. range ["apple", "zebra"] tells us nothing about whether "truck.*"
+                // matches any row). All chunks that have the column are kept; DataFusion filters
+                // row-by-row at query execution time.
+                let clause = format!("{column_name} = {field}");
+                query::CompiledClause::new(build_clause(clause, &v), vec![])
+            }
         };
 
         Ok(clause)

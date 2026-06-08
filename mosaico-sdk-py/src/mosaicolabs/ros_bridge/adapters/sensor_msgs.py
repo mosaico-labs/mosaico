@@ -34,10 +34,13 @@ from mosaicolabs.models.sensors import (
     CompressedImage,
     GPSStatus,
     Image,
+    ImageFormat,
     Joy,
     Magnetometer,
     NMEASentence,
+    Pressure,
     RobotJoint,
+    Temperature,
 )
 
 from ..adapter_base import ROSAdapterBase
@@ -1155,7 +1158,39 @@ class CompressedImageAdapter(ROSAdapterBase[CompressedImage]):
         """
         _validate_msgdata(cls, ros_data)
 
-        return CompressedImage(data=bytes(ros_data["data"]), format=ros_data["format"])
+        # Please check doc how format is constructed
+        # https://docs.ros.org/en/noetic/api/sensor_msgs/html/msg/CompressedImage.html
+        # or https://docs.ros2.org/foxy/api/sensor_msgs/msg/CompressedImage.html
+        img_format = ros_data["format"]
+
+        if not img_format:  # In case nothig is specified -> PNG
+            return CompressedImage(data=bytes(ros_data["data"]), format=ImageFormat.PNG)
+
+        parts = img_format.split()
+
+        if len(parts) == 1:  # only codec present (i.e. 'png', 'h264', 'jpeg'...)
+            codec = parts[0]
+        else:
+            is_depth = "compressedDepth" in parts
+            is_color = "compressed" in parts
+
+            if is_depth and is_color:
+                raise ValueError(
+                    f"Ambiguous CompressedImage format: both 'compressed' and 'compressedDepth' found in {img_format!r}"
+                )
+            if not is_depth and not is_color:
+                raise ValueError(
+                    f"Unrecognized CompressedImage format string: {img_format!r}"
+                )
+
+            # compressed_image_transport: "ORIG_PIXFMT; CODEC compressed [COMPRESSED_PIXFMT]"
+            # compressed_depth_image_transport: "ORIG_PIXFMT; compressedDepth CODEC"
+            if is_color:
+                codec = parts[1] if len(parts) > 1 else "png"
+            else:
+                codec = parts[2] if len(parts) > 2 else "png"
+
+        return CompressedImage(data=bytes(ros_data["data"]), format=codec)
 
     @classmethod
     def to_ros(
@@ -2748,6 +2783,244 @@ class JoyAdapter(ROSAdapterBase[Joy]):
         Extract the ROS message specific schema metadata, if any.
 
         Joy messages typically do not include additional schema metadata,
+        so this returns None unless extended in the future.
+        """
+        return None
+
+
+@register_default_adapter(is_default=True)
+class TemperatureAdapter(ROSAdapterBase[Temperature]):
+    """
+    Adapter for translating ROS Temperature messages to Mosaico `Temperature`.
+
+    **Supported ROS Types:**
+
+    - `sensor_msgs/msg/Temperature`
+
+    Example:
+        ```python
+        ros_msg = ROSMessage(
+            timestamp=17000,
+            topic="/temperature",
+            msg_type="sensor_msgs/msg/Temperature",
+            data={
+                "temperature":  25.0,
+                "variance": 3.0,
+            }
+        )
+
+        mosaico_temperature = TemperatureAdapter.translate(ros_msg)
+        ```
+    """
+
+    ros_msgtype: str | Tuple[str, ...] = "sensor_msgs/msg/Temperature"
+
+    __mosaico_ontology_type__: Type[Temperature] = Temperature
+
+    _REQUIRED_KEYS = ("temperature",)
+
+    @classmethod
+    def translate(cls, ros_msg: ROSMessage, **kwargs: Any) -> Message:
+        """
+        Translates a ROS message into a Mosaico Message.
+
+        Returns:
+            Message: The translated message containing a `Temperature` object.
+        """
+        return super().translate(ros_msg, **kwargs)
+
+    @classmethod
+    def from_dict(cls, ros_data: dict) -> Temperature:
+        """
+        Converts the raw dictionary data into the specific Mosaico type.
+
+        Args:
+            ros_data (dict): The raw dictionary from the ROS message.
+
+        Returns:
+            Temperature: The constructed Mosaico Temperature object.
+        """
+        _validate_msgdata(cls, ros_data)
+
+        # 0 is interpreted as variance unknown
+        variance = None
+        if ros_data["variance"] and ros_data["variance"] > 0:
+            variance = ros_data["variance"]
+
+        return Temperature.from_celsius(
+            value=ros_data["temperature"], variance=variance
+        )
+
+    @classmethod
+    def to_ros(
+        cls,
+        mosaico_data: Union[Message, Temperature],
+        typestore: Typestore,
+        input_ros_msg_type: Optional[str] = None,
+    ) -> "Optional[MsgType]":
+        """
+        Converts a Mosaico ``Temperature`` (or a ``Message`` wrapping one) into a
+        ``sensor_msgs/msg/Temperature`` message.
+
+        Args:
+            mosaico_data: A ``Message`` wrapping a ``Temperature`` instance, or a raw ``Temperature``.
+            typestore: The rosbags typestore for target type resolution.
+            input_ros_msg_type: Override for the output ROS type. Only
+                ``sensor_msgs/msg/Temperature`` is supported.
+
+        Returns:
+            A ``sensor_msgs/msg/Temperature`` instance, or ``None`` if the type is
+            unsupported or absent from the typestore.
+        """
+
+        # Resolve ROS message to translate Mosaico message to if not defined in input
+        resolved_rosmsg_type = input_ros_msg_type or cls.get_default_ros_msg()
+        if not cls.is_rosmsg_type_valid(resolved_rosmsg_type):
+            return None
+
+        # Checking presence in typestore of requested message
+        if typestore.types.get(resolved_rosmsg_type) is None:
+            return None
+
+        # Unpacking Mosaico message / type
+        temperature_data, ms_header = cls.unpack_mosaico_msg(mosaico_data)
+
+        # Filling the data
+        RosTemperature = typestore.types["sensor_msgs/msg/Temperature"]
+
+        if resolved_rosmsg_type == "sensor_msgs/msg/Temperature":
+            return RosTemperature(
+                header=ms_header.to_ros(typestore),
+                temperature=temperature_data.to_celsius(),
+                variance=temperature_data.variance or 0.0,
+            )
+
+        return None
+
+    @classmethod
+    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
+        """
+        Extract the ROS message specific schema metadata, if any.
+
+        Temperature messages typically do not include additional schema metadata,
+        so this returns None unless extended in the future.
+        """
+        return None
+
+
+@register_default_adapter(is_default=True)
+class PressureAdapter(ROSAdapterBase[Pressure]):
+    """
+    Adapter for translating ROS FluidPressure messages to Mosaico `Pressure`.
+
+    **Supported ROS Types:**
+
+    - `sensor_msgs/msg/FluidPressure`
+
+    Example:
+        ```python
+        ros_msg = ROSMessage(
+            timestamp=17000,
+            topic="/pressure",
+            msg_type="sensor_msgs/msg/FluidPressure",
+            data={
+                "fluid_pressure":  25.0,
+                "variance": 3.0,
+            }
+        )
+
+        mosaico_pressure = PressureAdapter.translate(ros_msg)
+        ```
+    """
+
+    ros_msgtype: str | Tuple[str, ...] = "sensor_msgs/msg/FluidPressure"
+
+    __mosaico_ontology_type__: Type[Pressure] = Pressure
+
+    _REQUIRED_KEYS = ("fluid_pressure",)
+
+    @classmethod
+    def translate(cls, ros_msg: ROSMessage, **kwargs: Any) -> Message:
+        """
+        Translates a ROS message into a Mosaico Message.
+
+        Returns:
+            Message: The translated message containing a `Pressure` object.
+        """
+        return super().translate(ros_msg, **kwargs)
+
+    @classmethod
+    def from_dict(cls, ros_data: dict) -> Pressure:
+        """
+        Converts the raw dictionary data into the specific Mosaico type.
+
+        Args:
+            ros_data (dict): The raw dictionary from the ROS message.
+
+        Returns:
+            Pressure: The constructed Mosaico Pressure object.
+        """
+        _validate_msgdata(cls, ros_data)
+
+        # 0 is interpreted as variance unknown
+        variance = None
+        if ros_data["variance"] and ros_data["variance"] > 0:
+            variance = ros_data["variance"]
+
+        return Pressure(value=ros_data["fluid_pressure"], variance=variance)
+
+    @classmethod
+    def to_ros(
+        cls,
+        mosaico_data: Union[Message, Pressure],
+        typestore: Typestore,
+        input_ros_msg_type: Optional[str] = None,
+    ) -> "Optional[MsgType]":
+        """
+        Converts a Mosaico ``Pressure`` (or a ``Message`` wrapping one) into a
+        ``sensor_msgs/msg/FluidPressure`` message.
+
+        Args:
+            mosaico_data: A ``Message`` wrapping a ``Pressure`` instance, or a raw ``Pressure``.
+            typestore: The rosbags typestore for target type resolution.
+            input_ros_msg_type: Override for the output ROS type. Only
+                ``sensor_msgs/msg/FluidPressure`` is supported.
+
+        Returns:
+            A ``sensor_msgs/msg/FluidPressure`` instance, or ``None`` if the type is
+            unsupported or absent from the typestore.
+        """
+
+        # Resolve ROS message to translate Mosaico message to if not defined in input
+        resolved_rosmsg_type = input_ros_msg_type or cls.get_default_ros_msg()
+        if not cls.is_rosmsg_type_valid(resolved_rosmsg_type):
+            return None
+
+        # Checking presence in typestore of requested message
+        if typestore.types.get(resolved_rosmsg_type) is None:
+            return None
+
+        # Unpacking Mosaico message / type
+        pressure_data, ms_header = cls.unpack_mosaico_msg(mosaico_data)
+
+        # Filling the data
+        RosFluidPressure = typestore.types["sensor_msgs/msg/FluidPressure"]
+
+        if resolved_rosmsg_type == "sensor_msgs/msg/FluidPressure":
+            return RosFluidPressure(
+                header=ms_header.to_ros(typestore),
+                fluid_pressure=pressure_data.value,
+                variance=pressure_data.variance or 0.0,
+            )
+
+        return None
+
+    @classmethod
+    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
+        """
+        Extract the ROS message specific schema metadata, if any.
+
+        Temperature messages typically do not include additional schema metadata,
         so this returns None unless extended in the future.
         """
         return None

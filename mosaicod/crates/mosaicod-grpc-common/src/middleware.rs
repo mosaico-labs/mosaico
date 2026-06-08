@@ -95,9 +95,7 @@ where
             // Inject permissions to bypass api key management
             Box::pin(async move {
                 req.extensions_mut().insert(AuthContext { permissions });
-
                 let response = inner.call(req).await?;
-
                 Ok(response)
             })
         } else {
@@ -153,4 +151,11 @@ where
             })
         }
     }
+}
+
+pub fn auth_context<T>(req: &tonic::Request<T>) -> Result<AuthContext> {
+    req.extensions()
+        .get::<AuthContext>()
+        .cloned()
+        .ok_or_else(|| core::Error::unauthenticated().into())
 }
