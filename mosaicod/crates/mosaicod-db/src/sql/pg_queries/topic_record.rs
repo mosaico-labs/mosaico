@@ -611,6 +611,11 @@ mod tests {
 
         let mut cx = database.connection();
 
+        // Triple * is not allowed.
+        let filter = r#"{"topic": {"locator": {"$match": "topic"}, "user_metadata": {"***.key5": {"$eq": 100}}}}"#;
+        let err = marshal::query_filter_from_string(filter).unwrap_err();
+        assert!(matches!(err, marshal::Error::DeserializationError(_)));
+
         // Search for "key5" at every level inside topics' user metadata.
         let filter = r#"{"topic": {"locator": {"$match": "topic"}, "user_metadata": {"**.key5": {"$eq": 100}}}}"#;
         let filter = marshal::query_filter_from_string(filter).unwrap();

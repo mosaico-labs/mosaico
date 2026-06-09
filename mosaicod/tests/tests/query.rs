@@ -630,3 +630,43 @@ async fn test_query_topic_name_match_empty_is_rejected(pool: sqlx::Pool<db::Data
 
     server.shutdown().await;
 }
+
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_query_invalid_keys(pool: sqlx::Pool<db::DatabaseType>) {
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
+        .build()
+        .await;
+
+    let seq = "seq_invalid_keys";
+    setup_topics_with_metadata(
+        &mut client,
+        seq,
+        &[
+            ("topic_a", json!({"vehicle": "truck_scania"})),
+            ("topic_b", json!({"vehicle": "ferrari"})),
+        ],
+    )
+    .await;
+
+    let invalid_patterns = [
+        "#", "$", "%", "?", "^", "{", "\"", "\\", "/", "@", "+", "--", "***",
+    ];
+
+    for p in invalid_patterns {
+        let key_path = format!("vehicle{p}");
+
+        let res = actions::query(
+            &mut client,
+            json!({
+                "topic": { "user_metadata": { key_path: { "$eq": "ferrari" } } }
+            }),
+        )
+        .await
+        .unwrap_err();
+
+        assert_eq!(res.code(), tonic::Code::InvalidArgument);
+    }
+
+    server.shutdown().await;
+}
