@@ -20,7 +20,7 @@ from ..ros_bridge import register_default_adapter
 from ..ros_message import ROSMessage
 from .builtin_interfaces import TimeAdapter
 from .geometry_msgs import PointAdapter, PoseAdapter, TwistAdapter
-from .helpers import _validate_msgdata
+from .helpers import _is_valid_header, _validate_msgdata
 from .std_msgs import HeaderAdapter
 
 
@@ -120,7 +120,7 @@ class OdometryAdapter(ROSAdapterBase[MotionState]):
             pose=PoseAdapter.from_dict(ros_data["pose"]),
             velocity=TwistAdapter.from_dict(ros_data["twist"]),
             header=HeaderAdapter.from_dict(ros_data["header"])
-            if ros_data.get("header")
+            if _is_valid_header(ros_data.get("header"))
             else None,
         )
 
@@ -301,7 +301,7 @@ class RobotPathAdapter(ROSAdapterBase[RobotPath]):
         return RobotPath(
             poses=[PoseAdapter.from_dict(ros_pose) for ros_pose in poses],
             header=HeaderAdapter.from_dict(ros_data["header"])
-            if ros_data.get("header")
+            if _is_valid_header(ros_data.get("header"))
             else None,
         )
 
@@ -449,7 +449,7 @@ class GridCellsAdapter(ROSAdapterBase[GridCells]):
                 for point in ros_data["cells"]
             ],
             header=HeaderAdapter.from_dict(ros_data["header"])
-            if ros_data.get("header")
+            if _is_valid_header(ros_data.get("header"))
             else None,
         )
 
@@ -723,7 +723,7 @@ class OccupancyGridAdapter(ROSAdapterBase[OccupancyGrid]):
             info=MapMetadataAdapter.from_dict(ros_data["info"]),
             data=ros_data["data"],
             header=HeaderAdapter.from_dict(ros_data["header"])
-            if ros_data.get("header")
+            if _is_valid_header(ros_data.get("header"))
             else None,
         )
 

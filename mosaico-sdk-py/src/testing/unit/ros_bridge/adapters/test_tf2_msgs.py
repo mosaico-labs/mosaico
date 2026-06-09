@@ -56,12 +56,12 @@ def register_tf2_messages(typestore: Typestore):
 
 
 @pytest.fixture
-def frame_transform(transform):
+def frame_transform(transform: Transform):
     return FrameTransform(transforms=[transform, transform, transform])
 
 
 @pytest.fixture
-def frame_transform_rosmsg(ros_header, transform):
+def frame_transform_rosmsg(ros_header, transform: Transform):
     return ROSMessage(
         bag_timestamp_ns=100,
         topic="/tf",
@@ -71,23 +71,53 @@ def frame_transform_rosmsg(ros_header, transform):
                 {
                     "header": ros_header,
                     "child_frame_id": "base_link",
-                    "transform": transform.model_dump(
-                        exclude_none=True,
-                    ),
+                    "transform": {
+                        "rotation": {
+                            "x": transform.rotation.x,
+                            "y": transform.rotation.y,
+                            "z": transform.rotation.z,
+                            "w": transform.rotation.w,
+                        },
+                        "translation": {
+                            "x": transform.translation.x,
+                            "y": transform.translation.y,
+                            "z": transform.translation.z,
+                        },
+                    },
                 },
                 {
                     "header": ros_header,
                     "child_frame_id": "camera",
-                    "transform": transform.model_dump(
-                        exclude_none=True,
-                    ),
+                    "transform": {
+                        "rotation": {
+                            "x": transform.rotation.x,
+                            "y": transform.rotation.y,
+                            "z": transform.rotation.z,
+                            "w": transform.rotation.w,
+                        },
+                        "translation": {
+                            "x": transform.translation.x,
+                            "y": transform.translation.y,
+                            "z": transform.translation.z,
+                        },
+                    },
                 },
                 {
                     "header": ros_header,
                     "child_frame_id": "end_effector",
-                    "transform": transform.model_dump(
-                        exclude_none=True,
-                    ),
+                    "transform": {
+                        "rotation": {
+                            "x": transform.rotation.x,
+                            "y": transform.rotation.y,
+                            "z": transform.rotation.z,
+                            "w": transform.rotation.w,
+                        },
+                        "translation": {
+                            "x": transform.translation.x,
+                            "y": transform.translation.y,
+                            "z": transform.translation.z,
+                        },
+                    },
                 },
             ],
         },

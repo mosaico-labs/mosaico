@@ -53,6 +53,7 @@ from .geometry_msgs import (
 )
 from .helpers import (
     _is_valid_covariance,
+    _is_valid_header,
     _validate_msgdata,
     _validate_required_fields,
 )
@@ -191,7 +192,7 @@ class CameraInfoAdapter(ROSAdapterBase[CameraInfo]):
         # Manage differences between ROS1 and ROS2s
         return CameraInfo(
             header=HeaderAdapter.from_dict(ros_data["header"])
-            if ros_data.get("header")
+            if _is_valid_header(ros_data.get("header"))
             else None,
             height=ros_data["height"],
             width=ros_data["width"],
@@ -541,7 +542,7 @@ class GPSAdapter(ROSAdapterBase[GPS]):
             ),
             status=status,
             header=HeaderAdapter.from_dict(ros_data["header"])
-            if ros_data.get("header")
+            if _is_valid_header(ros_data.get("header"))
             else None,
         )
 
@@ -739,7 +740,7 @@ class IMUAdapter(ROSAdapterBase[IMU]):
 
         ms_header = (
             HeaderAdapter.from_dict(ros_data["header"])
-            if ros_data.get("header")
+            if _is_valid_header(ros_data.get("header"))
             else None
         )
 
@@ -893,7 +894,7 @@ class NMEASentenceAdapter(ROSAdapterBase[NMEASentence]):
 
         ms_header = (
             HeaderAdapter.from_dict(ros_data["header"])
-            if ros_data.get("header")
+            if _is_valid_header(ros_data.get("header"))
             else None
         )
 
@@ -1037,11 +1038,11 @@ class ImageAdapter(ROSAdapterBase[Image]):
 
         ms_header = (
             HeaderAdapter.from_dict(ros_data["header"])
-            if ros_data.get("header")
+            if _is_valid_header(ros_data.get("header"))
             else None
         )
 
-        return Image.from_linear_pixels(
+        img = Image.from_linear_pixels(
             data=ros_data["data"],
             # if .get is None, the encode function will use a default format internally
             format=kwargs.get("output_format"),
@@ -1050,8 +1051,11 @@ class ImageAdapter(ROSAdapterBase[Image]):
             stride=ros_data["step"],
             is_bigendian=ros_data.get("is_bigendian"),
             encoding=ros_data["encoding"],
-            header=ms_header,
         )
+
+        img.header = ms_header
+
+        return img
 
     @classmethod
     def to_ros(
@@ -1192,7 +1196,7 @@ class CompressedImageAdapter(ROSAdapterBase[CompressedImage]):
 
         ms_header = (
             HeaderAdapter.from_dict(ros_data["header"])
-            if ros_data.get("header")
+            if _is_valid_header(ros_data.get("header"))
             else None
         )
 
@@ -1564,7 +1568,7 @@ class BatteryStateAdapter(ROSAdapterBase[BatteryState]):
 
         return BatteryState(
             header=HeaderAdapter.from_dict(ros_data["header"])
-            if ros_data.get("header")
+            if _is_valid_header(ros_data.get("header"))
             else None,
             voltage=ros_data["voltage"],
             temperature=temperature,
@@ -1759,7 +1763,7 @@ class RobotJointAdapter(ROSAdapterBase[RobotJoint]):
             velocities=ros_data["velocity"],
             efforts=ros_data["effort"],
             header=HeaderAdapter.from_dict(ros_data["header"])
-            if ros_data.get("header")
+            if _is_valid_header(ros_data.get("header"))
             else None,
         )
 
@@ -2128,7 +2132,7 @@ class PointCloudAdapterBase(ROSAdapterBase[PointCloudModel]):
         pcl = cls._build(decoded_fields)
         pcl.header = (
             HeaderAdapter.from_dict(ros_data["header"])
-            if ros_data.get("header")
+            if _is_valid_header(ros_data.get("header"))
             else None
         )
         return pcl
@@ -2236,6 +2240,12 @@ class PointCloudAdapter(PointCloudAdapterBase[PointCloud2]):
 
         _validate_msgdata(cls, ros_data)
 
+        ms_header = (
+            HeaderAdapter.from_dict(ros_data["header"])
+            if _is_valid_header(ros_data.get("header"))
+            else None
+        )
+
         return PointCloud2(
             height=ros_data["height"],
             width=ros_data["width"],
@@ -2245,6 +2255,7 @@ class PointCloudAdapter(PointCloudAdapterBase[PointCloud2]):
             row_step=ros_data["row_step"],
             data=bytes(ros_data["data"]),
             is_dense=ros_data["is_dense"],
+            header=ms_header,
         )
 
     @classmethod
@@ -2404,7 +2415,7 @@ class LaserScanAdapter(LaserScannerAdapterBase[LaserScan]):
 
         ms_header = (
             HeaderAdapter.from_dict(ros_data["header"])
-            if ros_data.get("header")
+            if _is_valid_header(ros_data.get("header"))
             else None
         )
 
@@ -2514,18 +2525,19 @@ class MultiEchoLaserScanAdapter(LaserScannerAdapterBase[MultiEchoLaserScan]):
         mosaico_laser_scan = MultiEchoLaserScanAdapter.from_dict(ros_data)
         ```
         """
-        ranges = [x["echoes"] for x in ros_data["ranges"]]
-        intensities = (
-            [x["echoes"] for x in ros_data["intensities"]]
-            if ros_data["intensities"]
-            else None
-        )
 
         _validate_msgdata(cls, ros_data)
 
         ms_header = (
             HeaderAdapter.from_dict(ros_data["header"])
-            if ros_data.get("header")
+            if _is_valid_header(ros_data.get("header"))
+            else None
+        )
+
+        ranges = [x["echoes"] for x in ros_data["ranges"]]
+        intensities = (
+            [x["echoes"] for x in ros_data["intensities"]]
+            if ros_data["intensities"]
             else None
         )
 
@@ -2666,7 +2678,7 @@ class MagneticFieldAdapter(ROSAdapterBase[Magnetometer]):
 
         ms_header = (
             HeaderAdapter.from_dict(ros_data["header"])
-            if ros_data.get("header")
+            if _is_valid_header(ros_data.get("header"))
             else None
         )
 
@@ -2804,7 +2816,7 @@ class JoyAdapter(ROSAdapterBase[Joy]):
 
         ms_header = (
             HeaderAdapter.from_dict(ros_data["header"])
-            if ros_data.get("header")
+            if _is_valid_header(ros_data.get("header"))
             else None
         )
 
@@ -2935,7 +2947,7 @@ class TemperatureAdapter(ROSAdapterBase[Temperature]):
         )
         temperature.header = (
             HeaderAdapter.from_dict(ros_data["header"])
-            if ros_data.get("header")
+            if _is_valid_header(ros_data.get("header"))
             else None
         )
         return temperature
@@ -3053,7 +3065,7 @@ class PressureAdapter(ROSAdapterBase[Pressure]):
 
         ms_header = (
             HeaderAdapter.from_dict(ros_data["header"])
-            if ros_data.get("header")
+            if _is_valid_header(ros_data.get("header"))
             else None
         )
 

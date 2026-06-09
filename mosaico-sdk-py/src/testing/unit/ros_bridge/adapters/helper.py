@@ -1,4 +1,5 @@
 import math
+from typing import Optional
 
 import numpy as np
 
@@ -46,7 +47,7 @@ def assert_time(time: Time, ros_msg: dict):
     assert time.nanoseconds == ros_msg["nanosec"]
 
 
-def assert_header(header: Header, ros_msg: dict):
+def assert_header(header: Optional[Header], ros_msg: dict):
 
     if not header:  # In case there is not header in mosaico, it is encoded as an empty header in ROS
         assert ros_msg["frame_id"] == ""
@@ -68,9 +69,8 @@ def assert_vector3(vector3d: Vector3d, ros_msg: dict):
 
     if "header" in ros_msg:
         assert_vector3(vector3d, ros_msg["vector"])
+        assert_header(vector3d.header, ros_msg["header"])
 
-        if vector3d.header:
-            assert_header(vector3d.header, ros_msg["header"])
         return
 
     assert vector3d.x == ros_msg["x"]
@@ -82,9 +82,8 @@ def assert_point3d(point3d: Point3d, ros_msg: dict):
 
     if "header" in ros_msg:
         assert_point3d(point3d, ros_msg["point"])
+        assert_header(point3d.header, ros_msg["header"])
 
-        if point3d.header:
-            assert_header(point3d.header, ros_msg["header"])
         return
 
     assert point3d.x == ros_msg["x"]
@@ -96,9 +95,8 @@ def assert_quaternion(quaternion: Quaternion, ros_msg: dict):
 
     if "header" in ros_msg:
         assert_quaternion(quaternion, ros_msg["quaternion"])
+        assert_header(quaternion.header, ros_msg["header"])
 
-        if quaternion.header:
-            assert_header(quaternion.header, ros_msg["header"])
         return
 
     assert quaternion.x == ros_msg["x"]
@@ -112,11 +110,18 @@ def assert_transform(transform: Transform, ros_msg: dict):
     if "header" in ros_msg:
         assert_transform(transform, ros_msg["transform"])
 
-        assert transform.source_frame_id == ros_msg["header"]["frame_id"]
-        assert transform.target_frame_id == ros_msg["child_frame_id"]
+        if transform.source_frame_id:
+            assert transform.source_frame_id == ros_msg["header"]["frame_id"]
+        else:
+            assert ros_msg["header"]["frame_id"] == ""
 
-        if transform.header:
-            assert_header(transform.header, ros_msg["header"])
+        if transform.target_frame_id:
+            assert transform.target_frame_id == ros_msg["child_frame_id"]
+        else:
+            assert ros_msg["child_frame_id"] == ""
+
+        assert_header(transform.header, ros_msg["header"])
+
         return
 
     assert_vector3(transform.translation, ros_msg["translation"])
@@ -127,9 +132,8 @@ def assert_force_torque(force_torque: ForceTorque, ros_msg: dict):
 
     if "header" in ros_msg:
         assert_force_torque(force_torque, ros_msg["wrench"])
+        assert_header(force_torque.header, ros_msg["header"])
 
-        if force_torque.header:
-            assert_header(force_torque.header, ros_msg["header"])
         return
 
     assert_vector3(force_torque.force, ros_msg["force"])
@@ -140,9 +144,8 @@ def assert_polygon(polygon: Polygon, ros_msg: dict):
 
     if "header" in ros_msg:
         assert_polygon(polygon, ros_msg["polygon"])
+        assert_header(polygon.header, ros_msg["header"])
 
-        if polygon.header:
-            assert_header(polygon.header, ros_msg["header"])
         return
 
     for point3d, ros_point in zip(polygon.points, ros_msg["points"]):
@@ -153,9 +156,8 @@ def assert_inertia(inertia: Inertia, ros_msg: dict):
 
     if "header" in ros_msg:
         assert_inertia(inertia, ros_msg["inertia"])
+        assert_header(inertia.header, ros_msg["header"])
 
-        if inertia.header:
-            assert_header(inertia.header, ros_msg["header"])
         return
 
     assert inertia.mass == ros_msg["m"]
@@ -170,9 +172,8 @@ def assert_pose(pose: Pose, ros_msg):
 
     if "header" in ros_msg:
         assert_pose(pose, ros_msg["pose"])
+        assert_header(pose.header, ros_msg["header"])
 
-        if pose.header:
-            assert_header(pose.header, ros_msg["header"])
         return
 
     assert_point3d(pose.position, ros_msg["position"])
@@ -183,9 +184,8 @@ def assert_pose_w_cov(pose_w_cov: Pose, ros_msg):
 
     if "header" in ros_msg:
         assert_pose_w_cov(pose_w_cov, ros_msg["pose"])
+        assert_header(pose_w_cov.header, ros_msg["header"])
 
-        if pose_w_cov.header:
-            assert_header(pose_w_cov.header, ros_msg["header"])
         return
 
     assert_pose(pose_w_cov, ros_msg["pose"])
@@ -200,9 +200,8 @@ def assert_twist(twist: Velocity, ros_msg):
 
     if "header" in ros_msg:
         assert_twist(twist, ros_msg["twist"])
+        assert_header(twist.header, ros_msg["header"])
 
-        if twist.header:
-            assert_header(twist.header, ros_msg["header"])
         return
 
     assert_vector3(twist.linear, ros_msg["linear"])
@@ -213,9 +212,8 @@ def assert_twist_w_cov(twist_w_cov: Velocity, ros_msg):
 
     if "header" in ros_msg:
         assert_twist_w_cov(twist_w_cov, ros_msg["twist"])
+        assert_header(twist_w_cov.header, ros_msg["header"])
 
-        if twist_w_cov.header:
-            assert_header(twist_w_cov.header, ros_msg["header"])
         return
 
     assert_twist(twist_w_cov, ros_msg["twist"])
@@ -230,9 +228,8 @@ def assert_accel(accel: Acceleration, ros_msg):
 
     if "header" in ros_msg:
         assert_accel(accel, ros_msg["accel"])
+        assert_header(accel.header, ros_msg["header"])
 
-        if accel.header:
-            assert_header(accel.header, ros_msg["header"])
         return
 
     assert_vector3(accel.linear, ros_msg["linear"])
@@ -243,9 +240,8 @@ def assert_accel_w_cov(accel_w_cov: Acceleration, ros_msg):
 
     if "header" in ros_msg:
         assert_accel_w_cov(accel_w_cov, ros_msg["accel"])
+        assert_header(accel_w_cov.header, ros_msg["header"])
 
-        if accel_w_cov.header:
-            assert_header(accel_w_cov.header, ros_msg["header"])
         return
 
     assert_accel(accel_w_cov, ros_msg["accel"])
@@ -265,6 +261,9 @@ def assert_roi(roi: ROI, ros_msg):
 
 
 def assert_camera_info(camera_info: CameraInfo, ros_msg):
+
+    assert_header(camera_info.header, ros_msg["header"])
+
     assert camera_info.height == ros_msg["height"]
     assert camera_info.width == ros_msg["width"]
     assert camera_info.distortion_model == ros_msg["distortion_model"]
@@ -300,6 +299,8 @@ def assert_gps_status(gps_status: GPSStatus, ros_msg):
 
 
 def assert_gps(gps: GPS, ros_msg):
+
+    assert_header(gps.header, ros_msg["header"])
     assert_gps_status(gps.status, ros_msg["status"])
     assert gps.position.x == ros_msg["latitude"]
     assert gps.position.y == ros_msg["longitude"]
@@ -313,6 +314,8 @@ def assert_gps(gps: GPS, ros_msg):
 
 
 def assert_imu(imu: IMU, ros_msg):
+
+    assert_header(imu.header, ros_msg["header"])
     assert_quaternion(imu.orientation, ros_msg["orientation"])
     assert_vector3(imu.angular_velocity, ros_msg["angular_velocity"])
     assert_vector3(imu.acceleration, ros_msg["linear_acceleration"])
@@ -340,10 +343,12 @@ def assert_imu(imu: IMU, ros_msg):
 
 
 def assert_nmea_sentence(nmea_sentence: NMEASentence, ros_msg: dict):
+    assert_header(nmea_sentence.header, ros_msg["header"])
     assert nmea_sentence.sentence == ros_msg["sentence"]
 
 
 def assert_compressed_image(compressed_image: CompressedImage, ros_msg: dict):
+    assert_header(compressed_image.header, ros_msg["header"])
     assert compressed_image.format == ros_msg["format"]
     assert np.array_equal(
         np.frombuffer(compressed_image.data, dtype=np.uint8), ros_msg["data"]
@@ -351,6 +356,8 @@ def assert_compressed_image(compressed_image: CompressedImage, ros_msg: dict):
 
 
 def assert_image(image: Image, ros_msg):
+    assert_header(image.header, ros_msg["header"])
+
     assert image.height == ros_msg["height"]
     assert image.width == ros_msg["width"]
     assert image.encoding == ros_msg["encoding"]
@@ -362,6 +369,8 @@ def assert_image(image: Image, ros_msg):
 
 
 def assert_battery_state(battery_state: BatteryState, ros_msg):
+    assert_header(battery_state.header, ros_msg["header"])
+
     assert battery_state.voltage == ros_msg["voltage"]
     assert battery_state.temperature == ros_msg["temperature"]
     assert battery_state.current == ros_msg["current"]
@@ -390,6 +399,8 @@ def assert_battery_state(battery_state: BatteryState, ros_msg):
 
 
 def assert_robot_joint(robot_joint: RobotJoint, ros_msg: dict):
+    assert_header(robot_joint.header, ros_msg["header"])
+
     assert robot_joint.names == ros_msg["name"]
     assert np.array_equal(robot_joint.positions, ros_msg["position"])
     assert np.array_equal(robot_joint.velocities, ros_msg["velocity"])
@@ -397,11 +408,14 @@ def assert_robot_joint(robot_joint: RobotJoint, ros_msg: dict):
 
 
 def assert_joy(joy: Joy, ros_msg: dict):
+    assert_header(joy.header, ros_msg["header"])
+
     assert np.array_equal(joy.axes, ros_msg["axes"])
     assert np.array_equal(joy.buttons, ros_msg["buttons"])
 
 
 def assert_magnetometer(magnetometer: Magnetometer, ros_msg: dict):
+    assert_header(magnetometer.header, ros_msg["header"])
     assert_vector3(magnetometer.magnetic_field, ros_msg["magnetic_field"])
 
     if magnetometer.magnetic_field.covariance is not None:
@@ -414,7 +428,7 @@ def assert_magnetometer(magnetometer: Magnetometer, ros_msg: dict):
 
 
 def assert_pcl2(pcl2: PointCloud2, ros_msg):
-
+    assert_header(pcl2.header, ros_msg["header"])
     assert pcl2.height == ros_msg["height"]
     assert pcl2.width == ros_msg["width"]
 
@@ -434,6 +448,7 @@ def assert_pcl2(pcl2: PointCloud2, ros_msg):
 
 
 def assert_laserscan(laserscan: futures.LaserScan, ros_msg):
+    assert_header(laserscan.header, ros_msg["header"])
     assert laserscan.angle_min == ros_msg["angle_min"]
     assert laserscan.angle_max == ros_msg["angle_max"]
     assert laserscan.angle_increment == ros_msg["angle_increment"]
@@ -449,6 +464,7 @@ def assert_laserscan(laserscan: futures.LaserScan, ros_msg):
 
 
 def assert_multiecho_laserscan(mels: futures.MultiEchoLaserScan, ros_msg):
+    assert_header(mels.header, ros_msg["header"])
     assert mels.angle_min == ros_msg["angle_min"]
     assert mels.angle_max == ros_msg["angle_max"]
     assert mels.angle_increment == ros_msg["angle_increment"]
@@ -479,12 +495,11 @@ def assert_frame_transform(frame_trasform: FrameTransform, ros_msg):
     for mosaico_transform, ros_transform in zip(
         frame_trasform.transforms, ros_msg["transforms"]
     ):
-        # assert mosaico_transform.source_frame_id == ros_transform.header.frame_id # TODO
-        assert mosaico_transform.target_frame_id == ros_transform["child_frame_id"]
         assert_transform(mosaico_transform, ros_transform["transform"])
 
 
 def assert_temperature(temperature: Temperature, ros_msg):
+    assert_header(temperature.header, ros_msg["header"])
 
     assert temperature.to_celsius() == ros_msg["temperature"]
 
@@ -495,6 +510,7 @@ def assert_temperature(temperature: Temperature, ros_msg):
 
 
 def assert_pressure(pressure: Pressure, ros_msg):
+    assert_header(pressure.header, ros_msg["header"])
 
     assert pressure.value == ros_msg["fluid_pressure"]
 

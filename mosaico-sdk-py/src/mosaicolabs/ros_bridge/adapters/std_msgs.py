@@ -330,8 +330,8 @@ class HeaderAdapter(ROSAdapterBase[Header]):
 
         _validate_msgdata(cls, ros_data)
         return Header(
-            timestamp=TimeAdapter.from_dict(ros_data["stamp"]),
-            frame_id=ros_data["frame_id"],
+            timestamp=TimeAdapter.from_dict(ros_data.get("stamp")),
+            frame_id=ros_data.get("frame_id"),
             sample_counter=ros_data.get("seq"),
         )
 

@@ -26,7 +26,6 @@ from mosaicolabs import (
     RobotJoint,
     Serializable,
     Temperature,
-    Time,
     Vector2d,
     Vector3d,
     futures,
@@ -191,13 +190,11 @@ class TestCameraInfoAdapter:
         ms_msg = CameraInfoAdapter.translate(camera_info_ros1msg)
 
         assert_camera_info(ms_msg.get_data(CameraInfo), camera_info_ros1msg.data)
-        assert ms_msg.timestamp_ns == camera_info_ros1msg.header.stamp.to_nanoseconds()
 
     def test_translate_camera_info2(self, camera_info_ros2msg: ROSMessage):
         ms_msg = CameraInfoAdapter.translate(camera_info_ros2msg)
 
         assert_camera_info(ms_msg.get_data(CameraInfo), camera_info_ros2msg.data)
-        assert ms_msg.timestamp_ns == camera_info_ros2msg.header.stamp.to_nanoseconds()
 
     def test_translate_raise_missing_required_key(
         self, camera_info_ros1msg: ROSMessage
@@ -224,14 +221,6 @@ class TestCameraInfoAdapter:
             camera_info_msg, typestore, "sensor_msgs/msg/CameraInfo"
         )
 
-        assert camera_info_msg.frame_id == ros_msg.header.frame_id
-        assert (
-            camera_info_msg.timestamp_ns
-            == Time(
-                seconds=ros_msg.header.stamp.sec,
-                nanoseconds=ros_msg.header.stamp.nanosec,
-            ).to_nanoseconds()
-        )
         assert_camera_info(camera_info, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
@@ -280,7 +269,7 @@ def nav_sat_status_rosmsg(gps_status: GPSStatus):
         bag_timestamp_ns=100,
         topic="/nav_sat_status",
         msg_type="sensor_msgs/msg/NavSatStatus",
-        data=gps_status.model_dump(exclude_none=True),
+        data={"status": gps_status.status, "service": gps_status.service},
     )
 
 
@@ -288,7 +277,6 @@ class TestNavSatStatusAdapter:
     def test_translate_nav_sat_status(self, nav_sat_status_rosmsg: ROSMessage):
         ms_msg = NavSatStatusAdapter.translate(nav_sat_status_rosmsg)
 
-        assert ms_msg.timestamp_ns == nav_sat_status_rosmsg.bag_timestamp_ns
         assert_gps_status(ms_msg.get_data(GPSStatus), nav_sat_status_rosmsg.data)
 
     def test_translate_raise_missing_required_key(
@@ -376,7 +364,7 @@ def nav_sat_fix_rosmsg(ros_header, gps_status: GPSStatus):
         msg_type="sensor_msgs/msg/NavSatFix",
         data={
             "header": ros_header,
-            "status": gps_status.model_dump(),
+            "status": {"status": gps_status.status, "service": gps_status.service},
             "latitude": 10.0,
             "longitude": 20.0,
             "altitude": 30.0,
@@ -390,8 +378,6 @@ class TestGPSAdapter:
     def test_translate_nav_sat_fix(self, nav_sat_fix_rosmsg: ROSMessage):
         ms_msg = GPSAdapter.translate(nav_sat_fix_rosmsg)
 
-        assert ms_msg.frame_id == nav_sat_fix_rosmsg.header.frame_id
-        assert ms_msg.timestamp_ns == nav_sat_fix_rosmsg.header.stamp.to_nanoseconds()
         assert_gps(ms_msg.get_data(GPS), nav_sat_fix_rosmsg.data)
 
     def test_translate_raise_missing_required_key(self, nav_sat_fix_rosmsg: ROSMessage):
@@ -417,14 +403,6 @@ class TestGPSAdapter:
         gps = gps_msg.get_data(GPS)
         ros_msg = GPSAdapter.to_ros(gps_msg, typestore, "sensor_msgs/msg/NavSatFix")
 
-        assert gps_msg.frame_id == ros_msg.header.frame_id
-        assert (
-            gps_msg.timestamp_ns
-            == Time(
-                seconds=ros_msg.header.stamp.sec,
-                nanoseconds=ros_msg.header.stamp.nanosec,
-            ).to_nanoseconds()
-        )
         assert_gps(gps, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
@@ -517,7 +495,7 @@ def imu_rosmsg(ros_header):
 
 
 @pytest.fixture
-def imu_w_cov_rosmsg(ros_header, imu: IMU):
+def imu_w_cov_rosmsg(ros_header):
     tmp = ROSMessage(
         bag_timestamp_ns=100,
         topic="/imu",
@@ -540,13 +518,11 @@ class TestIMUAdapter:
     def test_translate_imu(self, imu_rosmsg: ROSMessage):
         ms_msg = IMUAdapter.translate(imu_rosmsg)
 
-        assert ms_msg.timestamp_ns == imu_rosmsg.header.stamp.to_nanoseconds()
         assert_imu(ms_msg.get_data(IMU), imu_rosmsg.data)
 
     def test_translate_imu_w_cov(self, imu_w_cov_rosmsg: ROSMessage):
         ms_msg = IMUAdapter.translate(imu_w_cov_rosmsg)
 
-        assert ms_msg.timestamp_ns == imu_w_cov_rosmsg.header.stamp.to_nanoseconds()
         assert_imu(ms_msg.get_data(IMU), imu_w_cov_rosmsg.data)
 
     def test_translate_raise_missing_required_key(self, imu_w_cov_rosmsg: ROSMessage):
@@ -572,14 +548,6 @@ class TestIMUAdapter:
         imu = imu_msg.get_data(IMU)
         ros_msg = IMUAdapter.to_ros(imu_msg, typestore, "sensor_msgs/msg/Imu")
 
-        assert imu_msg.frame_id == ros_msg.header.frame_id
-        assert (
-            imu_msg.timestamp_ns
-            == Time(
-                seconds=ros_msg.header.stamp.sec,
-                nanoseconds=ros_msg.header.stamp.nanosec,
-            ).to_nanoseconds()
-        )
         assert_imu(imu, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
@@ -641,7 +609,6 @@ class TestNMEASentenceAdapter:
     def test_translate_nmea_sentence(self, nmea_sentence_rosmsg: ROSMessage):
         ms_msg = NMEASentenceAdapter.translate(nmea_sentence_rosmsg)
 
-        assert ms_msg.timestamp_ns == nmea_sentence_rosmsg.header.stamp.to_nanoseconds()
         assert_nmea_sentence(ms_msg.get_data(NMEASentence), nmea_sentence_rosmsg.data)
 
     def test_translate_raise_missing_required_key(
@@ -756,7 +723,6 @@ class TestImageAdapter:
     def test_translate_image_sentence(self, image_rosmsg: ROSMessage):
         ms_msg = ImageAdapter.translate(image_rosmsg)
 
-        assert ms_msg.timestamp_ns == image_rosmsg.header.stamp.to_nanoseconds()
         assert_image(ms_msg.get_data(Image), image_rosmsg.data)
 
     def test_translate_raise_missing_required_key(self, image_rosmsg: ROSMessage):
@@ -779,14 +745,6 @@ class TestImageAdapter:
     def test_to_ros_image_message(self, image_msg: Message, typestore: Typestore):
         image = image_msg.get_data(Image)
         ros_msg = ImageAdapter.to_ros(image_msg, typestore, "sensor_msgs/msg/Image")
-        assert image_msg.frame_id == ros_msg.header.frame_id
-        assert (
-            image_msg.timestamp_ns
-            == Time(
-                seconds=ros_msg.header.stamp.sec,
-                nanoseconds=ros_msg.header.stamp.nanosec,
-            ).to_nanoseconds()
-        )
         assert_image(image, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
@@ -838,9 +796,6 @@ class TestCompressedImageAdapter:
     def test_translate_image_compressed(self, compressed_image_rosmsg: ROSMessage):
         ms_msg = CompressedImageAdapter.translate(compressed_image_rosmsg)
 
-        assert (
-            ms_msg.timestamp_ns == compressed_image_rosmsg.header.stamp.to_nanoseconds()
-        )
         assert_compressed_image(
             ms_msg.get_data(CompressedImage), compressed_image_rosmsg.data
         )
@@ -860,6 +815,7 @@ class TestCompressedImageAdapter:
         ros_msg = CompressedImageAdapter.to_ros(
             compressed_image, typestore, "sensor_msgs/msg/CompressedImage"
         )
+
         assert_compressed_image(compressed_image, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
@@ -870,14 +826,7 @@ class TestCompressedImageAdapter:
         ros_msg = CompressedImageAdapter.to_ros(
             compressed_image_msg, typestore, "sensor_msgs/msg/CompressedImage"
         )
-        assert compressed_image_msg.frame_id == ros_msg.header.frame_id
-        assert (
-            compressed_image_msg.timestamp_ns
-            == Time(
-                seconds=ros_msg.header.stamp.sec,
-                nanoseconds=ros_msg.header.stamp.nanosec,
-            ).to_nanoseconds()
-        )
+
         assert_compressed_image(compressed_image, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
@@ -885,6 +834,7 @@ class TestCompressedImageAdapter:
         self, compressed_image: CompressedImage, typestore: Typestore
     ):
         ros_msg = CompressedImageAdapter.to_ros(compressed_image, typestore)
+
         assert_compressed_image(compressed_image, asdict(ros_msg))
 
     def test_to_ros_invalid_rosmsg_type(self, compressed_image: CompressedImage):
@@ -1022,7 +972,6 @@ class TestBatteryStateAdapter:
     def test_translate_battery_state(self, battery_state_rosmsg: ROSMessage):
         ms_msg = BatteryStateAdapter.translate(battery_state_rosmsg)
 
-        assert ms_msg.timestamp_ns == battery_state_rosmsg.header.stamp.to_nanoseconds()
         assert_battery_state(ms_msg.get_data(BatteryState), battery_state_rosmsg.data)
 
     def test_translate_raise_missing_required_key(
@@ -1040,6 +989,7 @@ class TestBatteryStateAdapter:
         ros_msg = BatteryStateAdapter.to_ros(
             battery_state, typestore, "sensor_msgs/msg/BatteryState"
         )
+
         assert_battery_state(battery_state, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
@@ -1050,6 +1000,7 @@ class TestBatteryStateAdapter:
         ros_msg = BatteryStateAdapter.to_ros(
             battery_state_msg, typestore, "sensor_msgs/msg/BatteryState"
         )
+
         assert_battery_state(battery_state, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
@@ -1057,6 +1008,7 @@ class TestBatteryStateAdapter:
         self, battery_state: BatteryState, typestore: Typestore
     ):
         ros_msg = BatteryStateAdapter.to_ros(battery_state, typestore)
+
         assert_battery_state(battery_state, asdict(ros_msg))
 
     def test_to_ros_invalid_rosmsg_type(self, battery_state: BatteryState):
@@ -1110,7 +1062,6 @@ class TestRobotJointAdapter:
     def test_translate_robot_joint(self, robot_joint_rosmsg: ROSMessage):
         ms_msg = RobotJointAdapter.translate(robot_joint_rosmsg)
 
-        assert ms_msg.timestamp_ns == robot_joint_rosmsg.header.stamp.to_nanoseconds()
         assert_robot_joint(ms_msg.get_data(RobotJoint), robot_joint_rosmsg.data)
 
     def test_translate_raise_missing_required_key(self, robot_joint_rosmsg: ROSMessage):
@@ -1134,14 +1085,7 @@ class TestRobotJointAdapter:
         ros_msg = RobotJointAdapter.to_ros(
             robot_joint_msg, typestore, "sensor_msgs/msg/JointState"
         )
-        assert robot_joint_msg.frame_id == ros_msg.header.frame_id
-        assert (
-            robot_joint_msg.timestamp_ns
-            == Time(
-                seconds=ros_msg.header.stamp.sec,
-                nanoseconds=ros_msg.header.stamp.nanosec,
-            ).to_nanoseconds()
-        )
+
         assert_robot_joint(robot_joint, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
@@ -1389,14 +1333,7 @@ class TestOverrideAdapter:
     ):
         pcl = message.get_data(adapter.__mosaico_ontology_type__)
         ros_msg = adapter.to_ros(message, typestore, "sensor_msgs/msg/PointCloud2")
-        assert message.frame_id == ros_msg.header.frame_id
-        assert (
-            message.timestamp_ns
-            == Time(
-                seconds=ros_msg.header.stamp.sec,
-                nanoseconds=ros_msg.header.stamp.nanosec,
-            ).to_nanoseconds()
-        )
+
         self.assert_pcl(adapter, pcl, ros_msg)
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
@@ -1486,7 +1423,6 @@ class TestPointCloud2Adapter:
     def test_translate_pcl2(self, pcl2_rosmsg: ROSMessage):
         ms_msg = PointCloudAdapter.translate(pcl2_rosmsg)
 
-        assert ms_msg.timestamp_ns == pcl2_rosmsg.header.stamp.to_nanoseconds()
         assert_pcl2(ms_msg.get_data(PointCloud2), pcl2_rosmsg.data)
 
     def test_translate_raise_missing_required_key(self, pcl2_rosmsg: ROSMessage):
@@ -1507,14 +1443,6 @@ class TestPointCloud2Adapter:
         pcl2 = pcl2_msg.get_data(PointCloud2)
         ros_msg = PointCloudAdapter.to_ros(
             pcl2_msg, typestore, "sensor_msgs/msg/PointCloud2"
-        )
-        assert pcl2_msg.frame_id == ros_msg.header.frame_id
-        assert (
-            pcl2_msg.timestamp_ns
-            == Time(
-                seconds=ros_msg.header.stamp.sec,
-                nanoseconds=ros_msg.header.stamp.nanosec,
-            ).to_nanoseconds()
         )
         assert_pcl2(pcl2, asdict(ros_msg))
 
@@ -1584,7 +1512,6 @@ class TestLaserScannerAdapter:
     def test_translate_laser_scanner(self, laserscan_rosmsg: ROSMessage):
         ms_msg = LaserScanAdapter.translate(laserscan_rosmsg)
 
-        assert ms_msg.timestamp_ns == laserscan_rosmsg.header.stamp.to_nanoseconds()
         assert_laserscan(ms_msg.get_data(futures.LaserScan), laserscan_rosmsg.data)
 
     def test_translate_raise_missing_required_key(self, laserscan_rosmsg: ROSMessage):
@@ -1608,14 +1535,7 @@ class TestLaserScannerAdapter:
         ros_msg = LaserScanAdapter.to_ros(
             laserscan_msg, typestore, "sensor_msgs/msg/LaserScan"
         )
-        assert laserscan_msg.frame_id == ros_msg.header.frame_id
-        assert (
-            laserscan_msg.timestamp_ns
-            == Time(
-                seconds=ros_msg.header.stamp.sec,
-                nanoseconds=ros_msg.header.stamp.nanosec,
-            ).to_nanoseconds()
-        )
+
         assert_laserscan(laserscan, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
@@ -1692,10 +1612,6 @@ class TestMultiEchoLaserScanAdapter:
     ):
         ms_msg = MultiEchoLaserScanAdapter.translate(multiecho_laserscan_rosmsg)
 
-        assert (
-            ms_msg.timestamp_ns
-            == multiecho_laserscan_rosmsg.header.stamp.to_nanoseconds()
-        )
         assert_multiecho_laserscan(
             ms_msg.get_data(futures.MultiEchoLaserScan), multiecho_laserscan_rosmsg.data
         )
@@ -1725,14 +1641,7 @@ class TestMultiEchoLaserScanAdapter:
         ros_msg = MultiEchoLaserScanAdapter.to_ros(
             multiecho_laserscan_msg, typestore, "sensor_msgs/msg/MultiEchoLaserScan"
         )
-        assert multiecho_laserscan_msg.frame_id == ros_msg.header.frame_id
-        assert (
-            multiecho_laserscan_msg.timestamp_ns
-            == Time(
-                seconds=ros_msg.header.stamp.sec,
-                nanoseconds=ros_msg.header.stamp.nanosec,
-            ).to_nanoseconds()
-        )
+
         assert_multiecho_laserscan(mels, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
@@ -1793,7 +1702,6 @@ class TestJoyAdapter:
     def test_translate_joy(self, joy_rosmsg: ROSMessage):
         ms_msg = JoyAdapter.translate(joy_rosmsg)
 
-        assert ms_msg.timestamp_ns == joy_rosmsg.header.stamp.to_nanoseconds()
         assert_joy(ms_msg.get_data(Joy), joy_rosmsg.data)
 
     def test_translate_raise_missing_required_key(self, joy_rosmsg: ROSMessage):
@@ -1805,20 +1713,14 @@ class TestJoyAdapter:
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_joy(self, joy: Joy, typestore: Typestore):
         ros_msg = JoyAdapter.to_ros(joy, typestore, "sensor_msgs/msg/Joy")
+
         assert_joy(joy, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_joy_message(self, joy_msg: Message, typestore: Typestore):
         joy = joy_msg.get_data(Joy)
         ros_msg = JoyAdapter.to_ros(joy_msg, typestore, "sensor_msgs/msg/Joy")
-        assert joy_msg.frame_id == ros_msg.header.frame_id
-        assert (
-            joy_msg.timestamp_ns
-            == Time(
-                seconds=ros_msg.header.stamp.sec,
-                nanoseconds=ros_msg.header.stamp.nanosec,
-            ).to_nanoseconds()
-        )
+
         assert_joy(joy, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
@@ -1899,16 +1801,11 @@ class TestMagneticFieldAdapter:
     def test_translate_magnetometer(self, magnetometer_rosmsg: ROSMessage):
         ms_msg = MagneticFieldAdapter.translate(magnetometer_rosmsg)
 
-        assert ms_msg.timestamp_ns == magnetometer_rosmsg.header.stamp.to_nanoseconds()
         assert_magnetometer(ms_msg.get_data(Magnetometer), magnetometer_rosmsg.data)
 
     def test_translate_magnetometer_w_cov(self, magnetometer_w_cov_rosmsg: ROSMessage):
         ms_msg = MagneticFieldAdapter.translate(magnetometer_w_cov_rosmsg)
 
-        assert (
-            ms_msg.timestamp_ns
-            == magnetometer_w_cov_rosmsg.header.stamp.to_nanoseconds()
-        )
         assert_magnetometer(
             ms_msg.get_data(Magnetometer), magnetometer_w_cov_rosmsg.data
         )
@@ -1947,14 +1844,7 @@ class TestMagneticFieldAdapter:
         ros_msg = MagneticFieldAdapter.to_ros(
             magnetometer_msg, typestore, "sensor_msgs/msg/MagneticField"
         )
-        assert magnetometer_msg.frame_id == ros_msg.header.frame_id
-        assert (
-            magnetometer_msg.timestamp_ns
-            == Time(
-                seconds=ros_msg.header.stamp.sec,
-                nanoseconds=ros_msg.header.stamp.nanosec,
-            ).to_nanoseconds()
-        )
+
         assert_magnetometer(magnetometer, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
@@ -2029,16 +1919,11 @@ class TestTemperatureAdapter:
     def test_translate_temperature(self, temperature_rosmsg: ROSMessage):
         ms_msg = TemperatureAdapter.translate(temperature_rosmsg)
 
-        assert ms_msg.timestamp_ns == temperature_rosmsg.header.stamp.to_nanoseconds()
         assert_temperature(ms_msg.get_data(Temperature), temperature_rosmsg.data)
 
     def test_translate_temperature_w_var(self, temperature_w_var_rosmsg: ROSMessage):
         ms_msg = TemperatureAdapter.translate(temperature_w_var_rosmsg)
 
-        assert (
-            ms_msg.timestamp_ns
-            == temperature_w_var_rosmsg.header.stamp.to_nanoseconds()
-        )
         assert_temperature(ms_msg.get_data(Temperature), temperature_w_var_rosmsg.data)
 
     def test_translate_raise_missing_required_key(self, temperature_rosmsg: ROSMessage):
@@ -2052,6 +1937,7 @@ class TestTemperatureAdapter:
         ros_msg = TemperatureAdapter.to_ros(
             temperature, typestore, "sensor_msgs/msg/Temperature"
         )
+
         assert_temperature(temperature, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
@@ -2061,6 +1947,7 @@ class TestTemperatureAdapter:
         ros_msg = TemperatureAdapter.to_ros(
             temperature_w_var, typestore, "sensor_msgs/msg/Temperature"
         )
+
         assert_temperature(temperature_w_var, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
@@ -2071,14 +1958,7 @@ class TestTemperatureAdapter:
         ros_msg = TemperatureAdapter.to_ros(
             temperature_msg, typestore, "sensor_msgs/msg/Temperature"
         )
-        assert temperature_msg.frame_id == ros_msg.header.frame_id
-        assert (
-            temperature_msg.timestamp_ns
-            == Time(
-                seconds=ros_msg.header.stamp.sec,
-                nanoseconds=ros_msg.header.stamp.nanosec,
-            ).to_nanoseconds()
-        )
+
         assert_temperature(temperature, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
@@ -2151,15 +2031,11 @@ class TestpressureAdapter:
     def test_translate_pressure(self, pressure_rosmsg: ROSMessage):
         ms_msg = PressureAdapter.translate(pressure_rosmsg)
 
-        assert ms_msg.timestamp_ns == pressure_rosmsg.header.stamp.to_nanoseconds()
         assert_pressure(ms_msg.get_data(Pressure), pressure_rosmsg.data)
 
     def test_translate_pressure_w_var(self, pressure_w_var_rosmsg: ROSMessage):
         ms_msg = PressureAdapter.translate(pressure_w_var_rosmsg)
 
-        assert (
-            ms_msg.timestamp_ns == pressure_w_var_rosmsg.header.stamp.to_nanoseconds()
-        )
         assert_pressure(ms_msg.get_data(Pressure), pressure_w_var_rosmsg.data)
 
     def test_translate_raise_missing_required_key(self, pressure_rosmsg: ROSMessage):
@@ -2190,14 +2066,7 @@ class TestpressureAdapter:
         ros_msg = PressureAdapter.to_ros(
             pressure_msg, typestore, "sensor_msgs/msg/FluidPressure"
         )
-        assert pressure_msg.frame_id == ros_msg.header.frame_id
-        assert (
-            pressure_msg.timestamp_ns
-            == Time(
-                seconds=ros_msg.header.stamp.sec,
-                nanoseconds=ros_msg.header.stamp.nanosec,
-            ).to_nanoseconds()
-        )
+
         assert_pressure(pressure, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)

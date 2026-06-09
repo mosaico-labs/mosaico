@@ -32,7 +32,7 @@ from mosaicolabs.models.data import (
 from ..adapter_base import ROSAdapterBase
 from ..ros_bridge import register_default_adapter
 from ..ros_message import ROSMessage
-from .helpers import _is_valid_covariance, _validate_msgdata
+from .helpers import _is_valid_covariance, _is_valid_header, _validate_msgdata
 from .std_msgs import HeaderAdapter
 
 
@@ -159,7 +159,7 @@ class PoseAdapter(ROSAdapterBase[Pose]):
             # While unwinding recursion, attach metadata found at this level
             out_pose.header = (
                 HeaderAdapter.from_dict(ros_data["header"])
-                if ros_data.get("header")
+                if _is_valid_header(ros_data.get("header"))
                 else None
             )
 
@@ -377,7 +377,7 @@ class TwistAdapter(ROSAdapterBase[Velocity]):
             # While unwinding recursion, attach metadata found at this level
             out_twist.header = (
                 HeaderAdapter.from_dict(ros_data["header"])
-                if ros_data.get("header")
+                if _is_valid_header(ros_data.get("header"))
                 else None
             )
 
@@ -602,7 +602,7 @@ class AccelAdapter(ROSAdapterBase[Acceleration]):
             # While unwinding recursion, attach metadata found at this level
             out_accel.header = (
                 HeaderAdapter.from_dict(ros_data["header"])
-                if ros_data.get("header")
+                if _is_valid_header(ros_data.get("header"))
                 else None
             )
 
@@ -812,7 +812,7 @@ class Vector3Adapter(ROSAdapterBase[Vector3d]):
             # Apply metadata
             out_vec3.header = (
                 HeaderAdapter.from_dict(ros_data["header"])
-                if ros_data.get("header")
+                if _is_valid_header(ros_data.get("header"))
                 else None
             )
 
@@ -990,7 +990,7 @@ class PointAdapter(ROSAdapterBase[Point3d]):
             # While unwinding recursion, attach metadata found at this level
             out_point.header = (
                 HeaderAdapter.from_dict(ros_data["header"])
-                if ros_data.get("header")
+                if _is_valid_header(ros_data.get("header"))
                 else None
             )
 
@@ -1165,7 +1165,7 @@ class QuaternionAdapter(ROSAdapterBase[Quaternion]):
             # While unwinding recursion, attach metadata found at this level
             out_quat.header = (
                 HeaderAdapter.from_dict(ros_data["header"])
-                if ros_data.get("header")
+                if _is_valid_header(ros_data.get("header"))
                 else None
             )
 
@@ -1347,7 +1347,7 @@ class TransformAdapter(ROSAdapterBase[Transform]):
             # While unwinding recursion, attach metadata found at this level
             ms_header = (
                 HeaderAdapter.from_dict(ros_data["header"])
-                if ros_data.get("header")
+                if _is_valid_header(ros_data.get("header"))
                 else None
             )
             out_transf.header = ms_header
@@ -1355,7 +1355,10 @@ class TransformAdapter(ROSAdapterBase[Transform]):
                 # Notice that header frame_id coincides with the Transform reference frame
                 out_transf.source_frame_id = ms_header.frame_id
 
-            out_transf.target_frame_id = ros_data.get("child_frame_id")
+            child_frame_id = ros_data.get("child_frame_id")
+            if child_frame_id and child_frame_id != "":
+                out_transf.target_frame_id = child_frame_id
+
             return out_transf
 
         # Base Case: Leaf node
@@ -1407,12 +1410,14 @@ class TransformAdapter(ROSAdapterBase[Transform]):
         transform_data, ms_header = cls.unpack_mosaico_msg(mosaico_data)
 
         # Filling the data
-        if ms_header.frame_id != transform_data.source_frame_id:
+        if (
+            transform_data.source_frame_id
+            and ms_header.frame_id != transform_data.source_frame_id
+        ):
             raise ValueError(
-                f"Missmatch between header frame_id: {ms_header.frame_id or ''} and source_frame_id: {transform_data.source_frame_id or ''} in transform!"
+                f"Missmatch between header frame_id: {ms_header.frame_id} and source_frame_id: {transform_data.source_frame_id or ''} in transform!"
             )
 
-        ms_header.frame_id = transform_data.source_frame_id or ""
         target_frame_id = transform_data.target_frame_id or ""
 
         RosTransform = typestore.types["geometry_msgs/msg/Transform"]
@@ -1531,7 +1536,7 @@ class WrenchAdapter(ROSAdapterBase[ForceTorque]):
             # While unwinding recursion, attach metadata found at this level
             out_ft.header = (
                 HeaderAdapter.from_dict(ros_data["header"])
-                if ros_data.get("header")
+                if _is_valid_header(ros_data.get("header"))
                 else None
             )
 
@@ -1696,7 +1701,7 @@ class PolygonAdapter(ROSAdapterBase[Polygon]):
             # While unwinding recursion, attach metadata found at this level
             out_poly.header = (
                 HeaderAdapter.from_dict(ros_data["header"])
-                if ros_data.get("header")
+                if _is_valid_header(ros_data.get("header"))
                 else None
             )
 
@@ -1877,7 +1882,7 @@ class InertiaAdapter(ROSAdapterBase[Inertia]):
             # While unwinding recursion, attach metadata found at this level
             out_inertia.header = (
                 HeaderAdapter.from_dict(ros_data["header"])
-                if ros_data.get("header")
+                if _is_valid_header(ros_data.get("header"))
                 else None
             )
 
