@@ -5,5 +5,5 @@
 //! server process. It owns the [`Server`] struct that binds both services to their
 //! configured addresses, spawns the background cleanup task, and coordinates
 //! graceful shutdown through a shared [`ShutdownNotifier`](mosaicod_grpc_common::ShutdownNotifier).
-pub mod server;
-pub use server::Server;
+mod server;
+pub use server::*;

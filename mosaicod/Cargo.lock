@@ -2591,7 +2591,6 @@ dependencies = [
  "mosaicod-db",
  "mosaicod-facade",
  "mosaicod-grpc",
- "mosaicod-grpc-flight",
  "mosaicod-query",
  "mosaicod-store",
  "signal-hook",
@@ -2678,13 +2677,17 @@ dependencies = [
 name = "mosaicod-grpc"
 version = "0.6.0-dev"
 dependencies = [
+ "arrow-flight",
  "mosaicod-core",
  "mosaicod-db",
+ "mosaicod-ext",
  "mosaicod-grpc-common",
  "mosaicod-grpc-flight",
  "mosaicod-store",
  "mosaicod-task",
  "tokio",
+ "tonic",
+ "tower",
  "tracing",
 ]
 
@@ -2740,7 +2743,6 @@ dependencies = [
  "tokio",
  "tokio-stream",
  "tonic",
- "tower",
  "tracing",
 ]
 

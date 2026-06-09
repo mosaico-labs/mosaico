@@ -4,8 +4,8 @@ use mosaicod_core::params;
 use mosaicod_core::types;
 use mosaicod_db as db;
 use mosaicod_facade as facade;
+use mosaicod_grpc as grpc;
 use mosaicod_grpc_common as grpc_common;
-use mosaicod_grpc_flight as grpc_flight;
 use mosaicod_query as query;
 use mosaicod_store as store;
 use mosaicod_task as task;
@@ -47,7 +47,7 @@ pub struct CleanupIntervalConfig {
 
 pub struct ServerBuilder {
     host: String,
-    tls: Option<grpc_flight::TlsConfig>,
+    tls: Option<grpc::TlsConfig>,
     cleanup_config: Option<CleanupIntervalConfig>,
     db: db::testing::Database,
     enable_api_key: bool,
@@ -80,7 +80,7 @@ impl ServerBuilder {
     }
 
     pub fn enable_tls(mut self) -> Self {
-        self.tls = Some(grpc_flight::TlsConfig {
+        self.tls = Some(grpc::TlsConfig {
             certificate_file: TLS_CERT_FILE.to_owned().into(),
             private_key_file: TLS_PRIVATE_KEY_FILE.to_owned().into(),
         });
@@ -88,7 +88,7 @@ impl ServerBuilder {
     }
 
     pub fn enable_tls_with(mut self, cert: &str, private_key: &str) -> Self {
-        self.tls = Some(grpc_flight::TlsConfig {
+        self.tls = Some(grpc::TlsConfig {
             certificate_file: cert.to_owned().into(),
             private_key_file: private_key.to_owned().into(),
         });
@@ -122,14 +122,14 @@ impl ServerBuilder {
             tcp_listner.local_addr().unwrap().port()
         };
 
-        let mut config = grpc_flight::Config::new(self.host.to_owned(), port);
+        let mut opts = grpc::Options::new(self.host.to_owned(), port);
 
         if let Some(tls) = self.tls {
-            config.tls(tls);
+            opts.tls(tls);
         }
 
         if self.enable_api_key {
-            config.enable_api_key_management();
+            opts.enable_api_key_management();
         }
 
         let shutdown = grpc_common::ShutdownNotifier::default();
@@ -166,7 +166,7 @@ impl ServerBuilder {
             let db = db.clone();
 
             async move {
-                if let Err(err) = grpc_flight::start(config, store, db, Some(shutdown)).await {
+                if let Err(err) = grpc::serve(store, db, opts, Some(shutdown)).await {
                     panic!("flight server error: {}", err);
                 }
                 println!("server stopped");

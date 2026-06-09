@@ -14,7 +14,6 @@ mosaicod-db = { workspace = true }
 mosaicod-store = { workspace = true }
 mosaicod-facade = {workspace = true}
 mosaicod-grpc = { workspace = true }
-mosaicod-grpc-flight = { workspace = true }
 mosaicod-query = { workspace = true }
 
 clap = { workspace = true }

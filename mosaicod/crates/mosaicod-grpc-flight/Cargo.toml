@@ -28,7 +28,6 @@ tonic = { workspace = true }
 arrow-flight = { workspace = true }
 arrow = { workspace = true }
 semver = { workspace = true }
-tower = { workspace = true }
 tracing = { workspace = true }
 datafusion = { workspace = true }
 
