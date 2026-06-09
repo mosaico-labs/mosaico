@@ -1,3 +1,4 @@
+import click
 import os
 import shutil
 import subprocess
@@ -16,22 +17,24 @@ app = typer.Typer(no_args_is_help=True)
 class MosaicoRouter(TyperGroup):
     """Custom TyperGroup to dynamically discover and execute external plugins."""
     
-    def get_command(self, ctx: typer.Context, cmd_name: str):
+    def get_command(self, ctx, cmd_name: str):
         core_cmd = super().get_command(ctx, cmd_name)
         if core_cmd is not None:
             return core_cmd
         
         ext_binary = f"mosaico-{cmd_name}"
         if shutil.which(ext_binary):
-            @typer.command(
+            @click.command(
                 name=cmd_name,
                 context_settings=dict(
                     ignore_unknown_options=True,
                     allow_extra_args=True,
-                )
+                    allow_interspersed_args=False,
+                ),
+                add_help_option=False,
             )
-            @typer.pass_context
-            def dynamic_extension(sub_ctx: typer.Context):
+            @click.pass_context
+            def dynamic_extension(sub_ctx):
                 args = sub_ctx.args
                 try:
                     result = subprocess.run([ext_binary] + args)
