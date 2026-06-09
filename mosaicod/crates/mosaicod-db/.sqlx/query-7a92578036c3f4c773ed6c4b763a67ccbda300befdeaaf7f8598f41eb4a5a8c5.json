@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT * FROM session_t WHERE locator_name=$1",
+  "query": "SELECT * FROM session_t WHERE locator_name=$1 FOR SHARE",
   "describe": {
     "columns": [
       {
@@ -48,5 +48,5 @@
       true
     ]
   },
-  "hash": "5f543617fa4527f3d71e6f61d4723ed185e7b0b2c053698bfa8a106e4d4898c2"
+  "hash": "7a92578036c3f4c773ed6c4b763a67ccbda300befdeaaf7f8598f41eb4a5a8c5"
 }

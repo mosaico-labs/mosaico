@@ -49,7 +49,7 @@ pub async fn topic_find_by_locator(
     trace!("searching topic by locator name `{}`", topic);
     let res = sqlx::query_as!(
         schema::TopicRecord,
-        "SELECT * FROM topic_t WHERE locator_name=$1",
+        "SELECT * FROM topic_t WHERE locator_name=$1 FOR SHARE",
         topic.to_string()
     )
     .fetch_one(exe.as_exec())
@@ -65,7 +65,7 @@ pub async fn topic_find_by_uuid(
     trace!("searching by resource UUID `{}`", uuid);
     let res = sqlx::query_as!(
         schema::TopicRecord,
-        "SELECT * FROM topic_t WHERE topic_uuid=$1",
+        "SELECT * FROM topic_t WHERE topic_uuid=$1 FOR SHARE",
         uuid.as_ref()
     )
     .fetch_one(exe.as_exec())
@@ -81,7 +81,7 @@ pub async fn topic_find_by_id(
     trace!("searching topic by id `{}`", topic_id);
     let res = sqlx::query_as!(
         schema::TopicRecord,
-        "SELECT * FROM topic_t WHERE topic_id=$1",
+        "SELECT * FROM topic_t WHERE topic_id=$1 FOR SHARE",
         topic_id
     )
     .fetch_one(exe.as_exec())

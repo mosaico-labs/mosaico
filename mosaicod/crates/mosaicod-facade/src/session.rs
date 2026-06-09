@@ -99,7 +99,8 @@ pub async fn finalize(context: &Context, handle: &Handle) -> Result<()> {
     // Return an error if session has already been finalized.
     // Note: here two concurrent finalized could pass this check,
     // that's why we need later to update the completion timestamp if not already present atomically.
-    if db::session_finalized(&mut tx, handle.id()).await? {
+    let session_record = db::session_find_by_id(&mut tx, handle.id()).await?;
+    if session_record.completion_timestamp().is_some() {
         Err(core::Error::session_already_finalized(
             handle.locator().to_string(),
         ))?;
@@ -116,7 +117,7 @@ pub async fn finalize(context: &Context, handle: &Handle) -> Result<()> {
     let mut topic_not_finalized = None;
 
     for handle in &topics {
-        let status = topic::status(context, handle).await?;
+        let status = topic::impl_status(handle, &mut tx).await?;
         if status != topic::Status::Finalized {
             topic_not_finalized = Some((handle.locator(), status));
             break;

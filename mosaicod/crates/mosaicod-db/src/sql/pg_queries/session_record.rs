@@ -39,7 +39,7 @@ pub async fn session_find_by_id(
     trace!("searching session by id `{}`", id);
     let res = sqlx::query_as!(
         schema::SessionRecord,
-        "SELECT * FROM session_t WHERE session_id=$1",
+        "SELECT * FROM session_t WHERE session_id=$1 FOR SHARE",
         id
     )
     .fetch_one(exe.as_exec())
@@ -55,7 +55,7 @@ pub async fn session_find_by_uuid(
     trace!("searching session by uuid `{}`", uuid);
     let res = sqlx::query_as!(
         schema::SessionRecord,
-        "SELECT * FROM session_t WHERE session_uuid=$1",
+        "SELECT * FROM session_t WHERE session_uuid=$1 FOR SHARE",
         uuid.as_ref()
     )
     .fetch_one(exe.as_exec())
@@ -71,24 +71,12 @@ pub async fn session_find_by_locator(
     trace!("searching session by locator name `{}`", session_locator);
     let res = sqlx::query_as!(
         schema::SessionRecord,
-        "SELECT * FROM session_t WHERE locator_name=$1",
+        "SELECT * FROM session_t WHERE locator_name=$1 FOR SHARE",
         session_locator.to_string()
     )
     .fetch_one(exe.as_exec())
     .await?;
     Ok(res)
-}
-
-/// Returns true if the session has already been finalized.
-pub async fn session_finalized(exe: &mut impl AsExec, session_id: i32) -> Result<bool, Error> {
-    trace!("session (id=`{}`) locked? ", session_id);
-    let finalized = sqlx::query_scalar!(
-        r#"SELECT (completion_unix_tstamp IS NOT NULL) AS "finalized!" FROM session_t WHERE session_id=$1"#,
-        session_id
-    )
-        .fetch_one(exe.as_exec())
-        .await?;
-    Ok(finalized)
 }
 
 /// Deletes a session record from the database by its name, **bypassing any lock state**.

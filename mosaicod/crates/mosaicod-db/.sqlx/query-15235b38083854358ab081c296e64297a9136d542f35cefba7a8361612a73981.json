@@ -1,16 +1,16 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT * FROM session_t WHERE session_uuid=$1",
+  "query": "SELECT * FROM sequence_t WHERE locator_name=$1 FOR SHARE",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "session_id",
+        "name": "sequence_id",
         "type_info": "Int4"
       },
       {
         "ordinal": 1,
-        "name": "session_uuid",
+        "name": "sequence_uuid",
         "type_info": "Uuid"
       },
       {
@@ -20,33 +20,33 @@
       },
       {
         "ordinal": 3,
-        "name": "sequence_id",
-        "type_info": "Int4"
+        "name": "user_metadata",
+        "type_info": "Jsonb"
       },
       {
         "ordinal": 4,
-        "name": "creation_unix_tstamp",
-        "type_info": "Int8"
+        "name": "path_in_store",
+        "type_info": "Text"
       },
       {
         "ordinal": 5,
-        "name": "completion_unix_tstamp",
+        "name": "creation_unix_tstamp",
         "type_info": "Int8"
       }
     ],
     "parameters": {
       "Left": [
-        "Uuid"
+        "Text"
       ]
     },
     "nullable": [
       false,
       false,
       false,
+      true,
       false,
-      false,
-      true
+      false
     ]
   },
-  "hash": "a821bbc94386890c4d65877c05e05a255d7598065ee314052ae39775eb78c9e3"
+  "hash": "15235b38083854358ab081c296e64297a9136d542f35cefba7a8361612a73981"
 }
