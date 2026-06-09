@@ -33,6 +33,7 @@ class CameraInfo(Serializable, HeaderMixin):
         projection_parameters: The 3x4 Projection Matrix (P) flattened row-major.
         binning: Hardware binning factor (x, y). If null, assumes (0, 0) (no binning).
         roi: Region of Interest. Used if the image is a sub-crop of the full resolution.
+        header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
     This class is fully queryable via the **`.Q` proxy**. You can filter camera data based

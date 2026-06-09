@@ -506,13 +506,16 @@ def assert_pressure(pressure: Pressure, ros_msg):
 
 def assert_path(path: RobotPath, ros_msg):
 
-    assert path.path_frame == ros_msg["header"]["frame_id"]
+    assert_header(path.header, ros_msg["header"])
 
     for pose, pose_stamped_ros in zip(path.poses, ros_msg["poses"]):
         assert_pose(pose, pose_stamped_ros["pose"])
 
 
 def assert_grid_cells(grid_cells: GridCells, ros_msg: dict):
+
+    assert_header(grid_cells.header, ros_msg["header"])
+
     assert grid_cells.cell_width == ros_msg["cell_width"]
     assert grid_cells.cell_height == ros_msg["cell_height"]
     for cell, ros_cell in zip(grid_cells.cells, ros_msg["cells"]):
@@ -522,11 +525,8 @@ def assert_grid_cells(grid_cells: GridCells, ros_msg: dict):
 
 
 def assert_map_metadata(map_metadata: MapMetadata, ros_msg: dict):
-    expected_time = Time(
-        seconds=ros_msg["map_load_time"]["sec"],
-        nanoseconds=ros_msg["map_load_time"]["nanosec"],
-    ).to_nanoseconds()
-    assert map_metadata.map_load_time == expected_time
+    assert map_metadata.map_load_time.seconds == ros_msg["map_load_time"]["sec"]
+    assert map_metadata.map_load_time.nanoseconds == ros_msg["map_load_time"]["nanosec"]
     assert map_metadata.resolution == ros_msg["resolution"]
     assert map_metadata.width == ros_msg["width"]
     assert map_metadata.height == ros_msg["height"]
@@ -534,5 +534,7 @@ def assert_map_metadata(map_metadata: MapMetadata, ros_msg: dict):
 
 
 def assert_occupancy_grid(occupancy_grid: OccupancyGrid, ros_msg: dict):
+
+    assert_header(occupancy_grid.header, ros_msg["header"])
     assert_map_metadata(occupancy_grid.info, ros_msg["info"])
     assert list(occupancy_grid.data) == list(ros_msg["data"])

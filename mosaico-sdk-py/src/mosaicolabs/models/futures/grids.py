@@ -24,6 +24,7 @@ class GridCells(
         cell_height: A `MosaicoType.float32` that represents the width of each cell.
         cells: A `MosaicoType.list_(Point2d)` that represents the center point of
             each cell.
+        header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
     This class is partially queryable via the **`.Q` proxy**. You can filter grid cells data based
@@ -470,6 +471,7 @@ class OccupancyGrid(
     Attributes:
         info: A `MapMetadata` describing the occupancy grid.
         data: A `MosaicoType.list_(MosaicoType.int8)` representing data contained in the occupancy grid.
+        header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
     This class is parrtially queryable via the **`.Q` proxy**. You can filter occupancy grid data based

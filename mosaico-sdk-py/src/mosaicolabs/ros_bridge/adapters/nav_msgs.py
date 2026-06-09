@@ -629,7 +629,9 @@ class MapMetadataAdapter(ROSAdapterBase[MapMetadata]):
 
         if resolved_rosmsg_type == "nav_msgs/msg/MapMetaData":
             return RosMapMetadata(
-                map_load_time=TimeAdapter.to_ros(map_metadata_data.map_load_time),
+                map_load_time=TimeAdapter.to_ros(
+                    map_metadata_data.map_load_time, typestore
+                ),
                 resolution=map_metadata_data.resolution,
                 width=map_metadata_data.width,
                 height=map_metadata_data.height,

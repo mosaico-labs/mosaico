@@ -121,7 +121,7 @@ class ROSAdapterBase(ABC, Generic[T]):
         - **``Message`` wrapper**: the typed data is extracted via ``get_data()``.
         - **Raw ontology instance**: returned as-is with
 
-        the ``Header`` is extracted from the message's payload if it contains it, otherwise a empty Header (no frame_id a zero time) is returned.
+        the ``Header`` is extracted from the ontology (if supported), otherwise an default Header (empty `frame_id` and zero `Time`) is returned.
 
         Args:
             mosaico_msg: Either a ``Message`` envelope or a raw instance of

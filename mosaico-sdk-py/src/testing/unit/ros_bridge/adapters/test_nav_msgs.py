@@ -177,7 +177,19 @@ def path_rosmsg(ros_header, robot_path: RobotPath):
             "poses": [
                 {
                     "header": ros_header,
-                    "pose": pose.model_dump(exclude={"covariance", "covariance_type"}),
+                    "pose": {
+                        "position": {
+                            "x": pose.position.x,
+                            "y": pose.position.y,
+                            "z": pose.position.z,
+                        },
+                        "orientation": {
+                            "x": pose.orientation.x,
+                            "y": pose.orientation.y,
+                            "z": pose.orientation.z,
+                            "w": pose.orientation.w,
+                        },
+                    },
                 }
                 for pose in robot_path.poses
             ],
@@ -198,7 +210,6 @@ class TestRobotPathAdapter:
     def test_translate_path(self, path_rosmsg: ROSMessage):
         ms_msg = RobotPathAdapter.translate(path_rosmsg)
 
-        assert ms_msg.timestamp_ns == path_rosmsg.header.stamp.to_nanoseconds()
         assert_path(ms_msg.get_data(RobotPath), path_rosmsg.data)
 
     def test_translate_raise_missing_required_key(self, path_rosmsg: ROSMessage):
@@ -217,14 +228,6 @@ class TestRobotPathAdapter:
         path = path_msg.get_data(RobotPath)
         ros_msg = RobotPathAdapter.to_ros(path_msg, typestore, "nav_msgs/msg/Path")
 
-        assert (
-            path_msg.timestamp_ns
-            == Time(
-                seconds=ros_msg.header.stamp.sec,
-                nanoseconds=ros_msg.header.stamp.nanosec,
-            ).to_nanoseconds()
-        )
-        assert path_msg.frame_id == ros_msg.header.frame_id
         assert_path(path, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
@@ -289,7 +292,6 @@ class TestGridCellsAdapter:
     def test_translate_grid_cells(self, grid_cells_rosmsg: ROSMessage):
         gc_msg = GridCellsAdapter.translate(grid_cells_rosmsg)
 
-        assert gc_msg.timestamp_ns == grid_cells_rosmsg.header.stamp.to_nanoseconds()
         assert_grid_cells(gc_msg.get_data(GridCells), grid_cells_rosmsg.data)
 
     def test_translate_raise_missing_required_key(self, grid_cells_rosmsg: ROSMessage):
@@ -314,14 +316,6 @@ class TestGridCellsAdapter:
             grid_cells_msg, typestore, "nav_msgs/msg/GridCells"
         )
 
-        assert (
-            grid_cells_msg.timestamp_ns
-            == Time(
-                seconds=ros_msg.header.stamp.sec,
-                nanoseconds=ros_msg.header.stamp.nanosec,
-            ).to_nanoseconds()
-        )
-        assert grid_cells_msg.frame_id == ros_msg.header.frame_id
         assert_grid_cells(grid_cells, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
@@ -350,7 +344,7 @@ class TestGridCellsAdapter:
 @pytest.fixture
 def map_metadata(pose):
     return MapMetadata(
-        map_load_time=Time(seconds=100000, nanoseconds=1000).to_nanoseconds(),
+        map_load_time=Time(seconds=100000, nanoseconds=1000),
         resolution=0.05,
         width=100,
         height=100,
@@ -399,8 +393,6 @@ class TestMapMetadataAdapter:
     def test_translate_map_metadata(self, map_metadata_rosmsg: ROSMessage):
         mm_msg = MapMetadataAdapter.translate(map_metadata_rosmsg)
 
-        # nav_msgs/msg/MapMetaData has no header; timestamp falls back to bag_timestamp_ns
-        assert mm_msg.timestamp_ns == map_metadata_rosmsg.bag_timestamp_ns
         assert_map_metadata(mm_msg.get_data(MapMetadata), map_metadata_rosmsg.data)
 
     def test_translate_raise_missing_required_key(
@@ -426,7 +418,6 @@ class TestMapMetadataAdapter:
         ros_msg = MapMetadataAdapter.to_ros(
             map_metadata_msg, typestore, "nav_msgs/msg/MapMetaData"
         )
-        # nav_msgs/msg/MapMetaData has no header; Message timestamp/frame_id are not propagated
         assert_map_metadata(map_metadata, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
@@ -503,9 +494,6 @@ class TestOccupancyGridAdapter:
     def test_translate_occupancy_grid(self, occupancy_grid_rosmsg: ROSMessage):
         og_msg = OccupancyGridAdapter.translate(occupancy_grid_rosmsg)
 
-        assert (
-            og_msg.timestamp_ns == occupancy_grid_rosmsg.header.stamp.to_nanoseconds()
-        )
         assert_occupancy_grid(
             og_msg.get_data(OccupancyGrid), occupancy_grid_rosmsg.data
         )
@@ -535,14 +523,6 @@ class TestOccupancyGridAdapter:
         ros_msg = OccupancyGridAdapter.to_ros(
             occupancy_grid_msg, typestore, "nav_msgs/msg/OccupancyGrid"
         )
-        assert (
-            occupancy_grid_msg.timestamp_ns
-            == Time(
-                seconds=ros_msg.header.stamp.sec,
-                nanoseconds=ros_msg.header.stamp.nanosec,
-            ).to_nanoseconds()
-        )
-        assert occupancy_grid_msg.frame_id == ros_msg.header.frame_id
         assert_occupancy_grid(occupancy_grid, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
