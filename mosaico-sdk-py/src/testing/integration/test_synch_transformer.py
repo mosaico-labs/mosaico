@@ -76,7 +76,8 @@ def test_sync_unbounded(
                 | synched_df.columns.str.contains("acceleration")
             )
             & ~synched_df.columns.str.contains("_id")
-            & ~synched_df.columns.str.contains("recording_timestamp_ns")
+            & ~synched_df.columns.str.contains("header.timestamp")
+            & ~synched_df.columns.str.contains("header.sample_counter")
             & ~synched_df.columns.str.contains("variance")
         )
         selected = synched_df.loc[:, val_cols]
