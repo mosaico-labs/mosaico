@@ -4,7 +4,6 @@ import pytest
 from rosbags.typesys.stores import Stores, Typestore, get_typestore
 
 from mosaicolabs import (
-    Message,
     MotionState,
     Pose,
     RobotPath,
@@ -67,7 +66,7 @@ def motion_state(pose, velocity):
 
 
 @pytest.fixture
-def motion_state_rosmsg(ros_header, motion_state: MotionState):
+def motion_state_rosmsg(ros_header):
     return ROSMessage(
         bag_timestamp_ns=100,
         topic="/odometry",
@@ -94,12 +93,9 @@ def motion_state_rosmsg(ros_header, motion_state: MotionState):
 
 
 @pytest.fixture
-def motion_state_msg(motion_state):
-    return Message(
-        data=motion_state,
-        timestamp_ns=100,
-        frame_id="base_link",
-    )
+def motion_state_w_header(motion_state, ms_header):
+    motion_state.header = ms_header
+    return motion_state
 
 
 class TestOdometryAdapter:
@@ -125,12 +121,11 @@ class TestOdometryAdapter:
         assert_motion_state(motion_state, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
-    def test_to_ros_motion_state_message(
-        self, motion_state_msg: Message, typestore: Typestore
+    def test_to_ros_motion_state_w_header(
+        self, motion_state: MotionState, typestore: Typestore
     ):
-        motion_state = motion_state_msg.get_data(MotionState)
         ros_msg = OdometryAdapter.to_ros(
-            motion_state_msg, typestore, "nav_msgs/msg/Odometry"
+            motion_state, typestore, "nav_msgs/msg/Odometry"
         )
 
         assert_motion_state(motion_state, asdict(ros_msg))
@@ -198,12 +193,9 @@ def path_rosmsg(ros_header, robot_path: RobotPath):
 
 
 @pytest.fixture
-def path_msg(robot_path):
-    return Message(
-        data=robot_path,
-        timestamp_ns=100,
-        frame_id="base_link",
-    )
+def path_w_header(robot_path, ms_header):
+    robot_path.header = ms_header
+    return robot_path
 
 
 class TestRobotPathAdapter:
@@ -224,11 +216,10 @@ class TestRobotPathAdapter:
         assert_path(robot_path, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
-    def test_to_ros_path_message(self, path_msg: Message, typestore: Typestore):
-        path = path_msg.get_data(RobotPath)
-        ros_msg = RobotPathAdapter.to_ros(path_msg, typestore, "nav_msgs/msg/Path")
+    def test_to_ros_path_w_header(self, path_w_header: RobotPath, typestore: Typestore):
+        ros_msg = RobotPathAdapter.to_ros(path_w_header, typestore, "nav_msgs/msg/Path")
 
-        assert_path(path, asdict(ros_msg))
+        assert_path(path_w_header, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_default_type(self, robot_path: RobotPath, typestore: Typestore):
@@ -263,12 +254,9 @@ def grid_cells(point3d):
 
 
 @pytest.fixture
-def grid_cells_msg(grid_cells):
-    return Message(
-        data=grid_cells,
-        timestamp_ns=100,
-        frame_id="base_link",
-    )
+def grid_cells_w_header(grid_cells, ms_header):
+    grid_cells.header = ms_header
+    return grid_cells
 
 
 @pytest.fixture
@@ -308,15 +296,14 @@ class TestGridCellsAdapter:
         assert_grid_cells(grid_cells, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
-    def test_to_ros_grid_cells_message(
-        self, grid_cells_msg: Message, typestore: Typestore
+    def test_to_ros_grid_cells_w_header(
+        self, grid_cells_w_header: GridCells, typestore: Typestore
     ):
-        grid_cells = grid_cells_msg.get_data(GridCells)
         ros_msg = GridCellsAdapter.to_ros(
-            grid_cells_msg, typestore, "nav_msgs/msg/GridCells"
+            grid_cells_w_header, typestore, "nav_msgs/msg/GridCells"
         )
 
-        assert_grid_cells(grid_cells, asdict(ros_msg))
+        assert_grid_cells(grid_cells_w_header, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_default_type(self, grid_cells: GridCells, typestore: Typestore):
@@ -349,15 +336,6 @@ def map_metadata(pose):
         width=100,
         height=100,
         origin=pose,
-    )
-
-
-@pytest.fixture
-def map_metadata_msg(map_metadata):
-    return Message(
-        data=map_metadata,
-        timestamp_ns=100,
-        frame_id="map",
     )
 
 
@@ -411,16 +389,6 @@ class TestMapMetadataAdapter:
         assert_map_metadata(map_metadata, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
-    def test_to_ros_map_metadata_message(
-        self, map_metadata_msg: Message, typestore: Typestore
-    ):
-        map_metadata = map_metadata_msg.get_data(MapMetadata)
-        ros_msg = MapMetadataAdapter.to_ros(
-            map_metadata_msg, typestore, "nav_msgs/msg/MapMetaData"
-        )
-        assert_map_metadata(map_metadata, asdict(ros_msg))
-
-    @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_default_type(self, map_metadata: MapMetadata, typestore: Typestore):
         ros_msg = MapMetadataAdapter.to_ros(map_metadata, typestore)
         assert_map_metadata(map_metadata, asdict(ros_msg))
@@ -450,12 +418,9 @@ def occupancy_grid(map_metadata):
 
 
 @pytest.fixture
-def occupancy_grid_msg(occupancy_grid):
-    return Message(
-        data=occupancy_grid,
-        timestamp_ns=100,
-        frame_id="map",
-    )
+def occupancy_grid_w_header(occupancy_grid, ms_header):
+    occupancy_grid.header = ms_header
+    return occupancy_grid
 
 
 @pytest.fixture
@@ -517,13 +482,12 @@ class TestOccupancyGridAdapter:
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_occupancy_grid_message(
-        self, occupancy_grid_msg: Message, typestore: Typestore
+        self, occupancy_grid_w_header: OccupancyGrid, typestore: Typestore
     ):
-        occupancy_grid = occupancy_grid_msg.get_data(OccupancyGrid)
         ros_msg = OccupancyGridAdapter.to_ros(
-            occupancy_grid_msg, typestore, "nav_msgs/msg/OccupancyGrid"
+            occupancy_grid_w_header, typestore, "nav_msgs/msg/OccupancyGrid"
         )
-        assert_occupancy_grid(occupancy_grid, asdict(ros_msg))
+        assert_occupancy_grid(occupancy_grid_w_header, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_default_type(

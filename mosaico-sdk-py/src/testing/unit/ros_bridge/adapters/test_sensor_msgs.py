@@ -117,12 +117,9 @@ def camera_info():
 
 
 @pytest.fixture
-def camera_info_msg(camera_info):
-    return Message(
-        data=camera_info,
-        timestamp_ns=100,
-        frame_id="base_link",
-    )
+def camera_info_w_header(camera_info, ms_header):
+    camera_info.header = ms_header
+    return camera_info
 
 
 @pytest.fixture
@@ -213,15 +210,14 @@ class TestCameraInfoAdapter:
         assert_camera_info(camera_info, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
-    def test_to_ros_camera_info_message(
-        self, camera_info_msg: Message, typestore: Typestore
+    def test_to_ros_camera_info_w_header(
+        self, camera_info_w_header: CameraInfo, typestore: Typestore
     ):
-        camera_info = camera_info_msg.get_data(CameraInfo)
         ros_msg = CameraInfoAdapter.to_ros(
-            camera_info_msg, typestore, "sensor_msgs/msg/CameraInfo"
+            camera_info_w_header, typestore, "sensor_msgs/msg/CameraInfo"
         )
 
-        assert_camera_info(camera_info, asdict(ros_msg))
+        assert_camera_info(camera_info_w_header, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_default_type(self, camera_info: CameraInfo, typestore: Typestore):
@@ -255,15 +251,6 @@ def gps_status():
 
 
 @pytest.fixture
-def gps_status_msg(gps_status):
-    return Message(
-        data=gps_status,
-        timestamp_ns=100,
-        frame_id="base_satellite",
-    )
-
-
-@pytest.fixture
 def nav_sat_status_rosmsg(gps_status: GPSStatus):
     return ROSMessage(
         bag_timestamp_ns=100,
@@ -291,17 +278,6 @@ class TestNavSatStatusAdapter:
     def test_to_ros_nav_sat_status(self, gps_status: GPSStatus, typestore: Typestore):
         ros_msg = NavSatStatusAdapter.to_ros(
             gps_status, typestore, "sensor_msgs/msg/NavSatStatus"
-        )
-
-        assert_gps_status(gps_status, asdict(ros_msg))
-
-    @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
-    def test_to_ros_nav_sat_status_message(
-        self, gps_status_msg: Message, typestore: Typestore
-    ):
-        gps_status = gps_status_msg.get_data(GPSStatus)
-        ros_msg = NavSatStatusAdapter.to_ros(
-            gps_status_msg, typestore, "sensor_msgs/msg/NavSatStatus"
         )
 
         assert_gps_status(gps_status, asdict(ros_msg))
@@ -348,12 +324,9 @@ def gps_w_cov(point_w_cov, gps_status):
 
 
 @pytest.fixture
-def gps_msg(gps):
-    return Message(
-        data=gps,
-        timestamp_ns=100,
-        frame_id="base_satellite",
-    )
+def gps_w_header(gps, ms_header):
+    gps.header = ms_header
+    return gps
 
 
 @pytest.fixture
@@ -399,11 +372,12 @@ class TestGPSAdapter:
         assert_gps(gps_w_cov, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
-    def test_to_ros_nav_sat_fix_message(self, gps_msg: Message, typestore: Typestore):
-        gps = gps_msg.get_data(GPS)
-        ros_msg = GPSAdapter.to_ros(gps_msg, typestore, "sensor_msgs/msg/NavSatFix")
+    def test_to_ros_nav_sat_fix_w_header(self, gps_w_header: GPS, typestore: Typestore):
+        ros_msg = GPSAdapter.to_ros(
+            gps_w_header, typestore, "sensor_msgs/msg/NavSatFix"
+        )
 
-        assert_gps(gps, asdict(ros_msg))
+        assert_gps(gps_w_header, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_default_type(self, gps: GPS, typestore: Typestore):
@@ -468,12 +442,9 @@ def imu_w_cov(vector_w_cov, vector_w_cov_2, quaternion_w_cov):
 
 
 @pytest.fixture
-def imu_msg(imu):
-    return Message(
-        data=imu,
-        timestamp_ns=100,
-        frame_id="base_link",
-    )
+def imu_w_header(imu, ms_header):
+    imu.header = ms_header
+    return imu
 
 
 @pytest.fixture
@@ -544,11 +515,10 @@ class TestIMUAdapter:
         assert_imu(imu_w_cov, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
-    def test_to_ros_imu_message(self, imu_msg: Message, typestore: Typestore):
-        imu = imu_msg.get_data(IMU)
-        ros_msg = IMUAdapter.to_ros(imu_msg, typestore, "sensor_msgs/msg/Imu")
+    def test_to_ros_imu_message(self, imu_w_header: IMU, typestore: Typestore):
+        ros_msg = IMUAdapter.to_ros(imu_w_header, typestore, "sensor_msgs/msg/Imu")
 
-        assert_imu(imu, asdict(ros_msg))
+        assert_imu(imu_w_header, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_default_type(self, imu: IMU, typestore: Typestore):
@@ -588,8 +558,9 @@ def nmea_sentence():
 
 
 @pytest.fixture
-def nmea_sentence_msg(nmea_sentence):
-    return Message(data=nmea_sentence, timestamp_ns=100, frame_id="satellite_link")
+def nmea_sentence_w_header(nmea_sentence, ms_header):
+    nmea_sentence.header = ms_header
+    return nmea_sentence
 
 
 @pytest.fixture
@@ -631,15 +602,14 @@ class TestNMEASentenceAdapter:
         assert_nmea_sentence(nmea_sentence, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
-    def test_to_ros_nmea_sentence_message(
-        self, nmea_sentence_msg: Message, typestore: Typestore
+    def test_to_ros_nmea_sentence_w_header(
+        self, nmea_sentence_w_header: NMEASentence, typestore: Typestore
     ):
         typestore = register_nmea_sentence(typestore)
-        nmea_sentence = nmea_sentence_msg.get_data(NMEASentence)
         ros_msg = NMEASentenceAdapter.to_ros(
-            nmea_sentence_msg, typestore, "nmea_msgs/msg/Sentence"
+            nmea_sentence_w_header, typestore, "nmea_msgs/msg/Sentence"
         )
-        assert_nmea_sentence(nmea_sentence, asdict(ros_msg))
+        assert_nmea_sentence(nmea_sentence_w_header, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_default_type(
@@ -695,8 +665,9 @@ def image_png():
 
 
 @pytest.fixture
-def image_msg(image_raw):
-    return Message(data=image_raw, timestamp_ns=100, frame_id="camera_link")
+def image_w_header(image_raw, ms_header):
+    image_raw.header = ms_header
+    return image_raw
 
 
 @pytest.fixture
@@ -742,10 +713,11 @@ class TestImageAdapter:
         assert_image(image_png, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
-    def test_to_ros_image_message(self, image_msg: Message, typestore: Typestore):
-        image = image_msg.get_data(Image)
-        ros_msg = ImageAdapter.to_ros(image_msg, typestore, "sensor_msgs/msg/Image")
-        assert_image(image, asdict(ros_msg))
+    def test_to_ros_image_message(self, image_w_header: Image, typestore: Typestore):
+        ros_msg = ImageAdapter.to_ros(
+            image_w_header, typestore, "sensor_msgs/msg/Image"
+        )
+        assert_image(image_w_header, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_default_type(self, image_raw: Image, typestore: Typestore):
@@ -774,8 +746,9 @@ def compressed_image():
 
 
 @pytest.fixture
-def compressed_image_msg(compressed_image):
-    return Message(data=compressed_image, timestamp_ns=100, frame_id="camera_link")
+def compressed_image_w_header(compressed_image, ms_header):
+    compressed_image.header = ms_header
+    return compressed_image
 
 
 @pytest.fixture
@@ -820,14 +793,13 @@ class TestCompressedImageAdapter:
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_compressed_image_message(
-        self, compressed_image_msg: Message, typestore: Typestore
+        self, compressed_image_w_header: CompressedImage, typestore: Typestore
     ):
-        compressed_image = compressed_image_msg.get_data(CompressedImage)
         ros_msg = CompressedImageAdapter.to_ros(
-            compressed_image_msg, typestore, "sensor_msgs/msg/CompressedImage"
+            compressed_image_w_header, typestore, "sensor_msgs/msg/CompressedImage"
         )
 
-        assert_compressed_image(compressed_image, asdict(ros_msg))
+        assert_compressed_image(compressed_image_w_header, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_default_type(
@@ -863,11 +835,6 @@ def roi():
     )
 
 
-@pytest.fixture
-def roi_msg(roi):
-    return Message(data=roi, timestamp_ns=100, frame_id="camera_link")
-
-
 class TestROIAdapter:
     def test_translate_roi_sentence(self, roi_rosmsg: ROSMessage):
         ms_msg = ROIAdapter.translate(roi_rosmsg)
@@ -884,14 +851,6 @@ class TestROIAdapter:
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_roi(self, roi: ROI, typestore: Typestore):
         ros_msg = ROIAdapter.to_ros(roi, typestore, "sensor_msgs/msg/RegionOfInterest")
-        assert_roi(roi, asdict(ros_msg))
-
-    @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
-    def test_to_ros_roi_message(self, roi_msg: Message, typestore: Typestore):
-        roi = roi_msg.get_data(ROI)
-        ros_msg = ROIAdapter.to_ros(
-            roi_msg, typestore, "sensor_msgs/msg/RegionOfInterest"
-        )
         assert_roi(roi, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
@@ -937,8 +896,9 @@ def battery_state():
 
 
 @pytest.fixture
-def battery_state_msg(battery_state):
-    return Message(data=battery_state, timestamp_ns=100, frame_id="car_link")
+def battery_state_w_header(battery_state, ms_header):
+    battery_state.header = ms_header
+    return battery_state
 
 
 @pytest.fixture
@@ -993,15 +953,14 @@ class TestBatteryStateAdapter:
         assert_battery_state(battery_state, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
-    def test_to_ros_battery_state_message(
-        self, battery_state_msg: Message, typestore: Typestore
+    def test_to_ros_battery_state_w_header(
+        self, battery_state_w_header: BatteryState, typestore: Typestore
     ):
-        battery_state = battery_state_msg.get_data(BatteryState)
         ros_msg = BatteryStateAdapter.to_ros(
-            battery_state_msg, typestore, "sensor_msgs/msg/BatteryState"
+            battery_state_w_header, typestore, "sensor_msgs/msg/BatteryState"
         )
 
-        assert_battery_state(battery_state, asdict(ros_msg))
+        assert_battery_state(battery_state_w_header, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_default_type(
@@ -1038,8 +997,9 @@ def robot_joint():
 
 
 @pytest.fixture
-def robot_joint_msg(robot_joint):
-    return Message(data=robot_joint, timestamp_ns=100, frame_id="base_link")
+def robot_joint_w_header(robot_joint, ms_header):
+    robot_joint.header = ms_header
+    return robot_joint
 
 
 @pytest.fixture
@@ -1078,15 +1038,14 @@ class TestRobotJointAdapter:
         assert_robot_joint(robot_joint, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
-    def test_to_ros_joint_state_message(
-        self, robot_joint_msg: Message, typestore: Typestore
+    def test_to_ros_joint_state_w_header(
+        self, robot_joint_w_header: RobotJoint, typestore: Typestore
     ):
-        robot_joint = robot_joint_msg.get_data(RobotJoint)
         ros_msg = RobotJointAdapter.to_ros(
-            robot_joint_msg, typestore, "sensor_msgs/msg/JointState"
+            robot_joint_w_header, typestore, "sensor_msgs/msg/JointState"
         )
 
-        assert_robot_joint(robot_joint, asdict(ros_msg))
+        assert_robot_joint(robot_joint_w_header, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_default_type(self, robot_joint: RobotJoint, typestore: Typestore):
@@ -1415,8 +1374,9 @@ def pcl2_rosmsg(ros_header, pcl2: PointCloud2):
 
 
 @pytest.fixture
-def pcl2_msg(pcl2):
-    return Message(data=pcl2, timestamp_ns=100, frame_id="base_link")
+def pcl2_w_header(pcl2, ms_header):
+    pcl2.header = ms_header
+    return pcl2
 
 
 class TestPointCloud2Adapter:
@@ -1439,12 +1399,13 @@ class TestPointCloud2Adapter:
         assert_pcl2(pcl2, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
-    def test_to_ros_pointcloud2_message(self, pcl2_msg: Message, typestore: Typestore):
-        pcl2 = pcl2_msg.get_data(PointCloud2)
+    def test_to_ros_pointcloud2_message(
+        self, pcl2_w_header: PointCloud2, typestore: Typestore
+    ):
         ros_msg = PointCloudAdapter.to_ros(
-            pcl2_msg, typestore, "sensor_msgs/msg/PointCloud2"
+            pcl2_w_header, typestore, "sensor_msgs/msg/PointCloud2"
         )
-        assert_pcl2(pcl2, asdict(ros_msg))
+        assert_pcl2(pcl2_w_header, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_default_type(self, pcl2: PointCloud2, typestore: Typestore):
@@ -1504,8 +1465,9 @@ def laserscan_rosmsg(ros_header, laserscan: futures.LaserScan):
 
 
 @pytest.fixture
-def laserscan_msg(laserscan):
-    return Message(data=laserscan, timestamp_ns=100, frame_id="base_link")
+def laserscan_w_header(laserscan, ms_header):
+    laserscan.header = ms_header
+    return laserscan
 
 
 class TestLaserScannerAdapter:
@@ -1529,14 +1491,13 @@ class TestLaserScannerAdapter:
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_laserscan_message(
-        self, laserscan_msg: Message, typestore: Typestore
+        self, laserscan_w_header: futures.LaserScan, typestore: Typestore
     ):
-        laserscan = laserscan_msg.get_data(futures.LaserScan)
         ros_msg = LaserScanAdapter.to_ros(
-            laserscan_msg, typestore, "sensor_msgs/msg/LaserScan"
+            laserscan_w_header, typestore, "sensor_msgs/msg/LaserScan"
         )
 
-        assert_laserscan(laserscan, asdict(ros_msg))
+        assert_laserscan(laserscan_w_header, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_default_type(
@@ -1602,8 +1563,9 @@ def multiecho_laserscan_rosmsg(
 
 
 @pytest.fixture
-def multiecho_laserscan_msg(multiecho_laserscan):
-    return Message(data=multiecho_laserscan, timestamp_ns=100, frame_id="base_link")
+def multiecho_laserscan_w_header(multiecho_laserscan, ms_header):
+    multiecho_laserscan.header = ms_header
+    return multiecho_laserscan
 
 
 class TestMultiEchoLaserScanAdapter:
@@ -1635,14 +1597,17 @@ class TestMultiEchoLaserScanAdapter:
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_multiecho_laserscan_message(
-        self, multiecho_laserscan_msg: Message, typestore: Typestore
+        self,
+        multiecho_laserscan_w_header: futures.MultiEchoLaserScan,
+        typestore: Typestore,
     ):
-        mels = multiecho_laserscan_msg.get_data(futures.MultiEchoLaserScan)
         ros_msg = MultiEchoLaserScanAdapter.to_ros(
-            multiecho_laserscan_msg, typestore, "sensor_msgs/msg/MultiEchoLaserScan"
+            multiecho_laserscan_w_header,
+            typestore,
+            "sensor_msgs/msg/MultiEchoLaserScan",
         )
 
-        assert_multiecho_laserscan(mels, asdict(ros_msg))
+        assert_multiecho_laserscan(multiecho_laserscan_w_header, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_default_type(
@@ -1680,8 +1645,9 @@ def joy():
 
 
 @pytest.fixture
-def joy_msg(joy):
-    return Message(data=joy, timestamp_ns=100, frame_id="base_link")
+def joy_w_header(joy, ms_header):
+    joy.header = ms_header
+    return joy
 
 
 @pytest.fixture
@@ -1717,11 +1683,10 @@ class TestJoyAdapter:
         assert_joy(joy, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
-    def test_to_ros_joy_message(self, joy_msg: Message, typestore: Typestore):
-        joy = joy_msg.get_data(Joy)
-        ros_msg = JoyAdapter.to_ros(joy_msg, typestore, "sensor_msgs/msg/Joy")
+    def test_to_ros_joy_message(self, joy_w_header: Joy, typestore: Typestore):
+        ros_msg = JoyAdapter.to_ros(joy_w_header, typestore, "sensor_msgs/msg/Joy")
 
-        assert_joy(joy, asdict(ros_msg))
+        assert_joy(joy_w_header, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_default_type(self, joy: Joy, typestore: Typestore):
@@ -1757,8 +1722,9 @@ def magnetometer_w_cov():
 
 
 @pytest.fixture
-def magnetometer_msg(magnetometer):
-    return Message(data=magnetometer, timestamp_ns=100, frame_id="imu_link")
+def magnetometer_w_header(magnetometer, ms_header):
+    magnetometer.header = ms_header
+    return magnetometer
 
 
 @pytest.fixture
@@ -1838,14 +1804,13 @@ class TestMagneticFieldAdapter:
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_magnetic_field_message(
-        self, magnetometer_msg: Message, typestore: Typestore
+        self, magnetometer_w_header: Magnetometer, typestore: Typestore
     ):
-        magnetometer = magnetometer_msg.get_data(Magnetometer)
         ros_msg = MagneticFieldAdapter.to_ros(
-            magnetometer_msg, typestore, "sensor_msgs/msg/MagneticField"
+            magnetometer_w_header, typestore, "sensor_msgs/msg/MagneticField"
         )
 
-        assert_magnetometer(magnetometer, asdict(ros_msg))
+        assert_magnetometer(magnetometer_w_header, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_default_type(
@@ -1883,8 +1848,9 @@ def temperature_w_var():
 
 
 @pytest.fixture
-def temperature_msg(temperature):
-    return Message(data=temperature, timestamp_ns=100, frame_id="base_link")
+def temperature_w_header(temperature, ms_header):
+    temperature.header = ms_header
+    return temperature
 
 
 @pytest.fixture
@@ -1952,14 +1918,13 @@ class TestTemperatureAdapter:
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_temperature_message(
-        self, temperature_msg: Message, typestore: Typestore
+        self, temperature_w_header: Temperature, typestore: Typestore
     ):
-        temperature = temperature_msg.get_data(Temperature)
         ros_msg = TemperatureAdapter.to_ros(
-            temperature_msg, typestore, "sensor_msgs/msg/Temperature"
+            temperature_w_header, typestore, "sensor_msgs/msg/Temperature"
         )
 
-        assert_temperature(temperature, asdict(ros_msg))
+        assert_temperature(temperature_w_header, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_default_type(self, temperature: Temperature, typestore: Typestore):
@@ -1995,8 +1960,9 @@ def pressure_w_var():
 
 
 @pytest.fixture
-def pressure_msg(pressure):
-    return Message(data=pressure, timestamp_ns=100, frame_id="base_link")
+def pressure_w_header(pressure, ms_header):
+    pressure.header = ms_header
+    return pressure
 
 
 @pytest.fixture
@@ -2061,13 +2027,14 @@ class TestpressureAdapter:
         assert_pressure(pressure_w_var, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
-    def test_to_ros_pressure_message(self, pressure_msg: Message, typestore: Typestore):
-        pressure = pressure_msg.get_data(Pressure)
+    def test_to_ros_pressure_message(
+        self, pressure_w_header: Pressure, typestore: Typestore
+    ):
         ros_msg = PressureAdapter.to_ros(
-            pressure_msg, typestore, "sensor_msgs/msg/FluidPressure"
+            pressure_w_header, typestore, "sensor_msgs/msg/FluidPressure"
         )
 
-        assert_pressure(pressure, asdict(ros_msg))
+        assert_pressure(pressure_w_header, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_default_type(self, pressure: pressure, typestore: Typestore):

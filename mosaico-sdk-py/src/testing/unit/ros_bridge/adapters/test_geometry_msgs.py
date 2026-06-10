@@ -8,7 +8,6 @@ from mosaicolabs import (
     ForceTorque,
     Header,
     Inertia,
-    Message,
     Point3d,
     Polygon,
     Pose,
@@ -66,12 +65,9 @@ ROS_TYPESTORE_TO_TEST = [
 
 
 @pytest.fixture
-def vector3d_msg(vector3d):
-    return Message(
-        data=vector3d,
-        timestamp_ns=100,
-        frame_id="base_link",
-    )
+def vector3d_w_header(vector3d, ms_header):
+    vector3d.header = ms_header
+    return vector3d
 
 
 @pytest.fixture
@@ -120,13 +116,14 @@ class TestVectoradapter:
         assert_vector3(vector3d, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
-    def test_to_ros_vector3_stamped(self, vector3d_msg: Message, typestore: Typestore):
-        vector3d = vector3d_msg.get_data(Vector3d)
+    def test_to_ros_vector3_stamped(
+        self, vector3d_w_header: Vector3d, typestore: Typestore
+    ):
         ros_msg = Vector3Adapter.to_ros(
-            vector3d_msg, typestore, "geometry_msgs/msg/Vector3Stamped"
+            vector3d_w_header, typestore, "geometry_msgs/msg/Vector3Stamped"
         )
 
-        assert_vector3(vector3d, asdict(ros_msg))
+        assert_vector3(vector3d_w_header, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_default_type(self, vector3d: Vector3d, typestore: Typestore):
@@ -152,12 +149,9 @@ class TestVectoradapter:
 
 
 @pytest.fixture
-def point3d_msg(point3d):
-    return Message(
-        data=point3d,
-        timestamp_ns=100,
-        frame_id="base_link",
-    )
+def point3d_w_header(point3d, ms_header):
+    point3d.header = ms_header
+    return point3d
 
 
 @pytest.fixture
@@ -204,13 +198,14 @@ class TestPointadapter:
         assert_point3d(point3d, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
-    def test_to_ros_point_stamped(self, point3d_msg: Message, typestore: Typestore):
-        point3d = point3d_msg.get_data(Point3d)
+    def test_to_ros_point_stamped(
+        self, point3d_w_header: Point3d, typestore: Typestore
+    ):
         ros_msg = PointAdapter.to_ros(
-            point3d_msg, typestore, "geometry_msgs/msg/PointStamped"
+            point3d_w_header, typestore, "geometry_msgs/msg/PointStamped"
         )
 
-        assert_point3d(point3d, asdict(ros_msg))
+        assert_point3d(point3d_w_header, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_default_type(self, point3d: Point3d, typestore: Typestore):
@@ -236,12 +231,9 @@ class TestPointadapter:
 
 
 @pytest.fixture
-def quat_msg(quaternion):
-    return Message(
-        data=quaternion,
-        timestamp_ns=100,
-        frame_id="base_link",
-    )
+def quat_w_header(quaternion, ms_header):
+    quaternion.header = ms_header
+    return quaternion
 
 
 @pytest.fixture
@@ -293,13 +285,14 @@ class TestQuaternionAdapter:
         assert_quaternion(quaternion, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
-    def test_to_ros_quaternion_stamped(self, quat_msg: Message, typestore: Typestore):
-        quaternion = quat_msg.get_data(Quaternion)
+    def test_to_ros_quaternion_stamped(
+        self, quat_w_header: Quaternion, typestore: Typestore
+    ):
         ros_msg = QuaternionAdapter.to_ros(
-            quat_msg, typestore, "geometry_msgs/msg/QuaternionStamped"
+            quat_w_header, typestore, "geometry_msgs/msg/QuaternionStamped"
         )
 
-        assert_quaternion(quaternion, asdict(ros_msg))
+        assert_quaternion(quat_w_header, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_default_type(self, quaternion: Quaternion, typestore: Typestore):
@@ -336,11 +329,9 @@ def transform(ms_header: Header):
 
 
 @pytest.fixture
-def transform_msg(transform):
-    return Message(
-        data=transform,
-        timestamp_ns=100,
-    )
+def transform_w_header(transform, ms_header: Header):
+    transform.header = ms_header
+    return transform
 
 
 @pytest.fixture
@@ -418,14 +409,13 @@ class TestTransformAdapter:
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_transform_stamped(
-        self, transform_msg: Message, typestore: Typestore
+        self, transform_w_header: Transform, typestore: Typestore
     ):
-        transform = transform_msg.get_data(Transform)
         ros_msg = TransformAdapter.to_ros(
-            transform_msg, typestore, "geometry_msgs/msg/TransformStamped"
+            transform_w_header, typestore, "geometry_msgs/msg/TransformStamped"
         )
 
-        assert_transform(transform, asdict(ros_msg))
+        assert_transform(transform_w_header, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_default_type(self, transform: Transform, typestore: Typestore):
@@ -458,12 +448,9 @@ def force_torque():
 
 
 @pytest.fixture
-def force_torque_msg(force_torque):
-    return Message(
-        data=force_torque,
-        timestamp_ns=100,
-        frame_id="base_link",
-    )
+def force_torque_w_header(force_torque, ms_header):
+    force_torque.header = ms_header
+    return force_torque
 
 
 @pytest.fixture
@@ -527,14 +514,13 @@ class TestWrenchAdapter:
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_wrench_stamped(
-        self, force_torque_msg: Message, typestore: Typestore
+        self, force_torque_w_header: ForceTorque, typestore: Typestore
     ):
-        force_torque = force_torque_msg.get_data(ForceTorque)
         ros_msg = WrenchAdapter.to_ros(
-            force_torque_msg, typestore, "geometry_msgs/msg/WrenchStamped"
+            force_torque_w_header, typestore, "geometry_msgs/msg/WrenchStamped"
         )
 
-        assert_force_torque(force_torque, asdict(ros_msg))
+        assert_force_torque(force_torque_w_header, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_default_type(self, force_torque: ForceTorque, typestore: Typestore):
@@ -571,12 +557,9 @@ def polygon():
 
 
 @pytest.fixture
-def polygon_msg(polygon):
-    return Message(
-        data=polygon,
-        timestamp_ns=100,
-        frame_id="base_link",
-    )
+def polygon_w_header(polygon, ms_header):
+    polygon.header = ms_header
+    return polygon
 
 
 @pytest.fixture
@@ -623,13 +606,14 @@ class TestPolygonAdapter:
         assert_polygon(polygon, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
-    def test_to_ros_polygon_stamped(self, polygon_msg: Message, typestore: Typestore):
-        polygon = polygon_msg.get_data(Polygon)
+    def test_to_ros_polygon_stamped(
+        self, polygon_w_header: Polygon, typestore: Typestore
+    ):
         ros_msg = PolygonAdapter.to_ros(
-            polygon_msg, typestore, "geometry_msgs/msg/PolygonStamped"
+            polygon_w_header, typestore, "geometry_msgs/msg/PolygonStamped"
         )
 
-        assert_polygon(polygon, asdict(ros_msg))
+        assert_polygon(polygon_w_header, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_default_type(self, polygon: Polygon, typestore: Typestore):
@@ -664,12 +648,9 @@ def inertia():
 
 
 @pytest.fixture
-def inertia_msg(inertia):
-    return Message(
-        data=inertia,
-        timestamp_ns=100,
-        frame_id="base_link",
-    )
+def inertia_w_header(inertia, ms_header):
+    inertia.header = ms_header
+    return inertia
 
 
 @pytest.fixture
@@ -745,13 +726,14 @@ class TestInertiaAdapter:
         assert_inertia(inertia, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
-    def test_to_ros_inertia_stamped(self, inertia_msg: Message, typestore: Typestore):
-        inertia = inertia_msg.get_data(Inertia)
+    def test_to_ros_inertia_stamped(
+        self, inertia_w_header: Inertia, typestore: Typestore
+    ):
         ros_msg = InertiaAdapter.to_ros(
-            inertia_msg, typestore, "geometry_msgs/msg/InertiaStamped"
+            inertia_w_header, typestore, "geometry_msgs/msg/InertiaStamped"
         )
 
-        assert_inertia(inertia, asdict(ros_msg))
+        assert_inertia(inertia_w_header, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_default_type(self, inertia: Inertia, typestore: Typestore):
@@ -785,12 +767,9 @@ def pose(point3d, quaternion) -> Pose:
 
 
 @pytest.fixture
-def pose_msg(pose) -> Message:
-    return Message(
-        data=pose,
-        timestamp_ns=100,
-        frame_id="base_link",
-    )
+def pose_w_header(pose, ms_header) -> Pose:
+    pose.header = ms_header
+    return pose
 
 
 @pytest.fixture
@@ -799,12 +778,10 @@ def pose_w_cov(point3d, quaternion) -> Pose:
 
 
 @pytest.fixture
-def pose_w_cov_msg(pose_w_cov) -> Message:
-    return Message(
-        data=pose_w_cov,
-        timestamp_ns=100,
-        frame_id="base_link",
-    )
+def pose_w_cov_w_header(pose_w_cov, ms_header) -> Pose:
+    pose_w_cov.header = ms_header
+
+    return pose_w_cov
 
 
 @pytest.fixture
@@ -910,26 +887,24 @@ class TestPoseAdapter:
         assert_pose_w_cov(pose_w_cov, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
-    def test_to_ros_pose_stamped(self, pose_msg: Message, typestore: Typestore):
-        pose = pose_msg.get_data(Pose)
+    def test_to_ros_pose_stamped(self, pose_w_header: Pose, typestore: Typestore):
         ros_msg = PoseAdapter.to_ros(
-            pose_msg, typestore, "geometry_msgs/msg/PoseStamped"
+            pose_w_header, typestore, "geometry_msgs/msg/PoseStamped"
         )
 
-        assert_pose(pose, asdict(ros_msg))
+        assert_pose(pose_w_header, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_pose_stamped_w_cov(
-        self, pose_w_cov_msg: Message, typestore: Typestore
+        self, pose_w_cov_w_header: Pose, typestore: Typestore
     ):
-        pose_w_cov = pose_w_cov_msg.get_data(Pose)
         ros_msg = PoseAdapter.to_ros(
-            pose_w_cov_msg,
+            pose_w_cov_w_header,
             typestore,
             "geometry_msgs/msg/PoseWithCovarianceStamped",
         )
 
-        assert_pose_w_cov(pose_w_cov, asdict(ros_msg))
+        assert_pose_w_cov(pose_w_cov_w_header, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_default_type(self, pose: Pose, typestore: Typestore):
@@ -964,12 +939,9 @@ def twist():
 
 
 @pytest.fixture
-def twist_msg(twist):
-    return Message(
-        data=twist,
-        timestamp_ns=100,
-        frame_id="base_link",
-    )
+def twist_w_header(twist, ms_header):
+    twist.header = ms_header
+    return twist
 
 
 @pytest.fixture
@@ -982,12 +954,9 @@ def twist_w_cov():
 
 
 @pytest.fixture
-def twist_w_cov_msg(twist_w_cov):
-    return Message(
-        data=twist_w_cov,
-        timestamp_ns=100,
-        frame_id="base_link",
-    )
+def twist_w_cov_w_header(twist_w_cov, ms_header):
+    twist_w_cov.header = ms_header
+    return twist_w_cov
 
 
 @pytest.fixture
@@ -1095,24 +1064,24 @@ class TestTwistAdapter:
         assert_twist_w_cov(twist_w_cov, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
-    def test_to_ros_twist_stamped(self, twist_msg: Message, typestore: Typestore):
-        twist = twist_msg.get_data(Velocity)
+    def test_to_ros_twist_stamped(self, twist_w_header: Velocity, typestore: Typestore):
         ros_msg = TwistAdapter.to_ros(
-            twist_msg, typestore, "geometry_msgs/msg/TwistStamped"
+            twist_w_header, typestore, "geometry_msgs/msg/TwistStamped"
         )
 
-        assert_twist(twist, asdict(ros_msg))
+        assert_twist(twist_w_header, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_twist_stamped_w_cov(
-        self, twist_w_cov_msg: Message, typestore: Typestore
+        self, twist_w_cov_w_header: Velocity, typestore: Typestore
     ):
-        twist_w_cov = twist_w_cov_msg.get_data(Velocity)
         ros_msg = TwistAdapter.to_ros(
-            twist_w_cov_msg, typestore, "geometry_msgs/msg/TwistWithCovarianceStamped"
+            twist_w_cov_w_header,
+            typestore,
+            "geometry_msgs/msg/TwistWithCovarianceStamped",
         )
 
-        assert_twist_w_cov(twist_w_cov, asdict(ros_msg))
+        assert_twist_w_cov(twist_w_cov_w_header, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_default_type(self, twist: Velocity, typestore: Typestore):
@@ -1146,12 +1115,9 @@ def accel():
 
 
 @pytest.fixture
-def accel_msg(accel):
-    return Message(
-        data=accel,
-        timestamp_ns=100,
-        frame_id="base_link",
-    )
+def accel_w_header(accel, ms_header):
+    accel.header = ms_header
+    return accel
 
 
 @pytest.fixture
@@ -1164,12 +1130,9 @@ def accel_w_cov():
 
 
 @pytest.fixture
-def accel_w_cov_msg(accel_w_cov):
-    return Message(
-        data=accel_w_cov,
-        timestamp_ns=100,
-        frame_id="base_link",
-    )
+def accel_w_cov_w_header(accel_w_cov, ms_header):
+    accel_w_cov.header = ms_header
+    return accel_w_cov
 
 
 @pytest.fixture
@@ -1279,24 +1242,26 @@ class TestAccelAdapter:
         assert_accel_w_cov(accel_w_cov, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
-    def test_to_ros_accel_stamped(self, accel_msg: Message, typestore: Typestore):
-        accel = accel_msg.get_data(Acceleration)
+    def test_to_ros_accel_stamped(
+        self, accel_w_header: Acceleration, typestore: Typestore
+    ):
         ros_msg = AccelAdapter.to_ros(
-            accel_msg, typestore, "geometry_msgs/msg/AccelStamped"
+            accel_w_header, typestore, "geometry_msgs/msg/AccelStamped"
         )
 
-        assert_accel(accel, asdict(ros_msg))
+        assert_accel(accel_w_header, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_accel_stamped_w_cov(
-        self, accel_w_cov_msg: Message, typestore: Typestore
+        self, accel_w_cov_w_header: Acceleration, typestore: Typestore
     ):
-        accel_w_cov = accel_w_cov_msg.get_data(Acceleration)
         ros_msg = AccelAdapter.to_ros(
-            accel_w_cov_msg, typestore, "geometry_msgs/msg/AccelWithCovarianceStamped"
+            accel_w_cov_w_header,
+            typestore,
+            "geometry_msgs/msg/AccelWithCovarianceStamped",
         )
 
-        assert_accel_w_cov(accel_w_cov, asdict(ros_msg))
+        assert_accel_w_cov(accel_w_cov_w_header, asdict(ros_msg))
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)
     def test_to_ros_default_type(self, accel: Acceleration, typestore: Typestore):

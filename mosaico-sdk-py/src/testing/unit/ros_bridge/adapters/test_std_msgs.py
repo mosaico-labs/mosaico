@@ -113,7 +113,6 @@ def to_ms_message(ms_type_instance: Serializable):
     return Message(data=ms_type_instance, timestamp_ns=100, frame_id="base_link")
 
 
-# MESSAGE_TO_TEST = [ms_type_instance, adapter for (ms_type_instance, adapter) in MS_STD_MSGS_TO_TEST]
 MESSAGE_TO_TEST = [
     (to_ms_message(ms_type_instance), adapter, rosmsg_type)
     for ms_type_instance, adapter, rosmsg_type in MS_STD_MSGS_TO_TEST

@@ -161,7 +161,8 @@ class ROSAdapterBase(ABC, Generic[T]):
                     f"Message {mosaico_msg.ontology_tag()} has a field called `header` that is not of type {Header.__class__.__name__}. Please rename it!"
                 )
             else:
-                header = tmp
+                header.frame_id = tmp.frame_id
+                header.timestamp = tmp.timestamp
 
         return data, header
 
