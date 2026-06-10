@@ -103,6 +103,9 @@ pub async fn do_action(
             )
             .await
         }
+        ActionRequest::TopicFilterIntersect(data) => {
+            topic::filter_intersect(ctx, data.topics, data.intersect_dt_ns).await
+        }
 
         // Query
         ActionRequest::Query(data) => query_action::execute(ctx, data.query).await?.into_stream(),
@@ -152,6 +155,7 @@ fn has_permissions(action: &ActionRequest, perm: &Permission) -> bool {
         ActionRequest::SequenceNotificationList(_) => perm.can_read(),
         ActionRequest::TopicNotificationList(_) => perm.can_read(),
         ActionRequest::TopicFilterClusterize(_) => perm.can_read(),
+        ActionRequest::TopicFilterIntersect(_) => perm.can_read(),
 
         ActionRequest::ApiKeyCreate(_) => perm.can_manage(),
         ActionRequest::ApiKeyStatus(_) => perm.can_manage(),

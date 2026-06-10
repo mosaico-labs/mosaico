@@ -82,10 +82,12 @@ async fn forward_err(
 /// * `batch_stream`: stream of `Result<RecordBatch, ArrowError>` produced upstream.
 /// * `clustering_dt_ns`: inclusive gap threshold in nanoseconds.
 /// * `timestamp_column`: name of the `UInt64` column carrying timestamps.
-/// * `out`: channel for emitted [`Cluster`]s. If the receiver is dropped, the
-///   next send fails, the function returns
-///   [`ClusteringError::ChannelClosed`] without consuming the remainder of
-///   `input`, and any open cluster is discarded.
+/// * `out`: channel for emitted [`Cluster`]s. On any error, the error is sent
+///   as the last item on `out`, then `out` is dropped, closing the channel so
+///   the receiver sees the stream end immediately after the error with no
+///   further items. If the receiver is already dropped when a send is attempted,
+///   the function returns [`ClusteringError::ChannelClosed`] without consuming
+///   the remainder of `input`.
 ///
 pub async fn topic_filter_clusterize<S>(
     mut batch_stream: S,
