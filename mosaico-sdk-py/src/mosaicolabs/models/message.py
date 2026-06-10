@@ -104,28 +104,6 @@ class Message(BaseModel):
                     "description": "Message/Sensor acquisition timestamp in nanoseconds."
                 },
             ),
-            # pa.field(
-            #     "recording_timestamp_ns",
-            #     pa.int64(),
-            #     nullable=True,
-            #     metadata={
-            #         "description": "Recording timestamp in nanoseconds. "
-            #         "This is the timestamp in which the message was recorded in the receiving store file "
-            #         "(like rosbags, parquet files, etc.)"
-            #     },
-            # ),
-            # pa.field(
-            #     "frame_id",
-            #     pa.string(),
-            #     nullable=True,
-            #     metadata={"description": "Coordinate frame ID."},
-            # ),
-            # pa.field(
-            #     "sequence_id",
-            #     pa.uint32(),
-            #     nullable=True,
-            #     metadata={"description": "Sequence ID. Legacy field."},
-            # ),
         ]
     )
 
