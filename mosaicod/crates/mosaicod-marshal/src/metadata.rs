@@ -13,12 +13,12 @@ fn valid_key(key: &str) -> bool {
             .all(|b| b.is_ascii_alphanumeric() || [b' ', b'_', b'-'].contains(&b))
 }
 
-fn find_invalid_keys(v: &serde_json::Value) -> Option<String> {
+fn find_invalid_keys(v: &serde_json::Value) -> Option<&str> {
     match v {
         serde_json::Value::Object(obj) => {
             // 1. Check if any current key is invalid
             if let Some(invalid_key) = obj.keys().find(|key| !valid_key(key)) {
-                return Some(invalid_key.to_owned());
+                return Some(invalid_key);
             }
 
             // 2. Recursively check the values of this object
@@ -306,10 +306,7 @@ mod tests {
             "valid_key": 1,
             "bad--key": 2
         });
-        assert_eq!(
-            find_invalid_keys(&invalid_root),
-            Some("bad--key".to_string())
-        );
+        assert_eq!(find_invalid_keys(&invalid_root), Some("bad--key"));
 
         let some_invalid_chars = [
             '$', '+', '=', '*', '%', '^', '@', '#', '/', '\\', '(', '[', '{', '}', ']', ')',
@@ -334,10 +331,7 @@ mod tests {
                 }
             }
         });
-        assert_eq!(
-            find_invalid_keys(&nested_invalid),
-            Some("invalid--here".to_string())
-        );
+        assert_eq!(find_invalid_keys(&nested_invalid), Some("invalid--here"));
     }
 
     #[test]
@@ -349,10 +343,7 @@ mod tests {
                 { "also_ok": 3 }
             ]
         });
-        assert_eq!(
-            find_invalid_keys(&array_invalid),
-            Some("not--ok".to_string())
-        );
+        assert_eq!(find_invalid_keys(&array_invalid), Some("not--ok"));
     }
 
     #[test]
@@ -362,7 +353,7 @@ mod tests {
             { "valid": true },
             { "nested": { "bad--key": false } }
         ]);
-        assert_eq!(find_invalid_keys(&root_array), Some("bad--key".to_string()));
+        assert_eq!(find_invalid_keys(&root_array), Some("bad--key"));
     }
 
     #[test]
@@ -371,10 +362,7 @@ mod tests {
         assert_eq!(find_invalid_keys(&json!([])), None);
 
         // Empty keys are not allowed
-        assert_eq!(
-            find_invalid_keys(&json!({"": "empty key value"})),
-            Some(String::new())
-        );
+        assert_eq!(find_invalid_keys(&json!({"": "empty key value"})), Some(""));
     }
 
     #[test]
