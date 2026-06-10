@@ -55,7 +55,7 @@ with MosaicoClient.connect(host=MOSAICO_HOST, port=MOSAICO_PORT) as client:
 
 ## Inspecting Sequence Metadata
 
-`client.sequence_handler()` returns a `SequenceHandler`, a lightweight proxy that fetches only catalog metadata from the server. It gives you the total storage size, creation timestamp, and the global time bounds of the session without touching the underlying sensor records.
+`client.sequence_handler()` returns a `SequenceHandler`, a lightweight proxy that fetches only catalog metadata from the server. It gives you the total storage size, creation timestamp, and the global time bounds of the session without touching the underlying sensor records. The time bounds (`timestamp_ns_min`, `timestamp_ns_max`) are expressed in Message timestamps (DDS publish time), not sensor measurement times, and align directly with the `start_timestamp_ns` / `end_timestamp_ns` parameters of the streamers.
 
 ```python title="Read sequence metadata"
 for sequence_name in seq_list:

@@ -49,7 +49,7 @@ The comparison operators available on a field path (`.gt()`, `.lt()`, `.eq()`, `
 
 ### Timestamp Ranges
 
-When `include_timestamp_range=True` is passed to `QueryOntologyCatalog`, the response includes the exact start and end nanosecond timestamps of the matching event window within each topic. This is useful when you want to replay or analyse only the interval where the condition held true, rather than loading an entire recording. The timestamps are precise enough to feed directly into a streamer or a data export without any further alignment work.
+When `include_timestamp_range=True` is passed to `QueryOntologyCatalog`, the response includes the exact start and end nanosecond timestamps of the matching event window within each topic. This is useful when you want to replay or analyse only the interval where the condition held true, rather than loading an entire recording. These timestamps are Message timestamps (DDS publish time, the monotonic common-origin index), so they can be passed directly into `start_timestamp_ns` / `end_timestamp_ns` on a streamer without any conversion.
 
 <Tabs>
 <TabItem value="python" label="Python" default>
