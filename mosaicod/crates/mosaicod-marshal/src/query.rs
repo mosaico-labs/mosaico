@@ -254,7 +254,7 @@ fn convert_user_metadata(
 
 #[derive(Debug, Deserialize)]
 struct Sequence {
-    locator: Option<Op>,
+    name: Option<Op>,
     created_at_ns: Option<Op>,
     user_metadata: Option<HashMap<String, Op>>,
 }
@@ -263,14 +263,12 @@ impl TryInto<query::SequenceFilter> for Sequence {
     type Error = query::Error;
     fn try_into(self) -> Result<query::SequenceFilter, Self::Error> {
         Ok(query::SequenceFilter {
-            name: self
-                .locator
-                .map(|v| v.try_into())
-                .transpose()
-                .map_err(|e| Self::Error::OpError {
+            name: self.name.map(|v| v.try_into()).transpose().map_err(|e| {
+                Self::Error::OpError {
                     field: "sequence.locator".to_owned(),
                     err: e,
-                })?,
+                }
+            })?,
             created_at: self
                 .created_at_ns
                 .map(|v| v.try_into())
@@ -286,7 +284,7 @@ impl TryInto<query::SequenceFilter> for Sequence {
 
 #[derive(Debug, Deserialize)]
 pub struct Topic {
-    locator: Option<Op>,
+    name: Option<Op>,
     created_at_ns: Option<Op>,
     ontology_tag: Option<Op>,
     serialization_format: Option<Op>,
@@ -298,14 +296,12 @@ impl TryInto<query::TopicFilter> for Topic {
 
     fn try_into(self) -> Result<query::TopicFilter, Self::Error> {
         Ok(query::TopicFilter {
-            name: self
-                .locator
-                .map(|v| v.try_into())
-                .transpose()
-                .map_err(|e| Self::Error::OpError {
+            name: self.name.map(|v| v.try_into()).transpose().map_err(|e| {
+                Self::Error::OpError {
                     field: "topic.locator".to_owned(),
                     err: e,
-                })?,
+                }
+            })?,
 
             created_at: self
                 .created_at_ns

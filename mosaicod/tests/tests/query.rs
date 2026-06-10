@@ -591,7 +591,7 @@ async fn test_query_topic_name_match_all(pool: sqlx::Pool<db::DatabaseType>) {
     let result = actions::query(
         &mut client,
         json!({
-            "topic": { "locator": { "$match": ".*" } }
+            "topic": { "name": { "$match": ".*" } }
         }),
     )
     .await
@@ -620,7 +620,7 @@ async fn test_query_topic_name_match_empty_is_rejected(pool: sqlx::Pool<db::Data
     let result = actions::query(
         &mut client,
         json!({
-            "topic": { "locator": { "$match": "" } }
+            "topic": { "name": { "$match": "" } }
         }),
     )
     .await
