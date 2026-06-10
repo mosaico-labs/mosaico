@@ -1,3 +1,4 @@
+import base64
 import json
 import sys
 from typing import List, Optional
@@ -254,9 +255,13 @@ def mcat_topic(
                     msg_index += 1
                     continue
 
-                payload = json.loads(message.data.model_dump_json())
+                payload = message.data.model_dump()
+                # Convert bytes fields to base64 for JSON serialization
+                for key, value in payload.items():
+                    if isinstance(value, bytes):
+                        payload[key] = base64.b64encode(value).decode("ascii")
                 payload["_timestamp"] = message.timestamp_ns
-                payload["_topic"] = topic_name or name
+                payload["_topic"] = topic_name
                 payload["_ontology"] = message.ontology_tag()
                 print(json.dumps(payload))
                 sys.stdout.flush()
