@@ -7,6 +7,8 @@ from typing import Any, Dict, List
 import typer
 from rich.console import Console
 
+from mosaicolabs_cli.utils.env import MosaicoEnv
+
 # Fallback mechanism for TOML parsing based on Python version
 if sys.version_info >= (3, 11):
     import tomllib
@@ -24,7 +26,7 @@ class OutputFormat(str, Enum):
 
 def get_config_path() -> Path:
     """Resolve the configuration file path based on the environment or default."""
-    env_path = os.getenv("MOSAICO_CONFIG_PATH")
+    env_path = os.getenv(MosaicoEnv.CONFIG_PATH)
     if env_path:
         return Path(env_path)
     return Path.home() / ".mosaico" / "config.toml"

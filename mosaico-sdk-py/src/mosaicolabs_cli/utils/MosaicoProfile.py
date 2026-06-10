@@ -4,6 +4,7 @@ import os
 from typing import Any, Dict, Optional
 
 from mosaicolabs_cli.utils.config import console, get_config_path, load_config
+from mosaicolabs_cli.utils.env import MosaicoEnv
 
 
 class MosaicoProfile:
@@ -38,10 +39,10 @@ class MosaicoProfile:
         """
         Resolve a MosaicoProfile applying the full precedence chain.
         """
-        env_host = os.getenv("MOSAICO_DAEMON_URL")
-        env_api_key = os.getenv("MOSAICO_API_KEY")
-        env_tls = os.getenv("MOSAICO_TLS")
-        env_cert_path = os.getenv("MOSAICO_CERT_PATH")
+        env_host = os.getenv(MosaicoEnv.DAEMON_URL)
+        env_api_key = os.getenv(MosaicoEnv.API_KEY)
+        env_tls = os.getenv(MosaicoEnv.TLS)
+        env_cert_path = os.getenv(MosaicoEnv.CERT_PATH)
 
         config_path = get_config_path()
         config_data = load_config(config_path)
@@ -131,6 +132,20 @@ class MosaicoProfile:
                 return host_part, int(port_part)
 
         return h, port
+
+    def to_env(self) -> Dict[str, str]:
+        """Export resolved profile fields as environment variables."""
+        env: Dict[str, str] = {}
+        if self.host:
+            url = f"{self.host}:{self.port}" if self.port else self.host
+            env[MosaicoEnv.DAEMON_URL] = url
+        if self.api_key:
+            env[MosaicoEnv.API_KEY] = self.api_key
+        if self.tls:
+            env[MosaicoEnv.TLS] = "true"
+        if self.cert_path:
+            env[MosaicoEnv.CERT_PATH] = self.cert_path
+        return env
 
     def __repr__(self) -> str:
         key_display = "***" if self.api_key else "empty"

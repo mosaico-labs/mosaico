@@ -1,4 +1,3 @@
-import click
 import os
 import shutil
 import subprocess
@@ -6,6 +5,7 @@ import sys
 from pathlib import Path
 from typing import Optional
 
+import click
 import typer
 from rich.table import Table
 from typer.core import TyperGroup
@@ -36,13 +36,17 @@ class MosaicoRouter(TyperGroup):
             @click.pass_context
             def dynamic_extension(sub_ctx):
                 args = sub_ctx.args
+                env = os.environ.copy()
+                profile = sub_ctx.find_root().obj
+                if profile is not None:
+                    env.update(profile.to_env())
                 try:
-                    result = subprocess.run([ext_binary] + args)
+                    result = subprocess.run([ext_binary] + args, env=env)
                     sys.exit(result.returncode)
                 except Exception as e:
                     error_console.print(f"Error executing extension '{ext_binary}': {e}")
                     sys.exit(1)
-                    
+
             return dynamic_extension
         
         return None

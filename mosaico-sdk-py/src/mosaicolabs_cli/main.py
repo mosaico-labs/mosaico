@@ -5,6 +5,7 @@ import typer
 
 from mosaicolabs_cli.commands import extension, profile, sequence, topic
 from mosaicolabs_cli.commands.extension import MosaicoRouter
+from mosaicolabs_cli.utils.env import MosaicoEnv
 from mosaicolabs_cli.utils.MosaicoProfile import MosaicoProfile
 
 app = typer.Typer(
@@ -37,7 +38,7 @@ def main_callback(
     profile_name: Optional[str] = typer.Option(
         None,
         "--profile",
-        envvar="MOSAICO_PROFILE",
+        envvar=MosaicoEnv.PROFILE,
         help="Specify which connection profile to use.",
     ),
 ):
