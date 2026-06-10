@@ -6,7 +6,6 @@ import typer
 from rich.table import Table
 from typing_extensions import Annotated
 
-from mosaicolabs import MosaicoClient, QueryResponse, QueryTopic
 from mosaicolabs_cli.utils.config import (
     OutputFormat,
     _flatten_metadata,
@@ -28,72 +27,79 @@ def list_topics(
     """
     List topics.
     """
+    spinner = console.status("[bold cyan]Querying topics...")
+    if sys.stdout.isatty():
+        spinner.start()
+    from mosaicolabs import MosaicoClient, QueryResponse, QueryTopic
+
     profile: MosaicoProfile = ctx.obj
 
-    with MosaicoClient.connect(
-        host=profile.host,
-        port=profile.port,
-        api_key=profile.api_key,
-        tls_cert_path=profile.tls_cert_path,
-        enable_tls=profile.enable_tls,
-    ) as client:
-        query = QueryTopic().with_name_match(locator if locator else ".*")
+    try:
+        with MosaicoClient.connect(
+            host=profile.host,
+            port=profile.port,
+            api_key=profile.api_key,
+            tls_cert_path=profile.tls_cert_path,
+            enable_tls=profile.enable_tls,
+        ) as client:
+            query = QueryTopic().with_name_match(locator if locator else ".*")
 
-        if metadata:
-            for md in metadata:
-                if "=" not in md:
-                    error_console.print(f"Invalid metadata filter '{md}'. Expected format KEY=VALUE.")
-                    raise typer.Exit(code=1)
-                key, value = md.split("=", 1)
-                query = query.with_user_metadata(key, eq=value)
-                
-        with console.status("[bold cyan]Querying topics..."):
+            if metadata:
+                for md in metadata:
+                    if "=" not in md:
+                        error_console.print(f"Invalid metadata filter '{md}'. Expected format KEY=VALUE.")
+                        raise typer.Exit(code=1)
+                    key, value = md.split("=", 1)
+                    query = query.with_user_metadata(key, eq=value)
+
             results = client.query(query)
 
-        if not results:
-            console.print("No topics found matching the criteria.")
-            raise typer.Exit()
-        
-        if limit:
-            results: QueryResponse = results[:limit]
+            if not results:
+                spinner.stop()
+                console.print("No topics found matching the criteria.")
+                raise typer.Exit()
 
-        if not output:
-            output = OutputFormat.TABLE if sys.stdout.isatty() else OutputFormat.CSV
+            if limit:
+                results: QueryResponse = results[:limit]
 
-        if output == OutputFormat.TABLE:
-            table = Table(
-                title="Mosaico Topic ls Results",
-                title_style="bold magenta",
-                header_style="bold cyan",
-                box=None,
-                padding=(0, 2)
-            )
-            table.add_column("Locator", style="white bold", no_wrap=True)
-            table.add_column("Start Time", justify="right", style="yellow")
-            table.add_column("End Time", justify="right", style="blue")
-
+            rows = []
             for item in results:
                 for topic in item.topics:
                     handler = client.topic_handler(item.sequence.name, topic.name)
                     if handler:
-                        table.add_row(
+                        rows.append((
                             f"{item.sequence.name}{topic.name}",
                             str(handler.timestamp_ns_min),
                             str(handler.timestamp_ns_max)
-                        )
+                        ))
                     else:
                         error_console.print(f"[bold red]Error:[/bold red] Topic '{topic.name}' in sequence '{item.sequence.name}' not found.")
+    finally:
+        spinner.stop()
 
-            console.print(table)
+    if not output:
+        output = OutputFormat.TABLE if sys.stdout.isatty() else OutputFormat.CSV
 
-        if output == OutputFormat.CSV:
-            for item in results:
-                for topic in item.topics:
-                    handler = client.topic_handler(item.sequence.name, topic.name)
-                    if handler:
-                        console.print(f"{item.sequence.name}{topic.name},{handler.timestamp_ns_min},{handler.timestamp_ns_max}")
-                    else:
-                        error_console.print(f"[bold red]Error:[/bold red] Topic '{topic.name}' in sequence '{item.sequence.name}' not found.")
+    if output == OutputFormat.TABLE:
+        table = Table(
+            title="Mosaico Topic ls Results",
+            title_style="bold magenta",
+            header_style="bold cyan",
+            box=None,
+            padding=(0, 2)
+        )
+        table.add_column("Locator", style="white bold", no_wrap=True)
+        table.add_column("Start Time", justify="right", style="yellow")
+        table.add_column("End Time", justify="right", style="blue")
+
+        for row in rows:
+            table.add_row(*row)
+
+        console.print(table)
+
+    else:
+        for locator_str, ts_min, ts_max in rows:
+            print(f"{locator_str},{ts_min},{ts_max}")
 
 
 @app.command(name="stat")
@@ -109,58 +115,69 @@ def stat_topic(
 
     Each handler is a comma-separated string: name,timestamp_ns_min,timestamp_ns_max
     """
+    spinner = console.status("[bold cyan]Fetching topics...")
+    if sys.stdout.isatty():
+        spinner.start()
+    from mosaicolabs import MosaicoClient
+
     profile: MosaicoProfile = ctx.obj
 
-    # Resolve topic handlers: args > stdin
-    if not handlers:
-        if sys.stdin.isatty():
-            error_console.print("[bold red]Error:[/bold red] No topic handlers provided. Pass as arguments or pipe via stdin.")
+    try:
+        # Resolve topic handlers: args > stdin
+        if not handlers:
+            if sys.stdin.isatty():
+                error_console.print("[bold red]Error:[/bold red] No topic handlers provided. Pass as arguments or pipe via stdin.")
+                raise typer.Exit(code=1)
+            handlers = [line.strip() for line in sys.stdin if line.strip()]
+
+        if not handlers:
+            error_console.print("[bold red]Error:[/bold red] No topic handlers received.")
             raise typer.Exit(code=1)
-        handlers = [line.strip() for line in sys.stdin if line.strip()]
 
-    if not handlers:
-        error_console.print("[bold red]Error:[/bold red] No topic handlers received.")
-        raise typer.Exit(code=1)
-    
-    with MosaicoClient.connect(
-        host=profile.host,
-        port=profile.port,
-        api_key=profile.api_key,
-        tls_cert_path=profile.tls_cert_path,
-        enable_tls=profile.enable_tls,
-    ) as client:
-        for raw in handlers:
-            parts = raw.split(",")
-            if len(parts) != 3:
-                error_console.print(f"[bold red]Error:[/bold red] Invalid handler format '{raw}'. Expected 'name,tsmin,tsmax'.")
-                continue
+        with MosaicoClient.connect(
+            host=profile.host,
+            port=profile.port,
+            api_key=profile.api_key,
+            tls_cert_path=profile.tls_cert_path,
+            enable_tls=profile.enable_tls,
+        ) as client:
+            output_blocks = []
+            for raw in handlers:
+                parts = raw.split(",")
+                if len(parts) != 3:
+                    error_console.print(f"[bold red]Error:[/bold red] Invalid handler format '{raw}'. Expected 'name,tsmin,tsmax'.")
+                    continue
 
-            # name, ts_min_str, ts_max_str = parts[0].strip(), parts[1].strip(), parts[2].strip()
-            name = parts[0].strip(), parts[1].strip(), parts[2].strip()
-            name = name[0]
+                name = parts[0].strip()
 
-            sequence_name = None
-            topic_name = None
-            # split name into sequence and topic if possible
-            if "/" in name:
-                sequence_name, topic_name = name.split("/", 1)
+                sequence_name = None
+                topic_name = None
+                if "/" in name:
+                    sequence_name, topic_name = name.split("/", 1)
 
-            with console.status(f"[bold cyan]Fetching topic '{name}'..."):
                 handler = client.topic_handler(sequence_name, topic_name)
 
-            if not handler:
-                error_console.print(f"[bold red]Error:[/bold red] Topic '{name}' not found.")
-                continue
+                if not handler:
+                    error_console.print(f"[bold red]Error:[/bold red] Topic '{name}' not found.")
+                    continue
 
-            console.print(f"[bold cyan]Topic:[/bold cyan] {name}")
-            console.print(f"  Created:    {handler.created_timestamp}")
-            console.print(f"  Size:       {handler.total_size_bytes} bytes")
-            console.print(f"  Ontology:   {handler.ontology_tag}")
-            console.print(f"  Time range: {handler.timestamp_ns_min} - {handler.timestamp_ns_max}")
-            metadata_str = ", ".join(_flatten_metadata(handler.user_metadata))
-            if metadata_str:
-                console.print(f"  Metadata:   {metadata_str}")
-            console.print()
+                block = []
+                block.append(f"[bold cyan]Topic:[/bold cyan] {name}")
+                block.append(f"  Created:    {handler.created_timestamp}")
+                block.append(f"  Size:       {handler.total_size_bytes} bytes")
+                block.append(f"  Ontology:   {handler.ontology_tag}")
+                block.append(f"  Time range: {handler.timestamp_ns_min} - {handler.timestamp_ns_max}")
+                metadata_str = ", ".join(_flatten_metadata(handler.user_metadata))
+                if metadata_str:
+                    block.append(f"  Metadata:   {metadata_str}")
+                output_blocks.append(block)
+    finally:
+        spinner.stop()
+
+    for block in output_blocks:
+        for line in block:
+            console.print(line)
+        console.print()
 
 @app.command(name="mcat")
 def mcat_topic(
@@ -178,6 +195,8 @@ def mcat_topic(
     When multiple handlers share the same topic locator but different time ranges,
     the ranges are merged (min start, max end) into a single stream.
     """
+    from mosaicolabs import MosaicoClient
+
     profile: MosaicoProfile = ctx.obj
 
     # Resolve topic handlers: args > stdin

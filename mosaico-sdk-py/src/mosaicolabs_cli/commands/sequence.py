@@ -5,7 +5,6 @@ import typer
 from rich.table import Table
 from typing_extensions import Annotated
 
-from mosaicolabs import MosaicoClient, QueryResponse, QuerySequence, Time
 from mosaicolabs_cli.utils.config import (
     OutputFormat,
     _flatten_metadata,
@@ -30,70 +29,79 @@ def list_sequences(
     """
     List sequences.
     """
+    spinner = console.status("[bold cyan]Querying sequences...")
+    if sys.stdout.isatty():
+        spinner.start()
     profile: MosaicoProfile = ctx.obj
+    from mosaicolabs import MosaicoClient, QueryResponse, QuerySequence, Time
 
-    with MosaicoClient.connect(
-        host=profile.host,
-        port=profile.port,
-        api_key=profile.api_key,
-        tls_cert_path=profile.tls_cert_path,
-        enable_tls=profile.enable_tls,
-    ) as client:
-        query = QuerySequence().with_name_match(locator if locator else ".*")
+    try:
+        with MosaicoClient.connect(
+            host=profile.host,
+            port=profile.port,
+            api_key=profile.api_key,
+            tls_cert_path=profile.tls_cert_path,
+            enable_tls=profile.enable_tls,
+        ) as client:
+            query = QuerySequence().with_name_match(locator if locator else ".*")
 
-        if created_after or created_before: 
-            query = query.with_created_timestamp(
-                time_start=Time.from_nanoseconds(created_after) if created_after else None,
-                time_end=Time.from_nanoseconds(created_before) if created_before else None
-            )
+            if created_after or created_before:
+                query = query.with_created_timestamp(
+                    time_start=Time.from_nanoseconds(created_after) if created_after else None,
+                    time_end=Time.from_nanoseconds(created_before) if created_before else None
+                )
 
-        if metadata:
-            for md in metadata:
-                if "=" not in md:
-                    error_console.print(f"Invalid metadata filter '{md}'. Expected format KEY=VALUE.")
-                    raise typer.Exit(code=1)
-                key, value = md.split("=", 1)
-                query = query.with_user_metadata(key, eq=value)
+            if metadata:
+                for md in metadata:
+                    if "=" not in md:
+                        error_console.print(f"Invalid metadata filter '{md}'. Expected format KEY=VALUE.")
+                        raise typer.Exit(code=1)
+                    key, value = md.split("=", 1)
+                    query = query.with_user_metadata(key, eq=value)
 
-        with console.status("[bold cyan]Querying sequences..."):
             results = client.query(query)
 
-        if not results:
-            console.print("No sequences found matching the criteria.")
-            raise typer.Exit()
+            if not results:
+                spinner.stop()
+                console.print("No sequences found matching the criteria.")
+                raise typer.Exit()
 
-        if limit:
-            results: QueryResponse = results[:limit]
+            if limit:
+                results: QueryResponse = results[:limit]
 
-        if not output:
-            output = OutputFormat.TABLE if sys.stdout.isatty() else OutputFormat.CSV
-
-        if output == OutputFormat.TABLE:
-            table = Table(
-                title="Mosaico Sequence ls Results",
-                title_style="bold magenta",
-                header_style="bold cyan",
-                box=None,
-                padding=(1, 2)
-            )
-
-            table.add_column("Locator", style="bold white", width=25)
-            table.add_column("Min Timestamp", style="green", width=25)
-            table.add_column("Max Timestamp", style="green", width=25)
-            table.add_column("User Metadata", style="green", width=35)
-
+            rows = []
             for item in results:
                 handler = client.sequence_handler(item.sequence.name)
                 metadata_str = ", ".join(_flatten_metadata(handler.user_metadata))
-                table.add_row(item.sequence.name, str(handler._timestamp_ns_min), str(handler._timestamp_ns_max), metadata_str)
+                rows.append((item.sequence.name, str(handler._timestamp_ns_min), str(handler._timestamp_ns_max), metadata_str))
+    finally:
+        spinner.stop()
 
-            console.print(table)
+    if not output:
+        output = OutputFormat.TABLE if sys.stdout.isatty() else OutputFormat.CSV
 
-        else:
-            for item in results:
-                handler = client.sequence_handler(item.sequence.name)
-                console.print(f"{item.sequence.name},{handler._timestamp_ns_min},{handler._timestamp_ns_max}")
-    
+    if output == OutputFormat.TABLE:
+        table = Table(
+            title="Mosaico Sequence ls Results",
+            title_style="bold magenta",
+            header_style="bold cyan",
+            box=None,
+            padding=(1, 2)
+        )
+
+        table.add_column("Locator", style="bold white", width=25)
+        table.add_column("Min Timestamp", style="green", width=25)
+        table.add_column("Max Timestamp", style="green", width=25)
+        table.add_column("User Metadata", style="green", width=35)
+
+        for row in rows:
+            table.add_row(*row)
+
+        console.print(table)
+
+    else:
+        for name, ts_min, ts_max, _ in rows:
+            print(f"{name},{ts_min},{ts_max}")
 
 
 @app.command(name="stat")
@@ -109,48 +117,59 @@ def stat_sequence(
 
     Each handler is a comma-separated string: name,timestamp_ns_min,timestamp_ns_max
     """
+    spinner = console.status("[bold cyan]Fetching sequences...")
+    if sys.stdout.isatty():
+        spinner.start()
+    from mosaicolabs import MosaicoClient
+
     profile: MosaicoProfile = ctx.obj
+    try:
+        # Resolve sequence handlers: args > stdin
+        if not handlers:
+            if sys.stdin.isatty():
+                error_console.print("[bold red]Error:[/bold red] No sequence handlers provided. Pass as arguments or pipe via stdin.")
+                raise typer.Exit(code=1)
+            handlers = [line.strip() for line in sys.stdin if line.strip()]
 
-    # Resolve sequence handlers: args > stdin
-    if not handlers:
-        if sys.stdin.isatty():
-            error_console.print("[bold red]Error:[/bold red] No sequence handlers provided. Pass as arguments or pipe via stdin.")
+        if not handlers:
+            error_console.print("[bold red]Error:[/bold red] No sequence handlers received.")
             raise typer.Exit(code=1)
-        handlers = [line.strip() for line in sys.stdin if line.strip()]
 
-    if not handlers:
-        error_console.print("[bold red]Error:[/bold red] No sequence handlers received.")
-        raise typer.Exit(code=1)
 
-    with MosaicoClient.connect(
-        host=profile.host,
-        port=profile.port,
-        api_key=profile.api_key,
-        tls_cert_path=profile.tls_cert_path,
-        enable_tls=profile.enable_tls,
-    ) as client:
-        for raw in handlers:
-            parts = raw.split(",")
-            if len(parts) != 3:
-                error_console.print(f"[bold red]Error:[/bold red] Invalid handler format '{raw}'. Expected 'name,tsmin,tsmax'.")
-                continue
+        with MosaicoClient.connect(
+            host=profile.host,
+            port=profile.port,
+            api_key=profile.api_key,
+            tls_cert_path=profile.tls_cert_path,
+            enable_tls=profile.enable_tls,
+        ) as client:
+            output_blocks = []
+            for raw in handlers:
+                parts = raw.split(",")
+                if len(parts) != 3:
+                    error_console.print(f"[bold red]Error:[/bold red] Invalid handler format '{raw}'. Expected 'name,tsmin,tsmax'.")
+                    continue
 
-            # name, ts_min_str, ts_max_str = parts[0].strip(), parts[1].strip(), parts[2].strip()
-            name = parts[0].strip(), parts[1].strip(), parts[2].strip()
-            name = name[0]
-
-            with console.status(f"[bold cyan]Fetching sequence '{name}'..."):
+                name = parts[0].strip()
                 handler = client.sequence_handler(name)
-            if not handler:
-                error_console.print(f"[bold red]Error:[/bold red] Sequence '{name}' not found.")
-                continue
+                if not handler:
+                    error_console.print(f"[bold red]Error:[/bold red] Sequence '{name}' not found.")
+                    continue
 
-            console.print(f"[bold cyan]Sequence:[/bold cyan] {handler.name}")
-            console.print(f"  Created:    {handler.created_timestamp}")
-            console.print(f"  Size:       {handler.total_size_bytes} bytes")
-            console.print(f"  Topics:     {handler.topics}")
-            console.print(f"  Time range: {handler.timestamp_ns_min} - {handler.timestamp_ns_max}")
-            metadata_str = ", ".join(_flatten_metadata(handler.user_metadata))
-            if metadata_str:
-                console.print(f"  Metadata:   {metadata_str}")
-            console.print()
+                block = []
+                block.append(f"[bold cyan]Sequence:[/bold cyan] {handler.name}")
+                block.append(f"  Created:    {handler.created_timestamp}")
+                block.append(f"  Size:       {handler.total_size_bytes} bytes")
+                block.append(f"  Topics:     {handler.topics}")
+                block.append(f"  Time range: {handler.timestamp_ns_min} - {handler.timestamp_ns_max}")
+                metadata_str = ", ".join(_flatten_metadata(handler.user_metadata))
+                if metadata_str:
+                    block.append(f"  Metadata:   {metadata_str}")
+                output_blocks.append(block)
+    finally:
+        spinner.stop()
+
+    for block in output_blocks:
+        for line in block:
+            console.print(line)
+        console.print()

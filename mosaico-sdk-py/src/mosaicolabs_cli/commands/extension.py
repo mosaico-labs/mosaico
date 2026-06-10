@@ -127,4 +127,4 @@ def list_extensions(
 
     elif output == OutputFormat.CSV:
         for name, binary_path in extensions.items():
-            console.print(f"{name},mosaico-{name},{binary_path}")
+            print(f"{name},mosaico-{name},{binary_path}")
