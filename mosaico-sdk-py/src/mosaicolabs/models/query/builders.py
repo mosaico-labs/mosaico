@@ -470,7 +470,7 @@ class QueryTopic:
         Returns:
             The `QueryTopic` instance for method chaining.
         """
-        return self._with_expression(_QueryTopicExpression("locator", "$eq", f"{name}"))
+        return self._with_expression(_QueryTopicExpression("name", "$eq", f"{name}"))
 
     def with_name_match(self, name: str) -> "QueryTopic":
         """
@@ -506,7 +506,7 @@ class QueryTopic:
         return self._with_expression(
             # employs explicit _QueryTopicExpression composition for dealing with
             # special fields in data platform
-            _QueryTopicExpression("locator", "$match", f"{name}")
+            _QueryTopicExpression("name", "$match", f"{name}")
         )
 
     def with_ontology_tag(self, ontology_tag: str) -> "QueryTopic":
@@ -627,7 +627,7 @@ class QueryTopic:
            are stripped of their prefix and nested under that key.
 
         Returns:
-            A dictionary representation of the query, e.g., `{"locator": {"$eq": "..."}, "user_metadata": {"key": {"$eq": "..."}}}`.
+            A dictionary representation of the query, e.g., `{"name": {"$eq": "..."}, "user_metadata": {"key": {"$eq": "..."}}}`.
         """
 
         # Set all fields that are dictionaries (like user_metadata)
@@ -654,7 +654,7 @@ class QueryTopic:
                 normal_exprs.append(expr)
 
         # Combine the normal, top-level expressions
-        # This will produce {"locator": {"$eq": "..."}}
+        # This will produce {"name": {"$eq": "..."}}
         exprs_dict = _QueryCombinator(normal_exprs).to_dict()
 
         # Build and merge the nested metadata dictionaries
@@ -850,7 +850,7 @@ class QuerySequence:
         return self._with_expression(
             # employs explicit _QuerySequenceExpression composition for dealing with
             # special fields in data platform
-            _QuerySequenceExpression("locator", "$eq", name)
+            _QuerySequenceExpression("name", "$eq", name)
         )
 
     def with_name_match(self, name: str) -> "QuerySequence":
@@ -884,7 +884,7 @@ class QuerySequence:
         return self._with_expression(
             # employs explicit _QuerySequenceExpression composition for dealing with
             # special fields in data platform
-            _QuerySequenceExpression("locator", "$match", f"{name}")
+            _QuerySequenceExpression("name", "$match", f"{name}")
         )
 
     def with_created_timestamp(
@@ -992,7 +992,7 @@ class QuerySequence:
                 normal_exprs.append(expr)
 
         # Combine the normal, top-level expressions
-        # This will produce {"locator": {"$eq": "..."}}
+        # This will produce {"name": {"$eq": "..."}}
         exprs_dict = _QueryCombinator(normal_exprs).to_dict()
 
         # Build and merge the nested metadata dictionaries

@@ -208,12 +208,12 @@ def test_query_sequence_from_response_fail(
     qsequence = query_resp.to_query_sequence()
     # This must fail: field 'name' is already queried
     with pytest.raises(
-        NotImplementedError, match="Query builder already contains the key 'locator'"
+        NotImplementedError, match="Query builder already contains the key 'name'"
     ):
         query_resp = mosaico_client.query(qsequence.with_name(""))
     # This must fail: field 'name' is already queried
     with pytest.raises(
-        NotImplementedError, match="Query builder already contains the key 'locator'"
+        NotImplementedError, match="Query builder already contains the key 'name'"
     ):
         query_resp = mosaico_client.query(qsequence.with_name_match(""))
 
