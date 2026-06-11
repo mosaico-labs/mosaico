@@ -19,12 +19,36 @@ app = typer.Typer(no_args_is_help=True)
 @app.command(name="ls")
 def list_sequences(
     ctx: typer.Context,
-    locator: Optional[str] = typer.Option(None, "--locator", help="Locator search pattern (supports glob-style * wildcards)."),
-    created_after: Optional[int] = typer.Option(None, "--created-after", help="Filter sequences created after this timestamp (epoch ns)."),
-    created_before: Optional[int] = typer.Option(None, "--created-before", help="Filter sequences created before this timestamp (epoch ns)."),
-    metadata: Optional[List[str]] = typer.Option(None, "--metadata", "-m", help="Filter by user metadata KEY=VALUE. Can be repeated for multiple logical AND conditions."),
-    limit: Optional[int] = typer.Option(None, "--limit", help="Maximum number of sequence results to return."),
-    output: Optional[OutputFormat] = typer.Option(None, "--output", "-o", help="Force output format. Automatically inferred if omitted.")
+    locator: Optional[str] = typer.Option(
+        None,
+        "--locator",
+        help="Locator search pattern (supports glob-style * wildcards).",
+    ),
+    created_after: Optional[int] = typer.Option(
+        None,
+        "--created-after",
+        help="Filter sequences created after this timestamp (epoch ns).",
+    ),
+    created_before: Optional[int] = typer.Option(
+        None,
+        "--created-before",
+        help="Filter sequences created before this timestamp (epoch ns).",
+    ),
+    metadata: Optional[List[str]] = typer.Option(
+        None,
+        "--metadata",
+        "-m",
+        help="Filter by user metadata KEY=VALUE. Can be repeated for multiple logical AND conditions.",
+    ),
+    limit: Optional[int] = typer.Option(
+        None, "--limit", help="Maximum number of sequence results to return."
+    ),
+    output: Optional[OutputFormat] = typer.Option(
+        None,
+        "--output",
+        "-o",
+        help="Force output format. Automatically inferred if omitted.",
+    ),
 ) -> None:
     """
     List sequences.
@@ -47,14 +71,20 @@ def list_sequences(
 
             if created_after or created_before:
                 query = query.with_created_timestamp(
-                    time_start=Time.from_nanoseconds(created_after) if created_after else None,
-                    time_end=Time.from_nanoseconds(created_before) if created_before else None
+                    time_start=Time.from_nanoseconds(created_after)
+                    if created_after
+                    else None,
+                    time_end=Time.from_nanoseconds(created_before)
+                    if created_before
+                    else None,
                 )
 
             if metadata:
                 for md in metadata:
                     if "=" not in md:
-                        error_console.print(f"Invalid metadata filter '{md}'. Expected format KEY=VALUE.")
+                        error_console.print(
+                            f"Invalid metadata filter '{md}'. Expected format KEY=VALUE."
+                        )
                         raise typer.Exit(code=1)
                     key, value = md.split("=", 1)
                     query = query.with_user_metadata(key, eq=value)
@@ -73,7 +103,14 @@ def list_sequences(
             for item in results:
                 handler = client.sequence_handler(item.sequence.name)
                 metadata_str = ", ".join(_flatten_metadata(handler.user_metadata))
-                rows.append((item.sequence.name, str(handler._timestamp_ns_min), str(handler._timestamp_ns_max), metadata_str))
+                rows.append(
+                    (
+                        item.sequence.name,
+                        str(handler._timestamp_ns_min),
+                        str(handler._timestamp_ns_max),
+                        metadata_str,
+                    )
+                )
     finally:
         spinner.stop()
 
@@ -86,7 +123,7 @@ def list_sequences(
             title_style="bold magenta",
             header_style="bold cyan",
             box=None,
-            padding=(1, 2)
+            padding=(1, 2),
         )
 
         table.add_column("Locator", style="bold white", width=25)
@@ -109,7 +146,9 @@ def stat_sequence(
     ctx: typer.Context,
     handlers: Annotated[
         Optional[List[str]],
-        typer.Argument(help="Sequence handler(s) as 'name,tsmin,tsmax'. Omit to read from stdin."),
+        typer.Argument(
+            help="Sequence handler(s) as 'name,tsmin,tsmax'. Omit to read from stdin."
+        ),
     ] = None,
 ) -> None:
     """
@@ -127,14 +166,17 @@ def stat_sequence(
         # Resolve sequence handlers: args > stdin
         if not handlers:
             if sys.stdin.isatty():
-                error_console.print("[bold red]Error:[/bold red] No sequence handlers provided. Pass as arguments or pipe via stdin.")
+                error_console.print(
+                    "[bold red]Error:[/bold red] No sequence handlers provided. Pass as arguments or pipe via stdin."
+                )
                 raise typer.Exit(code=1)
             handlers = [line.strip() for line in sys.stdin if line.strip()]
 
         if not handlers:
-            error_console.print("[bold red]Error:[/bold red] No sequence handlers received.")
+            error_console.print(
+                "[bold red]Error:[/bold red] No sequence handlers received."
+            )
             raise typer.Exit(code=1)
-
 
         with MosaicoClient.connect(
             host=profile.host,
@@ -147,13 +189,17 @@ def stat_sequence(
             for raw in handlers:
                 parts = raw.split(",")
                 if len(parts) != 3:
-                    error_console.print(f"[bold red]Error:[/bold red] Invalid handler format '{raw}'. Expected 'name,tsmin,tsmax'.")
+                    error_console.print(
+                        f"[bold red]Error:[/bold red] Invalid handler format '{raw}'. Expected 'name,tsmin,tsmax'."
+                    )
                     continue
 
                 name = parts[0].strip()
                 handler = client.sequence_handler(name)
                 if not handler:
-                    error_console.print(f"[bold red]Error:[/bold red] Sequence '{name}' not found.")
+                    error_console.print(
+                        f"[bold red]Error:[/bold red] Sequence '{name}' not found."
+                    )
                     continue
 
                 block = []
@@ -161,7 +207,9 @@ def stat_sequence(
                 block.append(f"  Created:    {handler.created_timestamp}")
                 block.append(f"  Size:       {handler.total_size_bytes} bytes")
                 block.append(f"  Topics:     {handler.topics}")
-                block.append(f"  Time range: {handler.timestamp_ns_min} - {handler.timestamp_ns_max}")
+                block.append(
+                    f"  Time range: {handler.timestamp_ns_min} - {handler.timestamp_ns_max}"
+                )
                 metadata_str = ", ".join(_flatten_metadata(handler.user_metadata))
                 if metadata_str:
                     block.append(f"  Metadata:   {metadata_str}")

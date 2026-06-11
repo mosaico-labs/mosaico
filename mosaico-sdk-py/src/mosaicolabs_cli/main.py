@@ -28,7 +28,7 @@ app = typer.Typer(
       3. Inline CLI option overrides (e.g., --profile flag)
       4. Global fallback configuration file profile configuration keys (~/.mosaico/config.toml)
     """,
-    no_args_is_help=True
+    no_args_is_help=True,
 )
 
 
@@ -47,10 +47,7 @@ def main_callback(
     """
     # Commands that don't need a valid connection profile
     help_requested = any(arg in ("-h", "--help") for arg in sys.argv)
-    allow_empty = (
-        ctx.invoked_subcommand == "profile"
-        or help_requested
-    )
+    allow_empty = ctx.invoked_subcommand == "profile" or help_requested
 
     ctx.obj = MosaicoProfile.resolve(
         profile_name=profile_name,
@@ -61,7 +58,11 @@ def main_callback(
 app.add_typer(profile.app, name="profile", help="Manage connection profiles.")
 app.add_typer(sequence.app, name="sequence", help="Manage and list sequences.")
 app.add_typer(topic.app, name="topic", help="Manage and list topics.")
-app.add_typer(extension.app, name="extension", help="Manage and list external installed extensions.")
+app.add_typer(
+    extension.app,
+    name="extension",
+    help="Manage and list external installed extensions.",
+)
 
 if __name__ == "__main__":
     app()

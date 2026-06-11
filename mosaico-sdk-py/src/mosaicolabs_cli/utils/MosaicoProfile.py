@@ -35,7 +35,9 @@ class MosaicoProfile:
     # ------------------------------------------------------------------
 
     @classmethod
-    def resolve(cls, profile_name: Optional[str] = None, allow_empty: bool = False) -> "MosaicoProfile":
+    def resolve(
+        cls, profile_name: Optional[str] = None, allow_empty: bool = False
+    ) -> "MosaicoProfile":
         """
         Resolve a MosaicoProfile applying the full precedence chain.
         """
@@ -52,7 +54,9 @@ class MosaicoProfile:
         if profile_name:
             content = config_data.get(profile_name)
             if not isinstance(content, dict):
-                console.print(f"[bold red]Error:[/bold red] Profile '{profile_name}' not found in configuration.")
+                console.print(
+                    f"[bold red]Error:[/bold red] Profile '{profile_name}' not found in configuration."
+                )
                 raise SystemExit(1)
             profile_dict = content
         else:

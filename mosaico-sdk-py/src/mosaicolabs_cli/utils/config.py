@@ -16,12 +16,12 @@ else:
     import tomli as tomllib
 
 console = Console()
-error_console = Console(stderr=True) 
+error_console = Console(stderr=True)
+
 
 class OutputFormat(str, Enum):
     TABLE = "table"
     CSV = "csv"
-
 
 
 def get_config_path() -> Path:
@@ -31,6 +31,7 @@ def get_config_path() -> Path:
         return Path(env_path)
     return Path.home() / ".mosaico" / "config.toml"
 
+
 def load_config(path: Path) -> dict:
     """Safely load existing TOML configuration or return an empty dict if missing."""
     if not path.exists():
@@ -39,9 +40,12 @@ def load_config(path: Path) -> dict:
         with open(path, "rb") as f:
             return tomllib.load(f)
     except Exception as e:
-        error_console.print(f"[bold red]Error:[/bold red] Failed to parse config file: {e}")
+        error_console.print(
+            f"[bold red]Error:[/bold red] Failed to parse config file: {e}"
+        )
         raise typer.Exit(code=1)
-    
+
+
 def serialize_to_toml(data: dict) -> str:
     """Helper to convert a flat nested dict into a clean TOML string injection-free."""
     lines = []
@@ -58,6 +62,7 @@ def serialize_to_toml(data: dict) -> str:
             lines.append(f"{key} = {val_str}")
         lines.append("")
     return "\n".join(lines)
+
 
 def _flatten_metadata(data: Dict[str, Any], prefix: str = "") -> List[str]:
     """Flatten nested metadata dict to dot-notation key=value pairs."""

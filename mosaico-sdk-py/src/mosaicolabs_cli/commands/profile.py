@@ -16,16 +16,33 @@ from mosaicolabs_cli.utils.MosaicoProfile import MosaicoProfile
 
 app = typer.Typer(no_args_is_help=True)
 
+
 @app.command(name="add")
 def add_profile(
     name: str = typer.Argument(..., help="Unique name for the new connection profile."),
-    is_default: bool = typer.Option(False, "--default", help="Set this profile as the default fallback option."),
-    interactive: bool = typer.Option(True, "--interactive/--no-interactive", help="Toggle interactive prompt inputs."),
-    host: Optional[str] = typer.Option(None, "--host", help="Mosaico server host name or IP address."),
-    port: Optional[int] = typer.Option(None, "--port", help="Mosaico server port. Leave empty for 6726 when running interactively."),
-    api_key: Optional[str] = typer.Option(None, "--api-key", help="Authentication API key."),
-    tls: bool = typer.Option(False, "--tls/--no-tls", help="Enable TLS for this connection."),
-    cert_path: Optional[str] = typer.Option(None, "--cert-path", help="Path to custom TLS CA certificate (optional).")
+    is_default: bool = typer.Option(
+        False, "--default", help="Set this profile as the default fallback option."
+    ),
+    interactive: bool = typer.Option(
+        True, "--interactive/--no-interactive", help="Toggle interactive prompt inputs."
+    ),
+    host: Optional[str] = typer.Option(
+        None, "--host", help="Mosaico server host name or IP address."
+    ),
+    port: Optional[int] = typer.Option(
+        None,
+        "--port",
+        help="Mosaico server port. Leave empty for 6726 when running interactively.",
+    ),
+    api_key: Optional[str] = typer.Option(
+        None, "--api-key", help="Authentication API key."
+    ),
+    tls: bool = typer.Option(
+        False, "--tls/--no-tls", help="Enable TLS for this connection."
+    ),
+    cert_path: Optional[str] = typer.Option(
+        None, "--cert-path", help="Path to custom TLS CA certificate (optional)."
+    ),
 ):
     """
     Add or update a connection profile inside the configuration file.
@@ -38,25 +55,35 @@ def add_profile(
         if not host:
             host = typer.prompt("Mosaico Server Host")
         if port is None:
-            port_input = typer.prompt("Mosaico Server Port (leave empty for 6726)", default="")
-            port_input = port_input.strip() if isinstance(port_input, str) else port_input
+            port_input = typer.prompt(
+                "Mosaico Server Port (leave empty for 6726)", default=""
+            )
+            port_input = (
+                port_input.strip() if isinstance(port_input, str) else port_input
+            )
             if port_input == "":
                 port = 6726
             else:
                 try:
                     port = int(port_input)
                 except Exception:
-                    error_console.print(f"[bold red]Error:[/bold red] Invalid port '{port_input}'. Expected an integer.")
+                    error_console.print(
+                        f"[bold red]Error:[/bold red] Invalid port '{port_input}'. Expected an integer."
+                    )
                     raise typer.Exit(code=1)
         if not api_key:
             api_key = typer.prompt("API Key", hide_input=True, default="")
         if not tls:
             tls = typer.confirm("Enable TLS?", default=False)
         if tls and not cert_path:
-            cert_path = typer.prompt("TLS CA Certificate Path (optional, press Enter to skip)", default="")
+            cert_path = typer.prompt(
+                "TLS CA Certificate Path (optional, press Enter to skip)", default=""
+            )
     else:
         if not host:
-            error_console.print("[bold red]Error:[/bold red] `--host` is strictly required in non-interactive mode.")
+            error_console.print(
+                "[bold red]Error:[/bold red] `--host` is strictly required in non-interactive mode."
+            )
             raise typer.Exit(code=1)
 
     if port is None:
@@ -88,29 +115,36 @@ def add_profile(
         "api_key": api_key.strip() if api_key else "",
         "tls": tls,
         "cert_path": cert_path.strip() if cert_path else "",
-        "default": should_be_default
+        "default": should_be_default,
     }
 
     try:
         config_path.parent.mkdir(parents=True, exist_ok=True)
-        
+
         toml_string = serialize_to_toml(config_data)
         config_path.write_text(toml_string, encoding="utf-8")
-        
-        console.print(f"[bold green]Success:[/bold green] Profile [yellow]'{name}'[/yellow] saved to {config_path}")
+
+        console.print(
+            f"[bold green]Success:[/bold green] Profile [yellow]'{name}'[/yellow] saved to {config_path}"
+        )
         if should_be_default:
-            console.print(f"Profile [yellow]'{name}'[/yellow] has been configured as your active default.")
-            
+            console.print(
+                f"Profile [yellow]'{name}'[/yellow] has been configured as your active default."
+            )
+
     except Exception as e:
-        error_console.print(f"[bold red]Error:[/bold red] Could not write configuration file: {e}")
+        error_console.print(
+            f"[bold red]Error:[/bold red] Could not write configuration file: {e}"
+        )
         raise typer.Exit(code=1)
+
 
 @app.command(name="remove")
 def remove_profile(
     name: str = typer.Argument(..., help="The name of the profile you want to remove."),
     force: bool = typer.Option(
         False, "--force", "-f", help="Skip confirmation prompt before deleting."
-    )
+    ),
 ):
     """
     Remove a connection profile from the configuration file.
@@ -147,24 +181,29 @@ def remove_profile(
     try:
         toml_string = serialize_to_toml(config_data)
         config_path.write_text(toml_string, encoding="utf-8")
-        
-        console.print(f"[bold green]Success:[/bold green] Profile [yellow]'{name}'[/yellow] removed.")
-        
+
+        console.print(
+            f"[bold green]Success:[/bold green] Profile [yellow]'{name}'[/yellow] removed."
+        )
+
         if auto_promoted_profile:
             console.print(
                 f"[info]Notice:[/info] Deleted profile was the default. "
                 f"Profile [yellow]'{auto_promoted_profile}'[/yellow] has been automatically set as the new default."
             )
-            
+
     except Exception as e:
-        error_console.print(f"[bold red]Error:[/bold red] Could not update configuration file: {e}")
+        error_console.print(
+            f"[bold red]Error:[/bold red] Could not update configuration file: {e}"
+        )
         raise typer.Exit(code=1)
+
 
 @app.command(name="ls")
 def list_profiles(
     output: Optional[OutputFormat] = typer.Option(
         None, "--output", help="Force output format. If omitted, default to table."
-    )
+    ),
 ):
     """
     List all configured Mosaico platform profiles from the config file.
@@ -173,7 +212,9 @@ def list_profiles(
     config_data = load_config(config_path)
 
     if not config_data:
-        console.print("[yellow]No profiles configured yet.[/yellow] Use `mosaico profile add` to create one.")
+        console.print(
+            "[yellow]No profiles configured yet.[/yellow] Use `mosaico profile add` to create one."
+        )
         return
 
     if not output:
@@ -185,9 +226,9 @@ def list_profiles(
             title_style="bold magenta",
             header_style="bold cyan",
             box=None,
-            padding=(0, 2)
+            padding=(0, 2),
         )
-        
+
         table.add_column("Profile Name", style="bold white", width=15)
         table.add_column("Host", style="green", width=35)
         table.add_column("Port", style="green", width=10)
@@ -197,9 +238,9 @@ def list_profiles(
             if isinstance(content, dict):
                 p = MosaicoProfile.from_dict(content)
                 is_default = content.get("default", False)
-                
+
                 default_marker = "[bold green]✓[/bold green]" if is_default else ""
-                
+
                 table.add_row(name, p.host, str(p.port), default_marker)
 
         console.print(table)
@@ -210,14 +251,19 @@ def list_profiles(
                 p = MosaicoProfile.from_dict(content)
                 is_default = str(content.get("default", False)).lower()
                 console.print(f"{name},{p.host},{p.port},{is_default}")
-                
+
     else:
-        error_console.print(f"[bold red]Error:[/bold red] Unsupported output format: '{output}'. Use 'table' or 'csv'.")
+        error_console.print(
+            f"[bold red]Error:[/bold red] Unsupported output format: '{output}'. Use 'table' or 'csv'."
+        )
         raise typer.Exit(code=1)
-    
+
+
 @app.command(name="default")
 def set_default_profile(
-    name: str = typer.Argument(..., help="The name of the profile you want to set as default.")
+    name: str = typer.Argument(
+        ..., help="The name of the profile you want to set as default."
+    ),
 ):
     """
     Switch the active default profile to the one specified.
@@ -233,7 +279,9 @@ def set_default_profile(
         raise typer.Exit(code=1)
 
     if config_data[name].get("default", False):
-        console.print(f"Profile [yellow]'{name}'[/yellow] is already set as the default.")
+        console.print(
+            f"Profile [yellow]'{name}'[/yellow] is already set as the default."
+        )
         return
 
     for profile_name, profile_content in config_data.items():
@@ -246,8 +294,12 @@ def set_default_profile(
     try:
         toml_string = serialize_to_toml(config_data)
         config_path.write_text(toml_string, encoding="utf-8")
-        console.print(f"[bold green]Success:[/bold green] Switched active profile to [yellow]'{name}'[/yellow].")
-        
+        console.print(
+            f"[bold green]Success:[/bold green] Switched active profile to [yellow]'{name}'[/yellow]."
+        )
+
     except Exception as e:
-        error_console.print(f"[bold red]Error:[/bold red] Could not update configuration file: {e}")
+        error_console.print(
+            f"[bold red]Error:[/bold red] Could not update configuration file: {e}"
+        )
         raise typer.Exit(code=1)
