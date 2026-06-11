@@ -20,7 +20,7 @@ from mosaicolabs.logging_config import get_logger
 
 from .helpers import _filter_topics_from_dict, _filter_topics_from_list, _to_dict
 from .registry import ROSTypeRegistry
-from .ros_bridge import ROSMessage
+from .ros_bridge import ROSBridge, ROSMessage
 
 # Set the hierarchical logger
 logger = get_logger(__name__)
@@ -243,7 +243,15 @@ class ROSLoader:
         self._connections: List[Connection] = []
         self._resolved_topics: Dict[
             str, TopicInfo
+        ] = {}  # The full topics set contained in the rosbag
+
+        self._accepted_topics: Dict[
+            str, TopicInfo
         ] = {}  # The actual topics matched after globbing
+
+        self._not_adapted_topics: Dict[
+            str, TopicInfo
+        ] = {}  # The topics which message type is not adapted in mosaico
 
         # Register Global Types (Registry Pattern)
         global_types = ROSTypeRegistry.get_types(typestore_name)
@@ -297,14 +305,32 @@ class ROSLoader:
             raise IOError(f"Could not open bag file: '{e}'") from e
 
         self._connections = []
-        self._resolved_topics = _filter_topics_from_dict(
+
+        self._resolved_topics = self._reader.topics
+        matched_topics = _filter_topics_from_dict(
             self._reader.topics, self._requested_topics
         )
 
-        # Filter connections
+        # Filter connections by ...
         for conn in self._reader.connections:
-            if conn.topic in self._resolved_topics:
+            topic_info = matched_topics.get(conn.topic)
+
+            # 1) requested topic
+            if topic_info is None:
+                logger.info(
+                    f"Skipping topic {conn.topic}: not matching the provided filter."
+                )
+                continue
+
+            # 2) Mosaico-adapted topic
+            if topic_info.msgtype and ROSBridge.is_msgtype_adapted(topic_info.msgtype):
+                self._accepted_topics.update({conn.topic: topic_info})
                 self._connections.append(conn)
+            else:
+                logger.warning(
+                    f"Skipping topic {conn.topic}: not-adapted msgtype {topic_info.msgtype}."
+                )
+                self._not_adapted_topics.update({conn.topic: topic_info})
 
         if not self._connections:
             raise RuntimeError(
@@ -323,14 +349,17 @@ class ROSLoader:
         Returns:
             The total message count.
         """
+
         self._resolve_connections()
         if not topic:
-            return sum(c.msgcount for c in self._connections)
-        try:
-            return next(c.msgcount for c in self._connections if c.topic == topic)
-        except StopIteration:
-            logger.error(f"Topic '{topic}' not found in the loaded connections.")
-            return 0
+            return sum(t_info.msgcount for t_info in self._accepted_topics.values())
+
+        topic_info = self._accepted_topics.get(topic)
+
+        if topic_info is None:
+            logger.error(f"Topic '{topic}' not found in the accepted connections.")
+
+        return topic_info.msgcount
 
     @property
     def duration(self) -> int:
@@ -350,11 +379,11 @@ class ROSLoader:
     @property
     def topics(self) -> List[str]:
         """
-        Retrieves the list of canonical topic names that will be processed.
+        Retrieves the list of all accepted topic names that will be processed.
 
-        This property returns the result of the "Smart Filtering" process, which resolves
-        any glob patterns (e.g., `/camera/*`) provided during initialization against
-         the actual metadata contained within the bag file.
+        This property returns the result of the "Smart Filtering" process which consists in:
+        1) resolving any glob patterns (e.g., `/camera/*`) provided at initialization and comparing with the ones contained within the rosbags
+        2) excluding all remaining topics that do not have an Adapter that allow the translation to a Mosaico Ontology
 
         Example:
             ```python
@@ -368,12 +397,52 @@ class ROSLoader:
             List[str]: A list of topic names currently matched and scheduled for loading.
         """
         self._resolve_connections()
+        return list(self._accepted_topics.keys())
+
+    @property
+    def resolved_topics(self) -> List[str]:
+        """
+        Retrieves the list of **all** the canonical topic names **that are in the rosbag**.
+
+        This property does not account for topics filtered out or not-adapted: it returns everything.
+
+        Example:
+            ```python
+            with ROSLoader(file_path="data.mcap", topics=["/sensors/*"]) as loader:
+                # If the bag contains /sensors/imu, /sensors/gps and /base/camera,
+                # this property returns all: ['/sensors/imu', '/sensors/gps', '/base/camera']
+                print(f"Loading resolved topics: {loader.resolved_topics}")
+            ```
+
+        Returns:
+            List[str]: A list of topic names currently matched and scheduled for loading.
+        """
+        self._resolve_connections()
         return list(self._resolved_topics.keys())
+
+    @property
+    def not_adapted_topics(self) -> List[str]:
+        """
+        Retrieves the list of canonical topic names that are **skipped** due to unavailable Mosaico adapter.
+
+        Example:
+            ```python
+            with ROSLoader(file_path="data.mcap") as loader:
+                # If the bag contains /sensors/imu and /sensors/custom_gps and the user
+                # did not provide an adapter for /sensors/custom_gps this property returns ['/sensors/custom_gps']
+                print(f"Unavailable adapter for topics: {loader.not_adapted_topics}")
+            ```
+
+        Returns:
+            List[str]: A list of topic with no adapter to translate them into Mosaico Ontology.
+        """
+        self._resolve_connections()
+        return list(self._not_adapted_topics.keys())
 
     @property
     def msg_types(self) -> List[str | None]:
         """
-        Retrieves the list of ROS message types corresponding to the resolved topics.
+        Retrieves the list of ROS message types corresponding to the accepted topics.
 
         Each entry in this list represents the schema name (e.g., `sensor_msgs/msg/Image`)
         required to correctly deserialize the messages for the topics returned by
@@ -391,7 +460,7 @@ class ROSLoader:
             as the resolved topics.
         """
         self._resolve_connections()
-        return [val.msgtype for val in self._resolved_topics.values()]
+        return [val.msgtype for val in self._accepted_topics.values()]
 
     # --- Core Logic ---
 
