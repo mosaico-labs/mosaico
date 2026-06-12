@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT * FROM sequence_t WHERE sequence_id=$1 FOR SHARE",
+  "query": "SELECT * FROM sequence_t WHERE sequence_id=$1",
   "describe": {
     "columns": [
       {
@@ -48,5 +48,5 @@
       false
     ]
   },
-  "hash": "ee3fc1754dd92e5ad9ee62f1d15216e3ff9023e6532d0be2e00e9916134f2215"
+  "hash": "5a077b5b7b4faab14fe702fddd8f4f0b7302beae49dbc58f4b07a1da4e8fbe97"
 }

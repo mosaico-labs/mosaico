@@ -10,7 +10,7 @@ pub async fn sequence_find_by_id(
     trace!("searching sequence by id `{}`", id);
     let res = sqlx::query_as!(
         schema::SequenceRecord,
-        "SELECT * FROM sequence_t WHERE sequence_id=$1 FOR SHARE",
+        "SELECT * FROM sequence_t WHERE sequence_id=$1",
         id
     )
     .fetch_one(exe.as_exec())
@@ -26,7 +26,7 @@ pub async fn sequence_find_by_uuid(
     trace!("searching sequence by uuid `{}`", uuid);
     let res = sqlx::query_as!(
         schema::SequenceRecord,
-        "SELECT * FROM sequence_t WHERE sequence_uuid=$1 FOR SHARE",
+        "SELECT * FROM sequence_t WHERE sequence_uuid=$1",
         uuid.as_ref()
     )
     .fetch_one(exe.as_exec())
@@ -42,7 +42,7 @@ pub async fn sequence_find_by_locator(
     trace!("searching sequence by locator name `{}`", loc);
     let res = sqlx::query_as!(
         schema::SequenceRecord,
-        "SELECT * FROM sequence_t WHERE locator_name=$1 FOR SHARE",
+        "SELECT * FROM sequence_t WHERE locator_name=$1",
         loc as &str,
     )
     .fetch_one(exe.as_exec())

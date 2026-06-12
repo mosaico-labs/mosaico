@@ -112,10 +112,7 @@ pub async fn try_create(
     let mut tx = context.db.transaction().await?;
 
     // Session must not be already finalized.
-    let session_already_finalized = db::session_find_by_id(&mut tx, session_handle.id())
-        .await?
-        .completion_timestamp()
-        .is_some();
+    let session_already_finalized = db::session_finalized(&mut tx, session_handle.id()).await?;
 
     if session_already_finalized {
         Err(core::Error::session_already_finalized(
@@ -167,7 +164,7 @@ pub async fn try_create(
 ///
 /// Note: please use this function instead of [`status`] if you need to call it internally
 /// (from another function in this module that already has an active transaction)
-pub(super) async fn impl_status(handle: &Handle, exe: &mut impl db::AsExec) -> Result<Status> {
+async fn impl_status(handle: &Handle, exe: &mut impl db::AsExec) -> Result<Status> {
     let db_topic = db::topic_find_by_id(exe, handle.id()).await?;
 
     if db_topic.path_in_store().is_none() {

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT * FROM topic_t WHERE topic_id=$1 FOR SHARE",
+  "query": "SELECT * FROM topic_t WHERE locator_name=$1",
   "describe": {
     "columns": [
       {
@@ -81,7 +81,7 @@
     ],
     "parameters": {
       "Left": [
-        "Int4"
+        "Text"
       ]
     },
     "nullable": [
@@ -102,5 +102,5 @@
       true
     ]
   },
-  "hash": "e16f523a4ad5d5385aa1c9e3f2e1244703cf8dfc140fb81a634d242f0017f1e6"
+  "hash": "1ac8bad8686c3f3d9ea0bdb99c60a137746047100552e897570f4e048c1b14ed"
 }
