@@ -120,11 +120,7 @@ pub async fn sequence_notifications_find_by_sequence_id(
     );
     let res = sqlx::query_as!(
         schema::SequenceNotificationRecord,
-        r#"
-          SELECT notification.* FROM sequence_notification_t AS notification
-          JOIN sequence_t AS seq ON notification.sequence_id = seq.sequence_id
-          WHERE seq.sequence_id=$1
-    "#,
+        r#"SELECT * FROM sequence_notification_t WHERE sequence_id=$1"#,
         sequence_id,
     )
     .fetch_all(exe.as_exec())
