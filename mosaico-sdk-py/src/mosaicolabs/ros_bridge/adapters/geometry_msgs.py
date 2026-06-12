@@ -249,6 +249,13 @@ class PoseAdapter(ROSAdapterBase[Pose]):
 
         return None
 
+    @classmethod
+    def schema_metadata(cls, typestore: Typestore, ros_msg_type: str) -> Optional[dict]:
+        """
+        Extract the ROS message specific schema metadata, if any.
+        """
+        return super().schema_metadata(typestore, ros_msg_type)
+
 
 @register_default_adapter(is_default=True)
 class TwistAdapter(ROSAdapterBase[Velocity]):
@@ -466,8 +473,11 @@ class TwistAdapter(ROSAdapterBase[Velocity]):
         return None
 
     @classmethod
-    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
-        return None
+    def schema_metadata(cls, typestore: Typestore, ros_msg_type: str) -> Optional[dict]:
+        """
+        Extract the ROS message specific schema metadata, if any.
+        """
+        return super().schema_metadata(typestore, ros_msg_type)
 
 
 @register_default_adapter(is_default=True)
@@ -681,8 +691,8 @@ class AccelAdapter(ROSAdapterBase[Acceleration]):
         return None
 
     @classmethod
-    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
-        return None
+    def schema_metadata(cls, typestore: Typestore, ros_msg_type: str) -> Optional[dict]:
+        return super().schema_metadata(typestore, ros_msg_type)
 
 
 @register_default_adapter(is_default=True)
@@ -851,8 +861,8 @@ class Vector3Adapter(ROSAdapterBase[Vector3d]):
         return None
 
     @classmethod
-    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
-        return None
+    def schema_metadata(cls, typestore: Typestore, ros_msg_type: str) -> Optional[dict]:
+        return super().schema_metadata(typestore, ros_msg_type)
 
 
 @register_default_adapter(is_default=True)
@@ -1017,8 +1027,8 @@ class PointAdapter(ROSAdapterBase[Point3d]):
         return None
 
     @classmethod
-    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
-        return None
+    def schema_metadata(cls, typestore: Typestore, ros_msg_type: str) -> Optional[dict]:
+        return super().schema_metadata(typestore, ros_msg_type)
 
 
 @register_default_adapter(is_default=True)
@@ -1191,8 +1201,8 @@ class QuaternionAdapter(ROSAdapterBase[Quaternion]):
         return None
 
     @classmethod
-    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
-        return None
+    def schema_metadata(cls, typestore: Typestore, ros_msg_type: str) -> Optional[dict]:
+        return super().schema_metadata(typestore, ros_msg_type)
 
 
 @register_default_adapter(is_default=True)
@@ -1372,8 +1382,8 @@ class TransformAdapter(ROSAdapterBase[Transform]):
         return None
 
     @classmethod
-    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
-        return None
+    def schema_metadata(cls, typestore: Typestore, ros_msg_type: str) -> Optional[dict]:
+        return super().schema_metadata(typestore, ros_msg_type)
 
 
 @register_default_adapter(is_default=True)
@@ -1533,8 +1543,8 @@ class WrenchAdapter(ROSAdapterBase[ForceTorque]):
         return None
 
     @classmethod
-    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
-        return None
+    def schema_metadata(cls, typestore: Typestore, ros_msg_type: str) -> Optional[dict]:
+        return super().schema_metadata(typestore, ros_msg_type)
 
 
 @register_default_adapter(is_default=True)
@@ -1688,8 +1698,8 @@ class PolygonAdapter(ROSAdapterBase[Polygon]):
         return None
 
     @classmethod
-    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
-        return None
+    def schema_metadata(cls, typestore: Typestore, ros_msg_type: str) -> Optional[dict]:
+        return super().schema_metadata(typestore, ros_msg_type)
 
 
 @register_default_adapter(is_default=True)
@@ -1876,5 +1886,5 @@ class InertiaAdapter(ROSAdapterBase[Inertia]):
         return None
 
     @classmethod
-    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
-        return None
+    def schema_metadata(cls, typestore: Typestore, ros_msg_type: str) -> Optional[dict]:
+        return super().schema_metadata(typestore, ros_msg_type)

@@ -18,7 +18,7 @@ import argparse
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 from rich.live import Live
 from rosbags.interfaces import Connection
@@ -294,19 +294,24 @@ class ROSSequenceExtractor:
         return rosbag_path
 
     def _process_message(
-        self, bag_writer: Writer, ms_topic: str, ms_msg: Message, ui: ProgressManager
+        self,
+        bag_writer: Writer,
+        t_name: str,
+        t_metadata: dict[str, Any],
+        ms_msg: Message,
+        ui: ProgressManager,
     ):
         """
         Internal business logic for processing a single Mosaico message.
 
         Steps:
         1. **Resolve Adapter**: Locates the appropriate Mosaico Adapter for the message type.
-        2. **Translate**: Obtains or creates a `RosMsg` for the specific topic.
+        2. **Translate**: Obtains or creates a `RosMsg` for the specific topic (looking for message type within Mosaico topic metadata).
         3. **Resolve Connection**: Obtains or creates a `Connection` for the specific topic.
         4. **Write**: Writes the RosMsg into the rosbag.
         """
 
-        if ms_topic in self.ignored_topics:
+        if t_name in self.ignored_topics:
             ui.advance_global()
             return
 
@@ -317,23 +322,31 @@ class ROSSequenceExtractor:
 
         # If no adapter can be found, ingore the topics from now on
         if adapter is None:
-            self.ignored_topics.add(ms_topic)
+            self.ignored_topics.add(t_name)
             logger.warning(
-                f"Could not find Adapter for topic '{ms_topic}' of type '{mosaico_type}'. Skipping the topic associated to this message"
+                f"Could not find Adapter for topic '{t_name}' of type '{mosaico_type}'. Skipping the topic associated to this message"
             )
-            ui.update_status(ms_topic, "No Adapter", style="yellow")
+            ui.update_status(t_name, "No Adapter", style="yellow")
             ui.advance_global()
             return
 
         # --- Translate Check ---
-        ros_msg = adapter.to_ros(ms_msg, self.typestore)
+        ros_msg_type = None
+        try:
+            ros_msg_type = t_metadata["_ros_"]["msgtype"]
+        except (
+            KeyError
+        ):  # case where metadata do not contain any insights about ROS message type
+            pass
+
+        ros_msg = adapter.to_ros(ms_msg, self.typestore, ros_msg_type)
 
         if not ros_msg:
-            self.ignored_topics.add(ms_topic)
+            self.ignored_topics.add(t_name)
             logger.warning(
                 f"Could not encode to ros '{mosaico_type}' type. Skipping the topic associated to this message"
             )
-            ui.update_status(ms_topic, "Failed encoding", style="yellow")
+            ui.update_status(t_name, "Failed encoding", style="yellow")
             ui.advance_global()
             return
 
@@ -344,23 +357,23 @@ class ROSSequenceExtractor:
         )  # Fallback to timestamp if recording_timestamp_ns is not available
 
         # --- Resolve Connection check ---
-        if ms_topic not in self.accepted_connections:  # New connection available
+        if t_name not in self.accepted_connections:  # New connection available
             if self.cfg.ros_distro is Stores.ROS1_NOETIC:
                 new_connection = bag_writer.add_connection(
-                    ms_topic,
+                    t_name,
                     ros_msgtype,
                     typestore=self.typestore,
                 )
             else:
                 new_connection = bag_writer.add_connection(
-                    ms_topic,
+                    t_name,
                     ros_msgtype,
                     typestore=self.typestore,
-                    offered_qos_profiles=get_qos_for_topic(ms_topic),
+                    offered_qos_profiles=get_qos_for_topic(t_name),
                 )
-            self.accepted_connections.update({ms_topic: new_connection})
+            self.accepted_connections.update({t_name: new_connection})
 
-        connection = self.accepted_connections.get(ms_topic)
+        connection = self.accepted_connections.get(t_name)
 
         # --- Write check ---
         if self.cfg.ros_distro is Stores.ROS1_NOETIC:  # ROS1
@@ -376,7 +389,7 @@ class ROSSequenceExtractor:
                 self.typestore.serialize_cdr(ros_msg, ros_msgtype),
             )
 
-        ui.advance_all(ms_topic)
+        ui.advance_all(t_name)
 
     def run(self):
         """
@@ -421,8 +434,10 @@ class ROSSequenceExtractor:
                     ui.setup()
 
                     with Live(ui.progress, console=self.console):
-                        for ms_topic, ms_msg in ms_loader:
-                            self._process_message(bag_writer, ms_topic, ms_msg, ui)
+                        for t_name, t_metadata, ms_msg in ms_loader:
+                            self._process_message(
+                                bag_writer, t_name, t_metadata, ms_msg, ui
+                            )
 
         except KeyboardInterrupt:
             logger.warning("Operation cancelled by user. Shutting down...")

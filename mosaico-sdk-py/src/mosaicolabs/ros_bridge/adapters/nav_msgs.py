@@ -173,11 +173,11 @@ class OdometryAdapter(ROSAdapterBase[MotionState]):
         return None
 
     @classmethod
-    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
+    def schema_metadata(cls, typestore: Typestore, ros_msg_type: str) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
         """
-        return None
+        return super().schema_metadata(typestore, ros_msg_type)
 
 
 @register_default_adapter(is_default=True)
@@ -348,11 +348,11 @@ class RobotPathAdapter(ROSAdapterBase[RobotPath]):
         return None
 
     @classmethod
-    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
+    def schema_metadata(cls, typestore: Typestore, ros_msg_type: str) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
         """
-        return None
+        return super().schema_metadata(typestore, ros_msg_type)
 
 
 @register_default_adapter(is_default=True)
@@ -494,8 +494,11 @@ class GridCellsAdapter(ROSAdapterBase[GridCells]):
         return None
 
     @classmethod
-    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
-        return None
+    def schema_metadata(cls, typestore: Typestore, ros_msg_type: str) -> Optional[dict]:
+        """
+        Extract the ROS message specific schema metadata, if any.
+        """
+        return super().schema_metadata(typestore, ros_msg_type)
 
 
 @register_default_adapter(is_default=True)
@@ -636,8 +639,11 @@ class MapMetadataAdapter(ROSAdapterBase[MapMetadata]):
         return None
 
     @classmethod
-    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
-        return None
+    def schema_metadata(cls, typestore: Typestore, ros_msg_type: str) -> Optional[dict]:
+        """
+        Extract the ROS message specific schema metadata, if any.
+        """
+        return super().schema_metadata(typestore, ros_msg_type)
 
 
 @register_default_adapter(is_default=True)
@@ -765,5 +771,8 @@ class OccupancyGridAdapter(ROSAdapterBase[OccupancyGrid]):
         return None
 
     @classmethod
-    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
-        return None
+    def schema_metadata(cls, typestore: Typestore, ros_msg_type: str) -> Optional[dict]:
+        """
+        Extract the ROS message specific schema metadata, if any.
+        """
+        return super().schema_metadata(typestore, ros_msg_type)

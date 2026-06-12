@@ -1,6 +1,6 @@
 from enum import Enum
 from pathlib import Path
-from typing import Dict, Generator, List, Optional, Protocol, Tuple, Union
+from typing import Any, Dict, Generator, List, Optional, Protocol, Tuple, Union
 
 from rich.progress import (
     BarColumn,
@@ -15,7 +15,7 @@ from rosbags.highlevel import AnyReader
 from rosbags.interfaces import Connection, TopicInfo
 from rosbags.typesys import Stores, get_typestore
 
-from mosaicolabs import MosaicoClient, SequenceDataStreamer
+from mosaicolabs import Message, MosaicoClient, SequenceDataStreamer
 from mosaicolabs.logging_config import get_logger
 
 from .helpers import _filter_topics_from_dict, _filter_topics_from_list, _to_dict
@@ -674,4 +674,12 @@ class MosaicoLoader:
 
         self._resolve_sequence()
 
-        return self.streamer
+        return self
+
+    def __next__(self) -> tuple[str, dict[str, Any], Message]:
+
+        t_name, msg = self.streamer.__next__()
+
+        t_metadata = self.seq_handler.get_topic_handler(t_name).user_metadata
+
+        return t_name, t_metadata, msg
