@@ -35,7 +35,7 @@ pub async fn create(
 
     let user_mdata = marshal::JsonMetadataBlob::try_from_str(user_metadata_str)?;
 
-    let received_uuid: types::Uuid = session_uuid
+    let received_session_uuid: types::Uuid = session_uuid
         .parse()
         .map_err(|_| core::Error::bad_uuid(session_uuid))?;
 
@@ -48,9 +48,13 @@ pub async fn create(
     );
 
     let topic_locator = name.parse::<types::TopicLocator>()?;
-    let session_handle = facade::session::Handle::try_from_uuid(ctx, &received_uuid).await?;
-    let topic_handle =
-        facade::topic::try_create(ctx, topic_locator, &session_handle, ontology_metadata).await?;
+    let topic_handle = facade::topic::try_create(
+        ctx,
+        topic_locator,
+        &received_session_uuid,
+        ontology_metadata,
+    )
+    .await?;
 
     trace!(
         "resource `{}` created with uuid {}",

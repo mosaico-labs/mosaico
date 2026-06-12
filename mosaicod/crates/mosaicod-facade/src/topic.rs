@@ -1,4 +1,4 @@
-use super::{Context, Error, session};
+use super::{Context, Error};
 use arrow::datatypes::SchemaRef;
 
 use log::{trace, warn};
@@ -106,25 +106,25 @@ impl Handle {
 pub async fn try_create(
     context: &Context,
     locator: types::TopicLocator,
-    session_handle: &session::Handle,
+    session_uuid: &types::Uuid,
     ontology_metadata: TopicOntologyMetadata,
 ) -> Result<Handle> {
     let mut tx = context.db.transaction().await?;
 
     // Session must not be already finalized.
-    let session_already_finalized = db::session_finalized(&mut tx, session_handle.id()).await?;
+    let session_record = db::session_find_by_uuid(&mut tx, session_uuid).await?;
 
-    if session_already_finalized {
+    if session_record.completion_timestamp().is_some() {
         Err(core::Error::session_already_finalized(
-            session_handle.locator().to_string(),
+            session_record.locator().to_string(),
         ))?;
     }
 
     // Find parent sequence and ensure that this topic is child of the provided
     // sequence, i.e. they are related with the same name structure
-    let seq_rec = db::sequence_find_by_locator(&mut tx, &session_handle.locator().sequence).await?;
+    let seq_rec = db::sequence_find_by_locator(&mut tx, &session_record.locator().sequence).await?;
 
-    if locator.sequence != session_handle.locator().sequence {
+    if locator.sequence != session_record.locator().sequence {
         Err(core::Error::unauthorized(
             "provided topic locator and session do not share the same sequence".to_string(),
         ))?;
@@ -133,7 +133,7 @@ pub async fn try_create(
     let mut record = db::TopicRecord::new(
         locator.clone(),
         seq_rec.sequence_id,
-        session_handle.id(),
+        session_record.session_id,
         &ontology_metadata.properties.ontology_tag,
         &ontology_metadata
             .properties
@@ -585,7 +585,7 @@ impl std::ops::DerefMut for HandleWriter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::sequence;
+    use crate::{sequence, session};
     use mosaicod_core::types::NotificationType;
     use mosaicod_query as query;
 
@@ -637,7 +637,7 @@ mod tests {
         let topic_handle = try_create(
             &context,
             topic_locator,
-            &session_handle,
+            session_handle.uuid(),
             dummy_ontology_metadata(),
         )
         .await
@@ -697,7 +697,7 @@ mod tests {
         let topic_handle = try_create(
             &context,
             topic_locator,
-            &session_handle,
+            session_handle.uuid(),
             dummy_ontology_metadata(),
         )
         .await
