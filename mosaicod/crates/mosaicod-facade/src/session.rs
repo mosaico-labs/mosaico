@@ -79,6 +79,7 @@ pub async fn try_create(
     let locator = types::SessionLocator::new(sequence_locator);
 
     let session = db::SessionRecord::new(locator.clone(), sequence.sequence_id);
+
     let session = db::session_create(&mut tx, &session).await?;
 
     tx.commit().await?;
@@ -167,7 +168,7 @@ pub async fn delete(
 
 /// Returns the topic list associated with this session.
 async fn topic_list(handle: &Handle, exe: &mut impl db::AsExec) -> Result<Vec<topic::Handle>> {
-    let topics = db::session_find_all_topics(exe, handle.uuid()).await?;
+    let topics = db::session_find_all_topics(exe, handle.id()).await?;
 
     Ok(topics
         .into_iter()
@@ -183,11 +184,11 @@ async fn topic_list(handle: &Handle, exe: &mut impl db::AsExec) -> Result<Vec<to
 }
 
 pub async fn metadata(context: &Context, handle: &Handle) -> Result<types::SessionMetadata> {
-    let mut tx = context.db.transaction().await?;
+    let mut cx = context.db.connection();
 
-    let db_session = db::session_find_by_id(&mut tx, handle.id()).await?;
+    let db_session = db::session_find_by_id(&mut cx, handle.id()).await?;
 
-    let topics = topic_list(handle, &mut tx)
+    let topics = topic_list(handle, &mut cx)
         .await?
         .into_iter()
         .map(|handle| handle.locator().clone())

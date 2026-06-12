@@ -145,3 +145,16 @@ pub async fn sequence_notification_delete(exe: &mut impl AsExec, id: i32) -> Res
     .await?;
     Ok(())
 }
+
+/// Deletes all reports from the database for the given sequence.
+pub async fn sequence_notifications_purge(exe: &mut impl AsExec, id: i32) -> Result<(), Error> {
+    trace!("deleting notifications for sequence `{}`", id);
+    sqlx::query!(
+        "DELETE FROM sequence_notification_t WHERE sequence_id=$1",
+        id
+    )
+    .execute(exe.as_exec())
+    .await?;
+
+    Ok(())
+}

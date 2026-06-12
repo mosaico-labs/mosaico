@@ -72,18 +72,13 @@ pub async fn sequence_find_path_in_store(
 
 pub async fn sequence_find_all_topics(
     exe: &mut impl AsExec,
-    loc: &types::SequenceLocator,
+    id: i32,
 ) -> Result<Vec<schema::TopicRecord>, Error> {
-    trace!("searching topics for sequence `{}`", loc);
+    trace!("searching topics for sequence with id `{}`", id);
     Ok(sqlx::query_as!(
         schema::TopicRecord,
-        r#"
-        SELECT topic.*
-        FROM topic_t AS topic
-        JOIN sequence_t AS sequence ON topic.sequence_id = sequence.sequence_id
-        WHERE sequence.locator_name = $1
-        "#,
-        loc as &str
+        r#"SELECT * FROM topic_t WHERE sequence_id = $1"#,
+        id
     )
     .fetch_all(exe.as_exec())
     .await?)
@@ -91,18 +86,13 @@ pub async fn sequence_find_all_topics(
 
 pub async fn sequence_find_all_sessions(
     exe: &mut impl AsExec,
-    loc: &types::SequenceLocator,
+    id: i32,
 ) -> Result<Vec<schema::SessionRecord>, Error> {
-    trace!("searching sessions for sequence `{}`", loc);
+    trace!("searching sessions for sequence with id `{}`", id);
     Ok(sqlx::query_as!(
         schema::SessionRecord,
-        r#"
-        SELECT session.*
-        FROM session_t AS session 
-        JOIN sequence_t AS sequence ON session.sequence_id = sequence.sequence_id
-        WHERE sequence.locator_name = $1
-        "#,
-        loc as &str
+        r#"SELECT * FROM session_t WHERE sequence_id = $1"#,
+        id
     )
     .fetch_all(exe.as_exec())
     .await?)

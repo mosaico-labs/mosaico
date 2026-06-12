@@ -87,17 +87,14 @@ pub async fn try_create(
     // 1. Create sequence in database.
     // Note: we want to prevent the newly created folder in the store from being marked as TO_DELETE by the cleanup routine.
     // That's why we create the DB record as first thing.
-    let mut tx = context.db.transaction().await?;
-
     let mut record = db::SequenceRecord::new(locator.clone(), path_in_store.clone());
 
     if let Some(mdata) = &metadata {
         record = record.with_user_metadata(mdata.clone());
     }
 
-    let record = db::sequence_create(&mut tx, &record).await?;
-
-    tx.commit().await?;
+    let mut cx = context.db.connection();
+    let record = db::sequence_create(&mut cx, &record).await?;
 
     // 2. If metadata are present, save them to Store too.
     if let Some(mdata) = metadata {
@@ -171,14 +168,12 @@ pub async fn notify(
     ntype: types::NotificationType,
     msg: String,
 ) -> Result<types::Notification<types::SequenceLocator>> {
-    let mut tx = context.db.transaction().await?;
-
     // Note: no need to check the sequence existence for it is already done internally
     // by the DB constraints checks on the foreign key.
     let notification = db::SequenceNotificationRecord::new(handle.id(), ntype, Some(msg));
-    let notification = db::sequence_notification_create(&mut tx, &notification).await?;
 
-    tx.commit().await?;
+    let mut cx = context.db.connection();
+    let notification = db::sequence_notification_create(&mut cx, &notification).await?;
 
     Ok(notification.into_notification(handle.locator.clone()))
 }
@@ -188,10 +183,10 @@ pub async fn notification_list(
     context: &Context,
     handle: &Handle,
 ) -> Result<Vec<types::Notification<types::SequenceLocator>>> {
-    let mut trans = context.db.transaction().await?;
+    let mut cx = context.db.connection();
     let notifications =
-        db::sequence_notifications_find_by_sequence_id(&mut trans, handle.id()).await?;
-    trans.commit().await?;
+        db::sequence_notifications_find_by_sequence_id(&mut cx, handle.id()).await?;
+
     Ok(notifications
         .into_iter()
         .map(|n| n.into_notification(handle.locator.clone()))
@@ -200,17 +195,8 @@ pub async fn notification_list(
 
 /// Deletes all the notifications associated with the sequence
 pub async fn notification_purge(context: &Context, handle: &Handle) -> Result<()> {
-    let mut trans = context.db.transaction().await?;
-
-    let notifications =
-        db::sequence_notifications_find_by_sequence_id(&mut trans, handle.id()).await?;
-
-    for notification in notifications {
-        // Notification id is unwrapped since is retrieved from the database, and it has an id.
-        db::sequence_notification_delete(&mut trans, notification.id().unwrap()).await?;
-    }
-
-    trans.commit().await?;
+    let mut cx = context.db.connection();
+    db::sequence_notifications_purge(&mut cx, handle.id()).await?;
     Ok(())
 }
 
@@ -220,7 +206,11 @@ pub async fn metadata(context: &Context, handle: &Handle) -> Result<SequenceMeta
 
     let db_sequence = db::sequence_find_by_id(&mut cx, handle.id()).await?;
 
-    let sessions = session_list(handle, &mut cx).await?;
+    let sessions: Vec<session::Handle> = db::sequence_find_all_sessions(&mut cx, handle.id())
+        .await?
+        .into_iter()
+        .map(|record| session::Handle::new(record.locator(), record.session_id, record.uuid()))
+        .collect();
 
     let mut sequence_metadata = SequenceMetadata {
         created_at: db_sequence.creation_timestamp(),
@@ -242,7 +232,7 @@ pub async fn metadata(context: &Context, handle: &Handle) -> Result<SequenceMeta
 pub async fn topic_list(context: &Context, handle: &Handle) -> Result<Vec<topic::Handle>> {
     let mut cx = context.db.connection();
 
-    Ok(db::sequence_find_all_topics(&mut cx, &handle.locator)
+    Ok(db::sequence_find_all_topics(&mut cx, handle.id())
         .await?
         .into_iter()
         .map(|record| {
@@ -253,18 +243,6 @@ pub async fn topic_list(context: &Context, handle: &Handle) -> Result<Vec<topic:
                 record.path_in_store(),
             )
         })
-        .collect())
-}
-
-/// Returns the session list associated with this sequence as vector of session UUIDs
-pub async fn session_list(
-    handle: &Handle,
-    exe: &mut impl db::AsExec,
-) -> Result<Vec<session::Handle>> {
-    Ok(db::sequence_find_all_sessions(exe, &handle.locator)
-        .await?
-        .into_iter()
-        .map(|record| session::Handle::new(record.locator(), record.session_id, record.uuid()))
         .collect())
 }
 

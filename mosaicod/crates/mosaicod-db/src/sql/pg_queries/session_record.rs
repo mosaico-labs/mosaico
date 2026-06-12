@@ -37,13 +37,15 @@ pub async fn session_find_by_id(
     id: i32,
 ) -> Result<schema::SessionRecord, Error> {
     trace!("searching session by id `{}`", id);
+
     let res = sqlx::query_as!(
         schema::SessionRecord,
-        "SELECT * FROM session_t WHERE session_id=$1",
+        r#"SELECT * FROM session_t WHERE session_id=$1"#,
         id
     )
     .fetch_one(exe.as_exec())
     .await?;
+
     Ok(res)
 }
 
@@ -53,6 +55,7 @@ pub async fn session_find_by_uuid(
     uuid: &types::Uuid,
 ) -> Result<schema::SessionRecord, Error> {
     trace!("searching session by uuid `{}`", uuid);
+
     let res = sqlx::query_as!(
         schema::SessionRecord,
         "SELECT * FROM session_t WHERE session_uuid=$1",
@@ -60,6 +63,7 @@ pub async fn session_find_by_uuid(
     )
     .fetch_one(exe.as_exec())
     .await?;
+
     Ok(res)
 }
 
@@ -76,6 +80,7 @@ pub async fn session_find_by_locator(
     )
     .fetch_one(exe.as_exec())
     .await?;
+
     Ok(res)
 }
 
@@ -115,19 +120,13 @@ pub async fn session_delete(
 /// Find all topic associated with a session
 pub async fn session_find_all_topics(
     exe: &mut impl AsExec,
-    uuid: &types::Uuid,
+    id: i32,
 ) -> Result<Vec<schema::TopicRecord>, Error> {
-    trace!("searching topics for session `{}`", uuid);
+    trace!("searching topics for session with id `{}`", id);
     Ok(sqlx::query_as!(
         schema::TopicRecord,
-        r#"
-        SELECT topic.*
-        FROM topic_t AS topic
-        JOIN session_t AS session 
-            ON topic.session_id = session.session_id
-        WHERE session.session_uuid = $1
-        "#,
-        uuid.as_ref(),
+        r#"SELECT * FROM topic_t WHERE session_id = $1"#,
+        id,
     )
     .fetch_all(exe.as_exec())
     .await?)
@@ -150,7 +149,7 @@ pub async fn session_try_update_completion_tstamp(
             UPDATE session_t
             SET completion_unix_tstamp = $1
             WHERE session_id = $2 AND completion_unix_tstamp IS NULL
-    "#,
+            "#,
         completion_ts,
         session_id,
     )

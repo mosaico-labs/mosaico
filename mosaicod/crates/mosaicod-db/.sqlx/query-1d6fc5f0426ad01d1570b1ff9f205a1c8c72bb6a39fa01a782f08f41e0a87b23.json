@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT topic.*\n        FROM topic_t AS topic\n        JOIN session_t AS session \n            ON topic.session_id = session.session_id\n        WHERE session.session_uuid = $1\n        ",
+  "query": "SELECT * FROM topic_t WHERE sequence_id = $1",
   "describe": {
     "columns": [
       {
@@ -81,7 +81,7 @@
     ],
     "parameters": {
       "Left": [
-        "Uuid"
+        "Int4"
       ]
     },
     "nullable": [
@@ -102,5 +102,5 @@
       true
     ]
   },
-  "hash": "07dcee209fc6411c1a82aed9b520589dd5d50c60d7f6107be08fb3ab3a65ccee"
+  "hash": "1d6fc5f0426ad01d1570b1ff9f205a1c8c72bb6a39fa01a782f08f41e0a87b23"
 }
