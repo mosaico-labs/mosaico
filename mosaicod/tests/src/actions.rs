@@ -697,7 +697,7 @@ pub async fn topic_filter_clusterize(
 
 pub async fn topic_filter_intersect(
     client: &mut Client,
-    topics: Vec<mosaicod_marshal::requests::TopicFilterClusterize>,
+    topics: Vec<mosaicod_marshal::requests::TopicClusterizeParams>,
     intersect_dt_ns: u64,
 ) -> Result<Vec<serde_json::Value>, tonic::Status> {
     let body = json!({

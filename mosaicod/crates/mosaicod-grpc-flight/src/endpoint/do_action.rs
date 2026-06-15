@@ -96,10 +96,10 @@ pub async fn do_action(
         ActionRequest::TopicFilterClusterize(data) => {
             topic::filter_clusterize(
                 ctx,
-                data.locator,
-                data.clustering_dt_ns,
-                data.ontology,
-                data.timestamp_range,
+                data.params.locator,
+                data.params.clustering_dt_ns,
+                data.params.ontology,
+                data.params.timestamp_range,
             )
             .await
         }

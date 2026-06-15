@@ -1,6 +1,6 @@
 //! Topic-related actions.
 
-use mosaicod_ext::arrow_filter::{Cluster, ClusteringError};
+use ext::arrow_filter::{Cluster, ClusteringError};
 
 use arrow::error::ArrowError;
 use datafusion::physical_plan::SendableRecordBatchStream;
@@ -8,9 +8,9 @@ use futures::StreamExt;
 use log::{info, trace, warn};
 use mosaicod_core::{
     self as core,
-    types::{self, MetadataBlob},
+    types::{self, MetadataBlob, TopicLocator},
 };
-use mosaicod_ext;
+use mosaicod_ext as ext;
 use mosaicod_facade::{self as facade};
 use mosaicod_grpc_common as grpc_common;
 use mosaicod_marshal::{
@@ -178,6 +178,9 @@ pub async fn query_by_timestamp(
     Ok(result.stream().await?)
 }
 
+type ClusteringResult =
+    std::result::Result<ext::arrow_filter::Cluster, ext::arrow_filter::ClusteringError>;
+
 pub async fn filter_clusterize(
     ctx: &facade::Context,
     locator: String,
@@ -207,14 +210,7 @@ async fn spawn_cluster_stream(
     clustering_dt_ns: u64,
     ontology: Ontology,
     timestamp_range: Option<FilterTimestampRange>,
-) -> grpc_common::Result<
-    ReceiverStream<
-        std::result::Result<
-            mosaicod_ext::arrow_filter::Cluster,
-            mosaicod_ext::arrow_filter::ClusteringError,
-        >,
-    >,
-> {
+) -> grpc_common::Result<ReceiverStream<ClusteringResult>> {
     if ontology.len() > 1 || ontology.is_empty() {
         return Err(core::Error::bad_request(format!(
             "Only 1 filtering condition is allowed, found {}",
@@ -256,28 +252,23 @@ async fn spawn_cluster_stream(
     // The downstream `map` converts each variant into the corresponding Flight
     // payload or [`tonic::Status`], so the client sees errors interleaved with
     // data at the exact position where they happened.
-    let (tx, rx) = mpsc::channel::<
-        std::result::Result<
-            mosaicod_ext::arrow_filter::Cluster,
-            mosaicod_ext::arrow_filter::ClusteringError,
-        >,
-    >(MAX_BUFFER_CHANNEL_SIZE);
+    let (tx, rx) = mpsc::channel::<ClusteringResult>(MAX_BUFFER_CHANNEL_SIZE);
 
     tokio::spawn(async move {
-        let _ = mosaicod_ext::arrow_filter::topic_filter_clusterize(
-            batch_stream,
-            dt_ns,
-            &timestamp_column,
-            tx,
-        )
-        .await;
+        let _ =
+            ext::arrow_filter::topic_filter_clusterize(batch_stream, dt_ns, &timestamp_column, tx)
+                .await;
     });
 
     Ok(ReceiverStream::new(rx))
 }
 
+/// Converts a [`Cluster`] into an [`arrow_flight::Result`] payload.
+///
+/// `F` is a one-shot closure that selects the correct [`ActionResponse`] variant
+/// for the operation being performed, either a clusterize or an intersect result.
 fn cluster_to_flight_result<F>(
-    cluster: mosaicod_ext::arrow_filter::Cluster,
+    cluster: ext::arrow_filter::Cluster,
     action_builder: F,
 ) -> std::result::Result<arrow_flight::Result, tonic::Status>
 where
@@ -302,7 +293,7 @@ where
 
 pub async fn filter_intersect(
     ctx: &facade::Context,
-    topics: Vec<requests::TopicFilterClusterize>,
+    topics: Vec<requests::TopicClusterizeParams>,
     intersect_dt_ns: u64,
 ) -> grpc_common::Result<DoActionStream> {
     info!("filter intersect for {} topics", topics.len());
@@ -313,23 +304,22 @@ pub async fn filter_intersect(
         ))?;
     }
 
+    let locators = topics
+        .iter()
+        .map(|t| {
+            t.locator
+                .parse::<TopicLocator>()
+                .map_err(|_| core::Error::bad_request("invalid topic locator".to_string()))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+
     // All topics must belong to the same sequence.
-    let first_seq = topics[0]
-        .locator
-        .split_once('/')
-        .ok_or_else(|| core::Error::bad_request("invalid topic locator".to_string()))?
-        .0
-        .to_owned();
-    for t in &topics[1..] {
-        let seq = t
-            .locator
-            .split_once('/')
-            .ok_or_else(|| core::Error::bad_request("invalid topic locator".to_string()))?
-            .0;
-        if seq != first_seq {
+    let first_seq = &locators[0].sequence;
+    for loc in &locators[1..] {
+        if loc.sequence != *first_seq {
             return Err(core::Error::bad_request(format!(
-                "all topics must belong to sequence {first_seq}, but {} belongs to {seq}",
-                t.locator
+                "all topics must belong to sequence {first_seq}, but {loc} belongs to {}",
+                loc.sequence
             )))?;
         }
     }
@@ -348,12 +338,7 @@ pub async fn filter_intersect(
         receivers.push(rx);
     }
 
-    let (out_tx, out_rx) = mpsc::channel::<
-        std::result::Result<
-            mosaicod_ext::arrow_filter::Cluster,
-            mosaicod_ext::arrow_filter::ClusteringError,
-        >,
-    >(MAX_BUFFER_CHANNEL_SIZE);
+    let (out_tx, out_rx) = mpsc::channel::<ClusteringResult>(MAX_BUFFER_CHANNEL_SIZE);
 
     tokio::spawn(async move {
         let _ = intersect_cluster_streams(receivers, intersect_dt_ns, out_tx).await;
@@ -376,31 +361,12 @@ pub async fn filter_intersect(
 /// A stream error terminates the intersection immediately: the error is
 /// forwarded to the client as the last item and the function returns.
 async fn intersect_cluster_streams(
-    streams: Vec<
-        ReceiverStream<
-            std::result::Result<
-                mosaicod_ext::arrow_filter::Cluster,
-                mosaicod_ext::arrow_filter::ClusteringError,
-            >,
-        >,
-    >,
+    streams: Vec<ReceiverStream<ClusteringResult>>,
     intersect_dt_ns: u64,
-    out: mpsc::Sender<
-        std::result::Result<
-            mosaicod_ext::arrow_filter::Cluster,
-            mosaicod_ext::arrow_filter::ClusteringError,
-        >,
-    >,
-) -> std::result::Result<(), mosaicod_ext::arrow_filter::ClusteringError> {
+    out: mpsc::Sender<ClusteringResult>,
+) -> std::result::Result<(), ext::arrow_filter::ClusteringError> {
     let mut current_cluster: Vec<Cluster> = Vec::new();
-    let mut active_streams: Vec<
-        ReceiverStream<
-            std::result::Result<
-                mosaicod_ext::arrow_filter::Cluster,
-                mosaicod_ext::arrow_filter::ClusteringError,
-            >,
-        >,
-    > = Vec::new();
+    let mut active_streams: Vec<ReceiverStream<ClusteringResult>> = Vec::new();
 
     for mut stream in streams {
         match advance_one(&mut stream).await {
@@ -479,17 +445,10 @@ async fn intersect_cluster_streams(
 
 /// Reads the next item from stream. Returns Some(cluster) on success,
 /// None on natural exhaustion, Err(e) on a stream error.
+#[inline]
 async fn advance_one(
-    stream: &mut ReceiverStream<
-        std::result::Result<
-            mosaicod_ext::arrow_filter::Cluster,
-            mosaicod_ext::arrow_filter::ClusteringError,
-        >,
-    >,
-) -> std::result::Result<
-    Option<mosaicod_ext::arrow_filter::Cluster>,
-    mosaicod_ext::arrow_filter::ClusteringError,
-> {
+    stream: &mut ReceiverStream<ClusteringResult>,
+) -> std::result::Result<Option<ext::arrow_filter::Cluster>, ext::arrow_filter::ClusteringError> {
     match stream.next().await {
         Some(Ok(c)) => Ok(Some(c)),
         Some(Err(e)) => Err(e),

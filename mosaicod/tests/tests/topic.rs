@@ -984,13 +984,13 @@ async fn test_topic_filter_intersect_no_intersection(pool: sqlx::Pool<db::Databa
     .await;
 
     let topics = vec![
-        mosaicod_marshal::requests::TopicFilterClusterize {
+        mosaicod_marshal::requests::TopicClusterizeParams {
             locator: t1.to_owned(),
             clustering_dt_ns: 100,
             ontology: ontology_value_gt_5(),
             timestamp_range: None,
         },
-        mosaicod_marshal::requests::TopicFilterClusterize {
+        mosaicod_marshal::requests::TopicClusterizeParams {
             locator: t2.to_owned(),
             clustering_dt_ns: 100,
             ontology: ontology_value_lt_3(),
@@ -1037,13 +1037,13 @@ async fn test_topic_filter_intersect_multiple(pool: sqlx::Pool<db::DatabaseType>
     .await;
 
     let topics = vec![
-        mosaicod_marshal::requests::TopicFilterClusterize {
+        mosaicod_marshal::requests::TopicClusterizeParams {
             locator: t1.to_owned(),
             clustering_dt_ns: 50,
             ontology: ontology_value_gt_5(),
             timestamp_range: None,
         },
-        mosaicod_marshal::requests::TopicFilterClusterize {
+        mosaicod_marshal::requests::TopicClusterizeParams {
             locator: t2.to_owned(),
             clustering_dt_ns: 50,
             ontology: ontology_value_lt_3(),
@@ -1106,19 +1106,19 @@ async fn test_topic_filter_intersect_three_topics(pool: sqlx::Pool<db::DatabaseT
     .await;
 
     let topics = vec![
-        mosaicod_marshal::requests::TopicFilterClusterize {
+        mosaicod_marshal::requests::TopicClusterizeParams {
             locator: t1.to_owned(),
             clustering_dt_ns: 150,
             ontology: ontology_value_gt_5(),
             timestamp_range: None,
         },
-        mosaicod_marshal::requests::TopicFilterClusterize {
+        mosaicod_marshal::requests::TopicClusterizeParams {
             locator: t2.to_owned(),
             clustering_dt_ns: 100,
             ontology: ontology_value_lt_3(),
             timestamp_range: None,
         },
-        mosaicod_marshal::requests::TopicFilterClusterize {
+        mosaicod_marshal::requests::TopicClusterizeParams {
             locator: t3.to_owned(),
             clustering_dt_ns: 100,
             ontology: ontology_value_gt_5(),
@@ -1167,13 +1167,13 @@ async fn test_topic_filter_intersect_within_tolerance(pool: sqlx::Pool<db::Datab
     .await;
 
     let topics = vec![
-        mosaicod_marshal::requests::TopicFilterClusterize {
+        mosaicod_marshal::requests::TopicClusterizeParams {
             locator: t1.to_owned(),
             clustering_dt_ns: 50,
             ontology: ontology_value_gt_5(),
             timestamp_range: None,
         },
-        mosaicod_marshal::requests::TopicFilterClusterize {
+        mosaicod_marshal::requests::TopicClusterizeParams {
             locator: t2.to_owned(),
             clustering_dt_ns: 50,
             ontology: ontology_value_lt_3(),
@@ -1220,13 +1220,13 @@ async fn test_topic_filter_intersect_different_sequences(pool: sqlx::Pool<db::Da
     .await;
 
     let topics = vec![
-        mosaicod_marshal::requests::TopicFilterClusterize {
+        mosaicod_marshal::requests::TopicClusterizeParams {
             locator: t1.to_owned(),
             clustering_dt_ns: 50,
             ontology: ontology_value_gt_5(),
             timestamp_range: None,
         },
-        mosaicod_marshal::requests::TopicFilterClusterize {
+        mosaicod_marshal::requests::TopicClusterizeParams {
             locator: t2.to_owned(),
             clustering_dt_ns: 50,
             ontology: ontology_value_lt_3(),
