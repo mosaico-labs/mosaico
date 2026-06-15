@@ -226,7 +226,6 @@ def register_default_adapter(is_default: bool = False):
         ```
 
     Args:
-        cls: The adapter class to register.
         is_default: flag indicating that this adapter should be used when traslating from Mosaico to ROS
 
     Returns:

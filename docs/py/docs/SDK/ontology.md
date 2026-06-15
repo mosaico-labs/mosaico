@@ -87,6 +87,9 @@ The following sensors are supported as first-class data types in this module:
 | **RGBD Camera** | Paired color and depth frames from structured-light or time-of-flight RGB-D sensors. |
 | **Stereo Camera** | Synchronized left/right image pairs from stereo rigs, suitable for disparity estimation and 3D reconstruction. |
 | **ToF Camera** | Per-pixel depth and amplitude data from time-of-flight imaging sensors. |
+| **Grid Cells** | Map representing a set of 2D cells with a given height and width. |
+| **Map Metadata** | Represents metadata about the map, like it's width and height. Typically used in combination with OccupancyGrid. |
+| **Occupancy Grid** | 2D map representing the probability of a cell of being occupied (100) by something or not (0). |
 
 !!! warning "Experimental Ontologies"
     The `futures` module is a transitional area where ontologies under active experimentation are hosted before graduating to the stable ontology set. Field definitions, unit conventions, and structural relationships are **not yet considered final** and will be refined based on feedback from real-world integrations and adopters. Once an ontology reaches sufficient maturity and coverage, it will be promoted out of `futures` and into the core, production-ready modules.
@@ -441,8 +444,22 @@ When this happens, `Serializable` performs the following steps automatically:
 ??? question "API Reference"
     [`mosaicolabs.models.Message`][mosaicolabs.models.Message]
 
-The **`Message`** class is the universal transport envelope for all data within the Mosaico platform. It acts as the "Source of Truth" for synchronization and spatial context, combining specific sensor data (the payload) with critical middleware-level metadata. By centralizing metadata at the envelope level, Mosaico ensures that every data point—regardless of its complexity—carries a consistent temporal and spatial identity.
+The **`Message`** class is the universal transport envelope for all data in the Mosaico platform. It pairs a payload (the sensor data) with a `timestamp_ns`, and serves as the "Source of Truth" for synchronization and spatial context. Mosaico uses `timestamp_ns` to order and index records in time, so all timestamps within the same **Sequence** must share a common origin.
 
+Crucially, `timestamp_ns` is **not** the sensor measurement time: it is the time at which the data distribution system (e.g. ROS DDS) makes the data available. The measurement time lives in a separate field, `timestamp`, inside the `Header` object carried by most Mosaico Ontologies, that is, *inside the payload*. Because sensors use different time origins (time since Epoch, time since sensor startup, ...), this `Header` timestamp cannot be used to index records in Mosaico.
+
+So a `Message` carries two timestamps at different levels:
+- **`timestamp_ns`** — on the envelope, set by the distribution system (monotonic, monotonic within the Sequence).
+- **`Header.timestamp`** — inside the payload, set by the sensor (sensor-dependent origin).
+
+**Example:** a LiDAR captures a scan at `timestamp = 1200.5` (seconds since the sensor booted, in its `Header`). The DDS publishes it a few milliseconds later, and Mosaico stamps the envelope with `timestamp_ns = 8423000000` on the Sequence's monotonic clock. The first value says *when the world was measured*; the second says *when the data entered the system*.
+
+|                                                 | Message timestamp | Header timestamp                               |
+| ----------------------------------------------- | ----------------- | ---------------------------------------------- |
+| Time Representation                             | Monotonic         | Unix Time, System Time,... (sensor dependent)  |
+| Sensor measurement timestamp                    | No                | Yes                                            |
+| Common origin within all topics in **Sequence** | Yes               | No                                             |
+| Must be specified                               | Yes               | No                                             |
 ```python
 from mosaicolabs import Message, Time, Temperature
 
@@ -451,8 +468,6 @@ meas_time = Time.now()
 
 temp_msg = Message(
     timestamp_ns=meas_time.to_nanoseconds(),  # Primary synchronization clock
-    frame_id="comp_case",                     # Spatial reference frame
-    seq_id=101,                               # Optional sequence ID for ordering
     data=Temperature.from_celsius(
         value=57,
         variance=0.03
@@ -464,8 +479,8 @@ temp_msg = Message(
 While logically a `Message` contains a `data` object, the physical representation on the wire (PyArrow/Parquet) is **flattened**, 
 ensuring zero-overhead access to nested data during queries while maintaining a clean, object-oriented API in Python.
 
-* **Logical:** `Message(timestamp_ns=123, frame_id="map", data=IMU(acceleration=Vector3d(x=1.0,...)))`
-* **Physical:** `Struct(timestamp_ns=123, frame_id="map", seq_id=null, acceleration, ...)`
+* **Logical:** `Message(timestamp_ns=123, data=IMU(acceleration=Vector3d(x=1.0,...)))`
+* **Physical:** `Struct(timestamp_ns=123, acceleration, ...)`
 
 The `Message` mechanism enables a flexible dual-usage pattern for every Mosaico ontology type, supporting both **Standalone Messages** and **Embedded Fields**.
 
@@ -476,10 +491,9 @@ Any `Serializable` type (from elementary types like `String` and `Float32` to co
 This is ideal for pushing processed signals, debug values, or simple sensor readings.
 
 ```python
-# Sending a raw Vector3d as a timestamped standalone message with its own uncertainty
+# Sending a raw Vector3d (no Header) as a timestamped standalone message with its own uncertainty
 accel_msg = Message(
     timestamp_ns=ts,
-    frame_id="base_link",
     data=Vector3d(
         x=0.0, 
         y=0.0, 
@@ -493,7 +507,6 @@ accel_writer.push(message=accel_msg)
 # Sending a raw String as a timestamped standalone message
 log_msg = Message(
     timestamp_ns=ts,
-    frame_id="base_link",
     data=String(data="Waypoint-miss in navigation detected!")
 )
 
@@ -556,6 +569,28 @@ class MySensor(Serializable, VarianceMixin):
 ```
 
 By leveraging these mixins, the platform can perform deep analysis on data quality—such as filtering for only "high-confidence" segments—without requiring unique logic for every sensor type.
+
+#### `HeaderMixin`
+
+??? question "API Reference"
+    [`mosaicolabs.models.mixins.HeaderMixin`][mosaicolabs.models.mixins.HeaderMixin]
+
+Injects a `Header` field containing:
+
+- `timestamp` — the time at which the measurement was taken
+- `frame_id` — the reference frame of the measurement
+- `sample_counter` — the number of samples produced so far
+
+```python
+class MySensor(Serializable, HeaderMixin):
+    # Automatically receives Header fields
+    ...
+
+```
+
+By leveraging these mixins, the platform can perform deep analysis on data quality—such as filtering for only "reference-frame"  or "measurement time".
+
+
 
 ### Extending with Mixins
 

@@ -390,7 +390,10 @@ The proxy follows a three-step lifecycle to ensure that your queries are both se
 To understand how the proxy handles nested structures, inherited attributes, and data types, consider the `IMU` ontology class:
 
 ```python
-class IMU(Serializable):
+class IMU(
+    Serializable,
+    HeaderMixin,  # Adds Header support: contains header.timestamp, header.frame_id and header.sample_counter
+):
     acceleration: Vector3d      # Composed type: contains x, y, z
     angular_velocity: Vector3d  # Composed type: contains x, y, z
     orientation: Optional[Quaternion] = None # Composed type: contains x, y, z, w
@@ -409,9 +412,10 @@ The proxy automatically flattens the hierarchy, assigning the correct queryable 
 | **[`IMU.Q.angular_velocity.x/y/z`][mosaicolabs.models.sensors.IMU.angular_velocity--querying-with-the-q-proxy]** | **Numeric** | `.gt()`, `.lt()`, `.geq()`, `.leq()`, `.eq()`, `.between()`, `.in_()` |
 | **[`IMU.Q.orientation.x/y/z/w`][mosaicolabs.models.sensors.IMU.orientation--querying-with-the-q-proxy]** | **Numeric** | `.gt()`, `.lt()`, `.geq()`, `.leq()`, `.eq()`, `.between()`, `.in_()` |
 | **[`IMU.Q.timestamp_ns`][mosaicolabs.models.Message.timestamp_ns--querying-with-the-q-proxy]** | **Numeric** | `.gt()`, `.lt()`, `.geq()`, `.leq()`, `.eq()`, `.between()`, `.in_()` |
-| **[`IMU.Q.recording_timestamp_ns`][mosaicolabs.models.Message.recording_timestamp_ns--querying-with-the-q-proxy]** | **Numeric** | `.gt()`, `.lt()`, `.geq()`, `.leq()`, `.eq()`, `.between()`, `.in_()` |
-| **[`IMU.Q.frame_id`][mosaicolabs.models.Message.frame_id--querying-with-the-q-proxy]** | **String** | `.eq()`, `.match()`, `.in_()`, `.lt()`, `.gt()`, `.leq()`, `.geq()` |
-| **[`IMU.Q.sequence_id`][mosaicolabs.models.Message.sequence_id--querying-with-the-q-proxy]** | **Numeric** | `.gt()`, `.lt()`, `.geq()`, `.leq()`, `.eq()`, `.between()`, `.in_()` |
+| **[`IMU.Q.header.timestamp.seconds`][mosaicolabs.models.data.time.Header.timestamp--querying-with-the-q-proxy]** | **Numeric** | `.gt()`, `.lt()`, `.geq()`, `.leq()`, `.eq()`, `.between()`, `.in_()` |
+| **[`IMU.Q.header.timestamp.nanoseconds`][mosaicolabs.models.data.time.Header.timestamp--querying-with-the-q-proxy]** | **Numeric** | `.gt()`, `.lt()`, `.geq()`, `.leq()`, `.eq()`, `.between()`, `.in_()` |
+| **[`IMU.Q.header.frame_id`][mosaicolabs.models.data.time.Header.frame_id--querying-with-the-q-proxy]** | **String** | `.eq()`, `.match()`, `.in_()`, `.lt()`, `.gt()`, `.leq()`, `.geq()` |
+| **[`IMU.Q.header.sample_counter`][mosaicolabs.models.data.time.Header.sample_counter--querying-with-the-q-proxy]** | **Numeric** | `.gt()`, `.lt()`, `.geq()`, `.leq()`, `.eq()`, `.between()`, `.in_()` |
 
 The following table lists the supported operators for each data type:
 

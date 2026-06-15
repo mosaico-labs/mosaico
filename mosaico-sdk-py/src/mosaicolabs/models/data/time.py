@@ -343,8 +343,8 @@ class Header(Serializable):
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `Header.Q.timestamp.seconds` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
-    | `Header.Q.timestamp.nanoseconds` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `<Model>.Q.timestamp.seconds` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `<Model>.Q.timestamp.nanoseconds` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
 
     Example:
         ```python
@@ -393,7 +393,7 @@ class Header(Serializable):
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `Header.Q.frame_id` | `String` | `.eq()`, `.match()`, `.in_()`, `.lt()`, `.gt()`, `.leq()`, `.geq()` |
+    | `<Model>.Q.frame_id` | `String` | `.eq()`, `.match()`, `.in_()`, `.lt()`, `.gt()`, `.leq()`, `.geq()` |
 
     Example:
         ```python
@@ -437,7 +437,7 @@ class Header(Serializable):
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `Header.Q.sample_counter` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `<Model>.Q.sample_counter` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
 
     Example:
         ```python
@@ -550,7 +550,7 @@ class HeaderMixin(BaseModel):
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `<Model>.Q.timestamp.seconds` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `<Model>.Q.header.timestamp.seconds` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
     | `<Model>.Q.header.timestamp.nanoseconds` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
     | `<Model>.Q.header.frame_id` | `String` | `.eq()`, `.match()`, `.in_()`, `.lt()`, `.gt()`, `.leq()`, `.geq()` |
     | `<Model>.Q.header.sample_counter` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |

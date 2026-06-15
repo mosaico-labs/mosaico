@@ -133,9 +133,6 @@ class Message(BaseModel):
     - debugging transport or pipeline delays
     - ordering messages by arrival time
 
-    If not explicitly set, this value may be None but will be inferred from `data` after initialisation.
-    If timestamp_ns inference process fails (no timestamp available) and exception will be raised
-
     ### Querying with the **`.Q` Proxy**
     The timestamp_ns field is queryable using the `.Q` proxy.
 
