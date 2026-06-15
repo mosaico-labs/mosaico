@@ -48,24 +48,7 @@ A **Sequence** is Mosaico's fundamental unit of a recording session. Think of it
 
 A **Topic** lives inside a Sequence and represents a single sensor stream. Each topic has a strict one-to-one relationship with a data type from the **Ontology**, Mosaico's type system. The Ontology defines the shape of every piece of data the platform can store. Built-in types like `IMU`, `GPS`, and `Pressure` are already registered, so you can start using them immediately. This strictness is intentional: because every record in a topic is the same type, the daemon can serialize and index data far more efficiently using Apache Arrow columnar layout. When you create a topic and bind it to `IMU`, you are telling the daemon to open a typed, append-only stream optimized for that exact schema.
 
-A **Message** is the in-memory wrapper you hand to the SDK. It couples a typed data payload (your `IMU`, `GPS`, or `Pressure` object) with a monotonic timestamp. The SDK serializes the Message and transmits it to the daemon over gRPC. You never deal with bytes directly; you construct typed objects, wrap them in `Message`, and let the SDK handle the rest.
-
-:::info
-The timestamp is what Mosaico uses to order and index records in time and it is therefore fundamental that all timestamps' measurements of the same **Sequence** have a common origin. 
-Therefore, this does not indicate the sensor measurement timestamp but rather the time the data distribution system (like the ROS DDS) makes the data available to everyone.
-The measurement timestamp is stored within the `timestamp` contained in the `Header` object that most of the Mosaico Ontologies contain. Notice that different sensors may have different origin time reference 
-(like time since Epoch or sensor startup), meaning that such timestamp cannot be exploited to index records within Mosaico.
-In short, hereafter the main differences between the `Header` timestamp within an `Ontology` and `Message` timestamp:
-
-|                                    | Message timestamp | Header timestamp                               | 
-| ---------------------------------- | ----------------- | ---------------------------------------------- | 
-| Time Representation                | Monotonic         | Unix Time, System Time,... (sensor dependent)  |
-| Sensor measurement timestamp       | No                | Yes                                            |
-| Common start within **Sequence**   | Yes               | No                                             |
-| Must be specified                  | Yes               | No                                             |
-
-:::
-
+A **Message** is the in-memory wrapper you hand to the SDK. It couples a typed data payload (your `IMU`, `GPS`, or `Pressure` object) with a monotonic timestamp. The timestamp is what Mosaico uses to order and index records in time, representing the playback time rather than the measurement timestamp. The SDK serializes the Message and transmits it to the daemon over gRPC. You never deal with bytes directly; you construct typed objects, wrap them in `Message`, and let the SDK handle the rest.
 
 ### Chunked Loading for High-Volume Data
 
