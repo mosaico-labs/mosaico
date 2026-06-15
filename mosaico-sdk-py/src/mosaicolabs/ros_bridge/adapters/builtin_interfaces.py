@@ -5,12 +5,14 @@ This module provides specialized adapters for translating ROS `builtin_interface
 standardized Mosaico Ontology.
 """
 
+from __future__ import annotations
+
 from typing import TYPE_CHECKING, Any, Optional, Tuple, Type, Union
 
 from rosbags.typesys.store import Typestore
 
 if TYPE_CHECKING:
-    from rosbags.typesys.store import MsgType
+    from rosbags.typesys.store import Msgarg
 
 from mosaicolabs import Message, Time
 
@@ -106,19 +108,19 @@ class TimeAdapter(ROSAdapterBase[Time]):
         cls,
         mosaico_data: Union[Message, Time],
         typestore: Typestore,
-        input_ros_msg_type: Optional[str] = None,
-    ) -> "Optional[MsgType]":
+        ros_msg_type: Optional[str] = None,
+    ) -> Msgarg:
         """
         Converts a Mosaico ``Time`` (or a ``Message`` wrapping one) into a
         ``builtin_interfaces/msg/Time`` message.
 
-        Supported output types (selectable via *input_ros_msg_type*):
+        Supported output types (selectable via *ros_msg_type*):
         - ``builtin_interfaces/msg/Time``
 
         Args:
             mosaico_data: A ``Message`` wrapping a ``Time`` instance, or a raw ``Time``.
             typestore: The rosbags typestore for target type resolution.
-            input_ros_msg_type: Override for the output ROS type. Defaults to
+            ros_msg_type: Override for the output ROS type. Defaults to
                 ``builtin_interfaces/msg/Time`` if ``None``.
 
         Returns:
@@ -127,13 +129,15 @@ class TimeAdapter(ROSAdapterBase[Time]):
         """
 
         # Resolve ROS message to translate Mosaico message to if not defined in input
-        resolved_rosmsg_type = input_ros_msg_type or cls.get_default_ros_msg()
+        resolved_rosmsg_type = ros_msg_type or cls.get_default_ros_msg()
         if not cls.is_rosmsg_type_valid(resolved_rosmsg_type):
-            return None
+            raise TypeError(
+                f"Adapter {cls.__name__} does not support {resolved_rosmsg_type}"
+            )
 
         # Checking presence in typestore of requested message
         if typestore.types.get(resolved_rosmsg_type) is None:
-            return None
+            raise TypeError(f"Typestore does not contain {resolved_rosmsg_type}")
 
         # Unpacking Mosaico message / type
         time_data, _ = cls.unpack_mosaico_msg(mosaico_data)
@@ -149,4 +153,6 @@ class TimeAdapter(ROSAdapterBase[Time]):
         if resolved_rosmsg_type == "builtin_interfaces/msg/Time":
             return ros_time
 
-        return None
+        raise NotImplementedError(
+            f"The input ros message type {ros_msg_type} is supported by not implemented"
+        )

@@ -132,11 +132,14 @@ class TestVectoradapter:
         assert_vector3(vector3d, asdict(ros_msg))
 
     def test_to_ros_invalid_rosmsg_type(self, vector3d: Vector3d):
-        ros_msg = Vector3Adapter.to_ros(
-            vector3d, get_typestore(Stores.LATEST), "geometry_msgs/msg/Bogus"
-        )
 
-        assert ros_msg is None
+        with pytest.raises(
+            TypeError,
+            match=f"Adapter {Vector3Adapter.__name__} does not support geometry_msgs/msg/Bogus",
+        ):
+            Vector3Adapter.to_ros(
+                vector3d, get_typestore(Stores.LATEST), "geometry_msgs/msg/Bogus"
+            )
 
     def test_to_ros_invalid_mosaico_type(self, invalid_ms_msg):
         with pytest.raises(TypeError):
@@ -214,11 +217,14 @@ class TestPointadapter:
         assert_point3d(point3d, asdict(ros_msg))
 
     def test_to_ros_invalid_rosmsg_type(self, point3d: Point3d):
-        ros_msg = PointAdapter.to_ros(
-            point3d, get_typestore(Stores.LATEST), "geometry_msgs/msg/Bogus"
-        )
 
-        assert ros_msg is None
+        with pytest.raises(
+            TypeError,
+            match=f"Adapter {PointAdapter.__name__} does not support geometry_msgs/msg/Bogus",
+        ):
+            PointAdapter.to_ros(
+                point3d, get_typestore(Stores.LATEST), "geometry_msgs/msg/Bogus"
+            )
 
     def test_to_ros_invalid_mosaico_type(self, invalid_ms_msg):
         with pytest.raises(TypeError):
@@ -301,11 +307,14 @@ class TestQuaternionAdapter:
         assert_quaternion(quaternion, asdict(ros_msg))
 
     def test_to_ros_invalid_rosmsg_type(self, quaternion: Quaternion):
-        ros_msg = QuaternionAdapter.to_ros(
-            quaternion, get_typestore(Stores.LATEST), "geometry_msgs/msg/Bogus"
-        )
 
-        assert ros_msg is None
+        with pytest.raises(
+            TypeError,
+            match=f"Adapter {QuaternionAdapter.__name__} does not support geometry_msgs/msg/Bogus",
+        ):
+            QuaternionAdapter.to_ros(
+                quaternion, get_typestore(Stores.LATEST), "geometry_msgs/msg/Bogus"
+            )
 
     def test_to_ros_invalid_mosaico_type(self, invalid_ms_msg):
         with pytest.raises(TypeError):
@@ -424,11 +433,14 @@ class TestTransformAdapter:
         assert_transform(transform, asdict(ros_msg))
 
     def test_to_ros_invalid_rosmsg_type(self, transform: Transform):
-        ros_msg = TransformAdapter.to_ros(
-            transform, get_typestore(Stores.LATEST), "geometry_msgs/msg/Bogus"
-        )
 
-        assert ros_msg is None
+        with pytest.raises(
+            TypeError,
+            match=f"Adapter {TransformAdapter.__name__} does not support geometry_msgs/msg/Bogus",
+        ):
+            TransformAdapter.to_ros(
+                transform, get_typestore(Stores.LATEST), "geometry_msgs/msg/Bogus"
+            )
 
     def test_to_ros_invalid_mosaico_type(self, invalid_ms_msg):
         with pytest.raises(TypeError):
@@ -529,11 +541,14 @@ class TestWrenchAdapter:
         assert_force_torque(force_torque, asdict(ros_msg))
 
     def test_to_ros_invalid_rosmsg_type(self, force_torque: ForceTorque):
-        ros_msg = WrenchAdapter.to_ros(
-            force_torque, get_typestore(Stores.LATEST), "geometry_msgs/msg/Bogus"
-        )
 
-        assert ros_msg is None
+        with pytest.raises(
+            TypeError,
+            match=f"Adapter {WrenchAdapter.__name__} does not support geometry_msgs/msg/Bogus",
+        ):
+            WrenchAdapter.to_ros(
+                force_torque, get_typestore(Stores.LATEST), "geometry_msgs/msg/Bogus"
+            )
 
     def test_to_ros_invalid_mosaico_type(self, invalid_ms_msg):
         with pytest.raises(TypeError):
@@ -622,11 +637,14 @@ class TestPolygonAdapter:
         assert_polygon(polygon, asdict(ros_msg))
 
     def test_to_ros_invalid_rosmsg_type(self, polygon: Polygon):
-        ros_msg = PolygonAdapter.to_ros(
-            polygon, get_typestore(Stores.LATEST), "geometry_msgs/msg/Bogus"
-        )
 
-        assert ros_msg is None
+        with pytest.raises(
+            TypeError,
+            match=f"Adapter {PolygonAdapter.__name__} does not support geometry_msgs/msg/Bogus",
+        ):
+            PolygonAdapter.to_ros(
+                polygon, get_typestore(Stores.LATEST), "geometry_msgs/msg/Bogus"
+            )
 
     def test_to_ros_invalid_mosaico_type(self, invalid_ms_msg):
         with pytest.raises(TypeError):
@@ -742,11 +760,14 @@ class TestInertiaAdapter:
         assert_inertia(inertia, asdict(ros_msg))
 
     def test_to_ros_invalid_rosmsg_type(self, inertia: Inertia):
-        ros_msg = InertiaAdapter.to_ros(
-            inertia, get_typestore(Stores.LATEST), "geometry_msgs/msg/Bogus"
-        )
 
-        assert ros_msg is None
+        with pytest.raises(
+            TypeError,
+            match=f"Adapter {InertiaAdapter.__name__} does not support geometry_msgs/msg/Bogus",
+        ):
+            InertiaAdapter.to_ros(
+                inertia, get_typestore(Stores.LATEST), "geometry_msgs/msg/Bogus"
+            )
 
     def test_to_ros_invalid_mosaico_type(self, invalid_ms_msg):
         with pytest.raises(TypeError):
@@ -913,11 +934,14 @@ class TestPoseAdapter:
         assert_pose(pose, asdict(ros_msg))
 
     def test_to_ros_invalid_rosmsg_type(self, pose: Pose):
-        ros_msg = PoseAdapter.to_ros(
-            pose, get_typestore(Stores.LATEST), "geometry_msgs/msg/Bogus"
-        )
 
-        assert ros_msg is None
+        with pytest.raises(
+            TypeError,
+            match=f"Adapter {PoseAdapter.__name__} does not support geometry_msgs/msg/Bogus",
+        ):
+            PoseAdapter.to_ros(
+                pose, get_typestore(Stores.LATEST), "geometry_msgs/msg/Bogus"
+            )
 
     def test_to_ros_invalid_mosaico_type(self, invalid_ms_msg):
 
@@ -1090,11 +1114,14 @@ class TestTwistAdapter:
         assert_twist(twist, asdict(ros_msg))
 
     def test_to_ros_invalid_rosmsg_type(self, twist: Velocity):
-        ros_msg = TwistAdapter.to_ros(
-            twist, get_typestore(Stores.LATEST), "geometry_msgs/msg/Bogus"
-        )
 
-        assert ros_msg is None
+        with pytest.raises(
+            TypeError,
+            match=f"Adapter {TwistAdapter.__name__} does not support geometry_msgs/msg/Bogus",
+        ):
+            TwistAdapter.to_ros(
+                twist, get_typestore(Stores.LATEST), "geometry_msgs/msg/Bogus"
+            )
 
     def test_to_ros_invalid_mosaico_type(self, invalid_ms_msg):
         with pytest.raises(TypeError):
@@ -1270,11 +1297,14 @@ class TestAccelAdapter:
         assert_accel(accel, asdict(ros_msg))
 
     def test_to_ros_invalid_rosmsg_type(self, accel: Acceleration):
-        ros_msg = AccelAdapter.to_ros(
-            accel, get_typestore(Stores.LATEST), "geometry_msgs/msg/Bogus"
-        )
 
-        assert ros_msg is None
+        with pytest.raises(
+            TypeError,
+            match=f"Adapter {AccelAdapter.__name__} does not support geometry_msgs/msg/Bogus",
+        ):
+            AccelAdapter.to_ros(
+                accel, get_typestore(Stores.LATEST), "geometry_msgs/msg/Bogus"
+            )
 
     def test_to_ros_invalid_mosaico_type(self, invalid_ms_msg):
         with pytest.raises(TypeError):

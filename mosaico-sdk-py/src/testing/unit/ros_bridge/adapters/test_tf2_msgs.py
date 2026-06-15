@@ -2,7 +2,8 @@ from dataclasses import asdict
 
 import pytest
 from rosbags.typesys import get_types_from_msg
-from rosbags.typesys.stores import Stores, Typestore, get_typestore
+from rosbags.typesys.store import Typestore
+from rosbags.typesys.stores import Stores, get_typestore
 
 from mosaicolabs import (
     Message,
@@ -129,7 +130,6 @@ def frame_transform_msg(frame_transform):
     return Message(
         data=frame_transform,
         timestamp_ns=100,
-        frame_id="base_link",
     )
 
 
@@ -182,11 +182,14 @@ class TestFrameTransformAdapter:
         assert_frame_transform(frame_transform, asdict(ros_msg))
 
     def test_to_ros_invalid_rosmsg_type(self, frame_transform: FrameTransform):
-        ros_msg = FrameTransformAdapter.to_ros(
-            frame_transform, get_typestore(Stores.LATEST), "tf2_msgs/msg/Bogus"
-        )
 
-        assert ros_msg is None
+        with pytest.raises(
+            TypeError,
+            match=f"Adapter {FrameTransformAdapter.__name__} does not support tf2_msgs/msg/Bogus",
+        ):
+            FrameTransformAdapter.to_ros(
+                frame_transform, get_typestore(Stores.LATEST), "tf2_msgs/msg/Bogus"
+            )
 
     def test_to_ros_invalid_mosaico_type(self, invalid_ms_msg):
         with pytest.raises(TypeError):

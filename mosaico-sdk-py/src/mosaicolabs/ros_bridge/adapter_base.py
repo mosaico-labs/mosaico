@@ -1,10 +1,12 @@
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any, Generic, Optional, Tuple, Type, TypeVar, Union
 
 from rosbags.typesys.store import Typestore
 
 if TYPE_CHECKING:
-    from rosbags.typesys.store import MsgType
+    from rosbags.typesys.store import Msgarg
 
 from mosaicolabs import Header, Time
 from mosaicolabs.models.core import Message, Serializable
@@ -43,17 +45,21 @@ class ROSAdapterBase(ABC, Generic[T]):
         return cls.ros_msgtype
 
     @classmethod
-    def get_default_ros_msg(cls) -> Optional[str]:
+    def get_default_ros_msg(cls) -> str:
 
-        if isinstance(cls.ros_msgtype, str):
-            return cls.ros_msg_type()
+        adapter_rosmsg_type = cls.ros_msg_type()
+
+        if isinstance(adapter_rosmsg_type, str):
+            return adapter_rosmsg_type
 
         elif isinstance(
-            cls.ros_msgtype, Tuple
+            adapter_rosmsg_type, Tuple
         ):  # In case of a tuple, default ros message is the first tuple element
-            return cls.ros_msg_type()[0]
+            return adapter_rosmsg_type[0]
 
-        return None
+        raise Exception(
+            f"Adapter {cls.__name__} has ros_msgtype that is neither a {str.__name__} nor a {tuple.__name__} "
+        )
 
     @classmethod
     def translate(cls, ros_msg: ROSMessage, **kwargs: Any) -> Message:
@@ -135,7 +141,7 @@ class ROSAdapterBase(ABC, Generic[T]):
                 the expected ontology type.
         """
         if isinstance(mosaico_msg, Message):
-            data: T = mosaico_msg.get_data(cls.__mosaico_ontology_type__)
+            data: Optional[T] = mosaico_msg.get_data(cls.__mosaico_ontology_type__)
             if data is None:
                 raise TypeError(
                     f"Adapter {cls.__name__} cannot handle {mosaico_msg.ontology_tag()} Mosaico type"
@@ -172,7 +178,7 @@ class ROSAdapterBase(ABC, Generic[T]):
         mosaico_msg: Union[Message, Serializable],
         typestore: Typestore,
         ros_msg_type: Optional[str] = None,
-    ) -> Optional["MsgType"]:
+    ) -> Msgarg:
         """
         Converts a Mosaico message or ontology object back into a native ROS message.
 
@@ -183,7 +189,10 @@ class ROSAdapterBase(ABC, Generic[T]):
                 defaults to ``cls.get_default_ros_msg()``.
 
         Returns:
-            The constructed ROS message instance, or ``None`` if the type is unsupported.
+            The constructed ROS message instance, or raises an error if:
+             - the ros_msg_type type is unsupported by adapter
+             - the ros_msg_type type is unsupported by typestore
+             - the ros_msg_type type is supported but not tranlation is not implemented (NotImplementedError)
         """
         pass
 

@@ -226,11 +226,14 @@ class TestCameraInfoAdapter:
         assert_camera_info(camera_info, asdict(ros_msg))
 
     def test_to_ros_invalid_rosmsg_type(self, camera_info: CameraInfo):
-        ros_msg = CameraInfoAdapter.to_ros(
-            camera_info, get_typestore(Stores.LATEST), "sensor_msgs/msg/Bogus"
-        )
 
-        assert ros_msg is None
+        with pytest.raises(
+            TypeError,
+            match=f"Adapter {CameraInfoAdapter.__name__} does not support sensor_msgs/msg/Bogus",
+        ):
+            CameraInfoAdapter.to_ros(
+                camera_info, get_typestore(Stores.LATEST), "sensor_msgs/msg/Bogus"
+            )
 
     def test_to_ros_invalid_mosaico_type(self, invalid_ms_msg):
         with pytest.raises(TypeError):
@@ -289,11 +292,14 @@ class TestNavSatStatusAdapter:
         assert_gps_status(gps_status, asdict(ros_msg))
 
     def test_to_ros_invalid_rosmsg_type(self, gps_status: GPSStatus):
-        ros_msg = NavSatStatusAdapter.to_ros(
-            gps_status, get_typestore(Stores.LATEST), "sensor_msgs/msg/Bogus"
-        )
 
-        assert ros_msg is None
+        with pytest.raises(
+            TypeError,
+            match=f"Adapter {NavSatStatusAdapter.__name__} does not support sensor_msgs/msg/Bogus",
+        ):
+            NavSatStatusAdapter.to_ros(
+                gps_status, get_typestore(Stores.LATEST), "sensor_msgs/msg/Bogus"
+            )
 
     def test_to_ros_invalid_mosaico_type(self, invalid_ms_msg):
         with pytest.raises(TypeError):
@@ -386,11 +392,14 @@ class TestGPSAdapter:
         assert_gps(gps, asdict(ros_msg))
 
     def test_to_ros_invalid_rosmsg_type(self, gps: GPS):
-        ros_msg = GPSAdapter.to_ros(
-            gps, get_typestore(Stores.LATEST), "sensor_msgs/msg/Bogus"
-        )
 
-        assert ros_msg is None
+        with pytest.raises(
+            TypeError,
+            match=f"Adapter {GPSAdapter.__name__} does not support sensor_msgs/msg/Bogus",
+        ):
+            GPSAdapter.to_ros(
+                gps, get_typestore(Stores.LATEST), "sensor_msgs/msg/Bogus"
+            )
 
     def test_to_ros_invalid_mosaico_type(self, invalid_ms_msg):
         with pytest.raises(TypeError):
@@ -527,11 +536,14 @@ class TestIMUAdapter:
         assert_imu(imu, asdict(ros_msg))
 
     def test_to_ros_invalid_rosmsg_type(self, imu: IMU):
-        ros_msg = IMUAdapter.to_ros(
-            imu, get_typestore(Stores.LATEST), "sensor_msgs/msg/Bogus"
-        )
 
-        assert ros_msg is None
+        with pytest.raises(
+            TypeError,
+            match=f"Adapter {IMUAdapter.__name__} does not support sensor_msgs/msg/Bogus",
+        ):
+            IMUAdapter.to_ros(
+                imu, get_typestore(Stores.LATEST), "sensor_msgs/msg/Bogus"
+            )
 
     def test_to_ros_invalid_mosaico_type(self, invalid_ms_msg):
         with pytest.raises(TypeError):
@@ -620,10 +632,14 @@ class TestNMEASentenceAdapter:
         assert_nmea_sentence(nmea_sentence, asdict(ros_msg))
 
     def test_to_ros_invalid_rosmsg_type(self, nmea_sentence: NMEASentence):
-        ros_msg = NMEASentenceAdapter.to_ros(
-            nmea_sentence, get_typestore(Stores.LATEST), "sensor_msgs/msg/Bogus"
-        )
-        assert ros_msg is None
+
+        with pytest.raises(
+            TypeError,
+            match=f"Adapter {NMEASentenceAdapter.__name__} does not support sensor_msgs/msg/Bogus",
+        ):
+            NMEASentenceAdapter.to_ros(
+                nmea_sentence, get_typestore(Stores.LATEST), "sensor_msgs/msg/Bogus"
+            )
 
     def test_to_ros_invalid_mosaico_type(self, invalid_ms_msg):
         typestore = register_nmea_sentence(get_typestore(Stores.LATEST))
@@ -725,10 +741,13 @@ class TestImageAdapter:
         assert_image(image_raw, asdict(ros_msg))
 
     def test_to_ros_invalid_rosmsg_type(self, image_raw: Image):
-        ros_msg = ImageAdapter.to_ros(
-            image_raw, get_typestore(Stores.LATEST), "sensor_msgs/msg/Bogus"
-        )
-        assert ros_msg is None
+        with pytest.raises(
+            TypeError,
+            match=f"Adapter {ImageAdapter.__name__} does not support sensor_msgs/msg/Bogus",
+        ):
+            ImageAdapter.to_ros(
+                image_raw, get_typestore(Stores.LATEST), "sensor_msgs/msg/Bogus"
+            )
 
     def test_to_ros_invalid_mosaico_type(self, invalid_ms_msg):
         with pytest.raises(TypeError):
@@ -810,10 +829,14 @@ class TestCompressedImageAdapter:
         assert_compressed_image(compressed_image, asdict(ros_msg))
 
     def test_to_ros_invalid_rosmsg_type(self, compressed_image: CompressedImage):
-        ros_msg = CompressedImageAdapter.to_ros(
-            compressed_image, get_typestore(Stores.LATEST), "sensor_msgs/msg/Bogus"
-        )
-        assert ros_msg is None
+
+        with pytest.raises(
+            TypeError,
+            match=f"Adapter {CompressedImageAdapter.__name__} does not support sensor_msgs/msg/Bogus",
+        ):
+            CompressedImageAdapter.to_ros(
+                compressed_image, get_typestore(Stores.LATEST), "sensor_msgs/msg/Bogus"
+            )
 
     def test_to_ros_invalid_mosaico_type(self, invalid_ms_msg):
         with pytest.raises(TypeError):
@@ -859,10 +882,14 @@ class TestROIAdapter:
         assert_roi(roi, asdict(ros_msg))
 
     def test_to_ros_invalid_rosmsg_type(self, roi: ROI):
-        ros_msg = ROIAdapter.to_ros(
-            roi, get_typestore(Stores.LATEST), "sensor_msgs/msg/Bogus"
-        )
-        assert ros_msg is None
+
+        with pytest.raises(
+            TypeError,
+            match=f"Adapter {ROIAdapter.__name__} does not support sensor_msgs/msg/Bogus",
+        ):
+            ROIAdapter.to_ros(
+                roi, get_typestore(Stores.LATEST), "sensor_msgs/msg/Bogus"
+            )
 
     def test_to_ros_invalid_mosaico_type(self, invalid_ms_msg):
         with pytest.raises(TypeError):
@@ -971,10 +998,14 @@ class TestBatteryStateAdapter:
         assert_battery_state(battery_state, asdict(ros_msg))
 
     def test_to_ros_invalid_rosmsg_type(self, battery_state: BatteryState):
-        ros_msg = BatteryStateAdapter.to_ros(
-            battery_state, get_typestore(Stores.LATEST), "sensor_msgs/msg/Bogus"
-        )
-        assert ros_msg is None
+
+        with pytest.raises(
+            TypeError,
+            match=f"Adapter {BatteryStateAdapter.__name__} does not support sensor_msgs/msg/Bogus",
+        ):
+            BatteryStateAdapter.to_ros(
+                battery_state, get_typestore(Stores.LATEST), "sensor_msgs/msg/Bogus"
+            )
 
     def test_to_ros_invalid_mosaico_type(self, invalid_ms_msg):
         with pytest.raises(TypeError):
@@ -1053,10 +1084,14 @@ class TestRobotJointAdapter:
         assert_robot_joint(robot_joint, asdict(ros_msg))
 
     def test_to_ros_invalid_rosmsg_type(self, robot_joint: RobotJoint):
-        ros_msg = RobotJointAdapter.to_ros(
-            robot_joint, get_typestore(Stores.LATEST), "sensor_msgs/msg/Bogus"
-        )
-        assert ros_msg is None
+
+        with pytest.raises(
+            TypeError,
+            match=f"Adapter {RobotJointAdapter.__name__} does not support sensor_msgs/msg/Bogus",
+        ):
+            RobotJointAdapter.to_ros(
+                robot_joint, get_typestore(Stores.LATEST), "sensor_msgs/msg/Bogus"
+            )
 
     def test_to_ros_invalid_mosaico_type(self, invalid_ms_msg):
         with pytest.raises(TypeError):
@@ -1305,10 +1340,12 @@ class TestOverrideAdapter:
 
     @pytest.mark.parametrize("pcl, adapter", PCL_ADAPTER_PAIR)
     def test_to_ros_invalid_rosmsg_type(self, pcl, adapter):
-        ros_msg = adapter.to_ros(
-            pcl, get_typestore(Stores.LATEST), "sensor_msgs/msg/Bogus"
-        )
-        assert ros_msg is None
+
+        with pytest.raises(
+            TypeError,
+            match=f"Adapter {adapter.__name__} does not support sensor_msgs/msg/Bogus",
+        ):
+            adapter.to_ros(pcl, get_typestore(Stores.LATEST), "sensor_msgs/msg/Bogus")
 
     @pytest.mark.parametrize("pcl, adapter", PCL_ADAPTER_PAIR)
     def test_to_ros_invalid_mosaico_type(self, invalid_ms_msg, pcl, adapter):
@@ -1413,10 +1450,14 @@ class TestPointCloud2Adapter:
         assert_pcl2(pcl2, asdict(ros_msg))
 
     def test_to_ros_invalid_rosmsg_type(self, pcl2: PointCloud2):
-        ros_msg = PointCloudAdapter.to_ros(
-            pcl2, get_typestore(Stores.LATEST), "sensor_msgs/msg/Bogus"
-        )
-        assert ros_msg is None
+
+        with pytest.raises(
+            TypeError,
+            match=f"Adapter {PointCloudAdapter.__name__} does not support sensor_msgs/msg/Bogus",
+        ):
+            PointCloudAdapter.to_ros(
+                pcl2, get_typestore(Stores.LATEST), "sensor_msgs/msg/Bogus"
+            )
 
     def test_to_ros_invalid_mosaico_type(self, invalid_ms_msg):
         with pytest.raises(TypeError):
@@ -1507,10 +1548,13 @@ class TestLaserScannerAdapter:
         assert_laserscan(laserscan, asdict(ros_msg))
 
     def test_to_ros_invalid_rosmsg_type(self, laserscan: futures.LaserScan):
-        ros_msg = LaserScanAdapter.to_ros(
-            laserscan, get_typestore(Stores.LATEST), "sensor_msgs/msg/Bogus"
-        )
-        assert ros_msg is None
+        with pytest.raises(
+            TypeError,
+            match=f"Adapter {LaserScanAdapter.__name__} does not support sensor_msgs/msg/Bogus",
+        ):
+            LaserScanAdapter.to_ros(
+                laserscan, get_typestore(Stores.LATEST), "sensor_msgs/msg/Bogus"
+            )
 
     def test_to_ros_invalid_mosaico_type(self, invalid_ms_msg):
         with pytest.raises(TypeError):
@@ -1619,10 +1663,15 @@ class TestMultiEchoLaserScanAdapter:
     def test_to_ros_invalid_rosmsg_type(
         self, multiecho_laserscan: futures.MultiEchoLaserScan
     ):
-        ros_msg = MultiEchoLaserScanAdapter.to_ros(
-            multiecho_laserscan, get_typestore(Stores.LATEST), "sensor_msgs/msg/Bogus"
-        )
-        assert ros_msg is None
+        with pytest.raises(
+            TypeError,
+            match=f"Adapter {MultiEchoLaserScanAdapter.__name__} does not support sensor_msgs/msg/Bogus",
+        ):
+            MultiEchoLaserScanAdapter.to_ros(
+                multiecho_laserscan,
+                get_typestore(Stores.LATEST),
+                "sensor_msgs/msg/Bogus",
+            )
 
     def test_to_ros_invalid_mosaico_type(self, invalid_ms_msg):
         with pytest.raises(TypeError):
@@ -1694,10 +1743,14 @@ class TestJoyAdapter:
         assert_joy(joy, asdict(ros_msg))
 
     def test_to_ros_invalid_rosmsg_type(self, joy: Joy):
-        ros_msg = JoyAdapter.to_ros(
-            joy, get_typestore(Stores.LATEST), "sensor_msgs/msg/Bogus"
-        )
-        assert ros_msg is None
+
+        with pytest.raises(
+            TypeError,
+            match=f"Adapter {JoyAdapter.__name__} does not support sensor_msgs/msg/Bogus",
+        ):
+            JoyAdapter.to_ros(
+                joy, get_typestore(Stores.LATEST), "sensor_msgs/msg/Bogus"
+            )
 
     def test_to_ros_invalid_mosaico_type(self, invalid_ms_msg):
         with pytest.raises(TypeError):
@@ -1820,10 +1873,14 @@ class TestMagneticFieldAdapter:
         assert_magnetometer(magnetometer, asdict(ros_msg))
 
     def test_to_ros_invalid_rosmsg_type(self, magnetometer: Magnetometer):
-        ros_msg = MagneticFieldAdapter.to_ros(
-            magnetometer, get_typestore(Stores.LATEST), "sensor_msgs/msg/Bogus"
-        )
-        assert ros_msg is None
+
+        with pytest.raises(
+            TypeError,
+            match=f"Adapter {MagneticFieldAdapter.__name__} does not support sensor_msgs/msg/Bogus",
+        ):
+            MagneticFieldAdapter.to_ros(
+                magnetometer, get_typestore(Stores.LATEST), "sensor_msgs/msg/Bogus"
+            )
 
     def test_to_ros_invalid_mosaico_type(self, invalid_ms_msg):
         with pytest.raises(TypeError):
@@ -1932,10 +1989,13 @@ class TestTemperatureAdapter:
         assert_temperature(temperature, asdict(ros_msg))
 
     def test_to_ros_invalid_rosmsg_type(self, temperature: Temperature):
-        ros_msg = TemperatureAdapter.to_ros(
-            temperature, get_typestore(Stores.LATEST), "sensor_msgs/msg/Bogus"
-        )
-        assert ros_msg is None
+        with pytest.raises(
+            TypeError,
+            match=f"Adapter {TemperatureAdapter.__name__} does not support sensor_msgs/msg/Bogus",
+        ):
+            TemperatureAdapter.to_ros(
+                temperature, get_typestore(Stores.LATEST), "sensor_msgs/msg/Bogus"
+            )
 
     def test_to_ros_invalid_mosaico_type(self, invalid_ms_msg):
         with pytest.raises(TypeError):
@@ -2042,10 +2102,13 @@ class TestpressureAdapter:
         assert_pressure(pressure, asdict(ros_msg))
 
     def test_to_ros_invalid_rosmsg_type(self, pressure: pressure):
-        ros_msg = PressureAdapter.to_ros(
-            pressure, get_typestore(Stores.LATEST), "sensor_msgs/msg/Bogus"
-        )
-        assert ros_msg is None
+        with pytest.raises(
+            TypeError,
+            match=f"Adapter {PressureAdapter.__name__} does not support sensor_msgs/msg/Bogus",
+        ):
+            PressureAdapter.to_ros(
+                pressure, get_typestore(Stores.LATEST), "sensor_msgs/msg/Bogus"
+            )
 
     def test_to_ros_invalid_mosaico_type(self, invalid_ms_msg):
         with pytest.raises(TypeError):

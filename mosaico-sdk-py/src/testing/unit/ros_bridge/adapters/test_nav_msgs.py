@@ -137,11 +137,14 @@ class TestOdometryAdapter:
         assert_motion_state(motion_state, asdict(ros_msg))
 
     def test_to_ros_invalid_rosmsg_type(self, motion_state: MotionState):
-        ros_msg = OdometryAdapter.to_ros(
-            motion_state, get_typestore(Stores.LATEST), "nav_msgs/msg/Bogus"
-        )
 
-        assert ros_msg is None
+        with pytest.raises(
+            TypeError,
+            match=f"Adapter {OdometryAdapter.__name__} does not support nav_msgs/msg/Bogus",
+        ):
+            OdometryAdapter.to_ros(
+                motion_state, get_typestore(Stores.LATEST), "nav_msgs/msg/Bogus"
+            )
 
     def test_to_ros_invalid_mosaico_type(self, invalid_ms_msg):
         with pytest.raises(TypeError):
@@ -228,11 +231,14 @@ class TestRobotPathAdapter:
         assert_path(robot_path, asdict(ros_msg))
 
     def test_to_ros_invalid_rosmsg_type(self, robot_path: RobotPath):
-        ros_msg = RobotPathAdapter.to_ros(
-            robot_path, get_typestore(Stores.LATEST), "nav_msgs/msg/Bogus"
-        )
 
-        assert ros_msg is None
+        with pytest.raises(
+            TypeError,
+            match=f"Adapter {RobotPathAdapter.__name__} does not support nav_msgs/msg/Bogus",
+        ):
+            RobotPathAdapter.to_ros(
+                robot_path, get_typestore(Stores.LATEST), "nav_msgs/msg/Bogus"
+            )
 
     def test_to_ros_invalid_mosaico_type(self, invalid_ms_msg):
         with pytest.raises(TypeError):
@@ -312,11 +318,14 @@ class TestGridCellsAdapter:
         assert_grid_cells(grid_cells, asdict(ros_msg))
 
     def test_to_ros_invalid_rosmsg_type(self, grid_cells: GridCells):
-        ros_msg = GridCellsAdapter.to_ros(
-            grid_cells, get_typestore(Stores.LATEST), "nav_msgs/msg/Bogus"
-        )
 
-        assert ros_msg is None
+        with pytest.raises(
+            TypeError,
+            match=f"Adapter {GridCellsAdapter.__name__} does not support nav_msgs/msg/Bogus",
+        ):
+            GridCellsAdapter.to_ros(
+                grid_cells, get_typestore(Stores.LATEST), "nav_msgs/msg/Bogus"
+            )
 
     def test_to_ros_invalid_mosaico_type(self, invalid_ms_msg):
         with pytest.raises(TypeError):
@@ -394,10 +403,14 @@ class TestMapMetadataAdapter:
         assert_map_metadata(map_metadata, asdict(ros_msg))
 
     def test_to_ros_invalid_rosmsg_type(self, map_metadata: MapMetadata):
-        ros_msg = MapMetadataAdapter.to_ros(
-            map_metadata, get_typestore(Stores.LATEST), "nav_msgs/msg/Bogus"
-        )
-        assert ros_msg is None
+
+        with pytest.raises(
+            TypeError,
+            match=f"Adapter {MapMetadataAdapter.__name__} does not support nav_msgs/msg/Bogus",
+        ):
+            MapMetadataAdapter.to_ros(
+                map_metadata, get_typestore(Stores.LATEST), "nav_msgs/msg/Bogus"
+            )
 
     def test_to_ros_invalid_mosaico_type(self, invalid_ms_msg):
         with pytest.raises(TypeError):
@@ -497,10 +510,13 @@ class TestOccupancyGridAdapter:
         assert_occupancy_grid(occupancy_grid, asdict(ros_msg))
 
     def test_to_ros_invalid_rosmsg_type(self, occupancy_grid: OccupancyGrid):
-        ros_msg = OccupancyGridAdapter.to_ros(
-            occupancy_grid, get_typestore(Stores.LATEST), "nav_msgs/msg/Bogus"
-        )
-        assert ros_msg is None
+        with pytest.raises(
+            TypeError,
+            match=f"Adapter {MapMetadataAdapter.__name__} does not support nav_msgs/msg/Bogus",
+        ):
+            MapMetadataAdapter.to_ros(
+                occupancy_grid, get_typestore(Stores.LATEST), "nav_msgs/msg/Bogus"
+            )
 
     def test_to_ros_invalid_mosaico_type(self, invalid_ms_msg):
         with pytest.raises(TypeError):

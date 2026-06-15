@@ -84,11 +84,14 @@ class TestTimeAdapter:
         assert ros_msg.nanosec == time.nanoseconds
 
     def test_to_ros_invalid_rosmsg_type(self, time: Time):
-        ros_msg = TimeAdapter.to_ros(
-            time, get_typestore(Stores.LATEST), "builtin_interfaces/msg/Bogus"
-        )
 
-        assert ros_msg is None
+        with pytest.raises(
+            TypeError,
+            match=f"Adapter {TimeAdapter.__name__} does not support builtin_interfaces/msg/Bogus",
+        ):
+            TimeAdapter.to_ros(
+                time, get_typestore(Stores.LATEST), "builtin_interfaces/msg/Bogus"
+            )
 
     def test_to_ros_invalid_mosaico_type(self, invalid_ms_msg):
         with pytest.raises(TypeError):

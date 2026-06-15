@@ -1,9 +1,11 @@
+from __future__ import annotations
+
 from typing import TYPE_CHECKING, Any, Optional, Tuple, Type, Union
 
 from rosbags.typesys.store import Typestore
 
 if TYPE_CHECKING:
-    from rosbags.typesys.store import MsgType
+    from rosbags.typesys.store import Msgarg
 
 import numpy as np
 
@@ -129,8 +131,8 @@ class OdometryAdapter(ROSAdapterBase[MotionState]):
         cls,
         mosaico_data: Union[Message, MotionState],
         typestore: Typestore,
-        input_ros_msg_type: Optional[str] = None,
-    ) -> "Optional[MsgType]":
+        ros_msg_type: Optional[str] = None,
+    ) -> Msgarg:
         """
         Converts a Mosaico ``MotionState`` (or a ``Message`` wrapping one) into a
         ``nav_msgs/msg/Odometry`` message.
@@ -138,7 +140,7 @@ class OdometryAdapter(ROSAdapterBase[MotionState]):
         Args:
             mosaico_data: A ``Message`` wrapping a ``MotionState`` instance, or a raw ``MotionState``.
             typestore: The rosbags typestore for target type resolution.
-            input_ros_msg_type: Override for the output ROS type. Only
+            ros_msg_type: Override for the output ROS type. Only
                 ``nav_msgs/msg/Odometry`` is supported.
 
         Returns:
@@ -147,13 +149,15 @@ class OdometryAdapter(ROSAdapterBase[MotionState]):
         """
 
         # Resolve ROS message to translate Mosaico message to if not defined in input
-        resolved_rosmsg_type = input_ros_msg_type or cls.get_default_ros_msg()
+        resolved_rosmsg_type = ros_msg_type or cls.get_default_ros_msg()
         if not cls.is_rosmsg_type_valid(resolved_rosmsg_type):
-            return None
+            raise TypeError(
+                f"Adapter {cls.__name__} does not support {resolved_rosmsg_type}"
+            )
 
         # Checking presence in typestore of requested message
         if typestore.types.get(resolved_rosmsg_type) is None:
-            return None
+            raise TypeError(f"Typestore does not contain {resolved_rosmsg_type}")
 
         # Unpacking Mosaico message / type
         motion_data, ms_header = cls.unpack_mosaico_msg(mosaico_data)
@@ -175,7 +179,9 @@ class OdometryAdapter(ROSAdapterBase[MotionState]):
                 ),
             )
 
-        return None
+        raise NotImplementedError(
+            f"The input ros message type {ros_msg_type} is supported by not implemented"
+        )
 
     @classmethod
     def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
@@ -310,8 +316,8 @@ class RobotPathAdapter(ROSAdapterBase[RobotPath]):
         cls,
         mosaico_data: Union[Message, RobotPath],
         typestore: Typestore,
-        input_ros_msg_type: Optional[str] = None,
-    ) -> "Optional[MsgType]":
+        ros_msg_type: Optional[str] = None,
+    ) -> Msgarg:
         """
         Converts a Mosaico ``RobotPath`` (or a ``Message`` wrapping one) into a
         ``nav_msgs/msg/Path`` message.
@@ -319,7 +325,7 @@ class RobotPathAdapter(ROSAdapterBase[RobotPath]):
         Args:
             mosaico_data: A ``Message`` wrapping a ``RobotPath`` instance, or a raw ``RobotPath``.
             typestore: The rosbags typestore for target type resolution.
-            input_ros_msg_type: Override for the output ROS type. Only
+            ros_msg_type: Override for the output ROS type. Only
                 ``nav_msgs/msg/Path`` is supported.
 
         Returns:
@@ -328,13 +334,15 @@ class RobotPathAdapter(ROSAdapterBase[RobotPath]):
         """
 
         # Resolve ROS message to translate Mosaico message to if not defined in input
-        resolved_rosmsg_type = input_ros_msg_type or cls.get_default_ros_msg()
+        resolved_rosmsg_type = ros_msg_type or cls.get_default_ros_msg()
         if not cls.is_rosmsg_type_valid(resolved_rosmsg_type):
-            return None
+            raise TypeError(
+                f"Adapter {cls.__name__} does not support {resolved_rosmsg_type}"
+            )
 
         # Checking presence in typestore of requested message
         if typestore.types.get(resolved_rosmsg_type) is None:
-            return None
+            raise TypeError(f"Typestore does not contain {resolved_rosmsg_type}")
 
         # Unpacking Mosaico message / type
         path_data, ms_header = cls.unpack_mosaico_msg(mosaico_data)
@@ -351,7 +359,9 @@ class RobotPathAdapter(ROSAdapterBase[RobotPath]):
                 ],
             )
 
-        return None
+        raise NotImplementedError(
+            f"The input ros message type {ros_msg_type} is supported by not implemented"
+        )
 
     @classmethod
     def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
@@ -458,8 +468,8 @@ class GridCellsAdapter(ROSAdapterBase[GridCells]):
         cls,
         mosaico_data: Union[Message, GridCells],
         typestore: Typestore,
-        input_ros_msg_type: Optional[str] = None,
-    ) -> "Optional[MsgType]":
+        ros_msg_type: Optional[str] = None,
+    ) -> Msgarg:
         """
         Converts a Mosaico ``GridCells`` (or a ``Message`` wrapping one) into a
         ``nav_msgs/msg/GridCells`` message.
@@ -467,7 +477,7 @@ class GridCellsAdapter(ROSAdapterBase[GridCells]):
         Args:
             mosaico_data: A ``Message`` wrapping a ``GridCells`` instance, or a raw ``GridCells``.
             typestore: The rosbags typestore for target type resolution.
-            input_ros_msg_type: Override for the output ROS type. Only
+            ros_msg_type: Override for the output ROS type. Only
                 ``nav_msgs/msg/GridCells`` is supported.
 
         Returns:
@@ -476,13 +486,15 @@ class GridCellsAdapter(ROSAdapterBase[GridCells]):
         """
 
         # Resolve ROS message to translate Mosaico message to if not defined in input
-        resolved_rosmsg_type = input_ros_msg_type or cls.get_default_ros_msg()
+        resolved_rosmsg_type = ros_msg_type or cls.get_default_ros_msg()
         if not cls.is_rosmsg_type_valid(resolved_rosmsg_type):
-            return None
+            raise TypeError(
+                f"Adapter {cls.__name__} does not support {resolved_rosmsg_type}"
+            )
 
         # Checking presence in typestore of requested message
         if typestore.types.get(resolved_rosmsg_type) is None:
-            return None
+            raise TypeError(f"Typestore does not contain {resolved_rosmsg_type}")
 
         # Unpacking Mosaico message / type
         gridcell_data, ms_header = cls.unpack_mosaico_msg(mosaico_data)
@@ -501,7 +513,9 @@ class GridCellsAdapter(ROSAdapterBase[GridCells]):
                 ],
             )
 
-        return None
+        raise NotImplementedError(
+            f"The input ros message type {ros_msg_type} is supported by not implemented"
+        )
 
     @classmethod
     def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
@@ -595,8 +609,8 @@ class MapMetadataAdapter(ROSAdapterBase[MapMetadata]):
         cls,
         mosaico_data: Union[Message, MapMetadata],
         typestore: Typestore,
-        input_ros_msg_type: Optional[str] = None,
-    ) -> "Optional[MsgType]":
+        ros_msg_type: Optional[str] = None,
+    ) -> Msgarg:
         """
         Converts a Mosaico ``MapMetadata`` (or a ``Message`` wrapping one) into a
         ``nav_msgs/msg/MapMetaData`` message.
@@ -604,7 +618,7 @@ class MapMetadataAdapter(ROSAdapterBase[MapMetadata]):
         Args:
             mosaico_data: A ``Message`` wrapping a ``MapMetadata`` instance, or a raw ``MapMetadata``.
             typestore: The rosbags typestore for target type resolution.
-            input_ros_msg_type: Override for the output ROS type. Only
+            ros_msg_type: Override for the output ROS type. Only
                 ``nav_msgs/msg/MapMetaData`` is supported.
 
         Returns:
@@ -613,13 +627,15 @@ class MapMetadataAdapter(ROSAdapterBase[MapMetadata]):
         """
 
         # Resolve ROS message to translate Mosaico message to if not defined in input
-        resolved_rosmsg_type = input_ros_msg_type or cls.get_default_ros_msg()
+        resolved_rosmsg_type = ros_msg_type or cls.get_default_ros_msg()
         if not cls.is_rosmsg_type_valid(resolved_rosmsg_type):
-            return None
+            raise TypeError(
+                f"Adapter {cls.__name__} does not support {resolved_rosmsg_type}"
+            )
 
         # Checking presence in typestore of requested message
         if typestore.types.get(resolved_rosmsg_type) is None:
-            return None
+            raise TypeError(f"Typestore does not contain {resolved_rosmsg_type}")
 
         # Unpacking Mosaico message / type
         map_metadata_data, _ = cls.unpack_mosaico_msg(mosaico_data)
@@ -638,7 +654,9 @@ class MapMetadataAdapter(ROSAdapterBase[MapMetadata]):
                 origin=PoseAdapter.to_ros(map_metadata_data.origin, typestore),
             )
 
-        return None
+        raise NotImplementedError(
+            f"The input ros message type {ros_msg_type} is supported by not implemented"
+        )
 
     @classmethod
     def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
@@ -732,8 +750,8 @@ class OccupancyGridAdapter(ROSAdapterBase[OccupancyGrid]):
         cls,
         mosaico_data: Union[Message, OccupancyGrid],
         typestore: Typestore,
-        input_ros_msg_type: Optional[str] = None,
-    ) -> "Optional[MsgType]":
+        ros_msg_type: Optional[str] = None,
+    ) -> Msgarg:
         """
         Converts a Mosaico ``OccupancyGrid`` (or a ``Message`` wrapping one) into a
         ``nav_msgs/msg/OccupancyGrid`` message.
@@ -741,7 +759,7 @@ class OccupancyGridAdapter(ROSAdapterBase[OccupancyGrid]):
         Args:
             mosaico_data: A ``Message`` wrapping a ``OccupancyGrid`` instance, or a raw ``OccupancyGrid``.
             typestore: The rosbags typestore for target type resolution.
-            input_ros_msg_type: Override for the output ROS type. Only
+            ros_msg_type: Override for the output ROS type. Only
                 ``nav_msgs/msg/OccupancyGrid`` is supported.
 
         Returns:
@@ -750,13 +768,15 @@ class OccupancyGridAdapter(ROSAdapterBase[OccupancyGrid]):
         """
 
         # Resolve ROS message to translate Mosaico message to if not defined in input
-        resolved_rosmsg_type = input_ros_msg_type or cls.get_default_ros_msg()
+        resolved_rosmsg_type = ros_msg_type or cls.get_default_ros_msg()
         if not cls.is_rosmsg_type_valid(resolved_rosmsg_type):
-            return None
+            raise TypeError(
+                f"Adapter {cls.__name__} does not support {resolved_rosmsg_type}"
+            )
 
         # Checking presence in typestore of requested message
         if typestore.types.get(resolved_rosmsg_type) is None:
-            return None
+            raise TypeError(f"Typestore does not contain {resolved_rosmsg_type}")
 
         # Unpacking Mosaico message / type
         occupancy_grid_data, ms_header = cls.unpack_mosaico_msg(mosaico_data)
@@ -771,7 +791,9 @@ class OccupancyGridAdapter(ROSAdapterBase[OccupancyGrid]):
                 data=np.asarray(occupancy_grid_data.data, dtype=np.int8),
             )
 
-        return None
+        raise NotImplementedError(
+            f"The input ros message type {ros_msg_type} is supported by not implemented"
+        )
 
     @classmethod
     def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:

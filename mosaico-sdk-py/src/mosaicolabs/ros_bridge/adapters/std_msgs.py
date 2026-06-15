@@ -16,12 +16,14 @@ Architecture:
     in the ROSBridge.
 """
 
+from __future__ import annotations
+
 from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple, Type, Union
 
-from rosbags.typesys.store import Typestore
-
 if TYPE_CHECKING:
-    from rosbags.typesys.store import MsgType
+    from rosbags.typesys.store import Msgarg
+
+from rosbags.typesys.store import Typestore
 
 from mosaicolabs.models.core import Message, Serializable
 from mosaicolabs.models.data import (
@@ -175,8 +177,8 @@ class GenericStdAdapter(ROSAdapterBase[Serializable]):
         cls,
         mosaico_data: Union[Message, Serializable],
         typestore: Typestore,
-        input_ros_msg_type: Optional[str] = None,
-    ) -> "Optional[MsgType]":
+        ros_msg_type: Optional[str] = None,
+    ) -> Msgarg:
         """
         Converts a Mosaico scalar wrapper (or a ``Message`` wrapping one) into the
         corresponding ``std_msgs`` ROS message.
@@ -185,7 +187,7 @@ class GenericStdAdapter(ROSAdapterBase[Serializable]):
             mosaico_data: A ``Message`` wrapping a scalar ``Serializable`` (e.g. ``String``,
                 ``Integer32``), or the raw scalar instance directly.
             typestore: The rosbags typestore for target type resolution.
-            input_ros_msg_type: Override for the output ROS type. If ``None``, defaults
+            ros_msg_type: Override for the output ROS type. If ``None``, defaults
                 to ``cls.get_default_ros_msg()``.
 
         Returns:
@@ -194,13 +196,15 @@ class GenericStdAdapter(ROSAdapterBase[Serializable]):
         """
 
         # Resolve ROS message to translate Mosaico message to if not defined in input
-        resolved_rosmsg_type = input_ros_msg_type or cls.get_default_ros_msg()
+        resolved_rosmsg_type = ros_msg_type or cls.get_default_ros_msg()
         if not cls.is_rosmsg_type_valid(resolved_rosmsg_type):
-            return None
+            raise TypeError(
+                f"Adapter {cls.__name__} does not support {resolved_rosmsg_type}"
+            )
 
         # Checking presence in typestore of requested message
         if typestore.types.get(resolved_rosmsg_type) is None:
-            return None
+            raise TypeError(f"Typestore does not contain {resolved_rosmsg_type}")
 
         # Unpacking Mosaico message / type
         std_data, _ = cls.unpack_mosaico_msg(mosaico_data)
@@ -341,19 +345,19 @@ class HeaderAdapter(ROSAdapterBase[Header]):
         cls,
         mosaico_data: Union[Message, Header],
         typestore: Typestore,
-        input_ros_msg_type: Optional[str] = None,
-    ) -> "Optional[MsgType]":
+        ros_msg_type: Optional[str] = None,
+    ) -> Msgarg:
         """
         Converts a Mosaico ``Header`` (or a ``Message`` wrapping one) into a
         ``std_msgs/msg/Header`` message.
 
-        Supported output types (selectable via *input_ros_msg_type*):
+        Supported output types (selectable via *ros_msg_type*):
         - ``std_msgs/msg/Header``
 
         Args:
             mosaico_data: A ``Message`` wrapping a ``Header`` instance, or a raw ``Header``.
             typestore: The rosbags typestore for target type resolution.
-            input_ros_msg_type: Override for the output ROS type. Defaults to
+            ros_msg_type: Override for the output ROS type. Defaults to
                 ``std_msgs/msg/Header`` if ``None``.
 
         Returns:
@@ -362,13 +366,15 @@ class HeaderAdapter(ROSAdapterBase[Header]):
         """
 
         # Resolve ROS message to translate Mosaico message to if not defined in input
-        resolved_rosmsg_type = input_ros_msg_type or cls.get_default_ros_msg()
+        resolved_rosmsg_type = ros_msg_type or cls.get_default_ros_msg()
         if not cls.is_rosmsg_type_valid(resolved_rosmsg_type):
-            return None
+            raise TypeError(
+                f"Adapter {cls.__name__} does not support {resolved_rosmsg_type}"
+            )
 
         # Checking presence in typestore of requested message
         if typestore.types.get(resolved_rosmsg_type) is None:
-            return None
+            raise TypeError(f"Typestore does not contain {resolved_rosmsg_type}")
 
         # Unpacking Mosaico message / type
         header_data, _ = cls.unpack_mosaico_msg(mosaico_data)
@@ -394,4 +400,6 @@ class HeaderAdapter(ROSAdapterBase[Header]):
         if resolved_rosmsg_type == "std_msgs/msg/Header":
             return ros_header
 
-        return None
+        raise NotImplementedError(
+            f"The input ros message type {ros_msg_type} is supported by not implemented"
+        )
