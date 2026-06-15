@@ -49,7 +49,7 @@ class HeaderMixin(BaseModel):
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Find where the measure lasts at least 10 seconds
-            qresponse = client.query(QueryOntologyCatalog(ForceTorque.Q.header.seconds.gt(10.0)))
+            qresponse = client.query(QueryOntologyCatalog(ForceTorque.Q.header.timestamp.seconds.gt(10.0)))
 
             # Inspect the response
             if qresponse is not None:
@@ -98,7 +98,7 @@ class HeaderMixin(BaseModel):
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Find where the measure lasts at least 10 seconds
-            qresponse = client.query(QueryOntologyCatalog(ForceTorque.Q.header.seconds.gt(10.0)))
+            qresponse = client.query(QueryOntologyCatalog(ForceTorque.Q.header.timestamp.seconds.gt(10.0)))
 
             # Inspect the response
             if qresponse is not None:

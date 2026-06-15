@@ -1,6 +1,6 @@
 ---
-title: Base Models and Mixins
-description: API Reference for Base Models and Mixins
+title: Base Models
+description: API Reference for Base Models
 ---
 
 ::: mosaicolabs.models.core.BaseModel

@@ -37,15 +37,13 @@ class Message(BaseModel):
     The universal transport envelope for Mosaico data.
 
     The `Message` class wraps a polymorphic [`Serializable`][mosaicolabs.models.core.Serializable]
-    payload with middleware metadata, such as recording timestamps and headers.
+    payload with its ingestion timestamps (record time).
 
     Attributes:
         timestamp_ns: Ingestion timestamp in nanoseconds (record time).
             This represents the time at which the message was received and persisted by
             the recording system (e.g., rosbag, parquet writer, logging pipeline, or database).
         data: The actual ontology data payload (e.g., an IMU or GPS instance).
-        frame_id: A string identifier for the coordinate frame (spatial context).
-        sequence_id: An optional sequence ID, primarily used for legacy tracking.
 
     ### Querying with the **`.Q` Proxy** {: #queryability }
     When constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog],
@@ -54,8 +52,6 @@ class Message(BaseModel):
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
     | `<Model>.Q.timestamp_ns` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
-    | `<Model>.Q.frame_id` | `String` | `.eq()`, `.match()`, `.in_()`, `.lt()`, `.gt()`, `.leq()`, `.geq()` |
-    | `<Model>.Q.sequence_id` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
 
     Note: Universal Compatibility
         The `<Model>` placeholder represents any Mosaico ontology class (e.g., `IMU`, `GPS`, `Floating64`)
@@ -78,17 +74,6 @@ class Message(BaseModel):
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # Filter primitive Floating64 telemetry by frame identifier
-            qresponse = client.query(
-                QueryOntologyCatalog(Floating64.Q.frame_id.eq("robot_base"))
-            )
-
-            # Inspect the response
-            if qresponse is not None:
-                # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
-                    print(f"Sequence: {item.sequence.name}")
-                    print(f"Topics: {[topic.name for topic in item.topics]}")
         ```
     """
 

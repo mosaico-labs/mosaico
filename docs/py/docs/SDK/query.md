@@ -412,10 +412,10 @@ The proxy automatically flattens the hierarchy, assigning the correct queryable 
 | **[`IMU.Q.angular_velocity.x/y/z`][mosaicolabs.models.sensors.IMU.angular_velocity--querying-with-the-q-proxy]** | **Numeric** | `.gt()`, `.lt()`, `.geq()`, `.leq()`, `.eq()`, `.between()`, `.in_()` |
 | **[`IMU.Q.orientation.x/y/z/w`][mosaicolabs.models.sensors.IMU.orientation--querying-with-the-q-proxy]** | **Numeric** | `.gt()`, `.lt()`, `.geq()`, `.leq()`, `.eq()`, `.between()`, `.in_()` |
 | **[`IMU.Q.timestamp_ns`][mosaicolabs.models.core.Message.timestamp_ns--querying-with-the-q-proxy]** | **Numeric** | `.gt()`, `.lt()`, `.geq()`, `.leq()`, `.eq()`, `.between()`, `.in_()` |
-| **[`IMU.Q.header.timestamp.seconds`][mosaicolabs.models.data.header.Header.timestamp--querying-with-the-q-proxy]** | **Numeric** | `.gt()`, `.lt()`, `.geq()`, `.leq()`, `.eq()`, `.between()`, `.in_()` |
-| **[`IMU.Q.header.timestamp.nanoseconds`][mosaicolabs.models.data.header.Header.timestamp--querying-with-the-q-proxy]** | **Numeric** | `.gt()`, `.lt()`, `.geq()`, `.leq()`, `.eq()`, `.between()`, `.in_()` |
-| **[`IMU.Q.header.frame_id`][mosaicolabs.models.data.header.Header.frame_id--querying-with-the-q-proxy]** | **String** | `.eq()`, `.match()`, `.in_()`, `.lt()`, `.gt()`, `.leq()`, `.geq()` |
-| **[`IMU.Q.header.sample_counter`][mosaicolabs.models.data.header.Header.sample_counter--querying-with-the-q-proxy]** | **Numeric** | `.gt()`, `.lt()`, `.geq()`, `.leq()`, `.eq()`, `.between()`, `.in_()` |
+| **[`IMU.Q.header.timestamp.seconds`][mosaicolabs.models.data.HeaderMixin--queryability]** | **Numeric** | `.gt()`, `.lt()`, `.geq()`, `.leq()`, `.eq()`, `.between()`, `.in_()` |
+| **[`IMU.Q.header.timestamp.nanoseconds`][mosaicolabs.models.data.HeaderMixin--queryability]** | **Numeric** | `.gt()`, `.lt()`, `.geq()`, `.leq()`, `.eq()`, `.between()`, `.in_()` |
+| **[`IMU.Q.header.frame_id`][mosaicolabs.models.data.HeaderMixin--queryability]** | **String** | `.eq()`, `.match()`, `.in_()`, `.lt()`, `.gt()`, `.leq()`, `.geq()` |
+| **[`IMU.Q.header.sample_counter`][mosaicolabs.models.data.HeaderMixin--queryability]** | **Numeric** | `.gt()`, `.lt()`, `.geq()`, `.leq()`, `.eq()`, `.between()`, `.in_()` |
 
 The following table lists the supported operators for each data type:
 
