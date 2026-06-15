@@ -8,10 +8,8 @@ It includes Status flags, processed Fixes (Position/Velocity), and raw NMEA stri
 
 from typing import Optional
 
-from ..data import Point3d, Vector3d
-from ..data.time import HeaderMixin
-from ..serializable import Serializable
-from ..types import MosaicoField, MosaicoType
+from ..core import MosaicoField, MosaicoType, Serializable
+from ..data import HeaderMixin, Point3d, Vector3d
 
 
 class GPSStatus(Serializable):

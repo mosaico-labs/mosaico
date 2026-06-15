@@ -21,10 +21,8 @@ from typing import Optional, Tuple
 
 import numpy as np
 
-from ..base_model import BaseModel
-from ..data.time import HeaderMixin
-from ..serializable import Serializable
-from ..types import MosaicoField, MosaicoType
+from ..core import BaseModel, MosaicoField, MosaicoType, Serializable
+from ..data import HeaderMixin
 
 
 def pack_rgb(r: int, g: int, b: int) -> float:

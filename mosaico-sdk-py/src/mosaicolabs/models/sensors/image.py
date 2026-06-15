@@ -28,9 +28,8 @@ from PIL import Image as PILImage
 from mosaicolabs.enum import SerializationFormat
 from mosaicolabs.logging_config import get_logger
 
-from ..data.time import HeaderMixin
-from ..serializable import Serializable
-from ..types import MosaicoField, MosaicoType
+from ..core import MosaicoField, MosaicoType, Serializable
+from ..data import HeaderMixin
 
 # Set the hierarchical logger
 logger = get_logger(__name__)

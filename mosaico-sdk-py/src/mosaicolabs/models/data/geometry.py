@@ -7,17 +7,14 @@ The module follows a **Two-Tier Architecture** to optimize both internal efficie
     These are intended for embedding within larger composite objects (like a `Pose` or `Transform`)
     to avoid attaching redundant metadata headers or timestamps to every inner field.
 * **Public Classes**: High-level models that combine spatial data with Mosaico's transport and serialization logic.
-    These inherit from the internal structs and inject support for auto-registration ([`Serializable`][mosaicolabs.models.serializable.Serializable]),
-    and uncertainty tracking ([`CovarianceMixin`][mosaicolabs.models.mixins.CovarianceMixin]).
+    These inherit from the internal structs and inject support for auto-registration ([`Serializable`][mosaicolabs.models.core.serializable.Serializable]),
+    and uncertainty tracking ([`CovarianceMixin`][mosaicolabs.models.data.CovarianceMixin]).
 """
 
 from typing import Optional
 
-from ..base_model import BaseModel
-from ..mixins import CovarianceMixin
-from ..serializable import Serializable
-from ..types import MosaicoField, MosaicoType
-from .time import HeaderMixin
+from ..core import BaseModel, MosaicoField, MosaicoType, Serializable
+from .mixins import CovarianceMixin, HeaderMixin
 
 # ---------------------------------------------------------------------------
 # Vector STRUCT classes
@@ -56,7 +53,7 @@ class _Vector2dStruct(BaseModel):
 
     Note: Universal Compatibility
         The `<Model>` placeholder represents any Mosaico class derived by `_Vector2dStruct` (i.e. [`Vector2d`][mosaicolabs.models.data.Vector2d], [`Point2d`][mosaicolabs.models.data.Point2d])
-        or any custom user-defined class that is a subclass of [`Serializable`][mosaicolabs.models.Serializable] and derives from `_Vector2dStruct` or its child classes.
+        or any custom user-defined class that is a subclass of [`Serializable`][mosaicolabs.models.core.Serializable] and derives from `_Vector2dStruct` or its child classes.
 
     Example:
         ```python
@@ -115,7 +112,7 @@ class _Vector2dStruct(BaseModel):
 
     Note: Universal Compatibility
         The `<Model>` placeholder represents any Mosaico class derived by `_Vector2dStruct` (i.e. [`Vector2d`][mosaicolabs.models.data.Vector2d], [`Point2d`][mosaicolabs.models.data.Point2d])
-        or any custom user-defined class that inherits from [`Serializable`][mosaicolabs.models.Serializable] and derives from `_Vector2dStruct` or its child classes.
+        or any custom user-defined class that inherits from [`Serializable`][mosaicolabs.models.core.Serializable] and derives from `_Vector2dStruct` or its child classes.
 
     Example:
         ```python
@@ -208,7 +205,7 @@ class _Vector3dStruct(BaseModel):
 
     Note: Universal Compatibility
         The `<Model>` placeholder represents any Mosaico class derived by `_Vector3dStruct` (i.e. [`Vector3d`][mosaicolabs.models.data.Vector2d], [`Point3d`][mosaicolabs.models.data.Point2d])
-        or any custom user-defined class that inherits from [`Serializable`][mosaicolabs.models.Serializable] and derives from `_Vector3dStruct` or its child classes.
+        or any custom user-defined class that inherits from [`Serializable`][mosaicolabs.models.core.Serializable] and derives from `_Vector3dStruct` or its child classes.
 
     Example:
         ```python
@@ -267,7 +264,7 @@ class _Vector3dStruct(BaseModel):
 
     Note: Universal Compatibility
         The `<Model>` placeholder represents any Mosaico class derived by `_Vector3dStruct` (i.e. [`Vector3d`][mosaicolabs.models.data.Vector2d], [`Point3d`][mosaicolabs.models.data.Point2d])
-        or any custom user-defined class that inherits from [`Serializable`][mosaicolabs.models.Serializable] and derives from `_Vector3dStruct` or its child classes.
+        or any custom user-defined class that inherits from [`Serializable`][mosaicolabs.models.core.Serializable] and derives from `_Vector3dStruct` or its child classes.
 
     Example:
         ```python
@@ -326,7 +323,7 @@ class _Vector3dStruct(BaseModel):
 
     Note: Universal Compatibility
         The `<Model>` placeholder represents any Mosaico class derived by `_Vector3dStruct` (i.e. [`Vector3d`][mosaicolabs.models.data.Vector2d], [`Point3d`][mosaicolabs.models.data.Point2d])
-        or any custom user-defined [`Serializable`][mosaicolabs.models.Serializable] class.
+        or any custom user-defined [`Serializable`][mosaicolabs.models.core.Serializable] class.
 
     Example:
         ```python
@@ -419,7 +416,7 @@ class _Vector4dStruct(BaseModel):
 
     Note: Universal Compatibility
         The `<Model>` placeholder represents any Mosaico class derived by `_Vector4dStruct` (i.e. [`Vector4d`][mosaicolabs.models.data.Vector4d], [`Quaternion`][mosaicolabs.models.data.Quaternion])
-        or any custom user-defined class that inherits from [`Serializable`][mosaicolabs.models.Serializable] and derives from `_Vector4dStruct` or its child classes.
+        or any custom user-defined class that inherits from [`Serializable`][mosaicolabs.models.core.Serializable] and derives from `_Vector4dStruct` or its child classes.
 
     Example:
         ```python
@@ -479,7 +476,7 @@ class _Vector4dStruct(BaseModel):
 
     Note: Universal Compatibility
         The `<Model>` placeholder represents any Mosaico class derived by `_Vector4dStruct` (i.e. [`Vector4d`][mosaicolabs.models.data.Vector4d], [`Quaternion`][mosaicolabs.models.data.Quaternion])
-        or any custom user-defined class that inherits from [`Serializable`][mosaicolabs.models.Serializable] and derives from `_Vector4dStruct` or its child classes.
+        or any custom user-defined class that inherits from [`Serializable`][mosaicolabs.models.core.Serializable] and derives from `_Vector4dStruct` or its child classes.
 
     Example:
         ```python
@@ -539,7 +536,7 @@ class _Vector4dStruct(BaseModel):
 
     Note: Universal Compatibility
         The `<Model>` placeholder represents any Mosaico class derived by `_Vector4dStruct` (i.e. [`Vector4d`][mosaicolabs.models.data.Vector4d], [`Quaternion`][mosaicolabs.models.data.Quaternion])
-        or any custom user-defined class that inherits from [`Serializable`][mosaicolabs.models.Serializable] and derives from `_Vector4dStruct` or its child classes.
+        or any custom user-defined class that inherits from [`Serializable`][mosaicolabs.models.core.Serializable] and derives from `_Vector4dStruct` or its child classes.
 
     Example:
         ```python
@@ -599,7 +596,7 @@ class _Vector4dStruct(BaseModel):
 
     Note: Universal Compatibility
         The `<Model>` placeholder represents any Mosaico class derived by `_Vector4dStruct` (i.e. [`Vector4d`][mosaicolabs.models.data.Vector4d], [`Quaternion`][mosaicolabs.models.data.Quaternion])
-        or any custom user-defined class that inherits from [`Serializable`][mosaicolabs.models.Serializable] and derives from `_Vector4dStruct` or its child classes.
+        or any custom user-defined class that inherits from [`Serializable`][mosaicolabs.models.core.Serializable] and derives from `_Vector4dStruct` or its child classes.
 
     Example:
         ```python

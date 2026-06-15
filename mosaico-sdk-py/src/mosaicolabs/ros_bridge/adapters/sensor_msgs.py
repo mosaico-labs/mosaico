@@ -20,8 +20,7 @@ from rosbags.typesys.store import Typestore
 if TYPE_CHECKING:
     from rosbags.typesys.store import MsgType
 
-from mosaicolabs import Serializable
-from mosaicolabs.models import Message
+from mosaicolabs.models.core import Message, Serializable
 from mosaicolabs.models.data import ROI, Point3d, Quaternion, Vector2d, Vector3d
 from mosaicolabs.models.futures import (
     LaserScan,

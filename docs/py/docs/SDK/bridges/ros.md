@@ -137,8 +137,8 @@ Users can extend the bridge to support new ROS message types by implementing a c
 3.  **Register**: Decorate the class with [`@register_default_adapter`][mosaicolabs.ros_bridge.register_default_adapter].
 
 ```python
+from mosaicolabs import Message
 from mosaicolabs.ros_bridge import ROSAdapterBase, register_default_adapter, ROSMessage
-from mosaicolabs.models import Message
 from my_ontology import MyCustomData # Assuming this class exists
 
 @register_default_adapter
@@ -178,7 +178,7 @@ All of them extend [`PointCloudAdapterBase`][mosaicolabs.ros_bridge.adapters.sen
 
 - **`decode`**: deserializes the binary buffer of a `PointCloud2` message into named field arrays.
 - **`_build`** *(abstract)*: constructs and returns an instance of the target ontology object from the decoded fields. Must be overridden in every concrete subclass.
-- **`from_dict`**: validates that all required fields of the ontology are present before delegating to `_build`. A field is considered required when its [`MosaicoField`][mosaicolabs.models.MosaicoField] declaration has no explicit default (i.e. `default=...`) or it is declared **no Optional**.
+- **`from_dict`**: validates that all required fields of the ontology are present before delegating to `_build`. A field is considered required when its [`MosaicoField`][mosaicolabs.models.core.MosaicoField] declaration has no explicit default (i.e. `default=...`) or it is declared **no Optional**.
 
 ##### Implementing a Custom PointCloud2 Adapter Override
 To create a custom `PointCloud2` adapter, inherit from [`PointCloudAdapterBase`][mosaicolabs.ros_bridge.adapters.sensor_msgs.PointCloudAdapterBase].
@@ -195,8 +195,8 @@ Note that the adapter is **not** registered as default, since `sensor_msgs/msg/P
 
 ```python
 from typing import Any, Optional, Type
+from mosaicolabs import Message
 from mosaicolabs.ros_bridge import PointCloudAdapterBase, ROSMessage
-from mosaicolabs.models import Message
 from my_ontology import MyLidar # Your target Ontology class
 
 class MyLidarAdapter(PointCloudAdapterBase[MyVelodyneLidar]):
@@ -416,7 +416,7 @@ While the underlying `rosbags` library supports the majority of standard ROS 2 b
     this class captures raw point cloud data including field layout, endianness, and binary payload.
     It includes the companion `PointField` model to describe each data channel (e.g., `x`, `y`, `z`, `intensity`).
   
-  > **Note:** Although these are provisional additions, both `FrameTransform`, `BatteryState`, and `PointCloud2` inherit from [`Serializable`][mosaicolabs.models.Serializable]. This ensures they remain fully compatible with Mosaico’s existing serialization infrastructure.
+  > **Note:** Although these are provisional additions, both `FrameTransform`, `BatteryState`, and `PointCloud2` inherit from [`Serializable`][mosaicolabs.models.core.Serializable]. This ensures they remain fully compatible with Mosaico’s existing serialization infrastructure.
 
 ### Supported Message Types Table
 
@@ -433,9 +433,9 @@ While the underlying `rosbags` library supports the majority of standard ROS 2 b
   | [`geometry_msgs/msg/Polygon`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/Polygon.html), [`PolygonStamped`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/PolygonStamped.html) | [`Polygon`][mosaicolabs.models.data.geometry.Polygon] | `PolygonAdapter` |
   | [`geometry_msgs/msg/Inertia`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/Inertia.html), [`InertiaStamped`](https://docs.ros2.org/foxy/api/geometry_msgs/msg/InertiaStamped.html) | [`Inertia`][mosaicolabs.models.data.dynamics.Inertia] | `InertiaAdapter` |
   | [`nav_msgs/msg/Odometry`](https://docs.ros2.org/foxy/api/nav_msgs/msg/Odometry.html) | [`MotionState`][mosaicolabs.models.data.kinematics.MotionState] | `OdometryAdapter` |
-  | [`nav_msgs/msg/OccupancyGrid`](https://docs.ros2.org/foxy/api/nav_msgs/msg/OccupancyGrid.html) | [`OccupancyGrid`][mosaicolabs.ros_bridge.data_ontology.OccupancyGrid] (ROS-specific)| `OccupancyGridAdapter` |
-  | [`nav_msgs/msg/GridCells`](https://docs.ros2.org/foxy/api/nav_msgs/msg/GridCells.html) | [`GridCells`][mosaicolabs.ros_bridge.data_ontology.GridCells] (ROS-specific)| `GridCellsAdapter` |
-  | [`nav_msgs/msg/MapMetaData`](https://docs.ros2.org/foxy/api/nav_msgs/msg/MapMetaData.html) | [`MapMetadata`][mosaicolabs.ros_bridge.data_ontology.MapMetadata] (ROS-specific)| `MapMetadataAdapter` |
+  | [`nav_msgs/msg/OccupancyGrid`](https://docs.ros2.org/foxy/api/nav_msgs/msg/OccupancyGrid.html) | [`OccupancyGrid`][mosaicolabs.models.futures.OccupancyGrid] (ROS-specific)| `OccupancyGridAdapter` |
+  | [`nav_msgs/msg/GridCells`](https://docs.ros2.org/foxy/api/nav_msgs/msg/GridCells.html) | [`GridCells`][mosaicolabs.models.futures.GridCells] (ROS-specific)| `GridCellsAdapter` |
+  | [`nav_msgs/msg/MapMetaData`](https://docs.ros2.org/foxy/api/nav_msgs/msg/MapMetaData.html) | [`MapMetadata`][mosaicolabs.models.futures.MapMetadata] (ROS-specific)| `MapMetadataAdapter` |
   | [`nav_msgs/msg/Path`](https://docs.ros2.org/foxy/api/nav_msgs/msg/Path.html) | [`Path`][mosaicolabs.models.data.geometry.RobotPath] (ROS-specific)| `PathAdapter` |
   | [`nmea_msgs/msg/Sentence`](https://docs.ros2.org/foxy/api/nmea_msgs/msg/Sentence.html) | [`NMEASentence`][mosaicolabs.models.sensors.NMEASentence] | `NMEASentenceAdapter` |
   | [`sensor_msgs/msg/Image`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/Image.html), [`CompressedImage`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/CompressedImage.html) | [`Image`][mosaicolabs.models.sensors.Image], [`CompressedImage`][mosaicolabs.models.sensors.CompressedImage] | `ImageAdapter`, `CompressedImageAdapter` |

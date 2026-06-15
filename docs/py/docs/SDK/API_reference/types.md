@@ -1,3 +1,3 @@
 # Types Module
 
-::: mosaicolabs.types.Time
+::: mosaicolabs.models.data.Time

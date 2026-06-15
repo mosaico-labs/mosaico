@@ -13,11 +13,9 @@ from typing import Optional
 
 from pydantic import model_validator
 
-from ..mixins import CovarianceMixin
-from ..serializable import Serializable
-from ..types import MosaicoField, MosaicoType
+from ..core import MosaicoField, MosaicoType, Serializable
 from .geometry import Pose, Vector3d
-from .time import HeaderMixin
+from .mixins import CovarianceMixin, HeaderMixin
 
 
 class Velocity(

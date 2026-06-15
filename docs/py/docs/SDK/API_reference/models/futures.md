@@ -14,3 +14,6 @@ description: API Reference for Futures Models
 ::: mosaicolabs.models.futures.RGBDCamera
 ::: mosaicolabs.models.futures.StereoCamera
 ::: mosaicolabs.models.futures.ToFCamera
+::: mosaicolabs.models.futures.OccupancyGrid
+::: mosaicolabs.models.futures.GridCells
+::: mosaicolabs.models.futures.MapMetadata

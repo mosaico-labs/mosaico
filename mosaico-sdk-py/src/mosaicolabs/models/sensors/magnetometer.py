@@ -4,10 +4,8 @@ Magnetometer Ontology Module.
 Defines the data structure for magnetic field sensors.
 """
 
-from ..data import Vector3d
-from ..data.time import HeaderMixin
-from ..serializable import Serializable
-from ..types import MosaicoField
+from ..core import MosaicoField, Serializable
+from ..data import HeaderMixin, Vector3d
 
 
 class Magnetometer(

@@ -9,3 +9,7 @@ description: API Reference for Data Types
 ::: mosaicolabs.models.data.ROI
     options:
       inherited_members: true
+
+::: mosaicolabs.models.data.HeaderMixin
+::: mosaicolabs.models.data.CovarianceMixin
+::: mosaicolabs.models.data.VarianceMixin

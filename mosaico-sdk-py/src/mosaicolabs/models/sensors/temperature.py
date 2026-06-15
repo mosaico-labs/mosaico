@@ -6,10 +6,8 @@ Defines the data structure for temperature sensors.
 
 from typing import Optional
 
-from ..data.time import HeaderMixin
-from ..mixins import VarianceMixin
-from ..serializable import Serializable
-from ..types import MosaicoField, MosaicoType
+from ..core import MosaicoField, MosaicoType, Serializable
+from ..data import HeaderMixin, VarianceMixin
 
 
 class Temperature(
