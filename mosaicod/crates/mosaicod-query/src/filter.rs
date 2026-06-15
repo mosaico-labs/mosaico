@@ -218,10 +218,64 @@ where
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum IndexSpecifier {
+    /// Access the element at a specific position: [0], [42].
+    At(usize),
+    /// At least one element must satisfy the predicate: [?].
+    Any,
+    /// Every element must satisfy the predicate: [!].
+    All,
+}
+
+/// The structured representation of an ontology field path after parsing.
+///
+/// Index specifiers are only supported on the leaf (last) segment of the path.
+/// A field path always follows this shape:
+///   <prefix>.<leaf>[specifier]
+///
+/// Examples:
+/// - "x"                     prefix: [],                field: "x",    specifier: None
+/// - "x[?]"                  prefix: [],                field: "x",    specifier: Some(Any)
+/// - "x[30]"                 prefix: [],                field: "x",    specifier: Some(At(30))
+/// - "acceleration.x"        prefix: ["acceleration"],  field: "x",    specifier: None
+/// - "acceleration.x[!]"     prefix: ["acceleration"],  field: "x",    specifier: Some(All)
+#[derive(Debug, Clone)]
+pub struct ParsedField {
+    /// Plain struct navigation segments before the leaf field.
+    pub prefix: Vec<String>,
+    /// The leaf field name.
+    pub field: String,
+    /// Index specifier for list access, if the leaf field is a list column.
+    pub specifier: Option<IndexSpecifier>,
+}
+
+/// Parses a single dot-path segment, splitting the field name from its optional
+/// index specifier (e.g. "x[?]" -> name "x", specifier Any).
+fn parse_segment(s: &str) -> Result<(String, Option<IndexSpecifier>), ()> {
+    match s.find('[') {
+        None => Ok((s.to_owned(), None)),
+        Some(pos) => {
+            let name = s[..pos].to_owned();
+            let content = s[pos..]
+                .strip_prefix('[')
+                .and_then(|r| r.strip_suffix(']'))
+                .ok_or(())?;
+            let specifier = match content {
+                "?" => IndexSpecifier::Any,
+                "!" => IndexSpecifier::All,
+                n => IndexSpecifier::At(n.parse::<usize>().map_err(|_| ())?),
+            };
+            Ok((name, Some(specifier)))
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct OntologyField {
     value: String,
     tag_offset: usize,
+    parsed_field: ParsedField,
 }
 
 impl OntologyField {
@@ -231,9 +285,40 @@ impl OntologyField {
         })?;
         let len = ontology_tag.len();
 
+        // Validate that only the last segment may carry an index specifier.
+        let field_part = &v[(len + 1)..];
+        let segments: Vec<&str> = field_part.split('.').collect();
+
+        let mut prefix = Vec::with_capacity(segments.len().saturating_sub(1));
+        let mut leaf_name = String::new();
+        let mut leaf_specifier = None;
+
+        for (i, segment) in segments.iter().enumerate() {
+            let (parsed_name, specifier) =
+                parse_segment(segment).map_err(|_| super::Error::BadField { field: v.clone() })?;
+
+            if i != segments.len() - 1 {
+                // if the specifier is not on the last segment (x.y[].z).
+                if specifier.is_some() {
+                    return Err(super::Error::BadField { field: v });
+                }
+                prefix.push(parsed_name);
+            } else {
+                leaf_name = parsed_name;
+                leaf_specifier = specifier;
+            }
+        }
+
+        let parsed_field = ParsedField {
+            prefix,
+            field: leaf_name,
+            specifier: leaf_specifier,
+        };
+
         Ok(Self {
             value: v,
             tag_offset: len,
+            parsed_field,
         })
     }
 
@@ -244,6 +329,10 @@ impl OntologyField {
     pub fn field(&self) -> &str {
         // +1 to remove the dot
         &self.value[(self.tag_offset + 1)..]
+    }
+
+    pub fn parsed_field(&self) -> &ParsedField {
+        &self.parsed_field
     }
 
     pub fn value(&self) -> &str {
