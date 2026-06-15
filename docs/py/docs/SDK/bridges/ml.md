@@ -50,9 +50,8 @@ with MosaicoClient.connect("localhost", 6726):
 For complex types like images that require specialized decoding, Mosaico allows you to "inflate" a flattened DataFrame row back into a strongly-typed `Message` object.
 
 ```python
-from mosaicolabs import MosaicoClient
+from mosaicolabs import MosaicoClient, Message, Image
 from mosaicolabs.ml import DataFrameExtractor
-from mosaicolabs.models import Message, Image
 
 with MosaicoClient.connect("localhost", 6726):
     # Initialize from an existing SequenceHandler

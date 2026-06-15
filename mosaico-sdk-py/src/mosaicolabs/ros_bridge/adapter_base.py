@@ -7,9 +7,8 @@ if TYPE_CHECKING:
     from rosbags.typesys.store import MsgType
 
 from mosaicolabs import Header, Time
-from mosaicolabs.models.message import Message
+from mosaicolabs.models.core import Message, Serializable
 
-from ..models import Serializable
 from .ros_message import ROSMessage
 
 T = TypeVar("T", bound=Serializable)

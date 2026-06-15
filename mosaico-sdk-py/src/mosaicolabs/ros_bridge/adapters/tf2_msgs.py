@@ -5,7 +5,7 @@ from rosbags.typesys.store import Typestore
 if TYPE_CHECKING:
     from rosbags.typesys.store import MsgType
 
-from mosaicolabs.models import Message
+from mosaicolabs.models.core import Message
 
 from ..adapter_base import ROSAdapterBase
 from ..data_ontology import FrameTransform

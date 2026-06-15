@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 from typing import Optional
 
@@ -103,3 +104,12 @@ def tls_cert_path(with_tls) -> Optional[str]:
             ).resolve()
         )
     return None
+
+
+@pytest.fixture
+def pristine_mosaico_logger():
+    logger = logging.getLogger("mosaicolabs")
+
+    logger.handlers.clear()
+    logger.addHandler(logging.NullHandler())
+    logger.propagate = False

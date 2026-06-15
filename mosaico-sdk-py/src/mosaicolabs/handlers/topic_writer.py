@@ -12,8 +12,7 @@ from typing import Any, Optional, Type
 import pyarrow.flight as fl
 
 from mosaicolabs.enum.topic_level_error_policy import TopicLevelErrorPolicy
-from mosaicolabs.models import Serializable
-from mosaicolabs.models.message import Message
+from mosaicolabs.models.core import Message, Serializable
 
 from ..comm.do_action import _do_action
 from ..enum import FlightAction, TopicWriterStatus

@@ -7,9 +7,8 @@ of detections obtained from a Radar sensor.
 
 from typing import Optional
 
-from ..data.time import HeaderMixin
-from ..serializable import Serializable
-from ..types import MosaicoField, MosaicoType
+from ..core import MosaicoField, MosaicoType, Serializable
+from ..data import HeaderMixin
 
 
 class Radar(

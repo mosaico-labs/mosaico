@@ -17,8 +17,7 @@ import pyarrow.ipc as pa_ipc
 
 from mosaicolabs.enum import SerializationFormat
 from mosaicolabs.logging_config import get_logger
-from mosaicolabs.models import Serializable
-from mosaicolabs.models.message import Message
+from mosaicolabs.models.core import Message, Serializable
 
 from ...comm.connection import PYARROW_OUT_OF_RANGE_BYTES
 

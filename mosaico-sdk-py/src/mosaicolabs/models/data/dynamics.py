@@ -2,18 +2,16 @@
 This module defines specialized ontology structures for representing physical dynamics, specifically linear forces and rotational moments (torques).
 
 The primary structure, [`ForceTorque`][mosaicolabs.models.data.dynamics.ForceTorque], implements a standard "Wrench" representation.
-These models are designed to be assigned to the `data` field of a [`Message`][mosaicolabs.models.Message] for transmission to the platform.
+These models are designed to be assigned to the `data` field of a [`Message`][mosaicolabs.models.core.Message] for transmission to the platform.
 
 **Key Features:**
 * **Wrench Representation**: Combines 3D linear force and 3D rotational torque into a single, synchronized state.
-* **Uncertainty Quantification**: Inherits from [`CovarianceMixin`][mosaicolabs.models.mixins.CovarianceMixin] to support $6 \times 6$ covariance matrices, allowing for the transmission of sensor noise characteristics or estimation confidence.
+* **Uncertainty Quantification**: Inherits from [`CovarianceMixin`][mosaicolabs.models.data.CovarianceMixin] to support $6 \times 6$ covariance matrices, allowing for the transmission of sensor noise characteristics or estimation confidence.
 """
 
-from ..mixins import CovarianceMixin
-from ..serializable import Serializable
-from ..types import MosaicoField, MosaicoType
+from ..core import MosaicoField, MosaicoType, Serializable
 from .geometry import Vector3d
-from .time import HeaderMixin
+from .mixins import CovarianceMixin, HeaderMixin
 
 
 class ForceTorque(

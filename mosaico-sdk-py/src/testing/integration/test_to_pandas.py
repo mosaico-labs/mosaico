@@ -5,10 +5,10 @@ from typing import Iterable, List, Optional
 import pytest
 
 from mosaicolabs.comm import MosaicoClient
-from mosaicolabs.handlers.sequence_handler import SequenceHandler
+from mosaicolabs.handlers import SequenceHandler
 from mosaicolabs.ml import DataFrameExtractor
-from mosaicolabs.models import Message
-from mosaicolabs.models.sensors.imu import IMU
+from mosaicolabs.models.core import Message
+from mosaicolabs.models.sensors import IMU
 from testing.integration.config import (
     UPLOADED_GPS_TOPIC,
     UPLOADED_IMU_CAMERA_TOPIC,

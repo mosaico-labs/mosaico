@@ -8,10 +8,8 @@ It aggregates data from accelerometers and gyroscopes.
 
 from typing import Optional
 
-from ..data import Quaternion, Vector3d
-from ..data.time import HeaderMixin
-from ..serializable import Serializable
-from ..types import MosaicoField
+from ..core import MosaicoField, Serializable
+from ..data import HeaderMixin, Quaternion, Vector3d
 
 
 class IMU(

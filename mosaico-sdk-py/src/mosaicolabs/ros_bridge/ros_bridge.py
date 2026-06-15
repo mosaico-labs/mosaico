@@ -2,7 +2,7 @@ from typing import Any, Dict, Generic, Optional, Type, TypeVar
 
 from rosbags.typesys import Stores, get_typestore
 
-from mosaicolabs.models import Message, Serializable
+from mosaicolabs.models.core import Message, Serializable
 
 from .adapter_base import ROSAdapterBase
 from .ros_message import ROSMessage

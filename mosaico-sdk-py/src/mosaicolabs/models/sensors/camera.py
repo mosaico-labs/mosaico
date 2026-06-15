@@ -10,10 +10,8 @@ and lens distortion model.
 
 from typing import Optional
 
-from ..data import ROI, Vector2d
-from ..data.time import HeaderMixin
-from ..serializable import Serializable
-from ..types import MosaicoField, MosaicoType
+from ..core import MosaicoField, MosaicoType, Serializable
+from ..data import ROI, HeaderMixin, Vector2d
 
 
 class CameraInfo(Serializable, HeaderMixin):

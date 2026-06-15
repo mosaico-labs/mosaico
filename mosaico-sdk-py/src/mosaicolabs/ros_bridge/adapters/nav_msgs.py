@@ -7,7 +7,7 @@ if TYPE_CHECKING:
 
 import numpy as np
 
-from mosaicolabs.models import Message
+from mosaicolabs.models.core import Message
 from mosaicolabs.models.data import MotionState, Point3d, RobotPath
 from mosaicolabs.models.futures import (
     GridCells,
@@ -40,7 +40,7 @@ class OdometryAdapter(ROSAdapterBase[MotionState]):
             topic="/odometry",
             msg_type="nav_msgs/msg/Odometry",
             data=
-            {
+            {+
                 "header": {"frame_id": "map", "stamp": {"sec": 17000, "nanosec": 0}},
                 "pose": {
                     "position": {"x": 1.0, "y": 2.0, "z": 0.0},

@@ -7,10 +7,8 @@ Defines the data structure for range sensors.
 from pydantic import model_validator
 from typing_extensions import Self
 
-from ..data.time import HeaderMixin
-from ..mixins import VarianceMixin
-from ..serializable import Serializable
-from ..types import MosaicoField, MosaicoType
+from ..core import MosaicoField, MosaicoType, Serializable
+from ..data import HeaderMixin, VarianceMixin
 
 
 class Range(

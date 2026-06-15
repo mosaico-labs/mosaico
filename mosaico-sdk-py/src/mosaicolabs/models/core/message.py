@@ -15,10 +15,9 @@ import pandas as pd
 import pyarrow as pa
 from pydantic import PrivateAttr
 
-from ..helpers.helpers import encode_to_dict
-from ..logging_config import get_logger
+from ...logging_config import get_logger
 from .base_model import BaseModel
-from .internal.helpers import _fix_empty_dicts
+from .internal.helpers import _fix_empty_dicts, encode_to_dict
 from .serializable import Serializable
 
 # Set the hierarchical logger
@@ -37,7 +36,7 @@ class Message(BaseModel):
     """
     The universal transport envelope for Mosaico data.
 
-    The `Message` class wraps a polymorphic [`Serializable`][mosaicolabs.models.Serializable]
+    The `Message` class wraps a polymorphic [`Serializable`][mosaicolabs.models.core.Serializable]
     payload with middleware metadata, such as recording timestamps and headers.
 
     Attributes:
@@ -60,7 +59,7 @@ class Message(BaseModel):
 
     Note: Universal Compatibility
         The `<Model>` placeholder represents any Mosaico ontology class (e.g., `IMU`, `GPS`, `Floating64`)
-        or any custom user-defined class that is a subclass of [`Serializable`][mosaicolabs.models.Serializable].
+        or any custom user-defined class that is a subclass of [`Serializable`][mosaicolabs.models.core.Serializable].
 
     Example:
         ```python
@@ -141,7 +140,7 @@ class Message(BaseModel):
     | `<Model>.Q.timestamp_ns` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
     
     The `<Model>` placeholder represents any Mosaico ontology class (e.g., `IMU`, `GPS`, `Floating64`)
-    or any custom user-defined class that is a subclass of [`Serializable`][mosaicolabs.models.Serializable]
+    or any custom user-defined class that is a subclass of [`Serializable`][mosaicolabs.models.core.Serializable]
     
     Example:
         ```python
@@ -373,7 +372,7 @@ class Message(BaseModel):
            the original ontology tag (e.g., `"imu"`).
         3. **Data Extraction**: Stripping prefixes and re-nesting the flat columns
            into their original dictionary structures.
-        4. **Type Casting**: Re-instantiating the specific [`Serializable`][mosaicolabs.models.Serializable]
+        4. **Type Casting**: Re-instantiating the specific [`Serializable`][mosaicolabs.models.core.Serializable]
            subclass and wrapping it in a `Message` envelope.
 
         Args:

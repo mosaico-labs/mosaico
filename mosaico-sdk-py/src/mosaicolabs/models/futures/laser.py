@@ -14,10 +14,8 @@ return mode:
 
 from typing import List, Optional
 
-from ..base_model import BaseModel
-from ..data.time import HeaderMixin
-from ..serializable import Serializable
-from ..types import MosaicoField, MosaicoType
+from ..core import BaseModel, MosaicoField, MosaicoType, Serializable
+from ..data import HeaderMixin
 
 SingleRange = List[MosaicoType.float32]
 """Type alias for a single-return range array: one distance value per beam."""

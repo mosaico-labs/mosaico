@@ -11,7 +11,7 @@ from typing import Any, Optional
 import pyarrow as pa
 import pyarrow.flight as fl
 
-from mosaicolabs.models.message import Message
+from mosaicolabs.models.core import Message
 from mosaicolabs.platform.metadata import TopicMetadata, _decode_schema_metadata
 from mosaicolabs.platform.resource_manifests import (
     TopicManifestError,
@@ -31,7 +31,7 @@ class TopicDataStreamer:
     An iterator that streams ontology records from a single topic.
 
     The `TopicDataStreamer` wraps a PyArrow Flight `DoGet` stream to fetch `RecordBatches`
-    from the server and reconstruct individual [`Message`][mosaicolabs.models.Message] objects.
+    from the server and reconstruct individual [`Message`][mosaicolabs.models.core.Message] objects.
     It is designed for efficient row-by-row iteration while providing peek-ahead
     capabilities for time-synchronized merging.
 

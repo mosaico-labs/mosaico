@@ -63,8 +63,7 @@ The `determine_mosaico_type()` helper serves a complementary purpose: given a sc
 <TabItem value="python" label="Python">
 
 ```python title="Custom translator"
-from mosaicolabs.models import IMU, GPS, Pressure, Vector3d, GPSStatus, Point3d
-from mosaicolabs import Message
+from mosaicolabs import Message, IMU, GPS, Pressure, Vector3d, GPSStatus, Point3d
 
 def custom_translator(schema_name: str, payload: dict, publish_time_ns: int):
     if schema_name == "sensor_msgs/msg/Imu":
@@ -229,7 +228,7 @@ if __name__ == "__main__":
 import json
 from mcap.reader import make_reader
 from mosaicolabs import MosaicoClient, setup_sdk_logging, SessionLevelErrorPolicy, TopicLevelErrorPolicy
-from mosaicolabs.models import IMU, GPS, Pressure, Vector3d, GPSStatus, Point3d
+from mosaicolabs import IMU, GPS, Pressure, Vector3d, GPSStatus, Point3d
 from mosaicolabs import Message
 
 def custom_translator(schema_name: str, payload: dict, publish_time_ns: int):

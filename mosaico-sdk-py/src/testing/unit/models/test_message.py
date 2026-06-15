@@ -1,6 +1,6 @@
 import pytest
 
-from mosaicolabs.models import Message
+from mosaicolabs import Message
 
 
 def test_message_not_serializable():
