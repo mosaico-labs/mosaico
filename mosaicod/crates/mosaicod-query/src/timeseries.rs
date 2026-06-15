@@ -238,14 +238,13 @@ fn scalar_value_to_timestamp(value: ScalarValue) -> Option<types::Timestamp> {
     }
 }
 
+/// Converts an [`OntologyField`] dot-path into a nested DataFusion [`Expr`].
+/// Each segment becomes a `.field()` access on the previous one, e.g.
+/// `"acceleration.x"` -> `col("acceleration").field("x")`.
 fn unfold_field(field: &OntologyField) -> Expr {
-    let parsed = field.parsed_field();
-    let mut all = parsed
-        .prefix
-        .iter()
-        .map(|s| s.as_str())
-        .chain(std::iter::once(parsed.field.as_str()));
-    let mut expr = col(all.next().unwrap());
+    let parsed = field.field_path();
+    let mut all = parsed.field_segments();
+    let mut expr = col(all.next().expect("field has at least one segment"));
     for seg in all {
         expr = expr.field(seg);
     }
@@ -374,7 +373,7 @@ where
 
     for expr in filter.into_iter() {
         let (field, op) = expr.into_parts();
-        let parsed = field.parsed_field();
+        let parsed = field.field_path();
         let arr = unfold_field(&field);
 
         let expr = match parsed.specifier {
