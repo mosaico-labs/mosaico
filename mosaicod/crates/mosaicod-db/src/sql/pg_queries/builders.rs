@@ -291,14 +291,7 @@ impl query::CompileClause for ChunkQueryBuilder {
 
 impl query::OntologyFieldFmt for ChunkQueryBuilder {
     fn ontology_column_fmt(&self, subfield: &query::OntologyField) -> String {
-        // Strip the index specifier ([?], [!], [n]) for column name search in column_t.
-        let parsed = subfield.field_path();
-        let field_path = if parsed.prefix.is_empty() {
-            parsed.field.clone()
-        } else {
-            format!("{}.{}", parsed.prefix.join("."), parsed.field)
-        };
-        format!("'{}.{}'", subfield.ontology_tag(), field_path)
+        format!("'{}'", subfield.field_str())
     }
 }
 

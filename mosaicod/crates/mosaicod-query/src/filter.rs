@@ -367,6 +367,12 @@ impl OntologyField {
     pub fn value(&self) -> String {
         self.to_string()
     }
+
+    pub fn field_str(&self) -> String {
+        let mut parts = vec![self.tag.as_str()];
+        parts.extend(self.field_path.field_segments());
+        parts.join(".")
+    }
 }
 
 impl std::fmt::Display for OntologyField {
