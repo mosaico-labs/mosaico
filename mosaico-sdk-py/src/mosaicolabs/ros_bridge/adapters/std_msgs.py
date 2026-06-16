@@ -18,6 +18,7 @@ Architecture:
 
 from __future__ import annotations
 
+import dataclasses
 from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple, Type, Union
 
 if TYPE_CHECKING:
@@ -191,8 +192,9 @@ class GenericStdAdapter(ROSAdapterBase[Serializable]):
                 to ``cls.get_default_ros_msg()``.
 
         Returns:
-            The constructed ``std_msgs`` ROS message, or ``None`` if the requested type
-            is unsupported or absent from the typestore.
+            The constructed ``std_msgs`` ROS message, or raises an error if:
+                - the ros_msg_type is unsupported by adapter (TypeError)
+                - the ros_msg_type or default type are unsupported by typestore (TypeError)
         """
 
         # Resolve ROS message to translate Mosaico message to if not defined in input
@@ -335,7 +337,7 @@ class HeaderAdapter(ROSAdapterBase[Header]):
 
         _validate_msgdata(cls, ros_data)
         return Header(
-            timestamp=TimeAdapter.from_dict(ros_data.get("stamp")),
+            timestamp=TimeAdapter.from_dict(ros_data["stamp"]),
             frame_id=ros_data.get("frame_id"),
             sample_counter=ros_data.get("seq"),
         )
@@ -361,8 +363,10 @@ class HeaderAdapter(ROSAdapterBase[Header]):
                 ``std_msgs/msg/Header`` if ``None``.
 
         Returns:
-            The constructed ROS message, or ``None`` if the type is unsupported or
-            absent from the typestore.
+            A ``std_msgs/msg/Header`` instance, or raises an error if:
+                - the ros_msg_type is unsupported by adapter (TypeError)
+                - the ros_msg_type or default type are unsupported by typestore (TypeError)
+                - the ros_msg_type or default type are supported but translation is not implemented (NotImplementedError)
         """
 
         # Resolve ROS message to translate Mosaico message to if not defined in input
@@ -384,6 +388,13 @@ class HeaderAdapter(ROSAdapterBase[Header]):
 
         ros_stamp = header_data.timestamp or Time(seconds=0, nanoseconds=0)
         ros_frame_id = header_data.frame_id or ""
+
+        if not dataclasses.is_dataclass(
+            RosHeader
+        ):  # Necessary to avoid warning from pylance
+            raise TypeError(
+                "sensor_msgs/msg/CameraInfo did not return a dataclass from typestore"
+            )
 
         # Handling ROS1 that has seq in Header
         if "seq" in RosHeader.__dataclass_fields__:

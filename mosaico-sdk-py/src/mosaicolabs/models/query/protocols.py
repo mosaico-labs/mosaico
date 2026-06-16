@@ -86,7 +86,7 @@ class TimeProtocol(Protocol):
     TODO
     """
 
-    def to_nanoseconds() -> int:
+    def to_nanoseconds(self) -> int:
         """
         Returns the time in nanoseconds
         """

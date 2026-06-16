@@ -190,9 +190,9 @@ class ROSAdapterBase(ABC, Generic[T]):
 
         Returns:
             The constructed ROS message instance, or raises an error if:
-             - the ros_msg_type type is unsupported by adapter
-             - the ros_msg_type type is unsupported by typestore
-             - the ros_msg_type type is supported but not tranlation is not implemented (NotImplementedError)
+             - the ros_msg_type is unsupported by adapter (TypeError)
+             - the ros_msg_type or resolved_rosmsg_type are unsupported by typestore (TypeError)
+             - the ros_msg_type or resolved_rosmsg_type are supported but translation is not implemented (NotImplementedError)
         """
         pass
 

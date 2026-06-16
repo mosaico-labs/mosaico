@@ -124,8 +124,10 @@ class TimeAdapter(ROSAdapterBase[Time]):
                 ``builtin_interfaces/msg/Time`` if ``None``.
 
         Returns:
-            The constructed ROS message, or ``None`` if the type is unsupported or
-            absent from the typestore.
+            A ``builtin_interfaces/msg/Time`` instance, or raises an error if:
+                - the ros_msg_type is unsupported by adapter (TypeError)
+                - the ros_msg_type or default type are unsupported by typestore (TypeError)
+                - the ros_msg_type or default type are supported but translation is not implemented (NotImplementedError)
         """
 
         # Resolve ROS message to translate Mosaico message to if not defined in input

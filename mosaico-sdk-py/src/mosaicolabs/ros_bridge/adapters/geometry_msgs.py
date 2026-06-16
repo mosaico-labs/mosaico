@@ -208,8 +208,10 @@ class PoseAdapter(ROSAdapterBase[Pose]):
                 ``geometry_msgs/msg/Pose`` if ``None``.
 
         Returns:
-            The constructed ROS message, or ``None`` if the type is unsupported or
-            absent from the typestore.
+            The constructed ROS message, or raises an error if:
+                - the ros_msg_type is unsupported by adapter (TypeError)
+                - the ros_msg_type or default type are unsupported by typestore (TypeError)
+                - the ros_msg_type or default type are supported but translation is not implemented (NotImplementedError)
         """
 
         # Resolve ROS message to translate Mosaico message to if not defined in input
@@ -431,8 +433,10 @@ class TwistAdapter(ROSAdapterBase[Velocity]):
                 ``geometry_msgs/msg/Twist`` if ``None``.
 
         Returns:
-            The constructed ROS message, or ``None`` if the type is unsupported or
-            absent from the typestore.
+            The constructed ROS message, or raises an error if:
+                - the ros_msg_type is unsupported by adapter (TypeError)
+                - the ros_msg_type or default type are unsupported by typestore (TypeError)
+                - the ros_msg_type or default type are supported but translation is not implemented (NotImplementedError)
         """
 
         # Resolve ROS message to translate Mosaico message to if not defined in input
@@ -661,8 +665,10 @@ class AccelAdapter(ROSAdapterBase[Acceleration]):
                 ``geometry_msgs/msg/Accel`` if ``None``.
 
         Returns:
-            The constructed ROS message, or ``None`` if the type is unsupported or
-            absent from the typestore.
+            The constructed ROS message, or raises an error if:
+                - the ros_msg_type is unsupported by adapter (TypeError)
+                - the ros_msg_type or default type are unsupported by typestore (TypeError)
+                - the ros_msg_type or default type are supported but translation is not implemented (NotImplementedError)
         """
 
         # Resolve ROS message to translate Mosaico message to if not defined in input
@@ -864,8 +870,10 @@ class Vector3Adapter(ROSAdapterBase[Vector3d]):
                 ``geometry_msgs/msg/Vector3`` if ``None``.
 
         Returns:
-            The constructed ROS message, or ``None`` if the type is unsupported or
-            absent from the typestore.
+            The constructed ROS message, or raises an error if:
+                - the ros_msg_type is unsupported by adapter (TypeError)
+                - the ros_msg_type or default type are unsupported by typestore (TypeError)
+                - the ros_msg_type or default type are supported but translation is not implemented (NotImplementedError)
         """
 
         # Resolve ROS message to translate Mosaico message to if not defined in input
@@ -1047,8 +1055,10 @@ class PointAdapter(ROSAdapterBase[Point3d]):
                 ``geometry_msgs/msg/Point`` if ``None``.
 
         Returns:
-            The constructed ROS message, or ``None`` if the type is unsupported or
-            absent from the typestore.
+            The constructed ROS message, or raises an error if:
+                - the ros_msg_type is unsupported by adapter (TypeError)
+                - the ros_msg_type or default type are unsupported by typestore (TypeError)
+                - the ros_msg_type or default type are supported but translation is not implemented (NotImplementedError)
         """
 
         # Resolve ROS message to translate Mosaico message to if not defined in input
@@ -1227,8 +1237,10 @@ class QuaternionAdapter(ROSAdapterBase[Quaternion]):
                 ``geometry_msgs/msg/Quaternion`` if ``None``.
 
         Returns:
-            The constructed ROS message, or ``None`` if the type is unsupported or
-            absent from the typestore.
+            The constructed ROS message, or raises an error if:
+                - the ros_msg_type is unsupported by adapter (TypeError)
+                - the ros_msg_type or default type are unsupported by typestore (TypeError)
+                - the ros_msg_type or default type are supported but translation is not implemented (NotImplementedError)
         """
 
         # Resolve ROS message to translate Mosaico message to if not defined in input
@@ -1419,8 +1431,10 @@ class TransformAdapter(ROSAdapterBase[Transform]):
                 ``geometry_msgs/msg/Transform`` if ``None``.
 
         Returns:
-            The constructed ROS message, or ``None`` if the type is unsupported or
-            absent from the typestore.
+            The constructed ROS message, or raises an error if:
+                - the ros_msg_type is unsupported by adapter (TypeError)
+                - the ros_msg_type or default type are unsupported by typestore (TypeError)
+                - the ros_msg_type or default type are supported but translation is not implemented (NotImplementedError)
         """
 
         # Resolve ROS message to translate Mosaico message to if not defined in input
@@ -1605,8 +1619,10 @@ class WrenchAdapter(ROSAdapterBase[ForceTorque]):
                 ``geometry_msgs/msg/Wrench`` if ``None``.
 
         Returns:
-            The constructed ROS message, or ``None`` if the type is unsupported or
-            absent from the typestore.
+            The constructed ROS message, or raises an error if:
+                - the ros_msg_type is unsupported by adapter (TypeError)
+                - the ros_msg_type or default type are unsupported by typestore (TypeError)
+                - the ros_msg_type or default type are supported but translation is not implemented (NotImplementedError)
         """
 
         # Resolve ROS message to translate Mosaico message to if not defined in input
@@ -1772,8 +1788,10 @@ class PolygonAdapter(ROSAdapterBase[Polygon]):
                 ``geometry_msgs/msg/Polygon`` if ``None``.
 
         Returns:
-            The constructed ROS message, or ``None`` if the type is unsupported or
-            absent from the typestore.
+            The constructed ROS message, or raises an error if:
+                - the ros_msg_type is unsupported by adapter (TypeError)
+                - the ros_msg_type or default type are unsupported by typestore (TypeError)
+                - the ros_msg_type or default type are supported but translation is not implemented (NotImplementedError)
         """
 
         # Resolve ROS message to translate Mosaico message to if not defined in input
@@ -1797,13 +1815,13 @@ class PolygonAdapter(ROSAdapterBase[Polygon]):
         ros_points: Any = [
             PointAdapter.to_ros(point3d, typestore) for point3d in polygon_data.points
         ]
-        polygon = RosPolygon(points=ros_points)
 
         if resolved_rosmsg_type == "geometry_msgs/msg/Polygon":
-            return polygon
+            return RosPolygon(points=ros_points)
         elif resolved_rosmsg_type == "geometry_msgs/msg/PolygonStamped":
             return RosPolygonStamped(
-                polygon=polygon, header=HeaderAdapter.to_ros(ms_header, typestore)
+                polygon=RosPolygon(points=ros_points),
+                header=HeaderAdapter.to_ros(ms_header, typestore),
             )
 
         raise NotImplementedError(
@@ -1968,8 +1986,10 @@ class InertiaAdapter(ROSAdapterBase[Inertia]):
                 ``geometry_msgs/msg/Inertia`` if ``None``.
 
         Returns:
-            The constructed ROS message, or ``None`` if the type is unsupported or
-            absent from the typestore.
+            The constructed ROS message, or raises an error if:
+                - the ros_msg_type is unsupported by adapter (TypeError)
+                - the ros_msg_type or default type are unsupported by typestore (TypeError)
+                - the ros_msg_type or default type are supported but translation is not implemented (NotImplementedError)
         """
 
         # Resolve ROS message to translate Mosaico message to if not defined in input

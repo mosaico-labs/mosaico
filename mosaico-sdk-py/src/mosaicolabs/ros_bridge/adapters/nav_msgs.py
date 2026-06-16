@@ -144,8 +144,10 @@ class OdometryAdapter(ROSAdapterBase[MotionState]):
                 ``nav_msgs/msg/Odometry`` is supported.
 
         Returns:
-            A ``nav_msgs/msg/Odometry`` instance, or ``None`` if the type is
-            unsupported or absent from the typestore.
+            A ``nav_msgs/msg/Odometry`` instance, or raises an error if:
+                - the ros_msg_type is unsupported by adapter (TypeError)
+                - the ros_msg_type or default type are unsupported by typestore (TypeError)
+                - the ros_msg_type or default type are supported but translation is not implemented (NotImplementedError)
         """
 
         # Resolve ROS message to translate Mosaico message to if not defined in input
@@ -329,8 +331,10 @@ class RobotPathAdapter(ROSAdapterBase[RobotPath]):
                 ``nav_msgs/msg/Path`` is supported.
 
         Returns:
-            A ``nav_msgs/msg/Path`` instance, or ``None`` if the type is
-            unsupported or absent from the typestore.
+            A ``nav_msgs/msg/Path`` instance, or raises an error if:
+                - the ros_msg_type is unsupported by adapter (TypeError)
+                - the ros_msg_type or default type are unsupported by typestore (TypeError)
+                - the ros_msg_type or default type are supported but translation is not implemented (NotImplementedError)
         """
 
         # Resolve ROS message to translate Mosaico message to if not defined in input
@@ -350,13 +354,15 @@ class RobotPathAdapter(ROSAdapterBase[RobotPath]):
         # Filling the data
         RosPath = typestore.types["nav_msgs/msg/Path"]
 
+        poses: Any = [
+            PoseAdapter.to_ros(pose, typestore, "geometry_msgs/msg/PoseStamped")
+            for pose in path_data.poses
+        ]
+
         if resolved_rosmsg_type == "nav_msgs/msg/Path":
             return RosPath(
                 header=HeaderAdapter.to_ros(ms_header, typestore),
-                poses=[
-                    PoseAdapter.to_ros(pose, typestore, "geometry_msgs/msg/PoseStamped")
-                    for pose in path_data.poses
-                ],
+                poses=poses,
             )
 
         raise NotImplementedError(
@@ -481,8 +487,10 @@ class GridCellsAdapter(ROSAdapterBase[GridCells]):
                 ``nav_msgs/msg/GridCells`` is supported.
 
         Returns:
-            A ``nav_msgs/msg/GridCells`` instance, or ``None`` if the type is
-            unsupported or absent from the typestore.
+            A ``nav_msgs/msg/GridCells`` instance, or raises an error if:
+                - the ros_msg_type is unsupported by adapter (TypeError)
+                - the ros_msg_type or default type are unsupported by typestore (TypeError)
+                - the ros_msg_type or default type are supported but translation is not implemented (NotImplementedError)
         """
 
         # Resolve ROS message to translate Mosaico message to if not defined in input
@@ -502,15 +510,16 @@ class GridCellsAdapter(ROSAdapterBase[GridCells]):
         # Filling the data
         RosGridCell = typestore.types["nav_msgs/msg/GridCells"]
 
+        cells: Any = [
+            PointAdapter.to_ros(point, typestore) for point in gridcell_data.cells
+        ]
+
         if resolved_rosmsg_type == "nav_msgs/msg/GridCells":
             return RosGridCell(
                 header=HeaderAdapter.to_ros(ms_header, typestore),
                 cell_width=gridcell_data.cell_width,
                 cell_height=gridcell_data.cell_height,
-                cells=[
-                    PointAdapter.to_ros(point, typestore)
-                    for point in gridcell_data.cells
-                ],
+                cells=cells,
             )
 
         raise NotImplementedError(
@@ -622,8 +631,10 @@ class MapMetadataAdapter(ROSAdapterBase[MapMetadata]):
                 ``nav_msgs/msg/MapMetaData`` is supported.
 
         Returns:
-            A ``nav_msgs/msg/MapMetaData`` instance, or ``None`` if the type is
-            unsupported or absent from the typestore.
+            A ``nav_msgs/msg/MapMetaData`` instance, or raises an error if:
+                - the ros_msg_type is unsupported by adapter (TypeError)
+                - the ros_msg_type or default type are unsupported by typestore (TypeError)
+                - the ros_msg_type or default type are supported but translation is not implemented (NotImplementedError)
         """
 
         # Resolve ROS message to translate Mosaico message to if not defined in input
@@ -763,8 +774,10 @@ class OccupancyGridAdapter(ROSAdapterBase[OccupancyGrid]):
                 ``nav_msgs/msg/OccupancyGrid`` is supported.
 
         Returns:
-            A ``nav_msgs/msg/OccupancyGrid`` instance, or ``None`` if the type is
-            unsupported or absent from the typestore.
+            A ``nav_msgs/msg/OccupancyGrid`` instance, or raises an error if:
+                - the ros_msg_type is unsupported by adapter (TypeError)
+                - the ros_msg_type or default type are unsupported by typestore (TypeError)
+                - the ros_msg_type or default type are supported but translation is not implemented (NotImplementedError)
         """
 
         # Resolve ROS message to translate Mosaico message to if not defined in input

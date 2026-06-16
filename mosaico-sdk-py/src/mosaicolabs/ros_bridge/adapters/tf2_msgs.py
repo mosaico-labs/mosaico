@@ -172,7 +172,7 @@ class FrameTransformAdapter(ROSAdapterBase[FrameTransform]):
         # Filling the data
         RosTFMessage = typestore.types["tf2_msgs/msg/TFMessage"]
 
-        tf_transforms = [
+        tf_transforms: Any = [
             TransformAdapter.to_ros(
                 transform, typestore, "geometry_msgs/msg/TransformStamped"
             )
