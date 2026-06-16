@@ -1,4 +1,4 @@
-from typing import Any, Dict, Generic, Optional, Type, TypeVar
+from typing import Any, Callable, Dict, Generic, Optional, Type, TypeVar
 
 from rosbags.typesys import Stores, get_typestore
 
@@ -80,9 +80,9 @@ class ROSBridge(Generic[T]):
 
         ontology_tag = adapter_class.ontology_data_type().ontology_tag()
 
-        if ontology_tag in cls._default_mosaico_adapters:
-            found_adapter = cls._default_mosaico_adapters.get(ontology_tag)
+        found_adapter = cls._default_mosaico_adapters.get(ontology_tag)
 
+        if found_adapter is not None:
             raise ValueError(
                 f"{ontology_tag} already maps {found_adapter.__name__} adapter and cannot therefore map also '{adapter_class.__name__}'. \
                     Are both adapters defined as default?"
@@ -208,7 +208,9 @@ class ROSBridge(Generic[T]):
         return adapter_class.to_ros(mosaico_msg, get_typestore(store), ros_msg_type)
 
 
-def register_default_adapter(is_default: bool = False):
+def register_default_adapter(
+    is_default: bool = False,
+) -> Callable[[type["ROSAdapterBase"]], type["ROSAdapterBase"]]:
     """
     A class decorator for streamlined default adapter registration.
 
@@ -219,7 +221,7 @@ def register_default_adapter(is_default: bool = False):
         ```python
         from mosaicolabs.ros_bridge import register_default_adapter, ROSAdapterBase
 
-        @register_default_adapter(is_default: bool = False):
+        @register_default_adapter(is_default=False):
         class MySensorAdapter(ROSAdapterBase):
             ros_msgtype = "sensor_msgs/msg/Temperature"
             # ...
