@@ -446,7 +446,7 @@ When this happens, `Serializable` performs the following steps automatically:
 
 The **`Message`** class is the universal transport envelope for all data in the Mosaico platform. It pairs a payload (the sensor data) with a `timestamp_ns`, and serves as the "Source of Truth" for synchronization and spatial context. Mosaico uses `timestamp_ns` to order and index records in time, so all timestamps within the same **Sequence** must share a common origin.
 
-Crucially, `timestamp_ns` is **not** the sensor measurement time: it is the time at which the data distribution system (e.g. ROS DDS) makes the data available. The measurement time lives in a separate field, `timestamp`, inside the `Header` object carried by most Mosaico Ontologies, that is, *inside the Message payload*. Because sensors use different time origins (time since Epoch, time since sensor startup, ...), this `Header` timestamp cannot be used to index records in Mosaico.
+Notice that `timestamp_ns` is **not** the sensor measurement time: it is the time at which the data distribution system (e.g. ROS DDS) makes the data available. The measurement time lives in a separate field, `timestamp`, inside the `Header` object carried by most Mosaico Ontologies, that is, *inside the Message payload*. Because sensors use different time origins (time since Epoch, time since sensor startup, ...), this `Header` timestamp cannot be used to index records in Mosaico.
 
 So a `Message` carries two timestamps at different levels:
 

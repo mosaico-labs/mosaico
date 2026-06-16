@@ -85,7 +85,7 @@ class Message(BaseModel):
                 pa.int64(),
                 nullable=False,
                 metadata={
-                    "description": "Message/Sensor acquisition timestamp in nanoseconds."
+                    "description": "Ingestion timestamp in nanoseconds (record time)."
                 },
             ),
         ]

@@ -123,7 +123,7 @@ class GenericStdAdapter(ROSAdapterBase[Serializable]):
 
     - **Schema Enforcement**: Validating that the ROS message contains the mandatory
       `'data'` field.
-    - **Strong Typing**: Wrapping the primitive value into a Mosaico [`Serializable`][mosaicolabs.models.core.serializable.Serializable]
+    - **Strong Typing**: Wrapping the primitive value into a Mosaico [`Serializable`][mosaicolabs.models.core.Serializable]
       object with its own metadata and queryable headers.
     - **Temporal Alignment**: Preserving nanosecond-precise timestamps and optional
       frame information from the source bag file.

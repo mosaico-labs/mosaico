@@ -110,11 +110,6 @@ def assert_transform(transform: Transform, ros_msg: dict):
     if "header" in ros_msg:
         assert_transform(transform, ros_msg["transform"])
 
-        if transform.source_frame_id:
-            assert transform.source_frame_id == ros_msg["header"]["frame_id"]
-        else:
-            assert ros_msg["header"]["frame_id"] == ""
-
         if transform.target_frame_id:
             assert transform.target_frame_id == ros_msg["child_frame_id"]
         else:

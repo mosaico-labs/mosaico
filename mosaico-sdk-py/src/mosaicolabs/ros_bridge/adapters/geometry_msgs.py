@@ -1389,9 +1389,6 @@ class TransformAdapter(ROSAdapterBase[Transform]):
                 else None
             )
             out_transf.header = ms_header
-            if ms_header:
-                # Notice that header frame_id coincides with the Transform reference frame
-                out_transf.source_frame_id = ms_header.frame_id
 
             child_frame_id = ros_data.get("child_frame_id")
             if child_frame_id and child_frame_id != "":
@@ -1452,14 +1449,6 @@ class TransformAdapter(ROSAdapterBase[Transform]):
         transform_data, ms_header = cls.unpack_mosaico_msg(mosaico_data)
 
         # Filling the data
-        if (
-            transform_data.source_frame_id
-            and ms_header.frame_id != transform_data.source_frame_id
-        ):
-            raise ValueError(
-                f"Missmatch between header frame_id: {ms_header.frame_id} and source_frame_id: {transform_data.source_frame_id or ''} in transform!"
-            )
-
         target_frame_id = transform_data.target_frame_id or ""
 
         RosTransform = typestore.types["geometry_msgs/msg/Transform"]

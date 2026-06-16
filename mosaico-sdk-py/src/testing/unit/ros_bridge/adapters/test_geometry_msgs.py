@@ -331,7 +331,6 @@ def transform(ms_header: Header):
     return Transform(
         translation=Vector3d(x=1.0, y=2.0, z=3.0),
         rotation=Quaternion(x=0.0, y=0.0, z=0.0, w=1.0),
-        source_frame_id=ms_header.frame_id,
         target_frame_id="frame2",
         header=ms_header,
     )

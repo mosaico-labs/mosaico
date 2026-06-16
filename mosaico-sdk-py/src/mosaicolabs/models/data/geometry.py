@@ -7,7 +7,7 @@ The module follows a **Two-Tier Architecture** to optimize both internal efficie
     These are intended for embedding within larger composite objects (like a `Pose` or `Transform`)
     to avoid attaching redundant metadata headers or timestamps to every inner field.
 * **Public Classes**: High-level models that combine spatial data with Mosaico's transport and serialization logic.
-    These inherit from the internal structs and inject support for auto-registration ([`Serializable`][mosaicolabs.models.core.serializable.Serializable]),
+    These inherit from the internal structs and inject support for auto-registration ([`Serializable`][mosaicolabs.models.core.Serializable]),
     and uncertainty tracking ([`CovarianceMixin`][mosaicolabs.models.data.CovarianceMixin]).
 """
 
@@ -1201,13 +1201,6 @@ class Transform(
                                 [topic.timestamp_range.start, topic.timestamp_range.end]
                                 for topic in item.topics}}")
         ```
-    """
-
-    source_frame_id: Optional[MosaicoType.string] = MosaicoField(
-        default=None, description="Source frame identifier."
-    )
-    """
-    Source coordinate frame identifier.
     """
 
     target_frame_id: Optional[MosaicoType.string] = MosaicoField(
