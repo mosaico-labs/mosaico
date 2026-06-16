@@ -1,8 +1,7 @@
 """
-Time Definitions.
+Header Definitions.
 
-This module defines the standard `Time` class used to provide temporal context to ontology data.
-It includes a high-precision `Time` class to handle ROS-style seconds/nanoseconds splitting.
+This module defines the standard `Header` class used to provide metadata to ontology data.
 """
 
 from typing import Optional

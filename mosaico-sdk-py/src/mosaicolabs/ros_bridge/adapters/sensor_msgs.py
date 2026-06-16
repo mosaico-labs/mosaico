@@ -308,7 +308,7 @@ class CameraInfoAdapter(ROSAdapterBase[CameraInfo]):
             )
 
         raise NotImplementedError(
-            f"The input ros message type {ros_msg_type} is supported by not implemented"
+            f"The input ros message type {ros_msg_type} is supported but not implemented"
         )
 
     @classmethod
@@ -438,7 +438,7 @@ class NavSatStatusAdapter(ROSAdapterBase[GPSStatus]):
             )
 
         raise NotImplementedError(
-            f"The input ros message type {ros_msg_type} is supported by not implemented"
+            f"The input ros message type {ros_msg_type} is supported but not implemented"
         )
 
     @classmethod
@@ -626,7 +626,7 @@ class GPSAdapter(ROSAdapterBase[GPS]):
             )
 
         raise NotImplementedError(
-            f"The input ros message type {ros_msg_type} is supported by not implemented"
+            f"The input ros message type {ros_msg_type} is supported but not implemented"
         )
 
     @classmethod
@@ -848,7 +848,7 @@ class IMUAdapter(ROSAdapterBase[IMU]):
             )
 
         raise NotImplementedError(
-            f"The input ros message type {ros_msg_type} is supported by not implemented"
+            f"The input ros message type {ros_msg_type} is supported but not implemented"
         )
 
     @classmethod
@@ -982,7 +982,7 @@ class NMEASentenceAdapter(ROSAdapterBase[NMEASentence]):
             )
 
         raise NotImplementedError(
-            f"The input ros message type {ros_msg_type} is supported by not implemented"
+            f"The input ros message type {ros_msg_type} is supported but not implemented"
         )
 
     @classmethod
@@ -1154,7 +1154,7 @@ class ImageAdapter(ROSAdapterBase[Image]):
             )
 
         raise NotImplementedError(
-            f"The input ros message type {ros_msg_type} is supported by not implemented"
+            f"The input ros message type {ros_msg_type} is supported but not implemented"
         )
 
     @classmethod
@@ -1339,7 +1339,7 @@ class CompressedImageAdapter(ROSAdapterBase[CompressedImage]):
             )
 
         raise NotImplementedError(
-            f"The input ros message type {ros_msg_type} is supported by not implemented"
+            f"The input ros message type {ros_msg_type} is supported but not implemented"
         )
 
     @classmethod
@@ -1487,7 +1487,7 @@ class ROIAdapter(ROSAdapterBase[ROI]):
             )
 
         raise NotImplementedError(
-            f"The input ros message type {ros_msg_type} is supported by not implemented"
+            f"The input ros message type {ros_msg_type} is supported but not implemented"
         )
 
     @classmethod
@@ -1722,7 +1722,7 @@ class BatteryStateAdapter(ROSAdapterBase[BatteryState]):
             )
 
         raise NotImplementedError(
-            f"The input ros message type {ros_msg_type} is supported by not implemented"
+            f"The input ros message type {ros_msg_type} is supported but not implemented"
         )
 
     @classmethod
@@ -1888,7 +1888,7 @@ class RobotJointAdapter(ROSAdapterBase[RobotJoint]):
             )
 
         raise NotImplementedError(
-            f"The input ros message type {ros_msg_type} is supported by not implemented"
+            f"The input ros message type {ros_msg_type} is supported but not implemented"
         )
 
     @classmethod
@@ -2181,7 +2181,7 @@ class PointCloudAdapterBase(ROSAdapterBase[PointCloudModel]):
             return pointcloud
 
         raise NotImplementedError(
-            f"The input ros message type {ros_msg_type} is supported by not implemented"
+            f"The input ros message type {ros_msg_type} is supported but not implemented"
         )
 
     @classmethod
@@ -2404,7 +2404,7 @@ class PointCloudAdapter(PointCloudAdapterBase[PointCloud2]):
             return pose
 
         raise NotImplementedError(
-            f"The input ros message type {ros_msg_type} is supported by not implemented"
+            f"The input ros message type {ros_msg_type} is supported but not implemented"
         )
 
     @classmethod
@@ -2574,7 +2574,7 @@ class LaserScanAdapter(LaserScannerAdapterBase[LaserScan]):
             )
 
         raise NotImplementedError(
-            f"The input ros message type {ros_msg_type} is supported by not implemented"
+            f"The input ros message type {ros_msg_type} is supported but not implemented"
         )
 
 
@@ -2711,7 +2711,7 @@ class MultiEchoLaserScanAdapter(LaserScannerAdapterBase[MultiEchoLaserScan]):
             )
 
         raise NotImplementedError(
-            f"The input ros message type {ros_msg_type} is supported by not implemented"
+            f"The input ros message type {ros_msg_type} is supported but not implemented"
         )
 
 
@@ -2844,7 +2844,7 @@ class MagneticFieldAdapter(ROSAdapterBase[Magnetometer]):
             )
 
         raise NotImplementedError(
-            f"The input ros message type {ros_msg_type} is supported by not implemented"
+            f"The input ros message type {ros_msg_type} is supported but not implemented"
         )
 
     @classmethod
@@ -2977,7 +2977,7 @@ class JoyAdapter(ROSAdapterBase[Joy]):
             )
 
         raise NotImplementedError(
-            f"The input ros message type {ros_msg_type} is supported by not implemented"
+            f"The input ros message type {ros_msg_type} is supported but not implemented"
         )
 
     @classmethod
@@ -3109,7 +3109,7 @@ class TemperatureAdapter(ROSAdapterBase[Temperature]):
             )
 
         raise NotImplementedError(
-            f"The input ros message type {ros_msg_type} is supported by not implemented"
+            f"The input ros message type {ros_msg_type} is supported but not implemented"
         )
 
     @classmethod
@@ -3241,7 +3241,7 @@ class PressureAdapter(ROSAdapterBase[Pressure]):
             )
 
         raise NotImplementedError(
-            f"The input ros message type {ros_msg_type} is supported by not implemented"
+            f"The input ros message type {ros_msg_type} is supported but not implemented"
         )
 
     @classmethod

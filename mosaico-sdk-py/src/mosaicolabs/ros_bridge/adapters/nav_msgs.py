@@ -42,7 +42,7 @@ class OdometryAdapter(ROSAdapterBase[MotionState]):
             topic="/odometry",
             msg_type="nav_msgs/msg/Odometry",
             data=
-            {+
+            {
                 "header": {"frame_id": "map", "stamp": {"sec": 17000, "nanosec": 0}},
                 "pose": {
                     "position": {"x": 1.0, "y": 2.0, "z": 0.0},
@@ -182,7 +182,7 @@ class OdometryAdapter(ROSAdapterBase[MotionState]):
             )
 
         raise NotImplementedError(
-            f"The input ros message type {ros_msg_type} is supported by not implemented"
+            f"The input ros message type {ros_msg_type} is supported but not implemented"
         )
 
     @classmethod
@@ -366,7 +366,7 @@ class RobotPathAdapter(ROSAdapterBase[RobotPath]):
             )
 
         raise NotImplementedError(
-            f"The input ros message type {ros_msg_type} is supported by not implemented"
+            f"The input ros message type {ros_msg_type} is supported but not implemented"
         )
 
     @classmethod
@@ -523,7 +523,7 @@ class GridCellsAdapter(ROSAdapterBase[GridCells]):
             )
 
         raise NotImplementedError(
-            f"The input ros message type {ros_msg_type} is supported by not implemented"
+            f"The input ros message type {ros_msg_type} is supported but not implemented"
         )
 
     @classmethod
@@ -666,7 +666,7 @@ class MapMetadataAdapter(ROSAdapterBase[MapMetadata]):
             )
 
         raise NotImplementedError(
-            f"The input ros message type {ros_msg_type} is supported by not implemented"
+            f"The input ros message type {ros_msg_type} is supported but not implemented"
         )
 
     @classmethod
@@ -805,7 +805,7 @@ class OccupancyGridAdapter(ROSAdapterBase[OccupancyGrid]):
             )
 
         raise NotImplementedError(
-            f"The input ros message type {ros_msg_type} is supported by not implemented"
+            f"The input ros message type {ros_msg_type} is supported but not implemented"
         )
 
     @classmethod

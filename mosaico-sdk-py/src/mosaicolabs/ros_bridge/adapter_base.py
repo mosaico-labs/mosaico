@@ -156,18 +156,18 @@ class ROSAdapterBase(ABC, Generic[T]):
             )
 
         header = Header(frame_id="", timestamp=Time(seconds=0, nanoseconds=0))
-        if hasattr(data, "header"):
-            tmp = getattr(data, "header")
 
-            if not tmp:
-                header = Header(frame_id="", timestamp=Time(seconds=0, nanoseconds=0))
-            elif tmp and not isinstance(header, Header):
+        tmp = getattr(data, "header", None)
+
+        if tmp:
+            if isinstance(tmp, Header):
+                header.frame_id = tmp.frame_id
+                header.timestamp = tmp.timestamp
+
+            else:
                 raise TypeError(
                     f"Message {mosaico_msg.ontology_tag()} has a field called `header` that is not of type {Header.__class__.__name__}. Please rename it!"
                 )
-            else:
-                header.frame_id = tmp.frame_id
-                header.timestamp = tmp.timestamp
 
         return data, header
 

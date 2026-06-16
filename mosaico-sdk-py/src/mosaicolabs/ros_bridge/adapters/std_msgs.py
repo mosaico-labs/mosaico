@@ -412,5 +412,5 @@ class HeaderAdapter(ROSAdapterBase[Header]):
             return ros_header
 
         raise NotImplementedError(
-            f"The input ros message type {ros_msg_type} is supported by not implemented"
+            f"The input ros message type {ros_msg_type} is supported but not implemented"
         )

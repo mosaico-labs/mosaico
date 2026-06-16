@@ -263,7 +263,7 @@ class PoseAdapter(ROSAdapterBase[Pose]):
             )
 
         raise NotImplementedError(
-            f"The input ros message type {ros_msg_type} is supported by not implemented"
+            f"The input ros message type {ros_msg_type} is supported but not implemented"
         )
 
 
@@ -494,7 +494,7 @@ class TwistAdapter(ROSAdapterBase[Velocity]):
             )
 
         raise NotImplementedError(
-            f"The input ros message type {ros_msg_type} is supported by not implemented"
+            f"The input ros message type {ros_msg_type} is supported but not implemented"
         )
 
     @classmethod
@@ -724,7 +724,7 @@ class AccelAdapter(ROSAdapterBase[Acceleration]):
             )
 
         raise NotImplementedError(
-            f"The input ros message type {ros_msg_type} is supported by not implemented"
+            f"The input ros message type {ros_msg_type} is supported but not implemented"
         )
 
     @classmethod
@@ -908,7 +908,7 @@ class Vector3Adapter(ROSAdapterBase[Vector3d]):
             )
 
         raise NotImplementedError(
-            f"The input ros message type {ros_msg_type} is supported by not implemented"
+            f"The input ros message type {ros_msg_type} is supported but not implemented"
         )
 
     @classmethod
@@ -1089,7 +1089,7 @@ class PointAdapter(ROSAdapterBase[Point3d]):
             )
 
         raise NotImplementedError(
-            f"The input ros message type {ros_msg_type} is supported by not implemented"
+            f"The input ros message type {ros_msg_type} is supported but not implemented"
         )
 
     @classmethod
@@ -1276,7 +1276,7 @@ class QuaternionAdapter(ROSAdapterBase[Quaternion]):
             )
 
         raise NotImplementedError(
-            f"The input ros message type {ros_msg_type} is supported by not implemented"
+            f"The input ros message type {ros_msg_type} is supported but not implemented"
         )
 
     @classmethod
@@ -1469,7 +1469,7 @@ class TransformAdapter(ROSAdapterBase[Transform]):
             )
 
         raise NotImplementedError(
-            f"The input ros message type {ros_msg_type} is supported by not implemented"
+            f"The input ros message type {ros_msg_type} is supported but not implemented"
         )
 
     @classmethod
@@ -1645,7 +1645,7 @@ class WrenchAdapter(ROSAdapterBase[ForceTorque]):
             )
 
         raise NotImplementedError(
-            f"The input ros message type {ros_msg_type} is supported by not implemented"
+            f"The input ros message type {ros_msg_type} is supported but not implemented"
         )
 
     @classmethod
@@ -1814,7 +1814,7 @@ class PolygonAdapter(ROSAdapterBase[Polygon]):
             )
 
         raise NotImplementedError(
-            f"The input ros message type {ros_msg_type} is supported by not implemented"
+            f"The input ros message type {ros_msg_type} is supported but not implemented"
         )
 
     @classmethod
@@ -2018,7 +2018,7 @@ class InertiaAdapter(ROSAdapterBase[Inertia]):
             )
 
         raise NotImplementedError(
-            f"The input ros message type {ros_msg_type} is supported by not implemented"
+            f"The input ros message type {ros_msg_type} is supported but not implemented"
         )
 
     @classmethod

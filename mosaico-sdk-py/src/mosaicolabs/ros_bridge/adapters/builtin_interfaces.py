@@ -156,5 +156,5 @@ class TimeAdapter(ROSAdapterBase[Time]):
             return ros_time
 
         raise NotImplementedError(
-            f"The input ros message type {ros_msg_type} is supported by not implemented"
+            f"The input ros message type {ros_msg_type} is supported but not implemented"
         )
