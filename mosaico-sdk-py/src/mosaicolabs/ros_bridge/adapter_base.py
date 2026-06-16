@@ -175,7 +175,7 @@ class ROSAdapterBase(ABC, Generic[T]):
     @abstractmethod
     def to_ros(
         cls,
-        mosaico_msg: Union[Message, Serializable],
+        mosaico_data: Union[Message, T],
         typestore: Typestore,
         ros_msg_type: Optional[str] = None,
     ) -> Msgarg:
@@ -183,7 +183,7 @@ class ROSAdapterBase(ABC, Generic[T]):
         Converts a Mosaico message or ontology object back into a native ROS message.
 
         Args:
-            mosaico_msg: A ``Message`` wrapper or a raw ``Serializable`` ontology instance.
+            mosaico_data: A ``Message`` wrapper or a raw ``Serializable`` ontology instance.
             typestore: The rosbags typestore used to resolve and construct target ROS types.
             ros_msg_type: Override for the output ROS type string. If ``None``, the adapter
                 defaults to ``cls.get_default_ros_msg()``.

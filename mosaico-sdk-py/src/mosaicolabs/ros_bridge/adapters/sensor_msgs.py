@@ -1910,7 +1910,7 @@ class PointCloudAdapterBase(ROSAdapterBase[PointCloudModel]):
     Base adapter for translating ROS PointCloud2 message to Mosaico specific ontology.
     """
 
-    ros_msgtype: str = "sensor_msgs/msg/PointCloud2"
+    ros_msgtype: str | Tuple[str, ...] = "sensor_msgs/msg/PointCloud2"
 
     _REQUIRED_KEYS = (
         "height",
