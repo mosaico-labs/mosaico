@@ -18,11 +18,12 @@ import argparse
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 from rich.live import Live
 from rosbags.interfaces import Connection
-from rosbags.rosbag2 import StoragePlugin, Writer
+from rosbags.rosbag1 import Writer as Ros1Writer
+from rosbags.rosbag2 import StoragePlugin, Writer as Ros2Writer
 from rosbags.typesys import Stores, get_typestore
 from rosbags.typesys.store import Typestore
 
@@ -207,7 +208,7 @@ class ROSSequenceExtractor:
             except Exception as e:
                 logger.warning(f"Failed to register type '{msg_type}': '{e}'")
 
-    def open_or_get_bagwriter(self, path: Path) -> Writer:
+    def open_or_get_bagwriter(self, path: Path) -> Union[Ros1Writer, Ros2Writer]:
         """
         Returns the bag writer for the given path, creating it on first call.
 
@@ -239,15 +240,11 @@ class ROSSequenceExtractor:
 
             # Importing correct writer
             if self.cfg.ros_distro is Stores.ROS1_NOETIC:
-                from rosbags.rosbag1 import Writer
-
                 path.mkdir(parents=True, exist_ok=True)
                 full_path = path / (path.name + ".bag")
-                self.bagwriter = Writer(full_path)
+                self.bagwriter = Ros1Writer(full_path)
 
             else:
-                from rosbags.rosbag2 import Writer
-
                 # Deducing rosbag2 version from ROS_DISTRO
                 if (
                     self.cfg.ros_distro is Stores.ROS2_JAZZY
@@ -258,7 +255,7 @@ class ROSSequenceExtractor:
                 else:
                     bagversion = 8
 
-                self.bagwriter = Writer(
+                self.bagwriter = Ros2Writer(
                     path, storage_plugin=self.cfg.storage_plugin, version=bagversion
                 )
 
@@ -295,7 +292,7 @@ class ROSSequenceExtractor:
 
     def _process_message(
         self,
-        bag_writer: Writer,
+        bag_writer: Union[Ros1Writer, Ros2Writer],
         t_name: str,
         t_metadata: dict[str, Any],
         ms_msg: Message,
@@ -358,22 +355,37 @@ class ROSSequenceExtractor:
 
         # --- Resolve Connection check ---
         if t_name not in self.accepted_connections:  # New connection available
-            if self.cfg.ros_distro is Stores.ROS1_NOETIC:
+            if self.cfg.ros_distro is Stores.ROS1_NOETIC and isinstance(
+                bag_writer, Ros1Writer
+            ):
                 new_connection = bag_writer.add_connection(
                     t_name,
                     ros_msgtype,
                     typestore=self.typestore,
                 )
-            else:
+            elif self.cfg.ros_distro in [
+                Stores.LATEST,
+                Stores.ROS2_DASHING,
+                Stores.ROS2_ELOQUENT,
+                Stores.ROS2_FOXY,
+                Stores.ROS2_GALACTIC,
+                Stores.ROS2_HUMBLE,
+                Stores.ROS2_IRON,
+                Stores.ROS2_JAZZY,
+                Stores.ROS2_KILTED,
+            ] and isinstance(bag_writer, Ros2Writer):
                 new_connection = bag_writer.add_connection(
                     t_name,
                     ros_msgtype,
                     typestore=self.typestore,
                     offered_qos_profiles=get_qos_for_topic(t_name),
                 )
+            else:
+                raise ValueError(f"Unsupported ros distro: {self.cfg.ros_distro}")
+
             self.accepted_connections.update({t_name: new_connection})
 
-        connection = self.accepted_connections.get(t_name)
+        connection = self.accepted_connections[t_name]
 
         # --- Write check ---
         if self.cfg.ros_distro is Stores.ROS1_NOETIC:  # ROS1
@@ -547,8 +559,8 @@ def ros_sequence_extractor():
 
     args = parser.parse_args()
 
-    selected_distro = Stores.__members__.get(args.ros_distro)
-    selected_storage_plugin = StoragePlugin.__members__.get(args.storage_plugin)
+    selected_distro = Stores.__members__[args.ros_distro]
+    selected_storage_plugin = StoragePlugin.__members__[args.storage_plugin]
 
     configs = ROSExtractorConfig(
         rosbag_path=args.rosbag_path,

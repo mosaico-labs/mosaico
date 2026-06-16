@@ -15,7 +15,7 @@ from rosbags.highlevel import AnyReader
 from rosbags.interfaces import Connection, TopicInfo
 from rosbags.typesys import Stores, get_typestore
 
-from mosaicolabs import Message, MosaicoClient, SequenceDataStreamer
+from mosaicolabs import Message, MosaicoClient
 from mosaicolabs.logging_config import get_logger
 
 from .helpers import _filter_topics_from_dict, _filter_topics_from_list, _to_dict
@@ -560,6 +560,7 @@ class MosaicoLoader:
         # Clipping requested start/end timestamp to start/end sequence timestamp if existing
         if (
             self.start_timestamp_ns is not None
+            and self.seq_handler.timestamp_ns_min is not None
             and self.start_timestamp_ns < self.seq_handler.timestamp_ns_min
         ):
             logger.warning(
@@ -571,6 +572,7 @@ class MosaicoLoader:
 
         if (
             self.end_timestamp_ns is not None
+            and self.seq_handler.timestamp_ns_max is not None
             and self.end_timestamp_ns > self.seq_handler.timestamp_ns_max
         ):
             logger.warning(
@@ -670,7 +672,7 @@ class MosaicoLoader:
             for topic in self.resolved_topics
         ]
 
-    def __iter__(self) -> SequenceDataStreamer:
+    def __iter__(self):
 
         self._resolve_sequence()
 

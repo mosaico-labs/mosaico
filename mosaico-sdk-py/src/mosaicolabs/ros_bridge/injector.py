@@ -476,7 +476,7 @@ class RosbagInjector:
             twriter = seq_writer.topic_create(
                 topic_name=ros_msg.topic,
                 metadata=adapter.schema_metadata(
-                    self._loader._typestore, ros_msg.msg_type
+                    self._open_or_get_loader()._typestore, ros_msg.msg_type
                 )
                 or {},
                 ontology_type=adapter.ontology_data_type(),
