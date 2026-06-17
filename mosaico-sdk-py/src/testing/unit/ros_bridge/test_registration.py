@@ -7,7 +7,7 @@ def test_ros_ontology_registration():
     code = textwrap.dedent(
         # Generate a fresh environmnent
         """
-            from mosaicolabs.models.serializable import Serializable
+            from mosaicolabs.models.core import Serializable
 
             _FUTURES_TAGS = [
                 "battery_state",

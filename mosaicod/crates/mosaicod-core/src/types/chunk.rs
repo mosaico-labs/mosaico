@@ -22,14 +22,13 @@ pub enum Stats {
     Numeric(NumericStats),
     Textual(TextualStats),
     Unsupported,
+    ListNumeric(NumericStats),
+    ListTextual(TextualStats),
 }
 
 impl Stats {
     pub fn is_unsupported(&self) -> bool {
-        if let Stats::Unsupported = self {
-            return true;
-        }
-        false
+        matches!(self, Stats::Unsupported)
     }
 }
 

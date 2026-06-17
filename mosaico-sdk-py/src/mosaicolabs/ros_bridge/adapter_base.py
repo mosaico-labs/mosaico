@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any, Generic, Optional, Tuple, Type, TypeVar, Union
 
@@ -6,10 +8,10 @@ from rosbags.typesys.store import Typestore
 if TYPE_CHECKING:
     from rosbags.typesys.store import MsgType
 
-from mosaicolabs.models.message import Message
+from mosaicolabs import Header, Time
+from mosaicolabs.models.core import Message, Serializable
 
-from ..models import Serializable
-from .ros_message import ROSHeader, ROSMessage, Time
+from .ros_message import ROSMessage
 
 T = TypeVar("T", bound=Serializable)
 
@@ -43,17 +45,21 @@ class ROSAdapterBase(ABC, Generic[T]):
         return cls.ros_msgtype
 
     @classmethod
-    def get_default_ros_msg(cls) -> Optional[str]:
+    def get_default_ros_msg(cls) -> str:
 
-        if isinstance(cls.ros_msgtype, str):
-            return cls.ros_msg_type()
+        adapter_rosmsg_type = cls.ros_msg_type()
+
+        if isinstance(adapter_rosmsg_type, str):
+            return adapter_rosmsg_type
 
         elif isinstance(
-            cls.ros_msgtype, Tuple
+            adapter_rosmsg_type, Tuple
         ):  # In case of a tuple, default ros message is the first tuple element
-            return cls.ros_msg_type()[0]
+            return adapter_rosmsg_type[0]
 
-        return None
+        raise Exception(
+            f"Adapter {cls.__name__} has ros_msgtype that is neither a {str.__name__} nor a {tuple.__name__} "
+        )
 
     @classmethod
     def translate(cls, ros_msg: ROSMessage, **kwargs: Any) -> Message:
@@ -75,13 +81,8 @@ class ROSAdapterBase(ABC, Generic[T]):
 
         try:
             return Message(
-                timestamp_ns=ros_msg.header.stamp.to_nanoseconds()
-                if ros_msg.header
-                else ros_msg.bag_timestamp_ns,
+                timestamp_ns=ros_msg.bag_timestamp_ns,
                 data=cls.from_dict(ros_msg.data),
-                recording_timestamp_ns=ros_msg.bag_timestamp_ns,
-                frame_id=ros_msg.header.frame_id if ros_msg.header else None,
-                sequence_id=ros_msg.header.seq if ros_msg.header else None,
             )
         except Exception as e:
             raise Exception(f"Translation failed for {ros_msg.topic}: {e}")
@@ -116,17 +117,16 @@ class ROSAdapterBase(ABC, Generic[T]):
         return False
 
     @classmethod
-    def unpack_mosaico_msg(cls, mosaico_msg: Union[Message, T]) -> tuple[T, ROSHeader]:
+    def unpack_mosaico_msg(cls, mosaico_msg: Union[Message, T]) -> tuple[T, Header]:
         """
-        Extracts the typed Mosaico payload and a ``ROSHeader`` from a wrapped or bare message.
+        Extracts the typed Mosaico payload and its ``Header`` (if present) from a wrapped or bare message.
 
         Handles two input cases:
 
-        - **``Message`` wrapper**: the typed data is extracted via ``get_data()``;
-          a ``ROSHeader`` is reconstructed from the message's ``timestamp_ns``,
-          ``frame_id``, and ``sequence_id`` metadata.
-        - **Raw ontology instance**: returned as-is with a zeroed ``ROSHeader``
-          (seq=0, frame_id="", stamp=0).
+        - **``Message`` wrapper**: the typed data is extracted via ``get_data()``.
+        - **Raw ontology instance**: returned as-is with
+
+        the ``Header`` is extracted from the ontology (if supported), otherwise an default Header (empty `frame_id` and zero `Time`) is returned.
 
         Args:
             mosaico_msg: Either a ``Message`` envelope or a raw instance of
@@ -134,41 +134,40 @@ class ROSAdapterBase(ABC, Generic[T]):
 
         Returns:
             A ``(data, header)`` tuple where *data* is the typed ontology object and
-            *header* is the corresponding ``ROSHeader``.
+            *header* is the corresponding ``Header`` or None if not present.
 
         Raises:
             TypeError: If *mosaico_msg* is neither a ``Message`` nor an instance of
                 the expected ontology type.
         """
         if isinstance(mosaico_msg, Message):
-            data: T = mosaico_msg.get_data(cls.__mosaico_ontology_type__)
+            data: Optional[T] = mosaico_msg.get_data(cls.__mosaico_ontology_type__)
             if data is None:
                 raise TypeError(
                     f"Adapter {cls.__name__} cannot handle {mosaico_msg.ontology_tag()} Mosaico type"
                 )
 
-            mosaico_time = Time.from_nanoseconds(mosaico_msg.timestamp_ns)
-            header = ROSHeader.from_dict(
-                {
-                    "seq": mosaico_msg.sequence_id or 0,
-                    "frame_id": mosaico_msg.frame_id or "",
-                    "stamp": {
-                        "sec": mosaico_time.seconds,
-                        "nanosec": mosaico_time.nanoseconds,
-                    },
-                }
-            )
-
         elif isinstance(mosaico_msg, cls.__mosaico_ontology_type__):
             data = mosaico_msg
-            header = ROSHeader.from_dict(
-                {"seq": 0, "frame_id": "", "stamp": {"sec": 0, "nanosec": 0}}
-            )
 
         else:
             raise TypeError(
                 f"Mosaico data passed to {cls.__name__} Adapter has type {type(mosaico_msg)} and it is neither a Message nor a {cls.__mosaico_ontology_type__.ontology_tag()}"
             )
+
+        header = Header(frame_id="", timestamp=Time(seconds=0, nanoseconds=0))
+
+        tmp = getattr(data, "header", None)
+
+        if tmp:
+            if isinstance(tmp, Header):
+                header.frame_id = tmp.frame_id
+                header.timestamp = tmp.timestamp
+
+            else:
+                raise TypeError(
+                    f"Message {mosaico_msg.ontology_tag()} has a field called `header` that is not of type {Header.__class__.__name__}. Please rename it!"
+                )
 
         return data, header
 
@@ -176,21 +175,24 @@ class ROSAdapterBase(ABC, Generic[T]):
     @abstractmethod
     def to_ros(
         cls,
-        mosaico_msg: Union[Message, Serializable],
+        mosaico_data: Union[Message, T],
         typestore: Typestore,
         ros_msg_type: Optional[str] = None,
-    ) -> Optional["MsgType"]:
+    ) -> MsgType:
         """
         Converts a Mosaico message or ontology object back into a native ROS message.
 
         Args:
-            mosaico_msg: A ``Message`` wrapper or a raw ``Serializable`` ontology instance.
+            mosaico_data: A ``Message`` wrapper or a raw ``Serializable`` ontology instance.
             typestore: The rosbags typestore used to resolve and construct target ROS types.
             ros_msg_type: Override for the output ROS type string. If ``None``, the adapter
                 defaults to ``cls.get_default_ros_msg()``.
 
         Returns:
-            The constructed ROS message instance, or ``None`` if the type is unsupported.
+            The constructed ROS message instance, or raises an error if:
+                - the ros_msg_type is unsupported by adapter (TypeError)
+                - the ros_msg_type or resolved_rosmsg_type are unsupported by typestore (TypeError)
+                - the ros_msg_type or resolved_rosmsg_type are supported but translation is not implemented (NotImplementedError)
         """
         pass
 

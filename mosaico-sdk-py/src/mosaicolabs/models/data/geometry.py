@@ -7,16 +7,14 @@ The module follows a **Two-Tier Architecture** to optimize both internal efficie
     These are intended for embedding within larger composite objects (like a `Pose` or `Transform`)
     to avoid attaching redundant metadata headers or timestamps to every inner field.
 * **Public Classes**: High-level models that combine spatial data with Mosaico's transport and serialization logic.
-    These inherit from the internal structs and inject support for auto-registration ([`Serializable`][mosaicolabs.models.serializable.Serializable]),
-    and uncertainty tracking ([`CovarianceMixin`][mosaicolabs.models.mixins.CovarianceMixin]).
+    These inherit from the internal structs and inject support for auto-registration ([`Serializable`][mosaicolabs.models.core.Serializable]),
+    and uncertainty tracking ([`CovarianceMixin`][mosaicolabs.models.data.CovarianceMixin]).
 """
 
 from typing import Optional
 
-from ..base_model import BaseModel
-from ..mixins import CovarianceMixin
-from ..serializable import Serializable
-from ..types import MosaicoField, MosaicoType
+from ..core import BaseModel, MosaicoField, MosaicoType, Serializable
+from .mixins import CovarianceMixin, HeaderMixin
 
 # ---------------------------------------------------------------------------
 # Vector STRUCT classes
@@ -55,7 +53,7 @@ class _Vector2dStruct(BaseModel):
 
     Note: Universal Compatibility
         The `<Model>` placeholder represents any Mosaico class derived by `_Vector2dStruct` (i.e. [`Vector2d`][mosaicolabs.models.data.Vector2d], [`Point2d`][mosaicolabs.models.data.Point2d])
-        or any custom user-defined class that is a subclass of [`Serializable`][mosaicolabs.models.Serializable] and derives from `_Vector2dStruct` or its child classes.
+        or any custom user-defined class that is a subclass of [`Serializable`][mosaicolabs.models.core.Serializable] and derives from `_Vector2dStruct` or its child classes.
 
     Example:
         ```python
@@ -114,7 +112,7 @@ class _Vector2dStruct(BaseModel):
 
     Note: Universal Compatibility
         The `<Model>` placeholder represents any Mosaico class derived by `_Vector2dStruct` (i.e. [`Vector2d`][mosaicolabs.models.data.Vector2d], [`Point2d`][mosaicolabs.models.data.Point2d])
-        or any custom user-defined class that inherits from [`Serializable`][mosaicolabs.models.Serializable] and derives from `_Vector2dStruct` or its child classes.
+        or any custom user-defined class that inherits from [`Serializable`][mosaicolabs.models.core.Serializable] and derives from `_Vector2dStruct` or its child classes.
 
     Example:
         ```python
@@ -207,7 +205,7 @@ class _Vector3dStruct(BaseModel):
 
     Note: Universal Compatibility
         The `<Model>` placeholder represents any Mosaico class derived by `_Vector3dStruct` (i.e. [`Vector3d`][mosaicolabs.models.data.Vector2d], [`Point3d`][mosaicolabs.models.data.Point2d])
-        or any custom user-defined class that inherits from [`Serializable`][mosaicolabs.models.Serializable] and derives from `_Vector3dStruct` or its child classes.
+        or any custom user-defined class that inherits from [`Serializable`][mosaicolabs.models.core.Serializable] and derives from `_Vector3dStruct` or its child classes.
 
     Example:
         ```python
@@ -266,7 +264,7 @@ class _Vector3dStruct(BaseModel):
 
     Note: Universal Compatibility
         The `<Model>` placeholder represents any Mosaico class derived by `_Vector3dStruct` (i.e. [`Vector3d`][mosaicolabs.models.data.Vector2d], [`Point3d`][mosaicolabs.models.data.Point2d])
-        or any custom user-defined class that inherits from [`Serializable`][mosaicolabs.models.Serializable] and derives from `_Vector3dStruct` or its child classes.
+        or any custom user-defined class that inherits from [`Serializable`][mosaicolabs.models.core.Serializable] and derives from `_Vector3dStruct` or its child classes.
 
     Example:
         ```python
@@ -325,7 +323,7 @@ class _Vector3dStruct(BaseModel):
 
     Note: Universal Compatibility
         The `<Model>` placeholder represents any Mosaico class derived by `_Vector3dStruct` (i.e. [`Vector3d`][mosaicolabs.models.data.Vector2d], [`Point3d`][mosaicolabs.models.data.Point2d])
-        or any custom user-defined [`Serializable`][mosaicolabs.models.Serializable] class.
+        or any custom user-defined [`Serializable`][mosaicolabs.models.core.Serializable] class.
 
     Example:
         ```python
@@ -418,7 +416,7 @@ class _Vector4dStruct(BaseModel):
 
     Note: Universal Compatibility
         The `<Model>` placeholder represents any Mosaico class derived by `_Vector4dStruct` (i.e. [`Vector4d`][mosaicolabs.models.data.Vector4d], [`Quaternion`][mosaicolabs.models.data.Quaternion])
-        or any custom user-defined class that inherits from [`Serializable`][mosaicolabs.models.Serializable] and derives from `_Vector4dStruct` or its child classes.
+        or any custom user-defined class that inherits from [`Serializable`][mosaicolabs.models.core.Serializable] and derives from `_Vector4dStruct` or its child classes.
 
     Example:
         ```python
@@ -478,7 +476,7 @@ class _Vector4dStruct(BaseModel):
 
     Note: Universal Compatibility
         The `<Model>` placeholder represents any Mosaico class derived by `_Vector4dStruct` (i.e. [`Vector4d`][mosaicolabs.models.data.Vector4d], [`Quaternion`][mosaicolabs.models.data.Quaternion])
-        or any custom user-defined class that inherits from [`Serializable`][mosaicolabs.models.Serializable] and derives from `_Vector4dStruct` or its child classes.
+        or any custom user-defined class that inherits from [`Serializable`][mosaicolabs.models.core.Serializable] and derives from `_Vector4dStruct` or its child classes.
 
     Example:
         ```python
@@ -538,7 +536,7 @@ class _Vector4dStruct(BaseModel):
 
     Note: Universal Compatibility
         The `<Model>` placeholder represents any Mosaico class derived by `_Vector4dStruct` (i.e. [`Vector4d`][mosaicolabs.models.data.Vector4d], [`Quaternion`][mosaicolabs.models.data.Quaternion])
-        or any custom user-defined class that inherits from [`Serializable`][mosaicolabs.models.Serializable] and derives from `_Vector4dStruct` or its child classes.
+        or any custom user-defined class that inherits from [`Serializable`][mosaicolabs.models.core.Serializable] and derives from `_Vector4dStruct` or its child classes.
 
     Example:
         ```python
@@ -598,7 +596,7 @@ class _Vector4dStruct(BaseModel):
 
     Note: Universal Compatibility
         The `<Model>` placeholder represents any Mosaico class derived by `_Vector4dStruct` (i.e. [`Vector4d`][mosaicolabs.models.data.Vector4d], [`Quaternion`][mosaicolabs.models.data.Quaternion])
-        or any custom user-defined class that inherits from [`Serializable`][mosaicolabs.models.Serializable] and derives from `_Vector4dStruct` or its child classes.
+        or any custom user-defined class that inherits from [`Serializable`][mosaicolabs.models.core.Serializable] and derives from `_Vector4dStruct` or its child classes.
 
     Example:
         ```python
@@ -666,6 +664,7 @@ class Vector2d(
     _Vector2dStruct,  # Inherits fields (x, y)
     Serializable,  # Adds Registry/Factory logic
     CovarianceMixin,  # Adds Covariance matrix support
+    HeaderMixin,  # Adds header support
 ):
     """
     A public 2D Vector for platform-wide transmission.
@@ -680,6 +679,7 @@ class Vector2d(
             the uncertainty of the vector measurement.
         covariance_type: Enum integer representing the parameterization of the
             covariance matrix.
+        header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
     This class fields are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
@@ -726,6 +726,7 @@ class Vector3d(
     _Vector3dStruct,  # Inherits fields (x, y, z)
     Serializable,  # Adds Registry/Factory logic
     CovarianceMixin,  # Adds Covariance matrix support
+    HeaderMixin,  # Adds header support
 ):
     """
     A public 3D Vector for platform-wide transmission.
@@ -741,6 +742,7 @@ class Vector3d(
             the uncertainty of the vector measurement.
         covariance_type: Enum integer representing the parameterization of the
             covariance matrix.
+        header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
     This class fields are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
@@ -787,6 +789,7 @@ class Vector4d(
     _Vector4dStruct,  # Inherits fields (x, y, z, w)
     Serializable,  # Adds Registry/Factory logic
     CovarianceMixin,  # Adds Covariance matrix support
+    HeaderMixin,  # Adds header support
 ):
     """
     A public 4D Vector for platform-wide transmission.
@@ -803,6 +806,7 @@ class Vector4d(
             the uncertainty of the vector measurement.
         covariance_type: Enum integer representing the parameterization of the
             covariance matrix.
+        header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
     This class fields are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
@@ -849,6 +853,7 @@ class Point2d(
     _Vector2dStruct,  # Inherits fields (x, y)
     Serializable,  # Adds Registry/Factory logic
     CovarianceMixin,  # Adds Covariance matrix support
+    HeaderMixin,  # Adds Header support
 ):
     """
     Semantically represents a specific location (Point) in 2D space.
@@ -864,6 +869,7 @@ class Point2d(
             the uncertainty of the point measurement.
         covariance_type: Enum integer representing the parameterization of the
             covariance matrix.
+        header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
     This class fields are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
@@ -910,6 +916,7 @@ class Point3d(
     _Vector3dStruct,  # Inherits fields (x, y, z)
     Serializable,  # Adds Registry/Factory logic
     CovarianceMixin,  # Adds Covariance matrix support
+    HeaderMixin,  # Adds Header support
 ):
     """
     Semantically represents a specific location (Point) in 3D space.
@@ -926,6 +933,7 @@ class Point3d(
             the uncertainty of the point measurement.
         covariance_type: Enum integer representing the parameterization of the
             covariance matrix.
+        header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
     This class fields are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
@@ -972,6 +980,7 @@ class Quaternion(
     _Vector4dStruct,  # Inherits fields (x, y, z, w)
     Serializable,  # Adds Registry/Factory logic
     CovarianceMixin,  # Adds Covariance matrix support
+    HeaderMixin,  # Adds Header support
 ):
     """
     Represents a rotation in 3D space using normalized quaternions.
@@ -989,6 +998,7 @@ class Quaternion(
             the uncertainty of the quaternion measurement.
         covariance_type: Enum integer representing the parameterization of the
             covariance matrix.
+        header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
     This class fields are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
@@ -1039,6 +1049,7 @@ class Quaternion(
 class Transform(
     Serializable,  # Adds Registry/Factory logic
     CovarianceMixin,  # Adds Covariance matrix support
+    HeaderMixin,  # Adds Header support
 ):
     """
     Represents a rigid-body transformation between two coordinate frames.
@@ -1055,6 +1066,7 @@ class Transform(
             the uncertainty of the Translation+Rotation.
         covariance_type: Enum integer representing the parameterization of the
             covariance matrix.
+        header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
     This class fields are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
@@ -1191,13 +1203,6 @@ class Transform(
         ```
     """
 
-    source_frame_id: Optional[MosaicoType.string] = MosaicoField(
-        default=None, description="Source frame identifier."
-    )
-    """
-    Source coordinate frame identifier.
-    """
-
     target_frame_id: Optional[MosaicoType.string] = MosaicoField(
         default=None, description="Target frame identifier."
     )
@@ -1245,6 +1250,7 @@ class Transform(
 class Pose(
     Serializable,  # Adds Registry/Factory logic
     CovarianceMixin,  # Adds Covariance matrix support
+    HeaderMixin,  # Adds Header support
 ):
     """
     Represents the position and orientation of an object in a global or local frame.
@@ -1260,6 +1266,7 @@ class Pose(
             the uncertainty of the Translation+Rotation.
         covariance_type: Enum integer representing the parameterization of the
             covariance matrix.
+        header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
     This class fields are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
@@ -1401,6 +1408,7 @@ class Pose(
 
 class RobotPath(
     Serializable,  # Adds Registry/Factory logic
+    HeaderMixin,  # Adds Header support
 ):
     """
     Represents a series of waypoints in operational space independent from time.
@@ -1412,6 +1420,7 @@ class RobotPath(
     Attributes:
         path_frame: A `String` representing the frame name the waypoints refer to
         poses: A list of `Pose` describing the waypoints to be followed.
+        header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
     Only path_frame field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
@@ -1437,39 +1446,6 @@ class RobotPath(
         ```
     """
 
-    path_frame: MosaicoType.string = MosaicoField(
-        description="The frame name the waypoints refer to."
-    )
-    """
-    The Frame Id component of the reference framme the waypoints refer to.
-
-    ### Querying with the **`.Q` Proxy**
-    Frame ID components are queryable through the `path_frame` field prefix.
-
-    | Field Access Path | Queryable Type | Supported Operators |
-    | :--- | :--- | :--- |
-    | `Path.Q.path_frame` | `String` | `.eq()`, `.neq()`, `.match_()`, `.in_()` |
-
-    Example:
-        ```python
-        from mosaicolabs import MosaicoClient, Transform, QueryOntologyCatalog
-        
-        with MosaicoClient.connect("localhost", 6726) as client:
-            # Find path whose path_frame is "robot_link"
-            qresponse = client.query(
-                QueryOntologyCatalog()
-                .with_expression(Transform.Q.path_frame.eq("base_link"))
-            )
-
-            # Inspect the response
-            if qresponse is not None:
-                # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
-                    print(f"Sequence: {item.sequence.name}")
-                    print(f"Topics: {[topic.name for topic in item.topics]}")
-        ```
-    """
-
     poses: MosaicoType.list_(Pose) = MosaicoField(
         description="Series of waypoints the robot needs to follow."
     )
@@ -1481,7 +1457,10 @@ class RobotPath(
     """
 
 
-class Polygon(Serializable):
+class Polygon(
+    Serializable,
+    HeaderMixin,  # Adds Header support
+):
     """
     Polygon geometry defined by a list of points.
 
@@ -1489,6 +1468,7 @@ class Polygon(Serializable):
 
     Attributes:
         points: List of polygon vertices.
+        header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
     The points field is not queryable via the `.Q` proxy (lists are not supported yet).

@@ -45,4 +45,5 @@ from .sensor_msgs import (
     ROIAdapter as ROIAdapter,
     TemperatureAdapter as TemperatureAdapter,
 )
+from .std_msgs import HeaderAdapter as HeaderAdapter
 from .tf2_msgs import FrameTransformAdapter as FrameTransformAdapter

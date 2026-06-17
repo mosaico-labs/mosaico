@@ -63,3 +63,29 @@ def _is_valid_covariance(covariance_list: Optional[List[float]]) -> bool:
         return False
 
     return any(value > 0.0 for value in covariance_list)
+
+
+def _is_valid_header(ros_header: Optional[dict]) -> bool:
+    """
+    Check if a ROS header is valid (i.e., not zero timestamp and empty frame_id).
+
+    In ROS messages, a header filled with no timestamp and empty reference frame indicates
+    that header is unknown or not provided.
+
+    Args:
+        covariance_list (Optional[List[float]]): Flattened covariance matrix (usually 3x3 or 6x6).
+
+    Returns:
+        bool: True if covariance contains meaningful values, False otherwise.
+    """
+    if not ros_header:
+        return False
+
+    if (
+        ros_header["frame_id"] == ""
+        and ros_header["stamp"]["sec"] == 0
+        and ros_header["stamp"]["nanosec"] == 0
+    ):
+        return False
+
+    return True

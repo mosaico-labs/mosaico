@@ -3,6 +3,7 @@ use crate::Format;
 use crate::Ontology;
 use crate::flight::FilterTimestampRange;
 use serde::Deserialize;
+use serde::Serialize;
 
 #[derive(Deserialize, Debug)]
 pub struct Empty {}
@@ -45,14 +46,31 @@ impl TopicCreate {
     }
 }
 
-/// Specialized message used to filter a topic by ontology and timestamp range,
-/// then cluster matching timestamps by a time-gap threshold
-#[derive(Deserialize, Debug)]
-pub struct TopicFilterClusterize {
+/// Parameters for filtering a single topic by ontology and timestamp range,
+/// then clustering matching timestamps by a time-gap threshold.
+#[derive(Serialize, Deserialize, Debug)]
+pub struct TopicClusterizeParams {
     pub locator: String,
     pub clustering_dt_ns: u64,
     pub ontology: Ontology,
     pub timestamp_range: Option<FilterTimestampRange>,
+}
+
+/// Filters a topic by ontology and timestamp range,
+/// then clusters matching timestamps by a time-gap threshold.
+#[derive(Serialize, Deserialize, Debug)]
+pub struct TopicFilterClusterize {
+    #[serde(flatten)]
+    pub params: TopicClusterizeParams,
+}
+
+/// Receives multiple topic filters (each with its own clustering configuration)
+/// and intersects their clustered timestamp sets, retaining only timestamps
+/// that fall within intersect_dt_ns nanoseconds of each other across all topics
+#[derive(Deserialize, Debug)]
+pub struct TopicFilterIntersect {
+    pub topics: Vec<TopicClusterizeParams>,
+    pub intersect_dt_ns: u64,
 }
 
 // ////////////////////////////////////////////////////////////////////////////

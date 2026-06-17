@@ -17,7 +17,7 @@ class _QueryProxy:
 
     Example:
         ```python
-        from mosaicolabs.models import IMU
+        from mosaicolabs import IMU
         imu_query_proxy = IMU.Q
         imu_query_proxy.acceleration.x >= 1.234
 

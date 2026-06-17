@@ -167,7 +167,7 @@ def test_construction_query_from_response():
     expected_expr_seq_values = [it.sequence.name for it in qresp]
     qseq = qresp.to_query_sequence()
     assert len(qseq._expressions) == 1
-    assert qseq._expressions[0].key == "locator"
+    assert qseq._expressions[0].key == "name"
     assert all(s in expected_expr_seq_values for s in qseq._expressions[0].value)
     assert all(s in qseq._expressions[0].value for s in expected_expr_seq_values)
 
@@ -179,7 +179,7 @@ def test_construction_query_from_response():
     ]
     qtop = qresp.to_query_topic()
     assert len(qtop._expressions) == 1
-    assert qtop._expressions[0].key == "locator"
+    assert qtop._expressions[0].key == "name"
     assert all(t in expected_expr_top_values for t in qtop._expressions[0].value)
     assert all(t in qtop._expressions[0].value for t in expected_expr_top_values)
 

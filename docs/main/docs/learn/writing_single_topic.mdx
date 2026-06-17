@@ -48,7 +48,7 @@ A **Sequence** is Mosaico's fundamental unit of a recording session. Think of it
 
 A **Topic** lives inside a Sequence and represents a single sensor stream. Each topic has a strict one-to-one relationship with a data type from the **Ontology**, Mosaico's type system. The Ontology defines the shape of every piece of data the platform can store. Built-in types like `IMU`, `GPS`, and `Pressure` are already registered, so you can start using them immediately. This strictness is intentional: because every record in a topic is the same type, the daemon can serialize and index data far more efficiently using Apache Arrow columnar layout. When you create a topic and bind it to `IMU`, you are telling the daemon to open a typed, append-only stream optimized for that exact schema.
 
-A **Message** is the in-memory wrapper you hand to the SDK. It couples a typed data payload (your `IMU`, `GPS`, or `Pressure` object) with a nanosecond-precision timestamp. The timestamp is what Mosaico uses to order and index records in time. It is not the wall-clock time of the ingestion call, but the sensor timestamp embedded in your source data. The SDK serializes the Message and transmits it to the daemon over gRPC. You never deal with bytes directly; you construct typed objects, wrap them in `Message`, and let the SDK handle the rest.
+A **Message** is the in-memory wrapper you hand to the SDK. It couples a typed data payload (your `IMU`, `GPS`, or `Pressure` object) with a monotonic timestamp. The timestamp is what Mosaico uses to order and index records in time, representing the playback time rather than the measurement timestamp. The SDK serializes the Message and transmits it to the daemon over gRPC. You never deal with bytes directly; you construct typed objects, wrap them in `Message`, and let the SDK handle the rest.
 
 ### Chunked Loading for High-Volume Data
 
@@ -108,7 +108,7 @@ The Rust SDK is currently in development.
 </TabItem>
 </Tabs>
 
-Here `IMU` and `Vector3d` are built-in Mosaico Ontology types. You do not need to define or register them; they are part of the default type catalog that ships with the SDK. The `Message` wrapper carries the typed `IMU` payload along with the nanosecond timestamp parsed directly from the CSV's `timestamp` column, preserving the original sensor time rather than substituting the current wall clock.
+Here `IMU` and `Vector3d` are built-in Mosaico Ontology types. You do not need to define or register them; they are part of the default type catalog that ships with the SDK. The `Message` wrapper carries the typed `IMU` payload along with the nanosecond timestamp parsed directly from the CSV's `timestamp` column. The sample CSV's `timestamp` column holds the DDS publish time value that `Message.timestamp_ns` expects, not the sensor measurement time.
 
 ### Sequence Upload
 
@@ -293,7 +293,7 @@ def main():
                 on_error=TopicLevelErrorPolicy.Ignore,
             )
             for msg in stream_imu_from_csv("imu.csv"):
-                with imu_twriter::
+                with imu_twriter:
                     imu_twriter.push(message=msg)
                 if imu_twriter.status == TopicWriterStatus.IgnoredLastError:
                     print(f"IMU message skipped with error: {imu_twriter.last_error}")

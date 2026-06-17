@@ -1,6 +1,6 @@
 ---
-title: Data Types
-description: API Reference for Data Types
+title: Data Types and Mixins
+description: API Reference for Data Types and Mixins
 ---
 
 ::: mosaicolabs.models.data.base_types
@@ -9,3 +9,7 @@ description: API Reference for Data Types
 ::: mosaicolabs.models.data.ROI
     options:
       inherited_members: true
+
+::: mosaicolabs.models.data.HeaderMixin
+::: mosaicolabs.models.data.CovarianceMixin
+::: mosaicolabs.models.data.VarianceMixin

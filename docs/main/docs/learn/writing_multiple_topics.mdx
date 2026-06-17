@@ -35,6 +35,10 @@ In real robotics deployments, a robot rarely records just one sensor. A field mi
 
 This is exactly what the Sequence model is designed for. A Sequence is not just a container for one sensor stream; it is a session-level grouping that can hold any number of Topics, each carrying a different sensor type. When you create a single Sequence named `multi_sensor_ingestion` and register IMU, GPS, and Pressure topics inside it, you are telling the daemon that all three streams belong to the same operational context. Later, when you query the platform, you can retrieve all topics from that sequence together, knowing their timestamps align to the same mission clock.
 
+:::info[Message timestamp semantics]
+For this alignment to hold, every `Message.timestamp_ns` across all topics in a Sequence must share a common origin. It represents the playback time, not the sensor measurement time. For the full explanation and a comparison table, see the [Message](https://docs.mosaico.dev/python-sdk/SDK/ontology/#message-the-envelope) guide.
+:::
+
 In this guide, we ingest the three sensors **serially**: we exhaust the IMU file completely, then the GPS file, then the Pressure file. This is the natural approach when your data arrives pre-split into separate files. The daemon does not require messages to arrive in global timestamp order across topics; each topic maintains its own ordered stream independently. If your source data is already interleaved in a single file, see the [Writing Interleaved Topics](./writing_interleaved_topics.mdx) guide instead.
 
 ### Streaming Helpers

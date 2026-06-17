@@ -259,7 +259,7 @@ async fn test_query_in_with_booleans_is_allowed(pool: sqlx::Pool<db::DatabaseTyp
     setup_topics_with_metadata(
         &mut client,
         seq,
-        &[("topic_truck", json!({"is_on_the_way": "true"}))],
+        &[("topic_truck", json!({"is_on_the_way": true}))],
     )
     .await;
 
@@ -312,7 +312,7 @@ async fn test_query_in_with_empty_list_is_rejected(pool: sqlx::Pool<db::Database
 }
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
-async fn test_query_in_on_list_valued_field_errors_at_runtime(pool: sqlx::Pool<db::DatabaseType>) {
+async fn test_query_in_on_list_valued_field(pool: sqlx::Pool<db::DatabaseType>) {
     let server = common::ServerBuilder::new(common::HOST, pool).build().await;
     let mut client = common::ClientBuilder::new(common::HOST, server.port())
         .build()
@@ -327,12 +327,16 @@ async fn test_query_in_on_list_valued_field_errors_at_runtime(pool: sqlx::Pool<d
             "topic": { "user_metadata": { "x": { "$in": [1, 6] } } }
         }),
     )
-    .await;
+    .await
+    .unwrap();
 
-    assert!(
-        result.is_err(),
-        "querying a list-valued field with $in must error, not silently match"
+    let locators = topic_locators(&result);
+    assert_eq!(
+        locators.len(),
+        1,
+        "expected 1 matching topic, got: {locators:?}"
     );
+    assert!(locators.contains(&format!("{seq}/topic_list")));
 
     server.shutdown().await;
 }
@@ -358,12 +362,27 @@ async fn test_query_in_on_dict_valued_field_errors_at_runtime(pool: sqlx::Pool<d
             "topic": { "user_metadata": { "x": { "$in": [1, 6] } } }
         }),
     )
-    .await;
+    .await
+    .unwrap();
 
-    assert!(
-        result.is_err(),
-        "querying a dict-valued field with $in must error, not silently match"
+    assert!(result.is_empty());
+
+    let result = actions::query(
+        &mut client,
+        json!({
+            "topic": { "user_metadata": { "x.nested": { "$in": [1, 6] } } }
+        }),
+    )
+    .await
+    .unwrap();
+
+    let locators = topic_locators(&result);
+    assert_eq!(
+        locators.len(),
+        1,
+        "expected 1 matching topic, got: {locators:?}"
     );
+    assert!(locators.contains(&format!("{seq}/topic_dict")));
 
     server.shutdown().await;
 }
@@ -572,7 +591,7 @@ async fn test_query_topic_name_match_all(pool: sqlx::Pool<db::DatabaseType>) {
     let result = actions::query(
         &mut client,
         json!({
-            "topic": { "locator": { "$match": ".*" } }
+            "topic": { "name": { "$match": ".*" } }
         }),
     )
     .await
@@ -601,13 +620,53 @@ async fn test_query_topic_name_match_empty_is_rejected(pool: sqlx::Pool<db::Data
     let result = actions::query(
         &mut client,
         json!({
-            "topic": { "locator": { "$match": "" } }
+            "topic": { "name": { "$match": "" } }
         }),
     )
     .await
     .unwrap_err();
 
     assert_eq!(result.code(), tonic::Code::InvalidArgument);
+
+    server.shutdown().await;
+}
+
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_query_invalid_keys(pool: sqlx::Pool<db::DatabaseType>) {
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
+        .build()
+        .await;
+
+    let seq = "seq_invalid_keys";
+    setup_topics_with_metadata(
+        &mut client,
+        seq,
+        &[
+            ("topic_a", json!({"vehicle": "truck_scania"})),
+            ("topic_b", json!({"vehicle": "ferrari"})),
+        ],
+    )
+    .await;
+
+    let invalid_patterns = [
+        "#", "$", "%", "?", "^", "{", "\"", "\\", "/", "@", "+", "--", "***",
+    ];
+
+    for p in invalid_patterns {
+        let key_path = format!("vehicle{p}");
+
+        let res = actions::query(
+            &mut client,
+            json!({
+                "topic": { "user_metadata": { key_path: { "$eq": "ferrari" } } }
+            }),
+        )
+        .await
+        .unwrap_err();
+
+        assert_eq!(res.code(), tonic::Code::InvalidArgument);
+    }
 
     server.shutdown().await;
 }

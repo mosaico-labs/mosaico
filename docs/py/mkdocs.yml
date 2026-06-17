@@ -65,7 +65,6 @@ nav:
   - API Reference:
     - SDK/API_reference/comm.md
     - SDK/API_reference/enum.md
-    - SDK/API_reference/types.md
     - SDK/API_reference/logging.md
     - Data Handling:
         - SDK/API_reference/handlers/reading.md
@@ -81,6 +80,7 @@ nav:
         - SDK/API_reference/models/geometry.md
         - SDK/API_reference/models/platform.md
         - SDK/API_reference/models/sensors.md
+        - SDK/API_reference/models/time.md
     - Bridges:
         - SDK/API_reference/bridges/ml.md
         - ROS-Bridge:

@@ -1,0 +1,21 @@
+[package]
+name = "mosaicod-grpc-common"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[lib]
+name = "mosaicod_grpc_common"
+
+[dependencies]
+mosaicod-core = { workspace = true }
+mosaicod-facade = { workspace = true }
+
+thiserror = { workspace = true }
+tokio-util = { workspace = true }
+tonic = { workspace = true }
+tower = { workspace = true }
+http = { workspace = true }
+tracing = { workspace = true }

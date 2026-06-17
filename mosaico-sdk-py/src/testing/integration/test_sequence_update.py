@@ -1,9 +1,9 @@
 import pytest
 
 from mosaicolabs.comm import MosaicoClient
-from mosaicolabs.enum.session_level_error_policy import SessionLevelErrorPolicy
-from mosaicolabs.models import Message
-from mosaicolabs.models.query.builders import QueryOntologyCatalog, QueryTopic
+from mosaicolabs.enum import SessionLevelErrorPolicy
+from mosaicolabs.models.core import Message
+from mosaicolabs.models.query import QueryOntologyCatalog, QueryTopic
 from mosaicolabs.models.sensors import Pressure, Temperature
 
 from .config import UPLOADED_SEQUENCE_NAME

@@ -50,10 +50,12 @@ class TestQueryIMUAPI:
         # Inherited from Quaternion
         IMU.Q.orientation.covariance_type
         # Inherited from Message
-        IMU.Q.sequence_id
         IMU.Q.timestamp_ns
-        IMU.Q.frame_id
-        IMU.Q.timestamp_ns
+        # Inherited from HeaderMixin
+        IMU.Q.header.sample_counter
+        IMU.Q.header.timestamp.seconds
+        IMU.Q.header.timestamp.nanoseconds
+        IMU.Q.header.frame_id
         # --- Catalog Context: Non-existing field ---
         with pytest.raises(Exception):
             IMU.Q.non_existing_field.eq(0)
@@ -81,9 +83,11 @@ class TestQueryIMUAPI:
         assert issubclass(type(IMU.Q.orientation.z), _QueryableNumeric)
         assert issubclass(type(IMU.Q.orientation.w), _QueryableNumeric)
         assert issubclass(type(IMU.Q.orientation.covariance_type), _QueryableNumeric)
-        assert issubclass(type(IMU.Q.sequence_id), _QueryableNumeric)
         assert issubclass(type(IMU.Q.timestamp_ns), _QueryableNumeric)
-        assert issubclass(type(IMU.Q.frame_id), _QueryableString)
+        assert issubclass(type(IMU.Q.header.sample_counter), _QueryableNumeric)
+        assert issubclass(type(IMU.Q.header.timestamp.seconds), _QueryableNumeric)
+        assert issubclass(type(IMU.Q.header.timestamp.nanoseconds), _QueryableNumeric)
+        assert issubclass(type(IMU.Q.header.frame_id), _QueryableString)
 
     def test_expression_generation_paths_and_operators(self):
         """
@@ -166,10 +170,12 @@ class TestQueryGPSAPI:
         GPS.Q.status.hdop
         GPS.Q.status.vdop
         # Inherited from Message
-        GPS.Q.sequence_id
         GPS.Q.timestamp_ns
-        GPS.Q.frame_id
-        GPS.Q.timestamp_ns
+        # Inherited from HeaderMixin
+        GPS.Q.header.sample_counter
+        GPS.Q.header.timestamp.seconds
+        GPS.Q.header.timestamp.nanoseconds
+        GPS.Q.header.frame_id
         # --- Catalog Context: Non-existing field ---
         with pytest.raises(Exception):
             GPS.Q.non_existing_field.eq(0)
@@ -193,9 +199,11 @@ class TestQueryGPSAPI:
         assert issubclass(type(GPS.Q.status.satellites), _QueryableNumeric)
         assert issubclass(type(GPS.Q.status.hdop), _QueryableNumeric)
         assert issubclass(type(GPS.Q.status.vdop), _QueryableNumeric)
-        assert issubclass(type(GPS.Q.sequence_id), _QueryableNumeric)
         assert issubclass(type(GPS.Q.timestamp_ns), _QueryableNumeric)
-        assert issubclass(type(GPS.Q.frame_id), _QueryableString)
+        assert issubclass(type(GPS.Q.header.sample_counter), _QueryableNumeric)
+        assert issubclass(type(GPS.Q.header.timestamp.seconds), _QueryableNumeric)
+        assert issubclass(type(GPS.Q.header.timestamp.nanoseconds), _QueryableNumeric)
+        assert issubclass(type(GPS.Q.header.frame_id), _QueryableString)
 
     def test_expression_generation_paths_and_operators(self):
         """
@@ -266,10 +274,12 @@ class TestQueryImageAPI:
         Image.Q.is_bigendian
         Image.Q.encoding
         # Inherited from Message
-        Image.Q.sequence_id
         Image.Q.timestamp_ns
-        Image.Q.frame_id
-        Image.Q.timestamp_ns
+        # Inherited from HeaderMixin
+        Image.Q.header.sample_counter
+        Image.Q.header.timestamp.seconds
+        Image.Q.header.timestamp.nanoseconds
+        Image.Q.header.frame_id
         with pytest.raises(Exception):
             Image.Q.data.eq(0)  # data is binary and does not provide operators
         # --- Catalog Context: Non-existing field ---
@@ -289,9 +299,11 @@ class TestQueryImageAPI:
         assert issubclass(type(Image.Q.stride), _QueryableNumeric)
         assert issubclass(type(Image.Q.is_bigendian), _QueryableBool)
         assert issubclass(type(Image.Q.encoding), _QueryableString)
-        assert issubclass(type(Image.Q.sequence_id), _QueryableNumeric)
         assert issubclass(type(Image.Q.timestamp_ns), _QueryableNumeric)
-        assert issubclass(type(Image.Q.frame_id), _QueryableString)
+        assert issubclass(type(Image.Q.header.sample_counter), _QueryableNumeric)
+        assert issubclass(type(Image.Q.header.timestamp.seconds), _QueryableNumeric)
+        assert issubclass(type(Image.Q.header.timestamp.nanoseconds), _QueryableNumeric)
+        assert issubclass(type(Image.Q.header.frame_id), _QueryableString)
 
     def test_expression_generation_paths_and_operators(self):
         """
@@ -361,10 +373,12 @@ class TestQueryMagnetometerAPI:
         # Inherited from Vector3d
         Magnetometer.Q.magnetic_field.covariance_type
         # Inherited from Message
-        Magnetometer.Q.sequence_id
         Magnetometer.Q.timestamp_ns
-        Magnetometer.Q.frame_id
-        Magnetometer.Q.timestamp_ns
+        # Inherited from HeaderMixin
+        Magnetometer.Q.header.sample_counter
+        Magnetometer.Q.header.timestamp.seconds
+        Magnetometer.Q.header.timestamp.nanoseconds
+        Magnetometer.Q.header.frame_id
         # --- Catalog Context: Non-existing field ---
         with pytest.raises(Exception):
             Magnetometer.Q.non_existing_field.eq(0)
@@ -382,9 +396,15 @@ class TestQueryMagnetometerAPI:
         assert issubclass(
             type(Magnetometer.Q.magnetic_field.covariance_type), _QueryableNumeric
         )
-        assert issubclass(type(Magnetometer.Q.sequence_id), _QueryableNumeric)
         assert issubclass(type(Magnetometer.Q.timestamp_ns), _QueryableNumeric)
-        assert issubclass(type(Magnetometer.Q.frame_id), _QueryableString)
+        assert issubclass(type(Magnetometer.Q.header.sample_counter), _QueryableNumeric)
+        assert issubclass(
+            type(Magnetometer.Q.header.timestamp.seconds), _QueryableNumeric
+        )
+        assert issubclass(
+            type(Magnetometer.Q.header.timestamp.nanoseconds), _QueryableNumeric
+        )
+        assert issubclass(type(Magnetometer.Q.header.frame_id), _QueryableString)
 
     def test_expression_generation_paths_and_operators(self):
         """
@@ -452,10 +472,12 @@ class TestQueryTemperatureAPI:
         Temperature.Q.variance
         Temperature.Q.variance_type
         # Inherited from Message
-        Temperature.Q.sequence_id
         Temperature.Q.timestamp_ns
-        Temperature.Q.frame_id
-        Temperature.Q.timestamp_ns
+        # Inherited from HeaderMixin
+        Temperature.Q.header.sample_counter
+        Temperature.Q.header.timestamp.seconds
+        Temperature.Q.header.timestamp.nanoseconds
+        Temperature.Q.header.frame_id
         # --- Catalog Context: Non-existing field ---
         with pytest.raises(Exception):
             Temperature.Q.non_existing_field.eq(0)
@@ -468,9 +490,15 @@ class TestQueryTemperatureAPI:
         # --- Fields Accessibility Test ---
         # Local fields
         assert issubclass(type(Temperature.Q.value), _QueryableNumeric)
-        assert issubclass(type(Temperature.Q.sequence_id), _QueryableNumeric)
         assert issubclass(type(Temperature.Q.timestamp_ns), _QueryableNumeric)
-        assert issubclass(type(Temperature.Q.frame_id), _QueryableString)
+        assert issubclass(type(Temperature.Q.header.sample_counter), _QueryableNumeric)
+        assert issubclass(
+            type(Temperature.Q.header.timestamp.seconds), _QueryableNumeric
+        )
+        assert issubclass(
+            type(Temperature.Q.header.timestamp.nanoseconds), _QueryableNumeric
+        )
+        assert issubclass(type(Temperature.Q.header.frame_id), _QueryableString)
         assert issubclass(type(Temperature.Q.variance), _QueryableNumeric)
         assert issubclass(type(Temperature.Q.variance_type), _QueryableNumeric)
 
@@ -555,10 +583,12 @@ class TestQueryPressureAPI:
         Pressure.Q.variance
         Pressure.Q.variance_type
         # Inherited from Message
-        Pressure.Q.sequence_id
         Pressure.Q.timestamp_ns
-        Pressure.Q.frame_id
-        Pressure.Q.timestamp_ns
+        # Inherited from HeaderMixin
+        Pressure.Q.header.sample_counter
+        Pressure.Q.header.timestamp.seconds
+        Pressure.Q.header.timestamp.nanoseconds
+        Pressure.Q.header.frame_id
         # --- Catalog Context: Non-existing field ---
         with pytest.raises(Exception):
             Pressure.Q.non_existing_field.eq(0)
@@ -571,9 +601,13 @@ class TestQueryPressureAPI:
         # --- Fields Accessibility Test ---
         # Local fields
         assert issubclass(type(Pressure.Q.value), _QueryableNumeric)
-        assert issubclass(type(Pressure.Q.sequence_id), _QueryableNumeric)
         assert issubclass(type(Pressure.Q.timestamp_ns), _QueryableNumeric)
-        assert issubclass(type(Pressure.Q.frame_id), _QueryableString)
+        assert issubclass(type(Pressure.Q.header.sample_counter), _QueryableNumeric)
+        assert issubclass(type(Pressure.Q.header.timestamp.seconds), _QueryableNumeric)
+        assert issubclass(
+            type(Pressure.Q.header.timestamp.nanoseconds), _QueryableNumeric
+        )
+        assert issubclass(type(Pressure.Q.header.frame_id), _QueryableString)
         assert issubclass(type(Pressure.Q.variance), _QueryableNumeric)
         assert issubclass(type(Pressure.Q.variance_type), _QueryableNumeric)
 
@@ -667,10 +701,12 @@ class TestQueryRangeAPI:
         Range.Q.variance
         Range.Q.variance_type
         # Inherited from Message
-        Range.Q.sequence_id
         Range.Q.timestamp_ns
-        Range.Q.frame_id
-        Range.Q.timestamp_ns
+        # Inherited from HeaderMixin
+        Range.Q.header.sample_counter
+        Range.Q.header.timestamp.seconds
+        Range.Q.header.timestamp.nanoseconds
+        Range.Q.header.frame_id
         # --- Catalog Context: Non-existing field ---
         with pytest.raises(Exception):
             Range.Q.non_existing_field.eq(0)
@@ -687,9 +723,11 @@ class TestQueryRangeAPI:
         assert issubclass(type(Range.Q.min_range), _QueryableNumeric)
         assert issubclass(type(Range.Q.max_range), _QueryableNumeric)
         assert issubclass(type(Range.Q.range), _QueryableNumeric)
-        assert issubclass(type(Range.Q.sequence_id), _QueryableNumeric)
         assert issubclass(type(Range.Q.timestamp_ns), _QueryableNumeric)
-        assert issubclass(type(Range.Q.frame_id), _QueryableString)
+        assert issubclass(type(Range.Q.header.sample_counter), _QueryableNumeric)
+        assert issubclass(type(Range.Q.header.timestamp.seconds), _QueryableNumeric)
+        assert issubclass(type(Range.Q.header.timestamp.nanoseconds), _QueryableNumeric)
+        assert issubclass(type(Range.Q.header.frame_id), _QueryableString)
         assert issubclass(type(Range.Q.variance), _QueryableNumeric)
         assert issubclass(type(Range.Q.variance_type), _QueryableNumeric)
 

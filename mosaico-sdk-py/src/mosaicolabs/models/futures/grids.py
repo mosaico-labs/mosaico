@@ -4,12 +4,14 @@ This module defines the fundamental building blocks for grids and maps represent
 
 """
 
-from mosaicolabs.models.data import Point3d, Pose
-from mosaicolabs.models.serializable import Serializable
-from mosaicolabs.models.types import MosaicoField, MosaicoType
+from ..core import MosaicoField, MosaicoType, Serializable
+from ..data import HeaderMixin, Point3d, Pose, Time
 
 
-class GridCells(Serializable):
+class GridCells(
+    Serializable,
+    HeaderMixin,  # Adds Header support
+):
     """
     Grid Cells data.
 
@@ -20,6 +22,7 @@ class GridCells(Serializable):
         cell_height: A `MosaicoType.float32` that represents the width of each cell.
         cells: A `MosaicoType.list_(Point2d)` that represents the center point of
             each cell.
+        header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
     This class is partially queryable via the **`.Q` proxy**. You can filter grid cells data based
@@ -216,8 +219,7 @@ class MapMetadata(
 
     """
 
-    # TODO: this needs to be changed to Time Ontology
-    map_load_time: MosaicoType.uint64 = MosaicoField(
+    map_load_time: Time = MosaicoField(
         description="Time (in nanoseconds) at which the map has been loaded."
     )
     """
@@ -455,7 +457,10 @@ class MapMetadata(
     """
 
 
-class OccupancyGrid(Serializable):
+class OccupancyGrid(
+    Serializable,
+    HeaderMixin,  # Adds Header support
+):
     """
     Occupancy Grid data.
 
@@ -464,6 +469,7 @@ class OccupancyGrid(Serializable):
     Attributes:
         info: A `MapMetadata` describing the occupancy grid.
         data: A `MosaicoType.list_(MosaicoType.int8)` representing data contained in the occupancy grid.
+        header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
     This class is parrtially queryable via the **`.Q` proxy**. You can filter occupancy grid data based

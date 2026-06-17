@@ -6,7 +6,7 @@ from rosbags.typesys.store import Typestore
 if TYPE_CHECKING:
     from rosbags.typesys.store import MsgType
 
-from mosaicolabs.types import Time
+from mosaicolabs import Time
 
 
 def _validate_header_fields(ros_hdata: dict):

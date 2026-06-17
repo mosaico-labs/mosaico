@@ -41,7 +41,7 @@ The ingestion pipeline for an MCAP file has four layers that are worth understan
 
 First, the **source file stream**: the MCAP reader delivers a flat sequence of `(schema, channel, message)` tuples in chronological order. Each tuple carries the schema name (e.g. `"sensor_msgs/msg/Imu"`), the channel topic string (e.g. `"/sensors/imu"`), and the raw binary payload.
 
-Second, **schema detection and translation**: MCAP schemas are external definitions, typically ROS 2 message types, that do not map directly to Mosaico's Ontology. You need a translation layer that knows how to convert a `sensor_msgs/msg/Imu` payload into a Mosaico `IMU` object, extract the embedded timestamp, and return a `Message` ready for the SDK. This translator is also responsible for declaring which Mosaico Ontology type corresponds to each schema.
+Second, **schema detection and translation**: MCAP schemas are external definitions, typically ROS 2 message types, that do not map directly to Mosaico's Ontology. You need a translation layer that knows how to convert a `sensor_msgs/msg/Imu` payload into a Mosaico `IMU` object and return a `Message` ready for the SDK. The `Message.timestamp_ns` must be set from the MCAP envelope's `publish_time` (the DDS publish time), not from `header.stamp` inside the payload, which is the sensor measurement time. This translator is also responsible for declaring which Mosaico Ontology type corresponds to each schema.
 
 Third, **dynamic TopicWriter registration**: the first time a given channel topic appears in the stream, a new `TopicWriter` is created and cached inside the `SequenceWriter`. Every subsequent message on that channel reuses the cached writer. The `swriter.get_topic_writer()` method is the cache lookup; `swriter.topic_create()` is the cache population.
 
@@ -51,6 +51,10 @@ Fourth, the **push path**: once a writer is obtained, the translated message is 
 
 The translator is the bridge between the external world and the Mosaico type system. External robotics schemas like `sensor_msgs/msg/Imu` have their own field naming conventions (`linear_acceleration`, `angular_velocity`) and timestamp representation (a `header.stamp` struct with separate seconds and nanoseconds fields). Mosaico's Ontology types have their own conventions (`acceleration`, `angular_velocity` as `Vector3d`; timestamps as a single nanosecond integer on the `Message` wrapper). The translator is where you perform this mapping explicitly and consciously.
 
+:::info[MCAP `header.stamp` and the Message timestamp]
+In MCAP, `header.stamp` records **when the sensor took the measurement**, equivalent to the `Header` timestamp inside a Mosaico Ontology. It is **not** appropriate for `Message.timestamp_ns`, which must be a monotonic timestamp representing the playback time. In MCAP, the correct value for `Message.timestamp_ns` is `message.publish_time`, available from the MCAP message object in the ingestion loop. The translator below therefore accepts `publish_time_ns` as an explicit parameter instead of extracting a timestamp from the payload. For a full explanation of this distinction, see the [Message](https://docs.mosaico.dev/python-sdk/SDK/ontology/#message-the-envelope) guide.
+:::
+
 This explicit translation step is not boilerplate to be minimized; it is an important design boundary. It separates the "understanding of external formats" from the "push to Mosaico" logic. If the source schema ever changes (a field rename, a new firmware version), you update the translator in one place. If Mosaico adds a new Ontology type, you add a branch to the translator. The rest of the ingestion pipeline stays unchanged.
 
 The `determine_mosaico_type()` helper serves a complementary purpose: given a schema name, it returns the Mosaico Ontology class that should be used for the `TopicWriter`. This is needed at writer creation time, before any payload has been translated, so it is kept separate from the translation logic.
@@ -59,25 +63,21 @@ The `determine_mosaico_type()` helper serves a complementary purpose: given a sc
 <TabItem value="python" label="Python">
 
 ```python title="Custom translator"
-from mosaicolabs.models import IMU, GPS, Pressure, Vector3d, GPSStatus, Time, Point3d
-from mosaicolabs import Message
+from mosaicolabs import Message, IMU, GPS, Pressure, Vector3d, GPSStatus, Point3d
 
-def custom_translator(schema_name: str, payload: dict):
+def custom_translator(schema_name: str, payload: dict, publish_time_ns: int):
     if schema_name == "sensor_msgs/msg/Imu":
-        ts = Time(seconds=payload['header']['stamp']['sec'], nanoseconds=payload['header']['stamp']['nanosec']).to_nanoseconds()
-        return Message(timestamp_ns=ts, data=IMU(
+        return Message(timestamp_ns=publish_time_ns, data=IMU(
             acceleration=Vector3d(**payload['linear_acceleration']),
             angular_velocity=Vector3d(**payload['angular_velocity'])
         ))
     if schema_name == "sensor_msgs/msg/NavSatFix":
-        ts = Time(seconds=payload['header']['stamp']['sec'], nanoseconds=payload['header']['stamp']['nanosec']).to_nanoseconds()
-        return Message(timestamp_ns=ts, data=GPS(
+        return Message(timestamp_ns=publish_time_ns, data=GPS(
             position=Point3d(x=payload['latitude'], y=payload['longitude'], z=payload['altitude']),
             status=GPSStatus(status=payload['status']['status'], service=payload['status']['service'])
         ))
     if schema_name == "sensor_msgs/msg/FluidPressure":
-        ts = Time(seconds=payload['header']['stamp']['sec'], nanoseconds=payload['header']['stamp']['nanosec']).to_nanoseconds()
-        return Message(timestamp_ns=ts, data=Pressure(value=payload['fluid_pressure']))
+        return Message(timestamp_ns=publish_time_ns, data=Pressure(value=payload['fluid_pressure']))
     return None
 
 def determine_mosaico_type(schema_name):
@@ -144,7 +144,7 @@ def main():
                     if twriter.is_active:
                         with twriter:
                             raw = deserialize_payload(message.data, schema.name)
-                            msg = custom_translator(schema.name, raw)
+                            msg = custom_translator(schema.name, raw, message.publish_time)
                             if msg is None:
                                 continue
                             twriter.push(message=msg)
@@ -228,25 +228,22 @@ if __name__ == "__main__":
 import json
 from mcap.reader import make_reader
 from mosaicolabs import MosaicoClient, setup_sdk_logging, SessionLevelErrorPolicy, TopicLevelErrorPolicy
-from mosaicolabs.models import IMU, GPS, Pressure, Vector3d, GPSStatus, Time, Point3d
+from mosaicolabs import IMU, GPS, Pressure, Vector3d, GPSStatus, Point3d
 from mosaicolabs import Message
 
-def custom_translator(schema_name: str, payload: dict):
+def custom_translator(schema_name: str, payload: dict, publish_time_ns: int):
     if schema_name == "sensor_msgs/msg/Imu":
-        ts = Time(seconds=payload['header']['stamp']['sec'], nanoseconds=payload['header']['stamp']['nanosec']).to_nanoseconds()
-        return Message(timestamp_ns=ts, data=IMU(
+        return Message(timestamp_ns=publish_time_ns, data=IMU(
             acceleration=Vector3d(**payload['linear_acceleration']),
             angular_velocity=Vector3d(**payload['angular_velocity'])
         ))
     if schema_name == "sensor_msgs/msg/NavSatFix":
-        ts = Time(seconds=payload['header']['stamp']['sec'], nanoseconds=payload['header']['stamp']['nanosec']).to_nanoseconds()
-        return Message(timestamp_ns=ts, data=GPS(
+        return Message(timestamp_ns=publish_time_ns, data=GPS(
             position=Point3d(x=payload['latitude'], y=payload['longitude'], z=payload['altitude']),
             status=GPSStatus(status=payload['status']['status'], service=payload['status']['service'])
         ))
     if schema_name == "sensor_msgs/msg/FluidPressure":
-        ts = Time(seconds=payload['header']['stamp']['sec'], nanoseconds=payload['header']['stamp']['nanosec']).to_nanoseconds()
-        return Message(timestamp_ns=ts, data=Pressure(value=payload['fluid_pressure']))
+        return Message(timestamp_ns=publish_time_ns, data=Pressure(value=payload['fluid_pressure']))
     return None
 
 def determine_mosaico_type(schema_name):
@@ -288,7 +285,7 @@ def main():
                     if twriter.is_active:
                         with twriter:
                             raw = deserialize_payload(message.data, schema.name)
-                            msg = custom_translator(schema.name, raw)
+                            msg = custom_translator(schema.name, raw, message.publish_time)
                             if msg is None:
                                 continue
                             twriter.push(message=msg)

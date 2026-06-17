@@ -695,6 +695,36 @@ pub async fn topic_filter_clusterize(
     Ok(ret)
 }
 
+pub async fn topic_filter_intersect(
+    client: &mut Client,
+    topics: Vec<mosaicod_marshal::requests::TopicClusterizeParams>,
+    intersect_dt_ns: u64,
+) -> Result<Vec<serde_json::Value>, tonic::Status> {
+    let body = json!({
+        "topics": topics,
+        "intersect_dt_ns": intersect_dt_ns,
+    });
+
+    let action = Action {
+        r#type: "topic_filter_intersect".to_owned(),
+        body: serde_json::to_vec(&body)
+            .map_err(|e| tonic::Status::internal(e.to_string()))?
+            .into(),
+    };
+
+    dbg!(&action);
+    let mut ret: Vec<serde_json::Value> = Vec::new();
+    let mut stream = client.do_action(action).await?.into_inner();
+    while let Some(result) = stream.message().await? {
+        dbg!(&result);
+        let r = ActionResponse::from_body(&result.body);
+        assert_eq!(r.action, "topic_filter_intersect");
+        ret.push(r.response);
+    }
+
+    Ok(ret)
+}
+
 pub async fn query(
     client: &mut Client,
     filter: serde_json::Value,

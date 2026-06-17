@@ -4,12 +4,14 @@ Magnetometer Ontology Module.
 Defines the data structure for magnetic field sensors.
 """
 
-from ..data import Vector3d
-from ..serializable import Serializable
-from ..types import MosaicoField
+from ..core import MosaicoField, Serializable
+from ..data import HeaderMixin, Vector3d
 
 
-class Magnetometer(Serializable):
+class Magnetometer(
+    Serializable,
+    HeaderMixin,  # Adds Header support
+):
     """
     Magnetic field measurement data.
 
@@ -17,6 +19,7 @@ class Magnetometer(Serializable):
 
     Attributes:
         magnetic_field: Magnetic field vector [mx, my, mz] in microTesla.
+        header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
     This class is fully queryable via the **`.Q` proxy**. You can filter magnetometer data based

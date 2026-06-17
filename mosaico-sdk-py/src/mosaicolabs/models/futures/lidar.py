@@ -7,11 +7,14 @@ obtained from a LiDAR sensor.
 
 from typing import Optional
 
-from ..serializable import Serializable
-from ..types import MosaicoField, MosaicoType
+from ..core import MosaicoField, MosaicoType, Serializable
+from ..data import HeaderMixin
 
 
-class Lidar(Serializable):
+class Lidar(
+    Serializable,
+    HeaderMixin,  # Adds Header support
+):
     """
     LiDAR Ontology.
 

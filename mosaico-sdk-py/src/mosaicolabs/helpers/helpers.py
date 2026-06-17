@@ -5,13 +5,9 @@ Provides utility functions for dict manipulation and other things
 """
 
 import ast
-import json
 import re
-from dataclasses import is_dataclass
 from pathlib import Path
 from typing import Any, Iterable, Optional
-
-from pydantic import BaseModel
 
 
 def camel_to_snake(name: str) -> str:
@@ -117,63 +113,6 @@ def unflatten_dict(d: dict[str, Any], sep: str = ".") -> dict[str, Any]:
                 current_dict = current_dict[key]
 
     return unflattened_dict
-
-
-def encode_to_dict(obj: Any, exclude_none: bool = False) -> Any:
-    """
-    Recursively converts a Pydantic model, dataclass, or nested structures (lists, tuples)
-    into a standard Python dictionary representation.
-
-    Args:
-        obj: The input object to encode. Can be a Pydantic model, dataclass, list, tuple, or primitive.
-        skip_none (bool): If True, omit fields with None values from the resulting dictionary.
-
-    Returns:
-        Any: A dictionary (for models/dataclasses), a list/tuple (for iterables),
-             or the original primitive value if not a supported structure.
-    """
-
-    # Handle explicit None values
-    if obj is None:
-        return None
-
-    # --- Handle Pydantic model instances ---
-    # Pydantic models provide a built-in method `.model_dump()` which converts the model
-    # (and all nested models) into a plain Python dictionary recursively.
-    if isinstance(obj, BaseModel):
-        return obj.model_dump(exclude_none=exclude_none)
-
-    # --- Handle dataclass instances ---
-    # Convert dataclasses into dictionaries, recursively encoding their attributes.
-    # We skip private fields (those starting with '_') and optionally skip None values.
-    if is_dataclass(obj) and not isinstance(obj, type):
-        return {
-            key: encode_to_dict(value, exclude_none=exclude_none)
-            for key, value in obj.__dict__.items()
-            if not key.startswith("_") and (value is not None or not exclude_none)
-        }
-
-    # --- Handle iterable types (lists and tuples) ---
-    # Recursively apply encoding to each element in the collection.
-    if isinstance(obj, (list, tuple)):
-        # Preserve the original container type (list or tuple)
-        return type(obj)(
-            encode_to_dict(item, exclude_none=exclude_none) for item in obj
-        )
-
-    # --- Handle dict types ---
-    if isinstance(obj, dict):
-        # convert all the value of obj to dict in case of nested structure or Pydantic model
-        to_json_dump = {
-            key: encode_to_dict(value, exclude_none=exclude_none)
-            for key, value in obj.items()
-            if (value is not None or not exclude_none)
-        }
-        return json.dumps(to_json_dump)
-
-    # --- Base case: primitive or non-special object ---
-    # Return primitive types (int, str, float, datetime, etc.) as-is.
-    return obj
 
 
 def truncate_long_strings(data, max_length=100):

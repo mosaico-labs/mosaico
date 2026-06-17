@@ -14,9 +14,8 @@ return mode:
 
 from typing import List, Optional
 
-from ..base_model import BaseModel
-from ..serializable import Serializable
-from ..types import MosaicoField, MosaicoType
+from ..core import BaseModel, MosaicoField, MosaicoType, Serializable
+from ..data import HeaderMixin
 
 SingleRange = List[MosaicoType.float32]
 """Type alias for a single-return range array: one distance value per beam."""
@@ -322,7 +321,11 @@ class _LaserScanBase(BaseModel):
     """
 
 
-class LaserScan(_LaserScanBase, Serializable):
+class LaserScan(
+    _LaserScanBase,
+    Serializable,
+    HeaderMixin,  # Adds Header support
+):
     """
     Single-return 2D laser scan data.
 
@@ -413,7 +416,11 @@ class LaserScan(_LaserScanBase, Serializable):
     """
 
 
-class MultiEchoLaserScan(_LaserScanBase, Serializable):
+class MultiEchoLaserScan(
+    _LaserScanBase,
+    Serializable,
+    HeaderMixin,  # Adds Header support
+):
     """
     Multi-echo 2D laser scan data.
 

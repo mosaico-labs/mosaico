@@ -5,11 +5,14 @@ Defines the `RobotJoint` model for capturing the state (position, velocity, effo
 of a robot's actuators.
 """
 
-from ..serializable import Serializable
-from ..types import MosaicoField, MosaicoType
+from ..core import MosaicoField, MosaicoType, Serializable
+from ..data import HeaderMixin
 
 
-class RobotJoint(Serializable):
+class RobotJoint(
+    Serializable,
+    HeaderMixin,  # Adds Header support
+):
     """
     Snapshot of robot joint states.
 
@@ -20,6 +23,7 @@ class RobotJoint(Serializable):
         positions: Positions ([rad] or [m]) of the different robot joints
         velocities: Velocities ([rad/s] or [m/s]) of the different robot joints
         efforts: Efforts ([N] or [N/m]) applied to the different robot joints
+        header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
     The robot joint states cannot be queried via the `.Q` proxy.

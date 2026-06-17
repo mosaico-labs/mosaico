@@ -70,6 +70,26 @@ impl<'a> Chunk<'a> {
                         stats.has_nan,
                     ));
                 }
+                types::Stats::ListNumeric(stats) => {
+                    numeric_batch.push(db::ColumnChunkNumericRecord::new(
+                        column.column_id,
+                        self.chunk.chunk_id,
+                        stats.min,
+                        stats.max,
+                        stats.has_null,
+                        stats.has_nan,
+                    ));
+                }
+                types::Stats::ListTextual(stats) => {
+                    let (min, max, has_null) = stats.into_owned();
+                    textual_batch.push(db::ColumnChunkTextualRecord::try_new(
+                        column.column_id,
+                        self.chunk.chunk_id,
+                        min,
+                        max,
+                        has_null,
+                    )?);
+                }
                 types::Stats::Unsupported => {}
             }
         }
