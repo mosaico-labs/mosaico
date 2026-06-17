@@ -22,7 +22,7 @@ from .expressions import (
     _QueryTopicExpression,
 )
 from .generation.mixins import _make_queryable_field_intance, _QueryableDynamicValue
-from .protocols import QueryableProtocol, TimeProtocol
+from .protocols import QueryableProtocol
 
 
 def _get_tag_from_expr_key(key: str):
@@ -549,8 +549,8 @@ class QueryTopic:
 
     def with_created_timestamp(
         self,
-        time_start: Optional[TimeProtocol] = None,
-        time_end: Optional[TimeProtocol] = None,
+        time_start: Optional[int] = None,
+        time_end: Optional[int] = None,
     ) -> "QueryTopic":
         """
         Adds a filter for the 'created_at_ns' field using high-precision Time.
@@ -592,8 +592,8 @@ class QueryTopic:
                 "At least one among 'time_start' and 'time_end' is mandatory"
             )
 
-        ts_int = time_start.to_nanoseconds() if time_start else None
-        te_int = time_end.to_nanoseconds() if time_end else None
+        ts_int = time_start if time_start else None
+        te_int = time_end if time_end else None
         # employs explicit _QueryTopicExpression composition for dealing with
         # special fields in data platform
         if ts_int and not te_int:
@@ -888,8 +888,8 @@ class QuerySequence:
 
     def with_created_timestamp(
         self,
-        time_start: Optional[TimeProtocol] = None,
-        time_end: Optional[TimeProtocol] = None,
+        time_start: Optional[int] = None,
+        time_end: Optional[int] = None,
     ) -> "QuerySequence":
         """
         Adds a filter for the 'created_at_ns' field using high-precision Time.
@@ -929,8 +929,8 @@ class QuerySequence:
                 "At least one among 'time_start' and 'time_end' is mandatory"
             )
 
-        ts_int = time_start.to_nanoseconds() if time_start else None
-        te_int = time_end.to_nanoseconds() if time_end else None
+        ts_int = time_start if time_start else None
+        te_int = time_end if time_end else None
         # employs explicit _QuerySequenceExpression composition for dealing with
         # special fields in data platform
         if ts_int and not te_int:
