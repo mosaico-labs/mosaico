@@ -22,7 +22,7 @@ import dataclasses
 from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple, Type, Union
 
 if TYPE_CHECKING:
-    from rosbags.typesys.store import Msgarg
+    from rosbags.typesys.store import MsgType
 
 from rosbags.typesys.store import Typestore
 
@@ -179,7 +179,7 @@ class GenericStdAdapter(ROSAdapterBase[Serializable]):
         mosaico_data: Union[Message, Serializable],
         typestore: Typestore,
         ros_msg_type: Optional[str] = None,
-    ) -> Msgarg:
+    ) -> MsgType:
         """
         Converts a Mosaico scalar wrapper (or a ``Message`` wrapping one) into the
         corresponding ``std_msgs`` ROS message.
@@ -348,7 +348,7 @@ class HeaderAdapter(ROSAdapterBase[Header]):
         mosaico_data: Union[Message, Header],
         typestore: Typestore,
         ros_msg_type: Optional[str] = None,
-    ) -> Msgarg:
+    ) -> MsgType:
         """
         Converts a Mosaico ``Header`` (or a ``Message`` wrapping one) into a
         ``std_msgs/msg/Header`` message.

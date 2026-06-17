@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any, Optional, Tuple, Type, Union
 from rosbags.typesys.store import Typestore
 
 if TYPE_CHECKING:
-    from rosbags.typesys.store import Msgarg
+    from rosbags.typesys.store import MsgType
 
 import numpy as np
 
@@ -132,7 +132,7 @@ class OdometryAdapter(ROSAdapterBase[MotionState]):
         mosaico_data: Union[Message, MotionState],
         typestore: Typestore,
         ros_msg_type: Optional[str] = None,
-    ) -> Msgarg:
+    ) -> MsgType:
         """
         Converts a Mosaico ``MotionState`` (or a ``Message`` wrapping one) into a
         ``nav_msgs/msg/Odometry`` message.
@@ -319,7 +319,7 @@ class RobotPathAdapter(ROSAdapterBase[RobotPath]):
         mosaico_data: Union[Message, RobotPath],
         typestore: Typestore,
         ros_msg_type: Optional[str] = None,
-    ) -> Msgarg:
+    ) -> MsgType:
         """
         Converts a Mosaico ``RobotPath`` (or a ``Message`` wrapping one) into a
         ``nav_msgs/msg/Path`` message.
@@ -475,7 +475,7 @@ class GridCellsAdapter(ROSAdapterBase[GridCells]):
         mosaico_data: Union[Message, GridCells],
         typestore: Typestore,
         ros_msg_type: Optional[str] = None,
-    ) -> Msgarg:
+    ) -> MsgType:
         """
         Converts a Mosaico ``GridCells`` (or a ``Message`` wrapping one) into a
         ``nav_msgs/msg/GridCells`` message.
@@ -619,7 +619,7 @@ class MapMetadataAdapter(ROSAdapterBase[MapMetadata]):
         mosaico_data: Union[Message, MapMetadata],
         typestore: Typestore,
         ros_msg_type: Optional[str] = None,
-    ) -> Msgarg:
+    ) -> MsgType:
         """
         Converts a Mosaico ``MapMetadata`` (or a ``Message`` wrapping one) into a
         ``nav_msgs/msg/MapMetaData`` message.
@@ -762,7 +762,7 @@ class OccupancyGridAdapter(ROSAdapterBase[OccupancyGrid]):
         mosaico_data: Union[Message, OccupancyGrid],
         typestore: Typestore,
         ros_msg_type: Optional[str] = None,
-    ) -> Msgarg:
+    ) -> MsgType:
         """
         Converts a Mosaico ``OccupancyGrid`` (or a ``Message`` wrapping one) into a
         ``nav_msgs/msg/OccupancyGrid`` message.

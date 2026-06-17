@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any, Optional, Tuple, Type, Union
 from rosbags.typesys.store import Typestore
 
 if TYPE_CHECKING:
-    from rosbags.typesys.store import Msgarg
+    from rosbags.typesys.store import MsgType
 
 from mosaicolabs.models.core import Message
 
@@ -139,7 +139,7 @@ class FrameTransformAdapter(ROSAdapterBase[FrameTransform]):
         mosaico_data: Union[Message, FrameTransform],
         typestore: Typestore,
         ros_msg_type: Optional[str] = None,
-    ) -> Msgarg:
+    ) -> MsgType:
         """
         Converts a Mosaico ``FrameTransform`` (or a ``Message`` wrapping one) into a
         ``tf2_msgs/msg/TFMessage``.

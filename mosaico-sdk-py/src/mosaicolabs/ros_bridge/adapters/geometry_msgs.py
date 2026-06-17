@@ -15,7 +15,7 @@ import numpy as np
 from rosbags.typesys.store import Typestore
 
 if TYPE_CHECKING:
-    from rosbags.typesys.store import Msgarg
+    from rosbags.typesys.store import MsgType
 
 from mosaicolabs.models.core import Message
 from mosaicolabs.models.data import (
@@ -189,7 +189,7 @@ class PoseAdapter(ROSAdapterBase[Pose]):
         mosaico_data: Union[Message, Pose],
         typestore: Typestore,
         ros_msg_type: Optional[str] = None,
-    ) -> Msgarg:
+    ) -> MsgType:
         """
         Converts a Mosaico ``Pose`` (or a ``Message`` wrapping one) into the
         corresponding ROS geometry message.
@@ -414,7 +414,7 @@ class TwistAdapter(ROSAdapterBase[Velocity]):
         mosaico_data: Union[Message, Velocity],
         typestore: Typestore,
         ros_msg_type: Optional[str] = None,
-    ) -> Msgarg:
+    ) -> MsgType:
         """
         Converts a Mosaico ``Velocity`` (or a ``Message`` wrapping one) into the
         corresponding ROS Twist message.
@@ -646,7 +646,7 @@ class AccelAdapter(ROSAdapterBase[Acceleration]):
         mosaico_data: Union[Message, Acceleration],
         typestore: Typestore,
         ros_msg_type: Optional[str] = None,
-    ) -> Msgarg:
+    ) -> MsgType:
         """
         Converts a Mosaico ``Acceleration`` (or a ``Message`` wrapping one) into the
         corresponding ROS Accel message.
@@ -853,7 +853,7 @@ class Vector3Adapter(ROSAdapterBase[Vector3d]):
         mosaico_data: Union[Message, Vector3d],
         typestore: Typestore,
         ros_msg_type: Optional[str] = None,
-    ) -> Msgarg:
+    ) -> MsgType:
         """
         Converts a Mosaico ``Vector3d`` (or a ``Message`` wrapping one) into the
         corresponding ROS Vector3 message.
@@ -1038,7 +1038,7 @@ class PointAdapter(ROSAdapterBase[Point3d]):
         mosaico_data: Union[Message, Point3d],
         typestore: Typestore,
         ros_msg_type: Optional[str] = None,
-    ) -> Msgarg:
+    ) -> MsgType:
         """
         Converts a Mosaico ``Point3d`` (or a ``Message`` wrapping one) into the
         corresponding ROS Point message.
@@ -1220,7 +1220,7 @@ class QuaternionAdapter(ROSAdapterBase[Quaternion]):
         mosaico_data: Union[Message, Quaternion],
         typestore: Typestore,
         ros_msg_type: Optional[str] = None,
-    ) -> Msgarg:
+    ) -> MsgType:
         """
         Converts a Mosaico ``Quaternion`` (or a ``Message`` wrapping one) into the
         corresponding ROS Quaternion message.
@@ -1411,7 +1411,7 @@ class TransformAdapter(ROSAdapterBase[Transform]):
         mosaico_data: Union[Message, Transform],
         typestore: Typestore,
         ros_msg_type: Optional[str] = None,
-    ) -> Msgarg:
+    ) -> MsgType:
         """
         Converts a Mosaico ``Transform`` (or a ``Message`` wrapping one) into the
         corresponding ROS Transform message.
@@ -1591,7 +1591,7 @@ class WrenchAdapter(ROSAdapterBase[ForceTorque]):
         mosaico_data: Union[Message, ForceTorque],
         typestore: Typestore,
         ros_msg_type: Optional[str] = None,
-    ) -> Msgarg:
+    ) -> MsgType:
         """
         Converts a Mosaico ``ForceTorque`` (or a ``Message`` wrapping one) into the
         corresponding ROS Wrench message.
@@ -1760,7 +1760,7 @@ class PolygonAdapter(ROSAdapterBase[Polygon]):
         mosaico_data: Union[Message, Polygon],
         typestore: Typestore,
         ros_msg_type: Optional[str] = None,
-    ) -> Msgarg:
+    ) -> MsgType:
         """
         Converts a Mosaico ``Polygon`` (or a ``Message`` wrapping one) into the
         corresponding ROS Polygon message.
@@ -1958,7 +1958,7 @@ class InertiaAdapter(ROSAdapterBase[Inertia]):
         mosaico_data: Union[Message, Inertia],
         typestore: Typestore,
         ros_msg_type: Optional[str] = None,
-    ) -> Msgarg:
+    ) -> MsgType:
         """
         Converts a Mosaico ``Inertia`` (or a ``Message`` wrapping one) into the
         corresponding ROS Inertia message.

@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any, Generic, Optional, Tuple, Type, TypeVar, 
 from rosbags.typesys.store import Typestore
 
 if TYPE_CHECKING:
-    from rosbags.typesys.store import Msgarg
+    from rosbags.typesys.store import MsgType
 
 from mosaicolabs import Header, Time
 from mosaicolabs.models.core import Message, Serializable
@@ -178,7 +178,7 @@ class ROSAdapterBase(ABC, Generic[T]):
         mosaico_data: Union[Message, T],
         typestore: Typestore,
         ros_msg_type: Optional[str] = None,
-    ) -> Msgarg:
+    ) -> MsgType:
         """
         Converts a Mosaico message or ontology object back into a native ROS message.
 

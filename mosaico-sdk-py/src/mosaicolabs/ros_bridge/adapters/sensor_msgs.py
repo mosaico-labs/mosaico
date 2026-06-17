@@ -22,7 +22,7 @@ import pyarrow as pa
 from rosbags.typesys.store import Typestore
 
 if TYPE_CHECKING:
-    from rosbags.typesys.store import Msgarg
+    from rosbags.typesys.store import MsgType
 
 from mosaicolabs.models.core import Message, Serializable
 from mosaicolabs.models.data import ROI, Point3d, Quaternion, Vector2d, Vector3d
@@ -214,7 +214,7 @@ class CameraInfoAdapter(ROSAdapterBase[CameraInfo]):
         mosaico_data: Union[Message, CameraInfo],
         typestore: Typestore,
         ros_msg_type: Optional[str] = None,
-    ) -> Msgarg:
+    ) -> MsgType:
         """
         Converts a Mosaico ``CameraInfo`` (or a ``Message`` wrapping one) into a
         ``sensor_msgs/msg/CameraInfo`` message.
@@ -397,7 +397,7 @@ class NavSatStatusAdapter(ROSAdapterBase[GPSStatus]):
         mosaico_data: Union[Message, GPSStatus],
         typestore: Typestore,
         ros_msg_type: Optional[str] = None,
-    ) -> Msgarg:
+    ) -> MsgType:
         """
         Converts a Mosaico ``GPSStatus`` (or a ``Message`` wrapping one) into a
         ``sensor_msgs/msg/NavSatStatus`` message.
@@ -574,7 +574,7 @@ class GPSAdapter(ROSAdapterBase[GPS]):
         mosaico_data: Union[Message, GPS],
         typestore: Typestore,
         ros_msg_type: Optional[str] = None,
-    ) -> Msgarg:
+    ) -> MsgType:
         """
         Converts a Mosaico ``GPS`` (or a ``Message`` wrapping one) into a
         ``sensor_msgs/msg/NavSatFix`` message.
@@ -785,7 +785,7 @@ class IMUAdapter(ROSAdapterBase[IMU]):
         mosaico_data: Union[Message, IMU],
         typestore: Typestore,
         ros_msg_type: Optional[str] = None,
-    ) -> Msgarg:
+    ) -> MsgType:
         """
         Converts a Mosaico ``IMU`` (or a ``Message`` wrapping one) into a
         ``sensor_msgs/msg/Imu`` message.
@@ -940,7 +940,7 @@ class NMEASentenceAdapter(ROSAdapterBase[NMEASentence]):
         mosaico_data: Union[Message, NMEASentence],
         typestore: Typestore,
         ros_msg_type: Optional[str] = None,
-    ) -> Msgarg:
+    ) -> MsgType:
         """
         Converts a Mosaico ``NMEASentence`` (or a ``Message`` wrapping one) into a
         ``nmea_msgs/msg/Sentence`` message.
@@ -1103,7 +1103,7 @@ class ImageAdapter(ROSAdapterBase[Image]):
         mosaico_data: Union[Message, Image],
         typestore: Typestore,
         ros_msg_type: Optional[str] = None,
-    ) -> Msgarg:
+    ) -> MsgType:
         """
         Converts a Mosaico ``Image`` (or a ``Message`` wrapping one) into a
         ``sensor_msgs/msg/Image`` message.
@@ -1296,7 +1296,7 @@ class CompressedImageAdapter(ROSAdapterBase[CompressedImage]):
         mosaico_data: Union[Message, CompressedImage],
         typestore: Typestore,
         ros_msg_type: Optional[str] = None,
-    ) -> Msgarg:
+    ) -> MsgType:
         """
         Converts a Mosaico ``CompressedImage`` (or a ``Message`` wrapping one) into a
         ``sensor_msgs/msg/CompressedImage`` message.
@@ -1440,7 +1440,7 @@ class ROIAdapter(ROSAdapterBase[ROI]):
         mosaico_data: Union[Message, ROI],
         typestore: Typestore,
         ros_msg_type: Optional[str] = None,
-    ) -> Msgarg:
+    ) -> MsgType:
         """
         Converts a Mosaico ``ROI`` (or a ``Message`` wrapping one) into a
         ``sensor_msgs/msg/RegionOfInterest`` message.
@@ -1657,7 +1657,7 @@ class BatteryStateAdapter(ROSAdapterBase[BatteryState]):
         mosaico_data: Union[Message, BatteryState],
         typestore: Typestore,
         ros_msg_type: Optional[str] = None,
-    ) -> Msgarg:
+    ) -> MsgType:
         """
         Converts a Mosaico ``BatteryState`` (or a ``Message`` wrapping one) into a
         ``sensor_msgs/msg/BatteryState`` message.
@@ -1843,7 +1843,7 @@ class RobotJointAdapter(ROSAdapterBase[RobotJoint]):
         mosaico_data: Union[Message, RobotJoint],
         typestore: Typestore,
         ros_msg_type: Optional[str] = None,
-    ) -> Msgarg:
+    ) -> MsgType:
         """
         Converts a Mosaico ``RobotJoint`` (or a ``Message`` wrapping one) into a
         ``sensor_msgs/msg/JointState`` message.
@@ -2121,7 +2121,7 @@ class PointCloudAdapterBase(ROSAdapterBase[PointCloudModel]):
         mosaico_data: Union[Message, PointCloudModel],
         typestore: Typestore,
         ros_msg_type: Optional[str] = None,
-    ) -> Msgarg:
+    ) -> MsgType:
         """
         Converts a Mosaico ``PointCloudModel`` subtype (or a ``Message`` wrapping one)
         into a ``sensor_msgs/msg/PointCloud2`` message.
@@ -2342,7 +2342,7 @@ class PointCloudAdapter(PointCloudAdapterBase[PointCloud2]):
         mosaico_data: Union[Message, PointCloud2],
         typestore: Typestore,
         ros_msg_type: Optional[str] = None,
-    ) -> Msgarg:
+    ) -> MsgType:
         """
         Converts a Mosaico ``PointCloud2`` (or a ``Message`` wrapping one) into a
         ``sensor_msgs/msg/PointCloud2`` message.
@@ -2522,7 +2522,7 @@ class LaserScanAdapter(LaserScannerAdapterBase[LaserScan]):
         mosaico_data: Union[Message, LaserScan],
         typestore: Typestore,
         ros_msg_type: Optional[str] = None,
-    ) -> Msgarg:
+    ) -> MsgType:
         """
         Converts a Mosaico ``LaserScan`` (or a ``Message`` wrapping one) into a
         ``sensor_msgs/msg/LaserScan`` message.
@@ -2650,7 +2650,7 @@ class MultiEchoLaserScanAdapter(LaserScannerAdapterBase[MultiEchoLaserScan]):
         mosaico_data: Union[Message, MultiEchoLaserScan],
         typestore: Typestore,
         ros_msg_type: Optional[str] = None,
-    ) -> Msgarg:
+    ) -> MsgType:
         """
         Converts a Mosaico ``MultiEchoLaserScan`` (or a ``Message`` wrapping one) into a
         ``sensor_msgs/msg/MultiEchoLaserScan`` message.
@@ -2798,7 +2798,7 @@ class MagneticFieldAdapter(ROSAdapterBase[Magnetometer]):
         mosaico_data: Union[Message, Magnetometer],
         typestore: Typestore,
         ros_msg_type: Optional[str] = None,
-    ) -> Msgarg:
+    ) -> MsgType:
         """
         Converts a Mosaico ``Magnetometer`` (or a ``Message`` wrapping one) into a
         ``sensor_msgs/msg/MagneticField`` message.
@@ -2934,7 +2934,7 @@ class JoyAdapter(ROSAdapterBase[Joy]):
         mosaico_data: Union[Message, Joy],
         typestore: Typestore,
         ros_msg_type: Optional[str] = None,
-    ) -> Msgarg:
+    ) -> MsgType:
         """
         Converts a Mosaico ``Joy`` (or a ``Message`` wrapping one) into a
         ``sensor_msgs/msg/Joy`` message.
@@ -3066,7 +3066,7 @@ class TemperatureAdapter(ROSAdapterBase[Temperature]):
         mosaico_data: Union[Message, Temperature],
         typestore: Typestore,
         ros_msg_type: Optional[str] = None,
-    ) -> Msgarg:
+    ) -> MsgType:
         """
         Converts a Mosaico ``Temperature`` (or a ``Message`` wrapping one) into a
         ``sensor_msgs/msg/Temperature`` message.
@@ -3198,7 +3198,7 @@ class PressureAdapter(ROSAdapterBase[Pressure]):
         mosaico_data: Union[Message, Pressure],
         typestore: Typestore,
         ros_msg_type: Optional[str] = None,
-    ) -> Msgarg:
+    ) -> MsgType:
         """
         Converts a Mosaico ``Pressure`` (or a ``Message`` wrapping one) into a
         ``sensor_msgs/msg/FluidPressure`` message.
