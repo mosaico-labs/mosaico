@@ -22,7 +22,7 @@ pub enum Stats {
     Numeric(NumericStats),
     Textual(TextualStats),
     Unsupported,
-    List(NumericStats),
+    ListNumeric(NumericStats),
     ListTextual(TextualStats),
 }
 

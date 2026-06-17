@@ -382,7 +382,7 @@ where
                 // DataFusion array_element uses 1-indexing
                 scalar_op_to_df_expr(array_element(arr, lit(i as i64 + 1)), op)
             }
-            Some(IndexSpecifier::Any) => any_op_to_df_expr(arr, op),
+            Some(IndexSpecifier::AtLeastOne) => any_op_to_df_expr(arr, op),
             Some(IndexSpecifier::All) => all_op_to_df_expr(arr, op),
         };
 

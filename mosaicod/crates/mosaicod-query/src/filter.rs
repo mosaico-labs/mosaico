@@ -223,7 +223,7 @@ pub enum IndexSpecifier {
     /// Access the element at a specific position: [0], [42].
     At(usize),
     /// At least one element must satisfy the predicate: [?].
-    Any,
+    AtLeastOne,
     /// Every element must satisfy the predicate: [!].
     All,
 }
@@ -232,7 +232,7 @@ impl std::fmt::Display for IndexSpecifier {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             IndexSpecifier::At(n) => write!(f, "[{n}]"),
-            IndexSpecifier::Any => write!(f, "[?]"),
+            IndexSpecifier::AtLeastOne => write!(f, "[?]"),
             IndexSpecifier::All => write!(f, "[!]"),
         }
     }
@@ -246,7 +246,7 @@ impl std::fmt::Display for IndexSpecifier {
 ///
 /// Examples:
 /// - "x"                     prefix: [],                field: "x",    specifier: None
-/// - "x[?]"                  prefix: [],                field: "x",    specifier: Some(Any)
+/// - "x[?]"                  prefix: [],                field: "x",    specifier: Some(AtLeastOne)
 /// - "x[30]"                 prefix: [],                field: "x",    specifier: Some(At(30))
 /// - "acceleration.x"        prefix: ["acceleration"],  field: "x",    specifier: None
 /// - "acceleration.x[!]"     prefix: ["acceleration"],  field: "x",    specifier: Some(All)
@@ -295,7 +295,7 @@ fn parse_segment(s: &str) -> Result<(String, Option<IndexSpecifier>), ()> {
                 .and_then(|r| r.strip_suffix(']'))
                 .ok_or(())?;
             let specifier = match content {
-                "?" => IndexSpecifier::Any,
+                "?" => IndexSpecifier::AtLeastOne,
                 "!" => IndexSpecifier::All,
                 n => IndexSpecifier::At(n.parse::<usize>().map_err(|_| ())?),
             };

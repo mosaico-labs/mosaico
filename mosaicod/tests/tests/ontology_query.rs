@@ -10,6 +10,8 @@ use tests::{actions, common};
 
 use arrow::array::ArrayRef;
 
+/// Builds a [`RecordBatch`] with a list column (list of i64) used to test filters
+/// (equal, at least on, all) against list-typed ontology columns.
 fn int_list_batch(ts_start: i64, values: &[i64], list_test: &[Vec<i64>]) -> RecordBatch {
     assert_eq!(
         values.len(),
@@ -29,6 +31,8 @@ fn int_list_batch(ts_start: i64, values: &[i64], list_test: &[Vec<i64>]) -> Reco
 
     let timestamps: Vec<i64> = (0..values.len() as i64).map(|i| ts_start + i * 5).collect();
 
+    // Each inner Vec becomes one list entry; values are appended element by element,
+    // then append(true) closes the current list and moves to the next row.
     let mut list_builder = ListBuilder::new(Int64Builder::new()).with_field(Field::new(
         "item",
         DataType::Int64,

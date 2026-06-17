@@ -304,15 +304,14 @@ pub fn stats_from_arrow_field(field: &Field) -> types::Stats {
             if is_textual(elem.data_type()) {
                 Stats::ListTextual(TextualStats::new())
             } else {
-                Stats::List(NumericStats::new())
+                Stats::ListNumeric(NumericStats::new())
             }
         }
-        // Do we need to handle the fixed size?
         DataType::FixedSizeList(elem, _) => {
             if is_textual(elem.data_type()) {
                 Stats::ListTextual(TextualStats::new())
             } else {
-                Stats::List(NumericStats::new())
+                Stats::ListNumeric(NumericStats::new())
             }
         }
         _ => Stats::Unsupported,
@@ -321,7 +320,7 @@ pub fn stats_from_arrow_field(field: &Field) -> types::Stats {
 
 /// Extracts the flattened child values array from a list array.
 /// Returns None if the array is not a recognized list type.
-fn list_child_values(array: &ArrayRef) -> Option<ArrayRef> {
+fn list_child_values_from_array(array: &ArrayRef) -> Option<ArrayRef> {
     use arrow::array::Array;
     if let Some(a) = array.as_any().downcast_ref::<ListArray>() {
         return Some(a.values().clone());
@@ -372,8 +371,8 @@ pub fn stats_inspect_array(stats: &mut types::Stats, array: &ArrayRef) -> Result
 
             stats.merge(min_val, max_val, has_null);
         }
-        Stats::List(stats) => {
-            let flatten_list = list_child_values(array).ok_or_else(|| {
+        Stats::ListNumeric(stats) => {
+            let flatten_list = list_child_values_from_array(array).ok_or_else(|| {
                 arrow::error::ArrowError::CastError("expected list array".to_string())
             })?;
 
@@ -386,7 +385,7 @@ pub fn stats_inspect_array(stats: &mut types::Stats, array: &ArrayRef) -> Result
             stats.merge(min_val, max_val, has_null, has_nan);
         }
         Stats::ListTextual(stats) => {
-            let flatten_list = list_child_values(array).ok_or_else(|| {
+            let flatten_list = list_child_values_from_array(array).ok_or_else(|| {
                 arrow::error::ArrowError::CastError("expected list array".to_string())
             })?;
 

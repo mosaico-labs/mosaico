@@ -70,7 +70,7 @@ impl<'a> Chunk<'a> {
                         stats.has_nan,
                     ));
                 }
-                types::Stats::List(stats) => {
+                types::Stats::ListNumeric(stats) => {
                     numeric_batch.push(db::ColumnChunkNumericRecord::new(
                         column.column_id,
                         self.chunk.chunk_id,
