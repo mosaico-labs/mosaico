@@ -65,30 +65,37 @@ class Loader(Protocol):
     @property
     def duration(self) -> int:
         """This should return the duration of the loaded data as int"""
+        ...
 
     @property
     def topics(self) -> List[str]:
         """This should return the Mosaico compatible topics of the loaded data as strings"""
+        ...
 
     @property
     def resolved_topics(self) -> List[str]:
         """This should return **all** the topics of the loaded data as strings"""
+        ...
 
     @property
     def not_adapted_topics(self) -> List[str]:
         """This should return the Mosaico incompatible topics of the loaded data as strings"""
+        ...
 
     @property
     def filtered_topics(self) -> List[str]:
         """This should return the user filtered topics thorugh the glob pattern of the loaded data as strings"""
+        ...
 
     @property
     def msg_types(self) -> List[str | None]:
         """This should return the types of the loaded data as strings"""
+        ...
 
     def msg_count(self, topic: Optional[str] = None) -> int:
         """This should return the total number of messages in the passed
         topic if not None. Otherwise returns all messages in all topics"""
+        ...
 
 
 # --- UI / Progress Helper ---
@@ -145,11 +152,11 @@ class ProgressManager:
                 "", total=count, name=topic_name
             )
 
-        # Filtered topics are immeditelly set to yellow
+        # Filtered topics are immediately set to yellow
         for topic_name in self.loader.filtered_topics:
             self.update_status(topic_name, "Filtered", "yellow")
 
-        # Incompatible topics are immeditelly set to yellow
+        # Incompatible topics are immediately set to yellow
         for topic_name in self.loader.not_adapted_topics:
             self.update_status(topic_name, "No Adapter", "yellow")
 
@@ -337,7 +344,7 @@ class ROSLoader:
             self._reader.topics, self._requested_topics
         )
 
-        # Filter connections by ...
+        # Filter connections
         for conn in self._reader.connections:
             topic_info = matched_topics.get(conn.topic)
 
@@ -709,7 +716,7 @@ class MosaicoLoader:
             self.seq_handler.topics, self.topic_glob_pattern
         )
 
-        # Filter topics by...
+        # Filter topics
         for t_name in self.seq_handler.topics:
             # 1) requested topic
             if t_name not in matched_topics:
@@ -717,13 +724,13 @@ class MosaicoLoader:
                 continue
 
             # 2) Mosaico-adapted topic
-            t_hanlder = self.seq_handler.get_topic_handler(t_name)
+            t_handler = self.seq_handler.get_topic_handler(t_name)
 
-            if ROSBridge.is_mosaico_type_adapted(t_hanlder.ontology_tag):
+            if ROSBridge.is_mosaico_type_adapted(t_handler.ontology_tag):
                 self._accepted_topics.append(t_name)
             else:
                 logger.warning(
-                    f"Skipping topic {t_name}: not-adapted ontology {t_hanlder.ontology_tag}."
+                    f"Skipping topic {t_name}: not-adapted ontology {t_handler.ontology_tag}."
                 )
                 self._not_adapted_topics.append(t_name)
 
