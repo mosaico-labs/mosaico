@@ -42,4 +42,4 @@ from .mixins import (
     VarianceMixin as VarianceMixin,
 )
 from .roi import ROI as ROI
-from .time import Time as Time
+from .time import Duration as Duration, Time as Time
