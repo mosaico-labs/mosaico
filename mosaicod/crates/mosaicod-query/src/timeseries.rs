@@ -370,9 +370,9 @@ fn all_op_to_df_expr<V: Into<Value>>(arr: Expr, op: Op<V>) -> Option<Expr> {
 /// specifier.
 ///
 /// Examples:
-/// - `"readings[?].x"` → `col("readings")`
-/// - `"a.b[?].y.z"`    → `col("a").field("b")`
-/// - `"value"`          → `col("value")`
+/// - `"pose[?].x"`     ->  `col("pose")`
+/// - `"a.b[?].c.d"`    ->  `col("a").field("b")`
+/// - `"value"`         ->  `col("value")`
 fn list_col_expr(field: &OntologyField) -> Expr {
     let parsed = field.field_path();
     let list_idx = parsed.list_access.as_ref().map(|la| la.segment_index);

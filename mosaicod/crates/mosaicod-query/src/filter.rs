@@ -251,8 +251,6 @@ pub struct ListAccess {
 /// At most one segment may carry a list specifier ([?], [!], [N]).
 /// After the list field, only plain struct navigation is allowed.
 ///
-/// Shape: segments[0..list_index][spec] . segments[list_index+1..]
-///
 /// Examples:
 /// - "x"                     segments: ["x"],                      list_access: None
 /// - "x[?]"                  segments: ["x"],                      list_access: Some { index: 0, AtLeastOne }
@@ -327,14 +325,14 @@ pub struct OntologyField {
 
 impl OntologyField {
     pub fn try_new(v: String) -> Result<Self, super::Error> {
-        let ontology_tag = v.split(".").next().ok_or_else(|| super::Error::BadField {
+        let ontology_tag = v.split('.').next().ok_or_else(|| super::Error::BadField {
             field: v.to_string(),
         })?;
         let tag = ontology_tag.to_owned();
         let len = ontology_tag.len();
 
         let field_part = &v[(len + 1)..];
-        let raw_segments: Vec<&str> = field_part.split(".").collect();
+        let raw_segments: Vec<&str> = field_part.split('.').collect();
 
         let mut segments = Vec::with_capacity(raw_segments.len());
         let mut list_access: Option<ListAccess> = None;
