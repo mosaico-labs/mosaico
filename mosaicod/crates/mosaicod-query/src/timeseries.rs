@@ -416,13 +416,13 @@ fn inner_field_segs(field: &OntologyField) -> Vec<String> {
 ///
 /// Used in two contexts:
 /// - Inside a lambda body, where `expr` is a `lambda_var("elem")` representing one struct
-///   element of the list, and `sub_segs` navigates into it (e.g. `elem.field("x")`).
+///   element of the list, and `field_segments` navigates into it (e.g. `elem.field("x")`).
 /// - After `array_element`, where `expr` is the result of indexing into a list with `[N]`
-///   and `sub_segs` navigates into the resulting struct (e.g. `readings[0].field("x")`).
+///   and `field_segments` navigates into the resulting struct (e.g. `readings[0].field("x")`).
 ///
-/// When `sub_segs` is empty this is a no-op and the expression is returned unchanged.
-fn chain_field_accesses(mut expr: Expr, sub_segs: &[String]) -> Expr {
-    for seg in sub_segs {
+/// When `field_segments` is empty this is a no-op and the expression is returned unchanged.
+fn chain_field_accesses(mut expr: Expr, field_segments: &[String]) -> Expr {
+    for seg in field_segments {
         expr = expr.field(seg.as_str());
     }
     expr
@@ -439,8 +439,8 @@ fn chain_field_accesses(mut expr: Expr, sub_segs: &[String]) -> Expr {
 /// This function produces `<body>`: it creates a `lambda_var("elem")` (the placeholder for
 /// the current element), navigates into the target sub-field via [`chain_field_accesses`]
 /// (e.g. `elem.field("x")`), and then applies the comparison operator (e.g. `.gt(3.0)`).
-fn struct_elem_predicate<V: Into<Value>>(sub_segs: &[String], op: Op<V>) -> Option<Expr> {
-    let make_fe = || chain_field_accesses(lambda_var("elem"), sub_segs);
+fn struct_elem_predicate<V: Into<Value>>(field_segments: &[String], op: Op<V>) -> Option<Expr> {
+    let make_fe = || chain_field_accesses(lambda_var("elem"), field_segments);
     Some(match op {
         Op::Eq(v) => make_fe().eq(value_to_df_expr(v.into())),
         Op::Neq(v) => make_fe().not_eq(value_to_df_expr(v.into())),
@@ -469,20 +469,20 @@ fn struct_elem_predicate<V: Into<Value>>(sub_segs: &[String], op: Op<V>) -> Opti
 /// predicate targets a sub-field inside each struct element (e.g. `readings[?].x > 3`).
 fn any_op_struct_to_df_expr<V: Into<Value>>(
     arr: Expr,
-    sub_segs: &[String],
+    field_segments: &[String],
     op: Op<V>,
 ) -> Option<Expr> {
-    let body = struct_elem_predicate(sub_segs, op)?;
+    let body = struct_elem_predicate(field_segments, op)?;
     Some(array_any_match(arr, lambda(["elem"], body)))
 }
 
 /// Builds the DataFusion expression for `[!]` on a `List<Struct<…>>` column.
 fn all_op_struct_to_df_expr<V: Into<Value>>(
     arr: Expr,
-    sub_segs: &[String],
+    field_segments: &[String],
     op: Op<V>,
 ) -> Option<Expr> {
-    let body = struct_elem_predicate(sub_segs, op)?;
+    let body = struct_elem_predicate(field_segments, op)?;
     Some(not(array_any_match(arr, lambda(["elem"], not(body)))))
 }
 
