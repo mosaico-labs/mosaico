@@ -74,6 +74,67 @@ class TestTopicLs:
         assert result.exit_code == 0
         assert "No topics found" in result.output
 
+    def test_ls_with_metadata_filter(
+        self,
+        cli_runner: CliRunner,
+        cli_env: dict,
+        inject_synthetic_sequence,
+    ):
+        result = cli_runner.invoke(
+            app,
+            ["topic", "ls", "--metadata", "role=front"],
+            env=cli_env,
+        )
+        assert result.exit_code == 0
+        assert "/front/imu" in result.output
+
+    def test_ls_multiple_metadata_filters(
+        self,
+        cli_runner: CliRunner,
+        cli_env: dict,
+        inject_synthetic_sequence,
+    ):
+        result = cli_runner.invoke(
+            app,
+            [
+                "topic",
+                "ls",
+                "--metadata",
+                "role=front",
+                "--metadata",
+                "status=active",
+            ],
+            env=cli_env,
+        )
+        assert result.exit_code == 0
+        assert "/front/imu" in result.output
+
+    def test_ls_invalid_metadata_format(
+        self,
+        cli_runner: CliRunner,
+        cli_env: dict,
+        inject_synthetic_sequence,
+    ):
+        result = cli_runner.invoke(
+            app,
+            ["topic", "ls", "--metadata", "no-equals-sign"],
+            env=cli_env,
+        )
+        assert result.exit_code == 1
+
+    def test_ls_table_output_explicit(
+        self,
+        cli_runner: CliRunner,
+        cli_env: dict,
+        inject_synthetic_sequence,
+    ):
+        result = cli_runner.invoke(
+            app,
+            ["topic", "ls", "--output", "table"],
+            env=cli_env,
+        )
+        assert result.exit_code == 0
+
 
 class TestTopicStat:
     def test_stat_existing_topic(
@@ -120,6 +181,29 @@ class TestTopicStat:
             env=cli_env,
         )
         assert "Invalid" in result.output or "Error" in result.output
+
+    def test_stat_multiple_topics(
+        self,
+        cli_runner: CliRunner,
+        cli_env: dict,
+        inject_synthetic_sequence,
+        synthetic_sequence_data_stream,
+    ):
+        ts_min = str(synthetic_sequence_data_stream.tstamp_ns_start)
+        ts_max = str(synthetic_sequence_data_stream.tstamp_ns_end)
+        handlers = [
+            f"{UPLOADED_SEQUENCE_NAME}{topic},{ts_min},{ts_max}"
+            for topic in topic_list[:2]
+        ]
+
+        result = cli_runner.invoke(
+            app,
+            ["topic", "stat"] + handlers,
+            env=cli_env,
+        )
+        assert result.exit_code == 0
+        for topic in topic_list[:2]:
+            assert topic in result.output
 
 
 class TestTopicMcat:
@@ -210,3 +294,77 @@ class TestTopicMcat:
             env=cli_env,
         )
         assert "Invalid" in result.output or "Error" in result.output
+
+    def test_mcat_merge_overlapping_handlers(
+        self,
+        cli_runner: CliRunner,
+        cli_env: dict,
+        inject_synthetic_sequence,
+        synthetic_sequence_data_stream,
+    ):
+        target_topic = topic_list[0]
+        ts_start = synthetic_sequence_data_stream.tstamp_ns_start
+        ts_end = synthetic_sequence_data_stream.tstamp_ns_end
+        ts_mid = (ts_start + ts_end) // 2
+
+        handler_1 = f"{UPLOADED_SEQUENCE_NAME}{target_topic},{ts_start},{ts_mid}"
+        handler_2 = f"{UPLOADED_SEQUENCE_NAME}{target_topic},{ts_mid},{ts_end}"
+
+        result = cli_runner.invoke(
+            app,
+            ["topic", "mcat", handler_1, handler_2, "--count", "10"],
+            env=cli_env,
+        )
+        assert result.exit_code == 0
+        lines = [line for line in result.output.strip().splitlines() if line.strip()]
+        assert len(lines) > 0
+        for line in lines:
+            payload = json.loads(line)
+            assert "_timestamp" in payload
+
+    def test_mcat_all_messages_without_count(
+        self,
+        cli_runner: CliRunner,
+        cli_env: dict,
+        inject_synthetic_sequence,
+        synthetic_sequence_data_stream,
+    ):
+        target_topic = topic_list[0]
+        ts_min = str(synthetic_sequence_data_stream.tstamp_ns_start)
+        ts_max = str(synthetic_sequence_data_stream.tstamp_ns_end)
+        handler_str = f"{UPLOADED_SEQUENCE_NAME}{target_topic},{ts_min},{ts_max}"
+
+        result = cli_runner.invoke(
+            app,
+            ["topic", "mcat", handler_str],
+            env=cli_env,
+        )
+        assert result.exit_code == 0
+        lines = [line for line in result.output.strip().splitlines() if line.strip()]
+        assert len(lines) > 5
+
+    def test_mcat_multiple_different_topics(
+        self,
+        cli_runner: CliRunner,
+        cli_env: dict,
+        inject_synthetic_sequence,
+        synthetic_sequence_data_stream,
+    ):
+        ts_min = str(synthetic_sequence_data_stream.tstamp_ns_start)
+        ts_max = str(synthetic_sequence_data_stream.tstamp_ns_end)
+        handler_1 = f"{UPLOADED_SEQUENCE_NAME}{topic_list[0]},{ts_min},{ts_max}"
+        handler_2 = f"{UPLOADED_SEQUENCE_NAME}{topic_list[1]},{ts_min},{ts_max}"
+
+        result = cli_runner.invoke(
+            app,
+            ["topic", "mcat", handler_1, handler_2, "--count", "10"],
+            env=cli_env,
+        )
+        assert result.exit_code == 0
+        lines = [line for line in result.output.strip().splitlines() if line.strip()]
+        assert len(lines) > 0
+        topics_seen = set()
+        for line in lines:
+            payload = json.loads(line)
+            topics_seen.add(payload["_topic"])
+        assert len(topics_seen) >= 1
