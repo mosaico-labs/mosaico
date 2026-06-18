@@ -7,8 +7,122 @@ fields (covariance and variance) into ontology models via composition.
 
 from typing import Optional
 
-from .base_model import BaseModel
-from .types import MosaicoField, MosaicoType
+from ..core import BaseModel, MosaicoField, MosaicoType
+from .header import Header
+
+
+class HeaderMixin(BaseModel):
+    """
+    A mixin that adds header fields.
+
+    Recommended for sensors that provide a timestamp, a reference system or the number of produced samples.
+
+    ### Dynamic Schema Injection
+    This mixin uses the `__init_subclass__` hook to perform a **Schema Append** operation:
+
+    1. It inspects the child class's existing `__msco_pyarrow_struct__`.
+    2. It appends a `header` field.
+    3. It reconstructs the final `pa.struct` for the class.
+
+    Important: Collision Safety
+        The mixin performs a collision check during class definition. If the child
+        class already defines a `header` field in its PyArrow struct, a `ValueError`
+        will be raised to prevent schema corruption.
+
+    ### Querying with the **`.Q` Proxy** {: #queryability }
+    When constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog],
+    the class fields are queryable across any model inheriting from this mixin, according to the following table:
+
+    | Field Access Path | Queryable Type | Supported Operators |
+    | :--- | :--- | :--- |
+    | `<Model>.Q.header.timestamp.seconds` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `<Model>.Q.header.timestamp.nanoseconds` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `<Model>.Q.header.frame_id` | `String` | `.eq()`, `.match()`, `.in_()`, `.lt()`, `.gt()`, `.leq()`, `.geq()` |
+    | `<Model>.Q.header.sample_counter` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+
+    Note: Universal Compatibility
+        The `<Model>` placeholder adapts based on how the `HeaderMixin` is integrated into the data structure:
+
+    Example:
+        ```python
+        from mosaicolabs import MosaicoClient, ForceTorque, QueryOntologyCatalog
+
+        with MosaicoClient.connect("localhost", 6726) as client:
+            # Find where the measure lasts at least 10 seconds
+            qresponse = client.query(QueryOntologyCatalog(ForceTorque.Q.header.timestamp.seconds.gt(10.0)))
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {[topic.name for topic in item.topics]}")
+
+            # Filter for a specific data value and extract the first and last occurrence times
+            qresponse = client.query(
+                QueryOntologyCatalog(ForceTorque.Q.header.frame_id.eq("camera_link"), include_timestamp_range=True)
+            )
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {{topic.name:
+                                [topic.timestamp_range.start, topic.timestamp_range.end]
+                                for topic in item.topics}}")
+        ```
+    """
+
+    header: Optional[Header] = MosaicoField(
+        nullable=True,
+        default=None,
+        description="Contains measure metadata like timestamp, reference frame and samples counter.",
+    )
+    """
+    Measure header containing measurement timestamp and reference frame.
+
+    ### Querying with the **`.Q` Proxy**
+    Header components are queryable through the `header` field prefix.
+
+    | Field Access Path | Queryable Type | Supported Operators |
+    | :--- | :--- | :--- |
+    | `<Model>.Q.timestamp.seconds` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `<Model>.Q.header.timestamp.nanoseconds` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `<Model>.Q.header.frame_id` | `String` | `.eq()`, `.match()`, `.in_()`, `.lt()`, `.gt()`, `.leq()`, `.geq()` |
+    | `<Model>.Q.header.sample_counter` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+
+    Example:
+        ```python
+        from mosaicolabs import MosaicoClient, ForceTorque, QueryOntologyCatalog
+
+        with MosaicoClient.connect("localhost", 6726) as client:
+            # Find where the measure lasts at least 10 seconds
+            qresponse = client.query(QueryOntologyCatalog(ForceTorque.Q.header.timestamp.seconds.gt(10.0)))
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {[topic.name for topic in item.topics]}")
+
+            # Filter for a specific data value and extract the first and last occurrence times
+            qresponse = client.query(
+                QueryOntologyCatalog(ForceTorque.Q.header.frame_id.eq("camera_link"), include_timestamp_range=True)
+            )
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {{topic.name:
+                                [topic.timestamp_range.start, topic.timestamp_range.end]
+                                for topic in item.topics}}")
+        ```
+    """
+
 
 # ---- CovarianceMixin ----
 

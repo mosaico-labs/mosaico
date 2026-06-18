@@ -5,7 +5,7 @@ import textwrap
 import pydantic
 import pytest
 
-from mosaicolabs.models import Message, Serializable
+from mosaicolabs import Message, Serializable
 
 from .my_project import RegisteredSensor, UnregisteredSensor
 
@@ -57,7 +57,7 @@ def test_futures_registration():
     code = textwrap.dedent(
         # Generate a fresh environmnent
         """
-            from mosaicolabs.models.serializable import Serializable
+            from mosaicolabs.models.core import Serializable
 
             _FUTURES_TAGS = [
                 "rgbd_camera",

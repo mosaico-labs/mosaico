@@ -88,6 +88,10 @@ pub enum ActionRequest {
     /// then clusters matching timestamps by a time-gap threshold.
     TopicFilterClusterize(requests::TopicFilterClusterize),
 
+    /// Filters multiple topics by ontology and timestamp range,
+    /// then returns the intersection of their matching timestamps.
+    TopicFilterIntersect(requests::TopicFilterIntersect),
+
     /// Creates a new upload session for the given sequence.
     SessionCreate(requests::ResourceLocator),
 
@@ -128,6 +132,7 @@ impl std::fmt::Display for ActionRequest {
             Self::TopicNotificationList(_) => write!(f, "TopicNotificationList"),
             Self::TopicNotificationPurge(_) => write!(f, "TopicNotificationPurge"),
             Self::TopicFilterClusterize(_) => write!(f, "TopicFilterClusterize"),
+            Self::TopicFilterIntersect(_) => write!(f, "TopicFilterIntersect"),
             Self::SessionCreate(_) => write!(f, "SessionCreate"),
             Self::SessionFinalize(_) => write!(f, "SessionFinalize"),
             Self::SessionDelete(_) => write!(f, "SessionDelete"),
@@ -162,6 +167,7 @@ impl ActionRequest {
             "topic_notification_list" => parse_action_req!(TopicNotificationList, body),
             "topic_notification_purge" => parse_action_req!(TopicNotificationPurge, body),
             "topic_filter_clusterize" => parse_action_req!(TopicFilterClusterize, body),
+            "topic_filter_intersect" => parse_action_req!(TopicFilterIntersect, body),
 
             "session_create" => parse_action_req!(SessionCreate, body),
             "session_finalize" => parse_action_req!(SessionFinalize, body),
@@ -195,6 +201,7 @@ pub enum ActionResponse {
     TopicNotificationPurge(()),
     TopicNotificationList(responses::NotificationList),
     TopicFilterClusterize(responses::TopicFilterClusterize),
+    TopicFilterIntersect(responses::TopicFilterClusterize),
 
     /// Returns the response key associated with the session just created
     SessionCreate(responses::SessionCreate),
@@ -261,6 +268,10 @@ impl ActionResponse {
 
     pub fn topic_filter_clusterize(response: responses::TopicFilterClusterize) -> Self {
         Self::TopicFilterClusterize(response)
+    }
+
+    pub fn topic_filter_intersect(response: responses::TopicFilterClusterize) -> Self {
+        Self::TopicFilterIntersect(response)
     }
 
     pub fn session_create(

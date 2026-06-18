@@ -291,7 +291,7 @@ impl query::CompileClause for ChunkQueryBuilder {
 
 impl query::OntologyFieldFmt for ChunkQueryBuilder {
     fn ontology_column_fmt(&self, subfield: &query::OntologyField) -> String {
-        format!("'{}'", subfield.value())
+        format!("'{}'", subfield.field_str())
     }
 }
 

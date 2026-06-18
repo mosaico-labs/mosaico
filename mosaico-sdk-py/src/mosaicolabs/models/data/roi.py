@@ -1,7 +1,6 @@
 from typing import Optional
 
-from ..serializable import Serializable
-from ..types import MosaicoField, MosaicoType
+from ..core import MosaicoField, MosaicoType, Serializable
 from .geometry import Vector2d
 
 

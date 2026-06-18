@@ -15,10 +15,9 @@ import pandas as pd
 import pyarrow as pa
 from pydantic import PrivateAttr
 
-from ..helpers.helpers import encode_to_dict
-from ..logging_config import get_logger
+from ...logging_config import get_logger
 from .base_model import BaseModel
-from .internal.helpers import _fix_empty_dicts
+from .internal.helpers import _fix_empty_dicts, encode_to_dict
 from .serializable import Serializable
 
 # Set the hierarchical logger
@@ -37,19 +36,14 @@ class Message(BaseModel):
     """
     The universal transport envelope for Mosaico data.
 
-    The `Message` class wraps a polymorphic [`Serializable`][mosaicolabs.models.Serializable]
-    payload with middleware metadata, such as recording timestamps and headers.
+    The `Message` class wraps a polymorphic [`Serializable`][mosaicolabs.models.core.Serializable]
+    payload with its ingestion timestamps (record time).
 
     Attributes:
-        timestamp_ns: Sensor acquisition timestamp in nanoseconds (event time).
-            This represents the time at which the underlying physical event occurred —
-            i.e., when the sensor actually captured or generated the data.
-        data: The actual ontology data payload (e.g., an IMU or GPS instance).
-        recording_timestamp_ns: Ingestion timestamp in nanoseconds (record time).
+        timestamp_ns: Ingestion timestamp in nanoseconds (record time).
             This represents the time at which the message was received and persisted by
             the recording system (e.g., rosbag, parquet writer, logging pipeline, or database).
-        frame_id: A string identifier for the coordinate frame (spatial context).
-        sequence_id: An optional sequence ID, primarily used for legacy tracking.
+        data: The actual ontology data payload (e.g., an IMU or GPS instance).
 
     ### Querying with the **`.Q` Proxy** {: #queryability }
     When constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog],
@@ -58,13 +52,10 @@ class Message(BaseModel):
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
     | `<Model>.Q.timestamp_ns` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
-    | `<Model>.Q.recording_timestamp_ns` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
-    | `<Model>.Q.frame_id` | `String` | `.eq()`, `.match()`, `.in_()`, `.lt()`, `.gt()`, `.leq()`, `.geq()` |
-    | `<Model>.Q.sequence_id` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
 
     Note: Universal Compatibility
         The `<Model>` placeholder represents any Mosaico ontology class (e.g., `IMU`, `GPS`, `Floating64`)
-        or any custom user-defined class that is a subclass of [`Serializable`][mosaicolabs.models.Serializable].
+        or any custom user-defined class that is a subclass of [`Serializable`][mosaicolabs.models.core.Serializable].
 
     Example:
         ```python
@@ -83,17 +74,6 @@ class Message(BaseModel):
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # Filter primitive Floating64 telemetry by frame identifier
-            qresponse = client.query(
-                QueryOntologyCatalog(Floating64.Q.frame_id.eq("robot_base"))
-            )
-
-            # Inspect the response
-            if qresponse is not None:
-                # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
-                    print(f"Sequence: {item.sequence.name}")
-                    print(f"Topics: {[topic.name for topic in item.topics]}")
         ```
     """
 
@@ -105,30 +85,8 @@ class Message(BaseModel):
                 pa.int64(),
                 nullable=False,
                 metadata={
-                    "description": "Message/Sensor acquisition timestamp in nanoseconds."
+                    "description": "Ingestion timestamp in nanoseconds (record time)."
                 },
-            ),
-            pa.field(
-                "recording_timestamp_ns",
-                pa.int64(),
-                nullable=True,
-                metadata={
-                    "description": "Recording timestamp in nanoseconds. "
-                    "This is the timestamp in which the message was recorded in the receiving store file "
-                    "(like rosbags, parquet files, etc.)"
-                },
-            ),
-            pa.field(
-                "frame_id",
-                pa.string(),
-                nullable=True,
-                metadata={"description": "Coordinate frame ID."},
-            ),
-            pa.field(
-                "sequence_id",
-                pa.uint32(),
-                nullable=True,
-                metadata={"description": "Sequence ID. Legacy field."},
             ),
         ]
     )
@@ -136,58 +94,7 @@ class Message(BaseModel):
     data: Serializable
     """The actual ontology data payload (e.g., an IMU or GPS instance)."""
 
-    timestamp_ns: int
-    """
-    Sensor acquisition timestamp in nanoseconds (event time).
-
-    This represents the time at which the underlying physical event
-    occurred — i.e., when the sensor actually captured or generated
-    the data.
-
-    Ideally, this value originates from:
-
-    - the sensor hardware clock, or
-    - a driver-converted hardware timestamp expressed in system time.
-
-    This is the authoritative time describing *when the data happened*
-    and should be used for:
-
-    - synchronization across sensors
-    - state estimation and sensor fusion
-    - temporal alignment
-    - latency analysis (when compared to recording time)
-
-    ### Querying with the **`.Q` Proxy**
-    The timestamp_ns field is queryable using the `.Q` proxy.
-
-    | Field Access Path | Queryable Type | Supported Operators |
-    | :--- | :--- | :--- |
-    | `<Model>.Q.timestamp_ns` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
-    
-    The `<Model>` placeholder represents any Mosaico ontology class (e.g., `IMU`, `GPS`, `Floating64`)
-    or any custom user-defined class that is a subclass of [`Serializable`][mosaicolabs.models.Serializable].
-
-    Example:
-        ```python
-        from mosaicolabs import MosaicoClient, IMU, QueryOntologyCatalog
-
-        with MosaicoClient.connect("localhost", 6726) as client:
-            # Filter IMU data by a specific acquisition second
-            qresponse = client.query(
-                QueryOntologyCatalog(IMU.Q.timestamp_ns.lt(1770282868))
-            )
-
-            # Inspect the response
-            if qresponse is not None:
-                # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
-                    print(f"Sequence: {item.sequence.name}")
-                    print(f"Topics: {[topic.name for topic in item.topics]}")
-        ```
-
-    """
-
-    recording_timestamp_ns: Optional[int] = None
+    timestamp_ns: Optional[int] = None
     """
     Ingestion timestamp in nanoseconds (record time).
 
@@ -206,21 +113,19 @@ class Message(BaseModel):
 
     Typical usage:
 
-    - latency measurement (recording_timestamp_ns - timestamp_ns)
+    - latency measurement
     - debugging transport or pipeline delays
     - ordering messages by arrival time
 
-    If not explicitly set, this value may be None.
-
     ### Querying with the **`.Q` Proxy**
-    The recording_timestamp_ns field is queryable using the `.Q` proxy.
+    The timestamp_ns field is queryable using the `.Q` proxy.
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `<Model>.Q.recording_timestamp_ns` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `<Model>.Q.timestamp_ns` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
     
     The `<Model>` placeholder represents any Mosaico ontology class (e.g., `IMU`, `GPS`, `Floating64`)
-    or any custom user-defined class that is a subclass of [`Serializable`][mosaicolabs.models.Serializable]
+    or any custom user-defined class that is a subclass of [`Serializable`][mosaicolabs.models.core.Serializable]
     
     Example:
         ```python
@@ -229,73 +134,7 @@ class Message(BaseModel):
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter IMU data by a specific recording second
             qresponse = client.query(
-                QueryOntologyCatalog(IMU.Q.recording_timestamp_ns.lt(1770282868))
-            )
-
-            # Inspect the response
-            if qresponse is not None:
-                # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
-                    print(f"Sequence: {item.sequence.name}")
-                    print(f"Topics: {[topic.name for topic in item.topics]}")
-        ```
-    """
-
-    frame_id: Optional[str] = None
-    """
-    A string identifier for the coordinate frame (spatial context).
-    
-    ### Querying with the **`.Q` Proxy**
-    The frame_id field is queryable using the `.Q` proxy.
-
-    | Field Access Path | Queryable Type | Supported Operators |
-    | :--- | :--- | :--- |
-    | `<Model>.Q.frame_id` | `String` | `.eq()`, `.match()`, `.in_()`, `.lt()`, `.gt()`, `.leq()`, `.geq()` |
-    
-    The `<Model>` placeholder represents any Mosaico ontology class (e.g., `IMU`, `GPS`, `Floating64`)
-    or any custom user-defined class that is a subclass of [`Serializable`][mosaicolabs.models.Serializable]
-    
-    Example:
-        ```python
-        from mosaicolabs import MosaicoClient, IMU, QueryOntologyCatalog
-
-        with MosaicoClient.connect("localhost", 6726) as client:
-            # Filter IMU data by a specific frame_id
-            qresponse = client.query(
-                QueryOntologyCatalog(IMU.Q.frame_id.eq("base_link"))
-            )
-
-            # Inspect the response
-            if qresponse is not None:
-                # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
-                    print(f"Sequence: {item.sequence.name}")
-                    print(f"Topics: {[topic.name for topic in item.topics]}")
-        ```
-    """
-
-    sequence_id: Optional[int] = None
-    """
-    An optional sequence ID, primarily used for legacy tracking.
-    
-    ### Querying with the **`.Q` Proxy**
-    The sequence_id field is queryable using the `.Q` proxy.
-
-    | Field Access Path | Queryable Type | Supported Operators |
-    | :--- | :--- | :--- |
-    | `<Model>.Q.sequence_id` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
-    
-    The `<Model>` placeholder represents any Mosaico ontology class (e.g., `IMU`, `GPS`, `Floating64`)
-    or any custom user-defined class that is a subclass of [`Serializable`][mosaicolabs.models.Serializable]
-    
-    Example:
-        ```python
-        from mosaicolabs import MosaicoClient, IMU, QueryOntologyCatalog
-
-        with MosaicoClient.connect("localhost", 6726) as client:
-            # Filter IMU data by a specific sequence_id
-            qresponse = client.query(
-                QueryOntologyCatalog(IMU.Q.sequence_id.eq(123))
+                QueryOntologyCatalog(IMU.Q.timestamp_ns.lt(1770282868))
             )
 
             # Inspect the response
@@ -518,7 +357,7 @@ class Message(BaseModel):
            the original ontology tag (e.g., `"imu"`).
         3. **Data Extraction**: Stripping prefixes and re-nesting the flat columns
            into their original dictionary structures.
-        4. **Type Casting**: Re-instantiating the specific [`Serializable`][mosaicolabs.models.Serializable]
+        4. **Type Casting**: Re-instantiating the specific [`Serializable`][mosaicolabs.models.core.Serializable]
            subclass and wrapping it in a `Message` envelope.
 
         Args:

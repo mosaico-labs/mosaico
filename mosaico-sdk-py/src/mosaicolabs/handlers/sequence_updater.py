@@ -12,7 +12,7 @@ import pyarrow.flight as fl
 
 from ..enum import TopicLevelErrorPolicy
 from ..logging_config import get_logger
-from ..models import Serializable
+from ..models.core import Serializable
 from .base_session_writer import _BaseSessionWriter
 from .config import SessionWriterConfig
 from .topic_writer import TopicWriter

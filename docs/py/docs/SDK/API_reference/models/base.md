@@ -1,12 +1,10 @@
 ---
-title: Base Models and Mixins
-description: API Reference for Base Models and Mixins
+title: Base Models
+description: API Reference for Base Models
 ---
 
-::: mosaicolabs.models.MosaicoType
-::: mosaicolabs.models.types.MosaicoField
-::: mosaicolabs.models.Message
-::: mosaicolabs.models.Serializable
-::: mosaicolabs.models.CovarianceMixin
-::: mosaicolabs.models.VarianceMixin
-::: mosaicolabs.models.BaseModel
+::: mosaicolabs.models.core.BaseModel
+::: mosaicolabs.models.core.MosaicoType
+::: mosaicolabs.models.core.MosaicoField
+::: mosaicolabs.models.core.Message
+::: mosaicolabs.models.core.Serializable

@@ -1,5 +1,6 @@
 import pytest
-from rosbags.typesys.stores import Stores, Typestore, get_typestore
+from rosbags.typesys.store import Typestore
+from rosbags.typesys.stores import Stores, get_typestore
 
 from mosaicolabs import (
     Boolean,
@@ -84,7 +85,7 @@ MS_STD_MSGS_TO_TEST = [
 ]
 
 
-def to_ROSMessage(data: Serializable):
+def to_ROSMessage(data):
     return ROSMessage(
         bag_timestamp_ns=100,
         topic="/camera_info",
@@ -110,10 +111,9 @@ ROS_STD_MSGS_TO_TEST = [
 
 
 def to_ms_message(ms_type_instance: Serializable):
-    return Message(data=ms_type_instance, timestamp_ns=100, frame_id="base_link")
+    return Message(data=ms_type_instance, timestamp_ns=100)
 
 
-# MESSAGE_TO_TEST = [ms_type_instance, adapter for (ms_type_instance, adapter) in MS_STD_MSGS_TO_TEST]
 MESSAGE_TO_TEST = [
     (to_ms_message(ms_type_instance), adapter, rosmsg_type)
     for ms_type_instance, adapter, rosmsg_type in MS_STD_MSGS_TO_TEST
@@ -178,11 +178,12 @@ class TestGenericStdAdapter:
     def test_to_ros_invalid_rosmsg_type(
         self, ms_type: Serializable, adapter: ROSAdapterBase, rosmsg_type: str
     ):
-        ros_msg = adapter.to_ros(
-            ms_type, get_typestore(Stores.LATEST), "std_msgs/msg/Bogus"
-        )
 
-        assert ros_msg is None
+        with pytest.raises(
+            TypeError,
+            match=f"Adapter {adapter.__name__} does not support std_msgs/msg/Bogus",
+        ):
+            adapter.to_ros(ms_type, get_typestore(Stores.LATEST), "std_msgs/msg/Bogus")
 
     @pytest.mark.parametrize("adapter", ADAPTERS_TO_TEST)
     def test_to_ros_invalid_mosaico_type(

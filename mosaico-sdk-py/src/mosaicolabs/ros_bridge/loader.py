@@ -20,7 +20,7 @@ from mosaicolabs.logging_config import get_logger
 
 from .helpers import _filter_topics_from_dict, _filter_topics_from_list, _to_dict
 from .registry import ROSTypeRegistry
-from .ros_bridge import ROSMessage
+from .ros_bridge import ROSBridge, ROSMessage
 
 # Set the hierarchical logger
 logger = get_logger(__name__)
@@ -65,18 +65,37 @@ class Loader(Protocol):
     @property
     def duration(self) -> int:
         """This should return the duration of the loaded data as int"""
+        ...
 
     @property
     def topics(self) -> List[str]:
-        """This should return the topics of the loaded data as strings"""
+        """This should return the Mosaico compatible topics of the loaded data as strings"""
+        ...
+
+    @property
+    def resolved_topics(self) -> List[str]:
+        """This should return **all** the topics of the loaded data as strings"""
+        ...
+
+    @property
+    def not_adapted_topics(self) -> List[str]:
+        """This should return the Mosaico incompatible topics of the loaded data as strings"""
+        ...
+
+    @property
+    def filtered_topics(self) -> List[str]:
+        """This should return the user filtered topics thorugh the glob pattern of the loaded data as strings"""
+        ...
 
     @property
     def msg_types(self) -> List[str | None]:
         """This should return the types of the loaded data as strings"""
+        ...
 
     def msg_count(self, topic: Optional[str] = None) -> int:
         """This should return the total number of messages in the passed
         topic if not None. Otherwise returns all messages in all topics"""
+        ...
 
 
 # --- UI / Progress Helper ---
@@ -127,11 +146,21 @@ class ProgressManager:
         Must be called before the main processing loop starts.
         """
         # Create individual progress bars for each topic
-        for topic in self.loader.topics:
-            count = self.loader.msg_count(topic)
-            self.tasks[topic] = self.progress.add_task("", total=count, name=topic)
+        for topic_name in self.loader.resolved_topics:
+            count = self.loader.msg_count(topic_name)
+            self.tasks[topic_name] = self.progress.add_task(
+                "", total=count, name=topic_name
+            )
 
-        # Create a master progress bar for the aggregate total
+        # Filtered topics are immediately set to yellow
+        for topic_name in self.loader.filtered_topics:
+            self.update_status(topic_name, "Filtered", "yellow")
+
+        # Incompatible topics are immediately set to yellow
+        for topic_name in self.loader.not_adapted_topics:
+            self.update_status(topic_name, "No Adapter", "yellow")
+
+        # Create a master progress bar for the aggregate total of the accepted topics
         total_msgs = sum(self.loader.msg_count(t) for t in self.loader.topics)
         self.global_task = self.progress.add_task(
             "Total", total=total_msgs, name="Total Upload"
@@ -243,7 +272,19 @@ class ROSLoader:
         self._connections: List[Connection] = []
         self._resolved_topics: Dict[
             str, TopicInfo
+        ] = {}  # The full topics set contained in the rosbag
+
+        self._accepted_topics: Dict[
+            str, TopicInfo
         ] = {}  # The actual topics matched after globbing
+
+        self._not_adapted_topics: Dict[
+            str, TopicInfo
+        ] = {}  # The topics which message type is not adapted in mosaico
+
+        self._filtered_topics: Dict[
+            str, TopicInfo
+        ] = {}  # The topics which message type are filtered by user
 
         # Register Global Types (Registry Pattern)
         global_types = ROSTypeRegistry.get_types(typestore_name)
@@ -297,14 +338,35 @@ class ROSLoader:
             raise IOError(f"Could not open bag file: '{e}'") from e
 
         self._connections = []
-        self._resolved_topics = _filter_topics_from_dict(
+
+        self._resolved_topics = self._reader.topics
+        matched_topics = _filter_topics_from_dict(
             self._reader.topics, self._requested_topics
         )
 
         # Filter connections
         for conn in self._reader.connections:
-            if conn.topic in self._resolved_topics:
+            topic_info = matched_topics.get(conn.topic)
+
+            # 1) requested topic
+            if topic_info is None:
+                logger.info(
+                    f"Skipping topic {conn.topic}: not matching the provided filter."
+                )
+
+                filtered_topic_info = self._resolved_topics[conn.topic]
+                self._filtered_topics.update({conn.topic: filtered_topic_info})
+                continue
+
+            # 2) Mosaico-adapted topic
+            if topic_info.msgtype and ROSBridge.is_msgtype_adapted(topic_info.msgtype):
+                self._accepted_topics.update({conn.topic: topic_info})
                 self._connections.append(conn)
+            else:
+                logger.warning(
+                    f"Skipping topic {conn.topic}: not-adapted msgtype {topic_info.msgtype}."
+                )
+                self._not_adapted_topics.update({conn.topic: topic_info})
 
         if not self._connections:
             raise RuntimeError(
@@ -317,20 +379,24 @@ class ROSLoader:
         Returns the total number of messages to be processed based on active filters.
 
         Args:
-            topic: If provided, returns the count for that specific topic. If None, returns
-                the aggregate count for all filtered topics.
+            topic: If provided, returns the count for that specific topic, even if filtered or not adapted.
+            If None, returns the aggregate count for all accepted topics.
 
         Returns:
             The total message count.
         """
+
         self._resolve_connections()
         if not topic:
-            return sum(c.msgcount for c in self._connections)
-        try:
-            return next(c.msgcount for c in self._connections if c.topic == topic)
-        except StopIteration:
-            logger.error(f"Topic '{topic}' not found in the loaded connections.")
+            return sum(t_info.msgcount for t_info in self._accepted_topics.values())
+
+        topic_info = self._resolved_topics.get(topic)
+
+        if topic_info is None:
+            logger.error(f"Topic '{topic}' not found in the connections.")
             return 0
+
+        return topic_info.msgcount
 
     @property
     def duration(self) -> int:
@@ -350,11 +416,11 @@ class ROSLoader:
     @property
     def topics(self) -> List[str]:
         """
-        Retrieves the list of canonical topic names that will be processed.
+        Retrieves the list of accepted topic names that will be processed.
 
-        This property returns the result of the "Smart Filtering" process, which resolves
-        any glob patterns (e.g., `/camera/*`) provided during initialization against
-         the actual metadata contained within the bag file.
+        This property returns the result of the "Smart Filtering" process which consists in:
+        1) resolving any glob patterns (e.g., `/camera/*`) provided at initialization and comparing with the ones contained within the rosbags
+        2) excluding all remaining topics that do not have an Adapter that allow the translation to a Mosaico Ontology
 
         Example:
             ```python
@@ -368,12 +434,70 @@ class ROSLoader:
             List[str]: A list of topic names currently matched and scheduled for loading.
         """
         self._resolve_connections()
+        return list(self._accepted_topics.keys())
+
+    @property
+    def resolved_topics(self) -> List[str]:
+        """
+        Retrieves the list of **all** the canonical topic names **that are in the rosbag**.
+        This property does not account for topics filtered out or not-adapted: it returns everything.
+
+        Example:
+            ```python
+            with ROSLoader(file_path="data.mcap", topics=["/sensors/*"]) as loader:
+                # If the bag contains /sensors/imu, /sensors/gps and /base/camera,
+                # this property returns all: ['/sensors/imu', '/sensors/gps', '/base/camera']
+                print(f"Loading resolved topics: {loader.resolved_topics}")
+            ```
+
+        Returns:
+            List[str]: A list of all topic names contained within the rosbag.
+        """
+        self._resolve_connections()
         return list(self._resolved_topics.keys())
+
+    @property
+    def not_adapted_topics(self) -> List[str]:
+        """
+        Retrieves the list of topic names that are **skipped** due to unavailable Mosaico adapter.
+
+        Example:
+            ```python
+            with ROSLoader(file_path="data.mcap") as loader:
+                # If the bag contains /sensors/imu and /sensors/custom_gps and the user
+                # did not provide an adapter for /sensors/custom_gps this property returns ['/sensors/custom_gps']
+                print(f"Unavailable adapter for topics: {loader.not_adapted_topics}")
+            ```
+
+        Returns:
+            List[str]: A list of topic with no adapter to translate them into Mosaico Ontology.
+        """
+        self._resolve_connections()
+        return list(self._not_adapted_topics.keys())
+
+    @property
+    def filtered_topics(self) -> List[str]:
+        """
+        Retrieves the list of topic names that are **skipped** due to the user filter.
+
+        Example:
+            ```python
+            with ROSLoader(file_path="data.mcap", topics="*imu*") as loader:
+                # If the bag contains /sensors/imu and /sensors/custom_gps and the user
+                # filtered for the topics containing `imu` this property returns ['/sensors/custom_gps ']
+                print(f"Filtered topics: {loader.filtered_topics}")
+            ```
+
+        Returns:
+            List[str]: The list of topics filtered by the user. Empty if no filter is provided.
+        """
+        self._resolve_connections()
+        return list(self._filtered_topics.keys())
 
     @property
     def msg_types(self) -> List[str | None]:
         """
-        Retrieves the list of ROS message types corresponding to the resolved topics.
+        Retrieves the list of ROS message types corresponding to the accepted topics.
 
         Each entry in this list represents the schema name (e.g., `sensor_msgs/msg/Image`)
         required to correctly deserialize the messages for the topics returned by
@@ -391,7 +515,7 @@ class ROSLoader:
             as the resolved topics.
         """
         self._resolve_connections()
-        return [val.msgtype for val in self._resolved_topics.values()]
+        return [val.msgtype for val in self._accepted_topics.values()]
 
     # --- Core Logic ---
 
@@ -505,12 +629,28 @@ class MosaicoLoader:
 
         self.client = m_client
         self.sequence_name = sequence_name
-        self.requested_topics = topics
+        self.topic_glob_pattern = topics
         self.start_timestamp_ns = start_timestamp_ns
         self.end_timestamp_ns = end_timestamp_ns
 
         self.seq_handler = None
         self.streamer = None
+
+        self._resolved_topics: list[
+            str
+        ] = []  # The full topics set contained in the sequence
+
+        self._accepted_topics: list[
+            str
+        ] = []  # The actual topics matched after globbing
+
+        self._not_adapted_topics: list[
+            str
+        ] = []  # The topics which message type is not adapted in mosaico
+
+        self._filtered_topics: list[
+            str
+        ] = []  # The topics which message type are filtered by user
 
     def validate_sequence(self):
         if self.seq_handler is None:
@@ -547,15 +687,7 @@ class MosaicoLoader:
 
         self.validate_sequence()
 
-        # Filter topics
-        self.resolved_topics = _filter_topics_from_list(
-            self.seq_handler.topics, self.requested_topics
-        )
-
-        if not self.resolved_topics:
-            raise RuntimeError(
-                "Unable to initialize MosaicoLoader: No topic matched criteria. Try checking the topics filter, if any."
-            )
+        self._resolved_topics = self.seq_handler.topics
 
         # Clipping requested start/end timestamp to start/end sequence timestamp if existing
         if (
@@ -580,13 +712,41 @@ class MosaicoLoader:
                 self.end_timestamp_ns, self.seq_handler.timestamp_ns_max
             )
 
-        # Resolving streamer
+        matched_topics = _filter_topics_from_list(
+            self.seq_handler.topics, self.topic_glob_pattern
+        )
+
+        # Filter topics
+        for t_name in self.seq_handler.topics:
+            # 1) requested topic
+            if t_name not in matched_topics:
+                self._filtered_topics.append(t_name)
+                continue
+
+            # 2) Mosaico-adapted topic
+            t_handler = self.seq_handler.get_topic_handler(t_name)
+
+            if ROSBridge.is_mosaico_type_adapted(t_handler.ontology_tag):
+                self._accepted_topics.append(t_name)
+            else:
+                logger.warning(
+                    f"Skipping topic {t_name}: not-adapted ontology {t_handler.ontology_tag}."
+                )
+                self._not_adapted_topics.append(t_name)
+
+        if not self._accepted_topics:
+            raise RuntimeError(
+                "Unable to initialize MosaicoLoader: No topic matched criteria or adapter found. Try checking the topics filter, if any."
+            )
+
+        # Resolving streamer only with accepted topics
         self.streamer = self.seq_handler.get_data_streamer(
-            topics=self.resolved_topics,
+            topics=self._accepted_topics,
             start_timestamp_ns=self.start_timestamp_ns,
             end_timestamp_ns=self.end_timestamp_ns,
         )
 
+    # --- Properties ---
     def msg_count(self, topic: Optional[str] = None) -> int:
         """
         Returns the total number of messages for the given topic, or for all
@@ -605,7 +765,7 @@ class MosaicoLoader:
         """
         self._resolve_sequence()
 
-        topics_to_count = [topic] if topic else self.resolved_topics
+        topics_to_count = [topic] if topic else self._accepted_topics
 
         total_msg_count = 0
         for t in topics_to_count:
@@ -645,12 +805,47 @@ class MosaicoLoader:
         """
         self._resolve_sequence()
 
-        return self.resolved_topics
+        return self._accepted_topics
+
+    @property
+    def resolved_topics(self) -> List[str]:
+        """
+        Retrieves the list of **all** the canonical topic names **that are in the sequence**.
+
+        This property does not account for topics filtered out or not-adapted: it returns everything.
+
+        Returns:
+            List[str]: A list of *all* topic names present within the requested sequence.
+        """
+        self._resolve_sequence()
+        return self._resolved_topics
+
+    @property
+    def not_adapted_topics(self) -> List[str]:
+        """
+        Retrieves the list of topic names that are **skipped** due to unavailable Mosaico adapter.
+
+        Returns:
+            List[str]: A list of topic with no adapter to translate them into ROS messages.
+        """
+        self._resolve_sequence()
+        return self._not_adapted_topics
+
+    @property
+    def filtered_topics(self) -> List[str]:
+        """
+        Retrieves the list of topic names that are **skipped** due to the user filter.
+
+        Returns:
+            List[str]: The list of topics filtered by the user. Empty if no filter is provided.
+        """
+        self._resolve_sequence()
+        return self._filtered_topics
 
     @property
     def msg_types(self) -> List[str | None]:
         """
-        Returns the Mosaico ontology type tags for each resolved topic.
+        Returns the Mosaico ontology type tags for each accepted topic.
 
         Entries appear in the same order as :attr:`topics`. A ``None`` entry
         indicates that the topic handler could not be found.
@@ -667,7 +862,7 @@ class MosaicoLoader:
             t_handler.ontology_tag
             if (t_handler := self.seq_handler.get_topic_handler(topic)) is not None
             else None
-            for topic in self.resolved_topics
+            for topic in self._accepted_topics
         ]
 
     def __iter__(self) -> SequenceDataStreamer:

@@ -96,12 +96,15 @@ pub async fn do_action(
         ActionRequest::TopicFilterClusterize(data) => {
             topic::filter_clusterize(
                 ctx,
-                data.locator,
-                data.clustering_dt_ns,
-                data.ontology,
-                data.timestamp_range,
+                data.params.locator,
+                data.params.clustering_dt_ns,
+                data.params.ontology,
+                data.params.timestamp_range,
             )
             .await
+        }
+        ActionRequest::TopicFilterIntersect(data) => {
+            topic::filter_intersect(ctx, data.topics, data.intersect_dt_ns).await
         }
 
         // Query
@@ -152,6 +155,7 @@ fn has_permissions(action: &ActionRequest, perm: &Permission) -> bool {
         ActionRequest::SequenceNotificationList(_) => perm.can_read(),
         ActionRequest::TopicNotificationList(_) => perm.can_read(),
         ActionRequest::TopicFilterClusterize(_) => perm.can_read(),
+        ActionRequest::TopicFilterIntersect(_) => perm.can_read(),
 
         ActionRequest::ApiKeyCreate(_) => perm.can_manage(),
         ActionRequest::ApiKeyStatus(_) => perm.can_manage(),

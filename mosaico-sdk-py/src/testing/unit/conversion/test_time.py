@@ -5,7 +5,7 @@ import pytest
 
 # Import your Time class (adjust import as needed)
 # Assuming it is in a file named time_module.py or similar
-from mosaicolabs.types import Time
+from mosaicolabs import Time
 
 # -----------------------------------------------------------------------------
 # Factory Method Tests

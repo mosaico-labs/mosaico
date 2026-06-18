@@ -36,7 +36,7 @@ from mosaicolabs.handlers.helpers import (
 )
 from mosaicolabs.handlers.topic_writer import TopicWriter
 from mosaicolabs.helpers import pack_topic_resource_name
-from mosaicolabs.models import Serializable
+from mosaicolabs.models.core import Serializable
 
 
 class _BaseSessionWriter(ABC):

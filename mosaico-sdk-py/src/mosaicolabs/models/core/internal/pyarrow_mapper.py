@@ -4,9 +4,9 @@ from typing import Any, Dict, Optional, Tuple, Type
 import pyarrow as pa
 
 # --- Import the query builder components ---
-from ..query.expressions import _QueryExpression
-from ..query.generation.internal import _PYTHON_TYPE_TO_QUERYABLE
-from ..query.generation.mixins import (
+from mosaicolabs.models.query.expressions import _QueryExpression
+from mosaicolabs.models.query.generation.internal import _PYTHON_TYPE_TO_QUERYABLE
+from mosaicolabs.models.query.generation.mixins import (
     _make_queryable_field_type,
     _QueryableUnsupported,
 )
@@ -80,7 +80,7 @@ class PyarrowFieldMapper:
         nested Pydantic models and creating queryable field objects
         for simple types.
         """
-        from mosaicolabs.models.message import Message
+        from ..message import Message
 
         cls_pa_fields = []
         if class_type.__msco_pyarrow_struct__ is not Message.__msco_pyarrow_struct__:

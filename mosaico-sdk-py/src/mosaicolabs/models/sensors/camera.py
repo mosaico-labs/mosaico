@@ -10,12 +10,11 @@ and lens distortion model.
 
 from typing import Optional
 
-from ..data import ROI, Vector2d
-from ..serializable import Serializable
-from ..types import MosaicoField, MosaicoType
+from ..core import MosaicoField, MosaicoType, Serializable
+from ..data import ROI, HeaderMixin, Vector2d
 
 
-class CameraInfo(Serializable):
+class CameraInfo(Serializable, HeaderMixin):
     """
     Meta-information for interpreting images from a calibrated camera.
 
@@ -32,6 +31,7 @@ class CameraInfo(Serializable):
         projection_parameters: The 3x4 Projection Matrix (P) flattened row-major.
         binning: Hardware binning factor (x, y). If null, assumes (0, 0) (no binning).
         roi: Region of Interest. Used if the image is a sub-crop of the full resolution.
+        header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
     This class is fully queryable via the **`.Q` proxy**. You can filter camera data based

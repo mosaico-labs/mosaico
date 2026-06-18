@@ -6,12 +6,15 @@ Defines the data structure for temperature sensors.
 
 from typing import Optional
 
-from ..mixins import VarianceMixin
-from ..serializable import Serializable
-from ..types import MosaicoField, MosaicoType
+from ..core import MosaicoField, MosaicoType, Serializable
+from ..data import HeaderMixin, VarianceMixin
 
 
-class Temperature(Serializable, VarianceMixin):
+class Temperature(
+    Serializable,
+    HeaderMixin,  # Adds Header support
+    VarianceMixin,
+):
     """
     Represents a thermodynamic temperature. The internal representation is always stored in **Kelvin (K)**.
 
@@ -23,6 +26,7 @@ class Temperature(Serializable, VarianceMixin):
             the value **must** be provided in Kelvin.
         variance (Optional[float]): The variance of the data.
         variance_type (Optional[int]): Enum integer representing the variance parameterization.
+        header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
     This class is fully queryable via the **`.Q` proxy**. You can filter temperature data based

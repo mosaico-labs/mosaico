@@ -31,11 +31,11 @@ import pyarrow as pa
 from mosaicolabs.enum import SerializationFormat
 from mosaicolabs.helpers import camel_to_snake
 
+from ..query.expressions import _QueryCatalogExpression
+from ..query.generation.api import _QueryProxyMixin
 from .base_model import BaseModel
 from .internal.helpers import _fix_empty_dicts
 from .internal.pyarrow_mapper import PyarrowFieldMapper
-from .query.expressions import _QueryCatalogExpression
-from .query.generation.api import _QueryProxyMixin
 from .types import BASE_MAPPING
 
 # --- Private Registry ---
@@ -67,13 +67,13 @@ class Serializable(BaseModel, _QueryProxyMixin):
 
     * **`__class_type__`**:
         A reference to the concrete class itself.
-        * **Role**: Injected during initialization to facilitate polymorphic instantiation and safe type-checking when extracting data from a [`Message`][mosaicolabs.models.Message].
+        * **Role**: Injected during initialization to facilitate polymorphic instantiation and safe type-checking when extracting data from a [`Message`][mosaicolabs.models.core.Message].
 
     ### Requirements for Custom Ontologies
     To create a valid custom ontology, your subclass must:
 
     1.  Inherit from `Serializable`.
-    2.  Define the attributes using [`MosaicoType`][mosaicolabs.models.MosaicoType] and [`MosaicoField`][mosaicolabs.models.types.MosaicoField]
+    2.  Define the attributes using [`MosaicoType`][mosaicolabs.models.core.MosaicoType] and [`MosaicoField`][mosaicolabs.models.core.MosaicoField]
 
     Tip: Automatic Registration
         Any subclass of `Serializable` is automatically registered in the global Mosaico registry upon definition. This enables the use of the factory methods and the `.Q` query proxy immediately.

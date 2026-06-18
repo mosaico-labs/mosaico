@@ -3,149 +3,20 @@ use arrow_flight::{
     Action as FlightAction, ActionType, Criteria, Empty, FlightData, FlightDescriptor, FlightInfo,
     HandshakeRequest, HandshakeResponse, PollInfo, PutResult, SchemaResult, Ticket,
     decode::FlightDataDecoder, flight_service_server::FlightService,
-    flight_service_server::FlightServiceServer,
 };
 use futures::{StreamExt, TryStreamExt, stream::BoxStream};
-use log::{debug, error, info, warn};
-use mosaicod_core::{self as core, params, types};
+use log::error;
+use mosaicod_core::{self as core, params};
 use mosaicod_db as db;
-use mosaicod_ext as ext;
 use mosaicod_facade as facade;
 use mosaicod_grpc_common::{self as grpc_common, PublicErrorGrpcExt, ToStatusExt, middleware};
 use mosaicod_marshal as marshal;
 use mosaicod_query as query;
 use mosaicod_store as store;
 use std::sync::Arc;
-use tonic::{Request, Response, Status, Streaming, codec::CompressionEncoding, transport::Server};
+use tonic::{Request, Response, Status, Streaming};
 
-#[derive(Clone)]
-pub struct TlsConfig {
-    pub certificate_file: std::path::PathBuf,
-    pub private_key_file: std::path::PathBuf,
-}
-
-#[derive(Clone)]
-pub struct Config {
-    pub host: String,
-
-    /// Default port
-    pub port: u16,
-
-    /// If this option is `Some` the server will try to enable TLS
-    tls: Option<TlsConfig>,
-
-    /// If this option is true the server will require API keys for every operation
-    enable_api_key_management: bool,
-
-    /// Enable gzip encoding in gRPC
-    gzip: bool,
-}
-
-impl Config {
-    pub fn new(host: String, port: u16) -> Self {
-        Self {
-            host,
-            port,
-            tls: None,
-            enable_api_key_management: false,
-            gzip: false,
-        }
-    }
-
-    /// Enable TLS
-    pub fn tls(&mut self, tls: TlsConfig) {
-        self.tls = Some(tls);
-    }
-
-    /// Enables gzip compression for both incoming and outgoing gRPC messages.
-    pub fn gzip(&mut self, enable: bool) {
-        self.gzip = enable;
-    }
-
-    /// Enable API key management
-    pub fn enable_api_key_management(&mut self) {
-        self.enable_api_key_management = true;
-    }
-}
-
-/// Start mosaico Apache Arrow Flight service
-pub async fn start(
-    config: Config,
-    store: store::StoreRef,
-    db: db::Database,
-    shutdown: Option<grpc_common::ShutdownNotifier>,
-) -> std::result::Result<(), Box<dyn std::error::Error>> {
-    let addr = format!("{}:{}", config.host, config.port).parse()?;
-
-    let mut flight_service = MosaicodFlight::try_new(store, db.clone())?;
-
-    if config.enable_api_key_management {
-        flight_service.enable_api_key_manegement();
-    }
-
-    let mut auth_layer = middleware::AuthLayer::new(flight_service.context());
-
-    let mut svc = FlightServiceServer::new(flight_service);
-
-    if !config.enable_api_key_management {
-        auth_layer = auth_layer.with_permission_passthrough(types::auth::Permission::Manage);
-    }
-    let layer = tower::ServiceBuilder::new().layer(auth_layer).into_inner();
-
-    let mut builder = Server::builder();
-
-    let mut tls_enabled = false;
-
-    if let Some(tls) = config.tls {
-        builder = builder.tls_config(ext::tonic::load_tls_config(
-            &tls.certificate_file,
-            &tls.private_key_file,
-        )?)?;
-        tls_enabled = true;
-    }
-
-    if !tls_enabled {
-        warn!("TLS is currently disabled. Traffic is being sent unencrypted.");
-    }
-
-    // If API key management is disabled define a custom permission with all permissions
-    // and enable permissions passthrough in the auth middleware
-    if !config.enable_api_key_management {
-        warn!("API key management is currently disabled.");
-    } else if !tls_enabled {
-        warn!(
-            "API key management is currently enabled but TLS is disabled. Sensitive credential are sent unencrypted and could be intercepted."
-        );
-    }
-
-    svc = svc
-        .max_decoding_message_size(params::params().max_grpc_message_size.value)
-        .max_encoding_message_size(params::params().max_grpc_message_size.value);
-
-    if config.gzip {
-        svc = svc
-            .send_compressed(CompressionEncoding::Gzip)
-            .accept_compressed(CompressionEncoding::Gzip);
-        info!("gzip compression for gRPC requests is enabled");
-    }
-
-    let server = builder.layer(layer).add_service(svc);
-
-    if let Some(shutdown_notifier) = shutdown {
-        server
-            .serve_with_shutdown(addr, async {
-                shutdown_notifier.wait_for_shutdown().await;
-                debug!("received shutdown notification");
-            })
-            .await?;
-    } else {
-        server.serve(addr).await?;
-    }
-
-    Ok(())
-}
-
-struct MosaicodFlight {
+pub struct Service {
     store: store::StoreRef,
     db: db::Database,
     ts_gw: query::TimeseriesEngineRef,
@@ -154,7 +25,7 @@ struct MosaicodFlight {
     concurrent_writes_semaphore: Arc<tokio::sync::Semaphore>,
 }
 
-impl MosaicodFlight {
+impl Service {
     pub fn try_new(store: store::StoreRef, db: db::Database) -> std::result::Result<Self, String> {
         let ts_gw = Arc::new(
             query::TimeseriesEngine::try_new(
@@ -164,7 +35,7 @@ impl MosaicodFlight {
             .map_err(|e| e.to_string())?,
         );
 
-        Ok(MosaicodFlight {
+        Ok(Service {
             store,
             db,
             ts_gw,
@@ -210,7 +81,7 @@ impl IntoStream for marshal::ActionResponse {
     }
 }
 
-impl MosaicodFlight {
+impl Service {
     async fn impl_get_flight_info(
         &self,
         request: Request<FlightDescriptor>,
@@ -312,7 +183,7 @@ impl MosaicodFlight {
 
 /// Map impl methods to FlightService
 #[tonic::async_trait]
-impl FlightService for MosaicodFlight {
+impl FlightService for Service {
     type HandshakeStream = HandshakeStream;
     type ListFlightsStream = ListFlightsStream;
     type DoGetStream = DoGetStream;

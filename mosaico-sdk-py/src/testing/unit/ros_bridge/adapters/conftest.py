@@ -1,6 +1,14 @@
 import pytest
 
-from mosaicolabs import Message, Point3d, Quaternion, Serializable, Vector3d
+from mosaicolabs import (
+    Header,
+    Message,
+    Point3d,
+    Quaternion,
+    Serializable,
+    Time,
+    Vector3d,
+)
 
 
 @pytest.fixture
@@ -27,5 +35,10 @@ def quaternion():
 
 
 @pytest.fixture
+def ms_header():
+    return Header(timestamp=Time(seconds=100, nanoseconds=200), frame_id="base_link")
+
+
+@pytest.fixture
 def ros_header():
-    return {"frame_id": "base_link", "stamp": {"sec": 0, "nanosec": 100}}
+    return {"frame_id": "base_link", "stamp": {"sec": 100, "nanosec": 200}}

@@ -14,9 +14,6 @@ It implements a Domain-Specific Language that allows users to filter **Sequences
 
 from typing import Any, Dict, List, Optional, Tuple, Type
 
-# Import custom types used in helper methods
-from mosaicolabs.types import Time
-
 # Import the building blocks for expressions and how they are combined
 from .expressions import (
     _QueryCatalogExpression,
@@ -139,7 +136,7 @@ class QueryOntologyCatalog:
     It produces a "flat" dictionary output where field paths utilize dot-notation (e.g., `"imu.acceleration.x"`).
 
     This class is designed to work with the **`.Q` query proxy** injected into every
-    [`Serializable`][mosaicolabs.models.Serializable] data ontology model.
+    [`Serializable`][mosaicolabs.models.core.Serializable] data ontology model.
     You can use this proxy on any registered sensor class (like [`IMU`][mosaicolabs.models.sensors.IMU],
     [`Vector3d`][mosaicolabs.models.data.geometry.Vector3d],
     [`Point3d`][mosaicolabs.models.data.geometry.Point3d]), etc.
@@ -535,7 +532,7 @@ class QueryTopic:
             ```
             **Note**: To ensure compatibility and avoid hardcoding strings, it is highly recommended to
             retrieve the tag dynamically using the
-            [`ontology_tag()`][mosaicolabs.models.Serializable.ontology_tag]
+            [`ontology_tag()`][mosaicolabs.models.core.Serializable.ontology_tag]
             method of the desired ontology class.
 
         Args:
@@ -551,7 +548,9 @@ class QueryTopic:
         )
 
     def with_created_timestamp(
-        self, time_start: Optional[Time] = None, time_end: Optional[Time] = None
+        self,
+        time_start: Optional[int] = None,
+        time_end: Optional[int] = None,
     ) -> "QueryTopic":
         """
         Adds a filter for the 'created_at_ns' field using high-precision Time.
@@ -593,8 +592,8 @@ class QueryTopic:
                 "At least one among 'time_start' and 'time_end' is mandatory"
             )
 
-        ts_int = time_start.to_nanoseconds() if time_start else None
-        te_int = time_end.to_nanoseconds() if time_end else None
+        ts_int = time_start if time_start else None
+        te_int = time_end if time_end else None
         # employs explicit _QueryTopicExpression composition for dealing with
         # special fields in data platform
         if ts_int and not te_int:
@@ -888,7 +887,9 @@ class QuerySequence:
         )
 
     def with_created_timestamp(
-        self, time_start: Optional[Time] = None, time_end: Optional[Time] = None
+        self,
+        time_start: Optional[int] = None,
+        time_end: Optional[int] = None,
     ) -> "QuerySequence":
         """
         Adds a filter for the 'created_at_ns' field using high-precision Time.
@@ -928,8 +929,8 @@ class QuerySequence:
                 "At least one among 'time_start' and 'time_end' is mandatory"
             )
 
-        ts_int = time_start.to_nanoseconds() if time_start else None
-        te_int = time_end.to_nanoseconds() if time_end else None
+        ts_int = time_start if time_start else None
+        te_int = time_end if time_end else None
         # employs explicit _QuerySequenceExpression composition for dealing with
         # special fields in data platform
         if ts_int and not te_int:

@@ -2,22 +2,22 @@
 This module defines specialized ontology structures for representing physical dynamics, specifically linear forces and rotational moments (torques).
 
 The primary structure, [`ForceTorque`][mosaicolabs.models.data.dynamics.ForceTorque], implements a standard "Wrench" representation.
-These models are designed to be assigned to the `data` field of a [`Message`][mosaicolabs.models.Message] for transmission to the platform.
+These models are designed to be assigned to the `data` field of a [`Message`][mosaicolabs.models.core.Message] for transmission to the platform.
 
 **Key Features:**
 * **Wrench Representation**: Combines 3D linear force and 3D rotational torque into a single, synchronized state.
-* **Uncertainty Quantification**: Inherits from [`CovarianceMixin`][mosaicolabs.models.mixins.CovarianceMixin] to support $6 \times 6$ covariance matrices, allowing for the transmission of sensor noise characteristics or estimation confidence.
+* **Uncertainty Quantification**: Inherits from [`CovarianceMixin`][mosaicolabs.models.data.CovarianceMixin] to support $6 \times 6$ covariance matrices, allowing for the transmission of sensor noise characteristics or estimation confidence.
 """
 
-from ..mixins import CovarianceMixin
-from ..serializable import Serializable
-from ..types import MosaicoField, MosaicoType
+from ..core import MosaicoField, MosaicoType, Serializable
 from .geometry import Vector3d
+from .mixins import CovarianceMixin, HeaderMixin
 
 
 class ForceTorque(
     Serializable,  # Adds Registry/Factory logic
     CovarianceMixin,  # Adds Covariance matrix support
+    HeaderMixin,  # Adds header support
 ):
     """
     Represents a Wrench (Force and Torque) applied to a rigid body.
@@ -34,6 +34,7 @@ class ForceTorque(
             the uncertainty of the force-torque measurement.
         covariance_type: Enum integer representing the parameterization of the
             covariance matrix.
+        header (optional[Header]): Optional heading containing measurement metadata
 
     Note: Unit Standards
         To ensure platform-wide consistency, all force components should be
@@ -166,7 +167,10 @@ class ForceTorque(
     """
 
 
-class Inertia(Serializable):
+class Inertia(
+    Serializable,
+    HeaderMixin,  # Adds header support
+):
     """
     Inertia properties of a rigid body.
 
@@ -176,6 +180,7 @@ class Inertia(Serializable):
         mass: Mass of the object.
         center_of_mass: Center of mass position.
         inertia: Inertia tensor (flattened 3x3 matrix).
+        header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
     Only scalar fields are queryable.

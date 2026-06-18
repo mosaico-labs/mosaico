@@ -1,8 +1,8 @@
 import pytest
 
+from mosaicolabs import Time
 from mosaicolabs.comm import MosaicoClient
 from mosaicolabs.models.query import QuerySequence, QueryTopic
-from mosaicolabs.types import Time
 from testing.integration.config import (
     QUERY_SEQUENCES_MOCKUP,
     UPLOADED_GPS_TOPIC,
@@ -55,7 +55,7 @@ def test_query_topic_by_creation_timestamp(
         QuerySequence().with_name(
             UPLOADED_SEQUENCE_NAME
         ),  # limit to this sequence for avoiding other sequences created by other tests (ensure controllability)
-        QueryTopic().with_created_timestamp(time_end=Time.now()),
+        QueryTopic().with_created_timestamp(time_end=Time.now().to_nanoseconds()),
     )  # creation time <= now
     # We do expect a successful query
     assert query_resp is not None and not query_resp.is_empty()
@@ -122,7 +122,7 @@ def test_query_topic_multi_criteria(
         ),  # limit to this sequence for avoiding other sequences created by other tests (ensure controllability)
         QueryTopic()
         .with_ontology_tag(ontology_tag)
-        .with_created_timestamp(time_end=Time.now()),
+        .with_created_timestamp(time_end=Time.now().to_nanoseconds()),
     )
     # We do expect a successful query
     assert query_resp is not None and not query_resp.is_empty()
@@ -156,8 +156,8 @@ def test_query_topic_multi_criteria(
         QueryTopic()
         .with_ontology_tag(ontology_tag)
         .with_created_timestamp(
-            time_start=time_now_minus_10m,
-            time_end=time_now_plus_1m,
+            time_start=time_now_minus_10m.to_nanoseconds(),
+            time_end=time_now_plus_1m.to_nanoseconds(),
             # triggers '$between'
         ),
     )
@@ -415,7 +415,7 @@ def test_query_topic_from_response(
 
     # Try a trivial query with a further expression
     query_resp = mosaico_client.query(
-        qtopic.with_created_timestamp(time_end=Time.now())
+        qtopic.with_created_timestamp(time_end=Time.now().to_nanoseconds())
     )
     assert query_resp is not None and not query_resp.is_empty()
     assert len(query_resp) == 1

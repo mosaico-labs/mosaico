@@ -30,9 +30,16 @@ from .geometry import (
     Vector3d as Vector3d,
     Vector4d as Vector4d,
 )
+from .header import Header as Header
 from .kinematics import (
     Acceleration as Acceleration,
     MotionState as MotionState,
     Velocity as Velocity,
 )
+from .mixins import (
+    CovarianceMixin as CovarianceMixin,
+    HeaderMixin as HeaderMixin,
+    VarianceMixin as VarianceMixin,
+)
 from .roi import ROI as ROI
+from .time import Duration as Duration, Time as Time

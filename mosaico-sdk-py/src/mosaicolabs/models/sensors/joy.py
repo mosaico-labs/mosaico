@@ -4,11 +4,14 @@ Joy Ontology Module.
 Represents joystick input state.
 """
 
-from ..serializable import Serializable
-from ..types import MosaicoField, MosaicoType
+from ..core import MosaicoField, MosaicoType, Serializable
+from ..data import HeaderMixin
 
 
-class Joy(Serializable):
+class Joy(
+    Serializable,
+    HeaderMixin,  # Adds Header support
+):
     """
     Joystick input data.
 
@@ -17,6 +20,7 @@ class Joy(Serializable):
     Attributes:
         axes: Continuous axis values (e.g., joystick positions).
         buttons: Discrete button states (pressed or not pressed).
+        header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
     Joystick data cannot be queried via the `.Q` proxy since list fields are not supported yet.

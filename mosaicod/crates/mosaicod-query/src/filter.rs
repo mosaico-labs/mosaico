@@ -24,7 +24,7 @@
 //!
 
 use mosaicod_core::types;
-use std::{borrow::Borrow, collections::HashMap, collections::hash_map::Entry};
+use std::{collections::HashMap, collections::hash_map::Entry};
 
 /// Floating point value type alias
 pub type Float = f64;
@@ -218,10 +218,96 @@ where
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum IndexSpecifier {
+    /// Access the element at a specific position: [0], [42].
+    At(usize),
+    /// At least one element must satisfy the predicate: [?].
+    AtLeastOne,
+    /// Every element must satisfy the predicate: [!].
+    All,
+}
+
+impl std::fmt::Display for IndexSpecifier {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            IndexSpecifier::At(n) => write!(f, "[{n}]"),
+            IndexSpecifier::AtLeastOne => write!(f, "[?]"),
+            IndexSpecifier::All => write!(f, "[!]"),
+        }
+    }
+}
+
+/// The structured representation of an ontology field path after parsing.
+///
+/// Index specifiers are only supported on the leaf (last) segment of the path.
+/// A field path always follows this shape:
+///   <prefix>.<leaf>[specifier]
+///
+/// Examples:
+/// - "x"                     prefix: [],                field: "x",    specifier: None
+/// - "x[?]"                  prefix: [],                field: "x",    specifier: Some(AtLeastOne)
+/// - "x[30]"                 prefix: [],                field: "x",    specifier: Some(At(30))
+/// - "acceleration.x"        prefix: ["acceleration"],  field: "x",    specifier: None
+/// - "acceleration.x[!]"     prefix: ["acceleration"],  field: "x",    specifier: Some(All)
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct OntologyFieldPath {
+    /// Plain struct navigation segments before the leaf field.
+    pub prefix: Vec<String>,
+    /// The leaf field name.
+    pub field: String,
+    /// Index specifier for list access, if the leaf field is a list column.
+    pub specifier: Option<IndexSpecifier>,
+}
+
+impl OntologyFieldPath {
+    /// Returns an iterator over all dot-path segments in order: prefix segments first, then the leaf field name.
+    pub fn field_segments(&self) -> impl Iterator<Item = &str> {
+        self.prefix
+            .iter()
+            .map(|s| s.as_str())
+            .chain(std::iter::once(self.field.as_str()))
+    }
+}
+
+impl std::fmt::Display for OntologyFieldPath {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for seg in &self.prefix {
+            write!(f, "{seg}.")?;
+        }
+        write!(f, "{}", self.field)?;
+        if let Some(spec) = &self.specifier {
+            write!(f, "{spec}")?;
+        }
+        Ok(())
+    }
+}
+
+/// Parses a single dot-path segment, splitting the field name from its optional
+/// index specifier (e.g. "x[?]" -> name "x", specifier Any).
+fn parse_segment(s: &str) -> Result<(String, Option<IndexSpecifier>), ()> {
+    match s.find('[') {
+        None => Ok((s.to_owned(), None)),
+        Some(pos) => {
+            let name = s[..pos].to_owned();
+            let content = s[pos..]
+                .strip_prefix('[')
+                .and_then(|r| r.strip_suffix(']'))
+                .ok_or(())?;
+            let specifier = match content {
+                "?" => IndexSpecifier::AtLeastOne,
+                "!" => IndexSpecifier::All,
+                n => IndexSpecifier::At(n.parse::<usize>().map_err(|_| ())?),
+            };
+            Ok((name, Some(specifier)))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct OntologyField {
-    value: String,
-    tag_offset: usize,
+    tag: String,
+    field_path: OntologyFieldPath,
 }
 
 impl OntologyField {
@@ -229,51 +315,69 @@ impl OntologyField {
         let ontology_tag = v.split(".").next().ok_or_else(|| super::Error::BadField {
             field: v.to_string(),
         })?;
+        let tag = ontology_tag.to_owned();
         let len = ontology_tag.len();
 
+        // Validate that only the last segment may carry an index specifier.
+        let field_part = &v[(len + 1)..];
+        let segments: Vec<&str> = field_part.split('.').collect();
+
+        let mut prefix = Vec::with_capacity(segments.len().saturating_sub(1));
+        let mut leaf_name = String::new();
+        let mut leaf_specifier = None;
+
+        for (i, segment) in segments.iter().enumerate() {
+            let (parsed_name, specifier) =
+                parse_segment(segment).map_err(|_| super::Error::BadField { field: v.clone() })?;
+
+            if i != segments.len() - 1 {
+                // if the specifier is not on the last segment (x.y[].z).
+                if specifier.is_some() {
+                    return Err(super::Error::BadField { field: v });
+                }
+                prefix.push(parsed_name);
+            } else {
+                leaf_name = parsed_name;
+                leaf_specifier = specifier;
+            }
+        }
+
         Ok(Self {
-            value: v,
-            tag_offset: len,
+            tag,
+            field_path: OntologyFieldPath {
+                prefix,
+                field: leaf_name,
+                specifier: leaf_specifier,
+            },
         })
     }
 
     pub fn ontology_tag(&self) -> &str {
-        &self.value[..self.tag_offset]
+        &self.tag
     }
 
-    pub fn field(&self) -> &str {
-        // +1 to remove the dot
-        &self.value[(self.tag_offset + 1)..]
+    pub fn field_path(&self) -> &OntologyFieldPath {
+        &self.field_path
     }
 
-    pub fn value(&self) -> &str {
-        &self.value
+    pub fn field(&self) -> String {
+        self.field_path.to_string()
     }
-}
 
-impl PartialEq for OntologyField {
-    fn eq(&self, other: &Self) -> bool {
-        self.value == other.value
+    pub fn value(&self) -> String {
+        self.to_string()
     }
-}
 
-impl PartialEq<str> for OntologyField {
-    fn eq(&self, other: &str) -> bool {
-        self.value == other
+    pub fn field_str(&self) -> String {
+        let mut parts = vec![self.tag.as_str()];
+        parts.extend(self.field_path.field_segments());
+        parts.join(".")
     }
 }
 
-impl Borrow<str> for OntologyField {
-    fn borrow(&self) -> &str {
-        &self.value
-    }
-}
-
-impl Eq for OntologyField {}
-
-impl std::hash::Hash for OntologyField {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.value.hash(state);
+impl std::fmt::Display for OntologyField {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}.{}", self.tag, self.field_path)
     }
 }
 
@@ -388,7 +492,7 @@ impl OntologyFilter {
     }
 
     /// Retrieves the operation associated with a specific metadata field.
-    pub fn get_op(&self, field: &str) -> Option<&Op<Value>> {
+    pub fn get_op(&self, field: &OntologyField) -> Option<&Op<Value>> {
         self.ontology.get(field)
     }
 
