@@ -57,7 +57,7 @@ def list_sequences(
     if sys.stdout.isatty():
         spinner.start()
     profile: MosaicoProfile = ctx.obj
-    from mosaicolabs import MosaicoClient, QueryResponse, QuerySequence, Time
+    from mosaicolabs import MosaicoClient, QueryResponse, QuerySequence
 
     try:
         with MosaicoClient.connect(
@@ -71,12 +71,8 @@ def list_sequences(
 
             if created_after or created_before:
                 query = query.with_created_timestamp(
-                    time_start=Time.from_nanoseconds(created_after)
-                    if created_after
-                    else None,
-                    time_end=Time.from_nanoseconds(created_before)
-                    if created_before
-                    else None,
+                    time_start=created_after if created_after else None,
+                    time_end=created_before if created_before else None,
                 )
 
             if metadata:
