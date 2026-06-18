@@ -15,7 +15,7 @@ from rosbags.highlevel import AnyReader
 from rosbags.interfaces import Connection, TopicInfo
 from rosbags.typesys import Stores, get_typestore
 
-from mosaicolabs import Message, MosaicoClient
+from mosaicolabs import MosaicoClient, SequenceDataStreamer, SequenceHandler
 from mosaicolabs.logging_config import get_logger
 
 from .helpers import _filter_topics_from_dict, _filter_topics_from_list, _to_dict
@@ -633,8 +633,8 @@ class MosaicoLoader:
         self.start_timestamp_ns = start_timestamp_ns
         self.end_timestamp_ns = end_timestamp_ns
 
-        self.seq_handler = None
-        self.streamer = None
+        self.seq_handler: Optional[SequenceHandler] = None
+        self.streamer: Optional[SequenceDataStreamer] = None
 
         self._resolved_topics: list[
             str
@@ -652,6 +652,10 @@ class MosaicoLoader:
             str
         ] = []  # The topics which message type are filtered by user
 
+        self._topic_ros_metadata: dict[
+            str, Any
+        ] = {}  # Dictionary containing ros specific metadata extracted from accepted Mosaico sequence topics
+
     def validate_sequence(self):
         if self.seq_handler is None:
             raise (
@@ -660,7 +664,7 @@ class MosaicoLoader:
                 )
             )
 
-    def _resolve_sequence(self):
+    def _resolve_sequence(self) -> SequenceHandler:
         """
         Lazily initializes the sequence handler, resolved topic list, and streamer.
 
@@ -677,10 +681,9 @@ class MosaicoLoader:
 
         """
         if self.seq_handler is not None:
-            return
+            return self.seq_handler
 
         # Get requested sequence + validation
-
         self.seq_handler = self.client.sequence_handler(
             sequence_name=self.sequence_name
         )
@@ -730,6 +733,12 @@ class MosaicoLoader:
 
             if ROSBridge.is_mosaico_type_adapted(t_handler.ontology_tag):
                 self._accepted_topics.append(t_name)
+
+                # Extracting ROS specific metadata from topic, None if not found.
+                self._topic_ros_metadata.update(
+                    {t_name: t_handler.user_metadata.get("_ros_")}
+                )
+
             else:
                 logger.warning(
                     f"Skipping topic {t_name}: not-adapted ontology {t_handler.ontology_tag}."
@@ -748,6 +757,8 @@ class MosaicoLoader:
             end_timestamp_ns=self.end_timestamp_ns,
         )
 
+        return self.seq_handler
+
     # --- Properties ---
     def msg_count(self, topic: Optional[str] = None) -> int:
         """
@@ -765,13 +776,13 @@ class MosaicoLoader:
         Returns:
             The total message count.
         """
-        self._resolve_sequence()
+        s_handler = self._resolve_sequence()
 
         topics_to_count = [topic] if topic else self._accepted_topics
 
         total_msg_count = 0
         for t in topics_to_count:
-            t_handler = self.seq_handler.get_topic_handler(t)
+            t_handler = s_handler.get_topic_handler(t)
 
             total_msg_count += sum(1 for _ in t_handler.get_data_streamer())
 
@@ -785,13 +796,13 @@ class MosaicoLoader:
         Returns:
             int: The duration of the sequence in nanoseconds. Returns 0 if sequence is not valid
         """
-        self._resolve_sequence()
+        s_handler = self._resolve_sequence()
 
         if (
-            self.seq_handler.timestamp_ns_max is not None
-            and self.seq_handler.timestamp_ns_min is not None
+            s_handler.timestamp_ns_max is not None
+            and s_handler.timestamp_ns_min is not None
         ):
-            return self.seq_handler.timestamp_ns_max - self.seq_handler.timestamp_ns_min
+            return s_handler.timestamp_ns_max - s_handler.timestamp_ns_min
 
         return 0
 
@@ -858,25 +869,79 @@ class MosaicoLoader:
             List[str | None]: Ontology tag strings (e.g. ``"imu"``, ``"image"``)
             or ``None`` for unresolvable topics.
         """
-        self._resolve_sequence()
+        s_handler = self._resolve_sequence()
 
         return [
             t_handler.ontology_tag
-            if (t_handler := self.seq_handler.get_topic_handler(topic)) is not None
+            if (t_handler := s_handler.get_topic_handler(topic)) is not None
             else None
             for topic in self._accepted_topics
         ]
 
-    def __iter__(self):
+    # --- Core Logic ---
 
+    def resolve_ros_msgtype(self, topic_name: str) -> Optional[str]:
+        """
+        Returns the original ROS message type for a topic stored in Mosaico.
+
+        When a ROS bag is ingested into Mosaico, the original ROS message type
+        (e.g. ``sensor_msgs/msg/Imu``) is preserved in the topic's user metadata
+        under the ``_ros_`` key. This method retrieves that type so callers can
+        reconstruct the correct ROS schema when re-exporting or comparing data.
+
+        Args:
+            topic_name: The topic whose original ROS message type should be resolved.
+                Must be one of the accepted topics produced by :meth:`_resolve_sequence`.
+
+        Returns:
+            The ROS message type string (e.g. ``"sensor_msgs/msg/Imu"``) if the
+            metadata was stored at ingestion time, or ``None`` if the topic is
+            unknown, the ``_ros_`` metadata block is absent, or the ``msgtype``
+            key is missing from that block.
+        """
+
+        ros_msgtype = None
+
+        ros_metadata = self._topic_ros_metadata.get(topic_name)
+
+        # "_ros_" field is not present in the topic metadata
+        if not ros_metadata:
+            return ros_msgtype
+
+        # from "_ros_" field, extract the msgtype, if present
+        try:
+            ros_msgtype = ros_metadata["msgtype"]
+        except KeyError:
+            return ros_msgtype
+
+        return ros_msgtype
+
+    def __iter__(self):
         self._resolve_sequence()
 
+        if not self.streamer:
+            raise Exception(
+                "Impossible to start streaming: SequenceDataStreamer is not initialised. Did you forget calling _resolve_sequence()?"
+            )
+
+        return self.streamer
+
+    def close(self):
+        """
+        Explicitly closes the bag file and releases system resources.
+        """
+
+        # This handles also streamer closing
+        if self.seq_handler:
+            self.seq_handler.close()
+            self.seq_handler = None
+            self.streamer = None
+
+    def __enter__(self):
+        """Context manager support."""
+        self._resolve_sequence()
         return self
 
-    def __next__(self) -> tuple[str, dict[str, Any], Message]:
-
-        t_name, msg = self.streamer.__next__()
-
-        t_metadata = self.seq_handler.get_topic_handler(t_name).user_metadata
-
-        return t_name, t_metadata, msg
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Ensures resources are released even if an error occurs in the `with` block."""
+        self.close()
