@@ -315,7 +315,8 @@ mod tests {
         // 1. Randomly decide whether to create the corresponding sequence record on DB or not.
         // 2. If no DB record is created, randomly decide whether to create the TO_DELETE file
         //    with a random last modified timestamp that can goes back until retention_duration*2
-        for i in 0..num_seqs {
+        let mut seq_id = 1;
+        for _ in 0..num_seqs {
             let pis = types::SequencePathInStore::new();
 
             context
@@ -325,11 +326,15 @@ mod tests {
                 .unwrap();
 
             if rand::random() {
-                let seq_record = db::schema::SequenceRecord::new(
-                    format!("seq_{i}").parse().unwrap(),
-                    pis.clone(),
-                );
-                let seq_record = db::sequence_create(&mut tx, &seq_record).await.unwrap();
+                let seq_record = db::sequence_create(
+                    &mut tx,
+                    &format!("seq_{seq_id}").parse().unwrap(),
+                    &pis,
+                    None,
+                )
+                .await
+                .unwrap();
+                seq_id += 1;
                 seqs_info.push((pis, Some(seq_record), None));
             } else if rand::random() {
                 let to_delete_marker_file_path = context
@@ -380,21 +385,24 @@ mod tests {
                 let parent_seq_locator: types::SequenceLocator =
                     format!("seq_{parent_seq_id}").parse().unwrap();
 
-                let session_record = db::schema::SessionRecord::new(
-                    types::SessionLocator::new(parent_seq_locator.clone()),
-                    parent_seq_id,
-                );
-                db::session_create(&mut tx, &session_record).await.unwrap();
+                let session_record = db::session_create(
+                    &mut tx,
+                    &types::SessionLocator::new(parent_seq_locator.clone()),
+                )
+                .await
+                .unwrap();
 
-                let topic_record = db::schema::TopicRecord::new(
-                    format!("{parent_seq_locator}/{i}").parse().unwrap(),
-                    parent_seq_id,
-                    1,
+                let topic_record = db::topic_create(
+                    &mut tx,
+                    &format!("{parent_seq_locator}/{i}").parse().unwrap(),
+                    session_record.uuid(),
                     "",
                     "",
                     Some(pis.clone()),
-                );
-                db::topic_create(&mut tx, &topic_record).await.unwrap();
+                    None,
+                )
+                .await
+                .unwrap();
 
                 topics_info.push((pis, Some(topic_record), None));
             } else {

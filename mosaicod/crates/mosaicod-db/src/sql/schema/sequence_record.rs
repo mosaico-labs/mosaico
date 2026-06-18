@@ -8,7 +8,6 @@
 //! All database operations accept a type that implements `sqlx::Executor`, allowing
 //! them to be executed directly against a connection pool or within a transaction.
 
-use crate as db;
 use mosaicod_core::types;
 use mosaicod_marshal as marshal;
 
@@ -30,32 +29,6 @@ pub struct SequenceRecord {
 }
 
 impl SequenceRecord {
-    /// Creates a new sequence record.
-    ///
-    /// The new sequence is created in an **unlocked** state. To lock it,
-    /// you must call the [`sequence_lock`] method.
-    ///
-    /// **Note**: This function only creates a local instance. The record will not be present
-    /// in the database until [`sequence_create`] is called.
-    pub fn new(
-        locator_name: types::SequenceLocator,
-        path_in_store: types::SequencePathInStore,
-    ) -> Self {
-        Self {
-            sequence_id: db::UNREGISTERED,
-            sequence_uuid: uuid::Uuid::new_v4(),
-            locator_name: locator_name.into(),
-            creation_unix_tstamp: types::Timestamp::now().into(),
-            user_metadata: None,
-            path_in_store: path_in_store.into(),
-        }
-    }
-
-    pub fn with_user_metadata(mut self, user_metadata: marshal::JsonMetadataBlob) -> Self {
-        self.user_metadata = Some(user_metadata.into());
-        self
-    }
-
     pub fn creation_timestamp(&self) -> types::Timestamp {
         types::Timestamp::from(self.creation_unix_tstamp)
     }

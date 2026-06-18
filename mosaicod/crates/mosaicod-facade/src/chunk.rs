@@ -1,4 +1,4 @@
-use super::{Context, topic};
+use super::Context;
 use mosaicod_core::{error::PublicResult as Result, types};
 use mosaicod_db as db;
 
@@ -15,11 +15,9 @@ impl<'a> Chunk<'a> {
         row_count: i64,
         context: &'a Context,
     ) -> Result<Self> {
-        let topic_id = topic::Handle::try_from_uuid(context, topic_uuid)
-            .await?
-            .id();
-
         let mut tx = context.db.transaction().await?;
+
+        let topic_id = db::topic_find_by_uuid(&mut tx, topic_uuid).await?.topic_id;
 
         let chunk = db::chunk_create(
             &mut tx,

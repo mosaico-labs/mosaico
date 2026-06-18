@@ -41,7 +41,10 @@ impl From<tokio::sync::AcquireError> for Error {
 
 impl core::error::PublicError for Error {
     fn error(&self) -> core::Error {
-        core::Error::internal(None)
+        match self {
+            Error::MissingDbData(msg) => core::Error::internal(Some(msg.clone())),
+            _ => core::Error::internal(None),
+        }
     }
 }
 

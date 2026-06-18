@@ -222,14 +222,14 @@ impl std::fmt::Display for TopicPathInStore {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TopicOntologyProperties {
     pub serialization_format: Format,
     pub ontology_tag: String,
 }
 
 /// Properties defining the data semantic and encoding for a topic.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TopicOntologyMetadata<M> {
     pub properties: TopicOntologyProperties,
     pub user_metadata: Option<M>,
@@ -247,7 +247,7 @@ impl<M> TopicOntologyMetadata<M> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TopicMetadata<M> {
     pub properties: TopicMetadataProperties,
     pub ontology_metadata: TopicOntologyMetadata<M>,
@@ -276,7 +276,7 @@ pub struct TopicChunksStats {
 }
 
 /// Metadata properties associated to a topic.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TopicMetadataProperties {
     pub created_at: types::Timestamp,
     pub completed_at: Option<types::Timestamp>,
@@ -307,7 +307,7 @@ impl TopicMetadataProperties {
 ///
 /// This struct provides a snapshot of the topic's physical state on disk, including
 /// its size, structure, and lifecycle status.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TopicDataInfo {
     /// Number of chunks in the topic
     pub chunks_number: u64,

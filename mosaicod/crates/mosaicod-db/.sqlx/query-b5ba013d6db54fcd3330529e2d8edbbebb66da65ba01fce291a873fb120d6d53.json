@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            INSERT INTO topic_t\n                (\n                    topic_uuid, sequence_id, session_id, locator_name, creation_unix_tstamp,\n                    serialization_format, ontology_tag, user_metadata, chunks_number,\n                    total_bytes, start_index_timestamp, end_index_timestamp, path_in_store\n                ) \n            VALUES \n                ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)\n            RETURNING \n                *\n    ",
+  "query": "\n            INSERT INTO topic_t\n                (\n                    topic_uuid, sequence_id, session_id, locator_name, creation_unix_tstamp,\n                    serialization_format, ontology_tag, user_metadata, path_in_store\n                )\n            SELECT $1, seq.sequence_id, sess.session_id, $2, $3, $4, $5, $6, $7\n            FROM sequence_t as seq JOIN session_t as sess ON sess.sequence_id = seq.sequence_id\n            WHERE seq.locator_name = $8 AND sess.session_uuid = $9 AND sess.completion_unix_tstamp IS NULL\n            RETURNING topic_t.*\n            ",
   "describe": {
     "columns": [
       {
@@ -82,18 +82,14 @@
     "parameters": {
       "Left": [
         "Uuid",
-        "Int4",
-        "Int4",
         "Text",
         "Int8",
         "Text",
         "Text",
         "Jsonb",
-        "Int8",
-        "Int8",
-        "Int8",
-        "Int8",
-        "Text"
+        "Text",
+        "Text",
+        "Uuid"
       ]
     },
     "nullable": [
@@ -114,5 +110,5 @@
       true
     ]
   },
-  "hash": "3eba4c036fbaf0392cabdcc06d654e5c88b5e8a94e04d1ed0ec431e541e0a81d"
+  "hash": "b5ba013d6db54fcd3330529e2d8edbbebb66da65ba01fce291a873fb120d6d53"
 }

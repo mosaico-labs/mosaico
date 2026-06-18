@@ -17,6 +17,13 @@ pub type DatabaseType = sqlx::Postgres;
 /// If the record has this id is not registered in the database
 pub const UNREGISTERED: i32 = -1;
 
+/// This enum is used to tell whether a SELECT should acquire a shared or exclusive lock on the rows returned by the query.
+pub enum RowLocking {
+    None,
+    Shared,
+    Exclusive,
+}
+
 /// A trait for types that can provide a [`sqlx::Executor`].
 ///
 /// This trait establishes a generic contract, allowing functions to operate

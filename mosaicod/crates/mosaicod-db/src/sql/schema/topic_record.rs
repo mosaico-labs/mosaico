@@ -1,4 +1,3 @@
-use crate as db;
 use log::error;
 use mosaicod_core::types;
 use mosaicod_marshal as marshal;
@@ -36,38 +35,6 @@ pub struct TopicRecord {
 }
 
 impl TopicRecord {
-    pub fn new(
-        locator: types::TopicLocator,
-        sequence_id: i32,
-        session_id: i32,
-        ontology_tag: &str,
-        serialization_format: &str,
-        path_in_store: Option<types::TopicPathInStore>,
-    ) -> Self {
-        Self {
-            topic_id: db::UNREGISTERED,
-            topic_uuid: types::Uuid::new().into(),
-            sequence_id,
-            session_id,
-            locator_name: locator.to_string(),
-            ontology_tag: ontology_tag.to_owned(),
-            serialization_format: serialization_format.to_owned(),
-            user_metadata: None,
-            path_in_store: path_in_store.map(Into::into),
-            creation_unix_tstamp: types::Timestamp::now().into(),
-            completion_unix_tstamp: None,
-            chunks_number: None,
-            total_bytes: None,
-            start_index_timestamp: None,
-            end_index_timestamp: None,
-        }
-    }
-
-    pub fn with_user_metadata(mut self, user_metadata: marshal::JsonMetadataBlob) -> Self {
-        self.user_metadata = Some(user_metadata.into());
-        self
-    }
-
     pub fn uuid(&self) -> types::Uuid {
         self.topic_uuid.into()
     }

@@ -20,46 +20,25 @@ pub async fn do_get(
 
     info!("requesting data for ticket `{}`", ticket.locator);
 
-    // Create topic handle
-    let topic_handle = facade::topic::Handle::try_from_locator(ctx, ticket.locator).await?;
+    let doget_params = facade::topic::streaming_read_prepare(ctx, &ticket.locator).await?;
 
-    // If topic is empty (no data has been loaded yet), do_get must fail.
-    let topic_status = facade::topic::status(ctx, &topic_handle).await?;
-
-    if topic_status == facade::topic::Status::Empty {
-        Err(core::Error::missing_doput(
-            topic_handle.locator().to_string(),
-        ))?
-    }
-
-    // Read metadata from topic
-    let metadata = facade::topic::metadata(ctx, &topic_handle).await?;
-
-    trace!("{:?}", metadata);
-
-    let batch_size = facade::topic::compute_optimal_batch_size(ctx, &topic_handle).await?;
-
-    // Here path_in_store should be already set and available,
-    // otherwise the check on the topic status should have failed.
-    // That's why an internal error is returned.
-    let path_in_store = topic_handle
-        .path_in_store()
-        .ok_or(core::error::Error::internal(Some(format!(
-            "Path in store not set for topic {}",
-            topic_handle.locator()
-        ))))?;
+    trace!("{:?}", doget_params.metadata);
 
     let mut query_result = ctx
         .timeseries_querier
         .read(
-            &path_in_store.data_folder_path(),
-            metadata.ontology_metadata.properties.serialization_format,
-            Some(batch_size),
+            &doget_params.data_folder_path,
+            doget_params
+                .metadata
+                .ontology_metadata
+                .properties
+                .serialization_format,
+            Some(doget_params.optimal_batch_size),
         )
         .await?;
 
     // Append JSON metadata to original data schema
-    let metadata = marshal::JsonTopicMetadata::from(metadata);
+    let metadata = marshal::JsonTopicMetadata::from(doget_params.metadata);
     let flatten_mdata = metadata.ontology_metadata.to_flat_hashmap()?;
 
     let schema = query_result.schema_with_metadata(flatten_mdata);

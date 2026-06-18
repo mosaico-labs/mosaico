@@ -1,11 +1,10 @@
 //! This module provides the data access and business logic for managing sessions
 //! within the application database.
 
-use crate as db;
 use mosaicod_core::types;
 
 /// Represents a session record in the database.
-#[derive(Debug, Eq, PartialEq, Hash)]
+#[derive(Debug, Eq, PartialEq, Hash, sqlx::FromRow)]
 pub struct SessionRecord {
     /// The unique identifier for the session.
     pub session_id: i32,
@@ -25,20 +24,6 @@ pub struct SessionRecord {
 }
 
 impl SessionRecord {
-    /// Creates a new `SessionRecord` for a given sequence.
-    ///
-    /// The record is not persisted until an explicit database operation is called.
-    pub fn new(locator: types::SessionLocator, sequence_id: i32) -> Self {
-        Self {
-            session_id: db::UNREGISTERED,
-            session_uuid: types::Uuid::new().into(),
-            sequence_id,
-            locator_name: locator.to_string(),
-            creation_unix_tstamp: types::Timestamp::now().into(),
-            completion_unix_tstamp: None,
-        }
-    }
-
     /// Returns the resource locator for this session.
     ///
     /// Because a [`SessionRecord`] should only be created using [`SessionRecord::new`], that requires a [`types::SessionLocator`],

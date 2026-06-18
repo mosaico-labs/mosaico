@@ -41,17 +41,17 @@ pub async fn do_action(
             sequence::delete(ctx, data.locator).await?.into_stream()
         }
         ActionRequest::SequenceNotificationCreate(data) => {
-            sequence::notification_create(ctx, data.locator, data.notification_type, data.msg)
+            sequence::notification_create(ctx, &data.locator, &data.notification_type, &data.msg)
                 .await?
                 .into_stream()
         }
         ActionRequest::SequenceNotificationList(data) => {
-            sequence::notification_list(ctx, data.locator)
+            sequence::notification_list(ctx, &data.locator)
                 .await?
                 .into_stream()
         }
         ActionRequest::SequenceNotificationPurge(data) => {
-            sequence::notification_purge(ctx, data.locator)
+            sequence::notification_purge(ctx, &data.locator)
                 .await?
                 .into_stream()
         }
@@ -83,7 +83,7 @@ pub async fn do_action(
         }
         ActionRequest::TopicDelete(data) => topic::delete(ctx, data.locator).await?.into_stream(),
         ActionRequest::TopicNotificationCreate(data) => {
-            topic::notification_create(ctx, data.locator, data.notification_type, data.msg)
+            topic::notification_create(ctx, &data.locator, &data.notification_type, &data.msg)
                 .await?
                 .into_stream()
         }

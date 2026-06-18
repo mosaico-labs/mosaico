@@ -2,7 +2,6 @@
 use log::{info, trace, warn};
 use mosaicod_core::{self as core, types};
 use mosaicod_facade as facade;
-use mosaicod_facade::session;
 use mosaicod_grpc_common as grpc_common;
 use mosaicod_marshal::ActionResponse;
 
@@ -37,8 +36,7 @@ pub async fn finalize(
         .parse()
         .map_err(|_| core::Error::bad_uuid(session_uuid))?;
 
-    let session_handle = session::Handle::try_from_uuid(ctx, &uuid).await?;
-    facade::session::finalize(ctx, &session_handle).await?;
+    facade::session::finalize(ctx, &uuid).await?;
 
     trace!("session `{}` finalized", uuid);
 
@@ -52,9 +50,7 @@ pub async fn delete(
     warn!("deleting session `{}`", session_locator);
 
     let locator = session_locator.parse::<types::SessionLocator>()?;
-    let session_handle = session::Handle::try_from_locator(ctx, locator).await?;
-
-    facade::session::delete(ctx, session_handle, types::allow_data_loss()).await?;
+    facade::session::delete(ctx, &locator, types::allow_data_loss()).await?;
 
     warn!("session `{}` deleted", session_locator);
 
