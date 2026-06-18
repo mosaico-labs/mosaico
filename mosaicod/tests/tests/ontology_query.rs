@@ -7,6 +7,7 @@ use mosaicod_db as db;
 use serde_json::json;
 use std::sync::Arc;
 use tests::{actions, common};
+use tonic::Code;
 
 use arrow::array::ArrayRef;
 
@@ -92,6 +93,69 @@ fn string_list_batch(ts_start: i64, values: &[i64], list_test: &[Vec<&str>]) -> 
         vec![
             Arc::new(Int64Array::from(timestamps)) as ArrayRef,
             Arc::new(Int64Array::from(values.to_vec())) as ArrayRef,
+            Arc::new(list_array) as ArrayRef,
+        ],
+    )
+    .unwrap()
+}
+
+fn struct_list_batch(ts_start: i64, readings: &[Vec<(f64, f64)>]) -> RecordBatch {
+    use arrow::array::{ArrayBuilder, Float64Builder, StructBuilder};
+
+    let struct_fields: arrow::datatypes::Fields = vec![
+        Field::new("x", DataType::Float64, false),
+        Field::new("y", DataType::Float64, false),
+    ]
+    .into();
+
+    let mut list_builder = ListBuilder::new(StructBuilder::new(
+        struct_fields.clone(),
+        vec![
+            Box::new(Float64Builder::new()) as Box<dyn ArrayBuilder>,
+            Box::new(Float64Builder::new()) as Box<dyn ArrayBuilder>,
+        ],
+    ))
+    .with_field(Arc::new(Field::new(
+        "item",
+        DataType::Struct(struct_fields.clone()),
+        false,
+    )));
+
+    for row in readings {
+        for (x, y) in row {
+            let sb = list_builder.values();
+            sb.field_builder::<Float64Builder>(0)
+                .unwrap()
+                .append_value(*x);
+            sb.field_builder::<Float64Builder>(1)
+                .unwrap()
+                .append_value(*y);
+            sb.append(true);
+        }
+        list_builder.append(true);
+    }
+
+    let list_array = list_builder.finish();
+    let n = readings.len();
+    let timestamps: Vec<i64> = (0..n as i64).map(|i| ts_start + i * 5).collect();
+
+    let schema = Arc::new(Schema::new(vec![
+        Field::new("timestamp_ns", DataType::Int64, false),
+        Field::new(
+            "readings",
+            DataType::List(Arc::new(Field::new(
+                "item",
+                DataType::Struct(struct_fields),
+                false,
+            ))),
+            false,
+        ),
+    ]));
+
+    RecordBatch::try_new(
+        schema,
+        vec![
+            Arc::new(Int64Array::from(timestamps)) as ArrayRef,
             Arc::new(list_array) as ArrayRef,
         ],
     )
@@ -1796,6 +1860,108 @@ async fn test_ontology_all_match(pool: sqlx::Pool<db::DatabaseType>) {
         !locators.contains(&format!("{seq}/topic_b")),
         r#"$match "^z": topic_b excluded"#
     );
+
+    server.shutdown().await;
+}
+
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_ontology_list_of_struct_any(pool: sqlx::Pool<db::DatabaseType>) {
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
+        .build()
+        .await;
+
+    let seq = "seq_list_of_struct_any";
+
+    // topic_a: readings = [{x: 1.0, y: 10.0}]
+    // topic_b: readings = [{x: 5.0, y: 50.0}]
+    setup_topics(
+        &mut client,
+        seq,
+        vec![
+            (
+                "topic_a",
+                struct_list_batch(10_000, &[vec![(1.0_f64, 10.0_f64)]]),
+            ),
+            (
+                "topic_b",
+                struct_list_batch(20_000, &[vec![(5.0_f64, 50.0_f64)]]),
+            ),
+        ],
+    )
+    .await;
+
+    // x > 3.0: topic_b (x=5.0) included, topic_a (x=1.0) excluded
+    let items = actions::query(
+        &mut client,
+        json!({ "ontology": { "mock.readings[?].x": { "$gt": 3.0 } } }),
+    )
+    .await
+    .unwrap();
+    let locators = topic_locators(&items);
+    assert!(
+        locators.contains(&format!("{seq}/topic_b")),
+        "topic_b should be included (x=5.0 > 3.0)"
+    );
+    assert!(
+        !locators.contains(&format!("{seq}/topic_a")),
+        "topic_a should be excluded (x=1.0 not > 3.0)"
+    );
+
+    // y < 20.0: topic_a (y=10.0) included, topic_b (y=50.0) excluded
+    let items = actions::query(
+        &mut client,
+        json!({ "ontology": { "mock.readings[?].y": { "$lt": 20.0 } } }),
+    )
+    .await
+    .unwrap();
+    let locators = topic_locators(&items);
+    assert!(
+        locators.contains(&format!("{seq}/topic_a")),
+        "topic_a should be included (y=10.0 < 20.0)"
+    );
+    assert!(
+        !locators.contains(&format!("{seq}/topic_b")),
+        "topic_b should be excluded (y=50.0 not < 20.0)"
+    );
+
+    server.shutdown().await;
+}
+
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_ontology_duplicate_specifier_is_rejected(pool: sqlx::Pool<db::DatabaseType>) {
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
+        .build()
+        .await;
+
+    let err = actions::query(
+        &mut client,
+        json!({ "ontology": { "mock.a[?].b[!].c": { "$eq": 1 } } }),
+    )
+    .await
+    .unwrap_err();
+
+    assert_eq!(err.code(), Code::InvalidArgument);
+
+    server.shutdown().await;
+}
+
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_ontology_invalid_specifier_syntax_is_rejected(pool: sqlx::Pool<db::DatabaseType>) {
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
+        .build()
+        .await;
+
+    let err = actions::query(
+        &mut client,
+        json!({ "ontology": { "mock.readings[abc]": { "$eq": 1 } } }),
+    )
+    .await
+    .unwrap_err();
+
+    assert_eq!(err.code(), Code::InvalidArgument);
 
     server.shutdown().await;
 }

@@ -365,6 +365,127 @@ fn all_op_to_df_expr<V: Into<Value>>(arr: Expr, op: Op<V>) -> Option<Expr> {
     }
 }
 
+/// Builds the DataFusion expression for the portion of the field path that leads up to
+/// (and including) the list column, stopping before any sub-fields that follow the list
+/// specifier.
+///
+/// Examples:
+/// - `"readings[?].x"` → `col("readings")`
+/// - `"a.b[?].y.z"`    → `col("a").field("b")`
+/// - `"value"`          → `col("value")`
+fn list_col_expr(field: &OntologyField) -> Expr {
+    let parsed = field.field_path();
+    let list_idx = parsed.list_access.as_ref().map(|la| la.segment_index);
+    let mut segs = parsed.field_segments().enumerate();
+    let (_, first) = segs.next().expect("field has at least one segment");
+    let mut expr = col(first);
+    for (i, seg) in segs {
+        if list_idx.is_some_and(|li| i > li) {
+            break;
+        }
+        expr = expr.field(seg);
+    }
+    expr
+}
+
+/// Returns the field-path segments that come *after* the list specifier, i.e. the
+/// sub-fields to navigate inside each struct element of the list.
+///
+/// For `pose[?].x` the list is at segment 0 (`pose`) and the sub-path is `["x"]`.
+/// For `a.b[?].c.d` the list is at segment 1 (`b`) and the sub-path is `["c", "d"]`.
+/// For `x[?]` (list of primitives, no struct navigation) the sub-path is empty (`[]`).
+///
+/// An empty result means the predicate targets the list elements directly (e.g. a
+/// `List<f64>`), so the existing scalar array functions (`array_max`, `array_has`, …)
+/// are sufficient. A non-empty result means struct field access is required inside a
+/// lambda, see [`struct_elem_predicate`].
+fn inner_field_segs(field: &OntologyField) -> Vec<String> {
+    let parsed = field.field_path();
+    match &parsed.list_access {
+        None => vec![],
+        Some(la) => parsed
+            .field_segments()
+            .enumerate()
+            .filter(|(i, _)| *i > la.segment_index)
+            .map(|(_, s)| s.to_owned())
+            .collect(),
+    }
+}
+
+/// Applies a sequence of field-name segments to an expression via nested `.field()` calls.
+///
+/// Used in two contexts:
+/// - Inside a lambda body, where `expr` is a `lambda_var("elem")` representing one struct
+///   element of the list, and `sub_segs` navigates into it (e.g. `elem.field("x")`).
+/// - After `array_element`, where `expr` is the result of indexing into a list with `[N]`
+///   and `sub_segs` navigates into the resulting struct (e.g. `readings[0].field("x")`).
+///
+/// When `sub_segs` is empty this is a no-op and the expression is returned unchanged.
+fn chain_field_accesses(mut expr: Expr, sub_segs: &[String]) -> Expr {
+    for seg in sub_segs {
+        expr = expr.field(seg.as_str());
+    }
+    expr
+}
+
+/// Builds the predicate body for a lambda operating on a single struct element of a list.
+///
+/// When filtering `readings[?].x > 3`, DataFusion needs an expression of the form:
+///
+/// ```text
+/// array_any_match(col("readings"), lambda(["elem"], <body>))
+/// ```
+///
+/// This function produces `<body>`: it creates a `lambda_var("elem")` (the placeholder for
+/// the current element), navigates into the target sub-field via [`chain_field_accesses`]
+/// (e.g. `elem.field("x")`), and then applies the comparison operator (e.g. `.gt(3.0)`).
+fn struct_elem_predicate<V: Into<Value>>(sub_segs: &[String], op: Op<V>) -> Option<Expr> {
+    let make_fe = || chain_field_accesses(lambda_var("elem"), sub_segs);
+    Some(match op {
+        Op::Eq(v) => make_fe().eq(value_to_df_expr(v.into())),
+        Op::Neq(v) => make_fe().not_eq(value_to_df_expr(v.into())),
+        Op::Gt(v) => make_fe().gt(value_to_df_expr(v.into())),
+        Op::Geq(v) => make_fe().gt_eq(value_to_df_expr(v.into())),
+        Op::Lt(v) => make_fe().lt(value_to_df_expr(v.into())),
+        Op::Leq(v) => make_fe().lt_eq(value_to_df_expr(v.into())),
+        Op::Between(range) => {
+            let vmin = value_to_df_expr(range.min.into());
+            let vmax = value_to_df_expr(range.max.into());
+            make_fe().gt_eq(vmin).and(make_fe().lt_eq(vmax))
+        }
+        Op::In(items) => {
+            let list = items
+                .into_iter()
+                .map(|v| value_to_df_expr(v.into()))
+                .collect();
+            make_fe().in_list(list, false)
+        }
+        Op::Match(v) => regexp_like(make_fe(), value_to_df_expr(v.into()), None),
+        Op::Ex | Op::Nex => return None,
+    })
+}
+
+/// Builds the DataFusion expression for `[?]` on a `List<Struct<…>>` column, where the
+/// predicate targets a sub-field inside each struct element (e.g. `readings[?].x > 3`).
+fn any_op_struct_to_df_expr<V: Into<Value>>(
+    arr: Expr,
+    sub_segs: &[String],
+    op: Op<V>,
+) -> Option<Expr> {
+    let body = struct_elem_predicate(sub_segs, op)?;
+    Some(array_any_match(arr, lambda(["elem"], body)))
+}
+
+/// Builds the DataFusion expression for `[!]` on a `List<Struct<…>>` column.
+fn all_op_struct_to_df_expr<V: Into<Value>>(
+    arr: Expr,
+    sub_segs: &[String],
+    op: Op<V>,
+) -> Option<Expr> {
+    let body = struct_elem_predicate(sub_segs, op)?;
+    Some(not(array_any_match(arr, lambda(["elem"], not(body)))))
+}
+
 fn expr_group_to_df_expr<V>(filter: OntologyExprGroup<V>) -> Option<Expr>
 where
     V: Into<Value>,
@@ -374,16 +495,37 @@ where
     for expr in filter.into_iter() {
         let (field, op) = expr.into_parts();
         let parsed = field.field_path();
-        let arr = unfold_field(&field);
 
-        let expr = match parsed.specifier {
-            None => scalar_op_to_df_expr(arr, op),
-            Some(IndexSpecifier::At(i)) => {
-                // DataFusion array_element uses 1-indexing
-                scalar_op_to_df_expr(array_element(arr, lit(i as i64 + 1)), op)
+        let expr = match parsed.specifier() {
+            None => {
+                let arr = unfold_field(&field);
+                scalar_op_to_df_expr(arr, op)
             }
-            Some(IndexSpecifier::AtLeastOne) => any_op_to_df_expr(arr, op),
-            Some(IndexSpecifier::All) => all_op_to_df_expr(arr, op),
+            Some(IndexSpecifier::At(i)) => {
+                // DataFusion array_element uses 1-indexing; apply any sub-field after indexing.
+                let arr = list_col_expr(&field);
+                let sub = inner_field_segs(&field);
+                let elem = chain_field_accesses(array_element(arr, lit(*i as i64 + 1)), &sub);
+                scalar_op_to_df_expr(elem, op)
+            }
+            Some(IndexSpecifier::AtLeastOne) => {
+                let arr = list_col_expr(&field);
+                let sub = inner_field_segs(&field);
+                if sub.is_empty() {
+                    any_op_to_df_expr(arr, op)
+                } else {
+                    any_op_struct_to_df_expr(arr, &sub, op)
+                }
+            }
+            Some(IndexSpecifier::All) => {
+                let arr = list_col_expr(&field);
+                let sub = inner_field_segs(&field);
+                if sub.is_empty() {
+                    all_op_to_df_expr(arr, op)
+                } else {
+                    all_op_struct_to_df_expr(arr, &sub, op)
+                }
+            }
         };
 
         if let Some(expr) = expr {
