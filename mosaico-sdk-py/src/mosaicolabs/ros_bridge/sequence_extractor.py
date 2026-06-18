@@ -527,6 +527,7 @@ def ros_sequence_extractor():
     )
     parser.add_argument(
         "--end_timestamp_ns",
+        type=int,
         default=None,
         help="Timestamp from where to stop extractiong from sequence and create rosbag. None by default",
     )
