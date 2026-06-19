@@ -192,7 +192,7 @@ EOF
         # Remove existing dev profile (ignore errors if it doesn't exist)
         ${MOSAICO_CMD} profile remove dev --force 2>/dev/null || true
         # Add dev profile with the generated API key
-        PROFILE_OPTS="--no-interactive --host localhost --port 6276 --api-key ${API_KEY} --default"
+        PROFILE_OPTS="--no-interactive --force --host localhost --port 6276 --api-key ${API_KEY} --default"
         if $ENABLE_TLS; then
             PROFILE_OPTS="${PROFILE_OPTS} --tls --cert-path ${MOSAICOD_PATH}/tests/data/ca.pem"
         fi
@@ -217,7 +217,7 @@ EOF
 
             echo "${DIM}Configuring CLI profile 'dev' (TLS)...${RESET}"
             ${MOSAICO_CMD} profile remove dev --force 2>/dev/null || true
-            ${MOSAICO_CMD} profile add dev --no-interactive \
+            ${MOSAICO_CMD} profile add dev --no-interactive --force \
                 --host localhost --port 6276 \
                 --tls --cert-path "${MOSAICOD_PATH}/tests/data/ca.pem" \
                 --default

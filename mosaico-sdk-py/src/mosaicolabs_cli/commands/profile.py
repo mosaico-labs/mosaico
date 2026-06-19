@@ -44,6 +44,12 @@ def add_profile(
     cert_path: Optional[str] = typer.Option(
         None, "--cert-path", help="Path to custom TLS CA certificate (optional)."
     ),
+    force: bool = typer.Option(
+        False,
+        "--force",
+        "-f",
+        help="Force overwrite of an existing profile in non-interactive mode.",
+    ),
 ):
     """
     Add or update a connection profile inside the configuration file.
@@ -97,10 +103,12 @@ def add_profile(
             if not overwrite:
                 console.print("[yellow]Operation aborted.[/yellow]")
                 return
-        else:
-            console.print(
-                f"[yellow]Warning:[/yellow] Profile [yellow]'{name}'[/yellow] already exists and will be overridden."
+        elif not force:
+            error_console.print(
+                f"[bold red]Error:[/bold red] Profile [yellow]'{name}'[/yellow] already exists. "
+                f"Use `--force` to overwrite."
             )
+            raise typer.Exit(code=1)
 
     was_already_default = False
     if name in config_data and isinstance(config_data[name], dict):
