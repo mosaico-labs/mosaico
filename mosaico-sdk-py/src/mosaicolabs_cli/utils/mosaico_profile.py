@@ -4,7 +4,7 @@ import os
 from typing import Any, Dict, Optional
 
 from mosaicolabs_cli.utils.config import console, get_config_path, load_config
-from mosaicolabs_cli.utils.env import MosaicoEnv
+from mosaicolabs_cli.utils.env import DEFAULT_MOSAICO_PORT, MosaicoEnv
 
 
 class MosaicoProfile:
@@ -20,7 +20,7 @@ class MosaicoProfile:
     def __init__(
         self,
         host: str = "",
-        port: int = 6276,
+        port: int = DEFAULT_MOSAICO_PORT,
         api_key: str = "",
         tls: bool = False,
         cert_path: str = "",
@@ -53,7 +53,7 @@ class MosaicoProfile:
 
         if profile_name:
             content = config_data.get(profile_name)
-            if not isinstance(content, dict):
+            if content is None or not isinstance(content, dict):
                 console.print(
                     f"[bold red]Error:[/bold red] Profile '{profile_name}' not found in configuration."
                 )
@@ -78,9 +78,17 @@ class MosaicoProfile:
         else:
             tls = bool(profile_dict.get("tls", False))
 
+        if env_host:
+            resolved_host, resolved_port = cls._normalize_host_port(
+                env_host, DEFAULT_MOSAICO_PORT
+            )
+        else:
+            resolved_host = profile_dict.get("host", "")
+            resolved_port = int(profile_dict.get("port", DEFAULT_MOSAICO_PORT))
+
         return cls(
-            host=env_host or profile_dict.get("host", ""),
-            port=6276 if env_host else int(profile_dict.get("port", 6276)),
+            host=resolved_host,
+            port=resolved_port,
             api_key=env_api_key or profile_dict.get("api_key", ""),
             tls=tls,
             cert_path=env_cert_path or profile_dict.get("cert_path", ""),
@@ -91,7 +99,7 @@ class MosaicoProfile:
         """Create from a plain dictionary."""
         return cls(
             host=data.get("host", ""),
-            port=int(data.get("port", 6276)),
+            port=int(data.get("port", DEFAULT_MOSAICO_PORT)),
             api_key=data.get("api_key", ""),
             tls=bool(data.get("tls", False)),
             cert_path=data.get("cert_path", ""),
@@ -130,7 +138,7 @@ class MosaicoProfile:
         h = host.strip().rstrip("/")
         h = h.replace("http://", "").replace("https://", "")
 
-        if port == 6276 and ":" in h:
+        if port == DEFAULT_MOSAICO_PORT and ":" in h:
             host_part, port_part = h.rsplit(":", 1)
             if port_part.isdigit():
                 return host_part, int(port_part)

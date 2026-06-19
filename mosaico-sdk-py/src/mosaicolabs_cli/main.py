@@ -6,7 +6,7 @@ import typer
 from mosaicolabs_cli.commands import extension, profile, sequence, topic
 from mosaicolabs_cli.commands.extension import MosaicoRouter
 from mosaicolabs_cli.utils.env import MosaicoEnv
-from mosaicolabs_cli.utils.MosaicoProfile import MosaicoProfile
+from mosaicolabs_cli.utils.mosaico_profile import MosaicoProfile
 
 app = typer.Typer(
     cls=MosaicoRouter,
@@ -16,7 +16,7 @@ app = typer.Typer(
     \b
     ENVIRONMENT VARIABLES:
     MOSAICO_PROFILE      Target profile name selection mapping (e.g., 'dev', 'prod').
-    MOSAICO_DAEMON_URL   Mosaico remote daemon host or host:port (e.g., 'api.mosaico.dev' or 'api.mosaico.dev:6276'). When provided the embedded port (if any) will be respected; otherwise the default port 6276 is used.
+    MOSAICO_DAEMON_URL   Mosaico remote daemon host or host:port (e.g., 'api.mosaico.dev' or 'api.mosaico.dev:6276'). When provided the embedded port (if any) will be respected; otherwise the default port is used.
     MOSAICO_API_KEY      Authentication credentials bearer token key.
     MOSAICO_TLS          Enable TLS/SSL connection (set to any value to enable). When enabled, the client will attempt to use TLS for secure communication with the Mosaico server. If MOSAICO_CERT_PATH is provided, it will be used as the CA certificate for verifying the server's TLS certificate. If MOSAICO_TLS is set but MOSAICO_CERT_PATH is not provided, the client will attempt to establish a TLS connection without a custom CA certificate, which may succeed if the server's certificate is signed by a well-known CA trusted by the system.
     MOSAICO_CERT_PATH    Path location pointing to a custom TLS CA certificate file.

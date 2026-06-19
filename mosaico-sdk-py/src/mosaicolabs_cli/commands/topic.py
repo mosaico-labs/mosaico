@@ -13,7 +13,7 @@ from mosaicolabs_cli.utils.config import (
     console,
     error_console,
 )
-from mosaicolabs_cli.utils.MosaicoProfile import MosaicoProfile
+from mosaicolabs_cli.utils.mosaico_profile import MosaicoProfile
 
 app = typer.Typer(no_args_is_help=True)
 

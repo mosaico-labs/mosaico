@@ -1,16 +1,16 @@
 import pytest
 
-from mosaicolabs_cli.utils.MosaicoProfile import MosaicoProfile
+from mosaicolabs_cli.utils.mosaico_profile import MosaicoProfile
 
 
 class TestNormalizeHostPort:
     def test_plain_host(self):
-        h, p = MosaicoProfile._normalize_host_port("myhost.com", 6276)
+        h, p = MosaicoProfile._normalize_host_port("myhost.com", 6726)
         assert h == "myhost.com"
-        assert p == 6276
+        assert p == 6726
 
     def test_host_with_embedded_port(self):
-        h, p = MosaicoProfile._normalize_host_port("myhost.com:9999", 6276)
+        h, p = MosaicoProfile._normalize_host_port("myhost.com:9999", 6726)
         assert h == "myhost.com"
         assert p == 9999
 
@@ -20,24 +20,24 @@ class TestNormalizeHostPort:
         assert p == 1234
 
     def test_strips_http_prefix(self):
-        h, p = MosaicoProfile._normalize_host_port("http://example.com", 6276)
+        h, p = MosaicoProfile._normalize_host_port("http://example.com", 6726)
         assert h == "example.com"
-        assert p == 6276
+        assert p == 6726
 
     def test_strips_https_prefix(self):
-        h, p = MosaicoProfile._normalize_host_port("https://example.com", 6276)
+        h, p = MosaicoProfile._normalize_host_port("https://example.com", 6726)
         assert h == "example.com"
-        assert p == 6276
+        assert p == 6726
 
     def test_strips_trailing_slash(self):
-        h, p = MosaicoProfile._normalize_host_port("example.com/", 6276)
+        h, p = MosaicoProfile._normalize_host_port("example.com/", 6726)
         assert h == "example.com"
-        assert p == 6276
+        assert p == 6726
 
     def test_strips_whitespace(self):
-        h, p = MosaicoProfile._normalize_host_port("  example.com  ", 6276)
+        h, p = MosaicoProfile._normalize_host_port("  example.com  ", 6726)
         assert h == "example.com"
-        assert p == 6276
+        assert p == 6726
 
 
 class TestFromDict:
@@ -60,7 +60,7 @@ class TestFromDict:
         data = {"host": "localhost"}
         profile = MosaicoProfile.from_dict(data)
         assert profile.host == "localhost"
-        assert profile.port == 6276
+        assert profile.port == 6726
         assert profile.api_key == ""
         assert profile.tls is False
         assert profile.cert_path == ""
@@ -68,7 +68,7 @@ class TestFromDict:
     def test_empty_dict(self):
         profile = MosaicoProfile.from_dict({})
         assert profile.host == ""
-        assert profile.port == 6276
+        assert profile.port == 6726
 
 
 class TestToDict:

@@ -1,5 +1,7 @@
 from enum import Enum
 
+DEFAULT_MOSAICO_PORT = 6726
+
 
 class MosaicoEnv(str, Enum):
     """Canonical environment variable names for the Mosaico platform."""

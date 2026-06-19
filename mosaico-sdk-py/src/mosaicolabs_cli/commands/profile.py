@@ -12,7 +12,8 @@ from mosaicolabs_cli.utils.config import (
     load_config,
     serialize_to_toml,
 )
-from mosaicolabs_cli.utils.MosaicoProfile import MosaicoProfile
+from mosaicolabs_cli.utils.env import DEFAULT_MOSAICO_PORT
+from mosaicolabs_cli.utils.mosaico_profile import MosaicoProfile
 
 app = typer.Typer(no_args_is_help=True)
 
@@ -32,7 +33,7 @@ def add_profile(
     port: Optional[int] = typer.Option(
         None,
         "--port",
-        help="Mosaico server port. Leave empty for 6726 when running interactively.",
+        help="Mosaico server port. Leave empty for default when running interactively.",
     ),
     api_key: Optional[str] = typer.Option(
         None, "--api-key", help="Authentication API key."
@@ -56,13 +57,14 @@ def add_profile(
             host = typer.prompt("Mosaico Server Host")
         if port is None:
             port_input = typer.prompt(
-                "Mosaico Server Port (leave empty for 6726)", default=""
+                f"Mosaico Server Port (leave empty for {DEFAULT_MOSAICO_PORT})",
+                default="",
             )
             port_input = (
                 port_input.strip() if isinstance(port_input, str) else port_input
             )
             if port_input == "":
-                port = 6726
+                port = DEFAULT_MOSAICO_PORT
             else:
                 try:
                     port = int(port_input)
@@ -87,7 +89,18 @@ def add_profile(
             raise typer.Exit(code=1)
 
     if port is None:
-        port = 6726
+        port = DEFAULT_MOSAICO_PORT
+
+    if name in config_data and isinstance(config_data[name], dict):
+        if interactive:
+            overwrite = typer.confirm(f"Profile '{name}' already exists. Overwrite?")
+            if not overwrite:
+                console.print("[yellow]Operation aborted.[/yellow]")
+                return
+        else:
+            console.print(
+                f"[yellow]Warning:[/yellow] Profile [yellow]'{name}'[/yellow] already exists and will be overridden."
+            )
 
     was_already_default = False
     if name in config_data and isinstance(config_data[name], dict):
@@ -99,12 +112,6 @@ def add_profile(
         for profile_name, profile_content in config_data.items():
             if profile_name != name and isinstance(profile_content, dict):
                 profile_content["default"] = False
-
-    if is_default or not config_data:
-        is_default = True
-        for profile in config_data.values():
-            if isinstance(profile, dict) and "default" in profile:
-                profile["default"] = False
 
     if host:
         host, port = MosaicoProfile._normalize_host_port(host, port)
