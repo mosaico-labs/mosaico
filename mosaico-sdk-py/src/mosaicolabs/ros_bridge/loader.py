@@ -14,6 +14,7 @@ from rich.progress import (
 from rosbags.highlevel import AnyReader
 from rosbags.interfaces import Connection, TopicInfo
 from rosbags.typesys import Stores, get_typestore
+from rosbags.typesys.store import Typestore
 
 from mosaicolabs import MosaicoClient, SequenceDataStreamer, SequenceHandler
 from mosaicolabs.logging_config import get_logger
@@ -63,11 +64,6 @@ class Loader(Protocol):
     """
 
     @property
-    def duration(self) -> int:
-        """This should return the duration of the loaded data as int"""
-        ...
-
-    @property
     def topics(self) -> List[str]:
         """This should return the Mosaico compatible topics of the loaded data as strings"""
         ...
@@ -78,18 +74,8 @@ class Loader(Protocol):
         ...
 
     @property
-    def not_adapted_topics(self) -> List[str]:
-        """This should return the Mosaico incompatible topics of the loaded data as strings"""
-        ...
-
-    @property
-    def filtered_topics(self) -> List[str]:
-        """This should return the user filtered topics thorugh the glob pattern of the loaded data as strings"""
-        ...
-
-    @property
-    def msg_types(self) -> List[str | None]:
-        """This should return the types of the loaded data as strings"""
+    def rejected_topics(self) -> List[Tuple[str, str, str]]:
+        """This should return a list of tuples containing all the rejected topics, the reason and the color (topic_name, rej_reason, color)"""
         ...
 
     def msg_count(self, topic: Optional[str] = None) -> int:
@@ -152,13 +138,9 @@ class ProgressManager:
                 "", total=count, name=topic_name
             )
 
-        # Filtered topics are immediately set to yellow
-        for topic_name in self.loader.filtered_topics:
-            self.update_status(topic_name, "Filtered", "yellow")
-
-        # Incompatible topics are immediately set to yellow
-        for topic_name in self.loader.not_adapted_topics:
-            self.update_status(topic_name, "No Adapter", "yellow")
+        # Rejected topics (with rejected reason) are highlighted
+        for topic_name, rej_reason, color in self.loader.rejected_topics:
+            self.update_status(topic_name, rej_reason, color)
 
         # Create a master progress bar for the aggregate total of the accepted topics
         total_msgs = sum(self.loader.msg_count(t) for t in self.loader.topics)
@@ -517,6 +499,22 @@ class ROSLoader:
         self._resolve_connections()
         return [val.msgtype for val in self._accepted_topics.values()]
 
+    @property
+    def rejected_topics(self) -> List[Tuple[str, str, str]]:
+
+        rejected_topics: List[Tuple[str, str, str]] = []
+        self._resolve_connections()
+
+        # Filtered
+        for t_filtered in self.filtered_topics:
+            rejected_topics.append((t_filtered, "Filtered", "orange_red1"))
+
+        # Adapter not found
+        for t_not_adapter in self._not_adapted_topics:
+            rejected_topics.append((t_not_adapter, "Not adapted", "dark_orange"))
+
+        return rejected_topics
+
     # --- Core Logic ---
 
     def __iter__(self) -> Generator[Tuple[ROSMessage, Optional[Exception]], None, None]:
@@ -610,6 +608,7 @@ class MosaicoLoader:
     Args:
         m_client: An open :class:`MosaicoClient` connection.
         sequence_name: Name of the Mosaico sequence to load.
+        typestore: The ROS typestore containing the registered ROS messages.
         topics: Optional topic-name filter patterns (glob-style, ``!``-prefixed for
             exclusions). ``None`` loads all topics.
         start_timestamp_ns: Lower bound for the time window (nanoseconds). Clipped
@@ -621,6 +620,7 @@ class MosaicoLoader:
     def __init__(
         self,
         m_client: MosaicoClient,
+        typestore: Typestore,
         sequence_name: str,
         topics: Optional[List[str]],
         start_timestamp_ns: Optional[int],
@@ -628,6 +628,7 @@ class MosaicoLoader:
     ):
 
         self.client = m_client
+        self.typestore: Typestore = typestore
         self.sequence_name = sequence_name
         self.topic_glob_pattern = topics
         self.start_timestamp_ns = start_timestamp_ns
@@ -646,11 +647,13 @@ class MosaicoLoader:
 
         self._not_adapted_topics: list[
             str
-        ] = []  # The topics which message type is not adapted in mosaico
+        ] = []  # The topics whose ontology type is not adapted in mosaico
 
-        self._filtered_topics: list[
+        self._unregistered_topics: list[
             str
-        ] = []  # The topics which message type are filtered by user
+        ] = []  # The topics whose message type is not present within the typestore
+
+        self._filtered_topics: list[str] = []  # The topics filtered by user
 
         self._topic_ros_metadata: dict[
             str, Any
@@ -731,19 +734,35 @@ class MosaicoLoader:
             # 2) Mosaico-adapted topic
             t_handler = self.seq_handler.get_topic_handler(t_name)
 
-            if ROSBridge.is_mosaico_type_adapted(t_handler.ontology_tag):
-                self._accepted_topics.append(t_name)
+            adapter = ROSBridge.get_default_mosaico_adapter(t_handler.ontology_tag)
 
-                # Extracting ROS specific metadata from topic, None if not found.
-                self._topic_ros_metadata.update(
-                    {t_name: t_handler.user_metadata.get("_ros_")}
-                )
-
-            else:
+            if not adapter:
                 logger.warning(
                     f"Skipping topic {t_name}: not-adapted ontology {t_handler.ontology_tag}."
                 )
                 self._not_adapted_topics.append(t_name)
+                continue
+
+            # 3) ros_msgtype not present within typestore
+            try:  # rosmsg_type can be through metadata
+                rosmsg_type = t_handler.user_metadata["_ros_"]["msgtype"]
+            except KeyError:
+                # Or obtained from adapter through default
+                rosmsg_type = adapter.get_default_ros_msg()
+
+            if self.typestore.types.get(rosmsg_type) is None:
+                logger.warning(
+                    f"Skipping topic {t_name}: {rosmsg_type} not present in ROS typestore."
+                )
+                self._unregistered_topics.append(t_name)
+                continue
+
+            # Finally accept the topic and extract its ROS metadata (if any)
+            self._accepted_topics.append(t_name)
+
+            self._topic_ros_metadata.update(
+                {t_name: t_handler.user_metadata.get("_ros_")}
+            )
 
         if not self._accepted_topics:
             raise RuntimeError(
@@ -878,6 +897,26 @@ class MosaicoLoader:
             for topic in self._accepted_topics
         ]
 
+    @property
+    def rejected_topics(self) -> List[Tuple[str, str, str]]:
+
+        rejected_topics: List[Tuple[str, str, str]] = []
+        self._resolve_sequence()
+
+        # Filtered
+        for t_filtered in self.filtered_topics:
+            rejected_topics.append((t_filtered, "Filtered", "orange_red1"))
+
+        # Adapter not found
+        for t_not_adapter in self._not_adapted_topics:
+            rejected_topics.append((t_not_adapter, "Not adapted", "dark_orange"))
+
+        # Not found in typestore
+        for t_unregistered in self._unregistered_topics:
+            rejected_topics.append((t_unregistered, "Not in typestore", "orange1"))
+
+        return rejected_topics
+
     # --- Core Logic ---
 
     def resolve_ros_msgtype(self, topic_name: str) -> Optional[str]:
@@ -900,21 +939,7 @@ class MosaicoLoader:
             key is missing from that block.
         """
 
-        ros_msgtype = None
-
-        ros_metadata = self._topic_ros_metadata.get(topic_name)
-
-        # "_ros_" field is not present in the topic metadata
-        if not ros_metadata:
-            return ros_msgtype
-
-        # from "_ros_" field, extract the msgtype, if present
-        try:
-            ros_msgtype = ros_metadata["msgtype"]
-        except KeyError:
-            return ros_msgtype
-
-        return ros_msgtype
+        return (self._topic_ros_metadata.get(topic_name) or {}).get("msgtype")
 
     def __iter__(self):
         self._resolve_sequence()

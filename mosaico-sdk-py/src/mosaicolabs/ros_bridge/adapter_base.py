@@ -261,7 +261,7 @@ class ROSAdapterBase(ABC, Generic[T]):
 
         # Extract ENUM associated to ros_msg_type and adding it to the out dict with the ros_msg_type
         enum_list, _ = msg_def
-        out_dict = {"enums": {name: val for name, type, val in enum_list}}
+        out_dict = {"enums": {name: val for name, _, val in enum_list}}
         out_dict.update({"msgtype": ros_msg_type})
 
         ms_metadata = {"_ros_": out_dict}

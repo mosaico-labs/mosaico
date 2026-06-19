@@ -13,7 +13,7 @@ from mosaicolabs.examples.config import (
 )
 from mosaicolabs.ros_bridge import ROSExtractorConfig, ROSSequenceExtractor
 
-BAG_FILE_PATH = Path(ASSET_DIR)
+BAG_FILE_PATH = Path(ASSET_DIR) / "reconstructed"
 
 SEQUENCE_NAMES = [
     "r2b_galileo2_0",
@@ -28,7 +28,6 @@ ROS_DISTRO = Stores.ROS2_JAZZY
 
 def main():
 
-    # --- PHASE 0: Custom messages registration ---
     for sequence in SEQUENCE_NAMES:
         configs = ROSExtractorConfig(
             rosbag_path=BAG_FILE_PATH,

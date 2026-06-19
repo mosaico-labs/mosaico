@@ -221,6 +221,7 @@ class ROSSequenceExtractor:
 
         self.mosaico_loader = MosaicoLoader(
             mclient,
+            self.typestore,
             self.cfg.sequence_name,
             self.cfg.topics,
             self.cfg.start_timestamp_ns,
@@ -231,7 +232,7 @@ class ROSSequenceExtractor:
 
     def _open_bagwriter(self, path: Path) -> Union[Ros1Writer, Ros2Writer]:
         """
-        Returns the bag writer for the given path, creating it on first call.
+        Returns the bag writer for the given path.
 
         On first invocation this method:
 
@@ -249,14 +250,6 @@ class ROSSequenceExtractor:
             The open bag writer instance.
         """
         bagwriter = None
-
-        # Register custom ROS messages to ROSTypeRegistry
-        self._register_custom_types()
-
-        # Register all ROS messages to typestore
-        custom_types = ROSTypeRegistry.get_types(self.cfg.ros_distro)
-        if custom_types:
-            self._register_definitions(custom_types)
 
         # Importing correct writer
         if self.cfg.ros_distro is Stores.ROS1_NOETIC:
@@ -341,24 +334,18 @@ class ROSSequenceExtractor:
         mosaico_type = ms_msg.ontology_tag()
         adapter = ROSBridge.get_default_mosaico_adapter(mosaico_type)
 
-        # If no adapter can be found, ingore the topics from now on
         if adapter is None:
-            self.ignored_topics.add(t_name)
-            logger.warning(
-                f"Could not find Adapter for topic '{t_name}' of type '{mosaico_type}'. Skipping the topic associated to this message"
-            )
-            ui.update_status(t_name, "No Adapter", style="yellow")
-            ui.advance_global()
-            return
+            return  # This should not happen since MosaicoLoader should filter unsupported message types
 
         # --- Translate Check ---
         ros_msg_type = self.mosaico_loader.resolve_ros_msgtype(t_name)
-        ros_msg = adapter.to_ros(ms_msg, self.typestore, ros_msg_type)
 
-        if not ros_msg:
+        try:
+            ros_msg = adapter.to_ros(ms_msg, self.typestore, ros_msg_type)
+        except TypeError as e:
             self.ignored_topics.add(t_name)
             logger.warning(
-                f"Could not encode to ros '{mosaico_type}' type. Skipping the topic associated to this message"
+                f"Could not encode to ros '{mosaico_type}' type because: {e}. Skipping the topic associated to this message"
             )
             ui.update_status(t_name, "Failed encoding", style="yellow")
             ui.advance_global()
@@ -447,7 +434,15 @@ class ROSSequenceExtractor:
             ) as mclient:
                 logger.info(f"Writing bag '{self.cfg.rosbag_path}'")
 
-                # Creating the ROSUnloader
+                # Register custom ROS messages to ROSTypeRegistry
+                self._register_custom_types()
+
+                # Register all ROS messages to typestore
+                custom_types = ROSTypeRegistry.get_types(self.cfg.ros_distro)
+                if custom_types:
+                    self._register_definitions(custom_types)
+
+                # Creating the bagwriter
                 with self._open_or_get_mosaicoloader(mclient) as ms_loader:
                     with self._open_bagwriter(rosbag_path) as bagwriter:
                         ui = ProgressManager(ms_loader)
