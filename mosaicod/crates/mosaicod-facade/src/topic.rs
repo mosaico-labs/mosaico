@@ -192,15 +192,15 @@ pub async fn metadata(context: &Context, handle: &Handle) -> Result<TopicMetadat
     let mut cx = context.db.connection();
 
     let db_topic = db::topic_find_by_id(&mut cx, handle.id()).await?;
-    let session_uuid = db::session_find_by_id(&mut cx, db_topic.session_id)
+    let session_locator = db::session_find_by_id(&mut cx, db_topic.session_id)
         .await?
-        .uuid();
+        .locator();
 
     Ok(TopicMetadata {
         properties: TopicMetadataProperties {
             created_at: db_topic.creation_timestamp(),
             completed_at: db_topic.completion_timestamp(),
-            session_uuid,
+            session_locator,
             resource_locator: handle.locator.clone(),
         },
         ontology_metadata: TopicOntologyMetadata {

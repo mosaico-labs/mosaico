@@ -222,7 +222,7 @@ impl TryInto<Vec<u8>> for JsonTopicMetadata {
 pub struct JsonTopicProperties {
     pub created_at: i64,
     pub completed_at: Option<i64>,
-    pub session_uuid: String,
+    pub session_locator: String,
     pub resource_locator: String,
 }
 
@@ -233,10 +233,10 @@ impl TryFrom<JsonTopicProperties> for types::TopicMetadataProperties {
         Ok(Self {
             created_at: value.created_at.into(),
             completed_at: value.completed_at.map(Into::into),
-            session_uuid: value.session_uuid.parse().map_err(|_| {
+            session_locator: value.session_locator.parse().map_err(|_| {
                 MetadataError::DeserializationError(format!(
-                    "error parsing session UUID ({}) for topic {}",
-                    value.session_uuid, value.resource_locator
+                    "error parsing session locator ({}) for topic {}",
+                    value.session_locator, value.resource_locator
                 ))
             })?,
             resource_locator: value.resource_locator.parse().map_err(|_| {
@@ -254,7 +254,7 @@ impl From<types::TopicMetadataProperties> for JsonTopicProperties {
         Self {
             created_at: value.created_at.as_i64(),
             completed_at: value.completed_at.map(Into::into),
-            session_uuid: value.session_uuid.to_string(),
+            session_locator: value.session_locator.to_string(),
             resource_locator: value.resource_locator.to_string(),
         }
     }
