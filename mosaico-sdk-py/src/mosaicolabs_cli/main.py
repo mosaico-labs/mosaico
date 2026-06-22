@@ -20,6 +20,7 @@ app = typer.Typer(
     MOSAICO_API_KEY      Authentication credentials bearer token key.
     MOSAICO_TLS          Enable TLS/SSL connection (set to any value to enable). When enabled, the client will attempt to use TLS for secure communication with the Mosaico server. If MOSAICO_CERT_PATH is provided, it will be used as the CA certificate for verifying the server's TLS certificate. If MOSAICO_TLS is set but MOSAICO_CERT_PATH is not provided, the client will attempt to establish a TLS connection without a custom CA certificate, which may succeed if the server's certificate is signed by a well-known CA trusted by the system.
     MOSAICO_CERT_PATH    Path location pointing to a custom TLS CA certificate file.
+    MOSAICO_CONFIG_PATH  Override the default configuration file path (~/.mosaico/config.toml).
 
     \b
     CONFIGURATION PRECEDENCE:

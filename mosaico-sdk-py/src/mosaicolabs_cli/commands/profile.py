@@ -94,9 +94,6 @@ def add_profile(
             )
             raise typer.Exit(code=1)
 
-    if port is None:
-        port = DEFAULT_MOSAICO_PORT
-
     if name in config_data and isinstance(config_data[name], dict):
         if interactive:
             overwrite = typer.confirm(f"Profile '{name}' already exists. Overwrite?")
@@ -122,7 +119,11 @@ def add_profile(
                 profile_content["default"] = False
 
     if host:
-        host, port = MosaicoProfile._normalize_host_port(host, port)
+        try:
+            host, port = MosaicoProfile._normalize_host_port(host, port)
+        except ValueError as e:
+            error_console.print(f"[bold red]Error:[/bold red] {e}")
+            raise typer.Exit(code=1)
 
     config_data[name] = {
         "host": host,
@@ -251,21 +252,21 @@ def list_profiles(
 
         for name, content in config_data.items():
             if isinstance(content, dict):
-                p = MosaicoProfile.from_dict(content)
-                is_default = content.get("default", False)
-
-                default_marker = "[bold green]✓[/bold green]" if is_default else ""
-
-                table.add_row(name, p.host, str(p.port), default_marker)
+                p = MosaicoProfile.from_dict(
+                    content, name=name, is_default=content.get("default", False)
+                )
+                default_marker = "[bold green]✓[/bold green]" if p.is_default else ""
+                table.add_row(p.name, p.host, str(p.port), default_marker)
 
         console.print(table)
 
     elif output == OutputFormat.CSV:
         for name, content in config_data.items():
             if isinstance(content, dict):
-                p = MosaicoProfile.from_dict(content)
-                is_default = str(content.get("default", False)).lower()
-                console.print(f"{name},{p.host},{p.port},{is_default}")
+                p = MosaicoProfile.from_dict(
+                    content, name=name, is_default=content.get("default", False)
+                )
+                console.print(p.to_csv())
 
     else:
         error_console.print(

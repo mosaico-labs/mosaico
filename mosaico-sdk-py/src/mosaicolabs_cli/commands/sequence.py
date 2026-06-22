@@ -57,7 +57,7 @@ def list_sequences(
     if sys.stdout.isatty():
         spinner.start()
     profile: MosaicoProfile = ctx.obj
-    from mosaicolabs import MosaicoClient, QueryResponse, QuerySequence
+    from mosaicolabs import MosaicoClient, QuerySequence
 
     try:
         with MosaicoClient.connect(
@@ -92,12 +92,13 @@ def list_sequences(
                 console.print("No sequences found matching the criteria.")
                 raise typer.Exit()
 
-            if limit:
-                results: QueryResponse = results[:limit]
+            limited_results = results[:limit] if limit else results
 
             rows = []
-            for item in results:
+            for item in limited_results:
                 handler = client.sequence_handler(item.sequence.name)
+                if handler is None:
+                    continue
                 metadata_str = ", ".join(_flatten_metadata(handler.user_metadata))
                 rows.append(
                     (

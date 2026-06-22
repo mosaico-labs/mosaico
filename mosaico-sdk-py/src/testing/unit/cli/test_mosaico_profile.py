@@ -4,40 +4,58 @@ from mosaicolabs_cli.utils.mosaico_profile import MosaicoProfile
 
 
 class TestNormalizeHostPort:
-    def test_plain_host(self):
-        h, p = MosaicoProfile._normalize_host_port("myhost.com", 6726)
+    def test_plain_host_no_port(self):
+        h, p = MosaicoProfile._normalize_host_port("myhost.com")
         assert h == "myhost.com"
         assert p == 6726
 
-    def test_host_with_embedded_port(self):
-        h, p = MosaicoProfile._normalize_host_port("myhost.com:9999", 6726)
+    def test_plain_host_with_port_arg(self):
+        h, p = MosaicoProfile._normalize_host_port("myhost.com", 9999)
         assert h == "myhost.com"
         assert p == 9999
 
-    def test_host_with_embedded_port_not_overridden_by_custom(self):
-        h, p = MosaicoProfile._normalize_host_port("myhost.com:9999", 1234)
-        assert h == "myhost.com:9999"
-        assert p == 1234
+    def test_host_with_embedded_port(self):
+        h, p = MosaicoProfile._normalize_host_port("myhost.com:9999")
+        assert h == "myhost.com"
+        assert p == 9999
+
+    def test_host_with_embedded_and_explicit_port_raises(self):
+        with pytest.raises(ValueError, match="Port given twice"):
+            MosaicoProfile._normalize_host_port("myhost.com:9999", 1234)
+
+    def test_malformed_embedded_port_raises(self):
+        with pytest.raises(ValueError, match="Malformed input host"):
+            MosaicoProfile._normalize_host_port("myhost.com:notaport")
 
     def test_strips_http_prefix(self):
-        h, p = MosaicoProfile._normalize_host_port("http://example.com", 6726)
+        h, p = MosaicoProfile._normalize_host_port("http://example.com")
         assert h == "example.com"
         assert p == 6726
 
     def test_strips_https_prefix(self):
-        h, p = MosaicoProfile._normalize_host_port("https://example.com", 6726)
+        h, p = MosaicoProfile._normalize_host_port("https://example.com")
         assert h == "example.com"
         assert p == 6726
 
     def test_strips_trailing_slash(self):
-        h, p = MosaicoProfile._normalize_host_port("example.com/", 6726)
+        h, p = MosaicoProfile._normalize_host_port("example.com/")
         assert h == "example.com"
         assert p == 6726
 
     def test_strips_whitespace(self):
-        h, p = MosaicoProfile._normalize_host_port("  example.com  ", 6726)
+        h, p = MosaicoProfile._normalize_host_port("  example.com  ")
         assert h == "example.com"
         assert p == 6726
+
+    def test_http_with_embedded_port(self):
+        h, p = MosaicoProfile._normalize_host_port("http://example.com:8080")
+        assert h == "example.com"
+        assert p == 8080
+
+    def test_https_with_embedded_port(self):
+        h, p = MosaicoProfile._normalize_host_port("https://example.com:443")
+        assert h == "example.com"
+        assert p == 443
 
 
 class TestFromDict:

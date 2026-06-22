@@ -48,7 +48,7 @@ def list_topics(
     spinner = console.status("[bold cyan]Querying topics...")
     if sys.stdout.isatty():
         spinner.start()
-    from mosaicolabs import MosaicoClient, QueryResponse, QueryTopic
+    from mosaicolabs import MosaicoClient, QueryTopic
 
     profile: MosaicoProfile = ctx.obj
 
@@ -79,11 +79,10 @@ def list_topics(
                 console.print("No topics found matching the criteria.")
                 raise typer.Exit()
 
-            if limit:
-                results: QueryResponse = results[:limit]
+            limited_results = results[:limit] if limit else results
 
             rows = []
-            for item in results:
+            for item in limited_results:
                 for topic in item.topics:
                     handler = client.topic_handler(item.sequence.name, topic.name)
                     if handler:

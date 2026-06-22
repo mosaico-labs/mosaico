@@ -2,7 +2,7 @@ import os
 import sys
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import typer
 from rich.console import Console
@@ -18,6 +18,10 @@ else:
 console = Console()
 error_console = Console(stderr=True)
 
+DEFAULT_CONFIG_FOLDER = ".mosaico"
+DEFAULT_CONFIG_FILENAME = "config.toml"
+DEFAULT_CONFIG_PATH = Path.home() / DEFAULT_CONFIG_FOLDER / DEFAULT_CONFIG_FILENAME
+
 
 class OutputFormat(str, Enum):
     TABLE = "table"
@@ -29,11 +33,17 @@ def get_config_path() -> Path:
     env_path = os.getenv(MosaicoEnv.CONFIG_PATH)
     if env_path:
         return Path(env_path)
-    return Path.home() / ".mosaico" / "config.toml"
+    return DEFAULT_CONFIG_PATH
 
 
-def load_config(path: Path) -> dict:
-    """Safely load existing TOML configuration or return an empty dict if missing."""
+def load_config(path: Optional[Path] = None) -> dict:
+    """
+    Safely load existing TOML configuration or return an empty dict if missing.
+    If no `path` is passed, the default one is used.
+    """
+    if path is None:
+        path = get_config_path()
+
     if not path.exists():
         return {}
     try:
