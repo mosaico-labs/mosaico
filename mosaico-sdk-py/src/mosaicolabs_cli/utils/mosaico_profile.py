@@ -39,9 +39,7 @@ class MosaicoProfile:
     # ------------------------------------------------------------------
 
     @classmethod
-    def resolve(
-        cls, profile_name: Optional[str] = None, allow_empty: bool = False
-    ) -> "MosaicoProfile":
+    def resolve(cls, profile_name: Optional[str] = None) -> "MosaicoProfile":
         """
         Resolve a MosaicoProfile applying the full precedence chain.
         """
@@ -70,13 +68,6 @@ class MosaicoProfile:
                     profile_dict = content
                     resolved_name = _name
                     break
-
-        if not profile_dict and not env_host and not allow_empty:
-            console.print(
-                "[bold red]Error:[/bold red] No default profile found. "
-                "Set a default profile or specify one using --profile."
-            )
-            raise SystemExit(1)
 
         if env_tls is not None:
             tls = env_tls.lower() in ("1", "true", "yes")

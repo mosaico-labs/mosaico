@@ -16,6 +16,19 @@ from mosaicolabs_cli.utils.mosaico_profile import MosaicoProfile
 app = typer.Typer(no_args_is_help=True)
 
 
+@app.callback()
+def _require_profile(ctx: typer.Context):
+    if ctx.resilient_parsing:
+        return
+    profile: MosaicoProfile = ctx.obj
+    if not profile or not profile.host:
+        error_console.print(
+            "[bold red]Error:[/bold red] No default profile found. "
+            "Set a default profile or specify one using --profile."
+        )
+        raise SystemExit(1)
+
+
 @app.command(name="ls")
 def list_sequences(
     ctx: typer.Context,

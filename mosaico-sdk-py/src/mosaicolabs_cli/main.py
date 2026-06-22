@@ -1,4 +1,3 @@
-import sys
 from typing import Optional
 
 import typer
@@ -46,14 +45,7 @@ def main_callback(
     """
     Resolve the Mosaico connection profile before any command runs.
     """
-    # Commands that don't need a valid connection profile
-    help_requested = any(arg in ("-h", "--help") for arg in sys.argv)
-    allow_empty = ctx.invoked_subcommand == "profile" or help_requested
-
-    ctx.obj = MosaicoProfile.resolve(
-        profile_name=profile_name,
-        allow_empty=allow_empty,
-    )
+    ctx.obj = MosaicoProfile.resolve(profile_name=profile_name)
 
 
 app.add_typer(profile.app, name="profile", help="Manage connection profiles.")

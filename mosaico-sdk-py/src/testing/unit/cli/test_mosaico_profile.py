@@ -201,7 +201,7 @@ class TestResolve:
         with pytest.raises(SystemExit):
             MosaicoProfile.resolve(profile_name="ghost")
 
-    def test_resolve_no_config_no_env_exits(self, monkeypatch, tmp_path):
+    def test_resolve_no_config_no_env_returns_empty(self, monkeypatch, tmp_path):
         config_path = tmp_path / "config.toml"
         monkeypatch.setenv("MOSAICO_CONFIG_PATH", str(config_path))
         monkeypatch.delenv("MOSAICO_DAEMON_URL", raising=False)
@@ -209,18 +209,7 @@ class TestResolve:
         monkeypatch.delenv("MOSAICO_TLS", raising=False)
         monkeypatch.delenv("MOSAICO_CERT_PATH", raising=False)
 
-        with pytest.raises(SystemExit):
-            MosaicoProfile.resolve()
-
-    def test_resolve_allow_empty(self, monkeypatch, tmp_path):
-        config_path = tmp_path / "config.toml"
-        monkeypatch.setenv("MOSAICO_CONFIG_PATH", str(config_path))
-        monkeypatch.delenv("MOSAICO_DAEMON_URL", raising=False)
-        monkeypatch.delenv("MOSAICO_API_KEY", raising=False)
-        monkeypatch.delenv("MOSAICO_TLS", raising=False)
-        monkeypatch.delenv("MOSAICO_CERT_PATH", raising=False)
-
-        profile = MosaicoProfile.resolve(allow_empty=True)
+        profile = MosaicoProfile.resolve()
         assert profile.host == ""
 
     def test_env_overrides_config(self, monkeypatch, tmp_path):
