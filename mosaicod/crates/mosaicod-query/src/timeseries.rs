@@ -643,9 +643,9 @@ fn value_to_df_expr(v: Value) -> Expr {
         Value::Float(v) => lit(v),
         Value::Text(v) => lit(v),
         Value::Boolean(v) => lit(v),
-        Value::IntegerArray(items) => make_array(items.into_iter().map(|v| lit(v)).collect()),
-        Value::FloatArray(items) => make_array(items.into_iter().map(|v| lit(v)).collect()),
-        Value::TextArray(items) => make_array(items.into_iter().map(|v| lit(v)).collect()),
+        Value::IntegerArray(items) => make_array(items.into_iter().map(lit).collect()),
+        Value::FloatArray(items) => make_array(items.into_iter().map(lit).collect()),
+        Value::TextArray(items) => make_array(items.into_iter().map(lit).collect()),
     }
 }
 
