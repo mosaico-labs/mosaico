@@ -5,7 +5,7 @@
 //! The engine integrates directly with the configured [`store::Store`] to resolve
 //! paths and access data sources like Parquet files efficiently.
 use super::{Error, IndexSpecifier, OntologyExprGroup, OntologyField, Op, Value};
-use arrow::datatypes::{Schema, SchemaRef};
+use arrow::datatypes::{DataType, Schema, SchemaRef};
 use datafusion::execution::SendableRecordBatchStream;
 use datafusion::execution::disk_manager::DiskManagerBuilder;
 use datafusion::execution::memory_pool::FairSpillPool;
@@ -156,7 +156,8 @@ impl TimeseriesResult {
     where
         V: Into<Value>,
     {
-        let expr = expr_group_to_df_expr(filter);
+        let schema = self.data_frame.schema().as_arrow().clone();
+        let expr = expr_group_to_df_expr(filter, &schema);
 
         let data_frame = if let Some(expr) = expr {
             // Resolve LambdaVariable.field for any higher-order functions (e.g.
@@ -238,6 +239,50 @@ fn scalar_value_to_timestamp(value: ScalarValue) -> Option<types::Timestamp> {
     }
 }
 
+/// Verifies that `field` resolves to a list type in `schema`
+fn field_schema_is_list(field: &OntologyField, schema: &Schema) -> bool {
+    let parsed = field.field_path();
+    let mut segs = parsed.field_segments();
+
+    let Some(first) = segs.next() else {
+        return false;
+    };
+    let Ok(arrow_field) = schema.field_with_name(first) else {
+        return false;
+    };
+    let mut dtype = arrow_field.data_type();
+
+    // With a specifier, list_access.segment_index tells us the exact segment
+    // that holds the list, navigate only that far and stop (sub-fields inside
+    // the list are irrelevant here).
+    // Without a specifier, navigate all segments so dtype ends up on the last
+    // field, which is the one we want to verify is a list.
+    let list_idx = parsed.list_access.as_ref().map(|la| la.segment_index);
+
+    if list_idx != Some(0) {
+        for (i, seg) in segs.enumerate() {
+            let seg_idx = i + 1;
+            match dtype {
+                DataType::Struct(fields) => {
+                    let Some(f) = fields.iter().find(|f| f.name() == seg) else {
+                        return false;
+                    };
+                    dtype = f.data_type();
+                }
+                _ => return false,
+            }
+            if list_idx == Some(seg_idx) {
+                break;
+            }
+        }
+    }
+
+    matches!(
+        dtype,
+        DataType::List(_) | DataType::LargeList(_) | DataType::FixedSizeList(_, _)
+    )
+}
+
 /// Converts an [`OntologyField`] dot-path into a nested DataFusion [`Expr`].
 /// Each segment becomes a `.field()` access on the previous one, e.g.
 /// `"acceleration.x"` -> `col("acceleration").field("x")`.
@@ -249,6 +294,42 @@ fn unfold_field(field: &OntologyField) -> Expr {
         expr = expr.field(seg);
     }
     expr
+}
+
+fn plain_list_op_to_df_expr<V: Into<Value>>(arr: Expr, op: Op<V>) -> Option<Expr> {
+    match op {
+        Op::Eq(v) => Some(list_value_eq_expr(arr, v.into())),
+        Op::Neq(v) => Some(list_value_eq_expr(arr, v.into()).not()),
+        _ => None,
+    }
+}
+
+/// DataFusion does not support `=` on List columns directly, so we decompose
+/// into scalar comparisons. Different-length lists always produce false.
+fn list_value_eq_expr(arr: Expr, v: Value) -> Expr {
+    let (item_exprs, len): (Vec<Expr>, usize) = match v {
+        Value::IntegerArray(items) => {
+            let n = items.len();
+            (items.into_iter().map(lit).collect(), n)
+        }
+        Value::FloatArray(items) => {
+            let n = items.len();
+            (items.into_iter().map(lit).collect(), n)
+        }
+        Value::TextArray(items) => {
+            let n = items.len();
+            (items.into_iter().map(lit).collect(), n)
+        }
+        scalar => return arr.eq(value_to_df_expr(scalar)),
+    };
+    let len_check = cardinality(arr.clone()).eq(lit(len as u64));
+    item_exprs
+        .into_iter()
+        .enumerate()
+        .fold(len_check, |acc, (i, item_expr)| {
+            // array_element uses 1-based indexing
+            acc.and(array_element(arr.clone(), lit(i as i64 + 1)).eq(item_expr))
+        })
 }
 
 /// Applies a scalar (non-array) operator to a DataFusion expression.
@@ -486,7 +567,7 @@ fn all_op_struct_to_df_expr<V: Into<Value>>(
     Some(not(array_any_match(arr, lambda(["elem"], not(body)))))
 }
 
-fn expr_group_to_df_expr<V>(filter: OntologyExprGroup<V>) -> Option<Expr>
+fn expr_group_to_df_expr<V>(filter: OntologyExprGroup<V>, schema: &Schema) -> Option<Expr>
 where
     V: Into<Value>,
 {
@@ -499,31 +580,47 @@ where
         let expr = match parsed.specifier() {
             None => {
                 let arr = unfold_field(&field);
-                scalar_op_to_df_expr(arr, op)
+                if field_schema_is_list(&field, schema) {
+                    plain_list_op_to_df_expr(arr, op)
+                } else {
+                    scalar_op_to_df_expr(arr, op)
+                }
             }
             Some(IndexSpecifier::At(i)) => {
-                // DataFusion array_element uses 1-indexing; apply any sub-field after indexing.
-                let arr = list_col_expr(&field);
-                let sub = inner_field_segs(&field);
-                let elem = chain_field_accesses(array_element(arr, lit(*i as i64 + 1)), &sub);
-                scalar_op_to_df_expr(elem, op)
+                if !field_schema_is_list(&field, schema) {
+                    None
+                } else {
+                    // DataFusion array_element uses 1-indexing; apply any sub-field after indexing.
+                    let arr = list_col_expr(&field);
+                    let sub = inner_field_segs(&field);
+                    let elem = chain_field_accesses(array_element(arr, lit(*i as i64 + 1)), &sub);
+                    scalar_op_to_df_expr(elem, op)
+                }
             }
             Some(IndexSpecifier::AtLeastOne) => {
-                let arr = list_col_expr(&field);
-                let sub = inner_field_segs(&field);
-                if sub.is_empty() {
-                    any_op_to_df_expr(arr, op)
+                if !field_schema_is_list(&field, schema) {
+                    None
                 } else {
-                    any_op_struct_to_df_expr(arr, &sub, op)
+                    let arr = list_col_expr(&field);
+                    let sub = inner_field_segs(&field);
+                    if sub.is_empty() {
+                        any_op_to_df_expr(arr, op)
+                    } else {
+                        any_op_struct_to_df_expr(arr, &sub, op)
+                    }
                 }
             }
             Some(IndexSpecifier::All) => {
-                let arr = list_col_expr(&field);
-                let sub = inner_field_segs(&field);
-                if sub.is_empty() {
-                    all_op_to_df_expr(arr, op)
+                if !field_schema_is_list(&field, schema) {
+                    None
                 } else {
-                    all_op_struct_to_df_expr(arr, &sub, op)
+                    let arr = list_col_expr(&field);
+                    let sub = inner_field_segs(&field);
+                    if sub.is_empty() {
+                        all_op_to_df_expr(arr, op)
+                    } else {
+                        all_op_struct_to_df_expr(arr, &sub, op)
+                    }
                 }
             }
         };
@@ -546,11 +643,9 @@ fn value_to_df_expr(v: Value) -> Expr {
         Value::Float(v) => lit(v),
         Value::Text(v) => lit(v),
         Value::Boolean(v) => lit(v),
-        Value::IntegerArray(_) | Value::FloatArray(_) | Value::TextArray(_) => {
-            unreachable!(
-                "array values are only used as bound parameters, not as DataFusion literals"
-            )
-        }
+        Value::IntegerArray(items) => make_array(items.into_iter().map(|v| lit(v)).collect()),
+        Value::FloatArray(items) => make_array(items.into_iter().map(|v| lit(v)).collect()),
+        Value::TextArray(items) => make_array(items.into_iter().map(|v| lit(v)).collect()),
     }
 }
 

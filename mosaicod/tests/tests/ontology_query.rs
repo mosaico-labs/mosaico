@@ -1965,3 +1965,112 @@ async fn test_ontology_invalid_specifier_syntax_is_rejected(pool: sqlx::Pool<db:
 
     server.shutdown().await;
 }
+
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_ontology_plain_list_eq(pool: sqlx::Pool<db::DatabaseType>) {
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
+        .build()
+        .await;
+
+    let seq = "seq_plain_eq";
+    // topic_a: rows [1,2,3] and [3,4,5] -> included when queried with [3,4,5]
+    // topic_b: [10,20,30] -> excluded
+    setup_topics(
+        &mut client,
+        seq,
+        vec![
+            (
+                "topic_a",
+                int_list_batch(10_000, &[1, 2], &[vec![1, 2, 3], vec![3, 4, 5]]),
+            ),
+            ("topic_b", int_list_batch(20_000, &[1], &[vec![10, 20, 30]])),
+        ],
+    )
+    .await;
+
+    let items = actions::query(
+        &mut client,
+        json!({ "ontology": { "mock.list_test": { "$eq": [3, 4, 5] } } }),
+    )
+    .await
+    .unwrap();
+    let locators = topic_locators(&items);
+    assert!(
+        locators.contains(&format!("{seq}/topic_a")),
+        "topic_a should be included (has row [3,4,5])"
+    );
+    assert!(
+        !locators.contains(&format!("{seq}/topic_b")),
+        "topic_b should be excluded ([10,20,30] != [3,4,5])"
+    );
+
+    let items = actions::query(
+        &mut client,
+        json!({ "ontology": { "mock.list_test": { "$eq": [99, 100, 200] } } }),
+    )
+    .await
+    .unwrap();
+    assert!(
+        topic_locators(&items).is_empty(),
+        "no topic matches $eq [99,100,200]"
+    );
+
+    server.shutdown().await;
+}
+
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_ontology_plain_list_neq(pool: sqlx::Pool<db::DatabaseType>) {
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
+        .build()
+        .await;
+
+    let seq = "seq_plain_neq";
+    // topic_a: [1,2,3] — not equal to [3,5,7] -> included
+    // topic_b: [3,5,7] — equal to [3,5,7] -> excluded
+    setup_topics(
+        &mut client,
+        seq,
+        vec![
+            ("topic_a", int_list_batch(10_000, &[1], &[vec![1, 2, 3]])),
+            ("topic_b", int_list_batch(20_000, &[1], &[vec![3, 5, 7]])),
+        ],
+    )
+    .await;
+
+    let items = actions::query(
+        &mut client,
+        json!({ "ontology": { "mock.list_test": { "$neq": [3, 5, 7] } } }),
+    )
+    .await
+    .unwrap();
+    let locators = topic_locators(&items);
+    assert!(
+        locators.contains(&format!("{seq}/topic_a")),
+        "topic_a should be included ([1,2,3] != [3,5,7])"
+    );
+    assert!(
+        !locators.contains(&format!("{seq}/topic_b")),
+        "topic_b should be excluded ([3,5,7] == [3,5,7])"
+    );
+
+    // [99,100,200] matches neither list -> $neq includes all
+    let items = actions::query(
+        &mut client,
+        json!({ "ontology": { "mock.list_test": { "$neq": [99, 100, 200] } } }),
+    )
+    .await
+    .unwrap();
+    let locators = topic_locators(&items);
+    assert!(
+        locators.contains(&format!("{seq}/topic_a")),
+        "$neq [99,100,200]: topic_a included"
+    );
+    assert!(
+        locators.contains(&format!("{seq}/topic_b")),
+        "$neq [99,100,200]: topic_b included"
+    );
+
+    server.shutdown().await;
+}

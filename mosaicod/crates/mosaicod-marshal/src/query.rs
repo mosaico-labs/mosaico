@@ -5,6 +5,9 @@ use std::collections::HashMap;
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(untagged)]
 enum Value {
+    IntegerArray(Vec<i64>),
+    FloatArray(Vec<f64>),
+    TextArray(Vec<String>),
     Integer(i64),
     Float(f64),
     Text(String),
@@ -18,6 +21,9 @@ impl From<Value> for query::Value {
             Value::Float(v) => query::Value::Float(v),
             Value::Text(v) => query::Value::Text(v),
             Value::Boolean(v) => query::Value::Boolean(v),
+            Value::IntegerArray(v) => query::Value::IntegerArray(v),
+            Value::FloatArray(v) => query::Value::FloatArray(v),
+            Value::TextArray(v) => query::Value::TextArray(v),
         }
     }
 }
