@@ -155,3 +155,22 @@ pub async fn sequence_notifications_purge(
 
     Ok(())
 }
+
+/// Deletes all reports from the database for the given tppic.
+pub async fn topic_notifications_purge(
+    exe: &mut impl AsExec,
+    locator: &types::TopicLocator,
+) -> Result<(), Error> {
+    trace!("deleting notifications for topic `{}`", locator);
+
+    sqlx::query!(
+        r#"DELETE FROM topic_notification_t AS notification
+           USING topic_t AS topic
+           WHERE topic.locator_name = $1 AND topic.topic_id = notification.topic_id"#,
+        locator.to_string()
+    )
+    .execute(exe.as_exec())
+    .await?;
+
+    Ok(())
+}

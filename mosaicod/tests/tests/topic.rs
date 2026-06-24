@@ -423,9 +423,16 @@ async fn test_topic_notification_purge(pool: sqlx::Pool<db::DatabaseType>) {
     .await
     .unwrap();
 
+    let r = actions::topic_notification_list(&mut client, topic_name)
+        .await
+        .unwrap();
+    let notifications = r["notifications"].as_array().unwrap();
+    assert_eq!(notifications.len(), 5);
+
     actions::topic_notification_purge(&mut client, topic_name)
         .await
         .unwrap();
+
     let r = actions::topic_notification_list(&mut client, topic_name)
         .await
         .unwrap();

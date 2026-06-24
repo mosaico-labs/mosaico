@@ -34,7 +34,6 @@ pub(super) mod internal {
 }
 
 /// Creates a new session in the database for the given sequence.
-/// todo!(se la sequence è rimossa tra la seq_find e la session create devo tornare l'errore di failed precondition o not found, ma non di certo internal)
 pub async fn try_create(
     context: &Context,
     sequence_locator: types::SequenceLocator,

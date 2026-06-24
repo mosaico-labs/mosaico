@@ -501,14 +501,8 @@ pub async fn notification_list(
 
 /// Deletes all the notifications associated with the sequence
 pub async fn notification_purge(context: &Context, locator: &types::TopicLocator) -> Result<()> {
-    let mut tx = context.db.transaction().await?;
-
-    let notifications = db::topic_notifications_find_by_locator(&mut tx, locator).await?;
-    for notification in notifications {
-        // Notification id is unwrapped since is retrieved from the database and it has an id
-        db::topic_notification_delete(&mut tx, notification.id().unwrap()).await?;
-    }
-    tx.commit().await?;
+    let mut cx = context.db.connection();
+    db::topic_notifications_purge(&mut cx, locator).await?;
     Ok(())
 }
 
@@ -768,6 +762,8 @@ mod tests {
             .expect("Unable to create session");
         assert!(session_record.uuid().is_valid());
 
+        // Create 2 topics and add notifications to the second one because it has an ID different from the sequence's one.
+
         let topic_locator: types::TopicLocator = "test_sequence/test_topic".parse().unwrap();
 
         try_create(
@@ -779,9 +775,20 @@ mod tests {
         .await
         .expect("Unable to create topic");
 
+        let topic_locator2: types::TopicLocator = "test_sequence/test_topic2".parse().unwrap();
+
+        try_create(
+            &context,
+            &topic_locator2,
+            &session_record.uuid(),
+            dummy_ontology_metadata(),
+        )
+        .await
+        .expect("Unable to create topic");
+
         notify(
             &context,
-            &topic_locator,
+            &topic_locator2,
             NotificationType::Error,
             "test notification message",
         )
@@ -790,19 +797,19 @@ mod tests {
 
         notify(
             &context,
-            &topic_locator,
+            &topic_locator2,
             NotificationType::Error,
             "test notification message 2",
         )
         .await
         .expect("Error creating notification message");
 
-        let topic = db::topic_find_by_locator(&mut cx, &topic_locator)
+        let topic = db::topic_find_by_locator(&mut cx, &topic_locator2)
             .await
             .expect("Unable to find the created topic");
 
         // Check if notifications were created on database.
-        let notifications = db::topic_notifications_find_by_locator(&mut cx, &topic_locator)
+        let notifications = db::topic_notifications_find_by_locator(&mut cx, &topic_locator2)
             .await
             .unwrap();
 
@@ -824,13 +831,13 @@ mod tests {
         assert!(second_notification.uuid().is_valid());
         assert_eq!(second_notification.topic_id, topic.topic_id);
 
-        notification_purge(&context, &topic_locator)
+        notification_purge(&context, &topic_locator2)
             .await
             .expect("Unable to purge notifications");
 
         // Check there are no more notifications on database.
         assert!(
-            db::topic_notifications_find_by_locator(&mut cx, &topic_locator)
+            db::topic_notifications_find_by_locator(&mut cx, &topic_locator2)
                 .await
                 .unwrap()
                 .is_empty()
