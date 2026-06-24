@@ -14,3 +14,6 @@ pub use timeseries::*;
 
 mod error;
 pub use error::*;
+
+mod regex;
+pub use regex::*;
