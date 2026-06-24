@@ -1,6 +1,6 @@
 #![allow(unused_crate_dependencies)]
 use arrow::array::{
-    Int64Array, Int64Builder, ListBuilder, RecordBatch, StringArray, StringBuilder,
+    BooleanBuilder, Int64Array, Int64Builder, ListBuilder, RecordBatch, StringArray, StringBuilder,
 };
 use arrow::datatypes::{DataType, Field, Schema};
 use mosaicod_db as db;
@@ -130,6 +130,104 @@ fn struct_list_batch(ts_start: i64, readings: &[Vec<(f64, f64)>]) -> RecordBatch
             sb.field_builder::<Float64Builder>(1)
                 .unwrap()
                 .append_value(*y);
+            sb.append(true);
+        }
+        list_builder.append(true);
+    }
+
+    let list_array = list_builder.finish();
+    let n = readings.len();
+    let timestamps: Vec<i64> = (0..n as i64).map(|i| ts_start + i * 5).collect();
+
+    let schema = Arc::new(Schema::new(vec![
+        Field::new("timestamp_ns", DataType::Int64, false),
+        Field::new(
+            "readings",
+            DataType::List(Arc::new(Field::new(
+                "item",
+                DataType::Struct(struct_fields),
+                false,
+            ))),
+            false,
+        ),
+    ]));
+
+    RecordBatch::try_new(
+        schema,
+        vec![
+            Arc::new(Int64Array::from(timestamps)) as ArrayRef,
+            Arc::new(list_array) as ArrayRef,
+        ],
+    )
+    .unwrap()
+}
+
+fn bool_list_batch(ts_start: i64, values: &[i64], list_test: &[Vec<bool>]) -> RecordBatch {
+    assert_eq!(
+        values.len(),
+        list_test.len(),
+        "values and test_list must have the same length"
+    );
+
+    let schema = Arc::new(Schema::new(vec![
+        Field::new("timestamp_ns", DataType::Int64, false),
+        Field::new("value", DataType::Int64, false),
+        Field::new(
+            "list_test",
+            DataType::List(Arc::new(Field::new("item", DataType::Boolean, false))),
+            false,
+        ),
+    ]));
+
+    let timestamps: Vec<i64> = (0..values.len() as i64).map(|i| ts_start + i * 5).collect();
+
+    let mut list_builder = ListBuilder::new(BooleanBuilder::new()).with_field(Field::new(
+        "item",
+        DataType::Boolean,
+        false,
+    ));
+
+    for row in list_test {
+        for &val in row {
+            list_builder.values().append_value(val);
+        }
+        list_builder.append(true);
+    }
+    let list_array = list_builder.finish();
+
+    RecordBatch::try_new(
+        schema,
+        vec![
+            Arc::new(Int64Array::from(timestamps)) as ArrayRef,
+            Arc::new(Int64Array::from(values.to_vec())) as ArrayRef,
+            Arc::new(list_array) as ArrayRef,
+        ],
+    )
+    .unwrap()
+}
+
+fn struct_bool_list_batch(ts_start: i64, readings: &[Vec<bool>]) -> RecordBatch {
+    use arrow::array::{ArrayBuilder, StructBuilder};
+
+    let struct_fields: arrow::datatypes::Fields =
+        vec![Field::new("active", DataType::Boolean, false)].into();
+
+    let mut list_builder = ListBuilder::new(StructBuilder::new(
+        struct_fields.clone(),
+        vec![Box::new(BooleanBuilder::new()) as Box<dyn ArrayBuilder>],
+    ))
+    .with_field(Arc::new(Field::new(
+        "item",
+        DataType::Struct(struct_fields.clone()),
+        false,
+    )));
+
+    for row in readings {
+        for active in row {
+            let sb = list_builder.values();
+            sb.field_builder::<BooleanBuilder>(0)
+                .unwrap()
+                .append_value(*active);
             sb.append(true);
         }
         list_builder.append(true);
@@ -2070,6 +2168,205 @@ async fn test_ontology_plain_list_neq(pool: sqlx::Pool<db::DatabaseType>) {
     assert!(
         locators.contains(&format!("{seq}/topic_b")),
         "$neq [99,100,200]: topic_b included"
+    );
+
+    server.shutdown().await;
+}
+
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_ontology_plain_list_eq_over_max_size_is_rejected(pool: sqlx::Pool<db::DatabaseType>) {
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
+        .build()
+        .await;
+
+    let seq = "seq_plain_eq_over_max";
+    setup_topics(
+        &mut client,
+        seq,
+        vec![("topic_a", int_list_batch(10_000, &[1], &[vec![1, 2, 3]]))],
+    )
+    .await;
+
+    // The default `max_size_plain_list_eq` is 1024; a 1025-element literal exceeds it
+    // and must be rejected instead of silently dropping the filter.
+    let big_list: Vec<i64> = (0..1025).collect();
+    let err = actions::query(
+        &mut client,
+        json!({ "ontology": { "mock.list_test": { "$eq": big_list } } }),
+    )
+    .await
+    .unwrap_err();
+
+    assert_eq!(err.code(), Code::InvalidArgument);
+
+    server.shutdown().await;
+}
+
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_ontology_plain_list_bool_eq(pool: sqlx::Pool<db::DatabaseType>) {
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
+        .build()
+        .await;
+
+    let seq = "seq_plain_bool_eq";
+    // topic_a: [true, false, true] -> matches $eq [true, false, true]
+    // topic_b: [false, false]      -> excluded (different content/length)
+    setup_topics(
+        &mut client,
+        seq,
+        vec![
+            (
+                "topic_a",
+                bool_list_batch(10_000, &[1], &[vec![true, false, true]]),
+            ),
+            ("topic_b", bool_list_batch(20_000, &[1], &[vec![false, false]])),
+        ],
+    )
+    .await;
+
+    let items = actions::query(
+        &mut client,
+        json!({ "ontology": { "mock.list_test": { "$eq": [true, false, true] } } }),
+    )
+    .await
+    .unwrap();
+    let locators = topic_locators(&items);
+    assert!(
+        locators.contains(&format!("{seq}/topic_a")),
+        "topic_a should be included (list == [true,false,true])"
+    );
+    assert!(
+        !locators.contains(&format!("{seq}/topic_b")),
+        "topic_b should be excluded ([false,false] != [true,false,true])"
+    );
+
+    // $neq inverts the result.
+    let items = actions::query(
+        &mut client,
+        json!({ "ontology": { "mock.list_test": { "$neq": [true, false, true] } } }),
+    )
+    .await
+    .unwrap();
+    let locators = topic_locators(&items);
+    assert!(
+        !locators.contains(&format!("{seq}/topic_a")),
+        "$neq: topic_a excluded (list == [true,false,true])"
+    );
+    assert!(
+        locators.contains(&format!("{seq}/topic_b")),
+        "$neq: topic_b included ([false,false] != [true,false,true])"
+    );
+
+    server.shutdown().await;
+}
+
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_ontology_list_bool_specifiers(pool: sqlx::Pool<db::DatabaseType>) {
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
+        .build()
+        .await;
+
+    let seq = "seq_list_bool_spec";
+    // topic_a: [true, false] -> has a true; not all true
+    // topic_b: [true, true]  -> has a true; all true
+    // topic_c: [false, false]-> no true; not all true
+    setup_topics(
+        &mut client,
+        seq,
+        vec![
+            ("topic_a", bool_list_batch(10_000, &[1], &[vec![true, false]])),
+            ("topic_b", bool_list_batch(20_000, &[1], &[vec![true, true]])),
+            (
+                "topic_c",
+                bool_list_batch(30_000, &[1], &[vec![false, false]]),
+            ),
+        ],
+    )
+    .await;
+
+    // [?] $eq true -> at least one element is true: topic_a, topic_b
+    let items = actions::query(
+        &mut client,
+        json!({ "ontology": { "mock.list_test[?]": { "$eq": true } } }),
+    )
+    .await
+    .unwrap();
+    let locators = topic_locators(&items);
+    assert!(
+        locators.contains(&format!("{seq}/topic_a")),
+        "[?] $eq true: topic_a included (has a true)"
+    );
+    assert!(
+        locators.contains(&format!("{seq}/topic_b")),
+        "[?] $eq true: topic_b included (has a true)"
+    );
+    assert!(
+        !locators.contains(&format!("{seq}/topic_c")),
+        "[?] $eq true: topic_c excluded (no true)"
+    );
+
+    // [!] $eq true -> every element is true: only topic_b
+    let items = actions::query(
+        &mut client,
+        json!({ "ontology": { "mock.list_test[!]": { "$eq": true } } }),
+    )
+    .await
+    .unwrap();
+    let locators = topic_locators(&items);
+    assert!(
+        locators.contains(&format!("{seq}/topic_b")),
+        "[!] $eq true: topic_b included (all true)"
+    );
+    assert!(
+        !locators.contains(&format!("{seq}/topic_a")),
+        "[!] $eq true: topic_a excluded (not all true)"
+    );
+    assert!(
+        !locators.contains(&format!("{seq}/topic_c")),
+        "[!] $eq true: topic_c excluded (not all true)"
+    );
+
+    server.shutdown().await;
+}
+
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_ontology_list_of_struct_bool(pool: sqlx::Pool<db::DatabaseType>) {
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
+        .build()
+        .await;
+
+    let seq = "seq_list_of_struct_bool";
+    // topic_a: readings = [{active: true}]
+    // topic_b: readings = [{active: false}]
+    setup_topics(
+        &mut client,
+        seq,
+        vec![
+            ("topic_a", struct_bool_list_batch(10_000, &[vec![true]])),
+            ("topic_b", struct_bool_list_batch(20_000, &[vec![false]])),
+        ],
+    )
+    .await;
+
+    // readings[?].active $eq true -> topic_a included, topic_b excluded
+    let items = actions::query(
+        &mut client,
+        json!({ "ontology": { "mock.readings[?].active": { "$eq": true } } }),
+    )
+    .await
+    .unwrap();
+    let locators = topic_locators(&items);
+    assert!(
+        locators.contains(&format!("{seq}/topic_a")),
+        "topic_a should be included (active=true)"
+    );
+    assert!(
+        !locators.contains(&format!("{seq}/topic_b")),
+        "topic_b should be excluded (active=false)"
     );
 
     server.shutdown().await;

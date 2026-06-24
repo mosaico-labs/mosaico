@@ -76,7 +76,8 @@ fn build_clause(where_clauses: String, v: &query::Value) -> String {
         | query::Value::Float(_)
         | query::Value::Boolean(_)
         | query::Value::IntegerArray(_)
-        | query::Value::FloatArray(_) => {
+        | query::Value::FloatArray(_)
+        | query::Value::BooleanArray(_) => {
             let select = r#"
             SELECT chunk_id FROM chunk_t
             JOIN column_chunk_numeric_t __stats__ USING(chunk_id)
@@ -119,7 +120,8 @@ impl query::CompileClause for ChunkQueryBuilder {
                     // check that the column exists in the chunk and let DataFusion filter.
                     query::Value::IntegerArray(_)
                     | query::Value::FloatArray(_)
-                    | query::Value::TextArray(_) => {
+                    | query::Value::TextArray(_)
+                    | query::Value::BooleanArray(_) => {
                         let clause = format!("{column_name} = {field}");
                         query::CompiledClause::new(build_clause(clause, &v), vec![])
                     }
@@ -138,7 +140,8 @@ impl query::CompileClause for ChunkQueryBuilder {
                 match &v {
                     query::Value::IntegerArray(_)
                     | query::Value::FloatArray(_)
-                    | query::Value::TextArray(_) => {
+                    | query::Value::TextArray(_)
+                    | query::Value::BooleanArray(_) => {
                         let clause = format!("{column_name} = {field}");
                         query::CompiledClause::new(build_clause(clause, &v), vec![])
                     }

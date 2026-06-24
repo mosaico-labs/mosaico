@@ -157,7 +157,7 @@ impl TimeseriesResult {
         V: Into<Value>,
     {
         let schema = self.data_frame.schema().as_arrow().clone();
-        let expr = expr_group_to_df_expr(filter, &schema);
+        let expr = expr_group_to_df_expr(filter, &schema)?;
 
         let data_frame = if let Some(expr) = expr {
             // Resolve LambdaVariable.field for any higher-order functions (e.g.
@@ -296,17 +296,21 @@ fn unfold_field(field: &OntologyField) -> Expr {
     expr
 }
 
-fn plain_list_op_to_df_expr<V: Into<Value>>(arr: Expr, op: Op<V>) -> Option<Expr> {
+fn plain_list_op_to_df_expr<V: Into<Value>>(
+    arr: Expr,
+    op: Op<V>,
+    field_name: &str,
+) -> Result<Option<Expr>, Error> {
     match op {
-        Op::Eq(v) => Some(list_value_eq_expr(arr, v.into())),
-        Op::Neq(v) => Some(list_value_eq_expr(arr, v.into()).not()),
-        _ => None,
+        Op::Eq(v) => list_value_eq_expr(arr, v.into(), field_name),
+        Op::Neq(v) => Ok(list_value_eq_expr(arr, v.into(), field_name)?.map(|e| e.not())),
+        _ => Ok(None),
     }
 }
 
 /// DataFusion does not support `=` on List columns directly, so we decompose
 /// into scalar comparisons. Different-length lists always produce false.
-fn list_value_eq_expr(arr: Expr, v: Value) -> Expr {
+fn list_value_eq_expr(arr: Expr, v: Value, field_name: &str) -> Result<Option<Expr>, Error> {
     let (item_exprs, len): (Vec<Expr>, usize) = match v {
         Value::IntegerArray(items) => {
             let n = items.len();
@@ -320,16 +324,26 @@ fn list_value_eq_expr(arr: Expr, v: Value) -> Expr {
             let n = items.len();
             (items.into_iter().map(lit).collect(), n)
         }
-        scalar => return arr.eq(value_to_df_expr(scalar)),
+        Value::BooleanArray(items) => {
+            let n = items.len();
+            (items.into_iter().map(lit).collect(), n)
+        }
+        scalar => return Ok(Some(arr.eq(value_to_df_expr(scalar)))),
     };
+
+    let max = params::params().max_size_plain_list_eq.value;
+    if len > max {
+        return Err(Error::list_too_large(field_name.to_owned(), max));
+    }
+
     let len_check = cardinality(arr.clone()).eq(lit(len as u64));
-    item_exprs
-        .into_iter()
-        .enumerate()
-        .fold(len_check, |acc, (i, item_expr)| {
+    Ok(Some(item_exprs.into_iter().enumerate().fold(
+        len_check,
+        |acc, (i, item_expr)| {
             // array_element uses 1-based indexing
             acc.and(array_element(arr.clone(), lit(i as i64 + 1)).eq(item_expr))
-        })
+        },
+    )))
 }
 
 /// Applies a scalar (non-array) operator to a DataFusion expression.
@@ -514,12 +528,14 @@ fn chain_field_accesses(mut expr: Expr, field_segments: &[String]) -> Expr {
 /// When filtering `readings[?].x > 3`, DataFusion needs an expression of the form:
 ///
 /// ```text
-/// array_any_match(col("readings"), lambda(["elem"], <body>))
+/// array_any_match(col("readings"), lambda(["elem"], elem.x > 3))
 /// ```
 ///
-/// This function produces `<body>`: it creates a `lambda_var("elem")` (the placeholder for
-/// the current element), navigates into the target sub-field via [`chain_field_accesses`]
-/// (e.g. `elem.field("x")`), and then applies the comparison operator (e.g. `.gt(3.0)`).
+/// where `elem.x > 3` is the per-element predicate evaluated against each struct in the
+/// list. This function builds exactly that predicate: it creates a `lambda_var("elem")`
+/// (the placeholder for the current element), navigates into the target sub-field via
+/// [`chain_field_accesses`] (e.g. `elem.field("x")`), and then applies the comparison
+/// operator (e.g. `.gt(3.0)`).
 fn struct_elem_predicate<V: Into<Value>>(field_segments: &[String], op: Op<V>) -> Option<Expr> {
     let make_fe = || chain_field_accesses(lambda_var("elem"), field_segments);
     Some(match op {
@@ -567,7 +583,10 @@ fn all_op_struct_to_df_expr<V: Into<Value>>(
     Some(not(array_any_match(arr, lambda(["elem"], not(body)))))
 }
 
-fn expr_group_to_df_expr<V>(filter: OntologyExprGroup<V>, schema: &Schema) -> Option<Expr>
+fn expr_group_to_df_expr<V>(
+    filter: OntologyExprGroup<V>,
+    schema: &Schema,
+) -> Result<Option<Expr>, Error>
 where
     V: Into<Value>,
 {
@@ -581,7 +600,7 @@ where
             None => {
                 let arr = unfold_field(&field);
                 if field_schema_is_list(&field, schema) {
-                    plain_list_op_to_df_expr(arr, op)
+                    plain_list_op_to_df_expr(arr, op, &field.field())?
                 } else {
                     scalar_op_to_df_expr(arr, op)
                 }
@@ -597,7 +616,7 @@ where
                     scalar_op_to_df_expr(elem, op)
                 }
             }
-            Some(IndexSpecifier::AtLeastOne) => {
+            Some(IndexSpecifier::Any) => {
                 if !field_schema_is_list(&field, schema) {
                     None
                 } else {
@@ -634,7 +653,7 @@ where
         }
     }
 
-    ret
+    Ok(ret)
 }
 
 fn value_to_df_expr(v: Value) -> Expr {
@@ -646,6 +665,7 @@ fn value_to_df_expr(v: Value) -> Expr {
         Value::IntegerArray(items) => make_array(items.into_iter().map(lit).collect()),
         Value::FloatArray(items) => make_array(items.into_iter().map(lit).collect()),
         Value::TextArray(items) => make_array(items.into_iter().map(lit).collect()),
+        Value::BooleanArray(items) => make_array(items.into_iter().map(lit).collect()),
     }
 }
 

@@ -56,6 +56,10 @@ pub enum OpError {
     /// Occurs when `Op::Match` is constructed with an empty pattern string.
     #[error("match pattern cannot be empty")]
     EmptyPattern,
+
+    /// Occurs when a plain list `eq`/`neq` literal exceeds the maximum unrollable size.
+    #[error("list literal exceeds the maximum size of {max} for equality comparison")]
+    ListTooLarge { max: usize },
 }
 
 /// A wrapper enum to allow heterogeneous values (Numbers and Strings)
@@ -69,6 +73,7 @@ pub enum Value {
     IntegerArray(Vec<Integer>),
     FloatArray(Vec<Float>),
     TextArray(Vec<Text>),
+    BooleanArray(Vec<bool>),
 }
 
 impl From<&str> for Value {
@@ -136,7 +141,10 @@ impl IsSupportedOp for Value {
             Self::Boolean(_) => false,
             Self::Integer(_) => true,
             Self::Float(_) => true,
-            Self::IntegerArray(_) | Self::FloatArray(_) | Self::TextArray(_) => false,
+            Self::IntegerArray(_)
+            | Self::FloatArray(_)
+            | Self::TextArray(_)
+            | Self::BooleanArray(_) => false,
         }
     }
 
@@ -223,7 +231,7 @@ pub enum IndexSpecifier {
     /// Access the element at a specific position: [0], [42].
     At(usize),
     /// At least one element must satisfy the predicate: [?].
-    AtLeastOne,
+    Any,
     /// Every element must satisfy the predicate: [!].
     All,
 }
@@ -232,7 +240,7 @@ impl std::fmt::Display for IndexSpecifier {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             IndexSpecifier::At(n) => write!(f, "[{n}]"),
-            IndexSpecifier::AtLeastOne => write!(f, "[?]"),
+            IndexSpecifier::Any => write!(f, "[?]"),
             IndexSpecifier::All => write!(f, "[!]"),
         }
     }
@@ -253,12 +261,12 @@ pub struct ListAccess {
 ///
 /// Examples:
 /// - "x"                     segments: ["x"],                      list_access: None
-/// - "x[?]"                  segments: ["x"],                      list_access: Some { index: 0, AtLeastOne }
+/// - "x[?]"                  segments: ["x"],                      list_access: Some { index: 0, Any }
 /// - "x[30]"                 segments: ["x"],                      list_access: Some { index: 0, At(30) }
 /// - "acceleration.x"        segments: ["acceleration","x"],       list_access: None
 /// - "acceleration.x[!]"     segments: ["acceleration","x"],       list_access: Some { index: 1, All }
-/// - "acceleration[?].x"     segments: ["acceleration","x"],       list_access: Some { index: 0, AtLeastOne }
-/// - "robot.pose[?].acc.x"   segments: ["robot","pose","acc","x"], list_access: Some { index: 1, AtLeastOne }
+/// - "acceleration[?].x"     segments: ["acceleration","x"],       list_access: Some { index: 0, Any }
+/// - "robot.pose[?].acc.x"   segments: ["robot","pose","acc","x"], list_access: Some { index: 1, Any }
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct OntologyFieldPath {
     /// All field name segments in order, without specifiers.
@@ -308,7 +316,7 @@ fn parse_segment(s: &str) -> Result<(String, Option<IndexSpecifier>), ()> {
                 .and_then(|r| r.strip_suffix(']'))
                 .ok_or(())?;
             let specifier = match content {
-                "?" => IndexSpecifier::AtLeastOne,
+                "?" => IndexSpecifier::Any,
                 "!" => IndexSpecifier::All,
                 n => IndexSpecifier::At(n.parse::<usize>().map_err(|_| ())?),
             };

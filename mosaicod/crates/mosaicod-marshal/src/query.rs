@@ -8,6 +8,7 @@ enum Value {
     IntegerArray(Vec<i64>),
     FloatArray(Vec<f64>),
     TextArray(Vec<String>),
+    BooleanArray(Vec<bool>),
     Integer(i64),
     Float(f64),
     Text(String),
@@ -24,6 +25,7 @@ impl From<Value> for query::Value {
             Value::IntegerArray(v) => query::Value::IntegerArray(v),
             Value::FloatArray(v) => query::Value::FloatArray(v),
             Value::TextArray(v) => query::Value::TextArray(v),
+            Value::BooleanArray(v) => query::Value::BooleanArray(v),
         }
     }
 }
