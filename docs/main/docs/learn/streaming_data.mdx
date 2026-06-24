@@ -13,7 +13,7 @@ The first mode, `SequenceDataStreamer`, is for situations where you need to work
 
 The second mode, `TopicDataStreamer`, is for situations where you only need one sensor. Because there is nothing to merge, the streamer reads directly from a single topic stream with minimal overhead. This is the right choice when you are isolating a sensor for analysis, building a calibration pipeline, or feeding a single data channel into a machine learning model. There is no point paying the cost of a merge when you only care about one input.
 
-Both streamers support temporal slicing: you supply `start_timestamp_ns` and `end_timestamp_ns` to bound the replay window, so you never have to load a full recording when you only care about a segment.
+Both streamers support temporal slicing: you supply `start_timestamp_ns` and `end_timestamp_ns` to bound the replay window, so you never have to load a full recording when you only care about a segment. These bounds are matched against the `Message.timestamp_ns` of each record, the playback time, not the sensor measurement time stored in the Ontology's `Header` field.
 
 <Tabs>
 

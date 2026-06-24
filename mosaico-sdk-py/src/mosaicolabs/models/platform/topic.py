@@ -184,7 +184,7 @@ class Topic:
     The ontology type identifier (e.g., 'imu', 'gnss').
 
     This corresponds to the `__ontology_tag__` defined in the
-    [`Serializable`][mosaicolabs.models.Serializable] class registry.
+    [`Serializable`][mosaicolabs.models.core.Serializable] class registry.
 
     ### Querying with **Query Builders**
     The `ontology_tag` attribute is queryable when constructing a [`QueryTopic`][mosaicolabs.models.query.QueryTopic]

@@ -1,7 +1,7 @@
 import pyarrow as pa
 
 from mosaicolabs.enum import SerializationFormat
-from mosaicolabs.models import BaseModel, Serializable
+from mosaicolabs.models.core import BaseModel, Serializable
 
 
 class RegisteredSensor(Serializable):

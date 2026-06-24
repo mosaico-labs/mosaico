@@ -2,7 +2,8 @@ from dataclasses import asdict
 
 import pytest
 from rosbags.typesys import get_types_from_msg
-from rosbags.typesys.stores import Stores, Typestore, get_typestore
+from rosbags.typesys.store import Typestore
+from rosbags.typesys.stores import Stores, get_typestore
 
 from mosaicolabs import (
     Message,
@@ -56,12 +57,12 @@ def register_tf2_messages(typestore: Typestore):
 
 
 @pytest.fixture
-def frame_transform(transform):
+def frame_transform(transform: Transform):
     return FrameTransform(transforms=[transform, transform, transform])
 
 
 @pytest.fixture
-def frame_transform_rosmsg(ros_header, transform):
+def frame_transform_rosmsg(ros_header, transform: Transform):
     return ROSMessage(
         bag_timestamp_ns=100,
         topic="/tf",
@@ -71,23 +72,53 @@ def frame_transform_rosmsg(ros_header, transform):
                 {
                     "header": ros_header,
                     "child_frame_id": "base_link",
-                    "transform": transform.model_dump(
-                        exclude_none=True,
-                    ),
+                    "transform": {
+                        "rotation": {
+                            "x": transform.rotation.x,
+                            "y": transform.rotation.y,
+                            "z": transform.rotation.z,
+                            "w": transform.rotation.w,
+                        },
+                        "translation": {
+                            "x": transform.translation.x,
+                            "y": transform.translation.y,
+                            "z": transform.translation.z,
+                        },
+                    },
                 },
                 {
                     "header": ros_header,
                     "child_frame_id": "camera",
-                    "transform": transform.model_dump(
-                        exclude_none=True,
-                    ),
+                    "transform": {
+                        "rotation": {
+                            "x": transform.rotation.x,
+                            "y": transform.rotation.y,
+                            "z": transform.rotation.z,
+                            "w": transform.rotation.w,
+                        },
+                        "translation": {
+                            "x": transform.translation.x,
+                            "y": transform.translation.y,
+                            "z": transform.translation.z,
+                        },
+                    },
                 },
                 {
                     "header": ros_header,
                     "child_frame_id": "end_effector",
-                    "transform": transform.model_dump(
-                        exclude_none=True,
-                    ),
+                    "transform": {
+                        "rotation": {
+                            "x": transform.rotation.x,
+                            "y": transform.rotation.y,
+                            "z": transform.rotation.z,
+                            "w": transform.rotation.w,
+                        },
+                        "translation": {
+                            "x": transform.translation.x,
+                            "y": transform.translation.y,
+                            "z": transform.translation.z,
+                        },
+                    },
                 },
             ],
         },
@@ -99,7 +130,6 @@ def frame_transform_msg(frame_transform):
     return Message(
         data=frame_transform,
         timestamp_ns=100,
-        frame_id="base_link",
     )
 
 
@@ -152,11 +182,14 @@ class TestFrameTransformAdapter:
         assert_frame_transform(frame_transform, asdict(ros_msg))
 
     def test_to_ros_invalid_rosmsg_type(self, frame_transform: FrameTransform):
-        ros_msg = FrameTransformAdapter.to_ros(
-            frame_transform, get_typestore(Stores.LATEST), "tf2_msgs/msg/Bogus"
-        )
 
-        assert ros_msg is None
+        with pytest.raises(
+            TypeError,
+            match=f"Adapter {FrameTransformAdapter.__name__} does not support tf2_msgs/msg/Bogus",
+        ):
+            FrameTransformAdapter.to_ros(
+                frame_transform, get_typestore(Stores.LATEST), "tf2_msgs/msg/Bogus"
+            )
 
     def test_to_ros_invalid_mosaico_type(self, invalid_ms_msg):
         with pytest.raises(TypeError):

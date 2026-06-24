@@ -7,11 +7,14 @@ of detections obtained from a Radar sensor.
 
 from typing import Optional
 
-from ..serializable import Serializable
-from ..types import MosaicoField, MosaicoType
+from ..core import MosaicoField, MosaicoType, Serializable
+from ..data import HeaderMixin
 
 
-class Radar(Serializable):
+class Radar(
+    Serializable,
+    HeaderMixin,  # Adds Header support
+):
     """
     Radar Ontology.
 

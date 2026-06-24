@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import TYPE_CHECKING, Any, Optional, Tuple, Type, Union
 
 from rosbags.typesys.store import Typestore
@@ -5,13 +7,13 @@ from rosbags.typesys.store import Typestore
 if TYPE_CHECKING:
     from rosbags.typesys.store import MsgType
 
-from mosaicolabs.models import Message
+from mosaicolabs.models.core import Message
 
 from ..adapter_base import ROSAdapterBase
 from ..data_ontology import FrameTransform
 from ..ros_bridge import register_default_adapter
 from ..ros_message import ROSMessage
-from .geometry_msgs import QuaternionAdapter, TransformAdapter, Vector3Adapter
+from .geometry_msgs import TransformAdapter
 from .helpers import _validate_msgdata
 
 
@@ -136,8 +138,8 @@ class FrameTransformAdapter(ROSAdapterBase[FrameTransform]):
         cls,
         mosaico_data: Union[Message, FrameTransform],
         typestore: Typestore,
-        input_ros_msg_type: Optional[str] = None,
-    ) -> "Optional[MsgType]":
+        ros_msg_type: Optional[str] = None,
+    ) -> MsgType:
         """
         Converts a Mosaico ``FrameTransform`` (or a ``Message`` wrapping one) into a
         ``tf2_msgs/msg/TFMessage``.
@@ -145,7 +147,7 @@ class FrameTransformAdapter(ROSAdapterBase[FrameTransform]):
         Args:
             mosaico_data: A ``Message`` wrapping a ``FrameTransform``, or a raw ``FrameTransform``.
             typestore: The rosbags typestore for target type resolution.
-            input_ros_msg_type: Override for the output ROS type. Only
+            ros_msg_type: Override for the output ROS type. Only
                 ``tf2_msgs/msg/TFMessage`` is supported.
 
         Returns:
@@ -154,47 +156,35 @@ class FrameTransformAdapter(ROSAdapterBase[FrameTransform]):
         """
 
         # Resolve ROS message to translate Mosaico message to if not defined in input
-        resolved_rosmsg_type = input_ros_msg_type or cls.get_default_ros_msg()
+        resolved_rosmsg_type = ros_msg_type or cls.get_default_ros_msg()
         if not cls.is_rosmsg_type_valid(resolved_rosmsg_type):
-            return None
+            raise TypeError(
+                f"Adapter {cls.__name__} does not support {resolved_rosmsg_type}"
+            )
 
         # Checking presence in typestore of requested message
         if typestore.types.get(resolved_rosmsg_type) is None:
-            return None
+            raise TypeError(f"Typestore does not contain {resolved_rosmsg_type}")
 
         # Unpacking Mosaico message / type
-        frame_transform_data, ms_header = cls.unpack_mosaico_msg(mosaico_data)
+        frame_transform_data, _ = cls.unpack_mosaico_msg(mosaico_data)
 
         # Filling the data
         RosTFMessage = typestore.types["tf2_msgs/msg/TFMessage"]
-        RosTransform = typestore.types["geometry_msgs/msg/Transform"]
-        RosTransformStamped = typestore.types["geometry_msgs/msg/TransformStamped"]
 
-        # TODO: limitation -> each TransformStamped has the same Header since in Mosaico we do not save the header of each Transform?
-        tf_transforms = []
-        for transform_data in frame_transform_data.transforms:
-            header = ms_header.to_ros(typestore)
-            header.frame_id = transform_data.source_frame_id
-
-            ros_transform = RosTransform(
-                translation=Vector3Adapter.to_ros(
-                    transform_data.translation, typestore
-                ),
-                rotation=QuaternionAdapter.to_ros(transform_data.rotation, typestore),
+        tf_transforms: Any = [
+            TransformAdapter.to_ros(
+                transform, typestore, "geometry_msgs/msg/TransformStamped"
             )
-
-            ros_transform_stamped = RosTransformStamped(
-                header=header,
-                child_frame_id=transform_data.target_frame_id,
-                transform=ros_transform,
-            )
-
-            tf_transforms.append(ros_transform_stamped)
+            for transform in frame_transform_data.transforms
+        ]
 
         if resolved_rosmsg_type == "tf2_msgs/msg/TFMessage":
             return RosTFMessage(transforms=tf_transforms)
 
-        return None
+        raise NotImplementedError(
+            f"The input ros message type {ros_msg_type} is supported but not implemented"
+        )
 
     @classmethod
     def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:

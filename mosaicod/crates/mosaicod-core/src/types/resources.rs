@@ -1,4 +1,4 @@
-use super::{Format, SessionMetadata, TimestampRange, Uuid};
+use super::{Format, SessionMetadata, TimestampRange};
 use crate::{Error, params, traits, types};
 use std::cmp::PartialEq;
 use std::ops::Deref;
@@ -280,25 +280,25 @@ pub struct TopicChunksStats {
 pub struct TopicMetadataProperties {
     pub created_at: types::Timestamp,
     pub completed_at: Option<types::Timestamp>,
-    pub session_uuid: Uuid,
+    pub session_locator: types::SessionLocator,
     pub resource_locator: TopicLocator,
 }
 
 impl TopicMetadataProperties {
-    pub fn new(resource_locator: TopicLocator, session_uuid: Uuid) -> Self {
-        Self::new_with_created_at(resource_locator, session_uuid, types::Timestamp::now())
+    pub fn new(resource_locator: TopicLocator, session_locator: types::SessionLocator) -> Self {
+        Self::new_with_created_at(resource_locator, session_locator, types::Timestamp::now())
     }
 
     pub fn new_with_created_at(
         resource_locator: TopicLocator,
-        session_uuid: Uuid,
+        session_locator: types::SessionLocator,
         created_at: types::Timestamp,
     ) -> Self {
         Self {
             resource_locator,
             created_at,
             completed_at: None,
-            session_uuid,
+            session_locator,
         }
     }
 }

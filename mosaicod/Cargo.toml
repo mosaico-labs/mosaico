@@ -21,7 +21,9 @@ mosaicod-ext = { path = "crates/mosaicod-ext" }
 mosaicod-marshal = { path = "crates/mosaicod-marshal" }
 mosaicod-query = { path = "crates/mosaicod-query" }
 mosaicod-rw = { path = "crates/mosaicod-rw" }
-mosaicod-server = { path = "crates/mosaicod-server" }
+mosaicod-grpc = { path = "crates/mosaicod-grpc" }
+mosaicod-grpc-flight = { path = "crates/mosaicod-grpc-flight" }
+mosaicod-grpc-common = { path = "crates/mosaicod-grpc-common" }
 mosaicod-store = { path = "crates/mosaicod-store" }
 mosaicod-task = { path = "crates/mosaicod-task" }
 
@@ -31,7 +33,7 @@ arrow-cast = "58.1.0"
 arrow-flight = "58.1.0"
 arrow-schema = "58.1.0"
 parquet = "58.1.0"
-datafusion = { version = "53.1.0", default-features = false, features = ["compression", "parquet", "sql", "recursive_protection"] }
+datafusion = { version = "54.0.0", default-features = false, features = ["compression", "parquet", "sql", "recursive_protection", "nested_expressions"] }
 tonic = { version = "0.14.6", features = ["tls-ring", "gzip"] }
 object_store = { version = "0.13.2", features = ["aws", "fs"] }
 
@@ -62,7 +64,7 @@ tokio = { version = "1.50.0", features = ["rt-multi-thread"] }
 tokio-util = { version = "0.7" }
 tokio-stream = { version = "0.1"}
 url = "2.5.8"
-uuid = { version = "1.23.1", features = [ "v4" ] }
+uuid = { version = "1.23.2", features = [ "v4" ] }
 ulid = "1.2.1"
 crc32fast = "1.5.0"
 iso8601 = "0.6.3"

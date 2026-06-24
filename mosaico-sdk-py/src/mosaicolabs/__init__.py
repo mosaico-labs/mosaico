@@ -43,34 +43,34 @@ from .logging_config import (
     setup_sdk_logging as setup_sdk_logging,
 )
 
+# Force registration into Serializable registry
+# (fix deserializing messages from topics that contain these data types,
+# with no registration side-effects)
+# !!DO NOT REMOVE!!
+from .models import futures as futures
+
 # --- Core Models ---
-from .models import (
+from .models.core import (
     BaseModel as BaseModel,
-    CovarianceMixin as CovarianceMixin,
     Message as Message,
     MosaicoField as MosaicoField,
     MosaicoType as MosaicoType,
     Serializable as Serializable,
-    VarianceMixin as VarianceMixin,
-    # Force registration into Serializable registry
-    # (fix deserializing messages from topics that contain these data types,
-    # with no registration side-effects)
-    # !!DO NOT REMOVE!!
-    futures as futures,
 )
 
-# --- Base Types ---
-# --- Geometry ---
-# --- Dynamics & Kinematics ---
-# --- Other Data Types ---
+# --- Data Models ---
 from .models.data import (
     ROI as ROI,
     Acceleration as Acceleration,
     Boolean as Boolean,
+    CovarianceMixin as CovarianceMixin,
+    Duration as Duration,
     Floating16 as Floating16,
     Floating32 as Floating32,
     Floating64 as Floating64,
     ForceTorque as ForceTorque,
+    Header as Header,
+    HeaderMixin as HeaderMixin,
     Inertia as Inertia,
     Integer8 as Integer8,
     Integer16 as Integer16,
@@ -85,11 +85,13 @@ from .models.data import (
     Quaternion as Quaternion,
     RobotPath as RobotPath,
     String as String,
+    Time as Time,
     Transform as Transform,
     Unsigned8 as Unsigned8,
     Unsigned16 as Unsigned16,
     Unsigned32 as Unsigned32,
     Unsigned64 as Unsigned64,
+    VarianceMixin as VarianceMixin,
     Vector2d as Vector2d,
     Vector3d as Vector3d,
     Vector4d as Vector4d,
@@ -134,15 +136,7 @@ from .models.sensors import (
     RobotJoint as RobotJoint,
     Temperature as Temperature,
 )
-
-# Force registration into Serializable registry
-# (fix deserializing messages from topics that contain these data types,
-# with no registration side-effects)
-# !!DO NOT REMOVE!!
 from .ros_bridge import data_ontology  # noqa: F401
-
-# --- Types ---
-from .types import Time as Time
 
 __all__ = [
     # Client
@@ -163,6 +157,7 @@ __all__ = [
     "BaseModel",
     "Serializable",
     "Time",
+    "Duration",
     "Message",
     "CovarianceMixin",
     "VarianceMixin",
@@ -196,6 +191,9 @@ __all__ = [
     "Floating64",
     "String",
     "LargeString",
+    "Time",
+    "Header",
+    "HeaderMixin",
     # Geometry
     "Point2d",
     "Point3d",

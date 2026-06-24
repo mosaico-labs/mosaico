@@ -102,7 +102,6 @@ def test_run_data_correctness(
         reconstructed_ms_msg = adapter.translate(ros_msg)
 
         assert reconstructed_ms_msg.timestamp_ns == data_steam_item.msg.timestamp_ns
-        assert reconstructed_ms_msg.frame_id == data_steam_item.msg.frame_id
         assert reconstructed_ms_msg.data == data_steam_item.msg.data
 
 

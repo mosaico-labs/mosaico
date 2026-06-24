@@ -2,7 +2,7 @@
 This module provides specialized wrapper classes for standard Python primitive types, including Integers, Floating-point numbers, Booleans, and Strings.
 
 In the Mosaico ecosystem, raw primitives cannot be transmitted directly because the platform requires structured metadata and explicit serialization schemas.
-These wrappers elevate basic data types to "first-class citizens" of the messaging system by inheriting from [`Serializable`][mosaicolabs.models.serializable.Serializable].
+These wrappers elevate basic data types to "first-class citizens" of the messaging system by inheriting from [`Serializable`][mosaicolabs.models.core.Serializable].
 
 **Key Features:**
 * **Explicit Serialization**: Each class defines a precise `pyarrow.StructType` schema, ensuring consistent bit-width (e.g., 8-bit vs 64-bit) across the entire data platform.
@@ -11,8 +11,7 @@ These wrappers elevate basic data types to "first-class citizens" of the messagi
 
 from typing import Any
 
-from ..serializable import Serializable
-from ..types import MosaicoField, MosaicoType
+from ..core import MosaicoField, MosaicoType, Serializable
 
 
 class Integer8(Serializable):

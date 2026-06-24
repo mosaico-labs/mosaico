@@ -9,8 +9,8 @@ from mosaicolabs.enum import (
     TopicLevelErrorPolicy,
 )
 from mosaicolabs.enum.topic_writer_status import TopicWriterStatus
-from mosaicolabs.models.data.geometry import Vector3d
-from mosaicolabs.models.message import Message
+from mosaicolabs.models.core import Message
+from mosaicolabs.models.data import Vector3d
 from mosaicolabs.models.sensors import IMU
 
 

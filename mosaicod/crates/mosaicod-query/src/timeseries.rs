@@ -4,7 +4,7 @@
 //!
 //! The engine integrates directly with the configured [`store::Store`] to resolve
 //! paths and access data sources like Parquet files efficiently.
-use super::{Error, OntologyExprGroup, OntologyField, Op, Value};
+use super::{Error, IndexSpecifier, OntologyExprGroup, OntologyField, Op, Value};
 use arrow::datatypes::{Schema, SchemaRef};
 use datafusion::execution::SendableRecordBatchStream;
 use datafusion::execution::disk_manager::DiskManagerBuilder;
@@ -13,6 +13,10 @@ use datafusion::execution::runtime_env::{RuntimeEnv, RuntimeEnvBuilder};
 use datafusion::functions::core::expr_ext::FieldAccessor;
 use datafusion::functions::regex::expr_fn::regexp_like;
 use datafusion::functions_aggregate::expr_fn::{max, min};
+use datafusion::functions_nested::expr_fn::{
+    array_distinct, array_element, array_has, array_has_any, array_intersect, array_max, array_min,
+    cardinality, make_array,
+};
 use datafusion::prelude::*;
 use datafusion::scalar::ScalarValue;
 use log::trace;
@@ -155,6 +159,14 @@ impl TimeseriesResult {
         let expr = expr_group_to_df_expr(filter);
 
         let data_frame = if let Some(expr) = expr {
+            // Resolve LambdaVariable.field for any higher-order functions (e.g.
+            // array_any_match). The programmatic df.filter() path does not run
+            // the SQL analyzer, so lambda variable types must be resolved
+            // manually using the current schema before handing the expression
+            // to the DataFrame API.
+            let expr = expr
+                .resolve_lambda_variables(self.data_frame.schema())?
+                .data;
             trace!("filter expression: {}", expr);
             self.data_frame.filter(expr)?
         } else {
@@ -226,14 +238,131 @@ fn scalar_value_to_timestamp(value: ScalarValue) -> Option<types::Timestamp> {
     }
 }
 
+/// Converts an [`OntologyField`] dot-path into a nested DataFusion [`Expr`].
+/// Each segment becomes a `.field()` access on the previous one, e.g.
+/// `"acceleration.x"` -> `col("acceleration").field("x")`.
 fn unfold_field(field: &OntologyField) -> Expr {
-    let mut fields = field.field().split(".");
-    // By construction fields needs to have at least a value
-    let mut col = col(fields.next().unwrap());
-    for s in fields {
-        col = col.field(s);
+    let parsed = field.field_path();
+    let mut all = parsed.field_segments();
+    let mut expr = col(all.next().expect("field has at least one segment"));
+    for seg in all {
+        expr = expr.field(seg);
     }
-    col
+    expr
+}
+
+/// Applies a scalar (non-array) operator to a DataFusion expression.
+fn scalar_op_to_df_expr<V: Into<Value>>(expr: Expr, op: Op<V>) -> Option<Expr> {
+    match op {
+        Op::Eq(v) => Some(expr.eq(value_to_df_expr(v.into()))),
+        Op::Neq(v) => Some(expr.not_eq(value_to_df_expr(v.into()))),
+        Op::Leq(v) => Some(expr.lt_eq(value_to_df_expr(v.into()))),
+        Op::Geq(v) => Some(expr.gt_eq(value_to_df_expr(v.into()))),
+        Op::Lt(v) => Some(expr.lt(value_to_df_expr(v.into()))),
+        Op::Gt(v) => Some(expr.gt(value_to_df_expr(v.into()))),
+        Op::Ex => None,
+        Op::Nex => None,
+        Op::Between(range) => {
+            let vmin = value_to_df_expr(range.min.into());
+            let vmax = value_to_df_expr(range.max.into());
+            Some(expr.clone().gt_eq(vmin).and(expr.lt_eq(vmax)))
+        }
+        Op::In(items) => {
+            let list = items
+                .into_iter()
+                .map(|v| value_to_df_expr(v.into()))
+                .collect();
+            Some(expr.in_list(list, false))
+        }
+        Op::Match(v) => Some(regexp_like(expr, value_to_df_expr(v.into()), None)),
+    }
+}
+
+/// Builds the DataFusion expression for [?], at least one element satisfies the predicate.
+fn any_op_to_df_expr<V: Into<Value>>(arr: Expr, op: Op<V>) -> Option<Expr> {
+    match op {
+        Op::Eq(v) => Some(array_has(arr, value_to_df_expr(v.into()))),
+        Op::Neq(v) => {
+            let v = value_to_df_expr(v.into());
+            let res = cardinality(array_remove_all(arr, v));
+            Some(res.gt(lit(0)))
+        }
+        Op::Gt(v) => Some(array_max(arr).gt(value_to_df_expr(v.into()))),
+        Op::Geq(v) => Some(array_max(arr).gt_eq(value_to_df_expr(v.into()))),
+        Op::Lt(v) => Some(array_min(arr).lt(value_to_df_expr(v.into()))),
+        Op::Leq(v) => Some(array_min(arr).lt_eq(value_to_df_expr(v.into()))),
+        Op::Between(range) => {
+            let vmin = value_to_df_expr(range.min.into());
+            let vmax = value_to_df_expr(range.max.into());
+            let x = lambda_var("x");
+            let body = x.clone().gt_eq(vmin).and(x.lt_eq(vmax));
+            Some(array_any_match(arr, lambda(["x"], body)))
+        }
+        Op::In(items) => {
+            let set = make_array(
+                items
+                    .into_iter()
+                    .map(|v| value_to_df_expr(v.into()))
+                    .collect(),
+            );
+            Some(array_has_any(arr, set))
+        }
+        Op::Match(v) => {
+            let x = lambda_var("x");
+            let body = regexp_like(x, value_to_df_expr(v.into()), None);
+            Some(array_any_match(arr, lambda(["x"], body)))
+        }
+        Op::Ex => None,
+        Op::Nex => None,
+    }
+}
+
+/// Builds the DataFusion expression for [!], every element satisfies the predicate.
+fn all_op_to_df_expr<V: Into<Value>>(arr: Expr, op: Op<V>) -> Option<Expr> {
+    match op {
+        Op::Eq(v) => {
+            let v = value_to_df_expr(v.into());
+            Some(
+                array_min(arr.clone())
+                    .eq(v.clone())
+                    .and(array_max(arr).eq(v)),
+            )
+        }
+        Op::Neq(v) => Some(array_has(arr, value_to_df_expr(v.into())).not()),
+        Op::Gt(v) => Some(array_min(arr).gt(value_to_df_expr(v.into()))),
+        Op::Geq(v) => Some(array_min(arr).gt_eq(value_to_df_expr(v.into()))),
+        Op::Lt(v) => Some(array_max(arr).lt(value_to_df_expr(v.into()))),
+        Op::Leq(v) => Some(array_max(arr).lt_eq(value_to_df_expr(v.into()))),
+        Op::Between(range) => {
+            let vmin = value_to_df_expr(range.min.into());
+            let vmax = value_to_df_expr(range.max.into());
+            Some(
+                array_min(arr.clone())
+                    .gt_eq(vmin)
+                    .and(array_max(arr).lt_eq(vmax)),
+            )
+        }
+        Op::In(items) => {
+            let set = make_array(
+                items
+                    .into_iter()
+                    .map(|v| value_to_df_expr(v.into()))
+                    .collect(),
+            );
+            let distinct_count = cardinality(array_distinct(arr.clone()));
+            let intersect_count = cardinality(array_intersect(arr, set));
+            Some(distinct_count.eq(intersect_count))
+        }
+
+        Op::Match(v) => {
+            // all elements match <-> no element fails to match
+            let x = lambda_var("x");
+            let body = not(regexp_like(x, value_to_df_expr(v.into()), None));
+            Some(not(array_any_match(arr, lambda(["x"], body))))
+        }
+        Op::Ex => None,
+        Op::Nex => None,
+    }
 }
 
 fn expr_group_to_df_expr<V>(filter: OntologyExprGroup<V>) -> Option<Expr>
@@ -244,34 +373,17 @@ where
 
     for expr in filter.into_iter() {
         let (field, op) = expr.into_parts();
-        let expr = match op {
-            Op::Eq(v) => Some(unfold_field(&field).eq(value_to_df_expr(v.into()))),
-            Op::Neq(v) => Some(unfold_field(&field).not_eq(value_to_df_expr(v.into()))),
-            Op::Leq(v) => Some(unfold_field(&field).lt_eq(value_to_df_expr(v.into()))),
-            Op::Geq(v) => Some(unfold_field(&field).gt_eq(value_to_df_expr(v.into()))),
-            Op::Lt(v) => Some(unfold_field(&field).lt(value_to_df_expr(v.into()))),
-            Op::Gt(v) => Some(unfold_field(&field).gt(value_to_df_expr(v.into()))),
-            Op::Ex => None,  // no-op
-            Op::Nex => None, // no-op
-            Op::Between(range) => {
-                let vmin: Value = range.min.into();
-                let vmax: Value = range.max.into();
-                let emin = unfold_field(&field).lt_eq(value_to_df_expr(vmax));
-                let emax = unfold_field(&field).gt_eq(value_to_df_expr(vmin));
-                Some(emin.and(emax))
+        let parsed = field.field_path();
+        let arr = unfold_field(&field);
+
+        let expr = match parsed.specifier {
+            None => scalar_op_to_df_expr(arr, op),
+            Some(IndexSpecifier::At(i)) => {
+                // DataFusion array_element uses 1-indexing
+                scalar_op_to_df_expr(array_element(arr, lit(i as i64 + 1)), op)
             }
-            Op::In(items) => {
-                let list = items
-                    .into_iter()
-                    .map(|v| value_to_df_expr(v.into()))
-                    .collect();
-                Some(unfold_field(&field).in_list(list, false))
-            }
-            Op::Match(v) => Some(regexp_like(
-                unfold_field(&field),
-                value_to_df_expr(v.into()),
-                None,
-            )),
+            Some(IndexSpecifier::AtLeastOne) => any_op_to_df_expr(arr, op),
+            Some(IndexSpecifier::All) => all_op_to_df_expr(arr, op),
         };
 
         if let Some(expr) = expr {

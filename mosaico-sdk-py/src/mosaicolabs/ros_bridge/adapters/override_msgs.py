@@ -5,6 +5,11 @@ from mosaicolabs.models.futures import Lidar, Radar, RGBDCamera, StereoCamera, T
 from mosaicolabs.ros_bridge.adapters.sensor_msgs import PointCloudAdapterBase
 from mosaicolabs.ros_bridge.ros_message import ROSMessage
 
+from .helpers import (
+    _is_valid_header,
+)
+from .std_msgs import HeaderAdapter
+
 
 class LidarAdapter(PointCloudAdapterBase[Lidar]):
     """
@@ -74,7 +79,15 @@ class LidarAdapter(PointCloudAdapterBase[Lidar]):
         mosaico_lidar = LidarAdapter.from_dict(ros_data)
         ```
         """
-        return super().from_dict(ros_data)
+
+        lidar = super().from_dict(ros_data)
+        lidar.header = (
+            HeaderAdapter.from_dict(ros_data["header"])
+            if _is_valid_header(ros_data.get("header"))
+            else None
+        )
+
+        return lidar
 
     @classmethod
     def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
@@ -154,7 +167,14 @@ class RadarAdapter(PointCloudAdapterBase[Radar]):
         mosaico_radar = RadarAdapter.from_dict(ros_data)
         ```
         """
-        return super().from_dict(ros_data)
+        radar = super().from_dict(ros_data)
+        radar.header = (
+            HeaderAdapter.from_dict(ros_data["header"])
+            if _is_valid_header(ros_data.get("header"))
+            else None
+        )
+
+        return radar
 
     @classmethod
     def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
@@ -224,7 +244,14 @@ class RGBDCameraAdapter(PointCloudAdapterBase[RGBDCamera]):
         mosaico_rgbd_camera = RGBDCameraAdapter.from_dict(ros_data)
         ```
         """
-        return super().from_dict(ros_data)
+        rgbd_camera = super().from_dict(ros_data)
+        rgbd_camera.header = (
+            HeaderAdapter.from_dict(ros_data["header"])
+            if _is_valid_header(ros_data.get("header"))
+            else None
+        )
+
+        return rgbd_camera
 
     @classmethod
     def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
@@ -296,7 +323,15 @@ class ToFCameraAdapter(PointCloudAdapterBase[ToFCamera]):
         mosaico_tof_camera = ToFCameraAdapter.from_dict(ros_data)
         ```
         """
-        return super().from_dict(ros_data)
+
+        tof_camera = super().from_dict(ros_data)
+        tof_camera.header = (
+            HeaderAdapter.from_dict(ros_data["header"])
+            if _is_valid_header(ros_data.get("header"))
+            else None
+        )
+
+        return tof_camera
 
     @classmethod
     def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
@@ -368,7 +403,14 @@ class StereoCameraAdapter(PointCloudAdapterBase[StereoCamera]):
         mosaico_stereo_camera = StereoCameraAdapter.from_dict(ros_data)
         ```
         """
-        return super().from_dict(ros_data)
+        stereo_camera = super().from_dict(ros_data)
+        stereo_camera.header = (
+            HeaderAdapter.from_dict(ros_data["header"])
+            if _is_valid_header(ros_data.get("header"))
+            else None
+        )
+
+        return stereo_camera
 
     @classmethod
     def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:

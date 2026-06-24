@@ -1,4 +1,6 @@
-use arrow::array::{ArrayRef, AsArray, RecordBatch, StructArray};
+use arrow::array::{
+    ArrayRef, AsArray, FixedSizeListArray, LargeListArray, ListArray, RecordBatch, StructArray,
+};
 use arrow::datatypes::{DataType, Field, FieldRef, Schema, SchemaRef};
 use mosaicod_core::{self as core, params, types};
 use parquet::arrow::async_reader::{AsyncFileReader, ParquetObjectReader};
@@ -298,8 +300,38 @@ pub fn stats_from_arrow_field(field: &Field) -> types::Stats {
     match field.data_type() {
         dt if is_numeric(dt) => Stats::Numeric(NumericStats::new()),
         dt if is_textual(dt) => Stats::Textual(TextualStats::new()),
+        DataType::List(elem) | DataType::LargeList(elem) => {
+            if is_textual(elem.data_type()) {
+                Stats::ListTextual(TextualStats::new())
+            } else {
+                Stats::ListNumeric(NumericStats::new())
+            }
+        }
+        DataType::FixedSizeList(elem, _) => {
+            if is_textual(elem.data_type()) {
+                Stats::ListTextual(TextualStats::new())
+            } else {
+                Stats::ListNumeric(NumericStats::new())
+            }
+        }
         _ => Stats::Unsupported,
     }
+}
+
+/// Extracts the flattened child values array from a list array.
+/// Returns None if the array is not a recognized list type.
+fn list_child_values_from_array(array: &ArrayRef) -> Option<ArrayRef> {
+    use arrow::array::Array;
+    if let Some(a) = array.as_any().downcast_ref::<ListArray>() {
+        return Some(a.values().clone());
+    }
+    if let Some(a) = array.as_any().downcast_ref::<LargeListArray>() {
+        return Some(a.values().clone());
+    }
+    if let Some(a) = array.as_any().downcast_ref::<FixedSizeListArray>() {
+        return Some(a.values().clone());
+    }
+    None
 }
 
 /// Inspects an array and updates the provided statistics using SIMD-optimized Arrow compute kernels.
@@ -337,6 +369,31 @@ pub fn stats_inspect_array(stats: &mut types::Stats, array: &ArrayRef) -> Result
             // Check for nulls (O(1))
             let has_null = string_array.null_count() > 0;
 
+            stats.merge(min_val, max_val, has_null);
+        }
+        Stats::ListNumeric(stats) => {
+            let flatten_list = list_child_values_from_array(array).ok_or_else(|| {
+                arrow::error::ArrowError::CastError("expected list array".to_string())
+            })?;
+
+            let narray = cast_array_to_numeric(&flatten_list)?;
+            let primitive = narray.as_primitive::<arrow::datatypes::Float64Type>();
+            let min_val = compute::min(primitive);
+            let max_val = compute::max(primitive);
+            let has_null = primitive.null_count() > 0;
+            let has_nan = primitive.values().iter().any(|v| v.is_nan());
+            stats.merge(min_val, max_val, has_null, has_nan);
+        }
+        Stats::ListTextual(stats) => {
+            let flatten_list = list_child_values_from_array(array).ok_or_else(|| {
+                arrow::error::ArrowError::CastError("expected list array".to_string())
+            })?;
+
+            let sarray = cast_array_to_textual(&flatten_list)?;
+            let string_array = sarray.as_string::<i32>();
+            let min_val = compute::min_string(string_array);
+            let max_val = compute::max_string(string_array);
+            let has_null = string_array.null_count() > 0;
             stats.merge(min_val, max_val, has_null);
         }
         Stats::Unsupported => { /* do nothing */ }

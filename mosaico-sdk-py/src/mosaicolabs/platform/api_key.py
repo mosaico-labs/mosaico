@@ -1,4 +1,4 @@
-from ..types import Time
+from ..models.data import Time
 
 
 def _get_fingerprint(api_key: str) -> str:

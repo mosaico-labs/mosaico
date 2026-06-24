@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional
 
 import pyarrow.flight as fl
 
-from mosaicolabs.models.message import Message
+from mosaicolabs.models.core import Message
 
 from ..logging_config import get_logger
 from ..platform.resource_manifests import (
@@ -283,7 +283,7 @@ class SequenceDataStreamer:
 
         Returns:
             tuple[str, Message]: A tuple containing the `topic_name` and the
-                reconstructed [`Message`][mosaicolabs.models.Message] object.
+                reconstructed [`Message`][mosaicolabs.models.core.Message] object.
 
         Raises:
             StopIteration: If all underlying topic streams are exhausted.

@@ -414,12 +414,12 @@ pub async fn topic_from_query_filter(
 
     let qr = qb.compile()?;
 
-    // If the query has no filters skip, to avoid retuning too mutch elements
+    // If the query has no filters skip, to avoid retuning too much elements
     if qr.is_unfiltered() {
         return Ok(Vec::new());
     }
 
-    // Since we have do an early-return is the query is unfiltered there is always a WHERE clause
+    // Since we have done an early-return is the query is unfiltered there is always a WHERE clause
     let query = format!("{select} WHERE {}", qr.clauses.join(" AND "));
 
     trace!("query values: {:?}", qr.values);
@@ -444,4 +444,219 @@ pub async fn topic_from_query_filter(
     let r = r.map(cast_topic_data).fetch_all(exe.as_exec()).await?;
     trace!("query returned {} results", r.len());
     r.into_iter().collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::core::{DatabaseType, testing};
+    use crate::{sequence_create, session_create};
+    use mosaicod_core::types::MetadataBlob;
+    use mosaicod_marshal as marshal;
+    use sqlx::Pool;
+
+    async fn setup_fake_db(database: crate::Database) {
+        let mut cx = database.connection();
+
+        let metadata = marshal::JsonMetadataBlob::try_from_str(
+            r#"{"key1": ["value", "value2", "val3"], "key3": { "key4": "value1" }, "key4": "value2", "key5": 200 }"#,
+        )
+            .unwrap();
+        let record = schema::SequenceRecord::new(
+            "my_sequence".parse().unwrap(),
+            "/my/path/in/store".to_owned().into(),
+        )
+        .with_user_metadata(metadata);
+        let sequence_record = sequence_create(&mut cx, &record).await.unwrap();
+
+        let record = schema::SessionRecord::new(
+            format!("my_sequence:{}", ulid::Ulid::new())
+                .parse()
+                .unwrap(),
+            sequence_record.sequence_id,
+        );
+        let session_record = session_create(&mut cx, &record).await.unwrap();
+
+        let metadata = marshal::JsonMetadataBlob::try_from_str(
+            r#"{"key1": "value1", "key2": 100, "key3": { "key4": "value2", "key5": 100 }}"#,
+        )
+        .unwrap();
+        let record = schema::TopicRecord::new(
+            "my_sequence/topic".parse().unwrap(),
+            sequence_record.sequence_id,
+            session_record.session_id,
+            "",
+            "",
+            Some("/my/path/in/store".to_owned().into()),
+        )
+        .with_user_metadata(metadata);
+        topic_create(&mut database.connection(), &record)
+            .await
+            .unwrap();
+
+        let metadata = marshal::JsonMetadataBlob::try_from_str(
+            r#"{"key1": "value1", "key3": { "key4": "value2" }, "key4": "value2", "key5": 100, "key6": true }"#,
+        )
+        .unwrap();
+        let record = schema::TopicRecord::new(
+            "my_sequence/topic2".parse().unwrap(),
+            sequence_record.sequence_id,
+            session_record.session_id,
+            "",
+            "",
+            Some("/my/path/in/store".to_owned().into()),
+        )
+        .with_user_metadata(metadata);
+        topic_create(&mut database.connection(), &record)
+            .await
+            .unwrap();
+
+        // Create second sequence.
+        let metadata = marshal::JsonMetadataBlob::try_from_str(
+            r#"{"key1": ["value", "val", "val2"], "key3": { "key4": "value1", "key8": true }, "key4": "value2", "key5": 100 }"#,
+        )
+            .unwrap();
+        let record = schema::SequenceRecord::new(
+            "my_sequence2".parse().unwrap(),
+            "/my/path/in/store".to_owned().into(),
+        )
+        .with_user_metadata(metadata);
+        let sequence_record = sequence_create(&mut cx, &record).await.unwrap();
+
+        let metadata = marshal::JsonMetadataBlob::try_from_str(
+            r#"{"key1": "value1", "key2": [ {"key1": 4, "key6": 5}, {"key3": false, "key4": "value"} ], "key3": { "key4": "value2", "key5": { "key6": "value6", "key7": [ 1, 3, 6 ], "key1": "value1" } }, "key4": "value2", "key6": 1 }"#,
+        )
+            .unwrap();
+        let record = schema::TopicRecord::new(
+            "my_sequence2/topic".parse().unwrap(),
+            sequence_record.sequence_id,
+            session_record.session_id,
+            "",
+            "",
+            Some("/my/path/in/store".to_owned().into()),
+        )
+        .with_user_metadata(metadata);
+        topic_create(&mut database.connection(), &record)
+            .await
+            .unwrap();
+    }
+
+    #[sqlx::test]
+    async fn test_topic_from_query_filter_with_glob_pattern(pool: Pool<DatabaseType>) {
+        let database = testing::Database::new(pool);
+
+        setup_fake_db(database.clone()).await;
+
+        let mut cx = database.connection();
+
+        // Search for "key6" at third level existence inside topics' user metadata.
+        let filter = r#"{"topic": {"locator": {"$match": "topic"}, "user_metadata": {"*.*.key6": {"$ex": null}}}}"#;
+        let filter = marshal::query_filter_from_string(filter).unwrap();
+        let res = topic_from_query_filter(&mut cx, filter.sequence, filter.topic)
+            .await
+            .unwrap();
+
+        assert_eq!(res.len(), 1);
+        assert_eq!(res[0].locator_name, "my_sequence2/topic");
+
+        // Search for "key5" with value 100 at second level inside topics' user metadata.
+        let filter = r#"{"topic": {"locator": {"$match": "topic"}, "user_metadata": {"*.key5": {"$eq": 100}}}}"#;
+        let filter = marshal::query_filter_from_string(filter).unwrap();
+        let res = topic_from_query_filter(&mut cx, filter.sequence, filter.topic)
+            .await
+            .unwrap();
+
+        assert_eq!(res.len(), 1);
+        assert_eq!(res[0].locator_name, "my_sequence/topic");
+
+        // Search for list element with "value2" inside sequence's user metadata.
+        let filter = r#"{"sequence": {"locator": {"$match": "my_sequence"}, "user_metadata": {"key1[*]": { "$eq": "value2"}}}}"#;
+        let filter = marshal::query_filter_from_string(filter).unwrap();
+        let res = topic_from_query_filter(&mut cx, filter.sequence, filter.topic)
+            .await
+            .unwrap();
+
+        assert_eq!(res.len(), 2);
+        assert_eq!(res[0].locator_name, "my_sequence/topic");
+        assert_eq!(res[1].locator_name, "my_sequence/topic2");
+
+        // Search for "key8" as list item inside sequence's user metadata. This works beacuse Postgres uses LAX mode by default.
+        let filter = r#"{"sequence": {"locator": {"$match": "my_sequence"}, "user_metadata": {"*[*].key8": { "$eq": true}}}}"#;
+        let filter = marshal::query_filter_from_string(filter).unwrap();
+        let res = topic_from_query_filter(&mut cx, filter.sequence, filter.topic)
+            .await
+            .unwrap();
+
+        assert_eq!(res.len(), 1);
+        assert_eq!(res[0].locator_name, "my_sequence2/topic");
+
+        // Search for any key with value in [1, 100, 200] at first level inside topics' user metadata.
+        let filter = r#"{"topic": {"locator": {"$match": "topic"}, "user_metadata": {"*": {"$in": [1, 100, 200]}}}}"#;
+        let filter = marshal::query_filter_from_string(filter).unwrap();
+        let res = topic_from_query_filter(&mut cx, filter.sequence, filter.topic)
+            .await
+            .unwrap();
+
+        assert_eq!(res.len(), 3);
+        assert_eq!(res[0].locator_name, "my_sequence/topic");
+        assert_eq!(res[1].locator_name, "my_sequence/topic2");
+        assert_eq!(res[2].locator_name, "my_sequence2/topic");
+    }
+
+    #[sqlx::test]
+    async fn test_topic_from_query_filter_with_recursive_glob_pattern(pool: Pool<DatabaseType>) {
+        let database = testing::Database::new(pool);
+
+        setup_fake_db(database.clone()).await;
+
+        let mut cx = database.connection();
+
+        // Triple * is not allowed.
+        let filter = r#"{"topic": {"locator": {"$match": "topic"}, "user_metadata": {"***.key5": {"$eq": 100}}}}"#;
+        let err = marshal::query_filter_from_string(filter).unwrap_err();
+        assert!(matches!(err, marshal::Error::DeserializationError(_)));
+
+        // Search for "key5" at every level inside topics' user metadata.
+        let filter = r#"{"topic": {"locator": {"$match": "topic"}, "user_metadata": {"**.key5": {"$eq": 100}}}}"#;
+        let filter = marshal::query_filter_from_string(filter).unwrap();
+        let res = topic_from_query_filter(&mut cx, filter.sequence, filter.topic)
+            .await
+            .unwrap();
+
+        assert_eq!(res.len(), 2);
+        assert_eq!(res[0].locator_name, "my_sequence/topic");
+        assert_eq!(res[1].locator_name, "my_sequence/topic2");
+
+        // Search for "key6" inside an array in topics' metadata. This returns 2 results because Postgres operates in LAX mode by default.
+        let filter = r#"{"topic": {"locator": {"$match": "topic"}, "user_metadata": {"**[*].key6": {"$ex": null}}}}"#;
+        let filter = marshal::query_filter_from_string(filter).unwrap();
+        let res = topic_from_query_filter(&mut cx, filter.sequence, filter.topic)
+            .await
+            .unwrap();
+
+        assert_eq!(res.len(), 2);
+        assert_eq!(res[0].locator_name, "my_sequence/topic2");
+        assert_eq!(res[1].locator_name, "my_sequence2/topic");
+
+        // Search for any key with value in [1, 100, 200] at any level inside topics' user metadata.
+        let filter = r#"{"topic": {"locator": {"$match": "topic"}, "user_metadata": {"**": {"$in": ["value5", "value6", true]}}}}"#;
+        let filter = marshal::query_filter_from_string(filter).unwrap();
+        let res = topic_from_query_filter(&mut cx, filter.sequence, filter.topic)
+            .await
+            .unwrap();
+
+        assert_eq!(res.len(), 2);
+        assert_eq!(res[0].locator_name, "my_sequence/topic2");
+        assert_eq!(res[1].locator_name, "my_sequence2/topic");
+
+        // Search for any key with value in [1, 100, 200] at any level inside topics' user metadata.
+        let filter = r#"{"topic": {"locator": {"$match": "topic"}, "user_metadata": {"**[*]": {"$eq": false}}}}"#;
+        let filter = marshal::query_filter_from_string(filter).unwrap();
+        let res = topic_from_query_filter(&mut cx, filter.sequence, filter.topic)
+            .await
+            .unwrap();
+
+        assert_eq!(res.len(), 1);
+        assert_eq!(res[0].locator_name, "my_sequence2/topic");
+    }
 }

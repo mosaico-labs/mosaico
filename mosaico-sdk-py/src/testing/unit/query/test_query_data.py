@@ -58,9 +58,12 @@ class TestQueryTransformAPI:
         Transform.Q.rotation.covariance_type
         Transform.Q.target_frame_id
         # Inherited from Message
-        Transform.Q.sequence_id
-        Transform.Q.frame_id
         Transform.Q.timestamp_ns
+        # Inherited from HeaderMixin
+        Transform.Q.header.sample_counter
+        Transform.Q.header.frame_id
+        Transform.Q.header.timestamp.seconds
+        Transform.Q.header.timestamp.nanoseconds
         # Inherited from CovarianceMixin
         Transform.Q.covariance_type
 
@@ -86,8 +89,13 @@ class TestQueryTransformAPI:
         assert issubclass(type(Transform.Q.rotation.z), _QueryableNumeric)
         assert issubclass(type(Transform.Q.rotation.w), _QueryableNumeric)
         assert issubclass(type(Transform.Q.target_frame_id), _QueryableString)
-        assert issubclass(type(Transform.Q.sequence_id), _QueryableNumeric)
-        assert issubclass(type(Transform.Q.frame_id), _QueryableString)
+        assert issubclass(type(Transform.Q.timestamp_ns), _QueryableNumeric)
+        assert issubclass(type(Transform.Q.header.timestamp.seconds), _QueryableNumeric)
+        assert issubclass(
+            type(Transform.Q.header.timestamp.nanoseconds), _QueryableNumeric
+        )
+        assert issubclass(type(Transform.Q.header.sample_counter), _QueryableNumeric)
+        assert issubclass(type(Transform.Q.header.frame_id), _QueryableString)
         assert issubclass(type(Transform.Q.covariance_type), _QueryableNumeric)
 
     def test_expression_generation_paths_and_operators(self):
@@ -164,9 +172,12 @@ class TestQueryPoseAPI:
         # Inherited from Quaternion
         Pose.Q.orientation.covariance_type
         # Inherited from Message
-        Pose.Q.sequence_id
-        Pose.Q.frame_id
         Pose.Q.timestamp_ns
+        # Inherited from HeaderMixin
+        Pose.Q.header.sample_counter
+        Pose.Q.header.frame_id
+        Pose.Q.header.timestamp.seconds
+        Pose.Q.header.timestamp.nanoseconds
         # Inherited from CovarianceMixin
         Pose.Q.covariance_type
 
@@ -190,9 +201,11 @@ class TestQueryPoseAPI:
         assert issubclass(type(Pose.Q.orientation.z), _QueryableNumeric)
         assert issubclass(type(Pose.Q.orientation.w), _QueryableNumeric)
         assert issubclass(type(Pose.Q.orientation.covariance_type), _QueryableNumeric)
-        assert issubclass(type(Pose.Q.sequence_id), _QueryableNumeric)
         assert issubclass(type(Pose.Q.timestamp_ns), _QueryableNumeric)
-        assert issubclass(type(Pose.Q.frame_id), _QueryableString)
+        assert issubclass(type(Pose.Q.header.timestamp.seconds), _QueryableNumeric)
+        assert issubclass(type(Pose.Q.header.timestamp.nanoseconds), _QueryableNumeric)
+        assert issubclass(type(Pose.Q.header.sample_counter), _QueryableNumeric)
+        assert issubclass(type(Pose.Q.header.frame_id), _QueryableString)
         assert issubclass(type(Pose.Q.covariance_type), _QueryableNumeric)
 
     def test_expression_generation_paths_and_operators(self):
@@ -268,10 +281,12 @@ class TestQueryVelocityAPI:
         # Inherited from Vector3d
         Velocity.Q.angular.covariance_type
         # Inherited from Message
-        Velocity.Q.sequence_id
         Velocity.Q.timestamp_ns
-        Velocity.Q.frame_id
-        Velocity.Q.timestamp_ns
+        # Inherited from HeaderMixin
+        Velocity.Q.header.sample_counter
+        Velocity.Q.header.timestamp.seconds
+        Velocity.Q.header.frame_id
+        Velocity.Q.header.timestamp.nanoseconds
         # Inherited from CovarianceMixin
         Velocity.Q.covariance_type
 
@@ -294,9 +309,13 @@ class TestQueryVelocityAPI:
         assert issubclass(type(Velocity.Q.angular.y), _QueryableNumeric)
         assert issubclass(type(Velocity.Q.angular.z), _QueryableNumeric)
         assert issubclass(type(Velocity.Q.angular.covariance_type), _QueryableNumeric)
-        assert issubclass(type(Velocity.Q.sequence_id), _QueryableNumeric)
         assert issubclass(type(Velocity.Q.timestamp_ns), _QueryableNumeric)
-        assert issubclass(type(Velocity.Q.frame_id), _QueryableString)
+        assert issubclass(type(Velocity.Q.header.sample_counter), _QueryableNumeric)
+        assert issubclass(type(Velocity.Q.header.timestamp.seconds), _QueryableNumeric)
+        assert issubclass(
+            type(Velocity.Q.header.timestamp.nanoseconds), _QueryableNumeric
+        )
+        assert issubclass(type(Velocity.Q.header.frame_id), _QueryableString)
         assert issubclass(type(Velocity.Q.covariance_type), _QueryableNumeric)
 
     def test_expression_generation_paths_and_operators(self):
@@ -331,14 +350,14 @@ class TestQueryVelocityAPI:
         # Simulate the User Query
         q = Query(
             QueryOntologyCatalog()
-            .with_expression(Velocity.Q.timestamp_ns.gt(12345.67))
+            .with_expression(Velocity.Q.header.timestamp.seconds.gt(12345.67))
             .with_expression(Velocity.Q.linear.y.gt(12345.67)),
         )
 
         # Define Expected Output
         expected_dict = {
             "ontology": {
-                "velocity.timestamp_ns": {"$gt": 12345.67},
+                "velocity.header.timestamp.seconds": {"$gt": 12345.67},
                 "velocity.linear.y": {"$gt": 12345.67},
             },
         }
@@ -372,10 +391,12 @@ class TestQueryAccelerationAPI:
         # Inherited from Vector3d
         Acceleration.Q.angular.covariance_type
         # Inherited from Message
-        Acceleration.Q.sequence_id
         Acceleration.Q.timestamp_ns
-        Acceleration.Q.frame_id
-        Acceleration.Q.timestamp_ns
+        # Inherited from HeaderMixin
+        Acceleration.Q.header.sample_counter
+        Acceleration.Q.header.timestamp.seconds
+        Acceleration.Q.header.frame_id
+        Acceleration.Q.header.timestamp.nanoseconds
         # Inherited from CovarianceMixin
         Acceleration.Q.covariance_type
 
@@ -402,9 +423,15 @@ class TestQueryAccelerationAPI:
         assert issubclass(
             type(Acceleration.Q.angular.covariance_type), _QueryableNumeric
         )
-        assert issubclass(type(Acceleration.Q.sequence_id), _QueryableNumeric)
         assert issubclass(type(Acceleration.Q.timestamp_ns), _QueryableNumeric)
-        assert issubclass(type(Acceleration.Q.frame_id), _QueryableString)
+        assert issubclass(type(Acceleration.Q.header.sample_counter), _QueryableNumeric)
+        assert issubclass(
+            type(Acceleration.Q.header.timestamp.seconds), _QueryableNumeric
+        )
+        assert issubclass(
+            type(Acceleration.Q.header.timestamp.nanoseconds), _QueryableNumeric
+        )
+        assert issubclass(type(Acceleration.Q.header.frame_id), _QueryableString)
         assert issubclass(type(Acceleration.Q.covariance_type), _QueryableNumeric)
 
     def test_expression_generation_paths_and_operators(self):
@@ -489,11 +516,11 @@ class TestQueryMotionStateAPI:
         # Inherited from CovarianceMixin
         MotionState.Q.velocity.linear.covariance_type
         MotionState.Q.velocity.angular.covariance_type
-        # Inherited from Message
-        MotionState.Q.sequence_id
-        MotionState.Q.timestamp_ns
-        MotionState.Q.frame_id
-        MotionState.Q.timestamp_ns
+        # Inherited from HeaderMixin
+        MotionState.Q.header.sample_counter
+        MotionState.Q.header.timestamp.seconds
+        MotionState.Q.header.frame_id
+        MotionState.Q.header.timestamp.nanoseconds
         # Inherited from CovarianceMixin
         MotionState.Q.covariance_type
         MotionState.Q.target_frame_id
@@ -534,9 +561,15 @@ class TestQueryMotionStateAPI:
         assert issubclass(
             type(MotionState.Q.velocity.angular.covariance_type), _QueryableNumeric
         )
-        assert issubclass(type(MotionState.Q.sequence_id), _QueryableNumeric)
         assert issubclass(type(MotionState.Q.timestamp_ns), _QueryableNumeric)
-        assert issubclass(type(MotionState.Q.frame_id), _QueryableString)
+        assert issubclass(type(MotionState.Q.header.sample_counter), _QueryableNumeric)
+        assert issubclass(
+            type(MotionState.Q.header.timestamp.seconds), _QueryableNumeric
+        )
+        assert issubclass(
+            type(MotionState.Q.header.timestamp.nanoseconds), _QueryableNumeric
+        )
+        assert issubclass(type(MotionState.Q.header.frame_id), _QueryableString)
         assert issubclass(type(MotionState.Q.covariance_type), _QueryableNumeric)
         assert issubclass(type(MotionState.Q.target_frame_id), _QueryableString)
 
@@ -613,10 +646,12 @@ class TestQueryForceTorqueAPI:
         # Inherited from Vector3d
         ForceTorque.Q.torque.covariance_type
         # Inherited from Message
-        ForceTorque.Q.sequence_id
         ForceTorque.Q.timestamp_ns
-        ForceTorque.Q.frame_id
-        ForceTorque.Q.timestamp_ns
+        # Inherited from HeaderMixin
+        ForceTorque.Q.header.sample_counter
+        ForceTorque.Q.header.timestamp.seconds
+        ForceTorque.Q.header.frame_id
+        ForceTorque.Q.header.timestamp.nanoseconds
         # Inherited from CovarianceMixin
         ForceTorque.Q.covariance_type
 
@@ -639,9 +674,15 @@ class TestQueryForceTorqueAPI:
         assert issubclass(type(ForceTorque.Q.torque.y), _QueryableNumeric)
         assert issubclass(type(ForceTorque.Q.torque.z), _QueryableNumeric)
         assert issubclass(type(ForceTorque.Q.torque.covariance_type), _QueryableNumeric)
-        assert issubclass(type(ForceTorque.Q.sequence_id), _QueryableNumeric)
+        assert issubclass(type(ForceTorque.Q.header.sample_counter), _QueryableNumeric)
         assert issubclass(type(ForceTorque.Q.timestamp_ns), _QueryableNumeric)
-        assert issubclass(type(ForceTorque.Q.frame_id), _QueryableString)
+        assert issubclass(
+            type(ForceTorque.Q.header.timestamp.seconds), _QueryableNumeric
+        )
+        assert issubclass(
+            type(ForceTorque.Q.header.timestamp.nanoseconds), _QueryableNumeric
+        )
+        assert issubclass(type(ForceTorque.Q.header.frame_id), _QueryableString)
         assert issubclass(type(ForceTorque.Q.covariance_type), _QueryableNumeric)
 
     def test_expression_generation_paths_and_operators(self):
@@ -713,10 +754,13 @@ class TestQueryROIAPI:
         ROI.Q.width
         ROI.Q.do_rectify
         # Inherited from Message
-        ROI.Q.sequence_id
         ROI.Q.timestamp_ns
-        ROI.Q.frame_id
-        ROI.Q.timestamp_ns
+
+        # Inherited from HeaderMixin # TODO: should we add these? Commmented out for now
+        # ROI.Q.header.timestamp.seconds
+        # ROI.Q.header.timestamp.nanoseconds
+        # ROI.Q.header.sample_counter
+        # ROI.Q.header.frame_id
 
         # --- Catalog Context: Non-existing field ---
         with pytest.raises(Exception):
@@ -735,9 +779,13 @@ class TestQueryROIAPI:
         assert issubclass(type(ROI.Q.height), _QueryableNumeric)
         assert issubclass(type(ROI.Q.width), _QueryableNumeric)
         assert issubclass(type(ROI.Q.do_rectify), _QueryableBool)
-        assert issubclass(type(ROI.Q.sequence_id), _QueryableNumeric)
         assert issubclass(type(ROI.Q.timestamp_ns), _QueryableNumeric)
-        assert issubclass(type(ROI.Q.frame_id), _QueryableString)
+
+        # TODO: should we add these? Commmented out for now
+        # assert issubclass(type(ROI.Q.header.timestamp.seconds), _QueryableNumeric)
+        # assert issubclass(type(ROI.Q.header.timestamp.nanoseconds), _QueryableNumeric)
+        # assert issubclass(type(ROI.Q.header.sample_counter), _QueryableNumeric)
+        # assert issubclass(type(ROI.Q.header.frame_id), _QueryableString)
 
     def test_expression_generation_paths_and_operators(self):
         """

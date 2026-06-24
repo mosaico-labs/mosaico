@@ -170,25 +170,8 @@ mod internal {
             format!("${}", current_idx)
         }
 
-        fn fmt_value(&self, field: &str, v: &query::Value) -> String {
-            match v {
-                query::Value::Integer(_) | query::Value::Float(_) => format!("({field})::numeric"),
-                query::Value::Text(_) => field.to_owned(),
-                query::Value::Boolean(_) => format!("({field})::boolean"),
-                query::Value::IntegerArray(_)
-                | query::Value::FloatArray(_)
-                | query::Value::TextArray(_) => {
-                    unreachable!("array values are only used as bound parameters")
-                }
-            }
-        }
-
         fn fmt_clause(&self, subfield: &str) -> String {
-            let subfield = format!(
-                "{{{}}}",
-                subfield.split(".").collect::<Vec<&str>>().join(",")
-            );
-            format!("{} #>> '{subfield}'", self.field)
+            format!("$.{}", subfield)
         }
     }
 
@@ -210,76 +193,78 @@ mod internal {
             let r = match op {
                 query::Op::Eq(v) => {
                     let v: query::Value = v.into();
+                    let placeholder = self.consume_placeholder();
                     query::CompiledClause::new(
                         format!(
-                            "{} = {}",
-                            self.fmt_value(field, &v),
-                            self.consume_placeholder()
+                            "jsonb_path_exists({}, '{} ? (@ == $val)', jsonb_build_object('val', {}))",
+                            self.field, field, placeholder
                         ),
                         vec![v],
                     )
                 }
                 query::Op::Neq(v) => {
                     let v: query::Value = v.into();
+                    let placeholder = self.consume_placeholder();
                     query::CompiledClause::new(
                         format!(
-                            "{} != {}",
-                            self.fmt_value(field, &v),
-                            self.consume_placeholder()
+                            "jsonb_path_exists({}, '{} ? (@ != $val)', jsonb_build_object('val', {}))",
+                            self.field, field, placeholder
                         ),
                         vec![v],
                     )
                 }
                 query::Op::Leq(v) => {
                     let v: query::Value = v.into();
+                    let placeholder = self.consume_placeholder();
                     query::CompiledClause::new(
                         format!(
-                            "{} <= {}",
-                            self.fmt_value(field, &v),
-                            self.consume_placeholder()
+                            "jsonb_path_exists({}, '{} ? (@ <= $val)', jsonb_build_object('val', {}))",
+                            self.field, field, placeholder
                         ),
                         vec![v],
                     )
                 }
                 query::Op::Geq(v) => {
                     let v: query::Value = v.into();
+                    let placeholder = self.consume_placeholder();
                     query::CompiledClause::new(
                         format!(
-                            "{} >= {}",
-                            self.fmt_value(field, &v),
-                            self.consume_placeholder()
+                            "jsonb_path_exists({}, '{} ? (@ >= $val)', jsonb_build_object('val', {}))",
+                            self.field, field, placeholder
                         ),
                         vec![v],
                     )
                 }
                 query::Op::Lt(v) => {
                     let v: query::Value = v.into();
+                    let placeholder = self.consume_placeholder();
                     query::CompiledClause::new(
                         format!(
-                            "{} < {}",
-                            self.fmt_value(field, &v),
-                            self.consume_placeholder()
+                            "jsonb_path_exists({}, '{} ? (@ < $val)', jsonb_build_object('val', {}))",
+                            self.field, field, placeholder
                         ),
                         vec![v],
                     )
                 }
                 query::Op::Gt(v) => {
                     let v: query::Value = v.into();
+                    let placeholder = self.consume_placeholder();
                     query::CompiledClause::new(
                         format!(
-                            "{} > {}",
-                            self.fmt_value(field, &v),
-                            self.consume_placeholder()
+                            "jsonb_path_exists({}, '{} ? (@ > $val)', jsonb_build_object('val', {}))",
+                            self.field, field, placeholder
                         ),
                         vec![v],
                     )
                 }
-                query::Op::Ex => {
-                    query::CompiledClause::new(format!("({field}) IS NOT NULL"), Vec::new())
-                }
-                query::Op::Nex => {
-                    query::CompiledClause::new(format!("({field}) IS NULL"), Vec::new())
-                }
+                query::Op::Ex => query::CompiledClause::new(
+                    format!("jsonb_path_exists({}, '{}')", self.field, field,),
+                    Vec::new(),
+                ),
+                query::Op::Nex => query::CompiledClause::new(
+                    format!("NOT jsonb_path_exists({}, '{}')", self.field, field,),
+                    Vec::new(),
+                ),
                 query::Op::Between(range) => {
                     let min: query::Value = range.min.into();
                     let max: query::Value = range.max.into();
@@ -287,34 +272,58 @@ mod internal {
                     let pmin = self.consume_placeholder();
                     let pmax = self.consume_placeholder();
 
-                    // Here we are passing min, but we could also pass max since they have the same type
-                    // by design
-                    let field = self.fmt_value(field, &min);
-
-                    let clause = format!("({field} >= {pmin}) AND ({field} <= {pmax})");
-
-                    query::CompiledClause::new(clause, vec![min, max])
+                    query::CompiledClause::new(
+                        format!(
+                            "jsonb_path_exists({}, '{} ? (@ >= $min && @ <= $max)', jsonb_build_object('min', {}, 'max', {}))",
+                            self.field, field, pmin, pmax
+                        ),
+                        vec![min, max],
+                    )
                 }
                 query::Op::In(items) => {
                     if items.is_empty() {
                         return Err(query::Error::empty_in(field.to_owned()));
                     }
                     let values: Vec<query::Value> = items.into_iter().map(Into::into).collect();
-                    let cast_field = self.fmt_value(field, &values[0]);
-                    let placeholders: Vec<String> =
-                        values.iter().map(|_| self.consume_placeholder()).collect();
-                    let clause = format!("{} IN ({})", cast_field, placeholders.join(", "));
+                    let condition = values
+                        .iter()
+                        .enumerate()
+                        .map(|(i, _)| format!("@ == $val{i}"))
+                        .collect::<Vec<String>>()
+                        .join(" || ");
+                    let placeholders = values
+                        .iter()
+                        .enumerate()
+                        .map(|(i, _)| format!("'val{}', {}", i, self.consume_placeholder()))
+                        .collect::<Vec<String>>()
+                        .join(", ");
+                    let clause = format!(
+                        "jsonb_path_exists({}, '{} ? ({})', jsonb_build_object({}))",
+                        self.field, field, condition, placeholders
+                    );
                     query::CompiledClause::new(clause, values)
                 }
                 query::Op::Match(v) => {
+                    // NOTE: here we can't use Json path, because it uses its own regex syntax based
+                    // on the DBMS(POSIX for Postgres and XPath for others).
+
                     let value: query::Value = v.into();
                     if let query::Value::Text(text) = value {
                         if text.is_empty() {
                             return Err(query::Error::empty_pattern(field.to_owned()));
                         }
+
+                        let placeholder = self.consume_placeholder();
+
+                        // Here we still use the #>> operator and not jsonpath.
+                        let subfield = format!(
+                            "{{{}}}",
+                            field.strip_prefix("$.").unwrap().replace(".", ",")
+                        );
+
                         let clause = format!(
-                            "mosaico_regex_match({field}, {})",
-                            self.consume_placeholder()
+                            "mosaico_regex_match({} #>> '{}', {})",
+                            self.field, subfield, placeholder
                         );
                         query::CompiledClause::new(clause, vec![query::Value::Text(text)])
                     } else {
@@ -323,8 +332,6 @@ mod internal {
                 }
             };
 
-            // r.clause = self.fmt_clause(&r.clause);
-
             Ok(r)
         }
     }
@@ -332,7 +339,6 @@ mod internal {
 
 #[cfg(test)]
 mod tests {
-
     use super::*;
     use mosaicod_query::{ClausesCompiler, Op};
     use std::collections::HashMap;
@@ -420,7 +426,7 @@ mod tests {
 
         let found = qr.clauses.iter().any(|c| {
             c.contains(
-                r#"(topic.user_metadata #>> '{imu,acceleration,x}')::numeric IN ($1, $2, $3)"#,
+                r#"jsonb_path_exists(topic.user_metadata, '$.imu.acceleration.x ? (@ == $val0 || @ == $val1 || @ == $val2)', jsonb_build_object('val0', $1, 'val1', $2, 'val2', $3))"#,
             )
         });
         assert!(found, "in clause not found in {:?}", qr.clauses);
@@ -482,12 +488,12 @@ mod tests {
         dbg!(&qr);
 
         if let Some(idx) = qr.clauses.iter().position(|c| {
-            c.contains(r#"(topic.user_metadata #>> '{my,custom,field,1}')::numeric = $"#)
+            c.contains(r#"jsonb_path_exists(topic.user_metadata, '$.my.custom.field.1 ? (@ == $val)', jsonb_build_object('val', $"#)
         }) {
             // check that the placeholder has the correct value
             assert_eq!(
-                qr.clauses[idx].chars().last(),
-                (idx + 1).to_string().chars().last()
+                qr.clauses[idx].chars().nth_back(2).unwrap(),
+                (idx + 1).to_string().chars().last().unwrap()
             );
             assert_eq!(qr.values[idx], query::Value::Float(10.0));
         } else {
@@ -495,12 +501,12 @@ mod tests {
         }
 
         if let Some(idx) = qr.clauses.iter().position(|c| {
-            c.contains(r#"(topic.user_metadata #>> '{my,custom,field,2}')::boolean != $"#)
+            c.contains(r#"jsonb_path_exists(topic.user_metadata, '$.my.custom.field.2 ? (@ != $val)', jsonb_build_object('val', $"#)
         }) {
             // check that the placeholder has the correct value
             assert_eq!(
-                qr.clauses[idx].chars().last(),
-                (idx + 1).to_string().chars().last()
+                qr.clauses[idx].chars().nth_back(2).unwrap(),
+                (idx + 1).to_string().chars().last().unwrap()
             );
             assert_eq!(qr.values[idx], query::Value::Boolean(true));
         } else {

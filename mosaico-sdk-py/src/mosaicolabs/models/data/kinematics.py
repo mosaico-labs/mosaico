@@ -13,15 +13,15 @@ from typing import Optional
 
 from pydantic import model_validator
 
-from ..mixins import CovarianceMixin
-from ..serializable import Serializable
-from ..types import MosaicoField, MosaicoType
+from ..core import MosaicoField, MosaicoType, Serializable
 from .geometry import Pose, Vector3d
+from .mixins import CovarianceMixin, HeaderMixin
 
 
 class Velocity(
     Serializable,  # Adds Registry/Factory logic
     CovarianceMixin,  # Adds Covariance matrix support
+    HeaderMixin,  # Adds Header support
 ):
     """
     Represents 6-Degree-of-Freedom Velocity, commonly referred to as a Twist.
@@ -36,6 +36,7 @@ class Velocity(
             the uncertainty of the point measurement.
         covariance_type: Enum integer representing the parameterization of the
             covariance matrix.
+        header (optional[Header]): Optional heading containing measurement metadata
 
     Note: Input Validation
         A valid `Velocity` object must contain at least a `linear` or an `angular`
@@ -192,6 +193,7 @@ class Velocity(
 class Acceleration(
     Serializable,  # Adds Registry/Factory logic
     CovarianceMixin,  # Adds Covariance matrix support
+    HeaderMixin,  # Adds Header support
 ):
     """
     Represents 6-Degree-of-Freedom Acceleration.
@@ -206,6 +208,7 @@ class Acceleration(
             the uncertainty of the point measurement.
         covariance_type: Enum integer representing the parameterization of the
             covariance matrix.
+        header (optional[Header]): Optional heading containing measurement metadata
 
     Note: Input Validation
         Similar to the [`Velocity`][mosaicolabs.models.data.kinematics.Velocity] class, an `Acceleration` instance requires
@@ -361,6 +364,7 @@ class Acceleration(
 class MotionState(
     Serializable,  # Adds Registry/Factory logic
     CovarianceMixin,  # Adds Covariance matrix support
+    HeaderMixin,  # Adds Header support
 ):
     """
     Aggregated Kinematic State.
@@ -385,6 +389,7 @@ class MotionState(
             the uncertainty of the Pose+Velocity+[Acceleration] measurement.
         covariance_type: Enum integer representing the parameterization of the
             covariance matrix.
+        header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
     This class fields are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]

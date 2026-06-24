@@ -28,8 +28,8 @@ from PIL import Image as PILImage
 from mosaicolabs.enum import SerializationFormat
 from mosaicolabs.logging_config import get_logger
 
-from ..serializable import Serializable
-from ..types import MosaicoField, MosaicoType
+from ..core import MosaicoField, MosaicoType, Serializable
+from ..data import HeaderMixin
 
 # Set the hierarchical logger
 logger = get_logger(__name__)
@@ -115,7 +115,10 @@ _IMG_ENCODING_MAP: dict = {
 _DEFAULT_IMG_FORMAT = ImageFormat.PNG
 
 
-class Image(Serializable):
+class Image(
+    Serializable,
+    HeaderMixin,  # Adds Header support
+):
     """
     Represents raw, uncompressed image data.
 
@@ -133,6 +136,7 @@ class Image(Serializable):
         stride (int): Bytes per row. Essential for alignment.
         encoding (str): Pixel format (e.g., 'bgr8', 'mono16').
         is_bigendian (bool): True if data is Big-Endian. Defaults to system endianness if null.
+        header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
     This class is fully queryable via the **`.Q` proxy**. You can filter image data based
@@ -793,7 +797,10 @@ class _StatelessDefaultCodec:
 # --- Data Structure ---
 
 
-class CompressedImage(Serializable):
+class CompressedImage(
+    Serializable,
+    HeaderMixin,  # Adds Header support
+):
     """
     Represents image data stored as a compressed binary blob (e.g. JPEG, PNG, H264, ...).
 
@@ -807,6 +814,7 @@ class CompressedImage(Serializable):
     Attributes:
         data (bytes): The compressed binary payload.
         format (str): The format identifier string (e.g., 'jpeg', 'png').
+        header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
     This class is fully queryable via the **`.Q` proxy**. You can filter image data based

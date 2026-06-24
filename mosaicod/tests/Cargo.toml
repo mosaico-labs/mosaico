@@ -11,7 +11,9 @@ license.workspace = true
 mosaicod-core = { workspace = true }
 mosaicod-db = { workspace = true, features = ["testing"] }
 mosaicod-store = { workspace = true, features = ["testing"] }
-mosaicod-server = { workspace = true }
+mosaicod-grpc = { workspace = true }
+mosaicod-grpc-flight = { workspace = true }
+mosaicod-grpc-common = { workspace = true }
 mosaicod-facade = { workspace = true }
 mosaicod-query = { workspace = true }
 mosaicod-ext = { workspace = true, features = ["testing"] }

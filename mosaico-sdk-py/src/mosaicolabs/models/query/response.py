@@ -186,7 +186,7 @@ class QueryResponse:
             )
         return QuerySequence._from_expressions(
             _QuerySequenceExpression(
-                full_path="locator",
+                full_path="name",
                 op="$in",
                 value=[it.sequence.name for it in self.items],
             )
@@ -231,7 +231,7 @@ class QueryResponse:
             )
         return QueryTopic._from_expressions(
             _QueryTopicExpression(
-                "locator",
+                "name",
                 "$in",
                 [t.name for it in self.items for t in it.topics],
             )

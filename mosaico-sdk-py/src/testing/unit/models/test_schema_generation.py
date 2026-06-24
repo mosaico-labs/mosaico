@@ -65,6 +65,21 @@ from mosaicolabs.ros_bridge.data_ontology import (
 # SHARED FIELDS & BASE STRUCTS
 # =============================================================================
 
+_TIME_FIELD = [
+    pa.field(
+        "seconds",
+        pa.int64(),
+        nullable=False,
+        metadata={"description": "Time in seconds"},
+    ),
+    pa.field(
+        "nanoseconds",
+        pa.uint64(),
+        nullable=False,
+        metadata={"description": "Time in nanoseconds"},
+    ),
+]
+
 _COVARIANCE_FIELDS = [
     pa.field(
         "covariance",
@@ -99,6 +114,44 @@ _VARIANCE_FIELDS = [
     ),
 ]
 
+_HEADER_FIELDS = [
+    pa.field(
+        "timestamp",
+        pa.struct(_TIME_FIELD),
+        nullable=True,
+        metadata={
+            "description": "Timestamp representing when the data has been measured"
+        },
+    ),
+    pa.field(
+        "frame_id",
+        pa.string(),
+        nullable=True,
+        metadata={
+            "description": "Frame id representing the acquired data reference system"
+        },
+    ),
+    pa.field(
+        "sample_counter",
+        pa.uint64(),
+        nullable=True,
+        metadata={
+            "description": "An optional counter used to track how many samples have been processed. It needs to be monotonically increasing"
+        },
+    ),
+]
+
+_HEADER_MIXIN = [
+    pa.field(
+        "header",
+        pa.struct(_HEADER_FIELDS),
+        nullable=True,
+        metadata={
+            "description": "Contains measure metadata like timestamp, reference frame and samples counter."
+        },
+    )
+]
+
 _VECTOR_2D_FIELDS = [
     pa.field(
         "x", pa.float64(), nullable=True, metadata={"description": "Vector x component"}
@@ -123,13 +176,13 @@ _VECTOR_4D_FIELDS = _VECTOR_3D_FIELDS + [
 _POSE_FIELDS = [
     pa.field(
         "position",
-        pa.struct(_COVARIANCE_FIELDS + _VECTOR_3D_FIELDS),
+        pa.struct(_HEADER_MIXIN + _COVARIANCE_FIELDS + _VECTOR_3D_FIELDS),
         nullable=False,
         metadata={"description": "3D translation vector"},
     ),
     pa.field(
         "orientation",
-        pa.struct(_COVARIANCE_FIELDS + _VECTOR_4D_FIELDS),
+        pa.struct(_HEADER_MIXIN + _COVARIANCE_FIELDS + _VECTOR_4D_FIELDS),
         nullable=False,
         metadata={"description": "Quaternion representing rotation."},
     ),
@@ -138,13 +191,13 @@ _POSE_FIELDS = [
 _ACCELERATION_FIELDS = [
     pa.field(
         "linear",
-        pa.struct(_COVARIANCE_FIELDS + _VECTOR_3D_FIELDS),
+        pa.struct(_HEADER_MIXIN + _COVARIANCE_FIELDS + _VECTOR_3D_FIELDS),
         nullable=True,
         metadata={"description": "3D linear acceleration vector"},
     ),
     pa.field(
         "angular",
-        pa.struct(_COVARIANCE_FIELDS + _VECTOR_3D_FIELDS),
+        pa.struct(_HEADER_MIXIN + _COVARIANCE_FIELDS + _VECTOR_3D_FIELDS),
         nullable=True,
         metadata={"description": "3D angular acceleration vector"},
     ),
@@ -153,13 +206,13 @@ _ACCELERATION_FIELDS = [
 _VELOCITY_FIELDS = [
     pa.field(
         "linear",
-        pa.struct(_COVARIANCE_FIELDS + _VECTOR_3D_FIELDS),
+        pa.struct(_HEADER_MIXIN + _COVARIANCE_FIELDS + _VECTOR_3D_FIELDS),
         nullable=True,
         metadata={"description": "3D linear velocity vector"},
     ),
     pa.field(
         "angular",
-        pa.struct(_COVARIANCE_FIELDS + _VECTOR_3D_FIELDS),
+        pa.struct(_HEADER_MIXIN + _COVARIANCE_FIELDS + _VECTOR_3D_FIELDS),
         nullable=True,
         metadata={"description": "3D angular velocity vector"},
     ),
@@ -198,7 +251,7 @@ _GPSSTATUS_FIELDS = [
 _ROI_FIELDS = [
     pa.field(
         "offset",
-        pa.struct(_COVARIANCE_FIELDS + _VECTOR_2D_FIELDS),
+        pa.struct(_HEADER_MIXIN + _COVARIANCE_FIELDS + _VECTOR_2D_FIELDS),
         nullable=False,
         metadata={"description": "(Leftmost, Rightmost) pixels of the ROI."},
     ),
@@ -296,21 +349,15 @@ _STEREO_FIELDS = [
 _TRANSFORM_FIELDS = [
     pa.field(
         "translation",
-        pa.struct(_COVARIANCE_FIELDS + _VECTOR_3D_FIELDS),
+        pa.struct(_HEADER_MIXIN + _COVARIANCE_FIELDS + _VECTOR_3D_FIELDS),
         nullable=False,
         metadata={"description": "3D translation vector"},
     ),
     pa.field(
         "rotation",
-        pa.struct(_COVARIANCE_FIELDS + _VECTOR_4D_FIELDS),
+        pa.struct(_HEADER_MIXIN + _COVARIANCE_FIELDS + _VECTOR_4D_FIELDS),
         nullable=False,
         metadata={"description": "Quaternion representing rotation."},
-    ),
-    pa.field(
-        "source_frame_id",
-        pa.string(),
-        nullable=True,
-        metadata={"description": "Source frame identifier."},
     ),
     pa.field(
         "target_frame_id",
@@ -321,21 +368,21 @@ _TRANSFORM_FIELDS = [
 ]
 
 # Base compiled structs
-vector2d = pa.struct(_COVARIANCE_FIELDS + _VECTOR_2D_FIELDS)
-vector3d = pa.struct(_COVARIANCE_FIELDS + _VECTOR_3D_FIELDS)
-vector4d = pa.struct(_COVARIANCE_FIELDS + _VECTOR_4D_FIELDS)
-quaternion = vector4d
-point2d = vector2d
-point3d = pa.struct(_COVARIANCE_FIELDS + _VECTOR_3D_FIELDS)
-transform = pa.struct(_COVARIANCE_FIELDS + _TRANSFORM_FIELDS)
-acceleration = pa.struct(_COVARIANCE_FIELDS + _ACCELERATION_FIELDS)
-velocity = pa.struct(_COVARIANCE_FIELDS + _VELOCITY_FIELDS)
-pose = pa.struct(_COVARIANCE_FIELDS + _POSE_FIELDS)
+vector2d = pa.struct(_HEADER_MIXIN + _COVARIANCE_FIELDS + _VECTOR_2D_FIELDS)
+vector3d = pa.struct(_HEADER_MIXIN + _COVARIANCE_FIELDS + _VECTOR_3D_FIELDS)
+vector4d = pa.struct(_HEADER_MIXIN + _COVARIANCE_FIELDS + _VECTOR_4D_FIELDS)
+quaternion = pa.struct(_HEADER_MIXIN + _COVARIANCE_FIELDS + _VECTOR_4D_FIELDS)
+point2d = pa.struct(_HEADER_MIXIN + _COVARIANCE_FIELDS + _VECTOR_2D_FIELDS)
+point3d = pa.struct(_HEADER_MIXIN + _COVARIANCE_FIELDS + _VECTOR_3D_FIELDS)
+transform = pa.struct(_HEADER_MIXIN + _COVARIANCE_FIELDS + _TRANSFORM_FIELDS)
+acceleration = pa.struct(_HEADER_MIXIN + _COVARIANCE_FIELDS + _ACCELERATION_FIELDS)
+velocity = pa.struct(_HEADER_MIXIN + _COVARIANCE_FIELDS + _VELOCITY_FIELDS)
+pose = pa.struct(_HEADER_MIXIN + _COVARIANCE_FIELDS + _POSE_FIELDS)
 gps_status = pa.struct(_GPSSTATUS_FIELDS)
 roi = pa.struct(_ROI_FIELDS)
-rgbd = pa.struct(_DEPTHCAMERA_BASE_FIELDS)
-tof_camera = pa.struct(_DEPTHCAMERA_BASE_FIELDS + _TOF_FIELDS)
-stereo_camera = pa.struct(_DEPTHCAMERA_BASE_FIELDS + _STEREO_FIELDS)
+rgbd = pa.struct(_DEPTHCAMERA_BASE_FIELDS + _HEADER_MIXIN)
+tof_camera = pa.struct(_DEPTHCAMERA_BASE_FIELDS + _TOF_FIELDS + _HEADER_MIXIN)
+stereo_camera = pa.struct(_DEPTHCAMERA_BASE_FIELDS + _STEREO_FIELDS + _HEADER_MIXIN)
 
 
 # =============================================================================
@@ -429,12 +476,6 @@ def test_transform_struct():
                 metadata={"description": "Quaternion representing rotation."},
             ),
             pa.field(
-                "source_frame_id",
-                pa.string(),
-                nullable=True,
-                metadata={"description": "Source frame identifier."},
-            ),
-            pa.field(
                 "target_frame_id",
                 pa.string(),
                 nullable=True,
@@ -442,6 +483,7 @@ def test_transform_struct():
             ),
         ]
         + _COVARIANCE_FIELDS
+        + _HEADER_MIXIN
     )
 
     assert set(pyarrow_struct) == set(Transform.__msco_pyarrow_struct__)
@@ -450,6 +492,7 @@ def test_transform_struct():
 def test_force_torque_struct():
     pyarrow_struct = pa.struct(
         _COVARIANCE_FIELDS
+        + _HEADER_MIXIN
         + [
             pa.field(
                 "force",
@@ -504,6 +547,7 @@ def test_motion_state_struct():
             ),
         ]
         + _COVARIANCE_FIELDS
+        + _HEADER_MIXIN
     )
 
     assert set(pyarrow_struct) == set(MotionState.__msco_pyarrow_struct__)
@@ -520,6 +564,7 @@ def test_temperature_struct():
             ),
         ]
         + _VARIANCE_FIELDS
+        + _HEADER_MIXIN
     )
 
     assert set(pyarrow_struct) == set(Temperature.__msco_pyarrow_struct__)
@@ -527,7 +572,8 @@ def test_temperature_struct():
 
 def test_robot_joint_struct():
     pyarrow_struct = pa.struct(
-        [
+        _HEADER_MIXIN
+        + [
             pa.field(
                 "names",
                 pa.list_(pa.string()),
@@ -613,6 +659,7 @@ def test_range_struct():
             ),
         ]
         + _VARIANCE_FIELDS
+        + _HEADER_MIXIN
     )
 
     assert set(pyarrow_struct) == set(Range.__msco_pyarrow_struct__)
@@ -631,6 +678,7 @@ def test_pressure_struct():
             ),
         ]
         + _VARIANCE_FIELDS
+        + _HEADER_MIXIN
     )
 
     assert set(pyarrow_struct) == set(Pressure.__msco_pyarrow_struct__)
@@ -638,7 +686,8 @@ def test_pressure_struct():
 
 def test_magnetometer_struct():
     pyarrow_struct = pa.struct(
-        [
+        _HEADER_MIXIN
+        + [
             pa.field(
                 "magnetic_field",
                 Vector3d.__msco_pyarrow_struct__,
@@ -655,7 +704,8 @@ def test_magnetometer_struct():
 
 def test_imu_struct():
     pyarrow_struct = pa.struct(
-        [
+        _HEADER_MIXIN
+        + [
             pa.field(
                 "acceleration",
                 vector3d,
@@ -688,7 +738,8 @@ def test_imu_struct():
 
 def test_image_struct():
     pyarrow_struct = pa.struct(
-        [
+        _HEADER_MIXIN
+        + [
             pa.field(
                 "data",
                 pa.binary(),
@@ -741,7 +792,8 @@ def test_image_struct():
 
 def test_compressed_image_struct():
     pyarrow_struct = pa.struct(
-        [
+        _HEADER_MIXIN
+        + [
             pa.field(
                 "data",
                 pa.binary(),
@@ -766,7 +818,8 @@ def test_compressed_image_struct():
 
 def test_gps_struct():
     pyarrow_struct = pa.struct(
-        [
+        _HEADER_MIXIN
+        + [
             pa.field(
                 "position",
                 point3d,
@@ -793,7 +846,8 @@ def test_gps_struct():
 
 def test_nmea_sentence_struct():
     pyarrow_struct = pa.struct(
-        [
+        _HEADER_MIXIN
+        + [
             pa.field(
                 "sentence",
                 pa.string(),
@@ -808,7 +862,8 @@ def test_nmea_sentence_struct():
 
 def test_camera_info_struct():
     pyarrow_struct = pa.struct(
-        [
+        _HEADER_MIXIN
+        + [
             pa.field(
                 "height",
                 pa.uint32(),
@@ -892,7 +947,8 @@ def test_camera_info_struct():
 
 def test_radar_struct():
     pyarrow_struct = pa.struct(
-        [
+        _HEADER_MIXIN
+        + [
             pa.field(
                 "x",
                 pa.list_(pa.float32()),
@@ -997,7 +1053,8 @@ def test_radar_struct():
 
 def test_lidar_struct():
     pyarrow_struct = pa.struct(
-        [
+        _HEADER_MIXIN
+        + [
             pa.field(
                 "x",
                 pa.list_(pa.float32()),
@@ -1094,7 +1151,8 @@ def test_lidar_struct():
 
 def test_laserscan_struct():
     pyarrow_struct = pa.struct(
-        [
+        _HEADER_MIXIN
+        + [
             pa.field(
                 "angle_min",
                 pa.float32(),
@@ -1161,7 +1219,8 @@ def test_laserscan_struct():
 
 def test_multiecholaserscan_struct():
     pyarrow_struct = pa.struct(
-        [
+        _HEADER_MIXIN
+        + [
             pa.field(
                 "angle_min",
                 pa.float32(),
@@ -1228,7 +1287,8 @@ def test_multiecholaserscan_struct():
 
 def test_battery_state_struct():
     pyarrow_struct = pa.struct(
-        [
+        _HEADER_MIXIN
+        + [
             pa.field("voltage", pa.float32(), nullable=False, metadata={"unit": "V"}),
             pa.field("temperature", pa.float32(), metadata={"unit": "C"}),
             pa.field("current", pa.float32(), metadata={"unit": "A"}),
@@ -1277,7 +1337,8 @@ def test_pointcloud2_struct():
     )
 
     pyarrow_struct = pa.struct(
-        [
+        _HEADER_MIXIN
+        + [
             pa.field("height", pa.uint32(), nullable=False),
             pa.field("width", pa.uint32(), nullable=False),
             pa.field("fields", pa.list_(point_field_struct), nullable=False),
