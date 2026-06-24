@@ -40,16 +40,16 @@ pub(super) mod internal {
         exe: &mut impl db::AsExec,
         topic_record: &db::TopicRecord,
     ) -> Result<TopicMetadata> {
-        let session_uuid =
+        let session_locator =
             db::session_find_by_id(exe, topic_record.session_id, db::RowLocking::None)
                 .await?
-                .uuid();
+                .locator();
 
         Ok(TopicMetadata {
             properties: TopicMetadataProperties {
                 created_at: topic_record.creation_timestamp(),
                 completed_at: topic_record.completion_timestamp(),
-                session_uuid,
+                session_locator,
                 resource_locator: topic_record.locator(),
             },
             ontology_metadata: TopicOntologyMetadata {
