@@ -2221,7 +2221,10 @@ async fn test_ontology_plain_list_bool_eq(pool: sqlx::Pool<db::DatabaseType>) {
                 "topic_a",
                 bool_list_batch(10_000, &[1], &[vec![true, false, true]]),
             ),
-            ("topic_b", bool_list_batch(20_000, &[1], &[vec![false, false]])),
+            (
+                "topic_b",
+                bool_list_batch(20_000, &[1], &[vec![false, false]]),
+            ),
         ],
     )
     .await;
@@ -2277,8 +2280,14 @@ async fn test_ontology_list_bool_specifiers(pool: sqlx::Pool<db::DatabaseType>) 
         &mut client,
         seq,
         vec![
-            ("topic_a", bool_list_batch(10_000, &[1], &[vec![true, false]])),
-            ("topic_b", bool_list_batch(20_000, &[1], &[vec![true, true]])),
+            (
+                "topic_a",
+                bool_list_batch(10_000, &[1], &[vec![true, false]]),
+            ),
+            (
+                "topic_b",
+                bool_list_batch(20_000, &[1], &[vec![true, true]]),
+            ),
             (
                 "topic_c",
                 bool_list_batch(30_000, &[1], &[vec![false, false]]),
