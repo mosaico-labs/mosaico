@@ -27,6 +27,40 @@ from .ros_bridge import ROSBridge, ROSMessage
 logger = get_logger(__name__)
 
 
+class TopicStatus(Enum):
+    """
+    Defines the possible topic status (ACCEPTED/REJECTED). In case of rejection, a more informative enum if provided.
+
+    Attributes:
+        ACCEPTED: Enum specifying the Topic has been accepted.
+        FILTERED: Enum specifying the Topic has been rejected since user provided a filter that excludes the topic.
+        NOT_ADAPTED: Enum specifying the Topic has been rejected since it has no Mosaico adapter.
+        NOT_IN_TYPESTORE: Enum specifying the Topic has been rejected since it is not present in ROS typestore.
+    """
+
+    ACCEPTED = "Accepted"
+    """ Status indicating an accepted Topic """
+
+    FILTERED = "Filtered"
+    """ Status indicating topic has been rejected by user specified filter """
+
+    NOT_ADAPTED = "Not adapted"
+    """ Status indicating the Topic has been rejected since it has no Mosaico adapter """
+
+    NOT_IN_TYPESTORE = "Not in typestore"
+    """ Status indicating the Topic has been rejected since it is not present in ROS typestore """
+
+    def display_color(self) -> str:
+        """Returns the Rich color string used to render this status in the progress UI."""
+        _colors = {
+            TopicStatus.ACCEPTED: "bright_green",
+            TopicStatus.FILTERED: "bright_yellow",
+            TopicStatus.NOT_ADAPTED: "dark_orange",
+            TopicStatus.NOT_IN_TYPESTORE: "orange1",
+        }
+        return _colors.get(self, "bright_red")
+
+
 class LoaderErrorPolicy(Enum):
     """
     Defines the strategy for handling deserialization failures during bag playback.
@@ -74,8 +108,8 @@ class Loader(Protocol):
         ...
 
     @property
-    def rejected_topics(self) -> List[Tuple[str, str, str]]:
-        """This should return a list of tuples containing all the rejected topics, the reason and the color (topic_name, rej_reason, color)"""
+    def rejected_topics(self) -> List[Tuple[str, TopicStatus]]:
+        """This should return a list of tuples containing all the rejected topic names, and the rejection reason (topic_name, topic_status)"""
         ...
 
     def msg_count(self, topic: Optional[str] = None) -> int:
@@ -139,8 +173,10 @@ class ProgressManager:
             )
 
         # Rejected topics (with rejected reason) are highlighted
-        for topic_name, rej_reason, color in self.loader.rejected_topics:
-            self.update_status(topic_name, rej_reason, color)
+        for topic_name, topic_status in self.loader.rejected_topics:
+            self.update_status(
+                topic_name, topic_status.value, topic_status.display_color()
+            )
 
         # Create a master progress bar for the aggregate total of the accepted topics
         total_msgs = sum(self.loader.msg_count(t) for t in self.loader.topics)
@@ -500,18 +536,18 @@ class ROSLoader:
         return [val.msgtype for val in self._accepted_topics.values()]
 
     @property
-    def rejected_topics(self) -> List[Tuple[str, str, str]]:
+    def rejected_topics(self) -> List[Tuple[str, TopicStatus]]:
 
-        rejected_topics: List[Tuple[str, str, str]] = []
+        rejected_topics: List[Tuple[str, TopicStatus]] = []
         self._resolve_connections()
 
         # Filtered
         for t_filtered in self.filtered_topics:
-            rejected_topics.append((t_filtered, "Filtered", "orange_red1"))
+            rejected_topics.append((t_filtered, TopicStatus.FILTERED))
 
         # Adapter not found
         for t_not_adapter in self._not_adapted_topics:
-            rejected_topics.append((t_not_adapter, "Not adapted", "dark_orange"))
+            rejected_topics.append((t_not_adapter, TopicStatus.NOT_ADAPTED))
 
         return rejected_topics
 
@@ -898,22 +934,22 @@ class MosaicoLoader:
         ]
 
     @property
-    def rejected_topics(self) -> List[Tuple[str, str, str]]:
+    def rejected_topics(self) -> List[Tuple[str, TopicStatus]]:
 
-        rejected_topics: List[Tuple[str, str, str]] = []
+        rejected_topics: List[Tuple[str, TopicStatus]] = []
         self._resolve_sequence()
 
         # Filtered
         for t_filtered in self.filtered_topics:
-            rejected_topics.append((t_filtered, "Filtered", "orange_red1"))
+            rejected_topics.append((t_filtered, TopicStatus.FILTERED))
 
         # Adapter not found
         for t_not_adapter in self._not_adapted_topics:
-            rejected_topics.append((t_not_adapter, "Not adapted", "dark_orange"))
+            rejected_topics.append((t_not_adapter, TopicStatus.NOT_ADAPTED))
 
         # Not found in typestore
         for t_unregistered in self._unregistered_topics:
-            rejected_topics.append((t_unregistered, "Not in typestore", "orange1"))
+            rejected_topics.append((t_unregistered, TopicStatus.NOT_IN_TYPESTORE))
 
         return rejected_topics
 
