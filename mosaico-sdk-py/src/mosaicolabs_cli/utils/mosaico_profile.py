@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 from typing import Any, Dict, Optional
 
-from mosaicolabs_cli.utils.config import console, load_config
+from mosaicolabs_cli.utils.config import console, get_config_path, load_config
 from mosaicolabs_cli.utils.env import DEFAULT_MOSAICO_PORT, MosaicoEnv
 
 
@@ -48,7 +48,8 @@ class MosaicoProfile:
         env_tls = os.getenv(MosaicoEnv.TLS)
         env_cert_path = os.getenv(MosaicoEnv.CERT_PATH)
 
-        config_data = load_config()
+        config_path = get_config_path()
+        config_data = load_config(config_path)
 
         profile_dict: Dict[str, Any] = {}
         resolved_name = ""
@@ -111,6 +112,7 @@ class MosaicoProfile:
 
     def to_dict(self) -> Dict[str, Any]:
         return {
+            "name": self.name,
             "host": self.host,
             "port": self.port,
             "api_key": self.api_key,

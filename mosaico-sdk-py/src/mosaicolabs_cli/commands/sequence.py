@@ -116,6 +116,7 @@ def list_sequences(
                 rows.append(
                     (
                         item.sequence.name,
+                        str(handler.created_timestamp),
                         str(handler._timestamp_ns_min),
                         str(handler._timestamp_ns_max),
                         metadata_str,
@@ -137,6 +138,7 @@ def list_sequences(
         )
 
         table.add_column("Locator", style="bold white", width=25)
+        table.add_column("Created", style="green", width=25)
         table.add_column("Min Timestamp", style="green", width=25)
         table.add_column("Max Timestamp", style="green", width=25)
         table.add_column("User Metadata", style="green", width=35)
@@ -147,8 +149,8 @@ def list_sequences(
         console.print(table)
 
     else:
-        for name, ts_min, ts_max, _ in rows:
-            print(f"{name},{ts_min},{ts_max}")
+        for name, created, ts_min, ts_max, _ in rows:
+            print(f"{name},{created},{ts_min},{ts_max}")
 
 
 @app.command(name="stat")

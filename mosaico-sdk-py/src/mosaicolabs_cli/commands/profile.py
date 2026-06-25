@@ -60,32 +60,23 @@ def add_profile(
 
     if interactive:
         if not host:
-            host = typer.prompt("Mosaico Server Host")
+            host = typer.prompt("Mosaico Server Host", type=str)
         if port is None:
             port_input = typer.prompt(
                 f"Mosaico Server Port (leave empty for {DEFAULT_MOSAICO_PORT})",
-                default="",
+                default=str(DEFAULT_MOSAICO_PORT),
+                type=int,
             )
-            port_input = (
-                port_input.strip() if isinstance(port_input, str) else port_input
-            )
-            if port_input == "":
-                port = DEFAULT_MOSAICO_PORT
-            else:
-                try:
-                    port = int(port_input)
-                except Exception:
-                    error_console.print(
-                        f"[bold red]Error:[/bold red] Invalid port '{port_input}'. Expected an integer."
-                    )
-                    raise typer.Exit(code=1)
+            port = int(port_input)
         if not api_key:
-            api_key = typer.prompt("API Key", hide_input=True, default="")
+            api_key = typer.prompt("API Key", hide_input=True, default="", type=str)
         if not tls:
             tls = typer.confirm("Enable TLS?", default=False)
         if tls and not cert_path:
             cert_path = typer.prompt(
-                "TLS CA Certificate Path (optional, press Enter to skip)", default=""
+                "TLS CA Certificate Path (optional, press Enter to skip)",
+                default="",
+                type=str,
             )
     else:
         if not host:
@@ -111,7 +102,7 @@ def add_profile(
     if name in config_data and isinstance(config_data[name], dict):
         was_already_default = config_data[name].get("default", False)
 
-    should_be_default = is_default or not config_data or was_already_default
+    should_be_default = is_default or was_already_default
 
     if should_be_default:
         for profile_name, profile_content in config_data.items():
