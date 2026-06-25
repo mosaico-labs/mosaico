@@ -3,6 +3,7 @@ use mosaicod_core::{self as core};
 #[derive(Debug)]
 pub enum Error {
     MissingDbData(String),
+    Query(mosaicod_query::Error),
     Internal(Box<dyn std::error::Error + Send + Sync>),
 }
 
@@ -10,6 +11,7 @@ impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::MissingDbData(msg) => write!(f, "{msg}"),
+            Self::Query(e) => write!(f, "{e}"),
             Self::Internal(_) => write!(f, "internal"),
         }
     }
@@ -29,7 +31,7 @@ impl From<mosaicod_db::Error> for Error {
 
 impl From<mosaicod_query::Error> for Error {
     fn from(err: mosaicod_query::Error) -> Self {
-        Self::Internal(Box::new(err))
+        Self::Query(err)
     }
 }
 
@@ -43,6 +45,7 @@ impl core::error::PublicError for Error {
     fn error(&self) -> core::Error {
         match self {
             Error::MissingDbData(msg) => core::Error::internal(Some(msg.clone())),
+            Self::Query(e) => e.error(),
             _ => core::Error::internal(None),
         }
     }

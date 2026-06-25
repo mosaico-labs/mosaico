@@ -48,6 +48,13 @@ impl Error {
     pub fn bad_field(field_name: String) -> Self {
         Self::BadField { field: field_name }
     }
+
+    pub fn list_too_large(field_name: String, max: usize) -> Self {
+        Self::OpError {
+            field: field_name,
+            err: super::OpError::ListTooLarge { max },
+        }
+    }
 }
 
 impl core::error::PublicError for Error {

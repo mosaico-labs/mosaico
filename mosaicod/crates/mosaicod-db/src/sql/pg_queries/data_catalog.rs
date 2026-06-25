@@ -180,6 +180,14 @@ pub async fn chunks_from_filters(
             query::Value::IntegerArray(v) => r = r.bind(v),
             query::Value::FloatArray(v) => r = r.bind(v),
             query::Value::TextArray(v) => r = r.bind(v),
+            // Cast boolean array to numeric, since for now there is no custom column for boolean values
+            query::Value::BooleanArray(v) => {
+                r = r.bind(
+                    v.into_iter()
+                        .map(|b| if b { 1.0 } else { 0.0 })
+                        .collect::<Vec<f64>>(),
+                )
+            }
         }
     }
 

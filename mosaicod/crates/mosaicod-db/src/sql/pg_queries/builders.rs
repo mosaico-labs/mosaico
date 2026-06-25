@@ -76,7 +76,8 @@ fn build_clause(where_clauses: String, v: &query::Value) -> String {
         | query::Value::Float(_)
         | query::Value::Boolean(_)
         | query::Value::IntegerArray(_)
-        | query::Value::FloatArray(_) => {
+        | query::Value::FloatArray(_)
+        | query::Value::BooleanArray(_) => {
             let select = r#"
             SELECT chunk_id FROM chunk_t
             JOIN column_chunk_numeric_t __stats__ USING(chunk_id)
@@ -113,23 +114,45 @@ impl query::CompileClause for ChunkQueryBuilder {
         let clause = match op {
             query::Op::Eq(v) => {
                 let v = v.into();
-                let p = self.consume_placeholder();
                 let column_name = column_table_name();
-
-                let clause = format!(
-                    "{column_name} = {field} AND __stats__.min_value <= {p} AND __stats__.max_value >= {p}"
-                );
-                query::CompiledClause::new(build_clause(clause, &v), vec![v])
+                match &v {
+                    // Array equality cannot be pruned with scalar min/max stats; just
+                    // check that the column exists in the chunk and let DataFusion filter.
+                    query::Value::IntegerArray(_)
+                    | query::Value::FloatArray(_)
+                    | query::Value::TextArray(_)
+                    | query::Value::BooleanArray(_) => {
+                        let clause = format!("{column_name} = {field}");
+                        query::CompiledClause::new(build_clause(clause, &v), vec![])
+                    }
+                    _ => {
+                        let p = self.consume_placeholder();
+                        let clause = format!(
+                            "{column_name} = {field} AND __stats__.min_value <= {p} AND __stats__.max_value >= {p}"
+                        );
+                        query::CompiledClause::new(build_clause(clause, &v), vec![v])
+                    }
+                }
             }
             query::Op::Neq(v) => {
                 let v = v.into();
-                let p = self.consume_placeholder();
                 let column_name = column_table_name();
-
-                let clause = format!(
-                    "{column_name} = {field} AND (__stats__.min_value > {p} OR __stats__.max_value < {p})"
-                );
-                query::CompiledClause::new(build_clause(clause, &v), vec![v])
+                match &v {
+                    query::Value::IntegerArray(_)
+                    | query::Value::FloatArray(_)
+                    | query::Value::TextArray(_)
+                    | query::Value::BooleanArray(_) => {
+                        let clause = format!("{column_name} = {field}");
+                        query::CompiledClause::new(build_clause(clause, &v), vec![])
+                    }
+                    _ => {
+                        let p = self.consume_placeholder();
+                        let clause = format!(
+                            "{column_name} = {field} AND (__stats__.min_value > {p} OR __stats__.max_value < {p})"
+                        );
+                        query::CompiledClause::new(build_clause(clause, &v), vec![v])
+                    }
+                }
             }
             query::Op::Leq(v) => {
                 let v = v.into();
