@@ -102,7 +102,7 @@ def add_profile(
     if name in config_data and isinstance(config_data[name], dict):
         was_already_default = config_data[name].get("default", False)
 
-    should_be_default = is_default or was_already_default
+    should_be_default = is_default or was_already_default or not config_data
 
     if should_be_default:
         for profile_name, profile_content in config_data.items():
