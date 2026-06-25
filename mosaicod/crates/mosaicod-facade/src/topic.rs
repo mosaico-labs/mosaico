@@ -231,12 +231,14 @@ pub enum Status {
 ///
 /// Additional checks about the scope of the topic are performed. If the topic locator is
 /// not a child of the related sequence locator an error [`Error::Unauthorized`] is returned.
+///
+/// Returns the UUID of the newly created topic.
 pub async fn try_create(
     context: &Context,
     locator: &types::TopicLocator,
     session_uuid: &types::Uuid,
     ontology_metadata: TopicOntologyMetadata,
-) -> Result<db::TopicRecord> {
+) -> Result<types::Uuid> {
     let mut tx = context.db.transaction().await?;
 
     // Session must not be already finalized.
@@ -287,7 +289,7 @@ pub async fn try_create(
 
     tx.commit().await?;
 
-    Ok(record)
+    Ok(record.uuid())
 }
 
 /// Creates [`TopicInfo`] associated to the given topic [`locator`].
@@ -365,7 +367,11 @@ pub async fn writer(
     let path_in_store = types::TopicPathInStore::new();
 
     // 1. Save path_in_store on DB.
-    // Note: we want to prevent the newly created folder in the store from being marked as TO_DELETE by the cleanup routine.
+    //
+    // Note1: Updating it only if NULL is mainly intended as a barrier, preventing other writers
+    // to start while one is already uploading data.
+    //
+    // Note2: we want to prevent the newly created folder in the store from being marked as TO_DELETE by the cleanup routine.
     // That's why we update the DB record as first thing.
     let topic_updated = db::topic_update_path_in_store_if_null(
         &mut cx,
@@ -543,13 +549,11 @@ pub async fn streaming_read_prepare(
     })
 }
 
-/// A guard ensuring exclusive write access to [`Handle`].
+/// A guard ensuring exclusive write access to the topic.
 ///
 /// While this struct exists, the underlying topic is mutably borrowed, preventing
 /// any other operations (such as locking or concurrent reads) until [`HandleWriter::finalize`] is called.
 pub struct HandleWriter {
-    /// Anchors the exclusive borrow of the handle, strictly tying the writer's lifetime
-    /// to the topic's availability.
     topic_id: i32,
 
     topic_locator: types::TopicLocator,
@@ -671,14 +675,18 @@ mod tests {
 
         let seq_locator = "test_sequence".parse::<types::SequenceLocator>().unwrap();
 
-        let seq_handle = sequence::try_create(&context, &seq_locator, None)
+        sequence::try_create(&context, &seq_locator, None)
             .await
             .expect("Error creating sequence");
 
-        // Check sequence locator
-        assert_eq!(*seq_handle.locator(), *seq_locator);
+        let seq_record = db::sequence_find_by_locator(&mut context.db.connection(), &seq_locator)
+            .await
+            .unwrap();
 
-        let session_handle = session::try_create(&context, seq_handle.locator().clone())
+        // Check sequence locator
+        assert_eq!(*seq_record.locator(), *seq_locator);
+
+        let (_, session_uuid) = session::try_create(&context, seq_record.locator().clone())
             .await
             .unwrap();
 
@@ -686,16 +694,23 @@ mod tests {
             .parse::<types::TopicLocator>()
             .unwrap();
 
-        let topic_record = try_create(
+        let topic_uuid = try_create(
             &context,
             &topic_locator,
-            &session_handle.uuid(),
+            &session_uuid,
             dummy_ontology_metadata(),
         )
         .await
         .expect("Unable to create topic");
 
+        assert!(topic_uuid.is_valid());
+
+        let topic_record = db::topic_find_by_locator(&mut context.db.connection(), &topic_locator)
+            .await
+            .unwrap();
+
         // Check topic locator.
+        assert_eq!(topic_record.topic_id, 1);
         assert_eq!(topic_record.locator(), topic_locator);
 
         // Check path in store
@@ -743,24 +758,24 @@ mod tests {
 
         let seq_locator = "test_sequence".parse::<types::SequenceLocator>().unwrap();
 
-        let seq_handle = sequence::try_create(&context, &seq_locator, None)
+        sequence::try_create(&context, &seq_locator, None)
             .await
             .expect("Unable to create sequence");
 
         // Check if sequence was created
         let mut cx = context.db.connection();
 
-        let sequence = db::sequence_find_by_locator(&mut cx, &seq_handle.locator())
+        let sequence = db::sequence_find_by_locator(&mut cx, &seq_locator)
             .await
             .expect("Unable to find the created sequence");
 
         // Check sequence locator
-        assert_eq!(*seq_handle.locator(), *sequence.locator());
+        assert_eq!(*seq_locator, *sequence.locator());
 
-        let session_record = session::try_create(&context, seq_handle.locator().clone())
+        let (_, session_uuid) = session::try_create(&context, seq_locator.clone())
             .await
             .expect("Unable to create session");
-        assert!(session_record.uuid().is_valid());
+        assert!(session_uuid.is_valid());
 
         // Create 2 topics and add notifications to the second one because it has an ID different from the sequence's one.
 
@@ -769,7 +784,7 @@ mod tests {
         try_create(
             &context,
             &topic_locator,
-            &session_record.uuid(),
+            &session_uuid,
             dummy_ontology_metadata(),
         )
         .await
@@ -780,7 +795,7 @@ mod tests {
         try_create(
             &context,
             &topic_locator2,
-            &session_record.uuid(),
+            &session_uuid,
             dummy_ontology_metadata(),
         )
         .await

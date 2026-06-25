@@ -17,15 +17,9 @@ pub async fn create(
     let user_mdata = marshal::JsonMetadataBlob::try_from_str(user_metadata_str)?;
 
     // No sequence record was found, let's write it
-    let sequence_handle = facade::sequence::try_create(ctx, &locator, Some(user_mdata))
-        .await
-        .inspect_err(|e| println!("error in sequence create: {}", e))?;
+    let sequence_uuid = facade::sequence::try_create(ctx, &locator, Some(user_mdata)).await?;
 
-    trace!(
-        "created resource {} with uuid {}",
-        sequence_handle.locator(),
-        sequence_handle.uuid()
-    );
+    trace!("created resource {} with uuid {}", locator, sequence_uuid);
 
     Ok(ActionResponse::sequence_create())
 }

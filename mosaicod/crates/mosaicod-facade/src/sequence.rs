@@ -39,7 +39,7 @@ pub(super) mod internal {
         Ok(())
     }
 
-    /// Creates [`SequenceMetadata`] associated to the given sequence [`Handle`].
+    /// Creates [`SequenceMetadata`] associated to the given sequence.
     pub async fn metadata(
         exe: &mut impl db::AsExec,
         sequence_record: &db::SequenceRecord,
@@ -70,11 +70,13 @@ pub(super) mod internal {
 ///
 /// If a record with the same locator already exists, the operation fails and
 /// the database transaction is rolled back, restoring the previous state.
+///
+/// Returns the UUID of the newly created sequence.
 pub async fn try_create(
     context: &Context,
     locator: &types::SequenceLocator,
     metadata: Option<SequenceUserMetadata>,
-) -> Result<db::SequenceRecord> {
+) -> Result<types::Uuid> {
     // Create a random name for the folder on Object Store.
     let path_in_store = types::SequencePathInStore::new();
 
@@ -116,16 +118,19 @@ pub async fn try_create(
         }
     }
 
-    Ok(record)
+    Ok(record.uuid())
 }
 
-/// Retrieves all sequences from the database.
+/// Returns a list of all available sequences.
 ///
-/// Returns a list of all available sequences as [`Handle`] objects.
 /// This is primarily used for catalog discovery operations.
-pub async fn all(context: &Context) -> Result<Vec<db::SequenceRecord>> {
+pub async fn all(context: &Context) -> Result<Vec<types::SequenceLocator>> {
     let mut cx = context.db.connection();
-    Ok(db::sequence_find_all(&mut cx).await?)
+    Ok(db::sequence_find_all(&mut cx)
+        .await?
+        .into_iter()
+        .map(|seq_record| seq_record.locator())
+        .collect())
 }
 
 /// Add a notification to the sequence
@@ -244,11 +249,17 @@ mod tests {
 
         let seq_locator = "test_sequence".parse().unwrap();
 
-        let seq_record = try_create(&context, &seq_locator, Some(mdata))
+        let seq_uuid = try_create(&context, &seq_locator, Some(mdata))
             .await
             .expect("Error creating sequence");
 
+        assert!(seq_uuid.is_valid());
+
         // Check database user metadata
+        let seq_record = db::sequence_find_by_locator(&mut context.db.connection(), &seq_locator)
+            .await
+            .unwrap();
+
         let user_mdata: serde_json::Value = seq_record
             .user_metadata()
             .expect("Unable to find user metadata in database record")
@@ -297,9 +308,13 @@ mod tests {
 
         let seq_locator = "test_sequence".parse::<types::SequenceLocator>().unwrap();
 
-        let seq_record = try_create(&context, &seq_locator, None)
+        try_create(&context, &seq_locator, None)
             .await
             .expect("Error creating sequence");
+
+        let seq_record = db::sequence_find_by_locator(&mut context.db.connection(), &seq_locator)
+            .await
+            .unwrap();
 
         notify(
             &context,

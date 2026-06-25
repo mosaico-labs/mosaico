@@ -51,7 +51,7 @@ pub async fn create(
     );
 
     let topic_locator = name.parse::<types::TopicLocator>()?;
-    let topic_handle = facade::topic::try_create(
+    let topic_uuid = facade::topic::try_create(
         ctx,
         &topic_locator,
         &received_session_uuid,
@@ -61,13 +61,10 @@ pub async fn create(
 
     trace!(
         "resource `{}` created with uuid {}",
-        topic_handle.locator(),
-        topic_handle.uuid(),
+        topic_locator, topic_uuid,
     );
 
-    Ok(ActionResponse::topic_create(
-        topic_handle.uuid().clone().into(),
-    ))
+    Ok(ActionResponse::topic_create(topic_uuid.into()))
 }
 
 /// Deletes a topic (it doesn't matter if it's still open or archived).

@@ -34,10 +34,12 @@ pub(super) mod internal {
 }
 
 /// Creates a new session in the database for the given sequence.
+///
+/// Returns the locator and the UUID of the newly created session.
 pub async fn try_create(
     context: &Context,
     sequence_locator: types::SequenceLocator,
-) -> Result<db::SessionRecord> {
+) -> Result<(types::SessionLocator, types::Uuid)> {
     let session_locator = types::SessionLocator::new(sequence_locator.clone());
     let mut cx = context.db.connection();
     let session = db::session_create(&mut cx, &session_locator)
@@ -48,7 +50,7 @@ pub async fn try_create(
             }
             _ => e.error(),
         })?;
-    Ok(session)
+    Ok((session_locator, session.uuid()))
 }
 
 /// Finalizes the session, making it and all its associated data immutable.
@@ -153,18 +155,24 @@ mod tests {
 
         let seq_locator = "test_sequence".parse::<types::SequenceLocator>().unwrap();
 
-        let seq_record = sequence::try_create(&context, &seq_locator, None)
+        sequence::try_create(&context, &seq_locator, None)
             .await
             .expect("Error creating sequence");
 
-        let session_record = try_create(&context, seq_record.locator().clone())
+        let seq_record = db::sequence_find_by_locator(&mut context.db.connection(), &seq_locator)
+            .await
+            .unwrap();
+
+        let (session_locator, session_uuid) = try_create(&context, seq_record.locator().clone())
             .await
             .expect("Error creating session");
 
-        assert_eq!(*session_record.locator().sequence, *seq_record.locator());
+        assert_eq!(*session_locator.sequence, *seq_record.locator());
 
-        let session_uuid = session_record.uuid().clone();
-
+        let session_record =
+            db::session_find_by_locator(&mut context.db.connection(), &session_locator)
+                .await
+                .unwrap();
         assert_eq!(session_record.session_id, 1);
         assert!(session_record.creation_timestamp().as_i64() > 0);
         assert!(session_record.completion_timestamp().is_none());

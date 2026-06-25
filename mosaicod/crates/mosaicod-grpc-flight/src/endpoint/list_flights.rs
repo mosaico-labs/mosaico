@@ -35,8 +35,8 @@ pub async fn list_flights(
     // Convert each sequence locator to a minimal FlightInfo
     let flight_infos: Vec<grpc_common::Result<FlightInfo>> = sequences
         .into_iter()
-        .map(|sequence_handle| {
-            let sequence_name = sequence_handle.locator().to_string();
+        .map(|sequence_locator| {
+            let sequence_name = sequence_locator.to_string();
 
             // Create flight descriptor with the sequence path
             let descriptor = FlightDescriptor::new_path(vec![sequence_name.clone()]);

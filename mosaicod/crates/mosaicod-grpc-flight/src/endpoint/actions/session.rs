@@ -12,17 +12,17 @@ pub async fn create(
     info!("requested resource {} creation", sequence_locator);
 
     let sequence_locator = sequence_locator.parse::<types::SequenceLocator>()?;
-    let session_handle = facade::session::try_create(ctx, sequence_locator).await?;
+    let (session_locator, session_uuid) =
+        facade::session::try_create(ctx, sequence_locator).await?;
 
     trace!(
         "created session {} with uuid {}",
-        session_handle.locator(),
-        session_handle.uuid()
+        session_locator, session_uuid
     );
 
     Ok(ActionResponse::session_create(
-        session_handle.locator().clone(),
-        session_handle.uuid().clone(),
+        session_locator,
+        session_uuid,
     ))
 }
 
