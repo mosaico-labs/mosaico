@@ -149,6 +149,14 @@ pub struct Params {
     /// Maximum number of concurrent chunk queries during data catalog filtering.
     pub max_concurrent_chunk_queries: Param<usize>,
 
+    /// Maximum number of elements unrolled when decomposing a list `eq`/`neq`
+    /// filter into per-element scalar comparisons. Filters whose value array
+    /// exceeds this limit are skipped to avoid generating pathologically large
+    /// query expressions.
+    ///
+    /// Defaults to 1024.
+    pub max_size_plain_list_eq: Param<usize>,
+
     /// The maximum number of concurrent encoding and serialization operations.
     ///
     /// This setting controls how many data batches can be processed and sent to the object
@@ -253,6 +261,7 @@ pub fn load_params_from_env(config: ParamsLoadOptions) -> error::PublicResult<()
         max_grpc_message_size: Param::optional("MOSAICOD_MAX_GRPC_MESSAGE_SIZE", 50 * 1_000_000),
         target_message_size: Param::optional("MOSAICOD_TARGET_MESSAGE_SIZE", 25 * 1_000_000),
         max_concurrent_chunk_queries: Param::optional("MOSAICOD_MAX_CONCURRENT_CHUNK_QUERIES", 4),
+        max_size_plain_list_eq: Param::optional("MOSAICOD_MAX_SIZE_PLAIN_LIST_EQ", 1024),
         max_db_connections: Param::optional("MOSAICOD_MAX_DB_CONNECTIONS", 10),
         max_concurrent_writes: Param::optional(
             "MOSAICOD_MAX_CONCURRENT_WRITES",

@@ -18,11 +18,12 @@ import argparse
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 
 from rich.live import Live
 from rosbags.interfaces import Connection
-from rosbags.rosbag2 import StoragePlugin, Writer
+from rosbags.rosbag1 import Writer as Ros1Writer
+from rosbags.rosbag2 import StoragePlugin, Writer as Ros2Writer
 from rosbags.typesys import Stores, get_typestore
 from rosbags.typesys.store import Typestore
 
@@ -173,7 +174,7 @@ class ROSSequenceExtractor:
         self.ignored_topics: set[str] = set()
         self.accepted_connections: dict[str, Connection] = {}
         self.typestore: Typestore = get_typestore(self.cfg.ros_distro or Stores.EMPTY)
-        self.bagwriter = None
+        self.mosaico_loader: Optional[MosaicoLoader] = None
 
     def _register_custom_types(self):
         """
@@ -207,9 +208,31 @@ class ROSSequenceExtractor:
             except Exception as e:
                 logger.warning(f"Failed to register type '{msg_type}': '{e}'")
 
-    def open_or_get_bagwriter(self, path: Path) -> Writer:
+    def _open_or_get_mosaicoloader(self, mclient: MosaicoClient) -> MosaicoLoader:
         """
-        Returns the bag writer for the given path, creating it on first call.
+        Returns the MosaicoLoader.
+
+        Returns:
+            An instance of MosaicoLoader.
+        """
+
+        if self.mosaico_loader:
+            return self.mosaico_loader
+
+        self.mosaico_loader = MosaicoLoader(
+            mclient,
+            self.typestore,
+            self.cfg.sequence_name,
+            self.cfg.topics,
+            self.cfg.start_timestamp_ns,
+            self.cfg.end_timestamp_ns,
+        )
+
+        return self.mosaico_loader
+
+    def _open_bagwriter(self, path: Path) -> Union[Ros1Writer, Ros2Writer]:
+        """
+        Returns the bag writer for the given path.
 
         On first invocation this method:
 
@@ -220,49 +243,36 @@ class ROSSequenceExtractor:
            ``storage_plugin``. The bag format version is inferred from the distro
            (version 9 for Jazzy / Kilted / LATEST, version 8 for all others).
 
-        Subsequent calls return the cached writer without re-initializing.
-
         Args:
             path: The output directory for the bag file.
 
         Returns:
             The open bag writer instance.
         """
-        if self.bagwriter is None:
-            # Register custom ROS messages to ROSTypeRegistry
-            self._register_custom_types()
+        bagwriter = None
 
-            # Register all ROS messages to typestore
-            custom_types = ROSTypeRegistry.get_types(self.cfg.ros_distro)
-            if custom_types:
-                self._register_definitions(custom_types)
+        # Importing correct writer
+        if self.cfg.ros_distro is Stores.ROS1_NOETIC:
+            path.mkdir(parents=True, exist_ok=True)
+            full_path = path / (path.name + ".bag")
+            bagwriter = Ros1Writer(full_path)
 
-            # Importing correct writer
-            if self.cfg.ros_distro is Stores.ROS1_NOETIC:
-                from rosbags.rosbag1 import Writer
-
-                path.mkdir(parents=True, exist_ok=True)
-                full_path = path / (path.name + ".bag")
-                self.bagwriter = Writer(full_path)
-
+        else:
+            # Deducing rosbag2 version from ROS_DISTRO
+            if (
+                self.cfg.ros_distro is Stores.ROS2_JAZZY
+                or self.cfg.ros_distro is Stores.ROS2_KILTED
+                or self.cfg.ros_distro is Stores.LATEST
+            ):
+                bagversion = 9
             else:
-                from rosbags.rosbag2 import Writer
+                bagversion = 8
 
-                # Deducing rosbag2 version from ROS_DISTRO
-                if (
-                    self.cfg.ros_distro is Stores.ROS2_JAZZY
-                    or self.cfg.ros_distro is Stores.ROS2_KILTED
-                    or self.cfg.ros_distro is Stores.LATEST
-                ):
-                    bagversion = 9
-                else:
-                    bagversion = 8
+            bagwriter = Ros2Writer(
+                path, storage_plugin=self.cfg.storage_plugin, version=bagversion
+            )
 
-                self.bagwriter = Writer(
-                    path, storage_plugin=self.cfg.storage_plugin, version=bagversion
-                )
-
-        return self.bagwriter
+        return bagwriter
 
     def _prepare_output_path(self):
         """
@@ -294,19 +304,28 @@ class ROSSequenceExtractor:
         return rosbag_path
 
     def _process_message(
-        self, bag_writer: Writer, ms_topic: str, ms_msg: Message, ui: ProgressManager
+        self,
+        bagwriter: Union[Ros1Writer, Ros2Writer],
+        t_name: str,
+        ms_msg: Message,
+        ui: ProgressManager,
     ):
         """
         Internal business logic for processing a single Mosaico message.
 
         Steps:
         1. **Resolve Adapter**: Locates the appropriate Mosaico Adapter for the message type.
-        2. **Translate**: Obtains or creates a `RosMsg` for the specific topic.
+        2. **Translate**: Obtains or creates a `RosMsg` for the specific topic (looking for message type within Mosaico topic metadata).
         3. **Resolve Connection**: Obtains or creates a `Connection` for the specific topic.
         4. **Write**: Writes the RosMsg into the rosbag.
         """
 
-        if ms_topic in self.ignored_topics:
+        if self.mosaico_loader is None:
+            raise RuntimeError(
+                "Impossible to process messages if Mosaico Loader is not instanciated first"
+            )
+
+        if t_name in self.ignored_topics:
             ui.advance_global()
             return
 
@@ -315,25 +334,20 @@ class ROSSequenceExtractor:
         mosaico_type = ms_msg.ontology_tag()
         adapter = ROSBridge.get_default_mosaico_adapter(mosaico_type)
 
-        # If no adapter can be found, ingore the topics from now on
         if adapter is None:
-            self.ignored_topics.add(ms_topic)
-            logger.warning(
-                f"Could not find Adapter for topic '{ms_topic}' of type '{mosaico_type}'. Skipping the topic associated to this message"
-            )
-            ui.update_status(ms_topic, "No Adapter", style="yellow")
-            ui.advance_global()
-            return
+            return  # This should not happen since MosaicoLoader should filter unsupported message types
 
         # --- Translate Check ---
-        ros_msg = adapter.to_ros(ms_msg, self.typestore)
+        ros_msg_type = self.mosaico_loader.resolve_ros_msgtype(t_name)
 
-        if not ros_msg:
-            self.ignored_topics.add(ms_topic)
+        try:
+            ros_msg = adapter.to_ros(ms_msg, self.typestore, ros_msg_type)
+        except TypeError as e:
+            self.ignored_topics.add(t_name)
             logger.warning(
-                f"Could not encode to ros '{mosaico_type}' type. Skipping the topic associated to this message"
+                f"Could not encode to ros '{mosaico_type}' type because: {e}. Skipping the topic associated to this message"
             )
-            ui.update_status(ms_topic, "Failed encoding", style="yellow")
+            ui.update_status(t_name, "Failed encoding", style="yellow")
             ui.advance_global()
             return
 
@@ -342,39 +356,54 @@ class ROSSequenceExtractor:
         ros_recording_timestamp_ns = ms_msg.timestamp_ns
 
         # --- Resolve Connection check ---
-        if ms_topic not in self.accepted_connections:  # New connection available
-            if self.cfg.ros_distro is Stores.ROS1_NOETIC:
-                new_connection = bag_writer.add_connection(
-                    ms_topic,
+        if t_name not in self.accepted_connections:  # New connection available
+            if self.cfg.ros_distro is Stores.ROS1_NOETIC and isinstance(
+                bagwriter, Ros1Writer
+            ):
+                new_connection = bagwriter.add_connection(
+                    t_name,
                     ros_msgtype,
                     typestore=self.typestore,
+                )
+            elif self.cfg.ros_distro in [
+                Stores.LATEST,
+                Stores.ROS2_DASHING,
+                Stores.ROS2_ELOQUENT,
+                Stores.ROS2_FOXY,
+                Stores.ROS2_GALACTIC,
+                Stores.ROS2_HUMBLE,
+                Stores.ROS2_IRON,
+                Stores.ROS2_JAZZY,
+                Stores.ROS2_KILTED,
+            ] and isinstance(bagwriter, Ros2Writer):
+                new_connection = bagwriter.add_connection(
+                    t_name,
+                    ros_msgtype,
+                    typestore=self.typestore,
+                    offered_qos_profiles=get_qos_for_topic(t_name),
                 )
             else:
-                new_connection = bag_writer.add_connection(
-                    ms_topic,
-                    ros_msgtype,
-                    typestore=self.typestore,
-                    offered_qos_profiles=get_qos_for_topic(ms_topic),
-                )
-            self.accepted_connections.update({ms_topic: new_connection})
+                raise ValueError(f"Unsupported ros distro: {self.cfg.ros_distro}")
 
-        connection = self.accepted_connections.get(ms_topic)
+            self.accepted_connections.update({t_name: new_connection})
+
+        connection = self.accepted_connections[t_name]
 
         # --- Write check ---
         if self.cfg.ros_distro is Stores.ROS1_NOETIC:  # ROS1
-            bag_writer.write(
+            bagwriter.write(
                 connection,
                 ros_recording_timestamp_ns,
                 self.typestore.serialize_ros1(ros_msg, ros_msgtype),
             )
         else:  # ROS2
-            bag_writer.write(
+            bagwriter.write(
                 connection,
                 ros_recording_timestamp_ns,
                 self.typestore.serialize_cdr(ros_msg, ros_msgtype),
             )
 
-        ui.advance_all(ms_topic)
+        ui.advance_all(t_name)
 
     def run(self):
         """
@@ -405,22 +434,23 @@ class ROSSequenceExtractor:
             ) as mclient:
                 logger.info(f"Writing bag '{self.cfg.rosbag_path}'")
 
-                # Creating the ROSUnloader
-                with self.open_or_get_bagwriter(rosbag_path) as bag_writer:
-                    ms_loader = MosaicoLoader(
-                        mclient,
-                        self.cfg.sequence_name,
-                        self.cfg.topics,
-                        self.cfg.start_timestamp_ns,
-                        self.cfg.end_timestamp_ns,
-                    )
+                # Register custom ROS messages to ROSTypeRegistry
+                self._register_custom_types()
 
-                    ui = ProgressManager(ms_loader)
-                    ui.setup()
+                # Register all ROS messages to typestore
+                custom_types = ROSTypeRegistry.get_types(self.cfg.ros_distro)
+                if custom_types:
+                    self._register_definitions(custom_types)
 
-                    with Live(ui.progress, console=self.console):
-                        for ms_topic, ms_msg in ms_loader:
-                            self._process_message(bag_writer, ms_topic, ms_msg, ui)
+                # Creating the bagwriter
+                with self._open_or_get_mosaicoloader(mclient) as ms_loader:
+                    with self._open_bagwriter(rosbag_path) as bagwriter:
+                        ui = ProgressManager(ms_loader)
+                        ui.setup()
+
+                        with Live(ui.progress, console=self.console):
+                            for t_name, ms_msg in ms_loader:
+                                self._process_message(bagwriter, t_name, ms_msg, ui)
 
         except KeyboardInterrupt:
             logger.warning("Operation cancelled by user. Shutting down...")
@@ -492,6 +522,7 @@ def ros_sequence_extractor():
     )
     parser.add_argument(
         "--end_timestamp_ns",
+        type=int,
         default=None,
         help="Timestamp from where to stop extractiong from sequence and create rosbag. None by default",
     )
@@ -530,8 +561,8 @@ def ros_sequence_extractor():
 
     args = parser.parse_args()
 
-    selected_distro = Stores.__members__.get(args.ros_distro)
-    selected_storage_plugin = StoragePlugin.__members__.get(args.storage_plugin)
+    selected_distro = Stores.__members__[args.ros_distro]
+    selected_storage_plugin = StoragePlugin.__members__[args.storage_plugin]
 
     configs = ROSExtractorConfig(
         rosbag_path=args.rosbag_path,

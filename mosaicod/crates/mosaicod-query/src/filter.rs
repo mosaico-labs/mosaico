@@ -56,6 +56,10 @@ pub enum OpError {
     /// Occurs when `Op::Match` is constructed with an empty pattern string.
     #[error("match pattern cannot be empty")]
     EmptyPattern,
+
+    /// Occurs when a plain list `eq`/`neq` literal exceeds the maximum unrollable size.
+    #[error("list literal exceeds the maximum size of {max} for equality comparison")]
+    ListTooLarge { max: usize },
 }
 
 /// A wrapper enum to allow heterogeneous values (Numbers and Strings)
@@ -69,6 +73,7 @@ pub enum Value {
     IntegerArray(Vec<Integer>),
     FloatArray(Vec<Float>),
     TextArray(Vec<Text>),
+    BooleanArray(Vec<bool>),
 }
 
 impl From<&str> for Value {
@@ -136,7 +141,10 @@ impl IsSupportedOp for Value {
             Self::Boolean(_) => false,
             Self::Integer(_) => true,
             Self::Float(_) => true,
-            Self::IntegerArray(_) | Self::FloatArray(_) | Self::TextArray(_) => false,
+            Self::IntegerArray(_)
+            | Self::FloatArray(_)
+            | Self::TextArray(_)
+            | Self::BooleanArray(_) => false,
         }
     }
 
@@ -223,7 +231,7 @@ pub enum IndexSpecifier {
     /// Access the element at a specific position: [0], [42].
     At(usize),
     /// At least one element must satisfy the predicate: [?].
-    AtLeastOne,
+    Any,
     /// Every element must satisfy the predicate: [!].
     All,
 }
@@ -232,52 +240,65 @@ impl std::fmt::Display for IndexSpecifier {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             IndexSpecifier::At(n) => write!(f, "[{n}]"),
-            IndexSpecifier::AtLeastOne => write!(f, "[?]"),
+            IndexSpecifier::Any => write!(f, "[?]"),
             IndexSpecifier::All => write!(f, "[!]"),
         }
     }
 }
 
+/// The position and specifier of the list field within an [`OntologyFieldPath`].
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ListAccess {
+    /// Index into [`OntologyFieldPath::segments`] of the list field.
+    pub segment_index: usize,
+    pub specifier: IndexSpecifier,
+}
+
 /// The structured representation of an ontology field path after parsing.
 ///
-/// Index specifiers are only supported on the leaf (last) segment of the path.
-/// A field path always follows this shape:
-///   <prefix>.<leaf>[specifier]
+/// At most one segment may carry a list specifier ([?], [!], [N]).
+/// After the list field, only plain struct navigation is allowed.
 ///
 /// Examples:
-/// - "x"                     prefix: [],                field: "x",    specifier: None
-/// - "x[?]"                  prefix: [],                field: "x",    specifier: Some(AtLeastOne)
-/// - "x[30]"                 prefix: [],                field: "x",    specifier: Some(At(30))
-/// - "acceleration.x"        prefix: ["acceleration"],  field: "x",    specifier: None
-/// - "acceleration.x[!]"     prefix: ["acceleration"],  field: "x",    specifier: Some(All)
+/// - "x"                     segments: ["x"],                      list_access: None
+/// - "x[?]"                  segments: ["x"],                      list_access: Some { index: 0, Any }
+/// - "x[30]"                 segments: ["x"],                      list_access: Some { index: 0, At(30) }
+/// - "acceleration.x"        segments: ["acceleration","x"],       list_access: None
+/// - "acceleration.x[!]"     segments: ["acceleration","x"],       list_access: Some { index: 1, All }
+/// - "acceleration[?].x"     segments: ["acceleration","x"],       list_access: Some { index: 0, Any }
+/// - "robot.pose[?].acc.x"   segments: ["robot","pose","acc","x"], list_access: Some { index: 1, Any }
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct OntologyFieldPath {
-    /// Plain struct navigation segments before the leaf field.
-    pub prefix: Vec<String>,
-    /// The leaf field name.
-    pub field: String,
-    /// Index specifier for list access, if the leaf field is a list column.
-    pub specifier: Option<IndexSpecifier>,
+    /// All field name segments in order, without specifiers.
+    segments: Vec<String>,
+    /// Which segment (if any) is the list field and its specifier.
+    pub list_access: Option<ListAccess>,
 }
 
 impl OntologyFieldPath {
-    /// Returns an iterator over all dot-path segments in order: prefix segments first, then the leaf field name.
+    /// Returns an iterator over all dot-path segment names in order.
     pub fn field_segments(&self) -> impl Iterator<Item = &str> {
-        self.prefix
-            .iter()
-            .map(|s| s.as_str())
-            .chain(std::iter::once(self.field.as_str()))
+        self.segments.iter().map(|s| s.as_str())
+    }
+
+    /// Returns the specifier of the list field, if any.
+    pub fn specifier(&self) -> Option<&IndexSpecifier> {
+        self.list_access.as_ref().map(|la| &la.specifier)
     }
 }
 
 impl std::fmt::Display for OntologyFieldPath {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for seg in &self.prefix {
-            write!(f, "{seg}.")?;
-        }
-        write!(f, "{}", self.field)?;
-        if let Some(spec) = &self.specifier {
-            write!(f, "{spec}")?;
+        for (i, seg) in self.segments.iter().enumerate() {
+            if i > 0 {
+                write!(f, ".")?;
+            }
+            write!(f, "{seg}")?;
+            if let Some(la) = &self.list_access
+                && la.segment_index == i
+            {
+                write!(f, "{}", la.specifier)?;
+            }
         }
         Ok(())
     }
@@ -295,7 +316,7 @@ fn parse_segment(s: &str) -> Result<(String, Option<IndexSpecifier>), ()> {
                 .and_then(|r| r.strip_suffix(']'))
                 .ok_or(())?;
             let specifier = match content {
-                "?" => IndexSpecifier::AtLeastOne,
+                "?" => IndexSpecifier::Any,
                 "!" => IndexSpecifier::All,
                 n => IndexSpecifier::At(n.parse::<usize>().map_err(|_| ())?),
             };
@@ -312,42 +333,40 @@ pub struct OntologyField {
 
 impl OntologyField {
     pub fn try_new(v: String) -> Result<Self, super::Error> {
-        let ontology_tag = v.split(".").next().ok_or_else(|| super::Error::BadField {
+        let ontology_tag = v.split('.').next().ok_or_else(|| super::Error::BadField {
             field: v.to_string(),
         })?;
         let tag = ontology_tag.to_owned();
         let len = ontology_tag.len();
 
-        // Validate that only the last segment may carry an index specifier.
         let field_part = &v[(len + 1)..];
-        let segments: Vec<&str> = field_part.split('.').collect();
+        let raw_segments: Vec<&str> = field_part.split('.').collect();
 
-        let mut prefix = Vec::with_capacity(segments.len().saturating_sub(1));
-        let mut leaf_name = String::new();
-        let mut leaf_specifier = None;
+        let mut segments = Vec::with_capacity(raw_segments.len());
+        let mut list_access: Option<ListAccess> = None;
 
-        for (i, segment) in segments.iter().enumerate() {
-            let (parsed_name, specifier) =
+        for (i, segment) in raw_segments.iter().enumerate() {
+            let (name, specifier) =
                 parse_segment(segment).map_err(|_| super::Error::BadField { field: v.clone() })?;
 
-            if i != segments.len() - 1 {
-                // if the specifier is not on the last segment (x.y[].z).
-                if specifier.is_some() {
+            if let Some(specifier) = specifier {
+                // A second specifier in the same path is not allowed.
+                if list_access.is_some() {
                     return Err(super::Error::BadField { field: v });
                 }
-                prefix.push(parsed_name);
-            } else {
-                leaf_name = parsed_name;
-                leaf_specifier = specifier;
+                list_access = Some(ListAccess {
+                    segment_index: i,
+                    specifier,
+                });
             }
+            segments.push(name);
         }
 
         Ok(Self {
             tag,
             field_path: OntologyFieldPath {
-                prefix,
-                field: leaf_name,
-                specifier: leaf_specifier,
+                segments,
+                list_access,
             },
         })
     }

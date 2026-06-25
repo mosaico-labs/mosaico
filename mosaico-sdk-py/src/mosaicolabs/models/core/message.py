@@ -94,7 +94,7 @@ class Message(BaseModel):
     data: Serializable
     """The actual ontology data payload (e.g., an IMU or GPS instance)."""
 
-    timestamp_ns: Optional[int] = None
+    timestamp_ns: int
     """
     Ingestion timestamp in nanoseconds (record time).
 

@@ -312,11 +312,11 @@ class CameraInfoAdapter(ROSAdapterBase[CameraInfo]):
         )
 
     @classmethod
-    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
+    def schema_metadata(cls, typestore: Typestore, ros_msg_type: str) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
         """
-        return None
+        return super().schema_metadata(typestore, ros_msg_type)
 
 
 class NavSatStatusAdapter(ROSAdapterBase[GPSStatus]):
@@ -442,22 +442,11 @@ class NavSatStatusAdapter(ROSAdapterBase[GPSStatus]):
         )
 
     @classmethod
-    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
+    def schema_metadata(cls, typestore: Typestore, ros_msg_type: str) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
         """
-        schema_mdata = None
-        for schema_mdata_prefix in cls._SCHEMA_METADATA_KEYS_PREFIX:
-            if not schema_mdata:
-                schema_mdata = {}
-            schema_mdata.update(
-                {
-                    key: val
-                    for key, val in ros_data.items()
-                    if key.startswith(schema_mdata_prefix)
-                }
-            )
-        return schema_mdata if schema_mdata else None
+        return super().schema_metadata(typestore, ros_msg_type)
 
 
 @register_default_adapter(is_default=True)
@@ -630,25 +619,11 @@ class GPSAdapter(ROSAdapterBase[GPS]):
         )
 
     @classmethod
-    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
+    def schema_metadata(cls, typestore: Typestore, ros_msg_type: str) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
         """
-        schema_mdata = {}
-        for schema_mdata_prefix in cls._SCHEMA_METADATA_KEYS_PREFIX:
-            schema_mdata.update(
-                {
-                    key: val
-                    for key, val in ros_data.items()
-                    if key.startswith(schema_mdata_prefix)
-                }
-            )
-
-        status = ros_data.get("status")
-        if status:
-            schema_mdata.update({"status": NavSatStatusAdapter.schema_metadata(status)})
-
-        return schema_mdata if schema_mdata else None
+        return super().schema_metadata(typestore, ros_msg_type)
 
 
 @register_default_adapter(is_default=True)
@@ -852,11 +827,11 @@ class IMUAdapter(ROSAdapterBase[IMU]):
         )
 
     @classmethod
-    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
+    def schema_metadata(cls, typestore: Typestore, ros_msg_type: str) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
         """
-        return None
+        return super().schema_metadata(typestore, ros_msg_type)
 
 
 @register_default_adapter(is_default=True)
@@ -986,11 +961,11 @@ class NMEASentenceAdapter(ROSAdapterBase[NMEASentence]):
         )
 
     @classmethod
-    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
+    def schema_metadata(cls, typestore: Typestore, ros_msg_type: str) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
         """
-        return None
+        return super().schema_metadata(typestore, ros_msg_type)
 
 
 @register_default_adapter(is_default=True)
@@ -1158,11 +1133,11 @@ class ImageAdapter(ROSAdapterBase[Image]):
         )
 
     @classmethod
-    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
+    def schema_metadata(cls, typestore: Typestore, ros_msg_type: str) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
         """
-        return None
+        return super().schema_metadata(typestore, ros_msg_type)
 
 
 @register_default_adapter(is_default=True)
@@ -1343,11 +1318,11 @@ class CompressedImageAdapter(ROSAdapterBase[CompressedImage]):
         )
 
     @classmethod
-    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
+    def schema_metadata(cls, typestore: Typestore, ros_msg_type: str) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
         """
-        return None
+        return super().schema_metadata(typestore, ros_msg_type)
 
 
 @register_default_adapter(is_default=True)
@@ -1491,11 +1466,11 @@ class ROIAdapter(ROSAdapterBase[ROI]):
         )
 
     @classmethod
-    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
+    def schema_metadata(cls, typestore: Typestore, ros_msg_type: str) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
         """
-        return None
+        return super().schema_metadata(typestore, ros_msg_type)
 
 
 @register_default_adapter(is_default=True)
@@ -1726,25 +1701,11 @@ class BatteryStateAdapter(ROSAdapterBase[BatteryState]):
         )
 
     @classmethod
-    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
+    def schema_metadata(cls, typestore: Typestore, ros_msg_type: str) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
         """
-        schema_mdata = {}
-        for schema_mdata_prefix in cls._SCHEMA_METADATA_KEYS_PREFIX:
-            schema_mdata.update(
-                {
-                    key: val
-                    for key, val in ros_data.items()
-                    if key.startswith(schema_mdata_prefix)
-                }
-            )
-
-        status = ros_data.get("status")
-        if status:
-            schema_mdata.update({"status": NavSatStatusAdapter.schema_metadata(status)})
-
-        return schema_mdata if schema_mdata else None
+        return super().schema_metadata(typestore, ros_msg_type)
 
 
 @register_default_adapter(is_default=True)
@@ -1892,11 +1853,11 @@ class RobotJointAdapter(ROSAdapterBase[RobotJoint]):
         )
 
     @classmethod
-    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
+    def schema_metadata(cls, typestore: Typestore, ros_msg_type: str) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
         """
-        return None
+        return super().schema_metadata(typestore, ros_msg_type)
 
 
 PointCloudModel = TypeVar(
@@ -2216,11 +2177,11 @@ class PointCloudAdapterBase(ROSAdapterBase[PointCloudModel]):
         return pcl
 
     @classmethod
-    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
+    def schema_metadata(cls, typestore: Typestore, ros_msg_type: str) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
         """
-        return None
+        return super().schema_metadata(typestore, ros_msg_type)
 
 
 @register_default_adapter(is_default=True)
@@ -2408,11 +2369,11 @@ class PointCloudAdapter(PointCloudAdapterBase[PointCloud2]):
         )
 
     @classmethod
-    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
+    def schema_metadata(cls, typestore: Typestore, ros_msg_type: str) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
         """
-        return None
+        return super().schema_metadata(typestore, ros_msg_type)
 
 
 _LT = TypeVar("_LT", LaserScan, MultiEchoLaserScan)
@@ -2449,11 +2410,11 @@ class LaserScannerAdapterBase(ROSAdapterBase[_LT]):
         return super().translate(ros_msg, **kwargs)
 
     @classmethod
-    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
+    def schema_metadata(cls, typestore: Typestore, ros_msg_type: str) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
         """
-        return None
+        return super().schema_metadata(typestore, ros_msg_type)
 
 
 @register_default_adapter(is_default=True)
@@ -2848,14 +2809,11 @@ class MagneticFieldAdapter(ROSAdapterBase[Magnetometer]):
         )
 
     @classmethod
-    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
+    def schema_metadata(cls, typestore: Typestore, ros_msg_type: str) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
-
-        MagneticField messages typically do not include additional schema metadata,
-        so this returns None unless extended in the future.
         """
-        return None
+        return super().schema_metadata(typestore, ros_msg_type)
 
 
 @register_default_adapter(is_default=True)
@@ -2981,14 +2939,11 @@ class JoyAdapter(ROSAdapterBase[Joy]):
         )
 
     @classmethod
-    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
+    def schema_metadata(cls, typestore: Typestore, ros_msg_type: str) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
-
-        Joy messages typically do not include additional schema metadata,
-        so this returns None unless extended in the future.
         """
-        return None
+        return super().schema_metadata(typestore, ros_msg_type)
 
 
 @register_default_adapter(is_default=True)
@@ -3113,14 +3068,11 @@ class TemperatureAdapter(ROSAdapterBase[Temperature]):
         )
 
     @classmethod
-    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
+    def schema_metadata(cls, typestore: Typestore, ros_msg_type: str) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
-
-        Temperature messages typically do not include additional schema metadata,
-        so this returns None unless extended in the future.
         """
-        return None
+        return super().schema_metadata(typestore, ros_msg_type)
 
 
 @register_default_adapter(is_default=True)
@@ -3245,11 +3197,8 @@ class PressureAdapter(ROSAdapterBase[Pressure]):
         )
 
     @classmethod
-    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
+    def schema_metadata(cls, typestore: Typestore, ros_msg_type: str) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
-
-        Temperature messages typically do not include additional schema metadata,
-        so this returns None unless extended in the future.
         """
-        return None
+        return super().schema_metadata(typestore, ros_msg_type)
