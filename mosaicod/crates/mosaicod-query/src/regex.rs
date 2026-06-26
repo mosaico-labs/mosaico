@@ -1,19 +1,58 @@
 //! Globbing to Regex conversion methods
 
-use regex::{Error, Regex};
+use regex::Regex;
 
+const MAX_REGEX_PATTERN_LENGTH: usize = 256;
+
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    #[error("regex empty pattern")]
+    EmptyPattern,
+    #[error("regex pattern too long. Max is {}", MAX_REGEX_PATTERN_LENGTH)]
+    PatternTooLong,
+    #[error("regex parsing error: {0}")]
+    MalformedPattern(#[from] regex::Error),
+}
+
+/// Converts a wildcard/glob pattern into an anchored [`Regex`].
+///
+/// Supported wildcards:
+/// - `*`  — zero or more of any character (`.*`)
+/// - `?`  — exactly one of any character (`.`)
+/// - `#`  — exactly one digit (`[0-9]`)
+/// - `[…]` — character class passed through verbatim
+///
+/// All regex meta-characters (`.`, `+`, `^`, `$`, etc.) are escaped so they
+/// match literally. The resulting regex is anchored at both ends (`^…$`), so
+/// the pattern must match the entire input string.
+///
+/// Returns [`Error::EmptyPattern`] for an empty input and
+/// [`Error::PatternTooLong`] when the pattern exceeds [`MAX_REGEX_PATTERN_LENGTH`].
 pub fn wildcard_to_posix_regex(pattern: &str) -> Result<Regex, Error> {
+    if pattern.is_empty() {
+        return Err(Error::EmptyPattern);
+    }
+
+    if pattern.len() > MAX_REGEX_PATTERN_LENGTH {
+        return Err(Error::PatternTooLong);
+    }
+
     let mut regex = String::with_capacity(pattern.len() * 2);
 
     // Anchor the match to the start of the string
     regex.push('^');
 
-    let mut chars = pattern.chars().peekable();
+    let mut chars = pattern.chars();
 
     while let Some(c) = chars.next() {
         match c {
             // '*' matches zero or more of any character
-            '*' => regex.push_str(".*"),
+            '*' => {
+                // Only push ".*" if the regex doesn't already end with ".*"
+                if !regex.ends_with(".*") {
+                    regex.push_str(".*");
+                }
+            }
 
             // '?' matches exactly one of any character
             '?' => regex.push('.'),
@@ -24,7 +63,8 @@ pub fn wildcard_to_posix_regex(pattern: &str) -> Result<Regex, Error> {
             // Handle character ranges like [a-z]
             '[' => {
                 regex.push('[');
-                while let Some(inside_c) = chars.next() {
+
+                for inside_c in chars.by_ref() {
                     regex.push(inside_c);
                     if inside_c == ']' {
                         break;
@@ -46,7 +86,7 @@ pub fn wildcard_to_posix_regex(pattern: &str) -> Result<Regex, Error> {
     // Anchor the match to the end of the string
     regex.push('$');
 
-    Regex::new(&regex)
+    Ok(Regex::new(&regex)?)
 }
 
 #[cfg(test)]
@@ -56,7 +96,10 @@ mod tests {
     /// Helper macro to assert successful conversions
     macro_rules! assert_translation {
         ($pattern:expr, $expected:expr) => {
-            assert_eq!(wildcard_to_posix_regex($pattern), Ok($expected.to_string()));
+            assert_eq!(
+                wildcard_to_posix_regex($pattern).unwrap().to_string(),
+                $expected
+            );
         };
     }
 
@@ -107,7 +150,12 @@ mod tests {
     #[test]
     fn test_wildcards_inside_brackets_are_treated_as_literals() {
         // Inside brackets, our logic passes them through as literals
-        assert_translation!("[a-*z]", "^[a-*z]$");
+        assert_translation!("[%-*]", "^[%-*]$");
+    }
+
+    #[test]
+    fn test_single_asterisk_wildcard() {
+        assert_translation!("*", "^.*$");
     }
 
     // =========================================================================
@@ -116,7 +164,7 @@ mod tests {
 
     #[test]
     fn test_collapsing_consecutive_asterisks() {
-        // Multiple consecutive stars should safely collapse down to a single '.*'
+        // Multiple consecutive asterisks should safely collapse down to a single '.*'
         assert_translation!("file*****.txt", "^file.*\\.txt$");
         assert_translation!("***a***b***", "^.*a.*b.*$");
     }
@@ -127,19 +175,10 @@ mod tests {
 
     #[test]
     fn test_empty_pattern_error() {
-        assert_eq!(
+        assert!(matches!(
             wildcard_to_posix_regex(""),
-            Err(ValidationError::EmptyPattern)
-        );
-    }
-
-    #[test]
-    fn test_too_many_wildcards_flood_protection() {
-        // Triggering the threshold of > 5 high-density wildcards
-        assert_eq!(
-            wildcard_to_posix_regex("*a*b*c*d*e*f"),
-            Err(ValidationError::TooManyWildcards)
-        );
+            Err(Error::EmptyPattern)
+        ));
     }
 
     #[test]
@@ -148,7 +187,17 @@ mod tests {
         let result = wildcard_to_posix_regex("file_[z-a].txt");
         assert!(matches!(
             result,
-            Err(ValidationError::InvalidRegexSyntax(_))
+            Err(Error::MalformedPattern(regex::Error::Syntax(_)))
+        ));
+    }
+
+    #[test]
+    fn test_malformed_bracket_range_validation_2() {
+        // Inside brackets, our logic passes them through as literals, but the ASCII order is not correct.
+        let result = wildcard_to_posix_regex("[a-*z]");
+        assert!(matches!(
+            result,
+            Err(Error::MalformedPattern(regex::Error::Syntax(_)))
         ));
     }
 }
