@@ -150,7 +150,7 @@ def list_sequences(
 
     else:
         for name, created, ts_min, ts_max, _ in rows:
-            print(f"{name},{created},{ts_min},{ts_max}")
+            print(f"{name},{ts_min},{ts_max}")
 
 
 @app.command(name="stat")
