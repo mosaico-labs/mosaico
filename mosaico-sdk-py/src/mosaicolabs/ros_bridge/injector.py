@@ -475,7 +475,10 @@ class RosbagInjector:
             # Register new topic on server
             twriter = seq_writer.topic_create(
                 topic_name=ros_msg.topic,
-                metadata={},  # TODO: how-to push metadata per topic?
+                metadata=adapter.schema_metadata(
+                    self._open_or_get_loader()._typestore, ros_msg.msg_type
+                )
+                or {},
                 ontology_type=adapter.ontology_data_type(),
                 on_error=self._get_topic_on_error(ros_msg.topic),
             )

@@ -1,6 +1,6 @@
 from enum import Enum
 from pathlib import Path
-from typing import Dict, Generator, List, Optional, Protocol, Tuple, Union
+from typing import Any, Dict, Generator, List, Optional, Protocol, Tuple, Union
 
 from rich.progress import (
     BarColumn,
@@ -14,8 +14,9 @@ from rich.progress import (
 from rosbags.highlevel import AnyReader
 from rosbags.interfaces import Connection, TopicInfo
 from rosbags.typesys import Stores, get_typestore
+from rosbags.typesys.store import Typestore
 
-from mosaicolabs import MosaicoClient, SequenceDataStreamer
+from mosaicolabs import MosaicoClient, SequenceDataStreamer, SequenceHandler
 from mosaicolabs.logging_config import get_logger
 
 from .helpers import _filter_topics_from_dict, _filter_topics_from_list, _to_dict
@@ -24,6 +25,40 @@ from .ros_bridge import ROSBridge, ROSMessage
 
 # Set the hierarchical logger
 logger = get_logger(__name__)
+
+
+class TopicStatus(Enum):
+    """
+    Defines the possible topic status (ACCEPTED/REJECTED). In case of rejection, a more informative enum if provided.
+
+    Attributes:
+        ACCEPTED: Enum specifying the Topic has been accepted.
+        FILTERED: Enum specifying the Topic has been rejected since user provided a filter that excludes the topic.
+        NOT_ADAPTED: Enum specifying the Topic has been rejected since it has no Mosaico adapter.
+        NOT_IN_TYPESTORE: Enum specifying the Topic has been rejected since it is not present in ROS typestore.
+    """
+
+    ACCEPTED = "Accepted"
+    """ Status indicating an accepted Topic """
+
+    FILTERED = "Filtered"
+    """ Status indicating topic has been rejected by user specified filter """
+
+    NOT_ADAPTED = "Not adapted"
+    """ Status indicating the Topic has been rejected since it has no Mosaico adapter """
+
+    NOT_IN_TYPESTORE = "Not in typestore"
+    """ Status indicating the Topic has been rejected since it is not present in ROS typestore """
+
+    def display_color(self) -> str:
+        """Returns the Rich color string used to render this status in the progress UI."""
+        _colors = {
+            TopicStatus.ACCEPTED: "bright_green",
+            TopicStatus.FILTERED: "bright_yellow",
+            TopicStatus.NOT_ADAPTED: "dark_orange",
+            TopicStatus.NOT_IN_TYPESTORE: "orange1",
+        }
+        return _colors.get(self, "bright_red")
 
 
 class LoaderErrorPolicy(Enum):
@@ -63,11 +98,6 @@ class Loader(Protocol):
     """
 
     @property
-    def duration(self) -> int:
-        """This should return the duration of the loaded data as int"""
-        ...
-
-    @property
     def topics(self) -> List[str]:
         """This should return the Mosaico compatible topics of the loaded data as strings"""
         ...
@@ -78,18 +108,8 @@ class Loader(Protocol):
         ...
 
     @property
-    def not_adapted_topics(self) -> List[str]:
-        """This should return the Mosaico incompatible topics of the loaded data as strings"""
-        ...
-
-    @property
-    def filtered_topics(self) -> List[str]:
-        """This should return the user filtered topics thorugh the glob pattern of the loaded data as strings"""
-        ...
-
-    @property
-    def msg_types(self) -> List[str | None]:
-        """This should return the types of the loaded data as strings"""
+    def rejected_topics(self) -> List[Tuple[str, TopicStatus]]:
+        """This should return a list of tuples containing all the rejected topic names, and the rejection reason (topic_name, topic_status)"""
         ...
 
     def msg_count(self, topic: Optional[str] = None) -> int:
@@ -152,13 +172,11 @@ class ProgressManager:
                 "", total=count, name=topic_name
             )
 
-        # Filtered topics are immediately set to yellow
-        for topic_name in self.loader.filtered_topics:
-            self.update_status(topic_name, "Filtered", "yellow")
-
-        # Incompatible topics are immediately set to yellow
-        for topic_name in self.loader.not_adapted_topics:
-            self.update_status(topic_name, "No Adapter", "yellow")
+        # Rejected topics (with rejected reason) are highlighted
+        for topic_name, topic_status in self.loader.rejected_topics:
+            self.update_status(
+                topic_name, topic_status.value, topic_status.display_color()
+            )
 
         # Create a master progress bar for the aggregate total of the accepted topics
         total_msgs = sum(self.loader.msg_count(t) for t in self.loader.topics)
@@ -517,6 +535,22 @@ class ROSLoader:
         self._resolve_connections()
         return [val.msgtype for val in self._accepted_topics.values()]
 
+    @property
+    def rejected_topics(self) -> List[Tuple[str, TopicStatus]]:
+
+        rejected_topics: List[Tuple[str, TopicStatus]] = []
+        self._resolve_connections()
+
+        # Filtered
+        for t_filtered in self.filtered_topics:
+            rejected_topics.append((t_filtered, TopicStatus.FILTERED))
+
+        # Adapter not found
+        for t_not_adapter in self._not_adapted_topics:
+            rejected_topics.append((t_not_adapter, TopicStatus.NOT_ADAPTED))
+
+        return rejected_topics
+
     # --- Core Logic ---
 
     def __iter__(self) -> Generator[Tuple[ROSMessage, Optional[Exception]], None, None]:
@@ -610,6 +644,7 @@ class MosaicoLoader:
     Args:
         m_client: An open :class:`MosaicoClient` connection.
         sequence_name: Name of the Mosaico sequence to load.
+        typestore: The ROS typestore containing the registered ROS messages.
         topics: Optional topic-name filter patterns (glob-style, ``!``-prefixed for
             exclusions). ``None`` loads all topics.
         start_timestamp_ns: Lower bound for the time window (nanoseconds). Clipped
@@ -621,6 +656,7 @@ class MosaicoLoader:
     def __init__(
         self,
         m_client: MosaicoClient,
+        typestore: Typestore,
         sequence_name: str,
         topics: Optional[List[str]],
         start_timestamp_ns: Optional[int],
@@ -628,13 +664,14 @@ class MosaicoLoader:
     ):
 
         self.client = m_client
+        self.typestore: Typestore = typestore
         self.sequence_name = sequence_name
         self.topic_glob_pattern = topics
         self.start_timestamp_ns = start_timestamp_ns
         self.end_timestamp_ns = end_timestamp_ns
 
-        self.seq_handler = None
-        self.streamer = None
+        self.seq_handler: Optional[SequenceHandler] = None
+        self.streamer: Optional[SequenceDataStreamer] = None
 
         self._resolved_topics: list[
             str
@@ -646,11 +683,17 @@ class MosaicoLoader:
 
         self._not_adapted_topics: list[
             str
-        ] = []  # The topics which message type is not adapted in mosaico
+        ] = []  # The topics whose ontology type is not adapted in mosaico
 
-        self._filtered_topics: list[
+        self._unregistered_topics: list[
             str
-        ] = []  # The topics which message type are filtered by user
+        ] = []  # The topics whose message type is not present within the typestore
+
+        self._filtered_topics: list[str] = []  # The topics filtered by user
+
+        self._topic_ros_metadata: dict[
+            str, Any
+        ] = {}  # Dictionary containing ros specific metadata extracted from accepted Mosaico sequence topics
 
     def validate_sequence(self):
         if self.seq_handler is None:
@@ -660,7 +703,7 @@ class MosaicoLoader:
                 )
             )
 
-    def _resolve_sequence(self):
+    def _resolve_sequence(self) -> SequenceHandler:
         """
         Lazily initializes the sequence handler, resolved topic list, and streamer.
 
@@ -677,10 +720,9 @@ class MosaicoLoader:
 
         """
         if self.seq_handler is not None:
-            return
+            return self.seq_handler
 
         # Get requested sequence + validation
-
         self.seq_handler = self.client.sequence_handler(
             sequence_name=self.sequence_name
         )
@@ -692,6 +734,7 @@ class MosaicoLoader:
         # Clipping requested start/end timestamp to start/end sequence timestamp if existing
         if (
             self.start_timestamp_ns is not None
+            and self.seq_handler.timestamp_ns_min is not None
             and self.start_timestamp_ns < self.seq_handler.timestamp_ns_min
         ):
             logger.warning(
@@ -703,6 +746,7 @@ class MosaicoLoader:
 
         if (
             self.end_timestamp_ns is not None
+            and self.seq_handler.timestamp_ns_max is not None
             and self.end_timestamp_ns > self.seq_handler.timestamp_ns_max
         ):
             logger.warning(
@@ -726,13 +770,35 @@ class MosaicoLoader:
             # 2) Mosaico-adapted topic
             t_handler = self.seq_handler.get_topic_handler(t_name)
 
-            if ROSBridge.is_mosaico_type_adapted(t_handler.ontology_tag):
-                self._accepted_topics.append(t_name)
-            else:
+            adapter = ROSBridge.get_default_mosaico_adapter(t_handler.ontology_tag)
+
+            if not adapter:
                 logger.warning(
                     f"Skipping topic {t_name}: not-adapted ontology {t_handler.ontology_tag}."
                 )
                 self._not_adapted_topics.append(t_name)
+                continue
+
+            # 3) ros_msgtype not present within typestore
+            try:  # rosmsg_type can be through metadata
+                rosmsg_type = t_handler.user_metadata["_ros_"]["msgtype"]
+            except KeyError:
+                # Or obtained from adapter through default
+                rosmsg_type = adapter.get_default_ros_msg()
+
+            if self.typestore.types.get(rosmsg_type) is None:
+                logger.warning(
+                    f"Skipping topic {t_name}: {rosmsg_type} not present in ROS typestore."
+                )
+                self._unregistered_topics.append(t_name)
+                continue
+
+            # Finally accept the topic and extract its ROS metadata (if any)
+            self._accepted_topics.append(t_name)
+
+            self._topic_ros_metadata.update(
+                {t_name: t_handler.user_metadata.get("_ros_")}
+            )
 
         if not self._accepted_topics:
             raise RuntimeError(
@@ -745,6 +811,8 @@ class MosaicoLoader:
             start_timestamp_ns=self.start_timestamp_ns,
             end_timestamp_ns=self.end_timestamp_ns,
         )
+
+        return self.seq_handler
 
     # --- Properties ---
     def msg_count(self, topic: Optional[str] = None) -> int:
@@ -763,13 +831,13 @@ class MosaicoLoader:
         Returns:
             The total message count.
         """
-        self._resolve_sequence()
+        s_handler = self._resolve_sequence()
 
         topics_to_count = [topic] if topic else self._accepted_topics
 
         total_msg_count = 0
         for t in topics_to_count:
-            t_handler = self.seq_handler.get_topic_handler(t)
+            t_handler = s_handler.get_topic_handler(t)
 
             total_msg_count += sum(1 for _ in t_handler.get_data_streamer())
 
@@ -783,13 +851,13 @@ class MosaicoLoader:
         Returns:
             int: The duration of the sequence in nanoseconds. Returns 0 if sequence is not valid
         """
-        self._resolve_sequence()
+        s_handler = self._resolve_sequence()
 
         if (
-            self.seq_handler.timestamp_ns_max is not None
-            and self.seq_handler.timestamp_ns_min is not None
+            s_handler.timestamp_ns_max is not None
+            and s_handler.timestamp_ns_min is not None
         ):
-            return self.seq_handler.timestamp_ns_max - self.seq_handler.timestamp_ns_min
+            return s_handler.timestamp_ns_max - s_handler.timestamp_ns_min
 
         return 0
 
@@ -856,17 +924,85 @@ class MosaicoLoader:
             List[str | None]: Ontology tag strings (e.g. ``"imu"``, ``"image"``)
             or ``None`` for unresolvable topics.
         """
-        self._resolve_sequence()
+        s_handler = self._resolve_sequence()
 
         return [
             t_handler.ontology_tag
-            if (t_handler := self.seq_handler.get_topic_handler(topic)) is not None
+            if (t_handler := s_handler.get_topic_handler(topic)) is not None
             else None
             for topic in self._accepted_topics
         ]
 
-    def __iter__(self) -> SequenceDataStreamer:
+    @property
+    def rejected_topics(self) -> List[Tuple[str, TopicStatus]]:
 
+        rejected_topics: List[Tuple[str, TopicStatus]] = []
         self._resolve_sequence()
 
+        # Filtered
+        for t_filtered in self.filtered_topics:
+            rejected_topics.append((t_filtered, TopicStatus.FILTERED))
+
+        # Adapter not found
+        for t_not_adapter in self._not_adapted_topics:
+            rejected_topics.append((t_not_adapter, TopicStatus.NOT_ADAPTED))
+
+        # Not found in typestore
+        for t_unregistered in self._unregistered_topics:
+            rejected_topics.append((t_unregistered, TopicStatus.NOT_IN_TYPESTORE))
+
+        return rejected_topics
+
+    # --- Core Logic ---
+
+    def resolve_ros_msgtype(self, topic_name: str) -> Optional[str]:
+        """
+        Returns the original ROS message type for a topic stored in Mosaico.
+
+        When a ROS bag is ingested into Mosaico, the original ROS message type
+        (e.g. ``sensor_msgs/msg/Imu``) is preserved in the topic's user metadata
+        under the ``_ros_`` key. This method retrieves that type so callers can
+        reconstruct the correct ROS schema when re-exporting or comparing data.
+
+        Args:
+            topic_name: The topic whose original ROS message type should be resolved.
+                Must be one of the accepted topics produced by :meth:`_resolve_sequence`.
+
+        Returns:
+            The ROS message type string (e.g. ``"sensor_msgs/msg/Imu"``) if the
+            metadata was stored at ingestion time, or ``None`` if the topic is
+            unknown, the ``_ros_`` metadata block is absent, or the ``msgtype``
+            key is missing from that block.
+        """
+
+        return (self._topic_ros_metadata.get(topic_name) or {}).get("msgtype")
+
+    def __iter__(self):
+        self._resolve_sequence()
+
+        if not self.streamer:
+            raise Exception(
+                "Impossible to start streaming: SequenceDataStreamer is not initialised. Did you forget calling _resolve_sequence()?"
+            )
+
         return self.streamer
+
+    def close(self):
+        """
+        Explicitly closes the bag file and releases system resources.
+        """
+
+        # This handles also streamer closing
+        if self.seq_handler:
+            self.seq_handler.close()
+            self.seq_handler = None
+            self.streamer = None
+
+    def __enter__(self):
+        """Context manager support."""
+        self._resolve_sequence()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Ensures resources are released even if an error occurs in the `with` block."""
+        self.close()

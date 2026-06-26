@@ -187,8 +187,8 @@ class FrameTransformAdapter(ROSAdapterBase[FrameTransform]):
         )
 
     @classmethod
-    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
+    def schema_metadata(cls, typestore: Typestore, ros_msg_type: str) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
         """
-        return None
+        return super().schema_metadata(typestore, ros_msg_type)

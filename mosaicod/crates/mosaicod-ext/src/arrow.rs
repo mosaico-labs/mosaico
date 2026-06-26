@@ -81,7 +81,7 @@ pub fn empty_schema_ref() -> Arc<Schema> {
     Arc::new(Schema::empty())
 }
 
-/// Extract the schemna from a parquet reader object
+/// Extract the schema from a parquet reader object
 pub async fn schema_from_parquet_reader(
     reader: &mut ParquetObjectReader,
 ) -> Result<SchemaRef, Error> {
@@ -176,17 +176,23 @@ pub fn array_from_flat_field_name(
     }
 
     let top_level_name = subfields[0];
-    let mut current_array = batch.column_by_name(top_level_name).ok_or_else(|| {
-        arrow::error::ArrowError::SchemaError(format!(
-            "can't find top level field `{0}`",
-            top_level_name
-        ))
-    })?;
+    let mut current_array: ArrayRef =
+        Arc::clone(batch.column_by_name(top_level_name).ok_or_else(|| {
+            arrow::error::ArrowError::SchemaError(format!(
+                "can't find top level field `{0}`",
+                top_level_name
+            ))
+        })?);
 
     // Iterate and traverse the remaining nested path components
     //
     // *Note*: only structs fields are supported
     for subfield in &subfields[1..] {
+        // If the current array is a list, flatten it to reach the inner struct values.
+        if let Some(inner) = list_child_values_from_array(&current_array) {
+            current_array = inner;
+        }
+
         let struct_array = current_array
             .as_any()
             .downcast_ref::<StructArray>()
@@ -197,15 +203,15 @@ pub fn array_from_flat_field_name(
                 ))
             })?;
 
-        current_array = struct_array.column_by_name(subfield).ok_or_else(|| {
+        current_array = Arc::clone(struct_array.column_by_name(subfield).ok_or_else(|| {
             arrow::error::ArrowError::SchemaError(format!(
                 "can't find subfield `{0}` for top level field `{1}`",
                 subfield, top_level_name
             ))
-        })?;
+        })?);
     }
 
-    Ok(Arc::clone(current_array))
+    Ok(current_array)
 }
 
 pub struct SchemaFlattenerIter {
@@ -249,8 +255,29 @@ impl Iterator for SchemaFlattenerIter {
                     }
                     // Skip the struct itself and continue to process its children.
                 }
-
-                // 2) Primitive/Leaf Type - This is a field we want to yield.
+                // 2) List<Struct<...>> - recurse into the struct's children.
+                //    List<primitive> falls through to the leaf case below.
+                DataType::List(inner) | DataType::LargeList(inner) => {
+                    if let DataType::Struct(children) = inner.data_type() {
+                        for child_field in children.iter().rev() {
+                            self.field_queue
+                                .push_front((current_name.clone(), child_field.clone()));
+                        }
+                    } else {
+                        return Some((current_name, field));
+                    }
+                }
+                DataType::FixedSizeList(inner, _) => {
+                    if let DataType::Struct(children) = inner.data_type() {
+                        for child_field in children.iter().rev() {
+                            self.field_queue
+                                .push_front((current_name.clone(), child_field.clone()));
+                        }
+                    } else {
+                        return Some((current_name, field));
+                    }
+                }
+                // 3) Primitive/Leaf Type - This is a field we want to yield.
                 _ => {
                     return Some((current_name, field));
                 }
@@ -692,6 +719,39 @@ mod tests {
         assert_eq!(
             flattened_names,
             vec!["list_of_ints".to_owned(), "map_data".to_owned(),]
+        );
+    }
+
+    #[test]
+    fn list_of_struct_schema() {
+        let struct_fields = vec![
+            Field::new("x", DataType::Float64, false),
+            Field::new("y", DataType::Float64, false),
+        ];
+        let fields = vec![
+            Field::new("timestamp", DataType::Int64, false),
+            Field::new(
+                "readings",
+                DataType::List(Arc::new(Field::new(
+                    "item",
+                    DataType::Struct(struct_fields.into()),
+                    false,
+                ))),
+                false,
+            ),
+        ];
+        let schema_ref = create_schema_ref(fields);
+
+        let flattened_names: Vec<String> =
+            schema_ref.squashed_iter().map(|(name, _)| name).collect();
+
+        assert_eq!(
+            flattened_names,
+            vec![
+                "timestamp".to_owned(),
+                "readings.x".to_owned(),
+                "readings.y".to_owned(),
+            ]
         );
     }
 }

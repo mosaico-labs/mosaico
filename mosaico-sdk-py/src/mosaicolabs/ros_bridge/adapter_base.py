@@ -197,15 +197,76 @@ class ROSAdapterBase(ABC, Generic[T]):
         pass
 
     @classmethod
-    @abstractmethod
-    def schema_metadata(cls, ros_data: dict, **kwargs: Any) -> Optional[dict]:
+    def schema_metadata(cls, typestore: Typestore, ros_msg_type: str) -> Optional[dict]:
         """
         Extracts ROS-specific schema metadata for the Mosaico platform.
 
         This allows preserving original ROS attributes that may not fit directly
-        into the physical ontology fields.
+        into the physical ontology fields like the original ros type or the constants.
+
+        Args:
+            typestore: The rosbags typestore used to resolve and construct target ROS types.
+            ros_msg_type: The ros message type whose metadata should be extracted compatible with the adapter.
+
+        Returns:
+            The constructed dictionary compatible for Mosaico topic metadata. It contains:
+            1) ros_msg_type constants (enums)
+            2) the original message type in string format
+
+            Returns ``None`` if the passed ros message type is unsupported by the adapter.
+
+        For the BatteryStateAdapter the expected output is
+        {
+            "_ros_":
+            {
+                "enums":
+                {
+                    "POWER_SUPPLY_STATUS_UNKNOWN": 0,
+                    "POWER_SUPPLY_STATUS_CHARGING": 1,
+                    "POWER_SUPPLY_STATUS_DISCHARGING": 2,
+                    "POWER_SUPPLY_STATUS_NOT_CHARGING": 3,
+                    "POWER_SUPPLY_STATUS_FULL": 4,
+                    "POWER_SUPPLY_HEALTH_UNKNOWN": 0,
+                    "POWER_SUPPLY_HEALTH_GOOD": 1,
+                    "POWER_SUPPLY_HEALTH_OVERHEAT": 2,
+                    "POWER_SUPPLY_HEALTH_DEAD": 3,
+                    "POWER_SUPPLY_HEALTH_OVERVOLTAGE": 4,
+                    "POWER_SUPPLY_HEALTH_UNSPEC_FAILURE": 5,
+                    "POWER_SUPPLY_HEALTH_COLD": 6,
+                    "POWER_SUPPLY_HEALTH_WATCHDOG_TIMER_EXPIRE": 7,
+                    "POWER_SUPPLY_HEALTH_SAFETY_TIMER_EXPIRE": 8,
+                    "POWER_SUPPLY_TECHNOLOGY_UNKNOWN": 0,
+                    "POWER_SUPPLY_TECHNOLOGY_NIMH": 1,
+                    "POWER_SUPPLY_TECHNOLOGY_LION": 2,
+                    "POWER_SUPPLY_TECHNOLOGY_LIPO": 3,
+                    "POWER_SUPPLY_TECHNOLOGY_LIFE": 4,
+                    "POWER_SUPPLY_TECHNOLOGY_NICD": 5,
+                    "POWER_SUPPLY_TECHNOLOGY_LIMN": 6,
+                },
+                "msgtype": "sensor_msgs/msg/BatteryState"
+            }
+        }
+
+
         """
-        pass
+        # Check that ros_msg_type is handled by adapter
+        if not cls.is_rosmsg_type_valid(ros_msg_type):
+            return None
+
+        # Check that ros_msg_type exists in typestore
+        msg_def = typestore.fielddefs.get(ros_msg_type)
+
+        if msg_def is None:
+            return None
+
+        # Extract ENUM associated to ros_msg_type and adding it to the out dict with the ros_msg_type
+        enum_list, _ = msg_def
+        out_dict = {"enums": {name: val for name, _, val in enum_list}}
+        out_dict.update({"msgtype": ros_msg_type})
+
+        ms_metadata = {"_ros_": out_dict}
+
+        return ms_metadata
 
     @classmethod
     def ontology_data_type(cls) -> Type[T]:
