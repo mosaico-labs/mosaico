@@ -17,27 +17,20 @@ pub async fn create(
     let user_mdata = marshal::JsonMetadataBlob::try_from_str(user_metadata_str)?;
 
     // No sequence record was found, let's write it
-    let sequence_handle = facade::sequence::try_create(ctx, locator, Some(user_mdata))
-        .await
-        .inspect_err(|e| println!("error in sequence create: {}", e))?;
+    let sequence_uuid = facade::sequence::try_create(ctx, &locator, Some(user_mdata)).await?;
 
-    trace!(
-        "created resource {} with uuid {}",
-        sequence_handle.locator(),
-        sequence_handle.uuid()
-    );
+    trace!("created resource {} with uuid {}", locator, sequence_uuid);
 
     Ok(ActionResponse::sequence_create())
 }
 
-/// Deletes an unlocked sequence.
+/// Deletes a sequence.
 pub async fn delete(ctx: &facade::Context, name: String) -> grpc_common::Result<ActionResponse> {
     warn!("requested deletion of resource {}", name);
 
     let locator = name.parse::<types::SequenceLocator>()?;
-    let handle = facade::sequence::Handle::try_from_locator(ctx, locator.clone()).await?;
+    facade::sequence::delete(ctx, &locator, types::allow_data_loss()).await?;
 
-    facade::sequence::delete(ctx, handle, types::allow_data_loss()).await?;
     warn!("resource {} deleted", locator);
 
     Ok(ActionResponse::sequence_delete())
@@ -46,20 +39,18 @@ pub async fn delete(ctx: &facade::Context, name: String) -> grpc_common::Result<
 /// Creates a notification for a sequence.
 pub async fn notification_create(
     ctx: &facade::Context,
-    name: String,
-    notification_type: String,
-    msg: String,
+    name: &str,
+    notification_type: &str,
+    msg: &str,
 ) -> grpc_common::Result<ActionResponse> {
     info!("new notification for {}", name);
 
-    let locator = name.parse::<types::SequenceLocator>()?;
-    let handle = facade::sequence::Handle::try_from_locator(ctx, locator).await?;
-
     let ntype: types::NotificationType = notification_type
         .parse()
-        .map_err(|_| grpc_common::Error::invalid_notification_type(&notification_type))?;
+        .map_err(|_| grpc_common::Error::invalid_notification_type(notification_type))?;
 
-    facade::sequence::notify(ctx, &handle, ntype, msg).await?;
+    let locator = name.parse::<types::SequenceLocator>()?;
+    facade::sequence::notify(ctx, &locator, ntype, msg).await?;
 
     Ok(ActionResponse::sequence_notification_create())
 }
@@ -67,13 +58,12 @@ pub async fn notification_create(
 /// Lists all notifications for a sequence.
 pub async fn notification_list(
     ctx: &facade::Context,
-    name: String,
+    name: &str,
 ) -> grpc_common::Result<ActionResponse> {
     info!("notification list for {}", name);
 
     let locator = name.parse::<types::SequenceLocator>()?;
-    let handle = facade::sequence::Handle::try_from_locator(ctx, locator).await?;
-    let notifications = facade::sequence::notification_list(ctx, &handle).await?;
+    let notifications = facade::sequence::notification_list(ctx, locator).await?;
 
     Ok(ActionResponse::sequence_notification_list(
         notifications.into(),
@@ -83,14 +73,12 @@ pub async fn notification_list(
 /// Purges all notifications for a sequence.
 pub async fn notification_purge(
     ctx: &facade::Context,
-    name: String,
+    name: &str,
 ) -> grpc_common::Result<ActionResponse> {
     warn!("notification purge for {}", name);
 
     let locator = name.parse::<types::SequenceLocator>()?;
-    let handle = facade::sequence::Handle::try_from_locator(ctx, locator).await?;
-
-    facade::sequence::notification_purge(ctx, &handle).await?;
+    facade::sequence::notification_purge(ctx, &locator).await?;
 
     Ok(ActionResponse::sequence_notification_purge())
 }

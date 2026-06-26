@@ -1,5 +1,6 @@
 use super::*;
 
+#[derive(Debug)]
 pub enum NotificationType {
     Error,
 }
@@ -26,6 +27,7 @@ impl std::str::FromStr for NotificationType {
     }
 }
 
+#[derive(Debug)]
 pub struct Notification<L: Locator> {
     pub uuid: Uuid,
     pub target: L,

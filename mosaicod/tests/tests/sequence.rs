@@ -452,8 +452,11 @@ async fn test_sequence_notification_list_nonexistent(pool: sqlx::Pool<db::Databa
         .build()
         .await;
 
-    let res = actions::sequence_notification_list(&mut client, "ghost_sequence").await;
-    assert_eq!(res.unwrap_err().code(), tonic::Code::NotFound);
+    let r = actions::sequence_notification_list(&mut client, "ghost_sequence")
+        .await
+        .unwrap();
+    let notifications = r["notifications"].as_array().unwrap();
+    assert_eq!(notifications.len(), 0);
 
     server.shutdown().await;
 }

@@ -125,13 +125,16 @@ pub async fn topic_find_all(exe: &mut impl AsExec) -> Result<Vec<schema::TopicRe
 /// elsewhere. Improper use can lead to data inconsistency or loss.
 pub async fn topic_delete(
     exe: &mut impl AsExec,
-    topic_id: i32,
+    locator: &types::TopicLocator,
     _: types::DataLossToken,
 ) -> Result<(), Error> {
-    warn!("(data loss) deleting topic record with id={}", topic_id);
-    let result = sqlx::query!("DELETE FROM topic_t WHERE topic_id=$1", topic_id)
-        .execute(exe.as_exec())
-        .await?;
+    warn!("(data loss) deleting topic record {}", locator);
+    let result = sqlx::query!(
+        "DELETE FROM topic_t WHERE locator_name=$1",
+        locator.to_string()
+    )
+    .execute(exe.as_exec())
+    .await?;
 
     if result.rows_affected() == 0 {
         return Err(Error::NotFound);
@@ -142,39 +145,41 @@ pub async fn topic_delete(
 
 pub async fn topic_create(
     exe: &mut impl AsExec,
-    record: &schema::TopicRecord,
+    locator: &types::TopicLocator,
+    session_uuid: types::Uuid,
+    ontology_tag: &str,
+    serialization_format: &str,
+    path_in_store: Option<types::TopicPathInStore>,
+    user_metadata: Option<serde_json::Value>,
 ) -> Result<schema::TopicRecord, Error> {
-    trace!("creating a new topic record {:?}", record);
+    trace!("creating a new topic {}", locator);
+
     let res = sqlx::query_as!(
         schema::TopicRecord,
         r#"
             INSERT INTO topic_t
                 (
                     topic_uuid, sequence_id, session_id, locator_name, creation_unix_tstamp,
-                    serialization_format, ontology_tag, user_metadata, chunks_number,
-                    total_bytes, start_index_timestamp, end_index_timestamp, path_in_store
-                ) 
-            VALUES 
-                ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-            RETURNING 
-                *
-    "#,
-        record.topic_uuid,
-        record.sequence_id,
-        record.session_id,
-        record.locator_name,
-        record.creation_unix_tstamp,
-        record.serialization_format,
-        record.ontology_tag,
-        record.user_metadata,
-        record.chunks_number,
-        record.total_bytes,
-        record.start_index_timestamp,
-        record.end_index_timestamp,
-        record.path_in_store,
+                    serialization_format, ontology_tag, user_metadata, path_in_store
+                )
+            SELECT $1, seq.sequence_id, sess.session_id, $2, $3, $4, $5, $6, $7
+            FROM sequence_t as seq JOIN session_t as sess ON sess.sequence_id = seq.sequence_id
+            WHERE seq.locator_name = $8 AND sess.session_uuid = $9 AND sess.completion_unix_tstamp IS NULL
+            RETURNING topic_t.*
+            "#,
+        uuid::Uuid::from(types::Uuid::new()),
+        locator.to_string(),
+        types::Timestamp::now().as_i64(),
+        serialization_format,
+        ontology_tag,
+        user_metadata,
+        path_in_store.map(|x| x.to_string()),
+        locator.sequence.to_string(),
+        uuid::Uuid::from(session_uuid)
     )
     .fetch_one(exe.as_exec())
     .await?;
+
     Ok(res)
 }
 
@@ -300,33 +305,37 @@ pub async fn topic_update_completion_tstamp(
     Ok(())
 }
 
-pub async fn topic_update_path_in_store(
+pub async fn topic_update_path_in_store_if_null(
     exe: &mut impl AsExec,
     topic_id: i32,
     path_in_store: types::TopicPathInStore,
-) -> Result<(), Error> {
+) -> Result<bool, Error> {
     trace!(
         "updating path_in_store to `{}` for topic with id {}",
         path_in_store, topic_id
     );
-    sqlx::query!(
+
+    let res = sqlx::query!(
         r#"
             UPDATE topic_t
             SET path_in_store = $1
-            WHERE topic_id = $2
-    "#,
+            WHERE topic_id = $2 AND path_in_store IS NULL
+            "#,
         Some(String::from(path_in_store)),
         topic_id,
     )
     .execute(exe.as_exec())
     .await?;
 
-    Ok(())
+    Ok(res.rows_affected() != 0)
 }
 
-pub async fn topic_delete_path_in_store(exe: &mut impl AsExec, topic_id: i32) -> Result<(), Error> {
+pub async fn topic_delete_path_in_store(
+    exe: &mut impl AsExec,
+    topic_id: i32,
+) -> Result<bool, Error> {
     trace!("removing path_in_store for topic with id {}", topic_id);
-    sqlx::query!(
+    let res = sqlx::query!(
         r#"
             UPDATE topic_t
             SET path_in_store = NULL
@@ -337,7 +346,7 @@ pub async fn topic_delete_path_in_store(exe: &mut impl AsExec, topic_id: i32) ->
     .execute(exe.as_exec())
     .await?;
 
-    Ok(())
+    Ok(res.rows_affected() != 0)
 }
 
 pub async fn topic_from_query_filter(
@@ -463,83 +472,95 @@ mod tests {
             r#"{"key1": ["value", "value2", "val3"], "key3": { "key4": "value1" }, "key4": "value2", "key5": 200 }"#,
         )
             .unwrap();
-        let record = schema::SequenceRecord::new(
-            "my_sequence".parse().unwrap(),
-            "/my/path/in/store".to_owned().into(),
-        )
-        .with_user_metadata(metadata);
-        let sequence_record = sequence_create(&mut cx, &record).await.unwrap();
 
-        let record = schema::SessionRecord::new(
-            format!("my_sequence:{}", ulid::Ulid::new())
-                .parse()
-                .unwrap(),
-            sequence_record.sequence_id,
-        );
-        let session_record = session_create(&mut cx, &record).await.unwrap();
+        let sequence_record = sequence_create(
+            &mut cx,
+            &"my_sequence".parse().unwrap(),
+            &"/my/path/in/store".to_owned().into(),
+            Some(metadata.into()),
+        )
+        .await
+        .unwrap();
+
+        let session_record = session_create(
+            &mut cx,
+            &types::SessionLocator::new(sequence_record.locator()),
+        )
+        .await
+        .unwrap();
 
         let metadata = marshal::JsonMetadataBlob::try_from_str(
             r#"{"key1": "value1", "key2": 100, "key3": { "key4": "value2", "key5": 100 }}"#,
         )
         .unwrap();
-        let record = schema::TopicRecord::new(
-            "my_sequence/topic".parse().unwrap(),
-            sequence_record.sequence_id,
-            session_record.session_id,
+
+        topic_create(
+            &mut database.connection(),
+            &"my_sequence/topic".parse().unwrap(),
+            session_record.uuid(),
             "",
             "",
             Some("/my/path/in/store".to_owned().into()),
+            Some(metadata.into()),
         )
-        .with_user_metadata(metadata);
-        topic_create(&mut database.connection(), &record)
-            .await
-            .unwrap();
+        .await
+        .unwrap();
 
         let metadata = marshal::JsonMetadataBlob::try_from_str(
             r#"{"key1": "value1", "key3": { "key4": "value2" }, "key4": "value2", "key5": 100, "key6": true }"#,
         )
-        .unwrap();
-        let record = schema::TopicRecord::new(
-            "my_sequence/topic2".parse().unwrap(),
-            sequence_record.sequence_id,
-            session_record.session_id,
+            .unwrap();
+
+        topic_create(
+            &mut database.connection(),
+            &"my_sequence/topic2".parse().unwrap(),
+            session_record.uuid(),
             "",
             "",
             Some("/my/path/in/store".to_owned().into()),
+            Some(metadata.into()),
         )
-        .with_user_metadata(metadata);
-        topic_create(&mut database.connection(), &record)
-            .await
-            .unwrap();
+        .await
+        .unwrap();
 
         // Create second sequence.
         let metadata = marshal::JsonMetadataBlob::try_from_str(
             r#"{"key1": ["value", "val", "val2"], "key3": { "key4": "value1", "key8": true }, "key4": "value2", "key5": 100 }"#,
         )
             .unwrap();
-        let record = schema::SequenceRecord::new(
-            "my_sequence2".parse().unwrap(),
-            "/my/path/in/store".to_owned().into(),
+
+        let sequence2_record = sequence_create(
+            &mut cx,
+            &"my_sequence2".parse().unwrap(),
+            &"/my/path/in/store".to_owned().into(),
+            Some(metadata.into()),
         )
-        .with_user_metadata(metadata);
-        let sequence_record = sequence_create(&mut cx, &record).await.unwrap();
+        .await
+        .unwrap();
+
+        let session2_record = session_create(
+            &mut cx,
+            &types::SessionLocator::new(sequence2_record.locator()),
+        )
+        .await
+        .unwrap();
 
         let metadata = marshal::JsonMetadataBlob::try_from_str(
             r#"{"key1": "value1", "key2": [ {"key1": 4, "key6": 5}, {"key3": false, "key4": "value"} ], "key3": { "key4": "value2", "key5": { "key6": "value6", "key7": [ 1, 3, 6 ], "key1": "value1" } }, "key4": "value2", "key6": 1 }"#,
         )
             .unwrap();
-        let record = schema::TopicRecord::new(
-            "my_sequence2/topic".parse().unwrap(),
-            sequence_record.sequence_id,
-            session_record.session_id,
+
+        topic_create(
+            &mut database.connection(),
+            &"my_sequence2/topic".parse().unwrap(),
+            session2_record.uuid(),
             "",
             "",
             Some("/my/path/in/store".to_owned().into()),
+            Some(metadata.into()),
         )
-        .with_user_metadata(metadata);
-        topic_create(&mut database.connection(), &record)
-            .await
-            .unwrap();
+        .await
+        .unwrap();
     }
 
     #[sqlx::test]

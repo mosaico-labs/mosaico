@@ -38,7 +38,7 @@ pub async fn create(
 
     let user_mdata = marshal::JsonMetadataBlob::try_from_str(user_metadata_str)?;
 
-    let received_uuid: types::Uuid = session_uuid
+    let received_session_uuid: types::Uuid = session_uuid
         .parse()
         .map_err(|_| core::Error::bad_uuid(session_uuid))?;
 
@@ -51,19 +51,20 @@ pub async fn create(
     );
 
     let topic_locator = name.parse::<types::TopicLocator>()?;
-    let session_handle = facade::session::Handle::try_from_uuid(ctx, &received_uuid).await?;
-    let topic_handle =
-        facade::topic::try_create(ctx, topic_locator, &session_handle, ontology_metadata).await?;
+    let topic_uuid = facade::topic::try_create(
+        ctx,
+        &topic_locator,
+        &received_session_uuid,
+        ontology_metadata,
+    )
+    .await?;
 
     trace!(
         "resource `{}` created with uuid {}",
-        topic_handle.locator(),
-        topic_handle.uuid(),
+        topic_locator, topic_uuid,
     );
 
-    Ok(ActionResponse::topic_create(
-        topic_handle.uuid().clone().into(),
-    ))
+    Ok(ActionResponse::topic_create(topic_uuid.into()))
 }
 
 /// Deletes a topic (it doesn't matter if it's still open or archived).
@@ -71,9 +72,7 @@ pub async fn delete(ctx: &facade::Context, locator: String) -> grpc_common::Resu
     warn!("requested deletion of resource `{}`", locator);
 
     let topic_locator = locator.parse::<types::TopicLocator>()?;
-    let topic_handle = facade::topic::Handle::try_from_locator(ctx, topic_locator.clone()).await?;
-
-    facade::topic::delete(ctx, topic_handle, types::allow_data_loss()).await?;
+    facade::topic::delete(ctx, &topic_locator, types::allow_data_loss()).await?;
 
     warn!("resource {} deleted", topic_locator);
 
@@ -83,20 +82,19 @@ pub async fn delete(ctx: &facade::Context, locator: String) -> grpc_common::Resu
 /// Creates a notification for a topic.
 pub async fn notification_create(
     ctx: &facade::Context,
-    locator: String,
-    notification_type: String,
-    msg: String,
+    locator: &str,
+    notification_type: &str,
+    msg: &str,
 ) -> grpc_common::Result<ActionResponse> {
     info!("notification for {}", locator);
 
     let topic_locator = locator.parse::<types::TopicLocator>()?;
-    let topic_handle = facade::topic::Handle::try_from_locator(ctx, topic_locator).await?;
 
     let notification_type = notification_type
         .parse()
-        .map_err(|_| grpc_common::Error::invalid_notification_type(&notification_type))?;
+        .map_err(|_| grpc_common::Error::invalid_notification_type(notification_type))?;
 
-    facade::topic::notify(ctx, &topic_handle, notification_type, msg).await?;
+    facade::topic::notify(ctx, &topic_locator, notification_type, msg).await?;
 
     Ok(ActionResponse::topic_notification_create())
 }
@@ -109,8 +107,7 @@ pub async fn notification_list(
     info!("notification list for {}", locator);
 
     let topic_locator = locator.parse::<types::TopicLocator>()?;
-    let topic_handle = facade::topic::Handle::try_from_locator(ctx, topic_locator).await?;
-    let notifications = facade::topic::notification_list(ctx, &topic_handle).await?;
+    let notifications = facade::topic::notification_list(ctx, &topic_locator).await?;
 
     Ok(ActionResponse::topic_notification_list(
         notifications.into(),
@@ -125,9 +122,7 @@ pub async fn notification_purge(
     warn!("notification purge for {}", locator);
 
     let topic_locator = locator.parse::<types::TopicLocator>()?;
-    let topic_handle = facade::topic::Handle::try_from_locator(ctx, topic_locator).await?;
-
-    facade::topic::notification_purge(ctx, &topic_handle).await?;
+    facade::topic::notification_purge(ctx, &topic_locator).await?;
 
     Ok(ActionResponse::topic_notification_purge())
 }
@@ -139,13 +134,17 @@ pub async fn notification_purge(
 /// SendableRecordBatchStream of matching record batches.
 pub async fn query_by_timestamp(
     context: &facade::Context,
-    handle: &facade::topic::Handle,
+    locator: &types::TopicLocator,
     ts: Option<types::TimestampRange>,
     ontology_filter: query::OntologyFilter,
 ) -> grpc_common::Result<SendableRecordBatchStream> {
-    let meta = facade::topic::metadata(context, handle).await?;
-    let format = meta.ontology_metadata.properties.serialization_format;
-    let topic_tag = &meta.ontology_metadata.properties.ontology_tag;
+    let params = facade::topic::streaming_read_prepare(context, locator).await?;
+    let format = params
+        .metadata
+        .ontology_metadata
+        .properties
+        .serialization_format;
+    let topic_tag = &params.metadata.ontology_metadata.properties.ontology_tag;
 
     // Check if filter tag is registered before execute query
     for filter_tag in ontology_filter.ontology_tags() {
@@ -156,17 +155,13 @@ pub async fn query_by_timestamp(
         }
     }
 
-    let batch_size = facade::topic::compute_optimal_batch_size(context, handle)
-        .await
-        .ok();
-
-    let path_in_store = handle
-        .path_in_store()
-        .ok_or(facade::Error::MissingDbData(handle.locator().to_string()))?;
-
     let mut result = context
         .timeseries_querier
-        .read(path_in_store.data_folder_path(), format, batch_size)
+        .read(
+            params.data_folder_path,
+            format,
+            Some(params.optimal_batch_size),
+        )
         .await?;
 
     if let Some(ts_range) = ts {
@@ -236,12 +231,11 @@ async fn spawn_cluster_stream(
 
     // Setup query
     let topic_locator = locator.parse::<types::TopicLocator>()?;
-    let topic_handle = facade::topic::Handle::try_from_locator(ctx, topic_locator).await?;
     let timestamp_column = core::params::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP.to_owned();
     let ontology_filter = ontology.try_into()?;
 
     // RecordBatch stram filtered by timestamp if any and ontology
-    let batch_stream = query_by_timestamp(ctx, &topic_handle, ts, ontology_filter)
+    let batch_stream = query_by_timestamp(ctx, &topic_locator, ts, ontology_filter)
         .await?
         .map(|item| item.map_err(|e| ArrowError::ExternalError(Box::new(e))));
 

@@ -209,15 +209,15 @@ fn cast_chunk_data(row: PgRow) -> Result<schema::ChunkRecord, Error> {
 /// Returns aggregated size and row count statistics for all chunks belonging to a topic.
 pub async fn topic_get_stats(
     exec: &mut impl AsExec,
-    loc: &types::TopicLocator,
+    topic_id: i32,
 ) -> Result<types::TopicChunksStats, Error> {
     let res = sqlx::query!(
         r#"SELECT
             COALESCE(SUM(size_bytes), 0)::BIGINT as "total_size_bytes!",
             COALESCE(SUM(row_count), 0)::BIGINT as "total_row_count!"
         FROM chunk_t
-        WHERE topic_id = (SELECT topic_id FROM topic_t WHERE locator_name = $1)"#,
-        loc.to_string(),
+        WHERE topic_id = $1"#,
+        topic_id
     )
     .fetch_one(exec.as_exec())
     .await?;

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT topic.*\n        FROM topic_t AS topic\n        JOIN sequence_t AS sequence ON topic.sequence_id = sequence.sequence_id\n        WHERE sequence.locator_name = $1\n        ",
+  "query": "SELECT * FROM topic_t WHERE session_id = $1",
   "describe": {
     "columns": [
       {
@@ -81,7 +81,7 @@
     ],
     "parameters": {
       "Left": [
-        "Text"
+        "Int4"
       ]
     },
     "nullable": [
@@ -102,5 +102,5 @@
       true
     ]
   },
-  "hash": "ae53813f91e350570286925d9aa5a2d35fc4acdad2ad096d69a774ba4cff7e76"
+  "hash": "5763753f2a87a34e9aa52bf6553efc4033112332c5288b7e1f8efbfa1a64647d"
 }

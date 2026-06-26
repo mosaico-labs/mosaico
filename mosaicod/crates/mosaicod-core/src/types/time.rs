@@ -152,6 +152,7 @@ impl std::fmt::Debug for TimestampRange {
 }
 
 /// `DateTime` format used by mosaico
+#[derive(Debug)]
 pub struct DateTime(chrono::DateTime<chrono::Utc>);
 
 impl DateTime {

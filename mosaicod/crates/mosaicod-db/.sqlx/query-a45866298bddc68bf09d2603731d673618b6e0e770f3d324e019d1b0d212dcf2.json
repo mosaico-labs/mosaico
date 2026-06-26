@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "SELECT * FROM session_t WHERE session_id=$1",
+  "query": "SELECT * FROM session_t WHERE sequence_id = $1",
   "describe": {
     "columns": [
       {
@@ -48,5 +48,5 @@
       true
     ]
   },
-  "hash": "88d2d1c4b87cc9163c85cbff78e00c0d54d820f6f2aa0605a385aa7c96bbd37d"
+  "hash": "a45866298bddc68bf09d2603731d673618b6e0e770f3d324e019d1b0d212dcf2"
 }

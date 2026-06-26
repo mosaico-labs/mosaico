@@ -90,21 +90,12 @@ async fn do_put_topic_data(
 
     let topic_locator = locator.parse::<types::TopicLocator>()?;
 
-    let topic_handle = facade::topic::Handle::try_from_locator(&ctx, topic_locator).await?;
-
     // Perform the match between received uuid string and topic uuid
-    let topic_uuid = topic_handle.uuid().clone();
-    let received_uuid: types::Uuid = uuid_str
+    let topic_uuid: types::Uuid = uuid_str
         .parse()
         .map_err(|_| core::Error::bad_uuid(uuid_str.clone()))?;
 
-    if received_uuid != topic_uuid {
-        Err(core::Error::unauthorized(
-            "received uuid does not match the topic uuid.".to_string(),
-        ))?
-    }
-
-    let mut writer = facade::topic::writer(ctx.clone(), topic_handle, schema).await?;
+    let mut writer = facade::topic::writer(ctx.clone(), topic_locator, &topic_uuid, schema).await?;
 
     // Consume all batches
     debug!("ready to receive batches");

@@ -1,21 +1,21 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n          SELECT notification.* FROM sequence_notification_t AS notification\n          JOIN sequence_t AS seq ON notification.sequence_id = seq.sequence_id\n          WHERE seq.sequence_id=$1\n    ",
+  "query": "\n            INSERT INTO topic_notification_t\n                (topic_notification_uuid, topic_id, notification_type, msg, creation_unix_tstamp)\n            SELECT $1, topic.topic_id, $2, $3, $4\n            FROM topic_t AS topic\n            WHERE topic.locator_name = $5\n            RETURNING *\n            ",
   "describe": {
     "columns": [
       {
         "ordinal": 0,
-        "name": "sequence_notification_id",
+        "name": "topic_notification_id",
         "type_info": "Int4"
       },
       {
         "ordinal": 1,
-        "name": "sequence_notification_uuid",
+        "name": "topic_notification_uuid",
         "type_info": "Uuid"
       },
       {
         "ordinal": 2,
-        "name": "sequence_id",
+        "name": "topic_id",
         "type_info": "Int4"
       },
       {
@@ -36,7 +36,11 @@
     ],
     "parameters": {
       "Left": [
-        "Int4"
+        "Uuid",
+        "Text",
+        "Text",
+        "Int8",
+        "Text"
       ]
     },
     "nullable": [
@@ -48,5 +52,5 @@
       false
     ]
   },
-  "hash": "4d4d3c61384b857998b93a9cbb00abdecfc1922af72b0afab1124fc546f240d9"
+  "hash": "547acd768d9b83752b2e9e9e0f0dc7fb98b2d5f21628b30b2d9b42a08a470cdf"
 }
