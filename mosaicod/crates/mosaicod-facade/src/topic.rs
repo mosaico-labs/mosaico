@@ -61,6 +61,7 @@ pub(super) mod internal {
                 },
                 user_metadata: topic_record.user_metadata(),
             },
+            interval_props: None,
         })
     }
 

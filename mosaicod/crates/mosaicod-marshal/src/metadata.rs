@@ -114,15 +114,6 @@ pub struct JsonTopicOntologyProperties {
     pub ontology_tag: String,
 }
 
-impl From<JsonTopicOntologyProperties> for types::TopicOntologyProperties {
-    fn from(value: JsonTopicOntologyProperties) -> Self {
-        Self {
-            ontology_tag: value.ontology_tag,
-            serialization_format: value.serialization_format.into(),
-        }
-    }
-}
-
 impl From<types::TopicOntologyProperties> for JsonTopicOntologyProperties {
     fn from(value: types::TopicOntologyProperties) -> Self {
         Self {
@@ -138,35 +129,6 @@ pub struct JsonTopicOntologyMetadata {
     pub user_metadata: JsonMetadataBlob,
 }
 
-impl JsonTopicOntologyMetadata {
-    pub fn to_flat_hashmap(self) -> Result<HashMap<String, String>, MetadataError> {
-        Ok(HashMap::from([
-            (
-                "mosaico:context".to_owned(), //
-                "topic".to_owned(),
-            ),
-            (
-                "mosaico:properties".to_owned(),
-                serde_json::to_string(&self.properties)
-                    .map_err(|e| Error::SerializationError(e.to_string()))?,
-            ),
-            (
-                "mosaico:user_metadata".to_owned(),
-                self.user_metadata.try_to_string()?,
-            ),
-        ]))
-    }
-}
-
-impl From<JsonTopicOntologyMetadata> for types::TopicOntologyMetadata<JsonMetadataBlob> {
-    fn from(value: JsonTopicOntologyMetadata) -> Self {
-        Self {
-            user_metadata: Some(value.user_metadata),
-            properties: value.properties.into(),
-        }
-    }
-}
-
 impl From<types::TopicOntologyMetadata<JsonMetadataBlob>> for JsonTopicOntologyMetadata {
     fn from(value: types::TopicOntologyMetadata<JsonMetadataBlob>) -> Self {
         Self {
@@ -179,19 +141,55 @@ impl From<types::TopicOntologyMetadata<JsonMetadataBlob>> for JsonTopicOntologyM
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct JsonTopicIntervalProperties {
+    pub message_count: usize,
+    pub timestamp_ns_min: i64,
+    pub timestamp_ns_max: i64,
+}
+
+impl From<types::TopicIntervalProperties> for JsonTopicIntervalProperties {
+    fn from(value: types::TopicIntervalProperties) -> Self {
+        Self {
+            message_count: value.message_count,
+            timestamp_ns_min: value.timestamp_range.start.as_i64(),
+            timestamp_ns_max: value.timestamp_range.end.as_i64(),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct JsonTopicMetadata {
     pub properties: JsonTopicProperties,
     pub ontology_metadata: JsonTopicOntologyMetadata,
+    pub interval_props: Option<JsonTopicIntervalProperties>,
 }
 
-impl TryFrom<JsonTopicMetadata> for types::TopicMetadata<JsonMetadataBlob> {
-    type Error = Error;
+impl JsonTopicMetadata {
+    pub fn to_flat_hashmap(self) -> Result<HashMap<String, String>, MetadataError> {
+        let mut json_props = serde_json::to_value(&self.ontology_metadata.properties)
+            .map_err(|e| Error::SerializationError(e.to_string()))?;
 
-    fn try_from(v: JsonTopicMetadata) -> Result<Self, Error> {
-        Ok(Self {
-            ontology_metadata: v.ontology_metadata.into(),
-            properties: JsonTopicProperties::try_into(v.properties)?,
-        })
+        if let Some(interval_props) = &self.interval_props {
+            let json_interval_props = serde_json::to_value(interval_props)
+                .map_err(|e| Error::SerializationError(e.to_string()))?;
+
+            // Ensure both are actually JSON objects before merging
+            if let (Some(obj1), Some(obj2)) =
+                (json_props.as_object_mut(), json_interval_props.as_object())
+            {
+                // Extend the first object with the keys and values of the second
+                obj1.extend(obj2.clone());
+            }
+        }
+
+        Ok(HashMap::from([
+            ("mosaico:context".to_owned(), "topic".to_owned()),
+            ("mosaico:properties".to_owned(), json_props.to_string()),
+            (
+                "mosaico:user_metadata".to_owned(),
+                self.ontology_metadata.user_metadata.try_to_string()?,
+            ),
+        ]))
     }
 }
 
@@ -200,6 +198,7 @@ impl From<types::TopicMetadata<JsonMetadataBlob>> for JsonTopicMetadata {
         Self {
             ontology_metadata: value.ontology_metadata.into(),
             properties: value.properties.into(),
+            interval_props: value.interval_props.map(Into::into),
         }
     }
 }
@@ -224,29 +223,6 @@ pub struct JsonTopicProperties {
     pub completed_at: Option<i64>,
     pub session_locator: String,
     pub resource_locator: String,
-}
-
-impl TryFrom<JsonTopicProperties> for types::TopicMetadataProperties {
-    type Error = Error;
-
-    fn try_from(value: JsonTopicProperties) -> Result<Self, Error> {
-        Ok(Self {
-            created_at: value.created_at.into(),
-            completed_at: value.completed_at.map(Into::into),
-            session_locator: value.session_locator.parse().map_err(|_| {
-                MetadataError::DeserializationError(format!(
-                    "error parsing session locator ({}) for topic {}",
-                    value.session_locator, value.resource_locator
-                ))
-            })?,
-            resource_locator: value.resource_locator.parse().map_err(|_| {
-                MetadataError::DeserializationError(format!(
-                    "error parsing topic resource locator: {}",
-                    value.resource_locator
-                ))
-            })?,
-        })
-    }
 }
 
 impl From<types::TopicMetadataProperties> for JsonTopicProperties {

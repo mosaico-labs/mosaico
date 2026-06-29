@@ -119,6 +119,7 @@ impl TimeseriesEngine {
     }
 }
 
+#[derive(Clone)]
 pub struct TimeseriesResult {
     data_frame: DataFrame,
 }
