@@ -308,11 +308,11 @@ def test_single_selection_chunks_to_half(
 ):
     """Test retrieving the topic data-stream to half (unbounded start)"""
 
-    # start from the half of the sequence
+    # Set the end to half of the sequence
     timestamp_ns_end = synthetic_sequence_data_stream.tstamp_ns_start + int(
         (
-            synthetic_sequence_data_stream.tstamp_ns_start
-            + synthetic_sequence_data_stream.tstamp_ns_end
+            synthetic_sequence_data_stream.tstamp_ns_end
+            - synthetic_sequence_data_stream.tstamp_ns_start
         )
         / 2
     )
@@ -534,11 +534,11 @@ def test_multi_selection_chunks_to_half(
     inject_synthetic_sequence,  # Make sure data are available on the server
 ):
     """Test retrieving the data-stream to half (unbounded start)"""
-    # start from the half of the sequence
+    # Arrives to half of the sequence
     timestamp_ns_end = synthetic_sequence_data_stream.tstamp_ns_start + int(
         (
-            synthetic_sequence_data_stream.tstamp_ns_start
-            + synthetic_sequence_data_stream.tstamp_ns_end
+            synthetic_sequence_data_stream.tstamp_ns_end
+            - synthetic_sequence_data_stream.tstamp_ns_start
         )
         / 2
     )
@@ -578,8 +578,8 @@ def test_single_selection_non_existing_topic(
     # start from the half of the sequence
     timestamp_ns_start = synthetic_sequence_data_stream.tstamp_ns_start + int(
         (
-            synthetic_sequence_data_stream.tstamp_ns_start
-            + synthetic_sequence_data_stream.tstamp_ns_end
+            synthetic_sequence_data_stream.tstamp_ns_end
+            - synthetic_sequence_data_stream.tstamp_ns_start
         )
         / 2
     )
@@ -613,8 +613,8 @@ def test_single_selection_message(
     # start from the half of the sequence
     timestamp_ns_start = synthetic_sequence_data_stream.tstamp_ns_start + int(
         (
-            synthetic_sequence_data_stream.tstamp_ns_start
-            + synthetic_sequence_data_stream.tstamp_ns_end
+            synthetic_sequence_data_stream.tstamp_ns_end
+            - synthetic_sequence_data_stream.tstamp_ns_start
         )
         / 2
     )
@@ -655,8 +655,8 @@ def test_multi_selection_message(
     # start from the half of the sequence
     timestamp_ns_start = synthetic_sequence_data_stream.tstamp_ns_start + int(
         (
-            synthetic_sequence_data_stream.tstamp_ns_start
-            + synthetic_sequence_data_stream.tstamp_ns_end
+            synthetic_sequence_data_stream.tstamp_ns_end
+            - synthetic_sequence_data_stream.tstamp_ns_start
         )
         / 2
     )
@@ -783,12 +783,12 @@ def test_sequence_chunks_to_half(
     synthetic_sequence_data_stream: SequenceDataStream,  # Get the data stream for comparisons
     inject_synthetic_sequence,  # Make sure data are available on the server
 ):
-    """Test retrieving the topic data-stream from start to end, unbounded"""
 
+    # Arrives to half of the sequence
     timestamp_ns_end = synthetic_sequence_data_stream.tstamp_ns_start + int(
         (
-            synthetic_sequence_data_stream.tstamp_ns_start
-            + synthetic_sequence_data_stream.tstamp_ns_end
+            synthetic_sequence_data_stream.tstamp_ns_end
+            - synthetic_sequence_data_stream.tstamp_ns_start
         )
         / 2
     )
