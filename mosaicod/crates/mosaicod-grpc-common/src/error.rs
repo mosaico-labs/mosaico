@@ -37,6 +37,7 @@ where
             ErrorKind::BadRequest(_) => Code::InvalidArgument,
             ErrorKind::BadHeader(_) => Code::InvalidArgument,
             ErrorKind::NotFound(_) => Code::NotFound,
+            ErrorKind::BadTimestampRange(_) => Code::InvalidArgument,
             ErrorKind::BadLocator(_) => Code::InvalidArgument,
             ErrorKind::Unauthorized(_) => Code::PermissionDenied,
             ErrorKind::Unauthenticated => Code::Unauthenticated,

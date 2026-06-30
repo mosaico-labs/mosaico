@@ -45,6 +45,12 @@ async fn do_get_flight_info(
 
     info!("requesting info for resource {}", resource_name);
 
+    if let Some(ts_range) = &cmd.timestamp_range
+        && ts_range.is_empty()
+    {
+        Err(core::Error::bad_timestamp_range(ts_range.clone()))?;
+    }
+
     return if let Ok(sequence_locator) = resource_name.parse::<types::SequenceLocator>() {
         sequence_flight_info(ctx, desc, sequence_locator, cmd.timestamp_range).await
     } else if let Ok(topic_locator) = resource_name.parse::<types::TopicLocator>() {
