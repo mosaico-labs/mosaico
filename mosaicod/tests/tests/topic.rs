@@ -205,10 +205,16 @@ async fn test_topic_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
         .unwrap();
     assert!(session_uuid.is_valid());
 
-    // Check flight info for a locked topic without data.
-
     let topic_name = "test_sequence/my_empty_topic";
 
+    // Wrong timestamp as input must generate an error.
+    let wrong_ts_range = types::TimestampRange::between(200.into(), 100.into());
+    let res = actions::get_flight_info(&mut client, topic_name, Some(wrong_ts_range))
+        .await
+        .unwrap_err();
+    assert_eq!(res.code(), tonic::Code::InvalidArgument);
+
+    // Check flight info for a locked topic without data.
     let uuid = actions::topic_create(&mut client, &session_uuid, topic_name, None)
         .await
         .unwrap();

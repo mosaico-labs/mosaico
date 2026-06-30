@@ -50,6 +50,13 @@ async fn test_sequence_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
 
     let sequence_name = "test_sequence";
 
+    // Wrong timestamp as input must generate an error.
+    let wrong_ts_range = types::TimestampRange::between(200.into(), 100.into());
+    let res = actions::get_flight_info(&mut client, sequence_name, Some(wrong_ts_range))
+        .await
+        .unwrap_err();
+    assert_eq!(res.code(), tonic::Code::InvalidArgument);
+
     actions::sequence_create(&mut client, sequence_name, None)
         .await
         .unwrap();
