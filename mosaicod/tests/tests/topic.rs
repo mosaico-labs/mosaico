@@ -215,7 +215,7 @@ async fn test_topic_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
     assert!(uuid.is_valid());
 
     // Metadata should be available even if topic is unlocked, but not all info are filled.
-    let info = actions::get_flight_info(&mut client, topic_name)
+    let info = actions::get_flight_info(&mut client, topic_name, None)
         .await
         .unwrap();
     assert_eq!(info.endpoint.len(), 1);
@@ -246,7 +246,7 @@ async fn test_topic_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
         panic!("Received a not-empty response!");
     }
 
-    let info = actions::get_flight_info(&mut client, topic_name)
+    let info = actions::get_flight_info(&mut client, topic_name, None)
         .await
         .unwrap();
     assert_eq!(info.endpoint.len(), 1);
@@ -290,7 +290,7 @@ async fn test_topic_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
         panic!("Received a not-empty response!");
     }
 
-    let info = actions::get_flight_info(&mut client, topic_name)
+    let info = actions::get_flight_info(&mut client, topic_name, None)
         .await
         .unwrap();
     assert_eq!(info.endpoint.len(), 1);

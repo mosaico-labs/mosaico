@@ -55,7 +55,7 @@ async fn test_sequence_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
         .unwrap();
 
     // The manifest for a sequence without sessions should be empty.
-    let info = actions::get_flight_info(&mut client, sequence_name)
+    let info = actions::get_flight_info(&mut client, sequence_name, None)
         .await
         .unwrap();
 
@@ -76,7 +76,7 @@ async fn test_sequence_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
     assert!(session_uuid.is_valid());
 
     // Check the manifest for a sequence with a still running session and no topic yet injected.
-    let info = actions::get_flight_info(&mut client, sequence_name)
+    let info = actions::get_flight_info(&mut client, sequence_name, None)
         .await
         .unwrap();
 
@@ -119,7 +119,7 @@ async fn test_sequence_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
     }
 
     // Check the manifest for a sequence with a still running session and a topic injected.
-    let info = actions::get_flight_info(&mut client, sequence_name)
+    let info = actions::get_flight_info(&mut client, sequence_name, None)
         .await
         .unwrap();
 
@@ -145,7 +145,7 @@ async fn test_sequence_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
     let _ = actions::session_finalize(&mut client, &session_uuid).await;
 
     // Check the manifest for a sequence with a finalized session and a topic injected.
-    let info = actions::get_flight_info(&mut client, sequence_name)
+    let info = actions::get_flight_info(&mut client, sequence_name, None)
         .await
         .unwrap();
 
@@ -393,7 +393,7 @@ async fn test_sequence_delete_cascades(pool: sqlx::Pool<db::DatabaseType>) {
         .await
         .unwrap();
 
-    let res = actions::get_flight_info(&mut client, topic_name).await;
+    let res = actions::get_flight_info(&mut client, topic_name, None).await;
     assert_eq!(res.unwrap_err().code(), tonic::Code::NotFound);
 
     let res = actions::topic_delete(&mut client, topic_name).await;

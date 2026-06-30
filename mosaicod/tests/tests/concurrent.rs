@@ -41,7 +41,7 @@ async fn test_concurrent_sequence_create(pool: sqlx::Pool<db::DatabaseType>) {
     assert_eq!(already_exists_count, 1);
 
     let mut client = common::ClientBuilder::new(common::HOST, port).build().await;
-    let info = actions::get_flight_info(&mut client, sequence_name).await;
+    let info = actions::get_flight_info(&mut client, sequence_name, None).await;
     assert!(info.is_ok());
 
     server.shutdown().await;
@@ -156,7 +156,7 @@ async fn test_concurrent_do_put_same_topic(pool: sqlx::Pool<db::DatabaseType>) {
         .await
         .unwrap();
 
-    let info = actions::get_flight_info(&mut client, topic_name)
+    let info = actions::get_flight_info(&mut client, topic_name, None)
         .await
         .unwrap();
     let app_metadata: marshal::flight::TopicAppMetadata =
@@ -263,7 +263,7 @@ async fn test_concurrent_read_during_write(pool: sqlx::Pool<db::DatabaseType>) {
     let reader_task = tokio::spawn(async move {
         let mut results = Vec::new();
         for _ in 0..10 {
-            let info = actions::get_flight_info(&mut reader, &n_read).await;
+            let info = actions::get_flight_info(&mut reader, &n_read, None).await;
             results.push(info);
             tokio::time::sleep(std::time::Duration::from_millis(1)).await;
         }
