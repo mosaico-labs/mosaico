@@ -38,7 +38,7 @@ async fn setup_topics_with_metadata(
         .unwrap();
 }
 
-fn topic_locators(items: &[serde_json::Value]) -> Vec<String> {
+fn topic_locator_and_ontology(items: &[serde_json::Value]) -> Vec<(String, String)> {
     items
         .iter()
         .flat_map(|item| {
@@ -46,7 +46,12 @@ fn topic_locators(items: &[serde_json::Value]) -> Vec<String> {
                 .as_array()
                 .unwrap_or(&vec![])
                 .iter()
-                .map(|t| t["locator"].as_str().unwrap().to_owned())
+                .map(|t| {
+                    (
+                        t["locator"].as_str().unwrap().to_owned(),
+                        t["ontology_tag"].as_str().unwrap().to_owned(),
+                    )
+                })
                 .collect::<Vec<_>>()
         })
         .collect()
@@ -84,15 +89,15 @@ async fn test_query_user_metadata_in_integer(pool: sqlx::Pool<db::DatabaseType>)
     .await
     .unwrap();
 
-    let locators = topic_locators(&items);
+    let locators = topic_locator_and_ontology(&items);
     assert_eq!(
         locators.len(),
         2,
         "expected 2 matching topics, got: {locators:?}"
     );
-    assert!(locators.contains(&format!("{seq}/topic_1")));
-    assert!(locators.contains(&format!("{seq}/topic_6")));
-    assert!(!locators.contains(&format!("{seq}/topic_99")));
+    assert!(locators.contains(&(format!("{seq}/topic_1"), "mock".to_owned())));
+    assert!(locators.contains(&(format!("{seq}/topic_6"), "mock".to_owned())));
+    assert!(!locators.contains(&(format!("{seq}/topic_99"), "mock".to_owned())));
 
     server.shutdown().await;
 }
@@ -129,15 +134,15 @@ async fn test_query_user_metadata_match_string(pool: sqlx::Pool<db::DatabaseType
     .await
     .unwrap();
 
-    let locators = topic_locators(&items);
+    let locators = topic_locator_and_ontology(&items);
     assert_eq!(
         locators.len(),
         1,
         "expected 1 matching topic, got: {locators:?}"
     );
-    assert!(locators.contains(&format!("{seq}/topic_truck")));
-    assert!(!locators.contains(&format!("{seq}/topic_car")));
-    assert!(!locators.contains(&format!("{seq}/topic_supertruck")));
+    assert!(locators.contains(&(format!("{seq}/topic_truck"), "mock".to_owned())));
+    assert!(!locators.contains(&(format!("{seq}/topic_car"), "mock".to_owned())));
+    assert!(!locators.contains(&(format!("{seq}/topic_supertruck"), "mock".to_owned())));
 
     server.shutdown().await;
 }
@@ -272,13 +277,13 @@ async fn test_query_in_with_booleans_is_allowed(pool: sqlx::Pool<db::DatabaseTyp
     .await
     .unwrap();
 
-    let locators = topic_locators(&item);
+    let locators = topic_locator_and_ontology(&item);
     assert_eq!(
         locators.len(),
         1,
         "expected 1 matching topic, got: {locators:?}"
     );
-    assert!(locators.contains(&format!("{seq}/topic_truck")));
+    assert!(locators.contains(&(format!("{seq}/topic_truck"), "mock".to_owned())));
 
     server.shutdown().await;
 }
@@ -330,13 +335,13 @@ async fn test_query_in_on_list_valued_field(pool: sqlx::Pool<db::DatabaseType>) 
     .await
     .unwrap();
 
-    let locators = topic_locators(&result);
+    let locators = topic_locator_and_ontology(&result);
     assert_eq!(
         locators.len(),
         1,
         "expected 1 matching topic, got: {locators:?}"
     );
-    assert!(locators.contains(&format!("{seq}/topic_list")));
+    assert!(locators.contains(&(format!("{seq}/topic_list"), "mock".to_owned())));
 
     server.shutdown().await;
 }
@@ -376,13 +381,13 @@ async fn test_query_in_on_dict_valued_field_errors_at_runtime(pool: sqlx::Pool<d
     .await
     .unwrap();
 
-    let locators = topic_locators(&result);
+    let locators = topic_locator_and_ontology(&result);
     assert_eq!(
         locators.len(),
         1,
         "expected 1 matching topic, got: {locators:?}"
     );
-    assert!(locators.contains(&format!("{seq}/topic_dict")));
+    assert!(locators.contains(&(format!("{seq}/topic_dict"), "mock".to_owned())));
 
     server.shutdown().await;
 }
@@ -464,7 +469,7 @@ async fn test_query_match_on_list_valued_field_returns_empty(pool: sqlx::Pool<db
     .unwrap();
 
     assert!(
-        topic_locators(&items).is_empty(),
+        topic_locator_and_ontology(&items).is_empty(),
         "match on a list-valued field must return no results, not error"
     );
 
@@ -496,7 +501,7 @@ async fn test_query_match_on_dict_valued_field_returns_empty(pool: sqlx::Pool<db
     .unwrap();
 
     assert!(
-        topic_locators(&items).is_empty(),
+        topic_locator_and_ontology(&items).is_empty(),
         "match on a dict-valued field must return no results, not error"
     );
 

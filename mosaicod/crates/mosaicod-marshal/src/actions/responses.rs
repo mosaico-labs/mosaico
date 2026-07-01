@@ -80,16 +80,19 @@ pub struct Query {
 #[derive(Serialize, Debug)]
 pub struct ResponseQueryItemTopic {
     pub locator: String,
+    pub ontology_tag: String,
     /// Timestamp range will be omitted from the output if it is None.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub timestamp_range: Option<(i64, i64)>,
 }
 
-impl From<types::TopicLocator> for ResponseQueryItemTopic {
-    fn from(value: types::TopicLocator) -> Self {
+impl From<(types::TopicLocator, String)> for ResponseQueryItemTopic {
+    fn from(value: (types::TopicLocator, String)) -> Self {
         Self {
-            locator: value.to_string(),
+            locator: value.0.to_string(),
+            ontology_tag: value.1,
             timestamp_range: value
+                .0
                 .timestamp_range
                 .map(|e| (e.start.into(), e.end.into())),
         }
@@ -222,16 +225,22 @@ mod tests {
     fn response_query_item() {
         let sequence = "my_sequence".parse().unwrap();
         let topics = vec![
-            "my_sequence/topic1/subtopic"
-                .parse::<types::TopicLocator>()
-                .unwrap()
-                .with_timestamp_range(types::TimestampRange {
-                    start: 1000.into(),
-                    end: 1001.into(),
-                }),
-            "my_sequence/topic2/subtopic"
-                .parse::<types::TopicLocator>()
-                .unwrap(),
+            (
+                "my_sequence/topic1/subtopic"
+                    .parse::<types::TopicLocator>()
+                    .unwrap()
+                    .with_timestamp_range(types::TimestampRange {
+                        start: 1000.into(),
+                        end: 1001.into(),
+                    }),
+                "dummy_ontology".to_owned(),
+            ),
+            (
+                "my_sequence/topic2/subtopic"
+                    .parse::<types::TopicLocator>()
+                    .unwrap(),
+                "dummy_ontology".to_owned(),
+            ),
         ];
 
         let group = types::SequenceTopicGroup::new(sequence, topics);
@@ -241,12 +250,13 @@ mod tests {
 
         dbg!(body.to_string());
 
-        let response_raw = r#"{"sequence":"my_sequence","topics":[{"locator":"my_sequence/topic1/subtopic","timestamp_range":[1000,1001]},{"locator":"my_sequence/topic2/subtopic"}]}"#;
+        let response_raw = r#"{"sequence":"my_sequence","topics":[{"locator":"my_sequence/topic1/subtopic","ontology_tag":"dummy_ontology","timestamp_range":[1000,1001]},{"locator":"my_sequence/topic2/subtopic","ontology_tag":"dummy_ontology"}]}"#;
 
         let body_serialized = body.to_string();
 
-        if body_serialized != response_raw {
-            panic!("wrong response\nexpecting:\n{response_raw}\ngot\n{body_serialized}");
-        }
+        assert_eq!(
+            body_serialized, response_raw,
+            "wrong response\nexpecting:\n{response_raw}\ngot\n{body_serialized}"
+        );
     }
 }
