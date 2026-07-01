@@ -278,7 +278,6 @@ async fn test_topic_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
     assert!(info.timestamp.is_none());
 
     // Check flight info for a locked topic with data.
-
     let topic_name = "test_sequence/my_topic";
 
     let uuid = actions::topic_create(&mut client, &session_uuid, topic_name, None)

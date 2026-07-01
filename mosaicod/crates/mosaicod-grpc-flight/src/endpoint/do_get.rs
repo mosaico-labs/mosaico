@@ -24,6 +24,9 @@ pub async fn do_get(
 
     trace!("{:?}", doget_params.metadata);
 
+    // TODO: since we are calling timestamp_range(), count() and stream() on query_result,
+    // in some cases it could increase I/O and computes. Maybe a better approach overall is possible?
+
     let mut query_result = ctx
         .timeseries_querier
         .read(

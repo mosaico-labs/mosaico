@@ -326,7 +326,7 @@ pub async fn do_get(
     Ok(do_get_with_ticket(client, ticket).await?.1)
 }
 
-pub type DoGetMetadata = HashMap<String, String>;
+pub type DoGetMetadata = Option<HashMap<String, String>>;
 
 pub async fn do_get_with_ticket(
     client: &mut Client,
@@ -342,10 +342,7 @@ pub async fn do_get_with_ticket(
         .await
         .map_err(|e| tonic::Status::internal(format!("do_get decode error: {e}")))?;
 
-    let metadata = batches
-        .first()
-        .map(|b| b.schema().metadata().clone())
-        .unwrap();
+    let metadata = batches.first().map(|b| b.schema().metadata().clone());
 
     Ok((metadata, batches))
 }

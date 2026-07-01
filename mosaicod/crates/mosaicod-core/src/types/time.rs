@@ -133,7 +133,7 @@ impl TimestampRange {
         self.start.is_unbounded() && self.end.is_unbounded()
     }
 
-    /// Check if the timestamp range if empty (i.e. start > end)
+    /// Check if the timestamp range is empty (i.e. start > end)
     pub fn is_empty(&self) -> bool {
         self.start > self.end
     }

@@ -48,6 +48,8 @@ async fn test_do_get_basic(pool: sqlx::Pool<db::DatabaseType>) {
         .await
         .unwrap();
 
+    let metadata = metadata.unwrap();
+
     let json_metadata = metadata["mosaico:properties"]
         .parse::<serde_json::Value>()
         .unwrap();
@@ -102,7 +104,6 @@ async fn test_do_get_with_interval(pool: sqlx::Pool<db::DatabaseType>) {
         .unwrap();
 
     // Check with smaller interval.
-
     let info = actions::get_flight_info(
         &mut client,
         topic_name,
@@ -115,6 +116,8 @@ async fn test_do_get_with_interval(pool: sqlx::Pool<db::DatabaseType>) {
     let (metadata, received_batches) = actions::do_get_with_ticket(&mut client, ticket)
         .await
         .unwrap();
+
+    let metadata = metadata.unwrap();
 
     let json_metadata = metadata["mosaico:properties"]
         .parse::<serde_json::Value>()
@@ -138,7 +141,6 @@ async fn test_do_get_with_interval(pool: sqlx::Pool<db::DatabaseType>) {
     );
 
     // Check with smaller interval (end equal to one timestamp sample).
-
     let info = actions::get_flight_info(
         &mut client,
         topic_name,
@@ -151,6 +153,8 @@ async fn test_do_get_with_interval(pool: sqlx::Pool<db::DatabaseType>) {
     let (metadata, received_batches) = actions::do_get_with_ticket(&mut client, ticket)
         .await
         .unwrap();
+
+    let metadata = metadata.unwrap();
 
     let json_metadata = metadata["mosaico:properties"]
         .parse::<serde_json::Value>()
@@ -174,7 +178,6 @@ async fn test_do_get_with_interval(pool: sqlx::Pool<db::DatabaseType>) {
     );
 
     // Check with greater interval (all timestamp samples included).
-
     let info = actions::get_flight_info(
         &mut client,
         topic_name,
@@ -187,6 +190,8 @@ async fn test_do_get_with_interval(pool: sqlx::Pool<db::DatabaseType>) {
     let (metadata, received_batches) = actions::do_get_with_ticket(&mut client, ticket)
         .await
         .unwrap();
+
+    let metadata = metadata.unwrap();
 
     let json_metadata = metadata["mosaico:properties"]
         .parse::<serde_json::Value>()
@@ -208,6 +213,41 @@ async fn test_do_get_with_interval(pool: sqlx::Pool<db::DatabaseType>) {
         received_batches[0].num_columns(),
         original_batch.num_columns()
     );
+
+    // Check with interval exceeding the batches' timestamps. Do_get should return no data.
+    let info = actions::get_flight_info(
+        &mut client,
+        topic_name,
+        Some(types::TimestampRange::between(10100.into(), 10100.into())),
+    )
+    .await
+    .unwrap();
+    let ticket = info.endpoint[0].ticket.clone().unwrap();
+
+    let (metadata, received_batches) = actions::do_get_with_ticket(&mut client, ticket)
+        .await
+        .unwrap();
+
+    assert!(metadata.is_none());
+    assert!(received_batches.is_empty());
+
+    // Same here, but with an input interval where the end corresponds to the first timestamp in the data.
+    // (being the end excluded it should still return no data)
+    let info = actions::get_flight_info(
+        &mut client,
+        topic_name,
+        Some(types::TimestampRange::between(9999.into(), 10000.into())),
+    )
+    .await
+    .unwrap();
+    let ticket = info.endpoint[0].ticket.clone().unwrap();
+
+    let (metadata, received_batches) = actions::do_get_with_ticket(&mut client, ticket)
+        .await
+        .unwrap();
+
+    assert!(metadata.is_none());
+    assert!(received_batches.is_empty());
 
     server.shutdown().await;
 }
