@@ -10,4 +10,6 @@ from .response import (
     QueryResponseItemSequence as QueryResponseItemSequence,
     QueryResponseItemTopic as QueryResponseItemTopic,
     TimestampRange as TimestampRange,
+    _build_clusterize_payload as _build_clusterize_payload,
+    _build_intersect_payload as _build_intersect_payload,
 )

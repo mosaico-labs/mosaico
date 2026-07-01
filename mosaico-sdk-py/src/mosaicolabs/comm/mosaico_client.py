@@ -12,20 +12,23 @@ from typing import Any, Dict, List, Optional, Type, Union
 
 import pyarrow.flight as fl
 
-from mosaicolabs.comm.notifications import Notification
-from mosaicolabs.models.query import Query, QueryResponse
-from mosaicolabs.models.query.protocols import QueryableProtocol
-
 from ..enum import (
     APIKeyPermissionEnum,
     FlightAction,
     GRPCCompressionAlgorithm,
     SessionLevelErrorPolicy,
 )
-from ..handlers import SequenceHandler, SequenceWriter, TopicHandler
 from ..handlers.config import SessionWriterConfig
+from ..handlers.sequence_handler import SequenceHandler
+from ..handlers.sequence_writer import SequenceWriter
+from ..handlers.topic_handler import TopicHandler
 from ..helpers import pack_topic_resource_name
 from ..logging_config import get_logger
+from ..models.query import (
+    Query,
+    QueryResponse,
+)
+from ..models.query.protocols import QueryableProtocol
 from ..platform.api_key import APIKeyStatus
 from .connection import (
     DEFAULT_MAX_BATCH_BYTES,
@@ -42,6 +45,7 @@ from .do_action import (
     _DoActionResponseAPIKeyStatus,
 )
 from .middlewares import MosaicoAuthMiddlewareFactory
+from .notifications import Notification
 
 # Set the hierarchical logger
 logger = get_logger(__name__)
@@ -963,6 +967,10 @@ class MosaicoClient:
             if act_resp is None:
                 logger.error(f"Action '{ACTION}' returned no response.")
                 return None
+
+            # inject flight client and user queries
+            act_resp.query_response._set_client(self._control_client)
+            act_resp.query_response._set_queries(self._queries)
 
             return act_resp.query_response
 

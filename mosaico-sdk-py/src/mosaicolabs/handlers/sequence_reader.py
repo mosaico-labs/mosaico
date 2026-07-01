@@ -10,9 +10,8 @@ from typing import Any, Dict, List, Optional
 
 import pyarrow.flight as fl
 
-from mosaicolabs.models.core import Message
-
 from ..logging_config import get_logger
+from ..models.core import Message
 from ..platform.resource_manifests import (
     TopicManifestError,
     TopicResourceManifest,

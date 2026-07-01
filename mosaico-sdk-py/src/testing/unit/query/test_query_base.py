@@ -151,15 +151,15 @@ def test_construction_query_from_response():
             QueryResponseItem(
                 sequence=QueryResponseItemSequence(name="seq0"),
                 topics=[
-                    QueryResponseItemTopic(name="seq0/top00", timestamp_range=None),
-                    QueryResponseItemTopic(name="seq0/top01", timestamp_range=None),
+                    QueryResponseItemTopic(locator="seq0/top00", timestamp_range=None),
+                    QueryResponseItemTopic(locator="seq0/top01", timestamp_range=None),
                 ],  # constructor expects topic resource name
             ),
             QueryResponseItem(
                 sequence=QueryResponseItemSequence(name="seq1"),
                 topics=[
-                    QueryResponseItemTopic(name="seq0/top10", timestamp_range=None),
-                    QueryResponseItemTopic(name="seq0/top11", timestamp_range=None),
+                    QueryResponseItemTopic(locator="seq0/top10", timestamp_range=None),
+                    QueryResponseItemTopic(locator="seq0/top11", timestamp_range=None),
                 ],  # constructor expects topic resource name
             ),
         ]
@@ -173,7 +173,7 @@ def test_construction_query_from_response():
 
     expected_expr_top_values = [
         # QueryResponseItem.__post_init__ normalizes topic name
-        t.name
+        t._name
         for it in qresp
         for t in it.topics
     ]

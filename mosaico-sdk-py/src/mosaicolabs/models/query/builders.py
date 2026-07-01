@@ -201,7 +201,7 @@ class QueryOntologyCatalog:
             ValueError: If an operator does not start with the required '$' prefix.
             NotImplementedError: If a duplicate key (field path) is detected within the same query.
         """
-        self._expressions = []
+        self._expressions: list[_QueryExpression] = []
         self._include_tstamp_range = include_timestamp_range
         # Call the helper for each expression
         for expr in expressions:
@@ -302,6 +302,12 @@ class QueryOntologyCatalog:
             query_dict.update({"include_timestamp_range": self._include_tstamp_range})
         return query_dict
 
+    def expressions(self) -> List[_QueryExpression]:
+        """
+        Return the list of query expressions.
+        """
+        return self._expressions
+
 
 class QueryTopic:
     """
@@ -341,7 +347,7 @@ class QueryTopic:
         """
         The constructor initializes an empty query builder
         """
-        self._expressions = []
+        self._expressions: list[_QueryExpression] = []
 
     @classmethod
     def _from_expressions(cls, *exprs: _QueryExpression) -> "QueryTopic":
@@ -685,6 +691,12 @@ class QueryTopic:
 
         return exprs_dict
 
+    def expressions(self) -> List[_QueryExpression]:
+        """
+        Return the list of query expressions.
+        """
+        return self._expressions
+
 
 class QuerySequence:
     """
@@ -721,7 +733,7 @@ class QuerySequence:
         """
         The constructor initializes an empty query builder
         """
-        self._expressions = []
+        self._expressions: List[_QueryExpression] = []
 
     @classmethod
     def _from_expressions(cls, *exprs: _QueryExpression) -> "QuerySequence":
@@ -1024,6 +1036,12 @@ class QuerySequence:
                 exprs_dict[meta_name] = meta_dict
 
         return exprs_dict
+
+    def expressions(self) -> List[_QueryExpression]:
+        """
+        Return the list of query expressions.
+        """
+        return self._expressions
 
 
 class Query:

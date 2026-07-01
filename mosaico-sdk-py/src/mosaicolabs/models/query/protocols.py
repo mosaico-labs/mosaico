@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional, Protocol, Tuple, Type
+from typing import Any, Dict, List, Optional, Protocol, Tuple, Type
 
 from .expressions import _QueryExpression
 
@@ -52,6 +52,12 @@ class QueryableProtocol(Protocol):
     def to_dict(self) -> Dict[str, Any]:
         """
         Serializes the internal expressions into a platform-compatible dictionary.
+        """
+        ...
+
+    def expressions(self) -> List[_QueryExpression]:
+        """
+        Return the list of query expressions.
         """
         ...
 
