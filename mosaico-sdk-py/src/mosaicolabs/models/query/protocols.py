@@ -66,7 +66,6 @@ class FieldMapperProtocol(Protocol):
     def build_map(
         self,
         class_type: Type,
-        query_expression_type: Type[_QueryExpression],
         path_prefix: Optional[str] = None,
     ) -> Tuple[str, Dict[str, Any]]:
         """

@@ -13,7 +13,7 @@ from mosaicolabs.models.query.generation.mixins import (
     _QueryableUnsupported,
 )
 
-from ..expressions import _QueryCatalogExpression, _QueryExpression
+from ..expressions import _QueryCatalogExpression
 from ..protocols import FieldMapperProtocol
 from .internal import _QueryableList
 
@@ -333,7 +333,6 @@ class _QueryProxyMixin:
     def _inject_query_proxy(
         class_type: Type,
         mapper: FieldMapperProtocol,
-        query_expression_type: Type[_QueryExpression],
         query_prefix: Optional[str] = None,
     ):
         """
@@ -343,7 +342,6 @@ class _QueryProxyMixin:
         # Build the nested field map using the provided mapper
         query_prefix, field_map = mapper.build_map(
             class_type,
-            query_expression_type=query_expression_type,
             path_prefix=query_prefix,
         )
 
@@ -364,7 +362,6 @@ T = TypeVar("T")
 
 def queryable(
     mapper_type: Type[FieldMapperProtocol],
-    query_expression_type: Type[_QueryExpression],
     prefix: Optional[str] = None,
     **kwargs,
 ):
@@ -381,9 +378,7 @@ def queryable(
     def decorator(cls: Type[T]) -> Type[T]:
         # Determine the query prefix
         # Call the injection helper
-        _QueryProxyMixin._inject_query_proxy(
-            cls, mapper_type(**kwargs), query_expression_type, prefix
-        )
+        _QueryProxyMixin._inject_query_proxy(cls, mapper_type(**kwargs), prefix)
         return cls
 
     return decorator
