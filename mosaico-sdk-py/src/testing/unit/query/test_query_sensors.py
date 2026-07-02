@@ -854,11 +854,28 @@ class TestQueryRobotJoint:
 class TestQueryRobotPath:
     def test_list(self):
         assert isinstance(RobotPath.Q.poses[0].position.x, _QueryableNumeric)
-        assert isinstance(RobotPath.Q.poses.any().position.x, _QueryableNumeric)
-        assert isinstance(RobotPath.Q.poses.all().position.x, _QueryableNumeric)
+        assert isinstance(RobotPath.Q.poses[0].position.y, _QueryableNumeric)
+        assert isinstance(RobotPath.Q.poses[0].position.z, _QueryableNumeric)
         assert isinstance(RobotPath.Q.poses[0].orientation.x, _QueryableNumeric)
+        assert isinstance(RobotPath.Q.poses[0].orientation.y, _QueryableNumeric)
+        assert isinstance(RobotPath.Q.poses[0].orientation.z, _QueryableNumeric)
+        assert isinstance(RobotPath.Q.poses[0].orientation.w, _QueryableNumeric)
+
+        assert isinstance(RobotPath.Q.poses.any().position.x, _QueryableNumeric)
+        assert isinstance(RobotPath.Q.poses.any().position.y, _QueryableNumeric)
+        assert isinstance(RobotPath.Q.poses.any().position.z, _QueryableNumeric)
         assert isinstance(RobotPath.Q.poses.any().orientation.x, _QueryableNumeric)
+        assert isinstance(RobotPath.Q.poses.any().orientation.y, _QueryableNumeric)
+        assert isinstance(RobotPath.Q.poses.any().orientation.z, _QueryableNumeric)
+        assert isinstance(RobotPath.Q.poses.any().orientation.w, _QueryableNumeric)
+
+        assert isinstance(RobotPath.Q.poses.all().position.x, _QueryableNumeric)
+        assert isinstance(RobotPath.Q.poses.all().position.y, _QueryableNumeric)
+        assert isinstance(RobotPath.Q.poses.all().position.z, _QueryableNumeric)
         assert isinstance(RobotPath.Q.poses.all().orientation.x, _QueryableNumeric)
+        assert isinstance(RobotPath.Q.poses.all().orientation.y, _QueryableNumeric)
+        assert isinstance(RobotPath.Q.poses.all().orientation.z, _QueryableNumeric)
+        assert isinstance(RobotPath.Q.poses.all().orientation.w, _QueryableNumeric)
 
         with pytest.raises(AttributeError, match="Field 'robot_path.poses' is a list."):
             RobotPath.Q.poses.field
@@ -915,17 +932,58 @@ class TestFrameTransform:
             FrameTransform.Q.transforms[0].translation.x, _QueryableNumeric
         )
         assert isinstance(
+            FrameTransform.Q.transforms[0].translation.y, _QueryableNumeric
+        )
+        assert isinstance(
+            FrameTransform.Q.transforms[0].translation.z, _QueryableNumeric
+        )
+        assert isinstance(FrameTransform.Q.transforms[0].rotation.x, _QueryableNumeric)
+        assert isinstance(FrameTransform.Q.transforms[0].rotation.y, _QueryableNumeric)
+        assert isinstance(FrameTransform.Q.transforms[0].rotation.z, _QueryableNumeric)
+        assert isinstance(FrameTransform.Q.transforms[0].rotation.w, _QueryableNumeric)
+
+        assert isinstance(
             FrameTransform.Q.transforms.any().translation.x, _QueryableNumeric
         )
         assert isinstance(
-            FrameTransform.Q.transforms.all().translation.x, _QueryableNumeric
+            FrameTransform.Q.transforms.any().translation.y, _QueryableNumeric
         )
-        assert isinstance(FrameTransform.Q.transforms[0].rotation.x, _QueryableNumeric)
+        assert isinstance(
+            FrameTransform.Q.transforms.any().translation.z, _QueryableNumeric
+        )
         assert isinstance(
             FrameTransform.Q.transforms.any().rotation.x, _QueryableNumeric
         )
         assert isinstance(
+            FrameTransform.Q.transforms.any().rotation.y, _QueryableNumeric
+        )
+        assert isinstance(
+            FrameTransform.Q.transforms.any().rotation.z, _QueryableNumeric
+        )
+        assert isinstance(
+            FrameTransform.Q.transforms.any().rotation.w, _QueryableNumeric
+        )
+
+        assert isinstance(
+            FrameTransform.Q.transforms.all().translation.x, _QueryableNumeric
+        )
+        assert isinstance(
+            FrameTransform.Q.transforms.all().translation.y, _QueryableNumeric
+        )
+        assert isinstance(
+            FrameTransform.Q.transforms.all().translation.z, _QueryableNumeric
+        )
+        assert isinstance(
             FrameTransform.Q.transforms.all().rotation.x, _QueryableNumeric
+        )
+        assert isinstance(
+            FrameTransform.Q.transforms.all().rotation.y, _QueryableNumeric
+        )
+        assert isinstance(
+            FrameTransform.Q.transforms.all().rotation.z, _QueryableNumeric
+        )
+        assert isinstance(
+            FrameTransform.Q.transforms.all().rotation.w, _QueryableNumeric
         )
 
         with pytest.raises(

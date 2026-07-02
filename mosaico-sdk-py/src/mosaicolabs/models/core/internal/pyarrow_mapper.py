@@ -1,9 +1,8 @@
-from typing import Any, Dict, Optional, Tuple, Type
+from typing import Any, Dict, Optional, Tuple
 
 import pyarrow as pa
 
 # --- Import the query builder components ---
-from mosaicolabs.models.query.expressions import _QueryExpression
 from mosaicolabs.models.query.generation.internal import (
     _QueryableList,
 )
@@ -12,23 +11,54 @@ from mosaicolabs.models.query.generation.internal import (
 class PyarrowFieldMapper:
     """
     A custom FieldMapper that builds the map by inspecting
-    PyArrow `__msco_pyarrow_struct__` attributes.
+    PyArrow `__msco_pyarrow_struct__` attributes. The map is the
+    unrolled version of the ontology PyArrow schema mapping
+    the ontology field names to their respective `pyarrow.DataType()`
     """
 
     def build_map(
         self,
         class_type: type,
-        query_expression_type: Type[_QueryExpression],
         path_prefix: Optional[str] = None,
     ) -> Tuple[str, Dict[str, Any]]:
         """
-        Builds the queryable field map for a given Ontology Model, via pyarrow
+        Builds the pyarrow.Datatype map for a given Ontology Model, via pyarrow
         struct inspection.
 
-        This method identifies the root path (if not provided) and then
-        iterates over all model fields, recursively building a map for
-        nested Pydantic models and creating queryable field objects
-        for simple types.
+        This method iterates over all model fields, recursively building a map for
+        nested Pydantic models and associating the field name with its `pyarrow.DataType()`.
+
+        As an example, passing the
+          `Pose` ontology it would result in:
+
+          {
+           'timestamp_ns': DataType(int64),
+           'header':
+                {
+                 'timestamp': {...},
+                 'frame_id': DataType(string),
+                 'sample_counter': DataType(uint64)
+                },
+            'position':
+                {
+                 'header': {...},
+                 'covariance': ListType(list<item: double>),
+                 'covariance_type': DataType(int16),
+                 'x': DataType(double),
+                 'y': DataType(double),
+                 'z': DataType(double)
+                },
+            'orientation':
+            {
+                'header': {...},
+                'covariance': ListType(list<item: double>),
+                'covariance_type': DataType(int16),
+                'x': DataType(double),
+                'y': DataType(double),
+                'z': DataType(double),
+                'w': DataType(double)
+            }
+          }
         """
         from ..message import Message
 
@@ -37,7 +67,7 @@ class PyarrowFieldMapper:
             # Convert the PyArrow struct to a standard list of pa.Field objects
             cls_pa_fields = list(class_type.__msco_pyarrow_struct__)
         combined_struct = pa.struct(
-            # Add always Message fields to queryable fields of Data Catalog types
+            # Add always Message fields to add then in the resulting pyarrow.Datatype map
             list(Message.__msco_pyarrow_struct__) + cls_pa_fields
         )
         # Make sure we have a valid path prefix
@@ -48,6 +78,16 @@ class PyarrowFieldMapper:
         )
 
     def _build_map_recursive(self, struct_type: pa.StructType) -> Dict[str, Any]:
+        """
+        Recursivelly unrolls the passed Pyarrow Struct resulting creating the nested map
+        where the keys are the name of the considered pyarrow field
+        and the values may are:
+
+          - a `dict` if it is a pa.StructType
+          - a `dict` masked as a `_QueryableList` if it is a pa.ListType
+          - a `pyarrow.DataType()` otherwise.
+
+        """
         field_map = {}
 
         for field in struct_type:

@@ -132,7 +132,8 @@ class _QueryProxy:
         self, list_expression: str
     ) -> Union["_QueryProxy", _QueryableField]:
         """
-        Appends a list access expression to the current path and returns the next proxy or field.
+        Appends a list access expression to the current path and returns the next QueryProxy in case
+        of _QueryableList or field in case of pa.ListType.
 
         Supported expressions are:
         - ``"?"`` — any-element quantifier (matches if *any* element satisfies the condition).
@@ -143,8 +144,8 @@ class _QueryProxy:
             list_expression (str): The access expression to append.
 
         Returns:
-            A new ``_QueryProxy`` when the list contains a
-            a struct (nested map), or ``_QueryableField`` when it contains a scalar type.
+            - ``_QueryProxy`` when the list contains a _QueryableList (contains nested map)
+            - ``_QueryableField`` when it contains a pa.ListType (contains basic datatype)
 
         Raises:
             ValueError: If ``list_expression`` is not a supported operator and not a digit.
@@ -164,8 +165,12 @@ class _QueryProxy:
                 f"Field '{self.__path__}' is not a list. Cannot be indexed."
             )
 
+        # Append list operation among allowed ("?", "!", [i]) to overall path
         path_w_list_expr = f"{self.__path__}[{list_expression}]"
 
+        # Here two cases can happen:
+        #   1) List contains a complex struct -> return a QueryProxy downcasting the _QueryableList to dict and allow dot notiation to work
+        #   2) List contains a basic type -> create queryable field
         if isinstance(self.__map__, _QueryableList):
             return _QueryProxy(
                 full_path=path_w_list_expr,
@@ -304,9 +309,9 @@ class _QueryProxy:
     def queryable_fields(self):
         result = []
         for key, val in self.__map__.items():
-            if isinstance(val, dict):  # nested struct or _QueryableList
-                result.append(key)
-            if isinstance(val, pa.ListType):
+            if isinstance(
+                val, (dict, pa.ListType)
+            ):  # nested struct, _QueryableList or pa.ListType
                 result.append(key)
             elif isinstance(val, pa.DataType):  # (pa.DataType, expr_cls)
                 field_type = val
