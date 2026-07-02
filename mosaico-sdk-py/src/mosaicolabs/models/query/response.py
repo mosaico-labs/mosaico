@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterator, List, Optional
+from typing import Any, Iterator, List, Optional
 
 from pyarrow.flight import FlightClient
 
@@ -19,7 +19,7 @@ from .expressions import (
     _QueryTopicExpression,
 )
 from .protocols import QueryableProtocol
-from .topic_cluster import TopicCluster
+from .topic_cluster import TimestampRange, TopicCluster
 
 # Set the hierarchical logger
 logger = get_logger(__name__)
@@ -29,21 +29,28 @@ def _build_clusterize_payload(
     item_topic: "QueryResponseItemTopic",
     clustering_dt_ns: Optional[int] = None,
     timestamp_range: Optional["TimestampRange"] = None,
+    include_timestamp_range: bool = True,
 ) -> dict[str, Any]:
 
-    # Merging list[expressions] within a single dict
-    merged_exprs = {}
-    for expr in item_topic._query_exprs:
-        merged_exprs.update(expr.to_dict())
+    # Merging expressions within a single dict
+    merged_exprs = {
+        k: v for expr in item_topic._query_exprs for k, v in expr.to_dict().items()
+    }
 
-    return {
+    payload = {
         "locator": item_topic.locator,
         "clustering_dt_ns": clustering_dt_ns
         if clustering_dt_ns
         else item_topic.DEFAULT_CLUSTERING_DT,
         "ontology": merged_exprs,
-        "timestamp_range": timestamp_range,
     }
+
+    if include_timestamp_range:
+        payload["timestamp_range"] = (
+            timestamp_range.to_dict() if timestamp_range else None
+        )
+
+    return payload
 
 
 def _build_intersect_payload(
@@ -60,32 +67,12 @@ def _build_intersect_payload(
                 clustering_map.get(t.ontology_tag, override_clustering_dt_ns)
                 if clustering_map
                 else override_clustering_dt_ns,
+                include_timestamp_range=False,
             )
             for t in item_topics
         ],
         "intersect_dt_ns": intersect_dt_ns,
     }
-
-
-@dataclass
-class TimestampRange:
-    """
-    Represents a temporal window defined by a start and end timestamp.
-
-    This utility class is used to define the bounds of sensor data or sequences
-    within the Mosaico archive.
-
-    Attributes:
-        start (int): The beginning of the range (inclusive), typically in nanoseconds.
-        end (int): The end of the range (inclusive), typically in nanoseconds.
-    """
-
-    start: int
-    end: int
-
-    @classmethod
-    def _from_dict(cls, data: Dict[str, Any]) -> "TimestampRange":
-        return cls(start=data["start_ns"], end=data["end_ns"])
 
 
 @dataclass
@@ -120,7 +107,7 @@ class QueryResponseItemTopic:
     """
 
     locator: str
-    ontology_tag: Optional[str] = field(default=None, init=False)
+    ontology_tag: str
     timestamp_range: Optional[TimestampRange]
 
     DEFAULT_CLUSTERING_DT: int = 0
@@ -283,32 +270,44 @@ class QueryResponseItem:
     )
 
     def clusterize_all(
-        self, clustering_map: Optional[dict[str, int]] = None
+        self,
+        clustering_map: Optional[dict[str, int]] = None,
+        override_clustering_dt_ns: Optional[int] = None,
     ) -> dict[str, list[TopicCluster]]:
         """
-        Calls clusterize on every topic in this response item and returns the results indexed by topic name.
+        Calls clusterize on every topic in this response item and returns
+        the results indexed by topic name.
 
-        Iterates over all topics in this sequence and invokes :meth:`QueryResponseItemTopic.clusterize`
-        on each, using each topic's own ``clustering_dt_ns`` gap setting.
+        Iterates over all topics in this sequence and invokes
+        :meth:`QueryResponseItemTopic.clusterize` on each, using each
+        topic's own ``clustering_dt_ns`` gap setting.
 
         Args:
-            clustering_map (dict[str, int]): An optional map indicating for each ontology tag within the query
-              the minimal gap (in nanoseconds) there needs to be between two clusters to be considered different
+            clustering_map (dict[str, int]): An optional map indicating
+              for each ontology tag within the query the minimal gap
+              (in nanoseconds) there needs to be between two clusters to
+              be considered different
+            override_clustering_dt_ns (Optional[int]): Override for the
+                default clustering gap (0) applied when ``clustering_map``
+                is None or does not contain the topic's ontology tag.
 
         Returns:
-            A ``dict`` mapping each topic name (str) to its list of :class:`TopicCluster` objects,
-            where each cluster represents a contiguous time window in which the query expression
+            A ``dict`` mapping each topic name (str) to its list of
+            :class:`TopicCluster` objects, where each cluster represents
+            a contiguous time window in which the query expression
             evaluated to true.
 
         Raises:
-            Exception: Propagated from :meth:`QueryResponseItemTopic.clusterize` if any topic's
-                action call fails.
+            Exception: Propagated from :meth:`QueryResponseItemTopic.clusterize`
+                if any topic's action call fails.
         """
 
         output = {}
         for topic in self.topics:
             clustering_dt_ns = (
-                clustering_map.get(topic.ontology_tag) if clustering_map else None
+                clustering_map.get(topic.ontology_tag)
+                if clustering_map
+                else override_clustering_dt_ns
             )
             output.update({topic._name: topic.clusterize(clustering_dt_ns)})
 
