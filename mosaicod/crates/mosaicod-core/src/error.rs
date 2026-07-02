@@ -141,6 +141,8 @@ pub enum ErrorKind {
     Internal(String),
     #[error("Invalid fingerprint `{0}`")]
     InvalidFingerprint(String),
+    #[error("Unsupported ontology type `{0}`")]
+    UnsupportedOntologyType(String),
 }
 
 #[derive(Debug, Clone)]
@@ -278,6 +280,10 @@ impl Error {
 
     pub fn invalid_fingerprint(fingerprint: String) -> Self {
         Self(ErrorKind::InvalidFingerprint(fingerprint))
+    }
+
+    pub fn unsupported_ontology_type(ontology_type: String) -> Self {
+        Self(ErrorKind::UnsupportedOntologyType(ontology_type))
     }
 }
 

@@ -613,6 +613,27 @@ fn ontology_value_lt_3() -> Ontology {
     .unwrap()
 }
 
+fn clustering_test_batch_xy(ts: &[i64], xs: &[i64], ys: &[i64]) -> arrow::array::RecordBatch {
+    use arrow::array::Int64Array;
+    use arrow::datatypes::{DataType, Field, Schema};
+    use std::sync::Arc;
+
+    let schema = Arc::new(Schema::new(vec![
+        Field::new("timestamp_ns", DataType::Int64, false),
+        Field::new("x", DataType::Int64, false),
+        Field::new("y", DataType::Int64, false),
+    ]));
+    arrow::array::RecordBatch::try_new(
+        schema,
+        vec![
+            Arc::new(Int64Array::from(ts.to_vec())),
+            Arc::new(Int64Array::from(xs.to_vec())),
+            Arc::new(Int64Array::from(ys.to_vec())),
+        ],
+    )
+    .unwrap()
+}
+
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_topic_filter_clusterize_three_clusters(pool: sqlx::Pool<db::DatabaseType>) {
     let server = common::ServerBuilder::new(common::HOST, pool).build().await;
@@ -935,30 +956,97 @@ async fn test_topic_filter_clusterize_more_ontology(pool: sqlx::Pool<db::Databas
         .build()
         .await;
 
-    let sequence_name = "test_sequence";
-    let topic_name = &format!("{}/test_topic", sequence_name);
-    let clustering_dt_ns: u64 = 10;
+    let sequence_name = "seq_multi_field";
+    let topic_name = &format!("{sequence_name}/topic");
+
+    //                  idx: 0    1    2    3    4    5
+    let ts: Vec<i64> = vec![100, 110, 120, 200, 210, 300];
+    let x: Vec<i64> = vec![10, 10, 10, 10, 1, 10]; // x > 5 fails at idx 4
+    let y: Vec<i64> = vec![1, 1, 1, 1, 1, 10]; // y < 3 fails at idx 5
+    let batch = clustering_test_batch_xy(&ts, &x, &y);
+
+    setup_topic_with_batches(&mut client, sequence_name, topic_name, vec![batch]).await;
+
+    // x > 5 AND y < 3 keeps ts [100, 110, 120, 200]; with dt 50 that is two
+    // clusters: (100, 120) and (200, 200). idx 4 and 5 are excluded by the AND.
     let ontology: Ontology = serde_json::from_value(json!({
-        "imu.acceleration.x": { "$gt": 5 }, "imu.acceleration.y": { "$gt": 1 }
+        "mock.x": { "$gt": 5 }, "mock.y": { "$lt": 3 }
     }))
     .unwrap();
 
-    let timestamp: FilterTimestampRange = serde_json::from_value(json!({
-        "start_ns": 10000, "end_ns": 3000000
+    let clusters = actions::topic_filter_clusterize(&mut client, topic_name, 50, ontology, None)
+        .await
+        .unwrap();
+
+    assert_eq!(clusters.len(), 2, "expected 2 clusters, got: {clusters:?}");
+
+    let expected = [(100u64, 120u64), (200, 200)];
+    for (i, (exp_start, exp_end)) in expected.iter().enumerate() {
+        let start = clusters[i]["ts"]["start_ns"].as_u64().unwrap();
+        let end = clusters[i]["ts"]["end_ns"].as_u64().unwrap();
+        assert_eq!(start, *exp_start, "cluster {i} start");
+        assert_eq!(end, *exp_end, "cluster {i} end");
+    }
+
+    server.shutdown().await;
+}
+
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_topic_filter_clusterize_wrong_ontology_tag(pool: sqlx::Pool<db::DatabaseType>) {
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
+        .build()
+        .await;
+
+    let sequence_name = "seq_wrong_tag";
+    let topic_name = &format!("{sequence_name}/topic");
+
+    let ts: Vec<i64> = vec![100, 110, 120];
+    let val: Vec<i64> = vec![10; 3];
+    let batch = clustering_test_batch(&ts, &val);
+    setup_topic_with_batches(&mut client, sequence_name, topic_name, vec![batch]).await;
+
+    // Topic uses ontology_tag "mock"; "imu" does not match it.
+    let ontology: Ontology = serde_json::from_value(json!({
+        "imu.acceleration.x": { "$gt": 5 }
     }))
     .unwrap();
 
-    let res = actions::topic_filter_clusterize(
-        &mut client,
-        topic_name,
-        clustering_dt_ns,
-        ontology,
-        Some(timestamp),
-    )
-    .await;
+    let res = actions::topic_filter_clusterize(&mut client, topic_name, 50, ontology, None).await;
 
     assert!(res.is_err());
     assert_eq!(res.unwrap_err().code(), tonic::Code::InvalidArgument);
+
+    server.shutdown().await;
+}
+
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_topic_filter_clusterize_multiple_ontology_tags(pool: sqlx::Pool<db::DatabaseType>) {
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
+        .build()
+        .await;
+
+    let sequence_name = "seq_mixed_tags";
+    let topic_name = &format!("{sequence_name}/topic");
+
+    let ts: Vec<i64> = vec![100, 110, 120];
+    let val: Vec<i64> = vec![10; 3];
+    let batch = clustering_test_batch(&ts, &val);
+    setup_topic_with_batches(&mut client, sequence_name, topic_name, vec![batch]).await;
+
+    // Topic uses ontology_tag "mock"; mixing "mock" with "imu" spans two ontologies.
+    let ontology: Ontology = serde_json::from_value(json!({
+        "mock.value": { "$gt": 5 }, "imu.acceleration.y": { "$lt": 3 }
+    }))
+    .unwrap();
+
+    let res = actions::topic_filter_clusterize(&mut client, topic_name, 50, ontology, None).await;
+
+    assert!(res.is_err());
+    assert_eq!(res.unwrap_err().code(), tonic::Code::InvalidArgument);
+
+    server.shutdown().await;
 }
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
@@ -1069,6 +1157,135 @@ async fn test_topic_filter_intersect_multiple(pool: sqlx::Pool<db::DatabaseType>
 
     assert_eq!(items[1]["ts"]["start_ns"].as_u64().unwrap(), 500);
     assert_eq!(items[1]["ts"]["end_ns"].as_u64().unwrap(), 505);
+
+    server.shutdown().await;
+}
+
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_topic_filter_intersect_multiple_ontology_fields(pool: sqlx::Pool<db::DatabaseType>) {
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
+        .build()
+        .await;
+
+    let seq = "seq_intersect_multi_field";
+
+    // Topic 1: x > 5 AND y < 3 keeps ts [100, 110] (900 dropped by y), cluster (100, 110).
+    let t1 = &format!("{seq}/topic_1");
+    setup_topic_with_batches(
+        &mut client,
+        seq,
+        t1,
+        vec![clustering_test_batch_xy(
+            &[100, 110, 900],
+            &[10, 10, 10],
+            &[1, 1, 10],
+        )],
+    )
+    .await;
+
+    // Topic 2: x > 5 AND y < 3 keeps ts [105, 115] (800 dropped by x), cluster (105, 115).
+    let t2 = &format!("{seq}/topic_2");
+    setup_topic_with_batches_in_existing_seq(
+        &mut client,
+        seq,
+        t2,
+        vec![clustering_test_batch_xy(
+            &[105, 115, 800],
+            &[10, 10, 1],
+            &[1, 1, 1],
+        )],
+    )
+    .await;
+
+    let multi_field: Ontology = serde_json::from_value(json!({
+        "mock.x": { "$gt": 5 }, "mock.y": { "$lt": 3 }
+    }))
+    .unwrap();
+    let multi_field_2: Ontology = serde_json::from_value(json!({
+        "mock.x": { "$gt": 5 }, "mock.y": { "$lt": 3 }
+    }))
+    .unwrap();
+
+    let topics = vec![
+        mosaicod_marshal::requests::TopicClusterizeParams {
+            locator: t1.to_owned(),
+            clustering_dt_ns: 50,
+            ontology: multi_field,
+            timestamp_range: None,
+        },
+        mosaicod_marshal::requests::TopicClusterizeParams {
+            locator: t2.to_owned(),
+            clustering_dt_ns: 50,
+            ontology: multi_field_2,
+            timestamp_range: None,
+        },
+    ];
+
+    // Clusters (100,110) and (105,115) overlap -> intersection (105, 110).
+    let items = actions::topic_filter_intersect(&mut client, topics, 0)
+        .await
+        .unwrap();
+
+    assert_eq!(items.len(), 1, "got: {items:?}");
+    assert_eq!(items[0]["ts"]["start_ns"].as_u64().unwrap(), 105);
+    assert_eq!(items[0]["ts"]["end_ns"].as_u64().unwrap(), 110);
+
+    server.shutdown().await;
+}
+
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_topic_filter_intersect_multiple_ontology_tags(pool: sqlx::Pool<db::DatabaseType>) {
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
+        .build()
+        .await;
+
+    let seq = "seq_intersect_mixed_tags";
+
+    let t1 = &format!("{seq}/topic_1");
+    setup_topic_with_batches(
+        &mut client,
+        seq,
+        t1,
+        vec![clustering_test_batch(&[100, 110], &[6, 7])],
+    )
+    .await;
+
+    let t2 = &format!("{seq}/topic_2");
+    setup_topic_with_batches_in_existing_seq(
+        &mut client,
+        seq,
+        t2,
+        vec![clustering_test_batch(&[105, 115], &[1, 2])],
+    )
+    .await;
+
+    // Topic 1 mixes "mock" with "imu": two ontologies in one filter -> rejected.
+    let mixed_tags: Ontology = serde_json::from_value(json!({
+        "mock.value": { "$gt": 5 }, "imu.acceleration.y": { "$lt": 3 }
+    }))
+    .unwrap();
+
+    let topics = vec![
+        mosaicod_marshal::requests::TopicClusterizeParams {
+            locator: t1.to_owned(),
+            clustering_dt_ns: 50,
+            ontology: mixed_tags,
+            timestamp_range: None,
+        },
+        mosaicod_marshal::requests::TopicClusterizeParams {
+            locator: t2.to_owned(),
+            clustering_dt_ns: 50,
+            ontology: ontology_value_lt_3(),
+            timestamp_range: None,
+        },
+    ];
+
+    let res = actions::topic_filter_intersect(&mut client, topics, 0).await;
+
+    assert!(res.is_err());
+    assert_eq!(res.unwrap_err().code(), tonic::Code::InvalidArgument);
 
     server.shutdown().await;
 }

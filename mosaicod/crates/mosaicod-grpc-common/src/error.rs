@@ -55,6 +55,7 @@ where
             ErrorKind::UnsupportedOperation => Code::InvalidArgument,
             ErrorKind::UnsupportedDescriptor => Code::InvalidArgument,
             ErrorKind::UnsupportedSchema(_) => Code::InvalidArgument,
+            ErrorKind::UnsupportedOntologyType(_) => Code::InvalidArgument,
             ErrorKind::InvalidConfiguration(_) => Code::Unknown,
             ErrorKind::UnsupportedTime(_) => Code::InvalidArgument,
             ErrorKind::InvalidFingerprint(_) => Code::InvalidArgument,
