@@ -6,11 +6,13 @@ by merging multiple topic streams into a single, time-ordered iterator.
 """
 
 import json
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Type
 
 import pyarrow.flight as fl
 
 from mosaicolabs.models.core import Message
+from mosaicolabs.models.core.helpers import get_or_make_ontology_class
+from mosaicolabs.models.core.serializable import Serializable
 
 from ..logging_config import get_logger
 from ..platform.resource_manifests import (
@@ -307,7 +309,8 @@ class SequenceDataStreamer:
             raise StopIteration
 
         # Retrieve data from Winner
-        self._winning_rdstate = self._topic_readers[topic_min_tstamp]._rdstate
+        winning_topic = self._topic_readers[topic_min_tstamp]
+        self._winning_rdstate = winning_topic._rdstate
         assert self._winning_rdstate.peeked_row is not None
 
         row_values = self._winning_rdstate.peeked_row
@@ -319,8 +322,15 @@ class SequenceDataStreamer:
         # Advance the Winner's stream
         self._winning_rdstate.peek_next_row()
 
-        return self._winning_rdstate.topic_name, Message._create(
-            self._winning_rdstate.ontology_tag, **row_dict
+        OntologyClass: Type[Serializable] = get_or_make_ontology_class(
+            self._winning_rdstate.ontology_tag,
+            self._winning_rdstate.ontology_tag,
+            winning_topic._pyarrow_schema,
+            self._winning_rdstate.serialization_format,
+        )
+
+        return winning_topic.name(), Message._decode(
+            tag_or_type=OntologyClass, **row_dict
         )
 
     @staticmethod

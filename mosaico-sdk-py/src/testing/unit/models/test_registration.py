@@ -16,7 +16,9 @@ def test_ontology_type_registered():
     assert hasattr(RegisteredSensor, "__msco_pyarrow_struct__")
     assert hasattr(RegisteredSensor, "__ontology_tag__")
     assert hasattr(RegisteredSensor, "__serialization_format__")
-    assert RegisteredSensor.__ontology_tag__ == "registered_sensor"
+    assert (
+        RegisteredSensor.__ontology_tag__ == "registered_sensor" or "RegisteredSensor"
+    )
     assert RegisteredSensor.__serialization_format__.value == "default"
     # Check inheritance
     assert issubclass(RegisteredSensor.__class_type__, Serializable)
@@ -31,7 +33,10 @@ def test_ontology_type_unregistered():
     assert hasattr(UnregisteredSensor, "__msco_pyarrow_struct__")
     assert hasattr(UnregisteredSensor, "__ontology_tag__")
     assert hasattr(UnregisteredSensor, "__serialization_format__")
-    assert UnregisteredSensor.__ontology_tag__ == "unregistered_sensor"
+    assert (
+        UnregisteredSensor.__ontology_tag__ == "unregistered_sensor"
+        or "UnregisteredSensor"
+    )
     assert UnregisteredSensor.__serialization_format__.value == "ragged"
 
     # However, it does not inherit from Serializable

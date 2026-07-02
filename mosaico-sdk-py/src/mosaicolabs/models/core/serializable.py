@@ -34,7 +34,7 @@ from mosaicolabs.helpers import camel_to_snake
 from ..query.expressions import _QueryCatalogExpression
 from ..query.generation.api import _QueryProxyMixin
 from .base_model import BaseModel
-from .internal.helpers import _fix_empty_dicts
+from .internal.helpers import _fix_empty_dicts, encode_to_dict
 from .internal.pyarrow_mapper import PyarrowFieldMapper
 from .types import BASE_MAPPING
 
@@ -93,6 +93,38 @@ class Serializable(BaseModel, _QueryProxyMixin):
     # Reference to the actual subclass.
     __class_type__: ClassVar[Type["Serializable"]]
 
+    __skip_schema_generation__: ClassVar[bool] = False
+    __skip_query_proxy_generation__: ClassVar[bool] = False
+
+    # Consume schema generation flag
+    def __init_subclass__(
+        cls,
+        *,
+        skip_schema_generation: bool = False,
+        skip_query_proxy_generation: bool = False,
+        **kwargs,
+    ):
+        """
+        Initializes subclasses of ``Serializable`` and processes class-definition
+        options used during subclass creation.
+
+        This hook consumes the ``skip_schema_generation`` and `skip_query_proxy_generation`
+        keyword arguments passed in the subclass declaration (e.g. ``class MyModel(Serializable,
+        skip_schema_generation=True):``) and stores it as a class attribute for
+        later use by ``__pydantic_init_subclass__``. Any remaining keyword arguments
+        are forwarded to the superclass implementation.
+
+        Args:
+            skip_schema_generation: If ``True``, disables automatic arrow schema
+                generation for the subclass during Pydantic subclass initialization.
+            skip_query_proxy_generation: If ``True``, disables automatic .Q query
+                proxy ingestion in the subclass during Pydantic subclass initialization.
+            **kwargs: Additional keyword arguments forwarded to the superclass.
+        """
+        cls.__skip_schema_generation__ = skip_schema_generation
+        cls.__skip_query_proxy_generation__ = skip_query_proxy_generation
+        super().__init_subclass__(**kwargs)
+
     @classmethod
     def __pydantic_init_subclass__(cls, **kwargs):
         """
@@ -105,7 +137,9 @@ class Serializable(BaseModel, _QueryProxyMixin):
             AttributeError: If `__msco_pyarrow_struct__` is missing or invalid.
             ValueError: If the generated or assigned tag collides with an existing one.
         """
-        cls.__msco_pyarrow_struct__ = cls._build_ontology_struct(cls)
+        if not cls.__skip_schema_generation__:
+            cls.__msco_pyarrow_struct__ = cls._build_ontology_struct(cls)
+
         # TODO: check if is it correct call super here.
         super().__pydantic_init_subclass__(**kwargs)
 
@@ -124,17 +158,23 @@ class Serializable(BaseModel, _QueryProxyMixin):
 
         # Query Proxy Injection
         # Enables syntax like: MySensor.Q.field_name > value
-        _QueryProxyMixin._inject_query_proxy(
-            cls,
-            mapper=PyarrowFieldMapper(),
-            query_expression_type=_QueryCatalogExpression,
-            query_prefix=None,
-        )
+        if not cls.__skip_query_proxy_generation__:
+            _QueryProxyMixin._inject_query_proxy(
+                cls,
+                mapper=PyarrowFieldMapper(),
+                query_expression_type=_QueryCatalogExpression,
+                query_prefix=None,
+            )
+
+    def _encode(self):
+        return {
+            name: encode_to_dict(value) for name, value in self.model_dump().items()
+        }
 
     # --- Factory Methods ---
 
     @classmethod
-    def _create(cls, tag: str, *args, **kwargs) -> "Serializable":
+    def _decode(cls, *args, **kwargs) -> "Serializable":
         """
         Factory method to instantiate a specific ontology object by its tag.
 
@@ -149,17 +189,11 @@ class Serializable(BaseModel, _QueryProxyMixin):
         Raises:
             ValueError: If the tag is not found in the global registry.
         """
-        if tag not in _SENSOR_REGISTRY:
-            raise ValueError(
-                f"No ontology registered with tag '{tag}'. "
-                f"Available tags: {list(_SENSOR_REGISTRY.keys())}"
-            )
-
         # Clean up potential artifacts from Parquet deserialization (e.g., None as empty structs)
         fixed_kwargs = _fix_empty_dicts(kwargs) if kwargs else {}
 
         # Instantiate
-        return _SENSOR_REGISTRY[tag](*args, **fixed_kwargs)
+        return cls(*args, **fixed_kwargs)
 
     # --- Registry Helper Methods ---
 

@@ -108,12 +108,12 @@ class TestQueryTransformAPI:
         expr_trans_nested = Transform.Q.translation.y.gt(test_numeric_value)
         assert isinstance(expr_trans_nested, _QueryCatalogExpression)
         assert expr_trans_nested.to_dict() == {
-            "transform.translation.y": {"$gt": test_numeric_value}
+            f"{Transform.ontology_tag()}.translation.y": {"$gt": test_numeric_value}
         }
         expr_trans_nested = Transform.Q.translation.y.eq(test_numeric_value)
         assert isinstance(expr_trans_nested, _QueryCatalogExpression)
         assert expr_trans_nested.to_dict() == {
-            "transform.translation.y": {"$eq": test_numeric_value}
+            f"{Transform.ontology_tag()}.translation.y": {"$eq": test_numeric_value}
         }
 
         # --- Catalog Context: Range Operator ---
@@ -121,7 +121,7 @@ class TestQueryTransformAPI:
         expr_trans_between = Transform.Q.timestamp_ns.between(test_time_range)
         assert isinstance(expr_trans_between, _QueryCatalogExpression)
         assert expr_trans_between.to_dict() == {
-            "transform.timestamp_ns": {"$between": test_time_range}
+            f"{Transform.ontology_tag()}.timestamp_ns": {"$between": test_time_range}
         }
 
     def test_full_sdk_query_to_dict_structure(self):
@@ -137,8 +137,8 @@ class TestQueryTransformAPI:
         # Define Expected Output
         expected_dict = {
             "ontology": {
-                "transform.timestamp_ns": {"$gt": 12345.67},
-                "transform.translation.y": {"$gt": 12345.67},
+                f"{Transform.ontology_tag()}.timestamp_ns": {"$gt": 12345.67},
+                f"{Transform.ontology_tag()}.translation.y": {"$gt": 12345.67},
             },
         }
 
@@ -218,12 +218,12 @@ class TestQueryPoseAPI:
         expr_nested = Pose.Q.position.y.gt(test_numeric_value)
         assert isinstance(expr_nested, _QueryCatalogExpression)
         assert expr_nested.to_dict() == {
-            "pose.position.y": {"$gt": test_numeric_value},
+            f"{Pose.ontology_tag()}.position.y": {"$gt": test_numeric_value},
         }
         expr_nested = Pose.Q.position.y.eq(test_numeric_value)
         assert isinstance(expr_nested, _QueryCatalogExpression)
         assert expr_nested.to_dict() == {
-            "pose.position.y": {"$eq": test_numeric_value},
+            f"{Pose.ontology_tag()}.position.y": {"$eq": test_numeric_value},
         }
 
         # --- Catalog Context: Range Operator ---
@@ -231,7 +231,7 @@ class TestQueryPoseAPI:
         expr_between = Pose.Q.timestamp_ns.between(test_time_range)
         assert isinstance(expr_between, _QueryCatalogExpression)
         assert expr_between.to_dict() == {
-            "pose.timestamp_ns": {"$between": test_time_range}
+            f"{Pose.ontology_tag()}.timestamp_ns": {"$between": test_time_range}
         }
 
     def test_full_sdk_query_to_dict_structure(self):
@@ -247,8 +247,8 @@ class TestQueryPoseAPI:
         # Define Expected Output
         expected_dict = {
             "ontology": {
-                "pose.timestamp_ns": {"$gt": 12345.67},
-                "pose.position.y": {"$gt": 12345.67},
+                f"{Pose.ontology_tag()}.timestamp_ns": {"$gt": 12345.67},
+                f"{Pose.ontology_tag()}.position.y": {"$gt": 12345.67},
             },
         }
 
@@ -328,12 +328,12 @@ class TestQueryVelocityAPI:
         expr_nested = Velocity.Q.linear.y.gt(test_numeric_value)
         assert isinstance(expr_nested, _QueryCatalogExpression)
         assert expr_nested.to_dict() == {
-            "velocity.linear.y": {"$gt": test_numeric_value},
+            f"{Velocity.ontology_tag()}.linear.y": {"$gt": test_numeric_value},
         }
         expr_nested = Velocity.Q.linear.y.eq(test_numeric_value)
         assert isinstance(expr_nested, _QueryCatalogExpression)
         assert expr_nested.to_dict() == {
-            "velocity.linear.y": {"$eq": test_numeric_value},
+            f"{Velocity.ontology_tag()}.linear.y": {"$eq": test_numeric_value},
         }
 
         # --- Catalog Context: Range Operator ---
@@ -341,7 +341,7 @@ class TestQueryVelocityAPI:
         expr_between = Velocity.Q.timestamp_ns.between(test_time_range)
         assert isinstance(expr_between, _QueryCatalogExpression)
         assert expr_between.to_dict() == {
-            "velocity.timestamp_ns": {"$between": test_time_range}
+            f"{Velocity.ontology_tag()}.timestamp_ns": {"$between": test_time_range}
         }
 
     def test_full_sdk_query_to_dict_structure(self):
@@ -357,8 +357,10 @@ class TestQueryVelocityAPI:
         # Define Expected Output
         expected_dict = {
             "ontology": {
-                "velocity.header.timestamp.seconds": {"$gt": 12345.67},
-                "velocity.linear.y": {"$gt": 12345.67},
+                f"{Velocity.ontology_tag()}.header.timestamp.seconds": {
+                    "$gt": 12345.67
+                },
+                f"{Velocity.ontology_tag()}.linear.y": {"$gt": 12345.67},
             },
         }
 
@@ -444,12 +446,12 @@ class TestQueryAccelerationAPI:
         expr_nested = Acceleration.Q.linear.y.gt(test_numeric_value)
         assert isinstance(expr_nested, _QueryCatalogExpression)
         assert expr_nested.to_dict() == {
-            "acceleration.linear.y": {"$gt": test_numeric_value},
+            f"{Acceleration.ontology_tag()}.linear.y": {"$gt": test_numeric_value},
         }
         expr_nested = Acceleration.Q.linear.y.eq(test_numeric_value)
         assert isinstance(expr_nested, _QueryCatalogExpression)
         assert expr_nested.to_dict() == {
-            "acceleration.linear.y": {"$eq": test_numeric_value},
+            f"{Acceleration.ontology_tag()}.linear.y": {"$eq": test_numeric_value},
         }
 
         # --- Catalog Context: Range Operator ---
@@ -457,7 +459,7 @@ class TestQueryAccelerationAPI:
         expr_between = Acceleration.Q.timestamp_ns.between(test_time_range)
         assert isinstance(expr_between, _QueryCatalogExpression)
         assert expr_between.to_dict() == {
-            "acceleration.timestamp_ns": {"$between": test_time_range}
+            f"{Acceleration.ontology_tag()}.timestamp_ns": {"$between": test_time_range}
         }
 
     def test_full_sdk_query_to_dict_structure(self):
@@ -473,8 +475,8 @@ class TestQueryAccelerationAPI:
         # Define Expected Output
         expected_dict = {
             "ontology": {
-                "acceleration.timestamp_ns": {"$gt": 12345.67},
-                "acceleration.linear.y": {"$gt": 12345.67},
+                f"{Acceleration.ontology_tag()}.timestamp_ns": {"$gt": 12345.67},
+                f"{Acceleration.ontology_tag()}.linear.y": {"$gt": 12345.67},
             },
         }
 
@@ -583,12 +585,16 @@ class TestQueryMotionStateAPI:
         expr_nested = MotionState.Q.pose.position.y.gt(test_numeric_value)
         assert isinstance(expr_nested, _QueryCatalogExpression)
         assert expr_nested.to_dict() == {
-            "motion_state.pose.position.y": {"$gt": test_numeric_value},
+            f"{MotionState.ontology_tag()}.pose.position.y": {
+                "$gt": test_numeric_value
+            },
         }
         expr_nested = MotionState.Q.pose.position.y.eq(test_numeric_value)
         assert isinstance(expr_nested, _QueryCatalogExpression)
         assert expr_nested.to_dict() == {
-            "motion_state.pose.position.y": {"$eq": test_numeric_value},
+            f"{MotionState.ontology_tag()}.pose.position.y": {
+                "$eq": test_numeric_value
+            },
         }
 
         # --- Catalog Context: Range Operator ---
@@ -596,7 +602,7 @@ class TestQueryMotionStateAPI:
         expr_between = MotionState.Q.timestamp_ns.between(test_time_range)
         assert isinstance(expr_between, _QueryCatalogExpression)
         assert expr_between.to_dict() == {
-            "motion_state.timestamp_ns": {"$between": test_time_range}
+            f"{MotionState.ontology_tag()}.timestamp_ns": {"$between": test_time_range}
         }
 
     def test_full_sdk_query_to_dict_structure(self):
@@ -612,8 +618,8 @@ class TestQueryMotionStateAPI:
         # Define Expected Output
         expected_dict = {
             "ontology": {
-                "motion_state.timestamp_ns": {"$gt": 12345.67},
-                "motion_state.velocity.linear.y": {"$gt": 12345.67},
+                f"{MotionState.ontology_tag()}.timestamp_ns": {"$gt": 12345.67},
+                f"{MotionState.ontology_tag()}.velocity.linear.y": {"$gt": 12345.67},
             },
         }
 
@@ -695,12 +701,12 @@ class TestQueryForceTorqueAPI:
         expr_nested = ForceTorque.Q.force.y.gt(test_numeric_value)
         assert isinstance(expr_nested, _QueryCatalogExpression)
         assert expr_nested.to_dict() == {
-            "force_torque.force.y": {"$gt": test_numeric_value},
+            f"{ForceTorque.ontology_tag()}.force.y": {"$gt": test_numeric_value},
         }
         expr_nested = ForceTorque.Q.torque.y.eq(test_numeric_value)
         assert isinstance(expr_nested, _QueryCatalogExpression)
         assert expr_nested.to_dict() == {
-            "force_torque.torque.y": {"$eq": test_numeric_value},
+            f"{ForceTorque.ontology_tag()}.torque.y": {"$eq": test_numeric_value},
         }
 
         # --- Catalog Context: Range Operator ---
@@ -708,7 +714,7 @@ class TestQueryForceTorqueAPI:
         expr_between = ForceTorque.Q.timestamp_ns.between(test_time_range)
         assert isinstance(expr_between, _QueryCatalogExpression)
         assert expr_between.to_dict() == {
-            "force_torque.timestamp_ns": {"$between": test_time_range}
+            f"{ForceTorque.ontology_tag()}.timestamp_ns": {"$between": test_time_range}
         }
 
     def test_full_sdk_query_to_dict_structure(self):
@@ -724,8 +730,8 @@ class TestQueryForceTorqueAPI:
         # Define Expected Output
         expected_dict = {
             "ontology": {
-                "force_torque.timestamp_ns": {"$gt": 12345.67},
-                "force_torque.torque.y": {"$gt": 12345.67},
+                f"{ForceTorque.ontology_tag()}.timestamp_ns": {"$gt": 12345.67},
+                f"{ForceTorque.ontology_tag()}.torque.y": {"$gt": 12345.67},
             },
         }
 
@@ -797,12 +803,12 @@ class TestQueryROIAPI:
         expr_nested = ROI.Q.offset.y.gt(test_numeric_value)
         assert isinstance(expr_nested, _QueryCatalogExpression)
         assert expr_nested.to_dict() == {
-            "roi.offset.y": {"$gt": test_numeric_value},
+            f"{ROI.ontology_tag()}.offset.y": {"$gt": test_numeric_value},
         }
         expr_ = ROI.Q.width.eq(test_numeric_value)
         assert isinstance(expr_, _QueryCatalogExpression)
         assert expr_.to_dict() == {
-            "roi.width": {"$eq": test_numeric_value},
+            f"{ROI.ontology_tag()}.width": {"$eq": test_numeric_value},
         }
 
         # --- Catalog Context: Range Operator ---
@@ -810,7 +816,7 @@ class TestQueryROIAPI:
         expr_between = ROI.Q.timestamp_ns.between(test_time_range)
         assert isinstance(expr_between, _QueryCatalogExpression)
         assert expr_between.to_dict() == {
-            "roi.timestamp_ns": {"$between": test_time_range}
+            f"{ROI.ontology_tag()}.timestamp_ns": {"$between": test_time_range}
         }
 
     def test_full_sdk_query_to_dict_structure(self):
@@ -826,8 +832,8 @@ class TestQueryROIAPI:
         # Define Expected Output
         expected_dict = {
             "ontology": {
-                "roi.timestamp_ns": {"$gt": 12345.67},
-                "roi.offset.y": {"$gt": 12345.67},
+                f"{ROI.ontology_tag()}.timestamp_ns": {"$gt": 12345.67},
+                f"{ROI.ontology_tag()}.offset.y": {"$gt": 12345.67},
             },
         }
 

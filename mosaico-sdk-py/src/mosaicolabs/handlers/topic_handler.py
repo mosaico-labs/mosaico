@@ -9,8 +9,10 @@ and create readers (`TopicDataStreamer`).
 import json
 from typing import Any, Dict, Optional, Tuple
 
+import pyarrow as pa
 import pyarrow.flight as fl
 
+from mosaicolabs.models.core.message import Message
 from mosaicolabs.platform.metadata import TopicMetadata, _decode_schema_metadata
 from mosaicolabs.platform.resource_manifests import (
     TopicManifestError,
@@ -51,6 +53,7 @@ class TopicHandler:
         client: fl.FlightClient,
         topic_model: Topic,
         ticket: fl.Ticket,
+        pyarrow_schema: pa.StructType,
         timestamp_ns_min: Optional[int],
         timestamp_ns_max: Optional[int],
     ):
@@ -82,6 +85,7 @@ class TopicHandler:
         """Lowest timestamp [ns] in the sequence (among all the topics)"""
         self._timestamp_ns_max: Optional[int] = timestamp_ns_max
         """Highest timestamp [ns] in the sequence (among all the topics)"""
+        self._arrow_schema: pa.StructType = pyarrow_schema
 
     @classmethod
     def _connect(
@@ -157,11 +161,19 @@ class TopicHandler:
             resrc_manifest=topic_resrc_manifest,
         )
 
+        # Retrieve the data ontology schema
+        pyarrow_schema = pa.struct(
+            field
+            for field in flight_info.schema
+            if field.name not in Message._message_model_fields()
+        )
+
         # Get the 'min'/'max' timestamps, as we are at a topic-level
         return cls(
             client=client,
             topic_model=topic_model,
             ticket=ticket,
+            pyarrow_schema=pyarrow_schema,
             timestamp_ns_min=topic_resrc_manifest.timestamp_ns_min,
             timestamp_ns_max=topic_resrc_manifest.timestamp_ns_max,
         )
@@ -284,6 +296,16 @@ class TopicHandler:
             The highest timestamp (nanoseconds) recorded in this topic, or `None` if the topic is empty or timestamps are unavailable.
         """
         return self._timestamp_ns_max
+
+    @property
+    def ontology_schema(self):
+        """
+        The Arrow Schema of the ontology type handled by this topic
+
+        Returns:
+            The Arrow Schema as a pa.StructType
+        """
+        return self._arrow_schema
 
     def get_data_streamer(
         self,

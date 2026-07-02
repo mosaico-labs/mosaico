@@ -6,12 +6,14 @@ from a single topic via the Flight `DoGet` protocol.
 """
 
 import json
-from typing import Any, Optional
+from typing import Any, Optional, Type
 
 import pyarrow as pa
 import pyarrow.flight as fl
 
 from mosaicolabs.models.core import Message
+from mosaicolabs.models.core.helpers import get_or_make_ontology_class
+from mosaicolabs.models.core.serializable import Serializable
 from mosaicolabs.platform.metadata import TopicMetadata, _decode_schema_metadata
 from mosaicolabs.platform.resource_manifests import (
     TopicManifestError,
@@ -54,6 +56,7 @@ class TopicDataStreamer:
         *,
         client: fl.FlightClient,
         state: _TopicReadState,
+        pyarrow_schema: pa.StructType,
     ):
         """
         Internal constructor for TopicDataStreamer.
@@ -95,6 +98,8 @@ class TopicDataStreamer:
         """The FlightClient used for remote operations."""
         self._rdstate: _TopicReadState = state
         """The actual reader object"""
+        self._pyarrow_schema: pa.StructType = pyarrow_schema
+        """The Arrow Schema of the data ontology handled by the topic"""
         self._is_open: bool = True
         """Tag for assessing the internal streamer status"""
 
@@ -140,16 +145,24 @@ class TopicDataStreamer:
         topic_mdata = TopicMetadata._from_decoded_schema_metadata(
             _decode_schema_metadata(reader.schema.metadata)
         )
-        ontology_tag = topic_mdata.properties.ontology_tag
+
+        # Retrieve the data ontology schema
+        pyarrow_schema = pa.struct(
+            field
+            for field in reader.schema
+            if field.name not in Message._message_model_fields()
+        )
 
         rdstate = _TopicReadState(
             topic_name=topic_name,
             reader=reader,
-            ontology_tag=ontology_tag,
+            ontology_tag=topic_mdata.properties.ontology_tag,
+            serialization_format=topic_mdata.properties.serialization_format,
         )
         return cls(
             client=client,
             state=rdstate,
+            pyarrow_schema=pyarrow_schema,
         )
 
     @classmethod
@@ -317,7 +330,14 @@ class TopicDataStreamer:
         # Advance the buffer immediately *after* extracting the data
         self._rdstate.peek_next_row()
 
-        return Message._create(self._rdstate.ontology_tag, **row_dict)
+        OntologyClass: Type[Serializable] = get_or_make_ontology_class(
+            self._rdstate.ontology_tag,
+            self._rdstate.ontology_tag,
+            self._pyarrow_schema,
+            self._rdstate.serialization_format,
+        )
+
+        return Message._decode(tag_or_type=OntologyClass, **row_dict)
 
     def close(self):
         """

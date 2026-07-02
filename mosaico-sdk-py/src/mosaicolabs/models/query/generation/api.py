@@ -90,6 +90,53 @@ class _QueryProxy:
             if not isinstance(val, _QueryableUnsupported)
         )
 
+    @property
+    def queryable_schema(self):
+        """
+        Returns the schema of the queryable fields supported by this mapping.
+
+        The schema mirrors the hierarchical structure of ``self.__map__``. Nested
+        mappings are represented as nested dictionaries, while leaf nodes are
+        represented as tuples containing the names of the supported Python types for
+        that field.
+
+        Returns:
+            A nested dictionary describing the queryable structure. Intermediate
+            nodes are dictionaries, and leaf nodes are tuples of type names.
+        """
+        return self._infer_queryable_schema(self.__map__)
+
+    def _infer_queryable_schema(self, obj):
+        """
+        Recursively infers the schema of a queryable mapping.
+
+        Traverses a nested mapping and preserves its structure. Dictionary nodes are
+        recursively expanded, while leaf objects are converted into tuples
+        containing the names of their supported Python types, as defined by their
+        ``__mixin_supported_types__`` attribute.
+
+        Args:
+            obj: A nested mapping or a leaf object exposing a
+                ``__mixin_supported_types__`` attribute.
+
+        Returns:
+            A nested dictionary preserving the original hierarchy, where leaf values
+            are tuples of supported type names.
+        """
+        if isinstance(obj, dict):
+            return {
+                k: self._infer_queryable_schema(v)
+                for k, v in obj.items()
+                if not isinstance(v, _QueryableUnsupported)
+            }
+        else:
+            return {
+                "type": type(obj).__bases__[0].__name__,
+                "supported_types": tuple(
+                    t.__name__ for t in obj.__mixin_supported_types__
+                ),
+            }
+
 
 # --- The General _QueryProxyMixin ---
 class _QueryProxyMixin:

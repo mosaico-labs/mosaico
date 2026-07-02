@@ -9,7 +9,7 @@ middleware-level metadata (like recording timestamp_ns).
 
 # --- Python Standard Library Imports ---
 from collections import defaultdict
-from typing import Any, Dict, Optional, Type, TypeVar
+from typing import Any, Dict, Optional, Type, TypeVar, Union
 
 import pandas as pd
 import pyarrow as pa
@@ -17,7 +17,7 @@ from pydantic import PrivateAttr
 
 from ...logging_config import get_logger
 from .base_model import BaseModel
-from .internal.helpers import _fix_empty_dicts, encode_to_dict
+from .internal.helpers import encode_to_dict
 from .serializable import Serializable
 
 # Set the hierarchical logger
@@ -148,7 +148,6 @@ class Message(BaseModel):
 
     # Internal cache for efficient field separation during encoding
     _self_model_keys: set[str] = PrivateAttr(default_factory=set)
-    _data_model_keys: set[str] = PrivateAttr(default_factory=set)
 
     def model_post_init(self, context: Any) -> None:
         """
@@ -158,12 +157,11 @@ class Message(BaseModel):
         (e.g., `timestamp_ns`) and the data payload.
         """
         super().model_post_init(context)
-        self._self_model_keys = {
-            field for field in self.__class__.model_fields if field != "data"
-        }
-        self._data_model_keys = {field for field in self.data.__class__.model_fields}
+        self._self_model_keys = Message._message_model_fields()
 
-        colliding_fields = self._self_model_keys & self._data_model_keys
+        colliding_fields = set(self.__msco_pyarrow_struct__.names) & set(
+            self.data.__msco_pyarrow_struct__.names
+        )
         if colliding_fields:
             raise ValueError(
                 f"Fields name collision detected between class '{type(self.data).__name__}' "
@@ -197,17 +195,16 @@ class Message(BaseModel):
         }
 
         # Encode and merge payload fields
-        columns_dict.update(
-            {
-                field: encode_to_dict(getattr(self.data, field))
-                for field in self._data_model_keys
-            }
-        )
+        columns_dict.update(self.data._encode())
 
         return columns_dict
 
     @classmethod
-    def _create(cls, tag: str, **kwargs) -> "Message":
+    def _decode(
+        cls,
+        tag_or_type: Union[str, Type[Serializable]],
+        **msg_data_kwargs,
+    ) -> "Message":
         """
         Factory method to create a Message and its specific ontology payload.
 
@@ -216,7 +213,7 @@ class Message(BaseModel):
 
         Args:
             tag: The registered ontology identifier (e.g., "imu").
-            **kwargs: A dictionary containing all required fields for both the
+            **msg_data_kwargs: A dictionary containing all required fields for both the
                 message and the data object.
 
         Returns:
@@ -224,39 +221,49 @@ class Message(BaseModel):
 
         Raises:
             ValueError: If the tag is not registered.
-            Exception: If required message fields are missing from `kwargs`.
+            Exception: If required message fields are missing from `msg_data_kwargs`.
         """
         # Validate Tag
-        DataClass = Serializable._get_class_type(tag)
+        DataClass = (
+            Serializable._get_class_type(tag_or_type)  # It's the ontology tag
+            if isinstance(tag_or_type, str)
+            else tag_or_type  # It's a type
+        )
+        # Check if this ontology tag is wrapped by an ontology model class.
         if DataClass is None:
             raise ValueError(
-                f"No ontology registered with tag '{tag}'. "
-                f"Available tags: {Serializable._list_registered()}"
+                f"No ontology registered with tag '{tag_or_type}'. "
+                f"Available tags: {Serializable._list_registered()}. "
             )
 
-        # Cleanup Input (Fix Parquet artifacts)
-        fixed_kwargs = _fix_empty_dicts(kwargs) if kwargs else dict({})
-        if not fixed_kwargs:
-            raise Exception(f"Unable to obtain valid fields from kwargs: {kwargs}")
+        msg_data_kwargs if msg_data_kwargs else dict({})
+        if not msg_data_kwargs:
+            raise Exception(
+                f"Unable to obtain valid fields from kwargs: {msg_data_kwargs}"
+            )
 
-        # Argument Separation
-        data_fields = list(DataClass.model_fields.keys())
-
+        msg_model_fields = cls._message_model_fields()
         # Extract Envelope args
         message_kwargs = {
-            key: val for key, val in fixed_kwargs.items() if key not in data_fields
+            key: val for key, val in msg_data_kwargs.items() if key in msg_model_fields
         }
         if not message_kwargs:
             raise Exception("Input kwargs missing required Message fields.")
 
         # Extract Payload args
         data_kwargs = {
-            key: val for key, val in fixed_kwargs.items() if key in data_fields
+            key: val
+            for key, val in msg_data_kwargs.items()
+            if key not in msg_model_fields
         }
 
         # Instantiation
-        data_obj = DataClass(**data_kwargs)
+        data_obj = DataClass._decode(**data_kwargs)
         return cls(data=data_obj, **message_kwargs)
+
+    @classmethod
+    def _message_model_fields(cls):
+        return {name for name in cls.model_fields.keys() if name != "data"}
 
     @classmethod
     def _get_schema(cls, data_cls: Type["Serializable"]) -> pa.Schema:
@@ -454,7 +461,7 @@ class Message(BaseModel):
         # Final Message Creation
         try:
             # Reconstructs the strongly-typed Ontology object from flattened rows
-            return Message._create(tag=tag, **nested_data)
+            return Message._decode(tag_or_type=tag, **nested_data)
         except Exception as e:
             logger.error(f"Failed to reconstruct Message for topic {topic_name}: {e}")
             return None
@@ -508,4 +515,4 @@ class Message(BaseModel):
             raise ValueError("Tag must be a valid value.")
 
         flat = {col: rb.column(col)[0].as_py() for col in rb.column_names}
-        return cls._create(tag=tag, **flat)
+        return cls._decode(tag_or_type=tag, **flat)

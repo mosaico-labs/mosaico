@@ -101,12 +101,12 @@ class TestQueryIMUAPI:
         expr_nested = IMU.Q.acceleration.y.gt(test_numeric_value)
         assert isinstance(expr_nested, _QueryCatalogExpression)
         assert expr_nested.to_dict() == {
-            "imu.acceleration.y": {"$gt": test_numeric_value}
+            f"{IMU.ontology_tag()}.acceleration.y": {"$gt": test_numeric_value}
         }
         expr_nested = IMU.Q.acceleration.y.eq(test_numeric_value)
         assert isinstance(expr_nested, _QueryCatalogExpression)
         assert expr_nested.to_dict() == {
-            "imu.acceleration.y": {"$eq": test_numeric_value}
+            f"{IMU.ontology_tag()}.acceleration.y": {"$eq": test_numeric_value}
         }
 
         # --- Catalog Context: Range Operator ---
@@ -116,7 +116,7 @@ class TestQueryIMUAPI:
         expr_between = IMU.Q.timestamp_ns.between(test_time_range)
         assert isinstance(expr_between, _QueryCatalogExpression)
         assert expr_between.to_dict() == {
-            "imu.timestamp_ns": {"$between": test_time_range}
+            f"{IMU.ontology_tag()}.timestamp_ns": {"$between": test_time_range}
         }
 
     def test_full_sdk_query_to_dict_structure(self):
@@ -132,8 +132,8 @@ class TestQueryIMUAPI:
         # Define Expected Output
         expected_dict = {
             "ontology": {
-                "imu.timestamp_ns": {"$gt": 12345.67},
-                "imu.acceleration.y": {"$gt": 12345.67},
+                f"{IMU.ontology_tag()}.timestamp_ns": {"$gt": 12345.67},
+                f"{IMU.ontology_tag()}.acceleration.y": {"$gt": 12345.67},
             },
         }
 
@@ -216,10 +216,14 @@ class TestQueryGPSAPI:
         # Expected: {'gps.position.y': {'$gt': 12345.67}} - _QueryCatalogExpression
         expr_nested = GPS.Q.position.y.gt(test_numeric_value)
         assert isinstance(expr_nested, _QueryCatalogExpression)
-        assert expr_nested.to_dict() == {"gps.position.y": {"$gt": test_numeric_value}}
+        assert expr_nested.to_dict() == {
+            f"{GPS.ontology_tag()}.position.y": {"$gt": test_numeric_value}
+        }
         expr_nested = GPS.Q.position.y.eq(test_numeric_value)
         assert isinstance(expr_nested, _QueryCatalogExpression)
-        assert expr_nested.to_dict() == {"gps.position.y": {"$eq": test_numeric_value}}
+        assert expr_nested.to_dict() == {
+            f"{GPS.ontology_tag()}.position.y": {"$eq": test_numeric_value}
+        }
 
         # --- Catalog Context: Range Operator ---
         test_time_range = [10000, 30000]
@@ -228,7 +232,7 @@ class TestQueryGPSAPI:
         expr_between = GPS.Q.timestamp_ns.between(test_time_range)
         assert isinstance(expr_between, _QueryCatalogExpression)
         assert expr_between.to_dict() == {
-            "gps.timestamp_ns": {"$between": test_time_range}
+            f"{GPS.ontology_tag()}.timestamp_ns": {"$between": test_time_range}
         }
 
     def test_full_sdk_query_to_dict_structure(self):
@@ -244,8 +248,8 @@ class TestQueryGPSAPI:
         # Define Expected Output
         expected_dict = {
             "ontology": {
-                "gps.timestamp_ns": {"$gt": 12345.67},
-                "gps.position.y": {"$gt": 12345.67},
+                f"{GPS.ontology_tag()}.timestamp_ns": {"$gt": 12345.67},
+                f"{GPS.ontology_tag()}.position.y": {"$gt": 12345.67},
             },
         }
 
@@ -318,7 +322,7 @@ class TestQueryImageAPI:
         expr_image = Image.Q.encoding.match(test_str_value)
         assert isinstance(expr_image, _QueryCatalogExpression)
         assert expr_image.to_dict() == {
-            "image.encoding": {"$match": test_str_value},
+            f"{Image.ontology_tag()}.encoding": {"$match": test_str_value},
         }
 
         # --- Catalog Context: Range Operator ---
@@ -328,7 +332,7 @@ class TestQueryImageAPI:
         expr_between = Image.Q.timestamp_ns.between(test_time_range)
         assert isinstance(expr_between, _QueryCatalogExpression)
         assert expr_between.to_dict() == {
-            "image.timestamp_ns": {"$between": test_time_range}
+            f"{Image.ontology_tag()}.timestamp_ns": {"$between": test_time_range}
         }
 
     def test_full_sdk_query_to_dict_structure(self):
@@ -344,8 +348,8 @@ class TestQueryImageAPI:
         # Define Expected Output
         expected_dict = {
             "ontology": {
-                "image.timestamp_ns": {"$gt": 12345.67},
-                "image.stride": {"$gt": 12345.67},
+                f"{Image.ontology_tag()}.timestamp_ns": {"$gt": 12345.67},
+                f"{Image.ontology_tag()}.stride": {"$gt": 12345.67},
             },
         }
 
@@ -418,7 +422,9 @@ class TestQueryMagnetometerAPI:
         expr_nested = Magnetometer.Q.magnetic_field.x.leq(test_numeric_value)
         assert isinstance(expr_nested, _QueryCatalogExpression)
         assert expr_nested.to_dict() == {
-            "magnetometer.magnetic_field.x": {"$leq": test_numeric_value},
+            f"{Magnetometer.ontology_tag()}.magnetic_field.x": {
+                "$leq": test_numeric_value
+            },
         }
 
         # --- Catalog Context: Range Operator ---
@@ -428,7 +434,7 @@ class TestQueryMagnetometerAPI:
         expr_between = Magnetometer.Q.timestamp_ns.between(test_time_range)
         assert isinstance(expr_between, _QueryCatalogExpression)
         assert expr_between.to_dict() == {
-            "magnetometer.timestamp_ns": {"$between": test_time_range}
+            f"{Magnetometer.ontology_tag()}.timestamp_ns": {"$between": test_time_range}
         }
 
     def test_full_sdk_query_to_dict_structure(self):
@@ -444,8 +450,8 @@ class TestQueryMagnetometerAPI:
         # Define Expected Output
         expected_dict = {
             "ontology": {
-                "magnetometer.timestamp_ns": {"$gt": 12345.67},
-                "magnetometer.magnetic_field.z": {"$gt": 12345.67},
+                f"{Magnetometer.ontology_tag()}.timestamp_ns": {"$gt": 12345.67},
+                f"{Magnetometer.ontology_tag()}.magnetic_field.z": {"$gt": 12345.67},
             },
         }
 
@@ -514,7 +520,7 @@ class TestQueryTemperatureAPI:
         expr_nested = Temperature.Q.value.leq(test_numeric_value)
         assert isinstance(expr_nested, _QueryCatalogExpression)
         assert expr_nested.to_dict() == {
-            "temperature.value": {"$leq": test_numeric_value},
+            f"{Temperature.ontology_tag()}.value": {"$leq": test_numeric_value},
         }
 
         # --- Catalog Context: Range Operator ---
@@ -524,7 +530,7 @@ class TestQueryTemperatureAPI:
         expr_between = Temperature.Q.timestamp_ns.between(test_time_range)
         assert isinstance(expr_between, _QueryCatalogExpression)
         assert expr_between.to_dict() == {
-            "temperature.timestamp_ns": {"$between": test_time_range}
+            f"{Temperature.ontology_tag()}.timestamp_ns": {"$between": test_time_range}
         }
 
     def test_full_sdk_query_to_dict_structure(self):
@@ -540,8 +546,8 @@ class TestQueryTemperatureAPI:
         # Define Expected Output
         expected_dict = {
             "ontology": {
-                "temperature.timestamp_ns": {"$gt": 12345.67},
-                "temperature.value": {"$gt": 303.15},
+                f"{Temperature.ontology_tag()}.timestamp_ns": {"$gt": 12345.67},
+                f"{Temperature.ontology_tag()}.value": {"$gt": 303.15},
             },
         }
 
@@ -623,7 +629,7 @@ class TestQueryPressureAPI:
         expr_nested = Pressure.Q.value.leq(test_numeric_value)
         assert isinstance(expr_nested, _QueryCatalogExpression)
         assert expr_nested.to_dict() == {
-            "pressure.value": {"$leq": test_numeric_value},
+            f"{Pressure.ontology_tag()}.value": {"$leq": test_numeric_value},
         }
 
         # --- Catalog Context: Range Operator ---
@@ -633,7 +639,7 @@ class TestQueryPressureAPI:
         expr_between = Pressure.Q.timestamp_ns.between(test_time_range)
         assert isinstance(expr_between, _QueryCatalogExpression)
         assert expr_between.to_dict() == {
-            "pressure.timestamp_ns": {"$between": test_time_range}
+            f"{Pressure.ontology_tag()}.timestamp_ns": {"$between": test_time_range}
         }
 
     def test_full_sdk_query_to_dict_structure(self):
@@ -649,8 +655,8 @@ class TestQueryPressureAPI:
         # Define Expected Output
         expected_dict = {
             "ontology": {
-                "pressure.timestamp_ns": {"$gt": 12345.67},
-                "pressure.value": {"$gt": 200123.15},
+                f"{Pressure.ontology_tag()}.timestamp_ns": {"$gt": 12345.67},
+                f"{Pressure.ontology_tag()}.value": {"$gt": 200123.15},
             },
         }
 
@@ -743,7 +749,7 @@ class TestQueryRangeAPI:
         expr_nested = Range.Q.field_of_view.leq(test_numeric_value)
         assert isinstance(expr_nested, _QueryCatalogExpression)
         assert expr_nested.to_dict() == {
-            "range.field_of_view": {"$leq": test_numeric_value},
+            f"{Range.ontology_tag()}.field_of_view": {"$leq": test_numeric_value},
         }
 
         # --- Catalog Context: Range Operator ---
@@ -753,7 +759,7 @@ class TestQueryRangeAPI:
         expr_between = Range.Q.timestamp_ns.between(test_time_range)
         assert isinstance(expr_between, _QueryCatalogExpression)
         assert expr_between.to_dict() == {
-            "range.timestamp_ns": {"$between": test_time_range}
+            f"{Range.ontology_tag()}.timestamp_ns": {"$between": test_time_range}
         }
 
     def test_full_sdk_query_to_dict_structure(self):
@@ -769,8 +775,8 @@ class TestQueryRangeAPI:
         # Define Expected Output
         expected_dict = {
             "ontology": {
-                "range.timestamp_ns": {"$gt": 12345.67},
-                "range.field_of_view": {"$gt": 0.52},
+                f"{Range.ontology_tag()}.timestamp_ns": {"$gt": 12345.67},
+                f"{Range.ontology_tag()}.field_of_view": {"$gt": 0.52},
             },
         }
 
