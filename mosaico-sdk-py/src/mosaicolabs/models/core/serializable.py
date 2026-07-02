@@ -94,21 +94,21 @@ class Serializable(BaseModel, _QueryProxyMixin):
     __class_type__: ClassVar[Type["Serializable"]]
 
     __skip_schema_generation__: ClassVar[bool] = False
-    __skip_query_proxy_generation__: ClassVar[bool] = False
+    __skip_query_proxy_ingestion__: ClassVar[bool] = False
 
     # Consume schema generation flag
     def __init_subclass__(
         cls,
         *,
         skip_schema_generation: bool = False,
-        skip_query_proxy_generation: bool = False,
+        skip_query_proxy_ingestion: bool = False,
         **kwargs,
     ):
         """
         Initializes subclasses of ``Serializable`` and processes class-definition
         options used during subclass creation.
 
-        This hook consumes the ``skip_schema_generation`` and `skip_query_proxy_generation`
+        This hook consumes the ``skip_schema_generation`` and `skip_query_proxy_ingestion`
         keyword arguments passed in the subclass declaration (e.g. ``class MyModel(Serializable,
         skip_schema_generation=True):``) and stores it as a class attribute for
         later use by ``__pydantic_init_subclass__``. Any remaining keyword arguments
@@ -117,12 +117,12 @@ class Serializable(BaseModel, _QueryProxyMixin):
         Args:
             skip_schema_generation: If ``True``, disables automatic arrow schema
                 generation for the subclass during Pydantic subclass initialization.
-            skip_query_proxy_generation: If ``True``, disables automatic .Q query
+            skip_query_proxy_ingestion: If ``True``, disables automatic .Q query
                 proxy ingestion in the subclass during Pydantic subclass initialization.
             **kwargs: Additional keyword arguments forwarded to the superclass.
         """
         cls.__skip_schema_generation__ = skip_schema_generation
-        cls.__skip_query_proxy_generation__ = skip_query_proxy_generation
+        cls.__skip_query_proxy_ingestion__ = skip_query_proxy_ingestion
         super().__init_subclass__(**kwargs)
 
     @classmethod
@@ -158,7 +158,7 @@ class Serializable(BaseModel, _QueryProxyMixin):
 
         # Query Proxy Injection
         # Enables syntax like: MySensor.Q.field_name > value
-        if not cls.__skip_query_proxy_generation__:
+        if not cls.__skip_query_proxy_ingestion__:
             _QueryProxyMixin._inject_query_proxy(
                 cls,
                 mapper=PyarrowFieldMapper(),

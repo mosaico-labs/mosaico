@@ -10,7 +10,7 @@ from .serializable import Serializable
 class Unmodeled(
     Serializable,
     skip_schema_generation=True,
-    skip_query_proxy_generation=True,
+    skip_query_proxy_ingestion=True,
 ):
     raw_data: Dict[str, Any]
 
