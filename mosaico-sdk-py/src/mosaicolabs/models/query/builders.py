@@ -160,20 +160,7 @@ class QueryOntologyCatalog:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # Filter for a specific component value and extract the first and last occurrence times
-            qresponse = client.query(
-                QueryOntologyCatalog(IMU.Q.acceleration.x.lt(-4.0), include_timestamp_range=True)
-                .with_expression(IMU.Q.acceleration.y.gt(5.0))
-            )
-
-            # Inspect the response
-            if qresponse is not None:
-                # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
-                    print(f"Sequence: {item.sequence.name}")
-                    print(f"Topics: {{topic.name:
-                                [topic.timestamp_range.start, topic.timestamp_range.end]
-                                for topic in item.topics}}")
+            # FIXME: Add here example for timestamp exytraction and clustering
         ```
     """
 
@@ -184,7 +171,6 @@ class QueryOntologyCatalog:
     def __init__(
         self,
         *expressions: "_QueryExpression",
-        include_timestamp_range: Optional[bool] = None,
     ):
         """
         The constructor initializes the query with an optional list of
@@ -193,8 +179,6 @@ class QueryOntologyCatalog:
 
         Args:
             *expressions: A variable number of expressions, generated via the `.Q` proxy on an ontology model.
-            include_timestamp_range: If `True`, the server will return the `start` and `end`
-                timestamps corresponding to the temporal bounds of the matched data.
 
         Raises:
             TypeError: If an expression is not of the supported type.
@@ -202,7 +186,6 @@ class QueryOntologyCatalog:
             NotImplementedError: If a duplicate key (field path) is detected within the same query.
         """
         self._expressions = []
-        self._include_tstamp_range = include_timestamp_range
         # Call the helper for each expression
         for expr in expressions:
             _validate_expression_type(expr, self.__supported_query_expressions__)
@@ -247,21 +230,7 @@ class QueryOntologyCatalog:
                         print(f"Sequence: {item.sequence.name}")
                         print(f"Topics: {[topic.name for topic in item.topics]}")
 
-                # Filter for a specific component value and extract the first and last occurrence times
-                qresponse = client.query(
-                    QueryOntologyCatalog(include_timestamp_range=True)
-                    .with_expression(IMU.Q.acceleration.x.lt(-4.0))
-                    .with_expression(IMU.Q.acceleration.y.gt(5.0))
-                )
-
-                # Inspect the response
-                if qresponse is not None:
-                    # Results are automatically grouped by Sequence for easier data management
-                    for item in qresponse:
-                        print(f"Sequence: {item.sequence.name}")
-                        print(f"Topics: {{topic.name:
-                                    [topic.timestamp_range.start, topic.timestamp_range.end]
-                                    for topic in item.topics}}")
+                # FIXME: Add here example for timestamp exytraction and clustering
             ```
 
         Args:
@@ -298,8 +267,6 @@ class QueryOntologyCatalog:
             A dictionary containing all merged sensor-field expressions.
         """
         query_dict = _QueryCombinator(list(self._expressions)).to_dict()
-        if self._include_tstamp_range:
-            query_dict.update({"include_timestamp_range": self._include_tstamp_range})
         return query_dict
 
 
@@ -1046,7 +1013,7 @@ class Query:
                 .with_user_metadata("environment.visibility", lt=50)
                 .with_name_match("test_drive"),
                 # Append a filter with deep time-series data discovery and measurement time windowing
-                QueryOntologyCatalog(include_timestamp_range=True)
+                QueryOntologyCatalog()
                 .with_expression(IMU.Q.acceleration.x.gt(5.0))
                 .with_expression(IMU.Q.timestamp_ns.gt(1700134567))
             )

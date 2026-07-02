@@ -156,7 +156,7 @@ impl Query {
                     let topics = topics_map
                         .values()
                         .filter(|e| topics_with_data.contains(&e.topic_id));
-                    
+
                     let groups = db::sequences_group_from_topics(&mut cx, topics).await?;
 
                     Ok(groups.into())

@@ -156,6 +156,7 @@ class RGBDCamera(
         intensity: Signal amplitude or intensity per point (optional).
 
     Note:
+        # FIXME: Update this docstring and add example scripts for querying such field
         List-typed fields are **not queryable** via the `.Q` proxy. The `.Q` proxy
         is not available on this model.
 
@@ -211,6 +212,7 @@ class ToFCamera(
         grayscale: Passive greyscale amplitude per pixel (optional).
 
     Note:
+        # FIXME: Update this docstring and add example scripts for querying such field
         List-typed fields are **not queryable** via the `.Q` proxy. The `.Q` proxy
         is not available on this model.
 
@@ -238,6 +240,8 @@ class ToFCamera(
     High noise values typically indicate low-confidence
     depth samples caused by low signal return, multi-path interference, or
     motion blur, and should be treated with caution during downstream processing.
+    # FIXME: Update this docstring with queryability of list fiends,
+    # and add example scripts for querying such field
     """
 
     grayscale: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
@@ -249,6 +253,8 @@ class ToFCamera(
     Captured by the sensor's infrared photodiodes independently of the active
     modulation cycle. Provides a texture channel that can be used for feature
     extraction or visual odometry without requiring a separate colour camera.
+    # FIXME: Update this docstring with queryability of list fiends,
+    # and add example scripts for querying such field
     """
 
 
@@ -287,6 +293,8 @@ class StereoCamera(
             disparity confidence (optional).
 
     Note:
+        # FIXME: Update this docstring with queryability of list fiends,
+        # and add example scripts for querying such field
         List-typed fields are **not queryable** via the `.Q` proxy. The `.Q` proxy
         is not available on this model.
 
@@ -311,6 +319,8 @@ class StereoCamera(
     )
     """
         Luminance of the corresponding pixel in the rectified image.
+        # FIXME: Update this docstring with queryability of list fiends,
+        # and add example scripts for querying such field
     """
 
     cost: Optional[MosaicoType.list_(MosaicoType.uint8)] = MosaicoField(
@@ -320,4 +330,6 @@ class StereoCamera(
     """
         Stereo matching cost per point; lower values indicate higher
         disparity confidence.
+        # FIXME: Update this docstring with queryability of list fiends,
+        # and add example scripts for querying such field
     """
