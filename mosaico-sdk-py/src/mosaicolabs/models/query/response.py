@@ -104,15 +104,16 @@ class QueryResponseItemTopic:
         ontology_tag (str): Ontology of the topic in string format (e.g. image)
         timestamp_range (Optional[TimestampRange]): The availability window of the data
             for this specific topic.
+        name: The name of the topic itself (extracted at construction from locator attribute)
     """
 
     locator: str
     ontology_tag: str
     timestamp_range: Optional[TimestampRange]
+    name: str = field(default="", init=False)
 
     DEFAULT_CLUSTERING_DT: int = 0
 
-    _name: str = field(default="", init=False)
     _client: Optional[FlightClient] = field(default=None, init=False)
     _query_exprs: List[_QueryCatalogExpression] = field(
         default_factory=list, init=False
@@ -124,7 +125,7 @@ class QueryResponseItemTopic:
         seq_topic_tuple = unpack_topic_full_path(self.locator)
         if not seq_topic_tuple:
             raise ValueError(f"Invalid topic name in response '{self.locator}'")
-        _, self._name = seq_topic_tuple
+        _, self.name = seq_topic_tuple
 
     def clusterize(
         self,
@@ -526,7 +527,7 @@ class QueryResponse:
             _QueryTopicExpression(
                 "name",
                 "$in",
-                [t._name for it in self.items for t in it.topics],
+                [t.name for it in self.items for t in it.topics],
             )
         )
 
@@ -544,9 +545,6 @@ class QueryResponse:
             return
 
         ontology_catalog_exprs = query_ontology_catalog.expressions()
-        assert ontology_catalog_exprs is type(
-            List[_QueryCatalogExpression]
-        )  # TODO: this needs to be changed!
 
         for it in self.items:
             it._set_query_expressions(ontology_catalog_exprs)
