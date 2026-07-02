@@ -1,5 +1,5 @@
 pub mod error;
-pub use error::Error;
+pub use error::{Error, ErrorKind};
 
 pub mod params;
 pub mod random;

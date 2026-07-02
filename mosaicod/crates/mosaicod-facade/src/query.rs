@@ -109,7 +109,7 @@ impl Query {
                     // Store which topic had a positive data file search
                     let mut topics_with_data: HashSet<i32> = HashSet::new();
 
-                    // Stores the timestamp range (is requested) of each topic that matches
+                    // Stores the timestamp range (if requested) of each topic that matches
                     let mut topics_timestamp_range: HashMap<String, types::TimestampRange> =
                         HashMap::new();
 
@@ -143,7 +143,7 @@ impl Query {
 
                         let qr = qr.filter(ontology_tag_exprs.to_owned())?;
 
-                        // Set this to true to print a log message that the chunk will be discared
+                        // Set this to true to print a log message that the chunk will be discarded
                         let mut is_discarded = false;
 
                         if include_timestamp_range {
@@ -184,7 +184,7 @@ impl Query {
                         groups
                             .iter_mut()
                             .flat_map(|grp| &mut grp.topics)
-                            .for_each(|topic| {
+                            .for_each(|(topic, _)| {
                                 topic.timestamp_range =
                                     topics_timestamp_range.remove(&topic.to_string());
                             });

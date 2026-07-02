@@ -1,33 +1,42 @@
-use crate::{Error, core::AsExec, sql::schema};
+use crate::{
+    Error,
+    core::{AsExec, RowLocking},
+    sql::schema,
+};
 use log::{trace, warn};
 use mosaicod_core::types;
 
+fn rowlock2str(rl: RowLocking) -> &'static str {
+    match rl {
+        RowLocking::None => "",
+        RowLocking::Shared => "FOR SHARE",
+        RowLocking::Exclusive => "FOR UPDATE",
+    }
+}
+
 pub async fn session_create(
     exe: &mut impl AsExec,
-    record: &schema::SessionRecord,
+    locator: &types::SessionLocator,
 ) -> Result<schema::SessionRecord, Error> {
-    trace!("creating a new topic record {:?}", record);
+    trace!("creating a new session with locator: {}", locator);
+
     let res = sqlx::query_as!(
         schema::SessionRecord,
         r#"
-            INSERT INTO session_t 
-                (
-                    locator_name, session_uuid, sequence_id,
-                    creation_unix_tstamp, completion_unix_tstamp
-                ) 
-            VALUES 
-                ($1, $2, $3, $4, $5)
-            RETURNING 
-                *
-    "#,
-        record.locator_name,
-        record.session_uuid,
-        record.sequence_id,
-        record.creation_unix_tstamp,
-        record.completion_unix_tstamp,
+            INSERT INTO session_t (locator_name, session_uuid, creation_unix_tstamp, sequence_id)
+            SELECT $1, $2, $3, seq.sequence_id
+            FROM sequence_t AS seq
+            WHERE seq.locator_name = $4
+            RETURNING *
+            "#,
+        locator.to_string(),
+        uuid::Uuid::from(types::Uuid::new()),
+        types::Timestamp::now().as_i64(),
+        locator.sequence.to_string()
     )
     .fetch_one(exe.as_exec())
     .await?;
+
     Ok(res)
 }
 
@@ -35,15 +44,20 @@ pub async fn session_create(
 pub async fn session_find_by_id(
     exe: &mut impl AsExec,
     id: i32,
+    row_locking: RowLocking,
 ) -> Result<schema::SessionRecord, Error> {
     trace!("searching session by id `{}`", id);
-    let res = sqlx::query_as!(
-        schema::SessionRecord,
-        "SELECT * FROM session_t WHERE session_id=$1",
-        id
-    )
-    .fetch_one(exe.as_exec())
-    .await?;
+
+    let query = format!(
+        "SELECT * FROM session_t WHERE session_id=$1 {}",
+        rowlock2str(row_locking)
+    );
+
+    let res = sqlx::query_as::<_, schema::SessionRecord>(&query)
+        .bind(id)
+        .fetch_one(exe.as_exec())
+        .await?;
+
     Ok(res)
 }
 
@@ -51,15 +65,20 @@ pub async fn session_find_by_id(
 pub async fn session_find_by_uuid(
     exe: &mut impl AsExec,
     uuid: &types::Uuid,
+    row_locking: RowLocking,
 ) -> Result<schema::SessionRecord, Error> {
     trace!("searching session by uuid `{}`", uuid);
-    let res = sqlx::query_as!(
-        schema::SessionRecord,
-        "SELECT * FROM session_t WHERE session_uuid=$1",
-        uuid.as_ref()
-    )
-    .fetch_one(exe.as_exec())
-    .await?;
+
+    let query = format!(
+        "SELECT * FROM session_t WHERE session_uuid=$1 {}",
+        rowlock2str(row_locking)
+    );
+
+    let res = sqlx::query_as::<_, schema::SessionRecord>(&query)
+        .bind(uuid.as_ref())
+        .fetch_one(exe.as_exec())
+        .await?;
+
     Ok(res)
 }
 
@@ -76,6 +95,7 @@ pub async fn session_find_by_locator(
     )
     .fetch_one(exe.as_exec())
     .await?;
+
     Ok(res)
 }
 
@@ -91,19 +111,23 @@ pub async fn session_finalized(exe: &mut impl AsExec, session_id: i32) -> Result
     Ok(finalized)
 }
 
-/// Deletes a session record from the database by its name, **bypassing any lock state**.
+/// Deletes a session record from the database by its UUID, **bypassing any lock state**.
 ///
 /// This function requires a [`DataLossToken`] because it permanently removes the record from the database
 /// elsewhere. Improper use can lead to data inconsistency or loss.
 pub async fn session_delete(
     exe: &mut impl AsExec,
-    uuid: &types::Uuid,
+    locator: &types::SessionLocator,
     _: types::DataLossToken,
 ) -> Result<(), Error> {
-    warn!("(data loss) deleting session `{}`", uuid);
-    let result = sqlx::query!("DELETE FROM session_t WHERE session_uuid=$1", uuid.as_ref())
-        .execute(exe.as_exec())
-        .await?;
+    warn!("(data loss) deleting session `{}`", locator);
+
+    let result = sqlx::query!(
+        "DELETE FROM session_t WHERE locator_name=$1",
+        locator.to_string()
+    )
+    .execute(exe.as_exec())
+    .await?;
 
     if result.rows_affected() == 0 {
         return Err(Error::NotFound);
@@ -115,19 +139,13 @@ pub async fn session_delete(
 /// Find all topic associated with a session
 pub async fn session_find_all_topics(
     exe: &mut impl AsExec,
-    uuid: &types::Uuid,
+    id: i32,
 ) -> Result<Vec<schema::TopicRecord>, Error> {
-    trace!("searching topics for session `{}`", uuid);
+    trace!("searching topics for session with id `{}`", id);
     Ok(sqlx::query_as!(
         schema::TopicRecord,
-        r#"
-        SELECT topic.*
-        FROM topic_t AS topic
-        JOIN session_t AS session 
-            ON topic.session_id = session.session_id
-        WHERE session.session_uuid = $1
-        "#,
-        uuid.as_ref(),
+        r#"SELECT * FROM topic_t WHERE session_id = $1"#,
+        id,
     )
     .fetch_all(exe.as_exec())
     .await?)
@@ -136,21 +154,18 @@ pub async fn session_find_all_topics(
 /// Tries to update completion_unix_tstamp column for the given session.
 ///
 /// Returns False if the value was already set, otherwise True.
-pub async fn session_try_update_completion_tstamp(
+pub async fn session_finalize(
     exe: &mut impl AsExec,
     session_id: i32,
     completion_ts: i64,
 ) -> Result<bool, Error> {
-    trace!(
-        "updating completion timestamp to `{}` for session `{}`",
-        completion_ts, session_id
-    );
+    trace!("finalizing session '{}' at '{}'", completion_ts, session_id);
     let res = sqlx::query!(
         r#"
             UPDATE session_t
             SET completion_unix_tstamp = $1
-            WHERE session_id = $2 AND completion_unix_tstamp IS NULL
-    "#,
+            WHERE session_id = $2
+            "#,
         completion_ts,
         session_id,
     )
@@ -158,4 +173,56 @@ pub async fn session_try_update_completion_tstamp(
     .await?;
 
     Ok(res.rows_affected() != 0)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        UNREGISTERED,
+        core::{DatabaseType, testing},
+        sequence_create,
+    };
+    use sqlx::Pool;
+
+    #[sqlx::test]
+    async fn test_session_create(pool: Pool<DatabaseType>) {
+        let database = testing::Database::new(pool);
+
+        let mut cx = database.connection();
+
+        let seq_record = sequence_create(
+            &mut cx,
+            &"my_sequence".parse().unwrap(),
+            &"/my/path/in/store".to_owned().into(),
+            None,
+        )
+        .await
+        .unwrap();
+
+        let session_locator = types::SessionLocator::new(seq_record.locator());
+
+        let session_record = session_create(&mut cx, &session_locator).await.unwrap();
+
+        assert_ne!(session_record.session_id, UNREGISTERED);
+        assert_eq!(session_record.sequence_id, seq_record.sequence_id);
+        assert_eq!(session_record.locator(), session_locator);
+        assert_eq!(session_record.completion_unix_tstamp, None);
+        assert!(session_record.creation_unix_tstamp <= types::Timestamp::now().as_i64());
+    }
+
+    #[sqlx::test]
+    async fn test_session_create_with_non_existent_sequence(pool: Pool<DatabaseType>) {
+        let database = testing::Database::new(pool);
+
+        let mut cx = database.connection();
+
+        let seq_locator = "ghost_sequence".parse::<types::SequenceLocator>().unwrap();
+
+        let session_locator = types::SessionLocator::new(seq_locator);
+
+        let err = session_create(&mut cx, &session_locator).await.unwrap_err();
+
+        assert!(matches!(err, Error::NotFound));
+    }
 }

@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n        SELECT topic.*\n        FROM topic_t AS topic\n        JOIN session_t AS session \n            ON topic.session_id = session.session_id\n        WHERE session.session_uuid = $1\n        ",
+  "query": "\n            INSERT INTO topic_t\n                (\n                    topic_uuid, sequence_id, session_id, locator_name, creation_unix_tstamp,\n                    serialization_format, ontology_tag, user_metadata, path_in_store\n                )\n            SELECT $1, seq.sequence_id, sess.session_id, $2, $3, $4, $5, $6, $7\n            FROM sequence_t as seq JOIN session_t as sess ON sess.sequence_id = seq.sequence_id\n            WHERE seq.locator_name = $8 AND sess.session_uuid = $9 AND sess.completion_unix_tstamp IS NULL\n            RETURNING topic_t.*\n            ",
   "describe": {
     "columns": [
       {
@@ -81,6 +81,14 @@
     ],
     "parameters": {
       "Left": [
+        "Uuid",
+        "Text",
+        "Int8",
+        "Text",
+        "Text",
+        "Jsonb",
+        "Text",
+        "Text",
         "Uuid"
       ]
     },
@@ -102,5 +110,5 @@
       true
     ]
   },
-  "hash": "07dcee209fc6411c1a82aed9b520589dd5d50c60d7f6107be08fb3ab3a65ccee"
+  "hash": "b5ba013d6db54fcd3330529e2d8edbbebb66da65ba01fce291a873fb120d6d53"
 }

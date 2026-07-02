@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n            INSERT INTO topic_t\n                (\n                    topic_uuid, sequence_id, session_id, locator_name, creation_unix_tstamp,\n                    serialization_format, ontology_tag, user_metadata, chunks_number,\n                    total_bytes, start_index_timestamp, end_index_timestamp, path_in_store\n                ) \n            VALUES \n                ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)\n            RETURNING \n                *\n    ",
+  "query": "SELECT * FROM topic_t WHERE sequence_id = $1",
   "describe": {
     "columns": [
       {
@@ -81,19 +81,7 @@
     ],
     "parameters": {
       "Left": [
-        "Uuid",
-        "Int4",
-        "Int4",
-        "Text",
-        "Int8",
-        "Text",
-        "Text",
-        "Jsonb",
-        "Int8",
-        "Int8",
-        "Int8",
-        "Int8",
-        "Text"
+        "Int4"
       ]
     },
     "nullable": [
@@ -114,5 +102,5 @@
       true
     ]
   },
-  "hash": "3eba4c036fbaf0392cabdcc06d654e5c88b5e8a94e04d1ed0ec431e541e0a81d"
+  "hash": "1d6fc5f0426ad01d1570b1ff9f205a1c8c72bb6a39fa01a782f08f41e0a87b23"
 }

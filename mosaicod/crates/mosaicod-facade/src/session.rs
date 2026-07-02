@@ -7,118 +7,90 @@
 //! finalized, all data associated with it becomes immutable.
 
 use crate::{Context, topic};
+use mosaicod_core::error::PublicError;
 use mosaicod_core::{self as core, error::PublicResult as Result, types};
 use mosaicod_db as db;
 
-/// Handle containing session identifiers.
-/// It's used by all functions (except creation) in this module to indicate the session to operate on.
-pub struct Handle {
-    id: i32,
-    uuid: types::Uuid,
-    locator: types::SessionLocator,
-}
+pub(super) mod internal {
+    use super::*;
 
-impl Handle {
-    pub(super) fn new(locator: types::SessionLocator, id: i32, uuid: types::Uuid) -> Self {
-        Self { locator, id, uuid }
-    }
+    pub async fn metadata(
+        exe: &mut impl db::AsExec,
+        session_record: &db::SessionRecord,
+    ) -> Result<types::SessionMetadata> {
+        let topics = db::session_find_all_topics(exe, session_record.session_id)
+            .await?
+            .iter()
+            .map(|tr| tr.locator())
+            .collect();
 
-    /// Try to obtain a handle from a session locator.
-    /// Returns an error if the session does not exist.
-    pub async fn try_from_locator(
-        context: &Context,
-        locator: types::SessionLocator,
-    ) -> Result<Handle> {
-        let mut cx = context.db.connection();
-
-        let db_session = db::session_find_by_locator(&mut cx, &locator).await?;
-
-        Ok(Self {
-            locator,
-            id: db_session.sequence_id,
-            uuid: db_session.uuid(),
+        Ok(types::SessionMetadata {
+            locator: session_record.locator(),
+            created_at: session_record.creation_timestamp(),
+            completed_at: session_record.completion_timestamp(),
+            topics,
         })
-    }
-
-    /// Try to obtain a handle from a session UUID.
-    /// Returns an error if the session does not exist.
-    pub async fn try_from_uuid(context: &Context, uuid: &types::Uuid) -> Result<Self> {
-        let mut cx = context.db.connection();
-
-        let db_session = db::session_find_by_uuid(&mut cx, uuid).await?;
-
-        Ok(Self {
-            id: db_session.session_id,
-            uuid: db_session.uuid(),
-            locator: db_session.locator(),
-        })
-    }
-
-    pub fn uuid(&self) -> &types::Uuid {
-        &self.uuid
-    }
-
-    pub fn locator(&self) -> &types::SessionLocator {
-        &self.locator
-    }
-
-    pub(super) fn id(&self) -> i32 {
-        self.id
     }
 }
 
 /// Creates a new session in the database for the given sequence.
+///
+/// Returns the locator and the UUID of the newly created session.
 pub async fn try_create(
     context: &Context,
     sequence_locator: types::SequenceLocator,
-) -> Result<Handle> {
-    let mut tx = context.db.transaction().await?;
-
-    let sequence = db::sequence_find_by_locator(&mut tx, &sequence_locator).await?;
-
-    let locator = types::SessionLocator::new(sequence_locator);
-
-    let session = db::SessionRecord::new(locator.clone(), sequence.sequence_id);
-    let session = db::session_create(&mut tx, &session).await?;
-
-    tx.commit().await?;
-
-    Ok(Handle {
-        id: session.session_id,
-        uuid: session.uuid(),
-        locator,
-    })
+) -> Result<(types::SessionLocator, types::Uuid)> {
+    let session_locator = types::SessionLocator::new(sequence_locator.clone());
+    let mut cx = context.db.connection();
+    let session = db::session_create(&mut cx, &session_locator)
+        .await
+        .map_err(|e| match &e {
+            db::Error::NotFound | db::Error::ForeignKeyViolation => {
+                core::Error::not_found(sequence_locator.to_string())
+            }
+            _ => e.error(),
+        })?;
+    Ok((session_locator, session.uuid()))
 }
 
 /// Finalizes the session, making it and all its associated data immutable.
 ///
 /// Once a session is finalized, no more topics can be added to it.
-pub async fn finalize(context: &Context, handle: &Handle) -> Result<()> {
+pub async fn finalize(context: &Context, uuid: &types::Uuid) -> Result<()> {
     let mut tx = context.db.transaction().await?;
 
+    // Getting this record with an exclusive lock prevents other concurrent session finalize on the
+    // same session (if any) from making a mess.
+    let session_record = db::session_find_by_uuid(&mut tx, uuid, db::RowLocking::Exclusive)
+        .await
+        .map_err(|e| match e {
+            db::Error::NotFound => core::Error::not_found(format!("session with UUID {}", uuid)),
+            _ => e.error(),
+        })?;
+
+    let session_locator = session_record.locator();
+
     // Return an error if session has already been finalized.
-    // Note: here two concurrent finalized could pass this check,
-    // that's why we need later to update the completion timestamp if not already present atomically.
-    if db::session_finalized(&mut tx, handle.id()).await? {
+    if session_record.completion_timestamp().is_some() {
         Err(core::Error::session_already_finalized(
-            handle.locator().to_string(),
+            session_locator.to_string(),
         ))?;
     }
 
-    let topics = topic_list(handle, &mut tx).await?;
+    let topics = db::session_find_all_topics(&mut tx, session_record.session_id).await?;
 
     // If the session does not contain any topic, return an error and leave the session unlocked.
     if topics.is_empty() {
-        Err(core::Error::empty_session(handle.locator().to_string()))?
+        Err(core::Error::empty_session(session_locator.to_string()))?
     }
 
     // If not all topics are finalized, return the locator of the first one still open.
     let mut topic_not_finalized = None;
 
-    for handle in &topics {
-        let status = topic::status(context, handle).await?;
+    for topic_record in &topics {
+        let status = topic::internal::status(topic_record).await?;
         if status != topic::Status::Finalized {
-            topic_not_finalized = Some((handle.locator(), status));
+            topic_not_finalized = Some((topic_record.locator(), status));
             break;
         }
     }
@@ -135,19 +107,12 @@ pub async fn finalize(context: &Context, handle: &Handle) -> Result<()> {
         }
     }
 
-    // If updating the completion timestamp fails it means somebody else did it in the meantime.
-    let finalize_ok = db::session_try_update_completion_tstamp(
+    db::session_finalize(
         &mut tx,
-        handle.id(),
+        session_record.session_id,
         types::Timestamp::now().as_i64(),
     )
     .await?;
-
-    if !finalize_ok {
-        Err(core::Error::session_already_finalized(
-            handle.locator().to_string(),
-        ))?;
-    }
 
     tx.commit().await?;
 
@@ -157,48 +122,12 @@ pub async fn finalize(context: &Context, handle: &Handle) -> Result<()> {
 /// Deletes the session from the database.
 pub async fn delete(
     context: &Context,
-    handle: Handle,
+    locator: &types::SessionLocator,
     allow_data_loss: types::DataLossToken,
 ) -> Result<()> {
     let mut cx = context.db.connection();
-    db::session_delete(&mut cx, handle.uuid(), allow_data_loss).await?;
+    db::session_delete(&mut cx, locator, allow_data_loss).await?;
     Ok(())
-}
-
-/// Returns the topic list associated with this session.
-async fn topic_list(handle: &Handle, exe: &mut impl db::AsExec) -> Result<Vec<topic::Handle>> {
-    let topics = db::session_find_all_topics(exe, handle.uuid()).await?;
-
-    Ok(topics
-        .into_iter()
-        .map(|record| {
-            topic::Handle::new(
-                record.locator(),
-                record.topic_id,
-                record.uuid(),
-                record.path_in_store(),
-            )
-        })
-        .collect())
-}
-
-pub async fn metadata(context: &Context, handle: &Handle) -> Result<types::SessionMetadata> {
-    let mut tx = context.db.transaction().await?;
-
-    let db_session = db::session_find_by_id(&mut tx, handle.id()).await?;
-
-    let topics = topic_list(handle, &mut tx)
-        .await?
-        .into_iter()
-        .map(|handle| handle.locator().clone())
-        .collect();
-
-    Ok(types::SessionMetadata {
-        locator: db_session.locator(),
-        created_at: db_session.creation_timestamp(),
-        completed_at: db_session.completion_timestamp(),
-        topics,
-    })
 }
 
 #[cfg(test)]
@@ -208,7 +137,7 @@ mod tests {
     use mosaicod_store as store;
     use std::sync::Arc;
 
-    use crate::{sequence, session};
+    use crate::sequence;
 
     fn test_context(pool: sqlx::Pool<db::DatabaseType>) -> Context {
         let database = db::testing::Database::new(pool);
@@ -226,36 +155,43 @@ mod tests {
 
         let seq_locator = "test_sequence".parse::<types::SequenceLocator>().unwrap();
 
-        let seq_handle = sequence::try_create(&context, seq_locator, None)
+        sequence::try_create(&context, &seq_locator, None)
             .await
             .expect("Error creating sequence");
 
-        let session_handle = session::try_create(&context, seq_handle.locator().clone())
+        let seq_record = db::sequence_find_by_locator(&mut context.db.connection(), &seq_locator)
+            .await
+            .unwrap();
+
+        let (session_locator, session_uuid) = try_create(&context, seq_record.locator().clone())
             .await
             .expect("Error creating session");
 
-        assert_eq!(session_handle.locator.sequence, *seq_handle.locator());
+        assert_eq!(*session_locator.sequence, *seq_record.locator());
 
-        let session_uuid = session_handle.uuid().clone();
+        let session_record =
+            db::session_find_by_locator(&mut context.db.connection(), &session_locator)
+                .await
+                .unwrap();
+        assert_eq!(session_record.session_id, 1);
+        assert!(session_record.creation_timestamp().as_i64() > 0);
+        assert!(session_record.completion_timestamp().is_none());
 
-        // Check if session was correctly created on DB.
-        let mut cx = context.db.connection();
-        let db_session = db::session_find_by_uuid(&mut cx, &session_uuid)
-            .await
-            .expect("Unable to find the created session");
+        delete(
+            &context,
+            &session_record.locator(),
+            types::allow_data_loss(),
+        )
+        .await
+        .expect("Unable to delete session");
 
-        assert_eq!(db_session.session_id, session_handle.id());
-        assert_eq!(db_session.uuid(), *session_handle.uuid());
-        assert!(db_session.creation_timestamp().as_i64() > 0);
-        assert!(db_session.completion_timestamp().is_none());
-
-        delete(&context, session_handle, types::allow_data_loss())
-            .await
-            .expect("Unable to delete session");
-
-        db::session_find_by_uuid(&mut cx, &session_uuid)
-            .await
-            .unwrap_err();
+        db::session_find_by_uuid(
+            &mut context.db.connection(),
+            &session_uuid,
+            db::RowLocking::None,
+        )
+        .await
+        .unwrap_err();
 
         Ok(())
     }

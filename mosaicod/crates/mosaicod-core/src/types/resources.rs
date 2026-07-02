@@ -222,14 +222,14 @@ impl std::fmt::Display for TopicPathInStore {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TopicOntologyProperties {
     pub serialization_format: Format,
     pub ontology_tag: String,
 }
 
 /// Properties defining the data semantic and encoding for a topic.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TopicOntologyMetadata<M> {
     pub properties: TopicOntologyProperties,
     pub user_metadata: Option<M>,
@@ -247,7 +247,7 @@ impl<M> TopicOntologyMetadata<M> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TopicMetadata<M> {
     pub properties: TopicMetadataProperties,
     pub ontology_metadata: TopicOntologyMetadata<M>,
@@ -276,7 +276,7 @@ pub struct TopicChunksStats {
 }
 
 /// Metadata properties associated to a topic.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TopicMetadataProperties {
     pub created_at: types::Timestamp,
     pub completed_at: Option<types::Timestamp>,
@@ -307,7 +307,7 @@ impl TopicMetadataProperties {
 ///
 /// This struct provides a snapshot of the topic's physical state on disk, including
 /// its size, structure, and lifecycle status.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TopicDataInfo {
     /// Number of chunks in the topic
     pub chunks_number: u64,
@@ -516,20 +516,19 @@ pub struct SequenceMetadata<M> {
 // ////////////////////////////////////////////////////////////////////////////
 
 /// Groups a specific sequence with its associated topics and an optional time filter.
-///
-/// This structure acts as a container to link a [`SequenceLocator`] with multiple [`TopicLocator`]s.
 #[derive(Debug)]
 pub struct SequenceTopicGroup {
     pub sequence: SequenceLocator,
-    pub topics: Vec<TopicLocator>,
+    // Vector of pairs containing topic locator (TopicLocator) and ontology tag (String).
+    pub topics: Vec<(TopicLocator, String)>,
 }
 
 impl SequenceTopicGroup {
-    pub fn new(sequence: SequenceLocator, topics: Vec<TopicLocator>) -> Self {
+    pub fn new(sequence: SequenceLocator, topics: Vec<(TopicLocator, String)>) -> Self {
         Self { sequence, topics }
     }
 
-    pub fn into_parts(self) -> (SequenceLocator, Vec<TopicLocator>) {
+    pub fn into_parts(self) -> (SequenceLocator, Vec<(TopicLocator, String)>) {
         (self.sequence, self.topics)
     }
 }
@@ -641,13 +640,22 @@ mod tests {
             SequenceTopicGroup::new(
                 SequenceLocator::from_str("sequence_1").unwrap(),
                 vec![
-                    TopicLocator::from_str("sequence_1/topic_1").unwrap(),
-                    TopicLocator::from_str("sequence_1/topic_2").unwrap(),
+                    (
+                        TopicLocator::from_str("sequence_1/topic_1").unwrap(),
+                        "dummy_ontology".to_owned(),
+                    ),
+                    (
+                        TopicLocator::from_str("sequence_1/topic_2").unwrap(),
+                        "dummy_ontology".to_owned(),
+                    ),
                 ],
             ),
             SequenceTopicGroup::new(
                 SequenceLocator::from_str("sequence_2").unwrap(),
-                vec![TopicLocator::from_str("sequence_2/topic_1").unwrap()],
+                vec![(
+                    TopicLocator::from_str("sequence_2/topic_1").unwrap(),
+                    "dummy_ontology".to_owned(),
+                )],
             ),
         ]);
 
@@ -655,13 +663,22 @@ mod tests {
             SequenceTopicGroup::new(
                 SequenceLocator::from_str("sequence_1").unwrap(),
                 vec![
-                    TopicLocator::from_str("sequence_1/topic_1").unwrap(),
-                    TopicLocator::from_str("sequence_1/topic_3").unwrap(),
+                    (
+                        TopicLocator::from_str("sequence_1/topic_1").unwrap(),
+                        "dummy_ontology".to_owned(),
+                    ),
+                    (
+                        TopicLocator::from_str("sequence_1/topic_3").unwrap(),
+                        "dummy_ontology".to_owned(),
+                    ),
                 ],
             ),
             SequenceTopicGroup::new(
                 SequenceLocator::from_str("sequence_3").unwrap(),
-                vec![TopicLocator::from_str("sequence_3/topic_1").unwrap()],
+                vec![(
+                    TopicLocator::from_str("sequence_3/topic_1").unwrap(),
+                    "dummy_ontology".to_owned(),
+                )],
             ),
         ]);
 

@@ -33,6 +33,7 @@ PROJECT_DIR=$(readlink -f "${FILE_DIR}/..")
 DATABASE_URL="${MOSAICOD_DB_URL}"
 MOSAICOD_PATH="${PROJECT_DIR}/${MOSAICOD_DIR}"
 PYTHON_SDK_PATH="${PROJECT_DIR}/${PYTHON_SDK_DIR}"
+MOSAICO_CLI_PATH="${PROJECT_DIR}/${PYTHON_SDK_DIR}"
 DOCKER_PATH="${PROJECT_DIR}/${DOCKER_DIR}"
 
 export DATABASE_URL
@@ -183,6 +184,19 @@ cat << EOF
     #                                                                #
     ##################################################################
 EOF
+
+        # Configure CLI profile with the generated API key
+        MOSAICO_CMD="poetry -C ${MOSAICO_CLI_PATH} run mosaico"
+
+        echo "${DIM}Configuring CLI profile 'dev'...${RESET}"
+        # Remove existing dev profile (ignore errors if it doesn't exist)
+        ${MOSAICO_CMD} profile remove dev --force 2>/dev/null || true
+        # Add dev profile with the generated API key
+        PROFILE_OPTS="--no-interactive --force --host localhost --port 6276 --api-key ${API_KEY} --default"
+        if $ENABLE_TLS; then
+            PROFILE_OPTS="${PROFILE_OPTS} --tls --cert-path ${MOSAICOD_PATH}/tests/data/ca.pem"
+        fi
+        ${MOSAICO_CMD} profile add dev ${PROFILE_OPTS}
     fi
 
     if $ENABLE_TLS; then
@@ -196,6 +210,18 @@ cat << EOF
     #                                                                #
     ##################################################################
 EOF
+
+        # Configure CLI profile with TLS cert (if not already done by --api-key)
+        if ! $ENABLE_API_KEY; then
+            MOSAICO_CMD="poetry -C ${MOSAICO_CLI_PATH} run mosaico"
+
+            echo "${DIM}Configuring CLI profile 'dev' (TLS)...${RESET}"
+            ${MOSAICO_CMD} profile remove dev --force 2>/dev/null || true
+            ${MOSAICO_CMD} profile add dev --no-interactive --force \
+                --host localhost --port 6276 \
+                --tls --cert-path "${MOSAICOD_PATH}/tests/data/ca.pem" \
+                --default
+        fi
     fi
 
     title "running" "." ${BLUE}

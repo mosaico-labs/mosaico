@@ -18,25 +18,6 @@ pub struct SequenceNotificationRecord {
 }
 
 impl SequenceNotificationRecord {
-    /// Creates a new sequence notification.
-    ///
-    /// **Note**: This function only creates a local instance. The record will not be present
-    /// in the database until [`sequence_notification_create`] is called.
-    pub fn new(
-        sequence_id: i32,
-        notification_type: types::NotificationType,
-        msg: Option<String>,
-    ) -> Self {
-        Self {
-            sequence_notification_id: db::UNREGISTERED,
-            sequence_notification_uuid: types::Uuid::new().into(),
-            sequence_id,
-            notification_type: notification_type.to_string(),
-            msg,
-            creation_unix_tstamp: types::Timestamp::now().into(),
-        }
-    }
-
     pub fn into_notification(
         self,
         loc: types::SequenceLocator,
@@ -91,25 +72,6 @@ pub struct TopicNotificationRecord {
 }
 
 impl TopicNotificationRecord {
-    /// Creates a new topic notification.
-    ///
-    /// **Note**: This function only creates a local instance. The record will not be present
-    /// in the database until [`topic_notification_create`] is called.
-    pub fn new(
-        topic_id: i32,
-        notification_type: types::NotificationType,
-        msg: Option<String>,
-    ) -> Self {
-        Self {
-            topic_notification_id: db::UNREGISTERED,
-            topic_notification_uuid: types::Uuid::new().into(),
-            topic_id,
-            notification_type: notification_type.to_string(),
-            msg,
-            creation_unix_tstamp: types::Timestamp::now().into(),
-        }
-    }
-
     pub fn into_notification(
         self,
         loc: types::TopicLocator,

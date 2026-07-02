@@ -72,18 +72,13 @@ pub async fn sequence_find_path_in_store(
 
 pub async fn sequence_find_all_topics(
     exe: &mut impl AsExec,
-    loc: &types::SequenceLocator,
+    id: i32,
 ) -> Result<Vec<schema::TopicRecord>, Error> {
-    trace!("searching topics for sequence `{}`", loc);
+    trace!("searching topics for sequence with id `{}`", id);
     Ok(sqlx::query_as!(
         schema::TopicRecord,
-        r#"
-        SELECT topic.*
-        FROM topic_t AS topic
-        JOIN sequence_t AS sequence ON topic.sequence_id = sequence.sequence_id
-        WHERE sequence.locator_name = $1
-        "#,
-        loc as &str
+        r#"SELECT * FROM topic_t WHERE sequence_id = $1"#,
+        id
     )
     .fetch_all(exe.as_exec())
     .await?)
@@ -91,21 +86,19 @@ pub async fn sequence_find_all_topics(
 
 pub async fn sequence_find_all_sessions(
     exe: &mut impl AsExec,
-    loc: &types::SequenceLocator,
+    id: i32,
 ) -> Result<Vec<schema::SessionRecord>, Error> {
-    trace!("searching sessions for sequence `{}`", loc);
-    Ok(sqlx::query_as!(
+    trace!("searching sessions for sequence with id `{}`", id);
+
+    let res = sqlx::query_as!(
         schema::SessionRecord,
-        r#"
-        SELECT session.*
-        FROM session_t AS session 
-        JOIN sequence_t AS sequence ON session.sequence_id = sequence.sequence_id
-        WHERE sequence.locator_name = $1
-        "#,
-        loc as &str
+        r#"SELECT * FROM session_t WHERE sequence_id = $1"#,
+        id
     )
     .fetch_all(exe.as_exec())
-    .await?)
+    .await?;
+
+    Ok(res)
 }
 
 /// Return all sequences
@@ -131,9 +124,14 @@ pub async fn sequence_delete_by_locator(
     _: types::DataLossToken,
 ) -> Result<(), Error> {
     warn!("(data loss) deleting sequence `{}`", loc);
-    sqlx::query!("DELETE FROM sequence_t WHERE locator_name=$1", loc as &str)
+    let res = sqlx::query!("DELETE FROM sequence_t WHERE locator_name=$1", loc as &str)
         .execute(exe.as_exec())
         .await?;
+
+    if res.rows_affected() == 0 {
+        return Err(Error::NotFound);
+    }
+
     Ok(())
 }
 
@@ -148,9 +146,12 @@ pub async fn sequence_delete_by_id(
     _: types::DataLossToken,
 ) -> Result<(), Error> {
     warn!("(data loss) deleting sequence with id `{}`", sequence_id);
-    let result = sqlx::query!("DELETE FROM sequence_t WHERE sequence_id=$1", sequence_id)
-        .execute(exe.as_exec())
-        .await?;
+    let result = sqlx::query!(
+        r#"DELETE FROM sequence_t WHERE sequence_id=$1"#,
+        sequence_id
+    )
+    .execute(exe.as_exec())
+    .await?;
 
     if result.rows_affected() == 0 {
         return Err(Error::NotFound);
@@ -161,9 +162,11 @@ pub async fn sequence_delete_by_id(
 
 pub async fn sequence_create(
     exe: &mut impl AsExec,
-    record: &schema::SequenceRecord,
+    locator: &types::SequenceLocator,
+    path_in_store: &types::SequencePathInStore,
+    user_metadata: Option<serde_json::Value>,
 ) -> Result<schema::SequenceRecord, Error> {
-    trace!("creating a new sequence record {:?}", record);
+    trace!("creating a new sequence {}", locator);
     let res = sqlx::query_as!(
         schema::SequenceRecord,
         r#"
@@ -174,11 +177,11 @@ pub async fn sequence_create(
             RETURNING 
                 *
     "#,
-        record.sequence_uuid,
-        record.locator_name,
-        record.creation_unix_tstamp,
-        record.user_metadata,
-        record.path_in_store
+        uuid::Uuid::new_v4(),
+        locator.to_string(),
+        types::Timestamp::now().as_i64(),
+        user_metadata,
+        path_in_store.to_string()
     )
     .fetch_one(exe.as_exec())
     .await?;
@@ -188,26 +191,54 @@ pub async fn sequence_create(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::{DatabaseType, testing};
+    use crate::{
+        UNREGISTERED,
+        core::{DatabaseType, testing},
+    };
+    use mosaicod_core::types::MetadataBlob;
+    use mosaicod_marshal as marshal;
     use sqlx::Pool;
 
     #[sqlx::test]
-    async fn test_create(pool: Pool<DatabaseType>) -> sqlx::Result<()> {
-        let record = schema::SequenceRecord::new(
-            "my_sequence".parse().unwrap(),
-            "/my/path/in/store".to_owned().into(),
-        );
+    async fn test_create_without_metadata(pool: Pool<DatabaseType>) {
         let database = testing::Database::new(pool);
-        let rrecord = sequence_create(&mut database.connection(), &record)
-            .await
-            .unwrap();
 
-        assert_eq!(record.sequence_uuid, rrecord.sequence_uuid);
-        assert_eq!(record.locator_name, rrecord.locator_name);
-        assert_eq!(record.creation_unix_tstamp, rrecord.creation_unix_tstamp);
+        let record = sequence_create(
+            &mut database.connection(),
+            &"my_sequence".parse().unwrap(),
+            &"/my/path/in/store".to_owned().into(),
+            None,
+        )
+        .await
+        .unwrap();
 
-        Ok(())
+        assert_eq!(record.locator_name, "my_sequence");
+        assert!(record.creation_unix_tstamp <= types::Timestamp::now().as_i64());
+        assert_eq!(record.path_in_store, "/my/path/in/store");
+        assert!(record.user_metadata.is_none());
+        assert_ne!(record.sequence_id, UNREGISTERED);
     }
 
-    // (cabba) TODO: extend tests
+    #[sqlx::test]
+    async fn test_create_with_metadata(pool: Pool<DatabaseType>) {
+        let database = testing::Database::new(pool);
+
+        let metadata =
+            marshal::JsonMetadataBlob::try_from_str(r#"{"key": "value", "key2": 100}"#).unwrap();
+
+        let record = sequence_create(
+            &mut database.connection(),
+            &"my_sequence".parse().unwrap(),
+            &"/my/path/in/store".to_owned().into(),
+            Some(metadata.into()),
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(record.locator_name, "my_sequence");
+        assert!(record.creation_unix_tstamp <= types::Timestamp::now().as_i64());
+        assert_eq!(record.path_in_store, "/my/path/in/store");
+        assert!(record.user_metadata.is_some());
+        assert_ne!(record.sequence_id, UNREGISTERED);
+    }
 }

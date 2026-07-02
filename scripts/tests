@@ -129,7 +129,7 @@ start_docker() {
 install_python_deps() {
     title "poetry" "." "${BLUE}"
     cd "${PYTHON_SDK_PATH}"
-    poetry install
+    poetry install --extras cli
 }
 
 # Run mosaicod unit tests

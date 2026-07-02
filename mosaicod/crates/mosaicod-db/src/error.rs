@@ -8,6 +8,9 @@ pub enum Error {
     /// The record already exists
     AlreadyExists,
 
+    /// An error occurred regarding foreign Key constraints
+    ForeignKeyViolation,
+
     /// An error occurred during database schema migration.
     MigrationError(sqlx::migrate::MigrateError),
 
@@ -39,6 +42,7 @@ impl std::fmt::Display for Error {
         match self {
             Self::BackendError(_) => write!(f, "backend error"),
             Self::AlreadyExists => write!(f, "already exists"),
+            Self::ForeignKeyViolation => write!(f, "foreign key violation"),
             Self::MigrationError(_) => write!(f, "migration error"),
             Self::SerializationError(_) => write!(f, "serialization error"),
             Self::BadData(msg) => write!(f, "bad data: {0}", msg),
@@ -70,6 +74,8 @@ impl From<sqlx::Error> for Error {
             sqlx::Error::Database(err) => {
                 if err.is_unique_violation() {
                     Self::AlreadyExists
+                } else if err.is_foreign_key_violation() {
+                    Self::ForeignKeyViolation
                 } else {
                     Self::BackendError(value)
                 }
