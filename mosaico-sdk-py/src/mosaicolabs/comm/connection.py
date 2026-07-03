@@ -25,10 +25,8 @@ logger = get_logger(__name__)
 
 
 def _wait_for_available(client: fl.FlightClient, timeout: int) -> None:
-    """Probe the server with a VERSION action until it responds or the timeout expires.
-
-    Uses do_action instead of list_flights to avoid triggering unintended
-    server-side list_flights handlers during connection setup.
+    """
+    Probe the server with a VERSION action until it responds or the timeout expires.
     """
     deadline = time.monotonic() + timeout
     last_exc: Optional[Exception] = None
