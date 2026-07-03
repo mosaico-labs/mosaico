@@ -248,9 +248,16 @@ impl<M> TopicOntologyMetadata<M> {
 }
 
 #[derive(Debug, Clone)]
+pub struct TopicIntervalProperties {
+    pub message_count: usize,
+    pub timestamp_range: types::TimestampRange,
+}
+
+#[derive(Debug, Clone)]
 pub struct TopicMetadata<M> {
     pub properties: TopicMetadataProperties,
     pub ontology_metadata: TopicOntologyMetadata<M>,
+    pub interval_props: Option<TopicIntervalProperties>,
 }
 
 impl<M> TopicMetadata<M> {
@@ -264,6 +271,18 @@ impl<M> TopicMetadata<M> {
         Self {
             properties,
             ontology_metadata,
+            interval_props: None,
+        }
+    }
+
+    pub fn with_interval(self, interval: TopicIntervalProperties) -> Self
+    where
+        M: super::MetadataBlob,
+    {
+        Self {
+            properties: self.properties,
+            ontology_metadata: self.ontology_metadata,
+            interval_props: Some(interval),
         }
     }
 }

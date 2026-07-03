@@ -119,6 +119,7 @@ impl TimeseriesEngine {
     }
 }
 
+#[derive(Clone)]
 pub struct TimeseriesResult {
     data_frame: DataFrame,
 }
@@ -201,7 +202,7 @@ impl TimeseriesResult {
     /// # Errors
     ///
     /// This function will return a [`Error::DataFusion`] if backend fails or
-    /// an [`Error::BadField`] if there is some problem retrieving the
+    /// an [`Error::NullMinMaxTimestamps`] if there is some problem retrieving the
     /// timestamp values (very rare since schema are checked before data upload)
     pub async fn timestamp_range(self) -> Result<Option<types::TimestampRange>, Error> {
         let stats = self.data_frame.aggregate(
@@ -218,14 +219,14 @@ impl TimeseriesResult {
             let ts_min = ScalarValue::try_from_array(batch.column(0), 0)?;
             let ts_max = ScalarValue::try_from_array(batch.column(1), 0)?;
 
-            let ts_min = scalar_value_to_timestamp(ts_min).ok_or_else(|| {
-                Error::bad_field(params::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP.to_owned())
-            })?;
-            let ts_max = scalar_value_to_timestamp(ts_max).ok_or_else(|| {
-                Error::bad_field(params::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP.to_owned())
-            })?;
+            let ts_min = scalar_value_to_timestamp(ts_min);
+            let ts_max = scalar_value_to_timestamp(ts_max);
 
-            return Ok(Some(types::TimestampRange::between(ts_min, ts_max)));
+            return match (ts_min, ts_max) {
+                (Some(min), Some(max)) => Ok(Some(types::TimestampRange::between(min, max))),
+                (None, None) => Ok(None),
+                _ => Err(Error::NullMinMaxTimestamps),
+            };
         }
 
         Ok(None)

@@ -21,6 +21,9 @@ pub enum Error {
 
     #[error("store error")]
     StoreError(#[from] mosaicod_store::Error),
+
+    #[error("retrieved null min or max timestamp")]
+    NullMinMaxTimestamps,
 }
 
 impl Error {
@@ -64,7 +67,7 @@ impl core::error::PublicError for Error {
             Self::OpError { field, err } => core::Error::bad_request(format!("{field} : {err}")),
             Self::StoreError(e) => e.error(),
             Self::DeserializationError(msg) => core::Error::bad_request(msg.to_owned()),
-            Self::DataFusion(_) | Self::BadPath(_) => {
+            Self::DataFusion(_) | Self::BadPath(_) | Self::NullMinMaxTimestamps => {
                 core::Error::internal(Some("query engine failed".to_owned()))
             }
         }

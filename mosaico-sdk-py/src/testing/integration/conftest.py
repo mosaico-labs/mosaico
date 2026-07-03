@@ -7,6 +7,8 @@ from testing.integration.helpers import (
     SequenceDataStream,
     sequential_time_generator,
     topic_maker_generator,
+    topic_to_listmaker_factory,
+    topic_to_listmetadata_dict,
     topic_to_maker_factory,
     topic_to_metadata_dict,
     topic_to_ontology_class_dict,
@@ -16,6 +18,7 @@ from .config import (
     QUERY_SEQUENCES_MOCKUP,
     UPLOADED_SEQUENCE_METADATA,
     UPLOADED_SEQUENCE_NAME,
+    UPLOADED_SEQUENCE_W_LIST_NAME,
 )
 
 
@@ -75,14 +78,6 @@ def synthetic_sequence_data_stream(
     host, port, tls_cert_path, compression, api_key_mgmt
 ):
     """Generate synthetic data, create a sequence and pushes messages"""
-    _client = MosaicoClient.connect(
-        host=host,
-        port=port,
-        tls_cert_path=tls_cert_path,
-        api_key=api_key_mgmt,
-        compression=compression,
-    )
-
     start_time_sec = 1700000000
     start_time_nanosec = 0
     dt_nanosec = 5_000_000  # 5 ms
@@ -116,8 +111,6 @@ def synthetic_sequence_data_stream(
             )
         )
 
-    # free resources
-    _client.close()
     return SequenceDataStream(
         items=items,
         dt_nanosec=dt_nanosec,
@@ -190,6 +183,93 @@ def inject_mockup_sequences(host, port, tls_cert_path, api_key_mgmt, compression
                         raise Exception(
                             f"Unable to create topic '{tname}' in sequence '{sname}'"
                         )
+
+    # free resources
+    _client.close()
+
+
+@pytest.fixture(
+    scope="session"
+)  # the first who calls this function, wins and avoid this is called multiple times
+def synthetic_sequence_w_list_data_stream():
+    """Generate synthetic data, create a sequence and pushes messages"""
+    start_time_sec = 1000000000
+    start_time_nanosec = 0
+    dt_nanosec = 5_000_000  # 5 ms
+    steps = 100
+
+    items = []
+
+    time_gen = sequential_time_generator(
+        start_sec=start_time_sec,
+        start_nanosec=start_time_nanosec,
+        step_nanosec=dt_nanosec,
+        steps=steps,
+    )
+
+    msg_w_list_maker_gen = topic_maker_generator(
+        topic_to_listmaker_factory,
+    )
+
+    for t in range(steps):
+        meas_time = next(time_gen)
+        topic, msg_maker = next(msg_w_list_maker_gen)
+        ontology_type = topic_to_ontology_class_dict[topic]
+
+        msg = msg_maker(meas_time=meas_time)
+
+        items.append(
+            DataStreamItem(
+                topic=topic,
+                msg=msg,
+                ontology_class=ontology_type,
+            )
+        )
+
+    return SequenceDataStream(
+        items=items,
+        dt_nanosec=dt_nanosec,
+        tstamp_ns_start=items[0].msg.timestamp_ns,
+        tstamp_ns_end=items[-1].msg.timestamp_ns,
+    )
+
+
+@pytest.fixture(scope="session")
+def inject_synthetic_sequence_w_lists(
+    synthetic_sequence_w_list_data_stream,
+    host,
+    port,
+    tls_cert_path,
+    api_key_mgmt,
+    compression,
+):
+    """Generate synthetic data, create a sequence and pushes messages"""
+    _client = MosaicoClient.connect(
+        host=host,
+        port=port,
+        tls_cert_path=tls_cert_path,
+        api_key=api_key_mgmt,
+        compression=compression,
+    )
+
+    with _client.sequence_create(
+        sequence_name=UPLOADED_SEQUENCE_W_LIST_NAME,
+        metadata={},
+    ) as swriter:
+        for ds_item in synthetic_sequence_w_list_data_stream.items:
+            twriter = swriter.get_topic_writer(topic_name=ds_item.topic)
+            if twriter is None:
+                twriter = swriter.topic_create(
+                    topic_name=ds_item.topic,
+                    metadata=topic_to_listmetadata_dict[ds_item.topic],
+                    ontology_type=ds_item.ontology_class,
+                )
+                if twriter is None:
+                    raise Exception(
+                        f"Unable to create topic '{ds_item.topic}' in sequence '{UPLOADED_SEQUENCE_W_LIST_NAME}'"
+                    )
+
+            twriter.push(ds_item.msg)
 
     # free resources
     _client.close()
