@@ -4,6 +4,8 @@ Connection Management Module.
 This module handles the creation and management of PyArrow Flight network connections.
 """
 
+import json
+import time
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Optional
@@ -20,6 +22,27 @@ DEFAULT_MAX_BATCH_SIZE_RECORDS = 5_000
 
 # Set the hierarchical logger
 logger = get_logger(__name__)
+
+
+def _wait_for_available(client: fl.FlightClient, timeout: int) -> None:
+    """
+    Probe the server with a VERSION action until it responds or the timeout expires.
+    """
+    deadline = time.monotonic() + timeout
+    last_exc: Optional[Exception] = None
+    while True:
+        try:
+            body = json.dumps({}).encode("utf-8")
+            for _ in client.do_action(fl.Action("version", body)):
+                pass
+            return
+        except Exception as e:
+            last_exc = e
+            if time.monotonic() >= deadline:
+                raise ConnectionError(
+                    f"Server did not become available within {timeout}s"
+                ) from last_exc
+            time.sleep(0.025)
 
 
 class _ConnectionStatus(Enum):
@@ -108,5 +131,5 @@ def _get_connection(
             ) from e
         raise ConnectionError(f"Error to connect to {host}:{port}") from e
 
-    client.wait_for_available(timeout=timeout)
+    _wait_for_available(client, timeout)
     return client
