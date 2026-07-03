@@ -133,7 +133,13 @@ class QueryResponseItemTopic:
         timestamp_range: Optional[TimestampRange] = None,
     ) -> list[TopicCluster]:
         """
-        Calls clusterize do_action on this specific topic
+        The query computes an interval representing the very first and very last time instant in which the query results satisfied.
+        This function divides the such interval in clusters. Cluster distance can be set using clustering_dt_ns
+        Therefore:
+            - smaller clustering_dt_ns would create more clusters
+            - bigger clustering_dt_ns would create less clusters since more samples are merged
+
+        Set clustering_dt_ns to zero (default) returns a unique cluster coinciding with the whole original interval
 
         Args:
             clustering_dt_ns (Optional[int]): The minimal gap (in nanoseconds) there needs to be between two clusters
@@ -168,17 +174,20 @@ class QueryResponseItemTopic:
     def intersect(
         self,
         *query_response_item_topics: "QueryResponseItemTopic",
-        intersect_dt_ns: int,
+        intersect_dt_ns: int = 0,
         clustering_map: Optional[dict[str, int]] = None,
         override_clustering_dt_ns: Optional[int] = None,
     ) -> list[TopicCluster]:
         """
-        Computes the temporal intersection of this topic with one or more other topics.
+        Computes the temporal intersection of this topic with one or more other topics. Through setting
+        intersect_dt_ns > 0 relaxes the overlapping constraint, allowing distant clusters to be considered overlapping.
+        This is useful when your signal satisfies your query for a short period of time and you want to compare it with another
+        temporal close signal.
 
         Args:
             *query_response_item_topics: Additional topics to include in the intersection.
-            intersect_dt_ns (int): Temporal tolerance (in nanoseconds) used when merging
-                overlapping clusters across topics.
+            intersect_dt_ns (int): Max allowed distance (in nanoseconds) between clusters to be considered overlapped.
+                topics overlapping. Zero by default guaranteeing actual cluster overlapping.
             clustering_map (Optional[dict[str, int]]): Map from ontology tag to clustering_dt_ns.
                 When provided, each topic uses the value for its ontology tag as
                 its clustering gap; missing tags fall back to ``override_clustering_dt_ns`` or default (0).
@@ -234,7 +243,7 @@ class QueryResponseItemTopic:
     def _set_query_expressions(self, exprs: List[_QueryCatalogExpression]):
         if not self.ontology_tag:
             raise RuntimeError(
-                f"Impossible to set expressions of {self._name} QueryResponseItemTopic. Ontology tag has not been set"
+                f"Impossible to set expressions of {self.name} QueryResponseItemTopic. Ontology tag has not been set"
             )
 
         self._query_exprs = self._get_related_expressions(exprs)
@@ -306,11 +315,11 @@ class QueryResponseItem:
         output = {}
         for topic in self.topics:
             clustering_dt_ns = (
-                clustering_map.get(topic.ontology_tag)
+                clustering_map.get(topic.ontology_tag, override_clustering_dt_ns)
                 if clustering_map
                 else override_clustering_dt_ns
             )
-            output.update({topic._name: topic.clusterize(clustering_dt_ns)})
+            output.update({topic.name: topic.clusterize(clustering_dt_ns)})
 
         return output
 

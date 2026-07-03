@@ -57,5 +57,5 @@ class TopicCluster:
 
         return cls(
             id=data["id"],
-            timerange=TimestampRange._from_dict(data["timerange"]),
+            timerange=TimestampRange._from_dict(data["ts"]),
         )
