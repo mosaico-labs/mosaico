@@ -99,10 +99,10 @@ impl Server {
 
         rt.block_on(async {
             let cleanup_time_interval =
-                task::cleanup::Duration::seconds(params::params().cleanup_time_interval.value);
+                types::Duration::seconds(params::params().cleanup_time_interval.value);
 
             let cleanup_retention_duration =
-                task::cleanup::Duration::seconds(params::params().cleanup_retention_duration.value);
+                types::Duration::seconds(params::params().cleanup_retention_duration.value);
 
             let cleanup_store = self.store.clone();
             let cleanup_db = self.db.clone();

@@ -1,9 +1,9 @@
 #![allow(unused_crate_dependencies)]
 
+use mosaicod_core::types;
 use mosaicod_db as db;
 use mosaicod_ext as ext;
 use mosaicod_store as store;
-use mosaicod_task::Duration;
 use tests::{self, actions, common};
 
 // ===========================================================================
@@ -13,8 +13,8 @@ use tests::{self, actions, common};
 /// Tests the cleanup in a scenario with 1 sequence. The sequence is deleted.
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_cleanup_1(pool: sqlx::Pool<db::DatabaseType>) {
-    let cleanup_time_interval = Duration::seconds(1);
-    let cleanup_retention_duration = Duration::seconds(3);
+    let cleanup_time_interval = types::Duration::seconds(1);
+    let cleanup_retention_duration = types::Duration::seconds(3);
 
     let server = common::ServerBuilder::new(common::HOST, pool)
         .with_cleanup(cleanup_time_interval, cleanup_retention_duration)
@@ -52,8 +52,8 @@ async fn test_cleanup_1(pool: sqlx::Pool<db::DatabaseType>) {
 /// Tests the cleanup in a scenario with 1 sequence and 1 topic. Only the topic is deleted.
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_cleanup_2(pool: sqlx::Pool<db::DatabaseType>) {
-    let cleanup_time_interval = Duration::seconds(1);
-    let cleanup_retention_duration = Duration::seconds(3);
+    let cleanup_time_interval = types::Duration::seconds(1);
+    let cleanup_retention_duration = types::Duration::seconds(3);
 
     let server = common::ServerBuilder::new(common::HOST, pool)
         .with_cleanup(cleanup_time_interval, cleanup_retention_duration)
@@ -109,8 +109,8 @@ async fn test_cleanup_2(pool: sqlx::Pool<db::DatabaseType>) {
 /// Tests the cleanup in a scenario with 1 sequence and 1 topic. The sequence is deleted.
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_cleanup_3(pool: sqlx::Pool<db::DatabaseType>) {
-    let cleanup_time_interval = Duration::seconds(1);
-    let cleanup_retention_duration = Duration::seconds(3);
+    let cleanup_time_interval = types::Duration::seconds(1);
+    let cleanup_retention_duration = types::Duration::seconds(3);
 
     let server = common::ServerBuilder::new(common::HOST, pool)
         .with_cleanup(cleanup_time_interval, cleanup_retention_duration)
@@ -168,8 +168,8 @@ async fn test_cleanup_3(pool: sqlx::Pool<db::DatabaseType>) {
 /// One sequence and one topic are deleted.
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_cleanup_4(pool: sqlx::Pool<db::DatabaseType>) {
-    let cleanup_time_interval = Duration::seconds(1);
-    let cleanup_retention_duration = Duration::seconds(3);
+    let cleanup_time_interval = types::Duration::seconds(1);
+    let cleanup_retention_duration = types::Duration::seconds(3);
 
     let server = common::ServerBuilder::new(common::HOST, pool)
         .with_cleanup(cleanup_time_interval, cleanup_retention_duration)
@@ -253,8 +253,8 @@ async fn test_cleanup_4(pool: sqlx::Pool<db::DatabaseType>) {
 /// Tests the cleanup in a scenario with 1 sequence and retention duration = 0. The sequence is deleted.
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_cleanup_5(pool: sqlx::Pool<db::DatabaseType>) {
-    let cleanup_time_interval = Duration::seconds(2);
-    let cleanup_retention_duration = Duration::seconds(0);
+    let cleanup_time_interval = types::Duration::seconds(2);
+    let cleanup_retention_duration = types::Duration::seconds(0);
 
     let server = common::ServerBuilder::new(common::HOST, pool)
         .with_cleanup(cleanup_time_interval, cleanup_retention_duration)
@@ -292,8 +292,8 @@ async fn test_cleanup_5(pool: sqlx::Pool<db::DatabaseType>) {
 /// the old folder must be cleaned up while the new one stays intact.
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_cleanup_6(pool: sqlx::Pool<db::DatabaseType>) {
-    let cleanup_time_interval = Duration::seconds(1);
-    let cleanup_retention_duration = Duration::seconds(3);
+    let cleanup_time_interval = types::Duration::seconds(1);
+    let cleanup_retention_duration = types::Duration::seconds(3);
 
     let server = common::ServerBuilder::new(common::HOST, pool)
         .with_cleanup(cleanup_time_interval, cleanup_retention_duration)
@@ -348,8 +348,8 @@ async fn test_cleanup_6(pool: sqlx::Pool<db::DatabaseType>) {
 /// after a restart: the new server must complete the deletion once retention has elapsed.
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_cleanup_7(pool: sqlx::Pool<db::DatabaseType>) {
-    let cleanup_time_interval = Duration::seconds(1);
-    let cleanup_retention_duration = Duration::seconds(3);
+    let cleanup_time_interval = types::Duration::seconds(1);
+    let cleanup_retention_duration = types::Duration::seconds(3);
 
     // Same store across both server lifecycles.
     let store = store::testing::Store::new_random_on_tmp().unwrap();
@@ -402,8 +402,8 @@ async fn test_cleanup_7(pool: sqlx::Pool<db::DatabaseType>) {
 /// Tests the cleanup in a scenario with 2 active servers and 1 sequence. The sequence is deleted.
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_cleanup_multi_1(pool: sqlx::Pool<db::DatabaseType>) {
-    let cleanup_time_interval = Duration::seconds(1);
-    let cleanup_retention_duration = Duration::seconds(3);
+    let cleanup_time_interval = types::Duration::seconds(1);
+    let cleanup_retention_duration = types::Duration::seconds(3);
 
     let store = store::testing::Store::new_random_on_tmp().unwrap();
 

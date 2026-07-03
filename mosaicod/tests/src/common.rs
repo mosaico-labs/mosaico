@@ -1,4 +1,3 @@
-use crate::common::task::Duration;
 use arrow_flight::flight_service_client::FlightServiceClient;
 use mosaicod_core::params;
 use mosaicod_core::types;
@@ -41,8 +40,8 @@ pub fn format_endpoint(host: &str, port: u16, tls: bool) -> String {
 }
 
 pub struct CleanupIntervalConfig {
-    pub time_interval: Duration,
-    pub retention_duration: Duration,
+    pub time_interval: types::Duration,
+    pub retention_duration: types::Duration,
 }
 
 pub struct ServerBuilder {
@@ -71,7 +70,11 @@ impl ServerBuilder {
         self
     }
 
-    pub fn with_cleanup(mut self, time_interval: Duration, retention_duration: Duration) -> Self {
+    pub fn with_cleanup(
+        mut self,
+        time_interval: types::Duration,
+        retention_duration: types::Duration,
+    ) -> Self {
         self.cleanup_config = Some(CleanupIntervalConfig {
             time_interval,
             retention_duration,
@@ -136,12 +139,12 @@ impl ServerBuilder {
         let db = self.db;
 
         let cleanup_time_interval = self.cleanup_config.as_ref().map_or(
-            task::cleanup::Duration::seconds(params::params().cleanup_time_interval.value),
+            types::Duration::seconds(params::params().cleanup_time_interval.value),
             |c| c.time_interval,
         );
 
         let cleanup_retention_duration = self.cleanup_config.as_ref().map_or(
-            task::cleanup::Duration::seconds(params::params().cleanup_retention_duration.value),
+            types::Duration::seconds(params::params().cleanup_retention_duration.value),
             |c| c.retention_duration,
         );
 

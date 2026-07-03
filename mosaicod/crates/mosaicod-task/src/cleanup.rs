@@ -4,43 +4,12 @@
 use mosaicod_core::{error::PublicResult as Result, types};
 use mosaicod_db as db;
 use mosaicod_store as store;
-use std::ops::Deref;
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info, warn};
 
 const TO_DELETE_MARKER_FILE_NAME: &str = "TO_DELETE";
 const DEFAULT_TIME_INTERVAL: u32 = 86400;
 const DEFAULT_RETENTION_DURATION: u32 = 86400;
-
-/// Utility type to accept only non-negative durations (u32).
-#[derive(Debug, Clone, Copy)]
-pub struct Duration(chrono::Duration);
-
-impl Duration {
-    pub fn seconds(secs: u32) -> Self {
-        Self(chrono::Duration::seconds(secs as i64))
-    }
-
-    pub fn minutes(mins: u32) -> Self {
-        Self(chrono::Duration::minutes(mins as i64))
-    }
-
-    pub fn hours(hours: u32) -> Self {
-        Self(chrono::Duration::hours(hours as i64))
-    }
-
-    pub fn days(days: u32) -> Self {
-        Self(chrono::Duration::days(days as i64))
-    }
-}
-
-impl Deref for Duration {
-    type Target = chrono::Duration;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
 
 /// Statistics resulting from a performed cleaning operation.
 #[derive(Debug, Default)]
@@ -63,8 +32,8 @@ enum ActionPerformed {
 pub struct Cleanup {
     db: db::Database,
     store: store::StoreRef,
-    time_interval: Duration,
-    retention_duration: Duration,
+    time_interval: types::Duration,
+    retention_duration: types::Duration,
 }
 
 impl Cleanup {
@@ -73,17 +42,17 @@ impl Cleanup {
         Self {
             db,
             store,
-            time_interval: Duration::seconds(DEFAULT_TIME_INTERVAL),
-            retention_duration: Duration::seconds(DEFAULT_RETENTION_DURATION),
+            time_interval: types::Duration::seconds(DEFAULT_TIME_INTERVAL),
+            retention_duration: types::Duration::seconds(DEFAULT_RETENTION_DURATION),
         }
     }
 
-    pub fn with_time_interval(mut self, time_interval: Duration) -> Self {
+    pub fn with_time_interval(mut self, time_interval: types::Duration) -> Self {
         self.time_interval = time_interval;
         self
     }
 
-    pub fn with_retention_duration(mut self, retention_duration: Duration) -> Self {
+    pub fn with_retention_duration(mut self, retention_duration: types::Duration) -> Self {
         self.retention_duration = retention_duration;
         self
     }
@@ -113,34 +82,6 @@ impl Cleanup {
                     error!("Cleanup failed. {}", e);
                 }
             }
-
-            // match self.can_start().await {
-            //     Ok(can_start) => {
-            //         if can_start {
-            //             info!("Cleanup started");
-            //
-            //             let cleanup_res = self.do_cleanup().await;
-            //
-            //             match cleanup_res {
-            //                 Ok(stats) => {
-            //                     info!(
-            //                         "Cleanup completed. {} items marked as ready to be deleted. {} items deleted.",
-            //                         stats.marked_folders.len(),
-            //                         stats.deleted_folders.len()
-            //                     );
-            //                 }
-            //                 Err(e) => {
-            //                     // Don't exit the cleanup routine if something went wrong. Just log the error.
-            //                     error!("Cleanup failed. {}", e);
-            //                 }
-            //             }
-            //         }
-            //     }
-            //     Err(e) => {
-            //         // Don't exit the cleanup routine if something went wrong. Just log the error.
-            //         error!("{}", e);
-            //     }
-            // }
 
             tokio::select! {
                 // Here we can call .unwrap() safely because duration is non-negative by construction.
@@ -289,7 +230,7 @@ mod tests {
         context: &TestContext,
         num_seqs: u16,
         num_topics: u16,
-        retention_duration: Duration,
+        retention_duration: types::Duration,
     ) -> (
         Vec<(
             types::SequencePathInStore,
@@ -453,7 +394,7 @@ mod tests {
         let num_seqs = rand::random_range(1..=20);
         let num_topics = rand::random_range(1..=50);
 
-        let retention_duration = Duration::days(rand::random_range(0..=1));
+        let retention_duration = types::Duration::days(rand::random_range(0..=1));
 
         let stats = populate_random_store(&context, num_seqs, num_topics, retention_duration).await;
 
@@ -591,8 +532,8 @@ mod tests {
         let num_seqs = rand::random_range(1..=20);
         let num_topics = rand::random_range(0..=50);
 
-        let time_interval = Duration::seconds(3);
-        let retention_duration = Duration::seconds(1);
+        let time_interval = types::Duration::seconds(3);
+        let retention_duration = types::Duration::seconds(1);
 
         let test_stats =
             populate_random_store(&context, num_seqs, num_topics, retention_duration).await;
