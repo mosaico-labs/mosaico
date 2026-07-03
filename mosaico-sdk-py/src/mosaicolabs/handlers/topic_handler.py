@@ -162,11 +162,7 @@ class TopicHandler:
         )
 
         # Retrieve the data ontology schema
-        pyarrow_schema = pa.struct(
-            field
-            for field in flight_info.schema
-            if field.name not in Message._message_model_fields()
-        )
+        pyarrow_schema = Message._extract_data_schema(flight_info.schema)
 
         # Get the 'min'/'max' timestamps, as we are at a topic-level
         return cls(

@@ -12,6 +12,7 @@ It implements a **Registry/Factory Pattern**:
 3.  **Query Capability**: It injects query proxies allowing users to write `IMU.Q.acc_x > 0`.
 """
 
+import hashlib
 from enum import Enum
 from typing import (
     Annotated,
@@ -41,6 +42,19 @@ from .types import BASE_MAPPING
 # --- Private Registry ---
 # Global dictionary mapping string tags (e.g., "imu") to class types.
 _SENSOR_REGISTRY: Dict[str, Type["Serializable"]] = {}
+
+
+def _compute_schema_fingerprint(struct: pa.StructType) -> str:
+    """
+    Computes a short, deterministic fingerprint identifying a pyarrow struct schema.
+
+    Two structurally identical schemas (same field names, types, nesting and
+    nullability) always produce the same fingerprint, regardless of when or where
+    they were built. Used to detect when a single ontology tag ends up associated
+    with more than one schema shape within the same process (e.g. two ontology
+    versions of the same dynamically-resolved, unmodeled data type).
+    """
+    return hashlib.sha1(str(struct).encode("utf-8")).hexdigest()[:10]
 
 
 class Serializable(BaseModel, _QueryProxyMixin):
@@ -96,6 +110,11 @@ class Serializable(BaseModel, _QueryProxyMixin):
     __skip_schema_generation__: ClassVar[bool] = False
     __skip_query_proxy_ingestion__: ClassVar[bool] = False
 
+    # Deterministic fingerprint of `__msco_pyarrow_struct__`, computed automatically
+    # upon registration. Lets callers detect when a tag is associated with more
+    # than one schema shape without needing a full structural comparison.
+    __schema_fingerprint__: ClassVar[str] = ""
+
     # Consume schema generation flag
     def __init_subclass__(
         cls,
@@ -139,6 +158,10 @@ class Serializable(BaseModel, _QueryProxyMixin):
         """
         if not cls.__skip_schema_generation__:
             cls.__msco_pyarrow_struct__ = cls._build_ontology_struct(cls)
+
+        cls.__schema_fingerprint__ = _compute_schema_fingerprint(
+            cls.__msco_pyarrow_struct__
+        )
 
         # TODO: check if is it correct call super here.
         super().__pydantic_init_subclass__(**kwargs)

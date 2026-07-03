@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Optional, Type
 import pyarrow.flight as fl
 
 from mosaicolabs.models.core import Message
-from mosaicolabs.models.core.helpers import get_or_make_ontology_class
+from mosaicolabs.models.core.helpers import resolve_ontology_class
 from mosaicolabs.models.core.serializable import Serializable
 
 from ..logging_config import get_logger
@@ -322,11 +322,12 @@ class SequenceDataStreamer:
         # Advance the Winner's stream
         self._winning_rdstate.peek_next_row()
 
-        OntologyClass: Type[Serializable] = get_or_make_ontology_class(
-            self._winning_rdstate.ontology_tag,
-            self._winning_rdstate.ontology_tag,
-            winning_topic._pyarrow_schema,
-            self._winning_rdstate.serialization_format,
+        OntologyClass: Type[Serializable] = resolve_ontology_class(
+            class_name=self._winning_rdstate.ontology_tag,
+            ontology_tag=self._winning_rdstate.ontology_tag,
+            schema=winning_topic._pyarrow_schema,
+            schema_fingerprint=winning_topic._schema_fingerprint,
+            serialization_format=self._winning_rdstate.serialization_format,
         )
 
         return winning_topic.name(), Message._decode(

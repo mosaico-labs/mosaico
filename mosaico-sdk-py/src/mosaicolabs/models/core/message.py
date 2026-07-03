@@ -236,7 +236,6 @@ class Message(BaseModel):
                 f"Available tags: {Serializable._list_registered()}. "
             )
 
-        msg_data_kwargs if msg_data_kwargs else dict({})
         if not msg_data_kwargs:
             raise Exception(
                 f"Unable to obtain valid fields from kwargs: {msg_data_kwargs}"
@@ -264,6 +263,12 @@ class Message(BaseModel):
     @classmethod
     def _message_model_fields(cls):
         return {name for name in cls.model_fields.keys() if name != "data"}
+
+    @classmethod
+    def _extract_data_schema(cls, schema: pa.Schema) -> pa.StructType:
+        return pa.struct(
+            field for field in schema if field.name not in cls._message_model_fields()
+        )
 
     @classmethod
     def _get_schema(cls, data_cls: Type["Serializable"]) -> pa.Schema:

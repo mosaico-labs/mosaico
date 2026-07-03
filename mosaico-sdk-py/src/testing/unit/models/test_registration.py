@@ -27,6 +27,13 @@ def test_ontology_type_registered():
     assert RegisteredSensor.is_registered()
 
 
+def test_ontology_type_has_schema_fingerprint():
+    # __schema_fingerprint__ is computed for every Serializable subclass upon
+    # registration, not just for dynamically-generated (Unmodeled) ones.
+    assert hasattr(RegisteredSensor, "__schema_fingerprint__")
+    assert RegisteredSensor.__schema_fingerprint__ != ""
+
+
 def test_ontology_type_unregistered():
     # Type has all the correct fields provided by Serializable
     assert UnregisteredSensor.__ontology_tag__ is not None

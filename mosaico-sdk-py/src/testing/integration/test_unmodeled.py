@@ -3,6 +3,7 @@ import pyarrow as pa
 from mosaicolabs.comm.mosaico_client import MosaicoClient
 from mosaicolabs.enum.serialization_format import SerializationFormat
 from mosaicolabs.enum.session_level_error_policy import SessionLevelErrorPolicy
+from mosaicolabs.models.core.helpers import resolve_ontology_class
 from mosaicolabs.models.core.message import Message
 from mosaicolabs.models.core.unmodeled import Unmodeled, make_unmodeled_ontology_class
 
@@ -85,3 +86,135 @@ def test_unmodeled_ingestion_retrieval():
 
         # Free resources
         client.sequence_delete("unmodeled_seq")
+
+
+# --- Schema-variant scenario ---
+# Simulates two rosbags recorded with two different versions of the same ROS
+# message type (e.g. a 'temperature' sensor that later gained a 'humidity'
+# field), both mapped by an external translation script to the same inferred
+# ontology tag. `resolve_ontology_class` is the entry point such a translator
+# would use: given a tag and a translated pyarrow schema, it returns a usable
+# ontology class, creating a distinct variant when the schema doesn't match
+# what's already registered for that tag - instead of silently colliding.
+_VARIANT_BASE_TAG = "unmodeled_temperature_variant_test"
+
+_SCHEMA_V1 = pa.struct(
+    [
+        pa.field(
+            "temperature",
+            pa.struct([pa.field("celsius", pa.float32())]),
+            nullable=False,
+        ),
+    ]
+)
+
+_SCHEMA_V2 = pa.struct(
+    [
+        pa.field(
+            "temperature",
+            pa.struct(
+                [
+                    pa.field("celsius", pa.float32()),
+                    pa.field("humidity", pa.float32()),
+                ]
+            ),
+            nullable=False,
+        ),
+    ]
+)
+
+
+def test_unmodeled_schema_variant_ingestion_and_retrieval():
+    # Resolve both schema variants exactly as an external translator would:
+    # same base tag, two different schemas.
+    ClsV1 = resolve_ontology_class(ontology_tag=_VARIANT_BASE_TAG, schema=_SCHEMA_V1)
+    ClsV2 = resolve_ontology_class(ontology_tag=_VARIANT_BASE_TAG, schema=_SCHEMA_V2)
+
+    assert ClsV1 is not ClsV2
+    assert ClsV1.__ontology_tag__ == _VARIANT_BASE_TAG
+    assert (
+        ClsV2.__ontology_tag__ == f"{_VARIANT_BASE_TAG}__{ClsV2.__schema_fingerprint__}"
+    )
+
+    seq_v1, seq_v2 = (
+        "unmodeled_variant_seq_v1",
+        "unmodeled_variant_seq_v2",
+    )
+    topic_name = "/sensors/temperature"
+
+    with MosaicoClient.connect("localhost", 6276) as client:
+        # -- Ingest "bag 1" (schema v1) into its own sequence --
+        with client.sequence_create(
+            seq_v1, {}, on_error=SessionLevelErrorPolicy.Delete
+        ) as seqw:
+            tw = seqw.topic_create(topic_name, {}, ClsV1)
+            assert tw is not None
+            tw.push(
+                Message(
+                    timestamp_ns=1,
+                    data=ClsV1(raw_data={"temperature": {"celsius": 21.5}}),
+                )
+            )
+            tw.push(
+                Message(
+                    timestamp_ns=2,
+                    data=ClsV1(raw_data={"temperature": {"celsius": 22.0}}),
+                )
+            )
+
+        # -- Ingest "bag 2" (schema v2, extra 'humidity' field) into a separate sequence --
+        with client.sequence_create(
+            seq_v2, {}, on_error=SessionLevelErrorPolicy.Delete
+        ) as seqw:
+            tw = seqw.topic_create(topic_name, {}, ClsV2)
+            assert tw is not None
+            tw.push(
+                Message(
+                    timestamp_ns=1,
+                    data=ClsV2(
+                        raw_data={"temperature": {"celsius": 30.0, "humidity": 55.0}}
+                    ),
+                )
+            )
+
+        # -- Retrieve "bag 1" and confirm it round-trips through the v1 schema --
+        th_v1 = client.topic_handler(seq_v1, topic_name)
+        assert th_v1 is not None
+        assert th_v1.ontology_tag == _VARIANT_BASE_TAG
+        assert th_v1.ontology_schema == _SCHEMA_V1
+
+        v1_msgs = list(th_v1.get_data_streamer())
+        assert len(v1_msgs) == 2
+        for msg in v1_msgs:
+            data = msg.get_data(Unmodeled)
+            assert data is not None
+            assert "humidity" not in data.raw_data["temperature"]
+            assert data.raw_data["temperature"]["celsius"] > 0
+
+        # -- Retrieve "bag 2" and confirm it round-trips through the v2 schema, independently --
+        th_v2 = client.topic_handler(seq_v2, topic_name)
+        assert th_v2 is not None
+        assert th_v2.ontology_tag == ClsV2.__ontology_tag__
+        assert th_v2.ontology_schema == _SCHEMA_V2
+
+        v2_msgs = list(th_v2.get_data_streamer())
+        assert len(v2_msgs) == 1
+        data = v2_msgs[0].get_data(Unmodeled)
+        assert data is not None
+        assert data.raw_data["temperature"]["celsius"] == 30.0
+        assert data.raw_data["temperature"]["humidity"] == 55.0
+
+        # -- Retrieve "bag 2" again through SequenceDataStreamer for the k-way-merge path --
+        sh_v2 = client.sequence_handler(seq_v2)
+        assert sh_v2 is not None
+        merged_msgs = list(sh_v2.get_data_streamer())
+        assert len(merged_msgs) == 1
+        topic, msg = merged_msgs[0]
+        assert topic == topic_name
+        data = msg.get_data(Unmodeled)
+        assert data is not None
+        assert data.raw_data["temperature"]["humidity"] == 55.0
+
+        # Free resources
+        client.sequence_delete(seq_v1)
+        client.sequence_delete(seq_v2)

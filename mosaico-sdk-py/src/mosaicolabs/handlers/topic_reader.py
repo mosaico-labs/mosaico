@@ -12,8 +12,11 @@ import pyarrow as pa
 import pyarrow.flight as fl
 
 from mosaicolabs.models.core import Message
-from mosaicolabs.models.core.helpers import get_or_make_ontology_class
-from mosaicolabs.models.core.serializable import Serializable
+from mosaicolabs.models.core.helpers import resolve_ontology_class
+from mosaicolabs.models.core.serializable import (
+    Serializable,
+    _compute_schema_fingerprint,
+)
 from mosaicolabs.platform.metadata import TopicMetadata, _decode_schema_metadata
 from mosaicolabs.platform.resource_manifests import (
     TopicManifestError,
@@ -100,6 +103,8 @@ class TopicDataStreamer:
         """The actual reader object"""
         self._pyarrow_schema: pa.StructType = pyarrow_schema
         """The Arrow Schema of the data ontology handled by the topic"""
+        self._schema_fingerprint: str = _compute_schema_fingerprint(pyarrow_schema)
+        """Fingerprint of `_pyarrow_schema`, computed once"""
         self._is_open: bool = True
         """Tag for assessing the internal streamer status"""
 
@@ -147,11 +152,7 @@ class TopicDataStreamer:
         )
 
         # Retrieve the data ontology schema
-        pyarrow_schema = pa.struct(
-            field
-            for field in reader.schema
-            if field.name not in Message._message_model_fields()
-        )
+        pyarrow_schema = Message._extract_data_schema(reader.schema)
 
         rdstate = _TopicReadState(
             topic_name=topic_name,
@@ -330,11 +331,12 @@ class TopicDataStreamer:
         # Advance the buffer immediately *after* extracting the data
         self._rdstate.peek_next_row()
 
-        OntologyClass: Type[Serializable] = get_or_make_ontology_class(
-            self._rdstate.ontology_tag,
-            self._rdstate.ontology_tag,
-            self._pyarrow_schema,
-            self._rdstate.serialization_format,
+        OntologyClass: Type[Serializable] = resolve_ontology_class(
+            class_name=self._rdstate.ontology_tag,
+            ontology_tag=self._rdstate.ontology_tag,
+            schema=self._pyarrow_schema,
+            schema_fingerprint=self._schema_fingerprint,
+            serialization_format=self._rdstate.serialization_format,
         )
 
         return Message._decode(tag_or_type=OntologyClass, **row_dict)
