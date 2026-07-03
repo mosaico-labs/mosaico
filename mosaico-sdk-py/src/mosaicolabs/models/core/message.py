@@ -271,12 +271,18 @@ class Message(BaseModel):
         )
 
     @classmethod
-    def _get_schema(cls, data_cls: Type["Serializable"]) -> pa.Schema:
+    def _get_schema(
+        cls,
+        cls_or_schema: Union[
+            Type["Serializable"],
+            pa.StructType,
+        ],
+    ) -> pa.Schema:
         """
         Generates a combined PyArrow Schema for the message and a specific ontology.
 
         Args:
-            data_cls: The specific `Serializable` subclass type.
+            cls_or_schema: The specific `Serializable` subclass type or the pyarrow schema of the data.
 
         Returns:
             A combined PyArrow Schema including both envelope and payload fields.
@@ -285,17 +291,20 @@ class Message(BaseModel):
             ValueError: If field name collisions are detected in the schema.
         """
         # Collision check
-        colliding_keys = set(cls.__msco_pyarrow_struct__.names) & set(
-            data_cls.__msco_pyarrow_struct__.names
+        data_schema = (
+            cls_or_schema
+            if isinstance(cls_or_schema, pa.StructType)
+            else cls_or_schema.__msco_pyarrow_struct__
         )
+        colliding_keys = set(cls.__msco_pyarrow_struct__.names) & set(data_schema.names)
         if colliding_keys:
             raise ValueError(
-                f"Class '{data_cls.__name__}' schema collides with Message schema: {list(colliding_keys)}"
+                f"Class schema collides with Message schema: {list(colliding_keys)}"
             )
 
         return _make_schema(
             cls.__msco_pyarrow_struct__,
-            data_cls.__msco_pyarrow_struct__,
+            data_schema,
         )
 
     # --- Public API ---

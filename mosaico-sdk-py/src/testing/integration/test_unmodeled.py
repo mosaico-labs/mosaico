@@ -131,10 +131,14 @@ def test_unmodeled_schema_variant_ingestion_and_retrieval():
     ClsV2 = resolve_ontology_class(ontology_tag=_VARIANT_BASE_TAG, schema=_SCHEMA_V2)
 
     assert ClsV1 is not ClsV2
+    # Both variants report the SAME ontology tag to the platform - only their
+    # SDK-local registry key differs. This is what keeps both variants'
+    # topics discoverable server-side under one consistent tag, regardless of
+    # which schema happened to be seen first by this process.
     assert ClsV1.__ontology_tag__ == _VARIANT_BASE_TAG
-    assert (
-        ClsV2.__ontology_tag__ == f"{_VARIANT_BASE_TAG}__{ClsV2.__schema_fingerprint__}"
-    )
+    assert ClsV2.__ontology_tag__ == _VARIANT_BASE_TAG
+    assert ClsV1.__registry_key__ == _VARIANT_BASE_TAG
+    assert ClsV2.__registry_key__ == f"{_VARIANT_BASE_TAG}__{ClsV2.__schema_fingerprint__}"
 
     seq_v1, seq_v2 = (
         "unmodeled_variant_seq_v1",
@@ -194,7 +198,10 @@ def test_unmodeled_schema_variant_ingestion_and_retrieval():
         # -- Retrieve "bag 2" and confirm it round-trips through the v2 schema, independently --
         th_v2 = client.topic_handler(seq_v2, topic_name)
         assert th_v2 is not None
-        assert th_v2.ontology_tag == ClsV2.__ontology_tag__
+        # Both topics report the SAME ontology tag to the
+        # server, even though they were written with two different schemas -
+        # so a query against `_VARIANT_BASE_TAG` would find both.
+        assert th_v2.ontology_tag == th_v1.ontology_tag == _VARIANT_BASE_TAG
         assert th_v2.ontology_schema == _SCHEMA_V2
 
         v2_msgs = list(th_v2.get_data_streamer())

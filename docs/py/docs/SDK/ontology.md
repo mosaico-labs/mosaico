@@ -425,7 +425,7 @@ The ontology architecture relies on three primary abstractions: the **Factory** 
 ??? question "API Reference"
     [`mosaicolabs.models.core.Serializable`][mosaicolabs.models.core.Serializable]
 
-Every data payload in Mosaico inherits from the `Serializable` class. It manages the global registry of data types and ensures that the system knows exactly how to convert a string tag like `"imu"` back into a Python class with a specific binary schema.
+Every data payload in Mosaico inherits from the `Serializable` class. It manages the global registry of data types and ensures that the system knows exactly how to convert an ontology tag like `"imu"` back into a Python class with a specific binary schema.
 `Serializable` uses the `__pydantic_init_subclass__` hook, which is automatically called whenever a developer defines a new subclass.
 
 ```python
@@ -436,7 +436,7 @@ When this happens, `Serializable` performs the following steps automatically:
 
 1.  **Generate the schema:** Introspect `model_fields` to extract the PyArrow type embedded in each field's `Annotated` metadata via `MosaicoType` aliases or raw `Annotated[T, pa.SomeType()]` annotations and build the `__msco_pyarrow_struct__` automatically. 
 2.  **Generates Tag:** If the class doesn't define `__ontology_tag__`, it auto-generates one from the class name (e.g., `MyCustomSensor` -> `"my_custom_sensor"`).
-3.  **Registers Class:** It adds the new class to the global types registry.
+3.  **Registers Class:** It adds the new class to the global types registry, keyed by `__registry_key__`. For every hand-authored class this defaults to `__ontology_tag__` itself, so the two are interchangeable in practice; they only diverge for dynamically-resolved schema variants (see [Advanced: Ingesting Unmodeled Ontologies](#advanced-ingesting-unmodeled-ontologies)).
 4.  **Injects Query Proxy:** It dynamically adds a `.Q` attribute to the class, enabling the fluent query syntax (e.g., `MyCustomSensor.Q.voltage > 12.0`).
 
 ### `Message` (The Envelope)
@@ -677,12 +677,12 @@ Because the `.Q` query proxy is built directly from the class's PyArrow schema r
 !!! note "Validation"
     Every `Unmodeled` instance validates `raw_data` against the class's declared schema at construction time: missing required fields, unknown fields, and nested-object type mismatches all raise a `ValueError` immediately, rather than surfacing later as an opaque error during serialization.
 
-### Resolving Classes Automatically: `resolve_ontology_class`
+### Resolving Classes Automatically
 
 `make_unmodeled_ontology_class()` is the low-level factory. In practice, most callers — including the SDK's own reading path (`TopicDataStreamer`, `SequenceDataStreamer`) — go through [`resolve_ontology_class()`][mosaicolabs.models.core.helpers.resolve_ontology_class] instead, which adds two behaviors on top:
 
 1. **Reuse before creation**: if a class is already registered for the given tag, it's returned directly instead of creating a duplicate.
-2. **Schema-variant safety**: a single ontology tag can legitimately end up associated with more than one schema shape over time — for example, two rosbags recorded with different versions of the same ROS message type, both mapped by the translation layer to the same inferred tag. When the schema passed in doesn't match what's already registered for that tag, `resolve_ontology_class()` doesn't silently decode the second version against the first version's schema. Instead, it computes a short, deterministic fingerprint of the schema and resolves (or creates) a distinct variant class under `f"{tag}__{fingerprint}"`, keeping both versions independently correct and queryable.
+2. **Schema-variant safety**: a single ontology tag can legitimately end up associated with more than one schema shape over time — for example, two rosbags recorded with different versions of the same ROS message type, both mapped by the translation layer to the same inferred tag. When the schema passed in doesn't match what's already registered for that tag, `resolve_ontology_class()` doesn't silently decode the second version against the first version's schema. Instead, it computes a short, deterministic fingerprint of the schema and resolves (or creates) a distinct variant class for it, i.e. a separate Python class with its own [`__registry_key__`][mosaicolabs.models.core.Serializable] (`f"{tag}__{fingerprint}"`), so the SDK can always tell the two schemas apart locally. Both variants still report the *same* `ontology_tag` to the platform, so all of their data remains ingestible and queryable under one consistent, predictable tag — regardless of which schema version a given process happens to encounter first.
 
 This is what makes it safe for a component like the ROS Bridge to translate an unadapted message type into a PyArrow schema and call `resolve_ontology_class(ontology_tag=..., schema=...)` for every message, without having to track class identity or schema versions itself.
 
@@ -726,7 +726,7 @@ with MosaicoClient.connect("localhost", 6726) as client:
 ```
 
 !!! warning "Name the class before you start reading"
-    Build your named class (option 2) right after obtaining the `TopicHandler`, **before** calling `get_data_streamer()`. Reading the topic first lets `resolve_ontology_class()` auto-register its own (anonymous) class for that tag; calling `make_unmodeled_ontology_class()` afterwards with the same tag then fails with `ValueError: Duplicate ontology tag`, since a tag can only be claimed once. Naming the class up front avoids the race entirely - and once it's registered, `resolve_ontology_class()` reuses it instead of creating a second one, so every message decodes as your named class from the start.
+    Build your named class (option 2) right after obtaining the `TopicHandler`, **before** calling `get_data_streamer()`. Reading the topic first lets `resolve_ontology_class()` auto-register its own (anonymous) class for that tag; calling `make_unmodeled_ontology_class()` afterwards with the same tag then fails with `ValueError: Duplicate ontology registry key`, since a registry key can only be claimed once. Naming the class up front avoids the race entirely - and once it's registered, `resolve_ontology_class()` reuses it instead of creating a second one, so every message decodes as your named class from the start.
 
 ## Querying Data Ontology with the Query (`.Q`) Proxy
 

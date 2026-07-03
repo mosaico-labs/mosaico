@@ -34,6 +34,14 @@ def test_ontology_type_has_schema_fingerprint():
     assert RegisteredSensor.__schema_fingerprint__ != ""
 
 
+def test_ontology_type_registry_key_defaults_to_ontology_tag():
+    # For every hand-authored class, the SDK-local registry key is identical to
+    # the tag reported to the platform - they only diverge for dynamically
+    # resolved schema variants (see test_helpers.py).
+    assert RegisteredSensor.__registry_key__ == RegisteredSensor.__ontology_tag__
+    assert RegisteredSensor.__registry_key__ == RegisteredSensor.ontology_tag()
+
+
 def test_ontology_type_unregistered():
     # Type has all the correct fields provided by Serializable
     assert UnregisteredSensor.__ontology_tag__ is not None

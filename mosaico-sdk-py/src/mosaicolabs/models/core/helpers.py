@@ -29,9 +29,11 @@ def resolve_ontology_class(
     single process (e.g. two rosbags recorded with different versions of the same
     ROS message type, both mapped to the same inferred ontology tag). When the
     schema passed in doesn't match the one already registered for `ontology_tag`,
-    a distinct variant class is resolved (or created) under a deterministic
-    `f"{ontology_tag}__{fingerprint}"` tag instead of silently reusing the wrong
-    schema.
+    a distinct variant class is resolved (or created) instead of silently reusing
+    the wrong schema. The variant still reports the *same* `ontology_tag` to the
+    platform (so all of its data stays discoverable under one consistent tag);
+    only its SDK-local `__registry_key__` differs, deterministically derived as
+    `f"{ontology_tag}__{fingerprint}"`.
 
     Args:
         ontology_tag: The ontology identifier to resolve. If a `Serializable`
@@ -72,8 +74,11 @@ def resolve_ontology_class(
             return DataClass
         # Schema drift detected under the same tag: resolve (or create) a
         # dedicated variant instead of silently decoding against the wrong schema.
+        # The variant still reports `ontology_tag` to the platform; only its
+        # local registry key is disambiguated.
         return _get_or_create(
-            tag=f"{ontology_tag}__{fingerprint}",
+            registry_key=f"{ontology_tag}__{fingerprint}",
+            ontology_tag=ontology_tag,
             class_name=class_name,
             schema=schema,
             serialization_format=serialization_format,
@@ -87,7 +92,8 @@ def resolve_ontology_class(
         )
 
     return _get_or_create(
-        tag=ontology_tag,
+        registry_key=ontology_tag,
+        ontology_tag=ontology_tag,
         class_name=class_name,
         schema=schema,
         serialization_format=serialization_format,
@@ -96,26 +102,29 @@ def resolve_ontology_class(
 
 def _get_or_create(
     *,
-    tag: str,
+    registry_key: str,
+    ontology_tag: str,
     class_name: Optional[str],
     schema: pa.StructType,
     serialization_format: Optional[SerializationFormat],
 ) -> Type[Serializable]:
-    """Double-checked-locking helper: registers a class for `tag` if one doesn't already exist."""
-    DataClass = Serializable._get_class_type(tag)
+    """Double-checked-locking helper: registers a class for `registry_key` if one doesn't already exist."""
+    DataClass = Serializable._get_class_type(registry_key)
     if DataClass is not None:
         return DataClass
     with _creation_lock:
         # Re-check: another thread may have already won the race while we waited.
-        DataClass = Serializable._get_class_type(tag)
+        DataClass = Serializable._get_class_type(registry_key)
         if DataClass is not None:
             return DataClass
-        # NOTE: this happens only once per (base tag, schema fingerprint) pair.
+        # NOTE: this happens only once per (ontology tag, schema fingerprint) pair.
         # Once created, the dynamic class is registered in the Serializable
-        # factory under `tag`, so subsequent calls hit the lock-free fast path above.
+        # factory under `registry_key`, so subsequent calls hit the lock-free
+        # fast path above.
         return make_unmodeled_ontology_class(
-            class_name=class_name or tag,
-            ontology_tag=tag,
+            class_name=class_name or registry_key,
+            ontology_tag=ontology_tag,
+            registry_key=registry_key if registry_key != ontology_tag else None,
             serialization_format=serialization_format or SerializationFormat.Default,
             pyarrow_schema=schema,
         )

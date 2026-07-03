@@ -17,7 +17,7 @@ import pyarrow.ipc as pa_ipc
 
 from mosaicolabs.enum import SerializationFormat
 from mosaicolabs.logging_config import get_logger
-from mosaicolabs.models.core import Message, Serializable
+from mosaicolabs.models.core import Message
 
 from ...comm.connection import PYARROW_OUT_OF_RANGE_BYTES
 
@@ -63,7 +63,7 @@ class _TopicWriteState:
     def __init__(
         self,
         topic_name: str,
-        ontology_tag: str,
+        data_schema: pa.StructType,
         writer: Optional[fl.FlightStreamWriter],
         max_batch_size_bytes: Optional[int] = None,
         max_batch_size_records: Optional[int] = None,
@@ -73,7 +73,9 @@ class _TopicWriteState:
 
         Args:
             topic_name (str): Topic name.
-            ontology_tag (str): Data ontology tag for schema resolution.
+            data_schema (pa.StructType): The pyarrow schema of the ontology payload
+                writing to this topic, used to build the combined message+payload
+                schema for each flushed `RecordBatch`.
             writer (Optional[fl.FlightStreamWriter]): Active Flight stream writer.
             max_batch_size_bytes (Optional[int]): flush threshold for byte mode.
             max_batch_size_records (Optional[int]): flush threshold for count mode.
@@ -92,16 +94,9 @@ class _TopicWriteState:
 
         self.topic_name: str = topic_name
         self.writer: Optional[fl.FlightStreamWriter] = writer
-        self.ontology_tag: str = ontology_tag
+        self.data_schema: pa.StructType = data_schema
         self.max_batch_size_bytes = max_batch_size_bytes
         self.max_batch_size_records = max_batch_size_records
-
-        # Resolve Ontology Class for serialization schema
-        self.ontology_type = Serializable._get_class_type(ontology_tag)
-        if self.ontology_type is None:
-            raise RuntimeError(
-                f"Ontology class for tag '{ontology_tag}' not registered in Message."
-            )
 
         if self.max_batch_size_bytes is None or self.max_batch_size_records is None:
             raise RuntimeError(
@@ -121,11 +116,10 @@ class _TopicWriteState:
         """
         if self.writer is None:
             raise ValueError("Writer is None")
-        assert self.ontology_type is not None
 
         return pa.RecordBatch.from_pydict(
             _encode_messages(msgs),
-            schema=Message._get_schema(self.ontology_type),
+            schema=Message._get_schema(self.data_schema),
         )
 
     def _get_serialized_size(self, batch: pa.RecordBatch) -> int:

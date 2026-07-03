@@ -168,6 +168,7 @@ def make_unmodeled_ontology_class(
     ontology_tag: Optional[str],
     serialization_format: SerializationFormat,
     pyarrow_schema: pa.StructType,
+    registry_key: Optional[str] = None,
 ) -> Type[Unmodeled]:
     """
     Dynamically creates an [`Unmodeled`][mosaicolabs.models.core.unmodeled.Unmodeled]
@@ -178,6 +179,16 @@ def make_unmodeled_ontology_class(
     ontology - the schema is attached to the generated class as data
     (`__msco_pyarrow_struct__`) instead of being derived from Python field
     declarations.
+
+    Note: `registry_key` is for advanced use only
+        Most callers should omit `registry_key` entirely. It exists so that
+        [`resolve_ontology_class`][mosaicolabs.models.core.helpers.resolve_ontology_class]
+        can create a *schema variant* of an existing `ontology_tag`: a second
+        class reporting the same `ontology_tag` to the platform (so it remains
+        discoverable under one consistent tag) while still occupying a
+        distinct, collision-free key in the SDK's local class registry. See
+        [`Serializable.__registry_key__`][mosaicolabs.models.core.Serializable]
+        for the full rationale.
 
     Note: Schema generation is intentionally skipped
         The returned class is created with `skip_schema_generation=True`, so
@@ -224,21 +235,26 @@ def make_unmodeled_ontology_class(
             [`Serializable.__serialization_format__`][mosaicolabs.models.core.Serializable]).
         pyarrow_schema: The Arrow struct schema describing the ontology's data
             payload, used verbatim as the class's `__msco_pyarrow_struct__`.
+        registry_key: Advanced/internal use - see the note above. Defaults to
+            `None`, meaning the class's local registry key is `ontology_tag`
+            itself (the common case for every direct caller of this factory).
 
     Returns:
         A new `Unmodeled` subclass, already registered in the
         [`Serializable`][mosaicolabs.models.core.Serializable] factory under
-        `ontology_tag`.
+        `registry_key` (or `ontology_tag`, if `registry_key` is omitted), and
+        reporting `ontology_tag` to the platform either way.
 
     Raises:
-        ValueError: If `ontology_tag` (or its auto-generated form) is already
-            registered for a different class.
+        ValueError: If the resolved registry key is already registered for a
+            different class.
     """
     return type(
         class_name,
         (Unmodeled,),
         {
             "__ontology_tag__": ontology_tag,
+            "__registry_key__": registry_key,
             "__serialization_format__": serialization_format,
             "__msco_pyarrow_struct__": pyarrow_schema,
         },
