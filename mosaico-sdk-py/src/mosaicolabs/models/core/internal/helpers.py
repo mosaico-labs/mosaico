@@ -1,4 +1,3 @@
-import json
 from dataclasses import is_dataclass
 from typing import Any
 

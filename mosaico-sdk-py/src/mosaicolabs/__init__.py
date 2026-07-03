@@ -56,6 +56,7 @@ from .models.core import (
     MosaicoField as MosaicoField,
     MosaicoType as MosaicoType,
     Serializable as Serializable,
+    Unmodeled as Unmodeled,
 )
 
 # --- Data Models ---
@@ -156,6 +157,7 @@ __all__ = [
     # Core Models
     "BaseModel",
     "Serializable",
+    "Unmodeled",
     "Time",
     "Duration",
     "Message",
