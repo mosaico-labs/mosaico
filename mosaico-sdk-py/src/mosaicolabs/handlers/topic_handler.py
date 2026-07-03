@@ -294,7 +294,7 @@ class TopicHandler:
         return self._timestamp_ns_max
 
     @property
-    def ontology_schema(self):
+    def ontology_schema(self) -> pa.StructType:
         """
         The Arrow Schema of the ontology type handled by this topic
 
