@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, Iterator, List, Optional
+from typing import Any, ClassVar, Iterator, List, Optional
 
 from pyarrow.flight import FlightClient
 
@@ -41,7 +41,7 @@ def _build_clusterize_payload(
     payload = {
         "locator": item_topic.locator,
         "clustering_dt_ns": clustering_dt_ns
-        if clustering_dt_ns
+        if clustering_dt_ns is not None
         else item_topic.DEFAULT_CLUSTERING_DT,
         "ontology": merged_exprs,
     }
@@ -114,7 +114,7 @@ class QueryResponseItemTopic:
     timestamp_range: Optional[TimestampRange]
     name: str = field(default="", init=False)
 
-    DEFAULT_CLUSTERING_DT: int = 0
+    DEFAULT_CLUSTERING_DT: ClassVar[int] = 0
 
     _client: Optional[FlightClient] = field(default=None, init=False)
     _query_exprs: List[_QueryCatalogExpression] = field(
@@ -243,11 +243,6 @@ class QueryResponseItemTopic:
         self._client = client
 
     def _set_query_expressions(self, exprs: List[_QueryCatalogExpression]):
-        if not self.ontology_tag:
-            raise RuntimeError(
-                f"Impossible to set expressions of {self.name} QueryResponseItemTopic. Ontology tag has not been set"
-            )
-
         self._query_exprs = self._get_related_expressions(exprs)
 
     def _get_related_expressions(
@@ -345,6 +340,9 @@ class QueryResponseItem:
         in the same moment.
 
         Args:
+            *query_response_item: Additional response items whose topics are included in the
+              intersection. All topics from every extra item are flattened together with the
+              topics of this item before the intersect payload is built.
             intersect_dt_ns (int): Max allowed distance (in nanoseconds) between clusters to be considered overlapped.
                 Setting it to zero (default) ensures the existance for inter-cluster overlapping.
             clustering_map (Optional[dict[str, int]]): An optional map indicating for each ontology tag within the query
@@ -352,9 +350,7 @@ class QueryResponseItem:
               specified all topics use default value (0). If specified but topic's ontology is missing, fallback using
               default value (0).
             override_clustering_dt_ns: An optional integer to override the default minimal gap between clusters (0).
-            *query_response_item: Additional response items whose topics are included in the
-              intersection. All topics from every extra item are flattened together with the
-              topics of this item before the intersect payload is built.
+
 
         Returns:
             A list of :class:`TopicCluster` representing the time windows where all topics' query
@@ -366,7 +362,7 @@ class QueryResponseItem:
 
         ACTION = FlightAction.TOPIC_FILTER_INTERSECT
 
-        total_topics = self.topics
+        total_topics = list(self.topics)
         if query_response_item:
             total_topics += [t for item in query_response_item for t in item.topics]
 

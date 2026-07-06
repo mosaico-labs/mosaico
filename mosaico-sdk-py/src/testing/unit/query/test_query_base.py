@@ -181,7 +181,7 @@ def test_construction_query_from_response():
 
     expected_expr_top_values = [
         # QueryResponseItem.__post_init__ normalizes topic name
-        t._name
+        t.name
         for it in qresp
         for t in it.topics
     ]

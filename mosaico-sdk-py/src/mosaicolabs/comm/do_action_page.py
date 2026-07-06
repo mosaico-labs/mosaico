@@ -13,7 +13,7 @@ providing stronger typing and validation than raw dictionaries.
 import json
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, ClassVar, Dict, Type, TypeVar
+from typing import Any, ClassVar, Dict, Optional, Type, TypeVar
 
 import pyarrow.flight as fl
 
@@ -52,6 +52,11 @@ class _DoActionPageResponse(ABC):
         """
         super().__init_subclass__(**kwargs)
         for action in getattr(cls, "actions", []):
+            if action in _DoActionPageResponse._registry:
+                raise ValueError(
+                    f"{action} already maps {_DoActionPageResponse._registry[action].__name__} adapter and cannot therefore map also '{cls.__name__}'"
+                )
+
             _DoActionPageResponse._registry[action] = cls
 
     @classmethod
@@ -96,7 +101,7 @@ def _do_action_page(
     action: FlightAction,
     payload: dict[str, Any],
     expected_type: Type[T_DoActionPageResponse],
-) -> T_DoActionPageResponse:
+) -> Optional[T_DoActionPageResponse]:
     """
     Executes a Flight `do_action` command and deserializes the response.
     Differently from the _do_action, the _do_action_page receives multiple responses altogether and merges them
@@ -109,10 +114,11 @@ def _do_action_page(
                                         the result is checked against this type.
 
     Returns:
-        Optional[_DoActionPageResponse]: The deserialized response object, or None
+        Optional[T_DoActionPageResponse]: The deserialized response object, or None
                                       if the server returned no body.
 
     Raises:
+        TypeError: If returned responses do not have the expected FlightAction type.
         TypeError: If the registered response class does not match `expected_type`.
         Exception: For Flight errors or JSON decoding failures.
     """
@@ -128,7 +134,6 @@ def _do_action_page(
         action_results = client.do_action(fl.Action(action_name, body))
 
         # Process the result stream (usually contains 0 or N item)
-        returned_actions: list[str] = []
         returned_responses: list[dict[str, Any]] = []
 
         for result in action_results:
@@ -138,7 +143,7 @@ def _do_action_page(
 
                 # If no data was received
                 if not buffer:
-                    continue
+                    return None
 
                 # Decode and Parse exactly once
                 result_str = buffer.decode("utf-8")
@@ -151,23 +156,22 @@ def _do_action_page(
                     logger.debug(
                         f"Action '{action_name}' response had no 'action' field."
                     )
-                    continue
+                    return None
 
                 # Verify the server is responding to the correct action and that all actions are the same
                 if r_act != action_name:
                     logger.warning(
                         f"Unexpected action in response: got '{r_act}', expected '{action_name}'"
                     )
-                    continue
+                    return None
 
                 r_data = result_dict.get("response")
                 if r_data is None:
                     logger.debug(
                         f"Action '{action_name}' response had no 'response' field."
                     )
-                    continue
+                    return None
 
-                returned_actions.append(r_act)
                 returned_responses.append(r_data)
 
         # --- Deserialization ---
@@ -206,6 +210,7 @@ class _DoActionPageResponseFilterClusterize(_DoActionPageResponse):
         return cls(clusters=clusters)
 
 
+@dataclass
 class _DoActionPageResponseFilterIntersect(_DoActionPageResponseFilterClusterize):
     """Response containing the metadata of the 'topic_filter_intersect' DoActionPage."""
 
