@@ -158,6 +158,44 @@ class QueryResponseItemTopic:
             Exception: Propagated from the underlying action call on internal server errors.
             RuntimeError: if the server returned no body or returned action is not consitent
                 with input one
+
+        Example: clusterize topics returning from `Query` object
+            ```python
+            from mosaicolabs import QueryOntologyCatalog, QuerySequence, Query, IMU, MosaicoClient
+
+            # Establish a connection to the Mosaico Data Platform
+            with MosaicoClient.connect("localhost", 6726) as client:
+                # Build a filter with name pattern and metadata-related expression
+                query = Query(
+                    # Append a filter for sequence metadata
+                    QuerySequence()
+                    .with_user_metadata("environment.visibility", lt=50)
+                    .with_name_match("test_drive"),
+                    # Append a filter with deep time-series data discovery and measurement time windowing
+                    QueryOntologyCatalog()
+                    .with_expression(IMU.Q.acceleration.x.gt(5.0))
+                    .with_expression(IMU.Q.timestamp_ns.gt(1700134567))
+                )
+                # Perform the server side query
+                qresponse = client.query(query=query)
+                # Inspect the response
+                if qresponse is not None:
+                    # Results are automatically grouped by Sequence for easier data management
+                    for item in qresponse:
+                        print(f"Sequence: {item.sequence.name}")
+
+                        print(
+                            f"Topics: {
+                                {
+                                    topic.name: [
+                                        (cluster.timerange.start, cluster.timerange.end)
+                                        for cluster in topic.clusterize()
+                                    ]
+                                    for topic in item.topics
+                                }
+                            }"
+                        )
+            ```
         """
         ACTION = FlightAction.TOPIC_FILTER_CLUSTERIZE
 
@@ -221,6 +259,63 @@ class QueryResponseItemTopic:
             Exception: Propagated from the underlying action call on internal server errors.
             RuntimeError: if the server returned no body or returned action is not consitent
                 with input one
+
+
+        Example: intersect topics returning from `Query` object
+        ```python
+        from mosaicolabs import QueryOntologyCatalog, QuerySequence, Query, IMU, MosaicoClient, Temperature
+
+        # Establish a connection to the Mosaico Data Platform
+        with MosaicoClient.connect("localhost", 6726) as client:
+            # Create two distinct queries for different devices
+            query1 = Query(
+                QuerySequence()
+                .with_name_match("robot-1"),
+                # Append a filter with deep time-series data discovery and measurement time windowing
+                QueryOntologyCatalog()
+                .with_expression(IMU.Q.acceleration.x.gt(5.0))
+            )
+            # Perform the server side query
+            qresponse1 = client.query(query=query1)
+
+            query2 = Query(
+                QuerySequence()
+                .with_name_match("robot-2"),
+                # Append a filter with deep time-series data discovery and measurement time windowing
+                QueryOntologyCatalog()
+                .with_expression(Temperature.Q.value.gt(130.0))
+            )
+            # Perform the server side query
+            qresponse2 = client.query(query=query2)
+
+            # Inspect the response
+            if qresponse1 is not None and qresponse2 is not None:
+
+                # Extracting "front_imu" topic from first sequence
+                imu_topic = next(topic_it for item in qresponse1 for topic_it in item.topics if topic_it.name == "front_imu")
+
+                # Intersect two disjoint queries
+                for item2 in qresponse2:
+                    print(f"Intersecting topic {imu_topic.name} with all topics from {item2.sequence.name} sequence")
+
+                    # Set clustering_dt_ns for each queried type or leave it empty to
+                    # use the default value (0)
+                    clusterize_map = {
+                        IMU.ontology_tag(): 1000,
+                        Temperature.ontology_tag(): 4000
+                    }
+
+                    clusters = imu_topic.intersect(*item2.topics, clustering_map=clusterize_map)
+
+                    print(
+                        f"Topics intersect at: {
+                            {
+                                cluster.id: (cluster.timerange.start, cluster.timerange.end) for cluster in clusters
+                            }
+                        }"
+                    )
+        ```
+
         """
         ACTION = FlightAction.TOPIC_FILTER_INTERSECT
 
@@ -321,6 +416,34 @@ class QueryResponseItem:
         Raises:
             Exception: Propagated from :meth:`QueryResponseItemTopic.clusterize`
                 if any topic's action call fails.
+
+        Example: clusterize all topics belonging to the sequence returning from `Query` object
+        ```python
+        # Establish a connection to the Mosaico Data Platform
+        from mosaicolabs import IMU, MosaicoClient, Query, QueryOntologyCatalog, QuerySequence
+
+        # Establish a connection to the Mosaico Data Platform
+        with MosaicoClient.connect("localhost", 6726) as client:
+            # Build a filter with name pattern and a single ontology data filtering
+            query = Query(
+                QuerySequence().with_name_match("robot-1"),
+                # Append a filter with deep time-series data discovery and measurement time windowing
+                QueryOntologyCatalog().with_expression(IMU.Q.acceleration.x.gt(5.0)),
+            )
+            # Perform the server side query
+            qresponse = client.query(query=query)
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    # Override locally the clustering_dt_ns for all the topics belonging to the sequence
+                    clusters_dict = item.clusterize_all(override_clustering_dt_ns=2000)
+
+                    print(
+                        f"Sequence {item.sequence.name} has the following topics and clusters:{ clusters_dict }"
+                    )
+        ```
         """
 
         output = {}
@@ -368,7 +491,6 @@ class QueryResponseItem:
             override_clustering_dt_ns: An optional integer to override the default minimal
               gap between clusters (0).
 
-
         Returns:
             A list of :class:`TopicCluster` representing the time windows where all topics' query
               expressions are simultaneously true, above the given ``intersect_dt_ns`` tolerance.
@@ -377,6 +499,41 @@ class QueryResponseItem:
             Exception: Propagated from the underlying action call on internal server errors.
             RuntimeError: if the server returned no body or returned action is not consitent
                 with input one
+
+        Example: intersect among all topics belonging to the same sequence returning from `Query` object
+        ```python
+        from mosaicolabs import IMU, MosaicoClient, Pressure, Query, QueryOntologyCatalog, QuerySequence, Temperature
+
+        # Establish a connection to the Mosaico Data Platform
+        with MosaicoClient.connect("localhost", 6726) as client:
+            # Build a filter with name pattern and multiple ontology data filtering
+            query = Query(
+                QuerySequence().with_name_match("robot-1"),
+                QueryOntologyCatalog()
+                .with_expression(IMU.Q.acceleration.z.gt(5.0)) # Multi ontology query
+                .with_expression(Pressure.Q.value.lt(1.0))
+                .with_expression(Temperature.Q.value.eq(500.0)),
+            )
+            # Perform the server side query
+            qresponse = client.query(query=query)
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    # Override locally the clustering_dt_ns for all the topics belonging to the sequence
+                    intersected_clusters = item.intersect(override_clustering_dt_ns=2000)
+
+                    print(
+                        f"Topics intersect at: {
+                            {
+                                cluster.id: (cluster.timerange.start, cluster.timerange.end)
+                                for cluster in intersected_clusters
+                            }
+                        }"
+                    )
+        ```
+
         """
 
         ACTION = FlightAction.TOPIC_FILTER_INTERSECT
