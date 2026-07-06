@@ -179,15 +179,15 @@ class QueryResponseItemTopic:
         override_clustering_dt_ns: Optional[int] = None,
     ) -> list[TopicCluster]:
         """
-        Computes the temporal intersection of this topic with one or more other topics. Through setting
-        intersect_dt_ns > 0 relaxes the overlapping constraint, allowing distant clusters to be considered overlapping.
+        Computes the temporal intersection of this topic with one or more other topics. Nevertheless, setting
+        intersect_dt_ns > 0 relaxes the overlapping constraint, allowing distant clusters to still be considered overlapping.
         This is useful when your signal satisfies your query for a short period of time and you want to compare it with another
-        temporal close signal.
+        signal that is temporally close but not happening in the same moment.
 
         Args:
             *query_response_item_topics: Additional topics to include in the intersection.
             intersect_dt_ns (int): Max allowed distance (in nanoseconds) between clusters to be considered overlapped.
-                topics overlapping. Zero by default guaranteeing actual cluster overlapping.
+                Setting it to zero (default) ensures the existance for inter-cluster overlapping.
             clustering_map (Optional[dict[str, int]]): Map from ontology tag to clustering_dt_ns.
                 When provided, each topic uses the value for its ontology tag as
                 its clustering gap; missing tags fall back to ``override_clustering_dt_ns`` or default (0).
@@ -325,22 +325,26 @@ class QueryResponseItem:
 
     def intersect(
         self,
-        intersect_dt_ns: int,
+        *query_response_item: "QueryResponseItem",
+        intersect_dt_ns: int = 0,
         clustering_map: Optional[dict[str, int]] = None,
         override_clustering_dt_ns: Optional[int] = None,
-        *query_response_item: "QueryResponseItem",
-    ) -> Optional[list[TopicCluster]]:
+    ) -> list[TopicCluster]:
         """
         Computes the temporal intersection of all topics within the response item.
 
         For each topic, the query expressions are merged and sent to the server together with
         the topic's ``clustering_dt_ns`` gap (if not present default (0) is set). The server
         returns the time windows (clusters) in which *all* topics simultaneously satisfy their
-        respective query expressions.
+        respective query expressions. Nevertheless, setting intersect_dt_ns > 0 relaxes the
+        overlapping constraint, allowing distant clusters to still be considered overlapping.
+        This is useful when your signal satisfies your query for a short period of time and
+        you want to compare it with another signal that is temporally close but not happening
+        in the same moment.
 
         Args:
-            intersect_dt_ns (int): The temporal tolerance (in nanoseconds) used when computing
-              the intersection of clusters from different topics.
+            intersect_dt_ns (int): Max allowed distance (in nanoseconds) between clusters to be considered overlapped.
+                Setting it to zero (default) ensures the existance for inter-cluster overlapping.
             clustering_map (Optional[dict[str, int]]): An optional map indicating for each ontology tag within the query
               the minimal gap (in nanoseconds) there needs to be between two clusters to be considered different. If not
               specified all topics use default value (0). If specified but topic's ontology is missing, fallback using

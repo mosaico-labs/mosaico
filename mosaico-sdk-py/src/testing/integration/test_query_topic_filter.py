@@ -5,7 +5,7 @@ from mosaicolabs.models.query import QueryOntologyCatalog, QuerySequence
 from testing.integration.config import QUERY_FILTER_SEQUENCE_RESOLUTION_NS
 
 
-def test_filter_clusterize_single_query(
+def test_filter_clusterize_single_expression_single_topic(
     mosaico_client: MosaicoClient,
     inject_mockup_sequences_filter,  # Ensure the data are available on the data platform
 ):
@@ -73,7 +73,7 @@ def test_filter_clusterize_single_query(
             assert clusters[0].timerange.end <= (5 / 6 * math.pi) * 1.0e9
 
 
-def test_filter_clusterize_multi_query_one_topic(
+def test_filter_clusterize_multi_expression_single_topic(
     mosaico_client: MosaicoClient,
     inject_mockup_sequences_filter,  # Ensure the data are available on the data platform
 ):
@@ -114,7 +114,7 @@ def test_filter_clusterize_multi_query_one_topic(
             )  # 3pi - pi/4
 
 
-def test_filter_clusterize_all_multi_query_multi_topic(
+def test_filter_clusterize_all_multi_expression_multi_topic(
     mosaico_client: MosaicoClient,
     inject_mockup_sequences_filter,  # Ensure the data are available on the data platform
 ):
@@ -220,7 +220,7 @@ def test_filter_clusterize_all_multi_query_multi_topic(
         assert item_topic_clusterize == item_clusterize_all
 
 
-def test_filter_intersect_item_topic(
+def test_filter_intersect_single_sequence(
     mosaico_client: MosaicoClient,
     inject_mockup_sequences_filter,  # Ensure the data are available on the data platform
 ):
@@ -229,8 +229,8 @@ def test_filter_intersect_item_topic(
     query_resp = mosaico_client.query(
         QuerySequence().with_name_match("test-filter-sequence"),
         QueryOntologyCatalog()
-        .with_expression(Temperature.Q.value.gt(0.5))  # > sin(pi/4)
-        .with_expression(Pressure.Q.value.gt(0.5)),  # > cos(pi/6)
+        .with_expression(Temperature.Q.value.gt(0.5))  # > sin(pi/6)
+        .with_expression(Pressure.Q.value.gt(0.5)),  # > cos(pi/3)
     )
 
     acceptance_intervals = {
@@ -276,6 +276,11 @@ def test_filter_intersect_item_topic(
                 <= acceptance_intervals["intervals"][cluster.id]["end"]
             )
 
+        # Result from multi topic intersection of the same sequence should be equal to QueryResponse.intersect() with the same parameters
+        assert clusters == item.intersect(
+            override_clustering_dt_ns=override_clustering_dt_ns
+        )
+
         # Case 2) Partial clustering_map and override_clustering_dt_ns
         override_clustering_dt_ns = clustering_dt_ns
         clusters = item.topics[0].intersect(
@@ -298,6 +303,14 @@ def test_filter_intersect_item_topic(
                 <= acceptance_intervals["intervals"][cluster.id]["end"]
             )
 
+        # Result from multi topic intersection of the same sequence should be equal to QueryResponse.intersect() with the same parameters
+        assert clusters == item.intersect(
+            clustering_map={
+                Temperature.ontology_tag(): clustering_dt_ns,
+            },
+            override_clustering_dt_ns=override_clustering_dt_ns,
+        )
+
         # Case 3) Full clustering_map
         override_clustering_dt_ns = clustering_dt_ns
         clusters = item.topics[0].intersect(
@@ -319,6 +332,32 @@ def test_filter_intersect_item_topic(
                 cluster.timerange.end
                 <= acceptance_intervals["intervals"][cluster.id]["end"]
             )
+
+        # Result from multi topic intersection of the same sequence should be equal to QueryResponse.intersect() with the same parameters
+        assert clusters == item.intersect(
+            clustering_map={
+                Temperature.ontology_tag(): clustering_dt_ns,
+                Pressure.ontology_tag(): clustering_dt_ns,
+            },
+        )
+
+        # Case 4) no parameters specified -> expected just one intersection cluster
+        clusters = item.topics[0].intersect(*item.topics)
+
+        assert len(clusters) == 1
+
+        assert (
+            clusters[0].timerange.start
+            >= math.pi / 6.0 * 1.0e9 - QUERY_FILTER_SEQUENCE_RESOLUTION_NS
+        )
+        assert (
+            clusters[0].timerange.end
+            <= (3 * math.pi - math.pi / 6.0) * 1.0e9
+            + QUERY_FILTER_SEQUENCE_RESOLUTION_NS
+        )
+
+        # Result from multi topic intersection of the same sequence should be equal to QueryResponse.intersect() with the same parameters
+        assert clusters == item.intersect()
 
 
 def test_filter_intersect_item_topic_no_overlapping(
@@ -344,12 +383,10 @@ def test_filter_intersect_item_topic_no_overlapping(
                 + QUERY_FILTER_SEQUENCE_RESOLUTION_NS * 2,
             },
             {
-                "start": (7.0 / 2.0 * math.pi + math.pi / 2.0) * 1.0e9
-                - QUERY_FILTER_SEQUENCE_RESOLUTION_NS
-                * 2,  # 7/2pi + (pi) / 2 = 7/2pi + pi/2
-                "end": (4.0 * math.pi - math.pi / 2.0) * 1.0e9
-                + QUERY_FILTER_SEQUENCE_RESOLUTION_NS
-                * 2,  # 4pi - (pi) / 2 = 4pi - pi/2
+                "start": (2.0 * math.pi) * 1.0e9
+                - QUERY_FILTER_SEQUENCE_RESOLUTION_NS * 2,
+                "end": (5.0 / 2.0 * math.pi) * 1.0e9
+                + QUERY_FILTER_SEQUENCE_RESOLUTION_NS * 2,
             },
         ],
     }
@@ -373,8 +410,13 @@ def test_filter_intersect_item_topic_no_overlapping(
 
         assert len(clusters) == 0
 
-        # Case 2): on the other hand, setting a pi intersect_dt_ns tollerance
-        #          between clusters allow to still consider the overlapping valid
+        # Result from multi topic intersection of the same sequence should be equal to QueryResponse.intersect() with the same parameters
+        assert clusters == item.intersect(
+            override_clustering_dt_ns=override_clustering_dt_ns
+        )
+
+        # Case 2): on the other hand, setting intersect_dt_ns tollerance between
+        #          clusters to pi allows to still consider the overlapping valid
 
         intersect_dt_ns = math.pi * 1.0e9
         clusters = item.topics[0].intersect(
@@ -394,3 +436,135 @@ def test_filter_intersect_item_topic_no_overlapping(
                 cluster.timerange.end
                 <= acceptance_intervals["intervals"][cluster.id]["end"]
             )
+
+        # Result from multi topic intersection of the same sequence should be equal to QueryResponse.intersect() with the same parameters
+        assert clusters == item.intersect(
+            intersect_dt_ns=int(intersect_dt_ns),
+            override_clustering_dt_ns=override_clustering_dt_ns,
+        )
+
+
+# TODO: enable when backend enables intersection between different sequences
+def _test_filter_intersect_multi_sequence_overlapping(
+    mosaico_client: MosaicoClient,
+    inject_mockup_sequences_filter,  # Ensure the data are available on the data platform
+):
+    """Intersection between two distinct queries"""
+    # Two distinct queries returning two different sequences
+    query_resp1 = mosaico_client.query(
+        QuerySequence().with_name_match("test-filter-sequence-1"),
+        QueryOntologyCatalog()
+        .with_expression(Temperature.Q.value.gt(0.5))  # >= sin(pi/6)
+        .with_expression(Pressure.Q.value.gt(0.5)),  # >= cos(pi/3)
+    )
+
+    query_resp2 = mosaico_client.query(
+        QuerySequence().with_name_match("test-filter-sequence-2"),
+        QueryOntologyCatalog()
+        .with_expression(Point3d.Q.x.gt(0.5))
+        .with_expression(Point3d.Q.y.gt(0.5))
+        .with_expression(Point3d.Q.z.gt(0.5)),
+    )
+
+    # Accepted intervals with intersect_dt_ns = 0 -> clusters are already overlapping
+    acceptance_intervals = {
+        "intervals": [
+            {
+                "start": (math.pi / 6) * 1.0e9 - QUERY_FILTER_SEQUENCE_RESOLUTION_NS,
+                "end": (math.pi / 3) * 1.0e9 + QUERY_FILTER_SEQUENCE_RESOLUTION_NS,
+            },
+            {
+                "start": (2 * math.pi + math.pi / 6) * 1.0e9
+                - QUERY_FILTER_SEQUENCE_RESOLUTION_NS,
+                "end": (2 * math.pi + math.pi / 3) * 1.0e9
+                + QUERY_FILTER_SEQUENCE_RESOLUTION_NS,
+            },
+        ],
+    }
+
+    # We do expect a successful query
+    assert query_resp1 is not None and not query_resp1.is_empty()
+    assert query_resp2 is not None and not query_resp2.is_empty()
+
+    # We do expect a single sequence from both queries
+    assert len(query_resp1.items) == 1
+    assert len(query_resp2.items) == 1
+
+    # Case 1) calling intersect with just other SequenceItems
+    clusters = query_resp1.items[0].intersect(*query_resp2.items)
+
+    assert len(clusters) == 1
+
+    assert (
+        clusters[0].timerange.start
+        >= math.pi / 6.0 * 1.0e9 - QUERY_FILTER_SEQUENCE_RESOLUTION_NS
+    )
+    assert (
+        clusters[0].timerange.end
+        <= (3 * math.pi - math.pi / 6.0) * 1.0e9 + QUERY_FILTER_SEQUENCE_RESOLUTION_NS
+    )
+
+    # Case 2) calling intersect with other SequenceItems and override_clustering_dt_ns defined
+
+    clustering_dt_ns = int(QUERY_FILTER_SEQUENCE_RESOLUTION_NS * 2)
+
+    clusters = query_resp1.items[0].intersect(
+        *query_resp2.items, override_clustering_dt_ns=clustering_dt_ns
+    )
+
+    assert len(clusters) == len(acceptance_intervals["intervals"])
+
+    for cluster in clusters:
+        assert (
+            cluster.timerange.start
+            >= acceptance_intervals["intervals"][cluster.id]["start"]
+        )
+        assert (
+            cluster.timerange.end
+            <= acceptance_intervals["intervals"][cluster.id]["end"]
+        )
+
+    # Case 3) calling intersect with other SequenceItems, partial clustering_map and
+    #  override_clustering_dt_ns defined
+
+    clusters = query_resp1.items[0].intersect(
+        *query_resp2.items,
+        override_clustering_dt_ns=clustering_dt_ns,
+        clustering_map={
+            Pressure.ontology_tag(): clustering_dt_ns,
+        },
+    )
+
+    assert len(clusters) == len(acceptance_intervals["intervals"])
+
+    for cluster in clusters:
+        assert (
+            cluster.timerange.start
+            >= acceptance_intervals["intervals"][cluster.id]["start"]
+        )
+        assert (
+            cluster.timerange.end
+            <= acceptance_intervals["intervals"][cluster.id]["end"]
+        )
+
+    # Case 4) calling intersect with other SequenceItems, total clustering_map
+
+    clusters = query_resp1.items[0].intersect(
+        *query_resp2.items,
+        clustering_map={
+            Temperature.ontology_tag(): clustering_dt_ns,
+            Pressure.ontology_tag(): clustering_dt_ns,
+        },
+    )
+
+    assert len(clusters) == len(acceptance_intervals["intervals"])
+
+    for cluster in clusters:
+        assert (
+            cluster.timerange.start
+            >= acceptance_intervals["intervals"][cluster.id]["start"]
+        )
+        assert (
+            cluster.timerange.end
+            <= acceptance_intervals["intervals"][cluster.id]["end"]
+        )
