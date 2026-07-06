@@ -31,6 +31,7 @@ def _build_clusterize_payload(
     timestamp_range: Optional["TimestampRange"] = None,
     include_timestamp_range: bool = True,
 ) -> dict[str, Any]:
+    """Creates the payload for the topic filter clusterize do_action_page"""
 
     # Merging expressions within a single dict
     merged_exprs = {
@@ -59,6 +60,7 @@ def _build_intersect_payload(
     clustering_map: Optional[dict[str, int]] = None,
     override_clustering_dt_ns: Optional[int] = None,
 ):
+    """Creates the payload for the topic filter intersect do_action_page"""
 
     return {
         "topics": [

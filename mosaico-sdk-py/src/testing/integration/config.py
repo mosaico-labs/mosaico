@@ -6,6 +6,7 @@ from mosaicolabs.models.sensors import GPS, IMU, Image, Pressure, Temperature
 # ----- Sequence setup ----
 
 UPLOADED_SEQUENCE_NAME = "test-sequence-datastream"
+UPLOADED_SEQUENCE_W_LIST_NAME = "list-query-sequence"
 UPLOADED_SEQUENCE_METADATA = {
     "status": "processed",
     "visibility": "team-01",
@@ -174,6 +175,43 @@ UPLOADED_MAGNETOMETER_METADATA = {
     },
 }
 
+UPLOADED_TEMPERATURE_TOPIC = "/motor/thermocouple"
+UPLOADED_TEMPERATURE_FRAME_ID = "motor_thermocouple"
+UPLOADED_TEMPERATURE_METADATA = {
+    "measurement_type": "temperature",
+    "temperature_range_kelvin": {
+        "min": 0.0,
+        "max": 430.0,
+    },
+    "accuracy_kelvin": 0.1,
+    "resolution_kelvin": 0.01,
+    "unit": "Kelvin",
+    "probe_type": "thermocouple",
+    "environment": "industrial",
+}
+
+UPLOADED_ROBOT_JOINTS_TOPIC = "/robot/joint_states"
+UPLOADED_ROBOT_JOINTS_FRAME_ID = "base_link"
+UPLOADED_ROBOT_JOINTS_METADATA = {
+    "vendor": "ABB",
+    "model": "GoFa",
+    "firmware_version": "omnicore-7.4.1",
+    "serial_number": "ASDF-1865ASDFD",
+    "status": "active",
+    "mounted_at": "2026-04-02T09:12:44Z",
+    "update_rate_hz": 250,
+}
+
+UPLOADED_ROBOT_PATH_TOPIC = "/robot/path"
+UPLOADED_ROBOT_PATH_FRAME_ID = "base_link"
+UPLOADED_ROBOT_PATH_METADATA = {
+    "path_type": "cartesian",
+    "path_length_m": 3.2,
+    "control_mode": "position",
+    "validation_state": "verified",
+}
+
+
 # NOTE: Mockup for loading N sequences for testing base queries.
 # DO NOT EDIT!!! Tests assume the data are immutable
 QUERY_SEQUENCES_MOCKUP = {
@@ -223,16 +261,16 @@ QUERY_SEQUENCES_MOCKUP = {
     },
 }
 
-# NOTE: Mockup for loading 2 sequences for testing topic filter clusterize/intersect queries.
+# Mockup for loading 2 sequences for testing topic filter clusterize/intersect queries.
 
 # The sequences consist of 2 sequences containing:
 
 # 1) Sequence1:
 # One topic of Temperature type with a sinusoidal value sin(t).
-# One topic of Pressure type with a sinusoidal value cos(t).
+# One topic of Pressure type with a cosinusoidal value cos(t).
 
 # 2) Sequence2:
-# One topic of Point3d where both x, y and z have a sinusoidal value sin(t)
+# One topic of Point3d where both x, y and z have a sinusoidal values sin(t)
 
 # NOTE: all the sine/cosine signals have length of 4PI so to have two distinct picks to be considered as different clusters
 

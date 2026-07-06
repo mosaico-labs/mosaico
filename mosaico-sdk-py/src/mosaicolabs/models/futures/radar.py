@@ -51,6 +51,8 @@ class Radar(
 
 
     Note:
+        # FIXME: Update this docstring with queryability of list fiends,
+        # and add example scripts for querying such field
         MosaicoType.list_() typed fields are **not queryable** via the `.Q` proxy. The `.Q` proxy
         is not available on this model.
 
@@ -72,17 +74,29 @@ class Radar(
     x: MosaicoType.list_(MosaicoType.float32) = MosaicoField(
         description="x coordinates in meters."
     )
-    """X coordinates of each detection, in meters."""
+    """
+    X coordinates of each detection, in meters.
+    # FIXME: Update this docstring with queryability of list fiends,
+    # and add example scripts for querying such field
+    """
 
     y: MosaicoType.list_(MosaicoType.float32) = MosaicoField(
         description="y coordinates in meters."
     )
-    """Y coordinates of each detection, in meters."""
+    """
+    Y coordinates of each detection, in meters.
+    # FIXME: Update this docstring with queryability of list fiends,
+    # and add example scripts for querying such field
+    """
 
     z: MosaicoType.list_(MosaicoType.float32) = MosaicoField(
         description="z coordinates in meters."
     )
-    """Z coordinates of each detection, in meters."""
+    """
+    Z coordinates of each detection, in meters.
+    # FIXME: Update this docstring with queryability of list fiends,
+    # and add example scripts for querying such field
+    """
 
     range: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
         default=None, description="radial distance in meters."
@@ -91,6 +105,8 @@ class Radar(
     Radial distance from the sensor origin to each detection, in meters.
 
     Represents the straight-line distance along the beam axis.
+    # FIXME: Update this docstring with queryability of list fiends,
+    # and add example scripts for querying such field
     """
 
     azimuth: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
@@ -101,6 +117,8 @@ class Radar(
 
     Measured in the sensor's horizontal plane, typically from 0 to 2π,
     with 0 aligned to the sensor's forward axis.
+    # FIXME: Update this docstring with queryability of list fiends,
+    # and add example scripts for querying such field
     """
 
     elevation: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
@@ -110,6 +128,8 @@ class Radar(
     Vertical (elevation) angle of each detection in radians.
 
     Measured from the sensor's horizontal plane; positive values point upward.
+    # FIXME: Update this docstring with queryability of list fiends,
+    # and add example scripts for querying such field
     """
 
     rcs: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
@@ -121,6 +141,8 @@ class Radar(
     Quantifies the effective scattering area of the target as seen by the
     sensor. Higher values typically correspond to larger or more reflective
     objects. Useful for target classification and false-positive filtering.
+    # FIXME: Update this docstring with queryability of list fiends,
+    # and add example scripts for querying such field
     """
 
     snr: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
@@ -132,6 +154,8 @@ class Radar(
     Indicates the quality of the received echo relative to background noise.
     Low-SNR detections are generally less reliable and may be filtered out
     during object-level processing.
+    # FIXME: Update this docstring with queryability of list fiends,
+    # and add example scripts for querying such field
     """
 
     doppler_velocity: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
@@ -143,6 +167,8 @@ class Radar(
     Represents the component of the target's velocity along the sensor's
     line of sight, derived directly from the frequency shift of the returned
     signal. Positive values conventionally indicate motion away from the sensor.
+    # FIXME: Update this docstring with queryability of list fiends,
+    # and add example scripts for querying such field
     """
 
     vx: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
@@ -153,6 +179,8 @@ class Radar(
 
     Expressed in the sensor frame. This is a Cartesian decomposition of the
     target velocity, as opposed to the purely radial ``doppler_velocity``.
+    # FIXME: Update this docstring with queryability of list fiends,
+    # and add example scripts for querying such field
     """
 
     vy: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
@@ -162,6 +190,8 @@ class Radar(
     Y component of the estimated velocity of each detection, in m/s.
 
     Expressed in the sensor frame. See ``vx`` for further context.
+    # FIXME: Update this docstring with queryability of list fiends,
+    # and add example scripts for querying such field
     """
 
     vx_comp: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
@@ -173,6 +203,8 @@ class Radar(
     Obtained by subtracting the host vehicle's own velocity from ``vx``,
     yielding the detection's absolute velocity in the world frame along the
     X axis.
+    # FIXME: Update this docstring with queryability of list fiends,
+    # and add example scripts for querying such field
     """
 
     vy_comp: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
@@ -182,6 +214,8 @@ class Radar(
     Ego-motion-compensated Y velocity of each detection, in m/s.
 
     Analogous to ``vx_comp`` along the Y axis. See ``vx_comp`` for further context.
+    # FIXME: Update this docstring with queryability of list fiends,
+    # and add example scripts for querying such field
     """
 
     ax: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
@@ -192,6 +226,8 @@ class Radar(
 
     Available only on sensors that track detections across multiple scans and
     report per-point kinematic state (e.g. high-level object-list outputs).
+    # FIXME: Update this docstring with queryability of list fiends,
+    # and add example scripts for querying such field
     """
 
     ay: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
@@ -201,6 +237,8 @@ class Radar(
     Y component of the estimated acceleration of each detection, in m/s².
 
     Analogous to ``ax`` along the Y axis. See ``ax`` for further context.
+    # FIXME: Update this docstring with queryability of list fiends,
+    # and add example scripts for querying such field
     """
 
     radial_speed: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
@@ -212,4 +250,6 @@ class Radar(
     Represents the magnitude of the velocity component along the line of sight,
     without sign convention. Distinct from ``doppler_velocity``, which may carry
     a directional sign depending on the sensor's convention.
+    # FIXME: Update this docstring with queryability of list fiends,
+    # and add example scripts for querying such field
     """

@@ -95,10 +95,10 @@ impl From<chrono::DateTime<chrono::Utc>> for Timestamp {
     }
 }
 
-/// Represents a closed interval of time where both the start and end are included.
+/// Represents a closed interval of time, with [`start`] included and [`end`] excluded.
 ///
 /// This struct defines a range $[start, end]$. A timestamp is considered
-/// contained within this range if $start \le t \le end$.
+/// contained within this range if $start \le t \l end$.
 #[derive(Clone)]
 pub struct TimestampRange {
     pub start: Timestamp,
@@ -133,9 +133,9 @@ impl TimestampRange {
         self.start.is_unbounded() && self.end.is_unbounded()
     }
 
-    /// Check if the timestamp range if empty (i.e. start >= end)
+    /// Check if the timestamp range is empty (i.e. start > end)
     pub fn is_empty(&self) -> bool {
-        self.start >= self.end
+        self.start > self.end
     }
 }
 

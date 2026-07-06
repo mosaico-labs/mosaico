@@ -31,7 +31,6 @@ import pyarrow as pa
 from mosaicolabs.enum import SerializationFormat
 from mosaicolabs.helpers import camel_to_snake
 
-from ..query.expressions import _QueryCatalogExpression
 from ..query.generation.api import _QueryProxyMixin
 from .base_model import BaseModel
 from .internal.helpers import _fix_empty_dicts
@@ -127,7 +126,6 @@ class Serializable(BaseModel, _QueryProxyMixin):
         _QueryProxyMixin._inject_query_proxy(
             cls,
             mapper=PyarrowFieldMapper(),
-            query_expression_type=_QueryCatalogExpression,
             query_prefix=None,
         )
 

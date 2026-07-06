@@ -227,7 +227,7 @@ async fn test_session_delete_unlocked_with_data(pool: sqlx::Pool<db::DatabaseTyp
         .await
         .unwrap();
 
-    let res = actions::get_flight_info(&mut client, topic_name).await;
+    let res = actions::get_flight_info(&mut client, topic_name, None).await;
     assert_eq!(res.unwrap_err().code(), tonic::Code::NotFound);
 
     server.shutdown().await;
@@ -275,10 +275,10 @@ async fn test_session_delete_cascades_to_topics(pool: sqlx::Pool<db::DatabaseTyp
         .await
         .unwrap();
 
-    let res = actions::get_flight_info(&mut client, topic_name_a).await;
+    let res = actions::get_flight_info(&mut client, topic_name_a, None).await;
     assert_eq!(res.unwrap_err().code(), tonic::Code::NotFound);
 
-    let res = actions::get_flight_info(&mut client, topic_name_b).await;
+    let res = actions::get_flight_info(&mut client, topic_name_b, None).await;
     assert_eq!(res.unwrap_err().code(), tonic::Code::NotFound);
 
     let res = actions::topic_delete(&mut client, topic_name_a).await;
@@ -311,7 +311,7 @@ async fn test_session_delete_preserves_sequence(pool: sqlx::Pool<db::DatabaseTyp
         .unwrap();
     assert!(session_uuid.is_valid());
 
-    let info = actions::get_flight_info(&mut client, sequence_name).await;
+    let info = actions::get_flight_info(&mut client, sequence_name, None).await;
     assert!(info.is_ok());
 
     server.shutdown().await;

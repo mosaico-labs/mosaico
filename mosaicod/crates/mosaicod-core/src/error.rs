@@ -1,3 +1,5 @@
+use crate::types;
+
 /// A trait for errors that can be safely exposed to external clients.
 ///
 /// `PublicError` serves as a translation layer between internal system failures
@@ -109,6 +111,8 @@ pub enum ErrorKind {
     BadLocator(String),
     #[error("{0} is not a valid UUID")]
     BadUuid(String),
+    #[error("{0} is not a valid timestamp range")]
+    BadTimestampRange(String),
     #[error("Bad request: {0}")]
     BadRequest(String),
     #[error("Bad header: {0}")]
@@ -207,6 +211,10 @@ impl Error {
 
     pub fn bad_uuid(uuid: String) -> Self {
         Self(ErrorKind::BadUuid(uuid))
+    }
+
+    pub fn bad_timestamp_range(ts_range: types::TimestampRange) -> Self {
+        Self(ErrorKind::BadTimestampRange(ts_range.to_string()))
     }
 
     pub fn bad_request(msg: String) -> Self {

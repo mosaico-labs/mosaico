@@ -7,6 +7,7 @@ use futures::StreamExt;
 use futures::TryStreamExt;
 use mosaicod_core::types;
 use mosaicod_ext as ext;
+use std::collections::HashMap;
 
 use arrow_flight::Ticket;
 use mosaicod_marshal::flight::FilterTimestampRange;
@@ -322,22 +323,28 @@ pub async fn do_get(
             .into(),
     };
 
-    do_get_with_ticket(client, ticket).await
+    Ok(do_get_with_ticket(client, ticket).await?.1)
 }
+
+pub type DoGetMetadata = Option<HashMap<String, String>>;
 
 pub async fn do_get_with_ticket(
     client: &mut Client,
     ticket: arrow_flight::Ticket,
-) -> Result<Vec<RecordBatch>, tonic::Status> {
+) -> Result<(DoGetMetadata, Vec<RecordBatch>), tonic::Status> {
     let stream = client.do_get(ticket).await?.into_inner();
 
     let record_batch_stream =
         FlightRecordBatchStream::new_from_flight_data(stream.map_err(|e| e.into()));
 
-    record_batch_stream
+    let batches = record_batch_stream
         .try_collect::<Vec<_>>()
         .await
-        .map_err(|e| tonic::Status::internal(format!("do_get decode error: {e}")))
+        .map_err(|e| tonic::Status::internal(format!("do_get decode error: {e}")))?;
+
+    let metadata = batches.first().map(|b| b.schema().metadata().clone());
+
+    Ok((metadata, batches))
 }
 
 pub async fn server_version(client: &mut Client) -> Result<(), tonic::Status> {
@@ -377,18 +384,25 @@ pub async fn server_version(client: &mut Client) -> Result<(), tonic::Status> {
     Ok(())
 }
 
-/// Returns flight info data for a sequence or a topic.
+/// Returns flight info data for a sequence or a topic in the given interval.
 pub async fn get_flight_info(
     client: &mut Client,
     topic_name: &str,
+    interval: Option<types::TimestampRange>,
 ) -> Result<FlightInfo, tonic::Status> {
     let cmd = format!(
         r#"
         {{
-            "resource_locator": "{}"
+            "resource_locator": "{}",
+            "timestamp_ns_start": {},
+            "timestamp_ns_end": {}
         }}
         "#,
-        topic_name
+        topic_name,
+        interval
+            .clone()
+            .map_or("null".to_owned(), |range| range.start.to_string()),
+        interval.map_or("null".to_owned(), |range| range.end.to_string()),
     );
 
     dbg!(&cmd);

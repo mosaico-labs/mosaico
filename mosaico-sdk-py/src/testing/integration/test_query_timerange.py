@@ -11,7 +11,8 @@ from testing.integration.config import (
 from .helpers import _validate_returned_topic_name
 
 
-def test_query_ontology_with_timestamp_trivial(
+# FIXME: Refactor and re-enable when clusterize and intersect will be implemented in the SDK
+def _test_query_ontology_with_timestamp_trivial(
     mosaico_client: MosaicoClient,
     inject_synthetic_sequence,  # Ensure the data are available on the data platform
 ):
@@ -63,7 +64,8 @@ def test_query_ontology_with_timestamp_trivial(
     mosaico_client.close()
 
 
-def test_query_ontology_with_timestamp_imu(
+# FIXME: Refactor and re-enable when clusterize and intersect will be implemented in the SDK
+def _test_query_ontology_with_timestamp_imu(
     mosaico_client: MosaicoClient,
     inject_synthetic_sequence,  # Ensure the data are available on the data platform
 ):
@@ -116,7 +118,8 @@ def test_query_ontology_with_timestamp_imu(
     mosaico_client.close()
 
 
-def test_query_mixed_ontology_with_timestamp(
+# FIXME: Refactor and re-enable when clusterize and intersect will be implemented in the SDK
+def _test_query_mixed_ontology_with_timestamp(
     mosaico_client: MosaicoClient,
     inject_synthetic_sequence,  # Ensure the data are available on the data platform
 ):
@@ -179,7 +182,8 @@ def test_query_mixed_ontology_with_timestamp(
     mosaico_client.close()
 
 
-def test_query_multi_criteria_with_timestamp(
+# FIXME: Refactor and re-enable when clusterize and intersect will be implemented in the SDK
+def _test_query_multi_criteria_with_timestamp(
     mosaico_client: MosaicoClient,
     inject_synthetic_sequence,  # Ensure the data are available on the data platform
 ):

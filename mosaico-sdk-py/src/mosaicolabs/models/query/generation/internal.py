@@ -29,3 +29,11 @@ _PYTHON_TYPE_TO_QUERYABLE: Dict[type | None, Type[_QueryableMixinProtocol]] = {
     # Dictionary Type
     dict: _DynamicFieldFactoryMixin,
 }
+
+
+class _QueryableList(dict):
+    pass
+
+
+class _QueryableOptional(dict):
+    pass

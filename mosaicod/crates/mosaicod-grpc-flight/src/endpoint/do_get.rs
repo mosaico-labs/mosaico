@@ -7,7 +7,7 @@ use arrow_flight::{
 };
 use futures::TryStreamExt;
 use log::{debug, info, trace};
-use mosaicod_core::{self as core, params};
+use mosaicod_core::{self as core, params, types};
 use mosaicod_facade as facade;
 use mosaicod_grpc_common as grpc_common;
 use mosaicod_marshal as marshal;
@@ -24,6 +24,9 @@ pub async fn do_get(
 
     trace!("{:?}", doget_params.metadata);
 
+    // TODO: since we are calling timestamp_range(), count() and stream() on query_result,
+    // in some cases it could increase I/O and computes. Maybe a better approach overall is possible?
+
     let mut query_result = ctx
         .timeseries_querier
         .read(
@@ -37,17 +40,28 @@ pub async fn do_get(
         )
         .await?;
 
-    // Append JSON metadata to original data schema
-    let metadata = marshal::JsonTopicMetadata::from(doget_params.metadata);
-    let flatten_mdata = metadata.ontology_metadata.to_flat_hashmap()?;
-
-    let schema = query_result.schema_with_metadata(flatten_mdata);
-    trace!("{:?}", schema);
-
     if let Some(ts_range) = ticket.timestamp_range {
         debug!("requesting timestamp range {}", ts_range);
         query_result = query_result.filter_by_timestamp_range(ts_range)?;
     }
+
+    let mut metadata = doget_params.metadata;
+
+    // Timestamp_range can be None only if there is no data uploaded for the topic yet.
+    // In that case the entire interval_props is left empty.
+    if let Some(timestamp_range) = query_result.clone().timestamp_range().await? {
+        metadata = metadata.with_interval(types::TopicIntervalProperties {
+            message_count: query_result.clone().count().await?,
+            timestamp_range,
+        });
+    }
+
+    // Append JSON metadata to original data schema
+    let metadata = marshal::JsonTopicMetadata::from(metadata);
+    let flatten_mdata = metadata.to_flat_hashmap()?;
+
+    let schema = query_result.schema_with_metadata(flatten_mdata);
+    trace!("{:?}", schema);
 
     // Get data stream from query result
     let stream = query_result.stream().await?;

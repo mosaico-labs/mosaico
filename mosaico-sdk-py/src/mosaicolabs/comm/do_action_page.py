@@ -32,7 +32,9 @@ T_DoActionPageResponse = TypeVar(
 
 class _DoActionPageResponse(ABC):
     """
-    Abstract base class for Flight Action responses.
+    Abstract base class for Flight Action responses. Differently from the _DoActionPageResponse
+    this class handles responses composed of list of dictionaries rather than just a single dictionary.
+    Indeed it defines from_list() rather than from_dict().
 
     This class handles the automatic registration of subclasses. When a subclass
     is defined with a list of `actions`, it is automatically added to the `_registry`.

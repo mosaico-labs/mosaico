@@ -43,6 +43,8 @@ class Lidar(
 
 
     Note:
+        # FIXME: Update this docstring with queryability of list fiends,
+        # and add example scripts for querying such field
         List-typed fields are **not queryable** via the `.Q` proxy. The `.Q` proxy
         is not available on this model.
 
@@ -64,23 +66,39 @@ class Lidar(
     x: MosaicoType.list_(MosaicoType.float32) = MosaicoField(
         description="x coordinates in meters"
     )
-    """X coordinates of each point in the cloud, in meters."""
+    """
+    X coordinates of each point in the cloud, in meters.
+    # FIXME: Update this docstring with queryability of list fiends,
+    # and add example scripts for querying such field
+    """
 
     y: MosaicoType.list_(MosaicoType.float32) = MosaicoField(
         description="y coordinates in meters"
     )
-    """Y coordinates of each point in the cloud, in meters."""
+    """
+    Y coordinates of each point in the cloud, in meters.
+    # FIXME: Update this docstring with queryability of list fiends,
+    # and add example scripts for querying such field
+    """
 
     z: MosaicoType.list_(MosaicoType.float32) = MosaicoField(
         description="z coordinates in meters"
     )
-    """Z coordinates of each point in the cloud, in meters."""
+    """
+    Z coordinates of each point in the cloud, in meters.
+    # FIXME: Update this docstring with queryability of list fiends,
+    # and add example scripts for querying such field
+    """
 
     intensity: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
         default=None,
         description="Surface reflectivity per point.",
     )
-    """Strength of the returned laser signal for each point."""
+    """
+    Strength of the returned laser signal for each point.
+    # FIXME: Update this docstring with queryability of list fiends,
+    # and add example scripts for querying such field
+    """
 
     reflectivity: Optional[MosaicoType.list_(MosaicoType.uint16)] = MosaicoField(
         default=None,
@@ -91,6 +109,8 @@ class Lidar(
 
     Encodes the estimated reflectance of the surface that produced each return,
     independently of the distance. Manufacturer-specific scaling applies.
+    # FIXME: Update this docstring with queryability of list fiends,
+    # and add example scripts for querying such field
     """
 
     beam_id: Optional[MosaicoType.list_(MosaicoType.uint16)] = MosaicoField(
@@ -103,6 +123,8 @@ class Lidar(
     Identifies which physical emitter in the sensor array produced the return.
     Equivalent to the `ring` field commonly found in ROS `PointCloud2` messages
     from multi-beam sensors such as Velodyne or Ouster.
+    # FIXME: Update this docstring with queryability of list fiends,
+    # and add example scripts for querying such field
     """
 
     range: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
@@ -114,6 +136,8 @@ class Lidar(
 
     Represents the raw radial distance along the beam axis, before projection
     onto Cartesian coordinates. Not always provided by all sensor drivers.
+    # FIXME: Update this docstring with queryability of list fiends,
+    # and add example scripts for querying such field
     """
 
     near_ir: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
@@ -126,19 +150,29 @@ class Lidar(
     Captured passively by the sensor between laser pulses. Useful as a proxy
     for ambient illumination or for filtering sun-noise artefacts.
     Exposed as the `ambient` channel in Ouster drivers.
+    # FIXME: Update this docstring with queryability of list fiends,
+    # and add example scripts for querying such field
     """
 
     azimuth: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
         default=None,
         description="Horizontal (azimuth) angle of each point in radians.",
     )
-    """Horizontal (azimuth) angle of each point in radians."""
+    """
+    Horizontal (azimuth) angle of each point in radians.
+    # FIXME: Update this docstring with queryability of list fiends,
+    # and add example scripts for querying such field
+    """
 
     elevation: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
         default=None,
         description="Vertical (elevation) angle of each point in radians.",
     )
-    """Vertical (elevation) angle of each point in radians."""
+    """
+    Vertical (elevation) angle of each point in radians.
+    # FIXME: Update this docstring with queryability of list fiends,
+    # and add example scripts for querying such field
+    """
 
     confidence: Optional[MosaicoType.list_(MosaicoType.uint8)] = MosaicoField(
         default=None,
@@ -150,6 +184,8 @@ class Lidar(
     Stored as a manufacturer-specific bitmask (equivalent to the `tag` or
     `flags` fields in Ouster point clouds). Individual bits may signal
     saturated returns, calibration issues, or other quality indicators.
+    # FIXME: Update this docstring with queryability of list fiends,
+    # and add example scripts for querying such field
     """
 
     return_type: Optional[MosaicoType.list_(MosaicoType.uint8)] = MosaicoField(
@@ -161,6 +197,8 @@ class Lidar(
     
     Indicates whether a point originates from the first return, last return,
     strongest return, etc. Encoding is manufacturer-specific.
+    # FIXME: Update this docstring with queryability of list fiends,
+    # and add example scripts for querying such field
     """
 
     point_timestamp: Optional[MosaicoType.list_(MosaicoType.float64)] = MosaicoField(
@@ -173,4 +211,6 @@ class Lidar(
     Allows precise temporal localisation of individual points within a single
     sweep, which is important for motion-distortion correction during
     point-cloud registration.
+    # FIXME: Update this docstring with queryability of list fiends,
+    # and add example scripts for querying such field
     """

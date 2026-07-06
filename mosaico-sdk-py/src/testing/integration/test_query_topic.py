@@ -9,7 +9,10 @@ from testing.integration.config import (
     UPLOADED_IMU_CAMERA_TOPIC,
     UPLOADED_IMU_FRONT_TOPIC,
     UPLOADED_MAGNETOMETER_TOPIC,
+    UPLOADED_ROBOT_JOINTS_TOPIC,
+    UPLOADED_ROBOT_PATH_TOPIC,
     UPLOADED_SEQUENCE_NAME,
+    UPLOADED_TEMPERATURE_TOPIC,
 )
 
 from .helpers import (
@@ -309,13 +312,16 @@ def test_query_topic_metadata(
     )
     # We do expect a successful query
     assert query_resp is not None and not query_resp.is_empty()
-    # Five (5) sequences corresponds to this query (data stream sequence + mockups)
-    assert len(query_resp) == 5
+    # Six (6) sequences corresponds to this query (data stream sequence + mockups + stream list sequence)
+    assert len(query_resp) == 6
     # The target topics are 'UPLOADED_IMU_FRONT_TOPIC' and 'UPLOADED_IMU_CAMERA_TOPIC'
     expected_topic_names = [
         UPLOADED_IMU_FRONT_TOPIC,
         UPLOADED_IMU_CAMERA_TOPIC,
         UPLOADED_MAGNETOMETER_TOPIC,
+        UPLOADED_ROBOT_JOINTS_TOPIC,
+        UPLOADED_ROBOT_PATH_TOPIC,
+        UPLOADED_TEMPERATURE_TOPIC,
     ] + [
         topic["name"]
         for sequence_info in QUERY_SEQUENCES_MOCKUP.values()
