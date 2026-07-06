@@ -151,23 +151,15 @@ def test_construction_query_from_response():
             QueryResponseItem(
                 sequence=QueryResponseItemSequence(name="seq0"),
                 topics=[
-                    QueryResponseItemTopic(
-                        locator="seq0/top00", ontology_tag="", timestamp_range=None
-                    ),
-                    QueryResponseItemTopic(
-                        locator="seq0/top01", ontology_tag="", timestamp_range=None
-                    ),
+                    QueryResponseItemTopic(locator="seq0/top00", ontology_tag=""),
+                    QueryResponseItemTopic(locator="seq0/top01", ontology_tag=""),
                 ],  # constructor expects topic resource name
             ),
             QueryResponseItem(
                 sequence=QueryResponseItemSequence(name="seq1"),
                 topics=[
-                    QueryResponseItemTopic(
-                        locator="seq0/top10", ontology_tag="", timestamp_range=None
-                    ),
-                    QueryResponseItemTopic(
-                        locator="seq0/top11", ontology_tag="", timestamp_range=None
-                    ),
+                    QueryResponseItemTopic(locator="seq0/top10", ontology_tag=""),
+                    QueryResponseItemTopic(locator="seq0/top11", ontology_tag=""),
                 ],  # constructor expects topic resource name
             ),
         ]

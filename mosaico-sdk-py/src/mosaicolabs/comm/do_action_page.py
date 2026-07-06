@@ -115,11 +115,11 @@ def _do_action_page(
 
     Returns:
         Optional[T_DoActionPageResponse]: The deserialized response object, or None
-                                      if the server returned no body.
+                                          if the server returned no body or returned
+                                          action is not consitant with input one.
 
     Raises:
         TypeError: If returned responses do not have the expected FlightAction type.
-        TypeError: If the registered response class does not match `expected_type`.
         Exception: For Flight errors or JSON decoding failures.
     """
     action_name = action.value

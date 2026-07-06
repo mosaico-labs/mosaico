@@ -175,10 +175,10 @@ def test_filter_clusterize_all_multi_expression_multi_topic(
             topic_acc_clusters = acceptance_intervals[topic.ontology_tag]
             clusters = topic.clusterize(clustering_dt_ns)
 
-            all_clusters_dict.update({topic.name: clusters})
-
             # Checking expected clusters
             assert len(clusters) == len(topic_acc_clusters["intervals"])
+
+            all_clusters_dict.update({topic.name: clusters})
 
             for cluster in clusters:
                 assert (
@@ -264,7 +264,9 @@ def test_filter_intersect_single_sequence(
             override_clustering_dt_ns=override_clustering_dt_ns,
         )
 
-        assert len(clusters) == len(acceptance_intervals["intervals"])
+        assert clusters is not None and len(clusters) == len(
+            acceptance_intervals["intervals"]
+        )
 
         for cluster in clusters:
             assert (

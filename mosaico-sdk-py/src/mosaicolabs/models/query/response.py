@@ -111,7 +111,6 @@ class QueryResponseItemTopic:
 
     locator: str
     ontology_tag: str
-    timestamp_range: Optional[TimestampRange]
     name: str = field(default="", init=False)
 
     DEFAULT_CLUSTERING_DT: ClassVar[int] = 0
@@ -135,24 +134,30 @@ class QueryResponseItemTopic:
         timestamp_range: Optional[TimestampRange] = None,
     ) -> list[TopicCluster]:
         """
-        The query computes an interval representing the very first and very last time instant in which the query results satisfied.
-        This function divides the such interval in clusters. Cluster distance can be set using clustering_dt_ns
+        The requested query computes an interval representing the very first and very last time
+        instant in which the query results are satisfied. This function divides the such
+        interval in clusters. Clusters distance can be set using clustering_dt_ns
         Therefore:
             - smaller clustering_dt_ns would create more clusters
             - bigger clustering_dt_ns would create less clusters since more samples are merged
 
-        Set clustering_dt_ns to zero (default) returns a unique cluster coinciding with the whole original interval
+        Setting clustering_dt_ns to zero (default) returns a unique cluster representing the
+        first and last timestamp the query evaluated true.
 
         Args:
-            clustering_dt_ns (Optional[int]): The minimal gap (in nanoseconds) there needs to be between two clusters
-                to be considered different. If None, fallbacks to default (0), meaning returning a single [min, max] cluster.
-            timestamp_range (Optional[TimestampRange]): timerange to restrict the search. Cluster outside this range are negletted set_clustering_gap()
+            clustering_dt_ns (Optional[int]): The minimal gap (in nanoseconds) there needs to
+                be between two clusters to be considered different. If None, fallbacks to
+                default (0), meaning returning a single [min, max] cluster.
+            timestamp_range (Optional[TimestampRange]): timerange to restrict the search.
+                Cluster outside this range are negletted set_clustering_gap()
 
         Returns:
             A list[TopicCluster] with all the clusters where the query is true.
 
         Raises:
-            Exception in case of an internal error
+            Exception: Propagated from the underlying action call on internal server errors.
+            RuntimeError: if the server returned no body or returned action is not consitent
+                with input one
         """
         ACTION = FlightAction.TOPIC_FILTER_CLUSTERIZE
 
@@ -166,6 +171,11 @@ class QueryResponseItemTopic:
                 ),
                 expected_type=_DoActionPageResponseFilterClusterize,
             )
+
+            if not act_resp:
+                raise RuntimeError(
+                    f"The server returned no body or returned action is not consitent with {ACTION.name} action"
+                )
 
             return act_resp.clusters
 
@@ -181,28 +191,36 @@ class QueryResponseItemTopic:
         override_clustering_dt_ns: Optional[int] = None,
     ) -> list[TopicCluster]:
         """
-        Computes the temporal intersection of this topic with one or more other topics. Nevertheless, setting
-        intersect_dt_ns > 0 relaxes the overlapping constraint, allowing distant clusters to still be considered overlapping.
-        This is useful when your signal satisfies your query for a short period of time and you want to compare it with another
-        signal that is temporally close but not happening in the same moment.
+        Computes the temporal intersection of this topic with one or more other topics.
+        Nevertheless, setting intersect_dt_ns > 0 relaxes the overlapping constraint,
+        allowing distant clusters to still be considered overlapping.
+        This is useful when your signal satisfies your query for a short period of
+        time and you want to compare it with another signal that is temporally close
+        but not happening in the same moment.
 
         Args:
             *query_response_item_topics: Additional topics to include in the intersection.
-            intersect_dt_ns (int): Max allowed distance (in nanoseconds) between clusters to be considered overlapped.
-                Setting it to zero (default) ensures the existance for inter-cluster overlapping.
-            clustering_map (Optional[dict[str, int]]): Map from ontology tag to clustering_dt_ns.
-                When provided, each topic uses the value for its ontology tag as
-                its clustering gap; missing tags fall back to ``override_clustering_dt_ns`` or default (0).
+            intersect_dt_ns (int): Max allowed distance (in nanoseconds) between clusters
+                to be considered overlapped. Setting it to zero (default) ensures the
+                existance for inter-cluster overlapping.
+            clustering_map (Optional[dict[str, int]]): Map from ontology tag to
+                clustering_dt_ns. When provided, each topic uses the value for its ontology
+                tag as its clustering gap; missing tags fall back to
+                ``override_clustering_dt_ns`` or default (0).
             override_clustering_dt_ns (Optional[int]): Override for the default clustering
                 gap (0) applied when ``clustering_map`` is None or does not contain the
                 topic's ontology tag.
 
         Returns:
-            A list of :class:`TopicCluster` representing the time windows where all topics' query
-              expressions are simultaneously true, above the given ``intersect_dt_ns`` tolerance.
+            A list of :class:`TopicCluster` representing the time windows where all
+            topics' query expressions are simultaneously true, above the given
+            ``intersect_dt_ns`` tolerance. None if the server returned no body or
+            returned action is not consitent with input one.
 
         Raises:
             Exception: Propagated from the underlying action call on internal server errors.
+            RuntimeError: if the server returned no body or returned action is not consitent
+                with input one
         """
         ACTION = FlightAction.TOPIC_FILTER_INTERSECT
 
@@ -219,6 +237,11 @@ class QueryResponseItemTopic:
                 expected_type=_DoActionPageResponseFilterIntersect,
             )
 
+            if not act_resp:
+                raise RuntimeError(
+                    f"The server returned no body or returned action is not consitent with {ACTION.name} action"
+                )
+
             return act_resp.clusters
 
         except Exception as e:
@@ -229,15 +252,8 @@ class QueryResponseItemTopic:
     def _from_dict(cls, tdict: dict[str, Any]) -> "QueryResponseItemTopic":
         locator = tdict["locator"]
         t_ontology_tag = tdict["ontology_tag"]
-        tsrange = tdict.get("timestamp_range")
 
-        return cls(
-            locator=locator,
-            ontology_tag=t_ontology_tag,
-            timestamp_range=TimestampRange(start=int(tsrange[0]), end=int(tsrange[1]))
-            if tsrange
-            else None,
-        )
+        return cls(locator=locator, ontology_tag=t_ontology_tag)
 
     def _set_client(self, client: FlightClient):
         self._client = client
@@ -260,8 +276,8 @@ class QueryResponseItem:
     """
     A unified result item representing a sequence and its associated topics.
 
-    This serves as the primary unit of data returned when querying the
-    Mosaico metadata catalog.
+    This serves as the primary unit of data returned when querying the Mosaico metadata
+    catalog.
 
     Attributes:
         sequence (QueryResponseItemSequence): The parent sequence metadata.
@@ -282,27 +298,25 @@ class QueryResponseItem:
         override_clustering_dt_ns: Optional[int] = None,
     ) -> dict[str, list[TopicCluster]]:
         """
-        Calls clusterize on every topic in this response item and returns
-        the results indexed by topic name.
+        Calls clusterize on every topic in this response item and returns the results
+        indexed by topic name.
 
         Iterates over all topics in this sequence and invokes
-        :meth:`QueryResponseItemTopic.clusterize` on each, using each
-        topic's own ``clustering_dt_ns`` gap setting.
+        :meth:`QueryResponseItemTopic.clusterize` on each, using each topic's own
+        ``clustering_dt_ns`` gap setting.
 
         Args:
-            clustering_map (dict[str, int]): An optional map indicating
-              for each ontology tag within the query the minimal gap
-              (in nanoseconds) there needs to be between two clusters to
-              be considered different
-            override_clustering_dt_ns (Optional[int]): Override for the
-                default clustering gap (0) applied when ``clustering_map``
-                is None or does not contain the topic's ontology tag.
+            clustering_map (dict[str, int]): An optional map indicating for each
+              ontology tag within the query the minimal gap (in nanoseconds) there
+              needs to be between two clusters to be considered different
+            override_clustering_dt_ns (Optional[int]): Override for the default
+                clustering gap (0) applied when ``clustering_map`` is None or does
+                not contain the topic's ontology tag.
 
         Returns:
-            A ``dict`` mapping each topic name (str) to its list of
-            :class:`TopicCluster` objects, where each cluster represents
-            a contiguous time window in which the query expression
-            evaluated to true.
+            A ``dict`` mapping each topic name (str) to its list of :class:`TopicCluster`
+            objects, where each cluster represents a contiguous time window in
+            which the query expression evaluated to true.
 
         Raises:
             Exception: Propagated from :meth:`QueryResponseItemTopic.clusterize`
@@ -330,26 +344,29 @@ class QueryResponseItem:
         """
         Computes the temporal intersection of all topics within the response item.
 
-        For each topic, the query expressions are merged and sent to the server together with
-        the topic's ``clustering_dt_ns`` gap (if not present default (0) is set). The server
-        returns the time windows (clusters) in which *all* topics simultaneously satisfy their
-        respective query expressions. Nevertheless, setting intersect_dt_ns > 0 relaxes the
-        overlapping constraint, allowing distant clusters to still be considered overlapping.
-        This is useful when your signal satisfies your query for a short period of time and
-        you want to compare it with another signal that is temporally close but not happening
-        in the same moment.
+        For each topic, the query expressions are merged and sent to the server
+        together with the topic's ``clustering_dt_ns`` gap (if not present default (0)
+        is set). The server returns the time windows (clusters) in which *all* topics
+        simultaneously satisfy their respective query expressions. Nevertheless, setting
+        intersect_dt_ns > 0 relaxes the overlapping constraint, allowing distant clusters
+        to still be considered overlapping. This is useful when your signal satisfies
+        your query for a short period of time and you want to compare it with another
+        signal that is temporally close but not happening in the same moment.
 
         Args:
             *query_response_item: Additional response items whose topics are included in the
               intersection. All topics from every extra item are flattened together with the
               topics of this item before the intersect payload is built.
-            intersect_dt_ns (int): Max allowed distance (in nanoseconds) between clusters to be considered overlapped.
-                Setting it to zero (default) ensures the existance for inter-cluster overlapping.
-            clustering_map (Optional[dict[str, int]]): An optional map indicating for each ontology tag within the query
-              the minimal gap (in nanoseconds) there needs to be between two clusters to be considered different. If not
-              specified all topics use default value (0). If specified but topic's ontology is missing, fallback using
-              default value (0).
-            override_clustering_dt_ns: An optional integer to override the default minimal gap between clusters (0).
+            intersect_dt_ns (int): Max allowed distance (in nanoseconds) between clusters to
+                be considered overlapped. Setting it to zero (default) ensures the existance
+                for inter-cluster overlapping.
+            clustering_map (Optional[dict[str, int]]): An optional map indicating for each
+              ontology tag within the query the minimal gap (in nanoseconds) there needs to
+              be between two clusters to be considered different. If not specified all
+              topics use default value (0). If specified but topic's ontology is missing,
+              fallback using default value (0).
+            override_clustering_dt_ns: An optional integer to override the default minimal
+              gap between clusters (0).
 
 
         Returns:
@@ -358,6 +375,8 @@ class QueryResponseItem:
 
         Raises:
             Exception: Propagated from the underlying action call on internal server errors.
+            RuntimeError: if the server returned no body or returned action is not consitent
+                with input one
         """
 
         ACTION = FlightAction.TOPIC_FILTER_INTERSECT
@@ -378,6 +397,11 @@ class QueryResponseItem:
                 ),
                 expected_type=_DoActionPageResponseFilterIntersect,
             )
+
+            if not act_resp:
+                raise RuntimeError(
+                    f"The server returned no body or returned action is not consitent with {ACTION.name} action"
+                )
 
             return act_resp.clusters
 

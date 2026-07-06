@@ -1038,13 +1038,21 @@ class Query:
             # Perform the server side query
             qresponse = client.query(query=query)
             # Inspect the response
-                if qresponse is not None:
-                    # Results are automatically grouped by Sequence for easier data management
-                    for item in qresponse:
-                        print(f"Sequence: {item.sequence.name}")
-                        print(f"Topics: {{topic.name:
-                                    [topic.timestamp_range.start, topic.timestamp_range.end]
-                                    for topic in item.topics}}")
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(
+                        f"Topics: {
+                            {
+                                topic.name: [
+                                    (cluster.timerange.start, cluster.timerange.end)
+                                    for cluster in topic.clusterize()
+                                ]
+                                for topic in item.topics
+                            }
+                        }"
+                    )
         ```
     """
 
