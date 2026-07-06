@@ -30,14 +30,36 @@ Manage API keys.
 Create a new API key.
 
 ```bash
-mosaicod api-key create --permissions [read|write|delete|manage] [OPTIONS]
+mosaicod api-key create --permissions <PERMISSIONS> [OPTIONS]
 ```
+
+`<PERMISSIONS>` is one or more of `read`, `write`, `delete`, combined with `|` (e.g. `read` or `read|write`).
 
 | Option | Default | Description |
 | :--- | --- | :--- |
 | `-d, --description` | | Set a description for the API key to make it easily recognizable. |
 | `--expires-in <EXPIRES_IN>` | | Define a time duration, using the ISO8601 format, after which the key in no longer valid (e.g. `P1Y2M3D` 1 year 2 months and 3 days) |
 | `--expires-at <EXPIRES_AT>` | | Define a datetime, using the rfc3339 format, after which the key in no longer valid (e.g `2026-03-27T12:20:00Z`) |
+
+#### Examples
+
+Read-only key:
+
+```bash
+mosaicod api-key create --permissions "read"
+```
+
+Read and write:
+
+```bash
+mosaicod api-key create --permissions "read|write"
+```
+
+Full access:
+
+```bash
+mosaicod api-key create --permissions "read|write|delete"
+```
 
 ### revoke
 

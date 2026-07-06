@@ -53,7 +53,7 @@ impl From<types::ApiKey> for ApiKeyRecord {
         Self {
             fingerprint: value.token().fingerprint().as_bytes().into(),
             payload: value.token().payload().as_bytes().into(),
-            permissions: value.permission as i16,
+            permissions: value.permission.bits() as i16,
             description: value.description,
             creation_unix_timestamp: value.created_at.into(),
             expiration_unix_timestamp: value.expires_at.map(|v| v.into()),

@@ -14,11 +14,11 @@ const MOSAICO_API_KEY_TOKEN: &str = "mosaico-api-key-token";
 /// Context used to pass auth data
 #[derive(Clone)]
 pub struct AuthContext {
-    permissions: types::auth::Permission,
+    permissions: types::auth::Permissions,
 }
 
 impl AuthContext {
-    pub fn permissions(&self) -> &types::auth::Permission {
+    pub fn permissions(&self) -> &types::auth::Permissions {
         &self.permissions
     }
 }
@@ -30,7 +30,7 @@ pub struct AuthLayer {
     /// If permissions passthrough is enabled no auth check is performed
     /// and a fake permission token with all permission is
     /// generated for every request.
-    permissions_passthrough: Option<types::auth::Permission>,
+    permissions_passthrough: Option<types::auth::Permissions>,
 }
 
 impl AuthLayer {
@@ -44,7 +44,7 @@ impl AuthLayer {
     /// Enable auth passthrough. No internal check is
     /// performed to validate api keys and a fake permissions
     /// are generated to perform every action.
-    pub fn with_permission_passthrough(mut self, permissions: types::auth::Permission) -> Self {
+    pub fn with_permission_passthrough(mut self, permissions: types::auth::Permissions) -> Self {
         self.permissions_passthrough = Some(permissions);
         self
     }
@@ -66,7 +66,7 @@ impl<S> Layer<S> for AuthLayer {
 pub struct AuthMiddleware<S> {
     inner: S,
     context: facade::Context,
-    permissions_passthrough: Option<types::auth::Permission>,
+    permissions_passthrough: Option<types::auth::Permissions>,
 }
 
 type BoxFuture<'a, T> = Pin<Box<dyn std::future::Future<Output = T> + Send + 'a>>;
