@@ -97,7 +97,9 @@ class PyarrowFieldMapper:
                 # If the field is a nested struct, recurse into it
                 field_map[field.name] = self._build_map_recursive(field.type)
 
-            elif isinstance(field.type, (pa.ListType, pa.LargeListType)):
+            elif isinstance(
+                field.type, (pa.ListType, pa.LargeListType, pa.FixedSizeListType)
+            ):
                 list_value_type = field.type.value_type
 
                 # List type is another struct

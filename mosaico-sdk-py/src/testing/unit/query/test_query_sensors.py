@@ -3,7 +3,7 @@
 # ======================================================================
 import pytest
 
-from mosaicolabs.models.data import RobotPath
+from mosaicolabs.models.data import Inertia, RobotPath
 from mosaicolabs.models.query import (
     Query,
     QueryOntologyCatalog,
@@ -19,6 +19,7 @@ from mosaicolabs.models.query.generation.mixins import (
 from mosaicolabs.models.sensors import (
     GPS,
     IMU,
+    CameraInfo,
     Image,
     Magnetometer,
     Pressure,
@@ -1036,5 +1037,94 @@ class TestFrameTransform:
 
         expr = FrameTransform.Q.transforms.any().translation.x.eq(0)
         assert expr.key == "frame_transform.transforms[?].translation.x"
+        assert expr.op == "$eq"
+        assert expr.value == 0
+
+
+class TestInertia:
+    def test_list(self):
+
+        assert isinstance(Inertia.Q.inertia[0], _QueryableNumeric)
+        assert isinstance(Inertia.Q.inertia.any(), _QueryableNumeric)
+        assert isinstance(Inertia.Q.inertia.all(), _QueryableNumeric)
+
+        with pytest.raises(AttributeError, match="Field 'inertia.inertia' is a list."):
+            Inertia.Q.inertia.field
+
+        expr = Inertia.Q.inertia[0].eq(0)
+        assert expr.key == "inertia.inertia[0]"
+        assert expr.op == "$eq"
+        assert expr.value == 0
+
+        expr = Inertia.Q.inertia.all().eq(0)
+        assert expr.key == "inertia.inertia[!]"
+        assert expr.op == "$eq"
+        assert expr.value == 0
+
+        expr = Inertia.Q.inertia.any().eq(0)
+        assert expr.key == "inertia.inertia[?]"
+        assert expr.op == "$eq"
+        assert expr.value == 0
+
+
+class TestCamera:
+    def test_list(self):
+
+        assert isinstance(CameraInfo.Q.intrinsic_parameters[0], _QueryableNumeric)
+        assert isinstance(CameraInfo.Q.intrinsic_parameters.any(), _QueryableNumeric)
+        assert isinstance(CameraInfo.Q.intrinsic_parameters.all(), _QueryableNumeric)
+        assert isinstance(CameraInfo.Q.rectification_parameters[0], _QueryableNumeric)
+        assert isinstance(
+            CameraInfo.Q.rectification_parameters.any(), _QueryableNumeric
+        )
+        assert isinstance(
+            CameraInfo.Q.rectification_parameters.all(), _QueryableNumeric
+        )
+        assert isinstance(CameraInfo.Q.projection_parameters[0], _QueryableNumeric)
+        assert isinstance(CameraInfo.Q.projection_parameters.any(), _QueryableNumeric)
+        assert isinstance(CameraInfo.Q.projection_parameters.all(), _QueryableNumeric)
+
+        expr = CameraInfo.Q.intrinsic_parameters[0].eq(0)
+        assert expr.key == "camera_info.intrinsic_parameters[0]"
+        assert expr.op == "$eq"
+        assert expr.value == 0
+
+        expr = CameraInfo.Q.intrinsic_parameters.all().eq(0)
+        assert expr.key == "camera_info.intrinsic_parameters[!]"
+        assert expr.op == "$eq"
+        assert expr.value == 0
+
+        expr = CameraInfo.Q.intrinsic_parameters.any().eq(0)
+        assert expr.key == "camera_info.intrinsic_parameters[?]"
+        assert expr.op == "$eq"
+        assert expr.value == 0
+
+        expr = CameraInfo.Q.rectification_parameters[0].eq(0)
+        assert expr.key == "camera_info.rectification_parameters[0]"
+        assert expr.op == "$eq"
+        assert expr.value == 0
+
+        expr = CameraInfo.Q.rectification_parameters.all().eq(0)
+        assert expr.key == "camera_info.rectification_parameters[!]"
+        assert expr.op == "$eq"
+        assert expr.value == 0
+
+        expr = CameraInfo.Q.rectification_parameters.any().eq(0)
+        assert expr.key == "camera_info.rectification_parameters[?]"
+        assert expr.op == "$eq"
+        assert expr.value == 0
+
+        expr = CameraInfo.Q.projection_parameters[0].eq(0)
+        assert expr.key == "camera_info.projection_parameters[0]"
+        assert expr.op == "$eq"
+        assert expr.value == 0
+
+        expr = CameraInfo.Q.projection_parameters.all().eq(0)
+        assert expr.key == "camera_info.projection_parameters[!]"
+        assert expr.op == "$eq"
+        assert expr.value == 0
+
+        expr = CameraInfo.Q.projection_parameters.any().eq(0)
+        assert expr.key == "camera_info.projection_parameters[?]"
         assert expr.op == "$eq"
         assert expr.value == 0
