@@ -59,3 +59,6 @@ class TopicCluster:
             id=data["id"],
             timerange=TimestampRange._from_dict(data["ts"]),
         )
+
+    def __str__(self) -> str:
+        return f"(id={self.id}, start={self.timerange.start}, end={self.timerange.end})"

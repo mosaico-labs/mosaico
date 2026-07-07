@@ -70,7 +70,13 @@ class _Vector2dStruct(BaseModel):
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # FIXME: Add here example for timestamp exytraction and clustering
+                    # Clusterize all topics within the sequence to extract the time intervals
+                    clusters_dict = item.clusterize_all()
+
+                    # Since clusterize_all() used default clustering_dt_ns, each topic will have
+                    # just one cluster representing the first and last moment the query was satisfied
+                    for t_name, clusters in clusters_dict.items():
+                        print(f"{t_name}:\n", "\n".join(f"{cluster}" for cluster in clusters))
         
             # Filter for a specific component value.
             qresponse = client.query(QueryOntologyCatalog(Point2d.Q.x.leq(123.4)))
@@ -117,7 +123,13 @@ class _Vector2dStruct(BaseModel):
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # FIXME: Add here example for timestamp exytraction and clustering
+                    # Clusterize all topics within the sequence to extract the time intervals
+                    clusters_dict = item.clusterize_all()
+
+                    # Since clusterize_all() used default clustering_dt_ns, each topic will have
+                    # just one cluster representing the first and last moment the query was satisfied
+                    for t_name, clusters in clusters_dict.items():
+                        print(f"{t_name}:\n", "\n".join(f"{cluster}" for cluster in clusters))
         
             # Filter for a specific component value.
             qresponse = client.query(QueryOntologyCatalog(Point2d.Q.y.leq(123.4)))
@@ -198,7 +210,13 @@ class _Vector3dStruct(BaseModel):
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # FIXME: Add here example for timestamp exytraction and clustering
+                    # Clusterize all topics within the sequence to extract the time intervals
+                    clusters_dict = item.clusterize_all()
+
+                    # Since clusterize_all() used default clustering_dt_ns, each topic will have
+                    # just one cluster representing the first and last moment the query was satisfied
+                    for t_name, clusters in clusters_dict.items():
+                        print(f"{t_name}:\n", "\n".join(f"{cluster}" for cluster in clusters))
         
             # Filter for a specific component value.
             qresponse = client.query(QueryOntologyCatalog(Point3d.Q.x.leq(123.4)))
@@ -245,7 +263,13 @@ class _Vector3dStruct(BaseModel):
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # FIXME: Add here example for timestamp exytraction and clustering
+                    # Clusterize all topics within the sequence to extract the time intervals
+                    clusters_dict = item.clusterize_all()
+
+                    # Since clusterize_all() used default clustering_dt_ns, each topic will have
+                    # just one cluster representing the first and last moment the query was satisfied
+                    for t_name, clusters in clusters_dict.items():
+                        print(f"{t_name}:\n", "\n".join(f"{cluster}" for cluster in clusters))
         
             # Filter for a specific component value.
             qresponse = client.query(QueryOntologyCatalog(Point3d.Q.y.leq(123.4)))
@@ -292,7 +316,13 @@ class _Vector3dStruct(BaseModel):
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # FIXME: Add here example for timestamp exytraction and clustering
+                    # Clusterize all topics within the sequence to extract the time intervals
+                    clusters_dict = item.clusterize_all()
+
+                    # Since clusterize_all() used default clustering_dt_ns, each topic will have
+                    # just one cluster representing the first and last moment the query was satisfied
+                    for t_name, clusters in clusters_dict.items():
+                        print(f"{t_name}:\n", "\n".join(f"{cluster}" for cluster in clusters))
         
             # Filter for a specific component value.
             qresponse = client.query(QueryOntologyCatalog(Point3d.Q.z.leq(123.4)))
@@ -373,7 +403,13 @@ class _Vector4dStruct(BaseModel):
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # FIXME: Add here example for timestamp exytraction and clustering
+                    # Clusterize all topics within the sequence to extract the time intervals
+                    clusters_dict = item.clusterize_all()
+
+                    # Since clusterize_all() used default clustering_dt_ns, each topic will have
+                    # just one cluster representing the first and last moment the query was satisfied
+                    for t_name, clusters in clusters_dict.items():
+                        print(f"{t_name}:\n", "\n".join(f"{cluster}" for cluster in clusters))
         
             # Filter for a specific component value.
             qresponse = client.query(QueryOntologyCatalog(Quaternion.Q.x.leq(0.4)))
@@ -421,7 +457,13 @@ class _Vector4dStruct(BaseModel):
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # FIXME: Add here example for timestamp exytraction and clustering
+                    # Clusterize all topics within the sequence to extract the time intervals
+                    clusters_dict = item.clusterize_all()
+
+                    # Since clusterize_all() used default clustering_dt_ns, each topic will have
+                    # just one cluster representing the first and last moment the query was satisfied
+                    for t_name, clusters in clusters_dict.items():
+                        print(f"{t_name}:\n", "\n".join(f"{cluster}" for cluster in clusters))
         
             # Filter for a specific component value.
             qresponse = client.query(QueryOntologyCatalog(Quaternion.Q.y.leq(0.4)))
@@ -469,7 +511,13 @@ class _Vector4dStruct(BaseModel):
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # FIXME: Add here example for timestamp exytraction and clustering
+                    # Clusterize all topics within the sequence to extract the time intervals
+                    clusters_dict = item.clusterize_all()
+
+                    # Since clusterize_all() used default clustering_dt_ns, each topic will have
+                    # just one cluster representing the first and last moment the query was satisfied
+                    for t_name, clusters in clusters_dict.items():
+                        print(f"{t_name}:\n", "\n".join(f"{cluster}" for cluster in clusters))
         
             # Filter for a specific component value.
             qresponse = client.query(QueryOntologyCatalog(Quaternion.Q.z.leq(0.4)))
@@ -517,7 +565,13 @@ class _Vector4dStruct(BaseModel):
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # FIXME: Add here example for timestamp exytraction and clustering
+                    # Clusterize all topics within the sequence to extract the time intervals
+                    clusters_dict = item.clusterize_all()
+
+                    # Since clusterize_all() used default clustering_dt_ns, each topic will have
+                    # just one cluster representing the first and last moment the query was satisfied
+                    for t_name, clusters in clusters_dict.items():
+                        print(f"{t_name}:\n", "\n".join(f"{cluster}" for cluster in clusters))
         
             # Filter for a specific component value.
             qresponse = client.query(QueryOntologyCatalog(Quaternion.Q.w.leq(0.707)))
@@ -595,7 +649,13 @@ class Vector2d(
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # FIXME: Add here example for timestamp exytraction and clustering
+                    # Clusterize all topics within the sequence to extract the time intervals
+                    clusters_dict = item.clusterize_all()
+
+                    # Since clusterize_all() used default clustering_dt_ns, each topic will have
+                    # just one cluster representing the first and last moment the query was satisfied
+                    for t_name, clusters in clusters_dict.items():
+                        print(f"{t_name}:\n", "\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -646,7 +706,13 @@ class Vector3d(
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # FIXME: Add here example for timestamp exytraction and clustering
+                    # Clusterize all topics within the sequence to extract the time intervals
+                    clusters_dict = item.clusterize_all()
+
+                    # Since clusterize_all() used default clustering_dt_ns, each topic will have
+                    # just one cluster representing the first and last moment the query was satisfied
+                    for t_name, clusters in clusters_dict.items():
+                        print(f"{t_name}:\n", "\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -698,7 +764,13 @@ class Vector4d(
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # FIXME: Add here example for timestamp exytraction and clustering
+                    # Clusterize all topics within the sequence to extract the time intervals
+                    clusters_dict = item.clusterize_all()
+
+                    # Since clusterize_all() used default clustering_dt_ns, each topic will have
+                    # just one cluster representing the first and last moment the query was satisfied
+                    for t_name, clusters in clusters_dict.items():
+                        print(f"{t_name}:\n", "\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -749,7 +821,13 @@ class Point2d(
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # FIXME: Add here example for timestamp exytraction and clustering
+                    # Clusterize all topics within the sequence to extract the time intervals
+                    clusters_dict = item.clusterize_all()
+
+                    # Since clusterize_all() used default clustering_dt_ns, each topic will have
+                    # just one cluster representing the first and last moment the query was satisfied
+                    for t_name, clusters in clusters_dict.items():
+                        print(f"{t_name}:\n", "\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -801,7 +879,13 @@ class Point3d(
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # FIXME: Add here example for timestamp exytraction and clustering
+                    # Clusterize all topics within the sequence to extract the time intervals
+                    clusters_dict = item.clusterize_all()
+
+                    # Since clusterize_all() used default clustering_dt_ns, each topic will have
+                    # just one cluster representing the first and last moment the query was satisfied
+                    for t_name, clusters in clusters_dict.items():
+                        print(f"{t_name}:\n", "\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -854,7 +938,13 @@ class Quaternion(
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # FIXME: Add here example for timestamp exytraction and clustering
+                    # Clusterize all topics within the sequence to extract the time intervals
+                    clusters_dict = item.clusterize_all()
+
+                    # Since clusterize_all() used default clustering_dt_ns, each topic will have
+                    # just one cluster representing the first and last moment the query was satisfied
+                    for t_name, clusters in clusters_dict.items():
+                        print(f"{t_name}:\n", "\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -911,7 +1001,13 @@ class Transform(
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # FIXME: Add here example for timestamp exytraction and clustering
+                    # Clusterize all topics within the sequence to extract the time intervals
+                    clusters_dict = item.clusterize_all()
+
+                    # Since clusterize_all() used default clustering_dt_ns, each topic will have
+                    # just one cluster representing the first and last moment the query was satisfied
+                    for t_name, clusters in clusters_dict.items():
+                        print(f"{t_name}:\n", "\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -946,7 +1042,13 @@ class Transform(
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # FIXME: Add here example for timestamp exytraction and clustering
+                    # Clusterize all topics within the sequence to extract the time intervals
+                    clusters_dict = item.clusterize_all()
+
+                    # Since clusterize_all() used default clustering_dt_ns, each topic will have
+                    # just one cluster representing the first and last moment the query was satisfied
+                    for t_name, clusters in clusters_dict.items():
+                        print(f"{t_name}:\n", "\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -982,7 +1084,13 @@ class Transform(
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # FIXME: Add here example for timestamp exytraction and clustering
+                    # Clusterize all topics within the sequence to extract the time intervals
+                    clusters_dict = item.clusterize_all()
+
+                    # Since clusterize_all() used default clustering_dt_ns, each topic will have
+                    # just one cluster representing the first and last moment the query was satisfied
+                    for t_name, clusters in clusters_dict.items():
+                        print(f"{t_name}:\n", "\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -1013,7 +1121,13 @@ class Transform(
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # FIXME: Add here example for timestamp exytraction and clustering
+                    # Clusterize all topics within the sequence to extract the time intervals
+                    clusters_dict = item.clusterize_all()
+
+                    # Since clusterize_all() used default clustering_dt_ns, each topic will have
+                    # just one cluster representing the first and last moment the query was satisfied
+                    for t_name, clusters in clusters_dict.items():
+                        print(f"{t_name}:\n", "\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -1061,7 +1175,13 @@ class Pose(
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # FIXME: Add here example for timestamp exytraction and clustering
+                    # Clusterize all topics within the sequence to extract the time intervals
+                    clusters_dict = item.clusterize_all()
+
+                    # Since clusterize_all() used default clustering_dt_ns, each topic will have
+                    # just one cluster representing the first and last moment the query was satisfied
+                    for t_name, clusters in clusters_dict.items():
+                        print(f"{t_name}:\n", "\n".join(f"{cluster}" for cluster in clusters))
         ```
 
     """
@@ -1096,7 +1216,13 @@ class Pose(
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # FIXME: Add here example for timestamp exytraction and clustering
+                    # Clusterize all topics within the sequence to extract the time intervals
+                    clusters_dict = item.clusterize_all()
+
+                    # Since clusterize_all() used default clustering_dt_ns, each topic will have
+                    # just one cluster representing the first and last moment the query was satisfied
+                    for t_name, clusters in clusters_dict.items():
+                        print(f"{t_name}:\n", "\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -1133,7 +1259,13 @@ class Pose(
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # FIXME: Add here example for timestamp exytraction and clustering
+                    # Clusterize all topics within the sequence to extract the time intervals
+                    clusters_dict = item.clusterize_all()
+
+                    # Since clusterize_all() used default clustering_dt_ns, each topic will have
+                    # just one cluster representing the first and last moment the query was satisfied
+                    for t_name, clusters in clusters_dict.items():
+                        print(f"{t_name}:\n", "\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 

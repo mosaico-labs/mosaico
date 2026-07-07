@@ -437,12 +437,18 @@ class QueryResponseItem:
             if qresponse is not None:
                 # Results are automatically grouped by Sequence for easier data management
                 for item in qresponse:
-                    # Override locally the clustering_dt_ns for all the topics belonging to the sequence
-                    clusters_dict = item.clusterize_all(override_clustering_dt_ns=2000)
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {[topic.name for topic in item.topics]}")
 
-                    print(
-                        f"Sequence {item.sequence.name} has the following topics and clusters:{ clusters_dict }"
-                    )
+                    # Clusterize all topics within the sequence to extract the time intervals
+                    # Override locally the clustering_dt_ns for all the topics belonging to the sequence
+                    clusters_dict = item.clusterize_all(override_clustering_dt_ns=int(5e6))
+
+                    # Since clusterize_all() overrode default clustering_dt_ns, each topic will clusters
+                    # all samples spaced below 5e6 nanoseconds as belonging to the same cluster
+                    for t_name, clusters in clusters_dict.items():
+                        print(f"{t_name}:\n", "\n".join(f"{cluster}" for cluster in clusters))
+
         ```
         """
 
