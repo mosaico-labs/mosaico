@@ -4,7 +4,7 @@ sidebar_position: 8
 description: "How mosaicod's topic_filter_clusterize and topic_filter_intersect actions turn ontology filters into temporal windows. Covers the time-gap clustering rule, the cross-topic overlap rule, the request schemas, and the streamed JSONL responses."
 ---
 
-The [`query`](query.md) action answers *which* topics contain data matching a filter. The **filtering** actions answer the complementary, temporal question, *when* does matching data occur, and return time windows that can be fed straight into the [retrieval protocol](retrieval.md#the-retrieval-protocol):
+The [`query`](query.md) action answers *which* topics contain data matching a filter. The **filtering** actions answer the complementary, temporal question, *when* does matching data occur, and return time windows:
 
 - [`topic_filter_clusterize`](#clustering) groups a **single** topic's matching timestamps into temporal clusters.
 - [`topic_filter_intersect`](#intersection) clusters **several** topics of the same sequence and streams the windows where all of them match at once.
