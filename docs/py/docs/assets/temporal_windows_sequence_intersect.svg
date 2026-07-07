@@ -1,0 +1,66 @@
+<svg width="720" height="452" viewBox="0 0 720 452" fill="none" xmlns="http://www.w3.org/2000/svg" font-family="system-ui, -apple-system, Segoe UI, Roboto, sans-serif" role="img">
+  <title>intersect() returns one cluster for every window where all topics are simultaneously true; tuning intersect_dt_ns lets near-miss windows across topics count as correlated too.</title>
+
+  <!-- Part 1: basic AND semantics -->
+  <text x="20" y="34" font-size="13" font-weight="600" letter-spacing="0.3" fill="rgba(255,255,255,0.55)">intersect() &#8594; single cross-topic list of simultaneous windows</text>
+  <text x="20" y="58" font-size="11" font-style="italic" fill="rgba(255,255,255,0.5)">every window where all topics are simultaneously true becomes a cluster</text>
+
+  <line x1="170" y1="81" x2="680" y2="81" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+  <text x="20" y="85" font-size="14" font-weight="600" fill="#e6e6e6">IMU</text>
+  <rect x="190" y="70" width="110" height="22" rx="6" fill="hsl(12, 88%, 54%)"/>
+  <rect x="430" y="70" width="140" height="22" rx="6" fill="hsl(12, 88%, 54%)"/>
+
+  <line x1="170" y1="123" x2="680" y2="123" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+  <text x="20" y="127" font-size="14" font-weight="600" fill="#e6e6e6">GPS</text>
+  <rect x="260" y="112" width="220" height="22" rx="6" fill="hsl(195, 76%, 43%)"/>
+
+  <line x1="170" y1="183" x2="680" y2="183" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+  <text x="20" y="187" font-size="14" font-weight="600" fill="#e6e6e6">Result</text>
+
+  <!-- ghost outlines of the original per-topic bars -->
+  <rect x="190" y="172" width="110" height="22" rx="6" fill="none" stroke="hsl(12, 88%, 54%)" stroke-opacity="0.4" stroke-dasharray="3,3"/>
+  <rect x="430" y="172" width="140" height="22" rx="6" fill="none" stroke="hsl(12, 88%, 54%)" stroke-opacity="0.4" stroke-dasharray="3,3"/>
+  <rect x="260" y="172" width="220" height="22" rx="6" fill="none" stroke="hsl(195, 76%, 43%)" stroke-opacity="0.4" stroke-dasharray="3,3"/>
+
+  <!-- solid overlap regions -->
+  <rect x="260" y="172" width="40" height="22" rx="6" fill="hsl(304, 54%, 48%)"/>
+  <rect x="430" y="172" width="50" height="22" rx="6" fill="hsl(304, 54%, 48%)"/>
+
+  <line x1="260" y1="194" x2="260" y2="202" stroke="rgba(255,255,255,0.45)" stroke-width="1.5"/>
+  <line x1="300" y1="194" x2="300" y2="202" stroke="rgba(255,255,255,0.45)" stroke-width="1.5"/>
+  <line x1="260" y1="202" x2="300" y2="202" stroke="rgba(255,255,255,0.45)" stroke-width="1.5"/>
+  <text x="280" y="216" font-size="11" fill="rgba(255,255,255,0.7)" text-anchor="middle">cluster 0</text>
+
+  <line x1="430" y1="194" x2="430" y2="202" stroke="rgba(255,255,255,0.45)" stroke-width="1.5"/>
+  <line x1="480" y1="194" x2="480" y2="202" stroke="rgba(255,255,255,0.45)" stroke-width="1.5"/>
+  <line x1="430" y1="202" x2="480" y2="202" stroke="rgba(255,255,255,0.45)" stroke-width="1.5"/>
+  <text x="455" y="216" font-size="11" fill="rgba(255,255,255,0.7)" text-anchor="middle">cluster 1</text>
+
+  <!-- time axis for Part 1's shared timeline -->
+  <line x1="170" y1="234" x2="676" y2="234" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
+  <polygon points="676,230 684,234 676,238" fill="rgba(255,255,255,0.3)"/>
+  <text x="690" y="238" font-size="12" fill="rgba(255,255,255,0.5)">t</text>
+
+  <line x1="20" y1="264" x2="700" y2="264" stroke="rgba(255,255,255,0.15)" stroke-width="1" stroke-dasharray="4,4"/>
+
+  <!-- Part 2: intersect_dt_ns tolerance -->
+  <text x="20" y="290" font-size="11" font-style="italic" fill="rgba(255,255,255,0.5)">tuning intersect_dt_ns &#8212; bridging near-miss windows across topics</text>
+
+  <text x="255" y="312" font-size="11" fill="rgba(255,255,255,0.7)" text-anchor="middle">IMU</text>
+  <text x="420" y="312" font-size="11" fill="rgba(255,255,255,0.7)" text-anchor="middle">GPS</text>
+  <rect x="190" y="322" width="130" height="22" rx="6" fill="hsl(12, 88%, 54%)"/>
+  <rect x="360" y="322" width="120" height="22" rx="6" fill="hsl(195, 76%, 43%)"/>
+  <text x="340" y="337" font-size="11" fill="rgba(255,255,255,0.6)" text-anchor="middle">gap</text>
+
+  <text x="20" y="366" font-size="12" font-weight="600" fill="#e6e6e6">dt = 0</text>
+  <line x1="320" y1="344" x2="320" y2="362" stroke="rgb(255,99,99)" stroke-opacity="0.85" stroke-width="1.5"/>
+  <line x1="360" y1="344" x2="360" y2="362" stroke="rgb(255,99,99)" stroke-opacity="0.85" stroke-width="1.5"/>
+  <line x1="320" y1="362" x2="360" y2="362" stroke="rgb(255,99,99)" stroke-opacity="0.85" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <text x="340" y="378" font-size="11" fill="rgba(255,140,140,0.9)" text-anchor="middle">gap &gt; dt &#8594; not correlated</text>
+
+  <text x="20" y="420" font-size="12" font-weight="600" fill="#e6e6e6">dt &#8805; 40</text>
+  <line x1="320" y1="398" x2="320" y2="416" stroke="hsl(304, 54%, 48%)" stroke-width="1.5"/>
+  <line x1="360" y1="398" x2="360" y2="416" stroke="hsl(304, 54%, 48%)" stroke-width="1.5"/>
+  <line x1="320" y1="416" x2="360" y2="416" stroke="hsl(304, 54%, 48%)" stroke-width="1.5"/>
+  <text x="340" y="432" font-size="11" fill="hsl(304, 54%, 68%)" text-anchor="middle">gap &#8804; dt &#8594; correlated</text>
+</svg>

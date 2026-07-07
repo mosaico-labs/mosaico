@@ -32,7 +32,7 @@ with MosaicoClient.connect("localhost", 6726) as client:
         QueryTopic()
         .with_name("/front/camera/image"),
         # Perform deep time-series discovery within sensor payloads
-        QueryOntologyCatalog(include_timestamp_range=True) # Request temporal bounds for matches
+        QueryOntologyCatalog()
         .with_expression(IMU.Q.acceleration.x.gt(5.0))     # Use the .Q proxy to filter the `acceleration` field
         .with_expression(IMU.Q.acceleration.y.gt(4.0)),
     )
@@ -42,13 +42,15 @@ with MosaicoClient.connect("localhost", 6726) as client:
         for item in qresponse:
             # 'item.sequence' contains the name for the matched sequence
             print(f"Sequence: {item.sequence.name}") 
-            
-            # 'item.topics' contains only the topics and time-segments 
-            # that satisfied the QueryOntologyCatalog criteria
-            for topic in item.topics:
-                # Access high-precision timestamps for the data segments found
-                start, end = topic.timestamp_range.start, topic.timestamp_range.end
-                print(f"  Topic: {topic.name} | Match Window: {start} to {end}")
+            print(f"Topics: {[topic.name for topic in item.topics]}")
+    
+            # Clusterize all topics within the sequence to extract the time intervals
+            clusters_dict = item.clusterize_all()
+
+            # Since clusterize_all() used default clustering_dt_ns, each topic will have
+            # just one cluster representing the first and last moment the query was satisfied
+            for t_name, clusters in clusters_dict.items():
+                print(f"{t_name}:\n", "\n".join(f"{cluster}" for cluster in clusters))
 
 ```
 
@@ -79,7 +81,7 @@ The query execution returns a [`QueryResponse`][mosaicolabs.models.query.respons
 | --- | --- |
 | [`QueryResponseItem`][mosaicolabs.models.query.response.QueryResponseItem] | Groups all matches belonging to the same **Sequence**. Contains a `QueryResponseItemSequence` and a list of related `QueryResponseItemTopic`.|
 | [`QueryResponseItemSequence`][mosaicolabs.models.query.response.QueryResponseItemSequence] | Represents a specific **Sequence** where matches were found. It includes the sequence name. |
-| [`QueryResponseItemTopic`][mosaicolabs.models.query.response.QueryResponseItemTopic] | Represents a specific **Topic** where matches were found. It includes the normalized topic path and the optional `timestamp_range` (the first and last occurrence of the condition). |
+| [`QueryResponseItemTopic`][mosaicolabs.models.query.response.QueryResponseItemTopic] | Represents a specific **Topic** where matches were found. It includes the normalized topic path, the `ontology_tag` of the returned topic and the topic `name`. |
 
 ```python
 import sys
@@ -93,8 +95,6 @@ with MosaicoClient.connect("localhost", 6726) as client:
     # We are searching for vertical impact events where acceleration.z > 15.0 m/s^2
     impact_qbuilder = QueryOntologyCatalog(
         IMU.Q.acceleration.z.gt(15.0),
-        # include_timestamp_range returns the precise start/end of the matching event
-        include_timestamp_range=True
     )
 
     # Execute the query via the client
@@ -107,27 +107,28 @@ with MosaicoClient.connect("localhost", 6726) as client:
     # )
     
     if results is not None:
-        # Parse the structured QueryResponse object
         # Results are automatically grouped by Sequence for easier data management
         for item in results:
             print(f"Sequence: {item.sequence.name}")
-            
-            # Iterate through matching topics within the sequence
+
+            clustering_map = {IMU.ontology_tag(): int(1e9)}
+
             for topic in item.topics:
                 # Topic names are normalized (sequence prefix is stripped) for direct use
                 print(f"  - Match in: {topic.name}")
-                
-                # Extract the temporal bounds of the event
-                if topic.timestamp_range:
-                    start = topic.timestamp_range.start
-                    end = topic.timestamp_range.end
-                    print(f"    Occurrence: {start} ns to {end} ns")
+               
+                clustering_dt_ns = clustering_map.get(topic.ontology_tag)
+
+                print(
+                    f"{topic.name}",
+                    ", ".join(
+                        f"{cluster}" for cluster in topic.clusterize(clustering_dt_ns)
+                    ),
+                )
 
 ```
-
-* **Temporal Windows**: The `timestamp_range` provides the first and last occurrence of the queried condition within a topic, allowing you to slice data accurately for further analysis.
 * **Result Normalization**: `topic.name` returns the relative topic path (e.g., `/sensors/imu`), making it immediately compatible with other SDK methods like [`topic_handler()`][mosaicolabs.comm.MosaicoClient.topic_handler].
-
+* **Temporal Windows**: The `clusterize()` called for each `topic` divides in time intervals (or clusters) the overall timerange where the query is satisfied. `clustering_dt_ns` specifies the minimal distance there needs to be between two clusters to be considered distinct. Tuning `clustering_dt_ns` for each `ontology_tag` can be used to filter too close clusters (merging them into a single one) or to handle different sensors' sampling time (`IMU`, `GPS`, `Pose`, ...). Refer to [Temporal Window for Topics and Sequences](#temporal-windows) for more insights about `clusterize()`, `clusterize_all()`, and `intersect()`.
 
 ### Restricted Queries (Chaining)
 The `QueryResponse` class enables a powerful mechanism for **iterative search refinement** by allowing you to convert your current results back into a new query builder.
@@ -201,6 +202,181 @@ response = client.query(
 )
 
 ```
+
+### Temporal Windows
+
+#### Topic
+
+[`QueryResponseItemTopic`][mosaicolabs.models.query.response.QueryResponseItemTopic] exposes two ways to turn a single topic's query matches into temporal windows: [`clusterize()`][mosaicolabs.models.query.response.QueryResponseItemTopic.clusterize] and [`intersect()`][mosaicolabs.models.query.response.QueryResponseItemTopic.intersect].
+
+* **`clusterize()`** takes the one continuous `[min, max]` interval where this topic's query condition was satisfied and splits it into distinct clusters based on `clustering_dt_ns`.
+
+<figure markdown="span">
+  ![Topic-level clusterize(): clustering_dt_ns controls how many clusters a topic's matches form](../assets/temporal_windows_topic_clusterize.svg)
+  <figcaption>`clustering_dt_ns` controls how many clusters a topic's own matches form: a small gap threshold keeps nearby-but-distinct matches apart, a large one merges them.</figcaption>
+</figure>
+
+**Example: tuning `clustering_dt_ns` to separate or merge events with `clusterize()`**
+
+```python
+from mosaicolabs import IMU, MosaicoClient, Query, QueryOntologyCatalog, QuerySequence
+
+with MosaicoClient.connect("localhost", 6726) as client:
+    query = Query(
+        QuerySequence().with_name_match("robot-1"),
+        QueryOntologyCatalog().with_expression(IMU.Q.acceleration.x.gt(5.0)),
+    )
+    qresponse = client.query(query=query)
+
+    if qresponse is not None:
+        imu_topic = next(
+            t for item in qresponse for t in item.topics if t.name == "front_imu"
+        )
+
+        # A tight gap keeps distinct impact events apart
+        distinct_events = imu_topic.clusterize(clustering_dt_ns=int(1e8))  # 100ms
+        print(f"Distinct events: {[str(c) for c in distinct_events]}")
+
+        # A wide gap merges everything within ~2s into a single active window
+        active_window = imu_topic.clusterize(clustering_dt_ns=int(2e9))  # 2s
+        print(f"Overall active window: {[str(c) for c in active_window]}")
+```
+
+* **`intersect()`** cross-correlates this topic with one or more **other** topics you pass explicitly — which can come from a completely different query or a different sequence entirely.
+
+<figure markdown="span">
+  ![Topic-level intersect(): intersect_dt_ns bridges near-miss windows across topics](../assets/temporal_windows_topic_intersect.svg)
+  <figcaption>`intersect_dt_ns` controls how far apart two topics' clusters may be and still count as correlated.</figcaption>
+</figure>
+
+**Example: correlating two hand-picked topics with `intersect()`**
+
+```python
+from mosaicolabs import IMU, MosaicoClient, Query, QueryOntologyCatalog, QuerySequence, Temperature
+
+with MosaicoClient.connect("localhost", 6726) as client:
+    imu_response = client.query(
+        query=Query(
+            QuerySequence().with_name_match("robot-1"),
+            QueryOntologyCatalog().with_expression(IMU.Q.acceleration.x.gt(5.0)),
+        )
+    )
+    temperature_response = client.query(
+        query=Query(
+            QuerySequence().with_name_match("robot-2"),
+            QueryOntologyCatalog().with_expression(Temperature.Q.value.gt(130.0)),
+        )
+    )
+
+    if imu_response is not None and temperature_response is not None:
+        imu_topic = next(
+            t for item in imu_response for t in item.topics if t.name == "front_imu"
+        )
+
+        for item in temperature_response:
+            # Cherry-pick "front_imu" from one sequence and correlate it against
+            # every topic matched in a *different* sequence's response
+            clusters = imu_topic.intersect(
+                *item.topics,
+                intersect_dt_ns=int(3e8),  # allow up to 300ms of drift
+            )
+            print(f"{item.sequence.name}: {[str(c) for c in clusters]}")
+```
+
+**Parameters and when to use them**
+
+| Parameter | Method | Effect |
+| --- | --- | --- |
+| `clustering_dt_ns` | `clusterize()` | The minimal gap between two matches for them to be treated as separate clusters. Among positive values, smaller ones produce more, finer-grained clusters (good for counting discrete events) while larger ones merge nearby matches into fewer, broader clusters (good for finding an overall "active" window). `0` is a special case rather than just the smallest gap: it skips clustering entirely and returns a single `[min, max]` cluster spanning every match — this is also the default. |
+| `timestamp_range` | `clusterize()` | Restricts clustering to a specific window, ignoring matches outside of it. Available here but not on `clusterize_all()` (introduced in the Sequence section below) or on either `intersect()` variant, since those always operate on each topic's full matched range. |
+| `intersect_dt_ns` | `intersect()` | The maximum distance allowed between two topics' clusters for them to still be considered simultaneous. `0` (default) requires a strict time overlap; increasing it lets you catch causally-related events that don't land at the exact same instant — e.g. a camera flags an obstacle a few hundred milliseconds before the IMU registers the resulting swerve. |
+| `clustering_map` / `override_clustering_dt_ns` | `intersect()` | Assign a different `clustering_dt_ns` per `ontology_tag` (or a single fallback) to each topic before they are compared for overlap — useful when intersecting topics of different sensor types with different sampling characteristics. |
+
+Reach for `clusterize()` when you need to segment a single sensor's activity into discrete occurrences; reach for `intersect()` when you already know exactly which topics you want to compare — even across different queries or sequences.
+
+#### Sequence
+
+[`QueryResponseItem`][mosaicolabs.models.query.response.QueryResponseItem] exposes the same two operations as [`QueryResponseItemTopic`][mosaicolabs.models.query.response.QueryResponseItemTopic] above, but applied across **every topic matched in a sequence at once**: [`clusterize_all()`][mosaicolabs.models.query.response.QueryResponseItem.clusterize_all] and [`intersect()`][mosaicolabs.models.query.response.QueryResponseItem.intersect].
+
+* **`clusterize_all()`** calls `clusterize()` independently on each topic in the item and returns a `dict[str, list[TopicCluster]]` keyed by topic name — every sensor's own matching windows, with no relation to what any other topic was doing at the same time.
+
+By default `clustering_dt_ns` is `0` for every topic, so `clusterize_all()` returns exactly **one** cluster per topic, spanning from its very first match to its very last, bridging any gaps in between. Passing a non-zero `clustering_dt_ns` (directly through `override_clustering_dt_ns`, or per-ontology via `clustering_map`) is what lets a topic with internal gaps split into multiple, more granular clusters instead.
+
+<figure markdown="span">
+  ![Sequence-level clusterize_all(): default clustering_dt_ns=0 returns one cluster per topic, a tuned value splits topics with internal gaps](../assets/temporal_windows_sequence_clusterize_all.svg)
+  <figcaption>By default (`clustering_dt_ns = 0`) `clusterize_all()` returns one cluster per topic spanning start to end; a smaller, tuned `clustering_dt_ns` splits a topic with internal gaps into several.</figcaption>
+</figure>
+
+**Example: profiling each topic on its own with `clusterize_all()`**
+
+```python
+from mosaicolabs import IMU, MosaicoClient, Query, QueryOntologyCatalog, QuerySequence
+
+with MosaicoClient.connect("localhost", 6726) as client:
+    # Find harsh-braking events, regardless of which topic recorded them
+    query = Query(
+        QuerySequence().with_name_match("test_drive"),
+        QueryOntologyCatalog().with_expression(IMU.Q.acceleration.x.gt(5.0)),
+    )
+    qresponse = client.query(query=query)
+
+    if qresponse is not None:
+        for item in qresponse:
+            print(f"Sequence: {item.sequence.name}")
+
+            # Each topic's matching windows are reported independently,
+            # with clustering_dt_ns tuned per ontology tag via `clustering_map`
+            clusters_per_topic = item.clusterize_all(
+                clustering_map={IMU.ontology_tag(): int(2e8)}  # 200ms
+            )
+            for topic_name, clusters in clusters_per_topic.items():
+                print(f"  {topic_name}: {[str(c) for c in clusters]}")
+```
+
+* **`intersect()`** merges every topic's query expressions into a single server-side request and returns one `list[TopicCluster]`: the time windows where **all** matched topics were simultaneously satisfying their respective conditions. Unlike the topic-level `intersect()` above — which only compares the topics you explicitly pass in — this always includes every topic belonging to the item(s) it is called on.
+
+<figure markdown="span">
+  ![Sequence-level intersect(): every simultaneous window becomes a cluster, intersect_dt_ns bridges near-miss windows across topics](../assets/temporal_windows_sequence_intersect.svg)
+  <figcaption>Every window where all topics are simultaneously true becomes a cluster; tuning `intersect_dt_ns` lets near-miss windows across topics count as correlated too.</figcaption>
+</figure>
+
+**Example: finding a correlated multi-sensor event with `intersect()`**
+
+```python
+from mosaicolabs import GPS, IMU, MosaicoClient, Query, QueryOntologyCatalog, QuerySequence
+
+with MosaicoClient.connect("localhost", 6726) as client:
+    # A "hard stop" only matters when high deceleration on the IMU and a
+    # near-stationary GPS reading happen at the same time - not just independently,
+    # somewhere in the sequence
+    query = Query(
+        QuerySequence().with_name_match("test_drive"),
+        QueryOntologyCatalog()
+        .with_expression(IMU.Q.acceleration.x.lt(-5.0))
+        .with_expression(GPS.Q.velocity.x.lt(1.0)),
+    )
+    qresponse = client.query(query=query)
+
+    if qresponse is not None:
+        for item in qresponse:
+            # A single list of windows where BOTH conditions held simultaneously
+            correlated_clusters = item.intersect(
+                clustering_map={IMU.ontology_tag(): int(1e8), GPS.ontology_tag(): int(5e8)},
+                intersect_dt_ns=int(2e8),  # tolerate up to 200ms of drift between sensors
+            )
+            print(f"Sequence: {item.sequence.name}")
+            print(f"Hard-stop windows: {[str(c) for c in correlated_clusters]}")
+```
+
+**Parameters and when to use them**
+
+| Parameter | Applies to | Effect |
+| --- | --- | --- |
+| `clustering_map` | Both | Maps each `ontology_tag` to its own `clustering_dt_ns`. Use it when your topics have very different sampling rates or noise characteristics — e.g. a high-frequency `IMU` needs a tight gap to avoid merging distinct events, while a lower-frequency `GPS` topic may need a wider one just to bridge its own sampling interval. |
+| `override_clustering_dt_ns` | Both | A single fallback `clustering_dt_ns` applied to any topic not covered by `clustering_map` (or to every topic if `clustering_map` is omitted). Use it for a quick, uniform adjustment when you don't need per-sensor tuning. |
+| `intersect_dt_ns` | `intersect()` only | Same tolerance concept as the topic-level `intersect()` above, but applied across every topic in the item at once. `0` (default) requires a strict time overlap; increasing it lets you catch causally-related events that don't land at the exact same instant — e.g. a camera flags an obstacle a few hundred milliseconds before the IMU registers the resulting swerve. |
+
+Use `clusterize_all()` when you need to inspect or debug each sensor's activity independently; use `intersect()` when the question you're actually asking spans multiple sensors at once.
 
 ## Architecture
 

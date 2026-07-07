@@ -1,0 +1,65 @@
+<svg width="720" height="510" viewBox="0 0 720 510" fill="none" xmlns="http://www.w3.org/2000/svg" font-family="system-ui, -apple-system, Segoe UI, Roboto, sans-serif" role="img">
+  <title>clusterize_all() defaults to a single cluster spanning each topic's full match range (clustering_dt_ns = 0); a smaller, tuned dt splits a topic with an internal gap into multiple clusters instead.</title>
+
+  <!-- Section 1: Input -->
+  <text x="20" y="34" font-size="13" font-weight="600" letter-spacing="0.3" fill="rgba(255,255,255,0.55)">Input &#8212; per-topic query matches</text>
+
+  <line x1="170" y1="65" x2="680" y2="65" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+  <text x="20" y="69" font-size="14" font-weight="600" fill="#e6e6e6">IMU</text>
+  <rect x="190" y="54" width="110" height="22" rx="6" fill="hsl(12, 88%, 54%)"/>
+  <rect x="430" y="54" width="140" height="22" rx="6" fill="hsl(12, 88%, 54%)"/>
+
+  <line x1="170" y1="107" x2="680" y2="107" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+  <text x="20" y="111" font-size="14" font-weight="600" fill="#e6e6e6">GPS</text>
+  <rect x="260" y="96" width="220" height="22" rx="6" fill="hsl(195, 76%, 43%)"/>
+
+  <line x1="20" y1="146" x2="700" y2="146" stroke="rgba(255,255,255,0.15)" stroke-width="1" stroke-dasharray="4,4"/>
+
+  <!-- Section 2: clusterize_all() -->
+  <text x="20" y="172" font-size="13" font-weight="600" letter-spacing="0.3" fill="rgba(255,255,255,0.55)">clusterize_all() &#8594; independent clusters per topic</text>
+  <text x="20" y="196" font-size="11" font-style="italic" fill="rgba(255,255,255,0.5)">clustering_dt_ns = 0 (default) &#8212; bridges every gap into one cluster</text>
+
+  <line x1="170" y1="219" x2="680" y2="219" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+  <text x="20" y="223" font-size="14" font-weight="600" fill="#e6e6e6">IMU</text>
+  <rect x="190" y="208" width="380" height="22" rx="6" fill="hsl(12, 88%, 54%)"/>
+  <line x1="190" y1="230" x2="190" y2="238" stroke="rgba(255,255,255,0.45)" stroke-width="1.5"/>
+  <line x1="570" y1="230" x2="570" y2="238" stroke="rgba(255,255,255,0.45)" stroke-width="1.5"/>
+  <line x1="190" y1="238" x2="570" y2="238" stroke="rgba(255,255,255,0.45)" stroke-width="1.5"/>
+  <text x="380" y="252" font-size="11" fill="rgba(255,255,255,0.7)" text-anchor="middle">cluster 0 (start &#8594; end)</text>
+
+  <line x1="170" y1="281" x2="680" y2="281" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+  <text x="20" y="285" font-size="14" font-weight="600" fill="#e6e6e6">GPS</text>
+  <rect x="260" y="270" width="220" height="22" rx="6" fill="hsl(195, 76%, 43%)"/>
+  <line x1="260" y1="292" x2="260" y2="300" stroke="rgba(255,255,255,0.45)" stroke-width="1.5"/>
+  <line x1="480" y1="292" x2="480" y2="300" stroke="rgba(255,255,255,0.45)" stroke-width="1.5"/>
+  <line x1="260" y1="300" x2="480" y2="300" stroke="rgba(255,255,255,0.45)" stroke-width="1.5"/>
+  <text x="370" y="314" font-size="11" fill="rgba(255,255,255,0.7)" text-anchor="middle">cluster 0</text>
+
+  <text x="20" y="340" font-size="11" font-style="italic" fill="rgba(255,255,255,0.5)">clustering_dt_ns &gt; 0, tuned per topic (e.g. via clustering_map)</text>
+
+  <line x1="170" y1="363" x2="680" y2="363" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+  <text x="20" y="367" font-size="14" font-weight="600" fill="#e6e6e6">IMU</text>
+  <rect x="190" y="352" width="110" height="22" rx="6" fill="hsl(12, 88%, 54%)"/>
+  <rect x="430" y="352" width="140" height="22" rx="6" fill="hsl(12, 88%, 54%)"/>
+  <line x1="190" y1="374" x2="190" y2="382" stroke="rgba(255,255,255,0.45)" stroke-width="1.5"/>
+  <line x1="300" y1="374" x2="300" y2="382" stroke="rgba(255,255,255,0.45)" stroke-width="1.5"/>
+  <line x1="190" y1="382" x2="300" y2="382" stroke="rgba(255,255,255,0.45)" stroke-width="1.5"/>
+  <text x="245" y="396" font-size="11" fill="rgba(255,255,255,0.7)" text-anchor="middle">cluster 0</text>
+  <line x1="430" y1="374" x2="430" y2="382" stroke="rgba(255,255,255,0.45)" stroke-width="1.5"/>
+  <line x1="570" y1="374" x2="570" y2="382" stroke="rgba(255,255,255,0.45)" stroke-width="1.5"/>
+  <line x1="430" y1="382" x2="570" y2="382" stroke="rgba(255,255,255,0.45)" stroke-width="1.5"/>
+  <text x="500" y="396" font-size="11" fill="rgba(255,255,255,0.7)" text-anchor="middle">cluster 1</text>
+
+  <line x1="170" y1="427" x2="680" y2="427" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+  <text x="20" y="431" font-size="14" font-weight="600" fill="#e6e6e6">GPS</text>
+  <rect x="260" y="416" width="220" height="22" rx="6" fill="hsl(195, 76%, 43%)"/>
+  <line x1="260" y1="438" x2="260" y2="446" stroke="rgba(255,255,255,0.45)" stroke-width="1.5"/>
+  <line x1="480" y1="438" x2="480" y2="446" stroke="rgba(255,255,255,0.45)" stroke-width="1.5"/>
+  <line x1="260" y1="446" x2="480" y2="446" stroke="rgba(255,255,255,0.45)" stroke-width="1.5"/>
+  <text x="370" y="460" font-size="11" fill="rgba(255,255,255,0.7)" text-anchor="middle">cluster 0</text>
+
+  <!-- time axis -->
+  <line x1="170" y1="484" x2="676" y2="484" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
+  <polygon points="676,480 684,484 676,488" fill="rgba(255,255,255,0.3)"/>
+  <text x="690" y="488" font-size="12" fill="rgba(255,255,255,0.5)">t</text>
+</svg>

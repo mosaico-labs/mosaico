@@ -662,7 +662,7 @@ from mosaicolabs import MosaicoClient, IMU, GPS, QueryOntologyCatalog
 with MosaicoClient.connect("localhost", 6726) as client:
     # orchestrate a query filtering by physical thresholds AND metadata
     qresponse = client.query(
-        QueryOntologyCatalog(include_timestamp_range=True) # Ask for the start/end timestamps of occurrences
+        QueryOntologyCatalog()
         .with_expression(IMU.Q.acceleration.z.gt(15.0))
         .with_expression(GPS.Q.status.service.eq(2))
     )
@@ -670,15 +670,16 @@ with MosaicoClient.connect("localhost", 6726) as client:
     # The server returns a QueryResponse grouped by Sequence for structured data management
     if qresponse is not None:
         for item in qresponse:
-            # 'item.sequence' contains the name for the matched sequence
-            print(f"Sequence: {item.sequence.name}") 
-            
-            # 'item.topics' contains only the topics and time-segments 
-            # that satisfied the QueryOntologyCatalog criteria
-            for topic in item.topics:
-                # Access high-precision timestamps for the data segments found
-                start, end = topic.timestamp_range.start, topic.timestamp_range.end
-                print(f"  Topic: {topic.name} | Match Window: {start} to {end}")
+            print(f"Sequence: {item.sequence.name}")
+            print(f"Topics: {[topic.name for topic in item.topics]}")
+    
+            # Clusterize all topics within the sequence to extract the time intervals
+            clusters_dict = item.clusterize_all()
+
+            # Since clusterize_all() used default clustering_dt_ns, each topic will have
+            # just one cluster representing the first and last moment the query was satisfied
+            for t_name, clusters in clusters_dict.items():
+                print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
 ```
 
 For a comprehensive list of all supported operators and advanced filtering strategies (such as query chaining), see the **[Full Query Documentation](./query.md)** and the Ontology types SDK Reference in the **API Reference**:
