@@ -46,7 +46,7 @@ class Integer8(Serializable):
                     # Since clusterize_all() used default clustering_dt_ns, each topic will have
                     # just one cluster representing the first and last moment the query was satisfied
                     for t_name, clusters in clusters_dict.items():
-                        print(f"{t_name}:\n", "\n".join(f"{cluster}" for cluster in clusters))
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
 
         ```
     """
@@ -84,7 +84,7 @@ class Integer8(Serializable):
                     # Since clusterize_all() used default clustering_dt_ns, each topic will have
                     # just one cluster representing the first and last moment the query was satisfied
                     for t_name, clusters in clusters_dict.items():
-                        print(f"{t_name}:\n", "\n".join(f"{cluster}" for cluster in clusters))
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -121,7 +121,7 @@ class Integer16(Serializable):
                     # Since clusterize_all() used default clustering_dt_ns, each topic will have
                     # just one cluster representing the first and last moment the query was satisfied
                     for t_name, clusters in clusters_dict.items():
-                        print(f"{t_name}:\n", "\n".join(f"{cluster}" for cluster in clusters))
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -158,7 +158,7 @@ class Integer16(Serializable):
                     # Since clusterize_all() used default clustering_dt_ns, each topic will have
                     # just one cluster representing the first and last moment the query was satisfied
                     for t_name, clusters in clusters_dict.items():
-                        print(f"{t_name}:\n", "\n".join(f"{cluster}" for cluster in clusters))
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -195,7 +195,7 @@ class Integer32(Serializable):
                     # Since clusterize_all() used default clustering_dt_ns, each topic will have
                     # just one cluster representing the first and last moment the query was satisfied
                     for t_name, clusters in clusters_dict.items():
-                        print(f"{t_name}:\n", "\n".join(f"{cluster}" for cluster in clusters))
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -232,7 +232,7 @@ class Integer32(Serializable):
                     # Since clusterize_all() used default clustering_dt_ns, each topic will have
                     # just one cluster representing the first and last moment the query was satisfied
                     for t_name, clusters in clusters_dict.items():
-                        print(f"{t_name}:\n", "\n".join(f"{cluster}" for cluster in clusters))
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -269,7 +269,7 @@ class Integer64(Serializable):
                     # Since clusterize_all() used default clustering_dt_ns, each topic will have
                     # just one cluster representing the first and last moment the query was satisfied
                     for t_name, clusters in clusters_dict.items():
-                        print(f"{t_name}:\n", "\n".join(f"{cluster}" for cluster in clusters))
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -306,7 +306,7 @@ class Integer64(Serializable):
                     # Since clusterize_all() used default clustering_dt_ns, each topic will have
                     # just one cluster representing the first and last moment the query was satisfied
                     for t_name, clusters in clusters_dict.items():
-                        print(f"{t_name}:\n", "\n".join(f"{cluster}" for cluster in clusters))
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -346,7 +346,7 @@ class Unsigned8(Serializable):
                     # Since clusterize_all() used default clustering_dt_ns, each topic will have
                     # just one cluster representing the first and last moment the query was satisfied
                     for t_name, clusters in clusters_dict.items():
-                        print(f"{t_name}:\n", "\n".join(f"{cluster}" for cluster in clusters))
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -383,7 +383,7 @@ class Unsigned8(Serializable):
                     # Since clusterize_all() used default clustering_dt_ns, each topic will have
                     # just one cluster representing the first and last moment the query was satisfied
                     for t_name, clusters in clusters_dict.items():
-                        print(f"{t_name}:\n", "\n".join(f"{cluster}" for cluster in clusters))
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -434,7 +434,7 @@ class Unsigned16(Serializable):
                     # Since clusterize_all() used default clustering_dt_ns, each topic will have
                     # just one cluster representing the first and last moment the query was satisfied
                     for t_name, clusters in clusters_dict.items():
-                        print(f"{t_name}:\n", "\n".join(f"{cluster}" for cluster in clusters))
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -471,7 +471,7 @@ class Unsigned16(Serializable):
                     # Since clusterize_all() used default clustering_dt_ns, each topic will have
                     # just one cluster representing the first and last moment the query was satisfied
                     for t_name, clusters in clusters_dict.items():
-                        print(f"{t_name}:\n", "\n".join(f"{cluster}" for cluster in clusters))
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -522,7 +522,7 @@ class Unsigned32(Serializable):
                     # Since clusterize_all() used default clustering_dt_ns, each topic will have
                     # just one cluster representing the first and last moment the query was satisfied
                     for t_name, clusters in clusters_dict.items():
-                        print(f"{t_name}:\n", "\n".join(f"{cluster}" for cluster in clusters))
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -559,7 +559,7 @@ class Unsigned32(Serializable):
                     # Since clusterize_all() used default clustering_dt_ns, each topic will have
                     # just one cluster representing the first and last moment the query was satisfied
                     for t_name, clusters in clusters_dict.items():
-                        print(f"{t_name}:\n", "\n".join(f"{cluster}" for cluster in clusters))
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -610,7 +610,7 @@ class Unsigned64(Serializable):
                     # Since clusterize_all() used default clustering_dt_ns, each topic will have
                     # just one cluster representing the first and last moment the query was satisfied
                     for t_name, clusters in clusters_dict.items():
-                        print(f"{t_name}:\n", "\n".join(f"{cluster}" for cluster in clusters))
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -647,7 +647,7 @@ class Unsigned64(Serializable):
                     # Since clusterize_all() used default clustering_dt_ns, each topic will have
                     # just one cluster representing the first and last moment the query was satisfied
                     for t_name, clusters in clusters_dict.items():
-                        print(f"{t_name}:\n", "\n".join(f"{cluster}" for cluster in clusters))
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -695,7 +695,7 @@ class Floating16(Serializable):
                     # Since clusterize_all() used default clustering_dt_ns, each topic will have
                     # just one cluster representing the first and last moment the query was satisfied
                     for t_name, clusters in clusters_dict.items():
-                        print(f"{t_name}:\n", "\n".join(f"{cluster}" for cluster in clusters))
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -732,7 +732,7 @@ class Floating16(Serializable):
                     # Since clusterize_all() used default clustering_dt_ns, each topic will have
                     # just one cluster representing the first and last moment the query was satisfied
                     for t_name, clusters in clusters_dict.items():
-                        print(f"{t_name}:\n", "\n".join(f"{cluster}" for cluster in clusters))
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -769,7 +769,7 @@ class Floating32(Serializable):
                     # Since clusterize_all() used default clustering_dt_ns, each topic will have
                     # just one cluster representing the first and last moment the query was satisfied
                     for t_name, clusters in clusters_dict.items():
-                        print(f"{t_name}:\n", "\n".join(f"{cluster}" for cluster in clusters))
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -806,7 +806,7 @@ class Floating32(Serializable):
                     # Since clusterize_all() used default clustering_dt_ns, each topic will have
                     # just one cluster representing the first and last moment the query was satisfied
                     for t_name, clusters in clusters_dict.items():
-                        print(f"{t_name}:\n", "\n".join(f"{cluster}" for cluster in clusters))
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -843,7 +843,7 @@ class Floating64(Serializable):
                     # Since clusterize_all() used default clustering_dt_ns, each topic will have
                     # just one cluster representing the first and last moment the query was satisfied
                     for t_name, clusters in clusters_dict.items():
-                        print(f"{t_name}:\n", "\n".join(f"{cluster}" for cluster in clusters))
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -880,7 +880,7 @@ class Floating64(Serializable):
                     # Since clusterize_all() used default clustering_dt_ns, each topic will have
                     # just one cluster representing the first and last moment the query was satisfied
                     for t_name, clusters in clusters_dict.items():
-                        print(f"{t_name}:\n", "\n".join(f"{cluster}" for cluster in clusters))
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -917,7 +917,7 @@ class Boolean(Serializable):
                     # Since clusterize_all() used default clustering_dt_ns, each topic will have
                     # just one cluster representing the first and last moment the query was satisfied
                     for t_name, clusters in clusters_dict.items():
-                        print(f"{t_name}:\n", "\n".join(f"{cluster}" for cluster in clusters))
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -954,7 +954,7 @@ class Boolean(Serializable):
                     # Since clusterize_all() used default clustering_dt_ns, each topic will have
                     # just one cluster representing the first and last moment the query was satisfied
                     for t_name, clusters in clusters_dict.items():
-                        print(f"{t_name}:\n", "\n".join(f"{cluster}" for cluster in clusters))
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -991,7 +991,7 @@ class String(Serializable):
                     # Since clusterize_all() used default clustering_dt_ns, each topic will have
                     # just one cluster representing the first and last moment the query was satisfied
                     for t_name, clusters in clusters_dict.items():
-                        print(f"{t_name}:\n", "\n".join(f"{cluster}" for cluster in clusters))
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -1028,7 +1028,7 @@ class String(Serializable):
                     # Since clusterize_all() used default clustering_dt_ns, each topic will have
                     # just one cluster representing the first and last moment the query was satisfied
                     for t_name, clusters in clusters_dict.items():
-                        print(f"{t_name}:\n", "\n".join(f"{cluster}" for cluster in clusters))
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -1068,7 +1068,7 @@ class LargeString(Serializable):
                     # Since clusterize_all() used default clustering_dt_ns, each topic will have
                     # just one cluster representing the first and last moment the query was satisfied
                     for t_name, clusters in clusters_dict.items():
-                        print(f"{t_name}:\n", "\n".join(f"{cluster}" for cluster in clusters))
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -1105,6 +1105,6 @@ class LargeString(Serializable):
                     # Since clusterize_all() used default clustering_dt_ns, each topic will have
                     # just one cluster representing the first and last moment the query was satisfied
                     for t_name, clusters in clusters_dict.items():
-                        print(f"{t_name}:\n", "\n".join(f"{cluster}" for cluster in clusters))
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         ```
     """

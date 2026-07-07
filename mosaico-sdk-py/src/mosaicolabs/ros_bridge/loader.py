@@ -398,7 +398,7 @@ class ROSLoader:
 
         Args:
             topic: If provided, returns the count for that specific topic, even if filtered or not adapted.
-            If None, returns the aggregate count for all accepted topics.
+                If None, returns the aggregate count for all accepted topics.
 
         Returns:
             The total message count.

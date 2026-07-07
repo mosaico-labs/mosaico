@@ -51,7 +51,7 @@ class GridCells(
                     # Since clusterize_all() used default clustering_dt_ns, each topic will have
                     # just one cluster representing the first and last moment the query was satisfied
                     for t_name, clusters in clusters_dict.items():
-                        print(f"{t_name}:\n", "\n".join(f"{cluster}" for cluster in clusters))
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -90,7 +90,7 @@ class GridCells(
                     # Since clusterize_all() used default clustering_dt_ns, each topic will have
                     # just one cluster representing the first and last moment the query was satisfied
                     for t_name, clusters in clusters_dict.items():
-                        print(f"{t_name}:\n", "\n".join(f"{cluster}" for cluster in clusters))
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -129,7 +129,7 @@ class GridCells(
                     # Since clusterize_all() used default clustering_dt_ns, each topic will have
                     # just one cluster representing the first and last moment the query was satisfied
                     for t_name, clusters in clusters_dict.items():
-                        print(f"{t_name}:\n", "\n".join(f"{cluster}" for cluster in clusters))
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -176,7 +176,7 @@ class GridCells(
                     # Since clusterize_all() used default clustering_dt_ns, each topic will have
                     # just one cluster representing the first and last moment the query was satisfied
                     for t_name, clusters in clusters_dict.items():
-                        print(f"{t_name}:\n", "\n".join(f"{cluster}" for cluster in clusters))
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -227,7 +227,7 @@ class MapMetadata(
                     # Since clusterize_all() used default clustering_dt_ns, each topic will have
                     # just one cluster representing the first and last moment the query was satisfied
                     for t_name, clusters in clusters_dict.items():
-                        print(f"{t_name}:\n", "\n".join(f"{cluster}" for cluster in clusters))
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         ```
 
     """
@@ -269,7 +269,7 @@ class MapMetadata(
                     # Since clusterize_all() used default clustering_dt_ns, each topic will have
                     # just one cluster representing the first and last moment the query was satisfied
                     for t_name, clusters in clusters_dict.items():
-                        print(f"{t_name}:\n", "\n".join(f"{cluster}" for cluster in clusters))
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -309,7 +309,7 @@ class MapMetadata(
                     # Since clusterize_all() used default clustering_dt_ns, each topic will have
                     # just one cluster representing the first and last moment the query was satisfied
                     for t_name, clusters in clusters_dict.items():
-                        print(f"{t_name}:\n", "\n".join(f"{cluster}" for cluster in clusters))
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -349,7 +349,7 @@ class MapMetadata(
                     # Since clusterize_all() used default clustering_dt_ns, each topic will have
                     # just one cluster representing the first and last moment the query was satisfied
                     for t_name, clusters in clusters_dict.items():
-                        print(f"{t_name}:\n", "\n".join(f"{cluster}" for cluster in clusters))
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -389,7 +389,7 @@ class MapMetadata(
                     # Since clusterize_all() used default clustering_dt_ns, each topic will have
                     # just one cluster representing the first and last moment the query was satisfied
                     for t_name, clusters in clusters_dict.items():
-                        print(f"{t_name}:\n", "\n".join(f"{cluster}" for cluster in clusters))
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -435,7 +435,7 @@ class MapMetadata(
                     # Since clusterize_all() used default clustering_dt_ns, each topic will have
                     # just one cluster representing the first and last moment the query was satisfied
                     for t_name, clusters in clusters_dict.items():
-                        print(f"{t_name}:\n", "\n".join(f"{cluster}" for cluster in clusters))
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -481,7 +481,7 @@ class OccupancyGrid(
                     # Since clusterize_all() used default clustering_dt_ns, each topic will have
                     # just one cluster representing the first and last moment the query was satisfied
                     for t_name, clusters in clusters_dict.items():
-                        print(f"{t_name}:\n", "\n".join(f"{cluster}" for cluster in clusters))
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -532,7 +532,7 @@ class OccupancyGrid(
                     # Since clusterize_all() used default clustering_dt_ns, each topic will have
                     # just one cluster representing the first and last moment the query was satisfied
                     for t_name, clusters in clusters_dict.items():
-                        print(f"{t_name}:\n", "\n".join(f"{cluster}" for cluster in clusters))
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -581,6 +581,6 @@ class OccupancyGrid(
                     # Since clusterize_all() used default clustering_dt_ns, each topic will have
                     # just one cluster representing the first and last moment the query was satisfied
                     for t_name, clusters in clusters_dict.items():
-                        print(f"{t_name}:\n", "\n".join(f"{cluster}" for cluster in clusters))
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         ```
     """

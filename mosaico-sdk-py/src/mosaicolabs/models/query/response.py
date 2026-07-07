@@ -402,8 +402,8 @@ class QueryResponseItem:
 
         Args:
             clustering_map (dict[str, int]): An optional map indicating for each
-              ontology tag within the query the minimal gap (in nanoseconds) there
-              needs to be between two clusters to be considered different
+                ontology tag within the query the minimal gap (in nanoseconds) there
+                needs to be between two clusters to be considered different
             override_clustering_dt_ns (Optional[int]): Override for the default
                 clustering gap (0) applied when ``clustering_map`` is None or does
                 not contain the topic's ontology tag.
@@ -447,7 +447,7 @@ class QueryResponseItem:
                     # Since clusterize_all() overrode default clustering_dt_ns, each topic will clusters
                     # all samples spaced below 5e6 nanoseconds as belonging to the same cluster
                     for t_name, clusters in clusters_dict.items():
-                        print(f"{t_name}:\n", "\n".join(f"{cluster}" for cluster in clusters))
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
 
         ```
         """
@@ -484,22 +484,22 @@ class QueryResponseItem:
 
         Args:
             *query_response_item: Additional response items whose topics are included in the
-              intersection. All topics from every extra item are flattened together with the
-              topics of this item before the intersect payload is built.
+                intersection. All topics from every extra item are flattened together with the
+                topics of this item before the intersect payload is built.
             intersect_dt_ns (int): Max allowed distance (in nanoseconds) between clusters to
                 be considered overlapped. Setting it to zero (default) ensures the existance
                 for inter-cluster overlapping.
             clustering_map (Optional[dict[str, int]]): An optional map indicating for each
-              ontology tag within the query the minimal gap (in nanoseconds) there needs to
-              be between two clusters to be considered different. If not specified all
-              topics use default value (0). If specified but topic's ontology is missing,
-              fallback using default value (0).
+                ontology tag within the query the minimal gap (in nanoseconds) there needs to
+                be between two clusters to be considered different. If not specified all
+                topics use default value (0). If specified but topic's ontology is missing,
+                fallback using default value (0).
             override_clustering_dt_ns: An optional integer to override the default minimal
-              gap between clusters (0).
+                gap between clusters (0).
 
         Returns:
             A list of :class:`TopicCluster` representing the time windows where all topics' query
-              expressions are simultaneously true, above the given ``intersect_dt_ns`` tolerance.
+                expressions are simultaneously true, above the given ``intersect_dt_ns`` tolerance.
 
         Raises:
             Exception: Propagated from the underlying action call on internal server errors.
