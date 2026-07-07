@@ -1,6 +1,6 @@
 ---
 title: CLI Reference
-sidebar_position: 8
+sidebar_position: 9
 description: "Complete CLI reference for the mosaicod binary. Documents all subcommands (run, version, key management, and others) with their flags, default values, and usage examples."
 ---
 

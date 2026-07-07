@@ -50,6 +50,42 @@ For example, to query IMU acceleration data: `imu.acceleration.x`, where `imu` i
 
 If `include_timestamp_range` is set to `true` the response will also return [timestamps ranges](#timestamps) for each query.
 
+#### Querying list and complex fields
+
+Fields backed by an Arrow **list** column (including lists of structs) are addressed with an **index specifier** appended to the list segment of the path. Exactly one specifier is allowed per field path.
+
+| Specifier | Meaning |
+| --- | --- |
+| `[i]` | The element at position `i` (0-based) must satisfy the predicate. |
+| `[?]` | **At least one** element must satisfy the predicate. |
+| `[!]` | **Every** element must satisfy the predicate. |
+
+The specifier attaches to whichever segment is the list, and the path may continue into a struct after it:
+
+```json
+{
+  "ontology": {
+    "lidar.ranges[?]": { "$gt": 50.0 },
+    "imu.samples[0].x": { "$eq": 1.0 },
+    "robot.readings[!].active": { "$eq": true }
+  }
+}
+```
+
+- `lidar.ranges[?]`: the topic matches if any element of the `ranges` list exceeds `50.0`.
+- `imu.samples[0].x`: targets the `x` field of the first struct in the `samples` list of structs.
+- `robot.readings[!].active`: every struct in `readings` must have `active` equal to `true`.
+
+A **plain list** column (no specifier) can be compared as a whole with `$eq` / `$neq` against a JSON array. The comparison is element-wise: it holds only when the arrays have the same length and every position matches. The literal is capped at `MOSAICOD_MAX_SIZE_PLAIN_LIST_EQ` elements (default `1024`).
+
+```json
+{
+  "ontology": {
+    "mock.list_test": { "$eq": [3, 4, 5] }
+  }
+}
+```
+
 ## Supported Operators
 
 The query engine supports a rich set of comparison operators. Each operator is prefixed with `$` in the JSON syntax:
@@ -63,10 +99,14 @@ The query engine supports a rich set of comparison operators. Each operator is p
 | `$leq` | Less than or equal to (numeric and timestamp only) |
 | `$geq` | Greater than or equal to (numeric and timestamp only) |
 | `$between` | Within a range `[min, max]` inclusive (numeric and timestamp only) |
-| `$in` | Value is in a set of options (supports integers and text) |
-| `$match` | Matches a pattern (text only, supports SQL LIKE patterns with `%` wildcards) |
-| `$ex` | Field exists |
-| `$nex` | Field does not exist |
+| `$in` | Matches when the field equals **any** value in the list, e.g. `{ "$in": [1, 5, 9] }`. Supports numeric and text values; a single-element list behaves like `$eq`. Lists mixing different value types are rejected. |
+| `$match` | Matches a POSIX regular expression (text only). Applies to `sequence.name`, `topic.name`, textual user metadata, and textual ontology fields. |
+| `$ex` | Field exists (the column is present). |
+| `$nex` | Field does not exist. |
+
+:::note
+`$ex` and `$nex` take no value: they are written as a bare string, e.g. `"imu.acceleration.x": "$ex"`. All other operators are written as an object, e.g. `"imu.acceleration.x": { "$gt": 5.0 }`.
+:::
 
 ## Syntax
 
