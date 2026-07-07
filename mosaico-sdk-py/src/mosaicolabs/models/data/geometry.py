@@ -1287,8 +1287,9 @@ class RobotPath(
         header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
-    Only path_frame field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
-    via the **`.Q` proxy**. Check the fields documentation for detailed description.
+    This class is fully queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
+    via the **`.Q` proxy**. Both `path_frame` and `poses` are queryable. Check the fields
+    documentation for detailed description.
 
     Example:
         ```python
@@ -1317,8 +1318,44 @@ class RobotPath(
     The series of waypoints the robot needs to follow.
 
     ### Querying with the **`.Q` Proxy**
-    # FIXME: Update this docstring and add example scripts for querying such field
-    The poses cannot be queried via the `.Q` proxy (Lists are not supported yet).
+    The poses value is queryable via the `poses` field. Since it represents a list of `Pose`
+    values, use `all()`, `any()` or index access `[i]` to narrow down to the list element, then
+    continue the expression with the contained `Pose` field (`position` or `orientation`).
+        - RobotPath.Q.poses.all()                  -> invalid expression
+        - RobotPath.Q.poses.position.x.gt(1)       -> invalid expression
+        - RobotPath.Q.poses.all().position.x.gt(1) -> valid expression
+
+    | Field Access Path | Queryable Type | Supported Operators |
+    | :--- | :--- | :--- |
+    | `RobotPath.Q.poses.all().position.x` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `RobotPath.Q.poses.any().position.x` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `RobotPath.Q.poses.[i].position.x` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+
+    Example:
+        ```python
+        from mosaicolabs import MosaicoClient, RobotPath, QueryOntologyCatalog
+
+        with MosaicoClient.connect("localhost", 6726) as client:
+            # Filter for paths with at least one waypoint beyond a specific X-coordinate
+            qresponse = client.query(
+                QueryOntologyCatalog(RobotPath.Q.poses.any().position.x.gt(500.0))
+            )
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {[topic.name for topic in item.topics]}")
+
+                    # Clusterize all topics within the sequence to extract the time intervals
+                    clusters_dict = item.clusterize_all()
+
+                    # Since clusterize_all() used default clustering_dt_ns, each topic will have
+                    # just one cluster representing the first and last moment the query was satisfied
+                    for t_name, clusters in clusters_dict.items():
+                        print(f"{t_name}:\n", "\n".join(f"{cluster}" for cluster in clusters))
+        ```
     """
 
 
@@ -1336,8 +1373,9 @@ class Polygon(
         header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
-    # FIXME: Update this docstring and add example scripts for querying such field
-    The points field is not queryable via the `.Q` proxy (lists are not supported yet).
+    This class is fully queryable via the **`.Q` proxy**. The `points` field is a list of
+    `Point3d` values; use `all()`, `any()` or index access `[i]` to narrow down to the list
+    element, then continue the expression with the contained `Point3d` field (`x`, `y` or `z`).
     """
 
     points: MosaicoType.list_(Point3d) = MosaicoField(
@@ -1347,6 +1385,42 @@ class Polygon(
     List of polygon vertices as 3D points.
 
     ### Querying with the **`.Q` Proxy**
-    # FIXME: Update this docstring and add example scripts for querying such field
-    The points field is not queryable via the `.Q` proxy (lists are not supported yet).
+    The points value is queryable via the `points` field. Since it represents a list of
+    `Point3d` values, use `all()`, `any()` or index access `[i]` to narrow down to the list
+    element, then continue the expression with the contained `Point3d` field (`x`, `y` or `z`).
+        - Polygon.Q.points.all()         -> invalid expression
+        - Polygon.Q.points.x.gt(1)       -> invalid expression
+        - Polygon.Q.points.all().x.gt(1) -> valid expression
+
+    | Field Access Path | Queryable Type | Supported Operators |
+    | :--- | :--- | :--- |
+    | `Polygon.Q.points.all().x` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `Polygon.Q.points.any().x` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `Polygon.Q.points.[i].x` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+
+    Example:
+        ```python
+        from mosaicolabs import MosaicoClient, Polygon, QueryOntologyCatalog
+
+        with MosaicoClient.connect("localhost", 6726) as client:
+            # Filter for polygons with at least one vertex beyond a specific X-coordinate
+            qresponse = client.query(
+                QueryOntologyCatalog(Polygon.Q.points.any().x.gt(500.0))
+            )
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {[topic.name for topic in item.topics]}")
+
+                    # Clusterize all topics within the sequence to extract the time intervals
+                    clusters_dict = item.clusterize_all()
+
+                    # Since clusterize_all() used default clustering_dt_ns, each topic will have
+                    # just one cluster representing the first and last moment the query was satisfied
+                    for t_name, clusters in clusters_dict.items():
+                        print(f"{t_name}:\n", "\n".join(f"{cluster}" for cluster in clusters))
+        ```
     """
