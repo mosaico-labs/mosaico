@@ -2832,7 +2832,7 @@ class JoyAdapter(ROSAdapterBase[Joy]):
             topic="/joy",
             msg_type="sensor_msgs/msg/Joy",
             data={
-                # Axes and buttons are list-based fields (not queryable via `.Q`)
+                # Axes and buttons are list-based fields
                 "axes": [0.0, -1.0, 0.5],
                 "buttons": [0, 1, 0, 1],
             }

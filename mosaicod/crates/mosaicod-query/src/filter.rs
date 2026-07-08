@@ -477,36 +477,18 @@ impl<T> IntoIterator for OntologyExprGroup<T> {
 #[derive(Debug, Clone)]
 pub struct OntologyFilter {
     ontology: HashMap<OntologyField, Op<Value>>,
-
-    /// If enabled the response should include timestamp ranges
-    /// for each topic in which the query filter matches
-    pub include_timestamp_range: bool,
 }
 
 impl OntologyFilter {
     /// Creates a new Metadata instance from a [`HashMap`].
     pub fn new(v: HashMap<OntologyField, Op<Value>>) -> Self {
-        Self {
-            ontology: v,
-            include_timestamp_range: false,
-        }
-    }
-
-    pub fn new_with_timestamp_range(
-        v: HashMap<OntologyField, Op<Value>>,
-        include_timestamp_range: bool,
-    ) -> Self {
-        Self {
-            ontology: v,
-            include_timestamp_range,
-        }
+        Self { ontology: v }
     }
 
     /// Creates an empty Metadata instance.
     pub fn empty() -> Self {
         Self {
             ontology: HashMap::new(),
-            include_timestamp_range: false,
         }
     }
 

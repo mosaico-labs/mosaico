@@ -58,19 +58,7 @@ class HeaderMixin(BaseModel):
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # Filter for a specific data value and extract the first and last occurrence times
-            qresponse = client.query(
-                QueryOntologyCatalog(ForceTorque.Q.header.frame_id.eq("camera_link"), include_timestamp_range=True)
-            )
-
-            # Inspect the response
-            if qresponse is not None:
-                # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
-                    print(f"Sequence: {item.sequence.name}")
-                    print(f"Topics: {{topic.name:
-                                [topic.timestamp_range.start, topic.timestamp_range.end]
-                                for topic in item.topics}}")
+            # FIXME: Add here example for timestamp exytraction and clustering
         ```
     """
 
@@ -107,19 +95,7 @@ class HeaderMixin(BaseModel):
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # Filter for a specific data value and extract the first and last occurrence times
-            qresponse = client.query(
-                QueryOntologyCatalog(ForceTorque.Q.header.frame_id.eq("camera_link"), include_timestamp_range=True)
-            )
-
-            # Inspect the response
-            if qresponse is not None:
-                # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
-                    print(f"Sequence: {item.sequence.name}")
-                    print(f"Topics: {{topic.name:
-                                [topic.timestamp_range.start, topic.timestamp_range.end]
-                                for topic in item.topics}}")
+            # FIXME: Add here example for timestamp exytraction and clustering
         ```
     """
 
@@ -199,6 +175,7 @@ class CovarianceMixin(BaseModel):
     
     ### Querying with the **`.Q` Proxy**
 
+    # FIXME: Update this docstring and add example scripts for querying such field
     Note: Non-Queryable
         The field is not queryable with the **`.Q` Proxy**.
     """

@@ -45,19 +45,7 @@ class GridCells(
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # Filter for a specific component value and extract the first and last occurrence times
-            qresponse = client.query(
-                QueryOntologyCatalog(GridCells.Q.cell_width.between(100, 200), include_timestamp_range=True)
-            )
-
-            # Inspect the response
-            if qresponse is not None:
-                # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
-                    print(f"Sequence: {item.sequence.name}")
-                    print(f"Topics: {{topic.name:
-                                [topic.timestamp_range.start, topic.timestamp_range.end]
-                                for topic in item.topics}}")
+            # FIXME: Add here example for timestamp exytraction and clustering
         ```
     """
 
@@ -90,19 +78,7 @@ class GridCells(
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # Filter for a specific component value and extract the first and last occurrence times
-            qresponse = client.query(
-                QueryOntologyCatalog(GridCells.Q.cell_width.between([100, 200]), include_timestamp_range=True)
-            )
-
-            # Inspect the response
-            if qresponse is not None:
-                # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
-                    print(f"Sequence: {item.sequence.name}")
-                    print(f"Topics: {{topic.name:
-                                [topic.timestamp_range.start, topic.timestamp_range.end]
-                                for topic in item.topics}}")
+            # FIXME: Add here example for timestamp exytraction and clustering
         ```
     """
 
@@ -135,19 +111,7 @@ class GridCells(
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # Filter for a specific component value and extract the first and last occurrence times
-            qresponse = client.query(
-                QueryOntologyCatalog(GridCells.Q.cell_height.between([100, 200]), include_timestamp_range=True)
-            )
-
-            # Inspect the response
-            if qresponse is not None:
-                # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
-                    print(f"Sequence: {item.sequence.name}")
-                    print(f"Topics: {{topic.name:
-                                [topic.timestamp_range.start, topic.timestamp_range.end]
-                                for topic in item.topics}}")
+            # FIXME: Add here example for timestamp exytraction and clustering
         ```
     """
 
@@ -158,6 +122,8 @@ class GridCells(
     The cell represented by a point at it's center.
 
     ### Querying with the **`.Q` Proxy**
+    # FIXME: Update this docstring with queryability of list fiends,
+    # and add example scripts for querying such field
     The cells field is not queryable via the `.Q` proxy (lists are not supported yet).
     """
 
@@ -202,19 +168,7 @@ class MapMetadata(
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # Filter for a specific component value and extract the first and last occurrence times
-            qresponse = client.query(
-                QueryOntologyCatalog(MapMetadata.Q.width.between(100, 200), include_timestamp_range=True)
-            )
-
-            # Inspect the response
-            if qresponse is not None:
-                # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
-                    print(f"Sequence: {item.sequence.name}")
-                    print(f"Topics: {{topic.name:
-                                [topic.timestamp_range.start, topic.timestamp_range.end]
-                                for topic in item.topics}}")
+            # FIXME: Add here example for timestamp exytraction and clustering
         ```
 
     """
@@ -250,19 +204,7 @@ class MapMetadata(
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # Filter for a specific component value and extract the first and last occurrence times
-            qresponse = client.query(
-                QueryOntologyCatalog(MapMetadata.Q.map_load_time.between([100000, 200000]), include_timestamp_range=True)
-            )
-
-            # Inspect the response
-            if qresponse is not None:
-                # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
-                    print(f"Sequence: {item.sequence.name}")
-                    print(f"Topics: {{topic.name:
-                                [topic.timestamp_range.start, topic.timestamp_range.end]
-                                for topic in item.topics}}")
+            # FIXME: Add here example for timestamp exytraction and clustering
         ```
     """
 
@@ -296,19 +238,7 @@ class MapMetadata(
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # Filter for a specific component value and extract the first and last occurrence times
-            qresponse = client.query(
-                QueryOntologyCatalog(MapMetadata.Q.resolution.between([100000, 200000]), include_timestamp_range=True)
-            )
-
-            # Inspect the response
-            if qresponse is not None:
-                # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
-                    print(f"Sequence: {item.sequence.name}")
-                    print(f"Topics: {{topic.name:
-                                [topic.timestamp_range.start, topic.timestamp_range.end]
-                                for topic in item.topics}}")
+            # FIXME: Add here example for timestamp exytraction and clustering
         ```
     """
 
@@ -342,19 +272,7 @@ class MapMetadata(
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # Filter for a specific component value and extract the first and last occurrence times
-            qresponse = client.query(
-                QueryOntologyCatalog(MapMetadata.Q.width.between([10, 20]), include_timestamp_range=True)
-            )
-
-            # Inspect the response
-            if qresponse is not None:
-                # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
-                    print(f"Sequence: {item.sequence.name}")
-                    print(f"Topics: {{topic.name:
-                                [topic.timestamp_range.start, topic.timestamp_range.end]
-                                for topic in item.topics}}")
+            # FIXME: Add here example for timestamp exytraction and clustering
         ```
     """
 
@@ -388,19 +306,7 @@ class MapMetadata(
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # Filter for a specific component value and extract the first and last occurrence times
-            qresponse = client.query(
-                QueryOntologyCatalog(MapMetadata.Q.width.between([10, 20]), include_timestamp_range=True)
-            )
-
-            # Inspect the response
-            if qresponse is not None:
-                # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
-                    print(f"Sequence: {item.sequence.name}")
-                    print(f"Topics: {{topic.name:
-                                [topic.timestamp_range.start, topic.timestamp_range.end]
-                                for topic in item.topics}}")
+            # FIXME: Add here example for timestamp exytraction and clustering
         ```
     """
 
@@ -440,19 +346,7 @@ class MapMetadata(
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # Filter for a specific component value and extract the first and last occurrence times
-            qresponse = client.query(
-                QueryOntologyCatalog(MapMetadata.Q.origin.position.x.gt(500.0), include_timestamp_range=True)
-            )
-
-            # Inspect the response
-            if qresponse is not None:
-                # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
-                    print(f"Sequence: {item.sequence.name}")
-                    print(f"Topics: {{topic.name:
-                                [topic.timestamp_range.start, topic.timestamp_range.end]
-                                for topic in item.topics}}")
+            # FIXME: Add here example for timestamp exytraction and clustering
         ```
     """
 
@@ -492,19 +386,7 @@ class OccupancyGrid(
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # Filter for a specific component value and extract the first and last occurrence times
-            qresponse = client.query(
-                QueryOntologyCatalog(OccupancyGrid.Q.info.width.between(-100, 100), include_timestamp_range=True)
-            )
-
-            # Inspect the response
-            if qresponse is not None:
-                # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
-                    print(f"Sequence: {item.sequence.name}")
-                    print(f"Topics: {{topic.name:
-                                [topic.timestamp_range.start, topic.timestamp_range.end]
-                                for topic in item.topics}}")
+            # FIXME: Add here example for timestamp exytraction and clustering
         ```
     """
 
@@ -549,19 +431,7 @@ class OccupancyGrid(
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # Filter for a specific component value and extract the first and last occurrence times
-            qresponse = client.query(
-                QueryOntologyCatalog(OccupancyGrid.Q.info.map_load_time.between([100000, 200000]), include_timestamp_range=True)
-            )
-
-            # Inspect the response
-            if qresponse is not None:
-                # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
-                    print(f"Sequence: {item.sequence.name}")
-                    print(f"Topics: {{topic.name:
-                                [topic.timestamp_range.start, topic.timestamp_range.end]
-                                for topic in item.topics}}")
+            # FIXME: Add here example for timestamp exytraction and clustering
         ```
     """
 
@@ -574,5 +444,7 @@ class OccupancyGrid(
     Occupancy probabilities are in the range [0,100].  Unknown is -1.
 
     ### Querying with the **`.Q` Proxy**
+    # FIXME: Update this docstring with queryability of list fiends,
+    # and add example scripts for querying such field
     The data field is not queryable via the `.Q` proxy (lists are not supported yet).
     """

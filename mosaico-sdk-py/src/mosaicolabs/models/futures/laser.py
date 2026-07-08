@@ -49,6 +49,8 @@ class _LaserScanBase(BaseModel):
 
     ### Querying with the **`.Q` Proxy**
     Scalar fields on this model are fully queryable via the **`.Q` proxy**.
+    # FIXME: Update this docstring with queryability of list fiends,
+    # and add example scripts for querying such field
     List-typed fields (`ranges`, `intensities`) are **not queryable**.
 
     | Field Access Path | Queryable Type | Supported Operators |
@@ -79,18 +81,7 @@ class _LaserScanBase(BaseModel):
                         print(f"Sequence: {item.sequence.name}")
                         print(f"Topics: {[topic.name for topic in item.topics]}")
 
-                # Same query, also extracting the first and last occurrence times
-                qresponse = client.query(
-                    QueryOntologyCatalog(LaserScan.Q.range_max.gt(30.0), include_timestamp_range=True)
-                    .with_expression(LaserScan.Q.angle_max.geq(3.14)),
-                )
-
-                if qresponse is not None:
-                    for item in qresponse:
-                        print(f"Sequence: {item.sequence.name}")
-                        print(f"Topics: {{topic.name: "
-                              f"[topic.timestamp_range.start, topic.timestamp_range.end] "
-                              f"for topic in item.topics}}")
+                # FIXME: Add here example for timestamp exytraction and clustering
         ```
     """
 
@@ -346,6 +337,8 @@ class LaserScan(
         intensities: Signal amplitude per beam (optional).
 
     Note:
+        # FIXME: Update this docstring with queryability of list fiends,
+        # and add example scripts for querying such field
         List-typed fields are **not queryable** via the `.Q` proxy. The `.Q`
         proxy is not available on this model.
 
@@ -380,18 +373,7 @@ class LaserScan(
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # Same query, also extracting the first and last occurrence times
-            qresponse = client.query(
-                QueryOntologyCatalog(LaserScan.Q.range_max.gt(30.0), include_timestamp_range=True)
-                    .with_expression(LaserScan.Q.angle_max.geq(3.14)),
-            )
-
-            if qresponse is not None:
-                for item in qresponse:
-                    print(f"Sequence: {item.sequence.name}")
-                    print(f"Topics: {{topic.name: "
-                          f"[topic.timestamp_range.start, topic.timestamp_range.end] "
-                          f"for topic in item.topics}}")
+            # FIXME: Add here example for timestamp exytraction and clustering
         ```
     """
 
@@ -404,6 +386,8 @@ class LaserScan(
     A flat list of `float` values, one per beam, representing the measured distance in meters.
 
     Values outside the `[range_min, range_max]` interval should be considered invalid.
+    # FIXME: Update this docstring with queryability of list fiends,
+    # and add example scripts for querying such field
     """
 
     intensities: Optional[SingleRange] = MosaicoField(
@@ -413,6 +397,8 @@ class LaserScan(
     Intensity measurements for each beam (optional).
     
     A flat list of `float` values, carries the signal amplitude of each beam. 
+    # FIXME: Update this docstring with queryability of list fiends,
+    # and add example scripts for querying such field
     """
 
 
@@ -448,11 +434,15 @@ class MultiEchoLaserScan(
             `ranges` (optional).
 
     Note:
+        # FIXME: Update this docstring with queryability of list fiends,
+        # and add example scripts for querying such field
         List-typed fields are **not queryable** via the `.Q` proxy. The `.Q`
         proxy is not available on this model.
 
     ### Querying with the **`.Q` Proxy**
     Scalar fields are fully queryable via the **`.Q` proxy**.
+    # FIXME: Update this docstring with queryability of list fiends,
+    # and add example scripts for querying such field
     `ranges` and `intensities` are **not queryable**.
 
     | Field Access Path | Queryable Type | Supported Operators |
@@ -482,18 +472,7 @@ class MultiEchoLaserScan(
                         print(f"Sequence: {item.sequence.name}")
                         print(f"Topics: {[topic.name for topic in item.topics]}")
 
-                # Same query, also extracting the first and last occurrence times
-                qresponse = client.query(
-                    QueryOntologyCatalog(MultiEchoLaserScan.Q.range_max.gt(30.0), include_timestamp_range=True)
-                        .with_expression(MultiEchoLaserScan.Q.angle_max.geq(3.14)),
-                )
-
-                if qresponse is not None:
-                    for item in qresponse:
-                        print(f"Sequence: {item.sequence.name}")
-                        print(f"Topics: {{topic.name: "
-                            f"[topic.timestamp_range.start, topic.timestamp_range.end] "
-                            f"for topic in item.topics}}")
+                # FIXME: Add here example for timestamp exytraction and clustering
         ```
     """
 
@@ -507,6 +486,8 @@ class MultiEchoLaserScan(
     *i*-th beam, ordered from nearest to farthest. An empty inner list indicates no valid return for that beam.
     
     Values outside the `[range_min, range_max]` interval should be considered invalid.
+    # FIXME: Update this docstring with queryability of list fiends,
+    # and add example scripts for querying such field
     """
 
     intensities: Optional[MultiRange] = MosaicoField(
