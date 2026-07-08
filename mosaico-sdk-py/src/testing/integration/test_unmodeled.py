@@ -30,10 +30,10 @@ UnmodeledGyro = make_unmodeled_ontology_class(
 )
 
 
-def test_unmodeled_ingestion_retrieval():
-    with MosaicoClient.connect("localhost", 6276) as client:
+def test_unmodeled_ingestion_retrieval(mosaico_client: MosaicoClient):
+    with mosaico_client:
         # -- Test ingestion --
-        with client.sequence_create(
+        with mosaico_client.sequence_create(
             "unmodeled_seq", {}, on_error=SessionLevelErrorPolicy.Delete
         ) as seqw:
             # Create a new topic and attach the unmodeled ontology as it was a default one
@@ -50,7 +50,7 @@ def test_unmodeled_ingestion_retrieval():
             tw.push(Message(timestamp_ns=12345679, data=unm_data))
 
         # -- Test retrieval --
-        th = client.topic_handler("unmodeled_seq", "/sensors/gyro/no_schema")
+        th = mosaico_client.topic_handler("unmodeled_seq", "/sensors/gyro/no_schema")
         assert th is not None
         # Info are correctly recognized
         assert th.ontology_tag == UnmodeledGyro.ontology_tag()
@@ -70,7 +70,7 @@ def test_unmodeled_ingestion_retrieval():
             assert all(data.raw_data["gyro"][item] > 0 for item in ("x", "y", "z"))
 
         # Test stream retrieval via SequenceDataStreamer
-        sh = client.sequence_handler("unmodeled_seq")
+        sh = mosaico_client.sequence_handler("unmodeled_seq")
         assert sh is not None
         for topic, msg in sh.get_data_streamer():
             data = msg.get_data(UnmodeledGyro)
@@ -85,7 +85,7 @@ def test_unmodeled_ingestion_retrieval():
             assert all(data.raw_data["gyro"][item] > 0 for item in ("x", "y", "z"))
 
         # Free resources
-        client.sequence_delete("unmodeled_seq")
+        mosaico_client.sequence_delete("unmodeled_seq")
 
 
 # --- Schema-variant scenario ---
@@ -124,7 +124,9 @@ _SCHEMA_V2 = pa.struct(
 )
 
 
-def test_unmodeled_schema_variant_ingestion_and_retrieval():
+def test_unmodeled_schema_variant_ingestion_and_retrieval(
+    mosaico_client: MosaicoClient,
+):
     # Resolve both schema variants exactly as an external translator would:
     # same base tag, two different schemas.
     ClsV1 = resolve_ontology_class(ontology_tag=_VARIANT_BASE_TAG, schema=_SCHEMA_V1)
@@ -138,7 +140,9 @@ def test_unmodeled_schema_variant_ingestion_and_retrieval():
     assert ClsV1.__ontology_tag__ == _VARIANT_BASE_TAG
     assert ClsV2.__ontology_tag__ == _VARIANT_BASE_TAG
     assert ClsV1.__registry_key__ == _VARIANT_BASE_TAG
-    assert ClsV2.__registry_key__ == f"{_VARIANT_BASE_TAG}__{ClsV2.__schema_fingerprint__}"
+    assert (
+        ClsV2.__registry_key__ == f"{_VARIANT_BASE_TAG}__{ClsV2.__schema_fingerprint__}"
+    )
 
     seq_v1, seq_v2 = (
         "unmodeled_variant_seq_v1",
@@ -146,9 +150,9 @@ def test_unmodeled_schema_variant_ingestion_and_retrieval():
     )
     topic_name = "/sensors/temperature"
 
-    with MosaicoClient.connect("localhost", 6276) as client:
+    with mosaico_client:
         # -- Ingest "bag 1" (schema v1) into its own sequence --
-        with client.sequence_create(
+        with mosaico_client.sequence_create(
             seq_v1, {}, on_error=SessionLevelErrorPolicy.Delete
         ) as seqw:
             tw = seqw.topic_create(topic_name, {}, ClsV1)
@@ -167,7 +171,7 @@ def test_unmodeled_schema_variant_ingestion_and_retrieval():
             )
 
         # -- Ingest "bag 2" (schema v2, extra 'humidity' field) into a separate sequence --
-        with client.sequence_create(
+        with mosaico_client.sequence_create(
             seq_v2, {}, on_error=SessionLevelErrorPolicy.Delete
         ) as seqw:
             tw = seqw.topic_create(topic_name, {}, ClsV2)
@@ -182,7 +186,7 @@ def test_unmodeled_schema_variant_ingestion_and_retrieval():
             )
 
         # -- Retrieve "bag 1" and confirm it round-trips through the v1 schema --
-        th_v1 = client.topic_handler(seq_v1, topic_name)
+        th_v1 = mosaico_client.topic_handler(seq_v1, topic_name)
         assert th_v1 is not None
         assert th_v1.ontology_tag == _VARIANT_BASE_TAG
         assert th_v1.ontology_schema == _SCHEMA_V1
@@ -196,7 +200,7 @@ def test_unmodeled_schema_variant_ingestion_and_retrieval():
             assert data.raw_data["temperature"]["celsius"] > 0
 
         # -- Retrieve "bag 2" and confirm it round-trips through the v2 schema, independently --
-        th_v2 = client.topic_handler(seq_v2, topic_name)
+        th_v2 = mosaico_client.topic_handler(seq_v2, topic_name)
         assert th_v2 is not None
         # Both topics report the SAME ontology tag to the
         # server, even though they were written with two different schemas -
@@ -212,7 +216,7 @@ def test_unmodeled_schema_variant_ingestion_and_retrieval():
         assert data.raw_data["temperature"]["humidity"] == 55.0
 
         # -- Retrieve "bag 2" again through SequenceDataStreamer for the k-way-merge path --
-        sh_v2 = client.sequence_handler(seq_v2)
+        sh_v2 = mosaico_client.sequence_handler(seq_v2)
         assert sh_v2 is not None
         merged_msgs = list(sh_v2.get_data_streamer())
         assert len(merged_msgs) == 1
@@ -223,5 +227,5 @@ def test_unmodeled_schema_variant_ingestion_and_retrieval():
         assert data.raw_data["temperature"]["humidity"] == 55.0
 
         # Free resources
-        client.sequence_delete(seq_v1)
-        client.sequence_delete(seq_v2)
+        mosaico_client.sequence_delete(seq_v1)
+        mosaico_client.sequence_delete(seq_v2)
