@@ -47,52 +47,6 @@ Every Ontology model in the SDK (such as `IMU`, `GPS`, `String`) exposes a `.Q` 
 
 The comparison operators available on a field path (`.gt()`, `.lt()`, `.eq()`, `.between()`, `.match()`, and others) correspond to server-side predicates. Nothing is evaluated in Python; the expression is serialised and sent to the daemon, which applies it during the scan.
 
-### Timestamp Ranges
-
-Starting from a query response, you can perform several operations on the resulting time intervals: computing and splitting a topic's matching windows, or comparing them across topics and sequences. Specifically, you can:
-
-- retrieve and merge all the time intervals associated to one topic where the query is satisfied. See [clusterize](https://docs.mosaico.dev/python-sdk/SDK/query/#topic-clusterize) operation.
-- retrieve and compare different time intervals associated to different topics coming from different queries, finding whether two distinct events happened at the same time. See [topic intersect](https://docs.mosaico.dev/python-sdk/SDK/query/#topics-intersect) operation.  
-- retrieve and merge all the time intervals associated to all sequence's topics where the query is satisfied. See [clusterize_all](https://docs.mosaico.dev/python-sdk/SDK/query/#sequence-clusterize) operation.
-- retrieve and compare different time intervals associated to different topics' sequences. See [sequence intersect](https://docs.mosaico.dev/python-sdk/SDK/query/#sequences-intersect) operation.
-
-The following is the simplest example: for each topic, retrieve a unique time interval representing the very first and very last moment the query evaluated true.
-
-<Tabs>
-<TabItem value="python" label="Python" default>
-```python title="Multi-domain query"
-from mosaicolabs import MosaicoClient, QuerySequence, QueryTopic, QueryOntologyCatalog, IMU
-
-with MosaicoClient.connect("localhost", 6726) as client:
-    results = client.query(
-        QuerySequence()
-            .with_user_metadata("project.name", eq="Apollo"),
-        QueryTopic()
-            .with_name("/front/camera/imu"),
-        QueryOntologyCatalog()
-            .with_expression(IMU.Q.acceleration.x.gt(5.0))
-    )
-
-    if results:
-        for item in results:
-            print(f"Sequence: {item.sequence.name}")
-
-            for topic_name, clusters in item.clusterize_all().items():
-                print(f"  {topic_name}: {[str(c) for c in clusters]}")
-```
-</TabItem>
-<TabItem value="cpp" label="C++">
-
-The C++ SDK is currently in development.
-
-</TabItem>
-<TabItem value="rust" label="Rust">
-
-The Rust SDK is currently in development.
-
-</TabItem>
-</Tabs>
-
 ## Understanding the Response
 
 `client.query()` always returns the same `QueryResponse` type, which behaves as a list of `QueryResponseItem` objects. In a multi-domain query, each item carries:
@@ -100,9 +54,11 @@ The Rust SDK is currently in development.
 - `item.sequence`: the matched sequence (recording session) with its name and metadata
 - `item.topics`: the list of topics within that sequence that satisfied the Topic and OntologyCatalog conditions
 
+Each topic also carries the time interval where the query condition held true. See [Temporal Windows](./temporal_windows.mdx) to extract and compare these intervals across topics and sequences.
+
 ## Key Concepts
 
 - **Single round trip**: all builders passed to `client.query()` are AND-joined and evaluated server-side in one request, avoiding multiple network calls and client-side joins
 - **`.Q` Proxy**: every Ontology model exposes a `.Q` attribute for type-safe, IDE-autocomplete-friendly field path expressions
 - **Three filter layers**: Sequence (session metadata) → Topic (channel + type) → OntologyCatalog (actual data values)
-- **Temporal windows**: a temporal windows can be extracted (`clusterize()` for a single topic, `clusterize_all()` for every topic in a sequence at once) and compared across distinct topics of the same or different sequences with `intersect()`.
+- **Temporal windows**: extract and compare time intervals from a response with `clusterize()` and `intersect()` — see [Temporal Windows](./temporal_windows.mdx)

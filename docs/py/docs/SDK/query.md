@@ -478,7 +478,7 @@ with MosaicoClient.connect("localhost", 6726) as client:
 * **`clusterize()`** takes the one continuous `[min, max]` interval where this topic's query condition was satisfied and splits it into distinct clusters based on `clustering_dt_ns`.
 
 <figure markdown="span">
-  ![Topic-level clusterize(): clustering_dt_ns controls how many clusters a topic's matches form](../assets/temporal_windows_topic_clusterize.svg)
+  ![Topic-level clusterize(): clustering_dt_ns controls how many clusters a topic's matches form](../assets/temporal_windows_clusterize.svg)
   <figcaption>`clustering_dt_ns` controls how many clusters a topic's own matches form: a small gap threshold keeps nearby-but-distinct matches apart, a large one merges them.</figcaption>
 </figure>
 
@@ -512,7 +512,7 @@ with MosaicoClient.connect("localhost", 6726) as client:
 * **`intersect()`** cross-correlates this topic with one or more **other** topics you pass explicitly — which can come from a completely different query or a different sequence entirely.
 
 <figure markdown="span">
-  ![Topic-level intersect(): intersect_dt_ns bridges near-miss windows across topics](../assets/temporal_windows_topic_intersect.svg)
+  ![Topic-level intersect(): intersect_dt_ns bridges near-miss windows across topics](../assets/temporal_windows_intersect.svg)
   <figcaption>`intersect_dt_ns` controls how far apart two topics' clusters may be and still count as correlated.</figcaption>
 </figure>
 
@@ -572,7 +572,7 @@ Reach for `clusterize()` when you need to segment a single sensor's activity int
 By default `clustering_dt_ns` is `0` for every topic, so `clusterize_all()` returns exactly **one** cluster per topic, spanning from its very first match to its very last, bridging any gaps in between. Passing a non-zero `clustering_dt_ns` (directly through `override_clustering_dt_ns`, or per-ontology via `clustering_map`) is what lets a topic with internal gaps split into multiple, more granular clusters instead.
 
 <figure markdown="span">
-  ![Sequence-level clusterize_all(): default clustering_dt_ns=0 returns one cluster per topic, a tuned value splits topics with internal gaps](../assets/temporal_windows_sequence_clusterize_all.svg)
+  ![Sequence-level clusterize_all(): default clustering_dt_ns=0 returns one cluster per topic, a tuned value splits topics with internal gaps](../assets/temporal_windows_clusterize_all.svg)
   <figcaption>By default (`clustering_dt_ns = 0`) `clusterize_all()` returns one cluster per topic spanning start to end; a smaller, tuned `clustering_dt_ns` splits a topic with internal gaps into several.</figcaption>
 </figure>
 
@@ -607,7 +607,7 @@ with MosaicoClient.connect("localhost", 6726) as client:
 * **`intersect()`** merges every topic's query expressions into a single server-side request and returns one `list[TopicCluster]`: the time windows where **all** matched topics were simultaneously satisfying their respective conditions. Unlike the topic-level `intersect()` above — which only compares the topics you explicitly pass in — this always includes every topic belonging to the item(s) it is called on.
 
 <figure markdown="span">
-  ![Sequence-level intersect(): every simultaneous window becomes a cluster, intersect_dt_ns bridges near-miss windows across topics](../assets/temporal_windows_sequence_intersect.svg)
+  ![Sequence-level intersect(): every simultaneous window becomes a cluster, intersect_dt_ns bridges near-miss windows across topics](../assets/temporal_windows_intersect.svg)
   <figcaption>Every window where all topics are simultaneously true becomes a cluster; tuning `intersect_dt_ns` lets near-miss windows across topics count as correlated too.</figcaption>
 </figure>
 
