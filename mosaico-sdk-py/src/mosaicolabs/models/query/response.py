@@ -148,6 +148,8 @@ class QueryResponseItemTopic:
             clustering_dt_ns (Optional[int]): The minimal gap (in nanoseconds) there needs to
                 be between two clusters to be considered different. If None, fallbacks to
                 default (0), meaning returning a single [min, max] cluster.
+                For visual examples of how this parameter influences the output
+                visit [the main documentation](https://docs.mosaico.dev/python-sdk/SDK/query/#topic-clusterize)
             timestamp_range (Optional[TimestampRange]): timerange to restrict the search.
                 Cluster outside this range are negletted set_clustering_gap()
 
@@ -240,7 +242,8 @@ class QueryResponseItemTopic:
             *query_response_item_topics: Additional topics to include in the intersection.
             intersect_dt_ns (int): Max allowed distance (in nanoseconds) between clusters
                 to be considered overlapped. Setting it to zero (default) ensures the
-                existance for inter-cluster overlapping.
+                existance for inter-cluster overlapping. For visual examples of how this
+                parameter influences the output visit the [main documentation](https://docs.mosaico.dev/python-sdk/SDK/query/#topics-intersect)
             clustering_map (Optional[dict[str, int]]): Map from ontology tag to
                 clustering_dt_ns. When provided, each topic uses the value for its ontology
                 tag as its clustering gap; missing tags fall back to
@@ -267,7 +270,8 @@ class QueryResponseItemTopic:
 
         # Establish a connection to the Mosaico Data Platform
         with MosaicoClient.connect("localhost", 6726) as client:
-            # Create two distinct queries for different devices
+            # Create two distinct queries for different devices and
+            # the two sequences have the same time origins
             query1 = Query(
                 QuerySequence()
                 .with_name_match("robot-1"),
@@ -488,7 +492,8 @@ class QueryResponseItem:
                 topics of this item before the intersect payload is built.
             intersect_dt_ns (int): Max allowed distance (in nanoseconds) between clusters to
                 be considered overlapped. Setting it to zero (default) ensures the existance
-                for inter-cluster overlapping.
+                for inter-cluster overlapping. For visual examples of how this parameter influences the output
+                visit the [main documentation](https://docs.mosaico.dev/python-sdk/SDK/query/#sequences-intersect).
             clustering_map (Optional[dict[str, int]]): An optional map indicating for each
                 ontology tag within the query the minimal gap (in nanoseconds) there needs to
                 be between two clusters to be considered different. If not specified all
