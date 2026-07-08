@@ -202,6 +202,238 @@ response = client.query(
 )
 
 ```
+## Architecture
+
+### Query Layers
+
+Mosaico organizes data into three distinct architectural layers, each with its own specialized Query Builder:
+
+#### [`QuerySequence`][mosaicolabs.models.query.builders.QuerySequence] (Sequence Layer)
+??? question "API Reference"
+    [`mosaicolabs.models.query.builders.QuerySequence`][mosaicolabs.models.query.builders.QuerySequence].
+
+Filters recordings based on high-level session metadata, such as the sequence name or the time it was created.
+
+**Example** Querying for sequences by name and creation date
+
+```python
+from mosaicolabs import MosaicoClient, Topic, QuerySequence
+
+with MosaicoClient.connect("localhost", 6726) as client:
+    # Search for sequences by project name and creation date
+    qresponse = client.query(
+        QuerySequence()
+        .with_name_match("test_drive")
+        .with_user_metadata("project", eq="Apollo")
+        .with_created_timestamp(time_start=Time.from_float(1690000000.0))
+    )
+
+    # Inspect the response
+    for item in qresponse:
+        print(f"Sequence: {item.sequence.name}")
+        print(f"Topics: {[topic.name for topic in item.topics]}")
+```
+
+
+#### [`QueryTopic`][mosaicolabs.models.query.builders.QueryTopic] (Topic Layer)
+??? question "API Reference"
+    [`mosaicolabs.models.query.builders.QueryTopic`][mosaicolabs.models.query.builders.QueryTopic].
+
+Targets specific data channels within a sequence. You can search for topics by name pattern or by their specific Ontology type (e.g., "Find all GPS topics").
+
+**Example** Querying for image topics by ontology tag, metadata key and topic creation timestamp
+
+```python
+from mosaicolabs import MosaicoClient, Image, Topic, QueryTopic
+
+with MosaicoClient.connect("localhost", 6726) as client:
+    # Query for all 'image' topics created in a specific timeframe, matching some metadata (key, value) pair
+    qresponse = client.query(
+        QueryTopic()
+        .with_ontology_tag(Image.ontology_tag())
+        .with_created_timestamp(time_start=Time.from_float(170000000))
+        .with_user_metadata("camera_id.serial_number", eq="ABC123_XYZ")
+    )
+
+    # Inspect the response
+    if qresponse is not None:
+        # Results are automatically grouped by Sequence for easier data management
+        for item in qresponse:
+            print(f"Sequence: {item.sequence.name}")
+            print(f"Topics: {[topic.name for topic in item.topics]}")
+```
+
+
+#### [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog] (Ontology Catalog Layer)
+??? question "API Reference"
+    [`mosaicolabs.models.query.builders.QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog].
+
+Filters based on the **actual time-series content** of the sensors (e.g., "Find events where `acceleration.z` exceeded a specific value").
+
+**Example** Querying for mixed sensor data
+
+```python
+from mosaicolabs import MosaicoClient, QueryOntologyCatalog, GPS, IMU
+
+    with MosaicoClient.connect("localhost", 6726) as client:
+        # Chain multiple sensor filters together
+        qresponse = client.query(
+            QueryOntologyCatalog()
+            .with_expression(GPS.Q.status.satellites.geq(8))
+            .with_expression(Temperature.Q.value.between([273.15, 373.15]))
+            .with_expression(Pressure.Q.value.geq(100000))
+        )
+
+        # Inspect the response
+        if qresponse is not None:
+            # Results are automatically grouped by Sequence for easier data management
+            for item in qresponse:
+                print(f"Sequence: {item.sequence.name}")
+                print(f"Topics: {[topic.name for topic in item.topics]}")
+
+        # Filter for a specific component value and extract the first and last occurrence times
+        qresponse = client.query(
+            QueryOntologyCatalog()
+            .with_expression(IMU.Q.acceleration.x.lt(-4.0))
+            .with_expression(IMU.Q.acceleration.y.gt(5.0))
+            .with_expression(Pose.Q.rotation.z.geq(0.707))
+        )
+
+        # Inspect the response
+        if qresponse is not None:
+            # Results are automatically grouped by Sequence for easier data management
+            for item in qresponse:
+                print(f"Sequence: {item.sequence.name}")
+                print(f"Topics: {[topic.name for topic in item.topics]}")
+```
+
+The Mosaico Query Module offers two distinct paths for defining filters,  **Convenience Methods** and **Generic Expression Method**, both of which support **method chaining** to compose multiple criteria into a single query using a logical **AND**.
+
+#### Convenience Methods
+
+The query layers provide high-level fluent helpers (`with_<attribute>`), built directly into the query builder classes and designed for ease of use.
+They allow you to filter data without deep knowledge of the internal model schema. 
+The builder automatically selects the appropriate field and operator (such as exact match vs. substring pattern) based on the method used.
+
+```python
+from mosaicolabs import QuerySequence, QueryTopic, RobotJoint
+
+# Build a filter with name pattern
+qbuilder = QuerySequence()
+    .with_name_match("test_drive")
+# Execute the query
+qresponse = client.query(qbuilder)
+
+# Inspect the response
+if qresponse is not None:
+    # Results are automatically grouped by Sequence for easier data management
+    for item in qresponse:
+        print(f"Sequence: {item.sequence.name}")
+        print(f"Topics: {[topic.name for topic in item.topics]}")
+
+# Build a filter with ontology tag AND a specific creation time window
+qbuilder = QueryTopic()
+    .with_ontology_tag(RobotJoint.ontology_tag())
+    .with_created_timestamp(start=t1, end=t2)
+# Execute the query
+qresponse = client.query(qbuilder)
+
+# Inspect the response
+if qresponse is not None:
+    # Results are automatically grouped by Sequence for easier data management
+    for item in qresponse:
+        print(f"Sequence: {item.sequence.name}")
+        print(f"Topics: {[topic.name for topic in item.topics]}")
+```
+
+* **Best For**: Standard system-level fields like Names and Timestamps.
+
+#### Generic Expression Method
+
+The `with_expression()` method accepts raw **Query Expressions** generated through the `.Q` proxy. 
+This provides full access to every supported operator (`.gt()`, `.lt()`, `.between()`, etc.) for specific fields.
+
+```python
+from mosaicolabs import QueryOntologyCatalog, IMU
+
+# Build a filter with deep time-series data discovery and measurement time windowing
+qresponse = client.query(
+    QueryOntologyCatalog()
+    .with_expression(IMU.Q.acceleration.x.gt(5.0))
+    .with_expression(IMU.Q.timestamp_ns.gt(1700134567))
+)
+
+# Inspect the response
+if qresponse is not None:
+    # Results are automatically grouped by Sequence for easier data management
+    for item in qresponse:
+        print(f"Sequence: {item.sequence.name}")
+        print(f"Topics: {[topic.name for topic in item.topics]}")
+```
+
+* **Used For**: Accessing specific Ontology data fields (e.g., acceleration, position, etc.) in stored time-series data.
+
+### The `.Q` Proxy Mechanism
+
+The Query Proxy is the cornerstone of Mosaico's type-safe data discovery. Every data model in the Mosaico Ontology (e.g., `IMU`, `GPS`, `Image`) is automatically injected with a static `.Q` attribute during class initialization. This mechanism transforms static data structures into dynamic, fluent interfaces for constructing complex filters.
+
+The proxy follows a three-step lifecycle to ensure that your queries are both semantically correct and high-performance:
+
+1. **Intelligent Mapping**: During system initialization, the proxy inspects the sensor's schema recursively. It maps every nested field path (e.g., `"acceleration.x"`) to a dedicated *queryable* object, i.e. an object providing comparison operators and expression generation methods.
+2. **Type-Aware Operators**: The proxy identifies the data type of each field (numeric, string, dictionary, or boolean) and exposes only the operators valid for that type. This prevents logical errors, such as attempting a substring `.match()` on a numeric acceleration value.
+3. **Intent Generation**: When you invoke an operator (e.g., `.gt(15.0)`), the proxy generates a `QueryExpression`. This object encapsulates your search intent and is serialized into an optimized JSON format for the platform to execute.
+
+To understand how the proxy handles nested structures, inherited attributes, and data types, consider the `IMU` ontology class:
+
+```python
+class IMU(
+    Serializable,
+    HeaderMixin,  # Adds Header support: contains header.timestamp, header.frame_id and header.sample_counter
+):
+    acceleration: Vector3d      # Composed type: contains x, y, z
+    angular_velocity: Vector3d  # Composed type: contains x, y, z
+    orientation: Optional[Quaternion] = None # Composed type: contains x, y, z, w
+```
+
+The `.Q` proxy enables you to navigate the data exactly as it is defined in the model. By following the `IMU.Q` instruction, you can drill down through nested fields and inherited mixins using standard dot notation until you reach a base queryable type.
+
+??? question "API Reference"
+    [`mosaicolabs.models.sensors.IMU`][mosaicolabs.models.sensors.IMU--querying-with-the-q-proxy]
+
+The proxy automatically flattens the hierarchy, assigning the correct queryable type and operators to each leaf node:
+
+| Proxy Field Path | Queryable Type | Supported Operators (Examples) |
+| --- | --- | --- |
+| **[`IMU.Q.acceleration.x/y/z`][mosaicolabs.models.sensors.IMU.acceleration--querying-with-the-q-proxy]** | **Numeric** | `.gt()`, `.lt()`, `.geq()`, `.leq()`, `.eq()`, `.between()`, `.in_()` |
+| **[`IMU.Q.angular_velocity.x/y/z`][mosaicolabs.models.sensors.IMU.angular_velocity--querying-with-the-q-proxy]** | **Numeric** | `.gt()`, `.lt()`, `.geq()`, `.leq()`, `.eq()`, `.between()`, `.in_()` |
+| **[`IMU.Q.orientation.x/y/z/w`][mosaicolabs.models.sensors.IMU.orientation--querying-with-the-q-proxy]** | **Numeric** | `.gt()`, `.lt()`, `.geq()`, `.leq()`, `.eq()`, `.between()`, `.in_()` |
+| **[`IMU.Q.timestamp_ns`][mosaicolabs.models.core.Message.timestamp_ns--querying-with-the-q-proxy]** | **Numeric** | `.gt()`, `.lt()`, `.geq()`, `.leq()`, `.eq()`, `.between()`, `.in_()` |
+| **[`IMU.Q.header.timestamp.seconds`][mosaicolabs.models.data.HeaderMixin--queryability]** | **Numeric** | `.gt()`, `.lt()`, `.geq()`, `.leq()`, `.eq()`, `.between()`, `.in_()` |
+| **[`IMU.Q.header.timestamp.nanoseconds`][mosaicolabs.models.data.HeaderMixin--queryability]** | **Numeric** | `.gt()`, `.lt()`, `.geq()`, `.leq()`, `.eq()`, `.between()`, `.in_()` |
+| **[`IMU.Q.header.frame_id`][mosaicolabs.models.data.HeaderMixin--queryability]** | **String** | `.eq()`, `.match()`, `.in_()`, `.lt()`, `.gt()`, `.leq()`, `.geq()` |
+| **[`IMU.Q.header.sample_counter`][mosaicolabs.models.data.HeaderMixin--queryability]** | **Numeric** | `.gt()`, `.lt()`, `.geq()`, `.leq()`, `.eq()`, `.between()`, `.in_()` |
+
+The following table lists the supported operators for each data type:
+
+| Data Type | Operators |
+| --- | --- |
+| **Numeric** | `.eq()`, `.lt()`, `.leq()`, `.gt()`, `.geq()`, `.between()`, `.in_()` |
+| **String** | `.eq()`, `.match()` (i.e. substring), `.in_()`, `.lt()`, `.gt()`, `.leq()`, `.geq()` |
+| **Boolean** | `.eq(True/False)` |
+| **Dictionary** | `.eq()`, `.lt()`, `.leq()`, `.gt()`, `.geq()`, `.between()`, `.ex()`|
+
+#### Supported vs. Unsupported Types
+
+While the `.Q` proxy is highly versatile, it enforces specific rules on which data structures can be queried:
+
+* **Supported Types**: The proxy resolves all simple (int, float, str, bool) or composed types (like `Vector3d` or `Quaternion`). It will continue to expose nested fields as long as they lead to a primitive base type.
+FIXME: @fdicorato is this still the case?
+* **Dictionaries**: Dynamic fields, i.e. derived from dictionaries in the ontology models, are fully queryable through the proxy using bracket notation (e.g., `<DataModel>.Q.dict_field["key"]` or `<DataModel>.Q.dict_field["key.subkey.subsubkey"]`). This approach provides the flexibility to search across custom tags and dynamic properties that aren't part of a fixed schema. This dictionary-based querying logic applies to any **custom ontology model** created by the user that contains a `dict` field.
+    * **Syntax**: Instead of the standard dot notation used for fixed fields, you must use square brackets `["key"]` to target specific dictionary entries.
+    * **Nested Access**: For dictionaries containing nested structures, you can use **dot notation within the key string** (e.g., `["environment.visibility"]`) to traverse sub-fields.
+    * **Operator Support**: Because dictionary values are dynamic, these fields are "promiscuous," meaning they support mixed numeric, string, and boolean operators without strict SDK-level type checking.
+
+* **Unsupported Types (Lists and Tuples)**: Any field defined as a container, such as a **List** or **Tuple** (e.g., `covariance: List[float]`), is currently skipped by the proxy generator. These fields will not appear in autocomplete and cannot be used in a query expression.
 
 ### Temporal Windows
 
@@ -378,242 +610,6 @@ with MosaicoClient.connect("localhost", 6726) as client:
 
 Use `clusterize_all()` when you need to inspect or debug each sensor's activity independently; use `intersect()` when the question you're actually asking spans multiple sensors at once.
 
-## Architecture
-
-### Query Layers
-
-Mosaico organizes data into three distinct architectural layers, each with its own specialized Query Builder:
-
-#### [`QuerySequence`][mosaicolabs.models.query.builders.QuerySequence] (Sequence Layer)
-??? question "API Reference"
-    [`mosaicolabs.models.query.builders.QuerySequence`][mosaicolabs.models.query.builders.QuerySequence].
-
-Filters recordings based on high-level session metadata, such as the sequence name or the time it was created.
-
-**Example** Querying for sequences by name and creation date
-
-```python
-from mosaicolabs import MosaicoClient, Topic, QuerySequence
-
-with MosaicoClient.connect("localhost", 6726) as client:
-    # Search for sequences by project name and creation date
-    qresponse = client.query(
-        QuerySequence()
-        .with_name_match("test_drive")
-        .with_user_metadata("project", eq="Apollo")
-        .with_created_timestamp(time_start=Time.from_float(1690000000.0))
-    )
-
-    # Inspect the response
-    for item in qresponse:
-        print(f"Sequence: {item.sequence.name}")
-        print(f"Topics: {[topic.name for topic in item.topics]}")
-```
-
-
-#### [`QueryTopic`][mosaicolabs.models.query.builders.QueryTopic] (Topic Layer)
-??? question "API Reference"
-    [`mosaicolabs.models.query.builders.QueryTopic`][mosaicolabs.models.query.builders.QueryTopic].
-
-Targets specific data channels within a sequence. You can search for topics by name pattern or by their specific Ontology type (e.g., "Find all GPS topics").
-
-**Example** Querying for image topics by ontology tag, metadata key and topic creation timestamp
-
-```python
-from mosaicolabs import MosaicoClient, Image, Topic, QueryTopic
-
-with MosaicoClient.connect("localhost", 6726) as client:
-    # Query for all 'image' topics created in a specific timeframe, matching some metadata (key, value) pair
-    qresponse = client.query(
-        QueryTopic()
-        .with_ontology_tag(Image.ontology_tag())
-        .with_created_timestamp(time_start=Time.from_float(170000000))
-        .with_user_metadata("camera_id.serial_number", eq="ABC123_XYZ")
-    )
-
-    # Inspect the response
-    if qresponse is not None:
-        # Results are automatically grouped by Sequence for easier data management
-        for item in qresponse:
-            print(f"Sequence: {item.sequence.name}")
-            print(f"Topics: {[topic.name for topic in item.topics]}")
-```
-
-
-#### [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog] (Ontology Catalog Layer)
-??? question "API Reference"
-    [`mosaicolabs.models.query.builders.QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog].
-
-Filters based on the **actual time-series content** of the sensors (e.g., "Find events where `acceleration.z` exceeded a specific value").
-
-**Example** Querying for mixed sensor data
-
-```python
-from mosaicolabs import MosaicoClient, QueryOntologyCatalog, GPS, IMU
-
-    with MosaicoClient.connect("localhost", 6726) as client:
-        # Chain multiple sensor filters together
-        qresponse = client.query(
-            QueryOntologyCatalog()
-            .with_expression(GPS.Q.status.satellites.geq(8))
-            .with_expression(Temperature.Q.value.between([273.15, 373.15]))
-            .with_expression(Pressure.Q.value.geq(100000))
-        )
-
-        # Inspect the response
-        if qresponse is not None:
-            # Results are automatically grouped by Sequence for easier data management
-            for item in qresponse:
-                print(f"Sequence: {item.sequence.name}")
-                print(f"Topics: {[topic.name for topic in item.topics]}")
-
-        # Filter for a specific component value and extract the first and last occurrence times
-        qresponse = client.query(
-            QueryOntologyCatalog(include_timestamp_range=True)
-            .with_expression(IMU.Q.acceleration.x.lt(-4.0))
-            .with_expression(IMU.Q.acceleration.y.gt(5.0))
-            .with_expression(Pose.Q.rotation.z.geq(0.707))
-        )
-
-        # Inspect the response
-        if qresponse is not None:
-            # Results are automatically grouped by Sequence for easier data management
-            for item in qresponse:
-                print(f"Sequence: {item.sequence.name}")
-                print(f"Topics: {{topic.name:
-                            [topic.timestamp_range.start, topic.timestamp_range.end]
-                            for topic in item.topics}}")
-```
-
-
-
-The Mosaico Query Module offers two distinct paths for defining filters,  **Convenience Methods** and **Generic Expression Method**, both of which support **method chaining** to compose multiple criteria into a single query using a logical **AND**.
-
-#### Convenience Methods
-
-The query layers provide high-level fluent helpers (`with_<attribute>`), built directly into the query builder classes and designed for ease of use.
-They allow you to filter data without deep knowledge of the internal model schema. 
-The builder automatically selects the appropriate field and operator (such as exact match vs. substring pattern) based on the method used.
-
-```python
-from mosaicolabs import QuerySequence, QueryTopic, RobotJoint
-
-# Build a filter with name pattern
-qbuilder = QuerySequence()
-    .with_name_match("test_drive")
-# Execute the query
-qresponse = client.query(qbuilder)
-
-# Inspect the response
-if qresponse is not None:
-    # Results are automatically grouped by Sequence for easier data management
-    for item in qresponse:
-        print(f"Sequence: {item.sequence.name}")
-        print(f"Topics: {[topic.name for topic in item.topics]}")
-
-# Build a filter with ontology tag AND a specific creation time window
-qbuilder = QueryTopic()
-    .with_ontology_tag(RobotJoint.ontology_tag())
-    .with_created_timestamp(start=t1, end=t2)
-# Execute the query
-qresponse = client.query(qbuilder)
-
-# Inspect the response
-if qresponse is not None:
-    # Results are automatically grouped by Sequence for easier data management
-    for item in qresponse:
-        print(f"Sequence: {item.sequence.name}")
-        print(f"Topics: {[topic.name for topic in item.topics]}")
-```
-
-* **Best For**: Standard system-level fields like Names and Timestamps.
-
-#### Generic Expression Method
-
-The `with_expression()` method accepts raw **Query Expressions** generated through the `.Q` proxy. 
-This provides full access to every supported operator (`.gt()`, `.lt()`, `.between()`, etc.) for specific fields.
-
-```python
-from mosaicolabs import QueryOntologyCatalog, IMU
-
-# Build a filter with deep time-series data discovery and measurement time windowing
-qresponse = client.query(
-    QueryOntologyCatalog()
-    .with_expression(IMU.Q.acceleration.x.gt(5.0))
-    .with_expression(IMU.Q.timestamp_ns.gt(1700134567))
-)
-
-# Inspect the response
-if qresponse is not None:
-    # Results are automatically grouped by Sequence for easier data management
-    for item in qresponse:
-        print(f"Sequence: {item.sequence.name}")
-        print(f"Topics: {[topic.name for topic in item.topics]}")
-```
-
-* **Used For**: Accessing specific Ontology data fields (e.g., acceleration, position, etc.) in stored time-series data.
-
-### The `.Q` Proxy Mechanism
-
-The Query Proxy is the cornerstone of Mosaico's type-safe data discovery. Every data model in the Mosaico Ontology (e.g., `IMU`, `GPS`, `Image`) is automatically injected with a static `.Q` attribute during class initialization. This mechanism transforms static data structures into dynamic, fluent interfaces for constructing complex filters.
-
-The proxy follows a three-step lifecycle to ensure that your queries are both semantically correct and high-performance:
-
-1. **Intelligent Mapping**: During system initialization, the proxy inspects the sensor's schema recursively. It maps every nested field path (e.g., `"acceleration.x"`) to a dedicated *queryable* object, i.e. an object providing comparison operators and expression generation methods.
-2. **Type-Aware Operators**: The proxy identifies the data type of each field (numeric, string, dictionary, or boolean) and exposes only the operators valid for that type. This prevents logical errors, such as attempting a substring `.match()` on a numeric acceleration value.
-3. **Intent Generation**: When you invoke an operator (e.g., `.gt(15.0)`), the proxy generates a `QueryExpression`. This object encapsulates your search intent and is serialized into an optimized JSON format for the platform to execute.
-
-To understand how the proxy handles nested structures, inherited attributes, and data types, consider the `IMU` ontology class:
-
-```python
-class IMU(
-    Serializable,
-    HeaderMixin,  # Adds Header support: contains header.timestamp, header.frame_id and header.sample_counter
-):
-    acceleration: Vector3d      # Composed type: contains x, y, z
-    angular_velocity: Vector3d  # Composed type: contains x, y, z
-    orientation: Optional[Quaternion] = None # Composed type: contains x, y, z, w
-```
-
-The `.Q` proxy enables you to navigate the data exactly as it is defined in the model. By following the `IMU.Q` instruction, you can drill down through nested fields and inherited mixins using standard dot notation until you reach a base queryable type.
-
-??? question "API Reference"
-    [`mosaicolabs.models.sensors.IMU`][mosaicolabs.models.sensors.IMU--querying-with-the-q-proxy]
-
-The proxy automatically flattens the hierarchy, assigning the correct queryable type and operators to each leaf node:
-
-| Proxy Field Path | Queryable Type | Supported Operators (Examples) |
-| --- | --- | --- |
-| **[`IMU.Q.acceleration.x/y/z`][mosaicolabs.models.sensors.IMU.acceleration--querying-with-the-q-proxy]** | **Numeric** | `.gt()`, `.lt()`, `.geq()`, `.leq()`, `.eq()`, `.between()`, `.in_()` |
-| **[`IMU.Q.angular_velocity.x/y/z`][mosaicolabs.models.sensors.IMU.angular_velocity--querying-with-the-q-proxy]** | **Numeric** | `.gt()`, `.lt()`, `.geq()`, `.leq()`, `.eq()`, `.between()`, `.in_()` |
-| **[`IMU.Q.orientation.x/y/z/w`][mosaicolabs.models.sensors.IMU.orientation--querying-with-the-q-proxy]** | **Numeric** | `.gt()`, `.lt()`, `.geq()`, `.leq()`, `.eq()`, `.between()`, `.in_()` |
-| **[`IMU.Q.timestamp_ns`][mosaicolabs.models.core.Message.timestamp_ns--querying-with-the-q-proxy]** | **Numeric** | `.gt()`, `.lt()`, `.geq()`, `.leq()`, `.eq()`, `.between()`, `.in_()` |
-| **[`IMU.Q.header.timestamp.seconds`][mosaicolabs.models.data.HeaderMixin--queryability]** | **Numeric** | `.gt()`, `.lt()`, `.geq()`, `.leq()`, `.eq()`, `.between()`, `.in_()` |
-| **[`IMU.Q.header.timestamp.nanoseconds`][mosaicolabs.models.data.HeaderMixin--queryability]** | **Numeric** | `.gt()`, `.lt()`, `.geq()`, `.leq()`, `.eq()`, `.between()`, `.in_()` |
-| **[`IMU.Q.header.frame_id`][mosaicolabs.models.data.HeaderMixin--queryability]** | **String** | `.eq()`, `.match()`, `.in_()`, `.lt()`, `.gt()`, `.leq()`, `.geq()` |
-| **[`IMU.Q.header.sample_counter`][mosaicolabs.models.data.HeaderMixin--queryability]** | **Numeric** | `.gt()`, `.lt()`, `.geq()`, `.leq()`, `.eq()`, `.between()`, `.in_()` |
-
-The following table lists the supported operators for each data type:
-
-| Data Type | Operators |
-| --- | --- |
-| **Numeric** | `.eq()`, `.lt()`, `.leq()`, `.gt()`, `.geq()`, `.between()`, `.in_()` |
-| **String** | `.eq()`, `.match()` (i.e. substring), `.in_()`, `.lt()`, `.gt()`, `.leq()`, `.geq()` |
-| **Boolean** | `.eq(True/False)` |
-| **Dictionary** | `.eq()`, `.lt()`, `.leq()`, `.gt()`, `.geq()`, `.between()`, `.ex()`|
-
-#### Supported vs. Unsupported Types
-
-While the `.Q` proxy is highly versatile, it enforces specific rules on which data structures can be queried:
-
-* **Supported Types**: The proxy resolves all simple (int, float, str, bool) or composed types (like `Vector3d` or `Quaternion`). It will continue to expose nested fields as long as they lead to a primitive base type.
-* **Dictionaries**: Dynamic fields, i.e. derived from dictionaries in the ontology models, are fully queryable through the proxy using bracket notation (e.g., `<DataModel>.Q.dict_field["key"]` or `<DataModel>.Q.dict_field["key.subkey.subsubkey"]`). This approach provides the flexibility to search across custom tags and dynamic properties that aren't part of a fixed schema. This dictionary-based querying logic applies to any **custom ontology model** created by the user that contains a `dict` field.
-    * **Syntax**: Instead of the standard dot notation used for fixed fields, you must use square brackets `["key"]` to target specific dictionary entries.
-    * **Nested Access**: For dictionaries containing nested structures, you can use **dot notation within the key string** (e.g., `["environment.visibility"]`) to traverse sub-fields.
-    * **Operator Support**: Because dictionary values are dynamic, these fields are "promiscuous," meaning they support mixed numeric, string, and boolean operators without strict SDK-level type checking.
-
-* **Unsupported Types (Lists and Tuples)**: Any field defined as a container, such as a **List** or **Tuple** (e.g., `covariance: List[float]`), is currently skipped by the proxy generator. These fields will not appear in autocomplete and cannot be used in a query expression.
-
 ## Constraints & Limitations
 
 While fully functional, the current implementation (v0.x) has a **Single Occurrence Constraint**.
@@ -634,7 +630,6 @@ While fully functional, the current implementation (v0.x) has a **Single Occurre
         IMU.Q.acceleration.x.gt(0.5),              # Unique field
         IMU.Q.acceleration.y.lt(1.0),              # Unique field
         IMU.Q.angular_velocity.x.between([0, 1]),   # Correct way to do ranges
-        include_timestamp_range=True
     )
 
     ```
