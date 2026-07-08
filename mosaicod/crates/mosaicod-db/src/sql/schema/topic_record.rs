@@ -32,6 +32,8 @@ pub struct TopicRecord {
     /// First and last timestamps stored inside topic's data.
     pub(crate) start_index_timestamp: Option<i64>,
     pub(crate) end_index_timestamp: Option<i64>,
+
+    pub(crate) optimization_end_unix_tstamp: Option<i64>,
 }
 
 impl TopicRecord {
@@ -71,6 +73,10 @@ impl TopicRecord {
 
     pub fn completion_timestamp(&self) -> Option<types::Timestamp> {
         self.completion_unix_tstamp.map(|ts| ts.into())
+    }
+
+    pub fn optimization_end_timestamp(&self) -> Option<types::Timestamp> {
+        self.optimization_end_unix_tstamp.map(|ts| ts.into())
     }
 
     /// Either all the fields are set, or none.

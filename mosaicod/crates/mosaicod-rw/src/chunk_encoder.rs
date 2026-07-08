@@ -40,7 +40,7 @@ impl InMemoryChunkEncoder {
         })
     }
 
-    /// Wrties the provided [`RecordBatch`].
+    /// Writes the provided [`RecordBatch`].
     ///
     /// The [`RecordBatch`] is serialized according to the writer's format, and the internal statistics
     /// are updated based on the data in the batch. The method returns an error if the serialization fails
@@ -91,6 +91,10 @@ impl InMemoryChunkEncoder {
         }
     }
 
+    pub fn row_count(&self) -> usize {
+        self.row_count
+    }
+
     /// Finalizes the writer, ensuring all buffered data and metadata are written to the file.
     ///
     /// This method must be called to complete the writing process. It consumes the writer object,
@@ -114,7 +118,6 @@ impl InMemoryChunkEncoder {
 
 #[cfg(test)]
 mod tests {
-
     use super::*;
     use arrow::array::{
         ArrayRef, BinaryArray, BooleanArray, Float64Array, Int64Array, StringArray, StructArray,

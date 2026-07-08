@@ -227,6 +227,14 @@ pub struct Params {
     ///
     /// Defaults to 86400 secs (1 day).
     pub cleanup_retention_duration: Param<u32>,
+
+    /// Minimum interval that must pass between an optimizer routine execution and the next one.
+    /// Multiple server instances connected to the same database and object store may have a different value set for this param.
+    ///
+    /// Note: set it to 0 if you want to prevent the background routine from running on this server instance.
+    ///
+    /// Defaults to 86400 secs (1 day).
+    pub store_optimizer_time_interval: Param<u32>,
 }
 
 /// Options for loading parameters from environment variables
@@ -295,6 +303,11 @@ pub fn load_params_from_env(config: ParamsLoadOptions) -> error::PublicResult<()
         // task
         cleanup_time_interval: Param::optional("MOSAICOD_CLEANUP_TIME_INTERVAL", 86400),
         cleanup_retention_duration: Param::optional("MOSAICOD_CLEANUP_RETENTION_DURATION", 86400),
+
+        store_optimizer_time_interval: Param::optional(
+            "MOSAICOD_STORE_OPTIMIZER_TIME_INTERVAL",
+            86400,
+        ),
     };
 
     let _ = ENV.set(ev);

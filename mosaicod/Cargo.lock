@@ -2808,9 +2808,12 @@ name = "mosaicod-task"
 version = "0.6.0-dev"
 dependencies = [
  "chrono",
+ "datafusion",
  "filetime",
+ "futures",
  "mosaicod-core",
  "mosaicod-db",
+ "mosaicod-rw",
  "mosaicod-store",
  "rand 0.9.2",
  "sqlx",

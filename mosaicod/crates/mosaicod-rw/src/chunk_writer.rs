@@ -35,8 +35,6 @@ pub struct ChunkWriter<W> {
 
 impl<W> ChunkWriter<W> {
     /// Creates a new [`ChunkWriter`].
-    /// This writer will split data when a `max_chunk_size` is reached (see
-    /// [`ChunkedWriter::with_max_chunk_size`] for more details.
     pub fn new<F>(target: W, format: types::Format, schema: SchemaRef, path_provider: F) -> Self
     where
         F: Fn(usize) -> std::path::PathBuf + Send + 'static,

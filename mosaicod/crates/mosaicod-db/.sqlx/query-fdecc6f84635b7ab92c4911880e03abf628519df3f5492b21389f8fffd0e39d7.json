@@ -77,6 +77,11 @@
         "ordinal": 14,
         "name": "end_index_timestamp",
         "type_info": "Int8"
+      },
+      {
+        "ordinal": 15,
+        "name": "optimization_end_unix_tstamp",
+        "type_info": "Int8"
       }
     ],
     "parameters": {
@@ -99,6 +104,7 @@
       false,
       false,
       false,
+      true,
       true,
       true,
       true,

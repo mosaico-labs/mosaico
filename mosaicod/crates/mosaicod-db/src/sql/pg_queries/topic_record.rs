@@ -22,6 +22,7 @@ fn cast_topic_data(row: PgRow) -> Result<schema::TopicRecord, Error> {
         total_bytes: row.try_get("total_bytes")?,
         start_index_timestamp: row.try_get("start_index_timestamp")?,
         end_index_timestamp: row.try_get("end_index_timestamp")?,
+        optimization_end_unix_tstamp: row.try_get("optimization_end_unix_tstamp")?,
     })
 }
 
@@ -328,6 +329,29 @@ pub async fn topic_update_path_in_store_if_null(
     .await?;
 
     Ok(res.rows_affected() != 0)
+}
+
+pub async fn topic_optimization_complete(
+    exe: &mut impl AsExec,
+    topic_id: i32,
+    optimization_end_ts: i64,
+    path_in_store: types::TopicPathInStore,
+) -> Result<(), Error> {
+    trace!("store optimization completed for topic `{}`", topic_id);
+    sqlx::query!(
+        r#"
+            UPDATE topic_t
+            SET optimization_end_unix_tstamp = $1, path_in_store = $2
+            WHERE topic_id = $3
+    "#,
+        optimization_end_ts,
+        Some(String::from(path_in_store)),
+        topic_id,
+    )
+    .execute(exe.as_exec())
+    .await?;
+
+    Ok(())
 }
 
 pub async fn topic_delete_path_in_store(

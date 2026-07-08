@@ -95,9 +95,11 @@ impl Server {
     {
         let shutdown = self.shutdown.clone();
         let shutdown_cleanup = self.shutdown.clone();
+        let shutdown_store_optimizer = self.shutdown.clone();
         let opts = self.options.clone();
 
         rt.block_on(async {
+            // Start cleanup background task.
             let cleanup_time_interval =
                 types::Duration::seconds(params::params().cleanup_time_interval.value);
 
@@ -107,13 +109,29 @@ impl Server {
             let cleanup_store = self.store.clone();
             let cleanup_db = self.db.clone();
 
-            // Start cleanup background task.
             let handle_cleanup_task = rt.spawn(async move {
                 let cleanup = task::Cleanup::new(cleanup_db, cleanup_store)
                     .with_time_interval(cleanup_time_interval)
                     .with_retention_duration(cleanup_retention_duration);
 
                 cleanup.run((shutdown_cleanup.token()).clone()).await
+            });
+
+            // Start store optimization background task.
+            let store_optimizer_time_interval =
+                types::Duration::seconds(params::params().store_optimizer_time_interval.value);
+
+            let store_optimizer_store = self.store.clone();
+            let store_optimizer_db = self.db.clone();
+
+            let handle_store_optimizer_task = rt.spawn(async move {
+                let optimizer =
+                    task::StoreOptimizer::new(store_optimizer_db, store_optimizer_store)
+                        .with_time_interval(store_optimizer_time_interval);
+
+                optimizer
+                    .run((shutdown_store_optimizer.token()).clone())
+                    .await
             });
 
             let server_store = self.store.clone();
@@ -129,7 +147,11 @@ impl Server {
 
             on_start();
 
-            let _ = tokio::join!(handle_flight, handle_cleanup_task);
+            let _ = tokio::join!(
+                handle_flight,
+                handle_cleanup_task,
+                handle_store_optimizer_task
+            );
         });
 
         debug!("grpc server stopped");

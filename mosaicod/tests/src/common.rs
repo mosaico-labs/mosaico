@@ -1,6 +1,5 @@
 use arrow_flight::flight_service_client::FlightServiceClient;
-use mosaicod_core::params;
-use mosaicod_core::types;
+use mosaicod_core::{params, types};
 use mosaicod_db as db;
 use mosaicod_facade as facade;
 use mosaicod_grpc as grpc;
@@ -44,10 +43,15 @@ pub struct CleanupIntervalConfig {
     pub retention_duration: types::Duration,
 }
 
+pub struct StoreOptimizerConfig {
+    pub time_interval: types::Duration,
+}
+
 pub struct ServerBuilder {
     host: String,
     tls: Option<grpc::TlsConfig>,
     cleanup_config: Option<CleanupIntervalConfig>,
+    store_optimizer_config: Option<StoreOptimizerConfig>,
     db: db::testing::Database,
     enable_api_key: bool,
 }
@@ -60,6 +64,7 @@ impl ServerBuilder {
             host: host.to_owned(),
             tls: None,
             cleanup_config: None,
+            store_optimizer_config: None,
             db,
             enable_api_key: false,
         }
@@ -79,6 +84,11 @@ impl ServerBuilder {
             time_interval,
             retention_duration,
         });
+        self
+    }
+
+    pub fn with_store_optimizer(mut self, time_interval: types::Duration) -> Self {
+        self.store_optimizer_config = Some(StoreOptimizerConfig { time_interval });
         self
     }
 
@@ -163,6 +173,26 @@ impl ServerBuilder {
             }
         });
 
+        // Start store optimizer background task.
+        let store_optimizer_time_interval = self.store_optimizer_config.as_ref().map_or(
+            types::Duration::seconds(params::params().store_optimizer_time_interval.value),
+            |c| c.time_interval,
+        );
+
+        let store_optimizer_task_handle = tokio::task::spawn({
+            let store_optimizer_store = (*store).clone();
+            let store_optimizer_db = db.clone();
+            let store_optimizer_shutdown = shutdown.clone();
+
+            async move {
+                let store_optimizer =
+                    task::StoreOptimizer::new(store_optimizer_db, store_optimizer_store)
+                        .with_time_interval(store_optimizer_time_interval);
+
+                store_optimizer.run(store_optimizer_shutdown.token()).await
+            }
+        });
+
         let flight_server_handle = tokio::task::spawn({
             let shutdown = shutdown.clone();
             let store = (*store).clone();
@@ -180,7 +210,11 @@ impl ServerBuilder {
         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
 
         Server {
-            server_join_handle: (flight_server_handle, cleanup_task_handle),
+            server_join_handle: (
+                flight_server_handle,
+                cleanup_task_handle,
+                store_optimizer_task_handle,
+            ),
             shutdown,
             port,
             db,
@@ -205,7 +239,11 @@ impl ServerBuilder {
 /// ```
 pub struct Server {
     shutdown: grpc_common::ShutdownNotifier,
-    server_join_handle: (tokio::task::JoinHandle<()>, tokio::task::JoinHandle<()>),
+    server_join_handle: (
+        tokio::task::JoinHandle<()>,
+        tokio::task::JoinHandle<()>,
+        tokio::task::JoinHandle<()>,
+    ),
     port: u16,
     pub db: db::testing::Database,
     pub store: store::testing::Store,
@@ -216,12 +254,28 @@ impl Server {
     /// Signals the server to stop and waits for the background task to complete.
     pub async fn shutdown(self) {
         self.shutdown.shutdown();
-        let _ = tokio::join!(self.server_join_handle.0, self.server_join_handle.1);
+        let (res1, res2, res3) = tokio::join!(
+            self.server_join_handle.0,
+            self.server_join_handle.1,
+            self.server_join_handle.2
+        );
+
+        if let Err(e) = res1 {
+            println!("Flight server failed: {}", e)
+        }
+        if let Err(e) = res2 {
+            println!("Cleanup routine failed: {}", e)
+        }
+        if let Err(e) = res3 {
+            println!("store optimizer failed: {}", e)
+        }
     }
 
     /// Check if the server is running.
     pub async fn is_shutdown(&self) -> bool {
         self.server_join_handle.0.is_finished()
+            && self.server_join_handle.1.is_finished()
+            && self.server_join_handle.2.is_finished()
     }
 
     pub fn port(&self) -> u16 {
