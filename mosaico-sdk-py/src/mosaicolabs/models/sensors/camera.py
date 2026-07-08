@@ -159,6 +159,8 @@ class CameraInfo(Serializable, HeaderMixin):
     The distortion coefficients (k1, k2, t1, t2, k3...). Size depends on the model.
 
     ### Querying with the **`.Q` Proxy**
+    # FIXME: Update this docstring with queryability of list fiends,
+    # and add example scripts for querying such field
     The distortion parameters are not queryable via the `.Q` proxy (Lists are not supported yet).
     """
 
@@ -172,6 +174,8 @@ class CameraInfo(Serializable, HeaderMixin):
     The 3x3 Intrinsic Matrix (K) flattened row-major.
 
     ### Querying with the **`.Q` Proxy**
+    # FIXME: Update this docstring with queryability of list fiends,
+    # and add example scripts for querying such field
     The intrinsic parameters are not queryable via the `.Q` proxy (Lists are not supported yet).
     """
 
@@ -185,6 +189,8 @@ class CameraInfo(Serializable, HeaderMixin):
     The 3x3 Rectification Matrix (R) flattened row-major.
 
     ### Querying with the **`.Q` Proxy**
+    # FIXME: Update this docstring with queryability of list fiends,
+    # and add example scripts for querying such field
     The rectification parameters cannot be queried via the `.Q` proxy (Lists are not supported yet).
     """
 
@@ -198,6 +204,8 @@ class CameraInfo(Serializable, HeaderMixin):
     The 3x4 Projection Matrix (P) flattened row-major.
 
     ### Querying with the **`.Q` Proxy**
+    # FIXME: Update this docstring with queryability of list fiends,
+    # and add example scripts for querying such field
     The projection parameters cannot be queried via the `.Q` proxy (Lists are not supported yet).
     """
 

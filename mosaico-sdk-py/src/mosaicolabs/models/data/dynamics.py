@@ -62,19 +62,7 @@ class ForceTorque(
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # Filter for a specific data value and extract the first and last occurrence times
-            qresponse = client.query(
-                QueryOntologyCatalog(ForceTorque.Q.force.x.gt(5.0), include_timestamp_range=True)
-            )
-
-            # Inspect the response
-            if qresponse is not None:
-                # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
-                    print(f"Sequence: {item.sequence.name}")
-                    print(f"Topics: {{topic.name:
-                                [topic.timestamp_range.start, topic.timestamp_range.end]
-                                for topic in item.topics}}")
+            # FIXME: Add here example for timestamp exytraction and clustering
         ```
     """
 
@@ -106,19 +94,7 @@ class ForceTorque(
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # Filter for a specific data value and extract the first and last occurrence times
-            qresponse = client.query(
-                QueryOntologyCatalog(ForceTorque.Q.force.x.gt(5.0), include_timestamp_range=True)
-            )
-
-            # Inspect the response
-            if qresponse is not None:
-                # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
-                    print(f"Sequence: {item.sequence.name}")
-                    print(f"Topics: {{topic.name:
-                                [topic.timestamp_range.start, topic.timestamp_range.end]
-                                for topic in item.topics}}")
+            # FIXME: Add here example for timestamp exytraction and clustering
         ```
     """
 
@@ -150,19 +126,7 @@ class ForceTorque(
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # Filter for a specific data value and extract the first and last occurrence times
-            qresponse = client.query(
-                QueryOntologyCatalog(ForceTorque.Q.torque.y.gt(5.0), include_timestamp_range=True)
-            )
-
-            # Inspect the response
-            if qresponse is not None:
-                # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
-                    print(f"Sequence: {item.sequence.name}")
-                    print(f"Topics: {{topic.name:
-                                [topic.timestamp_range.start, topic.timestamp_range.end]
-                                for topic in item.topics}}")
+            # FIXME: Add here example for timestamp exytraction and clustering
         ```
     """
 
@@ -219,5 +183,6 @@ class Inertia(
     Inertia tensor represented by its 6 unique components [ixx, ixy, ixz, iyy, iyz, izz].
 
     ### Querying with the **`.Q` Proxy**
+    # FIXME: Update this docstring and add example scripts for querying such field
     This field is not queryable via the `.Q` proxy (lists are not supported yet).
     """

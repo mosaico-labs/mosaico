@@ -40,19 +40,7 @@ class Integer8(Serializable):
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # Filter for a specific data value and extract the first and last occurrence times
-            qresponse = client.query(
-                QueryOntologyCatalog(Integer8.Q.data.gt(123), include_timestamp_range=True)
-            )
-
-            # Inspect the response
-            if qresponse is not None:
-                # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
-                    print(f"Sequence: {item.sequence.name}")
-                    print(f"Topics: {{topic.name:
-                                [topic.timestamp_range.start, topic.timestamp_range.end]
-                                for topic in item.topics}}")
+            # FIXME: Add here example for timestamp exytraction and clustering
         ```
     """
 
@@ -83,19 +71,7 @@ class Integer8(Serializable):
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # Filter for a specific data value and extract the first and last occurrence times
-            qresponse = client.query(
-                QueryOntologyCatalog(Integer8.Q.data.gt(123), include_timestamp_range=True)
-            )
-
-            # Inspect the response
-            if qresponse is not None:
-                # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
-                    print(f"Sequence: {item.sequence.name}")
-                    print(f"Topics: {{topic.name:
-                                [topic.timestamp_range.start, topic.timestamp_range.end]
-                                for topic in item.topics}}")
+            # FIXME: Add here example for timestamp exytraction and clustering
         ```
     """
 
@@ -126,19 +102,7 @@ class Integer16(Serializable):
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # Filter for a specific data value and extract the first and last occurrence times
-            qresponse = client.query(
-                QueryOntologyCatalog(Integer16.Q.data.gt(123), include_timestamp_range=True)
-            )
-
-            # Inspect the response
-            if qresponse is not None:
-                # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
-                    print(f"Sequence: {item.sequence.name}")
-                    print(f"Topics: {{topic.name:
-                                [topic.timestamp_range.start, topic.timestamp_range.end]
-                                for topic in item.topics}}")
+            # FIXME: Add here example for timestamp exytraction and clustering
         ```
     """
 
@@ -169,19 +133,7 @@ class Integer16(Serializable):
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # Filter for a specific data value and extract the first and last occurrence times
-            qresponse = client.query(
-                QueryOntologyCatalog(Integer16.Q.data.gt(123), include_timestamp_range=True)
-            )
-
-            # Inspect the response
-            if qresponse is not None:
-                # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
-                    print(f"Sequence: {item.sequence.name}")
-                    print(f"Topics: {{topic.name:
-                                [topic.timestamp_range.start, topic.timestamp_range.end]
-                                for topic in item.topics}}")
+            # FIXME: Add here example for timestamp exytraction and clustering
         ```
     """
 
@@ -212,19 +164,7 @@ class Integer32(Serializable):
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # Filter for a specific data value and extract the first and last occurrence times
-            qresponse = client.query(
-                QueryOntologyCatalog(Integer32.Q.data.gt(123), include_timestamp_range=True)
-            )
-
-            # Inspect the response
-            if qresponse is not None:
-                # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
-                    print(f"Sequence: {item.sequence.name}")
-                    print(f"Topics: {{topic.name:
-                                [topic.timestamp_range.start, topic.timestamp_range.end]
-                                for topic in item.topics}}")
+            # FIXME: Add here example for timestamp exytraction and clustering
         ```
     """
 
@@ -255,19 +195,7 @@ class Integer32(Serializable):
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # Filter for a specific data value and extract the first and last occurrence times
-            qresponse = client.query(
-                QueryOntologyCatalog(Integer32.Q.data.gt(123), include_timestamp_range=True)
-            )
-
-            # Inspect the response
-            if qresponse is not None:
-                # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
-                    print(f"Sequence: {item.sequence.name}")
-                    print(f"Topics: {{topic.name:
-                                [topic.timestamp_range.start, topic.timestamp_range.end]
-                                for topic in item.topics}}")
+            # FIXME: Add here example for timestamp exytraction and clustering
         ```
     """
 
@@ -298,19 +226,7 @@ class Integer64(Serializable):
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # Filter for a specific data value and extract the first and last occurrence times
-            qresponse = client.query(
-                QueryOntologyCatalog(Integer64.Q.data.gt(123), include_timestamp_range=True)
-            )
-
-            # Inspect the response
-            if qresponse is not None:
-                # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
-                    print(f"Sequence: {item.sequence.name}")
-                    print(f"Topics: {{topic.name:
-                                [topic.timestamp_range.start, topic.timestamp_range.end]
-                                for topic in item.topics}}")
+            # FIXME: Add here example for timestamp exytraction and clustering
         ```
     """
 
@@ -341,19 +257,7 @@ class Integer64(Serializable):
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # Filter for a specific data value and extract the first and last occurrence times
-            qresponse = client.query(
-                QueryOntologyCatalog(Integer64.Q.data.gt(123), include_timestamp_range=True)
-            )
-
-            # Inspect the response
-            if qresponse is not None:
-                # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
-                    print(f"Sequence: {item.sequence.name}")
-                    print(f"Topics: {{topic.name:
-                                [topic.timestamp_range.start, topic.timestamp_range.end]
-                                for topic in item.topics}}")
+            # FIXME: Add here example for timestamp exytraction and clustering
         ```
     """
 
@@ -387,19 +291,7 @@ class Unsigned8(Serializable):
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # Filter for a specific data value and extract the first and last occurrence times
-            qresponse = client.query(
-                QueryOntologyCatalog(Unsigned8.Q.data.gt(123), include_timestamp_range=True)
-            )
-
-            # Inspect the response
-            if qresponse is not None:
-                # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
-                    print(f"Sequence: {item.sequence.name}")
-                    print(f"Topics: {{topic.name:
-                                [topic.timestamp_range.start, topic.timestamp_range.end]
-                                for topic in item.topics}}")
+            # FIXME: Add here example for timestamp exytraction and clustering
         ```
     """
 
@@ -430,19 +322,7 @@ class Unsigned8(Serializable):
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # Filter for a specific data value and extract the first and last occurrence times
-            qresponse = client.query(
-                QueryOntologyCatalog(Unsigned8.Q.data.gt(123), include_timestamp_range=True)
-            )
-
-            # Inspect the response
-            if qresponse is not None:
-                # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
-                    print(f"Sequence: {item.sequence.name}")
-                    print(f"Topics: {{topic.name:
-                                [topic.timestamp_range.start, topic.timestamp_range.end]
-                                for topic in item.topics}}")
+            # FIXME: Add here example for timestamp exytraction and clustering
         ```
     """
 
@@ -487,19 +367,7 @@ class Unsigned16(Serializable):
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # Filter for a specific data value and extract the first and last occurrence times
-            qresponse = client.query(
-                QueryOntologyCatalog(Unsigned16.Q.data.gt(123), include_timestamp_range=True)
-            )
-
-            # Inspect the response
-            if qresponse is not None:
-                # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
-                    print(f"Sequence: {item.sequence.name}")
-                    print(f"Topics: {{topic.name:
-                                [topic.timestamp_range.start, topic.timestamp_range.end]
-                                for topic in item.topics}}")
+            # FIXME: Add here example for timestamp exytraction and clustering
         ```
     """
 
@@ -530,19 +398,7 @@ class Unsigned16(Serializable):
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # Filter for a specific data value and extract the first and last occurrence times
-            qresponse = client.query(
-                QueryOntologyCatalog(Unsigned16.Q.data.gt(123), include_timestamp_range=True)
-            )
-
-            # Inspect the response
-            if qresponse is not None:
-                # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
-                    print(f"Sequence: {item.sequence.name}")
-                    print(f"Topics: {{topic.name:
-                                [topic.timestamp_range.start, topic.timestamp_range.end]
-                                for topic in item.topics}}")
+            # FIXME: Add here example for timestamp exytraction and clustering
         ```
     """
 
@@ -587,19 +443,7 @@ class Unsigned32(Serializable):
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # Filter for a specific data value and extract the first and last occurrence times
-            qresponse = client.query(
-                QueryOntologyCatalog(Unsigned32.Q.data.gt(123), include_timestamp_range=True)
-            )
-
-            # Inspect the response
-            if qresponse is not None:
-                # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
-                    print(f"Sequence: {item.sequence.name}")
-                    print(f"Topics: {{topic.name:
-                                [topic.timestamp_range.start, topic.timestamp_range.end]
-                                for topic in item.topics}}")
+            # FIXME: Add here example for timestamp exytraction and clustering
         ```
     """
 
@@ -630,19 +474,7 @@ class Unsigned32(Serializable):
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # Filter for a specific data value and extract the first and last occurrence times
-            qresponse = client.query(
-                QueryOntologyCatalog(Unsigned32.Q.data.gt(123), include_timestamp_range=True)
-            )
-
-            # Inspect the response
-            if qresponse is not None:
-                # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
-                    print(f"Sequence: {item.sequence.name}")
-                    print(f"Topics: {{topic.name:
-                                [topic.timestamp_range.start, topic.timestamp_range.end]
-                                for topic in item.topics}}")
+            # FIXME: Add here example for timestamp exytraction and clustering
         ```
     """
 
@@ -687,19 +519,7 @@ class Unsigned64(Serializable):
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # Filter for a specific data value and extract the first and last occurrence times
-            qresponse = client.query(
-                QueryOntologyCatalog(Unsigned64.Q.data.gt(123), include_timestamp_range=True)
-            )
-
-            # Inspect the response
-            if qresponse is not None:
-                # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
-                    print(f"Sequence: {item.sequence.name}")
-                    print(f"Topics: {{topic.name:
-                                [topic.timestamp_range.start, topic.timestamp_range.end]
-                                for topic in item.topics}}")
+            # FIXME: Add here example for timestamp exytraction and clustering
         ```
     """
 
@@ -730,19 +550,7 @@ class Unsigned64(Serializable):
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # Filter for a specific data value and extract the first and last occurrence times
-            qresponse = client.query(
-                QueryOntologyCatalog(Unsigned64.Q.data.gt(123), include_timestamp_range=True)
-            )
-
-            # Inspect the response
-            if qresponse is not None:
-                # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
-                    print(f"Sequence: {item.sequence.name}")
-                    print(f"Topics: {{topic.name:
-                                [topic.timestamp_range.start, topic.timestamp_range.end]
-                                for topic in item.topics}}")
+            # FIXME: Add here example for timestamp exytraction and clustering
         ```
     """
 
@@ -784,19 +592,7 @@ class Floating16(Serializable):
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # Filter for a specific data value and extract the first and last occurrence times
-            qresponse = client.query(
-                QueryOntologyCatalog(Floating16.Q.data.gt(123.45), include_timestamp_range=True)
-            )
-
-            # Inspect the response
-            if qresponse is not None:
-                # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
-                    print(f"Sequence: {item.sequence.name}")
-                    print(f"Topics: {{topic.name:
-                                [topic.timestamp_range.start, topic.timestamp_range.end]
-                                for topic in item.topics}}")
+            # FIXME: Add here example for timestamp exytraction and clustering
         ```
     """
 
@@ -827,19 +623,7 @@ class Floating16(Serializable):
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # Filter for a specific data value and extract the first and last occurrence times
-            qresponse = client.query(
-                QueryOntologyCatalog(Floating16.Q.data.gt(123.45), include_timestamp_range=True)
-            )
-
-            # Inspect the response
-            if qresponse is not None:
-                # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
-                    print(f"Sequence: {item.sequence.name}")
-                    print(f"Topics: {{topic.name:
-                                [topic.timestamp_range.start, topic.timestamp_range.end]
-                                for topic in item.topics}}")
+            # FIXME: Add here example for timestamp exytraction and clustering
         ```
     """
 
@@ -870,19 +654,7 @@ class Floating32(Serializable):
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # Filter for a specific data value and extract the first and last occurrence times
-            qresponse = client.query(
-                QueryOntologyCatalog(Floating32.Q.data.gt(123.45), include_timestamp_range=True)
-            )
-
-            # Inspect the response
-            if qresponse is not None:
-                # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
-                    print(f"Sequence: {item.sequence.name}")
-                    print(f"Topics: {{topic.name:
-                                [topic.timestamp_range.start, topic.timestamp_range.end]
-                                for topic in item.topics}}")
+            # FIXME: Add here example for timestamp exytraction and clustering
         ```
     """
 
@@ -913,19 +685,7 @@ class Floating32(Serializable):
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # Filter for a specific data value and extract the first and last occurrence times
-            qresponse = client.query(
-                QueryOntologyCatalog(Floating32.Q.data.gt(123.45), include_timestamp_range=True)
-            )
-
-            # Inspect the response
-            if qresponse is not None:
-                # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
-                    print(f"Sequence: {item.sequence.name}")
-                    print(f"Topics: {{topic.name:
-                                [topic.timestamp_range.start, topic.timestamp_range.end]
-                                for topic in item.topics}}")
+            # FIXME: Add here example for timestamp exytraction and clustering
         ```
     """
 
@@ -956,19 +716,7 @@ class Floating64(Serializable):
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # Filter for a specific data value and extract the first and last occurrence times
-            qresponse = client.query(
-                QueryOntologyCatalog(Floating64.Q.data.gt(123.45), include_timestamp_range=True)
-            )
-
-            # Inspect the response
-            if qresponse is not None:
-                # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
-                    print(f"Sequence: {item.sequence.name}")
-                    print(f"Topics: {{topic.name:
-                                [topic.timestamp_range.start, topic.timestamp_range.end]
-                                for topic in item.topics}}")
+            # FIXME: Add here example for timestamp exytraction and clustering
         ```
     """
 
@@ -999,19 +747,7 @@ class Floating64(Serializable):
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # Filter for a specific data value and extract the first and last occurrence times
-            qresponse = client.query(
-                QueryOntologyCatalog(Floating64.Q.data.gt(123.45), include_timestamp_range=True)
-            )
-
-            # Inspect the response
-            if qresponse is not None:
-                # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
-                    print(f"Sequence: {item.sequence.name}")
-                    print(f"Topics: {{topic.name:
-                                [topic.timestamp_range.start, topic.timestamp_range.end]
-                                for topic in item.topics}}")
+            # FIXME: Add here example for timestamp exytraction and clustering
         ```
     """
 
@@ -1042,19 +778,7 @@ class Boolean(Serializable):
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # Filter for a specific data value and extract the first and last occurrence times
-            qresponse = client.query(
-                QueryOntologyCatalog(Boolean.Q.data.eq(True), include_timestamp_range=True)
-            )
-
-            # Inspect the response
-            if qresponse is not None:
-                # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
-                    print(f"Sequence: {item.sequence.name}")
-                    print(f"Topics: {{topic.name:
-                                [topic.timestamp_range.start, topic.timestamp_range.end]
-                                for topic in item.topics}}")
+            # FIXME: Add here example for timestamp exytraction and clustering
         ```
     """
 
@@ -1085,19 +809,7 @@ class Boolean(Serializable):
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # Filter for a specific data value and extract the first and last occurrence times
-            qresponse = client.query(
-                QueryOntologyCatalog(Boolean.Q.data.eq(True), include_timestamp_range=True)
-            )
-
-            # Inspect the response
-            if qresponse is not None:
-                # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
-                    print(f"Sequence: {item.sequence.name}")
-                    print(f"Topics: {{topic.name:
-                                [topic.timestamp_range.start, topic.timestamp_range.end]
-                                for topic in item.topics}}")
+            # FIXME: Add here example for timestamp exytraction and clustering
         ```
     """
 
@@ -1128,19 +840,7 @@ class String(Serializable):
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # Filter for a specific data value and extract the first and last occurrence times
-            qresponse = client.query(
-                QueryOntologyCatalog(String.Q.data.eq("hello"), include_timestamp_range=True)
-            )
-
-            # Inspect the response
-            if qresponse is not None:
-                # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
-                    print(f"Sequence: {item.sequence.name}")
-                    print(f"Topics: {{topic.name:
-                                [topic.timestamp_range.start, topic.timestamp_range.end]
-                                for topic in item.topics}}")
+            # FIXME: Add here example for timestamp exytraction and clustering
         ```
     """
 
@@ -1171,19 +871,7 @@ class String(Serializable):
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # Filter for a specific data value and extract the first and last occurrence times
-            qresponse = client.query(
-                QueryOntologyCatalog(String.Q.data.eq("hello"), include_timestamp_range=True)
-            )
-
-            # Inspect the response
-            if qresponse is not None:
-                # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
-                    print(f"Sequence: {item.sequence.name}")
-                    print(f"Topics: {{topic.name:
-                                [topic.timestamp_range.start, topic.timestamp_range.end]
-                                for topic in item.topics}}")
+            # FIXME: Add here example for timestamp exytraction and clustering
         ```
     """
 
@@ -1217,19 +905,7 @@ class LargeString(Serializable):
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # Filter for a specific data value and extract the first and last occurrence times
-            qresponse = client.query(
-                QueryOntologyCatalog(LargeString.Q.data.eq("hello"), include_timestamp_range=True)
-            )
-
-            # Inspect the response
-            if qresponse is not None:
-                # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
-                    print(f"Sequence: {item.sequence.name}")
-                    print(f"Topics: {{topic.name:
-                                [topic.timestamp_range.start, topic.timestamp_range.end]
-                                for topic in item.topics}}")
+            # FIXME: Add here example for timestamp exytraction and clustering
         ```
     """
 
@@ -1260,18 +936,6 @@ class LargeString(Serializable):
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # Filter for a specific data value and extract the first and last occurrence times
-            qresponse = client.query(
-                QueryOntologyCatalog(LargeString.Q.data.eq("hello"), include_timestamp_range=True)
-            )
-
-            # Inspect the response
-            if qresponse is not None:
-                # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
-                    print(f"Sequence: {item.sequence.name}")
-                    print(f"Topics: {{topic.name:
-                                [topic.timestamp_range.start, topic.timestamp_range.end]
-                                for topic in item.topics}}")
+            # FIXME: Add here example for timestamp exytraction and clustering
         ```
     """

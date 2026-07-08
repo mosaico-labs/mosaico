@@ -50,17 +50,7 @@ class Temperature(
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # Filter for a specific component value and extract the first and last occurrence times
-            qresponse = client.query(
-                QueryOntologyCatalog(Temperature.Q.value.between([273.15, 373.15]), include_timestamp_range=True)
-            )
-
-            # Inspect the response
-            if qresponse is not None:
-                # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
-                    print(f"Sequence: {item.sequence.name}")
-                    print(f"Topics: {[topic.name for topic in item.topics]}")
+            # FIXME: Add here example for timestamp exytraction and clustering
         ```
     """
 
@@ -94,19 +84,7 @@ class Temperature(
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # Filter for a specific component value and extract the first and last occurrence times
-            qresponse = client.query(
-                QueryOntologyCatalog(Temperature.Q.value.between([273.15, 373.15]), include_timestamp_range=True)
-            )
-
-            # Inspect the response
-            if qresponse is not None:
-                # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
-                    print(f"Sequence: {item.sequence.name}")
-                    print(f"Topics: {{topic.name:
-                                [topic.timestamp_range.start, topic.timestamp_range.end]
-                                for topic in item.topics}}")
+            # FIXME: Add here example for timestamp exytraction and clustering
         ```
     """
 

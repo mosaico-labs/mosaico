@@ -1,4 +1,4 @@
-use rand::{Rng, distr::Alphabetic, distr::Alphanumeric};
+use rand::{RngExt, distr::Alphabetic, distr::Alphanumeric};
 
 /// Generates a random string containing alphabetic chars of a given `length`
 pub fn alphabetic(length: usize) -> String {
