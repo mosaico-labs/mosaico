@@ -46,10 +46,6 @@ The ontology filter queries the actual sensor data values. Fields are specified 
 
 For example, to query IMU acceleration data: `imu.acceleration.x`, where `imu` is the ontology tag and `acceleration.x` is the field path within that data model.
 
-#### Timestamp query support
-
-If `include_timestamp_range` is set to `true` the response will also return [timestamps ranges](#timestamps) for each query.
-
 #### Querying list and complex fields
 
 Fields backed by an Arrow **list** column (including lists of structs) are addressed with an **index specifier** appended to the list segment of the path. Exactly one specifier is allowed per field path.
@@ -126,8 +122,6 @@ Queries are submitted as JSON objects. Each field is mapped to an operator and v
   "ontology": {
     "imu.acceleration.x": { "$gt": 5.0 },
     "imu.acceleration.y": { "$between": [-2.0, 2.0] },
-
-    "include_timestamp_range": true,
   }
 }
 ```
@@ -140,13 +134,9 @@ This query searches for:
 - Where the IMU's x-axis acceleration exceeds 5.0
 - And the y-axis acceleration is between -2.0 and 2.0
 
-:::tip
-`include_timestamp_range` field is optional, if set to `true` the query returns the [timestamp ranges](#timestamps)
-:::
-
 ## Response Structure
 
-The query response is hierarchically grouped by sequence. For each matching sequence, it provides the list of topics that satisfied the filter criteria, along with optional timestamp ranges indicating when the ontology conditions were met.
+The query response is hierarchically grouped by sequence. For each matching sequence, it provides the list of topics that satisfied the filter criteria.
 
 ```json title="query_response_example"
 {
@@ -155,12 +145,10 @@ The query response is hierarchically grouped by sequence. For each matching sequ
       "sequence": "test_run_01",
       "topics": [
         { 
-          "locator": "test_run_01/sensors/imu",
-          "timestamp_range": [1000000000, 2000000000]
+          "locator": "test_run_01/sensors/imu"
         },
         {
-          "locator": "test_run_01/sensors/gps",
-          "timestamp_range": [1000000000, 2000000000]
+          "locator": "test_run_01/sensors/gps"
         }
       ]
     },
@@ -168,26 +156,16 @@ The query response is hierarchically grouped by sequence. For each matching sequ
       "sequence": "test_run_02",
       "topics": [
         {
-          "locator": "test_run_02/camera/front",
-          "timestamp_range": [1500000000, 2500000000]
+          "locator": "test_run_02/camera/front"
         },
         {
-          "locator": "test_run_02/lidar/point_cloud",
-          "timestamp_range": [1500000000, 2500000000]
+          "locator": "test_run_02/lidar/point_cloud"
         }
       ]
     }
   ]
 }
 ```
-
-### Timestamps
-
-It returns the time window `[min, max]` where the filter conditions were met for that topic, with `min` being the timestamp of the first matching event and max being the timestamp of the last matching event. This allows you to retrieve only the relevant data slices using the [retrieval protocol](retrieval.md#the-retrieval-protocol).
-
-:::note 
-    The `timestamp_range` field is included only when ontology filters are applied and `include_timestamp_range` is set to `true` inside the `ontology` filter. 
-:::
 
 ### Performance Characteristics
 
@@ -196,4 +174,4 @@ During execution, the engine uses index-based pruning to evaluate precomputed mi
 
 Performance is further improved by executing metadata cache queries, such as sequence and topic filters, directly within the database, which ensures sub-second response times even across thousands of sequences.
 
-The system employs **lazy evaluation** to keep network payloads lightweight; instead of returning raw data immediately, queries return locators and timestamp ranges. This architecture allows client applications to fetch only the required data slices via the retrieval protocol as needed.
+The system employs **lazy evaluation** to keep network payloads light-weight; instead of returning raw data immediately, queries return just sequence and topic locators. This architecture allows client applications to fetch only the required data slices via the retrieval protocol as needed.
