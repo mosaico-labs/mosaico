@@ -78,15 +78,14 @@ results = client.query(
 
 ## Multi-Domain Queries
 
-`QueryOntologyCatalog` combined with `QueryTopic` lets you filter by both sensor type and field value in one call. The `.Q` proxy provides type-safe dot-notation expressions: `IMU.Q.acceleration.y.geq(1.0)` means "find messages where IMU y-axis acceleration is >= 1.0 m/s²". Setting `include_timestamp_range=True` tells the server to return the first and last timestamps of the matching window, enabling precise data slicing.
+`QueryOntologyCatalog` combined with `QueryTopic` lets you filter by both sensor type and field value in one call. The `.Q` proxy provides type-safe dot-notation expressions: `IMU.Q.acceleration.y.geq(1.0)` means "find messages where IMU y-axis acceleration is >= 1.0 m/s²".
 
 ```python title="Multi-domain query with physics filter"
 from mosaicolabs import IMU, QueryOntologyCatalog, QueryTopic
 
 results = client.query(
     QueryOntologyCatalog(
-        IMU.Q.acceleration.y.geq(1.0),
-        include_timestamp_range=True
+        IMU.Q.acceleration.y.geq(1.0)
     ),
     QueryTopic().with_name("/front_stereo_imu/imu")
 )
@@ -95,18 +94,21 @@ results = client.query(
 
 ## Replaying an Event
 
-The `timestamp_range` returned by a query can be used directly to slice a data stream to the exact window containing the event. The example adds one second of padding on each side to capture the run-up and recovery.
+The returned query response can be used directly to slice a data stream to the exact windows containing the event. The example adds one second of padding on each side to capture the run-up and recovery.
 
 ```python title="Slice and replay the event window"
 if results:
     for item in results:
         for topic in item.topics:
-            streamer = client.sequence_handler(item.sequence.name).get_data_streamer(
-                topics=[topic.name],
-                start_timestamp_ns=topic.timestamp_range.start - 1_000_000_000,
-                end_timestamp_ns=topic.timestamp_range.end   + 1_000_000_000,
-            )
-            for msg in streamer:
-                pass  # process the event window
-```
 
+            clusters = topic.clusterize()
+
+            for cluster in clusters:
+                streamer = client.sequence_handler(item.sequence.name).get_data_streamer(
+                    topics=[topic.name],
+                    start_timestamp_ns=cluster.timerange.start - 1_000_000_000,
+                    end_timestamp_ns=cluster.timerange.end   + 1_000_000_000,
+                )
+                for msg in streamer:
+                    pass  # process the event window
+```

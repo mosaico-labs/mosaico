@@ -473,6 +473,8 @@ with MosaicoClient.connect("localhost", 6726) as client:
 
 [`QueryResponseItemTopic`][mosaicolabs.models.query.response.QueryResponseItemTopic] exposes two ways to turn a single topic's query matches into temporal windows: [`clusterize()`][mosaicolabs.models.query.response.QueryResponseItemTopic.clusterize] and [`intersect()`][mosaicolabs.models.query.response.QueryResponseItemTopic.intersect].
 
+##### Topic clusterize
+
 * **`clusterize()`** takes the one continuous `[min, max]` interval where this topic's query condition was satisfied and splits it into distinct clusters based on `clustering_dt_ns`.
 
 <figure markdown="span">
@@ -506,6 +508,7 @@ with MosaicoClient.connect("localhost", 6726) as client:
         print(f"Overall active window: {[str(c) for c in active_window]}")
 ```
 
+##### Topics intersect
 * **`intersect()`** cross-correlates this topic with one or more **other** topics you pass explicitly — which can come from a completely different query or a different sequence entirely.
 
 <figure markdown="span">
@@ -562,6 +565,8 @@ Reach for `clusterize()` when you need to segment a single sensor's activity int
 
 [`QueryResponseItem`][mosaicolabs.models.query.response.QueryResponseItem] exposes the same two operations as [`QueryResponseItemTopic`][mosaicolabs.models.query.response.QueryResponseItemTopic] above, but applied across **every topic matched in a sequence at once**: [`clusterize_all()`][mosaicolabs.models.query.response.QueryResponseItem.clusterize_all] and [`intersect()`][mosaicolabs.models.query.response.QueryResponseItem.intersect].
 
+##### Sequence clusterize
+
 * **`clusterize_all()`** calls `clusterize()` independently on each topic in the item and returns a `dict[str, list[TopicCluster]]` keyed by topic name — every sensor's own matching windows, with no relation to what any other topic was doing at the same time.
 
 By default `clustering_dt_ns` is `0` for every topic, so `clusterize_all()` returns exactly **one** cluster per topic, spanning from its very first match to its very last, bridging any gaps in between. Passing a non-zero `clustering_dt_ns` (directly through `override_clustering_dt_ns`, or per-ontology via `clustering_map`) is what lets a topic with internal gaps split into multiple, more granular clusters instead.
@@ -596,6 +601,8 @@ with MosaicoClient.connect("localhost", 6726) as client:
             for topic_name, clusters in clusters_per_topic.items():
                 print(f"  {topic_name}: {[str(c) for c in clusters]}")
 ```
+
+##### Sequences intersect
 
 * **`intersect()`** merges every topic's query expressions into a single server-side request and returns one `list[TopicCluster]`: the time windows where **all** matched topics were simultaneously satisfying their respective conditions. Unlike the topic-level `intersect()` above — which only compares the topics you explicitly pass in — this always includes every topic belonging to the item(s) it is called on.
 
