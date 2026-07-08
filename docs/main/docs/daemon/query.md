@@ -119,7 +119,7 @@ Queries are submitted as JSON objects. Each field is mapped to an operator and v
 ```json hl_lines="15" {15}
 {
   "sequence": {
-    "name": { "$match": "test_run_%" },
+    "name": { "$match": "test_run_*" },
     "user_metadata": {
       "driver": { "$eq": "Alice" }
     }
@@ -136,11 +136,60 @@ Queries are submitted as JSON objects. Each field is mapped to an operator and v
 
 This query searches for:
 
-- Sequences with names matching `test_run_%` pattern
+- Sequences with names matching `test_run_*` pattern
 - Where the user metadata field `driver` equals `"Alice"`
 - Containing topics with ontology tag `imu`
 - Where the IMU's x-axis acceleration exceeds 5.0
 - And the y-axis acceleration is between -2.0 and 2.0
+
+### User metadata keys
+
+To prevent users from inserting weird user metadata keys, only the following symbols and chars are accepted at creation:
+*  `0-9, a-z, A-Z` _alphanumeric_
+* `-` _minus. No repetitions allowed (e.g. `robot--status`)_
+* `_` _underscore_
+* ` ` _white space_
+
+Inside queries also the following ones are admitted:
+* `*`, this enables glob pattern search on keys
+* `**`, this enables recursive glob pattern search on keys
+
+#### Examples
+
+```json title="query_user_metadata_glob_pattern_example"
+{
+  "robot_id": "bot-v4-092",
+  "status": {
+    "telemetry": {
+      "battery": 84,
+      "temperature": 38.5
+    },
+    "hardware": {
+      "motor_left": "nominal",
+      "motor_right": "nominal"
+    }    
+  },
+  "payload_manifest": {
+    "item_id": "sku-99201",
+    "destination": "bin-c4",
+    "sensors": {
+      "weight_sensor": "active",
+      "laser_scanner": "active",
+      "diagnostics": {
+        "camera_feed": "online"
+      }
+    }
+  }
+}
+```
+
+| Glob Pattern                  | Rule Type               | Description                                                                                                        | Matches Found                                                                                                                                                                             |
+|:------------------------------|:------------------------|:-------------------------------------------------------------------------------------------------------------------|:------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `*`                           | Single Level (`*`)      | Matches top-level keys only.                                                                                       | `"robot_id"`, `"status"`, `"payload_manifest"`                                                                                                                                            |
+| `status.*`                    | Single Level (`*`)      | Matches every single key directly inside the `status` object.                                                      | `status.telemetry`, `status.hardware`                                                                                                                                                     |
+| `payload_manifest.sensors.**` | Deep Recursive (`**`)   | Traverses deeply to capture all keys and nested objects underneath `sensors`.                                      | `payload_manifest.sensors.weight_sensor`, `payload_manifest.sensors.laser_scanner`, `payload_manifest.sensors.diagnostics`, `payload_manifest.sensors.diagnostics.camera_feed`            |
+| `payload_manifest.*.*`        | Positional Single (`*`) | Matches any key that is exactly **two levels down** from the `payload_manifest` root.                              | `payload_manifest.sensors.weight_sensor`, `payload_manifest.sensors.laser_scanner`, `payload_manifest.sensors.diagnostics`                                                                |
+
 
 ## Response Structure
 
