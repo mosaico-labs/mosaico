@@ -188,7 +188,6 @@ impl TryInto<query::Filter> for Query {
 pub struct Ontology {
     #[serde(flatten)]
     filter: HashMap<String, Op>,
-    include_timestamp_range: Option<bool>,
 }
 
 impl Ontology {
@@ -218,12 +217,7 @@ impl TryInto<query::OntologyFilter> for Ontology {
             })
             .collect::<Result<_, _>>()?;
 
-        let include_timestamp_range = self.include_timestamp_range.unwrap_or_default();
-
-        Ok(query::OntologyFilter::new_with_timestamp_range(
-            ontology,
-            include_timestamp_range,
-        ))
+        Ok(query::OntologyFilter::new(ontology))
     }
 }
 

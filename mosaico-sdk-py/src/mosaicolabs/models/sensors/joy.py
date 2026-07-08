@@ -23,6 +23,8 @@ class Joy(
         header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
+    # FIXME: Update this docstring with queryability of list fiends,
+    # and add example scripts for querying such field
     Joystick data cannot be queried via the `.Q` proxy since list fields are not supported yet.
     """
 
@@ -33,6 +35,8 @@ class Joy(
     Continuous axis values of the joystick.
 
     ### Querying with the **`.Q` Proxy**
+    # FIXME: Update this docstring with queryability of list fiends,
+    # and add example scripts for querying such field
     The axes field is not queryable via the `.Q` proxy (lists are not supported yet).
     """
 
@@ -43,5 +47,7 @@ class Joy(
     Discrete button states (1 = pressed, 0 = released).
 
     ### Querying with the **`.Q` Proxy**
+    # FIXME: Update this docstring with queryability of list fiends,
+    # and add example scripts for querying such field
     The buttons field is not queryable via the `.Q` proxy (lists are not supported yet).
     """

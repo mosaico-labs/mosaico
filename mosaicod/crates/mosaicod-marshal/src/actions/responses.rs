@@ -81,9 +81,6 @@ pub struct Query {
 pub struct ResponseQueryItemTopic {
     pub locator: String,
     pub ontology_tag: String,
-    /// Timestamp range will be omitted from the output if it is None.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub timestamp_range: Option<(i64, i64)>,
 }
 
 impl From<(types::TopicLocator, String)> for ResponseQueryItemTopic {
@@ -91,10 +88,6 @@ impl From<(types::TopicLocator, String)> for ResponseQueryItemTopic {
         Self {
             locator: value.0.to_string(),
             ontology_tag: value.1,
-            timestamp_range: value
-                .0
-                .timestamp_range
-                .map(|e| (e.start.into(), e.end.into())),
         }
     }
 }
@@ -228,11 +221,7 @@ mod tests {
             (
                 "my_sequence/topic1/subtopic"
                     .parse::<types::TopicLocator>()
-                    .unwrap()
-                    .with_timestamp_range(types::TimestampRange {
-                        start: 1000.into(),
-                        end: 1001.into(),
-                    }),
+                    .unwrap(),
                 "dummy_ontology".to_owned(),
             ),
             (
@@ -250,7 +239,7 @@ mod tests {
 
         dbg!(body.to_string());
 
-        let response_raw = r#"{"sequence":"my_sequence","topics":[{"locator":"my_sequence/topic1/subtopic","ontology_tag":"dummy_ontology","timestamp_range":[1000,1001]},{"locator":"my_sequence/topic2/subtopic","ontology_tag":"dummy_ontology"}]}"#;
+        let response_raw = r#"{"sequence":"my_sequence","topics":[{"locator":"my_sequence/topic1/subtopic","ontology_tag":"dummy_ontology"},{"locator":"my_sequence/topic2/subtopic","ontology_tag":"dummy_ontology"}]}"#;
 
         let body_serialized = body.to_string();
 

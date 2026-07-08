@@ -56,9 +56,6 @@ fn has_invalid_symbols(value: &str, others: Option<&[char]>) -> bool {
 pub const TOPIC_FOLDER_PREFIX: &str = "tp_";
 
 /// Uniquely identifies a topic resource and an optional time-based filter.
-///
-/// This locator combines a string-based path (`locator`) with an optional
-/// [`TimestampRange`] to specify a subset of data within the topic.
 #[derive(Debug, Clone)]
 pub struct TopicLocator {
     /// The unique string identifier for the sequence (e.g., `my_sequence`).
@@ -66,16 +63,6 @@ pub struct TopicLocator {
 
     /// Topic name (it does not contain the sequence nor the '/' separator, e.g. my/topic).
     name: String,
-
-    /// An optional time range to filter data within the topic.
-    pub timestamp_range: Option<TimestampRange>,
-}
-
-impl TopicLocator {
-    pub fn with_timestamp_range(mut self, ts: TimestampRange) -> Self {
-        self.timestamp_range = Some(ts);
-        self
-    }
 }
 
 impl Locator for TopicLocator {
@@ -110,7 +97,6 @@ impl FromStr for TopicLocator {
         Ok(Self {
             sequence,
             name: topic_part.to_owned(),
-            timestamp_range: None,
         })
     }
 }
