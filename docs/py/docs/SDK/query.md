@@ -422,18 +422,50 @@ The following table lists the supported operators for each data type:
 | **Boolean** | `.eq(True/False)` |
 | **Dictionary** | `.eq()`, `.lt()`, `.leq()`, `.gt()`, `.geq()`, `.between()`, `.ex()`|
 
-#### Supported vs. Unsupported Types
+#### Supported Types
 
 While the `.Q` proxy is highly versatile, it enforces specific rules on which data structures can be queried:
 
-* **Supported Types**: The proxy resolves all simple (int, float, str, bool) or composed types (like `Vector3d` or `Quaternion`). It will continue to expose nested fields as long as they lead to a primitive base type.
-FIXME: @fdicorato is this still the case?
+* **Composed Types**: The proxy resolves all simple (int, float, str, bool) or composed types (like `Vector3d` or `Quaternion`). It will continue to expose nested fields as long as they lead to a primitive base type.
 * **Dictionaries**: Dynamic fields, i.e. derived from dictionaries in the ontology models, are fully queryable through the proxy using bracket notation (e.g., `<DataModel>.Q.dict_field["key"]` or `<DataModel>.Q.dict_field["key.subkey.subsubkey"]`). This approach provides the flexibility to search across custom tags and dynamic properties that aren't part of a fixed schema. This dictionary-based querying logic applies to any **custom ontology model** created by the user that contains a `dict` field.
     * **Syntax**: Instead of the standard dot notation used for fixed fields, you must use square brackets `["key"]` to target specific dictionary entries.
     * **Nested Access**: For dictionaries containing nested structures, you can use **dot notation within the key string** (e.g., `["environment.visibility"]`) to traverse sub-fields.
     * **Operator Support**: Because dictionary values are dynamic, these fields are "promiscuous," meaning they support mixed numeric, string, and boolean operators without strict SDK-level type checking.
+* **Lists**: Fields defined as a `List` (e.g. `positions: List[float]`) are fully queryable — see [Querying List Fields](#querying-list-fields) below.
 
-* **Unsupported Types (Lists and Tuples)**: Any field defined as a container, such as a **List** or **Tuple** (e.g., `covariance: List[float]`), is currently skipped by the proxy generator. These fields will not appear in autocomplete and cannot be used in a query expression.
+#### Querying List Fields
+
+List fields **can't be compared directly**. The proxy requires narrowing the list to a single element first, using one of three quantifiers, before chaining a regular operator for the element's type:
+
+| Quantifier | Meaning |
+| --- | --- |
+| `.any()` | Matches if **at least one** element satisfies the condition |
+| `.all()` | Matches if **every** element satisfies the condition |
+| `[i]` | Targets the element at a specific index, e.g. `[0]` |
+
+**Example** Finding robots that ever reported a specific joint name
+
+```python
+from mosaicolabs import MosaicoClient, QueryOntologyCatalog, RobotJoint
+
+with MosaicoClient.connect("localhost", 6726) as client:
+    qresponse = client.query(
+        QueryOntologyCatalog(RobotJoint.Q.names.any().eq("shoulder_pan_joint"))
+    )
+
+    if qresponse is not None:
+        for item in qresponse:
+            print(f"Sequence: {item.sequence.name}")
+            print(f"Topics: {[topic.name for topic in item.topics]}")
+```
+
+`.all()` and `[i]` follow the same pattern, e.g. `RobotJoint.Q.efforts.all().leq(50.0)` (every joint within a safe effort limit) or `RobotJoint.Q.positions[0].gt(1.0)` (first joint's position).
+
+!!! note
+    A quantifier or index alone (`.any()`, `.all()`, `[i]`) is not a complete filter, it only narrows the path to a single element. A terminal operator (`.eq()`, `.gt()`, `.match()`, ...) must always be chained afterwards to form a valid expression.
+
+??? question "API Reference"
+    [`mosaicolabs.models.sensors.RobotJoint`][mosaicolabs.models.sensors.RobotJoint--querying-with-the-q-proxy]
 
 ### Temporal Windows
 
