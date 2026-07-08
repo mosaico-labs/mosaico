@@ -9,7 +9,7 @@ from testing.integration.config import UPLOADED_SEQUENCE_NAME
 def default_extractor_config(
     host,
     port,
-    api_key_mgmt,
+    api_key_manage,
     with_tls,
     tls_cert_path,
     tmp_path,
@@ -20,7 +20,7 @@ def default_extractor_config(
         host=host,
         port=port,
         ros_distro=Stores.LATEST,
-        mosaico_api_key=api_key_mgmt,
+        mosaico_api_key=api_key_manage,
         tls_cert_path=tls_cert_path,
         enable_tls=with_tls,
         overwrite=True,

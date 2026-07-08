@@ -115,8 +115,7 @@ class ROSExtractorConfig:
     """
     The API key for authentication on the mosaico server. Defaults to None.
     
-    If provided it must be have at least [`APIKeyPermissionEnum.Write`][mosaicolabs.enum.APIKeyPermissionEnum.Write]
-    permission.
+    If provided it must be have the `write` permission.
     """
 
     tls_cert_path: Optional[str] = None

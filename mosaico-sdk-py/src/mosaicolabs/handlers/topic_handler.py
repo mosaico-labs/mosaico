@@ -119,6 +119,8 @@ class TopicHandler:
                 topic_name=topic_name,
                 client=client,
             )
+        except fl.FlightUnauthorizedError as e:
+            raise e
         except Exception as e:
             logger.error(
                 f"Server error (get_flight_info) while asking for Topic descriptor (in TopicHandler), '{e}'"
