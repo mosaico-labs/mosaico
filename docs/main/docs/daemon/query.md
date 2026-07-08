@@ -86,22 +86,30 @@ A **plain list** column (no specifier) can be compared as a whole with `$eq` / `
 
 The query engine supports a rich set of comparison operators. Each operator is prefixed with `$` in the JSON syntax:
 
-| Operator | Description |
-| --- | --- |
-| `$eq` | Equal to (supports all types) |
-| `$neq` | Not equal to (supports all types) |
-| `$lt` | Less than (numeric and timestamp only) |
-| `$gt` | Greater than (numeric and timestamp only) |
-| `$leq` | Less than or equal to (numeric and timestamp only) |
-| `$geq` | Greater than or equal to (numeric and timestamp only) |
-| `$between` | Within a range `[min, max]` inclusive (numeric and timestamp only) |
+| Operator | Description                                                                                                                                                                                                        |
+| --- |--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `$eq` | Equal to (supports all types)                                                                                                                                                                                      |
+| `$neq` | Not equal to (supports all types)                                                                                                                                                                                  |
+| `$lt` | Less than (numeric and timestamp only)                                                                                                                                                                             |
+| `$gt` | Greater than (numeric and timestamp only)                                                                                                                                                                          |
+| `$leq` | Less than or equal to (numeric and timestamp only)                                                                                                                                                                 |
+| `$geq` | Greater than or equal to (numeric and timestamp only)                                                                                                                                                              |
+| `$between` | Within a range `[min, max]` inclusive (numeric and timestamp only)                                                                                                                                                 |
 | `$in` | Matches when the field equals **any** value in the list, e.g. `{ "$in": [1, 5, 9] }`. Supports numeric and text values; a single-element list behaves like `$eq`. Lists mixing different value types are rejected. |
-| `$match` | Matches a POSIX regular expression (text only). Applies to `sequence.name`, `topic.name`, textual user metadata, and textual ontology fields. |
-| `$ex` | Field exists (the column is present). |
-| `$nex` | Field does not exist. |
+| `$match` | Matches a pattern (wildcards allowed). Applies to `sequence.name`, `topic.name`, textual user metadata, and textual ontology fields.                                                                               |
+| `$ex` | Field exists (the column is present).                                                                                                                                                                              |
+| `$nex` | Field does not exist.                                                                                                                                                                                              |
 
 :::note
 `$ex` and `$nex` take no value: they are written as a bare string, e.g. `"imu.acceleration.x": "$ex"`. All other operators are written as an object, e.g. `"imu.acceleration.x": { "$gt": 5.0 }`.
+:::
+
+:::note
+The pattern syntax allowed by the `$match` operator accepts the following wildcards:
+*  `*` matches a multiple (zero or more) characters, including space.
+*  `?` matches a single (exactly one) characters, including space.
+*  `[]` matches a character set. Examples: [aeiou] to match any vocals, or [a-z] to match a range
+*  `#` matches any single digit (0 — 9). Shortcut for [0-9]
 :::
 
 ## Syntax
