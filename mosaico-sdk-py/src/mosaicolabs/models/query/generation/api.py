@@ -90,20 +90,23 @@ class _QueryProxy:
         ```
     """
 
-    def __init__(self, full_path: str, field_map: Dict[str, Any]):
+    def __init__(
+        self, full_path: str, field_schema: Union[Dict[str, pa.DataType], pa.DataType]
+    ):
         """
         Initializes the dynamic proxy.
 
         Args:
             full_path (str): The query path *so far* (e.g., "GPS" or "GPS.position").
-            field_map (Dict[str, Any]): A nested dict of valid child fields.
-                - Values are _QueryableField for simple fields.
+            field_schema (Union[Dict[str, pa.DataType], pa.DataType]): A nested schema of
+                valid child fields.
+                - Values are pa.DataType for simple fields.
                 - Values are other dicts for nested structs.
         """
         # Use mangled names (double underscore) to hide them from __getattr__
         # and prevent recursion loops.
         self.__path__ = full_path
-        self.__map__ = field_map
+        self.__schema__ = field_schema
 
     def _create_queriable_field(
         self, full_path: str, field_type: pa.DataType
@@ -159,8 +162,8 @@ class _QueryProxy:
         ):
             raise ValueError(f"{list_expression} operation is not supported for lists")
 
-        # Check that current map is a List (either QueryableList or pa.ListType)
-        if not isinstance(self.__map__, (_QueryableList, pa.ListType)):
+        # Check that current schema is a List (either QueryableList or pa.ListType)
+        if not isinstance(self.__schema__, (_QueryableList, pa.ListType)):
             raise TypeError(
                 f"Field '{self.__path__}' is not a list. Cannot be indexed."
             )
@@ -171,22 +174,22 @@ class _QueryProxy:
         # Here two cases can happen:
         #   1) List contains a complex struct -> return a QueryProxy downcasting the _QueryableList to dict and allow dot notiation to work
         #   2) List contains a basic type -> create queryable field
-        if isinstance(self.__map__, _QueryableList):
+        if isinstance(self.__schema__, _QueryableList):
             return _QueryProxy(
                 full_path=path_w_list_expr,
-                field_map=dict(
-                    self.__map__
-                ),  # Downcast __map__ to avoid confusing it as a _QueryableList
+                field_schema=dict(
+                    self.__schema__
+                ),  # Downcast __schema__ to avoid confusing it as a _QueryableList
             )
-        elif isinstance(self.__map__, pa.ListType):
-            field_type = self.__map__.value_type
+        elif isinstance(self.__schema__, pa.ListType):
+            field_type = self.__schema__.value_type
             queriable_field = self._create_queriable_field(path_w_list_expr, field_type)
 
             return queriable_field
 
         else:  # this should not be possible
             raise TypeError(
-                f"{self.__map__} is not a {pa.ListType.__name__} or {_QueryableList.__name__}"
+                f"{self.__schema__} is not a {pa.ListType.__name__} or {_QueryableList.__name__}"
             )
 
     def __getattr__(self, name: str) -> Any:
@@ -201,32 +204,32 @@ class _QueryProxy:
             _QueryableField for a simple field.
 
         Raises:
-            AttributeError: If the 'name' is not a valid field in the map,
+            AttributeError: If the 'name' is not a valid field in the schema,
                             providing a helpful error message.
         """
 
-        if isinstance(self.__map__, (pa.ListType, _QueryableList)):
+        if isinstance(self.__schema__, (pa.ListType, _QueryableList)):
             raise AttributeError(
                 f"Field '{self.__path__}' is a list. "
                 f"Use .any(), .all(), or [i] to select elements before accessing sub-fields."
             )
 
-        if name not in self.__map__:
+        if name not in self.__schema__:
             # Attribute is invalid. Raise a helpful error.
             raise AttributeError(
                 f"Invalid field '{name}' for path '{self.__path__}'. "
                 f"Available fields: {self.queryable_fields}"
             )
 
-        # Retrieve the child object from the map
-        child = self.__map__[name]
+        # Retrieve the child object from the schema
+        child = self.__schema__[name]
 
         if isinstance(child, (dict, pa.ListType)):
             # This is a nested struct (e.g., 'position').
             # Return a *new* QueryProxy instance for this deeper path.
             return _QueryProxy(
                 full_path=f"{self.__path__}.{name}",  # e.g., "gps.position"
-                field_map=child,  # The nested field map
+                field_schema=child,  # The nested field schema
             )
         else:
             # This is a simple field (a _QueryableField instance).
@@ -308,15 +311,19 @@ class _QueryProxy:
     @property
     def queryable_fields(self):
         result = []
-        for key, val in self.__map__.items():
-            if isinstance(
-                val, (dict, pa.ListType)
-            ):  # nested struct, _QueryableList or pa.ListType
-                result.append(key)
-            elif isinstance(val, pa.DataType):  # (pa.DataType, expr_cls)
-                field_type = val
-                if _pyarrow_to_queryable(field_type) is not _QueryableUnsupported:
+        if isinstance(self.__schema__, dict):
+            for key, val in self.__schema__.items():
+                if isinstance(
+                    val, (dict, pa.ListType)
+                ):  # nested struct, _QueryableList or pa.ListType
                     result.append(key)
+                elif isinstance(val, pa.DataType):  # (pa.DataType, expr_cls)
+                    field_type = val
+                    if _pyarrow_to_queryable(field_type) is not _QueryableUnsupported:
+                        result.append(key)
+
+        else:
+            result.append(self.__schema__)
         return result
 
     @property
@@ -324,7 +331,7 @@ class _QueryProxy:
         """
         Returns the schema of the queryable fields supported by this mapping.
 
-        The schema mirrors the hierarchical structure of ``self.__map__``. Nested
+        The schema mirrors the hierarchical structure of ``self.__schema__``. Nested
         mappings are represented as nested dictionaries, while leaf nodes are
         represented as tuples containing the names of the supported Python types for
         that field.
@@ -333,7 +340,7 @@ class _QueryProxy:
             A nested dictionary describing the queryable structure. Intermediate
             nodes are dictionaries, and leaf nodes are tuples of type names.
         """
-        return self._infer_queryable_schema(self.__map__)
+        return self._infer_queryable_schema(self.__schema__)
 
     def _infer_queryable_schema(self, obj):
         """
@@ -391,8 +398,8 @@ class _QueryProxyMixin:
         Static helper to build and inject the .Q query proxy.
         This is called by the default case or by custom subclasses.
         """
-        # Build the nested field map using the provided mapper
-        query_prefix, field_map = mapper.build_map(
+        # Build the nested field schema using the provided mapper
+        query_prefix, field_schema = mapper.build_schema(
             class_type,
             path_prefix=query_prefix,
         )
@@ -400,7 +407,7 @@ class _QueryProxyMixin:
         # Create the root QueryProxy instance
         root_proxy = _QueryProxy(
             full_path=query_prefix,
-            field_map=field_map,
+            field_schema=field_schema,
         )
 
         # Attach the live proxy instance to the class

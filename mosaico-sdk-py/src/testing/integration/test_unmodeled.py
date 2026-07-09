@@ -6,6 +6,8 @@ from mosaicolabs.enum.session_level_error_policy import SessionLevelErrorPolicy
 from mosaicolabs.models.core.helpers import resolve_ontology_class
 from mosaicolabs.models.core.message import Message
 from mosaicolabs.models.core.unmodeled import Unmodeled, make_unmodeled_ontology_class
+from mosaicolabs.models.query.builders import QueryOntologyCatalog
+from mosaicolabs.models.query.queryable_fields import QueryableNumeric
 
 UnmodeledGyro = make_unmodeled_ontology_class(
     "UnmodeledGyro",
@@ -225,6 +227,43 @@ def test_unmodeled_schema_variant_ingestion_and_retrieval(
         data = msg.get_data(Unmodeled)
         assert data is not None
         assert data.raw_data["temperature"]["humidity"] == 55.0
+
+        # This would return seq_v1 only
+        query_resp = mosaico_client.query(
+            QueryOntologyCatalog().with_expression(
+                QueryableNumeric(f"{_VARIANT_BASE_TAG}.temperature.celsius").lt(22.0)
+            )
+        )
+        assert query_resp is not None and not query_resp.is_empty()
+        assert len(query_resp) == 1
+        assert query_resp[0].sequence.name == seq_v1
+
+        # This would return seq_v1 and seq_v2
+        query_resp = mosaico_client.query(
+            QueryOntologyCatalog().with_expression(
+                QueryableNumeric(f"{_VARIANT_BASE_TAG}.temperature.celsius").gt(20)
+            )
+        )
+        assert query_resp is not None and not query_resp.is_empty()
+        assert len(query_resp) == 2
+        assert all(q.sequence.name in (seq_v1, seq_v2) for q in query_resp)
+
+        # Try the same queries using the class wrappers
+        # This would return seq_v1 only
+        query_resp = mosaico_client.query(
+            QueryOntologyCatalog().with_expression(ClsV1.Q.temperature.celsius.lt(22))
+        )
+        assert query_resp is not None and not query_resp.is_empty()
+        assert len(query_resp) == 1
+        assert query_resp[0].sequence.name == seq_v1
+
+        # This would return seq_v1 and seq_v2
+        query_resp = mosaico_client.query(
+            QueryOntologyCatalog().with_expression(ClsV1.Q.temperature.celsius.gt(20))
+        )
+        assert query_resp is not None and not query_resp.is_empty()
+        assert len(query_resp) == 2
+        assert all(q.sequence.name in (seq_v1, seq_v2) for q in query_resp)
 
         # Free resources
         mosaico_client.sequence_delete(seq_v1)

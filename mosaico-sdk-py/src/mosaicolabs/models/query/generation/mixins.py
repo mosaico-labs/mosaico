@@ -407,10 +407,10 @@ class _QueryableField:
     AND all general-purpose helper methods.
     """
 
-    __slots__ = ("full_path", "_expr_cls")
+    __slots__ = ("_full_path", "_expr_cls")
 
     def __init__(self, full_path: str, expr_cls: Type[_QueryExpression]):
-        self.full_path = full_path
+        self._full_path = full_path
         self._expr_cls = expr_cls
 
     # --- Core Implementation ---
@@ -419,7 +419,7 @@ class _QueryableField:
         """
         Internal helper to create an atomic comparison expression.
         """
-        return self._expr_cls(self.full_path, op, value)
+        return self._expr_cls(self._full_path, op, value)
 
     def _transform_value(self, value: Any) -> Any:
         """
