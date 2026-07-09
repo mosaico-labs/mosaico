@@ -31,14 +31,15 @@ def test_mosaico_has_null_handler(pristine_mosaico_logger):
     )
 
 
-def test_logs_are_generated_but_swallowed(pristine_mosaico_logger, caplog):
+def test_logs_are_generated_but_swallowed(pristine_mosaico_logger, capsys):
     test_logger = get_logger("mosaicolabs.internal")
+    test_logger.setLevel(logging.DEBUG)
 
-    with caplog.at_level(logging.DEBUG):
-        test_logger.debug("Internal diagnostic message")
+    test_logger.debug("Internal diagnostic message")
 
-    assert caplog.text == ""
-    assert len(caplog.records) == 0
+    captured = capsys.readouterr()
+    assert captured.err == ""
+    assert captured.out == ""
 
 
 # --- These override the NullHandler: must be called after the null_handler tests

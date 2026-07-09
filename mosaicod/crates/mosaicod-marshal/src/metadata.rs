@@ -10,7 +10,7 @@ fn valid_key(key: &str) -> bool {
         && !key.contains("--")
         && key
             .bytes()
-            .all(|b| b.is_ascii_alphanumeric() || [b' ', b'_', b'-'].contains(&b))
+            .all(|b| b.is_ascii_alphanumeric() || b" _-".contains(&b))
 }
 
 fn find_invalid_keys(v: &serde_json::Value) -> Option<&str> {

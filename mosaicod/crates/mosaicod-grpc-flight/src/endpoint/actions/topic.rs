@@ -149,7 +149,7 @@ pub async fn query_by_timestamp(
     // Check if filter tag is registered before execute query
     for filter_tag in ontology_filter.ontology_tags() {
         if filter_tag != topic_tag {
-            return Err(core::Error::unsupported_ontology_type(format!(
+            Err(core::Error::unsupported_ontology_type(format!(
                 "wrong ontology tag {filter_tag}, topic uses {topic_tag}"
             )))?;
         }
@@ -208,7 +208,7 @@ async fn spawn_cluster_stream(
 ) -> grpc_common::Result<ReceiverStream<ClusteringResult>> {
     // Check at least one ontology filter is present
     if ontology.is_empty() {
-        return Err(core::Error::bad_request(format!(
+        Err(core::Error::bad_request(format!(
             "At least 1 filtering condition is required, found {}",
             ontology.len()
         )))?;
@@ -294,7 +294,7 @@ pub async fn filter_intersect(
     info!("filter intersect for {} topics", topics.len());
 
     if topics.len() < 2 {
-        return Err(core::Error::bad_request(
+        Err(core::Error::bad_request(
             "at least 2 topics are required".to_string(),
         ))?;
     }
@@ -312,7 +312,7 @@ pub async fn filter_intersect(
     let first_seq = &locators[0].sequence;
     for loc in &locators[1..] {
         if loc.sequence != *first_seq {
-            return Err(core::Error::bad_request(format!(
+            Err(core::Error::bad_request(format!(
                 "all topics must belong to sequence {first_seq}, but {loc} belongs to {}",
                 loc.sequence
             )))?;

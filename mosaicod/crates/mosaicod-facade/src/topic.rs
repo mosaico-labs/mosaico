@@ -415,7 +415,7 @@ pub async fn writer(
         );
         let deleted = db::topic_delete_path_in_store(&mut cx, topic_record.topic_id).await?;
         if !deleted {
-            return Err(core::Error::not_found(topic_record.locator().to_string()))?;
+            Err(core::Error::not_found(topic_record.locator().to_string()))?;
         }
         return Err(e);
     }
@@ -594,7 +594,7 @@ impl HandleWriter {
 
         // Check if topic has already been uploaded and finalized.
         if let Status::Finalized = internal::status(&topic_record).await? {
-            return Err(core::Error::topic_already_finalized(
+            Err(core::Error::topic_already_finalized(
                 topic_locator.to_string(),
             ))?;
         }
