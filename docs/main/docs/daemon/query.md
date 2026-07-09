@@ -159,6 +159,7 @@ Inside queries also the following ones are admitted:
 ```json title="query_user_metadata_glob_pattern_example"
 {
   "robot_id": "bot-v4-092",
+  "tags": ["warehouse-alpha", "heavy-duty", "fleet-3"],
   "status": {
     "telemetry": {
       "battery": 84,
@@ -169,6 +170,16 @@ Inside queries also the following ones are admitted:
       "motor_right": "nominal"
     }    
   },
+  "logs": [
+    {
+      "id": 1,
+      "message": "boot success"
+    },
+    {
+      "id": 2,
+      "message": "lidar calibrated"
+    }
+  ],
   "payload_manifest": {
     "item_id": "sku-99201",
     "destination": "bin-c4",
@@ -183,12 +194,14 @@ Inside queries also the following ones are admitted:
 }
 ```
 
-| Glob Pattern                  | Rule Type               | Description                                                                                                        | Matches Found                                                                                                                                                                             |
-|:------------------------------|:------------------------|:-------------------------------------------------------------------------------------------------------------------|:------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `*`                           | Single Level (`*`)      | Matches top-level keys only.                                                                                       | `"robot_id"`, `"status"`, `"payload_manifest"`                                                                                                                                            |
-| `status.*`                    | Single Level (`*`)      | Matches every single key directly inside the `status` object.                                                      | `status.telemetry`, `status.hardware`                                                                                                                                                     |
-| `payload_manifest.sensors.**` | Deep Recursive (`**`)   | Traverses deeply to capture all keys and nested objects underneath `sensors`.                                      | `payload_manifest.sensors.weight_sensor`, `payload_manifest.sensors.laser_scanner`, `payload_manifest.sensors.diagnostics`, `payload_manifest.sensors.diagnostics.camera_feed`            |
-| `payload_manifest.*.*`        | Positional Single (`*`) | Matches any key that is exactly **two levels down** from the `payload_manifest` root.                              | `payload_manifest.sensors.weight_sensor`, `payload_manifest.sensors.laser_scanner`, `payload_manifest.sensors.diagnostics`                                                                |
+| Glob Pattern                  | Rule Type                | Description                                                                           | Matches Found                                                                                                                                                                  |
+|:------------------------------|:-------------------------|:--------------------------------------------------------------------------------------|:-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `*`                           | Single Level (`*`)       | Matches top-level keys only.                                                          | `robot_id`, `status`, `payload_manifest`                                                                                                                                       |
+| `status.*`                    | Single Level (`*`)       | Matches every single key directly inside the `status` object.                         | `status.telemetry`, `status.hardware`                                                                                                                                          |
+| `payload_manifest.sensors.**` | Deep Recursive (`**`)    | Traverses deeply to capture all keys and nested objects underneath `sensors`.         | `payload_manifest.sensors.weight_sensor`, `payload_manifest.sensors.laser_scanner`, `payload_manifest.sensors.diagnostics`, `payload_manifest.sensors.diagnostics.camera_feed` |
+| `payload_manifest.*.*`        | Positional Single (`*`)  | Matches any key that is exactly **two levels down** from the `payload_manifest` root. | `payload_manifest.sensors.weight_sensor`, `payload_manifest.sensors.laser_scanner`, `payload_manifest.sensors.diagnostics`                                                     |
+| `tags[*]`                     | Array flattining (`[*]`) | Matches all elements inside the `tags` array.                                         | `"warehouse-alpha"`, `"heavy-duty"`, `"fleet-3"`                                                                                                                               |
+| `logs[*].id`                  | Array flattining (`[*]`) | Matches all objects inside the `logs` array containing an `id` key.                   | `logs[0].id`, `logs[1].id`                                                                                                                                                     |
 
 
 ## Response Structure
