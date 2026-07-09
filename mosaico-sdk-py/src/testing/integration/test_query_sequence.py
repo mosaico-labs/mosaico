@@ -32,7 +32,9 @@ def test_query_sequence_by_name(
     # Query by partial name (operator should be a match)
     n_char = int(len(UPLOADED_SEQUENCE_NAME) / 2)  # half the length
     query_resp = mosaico_client.query(
-        QuerySequence().with_name_match(UPLOADED_SEQUENCE_NAME[:n_char])
+        QuerySequence().with_name_match(
+            UPLOADED_SEQUENCE_NAME[:n_char] + "[a-z]-[a-z]*"
+        )
     )
     # We do expect a successful query
     assert query_resp is not None and not query_resp.is_empty()

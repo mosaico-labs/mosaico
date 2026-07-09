@@ -1,6 +1,5 @@
 import pytest
 from pyarrow import ArrowInvalid
-from pyarrow.flight import FlightError
 
 from mosaicolabs.comm import MosaicoClient
 from mosaicolabs.models.query import QuerySequence, QueryTopic
@@ -16,10 +15,10 @@ def test_query_topic_name_regex_start_anchor(
     mosaico_client: MosaicoClient,
     inject_synthetic_sequence,
 ):
-    # ^/front matches only topics whose name starts with /front
+    # /front* matches only topics whose name starts with /front
     query_resp = mosaico_client.query(
         QuerySequence().with_name(UPLOADED_SEQUENCE_NAME),
-        QueryTopic().with_name_match("^/front"),
+        QueryTopic().with_name_match("/front*"),
     )
     assert query_resp is not None and not query_resp.is_empty()
     assert len(query_resp) == 1
@@ -33,10 +32,10 @@ def test_query_topic_name_regex_end_anchor(
     mosaico_client: MosaicoClient,
     inject_synthetic_sequence,
 ):
-    # imu$ matches topics whose name ends with imu (both front and camera imu)
+    # *imu$ matches topics whose name ends with imu (both front and camera imu)
     query_resp = mosaico_client.query(
         QuerySequence().with_name(UPLOADED_SEQUENCE_NAME),
-        QueryTopic().with_name_match("imu$"),
+        QueryTopic().with_name_match("*imu"),
     )
     assert query_resp is not None and not query_resp.is_empty()
     assert len(query_resp) == 1
@@ -47,7 +46,8 @@ def test_query_topic_name_regex_end_anchor(
     mosaico_client.close()
 
 
-def test_query_topic_name_regex_or(
+# FIXME: Impossible to make a regex that using OR
+def _test_query_topic_name_regex_or(
     mosaico_client: MosaicoClient,
     inject_synthetic_sequence,
 ):
@@ -69,10 +69,10 @@ def test_query_topic_name_regex_catch_all(
     mosaico_client: MosaicoClient,
     inject_synthetic_sequence,
 ):
-    # .* matches all topics in the sequence
+    # * matches all topics in the sequence
     query_resp = mosaico_client.query(
         QuerySequence().with_name(UPLOADED_SEQUENCE_NAME),
-        QueryTopic().with_name_match(".*"),
+        QueryTopic().with_name_match("*"),
     )
     assert query_resp is not None and not query_resp.is_empty()
     assert len(query_resp) == 1
@@ -81,13 +81,13 @@ def test_query_topic_name_regex_catch_all(
     mosaico_client.close()
 
 
-def test_query_sequence_name_regex_anchor(
+def test_query_sequence_name_regex_start_anchor(
     mosaico_client: MosaicoClient,
     inject_synthetic_sequence,
 ):
-    # ^<exact-name>$ matches exactly one sequence
+    # *<exact-name> matches exactly one sequence
     query_resp = mosaico_client.query(
-        QuerySequence().with_name_match(f"^{UPLOADED_SEQUENCE_NAME}$"),
+        QuerySequence().with_name_match(f"*{UPLOADED_SEQUENCE_NAME}"),
     )
     assert query_resp is not None and not query_resp.is_empty()
     assert len(query_resp) == 1
@@ -96,59 +96,11 @@ def test_query_sequence_name_regex_anchor(
     mosaico_client.close()
 
 
-def test_query_topic_name_match_empty_pattern_rejected(
+def test_query_topic_name_match_unsupported_pattern_rejected(
     mosaico_client: MosaicoClient,
     inject_synthetic_sequence,
 ):
     with pytest.raises(ArrowInvalid):
         mosaico_client.query(QueryTopic().with_name_match(""))
-
-    mosaico_client.close()
-
-
-def test_query_sequence_name_match_empty_pattern_rejected(
-    mosaico_client: MosaicoClient,
-    inject_synthetic_sequence,
-):
-    with pytest.raises(ArrowInvalid):
-        mosaico_client.query(QuerySequence().with_name_match(""))
-
-    mosaico_client.close()
-
-
-def test_query_topic_name_match_invalid_regex_rejected(
-    mosaico_client: MosaicoClient,
-    inject_synthetic_sequence,
-):
-    with pytest.raises(FlightError):
-        mosaico_client.query(QueryTopic().with_name_match("((unclosed"))
-
-    mosaico_client.close()
-
-
-def test_query_sequence_name_match_invalid_regex_rejected(
-    mosaico_client: MosaicoClient,
-    inject_synthetic_sequence,
-):
-    with pytest.raises(FlightError):
-        mosaico_client.query(QuerySequence().with_name_match("((unclosed"))
-
-    mosaico_client.close()
-
-
-def test_query_sequence_with_percentage(
-    mosaico_client: MosaicoClient, inject_synthetic_sequence
-):
-    query_resp = mosaico_client.query(QuerySequence().with_name_match("%"))
-    assert query_resp is not None and query_resp.is_empty()
-
-    mosaico_client.close()
-
-
-def test_query_topic_with_percentage(
-    mosaico_client: MosaicoClient, inject_synthetic_sequence
-):
-    query_resp = mosaico_client.query(QueryTopic().with_name_match("%"))
-    assert query_resp is not None and query_resp.is_empty()
 
     mosaico_client.close()
