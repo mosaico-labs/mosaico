@@ -36,6 +36,19 @@ async fn test_sequence_create(pool: sqlx::Pool<db::DatabaseType>) -> sqlx::Resul
         tonic::Code::InvalidArgument
     );
 
+    // Check invalid key in metadata json.
+    assert_eq!(
+        actions::sequence_create(
+            &mut client,
+            "test_malformed_sequence",
+            Some(r#"{"invalid--key": "dummy"}"#)
+        )
+        .await
+        .unwrap_err()
+        .code(),
+        tonic::Code::InvalidArgument
+    );
+
     server.shutdown().await;
     Ok(())
 }

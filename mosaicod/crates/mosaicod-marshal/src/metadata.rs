@@ -47,10 +47,7 @@ impl MetadataBlob for JsonMetadataBlob {
             serde_json::from_str(v).map_err(|e| Error::DeserializationError(e.to_string()))?;
 
         if let Some(invalid_key) = find_invalid_keys(&json) {
-            return Err(Error::DeserializationError(format!(
-                "Found invalid key in json: {}",
-                invalid_key
-            )));
+            return Err(Error::InvalidJsonKey(invalid_key.to_owned()));
         }
 
         Ok(JsonMetadataBlob(json))
@@ -402,10 +399,10 @@ mod tests {
 
         // Verify our custom validation error message is firing correctly
         match result {
-            Err(Error::DeserializationError(msg)) => {
-                assert_eq!(msg, "Found invalid key in json: broken--key");
+            Err(Error::InvalidJsonKey(msg)) => {
+                assert_eq!(msg, "broken--key");
             }
-            _ => panic!("Expected Error::DeserializationError with our custom validation message"),
+            _ => panic!("Expected Error::InvalidJsonKey with our custom validation message"),
         }
     }
 

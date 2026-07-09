@@ -66,6 +66,20 @@ async fn test_topic_create(pool: sqlx::Pool<db::DatabaseType>) -> sqlx::Result<(
         tonic::Code::InvalidArgument
     );
 
+    // Create topic with invalid key in metadata should give an InvalidArgument error.
+    assert_eq!(
+        actions::topic_create(
+            &mut client,
+            &session_uuid,
+            "test_sequence/my_topic",
+            Some(r#"{"invalid--key": "dummy"}"#)
+        )
+        .await
+        .unwrap_err()
+        .code(),
+        tonic::Code::InvalidArgument
+    );
+
     // Trying to create a topic inside an already finalized session should return a FailedPrecondition error.
     let batches = vec![ext::arrow::testing::dummy_batch()];
 
