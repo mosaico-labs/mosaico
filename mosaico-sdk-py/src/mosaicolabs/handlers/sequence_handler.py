@@ -146,6 +146,8 @@ class SequenceHandler:
             flight_info, _stzd_sequence_name = SequenceHandler._get_flight_info(
                 client=client, sequence_name=sequence_name
             )
+        except fl.FlightUnauthorizedError as e:
+            raise e
         except Exception as e:
             logger.error(
                 f"Server error (get_flight_info) while asking for Sequence descriptor, '{e}'"

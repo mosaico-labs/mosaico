@@ -1,7 +1,6 @@
 import pytest
 
 from mosaicolabs.comm import MosaicoClient
-from mosaicolabs.enum.api_key_permission import APIKeyPermissionEnum
 from testing.integration.helpers import (
     DataStreamItem,
     SequenceDataStream,
@@ -22,51 +21,15 @@ from .config import (
 )
 
 
-@pytest.fixture(scope="session")
-def api_keys_list(host, port, with_auth, api_key_mgmt):
-    if with_auth:
-        api_keys_list = []
-        with MosaicoClient.connect(
-            host=host, port=port, api_key=api_key_mgmt
-        ) as _client:
-            r_key = _client.api_key_create(
-                APIKeyPermissionEnum.Read, description="read-only-api-key"
-            )
-            assert r_key is not None
-            api_keys_list.append((r_key, APIKeyPermissionEnum.Read))
-
-            w_key = _client.api_key_create(
-                APIKeyPermissionEnum.Write, description="write-api-key"
-            )
-            assert w_key is not None
-            api_keys_list.append((w_key, APIKeyPermissionEnum.Write))
-
-            d_key = _client.api_key_create(
-                APIKeyPermissionEnum.Delete, description="delete-api-key"
-            )
-            assert d_key is not None
-            api_keys_list.append((d_key, APIKeyPermissionEnum.Delete))
-
-            m_key = _client.api_key_create(
-                APIKeyPermissionEnum.Manage, description="manage-api-key"
-            )
-            assert m_key is not None
-            api_keys_list.append((m_key, APIKeyPermissionEnum.Manage))
-
-            return api_keys_list
-
-    return None
-
-
 @pytest.fixture(scope="function")
-def mosaico_client(host, port, tls_cert_path, compression, api_key_mgmt):
+def mosaico_client(host, port, tls_cert_path, compression, api_key_manage):
     """Open a client connection FOR EACH function using this fixture"""
 
     return MosaicoClient.connect(
         host=host,
         port=port,
         tls_cert_path=tls_cert_path,
-        api_key=api_key_mgmt,
+        api_key=api_key_manage,
         compression=compression,
     )
 
@@ -75,7 +38,7 @@ def mosaico_client(host, port, tls_cert_path, compression, api_key_mgmt):
     scope="session"
 )  # the first who calls this function, wins and avoid this is called multiple times
 def synthetic_sequence_data_stream(
-    host, port, tls_cert_path, compression, api_key_mgmt
+    host, port, tls_cert_path, compression, api_key_manage
 ):
     """Generate synthetic data, create a sequence and pushes messages"""
     start_time_sec = 1700000000
@@ -121,14 +84,19 @@ def synthetic_sequence_data_stream(
 
 @pytest.fixture(scope="session")
 def inject_synthetic_sequence(
-    synthetic_sequence_data_stream, host, port, tls_cert_path, api_key_mgmt, compression
+    synthetic_sequence_data_stream,
+    host,
+    port,
+    tls_cert_path,
+    api_key_manage,
+    compression,
 ):
     """Generate synthetic data, create a sequence and pushes messages"""
     _client = MosaicoClient.connect(
         host=host,
         port=port,
         tls_cert_path=tls_cert_path,
-        api_key=api_key_mgmt,
+        api_key=api_key_manage,
         compression=compression,
     )
 
@@ -156,13 +124,13 @@ def inject_synthetic_sequence(
 
 
 @pytest.fixture(scope="session")
-def inject_mockup_sequences(host, port, tls_cert_path, api_key_mgmt, compression):
+def inject_mockup_sequences(host, port, tls_cert_path, api_key_manage, compression):
     """Generate synthetic data, create a sequence and pushes messages"""
     _client = MosaicoClient.connect(
         host=host,
         port=port,
         tls_cert_path=tls_cert_path,
-        api_key=api_key_mgmt,
+        api_key=api_key_manage,
         compression=compression,
     )
     for sname, sdata in QUERY_SEQUENCES_MOCKUP.items():
@@ -240,7 +208,7 @@ def inject_synthetic_sequence_w_lists(
     host,
     port,
     tls_cert_path,
-    api_key_mgmt,
+    api_key_manage,
     compression,
 ):
     """Generate synthetic data, create a sequence and pushes messages"""
@@ -248,7 +216,7 @@ def inject_synthetic_sequence_w_lists(
         host=host,
         port=port,
         tls_cert_path=tls_cert_path,
-        api_key=api_key_mgmt,
+        api_key=api_key_manage,
         compression=compression,
     )
 

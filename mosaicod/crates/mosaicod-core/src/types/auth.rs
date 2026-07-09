@@ -204,81 +204,108 @@ impl Default for Token {
 // PERMISSIONS
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-/// List of possible permissions associated to an API Key (only one per API Key).
-/// They are arranged in a hierarchy where an element defines its permission and gets also all the permissions from the previous ones:
-/// - **Read**: grants read access to data
-/// - **Write**: grants read and write access to data
-/// - **Delete**: grants read, write and delete access to data
-/// - **Manage**: grants read, write and delete access to data. Plus the authorization to manage other API keys.
+/// A single, independent capability that can be granted to an API Key.
+///
+/// Permissions are granular and non-hierarchical: they are combined explicitly
+/// in a [`Permissions`] set (e.g. `read|write`) and no capability implies
+/// another.
+/// - **Read**: grants only read access to data
+/// - **Write**: grants only write access to data
+/// - **Delete**: grants only delete access to data
 #[repr(u8)]
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Permission {
     Read = 0b0000_0001,
-    Write = 0b0000_0011,
-    Delete = 0b0000_0111,
-    Manage = 0b0000_1111,
+    Write = 0b0000_0010,
+    Delete = 0b0000_0100,
 }
 
-impl Permission {
-    const READ_BIT: u8 = 0b0000_0001;
-    const WRITE_BIT: u8 = 0b0000_0010;
-    const DELETE_BIT: u8 = 0b0000_0100;
-    const MANAGE_BIT: u8 = 0b0000_1000;
+/// A set of granted [`Permission`]s, stored as an independent bitmask.
+///
+/// A valid set always grants at least one capability
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Permissions(u8);
+
+impl Permissions {
+    const ALL: u8 = Permission::Read as u8 | Permission::Write as u8 | Permission::Delete as u8;
+
+    /// Returns a set granting every capability.
+    pub fn all() -> Self {
+        Permissions(Self::ALL)
+    }
 
     pub fn can_read(&self) -> bool {
-        (*self as u8 & Self::READ_BIT) != 0
+        (self.0 & Permission::Read as u8) != 0
     }
 
     pub fn can_write(&self) -> bool {
-        (*self as u8 & Self::WRITE_BIT) != 0
+        (self.0 & Permission::Write as u8) != 0
     }
 
     pub fn can_delete(&self) -> bool {
-        (*self as u8 & Self::DELETE_BIT) != 0
+        (self.0 & Permission::Delete as u8) != 0
     }
 
-    pub fn can_manage(&self) -> bool {
-        (*self as u8 & Self::MANAGE_BIT) != 0
+    pub fn bits(&self) -> u8 {
+        self.0
     }
 }
 
-/// Convert a permission into a string
-impl From<Permission> for String {
+impl From<Permission> for Permissions {
     fn from(value: Permission) -> Self {
-        match value {
-            Permission::Read => String::from("read"),
-            Permission::Write => String::from("write"),
-            Permission::Delete => String::from("delete"),
-            Permission::Manage => String::from("manage"),
-        }
+        Permissions(value as u8)
     }
 }
 
-impl FromStr for Permission {
+impl std::fmt::Display for Permissions {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut p = Vec::new();
+        if self.can_read() {
+            p.push("read");
+        }
+        if self.can_write() {
+            p.push("write");
+        }
+        if self.can_delete() {
+            p.push("delete");
+        }
+        write!(f, "{}", p.join("|"))
+    }
+}
+
+impl FromStr for Permissions {
     type Err = ApiKeyError;
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
-        match value {
-            "read" => Ok(Permission::Read),
-            "write" => Ok(Permission::Write),
-            "delete" => Ok(Permission::Delete),
-            "manage" => Ok(Permission::Manage),
-            _ => Err(ApiKeyError::InvalidStringToPermissionCast),
+        let mut perms: u8 = 0;
+
+        for p in value.split('|') {
+            perms |= match p {
+                "read" => Permission::Read as u8,
+                "write" => Permission::Write as u8,
+                "delete" => Permission::Delete as u8,
+                _ => return Err(ApiKeyError::InvalidStringToPermissionCast),
+            }
         }
+
+        // Every valid token sets a bit, so a non-empty, all-valid input can
+        // never be empty here; the guard in `TryFrom` still enforces the
+        // invariant for any other construction path.
+        Self::try_from(perms)
     }
 }
 
-impl TryFrom<u8> for Permission {
+impl TryFrom<u8> for Permissions {
     type Error = ApiKeyError;
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
-        match value {
-            x if x == Permission::Read as u8 => Ok(Permission::Read),
-            x if x == Permission::Write as u8 => Ok(Permission::Write),
-            x if x == Permission::Delete as u8 => Ok(Permission::Delete),
-            x if x == Permission::Manage as u8 => Ok(Permission::Manage),
-            _ => Err(ApiKeyError::InvalidIntToPermissionCast),
+        if value & !Self::ALL != 0 {
+            return Err(ApiKeyError::InvalidIntToPermissionCast);
         }
+        if value == 0 {
+            return Err(ApiKeyError::MissingPermissions);
+        }
+        Ok(Permissions(value))
     }
 }
 
@@ -294,7 +321,7 @@ pub struct ApiKey {
     pub key: Token,
 
     /// Permissions associated with the scope
-    pub permission: Permission,
+    pub permission: Permissions,
 
     /// Description to keep track of the purpose of the key
     pub description: String,
@@ -309,21 +336,25 @@ pub struct ApiKey {
 impl ApiKey {
     /// Create a new API key
     ///
+    /// Permissions are granular and independent: each one grants only its own
+    /// capability and can be combined explicitly.
+    ///
     /// # Example
     /// ```
-    /// use mosaicod_core::types::{ApiKey, auth::Permission};
+    /// use mosaicod_core::types::{ApiKey, auth::{Permission, Permissions}};
     ///
-    /// // Read permission
-    /// let policy = ApiKey::new(Permission::Read, "dummy key".to_owned(), None);
+    /// // Read-only key.
+    /// let policy = ApiKey::new(Permission::Read.into(), "dummy key".to_owned(), None);
     ///
-    /// // Write permissions (read is implicitly inherited)
+    /// // Combined read + write key (write does NOT imply read).
     /// let policy = ApiKey::new(
-    ///     Permission::Write,
+    ///     "read|write".parse::<Permissions>().unwrap(),
     ///     "dummy key".to_owned(),
-    ///     None
+    ///     None,
     /// );
+    /// ```
     pub fn new(
-        permission: Permission,
+        permission: Permissions,
         description: String,
         expires_at: Option<types::Timestamp>,
     ) -> Self {
@@ -357,42 +388,57 @@ mod tests {
 
     #[test]
     fn test_permissions() {
-        let perm = Permission::Read;
+        let perm = Permissions(Permission::Read as u8);
         assert!(perm.can_read());
         assert!(!perm.can_write());
         assert!(!perm.can_delete());
-        assert!(!perm.can_manage());
 
-        let perm = Permission::Write;
-        assert!(perm.can_read());
+        let perm = Permissions(Permission::Write as u8);
+        assert!(!perm.can_read());
         assert!(perm.can_write());
         assert!(!perm.can_delete());
-        assert!(!perm.can_manage());
 
-        let perm = Permission::Delete;
-        assert!(perm.can_read());
-        assert!(perm.can_write());
+        let perm = Permissions(Permission::Delete as u8);
+        assert!(!perm.can_read());
+        assert!(!perm.can_write());
         assert!(perm.can_delete());
-        assert!(!perm.can_manage());
-
-        let perm = Permission::Manage;
-        assert!(perm.can_read());
-        assert!(perm.can_write());
-        assert!(perm.can_delete());
-        assert!(perm.can_manage());
 
         // Check string-to-permission conversion.
         assert_eq!(
-            "".parse::<Permission>().unwrap_err(),
+            "".parse::<Permissions>().unwrap_err(),
             ApiKeyError::InvalidStringToPermissionCast
         );
-        assert_eq!("read".parse::<Permission>().unwrap(), Permission::Read);
-        assert_eq!("write".parse::<Permission>().unwrap(), Permission::Write);
-        assert_eq!("delete".parse::<Permission>().unwrap(), Permission::Delete);
-        assert_eq!("manage".parse::<Permission>().unwrap(), Permission::Manage);
         assert_eq!(
-            "wrong_string".parse::<Permission>().unwrap_err(),
+            "read".parse::<Permissions>().unwrap(),
+            Permissions(Permission::Read as u8)
+        );
+        assert_eq!(
+            "write".parse::<Permissions>().unwrap(),
+            Permissions(Permission::Write as u8)
+        );
+        assert_eq!(
+            "delete".parse::<Permissions>().unwrap(),
+            Permissions(Permission::Delete as u8)
+        );
+        assert_eq!(
+            "wrong_string".parse::<Permissions>().unwrap_err(),
             ApiKeyError::InvalidStringToPermissionCast
+        );
+
+        // Combined permissions round-trip through Display/FromStr.
+        let combined = "read|write".parse::<Permissions>().unwrap();
+        assert!(combined.can_read() && combined.can_write() && !combined.can_delete());
+        assert_eq!(combined.to_string(), "read|write");
+        assert_eq!(Permissions::all().to_string(), "read|write|delete");
+
+        // The empty set is rejected on every construction path.
+        assert_eq!(
+            Permissions::try_from(0).unwrap_err(),
+            ApiKeyError::MissingPermissions
+        );
+        assert_eq!(
+            Permissions::try_from(0b1000_0000).unwrap_err(),
+            ApiKeyError::InvalidIntToPermissionCast
         );
     }
 
