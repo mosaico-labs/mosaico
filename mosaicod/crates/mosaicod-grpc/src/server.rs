@@ -1,4 +1,4 @@
-use mosaicod_core::{error::PublicResult as Result, params, types::auth::Permissions};
+use mosaicod_core::{error::PublicResult as Result, params, types, types::auth::Permissions};
 use mosaicod_db as db;
 use mosaicod_ext as ext;
 use mosaicod_grpc_common as grpc_common;

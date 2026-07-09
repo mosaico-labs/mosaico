@@ -34,7 +34,7 @@ async fn test_tls_server_with_invalid_cert(pool: sqlx::Pool<db::DatabaseType>) -
         .build()
         .await;
 
-    let res = server.is_shutdown().await;
+    let res = server.is_flight_server_shutdown().await;
     assert!(res);
     Ok(())
 }
@@ -46,7 +46,7 @@ async fn test_tls_server_with_no_cert(pool: sqlx::Pool<db::DatabaseType>) -> sql
         .build()
         .await;
 
-    let res = server.is_shutdown().await;
+    let res = server.is_flight_server_shutdown().await;
     assert!(res);
     Ok(())
 }

@@ -278,6 +278,10 @@ impl Server {
             && self.server_join_handle.2.is_finished()
     }
 
+    pub async fn is_flight_server_shutdown(&self) -> bool {
+        self.server_join_handle.0.is_finished()
+    }
+
     pub fn port(&self) -> u16 {
         self.port
     }
