@@ -13,7 +13,7 @@ impl From<types::ApiKey> for ApiKey {
         Self {
             expired: value.is_expired(),
             description: value.description,
-            permission: value.permission.into(),
+            permission: value.permission.to_string(),
         }
     }
 }

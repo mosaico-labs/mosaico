@@ -221,8 +221,11 @@ run_full_stack_tests() {
     fi
 
     if $GENERATE_API_KEY; then
-        MOSAICO_API_KEY_MANAGE=$(RUST_LOG="" ${MOSAICOD_PATH}/target/debug/mosaicod api-key create -p manage)
-        PYTEST_OPTS="--api-key ${MOSAICO_API_KEY_MANAGE}"
+        MOSAICO_API_KEY_READ=$(RUST_LOG="" ${MOSAICOD_PATH}/target/debug/mosaicod api-key create -p read)
+        MOSAICO_API_KEY_WRITE=$(RUST_LOG="" ${MOSAICOD_PATH}/target/debug/mosaicod api-key create -p write)
+        MOSAICO_API_KEY_DELETE=$(RUST_LOG="" ${MOSAICOD_PATH}/target/debug/mosaicod api-key create -p delete)
+        MOSAICO_API_KEY_MANAGE=$(RUST_LOG="" ${MOSAICOD_PATH}/target/debug/mosaicod api-key create -p "read|write|delete")
+        PYTEST_OPTS="--api-key-read ${MOSAICO_API_KEY_READ} --api-key-write ${MOSAICO_API_KEY_WRITE} --api-key-delete ${MOSAICO_API_KEY_DELETE} --api-key-manage ${MOSAICO_API_KEY_MANAGE}"
     fi
 
     # Start mosaicod

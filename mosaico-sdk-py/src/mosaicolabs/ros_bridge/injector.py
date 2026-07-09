@@ -88,8 +88,7 @@ class ROSInjectionConfig:
             Deafult: None
         log_level (str): Logging verbosity level ("DEBUG", "INFO", "WARNING", "ERROR").
         mosaico_api_key (Optional[str]): The API key for authentication on the mosaico server.
-            If provided it must be have at least [`APIKeyPermissionEnum.Write`][mosaicolabs.enum.APIKeyPermissionEnum.Write]
-            permission.
+            If provided it must be have the `write` permission.
             Default: None
         tls_cert_path (Optional[str]): Path to the TLS certificate file for secure connection on the mosaico server.
             Default: None
@@ -194,8 +193,7 @@ class ROSInjectionConfig:
     """
     The API key for authentication on the mosaico server. Defaults to None.
     
-    If provided it must be have at least [`APIKeyPermissionEnum.Write`][mosaicolabs.enum.APIKeyPermissionEnum.Write]
-    permission.
+    If provided it must be have the `write` permission.
     """
 
     tls_cert_path: Optional[str] = None

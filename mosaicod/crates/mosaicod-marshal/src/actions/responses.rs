@@ -1,7 +1,7 @@
 //! This module defines the formatting structure for
 //! responses.
 
-use mosaicod_core::types::{self, Locator, auth};
+use mosaicod_core::types::{self, Locator};
 use semver;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
@@ -112,42 +112,6 @@ impl From<types::SequenceTopicGroupSet> for Query {
         let vec: Vec<types::SequenceTopicGroup> = value.into();
         Self {
             items: vec.into_iter().map(Into::into).collect(),
-        }
-    }
-}
-
-// ####
-// Api Key
-// ####
-
-#[derive(Serialize, Debug)]
-pub struct ApiKeyToken {
-    pub api_key_token: String,
-}
-
-impl From<auth::Token> for ApiKeyToken {
-    fn from(value: auth::Token) -> Self {
-        Self {
-            api_key_token: value.to_string(),
-        }
-    }
-}
-
-#[derive(Serialize, Debug)]
-pub struct ApiKeyStatus {
-    pub api_key_fingerprint: String,
-    pub description: String,
-    pub created_at_ns: i64,
-    pub expires_at_ns: Option<i64>,
-}
-
-impl From<&auth::ApiKey> for ApiKeyStatus {
-    fn from(value: &auth::ApiKey) -> Self {
-        Self {
-            api_key_fingerprint: value.token().fingerprint().to_string(),
-            description: value.description.clone(),
-            created_at_ns: value.created_at.as_i64(),
-            expires_at_ns: value.expires_at.map(Into::into),
         }
     }
 }
