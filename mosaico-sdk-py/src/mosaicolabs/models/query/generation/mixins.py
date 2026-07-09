@@ -252,13 +252,13 @@ class _QueryableDynamicValue:
         )
         return getattr(self, "_cmp")("$neq", value)
 
-    # TODO: Check with backend guys if those are available
-    # def match(self, value: Any):
-    #     getattr(self, "_validate_value_type")(
-    #         value, _QueryableString.__mixin_supported_types__
-    #     )
-    #     return getattr(self, "_cmp")("$match", value)
+    def match(self, value: Any):
+        getattr(self, "_validate_value_type")(
+            value, _QueryableString.__mixin_supported_types__
+        )
+        return getattr(self, "_cmp")("$match", value)
 
+    # TODO: Check with backend guys if those are available
     # def in_(self, *values: Any):
     #     return getattr(self, "_in")(*values, allowed_types=None)
 

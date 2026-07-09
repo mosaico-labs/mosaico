@@ -369,7 +369,7 @@ class TestQueryableBool:
 
 class TestQueryableDynamic:
     _allowed_types = _ALL_TESTING_TYPES
-    _allowed_unary_operators = ["eq", "neq", "lt", "leq", "gt", "geq"]
+    _allowed_unary_operators = ["eq", "neq", "lt", "leq", "gt", "geq", "match"]
     _allowed_varargs_operators = ["between"]
 
     @pytest.mark.parametrize("value_type", _allowed_types)
@@ -395,6 +395,15 @@ class TestQueryableDynamic:
                 [int, float, str, bool],
                 self._allowed_unary_operators + self._allowed_varargs_operators,
                 ["between"],
+            )
+        if operator in ["match"]:
+            return _test_operators(
+                _QueryableDynamicValue,
+                operator,
+                value_type,
+                [str],
+                self._allowed_unary_operators + self._allowed_varargs_operators,
+                None,
             )
 
 
