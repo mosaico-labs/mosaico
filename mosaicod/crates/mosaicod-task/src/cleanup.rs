@@ -166,17 +166,21 @@ impl Cleanup {
 
         let start_time = chrono::Utc::now();
 
-        let can_start = db::cleanup_log_try_create(
-            &mut self.db.connection(),
+        // The advisory lock and the guarded insert must run on the same connection within the
+        // same transaction, otherwise the lock is released before the insert is guarded by it,
+        // defeating its purpose when multiple servers race to start a cleanup at the same time.
+        let mut tx = self.db.transaction().await?;
+        let created = db::cleanup_log_try_create(
+            &mut tx,
             start_time.timestamp(),
             self.time_interval.num_seconds(),
         )
-        .await?
-        .is_some();
+        .await?;
+        tx.commit().await?;
 
-        if !can_start {
+        let Some(cleanup_log) = created else {
             return Ok(stats);
-        }
+        };
 
         let root_subfolders = self.store.list_subfolders("").await?;
 
@@ -201,6 +205,7 @@ impl Cleanup {
 
         db::cleanup_log_close(
             &mut self.db.connection(),
+            cleanup_log.cleanup_id,
             chrono::Utc::now().timestamp(),
             &stats.marked_folders,
             &stats.deleted_folders,

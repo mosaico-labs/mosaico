@@ -13,7 +13,11 @@ pub async fn cleanup_log_try_create(
         start_unix_tstamp_secs
     );
 
-    // Acquire a transaction-level advisory lock to prevent race conditions.
+    // Acquire a transaction-level advisory lock to prevent race conditions. The caller must run
+    // this on a connection held open for the duration of a single transaction (see `AsExec` impl
+    // for `Tx`): if run through a bare pooled connection, each statement below is auto-committed
+    // separately, and the lock is released before the guarded insert even runs, allowing two
+    // concurrent callers to both observe "no recent cleanup" and race to insert.
     sqlx::query!("SELECT pg_advisory_xact_lock(777777)")
         .execute(exe.as_exec())
         .await?;
@@ -73,28 +77,30 @@ pub async fn cleanup_log_latest(
     Ok(cleanup_log_history(exe, 1).await?.into_iter().next())
 }
 
-/// Closes the currently running cleanup log setting its end timestamp.
+/// Closes the given cleanup log entry, setting its end timestamp.
 ///
-/// Returns False if the last log was already closed, True otherwise.
+/// Returns False if the log was already closed, True otherwise.
 pub async fn cleanup_log_close(
     exe: &mut impl AsExec,
+    cleanup_id: i32,
     end_unix_tstamp_secs: i64,
     marked_folders: &Vec<String>,
     deleted_folders: &Vec<String>,
     failed_folders: &Vec<(String, String)>,
 ) -> Result<bool, Error> {
     trace!(
-        "closing last cleanup log. End timestamp: `{}`",
-        end_unix_tstamp_secs
+        "closing cleanup log {}. End timestamp: `{}`",
+        cleanup_id, end_unix_tstamp_secs
     );
     let res = sqlx::query!(
         "UPDATE cleanup_log_t
          SET end_unix_tstamp_secs = $1, marked_folders = $2, deleted_folders = $3, failed_folders = $4
-         WHERE cleanup_id = (SELECT cleanup_id FROM cleanup_log_t ORDER BY cleanup_id DESC LIMIT 1) AND end_unix_tstamp_secs IS NULL",
+         WHERE cleanup_id = $5 AND end_unix_tstamp_secs IS NULL",
         end_unix_tstamp_secs,
         serde_json::to_value(marked_folders)?,
         serde_json::to_value(deleted_folders)?,
         serde_json::to_value(failed_folders)?,
+        cleanup_id,
     )
     .execute(exe.as_exec())
     .await?;
@@ -172,9 +178,16 @@ mod tests {
 
         let end_unix_ts = chrono::Utc::now().timestamp();
         assert!(
-            cleanup_log_close(&mut cx, end_unix_ts, &vec![], &vec![], &vec![])
-                .await
-                .unwrap()
+            cleanup_log_close(
+                &mut cx,
+                record.cleanup_id,
+                end_unix_ts,
+                &vec![],
+                &vec![],
+                &vec![]
+            )
+            .await
+            .unwrap()
         );
 
         let latest_log = cleanup_log_latest(&mut cx).await.unwrap().unwrap();
@@ -194,16 +207,24 @@ mod tests {
 
         let start_unix_ts = chrono::Utc::now().timestamp();
 
-        cleanup_log_try_create(&mut cx, start_unix_ts, 0)
+        let record = cleanup_log_try_create(&mut cx, start_unix_ts, 0)
             .await
+            .unwrap()
             .unwrap();
         tokio::time::sleep(std::time::Duration::from_millis(200)).await;
 
         let end_unix_ts = chrono::Utc::now().timestamp();
         assert!(
-            cleanup_log_close(&mut cx, end_unix_ts, &vec![], &vec![], &vec![])
-                .await
-                .unwrap()
+            cleanup_log_close(
+                &mut cx,
+                record.cleanup_id,
+                end_unix_ts,
+                &vec![],
+                &vec![],
+                &vec![]
+            )
+            .await
+            .unwrap()
         );
 
         let latest_log = cleanup_log_latest(&mut cx).await.unwrap().unwrap();
