@@ -14,7 +14,356 @@ from testing.integration.config import (
 )
 
 
+class TestMetadataOperations:
+    """
+    Tests for metadata supported operations ($eq, $neq, $in_, $lt, $leq,
+    $gt, $geq, $between, $ex) except $match.
+    """
+
+    # $eq operation
+    def test_query_metadata_eq(
+        self,
+        mosaico_client: MosaicoClient,
+        inject_synthetic_sequence,
+    ):
+        query_resp = mosaico_client.query(
+            QuerySequence().with_name(UPLOADED_SEQUENCE_NAME),
+            QueryTopic().with_user_metadata("update_rate_hz", eq=200),
+        )
+
+        assert query_resp is not None and not query_resp.is_empty()
+        assert len(query_resp) == 1
+        assert len(query_resp[0].topics) == 1
+        assert query_resp[0].topics[0].name == UPLOADED_IMU_FRONT_TOPIC
+
+        mosaico_client.close()
+
+    def test_query_metadata_eq_no_return(
+        self,
+        mosaico_client: MosaicoClient,
+        inject_synthetic_sequence,
+    ):
+        query_resp = mosaico_client.query(
+            QuerySequence().with_name(UPLOADED_SEQUENCE_NAME),
+            QueryTopic().with_user_metadata("update_rate_hz", eq=999),
+        )
+
+        assert query_resp is not None and query_resp.is_empty()
+
+        mosaico_client.close()
+
+    # $neq operation
+    def test_query_metadata_neq(
+        self,
+        mosaico_client: MosaicoClient,
+        inject_synthetic_sequence,
+    ):
+        query_resp = mosaico_client.query(
+            QuerySequence().with_name(UPLOADED_SEQUENCE_NAME),
+            QueryTopic().with_user_metadata("status", neq="inactive"),
+        )
+
+        assert query_resp is not None and not query_resp.is_empty()
+        assert len(query_resp) == 1
+
+        expected_topic_names = [
+            UPLOADED_IMU_FRONT_TOPIC,
+            UPLOADED_IMU_CAMERA_TOPIC,
+            UPLOADED_GPS_TOPIC,
+            UPLOADED_MAGNETOMETER_TOPIC,
+        ]
+        assert len(query_resp[0].topics) == len(expected_topic_names)
+
+        for topic in query_resp[0].topics:
+            assert topic.name in expected_topic_names
+
+        mosaico_client.close()
+
+    def test_query_metadata_neq_no_return(
+        self,
+        mosaico_client: MosaicoClient,
+        inject_synthetic_sequence,
+    ):
+        query_resp = mosaico_client.query(
+            QuerySequence().with_name(UPLOADED_SEQUENCE_NAME),
+            QueryTopic().with_user_metadata("status", neq="active"),
+        )
+
+        assert query_resp is not None and query_resp.is_empty()
+
+        mosaico_client.close()
+
+    # $in_ operation
+    def test_query_metadata_in(
+        self,
+        mosaico_client: MosaicoClient,
+        inject_synthetic_sequence,
+    ):
+        query_resp = mosaico_client.query(
+            QuerySequence().with_name(UPLOADED_SEQUENCE_NAME),
+            QueryTopic().with_user_metadata("update_rate_hz", in_=[10, 200, 400]),
+        )
+
+        assert query_resp is not None and not query_resp.is_empty()
+        assert len(query_resp) == 1
+
+        expected_topic_names = [
+            UPLOADED_IMU_FRONT_TOPIC,
+            UPLOADED_IMU_CAMERA_TOPIC,
+            UPLOADED_GPS_TOPIC,
+        ]
+        assert len(query_resp[0].topics) == len(expected_topic_names)
+
+        for topic in query_resp[0].topics:
+            assert topic.name in expected_topic_names
+
+        mosaico_client.close()
+
+    def test_query_metadata_in_no_return(
+        self,
+        mosaico_client: MosaicoClient,
+        inject_synthetic_sequence,
+    ):
+        query_resp = mosaico_client.query(
+            QuerySequence().with_name(UPLOADED_SEQUENCE_NAME),
+            QueryTopic().with_user_metadata("update_rate_hz", in_=[0, 50, 600]),
+        )
+
+        assert query_resp is not None and query_resp.is_empty()
+
+        mosaico_client.close()
+
+    # $lt operation
+    def test_query_metadata_lt(
+        self,
+        mosaico_client: MosaicoClient,
+        inject_synthetic_sequence,
+    ):
+        query_resp = mosaico_client.query(
+            QuerySequence().with_name(UPLOADED_SEQUENCE_NAME),
+            QueryTopic().with_user_metadata("update_rate_hz", lt=150),
+        )
+
+        assert query_resp is not None and not query_resp.is_empty()
+        assert len(query_resp) == 1
+
+        expected_topic_names = [
+            UPLOADED_GPS_TOPIC,
+            UPLOADED_MAGNETOMETER_TOPIC,
+        ]
+        assert len(query_resp[0].topics) == len(expected_topic_names)
+
+        for topic in query_resp[0].topics:
+            assert topic.name in expected_topic_names
+
+        mosaico_client.close()
+
+    def test_query_metadata_lt_no_return(
+        self,
+        mosaico_client: MosaicoClient,
+        inject_synthetic_sequence,
+    ):
+        query_resp = mosaico_client.query(
+            QuerySequence().with_name(UPLOADED_SEQUENCE_NAME),
+            QueryTopic().with_user_metadata("update_rate_hz", lt=10),
+        )
+
+        assert query_resp is not None and query_resp.is_empty()
+
+        mosaico_client.close()
+
+    # $leq operation
+    def test_query_metadata_leq(
+        self,
+        mosaico_client: MosaicoClient,
+        inject_synthetic_sequence,
+    ):
+        query_resp = mosaico_client.query(
+            QuerySequence().with_name(UPLOADED_SEQUENCE_NAME),
+            QueryTopic().with_user_metadata("update_rate_hz", leq=100),
+        )
+
+        assert query_resp is not None and not query_resp.is_empty()
+        assert len(query_resp) == 1
+
+        expected_topic_names = [
+            UPLOADED_GPS_TOPIC,
+            UPLOADED_MAGNETOMETER_TOPIC,
+        ]
+        assert len(query_resp[0].topics) == len(expected_topic_names)
+
+        for topic in query_resp[0].topics:
+            assert topic.name in expected_topic_names
+
+        mosaico_client.close()
+
+    def test_query_metadata_leq_no_return(
+        self,
+        mosaico_client: MosaicoClient,
+        inject_synthetic_sequence,
+    ):
+        query_resp = mosaico_client.query(
+            QuerySequence().with_name(UPLOADED_SEQUENCE_NAME),
+            QueryTopic().with_user_metadata("update_rate_hz", leq=9),
+        )
+
+        assert query_resp is not None and query_resp.is_empty()
+
+        mosaico_client.close()
+
+    # $gt operation
+    def test_query_metadata_gt(
+        self,
+        mosaico_client: MosaicoClient,
+        inject_synthetic_sequence,
+    ):
+        query_resp = mosaico_client.query(
+            QuerySequence().with_name(UPLOADED_SEQUENCE_NAME),
+            QueryTopic().with_user_metadata("update_rate_hz", gt=150),
+        )
+
+        assert query_resp is not None and not query_resp.is_empty()
+        assert len(query_resp) == 1
+
+        expected_topic_names = [
+            UPLOADED_IMU_FRONT_TOPIC,
+            UPLOADED_IMU_CAMERA_TOPIC,
+        ]
+        assert len(query_resp[0].topics) == len(expected_topic_names)
+
+        for topic in query_resp[0].topics:
+            assert topic.name in expected_topic_names
+
+        mosaico_client.close()
+
+    def test_query_metadata_gt_no_return(
+        self,
+        mosaico_client: MosaicoClient,
+        inject_synthetic_sequence,
+    ):
+        query_resp = mosaico_client.query(
+            QuerySequence().with_name(UPLOADED_SEQUENCE_NAME),
+            QueryTopic().with_user_metadata("update_rate_hz", gt=400),
+        )
+
+        assert query_resp is not None and query_resp.is_empty()
+
+        mosaico_client.close()
+
+    # $geq operation
+    def test_query_metadata_geq(
+        self,
+        mosaico_client: MosaicoClient,
+        inject_synthetic_sequence,
+    ):
+        query_resp = mosaico_client.query(
+            QuerySequence().with_name(UPLOADED_SEQUENCE_NAME),
+            QueryTopic().with_user_metadata("update_rate_hz", geq=200),
+        )
+
+        assert query_resp is not None and not query_resp.is_empty()
+        assert len(query_resp) == 1
+
+        expected_topic_names = [
+            UPLOADED_IMU_FRONT_TOPIC,
+            UPLOADED_IMU_CAMERA_TOPIC,
+        ]
+        assert len(query_resp[0].topics) == len(expected_topic_names)
+
+        for topic in query_resp[0].topics:
+            assert topic.name in expected_topic_names
+
+        mosaico_client.close()
+
+    def test_query_metadata_geq_no_return(
+        self,
+        mosaico_client: MosaicoClient,
+        inject_synthetic_sequence,
+    ):
+        query_resp = mosaico_client.query(
+            QuerySequence().with_name(UPLOADED_SEQUENCE_NAME),
+            QueryTopic().with_user_metadata("update_rate_hz", geq=401),
+        )
+
+        assert query_resp is not None and query_resp.is_empty()
+
+        mosaico_client.close()
+
+    # $between operation
+    def test_query_metadata_between(
+        self,
+        mosaico_client: MosaicoClient,
+        inject_synthetic_sequence,
+    ):
+        query_resp = mosaico_client.query(
+            QuerySequence().with_name(UPLOADED_SEQUENCE_NAME),
+            QueryTopic().with_user_metadata("update_rate_hz", between=[50, 300]),
+        )
+
+        assert query_resp is not None and not query_resp.is_empty()
+        assert len(query_resp) == 1
+
+        expected_topic_names = [
+            UPLOADED_IMU_FRONT_TOPIC,
+            UPLOADED_MAGNETOMETER_TOPIC,
+        ]
+        assert len(query_resp[0].topics) == len(expected_topic_names)
+
+        for topic in query_resp[0].topics:
+            assert topic.name in expected_topic_names
+
+        mosaico_client.close()
+
+    def test_query_metadata_between_no_return(
+        self,
+        mosaico_client: MosaicoClient,
+        inject_synthetic_sequence,
+    ):
+        query_resp = mosaico_client.query(
+            QuerySequence().with_name(UPLOADED_SEQUENCE_NAME),
+            QueryTopic().with_user_metadata("update_rate_hz", between=[500, 600]),
+        )
+
+        assert query_resp is not None and query_resp.is_empty()
+
+        mosaico_client.close()
+
+    # $ex operation
+    def test_query_metadata_ex(
+        self,
+        mosaico_client: MosaicoClient,
+        inject_synthetic_sequence,
+    ):
+        query_resp = mosaico_client.query(
+            QuerySequence().with_name(UPLOADED_SEQUENCE_NAME),
+            QueryTopic().with_user_metadata("accuracy_m", ex=True),
+        )
+
+        assert query_resp is not None and not query_resp.is_empty()
+        assert len(query_resp) == 1
+        assert len(query_resp[0].topics) == 1
+        assert query_resp[0].topics[0].name == UPLOADED_GPS_TOPIC
+
+        mosaico_client.close()
+
+    def test_query_metadata_ex_no_return(
+        self,
+        mosaico_client: MosaicoClient,
+        inject_synthetic_sequence,
+    ):
+        query_resp = mosaico_client.query(
+            QuerySequence().with_name(UPLOADED_SEQUENCE_NAME),
+            QueryTopic().with_user_metadata("nonexistent_key", ex=True),
+        )
+
+        assert query_resp is not None and query_resp.is_empty()
+
+        mosaico_client.close()
+
+
 class TestMetadataValueRegEx:
+    """Tests for metadata $match operation + RegEx for metadata and sequence + topic"""
+
     def test_query_topic_name_regex_start_anchor(
         self,
         mosaico_client: MosaicoClient,
@@ -45,29 +394,6 @@ class TestMetadataValueRegEx:
         assert query_resp is not None and not query_resp.is_empty()
         assert len(query_resp) == 1
         expected = [UPLOADED_IMU_FRONT_TOPIC, UPLOADED_IMU_CAMERA_TOPIC]
-        assert len(query_resp[0].topics) == len(expected)
-        assert all(t.name in expected for t in query_resp[0].topics)
-
-        mosaico_client.close()
-
-    # FIXME: Impossible to make a regex that using OR
-    def _test_query_topic_name_regex_or(
-        self,
-        mosaico_client: MosaicoClient,
-        inject_synthetic_sequence,
-    ):
-        # (imu|gps) matches topics containing either imu or gps
-        query_resp = mosaico_client.query(
-            QuerySequence().with_name(UPLOADED_SEQUENCE_NAME),
-            QueryTopic().with_name_match("(imu|gps)"),
-        )
-        assert query_resp is not None and not query_resp.is_empty()
-        assert len(query_resp) == 1
-        expected = [
-            UPLOADED_IMU_FRONT_TOPIC,
-            UPLOADED_IMU_CAMERA_TOPIC,
-            UPLOADED_GPS_TOPIC,
-        ]
         assert len(query_resp[0].topics) == len(expected)
         assert all(t.name in expected for t in query_resp[0].topics)
 
