@@ -170,17 +170,21 @@ impl Cleanup {
         // same transaction, otherwise the lock is released before the insert is guarded by it,
         // defeating its purpose when multiple servers race to start a cleanup at the same time.
         let mut tx = self.db.transaction().await?;
-        let created = db::cleanup_log_try_create(
-            &mut tx,
-            start_time.timestamp(),
-            self.time_interval.num_seconds(),
-        )
-        .await?;
-        tx.commit().await?;
 
-        let Some(cleanup_log) = created else {
+        db::acquire_transaction_lock(&mut tx, 777777).await?;
+
+        let latest_cleanup_log = db::cleanup_log_latest(&mut tx).await?;
+
+        if latest_cleanup_log.is_some_and(|cleanup| {
+            start_time.timestamp()
+                < cleanup.start_datetime().timestamp() + self.time_interval.num_seconds()
+        }) {
             return Ok(stats);
-        };
+        }
+
+        let cleanup_log = db::cleanup_log_create(&mut tx, start_time.timestamp()).await?;
+
+        tx.commit().await?;
 
         let root_subfolders = self.store.list_subfolders("").await?;
 
