@@ -1,3 +1,5 @@
+use crate::types;
+
 /// A trait for errors that can be safely exposed to external clients.
 ///
 /// `PublicError` serves as a translation layer between internal system failures
@@ -109,6 +111,8 @@ pub enum ErrorKind {
     BadLocator(String),
     #[error("{0} is not a valid UUID")]
     BadUuid(String),
+    #[error("{0} is not a valid timestamp range")]
+    BadTimestampRange(String),
     #[error("Bad request: {0}")]
     BadRequest(String),
     #[error("Bad header: {0}")]
@@ -141,6 +145,8 @@ pub enum ErrorKind {
     Internal(String),
     #[error("Invalid fingerprint `{0}`")]
     InvalidFingerprint(String),
+    #[error("Unsupported ontology type `{0}`")]
+    UnsupportedOntologyType(String),
 }
 
 #[derive(Debug, Clone)]
@@ -205,6 +211,10 @@ impl Error {
 
     pub fn bad_uuid(uuid: String) -> Self {
         Self(ErrorKind::BadUuid(uuid))
+    }
+
+    pub fn bad_timestamp_range(ts_range: types::TimestampRange) -> Self {
+        Self(ErrorKind::BadTimestampRange(ts_range.to_string()))
     }
 
     pub fn bad_request(msg: String) -> Self {
@@ -278,6 +288,10 @@ impl Error {
 
     pub fn invalid_fingerprint(fingerprint: String) -> Self {
         Self(ErrorKind::InvalidFingerprint(fingerprint))
+    }
+
+    pub fn unsupported_ontology_type(ontology_type: String) -> Self {
+        Self(ErrorKind::UnsupportedOntologyType(ontology_type))
     }
 }
 

@@ -50,20 +50,7 @@ class IMU(
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # Filter for a specific component value and extract the first and last occurrence times
-            qresponse = client.query(
-                QueryOntologyCatalog(IMU.Q.acceleration.x.gt(15.0), include_timestamp_range=True)
-                .with_expression(IMU.Q.angular_velocity.z.gt(1.0)),
-            )
-
-            # Inspect the response
-            if qresponse is not None:
-                # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
-                    print(f"Sequence: {item.sequence.name}")
-                    print(f"Topics: {{topic.name:
-                                [topic.timestamp_range.start, topic.timestamp_range.end]
-                                for topic in item.topics}}")
+            # FIXME: Add here example for timestamp exytraction and clustering
         ```
     """
 
@@ -99,19 +86,7 @@ class IMU(
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # Filter for a specific component value and extract the first and last occurrence times
-            qresponse = client.query(
-                QueryOntologyCatalog(IMU.Q.acceleration.z.gt(19.6), include_timestamp_range=True)
-            )
-
-            # Inspect the response
-            if qresponse is not None:
-                # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
-                    print(f"Sequence: {item.sequence.name}")
-                    print(f"Topics: {{topic.name:
-                                [topic.timestamp_range.start, topic.timestamp_range.end]
-                                for topic in item.topics}}")
+            # FIXME: Add here example for timestamp exytraction and clustering
         ```
     """
 
@@ -147,19 +122,7 @@ class IMU(
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # Filter for a specific component value and extract the first and last occurrence times
-            qresponse = client.query(
-                QueryOntologyCatalog(IMU.Q.angular_velocity.z.gt(1.0), include_timestamp_range=True)
-            )
-
-            # Inspect the response
-            if qresponse is not None:
-                # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
-                    print(f"Sequence: {item.sequence.name}")
-                    print(f"Topics: {{topic.name:
-                                [topic.timestamp_range.start, topic.timestamp_range.end]
-                                for topic in item.topics}}")
+            # FIXME: Add here example for timestamp exytraction and clustering
         ```
     """
 
@@ -197,18 +160,6 @@ class IMU(
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # Filter for a specific component value and extract the first and last occurrence times
-            qresponse = client.query(
-                QueryOntologyCatalog(IMU.Q.orientation.z.gt(0.707), include_timestamp_range=True)
-            )
-
-            # Inspect the response
-            if qresponse is not None:
-                # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
-                    print(f"Sequence: {item.sequence.name}")
-                    print(f"Topics: {{topic.name:
-                                [topic.timestamp_range.start, topic.timestamp_range.end]
-                                for topic in item.topics}}")
+            # FIXME: Add here example for timestamp exytraction and clustering
         ```
     """

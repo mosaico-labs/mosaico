@@ -1,7 +1,7 @@
 //! This module defines the formatting structure for
 //! responses.
 
-use mosaicod_core::types::{self, Locator, auth};
+use mosaicod_core::types::{self, Locator};
 use semver;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
@@ -80,18 +80,14 @@ pub struct Query {
 #[derive(Serialize, Debug)]
 pub struct ResponseQueryItemTopic {
     pub locator: String,
-    /// Timestamp range will be omitted from the output if it is None.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub timestamp_range: Option<(i64, i64)>,
+    pub ontology_tag: String,
 }
 
-impl From<types::TopicLocator> for ResponseQueryItemTopic {
-    fn from(value: types::TopicLocator) -> Self {
+impl From<(types::TopicLocator, String)> for ResponseQueryItemTopic {
+    fn from(value: (types::TopicLocator, String)) -> Self {
         Self {
-            locator: value.to_string(),
-            timestamp_range: value
-                .timestamp_range
-                .map(|e| (e.start.into(), e.end.into())),
+            locator: value.0.to_string(),
+            ontology_tag: value.1,
         }
     }
 }
@@ -116,42 +112,6 @@ impl From<types::SequenceTopicGroupSet> for Query {
         let vec: Vec<types::SequenceTopicGroup> = value.into();
         Self {
             items: vec.into_iter().map(Into::into).collect(),
-        }
-    }
-}
-
-// ####
-// Api Key
-// ####
-
-#[derive(Serialize, Debug)]
-pub struct ApiKeyToken {
-    pub api_key_token: String,
-}
-
-impl From<auth::Token> for ApiKeyToken {
-    fn from(value: auth::Token) -> Self {
-        Self {
-            api_key_token: value.to_string(),
-        }
-    }
-}
-
-#[derive(Serialize, Debug)]
-pub struct ApiKeyStatus {
-    pub api_key_fingerprint: String,
-    pub description: String,
-    pub created_at_ns: i64,
-    pub expires_at_ns: Option<i64>,
-}
-
-impl From<&auth::ApiKey> for ApiKeyStatus {
-    fn from(value: &auth::ApiKey) -> Self {
-        Self {
-            api_key_fingerprint: value.token().fingerprint().to_string(),
-            description: value.description.clone(),
-            created_at_ns: value.created_at.as_i64(),
-            expires_at_ns: value.expires_at.map(Into::into),
         }
     }
 }
@@ -222,16 +182,18 @@ mod tests {
     fn response_query_item() {
         let sequence = "my_sequence".parse().unwrap();
         let topics = vec![
-            "my_sequence/topic1/subtopic"
-                .parse::<types::TopicLocator>()
-                .unwrap()
-                .with_timestamp_range(types::TimestampRange {
-                    start: 1000.into(),
-                    end: 1001.into(),
-                }),
-            "my_sequence/topic2/subtopic"
-                .parse::<types::TopicLocator>()
-                .unwrap(),
+            (
+                "my_sequence/topic1/subtopic"
+                    .parse::<types::TopicLocator>()
+                    .unwrap(),
+                "dummy_ontology".to_owned(),
+            ),
+            (
+                "my_sequence/topic2/subtopic"
+                    .parse::<types::TopicLocator>()
+                    .unwrap(),
+                "dummy_ontology".to_owned(),
+            ),
         ];
 
         let group = types::SequenceTopicGroup::new(sequence, topics);
@@ -241,12 +203,13 @@ mod tests {
 
         dbg!(body.to_string());
 
-        let response_raw = r#"{"sequence":"my_sequence","topics":[{"locator":"my_sequence/topic1/subtopic","timestamp_range":[1000,1001]},{"locator":"my_sequence/topic2/subtopic"}]}"#;
+        let response_raw = r#"{"sequence":"my_sequence","topics":[{"locator":"my_sequence/topic1/subtopic","ontology_tag":"dummy_ontology"},{"locator":"my_sequence/topic2/subtopic","ontology_tag":"dummy_ontology"}]}"#;
 
         let body_serialized = body.to_string();
 
-        if body_serialized != response_raw {
-            panic!("wrong response\nexpecting:\n{response_raw}\ngot\n{body_serialized}");
-        }
+        assert_eq!(
+            body_serialized, response_raw,
+            "wrong response\nexpecting:\n{response_raw}\ngot\n{body_serialized}"
+        );
     }
 }

@@ -3,6 +3,7 @@
 # ======================================================================
 import pytest
 
+from mosaicolabs.models.data import RobotPath
 from mosaicolabs.models.query import (
     Query,
     QueryOntologyCatalog,
@@ -22,8 +23,10 @@ from mosaicolabs.models.sensors import (
     Magnetometer,
     Pressure,
     Range,
+    RobotJoint,
     Temperature,
 )
+from mosaicolabs.ros_bridge.data_ontology import FrameTransform
 
 
 class TestQueryIMUAPI:
@@ -816,3 +819,222 @@ class TestQueryRangeAPI:
         # range > max_range
         with pytest.raises(ValueError):
             Range(field_of_view=30, min_range=0, max_range=1, range=2, radiation_type=0)
+
+
+class TestQueryRobotJoint:
+    def test_list(self):
+        assert isinstance(RobotJoint.Q.positions[0], _QueryableNumeric)
+        assert isinstance(RobotJoint.Q.positions.any(), _QueryableNumeric)
+        assert isinstance(RobotJoint.Q.positions.all(), _QueryableNumeric)
+        assert isinstance(RobotJoint.Q.names[0], _QueryableString)
+        assert isinstance(RobotJoint.Q.names.any(), _QueryableString)
+        assert isinstance(RobotJoint.Q.names.all(), _QueryableString)
+
+        with pytest.raises(
+            AttributeError, match="Field 'robot_joint.names' is a list."
+        ):
+            RobotJoint.Q.names.field
+
+        expr = RobotJoint.Q.positions[0].eq(0)
+        assert expr.key == "robot_joint.positions[0]"
+        assert expr.op == "$eq"
+        assert expr.value == 0
+
+        expr = RobotJoint.Q.positions.all().eq(0)
+        assert expr.key == "robot_joint.positions[!]"
+        assert expr.op == "$eq"
+        assert expr.value == 0
+
+        expr = RobotJoint.Q.positions.any().eq(0)
+        assert expr.key == "robot_joint.positions[?]"
+        assert expr.op == "$eq"
+        assert expr.value == 0
+
+
+class TestQueryRobotPath:
+    def test_list(self):
+        assert isinstance(RobotPath.Q.poses[0].position.x, _QueryableNumeric)
+        assert isinstance(RobotPath.Q.poses[0].position.y, _QueryableNumeric)
+        assert isinstance(RobotPath.Q.poses[0].position.z, _QueryableNumeric)
+        assert isinstance(RobotPath.Q.poses[0].orientation.x, _QueryableNumeric)
+        assert isinstance(RobotPath.Q.poses[0].orientation.y, _QueryableNumeric)
+        assert isinstance(RobotPath.Q.poses[0].orientation.z, _QueryableNumeric)
+        assert isinstance(RobotPath.Q.poses[0].orientation.w, _QueryableNumeric)
+
+        assert isinstance(RobotPath.Q.poses.any().position.x, _QueryableNumeric)
+        assert isinstance(RobotPath.Q.poses.any().position.y, _QueryableNumeric)
+        assert isinstance(RobotPath.Q.poses.any().position.z, _QueryableNumeric)
+        assert isinstance(RobotPath.Q.poses.any().orientation.x, _QueryableNumeric)
+        assert isinstance(RobotPath.Q.poses.any().orientation.y, _QueryableNumeric)
+        assert isinstance(RobotPath.Q.poses.any().orientation.z, _QueryableNumeric)
+        assert isinstance(RobotPath.Q.poses.any().orientation.w, _QueryableNumeric)
+
+        assert isinstance(RobotPath.Q.poses.all().position.x, _QueryableNumeric)
+        assert isinstance(RobotPath.Q.poses.all().position.y, _QueryableNumeric)
+        assert isinstance(RobotPath.Q.poses.all().position.z, _QueryableNumeric)
+        assert isinstance(RobotPath.Q.poses.all().orientation.x, _QueryableNumeric)
+        assert isinstance(RobotPath.Q.poses.all().orientation.y, _QueryableNumeric)
+        assert isinstance(RobotPath.Q.poses.all().orientation.z, _QueryableNumeric)
+        assert isinstance(RobotPath.Q.poses.all().orientation.w, _QueryableNumeric)
+
+        with pytest.raises(AttributeError, match="Field 'robot_path.poses' is a list."):
+            RobotPath.Q.poses.field
+
+        with pytest.raises(
+            TypeError, match="Field 'robot_path.poses\\[0\\]' is not a list."
+        ):
+            RobotPath.Q.poses[0][0]
+
+        with pytest.raises(
+            TypeError, match="Field 'robot_path.poses\\[0\\]' is not a list."
+        ):
+            RobotPath.Q.poses[0].any()
+
+        with pytest.raises(
+            TypeError, match="Field 'robot_path.poses\\[0\\]' is not a list."
+        ):
+            RobotPath.Q.poses[0].all()
+
+        with pytest.raises(
+            TypeError, match="Field 'robot_path.poses\\[0\\].position' is not a list."
+        ):
+            RobotPath.Q.poses[0].position[0]
+
+        with pytest.raises(
+            TypeError, match="Field 'robot_path.poses\\[0\\].position' is not a list."
+        ):
+            RobotPath.Q.poses[0].position.any()
+
+        with pytest.raises(
+            TypeError, match="Field 'robot_path.poses\\[0\\].position' is not a list."
+        ):
+            RobotPath.Q.poses[0].position.all()
+
+        expr = RobotPath.Q.poses[0].position.x.eq(0)
+        assert expr.key == "robot_path.poses[0].position.x"
+        assert expr.op == "$eq"
+        assert expr.value == 0
+
+        expr = RobotPath.Q.poses.all().position.x.eq(0)
+        assert expr.key == "robot_path.poses[!].position.x"
+        assert expr.op == "$eq"
+        assert expr.value == 0
+
+        expr = RobotPath.Q.poses.any().position.x.eq(0)
+        assert expr.key == "robot_path.poses[?].position.x"
+        assert expr.op == "$eq"
+        assert expr.value == 0
+
+
+class TestFrameTransform:
+    def test_list(self):
+        assert isinstance(
+            FrameTransform.Q.transforms[0].translation.x, _QueryableNumeric
+        )
+        assert isinstance(
+            FrameTransform.Q.transforms[0].translation.y, _QueryableNumeric
+        )
+        assert isinstance(
+            FrameTransform.Q.transforms[0].translation.z, _QueryableNumeric
+        )
+        assert isinstance(FrameTransform.Q.transforms[0].rotation.x, _QueryableNumeric)
+        assert isinstance(FrameTransform.Q.transforms[0].rotation.y, _QueryableNumeric)
+        assert isinstance(FrameTransform.Q.transforms[0].rotation.z, _QueryableNumeric)
+        assert isinstance(FrameTransform.Q.transforms[0].rotation.w, _QueryableNumeric)
+
+        assert isinstance(
+            FrameTransform.Q.transforms.any().translation.x, _QueryableNumeric
+        )
+        assert isinstance(
+            FrameTransform.Q.transforms.any().translation.y, _QueryableNumeric
+        )
+        assert isinstance(
+            FrameTransform.Q.transforms.any().translation.z, _QueryableNumeric
+        )
+        assert isinstance(
+            FrameTransform.Q.transforms.any().rotation.x, _QueryableNumeric
+        )
+        assert isinstance(
+            FrameTransform.Q.transforms.any().rotation.y, _QueryableNumeric
+        )
+        assert isinstance(
+            FrameTransform.Q.transforms.any().rotation.z, _QueryableNumeric
+        )
+        assert isinstance(
+            FrameTransform.Q.transforms.any().rotation.w, _QueryableNumeric
+        )
+
+        assert isinstance(
+            FrameTransform.Q.transforms.all().translation.x, _QueryableNumeric
+        )
+        assert isinstance(
+            FrameTransform.Q.transforms.all().translation.y, _QueryableNumeric
+        )
+        assert isinstance(
+            FrameTransform.Q.transforms.all().translation.z, _QueryableNumeric
+        )
+        assert isinstance(
+            FrameTransform.Q.transforms.all().rotation.x, _QueryableNumeric
+        )
+        assert isinstance(
+            FrameTransform.Q.transforms.all().rotation.y, _QueryableNumeric
+        )
+        assert isinstance(
+            FrameTransform.Q.transforms.all().rotation.z, _QueryableNumeric
+        )
+        assert isinstance(
+            FrameTransform.Q.transforms.all().rotation.w, _QueryableNumeric
+        )
+
+        with pytest.raises(
+            AttributeError, match="Field 'frame_transform.transforms' is a list."
+        ):
+            FrameTransform.Q.transforms.field
+
+        with pytest.raises(
+            TypeError, match="Field 'frame_transform.transforms\\[0\\]' is not a list."
+        ):
+            FrameTransform.Q.transforms[0][0]
+
+        with pytest.raises(
+            TypeError, match="Field 'frame_transform.transforms\\[0\\]' is not a list."
+        ):
+            FrameTransform.Q.transforms[0].any()
+
+        with pytest.raises(
+            TypeError, match="Field 'frame_transform.transforms\\[0\\]' is not a list."
+        ):
+            FrameTransform.Q.transforms[0].all()
+
+        with pytest.raises(
+            TypeError,
+            match="Field 'frame_transform.transforms\\[0\\].translation' is not a list.",
+        ):
+            FrameTransform.Q.transforms[0].translation[0]
+
+        with pytest.raises(
+            TypeError,
+            match="Field 'frame_transform.transforms\\[0\\].translation' is not a list.",
+        ):
+            FrameTransform.Q.transforms[0].translation.any()
+
+        with pytest.raises(
+            TypeError,
+            match="Field 'frame_transform.transforms\\[0\\].translation' is not a list.",
+        ):
+            FrameTransform.Q.transforms[0].translation.all()
+
+        expr = FrameTransform.Q.transforms[0].translation.x.eq(0)
+        assert expr.key == "frame_transform.transforms[0].translation.x"
+        assert expr.op == "$eq"
+        assert expr.value == 0
+
+        expr = FrameTransform.Q.transforms.all().translation.x.eq(0)
+        assert expr.key == "frame_transform.transforms[!].translation.x"
+        assert expr.op == "$eq"
+        assert expr.value == 0
+
+        expr = FrameTransform.Q.transforms.any().translation.x.eq(0)
+        assert expr.key == "frame_transform.transforms[?].translation.x"
+        assert expr.op == "$eq"
+        assert expr.value == 0

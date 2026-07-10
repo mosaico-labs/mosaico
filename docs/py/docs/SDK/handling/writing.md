@@ -6,7 +6,7 @@ description: Data Writers.
 The **Writing Workflow** in Mosaico is designed for high-throughput data ingestion, ensuring that your application remains responsive even when streaming high-bandwidth sensor data like 4K video or high-frequency IMU telemetry.
 
 !!! info "API-Keys"
-    When the connection is established via the authorization middleware (i.e. using an [API-Key](../client.md#2-authentication-api-key)), the writing workflow is allowed only if the key has at least [`APIKeyPermissionEnum.Write`][mosaicolabs.enum.APIKeyPermissionEnum.Write] permission.
+    When the connection is established via the authorization middleware (i.e. using an [API-Key](../client.md#2-authentication-api-key)), the writing workflow is allowed only if the key the `write` permission.
 
 
 ## `SequenceWriter`
@@ -66,7 +66,7 @@ with MosaicoClient.connect("localhost", 6726) as client:
 Configured when instantiating a new [`SequenceWriter`][mosaicolabs.handlers.SequenceWriter] via the `on_error` parameter, these policies dictate how the server handles a sequence if an unhandled exception bubbles up to the `SequenceWriter` context manager. By default, this policy is set to [`SessionLevelErrorPolicy.Report`][mosaicolabs.enum.SessionLevelErrorPolicy.Report], which means an error notification is sent to the server, allowing the platform to flag the sequence as failed while retaining whatever records were successfully transmitted before the error occurred. Alternatively, the [`SessionLevelErrorPolicy.Delete`][mosaicolabs.enum.SessionLevelErrorPolicy.Delete] policy will signal the server to physically remove the incomplete sequence and its associated topic directories, if any errors occurred.
 
 !!! info "Error Handling and API-Key"
-    When the connection is established via the authorization middleware (i.e. using an [API-Key](../client.md#2-authentication-api-key)), the [`SessionLevelErrorPolicy.Delete`][mosaicolabs.enum.SessionLevelErrorPolicy.Delete] policy is successfully executed by the server only if the API-Key has [`APIKeyPermissionEnum.Delete`][mosaicolabs.enum.APIKeyPermissionEnum.Delete] permission. If this is not the case, the server will raise an error and the current writing Session will remain in an unlocked state.
+    When the connection is established via the authorization middleware (i.e. using an [API-Key](../client.md#2-authentication-api-key)), the [`SessionLevelErrorPolicy.Delete`][mosaicolabs.enum.SessionLevelErrorPolicy.Delete] policy is successfully executed by the server only if the API-Key has the `delete` permission. If this is not the case, the server will raise an error and the current writing Session will remain in an unlocked state.
 
 
 An example schematic rationale for deciding between the two policies can be:
@@ -201,7 +201,7 @@ with MosaicoClient.connect("localhost", 6726) as client:
     Configured when instantiating a new [`SequenceUpdater`][mosaicolabs.handlers.SequenceUpdater] via the `on_error` parameter, the `SessionLevelErrorPolicy` policy dictates how the server handles the new writing Session if an unhandled exception bubbles up to the `SequenceUpdater` context manager. The [very same semantics](#sequence-level-error-handling) as the `SequenceWriter` apply. These policies are relative to the **current writing Session only**: the data already stored in the sequence with previous sessions is not affected and are kept as immutable data.
 
 !!! info "Error Handling and API-Key"
-    When the connection is established via the authorization middleware (i.e. using an [API-Key](../client.md#2-authentication-api-key)), the [`SessionLevelErrorPolicy.Delete`][mosaicolabs.enum.SessionLevelErrorPolicy.Delete] policy is successfully executed by the server only if the API-Key has [`APIKeyPermissionEnum.Delete`][mosaicolabs.enum.APIKeyPermissionEnum.Delete] permission. If this is not the case, the server will raise an error and the current writing Session will remain in an unlocked state.
+    When the connection is established via the authorization middleware (i.e. using an [API-Key](../client.md#2-authentication-api-key)), the [`SessionLevelErrorPolicy.Delete`][mosaicolabs.enum.SessionLevelErrorPolicy.Delete] policy is successfully executed by the server only if the API-Key has the `delete` permission. If this is not the case, the server will raise an error and the current writing Session will remain in an unlocked state.
 
 Once obtained, the `SequenceUpdater` can be used to create new topics and push data to them, in the very same way as a explained in the [`TopicWriter` section](#topicwriter).
 

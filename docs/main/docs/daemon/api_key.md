@@ -52,7 +52,5 @@ Permissions dictate the exact global operations an API key can execute.
 | `read` | Retrieve and view data from anywhere on the Mosaico platform. | Front-end dashboards, data analytics integrations, or public-facing read-only APIs. |
 | `write` | Create new data or update existing data anywhere on the platform. | Ingestion scripts, user input forms, or webhooks pushing data to Mosaico. |
 | `delete` | Permanently remove data from the platform. | Data lifecycle management, GDPR compliance scripts, or cleanup tasks. |
-| `manage` | Perform administrative operations on the platform. | Rotating/revoking API keys, managing users, or running automated maintenance tasks. |
 
-Mosaico follows a hierarchical structure between them. Each permission automatically inherits all the privileges of the previous one
-(e.g. `write` has also `read` privileges, `manage` inherits `read`, `write` and `delete` privileges).
+Permissions are granular and independent: each one grants only its own capability, with no inheritance. Combine them explicitly with `|` (e.g. `read|write`) to grant multiple privileges to a single key.

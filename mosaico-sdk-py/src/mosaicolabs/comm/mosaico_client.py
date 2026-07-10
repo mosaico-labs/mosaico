@@ -13,11 +13,11 @@ from typing import Any, Dict, List, Optional, Type, Union
 import pyarrow.flight as fl
 
 from mosaicolabs.comm.notifications import Notification
+from mosaicolabs.handlers.sequence_updater import SequenceUpdater
 from mosaicolabs.models.query import Query, QueryResponse
 from mosaicolabs.models.query.protocols import QueryableProtocol
 
 from ..enum import (
-    APIKeyPermissionEnum,
     FlightAction,
     GRPCCompressionAlgorithm,
     SessionLevelErrorPolicy,
@@ -26,7 +26,6 @@ from ..handlers import SequenceHandler, SequenceWriter, TopicHandler
 from ..handlers.config import SessionWriterConfig
 from ..helpers import pack_topic_resource_name
 from ..logging_config import get_logger
-from ..platform.api_key import APIKeyStatus
 from .connection import (
     DEFAULT_MAX_BATCH_BYTES,
     DEFAULT_MAX_BATCH_SIZE_RECORDS,
@@ -38,8 +37,6 @@ from .do_action import (
     _do_action,
     _DoActionNotificationList,
     _DoActionQueryResponse,
-    _DoActionResponseAPIKeyCreate,
-    _DoActionResponseAPIKeyStatus,
 )
 from .middlewares import MosaicoAuthMiddlewareFactory
 
@@ -88,7 +85,6 @@ class MosaicoClient:
         enable_tls: bool,
         compression: GRPCCompression,
         tls_cert: Optional[bytes],
-        api_key_fingerprint: Optional[str],
         middlewares: dict[str, fl.ClientMiddlewareFactory],
     ):
         """
@@ -111,7 +107,6 @@ class MosaicoClient:
             enable_tls: Enable TLS communication.
             compression: The compression configuration for gRPC.
             tls_cert: The TLS certificate.
-            api_key_fingerprint: The fingerprint of the API key to use for authentication.
             middlewares: The middlewares to be used for the connection.
         """
         if sentinel is not MosaicoClient._CONNECT_SENTINEL:
@@ -137,8 +132,6 @@ class MosaicoClient:
         """The compression configuration for gRPC"""
         self._middlewares: dict[str, fl.ClientMiddlewareFactory] = middlewares
         """The middlewares to be used for the connection."""
-        self._api_key_fingerprint: Optional[str] = api_key_fingerprint
-        """The current optional API-Key fingerprint, used for access control"""
 
         # Initialize caches
         self._sequence_handlers_cache: Dict[str, SequenceHandler] = {}
@@ -173,9 +166,8 @@ class MosaicoClient:
             valid network connection.
 
         Note:
-            If using the Authorization middleware (via an API-Key), this method requires the minimum
-            [`APIKeyPermissionEnum.Read`][mosaicolabs.enum.APIKeyPermissionEnum.Read]
-            permission.
+            If using the Authorization middleware (via an API-Key), this method requires the
+            `read` permission.
 
         Args:
             host (str): The server host address (e.g., "127.0.0.1" or "mosaico.local").
@@ -223,11 +215,9 @@ class MosaicoClient:
         enable_tls = enable_tls or tls_cert_path is not None
 
         middlewares = {}
-        api_key_fingerprint = None
         if api_key:
             auth_mware = MosaicoAuthMiddlewareFactory(api_key=api_key)
             middlewares["mosaico_auth"] = auth_mware
-            api_key_fingerprint = auth_mware.api_key_fingerprint
 
         if isinstance(compression, GRPCCompressionAlgorithm):
             compression = GRPCCompression(algorithm=compression)
@@ -256,7 +246,6 @@ class MosaicoClient:
             tls_cert=resolved_tls_cert,
             enable_tls=enable_tls,
             compression=compression,
-            api_key_fingerprint=api_key_fingerprint,
             middlewares=middlewares,
         )
 
@@ -387,9 +376,8 @@ class MosaicoClient:
         object to avoid redundant handshakes.
 
         Note:
-            If using the Authorization middleware (via an API-Key), this method requires the minimum
-            [`APIKeyPermissionEnum.Read`][mosaicolabs.enum.APIKeyPermissionEnum.Read]
-            permission.
+            If using the Authorization middleware (via an API-Key), this method requires the
+            `read` permission.
 
         Args:
             sequence_name (str): The unique identifier of the sequence.
@@ -436,9 +424,8 @@ class MosaicoClient:
         Retrieves a [`TopicHandler`][mosaicolabs.handlers.TopicHandler] for a specific data channel.
 
         Note:
-            If using the Authorization middleware (via an API-Key), this method requires the minimum
-            [`APIKeyPermissionEnum.Read`][mosaicolabs.enum.APIKeyPermissionEnum.Read]
-            permission.
+            If using the Authorization middleware (via an API-Key), this method requires the
+            `read` permission.
 
         Args:
             sequence_name (str): The parent sequence name.
@@ -500,9 +487,8 @@ class MosaicoClient:
             RuntimeError is raised.
 
         Note:
-            If using the Authorization middleware (via an API-Key), this method requires at least
-            [`APIKeyPermissionEnum.Write`][mosaicolabs.enum.APIKeyPermissionEnum.Write]
-            permission.
+            If using the Authorization middleware (via an API-Key), this method requires the
+            `write` permission.
 
         Args:
             sequence_name (str): Unique name for the sequence.
@@ -582,6 +568,83 @@ class MosaicoClient:
             ),
         )
 
+    def sequence_update(
+        self,
+        sequence_name: str,
+        on_error: SessionLevelErrorPolicy = SessionLevelErrorPolicy.Report,
+        max_batch_size_bytes: Optional[int] = None,
+        max_batch_size_records: Optional[int] = None,
+    ) -> SequenceUpdater:
+        """
+        Update the sequence on the platform and returns a [`SequenceUpdater`][mosaicolabs.handlers.SequenceUpdater] for ingestion.
+
+        Important:
+            The function **must** be called inside a with context, otherwise a
+            RuntimeError is raised.
+
+        Note:
+            If using the Authorization middleware (via an API-Key), this method requires the
+            `write` permission.
+
+        Args:
+            sequence_name (str): The sequence to be updated. The sequence must be already present
+                on the server.
+            on_error (SessionLevelErrorPolicy): Behavior on write failure. Defaults to
+                [`SessionLevelErrorPolicy.Report`][mosaicolabs.enum.SessionLevelErrorPolicy.Report].
+            max_batch_size_bytes (Optional[int]): Max bytes per Arrow batch.
+            max_batch_size_records (Optional[int]): Max records per Arrow batch.
+
+        Returns:
+            SequenceUpdater: An initialized updater instance.
+
+        Raises:
+            RuntimeError: If the method is called outside a `with` context.
+            Exception: If any error occurs during sequence injection.
+
+        Example:
+            ```python
+            from mosaicolabs import MosaicoClient, SessionLevelErrorPolicy
+
+            # Open the connection with the Mosaico Client
+            with MosaicoClient.connect("localhost", 6726) as client:
+                # Get the handler for the sequence
+                with client.sequence_update("mission_log_042")
+                # Update the sequence
+                with client.sequence_update("mission_log_042",
+                        on_error = SessionLevelErrorPolicy.Delete
+                    ) as seq_updater:
+                        # Start creating topics and pushing data
+                        # (1)!
+
+                # Exiting the block automatically flushes all topic buffers and finalizes the sequence on the server
+            ```
+
+            1. See also:
+                * [`SequenceUpdater.topic_create()`][mosaicolabs.handlers.SequenceUpdater.topic_create]
+                * [`TopicWriter.push()`][mosaicolabs.handlers.TopicWriter.push]
+        """
+        # Use defaults if specific batch sizes aren't provided
+        max_batch_size_bytes = (
+            max_batch_size_bytes
+            if max_batch_size_bytes is not None
+            else DEFAULT_MAX_BATCH_BYTES
+        )
+        max_batch_size_records = (
+            max_batch_size_records
+            if max_batch_size_records is not None
+            else DEFAULT_MAX_BATCH_SIZE_RECORDS
+        )
+
+        return SequenceUpdater(
+            sequence_name=sequence_name,
+            client=self._control_client,
+            config=SessionWriterConfig(
+                on_error=on_error,
+                max_batch_size_bytes=max_batch_size_bytes,
+                max_batch_size_records=max_batch_size_records,
+            ),
+        )
+
     def sequence_delete(self, sequence_name: str):
         """
         Permanently deletes a sequence and all its associated data from the server.
@@ -591,9 +654,8 @@ class MosaicoClient:
         Once executed, all storage occupied by the sequence is freed.
 
         Note:
-            If using the Authorization middleware (via an API-Key), this method requires at least
-            [`APIKeyPermissionEnum.Delete`][mosaicolabs.enum.APIKeyPermissionEnum.Delete]
-            permission.
+            If using the Authorization middleware (via an API-Key), this method requires the
+            `delete` permission.
 
         Args:
             sequence_name (str): The unique name of the sequence to remove.
@@ -627,9 +689,8 @@ class MosaicoClient:
         Once executed, all storage occupied by the session is freed.
 
         Note:
-            If using the Authorization middleware (via an API-Key), this method requires at least
-            [`APIKeyPermissionEnum.Delete`][mosaicolabs.enum.APIKeyPermissionEnum.Delete]
-            permission.
+            If using the Authorization middleware (via an API-Key), this method requires the
+            `delete` permission.
 
         Args:
             locator (str): The unique locator identifier of the session to remove.
@@ -687,9 +748,8 @@ class MosaicoClient:
         Retrieves a list of all notifications available on the server for a specific sequence.
 
         Note:
-            If using the Authorization middleware (via an API-Key), this method requires the minimum
-            [`APIKeyPermissionEnum.Read`][mosaicolabs.enum.APIKeyPermissionEnum.Read]
-            permission.
+            If using the Authorization middleware (via an API-Key), this method requires the
+            `read` permission.
 
         Args:
             sequence_name (str): The name of the sequence to list notifications for.
@@ -737,9 +797,8 @@ class MosaicoClient:
         Clears the notifications for a specific sequence from the server.
 
         Note:
-            If using the Authorization middleware (via an API-Key), this method requires at least
-            [`APIKeyPermissionEnum.Delete`][mosaicolabs.enum.APIKeyPermissionEnum.Delete]
-            permission.
+            If using the Authorization middleware (via an API-Key), this method requires the
+            `delete` permission.
 
         Args:
             sequence_name (str): The name of the sequence.
@@ -768,9 +827,8 @@ class MosaicoClient:
         Retrieves a list of all notifications available on the server for a specific topic
 
         Note:
-            If using the Authorization middleware (via an API-Key), this method requires the minimum
-            [`APIKeyPermissionEnum.Read`][mosaicolabs.enum.APIKeyPermissionEnum.Read]
-            permission.
+            If using the Authorization middleware (via an API-Key), this method requires the
+            `read` permission.
 
         Args:
             sequence_name (str): The name of the sequence to list notifications for.
@@ -824,9 +882,8 @@ class MosaicoClient:
         Clears the notifications for a specific topic from the server.
 
         Note:
-            If using the Authorization middleware (via an API-Key), this method requires at least
-            [`APIKeyPermissionEnum.Delete`][mosaicolabs.enum.APIKeyPermissionEnum.Delete]
-            permission.
+            If using the Authorization middleware (via an API-Key), this method requires the
+            `delete` permission.
 
         Args:
             sequence_name (str): The name of the sequence.
@@ -865,9 +922,8 @@ class MosaicoClient:
         Multiple provided queries are joined using a logical **AND** condition.
 
         Note:
-            If using the Authorization middleware (via an API-Key), this method requires the minimum
-            [`APIKeyPermissionEnum.Read`][mosaicolabs.enum.APIKeyPermissionEnum.Read]
-            permission.
+            If using the Authorization middleware (via an API-Key), this method requires the
+            `read` permission.
 
         Args:
             *queries: Variable arguments of query builder objects (e.g., `QuerySequence`).
@@ -975,9 +1031,8 @@ class MosaicoClient:
         Get the version of the Mosaico server.
 
         Note:
-            If using the Authorization middleware (via an API-Key), this method requires the minimum
-            [`APIKeyPermissionEnum.Read`][mosaicolabs.enum.APIKeyPermissionEnum.Read]
-            permission.
+            If using the Authorization middleware (via an API-Key), this method requires the
+            `read` permission.
 
         Returns:
             str: The version of the Mosaico server.
@@ -1015,158 +1070,6 @@ class MosaicoClient:
         Clears the internal cache of [`TopicHandler`][mosaicolabs.handlers.TopicHandler] objects.
         """
         self._topic_handlers_cache = {}
-
-    def api_key_create(
-        self,
-        permission: APIKeyPermissionEnum,
-        description: str,
-        expires_at_ns: Optional[int] = None,
-    ) -> Optional[str]:
-        """
-        Creates a new API key with the specified permissions.
-
-        Note:
-            Requires the client to have [`APIKeyPermissionEnum.Manage`][mosaicolabs.enum.APIKeyPermissionEnum.Manage]
-            permission. You can also optionally set an expiration time and a description for the key.
-
-        Args:
-            permission (APIKeyPermissionEnum): Permission for the key.
-            description (str): Description for the key.
-            expires_at_ns (Optional[int]): Optional expiration timestamp in nanoseconds.
-
-        Returns:
-            str: The generated API key token or None.
-
-        Raises:
-            Exception: If any error occurs during API key creation.
-
-        Example:
-            ```python
-            from mosaicolabs import MosaicoClient, APIKeyPermissionEnum
-
-            # Open the connection with the Mosaico Client
-            with MosaicoClient.connect("localhost", 6726, api_key="<API_KEY_MANAGE>") as client:
-                # Create a new API key with read and write permissions
-                api_key = client.api_key_create(
-                    permission=APIKeyPermissionEnum.Write,
-                    description="API key for data ingestion",
-                )
-            ```
-        """
-        payload: dict[str, Any] = {
-            "permissions": permission.value,
-            "description": description,
-        }
-        if expires_at_ns is not None:
-            payload["expires_at_ns"] = expires_at_ns
-
-        ACTION = FlightAction.API_KEY_CREATE
-
-        try:
-            act_resp = _do_action(
-                client=self._control_client,
-                action=ACTION,
-                payload=payload,
-                expected_type=_DoActionResponseAPIKeyCreate,
-            )
-
-            if act_resp is None:
-                logger.error(f"Action '{ACTION}' returned no response.")
-                return None
-
-            return act_resp.api_key_token
-
-        except Exception as e:
-            logger.error(f"API key creation failed with error: '{e}'")
-            raise
-
-    def api_key_status(
-        self, api_key_fingerprint: Optional[str] = None
-    ) -> Optional[APIKeyStatus]:
-        """
-        Retrieves the status and metadata of an API key.
-
-        Note:
-            Requires the client to have [`APIKeyPermissionEnum.Manage`][mosaicolabs.enum.APIKeyPermissionEnum.Manage]
-            permission.
-
-        Args:
-            api_key_fingerprint (Optional[str]): The fingerprint of the API key to query.
-                If not provided, the fingerprint of the current API key will be used.
-
-        Returns:
-            APIKeyStatus: An object containing the API key's status information, or None if the query fails.
-
-        Raises:
-            Exception: If any error occurs during API key status retrieval.
-        """
-        api_key_fingerprint = api_key_fingerprint or self._api_key_fingerprint
-        if not api_key_fingerprint:
-            logger.error(
-                "API key fingerprint is required. Provide it as an argument or connect with an API key."
-            )
-            return None
-
-        ACTION = FlightAction.API_KEY_STATUS
-
-        try:
-            act_resp = _do_action(
-                client=self._control_client,
-                action=ACTION,
-                payload={"api_key_fingerprint": api_key_fingerprint},
-                expected_type=_DoActionResponseAPIKeyStatus,
-            )
-
-            if act_resp is None:
-                logger.error(f"Action '{ACTION}' returned no response.")
-                return None
-
-            return APIKeyStatus(
-                created_at_ns=act_resp.created_at_ns,
-                expires_at_ns=act_resp.expires_at_ns,
-                description=act_resp.description,
-            )
-
-        except Exception as e:
-            logger.error(f"API key status query failed with error: '{e}'")
-            raise
-
-    def api_key_revoke(self, api_key_fingerprint: str) -> None:
-        """
-        Revokes an API key by its fingerprint.
-
-        Note:
-            Requires the client to have [`APIKeyPermissionEnum.Manage`][mosaicolabs.enum.APIKeyPermissionEnum.Manage]
-            permission.
-
-        Args:
-            api_key_fingerprint (str): The fingerprint of the API key to revoke.
-
-        Returns:
-            None.
-
-        Raises:
-            Exception: If any error occurs during API key revocation.
-        """
-        if not api_key_fingerprint:
-            logger.error("api_key_fingerprint cannot be empty.")
-            return None
-
-        ACTION = FlightAction.API_KEY_REVOKE
-
-        try:
-            _do_action(
-                client=self._control_client,
-                action=ACTION,
-                payload={"api_key_fingerprint": api_key_fingerprint},
-                expected_type=None,
-            )
-
-            return None
-
-        except Exception as e:
-            logger.error(f"API key revoke failed with error: '{e}'")
-            raise
 
     def close(self):
         """

@@ -1,4 +1,4 @@
-use mosaicod_core::{error::PublicResult as Result, params, types};
+use mosaicod_core::{error::PublicResult as Result, params, types::auth::Permissions};
 use mosaicod_db as db;
 use mosaicod_ext as ext;
 use mosaicod_grpc_common as grpc_common;
@@ -160,7 +160,7 @@ pub async fn serve(
         arrow_flight::flight_service_server::FlightServiceServer::new(grpc_flight_svc);
 
     if !opts.enable_api_key_management {
-        auth_layer = auth_layer.with_permission_passthrough(types::auth::Permission::Manage);
+        auth_layer = auth_layer.with_permission_passthrough(Permissions::all());
     }
     let layer = tower::ServiceBuilder::new().layer(auth_layer).into_inner();
 

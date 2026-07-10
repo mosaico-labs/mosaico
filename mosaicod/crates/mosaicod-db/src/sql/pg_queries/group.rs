@@ -12,12 +12,13 @@ pub async fn sequences_group_from_topics(
     for topic in topics {
         let group = ret.get_mut(&topic.sequence_id);
         if let Some(group) = group {
-            group.topics.push(
+            group.topics.push((
                 topic
                     .locator_name
                     .parse()
                     .map_err(|_| Error::BadData(topic.locator_name.clone()))?,
-            );
+                topic.ontology_tag.clone(),
+            ));
         } else {
             let seq = sequence_find_by_id(exe, topic.sequence_id).await?;
             ret.insert(
@@ -26,12 +27,13 @@ pub async fn sequences_group_from_topics(
                     seq.locator_name
                         .parse::<types::SequenceLocator>()
                         .map_err(|_| Error::BadData(seq.locator_name))?,
-                    vec![
+                    vec![(
                         topic
                             .locator_name
                             .parse()
                             .map_err(|_| Error::BadData(topic.locator_name.clone()))?,
-                    ],
+                        topic.ontology_tag.clone(),
+                    )],
                 ),
             );
         }

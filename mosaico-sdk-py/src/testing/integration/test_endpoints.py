@@ -188,8 +188,8 @@ def test_topic_streamer_manifest_timestamps(
     # start from the half of the sequence
     timestamp_ns_start = synthetic_sequence_data_stream.tstamp_ns_start + int(
         (
-            synthetic_sequence_data_stream.tstamp_ns_start
-            + synthetic_sequence_data_stream.tstamp_ns_end
+            synthetic_sequence_data_stream.tstamp_ns_end
+            - synthetic_sequence_data_stream.tstamp_ns_start
         )
         / 2
     )

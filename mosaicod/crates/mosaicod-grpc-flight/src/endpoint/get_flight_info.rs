@@ -45,6 +45,12 @@ async fn do_get_flight_info(
 
     info!("requesting info for resource {}", resource_name);
 
+    if let Some(ts_range) = &cmd.timestamp_range
+        && ts_range.is_empty()
+    {
+        Err(core::Error::bad_timestamp_range(ts_range.clone()))?;
+    }
+
     return if let Ok(sequence_locator) = resource_name.parse::<types::SequenceLocator>() {
         sequence_flight_info(ctx, desc, sequence_locator, cmd.timestamp_range).await
     } else if let Ok(topic_locator) = resource_name.parse::<types::TopicLocator>() {
@@ -76,10 +82,10 @@ async fn sequence_flight_info(
 
     // Collect user metadata
     if let Some(user_metadata) = &sequence_info.metadata.user_metadata {
-        let user_metadata = marshal::JsonSequenceMetadata {
+        let sequence_metadata = marshal::JsonSequenceMetadata {
             user_metadata: user_metadata.clone(),
         };
-        let flatten_user_metadata = user_metadata.to_flat_hashmap()?;
+        let flatten_user_metadata = sequence_metadata.to_flat_hashmap()?;
         schema = schema.with_metadata(flatten_user_metadata);
     }
 
@@ -150,6 +156,8 @@ async fn build_topic_endpoint(
     let mut app_mdata =
         marshal::flight::TopicAppMetadata::new(topic_info.metadata.properties.clone());
 
+    // TODO: currently the full topic timestamp range is forwarded.
+    // Consider if it's better to pass the input range here.
     if let Some(data_info) = topic_info.data_info {
         app_mdata = app_mdata.with_info(data_info);
     }
@@ -175,9 +183,8 @@ async fn topic_arrow_schema_with_metadata(
     );
 
     // Collect schema metadata
-    let json_ontology_metadata =
-        marshal::JsonTopicOntologyMetadata::from(topic_info.metadata.ontology_metadata);
-    let flatten_ontology_metadata = json_ontology_metadata.to_flat_hashmap()?;
+    let json_topic_metadata = marshal::JsonTopicMetadata::from(topic_info.metadata);
+    let flatten_ontology_metadata = json_topic_metadata.to_flat_hashmap()?;
 
     Ok(Schema::new_with_metadata(
         topic_info.schema.fields().clone(),

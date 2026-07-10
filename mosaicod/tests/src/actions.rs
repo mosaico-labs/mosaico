@@ -7,6 +7,7 @@ use futures::StreamExt;
 use futures::TryStreamExt;
 use mosaicod_core::types;
 use mosaicod_ext as ext;
+use std::collections::HashMap;
 
 use arrow_flight::Ticket;
 use mosaicod_marshal::flight::FilterTimestampRange;
@@ -322,22 +323,28 @@ pub async fn do_get(
             .into(),
     };
 
-    do_get_with_ticket(client, ticket).await
+    Ok(do_get_with_ticket(client, ticket).await?.1)
 }
+
+pub type DoGetMetadata = Option<HashMap<String, String>>;
 
 pub async fn do_get_with_ticket(
     client: &mut Client,
     ticket: arrow_flight::Ticket,
-) -> Result<Vec<RecordBatch>, tonic::Status> {
+) -> Result<(DoGetMetadata, Vec<RecordBatch>), tonic::Status> {
     let stream = client.do_get(ticket).await?.into_inner();
 
     let record_batch_stream =
         FlightRecordBatchStream::new_from_flight_data(stream.map_err(|e| e.into()));
 
-    record_batch_stream
+    let batches = record_batch_stream
         .try_collect::<Vec<_>>()
         .await
-        .map_err(|e| tonic::Status::internal(format!("do_get decode error: {e}")))
+        .map_err(|e| tonic::Status::internal(format!("do_get decode error: {e}")))?;
+
+    let metadata = batches.first().map(|b| b.schema().metadata().clone());
+
+    Ok((metadata, batches))
 }
 
 pub async fn server_version(client: &mut Client) -> Result<(), tonic::Status> {
@@ -377,18 +384,25 @@ pub async fn server_version(client: &mut Client) -> Result<(), tonic::Status> {
     Ok(())
 }
 
-/// Returns flight info data for a sequence or a topic.
+/// Returns flight info data for a sequence or a topic in the given interval.
 pub async fn get_flight_info(
     client: &mut Client,
     topic_name: &str,
+    interval: Option<types::TimestampRange>,
 ) -> Result<FlightInfo, tonic::Status> {
     let cmd = format!(
         r#"
         {{
-            "resource_locator": "{}"
+            "resource_locator": "{}",
+            "timestamp_ns_start": {},
+            "timestamp_ns_end": {}
         }}
         "#,
-        topic_name
+        topic_name,
+        interval
+            .clone()
+            .map_or("null".to_owned(), |range| range.start.to_string()),
+        interval.map_or("null".to_owned(), |range| range.end.to_string()),
     );
 
     dbg!(&cmd);
@@ -398,127 +412,6 @@ pub async fn get_flight_info(
     let info = client.get_flight_info(descriptor).await?.into_inner();
 
     Ok(info)
-}
-
-pub async fn api_key_create(
-    client: &mut Client,
-    permissions: types::auth::Permission,
-    description: String,
-    expires_at: Option<types::Timestamp>,
-) -> Result<types::auth::Token, tonic::Status> {
-    let action = Action {
-        r#type: "api_key_create".to_owned(),
-        body: format!(
-            r#"{{
-            "permissions": "{}",
-            "description": "{}",
-            "expires_at_ns": {}
-        }}"#,
-            String::from(permissions),
-            description,
-            expires_at.map_or(String::from("null"), |t| { t.to_string() })
-        )
-        .into(),
-    };
-
-    dbg!(&action);
-
-    let mut stream = client.do_action(action).await?.into_inner();
-
-    let mut api_key_token: Option<types::auth::Token> = None;
-
-    while let Some(result) = stream.message().await? {
-        dbg!(&result);
-        let r = ActionResponse::from_body(&result.body);
-        assert_eq!(r.action, "api_key_create");
-
-        api_key_token = Some(
-            r.response["api_key_token"]
-                .as_str()
-                .ok_or_else(|| tonic::Status::internal("api_key_token is not a string"))?
-                .parse()
-                .map_err(|e| {
-                    tonic::Status::internal(format!("Failed to parse api_key_token: {e}"))
-                })?,
-        );
-    }
-
-    api_key_token.ok_or_else(|| tonic::Status::internal("unable to read api key token"))
-}
-
-pub async fn api_key_status(
-    client: &mut Client,
-    fingerprint: &str,
-) -> Result<(String, String, i64, Option<i64>), tonic::Status> {
-    let action = Action {
-        r#type: "api_key_status".to_owned(),
-        body: format!(
-            r#"{{
-            "api_key_fingerprint": "{}"
-        }}"#,
-            fingerprint
-        )
-        .into(),
-    };
-
-    dbg!(&action);
-
-    let mut stream = client.do_action(action).await?.into_inner();
-
-    let mut api_key_status = None;
-
-    while let Some(result) = stream.message().await? {
-        dbg!(&result);
-        let r = ActionResponse::from_body(&result.body);
-        assert_eq!(r.action, "api_key_status");
-
-        api_key_status = Some((
-            r.response["api_key_fingerprint"]
-                .as_str()
-                .ok_or_else(|| {
-                    tonic::Status::internal("Error casting api key fingerprint to string")
-                })?
-                .to_string(),
-            r.response["description"]
-                .as_str()
-                .ok_or_else(|| {
-                    tonic::Status::internal("Error casting api key description to string")
-                })?
-                .to_string(),
-            r.response["created_at_ns"].as_i64().ok_or_else(|| {
-                tonic::Status::internal("Error casting api key created_at_ns into an i64")
-            })?,
-            r.response["expires_at_ns"].as_i64(),
-        ));
-    }
-
-    api_key_status.ok_or_else(|| tonic::Status::internal("unable to read api key status"))
-}
-
-pub async fn api_key_revoke(client: &mut Client, fingerprint: &str) -> Result<(), tonic::Status> {
-    let action = Action {
-        r#type: "api_key_revoke".to_owned(),
-        body: format!(
-            r#"{{
-            "api_key_fingerprint": "{}"
-        }}"#,
-            fingerprint
-        )
-        .into(),
-    };
-
-    dbg!(&action);
-
-    let mut stream = client.do_action(action).await?.into_inner();
-
-    while let Some(result) = stream.message().await? {
-        dbg!(&result);
-        let r = ActionResponse::from_body(&result.body);
-        assert_eq!(r.action, "api_key_revoke");
-        assert!(r.response.as_object().is_none());
-    }
-
-    Ok(())
 }
 
 pub async fn sequence_notification_create(

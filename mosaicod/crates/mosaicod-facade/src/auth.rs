@@ -29,7 +29,7 @@ impl From<Handle> for types::ApiKey {
 /// Creates a new API key in the system
 pub async fn create(
     context: &Context,
-    permissions: types::auth::Permission,
+    permissions: types::auth::Permissions,
     description: String,
     expires_at: Option<types::Timestamp>,
 ) -> Result<Handle> {
@@ -73,7 +73,7 @@ mod tests {
 
         let handle = create(
             &context,
-            types::auth::Permission::Read,
+            types::auth::Permission::Read.into(),
             "some text".to_owned(),
             None,
         )

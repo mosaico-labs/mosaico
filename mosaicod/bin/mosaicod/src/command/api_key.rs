@@ -17,7 +17,8 @@ pub enum ApiKey {
         .args(["expires_in", "expires_at"]),
     ))]
     Create {
-        /// Specifies permissions for the key. Allowed values are: read, write, delete, manage
+        /// Specifies permissions for the key. Allowed values are `read`, `write` and `delete`,
+        /// combinable with `|` (e.g. `read` or `read|write`).
         #[arg(short, long, required = true)]
         permissions: String,
 
@@ -235,11 +236,7 @@ fn print_authz_policy_details(policy: types::ApiKey) {
 
     println!("{:>13} {}", "CREATED:".bold(), created_datetime);
 
-    println!(
-        "{:>13} {}",
-        "PERMISSIONS:".bold(),
-        String::from(policy.permission)
-    );
+    println!("{:>13} {}", "PERMISSIONS:".bold(), policy.permission);
 
     println!(
         "{:>13} {}",
@@ -265,34 +262,44 @@ fn print_authz_policy_details(policy: types::ApiKey) {
 }
 
 fn print_authz_policy_list(policies: Vec<types::ApiKey>) {
-    // Header
-    println!(
-        "{:>12} {:>24} {:>24} {:>10} {:>14}    {}",
-        "FINGERPRINT".bold(),
-        "CREATED".bold(),
-        "EXPIRES".bold(),
-        "STATUS".bold(),
-        "PERMISSIONS".bold(),
-        "DESCRIPTION".bold()
-    );
-    for policy in policies {
-        let datetime: types::DateTime = policy.created_at.into();
-        let expired_datetime: Option<types::DateTime> = policy.expires_at.map(|t| t.into());
+    const W_FINGERPRINT: usize = 12;
+    const W_CREATED: usize = 22;
+    const W_EXPIRES: usize = 22;
+    const W_STATUS: usize = 9;
+    const W_PERMISSIONS: usize = 18;
 
-        let expired = if policy.is_expired() {
-            "expired".red()
+    println!(
+        "{} {} {} {} {} {}",
+        format!("{:<W_FINGERPRINT$}", "FINGERPRINT").bold(),
+        format!("{:<W_CREATED$}", "CREATED").bold(),
+        format!("{:<W_EXPIRES$}", "EXPIRES").bold(),
+        format!("{:<W_STATUS$}", "STATUS").bold(),
+        format!("{:<W_PERMISSIONS$}", "PERMISSIONS").bold(),
+        "DESCRIPTION".bold(),
+    );
+
+    for policy in policies {
+        let created: types::DateTime = policy.created_at.into();
+
+        let expires = match policy.expires_at {
+            Some(ts) => format!("{:<W_EXPIRES$}", types::DateTime::from(ts).to_string()).white(),
+            None => format!("{:<W_EXPIRES$}", "never").yellow(),
+        };
+
+        let status = if policy.is_expired() {
+            format!("{:<W_STATUS$}", "expired").red()
         } else {
-            "valid".green()
+            format!("{:<W_STATUS$}", "valid").green()
         };
 
         println!(
-            "{:>12} {:>24} {:>24} {:>10} {:>14}    {}",
+            "{:<W_FINGERPRINT$} {:<W_CREATED$} {} {} {:<W_PERMISSIONS$} {}",
             policy.token().fingerprint(),
-            datetime.to_string(),
-            expired_datetime.map_or("never".yellow(), |ts| { ts.to_string().white() }),
-            expired,
-            String::from(policy.permission),
-            policy.description
+            created.to_string(),
+            expires,
+            status,
+            policy.permission.to_string(),
+            policy.description,
         );
     }
 }

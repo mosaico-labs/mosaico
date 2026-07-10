@@ -36,6 +36,19 @@ async fn test_sequence_create(pool: sqlx::Pool<db::DatabaseType>) -> sqlx::Resul
         tonic::Code::InvalidArgument
     );
 
+    // Check invalid key in metadata json.
+    assert_eq!(
+        actions::sequence_create(
+            &mut client,
+            "test_malformed_sequence",
+            Some(r#"{"invalid--key": "dummy"}"#)
+        )
+        .await
+        .unwrap_err()
+        .code(),
+        tonic::Code::InvalidArgument
+    );
+
     server.shutdown().await;
     Ok(())
 }
@@ -50,12 +63,19 @@ async fn test_sequence_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
 
     let sequence_name = "test_sequence";
 
+    // Wrong timestamp as input must generate an error.
+    let wrong_ts_range = types::TimestampRange::between(200.into(), 100.into());
+    let res = actions::get_flight_info(&mut client, sequence_name, Some(wrong_ts_range))
+        .await
+        .unwrap_err();
+    assert_eq!(res.code(), tonic::Code::InvalidArgument);
+
     actions::sequence_create(&mut client, sequence_name, None)
         .await
         .unwrap();
 
     // The manifest for a sequence without sessions should be empty.
-    let info = actions::get_flight_info(&mut client, sequence_name)
+    let info = actions::get_flight_info(&mut client, sequence_name, None)
         .await
         .unwrap();
 
@@ -76,7 +96,7 @@ async fn test_sequence_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
     assert!(session_uuid.is_valid());
 
     // Check the manifest for a sequence with a still running session and no topic yet injected.
-    let info = actions::get_flight_info(&mut client, sequence_name)
+    let info = actions::get_flight_info(&mut client, sequence_name, None)
         .await
         .unwrap();
 
@@ -119,7 +139,7 @@ async fn test_sequence_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
     }
 
     // Check the manifest for a sequence with a still running session and a topic injected.
-    let info = actions::get_flight_info(&mut client, sequence_name)
+    let info = actions::get_flight_info(&mut client, sequence_name, None)
         .await
         .unwrap();
 
@@ -145,7 +165,7 @@ async fn test_sequence_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
     let _ = actions::session_finalize(&mut client, &session_uuid).await;
 
     // Check the manifest for a sequence with a finalized session and a topic injected.
-    let info = actions::get_flight_info(&mut client, sequence_name)
+    let info = actions::get_flight_info(&mut client, sequence_name, None)
         .await
         .unwrap();
 
@@ -393,7 +413,7 @@ async fn test_sequence_delete_cascades(pool: sqlx::Pool<db::DatabaseType>) {
         .await
         .unwrap();
 
-    let res = actions::get_flight_info(&mut client, topic_name).await;
+    let res = actions::get_flight_info(&mut client, topic_name, None).await;
     assert_eq!(res.unwrap_err().code(), tonic::Code::NotFound);
 
     let res = actions::topic_delete(&mut client, topic_name).await;

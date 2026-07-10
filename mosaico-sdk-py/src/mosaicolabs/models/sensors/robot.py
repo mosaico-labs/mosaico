@@ -26,6 +26,8 @@ class RobotJoint(
         header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
+    # FIXME: Update this docstring with queryability of list fiends,
+    # and add example scripts for querying such field
     The robot joint states cannot be queried via the `.Q` proxy.
     """
 
@@ -36,6 +38,8 @@ class RobotJoint(
     Names of the different robot joints
 
     ### Querying with the **`.Q` Proxy**
+    # FIXME: Update this docstring with queryability of list fiends,
+    # and add example scripts for querying such field
     The names are not queryable via the `.Q` proxy (Lists are not supported yet).
     """
 
@@ -46,6 +50,8 @@ class RobotJoint(
     Positions ([rad] or [m]) of the different robot joints
 
     ### Querying with the **`.Q` Proxy**
+    # FIXME: Update this docstring with queryability of list fiends,
+    # and add example scripts for querying such field
     The positions are not queryable via the `.Q` proxy (Lists are not supported yet).
     """
 
@@ -56,6 +62,8 @@ class RobotJoint(
     Velocities ([rad/s] or [m/s]) of the different robot joints
 
     ### Querying with the **`.Q` Proxy**
+    # FIXME: Update this docstring with queryability of list fiends,
+    # and add example scripts for querying such field
     The velocities are not queryable via the `.Q` proxy (Lists are not supported yet).
     """
 
@@ -66,5 +74,7 @@ class RobotJoint(
     Efforts ([N] or [N*m]) applied to the different robot joints
 
     ### Querying with the **`.Q` Proxy**
+    # FIXME: Update this docstring with queryability of list fiends,
+    # and add example scripts for querying such field
     The efforts are not queryable via the `.Q` proxy (Lists are not supported yet).
     """

@@ -56,9 +56,6 @@ fn has_invalid_symbols(value: &str, others: Option<&[char]>) -> bool {
 pub const TOPIC_FOLDER_PREFIX: &str = "tp_";
 
 /// Uniquely identifies a topic resource and an optional time-based filter.
-///
-/// This locator combines a string-based path (`locator`) with an optional
-/// [`TimestampRange`] to specify a subset of data within the topic.
 #[derive(Debug, Clone)]
 pub struct TopicLocator {
     /// The unique string identifier for the sequence (e.g., `my_sequence`).
@@ -66,16 +63,6 @@ pub struct TopicLocator {
 
     /// Topic name (it does not contain the sequence nor the '/' separator, e.g. my/topic).
     name: String,
-
-    /// An optional time range to filter data within the topic.
-    pub timestamp_range: Option<TimestampRange>,
-}
-
-impl TopicLocator {
-    pub fn with_timestamp_range(mut self, ts: TimestampRange) -> Self {
-        self.timestamp_range = Some(ts);
-        self
-    }
 }
 
 impl Locator for TopicLocator {
@@ -110,7 +97,6 @@ impl FromStr for TopicLocator {
         Ok(Self {
             sequence,
             name: topic_part.to_owned(),
-            timestamp_range: None,
         })
     }
 }
@@ -248,9 +234,16 @@ impl<M> TopicOntologyMetadata<M> {
 }
 
 #[derive(Debug, Clone)]
+pub struct TopicIntervalProperties {
+    pub message_count: usize,
+    pub timestamp_range: types::TimestampRange,
+}
+
+#[derive(Debug, Clone)]
 pub struct TopicMetadata<M> {
     pub properties: TopicMetadataProperties,
     pub ontology_metadata: TopicOntologyMetadata<M>,
+    pub interval_props: Option<TopicIntervalProperties>,
 }
 
 impl<M> TopicMetadata<M> {
@@ -264,6 +257,18 @@ impl<M> TopicMetadata<M> {
         Self {
             properties,
             ontology_metadata,
+            interval_props: None,
+        }
+    }
+
+    pub fn with_interval(self, interval: TopicIntervalProperties) -> Self
+    where
+        M: super::MetadataBlob,
+    {
+        Self {
+            properties: self.properties,
+            ontology_metadata: self.ontology_metadata,
+            interval_props: Some(interval),
         }
     }
 }
@@ -516,20 +521,19 @@ pub struct SequenceMetadata<M> {
 // ////////////////////////////////////////////////////////////////////////////
 
 /// Groups a specific sequence with its associated topics and an optional time filter.
-///
-/// This structure acts as a container to link a [`SequenceLocator`] with multiple [`TopicLocator`]s.
 #[derive(Debug)]
 pub struct SequenceTopicGroup {
     pub sequence: SequenceLocator,
-    pub topics: Vec<TopicLocator>,
+    // Vector of pairs containing topic locator (TopicLocator) and ontology tag (String).
+    pub topics: Vec<(TopicLocator, String)>,
 }
 
 impl SequenceTopicGroup {
-    pub fn new(sequence: SequenceLocator, topics: Vec<TopicLocator>) -> Self {
+    pub fn new(sequence: SequenceLocator, topics: Vec<(TopicLocator, String)>) -> Self {
         Self { sequence, topics }
     }
 
-    pub fn into_parts(self) -> (SequenceLocator, Vec<TopicLocator>) {
+    pub fn into_parts(self) -> (SequenceLocator, Vec<(TopicLocator, String)>) {
         (self.sequence, self.topics)
     }
 }
@@ -641,13 +645,22 @@ mod tests {
             SequenceTopicGroup::new(
                 SequenceLocator::from_str("sequence_1").unwrap(),
                 vec![
-                    TopicLocator::from_str("sequence_1/topic_1").unwrap(),
-                    TopicLocator::from_str("sequence_1/topic_2").unwrap(),
+                    (
+                        TopicLocator::from_str("sequence_1/topic_1").unwrap(),
+                        "dummy_ontology".to_owned(),
+                    ),
+                    (
+                        TopicLocator::from_str("sequence_1/topic_2").unwrap(),
+                        "dummy_ontology".to_owned(),
+                    ),
                 ],
             ),
             SequenceTopicGroup::new(
                 SequenceLocator::from_str("sequence_2").unwrap(),
-                vec![TopicLocator::from_str("sequence_2/topic_1").unwrap()],
+                vec![(
+                    TopicLocator::from_str("sequence_2/topic_1").unwrap(),
+                    "dummy_ontology".to_owned(),
+                )],
             ),
         ]);
 
@@ -655,13 +668,22 @@ mod tests {
             SequenceTopicGroup::new(
                 SequenceLocator::from_str("sequence_1").unwrap(),
                 vec![
-                    TopicLocator::from_str("sequence_1/topic_1").unwrap(),
-                    TopicLocator::from_str("sequence_1/topic_3").unwrap(),
+                    (
+                        TopicLocator::from_str("sequence_1/topic_1").unwrap(),
+                        "dummy_ontology".to_owned(),
+                    ),
+                    (
+                        TopicLocator::from_str("sequence_1/topic_3").unwrap(),
+                        "dummy_ontology".to_owned(),
+                    ),
                 ],
             ),
             SequenceTopicGroup::new(
                 SequenceLocator::from_str("sequence_3").unwrap(),
-                vec![TopicLocator::from_str("sequence_3/topic_1").unwrap()],
+                vec![(
+                    TopicLocator::from_str("sequence_3/topic_1").unwrap(),
+                    "dummy_ontology".to_owned(),
+                )],
             ),
         ]);
 

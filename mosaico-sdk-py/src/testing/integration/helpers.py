@@ -4,21 +4,37 @@ from dataclasses import dataclass
 from typing import Iterable, List
 
 from mosaicolabs.models.core import Message, Serializable
-from mosaicolabs.models.data import Point3d, Time, Vector3d
-from mosaicolabs.models.sensors import GPS, IMU, GPSStatus, Magnetometer
+from mosaicolabs.models.data import (
+    Point3d,
+    Pose,
+    Quaternion,
+    RobotPath,
+    Time,
+    Vector3d,
+)
+from mosaicolabs.models.sensors import (
+    GPS,
+    IMU,
+    GPSStatus,
+    Magnetometer,
+    RobotJoint,
+    Temperature,
+)
 from testing.integration.config import (
-    UPLOADED_GPS_FRAME_ID,
     UPLOADED_GPS_METADATA,
     UPLOADED_GPS_TOPIC,
-    UPLOADED_IMU_CAMERA_FRAME_ID,
     UPLOADED_IMU_CAMERA_METADATA,
     UPLOADED_IMU_CAMERA_TOPIC,
-    UPLOADED_IMU_FRONT_FRAME_ID,
     UPLOADED_IMU_FRONT_METADATA,
     UPLOADED_IMU_FRONT_TOPIC,
-    UPLOADED_MAGNETOMETER_FRAME_ID,
     UPLOADED_MAGNETOMETER_METADATA,
     UPLOADED_MAGNETOMETER_TOPIC,
+    UPLOADED_ROBOT_JOINTS_METADATA,
+    UPLOADED_ROBOT_JOINTS_TOPIC,
+    UPLOADED_ROBOT_PATH_METADATA,
+    UPLOADED_ROBOT_PATH_TOPIC,
+    UPLOADED_TEMPERATURE_METADATA,
+    UPLOADED_TEMPERATURE_TOPIC,
 )
 
 
@@ -40,7 +56,6 @@ class SequenceDataStream:
 def make_imu_front_msg(meas_time: Time):
     return Message(
         timestamp_ns=meas_time.to_nanoseconds(),
-        frame_id=UPLOADED_IMU_FRONT_FRAME_ID,
         data=IMU(
             acceleration=Vector3d(
                 x=random.uniform(0, 1),
@@ -59,7 +74,6 @@ def make_imu_front_msg(meas_time: Time):
 def make_imu_cam_msg(meas_time: Time):
     return Message(
         timestamp_ns=meas_time.to_nanoseconds(),
-        frame_id=UPLOADED_IMU_CAMERA_FRAME_ID,
         data=IMU(
             acceleration=Vector3d(
                 x=random.uniform(0, 1),
@@ -78,7 +92,6 @@ def make_imu_cam_msg(meas_time: Time):
 def make_gps_msg(meas_time: Time):
     return Message(
         timestamp_ns=meas_time.to_nanoseconds(),
-        frame_id=UPLOADED_GPS_FRAME_ID,
         data=GPS(
             position=Point3d(
                 x=random.uniform(0, 1),
@@ -97,13 +110,64 @@ def make_gps_msg(meas_time: Time):
 def make_magn_msg(meas_time: Time):
     return Message(
         timestamp_ns=meas_time.to_nanoseconds(),
-        frame_id=UPLOADED_MAGNETOMETER_FRAME_ID,
         data=Magnetometer(
             magnetic_field=Vector3d(
                 x=random.uniform(0, 1),
                 y=random.uniform(0, 1),
                 z=random.uniform(0, 1),
             ),
+        ),
+    )
+
+
+def make_temperature_msg(meas_time: Time):
+
+    return Message(
+        timestamp_ns=meas_time.to_nanoseconds(),
+        data=Temperature(value=330.0),
+    )
+
+
+def make_robotjoint_msg(meas_time: Time):
+
+    joint_names = ["joint1", "joint2"]
+    joint_values = [
+        random.uniform(0, 1),
+        random.uniform(0, 1),
+    ]
+
+    return Message(
+        timestamp_ns=meas_time.to_nanoseconds(),
+        data=RobotJoint(
+            names=joint_names,
+            positions=joint_values,
+            velocities=joint_values,
+            efforts=joint_values,
+        ),
+    )
+
+
+def make_robotpath_msg(meas_time: Time):
+
+    pose1 = Pose(
+        position=Point3d(x=0.0, y=0.0, z=random.uniform(0, 1)),
+        orientation=Quaternion(x=0.0, y=0.0, z=0.0, w=1.0),
+    )
+    pose2 = Pose(
+        position=Point3d(x=0.0, y=0.0, z=random.uniform(0, -1)),
+        orientation=Quaternion(x=0.0, y=0.0, z=0.0, w=1.0),
+    )
+    pose3 = Pose(
+        position=Point3d(x=0.0, y=0.0, z=random.uniform(-1, 1)),
+        orientation=Quaternion(x=0.0, y=0.0, z=0.0, w=1.0),
+    )
+
+    poses = [pose1, pose2, pose3]
+
+    return Message(
+        timestamp_ns=meas_time.to_nanoseconds(),
+        data=RobotPath(
+            poses=poses,
         ),
     )
 
@@ -122,11 +186,20 @@ topic_to_maker_factory = [
     (UPLOADED_MAGNETOMETER_TOPIC, make_magn_msg),
 ]
 
+topic_to_listmaker_factory = [
+    (UPLOADED_TEMPERATURE_TOPIC, make_temperature_msg),
+    (UPLOADED_ROBOT_JOINTS_TOPIC, make_robotjoint_msg),
+    (UPLOADED_ROBOT_PATH_TOPIC, make_robotpath_msg),
+]
+
 topic_to_ontology_class_dict = {
     UPLOADED_IMU_FRONT_TOPIC: IMU,
     UPLOADED_IMU_CAMERA_TOPIC: IMU,
     UPLOADED_GPS_TOPIC: GPS,
     UPLOADED_MAGNETOMETER_TOPIC: Magnetometer,
+    UPLOADED_ROBOT_JOINTS_TOPIC: RobotJoint,
+    UPLOADED_ROBOT_PATH_TOPIC: RobotPath,
+    UPLOADED_TEMPERATURE_TOPIC: Temperature,
 }
 
 topic_to_metadata_dict = {
@@ -134,6 +207,12 @@ topic_to_metadata_dict = {
     UPLOADED_IMU_CAMERA_TOPIC: UPLOADED_IMU_CAMERA_METADATA,
     UPLOADED_GPS_TOPIC: UPLOADED_GPS_METADATA,
     UPLOADED_MAGNETOMETER_TOPIC: UPLOADED_MAGNETOMETER_METADATA,
+}
+
+topic_to_listmetadata_dict = {
+    UPLOADED_ROBOT_JOINTS_TOPIC: UPLOADED_ROBOT_JOINTS_METADATA,
+    UPLOADED_ROBOT_PATH_TOPIC: UPLOADED_ROBOT_PATH_METADATA,
+    UPLOADED_TEMPERATURE_TOPIC: UPLOADED_TEMPERATURE_METADATA,
 }
 
 

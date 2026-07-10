@@ -48,13 +48,11 @@ impl Query {
         // single ontology model).
         // Each expression group is processed concurrently using unordered futures, and returns a
         // `SequenceTopicGroups`.
-        // At the end sequence topic groups are merged (sequences are interseted and topic are
+        // At the end sequence topic groups are merged (sequences are intersected and topic are
         // joined) before return.
         // TODO: move this code in a separate function to improve readability
         if let Some(ontology_filter) = on_filt {
             let start = Instant::now();
-
-            let include_timestamp_range = ontology_filter.include_timestamp_range;
 
             let ontology_tag_expr_groups =
                 ontology_filter.into_expr_group().split_by_ontology_tag();
@@ -68,7 +66,7 @@ impl Query {
                     "starting search for ontology tag `{}` (expression groups: {})",
                     // grp is ensured to contain at least one element (previous check)
                     ontology_tag_exprs.group[0].ontology_field().ontology_tag(),
-                    &expression_groups_count,
+                    expression_groups_count,
                 );
 
                 let ts_engine = ts_gw.clone();
@@ -109,10 +107,6 @@ impl Query {
                     // Store which topic had a positive data file search
                     let mut topics_with_data: HashSet<i32> = HashSet::new();
 
-                    // Stores the timestamp range (is requested) of each topic that matches
-                    let mut topics_timestamp_range: HashMap<String, types::TimestampRange> =
-                        HashMap::new();
-
                     for chunk in chunks {
                         let topic = topics_map.get(&chunk.topic_id);
                         if topic.is_none() {
@@ -143,25 +137,10 @@ impl Query {
 
                         let qr = qr.filter(ontology_tag_exprs.to_owned())?;
 
-                        // Set this to true to print a log message that the chunk will be discared
+                        // Set this to true to print a log message that the chunk will be discarded
                         let mut is_discarded = false;
 
-                        if include_timestamp_range {
-                            match qr.timestamp_range().await {
-                                Ok(ts_range) => {
-                                    if let Some(ts) = ts_range {
-                                        topics_with_data.insert(topic.topic_id);
-                                        topics_timestamp_range
-                                            .insert(topic.locator().to_string(), ts);
-                                    } else {
-                                        is_discarded = true;
-                                    }
-                                }
-                                Err(err) => {
-                                    return Err(err.into());
-                                }
-                            }
-                        } else if qr.has_rows().await? {
+                        if qr.has_rows().await? {
                             trace!("found matching records in chunk");
                             topics_with_data.insert(topic.topic_id);
                         } else {
@@ -178,17 +157,7 @@ impl Query {
                         .values()
                         .filter(|e| topics_with_data.contains(&e.topic_id));
 
-                    let mut groups = db::sequences_group_from_topics(&mut cx, topics).await?;
-
-                    if include_timestamp_range {
-                        groups
-                            .iter_mut()
-                            .flat_map(|grp| &mut grp.topics)
-                            .for_each(|topic| {
-                                topic.timestamp_range =
-                                    topics_timestamp_range.remove(&topic.to_string());
-                            });
-                    }
+                    let groups = db::sequences_group_from_topics(&mut cx, topics).await?;
 
                     Ok(groups.into())
                 });

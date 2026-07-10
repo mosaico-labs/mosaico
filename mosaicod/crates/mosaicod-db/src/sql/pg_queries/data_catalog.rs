@@ -166,7 +166,7 @@ pub async fn chunks_from_filters(
     let (query, values) = super::ChunkQueryBuilder::build(filter, ids)?;
 
     trace!("chunk SQL query values: {:?}", values);
-    trace!("chunk SQL query: {}", &query);
+    trace!("chunk SQL query: {}", query);
 
     let mut r = sqlx::query(&query);
 

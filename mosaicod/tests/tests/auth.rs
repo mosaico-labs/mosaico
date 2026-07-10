@@ -1,183 +1,9 @@
 #![allow(unused_crate_dependencies)]
 
-use mosaicod_core::types;
+use mosaicod_core::types::{self, auth::Permission};
 use mosaicod_db as db;
+use serde_json::json;
 use tests::{self, actions, common};
-
-#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
-async fn test_api_key_create(pool: sqlx::Pool<db::DatabaseType>) {
-    let server = common::ServerBuilder::new(common::HOST, pool)
-        .enable_tls() // enable tls in the server
-        .build()
-        .await;
-
-    let mut client = common::ClientBuilder::new(common::HOST, server.port())
-        .enable_tls() // enable tls also in the client
-        .build()
-        .await;
-
-    // Create an api key with lifetime duration.
-    let api_key_token = actions::api_key_create(
-        &mut client,
-        types::auth::Permission::Read,
-        "api key description".to_string(),
-        None,
-    )
-    .await
-    .unwrap();
-
-    assert!(!api_key_token.payload().is_empty());
-    assert!(!api_key_token.fingerprint().is_empty());
-
-    // Create an api key with duration.
-    let api_key_token = actions::api_key_create(
-        &mut client,
-        types::auth::Permission::Manage,
-        "api key description".to_string(),
-        Some(types::Timestamp::now() + std::time::Duration::new(1000, 0)),
-    )
-    .await
-    .unwrap();
-
-    assert!(!api_key_token.payload().is_empty());
-    assert!(!api_key_token.fingerprint().is_empty());
-
-    server.shutdown().await;
-}
-
-#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
-async fn test_api_key_status(pool: sqlx::Pool<db::DatabaseType>) {
-    let server = common::ServerBuilder::new(common::HOST, pool)
-        .enable_tls() // enable tls in the server
-        .build()
-        .await;
-
-    let mut client = common::ClientBuilder::new(common::HOST, server.port())
-        .enable_tls() // enable tls also in the client
-        .build()
-        .await;
-
-    // Read status of a not-existing api key
-    assert!(
-        actions::api_key_status(&mut client, "wrong fingerprint")
-            .await
-            .is_err()
-    );
-
-    // Create an api key with lifetime duration and read its status.
-    let api_key_token = actions::api_key_create(
-        &mut client,
-        types::auth::Permission::Read,
-        "api key description".to_string(),
-        None,
-    )
-    .await
-    .unwrap();
-
-    let api_key_status = actions::api_key_status(&mut client, api_key_token.fingerprint())
-        .await
-        .unwrap();
-
-    assert_eq!(api_key_status.0, api_key_token.fingerprint().to_string());
-    assert_eq!(api_key_status.1, "api key description");
-    assert_ne!(api_key_status.2, 0);
-    assert!(api_key_status.3.is_none());
-
-    // Create an api key with expiration time and read its status.
-    let expiration_time = types::Timestamp::now() + std::time::Duration::from_hours(24);
-
-    let api_key_token = actions::api_key_create(
-        &mut client,
-        types::auth::Permission::Write,
-        "api key description".to_string(),
-        Some(expiration_time),
-    )
-    .await
-    .unwrap();
-
-    let api_key_status = actions::api_key_status(&mut client, api_key_token.fingerprint())
-        .await
-        .unwrap();
-
-    assert_eq!(api_key_status.0, api_key_token.fingerprint().to_string());
-    assert_eq!(api_key_status.1, "api key description");
-    assert_ne!(api_key_status.2, 0);
-    assert_eq!(api_key_status.3.unwrap(), expiration_time.as_i64());
-
-    server.shutdown().await;
-}
-
-#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
-async fn test_api_key_revoke(pool: sqlx::Pool<db::DatabaseType>) {
-    let server = common::ServerBuilder::new(common::HOST, pool)
-        .enable_tls() // enable tls in the server
-        .build()
-        .await;
-
-    let mut client = common::ClientBuilder::new(common::HOST, server.port())
-        .enable_tls() // enable tls also in the client
-        .build()
-        .await;
-
-    // Revoking a non-existing api key should return an error.
-    assert!(
-        actions::api_key_revoke(&mut client, "wrong fingerprint")
-            .await
-            .is_err()
-    );
-
-    // Create an api key with lifetime duration and revoke it.
-    let api_key_token = actions::api_key_create(
-        &mut client,
-        types::auth::Permission::Read,
-        "api key description".to_string(),
-        None,
-    )
-    .await
-    .unwrap();
-
-    assert!(!api_key_token.payload().is_empty());
-    assert!(!api_key_token.fingerprint().is_empty());
-
-    assert!(
-        actions::api_key_revoke(&mut client, api_key_token.fingerprint())
-            .await
-            .is_ok()
-    );
-
-    assert!(
-        actions::api_key_status(&mut client, api_key_token.fingerprint())
-            .await
-            .is_err()
-    );
-
-    // Create an api key with duration and revoke it.
-    let api_key_token = actions::api_key_create(
-        &mut client,
-        types::auth::Permission::Manage,
-        "api key description".to_string(),
-        Some(types::Timestamp::now() + std::time::Duration::new(1000, 0)),
-    )
-    .await
-    .unwrap();
-
-    assert!(!api_key_token.payload().is_empty());
-    assert!(!api_key_token.fingerprint().is_empty());
-
-    assert!(
-        actions::api_key_revoke(&mut client, api_key_token.fingerprint())
-            .await
-            .is_ok()
-    );
-
-    assert!(
-        actions::api_key_status(&mut client, api_key_token.fingerprint())
-            .await
-            .is_err()
-    );
-
-    server.shutdown().await;
-}
 
 async fn make_client(key: &types::auth::Token, port: u16) -> common::Client {
     common::ClientBuilder::new(common::HOST, port)
@@ -187,250 +13,181 @@ async fn make_client(key: &types::auth::Token, port: u16) -> common::Client {
         .await
 }
 
-async fn invalid_revoke_helper(client: &mut common::Client, fingerprint: &str) {
-    let res = actions::api_key_revoke(client, fingerprint).await;
-    let err_code = res.unwrap_err().code();
-    assert_eq!(err_code, tonic::Code::PermissionDenied);
+/// A read action (query) that is rejected before execution when the key lacks
+/// read permission. Returns the resulting status code (if any).
+async fn try_read(client: &mut common::Client) -> Option<tonic::Code> {
+    actions::query(client, json!({}))
+        .await
+        .err()
+        .map(|e| e.code())
 }
 
-async fn valid_delete_helper(client: &mut common::Client, sequence_name: &str) {
-    let res = actions::sequence_create(client, sequence_name, None).await;
-    assert!(res.is_ok());
-
-    let res = actions::sequence_delete(client, sequence_name).await;
-    dbg!(&res);
-    assert!(res.is_ok());
-}
-
-async fn valid_write_helper(client: &mut common::Client, sequence_name: &str) {
-    let res = actions::sequence_create(client, sequence_name, None).await;
-    assert!(res.is_ok());
-}
-
+/// A read-only key can read but neither write nor delete.
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
-async fn test_api_key_invalid_write(pool: sqlx::Pool<db::DatabaseType>) {
+async fn test_api_key_read_only(pool: sqlx::Pool<db::DatabaseType>) {
     let mut server = common::ServerBuilder::new(common::HOST, pool)
         .enable_tls()
         .enable_api_key()
         .build()
         .await;
 
-    let api_key = server
-        .create_api_key(types::auth::Permission::Read, None)
-        .await;
+    let api_key = server.create_api_key(Permission::Read.into(), None).await;
+
+    assert!(api_key.permission.can_read());
+    assert!(!api_key.permission.can_write());
+    assert!(!api_key.permission.can_delete());
 
     let mut client = make_client(&api_key.key, server.port()).await;
 
-    assert!(!api_key.permission.can_write());
+    // Read is allowed: the request must not be rejected by the permission gate.
+    assert_ne!(
+        try_read(&mut client).await,
+        Some(tonic::Code::PermissionDenied)
+    );
 
-    let sequence_name = "test_api_key_invalid_write";
+    // Write is denied.
+    let res = actions::sequence_create(&mut client, "read_only_seq", None).await;
+    assert_eq!(res.unwrap_err().code(), tonic::Code::PermissionDenied);
 
-    let res = actions::sequence_create(&mut client, sequence_name, None).await;
-    let err_code = res.unwrap_err().code();
-    assert_eq!(err_code, tonic::Code::PermissionDenied);
+    // Delete is denied.
+    let res = actions::sequence_delete(&mut client, "read_only_seq").await;
+    assert_eq!(res.unwrap_err().code(), tonic::Code::PermissionDenied);
 
     server.shutdown().await;
 }
 
+/// A write-only key can write but neither read nor delete
+/// (no implicit read is inherited any more).
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
-async fn test_api_key_valid_write(pool: sqlx::Pool<db::DatabaseType>) {
+async fn test_api_key_write_only(pool: sqlx::Pool<db::DatabaseType>) {
     let mut server = common::ServerBuilder::new(common::HOST, pool)
         .enable_tls()
         .enable_api_key()
         .build()
         .await;
 
-    let api_key_1 = server
-        .create_api_key(types::auth::Permission::Write, None)
-        .await;
-    let api_key_2 = server
-        .create_api_key(types::auth::Permission::Delete, None)
-        .await;
-    let api_key_3 = server
-        .create_api_key(types::auth::Permission::Manage, None)
-        .await;
+    let api_key = server.create_api_key(Permission::Write.into(), None).await;
 
-    let port = server.port();
-    let mut client_write = make_client(&api_key_1.key, port).await;
-    let mut client_delete = make_client(&api_key_2.key, port).await;
-    let mut client_manage = make_client(&api_key_3.key, port).await;
+    assert!(!api_key.permission.can_read());
+    assert!(api_key.permission.can_write());
+    assert!(!api_key.permission.can_delete());
 
-    let sequence_name_write = "test_api_key_valid_write_1";
-    let sequence_name_delete = "test_api_key_valid_write_2";
-    let sequence_name_manage = "test_api_key_valid_write_3";
+    let mut client = make_client(&api_key.key, server.port()).await;
 
-    valid_write_helper(&mut client_write, sequence_name_write).await;
-    valid_write_helper(&mut client_delete, sequence_name_delete).await;
-    valid_write_helper(&mut client_manage, sequence_name_manage).await;
-
-    server.shutdown().await;
-}
-
-#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
-async fn test_api_key_valid_delete(pool: sqlx::Pool<db::DatabaseType>) {
-    let mut server = common::ServerBuilder::new(common::HOST, pool)
-        .enable_tls()
-        .enable_api_key()
-        .build()
-        .await;
-
-    let api_key_1 = server
-        .create_api_key(types::auth::Permission::Delete, None)
-        .await;
-    let api_key_2 = server
-        .create_api_key(types::auth::Permission::Manage, None)
-        .await;
-
-    let port = server.port();
-    let mut client_delete = make_client(&api_key_1.key, port).await;
-    let mut client_manage = make_client(&api_key_2.key, port).await;
-
-    let sequence_name_delete = "test_api_key_valid_delete_1";
-    let sequence_name_manage = "test_api_key_valid_delete_2";
-
-    valid_delete_helper(&mut client_delete, sequence_name_delete).await;
-    valid_delete_helper(&mut client_manage, sequence_name_manage).await;
-
-    server.shutdown().await;
-}
-
-#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
-async fn test_api_key_invalid_delete(pool: sqlx::Pool<db::DatabaseType>) {
-    let mut server = common::ServerBuilder::new(common::HOST, pool)
-        .enable_tls()
-        .enable_api_key()
-        .build()
-        .await;
-
-    let api_key_1 = server
-        .create_api_key(types::auth::Permission::Read, None)
-        .await;
-    let api_key_2 = server
-        .create_api_key(types::auth::Permission::Write, None)
-        .await;
-
-    let port = server.port();
-    let mut client_read = make_client(&api_key_1.key, port).await;
-    let mut client_write = make_client(&api_key_2.key, port).await;
-
-    assert!(!api_key_1.permission.can_delete());
-    assert!(!api_key_2.permission.can_delete());
-
-    let sequence_name = "test_api_key_invalid_delete";
-
-    let res = actions::sequence_create(&mut client_write, sequence_name, None).await;
+    // Write is allowed.
+    let res = actions::sequence_create(&mut client, "write_only_seq", None).await;
     assert!(res.is_ok());
 
-    let res = actions::sequence_delete(&mut client_write, sequence_name).await;
-    let err_code = res.unwrap_err().code();
-    assert_eq!(err_code, tonic::Code::PermissionDenied);
+    // Read is denied.
+    assert_eq!(
+        try_read(&mut client).await,
+        Some(tonic::Code::PermissionDenied)
+    );
 
-    let res = actions::sequence_delete(&mut client_read, sequence_name).await;
-    let err_code = res.unwrap_err().code();
-    assert_eq!(err_code, tonic::Code::PermissionDenied);
+    // Delete is denied.
+    let res = actions::sequence_delete(&mut client, "write_only_seq").await;
+    assert_eq!(res.unwrap_err().code(), tonic::Code::PermissionDenied);
 
     server.shutdown().await;
 }
 
+/// A delete-only key can delete but neither read nor write
+/// (a delete key can no longer create data).
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
-async fn test_api_key_valid_manage(pool: sqlx::Pool<db::DatabaseType>) {
+async fn test_api_key_delete_only(pool: sqlx::Pool<db::DatabaseType>) {
     let mut server = common::ServerBuilder::new(common::HOST, pool)
         .enable_tls()
         .enable_api_key()
         .build()
         .await;
 
-    let api_key_1 = server
-        .create_api_key(types::auth::Permission::Read, None)
-        .await;
-    let api_key_2 = server
-        .create_api_key(types::auth::Permission::Write, None)
-        .await;
-    let api_key_3 = server
-        .create_api_key(types::auth::Permission::Delete, None)
-        .await;
-    let api_key_4 = server
-        .create_api_key(types::auth::Permission::Manage, None)
-        .await;
+    let writer = server.create_api_key(Permission::Write.into(), None).await;
+    let deleter = server.create_api_key(Permission::Delete.into(), None).await;
 
-    let mut client = common::ClientBuilder::new(common::HOST, server.port())
-        .enable_tls()
-        .with_api_key(api_key_4.key.to_string())
-        .build()
-        .await;
-
-    assert!(api_key_4.permission.can_manage());
-
-    let sequence_name = "test_api_key_valid_manage";
-
-    let res = actions::sequence_create(&mut client, sequence_name, None).await;
-    assert!(res.is_ok());
-
-    let res = actions::sequence_delete(&mut client, sequence_name).await;
-    assert!(res.is_ok());
-
-    let fingerprints = [
-        api_key_1.key.fingerprint(),
-        api_key_2.key.fingerprint(),
-        api_key_3.key.fingerprint(),
-        api_key_4.key.fingerprint(),
-    ];
-
-    for fingerprint in &fingerprints {
-        let res = actions::api_key_revoke(&mut client, fingerprint).await;
-        assert!(res.is_ok());
-    }
-
-    let res = actions::sequence_create(&mut client, sequence_name, None).await;
-    dbg!(&res);
-    let err_code = res.unwrap_err().code();
-    assert_eq!(err_code, tonic::Code::PermissionDenied);
-
-    server.shutdown().await;
-}
-
-#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
-async fn test_api_key_invalid_manage(pool: sqlx::Pool<db::DatabaseType>) {
-    let mut server = common::ServerBuilder::new(common::HOST, pool)
-        .enable_tls()
-        .enable_api_key()
-        .build()
-        .await;
-
-    let api_key_1 = server
-        .create_api_key(types::auth::Permission::Read, None)
-        .await;
-    let api_key_2 = server
-        .create_api_key(types::auth::Permission::Write, None)
-        .await;
-    let api_key_3 = server
-        .create_api_key(types::auth::Permission::Delete, None)
-        .await;
-    let api_key_4 = server
-        .create_api_key(types::auth::Permission::Manage, None)
-        .await;
+    assert!(!deleter.permission.can_read());
+    assert!(!deleter.permission.can_write());
+    assert!(deleter.permission.can_delete());
 
     let port = server.port();
-    let mut client_read = make_client(&api_key_1.key, port).await;
-    let mut client_write = make_client(&api_key_2.key, port).await;
-    let mut client_delete = make_client(&api_key_3.key, port).await;
-    let mut client_manage = make_client(&api_key_4.key, port).await;
+    let mut client_writer = make_client(&writer.key, port).await;
+    let mut client_deleter = make_client(&deleter.key, port).await;
 
-    let fingerprints = [
-        api_key_1.key.fingerprint(),
-        api_key_2.key.fingerprint(),
-        api_key_3.key.fingerprint(),
-        api_key_4.key.fingerprint(),
-    ];
+    let seq_name = "delete_only_seq";
 
-    for fingerprint in &fingerprints {
-        invalid_revoke_helper(&mut client_read, fingerprint).await;
-        invalid_revoke_helper(&mut client_write, fingerprint).await;
-        invalid_revoke_helper(&mut client_delete, fingerprint).await;
-    }
+    // The delete-only key cannot create the sequence.
+    let res = actions::sequence_create(&mut client_deleter, seq_name, None).await;
+    assert_eq!(res.unwrap_err().code(), tonic::Code::PermissionDenied);
 
-    let res = actions::api_key_revoke(&mut client_manage, api_key_4.key.fingerprint()).await;
+    // A write key sets up the sequence, then the delete key removes it.
+    actions::sequence_create(&mut client_writer, seq_name, None)
+        .await
+        .unwrap();
+
+    let res = actions::sequence_delete(&mut client_deleter, seq_name).await;
     assert!(res.is_ok());
+
+    // Read is denied for the delete-only key.
+    assert_eq!(
+        try_read(&mut client_deleter).await,
+        Some(tonic::Code::PermissionDenied)
+    );
+
+    server.shutdown().await;
+}
+
+/// Permissions can be combined explicitly. A `write|delete` key can create and
+/// delete, and a `read|write|delete` key can do everything.
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_api_key_combined_permissions(pool: sqlx::Pool<db::DatabaseType>) {
+    let mut server = common::ServerBuilder::new(common::HOST, pool)
+        .enable_tls()
+        .enable_api_key()
+        .build()
+        .await;
+
+    let write_delete = server
+        .create_api_key("write|delete".parse().unwrap(), None)
+        .await;
+    let full = server
+        .create_api_key("read|write|delete".parse().unwrap(), None)
+        .await;
+
+    assert!(!write_delete.permission.can_read());
+    assert!(write_delete.permission.can_write());
+    assert!(write_delete.permission.can_delete());
+
+    assert!(full.permission.can_read());
+    assert!(full.permission.can_write());
+    assert!(full.permission.can_delete());
+
+    let port = server.port();
+    let mut client_wd = make_client(&write_delete.key, port).await;
+    let mut client_full = make_client(&full.key, port).await;
+
+    // write|delete: can create and delete, cannot read.
+    actions::sequence_create(&mut client_wd, "wd_seq", None)
+        .await
+        .unwrap();
+    assert_eq!(
+        try_read(&mut client_wd).await,
+        Some(tonic::Code::PermissionDenied)
+    );
+    actions::sequence_delete(&mut client_wd, "wd_seq")
+        .await
+        .unwrap();
+
+    // read|write|delete: full access.
+    actions::sequence_create(&mut client_full, "full_seq", None)
+        .await
+        .unwrap();
+    assert_ne!(
+        try_read(&mut client_full).await,
+        Some(tonic::Code::PermissionDenied)
+    );
+    actions::sequence_delete(&mut client_full, "full_seq")
+        .await
+        .unwrap();
+
     server.shutdown().await;
 }
 
@@ -517,18 +274,16 @@ async fn test_api_key_expiration(pool: sqlx::Pool<db::DatabaseType>) {
 
     let expiring_key = server
         .create_api_key(
-            types::auth::Permission::Write,
+            Permission::Write.into(),
             Some(types::Timestamp::now() + std::time::Duration::from_millis(200)),
         )
         .await;
 
-    let manage_key = server
-        .create_api_key(types::auth::Permission::Manage, None)
-        .await;
+    let stable_key = server.create_api_key(Permission::Write.into(), None).await;
 
     let port = server.port();
     let mut client_expiring = make_client(&expiring_key.key, port).await;
-    let mut client_manage = make_client(&manage_key.key, port).await;
+    let mut client_stable = make_client(&stable_key.key, port).await;
 
     let res = actions::sequence_create(&mut client_expiring, "test_before_expiry", None).await;
     assert!(res.is_ok());
@@ -539,133 +294,9 @@ async fn test_api_key_expiration(pool: sqlx::Pool<db::DatabaseType>) {
     dbg!(&res);
     assert_eq!(res.unwrap_err().code(), tonic::Code::PermissionDenied);
 
-    let res = actions::sequence_create(&mut client_manage, "test_manage", None).await;
+    // A non-expiring key keeps working.
+    let res = actions::sequence_create(&mut client_stable, "test_stable", None).await;
     assert!(res.is_ok());
-
-    let res = actions::api_key_revoke(&mut client_manage, expiring_key.key.fingerprint()).await;
-    assert!(res.is_ok(),);
-
-    server.shutdown().await;
-}
-
-#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
-async fn test_api_key_lifecycle_cross_revoke(pool: sqlx::Pool<db::DatabaseType>) {
-    let mut server = common::ServerBuilder::new(common::HOST, pool)
-        .enable_tls()
-        .enable_api_key()
-        .build()
-        .await;
-
-    let api_key_write = server
-        .create_api_key(types::auth::Permission::Write, None)
-        .await;
-    let api_key_delete = server
-        .create_api_key(types::auth::Permission::Delete, None)
-        .await;
-    let api_key_manage1 = server
-        .create_api_key(types::auth::Permission::Manage, None)
-        .await;
-    let api_key_manage2 = server
-        .create_api_key(types::auth::Permission::Manage, None)
-        .await;
-
-    let port = server.port();
-    let mut client_write = make_client(&api_key_write.key, port).await;
-    let mut client_delete = make_client(&api_key_delete.key, port).await;
-    let mut client_manage1 = make_client(&api_key_manage1.key, port).await;
-    let mut client_manage2 = make_client(&api_key_manage2.key, port).await;
-
-    // write, delete cancella, clean state
-    actions::sequence_create(&mut client_write, "seq_a", None)
-        .await
-        .unwrap();
-    actions::sequence_delete(&mut client_delete, "seq_a")
-        .await
-        .unwrap();
-
-    // write seq_b, manage1 revokes write
-    actions::sequence_create(&mut client_write, "seq_b", None)
-        .await
-        .unwrap();
-    actions::api_key_revoke(&mut client_manage1, api_key_write.key.fingerprint())
-        .await
-        .unwrap();
-
-    // invalid write
-    let err = actions::sequence_create(&mut client_write, "seq_c", None)
-        .await
-        .unwrap_err();
-    assert_eq!(err.code(), tonic::Code::PermissionDenied);
-
-    // seq_b is still available
-    actions::sequence_delete(&mut client_delete, "seq_b")
-        .await
-        .unwrap();
-
-    // revoke manager
-    actions::api_key_revoke(&mut client_manage2, api_key_manage1.key.fingerprint())
-        .await
-        .unwrap();
-    let err = actions::api_key_revoke(&mut client_manage1, api_key_delete.key.fingerprint())
-        .await
-        .unwrap_err();
-    assert_eq!(err.code(), tonic::Code::PermissionDenied);
-
-    // manage2 still alive
-    actions::sequence_create(&mut client_manage2, "seq_final", None)
-        .await
-        .unwrap();
-    actions::sequence_delete(&mut client_manage2, "seq_final")
-        .await
-        .unwrap();
-
-    server.shutdown().await;
-}
-
-#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
-async fn test_api_key_manage_self_revoke(pool: sqlx::Pool<db::DatabaseType>) {
-    let mut server = common::ServerBuilder::new(common::HOST, pool)
-        .enable_tls()
-        .enable_api_key()
-        .build()
-        .await;
-
-    let manage_key_1 = server
-        .create_api_key(types::auth::Permission::Manage, None)
-        .await;
-    let manage_key_2 = server
-        .create_api_key(types::auth::Permission::Manage, None)
-        .await;
-
-    let port = server.port();
-    let mut client_1 = make_client(&manage_key_1.key, port).await;
-    let mut client_2 = make_client(&manage_key_2.key, port).await;
-
-    let res = actions::sequence_create(&mut client_1, "seq_pre_self_revoke", None).await;
-    assert!(res.is_ok());
-
-    let res = actions::api_key_revoke(&mut client_1, manage_key_1.key.fingerprint()).await;
-    dbg!(&res);
-    assert!(res.is_ok());
-
-    let res = actions::sequence_create(&mut client_1, "seq_after_self_revoke", None).await;
-    dbg!(&res);
-    assert_eq!(res.unwrap_err().code(), tonic::Code::PermissionDenied);
-
-    let res = actions::sequence_delete(&mut client_1, "seq_pre_self_revoke").await;
-    dbg!(&res);
-    assert_eq!(res.unwrap_err().code(), tonic::Code::PermissionDenied);
-
-    let res = actions::api_key_revoke(&mut client_1, manage_key_2.key.fingerprint()).await;
-    dbg!(&res);
-    assert_eq!(res.unwrap_err().code(), tonic::Code::PermissionDenied);
-
-    let res = actions::sequence_delete(&mut client_2, "seq_pre_self_revoke").await;
-    assert!(res.is_ok());
-
-    let res = actions::api_key_revoke(&mut client_2, manage_key_1.key.fingerprint()).await;
-    dbg!(&res);
-    assert!(res.unwrap_err().code() == tonic::Code::NotFound);
 
     server.shutdown().await;
 }
@@ -678,18 +309,10 @@ async fn test_api_key_concurrent_same_sequence(pool: sqlx::Pool<db::DatabaseType
         .build()
         .await;
 
-    let api_key_w1 = server
-        .create_api_key(types::auth::Permission::Write, None)
-        .await;
-    let api_key_w2 = server
-        .create_api_key(types::auth::Permission::Write, None)
-        .await;
-    let api_key_d1 = server
-        .create_api_key(types::auth::Permission::Delete, None)
-        .await;
-    let api_key_d2 = server
-        .create_api_key(types::auth::Permission::Delete, None)
-        .await;
+    let api_key_w1 = server.create_api_key(Permission::Write.into(), None).await;
+    let api_key_w2 = server.create_api_key(Permission::Write.into(), None).await;
+    let api_key_d1 = server.create_api_key(Permission::Delete.into(), None).await;
+    let api_key_d2 = server.create_api_key(Permission::Delete.into(), None).await;
 
     let port = server.port();
     let mut client_w1 = make_client(&api_key_w1.key, port).await;
