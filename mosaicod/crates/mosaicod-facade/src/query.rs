@@ -66,7 +66,7 @@ impl Query {
                     "starting search for ontology tag `{}` (expression groups: {})",
                     // grp is ensured to contain at least one element (previous check)
                     ontology_tag_exprs.group[0].ontology_field().ontology_tag(),
-                    &expression_groups_count,
+                    expression_groups_count,
                 );
 
                 let ts_engine = ts_gw.clone();

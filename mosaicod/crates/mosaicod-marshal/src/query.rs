@@ -225,9 +225,9 @@ fn valid_key(key: &str) -> bool {
     !key.is_empty()
         && !key.contains("--")
         && !key.contains("***")
-        && key.bytes().all(|b| {
-            b.is_ascii_alphanumeric() || [b' ', b'_', b'-', b'*', b'[', b']', b'.'].contains(&b)
-        })
+        && key
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b" _-*[].".contains(&b))
 }
 
 /// Utility function to convert deserialized user metadata
