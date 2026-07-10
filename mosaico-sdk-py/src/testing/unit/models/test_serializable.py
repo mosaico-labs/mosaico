@@ -7,12 +7,8 @@ def test_schema_fingerprint_is_deterministic_across_separate_instances():
     # Two independently-built pa.StructType instances with the same shape must
     # produce the same fingerprint, since this is the basis for detecting whether
     # two dynamically-resolved ontology classes represent the same schema.
-    struct_a = pa.struct(
-        [pa.field("x", pa.float32()), pa.field("y", pa.float32())]
-    )
-    struct_b = pa.struct(
-        [pa.field("x", pa.float32()), pa.field("y", pa.float32())]
-    )
+    struct_a = pa.struct([pa.field("x", pa.float32()), pa.field("y", pa.float32())])
+    struct_b = pa.struct([pa.field("x", pa.float32()), pa.field("y", pa.float32())])
 
     assert struct_a is not struct_b
     assert _compute_schema_fingerprint(struct_a) == _compute_schema_fingerprint(
