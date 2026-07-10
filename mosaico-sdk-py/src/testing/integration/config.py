@@ -122,8 +122,10 @@ UPLOADED_IMU_CAMERA_METADATA = {
     "interface": {
         "type": "Ethernet",
         "protocol": "UDP",
-        "ip": "192.168.10.42",
-        "port": 7500,
+        "address": {
+            "ip": "192.168.10.42",
+            "port": 7500,
+        },
     },
 }
 
