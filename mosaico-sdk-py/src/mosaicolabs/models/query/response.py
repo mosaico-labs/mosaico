@@ -65,13 +65,13 @@ def _build_intersect_payload(
     return {
         "topics": [
             _build_clusterize_payload(
-                t,
-                clustering_map.get(t.ontology_tag, override_clustering_dt_ns)
+                item_topic,
+                clustering_map.get(item_topic.ontology_tag, override_clustering_dt_ns)
                 if clustering_map
                 else override_clustering_dt_ns,
                 include_timestamp_range=False,
             )
-            for t in item_topics
+            for item_topic in item_topics
         ],
         "intersect_dt_ns": intersect_dt_ns,
     }
@@ -151,7 +151,7 @@ class QueryResponseItemTopic:
                 For visual examples of how this parameter influences the output
                 visit [the main documentation](https://docs.mosaico.dev/python-sdk/SDK/query/#topic-clusterize)
             timestamp_range (Optional[TimestampRange]): timerange to restrict the search.
-                Cluster outside this range are negletted set_clustering_gap()
+                Cluster outside this range are negletted.
 
         Returns:
             A list[TopicCluster] with all the clusters where the query is true.

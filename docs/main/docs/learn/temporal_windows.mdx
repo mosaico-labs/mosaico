@@ -84,7 +84,7 @@ See [Topic clusterize](https://docs.mosaico.dev/python-sdk/SDK/query/#topic-clus
 
 ## Correlating All of a Sequence's Topics with `intersect()`
 
-`intersect()` can also be called directly on a `QueryResponseItem`, correlating **every** topic matched within that sequence at once instead of picking topics one by one. It merges every topic's query expressions into a single server-side request and returns only the time windows where all of them were simultaneously true. This is how you answer questions that span more than one sensor, such as "was the IMU spiking while pressure was low and temperature was exactly at the target value?"
+`intersect()` can be called directly on a `QueryResponseItem`, correlating **every** topic matched within that sequence at once instead of picking topics one by one. It merges every topic's query expressions into a single server-side request and returns only the time windows where all of them were simultaneously true. This is how you answer questions that span more than one sensor, such as "was the IMU spiking while pressure was low and temperature was exactly at the target value?"
 
 ![Sequence-level intersect(): every simultaneous window becomes a cluster, intersect_dt_ns bridges near-miss windows across topics](https://docs.mosaico.dev/python-sdk/assets/temporal_windows_intersect.svg)
 

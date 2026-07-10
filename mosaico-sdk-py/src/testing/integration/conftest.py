@@ -247,14 +247,14 @@ def inject_synthetic_sequence_w_lists(
 
 @pytest.fixture(scope="session")
 def inject_mockup_sequences_filter(
-    host, port, tls_cert_path, api_key_mgmt, compression
+    host, port, tls_cert_path, api_key_manage, compression
 ):
     """Generate synthetic data, create a sequence and pushes messages"""
     _client = MosaicoClient.connect(
         host=host,
         port=port,
         tls_cert_path=tls_cert_path,
-        api_key=api_key_mgmt,
+        api_key=api_key_manage,
         compression=compression,
     )
     for sname, sdata in QUERY_FILTER_SEQUENCES_MOCKUP.items():
