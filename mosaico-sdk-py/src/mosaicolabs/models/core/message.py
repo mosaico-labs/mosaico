@@ -8,6 +8,7 @@ middleware-level metadata (like recording timestamp_ns).
 """
 
 # --- Python Standard Library Imports ---
+import warnings
 from collections import defaultdict
 from typing import Any, Dict, Optional, Type, TypeVar, Union
 
@@ -413,6 +414,12 @@ class Message(BaseModel):
                     # ...
             ```
         """
+
+        warnings.warn(
+            "This classmethod is still not supported and can be deprecated.",
+            category=PendingDeprecationWarning,
+            stacklevel=2,
+        )
 
         # Topic Presence Check
         # Check if any columns belonging to this topic exist in the row
