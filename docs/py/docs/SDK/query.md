@@ -156,11 +156,13 @@ with MosaicoClient.connect("localhost", 6726) as client:
         refined_query_builder = initial_response.to_query_sequence()
 
         # Targeted Refinement: Search for error patterns ONLY within the restricted domain
-        # This ensures the platform only scans for '[ERR]' strings within sequences already validated for GPS precision.
+        # This ensures the platform only scans for strings containing '[ERR]' within sequences
+        # already validated for GPS precision. Note the surrounding "*" wildcards: "[ERR]" alone
+        # would be parsed as a single-character set (matching just "E" or "R"), not a substring.
         final_response = client.query(
             refined_query_builder,                                         # The "locked" sequence domain
             QueryTopic().with_name("/localization/log_string"),    # Target a specific log topic
-            QueryOntologyCatalog(String.Q.data.match("[ERR]"))     # Filter by exact data content pattern
+            QueryOntologyCatalog(String.Q.data.match("*[ERR]*"))   # Filter by data content substring
         )
 
 ```
@@ -183,7 +185,7 @@ with MosaicoClient.connect("localhost", 6726) as client:
     if not initial_response.is_empty():
         final_response = client.query(
             initial_response.to_query_topic(),              # The "locked" topic domain
-            QueryOntologyCatalog(String.Q.data.match("[ERR]"))  # Filter by content
+            QueryOntologyCatalog(String.Q.data.match("*[ERR]*"))  # Filter by content substring
         )
 ```
 
@@ -196,7 +198,7 @@ Because a single topic cannot physically represent two different sensor types at
 # AMBIGUOUS: This looks for ONE topic that is BOTH GPS and String
 response = client.query(
     QueryOntologyCatalog(GPS.Q.status.status.eq(DGPS_FIX)),
-    QueryOntologyCatalog(String.Q.data.match("[ERR]")),
+    QueryOntologyCatalog(String.Q.data.match("*[ERR]*")),
     QueryTopic().with_name("/localization/log_string")
 )
 

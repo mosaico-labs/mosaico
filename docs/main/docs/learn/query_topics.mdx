@@ -37,7 +37,22 @@ The Rust SDK is currently in development.
 
 The key filter in a Topic query is `with_ontology_tag()`. Every type in Mosaico's Ontology (`IMU`, `GPS`, `Pressure`, `String`, and so on) has a unique identifier called an ontology tag. Calling `IMU.ontology_tag()` returns that identifier, and passing it to `with_ontology_tag()` tells the daemon to restrict results to Topics that carry IMU data. This is how you express "I want topics of this type" without knowing their names in advance.
 
-You can narrow the results further by chaining `with_user_metadata()` calls. Metadata can be attached to Topics during ingestion, just as it can be attached to Sequences. In the example below, the query combines the IMU type filter with a metadata filter on the `"interface"` field, so it only returns IMU topics that were recorded through a serial interface. The AND semantics mean both conditions must hold simultaneously.
+You can narrow the results further by chaining `with_user_metadata()` calls, combining a glob pattern on the metadata **key** with a wildcard pattern on the **value**. Metadata can be attached to Topics during ingestion, just as it can be attached to Sequences.
+
+### Pattern Matching: Wildcards and Glob Keys
+
+Both `with_name_match()` and the `match=` keyword of `with_user_metadata()` accept a lightweight glob-style pattern instead of an exact value:
+
+| Wildcard | Description | Example | Matches |
+| --- | --- | --- | --- |
+| `*` | Zero or more characters, including spaces | `/front*` | `/front/camera`, `/front/imu` |
+| `?` | Exactly one character, including spaces | `?.2.0` | `1.2.0`, `3.2.0` (not `10.2.0`) |
+| `[]` | A character set or range | `[gs]*` | `gyrolytics`, `satnavics` |
+| `#` | Any single digit (`0`-`9`); shorthand for `[0-9]` | `camera_#` | `camera_1` |
+
+These wildcards apply to the Topic `name`, or metadata **values** passed through `with_user_metadata(key, match=...)`. Glob patterns apply to metadata **keys only**: `*` matches exactly one key segment, and `**` matches one or more segments at any depth. For example, `"*.type"` matches `interface.type` or `sensor.type`, while `"**.type"` also matches `interface.driver.type`.
+
+In the example below, the query combines the IMU type filter with a metadata filter matching any key ending in `.type` (one level deep) whose value starts with `serial`. The AND semantics mean both conditions must hold simultaneously.
 
 <Tabs>
 <TabItem value="python" label="Python" default>
@@ -48,7 +63,7 @@ with MosaicoClient.connect("localhost", 6726) as client:
     results = client.query(
         QueryTopic()
         .with_ontology_tag(IMU.ontology_tag())
-        .with_user_metadata("interface", eq="serial")
+        .with_user_metadata("*.type", match="serial*")
     )
 
     if results:

@@ -63,10 +63,12 @@ with MosaicoClient.connect("localhost", 6726) as client:
         refined_domain = initial_response.to_query_sequence()
 
         # Step 3: within those sequences, find error log messages
+        # (wrap the tag in "*" wildcards to match it anywhere in the string;
+        # "[ERR]" alone would be parsed as a single-character set, not a substring)
         final_results = client.query(
             refined_domain,
             QueryTopic().with_name("/localization/log_string"),
-            QueryOntologyCatalog(String.Q.data.match("[ERR]"))
+            QueryOntologyCatalog(String.Q.data.match("*[ERR]*"))
         )
 
         if final_results:

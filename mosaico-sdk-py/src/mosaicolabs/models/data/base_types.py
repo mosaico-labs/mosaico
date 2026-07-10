@@ -862,7 +862,7 @@ class String(Serializable):
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for strings containing a specific log pattern
-            qresponse = client.query(QueryOntologyCatalog(String.Q.data.match("[ERR]")))
+            qresponse = client.query(QueryOntologyCatalog(String.Q.data.match("*[ERR]*")))
 
             # Inspect the response
             if qresponse is not None:

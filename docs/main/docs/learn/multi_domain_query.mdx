@@ -45,7 +45,7 @@ The Rust SDK is currently in development.
 
 Every Ontology model in the SDK (such as `IMU`, `GPS`, `String`) exposes a `.Q` class attribute. This proxy generates type-safe field path expressions that the server can evaluate. When you write `IMU.Q.acceleration.x.gt(5.0)`, you are saying "the X component of the acceleration vector is greater than 5.0". The IDE can autocomplete field names because `.Q` mirrors the structure of the ontology type, so typos in field paths are caught before the query ever runs.
 
-The comparison operators available on a field path (`.gt()`, `.lt()`, `.eq()`, `.between()`, `.match()`, and others) correspond to server-side predicates. Nothing is evaluated in Python; the expression is serialised and sent to the daemon, which applies it during the scan.
+The comparison operators available on a field path (`.gt()`, `.lt()`, `.eq()`, `.between()`, `.match()`, and others) correspond to server-side predicates. Nothing is evaluated in Python; the expression is serialised and sent to the daemon, which applies it during the scan. `.match()` accepts the same glob-style wildcards (`*`, `?`, `[]`, `#`) used by `with_name_match()` and `with_user_metadata(key, match=...)`. See [The Query Workflow](https://docs.mosaico.dev/python-sdk/SDK/query/#wildcards-patterns-queries) for the full reference.
 
 ### Timestamp Ranges
 

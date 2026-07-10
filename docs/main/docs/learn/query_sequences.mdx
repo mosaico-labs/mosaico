@@ -37,11 +37,24 @@ The Rust SDK is currently in development.
 
 The `QuerySequence` builder constructs a filter by method chaining. Every `.with_*()` call you add becomes an additional AND condition: the daemon only returns sessions that satisfy every constraint you have specified. This makes it natural to start broad and progressively narrow; you can add conditions one at a time and the semantics are always "all of the above must be true."
 
-`with_name_match()` performs a fuzzy substring match against the Sequence name. Passing `"test_drive"` will match any session whose name contains that string, so you do not need to know the exact recording name in advance. This is useful when you have a naming convention and want all recordings from a particular campaign.
+`with_name_match()` matches the Sequence name against a glob-style pattern rather than a plain substring: passing `"test_drive"` looks for an **exact** match, while `"test_drive*"` matches any name that starts with that prefix. See the wildcard table below for the full set of supported wildcards.
 
-`with_user_metadata()` works differently: it performs an exact or comparison-based match against a specific metadata field. The first argument is the field key, and the keyword arguments (`eq`, `lt`, `gt`, and so on) specify the predicate. When you stored metadata as a nested dictionary during ingestion, you can reach any level of nesting using dot notation. For example, `"project.name"` queries the `name` field inside the `project` sub-object, and `"environment.visibility"` queries a field two levels deep. Any structure you stored at recording time is queryable this way.
+`with_user_metadata()` works differently: it performs an exact, comparison-based, or pattern-based match against a specific metadata field, depending on the operator you pass as a keyword argument (`eq`, `lt`, `gt`, `match`, and so on). The first argument is the field key, and when you stored metadata as a nested dictionary during ingestion, you can reach any level of nesting using dot notation. For example, `"project.name"` queries the `name` field inside the `project` sub-object. The key itself can also use a glob pattern (see below) to match several nested fields at once without knowing the exact structure in advance.
 
-The example below finds every Sequence whose name contains `"test_drive"`, whose project name is exactly `"Apollo"`, and whose recorded visibility was below 50.
+### Pattern Matching: Wildcards and Glob Keys
+
+Both `with_name_match()` and the `match=` keyword of `with_user_metadata()` accept a lightweight glob-style pattern instead of an exact value:
+
+| Wildcard | Description | Example | Matches |
+| --- | --- | --- | --- |
+| `*` | Zero or more characters, including spaces | `test_drive*` | `test_drive_01`, `test_drive_winter` |
+| `?` | Exactly one character, including spaces | `?ublic` | `public` (not `private`) |
+| `[]` | A character set or range | `[rl]*` | `raw`, `labeled` |
+| `#` | Any single digit (`0`-`9`); shorthand for `[0-9]` | `test-sequence-#` | `test-sequence-1` |
+
+These wildcards apply to **values** you are matching against like the Sequence `name`, or the value passed to `with_user_metadata(key, match=...)`. Glob patterns apply to metadata **keys only**: `*` matches exactly one key segment, and `**` matches one or more segments at any depth. For example, `"*.name"` matches `project.name` or `campaign.name`, while `"**.name"` also matches `mission.crew.name`.
+
+The example below finds every Sequence whose name starts with `test_drive`, whose metadata has some key ending in `.name` (one level deep) with a value starting with `Apollo`, and whose recorded visibility was below 50.
 
 <Tabs>
 <TabItem value="python" label="Python" default>
@@ -51,8 +64,8 @@ from mosaicolabs import MosaicoClient, QuerySequence
 with MosaicoClient.connect("localhost", 6726) as client:
     results = client.query(
         QuerySequence()
-        .with_name_match("test_drive")
-        .with_user_metadata("project.name", eq="Apollo")
+        .with_name_match("test_drive*")
+        .with_user_metadata("*.name", match="Apollo*")
         .with_user_metadata("environment.visibility", lt=50)
     )
 

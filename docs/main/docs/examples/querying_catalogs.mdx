@@ -1,7 +1,7 @@
 ---
 title: Querying Catalogs
 sidebar_position: 4
-description: "Runnable example showing how to search the Mosaico catalog using query builders. Covers fuzzy topic name matching with QueryTopic, filtering by Ontology type with ontology_tag(), multi-domain queries combining QueryOntologyCatalog and the .Q proxy, and slicing results for event replay."
+description: "Runnable example showing how to search the Mosaico catalog using query builders. Covers wildcard topic name matching with QueryTopic, filtering by Ontology type with ontology_tag(), multi-domain queries combining QueryOntologyCatalog and the .Q proxy, and slicing results for event replay."
 ---
 
 import Tabs from '@theme/Tabs';
@@ -45,14 +45,14 @@ Mosaico's query API uses fluent builder objects. Passing multiple builders to `c
 
 ## Finding Topics by Name
 
-`QueryTopic.with_name_match()` performs a substring search across all topic paths in the catalog, equivalent to SQL `LIKE '%pattern%'`. The result is a `QueryResponse` grouped by sequence, so each item contains the parent session name alongside the matching topic list.
+`QueryTopic.with_name_match()` matches topic paths against a glob-style pattern rather than an exact string. A plain string like `"image_raw"` requires an exact match; wrap it in wildcards (e.g. `"*image_raw*"`) to search for topics whose path merely contains that substring. See [The Query Workflow](https://docs.mosaico.dev/python-sdk/SDK/query/#wildcards-patterns-queries) for the full set of supported wildcards (`*`, `?`, `[]`, `#`). The result is a `QueryResponse` grouped by sequence, so each item contains the parent session name alongside the matching topic list.
 
-```python title="Fuzzy topic name search"
+```python title="Wildcard topic name search"
 from mosaicolabs import MosaicoClient, QueryTopic
 
 with MosaicoClient.connect(host="localhost", port=6726) as client:
     results = client.query(
-        QueryTopic().with_name_match("image_raw")
+        QueryTopic().with_name_match("*image_raw*")
     )
     if results:
         for item in results:

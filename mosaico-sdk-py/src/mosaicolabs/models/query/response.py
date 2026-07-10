@@ -170,7 +170,7 @@ class QueryResponse:
                     final_response = client.query(
                         initial_response.to_query_sequence(),              # The "locked" sequence domain
                         QueryTopic().with_name("/localization/log_string"), # Target a specific log topic
-                        QueryOntologyCatalog(String.Q.data.match("[ERR]"))  # Filter by content
+                        QueryOntologyCatalog(String.Q.data.match("*[ERR]*"))  # Filter by content substring
                     )
             ```
 
@@ -214,7 +214,7 @@ class QueryResponse:
                 if not initial_response.is_empty():
                     final_response = client.query(
                         initial_response.to_query_topic(),              # The "locked" topic domain
-                        QueryOntologyCatalog(String.Q.data.match("[ERR]"))  # Filter by content
+                        QueryOntologyCatalog(String.Q.data.match("*[ERR]*"))  # Filter by content substring
                     )
             ```
 
