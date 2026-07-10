@@ -5,6 +5,18 @@ from mosaicolabs.models.query import QueryOntologyCatalog, QuerySequence
 from testing.integration.config import QUERY_FILTER_SEQUENCE_RESOLUTION_NS
 
 
+def error_within_tollerance(
+    timerange: TimestampRange,
+    expected_start: float,
+    expected_end: float,
+    eps: float = 0,
+) -> bool:
+    return (
+        abs(timerange.start - expected_start) <= eps
+        and abs(timerange.end - expected_end) <= eps
+    )
+
+
 def test_filter_clusterize_single_expression_single_topic(
     mosaico_client: MosaicoClient,
     inject_mockup_sequences_filter,  # Ensure the data are available on the data platform
@@ -33,10 +45,12 @@ def test_filter_clusterize_single_expression_single_topic(
             # Expected just one (1) cluster
             assert len(clusters) == 1
 
-            assert clusters[0].timerange.start >= (math.pi / 6) * 1.0e9  # pi/6
-            assert (
-                clusters[0].timerange.end <= (3 * math.pi - math.pi / 6) * 1.0e9
-            )  # 3pi - pi/6
+            assert error_within_tollerance(
+                clusters[0].timerange,
+                (math.pi / 6) * 1.0e9,
+                (3 * math.pi - math.pi / 6) * 1.0e9,
+                QUERY_FILTER_SEQUENCE_RESOLUTION_NS,
+            )  # pi/6 ... 3pi - pi/6
 
             # Clusterize with clustering_dt_ns
             clustering_dt_ns = QUERY_FILTER_SEQUENCE_RESOLUTION_NS * 2
@@ -45,17 +59,19 @@ def test_filter_clusterize_single_expression_single_topic(
             # Expected two (2) clusters
             assert len(clusters) == 2
 
-            assert clusters[0].timerange.start >= (math.pi / 6) * 1.0e9
-            assert (
-                clusters[0].timerange.end <= (math.pi - math.pi / 6) * 1.0e9
-            )  # pi + pi/6
+            assert error_within_tollerance(
+                clusters[0].timerange,
+                (math.pi / 6) * 1.0e9,
+                (math.pi - math.pi / 6) * 1.0e9,
+                QUERY_FILTER_SEQUENCE_RESOLUTION_NS,
+            )  # pi/6 ... pi - pi/6
 
-            assert (
-                clusters[1].timerange.start >= (2 * math.pi + math.pi / 6) * 1.0e9
-            )  # 2pi + pi/6
-            assert (
-                clusters[1].timerange.end <= (3 * math.pi - math.pi / 6) * 1.0e9
-            )  # 3pi - pi/6
+            assert error_within_tollerance(
+                clusters[1].timerange,
+                (2 * math.pi + math.pi / 6) * 1.0e9,
+                (3 * math.pi - math.pi / 6) * 1.0e9,
+                QUERY_FILTER_SEQUENCE_RESOLUTION_NS,
+            )  # 2pi + pi/6 ... 3pi - pi/6
 
             # Clusterize with clustering_dt_ns and timerange limited to one period
             # -> despite same clustering_dt_ns as before, now the cluster should be reduced to one (1)
@@ -69,8 +85,12 @@ def test_filter_clusterize_single_expression_single_topic(
             # Expected just one (1) cluster
             assert len(clusters) == 1
 
-            assert clusters[0].timerange.start >= (math.pi / 6) * 1.0e9
-            assert clusters[0].timerange.end <= (5 / 6 * math.pi) * 1.0e9
+            assert error_within_tollerance(
+                clusters[0].timerange,
+                (math.pi / 6) * 1.0e9,
+                (5 / 6 * math.pi) * 1.0e9,
+                QUERY_FILTER_SEQUENCE_RESOLUTION_NS,
+            )
 
     mosaico_client.close()
 
@@ -103,17 +123,19 @@ def test_filter_clusterize_multi_expression_single_topic(
             assert len(clusters) == 2
 
             # This time though interval are more stingent
-            assert clusters[0].timerange.start >= math.pi / 3 * 1.0e9  # pi/3
-            assert (
-                clusters[0].timerange.end <= (math.pi - math.pi / 3) * 1.0e9
-            )  # pi - pi/3
+            assert error_within_tollerance(
+                clusters[0].timerange,
+                math.pi / 3 * 1.0e9,
+                (math.pi - math.pi / 3) * 1.0e9,
+                QUERY_FILTER_SEQUENCE_RESOLUTION_NS,
+            )  # pi/3 ... pi - pi/3
 
-            assert (
-                clusters[1].timerange.start >= (2 * math.pi + math.pi / 3) * 1.0e9
-            )  # 2pi + pi/3
-            assert (
-                clusters[1].timerange.end <= (3 * math.pi - math.pi / 3) * 1.0e9
-            )  # 3pi - pi/3
+            assert error_within_tollerance(
+                clusters[1].timerange,
+                (2 * math.pi + math.pi / 3) * 1.0e9,
+                (3 * math.pi - math.pi / 3) * 1.0e9,
+                QUERY_FILTER_SEQUENCE_RESOLUTION_NS,
+            )  # 2pi + pi/3 ... 3pi - pi/3
 
     mosaico_client.close()
 
@@ -185,13 +207,11 @@ def test_filter_clusterize_all_multi_expression_multi_topic(
             all_clusters_dict.update({topic.name: clusters})
 
             for cluster in clusters:
-                assert (
-                    cluster.timerange.start
-                    >= topic_acc_clusters["intervals"][cluster.id]["start"]
-                )
-                assert (
-                    cluster.timerange.end
-                    <= topic_acc_clusters["intervals"][cluster.id]["end"]
+                assert error_within_tollerance(
+                    cluster.timerange,
+                    topic_acc_clusters["intervals"][cluster.id]["start"],
+                    topic_acc_clusters["intervals"][cluster.id]["end"],
+                    QUERY_FILTER_SEQUENCE_RESOLUTION_NS,
                 )
 
         # Merging all the response clusters coming from each topic.clusterize()
@@ -273,13 +293,11 @@ def test_filter_intersect_single_sequence(
         )
 
         for cluster in clusters:
-            assert (
-                cluster.timerange.start
-                >= acceptance_intervals["intervals"][cluster.id]["start"]
-            )
-            assert (
-                cluster.timerange.end
-                <= acceptance_intervals["intervals"][cluster.id]["end"]
+            assert error_within_tollerance(
+                cluster.timerange,
+                acceptance_intervals["intervals"][cluster.id]["start"],
+                acceptance_intervals["intervals"][cluster.id]["end"],
+                QUERY_FILTER_SEQUENCE_RESOLUTION_NS,
             )
 
         # Result from multi topic intersection of the same sequence should be equal to QueryResponse.intersect() with the same parameters
@@ -300,13 +318,11 @@ def test_filter_intersect_single_sequence(
         assert len(clusters) == len(acceptance_intervals["intervals"])
 
         for cluster in clusters:
-            assert (
-                cluster.timerange.start
-                >= acceptance_intervals["intervals"][cluster.id]["start"]
-            )
-            assert (
-                cluster.timerange.end
-                <= acceptance_intervals["intervals"][cluster.id]["end"]
+            assert error_within_tollerance(
+                cluster.timerange,
+                acceptance_intervals["intervals"][cluster.id]["start"],
+                acceptance_intervals["intervals"][cluster.id]["end"],
+                QUERY_FILTER_SEQUENCE_RESOLUTION_NS,
             )
 
         # Result from multi topic intersection of the same sequence should be equal to QueryResponse.intersect() with the same parameters
@@ -330,13 +346,11 @@ def test_filter_intersect_single_sequence(
         assert len(clusters) == len(acceptance_intervals["intervals"])
 
         for cluster in clusters:
-            assert (
-                cluster.timerange.start
-                >= acceptance_intervals["intervals"][cluster.id]["start"]
-            )
-            assert (
-                cluster.timerange.end
-                <= acceptance_intervals["intervals"][cluster.id]["end"]
+            assert error_within_tollerance(
+                cluster.timerange,
+                acceptance_intervals["intervals"][cluster.id]["start"],
+                acceptance_intervals["intervals"][cluster.id]["end"],
+                QUERY_FILTER_SEQUENCE_RESOLUTION_NS,
             )
 
         # Result from multi topic intersection of the same sequence should be equal to QueryResponse.intersect() with the same parameters
@@ -352,8 +366,12 @@ def test_filter_intersect_single_sequence(
 
         assert len(clusters) == 1
 
-        assert clusters[0].timerange.start >= math.pi / 6.0 * 1.0e9
-        assert clusters[0].timerange.end <= (3 * math.pi - math.pi / 6.0) * 1.0e9
+        assert error_within_tollerance(
+            clusters[0].timerange,
+            math.pi / 6.0 * 1.0e9,
+            (3 * math.pi - math.pi / 6.0) * 1.0e9,
+            QUERY_FILTER_SEQUENCE_RESOLUTION_NS,
+        )
 
         # Result from multi topic intersection of the same sequence should be equal to QueryResponse.intersect() with the same parameters
         assert clusters == item.intersect()
@@ -379,15 +397,12 @@ def test_filter_intersect_item_topic_no_overlapping(
     acceptance_intervals = {
         "intervals": [
             {
-                "start": 0 * 1.0e9 - QUERY_FILTER_SEQUENCE_RESOLUTION_NS * 2,
-                "end": (math.pi / 2.0) * 1.0e9
-                + QUERY_FILTER_SEQUENCE_RESOLUTION_NS * 2,
+                "start": 0.0,
+                "end": (math.pi / 2.0) * 1.0e9,
             },
             {
-                "start": (2.0 * math.pi) * 1.0e9
-                - QUERY_FILTER_SEQUENCE_RESOLUTION_NS * 2,
-                "end": (5.0 / 2.0 * math.pi) * 1.0e9
-                + QUERY_FILTER_SEQUENCE_RESOLUTION_NS * 2,
+                "start": (2.0 * math.pi) * 1.0e9,
+                "end": (5.0 / 2.0 * math.pi) * 1.0e9,
             },
         ],
     }
@@ -429,13 +444,11 @@ def test_filter_intersect_item_topic_no_overlapping(
         assert len(clusters) == len(acceptance_intervals["intervals"])
 
         for cluster in clusters:
-            assert (
-                cluster.timerange.start
-                >= acceptance_intervals["intervals"][cluster.id]["start"]
-            )
-            assert (
-                cluster.timerange.end
-                <= acceptance_intervals["intervals"][cluster.id]["end"]
+            assert error_within_tollerance(
+                cluster.timerange,
+                acceptance_intervals["intervals"][cluster.id]["start"],
+                acceptance_intervals["intervals"][cluster.id]["end"],
+                QUERY_FILTER_SEQUENCE_RESOLUTION_NS * 2,
             )
 
         # Result from multi topic intersection of the same sequence should be equal to QueryResponse.intersect() with the same parameters
@@ -473,14 +486,12 @@ def _test_filter_intersect_multi_sequence_overlapping(
     acceptance_intervals = {
         "intervals": [
             {
-                "start": (math.pi / 6) * 1.0e9 - QUERY_FILTER_SEQUENCE_RESOLUTION_NS,
-                "end": (math.pi / 3) * 1.0e9 + QUERY_FILTER_SEQUENCE_RESOLUTION_NS,
+                "start": (math.pi / 6) * 1.0e9,
+                "end": (math.pi / 3) * 1.0e9,
             },
             {
-                "start": (2 * math.pi + math.pi / 6) * 1.0e9
-                - QUERY_FILTER_SEQUENCE_RESOLUTION_NS,
-                "end": (2 * math.pi + math.pi / 3) * 1.0e9
-                + QUERY_FILTER_SEQUENCE_RESOLUTION_NS,
+                "start": (2 * math.pi + math.pi / 6) * 1.0e9,
+                "end": (2 * math.pi + math.pi / 3) * 1.0e9,
             },
         ],
     }
@@ -498,13 +509,11 @@ def _test_filter_intersect_multi_sequence_overlapping(
 
     assert len(clusters) == 1
 
-    assert (
-        clusters[0].timerange.start
-        >= math.pi / 6.0 * 1.0e9 - QUERY_FILTER_SEQUENCE_RESOLUTION_NS
-    )
-    assert (
-        clusters[0].timerange.end
-        <= (3 * math.pi - math.pi / 6.0) * 1.0e9 + QUERY_FILTER_SEQUENCE_RESOLUTION_NS
+    assert error_within_tollerance(
+        clusters[0].timerange,
+        math.pi / 6.0 * 1.0e9,
+        (3 * math.pi - math.pi / 6.0) * 1.0e9,
+        QUERY_FILTER_SEQUENCE_RESOLUTION_NS,
     )
 
     # Case 2) calling intersect with other SequenceItems and override_clustering_dt_ns defined
@@ -518,13 +527,11 @@ def _test_filter_intersect_multi_sequence_overlapping(
     assert len(clusters) == len(acceptance_intervals["intervals"])
 
     for cluster in clusters:
-        assert (
-            cluster.timerange.start
-            >= acceptance_intervals["intervals"][cluster.id]["start"]
-        )
-        assert (
-            cluster.timerange.end
-            <= acceptance_intervals["intervals"][cluster.id]["end"]
+        assert error_within_tollerance(
+            cluster.timerange,
+            acceptance_intervals["intervals"][cluster.id]["start"],
+            acceptance_intervals["intervals"][cluster.id]["end"],
+            QUERY_FILTER_SEQUENCE_RESOLUTION_NS,
         )
 
     # Case 3) calling intersect with other SequenceItems, partial clustering_map and
@@ -541,13 +548,11 @@ def _test_filter_intersect_multi_sequence_overlapping(
     assert len(clusters) == len(acceptance_intervals["intervals"])
 
     for cluster in clusters:
-        assert (
-            cluster.timerange.start
-            >= acceptance_intervals["intervals"][cluster.id]["start"]
-        )
-        assert (
-            cluster.timerange.end
-            <= acceptance_intervals["intervals"][cluster.id]["end"]
+        assert error_within_tollerance(
+            cluster.timerange,
+            acceptance_intervals["intervals"][cluster.id]["start"],
+            acceptance_intervals["intervals"][cluster.id]["end"],
+            QUERY_FILTER_SEQUENCE_RESOLUTION_NS,
         )
 
     # Case 4) calling intersect with other SequenceItems, total clustering_map
@@ -563,13 +568,11 @@ def _test_filter_intersect_multi_sequence_overlapping(
     assert len(clusters) == len(acceptance_intervals["intervals"])
 
     for cluster in clusters:
-        assert (
-            cluster.timerange.start
-            >= acceptance_intervals["intervals"][cluster.id]["start"]
-        )
-        assert (
-            cluster.timerange.end
-            <= acceptance_intervals["intervals"][cluster.id]["end"]
+        assert error_within_tollerance(
+            cluster.timerange,
+            acceptance_intervals["intervals"][cluster.id]["start"],
+            acceptance_intervals["intervals"][cluster.id]["end"],
+            QUERY_FILTER_SEQUENCE_RESOLUTION_NS,
         )
 
     mosaico_client.close()
