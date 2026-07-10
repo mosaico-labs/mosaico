@@ -761,7 +761,7 @@ class _QueryableField:
         """
         Args:
             full_path: The fully-qualified, dot-notated field path, prefixed
-                by the ontology tag (e.g. `"imu.acceleration.x"`).
+                by the ontology tag (e.g. `"IMU.acceleration.x"`).
             expr_cls: The [`_QueryExpression`][mosaicolabs.models.query.expressions._QueryExpression]
                 subclass used to build comparison expressions for this field
                 (e.g. `_QueryCatalogExpression`).

@@ -425,7 +425,7 @@ The ontology architecture relies on three primary abstractions: the **Factory** 
 ??? question "API Reference"
     [`mosaicolabs.models.core.Serializable`][mosaicolabs.models.core.Serializable]
 
-Every data payload in Mosaico inherits from the `Serializable` class. It manages the global registry of data types and ensures that the system knows exactly how to convert an ontology tag like `"imu"` back into a Python class with a specific binary schema.
+Every data payload in Mosaico inherits from the `Serializable` class. It manages the global registry of data types and ensures that the system knows exactly how to convert an ontology tag like `"IMU"` back into a Python class with a specific binary schema.
 `Serializable` uses the `__pydantic_init_subclass__` hook, which is automatically called whenever a developer defines a new subclass.
 
 ```python
@@ -435,9 +435,12 @@ class MyCustomSensor(Serializable):  # <--- __pydantic_init_subclass__ triggers 
 When this happens, `Serializable` performs the following steps automatically:
 
 1.  **Generate the schema:** Introspect `model_fields` to extract the PyArrow type embedded in each field's `Annotated` metadata via `MosaicoType` aliases or raw `Annotated[T, pa.SomeType()]` annotations and build the `__msco_pyarrow_struct__` automatically. 
-2.  **Generates Tag:** If the class doesn't define `__ontology_tag__`, it auto-generates one from the class name (e.g., `MyCustomSensor` -> `"my_custom_sensor"`).
+2.  **Generates Tag:** If the class doesn't define `__ontology_tag__`, it is set as the class name.
 3.  **Registers Class:** It adds the new class to the global types registry, keyed by `__registry_key__`. For every hand-authored class this defaults to `__ontology_tag__` itself, so the two are interchangeable in practice; they only diverge for dynamically-resolved schema variants (see [Advanced: Ingesting Unmodeled Ontologies](#advanced-ingesting-unmodeled-ontologies)).
 4.  **Injects Query Proxy:** It dynamically adds a `.Q` attribute to the class, enabling the fluent query syntax (e.g., `MyCustomSensor.Q.voltage > 12.0`).
+
+!!! note "The ontology tag is exactly the class name"
+    Unlike some frameworks, Mosaico does **not** transform the class name to derive the tag (no `snake_case` or `camelCase` conversion): `MyCustomSensor` is tagged `"MyCustomSensor"`, not `"my_custom_sensor"`. This is a deliberate choice to avoid a mental mapping step between "the name in my code" and "the tag on the platform" - especially when [querying Unmodeled ontologies](#advanced-ingesting-unmodeled-ontologies), where you often only have the tag string (e.g. from a `TopicHandler`) and no class to derive it from in the first place.
 
 ### `Message` (The Envelope)
 
@@ -653,7 +656,7 @@ from mosaicolabs.models.core.unmodeled import make_unmodeled_ontology_class
 
 UnmodeledGyro = make_unmodeled_ontology_class(
     class_name="UnmodeledGyro",
-    ontology_tag="gyro_raw",
+    ontology_tag=None, # Will inherit the class name
     serialization_format=SerializationFormat.Default,
     pyarrow_schema=pa.struct([
         pa.field("gyro", pa.struct([

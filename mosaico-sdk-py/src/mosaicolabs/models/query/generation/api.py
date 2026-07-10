@@ -228,7 +228,7 @@ class _QueryProxy:
             # This is a nested struct (e.g., 'position').
             # Return a *new* QueryProxy instance for this deeper path.
             return _QueryProxy(
-                full_path=f"{self.__path__}.{name}",  # e.g., "gps.position"
+                full_path=f"{self.__path__}.{name}",  # e.g., "GPS.position"
                 field_schema=child,  # The nested field schema
             )
         else:

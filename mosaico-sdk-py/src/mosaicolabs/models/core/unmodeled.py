@@ -241,9 +241,9 @@ def make_unmodeled_ontology_class(
 
     Returns:
         A new `Unmodeled` subclass, already registered in the
-        [`Serializable`][mosaicolabs.models.core.Serializable] factory under
-        `registry_key` (or `ontology_tag`, if `registry_key` is omitted), and
-        reporting `ontology_tag` to the platform either way.
+            [`Serializable`][mosaicolabs.models.core.Serializable] factory under
+            `registry_key` (or `ontology_tag`, if `registry_key` is omitted), and
+            reporting `ontology_tag` to the platform either way.
 
     Raises:
         ValueError: If the resolved registry key is already registered for a

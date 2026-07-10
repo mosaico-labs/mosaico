@@ -468,7 +468,7 @@ with MosaicoClient.connect("localhost", 6726) as client:
     )
 ```
 
-The real payoff shows up once no class is available at all. Suppose an unmodeled ontology tagged `"gyro_raw"` was ingested via [`make_unmodeled_ontology_class()`][mosaicolabs.models.core.unmodeled.make_unmodeled_ontology_class] (see the [`UnmodeledGyro` example](./ontology.md#how-it-works)) from a process that has since exited - there's no `UnmodeledGyro` class left to build a `.Q` proxy from. The tag and field path are enough:
+The real payoff shows up once no class is available at all. Suppose an unmodeled ontology tagged `"GyroRaw"` was ingested via [`make_unmodeled_ontology_class()`][mosaicolabs.models.core.unmodeled.make_unmodeled_ontology_class] (see the [`UnmodeledGyro` example](./ontology.md#how-it-works)) from a process that has since exited - there's no `UnmodeledGyro` class left to build a `.Q` proxy from. The tag and field path are enough:
 
 ```python
 from mosaicolabs import MosaicoClient, QueryOntologyCatalog
@@ -478,15 +478,15 @@ with MosaicoClient.connect("localhost", 6726) as client:
     # Numeric filter on an unmodeled gyroscope reading - no UnmodeledGyro class required
     qresponse = client.query(
         QueryOntologyCatalog().with_expression(
-            QueryableNumeric("gyro_raw.gyro.x").gt(0.5)
+            QueryableNumeric("GyroRaw.gyro.x").gt(0.5)
         )
     )
 
     # String filter on an unrelated unmodeled ontology, e.g. a translated
-    # diagnostic-log message type tagged "diagnostic_log" with a "level" field
+    # diagnostic-log message type tagged "DiagnosticLog" with a "level" field
     qresponse = client.query(
         QueryOntologyCatalog().with_expression(
-            QueryableString("diagnostic_log.level").eq("ERROR")
+            QueryableString("DiagnosticLog.level").eq("ERROR")
         )
     )
 ```
@@ -517,13 +517,13 @@ An index selector is appended directly after the list field's name, before any f
 from mosaicolabs.models.query.queryable_fields import QueryableNumeric
 
 # The first covariance element is negative
-QueryableNumeric("imu.covariance[0]").lt(0.0)
+QueryableNumeric("IMU.covariance[0]").lt(0.0)
 
 # Every covariance element is non-negative
-QueryableNumeric("imu.covariance[!]").geq(0.0)
+QueryableNumeric("IMU.covariance[!]").geq(0.0)
 
 # At least one covariance element exceeds 1.0
-QueryableNumeric("imu.covariance[?]").gt(1.0)
+QueryableNumeric("IMU.covariance[?]").gt(1.0)
 ```
 
 **Struct lists** (a list of nested structs, e.g. `detections: List[Detection]` where `Detection` has a `label` and a `confidence`) chain a regular `.field.subfield` path after the selector:
@@ -532,16 +532,16 @@ QueryableNumeric("imu.covariance[?]").gt(1.0)
 from mosaicolabs.models.query.queryable_fields import QueryableNumeric, QueryableString
 
 # The first detected object is labeled "pedestrian"
-QueryableString("detection_array.detections[0].label").eq("pedestrian")
+QueryableString("DetectionArray.detections[0].label").eq("pedestrian")
 
 # Every detection has confidence >= 0.9
-QueryableNumeric("detection_array.detections[!].confidence").geq(0.9)
+QueryableNumeric("DetectionArray.detections[!].confidence").geq(0.9)
 
 # At least one detection is labeled "pedestrian"
-QueryableString("detection_array.detections[?].label").eq("pedestrian")
+QueryableString("DetectionArray.detections[?].label").eq("pedestrian")
 
 # At least one detection has confidence below 0.5
-QueryableNumeric("detection_array.detections[?].confidence").lt(0.5)
+QueryableNumeric("DetectionArray.detections[?].confidence").lt(0.5)
 ```
 
 !!! note "No client-side schema validation"

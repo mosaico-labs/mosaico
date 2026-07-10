@@ -44,7 +44,7 @@ The topic filter narrows the search to specific data streams within matching seq
 
 The ontology filter queries the actual sensor data values. Fields are specified using dot notation: `<ontology_tag>.<field_path>`.
 
-For example, to query IMU acceleration data: `imu.acceleration.x`, where `imu` is the ontology tag and `acceleration.x` is the field path within that data model.
+For example, to query IMU acceleration data: `IMU.acceleration.x`, where `IMU` is the ontology tag and `acceleration.x` is the field path within that data model.
 
 #### Timestamp query support
 
@@ -81,11 +81,11 @@ Queries are submitted as JSON objects. Each field is mapped to an operator and v
     }
   },
   "topic": {
-    "ontology_tag": { "$eq": "imu" }
+    "ontology_tag": { "$eq": "IMU" }
   },
   "ontology": {
-    "imu.acceleration.x": { "$gt": 5.0 },
-    "imu.acceleration.y": { "$between": [-2.0, 2.0] },
+    "IMU.acceleration.x": { "$gt": 5.0 },
+    "IMU.acceleration.y": { "$between": [-2.0, 2.0] },
 
     "include_timestamp_range": true,
   }
@@ -96,7 +96,7 @@ This query searches for:
 
 - Sequences with names matching `test_run_%` pattern
 - Where the user metadata field `driver` equals `"Alice"`
-- Containing topics with ontology tag `imu`
+- Containing topics with ontology tag `IMU`
 - Where the IMU's x-axis acceleration exceeds 5.0
 - And the y-axis acceleration is between -2.0 and 2.0
 

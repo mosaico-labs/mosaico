@@ -58,12 +58,12 @@ class QueryableNumeric(_QueryableField, _QueryableNumeric):
         from mosaicolabs.models.query.queryable_fields import QueryableNumeric
 
         # Equivalent to `IMU.Q.acceleration.x.gt(9.8)`, addressed by path alone.
-        expr = QueryableNumeric("imu.acceleration.x").gt(9.8)
+        expr = QueryableNumeric("IMU.acceleration.x").gt(9.8)
         ```
 
     Args:
         path: The fully-qualified, dot-notated field path, prefixed by the
-            ontology tag (e.g. `"imu.acceleration.x"`, or
+            ontology tag (e.g. `"IMU.acceleration.x"`, or
             `f"{ontology_tag}.temperature.celsius"` for an unmodeled ontology).
     """
 
@@ -89,12 +89,12 @@ class QueryableString(_QueryableField, _QueryableString):
         from mosaicolabs.models.query.queryable_fields import QueryableString
 
         # Equivalent to `IMU.Q.frame_id.eq("imu_link")`, addressed by path alone.
-        expr = QueryableString("imu.frame_id").eq("imu_link")
+        expr = QueryableString("IMU.frame_id").eq("imu_link")
         ```
 
     Args:
         path: The fully-qualified, dot-notated field path, prefixed by the
-            ontology tag (e.g. `"imu.frame_id"`, or
+            ontology tag (e.g. `"IMU.frame_id"`, or
             `f"{ontology_tag}.status.label"` for an unmodeled ontology).
     """
 
@@ -119,12 +119,12 @@ class QueryableBool(_QueryableField, _QueryableBool):
         from mosaicolabs.models.query.queryable_fields import QueryableBool
 
         # Equivalent to `ROI.Q.do_rectify.eq(True)`, addressed by path alone.
-        expr = QueryableBool("roi.do_rectify").eq(True)
+        expr = QueryableBool("ROI.do_rectify").eq(True)
         ```
 
     Args:
         path: The fully-qualified, dot-notated field path, prefixed by the
-            ontology tag (e.g. `"roi.do_rectify"`, or
+            ontology tag (e.g. `"ROI.do_rectify"`, or
             `f"{ontology_tag}.status.is_online"` for an unmodeled ontology).
     """
 

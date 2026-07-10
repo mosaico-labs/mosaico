@@ -57,8 +57,8 @@ def resolve_ontology_class(
 
     Returns:
         The resolved `Serializable` class: the already-registered class for
-        `ontology_tag`, a newly created `Unmodeled` fallback class, or a
-        distinct schema-variant class, depending on the case above.
+            `ontology_tag`, a newly created `Unmodeled` fallback class, or a
+            distinct schema-variant class, depending on the case above.
 
     Raises:
         ValueError: If `ontology_tag` isn't registered and no `schema` is
