@@ -30,7 +30,6 @@ from typing import (
 import pyarrow as pa
 
 from mosaicolabs.enum import SerializationFormat
-from mosaicolabs.helpers import camel_to_snake
 
 from ..query.generation.api import _QueryProxyMixin
 from .base_model import BaseModel
@@ -177,7 +176,7 @@ class Serializable(BaseModel, _QueryProxyMixin):
         super().__pydantic_init_subclass__(**kwargs)
 
         # Tag Generation
-        tag = cls.__ontology_tag__ or camel_to_snake(cls.__name__)
+        tag = cls.__ontology_tag__ or cls.__name__
         cls.__ontology_tag__ = tag
         cls.__class_type__ = cls
 

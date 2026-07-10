@@ -80,13 +80,13 @@ def test_futures_registration():
             from mosaicolabs.models.core import Serializable
 
             _FUTURES_TAGS = [
-                "rgbd_camera",
-                "tof_camera",
-                "stereo_camera",
-                "laser_scan",
-                "multi_echolaser_scan",
-                "lidar",
-                "radar",
+                "RGBDCamera",
+                "ToFCamera",
+                "StereoCamera",
+                "LaserScan",
+                "MultiEchoLaserScan",
+                "Lidar",
+                "Radar",
             ]
 
             assert all(Serializable._is_registered(tag) for tag in _FUTURES_TAGS)

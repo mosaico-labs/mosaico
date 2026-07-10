@@ -837,22 +837,23 @@ class TestQueryRobotJoint:
         assert isinstance(RobotJoint.Q.names.all(), _QueryableString)
 
         with pytest.raises(
-            AttributeError, match="Field 'robot_joint.names' is a list."
+            AttributeError,
+            match=f"Field '{RobotJoint.ontology_tag()}.names' is a list.",
         ):
             RobotJoint.Q.names.field
 
         expr = RobotJoint.Q.positions[0].eq(0)
-        assert expr.key == "robot_joint.positions[0]"
+        assert expr.key == f"{RobotJoint.ontology_tag()}.positions[0]"
         assert expr.op == "$eq"
         assert expr.value == 0
 
         expr = RobotJoint.Q.positions.all().eq(0)
-        assert expr.key == "robot_joint.positions[!]"
+        assert expr.key == f"{RobotJoint.ontology_tag()}.positions[!]"
         assert expr.op == "$eq"
         assert expr.value == 0
 
         expr = RobotJoint.Q.positions.any().eq(0)
-        assert expr.key == "robot_joint.positions[?]"
+        assert expr.key == f"{RobotJoint.ontology_tag()}.positions[?]"
         assert expr.op == "$eq"
         assert expr.value == 0
 
@@ -883,51 +884,59 @@ class TestQueryRobotPath:
         assert isinstance(RobotPath.Q.poses.all().orientation.z, _QueryableNumeric)
         assert isinstance(RobotPath.Q.poses.all().orientation.w, _QueryableNumeric)
 
-        with pytest.raises(AttributeError, match="Field 'robot_path.poses' is a list."):
+        with pytest.raises(
+            AttributeError, match=f"Field '{RobotPath.ontology_tag()}.poses' is a list."
+        ):
             RobotPath.Q.poses.field
 
         with pytest.raises(
-            TypeError, match="Field 'robot_path.poses\\[0\\]' is not a list."
+            TypeError,
+            match=f"Field '{RobotPath.ontology_tag()}.poses\\[0\\]' is not a list.",
         ):
             RobotPath.Q.poses[0][0]
 
         with pytest.raises(
-            TypeError, match="Field 'robot_path.poses\\[0\\]' is not a list."
+            TypeError,
+            match=f"Field '{RobotPath.ontology_tag()}.poses\\[0\\]' is not a list.",
         ):
             RobotPath.Q.poses[0].any()
 
         with pytest.raises(
-            TypeError, match="Field 'robot_path.poses\\[0\\]' is not a list."
+            TypeError,
+            match=f"Field '{RobotPath.ontology_tag()}.poses\\[0\\]' is not a list.",
         ):
             RobotPath.Q.poses[0].all()
 
         with pytest.raises(
-            TypeError, match="Field 'robot_path.poses\\[0\\].position' is not a list."
+            TypeError,
+            match=f"Field '{RobotPath.ontology_tag()}.poses\\[0\\].position' is not a list.",
         ):
             RobotPath.Q.poses[0].position[0]
 
         with pytest.raises(
-            TypeError, match="Field 'robot_path.poses\\[0\\].position' is not a list."
+            TypeError,
+            match=f"Field '{RobotPath.ontology_tag()}.poses\\[0\\].position' is not a list.",
         ):
             RobotPath.Q.poses[0].position.any()
 
         with pytest.raises(
-            TypeError, match="Field 'robot_path.poses\\[0\\].position' is not a list."
+            TypeError,
+            match=f"Field '{RobotPath.ontology_tag()}.poses\\[0\\].position' is not a list.",
         ):
             RobotPath.Q.poses[0].position.all()
 
         expr = RobotPath.Q.poses[0].position.x.eq(0)
-        assert expr.key == "robot_path.poses[0].position.x"
+        assert expr.key == f"{RobotPath.ontology_tag()}.poses[0].position.x"
         assert expr.op == "$eq"
         assert expr.value == 0
 
         expr = RobotPath.Q.poses.all().position.x.eq(0)
-        assert expr.key == "robot_path.poses[!].position.x"
+        assert expr.key == f"{RobotPath.ontology_tag()}.poses[!].position.x"
         assert expr.op == "$eq"
         assert expr.value == 0
 
         expr = RobotPath.Q.poses.any().position.x.eq(0)
-        assert expr.key == "robot_path.poses[?].position.x"
+        assert expr.key == f"{RobotPath.ontology_tag()}.poses[?].position.x"
         assert expr.op == "$eq"
         assert expr.value == 0
 
@@ -993,54 +1002,64 @@ class TestFrameTransform:
         )
 
         with pytest.raises(
-            AttributeError, match="Field 'frame_transform.transforms' is a list."
+            AttributeError,
+            match=f"Field '{FrameTransform.ontology_tag()}.transforms' is a list.",
         ):
             FrameTransform.Q.transforms.field
 
         with pytest.raises(
-            TypeError, match="Field 'frame_transform.transforms\\[0\\]' is not a list."
+            TypeError,
+            match=f"Field '{FrameTransform.ontology_tag()}.transforms\\[0\\]' is not a list.",
         ):
             FrameTransform.Q.transforms[0][0]
 
         with pytest.raises(
-            TypeError, match="Field 'frame_transform.transforms\\[0\\]' is not a list."
+            TypeError,
+            match=f"Field '{FrameTransform.ontology_tag()}.transforms\\[0\\]' is not a list.",
         ):
             FrameTransform.Q.transforms[0].any()
 
         with pytest.raises(
-            TypeError, match="Field 'frame_transform.transforms\\[0\\]' is not a list."
+            TypeError,
+            match=f"Field '{FrameTransform.ontology_tag()}.transforms\\[0\\]' is not a list.",
         ):
             FrameTransform.Q.transforms[0].all()
 
         with pytest.raises(
             TypeError,
-            match="Field 'frame_transform.transforms\\[0\\].translation' is not a list.",
+            match=f"Field '{FrameTransform.ontology_tag()}.transforms\\[0\\].translation' is not a list.",
         ):
             FrameTransform.Q.transforms[0].translation[0]
 
         with pytest.raises(
             TypeError,
-            match="Field 'frame_transform.transforms\\[0\\].translation' is not a list.",
+            match=f"Field '{FrameTransform.ontology_tag()}.transforms\\[0\\].translation' is not a list.",
         ):
             FrameTransform.Q.transforms[0].translation.any()
 
         with pytest.raises(
             TypeError,
-            match="Field 'frame_transform.transforms\\[0\\].translation' is not a list.",
+            match=f"Field '{FrameTransform.ontology_tag()}.transforms\\[0\\].translation' is not a list.",
         ):
             FrameTransform.Q.transforms[0].translation.all()
 
         expr = FrameTransform.Q.transforms[0].translation.x.eq(0)
-        assert expr.key == "frame_transform.transforms[0].translation.x"
+        assert (
+            expr.key == f"{FrameTransform.ontology_tag()}.transforms[0].translation.x"
+        )
         assert expr.op == "$eq"
         assert expr.value == 0
 
         expr = FrameTransform.Q.transforms.all().translation.x.eq(0)
-        assert expr.key == "frame_transform.transforms[!].translation.x"
+        assert (
+            expr.key == f"{FrameTransform.ontology_tag()}.transforms[!].translation.x"
+        )
         assert expr.op == "$eq"
         assert expr.value == 0
 
         expr = FrameTransform.Q.transforms.any().translation.x.eq(0)
-        assert expr.key == "frame_transform.transforms[?].translation.x"
+        assert (
+            expr.key == f"{FrameTransform.ontology_tag()}.transforms[?].translation.x"
+        )
         assert expr.op == "$eq"
         assert expr.value == 0

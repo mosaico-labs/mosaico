@@ -677,7 +677,9 @@ def test_multi_selection_message(
     ):
         for _, row in df.iterrows():
             # Check what data contains this row
-            if not pd.isna(row[f"{UPLOADED_IMU_FRONT_TOPIC}.{'imu'}.acceleration.x"]):
+            if not pd.isna(
+                row[f"{UPLOADED_IMU_FRONT_TOPIC}.{IMU.ontology_tag()}.acceleration.x"]
+            ):
                 # It is an imu message
                 imu_msg = Message.from_dataframe_row(row, UPLOADED_IMU_FRONT_TOPIC)
                 assert imu_msg is not None
