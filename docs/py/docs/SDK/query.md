@@ -6,7 +6,7 @@ description: The Query Architecture and Mechanism
 The **Query Workflow** in Mosaico provides a high-performance, **fluent** interface for discovering and filtering data within the Mosaico Data Platform. It is designed to move beyond simple keyword searches, allowing you to perform deep, semantic queries across metadata, system catalogs, and the physical content of sensor streams.
 
 !!! info "API-Keys"
-    When the connection is established via the authorization middleware (i.e. using an [API-Key](./client.md#2-authentication-api-key)), the query workflow requires the minimum [`APIKeyPermissionEnum.Read`][mosaicolabs.enum.APIKeyPermissionEnum.Read] permission.
+    When the connection is established via the authorization middleware (i.e. using an [API-Key](./client.md#2-authentication-api-key)), the query workflow requires the `read` permission.
 
 !!! example "Try-It Out"
     You can experiment yourself the Query module via the **[Querying Catalogs](https://docs.mosaico.dev/examples/querying_catalogs) Example**.

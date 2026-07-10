@@ -5,12 +5,10 @@
 
 use super::actions::{misc, query as query_action, sequence, session, topic};
 use crate::flight::{DoActionStream, IntoStream};
-use mosaicod_core::{self as core, types::auth::Permission};
+use mosaicod_core::{self as core, types::auth::Permissions};
 use mosaicod_facade as facade;
 use mosaicod_grpc_common as grpc_common;
 use mosaicod_marshal::ActionRequest;
-
-use super::actions::auth;
 
 /// Dispatches a Flight action request to the appropriate handler.
 ///
@@ -19,7 +17,7 @@ use super::actions::auth;
 pub async fn do_action(
     ctx: &facade::Context,
     action: ActionRequest,
-    perm: &Permission,
+    perm: &Permissions,
 ) -> grpc_common::Result<DoActionStream> {
     if !has_permissions(&action, perm) {
         let err_msg = format!(
@@ -110,33 +108,13 @@ pub async fn do_action(
         // Query
         ActionRequest::Query(data) => query_action::execute(ctx, data.query).await?.into_stream(),
 
-        // Api Key
-        ActionRequest::ApiKeyCreate(data) => auth::api_key_create(
-            ctx,
-            data.permissions,
-            data.expires_at_ns.map(Into::into),
-            data.description,
-        )
-        .await?
-        .into_stream(),
-        ActionRequest::ApiKeyStatus(data) => {
-            auth::api_key_status(ctx, data.api_key_fingerprint.as_str())
-                .await?
-                .into_stream()
-        }
-        ActionRequest::ApiKeyRevoke(data) => {
-            auth::api_key_revoke(ctx, data.api_key_fingerprint.as_str())
-                .await?
-                .into_stream()
-        }
-
         // Misc
         ActionRequest::Version(_) => misc::version()?.into_stream(),
     }
 }
 
 /// Return true if the requested action matches the permissions, false otherwise
-fn has_permissions(action: &ActionRequest, perm: &Permission) -> bool {
+fn has_permissions(action: &ActionRequest, perm: &Permissions) -> bool {
     match action {
         ActionRequest::SequenceCreate(_) => perm.can_write(),
         ActionRequest::SequenceNotificationCreate(_) => perm.can_write(),
@@ -156,10 +134,6 @@ fn has_permissions(action: &ActionRequest, perm: &Permission) -> bool {
         ActionRequest::TopicNotificationList(_) => perm.can_read(),
         ActionRequest::TopicFilterClusterize(_) => perm.can_read(),
         ActionRequest::TopicFilterIntersect(_) => perm.can_read(),
-
-        ActionRequest::ApiKeyCreate(_) => perm.can_manage(),
-        ActionRequest::ApiKeyStatus(_) => perm.can_manage(),
-        ActionRequest::ApiKeyRevoke(_) => perm.can_manage(),
 
         ActionRequest::Version(_) => true,
     }

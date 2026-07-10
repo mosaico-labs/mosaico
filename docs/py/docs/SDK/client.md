@@ -52,16 +52,6 @@ In such a case, there is no need to set the `enable_tls=True` flag.
 ### 2. Authentication (API Key)
 Mosaico uses an [**API Key** system](https://docs.mosaico.dev/daemon/api_key) to authorize every operation. When a key is provided, the client automatically attaches your unique credentials to the metadata of every gRPC and Flight call. This ensures that even if your endpoint is public, only requests with a valid, non-revoked key are processed by the server.
 
-The client supports 4 permission levels, each with increasing privileges:
-
-| Permission | Description |
-| :--- | :--- |
-| [`APIKeyPermissionEnum.Read`][mosaicolabs.enum.APIKeyPermissionEnum.Read] | Read-Only access to resources |
-| [`APIKeyPermissionEnum.Write`][mosaicolabs.enum.APIKeyPermissionEnum.Write] | Write access to resources (Create and update sequences)|
-| [`APIKeyPermissionEnum.Delete`][mosaicolabs.enum.APIKeyPermissionEnum.Delete] | Delete access to resources (Delete sequences, sessions and topics)|
-| [`APIKeyPermissionEnum.Manage`][mosaicolabs.enum.APIKeyPermissionEnum.Manage] | Full access to resources + Manage API keys (create, retrieve the status, revoke)|
-
-
 ```python
 from mosaicolabs import MosaicoClient
 

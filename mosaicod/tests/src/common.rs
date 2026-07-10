@@ -231,7 +231,7 @@ impl Server {
 
     pub async fn create_api_key(
         &mut self,
-        permissions: types::auth::Permission,
+        permissions: types::auth::Permissions,
         expires_at: Option<types::Timestamp>,
     ) -> types::ApiKey {
         let handle = facade::auth::create(&self.context(), permissions, "".to_string(), expires_at)
