@@ -33,10 +33,10 @@ def test_filter_clusterize_single_expression_single_topic(
             # Expected just one (1) cluster
             assert len(clusters) == 1
 
-            assert clusters[0].timerange.start >= (math.pi / 12) * 1.0e9  # pi/12
+            assert clusters[0].timerange.start >= (math.pi / 6) * 1.0e9  # pi/6
             assert (
-                clusters[0].timerange.end <= (3 * math.pi - math.pi / 12) * 1.0e9
-            )  # 3pi - pi/12
+                clusters[0].timerange.end <= (3 * math.pi - math.pi / 6) * 1.0e9
+            )  # 3pi - pi/6
 
             # Clusterize with clustering_dt_ns
             clustering_dt_ns = QUERY_FILTER_SEQUENCE_RESOLUTION_NS * 2
@@ -45,17 +45,17 @@ def test_filter_clusterize_single_expression_single_topic(
             # Expected two (2) clusters
             assert len(clusters) == 2
 
-            assert clusters[0].timerange.start >= (math.pi / 12) * 1.0e9  # pi/12
+            assert clusters[0].timerange.start >= (math.pi / 6) * 1.0e9
             assert (
-                clusters[0].timerange.end <= (math.pi - math.pi / 12) * 1.0e9
-            )  # pi + pi/12
+                clusters[0].timerange.end <= (math.pi - math.pi / 6) * 1.0e9
+            )  # pi + pi/6
 
             assert (
-                clusters[1].timerange.start >= (2 * math.pi + math.pi / 12) * 1.0e9
-            )  # 2pi + pi/12
+                clusters[1].timerange.start >= (2 * math.pi + math.pi / 6) * 1.0e9
+            )  # 2pi + pi/6
             assert (
-                clusters[1].timerange.end <= (3 * math.pi - math.pi / 12) * 1.0e9
-            )  # 3pi - pi/12
+                clusters[1].timerange.end <= (3 * math.pi - math.pi / 6) * 1.0e9
+            )  # 3pi - pi/6
 
             # Clusterize with clustering_dt_ns and timerange limited to one period
             # -> despite same clustering_dt_ns as before, now the cluster should be reduced to one (1)
@@ -71,6 +71,8 @@ def test_filter_clusterize_single_expression_single_topic(
 
             assert clusters[0].timerange.start >= (math.pi / 6) * 1.0e9
             assert clusters[0].timerange.end <= (5 / 6 * math.pi) * 1.0e9
+
+    mosaico_client.close()
 
 
 def test_filter_clusterize_multi_expression_single_topic(
@@ -101,17 +103,19 @@ def test_filter_clusterize_multi_expression_single_topic(
             assert len(clusters) == 2
 
             # This time though interval are more stingent
-            assert clusters[0].timerange.start >= math.pi / 4 * 1.0e9  # pi/4
+            assert clusters[0].timerange.start >= math.pi / 3 * 1.0e9  # pi/3
             assert (
-                clusters[0].timerange.end <= (math.pi - math.pi / 4) * 1.0e9
-            )  # pi - pi/4
+                clusters[0].timerange.end <= (math.pi - math.pi / 3) * 1.0e9
+            )  # pi - pi/3
 
             assert (
-                clusters[1].timerange.start >= (2 * math.pi + math.pi / 4) * 1.0e9
-            )  # 2pi + pi/4
+                clusters[1].timerange.start >= (2 * math.pi + math.pi / 3) * 1.0e9
+            )  # 2pi + pi/3
             assert (
-                clusters[1].timerange.end <= (3 * math.pi - math.pi / 4) * 1.0e9
-            )  # 3pi - pi/4
+                clusters[1].timerange.end <= (3 * math.pi - math.pi / 3) * 1.0e9
+            )  # 3pi - pi/3
+
+    mosaico_client.close()
 
 
 def test_filter_clusterize_all_multi_expression_multi_topic(
@@ -123,8 +127,8 @@ def test_filter_clusterize_all_multi_expression_multi_topic(
     query_resp = mosaico_client.query(
         QuerySequence().with_name_match("test-filter-sequence"),
         QueryOntologyCatalog()
-        .with_expression(Temperature.Q.value.gt(0.5))  # > sin(pi/4)
-        .with_expression(Pressure.Q.value.gt(0.5)),  # > cos(pi/6)
+        .with_expression(Temperature.Q.value.gt(0.5))  # > sin(pi/6)
+        .with_expression(Pressure.Q.value.gt(0.5)),  # > cos(pi/3)
     )
 
     acceptance_intervals = {
@@ -147,11 +151,11 @@ def test_filter_clusterize_all_multi_expression_multi_topic(
                     "end": (math.pi / 3) * 1.0e9,
                 },
                 {
-                    "start": (3 / 4 * math.pi) * 1.0e9,
-                    "end": (5 / 2 * math.pi) * 1.0e9,
+                    "start": (2 * math.pi - math.pi / 3) * 1.0e9,
+                    "end": (2 * math.pi + math.pi / 3) * 1.0e9,
                 },
                 {
-                    "start": (7 / 2 * math.pi) * 1.0e9,
+                    "start": (4 * math.pi - math.pi / 3) * 1.0e9,
                     "end": (4 * math.pi) * 1.0e9,
                 },
             ],
@@ -219,6 +223,8 @@ def test_filter_clusterize_all_multi_expression_multi_topic(
         item_clusterize_all = item.clusterize_all()
         assert item_topic_clusterize == item_clusterize_all
 
+    mosaico_client.close()
+
 
 def test_filter_intersect_single_sequence(
     mosaico_client: MosaicoClient,
@@ -236,14 +242,12 @@ def test_filter_intersect_single_sequence(
     acceptance_intervals = {
         "intervals": [
             {
-                "start": (math.pi / 6) * 1.0e9 - QUERY_FILTER_SEQUENCE_RESOLUTION_NS,
-                "end": (math.pi / 3) * 1.0e9 + QUERY_FILTER_SEQUENCE_RESOLUTION_NS,
+                "start": (math.pi / 6) * 1.0e9,
+                "end": (math.pi / 3) * 1.0e9,
             },
             {
-                "start": (2 * math.pi + math.pi / 6) * 1.0e9
-                - QUERY_FILTER_SEQUENCE_RESOLUTION_NS,
-                "end": (2 * math.pi + math.pi / 3) * 1.0e9
-                + QUERY_FILTER_SEQUENCE_RESOLUTION_NS,
+                "start": (2 * math.pi + math.pi / 6) * 1.0e9,
+                "end": (2 * math.pi + math.pi / 3) * 1.0e9,
             },
         ],
     }
@@ -348,18 +352,13 @@ def test_filter_intersect_single_sequence(
 
         assert len(clusters) == 1
 
-        assert (
-            clusters[0].timerange.start
-            >= math.pi / 6.0 * 1.0e9 - QUERY_FILTER_SEQUENCE_RESOLUTION_NS
-        )
-        assert (
-            clusters[0].timerange.end
-            <= (3 * math.pi - math.pi / 6.0) * 1.0e9
-            + QUERY_FILTER_SEQUENCE_RESOLUTION_NS
-        )
+        assert clusters[0].timerange.start >= math.pi / 6.0 * 1.0e9
+        assert clusters[0].timerange.end <= (3 * math.pi - math.pi / 6.0) * 1.0e9
 
         # Result from multi topic intersection of the same sequence should be equal to QueryResponse.intersect() with the same parameters
         assert clusters == item.intersect()
+
+    mosaico_client.close()
 
 
 def test_filter_intersect_item_topic_no_overlapping(
@@ -444,6 +443,8 @@ def test_filter_intersect_item_topic_no_overlapping(
             intersect_dt_ns=int(intersect_dt_ns),
             override_clustering_dt_ns=override_clustering_dt_ns,
         )
+
+    mosaico_client.close()
 
 
 # TODO: enable when backend enables intersection between different sequences
@@ -570,3 +571,5 @@ def _test_filter_intersect_multi_sequence_overlapping(
             cluster.timerange.end
             <= acceptance_intervals["intervals"][cluster.id]["end"]
         )
+
+    mosaico_client.close()
