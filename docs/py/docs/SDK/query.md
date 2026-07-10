@@ -202,6 +202,94 @@ response = client.query(
 
 ```
 
+### Wildcards patterns Queries
+
+Mosaico exposes a `match` operator that can perform lightweight, glob-style pattern matching instead of requiring an exact value. This `match` operator applies to:
+
+* **Sequence and topic names**, via [`QuerySequence.with_name_match()`][mosaicolabs.models.query.builders.QuerySequence.with_name_match] for matching sequence names or [`QueryTopic.with_name_match()`][mosaicolabs.models.query.builders.QueryTopic.with_name_match] for matching topic names.
+* **User metadata values**, via [`with_user_metadata(key, match=...)`][mosaicolabs.models.query.builders.QueryTopic.with_user_metadata] on both `QuerySequence` and `QueryTopic` to match metadata **values** .
+* **Ontology field values**, via the `.match()` operator on any string-typed field reached through the `.Q` proxy (e.g. `String.Q.data.match(...)`) inside a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog].
+
+In all of these cases, the pattern is a lightweight glob syntax rather than full RegEx, and it supports the following wildcards:
+
+| Wildcard | Description | Example | Matches |
+| --- | --- | --- | --- |
+| `*` | Zero or more characters, including spaces | `*imu` | `front_imu`, `camera_imu` |
+| `?` | Exactly one character, including spaces | `?.2.0` | `1.2.0`, `3.2.0` (not `10.2.0`) |
+| `[]` | A character set or range | `[gs]*` / `[a-z]*` | `gyrolytics`, `satnavics` |
+| `#` | Any single digit (`0`-`9`); shorthand for `[0-9]` | `test-query-sequence-#` | `test-query-sequence-1` |
+
+```python
+from mosaicolabs import MosaicoClient, QueryOntologyCatalog, QuerySequence, QueryTopic, String
+
+with MosaicoClient.connect("localhost", 6726) as client:
+    # Sequences following the "test-query-sequence-<digit>" convention
+    qresponse = client.query(QuerySequence().with_name_match("test-query-sequence-#"))
+
+    # Metadata VALUE matching: firmware versions like "1.2.0" or "3.2.0", but not "2.1.0"
+    qresponse = client.query(
+        QueryTopic().with_user_metadata("firmware_version", match="?.2.0")
+    )
+
+    # Metadata VALUE matching: vendor names starting with 'g' or 's'
+    qresponse = client.query(
+        QueryTopic().with_user_metadata("vendor", match="[gs]*")
+    )
+
+    # Ontology VALUE matching: string payloads containing an "[ERR]"-style tag
+    qresponse = client.query(
+        QueryOntologyCatalog(String.Q.data.match("*[ERR]*"))
+    )
+```
+
+!!! note
+    These wildcards are only meaningful together with the `match` operator (`$match`). Other operators such as `eq` or `in_` always compare against the literal, exact string.
+
+#### Using glob pattern for metadata keys
+
+Beyond matching metadata **values**, [`with_user_metadata()`][mosaicolabs.models.query.builders.QueryTopic.with_user_metadata] also accepts a glob pattern for the `key` itself. This lets you target a metadata field without knowing its exact nesting depth or prefix. Two wildcards are supported in the key path:
+
+- `*` matches exactly **one** key segment.
+- `**` matches **one or more** key segments, at any depth.
+
+| Key pattern | Matches (examples) |
+| --- | --- |
+| `*.status` | `step1.status`, `step2.status` |
+| `*.*.status` | `action.pick.status`, `action.move.status`, `step1.substep.status` |
+| `action.*.status` | `action.pick.status`, `action.move.status` |
+| `action.**.status` | `action.pick.status`, `action.pick.fast.status`, `action.pick.slow.status` |
+| `**.status` | `action.pick.status`, `action.pick.fast.status`, `step1.substep.status` |
+
+```python
+from mosaicolabs import MosaicoClient, QuerySequence, QueryTopic
+
+with MosaicoClient.connect("localhost", 6726) as client:
+    # Match any key ending in ".type", one level deep (e.g. interface.type)
+    qresponse = client.query(
+        QueryTopic().with_user_metadata("*.type", match="UART*")
+    )
+
+    # Match "baudrate" nested at ANY depth under "interface"
+    qresponse = client.query(
+        QueryTopic().with_user_metadata("interface.**.baudrate", geq=1000)
+    )
+
+    # Match "country" nested exactly one level deep (e.g. location.country)
+    qresponse = client.query(
+        QuerySequence().with_user_metadata("*.country", match="IT")
+    )
+
+    # Match "overall_quality_score" nested at ANY depth under "quality_metrics"
+    qresponse = client.query(
+        QuerySequence().with_user_metadata(
+            "quality_metrics.**.overall_quality_score", geq=0.9
+        )
+    )
+```
+
+!!! note
+    Key globs and value wildcards can be freely combined, as shown above (`*.type` as the key with `UART*` as the value pattern).
+
 ## Architecture
 
 ### Query Layers
