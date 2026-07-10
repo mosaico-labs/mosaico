@@ -9,7 +9,8 @@ from testing.integration.config import (
     UPLOADED_IMU_FRONT_TOPIC,
     UPLOADED_MAGNETOMETER_TOPIC,
     UPLOADED_SEQUENCE_NAME,
-    # UPLOADED_TEMPERATURE_TOPIC,
+    UPLOADED_SEQUENCE_W_LIST_NAME,
+    UPLOADED_TEMPERATURE_TOPIC,
 )
 
 
@@ -334,6 +335,7 @@ class TestMetadataKeyGlobPattern:
         self,
         mosaico_client: MosaicoClient,
         inject_synthetic_sequence,
+        inject_synthetic_sequence_w_lists,
     ):
         query_resp = mosaico_client.query(
             QuerySequence().with_name(UPLOADED_SEQUENCE_NAME),
@@ -362,17 +364,15 @@ class TestMetadataKeyGlobPattern:
             assert topic.name in expected_topic_names
 
         # # This does not work for now
-        # query_resp = mosaico_client.query(
-        #     QuerySequence().with_name(UPLOADED_SEQUENCE_NAME),
-        #     QueryTopic().with_user_metadata("temperature_range_kelvin.**", geq=0),
-        # )
+        query_resp = mosaico_client.query(
+            QuerySequence().with_name(UPLOADED_SEQUENCE_W_LIST_NAME),
+            QueryTopic().with_user_metadata("temperature_range_kelvin.**", geq=0),
+        )
 
-        # QueryTopic().with_user_metadata("temperature_range_kelvin.**", geq=0).to_dict()
-
-        # assert query_resp is not None and not query_resp.is_empty()
-        # assert len(query_resp) == 1
-        # assert len(query_resp[0].topics) == 1
-        # assert query_resp[0].topics[0].name == UPLOADED_TEMPERATURE_TOPIC
+        assert query_resp is not None and not query_resp.is_empty()
+        assert len(query_resp) == 1
+        assert len(query_resp[0].topics) == 1
+        assert query_resp[0].topics[0].name == UPLOADED_TEMPERATURE_TOPIC
 
         mosaico_client.close()
 
