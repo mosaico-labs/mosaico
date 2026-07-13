@@ -162,7 +162,7 @@ class _QueryProxy:
         ):
             raise ValueError(f"{list_expression} operation is not supported for lists")
 
-        # Check that current map is a List (either _QueryableList, pa.ListType, pa.LargeListType, pa.FixedSizeListType)
+        # Check that current schema is a List (either _QueryableList, pa.ListType, pa.LargeListType, pa.FixedSizeListType)
         if not isinstance(
             self.__schema__,
             (_QueryableList, pa.ListType, pa.LargeListType, pa.FixedSizeListType),
