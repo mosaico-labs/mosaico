@@ -57,6 +57,14 @@ UnmodeledStrictVector = make_unmodeled_ontology_class(
 )
 
 
+def test_unmodeled_subclass_has_Q_proxy():
+    # Unmodeled derived class has Q proxy (__skip_query_proxy_ingestion__ = False)
+    assert hasattr(UnmodeledAcceleration, "Q")
+    assert hasattr(UnmodeledStrictVector, "Q")
+    # Unmodeled class does not have Q proxy (__skip_query_proxy_ingestion__ = True)
+    assert not hasattr(Unmodeled, "Q")
+
+
 def test_unmodeled_class_serializable():
     # Test Serializability of unmodeled ontology
     assert UnmodeledAcceleration.is_registered()

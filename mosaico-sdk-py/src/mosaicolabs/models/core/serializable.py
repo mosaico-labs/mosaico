@@ -40,19 +40,24 @@ from .types import BASE_MAPPING
 # --- Private Registry ---
 # Global dictionary mapping string tags (e.g., "imu") to class types.
 _SENSOR_REGISTRY: Dict[str, Type["Serializable"]] = {}
+SCHEMA_ID_LEN = 10  # 40 bits
 
 
 def _compute_schema_fingerprint(struct: pa.StructType) -> str:
     """
-    Computes a short, deterministic fingerprint identifying a pyarrow struct schema.
+    Computes a short, deterministic fingerprint identifying a PyArrow struct schema.
 
-    Two structurally identical schemas (same field names, types, nesting and
-    nullability) always produce the same fingerprint, regardless of when or where
-    they were built. Used to detect when a single ontology tag ends up associated
-    with more than one schema shape within the same process (e.g. two ontology
-    versions of the same dynamically-resolved, unmodeled data type).
+    Two structurally identical schemas produce the same fingerprint. The fingerprint
+    is used internally to distinguish different schema shapes associated with the
+    same ontology tag within a process (e.g. when multiple ontology versions of the
+    same dynamically resolved, unmodeled data type are encountered).
+
+    The SHA-1 digest is intentionally truncated to 10 hexadecimal characters (40 bits)
+    to keep the fingerprint compact. Given the expected number of distinct schema
+    versions, the probability of an accidental collision is negligible for this use
+    case.
     """
-    return hashlib.sha1(str(struct).encode("utf-8")).hexdigest()[:10]
+    return hashlib.sha1(str(struct).encode("utf-8")).hexdigest()[:SCHEMA_ID_LEN]
 
 
 class Serializable(BaseModel, _QueryProxyMixin):
