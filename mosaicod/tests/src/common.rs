@@ -156,7 +156,9 @@ impl ServerBuilder {
                     .with_time_interval(cleanup_time_interval)
                     .with_retention_duration(cleanup_retention_duration);
 
-                cleanup.run(cleanup_shutdown.token()).await
+                cleanup.run(cleanup_shutdown.token()).await;
+
+                cleanup_shutdown.shutdown();
             }
         });
 
@@ -166,10 +168,12 @@ impl ServerBuilder {
             let db = db.clone();
 
             async move {
-                if let Err(err) = grpc::serve(store, db, opts, Some(shutdown)).await {
+                if let Err(err) = grpc::serve(store, db, opts, Some(shutdown.clone())).await {
                     panic!("flight server error: {}", err);
                 }
                 println!("server stopped");
+
+                shutdown.shutdown();
             }
         });
 
@@ -218,6 +222,11 @@ impl Server {
 
     /// Check if the server is running.
     pub async fn is_shutdown(&self) -> bool {
+        self.server_join_handle.0.is_finished() && self.server_join_handle.1.is_finished()
+    }
+
+    /// Check if the flight server is terminated.
+    pub async fn is_flight_server_shutdown(&self) -> bool {
         self.server_join_handle.0.is_finished()
     }
 

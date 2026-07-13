@@ -23,3 +23,8 @@ tonic = { workspace = true }
 tower = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
+
+[dev-dependencies]
+mosaicod-store = { workspace = true, features = ["testing"] }
+mosaicod-db = { workspace = true, features = ["testing"] }
+sqlx = { workspace = true }
