@@ -30,8 +30,8 @@ Setting `clustering_dt_ns` to `0` collapses the result into a single `[min, max]
   "locator": "test_run_01/sensors/imu",
   "clustering_dt_ns": 1000000000,
   "ontology": {
-    "imu.acceleration.x": { "$gt": 5.0 },
-    "imu.acceleration.z": { "$between": [-1.0, 1.0] }
+    "IMU.acceleration.x": { "$gt": 5.0 },
+    "IMU.acceleration.z": { "$between": [-1.0, 1.0] }
   },
   "timestamp_range": { "start_ns": 1000000000, "end_ns": 5000000000 }
 }
@@ -80,8 +80,8 @@ At least **two** topics are required, and they must all belong to the **same seq
       "locator": "test_run_01/sensors/imu",
       "clustering_dt_ns": 1000000000,
       "ontology": {
-        "imu.acceleration.x": { "$gt": 5.0 },
-        "imu.acceleration.y": { "$lt": 10.0}
+        "IMU.acceleration.x": { "$gt": 5.0 },
+        "IMU.acceleration.y": { "$lt": 10.0}
       },
       "timestamp_range": { "start_ns": 1000000000, "end_ns": 5000000000 }
     },
@@ -89,7 +89,7 @@ At least **two** topics are required, and they must all belong to the **same seq
       "locator": "test_run_01/sensors/gps",
       "clustering_dt_ns": 1000000000,
       "ontology": {
-        "gps.speed": { "$gt": 10.0 }
+        "GPS.speed": { "$gt": 10.0 }
       }
     }
   ],
