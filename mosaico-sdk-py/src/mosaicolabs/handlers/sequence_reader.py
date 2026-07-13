@@ -10,11 +10,9 @@ from typing import Any, Dict, List, Optional, Type
 
 import pyarrow.flight as fl
 
-from mosaicolabs.models.core import Message
-from mosaicolabs.models.core.helpers import resolve_ontology_class
-from mosaicolabs.models.core.serializable import Serializable
-
 from ..logging_config import get_logger
+from ..models.core import Message, Serializable
+from ..models.core.helpers import resolve_ontology_class
 from ..platform.resource_manifests import (
     TopicManifestError,
     TopicResourceManifest,

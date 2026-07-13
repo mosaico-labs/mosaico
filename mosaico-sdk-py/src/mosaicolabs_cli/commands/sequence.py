@@ -80,7 +80,7 @@ def list_sequences(
             tls_cert_path=profile.tls_cert_path,
             enable_tls=profile.enable_tls,
         ) as client:
-            query = QuerySequence().with_name_match(locator if locator else ".*")
+            query = QuerySequence().with_name_match(locator if locator else "*")
 
             if created_after or created_before:
                 query = query.with_created_timestamp(

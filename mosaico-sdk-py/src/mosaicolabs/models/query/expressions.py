@@ -122,4 +122,10 @@ class _QueryCatalogExpression(_QueryExpression):
 
     """
 
-    pass
+    def get_expr_tag(self) -> str:
+        """
+        Returns the ontology tag the expression refers to as a string. For example:
+        IMU.Q.acceleration.x.gt(9.8) -> imu
+        GPS.Q.latitude.lt(1.0) -> gps
+        """
+        return self.key.split(".")[0]

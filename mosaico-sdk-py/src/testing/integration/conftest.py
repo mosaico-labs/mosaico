@@ -1,5 +1,6 @@
 import pytest
 
+from mosaicolabs import Message
 from mosaicolabs.comm import MosaicoClient
 from testing.integration.helpers import (
     DataStreamItem,
@@ -14,6 +15,7 @@ from testing.integration.helpers import (
 )
 
 from .config import (
+    QUERY_FILTER_SEQUENCES_MOCKUP,
     QUERY_SEQUENCES_MOCKUP,
     UPLOADED_SEQUENCE_METADATA,
     UPLOADED_SEQUENCE_NAME,
@@ -238,6 +240,44 @@ def inject_synthetic_sequence_w_lists(
                     )
 
             twriter.push(ds_item.msg)
+
+    # free resources
+    _client.close()
+
+
+@pytest.fixture(scope="session")
+def inject_mockup_sequences_filter(
+    host, port, tls_cert_path, api_key_manage, compression
+):
+    """Generate synthetic data, create a sequence and pushes messages"""
+    _client = MosaicoClient.connect(
+        host=host,
+        port=port,
+        tls_cert_path=tls_cert_path,
+        api_key=api_key_manage,
+        compression=compression,
+    )
+    for sname, sdata in QUERY_FILTER_SEQUENCES_MOCKUP.items():
+        with _client.sequence_create(
+            sequence_name=sname,
+            metadata={},
+        ) as swriter:
+            for tdata in sdata["topics"]:
+                tname = tdata["name"]
+                twriter = swriter.get_topic_writer(topic_name=tname)
+                if twriter is None:
+                    twriter = swriter.topic_create(
+                        topic_name=tname,
+                        metadata={},
+                        ontology_type=tdata["ontology_type"],
+                    )
+                    if twriter is None:
+                        raise Exception(
+                            f"Unable to create topic '{tname}' in sequence '{sname}'"
+                        )
+
+                for timestamp, payload in tdata["data"]:
+                    twriter.push(Message(timestamp_ns=timestamp, data=payload))
 
     # free resources
     _client.close()

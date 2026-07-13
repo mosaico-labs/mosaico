@@ -162,8 +162,11 @@ class _QueryProxy:
         ):
             raise ValueError(f"{list_expression} operation is not supported for lists")
 
-        # Check that current schema is a List (either QueryableList or pa.ListType)
-        if not isinstance(self.__schema__, (_QueryableList, pa.ListType)):
+        # Check that current map is a List (either _QueryableList, pa.ListType, pa.LargeListType, pa.FixedSizeListType)
+        if not isinstance(
+            self.__schema__,
+            (_QueryableList, pa.ListType, pa.LargeListType, pa.FixedSizeListType),
+        ):
             raise TypeError(
                 f"Field '{self.__path__}' is not a list. Cannot be indexed."
             )
@@ -181,7 +184,9 @@ class _QueryProxy:
                     self.__schema__
                 ),  # Downcast __schema__ to avoid confusing it as a _QueryableList
             )
-        elif isinstance(self.__schema__, pa.ListType):
+        elif isinstance(
+            self.__schema__, (pa.ListType, pa.LargeListType, pa.FixedSizeListType)
+        ):
             field_type = self.__schema__.value_type
             queriable_field = self._create_queriable_field(path_w_list_expr, field_type)
 
@@ -208,7 +213,10 @@ class _QueryProxy:
                             providing a helpful error message.
         """
 
-        if isinstance(self.__schema__, (pa.ListType, _QueryableList)):
+        if isinstance(
+            self.__schema__,
+            (_QueryableList, pa.ListType, pa.LargeListType, pa.FixedSizeListType),
+        ):
             raise AttributeError(
                 f"Field '{self.__path__}' is a list. "
                 f"Use .any(), .all(), or [i] to select elements before accessing sub-fields."
@@ -224,7 +232,9 @@ class _QueryProxy:
         # Retrieve the child object from the schema
         child = self.__schema__[name]
 
-        if isinstance(child, (dict, pa.ListType)):
+        if isinstance(
+            child, (dict, pa.ListType, pa.LargeListType, pa.FixedSizeListType)
+        ):
             # This is a nested struct (e.g., 'position').
             # Return a *new* QueryProxy instance for this deeper path.
             return _QueryProxy(
@@ -314,13 +324,20 @@ class _QueryProxy:
         if isinstance(self.__schema__, dict):
             for key, val in self.__schema__.items():
                 if isinstance(
-                    val, (dict, pa.ListType)
-                ):  # nested struct, _QueryableList or pa.ListType
+                    val, (dict, pa.ListType, pa.LargeListType, pa.FixedSizeListType)
+                ):  # nested struct, _QueryableList or pa.ListType or pa.LargeListType or pa.FixedSizeListType
                     result.append(key)
                 elif isinstance(val, pa.DataType):  # (pa.DataType, expr_cls)
                     field_type = val
                     if _pyarrow_to_queryable(field_type) is not _QueryableUnsupported:
                         result.append(key)
+                    elif isinstance(val, pa.DataType):  # (pa.DataType, expr_cls)
+                        field_type = val
+                        if (
+                            _pyarrow_to_queryable(field_type)
+                            is not _QueryableUnsupported
+                        ):
+                            result.append(key)
 
         else:
             result.append(self.__schema__)

@@ -160,7 +160,13 @@ class QueryOntologyCatalog:
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # FIXME: Add here example for timestamp exytraction and clustering
+                    # Clusterize all topics within the sequence to extract the time intervals
+                    clusters_dict = item.clusterize_all()
+
+                    # Since clusterize_all() used default clustering_dt_ns, each topic will have
+                    # just one cluster representing the first and last moment the query was satisfied
+                    for t_name, clusters in clusters_dict.items():
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -185,7 +191,7 @@ class QueryOntologyCatalog:
             ValueError: If an operator does not start with the required '$' prefix.
             NotImplementedError: If a duplicate key (field path) is detected within the same query.
         """
-        self._expressions = []
+        self._expressions: list[_QueryExpression] = []
         # Call the helper for each expression
         for expr in expressions:
             _validate_expression_type(expr, self.__supported_query_expressions__)
@@ -230,7 +236,13 @@ class QueryOntologyCatalog:
                         print(f"Sequence: {item.sequence.name}")
                         print(f"Topics: {[topic.name for topic in item.topics]}")
 
-                # FIXME: Add here example for timestamp exytraction and clustering
+                        # Clusterize all topics within the sequence to extract the time intervals
+                        clusters_dict = item.clusterize_all()
+
+                        # Since clusterize_all() used default clustering_dt_ns, each topic will have
+                        # just one cluster representing the first and last moment the query was satisfied
+                        for t_name, clusters in clusters_dict.items():
+                            print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
             ```
 
         Args:
@@ -268,6 +280,12 @@ class QueryOntologyCatalog:
         """
         query_dict = _QueryCombinator(list(self._expressions)).to_dict()
         return query_dict
+
+    def expressions(self) -> List[_QueryExpression]:
+        """
+        Return the list of query expressions.
+        """
+        return self._expressions
 
 
 class QueryTopic:
@@ -308,7 +326,7 @@ class QueryTopic:
         """
         The constructor initializes an empty query builder
         """
-        self._expressions = []
+        self._expressions: list[_QueryExpression] = []
 
     @classmethod
     def _from_expressions(cls, *exprs: _QueryExpression) -> "QueryTopic":
@@ -438,10 +456,17 @@ class QueryTopic:
 
     def with_name_match(self, name: str) -> "QueryTopic":
         """
-        Adds a partial (fuzzy) match filter for the topic 'name' field.
+        Adds a RegEx filter for the topic 'name' field. Supported RegEx operations are:
 
-        This performs an 'in-between' search (equivalent to %name%) on the full
-        `sequence/topic` path.
+        - * => matches a multiple (zero or more) characters, including space.
+        - ? => matches a single (exactly one) characters, including space.
+        - [] => matches a character set. Examples: [aeiou] to match any vocals, or [a-z] to match a range
+        - # => matches any single digit (0 — 9). Shortcut for [0-9]
+
+        Supposing the server cotains car1/imu/front we can get it using:
+            - *imu*
+            - car#/[a-z]*/[a-z]**
+            - car?/[umi]*/?????
 
         Example:
             ```python
@@ -450,7 +475,7 @@ class QueryTopic:
             with MosaicoClient.connect("localhost", 6726) as client:
                 # Search for all topics containing the word 'camera'
                 qresponse = client.query(
-                    QueryTopic().with_name_match("camera")
+                    QueryTopic().with_name_match("/[a-z]/camera")
                 )
 
                 # Inspect the response
@@ -652,6 +677,12 @@ class QueryTopic:
 
         return exprs_dict
 
+    def expressions(self) -> List[_QueryExpression]:
+        """
+        Return the list of query expressions.
+        """
+        return self._expressions
+
 
 class QuerySequence:
     """
@@ -688,7 +719,7 @@ class QuerySequence:
         """
         The constructor initializes an empty query builder
         """
-        self._expressions = []
+        self._expressions: List[_QueryExpression] = []
 
     @classmethod
     def _from_expressions(cls, *exprs: _QueryExpression) -> "QuerySequence":
@@ -821,9 +852,18 @@ class QuerySequence:
 
     def with_name_match(self, name: str) -> "QuerySequence":
         """
-        Adds a partial (fuzzy) match filter for the sequence 'name' field.
+        Adds a RegEx filter for the sequence 'name' field. Supported RegEx operations are:
 
-        This performs an 'in-between' search (equivalent to %name%) on the sequence name.
+        - * => matches a multiple (zero or more) characters, including space.
+        - ? => matches a single (exactly one) characters, including space.
+        - [] => matches a character set. Examples: [aeiou] to match any vocals, or [a-z] to match a range
+        - # => matches any single digit (0 — 9). Shortcut for [0-9]
+
+        Supposing the server cotains sequence experiment1-car we can get it using:
+            - experiment*
+            - [a-z]*1-car
+            - experiment?/[a-z]*
+            - experiment1-car
 
         Example:
             ```python
@@ -832,7 +872,7 @@ class QuerySequence:
             with MosaicoClient.connect("localhost", 6726) as client:
                 # Find all sequences with name containing 'calibration_run_'
                 qresponse = client.query(
-                    QuerySequence().with_name_match("calibration_run_")
+                    QuerySequence().with_name_match("calibration_run_*")
                 )
 
                 # Inspect the response
@@ -992,6 +1032,12 @@ class QuerySequence:
 
         return exprs_dict
 
+    def expressions(self) -> List[_QueryExpression]:
+        """
+        Return the list of query expressions.
+        """
+        return self._expressions
+
 
 class Query:
     """
@@ -1011,7 +1057,7 @@ class Query:
                 # Append a filter for sequence metadata
                 QuerySequence()
                 .with_user_metadata("environment.visibility", lt=50)
-                .with_name_match("test_drive"),
+                .with_name_match("test_drive*"),
                 # Append a filter with deep time-series data discovery and measurement time windowing
                 QueryOntologyCatalog()
                 .with_expression(IMU.Q.acceleration.x.gt(5.0))
@@ -1020,13 +1066,21 @@ class Query:
             # Perform the server side query
             qresponse = client.query(query=query)
             # Inspect the response
-                if qresponse is not None:
-                    # Results are automatically grouped by Sequence for easier data management
-                    for item in qresponse:
-                        print(f"Sequence: {item.sequence.name}")
-                        print(f"Topics: {{topic.name:
-                                    [topic.timestamp_range.start, topic.timestamp_range.end]
-                                    for topic in item.topics}}")
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(
+                        f"Topics: {
+                            {
+                                topic.name: [
+                                    (cluster.timerange.start, cluster.timerange.end)
+                                    for cluster in topic.clusterize()
+                                ]
+                                for topic in item.topics
+                            }
+                        }"
+                    )
         ```
     """
 
@@ -1075,7 +1129,7 @@ class Query:
                 # Append a filter for sequence metadata
                 QuerySequence()
                 .with_user_metadata("environment.visibility", lt=50)
-                .with_name_match("test_drive")
+                .with_name_match("test_drive???")
             )
 
             # Append a filter with deep time-series data discovery and measurement time windowing

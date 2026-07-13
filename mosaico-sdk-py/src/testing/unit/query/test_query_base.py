@@ -151,15 +151,15 @@ def test_construction_query_from_response():
             QueryResponseItem(
                 sequence=QueryResponseItemSequence(name="seq0"),
                 topics=[
-                    QueryResponseItemTopic(name="seq0/top00", timestamp_range=None),
-                    QueryResponseItemTopic(name="seq0/top01", timestamp_range=None),
+                    QueryResponseItemTopic(locator="seq0/top00", ontology_tag=""),
+                    QueryResponseItemTopic(locator="seq0/top01", ontology_tag=""),
                 ],  # constructor expects topic resource name
             ),
             QueryResponseItem(
                 sequence=QueryResponseItemSequence(name="seq1"),
                 topics=[
-                    QueryResponseItemTopic(name="seq0/top10", timestamp_range=None),
-                    QueryResponseItemTopic(name="seq0/top11", timestamp_range=None),
+                    QueryResponseItemTopic(locator="seq0/top10", ontology_tag=""),
+                    QueryResponseItemTopic(locator="seq0/top11", ontology_tag=""),
                 ],  # constructor expects topic resource name
             ),
         ]
@@ -369,8 +369,8 @@ class TestQueryableBool:
 
 class TestQueryableDynamic:
     _allowed_types = _ALL_TESTING_TYPES
-    _allowed_unary_operators = ["eq", "neq", "lt", "leq", "gt", "geq"]
-    _allowed_varargs_operators = ["between"]
+    _allowed_unary_operators = ["eq", "neq", "lt", "leq", "gt", "geq", "match"]
+    _allowed_varargs_operators = ["between", "in_"]
 
     @pytest.mark.parametrize("value_type", _allowed_types)
     @pytest.mark.parametrize(
@@ -387,7 +387,7 @@ class TestQueryableDynamic:
                 self._allowed_unary_operators + self._allowed_varargs_operators,
                 None,
             )
-        if operator in ["eq", "between"]:
+        if operator in ["eq", "between", "in_"]:
             return _test_operators(
                 _QueryableDynamicValue,
                 operator,
@@ -395,6 +395,15 @@ class TestQueryableDynamic:
                 [int, float, str, bool],
                 self._allowed_unary_operators + self._allowed_varargs_operators,
                 ["between"],
+            )
+        if operator in ["match"]:
+            return _test_operators(
+                _QueryableDynamicValue,
+                operator,
+                value_type,
+                [str],
+                self._allowed_unary_operators + self._allowed_varargs_operators,
+                None,
             )
 
 

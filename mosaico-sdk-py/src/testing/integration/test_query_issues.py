@@ -34,7 +34,6 @@ def test_query_bug_218_fail(
     assert len(query_resp[0].topics) == 1
     assert query_resp[0].topics[0].name == UPLOADED_IMU_FRONT_TOPIC
 
-    # --- FIXME: Failing test ---
     # Query by sequence metadata AND topic name
     query_resp = mosaico_client.query(
         QuerySequence().with_user_metadata("visibility", eq="team-01"),
@@ -46,7 +45,6 @@ def test_query_bug_218_fail(
     assert len(query_resp[0].topics) == 1
     assert query_resp[0].topics[0].name == UPLOADED_IMU_FRONT_TOPIC
 
-    # --- FIXME: Failing test 2 ---
     # Query by topic metadata AND sequence name
     query_resp = mosaico_client.query(
         QuerySequence().with_user_metadata("visibility", eq="team-01"),

@@ -302,16 +302,16 @@ fn plain_list_op_to_df_expr<V: Into<Value>>(
     op: Op<V>,
     field_name: &str,
 ) -> Result<Option<Expr>, Error> {
-    match op {
-        Op::Eq(v) => list_value_eq_expr(arr, v.into(), field_name),
-        Op::Neq(v) => Ok(list_value_eq_expr(arr, v.into(), field_name)?.map(|e| e.not())),
-        _ => Ok(None),
-    }
+    Ok(match op {
+        Op::Eq(v) => Some(list_value_eq_expr(arr, v.into(), field_name)?),
+        Op::Neq(v) => Some(list_value_eq_expr(arr, v.into(), field_name)?.not()),
+        _ => return Err(Error::unsupported_op(field_name.to_owned())),
+    })
 }
 
 /// DataFusion does not support `=` on List columns directly, so we decompose
 /// into scalar comparisons. Different-length lists always produce false.
-fn list_value_eq_expr(arr: Expr, v: Value, field_name: &str) -> Result<Option<Expr>, Error> {
+fn list_value_eq_expr(arr: Expr, v: Value, field_name: &str) -> Result<Expr, Error> {
     let (item_exprs, len): (Vec<Expr>, usize) = match v {
         Value::IntegerArray(items) => {
             let n = items.len();
@@ -329,7 +329,7 @@ fn list_value_eq_expr(arr: Expr, v: Value, field_name: &str) -> Result<Option<Ex
             let n = items.len();
             (items.into_iter().map(lit).collect(), n)
         }
-        scalar => return Ok(Some(arr.eq(value_to_df_expr(scalar)))),
+        scalar => return Ok(arr.eq(value_to_df_expr(scalar))),
     };
 
     let max = params::params().max_size_plain_list_eq.value;
@@ -338,61 +338,74 @@ fn list_value_eq_expr(arr: Expr, v: Value, field_name: &str) -> Result<Option<Ex
     }
 
     let len_check = cardinality(arr.clone()).eq(lit(len as u64));
-    Ok(Some(item_exprs.into_iter().enumerate().fold(
-        len_check,
-        |acc, (i, item_expr)| {
+    Ok(item_exprs
+        .into_iter()
+        .enumerate()
+        .fold(len_check, |acc, (i, item_expr)| {
             // array_element uses 1-based indexing
             acc.and(array_element(arr.clone(), lit(i as i64 + 1)).eq(item_expr))
-        },
-    )))
+        }))
 }
 
 /// Applies a scalar (non-array) operator to a DataFusion expression.
-fn scalar_op_to_df_expr<V: Into<Value>>(expr: Expr, op: Op<V>) -> Option<Expr> {
-    match op {
-        Op::Eq(v) => Some(expr.eq(value_to_df_expr(v.into()))),
-        Op::Neq(v) => Some(expr.not_eq(value_to_df_expr(v.into()))),
-        Op::Leq(v) => Some(expr.lt_eq(value_to_df_expr(v.into()))),
-        Op::Geq(v) => Some(expr.gt_eq(value_to_df_expr(v.into()))),
-        Op::Lt(v) => Some(expr.lt(value_to_df_expr(v.into()))),
-        Op::Gt(v) => Some(expr.gt(value_to_df_expr(v.into()))),
-        Op::Ex => None,
-        Op::Nex => None,
+fn scalar_op_to_df_expr<V: Into<Value>>(expr: Expr, op: Op<V>) -> Result<Option<Expr>, Error> {
+    Ok(Some(match op {
+        Op::Eq(v) => expr.eq(value_to_df_expr(v.into())),
+        Op::Neq(v) => expr.not_eq(value_to_df_expr(v.into())),
+        Op::Leq(v) => expr.lt_eq(value_to_df_expr(v.into())),
+        Op::Geq(v) => expr.gt_eq(value_to_df_expr(v.into())),
+        Op::Lt(v) => expr.lt(value_to_df_expr(v.into())),
+        Op::Gt(v) => expr.gt(value_to_df_expr(v.into())),
+        Op::Ex | Op::Nex =>
+        // No-op. Existence of a column is checked previously. Here we are evaluating the content (data values).
+        {
+            return Ok(None);
+        }
         Op::Between(range) => {
             let vmin = value_to_df_expr(range.min.into());
             let vmax = value_to_df_expr(range.max.into());
-            Some(expr.clone().gt_eq(vmin).and(expr.lt_eq(vmax)))
+            expr.clone().gt_eq(vmin).and(expr.lt_eq(vmax))
         }
         Op::In(items) => {
             let list = items
                 .into_iter()
                 .map(|v| value_to_df_expr(v.into()))
                 .collect();
-            Some(expr.in_list(list, false))
+            expr.in_list(list, false)
         }
-        Op::Match(v) => Some(regexp_like(expr, value_to_df_expr(v.into()), None)),
-    }
+        Op::Match(v) => {
+            let Value::Text(text) = v.into() else {
+                return Err(Error::unsupported_op(expr.to_string()));
+            };
+
+            let regex_pattern = super::regex::wildcard_to_posix_regex(text.as_str())
+                .map_err(|e| super::regex_to_query_error(e, expr.to_string()))?
+                .to_string();
+
+            regexp_like(expr, value_to_df_expr(regex_pattern.into()), None)
+        }
+    }))
 }
 
 /// Builds the DataFusion expression for [?], at least one element satisfies the predicate.
-fn any_op_to_df_expr<V: Into<Value>>(arr: Expr, op: Op<V>) -> Option<Expr> {
-    match op {
-        Op::Eq(v) => Some(array_has(arr, value_to_df_expr(v.into()))),
+fn any_op_to_df_expr<V: Into<Value>>(arr: Expr, op: Op<V>) -> Result<Option<Expr>, Error> {
+    Ok(Some(match op {
+        Op::Eq(v) => array_has(arr, value_to_df_expr(v.into())),
         Op::Neq(v) => {
             let v = value_to_df_expr(v.into());
             let res = cardinality(array_remove_all(arr, v));
-            Some(res.gt(lit(0)))
+            res.gt(lit(0))
         }
-        Op::Gt(v) => Some(array_max(arr).gt(value_to_df_expr(v.into()))),
-        Op::Geq(v) => Some(array_max(arr).gt_eq(value_to_df_expr(v.into()))),
-        Op::Lt(v) => Some(array_min(arr).lt(value_to_df_expr(v.into()))),
-        Op::Leq(v) => Some(array_min(arr).lt_eq(value_to_df_expr(v.into()))),
+        Op::Gt(v) => array_max(arr).gt(value_to_df_expr(v.into())),
+        Op::Geq(v) => array_max(arr).gt_eq(value_to_df_expr(v.into())),
+        Op::Lt(v) => array_min(arr).lt(value_to_df_expr(v.into())),
+        Op::Leq(v) => array_min(arr).lt_eq(value_to_df_expr(v.into())),
         Op::Between(range) => {
             let vmin = value_to_df_expr(range.min.into());
             let vmax = value_to_df_expr(range.max.into());
             let x = lambda_var("x");
             let body = x.clone().gt_eq(vmin).and(x.lt_eq(vmax));
-            Some(array_any_match(arr, lambda(["x"], body)))
+            array_any_match(arr, lambda(["x"], body))
         }
         Op::In(items) => {
             let set = make_array(
@@ -401,42 +414,51 @@ fn any_op_to_df_expr<V: Into<Value>>(arr: Expr, op: Op<V>) -> Option<Expr> {
                     .map(|v| value_to_df_expr(v.into()))
                     .collect(),
             );
-            Some(array_has_any(arr, set))
+            array_has_any(arr, set)
         }
         Op::Match(v) => {
+            let Value::Text(text) = v.into() else {
+                return Err(Error::unsupported_op(arr.to_string()));
+            };
+
+            let regex_pattern = super::regex::wildcard_to_posix_regex(text.as_str())
+                .map_err(|e| super::regex_to_query_error(e, arr.to_string()))?
+                .to_string();
+
             let x = lambda_var("x");
-            let body = regexp_like(x, value_to_df_expr(v.into()), None);
-            Some(array_any_match(arr, lambda(["x"], body)))
+            let body = regexp_like(x, value_to_df_expr(regex_pattern.into()), None);
+            array_any_match(arr, lambda(["x"], body))
         }
-        Op::Ex => None,
-        Op::Nex => None,
-    }
+        Op::Ex | Op::Nex =>
+        // No-op. Existence of a column is checked previously. Here we are evaluating the content (data values).
+        {
+            return Ok(None);
+        }
+    }))
 }
 
 /// Builds the DataFusion expression for [!], every element satisfies the predicate.
-fn all_op_to_df_expr<V: Into<Value>>(arr: Expr, op: Op<V>) -> Option<Expr> {
-    match op {
+fn all_op_to_df_expr<V: Into<Value>>(arr: Expr, op: Op<V>) -> Result<Option<Expr>, Error> {
+    Ok(Some(match op {
         Op::Eq(v) => {
             let v = value_to_df_expr(v.into());
-            Some(
-                array_min(arr.clone())
-                    .eq(v.clone())
-                    .and(array_max(arr).eq(v)),
-            )
+
+            array_min(arr.clone())
+                .eq(v.clone())
+                .and(array_max(arr).eq(v))
         }
-        Op::Neq(v) => Some(array_has(arr, value_to_df_expr(v.into())).not()),
-        Op::Gt(v) => Some(array_min(arr).gt(value_to_df_expr(v.into()))),
-        Op::Geq(v) => Some(array_min(arr).gt_eq(value_to_df_expr(v.into()))),
-        Op::Lt(v) => Some(array_max(arr).lt(value_to_df_expr(v.into()))),
-        Op::Leq(v) => Some(array_max(arr).lt_eq(value_to_df_expr(v.into()))),
+        Op::Neq(v) => array_has(arr, value_to_df_expr(v.into())).not(),
+        Op::Gt(v) => array_min(arr).gt(value_to_df_expr(v.into())),
+        Op::Geq(v) => array_min(arr).gt_eq(value_to_df_expr(v.into())),
+        Op::Lt(v) => array_max(arr).lt(value_to_df_expr(v.into())),
+        Op::Leq(v) => array_max(arr).lt_eq(value_to_df_expr(v.into())),
         Op::Between(range) => {
             let vmin = value_to_df_expr(range.min.into());
             let vmax = value_to_df_expr(range.max.into());
-            Some(
-                array_min(arr.clone())
-                    .gt_eq(vmin)
-                    .and(array_max(arr).lt_eq(vmax)),
-            )
+
+            array_min(arr.clone())
+                .gt_eq(vmin)
+                .and(array_max(arr).lt_eq(vmax))
         }
         Op::In(items) => {
             let set = make_array(
@@ -447,18 +469,29 @@ fn all_op_to_df_expr<V: Into<Value>>(arr: Expr, op: Op<V>) -> Option<Expr> {
             );
             let distinct_count = cardinality(array_distinct(arr.clone()));
             let intersect_count = cardinality(array_intersect(arr, set));
-            Some(distinct_count.eq(intersect_count))
+            distinct_count.eq(intersect_count)
         }
-
         Op::Match(v) => {
             // all elements match <-> no element fails to match
+
+            let Value::Text(text) = v.into() else {
+                return Err(Error::unsupported_op(arr.to_string()));
+            };
+
+            let regex_pattern = super::regex::wildcard_to_posix_regex(text.as_str())
+                .map_err(|e| super::regex_to_query_error(e, arr.to_string()))?
+                .to_string();
+
             let x = lambda_var("x");
-            let body = not(regexp_like(x, value_to_df_expr(v.into()), None));
-            Some(not(array_any_match(arr, lambda(["x"], body))))
+            let body = not(regexp_like(x, value_to_df_expr(regex_pattern.into()), None));
+            not(array_any_match(arr, lambda(["x"], body)))
         }
-        Op::Ex => None,
-        Op::Nex => None,
-    }
+        Op::Ex | Op::Nex =>
+        // No-op. Existence of a column is checked previously. Here we are evaluating the content (data values).
+        {
+            return Ok(None);
+        }
+    }))
 }
 
 /// Builds the DataFusion expression for the portion of the field path that leads up to
@@ -537,9 +570,12 @@ fn chain_field_accesses(mut expr: Expr, field_segments: &[String]) -> Expr {
 /// (the placeholder for the current element), navigates into the target sub-field via
 /// [`chain_field_accesses`] (e.g. `elem.field("x")`), and then applies the comparison
 /// operator (e.g. `.gt(3.0)`).
-fn struct_elem_predicate<V: Into<Value>>(field_segments: &[String], op: Op<V>) -> Option<Expr> {
+fn struct_elem_predicate<V: Into<Value>>(
+    field_segments: &[String],
+    op: Op<V>,
+) -> Result<Option<Expr>, Error> {
     let make_fe = || chain_field_accesses(lambda_var("elem"), field_segments);
-    Some(match op {
+    Ok(Some(match op {
         Op::Eq(v) => make_fe().eq(value_to_df_expr(v.into())),
         Op::Neq(v) => make_fe().not_eq(value_to_df_expr(v.into())),
         Op::Gt(v) => make_fe().gt(value_to_df_expr(v.into())),
@@ -558,9 +594,23 @@ fn struct_elem_predicate<V: Into<Value>>(field_segments: &[String], op: Op<V>) -
                 .collect();
             make_fe().in_list(list, false)
         }
-        Op::Match(v) => regexp_like(make_fe(), value_to_df_expr(v.into()), None),
-        Op::Ex | Op::Nex => return None,
-    })
+        Op::Match(v) => {
+            let Value::Text(text) = v.into() else {
+                return Err(Error::unsupported_op(field_segments.join(".")));
+            };
+
+            let regex_pattern = super::regex::wildcard_to_posix_regex(text.as_str())
+                .map_err(|e| super::regex_to_query_error(e, field_segments.join(".")))?
+                .to_string();
+
+            regexp_like(make_fe(), value_to_df_expr(regex_pattern.into()), None)
+        }
+        Op::Ex | Op::Nex =>
+        // No-op. Existence of a column is checked previously. Here we are evaluating the content (data values).
+        {
+            return Ok(None);
+        }
+    }))
 }
 
 /// Builds the DataFusion expression for `[?]` on a `List<Struct<…>>` column, where the
@@ -569,9 +619,12 @@ fn any_op_struct_to_df_expr<V: Into<Value>>(
     arr: Expr,
     field_segments: &[String],
     op: Op<V>,
-) -> Option<Expr> {
+) -> Result<Option<Expr>, Error> {
     let body = struct_elem_predicate(field_segments, op)?;
-    Some(array_any_match(arr, lambda(["elem"], body)))
+    match body {
+        None => Ok(None),
+        Some(body) => Ok(Some(array_any_match(arr, lambda(["elem"], body)))),
+    }
 }
 
 /// Builds the DataFusion expression for `[!]` on a `List<Struct<…>>` column.
@@ -579,9 +632,12 @@ fn all_op_struct_to_df_expr<V: Into<Value>>(
     arr: Expr,
     field_segments: &[String],
     op: Op<V>,
-) -> Option<Expr> {
+) -> Result<Option<Expr>, Error> {
     let body = struct_elem_predicate(field_segments, op)?;
-    Some(not(array_any_match(arr, lambda(["elem"], not(body)))))
+    match body {
+        None => Ok(None),
+        Some(body) => Ok(Some(not(array_any_match(arr, lambda(["elem"], not(body)))))),
+    }
 }
 
 fn expr_group_to_df_expr<V>(
@@ -601,14 +657,17 @@ where
             None => {
                 let arr = unfold_field(&field);
                 if field_schema_is_list(&field, schema) {
-                    plain_list_op_to_df_expr(arr, op, &field.field())?
+                    plain_list_op_to_df_expr(arr, op, &field.field())
                 } else {
                     scalar_op_to_df_expr(arr, op)
                 }
-            }
+            }?,
             Some(IndexSpecifier::At(i)) => {
                 if !field_schema_is_list(&field, schema) {
-                    None
+                    return Err(Error::bad_field_with_message(
+                        field.to_string(),
+                        "expected list type in `schema'".to_owned(),
+                    ));
                 } else {
                     // DataFusion array_element uses 1-indexing; apply any sub-field after indexing.
                     let arr = list_col_expr(&field);
@@ -616,10 +675,13 @@ where
                     let elem = chain_field_accesses(array_element(arr, lit(*i as i64 + 1)), &sub);
                     scalar_op_to_df_expr(elem, op)
                 }
-            }
+            }?,
             Some(IndexSpecifier::Any) => {
                 if !field_schema_is_list(&field, schema) {
-                    None
+                    return Err(Error::bad_field_with_message(
+                        field.to_string(),
+                        "expected list type in `schema'".to_owned(),
+                    ));
                 } else {
                     let arr = list_col_expr(&field);
                     let sub = inner_field_segs(&field);
@@ -629,10 +691,13 @@ where
                         any_op_struct_to_df_expr(arr, &sub, op)
                     }
                 }
-            }
+            }?,
             Some(IndexSpecifier::All) => {
                 if !field_schema_is_list(&field, schema) {
-                    None
+                    return Err(Error::bad_field_with_message(
+                        field.to_string(),
+                        "expected list type in `schema'".to_owned(),
+                    ));
                 } else {
                     let arr = list_col_expr(&field);
                     let sub = inner_field_segs(&field);
@@ -642,7 +707,7 @@ where
                         all_op_struct_to_df_expr(arr, &sub, op)
                     }
                 }
-            }
+            }?,
         };
 
         if let Some(expr) = expr {

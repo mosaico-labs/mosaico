@@ -33,7 +33,7 @@ console = Console()
 
 def query_by_topic_name_match(client: MosaicoClient, test_num: int):
     # Execute a unified multi-domain query
-    topic_name_match = "image_raw"
+    topic_name_match = "*image_raw*"
     console.print(
         Panel(
             f"[bold green]TEST {test_num}: Querying catalog for Topics which name matches '{topic_name_match}'[/bold green]"
@@ -97,10 +97,7 @@ def query_acceleration_camera_imu(client: MosaicoClient, test_num: int):
     )
     results = client.query(
         # Filter 1: Topic Layer (Specific Channel Name)
-        QueryOntologyCatalog(
-            IMU.Q.acceleration.y.geq(1),
-            include_timestamp_range=True,
-        ),
+        QueryOntologyCatalog(IMU.Q.acceleration.y.geq(1)),
         QueryTopic().with_name("/front_stereo_imu/imu"),
     )
 
@@ -116,13 +113,18 @@ def query_acceleration_camera_imu(client: MosaicoClient, test_num: int):
             # item.topics contains only the topics and time-segments
             # that satisfied ALL criteria simultaneously
             for topic in item.topics:
-                start = topic.timestamp_range.start if topic.timestamp_range else "N/A"
-                end = topic.timestamp_range.end if topic.timestamp_range else "N/A"
-                table.add_row(
-                    item.sequence.name,
-                    topic.name,
-                    f"{start}-{end}",
-                )
+                # Return a unique Timerange representing the first and last
+                # timestamp the query evaluates true
+                clusters = topic.clusterize()
+
+                for cluster in clusters:
+                    start = cluster.timerange.start
+                    end = cluster.timerange.end
+                    table.add_row(
+                        item.sequence.name,
+                        topic.name,
+                        f"{start}-{end}",
+                    )
 
         console.print(table)
 

@@ -639,10 +639,10 @@ async fn test_ontology_match_filters_by_regex(pool: sqlx::Pool<db::DatabaseType>
     )
     .await;
 
-    // "^truck" should match only topic_truck
+    // "truck*" should match only topic_truck
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.name": { "$match": "^truck" } } }),
+        json!({ "ontology": { "mock.name": { "$match": "truck*" } } }),
     )
     .await
     .unwrap();
@@ -677,9 +677,10 @@ async fn test_ontology_match_excludes_topics_without_column(pool: sqlx::Pool<db:
     )
     .await;
 
+    // "?*" is the pattern to match a non-empty name.
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.name": { "$match": ".*" } } }),
+        json!({ "ontology": { "mock.name": { "$match": "?*" } } }),
     )
     .await
     .unwrap();
@@ -1811,72 +1812,72 @@ async fn test_ontology_any_match(pool: sqlx::Pool<db::DatabaseType>) {
     )
     .await;
 
-    // "^a": topic_a has "apple" -> included; topic_b has none starting with 'a' -> excluded
+    // "a*": topic_a has "apple" -> included; topic_b has none starting with 'a' -> excluded
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.list_test[?]": { "$match": "^a" } } }),
+        json!({ "ontology": { "mock.list_test[?]": { "$match": "a*" } } }),
     )
     .await
     .unwrap();
     let locators = topic_locators(&items);
     assert!(
         locators.contains(&format!("{seq}/topic_a")),
-        r#"$match "^a": topic_a has "apple", included"#
+        r#"$match "a*": topic_a has "apple", included"#
     );
     assert!(
         !locators.contains(&format!("{seq}/topic_b")),
-        r#"$match "^a": topic_b has no element starting with 'a', excluded"#
+        r#"$match "a*": topic_b has no element starting with 'a', excluded"#
     );
 
-    // "^d": topic_b has "dog" -> included; topic_a has none starting with 'd' -> excluded
+    // "d*": topic_b has "dog" -> included; topic_a has none starting with 'd' -> excluded
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.list_test[?]": { "$match": "^d" } } }),
+        json!({ "ontology": { "mock.list_test[?]": { "$match": "d*" } } }),
     )
     .await
     .unwrap();
     let locators = topic_locators(&items);
     assert!(
         !locators.contains(&format!("{seq}/topic_a")),
-        r#"$match "^d": topic_a excluded"#
+        r#"$match "d*": topic_a excluded"#
     );
     assert!(
         locators.contains(&format!("{seq}/topic_b")),
-        r#"$match "^d": topic_b has "dog", included"#
+        r#"$match "d*": topic_b has "dog", included"#
     );
 
-    // "a": both have an element containing 'a' ("banana"/"apple" for a, "cat" for b)
+    // "*a*": both have an element containing 'a' ("banana"/"apple" for a, "cat" for b)
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.list_test[?]": { "$match": "a" } } }),
+        json!({ "ontology": { "mock.list_test[?]": { "$match": "*a*" } } }),
     )
     .await
     .unwrap();
     let locators = topic_locators(&items);
     assert!(
         locators.contains(&format!("{seq}/topic_a")),
-        r#"$match "a": topic_a has "apple"/"banana", included"#
+        r#"$match "*a*": topic_a has "apple"/"banana", included"#
     );
     assert!(
         locators.contains(&format!("{seq}/topic_b")),
-        r#"$match "a": topic_b has "cat", included"#
+        r#"$match "*a*": topic_b has "cat", included"#
     );
 
-    // "^z": no element in either topic starts with 'z' -> both excluded
+    // "z*": no element in either topic starts with 'z' -> both excluded
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.list_test[?]": { "$match": "^z" } } }),
+        json!({ "ontology": { "mock.list_test[?]": { "$match": "z*" } } }),
     )
     .await
     .unwrap();
     let locators = topic_locators(&items);
     assert!(
         !locators.contains(&format!("{seq}/topic_a")),
-        r#"$match "^z": topic_a excluded"#
+        r#"$match "z*": topic_a excluded"#
     );
     assert!(
         !locators.contains(&format!("{seq}/topic_b")),
-        r#"$match "^z": topic_b excluded"#
+        r#"$match "z*": topic_b excluded"#
     );
 
     server.shutdown().await;
@@ -1908,55 +1909,55 @@ async fn test_ontology_all_match(pool: sqlx::Pool<db::DatabaseType>) {
     )
     .await;
 
-    // "^a": topic_a all match; topic_b has "cat"/"dog" that don't -> excluded
+    // "a": topic_a all match; topic_b has "cat"/"dog" that don't -> excluded
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.list_test[!]": { "$match": "^a" } } }),
+        json!({ "ontology": { "mock.list_test[!]": { "$match": "a*" } } }),
     )
     .await
     .unwrap();
     let locators = topic_locators(&items);
     assert!(
         locators.contains(&format!("{seq}/topic_a")),
-        r#"$match "^a": topic_a all start with 'a', included"#
+        r#"$match "a": topic_a all start with 'a', included"#
     );
     assert!(
         !locators.contains(&format!("{seq}/topic_b")),
-        r#"$match "^a": topic_b has "cat"/"dog", excluded"#
+        r#"$match "a": topic_b has "cat"/"dog", excluded"#
     );
 
-    // ".": matches any non-empty string -> all elements in both topics match
+    // "?*": matches any non-empty string -> all elements in both topics match
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.list_test[!]": { "$match": "." } } }),
+        json!({ "ontology": { "mock.list_test[!]": { "$match": "?*" } } }),
     )
     .await
     .unwrap();
     let locators = topic_locators(&items);
     assert!(
         locators.contains(&format!("{seq}/topic_a")),
-        r#"$match ".": topic_a included"#
+        r#"$match "?*": topic_a included"#
     );
     assert!(
         locators.contains(&format!("{seq}/topic_b")),
-        r#"$match ".": topic_b included"#
+        r#"$match "?*": topic_b included"#
     );
 
-    // "^z": no element starts with 'z' -> NOT all elements match -> both excluded
+    // "z*": no element starts with 'z' -> NOT all elements match -> both excluded
     let items = actions::query(
         &mut client,
-        json!({ "ontology": { "mock.list_test[!]": { "$match": "^z" } } }),
+        json!({ "ontology": { "mock.list_test[!]": { "$match": "z*" } } }),
     )
     .await
     .unwrap();
     let locators = topic_locators(&items);
     assert!(
         !locators.contains(&format!("{seq}/topic_a")),
-        r#"$match "^z": topic_a excluded"#
+        r#"$match "z*": topic_a excluded"#
     );
     assert!(
         !locators.contains(&format!("{seq}/topic_b")),
-        r#"$match "^z": topic_b excluded"#
+        r#"$match "z*": topic_b excluded"#
     );
 
     server.shutdown().await;

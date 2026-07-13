@@ -25,8 +25,8 @@ class GridCells(
         header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
-    This class is partially queryable via the **`.Q` proxy**. You can filter grid cells data based
-    on cell_width or cell_height field values within a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog].
+    This class is fully queryable via the **`.Q` proxy**. You can filter grid cells data based
+    on `cell_width`, `cell_height`, or `cells` field values within a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog].
 
     Example:
         ```python
@@ -45,7 +45,13 @@ class GridCells(
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # FIXME: Add here example for timestamp exytraction and clustering
+                    # Clusterize all topics within the sequence to extract the time intervals
+                    clusters_dict = item.clusterize_all()
+
+                    # Since clusterize_all() used default clustering_dt_ns, each topic will have
+                    # just one cluster representing the first and last moment the query was satisfied
+                    for t_name, clusters in clusters_dict.items():
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -78,7 +84,13 @@ class GridCells(
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # FIXME: Add here example for timestamp exytraction and clustering
+                    # Clusterize all topics within the sequence to extract the time intervals
+                    clusters_dict = item.clusterize_all()
+
+                    # Since clusterize_all() used default clustering_dt_ns, each topic will have
+                    # just one cluster representing the first and last moment the query was satisfied
+                    for t_name, clusters in clusters_dict.items():
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -111,7 +123,13 @@ class GridCells(
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # FIXME: Add here example for timestamp exytraction and clustering
+                    # Clusterize all topics within the sequence to extract the time intervals
+                    clusters_dict = item.clusterize_all()
+
+                    # Since clusterize_all() used default clustering_dt_ns, each topic will have
+                    # just one cluster representing the first and last moment the query was satisfied
+                    for t_name, clusters in clusters_dict.items():
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -122,9 +140,44 @@ class GridCells(
     The cell represented by a point at it's center.
 
     ### Querying with the **`.Q` Proxy**
-    # FIXME: Update this docstring with queryability of list fiends,
-    # and add example scripts for querying such field
-    The cells field is not queryable via the `.Q` proxy (lists are not supported yet).
+    The cells value is queryable via the `cells` field. Since it represents a list of `Point3d`
+    values, use `all()`, `any()` or index access `[i]` to narrow down to the list element, then
+    continue the expression with the contained `Point3d` field (`x`, `y` or `z`).
+        - GridCells.Q.cells.all()         -> invalid expression
+        - GridCells.Q.cells.x.gt(1)       -> invalid expression
+        - GridCells.Q.cells.all().x.gt(1) -> valid expression
+
+    | Field Access Path | Queryable Type | Supported Operators |
+    | :--- | :--- | :--- |
+    | `GridCells.Q.cells.all().x` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `GridCells.Q.cells.any().x` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `GridCells.Q.cells.[i].x` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+
+    Example:
+        ```python
+        from mosaicolabs import MosaicoClient, GridCells, QueryOntologyCatalog
+
+        with MosaicoClient.connect("localhost", 6726) as client:
+            # Filter for grids with at least one cell beyond a specific X-coordinate
+            qresponse = client.query(
+                QueryOntologyCatalog(GridCells.Q.cells.any().x.gt(500.0))
+            )
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {[topic.name for topic in item.topics]}")
+
+                    # Clusterize all topics within the sequence to extract the time intervals
+                    clusters_dict = item.clusterize_all()
+
+                    # Since clusterize_all() used default clustering_dt_ns, each topic will have
+                    # just one cluster representing the first and last moment the query was satisfied
+                    for t_name, clusters in clusters_dict.items():
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
+        ```
     """
 
 
@@ -168,7 +221,13 @@ class MapMetadata(
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # FIXME: Add here example for timestamp exytraction and clustering
+                    # Clusterize all topics within the sequence to extract the time intervals
+                    clusters_dict = item.clusterize_all()
+
+                    # Since clusterize_all() used default clustering_dt_ns, each topic will have
+                    # just one cluster representing the first and last moment the query was satisfied
+                    for t_name, clusters in clusters_dict.items():
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         ```
 
     """
@@ -204,7 +263,13 @@ class MapMetadata(
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # FIXME: Add here example for timestamp exytraction and clustering
+                    # Clusterize all topics within the sequence to extract the time intervals
+                    clusters_dict = item.clusterize_all()
+
+                    # Since clusterize_all() used default clustering_dt_ns, each topic will have
+                    # just one cluster representing the first and last moment the query was satisfied
+                    for t_name, clusters in clusters_dict.items():
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -238,7 +303,13 @@ class MapMetadata(
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # FIXME: Add here example for timestamp exytraction and clustering
+                    # Clusterize all topics within the sequence to extract the time intervals
+                    clusters_dict = item.clusterize_all()
+
+                    # Since clusterize_all() used default clustering_dt_ns, each topic will have
+                    # just one cluster representing the first and last moment the query was satisfied
+                    for t_name, clusters in clusters_dict.items():
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -272,7 +343,13 @@ class MapMetadata(
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # FIXME: Add here example for timestamp exytraction and clustering
+                    # Clusterize all topics within the sequence to extract the time intervals
+                    clusters_dict = item.clusterize_all()
+
+                    # Since clusterize_all() used default clustering_dt_ns, each topic will have
+                    # just one cluster representing the first and last moment the query was satisfied
+                    for t_name, clusters in clusters_dict.items():
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -306,7 +383,13 @@ class MapMetadata(
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # FIXME: Add here example for timestamp exytraction and clustering
+                    # Clusterize all topics within the sequence to extract the time intervals
+                    clusters_dict = item.clusterize_all()
+
+                    # Since clusterize_all() used default clustering_dt_ns, each topic will have
+                    # just one cluster representing the first and last moment the query was satisfied
+                    for t_name, clusters in clusters_dict.items():
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -346,7 +429,13 @@ class MapMetadata(
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # FIXME: Add here example for timestamp exytraction and clustering
+                    # Clusterize all topics within the sequence to extract the time intervals
+                    clusters_dict = item.clusterize_all()
+
+                    # Since clusterize_all() used default clustering_dt_ns, each topic will have
+                    # just one cluster representing the first and last moment the query was satisfied
+                    for t_name, clusters in clusters_dict.items():
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -366,8 +455,8 @@ class OccupancyGrid(
         header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
-    This class is parrtially queryable via the **`.Q` proxy**. You can filter occupancy grid data based
-    on info field values within a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog].
+    This class is fully queryable via the **`.Q` proxy**. You can filter occupancy grid data based
+    on `info` or `data` field values within a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog].
 
     Example:
         ```python
@@ -386,7 +475,13 @@ class OccupancyGrid(
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # FIXME: Add here example for timestamp exytraction and clustering
+                    # Clusterize all topics within the sequence to extract the time intervals
+                    clusters_dict = item.clusterize_all()
+
+                    # Since clusterize_all() used default clustering_dt_ns, each topic will have
+                    # just one cluster representing the first and last moment the query was satisfied
+                    for t_name, clusters in clusters_dict.items():
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -431,7 +526,13 @@ class OccupancyGrid(
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # FIXME: Add here example for timestamp exytraction and clustering
+                    # Clusterize all topics within the sequence to extract the time intervals
+                    clusters_dict = item.clusterize_all()
+
+                    # Since clusterize_all() used default clustering_dt_ns, each topic will have
+                    # just one cluster representing the first and last moment the query was satisfied
+                    for t_name, clusters in clusters_dict.items():
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -440,11 +541,46 @@ class OccupancyGrid(
     )
     """
 
-    The map data, in row-major order, starting with (0,0).  
+    The map data, in row-major order, starting with (0,0).
     Occupancy probabilities are in the range [0,100].  Unknown is -1.
 
     ### Querying with the **`.Q` Proxy**
-    # FIXME: Update this docstring with queryability of list fiends,
-    # and add example scripts for querying such field
-    The data field is not queryable via the `.Q` proxy (lists are not supported yet).
+    The data value is queryable via the `data` field. Since it represents a list of values, use
+    `all()`, `any()` or index access `[i]` to narrow down to the list element and compose a
+    correct expression.
+        - OccupancyGrid.Q.data.all()       -> invalid expression
+        - OccupancyGrid.Q.data.gt(1)       -> invalid expression
+        - OccupancyGrid.Q.data.all().gt(1) -> valid expression
+
+    | Field Access Path | Queryable Type | Supported Operators |
+    | :--- | :--- | :--- |
+    | `OccupancyGrid.Q.data.all()` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `OccupancyGrid.Q.data.any()` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `OccupancyGrid.Q.data.[i]` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+
+    Example:
+        ```python
+        from mosaicolabs import MosaicoClient, OccupancyGrid, QueryOntologyCatalog
+
+        with MosaicoClient.connect("localhost", 6726) as client:
+            # Filter for occupancy grids with at least one fully occupied cell
+            qresponse = client.query(
+                QueryOntologyCatalog(OccupancyGrid.Q.data.any().eq(100))
+            )
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {[topic.name for topic in item.topics]}")
+
+                    # Clusterize all topics within the sequence to extract the time intervals
+                    clusters_dict = item.clusterize_all()
+
+                    # Since clusterize_all() used default clustering_dt_ns, each topic will have
+                    # just one cluster representing the first and last moment the query was satisfied
+                    for t_name, clusters in clusters_dict.items():
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
+        ```
     """

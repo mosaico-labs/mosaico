@@ -1,0 +1,135 @@
+---
+title: Temporal Windows
+sidebar_position: 8
+description: "How to extract and compare time intervals from a query response using clusterize() and intersect(), with pointers to clusterize_all() and the sequence-level intersect() for operating across every topic at once."
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+## Extracting and Comparing Time Intervals
+
+When a query includes a `QueryOntologyCatalog` filter, a matched topic doesn't just tell you **that** its condition was satisfied but also **when**. Starting from a query response, you can compute and compare these time intervals: split a single topic's matches into distinct windows, or check whether two different signals were true at the same moment. Concretely, you can:
+
+- retrieve and merge all the time intervals associated to one topic where the query is satisfied. See [clusterize](https://docs.mosaico.dev/python-sdk/SDK/query/#topic-clusterize) operation.
+- retrieve and compare different time intervals associated to different topics coming from different queries, finding whether two distinct events happened at the same time. See [topic intersect](https://docs.mosaico.dev/python-sdk/SDK/query/#topics-intersect) operation.
+- retrieve and merge all the time intervals associated to all sequence's topics where the query is satisfied. See [clusterize_all](https://docs.mosaico.dev/python-sdk/SDK/query/#sequence-clusterize) operation.
+- retrieve and compare different time intervals associated to different topics' sequences. See [sequence intersect](https://docs.mosaico.dev/python-sdk/SDK/query/#sequences-intersect) operation.
+
+<Tabs>
+
+<TabItem value="python" label="Python" default>
+:::tip[Learn]
+[Doc: Topic Clusterize](https://docs.mosaico.dev/python-sdk/SDK/query/#topic-clusterize)
+
+[Doc: Topics Intersect](https://docs.mosaico.dev/python-sdk/SDK/query/#topics-intersect)
+
+[Doc: Sequence Clusterize](https://docs.mosaico.dev/python-sdk/SDK/query/#sequence-clusterize)
+
+[Doc: Sequence Intersect](https://docs.mosaico.dev/python-sdk/SDK/query/#sequences-intersect)
+
+:::
+</TabItem>
+
+<TabItem value="cpp" label="C++">
+The C++ SDK is currently in development.
+</TabItem>
+
+<TabItem value="rust" label="Rust">
+The Rust SDK is currently in development.
+</TabItem>
+
+</Tabs>
+
+## Splitting a Topic's Matches with `clusterize()`
+
+`clusterize()` takes the overall samples timestamps where a single topic's query condition held true and merges them into distinct clusters: timestamps nearer than `clustering_dt_ns` nanoseconds are merged into the same cluster, timestamps further apart become separate ones.
+
+![Topic-level clusterize(): clustering_dt_ns controls how many clusters a topic's matches form](https://docs.mosaico.dev/python-sdk/assets/temporal_windows_clusterize.svg)
+
+*`clustering_dt_ns` controls how many clusters a topic's own matches form: a small gap threshold keeps nearby-but-distinct matches apart, a large one merges them.*
+
+<Tabs>
+<TabItem value="python" label="Python" default>
+```python title="Clusterize a topic's matches"
+from mosaicolabs import IMU, MosaicoClient, Query, QueryOntologyCatalog, QuerySequence
+
+with MosaicoClient.connect("localhost", 6726) as client:
+    query = Query(
+        QuerySequence().with_name_match("test_drive"),
+        QueryOntologyCatalog().with_expression(IMU.Q.acceleration.x.gt(5.0)),
+    )
+    qresponse = client.query(query=query)
+
+    if qresponse is not None:
+        for item in qresponse:
+            for topic in item.topics:
+                for cluster in topic.clusterize(clustering_dt_ns=int(1e8)):  # 100ms
+                    print(f"{topic.name}: {cluster}")
+```
+</TabItem>
+<TabItem value="cpp" label="C++">
+
+The C++ SDK is currently in development.
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+The Rust SDK is currently in development.
+
+</TabItem>
+</Tabs>
+
+See [Topic clusterize](https://docs.mosaico.dev/python-sdk/SDK/query/#topic-clusterize) for the full parameter reference and visual examples of how `clustering_dt_ns` shapes the result.
+
+## Correlating All of a Sequence's Topics with `intersect()`
+
+`intersect()` can be called directly on a `QueryResponseItem`, correlating **every** topic matched within that sequence at once instead of picking topics one by one. It merges every topic's query expressions into a single server-side request and returns only the time windows where all of them were simultaneously true. This is how you answer questions that span more than one sensor, such as "was the IMU spiking while pressure was low and temperature was exactly at the target value?"
+
+![Sequence-level intersect(): every simultaneous window becomes a cluster, intersect_dt_ns bridges near-miss windows across topics](https://docs.mosaico.dev/python-sdk/assets/temporal_windows_intersect.svg)
+
+*Every window where all topics are simultaneously true becomes a cluster; tuning `intersect_dt_ns` lets near-miss windows across topics count as correlated too.*
+
+<Tabs>
+<TabItem value="python" label="Python" default>
+```python title="Correlate every topic in a sequence"
+from mosaicolabs import IMU, MosaicoClient, Pressure, Query, QueryOntologyCatalog, QuerySequence, Temperature
+
+with MosaicoClient.connect("localhost", 6726) as client:
+    query = Query(
+        QuerySequence().with_name_match("robot-1"),
+        QueryOntologyCatalog()
+        .with_expression(IMU.Q.acceleration.z.gt(5.0))
+        .with_expression(Pressure.Q.value.lt(1.0))
+        .with_expression(Temperature.Q.value.eq(500.0)),
+    )
+    qresponse = client.query(query=query)
+
+    if qresponse is not None:
+        for item in qresponse:
+            intersected_clusters = item.intersect(override_clustering_dt_ns=2000)
+            print(f"{item.sequence.name}: {[str(c) for c in intersected_clusters]}")
+```
+</TabItem>
+<TabItem value="cpp" label="C++">
+
+The C++ SDK is currently in development.
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+The Rust SDK is currently in development.
+
+</TabItem>
+</Tabs>
+
+See [Sequence intersect](https://docs.mosaico.dev/python-sdk/SDK/query/#sequences-intersect) for the full parameter reference, including `intersect_dt_ns` for correlating events that are close in time but not perfectly simultaneous.
+
+## Key Concepts
+
+- **`clusterize()`** splits a single topic's matching window into distinct time clusters, tunable via `clustering_dt_ns`.
+- **`intersect()`** on a `QueryResponseItem` merges every topic in the sequence into one request, returning only the windows where all of them were simultaneously true, with `intersect_dt_ns` to tolerate near-misses.
+- **`clusterize_all()`** applies the same clustering idea to every topic in a sequence at once, independently per topic, instead of merging them.
+- The topic-level **`intersect()`** works the same way but lets you pick exactly which topics participate, even across different queries or sequences.
+
+For the full walkthrough, parameter reference, and visual examples of every operation, see [Temporal Windows](https://docs.mosaico.dev/python-sdk/SDK/query/#temporal-windows) in the Python SDK documentation.

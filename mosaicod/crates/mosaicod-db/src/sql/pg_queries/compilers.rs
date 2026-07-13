@@ -122,17 +122,19 @@ impl query::CompileClause for SqlQueryCompiler {
 
                 query::CompiledClause::new(clause, values)
             }
+
             query::Op::Match(v) => {
                 let value: query::Value = v.into();
                 if let query::Value::Text(text) = value {
-                    if text.is_empty() {
-                        return Err(query::Error::empty_pattern(field.to_owned()));
-                    }
+                    let regex_pattern = query::wildcard_to_posix_regex(text.as_str())
+                        .map_err(|e| query::regex_to_query_error(e, field.to_owned()))?
+                        .to_string();
+
                     let clause = format!(
                         "mosaico_regex_match({field}, {})",
                         self.consume_placeholder()
                     );
-                    query::CompiledClause::new(clause, vec![query::Value::Text(text)])
+                    query::CompiledClause::new(clause, vec![query::Value::Text(regex_pattern)])
                 } else {
                     return Err(query::Error::unsupported_op(field.to_owned()));
                 }
@@ -304,28 +306,29 @@ mod internal {
                     query::CompiledClause::new(clause, values)
                 }
                 query::Op::Match(v) => {
-                    // NOTE: here we can't use Json path, because it uses its own regex syntax based
-                    // on the DBMS(POSIX for Postgres and XPath for others).
-
                     let value: query::Value = v.into();
                     if let query::Value::Text(text) = value {
                         if text.is_empty() {
                             return Err(query::Error::empty_pattern(field.to_owned()));
                         }
 
+                        let regex_pattern = query::wildcard_to_posix_regex(text.as_str())
+                            .map_err(|e| query::regex_to_query_error(e, field.to_owned()))?
+                            .to_string();
+
                         let placeholder = self.consume_placeholder();
 
-                        // Here we still use the #>> operator and not jsonpath.
-                        let subfield = format!(
-                            "{{{}}}",
-                            field.strip_prefix("$.").unwrap().replace(".", ",")
+                        let clause = format!(
+                            "jsonb_path_exists({}, {}::jsonpath)",
+                            self.field, placeholder
                         );
 
-                        let clause = format!(
-                            "mosaico_regex_match({} #>> '{}', {})",
-                            self.field, subfield, placeholder
-                        );
-                        query::CompiledClause::new(clause, vec![query::Value::Text(text)])
+                        // We construct the entire JSONPath string here and pass it through a parameter
+                        // to avoid possible SQL injections that could occur if we passed the user-provided
+                        // regex_pattern directly in the clause.
+                        let value = format!("{} ? (@ like_regex \"{}\")", field, regex_pattern);
+
+                        query::CompiledClause::new(clause, vec![query::Value::Text(value)])
                     } else {
                         return Err(query::Error::unsupported_op(field.to_owned()));
                     }
@@ -382,7 +385,7 @@ mod tests {
             .iter()
             .position(|c| c == r#"mosaico_regex_match(topic.locator_name, $1)"#)
         {
-            assert_eq!(qr.values[idx], query::Value::Text("my-topic".to_owned()));
+            assert_eq!(qr.values[idx], query::Value::Text("^my-topic$".to_owned()));
         } else {
             panic!("match not found");
         }
@@ -440,7 +443,7 @@ mod tests {
     fn user_metadata_match() {
         let mdata: HashMap<String, query::Op<query::Value>> = HashMap::from([(
             "vehicle.name".to_owned(),
-            query::Op::Match(query::Value::Text("^truck".to_owned())),
+            query::Op::Match(query::Value::Text("truck".to_owned())),
         )]);
 
         let placeholder = query::Placeholder::new();
@@ -455,11 +458,15 @@ mod tests {
 
         dbg!(&qr);
 
-        let found = qr.clauses.iter().any(|c| {
-            c.contains(r#"mosaico_regex_match(topic.user_metadata #>> '{vehicle,name}', $1)"#)
-        });
+        let found = qr
+            .clauses
+            .iter()
+            .any(|c| c.contains(r#"jsonb_path_exists(topic.user_metadata, $1::jsonpath)"#));
         assert!(found, "match clause not found in {:?}", qr.clauses);
-        assert_eq!(qr.values[0], query::Value::Text("^truck".to_owned()));
+        assert_eq!(
+            qr.values[0],
+            query::Value::Text("$.vehicle.name ? (@ like_regex \"^truck$\")".to_owned())
+        );
     }
 
     #[test]

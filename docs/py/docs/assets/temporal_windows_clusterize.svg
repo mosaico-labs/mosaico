@@ -1,0 +1,527 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   width="720"
+   height="224"
+   viewBox="0 0 720 224"
+   fill="none"
+   font-family="system-ui, -apple-system, Segoe UI, Roboto, sans-serif"
+   role="img"
+   version="1.1"
+   id="svg154"
+   sodipodi:docname="temporal_windows_clusterize.svg"
+   inkscape:version="1.2.2 (b0a8486541, 2022-12-01)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs158">
+    <rect
+       x="-16.882418"
+       y="241.78627"
+       width="732.14241"
+       height="238.0689"
+       id="rect3229" />
+    <rect
+       x="-20.813758"
+       y="92.764634"
+       width="552.88857"
+       height="24.110374"
+       id="rect3223" />
+  </defs>
+  <sodipodi:namedview
+     id="namedview156"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     showgrid="false"
+     inkscape:zoom="1.9646314"
+     inkscape:cx="270.5342"
+     inkscape:cy="126.48683"
+     inkscape:window-width="1854"
+     inkscape:window-height="1131"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg154" />
+  <title
+     id="title96">clustering_dt_ns controls how many clusters one topic's matches form: a small gap threshold keeps nearby-but-distinct matches apart, a large one merges them.</title>
+  <!-- Part A: clusterize() -->
+  <text
+     x="20"
+     y="20"
+     font-size="13px"
+     font-weight="600"
+     letter-spacing="0.3"
+     fill="rgba(255,255,255,0.55)"
+     id="text98">clusterize() — clustering_dt_ns controls how many clusters form</text>
+  <line
+     x1="170"
+     y1="51"
+     x2="680"
+     y2="51"
+     stroke="rgba(255,255,255,0.12)"
+     stroke-width="1"
+     id="line100" />
+  <text
+     x="20"
+     y="55"
+     font-size="13px"
+     font-weight="600"
+     fill="#e6e6e6"
+     id="text102">raw matches</text>
+  <circle
+     cx="190"
+     cy="51"
+     r="5"
+     fill="#f14c22"
+     id="circle104" />
+  <circle
+     cx="210"
+     cy="51"
+     r="5"
+     fill="#f14c22"
+     id="circle106" />
+  <circle
+     cx="230"
+     cy="51"
+     r="5"
+     fill="#f14c22"
+     id="circle108" />
+  <circle
+     cx="340"
+     cy="51"
+     r="5"
+     fill="#f14c22"
+     id="circle110" />
+  <circle
+     cx="360"
+     cy="51"
+     r="5"
+     fill="#f14c22"
+     id="circle112" />
+  <circle
+     cx="380"
+     cy="51"
+     r="5"
+     fill="#f14c22"
+     id="circle114" />
+  <line
+     x1="170"
+     y1="134"
+     x2="680"
+     y2="134"
+     stroke="rgba(255,255,255,0.12)"
+     stroke-width="1"
+     id="line116" />
+  <text
+     x="20"
+     y="138"
+     font-size="13px"
+     font-weight="600"
+     fill="#e6e6e6"
+     id="text118">dt = small</text>
+  <rect
+     x="182"
+     y="126"
+     width="56"
+     height="16"
+     rx="6"
+     fill="#f14c22"
+     id="rect120" />
+  <rect
+     x="332"
+     y="126"
+     width="56"
+     height="16"
+     rx="6"
+     fill="#f14c22"
+     id="rect122" />
+  <line
+     x1="182"
+     y1="142"
+     x2="182"
+     y2="150"
+     stroke="rgba(255,255,255,0.45)"
+     stroke-width="1.5"
+     id="line124"
+     style="fill:#e6e6e6;fill-opacity:0.64705884;stroke:#e6e6e6;stroke-opacity:0.64705884" />
+  <line
+     x1="238"
+     y1="142"
+     x2="238"
+     y2="150"
+     stroke="rgba(255,255,255,0.45)"
+     stroke-width="1.5"
+     id="line126"
+     style="fill:#e6e6e6;fill-opacity:0.64705884;stroke:#e6e6e6;stroke-opacity:0.64705884" />
+  <line
+     x1="182"
+     y1="150"
+     x2="238"
+     y2="150"
+     stroke="rgba(255,255,255,0.45)"
+     stroke-width="1.5"
+     id="line128"
+     style="fill:#e6e6e6;fill-opacity:0.64705884;stroke:#e6e6e6;stroke-opacity:0.64705884" />
+  <text
+     x="210"
+     y="166"
+     font-size="11px"
+     fill="rgba(255,255,255,0.7)"
+     text-anchor="middle"
+     id="text130"
+     style="fill:#e6e6e6;fill-opacity:0.64705884">cluster 0</text>
+  <line
+     x1="332"
+     y1="142"
+     x2="332"
+     y2="150"
+     stroke="rgba(255,255,255,0.45)"
+     stroke-width="1.5"
+     id="line132"
+     style="fill:#e6e6e6;fill-opacity:0.64705884;stroke:#e6e6e6;stroke-opacity:0.64705884" />
+  <line
+     x1="388"
+     y1="142"
+     x2="388"
+     y2="150"
+     stroke="rgba(255,255,255,0.45)"
+     stroke-width="1.5"
+     id="line134"
+     style="fill:#e6e6e6;fill-opacity:0.64705884;stroke:#e6e6e6;stroke-opacity:0.64705884" />
+  <line
+     x1="332"
+     y1="150"
+     x2="388"
+     y2="150"
+     stroke="rgba(255,255,255,0.45)"
+     stroke-width="1.5"
+     id="line136"
+     style="fill:#e6e6e6;fill-opacity:0.64705884;stroke:#e6e6e6;stroke-opacity:0.64705884" />
+  <text
+     x="360"
+     y="166"
+     font-size="11px"
+     fill="rgba(255,255,255,0.7)"
+     text-anchor="middle"
+     id="text138"
+     style="fill:#e6e6e6;fill-opacity:0.64705884">cluster 1</text>
+  <line
+     x1="168.92657"
+     y1="86.877914"
+     x2="678.92657"
+     y2="86.877914"
+     stroke="rgba(255,255,255,0.12)"
+     stroke-width="1"
+     id="line116-3" />
+  <text
+     x="18.926567"
+     y="90.877914"
+     font-size="13px"
+     font-weight="600"
+     fill="#e6e6e6"
+     id="text118-6">dt &lt; sensor res.</text>
+  <rect
+     x="182.92657"
+     y="78.877914"
+     width="13.62553"
+     height="16"
+     rx="1.4598782"
+     fill="#f14c22"
+     id="rect120-7"
+     style="stroke-width:0.493268" />
+  <rect
+     x="201.69499"
+     y="79.442574"
+     width="13.62553"
+     height="16"
+     rx="1.4598782"
+     fill="#f14c22"
+     id="rect120-7-9"
+     style="stroke-width:0.493268" />
+  <rect
+     x="221.69499"
+     y="79.442574"
+     width="13.62553"
+     height="16"
+     rx="1.4598782"
+     fill="#f14c22"
+     id="rect120-7-9-3"
+     style="stroke-width:0.493268" />
+  <rect
+     x="334.29248"
+     y="79.763748"
+     width="13.62553"
+     height="16"
+     rx="1.4598782"
+     fill="#f14c22"
+     id="rect120-7-9-3-6"
+     style="stroke-width:0.493268" />
+  <rect
+     x="353.84058"
+     y="79.764587"
+     width="13.62553"
+     height="16"
+     rx="1.4598782"
+     fill="#f14c22"
+     id="rect120-7-9-3-6-0"
+     style="stroke-width:0.493268" />
+  <rect
+     x="372.76379"
+     y="79.611504"
+     width="13.62553"
+     height="16"
+     rx="1.4598782"
+     fill="#f14c22"
+     id="rect120-7-9-3-6-0-6"
+     style="stroke-width:0.493268" />
+  <line
+     x1="334.6994"
+     y1="97.19973"
+     x2="334.6994"
+     y2="103.20312"
+     stroke="rgba(255,255,255,0.45)"
+     stroke-width="1.29941"
+     id="line132-9"
+     style="fill:#e6e6e6;fill-opacity:0.647059;stroke:#e6e6e6;stroke-opacity:0.647059" />
+  <line
+     x1="347.08368"
+     y1="97.226189"
+     x2="347.08368"
+     y2="103.22959"
+     stroke="rgba(255,255,255,0.45)"
+     stroke-width="1.29941"
+     id="line132-9-2"
+     style="fill:#e6e6e6;fill-opacity:0.647059;stroke:#e6e6e6;stroke-opacity:0.647059" />
+  <line
+     x1="335.24072"
+     y1="102.84063"
+     x2="346.48062"
+     y2="102.84063"
+     stroke="rgba(255,255,255,0.45)"
+     stroke-width="0.672014"
+     id="line136-2"
+     style="fill:#e6e6e6;fill-opacity:0.647059;stroke:#e6e6e6;stroke-opacity:0.647059" />
+  <text
+     x="359.70734"
+     y="113.03665"
+     font-size="11px"
+     fill="rgba(255,255,255,0.7)"
+     text-anchor="middle"
+     id="text138-7"
+     style="fill:#e6e6e6;fill-opacity:0.647059">clusters 3,4,5</text>
+  <line
+     x1="354.54053"
+     y1="97.325073"
+     x2="354.54053"
+     y2="103.32847"
+     stroke="rgba(255,255,255,0.45)"
+     stroke-width="1.29941"
+     id="line132-9-1"
+     style="fill:#e6e6e6;fill-opacity:0.647059;stroke:#e6e6e6;stroke-opacity:0.647059" />
+  <line
+     x1="366.9248"
+     y1="97.351532"
+     x2="366.9248"
+     y2="103.35493"
+     stroke="rgba(255,255,255,0.45)"
+     stroke-width="1.29941"
+     id="line132-9-2-8"
+     style="fill:#e6e6e6;fill-opacity:0.647059;stroke:#e6e6e6;stroke-opacity:0.647059" />
+  <line
+     x1="355.08185"
+     y1="102.96597"
+     x2="366.32175"
+     y2="102.96597"
+     stroke="rgba(255,255,255,0.45)"
+     stroke-width="0.672014"
+     id="line136-2-7"
+     style="fill:#e6e6e6;fill-opacity:0.647059;stroke:#e6e6e6;stroke-opacity:0.647059" />
+  <line
+     x1="373.37943"
+     y1="97.274338"
+     x2="373.37943"
+     y2="103.27773"
+     stroke="rgba(255,255,255,0.45)"
+     stroke-width="1.29941"
+     id="line132-9-1-2"
+     style="fill:#e6e6e6;fill-opacity:0.647059;stroke:#e6e6e6;stroke-opacity:0.647059" />
+  <line
+     x1="385.7637"
+     y1="97.300797"
+     x2="385.7637"
+     y2="103.30419"
+     stroke="rgba(255,255,255,0.45)"
+     stroke-width="1.29941"
+     id="line132-9-2-8-0"
+     style="fill:#e6e6e6;fill-opacity:0.647059;stroke:#e6e6e6;stroke-opacity:0.647059" />
+  <line
+     x1="373.92075"
+     y1="102.91523"
+     x2="385.16064"
+     y2="102.91523"
+     stroke="rgba(255,255,255,0.45)"
+     stroke-width="0.672014"
+     id="line136-2-7-2"
+     style="fill:#e6e6e6;fill-opacity:0.647059;stroke:#e6e6e6;stroke-opacity:0.647059" />
+  <line
+     x1="183.44937"
+     y1="97.418159"
+     x2="183.44937"
+     y2="103.42154"
+     stroke="rgba(255,255,255,0.45)"
+     stroke-width="1.29941"
+     id="line132-9-12"
+     style="fill:#e6e6e6;fill-opacity:0.647059;stroke:#e6e6e6;stroke-opacity:0.647059" />
+  <line
+     x1="195.83365"
+     y1="97.444618"
+     x2="195.83365"
+     y2="103.44802"
+     stroke="rgba(255,255,255,0.45)"
+     stroke-width="1.29941"
+     id="line132-9-2-9"
+     style="fill:#e6e6e6;fill-opacity:0.647059;stroke:#e6e6e6;stroke-opacity:0.647059" />
+  <line
+     x1="183.99069"
+     y1="103.05907"
+     x2="195.23059"
+     y2="103.05907"
+     stroke="rgba(255,255,255,0.45)"
+     stroke-width="0.672014"
+     id="line136-2-3"
+     style="fill:#e6e6e6;fill-opacity:0.647059;stroke:#e6e6e6;stroke-opacity:0.647059" />
+  <text
+     x="208.45731"
+     y="113.25508"
+     font-size="11px"
+     fill="rgba(255,255,255,0.7)"
+     text-anchor="middle"
+     id="text138-7-1"
+     style="fill:#e6e6e6;fill-opacity:0.647059">clusters 0,1,2</text>
+  <line
+     x1="203.2905"
+     y1="97.543503"
+     x2="203.2905"
+     y2="103.54689"
+     stroke="rgba(255,255,255,0.45)"
+     stroke-width="1.29941"
+     id="line132-9-1-9"
+     style="fill:#e6e6e6;fill-opacity:0.647059;stroke:#e6e6e6;stroke-opacity:0.647059" />
+  <line
+     x1="215.67477"
+     y1="97.569962"
+     x2="215.67477"
+     y2="103.57336"
+     stroke="rgba(255,255,255,0.45)"
+     stroke-width="1.29941"
+     id="line132-9-2-8-4"
+     style="fill:#e6e6e6;fill-opacity:0.647059;stroke:#e6e6e6;stroke-opacity:0.647059" />
+  <line
+     x1="203.83182"
+     y1="103.1844"
+     x2="215.07172"
+     y2="103.1844"
+     stroke="rgba(255,255,255,0.45)"
+     stroke-width="0.672014"
+     id="line136-2-7-7"
+     style="fill:#e6e6e6;fill-opacity:0.647059;stroke:#e6e6e6;stroke-opacity:0.647059" />
+  <line
+     x1="222.12939"
+     y1="97.492767"
+     x2="222.12939"
+     y2="103.49616"
+     stroke="rgba(255,255,255,0.45)"
+     stroke-width="1.29941"
+     id="line132-9-1-2-8"
+     style="fill:#e6e6e6;fill-opacity:0.647059;stroke:#e6e6e6;stroke-opacity:0.647059" />
+  <line
+     x1="234.51367"
+     y1="97.519226"
+     x2="234.51367"
+     y2="103.52262"
+     stroke="rgba(255,255,255,0.45)"
+     stroke-width="1.29941"
+     id="line132-9-2-8-0-4"
+     style="fill:#e6e6e6;fill-opacity:0.647059;stroke:#e6e6e6;stroke-opacity:0.647059" />
+  <line
+     x1="222.67072"
+     y1="103.13366"
+     x2="233.91061"
+     y2="103.13366"
+     stroke="rgba(255,255,255,0.45)"
+     stroke-width="0.672014"
+     id="line136-2-7-2-5"
+     style="fill:#e6e6e6;fill-opacity:0.647059;stroke:#e6e6e6;stroke-opacity:0.647059" />
+  <line
+     x1="170"
+     y1="184"
+     x2="680"
+     y2="184"
+     stroke="rgba(255,255,255,0.12)"
+     stroke-width="1"
+     id="line140" />
+  <text
+     x="20"
+     y="188"
+     font-size="13px"
+     font-weight="600"
+     fill="#e6e6e6"
+     id="text142">dt = large</text>
+  <rect
+     x="182"
+     y="176"
+     width="206"
+     height="16"
+     rx="6"
+     fill="#f14c22"
+     id="rect144" />
+  <line
+     x1="182"
+     y1="192"
+     x2="182"
+     y2="200"
+     stroke="rgba(255,255,255,0.45)"
+     stroke-width="1.5"
+     id="line146"
+     style="fill:#e6e6e6;fill-opacity:0.64705884;stroke:#e6e6e6;stroke-opacity:0.64705884" />
+  <line
+     x1="388"
+     y1="192"
+     x2="388"
+     y2="200"
+     stroke="rgba(255,255,255,0.45)"
+     stroke-width="1.5"
+     id="line148"
+     style="fill:#e6e6e6;fill-opacity:0.64705884;stroke:#e6e6e6;stroke-opacity:0.64705884" />
+  <line
+     x1="182"
+     y1="200"
+     x2="388"
+     y2="200"
+     stroke="rgba(255,255,255,0.45)"
+     stroke-width="1.5"
+     id="line150"
+     style="fill:#e6e6e6;fill-opacity:0.64705884;stroke:#e6e6e6;stroke-opacity:0.64705884" />
+  <text
+     x="285"
+     y="216"
+     font-size="11px"
+     fill="rgba(255,255,255,0.7)"
+     text-anchor="middle"
+     id="text152"
+     style="fill:#e6e6e6;fill-opacity:0.64705884">cluster 0 (merged)</text>
+  <text
+     xml:space="preserve"
+     id="text3221"
+     style="white-space:pre;shape-inside:url(#rect3223);display:inline;fill:#ff0000;stroke:#f04b21;stroke-width:1.306;stroke-dasharray:1.306, 1.306;stroke-opacity:0.4" />
+  <text
+     xml:space="preserve"
+     id="text3227"
+     style="white-space:pre;shape-inside:url(#rect3229);display:inline;fill:#ff0000;stroke:#f04b21;stroke-width:1.306;stroke-dasharray:1.306, 1.306;stroke-opacity:0.4" />
+</svg>
