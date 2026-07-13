@@ -22,7 +22,7 @@ def test_filter_clusterize_single_expression_single_topic(
     inject_mockup_sequences_filter,  # Ensure the data are available on the data platform
 ):
     query_resp = mosaico_client.query(
-        QuerySequence().with_name_match("test-filter-sequence"),
+        QuerySequence().with_name_match("test-filter-sequence-#"),
         QueryOntologyCatalog().with_expression(
             Point3d.Q.x.gt(0.5)  # > pi/6
         ),
@@ -101,7 +101,7 @@ def test_filter_clusterize_multi_expression_single_topic(
 ):
     # Multi query single different topic
     query_resp = mosaico_client.query(
-        QuerySequence().with_name_match("test-filter-sequence"),
+        QuerySequence().with_name_match("test-filter-sequence-#"),
         QueryOntologyCatalog()
         .with_expression(Point3d.Q.x.gt(0.5))  # > sin(pi/4)
         .with_expression(Point3d.Q.y.gt(0.866)),  # > sin(pi/3) -> more stringent!
@@ -147,7 +147,7 @@ def test_filter_clusterize_all_multi_expression_multi_topic(
 
     # Multi query with different topics
     query_resp = mosaico_client.query(
-        QuerySequence().with_name_match("test-filter-sequence"),
+        QuerySequence().with_name_match("test-filter-sequence-#"),
         QueryOntologyCatalog()
         .with_expression(Temperature.Q.value.gt(0.5))  # > sin(pi/6)
         .with_expression(Pressure.Q.value.gt(0.5)),  # > cos(pi/3)
@@ -253,7 +253,7 @@ def test_filter_intersect_single_sequence(
 
     # Multi query with different topics
     query_resp = mosaico_client.query(
-        QuerySequence().with_name_match("test-filter-sequence"),
+        QuerySequence().with_name_match("test-filter-sequence-#"),
         QueryOntologyCatalog()
         .with_expression(Temperature.Q.value.gt(0.5))  # > sin(pi/6)
         .with_expression(Pressure.Q.value.gt(0.5)),  # > cos(pi/3)
@@ -387,7 +387,7 @@ def test_filter_intersect_item_topic_no_overlapping(
 
     # Multi query with different topics
     query_resp = mosaico_client.query(
-        QuerySequence().with_name_match("test-filter-sequence"),
+        QuerySequence().with_name_match("test-filter-sequence-#"),
         QueryOntologyCatalog()
         .with_expression(Temperature.Q.value.gt(0.999999))  # >= sin(pi/2)
         .with_expression(Pressure.Q.value.gt(0.999999)),  # >= cos(0)
