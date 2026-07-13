@@ -2405,6 +2405,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "68ab91017fe16c622486840e4c83c9a37afeff978bd239b5293d61ece587de66"
 
 [[package]]
+name = "libloading"
+version = "0.8.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d7c4b02199fee7c5d21a5ae7d8cfa79a6ef5bb2fc834d6e9058e89c825efdc55"
+dependencies = [
+ "cfg-if",
+ "windows-link",
+]
+
+[[package]]
 name = "liblzma"
 version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2595,6 +2605,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "mosaicod-auth"
+version = "0.6.0-dev"
+dependencies = [
+ "async-trait",
+ "mimalloc",
+ "mosaicod-core",
+ "mosaicod-facade",
+ "mosaicod-marshal",
+ "mosaicod-plugin",
+ "rustc_version",
+]
+
+[[package]]
 name = "mosaicod-build"
 version = "0.6.0-dev"
 dependencies = [
@@ -2676,6 +2699,7 @@ dependencies = [
  "mosaicod-ext",
  "mosaicod-grpc-common",
  "mosaicod-grpc-flight",
+ "mosaicod-plugin-loader",
  "mosaicod-store",
  "mosaicod-task",
  "tokio",
@@ -2705,7 +2729,7 @@ version = "0.6.0-dev"
 dependencies = [
  "http",
  "mosaicod-core",
- "mosaicod-facade",
+ "mosaicod-plugin",
  "thiserror",
  "tokio-util",
  "tonic",
@@ -2728,6 +2752,7 @@ dependencies = [
  "mosaicod-facade",
  "mosaicod-grpc-common",
  "mosaicod-marshal",
+ "mosaicod-plugin",
  "mosaicod-query",
  "mosaicod-rw",
  "mosaicod-store",
@@ -2751,6 +2776,28 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror",
+]
+
+[[package]]
+name = "mosaicod-plugin"
+version = "0.6.0-dev"
+dependencies = [
+ "async-trait",
+ "mosaicod-core",
+ "mosaicod-facade",
+ "mosaicod-marshal",
+ "rustc_version",
+]
+
+[[package]]
+name = "mosaicod-plugin-loader"
+version = "0.6.0-dev"
+dependencies = [
+ "libloading",
+ "mosaicod-facade",
+ "mosaicod-plugin",
+ "thiserror",
+ "tracing",
 ]
 
 [[package]]

@@ -11,7 +11,7 @@ name = "mosaicod_grpc_common"
 
 [dependencies]
 mosaicod-core = { workspace = true }
-mosaicod-facade = { workspace = true }
+mosaicod-plugin = { workspace = true }
 
 thiserror = { workspace = true }
 tokio-util = { workspace = true }

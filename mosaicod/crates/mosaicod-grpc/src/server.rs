@@ -1,8 +1,11 @@
+use std::path::Path;
+
 use mosaicod_core::{error::PublicResult as Result, params, types::auth::Permissions};
 use mosaicod_db as db;
 use mosaicod_ext as ext;
 use mosaicod_grpc_common as grpc_common;
 use mosaicod_grpc_flight as grpc_flight;
+use mosaicod_plugin_loader as plugin_loader;
 use mosaicod_store as store;
 use mosaicod_task as task;
 use tonic::transport::Server as TonicServer;
@@ -122,9 +125,14 @@ impl Server {
             // Create a thread in tokio runtime to handle flight requests
             let handle_flight = rt.spawn(async move {
                 debug!("grpc server starting");
-                if let Err(err) = serve(server_store, server_db, opts, Some(shutdown)).await {
+                let res = serve(server_store, server_db, opts, Some(shutdown.clone())).await;
+                if let Err(err) = &res {
                     error!("{}", err);
+                    // Boot failed (e.g. missing auth plugin): unblock the cleanup
+                    // task so the process can exit instead of hanging on join.
+                    shutdown.shutdown();
                 }
+                res.map_err(|e| e.to_string())
             });
 
             on_start();
@@ -154,14 +162,32 @@ pub async fn serve(
         grpc_flight_svc.enable_api_key_manegement();
     }
 
-    let mut auth_layer = grpc_common::middleware::AuthLayer::new(grpc_flight_svc.context());
+    // Load plugins from MOSAICOD_PLUGINS_PATH
+    let plugins_path = params::params().plugins_path.value.clone();
+    let plugin = if plugins_path.is_empty() {
+        plugin_loader::LoadedPlugins::empty()
+    } else {
+        plugin_loader::load(Path::new(&plugins_path), grpc_flight_svc.context()).await?
+    };
+
+    let auth_layer = if opts.enable_api_key_management {
+        let auth = plugin.auth().ok_or_else(|| {
+            format!(
+                "API key management is enabled but no auth plugin was loaded from '{}'. \
+                 Set MOSAICOD_PLUGINS_PATH to a directory containing an auth plugin.",
+                plugins_path
+            )
+        })?;
+
+        grpc_flight_svc.set_auth_plugin(auth.clone());
+        grpc_common::middleware::AuthLayer::new(auth)
+    } else {
+        grpc_common::middleware::AuthLayer::passthrough(Permissions::all())
+    };
 
     let mut flight_svc =
         arrow_flight::flight_service_server::FlightServiceServer::new(grpc_flight_svc);
 
-    if !opts.enable_api_key_management {
-        auth_layer = auth_layer.with_permission_passthrough(Permissions::all());
-    }
     let layer = tower::ServiceBuilder::new().layer(auth_layer).into_inner();
 
     let mut builder = TonicServer::builder();

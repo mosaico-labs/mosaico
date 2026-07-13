@@ -1,0 +1,16 @@
+[package]
+name = "mosaicod-plugin-loader"
+version.workspace = true
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+mosaicod-plugin = { workspace = true }
+mosaicod-facade = { workspace = true }
+libloading = { workspace = true }
+tracing = { workspace = true }
+thiserror = { workspace = true }

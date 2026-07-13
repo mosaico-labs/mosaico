@@ -1,8 +1,9 @@
 use crate::error::{PublicErrorGrpcExt, Result};
 use mosaicod_core::{self as core, types};
-use mosaicod_facade as facade;
+use mosaicod_plugin::auth::{AuthError, AuthPlugin};
 use std::{
     pin::Pin,
+    sync::Arc,
     task::{Context, Poll},
 };
 use tower::{Layer, Service};
@@ -25,18 +26,18 @@ impl AuthContext {
 
 #[derive(Clone)]
 pub struct AuthLayer {
-    context: facade::Context,
+    /// Plugin used to verify api key. `None` is passthrough mode.
+    auth: Option<Arc<dyn AuthPlugin>>,
 
     /// If permissions passthrough is enabled no auth check is performed
-    /// and a fake permission token with all permission is
-    /// generated for every request.
+    /// and the given permissions are grated to every question.
     permissions_passthrough: Option<types::auth::Permissions>,
 }
 
 impl AuthLayer {
-    pub fn new(context: facade::Context) -> Self {
+    pub fn new(auth: Arc<dyn AuthPlugin>) -> Self {
         Self {
-            context,
+            auth: Some(auth),
             permissions_passthrough: None,
         }
     }
@@ -44,9 +45,11 @@ impl AuthLayer {
     /// Enable auth passthrough. No internal check is
     /// performed to validate api keys and a fake permissions
     /// are generated to perform every action.
-    pub fn with_permission_passthrough(mut self, permissions: types::auth::Permissions) -> Self {
-        self.permissions_passthrough = Some(permissions);
-        self
+    pub fn passthrough(permissions: types::auth::Permissions) -> Self {
+        Self {
+            auth: None,
+            permissions_passthrough: Some(permissions),
+        }
     }
 }
 
@@ -56,7 +59,7 @@ impl<S> Layer<S> for AuthLayer {
     fn layer(&self, service: S) -> Self::Service {
         AuthMiddleware {
             inner: service,
-            context: self.context.clone(),
+            auth: self.auth.clone(),
             permissions_passthrough: self.permissions_passthrough,
         }
     }
@@ -65,7 +68,7 @@ impl<S> Layer<S> for AuthLayer {
 #[derive(Clone)]
 pub struct AuthMiddleware<S> {
     inner: S,
-    context: facade::Context,
+    auth: Option<Arc<dyn AuthPlugin>>,
     permissions_passthrough: Option<types::auth::Permissions>,
 }
 
@@ -106,33 +109,36 @@ where
                 .unwrap_or_default()
                 .to_string();
 
-            let context = self.context.clone();
+            let auth = self.auth.clone();
 
             Box::pin(async move {
                 let auth_ctx_result: Result<AuthContext> = async {
                     if token.is_empty() {
-                        Err(core::Error::missing_api_key())?
+                        return Err(core::Error::missing_api_key().into());
                     }
 
-                    let token: types::auth::Token = token.parse()?;
-
-                    let handle =
-                        facade::auth::Handle::try_from_fingerprint(&context, token.fingerprint())
-                            .await
-                            .map_err(|e| match e.error().kind() {
-                                core::error::ErrorKind::NotFound(_) => {
-                                    core::Error::unauthorized("API key does not exist.".to_string())
-                                }
-                                _ => e.error(),
-                            })?;
-
-                    if handle.api_key().is_expired() {
-                        Err(core::Error::unauthorized("API key is expired.".to_string()))?;
+                    match auth.as_ref() {
+                        // The plugin owns the credential format and decides the
+                        // outcome; we only map it to a response.
+                        Some(auth) => match auth.verify_token(&token).await {
+                            Ok(permissions) => Ok(AuthContext { permissions }),
+                            Err(AuthError::Denied) => {
+                                Err(core::Error::unauthorized("invalid API key.".to_string())
+                                    .into())
+                            }
+                            Err(AuthError::Malformed) => {
+                                Err(core::Error::bad_request("malformed API key.".to_string())
+                                    .into())
+                            }
+                        },
+                        // Not passthrough and no plugin loaded: nobody can be
+                        // authenticated. The daemon refuses to start in this
+                        // state, so this is only a defensive fallback.
+                        None => Err(core::Error::unauthorized(
+                            "authentication is not configured.".to_string(),
+                        )
+                        .into()),
                     }
-
-                    Ok(AuthContext {
-                        permissions: handle.api_key().permission,
-                    })
                 }
                 .await;
 

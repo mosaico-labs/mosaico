@@ -11,6 +11,7 @@ use mosaicod_db as db;
 use mosaicod_facade as facade;
 use mosaicod_grpc_common::{self as grpc_common, PublicErrorGrpcExt, ToStatusExt, middleware};
 use mosaicod_marshal as marshal;
+use mosaicod_plugin::auth::AuthPlugin;
 use mosaicod_query as query;
 use mosaicod_store as store;
 use std::sync::Arc;
@@ -21,6 +22,7 @@ pub struct Service {
     db: db::Database,
     ts_gw: query::TimeseriesEngineRef,
     api_key_management: bool,
+    auth: Option<Arc<dyn AuthPlugin>>,
     /// Semaphore used to controll the maximum number of concurrent writers
     concurrent_writes_semaphore: Arc<tokio::sync::Semaphore>,
 }
@@ -40,6 +42,7 @@ impl Service {
             db,
             ts_gw,
             api_key_management: false,
+            auth: None,
             concurrent_writes_semaphore: Arc::new(tokio::sync::Semaphore::new(
                 params::params().max_concurrent_writes.value,
             )),
@@ -48,6 +51,10 @@ impl Service {
 
     pub fn enable_api_key_manegement(&mut self) {
         self.api_key_management = true;
+    }
+
+    pub fn set_auth_plugin(&mut self, auth: Arc<dyn AuthPlugin>) {
+        self.auth = Some(auth);
     }
 
     pub fn context(&self) -> facade::Context {
@@ -174,7 +181,16 @@ impl Service {
         let action = request.into_inner();
         let action = marshal::ActionRequest::try_new(action.r#type.as_str(), &action.body)?;
 
-        let stream = endpoint::do_action(&self.context(), action, auth_ctx.permissions()).await?;
+        if let Some(auth) = &self.auth {
+            if !auth.has_permission(&action, auth_ctx.permissions()) {
+                let err_msg = format!(
+                    "provided API key has not enough permissions to execute {} action.",
+                    action
+                );
+                return Err(core::Error::unauthorized(err_msg).into());
+            }
+        }
+        let stream = endpoint::do_action(&self.context(), action).await?;
 
         // Create the stream from the flight result
         Ok(Response::new(Box::pin(stream)))

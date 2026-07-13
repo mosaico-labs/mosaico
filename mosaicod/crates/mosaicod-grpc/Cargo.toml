@@ -12,6 +12,7 @@ name = "mosaicod_grpc"
 [dependencies]
 mosaicod-grpc-common = { workspace = true }
 mosaicod-grpc-flight = { workspace = true }
+mosaicod-plugin-loader = { workspace = true }
 mosaicod-core = { workspace = true }
 mosaicod-db = { workspace = true }
 mosaicod-store = { workspace = true }

@@ -5,7 +5,6 @@
 
 use super::actions::{misc, query as query_action, sequence, session, topic};
 use crate::flight::{DoActionStream, IntoStream};
-use mosaicod_core::{self as core, types::auth::Permissions};
 use mosaicod_facade as facade;
 use mosaicod_grpc_common as grpc_common;
 use mosaicod_marshal::ActionRequest;
@@ -17,16 +16,7 @@ use mosaicod_marshal::ActionRequest;
 pub async fn do_action(
     ctx: &facade::Context,
     action: ActionRequest,
-    perm: &Permissions,
 ) -> grpc_common::Result<DoActionStream> {
-    if !has_permissions(&action, perm) {
-        let err_msg = format!(
-            "provided API key has not enough permissions to execute {} action.",
-            action
-        );
-        Err(core::Error::unauthorized(err_msg))?;
-    }
-
     match action {
         // Sequence
         ActionRequest::SequenceCreate(data) => {
@@ -110,31 +100,5 @@ pub async fn do_action(
 
         // Misc
         ActionRequest::Version(_) => misc::version()?.into_stream(),
-    }
-}
-
-/// Return true if the requested action matches the permissions, false otherwise
-fn has_permissions(action: &ActionRequest, perm: &Permissions) -> bool {
-    match action {
-        ActionRequest::SequenceCreate(_) => perm.can_write(),
-        ActionRequest::SequenceNotificationCreate(_) => perm.can_write(),
-        ActionRequest::TopicCreate(_) => perm.can_write(),
-        ActionRequest::TopicNotificationCreate(_) => perm.can_write(),
-        ActionRequest::SessionCreate(_) => perm.can_write(),
-        ActionRequest::SessionFinalize(_) => perm.can_write(),
-
-        ActionRequest::SequenceDelete(_) => perm.can_delete(),
-        ActionRequest::SequenceNotificationPurge(_) => perm.can_delete(),
-        ActionRequest::TopicDelete(_) => perm.can_delete(),
-        ActionRequest::TopicNotificationPurge(_) => perm.can_delete(),
-        ActionRequest::SessionDelete(_) => perm.can_delete(),
-
-        ActionRequest::Query(_) => perm.can_read(),
-        ActionRequest::SequenceNotificationList(_) => perm.can_read(),
-        ActionRequest::TopicNotificationList(_) => perm.can_read(),
-        ActionRequest::TopicFilterClusterize(_) => perm.can_read(),
-        ActionRequest::TopicFilterIntersect(_) => perm.can_read(),
-
-        ActionRequest::Version(_) => true,
     }
 }

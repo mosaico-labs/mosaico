@@ -45,6 +45,50 @@ pub struct CleanupIntervalConfig {
     pub retention_duration: Duration,
 }
 
+/// Points `MOSAICOD_PLUGINS_PATH` at a directory containing the freshly built
+/// default auth plugin, so servers started with API key management can load it.
+/// Panics with guidance if the plugin has not been built yet.
+fn ensure_auth_plugin_available() {
+    let so_name = format!(
+        "{}mosaicod_auth{}",
+        std::env::consts::DLL_PREFIX,
+        // `DLL_SUFFIX` already includes the leading dot (e.g. ".so").
+        std::env::consts::DLL_SUFFIX,
+    );
+
+    // The test binary lives at target/<profile>/deps/<bin>; the cdylib is two
+    // levels up, in target/<profile>/.
+    let exe = std::env::current_exe().expect("cannot locate test executable");
+    let target_dir = exe
+        .parent()
+        .and_then(|p| p.parent())
+        .expect("unexpected test executable layout")
+        .to_path_buf();
+
+    let so = target_dir.join(&so_name);
+    assert!(
+        so.exists(),
+        "auth plugin not found at {}. Build it first with `cargo build -p mosaicod-auth`.",
+        so.display()
+    );
+
+    // Isolate the plugin in its own directory so the loader only scans our `.so`.
+    let plugins_dir = target_dir.join("test-plugins");
+    fs::create_dir_all(&plugins_dir).unwrap();
+    let link = plugins_dir.join(&so_name);
+    let _ = fs::remove_file(&link);
+    #[cfg(unix)]
+    std::os::unix::fs::symlink(&so, &link).unwrap();
+    #[cfg(not(unix))]
+    fs::copy(&so, &link).unwrap();
+
+    // SAFETY: called exactly once via `std::sync::Once`, before params are loaded
+    // and before other threads read the environment.
+    unsafe {
+        std::env::set_var("MOSAICOD_PLUGINS_PATH", &plugins_dir);
+    }
+}
+
 pub struct ServerBuilder {
     host: String,
     tls: Option<grpc::TlsConfig>,
@@ -101,6 +145,15 @@ impl ServerBuilder {
     }
 
     pub async fn build_with_store(self, store: store::testing::Store) -> Server {
+        // With API key management enabled the daemon refuses to start without an
+        // auth plugin, so point MOSAICOD_PLUGINS_PATH at the built default plugin.
+        // Done exactly once, before params are loaded (they cache the env value)
+        // and before other threads read the environment.
+        if self.enable_api_key {
+            static PLUGINS_ENV_INIT: std::sync::Once = std::sync::Once::new();
+            PLUGINS_ENV_INIT.call_once(ensure_auth_plugin_available);
+        }
+
         // Ensure that params are loaded
         params::load_params_from_env(params::ParamsLoadOptions::testing()).unwrap();
 

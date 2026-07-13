@@ -227,6 +227,11 @@ pub struct Params {
     ///
     /// Defaults to 86400 secs (1 day).
     pub cleanup_retention_duration: Param<u32>,
+
+    /// Filesystem directory scanned at startup for plugin shared objects (`.so`).
+    /// Every compatible plugin found there is loaded. An empty value (the
+    /// default) means no plugins are loaded.
+    pub plugins_path: Param<String>,
 }
 
 /// Options for loading parameters from environment variables
@@ -295,6 +300,9 @@ pub fn load_params_from_env(config: ParamsLoadOptions) -> error::PublicResult<()
         // task
         cleanup_time_interval: Param::optional("MOSAICOD_CLEANUP_TIME_INTERVAL", 86400),
         cleanup_retention_duration: Param::optional("MOSAICOD_CLEANUP_RETENTION_DURATION", 86400),
+
+        // plugins
+        plugins_path: Param::optional("MOSAICOD_PLUGINS_PATH", "".to_owned()),
     };
 
     let _ = ENV.set(ev);
