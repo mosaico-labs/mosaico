@@ -564,6 +564,44 @@ mod tests {
     }
 
     #[sqlx::test]
+    async fn test_topic_from_query_filter_match_regex(pool: Pool<DatabaseType>) {
+        let database = testing::Database::new(pool);
+
+        setup_fake_db(database.clone()).await;
+
+        let mut cx = database.connection();
+
+        // This returns a match because of the default json path LAX mode (no need for [*]).
+        let filter = r#"{"sequence": {"locator": {"$eq": "my_sequence"}, "user_metadata": {"key1": {"$match": "value2"}}}}"#;
+        let filter = marshal::query_filter_from_string(filter).unwrap();
+        let res = topic_from_query_filter(&mut cx, filter.sequence, filter.topic)
+            .await
+            .unwrap();
+
+        assert_eq!(res.len(), 2);
+        assert_eq!(res[0].locator_name, "my_sequence/topic");
+        assert_eq!(res[1].locator_name, "my_sequence/topic2");
+
+        let filter = r#"{"sequence": {"locator": {"$eq": "my_sequence"}, "user_metadata": {"key1": {"$match": "value, value2"}}}}"#;
+        let filter = marshal::query_filter_from_string(filter).unwrap();
+        let res = topic_from_query_filter(&mut cx, filter.sequence, filter.topic)
+            .await
+            .unwrap();
+        assert!(res.is_empty());
+
+        // Test single * to match anything....
+        let filter = r#"{"sequence": {"user_metadata": {"key4": {"$match": "*"}}}}"#;
+        let filter = marshal::query_filter_from_string(filter).unwrap();
+        let res = topic_from_query_filter(&mut cx, filter.sequence, filter.topic)
+            .await
+            .unwrap();
+        assert_eq!(res.len(), 3);
+        assert_eq!(res[0].locator_name, "my_sequence/topic");
+        assert_eq!(res[1].locator_name, "my_sequence/topic2");
+        assert_eq!(res[2].locator_name, "my_sequence2/topic");
+    }
+
+    #[sqlx::test]
     async fn test_topic_from_query_filter_with_glob_pattern(pool: Pool<DatabaseType>) {
         let database = testing::Database::new(pool);
 

@@ -150,7 +150,7 @@ pub async fn column_chunk_textual_create_batch(
 }
 
 /// Returns the list of chunks matching the provided `filter` criteria.
-/// Optionally the query can be fitlered across a list of topics (`on_topics`).
+/// Optionally the query can be filtered across a list of topics (`on_topics`).
 pub async fn chunks_from_filters(
     exec: &mut impl AsExec,
     filter: query::OntologyExprGroup<query::Value>,
@@ -166,7 +166,7 @@ pub async fn chunks_from_filters(
     let (query, values) = super::ChunkQueryBuilder::build(filter, ids)?;
 
     trace!("chunk SQL query values: {:?}", values);
-    trace!("chunk SQL query: {}", &query);
+    trace!("chunk SQL query: {}", query);
 
     let mut r = sqlx::query(&query);
 

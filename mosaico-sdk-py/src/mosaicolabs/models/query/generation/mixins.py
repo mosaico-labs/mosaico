@@ -252,15 +252,14 @@ class _QueryableDynamicValue:
         )
         return getattr(self, "_cmp")("$neq", value)
 
-    # TODO: Check with backend guys if those are available
-    # def match(self, value: Any):
-    #     getattr(self, "_validate_value_type")(
-    #         value, _QueryableString.__mixin_supported_types__
-    #     )
-    #     return getattr(self, "_cmp")("$match", value)
+    def match(self, value: Any):
+        getattr(self, "_validate_value_type")(
+            value, _QueryableString.__mixin_supported_types__
+        )
+        return getattr(self, "_cmp")("$match", value)
 
-    # def in_(self, *values: Any):
-    #     return getattr(self, "_in")(*values, allowed_types=None)
+    def in_(self, *values: Any):
+        return getattr(self, "_in")(*values, allowed_types=None)
 
     def lt(self, value: Any):
         getattr(self, "_validate_value_type")(
@@ -476,7 +475,6 @@ class _QueryableField:
         else:
             values = list(values)
 
-        # --- THIS IS THE BUG FIX ---
         if not values:
             raise ValueError("'in_' operator requires at least one value.")
 

@@ -635,7 +635,7 @@ This proxy acts as a type-safe bridge between your Python data models and the pl
 
 ### How the Proxy Works
 
-The `.Q` proxy recursively inspects the model’s schema to expose every queryable field path. It identifies the data type of each field and provides only the operators valid for that type (e.g., numeric comparisons for acceleration, substring matches for frame IDs).
+The `.Q` proxy recursively inspects the model’s schema to expose every queryable field path. It identifies the data type of each field and provides only the operators valid for that type (e.g., numeric comparisons for acceleration, glob-style wildcard matches via `.match()` for frame IDs).
 
 * **Direct Field Access**: Filter based on primary values, such as `Temperature.Q.value.gt(25.0)`.
 * **Nested Navigation**: Traverse complex, embedded structures. For example, in the [`GPS`][mosaicolabs.models.sensors.GPS] model, you can drill down into the status sub-field: `GPS.Q.status.satellites.geq(8)`.

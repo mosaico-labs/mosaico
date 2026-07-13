@@ -949,7 +949,7 @@ class MosaicoClient:
                     # Append a filter for sequence metadata
                     QuerySequence()
                     .with_user_metadata("environment.visibility", lt=50)
-                    .with_name_match("test_drive"),
+                    .with_name_match("*test_drive*"),
                     # Append a filter with deep time-series data discovery and measurement time windowing
                     QueryOntologyCatalog()
                     .with_expression(IMU.Q.acceleration.x.gt(5.0))
@@ -973,7 +973,7 @@ class MosaicoClient:
                     # Append a filter for sequence metadata
                     QuerySequence()
                     .with_user_metadata("environment.visibility", lt=50)
-                    .with_name_match("test_drive"),
+                    .with_name_match("*test_drive*"),
                     # Append a filter with deep time-series data discovery and measurement time windowing
                     QueryOntologyCatalog()
                     .with_expression(IMU.Q.acceleration.x.gt(5.0))

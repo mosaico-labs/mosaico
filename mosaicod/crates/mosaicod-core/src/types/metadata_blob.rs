@@ -6,13 +6,20 @@ pub enum MetadataError {
     DeserializationError(String),
     #[error("serialization error")]
     SerializationError(String),
+    #[error("invalid json key: {0}")]
+    InvalidJsonKey(String),
 }
 
 impl error::PublicError for MetadataError {
-    /// Metadata errors will always be converted to
+    /// Metadata serialization/deserialization errors will always be converted to
     /// internal errors, since are completely handled by the platform
     fn error(&self) -> error::Error {
-        error::Error::internal(Some("marshalling failed".to_owned()))
+        match self {
+            MetadataError::InvalidJsonKey(msg) => {
+                error::Error::bad_request(format!("invalid json key: {}", msg))
+            }
+            _ => error::Error::internal(Some("marshalling failed".to_owned())),
+        }
     }
 }
 

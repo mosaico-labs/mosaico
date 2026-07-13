@@ -46,7 +46,7 @@ class Sequence:
             # Filter for a specific data value (using constructor)
             qresponse = client.query(
                 QuerySequence()
-                .with_name_match("test_winter_") # (1)!
+                .with_name_match("*test_winter_*") # (1)!
                 .with_user_metadata("project", eq="Apollo") # (2)!
                 .with_user_metadata("vehicle.software_stack.planning", eq="plan-4.1.7")
             )
@@ -144,7 +144,7 @@ class Sequence:
             with MosaicoClient.connect("localhost", 6726) as client:
                 # Filter for a specific data value (using constructor)
                 qresponse = client.query(
-                    QuerySequence().with_name_match("test_winter_2025_01_"),
+                    QuerySequence().with_name_match("test_winter_2025_01_*"),
                 )
 
                 # Inspect the response

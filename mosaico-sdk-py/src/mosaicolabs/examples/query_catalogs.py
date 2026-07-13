@@ -33,7 +33,7 @@ console = Console()
 
 def query_by_topic_name_match(client: MosaicoClient, test_num: int):
     # Execute a unified multi-domain query
-    topic_name_match = "image_raw"
+    topic_name_match = "*image_raw*"
     console.print(
         Panel(
             f"[bold green]TEST {test_num}: Querying catalog for Topics which name matches '{topic_name_match}'[/bold green]"

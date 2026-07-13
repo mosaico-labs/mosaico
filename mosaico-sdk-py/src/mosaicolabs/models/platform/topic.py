@@ -42,7 +42,7 @@ class Topic:
             # Filter for a specific data value (using constructor)
             qresponse = client.query(
                 QueryTopic()
-                .with_name_match("/sensors/imu") # (1)!
+                .with_name_match("/sensors/imu#") # (1)!
                 .with_user_metadata("update_rate_hz", gt=100) # (2)!
                 .with_user_metadata("interface.type", eq="canbus")
             )
@@ -138,7 +138,7 @@ class Topic:
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for a specific data value (using constructor)
             qresponse = client.query(
-                QuerySequence().with_name_match("test_winter_2026")
+                QuerySequence().with_name_match("test_winter_#")
             )
 
             # Inspect the response

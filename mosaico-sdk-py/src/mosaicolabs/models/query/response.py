@@ -667,7 +667,7 @@ class QueryResponse:
                     final_response = client.query(
                         initial_response.to_query_sequence(),              # The "locked" sequence domain
                         QueryTopic().with_name("/localization/log_string"), # Target a specific log topic
-                        QueryOntologyCatalog(String.Q.data.match("[ERR]"))  # Filter by content
+                        QueryOntologyCatalog(String.Q.data.match("*[ERR]*"))  # Filter by content substring
                     )
             ```
 
@@ -704,14 +704,14 @@ class QueryResponse:
                 # Broad Search: Find sequences with high-precision GPS
                 initial_response = client.query(
                         QueryTopic().with_name("/localization/log_string"), # Target a specific log topic
-                        QuerySequence().with_name_match("test_winter_2025_")  # Filter by content
+                        QuerySequence().with_name_match("test_winter_2025_*")  # Filter by content
                     )
 
                 # Chaining: Use results to "lock" the domain and find specific log-patterns in those sequences
                 if not initial_response.is_empty():
                     final_response = client.query(
                         initial_response.to_query_topic(),              # The "locked" topic domain
-                        QueryOntologyCatalog(String.Q.data.match("[ERR]"))  # Filter by content
+                        QueryOntologyCatalog(String.Q.data.match("*[ERR]*"))  # Filter by content substring
                     )
             ```
 

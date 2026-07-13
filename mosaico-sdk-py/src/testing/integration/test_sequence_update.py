@@ -137,7 +137,9 @@ def test_sequence_update(
 
     # Query the catalog for the updated data
     # Query by topic name
-    query_resp = mosaico_client.query(QueryTopic().with_name_match("temperature"))
+    query_resp = mosaico_client.query(
+        QueryTopic().with_name_match("/?pdate???opic/temperature")
+    )
     assert query_resp is not None and not query_resp.is_empty()
     assert len(query_resp) == 1
     assert len(query_resp[0].topics) == 1

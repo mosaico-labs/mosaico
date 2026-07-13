@@ -139,7 +139,7 @@ run_mosaicod_tests() {
     cd "${MOSAICOD_PATH}"
 
     if $VERBOSE; then
-        cargo test
+        cargo test --jobs 6
     else
         echo "Compiling, it may take some time ..."
         cargo test --quiet
@@ -214,7 +214,7 @@ run_full_stack_tests() {
     cd "${MOSAICOD_PATH}"
 
     if $VERBOSE; then
-        cargo build --bin mosaicod
+        cargo build --jobs 6 --bin mosaicod
     else
         echo "Compiling mosaicod, it may take a while ..."
         cargo build --bin mosaicod 2>&1
