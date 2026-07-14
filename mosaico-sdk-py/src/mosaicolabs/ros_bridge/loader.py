@@ -16,9 +16,15 @@ from rosbags.interfaces import Connection, TopicInfo
 from rosbags.typesys import Stores, get_typestore
 from rosbags.typesys.store import Typestore
 
-from mosaicolabs import MosaicoClient, SequenceDataStreamer, SequenceHandler
+from mosaicolabs import (
+    MosaicoClient,
+    SequenceDataStreamer,
+    SequenceHandler,
+    TopicHandler,
+)
 from mosaicolabs.logging_config import get_logger
 
+from .adapter_base import ROSAdapterBase
 from .helpers import _filter_topics_from_dict, _filter_topics_from_list, _to_dict
 from .registry import ROSTypeRegistry
 from .ros_bridge import ROSBridge, ROSMessage
@@ -36,6 +42,7 @@ class TopicStatus(Enum):
         FILTERED: Enum specifying the Topic has been rejected since user provided a filter that excludes the topic.
         NOT_ADAPTED: Enum specifying the Topic has been rejected since it has no Mosaico adapter.
         NOT_IN_TYPESTORE: Enum specifying the Topic has been rejected since it is not present in ROS typestore.
+        MALFORMED_METADATA: Enum specifying the Topic has been rejected since its ``_ros_`` metadata is malformed.
     """
 
     ACCEPTED = "Accepted"
@@ -50,6 +57,9 @@ class TopicStatus(Enum):
     NOT_IN_TYPESTORE = "Not in typestore"
     """ Status indicating the Topic has been rejected since it is not present in ROS typestore """
 
+    MALFORMED_METADATA = "Malformed metadata"
+    """ Status indicating the Topic has been rejected since its '_ros_' metadata is malformed """
+
     def display_color(self) -> str:
         """Returns the Rich color string used to render this status in the progress UI."""
         _colors = {
@@ -57,6 +67,7 @@ class TopicStatus(Enum):
             TopicStatus.FILTERED: "bright_yellow",
             TopicStatus.NOT_ADAPTED: "dark_orange",
             TopicStatus.NOT_IN_TYPESTORE: "orange1",
+            TopicStatus.MALFORMED_METADATA: "red1",
         }
         return _colors.get(self, "bright_red")
 
@@ -658,9 +669,9 @@ class MosaicoLoader:
         m_client: MosaicoClient,
         typestore: Typestore,
         sequence_name: str,
-        topics: Optional[List[str]],
-        start_timestamp_ns: Optional[int],
-        end_timestamp_ns: Optional[int],
+        topics: Optional[List[str]] = None,
+        start_timestamp_ns: Optional[int] = None,
+        end_timestamp_ns: Optional[int] = None,
     ):
 
         self.client = m_client
@@ -689,11 +700,19 @@ class MosaicoLoader:
             str
         ] = []  # The topics whose message type is not present within the typestore
 
+        self._malformed_metadata_topics: list[
+            str
+        ] = []  # The topics whose '_ros_' metadata is malformed
+
         self._filtered_topics: list[str] = []  # The topics filtered by user
 
         self._topic_ros_metadata: dict[
             str, Any
-        ] = {}  # Dictionary containing ros specific metadata extracted from accepted Mosaico sequence topics
+        ] = {}  # Dictionary containing a map from moisaco accepted topics to ros specific metadata (extracted from Mosaico topics)
+
+        self._topic_cached_adapters: dict[
+            str, type[ROSAdapterBase]
+        ] = {}  # Dictionary containing a map from moisaco accepted topics to mosaico adapter
 
     def validate_sequence(self):
         if self.seq_handler is None:
@@ -702,6 +721,75 @@ class MosaicoLoader:
                     f"Your requested sequence '{self.sequence_name}' could not be found!"
                 )
             )
+
+    def _extract_declared_rosmsg_type(self, t_handler: TopicHandler) -> Optional[str]:
+        """
+        Reads and validates the ``_ros_.msgtype`` metadata field, if present.
+
+        Args:
+            t_handler: The topic handler whose metadata should be inspected.
+
+        Returns:
+            The declared ROS msgtype string, or ``None`` if the topic carries no
+            ``_ros_`` metadata (or no ``msgtype`` within it).
+
+        Raise: TypeError when the topic's ``_ros_`` metadata carries a non-string ``msgtype`` (malformed
+            metadata)
+        """
+        declared_rosmsg_type = (t_handler.user_metadata.get("_ros_") or {}).get(
+            "msgtype"
+        )
+
+        if declared_rosmsg_type is not None and not isinstance(
+            declared_rosmsg_type, str
+        ):
+            raise TypeError(
+                f"Topic {t_handler.name} contains msgtype within metadata but it has unexpected type. Expected {str.__name__} but got {type(declared_rosmsg_type).__name__}"
+            )
+
+        return declared_rosmsg_type
+
+    def _resolve_topic_adapter(
+        self, t_handler: TopicHandler
+    ) -> Tuple[Optional[type[ROSAdapterBase]], Optional[str]]:
+        """
+        Resolves a topic's Mosaico adapter and the ROS msgtype used to validate it
+        against the typestore.
+
+        The adapter is looked up first using the rosmsg_type stored in the topic's
+        ``_ros_`` metadata (if present), falling back to the default adapter
+        registered for the topic's ontology tag.
+
+        Args:
+            t_handler: The topic handler whose adapter should be resolved.
+
+        Returns:
+            A ``(adapter, rosmsg_type)`` pair.
+
+        Raise: TypeError when the topic's ``_ros_`` metadata carries a non-string ``msgtype`` (malformed
+            metadata)
+
+        """
+        declared_rosmsg_type = self._extract_declared_rosmsg_type(t_handler)
+
+        adapter = None
+        resolved_rosmsg_type = None
+
+        # Try looking for adapter using msgtype (may still not be adapted)
+        if declared_rosmsg_type is not None:
+            adapter = ROSBridge.get_default_adapter(declared_rosmsg_type)
+            resolved_rosmsg_type = declared_rosmsg_type
+
+        # If here adapter has not been found and therefore declared_rosmsg_type
+        # needs to be overriden -> Fallaback using the ontology tag from topic handler and get
+        # its default msgtype (if ontology is adapted otherwise mantain what has already been found)
+        if not adapter:
+            adapter = ROSBridge.get_default_mosaico_adapter(t_handler.ontology_tag)
+            resolved_rosmsg_type = (
+                adapter.get_default_ros_msg() if adapter else resolved_rosmsg_type
+            )
+
+        return adapter, resolved_rosmsg_type
 
     def _resolve_sequence(self) -> SequenceHandler:
         """
@@ -767,10 +855,18 @@ class MosaicoLoader:
                 self._filtered_topics.append(t_name)
                 continue
 
-            # 2) Mosaico-adapted topic
             t_handler = self.seq_handler.get_topic_handler(t_name)
 
-            adapter = ROSBridge.get_default_mosaico_adapter(t_handler.ontology_tag)
+            # 2) Find Mosaico topic's adapter using:
+            #     - rosmsg_type got from topic metadata
+            #     - topic ontology (falling back to default adapter)
+
+            # Extract rosmsg_type from topic_handler metadata (if available) and ensure that it is a string
+            try:
+                adapter, rosmsg_type = self._resolve_topic_adapter(t_handler)
+            except TypeError:
+                self._malformed_metadata_topics.append(t_name)
+                continue
 
             if not adapter:
                 logger.warning(
@@ -779,11 +875,8 @@ class MosaicoLoader:
                 self._not_adapted_topics.append(t_name)
                 continue
 
-            # 3) ros_msgtype not present within typestore
-            try:  # rosmsg_type can be through metadata
-                rosmsg_type = t_handler.user_metadata["_ros_"]["msgtype"]
-            except KeyError:
-                # Or obtained from adapter through default
+            # 3) check that rosmsg_type (either from metadata or default adapter) is present within typestore
+            if not rosmsg_type:
                 rosmsg_type = adapter.get_default_ros_msg()
 
             if self.typestore.types.get(rosmsg_type) is None:
@@ -799,6 +892,7 @@ class MosaicoLoader:
             self._topic_ros_metadata.update(
                 {t_name: t_handler.user_metadata.get("_ros_")}
             )
+            self._topic_cached_adapters.update({t_name: adapter})
 
         if not self._accepted_topics:
             raise RuntimeError(
@@ -951,11 +1045,15 @@ class MosaicoLoader:
         for t_unregistered in self._unregistered_topics:
             rejected_topics.append((t_unregistered, TopicStatus.NOT_IN_TYPESTORE))
 
+        # Metadata malformed
+        for t_unregistered in self._malformed_metadata_topics:
+            rejected_topics.append((t_unregistered, TopicStatus.MALFORMED_METADATA))
+
         return rejected_topics
 
     # --- Core Logic ---
 
-    def resolve_ros_msgtype(self, topic_name: str) -> Optional[str]:
+    def resolve_rosmsg_type(self, topic_name: str) -> Optional[str]:
         """
         Returns the original ROS message type for a topic stored in Mosaico.
 
@@ -974,8 +1072,26 @@ class MosaicoLoader:
             unknown, the ``_ros_`` metadata block is absent, or the ``msgtype``
             key is missing from that block.
         """
+        self._resolve_sequence()
 
         return (self._topic_ros_metadata.get(topic_name) or {}).get("msgtype")
+
+    def resolve_adapter(self, topic_name: str) -> Optional[type[ROSAdapterBase]]:
+        """
+        Returns the resolve adapter for accepted topic.
+
+        Args:
+            topic_name: The topic name whose adapter should be resolved.
+                Must be one of the accepted topics produced by :meth:`_resolve_sequence`.
+
+        Returns:
+            The Mosaico->ROS adapter type obtained during :meth:`_resolve_sequence`.
+            Adapter is resolved through the rosmsg_type within Mosaico topic metadata
+            (if available) or getting the default adapter associated to the topic's ontology.
+        """
+        self._resolve_sequence()
+
+        return self._topic_cached_adapters.get(topic_name)
 
     def __iter__(self):
         self._resolve_sequence()

@@ -29,7 +29,6 @@ from rosbags.typesys.store import Typestore
 
 from mosaicolabs import Message, MosaicoClient
 from mosaicolabs.logging_config import get_logger, setup_sdk_logging
-from mosaicolabs.ros_bridge import ROSBridge
 from mosaicolabs.ros_bridge.loader import MosaicoLoader, ProgressManager
 from mosaicolabs.ros_bridge.qos import get_qos_for_topic
 from mosaicolabs.ros_bridge.registry import ROSTypeRegistry
@@ -331,13 +330,13 @@ class ROSSequenceExtractor:
         # --- Resolve Adapter Check ---
         # For each Mosaico type Message find its adapter
         mosaico_type = ms_msg.ontology_tag()
-        adapter = ROSBridge.get_default_mosaico_adapter(mosaico_type)
+        adapter = self.mosaico_loader.resolve_adapter(t_name)
 
         if adapter is None:
             return  # This should not happen since MosaicoLoader should filter unsupported message types
 
         # --- Translate Check ---
-        ros_msg_type = self.mosaico_loader.resolve_ros_msgtype(t_name)
+        ros_msg_type = self.mosaico_loader.resolve_rosmsg_type(t_name)
 
         try:
             ros_msg = adapter.to_ros(ms_msg, self.typestore, ros_msg_type)
