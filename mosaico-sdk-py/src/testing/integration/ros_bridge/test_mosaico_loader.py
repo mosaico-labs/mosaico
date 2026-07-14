@@ -133,7 +133,7 @@ def test_not_adapter_msgtype_fallack_to_default_adapter(
     ros_distro = Stores.ROS2_JAZZY
     ros_sequence_name = "ros-sequence-not-adapter-msgtype-fallack-to-default-adapter"
     ros_topic_name = "/car/pose"
-    topic_with_ros_metadata = {"_ros_": {"msgtype": "not_existing"}}
+    topic_with_ros_metadata = {"_ros_": {"msgtype": "not-adapted"}}
 
     with mosaico_client:
         with mosaico_client.sequence_create(
@@ -152,6 +152,6 @@ def test_not_adapter_msgtype_fallack_to_default_adapter(
         assert adapter and adapter.ontology_data_type() is Pose
         assert (
             rosmsg_type is not None and rosmsg_type == adapter.get_default_ros_msg()
-        )  # Here you need to get the default since topic metadata hint to a non existing adapter
+        )  # Here you need to get the default since topic metadata hints to a non existing adapter but the ontology tag is adapted and can fallback to default
 
         mosaico_client.sequence_delete(ros_sequence_name)
