@@ -70,6 +70,7 @@ class TopicHandler:
             client: The active FlightClient for remote operations.
             topic_model: The underlying metadata and system info model for the topic.
             ticket: The remote resource ticket used for data retrieval.
+            pyarrow_schema: The Arrow schema of the data ontology handled by this topic.
             timestamp_ns_min: The lowest timestamp (in ns) available in this topic.
             timestamp_ns_max: The highest timestamp (in ns) available in this topic.
         """

@@ -72,55 +72,39 @@ def resolve_ontology_class(
         fingerprint = schema_fingerprint or _compute_schema_fingerprint(schema)
         if DataClass.__schema_fingerprint__ == fingerprint:
             return DataClass
-        # Schema drift detected under the same tag: resolve (or create) a
-        # dedicated variant instead of silently decoding against the wrong schema.
-        # The variant still reports `ontology_tag` to the platform; only its
-        # local registry key is disambiguated.
-        return _get_or_create(
-            registry_key=f"{ontology_tag}__{fingerprint}",
-            ontology_tag=ontology_tag,
-            class_name=class_name,
-            schema=schema,
-            serialization_format=serialization_format,
-        )
-
-    if schema is None:
+    elif schema is None:
         raise ValueError(
             f"No ontology registered with tag '{ontology_tag}'. "
             f"Available tags: {Serializable._list_registered()}. "
             "Try passing a pyarrow schema for inferring a fallback ontology type."
         )
 
-    return _get_or_create(
-        registry_key=ontology_tag,
-        ontology_tag=ontology_tag,
-        class_name=class_name,
-        schema=schema,
-        serialization_format=serialization_format,
-    )
+    # If here: DataClass is None, i.e. nothing usable was found lock-free,
+    # so a class may need to be created (or a variant resolved).
+    fingerprint = schema_fingerprint or _compute_schema_fingerprint(schema)
 
-
-def _get_or_create(
-    *,
-    registry_key: str,
-    ontology_tag: str,
-    class_name: Optional[str],
-    schema: pa.StructType,
-    serialization_format: Optional[SerializationFormat],
-) -> Type[Serializable]:
-    """Double-checked-locking helper: registers a class for `registry_key` if one doesn't already exist."""
-    DataClass = Serializable._get_class_type(registry_key)
-    if DataClass is not None:
-        return DataClass
+    # Acquire the lock and re-derive the registry key from *current* registry
+    # state before trusting it; a racing thread resolving a different schema
+    # for the same tag must never be handed back this thread's class (or vice versa).
     with _creation_lock:
-        # Re-check: another thread may have already won the race while we waited.
+        DataClass = Serializable._get_class_type(ontology_tag)
+        if DataClass is not None and DataClass.__schema_fingerprint__ != fingerprint:
+            # Schema drift under the same tag: resolve (or create) a dedicated
+            # variant instead of silently decoding against the wrong schema.
+            # The variant still reports `ontology_tag` to the platform; only
+            # its local registry key is disambiguated.
+            registry_key = f"{ontology_tag}__{fingerprint}"
+        else:
+            registry_key = ontology_tag
+
         DataClass = Serializable._get_class_type(registry_key)
         if DataClass is not None:
             return DataClass
-        # NOTE: this happens only once per (ontology tag, schema fingerprint) pair.
-        # Once created, the dynamic class is registered in the Serializable
-        # factory under `registry_key`, so subsequent calls hit the lock-free
-        # fast path above.
+
+        # NOTE: this happens only once per (ontology tag, schema fingerprint)
+        # pair. Once created, the dynamic class is registered in the
+        # Serializable factory under `registry_key`, so subsequent calls for
+        # this tag+schema hit the lock-free fast path above.
         return make_unmodeled_ontology_class(
             class_name=class_name or registry_key,
             ontology_tag=ontology_tag,

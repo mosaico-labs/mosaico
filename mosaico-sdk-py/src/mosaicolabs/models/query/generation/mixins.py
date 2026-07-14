@@ -523,12 +523,39 @@ class _QueryableDynamicValue:
         return getattr(self, "_cmp")("$neq", value)
 
     def match(self, value: Any):
+        """
+        Matches records where the field contains `value` as a substring.
+
+        Args:
+            value: The substring to search for.
+
+        Returns:
+            The atomic comparison expression (`$match`).
+
+        Raises:
+            TypeError: If `value` isn't a `str`.
+        """
+
         getattr(self, "_validate_value_type")(
             value, _QueryableString.__mixin_supported_types__
         )
         return getattr(self, "_cmp")("$match", value)
 
     def in_(self, *values: Any):
+        """
+        Matches records where the field's value is one of `values`.
+
+        Args:
+            *values (Any): The candidate values, passed either as separate
+                positional arguments (`in_(v1, v2)`) or as a single list or
+                tuple (`in_([v1, v2])`).
+
+        Returns:
+            The atomic comparison expression (`$in`).
+
+        Raises:
+            ValueError: If no values are provided.
+        """
         return getattr(self, "_in")(*values, allowed_types=None)
 
     def lt(self, value: Any) -> "_QueryExpression":

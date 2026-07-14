@@ -623,9 +623,7 @@ with MosaicoClient.connect("localhost", 6726) as client:
 
 #### Querying List Fields
 
-The `.Q` proxy skips list fields entirely (see [Unsupported Types (Lists and Tuples)](#supported-vs-unsupported-types) above) - there's no way to write `IMU.Q.covariance[0]`. `Queryable*` fields close this gap for *any* ontology, modeled or unmodeled, by extending the path syntax with an index selector that reaches inside a list.
-
-An index selector is appended directly after the list field's name, before any further `.field.subfield` continuation:
+Querying list fields is possible for unmodeled ontology schemas also, exactly the same way it is done with hand-authored ontology classes. As in this case, a list field isn't a leaf value the server can compare against, so when setting the path of the list field to query against, it is necessary to select *which* element(s) the condition targets before a `Queryable*` type can wrap anything. An index selector, appended directly after the list field's name, "exposes" one conceptual element of the list, turning `list_field` (a list) into a single addressable slot the same way `.field` does for a struct.
 
 | Selector | Applies the condition to |
 | --- | --- |
@@ -633,7 +631,14 @@ An index selector is appended directly after the list field's name, before any f
 | `list_field[!]` | Every element - the condition must hold for **all** of them. |
 | `list_field[?]` | At least one element - the condition must hold for **any** of them. |
 
-**Simple lists** (a list of a basic type, e.g. `covariance: List[float]`) are addressed directly:
+Once a selector has exposed an element, what comes next depends on what the list actually holds:
+
+- **Simple lists** (a list of a basic type, e.g. `covariance: List[float]`): the exposed element *is* the leaf value, so wrap the selected path directly in the `Queryable*` type matching that type - `QueryableNumeric` for a list of floats, `QueryableString` for a list of strings, and so on.
+- **Struct lists** (a list of nested structs, e.g. `detections: List[Detection]`): the exposed element is itself a struct, so continue with a regular `.field.subfield` path to reach one of *its* leaves, then wrap that in the `Queryable*` type matching that leaf's type.
+
+Either way, by the time a `Queryable*` type is constructed, the path always resolves to a single scalar value per matched element.
+
+**Simple lists** - the selector's output is the leaf value itself:
 
 ```python
 from mosaicolabs.models.query.queryable_fields import QueryableNumeric
@@ -648,7 +653,7 @@ QueryableNumeric("IMU.covariance[!]").geq(0.0)
 QueryableNumeric("IMU.covariance[?]").gt(1.0)
 ```
 
-**Struct lists** (a list of nested structs, e.g. `detections: List[Detection]` where `Detection` has a `label` and a `confidence`) chain a regular `.field.subfield` path after the selector:
+**Struct lists** - continue with `.field.subfield` after the selector to reach a leaf of the exposed struct (`detections: List[Detection]`, where `Detection` has a `label` and a `confidence`):
 
 ```python
 from mosaicolabs.models.query.queryable_fields import QueryableNumeric, QueryableString

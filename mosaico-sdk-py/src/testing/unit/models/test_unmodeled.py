@@ -70,10 +70,10 @@ def test_unmodeled_class_serializable():
     assert UnmodeledAcceleration.is_registered()
 
     # Test queryability of pyarrow schema
-    assert "timestamp_ns" in UnmodeledAcceleration.Q.queryable_fields
-    assert "acceleration" in UnmodeledAcceleration.Q.queryable_fields
+    assert "timestamp_ns" in UnmodeledAcceleration.Q._queryable_fields
+    assert "acceleration" in UnmodeledAcceleration.Q._queryable_fields
     assert all(
-        item in UnmodeledAcceleration.Q.acceleration.queryable_fields
+        item in UnmodeledAcceleration.Q.acceleration._queryable_fields
         for item in ("x", "y", "z")
     )
 

@@ -38,8 +38,8 @@ from .internal.pyarrow_mapper import PyarrowFieldMapper
 from .types import BASE_MAPPING
 
 # --- Private Registry ---
-# Global dictionary mapping string tags (e.g., "imu") to class types.
-_SENSOR_REGISTRY: Dict[str, Type["Serializable"]] = {}
+# Global dictionary mapping string tags (e.g., "IMU") to class types.
+_SCHEMA_REGISTRY: Dict[str, Type["Serializable"]] = {}
 SCHEMA_ID_LEN = 10  # 40 bits
 
 
@@ -192,12 +192,12 @@ class Serializable(BaseModel, _QueryProxyMixin):
         cls.__registry_key__ = registry_key
 
         # Registration
-        if registry_key in _SENSOR_REGISTRY:
+        if registry_key in _SCHEMA_REGISTRY:
             raise ValueError(
                 f"Duplicate ontology registry key '{registry_key}' detected "
-                f"(already registered for '{_SENSOR_REGISTRY[registry_key].__name__}')"
+                f"(already registered for '{_SCHEMA_REGISTRY[registry_key].__name__}')"
             )
-        _SENSOR_REGISTRY[registry_key] = cls
+        _SCHEMA_REGISTRY[registry_key] = cls
 
         # Query Proxy Injection
         # Enables syntax like: MySensor.Q.field_name > value
@@ -218,18 +218,14 @@ class Serializable(BaseModel, _QueryProxyMixin):
     @classmethod
     def _decode(cls, *args, **kwargs) -> "Serializable":
         """
-        Factory method to instantiate a specific ontology object by its tag.
+        Factory method to decode a specific ontology object via Arrow raw data
 
         Args:
-            tag: The unique ontology identifier (e.g., "imu", "gps").
             *args: Positional arguments for the subclass constructor.
             **kwargs: Keyword arguments for the subclass constructor.
 
         Returns:
-            An instance of the requested `Serializable` subclass.
-
-        Raises:
-            ValueError: If the tag is not found in the global registry.
+            An instance of the corresponding `Serializable` subclass.
         """
         # Clean up potential artifacts from Parquet deserialization (e.g., None as empty structs)
         fixed_kwargs = _fix_empty_dicts(kwargs) if kwargs else {}
@@ -242,7 +238,7 @@ class Serializable(BaseModel, _QueryProxyMixin):
     @classmethod
     def _list_registered(cls) -> List[str]:
         """Returns a list of all currently registered ontology tags."""
-        return list(_SENSOR_REGISTRY.keys())
+        return list(_SCHEMA_REGISTRY.keys())
 
     @classmethod
     def _is_registered(cls, tag: str) -> bool:
@@ -255,7 +251,7 @@ class Serializable(BaseModel, _QueryProxyMixin):
         Returns:
             bool: True if registered.
         """
-        return tag in _SENSOR_REGISTRY.keys()
+        return tag in _SCHEMA_REGISTRY.keys()
 
     @classmethod
     def _get_class_type(cls, tag: str) -> Optional[Type["Serializable"]]:
@@ -270,39 +266,7 @@ class Serializable(BaseModel, _QueryProxyMixin):
         """
         if not cls._is_registered(tag):
             return None
-        return _SENSOR_REGISTRY[tag].__class_type__
-
-    @classmethod
-    def _get_ontology_tag(
-        cls, class_type_name: str, case_sensitive: bool = True
-    ) -> Optional[str]:
-        """
-        Reverse lookup: finds a tag given a class name.
-
-        Args:
-            class_type_name (str): The name of the class (e.g., "IMU").
-            case_sensitive (bool): Whether to perform case-sensitive matching.
-
-        Returns:
-            Optional[str]: The tag, or None if the class is not found.
-        """
-        class_type_name_cmp = (
-            class_type_name if case_sensitive else class_type_name.lower()
-        )
-
-        return next(
-            (
-                sens.__ontology_tag__
-                for sens in _SENSOR_REGISTRY.values()
-                if (
-                    sens.__class_type__.__name__
-                    if case_sensitive
-                    else sens.__class_type__.__name__.lower()
-                )
-                == class_type_name_cmp
-            ),
-            None,
-        )
+        return _SCHEMA_REGISTRY[tag].__class_type__
 
     @classmethod
     def _build_ontology_struct(cls, model_class: type[BaseModel]) -> pa.StructType:
@@ -439,6 +403,8 @@ class Serializable(BaseModel, _QueryProxyMixin):
 
         return base_pa
 
+    # --- Public Registry APIs ---
+
     @classmethod
     def is_registered(cls) -> bool:
         """
@@ -449,7 +415,7 @@ class Serializable(BaseModel, _QueryProxyMixin):
         """
         if not hasattr(cls, "__registry_key__") or cls.__registry_key__ is None:
             return False
-        return cls.__registry_key__ in _SENSOR_REGISTRY.keys()
+        return cls._is_registered(cls.__registry_key__)
 
     @classmethod
     def ontology_tag(cls) -> str:

@@ -241,7 +241,7 @@ def test_unmodeled_schema_variant_ingestion_and_retrieval(
         # This would return seq_v1 and seq_v2
         query_resp = mosaico_client.query(
             QueryOntologyCatalog().with_expression(
-                QueryableNumeric(f"{_VARIANT_BASE_TAG}.temperature.celsius").gt(20)
+                QueryableNumeric(f"{_VARIANT_BASE_TAG}.temperature.celsius").gt(20.0)
             )
         )
         assert query_resp is not None and not query_resp.is_empty()
@@ -251,7 +251,7 @@ def test_unmodeled_schema_variant_ingestion_and_retrieval(
         # Try the same queries using the class wrappers
         # This would return seq_v1 only
         query_resp = mosaico_client.query(
-            QueryOntologyCatalog().with_expression(ClsV1.Q.temperature.celsius.lt(22))
+            QueryOntologyCatalog().with_expression(ClsV1.Q.temperature.celsius.lt(22.0))
         )
         assert query_resp is not None and not query_resp.is_empty()
         assert len(query_resp) == 1
@@ -259,7 +259,7 @@ def test_unmodeled_schema_variant_ingestion_and_retrieval(
 
         # This would return seq_v1 and seq_v2
         query_resp = mosaico_client.query(
-            QueryOntologyCatalog().with_expression(ClsV1.Q.temperature.celsius.gt(20))
+            QueryOntologyCatalog().with_expression(ClsV1.Q.temperature.celsius.gt(20.0))
         )
         assert query_resp is not None and not query_resp.is_empty()
         assert len(query_resp) == 2
