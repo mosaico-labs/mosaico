@@ -7,7 +7,7 @@ from mosaicolabs.ros_bridge import MosaicoLoader
 
 def test_valid_msgtype(mosaico_client):
     ros_distro = Stores.ROS2_JAZZY
-    ros_sequence_name = "ros-sequence-with-metadata"
+    ros_sequence_name = "ros-sequence-valid-msgtype"
     ros_topic_name = "/car/pose"
     topic_with_ros_metadata = {"_ros_": {"msgtype": "geometry_msgs/msg/PoseStamped"}}
 
@@ -36,7 +36,7 @@ def test_valid_msgtype(mosaico_client):
 
 def test_invalid_msgtype(mosaico_client):
     ros_distro = Stores.ROS2_JAZZY
-    ros_sequence_name = "ros-sequence-with-wrong-metadata-"
+    ros_sequence_name = "ros-sequence-invalid-msgtype"
     ros_topic_name = "/car/pose"
     topic_with_ros_metadata = {"_ros_": {"msgtype": 1234}}
 
@@ -99,7 +99,7 @@ class NotAdaptedClass(Serializable): ...
 def test_no_adapter_available(mosaico_client):
 
     ros_distro = Stores.ROS2_JAZZY
-    ros_sequence_name = "ros-sequence-without-adapter"
+    ros_sequence_name = "ros-sequence-no-adapter-available"
     ros_topic_name = "/car/pose"
     topic_with_ros_metadata = {"_ros_": {"msgtype": "not_adapted_ontology"}}
 
@@ -127,11 +127,11 @@ def test_no_adapter_available(mosaico_client):
         mosaico_client.sequence_delete(ros_sequence_name)
 
 
-def test_not_adapter_msgtype_fallack_to_default_adapter(
+def test_not_adapted_msgtype_fallack_to_default_adapter(
     mosaico_client,
 ):
     ros_distro = Stores.ROS2_JAZZY
-    ros_sequence_name = "ros-sequence-not-adapter-msgtype-fallack-to-default-adapter"
+    ros_sequence_name = "ros-sequence-not-adapted-msgtype-fallack-to-default-adapter"
     ros_topic_name = "/car/pose"
     topic_with_ros_metadata = {"_ros_": {"msgtype": "not-adapted"}}
 

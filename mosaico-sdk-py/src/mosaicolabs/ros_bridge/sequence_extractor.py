@@ -329,7 +329,6 @@ class ROSSequenceExtractor:
 
         # --- Resolve Adapter Check ---
         # For each Mosaico type Message find its adapter
-        mosaico_type = ms_msg.ontology_tag()
         adapter = self.mosaico_loader.resolve_adapter(t_name)
 
         if adapter is None:
@@ -343,7 +342,7 @@ class ROSSequenceExtractor:
         except TypeError as e:
             self.ignored_topics.add(t_name)
             logger.warning(
-                f"Could not encode to ros '{mosaico_type}' type because: {e}. Skipping the topic associated to this message"
+                f"Could not encode to ros '{ms_msg.ontology_tag()}' type because: {e}. Skipping the topic associated to this message"
             )
             ui.update_status(t_name, "Failed encoding", style="yellow")
             ui.advance_global()
