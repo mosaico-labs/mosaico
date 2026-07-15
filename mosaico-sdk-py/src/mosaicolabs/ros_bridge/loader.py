@@ -772,15 +772,15 @@ class MosaicoLoader:
         adapter = None
         resolved_rosmsg_type = None
 
-        # Try looking for adapter using msgtype (may still not be adapted)
+        # Try looking for adapter using msgtype
         if declared_rosmsg_type is not None:
             adapter = ROSBridge.get_default_adapter(declared_rosmsg_type)
             resolved_rosmsg_type = declared_rosmsg_type
 
-        # If here adapter has not been found and therefore declared_rosmsg_type
-        # needs to be overriden -> Fallaback using the ontology tag from topic handler and get
-        # its default msgtype (if ontology is adapted otherwise mantain what has already been found)
         if not adapter:
+            # If here adapter has not been found -> Fallback to adapter associated to
+            # the ontology tag and get its default msgtype (if ontology is
+            # adapted, otherwise mantain what has already been found)
             adapter = ROSBridge.get_default_mosaico_adapter(t_handler.ontology_tag)
             resolved_rosmsg_type = (
                 adapter.get_default_ros_msg() if adapter else resolved_rosmsg_type
@@ -797,11 +797,23 @@ class MosaicoLoader:
 
         1. Fetches the :class:`SequenceHandler` for the configured sequence name
            and validates it exists.
-        2. Applies the topic filter via :func:`_filter_topics_from_list`.
-        3. Clips ``start_timestamp_ns`` / ``end_timestamp_ns`` to the sequence bounds,
+        2. Clips ``start_timestamp_ns`` / ``end_timestamp_ns`` to the sequence bounds,
            logging a warning if clipping occurs.
-        4. Creates the :class:`SequenceDataStreamer` that will be returned by
-           :meth:`__iter__`.
+        3. Applies the topic filter via :func:`_filter_topics_from_list`.
+        4. For each matched topic, extracts its Mosaico adapter via
+           :meth:`_resolve_topic_adapter`. Adapter is first looked up using
+           ``_ros_`` metadata, falling back to adapter associated to the ontology
+           tag. Afterward, msgtype is extracted from found adapter if metadata did
+           not hold this information.
+           Topics that pass all checks are accepted, together with their extracted
+           ROS metadata and adapter, cached in ``_topic_ros_metadata`` and
+           ``_topic_cached_adapters`` respectively. On the other hand, a topic may
+           be rejected because:
+            - adapter is not found
+            - malformed metadata
+            - msgtype is not present within ROS typestore
+        5. Creates the :class:`SequenceDataStreamer` over the accepted topics, to be
+           returned by :meth:`__iter__`.
 
         """
         if self.seq_handler is not None:
