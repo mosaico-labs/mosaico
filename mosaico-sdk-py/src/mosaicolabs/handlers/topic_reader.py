@@ -159,6 +159,7 @@ class TopicDataStreamer:
             reader=reader,
             ontology_tag=topic_mdata.properties.ontology_tag,
             serialization_format=topic_mdata.properties.serialization_format,
+            msg_count=topic_mdata.properties.msg_count,
         )
         return cls(
             client=client,
@@ -297,6 +298,16 @@ class TopicDataStreamer:
             The ontology tag.
         """
         return self._rdstate.ontology_tag
+
+    @property
+    def msg_count(self) -> Optional[int]:
+        """
+        The number of messages associated with this streamer.
+
+        Returns:
+            The number of messages. None if an error occurred during message count retrieval
+        """
+        return self._rdstate.msg_count
 
     def __iter__(self) -> "TopicDataStreamer":
         """Returns self as iterator."""

@@ -4,10 +4,17 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 from rosbags.interfaces import TopicInfo
 
+from mosaicolabs import SequenceHandler
 from mosaicolabs.logging_config import get_logger
 
 # Set the hierarchical logger
 logger = get_logger(__name__)
+
+
+def validate_sequence(seq_handler: Optional[SequenceHandler]) -> SequenceHandler:
+    if seq_handler is None:
+        raise (ValueError("Your requested sequence could not be found!"))
+    return seq_handler
 
 
 def _to_dict(message: Any) -> Any:
