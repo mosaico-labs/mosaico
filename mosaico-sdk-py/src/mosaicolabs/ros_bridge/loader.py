@@ -25,7 +25,12 @@ from mosaicolabs import (
 from mosaicolabs.logging_config import get_logger
 
 from .adapter_base import ROSAdapterBase
-from .helpers import _filter_topics_from_dict, _filter_topics_from_list, _to_dict
+from .helpers import (
+    _filter_topics_from_dict,
+    _filter_topics_from_list,
+    _to_dict,
+    validate_sequence,
+)
 from .registry import ROSTypeRegistry
 from .ros_bridge import ROSBridge, ROSMessage
 
@@ -714,14 +719,6 @@ class MosaicoLoader:
             str, type[ROSAdapterBase]
         ] = {}  # Dictionary containing a map from moisaco accepted topics to mosaico adapter
 
-    def validate_sequence(self):
-        if self.seq_handler is None:
-            raise (
-                ValueError(
-                    f"Your requested sequence '{self.sequence_name}' could not be found!"
-                )
-            )
-
     def _extract_declared_rosmsg_type(self, t_handler: TopicHandler) -> Optional[str]:
         """
         Reads and validates the ``_ros_.msgtype`` metadata field, if present.
@@ -815,7 +812,14 @@ class MosaicoLoader:
             sequence_name=self.sequence_name
         )
 
-        self.validate_sequence()
+        try:
+            self.seq_handler = validate_sequence(self.seq_handler)
+        except ValueError:
+            raise (
+                ValueError(
+                    f"Your requested sequence {self.sequence_name} could not be found!"
+                )
+            )
 
         self._resolved_topics = self.seq_handler.topics
 
@@ -914,10 +918,6 @@ class MosaicoLoader:
         Returns the total number of messages for the given topic, or for all
         resolved topics combined.
 
-        Note:
-            This performs a full traversal of each topic's data streamer to produce
-            the count, which may be slow for large sequences.
-
         Args:
             topic: If provided, count messages for that specific topic only.
                 If ``None``, sum across all resolved topics.
@@ -925,15 +925,24 @@ class MosaicoLoader:
         Returns:
             The total message count.
         """
-        s_handler = self._resolve_sequence()
+        self._resolve_sequence()
+
+        if not self.streamer:
+            raise Exception(
+                "Impossible to start streaming: SequenceDataStreamer is not initialised. Did you forget calling _resolve_sequence()?"
+            )
 
         topics_to_count = [topic] if topic else self._accepted_topics
 
-        total_msg_count = 0
-        for t in topics_to_count:
-            t_handler = s_handler.get_topic_handler(t)
-
-            total_msg_count += sum(1 for _ in t_handler.get_data_streamer())
+        total_msg_count = sum(
+            filter(
+                None,
+                (
+                    self.streamer._topic_readers[topic].msg_count
+                    for topic in topics_to_count
+                ),
+            )
+        )
 
         return total_msg_count
 

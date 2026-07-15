@@ -34,6 +34,7 @@ class _TopicReadState:
         self,
         topic_name: str,
         ontology_tag: str,
+        msg_count: Optional[int],
         reader: Optional[fl.FlightStreamReader],
     ):
         """
@@ -42,6 +43,7 @@ class _TopicReadState:
         Args:
             topic_name (str): The name of the topic.
             ontology_tag (str): The identifier for the ontology data type.
+            msg_count (int): The number of messages in the topic.
             reader (Optional[fl.FlightStreamReader]): The active stream reader.
 
         Raises:
@@ -53,6 +55,7 @@ class _TopicReadState:
         self.topic_name: str = topic_name
         self.reader: Optional[fl.FlightStreamReader] = reader
         self.ontology_tag: str = ontology_tag
+        self.msg_count: Optional[int] = msg_count
 
         # --- Schema Validation & Setup ---
         self.column_names: List[str] = []
