@@ -206,6 +206,21 @@ class SequenceDataStreamer:
                 "at the beginning of the session."
             )
 
+    @property
+    def msg_count(self) -> int:
+        """
+        The sum of all messages within each topic streamer.
+
+        Returns:
+            The sum of all messages within each topic streamer.
+        """
+
+        return sum(
+            filter(
+                None, (t_reader.msg_count for t_reader in self._topic_readers.values())
+            )
+        )
+
     # --- Iterator Protocol Implementation ---
 
     def __iter__(self) -> "SequenceDataStreamer":
