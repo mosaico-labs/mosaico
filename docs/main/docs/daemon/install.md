@@ -165,7 +165,7 @@ export MOSAICOD_STORE_ENDPOINT=file:///some/local/directory
 export MOSAICOD_STORE_BUCKET=bucket-name
 ```
 
-and run `mosaicod run`.
+and run `mosaicod server`.
 
 ## Advanced
 

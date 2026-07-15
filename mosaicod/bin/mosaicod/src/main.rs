@@ -28,8 +28,11 @@ struct Cli {
 
 #[derive(Subcommand, Debug)]
 enum Commands {
-    /// Start mosaicod daemon
-    Run(command::Run),
+    /// Start the mosaicod server
+    Server(command::Server),
+
+    /// Run the store cleanup routine
+    Cleanup(command::Cleanup),
 
     /// Manage mosaico API keys
     #[command(subcommand, name = "api-key")]
@@ -64,7 +67,8 @@ fn start() -> Result<Option<String>> {
     let is_json_output = matches!(args.log_format, log::LogFormat::Json);
 
     match args.cmd {
-        Commands::Run(sub_args) => command::run(sub_args, is_json_output)?,
+        Commands::Server(sub_args) => command::server(sub_args, is_json_output)?,
+        Commands::Cleanup(sub_args) => command::cleanup(sub_args)?,
         Commands::Auth(sub_args) => command::auth(sub_args)?,
     }
 

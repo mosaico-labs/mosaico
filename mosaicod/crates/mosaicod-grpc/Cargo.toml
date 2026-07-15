@@ -16,7 +16,6 @@ mosaicod-core = { workspace = true }
 mosaicod-db = { workspace = true }
 mosaicod-store = { workspace = true }
 mosaicod-ext = { workspace = true }
-mosaicod-task = { workspace = true }
 
 arrow-flight = { workspace = true }
 tonic = { workspace = true }

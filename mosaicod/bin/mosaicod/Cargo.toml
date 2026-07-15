@@ -15,8 +15,10 @@ mosaicod-store = { workspace = true }
 mosaicod-facade = {workspace = true}
 mosaicod-grpc = { workspace = true }
 mosaicod-query = { workspace = true }
+mosaicod-task = { workspace = true }
 
 clap = { workspace = true }
+tokio-util = { workspace = true }
 dotenv = { workspace = true }
 mimalloc = { workspace = true }
 signal-hook = { workspace = true }
