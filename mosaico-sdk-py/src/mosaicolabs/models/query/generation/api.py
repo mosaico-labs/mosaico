@@ -299,7 +299,8 @@ class _QueryProxy:
                 elif isinstance(val, pa.DataType):
                     if _pyarrow_to_queryable_mixin(val) is not _QueryableUnsupported:
                         result.append(key)
-        else:
+        # It is a pa.DataType: must check to be queryable
+        elif _pyarrow_to_queryable_mixin(self.__schema__) is not _QueryableUnsupported:
             result.append(self.__schema__)
         return result
 
