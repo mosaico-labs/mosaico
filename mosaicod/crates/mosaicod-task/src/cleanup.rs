@@ -124,34 +124,6 @@ impl Cleanup {
                 break;
             }
 
-            // match self.can_start().await {
-            //     Ok(can_start) => {
-            //         if can_start {
-            //             info!("Cleanup started");
-            //
-            //             let cleanup_res = self.do_cleanup().await;
-            //
-            //             match cleanup_res {
-            //                 Ok(stats) => {
-            //                     info!(
-            //                         "Cleanup completed. {} items marked as ready to be deleted. {} items deleted.",
-            //                         stats.marked_folders.len(),
-            //                         stats.deleted_folders.len()
-            //                     );
-            //                 }
-            //                 Err(e) => {
-            //                     // Don't exit the cleanup routine if something went wrong. Just log the error.
-            //                     error!("Cleanup failed. {}", e);
-            //                 }
-            //             }
-            //         }
-            //     }
-            //     Err(e) => {
-            //         // Don't exit the cleanup routine if something went wrong. Just log the error.
-            //         error!("{}", e);
-            //     }
-            // }
-
             tokio::select! {
                 // Here we can call .unwrap() safely because duration is non-negative by construction.
                 _ = tokio::time::sleep(self.time_interval.to_std().unwrap()) => {
