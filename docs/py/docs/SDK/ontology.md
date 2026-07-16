@@ -425,7 +425,7 @@ The ontology architecture relies on three primary abstractions: the **Factory** 
 ??? question "API Reference"
     [`mosaicolabs.models.core.Serializable`][mosaicolabs.models.core.Serializable]
 
-Every data payload in Mosaico inherits from the `Serializable` class. It manages the global registry of data types and ensures that the system knows exactly how to convert a string tag like `"imu"` back into a Python class with a specific binary schema.
+Every data payload in Mosaico inherits from the `Serializable` class. It manages the global registry of data types and ensures that the system knows exactly how to convert an ontology tag like `"IMU"` back into a Python class with a specific binary schema.
 `Serializable` uses the `__pydantic_init_subclass__` hook, which is automatically called whenever a developer defines a new subclass.
 
 ```python
@@ -435,9 +435,12 @@ class MyCustomSensor(Serializable):  # <--- __pydantic_init_subclass__ triggers 
 When this happens, `Serializable` performs the following steps automatically:
 
 1.  **Generate the schema:** Introspect `model_fields` to extract the PyArrow type embedded in each field's `Annotated` metadata via `MosaicoType` aliases or raw `Annotated[T, pa.SomeType()]` annotations and build the `__msco_pyarrow_struct__` automatically. 
-2.  **Generates Tag:** If the class doesn't define `__ontology_tag__`, it auto-generates one from the class name (e.g., `MyCustomSensor` -> `"my_custom_sensor"`).
-3.  **Registers Class:** It adds the new class to the global types registry.
+2.  **Generates Tag:** If the class doesn't define `__ontology_tag__`, it is set as the class name.
+3.  **Registers Class:** It adds the new class to the global types registry, keyed by `__registry_key__`. For every hand-authored class this defaults to `__ontology_tag__` itself, so the two are interchangeable in practice; they only diverge for dynamically-resolved schema variants (see [Advanced: Ingesting Unmodeled Ontologies](#advanced-ingesting-unmodeled-ontologies)).
 4.  **Injects Query Proxy:** It dynamically adds a `.Q` attribute to the class, enabling the fluent query syntax (e.g., `MyCustomSensor.Q.voltage > 12.0`).
+
+!!! note "The ontology tag is exactly the class name"
+    Unlike some frameworks, Mosaico does **not** transform the class name to derive the tag (no `snake_case` or `camelCase` conversion): `MyCustomSensor` is tagged `"MyCustomSensor"`, not `"my_custom_sensor"`. This is a deliberate choice to avoid a mental mapping step between "the name in my code" and "the tag on the platform" - especially when [querying Unmodeled ontologies](#advanced-ingesting-unmodeled-ontologies), where you often only have the tag string (e.g. from a `TopicHandler`) and no class to derive it from in the first place.
 
 ### `Message` (The Envelope)
 
@@ -626,6 +629,107 @@ When `DetectionOntology` is defined, `__pydantic_init_subclass__` calls `_build_
 
 This makes ontology composition **additive by default**: add a mixin to inherit its fields, remove it to drop them. The schema stays consistent with zero boilerplate.
 
+
+## Advanced: Ingesting Unmodeled Ontologies
+
+Every ontology described so far is a hand-authored `Serializable` subclass: a Python class whose fields, via `MosaicoType`/`MosaicoField`, deterministically produce the Arrow schema used for storage and querying. This works well when you control the data source and can write (or generate) a class for every data type up front.
+
+In practice, that isn't always possible. The Mosaico **backend** has no notion of Python classes at all; it only requires data to be representable as an Arrow schema. The "must be a Python class" requirement is purely an SDK-side convenience, and it becomes a real limitation when ingesting data whose schema is only known at runtime, or whose variety is too large to model by hand. The canonical example is a ROS bag ingestion via the [ROS Bridge](./bridges/ros.md): a bag can reference dozens of message types, and requiring every single one to have a hand-written, adapted SDK class before it can be ingested would make onboarding a new robot, sensor, or message version a blocking, manual step.
+
+[`Unmodeled`][mosaicolabs.models.core.unmodeled.Unmodeled] closes this gap: it wraps an arbitrary PyArrow schema into a fully serializable, queryable ontology class **at runtime**, with no Python class definition required.
+
+??? question "API Reference"
+    * [`Unmodeled`][mosaicolabs.models.core.unmodeled.Unmodeled]
+    * [`make_unmodeled_ontology_class`][mosaicolabs.models.core.unmodeled.make_unmodeled_ontology_class]
+    * [`resolve_ontology_class`][mosaicolabs.models.core.helpers.resolve_ontology_class]
+
+### How it works
+
+Where a normal `Serializable` subclass declares one typed field per schema field and *derives* a PyArrow schema from those fields, `Unmodeled` inverts the relationship: it declares a single generic `raw_data: Dict[str, Any]` field, and instead takes the Arrow schema **as an input**, attaching it directly to the class.
+
+The [`make_unmodeled_ontology_class()`][mosaicolabs.models.core.unmodeled.make_unmodeled_ontology_class] factory produces this class dynamically, given a tag, a schema, and a serialization format:
+
+```python
+import pyarrow as pa
+from mosaicolabs.enum import SerializationFormat
+from mosaicolabs.models.core.unmodeled import make_unmodeled_ontology_class
+
+UnmodeledGyro = make_unmodeled_ontology_class(
+    class_name="UnmodeledGyro",
+    ontology_tag=None, # Will inherit the class name
+    serialization_format=SerializationFormat.Default,
+    pyarrow_schema=pa.struct([
+        pa.field("gyro", pa.struct([
+            pa.field("x", pa.float32()),
+            pa.field("y", pa.float32()),
+            pa.field("z", pa.float32()),
+        ])),
+    ]),
+)
+
+# From here on, UnmodeledGyro behaves exactly like a hand-authored ontology:
+# it's registered, serializable, and queryable.
+gyro_writer.push(Message(
+    timestamp_ns=ts,
+    data=UnmodeledGyro(raw_data={"gyro": {"x": 0.1, "y": 0.0, "z": -0.2}}),
+))
+```
+
+Because the `.Q` query proxy is built directly from the class's PyArrow schema rather than from Python field declarations, an `Unmodeled` class is just as queryable as any hand-authored one out of the box: `UnmodeledGyro.Q.gyro.x.gt(1.0)` works without any extra step.
+
+!!! note "Validation"
+    Every `Unmodeled` instance validates `raw_data` against the class's declared schema at construction time: missing required fields, unknown fields, and nested-object type mismatches all raise a `ValueError` immediately, rather than surfacing later as an opaque error during serialization.
+
+### Resolving Classes Automatically
+
+`make_unmodeled_ontology_class()` is the low-level factory. In practice, most callers — including the SDK's own reading path (`TopicDataStreamer`, `SequenceDataStreamer`) — go through [`resolve_ontology_class()`][mosaicolabs.models.core.helpers.resolve_ontology_class] instead, which adds two behaviors on top:
+
+1. **Reuse before creation**: if a class is already registered for the given tag, it's returned directly instead of creating a duplicate.
+2. **Schema-variant safety**: a single ontology tag can legitimately end up associated with more than one schema shape over time — for example, two rosbags recorded with different versions of the same ROS message type, both mapped by the translation layer to the same inferred tag. When the schema passed in doesn't match what's already registered for that tag, `resolve_ontology_class()` doesn't silently decode the second version against the first version's schema. Instead, it computes a short, deterministic fingerprint of the schema and resolves (or creates) a distinct variant class for it, i.e. a separate Python class with its own [`__registry_key__`][mosaicolabs.models.core.Serializable] (`f"{tag}__{fingerprint}"`), so the SDK can always tell the two schemas apart locally. Both variants still report the *same* `ontology_tag` to the platform, so all of their data remains ingestible and queryable under one consistent, predictable tag — regardless of which schema version a given process happens to encounter first.
+
+This is what makes it safe for a component like the ROS Bridge to translate an unadapted message type into a PyArrow schema and call `resolve_ontology_class(ontology_tag=..., schema=...)` for every message, without having to track class identity or schema versions itself.
+
+### Retrieving Unmodeled Data from a `Message`
+
+On the reading side, [`Message.get_data()`][mosaicolabs.models.core.Message.get_data] is a type-hinted accessor: you pass the class you expect the payload to be, and it hands back `self.data` cast to that type (or `None` if it isn't an instance of it). For a hand-authored ontology this is straightforward (`msg.get_data(IMU)`) but for unmodeled data you don't necessarily know, or need to know, the exact dynamically-generated class the SDK resolved the message into. There are two ways to retrieve it, depending on how much you want to name:
+
+**1. Retrieve via the common `Unmodeled` base class.** Every dynamically-generated class, whether created by your own code or auto-resolved internally while reading, is a subclass of `Unmodeled`, so `get_data(Unmodeled)` always works and immediately unveils the `raw_data` field to your editor's autocompletion and to static type checkers, with no upfront setup:
+
+```python
+from mosaicolabs import MosaicoClient
+from mosaicolabs.models.core.unmodeled import Unmodeled
+
+with MosaicoClient.connect("localhost", 6726) as client:
+    th = client.topic_handler("mission_alpha", "/sensors/gyro/no_schema")
+
+    for msg in th.get_data_streamer():
+        data = msg.get_data(Unmodeled)  # data: Optional[Unmodeled]
+        print(data.raw_data)
+```
+
+**2. Retrieve via your own named class.** A [`TopicHandler`][mosaicolabs.handlers.TopicHandler] exposes the exact `ontology_tag`, `ontology_schema`, and `serialization_format` the topic was written with. Feeding those straight into [`make_unmodeled_ontology_class()`][mosaicolabs.models.core.unmodeled.make_unmodeled_ontology_class] lets you give the class a name meaningful to your code, and use that name with `get_data()` instead of the generic `Unmodeled` base:
+
+```python
+from mosaicolabs import MosaicoClient
+from mosaicolabs.models.core.unmodeled import make_unmodeled_ontology_class
+
+with MosaicoClient.connect("localhost", 6726) as client:
+    th = client.topic_handler("mission_alpha", "/sensors/gyro/no_schema")
+
+    UnmodeledGyro = make_unmodeled_ontology_class(
+        class_name="UnmodeledGyro",
+        ontology_tag=th.ontology_tag,
+        serialization_format=th.serialization_format,
+        pyarrow_schema=th.ontology_schema,
+    )
+
+    for msg in th.get_data_streamer():
+        data = msg.get_data(UnmodeledGyro)  # data: Optional[UnmodeledGyro]
+        print(data.raw_data)
+```
+
+!!! warning "Name the class before you start reading"
+    Build your named class (option 2) right after obtaining the `TopicHandler`, **before** calling `get_data_streamer()`. Reading the topic first lets `resolve_ontology_class()` auto-register its own (anonymous) class for that tag; calling `make_unmodeled_ontology_class()` afterwards with the same tag then fails with `ValueError: Duplicate ontology registry key`, since a registry key can only be claimed once. Naming the class up front avoids the race entirely - and once it's registered, `resolve_ontology_class()` reuses it instead of creating a second one, so every message decodes as your named class from the start.
 
 ## Querying Data Ontology with the Query (`.Q`) Proxy
 

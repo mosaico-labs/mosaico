@@ -1,5 +1,4 @@
 from .helpers import (
-    camel_to_snake as camel_to_snake,
     pack_topic_resource_name as pack_topic_resource_name,
     sanitize_sequence_name as sanitize_sequence_name,
     sanitize_topic_name as sanitize_topic_name,

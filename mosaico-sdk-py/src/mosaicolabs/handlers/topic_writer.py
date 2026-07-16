@@ -171,12 +171,10 @@ class TopicWriter:
                 f"Failed to open Flight stream for topic '{topic_name}'", e
             )
 
-        assert ontology_type.__ontology_tag__ is not None
-
         # Initialize Internal Write State (manages the buffer and flushing logic)
         wrstate = _TopicWriteState(
             topic_name=topic_name,
-            ontology_tag=ontology_type.__ontology_tag__,
+            data_schema=ontology_type.__msco_pyarrow_struct__,
             writer=writer,
             max_batch_size_bytes=config.max_batch_size_bytes,
             max_batch_size_records=config.max_batch_size_records,

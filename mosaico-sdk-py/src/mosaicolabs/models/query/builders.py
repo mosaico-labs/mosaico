@@ -114,7 +114,7 @@ class _QueryCombinator:
         Converts the logical group into a merged dictionary format.
 
         Example:
-            `{"imu.acceleration.x": {"$gt": 5}, "imu.acceleration.y": {"$lt": 10}}`
+            `{"IMU.acceleration.x": {"$gt": 5}, "IMU.acceleration.y": {"$lt": 10}}`
         """
         if not self.expressions:
             return {}
@@ -133,7 +133,7 @@ class QueryOntologyCatalog:
 
     This builder allows for fine-grained filtering based on the actual values contained within sensor payloads
     (e.g., IMU acceleration, GPS coordinates, or custom telemetry).
-    It produces a "flat" dictionary output where field paths utilize dot-notation (e.g., `"imu.acceleration.x"`).
+    It produces a "flat" dictionary output where field paths utilize dot-notation (e.g., `"IMU.acceleration.x"`).
 
     This class is designed to work with the **`.Q` query proxy** injected into every
     [`Serializable`][mosaicolabs.models.core.Serializable] data ontology model.
@@ -273,7 +273,7 @@ class QueryOntologyCatalog:
         Serializes the ontology expressions into a flat dictionary for the platform API.
 
         Example Output:
-            `{"imu.timestamp_ns": {"$between": [...]}, "imu.acceleration.x": {"$leq": 10}}`
+            `{"IMU.timestamp_ns": {"$between": [...]}, "IMU.acceleration.x": {"$leq": 10}}`
 
         Returns:
             A dictionary containing all merged sensor-field expressions.

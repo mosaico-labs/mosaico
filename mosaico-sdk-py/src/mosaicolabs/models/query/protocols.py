@@ -66,16 +66,16 @@ class FieldMapperProtocol(Protocol):
     """
     Protocol for a stateless field mapper.
     Its job is to inspect a class and return a nested dictionary
-    (a "field map") of all queryable paths.
+    (a "field schema") of all queryable paths.
     """
 
-    def build_map(
+    def build_schema(
         self,
         class_type: Type,
         path_prefix: Optional[str] = None,
     ) -> Tuple[str, Dict[str, Any]]:
         """
-        Builds the queryable field map for a given class.
+        Builds the queryable field schema for a given class.
 
         Args:
             class_type: The Pydantic or Arrow class to inspect.

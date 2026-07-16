@@ -45,7 +45,7 @@ class _QueryExpression:
         Converts the expression into its final dictionary format.
 
         Example:
-            `{"gps.status.service": {"$eq": 0}}`
+            `{"GPS.status.service": {"$eq": 0}}`
         """
         return {self.key: {self.op: self.value}}
 
@@ -115,10 +115,10 @@ class _QueryCatalogExpression(_QueryExpression):
 
     | User Call | Internal Translation |
     | --- | --- |
-    | `IMU.Q.acceleration.x.gt(9.8)` | `_QueryCatalogExpression("imu.acceleration.x", "$gt", 9.8)` |
-    | `IMU.Q.acceleration.y.gt(9.8)` | `_QueryCatalogExpression("imu.acceleration.y", "$gt", 9.8)` |
-    | `IMU.Q.acceleration.z.gt(9.8)` | `_QueryCatalogExpression("imu.acceleration.z", "$gt", 9.8)` |
-    | `IMU.Q.acceleration.x.gt(9.8)` | `_QueryCatalogExpression("imu.acceleration.x", "$gt", 9.8)` |
+    | `IMU.Q.acceleration.x.gt(9.8)` | `_QueryCatalogExpression("IMU.acceleration.x", "$gt", 9.8)` |
+    | `IMU.Q.acceleration.y.gt(9.8)` | `_QueryCatalogExpression("IMU.acceleration.y", "$gt", 9.8)` |
+    | `IMU.Q.acceleration.z.gt(9.8)` | `_QueryCatalogExpression("IMU.acceleration.z", "$gt", 9.8)` |
+    | `IMU.Q.acceleration.x.gt(9.8)` | `_QueryCatalogExpression("IMU.acceleration.x", "$gt", 9.8)` |
 
     """
 

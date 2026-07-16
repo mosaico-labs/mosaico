@@ -32,6 +32,13 @@ def test_mosaico_has_null_handler(pristine_mosaico_logger):
 
 
 def test_logs_are_generated_but_swallowed(pristine_mosaico_logger, capsys):
+    """Verifies that debug logs are generated (not filtered) yet swallowed by the NullHandler.
+
+    Uses capsys rather than caplog: pytest >=9.1 attaches its capture handler
+    directly to non-propagating loggers (see catching_logs), so caplog would
+    see this message regardless of propagate=False and defeat the point of
+    the test.
+    """
     test_logger = get_logger("mosaicolabs.internal")
     test_logger.setLevel(logging.DEBUG)
 

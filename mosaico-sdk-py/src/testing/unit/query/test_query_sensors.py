@@ -105,12 +105,12 @@ class TestQueryIMUAPI:
         expr_nested = IMU.Q.acceleration.y.gt(test_numeric_value)
         assert isinstance(expr_nested, _QueryCatalogExpression)
         assert expr_nested.to_dict() == {
-            "imu.acceleration.y": {"$gt": test_numeric_value}
+            f"{IMU.ontology_tag()}.acceleration.y": {"$gt": test_numeric_value}
         }
         expr_nested = IMU.Q.acceleration.y.eq(test_numeric_value)
         assert isinstance(expr_nested, _QueryCatalogExpression)
         assert expr_nested.to_dict() == {
-            "imu.acceleration.y": {"$eq": test_numeric_value}
+            f"{IMU.ontology_tag()}.acceleration.y": {"$eq": test_numeric_value}
         }
 
         # --- Catalog Context: Range Operator ---
@@ -120,7 +120,7 @@ class TestQueryIMUAPI:
         expr_between = IMU.Q.timestamp_ns.between(test_time_range)
         assert isinstance(expr_between, _QueryCatalogExpression)
         assert expr_between.to_dict() == {
-            "imu.timestamp_ns": {"$between": test_time_range}
+            f"{IMU.ontology_tag()}.timestamp_ns": {"$between": test_time_range}
         }
 
     def test_full_sdk_query_to_dict_structure(self):
@@ -136,8 +136,8 @@ class TestQueryIMUAPI:
         # Define Expected Output
         expected_dict = {
             "ontology": {
-                "imu.timestamp_ns": {"$gt": 12345.67},
-                "imu.acceleration.y": {"$gt": 12345.67},
+                f"{IMU.ontology_tag()}.timestamp_ns": {"$gt": 12345.67},
+                f"{IMU.ontology_tag()}.acceleration.y": {"$gt": 12345.67},
             },
         }
 
@@ -220,10 +220,14 @@ class TestQueryGPSAPI:
         # Expected: {'gps.position.y': {'$gt': 12345.67}} - _QueryCatalogExpression
         expr_nested = GPS.Q.position.y.gt(test_numeric_value)
         assert isinstance(expr_nested, _QueryCatalogExpression)
-        assert expr_nested.to_dict() == {"gps.position.y": {"$gt": test_numeric_value}}
+        assert expr_nested.to_dict() == {
+            f"{GPS.ontology_tag()}.position.y": {"$gt": test_numeric_value}
+        }
         expr_nested = GPS.Q.position.y.eq(test_numeric_value)
         assert isinstance(expr_nested, _QueryCatalogExpression)
-        assert expr_nested.to_dict() == {"gps.position.y": {"$eq": test_numeric_value}}
+        assert expr_nested.to_dict() == {
+            f"{GPS.ontology_tag()}.position.y": {"$eq": test_numeric_value}
+        }
 
         # --- Catalog Context: Range Operator ---
         test_time_range = [10000, 30000]
@@ -232,7 +236,7 @@ class TestQueryGPSAPI:
         expr_between = GPS.Q.timestamp_ns.between(test_time_range)
         assert isinstance(expr_between, _QueryCatalogExpression)
         assert expr_between.to_dict() == {
-            "gps.timestamp_ns": {"$between": test_time_range}
+            f"{GPS.ontology_tag()}.timestamp_ns": {"$between": test_time_range}
         }
 
     def test_full_sdk_query_to_dict_structure(self):
@@ -248,8 +252,8 @@ class TestQueryGPSAPI:
         # Define Expected Output
         expected_dict = {
             "ontology": {
-                "gps.timestamp_ns": {"$gt": 12345.67},
-                "gps.position.y": {"$gt": 12345.67},
+                f"{GPS.ontology_tag()}.timestamp_ns": {"$gt": 12345.67},
+                f"{GPS.ontology_tag()}.position.y": {"$gt": 12345.67},
             },
         }
 
@@ -322,7 +326,7 @@ class TestQueryImageAPI:
         expr_image = Image.Q.encoding.match(test_str_value)
         assert isinstance(expr_image, _QueryCatalogExpression)
         assert expr_image.to_dict() == {
-            "image.encoding": {"$match": test_str_value},
+            f"{Image.ontology_tag()}.encoding": {"$match": test_str_value},
         }
 
         # --- Catalog Context: Range Operator ---
@@ -332,7 +336,7 @@ class TestQueryImageAPI:
         expr_between = Image.Q.timestamp_ns.between(test_time_range)
         assert isinstance(expr_between, _QueryCatalogExpression)
         assert expr_between.to_dict() == {
-            "image.timestamp_ns": {"$between": test_time_range}
+            f"{Image.ontology_tag()}.timestamp_ns": {"$between": test_time_range}
         }
 
     def test_full_sdk_query_to_dict_structure(self):
@@ -348,8 +352,8 @@ class TestQueryImageAPI:
         # Define Expected Output
         expected_dict = {
             "ontology": {
-                "image.timestamp_ns": {"$gt": 12345.67},
-                "image.stride": {"$gt": 12345.67},
+                f"{Image.ontology_tag()}.timestamp_ns": {"$gt": 12345.67},
+                f"{Image.ontology_tag()}.stride": {"$gt": 12345.67},
             },
         }
 
@@ -422,7 +426,9 @@ class TestQueryMagnetometerAPI:
         expr_nested = Magnetometer.Q.magnetic_field.x.leq(test_numeric_value)
         assert isinstance(expr_nested, _QueryCatalogExpression)
         assert expr_nested.to_dict() == {
-            "magnetometer.magnetic_field.x": {"$leq": test_numeric_value},
+            f"{Magnetometer.ontology_tag()}.magnetic_field.x": {
+                "$leq": test_numeric_value
+            },
         }
 
         # --- Catalog Context: Range Operator ---
@@ -432,7 +438,7 @@ class TestQueryMagnetometerAPI:
         expr_between = Magnetometer.Q.timestamp_ns.between(test_time_range)
         assert isinstance(expr_between, _QueryCatalogExpression)
         assert expr_between.to_dict() == {
-            "magnetometer.timestamp_ns": {"$between": test_time_range}
+            f"{Magnetometer.ontology_tag()}.timestamp_ns": {"$between": test_time_range}
         }
 
     def test_full_sdk_query_to_dict_structure(self):
@@ -448,8 +454,8 @@ class TestQueryMagnetometerAPI:
         # Define Expected Output
         expected_dict = {
             "ontology": {
-                "magnetometer.timestamp_ns": {"$gt": 12345.67},
-                "magnetometer.magnetic_field.z": {"$gt": 12345.67},
+                f"{Magnetometer.ontology_tag()}.timestamp_ns": {"$gt": 12345.67},
+                f"{Magnetometer.ontology_tag()}.magnetic_field.z": {"$gt": 12345.67},
             },
         }
 
@@ -518,7 +524,7 @@ class TestQueryTemperatureAPI:
         expr_nested = Temperature.Q.value.leq(test_numeric_value)
         assert isinstance(expr_nested, _QueryCatalogExpression)
         assert expr_nested.to_dict() == {
-            "temperature.value": {"$leq": test_numeric_value},
+            f"{Temperature.ontology_tag()}.value": {"$leq": test_numeric_value},
         }
 
         # --- Catalog Context: Range Operator ---
@@ -528,7 +534,7 @@ class TestQueryTemperatureAPI:
         expr_between = Temperature.Q.timestamp_ns.between(test_time_range)
         assert isinstance(expr_between, _QueryCatalogExpression)
         assert expr_between.to_dict() == {
-            "temperature.timestamp_ns": {"$between": test_time_range}
+            f"{Temperature.ontology_tag()}.timestamp_ns": {"$between": test_time_range}
         }
 
     def test_full_sdk_query_to_dict_structure(self):
@@ -544,8 +550,8 @@ class TestQueryTemperatureAPI:
         # Define Expected Output
         expected_dict = {
             "ontology": {
-                "temperature.timestamp_ns": {"$gt": 12345.67},
-                "temperature.value": {"$gt": 303.15},
+                f"{Temperature.ontology_tag()}.timestamp_ns": {"$gt": 12345.67},
+                f"{Temperature.ontology_tag()}.value": {"$gt": 303.15},
             },
         }
 
@@ -627,7 +633,7 @@ class TestQueryPressureAPI:
         expr_nested = Pressure.Q.value.leq(test_numeric_value)
         assert isinstance(expr_nested, _QueryCatalogExpression)
         assert expr_nested.to_dict() == {
-            "pressure.value": {"$leq": test_numeric_value},
+            f"{Pressure.ontology_tag()}.value": {"$leq": test_numeric_value},
         }
 
         # --- Catalog Context: Range Operator ---
@@ -637,7 +643,7 @@ class TestQueryPressureAPI:
         expr_between = Pressure.Q.timestamp_ns.between(test_time_range)
         assert isinstance(expr_between, _QueryCatalogExpression)
         assert expr_between.to_dict() == {
-            "pressure.timestamp_ns": {"$between": test_time_range}
+            f"{Pressure.ontology_tag()}.timestamp_ns": {"$between": test_time_range}
         }
 
     def test_full_sdk_query_to_dict_structure(self):
@@ -653,8 +659,8 @@ class TestQueryPressureAPI:
         # Define Expected Output
         expected_dict = {
             "ontology": {
-                "pressure.timestamp_ns": {"$gt": 12345.67},
-                "pressure.value": {"$gt": 200123.15},
+                f"{Pressure.ontology_tag()}.timestamp_ns": {"$gt": 12345.67},
+                f"{Pressure.ontology_tag()}.value": {"$gt": 200123.15},
             },
         }
 
@@ -747,7 +753,7 @@ class TestQueryRangeAPI:
         expr_nested = Range.Q.field_of_view.leq(test_numeric_value)
         assert isinstance(expr_nested, _QueryCatalogExpression)
         assert expr_nested.to_dict() == {
-            "range.field_of_view": {"$leq": test_numeric_value},
+            f"{Range.ontology_tag()}.field_of_view": {"$leq": test_numeric_value},
         }
 
         # --- Catalog Context: Range Operator ---
@@ -757,7 +763,7 @@ class TestQueryRangeAPI:
         expr_between = Range.Q.timestamp_ns.between(test_time_range)
         assert isinstance(expr_between, _QueryCatalogExpression)
         assert expr_between.to_dict() == {
-            "range.timestamp_ns": {"$between": test_time_range}
+            f"{Range.ontology_tag()}.timestamp_ns": {"$between": test_time_range}
         }
 
     def test_full_sdk_query_to_dict_structure(self):
@@ -773,8 +779,8 @@ class TestQueryRangeAPI:
         # Define Expected Output
         expected_dict = {
             "ontology": {
-                "range.timestamp_ns": {"$gt": 12345.67},
-                "range.field_of_view": {"$gt": 0.52},
+                f"{Range.ontology_tag()}.timestamp_ns": {"$gt": 12345.67},
+                f"{Range.ontology_tag()}.field_of_view": {"$gt": 0.52},
             },
         }
 
@@ -832,22 +838,23 @@ class TestQueryRobotJoint:
         assert isinstance(RobotJoint.Q.names.all(), _QueryableString)
 
         with pytest.raises(
-            AttributeError, match="Field 'robot_joint.names' is a list."
+            AttributeError,
+            match=f"Field '{RobotJoint.ontology_tag()}.names' is a list.",
         ):
             RobotJoint.Q.names.field
 
         expr = RobotJoint.Q.positions[0].eq(0)
-        assert expr.key == "robot_joint.positions[0]"
+        assert expr.key == f"{RobotJoint.ontology_tag()}.positions[0]"
         assert expr.op == "$eq"
         assert expr.value == 0
 
         expr = RobotJoint.Q.positions.all().eq(0)
-        assert expr.key == "robot_joint.positions[!]"
+        assert expr.key == f"{RobotJoint.ontology_tag()}.positions[!]"
         assert expr.op == "$eq"
         assert expr.value == 0
 
         expr = RobotJoint.Q.positions.any().eq(0)
-        assert expr.key == "robot_joint.positions[?]"
+        assert expr.key == f"{RobotJoint.ontology_tag()}.positions[?]"
         assert expr.op == "$eq"
         assert expr.value == 0
 
@@ -878,51 +885,59 @@ class TestQueryRobotPath:
         assert isinstance(RobotPath.Q.poses.all().orientation.z, _QueryableNumeric)
         assert isinstance(RobotPath.Q.poses.all().orientation.w, _QueryableNumeric)
 
-        with pytest.raises(AttributeError, match="Field 'robot_path.poses' is a list."):
+        with pytest.raises(
+            AttributeError, match=f"Field '{RobotPath.ontology_tag()}.poses' is a list."
+        ):
             RobotPath.Q.poses.field
 
         with pytest.raises(
-            TypeError, match="Field 'robot_path.poses\\[0\\]' is not a list."
+            TypeError,
+            match=f"Field '{RobotPath.ontology_tag()}.poses\\[0\\]' is not a list.",
         ):
             RobotPath.Q.poses[0][0]
 
         with pytest.raises(
-            TypeError, match="Field 'robot_path.poses\\[0\\]' is not a list."
+            TypeError,
+            match=f"Field '{RobotPath.ontology_tag()}.poses\\[0\\]' is not a list.",
         ):
             RobotPath.Q.poses[0].any()
 
         with pytest.raises(
-            TypeError, match="Field 'robot_path.poses\\[0\\]' is not a list."
+            TypeError,
+            match=f"Field '{RobotPath.ontology_tag()}.poses\\[0\\]' is not a list.",
         ):
             RobotPath.Q.poses[0].all()
 
         with pytest.raises(
-            TypeError, match="Field 'robot_path.poses\\[0\\].position' is not a list."
+            TypeError,
+            match=f"Field '{RobotPath.ontology_tag()}.poses\\[0\\].position' is not a list.",
         ):
             RobotPath.Q.poses[0].position[0]
 
         with pytest.raises(
-            TypeError, match="Field 'robot_path.poses\\[0\\].position' is not a list."
+            TypeError,
+            match=f"Field '{RobotPath.ontology_tag()}.poses\\[0\\].position' is not a list.",
         ):
             RobotPath.Q.poses[0].position.any()
 
         with pytest.raises(
-            TypeError, match="Field 'robot_path.poses\\[0\\].position' is not a list."
+            TypeError,
+            match=f"Field '{RobotPath.ontology_tag()}.poses\\[0\\].position' is not a list.",
         ):
             RobotPath.Q.poses[0].position.all()
 
         expr = RobotPath.Q.poses[0].position.x.eq(0)
-        assert expr.key == "robot_path.poses[0].position.x"
+        assert expr.key == f"{RobotPath.ontology_tag()}.poses[0].position.x"
         assert expr.op == "$eq"
         assert expr.value == 0
 
         expr = RobotPath.Q.poses.all().position.x.eq(0)
-        assert expr.key == "robot_path.poses[!].position.x"
+        assert expr.key == f"{RobotPath.ontology_tag()}.poses[!].position.x"
         assert expr.op == "$eq"
         assert expr.value == 0
 
         expr = RobotPath.Q.poses.any().position.x.eq(0)
-        assert expr.key == "robot_path.poses[?].position.x"
+        assert expr.key == f"{RobotPath.ontology_tag()}.poses[?].position.x"
         assert expr.op == "$eq"
         assert expr.value == 0
 
@@ -988,55 +1003,65 @@ class TestFrameTransform:
         )
 
         with pytest.raises(
-            AttributeError, match="Field 'frame_transform.transforms' is a list."
+            AttributeError,
+            match=f"Field '{FrameTransform.ontology_tag()}.transforms' is a list.",
         ):
             FrameTransform.Q.transforms.field
 
         with pytest.raises(
-            TypeError, match="Field 'frame_transform.transforms\\[0\\]' is not a list."
+            TypeError,
+            match=f"Field '{FrameTransform.ontology_tag()}.transforms\\[0\\]' is not a list.",
         ):
             FrameTransform.Q.transforms[0][0]
 
         with pytest.raises(
-            TypeError, match="Field 'frame_transform.transforms\\[0\\]' is not a list."
+            TypeError,
+            match=f"Field '{FrameTransform.ontology_tag()}.transforms\\[0\\]' is not a list.",
         ):
             FrameTransform.Q.transforms[0].any()
 
         with pytest.raises(
-            TypeError, match="Field 'frame_transform.transforms\\[0\\]' is not a list."
+            TypeError,
+            match=f"Field '{FrameTransform.ontology_tag()}.transforms\\[0\\]' is not a list.",
         ):
             FrameTransform.Q.transforms[0].all()
 
         with pytest.raises(
             TypeError,
-            match="Field 'frame_transform.transforms\\[0\\].translation' is not a list.",
+            match=f"Field '{FrameTransform.ontology_tag()}.transforms\\[0\\].translation' is not a list.",
         ):
             FrameTransform.Q.transforms[0].translation[0]
 
         with pytest.raises(
             TypeError,
-            match="Field 'frame_transform.transforms\\[0\\].translation' is not a list.",
+            match=f"Field '{FrameTransform.ontology_tag()}.transforms\\[0\\].translation' is not a list.",
         ):
             FrameTransform.Q.transforms[0].translation.any()
 
         with pytest.raises(
             TypeError,
-            match="Field 'frame_transform.transforms\\[0\\].translation' is not a list.",
+            match=f"Field '{FrameTransform.ontology_tag()}.transforms\\[0\\].translation' is not a list.",
         ):
             FrameTransform.Q.transforms[0].translation.all()
 
         expr = FrameTransform.Q.transforms[0].translation.x.eq(0)
-        assert expr.key == "frame_transform.transforms[0].translation.x"
+        assert (
+            expr.key == f"{FrameTransform.ontology_tag()}.transforms[0].translation.x"
+        )
         assert expr.op == "$eq"
         assert expr.value == 0
 
         expr = FrameTransform.Q.transforms.all().translation.x.eq(0)
-        assert expr.key == "frame_transform.transforms[!].translation.x"
+        assert (
+            expr.key == f"{FrameTransform.ontology_tag()}.transforms[!].translation.x"
+        )
         assert expr.op == "$eq"
         assert expr.value == 0
 
         expr = FrameTransform.Q.transforms.any().translation.x.eq(0)
-        assert expr.key == "frame_transform.transforms[?].translation.x"
+        assert (
+            expr.key == f"{FrameTransform.ontology_tag()}.transforms[?].translation.x"
+        )
         assert expr.op == "$eq"
         assert expr.value == 0
 
@@ -1048,21 +1073,21 @@ class TestInertia:
         assert isinstance(Inertia.Q.inertia.any(), _QueryableNumeric)
         assert isinstance(Inertia.Q.inertia.all(), _QueryableNumeric)
 
-        with pytest.raises(AttributeError, match="Field 'inertia.inertia' is a list."):
+        with pytest.raises(AttributeError, match="Field 'Inertia.inertia' is a list."):
             Inertia.Q.inertia.field
 
         expr = Inertia.Q.inertia[0].eq(0)
-        assert expr.key == "inertia.inertia[0]"
+        assert expr.key == f"{Inertia.ontology_tag()}.inertia[0]"
         assert expr.op == "$eq"
         assert expr.value == 0
 
         expr = Inertia.Q.inertia.all().eq(0)
-        assert expr.key == "inertia.inertia[!]"
+        assert expr.key == f"{Inertia.ontology_tag()}.inertia[!]"
         assert expr.op == "$eq"
         assert expr.value == 0
 
         expr = Inertia.Q.inertia.any().eq(0)
-        assert expr.key == "inertia.inertia[?]"
+        assert expr.key == f"{Inertia.ontology_tag()}.inertia[?]"
         assert expr.op == "$eq"
         assert expr.value == 0
 
@@ -1085,46 +1110,46 @@ class TestCamera:
         assert isinstance(CameraInfo.Q.projection_parameters.all(), _QueryableNumeric)
 
         expr = CameraInfo.Q.intrinsic_parameters[0].eq(0)
-        assert expr.key == "camera_info.intrinsic_parameters[0]"
+        assert expr.key == f"{CameraInfo.ontology_tag()}.intrinsic_parameters[0]"
         assert expr.op == "$eq"
         assert expr.value == 0
 
         expr = CameraInfo.Q.intrinsic_parameters.all().eq(0)
-        assert expr.key == "camera_info.intrinsic_parameters[!]"
+        assert expr.key == f"{CameraInfo.ontology_tag()}.intrinsic_parameters[!]"
         assert expr.op == "$eq"
         assert expr.value == 0
 
         expr = CameraInfo.Q.intrinsic_parameters.any().eq(0)
-        assert expr.key == "camera_info.intrinsic_parameters[?]"
+        assert expr.key == f"{CameraInfo.ontology_tag()}.intrinsic_parameters[?]"
         assert expr.op == "$eq"
         assert expr.value == 0
 
         expr = CameraInfo.Q.rectification_parameters[0].eq(0)
-        assert expr.key == "camera_info.rectification_parameters[0]"
+        assert expr.key == f"{CameraInfo.ontology_tag()}.rectification_parameters[0]"
         assert expr.op == "$eq"
         assert expr.value == 0
 
         expr = CameraInfo.Q.rectification_parameters.all().eq(0)
-        assert expr.key == "camera_info.rectification_parameters[!]"
+        assert expr.key == f"{CameraInfo.ontology_tag()}.rectification_parameters[!]"
         assert expr.op == "$eq"
         assert expr.value == 0
 
         expr = CameraInfo.Q.rectification_parameters.any().eq(0)
-        assert expr.key == "camera_info.rectification_parameters[?]"
+        assert expr.key == f"{CameraInfo.ontology_tag()}.rectification_parameters[?]"
         assert expr.op == "$eq"
         assert expr.value == 0
 
         expr = CameraInfo.Q.projection_parameters[0].eq(0)
-        assert expr.key == "camera_info.projection_parameters[0]"
+        assert expr.key == f"{CameraInfo.ontology_tag()}.projection_parameters[0]"
         assert expr.op == "$eq"
         assert expr.value == 0
 
         expr = CameraInfo.Q.projection_parameters.all().eq(0)
-        assert expr.key == "camera_info.projection_parameters[!]"
+        assert expr.key == f"{CameraInfo.ontology_tag()}.projection_parameters[!]"
         assert expr.op == "$eq"
         assert expr.value == 0
 
         expr = CameraInfo.Q.projection_parameters.any().eq(0)
-        assert expr.key == "camera_info.projection_parameters[?]"
+        assert expr.key == f"{CameraInfo.ontology_tag()}.projection_parameters[?]"
         assert expr.op == "$eq"
         assert expr.value == 0

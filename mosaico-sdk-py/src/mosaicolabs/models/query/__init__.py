@@ -4,6 +4,11 @@ from .builders import (
     QuerySequence as QuerySequence,
     QueryTopic as QueryTopic,
 )
+from .queryable_fields import (
+    QueryableBool as QueryableBool,
+    QueryableNumeric as QueryableNumeric,
+    QueryableString as QueryableString,
+)
 from .response import (
     QueryResponse as QueryResponse,
     QueryResponseItem as QueryResponseItem,

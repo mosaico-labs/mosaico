@@ -32,7 +32,7 @@ def imu_query_topic() -> QueryResponseItemTopic:
     qri = QueryResponseItemTopic._from_dict(
         {
             "locator": "seq1/front_imu",
-            "ontology_tag": "imu",
+            "ontology_tag": f"{IMU.ontology_tag()}",
         }
     )
 
@@ -48,7 +48,7 @@ def pressure_query_topic() -> QueryResponseItemTopic:
     qrit = QueryResponseItemTopic._from_dict(
         {
             "locator": "seq1/gasoline_tank_press",
-            "ontology_tag": "pressure",
+            "ontology_tag": f"{Pressure.ontology_tag()}",
         }
     )
 
@@ -67,7 +67,7 @@ def temperature_query_sequence() -> QueryResponseItem:
             "topics": [
                 {
                     "locator": "seq2/car_temp",
-                    "ontology_tag": "temperature",
+                    "ontology_tag": f"{Temperature.ontology_tag()}",
                 },
             ],
         }
@@ -95,8 +95,8 @@ def test_create_clusterize_payload(imu_query_topic):
         "locator": "seq1/front_imu",
         "clustering_dt_ns": 0,
         "ontology": {
-            "imu.acceleration.x": {"$gt": 5.0},
-            "imu.acceleration.y": {"$eq": 20.0},
+            f"{IMU.ontology_tag()}.acceleration.x": {"$gt": 5.0},
+            f"{IMU.ontology_tag()}.acceleration.y": {"$eq": 20.0},
         },
         "timestamp_range": None,
     }
@@ -113,8 +113,8 @@ def test_create_clusterize_payload(imu_query_topic):
         "locator": "seq1/front_imu",
         "clustering_dt_ns": 200,
         "ontology": {
-            "imu.acceleration.x": {"$gt": 5.0},
-            "imu.acceleration.y": {"$eq": 20.0},
+            f"{IMU.ontology_tag()}.acceleration.x": {"$gt": 5.0},
+            f"{IMU.ontology_tag()}.acceleration.y": {"$eq": 20.0},
         },
         "timestamp_range": None,
     }
@@ -132,8 +132,8 @@ def test_create_clusterize_payload(imu_query_topic):
         "locator": "seq1/front_imu",
         "clustering_dt_ns": 200,
         "ontology": {
-            "imu.acceleration.x": {"$gt": 5.0},
-            "imu.acceleration.y": {"$eq": 20.0},
+            f"{IMU.ontology_tag()}.acceleration.x": {"$gt": 5.0},
+            f"{IMU.ontology_tag()}.acceleration.y": {"$eq": 20.0},
         },
         "timestamp_range": {"start_ns": 1, "end_ns": 10},
     }
@@ -177,22 +177,22 @@ def test_create_intersect_payload(
                 "locator": "seq1/front_imu",
                 "clustering_dt_ns": 0,
                 "ontology": {
-                    "imu.acceleration.x": {"$gt": 5.0},
-                    "imu.acceleration.y": {"$eq": 20.0},
+                    f"{IMU.ontology_tag()}.acceleration.x": {"$gt": 5.0},
+                    f"{IMU.ontology_tag()}.acceleration.y": {"$eq": 20.0},
                 },
             },
             {
                 "locator": "seq1/gasoline_tank_press",
                 "clustering_dt_ns": 0,
                 "ontology": {
-                    "pressure.value": {"$between": [1.0, 5.0]},
+                    f"{Pressure.ontology_tag()}.value": {"$between": [1.0, 5.0]},
                 },
             },
             {
                 "locator": "seq2/car_temp",
                 "clustering_dt_ns": 0,
                 "ontology": {
-                    "temperature.value": {"$lt": 3.0},
+                    f"{Temperature.ontology_tag()}.value": {"$lt": 3.0},
                 },
             },
         ],
@@ -222,22 +222,22 @@ def test_create_intersect_payload(
                 "locator": "seq1/front_imu",
                 "clustering_dt_ns": 10,
                 "ontology": {
-                    "imu.acceleration.x": {"$gt": 5.0},
-                    "imu.acceleration.y": {"$eq": 20.0},
+                    f"{IMU.ontology_tag()}.acceleration.x": {"$gt": 5.0},
+                    f"{IMU.ontology_tag()}.acceleration.y": {"$eq": 20.0},
                 },
             },
             {
                 "locator": "seq1/gasoline_tank_press",
                 "clustering_dt_ns": 50,
                 "ontology": {
-                    "pressure.value": {"$between": [1.0, 5.0]},
+                    f"{Pressure.ontology_tag()}.value": {"$between": [1.0, 5.0]},
                 },
             },
             {
                 "locator": "seq2/car_temp",
                 "clustering_dt_ns": 300,  # not present in map and default overridden
                 "ontology": {
-                    "temperature.value": {"$lt": 3.0},
+                    f"{Temperature.ontology_tag()}.value": {"$lt": 3.0},
                 },
             },
         ],

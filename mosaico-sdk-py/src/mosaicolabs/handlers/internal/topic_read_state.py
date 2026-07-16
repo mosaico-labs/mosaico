@@ -12,6 +12,7 @@ from typing import Iterator, List, Optional
 import pyarrow as pa
 import pyarrow.flight as fl
 
+from mosaicolabs.enum.serialization_format import SerializationFormat
 from mosaicolabs.logging_config import get_logger
 
 # Set the hierarchical logger
@@ -34,6 +35,8 @@ class _TopicReadState:
         self,
         topic_name: str,
         ontology_tag: str,
+        serialization_format: SerializationFormat,
+        msg_count: Optional[int],
         reader: Optional[fl.FlightStreamReader],
     ):
         """
@@ -42,6 +45,9 @@ class _TopicReadState:
         Args:
             topic_name (str): The name of the topic.
             ontology_tag (str): The identifier for the ontology data type.
+            serialization_format (SerializationFormat): The serialization format of the
+                the ontology data model.
+            msg_count (int): The number of messages in the topic.
             reader (Optional[fl.FlightStreamReader]): The active stream reader.
 
         Raises:
@@ -53,6 +59,8 @@ class _TopicReadState:
         self.topic_name: str = topic_name
         self.reader: Optional[fl.FlightStreamReader] = reader
         self.ontology_tag: str = ontology_tag
+        self.serialization_format = serialization_format
+        self.msg_count: Optional[int] = msg_count
 
         # --- Schema Validation & Setup ---
         self.column_names: List[str] = []

@@ -2679,6 +2679,7 @@ dependencies = [
  "mosaicod-grpc-common",
  "mosaicod-grpc-flight",
  "mosaicod-store",
+ "sqlx",
  "tokio",
  "tonic",
  "tower",

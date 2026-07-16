@@ -517,7 +517,7 @@ The following table lists the supported operators for each data type:
 
 While the `.Q` proxy is highly versatile, it enforces specific rules on which data structures can be queried:
 
-* **Composed Types**: The proxy resolves all simple (int, float, str, bool) or composed types (like `Vector3d` or `Quaternion`). It will continue to expose nested fields as long as they lead to a primitive base type.
+* **Supported Types**: The proxy resolves all simple (`int`, `float`, `str`, `bool`, `list`) or composed types (like `Vector3d` or `Quaternion` or `List[Vector3d]`, etc.). It will continue to expose nested fields as long as they lead to a primitive base type.
 * **Dictionaries**: Dynamic fields, i.e. derived from dictionaries in the ontology models, are fully queryable through the proxy using bracket notation (e.g., `<DataModel>.Q.dict_field["key"]` or `<DataModel>.Q.dict_field["key.subkey.subsubkey"]`). This approach provides the flexibility to search across custom tags and dynamic properties that aren't part of a fixed schema. This dictionary-based querying logic applies to any **custom ontology model** created by the user that contains a `dict` field.
     * **Syntax**: Instead of the standard dot notation used for fixed fields, you must use square brackets `["key"]` to target specific dictionary entries.
     * **Nested Access**: For dictionaries containing nested structures, you can use **dot notation within the key string** (e.g., `["environment.visibility"]`) to traverse sub-fields.
@@ -557,6 +557,123 @@ with MosaicoClient.connect("localhost", 6726) as client:
 
 ??? question "API Reference"
     [`mosaicolabs.models.sensors.RobotJoint`][mosaicolabs.models.sensors.RobotJoint--querying-with-the-q-proxy]
+
+### Class-Free Queries
+
+The `.Q` proxy is injected onto a `Serializable` *class*, so building a filter with it requires having that class in hand. That assumption breaks down for [`Unmodeled`][mosaicolabs.models.core.unmodeled.Unmodeled] ontology data (see [Advanced: Ingesting Unmodeled Ontologies](./ontology.md#advanced-ingesting-unmodeled-ontologies)): you may know exactly which ontology tag and field you want to filter on, without ever having resolved - or wanting to resolve - a Python class for it, especially when a tag has multiple schema variants and you don't care which one you're querying against.
+
+The classes in the [`queryable_fields`][mosaicolabs.models.query.queryable_fields] module are the class-free equivalent of the `.Q` proxy: instead of intercepting attribute access on a class, you construct them directly from the fully-qualified, dot-notated field path (`f"{ontology_tag}.field.subfield"`) - the exact same path string the `.Q` proxy would have produced internally. They generate the identical `QueryExpression` under the hood, so anywhere a `.Q`-derived expression is accepted (`with_expression()`, the `QueryOntologyCatalog` constructor, ...) a `QueryableNumeric`/`QueryableString`/`QueryableBool` expression works too.
+
+??? question "API Reference"
+    [`mosaicolabs.models.query.queryable_fields`][mosaicolabs.models.query.queryable_fields]
+
+**Example** The same filter, expressed with and without a resolved class
+
+```python
+from mosaicolabs import MosaicoClient, QueryOntologyCatalog, IMU
+from mosaicolabs.models.query.queryable_fields import QueryableNumeric
+
+with MosaicoClient.connect("localhost", 6726) as client:
+    # Using the .Q proxy - requires the IMU class
+    qresponse = client.query(
+        QueryOntologyCatalog().with_expression(IMU.Q.acceleration.x.gt(9.8))
+    )
+
+    # Class-free equivalent - only the ontology tag and field path are needed.
+    # `IMU.ontology_tag()` is used here purely for illustration: for a modeled
+    # ontology you already have the class, so `.Q` is simpler. The point is
+    # that the two produce the *same* query.
+    qresponse = client.query(
+        QueryOntologyCatalog().with_expression(
+            QueryableNumeric(f"{IMU.ontology_tag()}.acceleration.x").gt(9.8)
+        )
+    )
+```
+
+The real payoff shows up once no class is available at all. Suppose an unmodeled ontology tagged `"GyroRaw"` was ingested via [`make_unmodeled_ontology_class()`][mosaicolabs.models.core.unmodeled.make_unmodeled_ontology_class] (see the [`UnmodeledGyro` example](./ontology.md#how-it-works)) from a process that has since exited - there's no `UnmodeledGyro` class left to build a `.Q` proxy from. The tag and field path are enough:
+
+```python
+from mosaicolabs import MosaicoClient, QueryOntologyCatalog
+from mosaicolabs.models.query.queryable_fields import QueryableNumeric, QueryableString
+
+with MosaicoClient.connect("localhost", 6726) as client:
+    # Numeric filter on an unmodeled gyroscope reading - no UnmodeledGyro class required
+    qresponse = client.query(
+        QueryOntologyCatalog().with_expression(
+            QueryableNumeric("GyroRaw.gyro.x").gt(0.5)
+        )
+    )
+
+    # String filter on an unrelated unmodeled ontology, e.g. a translated
+    # diagnostic-log message type tagged "DiagnosticLog" with a "level" field
+    qresponse = client.query(
+        QueryOntologyCatalog().with_expression(
+            QueryableString("DiagnosticLog.level").eq("ERROR")
+        )
+    )
+```
+
+`QueryableNumeric`, `QueryableString` and `QueryableBool` support the same operators as the corresponding leaf types in the table above.
+
+| Class | Supported Operators | Value Type |
+| --- | --- | --- |
+| [`QueryableNumeric`][mosaicolabs.models.query.queryable_fields.QueryableNumeric] | `.eq()`, `.neq()`, `.lt()`, `.leq()`, `.gt()`, `.geq()`, `.in_()`, `.between()` | `int`, `float` |
+| [`QueryableString`][mosaicolabs.models.query.queryable_fields.QueryableString] | `.eq()`, `.match()`, `.lt()`, `.leq()`, `.gt()`, `.geq()`, `.in_()` | `str` |
+| [`QueryableBool`][mosaicolabs.models.query.queryable_fields.QueryableBool] | `.eq()` | `bool` |
+
+#### Querying List Fields
+
+Querying list fields is possible for unmodeled ontology schemas also, exactly the same way it is done with hand-authored ontology classes. As in this case, a list field isn't a leaf value the server can compare against, so when setting the path of the list field to query against, it is necessary to select *which* element(s) the condition targets before a `Queryable*` type can wrap anything. An index selector, appended directly after the list field's name, "exposes" one conceptual element of the list, turning `list_field` (a list) into a single addressable slot the same way `.field` does for a struct.
+
+| Selector | Applies the condition to |
+| --- | --- |
+| `list_field[i]` | The element at index `i` (0-based). |
+| `list_field[!]` | Every element - the condition must hold for **all** of them. |
+| `list_field[?]` | At least one element - the condition must hold for **any** of them. |
+
+Once a selector has exposed an element, what comes next depends on what the list actually holds:
+
+- **Simple lists** (a list of a basic type, e.g. `covariance: List[float]`): the exposed element *is* the leaf value, so wrap the selected path directly in the `Queryable*` type matching that type - `QueryableNumeric` for a list of floats, `QueryableString` for a list of strings, and so on.
+- **Struct lists** (a list of nested structs, e.g. `detections: List[Detection]`): the exposed element is itself a struct, so continue with a regular `.field.subfield` path to reach one of *its* leaves, then wrap that in the `Queryable*` type matching that leaf's type.
+
+Either way, by the time a `Queryable*` type is constructed, the path always resolves to a single scalar value per matched element.
+
+**Simple lists** - the selector's output is the leaf value itself:
+
+```python
+from mosaicolabs.models.query.queryable_fields import QueryableNumeric
+
+# The first covariance element is negative
+QueryableNumeric("IMU.covariance[0]").lt(0.0)
+
+# Every covariance element is non-negative
+QueryableNumeric("IMU.covariance[!]").geq(0.0)
+
+# At least one covariance element exceeds 1.0
+QueryableNumeric("IMU.covariance[?]").gt(1.0)
+```
+
+**Struct lists** - continue with `.field.subfield` after the selector to reach a leaf of the exposed struct (`detections: List[Detection]`, where `Detection` has a `label` and a `confidence`):
+
+```python
+from mosaicolabs.models.query.queryable_fields import QueryableNumeric, QueryableString
+
+# The first detected object is labeled "pedestrian"
+QueryableString("DetectionArray.detections[0].label").eq("pedestrian")
+
+# Every detection has confidence >= 0.9
+QueryableNumeric("DetectionArray.detections[!].confidence").geq(0.9)
+
+# At least one detection is labeled "pedestrian"
+QueryableString("DetectionArray.detections[?].label").eq("pedestrian")
+
+# At least one detection has confidence below 0.5
+QueryableNumeric("DetectionArray.detections[?].confidence").lt(0.5)
+```
+
+!!! note "No client-side schema validation"
+    Because there's no class involved, neither the field path nor its expected type are checked against anything before the query is sent; if the path doesn't exist, or the actual field has a different type, the server simply returns no matches rather than raising an SDK-side error.
+
 
 ### Temporal Windows
 

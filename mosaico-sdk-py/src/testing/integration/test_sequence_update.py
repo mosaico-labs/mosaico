@@ -28,6 +28,8 @@ def test_sequence_update_not_in_context(
             Pressure,
         )
 
+    mosaico_client.close()
+
 
 def test_sequence_update_on_error_report(
     mosaico_client: MosaicoClient,
@@ -54,6 +56,8 @@ def test_sequence_update_on_error_report(
 
     mosaico_client.session_delete(session_locator)
 
+    mosaico_client.close()
+
 
 def test_sequence_update_on_error_delete(
     mosaico_client: MosaicoClient,
@@ -75,6 +79,8 @@ def test_sequence_update_on_error_delete(
     assert seqhandler.reload() is True
     # The session and its data are not on the server
     assert "/test_topic_delete" not in seqhandler.topics
+
+    mosaico_client.close()
 
 
 def test_sequence_update(
@@ -164,3 +170,5 @@ def test_sequence_update(
     assert query_resp[0].topics[0].name == "/updated_topic/pressure"
 
     mosaico_client.session_delete(session_locator)
+
+    mosaico_client.close()

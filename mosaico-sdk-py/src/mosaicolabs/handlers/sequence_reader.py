@@ -6,12 +6,13 @@ by merging multiple topic streams into a single, time-ordered iterator.
 """
 
 import json
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Type
 
 import pyarrow.flight as fl
 
 from ..logging_config import get_logger
-from ..models.core import Message
+from ..models.core import Message, Serializable
+from ..models.core.helpers import resolve_ontology_class
 from ..platform.resource_manifests import (
     TopicManifestError,
     TopicResourceManifest,
@@ -206,6 +207,21 @@ class SequenceDataStreamer:
                 "at the beginning of the session."
             )
 
+    @property
+    def msg_count(self) -> int:
+        """
+        The sum of all messages within each topic streamer.
+
+        Returns:
+            The sum of all messages within each topic streamer.
+        """
+
+        return sum(
+            filter(
+                None, (t_reader.msg_count for t_reader in self._topic_readers.values())
+            )
+        )
+
     # --- Iterator Protocol Implementation ---
 
     def __iter__(self) -> "SequenceDataStreamer":
@@ -306,7 +322,8 @@ class SequenceDataStreamer:
             raise StopIteration
 
         # Retrieve data from Winner
-        self._winning_rdstate = self._topic_readers[topic_min_tstamp]._rdstate
+        winning_topic = self._topic_readers[topic_min_tstamp]
+        self._winning_rdstate = winning_topic._rdstate
         assert self._winning_rdstate.peeked_row is not None
 
         row_values = self._winning_rdstate.peeked_row
@@ -318,8 +335,16 @@ class SequenceDataStreamer:
         # Advance the Winner's stream
         self._winning_rdstate.peek_next_row()
 
-        return self._winning_rdstate.topic_name, Message._create(
-            self._winning_rdstate.ontology_tag, **row_dict
+        OntologyClass: Type[Serializable] = resolve_ontology_class(
+            class_name=self._winning_rdstate.ontology_tag,
+            ontology_tag=self._winning_rdstate.ontology_tag,
+            schema=winning_topic._pyarrow_schema,
+            schema_fingerprint=winning_topic._schema_fingerprint,
+            serialization_format=self._winning_rdstate.serialization_format,
+        )
+
+        return winning_topic.name(), Message._decode(
+            tag_or_type=OntologyClass, **row_dict
         )
 
     @staticmethod

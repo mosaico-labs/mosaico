@@ -10,22 +10,22 @@ from mosaicolabs.models.query.generation.internal import (
 
 class PyarrowFieldMapper:
     """
-    A custom FieldMapper that builds the map by inspecting
-    PyArrow `__msco_pyarrow_struct__` attributes. The map is the
+    A custom FieldMapper that builds the schema by inspecting
+    PyArrow `__msco_pyarrow_struct__` attributes. The schema is the
     unrolled version of the ontology PyArrow schema mapping
     the ontology field names to their respective `pyarrow.DataType()`
     """
 
-    def build_map(
+    def build_schema(
         self,
         class_type: type,
         path_prefix: Optional[str] = None,
     ) -> Tuple[str, Dict[str, Any]]:
         """
-        Builds the pyarrow.Datatype map for a given Ontology Model, via pyarrow
+        Builds the pyarrow.Datatype schema for a given Ontology Model, via pyarrow
         struct inspection.
 
-        This method iterates over all model fields, recursively building a map for
+        This method iterates over all model fields, recursively building a schema for
         nested Pydantic models and associating the field name with its `pyarrow.DataType()`.
 
         As an example, passing the
@@ -73,13 +73,13 @@ class PyarrowFieldMapper:
         # Make sure we have a valid path prefix
         path_prefix = path_prefix or class_type.__ontology_tag__ or class_type.__name__
         # start fields mapping
-        return path_prefix, self._build_map_recursive(
+        return path_prefix, self._build_schema_recursive(
             combined_struct,
         )
 
-    def _build_map_recursive(self, struct_type: pa.StructType) -> Dict[str, Any]:
+    def _build_schema_recursive(self, struct_type: pa.StructType) -> Dict[str, Any]:
         """
-        Recursivelly unrolls the passed Pyarrow Struct resulting creating the nested map
+        Recursivelly unrolls the passed Pyarrow Struct resulting creating the nested schema
         where the keys are the name of the considered pyarrow field
         and the values may are:
 
@@ -88,14 +88,14 @@ class PyarrowFieldMapper:
           - a `pyarrow.DataType()` otherwise.
 
         """
-        field_map = {}
+        field_schema = {}
 
         for field in struct_type:
             # Construct the full path for this field (e.g. "telemetry.speed")
 
             if isinstance(field.type, pa.StructType):
                 # If the field is a nested struct, recurse into it
-                field_map[field.name] = self._build_map_recursive(field.type)
+                field_schema[field.name] = self._build_schema_recursive(field.type)
 
             elif isinstance(
                 field.type, (pa.ListType, pa.LargeListType, pa.FixedSizeListType)
@@ -104,19 +104,19 @@ class PyarrowFieldMapper:
 
                 # List type is another struct
                 if isinstance(list_value_type, pa.StructType):
-                    field_map[field.name] = _QueryableList(
-                        self._build_map_recursive(list_value_type)
+                    field_schema[field.name] = _QueryableList(
+                        self._build_schema_recursive(list_value_type)
                     )
                 else:
                     # Set the PyArrow type as dict value
-                    field_map[field.name] = field.type
+                    field_schema[field.name] = field.type
 
             else:
                 # If it's a base field (not a list or nested struct):
                 # Set the PyArrow type as dict value
-                field_map[field.name] = field.type
+                field_schema[field.name] = field.type
 
             # If it's a list type, skip it for now (no query support yet)
             # Lists can be added later with special handling if needed.
 
-        return field_map
+        return field_schema
