@@ -442,6 +442,11 @@ class RosbagInjector:
         5. **Adapt & Push**: Translates the ROS dictionary into a Mosaico object and pushes it to the server buffer.
         """
 
+        if self._loader is None:
+            raise RuntimeError(
+                "Impossible to process messages if ROSLoader is not instanciated first"
+            )
+
         # --- Filter Check ---
         if ros_msg.topic in self._ignored_topics:
             ui.advance_global()
@@ -457,7 +462,7 @@ class RosbagInjector:
         # --- Adapter Resolution ---
         adapter = (self.cfg.adapter_overrides or {}).get(
             ros_msg.topic
-        ) or self._get_default_adapter(ros_msg.msg_type)
+        ) or self._loader.resolve_adapter(ros_msg.topic)
 
         if adapter is None:
             # If no adapter exists, blacklist this topic to prevent future lookups
@@ -466,6 +471,29 @@ class RosbagInjector:
             ui.advance_global()
             return
 
+        # --- Schema metadata Resolution ---
+        schema_metadata = adapter.schema_metadata(
+            self._loader._typestore, ros_msg.msg_type
+        )
+
+        # NOTE: here we do not return: we just update the UI for notification of "no-adaptation"
+        # This message will be treated as unmodeled
+
+        # This topic should be in the _not_adapted_topics registry
+        # FIXME: Check if necessary to make a get instead of direct access
+        # tinfo = loader._not_adapted_topics.get(ros_msg.topic)
+        # if tinfo is None:
+        #     self._ignored_topics.add(ros_msg.topic)
+        #     return
+
+        # NOTE: In this case the schema metadata is enriched with data schema
+        # schema_metadata = adapter.schema_metadata(
+        #     typestore=loader._typestore,
+        #     ros_msg_type=ros_msg.msg_type,
+        #     ros_msg_def=tinfo.msgdef,  # <- This
+        # )
+        # NOTE: All the following, thanx to UnmodeledAdapter, stays unchanged
+
         # Retrieve the writer from SequenceWriter local cache or create new one on server
         twriter = seq_writer.get_topic_writer(ros_msg.topic)
         # Should theoretically not be None if exists returned True
@@ -473,10 +501,7 @@ class RosbagInjector:
             # Register new topic on server
             twriter = seq_writer.topic_create(
                 topic_name=ros_msg.topic,
-                metadata=adapter.schema_metadata(
-                    self._open_or_get_loader()._typestore, ros_msg.msg_type
-                )
-                or {},
+                metadata=schema_metadata or {},
                 ontology_type=adapter.ontology_data_type(),
                 on_error=self._get_topic_on_error(ros_msg.topic),
             )

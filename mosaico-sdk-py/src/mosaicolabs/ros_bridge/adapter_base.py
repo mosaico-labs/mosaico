@@ -197,7 +197,9 @@ class ROSAdapterBase(ABC, Generic[T]):
         pass
 
     @classmethod
-    def schema_metadata(cls, typestore: Typestore, ros_msg_type: str) -> Optional[dict]:
+    def schema_metadata(
+        cls, typestore: Typestore, ros_msg_type: str, **kwargs
+    ) -> Optional[dict]:
         """
         Extracts ROS-specific schema metadata for the Mosaico platform.
 
@@ -261,8 +263,11 @@ class ROSAdapterBase(ABC, Generic[T]):
 
         # Extract ENUM associated to ros_msg_type and adding it to the out dict with the ros_msg_type
         enum_list, _ = msg_def
-        out_dict = {"enums": {name: val for name, _, val in enum_list}}
-        out_dict.update({"msgtype": ros_msg_type})
+        out_dict = {
+            "enums": {name: val for name, _, val in enum_list},
+            "msgtype": ros_msg_type,
+            "msgdef": kwargs.get("ros_msg_def"),
+        }
 
         ms_metadata = {"_ros_": out_dict}
 

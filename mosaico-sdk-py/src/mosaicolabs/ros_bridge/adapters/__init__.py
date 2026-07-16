@@ -47,3 +47,4 @@ from .sensor_msgs import (
 )
 from .std_msgs import HeaderAdapter as HeaderAdapter
 from .tf2_msgs import FrameTransformAdapter as FrameTransformAdapter
+from .unmodeled import UnmodeledAdapter as UnmodeledAdapter
