@@ -2573,14 +2573,30 @@ dependencies = [
 name = "mosaicod"
 version = "0.6.0-dev"
 dependencies = [
+ "clap",
+ "mimalloc",
+ "mosaicod-build",
+ "mosaicod-commands",
+ "mosaicod-core",
+]
+
+[[package]]
+name = "mosaicod-build"
+version = "0.6.0-dev"
+dependencies = [
+ "chrono",
+]
+
+[[package]]
+name = "mosaicod-commands"
+version = "0.6.0-dev"
+dependencies = [
  "chrono",
  "clap",
  "colored",
  "dotenv",
  "if-addrs",
  "iso8601",
- "mimalloc",
- "mosaicod-build",
  "mosaicod-core",
  "mosaicod-db",
  "mosaicod-facade",
@@ -2594,13 +2610,6 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "url",
-]
-
-[[package]]
-name = "mosaicod-build"
-version = "0.6.0-dev"
-dependencies = [
- "chrono",
 ]
 
 [[package]]

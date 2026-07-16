@@ -1,0 +1,29 @@
+[package]
+name = "mosaicod-commands"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+mosaicod-core = { workspace = true }
+mosaicod-db = { workspace = true }
+mosaicod-store = { workspace = true }
+mosaicod-facade = { workspace = true }
+mosaicod-grpc = { workspace = true }
+mosaicod-query = { workspace = true }
+mosaicod-task = { workspace = true }
+
+clap = { workspace = true }
+tokio-util = { workspace = true }
+dotenv = { workspace = true }
+colored = { workspace = true }
+signal-hook = { workspace = true }
+if-addrs = { workspace = true }
+tokio = { workspace = true }
+iso8601 = { workspace = true }
+chrono = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+url = { workspace = true }

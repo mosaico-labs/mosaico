@@ -2,12 +2,8 @@
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
-mod command;
-mod common;
-mod log;
-mod print;
-
 use clap::{CommandFactory, FromArgMatches, Parser, Subcommand};
+use mosaicod_commands::{command, common, log, print};
 use mosaicod_core::error::PublicResult as Result;
 
 #[derive(Parser, Debug)]
