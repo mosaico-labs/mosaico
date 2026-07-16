@@ -12,7 +12,7 @@ from rich.progress import (
     TimeRemainingColumn,
 )
 from rosbags.highlevel import AnyReader
-from rosbags.interfaces import Connection, TopicInfo  # as ROSTopicInfo
+from rosbags.interfaces import Connection, TopicInfo
 from rosbags.typesys import Stores, get_typestore
 from rosbags.typesys.store import Typestore
 
@@ -233,40 +233,6 @@ class ProgressManager:
             self.progress.advance(self.global_task)
 
 
-# # NOTE: This is necessary to add the message schema to a TopicInfo
-# # (to have it available when needed)
-# # FIXME: Check if this type can be filled with connection info,
-# # rather than rosbags.TopicInfo
-# class TopicInfo:
-#     """
-#     Wraps a `ROSTopicInfo` (a `NamedTuple`, so it can't be subclassed to add
-#     fields) to expose its original attributes while attaching a resolved schema.
-#     """
-
-#     def __init__(
-#         self,
-#         info: Union[ROSTopicInfo, "TopicInfo"],
-#         schema: pa.StructType | None = None,
-#     ):
-#         self._info = info
-#         self.schema = schema
-
-#     def __getattr__(self, attr):
-#         "Fallback invoked when normal lookup fails"
-#         return getattr(self._info, attr)
-
-#     @classmethod
-#     def from_ros_topic_info(
-#         cls,
-#         info: Union[ROSTopicInfo, "TopicInfo"],
-#         schema: pa.StructType | None = None,
-#     ):
-#         return cls(
-#             info,
-#             schema=schema,
-#         )
-
-
 class ROSLoader:
     """
     Unified loader for reading and deserializing ROS 1 (.bag) and ROS 2 (.mcap, .db3) data.
@@ -415,10 +381,6 @@ class ROSLoader:
 
         self._connections = []
 
-        # self._resolved_topics = {
-        #     tname: TopicInfo.from_ros_topic_info(tinfo)
-        #     for tname, tinfo in self._reader.topics.items()
-        # }
         self._resolved_topics = {
             tname: tinfo for tname, tinfo in self._reader.topics.items()
         }
@@ -451,13 +413,6 @@ class ROSLoader:
                 )
                 self._not_adapted_topics.update({conn.topic: topic_info})
                 continue
-
-            # In this case the schema metadata is enriched with data schema
-            adapter.schema_metadata(
-                typestore=self._typestore,
-                ros_msg_type=topic_info.msgtype or "",  # at this point cannot be None
-                ros_msg_def=topic_info.msgdef.data,
-            )
 
             # Adapter found, add it the the cache and add connection
             self._topic_cached_adapters[conn.topic] = adapter

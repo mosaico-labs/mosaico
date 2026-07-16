@@ -476,24 +476,6 @@ class RosbagInjector:
             self._loader._typestore, ros_msg.msg_type
         )
 
-        # NOTE: here we do not return: we just update the UI for notification of "no-adaptation"
-        # This message will be treated as unmodeled
-
-        # This topic should be in the _not_adapted_topics registry
-        # FIXME: Check if necessary to make a get instead of direct access
-        # tinfo = loader._not_adapted_topics.get(ros_msg.topic)
-        # if tinfo is None:
-        #     self._ignored_topics.add(ros_msg.topic)
-        #     return
-
-        # NOTE: In this case the schema metadata is enriched with data schema
-        # schema_metadata = adapter.schema_metadata(
-        #     typestore=loader._typestore,
-        #     ros_msg_type=ros_msg.msg_type,
-        #     ros_msg_def=tinfo.msgdef,  # <- This
-        # )
-        # NOTE: All the following, thanx to UnmodeledAdapter, stays unchanged
-
         # Retrieve the writer from SequenceWriter local cache or create new one on server
         twriter = seq_writer.get_topic_writer(ros_msg.topic)
         # Should theoretically not be None if exists returned True
