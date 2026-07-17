@@ -144,6 +144,7 @@ class ROSMessage:
             to the bag file. This is the "storage time".
         topic (str): The specific topic string source (e.g., "/camera/left/image_raw").
         msg_type (str): The canonical ROS type string (e.g., "sensor_msgs/msg/Image").
+        msg_def (Optional[str]): The ROS message definition as string.
         data (Optional[Dict[str, Any]]): The message payload converted into a standard
             nested Python dictionary.
         header (Optional[ROSHeader]): An automatically parsed `ROSHeader` if the
@@ -156,10 +157,12 @@ class ROSMessage:
         topic: str,
         msg_type: str,
         data: Optional[Dict[str, Any]],
+        msg_def: Optional[str] = None,
     ):
         self.bag_timestamp_ns = bag_timestamp_ns
         self.topic = topic
         self.msg_type = msg_type
+        self.msg_def = msg_def
         self.data = data
         if data:
             header_dict = data.get("header")
@@ -178,5 +181,7 @@ class ROSMessage:
     """The message ros type string."""
     data: Optional[Dict[str, Any]]
     """The message payload, converted into a standard nested Python dictionary."""
+    msg_def: Optional[str]
+    """ The ROS message definition as string """
     header: Optional[ROSHeader] = None
     """The message payload header"""

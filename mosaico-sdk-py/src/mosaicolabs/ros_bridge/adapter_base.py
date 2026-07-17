@@ -255,19 +255,18 @@ class ROSAdapterBase(ABC, Generic[T]):
         if not cls.is_rosmsg_type_valid(ros_msg_type):
             return None
 
+        out_dict = {}
+
         # Check that ros_msg_type exists in typestore
         msg_def = typestore.fielddefs.get(ros_msg_type)
 
-        if msg_def is None:
-            return None
+        # Extract ENUM associated to ros_msg_type and adding it to the out dict (if available in typestore)
+        if msg_def:
+            enum_list, _ = msg_def
+            out_dict["enums"] = {name: val for name, _, val in enum_list}
 
-        # Extract ENUM associated to ros_msg_type and adding it to the out dict with the ros_msg_type
-        enum_list, _ = msg_def
-        out_dict = {
-            "enums": {name: val for name, _, val in enum_list},
-            "msgtype": ros_msg_type,
-            "msgdef": kwargs.get("ros_msg_def"),
-        }
+        out_dict["msgtype"] = ros_msg_type
+        out_dict["msgdef"] = kwargs.get("ros_msg_def")
 
         ms_metadata = {"_ros_": out_dict}
 

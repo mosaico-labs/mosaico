@@ -72,16 +72,19 @@ class UnmodeledAdapter(ROSAdapterBase[T], Generic[T]):
         return super().schema_metadata(typestore, ros_msg_type, **kwargs)
 
     @classmethod
-    def get_or_create(cls, ontology_type: Type[T]) -> Type["UnmodeledAdapter"]:
+    def get_or_create(
+        cls, ontology_type: Type[T], msgtype: str
+    ) -> Type["UnmodeledAdapter"]:
+        """
+        TODO
+        """
         key = ontology_type.__registry_key__ or ontology_type.ontology_tag()
         adapter = _UNMODELED_ADAPTERS_REGISTRY.get(key)
         if adapter is None:
             adapter = type(
                 f"{ontology_type.__name__}Adapter",
                 (UnmodeledAdapter,),
-                {
-                    "__mosaico_ontology_type__": ontology_type,
-                },
+                {"__mosaico_ontology_type__": ontology_type, "ros_msgtype": msgtype},
             )
             _UNMODELED_ADAPTERS_REGISTRY[key] = adapter
 

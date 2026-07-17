@@ -481,8 +481,9 @@ class ROSLoader:
         )
 
         # If adapter does not exist, create a new one through pyarrow schema deduced from msgdef
+        msgtype: str = topic_info.msgtype
         msgdef: str = topic_info.msgdef.data
-        pyarrow_schema = convert_ros2msg(msgdef)
+        pyarrow_schema = convert_ros2msg(msgdef, msgtype)
 
         # Create the ontology
         unmodeled_ontology = resolve_ontology_class(
@@ -495,7 +496,8 @@ class ROSLoader:
         # Create the adapter
         adapter = UnmodeledAdapter.get_or_create(
             # This will make a new class or reuse an already registered one
-            ontology_type=unmodeled_ontology
+            ontology_type=unmodeled_ontology,
+            msgtype=msgtype,
         )
 
         return adapter
@@ -716,6 +718,7 @@ class ROSLoader:
                         bag_timestamp_ns=bag_timestamp_ns,
                         topic=connection.topic,
                         msg_type=connection.msgtype,
+                        msg_def=connection.msgdef.data,
                         data=_to_dict(msg_obj),
                     ),
                     None,
@@ -728,6 +731,7 @@ class ROSLoader:
                         bag_timestamp_ns=bag_timestamp_ns,
                         topic=connection.topic,
                         msg_type=connection.msgtype,
+                        msg_def=connection.msgdef.data,
                         data=None,
                     ),
                     e,
@@ -1050,7 +1054,7 @@ class MosaicoLoader:
         """
         self._resolve_sequence()
 
-        if not self.streamer:
+        if not self.seq_handler:
             raise Exception(
                 "Impossible to start streaming: SequenceDataStreamer is not initialised. Did you forget calling _resolve_sequence()?"
             )
@@ -1061,7 +1065,9 @@ class MosaicoLoader:
             filter(
                 None,
                 (
-                    self.streamer._topic_readers[topic].msg_count
+                    self.seq_handler.get_topic_handler(topic)
+                    .get_data_streamer()
+                    .msg_count
                     for topic in topics_to_count
                 ),
             )

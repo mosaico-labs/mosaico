@@ -473,7 +473,7 @@ class RosbagInjector:
 
         # --- Schema metadata Resolution ---
         schema_metadata = adapter.schema_metadata(
-            self._loader._typestore, ros_msg.msg_type
+            self._loader._typestore, ros_msg.msg_type, ros_msg_def=ros_msg.msg_def
         )
 
         # Retrieve the writer from SequenceWriter local cache or create new one on server
