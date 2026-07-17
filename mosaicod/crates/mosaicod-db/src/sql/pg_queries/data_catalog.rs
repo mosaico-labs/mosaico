@@ -1,5 +1,5 @@
 use crate::{Error, core::AsExec, sql::schema};
-use log::trace;
+use log::{trace, warn};
 use mosaicod_core::types::{self};
 use mosaicod_query as query;
 use sqlx::{Row, postgres::PgRow};
@@ -45,6 +45,23 @@ pub async fn chunk_create(
     .fetch_one(exec.as_exec())
     .await?;
     Ok(res)
+}
+
+pub async fn chunk_delete_by_topic_id(
+    exec: &mut impl AsExec,
+    topic_id: i32,
+    _: types::DataLossToken,
+) -> Result<(), Error> {
+    warn!(
+        "(data loss) deleting chunk stats for topic with id {}",
+        topic_id
+    );
+
+    sqlx::query!(r#"DELETE FROM chunk_t WHERE topic_id = $1"#, topic_id)
+        .execute(exec.as_exec())
+        .await?;
+
+    Ok(())
 }
 
 pub async fn column_chunk_textual_create(

@@ -122,7 +122,7 @@ async fn test_sequence_flight_info(pool: sqlx::Pool<db::DatabaseType>) {
         .unwrap();
     assert!(topic_uuid.is_valid());
 
-    let batches = vec![ext::arrow::testing::dummy_batch()];
+    let batches = vec![ext::arrow::testing::dummy_batch(7, 10000, 5, 1, 1)];
 
     let response = actions::do_put(
         &mut client,
@@ -235,7 +235,7 @@ async fn test_sequence_delete(pool: sqlx::Pool<db::DatabaseType>) {
         .unwrap();
     assert!(topic_uuid.is_valid());
 
-    let batches = vec![ext::arrow::testing::dummy_batch()];
+    let batches = vec![ext::arrow::testing::dummy_batch(7, 10000, 5, 1, 1)];
     actions::do_put(&mut client, &topic_uuid, topic_name, batches, false)
         .await
         .unwrap();
@@ -401,7 +401,7 @@ async fn test_sequence_delete_cascades(pool: sqlx::Pool<db::DatabaseType>) {
         .await
         .unwrap();
 
-    let batches = vec![ext::arrow::testing::dummy_batch()];
+    let batches = vec![ext::arrow::testing::dummy_batch(7, 10000, 5, 1, 1)];
     actions::do_put(&mut client, &topic_uuid, topic_name, batches, false)
         .await
         .unwrap();

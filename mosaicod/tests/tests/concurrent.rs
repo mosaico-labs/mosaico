@@ -65,7 +65,7 @@ async fn test_concurrent_session_finalize(pool: sqlx::Pool<db::DatabaseType>) {
     let topic_uuid = actions::topic_create(&mut client, &session_uuid, topic_name, None)
         .await
         .unwrap();
-    let batches = vec![ext::arrow::testing::dummy_batch()];
+    let batches = vec![ext::arrow::testing::dummy_batch(7, 10000, 5, 1, 1)];
     actions::do_put(&mut client, &topic_uuid, topic_name, batches, false)
         .await
         .unwrap();
@@ -125,11 +125,11 @@ async fn test_concurrent_do_put_same_topic(pool: sqlx::Pool<db::DatabaseType>) {
     let n2 = topic_name.clone();
 
     let h1 = tokio::spawn(async move {
-        let batches = vec![ext::arrow::testing::dummy_batch()];
+        let batches = vec![ext::arrow::testing::dummy_batch(7, 10000, 5, 1, 1)];
         actions::do_put(&mut c1, &t1, &n1, batches, false).await
     });
     let h2 = tokio::spawn(async move {
-        let batches = vec![ext::arrow::testing::dummy_batch()];
+        let batches = vec![ext::arrow::testing::dummy_batch(7, 10000, 5, 1, 1)];
         actions::do_put(&mut c2, &t2, &n2, batches, false).await
     });
 
@@ -188,7 +188,7 @@ async fn test_concurrent_topic_create_during_finalize(pool: sqlx::Pool<db::Datab
     let topic_uuid = actions::topic_create(&mut client, &session_uuid, existing_topic, None)
         .await
         .unwrap();
-    let batches = vec![ext::arrow::testing::dummy_batch()];
+    let batches = vec![ext::arrow::testing::dummy_batch(7, 10000, 5, 1, 1)];
     actions::do_put(&mut client, &topic_uuid, existing_topic, batches, false)
         .await
         .unwrap();
@@ -255,7 +255,7 @@ async fn test_concurrent_read_during_write(pool: sqlx::Pool<db::DatabaseType>) {
     let t = topic_uuid.clone();
     let n = topic_name.clone();
     let writer_task = tokio::spawn(async move {
-        let batches = vec![ext::arrow::testing::dummy_batch()];
+        let batches = vec![ext::arrow::testing::dummy_batch(7, 10000, 5, 1, 1)];
         actions::do_put(&mut writer, &t, &n, batches, false).await
     });
 

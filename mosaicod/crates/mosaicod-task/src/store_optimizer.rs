@@ -7,14 +7,17 @@ use mosaicod_core::{
     self as core, error::PublicResult as Result, params, traits::AsyncWriteToPath, types,
 };
 use mosaicod_db as db;
-use mosaicod_rw::{self as rw, format::ToProperties};
+use mosaicod_facade as facade;
+use mosaicod_rw::{self as rw, SerializedChunk, format::ToProperties};
 use mosaicod_store as store;
 use std::sync::Arc;
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, info};
 
 const DEFAULT_TIME_INTERVAL: u32 = 86400;
-const DEFAULT_MAX_OUTPUT_FILE_SIZE: i64 = 512 * 1024 * 1024; // Bytes
+
+// Default max size for merged files.
+pub const DEFAULT_MAX_OUTPUT_FILE_SIZE: i64 = 512 * 1024 * 1024; // Bytes
 
 fn df_to_internal_error(err: df::error::DataFusionError) -> core::Error {
     let err_msg = format!("datafusion error: {}", err);
@@ -25,6 +28,7 @@ pub struct StoreOptimizer {
     db: db::Database,
     store: store::StoreRef,
     time_interval: types::Duration,
+    max_file_size: i64,
 }
 
 impl StoreOptimizer {
@@ -34,11 +38,17 @@ impl StoreOptimizer {
             db,
             store,
             time_interval: types::Duration::seconds(DEFAULT_TIME_INTERVAL),
+            max_file_size: DEFAULT_MAX_OUTPUT_FILE_SIZE,
         }
     }
 
     pub fn with_time_interval(mut self, time_interval: types::Duration) -> Self {
         self.time_interval = time_interval;
+        self
+    }
+
+    pub fn with_max_file_size(mut self, max_file_size: i64) -> Self {
+        self.max_file_size = max_file_size;
         self
     }
 
@@ -65,24 +75,51 @@ impl StoreOptimizer {
         }
 
         let max_rows_per_output_file =
-            DEFAULT_MAX_OUTPUT_FILE_SIZE / (stats.total_size_bytes / stats.total_row_count);
+            self.max_file_size / (stats.total_size_bytes / stats.total_row_count);
 
         Ok(max_rows_per_output_file as u32)
     }
 
-    /// Flushes the buffer on disk composing the path with [`output_path_in_store`] and [`data_file`].
+    /// Flushes the buffer on disk composing the path with [`path_in_store`] and [`data_file`].
     async fn flush_chunk(
         &self,
         buffer: Vec<u8>,
-        output_path_in_store: &types::TopicPathInStore,
+        path_in_store: &types::TopicPathInStore,
         data_file: &std::path::Path,
-    ) -> Result<()> {
-        let path = output_path_in_store.data_folder_path().join(data_file);
+    ) -> Result<std::path::PathBuf> {
+        let path = path_in_store.data_folder_path().join(data_file);
 
         self.store
             .write_to_path(&path, buffer)
             .await
             .map_err(|e| core::Error::internal(Some(e.to_string())))?;
+
+        Ok(path)
+    }
+
+    /// Replaces old chunk stats with new ones.
+    async fn update_chunk_stats(
+        &self,
+        tx: &mut db::Tx<'_>,
+        topic: &db::TopicRecord,
+        chunk_stats: Vec<SerializedChunk>,
+    ) -> Result<()> {
+        // Remove old stats.
+        db::chunk_delete_by_topic_id(tx, topic.topic_id, types::allow_data_loss()).await?;
+
+        // Save new stats.
+        for stats in chunk_stats {
+            facade::update_chunk_stats(
+                tx,
+                &topic.uuid(),
+                &stats.path,
+                stats.metadata.size_bytes as i64,
+                stats.metadata.row_count as i64,
+                &topic.ontology_tag,
+                stats.ontology_stats,
+            )
+            .await?;
+        }
 
         Ok(())
     }
@@ -92,23 +129,16 @@ impl StoreOptimizer {
         &self,
         topic_record: &db::TopicRecord,
         output_path_in_store: &types::TopicPathInStore,
-    ) -> Result<()> {
+    ) -> Result<Vec<SerializedChunk>> {
         debug!(
             "Store optimization for topic {} started",
             topic_record.locator()
         );
 
-        // 1. Configure the session settings for file compaction
-        let mut config = df::execution::config::SessionConfig::new();
+        let max_rows = self.max_rows_per_output_file(topic_record).await? as usize;
 
-        // Target row count per output file (adjust based on your schema to hit desired size)
-        config = config.set_str(
-            "datafusion.execution.soft_max_rows_per_output_file",
-            &self
-                .max_rows_per_output_file(topic_record)
-                .await?
-                .to_string(),
-        );
+        // Configure the session settings for file compaction
+        let config = df::execution::config::SessionConfig::new().with_batch_size(max_rows);
 
         let runtime = Arc::new(
             df::execution::runtime_env::RuntimeEnvBuilder::new()
@@ -124,6 +154,12 @@ impl StoreOptimizer {
             let err_msg = format!("path in store not set for topic {}", topic_record.locator());
             Err(core::Error::internal(Some(err_msg)))?
         };
+
+        // Copy metadata.json into new path in store before switch.
+        let metadata = self.store.read_bytes(pis.path_metadata()).await?;
+        self.store
+            .write_bytes(output_path_in_store.path_metadata(), metadata)
+            .await?;
 
         let input_folder = self
             .store
@@ -146,7 +182,7 @@ impl StoreOptimizer {
             .await
             .map_err(df_to_internal_error)?;
 
-        // 3. Preserve and ensure global chronological sort order.
+        // Preserve and ensure global chronological sort order.
         // Because DataFusion scans files via multiple parallel threads, sorting explicitly
         // guarantees that the new larger files are neatly segmented by time.
         let sorted_df = df
@@ -165,8 +201,6 @@ impl StoreOptimizer {
 
         let mut chunk_idx: usize = 0;
 
-        let max_rows = self.max_rows_per_output_file(topic_record).await? as usize;
-
         let Some(format) = topic_record.serialization_format() else {
             let err_msg = format!(
                 "missing serialization format in DB for topic {}",
@@ -175,27 +209,12 @@ impl StoreOptimizer {
             Err(core::Error::internal(Some(err_msg)))?
         };
 
-        let mut writer = rw::InMemoryChunkEncoder::try_new(schema.clone(), format)?;
+        let mut chunk_stats: Vec<SerializedChunk> = vec![];
 
         while let Some(batch_result) = batch_stream.next().await {
             let batch = batch_result.map_err(df_to_internal_error)?;
 
-            // If adding this batch exceeds our limit, roll over to a new file
-            if writer.row_count() + batch.num_rows() > max_rows {
-                let (buffer, _, _) = writer.finalize()?;
-
-                self.flush_chunk(
-                    buffer,
-                    output_path_in_store,
-                    types::TopicPathInStore::data_file(chunk_idx, format.to_properties().as_ref())
-                        .as_ref(),
-                )
-                .await?;
-
-                chunk_idx += 1;
-
-                writer = rw::InMemoryChunkEncoder::try_new(schema.clone(), format)?;
-            }
+            let mut writer = rw::InMemoryChunkEncoder::try_new(schema.clone(), format)?;
 
             // Offload CPU-intensive parquet encoding/compression to blocking thread pool
             writer = tokio::task::spawn_blocking(move || -> Result<_> {
@@ -204,58 +223,86 @@ impl StoreOptimizer {
             })
             .await
             .map_err(|e| core::Error::internal(Some(e.to_string())))??;
+
+            let (buffer, stats, chunk_metadata) = writer.finalize()?;
+
+            let chunk_path = self
+                .flush_chunk(
+                    buffer,
+                    output_path_in_store,
+                    types::TopicPathInStore::data_file(chunk_idx, format.to_properties().as_ref())
+                        .as_ref(),
+                )
+                .await?;
+
+            chunk_stats.push(SerializedChunk {
+                path: chunk_path,
+                metadata: chunk_metadata,
+                ontology_stats: stats,
+            });
+
+            chunk_idx += 1;
         }
 
-        // Flush the trailing chunk, which never triggered a rollover in the loop above.
-        if writer.row_count() > 0 {
-            let (buffer, _, _) = writer.finalize()?;
-
-            self.flush_chunk(
-                buffer,
-                output_path_in_store,
-                types::TopicPathInStore::data_file(chunk_idx, format.to_properties().as_ref())
-                    .as_ref(),
-            )
-            .await?;
-        }
-
-        Ok(())
+        Ok(chunk_stats)
     }
 
     async fn optimize(&self) -> Result<()> {
         // Scans the database to search for topics not yet optimized and to put them inside topic optimization table.
         db::topic_update_optimization_list(&mut self.db.connection()).await?;
 
-        let mut tx = self.db.transaction().await?;
+        loop {
+            let mut tx = self.db.transaction().await?;
 
-        if let Some(topic_to_optimize_record) = db::topic_next_to_be_optimized(&mut tx).await? {
-            // Update start_unix_tstamp and opt_path_in_store for the retrieved topic_to_optimize_record.
-            let opt_path_in_store = types::TopicPathInStore::new();
+            if let Some(topic_to_optimize_record) = db::topic_next_to_be_optimized(&mut tx).await? {
+                // Update start_unix_tstamp and opt_path_in_store for the retrieved topic_to_optimize_record.
+                let opt_path_in_store = types::TopicPathInStore::new();
 
-            db::topic_start_optimization(
-                &mut tx,
-                topic_to_optimize_record.topic_id,
-                types::Timestamp::now(),
-                opt_path_in_store.clone(),
-            )
-            .await?;
-
-            tx.commit().await?;
-
-            let topic_record =
-                db::topic_find_by_id(&mut self.db.connection(), topic_to_optimize_record.topic_id)
-                    .await?;
-
-            self.optimize_topic(&topic_record, &opt_path_in_store)
+                db::topic_start_optimization(
+                    &mut tx,
+                    topic_to_optimize_record.topic_id,
+                    types::Timestamp::now(),
+                    opt_path_in_store.clone(),
+                )
                 .await?;
 
-            db::topic_optimization_complete(
-                &mut self.db.connection(),
-                topic_to_optimize_record.topic_id,
-                types::Timestamp::now().as_i64(),
-                opt_path_in_store,
-            )
-            .await?;
+                tx.commit().await?;
+
+                let topic_record = db::topic_find_by_id(
+                    &mut self.db.connection(),
+                    topic_to_optimize_record.topic_id,
+                )
+                .await?;
+
+                let chunk_stats = self
+                    .optimize_topic(&topic_record, &opt_path_in_store)
+                    .await?;
+
+                // Remove topic from optimization list once processed.
+                db::topic_optimization_delete(
+                    &mut self.db.connection(),
+                    topic_to_optimize_record.topic_id,
+                    types::allow_data_loss(),
+                )
+                .await?;
+
+                let mut tx = self.db.transaction().await?;
+
+                db::topic_optimization_complete(
+                    &mut tx,
+                    topic_to_optimize_record.topic_id,
+                    types::Timestamp::now().as_i64(),
+                    opt_path_in_store,
+                )
+                .await?;
+
+                self.update_chunk_stats(&mut tx, &topic_record, chunk_stats)
+                    .await?;
+
+                tx.commit().await?;
+            } else {
+                break;
+            }
         }
 
         Ok(())
@@ -265,13 +312,14 @@ impl StoreOptimizer {
     pub async fn run(self, shutdown_notifier: CancellationToken) {
         info!("Launching store optimization background routine");
 
-        if self.time_interval.is_zero() {
-            return;
-        }
-
         loop {
             if let Err(e) = self.optimize().await {
                 error!("Store optimization failed: {}", e);
+            }
+
+            // If time interval is set to 0, exit after the first run.
+            if self.time_interval.is_zero() {
+                return;
             }
 
             tokio::select! {

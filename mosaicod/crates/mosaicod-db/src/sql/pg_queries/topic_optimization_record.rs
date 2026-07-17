@@ -1,8 +1,8 @@
 use crate::{Error, core::AsExec, sql::schema};
-use log::trace;
+use log::{trace, warn};
 use mosaicod_core::types;
 
-/// Add topics not yet optimized to topic_optimization_t table.
+/// Add completed topics, but not yet optimized, to topic_optimization_t table.
 pub async fn topic_update_optimization_list(exe: &mut impl AsExec) -> Result<u64, Error> {
     trace!("updating topic optimization list");
 
@@ -10,7 +10,7 @@ pub async fn topic_update_optimization_list(exe: &mut impl AsExec) -> Result<u64
         r#"INSERT INTO topic_optimization_t (topic_id)
            SELECT topic_id
            FROM topic_t
-           WHERE optimization_end_unix_tstamp IS NULL
+           WHERE completion_unix_tstamp IS NOT NULL AND optimization_end_unix_tstamp IS NULL
            ON CONFLICT (topic_id) DO NOTHING
            "#
     )
@@ -66,4 +66,42 @@ pub async fn topic_start_optimization(
     )
     .fetch_optional(exe.as_exec())
     .await?)
+}
+
+/// Returns the number of topics in the optimization list.
+///
+/// This is used for testing purposes.
+pub async fn topic_optimization_count(exe: &mut impl AsExec) -> Result<i64, Error> {
+    trace!("topic optimization count");
+
+    Ok(sqlx::query_scalar!(
+        r#"SELECT COUNT(*) as "count!"
+           FROM topic_optimization_t
+           "#,
+    )
+    .fetch_one(exe.as_exec())
+    .await?)
+}
+
+pub async fn topic_optimization_delete(
+    exe: &mut impl AsExec,
+    topic_id: i32,
+    _: types::DataLossToken,
+) -> Result<(), Error> {
+    warn!(
+        "(data loss) deleting topic with id {} from optimization list",
+        topic_id
+    );
+    let result = sqlx::query!(
+        r#"DELETE FROM topic_optimization_t WHERE topic_id=$1"#,
+        topic_id
+    )
+    .execute(exe.as_exec())
+    .await?;
+
+    if result.rows_affected() == 0 {
+        return Err(Error::NotFound);
+    }
+
+    Ok(())
 }

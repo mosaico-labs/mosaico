@@ -45,6 +45,7 @@ pub struct CleanupIntervalConfig {
 
 pub struct StoreOptimizerConfig {
     pub time_interval: types::Duration,
+    pub max_file_size: i64,
 }
 
 pub struct ServerBuilder {
@@ -87,8 +88,15 @@ impl ServerBuilder {
         self
     }
 
-    pub fn with_store_optimizer(mut self, time_interval: types::Duration) -> Self {
-        self.store_optimizer_config = Some(StoreOptimizerConfig { time_interval });
+    pub fn with_store_optimizer(
+        mut self,
+        time_interval: types::Duration,
+        max_file_size: i64,
+    ) -> Self {
+        self.store_optimizer_config = Some(StoreOptimizerConfig {
+            time_interval,
+            max_file_size,
+        });
         self
     }
 
@@ -174,10 +182,18 @@ impl ServerBuilder {
         });
 
         // Start store optimizer background task.
-        let store_optimizer_time_interval = self.store_optimizer_config.as_ref().map_or(
-            types::Duration::seconds(params::params().store_optimizer_time_interval.value),
-            |c| c.time_interval,
-        );
+        // If no config is provided, store optimizer shall not run.
+        let store_optimizer_time_interval = self
+            .store_optimizer_config
+            .as_ref()
+            .map_or(types::Duration::seconds(0), |c| c.time_interval);
+
+        let store_optimizer_max_file_size = self
+            .store_optimizer_config
+            .as_ref()
+            .map_or(task::store_optimizer::DEFAULT_MAX_OUTPUT_FILE_SIZE, |c| {
+                c.max_file_size
+            });
 
         let store_optimizer_task_handle = tokio::task::spawn({
             let store_optimizer_store = (*store).clone();
@@ -185,11 +201,15 @@ impl ServerBuilder {
             let store_optimizer_shutdown = shutdown.clone();
 
             async move {
-                let store_optimizer =
-                    task::StoreOptimizer::new(store_optimizer_db, store_optimizer_store)
-                        .with_time_interval(store_optimizer_time_interval);
+                // If time interval is 0, then don't even start store optimizer.
+                if store_optimizer_time_interval.num_seconds() != 0 {
+                    let store_optimizer =
+                        task::StoreOptimizer::new(store_optimizer_db, store_optimizer_store)
+                            .with_time_interval(store_optimizer_time_interval)
+                            .with_max_file_size(store_optimizer_max_file_size);
 
-                store_optimizer.run(store_optimizer_shutdown.token()).await
+                    store_optimizer.run(store_optimizer_shutdown.token()).await
+                }
             }
         });
 

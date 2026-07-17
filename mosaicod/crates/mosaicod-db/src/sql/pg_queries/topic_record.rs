@@ -331,6 +331,7 @@ pub async fn topic_update_path_in_store_if_null(
     Ok(res.rows_affected() != 0)
 }
 
+/// Updates optimization completion timestamp and path in store for the given [`topic_id`].
 pub async fn topic_optimization_complete(
     exe: &mut impl AsExec,
     topic_id: i32,

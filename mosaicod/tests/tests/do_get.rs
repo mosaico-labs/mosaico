@@ -30,7 +30,7 @@ async fn test_do_get_basic(pool: sqlx::Pool<db::DatabaseType>) {
         .await
         .unwrap();
 
-    let original_batch = ext::arrow::testing::dummy_batch();
+    let original_batch = ext::arrow::testing::dummy_batch(7, 10000, 5, 1, 1);
     let batches = vec![original_batch.clone()];
     actions::do_put(&mut client, &topic_uuid, topic_name, batches, false)
         .await
@@ -94,7 +94,7 @@ async fn test_do_get_with_interval(pool: sqlx::Pool<db::DatabaseType>) {
         .await
         .unwrap();
 
-    let original_batch = ext::arrow::testing::dummy_batch();
+    let original_batch = ext::arrow::testing::dummy_batch(7, 10000, 5, 1, 1);
     let batches = vec![original_batch.clone()];
     actions::do_put(&mut client, &topic_uuid, topic_name, batches, false)
         .await

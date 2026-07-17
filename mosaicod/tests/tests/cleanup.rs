@@ -86,7 +86,7 @@ async fn test_cleanup_2(pool: sqlx::Pool<db::DatabaseType>) {
     // A topic folder in the store is created when the do_put is called.
     assert_eq!(server.store.list("", None).await.unwrap().len(), 1);
 
-    let batches = vec![ext::arrow::testing::dummy_batch()];
+    let batches = vec![ext::arrow::testing::dummy_batch(7, 10000, 5, 1, 1)];
     actions::do_put(&mut client, &topic_uuid, topic_name, batches, false)
         .await
         .unwrap();
@@ -143,7 +143,7 @@ async fn test_cleanup_3(pool: sqlx::Pool<db::DatabaseType>) {
     // A topic folder in the store is created when the do_put is called.
     assert_eq!(server.store.list("", None).await.unwrap().len(), 1);
 
-    let batches = vec![ext::arrow::testing::dummy_batch()];
+    let batches = vec![ext::arrow::testing::dummy_batch(7, 10000, 5, 1, 1)];
     actions::do_put(&mut client, &topic_uuid, topic_name, batches, false)
         .await
         .unwrap();
@@ -218,12 +218,12 @@ async fn test_cleanup_4(pool: sqlx::Pool<db::DatabaseType>) {
     // A topic folder in the store is created when the do_put is called.
     assert_eq!(server.store.list("", None).await.unwrap().len(), 2);
 
-    let batches = vec![ext::arrow::testing::dummy_batch()];
+    let batches = vec![ext::arrow::testing::dummy_batch(7, 10000, 5, 1, 1)];
     actions::do_put(&mut client, &topic1_uuid, topic1_name, batches, false)
         .await
         .unwrap();
 
-    let batches = vec![ext::arrow::testing::dummy_batch()];
+    let batches = vec![ext::arrow::testing::dummy_batch(7, 10000, 5, 1, 1)];
     actions::do_put(&mut client, &topic2_uuid, topic2_name, batches, false)
         .await
         .unwrap();

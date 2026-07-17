@@ -27,7 +27,7 @@ async fn setup_topics_with_metadata(
         .await
         .unwrap();
 
-        let batches = vec![mosaicod_ext::arrow::testing::dummy_batch()];
+        let batches = vec![mosaicod_ext::arrow::testing::dummy_batch(7, 10000, 5, 1, 1)];
         actions::do_put(client, &topic_uuid, &topic_name, batches, false)
             .await
             .unwrap();

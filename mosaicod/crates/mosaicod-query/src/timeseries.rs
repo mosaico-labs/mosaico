@@ -679,7 +679,7 @@ mod tests {
     use mosaicod_store as store;
 
     async fn write_dummy_file(store: &store::Store, file_path: &str) {
-        let batch = arrow::testing::dummy_batch();
+        let batch = arrow::testing::dummy_batch(7, 10000, 5, 1, 1);
         let schema = batch.schema().clone();
 
         use parquet::arrow::arrow_writer::ArrowWriter;

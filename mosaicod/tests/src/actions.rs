@@ -296,6 +296,7 @@ pub async fn do_put(
     );
 
     let flight_data_stream = FlightDataEncoderBuilder::new()
+        .with_max_flight_data_size(25_000_000)
         .with_flight_descriptor(if no_descriptor {
             None
         } else {
@@ -677,7 +678,7 @@ pub async fn setup_topic_with_notifications(
         .await
         .unwrap();
 
-    let batches = vec![ext::arrow::testing::dummy_batch()];
+    let batches = vec![ext::arrow::testing::dummy_batch(7, 10000, 5, 1, 1)];
     do_put(client, &topic_uuid, topic_name, batches, false)
         .await
         .unwrap();

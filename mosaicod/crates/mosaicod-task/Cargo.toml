@@ -14,6 +14,7 @@ mosaicod-core = { workspace = true }
 mosaicod-db = { workspace = true, features = ["postgres"] }
 mosaicod-store = { workspace = true }
 mosaicod-rw = { workspace = true }
+mosaicod-facade = { workspace = true }
 chrono = { workspace = true }
 tracing = { workspace = true }
 tokio = { workspace = true }
