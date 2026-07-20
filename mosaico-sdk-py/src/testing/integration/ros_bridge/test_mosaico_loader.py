@@ -24,7 +24,7 @@ def test_valid_msgtype(mosaico_client):
         mosaico_loader = MosaicoLoader(
             mosaico_client, get_typestore(ros_distro), ros_sequence_name
         )
-        adapter, rosmsg_type = mosaico_loader._resolve_topic_adapter(t_handler)
+        adapter, rosmsg_type = mosaico_loader._get_or_create_adapter(t_handler)
 
         assert adapter and adapter.ontology_data_type() is Pose
         assert (
@@ -58,7 +58,7 @@ def test_invalid_msgtype(mosaico_client):
             TypeError,
             match=f"Topic {t_handler.name} contains msgtype within metadata but it has unexpected type.",
         ):
-            mosaico_loader._resolve_topic_adapter(t_handler)
+            mosaico_loader._get_or_create_adapter(t_handler)
 
         mosaico_client.sequence_delete(ros_sequence_name)
 
@@ -83,7 +83,7 @@ def test_no_msgtype_fallback_to_default_adapter(mosaico_client):
             mosaico_client, get_typestore(ros_distro), ros_sequence_name
         )
 
-        adapter, rosmsg_type = mosaico_loader._resolve_topic_adapter(t_handler)
+        adapter, rosmsg_type = mosaico_loader._get_or_create_adapter(t_handler)
 
         assert adapter and adapter.ontology_data_type() is Pose
         assert (
@@ -119,7 +119,7 @@ def test_no_adapter_available(mosaico_client):
             mosaico_client, get_typestore(ros_distro), ros_sequence_name
         )
 
-        adapter, rosmsg_type = mosaico_loader._resolve_topic_adapter(t_handler)
+        adapter, rosmsg_type = mosaico_loader._get_or_create_adapter(t_handler)
 
         assert adapter is None
         assert rosmsg_type == "not_adapted_ontology"
@@ -147,7 +147,7 @@ def test_not_adapted_msgtype_fallack_to_default_adapter(
             mosaico_client, get_typestore(ros_distro), ros_sequence_name
         )
 
-        adapter, rosmsg_type = mosaico_loader._resolve_topic_adapter(t_handler)
+        adapter, rosmsg_type = mosaico_loader._get_or_create_adapter(t_handler)
 
         assert adapter and adapter.ontology_data_type() is Pose
         assert (

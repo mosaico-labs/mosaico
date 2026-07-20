@@ -1,13 +1,90 @@
 import fnmatch
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, TypeGuard
 
 import numpy as np
 from rosbags.interfaces import TopicInfo
 
+from mosaicolabs import SequenceHandler, TopicHandler
 from mosaicolabs.logging_config import get_logger
 
 # Set the hierarchical logger
 logger = get_logger(__name__)
+
+
+def _validate_sequence(
+    seq_handler: Optional[SequenceHandler],
+) -> TypeGuard[SequenceHandler]:
+    if seq_handler is None:
+        return False
+    return True
+
+
+def _clip_timestamp(
+    start_ns: Optional[int],
+    end_ns: Optional[int],
+    min_ns: Optional[int],
+    max_ns: Optional[int],
+) -> tuple[Optional[int], Optional[int]]:
+
+    if start_ns is not None and min_ns is not None and start_ns < min_ns:
+        logger.warning(
+            f"Provided start_timestamp_ns is lower than sequence timestamp_ns_min: {start_ns} < {min_ns}. Clipping start_timestamp_ns to sequence timestamp_ns_min"
+        )
+        start_ns = max(start_ns, min_ns)
+
+    if end_ns is not None and max_ns is not None and end_ns > max_ns:
+        logger.warning(
+            f"Provided end_timestamp_ns is higher than sequence timestamp_ns_max: {end_ns} > {max_ns}. Clipping end_timestamp_ns to sequence timestamp_ns_max"
+        )
+        end_ns = min(end_ns, max_ns)
+
+    return start_ns, end_ns
+
+
+def _extract_ros_metadata(t_handler: TopicHandler) -> Dict[str, Any]:
+    """
+    Reads and validates the ``_ros_`` metadata field, if present.
+
+    Each of ``msgtype``, ``msgdef`` and ``enums`` is validated independently:
+    a field that's simply absent is left out of the returned metadata (it's
+    the caller's responsibility to decide whether it needed that field), while
+    a field that's present but holds an unexpected type raises immediately.
+
+    Args:
+        t_handler: The topic handler whose metadata should be inspected.
+
+    Returns:
+        The declared ROS metadata, or an empty dict if the topic carries no
+        ``_ros_`` metadata at all.
+
+    Raise: TypeError when the topic's ``_ros_`` metadata carries malformed
+        metadata
+    """
+    ros_metadata = t_handler.user_metadata.get("_ros_")
+
+    if not ros_metadata:
+        return {}
+
+    msgtype = ros_metadata.get("msgtype")
+    msgdef = ros_metadata.get("msgdef")
+    msgconst = ros_metadata.get("enums", {})
+
+    if msgtype is not None and not isinstance(msgtype, str):
+        raise TypeError(
+            f"Topic {t_handler.name} contains msgtype within metadata but it has unexpected type. Expected {str.__name__} but got {type(msgtype).__name__}"
+        )
+
+    if msgdef is not None and not isinstance(msgdef, str):
+        raise TypeError(
+            f"Topic {t_handler.name} contains msgdef within metadata but it has unexpected type. Expected {str.__name__} but got {type(msgdef).__name__}"
+        )
+
+    if not isinstance(msgconst, dict):
+        raise TypeError(
+            f"Topic {t_handler.name} contains enums within metadata but it has unexpected type. Expected {dict.__name__} but got {type(msgconst).__name__}"
+        )
+
+    return ros_metadata
 
 
 def _to_dict(message: Any) -> Any:

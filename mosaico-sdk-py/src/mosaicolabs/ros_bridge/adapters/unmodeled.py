@@ -1,5 +1,6 @@
 from typing import Any, Dict, Generic, Optional, Tuple, Type, TypeVar, Union
 
+from rosbags.interfaces.typing import Fielddefs, Nodetype
 from rosbags.typesys.store import Typestore
 
 from mosaicolabs.models.core.message import Message
@@ -11,6 +12,72 @@ from ..adapter_base import ROSAdapterBase
 T = TypeVar("T", bound=Unmodeled)
 
 _UNMODELED_ADAPTERS_REGISTRY: Dict[str, Type["UnmodeledAdapter"]] = {}
+
+
+# field_def item example for simple types:   ("x"               , (Nodetype.BASE    , ("float64", 0)                 ))
+# field_def item example for complex types:  ("pos"             , (Nodetype.NAME    , "geometry_msg/msg/Point"))
+# field_def item example for sequence types: ('cell_temperature', (Nodetype.SEQUENCE, ((T.BASE, ('float32', 0)), 0) )) -> unknown size lists
+# field_def item example for sequence types: ('k'               , (Nodetype.ARRAY   , ((T.BASE, ('float64', 0)), 9) )) -> fixed size lists
+def pack_unmodeled(
+    raw_data: dict[str, Any], msg_def: Fielddefs, typestore: Typestore
+) -> dict[str, Any]:
+    """
+    Recursively replaces nested-message dicts in `raw_data` with the actual
+    ros message instances required to construct a ROS message.
+
+    `Unmodeled.raw_data` stores nested ROS messages as plain dicts, but rosbags
+    message classes expect their nested-message fields to be instances of the
+    corresponding rosbags type, not dicts. This walks `msg_def` alongside
+    `raw_data` and, for every field describing a nested message
+    (`Nodetype.NAME`), instantiates that message type from its (recursively
+    packed) dict. Fields holding a base type, array or sequence are left
+    as-is, since they can be passed straight through via `**raw_data`.
+
+    Args:
+        raw_data: The payload to pack, keyed by field name exactly as declared
+            in `msg_def`. Mutated in place for nested-message fields.
+        msg_def: The rosbags field definitions (`Typestore.get_msgdef(...).fields`)
+            describing the expected shape of `raw_data`.
+        typestore: The rosbags typestore used to resolve nested message types
+            by name and look up their own field definitions.
+
+    Returns:
+        `raw_data`, with every nested-message dict replaced by an instance of
+        its corresponding rosbags message type.
+
+    Raises:
+        TypeError: If a field's definition doesn't match any of the node types
+            rosbags is expected to produce (`NAME`, `BASE`, `SEQUENCE`, `ARRAY`).
+    """
+
+    for field_name, field_descr in msg_def:
+        node_type, content = field_descr
+
+        if node_type == Nodetype.NAME and isinstance(content, str):
+            msgtype = content
+
+            NestedObjectType = typestore.types[msgtype]
+
+            raw_data[field_name] = NestedObjectType(
+                **pack_unmodeled(
+                    raw_data[field_name],
+                    typestore.get_msgdef(msgtype).fields,
+                    typestore,
+                )
+            )
+        elif node_type in (
+            Nodetype.BASE,
+            Nodetype.SEQUENCE,
+            Nodetype.ARRAY,
+        ):
+            pass  # do nothing, the content (base type, array or sequence) can be unpacked unsing **
+        else:
+            raise TypeError(
+                f"Unsupported field definition for '{field_name}': "
+                f"node type {node_type!r} with content {content!r}"
+            )
+
+    return raw_data
 
 
 class UnmodeledAdapter(ROSAdapterBase[T], Generic[T]):
@@ -55,8 +122,26 @@ class UnmodeledAdapter(ROSAdapterBase[T], Generic[T]):
         Converts a Mosaico `Unmodeled` subclass (or a ``Message`` wrapping one) into the
         corresponding ROS message.
         """
-        raise NotImplementedError(
-            f"The input ros message type {ros_msg_type} is supported but not implemented"
+        # Resolve ROS message to translate Mosaico message to if not defined in input
+        resolved_rosmsg_type = ros_msg_type or cls.get_default_ros_msg()
+        if not cls.is_rosmsg_type_valid(resolved_rosmsg_type):
+            raise TypeError(
+                f"Adapter {cls.__name__} does not support {resolved_rosmsg_type}"
+            )
+
+        # Checking presence in typestore of requested message
+        if typestore.types.get(resolved_rosmsg_type) is None:
+            raise TypeError(f"Typestore does not contain {resolved_rosmsg_type}")
+
+        # Unpacking Mosaico message / type
+        unmodeled_data, _ = cls.unpack_mosaico_msg(mosaico_data)
+
+        # Filling the data
+        RosUnmodeled = typestore.types[resolved_rosmsg_type]
+        rosbag_msgdef = typestore.get_msgdef(resolved_rosmsg_type)
+
+        return RosUnmodeled(
+            **pack_unmodeled(unmodeled_data.raw_data, rosbag_msgdef.fields, typestore)
         )
 
     @classmethod
@@ -76,7 +161,9 @@ class UnmodeledAdapter(ROSAdapterBase[T], Generic[T]):
         cls, ontology_type: Type[T], msgtype: str
     ) -> Type["UnmodeledAdapter"]:
         """
-        TODO
+        Gets or create an unmodeled adapter for the provided ontology type and msgtype.
+        If the adapter if found within _UNMODELED_ADAPTERS_REGISTRY it is returned immediately.
+        Conversely, it is first registered and then returned.
         """
         key = ontology_type.__registry_key__ or ontology_type.ontology_tag()
         adapter = _UNMODELED_ADAPTERS_REGISTRY.get(key)

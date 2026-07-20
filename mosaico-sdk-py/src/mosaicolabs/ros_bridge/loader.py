@@ -13,7 +13,7 @@ from rich.progress import (
 )
 from rosbags.highlevel import AnyReader
 from rosbags.interfaces import Connection, TopicInfo
-from rosbags.typesys import Stores, get_typestore
+from rosbags.typesys import Stores, get_types_from_msg, get_typestore
 from rosbags.typesys.store import Typestore
 
 from mosaicolabs import (
@@ -31,9 +31,12 @@ from ..protocols.ros2msg import convert_ros2msg
 from .adapter_base import ROSAdapterBase
 from .helpers import (
     _class_name_from_ros_msgtype,
+    _clip_timestamp,
+    _extract_ros_metadata,
     _filter_topics_from_dict,
     _filter_topics_from_list,
     _to_dict,
+    _validate_sequence,
 )
 from .registry import ROSTypeRegistry
 from .ros_bridge import ROSBridge, ROSMessage
@@ -185,9 +188,13 @@ class ProgressManager:
         Calculates totals and creates the visual progress tasks.
         Must be called before the main processing loop starts.
         """
-        # Create individual progress bars for each topic
+        # Create individual progress bars for each topic but count only the accepted ones
         for topic_name in self.loader.resolved_topics:
-            count = self.loader.msg_count(topic_name)
+            if topic_name in self.loader.topics:
+                count = self.loader.msg_count(topic_name)
+            else:
+                count = None
+
             self.tasks[topic_name] = self.progress.add_task(
                 "", total=count, name=topic_name
             )
@@ -493,7 +500,7 @@ class ROSLoader:
             serialization_format=SerializationFormat.Default,
         )
 
-        # Create the adapter
+        # Get the unmodeled adapter or create a new one
         adapter = UnmodeledAdapter.get_or_create(
             # This will make a new class or reuse an already registered one
             ontology_type=unmodeled_ontology,
@@ -836,34 +843,7 @@ class MosaicoLoader:
             str, type[ROSAdapterBase]
         ] = {}  # Dictionary containing a map from moisaco accepted topics to mosaico adapter
 
-    def _extract_declared_rosmsg_type(self, t_handler: TopicHandler) -> Optional[str]:
-        """
-        Reads and validates the ``_ros_.msgtype`` metadata field, if present.
-
-        Args:
-            t_handler: The topic handler whose metadata should be inspected.
-
-        Returns:
-            The declared ROS msgtype string, or ``None`` if the topic carries no
-            ``_ros_`` metadata (or no ``msgtype`` within it).
-
-        Raise: TypeError when the topic's ``_ros_`` metadata carries a non-string ``msgtype`` (malformed
-            metadata)
-        """
-        declared_rosmsg_type = (t_handler.user_metadata.get("_ros_") or {}).get(
-            "msgtype"
-        )
-
-        if declared_rosmsg_type is not None and not isinstance(
-            declared_rosmsg_type, str
-        ):
-            raise TypeError(
-                f"Topic {t_handler.name} contains msgtype within metadata but it has unexpected type. Expected {str.__name__} but got {type(declared_rosmsg_type).__name__}"
-            )
-
-        return declared_rosmsg_type
-
-    def _resolve_topic_adapter(
+    def _get_or_create_adapter(
         self, t_handler: TopicHandler
     ) -> Tuple[Optional[type[ROSAdapterBase]], Optional[str]]:
         """
@@ -884,7 +864,9 @@ class MosaicoLoader:
             metadata)
 
         """
-        declared_rosmsg_type = self._extract_declared_rosmsg_type(t_handler)
+        ros_metadata = _extract_ros_metadata(t_handler)
+
+        declared_rosmsg_type = ros_metadata.get("msgtype")
 
         adapter = None
         resolved_rosmsg_type = None
@@ -903,6 +885,44 @@ class MosaicoLoader:
                 adapter.get_default_ros_msg() if adapter else resolved_rosmsg_type
             )
 
+        if not adapter:
+            # In this case you need to get or create a new adapter from the
+            # unmodeled class. In case of new adapter, register msgdef to
+            # typestore. Note that msgdef needs to be available here otherwise
+            # it is not possible to register the new type in the typestore
+
+            try:
+                msgtype: str = ros_metadata["msgtype"]
+                msgdef: str = ros_metadata["msgdef"]
+            except KeyError:
+                logger.warning(
+                    f"Cannot create Unmodeled Adapter for topic {t_handler.name} since its metadata do not contain msgtype or msgdef"
+                )
+                return None, resolved_rosmsg_type
+
+            pyarrow_schema = convert_ros2msg(msgdef, msgtype)
+
+            # Create the ontology
+            unmodeled_ontology = resolve_ontology_class(
+                ontology_tag=_class_name_from_ros_msgtype(msgtype),
+                schema=pyarrow_schema,
+                # FIXME: how to pass this? Via Config?
+                serialization_format=SerializationFormat.Default,
+            )
+
+            # Get the unmodeled adapter or create a new one
+            adapter = UnmodeledAdapter.get_or_create(
+                # This will make a new class or reuse an already registered one
+                ontology_type=unmodeled_ontology,
+                msgtype=msgtype,
+            )
+
+            resolved_rosmsg_type = adapter.get_default_ros_msg()
+
+            # Register new msgdef within typestore
+            add_types = get_types_from_msg(msgdef, msgtype)
+            self.typestore.register(add_types)
+
         return adapter, resolved_rosmsg_type
 
     def _resolve_sequence(self) -> SequenceHandler:
@@ -918,7 +938,7 @@ class MosaicoLoader:
            logging a warning if clipping occurs.
         3. Applies the topic filter via :func:`_filter_topics_from_list`.
         4. For each matched topic, extracts its Mosaico adapter via
-           :meth:`_resolve_topic_adapter`. Adapter is first looked up using
+           :meth:`_get_or_create_adapter`. Adapter is first looked up using
            ``_ros_`` metadata, falling back to adapter associated to the ontology
            tag. Afterward, msgtype is extracted from found adapter if metadata did
            not hold this information.
@@ -941,39 +961,24 @@ class MosaicoLoader:
             sequence_name=self.sequence_name
         )
 
-        # NOTE: Check explicitly here to avoid IDE complaining
-        if self.seq_handler is None:
+        # Check sequence exists
+        if not _validate_sequence(self.seq_handler):
             raise (
                 ValueError(
                     f"Your requested sequence '{self.sequence_name}' could not be found!"
                 )
             )
+
+        # Get all topics from sequence handler
         self._resolved_topics = self.seq_handler.topics
 
         # Clipping requested start/end timestamp to start/end sequence timestamp if existing
-        if (
-            self.start_timestamp_ns is not None
-            and self.seq_handler.timestamp_ns_min is not None
-            and self.start_timestamp_ns < self.seq_handler.timestamp_ns_min
-        ):
-            logger.warning(
-                f"Provided start_timestamp_ns is lower than sequence timestamp_ns_min: {self.start_timestamp_ns} < {self.seq_handler.timestamp_ns_min}. Clipping start_timestamp_ns to sequence timestamp_ns_min"
-            )
-            self.start_timestamp_ns = max(
-                self.start_timestamp_ns, self.seq_handler.timestamp_ns_min
-            )
-
-        if (
-            self.end_timestamp_ns is not None
-            and self.seq_handler.timestamp_ns_max is not None
-            and self.end_timestamp_ns > self.seq_handler.timestamp_ns_max
-        ):
-            logger.warning(
-                f"Provided end_timestamp_ns is higher than sequence timestamp_ns_max: {self.end_timestamp_ns} > {self.seq_handler.timestamp_ns_max}. Clipping end_timestamp_ns to sequence timestamp_ns_max"
-            )
-            self.end_timestamp_ns = min(
-                self.end_timestamp_ns, self.seq_handler.timestamp_ns_max
-            )
+        self.start_timestamp_ns, self.end_timestamp_ns = _clip_timestamp(
+            self.start_timestamp_ns,
+            self.end_timestamp_ns,
+            self.seq_handler.timestamp_ns_min,
+            self.seq_handler.timestamp_ns_max,
+        )
 
         matched_topics = _filter_topics_from_list(
             self.seq_handler.topics, self.topic_glob_pattern
@@ -994,7 +999,7 @@ class MosaicoLoader:
 
             # Extract rosmsg_type from topic_handler metadata (if available) and ensure that it is a string
             try:
-                adapter, rosmsg_type = self._resolve_topic_adapter(t_handler)
+                adapter, rosmsg_type = self._get_or_create_adapter(t_handler)
             except TypeError:
                 self._malformed_metadata_topics.append(t_name)
                 continue
@@ -1054,9 +1059,14 @@ class MosaicoLoader:
         """
         self._resolve_sequence()
 
-        if not self.seq_handler:
+        if not self.streamer:
             raise Exception(
                 "Impossible to start streaming: SequenceDataStreamer is not initialised. Did you forget calling _resolve_sequence()?"
+            )
+
+        if topic and topic not in self.topics:
+            raise ValueError(
+                f"Topic {topic} is not among the accepted topics. Accepted topics are: {self._accepted_topics}"
             )
 
         topics_to_count = [topic] if topic else self._accepted_topics
@@ -1065,9 +1075,7 @@ class MosaicoLoader:
             filter(
                 None,
                 (
-                    self.seq_handler.get_topic_handler(topic)
-                    .get_data_streamer()
-                    .msg_count
+                    self.streamer._topic_readers[topic].msg_count
                     for topic in topics_to_count
                 ),
             )

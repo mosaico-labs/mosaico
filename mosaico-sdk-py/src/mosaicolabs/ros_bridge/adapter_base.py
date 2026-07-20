@@ -246,6 +246,7 @@ class ROSAdapterBase(ABC, Generic[T]):
                     "POWER_SUPPLY_TECHNOLOGY_LIMN": 6,
                 },
                 "msgtype": "sensor_msgs/msg/BatteryState"
+                "msgdef": "..."
             }
         }
 
