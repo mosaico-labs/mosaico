@@ -6,8 +6,10 @@ from mosaicolabs.enum.session_level_error_policy import SessionLevelErrorPolicy
 from mosaicolabs.models.core.helpers import resolve_ontology_class
 from mosaicolabs.models.core.message import Message
 from mosaicolabs.models.core.unmodeled import Unmodeled, make_unmodeled_ontology_class
+from mosaicolabs.models.data import Time
 from mosaicolabs.models.query.builders import QueryOntologyCatalog
 from mosaicolabs.models.query.queryable_fields import QueryableNumeric
+from mosaicolabs.models.sensors import CameraInfo, CompressedImage, ImageFormat
 
 UnmodeledGyro = make_unmodeled_ontology_class(
     "UnmodeledGyro",
@@ -268,3 +270,105 @@ def test_unmodeled_schema_variant_ingestion_and_retrieval(
         # Free resources
         mosaico_client.sequence_delete(seq_v1)
         mosaico_client.sequence_delete(seq_v2)
+
+
+def test_bug_pastring_tostringview(mosaico_client: MosaicoClient):
+    """
+    This test checks that an Ontology containing a pa.string (like CameraInfo) is not interpreted as an Unmodoled ontology
+    during reading from the server. This seems to happen because the server changes pa.string into pa.string_view leading
+    to a different fingerprint during and therefore creating an Unmodeled ontology (despite CameraInfo being modeled).
+    """
+
+    def make_camera_info_msg(meas_time: Time):
+        return Message(
+            timestamp_ns=meas_time.to_nanoseconds(),
+            data=CameraInfo(
+                height=1920,
+                width=1080,
+                distortion_model="distorted",
+                distortion_parameters=[1, 2, 3, 4, 5],
+                intrinsic_parameters=[1, 2, 3, 4, 5, 6, 7, 8, 9],
+                rectification_parameters=[1, 2, 3, 4, 5, 6, 7, 8, 9],
+                projection_parameters=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+            ),
+        )
+
+    camera_info_sequence_name = "camera_info_seq"
+    camera_info_topic_name = "/front/camera"
+    # -- Test ingestion --
+    with mosaico_client.sequence_create(
+        camera_info_sequence_name, {}, on_error=SessionLevelErrorPolicy.Delete
+    ) as seqw:
+        # Create a new topic and attach the unmodeled ontology as it was a default one
+        tw = seqw.topic_create(camera_info_topic_name, {}, CameraInfo)
+        assert tw is not None
+
+        # Create and Push a message like a default ontology
+        for time_s in range(5):
+            tw.push(make_camera_info_msg(Time(seconds=time_s, nanoseconds=0)))
+
+        # Now read the topic and check that the returned ontology is **not** Unmodeled
+    seqhandler = mosaico_client.sequence_handler(camera_info_sequence_name)
+
+    assert seqhandler is not None
+
+    topic_handler = seqhandler.get_topic_handler(camera_info_topic_name)
+    streamer = topic_handler.get_data_streamer()
+
+    for camera_info_msg in streamer:
+        assert (
+            camera_info_msg.data.__schema_fingerprint__
+            == CameraInfo.__schema_fingerprint__
+        )
+        assert issubclass(camera_info_msg.data.__class_type__, CameraInfo)
+        assert not issubclass(camera_info_msg.data.__class_type__, Unmodeled)
+
+    # Free resources
+    mosaico_client.sequence_delete(camera_info_sequence_name)
+
+
+def test_bug_pabyte_tobyteview(mosaico_client: MosaicoClient):
+    """
+    This test checks that an Ontology containing a pa.byte (like CameraInfo) is not interpreted as an Unmodoled ontology
+    during reading from the server. This seems to happen because the server changes pa.byte into pa.byte_view leading
+    to a different fingerprint during and therefore creating an Unmodeled ontology (despite CameraInfo being modeled).
+    """
+
+    def make_compressed_image_msg(meas_time: Time):
+        return Message(
+            timestamp_ns=meas_time.to_nanoseconds(),
+            data=CompressedImage(data=bytes(range(16)), format=ImageFormat.JPEG),
+        )
+
+    camera_compressed_sequence_name = "camera_compressed_seq"
+    camera_compressed_topic_name = "/front/camera/raw"
+    # -- Test ingestion --
+    with mosaico_client.sequence_create(
+        camera_compressed_sequence_name, {}, on_error=SessionLevelErrorPolicy.Delete
+    ) as seqw:
+        # Create a new topic and attach the unmodeled ontology as it was a default one
+        tw = seqw.topic_create(camera_compressed_topic_name, {}, CompressedImage)
+        assert tw is not None
+
+        # Create and Push a message like a default ontology
+        for time_s in range(5):
+            tw.push(make_compressed_image_msg(Time(seconds=time_s, nanoseconds=0)))
+
+        # Now read the topic and check that the returned ontology is **not** Unmodeled
+    seqhandler = mosaico_client.sequence_handler(camera_compressed_sequence_name)
+
+    assert seqhandler is not None
+
+    topic_handler = seqhandler.get_topic_handler(camera_compressed_topic_name)
+    streamer = topic_handler.get_data_streamer()
+
+    for camera_info_msg in streamer:
+        assert (
+            camera_info_msg.data.__schema_fingerprint__
+            == CompressedImage.__schema_fingerprint__
+        )
+        assert issubclass(camera_info_msg.data.__class_type__, CompressedImage)
+        assert not issubclass(camera_info_msg.data.__class_type__, Unmodeled)
+
+    # Free resources
+    mosaico_client.sequence_delete(camera_compressed_sequence_name)
