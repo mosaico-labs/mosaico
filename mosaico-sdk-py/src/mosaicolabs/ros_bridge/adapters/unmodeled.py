@@ -1,5 +1,6 @@
 from typing import Any, Dict, Generic, Optional, Tuple, Type, TypeVar, Union, cast
 
+import numpy as np
 from rosbags.interfaces.typing import Fielddefs, Nodetype
 from rosbags.typesys.store import Typestore
 
@@ -54,7 +55,7 @@ def pack_unmodeled(
         node_type, content = field_descr
 
         if node_type is Nodetype.BASE:
-            pass  # do nothing, the content (base type, array or sequence) can be unpacked unsing **
+            pass  # do nothing, the content base type can be unpacked using **
 
         elif node_type == Nodetype.NAME and isinstance(content, str):
             msgtype = content
@@ -69,6 +70,12 @@ def pack_unmodeled(
             )
 
         elif node_type in (Nodetype.SEQUENCE, Nodetype.ARRAY):
+            # Check that raw_data[field_name] is a list
+            if not isinstance(raw_data[field_name], list):
+                raise TypeError(
+                    f"Expected {list.__name__} type within raw_data but got {type(raw_data[field_name]).__name__}"
+                )
+
             # Check whether contained type is a basetype or a nested one
             list_content, list_size = content
             item_node_type, item_content = list_content
@@ -76,14 +83,9 @@ def pack_unmodeled(
             item_node_type = cast(Nodetype, item_node_type)  # just for typechecker
 
             if item_node_type is Nodetype.BASE:
-                pass
+                raw_data[field_name] = np.array(raw_data[field_name])
 
             elif item_node_type is Nodetype.NAME and isinstance(item_content, str):
-                # Check that raw_data[field_name] is a list
-                if not isinstance(raw_data[field_name], list):
-                    raise TypeError(
-                        f"Expected {list.__name__} type within raw_data but got {type(raw_data[field_name]).__name__}"
-                    )
 
                 # Check that all elements of raw_data[field_name] are dict
                 if any(not isinstance(x, dict) for x in raw_data[field_name]):
