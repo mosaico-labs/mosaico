@@ -58,7 +58,13 @@ class HeaderMixin(BaseModel):
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # FIXME: Add here example for timestamp exytraction and clustering
+                    # Clusterize all topics within the sequence to extract the time intervals
+                    clusters_dict = item.clusterize_all()
+
+                    # Since clusterize_all() used default clustering_dt_ns, each topic will have
+                    # just one cluster representing the first and last moment the query was satisfied
+                    for t_name, clusters in clusters_dict.items():
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -95,7 +101,13 @@ class HeaderMixin(BaseModel):
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # FIXME: Add here example for timestamp exytraction and clustering
+                    # Clusterize all topics within the sequence to extract the time intervals
+                    clusters_dict = item.clusterize_all()
+
+                    # Since clusterize_all() used default clustering_dt_ns, each topic will have
+                    # just one cluster representing the first and last moment the query was satisfied
+                    for t_name, clusters in clusters_dict.items():
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -134,7 +146,9 @@ class CovarianceMixin(BaseModel):
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
     | `<Model>.Q.covariance_type` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
-    | `<Model>.Q.covariance` | ***Non-Queryable*** | None |
+    | `<Model>.Q.covariance.all()` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `<Model>.Q.covariance.any()` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `<Model>.Q.covariance.[i]` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
 
     Note: Universal Compatibility
         The `<Model>` placeholder adapts based on how the `CovarianceMixin` is integrated into your data structure:
@@ -172,12 +186,46 @@ class CovarianceMixin(BaseModel):
     )
     """
     Optional list of 64-bit floats representing the flattened matrix.
-    
-    ### Querying with the **`.Q` Proxy**
 
-    # FIXME: Update this docstring and add example scripts for querying such field
-    Note: Non-Queryable
-        The field is not queryable with the **`.Q` Proxy**.
+    ### Querying with the **`.Q` Proxy**
+    The covariance value is queryable via the `covariance` field, on any model integrating this
+    mixin. Since it represents a list of values, use `all()`, `any()` or index access `[i]` to
+    narrow down to the list element and compose a correct expression.
+        - <Model>.Q.covariance.all()       -> invalid expression
+        - <Model>.Q.covariance.gt(1)       -> invalid expression
+        - <Model>.Q.covariance.all().gt(1) -> valid expression
+
+    | Field Access Path | Queryable Type | Supported Operators |
+    | :--- | :--- | :--- |
+    | `<Model>.Q.covariance.all()` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `<Model>.Q.covariance.any()` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `<Model>.Q.covariance.[i]` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+
+    Example:
+        ```python
+        from mosaicolabs import MosaicoClient, Vector3d, QueryOntologyCatalog
+
+        with MosaicoClient.connect("localhost", 6726) as client:
+            # Filter for measurements with at least one high-uncertainty covariance term
+            qresponse = client.query(
+                QueryOntologyCatalog(Vector3d.Q.covariance.any().gt(0.1))
+            )
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {[topic.name for topic in item.topics]}")
+
+                    # Clusterize all topics within the sequence to extract the time intervals
+                    clusters_dict = item.clusterize_all()
+
+                    # Since clusterize_all() used default clustering_dt_ns, each topic will have
+                    # just one cluster representing the first and last moment the query was satisfied
+                    for t_name, clusters in clusters_dict.items():
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
+        ```
     """
 
     covariance_type: Optional[MosaicoType.int16] = MosaicoField(

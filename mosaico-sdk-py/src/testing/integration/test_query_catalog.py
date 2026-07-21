@@ -110,7 +110,7 @@ def test_query_ontology_between(
         QueryOntologyCatalog().with_expression(
             IMU.Q.acceleration.x.between([0.0, 1.0])
         ),  # set a very small value (data are random, so a small value is likely to be found)
-        QueryTopic().with_name_match("camera/left"),
+        QueryTopic().with_name_match("?camera/left*"),
     )
     # We do expect a successful query
     assert query_resp is not None and not query_resp.is_empty()

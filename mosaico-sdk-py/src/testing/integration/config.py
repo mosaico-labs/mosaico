@@ -1,4 +1,7 @@
-from mosaicolabs.models.sensors import GPS, IMU, Image
+import numpy as np
+
+from mosaicolabs.models.data import Point3d
+from mosaicolabs.models.sensors import GPS, IMU, Image, Pressure, Temperature
 
 # ----- Sequence setup ----
 
@@ -122,8 +125,10 @@ UPLOADED_IMU_CAMERA_METADATA = {
     "interface": {
         "type": "Ethernet",
         "protocol": "UDP",
-        "ip": "192.168.10.42",
-        "port": 7500,
+        "address": {
+            "ip": "192.168.10.42",
+            "port": 7500,
+        },
     },
 }
 
@@ -255,5 +260,75 @@ QUERY_SEQUENCES_MOCKUP = {
             "status": "post-processed",
             "visibility": "none",
         },
+    },
+}
+
+# Mockup for loading 2 sequences for testing topic filter clusterize/intersect queries.
+
+# The sequences consist of 2 sequences containing:
+
+# 1) Sequence1:
+# One topic of Temperature type with a sinusoidal value sin(t).
+# One topic of Pressure type with a cosinusoidal value cos(t).
+
+# 2) Sequence2:
+# One topic of Point3d where both x, y and z have a sinusoidal values sin(t)
+
+# NOTE: all the sine/cosine signals have length of 4PI so to have two distinct picks to be considered as different clusters
+
+QUERY_FILTER_SEQUENCE_TOTAL_SAMPLES = 10000
+QUERY_FILTER_SEQUENCE_TOTAL_TIME = 4 * np.pi
+QUERY_FILTER_SEQUENCE_RESOLUTION_NS = (
+    QUERY_FILTER_SEQUENCE_TOTAL_TIME / QUERY_FILTER_SEQUENCE_TOTAL_SAMPLES
+) * 1e9
+
+QUERY_FILTER_SEQUENCE_TIMESTAMPS_NS = (
+    np.linspace(
+        0,
+        QUERY_FILTER_SEQUENCE_TOTAL_TIME,
+        num=QUERY_FILTER_SEQUENCE_TOTAL_SAMPLES,
+    )
+    * 1e9
+).astype(np.int64)
+
+QUERY_FILTER_SEQUENCES_MOCKUP = {
+    "test-filter-sequence-1": {
+        "topics": [
+            {
+                "name": "/car_internal_temp_front",
+                "ontology_type": Temperature,
+                "data": [
+                    (t, Temperature(value=np.sin(t / 1e9)))
+                    for t in QUERY_FILTER_SEQUENCE_TIMESTAMPS_NS
+                ],
+            },
+            {
+                "name": "/car_tank_pressure",
+                "ontology_type": Pressure,
+                "data": [
+                    (t, Pressure(value=np.cos(t / 1e9)))
+                    for t in QUERY_FILTER_SEQUENCE_TIMESTAMPS_NS
+                ],
+            },
+        ],
+    },
+    "test-filter-sequence-2": {
+        "topics": [
+            {
+                "name": "/car_position",
+                "ontology_type": Point3d,
+                "data": [
+                    (
+                        t,
+                        Point3d(
+                            x=np.sin(t / 1e9),
+                            y=np.sin(t / 1e9),
+                            z=np.sin(t / 1e9),
+                        ),
+                    )
+                    for t in QUERY_FILTER_SEQUENCE_TIMESTAMPS_NS
+                ],
+            },
+        ],
     },
 }

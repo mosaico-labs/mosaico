@@ -48,7 +48,7 @@ This will return the list of all sequence resource locators available in the pla
 
 To provide full context, the data stream is prefixed with a schema message containing embedded custom metadata. Mosaico injects context into this header for client reconstruction of the environment.
 
-This includes `user_metadata`, preserving original project context like experimental tags or vehicle IDs, and the `ontology_tag`, informing the client of sensor data types (e.g., `lidar`, `camera`) for type-safe deserialization.
+This includes `user_metadata`, preserving original project context like experimental tags or vehicle IDs, and the `ontology_tag`, informing the client of sensor data types (e.g., `Lidar`, `Camera`) for type-safe deserialization.
 
 The `serialization_format` guides interpretation of the underlying serialization protocol used. Now the supported formats include:
 

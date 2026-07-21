@@ -107,7 +107,7 @@ def test_query_basic_list(
             RobotJoint.Q.positions.any().geq(0.01)
         )  # set a very small value (data are random, so a small value is likely to be found)
         .with_expression(
-            RobotJoint.Q.names[0].match("j")
+            RobotJoint.Q.names[0].match("j*")
         )  # set a very small value (data are random, so a small value is likely to be found)
     )
     # We do expect a successful query

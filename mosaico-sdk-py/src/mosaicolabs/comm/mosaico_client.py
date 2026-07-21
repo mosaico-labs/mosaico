@@ -22,8 +22,10 @@ from ..enum import (
     GRPCCompressionAlgorithm,
     SessionLevelErrorPolicy,
 )
-from ..handlers import SequenceHandler, SequenceWriter, TopicHandler
 from ..handlers.config import SessionWriterConfig
+from ..handlers.sequence_handler import SequenceHandler
+from ..handlers.sequence_writer import SequenceWriter
+from ..handlers.topic_handler import TopicHandler
 from ..helpers import pack_topic_resource_name
 from ..logging_config import get_logger
 from .connection import (
@@ -947,7 +949,7 @@ class MosaicoClient:
                     # Append a filter for sequence metadata
                     QuerySequence()
                     .with_user_metadata("environment.visibility", lt=50)
-                    .with_name_match("test_drive"),
+                    .with_name_match("*test_drive*"),
                     # Append a filter with deep time-series data discovery and measurement time windowing
                     QueryOntologyCatalog()
                     .with_expression(IMU.Q.acceleration.x.gt(5.0))
@@ -971,7 +973,7 @@ class MosaicoClient:
                     # Append a filter for sequence metadata
                     QuerySequence()
                     .with_user_metadata("environment.visibility", lt=50)
-                    .with_name_match("test_drive"),
+                    .with_name_match("*test_drive*"),
                     # Append a filter with deep time-series data discovery and measurement time windowing
                     QueryOntologyCatalog()
                     .with_expression(IMU.Q.acceleration.x.gt(5.0))
@@ -1019,6 +1021,10 @@ class MosaicoClient:
             if act_resp is None:
                 logger.error(f"Action '{ACTION}' returned no response.")
                 return None
+
+            # inject flight client and user queries
+            act_resp.query_response._set_client(self._control_client)
+            act_resp.query_response._set_queries(self._queries)
 
             return act_resp.query_response
 

@@ -36,6 +36,8 @@ class CameraInfo(Serializable, HeaderMixin):
     ### Querying with the **`.Q` Proxy**
     This class is fully queryable via the **`.Q` proxy**. You can filter camera data based
     on camera parameters within a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog].
+    Expressions entailing lists of values can be queried using any between `all()`, `any()` or index access `[i]`
+    followed by the contained type supported operations.
 
     Example:
         ```python
@@ -159,9 +161,44 @@ class CameraInfo(Serializable, HeaderMixin):
     The distortion coefficients (k1, k2, t1, t2, k3...). Size depends on the model.
 
     ### Querying with the **`.Q` Proxy**
-    # FIXME: Update this docstring with queryability of list fiends,
-    # and add example scripts for querying such field
-    The distortion parameters are not queryable via the `.Q` proxy (Lists are not supported yet).
+    The distortion parameters are queryable via the `distortion_parameters` field. Since it
+    represents a list of values, use `all()`, `any()` or index access `[i]` to narrow down to
+    the list element and compose a correct expression.
+        - CameraInfo.Q.distortion_parameters.all()       -> invalid expression
+        - CameraInfo.Q.distortion_parameters.gt(1)       -> invalid expression
+        - CameraInfo.Q.distortion_parameters.all().gt(1) -> valid expression
+
+    | Field Access Path | Queryable Type | Supported Operators |
+    | :--- | :--- | :--- |
+    | `CameraInfo.Q.distortion_parameters.all()` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `CameraInfo.Q.distortion_parameters.any()` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `CameraInfo.Q.distortion_parameters.[i]` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+
+    Example:
+        ```python
+        from mosaicolabs import MosaicoClient, QueryOntologyCatalog, CameraInfo
+
+        with MosaicoClient.connect("localhost", 6726) as client:
+            # Filter for cameras with a strong radial distortion coefficient
+            qresponse = client.query(
+                QueryOntologyCatalog(CameraInfo.Q.distortion_parameters.any().gt(0.1))
+            )
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {[topic.name for topic in item.topics]}")
+
+                    # Clusterize all topics within the sequence to extract the time intervals
+                    clusters_dict = item.clusterize_all()
+
+                    # Since clusterize_all() used default clustering_dt_ns, each topic will have
+                    # just one cluster representing the first and last moment the query was satisfied
+                    for t_name, clusters in clusters_dict.items():
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
+        ```
     """
 
     intrinsic_parameters: MosaicoType.list_(MosaicoType.float64, list_size=9) = (
@@ -174,9 +211,44 @@ class CameraInfo(Serializable, HeaderMixin):
     The 3x3 Intrinsic Matrix (K) flattened row-major.
 
     ### Querying with the **`.Q` Proxy**
-    # FIXME: Update this docstring with queryability of list fiends,
-    # and add example scripts for querying such field
-    The intrinsic parameters are not queryable via the `.Q` proxy (Lists are not supported yet).
+    The intrinsic parameters are queryable via the `intrinsic_parameters` field. 
+    Use `all()`, `any()` or index access `[i]` to narrow down to the list 
+    element and compose a correct expression.
+        - CameraInfo.Q.intrinsic_parameters.all()       -> invalid expression
+        - CameraInfo.Q.intrinsic_parameters.gt(1)       -> invalid expression
+        - CameraInfo.Q.intrinsic_parameters.all().gt(1) -> valid expression
+
+    | Field Access Path | Queryable Type | Supported Operators |
+    | :--- | :--- | :--- |
+    | `CameraInfo.Q.intrinsic_parameters.all()` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `CameraInfo.Q.intrinsic_parameters.any()` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `CameraInfo.Q.intrinsic_parameters.[i]` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+
+    Example:
+        ```python
+        from mosaicolabs import MosaicoClient, QueryOntologyCatalog, CameraInfo
+
+        with MosaicoClient.connect("localhost", 6726) as client:
+            # Filter for cameras with a specific focal length fx (K[0,0], index 0)
+            qresponse = client.query(
+                QueryOntologyCatalog(CameraInfo.Q.intrinsic_parameters[0].between(500.0, 700.0))
+            )
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {[topic.name for topic in item.topics]}")
+
+                    # Clusterize all topics within the sequence to extract the time intervals
+                    clusters_dict = item.clusterize_all()
+
+                    # Since clusterize_all() used default clustering_dt_ns, each topic will have
+                    # just one cluster representing the first and last moment the query was satisfied
+                    for t_name, clusters in clusters_dict.items():
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
+        ```
     """
 
     rectification_parameters: MosaicoType.list_(MosaicoType.float64, list_size=9) = (
@@ -189,9 +261,44 @@ class CameraInfo(Serializable, HeaderMixin):
     The 3x3 Rectification Matrix (R) flattened row-major.
 
     ### Querying with the **`.Q` Proxy**
-    # FIXME: Update this docstring with queryability of list fiends,
-    # and add example scripts for querying such field
-    The rectification parameters cannot be queried via the `.Q` proxy (Lists are not supported yet).
+    The rectification parameters are queryable via the `rectification_parameters` field. 
+    Use `all()`, `any()` or index access `[i]` to narrow down to the list element and 
+    compose a correct expression.
+        - CameraInfo.Q.rectification_parameters.all()       -> invalid expression
+        - CameraInfo.Q.rectification_parameters.gt(1)       -> invalid expression
+        - CameraInfo.Q.rectification_parameters.all().gt(1) -> valid expression
+
+    | Field Access Path | Queryable Type | Supported Operators |
+    | :--- | :--- | :--- |
+    | `CameraInfo.Q.rectification_parameters.all()` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `CameraInfo.Q.rectification_parameters.any()` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `CameraInfo.Q.rectification_parameters.[i]` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+
+    Example:
+        ```python
+        from mosaicolabs import MosaicoClient, QueryOntologyCatalog, CameraInfo
+
+        with MosaicoClient.connect("localhost", 6726) as client:
+            # Filter for cameras with a near-identity rectification matrix
+            qresponse = client.query(
+                QueryOntologyCatalog(CameraInfo.Q.rectification_parameters.all().between(-1.0, 1.0))
+            )
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {[topic.name for topic in item.topics]}")
+
+                    # Clusterize all topics within the sequence to extract the time intervals
+                    clusters_dict = item.clusterize_all()
+
+                    # Since clusterize_all() used default clustering_dt_ns, each topic will have
+                    # just one cluster representing the first and last moment the query was satisfied
+                    for t_name, clusters in clusters_dict.items():
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
+        ```
     """
 
     projection_parameters: MosaicoType.list_(MosaicoType.float64, list_size=12) = (
@@ -204,9 +311,44 @@ class CameraInfo(Serializable, HeaderMixin):
     The 3x4 Projection Matrix (P) flattened row-major.
 
     ### Querying with the **`.Q` Proxy**
-    # FIXME: Update this docstring with queryability of list fiends,
-    # and add example scripts for querying such field
-    The projection parameters cannot be queried via the `.Q` proxy (Lists are not supported yet).
+    The projection parameters are queryable via the `projection_parameters` field. 
+    Use `all()`, `any()` or index access `[i]` to narrow down to the list element 
+    and compose a correct expression.
+        - CameraInfo.Q.projection_parameters.all()       -> invalid expression
+        - CameraInfo.Q.projection_parameters.gt(1)       -> invalid expression
+        - CameraInfo.Q.projection_parameters.all().gt(1) -> valid expression
+
+    | Field Access Path | Queryable Type | Supported Operators |
+    | :--- | :--- | :--- |
+    | `CameraInfo.Q.projection_parameters.all()` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `CameraInfo.Q.projection_parameters.any()` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `CameraInfo.Q.projection_parameters.[i]` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+
+    Example:
+        ```python
+        from mosaicolabs import MosaicoClient, QueryOntologyCatalog, CameraInfo
+
+        with MosaicoClient.connect("localhost", 6726) as client:
+            # Filter for stereo cameras with a non-zero baseline term Tx (P[0,3], index 3)
+            qresponse = client.query(
+                QueryOntologyCatalog(CameraInfo.Q.projection_parameters[3].lt(0.0))
+            )
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {[topic.name for topic in item.topics]}")
+
+                    # Clusterize all topics within the sequence to extract the time intervals
+                    clusters_dict = item.clusterize_all()
+
+                    # Since clusterize_all() used default clustering_dt_ns, each topic will have
+                    # just one cluster representing the first and last moment the query was satisfied
+                    for t_name, clusters in clusters_dict.items():
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
+        ```
     """
 
     binning: Optional[Vector2d] = MosaicoField(

@@ -9,6 +9,7 @@ from mosaicolabs.handlers import SequenceHandler
 from mosaicolabs.ml import DataFrameExtractor
 from mosaicolabs.models.core import Message
 from mosaicolabs.models.sensors import IMU
+from mosaicolabs.models.sensors.gps import GPS
 from testing.integration.config import (
     UPLOADED_GPS_TOPIC,
     UPLOADED_IMU_CAMERA_TOPIC,
@@ -171,7 +172,7 @@ def test_single_selection_chunks_unbounded(
     # --- Topic 1 ---
 
     selection = [UPLOADED_IMU_FRONT_TOPIC]
-    tags = ["imu"]
+    tags = [IMU.ontology_tag()]
 
     _exec_test_chunks(
         data_stream=synthetic_sequence_data_stream,
@@ -185,7 +186,7 @@ def test_single_selection_chunks_unbounded(
     # --- Topic 2 ---
 
     selection = [UPLOADED_GPS_TOPIC]
-    tags = ["gps"]
+    tags = [GPS.ontology_tag()]
 
     _exec_test_chunks(
         data_stream=synthetic_sequence_data_stream,
@@ -222,7 +223,7 @@ def test_single_selection_chunks_from_half_to_end(
     # --- Topic 1 ---
 
     selection = [UPLOADED_IMU_FRONT_TOPIC]
-    tags = ["imu"]
+    tags = [IMU.ontology_tag()]
 
     _exec_test_chunks(
         data_stream=synthetic_sequence_data_stream,
@@ -236,7 +237,7 @@ def test_single_selection_chunks_from_half_to_end(
     # --- Topic 2 ---
 
     selection = [UPLOADED_GPS_TOPIC]
-    tags = ["gps"]
+    tags = [GPS.ontology_tag()]
 
     _exec_test_chunks(
         data_stream=synthetic_sequence_data_stream,
@@ -272,7 +273,7 @@ def test_single_selection_chunks_from_half(
     # --- Topic 1 ---
 
     selection = [UPLOADED_IMU_FRONT_TOPIC]
-    tags = ["imu"]
+    tags = [IMU.ontology_tag()]
 
     _exec_test_chunks(
         data_stream=synthetic_sequence_data_stream,
@@ -286,7 +287,7 @@ def test_single_selection_chunks_from_half(
     # --- Topic 2 ---
 
     selection = [UPLOADED_GPS_TOPIC]
-    tags = ["gps"]
+    tags = [GPS.ontology_tag()]
 
     _exec_test_chunks(
         data_stream=synthetic_sequence_data_stream,
@@ -323,7 +324,7 @@ def test_single_selection_chunks_to_half(
     # --- Topic 1 ---
 
     selection = [UPLOADED_IMU_FRONT_TOPIC]
-    tags = ["imu"]
+    tags = [IMU.ontology_tag()]
 
     _exec_test_chunks(
         data_stream=synthetic_sequence_data_stream,
@@ -337,7 +338,7 @@ def test_single_selection_chunks_to_half(
     # --- Topic 2 ---
 
     selection = [UPLOADED_GPS_TOPIC]
-    tags = ["gps"]
+    tags = [GPS.ontology_tag()]
 
     _exec_test_chunks(
         data_stream=synthetic_sequence_data_stream,
@@ -365,7 +366,7 @@ def test_single_selection_chunks_extra_bounds(
     # --- Topic 1 ---
 
     selection = [UPLOADED_IMU_FRONT_TOPIC]
-    tags = ["imu"]
+    tags = [IMU.ontology_tag()]
 
     _exec_test_chunks(
         data_stream=synthetic_sequence_data_stream,
@@ -397,7 +398,7 @@ def test_multi_selection_chunks_unbounded(
         UPLOADED_GPS_TOPIC,
         UPLOADED_IMU_CAMERA_TOPIC,
     ]
-    tags = ["imu", "gps", "imu"]
+    tags = [IMU.ontology_tag(), GPS.ontology_tag(), IMU.ontology_tag()]
 
     _exec_test_chunks(
         data_stream=synthetic_sequence_data_stream,
@@ -430,7 +431,7 @@ def test_multi_selection_chunks_extra_bounds(
         UPLOADED_IMU_CAMERA_TOPIC,
     ]
 
-    tags = ["imu", "gps", "imu"]
+    tags = [IMU.ontology_tag(), GPS.ontology_tag(), IMU.ontology_tag()]
 
     _exec_test_chunks(
         data_stream=synthetic_sequence_data_stream,
@@ -472,7 +473,7 @@ def test_multi_selection_chunks_from_half_to_end(
         UPLOADED_IMU_CAMERA_TOPIC,
     ]
 
-    tags = ["imu", "gps", "imu"]
+    tags = [IMU.ontology_tag(), GPS.ontology_tag(), IMU.ontology_tag()]
 
     _exec_test_chunks(
         data_stream=synthetic_sequence_data_stream,
@@ -513,7 +514,7 @@ def test_multi_selection_chunks_from_half(
         UPLOADED_IMU_CAMERA_TOPIC,
     ]
 
-    tags = ["imu", "gps", "imu"]
+    tags = [IMU.ontology_tag(), GPS.ontology_tag(), IMU.ontology_tag()]
 
     _exec_test_chunks(
         data_stream=synthetic_sequence_data_stream,
@@ -554,7 +555,7 @@ def test_multi_selection_chunks_to_half(
         UPLOADED_IMU_CAMERA_TOPIC,
     ]
 
-    tags = ["imu", "gps", "imu"]
+    tags = [IMU.ontology_tag(), GPS.ontology_tag(), IMU.ontology_tag()]
 
     _exec_test_chunks(
         data_stream=synthetic_sequence_data_stream,
@@ -676,7 +677,9 @@ def test_multi_selection_message(
     ):
         for _, row in df.iterrows():
             # Check what data contains this row
-            if not pd.isna(row[f"{UPLOADED_IMU_FRONT_TOPIC}.{'imu'}.acceleration.x"]):
+            if not pd.isna(
+                row[f"{UPLOADED_IMU_FRONT_TOPIC}.{IMU.ontology_tag()}.acceleration.x"]
+            ):
                 # It is an imu message
                 imu_msg = Message.from_dataframe_row(row, UPLOADED_IMU_FRONT_TOPIC)
                 assert imu_msg is not None

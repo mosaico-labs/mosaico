@@ -156,15 +156,15 @@ impl ServerBuilder {
         let shutdown = grpc_common::ShutdownNotifier::default();
         let db = self.db;
 
-        let cleanup_time_interval = self.cleanup_config.as_ref().map_or(
-            types::Duration::seconds(params::params().cleanup_time_interval.value),
-            |c| c.time_interval,
-        );
+        let cleanup_time_interval = self
+            .cleanup_config
+            .as_ref()
+            .map_or(types::Duration::seconds(86400), |c| c.time_interval);
 
-        let cleanup_retention_duration = self.cleanup_config.as_ref().map_or(
-            types::Duration::seconds(params::params().cleanup_retention_duration.value),
-            |c| c.retention_duration,
-        );
+        let cleanup_retention_duration = self
+            .cleanup_config
+            .as_ref()
+            .map_or(types::Duration::seconds(86400), |c| c.retention_duration);
 
         // Start cleanup background task.
         let cleanup_task_handle = tokio::task::spawn({
@@ -177,7 +177,7 @@ impl ServerBuilder {
                     .with_time_interval(cleanup_time_interval)
                     .with_retention_duration(cleanup_retention_duration);
 
-                cleanup.run(cleanup_shutdown.token()).await
+                cleanup.run(cleanup_shutdown.token()).await;
             }
         });
 
@@ -208,7 +208,7 @@ impl ServerBuilder {
                             .with_time_interval(store_optimizer_time_interval)
                             .with_max_file_size(store_optimizer_max_file_size);
 
-                    store_optimizer.run(store_optimizer_shutdown.token()).await
+                    store_optimizer.run(store_optimizer_shutdown.token()).await;
                 }
             }
         });
@@ -219,10 +219,12 @@ impl ServerBuilder {
             let db = db.clone();
 
             async move {
-                if let Err(err) = grpc::serve(store, db, opts, Some(shutdown)).await {
+                if let Err(err) = grpc::serve(store, db, opts, Some(shutdown.clone())).await {
                     panic!("flight server error: {}", err);
                 }
                 println!("server stopped");
+
+                shutdown.shutdown();
             }
         });
 
@@ -298,6 +300,7 @@ impl Server {
             && self.server_join_handle.2.is_finished()
     }
 
+    /// Check if the flight server is terminated.
     pub async fn is_flight_server_shutdown(&self) -> bool {
         self.server_join_handle.0.is_finished()
     }

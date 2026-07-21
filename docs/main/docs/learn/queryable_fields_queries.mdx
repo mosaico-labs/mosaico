@@ -1,0 +1,162 @@
+---
+title: Query Unmodeled Ontologies
+sidebar_position: 8
+description: "How to filter and search unmodeled ontology data on the server with QueryableNumeric and QueryableString, when no Serializable class is available to build the .Q proxy from."
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+Every query example so far has used the `.Q` proxy: `IMU.Q.acceleration.x.gt(9.8)`. That works because `IMU` is a real Python class with a real schema baked in.
+Unmodeled ontologies break that assumption. When you ingest data whose schema is only known at runtime, such as an unadapted ROS message type translated on the fly,
+the resulting class is created dynamically, and you may not have kept a reference to it around, may not even be in the same process that ingested it,
+or may not care which of several schema variants sharing one ontology tag you're actually querying. In every one of those cases, there's no class to write `.Q` on.
+
+**`Queryable Fields`** solve this by letting you build the same filter directly from the field path string, no class required.
+
+<Tabs>
+
+<TabItem value="python" label="Python" default>
+:::tip[Learn]
+[Doc: The Query Workflow](https://docs.mosaico.dev/python-sdk/SDK/query/#class-free-queries-queryablenumeric-and-queryablestring)
+
+[Doc: Ingesting Unmodeled Ontologies](https://docs.mosaico.dev/python-sdk/SDK/ontology/#advanced-ingesting-unmodeled-ontologies)
+
+[API Reference: Queryable Fields](https://docs.mosaico.dev/python-sdk/SDK/API_reference/query/queryable_fields/)
+:::
+</TabItem>
+
+<TabItem value="cpp" label="C++">
+The C++ SDK is currently in development.
+</TabItem>
+
+<TabItem value="rust" label="Rust">
+The Rust SDK is currently in development.
+</TabItem>
+
+</Tabs>
+
+## Building Field Paths Without a Class
+
+Behind the scenes, `IMU.Q.acceleration.x` doesn't do anything magical: it walks the `IMU` schema, builds the dot-notated path `"IMU.acceleration.x"` (the ontology tag, followed by the field path), and returns an object that turns `.gt(9.8)` into a server-side comparison. `QueryableNumeric`, `QueryableString` and `QueryableBool` skip the "walk the schema" step and let you supply that same path directly:
+
+<Tabs>
+<TabItem value="python" label="Python" default>
+```python title="Same filter, with and without a class"
+from mosaicolabs import MosaicoClient, QueryOntologyCatalog, IMU
+from mosaicolabs.models.query.queryable_fields import QueryableNumeric
+
+with MosaicoClient.connect("localhost", 6726) as client:
+    # With the .Q proxy - requires the IMU class
+    results = client.query(
+        QueryOntologyCatalog().with_expression(IMU.Q.acceleration.x.gt(9.8))
+    )
+
+    # Class-free equivalent - the ontology tag and field path are all you need
+    results = client.query(
+        QueryOntologyCatalog().with_expression(
+            # You know what type is the leaf field you are querying
+            QueryableNumeric("IMU.acceleration.x").gt(9.8)
+        )
+    )
+```
+</TabItem>
+<TabItem value="cpp" label="C++">
+
+The C++ SDK is currently in development.
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+The Rust SDK is currently in development.
+
+</TabItem>
+</Tabs>
+
+Both calls produce the exact same query sent to the server. For a modeled ontology like `IMU` you'd almost always reach for `.Q` since the class is right there and you get autocomplete for free; `QueryableNumeric`/`QueryableString` earn their keep once that class stops being available.
+
+## Querying an Unmodeled Ontology
+
+Say a ROS bridge translated an unadapted gyroscope message into an unmodeled ontology tagged `"GyroRaw"`, with a `gyro` struct holding `x`, `y`, `z` readings.
+That happened in a separate ingestion script; by the time you want to search the data, that process - and the dynamically-generated class it created - no longer exists.
+All you have is the tag and the field names, which is exactly what `QueryableNumeric` needs:
+
+<Tabs>
+<TabItem value="python" label="Python" default>
+```python title="Querying data with no resolved class"
+from mosaicolabs import MosaicoClient, QueryOntologyCatalog
+from mosaicolabs.models.query.queryable_fields import QueryableNumeric
+
+with MosaicoClient.connect("localhost", 6726) as client:
+    # Find sequences where the gyro's X-axis reading exceeded 0.5 rad/s
+    results = client.query(
+        QueryOntologyCatalog(include_timestamp_range=True).with_expression(
+            QueryableNumeric("GyroRaw.gyro.x").gt(0.5)
+        )
+    )
+
+    if results:
+        for item in results:
+            print(f"Sequence: {item.sequence.name}")
+            for topic in item.topics:
+                start, end = topic.timestamp_range.start, topic.timestamp_range.end
+                print(f"  Topic: {topic.name} | Match Window: {start} to {end}")
+```
+</TabItem>
+<TabItem value="cpp" label="C++">
+
+The C++ SDK is currently in development.
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+The Rust SDK is currently in development.
+
+</TabItem>
+</Tabs>
+
+String fields work the same way through `QueryableString`. Suppose a second, unrelated unmodeled ontology tagged `"DiagnosticLog"` carries a `level` field for log severity:
+
+<Tabs>
+<TabItem value="python" label="Python" default>
+```python title="Filtering an unmodeled string field"
+from mosaicolabs import MosaicoClient, QueryOntologyCatalog
+from mosaicolabs.models.query.queryable_fields import QueryableString
+
+with MosaicoClient.connect("localhost", 6726) as client:
+    results = client.query(
+        QueryOntologyCatalog().with_expression(
+            QueryableString("DiagnosticLog.level").eq("ERROR")
+        )
+    )
+
+    if results:
+        for item in results:
+            print(f"Sequence with an ERROR log: {item.sequence.name}")
+```
+</TabItem>
+<TabItem value="cpp" label="C++">
+
+The C++ SDK is currently in development.
+
+</TabItem>
+<TabItem value="rust" label="Rust">
+
+The Rust SDK is currently in development.
+
+</TabItem>
+</Tabs>
+
+:::info[Combine freely with everything else]
+`QueryableNumeric`/`QueryableString`/`QueryableBool` expressions are ordinary `QueryExpression` objects. You can pass them to `with_expression()` alongside `.Q`-derived expressions, chain multiple of them on the same `QueryOntologyCatalog`, or combine them with `QuerySequence`/`QueryTopic` filters exactly as shown in [Multi-Domain Query](./multi_domain_query.mdx) - the server doesn't know or care whether an expression came from a resolved class or a bare path string.
+:::
+
+## Key Concepts
+
+**Field paths are the contract, not the class.** `IMU.Q.acceleration.x` and `QueryableNumeric("IMU.acceleration.x")` compile down to the identical `f"{ontology_tag}.field.subfield"` string the server matches against. The class is a convenience for building that string safely; it isn't required to build it.
+
+**Operator sets mirror the `.Q` proxy, with one gap.** `QueryableNumeric` supports `.eq()`, `.neq()`, `.lt()`, `.leq()`, `.gt()`, `.geq()`, `.in_()`, and `.between()`. `QueryableString` supports `.eq()`, `.match()`, `.lt()`, `.leq()`, `.gt()`, `.geq()`, and `.in_()` - it does not have `.neq()` or `.between()`.
+
+**There's no client-side schema check.** Because no class is involved, the SDK cannot verify that `"GyroRaw.gyro.x"` actually exists or is really numeric before sending the query. A typo'd path or a type mismatch doesn't raise an error - it simply matches nothing.
+
+**Schema variants are exactly why this exists.** As explained in [Ingesting Unmodeled Ontologies](https://docs.mosaico.dev/python-sdk/SDK/ontology/#advanced-ingesting-unmodeled-ontologies), two different schema versions of the same message type can share one ontology tag on the server. Querying by tag and field path with `QueryableNumeric`/`QueryableString` reaches every variant's data uniformly, without you having to resolve, track, or even know about each variant's specific Python class.

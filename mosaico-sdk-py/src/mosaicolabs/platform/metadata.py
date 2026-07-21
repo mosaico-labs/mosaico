@@ -8,7 +8,7 @@ PyArrow Flight protocol. It also handles Mosaico-specific namespacing.
 
 import json
 from dataclasses import dataclass
-from typing import Any, ClassVar, Dict, Literal
+from typing import Any, ClassVar, Dict, Literal, Optional
 
 from typing_extensions import Self
 
@@ -111,7 +111,7 @@ class TopicMetadata(PlatformMetadata):
 
     Attributes:
         context (str): The context type (must be "topic").
-        properties (Properties): System-level properties (ontology tag, format).
+        properties (Properties): System-level properties (ontology tag, msg_count, format).
         user_metadata (dict): A dictionary of user-provided metadata keys/values.
     """
 
@@ -120,12 +120,14 @@ class TopicMetadata(PlatformMetadata):
     @dataclass(slots=True)
     class Properties:
         ontology_tag: str
+        msg_count: Optional[int]
         serialization_format: SerializationFormat
 
         @classmethod
         def _from_dict(cls, data: dict):
             return cls(
                 ontology_tag=data["ontology_tag"],
+                msg_count=data.get("message_count"),
                 serialization_format=SerializationFormat(data["serialization_format"]),
             )
 

@@ -13,12 +13,14 @@ class TestQueryTopicMetadataAPI:
             QueryTopic()
             .with_user_metadata("some-field", eq="some_value")
             .with_user_metadata("field.nested", leq=0.1234)
+            .with_user_metadata("another-field.nested", match="#str_value[a-z]")
         )
         # Define Expected Output
         expected_dict = {
             "user_metadata": {
                 "some-field": {"$eq": "some_value"},
                 "field.nested": {"$leq": 0.1234},
+                "another-field.nested": {"$match": "#str_value[a-z]"},
             },
         }
         # Assert the result
@@ -51,6 +53,12 @@ class TestQueryTopicMetadataAPI:
         ):
             QueryTopic().with_user_metadata("some-field", ex=3.2)
 
+        with pytest.raises(
+            TypeError,
+            match="Invalid type for '_QueryableDynamicValueField' comparison",
+        ):
+            QueryTopic().with_user_metadata("some-field", match=3.2)
+
     def test_expected_operators(self):
         # Simulate the User Query
         QueryTopic().with_user_metadata("some-field", eq="some_value")
@@ -65,6 +73,7 @@ class TestQueryTopicMetadataAPI:
         QueryTopic().with_user_metadata("some-field", ex=True)
         QueryTopic().with_user_metadata("some-field", ex=False)
         QueryTopic().with_user_metadata("some-field", between=[0, 1])
+        QueryTopic().with_user_metadata("some-field", match="abcd")
 
 
 class TestQuerySequenceMetadataAPI:
@@ -74,12 +83,14 @@ class TestQuerySequenceMetadataAPI:
             QuerySequence()
             .with_user_metadata("some-field", eq="some_value")
             .with_user_metadata("field.nested", leq=0.1234)
+            .with_user_metadata("another-field.nested", match="*str_value?")
         )
         # Define Expected Output
         expected_dict = {
             "user_metadata": {
                 "some-field": {"$eq": "some_value"},
                 "field.nested": {"$leq": 0.1234},
+                "another-field.nested": {"$match": "*str_value?"},
             },
         }
         # Assert the result
@@ -111,6 +122,11 @@ class TestQuerySequenceMetadataAPI:
             match="Invalid type for '_QueryableDynamicValueField' comparison",
         ):
             QuerySequence().with_user_metadata("some-field", ex=3.2)
+        with pytest.raises(
+            TypeError,
+            match="Invalid type for '_QueryableDynamicValueField' comparison",
+        ):
+            QuerySequence().with_user_metadata("some-field", match=3.2)
 
     def test_expected_operators(self):
         # Simulate the User Query
@@ -126,3 +142,4 @@ class TestQuerySequenceMetadataAPI:
         QuerySequence().with_user_metadata("some-field", ex=True)
         QuerySequence().with_user_metadata("some-field", ex=False)
         QuerySequence().with_user_metadata("some-field", between=[0, 1])
+        QuerySequence().with_user_metadata("some-field", match="abcd")

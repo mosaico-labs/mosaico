@@ -5,45 +5,8 @@ Provides utility functions for dict manipulation and other things
 """
 
 import ast
-import re
 from pathlib import Path
 from typing import Any, Iterable, Optional
-
-
-def camel_to_snake(name: str) -> str:
-    """
-    Converts a string from CamelCase or PascalCase into snake_case.
-
-    This function inserts an underscore before any capital letter that is
-    not already preceded by a lowercase letter (s1), and then inserts an
-    underscore before any capital letter preceded by a lowercase letter or a number (s2).
-    Finally, the entire string is converted to lowercase.
-
-    Examples:
-        - "LidarPolar2DDetection" -> "lidar_polar_2d_detection"
-        - "URLConverter" -> "url_converter"
-        - "GPS3DPosition" -> "gps3d_position" (Note: may not handle all acronyms ideally)
-
-    Args:
-        name: The input string in CamelCase or PascalCase format.
-
-    Returns:
-        The converted string in snake_case format.
-    """
-    # Insert an underscore between a lowercase character/digit and an
-    # uppercase character, but only if the uppercase character is followed
-    # by one or more lowercase characters.
-    # This primarily handles transitions like 'Message' -> 'Sensor_Factory'
-    s1 = re.sub(r"(.)([A-Z][a-z]+)", r"\1_\2", name)
-
-    # Insert an underscore between a lowercase character/digit and an
-    # uppercase character (handles trailing acronyms like 'URL' or 'ID').
-    # 'Sensor_Factory' -> 'sensor_factory'
-    # 'GPS3DPosition' -> 'GPS3D_Position'
-    s2 = re.sub(r"([A-z]+)([0-9]+)([A-z]+)", r"\1_\2_\3", s1)
-
-    # Convert the entire resulting string to lowercase.
-    return s2.lower()
 
 
 def flatten_dict(

@@ -126,7 +126,7 @@ async fn test_query_user_metadata_match_string(pool: sqlx::Pool<db::DatabaseType
         json!({
             "topic": {
                 "user_metadata": {
-                    "vehicle": { "$match": "^truck" }
+                    "vehicle": { "$match": "truck*" }
                 }
             }
         }),
@@ -444,8 +444,9 @@ async fn test_query_match_invalid_regex_errors_at_runtime(pool: sqlx::Pool<db::D
     server.shutdown().await;
 }
 
+// We expect a query match on a list to return a value because json path in LAX mode unwrap the list into its elements.
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
-async fn test_query_match_on_list_valued_field_returns_empty(pool: sqlx::Pool<db::DatabaseType>) {
+async fn test_query_match_on_list_valued_field_returns_value(pool: sqlx::Pool<db::DatabaseType>) {
     let server = common::ServerBuilder::new(common::HOST, pool).build().await;
     let mut client = common::ClientBuilder::new(common::HOST, server.port())
         .build()
@@ -462,15 +463,16 @@ async fn test_query_match_on_list_valued_field_returns_empty(pool: sqlx::Pool<db
     let items = actions::query(
         &mut client,
         json!({
-            "topic": { "user_metadata": { "vehicle": { "$match": "^truck" } } }
+            "topic": { "user_metadata": { "vehicle": { "$match": "truck" } } }
         }),
     )
     .await
     .unwrap();
 
-    assert!(
-        topic_locator_and_ontology(&items).is_empty(),
-        "match on a list-valued field must return no results, not error"
+    assert_eq!(items.len(), 1);
+    assert_eq!(
+        topic_locator_and_ontology(&items)[0].0,
+        "seq_match_list_field/topic_list"
     );
 
     server.shutdown().await;
@@ -494,7 +496,7 @@ async fn test_query_match_on_dict_valued_field_returns_empty(pool: sqlx::Pool<db
     let items = actions::query(
         &mut client,
         json!({
-            "topic": { "user_metadata": { "vehicle": { "$match": "^scania" } } }
+            "topic": { "user_metadata": { "vehicle": { "$match": "scania" } } }
         }),
     )
     .await
@@ -596,7 +598,7 @@ async fn test_query_topic_name_match_all(pool: sqlx::Pool<db::DatabaseType>) {
     let result = actions::query(
         &mut client,
         json!({
-            "topic": { "name": { "$match": ".*" } }
+            "topic": { "name": { "$match": "*" } }
         }),
     )
     .await

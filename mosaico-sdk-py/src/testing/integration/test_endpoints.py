@@ -217,3 +217,33 @@ def test_topic_streamer_manifest_timestamps(
 
     # free resources
     mosaico_client.close()
+
+
+def test_msg_count(
+    mosaico_client: MosaicoClient,
+    inject_synthetic_sequence,  # Ensure the data are available on the data platform
+):
+    """
+    Test that the sequence and topic streamer message count is coherent wrt the loaded data for each topic.
+    """
+
+    total_topics_msg_count = (
+        0  # usefull to compare later with SequenceDataStreamer.msg_count
+    )
+
+    for topic in topic_list:
+        t_handler = mosaico_client.topic_handler(UPLOADED_SEQUENCE_NAME, topic)
+
+        assert t_handler is not None
+
+        current_topic_msg_count = t_handler.get_data_streamer().msg_count
+        assert current_topic_msg_count is not None
+        assert current_topic_msg_count == 25
+
+        total_topics_msg_count += current_topic_msg_count
+
+    s_handler = mosaico_client.sequence_handler(UPLOADED_SEQUENCE_NAME)
+    assert s_handler is not None
+    assert s_handler.get_data_streamer().msg_count == total_topics_msg_count
+
+    mosaico_client.close()

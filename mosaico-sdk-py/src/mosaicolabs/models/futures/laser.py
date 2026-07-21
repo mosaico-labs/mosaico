@@ -49,9 +49,11 @@ class _LaserScanBase(BaseModel):
 
     ### Querying with the **`.Q` Proxy**
     Scalar fields on this model are fully queryable via the **`.Q` proxy**.
-    # FIXME: Update this docstring with queryability of list fiends,
-    # and add example scripts for querying such field
-    List-typed fields (`ranges`, `intensities`) are **not queryable**.
+    `ranges` and `intensities` are declared by each concrete subclass, and their queryability
+    depends on the return shape: single-return arrays (as on [`LaserScan`][mosaicolabs.models.futures.LaserScan])
+    are queryable via `all()`, `any()` or index access `[i]`, while multi-echo arrays (as on
+    [`MultiEchoLaserScan`][mosaicolabs.models.futures.MultiEchoLaserScan]) are **not queryable**,
+    since nested lists are not supported by the `.Q` proxy.
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
@@ -81,7 +83,13 @@ class _LaserScanBase(BaseModel):
                         print(f"Sequence: {item.sequence.name}")
                         print(f"Topics: {[topic.name for topic in item.topics]}")
 
-                # FIXME: Add here example for timestamp exytraction and clustering
+                        # Clusterize all topics within the sequence to extract the time intervals
+                        clusters_dict = item.clusterize_all()
+
+                        # Since clusterize_all() used default clustering_dt_ns, each topic will have
+                        # just one cluster representing the first and last moment the query was satisfied
+                        for t_name, clusters in clusters_dict.items():
+                            print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -114,6 +122,14 @@ class _LaserScanBase(BaseModel):
                     for item in qresponse:
                         print(f"Sequence: {item.sequence.name}")
                         print(f"Topics: {[topic.name for topic in item.topics]}")
+
+                        # Clusterize all topics within the sequence to extract the time intervals
+                        clusters_dict = item.clusterize_all()
+
+                        # Since clusterize_all() used default clustering_dt_ns, each topic will have
+                        # just one cluster representing the first and last moment the query was satisfied
+                        for t_name, clusters in clusters_dict.items():
+                            print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -146,6 +162,14 @@ class _LaserScanBase(BaseModel):
                     for item in qresponse:
                         print(f"Sequence: {item.sequence.name}")
                         print(f"Topics: {[topic.name for topic in item.topics]}")
+
+                        # Clusterize all topics within the sequence to extract the time intervals
+                        clusters_dict = item.clusterize_all()
+
+                        # Since clusterize_all() used default clustering_dt_ns, each topic will have
+                        # just one cluster representing the first and last moment the query was satisfied
+                        for t_name, clusters in clusters_dict.items():
+                            print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         ```
 
     """
@@ -180,6 +204,14 @@ class _LaserScanBase(BaseModel):
                     for item in qresponse:
                         print(f"Sequence: {item.sequence.name}")
                         print(f"Topics: {[topic.name for topic in item.topics]}")
+
+                        # Clusterize all topics within the sequence to extract the time intervals
+                        clusters_dict = item.clusterize_all()
+
+                        # Since clusterize_all() used default clustering_dt_ns, each topic will have
+                        # just one cluster representing the first and last moment the query was satisfied
+                        for t_name, clusters in clusters_dict.items():
+                            print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -211,6 +243,14 @@ class _LaserScanBase(BaseModel):
                     for item in qresponse:
                         print(f"Sequence: {item.sequence.name}")
                         print(f"Topics: {[topic.name for topic in item.topics]}")
+
+                        # Clusterize all topics within the sequence to extract the time intervals
+                        clusters_dict = item.clusterize_all()
+
+                        # Since clusterize_all() used default clustering_dt_ns, each topic will have
+                        # just one cluster representing the first and last moment the query was satisfied
+                        for t_name, clusters in clusters_dict.items():
+                            print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -241,6 +281,14 @@ class _LaserScanBase(BaseModel):
                     for item in qresponse:
                         print(f"Sequence: {item.sequence.name}")
                         print(f"Topics: {[topic.name for topic in item.topics]}")
+
+                        # Clusterize all topics within the sequence to extract the time intervals
+                        clusters_dict = item.clusterize_all()
+
+                        # Since clusterize_all() used default clustering_dt_ns, each topic will have
+                        # just one cluster representing the first and last moment the query was satisfied
+                        for t_name, clusters in clusters_dict.items():
+                            print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -274,6 +322,14 @@ class _LaserScanBase(BaseModel):
                     for item in qresponse:
                         print(f"Sequence: {item.sequence.name}")
                         print(f"Topics: {[topic.name for topic in item.topics]}")
+
+                        # Clusterize all topics within the sequence to extract the time intervals
+                        clusters_dict = item.clusterize_all()
+
+                        # Since clusterize_all() used default clustering_dt_ns, each topic will have
+                        # just one cluster representing the first and last moment the query was satisfied
+                        for t_name, clusters in clusters_dict.items():
+                            print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -308,6 +364,14 @@ class _LaserScanBase(BaseModel):
                     for item in qresponse:
                         print(f"Sequence: {item.sequence.name}")
                         print(f"Topics: {[topic.name for topic in item.topics]}")
+
+                        # Clusterize all topics within the sequence to extract the time intervals
+                        clusters_dict = item.clusterize_all()
+
+                        # Since clusterize_all() used default clustering_dt_ns, each topic will have
+                        # just one cluster representing the first and last moment the query was satisfied
+                        for t_name, clusters in clusters_dict.items():
+                            print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -336,15 +400,13 @@ class LaserScan(
         ranges: Measured distance per beam in meters.
         intensities: Signal amplitude per beam (optional).
 
-    Note:
-        # FIXME: Update this docstring with queryability of list fiends,
-        # and add example scripts for querying such field
-        List-typed fields are **not queryable** via the `.Q` proxy. The `.Q`
-        proxy is not available on this model.
-
     ### Querying with the **`.Q` Proxy**
-       Scalar fields are fully queryable via the **`.Q` proxy**.
-       `ranges` and `intensities` are **not queryable**.
+    This class is fully queryable via the **`.Q` proxy**. Scalar fields support the standard
+    numeric operators directly. `ranges` and `intensities` are list-typed: use `all()`, `any()`
+    or index access `[i]` to narrow down to the list element and compose a correct expression.
+        - LaserScan.Q.ranges.all()       -> invalid expression
+        - LaserScan.Q.ranges.gt(1)       -> invalid expression
+        - LaserScan.Q.ranges.all().gt(1) -> valid expression
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
@@ -355,6 +417,12 @@ class LaserScan(
     | `LaserScan.Q.scan_time` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
     | `LaserScan.Q.range_min` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
     | `LaserScan.Q.range_max` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `LaserScan.Q.ranges.all()` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `LaserScan.Q.ranges.any()` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `LaserScan.Q.ranges.[i]` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `LaserScan.Q.intensities.all()` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `LaserScan.Q.intensities.any()` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `LaserScan.Q.intensities.[i]` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
 
     Example:
         ```python
@@ -373,7 +441,13 @@ class LaserScan(
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # FIXME: Add here example for timestamp exytraction and clustering
+                    # Clusterize all topics within the sequence to extract the time intervals
+                    clusters_dict = item.clusterize_all()
+
+                    # Since clusterize_all() used default clustering_dt_ns, each topic will have
+                    # just one cluster representing the first and last moment the query was satisfied
+                    for t_name, clusters in clusters_dict.items():
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -386,8 +460,45 @@ class LaserScan(
     A flat list of `float` values, one per beam, representing the measured distance in meters.
 
     Values outside the `[range_min, range_max]` interval should be considered invalid.
-    # FIXME: Update this docstring with queryability of list fiends,
-    # and add example scripts for querying such field
+
+    ### Querying with the **`.Q` Proxy**
+    The range measurements are queryable via the `ranges` field. Since it represents a list of
+    values, use `all()`, `any()` or index access `[i]` to narrow down to the list element and
+    compose a correct expression.
+        - LaserScan.Q.ranges.all()       -> invalid expression
+        - LaserScan.Q.ranges.gt(1)       -> invalid expression
+        - LaserScan.Q.ranges.all().gt(1) -> valid expression
+
+    | Field Access Path | Queryable Type | Supported Operators |
+    | :--- | :--- | :--- |
+    | `LaserScan.Q.ranges.all()` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `LaserScan.Q.ranges.any()` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `LaserScan.Q.ranges.[i]` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+
+    Example:
+        ```python
+            from mosaicolabs import MosaicoClient, QueryOntologyCatalog
+            from mosaicolabs.model.futures import LaserScan
+
+            with MosaicoClient.connect("localhost", 6726) as client:
+                # Find scans with at least one beam returning within 1 meter
+                qresponse = client.query(
+                    QueryOntologyCatalog(LaserScan.Q.ranges.any().leq(1.0))
+                )
+
+                if qresponse is not None:
+                    for item in qresponse:
+                        print(f"Sequence: {item.sequence.name}")
+                        print(f"Topics: {[topic.name for topic in item.topics]}")
+
+                        # Clusterize all topics within the sequence to extract the time intervals
+                        clusters_dict = item.clusterize_all()
+
+                        # Since clusterize_all() used default clustering_dt_ns, each topic will have
+                        # just one cluster representing the first and last moment the query was satisfied
+                        for t_name, clusters in clusters_dict.items():
+                            print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
+        ```
     """
 
     intensities: Optional[SingleRange] = MosaicoField(
@@ -396,9 +507,46 @@ class LaserScan(
     """
     Intensity measurements for each beam (optional).
     
-    A flat list of `float` values, carries the signal amplitude of each beam. 
-    # FIXME: Update this docstring with queryability of list fiends,
-    # and add example scripts for querying such field
+    A flat list of `float` values, carries the signal amplitude of each beam.
+
+    ### Querying with the **`.Q` Proxy**
+    The intensity measurements are queryable via the `intensities` field. Since it represents a
+    list of values, use `all()`, `any()` or index access `[i]` to narrow down to the list
+    element and compose a correct expression.
+        - LaserScan.Q.intensities.all()       -> invalid expression
+        - LaserScan.Q.intensities.gt(1)       -> invalid expression
+        - LaserScan.Q.intensities.all().gt(1) -> valid expression
+
+    | Field Access Path | Queryable Type | Supported Operators |
+    | :--- | :--- | :--- |
+    | `LaserScan.Q.intensities.all()` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `LaserScan.Q.intensities.any()` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `LaserScan.Q.intensities.[i]` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+
+    Example:
+        ```python
+            from mosaicolabs import MosaicoClient, QueryOntologyCatalog
+            from mosaicolabs.model.futures import LaserScan
+
+            with MosaicoClient.connect("localhost", 6726) as client:
+                # Find scans with at least one high-intensity beam return
+                qresponse = client.query(
+                    QueryOntologyCatalog(LaserScan.Q.intensities.any().gt(200.0))
+                )
+
+                if qresponse is not None:
+                    for item in qresponse:
+                        print(f"Sequence: {item.sequence.name}")
+                        print(f"Topics: {[topic.name for topic in item.topics]}")
+
+                        # Clusterize all topics within the sequence to extract the time intervals
+                        clusters_dict = item.clusterize_all()
+
+                        # Since clusterize_all() used default clustering_dt_ns, each topic will have
+                        # just one cluster representing the first and last moment the query was satisfied
+                        for t_name, clusters in clusters_dict.items():
+                            print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
+        ```
     """
 
 
@@ -433,17 +581,10 @@ class MultiEchoLaserScan(
         intensities: List of echo amplitudes per beam, co-indexed with
             `ranges` (optional).
 
-    Note:
-        # FIXME: Update this docstring with queryability of list fiends,
-        # and add example scripts for querying such field
-        List-typed fields are **not queryable** via the `.Q` proxy. The `.Q`
-        proxy is not available on this model.
-
     ### Querying with the **`.Q` Proxy**
     Scalar fields are fully queryable via the **`.Q` proxy**.
-    # FIXME: Update this docstring with queryability of list fiends,
-    # and add example scripts for querying such field
-    `ranges` and `intensities` are **not queryable**.
+    `ranges` and `intensities` are **not queryable**: each is a nested list (a list of echoes
+    per beam), and the `.Q` proxy does not support indexing or filtering into nested lists.
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
@@ -472,7 +613,13 @@ class MultiEchoLaserScan(
                         print(f"Sequence: {item.sequence.name}")
                         print(f"Topics: {[topic.name for topic in item.topics]}")
 
-                # FIXME: Add here example for timestamp exytraction and clustering
+                        # Clusterize all topics within the sequence to extract the time intervals
+                        clusters_dict = item.clusterize_all()
+
+                        # Since clusterize_all() used default clustering_dt_ns, each topic will have
+                        # just one cluster representing the first and last moment the query was satisfied
+                        for t_name, clusters in clusters_dict.items():
+                            print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -486,8 +633,11 @@ class MultiEchoLaserScan(
     *i*-th beam, ordered from nearest to farthest. An empty inner list indicates no valid return for that beam.
     
     Values outside the `[range_min, range_max]` interval should be considered invalid.
-    # FIXME: Update this docstring with queryability of list fiends,
-    # and add example scripts for querying such field
+
+    ### Querying with the **`.Q` Proxy**
+    The `ranges` field is **not queryable** via the `.Q` proxy: it is a nested list (a list of
+    echo distances per beam), and the `.Q` proxy does not support indexing or filtering into
+    nested lists.
     """
 
     intensities: Optional[MultiRange] = MosaicoField(
@@ -497,4 +647,9 @@ class MultiEchoLaserScan(
     Intensity measurements for each beam. (optional).
 
     A flat list of list of `float` value carries the signal amplitude of each returned echo.
+
+    ### Querying with the **`.Q` Proxy**
+    The `intensities` field is **not queryable** via the `.Q` proxy: it is a nested list (a list
+    of echo amplitudes per beam), and the `.Q` proxy does not support indexing or filtering into
+    nested lists.
     """

@@ -2,6 +2,7 @@ import pytest
 
 from mosaicolabs.comm import MosaicoClient
 from mosaicolabs.models.query import QuerySequence
+from mosaicolabs.models.sensors.image import Image
 from testing.integration.config import (
     QUERY_SEQUENCES_MOCKUP,
 )
@@ -35,7 +36,9 @@ def test_query_mockup_sequence_by_name(
     # Query by partial name
     n_char = int(len(sequence_name) / 2)  # half the length
     seqname_substr = sequence_name[:n_char]
-    query_resp = mosaico_client.query(QuerySequence().with_name_match(seqname_substr))
+    query_resp = mosaico_client.query(
+        QuerySequence().with_name_match(seqname_substr + "*")
+    )
     # We do expect a successful query
     assert query_resp is not None and not query_resp.is_empty()
     matches = [
@@ -54,7 +57,11 @@ def test_query_mockup_sequence_by_name(
     # Query by partial name: startswith
     n_char = int(len(sequence_name) / 2)  # half the length
     seqname_substr = sequence_name[:n_char]
-    query_resp = mosaico_client.query(QuerySequence().with_name_match(seqname_substr))
+    query_resp = mosaico_client.query(
+        QuerySequence().with_name_match(
+            seqname_substr + "?" * (len(sequence_name) - n_char)
+        )
+    )
     # We do expect a successful query
     assert query_resp is not None and not query_resp.is_empty()
     matches = [
@@ -75,7 +82,9 @@ def test_query_mockup_sequence_by_name(
     # Query by partial name: endswith
     n_char = int(len(sequence_name) / 2)  # half the length
     seqname_substr = sequence_name[-n_char:]
-    query_resp = mosaico_client.query(QuerySequence().with_name_match(seqname_substr))
+    query_resp = mosaico_client.query(
+        QuerySequence().with_name_match("*" + seqname_substr)
+    )
     # We do expect a successful query
     assert query_resp is not None and not query_resp.is_empty()
     matches = [
@@ -102,7 +111,7 @@ def test_query_mockup_sequence_metadata(
     inject_mockup_sequences,  # Ensure the data are available on the data platform
 ):
     # Test 1: with single condition
-    sequence_name_pattern = "test-query-"
+    sequence_name_pattern = "test-query-*-#"
     query_resp = mosaico_client.query(
         QuerySequence()
         .with_user_metadata("status", eq="raw")
@@ -205,7 +214,7 @@ def test_query_topic_from_response(
 
     # Try restricting further the query...
     # get the first available ontology tag
-    ontology_tag = "image"
+    ontology_tag = Image.ontology_tag()
     query_resp = mosaico_client.query(qtopic.with_ontology_tag(ontology_tag))
     # One (1) sequence corresponds to this query
     assert query_resp is not None and not query_resp.is_empty()

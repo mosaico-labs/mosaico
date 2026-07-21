@@ -56,6 +56,7 @@ from .models.core import (
     MosaicoField as MosaicoField,
     MosaicoType as MosaicoType,
     Serializable as Serializable,
+    Unmodeled as Unmodeled,
 )
 
 # --- Data Models ---
@@ -109,6 +110,9 @@ from .models.platform import (
 # --- Query Responses ---
 from .models.query import (
     Query as Query,
+    QueryableBool as QueryableBool,
+    QueryableNumeric as QueryableNumeric,
+    QueryableString as QueryableString,
     QueryOntologyCatalog as QueryOntologyCatalog,
     QueryResponse as QueryResponse,
     QueryResponseItem as QueryResponseItem,
@@ -156,6 +160,7 @@ __all__ = [
     # Core Models
     "BaseModel",
     "Serializable",
+    "Unmodeled",
     "Time",
     "Duration",
     "Message",
@@ -222,6 +227,9 @@ __all__ = [
     "TimestampRange",
     "QueryResponseItem",
     "QueryResponse",
+    "QueryableBool",
+    "QueryableNumeric",
+    "QueryableString",
     # Enums
     "SerializationFormat",
     "SessionStatus",

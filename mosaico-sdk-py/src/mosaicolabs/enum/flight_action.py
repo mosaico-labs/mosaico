@@ -57,6 +57,12 @@ class FlightAction(Enum):
     TOPIC_DELETE = "topic_delete"
     """Requests the permanent removal of a specific topic from the platform."""
 
+    TOPIC_FILTER_CLUSTERIZE = "topic_filter_clusterize"
+    """Requests the clusterize of a specific topic from the platform."""
+
+    TOPIC_FILTER_INTERSECT = "topic_filter_intersect"
+    """Requests the cluster intersection between distinct topics from the platform."""
+
     # # --- Layers related ---
     # LAYER_LIST = "layer_list"
     # """Retrieves the list of available abstraction layers."""

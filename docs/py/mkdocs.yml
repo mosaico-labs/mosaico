@@ -71,6 +71,7 @@ nav:
         - SDK/API_reference/handlers/writing.md
     - Query Module:
         - SDK/API_reference/query/builders.md
+        - SDK/API_reference/query/queryable_fields.md
         - SDK/API_reference/query/internal.md
         - SDK/API_reference/query/response.md
     - Models:
