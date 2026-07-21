@@ -10,6 +10,7 @@ use mosaicod_db as db;
 use mosaicod_facade as facade;
 use mosaicod_rw::{self as rw, SerializedChunk, format::ToProperties};
 use mosaicod_store as store;
+use std::cmp::max;
 use std::sync::Arc;
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, error, info};
@@ -17,7 +18,9 @@ use tracing::{debug, error, info};
 const DEFAULT_TIME_INTERVAL: u32 = 86400;
 
 // Default max size for merged files.
-pub const DEFAULT_MAX_OUTPUT_FILE_SIZE: i64 = 512 * 1024 * 1024; // Bytes
+pub const DEFAULT_MAX_OUTPUT_FILE_SIZE: usize = 256_000_000; // MBi
+
+const OUTPUT_FILE_FILLING_PERCENTAGE: f32 = 0.10;
 
 fn df_to_internal_error(err: df::error::DataFusionError) -> core::Error {
     let err_msg = format!("datafusion error: {}", err);
@@ -28,7 +31,9 @@ pub struct StoreOptimizer {
     db: db::Database,
     store: store::StoreRef,
     time_interval: types::Duration,
-    max_file_size: i64,
+    // Soft threshold to split the output files.
+    // The value should stay between 128MB and 512MB for best performance with object store.
+    max_file_size: usize,
 }
 
 impl StoreOptimizer {
@@ -47,37 +52,34 @@ impl StoreOptimizer {
         self
     }
 
-    pub fn with_max_file_size(mut self, max_file_size: i64) -> Self {
+    pub fn with_max_file_size(mut self, max_file_size: usize) -> Self {
         self.max_file_size = max_file_size;
         self
     }
 
-    pub async fn max_rows_per_output_file(&self, topic_record: &db::TopicRecord) -> Result<u32> {
+    /// Gets the max row size between every chunk for the given topic.
+    pub async fn max_row_size(&self, topic_record: &db::TopicRecord) -> Result<u32> {
         let mut cx = self.db.connection();
 
-        let stats = db::topic_get_stats(&mut cx, topic_record.topic_id)
+        let max_row_size = db::topic_chunk_max_row_size(&mut cx, topic_record.topic_id)
             .await
-            .map_err(|e| match e {
-                db::Error::NotFound => core::Error::not_found(topic_record.locator().to_string()),
-                _ => {
-                    let err_msg = format!(
-                        "database error while accessing stats for topic {}: {}",
-                        topic_record.locator(),
-                        e
-                    );
-                    core::Error::internal(Some(err_msg))
-                }
+            .map_err(|e| {
+                let err_msg = format!(
+                    "database error while accessing max row size for topic {}: {}",
+                    topic_record.locator(),
+                    e
+                );
+                core::Error::internal(Some(err_msg))
+            })?
+            .ok_or_else(|| {
+                let err_msg = format!(
+                    "missing chunk stats in DB for topic {}",
+                    topic_record.locator()
+                );
+                core::Error::internal(Some(err_msg))
             })?;
 
-        if stats.total_size_bytes == 0 || stats.total_row_count == 0 {
-            let err_msg = format!("missing stats in DB for topic {}", topic_record.locator());
-            Err(core::Error::internal(Some(err_msg)))?;
-        }
-
-        let max_rows_per_output_file =
-            self.max_file_size / (stats.total_size_bytes / stats.total_row_count);
-
-        Ok(max_rows_per_output_file as u32)
+        Ok(max_row_size as u32)
     }
 
     /// Flushes the buffer on disk composing the path with [`path_in_store`] and [`data_file`].
@@ -135,10 +137,16 @@ impl StoreOptimizer {
             topic_record.locator()
         );
 
-        let max_rows = self.max_rows_per_output_file(topic_record).await? as usize;
+        // Estimates the batch size considering to fill iteratively the target output file size by a percentage.
+        // If the size of a single row is greater than max_file_size, set batcb_size to 1.
+        let batch_size = max(
+            (self.max_file_size as f32 * OUTPUT_FILE_FILLING_PERCENTAGE) as usize
+                / self.max_row_size(topic_record).await? as usize,
+            1,
+        );
 
         // Configure the session settings for file compaction
-        let config = df::execution::config::SessionConfig::new().with_batch_size(max_rows);
+        let config = df::execution::config::SessionConfig::new().with_batch_size(batch_size);
 
         let runtime = Arc::new(
             df::execution::runtime_env::RuntimeEnvBuilder::new()
@@ -211,10 +219,10 @@ impl StoreOptimizer {
 
         let mut chunk_stats: Vec<SerializedChunk> = vec![];
 
+        let mut writer = rw::InMemoryChunkEncoder::try_new(schema.clone(), format)?;
+
         while let Some(batch_result) = batch_stream.next().await {
             let batch = batch_result.map_err(df_to_internal_error)?;
-
-            let mut writer = rw::InMemoryChunkEncoder::try_new(schema.clone(), format)?;
 
             // Offload CPU-intensive parquet encoding/compression to blocking thread pool
             writer = tokio::task::spawn_blocking(move || -> Result<_> {
@@ -224,6 +232,37 @@ impl StoreOptimizer {
             .await
             .map_err(|e| core::Error::internal(Some(e.to_string())))??;
 
+            let estimated_size = writer.bytes_written() + writer.in_progress_size();
+
+            if estimated_size >= self.max_file_size {
+                let (buffer, stats, chunk_metadata) = writer.finalize()?;
+
+                let chunk_path = self
+                    .flush_chunk(
+                        buffer,
+                        output_path_in_store,
+                        types::TopicPathInStore::data_file(
+                            chunk_idx,
+                            format.to_properties().as_ref(),
+                        )
+                        .as_ref(),
+                    )
+                    .await?;
+
+                chunk_stats.push(SerializedChunk {
+                    path: chunk_path,
+                    metadata: chunk_metadata,
+                    ontology_stats: stats,
+                });
+
+                chunk_idx += 1;
+
+                writer = rw::InMemoryChunkEncoder::try_new(schema.clone(), format)?;
+            }
+        }
+
+        // Finalize the last writer.
+        if writer.bytes_written() + writer.in_progress_size() > 0 {
             let (buffer, stats, chunk_metadata) = writer.finalize()?;
 
             let chunk_path = self
@@ -240,8 +279,6 @@ impl StoreOptimizer {
                 metadata: chunk_metadata,
                 ontology_stats: stats,
             });
-
-            chunk_idx += 1;
         }
 
         Ok(chunk_stats)

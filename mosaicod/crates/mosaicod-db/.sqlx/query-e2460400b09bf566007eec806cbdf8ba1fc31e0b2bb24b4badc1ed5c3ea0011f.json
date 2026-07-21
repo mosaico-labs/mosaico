@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT MAX(size_bytes / NULLIF(row_count, 0)) as max_row_size\n        FROM chunk_t\n        WHERE topic_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "max_row_size",
+        "type_info": "Int8"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Int4"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "e2460400b09bf566007eec806cbdf8ba1fc31e0b2bb24b4badc1ed5c3ea0011f"
+}

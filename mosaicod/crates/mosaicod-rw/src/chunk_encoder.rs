@@ -91,6 +91,18 @@ impl InMemoryChunkEncoder {
         }
     }
 
+    pub fn bytes_written(&self) -> usize {
+        match &self.writer {
+            Writer::Parquet(writer) => writer.bytes_written(),
+        }
+    }
+
+    pub fn in_progress_size(&self) -> usize {
+        match &self.writer {
+            Writer::Parquet(writer) => writer.in_progress_size(),
+        }
+    }
+
     pub fn row_count(&self) -> usize {
         self.row_count
     }

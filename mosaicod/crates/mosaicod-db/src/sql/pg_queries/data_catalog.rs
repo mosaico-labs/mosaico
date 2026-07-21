@@ -223,6 +223,25 @@ fn cast_chunk_data(row: PgRow) -> Result<schema::ChunkRecord, Error> {
     })
 }
 
+/// Returns the largest `size_bytes / row_count` ratio across all chunks belonging to a topic,
+/// i.e. the size of the biggest row observed for that topic.
+/// Returns `None` if the topic has no chunks (or none with a non-zero row count).
+pub async fn topic_chunk_max_row_size(
+    exec: &mut impl AsExec,
+    topic_id: i32,
+) -> Result<Option<i64>, Error> {
+    let res = sqlx::query!(
+        r#"SELECT MAX(size_bytes / NULLIF(row_count, 0)) as max_row_size
+        FROM chunk_t
+        WHERE topic_id = $1"#,
+        topic_id
+    )
+    .fetch_one(exec.as_exec())
+    .await?;
+
+    Ok(res.max_row_size)
+}
+
 /// Returns aggregated size and row count statistics for all chunks belonging to a topic.
 pub async fn topic_get_stats(
     exec: &mut impl AsExec,

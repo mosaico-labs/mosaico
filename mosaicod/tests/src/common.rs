@@ -45,7 +45,7 @@ pub struct CleanupIntervalConfig {
 
 pub struct StoreOptimizerConfig {
     pub time_interval: types::Duration,
-    pub max_file_size: i64,
+    pub max_file_size: usize,
 }
 
 pub struct ServerBuilder {
@@ -91,7 +91,7 @@ impl ServerBuilder {
     pub fn with_store_optimizer(
         mut self,
         time_interval: types::Duration,
-        max_file_size: i64,
+        max_file_size: usize,
     ) -> Self {
         self.store_optimizer_config = Some(StoreOptimizerConfig {
             time_interval,
