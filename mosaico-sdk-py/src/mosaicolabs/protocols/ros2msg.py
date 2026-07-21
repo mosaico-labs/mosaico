@@ -1,14 +1,11 @@
 # =========================================================================== #
 # Converter 1: ROS 2 .msg  (encoding == "ros2msg")
 # =========================================================================== #
-from typing import Dict, TypeGuard, get_args
+from typing import Dict, cast
 
 import pyarrow as pa
 from rosbags.interfaces.typing import (
-    BaseDesc,
     Basename,
-    Basetype,
-    NameDesc,
     Nodetype,
     Typesdict,
 )
@@ -31,50 +28,6 @@ _ROS_2_PYARROW_TYPE: Dict[str, pa.DataType] = {
     "float128": pa.float64(),
     "string": pa.string(),
 }
-
-_BASENAME_VALUES = frozenset(get_args(Basename))
-
-
-def is_basetype(obj: object) -> TypeGuard[Basetype]:
-    """Check whether ``obj`` matches rosbags' ``Basetype`` alias.
-
-    ``Basetype`` is defined by rosbags as ``tuple[Basename, int]``, i.e. a
-    ROS field descriptor made of the primitive type name (e.g. ``"float64"``)
-    and a default-value marker.
-
-    Args:
-        obj: The object to check, typically the ``content`` half of a
-            ``(Nodetype, content)`` field descriptor.
-
-    Returns:
-        ``True`` if ``obj`` is a 2-tuple whose first element is a known
-        ``Basename`` and whose second element is an ``int``.
-    """
-    return (
-        isinstance(obj, tuple)
-        and len(obj) == 2
-        and obj[0] in _BASENAME_VALUES
-        and isinstance(obj[1], int)
-    )
-
-
-def is_list_sequence_type(obj: object) -> TypeGuard[tuple[BaseDesc | NameDesc, int]]:
-    """Check whether ``obj`` matches rosbags' list/sequence descriptor shape.
-
-    Rosbags represents both fixed-size arrays (``T[N]``) and variable-size
-    sequences (``T[]``) as ``tuple[BaseDesc | NameDesc, int]``, where the
-    trailing ``int`` is the array size (``0`` for unbounded sequences).
-
-    Args:
-        obj: The object to check, typically the ``content`` half of a
-            ``(Nodetype.SEQUENCE | Nodetype.ARRAY, content)`` field
-            descriptor.
-
-    Returns:
-        ``True`` if ``obj`` is a 2-tuple whose second element is an ``int``.
-    """
-
-    return isinstance(obj, tuple) and len(obj) == 2 and isinstance(obj[1], int)
 
 
 def _typesdict_to_schema(types_dict: Typesdict, msgtype: str) -> pa.StructType:
@@ -99,9 +52,6 @@ def _typesdict_to_schema(types_dict: Typesdict, msgtype: str) -> pa.StructType:
     Raises:
         TypeError: If a field's descriptor does not match the expected
             ``Basetype`` or list/sequence shape.
-        RuntimeError: If a field has an unrecognised ``Nodetype``.
-        KeyError: If a referenced nested message type is not present in
-            ``types_dict``.
     """
     # Extract msgtype from Typesdict since we need to create the pyarrow struct of that particular part
     const_def, fields_def = types_dict[msgtype]
@@ -115,12 +65,9 @@ def _typesdict_to_schema(types_dict: Typesdict, msgtype: str) -> pa.StructType:
         node_type, content = field_desc
 
         if node_type is Nodetype.BASE:
-            if not is_basetype(content):
-                raise TypeError(
-                    f"Expected Basetype (Basename, int) for field {field_name!r}, got {content!r}"
-                )
-
             ros_type, default_value = content
+
+            ros_type = cast(Basename, ros_type)  # just for typechecker
 
             pyarrow_type = _ROS_2_PYARROW_TYPE[ros_type]
             pyarrow_fields.append(pa.field(field_name, pyarrow_type))
@@ -133,31 +80,36 @@ def _typesdict_to_schema(types_dict: Typesdict, msgtype: str) -> pa.StructType:
             pyarrow_fields.append(composed_field)
 
         elif node_type in (Nodetype.SEQUENCE, Nodetype.ARRAY):
-            if not is_list_sequence_type(content):
-                raise TypeError(
-                    f"Expected rosbag Array or Sequence Type for field {field_name!r}, got {content!r}"
-                )
-
             # content has the following value: Nodetype.SEQUENCE, ( (T.BASE, ('float32', 0)), 0 )
+            # or the following value: Nodetype.SEQUENCE, ( (T.BASE, "msgtype"), 0 )
             list_content, list_size = (
                 content  # list_type can be a simple or composed type
             )
 
-            _, list_item_content = list_content
+            list_size = cast(int, list_size)
 
-            if isinstance(list_item_content, str):  # complex type
+            item_node_type, item_content = list_content
+
+            if item_node_type is Nodetype.BASE:  # simple type
+                ros_type, default_value = item_content
+                list_field = _ROS_2_PYARROW_TYPE[ros_type]
+
+            elif item_node_type is Nodetype.NAME and isinstance(
+                item_content, str
+            ):  # complex type
                 list_field = pa.field(
-                    field_name, _typesdict_to_schema(types_dict, list_item_content)
+                    field_name, _typesdict_to_schema(types_dict, item_content)
                 )
 
-            else:  # simple type
-                ros_type, default_value = list_item_content
-                list_field = _ROS_2_PYARROW_TYPE[ros_type]
+            else:
+                raise TypeError(
+                    f"Cannot recognise node type {item_node_type} for field {field_name}"
+                )
 
             pyarrow_list = pa.list_(list_field, list_size if list_size > 0 else -1)
             pyarrow_fields.append(pa.field(field_name, pyarrow_list))
         else:
-            raise RuntimeError(
+            raise TypeError(
                 f"Cannot recognise node type {node_type} for field {field_name}"
             )
 
