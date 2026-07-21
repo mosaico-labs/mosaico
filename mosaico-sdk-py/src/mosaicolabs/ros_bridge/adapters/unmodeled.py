@@ -86,7 +86,6 @@ def pack_unmodeled(
                 raw_data[field_name] = np.array(raw_data[field_name])
 
             elif item_node_type is Nodetype.NAME and isinstance(item_content, str):
-
                 # Check that all elements of raw_data[field_name] are dict
                 if any(not isinstance(x, dict) for x in raw_data[field_name]):
                     raise TypeError(

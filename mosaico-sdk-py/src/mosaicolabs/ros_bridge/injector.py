@@ -473,10 +473,9 @@ class RosbagInjector:
 
         # Retrieve the writer from SequenceWriter local cache or create new one on server
         twriter = seq_writer.get_topic_writer(ros_msg.topic)
-        
+
         # Should theoretically not be None if exists returned True
         if twriter is None:
-
             # --- Schema metadata Resolution ---
             schema_metadata = adapter.schema_metadata(
                 self._loader._typestore, ros_msg.msg_type, ros_msg_def=ros_msg.msg_def
