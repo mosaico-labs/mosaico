@@ -155,7 +155,7 @@ def camera_info_ros1msg(ros_header, roi_rosmsg):
             "P": list(range(0, 12)),
             "binning_x": 3,
             "binning_y": 3,
-            "roi": roi_rosmsg.data,
+            "roi": roi_rosmsg.data_field,
         },
     )
 
@@ -177,7 +177,7 @@ def camera_info_ros2msg(ros_header, roi_rosmsg):
             "p": list(range(0, 12)),
             "binning_x": 3,
             "binning_y": 3,
-            "roi": roi_rosmsg.data,
+            "roi": roi_rosmsg.data_field,
         },
     )
 
@@ -186,17 +186,17 @@ class TestCameraInfoAdapter:
     def test_translate_camera_info1(self, camera_info_ros1msg: ROSMessage):
         ms_msg = CameraInfoAdapter.translate(camera_info_ros1msg)
 
-        assert_camera_info(ms_msg.get_data(CameraInfo), camera_info_ros1msg.data)
+        assert_camera_info(ms_msg.get_data(CameraInfo), camera_info_ros1msg.data_field)
 
     def test_translate_camera_info2(self, camera_info_ros2msg: ROSMessage):
         ms_msg = CameraInfoAdapter.translate(camera_info_ros2msg)
 
-        assert_camera_info(ms_msg.get_data(CameraInfo), camera_info_ros2msg.data)
+        assert_camera_info(ms_msg.get_data(CameraInfo), camera_info_ros2msg.data_field)
 
     def test_translate_raise_missing_required_key(
         self, camera_info_ros1msg: ROSMessage
     ):
-        data = camera_info_ros1msg.data
+        data = camera_info_ros1msg.data_field
         data.pop("height")
         with pytest.raises(ValueError, match="missing required keys"):
             CameraInfoAdapter.from_dict(data)
@@ -267,12 +267,12 @@ class TestNavSatStatusAdapter:
     def test_translate_nav_sat_status(self, nav_sat_status_rosmsg: ROSMessage):
         ms_msg = NavSatStatusAdapter.translate(nav_sat_status_rosmsg)
 
-        assert_gps_status(ms_msg.get_data(GPSStatus), nav_sat_status_rosmsg.data)
+        assert_gps_status(ms_msg.get_data(GPSStatus), nav_sat_status_rosmsg.data_field)
 
     def test_translate_raise_missing_required_key(
         self, nav_sat_status_rosmsg: ROSMessage
     ):
-        data = nav_sat_status_rosmsg.data
+        data = nav_sat_status_rosmsg.data_field
         data.pop("status")
         with pytest.raises(ValueError, match="missing required keys"):
             NavSatStatusAdapter.from_dict(data)
@@ -357,10 +357,10 @@ class TestGPSAdapter:
     def test_translate_nav_sat_fix(self, nav_sat_fix_rosmsg: ROSMessage):
         ms_msg = GPSAdapter.translate(nav_sat_fix_rosmsg)
 
-        assert_gps(ms_msg.get_data(GPS), nav_sat_fix_rosmsg.data)
+        assert_gps(ms_msg.get_data(GPS), nav_sat_fix_rosmsg.data_field)
 
     def test_translate_raise_missing_required_key(self, nav_sat_fix_rosmsg: ROSMessage):
-        data = nav_sat_fix_rosmsg.data
+        data = nav_sat_fix_rosmsg.data_field
         data.pop("status")
         with pytest.raises(ValueError, match="missing required keys"):
             GPSAdapter.from_dict(data)
@@ -498,15 +498,15 @@ class TestIMUAdapter:
     def test_translate_imu(self, imu_rosmsg: ROSMessage):
         ms_msg = IMUAdapter.translate(imu_rosmsg)
 
-        assert_imu(ms_msg.get_data(IMU), imu_rosmsg.data)
+        assert_imu(ms_msg.get_data(IMU), imu_rosmsg.data_field)
 
     def test_translate_imu_w_cov(self, imu_w_cov_rosmsg: ROSMessage):
         ms_msg = IMUAdapter.translate(imu_w_cov_rosmsg)
 
-        assert_imu(ms_msg.get_data(IMU), imu_w_cov_rosmsg.data)
+        assert_imu(ms_msg.get_data(IMU), imu_w_cov_rosmsg.data_field)
 
     def test_translate_raise_missing_required_key(self, imu_w_cov_rosmsg: ROSMessage):
-        data = imu_w_cov_rosmsg.data
+        data = imu_w_cov_rosmsg.data_field
         data.pop("angular_velocity")
         with pytest.raises(ValueError, match="missing required keys"):
             IMUAdapter.from_dict(data)
@@ -592,12 +592,14 @@ class TestNMEASentenceAdapter:
     def test_translate_nmea_sentence(self, nmea_sentence_rosmsg: ROSMessage):
         ms_msg = NMEASentenceAdapter.translate(nmea_sentence_rosmsg)
 
-        assert_nmea_sentence(ms_msg.get_data(NMEASentence), nmea_sentence_rosmsg.data)
+        assert_nmea_sentence(
+            ms_msg.get_data(NMEASentence), nmea_sentence_rosmsg.data_field
+        )
 
     def test_translate_raise_missing_required_key(
         self, nmea_sentence_rosmsg: ROSMessage
     ):
-        data = nmea_sentence_rosmsg.data
+        data = nmea_sentence_rosmsg.data_field
         data.pop("sentence")
         with pytest.raises(ValueError, match="missing required keys"):
             NMEASentenceAdapter.from_dict(data)
@@ -710,10 +712,10 @@ class TestImageAdapter:
     def test_translate_image_sentence(self, image_rosmsg: ROSMessage):
         ms_msg = ImageAdapter.translate(image_rosmsg)
 
-        assert_image(ms_msg.get_data(Image), image_rosmsg.data)
+        assert_image(ms_msg.get_data(Image), image_rosmsg.data_field)
 
     def test_translate_raise_missing_required_key(self, image_rosmsg: ROSMessage):
-        data = image_rosmsg.data
+        data = image_rosmsg.data_field
         data.pop("width")
         with pytest.raises(ValueError, match="missing required keys"):
             ImageAdapter.from_dict(data)
@@ -789,13 +791,13 @@ class TestCompressedImageAdapter:
         ms_msg = CompressedImageAdapter.translate(compressed_image_rosmsg)
 
         assert_compressed_image(
-            ms_msg.get_data(CompressedImage), compressed_image_rosmsg.data
+            ms_msg.get_data(CompressedImage), compressed_image_rosmsg.data_field
         )
 
     def test_translate_raise_missing_required_key(
         self, compressed_image_rosmsg: ROSMessage
     ):
-        data = compressed_image_rosmsg.data
+        data = compressed_image_rosmsg.data_field
         data.pop("format")
         with pytest.raises(ValueError, match="missing required keys"):
             CompressedImageAdapter.from_dict(data)
@@ -862,11 +864,11 @@ class TestROIAdapter:
     def test_translate_roi_sentence(self, roi_rosmsg: ROSMessage):
         ms_msg = ROIAdapter.translate(roi_rosmsg)
 
-        assert_roi(ms_msg.get_data(ROI), roi_rosmsg.data)
+        assert_roi(ms_msg.get_data(ROI), roi_rosmsg.data_field)
         assert ms_msg.timestamp_ns == roi_rosmsg.bag_timestamp_ns
 
     def test_translate_raise_missing_required_key(self, roi_rosmsg: ROSMessage):
-        data = roi_rosmsg.data
+        data = roi_rosmsg.data_field
         data.pop("height")
         with pytest.raises(ValueError, match="missing required keys"):
             ROIAdapter.from_dict(data)
@@ -959,12 +961,14 @@ class TestBatteryStateAdapter:
     def test_translate_battery_state(self, battery_state_rosmsg: ROSMessage):
         ms_msg = BatteryStateAdapter.translate(battery_state_rosmsg)
 
-        assert_battery_state(ms_msg.get_data(BatteryState), battery_state_rosmsg.data)
+        assert_battery_state(
+            ms_msg.get_data(BatteryState), battery_state_rosmsg.data_field
+        )
 
     def test_translate_raise_missing_required_key(
         self, battery_state_rosmsg: ROSMessage
     ):
-        data = battery_state_rosmsg.data
+        data = battery_state_rosmsg.data_field
         data.pop("voltage")
         with pytest.raises(ValueError, match="missing required keys"):
             BatteryStateAdapter.from_dict(data)
@@ -1053,10 +1057,10 @@ class TestRobotJointAdapter:
     def test_translate_robot_joint(self, robot_joint_rosmsg: ROSMessage):
         ms_msg = RobotJointAdapter.translate(robot_joint_rosmsg)
 
-        assert_robot_joint(ms_msg.get_data(RobotJoint), robot_joint_rosmsg.data)
+        assert_robot_joint(ms_msg.get_data(RobotJoint), robot_joint_rosmsg.data_field)
 
     def test_translate_raise_missing_required_key(self, robot_joint_rosmsg: ROSMessage):
-        data = robot_joint_rosmsg.data
+        data = robot_joint_rosmsg.data_field
         data.pop("name")
         with pytest.raises(ValueError, match="missing required keys"):
             RobotJointAdapter.from_dict(data)
@@ -1420,10 +1424,10 @@ class TestPointCloud2Adapter:
     def test_translate_pcl2(self, pcl2_rosmsg: ROSMessage):
         ms_msg = PointCloudAdapter.translate(pcl2_rosmsg)
 
-        assert_pcl2(ms_msg.get_data(PointCloud2), pcl2_rosmsg.data)
+        assert_pcl2(ms_msg.get_data(PointCloud2), pcl2_rosmsg.data_field)
 
     def test_translate_raise_missing_required_key(self, pcl2_rosmsg: ROSMessage):
-        data = pcl2_rosmsg.data
+        data = pcl2_rosmsg.data_field
         data.pop("width")
         with pytest.raises(ValueError, match="missing required keys"):
             PointCloudAdapter.from_dict(data)
@@ -1515,10 +1519,12 @@ class TestLaserScannerAdapter:
     def test_translate_laser_scanner(self, laserscan_rosmsg: ROSMessage):
         ms_msg = LaserScanAdapter.translate(laserscan_rosmsg)
 
-        assert_laserscan(ms_msg.get_data(futures.LaserScan), laserscan_rosmsg.data)
+        assert_laserscan(
+            ms_msg.get_data(futures.LaserScan), laserscan_rosmsg.data_field
+        )
 
     def test_translate_raise_missing_required_key(self, laserscan_rosmsg: ROSMessage):
-        data = laserscan_rosmsg.data
+        data = laserscan_rosmsg.data_field
         data.pop("angle_min")
         with pytest.raises(ValueError, match="missing required keys"):
             LaserScanAdapter.from_dict(data)
@@ -1619,13 +1625,14 @@ class TestMultiEchoLaserScanAdapter:
         ms_msg = MultiEchoLaserScanAdapter.translate(multiecho_laserscan_rosmsg)
 
         assert_multiecho_laserscan(
-            ms_msg.get_data(futures.MultiEchoLaserScan), multiecho_laserscan_rosmsg.data
+            ms_msg.get_data(futures.MultiEchoLaserScan),
+            multiecho_laserscan_rosmsg.data_field,
         )
 
     def test_translate_raise_missing_required_key(
         self, multiecho_laserscan_rosmsg: ROSMessage
     ):
-        data = multiecho_laserscan_rosmsg.data
+        data = multiecho_laserscan_rosmsg.data_field
         data.pop("angle_min")
         with pytest.raises(ValueError, match="missing required keys"):
             MultiEchoLaserScanAdapter.from_dict(data)
@@ -1717,10 +1724,10 @@ class TestJoyAdapter:
     def test_translate_joy(self, joy_rosmsg: ROSMessage):
         ms_msg = JoyAdapter.translate(joy_rosmsg)
 
-        assert_joy(ms_msg.get_data(Joy), joy_rosmsg.data)
+        assert_joy(ms_msg.get_data(Joy), joy_rosmsg.data_field)
 
     def test_translate_raise_missing_required_key(self, joy_rosmsg: ROSMessage):
-        data = joy_rosmsg.data
+        data = joy_rosmsg.data_field
         data.pop("axes")
         with pytest.raises(ValueError, match="missing required keys"):
             JoyAdapter.from_dict(data)
@@ -1820,19 +1827,21 @@ class TestMagneticFieldAdapter:
     def test_translate_magnetometer(self, magnetometer_rosmsg: ROSMessage):
         ms_msg = MagneticFieldAdapter.translate(magnetometer_rosmsg)
 
-        assert_magnetometer(ms_msg.get_data(Magnetometer), magnetometer_rosmsg.data)
+        assert_magnetometer(
+            ms_msg.get_data(Magnetometer), magnetometer_rosmsg.data_field
+        )
 
     def test_translate_magnetometer_w_cov(self, magnetometer_w_cov_rosmsg: ROSMessage):
         ms_msg = MagneticFieldAdapter.translate(magnetometer_w_cov_rosmsg)
 
         assert_magnetometer(
-            ms_msg.get_data(Magnetometer), magnetometer_w_cov_rosmsg.data
+            ms_msg.get_data(Magnetometer), magnetometer_w_cov_rosmsg.data_field
         )
 
     def test_translate_raise_missing_required_key(
         self, magnetometer_rosmsg: ROSMessage
     ):
-        data = magnetometer_rosmsg.data
+        data = magnetometer_rosmsg.data_field
         data.pop("magnetic_field")
         with pytest.raises(ValueError, match="missing required keys"):
             MagneticFieldAdapter.from_dict(data)
@@ -1942,15 +1951,17 @@ class TestTemperatureAdapter:
     def test_translate_temperature(self, temperature_rosmsg: ROSMessage):
         ms_msg = TemperatureAdapter.translate(temperature_rosmsg)
 
-        assert_temperature(ms_msg.get_data(Temperature), temperature_rosmsg.data)
+        assert_temperature(ms_msg.get_data(Temperature), temperature_rosmsg.data_field)
 
     def test_translate_temperature_w_var(self, temperature_w_var_rosmsg: ROSMessage):
         ms_msg = TemperatureAdapter.translate(temperature_w_var_rosmsg)
 
-        assert_temperature(ms_msg.get_data(Temperature), temperature_w_var_rosmsg.data)
+        assert_temperature(
+            ms_msg.get_data(Temperature), temperature_w_var_rosmsg.data_field
+        )
 
     def test_translate_raise_missing_required_key(self, temperature_rosmsg: ROSMessage):
-        data = temperature_rosmsg.data
+        data = temperature_rosmsg.data_field
         data.pop("temperature")
         with pytest.raises(ValueError, match="missing required keys"):
             TemperatureAdapter.from_dict(data)
@@ -2057,15 +2068,15 @@ class TestpressureAdapter:
     def test_translate_pressure(self, pressure_rosmsg: ROSMessage):
         ms_msg = PressureAdapter.translate(pressure_rosmsg)
 
-        assert_pressure(ms_msg.get_data(Pressure), pressure_rosmsg.data)
+        assert_pressure(ms_msg.get_data(Pressure), pressure_rosmsg.data_field)
 
     def test_translate_pressure_w_var(self, pressure_w_var_rosmsg: ROSMessage):
         ms_msg = PressureAdapter.translate(pressure_w_var_rosmsg)
 
-        assert_pressure(ms_msg.get_data(Pressure), pressure_w_var_rosmsg.data)
+        assert_pressure(ms_msg.get_data(Pressure), pressure_w_var_rosmsg.data_field)
 
     def test_translate_raise_missing_required_key(self, pressure_rosmsg: ROSMessage):
-        data = pressure_rosmsg.data
+        data = pressure_rosmsg.data_field
         data.pop("fluid_pressure")
         with pytest.raises(ValueError, match="missing required keys"):
             PressureAdapter.from_dict(data)

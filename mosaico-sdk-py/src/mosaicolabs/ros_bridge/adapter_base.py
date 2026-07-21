@@ -76,13 +76,13 @@ class ROSAdapterBase(ABC, Generic[T]):
         Returns:
             A Mosaico Message object containing the instantiated ontology data.
         """
-        if ros_msg.data is None:
+        if ros_msg.data_field is None:
             raise Exception(f"'data' attribute is None for topic {ros_msg.topic}")
 
         try:
             return Message(
                 timestamp_ns=ros_msg.bag_timestamp_ns,
-                data=cls.from_dict(ros_msg.data),
+                data=cls.from_dict(ros_msg.data_field),
             )
         except Exception as e:
             raise Exception(f"Translation failed for {ros_msg.topic}: {e}")

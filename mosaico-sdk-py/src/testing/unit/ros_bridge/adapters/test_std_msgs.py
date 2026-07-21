@@ -131,7 +131,7 @@ class TestGenericStdAdapter:
 
         assert (
             ms_msg.get_data(adapter.__mosaico_ontology_type__).data
-            == std_rosmsg.data["data"]
+            == std_rosmsg.data_field["data"]
         )
 
     @pytest.mark.parametrize("typestore", ROS_TYPESTORE_TO_TEST)

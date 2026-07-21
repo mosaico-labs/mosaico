@@ -87,14 +87,23 @@ def _extract_ros_metadata(t_handler: TopicHandler) -> Dict[str, Any]:
     return ros_metadata
 
 
-def _to_dict(message: Any) -> Any:
+def _to_dict(message: Any) -> tuple[Any, Dict[str, Any]]:
     """
-    Recursively converts a rosbags message object and its nested fields
-    to a standard Python dictionary or a list/primitive type if encountered
-    during recursion.
+    Recursively converts a rosbags message object and its nested fields to a standard
+    Python dictionary (or list/primitive type if encountered during recursion), splitting
+    out message constants (`UPPER_CASE` attributes, as opposed to `snake_case` fields)
+    along the way.
+
+    Returns:
+        A `(value, const_dict)` tuple. `const_dict` holds the `UPPER_CASE` constants
+        declared directly on `message` and is empty for lists/tuples/arrays/time values,
+        which never carry constants of their own. Callers recursing into nested fields
+        should keep only `value` and discard `const_dict`, so constants nested below the
+        top level of the original call are dropped rather than collected.
     """
     if hasattr(message, "__msgtype__"):
-        data_dict = {}
+        data_dict: Dict[str, Any] = {}
+        const_dict: Dict[str, Any] = {}
         # rosbags messages are dataclasses without __slots__. Iterating the
         # declared dataclass fields is ~3.5x faster than scanning dir(message)
         # (which enumerates and filters the whole attribute space on every
@@ -112,21 +121,24 @@ def _to_dict(message: Any) -> Any:
                 continue
             try:
                 field_value = getattr(message, field_name)
-                data_dict[field_name] = _to_dict(field_value)
             except AttributeError:
                 continue
-        return data_dict
+            if field_name.isupper():
+                const_dict[field_name] = field_value
+                continue
+            data_dict[field_name], _ = _to_dict(field_value)
+        return data_dict, const_dict
     elif isinstance(message, (list, tuple)):
-        return [_to_dict(item) for item in message]
+        return [_to_dict(item)[0] for item in message], {}
     elif isinstance(message, np.ndarray):
-        return message.tolist()
+        return message.tolist(), {}
     elif hasattr(message, "sec") and hasattr(message, "nanosec"):
         try:
             # Convert ROS time structure to a single float timestamp (seconds)
-            return message.sec + message.nanosec * 1e-9
+            return message.sec + message.nanosec * 1e-9, {}
         except Exception:
-            return message
-    return message
+            return message, {}
+    return message, {}
 
 
 def _filter_topics_from_list(

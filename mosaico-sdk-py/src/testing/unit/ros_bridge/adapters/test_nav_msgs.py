@@ -102,12 +102,14 @@ class TestOdometryAdapter:
     def test_translate_motion_state(self, motion_state_rosmsg: ROSMessage):
         ms_msg = OdometryAdapter.translate(motion_state_rosmsg)
 
-        assert_motion_state(ms_msg.get_data(MotionState), motion_state_rosmsg.data)
+        assert_motion_state(
+            ms_msg.get_data(MotionState), motion_state_rosmsg.data_field
+        )
 
     def test_translate_raise_missing_required_key(
         self, motion_state_rosmsg: ROSMessage
     ):
-        data = motion_state_rosmsg.data
+        data = motion_state_rosmsg.data_field
         data.pop("child_frame_id")
         with pytest.raises(ValueError, match="missing required keys"):
             OdometryAdapter.from_dict(data)
@@ -205,10 +207,10 @@ class TestRobotPathAdapter:
     def test_translate_path(self, path_rosmsg: ROSMessage):
         ms_msg = RobotPathAdapter.translate(path_rosmsg)
 
-        assert_path(ms_msg.get_data(RobotPath), path_rosmsg.data)
+        assert_path(ms_msg.get_data(RobotPath), path_rosmsg.data_field)
 
     def test_translate_raise_missing_required_key(self, path_rosmsg: ROSMessage):
-        data = path_rosmsg.data
+        data = path_rosmsg.data_field
         data.pop("poses")
         with pytest.raises(ValueError, match="missing required keys"):
             RobotPathAdapter.from_dict(data)
@@ -286,10 +288,10 @@ class TestGridCellsAdapter:
     def test_translate_grid_cells(self, grid_cells_rosmsg: ROSMessage):
         gc_msg = GridCellsAdapter.translate(grid_cells_rosmsg)
 
-        assert_grid_cells(gc_msg.get_data(GridCells), grid_cells_rosmsg.data)
+        assert_grid_cells(gc_msg.get_data(GridCells), grid_cells_rosmsg.data_field)
 
     def test_translate_raise_missing_required_key(self, grid_cells_rosmsg: ROSMessage):
-        data = grid_cells_rosmsg.data
+        data = grid_cells_rosmsg.data_field
         data.pop("cell_width")
         with pytest.raises(ValueError, match="missing required keys"):
             GridCellsAdapter.from_dict(data)
@@ -380,12 +382,14 @@ class TestMapMetadataAdapter:
     def test_translate_map_metadata(self, map_metadata_rosmsg: ROSMessage):
         mm_msg = MapMetadataAdapter.translate(map_metadata_rosmsg)
 
-        assert_map_metadata(mm_msg.get_data(MapMetadata), map_metadata_rosmsg.data)
+        assert_map_metadata(
+            mm_msg.get_data(MapMetadata), map_metadata_rosmsg.data_field
+        )
 
     def test_translate_raise_missing_required_key(
         self, map_metadata_rosmsg: ROSMessage
     ):
-        data = map_metadata_rosmsg.data
+        data = map_metadata_rosmsg.data_field
         data.pop("map_load_time")
         with pytest.raises(ValueError, match="missing required keys"):
             MapMetadataAdapter.from_dict(data)
@@ -473,13 +477,13 @@ class TestOccupancyGridAdapter:
         og_msg = OccupancyGridAdapter.translate(occupancy_grid_rosmsg)
 
         assert_occupancy_grid(
-            og_msg.get_data(OccupancyGrid), occupancy_grid_rosmsg.data
+            og_msg.get_data(OccupancyGrid), occupancy_grid_rosmsg.data_field
         )
 
     def test_translate_raise_missing_required_key(
         self, occupancy_grid_rosmsg: ROSMessage
     ):
-        data = occupancy_grid_rosmsg.data
+        data = occupancy_grid_rosmsg.data_field
         data.pop("info")
         with pytest.raises(ValueError, match="missing required keys"):
             OccupancyGridAdapter.from_dict(data)

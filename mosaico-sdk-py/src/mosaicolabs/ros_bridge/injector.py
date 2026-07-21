@@ -454,7 +454,7 @@ class RosbagInjector:
 
         # --- Integrity Check ---
         # If the loader yielded an exception or empty data, mark as error
-        if exc or not ros_msg.data:
+        if exc or not ros_msg.data_field:
             ui.update_status(ros_msg.topic, "Deserialization Error.", "red")
             ui.advance_global()
             return

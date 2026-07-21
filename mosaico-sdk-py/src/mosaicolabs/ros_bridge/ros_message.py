@@ -109,63 +109,6 @@ class ROSHeader:
             return RosHeader(stamp=ros_time, frame_id=self.frame_id)
 
 
-def split_data(data: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
-    """
-    Recursively splits a deserialized ROS message dict into field data and constant data.
-
-    ROS message dataclasses (as produced by `rosbags`) expose both regular fields and
-    message constants (e.g. `uint8 STATUS_FIX=0` declared in a `.msg` file) as sibling
-    attributes, so once converted to a dict via `_to_dict`, constants and field values
-    are mixed together at every nesting level, including inside list elements for
-    array fields (e.g. `PointField[]`). Constants are distinguished from fields by ROS
-    naming convention: constants are `UPPER_CASE`, fields are `snake_case`.
-
-    Only top-level constants (i.e. those declared directly on `data`, not on a nested
-    submessage) are surfaced in `const_data`. Nested dicts and list-of-dict fields are
-    still recursed into, so `field_data` never contains const keys at any depth, but
-    those deeper constants are discarded rather than being collected into `const_data`.
-
-    Args:
-        data: A (possibly nested) dict produced from a deserialized ROS message.
-
-    Returns:
-        A `(field_data, const_data)` tuple, where `field_data` contains only the
-        regular message fields (with constants stripped out at every depth) and
-        `const_data` contains only the constants declared at the top level of `data`.
-    """
-
-    field_data = {}
-    const_data = {}
-
-    for key, value in data.items():
-        if isinstance(value, dict):
-            inner_field, inner_const = split_data(value)
-
-            # const_data[key] = inner_const #FIXME: should deeper level CONST be inserted or be silently dropped?
-            field_data[key] = inner_field
-
-        elif isinstance(value, list):
-            inner_fields = []
-
-            for item in value:
-                if isinstance(item, dict):
-                    item_field, item_const = split_data(item)
-                    inner_fields.append(item_field)
-                else:
-                    inner_fields.append(item)
-
-            field_data[key] = inner_fields
-
-        else:
-            # Constant values can be recognised by bneing in UPPER_CASE
-            if key.isupper():
-                const_data[key] = value
-            else:
-                field_data[key] = value
-
-    return field_data, const_data
-
-
 @dataclass
 class ROSMessage:
     """
@@ -202,10 +145,12 @@ class ROSMessage:
         topic (str): The specific topic string source (e.g., "/camera/left/image_raw").
         msg_type (str): The canonical ROS type string (e.g., "sensor_msgs/msg/Image").
         msg_def (Optional[str]): The ROS message definition as string.
-        data (Optional[Dict[str, Any]]): The message payload converted into a standard
-            nested Python dictionary.
+        data_field (Optional[Dict[str, Any]]): The message payload converted into a
+            standard nested Python dictionary.
+        const_data (Dict[str, Any]): The message constants (e.g. `uint8 STATUS_FIX=0`)
+            declared at the top level of the message, keyed by their `UPPER_CASE` name.
         header (Optional[ROSHeader]): An automatically parsed `ROSHeader` if the
-            `data` payload contains a valid header field.
+            `data_field` payload contains a valid header field.
     """
 
     def __init__(
@@ -214,20 +159,19 @@ class ROSMessage:
         topic: str,
         msg_type: str,
         data: Optional[Dict[str, Any]],
+        const_data: Optional[Dict[str, Any]] = None,
         msg_def: Optional[str] = None,
     ):
         self.bag_timestamp_ns = bag_timestamp_ns
         self.topic = topic
         self.msg_type = msg_type
         self.msg_def = msg_def
-        self.data = data
+        self.data_field = data
+        self.const_data = const_data or {}
         if data:
             header_dict = data.get("header")
             if header_dict:
                 self.header = ROSHeader.from_dict(header_dict)
-
-            # Split data in variable fields and const.
-            self.data, self.const = split_data(data)
 
     bag_timestamp_ns: int
     """
@@ -239,8 +183,10 @@ class ROSMessage:
     """The topic string of the message source."""
     msg_type: str
     """The message ros type string."""
-    data: Optional[Dict[str, Any]]
+    data_field: Optional[Dict[str, Any]]
     """The message payload, converted into a standard nested Python dictionary."""
+    const_data: Dict[str, Any]
+    """The message's top-level constants, keyed by their `UPPER_CASE` name."""
     msg_def: Optional[str]
     """ The ROS message definition as string """
     header: Optional[ROSHeader] = None

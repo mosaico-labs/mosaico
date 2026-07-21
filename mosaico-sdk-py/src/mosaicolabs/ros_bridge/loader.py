@@ -718,6 +718,7 @@ class ROSLoader:
         ):
             try:
                 msg_obj = self._reader.deserialize(rawdata, connection.msgtype)
+                field_data, const_data = _to_dict(msg_obj)
 
                 # Yield the standard SDK message
                 yield (
@@ -726,7 +727,8 @@ class ROSLoader:
                         topic=connection.topic,
                         msg_type=connection.msgtype,
                         msg_def=connection.msgdef.data,
-                        data=_to_dict(msg_obj),
+                        data=field_data,
+                        const_data=const_data,
                     ),
                     None,
                 )

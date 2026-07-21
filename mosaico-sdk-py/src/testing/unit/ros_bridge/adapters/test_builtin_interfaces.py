@@ -59,7 +59,7 @@ class TestTimeAdapter:
         assert ms_msg.timestamp_ns == time_rosmsg.bag_timestamp_ns
 
     def test_translate_raise_missing_required_key(self, time_rosmsg: ROSMessage):
-        data = time_rosmsg.data
+        data = time_rosmsg.data_field
         data.pop("sec")
         with pytest.raises(ValueError, match="missing required keys"):
             TimeAdapter.from_dict(data)
@@ -133,12 +133,15 @@ class TestDurationAdapter:
     def test_translate_duration(self, duration_rosmsg: ROSMessage):
         ms_msg = DurationAdapter.translate(duration_rosmsg)
 
-        assert ms_msg.get_data(Duration).seconds == duration_rosmsg.data["sec"]
-        assert ms_msg.get_data(Duration).nanoseconds == duration_rosmsg.data["nanosec"]
+        assert ms_msg.get_data(Duration).seconds == duration_rosmsg.data_field["sec"]
+        assert (
+            ms_msg.get_data(Duration).nanoseconds
+            == duration_rosmsg.data_field["nanosec"]
+        )
         assert ms_msg.timestamp_ns == duration_rosmsg.bag_timestamp_ns
 
     def test_translate_raise_missing_required_key(self, duration_rosmsg: ROSMessage):
-        data = duration_rosmsg.data
+        data = duration_rosmsg.data_field
         data.pop("sec")
         with pytest.raises(ValueError, match="missing required keys"):
             DurationAdapter.from_dict(data)
