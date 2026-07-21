@@ -14,8 +14,34 @@ For rapid prototyping, we provide a standard compose configuration. This creates
 
 ```yaml title="compose.yml", {24,34-37,50}
 name: "mosaico"
+
+# Shared configuration for every `mosaicod` service. The server and the
+# cleanup routine run the same image against the same database, object store
+# and network, so we declare that common setup once here and merge it into
+# each service below with `<<: *mosaicod-common`. This keeps the two services
+# in sync and avoids duplicating the environment variables.
+x-mosaicod-common: &mosaicod-common
+  # There are other available predefined tags that you can use.
+  image: ghcr.io/mosaico-labs/mosaicod:latest
+  networks:
+    - mosaico
+  # We configure the daemon to use the local filesystem for storage, mounted
+  # to the `/data` directory in the container. This persists data across
+  # container restarts and makes it easy to access from the host machine.
+  # Additional environment variables can be set here to configure the daemon's
+  # behavior.
+  environment:
+    MOSAICOD_DB_URL: postgresql://postgres:password@db:5432/mosaico
+    MOSAICOD_STORE_ENDPOINT: file:///
+    MOSAICOD_STORE_BUCKET: data
+  volumes:
+    - mosaico-data:/data
+  depends_on:
+    database:
+      condition: service_healthy
+
 services:
-  
+
   database:
     image: postgres:18
     container_name: postgres
@@ -34,35 +60,35 @@ services:
       timeout: 5s
       retries: 5
 
-  mosaicod:
-    # There are other available predefined tags that you can use.
-    image: ghcr.io/mosaico-labs/mosaicod:latest
+  # The daemon itself: serves the API and handles read/write requests.
+  # Inherits the shared image, environment, volumes, network and database
+  # dependency from `x-mosaicod-common`.
+  mosaicod-server:
+    <<: *mosaicod-common
     container_name: mosaicod
-    networks:
-      - mosaico
-    # Here you can list any additional command line options for `mosaicod`. 
-    # In this example, we configure the server to use the local filesystem for 
-    # storage, which is mounted to the `/data` directory in the container. 
-    # This allows you to persist data across container restarts and easily access 
-    # it from the host machine. Additional environment variables can be set here to configure 
-    # the daemon's behavior.
-    environment:
-      MOSAICOD_DB_URL: postgresql://postgres:password@db:5432/mosaico
-      MOSAICOD_STORE_ENDPOINT: file:///
-      MOSAICOD_STORE_BUCKET: data
-    volumes:
-      - mosaico-data:/data
-    command: | 
-      run --host 0.0.0.0 --port 6726 --log-level info 
-    depends_on:
-      database:
-        condition: service_healthy
+    # Here you can list any additional command line options for `mosaicod`.
+    command: |
+      server --host 0.0.0.0 --port 6726 --log-level info
     ports:
-    # Remove `127.0.0.1` to expose this service to external networks. 
-    # By default, this configuration restricts access to the local machine for security reasons. 
-    # If you need to access the server from other machines on the network, 
+    # Remove `127.0.0.1` to expose this service to external networks.
+    # By default, this configuration restricts access to the local machine for security reasons.
+    # If you need to access the server from other machines on the network,
     # you can modify the port mapping to allow external connections.
       - "127.0.0.1:6726:6726"
+
+  # Background maintenance: periodically deletes obsolete files from the store.
+  # It shares the same image and configuration as the server (via
+  # `x-mosaicod-common`) but runs the `cleanup` subcommand instead of `server`.
+  mosaicod-cleanup:
+    <<: *mosaicod-common
+    container_name: mosaicod-cleanup
+    # `--time-interval` is the delay, in seconds, between two cleanup runs
+    #   (`0`, the default, runs a single cleanup and then exits; any value > 0
+    #   loops forever). Here we run the routine once per hour (3600s).
+    # `--retention-duration` is how long, in seconds, an obsolete file is kept
+    #   before being permanently deleted (default: 86400, i.e. one day).
+    command: |
+      cleanup --time-interval 3600 --retention-duration 86400
 
 volumes:
   pg-data:
