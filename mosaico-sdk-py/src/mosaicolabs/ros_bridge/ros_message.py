@@ -109,6 +109,63 @@ class ROSHeader:
             return RosHeader(stamp=ros_time, frame_id=self.frame_id)
 
 
+def split_data(data: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+    """
+    Recursively splits a deserialized ROS message dict into field data and constant data.
+
+    ROS message dataclasses (as produced by `rosbags`) expose both regular fields and
+    message constants (e.g. `uint8 STATUS_FIX=0` declared in a `.msg` file) as sibling
+    attributes, so once converted to a dict via `_to_dict`, constants and field values
+    are mixed together at every nesting level, including inside list elements for
+    array fields (e.g. `PointField[]`). Constants are distinguished from fields by ROS
+    naming convention: constants are `UPPER_CASE`, fields are `snake_case`.
+
+    Only top-level constants (i.e. those declared directly on `data`, not on a nested
+    submessage) are surfaced in `const_data`. Nested dicts and list-of-dict fields are
+    still recursed into, so `field_data` never contains const keys at any depth, but
+    those deeper constants are discarded rather than being collected into `const_data`.
+
+    Args:
+        data: A (possibly nested) dict produced from a deserialized ROS message.
+
+    Returns:
+        A `(field_data, const_data)` tuple, where `field_data` contains only the
+        regular message fields (with constants stripped out at every depth) and
+        `const_data` contains only the constants declared at the top level of `data`.
+    """
+
+    field_data = {}
+    const_data = {}
+
+    for key, value in data.items():
+        if isinstance(value, dict):
+            inner_field, inner_const = split_data(value)
+
+            # const_data[key] = inner_const #FIXME: should deeper level CONST be inserted or be silently dropped?
+            field_data[key] = inner_field
+
+        elif isinstance(value, list):
+            inner_fields = []
+
+            for item in value:
+                if isinstance(item, dict):
+                    item_field, item_const = split_data(item)
+                    inner_fields.append(item_field)
+                else:
+                    inner_fields.append(item)
+
+            field_data[key] = inner_fields
+
+        else:
+            # Constant values can be recognised by bneing in UPPER_CASE
+            if key.isupper():
+                const_data[key] = value
+            else:
+                field_data[key] = value
+
+    return field_data, const_data
+
+
 @dataclass
 class ROSMessage:
     """
@@ -168,6 +225,9 @@ class ROSMessage:
             header_dict = data.get("header")
             if header_dict:
                 self.header = ROSHeader.from_dict(header_dict)
+
+            # Split data in variable fields and const.
+            self.data, self.const = split_data(data)
 
     bag_timestamp_ns: int
     """
