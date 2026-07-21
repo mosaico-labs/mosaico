@@ -1,4 +1,4 @@
-from typing import Any, Dict, Generic, Optional, Tuple, Type, TypeVar, Union
+from typing import Any, Dict, Generic, Optional, Tuple, Type, TypeVar, Union, cast
 
 from rosbags.interfaces.typing import Fielddefs, Nodetype
 from rosbags.typesys.store import Typestore
@@ -14,10 +14,6 @@ T = TypeVar("T", bound=Unmodeled)
 _UNMODELED_ADAPTERS_REGISTRY: Dict[str, Type["UnmodeledAdapter"]] = {}
 
 
-# field_def item example for simple types:   ("x"               , (Nodetype.BASE    , ("float64", 0)                 ))
-# field_def item example for complex types:  ("pos"             , (Nodetype.NAME    , "geometry_msg/msg/Point"))
-# field_def item example for sequence types: ('cell_temperature', (Nodetype.SEQUENCE, ((T.BASE, ('float32', 0)), 0) )) -> unknown size lists
-# field_def item example for sequence types: ('k'               , (Nodetype.ARRAY   , ((T.BASE, ('float64', 0)), 9) )) -> fixed size lists
 def pack_unmodeled(
     raw_data: dict[str, Any], msg_def: Fielddefs, typestore: Typestore
 ) -> dict[str, Any]:
@@ -50,27 +46,70 @@ def pack_unmodeled(
             rosbags is expected to produce (`NAME`, `BASE`, `SEQUENCE`, `ARRAY`).
     """
 
+    # field_def item example for simple types:   ("x"               , (Nodetype.BASE    , ("float64", 0)                 ))
+    # field_def item example for complex types:  ("pos"             , (Nodetype.NAME    , "geometry_msg/msg/Point"))
+    # field_def item example for sequence types: ('cell_temperature', (Nodetype.SEQUENCE, ((T.BASE, ('float32', 0)), 0) )) -> unknown size lists
+    # field_def item example for sequence types: ('k'               , (Nodetype.ARRAY   , ((T.BASE, ('float64', 0)), 9) )) -> fixed size lists
     for field_name, field_descr in msg_def:
         node_type, content = field_descr
 
-        if node_type == Nodetype.NAME and isinstance(content, str):
+        if node_type is Nodetype.BASE:
+            pass  # do nothing, the content (base type, array or sequence) can be unpacked unsing **
+
+        elif node_type == Nodetype.NAME and isinstance(content, str):
             msgtype = content
+            RosNestedObjectType = typestore.types[msgtype]
 
-            NestedObjectType = typestore.types[msgtype]
-
-            raw_data[field_name] = NestedObjectType(
+            raw_data[field_name] = RosNestedObjectType(
                 **pack_unmodeled(
                     raw_data[field_name],
                     typestore.get_msgdef(msgtype).fields,
                     typestore,
                 )
             )
-        elif node_type in (
-            Nodetype.BASE,
-            Nodetype.SEQUENCE,
-            Nodetype.ARRAY,
-        ):
-            pass  # do nothing, the content (base type, array or sequence) can be unpacked unsing **
+
+        elif node_type in (Nodetype.SEQUENCE, Nodetype.ARRAY):
+            # Check whether contained type is a basetype or a nested one
+            list_content, list_size = content
+            item_node_type, item_content = list_content
+
+            item_node_type = cast(Nodetype, item_node_type)  # just for typechecker
+
+            if item_node_type is Nodetype.BASE:
+                pass
+
+            elif item_node_type is Nodetype.NAME and isinstance(item_content, str):
+                # Check that raw_data[field_name] is a list
+                if not isinstance(raw_data[field_name], list):
+                    raise TypeError(
+                        f"Expected {list.__name__} type within raw_data but got {type(raw_data[field_name]).__name__}"
+                    )
+
+                # Check that all elements of raw_data[field_name] are dict
+                if any(not isinstance(x, dict) for x in raw_data[field_name]):
+                    raise TypeError(
+                        f"Expected {list.__name__} type within raw_data but got {type(raw_data[field_name]).__name__}"
+                    )
+
+                inner_msgtype = item_content
+                RosListItemObjectType = typestore.types[inner_msgtype]
+
+                raw_data[field_name] = [
+                    RosListItemObjectType(
+                        **pack_unmodeled(
+                            x,
+                            typestore.get_msgdef(inner_msgtype).fields,
+                            typestore,
+                        )
+                    )
+                    for x in raw_data[field_name]
+                ]
+
+            else:
+                raise TypeError(
+                    f"Parameter {field_name} of type Sequence/Array containes unexpected inner NodeType {item_node_type}"
+                )
+
         else:
             raise TypeError(
                 f"Unsupported field definition for '{field_name}': "
