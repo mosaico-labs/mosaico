@@ -82,6 +82,7 @@ nav:
         - SDK/API_reference/models/platform.md
         - SDK/API_reference/models/sensors.md
         - SDK/API_reference/models/time.md
+        - SDK/API_reference/models/unmodeled.md
     - Bridges:
         - SDK/API_reference/bridges/ml.md
         - ROS-Bridge:
@@ -95,6 +96,7 @@ nav:
                 - SDK/API_reference/bridges/ros/adapters/nav_msgs.md
                 - SDK/API_reference/bridges/ros/adapters/tf2_msgs.md
                 - SDK/API_reference/bridges/ros/adapters/override_msgs.md
+                - SDK/API_reference/bridges/ros/adapters/unmodeled.md
 
 extra_css:
   - stylesheets/extra.css

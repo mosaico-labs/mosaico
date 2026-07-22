@@ -64,12 +64,14 @@ class EncoderTicks(Serializable):
 
 Because `EncoderTicks` is a custom type, no default adapter exists. We subclass `ROSAdapterBase` and implement `from_dict` to map ROS dictionary fields onto the model. The `@register_default_adapter` decorator ensures the `RosbagInjector` selects this adapter automatically whenever it encounters the matching schema name in the bag.
 
+This adapter only implements `from_dict`, so it only supports the ROS → Mosaico direction. To also support Mosaico → ROS — reconstructing a native ROS message from `EncoderTicks` — implement `to_ros()` as well.
+
 ```python title="EncoderTicks ROS adapter"
 from mosaicolabs.ros_bridge import ROSMessage, ROSAdapterBase, register_default_adapter
 from mosaicolabs.ros_bridge.adapters.helpers import _validate_msgdata
 from .isaac import EncoderTicks
 
-@register_default_adapter
+@register_default_adapter(is_default=True)
 class EncoderTicksAdapter(ROSAdapterBase[EncoderTicks]):
     ros_msgtype = ("isaac_ros_nova_interfaces/msg/EncoderTicks",)
     __mosaico_ontology_type__ = EncoderTicks
@@ -89,6 +91,12 @@ class EncoderTicksAdapter(ROSAdapterBase[EncoderTicks]):
         return super().translate(ros_msg, **kwargs)
 ```
 
+
+## Writing an Adapter Is Optional
+
+`EncoderTicks` is the only message type in the R2B dataset without built-in ontology coverage, and above we gave it a hand-written adapter to get a fully-typed, queryable `EncoderTicks` model. That step is a choice, not a requirement.
+
+Even if `EncoderTicksAdapter` didn't exist, `RosbagInjector` would still ingest every `isaac_ros_nova_interfaces/msg/EncoderTicks` message without error: the bridge synthesizes an **Unmodeled Adapter** for it at runtime, converting the message's schema, embedded directly in the bag, into an equivalent Mosaico `Unmodeled` ontology class on the fly. The data is still ingested and fully queryable, just without the dedicated `EncoderTicks` Python class. See [Advanced: Ingesting Unmodeled Ontologies](https://docs.mosaico.dev/python-sdk/SDK/ontology/#advanced-ingesting-unmodeled-ontologies) for the full mechanics.
 
 ## Ingestion Pipeline
 
