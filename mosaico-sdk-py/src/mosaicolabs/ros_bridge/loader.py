@@ -27,6 +27,7 @@ from mosaicolabs.logging_config import get_logger
 from mosaicolabs.models.core.helpers import resolve_ontology_class
 from mosaicolabs.ros_bridge.adapters.unmodeled import UnmodeledAdapter
 
+from ..models.core.serializable import _compute_schema_fingerprint
 from ..protocols.ros2msg import convert_ros2msg
 from .adapter_base import ROSAdapterBase
 from .helpers import (
@@ -879,10 +880,20 @@ class MosaicoLoader:
             resolved_rosmsg_type = declared_rosmsg_type
 
         if not adapter:
-            # If here adapter has not been found -> Fallback to adapter associated to
+            # If here adapter has not been found -> Check adapter associated to
             # the ontology tag and get its default msgtype (if ontology is
-            # adapted, otherwise mantain what has already been found)
+            # adapted, otherwise mantain what has already been found).
             adapter = ROSBridge.get_default_mosaico_adapter(t_handler.ontology_tag)
+
+            # Reset adapter in case in case __schema_fingerprint__ of adapter's
+            # ontology type is not coherent with the one coming from the server
+            if (
+                adapter is not None
+                and adapter.ontology_data_type().__schema_fingerprint__
+                != _compute_schema_fingerprint(t_handler._arrow_schema)
+            ):
+                adapter = None
+
             resolved_rosmsg_type = (
                 adapter.get_default_ros_msg() if adapter else resolved_rosmsg_type
             )
@@ -902,12 +913,10 @@ class MosaicoLoader:
                 )
                 return None, resolved_rosmsg_type
 
-            pyarrow_schema = convert_ros2msg(msgdef, msgtype)
-
             # Create the ontology
             unmodeled_ontology = resolve_ontology_class(
-                ontology_tag=_class_name_from_ros_msgtype(msgtype),
-                schema=pyarrow_schema,
+                ontology_tag=t_handler.ontology_tag,
+                schema=t_handler._arrow_schema,
                 # FIXME: how to pass this? Via Config?
                 serialization_format=SerializationFormat.Default,
             )
