@@ -56,7 +56,7 @@ with MosaicoClient.connect("localhost", 6726) as client:
 
 The provided example illustrates the core architecture of the Mosaico Query DSL. To effectively use this module, it is important to understand the two primary mechanisms that drive data discovery:
 
-* **Query Builders (Fluent Logic Collectors)**: Specialized builders like [`QuerySequence`][mosaicolabs.models.query.builders.QuerySequence], [`QueryTopic`][mosaicolabs.models.query.builders.QueryTopic], and [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog] serve as containers for your search criteria. They provide a **Fluent Interface** where you can chain two types of methods:
+* **Query Builders (Fluent Logic Collectors)**: Specialized builders like [`QuerySequence`][mosaicolabs.query.builders.QuerySequence], [`QueryTopic`][mosaicolabs.query.builders.QueryTopic], and [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog] serve as containers for your search criteria. They provide a **Fluent Interface** where you can chain two types of methods:
     * **Convenience Methods**: High-level helpers for common fields, such as `with_user_metadata()`, `with_name_match()`, or `with_created_timestamp()`.
     * **Generic `with_expression()`**: A versatile method that accepts any expression obtained via the **`.Q` proxy**, allowing you to define complex filters for deep sensor payloads.
 * **The `.Q` Proxy (Dynamic Model Inspection)**: Every [`Serializable`][mosaicolabs.models.core.Serializable] model in the Mosaico ontology features a static `.Q` attribute. This proxy dynamically inspects the model's underlying schema to build dot-notated field paths and intercepts attribute access (e.g., `IMU.Q.acceleration.x`). When a terminal method is called—such as `.gt()`, `.lt()`, or `.between()`—it generates a type-safe **Atomic Expression** used by the platform to filter physical sensor data or metadata fields.
@@ -64,7 +64,7 @@ The provided example illustrates the core architecture of the Mosaico Query DSL.
 By combining these mechanisms, the Query Module delivers a robust filtering experience:
 
 * **Multi-Domain Orchestration**: Execute searches across Sequence metadata, Topic configurations, and raw Ontology sensor data in a single, atomic request.
-* **Structured Response Management**: Results are returned in a [`QueryResponse`][mosaicolabs.models.query.response.QueryResponse] that is automatically grouped by `Sequence`, making it easier to manage multi-sensor datasets.
+* **Structured Response Management**: Results are returned in a [`QueryResponse`][mosaicolabs.query.response.QueryResponse] that is automatically grouped by `Sequence`, making it easier to manage multi-sensor datasets.
 
 ## Query Execution & The Response Model
 
@@ -72,16 +72,16 @@ Queries are executed via the [`query()`][mosaicolabs.comm.MosaicoClient.query] m
 
 | Method | Return | Description |
 | :--- | :--- | :--- |
-| [`query(*queries, query)`][mosaicolabs.comm.MosaicoClient.query] | [`Optional[QueryResponse]`][mosaicolabs.models.query.response.QueryResponse] | Executes one or more queries against the platform catalogs. The provided queries are joined in AND condition. The method accepts a variable arguments of query builder objects or a pre-constructed [`Query`][mosaicolabs.models.query.builders.Query] object.|
+| [`query(*queries, query)`][mosaicolabs.comm.MosaicoClient.query] | [`Optional[QueryResponse]`][mosaicolabs.query.response.QueryResponse] | Executes one or more queries against the platform catalogs. The provided queries are joined in AND condition. The method accepts a variable arguments of query builder objects or a pre-constructed [`Query`][mosaicolabs.query.builders.Query] object.|
 
 
-The query execution returns a [`QueryResponse`][mosaicolabs.models.query.response.QueryResponse] object, which behaves like a standard Python list containing [`QueryResponseItem`][mosaicolabs.models.query.response.QueryResponseItem] objects.
+The query execution returns a [`QueryResponse`][mosaicolabs.query.response.QueryResponse] object, which behaves like a standard Python list containing [`QueryResponseItem`][mosaicolabs.query.response.QueryResponseItem] objects.
 
 | Class | Description |
 | --- | --- |
-| [`QueryResponseItem`][mosaicolabs.models.query.response.QueryResponseItem] | Groups all matches belonging to the same **Sequence**. Contains a `QueryResponseItemSequence` and a list of related `QueryResponseItemTopic`.|
-| [`QueryResponseItemSequence`][mosaicolabs.models.query.response.QueryResponseItemSequence] | Represents a specific **Sequence** where matches were found. It includes the sequence name. |
-| [`QueryResponseItemTopic`][mosaicolabs.models.query.response.QueryResponseItemTopic] | Represents a specific **Topic** where matches were found. It includes the normalized topic path, the `ontology_tag` of the returned topic and the topic `name`. |
+| [`QueryResponseItem`][mosaicolabs.query.response.QueryResponseItem] | Groups all matches belonging to the same **Sequence**. Contains a `QueryResponseItemSequence` and a list of related `QueryResponseItemTopic`.|
+| [`QueryResponseItemSequence`][mosaicolabs.query.response.QueryResponseItemSequence] | Represents a specific **Sequence** where matches were found. It includes the sequence name. |
+| [`QueryResponseItemTopic`][mosaicolabs.query.response.QueryResponseItemTopic] | Represents a specific **Topic** where matches were found. It includes the normalized topic path, the `ontology_tag` of the returned topic and the topic `name`. |
 
 ```python
 import sys
@@ -136,8 +136,8 @@ This approach is essential for resolving complex, multi-modal dependencies where
 
 | Method | Return Type | Description |
 | --- | --- | --- |
-| [`to_query_sequence()`][mosaicolabs.models.query.response.QueryResponse.to_query_sequence] | [`QuerySequence`][mosaicolabs.models.query.builders.QuerySequence] | Returns a query builder pre-filtered to include only the **sequences** present in the response. |
-| [`to_query_topic()`][mosaicolabs.models.query.response.QueryResponse.to_query_topic] | [`QueryTopic`][mosaicolabs.models.query.builders.QueryTopic] | Returns a query builder pre-filtered to include only the specific **topics** identified in the response. |
+| [`to_query_sequence()`][mosaicolabs.query.response.QueryResponse.to_query_sequence] | [`QuerySequence`][mosaicolabs.query.builders.QuerySequence] | Returns a query builder pre-filtered to include only the **sequences** present in the response. |
+| [`to_query_topic()`][mosaicolabs.query.response.QueryResponse.to_query_topic] | [`QueryTopic`][mosaicolabs.query.builders.QueryTopic] | Returns a query builder pre-filtered to include only the specific **topics** identified in the response. |
 
 When you invoke these factory methods, the SDK generates a new query expression containing an explicit `$in` filter populated with the identifiers held in the current response. This effectively **"locks" the search domain**, allowing you to apply new criteria to a restricted subset of your data without re-scanning the entire platform catalog.
 
@@ -209,9 +209,9 @@ response = client.query(
 
 Mosaico exposes a `match` operator that can perform lightweight, glob-style pattern matching instead of requiring an exact value. This `match` operator applies to:
 
-* **Sequence and topic names**, via [`QuerySequence.with_name_match()`][mosaicolabs.models.query.builders.QuerySequence.with_name_match] for matching sequence names or [`QueryTopic.with_name_match()`][mosaicolabs.models.query.builders.QueryTopic.with_name_match] for matching topic names.
-* **User metadata values**, via [`with_user_metadata(key, match=...)`][mosaicolabs.models.query.builders.QueryTopic.with_user_metadata] on both `QuerySequence` and `QueryTopic` to match metadata **values** .
-* **Ontology field values**, via the `.match()` operator on any string-typed field reached through the `.Q` proxy (e.g. `String.Q.data.match(...)`) inside a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog].
+* **Sequence and topic names**, via [`QuerySequence.with_name_match()`][mosaicolabs.query.builders.QuerySequence.with_name_match] for matching sequence names or [`QueryTopic.with_name_match()`][mosaicolabs.query.builders.QueryTopic.with_name_match] for matching topic names.
+* **User metadata values**, via [`with_user_metadata(key, match=...)`][mosaicolabs.query.builders.QueryTopic.with_user_metadata] on both `QuerySequence` and `QueryTopic` to match metadata **values** .
+* **Ontology field values**, via the `.match()` operator on any string-typed field reached through the `.Q` proxy (e.g. `String.Q.data.match(...)`) inside a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog].
 
 In all of these cases, the pattern is a lightweight glob syntax rather than full RegEx, and it supports the following wildcards:
 
@@ -250,7 +250,7 @@ with MosaicoClient.connect("localhost", 6726) as client:
 
 #### Using glob pattern for metadata keys
 
-Beyond matching metadata **values**, [`with_user_metadata()`][mosaicolabs.models.query.builders.QueryTopic.with_user_metadata] also accepts a glob pattern for the `key` itself. This lets you target a metadata field without knowing its exact nesting depth or prefix. Two wildcards are supported in the key path:
+Beyond matching metadata **values**, [`with_user_metadata()`][mosaicolabs.query.builders.QueryTopic.with_user_metadata] also accepts a glob pattern for the `key` itself. This lets you target a metadata field without knowing its exact nesting depth or prefix. Two wildcards are supported in the key path:
 
 - `*` matches exactly **one** key segment.
 - `**` matches **one or more** key segments, at any depth.
@@ -293,15 +293,13 @@ with MosaicoClient.connect("localhost", 6726) as client:
 !!! note
     Key globs and value wildcards can be freely combined, as shown above (`*.type` as the key with `UART*` as the value pattern).
 
-## Architecture
-
-### Query Layers
+## Query Layers
 
 Mosaico organizes data into three distinct architectural layers, each with its own specialized Query Builder:
 
-#### [`QuerySequence`][mosaicolabs.models.query.builders.QuerySequence] (Sequence Layer)
+### [`QuerySequence`][mosaicolabs.query.builders.QuerySequence] (Sequence Layer)
 ??? question "API Reference"
-    [`mosaicolabs.models.query.builders.QuerySequence`][mosaicolabs.models.query.builders.QuerySequence].
+    [`mosaicolabs.query.builders.QuerySequence`][mosaicolabs.query.builders.QuerySequence].
 
 Filters recordings based on high-level session metadata, such as the sequence name or the time it was created.
 
@@ -326,9 +324,9 @@ with MosaicoClient.connect("localhost", 6726) as client:
 ```
 
 
-#### [`QueryTopic`][mosaicolabs.models.query.builders.QueryTopic] (Topic Layer)
+### [`QueryTopic`][mosaicolabs.query.builders.QueryTopic] (Topic Layer)
 ??? question "API Reference"
-    [`mosaicolabs.models.query.builders.QueryTopic`][mosaicolabs.models.query.builders.QueryTopic].
+    [`mosaicolabs.query.builders.QueryTopic`][mosaicolabs.query.builders.QueryTopic].
 
 Targets specific data channels within a sequence. You can search for topics by name pattern or by their specific Ontology type (e.g., "Find all GPS topics").
 
@@ -355,9 +353,9 @@ with MosaicoClient.connect("localhost", 6726) as client:
 ```
 
 
-#### [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog] (Ontology Catalog Layer)
+### [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog] (Ontology Catalog Layer)
 ??? question "API Reference"
-    [`mosaicolabs.models.query.builders.QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog].
+    [`mosaicolabs.query.builders.QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog].
 
 Filters based on the **actual time-series content** of the sensors (e.g., "Find events where `acceleration.z` exceeded a specific value").
 
@@ -400,7 +398,7 @@ from mosaicolabs import MosaicoClient, QueryOntologyCatalog, GPS, IMU
 
 The Mosaico Query Module offers two distinct paths for defining filters,  **Convenience Methods** and **Generic Expression Method**, both of which support **method chaining** to compose multiple criteria into a single query using a logical **AND**.
 
-#### Convenience Methods
+### Convenience Methods
 
 The query layers provide high-level fluent helpers (`with_<attribute>`), built directly into the query builder classes and designed for ease of use.
 They allow you to filter data without deep knowledge of the internal model schema. 
@@ -439,7 +437,7 @@ if qresponse is not None:
 
 * **Best For**: Standard system-level fields like Names and Timestamps.
 
-#### Generic Expression Method
+### Generic Expression Method
 
 The `with_expression()` method accepts raw **Query Expressions** generated through the `.Q` proxy. 
 This provides full access to every supported operator (`.gt()`, `.lt()`, `.between()`, etc.) for specific fields.
@@ -464,7 +462,7 @@ if qresponse is not None:
 
 * **Used For**: Accessing specific Ontology data fields (e.g., acceleration, position, etc.) in stored time-series data.
 
-### The `.Q` Proxy Mechanism
+## The `.Q` Proxy Mechanism
 
 The Query Proxy is the cornerstone of Mosaico's type-safe data discovery. Every data model in the Mosaico Ontology (e.g., `IMU`, `GPS`, `Image`) is automatically injected with a static `.Q` attribute during class initialization. This mechanism transforms static data structures into dynamic, fluent interfaces for constructing complex filters.
 
@@ -513,7 +511,7 @@ The following table lists the supported operators for each data type:
 | **Boolean** | `.eq(True/False)` |
 | **Dictionary** | `.eq()`, `.lt()`, `.leq()`, `.gt()`, `.geq()`, `.between()`, `.ex()`|
 
-#### Supported Types
+### Supported Types
 
 While the `.Q` proxy is highly versatile, it enforces specific rules on which data structures can be queried:
 
@@ -524,7 +522,7 @@ While the `.Q` proxy is highly versatile, it enforces specific rules on which da
     * **Operator Support**: Because dictionary values are dynamic, these fields are "promiscuous," meaning they support mixed numeric, string, and boolean operators without strict SDK-level type checking.
 * **Lists**: Fields defined as a `List` (e.g. `positions: List[float]`) are fully queryable — see [Querying List Fields](#querying-list-fields) below.
 
-#### Querying List Fields
+### Querying List Fields
 
 List fields **can't be compared directly**. The proxy requires narrowing the list to a single element first, using one of three quantifiers, before chaining a regular operator for the element's type:
 
@@ -558,20 +556,20 @@ with MosaicoClient.connect("localhost", 6726) as client:
 ??? question "API Reference"
     [`mosaicolabs.models.sensors.RobotJoint`][mosaicolabs.models.sensors.RobotJoint--querying-with-the-q-proxy]
 
-### Class-Free Queries
+## Class-Free Queries
 
 The `.Q` proxy is injected onto a `Serializable` *class*, so building a filter with it requires having that class in hand. That assumption breaks down for [`Unmodeled`][mosaicolabs.models.core.unmodeled.Unmodeled] ontology data (see [Advanced: Ingesting Unmodeled Ontologies](./ontology.md#advanced-ingesting-unmodeled-ontologies)): you may know exactly which ontology tag and field you want to filter on, without ever having resolved - or wanting to resolve - a Python class for it, especially when a tag has multiple schema variants and you don't care which one you're querying against.
 
-The classes in the [`queryable_fields`][mosaicolabs.models.query.queryable_fields] module are the class-free equivalent of the `.Q` proxy: instead of intercepting attribute access on a class, you construct them directly from the fully-qualified, dot-notated field path (`f"{ontology_tag}.field.subfield"`) - the exact same path string the `.Q` proxy would have produced internally. They generate the identical `QueryExpression` under the hood, so anywhere a `.Q`-derived expression is accepted (`with_expression()`, the `QueryOntologyCatalog` constructor, ...) a `QueryableNumeric`/`QueryableString`/`QueryableBool` expression works too.
+The classes in the [`queryable_fields`][mosaicolabs.query.queryable_fields] module are the class-free equivalent of the `.Q` proxy: instead of intercepting attribute access on a class, you construct them directly from the fully-qualified, dot-notated field path (`f"{ontology_tag}.field.subfield"`) - the exact same path string the `.Q` proxy would have produced internally. They generate the identical `QueryExpression` under the hood, so anywhere a `.Q`-derived expression is accepted (`with_expression()`, the `QueryOntologyCatalog` constructor, ...) a `QueryableNumeric`/`QueryableString`/`QueryableBool` expression works too.
 
 ??? question "API Reference"
-    [`mosaicolabs.models.query.queryable_fields`][mosaicolabs.models.query.queryable_fields]
+    [`mosaicolabs.query.queryable_fields`][mosaicolabs.query.queryable_fields]
 
 **Example** The same filter, expressed with and without a resolved class
 
 ```python
 from mosaicolabs import MosaicoClient, QueryOntologyCatalog, IMU
-from mosaicolabs.models.query.queryable_fields import QueryableNumeric
+from mosaicolabs.query.queryable_fields import QueryableNumeric
 
 with MosaicoClient.connect("localhost", 6726) as client:
     # Using the .Q proxy - requires the IMU class
@@ -594,7 +592,7 @@ The real payoff shows up once no class is available at all. Suppose an unmodeled
 
 ```python
 from mosaicolabs import MosaicoClient, QueryOntologyCatalog
-from mosaicolabs.models.query.queryable_fields import QueryableNumeric, QueryableString
+from mosaicolabs.query.queryable_fields import QueryableNumeric, QueryableString
 
 with MosaicoClient.connect("localhost", 6726) as client:
     # Numeric filter on an unmodeled gyroscope reading - no UnmodeledGyro class required
@@ -617,11 +615,11 @@ with MosaicoClient.connect("localhost", 6726) as client:
 
 | Class | Supported Operators | Value Type |
 | --- | --- | --- |
-| [`QueryableNumeric`][mosaicolabs.models.query.queryable_fields.QueryableNumeric] | `.eq()`, `.neq()`, `.lt()`, `.leq()`, `.gt()`, `.geq()`, `.in_()`, `.between()` | `int`, `float` |
-| [`QueryableString`][mosaicolabs.models.query.queryable_fields.QueryableString] | `.eq()`, `.match()`, `.lt()`, `.leq()`, `.gt()`, `.geq()`, `.in_()` | `str` |
-| [`QueryableBool`][mosaicolabs.models.query.queryable_fields.QueryableBool] | `.eq()` | `bool` |
+| [`QueryableNumeric`][mosaicolabs.query.queryable_fields.QueryableNumeric] | `.eq()`, `.neq()`, `.lt()`, `.leq()`, `.gt()`, `.geq()`, `.in_()`, `.between()` | `int`, `float` |
+| [`QueryableString`][mosaicolabs.query.queryable_fields.QueryableString] | `.eq()`, `.match()`, `.lt()`, `.leq()`, `.gt()`, `.geq()`, `.in_()` | `str` |
+| [`QueryableBool`][mosaicolabs.query.queryable_fields.QueryableBool] | `.eq()` | `bool` |
 
-#### Querying List Fields
+### Querying List Fields
 
 Querying list fields is possible for unmodeled ontology schemas also, exactly the same way it is done with hand-authored ontology classes. As in this case, a list field isn't a leaf value the server can compare against, so when setting the path of the list field to query against, it is necessary to select *which* element(s) the condition targets before a `Queryable*` type can wrap anything. An index selector, appended directly after the list field's name, "exposes" one conceptual element of the list, turning `list_field` (a list) into a single addressable slot the same way `.field` does for a struct.
 
@@ -641,7 +639,7 @@ Either way, by the time a `Queryable*` type is constructed, the path always reso
 **Simple lists** - the selector's output is the leaf value itself:
 
 ```python
-from mosaicolabs.models.query.queryable_fields import QueryableNumeric
+from mosaicolabs.query.queryable_fields import QueryableNumeric
 
 # The first covariance element is negative
 QueryableNumeric("IMU.covariance[0]").lt(0.0)
@@ -656,7 +654,7 @@ QueryableNumeric("IMU.covariance[?]").gt(1.0)
 **Struct lists** - continue with `.field.subfield` after the selector to reach a leaf of the exposed struct (`detections: List[Detection]`, where `Detection` has a `label` and a `confidence`):
 
 ```python
-from mosaicolabs.models.query.queryable_fields import QueryableNumeric, QueryableString
+from mosaicolabs.query.queryable_fields import QueryableNumeric, QueryableString
 
 # The first detected object is labeled "pedestrian"
 QueryableString("DetectionArray.detections[0].label").eq("pedestrian")
@@ -675,13 +673,13 @@ QueryableNumeric("DetectionArray.detections[?].confidence").lt(0.5)
     Because there's no class involved, neither the field path nor its expected type are checked against anything before the query is sent; if the path doesn't exist, or the actual field has a different type, the server simply returns no matches rather than raising an SDK-side error.
 
 
-### Temporal Windows
+## Temporal Windows
 
-#### Topic
+### Topic
 
-[`QueryResponseItemTopic`][mosaicolabs.models.query.response.QueryResponseItemTopic] exposes two ways to turn a single topic's query matches into temporal windows: [`clusterize()`][mosaicolabs.models.query.response.QueryResponseItemTopic.clusterize] and [`intersect()`][mosaicolabs.models.query.response.QueryResponseItemTopic.intersect].
+[`QueryResponseItemTopic`][mosaicolabs.query.response.QueryResponseItemTopic] exposes two ways to turn a single topic's query matches into temporal windows: [`clusterize()`][mosaicolabs.query.response.QueryResponseItemTopic.clusterize] and [`intersect()`][mosaicolabs.query.response.QueryResponseItemTopic.intersect].
 
-##### Topic clusterize
+#### Topic clusterize
 
 * **`clusterize()`** takes the one continuous `[min, max]` interval where this topic's query condition was satisfied and splits it into distinct clusters based on `clustering_dt_ns`.
 
@@ -716,7 +714,7 @@ with MosaicoClient.connect("localhost", 6726) as client:
         print(f"Overall active window: {[str(c) for c in active_window]}")
 ```
 
-##### Topics intersect
+#### Topics intersect
 * **`intersect()`** cross-correlates this topic with one or more **other** topics you pass explicitly — which can come from a completely different query or a different sequence entirely.
 
 <figure markdown="span">
@@ -769,11 +767,11 @@ with MosaicoClient.connect("localhost", 6726) as client:
 
 Reach for `clusterize()` when you need to segment a single sensor's activity into discrete occurrences; reach for `intersect()` when you already know exactly which topics you want to compare — even across different queries or sequences.
 
-#### Sequence
+### Sequence
 
-[`QueryResponseItem`][mosaicolabs.models.query.response.QueryResponseItem] exposes the same two operations as [`QueryResponseItemTopic`][mosaicolabs.models.query.response.QueryResponseItemTopic] above, but applied across **every topic matched in a sequence at once**: [`clusterize_all()`][mosaicolabs.models.query.response.QueryResponseItem.clusterize_all] and [`intersect()`][mosaicolabs.models.query.response.QueryResponseItem.intersect].
+[`QueryResponseItem`][mosaicolabs.query.response.QueryResponseItem] exposes the same two operations as [`QueryResponseItemTopic`][mosaicolabs.query.response.QueryResponseItemTopic] above, but applied across **every topic matched in a sequence at once**: [`clusterize_all()`][mosaicolabs.query.response.QueryResponseItem.clusterize_all] and [`intersect()`][mosaicolabs.query.response.QueryResponseItem.intersect].
 
-##### Sequence clusterize
+#### Sequence clusterize
 
 * **`clusterize_all()`** calls `clusterize()` independently on each topic in the item and returns a `dict[str, list[TopicCluster]]` keyed by topic name — every sensor's own matching windows, with no relation to what any other topic was doing at the same time.
 
@@ -810,7 +808,7 @@ with MosaicoClient.connect("localhost", 6726) as client:
                 print(f"  {topic_name}: {[str(c) for c in clusters]}")
 ```
 
-##### Sequences intersect
+#### Sequences intersect
 
 * **`intersect()`** merges every topic's query expressions into a single server-side request and returns one `list[TopicCluster]`: the time windows where **all** matched topics were simultaneously satisfying their respective conditions. Unlike the topic-level `intersect()` above — which only compares the topics you explicitly pass in — this always includes every topic belonging to the item(s) it is called on.
 

@@ -17,11 +17,10 @@ from typing import Any, ClassVar, Dict, Optional, Type, TypeVar
 
 import pyarrow.flight as fl
 
-from mosaicolabs.comm.notifications import Notification
-
 from ..enum import FlightAction
 from ..logging_config import get_logger
-from ..models.query import QueryResponse, QueryResponseItem
+from ..query import QueryResponse, QueryResponseItem
+from .notifications import Notification
 
 # Set the hierarchical logger
 logger = get_logger(__name__)

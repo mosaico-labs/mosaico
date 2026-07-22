@@ -31,7 +31,7 @@ import pyarrow as pa
 
 from mosaicolabs.enum import SerializationFormat
 
-from ..query.generation.api import _QueryProxyMixin
+from ...query.generation.api import _QueryProxyMixin
 from .base_model import BaseModel
 from .internal.helpers import _fix_empty_dicts, encode_to_dict
 from .internal.pyarrow_mapper import PyarrowFieldMapper
@@ -434,8 +434,8 @@ class Serializable(BaseModel, _QueryProxyMixin):
             Exception: If the class was not properly initialized via `__pydantic_init_subclass__`.
 
         Hint: **Practical Application: Topic Filtering**
-            This method is particularly useful when constructing [`QueryTopic`][mosaicolabs.models.query.builders.QueryTopic]
-            requests. By using the convenience method [`QueryTopic.with_ontology_tag()`][mosaicolabs.models.query.builders.QueryTopic.with_ontology_tag],
+            This method is particularly useful when constructing [`QueryTopic`][mosaicolabs.query.builders.QueryTopic]
+            requests. By using the convenience method [`QueryTopic.with_ontology_tag()`][mosaicolabs.query.builders.QueryTopic.with_ontology_tag],
             you can filter topics by data type without hardcoding strings that might change.
 
             Example:

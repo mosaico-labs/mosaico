@@ -13,6 +13,10 @@ Example:
     ...     handler = client.sequence_handler("my_sequence")
 """
 
+# --- Backwards-compatible import paths (deprecated) ---
+# `mosaicolabs.models.query` moved to `mosaicolabs.query`.
+from ._deprecated import alias_moved_package as _alias_moved_package
+
 # --- Client ---
 from .comm import GRPCCompression as GRPCCompression, MosaicoClient as MosaicoClient
 
@@ -106,23 +110,6 @@ from .models.platform import (
     Topic as Topic,
 )
 
-# --- Main Query classes ---
-# --- Query Responses ---
-from .models.query import (
-    Query as Query,
-    QueryableBool as QueryableBool,
-    QueryableNumeric as QueryableNumeric,
-    QueryableString as QueryableString,
-    QueryOntologyCatalog as QueryOntologyCatalog,
-    QueryResponse as QueryResponse,
-    QueryResponseItem as QueryResponseItem,
-    QueryResponseItemSequence as QueryResponseItemSequence,
-    QueryResponseItemTopic as QueryResponseItemTopic,
-    QuerySequence as QuerySequence,
-    QueryTopic as QueryTopic,
-    TimestampRange as TimestampRange,
-)
-
 # --- Sensors ---
 from .models.sensors import (
     GPS as GPS,
@@ -139,6 +126,23 @@ from .models.sensors import (
     Range as Range,
     RobotJoint as RobotJoint,
     Temperature as Temperature,
+)
+
+# --- Main Query classes ---
+# --- Query Responses ---
+from .query import (
+    Query as Query,
+    QueryableBool as QueryableBool,
+    QueryableNumeric as QueryableNumeric,
+    QueryableString as QueryableString,
+    QueryOntologyCatalog as QueryOntologyCatalog,
+    QueryResponse as QueryResponse,
+    QueryResponseItem as QueryResponseItem,
+    QueryResponseItemSequence as QueryResponseItemSequence,
+    QueryResponseItemTopic as QueryResponseItemTopic,
+    QuerySequence as QuerySequence,
+    QueryTopic as QueryTopic,
+    TimestampRange as TimestampRange,
 )
 from .ros_bridge import data_ontology  # noqa: F401
 
@@ -255,3 +259,6 @@ from logging import NullHandler
 
 logging_config = get_logger()
 logging_config.addHandler(NullHandler())
+
+_alias_moved_package("mosaicolabs.models.query", "mosaicolabs.query")
+del _alias_moved_package

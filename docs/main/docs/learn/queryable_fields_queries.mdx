@@ -44,7 +44,7 @@ Behind the scenes, `IMU.Q.acceleration.x` doesn't do anything magical: it walks 
 <TabItem value="python" label="Python" default>
 ```python title="Same filter, with and without a class"
 from mosaicolabs import MosaicoClient, QueryOntologyCatalog, IMU
-from mosaicolabs.models.query.queryable_fields import QueryableNumeric
+from mosaicolabs.query.queryable_fields import QueryableNumeric
 
 with MosaicoClient.connect("localhost", 6726) as client:
     # With the .Q proxy - requires the IMU class
@@ -85,7 +85,7 @@ All you have is the tag and the field names, which is exactly what `QueryableNum
 <TabItem value="python" label="Python" default>
 ```python title="Querying data with no resolved class"
 from mosaicolabs import MosaicoClient, QueryOntologyCatalog
-from mosaicolabs.models.query.queryable_fields import QueryableNumeric
+from mosaicolabs.query.queryable_fields import QueryableNumeric
 
 with MosaicoClient.connect("localhost", 6726) as client:
     # Find sequences where the gyro's X-axis reading exceeded 0.5 rad/s
@@ -121,7 +121,7 @@ String fields work the same way through `QueryableString`. Suppose a second, unr
 <TabItem value="python" label="Python" default>
 ```python title="Filtering an unmodeled string field"
 from mosaicolabs import MosaicoClient, QueryOntologyCatalog
-from mosaicolabs.models.query.queryable_fields import QueryableString
+from mosaicolabs.query.queryable_fields import QueryableString
 
 with MosaicoClient.connect("localhost", 6726) as client:
     results = client.query(

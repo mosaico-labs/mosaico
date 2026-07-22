@@ -30,7 +30,7 @@ class Pressure(
 
     ### Querying with the **`.Q` Proxy**
     This class is fully queryable via the **`.Q` proxy**. You can filter pressure data based
-    on pressure values within a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog].
+    on pressure values within a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog].
 
     Example:
         ```python

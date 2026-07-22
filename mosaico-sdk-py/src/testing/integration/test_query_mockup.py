@@ -1,8 +1,8 @@
 import pytest
 
 from mosaicolabs.comm import MosaicoClient
-from mosaicolabs.models.query import QuerySequence
 from mosaicolabs.models.sensors.image import Image
+from mosaicolabs.query import QuerySequence
 from testing.integration.config import (
     QUERY_SEQUENCES_MOCKUP,
 )

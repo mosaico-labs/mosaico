@@ -1,11 +1,11 @@
 import pytest
 
 from mosaicolabs import IMU, Pressure, Temperature, TimestampRange
-from mosaicolabs.models.query import (
+from mosaicolabs.query import (
     QueryResponseItem,
     QueryResponseItemTopic,
 )
-from mosaicolabs.models.query.response import (
+from mosaicolabs.query.response import (
     _build_clusterize_payload,
     _build_intersect_payload,
 )

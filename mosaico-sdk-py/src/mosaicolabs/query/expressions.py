@@ -13,8 +13,8 @@ class _QueryExpression:
     The class manages the expression lifecycle in a Query:
 
     1.  **Generation**: A user calls `IMU.Q.acceleration.x.gt(9.8)`, which generates
-        a [`_QueryCatalogExpression`][mosaicolabs.models.query.expressions._QueryCatalogExpression] (a subclass of this class).
-    2.  **Validation**: A [Builder][mosaicolabs.models.query.builders] receives the expression
+        a [`_QueryCatalogExpression`][mosaicolabs.query.expressions._QueryCatalogExpression] (a subclass of this class).
+    2.  **Validation**: A [Builder][mosaicolabs.query.builders] receives the expression
         and validates its type, operator format, and key uniqueness.
     3.  **Serialization**: The builder calls `.to_dict()` on the expression to
         transform it into the specific JSON format expected by the platform.
@@ -54,11 +54,11 @@ class _QueryTopicExpression(_QueryExpression):
     """
     An atomic comparison unit specialized for the **Topic Catalog** context.
 
-    This class is utilized exclusively by the [`QueryTopic`][mosaicolabs.models.query.builders.QueryTopic]
+    This class is utilized exclusively by the [`QueryTopic`][mosaicolabs.query.builders.QueryTopic]
     builder to filter topics based on system attributes (like `name` or `ontology_tag`)
     and nested user metadata.
 
-    The [`QueryTopic`][mosaicolabs.models.query.builders.QueryTopic] class enforces that all
+    The [`QueryTopic`][mosaicolabs.query.builders.QueryTopic] class enforces that all
     provided expressions are instances of this type to prevent cross-domain query
     contamination.
 
@@ -81,7 +81,7 @@ class _QuerySequenceExpression(_QueryExpression):
 
     This class represents filters targeting high-level sequence containers.
     It is the only expression type accepted by the
-    [`QuerySequence`][mosaicolabs.models.query.builders.QuerySequence] builder.
+    [`QuerySequence`][mosaicolabs.query.builders.QuerySequence] builder.
 
     It handles fields such as the sequence `name`, `created_timestamp`, or custom
     entries within the sequence's `user_metadata`.
@@ -104,7 +104,7 @@ class _QueryCatalogExpression(_QueryExpression):
     An atomic comparison unit specialized for **Data Ontology** (Sensor Payload) filtering.
 
     This expression type is used by the
-    [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog] builder
+    [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog] builder
     to filter actual sensor data values across the entire platform.
 
     Because ontology queries target specific fields within a sensor payload (e.g.,

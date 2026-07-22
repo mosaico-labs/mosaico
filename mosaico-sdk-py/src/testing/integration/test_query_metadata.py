@@ -2,7 +2,7 @@ import pytest
 from pyarrow import ArrowInvalid
 
 from mosaicolabs.comm import MosaicoClient
-from mosaicolabs.models.query import QuerySequence, QueryTopic
+from mosaicolabs.query import QuerySequence, QueryTopic
 from testing.integration.config import (
     UPLOADED_GPS_TOPIC,
     UPLOADED_IMU_CAMERA_TOPIC,

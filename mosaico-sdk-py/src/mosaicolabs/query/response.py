@@ -5,13 +5,13 @@ from pyarrow.flight import FlightClient
 
 from mosaicolabs.helpers import unpack_topic_full_path
 
-from ...comm.do_action_page import (
+from ..comm.do_action_page import (
     _do_action_page,
     _DoActionPageResponseFilterClusterize,
     _DoActionPageResponseFilterIntersect,
 )
-from ...enum.flight_action import FlightAction
-from ...logging_config import get_logger
+from ..enum.flight_action import FlightAction
+from ..logging_config import get_logger
 from .builders import QueryOntologyCatalog, QuerySequence, QueryTopic
 from .expressions import (
     _QueryCatalogExpression,
@@ -202,6 +202,8 @@ class QueryResponseItemTopic:
         ACTION = FlightAction.TOPIC_FILTER_CLUSTERIZE
 
         # Making the request
+        if self._client is None:
+            raise ValueError("FlightClient not set!")
         try:
             act_resp = _do_action_page(
                 client=self._client,
@@ -323,6 +325,8 @@ class QueryResponseItemTopic:
         """
         ACTION = FlightAction.TOPIC_FILTER_INTERSECT
 
+        if self._client is None:
+            raise ValueError("FlightClient not set!")
         try:
             act_resp = _do_action_page(
                 client=self._client,
@@ -548,6 +552,8 @@ class QueryResponseItem:
         """
 
         ACTION = FlightAction.TOPIC_FILTER_INTERSECT
+        if self._client is None:
+            raise ValueError("FlightClient not set!")
 
         total_topics = list(self.topics)
         if query_response_item:

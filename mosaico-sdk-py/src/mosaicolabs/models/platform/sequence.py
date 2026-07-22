@@ -36,7 +36,7 @@ class Sequence:
 
     ### Querying with **Query Builders**
     Querying Sequence specific attributes (like `user_metadata` or `name`) can be made using the
-    [QuerySequence()][mosaicolabs.models.query.builders.QuerySequence] query builder.
+    [QuerySequence()][mosaicolabs.query.builders.QuerySequence] query builder.
 
     Example:
         ```python
@@ -68,10 +68,10 @@ class Sequence:
     Custom user-defined key-value pairs associated with the entity.
 
     ### Querying with **Query Builders**
-    The `user_metadata` attribute is queryable when constructing a [`QuerySequence`][mosaicolabs.models.query.QuerySequence]
+    The `user_metadata` attribute is queryable when constructing a [`QuerySequence`][mosaicolabs.query.QuerySequence]
     via the convenience method:
 
-    * [`QuerySequence.with_user_metadata()`][mosaicolabs.models.query.builders.QuerySequence.with_user_metadata]
+    * [`QuerySequence.with_user_metadata()`][mosaicolabs.query.builders.QuerySequence.with_user_metadata]
 
     Example:
         ```python
@@ -102,10 +102,10 @@ class Sequence:
     The UTC timestamp when the sequence was created.
 
     ### Querying with **Query Builders**
-        The `created_timestamp` attribute is queryable when constructing a [`QuerySequence`][mosaicolabs.models.query.QuerySequence]
+        The `created_timestamp` attribute is queryable when constructing a [`QuerySequence`][mosaicolabs.query.QuerySequence]
         via the convenience method:
 
-        * [`QuerySequence.with_created_timestamp()`][mosaicolabs.models.query.builders.QuerySequence.with_created_timestamp]
+        * [`QuerySequence.with_created_timestamp()`][mosaicolabs.query.builders.QuerySequence.with_created_timestamp]
 
         Example:
             ```python
@@ -131,11 +131,11 @@ class Sequence:
     The name of the sequence.
 
     ### Querying with **Query Builders**
-        The `name` attribute is queryable when constructing a [`QuerySequence`][mosaicolabs.models.query.QuerySequence]
+        The `name` attribute is queryable when constructing a [`QuerySequence`][mosaicolabs.query.QuerySequence]
         via the convenience methods:
 
-        * [`QuerySequence.with_name()`][mosaicolabs.models.query.builders.QuerySequence.with_name]
-        * [`QuerySequence.with_name_match()`][mosaicolabs.models.query.builders.QuerySequence.with_name_match]
+        * [`QuerySequence.with_name()`][mosaicolabs.query.builders.QuerySequence.with_name]
+        * [`QuerySequence.with_name_match()`][mosaicolabs.query.builders.QuerySequence.with_name_match]
 
         Example:
             ```python
@@ -224,11 +224,11 @@ class Sequence:
             factory.
 
         ### Querying with **Query Builders**
-        The `topics` property is queryable via the [`QueryTopic`][mosaicolabs.models.query.QueryTopic] builder,
+        The `topics` property is queryable via the [`QueryTopic`][mosaicolabs.query.QueryTopic] builder,
         through the convenience methods:
 
-        * [`QueryTopic.with_name()`][mosaicolabs.models.query.builders.QueryTopic.with_name]
-        * [`QueryTopic.with_name_match()`][mosaicolabs.models.query.builders.QueryTopic.with_name_match]
+        * [`QueryTopic.with_name()`][mosaicolabs.query.builders.QueryTopic.with_name]
+        * [`QueryTopic.with_name_match()`][mosaicolabs.query.builders.QueryTopic.with_name_match]
 
         Example:
             ```python

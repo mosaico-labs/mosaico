@@ -12,11 +12,6 @@ from typing import Any, Dict, List, Optional, Type, Union
 
 import pyarrow.flight as fl
 
-from mosaicolabs.comm.notifications import Notification
-from mosaicolabs.handlers.sequence_updater import SequenceUpdater
-from mosaicolabs.models.query import Query, QueryResponse
-from mosaicolabs.models.query.protocols import QueryableProtocol
-
 from ..enum import (
     FlightAction,
     GRPCCompressionAlgorithm,
@@ -24,10 +19,13 @@ from ..enum import (
 )
 from ..handlers.config import SessionWriterConfig
 from ..handlers.sequence_handler import SequenceHandler
+from ..handlers.sequence_updater import SequenceUpdater
 from ..handlers.sequence_writer import SequenceWriter
 from ..handlers.topic_handler import TopicHandler
 from ..helpers import pack_topic_resource_name
 from ..logging_config import get_logger
+from ..query import Query, QueryResponse
+from ..query.protocols import QueryableProtocol
 from .connection import (
     DEFAULT_MAX_BATCH_BYTES,
     DEFAULT_MAX_BATCH_SIZE_RECORDS,
@@ -41,6 +39,7 @@ from .do_action import (
     _DoActionQueryResponse,
 )
 from .middlewares import MosaicoAuthMiddlewareFactory
+from .notifications import Notification
 
 # Set the hierarchical logger
 logger = get_logger(__name__)

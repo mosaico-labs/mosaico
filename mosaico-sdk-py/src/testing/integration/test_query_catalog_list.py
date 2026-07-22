@@ -1,8 +1,8 @@
 # from mosaicolabs import Time
 from mosaicolabs.comm import MosaicoClient
 from mosaicolabs.models.data import RobotPath
-from mosaicolabs.models.query import QueryOntologyCatalog, QuerySequence, QueryTopic
 from mosaicolabs.models.sensors import RobotJoint, Temperature
+from mosaicolabs.query import QueryOntologyCatalog, QuerySequence, QueryTopic
 from testing.integration.config import (
     UPLOADED_ROBOT_JOINTS_TOPIC,
     UPLOADED_ROBOT_PATH_TOPIC,

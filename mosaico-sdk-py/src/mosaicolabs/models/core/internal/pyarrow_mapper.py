@@ -3,7 +3,7 @@ from typing import Any, Dict, Optional, Tuple
 import pyarrow as pa
 
 # --- Import the query builder components ---
-from mosaicolabs.models.query.generation.internal import (
+from mosaicolabs.query.generation.internal import (
     _QueryableList,
 )
 

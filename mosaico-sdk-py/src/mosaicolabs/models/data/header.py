@@ -23,7 +23,7 @@ class Header(Serializable):
         sample_counter: Integer indicating the number of samples elapsed since process start. It can be omitted if not available.
 
     ### Querying with the **`.Q` Proxy**
-    This class fields are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
+    This class fields are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog]
     via the **`.Q` proxy**. Check the fields documentation for detailed description.
 
     Example:

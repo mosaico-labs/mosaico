@@ -51,7 +51,7 @@ class Radar(
 
     ### Querying with the **`.Q` Proxy**
     This class is fully queryable via the **`.Q` proxy**. You can filter Radar data based
-    on thresholds values within a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog].
+    on thresholds values within a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog].
     Expressions entailing lists of values can be queried using any between `all()`, `any()`
     or index access `[i]` followed by the contained type supported operations.
 

@@ -3,7 +3,7 @@
 # ======================================================================
 import pytest
 
-from mosaicolabs.models.query import QuerySequence, QueryTopic
+from mosaicolabs.query import QuerySequence, QueryTopic
 
 
 class TestQueryTopicMetadataAPI:

@@ -16,7 +16,7 @@ without needing the class at all.
 Example:
     ```python
     from mosaicolabs import MosaicoClient, QueryOntologyCatalog
-    from mosaicolabs.models.query.queryable_fields import QueryableNumeric
+    from mosaicolabs.query.queryable_fields import QueryableNumeric
 
     with MosaicoClient.connect("localhost", 6726) as client:
         # Equivalent to `SomeResolvedClass.Q.temperature.celsius.lt(22.0)`,
@@ -55,7 +55,7 @@ class QueryableNumeric(_QueryableField, _QueryableNumeric):
 
     Example:
         ```python
-        from mosaicolabs.models.query.queryable_fields import QueryableNumeric
+        from mosaicolabs.query.queryable_fields import QueryableNumeric
 
         # Equivalent to `IMU.Q.acceleration.x.gt(9.8)`, addressed by path alone.
         expr = QueryableNumeric("IMU.acceleration.x").gt(9.8)
@@ -86,7 +86,7 @@ class QueryableString(_QueryableField, _QueryableString):
 
     Example:
         ```python
-        from mosaicolabs.models.query.queryable_fields import QueryableString
+        from mosaicolabs.query.queryable_fields import QueryableString
 
         # Equivalent to `IMU.Q.frame_id.eq("imu_link")`, addressed by path alone.
         expr = QueryableString("IMU.frame_id").eq("imu_link")
@@ -116,7 +116,7 @@ class QueryableBool(_QueryableField, _QueryableBool):
 
     Example:
         ```python
-        from mosaicolabs.models.query.queryable_fields import QueryableBool
+        from mosaicolabs.query.queryable_fields import QueryableBool
 
         # Equivalent to `ROI.Q.do_rectify.eq(True)`, addressed by path alone.
         expr = QueryableBool("ROI.do_rectify").eq(True)

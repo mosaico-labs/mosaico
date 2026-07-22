@@ -6,10 +6,10 @@ It implements a Domain-Specific Language that allows users to filter **Sequences
 
 **Key Components:**
 
-* [**`Query`**][mosaicolabs.models.query.builders.Query]: The root container that aggregates multiple specialized sub-queries.
-* [**`QueryOntologyCatalog`**][mosaicolabs.models.query.builders.QueryOntologyCatalog]: For fine-grained filtering based on sensor-specific field values (e.g., `IMU.Q.acceleration.x > 9.8`).
-* [**`QueryTopic`**][mosaicolabs.models.query.builders.QueryTopic]: Specifically for filtering topic-level metadata.
-* [**`QuerySequence`**][mosaicolabs.models.query.builders.QuerySequence]: Specifically for filtering sequence-level metadata.
+* [**`Query`**][mosaicolabs.query.builders.Query]: The root container that aggregates multiple specialized sub-queries.
+* [**`QueryOntologyCatalog`**][mosaicolabs.query.builders.QueryOntologyCatalog]: For fine-grained filtering based on sensor-specific field values (e.g., `IMU.Q.acceleration.x > 9.8`).
+* [**`QueryTopic`**][mosaicolabs.query.builders.QueryTopic]: Specifically for filtering topic-level metadata.
+* [**`QuerySequence`**][mosaicolabs.query.builders.QuerySequence]: Specifically for filtering sequence-level metadata.
 """
 
 from typing import Any, Dict, List, Optional, Tuple, Type
@@ -180,7 +180,7 @@ class QueryOntologyCatalog:
     ):
         """
         The constructor initializes the query with an optional list of
-        [`_QueryCatalogExpression`][mosaicolabs.models.query.expressions._QueryCatalogExpression] objects, generated
+        [`_QueryCatalogExpression`][mosaicolabs.query.expressions._QueryCatalogExpression] objects, generated
         via `<Model>.Q.` proxy, where model is any of the available data ontology (e.g. IMU.Q, GPS.Q, String.Q, etc.)
 
         Args:
@@ -214,7 +214,7 @@ class QueryOntologyCatalog:
 
     def with_expression(self, expr: _QueryExpression) -> "QueryOntologyCatalog":
         """
-        Adds a new [`_QueryCatalogExpression`][mosaicolabs.models.query.expressions._QueryCatalogExpression]
+        Adds a new [`_QueryCatalogExpression`][mosaicolabs.query.expressions._QueryCatalogExpression]
         expression to the query using a fluent interface.
 
         Example:
@@ -264,7 +264,7 @@ class QueryOntologyCatalog:
 
     # compatibility with QueryProtocol
     def name(self) -> str:
-        """Returns the top-level key ('ontology') used for nesting inside a root [`Query`][mosaicolabs.models.query.builders.Query]."""
+        """Returns the top-level key ('ontology') used for nesting inside a root [`Query`][mosaicolabs.query.builders.Query]."""
         return "ontology"
 
     # compatibility with QueryProtocol
@@ -603,7 +603,7 @@ class QueryTopic:
 
     # compatibility with QueryProtocol
     def name(self) -> str:
-        """Returns the top-level key ('topic') used when nesting this query inside a root [`Query`][mosaicolabs.models.query.builders.Query]."""
+        """Returns the top-level key ('topic') used when nesting this query inside a root [`Query`][mosaicolabs.query.builders.Query]."""
         return "topic"
 
     # compatibility with QueryProtocol
@@ -959,7 +959,7 @@ class QuerySequence:
 
     # compatibility with QueryProtocol
     def name(self) -> str:
-        """Returns the top-level key ('sequence') used for nesting inside a root [`Query`][mosaicolabs.models.query.builders.Query]."""
+        """Returns the top-level key ('sequence') used for nesting inside a root [`Query`][mosaicolabs.query.builders.Query]."""
         return "sequence"
 
         # compatibility with QueryProtocol

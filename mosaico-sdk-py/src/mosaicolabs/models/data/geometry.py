@@ -44,7 +44,7 @@ class _Vector2dStruct(BaseModel):
     The Vector X component
     
     ### Querying with the **`.Q` Proxy**
-    This field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog] 
+    This field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog] 
     via the **`.Q` proxy**.
 
     | Field Access Path | Queryable Type | Supported Operators |
@@ -97,7 +97,7 @@ class _Vector2dStruct(BaseModel):
     The Vector Y component
     
     ### Querying with the **`.Q` Proxy**
-    This field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog] 
+    This field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog] 
     via the **`.Q` proxy**.
 
     | Field Access Path | Queryable Type | Supported Operators |
@@ -184,7 +184,7 @@ class _Vector3dStruct(BaseModel):
     The Vector X component
     
     ### Querying with the **`.Q` Proxy**
-    This field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog] 
+    This field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog] 
     via the **`.Q` proxy**.
 
     | Field Access Path | Queryable Type | Supported Operators |
@@ -237,7 +237,7 @@ class _Vector3dStruct(BaseModel):
     The Vector Y component
     
     ### Querying with the **`.Q` Proxy**
-    This field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog] 
+    This field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog] 
     via the **`.Q` proxy**.
 
     | Field Access Path | Queryable Type | Supported Operators |
@@ -290,7 +290,7 @@ class _Vector3dStruct(BaseModel):
     The Vector Z component
     
     ### Querying with the **`.Q` Proxy**
-    This field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog] 
+    This field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog] 
     via the **`.Q` proxy**.
 
     | Field Access Path | Queryable Type | Supported Operators |
@@ -377,7 +377,7 @@ class _Vector4dStruct(BaseModel):
     The Vector X component
     
     ### Querying with the **`.Q` Proxy**
-    This field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog] 
+    This field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog] 
     via the **`.Q` proxy**.
 
     | Field Access Path | Queryable Type | Supported Operators |
@@ -431,7 +431,7 @@ class _Vector4dStruct(BaseModel):
     The Vector Y component
     
     ### Querying with the **`.Q` Proxy**
-    This field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog] 
+    This field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog] 
     via the **`.Q` proxy**.
 
     | Field Access Path | Queryable Type | Supported Operators |
@@ -485,7 +485,7 @@ class _Vector4dStruct(BaseModel):
     The Vector Z component
     
     ### Querying with the **`.Q` Proxy**
-    This field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog] 
+    This field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog] 
     via the **`.Q` proxy**.
 
     | Field Access Path | Queryable Type | Supported Operators |
@@ -539,7 +539,7 @@ class _Vector4dStruct(BaseModel):
     The Vector W component
     
     ### Querying with the **`.Q` Proxy**
-    This field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog] 
+    This field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog] 
     via the **`.Q` proxy**.
 
     | Field Access Path | Queryable Type | Supported Operators |
@@ -628,7 +628,7 @@ class Vector2d(
         header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
-    This class fields are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
+    This class fields are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog]
     via the **`.Q` proxy**. Check the fields documentation for detailed description.
 
     Example:
@@ -685,7 +685,7 @@ class Vector3d(
         header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
-    This class fields are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
+    This class fields are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog]
     via the **`.Q` proxy**. Check the fields documentation for detailed description.
 
     Example:
@@ -743,7 +743,7 @@ class Vector4d(
         header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
-    This class fields are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
+    This class fields are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog]
     via the **`.Q` proxy**. Check the fields documentation for detailed description.
 
     Example:
@@ -800,7 +800,7 @@ class Point2d(
         header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
-    This class fields are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
+    This class fields are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog]
     via the **`.Q` proxy**. Check the fields documentation for detailed description.
 
     Example:
@@ -858,7 +858,7 @@ class Point3d(
         header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
-    This class fields are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
+    This class fields are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog]
     via the **`.Q` proxy**. Check the fields documentation for detailed description.
 
     Example:
@@ -917,7 +917,7 @@ class Quaternion(
         header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
-    This class fields are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
+    This class fields are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog]
     via the **`.Q` proxy**. Check the fields documentation for detailed description.
 
     Example:
@@ -979,7 +979,7 @@ class Transform(
         header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
-    This class fields are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
+    This class fields are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog]
     via the **`.Q` proxy**. Check the fields documentation for detailed description.
 
     Example:
@@ -1154,7 +1154,7 @@ class Pose(
         header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
-    This class fields are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
+    This class fields are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog]
     via the **`.Q` proxy**. Check the fields documentation for detailed description.
 
     Example:
@@ -1287,7 +1287,7 @@ class RobotPath(
         header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
-    This class is fully queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
+    This class is fully queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog]
     via the **`.Q` proxy**. Both `path_frame` and `poses` are queryable. Check the fields
     documentation for detailed description.
 

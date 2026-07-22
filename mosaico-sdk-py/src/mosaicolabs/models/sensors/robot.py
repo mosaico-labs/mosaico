@@ -27,7 +27,7 @@ class RobotJoint(
 
     ### Querying with the **`.Q` Proxy**
     This class is fully queryable via the **`.Q` proxy**. You can filter robot joint data based
-    on thresholds values within a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog].
+    on thresholds values within a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog].
     Since `names`, `positions`, `velocities` and `efforts` are lists of values, use `all()`,
     `any()` or index access `[i]` to narrow down to the list element and compose a correct
     expression.

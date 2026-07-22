@@ -274,7 +274,7 @@ class SequenceWriter(_BaseSessionWriter):
                 The mechanism allows creating query expressions like: `QueryTopic().with_user_metadata("interface.type", eq="UART")`.
                 See also:
                 * [`mosaicolabs.models.platform.Topic`][mosaicolabs.models.platform.Topic]
-                * [`mosaicolabs.models.query.builders.QueryTopic`][mosaicolabs.models.query.builders.QueryTopic].
+                * [`mosaicolabs.query.builders.QueryTopic`][mosaicolabs.query.builders.QueryTopic].
             3. See also: [`TopicWriter.push()`][mosaicolabs.handlers.TopicWriter.push]
         """
         # Override for cutomizing documentation

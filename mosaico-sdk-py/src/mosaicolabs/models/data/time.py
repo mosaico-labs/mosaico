@@ -140,7 +140,7 @@ class Time(_TemporalBase, Serializable):
         nanoseconds: Nanoseconds component within the current second, ranging from 0 to 999,999,999.
 
     ### Querying with the **`.Q` Proxy**
-    This class fields are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
+    This class fields are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog]
     via the **`.Q` proxy**. Check the fields documentation for detailed description.
 
     | Field Access Path | Queryable Type | Supported Operators |
@@ -220,7 +220,7 @@ class Duration(_TemporalBase, Serializable):
         nanoseconds: Nanoseconds component within the current second, ranging from 0 to 999,999,999.
 
     ### Querying with the **`.Q` Proxy**
-    This class fields are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
+    This class fields are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog]
     via the **`.Q` proxy**. Check the fields documentation for detailed description.
 
     | Field Access Path | Queryable Type | Supported Operators |

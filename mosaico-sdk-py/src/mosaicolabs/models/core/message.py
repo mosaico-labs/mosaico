@@ -47,7 +47,7 @@ class Message(BaseModel):
         data: The actual ontology data payload (e.g., an IMU or GPS instance).
 
     ### Querying with the **`.Q` Proxy** {: #queryability }
-    When constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog],
+    When constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog],
     the `Message` attributes are fully queryable.
 
     | Field Access Path | Queryable Type | Supported Operators |

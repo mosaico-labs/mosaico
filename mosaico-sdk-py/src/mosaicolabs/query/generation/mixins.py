@@ -31,10 +31,10 @@ class _QueryableComparable:
     """
     Mixin providing comparison operators for ordered field types.
 
-    Composed with [`_QueryableField`][mosaicolabs.models.query.generation.mixins._QueryableField]
+    Composed with [`_QueryableField`][mosaicolabs.query.generation.mixins._QueryableField]
     to produce a concrete queryable field for any type with a natural
-    ordering - numeric ([`_QueryableNumeric`][mosaicolabs.models.query.generation.mixins._QueryableNumeric])
-    or date/time ([`_QueryableDateTime`][mosaicolabs.models.query.generation.mixins._QueryableDateTime]).
+    ordering - numeric ([`_QueryableNumeric`][mosaicolabs.query.generation.mixins._QueryableNumeric])
+    or date/time ([`_QueryableDateTime`][mosaicolabs.query.generation.mixins._QueryableDateTime]).
     Every operator validates its operand(s) against `__mixin_supported_types__`
     (transforming them first via `_transform_value()` if the subclass
     overrides it, e.g. to serialize a `datetime` to ISO 8601), then delegates
@@ -200,11 +200,11 @@ class _QueryableNumeric(_QueryableComparable):
     Queryable numeric field: `int` or `float`.
 
     Inherits every comparison operator from
-    [`_QueryableComparable`][mosaicolabs.models.query.generation.mixins._QueryableComparable]
+    [`_QueryableComparable`][mosaicolabs.query.generation.mixins._QueryableComparable]
     (`eq`, `neq`, `lt`, `leq`, `gt`, `geq`, `in_`, `between`), restricting
     accepted operand values to `int`/`float`. This is the mixin behind numeric
     `.Q` proxy fields (e.g. `IMU.Q.acceleration.x`) and the class-free
-    [`QueryableNumeric`][mosaicolabs.models.query.queryable_fields.QueryableNumeric].
+    [`QueryableNumeric`][mosaicolabs.query.queryable_fields.QueryableNumeric].
     """
 
     __slots__ = ()
@@ -240,7 +240,7 @@ class _QueryableDateTime(_QueryableComparable):
     Queryable date/time/timestamp field for comparisons in the backend.
 
     Inherits every comparison operator from
-    [`_QueryableComparable`][mosaicolabs.models.query.generation.mixins._QueryableComparable]
+    [`_QueryableComparable`][mosaicolabs.query.generation.mixins._QueryableComparable]
     (`eq`, `neq`, `lt`, `leq`, `gt`, `geq`, `in_`, `between`). Accepts Python
     temporal types (`datetime.date`, `datetime.time`, `datetime.datetime`) as
     well as numeric timestamps (`int`, nanoseconds since epoch); both are
@@ -288,7 +288,7 @@ class _QueryableBool:
     """
     Mixin providing comparison operators for boolean fields.
 
-    Composed with [`_QueryableField`][mosaicolabs.models.query.generation.mixins._QueryableField]
+    Composed with [`_QueryableField`][mosaicolabs.query.generation.mixins._QueryableField]
     to build queryable `bool` fields (e.g. `ROI.Q.do_rectify`). Booleans only
     support equality: there's no meaningful `.lt()`/`.gt()` ordering, and the
     backend doesn't currently support `.in_()`/`.between()` on this type.
@@ -323,7 +323,7 @@ class _QueryableString:
     """
     Mixin providing comparison operators for string fields.
 
-    Composed with [`_QueryableField`][mosaicolabs.models.query.generation.mixins._QueryableField]
+    Composed with [`_QueryableField`][mosaicolabs.query.generation.mixins._QueryableField]
     to build queryable `str` fields (e.g. `IMU.Q.frame_id`). Every operator
     validates that its operand is a `str` before delegating to
     `_QueryableField._cmp()`. Ordering operators (`.lt()`, `.leq()`, `.gt()`,
@@ -467,9 +467,9 @@ class _QueryableDynamicValue:
     """
     A promiscuous mixin for dynamic dict values (e.g. `user_metadata`).
 
-    Composed with [`_QueryableField`][mosaicolabs.models.query.generation.mixins._QueryableField]
+    Composed with [`_QueryableField`][mosaicolabs.query.generation.mixins._QueryableField]
     to build queryable fields for entries of a `Dict[str, Any]` field, reached
-    via [`_DynamicFieldFactoryMixin`][mosaicolabs.models.query.generation.mixins._DynamicFieldFactoryMixin]'s
+    via [`_DynamicFieldFactoryMixin`][mosaicolabs.query.generation.mixins._DynamicFieldFactoryMixin]'s
     bracket notation (e.g. `<Model>.Q.metadata["mission"]`). Because a
     dictionary value's type isn't known ahead of time, every operator here
     accepts numeric, string, and boolean values with only loose client-side
@@ -771,14 +771,14 @@ class _QueryableField:
     Represents a single queryable field, addressed by its fully-qualified path.
 
     This is the core class that holds state (the field's path and the concrete
-    [`_QueryExpression`][mosaicolabs.models.query.expressions._QueryExpression]
+    [`_QueryExpression`][mosaicolabs.query.expressions._QueryExpression]
     subclass to build) and implements the machinery every `_Queryable*` mixin
     operator relies on: `_cmp()` builds an atomic expression, and
     `_validate_value_type()`, `_in()`, `_between()` back the shared
     `.in_()`/`.between()` operators. The public operators themselves (`eq`,
     `lt`, `match`, ...) come from whichever `_Queryable*` mixin is composed
     alongside this class - see
-    [`_make_queryable_field_type()`][mosaicolabs.models.query.generation.mixins._make_queryable_field_type].
+    [`_make_queryable_field_type()`][mosaicolabs.query.generation.mixins._make_queryable_field_type].
     """
 
     __slots__ = ("_full_path", "_expr_cls")
@@ -788,7 +788,7 @@ class _QueryableField:
         Args:
             full_path: The fully-qualified, dot-notated field path, prefixed
                 by the ontology tag (e.g. `"IMU.acceleration.x"`).
-            expr_cls: The [`_QueryExpression`][mosaicolabs.models.query.expressions._QueryExpression]
+            expr_cls: The [`_QueryExpression`][mosaicolabs.query.expressions._QueryExpression]
                 subclass used to build comparison expressions for this field
                 (e.g. `_QueryCatalogExpression`).
         """

@@ -30,7 +30,7 @@ class HeaderMixin(BaseModel):
         will be raised to prevent schema corruption.
 
     ### Querying with the **`.Q` Proxy** {: #queryability }
-    When constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog],
+    When constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog],
     the class fields are queryable across any model inheriting from this mixin, according to the following table:
 
     | Field Access Path | Queryable Type | Supported Operators |
@@ -140,7 +140,7 @@ class CovarianceMixin(BaseModel):
         covariance_type: Optional 16-bit integer representing the covariance enum.
 
     ### Querying with the **`.Q` Proxy** {: #queryability }
-    When constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog],
+    When constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog],
     the class fields are queryable across any model inheriting from this mixin, according to the following table:
 
     | Field Access Path | Queryable Type | Supported Operators |
@@ -303,7 +303,7 @@ class VarianceMixin(BaseModel):
         will be raised to prevent schema corruption.
 
     ### Querying with the **`.Q` Proxy** {: #queryability }
-    When constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog],
+    When constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog],
     the class fields are queryable across any model inheriting from this mixin, according to the following table:
 
     | Field Access Path | Queryable Type | Supported Operators |

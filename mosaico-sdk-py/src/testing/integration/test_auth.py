@@ -3,8 +3,8 @@ from pyarrow.flight import FlightUnauthorizedError
 
 from mosaicolabs.comm import MosaicoClient
 from mosaicolabs.enum import SessionLevelErrorPolicy
-from mosaicolabs.models.query.builders import QuerySequence
 from mosaicolabs.models.sensors.imu import IMU
+from mosaicolabs.query.builders import QuerySequence
 from testing.integration.config import UPLOADED_GPS_TOPIC, UPLOADED_SEQUENCE_NAME
 
 

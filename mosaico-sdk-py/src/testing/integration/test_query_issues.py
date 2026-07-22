@@ -1,5 +1,5 @@
 from mosaicolabs.comm import MosaicoClient
-from mosaicolabs.models.query.builders import QuerySequence, QueryTopic
+from mosaicolabs.query.builders import QuerySequence, QueryTopic
 from testing.integration.config import (
     UPLOADED_IMU_FRONT_TOPIC,
     UPLOADED_SEQUENCE_NAME,

@@ -2,7 +2,7 @@ import pytest
 
 from mosaicolabs import Time
 from mosaicolabs.comm import MosaicoClient
-from mosaicolabs.models.query import QuerySequence, QueryTopic
+from mosaicolabs.query import QuerySequence, QueryTopic
 from testing.integration.config import (
     QUERY_SEQUENCES_MOCKUP,
     UPLOADED_GPS_TOPIC,
