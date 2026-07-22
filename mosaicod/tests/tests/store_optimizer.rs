@@ -4,6 +4,7 @@ use mosaicod_core::types;
 use mosaicod_db as db;
 use mosaicod_ext as ext;
 use mosaicod_rw::ToProperties;
+use mosaicod_store as store;
 use tests::{self, actions, common};
 
 // ===========================================================================
@@ -750,4 +751,333 @@ async fn test_store_optimization_5(pool: sqlx::Pool<db::DatabaseType>) {
     }
 
     server.shutdown().await;
+}
+
+// ===========================================================================
+// Store optimizer routine multi-server tests
+// ===========================================================================
+
+/// Tests the optimization in a scenario with 1 sequence, 3 topics and many record batches filled with random byte arrays.
+/// The optimization should produce 2 output files per topic.
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_store_optimization_multi_1(pool: sqlx::Pool<db::DatabaseType>) {
+    let optimization_time_interval = types::Duration::seconds(5);
+    let max_file_size = 50_000_000; // 50 MB
+
+    let store = store::testing::Store::new_random_on_tmp().unwrap();
+
+    let server1 = common::ServerBuilder::new(common::HOST, pool.clone())
+        .with_store_optimizer(optimization_time_interval, max_file_size)
+        .build_with_store(store.clone())
+        .await;
+
+    let server2 = common::ServerBuilder::new(common::HOST, pool)
+        .with_store_optimizer(optimization_time_interval, max_file_size)
+        .build_with_store(store)
+        .await;
+
+    // WORKAROUND: wait for the optimizer to run the first time.
+    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+
+    let mut client = common::ClientBuilder::new(common::HOST, server1.port())
+        .build()
+        .await;
+
+    let sequence_name = "test_sequence";
+    let metadata = r#"{"meta": "test"}"#;
+
+    actions::sequence_create(&mut client, sequence_name, Some(metadata))
+        .await
+        .unwrap();
+
+    let batches = vec![
+        ext::arrow::testing::dummy_binary_batch(1_000, 0, 5, 16_000, 16_000),
+        ext::arrow::testing::dummy_binary_batch(1_000, 10_000, 5, 16_000, 16_000),
+        ext::arrow::testing::dummy_binary_batch(1_000, 20_000, 5, 16_000, 16_000),
+        ext::arrow::testing::dummy_binary_batch(1_000, 30_000, 5, 16_000, 16_000),
+        ext::arrow::testing::dummy_binary_batch(1_000, 40_000, 5, 16_000, 16_000),
+    ];
+
+    let session = actions::session_create(&mut client, sequence_name)
+        .await
+        .unwrap();
+
+    let topic_locator = "test_sequence/topic"
+        .parse::<types::TopicLocator>()
+        .unwrap();
+    let topic_uuid =
+        actions::topic_create(&mut client, &session.1, &topic_locator.to_string(), None)
+            .await
+            .unwrap();
+
+    actions::do_put(
+        &mut client,
+        &topic_uuid,
+        &topic_locator.to_string(),
+        batches.clone(),
+        false,
+    )
+    .await
+    .unwrap();
+
+    let topic_record = db::topic_find_by_locator(&mut server1.db.connection(), &topic_locator)
+        .await
+        .unwrap();
+
+    assert!(topic_record.optimization_end_timestamp().is_none());
+
+    let topic_locator2 = "test_sequence/topic2"
+        .parse::<types::TopicLocator>()
+        .unwrap();
+    let topic_uuid =
+        actions::topic_create(&mut client, &session.1, &topic_locator2.to_string(), None)
+            .await
+            .unwrap();
+
+    actions::do_put(
+        &mut client,
+        &topic_uuid,
+        &topic_locator2.to_string(),
+        batches.clone(),
+        false,
+    )
+    .await
+    .unwrap();
+
+    let topic_record2 = db::topic_find_by_locator(&mut server1.db.connection(), &topic_locator2)
+        .await
+        .unwrap();
+
+    assert!(topic_record2.optimization_end_timestamp().is_none());
+
+    let topic_locator3 = "test_sequence/topic3"
+        .parse::<types::TopicLocator>()
+        .unwrap();
+    let topic_uuid =
+        actions::topic_create(&mut client, &session.1, &topic_locator3.to_string(), None)
+            .await
+            .unwrap();
+
+    actions::do_put(
+        &mut client,
+        &topic_uuid,
+        &topic_locator3.to_string(),
+        batches,
+        false,
+    )
+    .await
+    .unwrap();
+
+    let topic_record3 = db::topic_find_by_locator(&mut server1.db.connection(), &topic_locator3)
+        .await
+        .unwrap();
+
+    assert!(topic_record3.optimization_end_timestamp().is_none());
+
+    assert_eq!(server1.store.list("", None).await.unwrap().len(), 19);
+
+    // Wait for the optimizer to run.
+    tokio::time::sleep(std::time::Duration::from_secs(12)).await;
+
+    // The optimizer writes the merged output alongside the original data. It does not yet
+    // clean up the pre-optimization files.
+    assert_eq!(server1.store.list("", None).await.unwrap().len(), 28);
+
+    // Check first topic.
+    let optimized_topic_record =
+        db::topic_find_by_locator(&mut server1.db.connection(), &topic_locator)
+            .await
+            .unwrap();
+
+    assert_ne!(
+        topic_record.path_in_store().unwrap().to_string(),
+        optimized_topic_record.path_in_store().unwrap().to_string()
+    );
+
+    assert!(
+        optimized_topic_record
+            .optimization_end_timestamp()
+            .is_some()
+    );
+
+    assert!(
+        db::topic_next_to_be_optimized(&mut server1.db.connection())
+            .await
+            .unwrap()
+            .is_none()
+    );
+
+    assert_eq!(
+        db::topic_optimization_count(&mut server1.db.connection())
+            .await
+            .unwrap(),
+        0
+    );
+
+    assert!(
+        server1
+            .store
+            .exists(
+                optimized_topic_record
+                    .path_in_store()
+                    .unwrap()
+                    .path_metadata(),
+            )
+            .await
+            .unwrap()
+    );
+
+    // Expecting 2 parquet files.
+    for i in 0..2 {
+        let chunk_metadata = server1
+            .store
+            .meta(
+                optimized_topic_record.path_in_store().unwrap().path_data(
+                    i,
+                    optimized_topic_record
+                        .serialization_format()
+                        .unwrap()
+                        .to_properties()
+                        .as_ref(),
+                ),
+            )
+            .await
+            .unwrap()
+            .unwrap();
+
+        assert!(chunk_metadata.size > 0);
+    }
+
+    // Check second topic.
+    let optimized_topic_record =
+        db::topic_find_by_locator(&mut server1.db.connection(), &topic_locator2)
+            .await
+            .unwrap();
+
+    assert_ne!(
+        topic_record2.path_in_store().unwrap().to_string(),
+        optimized_topic_record.path_in_store().unwrap().to_string()
+    );
+
+    assert!(
+        optimized_topic_record
+            .optimization_end_timestamp()
+            .is_some()
+    );
+
+    assert!(
+        db::topic_next_to_be_optimized(&mut server1.db.connection())
+            .await
+            .unwrap()
+            .is_none()
+    );
+
+    assert_eq!(
+        db::topic_optimization_count(&mut server1.db.connection())
+            .await
+            .unwrap(),
+        0
+    );
+
+    assert!(
+        server1
+            .store
+            .exists(
+                optimized_topic_record
+                    .path_in_store()
+                    .unwrap()
+                    .path_metadata(),
+            )
+            .await
+            .unwrap()
+    );
+
+    // Expecting 2 parquet files.
+    for i in 0..2 {
+        let chunk_metadata = server1
+            .store
+            .meta(
+                optimized_topic_record.path_in_store().unwrap().path_data(
+                    i,
+                    optimized_topic_record
+                        .serialization_format()
+                        .unwrap()
+                        .to_properties()
+                        .as_ref(),
+                ),
+            )
+            .await
+            .unwrap()
+            .unwrap();
+
+        assert!(chunk_metadata.size > 0);
+    }
+
+    // Check third topic.
+    let optimized_topic_record =
+        db::topic_find_by_locator(&mut server1.db.connection(), &topic_locator2)
+            .await
+            .unwrap();
+
+    assert_ne!(
+        topic_record3.path_in_store().unwrap().to_string(),
+        optimized_topic_record.path_in_store().unwrap().to_string()
+    );
+
+    assert!(
+        optimized_topic_record
+            .optimization_end_timestamp()
+            .is_some()
+    );
+
+    assert!(
+        db::topic_next_to_be_optimized(&mut server1.db.connection())
+            .await
+            .unwrap()
+            .is_none()
+    );
+
+    assert_eq!(
+        db::topic_optimization_count(&mut server1.db.connection())
+            .await
+            .unwrap(),
+        0
+    );
+
+    assert!(
+        server1
+            .store
+            .exists(
+                optimized_topic_record
+                    .path_in_store()
+                    .unwrap()
+                    .path_metadata(),
+            )
+            .await
+            .unwrap()
+    );
+
+    // Expecting 2 parquet files.
+    for i in 0..2 {
+        let chunk_metadata = server1
+            .store
+            .meta(
+                optimized_topic_record.path_in_store().unwrap().path_data(
+                    i,
+                    optimized_topic_record
+                        .serialization_format()
+                        .unwrap()
+                        .to_properties()
+                        .as_ref(),
+                ),
+            )
+            .await
+            .unwrap()
+            .unwrap();
+
+        assert!(chunk_metadata.size > 0);
+    }
+
+    server1.shutdown().await;
+    server2.shutdown().await;
 }

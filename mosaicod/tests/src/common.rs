@@ -156,33 +156,35 @@ impl ServerBuilder {
         let shutdown = grpc_common::ShutdownNotifier::default();
         let db = self.db;
 
+        // Start cleanup background task (if config provided).
         let cleanup_time_interval = self
             .cleanup_config
             .as_ref()
-            .map_or(types::Duration::seconds(86400), |c| c.time_interval);
+            .map_or(types::Duration::seconds(0), |c| c.time_interval);
 
         let cleanup_retention_duration = self
             .cleanup_config
             .as_ref()
             .map_or(types::Duration::seconds(86400), |c| c.retention_duration);
 
-        // Start cleanup background task.
         let cleanup_task_handle = tokio::task::spawn({
             let cleanup_store = (*store).clone();
             let cleanup_db = db.clone();
             let cleanup_shutdown = shutdown.clone();
 
             async move {
-                let cleanup = task::Cleanup::new(cleanup_db, cleanup_store)
-                    .with_time_interval(cleanup_time_interval)
-                    .with_retention_duration(cleanup_retention_duration);
+                // If time interval is 0, then don't even start cleanup routine.
+                if cleanup_time_interval.num_seconds() > 0 {
+                    let cleanup = task::Cleanup::new(cleanup_db, cleanup_store)
+                        .with_time_interval(cleanup_time_interval)
+                        .with_retention_duration(cleanup_retention_duration);
 
-                cleanup.run(cleanup_shutdown.token()).await;
+                    cleanup.run(cleanup_shutdown.token()).await;
+                }
             }
         });
 
-        // Start store optimizer background task.
-        // If no config is provided, store optimizer shall not run.
+        // Start store optimizer background task (if config provided).
         let store_optimizer_time_interval = self
             .store_optimizer_config
             .as_ref()
@@ -202,7 +204,7 @@ impl ServerBuilder {
 
             async move {
                 // If time interval is 0, then don't even start store optimizer.
-                if store_optimizer_time_interval.num_seconds() != 0 {
+                if store_optimizer_time_interval.num_seconds() > 0 {
                     let store_optimizer =
                         task::StoreOptimizer::new(store_optimizer_db, store_optimizer_store)
                             .with_time_interval(store_optimizer_time_interval)

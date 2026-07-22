@@ -284,9 +284,11 @@ impl StoreOptimizer {
         Ok(chunk_stats)
     }
 
-    async fn optimize(&self) -> Result<()> {
+    async fn optimize(&self) -> Result<u32> {
         // Scans the database to search for topics not yet optimized and to put them inside topic optimization table.
         db::topic_update_optimization_list(&mut self.db.connection()).await?;
+
+        let mut optimized_topics = 0;
 
         loop {
             let mut tx = self.db.transaction().await?;
@@ -337,21 +339,27 @@ impl StoreOptimizer {
                     .await?;
 
                 tx.commit().await?;
+
+                optimized_topics += 1;
             } else {
                 break;
             }
         }
 
-        Ok(())
+        Ok(optimized_topics)
     }
 
     /// Starts the optimization routine every [`time_interval`].
     pub async fn run(self, shutdown_notifier: CancellationToken) {
-        info!("Launching store optimization background routine");
-
         loop {
-            if let Err(e) = self.optimize().await {
-                error!("Store optimization failed: {}", e);
+            info!("Store optimization routine started");
+
+            match self.optimize().await {
+                Ok(optimized_topics) => info!(
+                    "Store optimization routine completed: {} topics optimized",
+                    optimized_topics
+                ),
+                Err(e) => error!("Store optimization routine failed: {}", e),
             }
 
             // If time interval is set to 0, exit after the first run.
