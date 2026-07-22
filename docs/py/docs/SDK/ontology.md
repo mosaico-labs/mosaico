@@ -453,8 +453,8 @@ Notice that `timestamp_ns` is **not** the sensor measurement time: it is the tim
 
 So a `Message` carries two timestamps at different levels:
 
-1) **`timestamp_ns`** — on the envelope, set by the distribution system (monotonic, monotonic within the Sequence).
-2) **`Header.timestamp`** — inside the payload, set by the sensor (sensor-dependent origin).
+1. **`timestamp_ns`** — on the envelope, set by the distribution system (monotonic, monotonic within the Sequence).
+2. **`Header.timestamp`** — inside the payload, set by the sensor (sensor-dependent origin).
 
 **Example:** a LiDAR captures a scan at `timestamp = 1200.5` (seconds since the sensor booted, in its `Header`). The DDS publishes it a few milliseconds later, and Mosaico stamps the envelope with `timestamp_ns = 8423000000` on the Sequence's monotonic clock. The first value says *when the world was measured*; the second says *when the data entered the system*.
 
@@ -671,6 +671,7 @@ UnmodeledGyro = make_unmodeled_ontology_class(
 # it's registered, serializable, and queryable.
 gyro_writer.push(Message(
     timestamp_ns=ts,
+    # The `raw_data` payload must match the declared schema
     data=UnmodeledGyro(raw_data={"gyro": {"x": 0.1, "y": 0.0, "z": -0.2}}),
 ))
 ```
@@ -691,9 +692,7 @@ This is what makes it safe for a component like the ROS Bridge to translate an u
 
 ### Retrieving Unmodeled Data from a `Message`
 
-On the reading side, [`Message.get_data()`][mosaicolabs.models.core.Message.get_data] is a type-hinted accessor: you pass the class you expect the payload to be, and it hands back `self.data` cast to that type (or `None` if it isn't an instance of it). For a hand-authored ontology this is straightforward (`msg.get_data(IMU)`) but for unmodeled data you don't necessarily know, or need to know, the exact dynamically-generated class the SDK resolved the message into. There are two ways to retrieve it, depending on how much you want to name:
-
-**1. Retrieve via the common `Unmodeled` base class.** Every dynamically-generated class, whether created by your own code or auto-resolved internally while reading, is a subclass of `Unmodeled`, so `get_data(Unmodeled)` always works and immediately unveils the `raw_data` field to your editor's autocompletion and to static type checkers, with no upfront setup:
+On the reading side, [`Message.get_data()`][mosaicolabs.models.core.Message.get_data] is a type-hinted accessor: you pass the class you expect the payload to be, and it hands back `self.data` cast to that type (or `None` if it isn't an instance of it). For a hand-authored ontology this is straightforward (`msg.get_data(IMU)`) but for unmodeled data you don't necessarily know, or need to know, the exact dynamically-generated class the SDK resolved the message into. However, every dynamically-generated class is a subclass of `Unmodeled`, so `get_data(Unmodeled)` always works and immediately unveils the `raw_data` field to your editor's autocompletion and to static type checkers, with no upfront setup:
 
 ```python
 from mosaicolabs import MosaicoClient
@@ -707,20 +706,20 @@ with MosaicoClient.connect("localhost", 6726) as client:
         print(data.raw_data)
 ```
 
-**2. Retrieve via your own named class.** A [`TopicHandler`][mosaicolabs.handlers.TopicHandler] exposes the exact `ontology_tag`, `ontology_schema`, and `serialization_format` the topic was written with. Feeding those straight into [`make_unmodeled_ontology_class()`][mosaicolabs.models.core.unmodeled.make_unmodeled_ontology_class] lets you give the class a name meaningful to your code, and use that name with `get_data()` instead of the generic `Unmodeled` base:
+<!-- **2. Retrieve via your own named class.** A [`TopicHandler`][mosaicolabs.handlers.TopicHandler] exposes the exact `ontology_tag`, `ontology_schema`, and `serialization_format` the topic was written with. Feed those into [`resolve_ontology_class()`][mosaicolabs.models.core.helpers.resolve_ontology_class] to get a class named meaningfully for your code, and use that name with `get_data()` instead of the generic `Unmodeled` base:
 
 ```python
 from mosaicolabs import MosaicoClient
-from mosaicolabs.models.core.unmodeled import make_unmodeled_ontology_class
+from mosaicolabs.models.core.helpers import resolve_ontology_class
 
 with MosaicoClient.connect("localhost", 6726) as client:
     th = client.topic_handler("mission_alpha", "/sensors/gyro/no_schema")
 
-    UnmodeledGyro = make_unmodeled_ontology_class(
+    UnmodeledGyro = resolve_ontology_class(
         class_name="UnmodeledGyro",
         ontology_tag=th.ontology_tag,
         serialization_format=th.serialization_format,
-        pyarrow_schema=th.ontology_schema,
+        schema=th.ontology_schema,
     )
 
     for msg in th.get_data_streamer():
@@ -728,8 +727,9 @@ with MosaicoClient.connect("localhost", 6726) as client:
         print(data.raw_data)
 ```
 
-!!! warning "Name the class before you start reading"
-    Build your named class (option 2) right after obtaining the `TopicHandler`, **before** calling `get_data_streamer()`. Reading the topic first lets `resolve_ontology_class()` auto-register its own (anonymous) class for that tag; calling `make_unmodeled_ontology_class()` afterwards with the same tag then fails with `ValueError: Duplicate ontology registry key`, since a registry key can only be claimed once. Naming the class up front avoids the race entirely - and once it's registered, `resolve_ontology_class()` reuses it instead of creating a second one, so every message decodes as your named class from the start.
+!!! warning "Don't call `make_unmodeled_ontology_class()` yourself for this"
+    [`make_unmodeled_ontology_class()`][mosaicolabs.models.core.unmodeled.make_unmodeled_ontology_class] is a *low-level, unconditional* factory: it always creates a brand-new class and registers it under whatever `registry_key` you give it (defaulting to `ontology_tag`), with no check for whether a class already exists for that tag. Calling it yourself for retrieval is fragile in exactly the way that matters here: if anything else in your process - a prior `get_data_streamer()` call, another part of your code, a different thread - has already resolved that tag, you'll get `ValueError: Duplicate ontology registry key`, and there's no reliable way to know in advance whether that's already happened. Passing a hand-picked `registry_key` to sidestep the collision defeats the purpose, since you'd be reinventing exactly the uniqueness bookkeeping `resolve_ontology_class()` already does for you.
+    The one thing to know: if the tag was already resolved by the time you call it (e.g. a stream you haven't touched yet still triggers this the first time a message is read), your `class_name` hint is only honored the *first* time a given (tag, schema) pair is actually created - a later call just gets back the already-resolved class, under whichever name resolved it first. That's a naming quirk, not a correctness issue: the class you get back is always the right one for that schema. -->
 
 ## Querying Data Ontology with the Query (`.Q`) Proxy
 

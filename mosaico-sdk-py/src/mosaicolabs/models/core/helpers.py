@@ -14,7 +14,6 @@ _creation_lock = threading.Lock()
 def resolve_ontology_class(
     *,
     ontology_tag: str,
-    class_name: Optional[str] = None,
     schema: Optional[pa.StructType] = None,
     schema_fingerprint: Optional[str] = None,
     serialization_format: Optional[SerializationFormat] = None,
@@ -40,9 +39,6 @@ def resolve_ontology_class(
             class is already registered under this tag, it's returned directly
             (subject to the schema-variant check above); otherwise a dynamic
             `Unmodeled` class is created and registered under it.
-        class_name: The class name to use if a dynamic class needs to be
-            created. Defaults to `ontology_tag` (or to the derived variant tag,
-            for a schema-variant class) if omitted.
         schema: The pyarrow schema of the incoming data. Required when
             `ontology_tag` isn't already registered, since it's needed to build
             the fallback class. When provided for an already-registered tag,
@@ -106,7 +102,7 @@ def resolve_ontology_class(
         # Serializable factory under `registry_key`, so subsequent calls for
         # this tag+schema hit the lock-free fast path above.
         return make_unmodeled_ontology_class(
-            class_name=class_name or registry_key,
+            class_name=registry_key,  # Ensure unique class name
             ontology_tag=ontology_tag,
             registry_key=registry_key if registry_key != ontology_tag else None,
             serialization_format=serialization_format or SerializationFormat.Default,

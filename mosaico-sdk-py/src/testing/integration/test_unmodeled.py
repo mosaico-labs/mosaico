@@ -137,6 +137,7 @@ def test_unmodeled_schema_variant_ingestion_and_retrieval(
     ClsV2 = resolve_ontology_class(ontology_tag=_VARIANT_BASE_TAG, schema=_SCHEMA_V2)
 
     assert ClsV1 is not ClsV2
+    assert issubclass(ClsV1, Unmodeled) and issubclass(ClsV2, Unmodeled)
     # Both variants report the SAME ontology tag to the platform - only their
     # SDK-local registry key differs. This is what keeps both variants'
     # topics discoverable server-side under one consistent tag, regardless of
