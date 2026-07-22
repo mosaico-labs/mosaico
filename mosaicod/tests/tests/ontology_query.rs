@@ -2066,6 +2066,54 @@ async fn test_ontology_invalid_specifier_syntax_is_rejected(pool: sqlx::Pool<db:
 }
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_ontology_nested_list_is_unsupported(pool: sqlx::Pool<db::DatabaseType>) {
+    use arrow::array::Array;
+
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
+        .build()
+        .await;
+
+    let mut list_builder = ListBuilder::new(ListBuilder::new(Int64Builder::new()));
+    for inner in [[1, 2], [3, 4]] {
+        for v in inner {
+            list_builder.values().values().append_value(v);
+        }
+        list_builder.values().append(true);
+    }
+    list_builder.append(true);
+    let list_array = list_builder.finish();
+
+    let schema = Arc::new(Schema::new(vec![
+        Field::new("timestamp_ns", DataType::Int64, false),
+        Field::new("value", DataType::Int64, false),
+        Field::new("list_test", list_array.data_type().clone(), true),
+    ]));
+    let batch = RecordBatch::try_new(
+        schema,
+        vec![
+            Arc::new(Int64Array::from(vec![10_000_i64])) as ArrayRef,
+            Arc::new(Int64Array::from(vec![1_i64])) as ArrayRef,
+            Arc::new(list_array) as ArrayRef,
+        ],
+    )
+    .unwrap();
+
+    setup_topics(&mut client, "seq_nested_list", vec![("topic_a", batch)]).await;
+
+    let err = actions::query(
+        &mut client,
+        json!({ "ontology": { "mock.list_test[?]": { "$gt": 0 } } }),
+    )
+    .await
+    .unwrap_err();
+
+    assert_eq!(err.code(), Code::InvalidArgument);
+
+    server.shutdown().await;
+}
+
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_ontology_plain_list_eq(pool: sqlx::Pool<db::DatabaseType>) {
     let server = common::ServerBuilder::new(common::HOST, pool).build().await;
     let mut client = common::ClientBuilder::new(common::HOST, server.port())

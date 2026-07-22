@@ -240,16 +240,16 @@ fn scalar_value_to_timestamp(value: ScalarValue) -> Option<types::Timestamp> {
     }
 }
 
-/// Verifies that `field` resolves to a list type in `schema`
-fn field_schema_is_list(field: &OntologyField, schema: &Schema) -> bool {
+/// Verifies that `field` resolves to a list type in `schema`.
+fn field_schema_is_list(field: &OntologyField, schema: &Schema) -> Result<bool, Error> {
     let parsed = field.field_path();
     let mut segs = parsed.field_segments();
 
     let Some(first) = segs.next() else {
-        return false;
+        return Ok(false);
     };
     let Ok(arrow_field) = schema.field_with_name(first) else {
-        return false;
+        return Ok(false);
     };
     let mut dtype = arrow_field.data_type();
 
@@ -266,11 +266,11 @@ fn field_schema_is_list(field: &OntologyField, schema: &Schema) -> bool {
             match dtype {
                 DataType::Struct(fields) => {
                     let Some(f) = fields.iter().find(|f| f.name() == seg) else {
-                        return false;
+                        return Ok(false);
                     };
                     dtype = f.data_type();
                 }
-                _ => return false,
+                _ => return Ok(false),
             }
             if list_idx == Some(seg_idx) {
                 break;
@@ -278,10 +278,20 @@ fn field_schema_is_list(field: &OntologyField, schema: &Schema) -> bool {
         }
     }
 
-    matches!(
-        dtype,
+    let element = match dtype {
+        DataType::List(f) | DataType::LargeList(f) | DataType::FixedSizeList(f, _) => f.data_type(),
+        _ => return Ok(false),
+    };
+
+    // Lists of lists are not yet supported for filtering.
+    if matches!(
+        element,
         DataType::List(_) | DataType::LargeList(_) | DataType::FixedSizeList(_, _)
-    )
+    ) {
+        return Err(Error::unsupported_op(field.field()));
+    }
+
+    Ok(true)
 }
 
 /// Converts an [`OntologyField`] dot-path into a nested DataFusion [`Expr`].
@@ -656,14 +666,14 @@ where
         let expr = match parsed.specifier() {
             None => {
                 let arr = unfold_field(&field);
-                if field_schema_is_list(&field, schema) {
+                if field_schema_is_list(&field, schema)? {
                     plain_list_op_to_df_expr(arr, op, &field.field())
                 } else {
                     scalar_op_to_df_expr(arr, op)
                 }
             }?,
             Some(IndexSpecifier::At(i)) => {
-                if !field_schema_is_list(&field, schema) {
+                if !field_schema_is_list(&field, schema)? {
                     return Err(Error::bad_field_with_message(
                         field.to_string(),
                         "expected list type in `schema'".to_owned(),
@@ -677,7 +687,7 @@ where
                 }
             }?,
             Some(IndexSpecifier::Any) => {
-                if !field_schema_is_list(&field, schema) {
+                if !field_schema_is_list(&field, schema)? {
                     return Err(Error::bad_field_with_message(
                         field.to_string(),
                         "expected list type in `schema'".to_owned(),
@@ -693,7 +703,7 @@ where
                 }
             }?,
             Some(IndexSpecifier::All) => {
-                if !field_schema_is_list(&field, schema) {
+                if !field_schema_is_list(&field, schema)? {
                     return Err(Error::bad_field_with_message(
                         field.to_string(),
                         "expected list type in `schema'".to_owned(),
