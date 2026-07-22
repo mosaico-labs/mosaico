@@ -117,6 +117,15 @@ impl TimeseriesEngine {
             .url_schema
             .join(&path.as_ref().to_string_lossy())?)
     }
+
+    pub async fn schema(
+        &self,
+        path: impl AsRef<Path>,
+        format: types::Format,
+    ) -> Result<SchemaRef, Error> {
+        let res = self.read(path, format, None).await?;
+        Ok(res.schema())
+    }
 }
 
 #[derive(Clone)]
@@ -125,6 +134,10 @@ pub struct TimeseriesResult {
 }
 
 impl TimeseriesResult {
+    pub fn schema(&self) -> SchemaRef {
+        Arc::new(self.data_frame.schema().as_arrow().clone())
+    }
+
     pub fn schema_with_metadata(&self, metadata: HashMap<String, String>) -> SchemaRef {
         Arc::new(Schema::new_with_metadata(
             self.data_frame.schema().fields().clone(),

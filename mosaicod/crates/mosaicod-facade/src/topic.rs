@@ -6,8 +6,8 @@ use mosaicod_core::error::PublicError;
 use mosaicod_core::types::TopicMetadataProperties;
 use mosaicod_core::{self as core, error::PublicResult as Result, params, types};
 use mosaicod_db as db;
-use mosaicod_ext as ext;
 use mosaicod_marshal as marshal;
+use mosaicod_query as query;
 use mosaicod_rw::{self as rw, ToProperties};
 use mosaicod_store as store;
 use std::path;
@@ -145,13 +145,13 @@ pub(super) mod internal {
     /// Creates [`TopicMetadata`] associated to the given [`topic_record`].
     pub async fn info(
         exe: &mut impl db::AsExec,
-        store: store::StoreRef,
+        ts_engine: query::TimeseriesEngineRef,
         topic_record: &db::TopicRecord,
     ) -> Result<TopicInfo> {
         Ok(TopicInfo {
             metadata: metadata(exe, topic_record).await?,
             data_info: topic_record.info(),
-            schema: arrow_schema(store, topic_record).await?,
+            schema: arrow_schema(ts_engine, topic_record).await?,
         })
     }
 
@@ -159,7 +159,7 @@ pub(super) mod internal {
     /// The serialization format is required to extract the schema.
     /// It can be retrieved using [`metadata`] function.
     pub async fn arrow_schema(
-        store: store::StoreRef,
+        ts_engine: query::TimeseriesEngineRef,
         topic_record: &db::TopicRecord,
     ) -> Result<SchemaRef> {
         let Some(path_in_store) = &topic_record.path_in_store() else {
@@ -170,16 +170,16 @@ pub(super) mod internal {
             .serialization_format()
             .ok_or_else(|| Error::MissingDbData("serialization_format".to_owned()))?;
 
-        // Get chunk 0 since this chunk needs to exist always
+        // Get chunk 0 since this chunk needs to exist always.
+        // Here we use a single file and not the directory path since will improve performance.
+        // Timeseries engine backend (datafusion) needs to scan only a single file avoiding to
+        // read metadata about all files in the directory.
         let path = path_in_store.path_data(0, format.to_properties().as_ref());
 
-        if !store.exists(&path).await? {
+        // If there is an error retrieving the schema return an empty
+        let Ok(schema) = ts_engine.schema(path, format).await else {
             return Ok(mosaicod_ext::arrow::empty_schema_ref());
-        }
-
-        // Build a parquet reader reading in memory a file
-        let mut parquet_reader = store.parquet_reader(path);
-        let schema = ext::arrow::schema_from_parquet_reader(&mut parquet_reader).await?;
+        };
 
         Ok(schema)
     }
@@ -302,7 +302,7 @@ pub async fn info(context: &Context, locator: &types::TopicLocator) -> Result<To
             db::Error::NotFound => core::Error::not_found(locator.to_string()),
             _ => e.error(),
         })?;
-    internal::info(&mut cx, context.store.clone(), &topic_record).await
+    internal::info(&mut cx, context.timeseries_querier.clone(), &topic_record).await
 }
 
 /// Serializes and writes [`TopicMetadata`] to the object store.
