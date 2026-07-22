@@ -44,6 +44,14 @@ jobs:
     needs: [static-analysis]
     runs-on: ubuntu-24.04
     steps:
+      - name: Free disk space
+        run: |
+          echo "Disk before cleanup:"; df -h /
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+            /opt/hostedtoolcache/CodeQL /usr/local/share/boost "$AGENT_TOOLSDIRECTORY" || true
+          docker system prune -af || true
+          echo "Disk after cleanup:"; df -h /
+
       - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@v1
         with:
