@@ -327,19 +327,14 @@ pub fn stats_from_arrow_field(field: &Field) -> types::Stats {
     match field.data_type() {
         dt if is_numeric(dt) => Stats::Numeric(NumericStats::new()),
         dt if is_textual(dt) => Stats::Textual(TextualStats::new()),
-        DataType::List(elem) | DataType::LargeList(elem) => {
-            if is_textual(elem.data_type()) {
-                Stats::ListTextual(TextualStats::new())
-            } else {
-                Stats::ListNumeric(NumericStats::new())
+        DataType::List(elem) | DataType::LargeList(elem) | DataType::FixedSizeList(elem, _) => {
+            let dt = elem.data_type();
+            if is_textual(dt) {
+                return Stats::ListTextual(TextualStats::new());
+            } else if is_numeric(dt) {
+                return Stats::ListNumeric(NumericStats::new());
             }
-        }
-        DataType::FixedSizeList(elem, _) => {
-            if is_textual(elem.data_type()) {
-                Stats::ListTextual(TextualStats::new())
-            } else {
-                Stats::ListNumeric(NumericStats::new())
-            }
+            Stats::Unsupported
         }
         _ => Stats::Unsupported,
     }
