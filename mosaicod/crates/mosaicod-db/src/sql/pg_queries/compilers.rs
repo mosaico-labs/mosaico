@@ -108,6 +108,17 @@ impl query::CompileClause for SqlQueryCompiler {
 
                 query::CompiledClause::new(clause, vec![min, max])
             }
+            query::Op::Outside(range) => {
+                let min: query::Value = range.min.into();
+                let max: query::Value = range.max.into();
+
+                let pmin = self.consume_placeholder();
+                let pmax = self.consume_placeholder();
+
+                let clause = format!("(({field} < {pmin}) OR ({field} > {pmax}))");
+
+                query::CompiledClause::new(clause, vec![min, max])
+            }
             query::Op::In(items) => {
                 if items.is_empty() {
                     return Err(query::Error::empty_in(field.to_owned()));
@@ -277,6 +288,21 @@ mod internal {
                     query::CompiledClause::new(
                         format!(
                             "jsonb_path_exists({}, '{} ? (@ >= $min && @ <= $max)', jsonb_build_object('min', {}, 'max', {}))",
+                            self.field, field, pmin, pmax
+                        ),
+                        vec![min, max],
+                    )
+                }
+                query::Op::Outside(range) => {
+                    let min: query::Value = range.min.into();
+                    let max: query::Value = range.max.into();
+
+                    let pmin = self.consume_placeholder();
+                    let pmax = self.consume_placeholder();
+
+                    query::CompiledClause::new(
+                        format!(
+                            "jsonb_path_exists({}, '{} ? (@ < $min || @ > $max)', jsonb_build_object('min', {}, 'max', {}))",
                             self.field, field, pmin, pmax
                         ),
                         vec![min, max],

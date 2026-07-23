@@ -542,12 +542,15 @@ pub enum Op<T> {
     Ex,
     /// Not exists
     Nex,
-    /// In between a two value range [a, b] with a >= b
+    /// In between a two value range [a, b] with a <= b
     Between(Range<T>),
     /// Found in a set
     In(Vec<T>),
     /// Matches a certain expression
     Match(T),
+    /// Outside a two value range [a, b], the strict complement of `Between`:
+    /// v < a or v > b, with a <= b
+    Outside(Range<T>),
 }
 
 impl<T> Op<T>
@@ -565,6 +568,7 @@ where
             Op::Ex => true,
             Op::Nex => true,
             Op::Between(range) => range.min.support_ordering(),
+            Op::Outside(range) => range.min.support_ordering(),
             // If no elements are provided the operation is unsupported
             // (cabba) TODO: check if there is a way to access these methods
             // directly from T
