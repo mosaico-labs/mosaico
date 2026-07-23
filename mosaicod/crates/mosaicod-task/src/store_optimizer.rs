@@ -18,7 +18,7 @@ use tracing::{debug, error, info};
 const DEFAULT_TIME_INTERVAL: u32 = 86400;
 
 // Default max size for merged files.
-pub const DEFAULT_MAX_OUTPUT_FILE_SIZE: usize = 256_000_000; // MBi
+pub const DEFAULT_MAX_OUTPUT_FILE_SIZE: usize = 256 * 1024 * 1024; // Bytes
 
 const OUTPUT_FILE_FILLING_PERCENTAGE: f32 = 0.10;
 

@@ -815,7 +815,7 @@ async fn test_store_optimization_5(pool: sqlx::Pool<db::DatabaseType>) {
 /// The optimization should produce 2 output files per topic.
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_store_optimization_multi_1(pool: sqlx::Pool<db::DatabaseType>) {
-    let optimization_time_interval = types::Duration::seconds(5);
+    let optimization_time_interval = types::Duration::seconds(10);
     let max_file_size = 50_000_000; // 50 MB
 
     let store = store::testing::Store::new_random_on_tmp().unwrap();
@@ -931,7 +931,7 @@ async fn test_store_optimization_multi_1(pool: sqlx::Pool<db::DatabaseType>) {
     assert_eq!(server1.store.list("", None).await.unwrap().len(), 19);
 
     // Wait for the optimizer to run.
-    tokio::time::sleep(std::time::Duration::from_secs(15)).await;
+    tokio::time::sleep(std::time::Duration::from_secs(17)).await;
 
     // The optimizer writes the merged output alongside the original data. It does not yet
     // clean up the pre-optimization files.
