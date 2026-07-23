@@ -777,7 +777,7 @@ async fn test_store_optimization_multi_1(pool: sqlx::Pool<db::DatabaseType>) {
         .await;
 
     // WORKAROUND: wait for the optimizer to run the first time.
-    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
 
     let mut client = common::ClientBuilder::new(common::HOST, server1.port())
         .build()
@@ -877,7 +877,7 @@ async fn test_store_optimization_multi_1(pool: sqlx::Pool<db::DatabaseType>) {
     assert_eq!(server1.store.list("", None).await.unwrap().len(), 19);
 
     // Wait for the optimizer to run.
-    tokio::time::sleep(std::time::Duration::from_secs(12)).await;
+    tokio::time::sleep(std::time::Duration::from_secs(15)).await;
 
     // The optimizer writes the merged output alongside the original data. It does not yet
     // clean up the pre-optimization files.
