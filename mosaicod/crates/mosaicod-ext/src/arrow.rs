@@ -459,7 +459,7 @@ pub fn ontology_model_stats_from_schema(schema: &SchemaRef) -> types::OntologyMo
 pub mod testing {
     use super::*;
 
-    use arrow::array::{Int64Array, RecordBatch};
+    use arrow::array::{Int64Array, ListBuilder, RecordBatch, StringBuilder};
     use arrow::datatypes::{DataType, Field, Schema};
 
     pub fn dummy_empty_batch() -> RecordBatch {
@@ -501,6 +501,37 @@ pub mod testing {
                     10000, 10005, 10010, 10015, 10020, 10025, 10030,
                 ])),
                 Arc::new(Int64Array::from(vec![1, 2, 3, 4, 5, 6, 7])),
+            ],
+        )
+        .unwrap()
+    }
+
+    /// Returns a dummy batch containing a list of strings for each record
+    pub fn dummy_list_string_batch() -> RecordBatch {
+        let schema = Arc::new(Schema::new(vec![
+            Field::new(
+                params::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP,
+                DataType::Int64,
+                false,
+            ),
+            Field::new(
+                "value",
+                DataType::List(Arc::new(Field::new("item", DataType::Utf8, true))),
+                false,
+            ),
+        ]));
+
+        let mut builder = ListBuilder::new(StringBuilder::new());
+        for row in [vec!["a", "b", "c"], vec!["d", "e"]] {
+            row.iter().for_each(|s| builder.values().append_value(s));
+            builder.append(true);
+        }
+
+        RecordBatch::try_new(
+            schema,
+            vec![
+                Arc::new(Int64Array::from(vec![10000, 10005])),
+                Arc::new(builder.finish()),
             ],
         )
         .unwrap()
