@@ -82,6 +82,10 @@ A **plain list** column (no specifier) can be compared as a whole with `$eq` / `
 }
 ```
 
+:::warning
+**Nested lists (a list of lists) are not supported.** Querying a field whose column is a list whose elements are themselves lists returns an *unsupported operation* error. Only list columns of scalars or of structs can be queried, whether as a plain list or through an index specifier (`[i]`, `[?]`, `[!]`).
+:::
+
 ## Supported Operators
 
 The query engine supports a rich set of comparison operators. Each operator is prefixed with `$` in the JSON syntax:
@@ -95,6 +99,7 @@ The query engine supports a rich set of comparison operators. Each operator is p
 | `$leq` | Less than or equal to (numeric and timestamp only)                                                                                                                                                                 |
 | `$geq` | Greater than or equal to (numeric and timestamp only)                                                                                                                                                              |
 | `$between` | Within a range `[min, max]` inclusive (numeric and timestamp only)                                                                                                                                                 |
+| `$outside` | Outside a range `[min, max]`, the strict complement of `$between`: matches when `v < min` **or** `v > max` (numeric and timestamp only)                                                                             |
 | `$in` | Matches when the field equals **any** value in the list, e.g. `{ "$in": [1, 5, 9] }`. Supports numeric and text values; a single-element list behaves like `$eq`. Lists mixing different value types are rejected. |
 | `$match` | Matches a pattern (wildcards allowed). Applies to `sequence.name`, `topic.name`, textual user metadata, and textual ontology fields.                                                                               |
 | `$ex` | Field exists (the column is present).                                                                                                                                                                              |
