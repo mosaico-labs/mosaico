@@ -12,17 +12,21 @@ use tests::{self, actions, common};
 // ===========================================================================
 
 /// Tests the optimization in a scenario with 1 sequence, 1 topic and one small record batch.
-/// The optimization should produce a single output file.
+/// The optimization should produce a single output file. After, cleanup should remove old data.
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_store_optimization_1(pool: sqlx::Pool<db::DatabaseType>) {
+    let cleanup_time_interval = types::Duration::seconds(6);
     let optimization_time_interval = types::Duration::seconds(1);
     let max_file_size = 256 * 1024 * 1024;
 
     let server = common::ServerBuilder::new(common::HOST, pool)
-        .with_cleanup(types::Duration::seconds(0), types::Duration::seconds(0))
+        .with_cleanup(cleanup_time_interval, types::Duration::seconds(0))
         .with_store_optimizer(optimization_time_interval, max_file_size)
         .build()
         .await;
+
+    // Wait for cleanup and optimizer first run.
+    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
 
     let mut client = common::ClientBuilder::new(common::HOST, server.port())
         .build()
@@ -118,6 +122,60 @@ async fn test_store_optimization_1(pool: sqlx::Pool<db::DatabaseType>) {
             .unwrap()
     );
 
+    // Old topic folder is still present until cleanup runs.
+    assert!(
+        server
+            .store
+            .exists(topic_record.path_in_store().unwrap().path_metadata())
+            .await
+            .unwrap()
+    );
+
+    assert!(
+        server
+            .store
+            .exists(
+                topic_record.path_in_store().unwrap().path_data(
+                    0,
+                    topic_record
+                        .serialization_format()
+                        .unwrap()
+                        .to_properties()
+                        .as_ref()
+                )
+            )
+            .await
+            .unwrap()
+    );
+
+    // Wait for the cleanup to run.
+    tokio::time::sleep(std::time::Duration::from_secs(4)).await;
+
+    assert!(
+        !server
+            .store
+            .exists(topic_record.path_in_store().unwrap().path_metadata())
+            .await
+            .unwrap()
+    );
+
+    assert!(
+        !server
+            .store
+            .exists(
+                topic_record.path_in_store().unwrap().path_data(
+                    0,
+                    topic_record
+                        .serialization_format()
+                        .unwrap()
+                        .to_properties()
+                        .as_ref()
+                )
+            )
+            .await
+            .unwrap()
+    );
+
     server.shutdown().await;
 }
 
@@ -129,7 +187,6 @@ async fn test_store_optimization_2(pool: sqlx::Pool<db::DatabaseType>) {
     let max_file_size = 2_000;
 
     let server = common::ServerBuilder::new(common::HOST, pool)
-        .with_cleanup(types::Duration::seconds(0), types::Duration::seconds(0))
         .with_store_optimizer(optimization_time_interval, max_file_size)
         .build()
         .await;
@@ -248,7 +305,6 @@ async fn test_store_optimization_3(pool: sqlx::Pool<db::DatabaseType>) {
     let max_file_size = 3_000_000;
 
     let server = common::ServerBuilder::new(common::HOST, pool)
-        .with_cleanup(types::Duration::seconds(0), types::Duration::seconds(0))
         .with_store_optimizer(optimization_time_interval, max_file_size)
         .build()
         .await;
@@ -392,7 +448,6 @@ async fn test_store_optimization_4(pool: sqlx::Pool<db::DatabaseType>) {
     let max_file_size = 50_000_000; // 50 MB
 
     let server = common::ServerBuilder::new(common::HOST, pool)
-        .with_cleanup(types::Duration::seconds(0), types::Duration::seconds(0))
         .with_store_optimizer(optimization_time_interval, max_file_size)
         .build()
         .await;
@@ -621,7 +676,6 @@ async fn test_store_optimization_5(pool: sqlx::Pool<db::DatabaseType>) {
     let max_file_size = 100;
 
     let server = common::ServerBuilder::new(common::HOST, pool)
-        .with_cleanup(types::Duration::seconds(0), types::Duration::seconds(0))
         .with_store_optimizer(optimization_time_interval, max_file_size)
         .build()
         .await;
