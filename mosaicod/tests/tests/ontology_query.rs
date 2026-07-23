@@ -1717,6 +1717,80 @@ async fn test_ontology_at_ordering(pool: sqlx::Pool<db::DatabaseType>) {
 }
 
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_ontology_at_outside(pool: sqlx::Pool<db::DatabaseType>) {
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
+        .build()
+        .await;
+
+    let seq = "seq_at_outside";
+    // topic_a: [10, 20, 30], topic_b: [40, 50, 60]
+    setup_topics(
+        &mut client,
+        seq,
+        vec![
+            ("topic_a", int_list_batch(10_000, &[1], &[vec![10, 20, 30]])),
+            ("topic_b", int_list_batch(20_000, &[2], &[vec![40, 50, 60]])),
+        ],
+    )
+    .await;
+
+    // [2] $outside [25, 35]: strict complement of the [2] $between [25, 35] case.
+    // topic_a[2]=30 is inside [25,35] -> excluded; topic_b[2]=60 > 35 -> included.
+    let items = actions::query(
+        &mut client,
+        json!({ "ontology": { "mock.list_test[2]": { "$outside": [25, 35] } } }),
+    )
+    .await
+    .unwrap();
+    let locators = topic_locators(&items);
+    assert!(
+        !locators.contains(&format!("{seq}/topic_a")),
+        "[2]$outside [25,35]: topic_a[2]=30 inside, excluded"
+    );
+    assert!(
+        locators.contains(&format!("{seq}/topic_b")),
+        "[2]$outside [25,35]: topic_b[2]=60 > 35, included"
+    );
+
+    // [1] $outside [45, 55]: topic_a[1]=20 < 45 -> included; topic_b[1]=50 inside -> excluded.
+    let items = actions::query(
+        &mut client,
+        json!({ "ontology": { "mock.list_test[1]": { "$outside": [45, 55] } } }),
+    )
+    .await
+    .unwrap();
+    let locators = topic_locators(&items);
+    assert!(
+        locators.contains(&format!("{seq}/topic_a")),
+        "[1]$outside [45,55]: topic_a[1]=20 < 45, included"
+    );
+    assert!(
+        !locators.contains(&format!("{seq}/topic_b")),
+        "[1]$outside [45,55]: topic_b[1]=50 inside, excluded"
+    );
+
+    // [0] $outside [5, 100]: both first elements are inside the wide range -> both excluded.
+    let items = actions::query(
+        &mut client,
+        json!({ "ontology": { "mock.list_test[0]": { "$outside": [5, 100] } } }),
+    )
+    .await
+    .unwrap();
+    let locators = topic_locators(&items);
+    assert!(
+        !locators.contains(&format!("{seq}/topic_a")),
+        "[0]$outside [5,100]: topic_a[0]=10 inside, excluded"
+    );
+    assert!(
+        !locators.contains(&format!("{seq}/topic_b")),
+        "[0]$outside [5,100]: topic_b[0]=40 inside, excluded"
+    );
+
+    server.shutdown().await;
+}
+
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_ontology_list_db_pruning(pool: sqlx::Pool<db::DatabaseType>) {
     let server = common::ServerBuilder::new(common::HOST, pool).build().await;
     let mut client = common::ClientBuilder::new(common::HOST, server.port())
@@ -2377,6 +2451,225 @@ async fn test_ontology_list_of_struct_bool(pool: sqlx::Pool<db::DatabaseType>) {
     assert!(
         !locators.contains(&format!("{seq}/topic_b")),
         "topic_b should be excluded (active=false)"
+    );
+
+    server.shutdown().await;
+}
+
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_ontology_scalar_outside(pool: sqlx::Pool<db::DatabaseType>) {
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
+        .build()
+        .await;
+
+    let seq = "seq_scalar_outside";
+    // Topic A: value range [1, 7], Topic B: value range [100, 106]
+    setup_topics(
+        &mut client,
+        seq,
+        vec![
+            ("topic_a", int_batch(10_000, &[1, 2, 3, 4, 5, 6, 7])),
+            (
+                "topic_b",
+                int_batch(20_000, &[100, 101, 102, 103, 104, 105, 106]),
+            ),
+        ],
+    )
+    .await;
+
+    // outside([1, 7]): matches v < 1 || v > 7.
+    // topic_a has no value below 1 or above 7 -> excluded (also exercises the chunk
+    // stats pre-filter: min=1, max=7 -> neither min<1 nor max>7).
+    // topic_b: 100 > 7 -> included.
+    let items = actions::query(
+        &mut client,
+        json!({ "ontology": { "mock.value": { "$outside": [1, 7] } } }),
+    )
+    .await
+    .unwrap();
+    let locators = topic_locators(&items);
+    assert!(
+        !locators.contains(&format!("{seq}/topic_a")),
+        "$outside [1,7]: topic_a has no value <1 or >7, excluded"
+    );
+    assert!(
+        locators.contains(&format!("{seq}/topic_b")),
+        "$outside [1,7]: topic_b min=100 > 7, included"
+    );
+
+    // outside([0, 200]): both ranges are fully inside [0, 200] -> both excluded.
+    let items = actions::query(
+        &mut client,
+        json!({ "ontology": { "mock.value": { "$outside": [0, 200] } } }),
+    )
+    .await
+    .unwrap();
+    let locators = topic_locators(&items);
+    assert!(
+        !locators.contains(&format!("{seq}/topic_a")),
+        "$outside [0,200]: topic_a fully inside, excluded"
+    );
+    assert!(
+        !locators.contains(&format!("{seq}/topic_b")),
+        "$outside [0,200]: topic_b fully inside, excluded"
+    );
+
+    // outside([50, 60]): topic_a all < 50, topic_b all > 60 -> both included.
+    let items = actions::query(
+        &mut client,
+        json!({ "ontology": { "mock.value": { "$outside": [50, 60] } } }),
+    )
+    .await
+    .unwrap();
+    let locators = topic_locators(&items);
+    assert!(
+        locators.contains(&format!("{seq}/topic_a")),
+        "$outside [50,60]: topic_a values < 50, included"
+    );
+    assert!(
+        locators.contains(&format!("{seq}/topic_b")),
+        "$outside [50,60]: topic_b values > 60, included"
+    );
+
+    server.shutdown().await;
+}
+
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_ontology_any_outside(pool: sqlx::Pool<db::DatabaseType>) {
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
+        .build()
+        .await;
+
+    let seq = "seq_any_outside";
+    // topic_a elements: [1, 2, 3], topic_b elements: [10, 20, 30]
+    setup_topics(
+        &mut client,
+        seq,
+        vec![
+            ("topic_a", int_list_batch(10_000, &[1], &[vec![1, 2, 3]])),
+            ("topic_b", int_list_batch(20_000, &[2], &[vec![10, 20, 30]])),
+        ],
+    )
+    .await;
+
+    // [?] outside([a, b]): at least one element is < a || > b.
+
+    // outside([0, 30]): no element below 0 or above 30 in either topic -> both excluded.
+    let items = actions::query(
+        &mut client,
+        json!({ "ontology": { "mock.list_test[?]": { "$outside": [0, 30] } } }),
+    )
+    .await
+    .unwrap();
+    let locators = topic_locators(&items);
+    assert!(
+        !locators.contains(&format!("{seq}/topic_a")),
+        "$outside [0,30]: topic_a has no element outside, excluded"
+    );
+    assert!(
+        !locators.contains(&format!("{seq}/topic_b")),
+        "$outside [0,30]: topic_b has no element outside, excluded"
+    );
+
+    // outside([0, 25]): only topic_b has 30 > 25.
+    let items = actions::query(
+        &mut client,
+        json!({ "ontology": { "mock.list_test[?]": { "$outside": [0, 25] } } }),
+    )
+    .await
+    .unwrap();
+    let locators = topic_locators(&items);
+    assert!(
+        !locators.contains(&format!("{seq}/topic_a")),
+        "$outside [0,25]: topic_a all in [0,25], excluded"
+    );
+    assert!(
+        locators.contains(&format!("{seq}/topic_b")),
+        "$outside [0,25]: topic_b has 30 > 25, included"
+    );
+
+    // outside([2, 30]): only topic_a has 1 < 2.
+    let items = actions::query(
+        &mut client,
+        json!({ "ontology": { "mock.list_test[?]": { "$outside": [2, 30] } } }),
+    )
+    .await
+    .unwrap();
+    let locators = topic_locators(&items);
+    assert!(
+        locators.contains(&format!("{seq}/topic_a")),
+        "$outside [2,30]: topic_a has 1 < 2, included"
+    );
+    assert!(
+        !locators.contains(&format!("{seq}/topic_b")),
+        "$outside [2,30]: topic_b all in [2,30], excluded"
+    );
+
+    server.shutdown().await;
+}
+
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_ontology_all_outside(pool: sqlx::Pool<db::DatabaseType>) {
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
+        .build()
+        .await;
+
+    let seq = "seq_all_outside";
+    // [!] outside([5, 35]) means EVERY element is < 5 || > 35, i.e. no element inside [5, 35].
+    setup_topics(
+        &mut client,
+        seq,
+        vec![
+            // all < 5 -> all outside -> included
+            ("topic_low", int_list_batch(10_000, &[1], &[vec![1, 2, 3]])),
+            // all in [5, 35] -> none outside -> excluded
+            (
+                "topic_mid",
+                int_list_batch(20_000, &[2], &[vec![10, 20, 30]]),
+            ),
+            // 1 < 5 (outside) but 10 in [5, 35] (inside) -> NOT all outside -> excluded.
+            (
+                "topic_straddle",
+                int_list_batch(30_000, &[3], &[vec![1, 10]]),
+            ),
+            // all > 35 -> all outside -> included
+            ("topic_high", int_list_batch(40_000, &[4], &[vec![40, 50]])),
+            // 1 < 5 and 40 > 35, both outside -> all outside -> included
+            ("topic_split", int_list_batch(50_000, &[5], &[vec![1, 40]])),
+        ],
+    )
+    .await;
+
+    let items = actions::query(
+        &mut client,
+        json!({ "ontology": { "mock.list_test[!]": { "$outside": [5, 35] } } }),
+    )
+    .await
+    .unwrap();
+    let locators = topic_locators(&items);
+
+    assert!(
+        locators.contains(&format!("{seq}/topic_low")),
+        "$outside [5,35]: topic_low [1,2,3] all < 5, included"
+    );
+    assert!(
+        !locators.contains(&format!("{seq}/topic_mid")),
+        "$outside [5,35]: topic_mid [10,20,30] all inside, excluded"
+    );
+    assert!(
+        !locators.contains(&format!("{seq}/topic_straddle")),
+        "$outside [5,35]: topic_straddle [1,10] has 10 inside [5,35], excluded"
+    );
+    assert!(
+        locators.contains(&format!("{seq}/topic_high")),
+        "$outside [5,35]: topic_high [40,50] all > 35, included"
+    );
+    assert!(
+        locators.contains(&format!("{seq}/topic_split")),
+        "$outside [5,35]: topic_split [1,40] both outside, included"
     );
 
     server.shutdown().await;

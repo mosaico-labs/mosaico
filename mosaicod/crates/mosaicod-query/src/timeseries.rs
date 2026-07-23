@@ -366,6 +366,11 @@ fn scalar_op_to_df_expr<V: Into<Value>>(expr: Expr, op: Op<V>) -> Result<Option<
             let vmax = value_to_df_expr(range.max.into());
             expr.clone().gt_eq(vmin).and(expr.lt_eq(vmax))
         }
+        Op::Outside(range) => {
+            let vmin = value_to_df_expr(range.min.into());
+            let vmax = value_to_df_expr(range.max.into());
+            expr.clone().lt(vmin).or(expr.gt(vmax))
+        }
         Op::In(items) => {
             let list = items
                 .into_iter()
@@ -405,6 +410,13 @@ fn any_op_to_df_expr<V: Into<Value>>(arr: Expr, op: Op<V>) -> Result<Option<Expr
             let vmax = value_to_df_expr(range.max.into());
             let x = lambda_var("x");
             let body = x.clone().gt_eq(vmin).and(x.lt_eq(vmax));
+            array_any_match(arr, lambda(["x"], body))
+        }
+        Op::Outside(range) => {
+            let vmin = value_to_df_expr(range.min.into());
+            let vmax = value_to_df_expr(range.max.into());
+            let x = lambda_var("x");
+            let body = x.clone().lt(vmin).or(x.gt(vmax));
             array_any_match(arr, lambda(["x"], body))
         }
         Op::In(items) => {
@@ -459,6 +471,15 @@ fn all_op_to_df_expr<V: Into<Value>>(arr: Expr, op: Op<V>) -> Result<Option<Expr
             array_min(arr.clone())
                 .gt_eq(vmin)
                 .and(array_max(arr).lt_eq(vmax))
+        }
+        Op::Outside(range) => {
+            let vmin = value_to_df_expr(range.min.into());
+            let vmax = value_to_df_expr(range.max.into());
+
+            // all elements outside [a, b] <-> no element is inside [a, b]
+            let x = lambda_var("x");
+            let inside = x.clone().gt_eq(vmin).and(x.lt_eq(vmax));
+            not(array_any_match(arr, lambda(["x"], inside)))
         }
         Op::In(items) => {
             let set = make_array(
@@ -586,6 +607,11 @@ fn struct_elem_predicate<V: Into<Value>>(
             let vmin = value_to_df_expr(range.min.into());
             let vmax = value_to_df_expr(range.max.into());
             make_fe().gt_eq(vmin).and(make_fe().lt_eq(vmax))
+        }
+        Op::Outside(range) => {
+            let vmin = value_to_df_expr(range.min.into());
+            let vmax = value_to_df_expr(range.max.into());
+            make_fe().lt(vmin).or(make_fe().gt(vmax))
         }
         Op::In(items) => {
             let list = items
