@@ -38,6 +38,7 @@ This release substantially expands the **query engine** (new operators, regex, c
 
 - Fixed a server error when closing topics with the **`MultiEchoLaserScan`** ontology. ([#654](https://github.com/mosaico-labs/mosaico/pull/654))
 - `get_flight_info` and `do_get` now return the **same schema**. ([#662](https://github.com/mosaico-labs/mosaico/pull/662))
+- `Utf8View` is now recognized as a **textual type**. ([#669](https://github.com/mosaico-labs/mosaico/pull/669))
 - Fixed a **critical race** in `try_cleanup`. ([#632](https://github.com/mosaico-labs/mosaico/pull/632))
 - Fixed compilation without a git tag. ([#531](https://github.com/mosaico-labs/mosaico/pull/531))
 - Fixed cleanup unit tests getting stuck. ([#515](https://github.com/mosaico-labs/mosaico/pull/515))
