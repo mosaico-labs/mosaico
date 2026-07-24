@@ -2,6 +2,24 @@ use crate::{Error, core::AsExec, sql::schema};
 use log::{trace, warn};
 use mosaicod_core::types;
 
+pub async fn topic_optimization_delete_stale(
+    exe: &mut impl AsExec,
+    threshold: types::Timestamp,
+) -> Result<u64, Error> {
+    trace!("topic_optimization delete stale");
+
+    let res = sqlx::query!(
+        r#"DELETE FROM topic_optimization_t
+           WHERE start_unix_tstamp < $1
+           "#,
+        threshold.as_i64()
+    )
+    .execute(exe.as_exec())
+    .await?;
+
+    Ok(res.rows_affected())
+}
+
 /// Add completed topics, but not yet optimized, to topic_optimization_t table.
 pub async fn topic_update_optimization_list(exe: &mut impl AsExec) -> Result<u64, Error> {
     trace!("updating topic optimization list");

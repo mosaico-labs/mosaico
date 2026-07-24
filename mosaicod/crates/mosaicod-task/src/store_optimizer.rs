@@ -22,6 +22,8 @@ pub const DEFAULT_MAX_OUTPUT_FILE_SIZE: usize = 256 * 1024 * 1024; // Bytes
 
 const OUTPUT_FILE_FILLING_PERCENTAGE: f32 = 0.10;
 
+const MAX_LEASE_NS: i64 = 7 * 86400 * 1_000_000_000; // 7 days (in nanoseconds)
+
 fn df_to_internal_error(err: df::error::DataFusionError) -> core::Error {
     let err_msg = format!("datafusion error: {}", err);
     core::Error::internal(Some(err_msg))
@@ -285,8 +287,21 @@ impl StoreOptimizer {
     }
 
     async fn optimize(&self) -> Result<u32> {
+        // Check for stale topics (if the optimization has started too long ago, then we can assume that something went wrong).
+        // In this case remove the topic from the list (it will be re-added later (see below).
+        let stale_deleted = db::topic_optimization_delete_stale(
+            &mut self.db.connection(),
+            (types::Timestamp::now().as_i64() - MAX_LEASE_NS).into(),
+        )
+        .await?;
+
+        debug!(
+            "stale topics deleted from optimization table: {}",
+            stale_deleted
+        );
+
         // Scans the database to search for topics not yet optimized and to put them inside topic optimization table.
-        db::topic_update_optimization_list(&mut self.db.connection()).await?;
+        let inserted_topics = db::topic_update_optimization_list(&mut self.db.connection()).await?;
 
         let mut optimized_topics = 0;
 

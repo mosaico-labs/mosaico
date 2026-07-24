@@ -185,19 +185,19 @@ impl From<Timestamp> for DateTime {
 pub struct Duration(chrono::Duration);
 
 impl Duration {
-    pub fn seconds(secs: u32) -> Self {
+    pub const fn seconds(secs: u32) -> Self {
         Self(chrono::Duration::seconds(secs as i64))
     }
 
-    pub fn minutes(mins: u32) -> Self {
+    pub const fn minutes(mins: u32) -> Self {
         Self(chrono::Duration::minutes(mins as i64))
     }
 
-    pub fn hours(hours: u32) -> Self {
+    pub const fn hours(hours: u32) -> Self {
         Self(chrono::Duration::hours(hours as i64))
     }
 
-    pub fn days(days: u32) -> Self {
+    pub const fn days(days: u32) -> Self {
         Self(chrono::Duration::days(days as i64))
     }
 }
