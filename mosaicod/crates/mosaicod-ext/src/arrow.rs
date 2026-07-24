@@ -123,6 +123,7 @@ pub fn is_textual(data_type: &DataType) -> bool {
         data_type,
         DataType::Utf8
             | DataType::LargeUtf8
+            | DataType::Utf8View
             | DataType::Date32
             | DataType::Date64
             | DataType::Timestamp(_, _)
