@@ -7,7 +7,6 @@ from .base_types import (
     Integer16 as Integer16,
     Integer32 as Integer32,
     Integer64 as Integer64,
-    LargeString as LargeString,
     String as String,
     Unsigned8 as Unsigned8,
     Unsigned16 as Unsigned16,
