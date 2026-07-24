@@ -106,7 +106,11 @@ class QueryResponseItemTopic:
         ontology_tag (str): Ontology of the topic in string format (e.g. image)
         timestamp_range (Optional[TimestampRange]): The availability window of the data
             for this specific topic.
-        name: The name of the topic itself (extracted at construction from locator attribute)
+        name (str): The name of the topic itself (extracted at construction from locator attribute)
+
+    Raises:
+        ValueError: if the locator is not valid, i.e. is not possible to extract
+            the sequence and topic names from it.
     """
 
     locator: str
@@ -160,6 +164,7 @@ class QueryResponseItemTopic:
             Exception: Propagated from the underlying action call on internal server errors.
             RuntimeError: if the server returned no body or returned action is not consitent
                 with input one
+            ValueError: if the flight client is not set
 
         Example: clusterize topics returning from `Query` object
             ```python
@@ -264,6 +269,7 @@ class QueryResponseItemTopic:
             Exception: Propagated from the underlying action call on internal server errors.
             RuntimeError: if the server returned no body or returned action is not consitent
                 with input one
+            ValueError: if the flight client is not set
 
 
         Example: intersect topics returning from `Query` object
@@ -503,7 +509,7 @@ class QueryResponseItem:
                 be between two clusters to be considered different. If not specified all
                 topics use default value (0). If specified but topic's ontology is missing,
                 fallback using default value (0).
-            override_clustering_dt_ns: An optional integer to override the default minimal
+            override_clustering_dt_ns (Optional[int]): An optional integer to override the default minimal
                 gap between clusters (0).
 
         Returns:
@@ -514,6 +520,7 @@ class QueryResponseItem:
             Exception: Propagated from the underlying action call on internal server errors.
             RuntimeError: if the server returned no body or returned action is not consitent
                 with input one
+            ValueError: if the flight client is not set
 
         Example: intersect among all topics belonging to the same sequence returning from `Query` object
         ```python
