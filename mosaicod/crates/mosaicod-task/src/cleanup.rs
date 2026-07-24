@@ -207,7 +207,8 @@ impl Cleanup {
         if path_in_store.starts_with(types::SEQUENCE_FOLDER_PREFIX) {
             return Ok(db::sequence_find_path_in_store(&mut cx, path_in_store).await?);
         } else if path_in_store.starts_with(types::TOPIC_FOLDER_PREFIX) {
-            return Ok(db::topic_find_path_in_store(&mut cx, path_in_store).await?);
+            return Ok(db::topic_find_path_in_store(&mut cx, path_in_store).await?
+                || db::topic_optimization_find_path_in_store(&mut cx, path_in_store).await?);
         } else {
             warn!(
                 "Found unexpected file in store: {}. Was it added manually?",

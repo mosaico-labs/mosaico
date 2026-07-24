@@ -105,3 +105,22 @@ pub async fn topic_optimization_delete(
 
     Ok(())
 }
+
+/// Search for a topic with the given path_in_store.
+pub async fn topic_optimization_find_path_in_store(
+    exe: &mut impl AsExec,
+    path_in_store: &str,
+) -> Result<bool, Error> {
+    trace!(
+        "searching if path_in_store `{}` is assigned to a topic optimization",
+        path_in_store
+    );
+    let found: bool = sqlx::query_scalar!(
+        r#"SELECT EXISTS(SELECT 1 FROM topic_optimization_t WHERE opt_path_in_store=$1) as "found!""#,
+        path_in_store
+    )
+        .fetch_one(exe.as_exec())
+        .await?;
+
+    Ok(found)
+}
