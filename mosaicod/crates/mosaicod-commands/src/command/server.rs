@@ -8,7 +8,7 @@ use std::thread;
 use tracing::{debug, info};
 
 #[derive(Args, Debug)]
-pub struct Run {
+pub struct Server {
     /// Specify a host address. It defaults to the loopback address `127.0.0.1`.
     #[arg(long)]
     pub host: Option<String>,
@@ -43,7 +43,7 @@ fn tls_config() -> grpc::TlsConfig {
 ///
 /// If `json_log` is enabled logs will be formatted in JSON format and startup info
 /// are hidden.
-pub fn run(args: Run, json_format: bool) -> Result<()> {
+pub fn server(args: Server, json_format: bool) -> Result<()> {
     info!("startup store");
     let store = common::init_store()?;
     let store_display_name = print::store_display_name(&store);

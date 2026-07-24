@@ -10,10 +10,10 @@ def test_ros_ontology_registration():
             from mosaicolabs.models.core import Serializable
 
             _FUTURES_TAGS = [
-                "battery_state",
-                "frame_transform",
-                "point_cloud2",
-                "point_field",
+                "BatteryState",
+                "FrameTransform",
+                "PointCloud2",
+                "PointField",
             ]
 
             assert all(Serializable._is_registered(tag) for tag in _FUTURES_TAGS)

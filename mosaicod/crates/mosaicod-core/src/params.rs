@@ -214,19 +214,6 @@ pub struct Params {
     pub store_bucket: Param<String>,
     pub store_secret_key: Param<String, Hidden>,
     pub store_access_key: Param<String>,
-
-    /// Minimum interval that must pass between a cleanup routine execution and the next one.
-    /// Multiple server instances connected to the same Store may have a different value set for this param.
-    ///
-    /// Note: set it to 0 if you want to prevent the background routine from running on this server instance.
-    ///
-    /// Defaults to 86400 secs (1 day).
-    pub cleanup_time_interval: Param<u32>,
-
-    /// Maximum period expressed in seconds to keep an obsolete file in store before permanently delete it.
-    ///
-    /// Defaults to 86400 secs (1 day).
-    pub cleanup_retention_duration: Param<u32>,
 }
 
 /// Options for loading parameters from environment variables
@@ -291,10 +278,6 @@ pub fn load_params_from_env(config: ParamsLoadOptions) -> error::PublicResult<()
         store_bucket: Param::optional("MOSAICOD_STORE_BUCKET", "".to_owned()),
         store_secret_key: Param::optional("MOSAICOD_STORE_SECRET_KEY", "".to_owned()),
         store_access_key: Param::optional("MOSAICOD_STORE_ACCESS_KEY", "".to_owned()),
-
-        // task
-        cleanup_time_interval: Param::optional("MOSAICOD_CLEANUP_TIME_INTERVAL", 86400),
-        cleanup_retention_duration: Param::optional("MOSAICOD_CLEANUP_RETENTION_DURATION", 86400),
     };
 
     let _ = ENV.set(ev);

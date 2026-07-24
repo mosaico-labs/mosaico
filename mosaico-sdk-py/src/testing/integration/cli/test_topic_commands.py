@@ -28,7 +28,7 @@ class TestTopicLs:
         target_topic = topic_list[0]
         result = cli_runner.invoke(
             app,
-            ["topic", "ls", "--locator", f".*{target_topic}.*"],
+            ["topic", "ls", "--locator", f"*{target_topic}*"],
             env=cli_env,
         )
         assert result.exit_code == 0

@@ -57,6 +57,12 @@ class FlightAction(Enum):
     TOPIC_DELETE = "topic_delete"
     """Requests the permanent removal of a specific topic from the platform."""
 
+    TOPIC_FILTER_CLUSTERIZE = "topic_filter_clusterize"
+    """Requests the clusterize of a specific topic from the platform."""
+
+    TOPIC_FILTER_INTERSECT = "topic_filter_intersect"
+    """Requests the cluster intersection between distinct topics from the platform."""
+
     # # --- Layers related ---
     # LAYER_LIST = "layer_list"
     # """Retrieves the list of available abstraction layers."""
@@ -73,15 +79,6 @@ class FlightAction(Enum):
     # --- Queries related ---
     QUERY = "query"
     """Commands a multi-layer search query against the platform."""
-
-    API_KEY_CREATE = "api_key_create"
-    """Creates a new API key."""
-
-    API_KEY_REVOKE = "api_key_revoke"
-    """Revokes an existing API key."""
-
-    API_KEY_STATUS = "api_key_status"
-    """Checks the status of a specific API key."""
 
     # --- Arch related ---
     VERSION = "version"

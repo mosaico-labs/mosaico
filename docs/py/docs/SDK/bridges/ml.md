@@ -21,7 +21,7 @@ The [`DataFrameExtractor`][mosaicolabs.ml.DataFrameExtractor] is a specialized u
 ### Key Technical Features
 
 * **Recursive Flattening**: Automatically "unpacks" deeply nested Mosaico Ontology structures into primitive columns.
-* **Semantic Naming**: Columns use a `{topic_name}.{ontology_tag}.{field_path}` convention (e.g., `/front/camera/imu.imu.acceleration.x`) to remain self-describing.
+* **Semantic Naming**: Columns use a `{topic_name}.{ontology_tag}.{field_path}` convention (e.g., `/front/camera/imu.IMU.acceleration.x`) to remain self-describing.
 * **Namespace Isolation**: Topic names are included in column headers to prevent collisions when multiple sensors of the same type are present.
 * **Memory-Efficient Windowing**: Uses a generator-based approach to yield data in time-based "chunks" (e.g., 5-second windows) while handling straddling batches via a carry-over buffer.
 * **Sparse Merging**: Creates a "sparse" DataFrame containing the union of all timestamps, using `NaN` for missing sensor readings at specific intervals.

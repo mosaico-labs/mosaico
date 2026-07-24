@@ -225,7 +225,7 @@ EOF
     fi
 
     title "running" "." ${BLUE}
-    "./target/$MOSAICOD_BUILD_TARGET/mosaicod" run \
+    "./target/$MOSAICOD_BUILD_TARGET/mosaicod" server \
       --port 6276 ${MOSAICOD_OPTS}
 
     MOSAICOD_PID=$!

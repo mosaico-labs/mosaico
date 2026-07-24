@@ -155,24 +155,27 @@ class RGBDCamera(
         rgb: Packed RGB colour value per point (optional).
         intensity: Signal amplitude or intensity per point (optional).
 
-    Note:
-        # FIXME: Update this docstring and add example scripts for querying such field
-        List-typed fields are **not queryable** via the `.Q` proxy. The `.Q` proxy
-        is not available on this model.
+    ### Querying with the **`.Q` Proxy**
+    This class is fully queryable via the **`.Q` proxy**. You can filter RGBDCamera data based
+    on thresholds values within a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog].
+    Expressions entailing lists of values can be queried using any between `all()`, `any()`
+    or index access `[i]` followed by the contained type supported operations.
 
     Example:
-    ```python
-            from mosaicolabs import MosaicoClient
-            from mosaicolabs.models.futures import RGBDCamera
+        ```python
+        from mosaicolabs import MosaicoClient, QueryTopic
+        from mosaicolabs.models.futures import RGBDCamera
 
-            with MosaicoClient.connect("localhost", 6726) as client:
-                # Fetch all sequences that contain at least one RGB-D camera topic
-                sequences = client.get_sequences(ontology=RGBDCamera)
+        with MosaicoClient.connect("localhost", 6726) as client:
+            # Fetch all sequences that contain at least one RGBDCamera topic
+            qresponse = client.query(QueryTopic().with_ontology_tag(RGBDCamera.ontology_tag()))
 
-                for sequence in sequences:
-                    print(f"Sequence: {sequence.name}")
-                    print(f"Topics:   {[topic.name for topic in sequence.topics]}")
-    ```
+            if qresponse is not None:
+
+                for item in qresponse.items:
+                    print(f"Sequence: {item.name}")
+                    print(f"Topics:   {[topic.name for topic in item.topics]}")
+        ```
     """
 
     ...
@@ -211,23 +214,26 @@ class ToFCamera(
         noise: Per-pixel noise estimate of the depth measurement (optional).
         grayscale: Passive greyscale amplitude per pixel (optional).
 
-    Note:
-        # FIXME: Update this docstring and add example scripts for querying such field
-        List-typed fields are **not queryable** via the `.Q` proxy. The `.Q` proxy
-        is not available on this model.
+    ### Querying with the **`.Q` Proxy**
+    This class is fully queryable via the **`.Q` proxy**. You can filter ToFCamera data based
+    on thresholds values within a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog].
+    Expressions entailing lists of values can be queried using any between `all()`, `any()`
+    or index access `[i]` followed by the contained type supported operations.
 
     Example:
         ```python
-            from mosaicolabs import MosaicoClient
-            from mosaicolabs.models.futures import ToFCamera
+        from mosaicolabs import MosaicoClient, QueryTopic
+        from mosaicolabs.models.futures import ToFCamera
 
-            with MosaicoClient.connect("localhost", 6726) as client:
-                # Fetch all sequences that contain at least one ToF camera topic
-                sequences = client.get_sequences(ontology=ToFCamera)
+        with MosaicoClient.connect("localhost", 6726) as client:
+            # Fetch all sequences that contain at least one ToF camera topic
+            qresponse = client.query(QueryTopic().with_ontology_tag(ToFCamera.ontology_tag()))
 
-                for sequence in sequences:
-                    print(f"Sequence: {sequence.name}")
-                    print(f"Topics:   {[topic.name for topic in sequence.topics]}")
+            if qresponse is not None:
+
+                for item in qresponse.items:
+                    print(f"Sequence: {item.name}")
+                    print(f"Topics:   {[topic.name for topic in item.topics]}")
         ```
     """
 
@@ -240,8 +246,47 @@ class ToFCamera(
     High noise values typically indicate low-confidence
     depth samples caused by low signal return, multi-path interference, or
     motion blur, and should be treated with caution during downstream processing.
-    # FIXME: Update this docstring with queryability of list fiends,
-    # and add example scripts for querying such field
+
+    ### Querying with the **`.Q` Proxy**
+    The noise value is queryable via the `noise` field. Since it represents a list of values,
+    use `all()`, `any()` or index access `[i]` to narrow down to the list element and compose a
+    correct expression.
+        - ToFCamera.Q.noise.all()       -> invalid expression
+        - ToFCamera.Q.noise.gt(1)       -> invalid expression
+        - ToFCamera.Q.noise.all().gt(1) -> valid expression
+
+    | Field Access Path | Queryable Type | Supported Operators |
+    | :--- | :--- | :--- |
+    | `ToFCamera.Q.noise.all()` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `ToFCamera.Q.noise.any()` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `ToFCamera.Q.noise.[i]` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+
+    Example:
+        ```python
+        from mosaicolabs import MosaicoClient, QueryOntologyCatalog
+        from mosaicolabs.models.futures import ToFCamera
+
+        with MosaicoClient.connect("localhost", 6726) as client:
+            # Filter for ToF frames with at least one high-noise pixel
+            qresponse = client.query(
+                QueryOntologyCatalog(ToFCamera.Q.noise.any().gt(0.5))
+            )
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {[topic.name for topic in item.topics]}")
+
+                    # Clusterize all topics within the sequence to extract the time intervals
+                    clusters_dict = item.clusterize_all()
+
+                    # Since clusterize_all() used default clustering_dt_ns, each topic will have
+                    # just one cluster representing the first and last moment the query was satisfied
+                    for t_name, clusters in clusters_dict.items():
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
+        ```
     """
 
     grayscale: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(
@@ -253,8 +298,47 @@ class ToFCamera(
     Captured by the sensor's infrared photodiodes independently of the active
     modulation cycle. Provides a texture channel that can be used for feature
     extraction or visual odometry without requiring a separate colour camera.
-    # FIXME: Update this docstring with queryability of list fiends,
-    # and add example scripts for querying such field
+
+    ### Querying with the **`.Q` Proxy**
+    The grayscale value is queryable via the `grayscale` field. Since it represents a list of
+    values, use `all()`, `any()` or index access `[i]` to narrow down to the list element and
+    compose a correct expression.
+        - ToFCamera.Q.grayscale.all()       -> invalid expression
+        - ToFCamera.Q.grayscale.gt(1)       -> invalid expression
+        - ToFCamera.Q.grayscale.all().gt(1) -> valid expression
+
+    | Field Access Path | Queryable Type | Supported Operators |
+    | :--- | :--- | :--- |
+    | `ToFCamera.Q.grayscale.all()` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `ToFCamera.Q.grayscale.any()` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `ToFCamera.Q.grayscale.[i]` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+
+    Example:
+        ```python
+        from mosaicolabs import MosaicoClient, QueryOntologyCatalog
+        from mosaicolabs.models.futures import ToFCamera
+
+        with MosaicoClient.connect("localhost", 6726) as client:
+            # Filter for ToF frames with bright greyscale pixels
+            qresponse = client.query(
+                QueryOntologyCatalog(ToFCamera.Q.grayscale.any().gt(200.0))
+            )
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {[topic.name for topic in item.topics]}")
+
+                    # Clusterize all topics within the sequence to extract the time intervals
+                    clusters_dict = item.clusterize_all()
+
+                    # Since clusterize_all() used default clustering_dt_ns, each topic will have
+                    # just one cluster representing the first and last moment the query was satisfied
+                    for t_name, clusters in clusters_dict.items():
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
+        ```
     """
 
 
@@ -292,24 +376,26 @@ class StereoCamera(
         cost: Stereo matching cost per point; lower values indicate higher
             disparity confidence (optional).
 
-    Note:
-        # FIXME: Update this docstring with queryability of list fiends,
-        # and add example scripts for querying such field
-        List-typed fields are **not queryable** via the `.Q` proxy. The `.Q` proxy
-        is not available on this model.
+    ### Querying with the **`.Q` Proxy**
+    This class is fully queryable via the **`.Q` proxy**. You can filter StereoCamera data based
+    on thresholds values within a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog].
+    Expressions entailing lists of values can be queried using any between `all()`, `any()`
+    or index access `[i]` followed by the contained type supported operations.
 
     Example:
-    ```python
-            from mosaicolabs import MosaicoClient
-            from mosaicolabs.models.futures import StereoCamera
+        ```python
+        from mosaicolabs import MosaicoClient, QueryTopic
+        from mosaicolabs.models.futures import StereoCamera
 
-            with MosaicoClient.connect("localhost", 6726) as client:
-                # Fetch all sequences that contain at least one stereo camera topic
-                sequences = client.get_sequences(ontology=StereoCamera)
+        with MosaicoClient.connect("localhost", 6726) as client:
+            # Fetch all sequences that contain at least one stereo camera topic
+            qresponse = client.query(QueryTopic().with_ontology_tag(StereoCamera.ontology_tag()))
 
-                for sequence in sequences:
-                    print(f"Sequence: {sequence.name}")
-                    print(f"Topics:   {[topic.name for topic in sequence.topics]}")
+            if qresponse is not None:
+
+                for item in qresponse.items:
+                    print(f"Sequence: {item.name}")
+                    print(f"Topics:   {[topic.name for topic in item.topics]}")
     ```
     """
 
@@ -318,9 +404,48 @@ class StereoCamera(
         description="Luminance of the corresponding pixel in the rectified image.",
     )
     """
-        Luminance of the corresponding pixel in the rectified image.
-        # FIXME: Update this docstring with queryability of list fiends,
-        # and add example scripts for querying such field
+    Luminance of the corresponding pixel in the rectified image.
+
+    ### Querying with the **`.Q` Proxy**
+    The luma value is queryable via the `luma` field. Since it represents a list of values, use
+    `all()`, `any()` or index access `[i]` to narrow down to the list element and compose a
+    correct expression.
+        - StereoCamera.Q.luma.all()       -> invalid expression
+        - StereoCamera.Q.luma.gt(1)       -> invalid expression
+        - StereoCamera.Q.luma.all().gt(1) -> valid expression
+
+    | Field Access Path | Queryable Type | Supported Operators |
+    | :--- | :--- | :--- |
+    | `StereoCamera.Q.luma.all()` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `StereoCamera.Q.luma.any()` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `StereoCamera.Q.luma.[i]` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+
+    Example:
+        ```python
+        from mosaicolabs import MosaicoClient, QueryOntologyCatalog
+        from mosaicolabs.models.futures import StereoCamera
+
+        with MosaicoClient.connect("localhost", 6726) as client:
+            # Filter for Stereo frames with bright pixels
+            qresponse = client.query(
+                QueryOntologyCatalog(StereoCamera.Q.luma.any().gt(200))
+            )
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {[topic.name for topic in item.topics]}")
+
+                    # Clusterize all topics within the sequence to extract the time intervals
+                    clusters_dict = item.clusterize_all()
+
+                    # Since clusterize_all() used default clustering_dt_ns, each topic will have
+                    # just one cluster representing the first and last moment the query was satisfied
+                    for t_name, clusters in clusters_dict.items():
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
+        ```
     """
 
     cost: Optional[MosaicoType.list_(MosaicoType.uint8)] = MosaicoField(
@@ -328,8 +453,47 @@ class StereoCamera(
         description="Stereo matching cost (disparity confidence measure, 0 = high confidence).",
     )
     """
-        Stereo matching cost per point; lower values indicate higher
-        disparity confidence.
-        # FIXME: Update this docstring with queryability of list fiends,
-        # and add example scripts for querying such field
+    Stereo matching cost per point; lower values indicate higher
+    disparity confidence.
+
+    ### Querying with the **`.Q` Proxy**
+    The cost value is queryable via the `cost` field. Since it represents a list of values, use
+    `all()`, `any()` or index access `[i]` to narrow down to the list element and compose a
+    correct expression.
+        - StereoCamera.Q.cost.all()       -> invalid expression
+        - StereoCamera.Q.cost.gt(1)       -> invalid expression
+        - StereoCamera.Q.cost.all().gt(1) -> valid expression
+
+    | Field Access Path | Queryable Type | Supported Operators |
+    | :--- | :--- | :--- |
+    | `StereoCamera.Q.cost.all()` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `StereoCamera.Q.cost.any()` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `StereoCamera.Q.cost.[i]` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+
+    Example:
+        ```python
+        from mosaicolabs import MosaicoClient, QueryOntologyCatalog
+        from mosaicolabs.models.futures import StereoCamera
+
+        with MosaicoClient.connect("localhost", 6726) as client:
+            # Filter for Stereo frames with high-confidence disparity estimates
+            qresponse = client.query(
+                QueryOntologyCatalog(StereoCamera.Q.cost.all().leq(10))
+            )
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {[topic.name for topic in item.topics]}")
+
+                    # Clusterize all topics within the sequence to extract the time intervals
+                    clusters_dict = item.clusterize_all()
+
+                    # Since clusterize_all() used default clustering_dt_ns, each topic will have
+                    # just one cluster representing the first and last moment the query was satisfied
+                    for t_name, clusters in clusters_dict.items():
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
+        ```
     """

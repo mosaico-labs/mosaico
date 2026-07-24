@@ -16,6 +16,7 @@ thiserror = { workspace = true }
 datafusion = { workspace = true }
 arrow = { workspace = true }
 url  = { workspace = true }
+regex  = { workspace = true }
 
 [dev-dependencies]
 mosaicod-ext = { workspace = true , features = ["testing"]}

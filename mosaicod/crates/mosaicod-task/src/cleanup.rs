@@ -88,9 +88,13 @@ impl Cleanup {
         self
     }
 
-    /// Starts the cleanup routine that every [`time_interval`] tries to actually perform a cleanup of the store.
+    /// Starts the cleanup routine.
+    ///
+    /// When `time_interval` is `0` a single cleanup is performed and the routine returns
+    /// (one-shot mode). Otherwise it loops, performing a cleanup every `time_interval` until
+    /// `shutdown_notifier` is cancelled.
     pub async fn run(mut self, shutdown_notifier: CancellationToken) {
-        info!("Launching cleanup background routine");
+        info!("Launching cleanup routine");
 
         loop {
             let cleanup_res = self.try_cleanup().await;
@@ -114,33 +118,11 @@ impl Cleanup {
                 }
             }
 
-            // match self.can_start().await {
-            //     Ok(can_start) => {
-            //         if can_start {
-            //             info!("Cleanup started");
-            //
-            //             let cleanup_res = self.do_cleanup().await;
-            //
-            //             match cleanup_res {
-            //                 Ok(stats) => {
-            //                     info!(
-            //                         "Cleanup completed. {} items marked as ready to be deleted. {} items deleted.",
-            //                         stats.marked_folders.len(),
-            //                         stats.deleted_folders.len()
-            //                     );
-            //                 }
-            //                 Err(e) => {
-            //                     // Don't exit the cleanup routine if something went wrong. Just log the error.
-            //                     error!("Cleanup failed. {}", e);
-            //                 }
-            //             }
-            //         }
-            //     }
-            //     Err(e) => {
-            //         // Don't exit the cleanup routine if something went wrong. Just log the error.
-            //         error!("{}", e);
-            //     }
-            // }
+            // perform a single cleanup and terminate.
+            if self.time_interval.is_zero() {
+                info!("Exiting cleanup routine. One-shot cleanup completed.");
+                break;
+            }
 
             tokio::select! {
                 // Here we can call .unwrap() safely because duration is non-negative by construction.
@@ -160,23 +142,27 @@ impl Cleanup {
     pub async fn try_cleanup(&mut self) -> Result<CleanupStats> {
         let mut stats = CleanupStats::default();
 
-        if self.time_interval.is_zero() {
-            return Ok(stats);
-        }
-
         let start_time = chrono::Utc::now();
 
-        let can_start = db::cleanup_log_try_create(
-            &mut self.db.connection(),
-            start_time.timestamp(),
-            self.time_interval.num_seconds(),
-        )
-        .await?
-        .is_some();
+        // The advisory lock and the guarded insert must run on the same connection within the
+        // same transaction, otherwise the lock is released before the insert is guarded by it,
+        // defeating its purpose when multiple servers race to start a cleanup at the same time.
+        let mut tx = self.db.transaction().await?;
 
-        if !can_start {
+        db::acquire_transaction_lock(&mut tx, 777777).await?;
+
+        let latest_cleanup_log = db::cleanup_log_latest(&mut tx).await?;
+
+        if latest_cleanup_log.is_some_and(|cleanup| {
+            start_time.timestamp()
+                < cleanup.start_datetime().timestamp() + self.time_interval.num_seconds()
+        }) {
             return Ok(stats);
         }
+
+        let cleanup_log = db::cleanup_log_create(&mut tx, start_time.timestamp()).await?;
+
+        tx.commit().await?;
 
         let root_subfolders = self.store.list_subfolders("").await?;
 
@@ -201,6 +187,7 @@ impl Cleanup {
 
         db::cleanup_log_close(
             &mut self.db.connection(),
+            cleanup_log.cleanup_id,
             chrono::Utc::now().timestamp(),
             &stats.marked_folders,
             &stats.deleted_folders,

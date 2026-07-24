@@ -62,7 +62,13 @@ class ForceTorque(
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # FIXME: Add here example for timestamp exytraction and clustering
+                    # Clusterize all topics within the sequence to extract the time intervals
+                    clusters_dict = item.clusterize_all()
+
+                    # Since clusterize_all() used default clustering_dt_ns, each topic will have
+                    # just one cluster representing the first and last moment the query was satisfied
+                    for t_name, clusters in clusters_dict.items():
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -94,7 +100,13 @@ class ForceTorque(
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # FIXME: Add here example for timestamp exytraction and clustering
+                    # Clusterize all topics within the sequence to extract the time intervals
+                    clusters_dict = item.clusterize_all()
+
+                    # Since clusterize_all() used default clustering_dt_ns, each topic will have
+                    # just one cluster representing the first and last moment the query was satisfied
+                    for t_name, clusters in clusters_dict.items():
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -126,7 +138,13 @@ class ForceTorque(
                     print(f"Sequence: {item.sequence.name}")
                     print(f"Topics: {[topic.name for topic in item.topics]}")
 
-            # FIXME: Add here example for timestamp exytraction and clustering
+                    # Clusterize all topics within the sequence to extract the time intervals
+                    clusters_dict = item.clusterize_all()
+
+                    # Since clusterize_all() used default clustering_dt_ns, each topic will have
+                    # just one cluster representing the first and last moment the query was satisfied
+                    for t_name, clusters in clusters_dict.items():
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
         ```
     """
 
@@ -147,7 +165,10 @@ class Inertia(
         header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
-    Only scalar fields are queryable.
+    This class is fully queryable via the **`.Q` proxy**. `mass` and `center_of_mass` are
+    scalar/composite fields queryable directly, while `inertia` is a fixed-size list
+    (`list_size=6`) queryable via `all()`, `any()` or index access `[i]` followed by the
+    contained type supported operations.
     """
 
     mass: MosaicoType.float64 = MosaicoField(description="Mass of the object.")
@@ -183,6 +204,51 @@ class Inertia(
     Inertia tensor represented by its 6 unique components [ixx, ixy, ixz, iyy, iyz, izz].
 
     ### Querying with the **`.Q` Proxy**
-    # FIXME: Update this docstring and add example scripts for querying such field
-    This field is not queryable via the `.Q` proxy (lists are not supported yet).
+    The inertia tensor components are queryable via the `inertia` field. Since it represents a
+    list of values, use `all()`, `any()` or index access `[i]` to narrow down to the list
+    element and compose a correct expression.
+        - Inertia.Q.inertia.all()       -> invalid expression
+        - Inertia.Q.inertia.gt(1)       -> invalid expression
+        - Inertia.Q.inertia.all().gt(1) -> valid expression
+
+    | Field Access Path | Queryable Type | Supported Operators |
+    | :--- | :--- | :--- |
+    | `Inertia.Q.inertia.all()` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `Inertia.Q.inertia.any()` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `Inertia.Q.inertia.[i]` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+
+    Example:
+        ```python
+        from mosaicolabs import MosaicoClient, QueryOntologyCatalog, Inertia
+
+        with MosaicoClient.connect("localhost", 6726) as client:
+            # Filter for bodies with a specific Ixx moment of inertia (index 0)
+            qresponse = client.query(
+                QueryOntologyCatalog(Inertia.Q.inertia[0].between([-1.0, 1.0]))
+            )
+
+            # Inspect the response
+            if qresponse is not None:
+                # Results are automatically grouped by Sequence for easier data management
+                for item in qresponse:
+                    print(f"Sequence: {item.sequence.name}")
+                    print(f"Topics: {[topic.name for topic in item.topics]}")
+
+                    # Clusterize all topics within the sequence to extract the time intervals
+                    clusters_dict = item.clusterize_all()
+
+                    # Since clusterize_all() used default clustering_dt_ns, each topic will have
+                    # just one cluster representing the first and last moment the query was satisfied
+                    for t_name, clusters in clusters_dict.items():
+                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
+        ```
+
+
+
+
+
+
+
+
+
     """

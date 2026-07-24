@@ -7,6 +7,7 @@ import string
 
 import pyarrow as pa
 import pytest
+from pyarrow import ArrowInvalid
 
 from mosaicolabs.comm import MosaicoClient
 from mosaicolabs.enum import (
@@ -328,4 +329,179 @@ def test_sequence_streamer_non_existing_topics(
         )
 
     # free resources
+    mosaico_client.close()
+
+
+def test_sequence_invalid_metadata_key(mosaico_client: MosaicoClient):
+
+    invalid_metadata = {"ok-key1": 0, "invalid--key": 1, "ok-key2": 2}
+
+    # metadata contains a key with `--` (invalid)
+    with pytest.raises(
+        ArrowInvalid,
+        match="Flight returned invalid argument error, with message: Bad request: invalid json key",
+    ):
+        with mosaico_client.sequence_create(
+            "seq_invalid_metadata_keys",
+            invalid_metadata,
+            SessionLevelErrorPolicy.Delete,
+        ):
+            pass
+
+    invalid_metadata = {"ok-key1": 0, "(invalid-key)": 1, "ok-key2": 2}
+
+    with pytest.raises(
+        ArrowInvalid,
+        match="Flight returned invalid argument error, with message: Bad request: invalid json key.",
+    ):
+        with mosaico_client.sequence_create(
+            "seq_invalid_metadata_keys",
+            invalid_metadata,
+            SessionLevelErrorPolicy.Delete,
+        ):
+            pass
+
+    invalid_metadata = {"ok-key1": 0, "invalid-[key": 1, "ok-key2": 2}
+
+    with pytest.raises(
+        ArrowInvalid,
+        match="Flight returned invalid argument error, with message: Bad request: invalid json key.",
+    ):
+        with mosaico_client.sequence_create(
+            "seq_invalid_metadata_keys",
+            invalid_metadata,
+            SessionLevelErrorPolicy.Delete,
+        ):
+            pass
+
+    invalid_metadata = {"ok-key1": 0, "invalid$-$key": 1, "ok-key2": 2}
+
+    with pytest.raises(
+        ArrowInvalid,
+        match="Flight returned invalid argument error, with message: Bad request: invalid json key.",
+    ):
+        with mosaico_client.sequence_create(
+            "seq_invalid_metadata_keys",
+            invalid_metadata,
+            SessionLevelErrorPolicy.Delete,
+        ):
+            pass
+
+    invalid_metadata = {"ok-key1": 0, "i*nva*lid-key": 1, "ok-key2": 2}
+
+    with pytest.raises(
+        ArrowInvalid,
+        match="Flight returned invalid argument error, with message: Bad request: invalid json key.",
+    ):
+        with mosaico_client.sequence_create(
+            "seq_invalid_metadata_keys",
+            invalid_metadata,
+            SessionLevelErrorPolicy.Delete,
+        ):
+            pass
+
+    invalid_metadata = {"ok-key1": 0, "i%nvalid-key": 1, "ok-key2": 2}
+
+    with pytest.raises(
+        ArrowInvalid,
+        match="Flight returned invalid argument error, with message: Bad request: invalid json key.",
+    ):
+        with mosaico_client.sequence_create(
+            "seq_invalid_metadata_keys",
+            invalid_metadata,
+            SessionLevelErrorPolicy.Delete,
+        ):
+            pass
+
+    invalid_metadata = {"ok-key1": 0, "invalid^key": 1, "ok-key2": 2}
+
+    with pytest.raises(
+        ArrowInvalid,
+        match="Flight returned invalid argument error, with message: Bad request: invalid json key.",
+    ):
+        with mosaico_client.sequence_create(
+            "seq_invalid_metadata_keys",
+            invalid_metadata,
+            SessionLevelErrorPolicy.Delete,
+        ):
+            pass
+
+    invalid_metadata = {"ok-key1": 0, "invalid{key}": 1, "ok-key2": 2}
+
+    with pytest.raises(
+        ArrowInvalid,
+        match="Flight returned invalid argument error, with message: Bad request: invalid json key.",
+    ):
+        with mosaico_client.sequence_create(
+            "seq_invalid_metadata_keys",
+            invalid_metadata,
+            SessionLevelErrorPolicy.Delete,
+        ):
+            pass
+
+    invalid_metadata = {"ok-key1": 0, "invalid++key=": 1, "ok-key2": 2}
+
+    with pytest.raises(
+        ArrowInvalid,
+        match="Flight returned invalid argument error, with message: Bad request: invalid json key.",
+    ):
+        with mosaico_client.sequence_create(
+            "seq_invalid_metadata_keys",
+            invalid_metadata,
+            SessionLevelErrorPolicy.Delete,
+        ):
+            pass
+
+    invalid_metadata = {"ok-key1": 0, "invalid<key>": 1, "ok-key2": 2}
+
+    with pytest.raises(
+        ArrowInvalid,
+        match="Flight returned invalid argument error, with message: Bad request: invalid json key.",
+    ):
+        with mosaico_client.sequence_create(
+            "seq_invalid_metadata_keys",
+            invalid_metadata,
+            SessionLevelErrorPolicy.Delete,
+        ):
+            pass
+
+    invalid_metadata = {"ok-key1": 0, "invalid/|\key=": 1, "ok-key2": 2}
+
+    with pytest.raises(
+        ArrowInvalid,
+        match="Flight returned invalid argument error, with message: Bad request: invalid json key.",
+    ):
+        with mosaico_client.sequence_create(
+            "seq_invalid_metadata_keys",
+            invalid_metadata,
+            SessionLevelErrorPolicy.Delete,
+        ):
+            pass
+
+    invalid_metadata = {"ok-key1": 0, "invalid@key": 1, "ok-key2": 2}
+
+    with pytest.raises(
+        ArrowInvalid,
+        match="Flight returned invalid argument error, with message: Bad request: invalid json key.",
+    ):
+        with mosaico_client.sequence_create(
+            "seq_invalid_metadata_keys",
+            invalid_metadata,
+            SessionLevelErrorPolicy.Delete,
+        ):
+            pass
+
+        invalid_metadata = {"ok-key1": 0, "invalid~key": 1, "ok-key2": 2}
+
+    with pytest.raises(
+        ArrowInvalid,
+        match="Flight returned invalid argument error, with message: Bad request: invalid json key.",
+    ):
+        with mosaico_client.sequence_create(
+            "seq_invalid_metadata_keys",
+            invalid_metadata,
+            SessionLevelErrorPolicy.Delete,
+        ):
+            pass
+
     mosaico_client.close()

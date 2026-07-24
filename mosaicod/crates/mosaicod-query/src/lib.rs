@@ -14,3 +14,6 @@ pub use timeseries::*;
 
 mod error;
 pub use error::*;
+
+pub mod regex;
+pub use regex::wildcard_to_posix_regex;

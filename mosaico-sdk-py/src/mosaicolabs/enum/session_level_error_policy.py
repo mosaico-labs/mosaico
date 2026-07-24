@@ -21,9 +21,7 @@ class SessionLevelErrorPolicy(Enum):
 
     Note:
         When the connection is established via the authorization middleware 
-        (i.e. using an API Key), this policy requires the minimum
-        [`APIKeyPermissionEnum.Read`][mosaicolabs.enum.APIKeyPermissionEnum.Read]
-        permission.
+        (i.e. using an API Key), this policy requires the `write` permission.
     
     Important: Lock Status
         Unlike standard successful finalization, a session finalized via a 
@@ -46,6 +44,5 @@ class SessionLevelErrorPolicy(Enum):
     Note:
         When the connection is established via the authorization middleware 
         (i.e. using an API Key), this policy is successfully executed by the 
-        server only if the API Key has [`APIKeyPermissionEnum.Delete`][mosaicolabs.enum.APIKeyPermissionEnum.Delete]
-        permission.
+        server only if the API Key has `delete` permission.
     """

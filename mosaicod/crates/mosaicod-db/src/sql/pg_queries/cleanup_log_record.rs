@@ -1,39 +1,43 @@
-use crate::{Error, core::AsExec, sql::schema};
+use crate::{
+    Error,
+    core::{AsExec, Tx},
+    sql::schema,
+};
 use log::trace;
 
-/// Tries to create a new cleanup log entry, leaving end timestamp column empty.
-/// A new cleanup log is added if the last one is older than [`start_unix_tstamp_secs`] - [`time_interval_secs`].
-pub async fn cleanup_log_try_create(
-    exe: &mut impl AsExec,
-    start_unix_tstamp_secs: i64,
-    time_interval_secs: i64,
-) -> Result<Option<schema::CleanupLogRecord>, Error> {
-    trace!(
-        "trying to create a new cleanup log record starting at {}",
-        start_unix_tstamp_secs
-    );
-
-    // Acquire a transaction-level advisory lock to prevent race conditions.
-    sqlx::query!("SELECT pg_advisory_xact_lock(777777)")
+/// Acquires a transaction-level advisory lock to prevent race conditions. The caller must run
+/// this on a connection held open for the duration of a single transaction (see `AsExec` impl
+/// for `Tx`): if run through a bare pooled connection, each statement below is auto-committed
+/// separately, and the lock is useless.
+pub async fn acquire_transaction_lock(exe: &mut Tx<'_>, lock_id: i64) -> Result<(), Error> {
+    sqlx::query!(r#"SELECT pg_advisory_xact_lock($1)"#, lock_id)
         .execute(exe.as_exec())
         .await?;
+
+    Ok(())
+}
+
+/// Creates a new cleanup log entry, leaving end timestamp column empty.
+pub async fn cleanup_log_create(
+    exe: &mut impl AsExec,
+    start_unix_tstamp_secs: i64,
+) -> Result<schema::CleanupLogRecord, Error> {
+    trace!(
+        "creating a new cleanup log record starting at {}",
+        start_unix_tstamp_secs
+    );
 
     let res = sqlx::query_as!(
         schema::CleanupLogRecord,
         r#"
             INSERT INTO cleanup_log_t (start_unix_tstamp_secs, marked_folders, deleted_folders, failed_folders)
-            SELECT $1, '[]'::jsonb, '[]'::jsonb, '[]'::jsonb
-            WHERE NOT EXISTS (
-                SELECT 1 FROM cleanup_log_t
-                WHERE start_unix_tstamp_secs > ($1::bigint - $2::bigint)
-            )
+            VALUES ($1, '[]'::jsonb, '[]'::jsonb, '[]'::jsonb)
             RETURNING *
-    "#,
+            "#,
         start_unix_tstamp_secs,
-        time_interval_secs
     )
-    .fetch_optional(exe.as_exec())
-    .await?;
+        .fetch_one(exe.as_exec())
+        .await?;
 
     Ok(res)
 }
@@ -73,31 +77,33 @@ pub async fn cleanup_log_latest(
     Ok(cleanup_log_history(exe, 1).await?.into_iter().next())
 }
 
-/// Closes the currently running cleanup log setting its end timestamp.
+/// Closes the given cleanup log entry, setting its end timestamp.
 ///
-/// Returns False if the last log was already closed, True otherwise.
+/// Returns False if the log was already closed, True otherwise.
 pub async fn cleanup_log_close(
     exe: &mut impl AsExec,
+    cleanup_id: i32,
     end_unix_tstamp_secs: i64,
     marked_folders: &Vec<String>,
     deleted_folders: &Vec<String>,
     failed_folders: &Vec<(String, String)>,
 ) -> Result<bool, Error> {
     trace!(
-        "closing last cleanup log. End timestamp: `{}`",
-        end_unix_tstamp_secs
+        "closing cleanup log {}. End timestamp: `{}`",
+        cleanup_id, end_unix_tstamp_secs
     );
     let res = sqlx::query!(
         "UPDATE cleanup_log_t
          SET end_unix_tstamp_secs = $1, marked_folders = $2, deleted_folders = $3, failed_folders = $4
-         WHERE cleanup_id = (SELECT cleanup_id FROM cleanup_log_t ORDER BY cleanup_id DESC LIMIT 1) AND end_unix_tstamp_secs IS NULL",
+         WHERE cleanup_id = $5 AND end_unix_tstamp_secs IS NULL",
         end_unix_tstamp_secs,
         serde_json::to_value(marked_folders)?,
         serde_json::to_value(deleted_folders)?,
         serde_json::to_value(failed_folders)?,
+        cleanup_id,
     )
-    .execute(exe.as_exec())
-    .await?;
+        .execute(exe.as_exec())
+        .await?;
 
     Ok(res.rows_affected() != 0)
 }
@@ -109,12 +115,11 @@ mod tests {
     use sqlx::Pool;
 
     #[sqlx::test]
-    async fn test_cleanup_log_try_create(pool: Pool<DatabaseType>) -> sqlx::Result<()> {
+    async fn test_cleanup_log_create(pool: Pool<DatabaseType>) -> sqlx::Result<()> {
         let start_ts = chrono::Utc::now().timestamp();
         let database = testing::Database::new(pool);
-        let rrecord = cleanup_log_try_create(&mut database.connection(), start_ts, 1)
+        let rrecord = cleanup_log_create(&mut database.connection(), start_ts)
             .await
-            .unwrap()
             .unwrap();
 
         assert_eq!(start_ts, rrecord.start_unix_tstamp_secs);
@@ -137,7 +142,7 @@ mod tests {
 
         // Check with one log.
         let start_ts = chrono::Utc::now().timestamp();
-        cleanup_log_try_create(&mut cx, start_ts, 1).await.unwrap();
+        cleanup_log_create(&mut cx, start_ts).await.unwrap();
         tokio::time::sleep(std::time::Duration::from_secs(1)).await;
 
         let latest_log = cleanup_log_latest(&mut cx).await.unwrap().unwrap();
@@ -146,14 +151,14 @@ mod tests {
 
         // Check with more than one log.
         for _ in 0..8 {
-            cleanup_log_try_create(&mut cx, chrono::Utc::now().timestamp(), 0)
+            cleanup_log_create(&mut cx, chrono::Utc::now().timestamp())
                 .await
                 .unwrap();
             tokio::time::sleep(std::time::Duration::from_secs(1)).await;
         }
 
         let start_ts = chrono::Utc::now().timestamp();
-        cleanup_log_try_create(&mut cx, start_ts, 0).await.unwrap();
+        cleanup_log_create(&mut cx, start_ts).await.unwrap();
 
         let latest_log = cleanup_log_latest(&mut cx).await.unwrap().unwrap();
         assert_eq!(latest_log.cleanup_id, 10);
@@ -164,17 +169,23 @@ mod tests {
 
         tokio::time::sleep(std::time::Duration::from_secs(1)).await;
 
-        let record = cleanup_log_try_create(&mut cx, chrono::Utc::now().timestamp(), 0)
+        let record = cleanup_log_create(&mut cx, chrono::Utc::now().timestamp())
             .await
-            .unwrap()
             .unwrap();
         assert_eq!(record.cleanup_id, 11);
 
         let end_unix_ts = chrono::Utc::now().timestamp();
         assert!(
-            cleanup_log_close(&mut cx, end_unix_ts, &vec![], &vec![], &vec![])
-                .await
-                .unwrap()
+            cleanup_log_close(
+                &mut cx,
+                record.cleanup_id,
+                end_unix_ts,
+                &vec![],
+                &vec![],
+                &vec![]
+            )
+            .await
+            .unwrap()
         );
 
         let latest_log = cleanup_log_latest(&mut cx).await.unwrap().unwrap();
@@ -194,16 +205,21 @@ mod tests {
 
         let start_unix_ts = chrono::Utc::now().timestamp();
 
-        cleanup_log_try_create(&mut cx, start_unix_ts, 0)
-            .await
-            .unwrap();
+        let record = cleanup_log_create(&mut cx, start_unix_ts).await.unwrap();
         tokio::time::sleep(std::time::Duration::from_millis(200)).await;
 
         let end_unix_ts = chrono::Utc::now().timestamp();
         assert!(
-            cleanup_log_close(&mut cx, end_unix_ts, &vec![], &vec![], &vec![])
-                .await
-                .unwrap()
+            cleanup_log_close(
+                &mut cx,
+                record.cleanup_id,
+                end_unix_ts,
+                &vec![],
+                &vec![],
+                &vec![]
+            )
+            .await
+            .unwrap()
         );
 
         let latest_log = cleanup_log_latest(&mut cx).await.unwrap().unwrap();

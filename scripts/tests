@@ -139,7 +139,7 @@ run_mosaicod_tests() {
     cd "${MOSAICOD_PATH}"
 
     if $VERBOSE; then
-        cargo test
+        cargo test --jobs 6
     else
         echo "Compiling, it may take some time ..."
         cargo test --quiet
@@ -214,20 +214,23 @@ run_full_stack_tests() {
     cd "${MOSAICOD_PATH}"
 
     if $VERBOSE; then
-        cargo build --bin mosaicod
+        cargo build --jobs 6 --bin mosaicod
     else
         echo "Compiling mosaicod, it may take a while ..."
         cargo build --bin mosaicod 2>&1
     fi
 
     if $GENERATE_API_KEY; then
-        MOSAICO_API_KEY_MANAGE=$(RUST_LOG="" ${MOSAICOD_PATH}/target/debug/mosaicod api-key create -p manage)
-        PYTEST_OPTS="--api-key ${MOSAICO_API_KEY_MANAGE}"
+        MOSAICO_API_KEY_READ=$(RUST_LOG="" ${MOSAICOD_PATH}/target/debug/mosaicod api-key create -p read)
+        MOSAICO_API_KEY_WRITE=$(RUST_LOG="" ${MOSAICOD_PATH}/target/debug/mosaicod api-key create -p write)
+        MOSAICO_API_KEY_DELETE=$(RUST_LOG="" ${MOSAICOD_PATH}/target/debug/mosaicod api-key create -p delete)
+        MOSAICO_API_KEY_MANAGE=$(RUST_LOG="" ${MOSAICOD_PATH}/target/debug/mosaicod api-key create -p "read|write|delete")
+        PYTEST_OPTS="--api-key-read ${MOSAICO_API_KEY_READ} --api-key-write ${MOSAICO_API_KEY_WRITE} --api-key-delete ${MOSAICO_API_KEY_DELETE} --api-key-manage ${MOSAICO_API_KEY_MANAGE}"
     fi
 
     # Start mosaicod
     title "mosaicod startup" "." "${BLUE}"
-    ./target/debug/mosaicod run --port 6276 ${MOSAICOD_OPTS} > "${MOSAICOD_OUTPUT}" 2>&1 &
+    ./target/debug/mosaicod server --port 6276 ${MOSAICOD_OPTS} > "${MOSAICOD_OUTPUT}" 2>&1 &
     MOSAICOD_PID=$!
     echo "Starting mosaicod as background service (pid ${MOSAICOD_PID})"
     echo "mosaicod logs can be found in ${DIM}${MOSAICOD_OUTPUT}${RESET}"

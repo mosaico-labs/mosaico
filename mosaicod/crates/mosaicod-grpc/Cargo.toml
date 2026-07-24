@@ -16,10 +16,14 @@ mosaicod-core = { workspace = true }
 mosaicod-db = { workspace = true }
 mosaicod-store = { workspace = true }
 mosaicod-ext = { workspace = true }
-mosaicod-task = { workspace = true }
 
 arrow-flight = { workspace = true }
 tonic = { workspace = true }
 tower = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
+
+[dev-dependencies]
+mosaicod-store = { workspace = true, features = ["testing"] }
+mosaicod-db = { workspace = true, features = ["testing"] }
+sqlx = { workspace = true }

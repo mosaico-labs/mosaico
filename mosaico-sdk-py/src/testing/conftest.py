@@ -47,11 +47,32 @@ def pytest_addoption(parser):
         help="Enable GZIP compression via gRPC.",
     )
     parser.addoption(
-        "--api-key",
+        "--api-key-read",
         action="store",
         default=None,
         type=str,
-        help="Set Auth api-key.",
+        help="Set Auth Read api-key.",
+    )
+    parser.addoption(
+        "--api-key-write",
+        action="store",
+        default=None,
+        type=str,
+        help="Set Auth Write api-key.",
+    )
+    parser.addoption(
+        "--api-key-delete",
+        action="store",
+        default=None,
+        type=str,
+        help="Set Auth Delete api-key.",
+    )
+    parser.addoption(
+        "--api-key-manage",
+        action="store",
+        default=None,
+        type=str,
+        help="Set Auth Manage api-key.",
     )
 
 
@@ -66,13 +87,41 @@ def port(request):
 
 
 @pytest.fixture(scope="session")
-def with_auth(api_key_mgmt):
-    return api_key_mgmt is not None
+def with_auth(
+    api_key_read,
+    api_key_write,
+    api_key_delete,
+    api_key_manage,
+):
+    return any(
+        perm is not None
+        for perm in (
+            api_key_read,
+            api_key_write,
+            api_key_delete,
+            api_key_manage,
+        )
+    )
 
 
 @pytest.fixture(scope="session")
-def api_key_mgmt(request):
-    return request.config.getoption("--api-key")
+def api_key_read(request):
+    return request.config.getoption("--api-key-read")
+
+
+@pytest.fixture(scope="session")
+def api_key_write(request):
+    return request.config.getoption("--api-key-write")
+
+
+@pytest.fixture(scope="session")
+def api_key_delete(request):
+    return request.config.getoption("--api-key-delete")
+
+
+@pytest.fixture(scope="session")
+def api_key_manage(request):
+    return request.config.getoption("--api-key-manage")
 
 
 @pytest.fixture(scope="session")

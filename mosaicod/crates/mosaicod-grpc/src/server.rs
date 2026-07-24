@@ -1,10 +1,9 @@
-use mosaicod_core::{error::PublicResult as Result, params, types};
+use mosaicod_core::{error::PublicResult as Result, params, types::auth::Permissions};
 use mosaicod_db as db;
 use mosaicod_ext as ext;
 use mosaicod_grpc_common as grpc_common;
 use mosaicod_grpc_flight as grpc_flight;
 use mosaicod_store as store;
-use mosaicod_task as task;
 use tonic::transport::Server as TonicServer;
 use tracing::{debug, error, info, warn};
 
@@ -89,47 +88,31 @@ impl Server {
     /// The `on_start` callback is called once the server has started.
     ///
     /// This method startup a Tokio runtime to handle async operations.
-    pub fn start_and_wait<F>(&self, rt: tokio::runtime::Runtime, on_start: F) -> Result<()>
+    pub fn start_and_wait<F>(&mut self, rt: tokio::runtime::Runtime, on_start: F) -> Result<()>
     where
         F: FnOnce(),
     {
         let shutdown = self.shutdown.clone();
-        let shutdown_cleanup = self.shutdown.clone();
         let opts = self.options.clone();
 
         rt.block_on(async {
-            let cleanup_time_interval =
-                task::cleanup::Duration::seconds(params::params().cleanup_time_interval.value);
-
-            let cleanup_retention_duration =
-                task::cleanup::Duration::seconds(params::params().cleanup_retention_duration.value);
-
-            let cleanup_store = self.store.clone();
-            let cleanup_db = self.db.clone();
-
-            // Start cleanup background task.
-            let handle_cleanup_task = rt.spawn(async move {
-                let cleanup = task::Cleanup::new(cleanup_db, cleanup_store)
-                    .with_time_interval(cleanup_time_interval)
-                    .with_retention_duration(cleanup_retention_duration);
-
-                cleanup.run((shutdown_cleanup.token()).clone()).await
-            });
-
             let server_store = self.store.clone();
             let server_db = self.db.clone();
 
             // Create a thread in tokio runtime to handle flight requests
             let handle_flight = rt.spawn(async move {
                 debug!("grpc server starting");
-                if let Err(err) = serve(server_store, server_db, opts, Some(shutdown)).await {
+                if let Err(err) = serve(server_store, server_db, opts, Some(shutdown.clone())).await
+                {
                     error!("{}", err);
                 }
+
+                shutdown.shutdown();
             });
 
             on_start();
 
-            let _ = tokio::join!(handle_flight, handle_cleanup_task);
+            let _ = handle_flight.await;
         });
 
         debug!("grpc server stopped");
@@ -160,7 +143,7 @@ pub async fn serve(
         arrow_flight::flight_service_server::FlightServiceServer::new(grpc_flight_svc);
 
     if !opts.enable_api_key_management {
-        auth_layer = auth_layer.with_permission_passthrough(types::auth::Permission::Manage);
+        auth_layer = auth_layer.with_permission_passthrough(Permissions::all());
     }
     let layer = tower::ServiceBuilder::new().layer(auth_layer).into_inner();
 
@@ -215,4 +198,65 @@ pub async fn serve(
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use mosaicod_core::params;
+    use std::sync::mpsc;
+    use std::thread;
+    use std::time::Duration as StdDuration;
+
+    /// If the flight service fails on its very first attempt to start (e.g. because of an
+    /// invalid bind address), `start_and_wait` must still join both the flight and the cleanup
+    /// background tasks instead of hanging forever waiting on a shutdown signal that never
+    /// comes.
+    #[sqlx::test(migrator = "db::testing::MIGRATOR")]
+    async fn test_start_and_wait_joins_all_tasks_on_first_failure(
+        pool: sqlx::Pool<db::DatabaseType>,
+    ) {
+        // `start_and_wait` reads `params::params()` internally, so it must be initialized first.
+        let _ = params::load_params_from_env(params::ParamsLoadOptions::testing());
+
+        let test_store =
+            store::testing::Store::new_random_on_tmp().expect("failed to create test store");
+
+        let rt = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .expect("failed to build tokio runtime");
+
+        let test_db = db::testing::Database::new(pool);
+
+        // "999.999.999.999" is not a valid IP address, so `serve()` fails immediately while parsing the bind address.
+        let mut server = Server::new(
+            "999.999.999.999".to_string(),
+            0,
+            (*test_store).clone(),
+            (*test_db).clone(),
+        );
+
+        let (tx, rx) = mpsc::channel();
+
+        let handle = thread::spawn(move || {
+            let result = server.start_and_wait(rt, || {});
+            // The receiver may already be gone if the test failed on the timeout below.
+            let _ = tx.send(result.is_ok());
+        });
+
+        let completed = rx.recv_timeout(StdDuration::from_secs(60));
+
+        assert!(
+            completed.is_ok(),
+            "start_and_wait() did not return within the timeout: the cleanup background task \
+             likely never joined after the flight server failed on its first attempt to start"
+        );
+        assert!(
+            completed.unwrap(),
+            "start_and_wait() should return Ok(()) even when the flight server fails to start"
+        );
+
+        handle.join().expect("start_and_wait thread panicked");
+    }
 }

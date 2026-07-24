@@ -60,6 +60,14 @@ pub enum OpError {
     /// Occurs when a plain list `eq`/`neq` literal exceeds the maximum unrollable size.
     #[error("list literal exceeds the maximum size of {max} for equality comparison")]
     ListTooLarge { max: usize },
+
+    /// Occurs when `Op::Match` is constructed with a pattern exceeding the maximum length.
+    #[error("match pattern too long")]
+    PatternTooLong,
+
+    /// Occurs when `Op::Match` is constructed with a malformed pattern.
+    #[error("match pattern conversion to POSIX regex error: {0}")]
+    MalformedPattern(String),
 }
 
 /// A wrapper enum to allow heterogeneous values (Numbers and Strings)
@@ -333,9 +341,10 @@ pub struct OntologyField {
 
 impl OntologyField {
     pub fn try_new(v: String) -> Result<Self, super::Error> {
-        let ontology_tag = v.split('.').next().ok_or_else(|| super::Error::BadField {
-            field: v.to_string(),
-        })?;
+        let ontology_tag = v
+            .split('.')
+            .next()
+            .ok_or_else(|| super::Error::bad_field(v.to_string()))?;
         let tag = ontology_tag.to_owned();
         let len = ontology_tag.len();
 
@@ -347,12 +356,12 @@ impl OntologyField {
 
         for (i, segment) in raw_segments.iter().enumerate() {
             let (name, specifier) =
-                parse_segment(segment).map_err(|_| super::Error::BadField { field: v.clone() })?;
+                parse_segment(segment).map_err(|_| super::Error::bad_field(v.clone()))?;
 
             if let Some(specifier) = specifier {
                 // A second specifier in the same path is not allowed.
                 if list_access.is_some() {
-                    return Err(super::Error::BadField { field: v });
+                    return Err(super::Error::bad_field(v));
                 }
                 list_access = Some(ListAccess {
                     segment_index: i,
@@ -533,12 +542,15 @@ pub enum Op<T> {
     Ex,
     /// Not exists
     Nex,
-    /// In between a two value range [a, b] with a >= b
+    /// In between a two value range [a, b] with a <= b
     Between(Range<T>),
     /// Found in a set
     In(Vec<T>),
     /// Matches a certain expression
     Match(T),
+    /// Outside a two value range [a, b], the strict complement of `Between`:
+    /// v < a or v > b, with a <= b
+    Outside(Range<T>),
 }
 
 impl<T> Op<T>
@@ -556,6 +568,7 @@ where
             Op::Ex => true,
             Op::Nex => true,
             Op::Between(range) => range.min.support_ordering(),
+            Op::Outside(range) => range.min.support_ordering(),
             // If no elements are provided the operation is unsupported
             // (cabba) TODO: check if there is a way to access these methods
             // directly from T

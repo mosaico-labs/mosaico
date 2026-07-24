@@ -596,9 +596,9 @@ dependencies = [
 
 [[package]]
 name = "chrono"
-version = "0.4.44"
+version = "0.4.45"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c673075a2e0e5f4a1dde27ce9dee1ea4558c7ffe648f576438a20ca1d2acc4b0"
+checksum = "1aa79e62e7697b8e29b513a68abacf485adcd1fe8284a4316c5ae868e6633327"
 dependencies = [
  "iana-time-zone",
  "js-sys",
@@ -1618,13 +1618,12 @@ checksum = "37909eebbb50d72f9059c3b6d82c0463f2ff062c9e95845c43a6c9c0355411be"
 
 [[package]]
 name = "filetime"
-version = "0.2.27"
+version = "0.2.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f98844151eee8917efc50bd9e8318cb963ae8b297431495d3f758616ea5c57db"
+checksum = "5c287a33c7f0a620c38e641e7f60827713987b3c0f26e8ddc9462cc69cf75759"
 dependencies = [
  "cfg-if",
  "libc",
- "libredox",
 ]
 
 [[package]]
@@ -1963,9 +1962,9 @@ dependencies = [
 
 [[package]]
 name = "http"
-version = "1.4.0"
+version = "1.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e3ba2a386d7f85a81f119ad7498ebe444d2e22c2af0b86b069416ace48b3311a"
+checksum = "6970f50e31d6fc17d3fa27329444bfa74e196cf62e95052a3f6fee181dba6425"
 dependencies = [
  "bytes",
  "itoa",
@@ -2573,25 +2572,11 @@ dependencies = [
 name = "mosaicod"
 version = "0.6.0-dev"
 dependencies = [
- "chrono",
  "clap",
- "colored",
- "dotenv",
- "if-addrs",
- "iso8601",
  "mimalloc",
  "mosaicod-build",
+ "mosaicod-commands",
  "mosaicod-core",
- "mosaicod-db",
- "mosaicod-facade",
- "mosaicod-grpc",
- "mosaicod-query",
- "mosaicod-store",
- "signal-hook",
- "tokio",
- "tracing",
- "tracing-subscriber",
- "url",
 ]
 
 [[package]]
@@ -2599,6 +2584,31 @@ name = "mosaicod-build"
 version = "0.6.0-dev"
 dependencies = [
  "chrono",
+]
+
+[[package]]
+name = "mosaicod-commands"
+version = "0.6.0-dev"
+dependencies = [
+ "chrono",
+ "clap",
+ "colored",
+ "dotenv",
+ "if-addrs",
+ "iso8601",
+ "mosaicod-core",
+ "mosaicod-db",
+ "mosaicod-facade",
+ "mosaicod-grpc",
+ "mosaicod-query",
+ "mosaicod-store",
+ "mosaicod-task",
+ "signal-hook",
+ "tokio",
+ "tokio-util",
+ "tracing",
+ "tracing-subscriber",
+ "url",
 ]
 
 [[package]]
@@ -2677,7 +2687,7 @@ dependencies = [
  "mosaicod-grpc-common",
  "mosaicod-grpc-flight",
  "mosaicod-store",
- "mosaicod-task",
+ "sqlx",
  "tokio",
  "tonic",
  "tower",
@@ -2765,6 +2775,7 @@ dependencies = [
  "mosaicod-rw",
  "mosaicod-store",
  "parquet",
+ "regex",
  "thiserror",
  "tokio",
  "url",
@@ -3416,9 +3427,9 @@ dependencies = [
 
 [[package]]
 name = "regex"
-version = "1.12.2"
+version = "1.12.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "843bc0191f75f3e22651ae5f1e72939ab2f72a4bc30fa80a066bd66edefc24d4"
+checksum = "f1292b7759ae1cb9ec195452d1390a074f0cd8541ab7a5a8c31cd6db45d4a6ba"
 dependencies = [
  "aho-corasick",
  "memchr",
@@ -3439,9 +3450,9 @@ dependencies = [
 
 [[package]]
 name = "regex-syntax"
-version = "0.8.10"
+version = "0.8.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dc897dd8d9e8bd1ed8cdad82b5966c3e0ecae09fb1907d58efaa013543185d0a"
+checksum = "d6f6ff9a378485b298a5286656da665ba74413d36db0979633275d2e708145d4"
 
 [[package]]
 name = "reqwest"

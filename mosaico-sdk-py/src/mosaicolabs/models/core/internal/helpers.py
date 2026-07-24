@@ -1,4 +1,3 @@
-import json
 from dataclasses import is_dataclass
 from typing import Any
 
@@ -74,12 +73,11 @@ def encode_to_dict(obj: Any, exclude_none: bool = False) -> Any:
     # --- Handle dict types ---
     if isinstance(obj, dict):
         # convert all the value of obj to dict in case of nested structure or Pydantic model
-        to_json_dump = {
+        return {
             key: encode_to_dict(value, exclude_none=exclude_none)
             for key, value in obj.items()
             if (value is not None or not exclude_none)
         }
-        return json.dumps(to_json_dump)
 
     # --- Base case: primitive or non-special object ---
     # Return primitive types (int, str, float, datetime, etc.) as-is.

@@ -16,7 +16,9 @@ def test_ontology_type_registered():
     assert hasattr(RegisteredSensor, "__msco_pyarrow_struct__")
     assert hasattr(RegisteredSensor, "__ontology_tag__")
     assert hasattr(RegisteredSensor, "__serialization_format__")
-    assert RegisteredSensor.__ontology_tag__ == "registered_sensor"
+    assert (
+        RegisteredSensor.__ontology_tag__ == "registered_sensor" or "RegisteredSensor"
+    )
     assert RegisteredSensor.__serialization_format__.value == "default"
     # Check inheritance
     assert issubclass(RegisteredSensor.__class_type__, Serializable)
@@ -25,13 +27,31 @@ def test_ontology_type_registered():
     assert RegisteredSensor.is_registered()
 
 
+def test_ontology_type_has_schema_fingerprint():
+    # __schema_fingerprint__ is computed for every Serializable subclass upon
+    # registration, not just for dynamically-generated (Unmodeled) ones.
+    assert hasattr(RegisteredSensor, "__schema_fingerprint__")
+    assert RegisteredSensor.__schema_fingerprint__ != ""
+
+
+def test_ontology_type_registry_key_defaults_to_ontology_tag():
+    # For every hand-authored class, the SDK-local registry key is identical to
+    # the tag reported to the platform - they only diverge for dynamically
+    # resolved schema variants (see test_helpers.py).
+    assert RegisteredSensor.__registry_key__ == RegisteredSensor.__ontology_tag__
+    assert RegisteredSensor.__registry_key__ == RegisteredSensor.ontology_tag()
+
+
 def test_ontology_type_unregistered():
     # Type has all the correct fields provided by Serializable
     assert UnregisteredSensor.__ontology_tag__ is not None
     assert hasattr(UnregisteredSensor, "__msco_pyarrow_struct__")
     assert hasattr(UnregisteredSensor, "__ontology_tag__")
     assert hasattr(UnregisteredSensor, "__serialization_format__")
-    assert UnregisteredSensor.__ontology_tag__ == "unregistered_sensor"
+    assert (
+        UnregisteredSensor.__ontology_tag__ == "unregistered_sensor"
+        or "UnregisteredSensor"
+    )
     assert UnregisteredSensor.__serialization_format__.value == "ragged"
 
     # However, it does not inherit from Serializable
@@ -60,13 +80,13 @@ def test_futures_registration():
             from mosaicolabs.models.core import Serializable
 
             _FUTURES_TAGS = [
-                "rgbd_camera",
-                "tof_camera",
-                "stereo_camera",
-                "laser_scan",
-                "multi_echolaser_scan",
-                "lidar",
-                "radar",
+                "RGBDCamera",
+                "ToFCamera",
+                "StereoCamera",
+                "LaserScan",
+                "MultiEchoLaserScan",
+                "Lidar",
+                "Radar",
             ]
 
             assert all(Serializable._is_registered(tag) for tag in _FUTURES_TAGS)

@@ -14,6 +14,7 @@ rust-version = "1.92"
 [workspace.dependencies]
 # Internal crates
 mosaicod-build = { path = "crates/mosaicod-build" }
+mosaicod-commands = { path = "crates/mosaicod-commands" }
 mosaicod-core = { path = "crates/mosaicod-core" }
 mosaicod-db = { path = "crates/mosaicod-db" }
 mosaicod-facade = { path = "crates/mosaicod-facade" }
@@ -71,6 +72,7 @@ iso8601 = "0.6.3"
 semver = "1.0.28"
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["json", "env-filter"] }
+regex = "1.12.4"
 
 # Used for testing
 filetime = "0.2.27"

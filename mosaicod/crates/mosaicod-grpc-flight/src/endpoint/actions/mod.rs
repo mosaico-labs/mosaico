@@ -1,4 +1,3 @@
-pub mod auth;
 pub mod misc;
 pub mod query;
 pub mod sequence;

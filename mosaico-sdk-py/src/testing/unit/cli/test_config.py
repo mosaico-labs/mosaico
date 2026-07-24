@@ -62,11 +62,11 @@ class TestLoadConfig:
         assert result["dev"]["port"] == "6276"
 
     def test_load_invalid_toml_raises(self, tmp_path):
-        from click.exceptions import Exit
+        import typer
 
         path = tmp_path / "bad.toml"
         path.write_text("this is [[[not valid toml")
-        with pytest.raises(Exit):
+        with pytest.raises(typer.Exit):
             load_config(path)
 
 

@@ -73,7 +73,7 @@ def list_topics(
             tls_cert_path=profile.tls_cert_path,
             enable_tls=profile.enable_tls,
         ) as client:
-            query = QueryTopic().with_name_match(locator if locator else ".*")
+            query = QueryTopic().with_name_match(locator if locator else "*")
 
             if metadata:
                 for md in metadata:

@@ -1,0 +1,678 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   width="720"
+   height="452"
+   viewBox="0 0 720 452"
+   fill="none"
+   font-family="system-ui, -apple-system, Segoe UI, Roboto, sans-serif"
+   role="img"
+   version="1.1"
+   id="svg986"
+   sodipodi:docname="temporal_windows_intersect.svg"
+   inkscape:version="1.2.2 (b0a8486541, 2022-12-01)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <defs
+     id="defs990">
+    <rect
+       x="-53.177926"
+       y="284.36909"
+       width="211.34419"
+       height="136.20953"
+       id="rect11464" />
+    <rect
+       x="294.53099"
+       y="392.84369"
+       width="90.890326"
+       height="50.580096"
+       id="rect1314" />
+  </defs>
+  <sodipodi:namedview
+     id="namedview988"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     showgrid="false"
+     inkscape:zoom="1.7367257"
+     inkscape:cx="371.10064"
+     inkscape:cy="178.20892"
+     inkscape:window-width="1854"
+     inkscape:window-height="1011"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg986" />
+  <title
+     id="title896">intersect() returns one cluster for every window where all topics are simultaneously true; tuning intersect_dt_ns lets near-miss windows across topics count as correlated too.</title>
+  <!-- Part 1: basic AND semantics -->
+  <text
+     x="20"
+     y="22"
+     font-size="13px"
+     font-weight="600"
+     letter-spacing="0.3"
+     fill="rgba(255,255,255,0.55)"
+     id="text898"
+     style="fill:#e6e6e6;fill-opacity:1">intersect() → single cross-topic list of simultaneous windows</text>
+  <text
+     x="20"
+     y="46"
+     font-size="11px"
+     font-style="italic"
+     fill="rgba(255,255,255,0.5)"
+     id="text900"
+     style="fill:#e6e6e6;fill-opacity:1">every window where all topics are simultaneously true becomes a cluster</text>
+  <text
+     x="20"
+     y="73"
+     font-size="14px"
+     font-weight="600"
+     fill="#e6e6e6"
+     id="text904">IMU</text>
+  <rect
+     x="190"
+     y="58"
+     width="110"
+     height="22"
+     rx="6"
+     fill="#f14c22"
+     id="rect906" />
+  <rect
+     x="430"
+     y="58"
+     width="140"
+     height="22"
+     rx="6"
+     fill="#f14c22"
+     id="rect908"
+     style="fill:#f14c22;fill-opacity:1" />
+  <text
+     x="20"
+     y="115"
+     font-size="14px"
+     font-weight="600"
+     fill="#e6e6e6"
+     id="text912">GPS</text>
+  <text
+     x="23.150257"
+     y="289.26416"
+     font-size="14px"
+     font-weight="600"
+     fill="#e6e6e6"
+     id="text904-3" />
+  <rect
+     x="260"
+     y="100"
+     width="220"
+     height="22"
+     rx="6"
+     fill="#1a97c1"
+     id="rect914" />
+  <text
+     x="20"
+     y="175"
+     font-size="14px"
+     font-weight="600"
+     fill="#e6e6e6"
+     id="text918">Result dt=0</text>
+  <!-- ghost outlines of the original per-topic bars -->
+  <rect
+     x="190"
+     y="160"
+     width="110"
+     height="22"
+     rx="6"
+     fill="none"
+     stroke="#f14c22"
+     stroke-opacity="0.4"
+     stroke-dasharray="3, 3"
+     id="rect920" />
+  <rect
+     x="430"
+     y="160"
+     width="140"
+     height="22"
+     rx="6"
+     fill="none"
+     stroke="#f14c22"
+     stroke-opacity="0.4"
+     stroke-dasharray="3, 3"
+     id="rect922" />
+  <rect
+     x="260"
+     y="160"
+     width="220"
+     height="22"
+     rx="6"
+     fill="none"
+     stroke="#1a97c1"
+     stroke-opacity="0.4"
+     stroke-dasharray="3, 3"
+     id="rect924" />
+  <!-- solid overlap regions -->
+  <rect
+     x="260"
+     y="160"
+     width="40"
+     height="22"
+     rx="6"
+     fill="#bd38b4"
+     id="rect926" />
+  <rect
+     x="430"
+     y="160"
+     width="50"
+     height="22"
+     rx="6"
+     fill="#bd38b4"
+     id="rect928" />
+  <text
+     x="280"
+     y="204"
+     font-size="11px"
+     fill="rgba(255,255,255,0.7)"
+     text-anchor="middle"
+     id="text936"
+     style="fill:#e6e6e6;fill-opacity:1">cluster 0</text>
+  <text
+     x="15.284736"
+     y="264.77631"
+     font-size="14px"
+     font-weight="600"
+     fill="#e6e6e6"
+     id="text904-6">IMU</text>
+  <rect
+     x="185.28473"
+     y="249.77631"
+     width="110"
+     height="22"
+     rx="6"
+     fill="#f14c22"
+     id="rect906-3" />
+  <rect
+     x="425.28473"
+     y="249.77631"
+     width="140"
+     height="22"
+     rx="6"
+     fill="#f14c22"
+     id="rect908-2" />
+  <text
+     x="15.284736"
+     y="306.77631"
+     font-size="14px"
+     font-weight="600"
+     fill="#e6e6e6"
+     id="text912-0">GPS</text>
+  <rect
+     x="306.6301"
+     y="291.77631"
+     width="106.90472"
+     height="22"
+     rx="2.9155834"
+     fill="#1a97c1"
+     id="rect914-6"
+     style="stroke-width:0.697087" />
+  <text
+     x="15.284736"
+     y="366.77631"
+     font-size="14px"
+     font-weight="600"
+     fill="#e6e6e6"
+     id="text918-1">Result dt=0</text>
+  <rect
+     x="185.28473"
+     y="351.77631"
+     width="110"
+     height="22"
+     rx="6"
+     fill="none"
+     stroke="#f14c22"
+     stroke-opacity="0.4"
+     stroke-dasharray="3, 3"
+     id="rect920-5" />
+  <rect
+     x="425.28473"
+     y="351.77631"
+     width="140"
+     height="22"
+     rx="6"
+     fill="none"
+     stroke="#f14c22"
+     stroke-opacity="0.4"
+     stroke-dasharray="3, 3"
+     id="rect922-5" />
+  <rect
+     x="305.84683"
+     y="351.62265"
+     width="104.34571"
+     height="22.307266"
+     rx="2.8457921"
+     fill="none"
+     stroke="#1a97c1"
+     stroke-opacity="0.4"
+     stroke-dasharray="2.08046, 2.08046"
+     id="rect924-4"
+     style="stroke-width:0.693486" />
+  <rect
+     x="163.70618"
+     y="394.66086"
+     width="151.46588"
+     height="21.830532"
+     rx="8.261776"
+     fill="none"
+     stroke="#f14c22"
+     stroke-opacity="0.4"
+     stroke-dasharray="3.50674, 3.50674"
+     id="rect920-5-1"
+     style="stroke-width:1.16893" />
+  <rect
+     x="405.37091"
+     y="394.64368"
+     width="181.41919"
+     height="21.864899"
+     rx="7.7751079"
+     fill="none"
+     stroke="#f14c22"
+     stroke-opacity="0.4"
+     stroke-dasharray="3.40456, 3.40456"
+     id="rect922-5-7"
+     style="stroke-width:1.13485" />
+  <rect
+     x="283.51306"
+     y="393.72192"
+     width="152.1797"
+     height="22.165892"
+     rx="4.1503558"
+     fill="none"
+     stroke="#1a97c1"
+     stroke-opacity="0.4"
+     stroke-dasharray="2.50449, 2.50449"
+     id="rect924-4-2"
+     style="stroke-width:0.834831" />
+  <text
+     x="13.605728"
+     y="409.00937"
+     font-size="14px"
+     font-weight="600"
+     fill="#e6e6e6"
+     id="text918-1-5">Result dt= ΔT</text>
+  <rect
+     x="404.97375"
+     y="394.19888"
+     width="30.896217"
+     height="22"
+     rx="3.7075465"
+     fill="#bd38b4"
+     id="rect928-6-4-4"
+     style="stroke-width:0.786081" />
+  <rect
+     x="283.75336"
+     y="393.98444"
+     width="30.896217"
+     height="22"
+     rx="3.7075465"
+     fill="#bd38b4"
+     id="rect928-6-4-4-2"
+     style="stroke-width:0.786081" />
+  <text
+     x="455"
+     y="204"
+     font-size="11px"
+     fill="rgba(255,255,255,0.7)"
+     text-anchor="middle"
+     id="text944"
+     style="fill:#e6e6e6;fill-opacity:1">cluster 1</text>
+  <!-- time axis for Part 1's shared timeline -->
+  <!-- Part 2: intersect_dt_ns tolerance -->
+  <text
+     x="20"
+     y="230"
+     font-size="11px"
+     font-style="italic"
+     fill="rgba(255,255,255,0.5)"
+     id="text954"
+     style="fill:#e6e6e6;fill-opacity:1">tuning intersect_dt_ns — bridging near-miss windows across topics</text>
+  <text
+     x="354.68201"
+     y="444.74973"
+     font-size="11px"
+     fill="#da81d4"
+     text-anchor="middle"
+     id="text984">gap ≤ dt → correlated</text>
+  <line
+     x1="294.50104"
+     y1="340.06805"
+     x2="294.50104"
+     y2="351.51151"
+     stroke="#ff6363"
+     stroke-opacity="0.85"
+     stroke-width="1.19601"
+     id="line968-8" />
+  <line
+     x1="306.17313"
+     y1="340.13083"
+     x2="306.17313"
+     y2="351.96237"
+     stroke="#ff6363"
+     stroke-opacity="0.85"
+     stroke-width="1.21612"
+     id="line970-8" />
+  <line
+     x1="294.27859"
+     y1="339.14035"
+     x2="307.3288"
+     y2="339.14035"
+     stroke="#ff6363"
+     stroke-opacity="0.85"
+     stroke-width="0.856781"
+     stroke-dasharray="4, 3"
+     id="line972-4" />
+  <line
+     x1="304.92447"
+     y1="433.09879"
+     x2="304.97601"
+     y2="421.65546"
+     stroke="#ff6363"
+     stroke-opacity="0.85"
+     stroke-width="1.19601"
+     id="line968-8-9"
+     style="fill:#ffd5d5;stroke:#da81d4;stroke-opacity:1" />
+  <line
+     x1="293.25278"
+     y1="432.98346"
+     x2="293.30606"
+     y2="421.15204"
+     stroke="#ff6363"
+     stroke-opacity="0.85"
+     stroke-width="1.21612"
+     id="line970-8-7"
+     style="fill:#ffd5d5;stroke:#da81d4;stroke-opacity:1" />
+  <line
+     x1="305.14273"
+     y1="434.0275"
+     x2="292.09265"
+     y2="433.96872"
+     stroke="#ff6363"
+     stroke-opacity="0.85"
+     stroke-width="0.856781"
+     stroke-dasharray="4, 3"
+     id="line972-4-7"
+     style="fill:#ffd5d5;stroke:#da81d4;stroke-opacity:1" />
+  <line
+     x1="422.1676"
+     y1="434.7886"
+     x2="422.21915"
+     y2="423.34528"
+     stroke="#ff6363"
+     stroke-opacity="0.85"
+     stroke-width="1.19601"
+     id="line968-8-9-4"
+     style="fill:#ffd5d5;stroke:#da81d4;stroke-opacity:1" />
+  <line
+     x1="410.49591"
+     y1="434.67328"
+     x2="410.54919"
+     y2="422.84186"
+     stroke="#ff6363"
+     stroke-opacity="0.85"
+     stroke-width="1.21612"
+     id="line970-8-7-8"
+     style="fill:#ffd5d5;stroke:#da81d4;stroke-opacity:1" />
+  <line
+     x1="422.38586"
+     y1="435.71732"
+     x2="409.33578"
+     y2="435.65854"
+     stroke="#ff6363"
+     stroke-opacity="0.85"
+     stroke-width="0.856781"
+     stroke-dasharray="4, 3"
+     id="line972-4-7-1"
+     style="fill:#ffd5d5;stroke:#da81d4;stroke-opacity:1" />
+  <text
+     x="357.17685"
+     y="333.83768"
+     font-size="11px"
+     fill="#da81d4"
+     text-anchor="middle"
+     id="text984-9-3"
+     inkscape:highlight-color="#f14c22"
+     style="fill:#ff6363;fill-opacity:0.85098"><tspan
+       style="fill:#ff6363;fill-opacity:0.85098"
+       id="tspan1949-1">gaps ≥ dt → uncorrelated</tspan></text>
+  <line
+     x1="411.19797"
+     y1="338.98395"
+     x2="411.19797"
+     y2="350.4274"
+     stroke="#ff6363"
+     stroke-opacity="0.85"
+     stroke-width="1.19601"
+     id="line968-8-4" />
+  <line
+     x1="422.87006"
+     y1="339.04672"
+     x2="422.87006"
+     y2="350.87827"
+     stroke="#ff6363"
+     stroke-opacity="0.85"
+     stroke-width="1.21612"
+     id="line970-8-9" />
+  <line
+     x1="410.97552"
+     y1="338.05624"
+     x2="424.02573"
+     y2="338.05624"
+     stroke="#ff6363"
+     stroke-opacity="0.85"
+     stroke-width="0.856781"
+     stroke-dasharray="4, 3"
+     id="line972-4-2" />
+  <text
+     xml:space="preserve"
+     id="text1312"
+     style="white-space:pre;shape-inside:url(#rect1314);display:inline;fill:#000000" />
+  <line
+     x1="283.79932"
+     y1="297.05914"
+     x2="283.79932"
+     y2="309.49219"
+     stroke="#bd38b4"
+     stroke-width="0.980995"
+     id="line978-0-0-9"
+     style="fill:#1898c1;fill-opacity:0.368627;stroke:#1898c1;stroke-width:1.24665;stroke-dasharray:1.24665, 1.24665;stroke-dashoffset:0;stroke-opacity:0.368627" />
+  <line
+     x1="284.67059"
+     y1="302.66748"
+     x2="306.32745"
+     y2="302.66748"
+     stroke="#bd38b4"
+     stroke-width="1.30631"
+     id="line982-2-3-0"
+     style="fill:#0000ff;fill-opacity:1;stroke:#1898c1;stroke-width:1.10346;stroke-dasharray:1.10346, 1.10346;stroke-dashoffset:0;stroke-opacity:0.368627" />
+  <text
+     xml:space="preserve"
+     style="font-size:11.1057px;fill:#1898c0;fill-opacity:0.698039;stroke-width:0.907888;stroke-dasharray:0.911742, 0.911742;stroke-dashoffset:0"
+     x="245.04773"
+     y="318.76517"
+     id="text4078-75-4"
+     transform="scale(1.0411237,0.96050065)"><tspan
+       sodipodi:role="line"
+       id="tspan4076-92-8"
+       x="245.04773"
+       y="318.76517"
+       style="font-weight:bold;fill:#1898c0;fill-opacity:0.698039;stroke-width:0.907888">dt/2</tspan></text>
+  <line
+     x1="403.14496"
+     y1="255.03955"
+     x2="403.14496"
+     y2="267.4726"
+     stroke="#bd38b4"
+     stroke-width="0.980995"
+     id="line978-0-0-9-1"
+     style="fill:#f04b21;fill-opacity:0.4;stroke:#f04b21;stroke-width:1.24665;stroke-dasharray:1.24665, 1.24665;stroke-dashoffset:0;stroke-opacity:0.4" />
+  <line
+     x1="404.01624"
+     y1="260.64789"
+     x2="425.6731"
+     y2="260.64789"
+     stroke="#bd38b4"
+     stroke-width="1.30631"
+     id="line982-2-3-0-0"
+     style="fill:#f04b21;fill-opacity:0.4;stroke:#f04b21;stroke-width:1.10346;stroke-dasharray:1.10346, 1.10346;stroke-dashoffset:0;stroke-opacity:0.4" />
+  <line
+     x1="317.64899"
+     y1="255.2861"
+     x2="317.64899"
+     y2="267.71915"
+     stroke="#bd38b4"
+     stroke-width="0.980995"
+     id="line978-0-0-9-1-5"
+     style="fill:#f04b21;fill-opacity:0.4;stroke:#f04b21;stroke-width:1.24665;stroke-dasharray:1.24665, 1.24665;stroke-dashoffset:0;stroke-opacity:0.4" />
+  <line
+     x1="295.41956"
+     y1="260.84018"
+     x2="317.07642"
+     y2="260.84018"
+     stroke="#bd38b4"
+     stroke-width="1.30631"
+     id="line982-2-3-0-0-9"
+     style="fill:#f04b21;fill-opacity:0.4;stroke:#f04b21;stroke-width:1.10346;stroke-dasharray:1.10346, 1.10346;stroke-dashoffset:0;stroke-opacity:0.4" />
+  <text
+     xml:space="preserve"
+     style="font-size:11.1057px;fill:#f14c22;fill-opacity:1;stroke-width:0.907888;stroke-dasharray:0.911742, 0.911742;stroke-dashoffset:0"
+     x="361.51669"
+     y="275.1329"
+     id="text4078-75-4-6"
+     transform="scale(1.0411237,0.96050065)"><tspan
+       sodipodi:role="line"
+       id="tspan4076-92-8-1"
+       x="361.51669"
+       y="275.1329"
+       style="font-weight:bold;fill:#f14c22;fill-opacity:1;stroke-width:0.907888">dt/2</tspan></text>
+  <line
+     x1="162.29877"
+     y1="254.74533"
+     x2="162.29877"
+     y2="267.17838"
+     stroke="#bd38b4"
+     stroke-width="0.980995"
+     id="line978-0-0-9-1-7"
+     style="fill:#f04b21;fill-opacity:0.4;stroke:#f04b21;stroke-width:1.24665;stroke-dasharray:1.24665, 1.24665;stroke-dashoffset:0;stroke-opacity:0.4" />
+  <line
+     x1="163.17004"
+     y1="260.35367"
+     x2="184.8269"
+     y2="260.35367"
+     stroke="#bd38b4"
+     stroke-width="1.30631"
+     id="line982-2-3-0-0-1"
+     style="fill:#f04b21;fill-opacity:0.4;stroke:#f04b21;stroke-width:1.10346;stroke-dasharray:1.10346, 1.10346;stroke-dashoffset:0;stroke-opacity:0.4" />
+  <text
+     xml:space="preserve"
+     style="font-size:11.1057px;fill:#f14c22;fill-opacity:1;stroke-width:0.907888;stroke-dasharray:0.911742, 0.911742;stroke-dashoffset:0"
+     x="130.18375"
+     y="274.8266"
+     id="text4078-75-4-6-1"
+     transform="scale(1.0411237,0.96050065)"><tspan
+       sodipodi:role="line"
+       id="tspan4076-92-8-1-5"
+       x="130.18375"
+       y="274.8266"
+       style="font-weight:bold;fill:#f14c22;fill-opacity:1;stroke-width:0.907888">dt/2</tspan></text>
+  <text
+     xml:space="preserve"
+     style="font-size:11.1057px;fill:#f14c22;fill-opacity:1;stroke-width:0.907888;stroke-dasharray:0.911742, 0.911742;stroke-dashoffset:0"
+     x="307.51147"
+     y="275.34286"
+     id="text4078-75-4-6-4"
+     transform="scale(1.0411237,0.96050065)"><tspan
+       sodipodi:role="line"
+       id="tspan4076-92-8-1-9"
+       x="307.51147"
+       y="275.34286"
+       style="font-weight:bold;fill:#f14c22;fill-opacity:1;stroke-width:0.907888">dt/2</tspan></text>
+  <line
+     x1="588.07153"
+     y1="255.58951"
+     x2="588.07153"
+     y2="268.02255"
+     stroke="#bd38b4"
+     stroke-width="0.980995"
+     id="line978-0-0-9-1-5-0"
+     style="fill:#f04b21;fill-opacity:0.4;stroke:#f04b21;stroke-width:1.24665;stroke-dasharray:1.24665, 1.24665;stroke-dashoffset:0;stroke-opacity:0.4" />
+  <line
+     x1="565.8421"
+     y1="261.14359"
+     x2="587.49896"
+     y2="261.14359"
+     stroke="#bd38b4"
+     stroke-width="1.30631"
+     id="line982-2-3-0-0-9-9"
+     style="fill:#f04b21;fill-opacity:0.4;stroke:#f04b21;stroke-width:1.10346;stroke-dasharray:1.10346, 1.10346;stroke-dashoffset:0;stroke-opacity:0.4" />
+  <text
+     xml:space="preserve"
+     style="font-size:11.1057px;fill:#f14c22;fill-opacity:1;stroke-width:0.907888;stroke-dasharray:0.911742, 0.911742;stroke-dashoffset:0"
+     x="567.2525"
+     y="275.65878"
+     id="text4078-75-4-6-4-1"
+     transform="scale(1.0411237,0.96050065)"><tspan
+       sodipodi:role="line"
+       id="tspan4076-92-8-1-9-7"
+       x="567.2525"
+       y="275.65878"
+       style="font-weight:bold;fill:#f14c22;fill-opacity:1;stroke-width:0.907888">dt/2</tspan></text>
+  <line
+     x1="435.93747"
+     y1="296.39365"
+     x2="435.93747"
+     y2="308.82669"
+     stroke="#bd38b4"
+     stroke-width="0.980995"
+     id="line978-0-0-9-7"
+     style="fill:#1898c1;fill-opacity:0.368627;stroke:#1898c1;stroke-width:1.24665;stroke-dasharray:1.24665, 1.24665;stroke-dashoffset:0;stroke-opacity:0.368627" />
+  <line
+     x1="413.79602"
+     y1="302.14789"
+     x2="435.45288"
+     y2="302.14789"
+     stroke="#bd38b4"
+     stroke-width="1.30631"
+     id="line982-2-3-0-2"
+     style="fill:#0000ff;fill-opacity:1;stroke:#1898c1;stroke-width:1.10346;stroke-dasharray:1.10346, 1.10346;stroke-dashoffset:0;stroke-opacity:0.368627" />
+  <text
+     xml:space="preserve"
+     style="font-size:11.1057px;fill:#1898c0;fill-opacity:0.698039;stroke-width:0.907888;stroke-dasharray:0.911742, 0.911742;stroke-dashoffset:0"
+     x="420.73407"
+     y="318.38379"
+     id="text4078-75-4-2"
+     transform="scale(1.0411237,0.96050065)"><tspan
+       sodipodi:role="line"
+       id="tspan4076-92-8-6"
+       x="420.73407"
+       y="318.38379"
+       style="font-weight:bold;fill:#1898c0;fill-opacity:0.698039;stroke-width:0.907888">dt/2</tspan></text>
+  <metadata
+     id="metadata5717">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:title>intersect() returns one cluster for every window where all topics are simultaneously true; tuning intersect_dt_ns lets near-miss windows across topics count as correlated too.</dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <text
+     xml:space="preserve"
+     id="text11462"
+     style="white-space:pre;shape-inside:url(#rect11464);display:inline;fill:#1898c0;fill-opacity:0.698039;stroke:#1698c1;stroke-width:1.306;stroke-dasharray:1.306, 1.306;stroke-dashoffset:0;stroke-opacity:0.368627" />
+</svg>
