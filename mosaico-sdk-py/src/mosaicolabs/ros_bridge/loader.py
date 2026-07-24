@@ -53,7 +53,7 @@ class TopicStatus(Enum):
     Attributes:
         ACCEPTED: Enum specifying the Topic has been accepted.
         FILTERED: Enum specifying the Topic has been rejected since user provided a filter that excludes the topic.
-        NOT_ADAPTED: Enum specifying the Topic has been rejected since it has no Mosaico adapter.
+        UNRESOLVED_ADAPTED: Enum specifying the Topic has been rejected since it has no Mosaico adapter.
         NOT_IN_TYPESTORE: Enum specifying the Topic has been rejected since it is not present in ROS typestore.
         MALFORMED_METADATA: Enum specifying the Topic has been rejected since its ``_ros_`` metadata is malformed.
     """
@@ -64,8 +64,8 @@ class TopicStatus(Enum):
     FILTERED = "Filtered"
     """ Status indicating topic has been rejected by user specified filter """
 
-    NOT_ADAPTED = "Not adapted"
-    """ Status indicating the Topic has been rejected since it has no Mosaico adapter """
+    UNRESOLVED_ADAPTED = "Unresolved adapted"
+    """ Status indicating the Topic has been rejected since no Mosaico adapter could be resolved """
 
     NOT_IN_TYPESTORE = "Not in typestore"
     """ Status indicating the Topic has been rejected since it is not present in ROS typestore """
@@ -78,7 +78,7 @@ class TopicStatus(Enum):
         _colors = {
             TopicStatus.ACCEPTED: "bright_green",
             TopicStatus.FILTERED: "bright_yellow",
-            TopicStatus.NOT_ADAPTED: "dark_orange",
+            TopicStatus.UNRESOLVED_ADAPTED: "dark_orange",
             TopicStatus.NOT_IN_TYPESTORE: "orange1",
             TopicStatus.MALFORMED_METADATA: "red1",
         }
@@ -156,7 +156,7 @@ class ProgressManager:
 
     Methods:
         setup(): Initializes the progress tracking tasks by querying message counts from the loader.
-        update_status(topic, status, style): Modifies the label of a specific topic bar (e.g., to show "No Adapter").
+        update_status(topic, status, style): Modifies the label of a specific topic bar.
         advance_global(): Increments the master progress bar without affecting individual topic bars.
         advance_all(topic): Increments both the specific topic task and the global master task.
     """
@@ -215,7 +215,7 @@ class ProgressManager:
     def update_status(self, topic: str, status: str, style: str = "white"):
         """
         Updates the text description of a specific topic's progress bar.
-        Useful for indicating errors or skipped topics (e.g. "[red]No Adapter").
+        Useful for indicating errors or skipped topics (e.g. "[red]Unresolved Adapter").
 
         Args:
             topic: The topic name.
@@ -324,9 +324,9 @@ class ROSLoader:
             str, TopicInfo
         ] = {}  # The actual topics matched after globbing
 
-        self._not_adapted_topics: Dict[
+        self._unresolved_adapter_topics: Dict[
             str, TopicInfo
-        ] = {}  # The topics which message type is not adapted in mosaico
+        ] = {}  # The topics whose ontology type is not resolved (neither adapted nor message defition available)
 
         self._filtered_topics: Dict[
             str, TopicInfo
@@ -385,7 +385,7 @@ class ROSLoader:
             )
             self._reader.open()
 
-            # Overriden local typestore since AnyReader one contains the union messages withing user defined ROS version + any message defined within the bag file 
+            # Overriden local typestore since AnyReader one contains the union messages withing user defined ROS version + any message defined within the bag file
             self._typestore = self._reader.typestore
         except Exception as e:
             raise IOError(f"Could not open bag file: '{e}'") from e
@@ -420,9 +420,9 @@ class ROSLoader:
                 self._accepted_topics.update({conn.topic: topic_info})
             else:
                 logger.warning(
-                    f"Topic {conn.topic}: not-adapted msgtype {topic_info.msgtype}."
+                    f"Topic {conn.topic}: unresolved Adapted for msgtype {topic_info.msgtype}. Did you forget to register it?"
                 )
-                self._not_adapted_topics.update({conn.topic: topic_info})
+                self._unresolved_adapter_topics.update({conn.topic: topic_info})
                 continue
 
             # Adapter found, add it the the cache and add connection
@@ -442,8 +442,8 @@ class ROSLoader:
         Resolves the Mosaico adapter for a topic, creating an ad-hoc one if none exists.
 
         This is what lets :class:`ROSLoader` accept **any** ROS message type, even
-        proprietary ones without a hand-written adapter, instead of rejecting them as
-        ``NOT_ADAPTED``. It proceeds in three steps:
+        proprietary ones without a hand-written adapter, instead of rejecting them.
+        It proceeds in three steps:
 
         1. **Bail out early**: if the topic has no ``msgtype`` at all (empty connection
            metadata), no adapter can be resolved, so ``None`` is returned immediately.
@@ -494,7 +494,7 @@ class ROSLoader:
 
         if not pyarrow_schema:
             logger.warning(
-                f"Topic {topic_info.msgtype} does not contain any schema and cannot be turned as an Unmodeled"
+                f"Topic {topic_info.msgtype} does not contain any message definition and cannot be turned as an Unmodeled"
             )
             return None
 
@@ -525,7 +525,7 @@ class ROSLoader:
         Returns the total number of messages to be processed based on active filters.
 
         Args:
-            topic: If provided, returns the count for that specific topic, even if filtered or not adapted.
+            topic: If provided, returns the count for that specific topic, even if filtered or unresolved adapted.
                 If None, returns the aggregate count for all accepted topics.
 
         Returns:
@@ -603,7 +603,7 @@ class ROSLoader:
         return list(self._resolved_topics.keys())
 
     @property
-    def not_adapted_topics(self) -> List[str]:
+    def unresolved_adapted_topics(self) -> List[str]:
         """
         Retrieves the list of topic names that are **skipped** due to unavailable Mosaico adapter.
 
@@ -611,15 +611,17 @@ class ROSLoader:
             ```python
             with ROSLoader(file_path="data.mcap") as loader:
                 # If the bag contains /sensors/imu and /sensors/custom_gps and the user
-                # did not provide an adapter for /sensors/custom_gps this property returns ['/sensors/custom_gps']
-                print(f"Unavailable adapter for topics: {loader.not_adapted_topics}")
+                # did not provide an adapter for /sensors/custom_gps or the bag file
+                # does not contain their message definition this property
+                # returns ['/sensors/custom_gps']
+                print(f"Unresolved adapter for topics: {loader.unresolved_adapted_topics}")
             ```
 
         Returns:
-            List[str]: A list of topic with no adapter to translate them into Mosaico Ontology.
+            List[str]: A list of topic with unresolved adapter to translate them into Mosaico Ontology.
         """
         self._resolve_connections()
-        return list(self._not_adapted_topics.keys())
+        return list(self._unresolved_adapter_topics.keys())
 
     @property
     def filtered_topics(self) -> List[str]:
@@ -673,9 +675,11 @@ class ROSLoader:
         for t_filtered in self.filtered_topics:
             rejected_topics.append((t_filtered, TopicStatus.FILTERED))
 
-        # Adapter not found
-        for t_not_adapter in self._not_adapted_topics:
-            rejected_topics.append((t_not_adapter, TopicStatus.NOT_ADAPTED))
+        # Adapter unresolved
+        for t_unresolved_adapter in self._unresolved_adapter_topics:
+            rejected_topics.append(
+                (t_unresolved_adapter, TopicStatus.UNRESOLVED_ADAPTED)
+            )
 
         return rejected_topics
 
@@ -831,9 +835,9 @@ class MosaicoLoader:
             str
         ] = []  # The actual topics matched after globbing
 
-        self._not_adapted_topics: list[
+        self._unresolved_adapted_topics: list[
             str
-        ] = []  # The topics whose ontology type is not adapted in mosaico
+        ] = []  # The topics whose ontology type is not resolved (neither adapted nor message defition available)
 
         self._unregistered_topics: list[
             str
@@ -925,7 +929,9 @@ class MosaicoLoader:
                 ontology_tag=t_handler.ontology_tag,
                 schema=t_handler._arrow_schema,
                 # FIXME: how to pass this? Via Config?
-                serialization_format=SerializationFormat[t_handler.serialization_format.capitalize()],
+                serialization_format=SerializationFormat(
+                    t_handler.serialization_format
+                ),
             )
 
             # Get the unmodeled adapter or create a new one
@@ -1020,13 +1026,16 @@ class MosaicoLoader:
                 adapter, rosmsg_type = self._get_or_create_adapter(t_handler)
             except TypeError:
                 self._malformed_metadata_topics.append(t_name)
+                logger.warning(
+                    f"Skipping topic {t_name}: malformed metadata {t_handler.user_metadata}."
+                )
                 continue
 
             if not adapter:
                 logger.warning(
                     f"Skipping topic {t_name}: not-adapted ontology {t_handler.ontology_tag}."
                 )
-                self._not_adapted_topics.append(t_name)
+                self._unresolved_adapted_topics.append(t_name)
                 continue
 
             # 3) check that rosmsg_type (either from metadata or default adapter) is present within typestore
@@ -1147,15 +1156,15 @@ class MosaicoLoader:
         return self._resolved_topics
 
     @property
-    def not_adapted_topics(self) -> List[str]:
+    def unresolved_adapted_topics(self) -> List[str]:
         """
-        Retrieves the list of topic names that are **skipped** due to unavailable Mosaico adapter.
+        Retrieves the list of topic names that are **skipped** due to unresolved Mosaico adapter.
 
         Returns:
-            List[str]: A list of topic with no adapter to translate them into ROS messages.
+            List[str]: A list of topic with unresolved adapter to translate them into ROS messages.
         """
         self._resolve_sequence()
-        return self._not_adapted_topics
+        return self._unresolved_adapted_topics
 
     @property
     def filtered_topics(self) -> List[str]:
@@ -1202,8 +1211,10 @@ class MosaicoLoader:
             rejected_topics.append((t_filtered, TopicStatus.FILTERED))
 
         # Adapter not found
-        for t_not_adapter in self._not_adapted_topics:
-            rejected_topics.append((t_not_adapter, TopicStatus.NOT_ADAPTED))
+        for t_unresolved_adapter in self._unresolved_adapted_topics:
+            rejected_topics.append(
+                (t_unresolved_adapter, TopicStatus.UNRESOLVED_ADAPTED)
+            )
 
         # Not found in typestore
         for t_unregistered in self._unregistered_topics:
