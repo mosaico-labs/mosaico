@@ -160,12 +160,10 @@ class ROSMessage:
         msg_type: str,
         data: Optional[Dict[str, Any]],
         const_data: Optional[Dict[str, Any]] = None,
-        msg_def: Optional[str] = None,
     ):
         self.bag_timestamp_ns = bag_timestamp_ns
         self.topic = topic
         self.msg_type = msg_type
-        self.msg_def = msg_def
         self.data_field = data
         self.const_data = const_data or {}
         if data:
@@ -187,7 +185,5 @@ class ROSMessage:
     """The message payload, converted into a standard nested Python dictionary."""
     const_data: Dict[str, Any]
     """The message's top-level constants, keyed by their `UPPER_CASE` name."""
-    msg_def: Optional[str]
-    """ The ROS message definition as string """
     header: Optional[ROSHeader] = None
     """The message payload header"""

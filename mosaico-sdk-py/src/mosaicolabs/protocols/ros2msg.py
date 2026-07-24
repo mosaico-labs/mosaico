@@ -54,7 +54,7 @@ def _typesdict_to_schema(types_dict: Typesdict, msgtype: str) -> pa.StructType:
             ``Basetype`` or list/sequence shape.
     """
     # Extract msgtype from Typesdict since we need to create the pyarrow struct of that particular part
-    const_def, fields_def = types_dict[msgtype]
+    _, fields_def = types_dict[msgtype]
     pyarrow_fields: list[pa.field] = []
 
     for field_name, field_desc in fields_def:
@@ -65,7 +65,7 @@ def _typesdict_to_schema(types_dict: Typesdict, msgtype: str) -> pa.StructType:
         node_type, content = field_desc
 
         if node_type is Nodetype.BASE:
-            ros_type, default_value = content
+            ros_type, _ = content
 
             ros_type = cast(Basename, ros_type)  # just for typechecker
 
@@ -91,7 +91,7 @@ def _typesdict_to_schema(types_dict: Typesdict, msgtype: str) -> pa.StructType:
             item_node_type, item_content = list_content
 
             if item_node_type is Nodetype.BASE:  # simple type
-                ros_type, default_value = item_content
+                ros_type, _ = item_content
                 list_field = _ROS_2_PYARROW_TYPE[ros_type]
 
             elif item_node_type is Nodetype.NAME and isinstance(

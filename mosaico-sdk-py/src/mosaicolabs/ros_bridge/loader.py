@@ -384,6 +384,9 @@ class ROSLoader:
                 [self._file_path], default_typestore=self._typestore
             )
             self._reader.open()
+
+            # Overriden local typestore since AnyReader one contains the union messages withing user defined ROS version + any message defined within the bag file 
+            self._typestore = self._reader.typestore
         except Exception as e:
             raise IOError(f"Could not open bag file: '{e}'") from e
 
@@ -410,7 +413,7 @@ class ROSLoader:
                 self._filtered_topics.update({conn.topic: filtered_topic_info})
                 continue
 
-            # 2) Filter topics without a Mosaico-adapted
+            # 2) Filter topics that cannot resolve neither a registered Mosaico-adapter nor an Unmodeled one because no PyArrow schema can be derived
             adapter = self._get_or_create_adapter(topic_info)
 
             if adapter:
@@ -484,14 +487,20 @@ class ROSLoader:
         if adapter:
             return adapter
 
-        logger.warning(
-            f"Topic {topic_info.msgtype} adapter cannot be found, therefore an UnmodeledAdapter will be created."
-        )
-
         # If adapter does not exist, create a new one through pyarrow schema deduced from msgdef
         msgtype: str = topic_info.msgtype
         msgdef: str = topic_info.msgdef.data
         pyarrow_schema = convert_ros2msg(msgdef, msgtype)
+
+        if not pyarrow_schema:
+            logger.warning(
+                f"Topic {topic_info.msgtype} does not contain any schema and cannot be turned as an Unmodeled"
+            )
+            return None
+
+        logger.info(
+            f"Topic {topic_info.msgtype} adapter cannot be found, therefore an UnmodeledAdapter will be created."
+        )
 
         # Create the ontology
         unmodeled_ontology = resolve_ontology_class(
@@ -727,7 +736,6 @@ class ROSLoader:
                         bag_timestamp_ns=bag_timestamp_ns,
                         topic=connection.topic,
                         msg_type=connection.msgtype,
-                        msg_def=connection.msgdef.data,
                         data=field_data,
                         const_data=const_data,
                     ),
@@ -741,7 +749,6 @@ class ROSLoader:
                         bag_timestamp_ns=bag_timestamp_ns,
                         topic=connection.topic,
                         msg_type=connection.msgtype,
-                        msg_def=connection.msgdef.data,
                         data=None,
                     ),
                     e,
@@ -918,7 +925,7 @@ class MosaicoLoader:
                 ontology_tag=t_handler.ontology_tag,
                 schema=t_handler._arrow_schema,
                 # FIXME: how to pass this? Via Config?
-                serialization_format=SerializationFormat.Default,
+                serialization_format=SerializationFormat[t_handler.serialization_format.capitalize()],
             )
 
             # Get the unmodeled adapter or create a new one

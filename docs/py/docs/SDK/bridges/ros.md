@@ -154,7 +154,7 @@ class MyCustomAdapter(ROSAdapterBase[MyCustomData]):
 
 #### Extending the Bridge (Unmodeled Adapters)
 
-Not every ROS message type needs a hand-written adapter before it can be ingested. When the bridge encounters a topic whose message type has no registered adapter — a proprietary or custom `.msg`/`.idl` definition, for instance — it doesn't reject the topic. Instead, it synthesizes an **[`UnmodeledAdapter`][mosaicolabs.ros_bridge.adapters.UnmodeledAdapter]** for it at runtime, transparently and with no user intervention required, capable of translating that type in both directions: ROS bag to Mosaico, and back again from Mosaico to ROS.
+Not every ROS message type needs a hand-written adapter before it can be ingested. When the bridge encounters a topic whose message type has no registered adapter — a proprietary or custom `.msg`/`.idl` definition, for instance — it doesn't reject the topic. Instead, it synthesizes an **[`UnmodeledAdapter`][mosaicolabs.ros_bridge.adapters.unmodeled.UnmodeledAdapter]** for it at runtime, transparently and with no user intervention required, capable of translating that type in both directions: ROS bag to Mosaico, and back again from Mosaico to ROS.
 
 This is possible because ROS bag files carry the schema of every message type alongside the raw data. The bridge converts that schema into an equivalent PyArrow schema and wraps it into a dynamically-generated [`Unmodeled`][mosaicolabs.models.core.unmodeled.Unmodeled] ontology class via [`resolve_ontology_class`][mosaicolabs.models.core.helpers.resolve_ontology_class] — the same mechanism the Mosaico ontology system uses for any schema that isn't backed by a hand-authored Python class.
 

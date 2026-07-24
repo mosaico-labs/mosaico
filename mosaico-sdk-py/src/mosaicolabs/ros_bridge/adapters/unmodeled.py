@@ -77,7 +77,7 @@ def pack_unmodeled(
                 )
 
             # Check whether contained type is a basetype or a nested one
-            list_content, list_size = content
+            list_content, _ = content
             item_node_type, item_content = list_content
 
             item_node_type = cast(Nodetype, item_node_type)  # just for typechecker
@@ -89,7 +89,7 @@ def pack_unmodeled(
                 # Check that all elements of raw_data[field_name] are dict
                 if any(not isinstance(x, dict) for x in raw_data[field_name]):
                     raise TypeError(
-                        f"Expected {list.__name__} type within raw_data but got {type(raw_data[field_name]).__name__}"
+                        f"{field_name} is expected to be a {list.__name__} of {dict.__name__} but at least one {list.__name__}'s element is not a {dict.__name__}"
                     )
 
                 inner_msgtype = item_content
@@ -170,14 +170,14 @@ class UnmodeledAdapter(ROSAdapterBase[T], Generic[T]):
             )
 
         # Checking presence in typestore of requested message
-        if typestore.types.get(resolved_rosmsg_type) is None:
+        RosUnmodeled = typestore.types.get(resolved_rosmsg_type)
+        if RosUnmodeled is None:
             raise TypeError(f"Typestore does not contain {resolved_rosmsg_type}")
 
         # Unpacking Mosaico message / type
         unmodeled_data, _ = cls.unpack_mosaico_msg(mosaico_data)
 
         # Filling the data
-        RosUnmodeled = typestore.types[resolved_rosmsg_type]
         rosbag_msgdef = typestore.get_msgdef(resolved_rosmsg_type)
 
         return RosUnmodeled(

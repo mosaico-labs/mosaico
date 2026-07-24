@@ -265,9 +265,9 @@ class ROSAdapterBase(ABC, Generic[T]):
         if msg_def:
             enum_list, _ = msg_def
             out_dict["enums"] = {name: val for name, _, val in enum_list}
+            out_dict["msgdef"] = msg_def
 
         out_dict["msgtype"] = ros_msg_type
-        out_dict["msgdef"] = kwargs.get("ros_msg_def")
 
         ms_metadata = {"_ros_": out_dict}
 
