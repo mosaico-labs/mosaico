@@ -14,6 +14,7 @@ rust-version = "1.92"
 [workspace.dependencies]
 # Internal crates
 mosaicod-build = { path = "crates/mosaicod-build" }
+mosaicod-commands = { path = "crates/mosaicod-commands" }
 mosaicod-core = { path = "crates/mosaicod-core" }
 mosaicod-db = { path = "crates/mosaicod-db" }
 mosaicod-facade = { path = "crates/mosaicod-facade" }

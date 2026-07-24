@@ -135,15 +135,17 @@ impl ServerBuilder {
         let shutdown = grpc_common::ShutdownNotifier::default();
         let db = self.db;
 
-        let cleanup_time_interval = self.cleanup_config.as_ref().map_or(
-            task::cleanup::Duration::seconds(params::params().cleanup_time_interval.value),
-            |c| c.time_interval,
-        );
+        let cleanup_time_interval = self
+            .cleanup_config
+            .as_ref()
+            .map_or(task::cleanup::Duration::seconds(86400), |c| c.time_interval);
 
-        let cleanup_retention_duration = self.cleanup_config.as_ref().map_or(
-            task::cleanup::Duration::seconds(params::params().cleanup_retention_duration.value),
-            |c| c.retention_duration,
-        );
+        let cleanup_retention_duration = self
+            .cleanup_config
+            .as_ref()
+            .map_or(task::cleanup::Duration::seconds(86400), |c| {
+                c.retention_duration
+            });
 
         // Start cleanup background task.
         let cleanup_task_handle = tokio::task::spawn({

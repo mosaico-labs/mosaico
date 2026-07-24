@@ -230,7 +230,7 @@ run_full_stack_tests() {
 
     # Start mosaicod
     title "mosaicod startup" "." "${BLUE}"
-    ./target/debug/mosaicod run --port 6276 ${MOSAICOD_OPTS} > "${MOSAICOD_OUTPUT}" 2>&1 &
+    ./target/debug/mosaicod server --port 6276 ${MOSAICOD_OPTS} > "${MOSAICOD_OUTPUT}" 2>&1 &
     MOSAICOD_PID=$!
     echo "Starting mosaicod as background service (pid ${MOSAICOD_PID})"
     echo "mosaicod logs can be found in ${DIM}${MOSAICOD_OUTPUT}${RESET}"

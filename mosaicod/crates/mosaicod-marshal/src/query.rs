@@ -94,6 +94,8 @@ enum Op {
     In(Vec<Value>),
     #[serde(rename = "$match")]
     Match(Value),
+    #[serde(rename = "$outside")]
+    Outside([Value; 2]),
 }
 
 impl TryInto<query::Op<query::Text>> for Op {
@@ -108,6 +110,7 @@ impl TryInto<query::Op<query::Text>> for Op {
             Op::Lt(_) => return Err(query::OpError::UnsupportedOperation),
             Op::Gt(_) => return Err(query::OpError::UnsupportedOperation),
             Op::Between(_) => return Err(query::OpError::UnsupportedOperation),
+            Op::Outside(_) => return Err(query::OpError::UnsupportedOperation),
             Op::Ex => query::Op::Ex,
             Op::Nex => query::Op::Nex,
             Op::In(vec) => query::Op::In(
@@ -135,6 +138,9 @@ impl TryInto<query::Op<query::Timestamp>> for Op {
             Op::Between([min, max]) => {
                 query::Op::Between(query::Range::try_new(min.try_into()?, max.try_into()?)?)
             }
+            Op::Outside([min, max]) => {
+                query::Op::Outside(query::Range::try_new(min.try_into()?, max.try_into()?)?)
+            }
             Op::In(vec) => query::Op::In(
                 vec.into_iter()
                     .map(|v| v.try_into())
@@ -159,6 +165,9 @@ impl TryInto<query::Op<query::Value>> for Op {
             Op::Nex => query::Op::Nex,
             Op::Between([min, max]) => {
                 query::Op::Between(query::Range::try_new(min.into(), max.into())?)
+            }
+            Op::Outside([min, max]) => {
+                query::Op::Outside(query::Range::try_new(min.into(), max.into())?)
             }
             Op::In(vec) => query::Op::In(vec.into_iter().map(Into::into).collect()),
             Op::Match(v) => query::Op::Match(v.into()),
