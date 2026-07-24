@@ -4,12 +4,22 @@ sidebar_position: 8
 description: "How mosaicod's topic_filter_clusterize and topic_filter_intersect actions turn ontology filters into temporal windows. Covers the time-gap clustering rule, the cross-topic overlap rule, the request schemas, and the streamed JSONL responses."
 ---
 
-The [`query`](query.md) action answers *which* topics contain data matching a filter. The **filtering** actions answer the complementary, temporal question, *when* does matching data occur, and return time windows:
+The [`query`](query.md) action answers *which* sequences and topics contain data matching a filter. It does not tell you *when*, inside a matching topic, the matching data actually occurs. The **filtering** actions answer that complementary, temporal question, and return time windows instead of topic identities:
 
 - [`topic_filter_clusterize`](#clustering) groups a **single** topic's matching timestamps into temporal clusters.
 - [`topic_filter_intersect`](#intersection) clusters **several** topics of the same sequence and streams the windows where all of them match at once.
 
 Both actions require the `read` [permission](api_key.md).
+
+## Why filtering
+
+Once `query` has narrowed the search down to a topic of interest, the natural follow-up question is: *at which points in time does the topic actually satisfy the filter?* A topic can span an entire recording, but the events matching an ontology filter, say, an IMU spike or a GPS speed threshold, are usually confined to a handful of short intervals within it. `topic_filter_clusterize` answers this for a single topic: it returns the exact `[start_ns, end_ns]` windows in which matching events occur.
+
+Because sensor data is sampled, not continuous, "the interval in which an event occurs" is not a single well-defined thing. A given event might produce many matching samples in a row, sometimes with small gaps caused by sampling frequency, jitter, or noise. Grouping every isolated match into its own window would fragment a single physical event into dozens of tiny clusters. This is why `clusterize` takes a `clustering_dt_ns` parameter: it lets the caller decide how large a gap between two consecutive matches is still considered "the same event," and therefore how the underlying samples should be aggregated into clusters. Different topics and different sampling rates call for different thresholds, so this is left to the user rather than hard-coded.
+
+A related but distinct question is: *when do several different events, on different topics, happen at the same time?* For example, when is the vehicle both accelerating hard **and** exceeding a given speed? `topic_filter_intersect` answers this by clustering each topic independently and then streaming the windows where the per-topic clusters overlap. Because topics are generally asynchronous, sampled at different rates and not aligned on the same timestamps, clusters that represent "the same moment" across topics rarely share exact boundaries. `intersect_dt_ns` exists for the same reason as `clustering_dt_ns`: it lets the caller define how close two clusters need to be to be considered co-occurring, instead of requiring an exact, unrealistic timestamp match.
+
+Finally, `clusterize` and `intersect` are exposed as two separate actions rather than folded into `query` itself. Most queries only need to know *which* topics match, not *when* within them, so computing temporal windows on every query would be wasted work. Clustering can also be a comparatively expensive, data-scanning operation, so it is kept as an explicit, opt-in step that callers only pay for when they actually need temporal windows.
 
 ## Clustering
 
