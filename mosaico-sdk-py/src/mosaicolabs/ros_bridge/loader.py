@@ -255,6 +255,9 @@ class ROSLoader:
     * **Semantic Filtering**: Supports glob-style patterns (e.g., `/sensors/*`, `*camera_info`) to include relevant data channels,
         with `!`-prefixed patterns for exclusion (e.g., `!/sensors/debug*`). Patterns are evaluated in ORDER (gitignore-like semantics).
     * **Dynamic Schema Resolution**: Integrates with the [`ROSTypeRegistry`][mosaicolabs.ros_bridge.ROSTypeRegistry] to resolve proprietary message types on-the-fly.
+    * **Configurable Serialization**: Non-adapted message types can be assigned a specific
+        [`SerializationFormat`][mosaicolabs.enum.serialization_format.SerializationFormat] via `serialization_formats`,
+        overriding the `SerializationFormat.Default` used otherwise.
     * **Memory Efficient**: Implements a generator-based iteration pattern to process large bags without loading them into RAM.
 
     Attributes:
@@ -270,6 +273,7 @@ class ROSLoader:
         typestore_name: Stores = Stores.EMPTY,
         error_policy: LoaderErrorPolicy = LoaderErrorPolicy.LOG_WARN,
         custom_types: Optional[Dict[str, Union[str, Path]]] = None,
+        serialization_formats: Optional[Dict[str, SerializationFormat]] = None,
     ):
         """
         Initializes the loader and prepares the type registry.
@@ -281,6 +285,7 @@ class ROSLoader:
         Example:
             ```python
             from rosbags.typesys import Stores
+            from mosaicolabs.enum.serialization_format import SerializationFormat
             from mosaicolabs.ros_bridge import ROSLoader, LoaderErrorPolicy
 
             # Initialize to read only IMU and GPS data from an MCAP file
@@ -288,7 +293,12 @@ class ROSLoader:
                 file_path="mission_01.mcap",
                 topics=["/imu*", "/gps/fix"],
                 typestore_name=Stores.ROS2_HUMBLE,
-                error_policy=LoaderErrorPolicy.RAISE
+                error_policy=LoaderErrorPolicy.RAISE,
+                # Non-adapted (Unmodeled) messages of this type will be
+                # serialized as Ragged instead of the Default format
+                serialization_formats={
+                    "sensor_msgs/msg/CustomPointCloud2": SerializationFormat.Ragged,
+                },
             ) as loader:
                 for msg, exc in loader:
                     if not exc:
@@ -303,6 +313,11 @@ class ROSLoader:
                 See [`rosbags.typesys.Stores`](https://ternaris.gitlab.io/rosbags/topics/typesys.html#type-stores).
             error_policy: How to handle errors during message iteration.
             custom_types: Local overrides for message definitions (type_name: path/to/msg).
+            serialization_formats: Maps a ROS message type string (e.g. `sensor_msgs/msg/CustomPointCloud2`)
+                to the [`SerializationFormat`][mosaicolabs.enum.serialization_format.SerializationFormat]
+                used when synthesizing an [`Unmodeled`][mosaicolabs.models.core.unmodeled.Unmodeled]
+                ontology for that type. Only applies to topics that have **no** hand-written Mosaico
+                adapter. Message types not present in this mapping default to `SerializationFormat.Default`.
         """
 
         self._file_path = Path(file_path)
@@ -312,6 +327,9 @@ class ROSLoader:
         self._requested_topics = [topics] if isinstance(topics, str) else topics
         self._typestore = get_typestore(typestore_name)
         self._error_policy = error_policy
+        self._serialization_formats: Dict[str, SerializationFormat] = (
+            serialization_formats or {}
+        )
 
         # State
         self._reader: Optional[AnyReader] = None
@@ -434,9 +452,8 @@ class ROSLoader:
                 "Unable to initialize ROSLoader: No connections matched criteria. Try checking the topics filter, if any."
             )
 
-    @classmethod
     def _get_or_create_adapter(
-        cls, topic_info: TopicInfo
+        self, topic_info: TopicInfo
     ) -> Optional[type[ROSAdapterBase]]:
         """
         Resolves the Mosaico adapter for a topic, creating an ad-hoc one if none exists.
@@ -462,7 +479,10 @@ class ROSLoader:
                class is obtained/created for this schema via
                [`resolve_ontology_class`][mosaicolabs.models.core.helpers.resolve_ontology_class],
                tagged with an ontology tag derived from the ROS msgtype's last path
-               segment (e.g. `sensor_msgs/msg/Imu` -> `Imu`).
+               segment (e.g. `sensor_msgs/msg/Imu` -> `Imu`). The serialization format
+               used for this ontology is looked up in ``self._serialization_formats``
+               by ``msgtype``, falling back to ``SerializationFormat.Default`` when the
+               msgtype has no entry there.
             c. [`UnmodeledAdapter.get_or_create`][mosaicolabs.ros_bridge.adapters.UnmodeledAdapter.get_or_create]
                returns a cached adapter class for that ontology if one was already
                synthesized for an equivalent topic, or builds and registers a new one
@@ -502,12 +522,14 @@ class ROSLoader:
             f"Topic {topic_info.msgtype} adapter cannot be found, therefore an UnmodeledAdapter will be created."
         )
 
-        # Create the ontology
+        # Create the ontology, honoring any user-configured serialization format for this msgtype
+        serialization_format = self._serialization_formats.get(
+            msgtype, SerializationFormat.Default
+        )
         unmodeled_ontology = resolve_ontology_class(
             ontology_tag=_class_name_from_ros_msgtype(topic_info.msgtype),
             schema=pyarrow_schema,
-            # FIXME: how to pass this? Via Config?
-            serialization_format=SerializationFormat.Default,
+            serialization_format=serialization_format,
         )
 
         # Get the unmodeled adapter or create a new one

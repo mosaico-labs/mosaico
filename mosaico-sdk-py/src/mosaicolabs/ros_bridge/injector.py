@@ -34,6 +34,7 @@ from rosbags.typesys import Stores
 from mosaicolabs.comm.mosaico_client import MosaicoClient
 from mosaicolabs.enum import (
     SequenceStatus,
+    SerializationFormat,
     SessionLevelErrorPolicy,
     TopicLevelErrorPolicy,
     TopicWriterStatus,
@@ -86,6 +87,11 @@ class ROSInjectionConfig:
         adapter_overrides (Optional[Dict[str, Type[ROSAdapterBase]]]): Mapping of topics to adapter overrides,
             allowing the use of specific adapters instead of the default for designated topics.
             Deafult: None
+        serialization_formats (Optional[Dict[str, SerializationFormat]]): Mapping of ROS message type strings
+            (e.g. "sensor_msgs/msg/PointCloud2") to the `SerializationFormat` used when synthesizing an
+            `Unmodeled` ontology for topics that have no registered Mosaico adapter. Message types not
+            present in this mapping default to `SerializationFormat.Default`.
+            Default: None
         log_level (str): Logging verbosity level ("DEBUG", "INFO", "WARNING", "ERROR").
         mosaico_api_key (Optional[str]): The API key for authentication on the mosaico server.
             If provided it must be have the `write` permission.
@@ -185,6 +191,15 @@ class ROSInjectionConfig:
 
     adapter_overrides: Optional[Dict[str, Type[ROSAdapterBase]]] = None
     """A mapping of topics to adapter overrides, allowing the use of specific adapters instead of the default for designated topics."""
+
+    serialization_formats: Optional[Dict[str, SerializationFormat]] = None
+    """A mapping of ROS message type strings (e.g. "sensor_msgs/msg/PointCloud2") to the
+    [`SerializationFormat`][mosaicolabs.enum.SerializationFormat] used when synthesizing an
+    `Unmodeled` ontology for topics that have no registered Mosaico adapter.
+
+    Only applies to non-adapted (unmodeled) message types. Types not present in this mapping
+    default to `SerializationFormat.Default`.
+    """
 
     log_level: str = "INFO"
     """The Log Level"""
@@ -298,6 +313,7 @@ class RosbagInjector:
                 topics=self.cfg.topics,
                 typestore_name=self.cfg.ros_distro or Stores.EMPTY,
                 error_policy=LoaderErrorPolicy.IGNORE,
+                serialization_formats=self.cfg.serialization_formats,
             )
 
         return self._loader
