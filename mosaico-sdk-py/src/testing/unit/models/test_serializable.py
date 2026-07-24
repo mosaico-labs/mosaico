@@ -69,8 +69,11 @@ def test_schema_fingerprint_treats_string_view_as_string():
     view = pa.struct([pa.field("x", pa.string_view())])
     large = pa.struct([pa.field("x", pa.large_string())])
 
-    assert _compute_schema_fingerprint(classic) == _compute_schema_fingerprint(view)
-    assert _compute_schema_fingerprint(classic) == _compute_schema_fingerprint(large)
+    assert (
+        _compute_schema_fingerprint(classic)
+        == _compute_schema_fingerprint(view)
+        == _compute_schema_fingerprint(large)
+    )
 
 
 def test_schema_fingerprint_treats_binary_view_as_binary():
@@ -78,8 +81,11 @@ def test_schema_fingerprint_treats_binary_view_as_binary():
     view = pa.struct([pa.field("x", pa.binary_view())])
     large = pa.struct([pa.field("x", pa.large_binary())])
 
-    assert _compute_schema_fingerprint(classic) == _compute_schema_fingerprint(view)
-    assert _compute_schema_fingerprint(classic) == _compute_schema_fingerprint(large)
+    assert (
+        _compute_schema_fingerprint(classic)
+        == _compute_schema_fingerprint(view)
+        == _compute_schema_fingerprint(large)
+    )
 
 
 def test_schema_fingerprint_when_nested():

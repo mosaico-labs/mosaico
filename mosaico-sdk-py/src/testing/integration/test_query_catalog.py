@@ -1,5 +1,8 @@
-from mosaicolabs import Time
+import pyarrow as pa
+
+from mosaicolabs import Message, SessionLevelErrorPolicy, Time
 from mosaicolabs.comm import MosaicoClient
+from mosaicolabs.models.data import Header, String, Vector3d
 from mosaicolabs.models.query import QueryOntologyCatalog, QuerySequence, QueryTopic
 from mosaicolabs.models.sensors import GPS, IMU
 from testing.integration.config import (
@@ -10,6 +13,116 @@ from testing.integration.config import (
 )
 
 from .helpers import _validate_returned_topic_name
+
+
+def test_query_ontology_nested_string(
+    mosaico_client: MosaicoClient,
+):
+    """
+    nested level pa.string() on server are kept as string().
+    This validates queries made on such fields are successful
+    """
+
+    # Ingest a test sequence with a String ontology
+    with mosaico_client.sequence_create(
+        "test_sequence_query_nested_string", {}, SessionLevelErrorPolicy.Delete
+    ) as seqw:
+        # Create a new topic and attach the unmodeled ontology as it was a default one
+        tw = seqw.topic_create("/topic/vector", {}, Vector3d)
+        assert tw is not None
+
+        # Create and Push a message like a default ontology
+        tw.push(
+            Message(
+                timestamp_ns=12345678,
+                data=Vector3d(
+                    header=Header(frame_id="body_frame"),
+                    x=0,
+                    y=0,
+                    z=0,
+                ),
+            )
+        )
+
+    # Query by single condition
+    query_resp = mosaico_client.query(
+        QueryOntologyCatalog().with_expression(
+            Vector3d.Q.header.frame_id.eq("body_frame")
+        )  # set a very small value (data are random, so a small value is likely to be found)
+    )
+    thandler = mosaico_client.topic_handler(
+        "test_sequence_query_nested_string", "/topic/vector"
+    )
+
+    # Assert the received schema is what we expect
+    assert thandler is not None
+    header_type = thandler.ontology_schema.field("header").type
+    assert pa.types.is_string(header_type.field("frame_id").type)
+
+    # We do expect a successful query
+    assert query_resp is not None and not query_resp.is_empty()
+    # One (1) sequence corresponds to this query
+    assert len(query_resp) == 1
+    # The target topics are 'UPLOADED_IMU_FRONT_TOPIC' and 'UPLOADED_IMU_CAMERA_TOPIC'
+    expected_topic_names = [
+        "/topic/vector",
+    ]
+    assert len(query_resp[0].topics) == len(expected_topic_names)
+
+    # all the expected topics, and only them
+    [_validate_returned_topic_name(topic.name) for topic in query_resp[0].topics]
+    assert all([t.name in expected_topic_names for t in query_resp[0].topics])
+
+    mosaico_client.sequence_delete("test_sequence_query_nested_string")
+    mosaico_client.close()
+
+
+def test_query_ontology_top_level_string(
+    mosaico_client: MosaicoClient,
+):
+    """
+    top level pa.string() on server are moved to string_view().
+    This validates queries made on such fields are successful
+    """
+
+    # Ingest a test sequence with a String ontology
+    with mosaico_client.sequence_create("test_sequence_query_string", {}) as seqw:
+        # Create a new topic and attach the unmodeled ontology as it was a default one
+        tw = seqw.topic_create("/topic/string", {}, String)
+        assert tw is not None
+
+        # Create and Push a message like a default ontology
+        tw.push(Message(timestamp_ns=12345678, data=String(data="test_string")))
+        # This message should be stored on the server as a string_view
+
+    # Assert the received schema is what we expect
+    thandler = mosaico_client.topic_handler(
+        "test_sequence_query_string", "/topic/string"
+    )
+    assert thandler is not None
+    assert pa.types.is_string_view(thandler.ontology_schema.field("data").type)
+
+    # Query by single condition
+    query_resp = mosaico_client.query(
+        QueryOntologyCatalog().with_expression(
+            String.Q.data.eq("test_string")
+        )  # set a very small value (data are random, so a small value is likely to be found)
+    )
+    # We do expect a successful query
+    assert query_resp is not None and not query_resp.is_empty()
+    # One (1) sequence corresponds to this query
+    assert len(query_resp) == 1
+    # The target topics are 'UPLOADED_IMU_FRONT_TOPIC' and 'UPLOADED_IMU_CAMERA_TOPIC'
+    expected_topic_names = [
+        "/topic/string",
+    ]
+    assert len(query_resp[0].topics) == len(expected_topic_names)
+
+    # all the expected topics, and only them
+    assert all([t.name in expected_topic_names for t in query_resp[0].topics])
+    mosaico_client.sequence_delete("test_sequence_query_string")
+
+    mosaico_client.close()
 
 
 def test_query_ontology(

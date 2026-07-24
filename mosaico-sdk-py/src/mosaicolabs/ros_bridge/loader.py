@@ -403,7 +403,8 @@ class ROSLoader:
             )
             self._reader.open()
 
-            # Overriden local typestore since AnyReader one contains the union messages withing user defined ROS version + any message defined within the bag file
+            # Overriden local typestore since AnyReader one contains the union messages
+            # withing user defined ROS version + any message defined within the bag file
             self._typestore = self._reader.typestore
         except Exception as e:
             raise IOError(f"Could not open bag file: '{e}'") from e
@@ -950,7 +951,6 @@ class MosaicoLoader:
             unmodeled_ontology = resolve_ontology_class(
                 ontology_tag=t_handler.ontology_tag,
                 schema=t_handler._arrow_schema,
-                # FIXME: how to pass this? Via Config?
                 serialization_format=SerializationFormat(
                     t_handler.serialization_format
                 ),

@@ -46,13 +46,13 @@ SCHEMA_ID_LEN = 10  # 40 bits
 def _canonicalize_arrow_type(schema_struct: pa.StructType) -> pa.StructType:
     """
     Normalizes **first level only** of Arrow schemas that are logically
-    equivalent but physically distinct (e.g. `pa.string`, `pa.large_string`,
-    `pa.string_view`), so ontologies are compared on logical shape rather
-    than physical representation.
+    equivalent but physically distinct (e.g. `pa.string`, `pa.string_view`),
+    so ontologies are compared on logical shape rather than physical
+    representation.
 
     This matters because the query engine reading data back (e.g. DataFusion's
     Parquet reader) may return `pa.string_view`/`pa.binary_view` for a column
-    the SDK declared as `pa.string`/`pa.large_string`/`pa.binary`/`pa.large_binary`.
+    the SDK declared as `pa.string`/`pa.binary`.
     Without normalization, the same logical schema would hash differently depending
     on which variant a given read happened to produce, causing a correctly modeled
     ontology to be misidentified as an unrecognized (`Unmodeled`) schema variant.

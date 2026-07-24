@@ -130,9 +130,7 @@ Because the whole mechanism is built on top of **Pydantic model fields** via `An
 | `MosaicoType.float64` | `float` | `pa.float64()` |
 | `MosaicoType.bool` | `bool` | `pa.bool_()` |
 | `MosaicoType.string` | `str` | `pa.string()` |
-| `MosaicoType.large_string` | `str` | `pa.large_string()` |
 | `MosaicoType.binary` | `bytes` | `pa.binary()` |
-| `MosaicoType.large_binary` | `bytes` | `pa.large_binary()` |
 
 #### Explicit type definition
 Using [`MosaicoType`][mosaicolabs.models.core.MosaicoType] provides precise control over the underlying PyArrow schema:
