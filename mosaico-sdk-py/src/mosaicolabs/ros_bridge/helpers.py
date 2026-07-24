@@ -1,30 +1,109 @@
 import fnmatch
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, TypeGuard
 
 import numpy as np
 from rosbags.interfaces import TopicInfo
 
-from mosaicolabs import SequenceHandler
+from mosaicolabs import SequenceHandler, TopicHandler
 from mosaicolabs.logging_config import get_logger
 
 # Set the hierarchical logger
 logger = get_logger(__name__)
 
 
-def validate_sequence(seq_handler: Optional[SequenceHandler]) -> SequenceHandler:
+def _validate_sequence(
+    seq_handler: Optional[SequenceHandler],
+) -> TypeGuard[SequenceHandler]:
     if seq_handler is None:
-        raise (ValueError("Your requested sequence could not be found!"))
-    return seq_handler
+        return False
+    return True
 
 
-def _to_dict(message: Any) -> Any:
+def _clip_timestamp(
+    start_ns: Optional[int],
+    end_ns: Optional[int],
+    min_ns: Optional[int],
+    max_ns: Optional[int],
+) -> tuple[Optional[int], Optional[int]]:
+
+    if start_ns is not None and min_ns is not None and start_ns < min_ns:
+        logger.warning(
+            f"Provided start_timestamp_ns is lower than sequence timestamp_ns_min: {start_ns} < {min_ns}. Clipping start_timestamp_ns to sequence timestamp_ns_min"
+        )
+        start_ns = max(start_ns, min_ns)
+
+    if end_ns is not None and max_ns is not None and end_ns > max_ns:
+        logger.warning(
+            f"Provided end_timestamp_ns is higher than sequence timestamp_ns_max: {end_ns} > {max_ns}. Clipping end_timestamp_ns to sequence timestamp_ns_max"
+        )
+        end_ns = min(end_ns, max_ns)
+
+    return start_ns, end_ns
+
+
+def _extract_ros_metadata(t_handler: TopicHandler) -> Dict[str, Any]:
     """
-    Recursively converts a rosbags message object and its nested fields
-    to a standard Python dictionary or a list/primitive type if encountered
-    during recursion.
+    Reads and validates the ``_ros_`` metadata field, if present.
+
+    Each of ``msgtype``, ``msgdef`` and ``enums`` is validated independently:
+    a field that's simply absent is left out of the returned metadata (it's
+    the caller's responsibility to decide whether it needed that field), while
+    a field that's present but holds an unexpected type raises immediately.
+
+    Args:
+        t_handler: The topic handler whose metadata should be inspected.
+
+    Returns:
+        The declared ROS metadata, or an empty dict if the topic carries no
+        ``_ros_`` metadata at all.
+
+    Raise: TypeError when the topic's ``_ros_`` metadata carries malformed
+        metadata
+    """
+    ros_metadata = t_handler.user_metadata.get("_ros_")
+
+    if not ros_metadata:
+        return {}
+
+    msgtype = ros_metadata.get("msgtype")
+    msgdef = ros_metadata.get("msgdef")
+    msgconst = ros_metadata.get("enums", {})
+
+    if msgtype is not None and not isinstance(msgtype, str):
+        raise TypeError(
+            f"Topic {t_handler.name} contains msgtype within metadata but it has unexpected type. Expected {str.__name__} but got {type(msgtype).__name__}"
+        )
+
+    if msgdef is not None and not isinstance(msgdef, str):
+        raise TypeError(
+            f"Topic {t_handler.name} contains msgdef within metadata but it has unexpected type. Expected {str.__name__} but got {type(msgdef).__name__}"
+        )
+
+    if not isinstance(msgconst, dict):
+        raise TypeError(
+            f"Topic {t_handler.name} contains enums within metadata but it has unexpected type. Expected {dict.__name__} but got {type(msgconst).__name__}"
+        )
+
+    return ros_metadata
+
+
+def _to_dict(message: Any) -> tuple[Any, Dict[str, Any]]:
+    """
+    Recursively converts a rosbags message object and its nested fields to a standard
+    Python dictionary (or list/primitive type if encountered during recursion), splitting
+    out message constants (`UPPER_CASE` attributes, as opposed to `snake_case` fields)
+    along the way.
+
+    Returns:
+        A `(value, const_dict)` tuple. `const_dict` holds the `UPPER_CASE` constants
+        declared directly on `message` and is empty for lists/tuples/arrays/time values,
+        which never carry constants of their own. Callers recursing into nested fields
+        should keep only `value` and discard `const_dict`, so constants nested below the
+        top level of the original call are dropped rather than collected.
     """
     if hasattr(message, "__msgtype__"):
-        data_dict = {}
+        data_dict: Dict[str, Any] = {}
+        const_dict: Dict[str, Any] = {}
         # rosbags messages are dataclasses without __slots__. Iterating the
         # declared dataclass fields is ~3.5x faster than scanning dir(message)
         # (which enumerates and filters the whole attribute space on every
@@ -42,21 +121,24 @@ def _to_dict(message: Any) -> Any:
                 continue
             try:
                 field_value = getattr(message, field_name)
-                data_dict[field_name] = _to_dict(field_value)
             except AttributeError:
                 continue
-        return data_dict
+            if field_name.isupper():
+                const_dict[field_name] = field_value
+                continue
+            data_dict[field_name], _ = _to_dict(field_value)
+        return data_dict, const_dict
     elif isinstance(message, (list, tuple)):
-        return [_to_dict(item) for item in message]
+        return [_to_dict(item)[0] for item in message], {}
     elif isinstance(message, np.ndarray):
-        return message.tolist()
+        return message.tolist(), {}
     elif hasattr(message, "sec") and hasattr(message, "nanosec"):
         try:
             # Convert ROS time structure to a single float timestamp (seconds)
-            return message.sec + message.nanosec * 1e-9
+            return message.sec + message.nanosec * 1e-9, {}
         except Exception:
-            return message
-    return message
+            return message, {}
+    return message, {}
 
 
 def _filter_topics_from_list(
@@ -205,3 +287,7 @@ def _filter_topics_from_dict(
     resolved_keys = _filter_topics_from_list(available_topics.keys(), requested_topics)
 
     return {key: val for key, val in available_topics.items() if key in resolved_keys}
+
+
+def _class_name_from_ros_msgtype(ros_msgtype: str):
+    return ros_msgtype.split("/")[-1]

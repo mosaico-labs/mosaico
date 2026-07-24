@@ -13,6 +13,16 @@ BASE_MAPPING: Dict[Type, pa.DataType] = {
 }
 
 
+REMAPPED_PYARROW_TYPES: Dict[pa.DataType, pa.DataType] = {
+    # NOTE: Kept for user customized schemas
+    pa.large_string(): pa.string(),
+    pa.string_view(): pa.string(),
+    # NOTE: Kept for user customized schemas
+    pa.large_binary(): pa.binary(),
+    pa.binary_view(): pa.binary(),
+}
+
+
 class MosaicoType:
     """
     Collection of `Annotated` type aliases mapping Python primitives to
@@ -46,9 +56,7 @@ class MosaicoType:
     | `MosaicoType.float64`      | `float`   | `pa.float64()`      |
     | `MosaicoType.bool`         | `bool`    | `pa.bool_()`        |
     | `MosaicoType.string`       | `str`     | `pa.string()`       |
-    | `MosaicoType.large_string` | `str`     | `pa.large_string()` |
     | `MosaicoType.binary`       | `bytes`   | `pa.binary()`       |
-    | `MosaicoType.large_binary` | `bytes`   | `pa.large_binary()` |
 
 
     """
@@ -70,12 +78,10 @@ class MosaicoType:
     float64 = Annotated[float, pa.float64()]
 
     binary = Annotated[bytes, pa.binary()]
-    large_binary = Annotated[bytes, pa.large_binary()]
 
     bool = Annotated[bool, pa.bool_()]
 
     string = Annotated[str, pa.string()]
-    large_string = Annotated[str, pa.large_string()]
 
     @staticmethod
     def annotate(py_type: Type, pa_type: pa.DataType) -> Annotated:

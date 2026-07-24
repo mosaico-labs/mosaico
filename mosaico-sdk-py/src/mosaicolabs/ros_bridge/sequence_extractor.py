@@ -387,18 +387,24 @@ class ROSSequenceExtractor:
         connection = self.accepted_connections[t_name]
 
         # --- Write check ---
-        if self.cfg.ros_distro is Stores.ROS1_NOETIC:  # ROS1
-            bagwriter.write(
-                connection,
-                ros_recording_timestamp_ns,
-                self.typestore.serialize_ros1(ros_msg, ros_msgtype),
-            )
-        else:  # ROS2
-            bagwriter.write(
-                connection,
-                ros_recording_timestamp_ns,
-                self.typestore.serialize_cdr(ros_msg, ros_msgtype),
-            )
+        try:
+            if self.cfg.ros_distro is Stores.ROS1_NOETIC:  # ROS1
+                bagwriter.write(
+                    connection,
+                    ros_recording_timestamp_ns,
+                    self.typestore.serialize_ros1(ros_msg, ros_msgtype),
+                )
+            else:  # ROS2
+                bagwriter.write(
+                    connection,
+                    ros_recording_timestamp_ns,
+                    self.typestore.serialize_cdr(ros_msg, ros_msgtype),
+                )
+        except Exception:
+            self.ignored_topics.add(t_name)
+            ui.update_status(t_name, "Failed writing to bag", style="yellow")
+            ui.advance_global()
+            return
 
         ui.advance_all(t_name)
 

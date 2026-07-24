@@ -94,15 +94,15 @@ class TestVectoradapter:
     def test_translate_vector(self, vector3d_rosmsg: ROSMessage):
         ms_msg = Vector3Adapter.translate(vector3d_rosmsg)
 
-        assert_vector3(ms_msg.get_data(Vector3d), vector3d_rosmsg.data)
+        assert_vector3(ms_msg.get_data(Vector3d), vector3d_rosmsg.data_field)
 
     def test_translate_vector_stamped(self, vector3d_rosmsg_stamped: ROSMessage):
         ms_msg = Vector3Adapter.translate(vector3d_rosmsg_stamped)
 
-        assert_vector3(ms_msg.get_data(Vector3d), vector3d_rosmsg_stamped.data)
+        assert_vector3(ms_msg.get_data(Vector3d), vector3d_rosmsg_stamped.data_field)
 
     def test_translate_raise_missing_required_key(self, vector3d_rosmsg: ROSMessage):
-        data = vector3d_rosmsg.data
+        data = vector3d_rosmsg.data_field
         data.pop("z")
         with pytest.raises(ValueError, match="missing required keys"):
             Vector3Adapter.from_dict(data)
@@ -181,15 +181,15 @@ class TestPointadapter:
     def test_translate_point(self, point3d_rosmsg: ROSMessage):
         ms_msg = PointAdapter.translate(point3d_rosmsg)
 
-        assert_point3d(ms_msg.get_data(Point3d), point3d_rosmsg.data)
+        assert_point3d(ms_msg.get_data(Point3d), point3d_rosmsg.data_field)
 
     def test_translate_point_stamped(self, point3d_rosmsg_stamped: ROSMessage):
         ms_msg = PointAdapter.translate(point3d_rosmsg_stamped)
 
-        assert_point3d(ms_msg.get_data(Point3d), point3d_rosmsg_stamped.data)
+        assert_point3d(ms_msg.get_data(Point3d), point3d_rosmsg_stamped.data_field)
 
     def test_translate_raise_missing_required_key(self, point3d_rosmsg: ROSMessage):
-        data = point3d_rosmsg.data
+        data = point3d_rosmsg.data_field
         data.pop("z")
         with pytest.raises(ValueError, match="missing required keys"):
             PointAdapter.from_dict(data)
@@ -269,15 +269,17 @@ class TestQuaternionAdapter:
     def test_translate_quaternion(self, quaternion_rosmsg: ROSMessage):
         ms_msg = QuaternionAdapter.translate(quaternion_rosmsg)
 
-        assert_quaternion(ms_msg.get_data(Quaternion), quaternion_rosmsg.data)
+        assert_quaternion(ms_msg.get_data(Quaternion), quaternion_rosmsg.data_field)
 
     def test_translate_quaternion_stamped(self, quaternion_rosmsg_stamped: ROSMessage):
         ms_msg = QuaternionAdapter.translate(quaternion_rosmsg_stamped)
 
-        assert_quaternion(ms_msg.get_data(Quaternion), quaternion_rosmsg_stamped.data)
+        assert_quaternion(
+            ms_msg.get_data(Quaternion), quaternion_rosmsg_stamped.data_field
+        )
 
     def test_translate_raise_missing_required_key(self, quaternion_rosmsg: ROSMessage):
-        data = quaternion_rosmsg.data
+        data = quaternion_rosmsg.data_field
         data.pop("w")
         with pytest.raises(ValueError, match="missing required keys"):
             QuaternionAdapter.from_dict(data)
@@ -394,15 +396,17 @@ class TestTransformAdapter:
     def test_translate_transform(self, transform_rosmsg: ROSMessage):
         ms_msg = TransformAdapter.translate(transform_rosmsg)
 
-        assert_transform(ms_msg.get_data(Transform), transform_rosmsg.data)
+        assert_transform(ms_msg.get_data(Transform), transform_rosmsg.data_field)
 
     def test_translate_transform_stamped(self, transform_rosmsg_stamped: ROSMessage):
         ms_msg = TransformAdapter.translate(transform_rosmsg_stamped)
 
-        assert_transform(ms_msg.get_data(Transform), transform_rosmsg_stamped.data)
+        assert_transform(
+            ms_msg.get_data(Transform), transform_rosmsg_stamped.data_field
+        )
 
     def test_translate_raise_missing_required_key(self, transform_rosmsg: ROSMessage):
-        data = transform_rosmsg.data
+        data = transform_rosmsg.data_field
         data.pop("translation")
         with pytest.raises(ValueError, match="missing required keys"):
             QuaternionAdapter.from_dict(data)
@@ -491,13 +495,15 @@ class TestWrenchAdapter:
     def test_translate_wrench(self, force_torque_ros_msg: ROSMessage):
         ms_msg = WrenchAdapter.translate(force_torque_ros_msg)
 
-        assert_force_torque(ms_msg.get_data(ForceTorque), force_torque_ros_msg.data)
+        assert_force_torque(
+            ms_msg.get_data(ForceTorque), force_torque_ros_msg.data_field
+        )
 
     def test_translate_wrench_stamped(self, force_torque_ros_msg_stamped: ROSMessage):
         ms_msg = WrenchAdapter.translate(force_torque_ros_msg_stamped)
 
         assert_force_torque(
-            ms_msg.get_data(ForceTorque), force_torque_ros_msg_stamped.data
+            ms_msg.get_data(ForceTorque), force_torque_ros_msg_stamped.data_field
         )
 
     def test_translate_raise_wrench_not_dict(self):
@@ -510,7 +516,7 @@ class TestWrenchAdapter:
     def test_translate_raise_missing_required_key(
         self, force_torque_ros_msg: ROSMessage
     ):
-        data = force_torque_ros_msg.data
+        data = force_torque_ros_msg.data_field
         data.pop("torque")
         with pytest.raises(ValueError, match="missing required keys"):
             WrenchAdapter.from_dict(data)
@@ -600,15 +606,15 @@ class TestPolygonAdapter:
     def test_translate_polygon(self, polygon_ros_msg: ROSMessage):
         ms_msg = PolygonAdapter.translate(polygon_ros_msg)
 
-        assert_polygon(ms_msg.get_data(Polygon), polygon_ros_msg.data)
+        assert_polygon(ms_msg.get_data(Polygon), polygon_ros_msg.data_field)
 
     def test_translate_polygon_stamped(self, polygon_ros_msg_stamped: ROSMessage):
         ms_msg = PolygonAdapter.translate(polygon_ros_msg_stamped)
 
-        assert_polygon(ms_msg.get_data(Polygon), polygon_ros_msg_stamped.data)
+        assert_polygon(ms_msg.get_data(Polygon), polygon_ros_msg_stamped.data_field)
 
     def test_translate_raise_missing_required_key(self, polygon_ros_msg: ROSMessage):
-        data = polygon_ros_msg.data
+        data = polygon_ros_msg.data_field
         data.pop("points")
         with pytest.raises(ValueError, match="missing required keys"):
             PolygonAdapter.from_dict(data)
@@ -723,15 +729,15 @@ class TestInertiaAdapter:
     def test_translate_inertia(self, inertia_ros_msg: ROSMessage):
         ms_msg = InertiaAdapter.translate(inertia_ros_msg)
 
-        assert_inertia(ms_msg.get_data(Inertia), inertia_ros_msg.data)
+        assert_inertia(ms_msg.get_data(Inertia), inertia_ros_msg.data_field)
 
     def test_translate_inertia_stamped(self, inertia_ros_msg_stamped: ROSMessage):
         ms_msg = InertiaAdapter.translate(inertia_ros_msg_stamped)
 
-        assert_inertia(ms_msg.get_data(Inertia), inertia_ros_msg_stamped.data)
+        assert_inertia(ms_msg.get_data(Inertia), inertia_ros_msg_stamped.data_field)
 
     def test_translate_raise_missing_required_key(self, inertia_ros_msg: ROSMessage):
-        data = inertia_ros_msg.data
+        data = inertia_ros_msg.data_field
         data.pop("m")
         with pytest.raises(ValueError, match="missing required keys"):
             InertiaAdapter.from_dict(data)
@@ -861,25 +867,25 @@ class TestPoseAdapter:
     def test_translate_pose(self, pose_rosmsg: ROSMessage):
         ms_msg = PoseAdapter.translate(pose_rosmsg)
 
-        assert_pose(ms_msg.get_data(Pose), pose_rosmsg.data)
+        assert_pose(ms_msg.get_data(Pose), pose_rosmsg.data_field)
 
     def test_translate_pose_stamped(self, pose_stamped_rosmsg: ROSMessage):
         ms_msg = PoseAdapter.translate(pose_stamped_rosmsg)
 
-        assert_pose(ms_msg.get_data(Pose), pose_stamped_rosmsg.data)
+        assert_pose(ms_msg.get_data(Pose), pose_stamped_rosmsg.data_field)
 
     def test_translate_pose_w_cov(self, pose_w_cov_rosmsg: ROSMessage):
         ms_msg = PoseAdapter.translate(pose_w_cov_rosmsg)
 
-        assert_pose_w_cov(ms_msg.get_data(Pose), pose_w_cov_rosmsg.data)
+        assert_pose_w_cov(ms_msg.get_data(Pose), pose_w_cov_rosmsg.data_field)
 
     def test_translate_pose_w_cov_stamped(self, pose_w_cov_stamped_rosmsg: ROSMessage):
         ms_msg = PoseAdapter.translate(pose_w_cov_stamped_rosmsg)
 
-        assert_pose_w_cov(ms_msg.get_data(Pose), pose_w_cov_stamped_rosmsg.data)
+        assert_pose_w_cov(ms_msg.get_data(Pose), pose_w_cov_stamped_rosmsg.data_field)
 
     def test_translate_raise_missing_required_key(self, pose_rosmsg: ROSMessage):
-        data = pose_rosmsg.data
+        data = pose_rosmsg.data_field
         data.pop("position")
         with pytest.raises(ValueError, match="missing required keys"):
             InertiaAdapter.from_dict(data)
@@ -1039,27 +1045,29 @@ class TestTwistAdapter:
     def test_translate_twist(self, twist_rosmsg: ROSMessage):
         ms_msg = TwistAdapter.translate(twist_rosmsg)
 
-        assert_twist(ms_msg.get_data(Velocity), twist_rosmsg.data)
+        assert_twist(ms_msg.get_data(Velocity), twist_rosmsg.data_field)
 
     def test_translate_twist_stamped(self, twist_stamped_rosmsg: ROSMessage):
         ms_msg = TwistAdapter.translate(twist_stamped_rosmsg)
 
-        assert_twist(ms_msg.get_data(Velocity), twist_stamped_rosmsg.data)
+        assert_twist(ms_msg.get_data(Velocity), twist_stamped_rosmsg.data_field)
 
     def test_translate_twist_w_cov(self, twist_w_cov_rosmsg: ROSMessage):
         ms_msg = TwistAdapter.translate(twist_w_cov_rosmsg)
 
-        assert_twist_w_cov(ms_msg.get_data(Velocity), twist_w_cov_rosmsg.data)
+        assert_twist_w_cov(ms_msg.get_data(Velocity), twist_w_cov_rosmsg.data_field)
 
     def test_translate_twist_w_cov_stamped(
         self, twist_w_cov_stamped_rosmsg: ROSMessage
     ):
         ms_msg = TwistAdapter.translate(twist_w_cov_stamped_rosmsg)
 
-        assert_twist_w_cov(ms_msg.get_data(Velocity), twist_w_cov_stamped_rosmsg.data)
+        assert_twist_w_cov(
+            ms_msg.get_data(Velocity), twist_w_cov_stamped_rosmsg.data_field
+        )
 
     def test_translate_raise_missing_required_key(self, twist_rosmsg: ROSMessage):
-        data = twist_rosmsg.data
+        data = twist_rosmsg.data_field
         data.pop("linear")
         with pytest.raises(ValueError, match="missing required keys"):
             InertiaAdapter.from_dict(data)
@@ -1218,17 +1226,17 @@ class TestAccelAdapter:
     def test_translate_accel(self, accel_rosmsg: ROSMessage):
         ms_msg = AccelAdapter.translate(accel_rosmsg)
 
-        assert_accel(ms_msg.get_data(Acceleration), accel_rosmsg.data)
+        assert_accel(ms_msg.get_data(Acceleration), accel_rosmsg.data_field)
 
     def test_translate_accel_stamped(self, accel_stamped_rosmsg: ROSMessage):
         ms_msg = AccelAdapter.translate(accel_stamped_rosmsg)
 
-        assert_accel(ms_msg.get_data(Acceleration), accel_stamped_rosmsg.data)
+        assert_accel(ms_msg.get_data(Acceleration), accel_stamped_rosmsg.data_field)
 
     def test_translate_accel_w_cov(self, accel_w_cov_rosmsg: ROSMessage):
         ms_msg = AccelAdapter.translate(accel_w_cov_rosmsg)
 
-        assert_accel_w_cov(ms_msg.get_data(Acceleration), accel_w_cov_rosmsg.data)
+        assert_accel_w_cov(ms_msg.get_data(Acceleration), accel_w_cov_rosmsg.data_field)
 
     def test_translate_accel_w_cov_stamped(
         self, accel_w_cov_stamped_rosmsg: ROSMessage
@@ -1236,11 +1244,11 @@ class TestAccelAdapter:
         ms_msg = AccelAdapter.translate(accel_w_cov_stamped_rosmsg)
 
         assert_accel_w_cov(
-            ms_msg.get_data(Acceleration), accel_w_cov_stamped_rosmsg.data
+            ms_msg.get_data(Acceleration), accel_w_cov_stamped_rosmsg.data_field
         )
 
     def test_translate_raise_missing_required_key(self, accel_rosmsg: ROSMessage):
-        data = accel_rosmsg.data
+        data = accel_rosmsg.data_field
         data.pop("linear")
         with pytest.raises(ValueError, match="missing required keys"):
             AccelAdapter.from_dict(data)

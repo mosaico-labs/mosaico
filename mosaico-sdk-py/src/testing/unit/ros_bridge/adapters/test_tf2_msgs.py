@@ -138,13 +138,13 @@ class TestFrameTransformAdapter:
         ms_msg = FrameTransformAdapter.translate(frame_transform_rosmsg)
 
         assert_frame_transform(
-            ms_msg.get_data(FrameTransform), frame_transform_rosmsg.data
+            ms_msg.get_data(FrameTransform), frame_transform_rosmsg.data_field
         )
 
     def test_translate_raise_missing_required_key(
         self, frame_transform_rosmsg: ROSMessage
     ):
-        data = frame_transform_rosmsg.data
+        data = frame_transform_rosmsg.data_field
         data.pop("transforms")
         with pytest.raises(ValueError, match="missing required keys"):
             FrameTransformAdapter.from_dict(data)

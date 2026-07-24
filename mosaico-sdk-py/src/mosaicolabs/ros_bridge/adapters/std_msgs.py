@@ -218,11 +218,13 @@ class GenericStdAdapter(ROSAdapterBase[Serializable]):
         return RosStdMsg(data=std_data.data)
 
     @classmethod
-    def schema_metadata(cls, typestore: Typestore, ros_msg_type: str) -> Optional[dict]:
+    def schema_metadata(
+        cls, typestore: Typestore, ros_msg_type: str, ros_version: int
+    ) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
         """
-        return super().schema_metadata(typestore, ros_msg_type)
+        return super().schema_metadata(typestore, ros_msg_type, ros_version)
 
 
 # ---------------------------------------------------------------------------

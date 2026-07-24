@@ -34,7 +34,7 @@ These models serve as timestamped, metadata-aware wrappers for standard primitiv
 
 | Module | Classes | Purpose |
 | --- | --- | --- |
-| **Primitives** | [`String`][mosaicolabs.models.data.base_types.String], [`LargeString`][mosaicolabs.models.data.base_types.LargeString] | UTF-8 text data for logs or status messages. |
+| **Primitives** | [`String`][mosaicolabs.models.data.base_types.String] | UTF-8 text data for logs or status messages. |
 | **Booleans** | [`Boolean`][mosaicolabs.models.data.base_types.Boolean] | Logic flags (True/False). |
 | **Signed Integers** | [`Integer8`][mosaicolabs.models.data.base_types.Integer8], [`Integer16`][mosaicolabs.models.data.base_types.Integer16], [`Integer32`][mosaicolabs.models.data.base_types.Integer32], [`Integer64`][mosaicolabs.models.data.base_types.Integer64] | Signed whole numbers of varying bit-depth. |
 | **Unsigned Integers** | [`Unsigned8`][mosaicolabs.models.data.base_types.Unsigned8], [`Unsigned16`][mosaicolabs.models.data.base_types.Unsigned16], [`Unsigned32`][mosaicolabs.models.data.base_types.Unsigned32], [`Unsigned64`][mosaicolabs.models.data.base_types.Unsigned64] | Non-negative integers for counters or IDs. |
@@ -130,9 +130,7 @@ Because the whole mechanism is built on top of **Pydantic model fields** via `An
 | `MosaicoType.float64` | `float` | `pa.float64()` |
 | `MosaicoType.bool` | `bool` | `pa.bool_()` |
 | `MosaicoType.string` | `str` | `pa.string()` |
-| `MosaicoType.large_string` | `str` | `pa.large_string()` |
 | `MosaicoType.binary` | `bytes` | `pa.binary()` |
-| `MosaicoType.large_binary` | `bytes` | `pa.large_binary()` |
 
 #### Explicit type definition
 Using [`MosaicoType`][mosaicolabs.models.core.MosaicoType] provides precise control over the underlying PyArrow schema:
@@ -172,6 +170,7 @@ In this scenario, the types are resolved using the following **fallback mapping*
 
 !!! note "Note"
     Just like with explicit types, using `Optional` with fallback types will correctly define the PyArrow field as **nullable**. If `Optional` is not used, the field is defined as **not nullable**.
+
 
 #### List types
 
@@ -442,6 +441,7 @@ When this happens, `Serializable` performs the following steps automatically:
 !!! note "The ontology tag is exactly the class name"
     Unlike some frameworks, Mosaico does **not** transform the class name to derive the tag (no `snake_case` or `camelCase` conversion): `MyCustomSensor` is tagged `"MyCustomSensor"`, not `"my_custom_sensor"`. This is a deliberate choice to avoid a mental mapping step between "the name in my code" and "the tag on the platform" - especially when [querying Unmodeled ontologies](#advanced-ingesting-unmodeled-ontologies), where you often only have the tag string (e.g. from a `TopicHandler`) and no class to derive it from in the first place.
 
+
 ### `Message` (The Envelope)
 
 ??? question "API Reference"
@@ -453,8 +453,8 @@ Notice that `timestamp_ns` is **not** the sensor measurement time: it is the tim
 
 So a `Message` carries two timestamps at different levels:
 
-1) **`timestamp_ns`** — on the envelope, set by the distribution system (monotonic, monotonic within the Sequence).
-2) **`Header.timestamp`** — inside the payload, set by the sensor (sensor-dependent origin).
+1. **`timestamp_ns`** — on the envelope, set by the distribution system (monotonic, monotonic within the Sequence).
+2. **`Header.timestamp`** — inside the payload, set by the sensor (sensor-dependent origin).
 
 **Example:** a LiDAR captures a scan at `timestamp = 1200.5` (seconds since the sensor booted, in its `Header`). The DDS publishes it a few milliseconds later, and Mosaico stamps the envelope with `timestamp_ns = 8423000000` on the Sequence's monotonic clock. The first value says *when the world was measured*; the second says *when the data entered the system*.
 
@@ -671,6 +671,7 @@ UnmodeledGyro = make_unmodeled_ontology_class(
 # it's registered, serializable, and queryable.
 gyro_writer.push(Message(
     timestamp_ns=ts,
+    # The `raw_data` payload must match the declared schema
     data=UnmodeledGyro(raw_data={"gyro": {"x": 0.1, "y": 0.0, "z": -0.2}}),
 ))
 ```
@@ -682,12 +683,17 @@ Because the `.Q` query proxy is built directly from the class's PyArrow schema r
 
 ### Resolving Classes Automatically
 
-`make_unmodeled_ontology_class()` is the low-level factory. In practice, most callers — including the SDK's own reading path (`TopicDataStreamer`, `SequenceDataStreamer`) — go through [`resolve_ontology_class()`][mosaicolabs.models.core.helpers.resolve_ontology_class] instead, which adds two behaviors on top:
+`make_unmodeled_ontology_class()` is the low-level factory, not intended for direct use. In practice, most callers, including the SDK's own reading path (`TopicDataStreamer`, `SequenceDataStreamer`), go through [`resolve_ontology_class()`][mosaicolabs.models.core.helpers.resolve_ontology_class] instead, which adds two behaviors on top:
 
 1. **Reuse before creation**: if a class is already registered for the given tag, it's returned directly instead of creating a duplicate.
 2. **Schema-variant safety**: a single ontology tag can legitimately end up associated with more than one schema shape over time — for example, two rosbags recorded with different versions of the same ROS message type, both mapped by the translation layer to the same inferred tag. When the schema passed in doesn't match what's already registered for that tag, `resolve_ontology_class()` doesn't silently decode the second version against the first version's schema. Instead, it computes a short, deterministic fingerprint of the schema and resolves (or creates) a distinct variant class for it, i.e. a separate Python class with its own [`__registry_key__`][mosaicolabs.models.core.Serializable] (`f"{tag}__{fingerprint}"`), so the SDK can always tell the two schemas apart locally. Both variants still report the *same* `ontology_tag` to the platform, so all of their data remains ingestible and queryable under one consistent, predictable tag — regardless of which schema version a given process happens to encounter first.
 
 This is what makes it safe for a component like the ROS Bridge to translate an unadapted message type into a PyArrow schema and call `resolve_ontology_class(ontology_tag=..., schema=...)` for every message, without having to track class identity or schema versions itself.
+
+#### Schema canonization
+For performance reasons, the platform's query engine (DataFusion) rewrites certain **top-level** fields of a schema when storing the data: any field declared as `pa.string()` or `pa.large_string()` comes back as `pa.string_view()`, and likewise `pa.binary()`/`pa.large_binary()` come back as `pa.binary_view()`. DataFusion effectively treats `string` and `large_string` as the same underlying concept and standardizes on `string_view` (same for the binary family) - but only for fields sitting directly at the top level of the schema, not for string/binary fields nested inside a struct. A field like `MotionState.target_frame_id` (a top-level `string` field) comes back as `string_view`; `Header.frame_id`, when `Header` is embedded via `HeaderMixin` into a class like `IMU`, stays a plain `string` inside its nested struct; however, if a `Message` of type `Header` is sent, then `frame_id` becomes a top-level field itself and it is transformed to `string_view`.
+
+This asymmetry matters directly for schema-variant resolution: a naive fingerprint comparison between a class's own locally-built schema (`string`/`binary`) and the schema echoed back by the server for the same data (`string_view`/`binary_view` at the top level) would treat them as *different* schemas - misidentifying a perfectly ordinary, correctly modeled ontology as a schema variant (or as `Unmodeled`) purely because of this server-side rewrite, not any real structural difference. To avoid that, the schema fingerprint canonizes top-level `string`/`large_string` fields to `string_view` and top-level `binary`/`large_binary` fields to `binary_view` before hashing - mirroring exactly what DataFusion does, and only at the same depth. Nested struct fields and list element types are left untouched, since the server doesn't rewrite those either.
 
 ### Retrieving Unmodeled Data from a `Message`
 

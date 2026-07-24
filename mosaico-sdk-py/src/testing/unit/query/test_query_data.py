@@ -16,7 +16,6 @@ from mosaicolabs.models.data import (
     Integer16,
     Integer32,
     Integer64,
-    LargeString,
     MotionState,
     Pose,
     String,
@@ -864,7 +863,6 @@ class TestQueryROIAPI:
         Floating64,
         Boolean,
         String,
-        LargeString,
     ],
 )
 class TestQueryBaseTypesAPI:

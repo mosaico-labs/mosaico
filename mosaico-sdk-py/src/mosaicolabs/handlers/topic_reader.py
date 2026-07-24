@@ -104,6 +104,12 @@ class TopicDataStreamer:
         self._pyarrow_schema: pa.StructType = pyarrow_schema
         """The Arrow Schema of the data ontology handled by the topic"""
         self._schema_fingerprint: str = _compute_schema_fingerprint(pyarrow_schema)
+        self._ontology_type: Type[Serializable] = resolve_ontology_class(
+            ontology_tag=self._rdstate.ontology_tag,
+            schema=pyarrow_schema,
+            schema_fingerprint=self._schema_fingerprint,
+            serialization_format=self._rdstate.serialization_format,
+        )
         """Fingerprint of `_pyarrow_schema`, computed once"""
         self._is_open: bool = True
         """Tag for assessing the internal streamer status"""
@@ -342,15 +348,7 @@ class TopicDataStreamer:
         # Advance the buffer immediately *after* extracting the data
         self._rdstate.peek_next_row()
 
-        OntologyClass: Type[Serializable] = resolve_ontology_class(
-            class_name=self._rdstate.ontology_tag,
-            ontology_tag=self._rdstate.ontology_tag,
-            schema=self._pyarrow_schema,
-            schema_fingerprint=self._schema_fingerprint,
-            serialization_format=self._rdstate.serialization_format,
-        )
-
-        return Message._decode(tag_or_type=OntologyClass, **row_dict)
+        return Message._decode(tag_or_type=self._ontology_type, **row_dict)
 
     def close(self):
         """

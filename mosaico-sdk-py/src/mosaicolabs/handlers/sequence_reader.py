@@ -6,13 +6,12 @@ by merging multiple topic streams into a single, time-ordered iterator.
 """
 
 import json
-from typing import Any, Dict, List, Optional, Type
+from typing import Any, Dict, List, Optional
 
 import pyarrow.flight as fl
 
 from ..logging_config import get_logger
-from ..models.core import Message, Serializable
-from ..models.core.helpers import resolve_ontology_class
+from ..models.core import Message
 from ..platform.resource_manifests import (
     TopicManifestError,
     TopicResourceManifest,
@@ -334,17 +333,8 @@ class SequenceDataStreamer:
 
         # Advance the Winner's stream
         self._winning_rdstate.peek_next_row()
-
-        OntologyClass: Type[Serializable] = resolve_ontology_class(
-            class_name=self._winning_rdstate.ontology_tag,
-            ontology_tag=self._winning_rdstate.ontology_tag,
-            schema=winning_topic._pyarrow_schema,
-            schema_fingerprint=winning_topic._schema_fingerprint,
-            serialization_format=self._winning_rdstate.serialization_format,
-        )
-
         return winning_topic.name(), Message._decode(
-            tag_or_type=OntologyClass, **row_dict
+            tag_or_type=winning_topic._ontology_type, **row_dict
         )
 
     @staticmethod

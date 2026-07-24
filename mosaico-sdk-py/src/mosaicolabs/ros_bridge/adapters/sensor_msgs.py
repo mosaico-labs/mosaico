@@ -312,11 +312,13 @@ class CameraInfoAdapter(ROSAdapterBase[CameraInfo]):
         )
 
     @classmethod
-    def schema_metadata(cls, typestore: Typestore, ros_msg_type: str) -> Optional[dict]:
+    def schema_metadata(
+        cls, typestore: Typestore, ros_msg_type: str, ros_version: int
+    ) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
         """
-        return super().schema_metadata(typestore, ros_msg_type)
+        return super().schema_metadata(typestore, ros_msg_type, ros_version)
 
 
 class NavSatStatusAdapter(ROSAdapterBase[GPSStatus]):
@@ -442,11 +444,13 @@ class NavSatStatusAdapter(ROSAdapterBase[GPSStatus]):
         )
 
     @classmethod
-    def schema_metadata(cls, typestore: Typestore, ros_msg_type: str) -> Optional[dict]:
+    def schema_metadata(
+        cls, typestore: Typestore, ros_msg_type: str, ros_version: int
+    ) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
         """
-        return super().schema_metadata(typestore, ros_msg_type)
+        return super().schema_metadata(typestore, ros_msg_type, ros_version)
 
 
 @register_default_adapter(is_default=True)
@@ -619,11 +623,13 @@ class GPSAdapter(ROSAdapterBase[GPS]):
         )
 
     @classmethod
-    def schema_metadata(cls, typestore: Typestore, ros_msg_type: str) -> Optional[dict]:
+    def schema_metadata(
+        cls, typestore: Typestore, ros_msg_type: str, ros_version: int
+    ) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
         """
-        return super().schema_metadata(typestore, ros_msg_type)
+        return super().schema_metadata(typestore, ros_msg_type, ros_version)
 
 
 @register_default_adapter(is_default=True)
@@ -827,11 +833,13 @@ class IMUAdapter(ROSAdapterBase[IMU]):
         )
 
     @classmethod
-    def schema_metadata(cls, typestore: Typestore, ros_msg_type: str) -> Optional[dict]:
+    def schema_metadata(
+        cls, typestore: Typestore, ros_msg_type: str, ros_version: int
+    ) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
         """
-        return super().schema_metadata(typestore, ros_msg_type)
+        return super().schema_metadata(typestore, ros_msg_type, ros_version)
 
 
 @register_default_adapter(is_default=True)
@@ -961,11 +969,13 @@ class NMEASentenceAdapter(ROSAdapterBase[NMEASentence]):
         )
 
     @classmethod
-    def schema_metadata(cls, typestore: Typestore, ros_msg_type: str) -> Optional[dict]:
+    def schema_metadata(
+        cls, typestore: Typestore, ros_msg_type: str, ros_version: int
+    ) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
         """
-        return super().schema_metadata(typestore, ros_msg_type)
+        return super().schema_metadata(typestore, ros_msg_type, ros_version)
 
 
 @register_default_adapter(is_default=True)
@@ -1133,11 +1143,13 @@ class ImageAdapter(ROSAdapterBase[Image]):
         )
 
     @classmethod
-    def schema_metadata(cls, typestore: Typestore, ros_msg_type: str) -> Optional[dict]:
+    def schema_metadata(
+        cls, typestore: Typestore, ros_msg_type: str, ros_version: int
+    ) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
         """
-        return super().schema_metadata(typestore, ros_msg_type)
+        return super().schema_metadata(typestore, ros_msg_type, ros_version)
 
 
 @register_default_adapter(is_default=True)
@@ -1318,11 +1330,13 @@ class CompressedImageAdapter(ROSAdapterBase[CompressedImage]):
         )
 
     @classmethod
-    def schema_metadata(cls, typestore: Typestore, ros_msg_type: str) -> Optional[dict]:
+    def schema_metadata(
+        cls, typestore: Typestore, ros_msg_type: str, ros_version: int
+    ) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
         """
-        return super().schema_metadata(typestore, ros_msg_type)
+        return super().schema_metadata(typestore, ros_msg_type, ros_version)
 
 
 @register_default_adapter(is_default=True)
@@ -1466,11 +1480,13 @@ class ROIAdapter(ROSAdapterBase[ROI]):
         )
 
     @classmethod
-    def schema_metadata(cls, typestore: Typestore, ros_msg_type: str) -> Optional[dict]:
+    def schema_metadata(
+        cls, typestore: Typestore, ros_msg_type: str, ros_version: int
+    ) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
         """
-        return super().schema_metadata(typestore, ros_msg_type)
+        return super().schema_metadata(typestore, ros_msg_type, ros_version)
 
 
 @register_default_adapter(is_default=True)
@@ -1701,11 +1717,13 @@ class BatteryStateAdapter(ROSAdapterBase[BatteryState]):
         )
 
     @classmethod
-    def schema_metadata(cls, typestore: Typestore, ros_msg_type: str) -> Optional[dict]:
+    def schema_metadata(
+        cls, typestore: Typestore, ros_msg_type: str, ros_version: int
+    ) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
         """
-        return super().schema_metadata(typestore, ros_msg_type)
+        return super().schema_metadata(typestore, ros_msg_type, ros_version)
 
 
 @register_default_adapter(is_default=True)
@@ -1853,11 +1871,13 @@ class RobotJointAdapter(ROSAdapterBase[RobotJoint]):
         )
 
     @classmethod
-    def schema_metadata(cls, typestore: Typestore, ros_msg_type: str) -> Optional[dict]:
+    def schema_metadata(
+        cls, typestore: Typestore, ros_msg_type: str, ros_version: int
+    ) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
         """
-        return super().schema_metadata(typestore, ros_msg_type)
+        return super().schema_metadata(typestore, ros_msg_type, ros_version)
 
 
 PointCloudModel = TypeVar(
@@ -2177,11 +2197,13 @@ class PointCloudAdapterBase(ROSAdapterBase[PointCloudModel]):
         return pcl
 
     @classmethod
-    def schema_metadata(cls, typestore: Typestore, ros_msg_type: str) -> Optional[dict]:
+    def schema_metadata(
+        cls, typestore: Typestore, ros_msg_type: str, ros_version: int
+    ) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
         """
-        return super().schema_metadata(typestore, ros_msg_type)
+        return super().schema_metadata(typestore, ros_msg_type, ros_version)
 
 
 @register_default_adapter(is_default=True)
@@ -2369,11 +2391,13 @@ class PointCloudAdapter(PointCloudAdapterBase[PointCloud2]):
         )
 
     @classmethod
-    def schema_metadata(cls, typestore: Typestore, ros_msg_type: str) -> Optional[dict]:
+    def schema_metadata(
+        cls, typestore: Typestore, ros_msg_type: str, ros_version: int
+    ) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
         """
-        return super().schema_metadata(typestore, ros_msg_type)
+        return super().schema_metadata(typestore, ros_msg_type, ros_version)
 
 
 _LT = TypeVar("_LT", LaserScan, MultiEchoLaserScan)
@@ -2410,11 +2434,13 @@ class LaserScannerAdapterBase(ROSAdapterBase[_LT]):
         return super().translate(ros_msg, **kwargs)
 
     @classmethod
-    def schema_metadata(cls, typestore: Typestore, ros_msg_type: str) -> Optional[dict]:
+    def schema_metadata(
+        cls, typestore: Typestore, ros_msg_type: str, ros_version: int
+    ) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
         """
-        return super().schema_metadata(typestore, ros_msg_type)
+        return super().schema_metadata(typestore, ros_msg_type, ros_version)
 
 
 @register_default_adapter(is_default=True)
@@ -2809,11 +2835,13 @@ class MagneticFieldAdapter(ROSAdapterBase[Magnetometer]):
         )
 
     @classmethod
-    def schema_metadata(cls, typestore: Typestore, ros_msg_type: str) -> Optional[dict]:
+    def schema_metadata(
+        cls, typestore: Typestore, ros_msg_type: str, ros_version: int
+    ) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
         """
-        return super().schema_metadata(typestore, ros_msg_type)
+        return super().schema_metadata(typestore, ros_msg_type, ros_version)
 
 
 @register_default_adapter(is_default=True)
@@ -2939,11 +2967,13 @@ class JoyAdapter(ROSAdapterBase[Joy]):
         )
 
     @classmethod
-    def schema_metadata(cls, typestore: Typestore, ros_msg_type: str) -> Optional[dict]:
+    def schema_metadata(
+        cls, typestore: Typestore, ros_msg_type: str, ros_version: int
+    ) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
         """
-        return super().schema_metadata(typestore, ros_msg_type)
+        return super().schema_metadata(typestore, ros_msg_type, ros_version)
 
 
 @register_default_adapter(is_default=True)
@@ -3068,11 +3098,13 @@ class TemperatureAdapter(ROSAdapterBase[Temperature]):
         )
 
     @classmethod
-    def schema_metadata(cls, typestore: Typestore, ros_msg_type: str) -> Optional[dict]:
+    def schema_metadata(
+        cls, typestore: Typestore, ros_msg_type: str, ros_version: int
+    ) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
         """
-        return super().schema_metadata(typestore, ros_msg_type)
+        return super().schema_metadata(typestore, ros_msg_type, ros_version)
 
 
 @register_default_adapter(is_default=True)
@@ -3197,8 +3229,10 @@ class PressureAdapter(ROSAdapterBase[Pressure]):
         )
 
     @classmethod
-    def schema_metadata(cls, typestore: Typestore, ros_msg_type: str) -> Optional[dict]:
+    def schema_metadata(
+        cls, typestore: Typestore, ros_msg_type: str, ros_version: int
+    ) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
         """
-        return super().schema_metadata(typestore, ros_msg_type)
+        return super().schema_metadata(typestore, ros_msg_type, ros_version)

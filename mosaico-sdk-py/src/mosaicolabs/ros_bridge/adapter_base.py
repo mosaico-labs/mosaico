@@ -76,13 +76,13 @@ class ROSAdapterBase(ABC, Generic[T]):
         Returns:
             A Mosaico Message object containing the instantiated ontology data.
         """
-        if ros_msg.data is None:
+        if ros_msg.data_field is None:
             raise Exception(f"'data' attribute is None for topic {ros_msg.topic}")
 
         try:
             return Message(
                 timestamp_ns=ros_msg.bag_timestamp_ns,
-                data=cls.from_dict(ros_msg.data),
+                data=cls.from_dict(ros_msg.data_field),
             )
         except Exception as e:
             raise Exception(f"Translation failed for {ros_msg.topic}: {e}")
@@ -197,7 +197,9 @@ class ROSAdapterBase(ABC, Generic[T]):
         pass
 
     @classmethod
-    def schema_metadata(cls, typestore: Typestore, ros_msg_type: str) -> Optional[dict]:
+    def schema_metadata(
+        cls, typestore: Typestore, ros_msg_type: str, ros_version: int
+    ) -> Optional[dict]:
         """
         Extracts ROS-specific schema metadata for the Mosaico platform.
 
@@ -207,6 +209,7 @@ class ROSAdapterBase(ABC, Generic[T]):
         Args:
             typestore: The rosbags typestore used to resolve and construct target ROS types.
             ros_msg_type: The ros message type whose metadata should be extracted compatible with the adapter.
+            ros_version: The current ros version.
 
         Returns:
             The constructed dictionary compatible for Mosaico topic metadata. It contains:
@@ -244,6 +247,7 @@ class ROSAdapterBase(ABC, Generic[T]):
                     "POWER_SUPPLY_TECHNOLOGY_LIMN": 6,
                 },
                 "msgtype": "sensor_msgs/msg/BatteryState"
+                "msgdef": "..."
             }
         }
 
@@ -253,16 +257,20 @@ class ROSAdapterBase(ABC, Generic[T]):
         if not cls.is_rosmsg_type_valid(ros_msg_type):
             return None
 
+        out_dict = {}
+
         # Check that ros_msg_type exists in typestore
         msg_def = typestore.fielddefs.get(ros_msg_type)
 
-        if msg_def is None:
-            return None
+        # Extract ENUM associated to ros_msg_type and adding it to the out dict (if available in typestore)
+        if msg_def:
+            enum_list, _ = msg_def
+            out_dict["enums"] = {name: val for name, _, val in enum_list}
+            out_dict["msgdef"], _ = typestore.generate_msgdef(
+                ros_msg_type, ros_version=ros_version
+            )
 
-        # Extract ENUM associated to ros_msg_type and adding it to the out dict with the ros_msg_type
-        enum_list, _ = msg_def
-        out_dict = {"enums": {name: val for name, _, val in enum_list}}
-        out_dict.update({"msgtype": ros_msg_type})
+        out_dict["msgtype"] = ros_msg_type
 
         ms_metadata = {"_ros_": out_dict}
 

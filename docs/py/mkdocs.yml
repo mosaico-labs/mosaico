@@ -75,7 +75,7 @@ nav:
         - SDK/API_reference/query/internal.md
         - SDK/API_reference/query/response.md
     - Models:
-        - SDK/API_reference/models/base.md
+        - SDK/API_reference/models/core.md
         - SDK/API_reference/models/data_types.md
         - SDK/API_reference/models/futures.md
         - SDK/API_reference/models/geometry.md
@@ -95,6 +95,7 @@ nav:
                 - SDK/API_reference/bridges/ros/adapters/nav_msgs.md
                 - SDK/API_reference/bridges/ros/adapters/tf2_msgs.md
                 - SDK/API_reference/bridges/ros/adapters/override_msgs.md
+                - SDK/API_reference/bridges/ros/adapters/unmodeled.md
 
 extra_css:
   - stylesheets/extra.css

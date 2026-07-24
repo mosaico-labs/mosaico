@@ -155,7 +155,9 @@ The Rust SDK is currently in development.
 
 **Field paths are the contract, not the class.** `IMU.Q.acceleration.x` and `QueryableNumeric("IMU.acceleration.x")` compile down to the identical `f"{ontology_tag}.field.subfield"` string the server matches against. The class is a convenience for building that string safely; it isn't required to build it.
 
-**Operator sets mirror the `.Q` proxy, with one gap.** `QueryableNumeric` supports `.eq()`, `.neq()`, `.lt()`, `.leq()`, `.gt()`, `.geq()`, `.in_()`, and `.between()`. `QueryableString` supports `.eq()`, `.match()`, `.lt()`, `.leq()`, `.gt()`, `.geq()`, and `.in_()` - it does not have `.neq()` or `.between()`.
+**Operator sets mirror the `.Q` proxy, with one gap.** 
+* `QueryableNumeric` supports `.eq()`, `.neq()`, `.lt()`, `.leq()`, `.gt()`, `.geq()`, `.in_()`, and `.between()`.
+* `QueryableString` supports `.eq()`, `.match()`, `.lt()`, `.leq()`, `.gt()`, `.geq()`, and `.in_()` - it does not have `.neq()` or `.between()`.
 
 **There's no client-side schema check.** Because no class is involved, the SDK cannot verify that `"GyroRaw.gyro.x"` actually exists or is really numeric before sending the query. A typo'd path or a type mismatch doesn't raise an error - it simply matches nothing.
 

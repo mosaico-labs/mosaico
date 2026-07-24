@@ -212,6 +212,20 @@ impl query::CompileClause for ChunkQueryBuilder {
                 query::CompiledClause::new(build_clause(clause, &vmin), vec![vmin, vmax])
             }
 
+            query::Op::Outside(range) => {
+                let vmin = range.min.into();
+                let vmax = range.max.into();
+                let pmin = self.consume_placeholder();
+                let pmax = self.consume_placeholder();
+                let column_name = column_table_name();
+
+                let clause = format!(
+                    "{column_name} = {field} AND (__stats__.min_value < {pmin} OR __stats__.max_value > {pmax})"
+                );
+
+                query::CompiledClause::new(build_clause(clause, &vmin), vec![vmin, vmax])
+            }
+
             query::Op::In(items) => {
                 let values: Vec<query::Value> = items.into_iter().map(Into::into).collect();
 

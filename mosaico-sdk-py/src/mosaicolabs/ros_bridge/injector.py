@@ -34,6 +34,7 @@ from rosbags.typesys import Stores
 from mosaicolabs.comm.mosaico_client import MosaicoClient
 from mosaicolabs.enum import (
     SequenceStatus,
+    SerializationFormat,
     SessionLevelErrorPolicy,
     TopicLevelErrorPolicy,
     TopicWriterStatus,
@@ -86,6 +87,11 @@ class ROSInjectionConfig:
         adapter_overrides (Optional[Dict[str, Type[ROSAdapterBase]]]): Mapping of topics to adapter overrides,
             allowing the use of specific adapters instead of the default for designated topics.
             Deafult: None
+        serialization_formats (Optional[Dict[str, SerializationFormat]]): Mapping of ROS message type strings
+            (e.g. "sensor_msgs/msg/PointCloud2") to the `SerializationFormat` used when synthesizing an
+            `Unmodeled` ontology for topics that have no registered Mosaico adapter. Message types not
+            present in this mapping default to `SerializationFormat.Default`.
+            Default: None
         log_level (str): Logging verbosity level ("DEBUG", "INFO", "WARNING", "ERROR").
         mosaico_api_key (Optional[str]): The API key for authentication on the mosaico server.
             If provided it must be have the `write` permission.
@@ -185,6 +191,15 @@ class ROSInjectionConfig:
 
     adapter_overrides: Optional[Dict[str, Type[ROSAdapterBase]]] = None
     """A mapping of topics to adapter overrides, allowing the use of specific adapters instead of the default for designated topics."""
+
+    serialization_formats: Optional[Dict[str, SerializationFormat]] = None
+    """A mapping of ROS message type strings (e.g. "sensor_msgs/msg/PointCloud2") to the
+    [`SerializationFormat`][mosaicolabs.enum.SerializationFormat] used when synthesizing an
+    `Unmodeled` ontology for topics that have no registered Mosaico adapter.
+
+    Only applies to non-adapted (unmodeled) message types. Types not present in this mapping
+    default to `SerializationFormat.Default`.
+    """
 
     log_level: str = "INFO"
     """The Log Level"""
@@ -298,6 +313,7 @@ class RosbagInjector:
                 topics=self.cfg.topics,
                 typestore_name=self.cfg.ros_distro or Stores.EMPTY,
                 error_policy=LoaderErrorPolicy.IGNORE,
+                serialization_formats=self.cfg.serialization_formats,
             )
 
         return self._loader
@@ -442,6 +458,11 @@ class RosbagInjector:
         5. **Adapt & Push**: Translates the ROS dictionary into a Mosaico object and pushes it to the server buffer.
         """
 
+        if self._loader is None:
+            raise RuntimeError(
+                "Impossible to process messages if ROSLoader is not instanciated first"
+            )
+
         # --- Filter Check ---
         if ros_msg.topic in self._ignored_topics:
             ui.advance_global()
@@ -449,7 +470,7 @@ class RosbagInjector:
 
         # --- Integrity Check ---
         # If the loader yielded an exception or empty data, mark as error
-        if exc or not ros_msg.data:
+        if exc or not ros_msg.data_field:
             ui.update_status(ros_msg.topic, "Deserialization Error.", "red")
             ui.advance_global()
             return
@@ -457,7 +478,7 @@ class RosbagInjector:
         # --- Adapter Resolution ---
         adapter = (self.cfg.adapter_overrides or {}).get(
             ros_msg.topic
-        ) or self._get_default_adapter(ros_msg.msg_type)
+        ) or self._loader.resolve_adapter(ros_msg.topic)
 
         if adapter is None:
             # If no adapter exists, blacklist this topic to prevent future lookups
@@ -468,15 +489,19 @@ class RosbagInjector:
 
         # Retrieve the writer from SequenceWriter local cache or create new one on server
         twriter = seq_writer.get_topic_writer(ros_msg.topic)
+
         # Should theoretically not be None if exists returned True
         if twriter is None:
+            # --- Schema metadata Resolution ---
+            ros_version = 1 if self.cfg.ros_distro is Stores.ROS1_NOETIC else 2
+            schema_metadata = adapter.schema_metadata(
+                self._loader._typestore, ros_msg.msg_type, ros_version
+            )
+
             # Register new topic on server
             twriter = seq_writer.topic_create(
                 topic_name=ros_msg.topic,
-                metadata=adapter.schema_metadata(
-                    self._open_or_get_loader()._typestore, ros_msg.msg_type
-                )
-                or {},
+                metadata=schema_metadata or {},
                 ontology_type=adapter.ontology_data_type(),
                 on_error=self._get_topic_on_error(ros_msg.topic),
             )
