@@ -4,7 +4,6 @@ use mosaicod_ext as ext;
 use mosaicod_grpc_common as grpc_common;
 use mosaicod_grpc_flight as grpc_flight;
 use mosaicod_store as store;
-use mosaicod_task as task;
 use tonic::transport::Server as TonicServer;
 use tracing::{debug, error, info, warn};
 
@@ -94,30 +93,9 @@ impl Server {
         F: FnOnce(),
     {
         let shutdown = self.shutdown.clone();
-        let shutdown_cleanup = self.shutdown.clone();
         let opts = self.options.clone();
 
         rt.block_on(async {
-            let cleanup_time_interval =
-                task::cleanup::Duration::seconds(params::params().cleanup_time_interval.value);
-
-            let cleanup_retention_duration =
-                task::cleanup::Duration::seconds(params::params().cleanup_retention_duration.value);
-
-            let cleanup_store = self.store.clone();
-            let cleanup_db = self.db.clone();
-
-            // Start cleanup background task.
-            let handle_cleanup_task = rt.spawn(async move {
-                let cleanup = task::Cleanup::new(cleanup_db, cleanup_store)
-                    .with_time_interval(cleanup_time_interval)
-                    .with_retention_duration(cleanup_retention_duration);
-
-                cleanup.run((shutdown_cleanup.token()).clone()).await;
-
-                shutdown_cleanup.shutdown();
-            });
-
             let server_store = self.store.clone();
             let server_db = self.db.clone();
 
@@ -134,7 +112,7 @@ impl Server {
 
             on_start();
 
-            let _ = tokio::join!(handle_flight, handle_cleanup_task);
+            let _ = handle_flight.await;
         });
 
         debug!("grpc server stopped");

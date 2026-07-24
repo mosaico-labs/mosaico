@@ -88,9 +88,13 @@ impl Cleanup {
         self
     }
 
-    /// Starts the cleanup routine that every [`time_interval`] tries to actually perform a cleanup of the store.
+    /// Starts the cleanup routine.
+    ///
+    /// When `time_interval` is `0` a single cleanup is performed and the routine returns
+    /// (one-shot mode). Otherwise it loops, performing a cleanup every `time_interval` until
+    /// `shutdown_notifier` is cancelled.
     pub async fn run(mut self, shutdown_notifier: CancellationToken) {
-        info!("Launching cleanup background routine");
+        info!("Launching cleanup routine");
 
         loop {
             let cleanup_res = self.try_cleanup().await;
@@ -114,33 +118,11 @@ impl Cleanup {
                 }
             }
 
-            // match self.can_start().await {
-            //     Ok(can_start) => {
-            //         if can_start {
-            //             info!("Cleanup started");
-            //
-            //             let cleanup_res = self.do_cleanup().await;
-            //
-            //             match cleanup_res {
-            //                 Ok(stats) => {
-            //                     info!(
-            //                         "Cleanup completed. {} items marked as ready to be deleted. {} items deleted.",
-            //                         stats.marked_folders.len(),
-            //                         stats.deleted_folders.len()
-            //                     );
-            //                 }
-            //                 Err(e) => {
-            //                     // Don't exit the cleanup routine if something went wrong. Just log the error.
-            //                     error!("Cleanup failed. {}", e);
-            //                 }
-            //             }
-            //         }
-            //     }
-            //     Err(e) => {
-            //         // Don't exit the cleanup routine if something went wrong. Just log the error.
-            //         error!("{}", e);
-            //     }
-            // }
+            // perform a single cleanup and terminate.
+            if self.time_interval.is_zero() {
+                info!("Exiting cleanup routine. One-shot cleanup completed.");
+                break;
+            }
 
             tokio::select! {
                 // Here we can call .unwrap() safely because duration is non-negative by construction.
@@ -159,10 +141,6 @@ impl Cleanup {
     /// Returns how many folders have been marked TO_DELETE and how many folder have actually been deleted.
     pub async fn try_cleanup(&mut self) -> Result<CleanupStats> {
         let mut stats = CleanupStats::default();
-
-        if self.time_interval.is_zero() {
-            return Ok(stats);
-        }
 
         let start_time = chrono::Utc::now();
 

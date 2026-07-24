@@ -7,7 +7,7 @@ description: "How to enable and configure TLS on mosaicod. Covers certificate an
 Securing your Mosaico instance is straightforward, as [TLS (Transport Layer Security)](https://en.wikipedia.org/wiki/Transport_Layer_Security) is fully supported out of the box. 
 Enabling TLS ensures that all communications with the daemon are encrypted and secure.
 
-To activate it, simply append the `--tls` flag to your `mosaicod run` command.
+To activate it, simply append the `--tls` flag to your `mosaicod server` command.
 
 When the `--tls` flag is used, `mosaicod` requires a valid certificate and private key. 
 
@@ -110,7 +110,7 @@ Point `mosaicod` to the Certbot-managed files using the TLS environment variable
 export MOSAICOD_TLS_CERT_FILE=/etc/letsencrypt/live/mosaico.example.com/fullchain.pem
 export MOSAICOD_TLS_PRIVATE_KEY_FILE=/etc/letsencrypt/live/mosaico.example.com/privkey.pem
 
-mosaicod run --tls
+mosaicod server --tls
 ```
 
 :::tip
