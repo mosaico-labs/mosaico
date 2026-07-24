@@ -14,9 +14,7 @@ BASE_MAPPING: Dict[Type, pa.DataType] = {
 
 
 REMAPPED_PYARROW_TYPES: Dict[pa.DataType, pa.DataType] = {
-    pa.large_string(): pa.string(),
     pa.string_view(): pa.string(),
-    pa.large_binary(): pa.binary(),
     pa.binary_view(): pa.binary(),
 }
 

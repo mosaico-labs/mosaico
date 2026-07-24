@@ -198,7 +198,7 @@ class ROSAdapterBase(ABC, Generic[T]):
 
     @classmethod
     def schema_metadata(
-        cls, typestore: Typestore, ros_msg_type: str, **kwargs
+        cls, typestore: Typestore, ros_msg_type: str, ros_version: int
     ) -> Optional[dict]:
         """
         Extracts ROS-specific schema metadata for the Mosaico platform.
@@ -209,6 +209,7 @@ class ROSAdapterBase(ABC, Generic[T]):
         Args:
             typestore: The rosbags typestore used to resolve and construct target ROS types.
             ros_msg_type: The ros message type whose metadata should be extracted compatible with the adapter.
+            ros_version: The current ros version.
 
         Returns:
             The constructed dictionary compatible for Mosaico topic metadata. It contains:
@@ -265,7 +266,9 @@ class ROSAdapterBase(ABC, Generic[T]):
         if msg_def:
             enum_list, _ = msg_def
             out_dict["enums"] = {name: val for name, _, val in enum_list}
-            out_dict["msgdef"] = msg_def
+            out_dict["msgdef"], _ = typestore.generate_msgdef(
+                ros_msg_type, ros_version=ros_version
+            )
 
         out_dict["msgtype"] = ros_msg_type
 

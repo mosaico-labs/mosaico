@@ -186,15 +186,12 @@ class UnmodeledAdapter(ROSAdapterBase[T], Generic[T]):
 
     @classmethod
     def schema_metadata(
-        cls,
-        typestore: Typestore,
-        ros_msg_type: str,
-        **kwargs,
+        cls, typestore: Typestore, ros_msg_type: str, ros_version: int
     ) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
         """
-        return super().schema_metadata(typestore, ros_msg_type, **kwargs)
+        return super().schema_metadata(typestore, ros_msg_type, ros_version)
 
     @classmethod
     def get_or_create(

@@ -477,8 +477,9 @@ class RosbagInjector:
         # Should theoretically not be None if exists returned True
         if twriter is None:
             # --- Schema metadata Resolution ---
+            ros_version = 1 if self.cfg.ros_distro is Stores.ROS1_NOETIC else 2
             schema_metadata = adapter.schema_metadata(
-                self._loader._typestore, ros_msg.msg_type
+                self._loader._typestore, ros_msg.msg_type, ros_version
             )
 
             # Register new topic on server
