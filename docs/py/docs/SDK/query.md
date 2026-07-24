@@ -592,14 +592,14 @@ with MosaicoClient.connect("localhost", 6726) as client:
     )
 ```
 
-The real payoff shows up once no class is available at all. Suppose an unmodeled ontology tagged `"GyroRaw"` was ingested via [`make_unmodeled_ontology_class()`][mosaicolabs.models.core.unmodeled.make_unmodeled_ontology_class] (see the [`UnmodeledGyro` example](./ontology.md#how-it-works)) from a process that has since exited - there's no `UnmodeledGyro` class left to build a `.Q` proxy from. The tag and field path are enough:
+The real payoff shows up once no class is available at all. Suppose an unmodeled data schema tagged `"GyroRaw"` was ingested in the platform (for example using the ROS-Bridge, from a custom message type`"my_sensors_msgs/msg/GyroRaw"`). The `GyroRaw` class was defined on the fly by the SDK and made available for that ingestion process only; Once such ingestion process is terminated, there's no `GyroRaw` class left to build a `.Q` proxy from. The tag and field path are enough:
 
 ```python
 from mosaicolabs import MosaicoClient, QueryOntologyCatalog
 from mosaicolabs.models.query.queryable_fields import QueryableNumeric, QueryableString
 
 with MosaicoClient.connect("localhost", 6726) as client:
-    # Numeric filter on an unmodeled gyroscope reading - no UnmodeledGyro class required
+    # Numeric filter on an unmodeled gyroscope reading - no GyroRaw class required
     qresponse = client.query(
         QueryOntologyCatalog().with_expression(
             QueryableNumeric("GyroRaw.gyro.x").gt(0.5)
