@@ -5,7 +5,7 @@ use mosaicod_db as db;
 use mosaicod_ext as ext;
 use mosaicod_rw::ToProperties;
 use mosaicod_store as store;
-use tests::{self, actions, common, store_optimizer};
+use tests::{self, actions, cleanup, common, store_optimizer};
 
 // ===========================================================================
 // Store optimization routine. Single server tests
@@ -16,8 +16,13 @@ use tests::{self, actions, common, store_optimizer};
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_store_optimization_1(pool: sqlx::Pool<db::DatabaseType>) {
     let server = common::ServerBuilder::new(common::HOST, pool.clone())
-        .with_cleanup(types::Duration::seconds(2), types::Duration::seconds(0))
         .build()
+        .await;
+
+    let cleanup_handle = cleanup::Builder::new(pool.clone())
+        .with_time_interval(types::Duration::seconds(2))
+        .with_retention_period(types::Duration::seconds(0))
+        .build_with_store(&server.store)
         .await;
 
     let mut client = common::ClientBuilder::new(common::HOST, server.port())
@@ -176,6 +181,7 @@ async fn test_store_optimization_1(pool: sqlx::Pool<db::DatabaseType>) {
     );
 
     server.shutdown().await;
+    cleanup_handle.shutdown().await;
 }
 
 /// Tests the optimization in a scenario with 1 sequence, 1 topic and many record batches.

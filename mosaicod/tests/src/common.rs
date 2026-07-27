@@ -6,7 +6,6 @@ use mosaicod_grpc as grpc;
 use mosaicod_grpc_common as grpc_common;
 use mosaicod_query as query;
 use mosaicod_store as store;
-use mosaicod_task as task;
 use serde::Deserialize;
 use std::fs;
 use std::net::TcpListener;
@@ -38,15 +37,9 @@ pub fn format_endpoint(host: &str, port: u16, tls: bool) -> String {
     format!("http://{host}:{port}")
 }
 
-pub struct CleanupIntervalConfig {
-    pub time_interval: types::Duration,
-    pub retention_duration: types::Duration,
-}
-
 pub struct ServerBuilder {
     host: String,
     tls: Option<grpc::TlsConfig>,
-    cleanup_config: Option<CleanupIntervalConfig>,
     db: db::testing::Database,
     enable_api_key: bool,
 }
@@ -58,7 +51,6 @@ impl ServerBuilder {
         Self {
             host: host.to_owned(),
             tls: None,
-            cleanup_config: None,
             db,
             enable_api_key: false,
         }
@@ -66,18 +58,6 @@ impl ServerBuilder {
 
     pub fn enable_api_key(mut self) -> Self {
         self.enable_api_key = true;
-        self
-    }
-
-    pub fn with_cleanup(
-        mut self,
-        time_interval: types::Duration,
-        retention_duration: types::Duration,
-    ) -> Self {
-        self.cleanup_config = Some(CleanupIntervalConfig {
-            time_interval,
-            retention_duration,
-        });
         self
     }
 
@@ -137,34 +117,6 @@ impl ServerBuilder {
         let shutdown = grpc_common::ShutdownNotifier::default();
         let db = self.db;
 
-        // Start cleanup background task (if config provided).
-        let cleanup_time_interval = self
-            .cleanup_config
-            .as_ref()
-            .map_or(types::Duration::seconds(0), |c| c.time_interval);
-
-        let cleanup_retention_duration = self
-            .cleanup_config
-            .as_ref()
-            .map_or(types::Duration::seconds(86400), |c| c.retention_duration);
-
-        let cleanup_task_handle = tokio::task::spawn({
-            let cleanup_store = (*store).clone();
-            let cleanup_db = db.clone();
-            let cleanup_shutdown = shutdown.clone();
-
-            async move {
-                // If time interval is 0, then don't even start cleanup routine.
-                if cleanup_time_interval.num_seconds() > 0 {
-                    let cleanup = task::Cleanup::new(cleanup_db, cleanup_store)
-                        .with_time_interval(cleanup_time_interval)
-                        .with_retention_duration(cleanup_retention_duration);
-
-                    cleanup.run(cleanup_shutdown.token()).await;
-                }
-            }
-        });
-
         let flight_server_handle = tokio::task::spawn({
             let shutdown = shutdown.clone();
             let store = (*store).clone();
@@ -184,7 +136,7 @@ impl ServerBuilder {
         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
 
         Server {
-            server_join_handle: (flight_server_handle, cleanup_task_handle),
+            server_join_handle: flight_server_handle,
             shutdown,
             port,
             db,
@@ -209,7 +161,7 @@ impl ServerBuilder {
 /// ```
 pub struct Server {
     shutdown: grpc_common::ShutdownNotifier,
-    server_join_handle: (tokio::task::JoinHandle<()>, tokio::task::JoinHandle<()>),
+    server_join_handle: tokio::task::JoinHandle<()>,
     port: u16,
     pub db: db::testing::Database,
     pub store: store::testing::Store,
@@ -220,24 +172,15 @@ impl Server {
     /// Signals the server to stop and waits for the background task to complete.
     pub async fn shutdown(self) {
         self.shutdown.shutdown();
-        let (res1, res2) = tokio::join!(self.server_join_handle.0, self.server_join_handle.1,);
 
-        if let Err(e) = res1 {
+        if let Err(e) = self.server_join_handle.await {
             println!("Flight server failed: {}", e)
-        }
-        if let Err(e) = res2 {
-            println!("Cleanup routine failed: {}", e)
         }
     }
 
     /// Check if the server is running.
     pub async fn is_shutdown(&self) -> bool {
-        self.server_join_handle.0.is_finished() && self.server_join_handle.1.is_finished()
-    }
-
-    /// Check if the flight server is terminated.
-    pub async fn is_flight_server_shutdown(&self) -> bool {
-        self.server_join_handle.0.is_finished()
+        self.server_join_handle.is_finished()
     }
 
     pub fn port(&self) -> u16 {

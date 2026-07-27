@@ -5,7 +5,7 @@ use mosaicod_store as store;
 use mosaicod_task as task;
 pub struct Builder {
     time_interval: types::Duration,
-    max_file_size: usize,
+    retention_period: types::Duration,
     db: db::testing::Database,
 }
 
@@ -15,7 +15,7 @@ impl Builder {
 
         Self {
             time_interval: types::Duration::seconds(0),
-            max_file_size: task::DEFAULT_MAX_OUTPUT_FILE_SIZE,
+            retention_period: types::Duration::seconds(0),
             db,
         }
     }
@@ -25,8 +25,8 @@ impl Builder {
         self
     }
 
-    pub fn with_max_file_size(mut self, max_file_size: usize) -> Self {
-        self.max_file_size = max_file_size;
+    pub fn with_retention_period(mut self, retention_period: types::Duration) -> Self {
+        self.retention_period = retention_period;
         self
     }
 
@@ -43,11 +43,11 @@ impl Builder {
             let shutdown = shutdown.clone();
 
             async move {
-                let store_optimizer = task::StoreOptimizer::new(db, store)
+                let cleanup = task::Cleanup::new(db, store)
                     .with_time_interval(self.time_interval)
-                    .with_max_file_size(self.max_file_size);
+                    .with_retention_duration(self.retention_period);
 
-                store_optimizer.run(shutdown.token()).await;
+                cleanup.run(shutdown.token()).await;
             }
         });
 
@@ -65,16 +65,16 @@ pub struct Handle {
 }
 
 impl Handle {
-    /// Signals the store optimizer to stop and waits for the background task to complete.
+    /// Signals the cleanup to stop and waits for the background task to complete.
     pub async fn shutdown(self) {
         self.shutdown.shutdown();
 
         if let Err(e) = self.join_handle.await {
-            println!("Store optimizer failed: {}", e)
+            println!("Cleanup failed: {}", e)
         }
     }
 
-    /// Check if the store optimizer is running.
+    /// Check if the cleanup is running.
     pub async fn is_shutdown(&self) -> bool {
         self.join_handle.is_finished()
     }

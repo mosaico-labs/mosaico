@@ -4,7 +4,7 @@ use mosaicod_core::types;
 use mosaicod_db as db;
 use mosaicod_ext as ext;
 use mosaicod_store as store;
-use tests::{self, actions, common};
+use tests::{self, actions, cleanup, common};
 
 // ===========================================================================
 // Cleanup routine single server tests
@@ -16,9 +16,14 @@ async fn test_cleanup_1(pool: sqlx::Pool<db::DatabaseType>) {
     let cleanup_time_interval = types::Duration::seconds(1);
     let cleanup_retention_duration = types::Duration::seconds(3);
 
-    let server = common::ServerBuilder::new(common::HOST, pool)
-        .with_cleanup(cleanup_time_interval, cleanup_retention_duration)
+    let server = common::ServerBuilder::new(common::HOST, pool.clone())
         .build()
+        .await;
+
+    let cleanup_handle = cleanup::Builder::new(pool)
+        .with_time_interval(cleanup_time_interval)
+        .with_retention_period(cleanup_retention_duration)
+        .build_with_store(&server.store)
         .await;
 
     let mut client = common::ClientBuilder::new(common::HOST, server.port())
@@ -47,6 +52,7 @@ async fn test_cleanup_1(pool: sqlx::Pool<db::DatabaseType>) {
     assert!(server.store.list("", None).await.unwrap().is_empty());
 
     server.shutdown().await;
+    cleanup_handle.shutdown().await;
 }
 
 /// Tests the cleanup in a scenario with 1 sequence and 1 topic. Only the topic is deleted.
@@ -55,9 +61,14 @@ async fn test_cleanup_2(pool: sqlx::Pool<db::DatabaseType>) {
     let cleanup_time_interval = types::Duration::seconds(1);
     let cleanup_retention_duration = types::Duration::seconds(3);
 
-    let server = common::ServerBuilder::new(common::HOST, pool)
-        .with_cleanup(cleanup_time_interval, cleanup_retention_duration)
+    let server = common::ServerBuilder::new(common::HOST, pool.clone())
         .build()
+        .await;
+
+    let cleanup_handle = cleanup::Builder::new(pool)
+        .with_time_interval(cleanup_time_interval)
+        .with_retention_period(cleanup_retention_duration)
+        .build_with_store(&server.store)
         .await;
 
     let mut client = common::ClientBuilder::new(common::HOST, server.port())
@@ -104,6 +115,7 @@ async fn test_cleanup_2(pool: sqlx::Pool<db::DatabaseType>) {
     assert_eq!(server.store.list("", None).await.unwrap().len(), 1);
 
     server.shutdown().await;
+    cleanup_handle.shutdown().await;
 }
 
 /// Tests the cleanup in a scenario with 1 sequence and 1 topic. The sequence is deleted.
@@ -112,9 +124,14 @@ async fn test_cleanup_3(pool: sqlx::Pool<db::DatabaseType>) {
     let cleanup_time_interval = types::Duration::seconds(1);
     let cleanup_retention_duration = types::Duration::seconds(3);
 
-    let server = common::ServerBuilder::new(common::HOST, pool)
-        .with_cleanup(cleanup_time_interval, cleanup_retention_duration)
+    let server = common::ServerBuilder::new(common::HOST, pool.clone())
         .build()
+        .await;
+
+    let cleanup_handle = cleanup::Builder::new(pool)
+        .with_time_interval(cleanup_time_interval)
+        .with_retention_period(cleanup_retention_duration)
+        .build_with_store(&server.store)
         .await;
 
     let mut client = common::ClientBuilder::new(common::HOST, server.port())
@@ -162,6 +179,7 @@ async fn test_cleanup_3(pool: sqlx::Pool<db::DatabaseType>) {
     assert!(server.store.list("", None).await.unwrap().is_empty());
 
     server.shutdown().await;
+    cleanup_handle.shutdown().await;
 }
 
 /// Tests the cleanup in a scenario with 2 sequences and 2 topics, one for each sequence.
@@ -171,9 +189,14 @@ async fn test_cleanup_4(pool: sqlx::Pool<db::DatabaseType>) {
     let cleanup_time_interval = types::Duration::seconds(1);
     let cleanup_retention_duration = types::Duration::seconds(3);
 
-    let server = common::ServerBuilder::new(common::HOST, pool)
-        .with_cleanup(cleanup_time_interval, cleanup_retention_duration)
+    let server = common::ServerBuilder::new(common::HOST, pool.clone())
         .build()
+        .await;
+
+    let cleanup_handle = cleanup::Builder::new(pool)
+        .with_time_interval(cleanup_time_interval)
+        .with_retention_period(cleanup_retention_duration)
+        .build_with_store(&server.store)
         .await;
 
     let mut client = common::ClientBuilder::new(common::HOST, server.port())
@@ -248,6 +271,7 @@ async fn test_cleanup_4(pool: sqlx::Pool<db::DatabaseType>) {
     assert_eq!(server.store.list("", None).await.unwrap().len(), 1);
 
     server.shutdown().await;
+    cleanup_handle.shutdown().await;
 }
 
 /// Tests the cleanup in a scenario with 1 sequence and retention duration = 0. The sequence is deleted.
@@ -256,9 +280,14 @@ async fn test_cleanup_5(pool: sqlx::Pool<db::DatabaseType>) {
     let cleanup_time_interval = types::Duration::seconds(2);
     let cleanup_retention_duration = types::Duration::seconds(0);
 
-    let server = common::ServerBuilder::new(common::HOST, pool)
-        .with_cleanup(cleanup_time_interval, cleanup_retention_duration)
+    let server = common::ServerBuilder::new(common::HOST, pool.clone())
         .build()
+        .await;
+
+    let cleanup_handle = cleanup::Builder::new(pool)
+        .with_time_interval(cleanup_time_interval)
+        .with_retention_period(cleanup_retention_duration)
+        .build_with_store(&server.store)
         .await;
 
     let mut client = common::ClientBuilder::new(common::HOST, server.port())
@@ -286,6 +315,7 @@ async fn test_cleanup_5(pool: sqlx::Pool<db::DatabaseType>) {
     assert!(server.store.list("", None).await.unwrap().is_empty());
 
     server.shutdown().await;
+    cleanup_handle.shutdown().await;
 }
 
 /// Tests that re-creating a sequence with the same name as a deleted one works correctly:
@@ -295,9 +325,14 @@ async fn test_cleanup_6(pool: sqlx::Pool<db::DatabaseType>) {
     let cleanup_time_interval = types::Duration::seconds(1);
     let cleanup_retention_duration = types::Duration::seconds(3);
 
-    let server = common::ServerBuilder::new(common::HOST, pool)
-        .with_cleanup(cleanup_time_interval, cleanup_retention_duration)
+    let server = common::ServerBuilder::new(common::HOST, pool.clone())
         .build()
+        .await;
+
+    let cleanup_handle = cleanup::Builder::new(pool)
+        .with_time_interval(cleanup_time_interval)
+        .with_retention_period(cleanup_retention_duration)
+        .build_with_store(&server.store)
         .await;
 
     let mut client = common::ClientBuilder::new(common::HOST, server.port())
@@ -342,6 +377,7 @@ async fn test_cleanup_6(pool: sqlx::Pool<db::DatabaseType>) {
         .unwrap();
 
     server.shutdown().await;
+    cleanup_handle.shutdown().await;
 }
 
 /// Tests that a TO_DELETE marker created during a previous server lifecycle is honored
@@ -355,12 +391,17 @@ async fn test_cleanup_7(pool: sqlx::Pool<db::DatabaseType>) {
     let store = store::testing::Store::new_random_on_tmp().unwrap();
 
     // server marks the orphan folder, then shuts down before deletion
-    let server1 = common::ServerBuilder::new(common::HOST, pool.clone())
-        .with_cleanup(cleanup_time_interval, cleanup_retention_duration)
+    let server = common::ServerBuilder::new(common::HOST, pool.clone())
         .build_with_store(store.clone())
         .await;
 
-    let mut client = common::ClientBuilder::new(common::HOST, server1.port())
+    let cleanup_handle = cleanup::Builder::new(pool.clone())
+        .with_time_interval(cleanup_time_interval)
+        .with_retention_period(cleanup_retention_duration)
+        .build_with_store(&server.store)
+        .await;
+
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
         .build()
         .await;
 
@@ -377,26 +418,28 @@ async fn test_cleanup_7(pool: sqlx::Pool<db::DatabaseType>) {
 
     // Wait long enough for the marker to be created but NOT for the physical delete.
     tokio::time::sleep(std::time::Duration::from_secs(2)).await;
-    assert_eq!(server1.store.list("", None).await.unwrap().len(), 2);
+    assert_eq!(server.store.list("", None).await.unwrap().len(), 2);
 
-    server1.shutdown().await;
+    cleanup_handle.shutdown().await;
 
-    // fresh server on the same store must complete the deletion
-    let server2 = common::ServerBuilder::new(common::HOST, pool.clone())
-        .with_cleanup(cleanup_time_interval, cleanup_retention_duration)
-        .build_with_store(store.clone())
+    // fresh cleanup routine on the same store must complete the deletion
+    let cleanup_handle = cleanup::Builder::new(pool)
+        .with_time_interval(cleanup_time_interval)
+        .with_retention_period(cleanup_retention_duration)
+        .build_with_store(&server.store)
         .await;
 
     // The marker is already past retention; the very next cleanup cycle must wipe the folder.
     tokio::time::sleep(std::time::Duration::from_secs(4)).await;
 
-    assert!(server2.store.list("", None).await.unwrap().is_empty());
+    assert!(server.store.list("", None).await.unwrap().is_empty());
 
-    server2.shutdown().await;
+    server.shutdown().await;
+    cleanup_handle.shutdown().await;
 }
 
 // ===========================================================================
-// Cleanup routine multi-server tests
+// Cleanup routine multi-cleanup tests
 // ===========================================================================
 
 /// Tests the cleanup in a scenario with 2 active servers and 1 sequence. The sequence is deleted.
@@ -407,16 +450,23 @@ async fn test_cleanup_multi_1(pool: sqlx::Pool<db::DatabaseType>) {
 
     let store = store::testing::Store::new_random_on_tmp().unwrap();
 
-    let server1 = common::ServerBuilder::new(common::HOST, pool.clone())
-        .with_cleanup(cleanup_time_interval, cleanup_retention_duration)
-        .build_with_store(store.clone())
-        .await;
-    let server2 = common::ServerBuilder::new(common::HOST, pool.clone())
-        .with_cleanup(cleanup_time_interval, cleanup_retention_duration)
+    let server = common::ServerBuilder::new(common::HOST, pool.clone())
         .build_with_store(store.clone())
         .await;
 
-    let mut client = common::ClientBuilder::new(common::HOST, server1.port())
+    let cleanup_handle1 = cleanup::Builder::new(pool.clone())
+        .with_time_interval(cleanup_time_interval)
+        .with_retention_period(cleanup_retention_duration)
+        .build_with_store(&server.store)
+        .await;
+
+    let cleanup_handle2 = cleanup::Builder::new(pool)
+        .with_time_interval(cleanup_time_interval)
+        .with_retention_period(cleanup_retention_duration)
+        .build_with_store(&server.store)
+        .await;
+
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
         .build()
         .await;
 
@@ -427,8 +477,7 @@ async fn test_cleanup_multi_1(pool: sqlx::Pool<db::DatabaseType>) {
         .await
         .unwrap();
 
-    assert_eq!(server1.store.list("", None).await.unwrap().len(), 1);
-    assert_eq!(server2.store.list("", None).await.unwrap().len(), 1);
+    assert_eq!(server.store.list("", None).await.unwrap().len(), 1);
 
     actions::sequence_delete(&mut client, sequence_name)
         .await
@@ -436,16 +485,14 @@ async fn test_cleanup_multi_1(pool: sqlx::Pool<db::DatabaseType>) {
 
     // Wait for the cleanup to run and add the TO_DELETE marker file in the sequence folder.
     tokio::time::sleep(std::time::Duration::from_secs(2)).await;
-    assert_eq!(server1.store.list("", None).await.unwrap().len(), 2);
-    assert_eq!(server2.store.list("", None).await.unwrap().len(), 2);
+    assert_eq!(server.store.list("", None).await.unwrap().len(), 2);
 
     // Wait for the cleanup to run again and remove the sequence folder from the store.
     tokio::time::sleep(std::time::Duration::from_secs(4)).await;
-    assert!(server1.store.list("", None).await.unwrap().is_empty());
-    assert!(server2.store.list("", None).await.unwrap().is_empty());
+    assert!(server.store.list("", None).await.unwrap().is_empty());
 
     // Only one server at a time can perform a cleanup. We expect to see logs in the history spaced one second apart.
-    let history = db::cleanup_log_history(&mut server1.db.connection(), u16::MAX)
+    let history = db::cleanup_log_history(&mut server.db.connection(), u16::MAX)
         .await
         .unwrap();
 
@@ -465,6 +512,7 @@ async fn test_cleanup_multi_1(pool: sqlx::Pool<db::DatabaseType>) {
             .all(|log| log.end_datetime().is_some())
     );
 
-    server1.shutdown().await;
-    server2.shutdown().await;
+    server.shutdown().await;
+    cleanup_handle1.shutdown().await;
+    cleanup_handle2.shutdown().await;
 }
