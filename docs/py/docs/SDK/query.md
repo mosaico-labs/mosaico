@@ -131,6 +131,7 @@ with MosaicoClient.connect("localhost", 6726) as client:
                 )
 
 ```
+
 * **Result Normalization**: `topic.name` returns the relative topic path (e.g., `/sensors/imu`), making it immediately compatible with other SDK methods like [`topic_handler()`][mosaicolabs.comm.MosaicoClient.topic_handler].
 * **Temporal Windows**: The `clusterize()` called for each `topic` divides in time intervals (or clusters) the overall timerange where the query is satisfied. `clustering_dt_ns` specifies the minimal distance there needs to be between two clusters to be considered distinct. Tuning `clustering_dt_ns` for each `ontology_tag` can be used to filter too close clusters (merging them into a single one) or to handle different sensors' sampling time (`IMU`, `GPS`, `Pose`, ...). Refer to [Temporal Window for Topics and Sequences](#temporal-windows) for more insights about `clusterize()`, `clusterize_all()`, and `intersect()`.
 
@@ -497,23 +498,23 @@ The proxy automatically flattens the hierarchy, assigning the correct queryable 
 
 | Proxy Field Path | Queryable Type | Supported Operators (Examples) |
 | --- | --- | --- |
-| **[`IMU.Q.acceleration.x/y/z`][mosaicolabs.models.sensors.IMU.acceleration--querying-with-the-q-proxy]** | **Numeric** | `.gt()`, `.lt()`, `.geq()`, `.leq()`, `.eq()`, `.between()`, `.in_()` |
-| **[`IMU.Q.angular_velocity.x/y/z`][mosaicolabs.models.sensors.IMU.angular_velocity--querying-with-the-q-proxy]** | **Numeric** | `.gt()`, `.lt()`, `.geq()`, `.leq()`, `.eq()`, `.between()`, `.in_()` |
-| **[`IMU.Q.orientation.x/y/z/w`][mosaicolabs.models.sensors.IMU.orientation--querying-with-the-q-proxy]** | **Numeric** | `.gt()`, `.lt()`, `.geq()`, `.leq()`, `.eq()`, `.between()`, `.in_()` |
-| **[`IMU.Q.timestamp_ns`][mosaicolabs.models.core.Message.timestamp_ns--querying-with-the-q-proxy]** | **Numeric** | `.gt()`, `.lt()`, `.geq()`, `.leq()`, `.eq()`, `.between()`, `.in_()` |
-| **[`IMU.Q.header.timestamp.seconds`][mosaicolabs.models.data.HeaderMixin--queryability]** | **Numeric** | `.gt()`, `.lt()`, `.geq()`, `.leq()`, `.eq()`, `.between()`, `.in_()` |
-| **[`IMU.Q.header.timestamp.nanoseconds`][mosaicolabs.models.data.HeaderMixin--queryability]** | **Numeric** | `.gt()`, `.lt()`, `.geq()`, `.leq()`, `.eq()`, `.between()`, `.in_()` |
-| **[`IMU.Q.header.frame_id`][mosaicolabs.models.data.HeaderMixin--queryability]** | **String** | `.eq()`, `.match()`, `.in_()`, `.lt()`, `.gt()`, `.leq()`, `.geq()` |
-| **[`IMU.Q.header.sample_counter`][mosaicolabs.models.data.HeaderMixin--queryability]** | **Numeric** | `.gt()`, `.lt()`, `.geq()`, `.leq()`, `.eq()`, `.between()`, `.in_()` |
+| **[`IMU.Q.acceleration.x/y/z`][mosaicolabs.models.sensors.IMU.acceleration--querying-with-the-q-proxy]** | **Numeric** | `.gt()`, `.lt()`, `.geq()`, `.leq()`, `.eq()`, `.between()`, `.in_()`, `.outside()` |
+| **[`IMU.Q.angular_velocity.x/y/z`][mosaicolabs.models.sensors.IMU.angular_velocity--querying-with-the-q-proxy]** | **Numeric** | `.gt()`, `.lt()`, `.geq()`, `.leq()`, `.eq()`, `.between()`, `.in_()`, `.outside()` |
+| **[`IMU.Q.orientation.x/y/z/w`][mosaicolabs.models.sensors.IMU.orientation--querying-with-the-q-proxy]** | **Numeric** | `.gt()`, `.lt()`, `.geq()`, `.leq()`, `.eq()`, `.between()`, `.in_()`, `.outside()` |
+| **[`IMU.Q.timestamp_ns`][mosaicolabs.models.core.Message.timestamp_ns--querying-with-the-q-proxy]** | **Numeric** | `.gt()`, `.lt()`, `.geq()`, `.leq()`, `.eq()`, `.between()`, `.in_()`, `.outside()` |
+| **[`IMU.Q.header.timestamp.seconds`][mosaicolabs.models.data.HeaderMixin--queryability]** | **Numeric** | `.gt()`, `.lt()`, `.geq()`, `.leq()`, `.eq()`, `.between()`, `.in_()`, `.outside()` |
+| **[`IMU.Q.header.timestamp.nanoseconds`][mosaicolabs.models.data.HeaderMixin--queryability]** | **Numeric** | `.gt()`, `.lt()`, `.geq()`, `.leq()`, `.eq()`, `.between()`, `.in_()`, `.outside()` |
+| **[`IMU.Q.header.frame_id`][mosaicolabs.models.data.HeaderMixin--queryability]** | **String** | `.eq()`, `.match()`, `.in_()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.between()`, `.outside()` |
+| **[`IMU.Q.header.sample_counter`][mosaicolabs.models.data.HeaderMixin--queryability]** | **Numeric** | `.gt()`, `.lt()`, `.geq()`, `.leq()`, `.eq()`, `.between()`, `.in_()`, `.outside()` |
 
 The following table lists the supported operators for each data type:
 
 | Data Type | Operators |
 | --- | --- |
-| **Numeric** | `.eq()`, `.lt()`, `.leq()`, `.gt()`, `.geq()`, `.between()`, `.in_()` |
-| **String** | `.eq()`, `.match()` (i.e. substring), `.in_()`, `.lt()`, `.gt()`, `.leq()`, `.geq()` |
-| **Boolean** | `.eq(True/False)` |
-| **Dictionary** | `.eq()`, `.lt()`, `.leq()`, `.gt()`, `.geq()`, `.between()`, `.ex()`|
+| **Numeric** | [`.eq()`][mosaicolabs.query.queryable_fields.QueryableNumeric.eq], [`.lt()`][mosaicolabs.query.queryable_fields.QueryableNumeric.lt], [`.leq()`][mosaicolabs.query.queryable_fields.QueryableNumeric.leq], [`.gt()`][mosaicolabs.query.queryable_fields.QueryableNumeric.gt], [`.geq()`][mosaicolabs.query.queryable_fields.QueryableNumeric.geq], [`.between()`][mosaicolabs.query.queryable_fields.QueryableNumeric.between], [`.in_()`][mosaicolabs.query.queryable_fields.QueryableNumeric.in_], [`.outside()`][mosaicolabs.query.queryable_fields.QueryableNumeric.outside] |
+| **String** | [`.eq()`][mosaicolabs.query.queryable_fields.QueryableString.eq], [`.match()`][mosaicolabs.query.queryable_fields.QueryableString.match] (regex matching), [`.in_()`][mosaicolabs.query.queryable_fields.QueryableString.in_], [`.lt()`][mosaicolabs.query.queryable_fields.QueryableString.lt], [`.gt()`][mosaicolabs.query.queryable_fields.QueryableString.gt], [`.leq()`][mosaicolabs.query.queryable_fields.QueryableString.leq], [`.geq()`][mosaicolabs.query.queryable_fields.QueryableString.geq], [`.between()`][mosaicolabs.query.queryable_fields.QueryableString.between], [`.outside()`][mosaicolabs.query.queryable_fields.QueryableString.outside] |
+| **Boolean** | [`.eq(True/False)`][mosaicolabs.query.queryable_fields.QueryableBool.eq] |
+<!-- | **Dictionary** | `.eq()`, `.lt()`, `.leq()`, `.gt()`, `.geq()`, `.between()`, `.ex()`, `.match()` (regex matching), `.outside()`| -->
 
 ### Supported Types
 

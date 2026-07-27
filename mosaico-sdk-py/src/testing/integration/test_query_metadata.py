@@ -443,7 +443,7 @@ class TestMetadataValueRegEx:
     def test_query_topic_metadata_match(
         self,
         mosaico_client: MosaicoClient,
-        inject_mockup_sequences,
+        inject_synthetic_sequence,
     ):
         query_resp = mosaico_client.query(
             QuerySequence().with_name(UPLOADED_SEQUENCE_NAME),

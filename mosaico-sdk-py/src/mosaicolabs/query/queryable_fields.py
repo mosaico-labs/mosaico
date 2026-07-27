@@ -1,17 +1,22 @@
 """
-Class-Free Queryable Fields Module.
+Queryable Fields Module.
 
-The [`.Q` proxy][mosaicolabs.models.core.Serializable] is injected onto a
-`Serializable` *class*, so building a query expression normally requires having
-that class in hand (e.g. `IMU.Q.acceleration.x.gt(9.8)`). That's not always
-possible: [`Unmodeled`][mosaicolabs.models.core.unmodeled.Unmodeled] data whose
-schema variants you haven't resolved into a Python class have no `.Q` proxy to invoke.
+This module defines the concrete types that the `.Q` proxy of a `Serializable`
+class resolves each leaf field to. When you write `IMU.Q.acceleration.x`, the
+`.x` attribute you get back *is* a `QueryableNumeric` instance - one per leaf
+field, one class per underlying data type (`QueryableNumeric`, `QueryableString`,
+`QueryableBool`). Each class only exposes the comparison operators that make
+sense for its data type (e.g. numeric fields get `.lt()`/`.gt()`/`.between()`,
+string fields get `.match()`, boolean fields only get `.eq()`), so building an
+expression on the wrong operator is a type error, not a runtime surprise.
 
-The `Queryable*` classes defined in this file are the class-free escape hatch: given
-just the fully-qualified, dot-notated field path (`f"{ontology_tag}.field.subfield"`)
-that the `.Q` proxy would have produced internally anyway, they build the exact
-same `_QueryCatalogExpression` that a resolved class's `.Q` proxy would
-without needing the class at all.
+Because a `Queryable*` field only needs a fully-qualified, dot-notated path
+(`f"{ontology_tag}.field.subfield"`) to build its `_QueryCatalogExpression`, the
+classes in this module double as a class-free escape hatch for
+[Unmodeled][mosaicolabs.models.core.Unmodeled] ontology models: you can build the
+exact same expression a resolved class's `.Q` proxy would produce, without
+resolving (or even having) that class at all - as long as you know the field's
+path and its data type.
 
 Example:
     ```python
@@ -23,7 +28,7 @@ Example:
         # but requires no resolved class - only the known tag and field path.
         qresponse = client.query(
             QueryOntologyCatalog().with_expression(
-                QueryableNumeric("temperature_sensor.temperature.celsius").lt(22.0)
+                QueryableNumeric("SomeResolvedClass.temperature.celsius").lt(22.0)
             )
         )
     ```
@@ -42,15 +47,16 @@ from .generation.mixins import (
 
 class QueryableNumeric(_QueryableField, _QueryableNumeric):
     """
-    A class-free, numeric query field addressed by its fully-qualified path.
+    The queryable type of a numeric field.
 
-    Supports the same comparison operators as the `.Q` proxy does for numeric
-    fields: `eq()`, `neq()`, `lt()`, `leq()`, `gt()`, `geq()`, `in_()`, and
-    `between()`. Values passed to any operator must be `int` or `float`.
+    `IMU.Q.acceleration.x` *is* a `QueryableNumeric` instance; this class is what
+    you get, and what you can construct directly by path when no resolved class
+    is available. It exposes the numeric operators `.eq()`, `.lt()`, ...
+    Values passed to any operator must be `int` or `float`.
 
-    Use this when you know the exact server-side field path you want to filter
-    on but don't have (or don't want to construct) a `Serializable` class to
-    hang a `.Q` proxy off of - most commonly for
+    Use it directly when you know the exact server-side field path you want to
+    filter on but don't have (or don't want to construct) a `Serializable` class
+    to hang a `.Q` proxy off of - most commonly for
     [`Unmodeled`][mosaicolabs.models.core.unmodeled.Unmodeled] ontology data.
 
     Example:
@@ -73,15 +79,16 @@ class QueryableNumeric(_QueryableField, _QueryableNumeric):
 
 class QueryableString(_QueryableField, _QueryableString):
     """
-    A class-free, string query field addressed by its fully-qualified path.
+    The queryable type of a string field.
 
-    Supports the same comparison operators as the `.Q` proxy does for string
-    fields: `eq()`, `match()`, `lt()`, `leq()`, `gt()`, `geq()`, and `in_()`.
+    `IMU.Q.frame_id` *is* a `QueryableString` instance; this class is what you
+    get, and what you can construct directly by path when no resolved class is
+    available. It exposes the string operators `.eq()`, `.match()`, ...
     Values passed to any operator must be `str`.
 
-    Use this when you know the exact server-side field path you want to filter
-    on but don't have (or don't want to construct) a `Serializable` class to
-    hang a `.Q` proxy off of - most commonly for
+    Use it directly when you know the exact server-side field path you want to
+    filter on but don't have (or don't want to construct) a `Serializable` class
+    to hang a `.Q` proxy off of - most commonly for
     [`Unmodeled`][mosaicolabs.models.core.unmodeled.Unmodeled] ontology data.
 
     Example:
@@ -104,14 +111,16 @@ class QueryableString(_QueryableField, _QueryableString):
 
 class QueryableBool(_QueryableField, _QueryableBool):
     """
-    A class-free, boolean query field addressed by its fully-qualified path.
+    The queryable type of a boolean field.
 
-    Supports the same comparison operators as the `.Q` proxy does for boolean
-    fields: `eq()`. Values passed to any operator must be `bool`.
+    `ROI.Q.do_rectify` *is* a `QueryableBool` instance; this class is what you
+    get, and what you can construct directly by path when no resolved class is
+    available. Booleans only support equality, so it exposes just `.eq()`.
+    Values passed to the operator must be `bool`.
 
-    Use this when you know the exact server-side field path you want to filter
-    on but don't have (or don't want to construct) a `Serializable` class to
-    hang a `.Q` proxy off of - most commonly for
+    Use it directly when you know the exact server-side field path you want to
+    filter on but don't have (or don't want to construct) a `Serializable` class
+    to hang a `.Q` proxy off of - most commonly for
     [`Unmodeled`][mosaicolabs.models.core.unmodeled.Unmodeled] ontology data.
 
     Example:

@@ -156,16 +156,16 @@ class _QueryableComparable:
         Args:
             *values (Any): The candidate values, passed either as separate
                 positional arguments (`in_(v1, v2)`) or as a single list or
-                tuple (`in_([v1, v2])`). Every value must share the same type,
-                matching one of the types in `__mixin_supported_types__` for
-                this field.
+                tuple (`in_([v1, v2])`).
+                Both must be either `float` or `int`.
+
 
         Returns:
             The atomic comparison expression (`$in`).
 
         Raises:
             ValueError: If no values are provided.
-            TypeError: If the values don't all share the same, supported type.
+            TypeError: If both the values don't all share the same, supported type.
         """
         return getattr(self, "_in")(
             *values, allowed_types=self.__mixin_supported_types__
@@ -174,13 +174,14 @@ class _QueryableComparable:
     def between(self, *values: Any) -> "_QueryExpression":
         """
         Matches records where the field's value falls within an inclusive range.
+        The operator corresponds numerically to test wether v1 <= v <= v2.
 
         Args:
             *values (Any): Exactly two values `(lower, upper)`, passed either as two
                 positional arguments (`between(lo, hi)`) or as a single list
-                or tuple (`between([lo, hi])`), with `lower <= upper`. Both
-                must match one of the types in `__mixin_supported_types__` for
-                this field.
+                or tuple (`between([lo, hi])`), with `lower <= upper`.
+                Both must be either `float` or `int`.
+
 
         Returns:
             The atomic comparison expression (`$between`).
@@ -188,9 +189,32 @@ class _QueryableComparable:
         Raises:
             ValueError: If not exactly two values are provided, or if the
                 first value is greater than the second.
-            TypeError: If the values don't share the same, supported type.
+            TypeError: If both the values don't share the same, supported type.
         """
         return getattr(self, "_between")(
+            *values, allowed_types=self.__mixin_supported_types__
+        )
+
+    def outside(self, *values: Any) -> "_QueryExpression":
+        """
+        Matches records where the field's value falls outside an exclusive range.
+        The operator corresponds numerically to test wether v < v1 || v > v2.
+
+        Args:
+            *values (Any): Exactly two values `(lower, upper)`, passed either as two
+                positional arguments (`outside(lo, hi)`) or as a single list
+                or tuple (`outside([lo, hi])`), with `lower <= upper`.
+                Both must be either `float` or `int`.
+
+        Returns:
+            The atomic comparison expression (`$outside`).
+
+        Raises:
+            ValueError: If not exactly two values are provided, or if the
+                first value is greater than the second.
+            TypeError: If both the values don't share the same, supported types.
+        """
+        return getattr(self, "_outside")(
             *values, allowed_types=self.__mixin_supported_types__
         )
 
@@ -355,10 +379,25 @@ class _QueryableString:
 
     def match(self, value: Any) -> "_QueryExpression":
         """
-        Matches records where the field contains `value` as a substring.
+        Matches records where the field satisfies a glob-style pattern.
+
+        `value` is a lightweight glob pattern that must match the entire
+        field value. It supports the following wildcards:
+
+        | Wildcard | Description                                        | Example                    | Matches                                |
+        | -------- | --------------------------------------------------- | --------------------------- | --------------------------------------- |
+        | `*`      | Zero or more characters, including spaces            | `*imu`                      | `front_imu`, `camera_imu`               |
+        | `?`      | Exactly one character, including spaces              | `?.2.0`                     | `1.2.0`, `3.2.0` (not `10.2.0`)          |
+        | `[]`     | A character set or range                             | `[gs]*` / `[a-z]*`          | `gyrolytics`, `satnavics`               |
+        | `#`      | Any single digit (`0`-`9`); shorthand for `[0-9]`    | `test-query-sequence-#`     | `test-query-sequence-1`                 |
+
+        Note:
+            If `value` contains none of the wildcards above, the operator
+            is equivalent to [`.eq()`][mosaicolabs.query.queryable_fields.QueryableString.eq],
+            i.e. an exact match will be performed.
 
         Args:
-            value: The substring to search for.
+            value: The glob pattern to match against.
 
         Returns:
             The atomic comparison expression (`$match`).
@@ -457,6 +496,52 @@ class _QueryableString:
             *values, allowed_types=self.__mixin_supported_types__
         )
 
+    def between(self, *values: str) -> "_QueryExpression":
+        """
+        Matches records where the field's value falls within an inclusive range.
+        The operator corresponds numerically to test wether v1 <= v <= v2.
+
+        Args:
+            *values (Any): Exactly two values `(lower, upper)`, passed either as two
+                positional arguments (`between(lo, hi)`) or as a single list
+                or tuple (`between([lo, hi])`), with `lower <= upper`.
+                Both must be of type `str`.
+
+        Returns:
+            The atomic comparison expression (`$between`).
+
+        Raises:
+            ValueError: If not exactly two values are provided, or if the
+                first value is greater than the second.
+            TypeError: If any value isn't a `str`.
+        """
+        return getattr(self, "_between")(
+            *values, allowed_types=self.__mixin_supported_types__
+        )
+
+    def outside(self, *values: str) -> "_QueryExpression":
+        """
+        Matches records where the field's value falls outside an exclusive range.
+        The operator corresponds numerically to test wether v < v1 || v > v2.
+
+        Args:
+            *values (Any): Exactly two values `(lower, upper)`, passed either as two
+                positional arguments (`outside(lo, hi)`) or as a single list
+                or tuple (`outside([lo, hi])`), with `lower <= upper`.
+                Both must be of type `str`.
+
+        Returns:
+            The atomic comparison expression (`$outside`).
+
+        Raises:
+            ValueError: If not exactly two values are provided, or if the
+                first value is greater than the second.
+            TypeError: If any value isn't a `str`.
+        """
+        return getattr(self, "_outside")(
+            *values, allowed_types=self.__mixin_supported_types__
+        )
+
 
 # -------------------------------------------------------------------------
 # Dynbamic (Multi-Type) Queryable Mixin
@@ -524,10 +609,25 @@ class _QueryableDynamicValue:
 
     def match(self, value: Any):
         """
-        Matches records where the field contains `value` as a substring.
+        Matches records where the field satisfies a glob-style pattern.
+
+        `value` is a lightweight glob pattern that must match the entire
+        field value. It supports the following wildcards:
+
+        | Wildcard | Description                                        | Example                    | Matches                                |
+        | -------- | --------------------------------------------------- | --------------------------- | --------------------------------------- |
+        | `*`      | Zero or more characters, including spaces            | `*imu`                      | `front_imu`, `camera_imu`               |
+        | `?`      | Exactly one character, including spaces              | `?.2.0`                     | `1.2.0`, `3.2.0` (not `10.2.0`)          |
+        | `[]`     | A character set or range                             | `[gs]*` / `[a-z]*`          | `gyrolytics`, `satnavics`               |
+        | `#`      | Any single digit (`0`-`9`); shorthand for `[0-9]`    | `test-query-sequence-#`     | `test-query-sequence-1`                 |
+
+        Note:
+            If `value` contains none of the wildcards above, the operator
+            is equivalent to [`.eq()`][mosaicolabs.query.queryable_fields.QueryableString.eq],
+            i.e. an exact match will be performed.
 
         Args:
-            value: The substring to search for.
+            value: The glob pattern to match against.
 
         Returns:
             The atomic comparison expression (`$match`).
@@ -641,6 +741,7 @@ class _QueryableDynamicValue:
     def between(self, *values) -> "_QueryExpression":
         """
         Matches records where the field's value falls within an inclusive range.
+        The operator corresponds numerically to test wether v1 <= v <= v2.
 
         Args:
             *values: Exactly two values `(lower, upper)`, passed either as two
@@ -653,8 +754,29 @@ class _QueryableDynamicValue:
         Raises:
             ValueError: If not exactly two values are provided, or if the
                 first value is greater than the second.
+            TypeError: If the values don't share the same type.
         """
         return getattr(self, "_between")(*values, allowed_types=None)
+
+    def outside(self, *values: Any) -> "_QueryExpression":
+        """
+        Matches records where the field's value falls outside an exclusive range.
+        The operator corresponds numerically to test wether v < v1 || v > v2.
+
+        Args:
+            *values (Any): Exactly two values `(lower, upper)`, passed either as two
+                positional arguments (`outside(lo, hi)`) or as a single list
+                or tuple (`outside([lo, hi])`), with `lower <= upper`.
+
+        Returns:
+            The atomic comparison expression (`$outside`).
+
+        Raises:
+            ValueError: If not exactly two values are provided, or if the
+                first value is greater than the second.
+            TypeError: If the values don't share the same type.
+        """
+        return getattr(self, "_outside")(*values, allowed_types=None)
 
     def ex(self, value: bool) -> "_QueryExpression":
         """
@@ -870,7 +992,8 @@ class _QueryableField:
     def _between(self, *values, allowed_types: Union[Type, Tuple[Type, ...], None]):
         """
         Checks if the field's value is between two provided values (inclusive).
-        Accept either between(v1, v2, ...) or between([v1, v2, ...])
+        Accept either between(v1, v2) or between([v1, v2]).
+        The operator corresponds numerically to test wether v1 <= v <= v2.
         """
 
         if len(values) == 1 and isinstance(values[0], (list, tuple)):
@@ -892,6 +1015,33 @@ class _QueryableField:
 
         transformed = [getattr(self, "_transform_value")(v) for v in values]
         return getattr(self, "_cmp")("$between", transformed)
+
+    def _outside(self, *values, allowed_types: Union[Type, Tuple[Type, ...], None]):
+        """
+        Checks if the field's value is outside two provided values (exclusive).
+        Accept either outside(v1, v2) or outside([v1, v2]).
+        The operator corresponds numerically to test wether v < v1 || v > v2.
+        """
+
+        if len(values) == 1 and isinstance(values[0], (list, tuple)):
+            values = values[0]  # unpack list/tuple
+        else:
+            values = list(values)
+
+        if len(values) != 2:
+            raise ValueError("'outside' operator requires exactly two numeric values.")
+
+        # Validate type of each value
+        getattr(self, "_validate_value_type")(values, allowed_types)
+
+        # Ensure first <= second
+        if values[0] > values[1]:
+            raise ValueError(
+                "'outside' operator expects the first value less than (or equal to) the second."
+            )
+
+        transformed = [getattr(self, "_transform_value")(v) for v in values]
+        return getattr(self, "_cmp")("$outside", transformed)
 
     def __getattr__(self, name: str):
         """This is called when an attribute is not found normally. Raise a helpful error."""
