@@ -301,7 +301,7 @@ impl StoreOptimizer {
         );
 
         // Scans the database to search for topics not yet optimized and to put them inside topic optimization table.
-        let inserted_topics = db::topic_update_optimization_list(&mut self.db.connection()).await?;
+        db::topic_update_optimization_list(&mut self.db.connection()).await?;
 
         let mut optimized_topics = 0;
 

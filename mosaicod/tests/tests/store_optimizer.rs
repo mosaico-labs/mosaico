@@ -5,7 +5,7 @@ use mosaicod_db as db;
 use mosaicod_ext as ext;
 use mosaicod_rw::ToProperties;
 use mosaicod_store as store;
-use tests::{self, actions, common};
+use tests::{self, actions, common, store_optimizer};
 
 // ===========================================================================
 // Store optimization routine. Single server tests
@@ -15,18 +15,10 @@ use tests::{self, actions, common};
 /// The optimization should produce a single output file. After, cleanup should remove old data.
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_store_optimization_1(pool: sqlx::Pool<db::DatabaseType>) {
-    let cleanup_time_interval = types::Duration::seconds(6);
-    let optimization_time_interval = types::Duration::seconds(1);
-    let max_file_size = 256 * 1024 * 1024;
-
-    let server = common::ServerBuilder::new(common::HOST, pool)
-        .with_cleanup(cleanup_time_interval, types::Duration::seconds(0))
-        .with_store_optimizer(optimization_time_interval, max_file_size)
+    let server = common::ServerBuilder::new(common::HOST, pool.clone())
+        .with_cleanup(types::Duration::seconds(2), types::Duration::seconds(0))
         .build()
         .await;
-
-    // Wait for cleanup and optimizer first run.
-    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
 
     let mut client = common::ClientBuilder::new(common::HOST, server.port())
         .build()
@@ -72,8 +64,15 @@ async fn test_store_optimization_1(pool: sqlx::Pool<db::DatabaseType>) {
 
     assert_eq!(server.store.list("", None).await.unwrap().len(), 3);
 
+    // Run the store optimizer one-shot.
+    let max_file_size = 256 * 1024 * 1024;
+    let store_optimizer_handle = store_optimizer::Builder::new(pool)
+        .with_max_file_size(max_file_size)
+        .build_with_store(&server.store)
+        .await;
+
     // Wait for the optimizer to run.
-    tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+    store_optimizer_handle.shutdown().await;
 
     // The optimizer writes the merged output alongside the original data. It does not yet
     // clean up the pre-optimization files.
@@ -183,11 +182,7 @@ async fn test_store_optimization_1(pool: sqlx::Pool<db::DatabaseType>) {
 /// The optimization should produce a single output file.
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_store_optimization_2(pool: sqlx::Pool<db::DatabaseType>) {
-    let optimization_time_interval = types::Duration::seconds(1);
-    let max_file_size = 2_000;
-
-    let server = common::ServerBuilder::new(common::HOST, pool)
-        .with_store_optimizer(optimization_time_interval, max_file_size)
+    let server = common::ServerBuilder::new(common::HOST, pool.clone())
         .build()
         .await;
 
@@ -244,8 +239,17 @@ async fn test_store_optimization_2(pool: sqlx::Pool<db::DatabaseType>) {
         .await
         .unwrap();
 
+    // Run the store optimizer one-shot.
+    let time_interval = types::Duration::seconds(1);
+    let max_file_size = 2_000;
+    let store_optimizer_handle = store_optimizer::Builder::new(pool)
+        .with_time_interval(time_interval)
+        .with_max_file_size(max_file_size)
+        .build_with_store(&server.store)
+        .await;
+
     // Wait for the optimizer to run.
-    tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+    store_optimizer_handle.shutdown().await;
 
     // The optimizer writes the merged output alongside the original data. It does not yet
     // clean up the pre-optimization files.
@@ -301,16 +305,9 @@ async fn test_store_optimization_2(pool: sqlx::Pool<db::DatabaseType>) {
 /// The optimization should produce a single output file.
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_store_optimization_3(pool: sqlx::Pool<db::DatabaseType>) {
-    let optimization_time_interval = types::Duration::seconds(5);
-    let max_file_size = 3_000_000;
-
-    let server = common::ServerBuilder::new(common::HOST, pool)
-        .with_store_optimizer(optimization_time_interval, max_file_size)
+    let server = common::ServerBuilder::new(common::HOST, pool.clone())
         .build()
         .await;
-
-    // WORKAROUND: wait for the optimizer to run the first time.
-    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
 
     let mut client = common::ClientBuilder::new(common::HOST, server.port())
         .build()
@@ -366,8 +363,14 @@ async fn test_store_optimization_3(pool: sqlx::Pool<db::DatabaseType>) {
         .await
         .unwrap();
 
+    let max_file_size = 3_000_000;
+    let store_optimizer_handle = store_optimizer::Builder::new(pool)
+        .with_max_file_size(max_file_size)
+        .build_with_store(&server.store)
+        .await;
+
     // Wait for the optimizer to run.
-    tokio::time::sleep(std::time::Duration::from_secs(6)).await;
+    store_optimizer_handle.shutdown().await;
 
     // The optimizer writes the merged output alongside the original data. It does not yet
     // clean up the pre-optimization files.
@@ -444,16 +447,9 @@ async fn test_store_optimization_3(pool: sqlx::Pool<db::DatabaseType>) {
 /// The optimization should produce 2 output files per topic.
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_store_optimization_4(pool: sqlx::Pool<db::DatabaseType>) {
-    let optimization_time_interval = types::Duration::seconds(5);
-    let max_file_size = 50_000_000; // 50 MB
-
-    let server = common::ServerBuilder::new(common::HOST, pool)
-        .with_store_optimizer(optimization_time_interval, max_file_size)
+    let server = common::ServerBuilder::new(common::HOST, pool.clone())
         .build()
         .await;
-
-    // WORKAROUND: wait for the optimizer to run the first time.
-    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
 
     let mut client = common::ClientBuilder::new(common::HOST, server.port())
         .build()
@@ -528,8 +524,14 @@ async fn test_store_optimization_4(pool: sqlx::Pool<db::DatabaseType>) {
 
     assert_eq!(server.store.list("", None).await.unwrap().len(), 13);
 
+    let max_file_size = 50_000_000; // 50 MB
+    let store_optimizer_handle = store_optimizer::Builder::new(pool)
+        .with_max_file_size(max_file_size)
+        .build_with_store(&server.store)
+        .await;
+
     // Wait for the optimizer to run.
-    tokio::time::sleep(std::time::Duration::from_secs(7)).await;
+    store_optimizer_handle.shutdown().await;
 
     // The optimizer writes the merged output alongside the original data. It does not yet
     // clean up the pre-optimization files.
@@ -672,11 +674,7 @@ async fn test_store_optimization_4(pool: sqlx::Pool<db::DatabaseType>) {
 /// The optimization max file size is set to a value smaller than the minimum parquet file size (headers, row groups, etc...)
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_store_optimization_5(pool: sqlx::Pool<db::DatabaseType>) {
-    let optimization_time_interval = types::Duration::seconds(1);
-    let max_file_size = 100;
-
-    let server = common::ServerBuilder::new(common::HOST, pool)
-        .with_store_optimizer(optimization_time_interval, max_file_size)
+    let server = common::ServerBuilder::new(common::HOST, pool.clone())
         .build()
         .await;
 
@@ -733,8 +731,14 @@ async fn test_store_optimization_5(pool: sqlx::Pool<db::DatabaseType>) {
         .await
         .unwrap();
 
+    let max_file_size = 100;
+    let store_optimizer_handle = store_optimizer::Builder::new(pool)
+        .with_max_file_size(max_file_size)
+        .build_with_store(&server.store)
+        .await;
+
     // Wait for the optimizer to run.
-    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+    store_optimizer_handle.shutdown().await;
 
     // The optimizer writes the merged output alongside the original data. It does not yet
     // clean up the pre-optimization files.
@@ -820,20 +824,26 @@ async fn test_store_optimization_multi_1(pool: sqlx::Pool<db::DatabaseType>) {
 
     let store = store::testing::Store::new_random_on_tmp().unwrap();
 
-    let server1 = common::ServerBuilder::new(common::HOST, pool.clone())
-        .with_store_optimizer(optimization_time_interval, max_file_size)
+    let server = common::ServerBuilder::new(common::HOST, pool.clone())
         .build_with_store(store.clone())
         .await;
 
-    let server2 = common::ServerBuilder::new(common::HOST, pool)
-        .with_store_optimizer(optimization_time_interval, max_file_size)
-        .build_with_store(store)
+    let store_optimizer_handle1 = store_optimizer::Builder::new(pool.clone())
+        .with_time_interval(optimization_time_interval)
+        .with_max_file_size(max_file_size)
+        .build_with_store(&server.store)
         .await;
 
-    // WORKAROUND: wait for the optimizer to run the first time.
+    let store_optimizer_handle2 = store_optimizer::Builder::new(pool)
+        .with_time_interval(optimization_time_interval)
+        .with_max_file_size(max_file_size)
+        .build_with_store(&server.store)
+        .await;
+
+    //Wait for the optimizers to run the first time.
     tokio::time::sleep(std::time::Duration::from_secs(2)).await;
 
-    let mut client = common::ClientBuilder::new(common::HOST, server1.port())
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
         .build()
         .await;
 
@@ -874,7 +884,7 @@ async fn test_store_optimization_multi_1(pool: sqlx::Pool<db::DatabaseType>) {
     .await
     .unwrap();
 
-    let topic_record = db::topic_find_by_locator(&mut server1.db.connection(), &topic_locator)
+    let topic_record = db::topic_find_by_locator(&mut server.db.connection(), &topic_locator)
         .await
         .unwrap();
 
@@ -898,7 +908,7 @@ async fn test_store_optimization_multi_1(pool: sqlx::Pool<db::DatabaseType>) {
     .await
     .unwrap();
 
-    let topic_record2 = db::topic_find_by_locator(&mut server1.db.connection(), &topic_locator2)
+    let topic_record2 = db::topic_find_by_locator(&mut server.db.connection(), &topic_locator2)
         .await
         .unwrap();
 
@@ -922,24 +932,24 @@ async fn test_store_optimization_multi_1(pool: sqlx::Pool<db::DatabaseType>) {
     .await
     .unwrap();
 
-    let topic_record3 = db::topic_find_by_locator(&mut server1.db.connection(), &topic_locator3)
+    let topic_record3 = db::topic_find_by_locator(&mut server.db.connection(), &topic_locator3)
         .await
         .unwrap();
 
     assert!(topic_record3.optimization_end_timestamp().is_none());
 
-    assert_eq!(server1.store.list("", None).await.unwrap().len(), 19);
+    assert_eq!(server.store.list("", None).await.unwrap().len(), 19);
 
     // Wait for the optimizer to run.
     tokio::time::sleep(std::time::Duration::from_secs(17)).await;
 
     // The optimizer writes the merged output alongside the original data. It does not yet
     // clean up the pre-optimization files.
-    assert_eq!(server1.store.list("", None).await.unwrap().len(), 28);
+    assert_eq!(server.store.list("", None).await.unwrap().len(), 28);
 
     // Check first topic.
     let optimized_topic_record =
-        db::topic_find_by_locator(&mut server1.db.connection(), &topic_locator)
+        db::topic_find_by_locator(&mut server.db.connection(), &topic_locator)
             .await
             .unwrap();
 
@@ -955,21 +965,21 @@ async fn test_store_optimization_multi_1(pool: sqlx::Pool<db::DatabaseType>) {
     );
 
     assert!(
-        db::topic_next_to_be_optimized(&mut server1.db.connection())
+        db::topic_next_to_be_optimized(&mut server.db.connection())
             .await
             .unwrap()
             .is_none()
     );
 
     assert_eq!(
-        db::topic_optimization_count(&mut server1.db.connection())
+        db::topic_optimization_count(&mut server.db.connection())
             .await
             .unwrap(),
         0
     );
 
     assert!(
-        server1
+        server
             .store
             .exists(
                 optimized_topic_record
@@ -983,7 +993,7 @@ async fn test_store_optimization_multi_1(pool: sqlx::Pool<db::DatabaseType>) {
 
     // Expecting 2 parquet files.
     for i in 0..2 {
-        let chunk_metadata = server1
+        let chunk_metadata = server
             .store
             .meta(
                 optimized_topic_record.path_in_store().unwrap().path_data(
@@ -1004,7 +1014,7 @@ async fn test_store_optimization_multi_1(pool: sqlx::Pool<db::DatabaseType>) {
 
     // Check second topic.
     let optimized_topic_record =
-        db::topic_find_by_locator(&mut server1.db.connection(), &topic_locator2)
+        db::topic_find_by_locator(&mut server.db.connection(), &topic_locator2)
             .await
             .unwrap();
 
@@ -1020,21 +1030,21 @@ async fn test_store_optimization_multi_1(pool: sqlx::Pool<db::DatabaseType>) {
     );
 
     assert!(
-        db::topic_next_to_be_optimized(&mut server1.db.connection())
+        db::topic_next_to_be_optimized(&mut server.db.connection())
             .await
             .unwrap()
             .is_none()
     );
 
     assert_eq!(
-        db::topic_optimization_count(&mut server1.db.connection())
+        db::topic_optimization_count(&mut server.db.connection())
             .await
             .unwrap(),
         0
     );
 
     assert!(
-        server1
+        server
             .store
             .exists(
                 optimized_topic_record
@@ -1048,7 +1058,7 @@ async fn test_store_optimization_multi_1(pool: sqlx::Pool<db::DatabaseType>) {
 
     // Expecting 2 parquet files.
     for i in 0..2 {
-        let chunk_metadata = server1
+        let chunk_metadata = server
             .store
             .meta(
                 optimized_topic_record.path_in_store().unwrap().path_data(
@@ -1069,7 +1079,7 @@ async fn test_store_optimization_multi_1(pool: sqlx::Pool<db::DatabaseType>) {
 
     // Check third topic.
     let optimized_topic_record =
-        db::topic_find_by_locator(&mut server1.db.connection(), &topic_locator2)
+        db::topic_find_by_locator(&mut server.db.connection(), &topic_locator2)
             .await
             .unwrap();
 
@@ -1085,21 +1095,21 @@ async fn test_store_optimization_multi_1(pool: sqlx::Pool<db::DatabaseType>) {
     );
 
     assert!(
-        db::topic_next_to_be_optimized(&mut server1.db.connection())
+        db::topic_next_to_be_optimized(&mut server.db.connection())
             .await
             .unwrap()
             .is_none()
     );
 
     assert_eq!(
-        db::topic_optimization_count(&mut server1.db.connection())
+        db::topic_optimization_count(&mut server.db.connection())
             .await
             .unwrap(),
         0
     );
 
     assert!(
-        server1
+        server
             .store
             .exists(
                 optimized_topic_record
@@ -1113,7 +1123,7 @@ async fn test_store_optimization_multi_1(pool: sqlx::Pool<db::DatabaseType>) {
 
     // Expecting 2 parquet files.
     for i in 0..2 {
-        let chunk_metadata = server1
+        let chunk_metadata = server
             .store
             .meta(
                 optimized_topic_record.path_in_store().unwrap().path_data(
@@ -1132,6 +1142,7 @@ async fn test_store_optimization_multi_1(pool: sqlx::Pool<db::DatabaseType>) {
         assert!(chunk_metadata.size > 0);
     }
 
-    server1.shutdown().await;
-    server2.shutdown().await;
+    server.shutdown().await;
+    store_optimizer_handle1.shutdown().await;
+    store_optimizer_handle2.shutdown().await;
 }
