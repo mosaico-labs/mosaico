@@ -226,7 +226,7 @@ fn cast_chunk_data(row: PgRow) -> Result<schema::ChunkRecord, Error> {
 /// Returns the largest `size_bytes / row_count` ratio across all chunks belonging to a topic,
 /// i.e. the size of the biggest row observed for that topic.
 /// Returns `None` if the topic has no chunks (or none with a non-zero row count).
-pub async fn topic_chunk_max_row_size(
+pub async fn topic_chunk_max_avg_row_size(
     exec: &mut impl AsExec,
     topic_id: i32,
 ) -> Result<Option<i64>, Error> {

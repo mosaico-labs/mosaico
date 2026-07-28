@@ -13,7 +13,7 @@ use mosaicod_store as store;
 use std::cmp::max;
 use std::sync::Arc;
 use tokio_util::sync::CancellationToken;
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 
 const DEFAULT_TIME_INTERVAL: u32 = 86400;
 
@@ -59,11 +59,11 @@ impl StoreOptimizer {
         self
     }
 
-    /// Gets the max row size between every chunk for the given topic.
-    pub async fn max_row_size(&self, topic_record: &db::TopicRecord) -> Result<u32> {
+    /// Gets the max average row size between every chunk for the given topic.
+    pub async fn max_avg_row_size(&self, topic_record: &db::TopicRecord) -> Result<u32> {
         let mut cx = self.db.connection();
 
-        let max_row_size = db::topic_chunk_max_row_size(&mut cx, topic_record.topic_id)
+        let max_avg_row_size = db::topic_chunk_max_avg_row_size(&mut cx, topic_record.topic_id)
             .await
             .map_err(|e| {
                 let err_msg = format!(
@@ -81,7 +81,7 @@ impl StoreOptimizer {
                 core::Error::internal(Some(err_msg))
             })?;
 
-        Ok(max_row_size as u32)
+        Ok(max_avg_row_size as u32)
     }
 
     /// Flushes the buffer on disk composing the path with [`path_in_store`] and [`data_file`].
@@ -140,12 +140,21 @@ impl StoreOptimizer {
         );
 
         // Estimates the batch size considering to fill iteratively the target output file size by a percentage.
-        // If the size of a single row is greater than max_file_size, set batcb_size to 1.
-        let batch_size = max(
-            (self.max_file_size as f32 * OUTPUT_FILE_FILLING_PERCENTAGE) as usize
-                / self.max_row_size(topic_record).await? as usize,
-            1,
-        );
+        // If max average row size is zero or the size of a single row is greater than max_file_size, set batcb_size to 1.
+        let max_avg_row_size = self.max_avg_row_size(topic_record).await?;
+        let batch_size = if max_avg_row_size == 0 {
+            warn!(
+                "max avg row size for topic {} is 0, clamping batch size to 1 to avoid division by zero",
+                topic_record.locator()
+            );
+            1
+        } else {
+            max(
+                (self.max_file_size as f32 * OUTPUT_FILE_FILLING_PERCENTAGE) as usize
+                    / max_avg_row_size as usize,
+                1,
+            )
+        };
 
         // Configure the session settings for file compaction
         let config = df::execution::config::SessionConfig::new().with_batch_size(batch_size);
