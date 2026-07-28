@@ -157,7 +157,7 @@ class _QueryableComparable:
             *values (Any): The candidate values, passed either as separate
                 positional arguments (`in_(v1, v2)`) or as a single list or
                 tuple (`in_([v1, v2])`).
-                Both must be either `float` or `int`.
+                All must be either `float` or `int`.
 
 
         Returns:
@@ -165,7 +165,7 @@ class _QueryableComparable:
 
         Raises:
             ValueError: If no values are provided.
-            TypeError: If both the values don't all share the same, supported type.
+            TypeError: If the values don't all share the same, supported type.
         """
         return getattr(self, "_in")(
             *values, allowed_types=self.__mixin_supported_types__
@@ -173,8 +173,8 @@ class _QueryableComparable:
 
     def between(self, *values: Any) -> "_QueryExpression":
         """
-        Matches records where the field's value falls within an inclusive range.
-        The operator corresponds numerically to test wether v1 <= v <= v2.
+        Matches records where the field's value falls within an inclusive
+        range, i.e. `lower <= v <= upper`.
 
         Args:
             *values (Any): Exactly two values `(lower, upper)`, passed either as two
@@ -189,7 +189,7 @@ class _QueryableComparable:
         Raises:
             ValueError: If not exactly two values are provided, or if the
                 first value is greater than the second.
-            TypeError: If both the values don't share the same, supported type.
+            TypeError: If the values don't share the same, supported type.
         """
         return getattr(self, "_between")(
             *values, allowed_types=self.__mixin_supported_types__
@@ -197,8 +197,8 @@ class _QueryableComparable:
 
     def outside(self, *values: Any) -> "_QueryExpression":
         """
-        Matches records where the field's value falls outside an exclusive range.
-        The operator corresponds numerically to test wether v < v1 || v > v2.
+        Matches records where the field's value falls outside an exclusive
+        range, i.e. `v < lower || v > upper`.
 
         Args:
             *values (Any): Exactly two values `(lower, upper)`, passed either as two
@@ -212,7 +212,7 @@ class _QueryableComparable:
         Raises:
             ValueError: If not exactly two values are provided, or if the
                 first value is greater than the second.
-            TypeError: If both the values don't share the same, supported types.
+            TypeError: If the values don't share the same, supported types.
         """
         return getattr(self, "_outside")(
             *values, allowed_types=self.__mixin_supported_types__
@@ -498,8 +498,9 @@ class _QueryableString:
 
     def between(self, *values: str) -> "_QueryExpression":
         """
-        Matches records where the field's value falls within an inclusive range.
-        The operator corresponds numerically to test wether v1 <= v <= v2.
+        Matches records where the field's value falls within an inclusive
+        range, i.e. `lower <= v <= upper`. Since the field is a `str`, the
+        comparison is lexicographic.
 
         Args:
             *values (Any): Exactly two values `(lower, upper)`, passed either as two
@@ -521,8 +522,9 @@ class _QueryableString:
 
     def outside(self, *values: str) -> "_QueryExpression":
         """
-        Matches records where the field's value falls outside an exclusive range.
-        The operator corresponds numerically to test wether v < v1 || v > v2.
+        Matches records where the field's value falls outside an exclusive
+        range, i.e. `v < lower || v > upper`. Since the field is a `str`,
+        the comparison is lexicographic.
 
         Args:
             *values (Any): Exactly two values `(lower, upper)`, passed either as two
@@ -544,7 +546,7 @@ class _QueryableString:
 
 
 # -------------------------------------------------------------------------
-# Dynbamic (Multi-Type) Queryable Mixin
+# Dynamic (Multi-Type) Queryable Mixin
 # -------------------------------------------------------------------------
 
 
@@ -740,8 +742,10 @@ class _QueryableDynamicValue:
 
     def between(self, *values) -> "_QueryExpression":
         """
-        Matches records where the field's value falls within an inclusive range.
-        The operator corresponds numerically to test wether v1 <= v <= v2.
+        Matches records where the field's value falls within an inclusive
+        range, i.e. `lower <= v <= upper`. Since the field's type isn't known
+        ahead of time, the comparison is numeric if `(lower, upper)` are
+        numbers, or lexicographic if they're strings.
 
         Args:
             *values: Exactly two values `(lower, upper)`, passed either as two
@@ -760,8 +764,10 @@ class _QueryableDynamicValue:
 
     def outside(self, *values: Any) -> "_QueryExpression":
         """
-        Matches records where the field's value falls outside an exclusive range.
-        The operator corresponds numerically to test wether v < v1 || v > v2.
+        Matches records where the field's value falls outside an exclusive
+        range, i.e. `v < lower || v > upper`. Since the field's type isn't
+        known ahead of time, the comparison is numeric if `(lower, upper)`
+        are numbers, or lexicographic if they're strings.
 
         Args:
             *values (Any): Exactly two values `(lower, upper)`, passed either as two
@@ -993,7 +999,7 @@ class _QueryableField:
         """
         Checks if the field's value is between two provided values (inclusive).
         Accept either between(v1, v2) or between([v1, v2]).
-        The operator corresponds numerically to test wether v1 <= v <= v2.
+        The operator corresponds numerically to test whether `v1 <= v <= v2`.
         """
 
         if len(values) == 1 and isinstance(values[0], (list, tuple)):
@@ -1020,7 +1026,7 @@ class _QueryableField:
         """
         Checks if the field's value is outside two provided values (exclusive).
         Accept either outside(v1, v2) or outside([v1, v2]).
-        The operator corresponds numerically to test wether v < v1 || v > v2.
+        The operator corresponds numerically to test whether `v < v1 || v > v2`.
         """
 
         if len(values) == 1 and isinstance(values[0], (list, tuple)):
