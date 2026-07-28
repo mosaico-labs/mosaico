@@ -28,7 +28,7 @@ def _fix_empty_dicts(obj):
     return obj
 
 
-def encode_to_dict(obj: Any, exclude_none: bool = False) -> Any:
+def _encode_to_dict(obj: Any, exclude_none: bool = False) -> Any:
     """
     Recursively converts a Pydantic model, dataclass, or nested structures (lists, tuples)
     into a standard Python dictionary representation.
@@ -57,7 +57,7 @@ def encode_to_dict(obj: Any, exclude_none: bool = False) -> Any:
     # We skip private fields (those starting with '_') and optionally skip None values.
     if is_dataclass(obj) and not isinstance(obj, type):
         return {
-            key: encode_to_dict(value, exclude_none=exclude_none)
+            key: _encode_to_dict(value, exclude_none=exclude_none)
             for key, value in obj.__dict__.items()
             if not key.startswith("_") and (value is not None or not exclude_none)
         }
@@ -67,14 +67,14 @@ def encode_to_dict(obj: Any, exclude_none: bool = False) -> Any:
     if isinstance(obj, (list, tuple)):
         # Preserve the original container type (list or tuple)
         return type(obj)(
-            encode_to_dict(item, exclude_none=exclude_none) for item in obj
+            _encode_to_dict(item, exclude_none=exclude_none) for item in obj
         )
 
     # --- Handle dict types ---
     if isinstance(obj, dict):
         # convert all the value of obj to dict in case of nested structure or Pydantic model
         return {
-            key: encode_to_dict(value, exclude_none=exclude_none)
+            key: _encode_to_dict(value, exclude_none=exclude_none)
             for key, value in obj.items()
             if (value is not None or not exclude_none)
         }

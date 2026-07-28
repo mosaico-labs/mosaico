@@ -10,6 +10,7 @@ middleware-level metadata (like recording timestamp_ns).
 # --- Python Standard Library Imports ---
 import warnings
 from collections import defaultdict
+from functools import lru_cache
 from typing import Any, Dict, Optional, Type, TypeVar, Union
 
 import pandas as pd
@@ -18,7 +19,6 @@ from pydantic import PrivateAttr
 
 from ...logging_config import get_logger
 from .base_model import BaseModel
-from .internal.helpers import encode_to_dict
 from .serializable import Serializable
 
 # Set the hierarchical logger
@@ -147,8 +147,11 @@ class Message(BaseModel):
         ```
     """
 
-    # Internal cache for efficient field separation during encoding
-    _self_model_keys: set[str] = PrivateAttr(default_factory=set)
+    # Internal cache for efficient field separation during encoding.
+    # No default_factory: it's unconditionally assigned in model_post_init below,
+    # and giving PrivateAttr a default_factory forces Pydantic to run an expensive
+    # inspect.signature() check on it for every single instance created.
+    _self_model_keys: set[str] = PrivateAttr()
 
     def model_post_init(self, context: Any) -> None:
         """
@@ -159,15 +162,7 @@ class Message(BaseModel):
         """
         super().model_post_init(context)
         self._self_model_keys = Message._message_model_fields()
-
-        colliding_fields = set(self.__msco_pyarrow_struct__.names) & set(
-            self.data.__msco_pyarrow_struct__.names
-        )
-        if colliding_fields:
-            raise ValueError(
-                f"Fields name collision detected between class '{type(self.data).__name__}' "
-                f"and Message envelope. Colliding fields: {colliding_fields}."
-            )
+        Message._check_envelope_collision(type(self.data))
 
     def ontology_type(self) -> Type[Serializable]:
         """Retrieves the class type of the ontology object stored in the `data` field."""
@@ -189,14 +184,11 @@ class Message(BaseModel):
         Returns:
             A dictionary containing all flattened message and payload data.
         """
-        # Encode envelope fields
-        columns_dict = {
-            field: encode_to_dict(getattr(self, field))
-            for field in self._self_model_keys
-        }
 
-        # Encode and merge payload fields
-        columns_dict.update(self.data._encode())
+        # Encode payload fields
+        columns_dict = self.data._encode()
+        # Encode and merge envelope fields
+        columns_dict.update(self.model_dump(exclude=Message._message_exclude_fields()))
 
         return columns_dict
 
@@ -262,8 +254,36 @@ class Message(BaseModel):
         return cls(data=data_obj, **message_kwargs)
 
     @classmethod
+    def _message_exclude_fields(cls):
+        return {"data"}
+
+    @classmethod
+    @lru_cache(maxsize=None)
     def _message_model_fields(cls):
-        return {name for name in cls.model_fields.keys() if name != "data"}
+        return {
+            name
+            for name in cls.model_fields.keys()
+            if name not in cls._message_exclude_fields()
+        }
+
+    @classmethod
+    @lru_cache(maxsize=None)
+    def _check_envelope_collision(cls, data_type: Type[Serializable]) -> None:
+        """
+        Verifies there is no field name collision between the envelope schema
+        and a given ontology data type's schema.
+
+        Cached per (cls, data_type) since the result only depends on the
+        class-level PyArrow schemas, not on any instance data.
+        """
+        colliding_fields = set(cls.__msco_pyarrow_struct__.names) & set(
+            data_type.__msco_pyarrow_struct__.names
+        )
+        if colliding_fields:
+            raise ValueError(
+                f"Fields name collision detected between class '{data_type.__name__}' "
+                f"and Message envelope. Colliding fields: {colliding_fields}."
+            )
 
     @classmethod
     def _extract_data_schema(cls, schema: pa.Schema) -> pa.StructType:
@@ -272,6 +292,7 @@ class Message(BaseModel):
         )
 
     @classmethod
+    @lru_cache(maxsize=None)
     def _get_schema(
         cls,
         cls_or_schema: Union[
@@ -281,6 +302,10 @@ class Message(BaseModel):
     ) -> pa.Schema:
         """
         Generates a combined PyArrow Schema for the message and a specific ontology.
+
+        Cached per (cls, cls_or_schema): both a `Serializable` type and a
+        `pa.StructType` are immutable/value-hashable, so the combined schema
+        only needs to be computed once per distinct input.
 
         Args:
             cls_or_schema: The specific `Serializable` subclass type or the pyarrow schema of the data.
