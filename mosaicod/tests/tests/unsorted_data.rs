@@ -92,8 +92,6 @@ async fn test_do_get_with_unsorted_timestamp(pool: sqlx::Pool<db::DatabaseType>)
     let json_metadata_obj = json_metadata.as_object().unwrap();
     assert_eq!(json_metadata_obj["message_count"].as_i64().unwrap(), 300000);
 
-    dbg!(&received_batches);
-
     assert_eq!(received_batches.len(), 37);
 
     for batch in received_batches.iter().take(36) {
