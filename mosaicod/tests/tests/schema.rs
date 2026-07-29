@@ -1,6 +1,6 @@
 #![allow(unused_crate_dependencies)]
 
-///! Schema related testing functions
+//! Schema related testing functions
 use mosaicod_db as db;
 use mosaicod_ext as ext;
 use tests::{self, actions, common};
@@ -47,7 +47,7 @@ async fn test_schema_coherence(pool: sqlx::Pool<db::DatabaseType>) {
         .unwrap();
 
     // We should have at least a batch
-    assert!(batches.len() > 0);
+    assert!(!batches.is_empty());
 
     let do_get_schema = (*batches[0].schema()).clone();
 
