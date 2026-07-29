@@ -278,6 +278,10 @@ impl<M> TopicMetadata<M> {
 pub struct TopicChunksStats {
     pub total_size_bytes: i64,
     pub total_row_count: i64,
+    /// Average row footprint, in Arrow in-memory bytes. Used to size read batches:
+    /// the gRPC limit applies to the Arrow IPC payload rather than to the compressed
+    /// parquet one, so the two are not interchangeable.
+    pub avg_bytes_per_row: f64,
 }
 
 /// Metadata properties associated to a topic.

@@ -8,9 +8,33 @@ use arrow_flight::{
 use futures::TryStreamExt;
 use log::{debug, info, trace};
 use mosaicod_core::{self as core, params, types};
+use mosaicod_ext as ext;
 use mosaicod_facade as facade;
 use mosaicod_grpc_common as grpc_common;
 use mosaicod_marshal as marshal;
+
+/// Percentage of [`params::ConfigurablesParams::max_grpc_message_size`] a read
+/// message is allowed to fill, leaving the rest as headroom.
+///
+/// The headroom exists because the two figures are in different currencies. Both the
+/// pre-split and the Flight encoder decide using the batch's *in-memory* footprint,
+/// while the gRPC limit is checked against the *encoded* message -- and encoding is
+/// not guaranteed to shrink it. The IPC writer pads buffers to their alignment, adds
+/// its own framing, and LZ4 on data that does not compress adds a wrapper instead of
+/// removing bytes. A read has been observed producing a 50'180'305 byte message
+/// against a 48'000'000 byte target: 4.5% above, which no in-memory figure could have
+/// predicted.
+///
+/// Proportional rather than a fixed subtraction, because a fixed margin is a smaller
+/// and smaller share of the limit as the limit grows: the 2MB this code used to
+/// reserve is 4% of the 50MB default, and would be 0.4% if the limit were raised to
+/// 500MB. A percentage keeps the safety factor constant instead.
+///
+/// 20% is the same order of caution arrow applies to its own default, which reserves
+/// 2MB out of 4MB precisely because "the size calculation is somewhat inexact". If a
+/// deployment still hits the limit, its data expands more than this on encoding and
+/// the knob to turn is `MOSAICOD_TARGET_MESSAGE_SIZE`, downwards.
+const FLIGHT_MESSAGE_BUDGET_PERCENT: usize = 80;
 
 pub async fn do_get(
     ctx: &facade::Context,
@@ -78,14 +102,31 @@ pub async fn do_get(
             core::Error::internal(Some("arrow ipc lz4 compression not available".to_owned()))
         })?;
 
-    // Set max flight message size to our gRPC limit minus 2MB headroom,
-    // matching the same conservative margin used by the Flight default.
+    // See `FLIGHT_MESSAGE_BUDGET_PERCENT` for why this is a share of the limit rather
+    // than the limit itself. Dividing before multiplying cannot overflow; it costs at
+    // most 99 bytes of precision, which is noise at these sizes.
     //
-    // If our value is below the default we keep the default.
+    // Never go below the Flight default: if the configured limit is small enough that
+    // 80% of it lands under 2MB, that default is the more sensible floor.
     let max_flight_data_size = usize::max(
         GRPC_TARGET_MAX_FLIGHT_SIZE_BYTES,
-        params::params().max_grpc_message_size.value - 2_000_000,
+        params::params().max_grpc_message_size.value / 100 * FLIGHT_MESSAGE_BUDGET_PERCENT,
     );
+
+    // Bisect any batch that would land near the limit. Read batches are sized from the
+    // topic statistics and normally arrive well below this, so this catches outliers
+    // rather than running on every batch. The encoder's own split divides rows evenly
+    // using the batch average, which overshoots exactly when a few rows are far larger
+    // than the rest.
+    let stream = stream
+        .map_ok(move |batch| {
+            futures::stream::iter(
+                ext::arrow::split_by_size(batch, max_flight_data_size)
+                    .into_iter()
+                    .map(Ok),
+            )
+        })
+        .try_flatten();
 
     Ok(FlightDataEncoderBuilder::new()
         .with_schema(schema)

@@ -8,6 +8,13 @@ use std::sync::Arc;
 #[derive(Debug, Clone)]
 pub struct ChunkMetadata {
     pub size_bytes: usize,
+    /// In-memory Arrow footprint of the rows written to this chunk.
+    ///
+    /// [`Self::size_bytes`] is the compressed parquet buffer, which is not
+    /// proportional to the Arrow IPC payload the data is streamed back as. This
+    /// is measured on the Arrow batches, so it is in the same currency as that
+    /// payload and can be used to size read batches against the gRPC limit.
+    pub arrow_bytes: usize,
     pub row_count: usize,
 }
 
@@ -23,6 +30,7 @@ pub struct InMemoryChunkEncoder {
     stats: types::OntologyModelStats,
     schema: SchemaRef,
     row_count: usize,
+    arrow_bytes: usize,
 }
 
 impl InMemoryChunkEncoder {
@@ -37,6 +45,7 @@ impl InMemoryChunkEncoder {
             stats: mosaicod_ext::arrow::ontology_model_stats_from_schema(&schema),
             schema,
             row_count: 0,
+            arrow_bytes: 0,
         })
     }
 
@@ -56,6 +65,7 @@ impl InMemoryChunkEncoder {
             }
         }
         self.row_count += batch.num_rows();
+        self.arrow_bytes += batch.get_array_memory_size();
         Ok(())
     }
 
@@ -101,11 +111,13 @@ impl InMemoryChunkEncoder {
         // We are calling `finish` since the implementation is the same as
         // close but takes no ownership of the writer. And we return the internal data buffer.
         let row_count = self.row_count;
+        let arrow_bytes = self.arrow_bytes;
         let buffer = match self.writer {
             Writer::Parquet(w) => w.buffer()?,
         };
         let metadata = ChunkMetadata {
             size_bytes: buffer.len(),
+            arrow_bytes,
             row_count,
         };
         Ok((buffer, self.stats, metadata))
@@ -258,5 +270,9 @@ mod tests {
         // Check metadata
         assert_eq!(metadata.row_count, 3);
         assert_eq!(metadata.size_bytes, buffer.len());
+
+        // The Arrow footprint is tracked separately from the compressed parquet
+        // buffer, since only the former is comparable to the streamed IPC payload.
+        assert_eq!(metadata.arrow_bytes, batch.get_array_memory_size());
     }
 }

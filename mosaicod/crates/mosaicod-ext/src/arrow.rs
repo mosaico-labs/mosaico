@@ -1,5 +1,6 @@
 use arrow::array::{
-    ArrayRef, AsArray, FixedSizeListArray, LargeListArray, ListArray, RecordBatch, StructArray,
+    Array, ArrayRef, AsArray, FixedSizeListArray, LargeListArray, ListArray, RecordBatch,
+    StructArray,
 };
 use arrow::datatypes::{DataType, Field, FieldRef, Schema, SchemaRef};
 use mosaicod_core::{self as core, params, types};
@@ -581,6 +582,80 @@ pub mod testing {
     }
 }
 
+/// In-memory footprint of `batch`, measured over the rows it actually spans.
+///
+/// [`Array::get_array_memory_size`] sums buffer *capacities*, which a zero-copy
+/// [`RecordBatch::slice`] inherits from its parent: it reports the same value for a
+/// slice as for the whole batch. [`arrow::array::ArrayData::get_slice_memory_size`]
+/// reads the offsets instead, so it shrinks with the slice.
+///
+/// [`None`] when arrow cannot measure a column, leaving the caller to skip the split
+/// rather than act on a wrong number.
+fn slice_memory_size(batch: &RecordBatch) -> Option<usize> {
+    batch
+        .columns()
+        .iter()
+        .map(|c| c.to_data().get_slice_memory_size().ok())
+        .sum()
+}
+
+/// Cuts `batch` into pieces whose in-memory footprint stays within `budget`.
+///
+/// Bisects by rows, which needs no assumption about how evenly the rows are sized: a
+/// piece is halved until it fits, so a handful of outsized rows cannot drag the whole
+/// batch along with them the way dividing by an average does.
+///
+/// `budget` is an *in-memory* figure while the gRPC limit applies to the encoded
+/// message, and encoding can come out above the footprint it started from. So this
+/// bounds what is handed to the encoder, not what leaves it: `budget` has to leave
+/// room for that difference.
+///
+/// A batch arrow cannot measure, or one whose measurement does not fall as its rows
+/// are halved, is returned whole rather than cut blindly.
+#[must_use]
+pub fn split_by_size(batch: RecordBatch, budget: usize) -> Vec<RecordBatch> {
+    let mut out = Vec::new();
+    match slice_memory_size(&batch) {
+        Some(size) => split_into(batch, size, budget, &mut out),
+        None => out.push(batch),
+    }
+    out
+}
+
+fn split_into(batch: RecordBatch, size: usize, budget: usize, out: &mut Vec<RecordBatch>) {
+    if size <= budget || batch.num_rows() <= 1 {
+        out.push(batch);
+        return;
+    }
+
+    let mid = batch.num_rows() / 2;
+    let left = batch.slice(0, mid);
+    let right = batch.slice(mid, batch.num_rows() - mid);
+
+    let (Some(left_size), Some(right_size)) = (slice_memory_size(&left), slice_memory_size(&right))
+    else {
+        out.push(batch);
+        return;
+    };
+
+    // Halving the rows should roughly halve the measurement. When it does not, the
+    // figure is not tracking the split: `get_slice_memory_size` does not restrict a
+    // nested column's child to the range the parent's offsets span, so for List-like
+    // columns it counts the whole child however the batch is sliced, and only the
+    // offsets shrink. Bisecting on a figure that creeps down towards a floor above the
+    // budget would recurse all the way to single rows, so require a real drop. That
+    // also bounds the depth. What cannot be split this way is handed to the encoder as
+    // it is, and the margin the budget leaves absorbs it.
+    let progresses = |half: usize| half.saturating_mul(4) <= size.saturating_mul(3);
+    if !progresses(left_size) || !progresses(right_size) {
+        out.push(batch);
+        return;
+    }
+
+    split_into(left, left_size, budget, out);
+    split_into(right, right_size, budget, out);
+}
+
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
@@ -592,6 +667,77 @@ mod tests {
     // Helper function to create a schema
     fn create_schema(fields: Vec<Field>) -> Arc<Schema> {
         Arc::new(Schema::new(fields))
+    }
+
+    fn single_column_batch(array: ArrayRef) -> RecordBatch {
+        let field = Field::new("c", array.data_type().clone(), array.is_nullable());
+        RecordBatch::try_new(create_schema(vec![field]), vec![array]).unwrap()
+    }
+
+    #[test]
+    fn split_by_size_keeps_every_row_and_respects_the_budget() {
+        use arrow::array::StringArray;
+
+        // 500 rows of ~1 KB plus a single ~25 KB one, the skew that defeats a split
+        // based on the average row size.
+        let mut values: Vec<String> = (0..500).map(|_| "x".repeat(1_000)).collect();
+        values.push("y".repeat(25_000));
+        let text: StringArray = values.iter().map(|v| Some(v.as_str())).collect();
+        let batch = single_column_batch(Arc::new(text));
+
+        let budget = 100_000;
+        let pieces = split_by_size(batch.clone(), budget);
+
+        assert_eq!(
+            pieces.iter().map(RecordBatch::num_rows).sum::<usize>(),
+            batch.num_rows(),
+            "rows were lost or duplicated"
+        );
+        for piece in &pieces {
+            let size = slice_memory_size(piece).expect("Utf8 is measurable");
+            assert!(
+                size <= budget || piece.num_rows() == 1,
+                "piece of {} rows is {size} bytes, above the {budget} budget",
+                piece.num_rows()
+            );
+        }
+    }
+
+    #[test]
+    fn split_by_size_leaves_a_batch_within_budget_untouched() {
+        use arrow::array::Int64Array;
+
+        let ids: Int64Array = (0..1_000).collect();
+        let batch = single_column_batch(Arc::new(ids));
+
+        let pieces = split_by_size(batch.clone(), 1_000_000);
+        assert_eq!(pieces.len(), 1);
+        assert_eq!(pieces[0].num_rows(), batch.num_rows());
+    }
+
+    #[test]
+    fn split_by_size_does_not_degenerate_on_nested_columns() {
+        use arrow::array::ListArray;
+        use arrow::datatypes::Int32Type;
+
+        // `get_slice_memory_size` counts a List's whole child buffer however the batch
+        // is sliced, so halving makes no progress. The guard has to stop rather than
+        // recurse down to one row per piece.
+        let list = ListArray::from_iter_primitive::<Int32Type, _, _>(
+            (0..1_024).map(|_| Some(vec![Some(1); 100])).collect::<Vec<_>>(),
+        );
+        let batch = single_column_batch(Arc::new(list));
+
+        let pieces = split_by_size(batch.clone(), 1_000);
+        assert_eq!(
+            pieces.iter().map(RecordBatch::num_rows).sum::<usize>(),
+            batch.num_rows()
+        );
+        assert!(
+            pieces.len() < 8,
+            "{} pieces for 1024 rows means the recursion collapsed",
+            pieces.len()
+        );
     }
 
     /// Schema with the required 'timestamp' field.
