@@ -92,18 +92,24 @@ async fn test_do_get_with_unsorted_timestamp(pool: sqlx::Pool<db::DatabaseType>)
     let json_metadata_obj = json_metadata.as_object().unwrap();
     assert_eq!(json_metadata_obj["message_count"].as_i64().unwrap(), 300000);
 
-    assert_eq!(received_batches.len(), 37);
+    // Timestamps are not sorted inside a single input batch. But between batches they don't overlap.
+    // This make data-fusion believe that a sort is not necessary. That's why it is returning data as it
+    // is, only splitting it into batches of 8192 rows (default batch size) and not merging rows from
+    // different parquet files (that's why every 13 batches there's one with fewer rows).
+    assert_eq!(received_batches.len(), 39);
 
-    for batch in received_batches.iter().take(36) {
-        assert_eq!(batch.num_rows(), 8192);
-        assert_eq!(batch.num_columns(), unsorted_batch1.num_columns());
+    for i in 0..3 {
+        for batch in received_batches.iter().take(12) {
+            assert_eq!(batch.num_rows(), 8192);
+            assert_eq!(batch.num_columns(), unsorted_batch1.num_columns());
+        }
+
+        assert_eq!(received_batches[12 + 13 * i].num_rows(), 1696);
+        assert_eq!(
+            received_batches[13 * i].num_columns(),
+            unsorted_batch1.num_columns()
+        );
     }
-
-    assert_eq!(received_batches[36].num_rows(), 5088);
-    assert_eq!(
-        received_batches[36].num_columns(),
-        unsorted_batch1.num_columns()
-    );
 
     server.shutdown().await;
 }
