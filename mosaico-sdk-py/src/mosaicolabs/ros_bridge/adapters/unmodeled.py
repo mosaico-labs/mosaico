@@ -83,7 +83,13 @@ def pack_unmodeled(
             item_node_type = cast(Nodetype, item_node_type)  # just for typechecker
 
             if item_node_type is Nodetype.BASE:
-                raw_data[field_name] = np.array(raw_data[field_name])
+                inner_item_type, _ = item_content
+
+                # list of strings does not need to be converted to np.array
+                if inner_item_type != "string":
+                    raw_data[field_name] = np.array(
+                        raw_data[field_name], dtype=inner_item_type
+                    )
 
             elif item_node_type is Nodetype.NAME and isinstance(item_content, str):
                 # Check that all elements of raw_data[field_name] are dict
