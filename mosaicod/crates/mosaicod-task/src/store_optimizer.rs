@@ -207,7 +207,7 @@ impl StoreOptimizer {
         let sorted_df = df
             .sort(vec![
                 df::logical_expr::col(params::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP)
-                    .sort(true, true),
+                    .sort(true, false),
             ])
             .map_err(df_to_internal_error)?;
 
