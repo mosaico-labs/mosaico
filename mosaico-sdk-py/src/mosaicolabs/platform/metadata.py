@@ -120,15 +120,21 @@ class TopicMetadata(PlatformMetadata):
     @dataclass(slots=True)
     class Properties:
         ontology_tag: str
-        msg_count: Optional[int]
         serialization_format: SerializationFormat
+        # Optional since not retrieved on every path
+        # (returned by a DoGet only)
+        msg_count: Optional[int]
+        timestamp_ns_min: Optional[int]
+        timestamp_ns_max: Optional[int]
 
         @classmethod
         def _from_dict(cls, data: dict):
             return cls(
                 ontology_tag=data["ontology_tag"],
-                msg_count=data.get("message_count"),
                 serialization_format=SerializationFormat(data["serialization_format"]),
+                msg_count=data.get("message_count"),
+                timestamp_ns_min=data.get("timestamp_ns_min"),
+                timestamp_ns_max=data.get("timestamp_ns_max"),
             )
 
     properties: Properties

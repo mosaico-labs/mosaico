@@ -11,6 +11,7 @@ from typing import Any, Optional, Type
 import pyarrow as pa
 import pyarrow.flight as fl
 
+from mosaicolabs.enum.serialization_format import SerializationFormat
 from mosaicolabs.models.core import Message
 from mosaicolabs.models.core.helpers import resolve_ontology_class
 from mosaicolabs.models.core.serializable import (
@@ -166,6 +167,8 @@ class TopicDataStreamer:
             ontology_tag=topic_mdata.properties.ontology_tag,
             serialization_format=topic_mdata.properties.serialization_format,
             msg_count=topic_mdata.properties.msg_count,
+            timestamp_ns_min=topic_mdata.properties.timestamp_ns_min,
+            timestamp_ns_max=topic_mdata.properties.timestamp_ns_max,
         )
         return cls(
             client=client,
@@ -238,16 +241,7 @@ class TopicDataStreamer:
 
     def _validate_status_open(self):
         if not self._is_open:
-            raise ValueError(f"Reader closed for topic {self.name()}")
-
-    def name(self) -> str:
-        """
-        The name of the topic associated with this streamer.
-
-        Returns:
-            The name of the topic.
-        """
-        return self._rdstate.topic_name
+            raise ValueError(f"Reader closed for topic {self.name}")
 
     def next_timestamp(self) -> Optional[int]:
         """
@@ -296,6 +290,26 @@ class TopicDataStreamer:
         return int(self._rdstate.peeked_timestamp)
 
     @property
+    def name(self) -> str:
+        """
+        The name of the topic associated with this streamer.
+
+        Returns:
+            The name of the topic.
+        """
+        return self._rdstate.topic_name
+
+    @property
+    def serialization_format(self) -> SerializationFormat:
+        """
+        The ontology `SerializationFormat` associated with this data stream.
+
+        Returns:
+            The ontology `SerializationFormat`.
+        """
+        return self._rdstate.serialization_format
+
+    @property
     def ontology_tag(self) -> str:
         """
         The ontology tag associated with this streamer.
@@ -314,6 +328,26 @@ class TopicDataStreamer:
             The number of messages. None if an error occurred during message count retrieval
         """
         return self._rdstate.msg_count
+
+    @property
+    def timestamp_ns_min(self) -> Optional[int]:
+        """
+        The lowest timestamp (nanoseconds) in this stream.
+
+        Returns:
+            The lowest timestamp (nanoseconds) in this stream. None if an error occurred during retrieval
+        """
+        return self._rdstate.timestamp_ns_min
+
+    @property
+    def timestamp_ns_max(self) -> Optional[int]:
+        """
+        The highest timestamp (nanoseconds) in this stream.
+
+        Returns:
+            The highest timestamp (nanoseconds) in this stream. None if an error occurred during retrieval
+        """
+        return self._rdstate.timestamp_ns_max
 
     def __iter__(self) -> "TopicDataStreamer":
         """Returns self as iterator."""

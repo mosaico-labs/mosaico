@@ -37,6 +37,8 @@ class _TopicReadState:
         ontology_tag: str,
         serialization_format: SerializationFormat,
         msg_count: Optional[int],
+        timestamp_ns_min: Optional[int],
+        timestamp_ns_max: Optional[int],
         reader: Optional[fl.FlightStreamReader],
     ):
         """
@@ -61,6 +63,8 @@ class _TopicReadState:
         self.ontology_tag: str = ontology_tag
         self.serialization_format = serialization_format
         self.msg_count: Optional[int] = msg_count
+        self.timestamp_ns_min: Optional[int] = timestamp_ns_min
+        self.timestamp_ns_max: Optional[int] = timestamp_ns_max
 
         # --- Schema Validation & Setup ---
         self.column_names: List[str] = []

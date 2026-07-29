@@ -30,6 +30,10 @@ def _exec_test_sequence_data_stream_timerange(
         start_timestamp_ns=time_start,  # lower_bound
         end_timestamp_ns=time_end,  # upper_bound
     )
+    assert (
+        sstream_handl.timestamp_ns_min is not None
+        and sstream_handl.timestamp_ns_max is not None
+    )
     # Get the next timestamp, without consuming the related sample
     next_tstamp = sstream_handl.next_timestamp()
     assert next_tstamp is not None
@@ -59,6 +63,13 @@ def _exec_test_sequence_data_stream_timerange(
             )
             - 1
         )
+    )
+
+    assert (
+        _make_sequence_data_stream.items[msg_idx_start].msg.timestamp_ns
+        == sstream_handl.timestamp_ns_min
+        and _make_sequence_data_stream.items[msg_idx_stop].msg.timestamp_ns
+        == sstream_handl.timestamp_ns_max
     )
 
     # Start consuming data stream
@@ -141,6 +152,17 @@ def _exec_test_topic_data_stream_timerange(
     tstream_handl = tophandler.get_data_streamer(
         start_timestamp_ns=time_start,
         end_timestamp_ns=time_end,
+    )
+
+    assert (
+        tstream_handl.timestamp_ns_min is not None
+        and tstream_handl.timestamp_ns_max is not None
+    )
+    assert (
+        _cached_topic_data_stream[msg_idx_start].msg.timestamp_ns
+        == tstream_handl.timestamp_ns_min
+        and _cached_topic_data_stream[msg_idx_stop].msg.timestamp_ns
+        == tstream_handl.timestamp_ns_max
     )
 
     # Topic reader must be valid

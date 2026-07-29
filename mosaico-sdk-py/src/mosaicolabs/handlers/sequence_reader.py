@@ -181,7 +181,7 @@ class SequenceDataStreamer:
                 ticket=ep.ticket,
             )
             # Cache the topic reader instance
-            topic_readers[treader.name()] = treader
+            topic_readers[treader.name] = treader
 
         if not topic_readers:
             raise RuntimeError(
@@ -219,6 +219,44 @@ class SequenceDataStreamer:
             filter(
                 None, (t_reader.msg_count for t_reader in self._topic_readers.values())
             )
+        )
+
+    @property
+    def timestamp_ns_min(self) -> Optional[int]:
+        """
+        The lowest timestamp (nanoseconds) in this stream.
+
+        Returns:
+            The lowest timestamp (nanoseconds) in this stream. None if an error occurred during retrieval
+        """
+        return min(
+            filter(
+                None,
+                (
+                    t_reader.timestamp_ns_min
+                    for t_reader in self._topic_readers.values()
+                ),
+            ),
+            default=None,
+        )
+
+    @property
+    def timestamp_ns_max(self) -> Optional[int]:
+        """
+        The highest timestamp (nanoseconds) in this stream.
+
+        Returns:
+            The highest timestamp (nanoseconds) in this stream. None if an error occurred during retrieval
+        """
+        return max(
+            filter(
+                None,
+                (
+                    t_reader.timestamp_ns_max
+                    for t_reader in self._topic_readers.values()
+                ),
+            ),
+            default=None,
         )
 
     # --- Iterator Protocol Implementation ---
@@ -333,7 +371,7 @@ class SequenceDataStreamer:
 
         # Advance the Winner's stream
         self._winning_rdstate.peek_next_row()
-        return winning_topic.name(), Message._decode(
+        return winning_topic.name, Message._decode(
             tag_or_type=winning_topic._ontology_type, **row_dict
         )
 
@@ -396,6 +434,6 @@ class SequenceDataStreamer:
             try:
                 treader.close()
             except Exception as e:
-                logger.warning(f"Error closing state '{treader.name()}': '{e}'")
+                logger.warning(f"Error closing state '{treader.name}': '{e}'")
 
         logger.info(f"SequenceReader for '{self._name}' closed.")
