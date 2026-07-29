@@ -333,7 +333,7 @@ class TestQueryableComparable:
 class TestQueryableString:
     _allowed_types = [str]
     _allowed_unary_operators = ["eq", "match", "lt", "gt", "leq", "geq"]
-    _allowed_varargs_operators = ["in_"]
+    _allowed_varargs_operators = ["in_", "between", "outside"]
 
     @pytest.mark.parametrize("value_type", _allowed_types)
     @pytest.mark.parametrize(

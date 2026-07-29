@@ -400,9 +400,11 @@ class ROSSequenceExtractor:
                     ros_recording_timestamp_ns,
                     self.typestore.serialize_cdr(ros_msg, ros_msgtype),
                 )
-        except Exception:
+        except Exception as e:
             self.ignored_topics.add(t_name)
-            ui.update_status(t_name, "Failed writing to bag", style="yellow")
+            ui.update_status(
+                t_name, f"Failed writing to bag because: {e}", style="yellow"
+            )
             ui.advance_global()
             return
 

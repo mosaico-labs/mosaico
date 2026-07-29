@@ -392,6 +392,31 @@ def test_query_topic_lexicographic_comparison(
     [_validate_returned_topic_name(topic.name) for topic in query_resp[0].topics]
     assert all([t.name in expected_topic_names for t in query_resp[0].topics])
 
+    # Test outiside operator on iso timestamps
+    query_resp = mosaico_client.query(
+        QueryTopic().with_user_metadata(
+            "last_calibrated_at",
+            outside=[
+                "2025-03-01T07:17:08",
+                "2025-03-01T09",
+            ],
+        ),
+    )
+    # We do expect a successful query
+    assert query_resp is not None and not query_resp.is_empty()
+    # One (1) sequence corresponds to this query
+    assert len(query_resp) == 1
+    expected_topic_names = [
+        UPLOADED_MAGNETOMETER_TOPIC,
+        UPLOADED_IMU_CAMERA_TOPIC,
+        UPLOADED_IMU_FRONT_TOPIC,
+    ]
+    # N topics may correspond to this query
+    assert len(query_resp[0].topics) == len(expected_topic_names)
+    # all the expected topics, and only them
+    [_validate_returned_topic_name(topic.name) for topic in query_resp[0].topics]
+    assert all([t.name in expected_topic_names for t in query_resp[0].topics])
+
     # free resources
     mosaico_client.close()
 

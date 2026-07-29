@@ -77,15 +77,15 @@ impl TimeseriesEngine {
             .expect("TimeseriesGateway::read requires a Parquet-based format");
         let listing_options = parquet_strategy.listing_options();
 
-        let mut conf = SessionConfig::new();
+        let mut conf = SessionConfig::new()
+            // Reduce the number of partition used to avoid management overhead
+            .with_target_partitions(1)
+            // Parquet specific optimizations
+            .set_bool("datafusion.execution.parquet.pushdown_filters", true)
+            .set_bool("datafusion.execution.parquet.reorder_filters", true);
+
         if let Some(batch_size) = batch_size {
-            conf = conf
-                .with_batch_size(batch_size)
-                // Reduce the number of partition used to avoid management overhead
-                .with_target_partitions(1)
-                // Parquet specific optimizations
-                .set_bool("datafusion.execution.parquet.pushdown_filters", true)
-                .set_bool("datafusion.execution.parquet.reorder_filters", true);
+            conf = conf.with_batch_size(batch_size)
         }
 
         let ctx = SessionContext::new_with_config_rt(conf, self.runtime.clone());

@@ -124,6 +124,46 @@ def test_query_basic_list(
     [_validate_returned_topic_name(topic.name) for topic in query_resp[0].topics]
     assert all([t.name in expected_topic_names for t in query_resp[0].topics])
 
+    # Query using any access + string set
+    query_resp = mosaico_client.query(
+        QueryOntologyCatalog().with_expression(
+            RobotJoint.Q.names.any().between("joint0", "joint1")
+        )  # set a very small value (data are random, so a small value is likely to be found)
+    )
+    # We do expect a successful query
+    assert query_resp is not None and not query_resp.is_empty()
+    # One (1) sequence corresponds to this query
+    assert len(query_resp) == 1
+    # The target topic is 'UPLOADED_ROBOT_JOINTS_TOPIC'
+    expected_topic_names = [
+        UPLOADED_ROBOT_JOINTS_TOPIC,
+    ]
+    assert len(query_resp[0].topics) == len(expected_topic_names)
+
+    # all the expected topics, and only them
+    [_validate_returned_topic_name(topic.name) for topic in query_resp[0].topics]
+    assert all([t.name in expected_topic_names for t in query_resp[0].topics])
+
+    # Query using any access + string set
+    query_resp = mosaico_client.query(
+        QueryOntologyCatalog().with_expression(
+            RobotJoint.Q.names.any().outside("joint2", "joint9")  # 'join1' matches
+        )  # set a very small value (data are random, so a small value is likely to be found)
+    )
+    # We do expect a successful query
+    assert query_resp is not None and not query_resp.is_empty()
+    # One (1) sequence corresponds to this query
+    assert len(query_resp) == 1
+    # The target topic is 'UPLOADED_ROBOT_JOINTS_TOPIC'
+    expected_topic_names = [
+        UPLOADED_ROBOT_JOINTS_TOPIC,
+    ]
+    assert len(query_resp[0].topics) == len(expected_topic_names)
+
+    # all the expected topics, and only them
+    [_validate_returned_topic_name(topic.name) for topic in query_resp[0].topics]
+    assert all([t.name in expected_topic_names for t in query_resp[0].topics])
+
     # free resources
     mosaico_client.close()
 
@@ -385,6 +425,25 @@ def test_mixed_query_ontology_w_struct_list(
     [_validate_returned_topic_name(topic.name) for topic in query_resp[0].topics]
     assert all([t.name in expected_topic_names for t in query_resp[0].topics])
 
+    query_resp = mosaico_client.query(
+        QueryOntologyCatalog().with_expression(
+            RobotPath.Q.poses[0].position.z.outside(1.0, 2.0)
+        ),  # set a big value (data are random between [0, 1])
+        QuerySequence().with_name("list-query-sequence"),
+    )
+    # We do expect a successful query
+    assert query_resp is not None and not query_resp.is_empty()
+    # One (1) sequence corresponds to this query
+    assert len(query_resp) == 1
+    # The target topic is and 'UPLOADED_ROBOT_PATH_TOPIC'
+    expected_topic_names = [
+        UPLOADED_ROBOT_PATH_TOPIC,
+    ]
+    assert len(query_resp[0].topics) == len(expected_topic_names)
+
+    # all the expected topics, and only them
+    [_validate_returned_topic_name(topic.name) for topic in query_resp[0].topics]
+    assert all([t.name in expected_topic_names for t in query_resp[0].topics])
     mosaico_client.close()
 
 

@@ -33,7 +33,7 @@ from mosaicolabs.enum import SerializationFormat
 
 from ...query.generation.api import _QueryProxyMixin
 from .base_model import BaseModel
-from .internal.helpers import _fix_empty_dicts, encode_to_dict
+from .internal.helpers import _fix_empty_dicts
 from .internal.pyarrow_mapper import PyarrowFieldMapper
 from .types import BASE_MAPPING, REMAPPED_PYARROW_TYPES
 
@@ -249,9 +249,7 @@ class Serializable(BaseModel, _QueryProxyMixin):
             )
 
     def _encode(self):
-        return {
-            name: encode_to_dict(value) for name, value in self.model_dump().items()
-        }
+        return self.model_dump()
 
     # --- Factory Methods ---
 

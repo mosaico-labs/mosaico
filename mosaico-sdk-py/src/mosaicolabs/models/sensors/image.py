@@ -189,7 +189,7 @@ class Image(
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `Image.Q.format` | `String` | `.eq()`, `.match()`, `.in_()`, `.lt()`, `.gt()`, `.leq()`, `.geq()` |
+    | `Image.Q.format` | `String` | `.eq()`, `.match()`, `.in_()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.between()`, `.outside()` |
 
     Example:
         ```python
@@ -219,7 +219,7 @@ class Image(
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `Image.Q.width` | `Numeric` | `.eq()`, `.gt()`, `.gte()`, `.lt()`, `.lte()`, `.between()` |
+    | `Image.Q.width` | `Numeric` | `.eq()`, `.gt()`, `.gte()`, `.lt()`, `.lte()`, `.between()`, `.outside()` |
 
     Example:
         ```python
@@ -249,7 +249,7 @@ class Image(
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `Image.Q.height` | `Numeric` | `.eq()`, `.gt()`, `.gte()`, `.lt()`, `.lte()`, `.between()` |
+    | `Image.Q.height` | `Numeric` | `.eq()`, `.gt()`, `.gte()`, `.lt()`, `.lte()`, `.between()`, `.outside()` |
 
     Example:
         ```python
@@ -281,7 +281,7 @@ class Image(
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `Image.Q.stride` | `Numeric` | `.eq()`, `.gt()`, `.gte()`, `.lt()`, `.lte()`, `.between()` |
+    | `Image.Q.stride` | `Numeric` | `.eq()`, `.gt()`, `.gte()`, `.lt()`, `.lte()`, `.between()`, `.outside()` |
 
     Example:
         ```python
@@ -313,7 +313,7 @@ class Image(
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `Image.Q.encoding` | `String` | `.eq()`, `.match()`, `.in_()`, `.lt()`, `.gt()`, `.leq()`, `.geq()` |
+    | `Image.Q.encoding` | `String` | `.eq()`, `.match()`, `.in_()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.between()`, `.outside()` |
 
     Example:
         ```python
@@ -878,7 +878,7 @@ class CompressedImage(
     ### Querying with the **`.Q` Proxy**
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `CompressedImage.Q.format` | `String` | `.eq()`, `.match()`, `.in_()`, `.lt()`, `.gt()`, `.leq()`, `.geq()` |
+    | `CompressedImage.Q.format` | `String` | `.eq()`, `.match()`, `.in_()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.between()`, `.outside()` |
 
     Example:
         ```python

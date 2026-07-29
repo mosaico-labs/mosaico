@@ -386,14 +386,18 @@ class QueryTopic:
             ValueError: If no operator is provided, if multiple operators are provided in
                 a single call, or if an unsupported operator is used.
 
-        Operators Supported:
+        Supported Operators:
             * `eq`: Equal to
             * `neq`: Not equal to
             * `gt`: Greater than
             * `geq`: Greater than or equal to
             * `lt`: Less than
             * `leq`: Less than or equal to
+            * `match`: glob-style pattern matching, see
+                [QueryableString.match][mosaicolabs.query.queryable_fields.QueryableString.match]
             * `between`: Range filter (expects a list of [min, max])
+            * `outside`: Range filter (expects a list of [min, max])
+            * `in_`: One-of (expects a list of values)
             * `ex`: The key exist (ex=True) or does not exist (ex=False)
 
         Example:
@@ -456,17 +460,23 @@ class QueryTopic:
 
     def with_name_match(self, name: str) -> "QueryTopic":
         """
-        Adds a RegEx filter for the topic 'name' field. Supported RegEx operations are:
+        Adds a RegEx-like filter for the topic 'name' field. Supported operators are:
 
-        - * => matches a multiple (zero or more) characters, including space.
-        - ? => matches a single (exactly one) characters, including space.
-        - [] => matches a character set. Examples: [aeiou] to match any vocals, or [a-z] to match a range
-        - # => matches any single digit (0 — 9). Shortcut for [0-9]
+        * `*`: matches a multiple (zero or more) characters, including space.
+        * `?`: matches a single (exactly one) characters, including space.
+        * `[]`: matches a character set. Examples: `[aeiou]` to match any vocals, or `[a-z]` to match a range
+        * `#`: matches any single digit (0 — 9). Shortcut for `[0-9]`
 
-        Supposing the server cotains car1/imu/front we can get it using:
-            - *imu*
-            - car#/[a-z]*/[a-z]**
-            - car?/[umi]*/?????
+        Supposing the server contains a topic with name `car1/imu/front` we can get it using:
+
+        * `*imu*`
+        * `car#/[a-z]*/[a-z]**`
+        * `car?/[umi]*/?????`
+
+        Note:
+            If `name` contains none of the wildcards above, the operator
+            is equivalent to [`.with_name()`][mosaicolabs.query.builders.QueryTopic.with_name],
+            i.e. an exact match will be performed.
 
         Example:
             ```python
@@ -778,14 +788,18 @@ class QuerySequence:
             ValueError: If no operator is provided, if multiple operators are provided in
                 a single call, or if an unsupported operator is used.
 
-        Operators Supported:
+        Supported Operators:
             * `eq`: Equal to
             * `neq`: Not equal to
             * `gt`: Greater than
             * `geq`: Greater than or equal to
             * `lt`: Less than
             * `leq`: Less than or equal to
+            * `match`: glob-style pattern matching, see
+                [QueryableString.match][mosaicolabs.query.queryable_fields.QueryableString.match]
             * `between`: Range filter (expects a list of [min, max])
+            * `outside`: Range filter (expects a list of [min, max])
+            * `in_`: One-of (expects a list of values)
             * `ex`: The key exist (ex=True) or does not exist (ex=False)
 
         Example:
@@ -854,16 +868,22 @@ class QuerySequence:
         """
         Adds a RegEx filter for the sequence 'name' field. Supported RegEx operations are:
 
-        - * => matches a multiple (zero or more) characters, including space.
-        - ? => matches a single (exactly one) characters, including space.
-        - [] => matches a character set. Examples: [aeiou] to match any vocals, or [a-z] to match a range
-        - # => matches any single digit (0 — 9). Shortcut for [0-9]
+        * `*`: matches a multiple (zero or more) characters, including space.
+        * `?`: matches a single (exactly one) characters, including space.
+        * `[]`: matches a character set. Examples: `[aeiou]` to match any vocals, or `[a-z]` to match a range
+        * `#`: matches any single digit (0 — 9). Shortcut for `[0-9]`
 
-        Supposing the server cotains sequence experiment1-car we can get it using:
-            - experiment*
-            - [a-z]*1-car
-            - experiment?/[a-z]*
-            - experiment1-car
+        Supposing the server contains a sequence with name `experiment1-car` we can get it using:
+
+        * `experiment*`
+        * `[a-z]*1-car`
+        * `experiment?/[a-z]*`
+        * `experiment1-car`
+
+        Note:
+            If `name` contains none of the wildcards above, the operator
+            is equivalent to [`.with_name()`][mosaicolabs.query.builders.QuerySequence.with_name],
+            i.e. an exact match will be performed.
 
         Example:
             ```python

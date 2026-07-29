@@ -43,7 +43,15 @@ pub trait ParquetFormatProperties: FormatProperties {
     fn writer_properties(&self) -> WriterProperties;
 
     /// Returns DataFusion ListingOptions configured for reading files in this format.
-    fn listing_options(&self) -> ListingOptions;
+    fn listing_options(&self) -> ListingOptions {
+        ListingOptions::new(Arc::new(ParquetFormat::default()))
+            .with_collect_stat(true)
+            .with_file_extension(format!(".{}", self.as_extension()))
+            .with_file_sort_order(vec![vec![
+                // null_first set to FALSE to match datafusion ASC ordering while retrieving data.
+                col(params::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP).sort(true, false),
+            ]])
+    }
 
     /// Preallocates memory for the internal writer buffer to avoid dynamic resizing.
     ///
@@ -84,14 +92,6 @@ impl ParquetFormatProperties for DefaultFormatProperties {
         WriterProperties::builder()
             .set_writer_version(WriterVersion::PARQUET_2_0)
             .build()
-    }
-
-    fn listing_options(&self) -> ListingOptions {
-        ListingOptions::new(Arc::new(ParquetFormat::default()))
-            .with_file_extension(format!(".{}", self.as_extension()))
-            .with_file_sort_order(vec![vec![
-                col(params::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP).sort(true, true),
-            ]])
     }
 }
 
@@ -138,14 +138,6 @@ impl ParquetFormatProperties for RaggedFormatProperties {
             .set_column_bloom_filter_enabled(ts_path, true)
             .build()
     }
-
-    fn listing_options(&self) -> ListingOptions {
-        ListingOptions::new(Arc::new(ParquetFormat::default()))
-            .with_file_extension(format!(".{}", self.as_extension()))
-            .with_file_sort_order(vec![vec![
-                col(params::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP).sort(true, true),
-            ]])
-    }
 }
 
 /// Format properties for images and dense multi-dimensional arrays.
@@ -190,14 +182,6 @@ impl ParquetFormatProperties for ImageFormatProperties {
             .set_column_statistics_enabled(ts_path.clone(), EnabledStatistics::Page)
             .set_column_bloom_filter_enabled(ts_path, true)
             .build()
-    }
-
-    fn listing_options(&self) -> ListingOptions {
-        ListingOptions::new(Arc::new(ParquetFormat::default()))
-            .with_file_extension(format!(".{}", self.as_extension()))
-            .with_file_sort_order(vec![vec![
-                col(params::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP).sort(true, true),
-            ]])
     }
 
     fn buffer_capacity(&self) -> usize {

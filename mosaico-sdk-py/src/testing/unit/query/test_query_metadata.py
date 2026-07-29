@@ -73,6 +73,19 @@ class TestQueryTopicMetadataAPI:
         QueryTopic().with_user_metadata("some-field", ex=True)
         QueryTopic().with_user_metadata("some-field", ex=False)
         QueryTopic().with_user_metadata("some-field", between=[0, 1])
+        # works with strings too
+        QueryTopic().with_user_metadata("some-field", between=["a", "b"])
+        with pytest.raises(TypeError, match="All values must be of the same type"):
+            QueryTopic().with_user_metadata("some-field", between=["a", 1])
+        with pytest.raises(ValueError, match="requires exactly two numeric values"):
+            QueryTopic().with_user_metadata("some-field", between=["a", "b", "c"])
+        QueryTopic().with_user_metadata("some-field", outside=[0, 1])
+        # works with strings too
+        QueryTopic().with_user_metadata("some-field", outside=["a", "b"])
+        with pytest.raises(TypeError, match="All values must be of the same type"):
+            QueryTopic().with_user_metadata("some-field", outside=["a", 1])
+        with pytest.raises(ValueError, match="requires exactly two numeric values"):
+            QueryTopic().with_user_metadata("some-field", outside=["a", "b", "c"])
         QueryTopic().with_user_metadata("some-field", match="abcd")
 
 
@@ -142,4 +155,17 @@ class TestQuerySequenceMetadataAPI:
         QuerySequence().with_user_metadata("some-field", ex=True)
         QuerySequence().with_user_metadata("some-field", ex=False)
         QuerySequence().with_user_metadata("some-field", between=[0, 1])
+        # works with strings too
+        QuerySequence().with_user_metadata("some-field", between=["a", "b"])
+        with pytest.raises(TypeError, match="All values must be of the same type"):
+            QuerySequence().with_user_metadata("some-field", between=["a", 1])
+        with pytest.raises(ValueError, match="requires exactly two numeric values"):
+            QuerySequence().with_user_metadata("some-field", between=["a", "b", "c"])
+        QuerySequence().with_user_metadata("some-field", outside=[0, 1])
+        # works with strings too
+        QuerySequence().with_user_metadata("some-field", outside=["a", "b"])
+        with pytest.raises(TypeError, match="All values must be of the same type"):
+            QuerySequence().with_user_metadata("some-field", outside=["a", 1])
+        with pytest.raises(ValueError, match="requires exactly two numeric values"):
+            QuerySequence().with_user_metadata("some-field", outside=["a", "b", "c"])
         QuerySequence().with_user_metadata("some-field", match="abcd")
