@@ -11,7 +11,7 @@ middleware-level metadata (like recording timestamp_ns).
 import warnings
 from collections import defaultdict
 from functools import lru_cache
-from typing import Any, Dict, Optional, Type, TypeVar, Union
+from typing import Any, Dict, Optional, Set, Type, TypeVar, Union
 
 import pandas as pd
 import pyarrow as pa
@@ -162,7 +162,7 @@ class Message(BaseModel):
         """
         super().model_post_init(context)
         self._self_model_keys = Message._message_model_fields()
-        Message._check_envelope_collision(type(self.data))
+        Message._check_envelope_collision(self.data.__msco_pyarrow_struct__)
 
     def ontology_type(self) -> Type[Serializable]:
         """Retrieves the class type of the ontology object stored in the `data` field."""
@@ -254,7 +254,8 @@ class Message(BaseModel):
         return cls(data=data_obj, **message_kwargs)
 
     @classmethod
-    def _message_exclude_fields(cls):
+    def _message_exclude_fields(cls) -> Set[str]:
+        """Message fields that need to be excluded when encoding to dict"""
         return {"data"}
 
     @classmethod
@@ -268,7 +269,7 @@ class Message(BaseModel):
 
     @classmethod
     @lru_cache(maxsize=None)
-    def _check_envelope_collision(cls, data_type: Type[Serializable]) -> None:
+    def _check_envelope_collision(cls, data_schema: pa.StructType) -> None:
         """
         Verifies there is no field name collision between the envelope schema
         and a given ontology data type's schema.
@@ -277,11 +278,11 @@ class Message(BaseModel):
         class-level PyArrow schemas, not on any instance data.
         """
         colliding_fields = set(cls.__msco_pyarrow_struct__.names) & set(
-            data_type.__msco_pyarrow_struct__.names
+            data_schema.names
         )
         if colliding_fields:
             raise ValueError(
-                f"Fields name collision detected between class '{data_type.__name__}' "
+                f"Fields name collision detected between schema names '{data_schema.names}' "
                 f"and Message envelope. Colliding fields: {colliding_fields}."
             )
 
@@ -322,11 +323,7 @@ class Message(BaseModel):
             if isinstance(cls_or_schema, pa.StructType)
             else cls_or_schema.__msco_pyarrow_struct__
         )
-        colliding_keys = set(cls.__msco_pyarrow_struct__.names) & set(data_schema.names)
-        if colliding_keys:
-            raise ValueError(
-                f"Class schema collides with Message schema: {list(colliding_keys)}"
-            )
+        cls._check_envelope_collision(data_schema)
 
         return _make_schema(
             cls.__msco_pyarrow_struct__,
