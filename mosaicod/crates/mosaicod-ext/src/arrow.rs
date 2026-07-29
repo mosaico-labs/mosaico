@@ -583,14 +583,6 @@ pub mod testing {
 }
 
 /// In-memory footprint of `batch`, measured over the rows it actually spans.
-///
-/// [`Array::get_array_memory_size`] sums buffer *capacities*, which a zero-copy
-/// [`RecordBatch::slice`] inherits from its parent: it reports the same value for a
-/// slice as for the whole batch. [`arrow::array::ArrayData::get_slice_memory_size`]
-/// reads the offsets instead, so it shrinks with the slice.
-///
-/// [`None`] when arrow cannot measure a column, leaving the caller to skip the split
-/// rather than act on a wrong number.
 fn slice_memory_size(batch: &RecordBatch) -> Option<usize> {
     batch
         .columns()
@@ -604,11 +596,6 @@ fn slice_memory_size(batch: &RecordBatch) -> Option<usize> {
 /// Bisects by rows, which needs no assumption about how evenly the rows are sized: a
 /// piece is halved until it fits, so a handful of outsized rows cannot drag the whole
 /// batch along with them the way dividing by an average does.
-///
-/// `budget` is an *in-memory* figure while the gRPC limit applies to the encoded
-/// message, and encoding can come out above the footprint it started from. So this
-/// bounds what is handed to the encoder, not what leaves it: `budget` has to leave
-/// room for that difference.
 ///
 /// A batch arrow cannot measure, or one whose measurement does not fall as its rows
 /// are halved, is returned whole rather than cut blindly.
@@ -638,14 +625,23 @@ fn split_into(batch: RecordBatch, size: usize, budget: usize, out: &mut Vec<Reco
         return;
     };
 
-    // Halving the rows should roughly halve the measurement. When it does not, the
-    // figure is not tracking the split: `get_slice_memory_size` does not restrict a
-    // nested column's child to the range the parent's offsets span, so for List-like
-    // columns it counts the whole child however the batch is sliced, and only the
-    // offsets shrink. Bisecting on a figure that creeps down towards a floor above the
-    // budget would recurse all the way to single rows, so require a real drop. That
-    // also bounds the depth. What cannot be split this way is handed to the encoder as
-    // it is, and the margin the budget leaves absorbs it.
+    // Termination guard. The natural exit is `size <= budget` at the top, but that is
+    // not guaranteed to ever be reached: removing rows does not always shrink what
+    // `get_slice_memory_size` reports.
+    //
+    // On a `List` column it barely shrinks at all. Such a column is stored as one flat
+    // values buffer holding the elements of every row back to back, plus an offsets
+    // array saying where each row starts in it. Slicing rows narrows only the offsets:
+    // the values buffer is shared and left whole, and the measurement asks it for its
+    // full size instead of for the range the remaining offsets actually span. So the
+    // figure comes down by the handful of offset bytes per row and then settles on a
+    // floor, which can sit above the budget. Bisecting against a floor recurses until
+    // it runs out of rows, one per piece, and each becomes its own near empty message.
+    //
+    // Hence: require each half to measure at most three quarters of the parent, which
+    // is what `half * 4 <= size * 3` says without floats. When it does not, stop and
+    // hand the batch over whole, the encoder and the margin the budget leaves absorb
+    // it. Demanding a real drop is also what bounds the recursion depth.
     let progresses = |half: usize| half.saturating_mul(4) <= size.saturating_mul(3);
     if !progresses(left_size) || !progresses(right_size) {
         out.push(batch);
@@ -724,7 +720,9 @@ mod tests {
         // is sliced, so halving makes no progress. The guard has to stop rather than
         // recurse down to one row per piece.
         let list = ListArray::from_iter_primitive::<Int32Type, _, _>(
-            (0..1_024).map(|_| Some(vec![Some(1); 100])).collect::<Vec<_>>(),
+            (0..1_024)
+                .map(|_| Some(vec![Some(1); 100]))
+                .collect::<Vec<_>>(),
         );
         let batch = single_column_batch(Arc::new(list));
 

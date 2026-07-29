@@ -209,14 +209,6 @@ pub(super) mod internal {
 
         let params = params::params();
 
-        // The average is enough: a batch that still lands near the gRPC limit is
-        // bisected before it reaches the encoder, so this only has to make read
-        // batches roughly one message worth.
-        //
-        // `avg_bytes_per_row` is measured on the Arrow batches, the same currency as
-        // the IPC payload the batches are streamed back as. The compressed parquet
-        // footprint is off by the parquet/IPC compression ratio, which is unbounded,
-        // so it cannot be used here.
         let target_size = params.target_message_size.value;
         let batch_size = (target_size as f64 / stats.avg_bytes_per_row) as usize;
 

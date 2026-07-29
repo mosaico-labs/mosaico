@@ -28,9 +28,7 @@ pub struct ChunkRecord {
     pub topic_id: i32,
     pub(crate) data_file: String,
     pub size_bytes: i64,
-    /// In-memory Arrow footprint of the chunk, in the same currency as the Arrow
-    /// IPC payload used for streaming. [`None`] for chunks written before the
-    /// column was introduced.
+    /// In-memory Arrow footprint of the chunk
     pub arrow_bytes: Option<i64>,
     pub row_count: i64,
 }

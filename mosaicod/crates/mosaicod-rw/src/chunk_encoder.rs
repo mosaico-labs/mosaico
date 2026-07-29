@@ -9,11 +9,6 @@ use std::sync::Arc;
 pub struct ChunkMetadata {
     pub size_bytes: usize,
     /// In-memory Arrow footprint of the rows written to this chunk.
-    ///
-    /// [`Self::size_bytes`] is the compressed parquet buffer, which is not
-    /// proportional to the Arrow IPC payload the data is streamed back as. This
-    /// is measured on the Arrow batches, so it is in the same currency as that
-    /// payload and can be used to size read batches against the gRPC limit.
     pub arrow_bytes: usize,
     pub row_count: usize,
 }
@@ -271,8 +266,6 @@ mod tests {
         assert_eq!(metadata.row_count, 3);
         assert_eq!(metadata.size_bytes, buffer.len());
 
-        // The Arrow footprint is tracked separately from the compressed parquet
-        // buffer, since only the former is comparable to the streamed IPC payload.
         assert_eq!(metadata.arrow_bytes, batch.get_array_memory_size());
     }
 }

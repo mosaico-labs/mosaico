@@ -211,11 +211,6 @@ fn cast_chunk_data(row: PgRow) -> Result<schema::ChunkRecord, Error> {
 }
 
 /// Returns aggregated size and row count statistics for all chunks belonging to a topic.
-///
-/// `avg_bytes_per_row` is in Arrow in-memory bytes, the currency the gRPC message
-/// limit applies to, and falls back to `size_bytes` for chunks written before
-/// `arrow_bytes` existed. `size_bytes` is the compressed parquet buffer, which is
-/// not proportional to the streamed payload, so it is only a last resort.
 pub async fn topic_get_stats(
     exec: &mut impl AsExec,
     topic_id: i32,
