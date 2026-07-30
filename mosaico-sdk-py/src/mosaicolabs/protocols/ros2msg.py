@@ -182,7 +182,7 @@ def convert_ros2msg(msgdef: str, msgtype: str) -> pa.StructType:
 
     # This is necessary since ROS1 msgdef does not contain types like Time and Duration. Therefore,
     # the created typesdict will not hold Duration and Time on the first level, but their composed
-    # types (like Header) will be composed of these types. Consequently, when looking for these types 
+    # types (like Header) will be composed of these types. Consequently, when looking for these types
     # at the first level of typesdict they will not be found making the system crash.
     # This does not happen for ros2 msgdef since they always contain Time and Duration within the
     # msgdef creating a typesdict where at the first level are present their definitions.
