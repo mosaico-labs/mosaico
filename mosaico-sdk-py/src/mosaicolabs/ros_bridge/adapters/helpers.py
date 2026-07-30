@@ -34,6 +34,7 @@ def _validate_required_fields(
 
     Args:
         cls (Type[ROSAdapterBase]): The adapter class being validated.
+        required_fields (List): The field names that must be present in `data`.
         data (dict): The decoded data dictionary to validate against.
 
     Raises:
@@ -73,10 +74,10 @@ def _is_valid_header(ros_header: Optional[dict]) -> bool:
     that header is unknown or not provided.
 
     Args:
-        covariance_list (Optional[List[float]]): Flattened covariance matrix (usually 3x3 or 6x6).
+        ros_header (Optional[dict]): The decoded ROS header dictionary.
 
     Returns:
-        bool: True if covariance contains meaningful values, False otherwise.
+        bool: True if the header contains a non-empty frame_id or a non-zero timestamp, False otherwise.
     """
     if not ros_header:
         return False

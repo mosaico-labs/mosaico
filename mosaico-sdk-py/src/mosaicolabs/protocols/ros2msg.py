@@ -39,14 +39,14 @@ def _typesdict_to_schema(types_dict: Typesdict, msgtype: str) -> pa.StructType:
     list/array element types as needed.
 
     Args:
-        types_dict: Mapping of fully-qualified ROS message type name to its
+        types_dict (Typesdict): Mapping of fully-qualified ROS message type name to its
             ``(constants, fields)`` definition, as returned by
             ``get_types_from_msg``.
-        msgtype: Fully-qualified name (e.g. ``"geometry_msgs/msg/Point"``) of
+        msgtype (str): Fully-qualified name (e.g. ``"geometry_msgs/msg/Point"``) of
             the message type within ``types_dict`` to convert.
 
     Returns:
-        A ``pa.StructType`` mirroring the fields of ``msgtype``, with ROS
+        pa.StructType: A ``pa.StructType`` mirroring the fields of ``msgtype``, with ROS
         constants omitted and nested/list types resolved recursively.
 
     Raises:
@@ -125,16 +125,16 @@ def convert_ros2msg(msgdef: str, msgtype: str) -> pa.StructType:
     ``rosbags.typesys.get_types_from_msg`` expects.
 
     Args:
-        msgdef: The raw ``.msg`` text, optionally including concatenated
+        msgdef (str): The raw ``.msg`` text, optionally including concatenated
             definitions for any nested message types it references.
-        msgtype: Fully-qualified name (e.g. ``"geometry_msgs/msg/Pose"``) of
+        msgtype (str): Fully-qualified name (e.g. ``"geometry_msgs/msg/Pose"``) of
             the top-level message type described by ``msgdef``.
 
     Returns:
-        A ``pa.StructType`` with one field per non-constant field of
-        ``msgtype``, using PyArrow types mapped from the ROS primitives
-        (see ``_ROS_2_PYARROW_TYPE``), with nested messages as nested structs
-        and ROS arrays/sequences as PyArrow lists.
+        pa.StructType: A ``pa.StructType`` with one field per non-constant field of
+            ``msgtype``, using PyArrow types mapped from the ROS primitives
+            (see ``_ROS_2_PYARROW_TYPE``), with nested messages as nested structs
+            and ROS arrays/sequences as PyArrow lists.
 
     Example:
         Given a nested message definition such as::

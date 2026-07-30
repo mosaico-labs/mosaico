@@ -16,8 +16,8 @@ from ..enum.grpc_compression import GRPCCompressionAlgorithm, GRPCCompressionLev
 from ..logging_config import get_logger
 
 # Constants defining batch size limits for Flight transmission
-PYARROW_OUT_OF_RANGE_BYTES = 16 * 1024 * 1024  # 4 MB
-DEFAULT_MAX_BATCH_BYTES = 10 * 1024 * 1024  # 3 MB
+PYARROW_OUT_OF_RANGE_BYTES = 16 * 1024 * 1024  # 16 MB
+DEFAULT_MAX_BATCH_BYTES = 10 * 1024 * 1024  # 10 MB
 DEFAULT_MAX_BATCH_SIZE_RECORDS = 5_000
 
 # Set the hierarchical logger
@@ -98,7 +98,7 @@ def _get_connection(
         enable_tls (bool): Enable TLS communication.
         compression (GRPCCompression): The gRPC compression configuration.
         tls_cert (Optional[bytes]): The contents of the TLS certificate file.
-        middleware (Optional[dict[str, fl.ClientMiddlewareFactory]]): The middlewares to be used for the connection.
+        middlewares (Optional[dict[str, fl.ClientMiddlewareFactory]]): The middlewares to be used for the connection.
 
     Returns:
         fl.FlightClient: An active Flight client instance connected to the specified address.

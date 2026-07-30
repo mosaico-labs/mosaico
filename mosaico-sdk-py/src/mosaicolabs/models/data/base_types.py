@@ -391,6 +391,9 @@ class Unsigned8(Serializable):
         """
         Validates that the input data is non-negative.
 
+        Args:
+            context (Any): The Pydantic validation context passed by the base class.
+
         Raises:
             ValueError: If data < 0.
         """
@@ -478,6 +481,9 @@ class Unsigned16(Serializable):
     def model_post_init(self, context: Any) -> None:
         """
         Validates that the input data is non-negative.
+
+        Args:
+            context (Any): The Pydantic validation context passed by the base class.
 
         Raises:
             ValueError: If data < 0.
@@ -567,6 +573,9 @@ class Unsigned32(Serializable):
         """
         Validates that the input data is non-negative.
 
+        Args:
+            context (Any): The Pydantic validation context passed by the base class.
+
         Raises:
             ValueError: If data < 0.
         """
@@ -655,6 +664,9 @@ class Unsigned64(Serializable):
         """
         Validates that the input data is non-negative.
 
+        Args:
+            context (Any): The Pydantic validation context passed by the base class.
+
         Raises:
             ValueError: If data < 0.
         """
@@ -665,10 +677,10 @@ class Unsigned64(Serializable):
 
 class Floating16(Serializable):
     """
-    A wrapper for a 16-bit single-precision floating-point number.
+    A wrapper for a 16-bit half-precision floating-point number.
 
     Attributes:
-        data: The underlying single-precision float.
+        data: The underlying half-precision float.
 
     ### Querying with the **`.Q` Proxy**
     The fields of this class are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog]
@@ -701,7 +713,7 @@ class Floating16(Serializable):
 
     data: MosaicoType.float16 = MosaicoField(description="16-bit Floating-point data.")
     """
-    The underlying single-precision float.
+    The underlying half-precision float.
     
     ### Querying with the **`.Q` Proxy**
     This field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog] 
@@ -813,10 +825,10 @@ class Floating32(Serializable):
 
 class Floating64(Serializable):
     """
-    A wrapper for a 64-bit single-precision floating-point number.
+    A wrapper for a 64-bit double-precision floating-point number.
 
     Attributes:
-        data: The underlying single-precision float.
+        data: The underlying double-precision float.
 
     ### Querying with the **`.Q` Proxy**
     The fields of this class are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog]
@@ -849,7 +861,7 @@ class Floating64(Serializable):
 
     data: MosaicoType.float64 = MosaicoField(description="64-bit Floating-point data.")
     """
-    The underlying single-precision float.
+    The underlying double-precision float.
 
     ### Querying with the **`.Q` Proxy**
     This field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog] 

@@ -160,6 +160,16 @@ class GenericStdAdapter(ROSAdapterBase[Serializable]):
         Standard messages typically contain a 'data' field and metadata.
         This method extracts the header/timestamp and wraps the payload using
         the specific ontology type defined for this adapter class.
+
+        Args:
+            ros_msg (ROSMessage): The ROS message to translate.
+            **kwargs: Additional keyword arguments for translation.
+
+        Returns:
+            Message: The translated message containing the adapter's ontology type instance.
+
+        Raises:
+            Exception: Wraps any translation error with context (topic name, timestamp).
         """
         return super().translate(ros_msg, **kwargs)
 
@@ -167,6 +177,15 @@ class GenericStdAdapter(ROSAdapterBase[Serializable]):
     def from_dict(cls, ros_data: dict) -> Serializable:
         """
         Converts the raw dictionary data into the specific Mosaico type.
+
+        Args:
+            ros_data (dict): The raw dictionary from the ROS message.
+
+        Returns:
+            Serializable: The constructed Mosaico ontology instance.
+
+        Raises:
+            ValueError: If the 'data' key is missing from `ros_data`.
         """
         _validate_msgdata(cls, ros_data)
         return cls.__mosaico_ontology_type__(
@@ -185,14 +204,15 @@ class GenericStdAdapter(ROSAdapterBase[Serializable]):
         corresponding ``std_msgs`` ROS message.
 
         Args:
-            mosaico_data: A ``Message`` wrapping a scalar ``Serializable`` (e.g. ``String``,
+            mosaico_data (Union[Message, Serializable]): A ``Message`` wrapping a scalar ``Serializable`` (e.g. ``String``,
                 ``Integer32``), or the raw scalar instance directly.
-            typestore: The rosbags typestore for target type resolution.
-            ros_msg_type: Override for the output ROS type. If ``None``, defaults
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (Optional[str]): Override for the output ROS type. If ``None``, defaults
                 to ``cls.get_default_ros_msg()``.
 
         Returns:
-            The constructed ``std_msgs`` ROS message, or raises an error if:
+            MsgType: The constructed ``std_msgs`` ROS message, or raises an error if:
+
                 - the ros_msg_type is unsupported by adapter (TypeError)
                 - the ros_msg_type or default type are unsupported by typestore (TypeError)
         """
@@ -223,6 +243,14 @@ class GenericStdAdapter(ROSAdapterBase[Serializable]):
     ) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
+
+        Args:
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (str): The ROS message type to extract metadata for.
+            ros_version (int): The ROS version (1 or 2) to consider for metadata extraction.
+
+        Returns:
+            Optional[dict]: A dictionary containing the schema metadata, or None if not applicable.
         """
         return super().schema_metadata(typestore, ros_msg_type, ros_version)
 
@@ -270,8 +298,7 @@ class HeaderAdapter(ROSAdapterBase[Header]):
             timestamp=17000,
             topic="/header",
             msg_type="std_msgs/msg/Header",
-            data=
-            {
+            data = {
                 stamp:
                 {
                     "sec": 1000,
@@ -279,7 +306,7 @@ class HeaderAdapter(ROSAdapterBase[Header]):
                 },
                 frame_id: "base_link"
             }
-        }
+        )
         # Automatically resolves to a flat Mosaico Header with attached metadata
         mosaico_header = HeaderAdapter.translate(ros_msg)
         ```
@@ -300,11 +327,11 @@ class HeaderAdapter(ROSAdapterBase[Header]):
         Main entry point for translating a high-level `ROSMessage`.
 
         Args:
-            ros_msg: The source ROS message yielded by the loader.
+            ros_msg (ROSMessage): The source ROS message yielded by the loader.
             **kwargs: Additional context for the translation.
 
         Returns:
-            A Mosaico `Message` containing the normalized `Header` payload.
+            Message: The translated Mosaico `Message` containing the normalized `Header` payload.
         """
         return super().translate(ros_msg, **kwargs)
 
@@ -315,15 +342,12 @@ class HeaderAdapter(ROSAdapterBase[Header]):
 
         Example (ROS2 does not have seq field):
             ```python
-            ros_data=
-            data=
-            {
-                stamp:
-                {
+            ros_data = {
+                "stamp": {
                     "sec": 1000,
                     "nanosec": 1000000000
                 },
-                frame_id: "base_link"
+                "frame_id": "base_link"
             }
             # Automatically resolves to a flat Mosaico Header with attached metadata
             mosaico_header = HeaderAdapter.from_dict(ros_data)
@@ -361,13 +385,13 @@ class HeaderAdapter(ROSAdapterBase[Header]):
         - ``std_msgs/msg/Header``
 
         Args:
-            mosaico_data: A ``Message`` wrapping a ``Header`` instance, or a raw ``Header``.
-            typestore: The rosbags typestore for target type resolution.
-            ros_msg_type: Override for the output ROS type. Defaults to
+            mosaico_data (Union[Message, Header]): A ``Message`` wrapping a ``Header`` instance, or a raw ``Header``.
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (Optional[str]): Override for the output ROS type. Defaults to
                 ``std_msgs/msg/Header`` if ``None``.
 
         Returns:
-            A ``std_msgs/msg/Header`` instance, or raises an error if:
+            MsgType: A ``std_msgs/msg/Header`` instance, or raises an error if:
                 - the ros_msg_type is unsupported by adapter (TypeError)
                 - the ros_msg_type or default type are unsupported by typestore (TypeError)
                 - the ros_msg_type or default type are supported but translation is not implemented (NotImplementedError)
@@ -397,7 +421,7 @@ class HeaderAdapter(ROSAdapterBase[Header]):
             RosHeader
         ):  # Necessary to avoid warning from pylance
             raise TypeError(
-                "sensor_msgs/msg/CameraInfo did not return a dataclass from typestore"
+                "std_msgs/msg/Header did not return a dataclass from typestore"
             )
 
         # Handling ROS1 that has seq in Header

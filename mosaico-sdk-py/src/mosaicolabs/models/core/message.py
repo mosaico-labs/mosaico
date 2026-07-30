@@ -182,7 +182,7 @@ class Message(BaseModel):
         compatible with PyArrow serialization.
 
         Returns:
-            A dictionary containing all flattened message and payload data.
+            Dict[str, Any]: A dictionary containing all flattened message and payload data.
         """
 
         # Encode payload fields
@@ -205,12 +205,13 @@ class Message(BaseModel):
         fields and payload-level fields based on the registered ontology tag.
 
         Args:
-            tag: The registered ontology identifier (e.g., "imu").
+            tag_or_type (Union[str, Type[Serializable]]): The registered ontology identifier (e.g., "imu")
+                or the ontology class itself.
             **msg_data_kwargs: A dictionary containing all required fields for both the
                 message and the data object.
 
         Returns:
-            A fully populated `Message` instance.
+            Message: A fully populated `Message` instance.
 
         Raises:
             ValueError: If the tag is not registered.
@@ -309,10 +310,11 @@ class Message(BaseModel):
         only needs to be computed once per distinct input.
 
         Args:
-            cls_or_schema: The specific `Serializable` subclass type or the pyarrow schema of the data.
+            cls_or_schema (Union[Type["Serializable"], pa.StructType]): The specific `Serializable` subclass
+                type or the pyarrow schema of the data.
 
         Returns:
-            A combined PyArrow Schema including both envelope and payload fields.
+            pa.Schema: A combined PyArrow Schema including both envelope and payload fields.
 
         Raises:
             ValueError: If field name collisions are detected in the schema.
@@ -337,10 +339,10 @@ class Message(BaseModel):
         Safe, type-hinted accessor for the data payload.
 
         Args:
-            target_type: The expected `Serializable` subclass type.
+            target_type (Type[TSerializable]): The expected `Serializable` subclass type.
 
         Returns:
-            The data object cast to the requested type or None if cannot be casted.
+            Optional[TSerializable]: The data object cast to the requested type or None if cannot be casted.
 
         Example:
             ```python
@@ -362,15 +364,15 @@ class Message(BaseModel):
         return self.data
 
     @staticmethod
-    def _process_value(value):
+    def _process_value(value: Any) -> Any:
         """
         Process a value to handle None values.
 
         Args:
-            value: The value to process.
+            value (Any): The value to process.
 
         Returns:
-            The processed value.
+            Any: The processed value.
         """
         import numpy as np
 
@@ -405,14 +407,17 @@ class Message(BaseModel):
            subclass and wrapping it in a `Message` envelope.
 
         Args:
-            row: A single row from a Pandas DataFrame, representing a point in time
+            row (pd.Series): A single row from a Pandas DataFrame, representing a point in time
                 across one or more topics.
-            topic_name: The name of the specific topic to extract from the row.
-            timestamp_column_name: The name of the column containing the timestamp.
+            topic_name (str): The name of the specific topic to extract from the row.
+            timestamp_column_name (str): The name of the column containing the timestamp.
 
         Returns:
-            A reconstructed `Message` instance containing the typed ontology data,
+            Optional[Message]: A reconstructed `Message` instance containing the typed ontology data,
                 or `None` if the topic is not present or the data is incomplete.
+
+        Raises:
+            ValueError: If the ontology tag for the topic could not be inferred from the row's columns.
 
         Example:
             ```python

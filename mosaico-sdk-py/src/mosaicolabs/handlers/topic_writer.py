@@ -91,11 +91,11 @@ class TopicWriter:
             3. See also: [`TopicWriter.push()`][mosaicolabs.handlers.TopicWriter.push]
 
         Args:
-            topic_name: The name of the specific topic.
-            sequence_name: The name of the parent sequence.
-            client: The FlightClient used for data transmission.
-            state: The internal state object managing buffers and streams.
-            config: Operational configuration for batching and error handling.
+            topic_name (str): The name of the specific topic.
+            sequence_name (str): The name of the parent sequence.
+            client (fl.FlightClient): The FlightClient used for data transmission.
+            state (_TopicWriteState): The internal state object managing buffers and streams.
+            config (TopicWriterConfig): Operational configuration for batching and error handling.
         """
         self._fl_client: fl.FlightClient = client
         """The FlightClient used for writing operations."""
@@ -134,15 +134,15 @@ class TopicWriter:
             to obtain an initialized writer.
 
         Args:
-            sequence_name: Name of the parent sequence.
-            topic_name: Unique name for this topic stream.
-            topic_uuid: authorization key provided by the server during creation.
-            client: The connection to use for the data stream.
-            ontology_type: The data model class defining the record schema.
-            config: Batching limits and error policies.
+            sequence_name (str): Name of the parent sequence.
+            topic_name (str): Unique name for this topic stream.
+            topic_uuid (str): authorization key provided by the server during creation.
+            client (fl.FlightClient): The connection to use for the data stream.
+            ontology_type (Type[Serializable]): The data model class defining the record schema.
+            config (TopicWriterConfig): Batching limits and error policies.
 
         Returns:
-            An active `TopicWriter` instance ready for data ingestion.
+            TopicWriter: An active `TopicWriter` instance ready for data ingestion.
 
         Raises:
             ValueError: If the ontology type is not a valid `Serializable` subclass.
@@ -285,7 +285,7 @@ class TopicWriter:
         the buffer is automatically serialized and transmitted to the server.
 
         Args:
-            message: A pre-constructed Message object.
+            message (Message): A pre-constructed Message object.
 
         Raises:
             Exception: If a buffer flush fails during the operation.
@@ -348,13 +348,21 @@ class TopicWriter:
 
     @property
     def name(self) -> str:
-        """Returns the name of the topic"""
+        """
+        The name of the topic.
+
+        Returns:
+            str: The name of the topic.
+        """
         return self._name
 
     @property
     def last_error(self) -> Optional[str]:
         """
-        Returns the last cached error, if any. The value is reset after a new successful push
+        The last cached error, if any. The value is reset after a new successful push
+
+        Returns:
+            Optional[str]: The last cached error message, or `None` if no error has occurred
 
         Example:
             ```python
@@ -375,12 +383,22 @@ class TopicWriter:
     @property
     def is_active(self) -> bool:
         """
-        Returns `True` if the writing stream is open and the writer accepts new messages.
+        The writing stream is open and the writer accepts new messages or it is not.
+
+        Returns:
+            bool: `True` if the writer is active, `False` if it has been finalized or closed due to an error.
         """
         return self._wrstate.writer is not None
 
     @property
-    def status(self):
+    def status(self) -> TopicWriterStatus:
+        """
+        The current status of the writer.
+
+        Returns:
+            TopicWriterStatus: The current status of the writer, indicating whether it is active,
+                finalized successfully, finalized with an error, or has raised an exception.
+        """
         return self._status
 
     def _finalize(self, error: Optional[BaseException] = None) -> None:
@@ -412,7 +430,7 @@ class TopicWriter:
             block scope is closed.
 
         Args:
-            error: If provided, the writer generates an error report and closes the
+            error (Optional[BaseException]): If provided, the writer generates an error report and closes the
                 stream without attempting a final buffer flush.
 
         Raises:

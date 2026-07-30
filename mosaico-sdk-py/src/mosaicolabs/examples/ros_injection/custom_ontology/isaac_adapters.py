@@ -31,11 +31,11 @@ class EncoderTicksAdapter(ROSAdapterBase[EncoderTicks]):
         Translates a ROS EncoderTicks message into a Mosaico Message container.
 
         Args:
-            ros_msg: The raw container provided by the ROSLoader.
+            ros_msg (ROSMessage): The raw container provided by the ROSLoader.
             **kwargs: Additional translation context.
 
         Returns:
-            A Mosaico Message containing the translated EncoderTicks data.
+            Message: A Mosaico Message containing the translated EncoderTicks data.
         """
         return super().translate(ros_msg, **kwargs)
 

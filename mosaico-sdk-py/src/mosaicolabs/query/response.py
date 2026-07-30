@@ -158,7 +158,7 @@ class QueryResponseItemTopic:
                 Cluster outside this range are negletted.
 
         Returns:
-            A list[TopicCluster] with all the clusters where the query is true.
+            List[TopicCluster]: A list[TopicCluster] with all the clusters where the query is true.
 
         Raises:
             Exception: Propagated from the underlying action call on internal server errors.
@@ -246,7 +246,7 @@ class QueryResponseItemTopic:
         but not happening in the same moment.
 
         Args:
-            *query_response_item_topics: Additional topics to include in the intersection.
+            *query_response_item_topics (QueryResponseItemTopic): Additional topics to include in the intersection.
             intersect_dt_ns (int): Max allowed distance (in nanoseconds) between clusters
                 to be considered overlapped. Setting it to zero (default) ensures the
                 existance for inter-cluster overlapping. For visual examples of how this
@@ -260,10 +260,10 @@ class QueryResponseItemTopic:
                 topic's ontology tag.
 
         Returns:
-            A list of :class:`TopicCluster` representing the time windows where all
-            topics' query expressions are simultaneously true, above the given
-            ``intersect_dt_ns`` tolerance. None if the server returned no body or
-            returned action is not consitent with input one.
+            List[TopicCluster]: A list of :class:`TopicCluster` representing the time windows where all
+                topics' query expressions are simultaneously true, above the given
+                ``intersect_dt_ns`` tolerance. None if the server returned no body or
+                returned action is not consitent with input one.
 
         Raises:
             Exception: Propagated from the underlying action call on internal server errors.
@@ -423,9 +423,9 @@ class QueryResponseItem:
                 not contain the topic's ontology tag.
 
         Returns:
-            A ``dict`` mapping each topic name (str) to its list of :class:`TopicCluster`
-            objects, where each cluster represents a contiguous time window in
-            which the query expression evaluated to true.
+            Dict[str, List[TopicCluster]]: A ``dict`` mapping each topic name (str) to its list of :class:`TopicCluster`
+                objects, where each cluster represents a contiguous time window in
+                which the query expression evaluated to true.
 
         Raises:
             Exception: Propagated from :meth:`QueryResponseItemTopic.clusterize`
@@ -497,7 +497,7 @@ class QueryResponseItem:
         signal that is temporally close but not happening in the same moment.
 
         Args:
-            *query_response_item: Additional response items whose topics are included in the
+            *query_response_item (QueryResponseItem): Additional response items whose topics are included in the
                 intersection. All topics from every extra item are flattened together with the
                 topics of this item before the intersect payload is built.
             intersect_dt_ns (int): Max allowed distance (in nanoseconds) between clusters to
@@ -513,7 +513,7 @@ class QueryResponseItem:
                 gap between clusters (0).
 
         Returns:
-            A list of :class:`TopicCluster` representing the time windows where all topics' query
+            List[TopicCluster]: A list of :class:`TopicCluster` representing the time windows where all topics' query
                 expressions are simultaneously true, above the given ``intersect_dt_ns`` tolerance.
 
         Raises:

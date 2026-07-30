@@ -42,7 +42,7 @@ class TimeAdapter(ROSAdapterBase[Time]):
                 "sec": 1000,
                 "nanosec": 1000000000
             }
-        }
+        )
         # Automatically resolves to a flat Mosaico Time with attached metadata
         mosaico_time = TimeAdapter.translate(ros_msg)
         ```
@@ -63,11 +63,11 @@ class TimeAdapter(ROSAdapterBase[Time]):
         Main entry point for translating a high-level `ROSMessage`.
 
         Args:
-            ros_msg: The source ROS message yielded by the loader.
-            **kwargs: Additional context for the translation.
+            ros_msg (ROSMessage): The source ROS message yielded by the loader.
+            **kwargs (Any): Additional context for the translation.
 
         Returns:
-            A Mosaico `Message` containing the normalized `Time` payload.
+            Message: A Mosaico `Message` containing the normalized `Time` payload.
         """
         return super().translate(ros_msg, **kwargs)
 
@@ -78,8 +78,7 @@ class TimeAdapter(ROSAdapterBase[Time]):
 
         Example:
             ```python
-            ros_data=
-            {
+            ros_data = {
                 "sec": 1000,
                 "nanosec": 1000000000
             }
@@ -118,13 +117,14 @@ class TimeAdapter(ROSAdapterBase[Time]):
         - ``builtin_interfaces/msg/Time``
 
         Args:
-            mosaico_data: A ``Message`` wrapping a ``Time`` instance, or a raw ``Time``.
-            typestore: The rosbags typestore for target type resolution.
-            ros_msg_type: Override for the output ROS type. Defaults to
+            mosaico_data (Union[Message, Time]): A ``Message`` wrapping a ``Time`` instance, or a raw ``Time``.
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (Optional[str]): Override for the output ROS type. Defaults to
                 ``builtin_interfaces/msg/Time`` if ``None``.
 
         Returns:
-            A ``builtin_interfaces/msg/Time`` instance, or raises an error if:
+            MsgType: A ``builtin_interfaces/msg/Time`` instance, or raises an error if:
+
                 - the ros_msg_type is unsupported by adapter (TypeError)
                 - the ros_msg_type or default type are unsupported by typestore (TypeError)
                 - the ros_msg_type or default type are supported but translation is not implemented (NotImplementedError)
@@ -180,7 +180,7 @@ class DurationAdapter(ROSAdapterBase[Duration]):
                 "sec": 1000,
                 "nanosec": 1000000000
             }
-        }
+        )
         # Automatically resolves to a flat Mosaico Duration with attached metadata
         mosaico_duration = DurationAdapter.translate(ros_msg)
         ```
@@ -201,11 +201,11 @@ class DurationAdapter(ROSAdapterBase[Duration]):
         Main entry point for translating a high-level `ROSMessage`.
 
         Args:
-            ros_msg: The source ROS message yielded by the loader.
-            **kwargs: Additional context for the translation.
+            ros_msg (ROSMessage): The source ROS message yielded by the loader.
+            **kwargs (Any): Additional context for the translation.
 
         Returns:
-            A Mosaico `Message` containing the normalized `Duration` payload.
+            Message: A Mosaico `Message` containing the normalized `Duration` payload.
         """
         return super().translate(ros_msg, **kwargs)
 
@@ -216,8 +216,7 @@ class DurationAdapter(ROSAdapterBase[Duration]):
 
         Example:
             ```python
-            ros_data=
-            {
+            ros_data = {
                 "sec": 1000,
                 "nanosec": 1000000000
             }
@@ -256,13 +255,14 @@ class DurationAdapter(ROSAdapterBase[Duration]):
         - ``builtin_interfaces/msg/Duration``
 
         Args:
-            mosaico_data: A ``Message`` wrapping a ``Duration`` instance, or a raw ``Duration``.
-            typestore: The rosbags typestore for target type resolution.
-            ros_msg_type: Override for the output ROS type. Defaults to
+            mosaico_data (Union[Message, Duration]): A ``Message`` wrapping a ``Duration`` instance, or a raw ``Duration``.
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (Optional[str]): Override for the output ROS type. Defaults to
                 ``builtin_interfaces/msg/Duration`` if ``None``.
 
         Returns:
-            A ``builtin_interfaces/msg/Duration`` instance, or raises an error if:
+            MsgType: A ``builtin_interfaces/msg/Duration`` instance, or raises an error if:
+
                 - the ros_msg_type is unsupported by adapter (TypeError)
                 - the ros_msg_type or default type are unsupported by typestore (TypeError)
                 - the ros_msg_type or default type are supported but translation is not implemented (NotImplementedError)

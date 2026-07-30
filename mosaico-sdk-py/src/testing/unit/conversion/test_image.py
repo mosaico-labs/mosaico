@@ -17,6 +17,8 @@ def generate_test_data(
     """
     Helper to generate random synthetic data mimicking ROS memory layouts.
     Returns:
+        Tuple[List[int], int, np.ndarray]: A tuple containing:
+
         - flat_byte_list: The list[int] expected by Image.encode
         - stride: The calculated stride (row step)
         - original_arr: The numpy source (for debugging if needed)

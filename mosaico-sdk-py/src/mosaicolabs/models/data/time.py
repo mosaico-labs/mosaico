@@ -23,10 +23,10 @@ from ..core import BaseModel, MosaicoField, MosaicoType, Serializable
 class _TemporalBase(BaseModel):
     """Private base class providing shared seconds/nanoseconds fields and temporal conversion logic."""
 
-    seconds: MosaicoType.int64 = MosaicoField(description="Time in seconds.")
+    seconds: MosaicoType.int32 = MosaicoField(description="Time in seconds.")
     """Seconds since the epoch (Unix time) or since process start (clock time)."""
 
-    nanoseconds: MosaicoType.uint64 = MosaicoField(description="Time in nanoseconds.")
+    nanoseconds: MosaicoType.uint32 = MosaicoField(description="Time in nanoseconds.")
     """Nanoseconds component within the current second, ranging from 0 to 999,999,999."""
 
     @field_validator("nanoseconds")
@@ -46,10 +46,10 @@ class _TemporalBase(BaseModel):
         the fractional part to ensure stable nanosecond conversion.
 
         Args:
-            ftime: Total seconds since epoch (e.g., from `time.time()`).
+            ftime (float): Total seconds since epoch (e.g., from `time.time()`).
 
         Returns:
-            A normalized instance.
+            Self: A normalized instance.
         """
         # Handle negative timestamps (although this is assumed a wrong behavior)
         # We must account for nanoseconds to be unsigned. This must be handled by borrowing from the seconds component.
@@ -77,10 +77,10 @@ class _TemporalBase(BaseModel):
         Factory method to create an instance from a total count of milliseconds.
 
         Args:
-            total_milliseconds: Total time elapsed in milliseconds.
+            total_milliseconds (int): Total time elapsed in milliseconds.
 
         Returns:
-            An instance with split sec/nanosec components.
+            Self: An instance with split sec/nanosec components.
         """
         sec = total_milliseconds // 1_000
         nanosec = (total_milliseconds % 1_000) * 1_000_000
@@ -92,10 +92,10 @@ class _TemporalBase(BaseModel):
         Factory method to create an instance from a total count of nanoseconds.
 
         Args:
-            total_nanoseconds: Total time elapsed in nanoseconds.
+            total_nanoseconds (int): Total time elapsed in nanoseconds.
 
         Returns:
-            An instance with split sec/nanosec components.
+            Self: An instance with split sec/nanosec components.
         """
         sec = total_nanoseconds // 1_000_000_000
         nanosec = total_nanoseconds % 1_000_000_000
@@ -108,6 +108,9 @@ class _TemporalBase(BaseModel):
         Warning: Precision Loss
             Converting to a 64-bit float may result in the loss of nanosecond
             precision due to mantissa limitations.
+
+        Returns:
+            float: Total seconds as a float, potentially losing sub-microsecond precision.
         """
         return float(self.seconds) + float(self.nanoseconds) * 1e-9
 
@@ -116,6 +119,9 @@ class _TemporalBase(BaseModel):
         Converts the time to a total integer of nanoseconds.
 
         This conversion preserves full precision.
+
+        Returns:
+            int: Total time in nanoseconds.
         """
         return (self.seconds * 1_000_000_000) + self.nanoseconds
 
@@ -124,6 +130,9 @@ class _TemporalBase(BaseModel):
         Converts the time to a total integer of milliseconds.
 
         This conversion preserves full precision.
+
+        Returns:
+            int: Total time in milliseconds.
         """
         return (self.seconds * 1_000) + int(self.nanoseconds / 1_000_000)
 
@@ -132,7 +141,7 @@ class Time(_TemporalBase, Serializable):
     """
     A high-precision time representation.
 
-    The `Time` class splits a timestamp into a 64-bit integer for seconds and a 32-bit
+    The `Time` class splits a timestamp into a 32-bit integer for seconds and a 32-bit
     unsigned integer for nanoseconds.
 
     Attributes:
@@ -183,10 +192,10 @@ class Time(_TemporalBase, Serializable):
         Factory method to create a Time object from a Python `datetime` instance.
 
         Args:
-            dt: A standard Python `datetime` object.
+            dt (datetime): A standard Python `datetime` object.
 
         Returns:
-            A `Time` instance reflecting the datetime's timestamp.
+            Time: A `Time` instance reflecting the datetime's timestamp.
         """
         # Note: dt.timestamp() handles timezone conversion if aware
         timestamp = dt.timestamp()
@@ -194,7 +203,12 @@ class Time(_TemporalBase, Serializable):
 
     @classmethod
     def now(cls: Type[Self]) -> "Time":
-        """Factory method that returns the current system UTC time in high precision."""
+        """
+        Factory method that returns the current system UTC time in high precision.
+
+        Returns:
+            Time: A `Time` instance representing the current UTC time.
+        """
         return cls.from_float(time.time())
 
     def to_datetime(self) -> datetime:
@@ -204,6 +218,9 @@ class Time(_TemporalBase, Serializable):
         Warning: Microsecond Limitation
             Python's `datetime` objects typically support microsecond precision;
             nanosecond data below that threshold will be truncated.
+
+        Returns:
+            datetime: A UTC `datetime` object representing the time.
         """
         return datetime.fromtimestamp(self.to_float(), tz=timezone.utc)
 
@@ -212,8 +229,8 @@ class Duration(_TemporalBase, Serializable):
     """
     A high-precision duration representation.
 
-    The `Duration` class represents a span of time split into a 64-bit integer
-    for seconds and a 32-bit unsigned integer for nanoseconds. Both components must be
+    The `Duration` class represents a span of time split into a 32-bit integer
+    for seconds and a 32-bit unsigned integer for nanoseconds.
 
     Attributes:
         seconds: seconds component of the duration.

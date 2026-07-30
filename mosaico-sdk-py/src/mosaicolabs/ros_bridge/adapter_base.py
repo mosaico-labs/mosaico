@@ -70,11 +70,14 @@ class ROSAdapterBase(ABC, Generic[T]):
         validation.
 
         Args:
-            ros_msg: The source container yielded by the ROSLoader.
-            **kwargs: Contextual data such as calibration parameters or frame overrides.
+            ros_msg (ROSMessage): The source container yielded by the ROSLoader.
+            **kwargs (Any): Contextual data such as calibration parameters or frame overrides.
 
         Returns:
-            A Mosaico Message object containing the instantiated ontology data.
+            Message: A Mosaico Message object containing the instantiated ontology data.
+
+        Raises:
+            Exception: If translation fails due to missing fields, type mismatches, or other errors.
         """
         if ros_msg.data_field is None:
             raise Exception(f"'data' attribute is None for topic {ros_msg.topic}")
@@ -103,11 +106,11 @@ class ROSAdapterBase(ABC, Generic[T]):
         Checks whether a given ROS message type string is handled by this adapter.
 
         Args:
-            type_to_validate: The full ROS message type string to check
+            type_to_validate (str): The full ROS message type string to check
                 (e.g., ``"sensor_msgs/msg/Imu"``).
 
         Returns:
-            ``True`` if the adapter supports this type, ``False`` otherwise.
+            bool: `True` if the adapter supports this type, ``False`` otherwise.
         """
         if isinstance(cls.ros_msgtype, str):
             return type_to_validate == cls.ros_msgtype
@@ -129,12 +132,13 @@ class ROSAdapterBase(ABC, Generic[T]):
         the ``Header`` is extracted from the ontology (if supported), otherwise an default Header (empty `frame_id` and zero `Time`) is returned.
 
         Args:
-            mosaico_msg: Either a ``Message`` envelope or a raw instance of
+            mosaico_msg (Union[Message, T]): Either a ``Message`` envelope or a raw instance of
                 ``cls.__mosaico_ontology_type__``.
 
         Returns:
-            A ``(data, header)`` tuple where *data* is the typed ontology object and
-            *header* is the corresponding ``Header`` or None if not present.
+            tuple[T, Header]: A ``(data, header)`` tuple where *data* is the typed ontology object and
+            *header* is the corresponding ``Header``, or a default ``Header`` (empty ``frame_id`` and
+            zero ``Time``) if not present.
 
         Raises:
             TypeError: If *mosaico_msg* is neither a ``Message`` nor an instance of
@@ -183,13 +187,14 @@ class ROSAdapterBase(ABC, Generic[T]):
         Converts a Mosaico message or ontology object back into a native ROS message.
 
         Args:
-            mosaico_data: A ``Message`` wrapper or a raw ``Serializable`` ontology instance.
-            typestore: The rosbags typestore used to resolve and construct target ROS types.
-            ros_msg_type: Override for the output ROS type string. If ``None``, the adapter
+            mosaico_data (Union[Message, T]): A ``Message`` wrapper or a raw ``Serializable`` ontology instance.
+            typestore (Typestore): The rosbags typestore used to resolve and construct target ROS types.
+            ros_msg_type (Optional[str]): Override for the output ROS type string. If ``None``, the adapter
                 defaults to ``cls.get_default_ros_msg()``.
 
         Returns:
-            The constructed ROS message instance, or raises an error if:
+            MsgType: The constructed ROS message instance, or raises an error if:
+
                 - the ros_msg_type is unsupported by adapter (TypeError)
                 - the ros_msg_type or resolved_rosmsg_type are unsupported by typestore (TypeError)
                 - the ros_msg_type or resolved_rosmsg_type are supported but translation is not implemented (NotImplementedError)
@@ -201,22 +206,15 @@ class ROSAdapterBase(ABC, Generic[T]):
         cls, typestore: Typestore, ros_msg_type: str, ros_version: int
     ) -> Optional[dict]:
         """
-        Extracts ROS-specific schema metadata for the Mosaico platform.
-
-        This allows preserving original ROS attributes that may not fit directly
-        into the physical ontology fields like the original ros type or the constants.
+        Extract the ROS message specific schema metadata, if any.
 
         Args:
-            typestore: The rosbags typestore used to resolve and construct target ROS types.
-            ros_msg_type: The ros message type whose metadata should be extracted compatible with the adapter.
-            ros_version: The current ros version.
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (str): The ROS message type to extract metadata for.
+            ros_version (int): The ROS version (1 or 2) to consider for metadata extraction.
 
         Returns:
-            The constructed dictionary compatible for Mosaico topic metadata. It contains:
-            1) ros_msg_type constants (enums)
-            2) the original message type in string format
-
-            Returns ``None`` if the passed ros message type is unsupported by the adapter.
+            Optional[dict]: A dictionary containing the schema metadata, or None if not applicable.
 
         For the BatteryStateAdapter the expected output is
         {

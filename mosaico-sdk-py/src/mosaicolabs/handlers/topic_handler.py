@@ -67,12 +67,12 @@ class TopicHandler:
         Internal modules should use the `TopicHandler._connect()` factory.
 
         Args:
-            client: The active FlightClient for remote operations.
-            topic_model: The underlying metadata and system info model for the topic.
-            ticket: The remote resource ticket used for data retrieval.
-            pyarrow_schema: The Arrow schema of the data ontology handled by this topic.
-            timestamp_ns_min: The lowest timestamp (in ns) available in this topic.
-            timestamp_ns_max: The highest timestamp (in ns) available in this topic.
+            client (fl.FlightClient): The active FlightClient for remote operations.
+            topic_model (Topic): The underlying metadata and system info model for the topic.
+            ticket (fl.Ticket): The remote resource ticket used for data retrieval.
+            pyarrow_schema (pa.StructType): The Arrow schema of the data ontology handled by this topic.
+            timestamp_ns_min (Optional[int]): The lowest timestamp (in ns) available in this topic.
+            timestamp_ns_max (Optional[int]): The highest timestamp (in ns) available in this topic.
         """
         self._fl_client: fl.FlightClient = client
         """The FlightClient used for remote operations."""
@@ -109,9 +109,9 @@ class TopicHandler:
 
 
         Args:
-            sequence_name: Name of the parent sequence.
-            topic_name: Name of the topic.
-            client: An established PyArrow Flight connection.
+            sequence_name (str): Name of the parent sequence.
+            topic_name (str): Name of the topic.
+            client (fl.FlightClient): An established PyArrow Flight connection.
 
         Returns:
             TopicHandler: An initialized handler instance, or `None` if the
@@ -184,7 +184,7 @@ class TopicHandler:
         The relative name of the topic (e.g., "/front_cam/image_raw").
 
         Returns:
-            The relative name of the topic.
+            str: The relative name of the topic.
         """
         return self._topic.name
 
@@ -194,7 +194,7 @@ class TopicHandler:
         The name of the parent sequence containing this topic.
 
         Returns:
-            The name of the parent sequence.
+            str: The name of the parent sequence.
         """
         return self._topic.sequence_name
 
@@ -204,7 +204,7 @@ class TopicHandler:
         The user-defined metadata dictionary associated with this topic.
 
         Returns:
-            The user-defined metadata dictionary.
+            Dict[str, Any]: The user-defined metadata dictionary.
         """
         return self._topic.user_metadata
 
@@ -214,7 +214,7 @@ class TopicHandler:
         The UTC timestamp indicating when the entity was created on the server.
 
         Returns:
-            The UTC timestamp indicating when the entity was created on the server.
+            int: The UTC timestamp indicating when the entity was created on the server.
         """
         return self._topic.created_timestamp
 
@@ -227,7 +227,7 @@ class TopicHandler:
         preventing deletion or structural modifications.
 
         Returns:
-            True if the resource is currently locked, False otherwise.
+            bool: True if the resource is currently locked, False otherwise.
         """
         return self._topic.locked
 
@@ -237,7 +237,7 @@ class TopicHandler:
         The number of physical data chunks stored for this topic.
 
         Returns:
-            The number of physical data chunks stored for this topic, or `None` if the server did not provide detailed storage statistics.
+            Optional[int]: The number of physical data chunks stored for this topic, or `None` if the server did not provide detailed storage statistics.
         """
         return self._topic.chunks_number
 
@@ -250,7 +250,7 @@ class TopicHandler:
         [`Serializable`][mosaicolabs.models.core.Serializable] class registry.
 
         Returns:
-            The ontology type identifier.
+            str: The ontology type identifier.
         """
         return self._topic.ontology_tag
 
@@ -262,7 +262,7 @@ class TopicHandler:
         This corresponds to the [`SerializationFormat`][mosaicolabs.enum.SerializationFormat] enum.
 
         Returns:
-            The serialization format.
+            str: The serialization format.
         """
         return self._topic.serialization_format
 
@@ -272,7 +272,7 @@ class TopicHandler:
         The total physical storage footprint of the entity on the server in bytes.
 
         Returns:
-            The total physical storage footprint of the entity on the server in bytes.
+            int: The total physical storage footprint of the entity on the server in bytes.
         """
         return self._topic.total_size_bytes
 
@@ -282,7 +282,7 @@ class TopicHandler:
         The lowest timestamp (nanoseconds) recorded in this topic.
 
         Returns:
-            The lowest timestamp (nanoseconds) recorded in this topic, or `None` if the topic is empty or timestamps are unavailable.
+            Optional[int]: The lowest timestamp (nanoseconds) recorded in this topic, or `None` if the topic is empty or timestamps are unavailable.
         """
         return self._timestamp_ns_min
 
@@ -292,7 +292,7 @@ class TopicHandler:
         The highest timestamp (nanoseconds) recorded in this topic.
 
         Returns:
-            The highest timestamp (nanoseconds) recorded in this topic, or `None` if the topic is empty or timestamps are unavailable.
+            Optional[int]: The highest timestamp (nanoseconds) recorded in this topic, or `None` if the topic is empty or timestamps are unavailable.
         """
         return self._timestamp_ns_max
 
@@ -302,7 +302,7 @@ class TopicHandler:
         The Arrow Schema of the ontology type handled by this topic
 
         Returns:
-            The Arrow Schema as a pa.StructType
+            pa.StructType: The Arrow Schema as a pa.StructType
         """
         return self._arrow_schema
 
@@ -319,9 +319,9 @@ class TopicHandler:
         maintains at most **one active stream** at a time.
 
         Args:
-            start_timestamp_ns: The **inclusive** lower bound (t >= start) in nanoseconds.
+            start_timestamp_ns (Optional[int]): The **inclusive** lower bound (t >= start) in nanoseconds.
                 The stream begins at the first message with a timestamp >= this value.
-            end_timestamp_ns: The **exclusive** upper bound (t < end) in nanoseconds.
+            end_timestamp_ns (Optional[int]): The **exclusive** upper bound (t < end) in nanoseconds.
                 The stream terminates before reaching any message with a timestamp >= this value.
 
         Returns:

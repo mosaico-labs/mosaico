@@ -70,8 +70,8 @@ class DataFrameExtractor:
         Args:
             topics (List[str], optional): Topics to extract. Defaults to all topics.
             window_sec (float): Duration of each DataFrame chunk in seconds.
-            timestamp_ns_start (int, optional): Global start time for extraction.
-            timestamp_ns_end (int, optional): Global end time for extraction.
+            timestamp_ns_start (Optional[int]): Global start time for extraction.
+            timestamp_ns_end (Optional[int]): Global end time for extraction.
 
         Yields:
             pd.DataFrame: A sparse, flattened DataFrame containing data from all

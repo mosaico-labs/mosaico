@@ -41,8 +41,7 @@ class OdometryAdapter(ROSAdapterBase[MotionState]):
             timestamp=17000,
             topic="/odometry",
             msg_type="nav_msgs/msg/Odometry",
-            data=
-            {
+            data = {
                 "header": {"frame_id": "map", "stamp": {"sec": 17000, "nanosec": 0}},
                 "pose": {
                     "position": {"x": 1.0, "y": 2.0, "z": 0.0},
@@ -89,8 +88,7 @@ class OdometryAdapter(ROSAdapterBase[MotionState]):
 
         Example:
             ```python
-            ros_data=
-            {
+            ros_data = {
                 "header": {"frame_id": "map", "stamp": {"sec": 17000, "nanosec": 0}},
                 "pose": {
                     "position": {"x": 1.0, "y": 2.0, "z": 0.0},
@@ -113,7 +111,7 @@ class OdometryAdapter(ROSAdapterBase[MotionState]):
             MotionState: The constructed Mosaico MotionState object.
 
         Raises:
-            ValueError: If the recursive 'pose' key exists but is not a dict, or if required keys are missing.
+            ValueError: If a required key is missing from `ros_data`.
         """
         _validate_msgdata(cls, ros_data)
 
@@ -138,13 +136,14 @@ class OdometryAdapter(ROSAdapterBase[MotionState]):
         ``nav_msgs/msg/Odometry`` message.
 
         Args:
-            mosaico_data: A ``Message`` wrapping a ``MotionState`` instance, or a raw ``MotionState``.
-            typestore: The rosbags typestore for target type resolution.
-            ros_msg_type: Override for the output ROS type. Only
+            mosaico_data (Union[Message, MotionState]): A ``Message`` wrapping a ``MotionState`` instance, or a raw ``MotionState``.
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (Optional[str]): Override for the output ROS type. Only
                 ``nav_msgs/msg/Odometry`` is supported.
 
         Returns:
-            A ``nav_msgs/msg/Odometry`` instance, or raises an error if:
+            MsgType: A ``nav_msgs/msg/Odometry`` instance, or raises an error if:
+
                 - the ros_msg_type is unsupported by adapter (TypeError)
                 - the ros_msg_type or default type are unsupported by typestore (TypeError)
                 - the ros_msg_type or default type are supported but translation is not implemented (NotImplementedError)
@@ -191,6 +190,14 @@ class OdometryAdapter(ROSAdapterBase[MotionState]):
     ) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
+
+        Args:
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (str): The ROS message type to extract metadata for.
+            ros_version (int): The ROS version (1 or 2) to consider for metadata extraction.
+
+        Returns:
+            Optional[dict]: A dictionary containing the schema metadata, or None if not applicable.
         """
         return super().schema_metadata(typestore, ros_msg_type, ros_version)
 
@@ -210,8 +217,7 @@ class RobotPathAdapter(ROSAdapterBase[RobotPath]):
             timestamp=17000,
             topic="/path",
             msg_type="nav_msgs/msg/Path",
-            data=
-            {
+            data = {
                 "header": {"frame_id": "map", "stamp": {"sec": 17000, "nanosec": 0}},
                 "poses":[
                     {
@@ -266,8 +272,7 @@ class RobotPathAdapter(ROSAdapterBase[RobotPath]):
 
         Example:
             ```python
-            ros_data=
-            {
+            ros_data = {
                 "header": {"frame_id": "map", "stamp": {"sec": 17000, "nanosec": 0}},
                 "poses":[
                     {
@@ -327,13 +332,14 @@ class RobotPathAdapter(ROSAdapterBase[RobotPath]):
         ``nav_msgs/msg/Path`` message.
 
         Args:
-            mosaico_data: A ``Message`` wrapping a ``RobotPath`` instance, or a raw ``RobotPath``.
-            typestore: The rosbags typestore for target type resolution.
-            ros_msg_type: Override for the output ROS type. Only
+            mosaico_data (Union[Message, RobotPath]): A ``Message`` wrapping a ``RobotPath`` instance, or a raw ``RobotPath``.
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (Optional[str]): Override for the output ROS type. Only
                 ``nav_msgs/msg/Path`` is supported.
 
         Returns:
-            A ``nav_msgs/msg/Path`` instance, or raises an error if:
+            MsgType: A ``nav_msgs/msg/Path`` instance, or raises an error if:
+
                 - the ros_msg_type is unsupported by adapter (TypeError)
                 - the ros_msg_type or default type are unsupported by typestore (TypeError)
                 - the ros_msg_type or default type are supported but translation is not implemented (NotImplementedError)
@@ -377,6 +383,14 @@ class RobotPathAdapter(ROSAdapterBase[RobotPath]):
     ) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
+
+        Args:
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (str): The ROS message type to extract metadata for.
+            ros_version (int): The ROS version (1 or 2) to consider for metadata extraction.
+
+        Returns:
+            Optional[dict]: A dictionary containing the schema metadata, or None if not applicable.
         """
         return super().schema_metadata(typestore, ros_msg_type, ros_version)
 
@@ -402,13 +416,13 @@ class GridCellsAdapter(ROSAdapterBase[GridCells]):
             "cells": [
                 {
                     "x": 1,
-                    "y": 2
-                    "z": 4
+                    "y": 2,
+                    "z": 4,
                 },
                 {
                     "x": 40,
-                    "y": 39
-                    "z": 10
+                    "y": 39,
+                    "z": 10,
                 },
             ]
         }
@@ -485,13 +499,14 @@ class GridCellsAdapter(ROSAdapterBase[GridCells]):
         ``nav_msgs/msg/GridCells`` message.
 
         Args:
-            mosaico_data: A ``Message`` wrapping a ``GridCells`` instance, or a raw ``GridCells``.
-            typestore: The rosbags typestore for target type resolution.
-            ros_msg_type: Override for the output ROS type. Only
+            mosaico_data (Union[Message, GridCells]): A ``Message`` wrapping a ``GridCells`` instance, or a raw ``GridCells``.
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (Optional[str]): Override for the output ROS type. Only
                 ``nav_msgs/msg/GridCells`` is supported.
 
         Returns:
-            A ``nav_msgs/msg/GridCells`` instance, or raises an error if:
+            MsgType: A ``nav_msgs/msg/GridCells`` instance, or raises an error if:
+
                 - the ros_msg_type is unsupported by adapter (TypeError)
                 - the ros_msg_type or default type are unsupported by typestore (TypeError)
                 - the ros_msg_type or default type are supported but translation is not implemented (NotImplementedError)
@@ -536,6 +551,14 @@ class GridCellsAdapter(ROSAdapterBase[GridCells]):
     ) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
+
+        Args:
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (str): The ROS message type to extract metadata for.
+            ros_version (int): The ROS version (1 or 2) to consider for metadata extraction.
+
+        Returns:
+            Optional[dict]: A dictionary containing the schema metadata, or None if not applicable.
         """
         return super().schema_metadata(typestore, ros_msg_type, ros_version)
 
@@ -634,13 +657,14 @@ class MapMetadataAdapter(ROSAdapterBase[MapMetadata]):
         ``nav_msgs/msg/MapMetaData`` message.
 
         Args:
-            mosaico_data: A ``Message`` wrapping a ``MapMetadata`` instance, or a raw ``MapMetadata``.
-            typestore: The rosbags typestore for target type resolution.
-            ros_msg_type: Override for the output ROS type. Only
+            mosaico_data (Union[Message, MapMetadata]): A ``Message`` wrapping a ``MapMetadata`` instance, or a raw ``MapMetadata``.
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (Optional[str]): Override for the output ROS type. Only
                 ``nav_msgs/msg/MapMetaData`` is supported.
 
         Returns:
-            A ``nav_msgs/msg/MapMetaData`` instance, or raises an error if:
+            MsgType: A ``nav_msgs/msg/MapMetaData`` instance, or raises an error if:
+
                 - the ros_msg_type is unsupported by adapter (TypeError)
                 - the ros_msg_type or default type are unsupported by typestore (TypeError)
                 - the ros_msg_type or default type are supported but translation is not implemented (NotImplementedError)
@@ -684,6 +708,14 @@ class MapMetadataAdapter(ROSAdapterBase[MapMetadata]):
     ) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
+
+        Args:
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (str): The ROS message type to extract metadata for.
+            ros_version (int): The ROS version (1 or 2) to consider for metadata extraction.
+
+        Returns:
+            Optional[dict]: A dictionary containing the schema metadata, or None if not applicable.
         """
         return super().schema_metadata(typestore, ros_msg_type, ros_version)
 
@@ -782,13 +814,14 @@ class OccupancyGridAdapter(ROSAdapterBase[OccupancyGrid]):
         ``nav_msgs/msg/OccupancyGrid`` message.
 
         Args:
-            mosaico_data: A ``Message`` wrapping a ``OccupancyGrid`` instance, or a raw ``OccupancyGrid``.
-            typestore: The rosbags typestore for target type resolution.
-            ros_msg_type: Override for the output ROS type. Only
+            mosaico_data (Union[Message, OccupancyGrid]): A ``Message`` wrapping a ``OccupancyGrid`` instance, or a raw ``OccupancyGrid``.
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (Optional[str]): Override for the output ROS type. Only
                 ``nav_msgs/msg/OccupancyGrid`` is supported.
 
         Returns:
-            A ``nav_msgs/msg/OccupancyGrid`` instance, or raises an error if:
+            MsgType: A ``nav_msgs/msg/OccupancyGrid`` instance, or raises an error if:
+
                 - the ros_msg_type is unsupported by adapter (TypeError)
                 - the ros_msg_type or default type are unsupported by typestore (TypeError)
                 - the ros_msg_type or default type are supported but translation is not implemented (NotImplementedError)
@@ -828,5 +861,13 @@ class OccupancyGridAdapter(ROSAdapterBase[OccupancyGrid]):
     ) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
+
+        Args:
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (str): The ROS message type to extract metadata for.
+            ros_version (int): The ROS version (1 or 2) to consider for metadata extraction.
+
+        Returns:
+            Optional[dict]: A dictionary containing the schema metadata, or None if not applicable.
         """
         return super().schema_metadata(typestore, ros_msg_type, ros_version)

@@ -91,9 +91,9 @@ class SequenceDataStreamer:
             ```
 
         Args:
-            sequence_name: The name of the sequence being streamed.
-            client: The active FlightClient for remote operations.
-            topic_readers: A dictionary mapping topic names to their respective
+            sequence_name (str): The name of the sequence being streamed.
+            client (fl.FlightClient): The active FlightClient for remote operations.
+            topic_readers (Dict[str, TopicDataStreamer]): A dictionary mapping topic names to their respective
                 [`TopicDataStreamer`][mosaicolabs.handlers.TopicDataStreamer] instances.
         """
         self._name: str = sequence_name
@@ -130,12 +130,12 @@ class SequenceDataStreamer:
             method to obtain a configured instance.
 
         Args:
-            sequence_name: The sequence to read.
-            topics: A whitelist of topic names to include in the stream.
+            sequence_name (str): The sequence to read.
+            topics (List[str]): A whitelist of topic names to include in the stream.
                 Other topics in the sequence will be ignored.
-            start_timestamp_ns: Optional inclusive lower bound for temporal slicing.
-            end_timestamp_ns: Optional exclusive upper bound for temporal slicing.
-            client: An established PyArrow Flight connection.
+            start_timestamp_ns (Optional[int]): Optional inclusive lower bound for temporal slicing.
+            end_timestamp_ns (Optional[int]): Optional exclusive upper bound for temporal slicing.
+            client (fl.FlightClient): An established PyArrow Flight connection.
 
         Returns:
             SequenceDataStreamer: An initialized merger ready for iteration.
@@ -212,7 +212,7 @@ class SequenceDataStreamer:
         The sum of all messages within each topic streamer.
 
         Returns:
-            The sum of all messages within each topic streamer.
+            int: The sum of all messages within each topic streamer.
         """
 
         return sum(
@@ -227,7 +227,7 @@ class SequenceDataStreamer:
         The lowest timestamp (nanoseconds) in this stream.
 
         Returns:
-            The lowest timestamp (nanoseconds) in this stream. None if an error occurred during retrieval
+            Optional[int]: The lowest timestamp (nanoseconds) in this stream. None if an error occurred during retrieval
         """
         return min(
             filter(
@@ -246,7 +246,7 @@ class SequenceDataStreamer:
         The highest timestamp (nanoseconds) in this stream.
 
         Returns:
-            The highest timestamp (nanoseconds) in this stream. None if an error occurred during retrieval
+            Optional[int]: The highest timestamp (nanoseconds) in this stream. None if an error occurred during retrieval
         """
         return max(
             filter(
@@ -281,7 +281,7 @@ class SequenceDataStreamer:
         consuming the record.
 
         Returns:
-            The minimum timestamp (nanoseconds) found across all active topics,
+            Optional[int]: The minimum timestamp (nanoseconds) found across all active topics,
                 or `None` if all streams are exhausted.
 
         Example:

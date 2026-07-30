@@ -78,8 +78,7 @@ class CameraInfoAdapter(ROSAdapterBase[CameraInfo]):
             timestamp=17000,
             topic="/camera_info",
             msg_type="sensor_msgs/msg/CameraInfo",
-            data=
-            {
+            data = {
                 "height": 480,
                 "width": 640,
                 "binning_x": 1,
@@ -128,6 +127,10 @@ class CameraInfoAdapter(ROSAdapterBase[CameraInfo]):
         """
         Translates a ROS message into a Mosaico Message.
 
+        Args:
+            ros_msg (ROSMessage): The ROS message to translate.
+            **kwargs: Additional keyword arguments for translation.
+
         Returns:
             Message: The translated message containing a `CameraInfo` object.
 
@@ -143,8 +146,7 @@ class CameraInfoAdapter(ROSAdapterBase[CameraInfo]):
 
         Example:
             ```python
-            ros_data=
-            {
+            ros_data = {
                 "height": 480,
                 "width": 640,
                 "binning_x": 1,
@@ -173,7 +175,7 @@ class CameraInfoAdapter(ROSAdapterBase[CameraInfo]):
             CameraInfo: The constructed Mosaico CameraInfo object.
 
         Raises:
-            ValueError: If the recursive 'roi' key exists but is not a dict, or if required keys are missing.
+            ValueError: If required keys are missing.
         """
         # validate case insensitive keys (specific for this message - ROS1/2 variations)
         _validate_msgdata(cls, ros_data, case_insensitive=True)
@@ -223,13 +225,14 @@ class CameraInfoAdapter(ROSAdapterBase[CameraInfo]):
         ROS 2 (lowercase ``d``, ``k``, ``r``, ``p``) field conventions.
 
         Args:
-            mosaico_data: A ``Message`` wrapping a ``CameraInfo`` instance, or a raw ``CameraInfo``.
-            typestore: The rosbags typestore for target type resolution.
-            ros_msg_type: Override for the output ROS type. Only
+            mosaico_data (Union[Message, CameraInfo]): A ``Message`` wrapping a ``CameraInfo`` instance, or a raw ``CameraInfo``.
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (Optional[str]): Override for the output ROS type. Only
                 ``sensor_msgs/msg/CameraInfo`` is supported.
 
         Returns:
-            A ``sensor_msgs/msg/CameraInfo`` instance, or raises an error if:
+            MsgType: A ``sensor_msgs/msg/CameraInfo`` instance, or raises an error if:
+
                 - the ros_msg_type is unsupported by adapter (TypeError)
                 - the ros_msg_type or default type are unsupported by typestore (TypeError)
                 - the ros_msg_type or default type are supported but translation is not implemented (NotImplementedError)
@@ -317,6 +320,14 @@ class CameraInfoAdapter(ROSAdapterBase[CameraInfo]):
     ) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
+
+        Args:
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (str): The ROS message type to extract metadata for.
+            ros_version (int): The ROS version (1 or 2) to consider for metadata extraction.
+
+        Returns:
+            Optional[dict]: A dictionary containing the schema metadata, or None if not applicable.
         """
         return super().schema_metadata(typestore, ros_msg_type, ros_version)
 
@@ -335,8 +346,7 @@ class NavSatStatusAdapter(ROSAdapterBase[GPSStatus]):
             timestamp=17000,
             topic="/gps_status",
             msg_type="sensor_msgs/msg/NavSatStatus",
-            data=
-            {
+            data = {
                 "status": 0,
                 "service": 1,
             }
@@ -357,6 +367,10 @@ class NavSatStatusAdapter(ROSAdapterBase[GPSStatus]):
         """
         Translates a ROS message into a Mosaico Message.
 
+        Args:
+            ros_msg (ROSMessage): The ROS message to translate.
+            **kwargs: Additional keyword arguments for translation.
+
         Returns:
             Message: The translated message containing a `GPSStatus` object.
 
@@ -372,8 +386,7 @@ class NavSatStatusAdapter(ROSAdapterBase[GPSStatus]):
 
         Example:
             ```python
-            ros_data=
-            {
+            ros_data = {
                 "status": 0,
                 "service": 1,
             }
@@ -388,7 +401,7 @@ class NavSatStatusAdapter(ROSAdapterBase[GPSStatus]):
             GPSStatus: The constructed Mosaico GPSStatus object.
 
         Raises:
-            ValueError: If the recursive 'roi' key exists but is not a dict, or if required keys are missing.
+            ValueError: If a required key is missing from `ros_data`.
         """
         _validate_msgdata(cls, ros_data)
         return GPSStatus(status=ros_data["status"], service=ros_data["service"])
@@ -405,13 +418,14 @@ class NavSatStatusAdapter(ROSAdapterBase[GPSStatus]):
         ``sensor_msgs/msg/NavSatStatus`` message.
 
         Args:
-            mosaico_data: A ``Message`` wrapping a ``GPSStatus`` instance, or a raw ``GPSStatus``.
-            typestore: The rosbags typestore for target type resolution.
-            ros_msg_type: Override for the output ROS type. Only
+            mosaico_data (Union[Message, GPSStatus]): A ``Message`` wrapping a ``GPSStatus`` instance, or a raw ``GPSStatus``.
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (Optional[str]): Override for the output ROS type. Only
                 ``sensor_msgs/msg/NavSatStatus`` is supported.
 
         Returns:
-            A ``sensor_msgs/msg/NavSatStatus`` instance, or raises an error if:
+            MsgType: A ``sensor_msgs/msg/NavSatStatus`` instance, or raises an error if:
+
                 - the ros_msg_type is unsupported by adapter (TypeError)
                 - the ros_msg_type or default type are unsupported by typestore (TypeError)
                 - the ros_msg_type or default type are supported but translation is not implemented (NotImplementedError)
@@ -449,6 +463,14 @@ class NavSatStatusAdapter(ROSAdapterBase[GPSStatus]):
     ) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
+
+        Args:
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (str): The ROS message type to extract metadata for.
+            ros_version (int): The ROS version (1 or 2) to consider for metadata extraction.
+
+        Returns:
+            Optional[dict]: A dictionary containing the schema metadata, or None if not applicable.
         """
         return super().schema_metadata(typestore, ros_msg_type, ros_version)
 
@@ -468,8 +490,7 @@ class GPSAdapter(ROSAdapterBase[GPS]):
             timestamp=17000,
             topic="/gps",
             msg_type="sensor_msgs/msg/NavSatFix",
-            data=
-            {
+            data = {
                 "latitude": 45.5,
                 "longitude": -122.5,
                 "altitude": 100.0,
@@ -495,6 +516,10 @@ class GPSAdapter(ROSAdapterBase[GPS]):
         """
         Translates a ROS message into a Mosaico Message.
 
+        Args:
+            ros_msg (ROSMessage): The ROS message to translate.
+            **kwargs: Additional keyword arguments for translation.
+
         Returns:
             Message: The translated message containing a `GPS` object.
 
@@ -510,8 +535,7 @@ class GPSAdapter(ROSAdapterBase[GPS]):
 
         Example:
             ```python
-            ros_data=
-            {
+            ros_data = {
                 "latitude": 45.5,
                 "longitude": -122.5,
                 "altitude": 100.0,
@@ -531,7 +555,7 @@ class GPSAdapter(ROSAdapterBase[GPS]):
             GPS: The constructed Mosaico GPS object.
 
         Raises:
-            ValueError: If the recursive 'roi' key exists but is not a dict, or if required keys are missing.
+            ValueError: If a required key is missing from `ros_data`.
         """
         _validate_msgdata(cls, ros_data)
 
@@ -542,7 +566,7 @@ class GPSAdapter(ROSAdapterBase[GPS]):
             covariance = ros_covariance
             covariance_type = ros_data.get("position_covariance_type")
 
-        # valid when status.status >= STATUS_FIX (-1)
+        # valid when status.status >= STATUS_NO_FIX (-1), i.e. always for a well-formed message
         status = None
         if ros_data["status"]["status"] >= -1:
             status = NavSatStatusAdapter.from_dict(ros_data["status"])
@@ -573,13 +597,14 @@ class GPSAdapter(ROSAdapterBase[GPS]):
         ``sensor_msgs/msg/NavSatFix`` message.
 
         Args:
-            mosaico_data: A ``Message`` wrapping a ``GPS`` instance, or a raw ``GPS``.
-            typestore: The rosbags typestore for target type resolution.
-            ros_msg_type: Override for the output ROS type. Only
+            mosaico_data (Union[Message, GPS]): A ``Message`` wrapping a ``GPS`` instance, or a raw ``GPS``.
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (Optional[str]): Override for the output ROS type. Only
                 ``sensor_msgs/msg/NavSatFix`` is supported.
 
         Returns:
-            A ``sensor_msgs/msg/NavSatFix`` instance, or raises an error if:
+            MsgType: A ``sensor_msgs/msg/NavSatFix`` instance, or raises an error if:
+
                 - the ros_msg_type is unsupported by adapter (TypeError)
                 - the ros_msg_type or default type are unsupported by typestore (TypeError)
                 - the ros_msg_type or default type are supported but translation is not implemented (NotImplementedError)
@@ -628,6 +653,14 @@ class GPSAdapter(ROSAdapterBase[GPS]):
     ) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
+
+        Args:
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (str): The ROS message type to extract metadata for.
+            ros_version (int): The ROS version (1 or 2) to consider for metadata extraction.
+
+        Returns:
+            Optional[dict]: A dictionary containing the schema metadata, or None if not applicable.
         """
         return super().schema_metadata(typestore, ros_msg_type, ros_version)
 
@@ -647,8 +680,7 @@ class IMUAdapter(ROSAdapterBase[IMU]):
             timestamp=17000,
             topic="/imu",
             msg_type="sensor_msgs/msg/Imu",
-            data=
-            {
+            data = {
                 "linear_acceleration": {"x": 0.0, "y": 0.0, "z": 0.0},
                 "angular_velocity": {"x": 0.0, "y": 0.0, "z": 0.0},
                 "orientation": {"x": 0.0, "y": 0.0, "z": 0.0, "w": 1.0},
@@ -683,6 +715,10 @@ class IMUAdapter(ROSAdapterBase[IMU]):
         """
         Translates a ROS message into a Mosaico Message.
 
+        Args:
+            ros_msg (ROSMessage): The ROS message to translate.
+            **kwargs: Additional keyword arguments for translation.
+
         Returns:
             Message: The translated message containing a `IMU` object.
 
@@ -698,8 +734,7 @@ class IMUAdapter(ROSAdapterBase[IMU]):
 
         Example:
             ```python
-            ros_data=
-            {
+            ros_data = {
                 "linear_acceleration": {"x": 0.0, "y": 0.0, "z": 0.0},
                 "angular_velocity": {"x": 0.0, "y": 0.0, "z": 0.0},
                 "orientation": {"x": 0.0, "y": 0.0, "z": 0.0, "w": 1.0},
@@ -719,7 +754,7 @@ class IMUAdapter(ROSAdapterBase[IMU]):
             IMU: The constructed Mosaico IMU object.
 
         Raises:
-            ValueError: If the recursive 'roi' key exists but is not a dict, or if required keys are missing.
+            ValueError: If a required key is missing from `ros_data`.
         """
         _validate_msgdata(cls, ros_data)
         # Mandatory Field Conversions (as before)
@@ -772,13 +807,14 @@ class IMUAdapter(ROSAdapterBase[IMU]):
         ``sensor_msgs/msg/Imu`` message.
 
         Args:
-            mosaico_data: A ``Message`` wrapping an ``IMU`` instance, or a raw ``IMU``.
-            typestore: The rosbags typestore for target type resolution.
-            ros_msg_type: Override for the output ROS type. Only
+            mosaico_data (Union[Message, IMU]): A ``Message`` wrapping an ``IMU`` instance, or a raw ``IMU``.
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (Optional[str]): Override for the output ROS type. Only
                 ``sensor_msgs/msg/Imu`` is supported.
 
         Returns:
-            A ``sensor_msgs/msg/Imu`` instance, or raises an error if:
+            MsgType: A ``sensor_msgs/msg/Imu`` instance, or raises an error if:
+
                 - the ros_msg_type is unsupported by adapter (TypeError)
                 - the ros_msg_type or default type are unsupported by typestore (TypeError)
                 - the ros_msg_type or default type are supported but translation is not implemented (NotImplementedError)
@@ -838,6 +874,14 @@ class IMUAdapter(ROSAdapterBase[IMU]):
     ) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
+
+        Args:
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (str): The ROS message type to extract metadata for.
+            ros_version (int): The ROS version (1 or 2) to consider for metadata extraction.
+
+        Returns:
+            Optional[dict]: A dictionary containing the schema metadata, or None if not applicable.
         """
         return super().schema_metadata(typestore, ros_msg_type, ros_version)
 
@@ -855,15 +899,14 @@ class NMEASentenceAdapter(ROSAdapterBase[NMEASentence]):
         ```python
         ros_msg = ROSMessage(
             timestamp=17000,
-            topic="/gps/fix",
-            msg_type="sensor_msgs/msg/GPSFix",
-            data=
-            {
+            topic="/nmea_sentence",
+            msg_type="nmea_msgs/msg/Sentence",
+            data = {
                 "sentence": "GPGGA,123519,4807.038,N,01131.000,E,1,08,0.9,545.4,M,46.9,M,,*47",
             }
         )
-        # Automatically resolves to a flat Mosaico GPS with attached metadata
-        mosaico_gps = NMEASentenceAdapter.translate(ros_msg)
+        # Automatically resolves to a flat Mosaico NMEASentence with attached metadata
+        mosaico_nmea_sentence = NMEASentenceAdapter.translate(ros_msg)
         ```
     """
 
@@ -878,8 +921,12 @@ class NMEASentenceAdapter(ROSAdapterBase[NMEASentence]):
         """
         Translates a ROS message into a Mosaico Message.
 
+        Args:
+            ros_msg (ROSMessage): The ROS message to translate.
+            **kwargs: Additional keyword arguments for translation.
+
         Returns:
-            Message: The translated message containing a `NMEASenetence` object.
+            Message: The translated message containing a `NMEASentence` object.
 
         Raises:
             Exception: Wraps any translation error with context (topic name, timestamp).
@@ -893,8 +940,7 @@ class NMEASentenceAdapter(ROSAdapterBase[NMEASentence]):
 
         Example:
             ```python
-            ros_data=
-            {
+            ros_data = {
                 "sentence": "GPGGA,123519,4807.038,N,01131.000,E,1,08,0.9,545.4,M,46.9,M,,*47",
             }
             # Automatically resolves to a flat Mosaico NMEASentence with attached metadata
@@ -929,13 +975,14 @@ class NMEASentenceAdapter(ROSAdapterBase[NMEASentence]):
         ``nmea_msgs/msg/Sentence`` message.
 
         Args:
-            mosaico_data: A ``Message`` wrapping a ``NMEASentence`` instance, or a raw ``NMEASentence``.
-            typestore: The rosbags typestore for target type resolution.
-            ros_msg_type: Override for the output ROS type. Only
+            mosaico_data (Union[Message, NMEASentence]): A ``Message`` wrapping a ``NMEASentence`` instance, or a raw ``NMEASentence``.
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (Optional[str]): Override for the output ROS type. Only
                 ``nmea_msgs/msg/Sentence`` is supported.
 
         Returns:
-            A ``nmea_msgs/msg/Sentence`` instance, or raises an error if:
+            MsgType: A ``nmea_msgs/msg/Sentence`` instance, or raises an error if:
+
                 - the ros_msg_type is unsupported by adapter (TypeError)
                 - the ros_msg_type or default type are unsupported by typestore (TypeError)
                 - the ros_msg_type or default type are supported but translation is not implemented (NotImplementedError)
@@ -974,6 +1021,14 @@ class NMEASentenceAdapter(ROSAdapterBase[NMEASentence]):
     ) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
+
+        Args:
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (str): The ROS message type to extract metadata for.
+            ros_version (int): The ROS version (1 or 2) to consider for metadata extraction.
+
+        Returns:
+            Optional[dict]: A dictionary containing the schema metadata, or None if not applicable.
         """
         return super().schema_metadata(typestore, ros_msg_type, ros_version)
 
@@ -993,8 +1048,7 @@ class ImageAdapter(ROSAdapterBase[Image]):
             timestamp=17000,
             topic="/image",
             msg_type="sensor_msgs/msg/Image",
-            data=
-            {
+            data = {
                 "data": [...],
                 "width": 1,
                 "height": 1,
@@ -1022,6 +1076,10 @@ class ImageAdapter(ROSAdapterBase[Image]):
         """
         Translates a ROS message into a Mosaico Message.
 
+        Args:
+            ros_msg (ROSMessage): The ROS message to translate.
+            **kwargs: Additional keyword arguments for translation.
+
         Returns:
             Message: The translated message containing a `Image` object.
 
@@ -1041,8 +1099,7 @@ class ImageAdapter(ROSAdapterBase[Image]):
 
         Example:
             ```python
-            ros_data=
-            {
+            ros_data = {
                 "data": [...],
                 "width": 1,
                 "height": 1,
@@ -1094,13 +1151,14 @@ class ImageAdapter(ROSAdapterBase[Image]):
         ``sensor_msgs/msg/Image`` message.
 
         Args:
-            mosaico_data: A ``Message`` wrapping an ``Image`` instance, or a raw ``Image``.
-            typestore: The rosbags typestore for target type resolution.
-            ros_msg_type: Override for the output ROS type. Only
+            mosaico_data (Union[Message, Image]): A ``Message`` wrapping an ``Image`` instance, or a raw ``Image``.
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (Optional[str]): Override for the output ROS type. Only
                 ``sensor_msgs/msg/Image`` is supported.
 
         Returns:
-            A ``sensor_msgs/msg/Image`` instance, or raises an error if:
+            MsgType: A ``sensor_msgs/msg/Image`` instance, or raises an error if:
+
                 - the ros_msg_type is unsupported by adapter (TypeError)
                 - the ros_msg_type or default type are unsupported by typestore (TypeError)
                 - the ros_msg_type or default type are supported but translation is not implemented (NotImplementedError)
@@ -1148,6 +1206,14 @@ class ImageAdapter(ROSAdapterBase[Image]):
     ) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
+
+        Args:
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (str): The ROS message type to extract metadata for.
+            ros_version (int): The ROS version (1 or 2) to consider for metadata extraction.
+
+        Returns:
+            Optional[dict]: A dictionary containing the schema metadata, or None if not applicable.
         """
         return super().schema_metadata(typestore, ros_msg_type, ros_version)
 
@@ -1167,8 +1233,7 @@ class CompressedImageAdapter(ROSAdapterBase[CompressedImage]):
             timestamp=17000,
             topic="/compressed_image",
             msg_type="sensor_msgs/msg/CompressedImage",
-            data=
-            {
+            data = {
                 "data": [...],
                 "format": "jpeg",
             }
@@ -1192,6 +1257,10 @@ class CompressedImageAdapter(ROSAdapterBase[CompressedImage]):
         """
         Translates a ROS message into a Mosaico Message.
 
+        Args:
+            ros_msg (ROSMessage): The ROS message to translate.
+            **kwargs: Additional keyword arguments for translation.
+
         Returns:
             Message: The translated message containing a `CompressedImage` object.
 
@@ -1210,8 +1279,7 @@ class CompressedImageAdapter(ROSAdapterBase[CompressedImage]):
 
         Example:
             ```python
-            ros_data=
-            {
+            ros_data = {
                 "data": [...],
                 "format": "jpeg",
             }
@@ -1289,13 +1357,14 @@ class CompressedImageAdapter(ROSAdapterBase[CompressedImage]):
         ``sensor_msgs/msg/CompressedImage`` message.
 
         Args:
-            mosaico_data: A ``Message`` wrapping a ``CompressedImage`` instance, or a raw ``CompressedImage``.
-            typestore: The rosbags typestore for target type resolution.
-            ros_msg_type: Override for the output ROS type. Only
+            mosaico_data (Union[Message, CompressedImage]): A ``Message`` wrapping a ``CompressedImage`` instance, or a raw ``CompressedImage``.
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (Optional[str]): Override for the output ROS type. Only
                 ``sensor_msgs/msg/CompressedImage`` is supported.
 
         Returns:
-            A ``sensor_msgs/msg/CompressedImage`` instance, or raises an error if:
+            MsgType: A ``sensor_msgs/msg/CompressedImage`` instance, or raises an error if:
+
                 - the ros_msg_type is unsupported by adapter (TypeError)
                 - the ros_msg_type or default type are unsupported by typestore (TypeError)
                 - the ros_msg_type or default type are supported but translation is not implemented (NotImplementedError)
@@ -1335,6 +1404,14 @@ class CompressedImageAdapter(ROSAdapterBase[CompressedImage]):
     ) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
+
+        Args:
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (str): The ROS message type to extract metadata for.
+            ros_version (int): The ROS version (1 or 2) to consider for metadata extraction.
+
+        Returns:
+            Optional[dict]: A dictionary containing the schema metadata, or None if not applicable.
         """
         return super().schema_metadata(typestore, ros_msg_type, ros_version)
 
@@ -1354,8 +1431,7 @@ class ROIAdapter(ROSAdapterBase[ROI]):
             timestamp=17000,
             topic="/roi",
             msg_type="sensor_msgs/msg/RegionOfInterest",
-            data=
-            {
+            data = {
                 "height": 1,
                 "width": 1,
                 "x_offset": 0,
@@ -1382,6 +1458,10 @@ class ROIAdapter(ROSAdapterBase[ROI]):
         """
         Translates a ROS message into a Mosaico Message.
 
+        Args:
+            ros_msg (ROSMessage): The ROS message to translate.
+            **kwargs: Additional keyword arguments for translation.
+
         Returns:
             Message: The translated message containing a `ROI` object.
 
@@ -1397,8 +1477,7 @@ class ROIAdapter(ROSAdapterBase[ROI]):
 
         Example:
             ```python
-            ros_data=
-            {
+            ros_data = {
                 "height": 1,
                 "width": 1,
                 "x_offset": 0,
@@ -1435,13 +1514,14 @@ class ROIAdapter(ROSAdapterBase[ROI]):
         ``sensor_msgs/msg/RegionOfInterest`` message.
 
         Args:
-            mosaico_data: A ``Message`` wrapping a ``ROI`` instance, or a raw ``ROI``.
-            typestore: The rosbags typestore for target type resolution.
-            ros_msg_type: Override for the output ROS type. Only
+            mosaico_data (Union[Message, ROI]): A ``Message`` wrapping a ``ROI`` instance, or a raw ``ROI``.
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (Optional[str]): Override for the output ROS type. Only
                 ``sensor_msgs/msg/RegionOfInterest`` is supported.
 
         Returns:
-            A ``sensor_msgs/msg/RegionOfInterest`` instance, or raises an error if:
+            MsgType: A ``sensor_msgs/msg/RegionOfInterest`` instance, or raises an error if:
+
                 - the ros_msg_type is unsupported by adapter (TypeError)
                 - the ros_msg_type or default type are unsupported by typestore (TypeError)
                 - the ros_msg_type or default type are supported but translation is not implemented (NotImplementedError)
@@ -1485,6 +1565,14 @@ class ROIAdapter(ROSAdapterBase[ROI]):
     ) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
+
+        Args:
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (str): The ROS message type to extract metadata for.
+            ros_version (int): The ROS version (1 or 2) to consider for metadata extraction.
+
+        Returns:
+            Optional[dict]: A dictionary containing the schema metadata, or None if not applicable.
         """
         return super().schema_metadata(typestore, ros_msg_type, ros_version)
 
@@ -1504,11 +1592,10 @@ class BatteryStateAdapter(ROSAdapterBase[BatteryState]):
             timestamp=17000,
             topic="/battery_state",
             msg_type="sensor_msgs/msg/BatteryState",
-            data=
-            {
+            data = {
                 "voltage": 12.6,
                 "capacity": 100,
-                "cell_temperature": 25,
+                "cell_temperature": [25.0],
                 "cell_voltage": [12.6],
                 "location": "battery",
                 "charge": 100,
@@ -1557,6 +1644,10 @@ class BatteryStateAdapter(ROSAdapterBase[BatteryState]):
         """
         Translates a ROS message into a Mosaico Message.
 
+        Args:
+            ros_msg (ROSMessage): The ROS message to translate.
+            **kwargs: Additional keyword arguments for translation.
+
         Returns:
             Message: The translated message containing a `BatteryState` object.
 
@@ -1572,11 +1663,10 @@ class BatteryStateAdapter(ROSAdapterBase[BatteryState]):
 
         Example:
             ```python
-            ros_data=
-            {
+            ros_data = {
                 "voltage": 12.6,
                 "capacity": 100,
-                "cell_temperature": 25,
+                "cell_temperature": [25.0],
                 "cell_voltage": [12.6],
                 "location": "battery",
                 "charge": 100,
@@ -1654,13 +1744,14 @@ class BatteryStateAdapter(ROSAdapterBase[BatteryState]):
         ``sensor_msgs/msg/BatteryState`` message.
 
         Args:
-            mosaico_data: A ``Message`` wrapping a ``BatteryState`` instance, or a raw ``BatteryState``.
-            typestore: The rosbags typestore for target type resolution.
-            ros_msg_type: Override for the output ROS type. Only
+            mosaico_data (Union[Message, BatteryState]): A ``Message`` wrapping a ``BatteryState`` instance, or a raw ``BatteryState``.
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (Optional[str]): Override for the output ROS type. Only
                 ``sensor_msgs/msg/BatteryState`` is supported.
 
         Returns:
-            A ``sensor_msgs/msg/BatteryState`` instance, or raises an error if:
+            MsgType: A ``sensor_msgs/msg/BatteryState`` instance, or raises an error if:
+
                 - the ros_msg_type is unsupported by adapter (TypeError)
                 - the ros_msg_type or default type are unsupported by typestore (TypeError)
                 - the ros_msg_type or default type are supported but translation is not implemented (NotImplementedError)
@@ -1722,6 +1813,14 @@ class BatteryStateAdapter(ROSAdapterBase[BatteryState]):
     ) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
+
+        Args:
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (str): The ROS message type to extract metadata for.
+            ros_version (int): The ROS version (1 or 2) to consider for metadata extraction.
+
+        Returns:
+            Optional[dict]: A dictionary containing the schema metadata, or None if not applicable.
         """
         return super().schema_metadata(typestore, ros_msg_type, ros_version)
 
@@ -1772,6 +1871,10 @@ class RobotJointAdapter(ROSAdapterBase[RobotJoint]):
     ) -> Message:
         """
         Translates a ROS message into a Mosaico Message.
+
+        Args:
+            ros_msg (ROSMessage): The ROS message to translate.
+            **kwargs: Additional keyword arguments for translation.
 
         Returns:
             Message: The translated message containing a `RobotJoint` object.
@@ -1828,13 +1931,14 @@ class RobotJointAdapter(ROSAdapterBase[RobotJoint]):
         ``sensor_msgs/msg/JointState`` message.
 
         Args:
-            mosaico_data: A ``Message`` wrapping a ``RobotJoint`` instance, or a raw ``RobotJoint``.
-            typestore: The rosbags typestore for target type resolution.
-            ros_msg_type: Override for the output ROS type. Only
+            mosaico_data (Union[Message, RobotJoint]): A ``Message`` wrapping a ``RobotJoint`` instance, or a raw ``RobotJoint``.
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (Optional[str]): Override for the output ROS type. Only
                 ``sensor_msgs/msg/JointState`` is supported.
 
         Returns:
-            A ``sensor_msgs/msg/JointState`` instance, or raises an error if:
+            MsgType: A ``sensor_msgs/msg/JointState`` instance, or raises an error if:
+
                 - the ros_msg_type is unsupported by adapter (TypeError)
                 - the ros_msg_type or default type are unsupported by typestore (TypeError)
                 - the ros_msg_type or default type are supported but translation is not implemented (NotImplementedError)
@@ -1876,6 +1980,14 @@ class RobotJointAdapter(ROSAdapterBase[RobotJoint]):
     ) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
+
+        Args:
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (str): The ROS message type to extract metadata for.
+            ros_version (int): The ROS version (1 or 2) to consider for metadata extraction.
+
+        Returns:
+            Optional[dict]: A dictionary containing the schema metadata, or None if not applicable.
         """
         return super().schema_metadata(typestore, ros_msg_type, ros_version)
 
@@ -1938,11 +2050,11 @@ class PointCloudAdapterBase(ROSAdapterBase[PointCloudModel]):
         PointCloud field into the binary buffer.
 
         Args:
-            field_name: The model attribute name to inspect (e.g. ``"x"``, ``"intensity"``).
+            field_name (str): The model attribute name to inspect (e.g. ``"x"``, ``"intensity"``).
 
         Returns:
-            The PyArrow ``DataType`` object for the field
-            (e.g. ``pa.float32()``).
+            pa.DataType: The PyArrow ``DataType`` object for the field
+                (e.g. ``pa.float32()``).
 
         Raises:
             NotImplementedError: If the field annotation is a Union with multiple
@@ -1973,11 +2085,11 @@ class PointCloudAdapterBase(ROSAdapterBase[PointCloudModel]):
         Deserialize the binary buffer of a ROS [`sensor_msgs/msg/PointCloud2`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/PointCloud2.html) message into named field arrays.
 
         Args:
-            ros_data: Raw ROS message payload. Relevant keys: `data`, `height`, `width`,
+            ros_data (dict): Raw ROS message payload. Relevant keys: `data`, `height`, `width`,
                     `fields`, `is_bigendian`, `point_step`.
 
         Returns:
-            Dictionary mapping each field name to a list of decoded values. Returns empty lists for all fields if `height * width == 0`.
+            dict[str, list]: Dictionary mapping each field name to a list of decoded values. Returns empty lists for all fields if `height * width == 0`.
 
         Raises:
             ValueError: If a field exposes an unsupported `datatype`.
@@ -2032,14 +2144,14 @@ class PointCloudAdapterBase(ROSAdapterBase[PointCloudModel]):
         by a ``sensor_msgs/msg/PointCloud2`` message. This is the inverse operation of :meth:`decode`.
 
         Args:
-            pcl_model: Mapping from field name to a list of scalar values, one per
+            pcl_model (dict[str, list]): Mapping from field name to a list of scalar values, one per
                 point. ``None``-valued fields should be excluded before calling
                 (e.g., via ``model_dump(exclude_none=True)``).
 
         Returns:
-            A dictionary with all keys required to populate a ``PointCloud2`` message:
-            ``height``, ``width``, ``fields``, ``is_bigendian``, ``point_step``,
-            ``row_step``, ``data``, and ``is_dense``.
+            dict: A dictionary with all keys required to populate a ``PointCloud2`` message:
+                ``height``, ``width``, ``fields``, ``is_bigendian``, ``point_step``,
+                ``row_step``, ``data``, and ``is_dense``.
         """
 
         is_bigendian = sys.byteorder == "big"
@@ -2111,14 +2223,15 @@ class PointCloudAdapterBase(ROSAdapterBase[PointCloudModel]):
         included in the output point cloud.
 
         Args:
-            mosaico_data: A ``Message`` wrapping a ``PointCloudModel`` instance, or a
+            mosaico_data (Union[Message, PointCloudModel]): A ``Message`` wrapping a ``PointCloudModel`` instance, or a
                 raw ``PointCloudModel`` directly.
-            typestore: The rosbags typestore for target type resolution.
-            ros_msg_type: Override for the output ROS type. Only
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (Optional[str]): Override for the output ROS type. Only
                 ``sensor_msgs/msg/PointCloud2`` is supported.
 
         Returns:
-            A ``sensor_msgs/msg/PointCloud2`` instance, or raises an error if:
+            MsgType: A ``sensor_msgs/msg/PointCloud2`` instance, or raises an error if:
+
                 - the ros_msg_type is unsupported by adapter (TypeError)
                 - the ros_msg_type or default type are unsupported by typestore (TypeError)
                 - the ros_msg_type or default type are supported but translation is not implemented (NotImplementedError)
@@ -2175,10 +2288,11 @@ class PointCloudAdapterBase(ROSAdapterBase[PointCloudModel]):
         Convert a raw ROS PointCloud2 message dictionary into a typed Mosaico model.
 
         Args:
-            ros_data: Raw ROS message payload as a dictionary.
+            ros_data (dict): Raw ROS message payload as a dictionary.
 
         Returns:
-            A fully populated instance of the target `PointCloudModel` subtype (e.g. `Lidar`, `Radar`, `RGBDCamera`, ...).
+            PointCloudModel: A fully populated instance of the target `PointCloudModel`
+                subtype (e.g. `Lidar`, `Radar`, `RGBDCamera`, ...).
 
         Raises:
             ValueError: If any required message key is missing from `ros_data`,
@@ -2202,6 +2316,14 @@ class PointCloudAdapterBase(ROSAdapterBase[PointCloudModel]):
     ) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
+
+        Args:
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (str): The ROS message type to extract metadata for.
+            ros_version (int): The ROS version (1 or 2) to consider for metadata extraction.
+
+        Returns:
+            Optional[dict]: A dictionary containing the schema metadata, or None if not applicable.
         """
         return super().schema_metadata(typestore, ros_msg_type, ros_version)
 
@@ -2251,6 +2373,10 @@ class PointCloudAdapter(PointCloudAdapterBase[PointCloud2]):
     def translate(cls, ros_msg: ROSMessage, **kwargs: Any) -> Message:
         """
         Translates a ROS message into a Mosaico Message.
+
+        Args:
+            ros_msg (ROSMessage): The ROS message to translate.
+            **kwargs: Additional keyword arguments for translation.
 
         Returns:
             Message: The translated message containing a `PointCloud2` object.
@@ -2331,13 +2457,14 @@ class PointCloudAdapter(PointCloudAdapterBase[PointCloud2]):
         ``sensor_msgs/msg/PointCloud2`` message.
 
         Args:
-            mosaico_data: A ``Message`` wrapping a ``PointCloud2`` instance, or a raw ``PointCloud2``.
-            typestore: The rosbags typestore for target type resolution.
-            ros_msg_type: Override for the output ROS type. Only
+            mosaico_data (Union[Message, PointCloud2]): A ``Message`` wrapping a ``PointCloud2`` instance, or a raw ``PointCloud2``.
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (Optional[str]): Override for the output ROS type. Only
                 ``sensor_msgs/msg/PointCloud2`` is supported.
 
         Returns:
-            A ``sensor_msgs/msg/PointCloud2`` instance, or raises an error if:
+            MsgType: A ``sensor_msgs/msg/PointCloud2`` instance, or raises an error if:
+
                 - the ros_msg_type is unsupported by adapter (TypeError)
                 - the ros_msg_type or default type are unsupported by typestore (TypeError)
                 - the ros_msg_type or default type are supported but translation is not implemented (NotImplementedError)
@@ -2396,6 +2523,14 @@ class PointCloudAdapter(PointCloudAdapterBase[PointCloud2]):
     ) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
+
+        Args:
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (str): The ROS message type to extract metadata for.
+            ros_version (int): The ROS version (1 or 2) to consider for metadata extraction.
+
+        Returns:
+            Optional[dict]: A dictionary containing the schema metadata, or None if not applicable.
         """
         return super().schema_metadata(typestore, ros_msg_type, ros_version)
 
@@ -2425,6 +2560,10 @@ class LaserScannerAdapterBase(ROSAdapterBase[_LT]):
         """
         Translates a ROS message into a Mosaico Message.
 
+        Args:
+            ros_msg (ROSMessage): The ROS message to translate.
+            **kwargs: Additional keyword arguments for translation.
+
         Returns:
             Message: The translated message containing a `LaserScan` or `MultiEchoLaserScan` object.
 
@@ -2439,6 +2578,14 @@ class LaserScannerAdapterBase(ROSAdapterBase[_LT]):
     ) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
+
+        Args:
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (str): The ROS message type to extract metadata for.
+            ros_version (int): The ROS version (1 or 2) to consider for metadata extraction.
+
+        Returns:
+            Optional[dict]: A dictionary containing the schema metadata, or None if not applicable.
         """
         return super().schema_metadata(typestore, ros_msg_type, ros_version)
 
@@ -2515,13 +2662,14 @@ class LaserScanAdapter(LaserScannerAdapterBase[LaserScan]):
         ``sensor_msgs/msg/LaserScan`` message.
 
         Args:
-            mosaico_data: A ``Message`` wrapping a ``LaserScan`` instance, or a raw ``LaserScan``.
-            typestore: The rosbags typestore for target type resolution.
-            ros_msg_type: Override for the output ROS type. Only
+            mosaico_data (Union[Message, LaserScan]): A ``Message`` wrapping a ``LaserScan`` instance, or a raw ``LaserScan``.
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (Optional[str]): Override for the output ROS type. Only
                 ``sensor_msgs/msg/LaserScan`` is supported.
 
         Returns:
-            A ``sensor_msgs/msg/LaserScan`` instance, or raises an error if:
+            MsgType: A ``sensor_msgs/msg/LaserScan`` instance, or raises an error if:
+
                 - the ros_msg_type is unsupported by adapter (TypeError)
                 - the ros_msg_type or default type are unsupported by typestore (TypeError)
                 - the ros_msg_type or default type are supported but translation is not implemented (NotImplementedError)
@@ -2595,10 +2743,10 @@ class MultiEchoLaserScanAdapter(LaserScannerAdapterBase[MultiEchoLaserScan]):
             "scan_time": 0.1,
             "range_min": 0.2,
             "range_max": 10.0,
-            "ranges": [{echoes: [1.0, 1.1, 1.2]}, {echoes: [2.0, 2.1, 2.2]}, {echoes: [3.0, 3.1, 3.2]}],
-            "intensities": [{echoes: [100.0, 110.0, 120.0]}, {echoes: [200.0, 210.0, 220.0]}, {echoes: [300.0, 310.0, 320.0]}],
+            "ranges": [{"echoes": [1.0, 1.1, 1.2]}, {"echoes": [2.0, 2.1, 2.2]}, {"echoes": [3.0, 3.1, 3.2]}],
+            "intensities": [{"echoes": [100.0, 110.0, 120.0]}, {"echoes": [200.0, 210.0, 220.0]}, {"echoes": [300.0, 310.0, 320.0]}],
         }
-        # Automatically resolves to a flat Mosaico MultiEchoLaserScanAdapter with attached data
+        # Automatically resolves to a flat Mosaico MultiEchoLaserScan with attached data
         mosaico_laser_scan = MultiEchoLaserScanAdapter.from_dict(ros_data)
         ```
         """
@@ -2643,13 +2791,14 @@ class MultiEchoLaserScanAdapter(LaserScannerAdapterBase[MultiEchoLaserScan]):
         ``sensor_msgs/msg/MultiEchoLaserScan`` message.
 
         Args:
-            mosaico_data: A ``Message`` wrapping a ``MultiEchoLaserScan`` instance, or a raw ``MultiEchoLaserScan``.
-            typestore: The rosbags typestore for target type resolution.
-            ros_msg_type: Override for the output ROS type. Only
+            mosaico_data (Union[Message, MultiEchoLaserScan]): A ``Message`` wrapping a ``MultiEchoLaserScan`` instance, or a raw ``MultiEchoLaserScan``.
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (Optional[str]): Override for the output ROS type. Only
                 ``sensor_msgs/msg/MultiEchoLaserScan`` is supported.
 
         Returns:
-            A ``sensor_msgs/msg/MultiEchoLaserScan`` instance, or raises an error if:
+            MsgType: A ``sensor_msgs/msg/MultiEchoLaserScan`` instance, or raises an error if:
+
                 - the ros_msg_type is unsupported by adapter (TypeError)
                 - the ros_msg_type or default type are unsupported by typestore (TypeError)
                 - the ros_msg_type or default type are supported but translation is not implemented (NotImplementedError)
@@ -2709,7 +2858,7 @@ class MagneticFieldAdapter(ROSAdapterBase[Magnetometer]):
 
     **Supported ROS Types:**
 
-    - `sensor_msgs/msg/MagneticField`
+    - [`sensor_msgs/msg/MagneticField`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/MagneticField.html)
 
     Example:
         ```python
@@ -2741,8 +2890,15 @@ class MagneticFieldAdapter(ROSAdapterBase[Magnetometer]):
         """
         Translates a ROS message into a Mosaico Message.
 
+        Args:
+            ros_msg (ROSMessage): The ROS message to translate.
+            **kwargs: Additional keyword arguments for translation.
+
         Returns:
             Message: The translated message containing a `Magnetometer` object.
+
+        Raises:
+            Exception: Wraps any translation error with context (topic name, timestamp).
         """
         return super().translate(ros_msg, **kwargs)
 
@@ -2791,13 +2947,14 @@ class MagneticFieldAdapter(ROSAdapterBase[Magnetometer]):
         ``sensor_msgs/msg/MagneticField`` message.
 
         Args:
-            mosaico_data: A ``Message`` wrapping a ``Magnetometer`` instance, or a raw ``Magnetometer``.
-            typestore: The rosbags typestore for target type resolution.
-            ros_msg_type: Override for the output ROS type. Only
+            mosaico_data (Union[Message, Magnetometer]): A ``Message`` wrapping a ``Magnetometer`` instance, or a raw ``Magnetometer``.
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (Optional[str]): Override for the output ROS type. Only
                 ``sensor_msgs/msg/MagneticField`` is supported.
 
         Returns:
-            A ``sensor_msgs/msg/MagneticField`` instance, or raises an error if:
+            MsgType: A ``sensor_msgs/msg/MagneticField`` instance, or raises an error if:
+
                 - the ros_msg_type is unsupported by adapter (TypeError)
                 - the ros_msg_type or default type are unsupported by typestore (TypeError)
                 - the ros_msg_type or default type are supported but translation is not implemented (NotImplementedError)
@@ -2840,6 +2997,14 @@ class MagneticFieldAdapter(ROSAdapterBase[Magnetometer]):
     ) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
+
+        Args:
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (str): The ROS message type to extract metadata for.
+            ros_version (int): The ROS version (1 or 2) to consider for metadata extraction.
+
+        Returns:
+            Optional[dict]: A dictionary containing the schema metadata, or None if not applicable.
         """
         return super().schema_metadata(typestore, ros_msg_type, ros_version)
 
@@ -2851,7 +3016,7 @@ class JoyAdapter(ROSAdapterBase[Joy]):
 
     **Supported ROS Types:**
 
-    - `sensor_msgs/msg/Joy`
+    - [`sensor_msgs/msg/Joy`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/Joy.html)
 
     Example:
         ```python
@@ -2884,8 +3049,15 @@ class JoyAdapter(ROSAdapterBase[Joy]):
         """
         Translates a ROS message into a Mosaico Message.
 
+        Args:
+            ros_msg (ROSMessage): The ROS message to translate.
+            **kwargs: Additional keyword arguments for translation.
+
         Returns:
             Message: The translated message containing a `Joy` object.
+
+        Raises:
+            Exception: Wraps any translation error with context (topic name, timestamp).
         """
         return super().translate(ros_msg, **kwargs)
 
@@ -2926,13 +3098,14 @@ class JoyAdapter(ROSAdapterBase[Joy]):
         ``sensor_msgs/msg/Joy`` message.
 
         Args:
-            mosaico_data: A ``Message`` wrapping a ``Joy`` instance, or a raw ``Joy``.
-            typestore: The rosbags typestore for target type resolution.
-            ros_msg_type: Override for the output ROS type. Only
+            mosaico_data (Union[Message, Joy]): A ``Message`` wrapping a ``Joy`` instance, or a raw ``Joy``.
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (Optional[str]): Override for the output ROS type. Only
                 ``sensor_msgs/msg/Joy`` is supported.
 
         Returns:
-            A ``sensor_msgs/msg/Joy`` instance, or raises an error if:
+            MsgType: A ``sensor_msgs/msg/Joy`` instance, or raises an error if:
+
                 - the ros_msg_type is unsupported by adapter (TypeError)
                 - the ros_msg_type or default type are unsupported by typestore (TypeError)
                 - the ros_msg_type or default type are supported but translation is not implemented (NotImplementedError)
@@ -2972,6 +3145,14 @@ class JoyAdapter(ROSAdapterBase[Joy]):
     ) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
+
+        Args:
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (str): The ROS message type to extract metadata for.
+            ros_version (int): The ROS version (1 or 2) to consider for metadata extraction.
+
+        Returns:
+            Optional[dict]: A dictionary containing the schema metadata, or None if not applicable.
         """
         return super().schema_metadata(typestore, ros_msg_type, ros_version)
 
@@ -2983,7 +3164,7 @@ class TemperatureAdapter(ROSAdapterBase[Temperature]):
 
     **Supported ROS Types:**
 
-    - `sensor_msgs/msg/Temperature`
+    - [`sensor_msgs/msg/Temperature`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/Temperature.html)
 
     Example:
         ```python
@@ -3012,8 +3193,15 @@ class TemperatureAdapter(ROSAdapterBase[Temperature]):
         """
         Translates a ROS message into a Mosaico Message.
 
+        Args:
+            ros_msg (ROSMessage): The ROS message to translate.
+            **kwargs: Additional keyword arguments for translation.
+
         Returns:
             Message: The translated message containing a `Temperature` object.
+
+        Raises:
+            Exception: Wraps any translation error with context (topic name, timestamp).
         """
         return super().translate(ros_msg, **kwargs)
 
@@ -3057,13 +3245,14 @@ class TemperatureAdapter(ROSAdapterBase[Temperature]):
         ``sensor_msgs/msg/Temperature`` message.
 
         Args:
-            mosaico_data: A ``Message`` wrapping a ``Temperature`` instance, or a raw ``Temperature``.
-            typestore: The rosbags typestore for target type resolution.
-            ros_msg_type: Override for the output ROS type. Only
+            mosaico_data (Union[Message, Temperature]): A ``Message`` wrapping a ``Temperature`` instance, or a raw ``Temperature``.
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (Optional[str]): Override for the output ROS type. Only
                 ``sensor_msgs/msg/Temperature`` is supported.
 
         Returns:
-            A ``sensor_msgs/msg/Temperature`` instance, or raises an error if:
+            MsgType: A ``sensor_msgs/msg/Temperature`` instance, or raises an error if:
+
                 - the ros_msg_type is unsupported by adapter (TypeError)
                 - the ros_msg_type or default type are unsupported by typestore (TypeError)
                 - the ros_msg_type or default type are supported but translation is not implemented (NotImplementedError)
@@ -3103,6 +3292,14 @@ class TemperatureAdapter(ROSAdapterBase[Temperature]):
     ) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
+
+        Args:
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (str): The ROS message type to extract metadata for.
+            ros_version (int): The ROS version (1 or 2) to consider for metadata extraction.
+
+        Returns:
+            Optional[dict]: A dictionary containing the schema metadata, or None if not applicable.
         """
         return super().schema_metadata(typestore, ros_msg_type, ros_version)
 
@@ -3114,7 +3311,7 @@ class PressureAdapter(ROSAdapterBase[Pressure]):
 
     **Supported ROS Types:**
 
-    - `sensor_msgs/msg/FluidPressure`
+    - [`sensor_msgs/msg/FluidPressure`](https://docs.ros2.org/foxy/api/sensor_msgs/msg/FluidPressure.html)
 
     Example:
         ```python
@@ -3143,8 +3340,15 @@ class PressureAdapter(ROSAdapterBase[Pressure]):
         """
         Translates a ROS message into a Mosaico Message.
 
+        Args:
+            ros_msg (ROSMessage): The ROS message to translate.
+            **kwargs: Additional keyword arguments for translation.
+
         Returns:
             Message: The translated message containing a `Pressure` object.
+
+        Raises:
+            Exception: Wraps any translation error with context (topic name, timestamp).
         """
         return super().translate(ros_msg, **kwargs)
 
@@ -3188,13 +3392,14 @@ class PressureAdapter(ROSAdapterBase[Pressure]):
         ``sensor_msgs/msg/FluidPressure`` message.
 
         Args:
-            mosaico_data: A ``Message`` wrapping a ``Pressure`` instance, or a raw ``Pressure``.
-            typestore: The rosbags typestore for target type resolution.
-            ros_msg_type: Override for the output ROS type. Only
+            mosaico_data (Union[Message, Pressure]): A ``Message`` wrapping a ``Pressure`` instance, or a raw ``Pressure``.
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (Optional[str]): Override for the output ROS type. Only
                 ``sensor_msgs/msg/FluidPressure`` is supported.
 
         Returns:
-            A ``sensor_msgs/msg/FluidPressure`` instance, or raises an error if:
+            MsgType: A ``sensor_msgs/msg/FluidPressure`` instance, or raises an error if:
+
                 - the ros_msg_type is unsupported by adapter (TypeError)
                 - the ros_msg_type or default type are unsupported by typestore (TypeError)
                 - the ros_msg_type or default type are supported but translation is not implemented (NotImplementedError)
@@ -3234,5 +3439,13 @@ class PressureAdapter(ROSAdapterBase[Pressure]):
     ) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
+
+        Args:
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (str): The ROS message type to extract metadata for.
+            ros_version (int): The ROS version (1 or 2) to consider for metadata extraction.
+
+        Returns:
+            Optional[dict]: A dictionary containing the schema metadata, or None if not applicable.
         """
         return super().schema_metadata(typestore, ros_msg_type, ros_version)

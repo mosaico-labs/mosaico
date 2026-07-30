@@ -144,12 +144,15 @@ class _Vector2dStruct(BaseModel):
     """
 
     @classmethod
-    def from_list(cls, data: list[float]):
+    def from_list(cls, data: list[float]) -> "_Vector2dStruct":
         """
         Creates a struct instance from a raw list.
 
         Args:
-            data: A list containing exactly 2 float values: [x, y].
+            data (list[float]): A list containing exactly 2 float values: [x, y].
+
+        Returns:
+            _Vector2dStruct: The constructed struct instance.
 
         Raises:
             ValueError: If the input list does not have a length of 2.
@@ -337,12 +340,15 @@ class _Vector3dStruct(BaseModel):
     """
 
     @classmethod
-    def from_list(cls, data: list[float]):
+    def from_list(cls, data: list[float]) -> "_Vector3dStruct":
         """
         Creates a struct instance from a raw list.
 
         Args:
-            data: A list containing exactly 3 float values: [x, y, z].
+            data (list[float]): A list containing exactly 3 float values: [x, y, z].
+
+        Returns:
+            _Vector3dStruct: The constructed struct instance.
 
         Raises:
             ValueError: If the input list does not have a length of 3.
@@ -426,7 +432,6 @@ class _Vector4dStruct(BaseModel):
     y: MosaicoType.float64 = MosaicoField(
         nullable=True, description="Vector y component."
     )
-
     """
     The Vector Y component
     
@@ -480,7 +485,6 @@ class _Vector4dStruct(BaseModel):
     z: MosaicoType.float64 = MosaicoField(
         nullable=True, description="Vector z component."
     )
-
     """
     The Vector Z component
     
@@ -586,12 +590,15 @@ class _Vector4dStruct(BaseModel):
     """
 
     @classmethod
-    def from_list(cls, data: list[float]):
+    def from_list(cls, data: list[float]) -> "_Vector4dStruct":
         """
         Creates a struct instance from a raw list.
 
         Args:
-            data: A list containing exactly 4 float values: [x, y, z, w].
+            data (list[float]): A list containing exactly 4 float values: [x, y, z, w].
+
+        Returns:
+            _Vector4dStruct: The constructed struct instance.
 
         Raises:
             ValueError: If the input list does not have a length of 4.
@@ -1186,7 +1193,7 @@ class Pose(
 
     """
 
-    position: Point3d = MosaicoField(description="3D translation vector.")
+    position: Point3d = MosaicoField(description="3D position vector.")
     """
     The 3D position vector component.
 
@@ -1282,23 +1289,22 @@ class RobotPath(
     Notice that all waypoints need to be referenced wrt the same frame.
 
     Attributes:
-        path_frame: A `String` representing the frame name the waypoints refer to
         poses: A list of `Pose` describing the waypoints to be followed.
         header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
     This class is fully queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog]
-    via the **`.Q` proxy**. Both `path_frame` and `poses` are queryable. Check the fields
+    via the **`.Q` proxy**. Both `poses` and `header` are queryable. Check the fields
     documentation for detailed description.
 
     Example:
         ```python
-        from mosaicolabs import MosaicoClient, Path, QueryOntologyCatalog
+        from mosaicolabs import MosaicoClient, RobotPath, QueryOntologyCatalog
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for a specific component value.
             qresponse = client.query(
-                QueryOntologyCatalog(Path.Q.path_frame.eq("base_link"))
+                QueryOntologyCatalog(RobotPath.Q.header.frame_id.eq("base_link"))
             )
 
             # Inspect the response
