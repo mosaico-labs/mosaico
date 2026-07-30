@@ -84,7 +84,7 @@ pub async fn do_get(
     // If our value is below the default we keep the default.
     let max_flight_data_size = usize::max(
         GRPC_TARGET_MAX_FLIGHT_SIZE_BYTES,
-        params::params().max_grpc_message_size.value - 2_000_000,
+        params::params().target_message_size.value,
     );
 
     Ok(FlightDataEncoderBuilder::new()
