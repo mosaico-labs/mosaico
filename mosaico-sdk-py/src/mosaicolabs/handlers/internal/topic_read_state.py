@@ -50,6 +50,8 @@ class _TopicReadState:
             serialization_format (SerializationFormat): The serialization format of the
                 the ontology data model.
             msg_count (int): The number of messages in the topic.
+            timestamp_ns_min (int): The minimum timestamp in nanoseconds for the topic.
+            timestamp_ns_max (int): The maximum timestamp in nanoseconds for the topic.
             reader (Optional[fl.FlightStreamReader]): The active stream reader.
 
         Raises:

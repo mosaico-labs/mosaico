@@ -38,9 +38,8 @@ def test_sequence_data_stream(
         and sstream_handl.timestamp_ns_max is not None
     )
     assert (
-        synthetic_sequence_data_stream.items[0].msg.timestamp_ns
-        == sstream_handl.timestamp_ns_min
-        and synthetic_sequence_data_stream.items[-1].msg.timestamp_ns
+        synthetic_sequence_data_stream.tstamp_ns_start == sstream_handl.timestamp_ns_min
+        and synthetic_sequence_data_stream.tstamp_ns_end
         == sstream_handl.timestamp_ns_max
     )
     # Get the next timestamp, without consuming the related sample
