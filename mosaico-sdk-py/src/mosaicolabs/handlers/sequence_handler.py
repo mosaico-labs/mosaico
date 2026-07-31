@@ -436,7 +436,7 @@ class SequenceHandler:
                         print(f"\t|Topic: {top_handler.sequence_name}:{top_handler.name}")
                         print(f"\t|User metadata: {top_handler.user_metadata}")
                         print(f"\t|Timestamp span: {top_handler.timestamp_ns_min} - {top_handler.timestamp_ns_max}")
-                        print(f"\t|Created {top_handler.created_datetime}")
+                        print(f"\t|Created {top_handler.created_timestamp}")
                         print(f"\t|Size (MB) {top_handler.total_size_bytes/(1024*1024)}")
 
                     # Once done, close the resources, topic handler and related reading channels (recommended).

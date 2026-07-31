@@ -229,10 +229,9 @@ def make_unmodeled_ontology_class(
     Args:
         class_name (str): The Python class name assigned to the generated class
             (e.g. shown in `repr()` and error messages).
-        ontology_tag (str): The unique ontology identifier to register the class
-            under. If `None`, it's auto-generated from `class_name`
-            (`CamelCase` -> `snake_case`), matching the behavior of a normal
-            `Serializable` subclass.
+        ontology_tag (Optional[str]): The unique ontology identifier to register the class
+            under. If `None`, it's auto-generated from `class_name`, matching the behavior
+            of a normal `Serializable` subclass.
         serialization_format (SerializationFormat): The batching/serialization strategy for topics
             using this ontology (see
             [`Serializable.__serialization_format__`][mosaicolabs.models.core.Serializable]).

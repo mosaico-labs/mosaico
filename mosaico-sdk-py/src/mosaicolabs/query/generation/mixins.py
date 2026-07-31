@@ -609,7 +609,7 @@ class _QueryableDynamicValue:
         )
         return getattr(self, "_cmp")("$neq", value)
 
-    def match(self, value: Any):
+    def match(self, value: Any) -> "_QueryExpression":
         """
         Matches records where the field satisfies a glob-style pattern.
 
@@ -643,7 +643,7 @@ class _QueryableDynamicValue:
         )
         return getattr(self, "_cmp")("$match", value)
 
-    def in_(self, *values: Any):
+    def in_(self, *values: Any) -> "_QueryExpression":
         """
         Matches records where the field's value is one of `values`.
 

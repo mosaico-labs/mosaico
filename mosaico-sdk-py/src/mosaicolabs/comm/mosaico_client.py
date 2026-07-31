@@ -401,7 +401,7 @@ class MosaicoClient:
                 if sequence_handler:
                     # Print sequence details
                     print(f"Sequence: {sequence_handler.name}")
-                    print(f"Created: {sequence_handler.created_datetime}")
+                    print(f"Created: {sequence_handler.created_timestamp}")
                     print(f"Topic list: {sequence_handler.topics}")
                     print(f"User Metadata: {sequence_handler.user_metadata}")
                     print(f"Size (MB): {sequence_handler.total_size_bytes / 1024 / 1024}")
@@ -479,7 +479,7 @@ class MosaicoClient:
                     # Print topic details
                     print(f"Topic: {topic_handler.sequence_name}:{topic_handler.name}")
                     print(f"Ontology Tag: {topic_handler.ontology_tag}")
-                    print(f"Created: {topic_handler.created_datetime}")
+                    print(f"Created: {topic_handler.created_timestamp}")
                     print(f"User Metadata: {topic_handler.user_metadata}")
                     print(f"Size (MB): {topic_handler.total_size_bytes / 1024 / 1024}")
 
