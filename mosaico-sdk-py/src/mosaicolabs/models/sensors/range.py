@@ -35,7 +35,7 @@ class Range(
 
     ### Querying with the **`.Q` Proxy**
     This class is fully queryable via the **`.Q` proxy**. You can filter range data based
-    on range parameters within a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog].
+    on range parameters within a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog].
 
     Example:
         ```python
@@ -71,7 +71,7 @@ class Range(
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `Range.Q.radiation_type` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `Range.Q.radiation_type` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.outside()` |
 
     Example:
         ```python
@@ -103,7 +103,7 @@ class Range(
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `Range.Q.field_of_view` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `Range.Q.field_of_view` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.outside()` |
 
     Example:
         ```python
@@ -136,7 +136,7 @@ class Range(
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `Range.Q.min_range` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `Range.Q.min_range` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.outside()` |
 
     Example:
         ```python
@@ -169,7 +169,7 @@ class Range(
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `Range.Q.max_range` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `Range.Q.max_range` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.outside()` |
 
     Example:
         ```python
@@ -199,7 +199,7 @@ class Range(
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `Range.Q.range` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `Range.Q.range` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.outside()` |
 
     Example:
         ```python

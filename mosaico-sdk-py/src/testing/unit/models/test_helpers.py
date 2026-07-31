@@ -241,20 +241,17 @@ def test_resolve_repeat_call_does_not_mutate_already_registered_class():
     tag = "test_helpers__no_mutation_tag"
     first = resolve_ontology_class(
         ontology_tag=tag,
-        class_name="FirstName",
         schema=_SCHEMA_V1,
         serialization_format=SerializationFormat.Default,
     )
 
     second = resolve_ontology_class(
         ontology_tag=tag,
-        class_name="SomeOtherName",
         schema=_SCHEMA_V1,
         serialization_format=SerializationFormat.Ragged,
     )
 
     assert second is first
-    assert second.__name__ == "FirstName"
     assert second.__serialization_format__ == SerializationFormat.Default
 
 

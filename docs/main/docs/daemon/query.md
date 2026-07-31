@@ -46,27 +46,76 @@ The ontology filter queries the actual sensor data values. Fields are specified 
 
 For example, to query IMU acceleration data: `IMU.acceleration.x`, where `IMU` is the ontology tag and `acceleration.x` is the field path within that data model.
 
-#### Timestamp query support
+#### Querying list and complex fields
 
-If `include_timestamp_range` is set to `true` the response will also return [timestamps ranges](#timestamps) for each query.
+Fields backed by an Arrow **list** column (including lists of structs) are addressed with an **index specifier** appended to the list segment of the path. Exactly one specifier is allowed per field path.
+
+| Specifier | Meaning |
+| --- | --- |
+| `[i]` | The element at position `i` (0-based) must satisfy the predicate. |
+| `[?]` | **At least one** element must satisfy the predicate. |
+| `[!]` | **Every** element must satisfy the predicate. |
+
+The specifier attaches to whichever segment is the list, and the path may continue into a struct after it:
+
+```json
+{
+  "ontology": {
+    "lidar.ranges[?]": { "$gt": 50.0 },
+    "imu.samples[0].x": { "$eq": 1.0 },
+    "robot.readings[!].active": { "$eq": true }
+  }
+}
+```
+
+- `lidar.ranges[?]`: the topic matches if any element of the `ranges` list exceeds `50.0`.
+- `imu.samples[0].x`: targets the `x` field of the first struct in the `samples` list of structs.
+- `robot.readings[!].active`: every struct in `readings` must have `active` equal to `true`.
+
+A **plain list** column (no specifier) can be compared as a whole with `$eq` / `$neq` against a JSON array. The comparison is element-wise: it holds only when the arrays have the same length and every position matches. The literal is capped at `MOSAICOD_MAX_SIZE_PLAIN_LIST_EQ` elements (default `1024`).
+
+```json
+{
+  "ontology": {
+    "mock.list_test": { "$eq": [3, 4, 5] }
+  }
+}
+```
+
+:::warning
+**Nested lists (a list of lists) are not supported.** Querying a field whose column is a list whose elements are themselves lists returns an *unsupported operation* error. Only list columns of scalars or of structs can be queried, whether as a plain list or through an index specifier (`[i]`, `[?]`, `[!]`).
+:::
 
 ## Supported Operators
 
 The query engine supports a rich set of comparison operators. Each operator is prefixed with `$` in the JSON syntax:
 
-| Operator | Description |
-| --- | --- |
-| `$eq` | Equal to (supports all types) |
-| `$neq` | Not equal to (supports all types) |
-| `$lt` | Less than (numeric and timestamp only) |
-| `$gt` | Greater than (numeric and timestamp only) |
-| `$leq` | Less than or equal to (numeric and timestamp only) |
-| `$geq` | Greater than or equal to (numeric and timestamp only) |
-| `$between` | Within a range `[min, max]` inclusive (numeric and timestamp only) |
-| `$in` | Value is in a set of options (supports integers and text) |
-| `$match` | Matches a pattern (text only, supports SQL LIKE patterns with `%` wildcards) |
-| `$ex` | Field exists |
-| `$nex` | Field does not exist |
+| Operator | Description                                                                                                                                                                                                        |
+| --- |--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `$eq` | Equal to (supports all types)                                                                                                                                                                                      |
+| `$neq` | Not equal to (supports all types)                                                                                                                                                                                  |
+| `$lt` | Less than (numeric and timestamp only)                                                                                                                                                                             |
+| `$gt` | Greater than (numeric and timestamp only)                                                                                                                                                                          |
+| `$leq` | Less than or equal to (numeric and timestamp only)                                                                                                                                                                 |
+| `$geq` | Greater than or equal to (numeric and timestamp only)                                                                                                                                                              |
+| `$between` | Within a range `[min, max]` inclusive (numeric and timestamp only)                                                                                                                                                 |
+| `$outside` | Outside a range `[min, max]`, the strict complement of `$between`: matches when `v < min` **or** `v > max` (numeric and timestamp only)                                                                             |
+| `$in` | Matches when the field equals **any** value in the list, e.g. `{ "$in": [1, 5, 9] }`. Supports numeric and text values; a single-element list behaves like `$eq`. Lists mixing different value types are rejected. |
+| `$match` | Matches a pattern (wildcards allowed). Applies to `sequence.name`, `topic.name`, textual user metadata, and textual ontology fields.                                                                               |
+| `$ex` | Field exists (the column is present).                                                                                                                                                                              |
+| `$nex` | Field does not exist.                                                                                                                                                                                              |
+
+:::note
+`$ex` and `$nex` take no value: they are written as a bare string, e.g. `"imu.acceleration.x": "$ex"`. All other operators are written as an object, e.g. `"imu.acceleration.x": { "$gt": 5.0 }`.
+:::
+
+:::note
+The pattern syntax allowed by the `$match` operator accepts the following wildcards:
+*  `*` matches a multiple (zero or more) characters, including space.
+*  `?` matches a single (exactly one) characters, including space.
+*  `[]` matches a character set. Examples: [aeiou] to match any vocals, or [a-z] to match a range
+*  `#` matches any single digit (0 — 9). Shortcut for [0-9]
+:::
 
 ## Syntax
 
@@ -75,7 +124,7 @@ Queries are submitted as JSON objects. Each field is mapped to an operator and v
 ```json hl_lines="15" {15}
 {
   "sequence": {
-    "name": { "$match": "test_run_%" },
+    "name": { "$match": "test_run_*" },
     "user_metadata": {
       "driver": { "$eq": "Alice" }
     }
@@ -94,19 +143,77 @@ Queries are submitted as JSON objects. Each field is mapped to an operator and v
 
 This query searches for:
 
-- Sequences with names matching `test_run_%` pattern
+- Sequences with names matching `test_run_*` pattern
 - Where the user metadata field `driver` equals `"Alice"`
 - Containing topics with ontology tag `IMU`
 - Where the IMU's x-axis acceleration exceeds 5.0
 - And the y-axis acceleration is between -2.0 and 2.0
 
-:::tip
-`include_timestamp_range` field is optional, if set to `true` the query returns the [timestamp ranges](#timestamps)
-:::
+### User metadata keys
+
+To prevent users from inserting weird user metadata keys, only the following symbols and chars are accepted at creation:
+*  `0-9, a-z, A-Z` _alphanumeric_
+* `-` _minus. No repetitions allowed (e.g. `robot--status`)_
+* `_` _underscore_
+* ` ` _white space_
+
+Inside queries also the following ones are admitted:
+* `*`, this enables glob pattern search on keys
+* `**`, this enables recursive glob pattern search on keys
+
+#### Examples
+
+```json title="query_user_metadata_glob_pattern_example"
+{
+  "robot_id": "bot-v4-092",
+  "tags": ["warehouse-alpha", "heavy-duty", "fleet-3"],
+  "status": {
+    "telemetry": {
+      "battery": 84,
+      "temperature": 38.5
+    },
+    "hardware": {
+      "motor_left": "nominal",
+      "motor_right": "nominal"
+    }    
+  },
+  "logs": [
+    {
+      "id": 1,
+      "message": "boot success"
+    },
+    {
+      "id": 2,
+      "message": "lidar calibrated"
+    }
+  ],
+  "payload_manifest": {
+    "item_id": "sku-99201",
+    "destination": "bin-c4",
+    "sensors": {
+      "weight_sensor": "active",
+      "laser_scanner": "active",
+      "diagnostics": {
+        "camera_feed": "online"
+      }
+    }
+  }
+}
+```
+
+| Glob Pattern                  | Rule Type                | Description                                                                           | Matches Found                                                                                                                                                                  |
+|:------------------------------|:-------------------------|:--------------------------------------------------------------------------------------|:-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `*`                           | Single Level (`*`)       | Matches top-level keys only.                                                          | `robot_id`, `status`, `payload_manifest`                                                                                                                                       |
+| `status.*`                    | Single Level (`*`)       | Matches every single key directly inside the `status` object.                         | `status.telemetry`, `status.hardware`                                                                                                                                          |
+| `payload_manifest.sensors.**` | Deep Recursive (`**`)    | Traverses deeply to capture all keys and nested objects underneath `sensors`.         | `payload_manifest.sensors.weight_sensor`, `payload_manifest.sensors.laser_scanner`, `payload_manifest.sensors.diagnostics`, `payload_manifest.sensors.diagnostics.camera_feed` |
+| `payload_manifest.*.*`        | Positional Single (`*`)  | Matches any key that is exactly **two levels down** from the `payload_manifest` root. | `payload_manifest.sensors.weight_sensor`, `payload_manifest.sensors.laser_scanner`, `payload_manifest.sensors.diagnostics`                                                     |
+| `tags[*]`                     | Array flattining (`[*]`) | Matches all elements inside the `tags` array.                                         | `"warehouse-alpha"`, `"heavy-duty"`, `"fleet-3"`                                                                                                                               |
+| `logs[*].id`                  | Array flattining (`[*]`) | Matches all objects inside the `logs` array containing an `id` key.                   | `logs[0].id`, `logs[1].id`                                                                                                                                                     |
+
 
 ## Response Structure
 
-The query response is hierarchically grouped by sequence. For each matching sequence, it provides the list of topics that satisfied the filter criteria, along with optional timestamp ranges indicating when the ontology conditions were met.
+The query response is hierarchically grouped by sequence. For each matching sequence, it provides the list of topics that satisfied the filter criteria.
 
 ```json title="query_response_example"
 {
@@ -115,12 +222,10 @@ The query response is hierarchically grouped by sequence. For each matching sequ
       "sequence": "test_run_01",
       "topics": [
         { 
-          "locator": "test_run_01/sensors/imu",
-          "timestamp_range": [1000000000, 2000000000]
+          "locator": "test_run_01/sensors/imu"
         },
         {
-          "locator": "test_run_01/sensors/gps",
-          "timestamp_range": [1000000000, 2000000000]
+          "locator": "test_run_01/sensors/gps"
         }
       ]
     },
@@ -128,26 +233,16 @@ The query response is hierarchically grouped by sequence. For each matching sequ
       "sequence": "test_run_02",
       "topics": [
         {
-          "locator": "test_run_02/camera/front",
-          "timestamp_range": [1500000000, 2500000000]
+          "locator": "test_run_02/camera/front"
         },
         {
-          "locator": "test_run_02/lidar/point_cloud",
-          "timestamp_range": [1500000000, 2500000000]
+          "locator": "test_run_02/lidar/point_cloud"
         }
       ]
     }
   ]
 }
 ```
-
-### Timestamps
-
-It returns the time window `[min, max]` where the filter conditions were met for that topic, with `min` being the timestamp of the first matching event and max being the timestamp of the last matching event. This allows you to retrieve only the relevant data slices using the [retrieval protocol](retrieval.md#the-retrieval-protocol).
-
-:::note 
-    The `timestamp_range` field is included only when ontology filters are applied and `include_timestamp_range` is set to `true` inside the `ontology` filter. 
-:::
 
 ### Performance Characteristics
 
@@ -156,4 +251,4 @@ During execution, the engine uses index-based pruning to evaluate precomputed mi
 
 Performance is further improved by executing metadata cache queries, such as sequence and topic filters, directly within the database, which ensures sub-second response times even across thousands of sequences.
 
-The system employs **lazy evaluation** to keep network payloads lightweight; instead of returning raw data immediately, queries return locators and timestamp ranges. This architecture allows client applications to fetch only the required data slices via the retrieval protocol as needed.
+The system employs **lazy evaluation** to keep network payloads light-weight; instead of returning raw data immediately, queries return just sequence and topic locators. This architecture allows client applications to fetch only the required data slices via the retrieval protocol as needed.

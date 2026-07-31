@@ -58,3 +58,75 @@ def test_schema_fingerprint_changes_with_nesting():
     nested = pa.struct([pa.field("x", pa.struct([pa.field("y", pa.float32())]))])
 
     assert _compute_schema_fingerprint(flat) != _compute_schema_fingerprint(nested)
+
+
+def test_schema_fingerprint_treats_string_view_as_string():
+    # A query engine reading data back (e.g. DataFusion's Parquet reader) may
+    # return pa.string_view/pa.large_string for a column the SDK declared as
+    # pa.string. The fingerprint must be blind to that physical-representation
+    # difference, or a correctly modeled ontology gets misidentified as Unmodeled.
+    classic = pa.struct([pa.field("x", pa.string())])
+    view = pa.struct([pa.field("x", pa.string_view())])
+    large = pa.struct([pa.field("x", pa.large_string())])
+
+    assert (
+        _compute_schema_fingerprint(classic)
+        == _compute_schema_fingerprint(view)
+        == _compute_schema_fingerprint(large)
+    )
+
+
+def test_schema_fingerprint_treats_binary_view_as_binary():
+    classic = pa.struct([pa.field("x", pa.binary())])
+    view = pa.struct([pa.field("x", pa.binary_view())])
+    large = pa.struct([pa.field("x", pa.large_binary())])
+
+    assert (
+        _compute_schema_fingerprint(classic)
+        == _compute_schema_fingerprint(view)
+        == _compute_schema_fingerprint(large)
+    )
+
+
+def test_schema_fingerprint_when_nested():
+    # Ontology fields normalisazion should stop just at top level
+    # and not influence inner types of structs
+
+    classic_nested = pa.struct(
+        [
+            pa.field(
+                "name_outer",
+                pa.struct(
+                    [
+                        pa.field("name_inner", pa.string()),
+                    ]
+                ),
+            ),
+        ]
+    )
+
+    view_nested = pa.struct(
+        [
+            pa.field(
+                "name_outer",
+                pa.struct(
+                    [
+                        pa.field("name_inner", pa.string_view()),
+                    ]
+                ),
+            ),
+        ]
+    )
+
+    assert _compute_schema_fingerprint(classic_nested) != _compute_schema_fingerprint(
+        view_nested
+    )
+
+
+def test_schema_fingerprint_when_list():
+    # Ontology fields can be lists of strings (e.g. MosaicoType.list_(MosaicoType.string))
+    #  and the normalization must NOT apply to nested types. It should be limited to top-level
+    classic = pa.struct([pa.field("x", pa.list_(pa.string()))])
+    view = pa.struct([pa.field("x", pa.list_(pa.string_view()))])
+
+    assert _compute_schema_fingerprint(classic) != _compute_schema_fingerprint(view)

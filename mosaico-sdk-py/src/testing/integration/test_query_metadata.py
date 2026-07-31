@@ -2,7 +2,7 @@ import pytest
 from pyarrow import ArrowInvalid
 
 from mosaicolabs.comm import MosaicoClient
-from mosaicolabs.models.query import QuerySequence, QueryTopic
+from mosaicolabs.query import QuerySequence, QueryTopic
 from testing.integration.config import (
     UPLOADED_GPS_TOPIC,
     UPLOADED_IMU_CAMERA_TOPIC,
@@ -443,7 +443,7 @@ class TestMetadataValueRegEx:
     def test_query_topic_metadata_match(
         self,
         mosaico_client: MosaicoClient,
-        inject_mockup_sequences,
+        inject_synthetic_sequence,
     ):
         query_resp = mosaico_client.query(
             QuerySequence().with_name(UPLOADED_SEQUENCE_NAME),

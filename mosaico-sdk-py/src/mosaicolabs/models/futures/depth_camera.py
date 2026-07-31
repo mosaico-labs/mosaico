@@ -157,7 +157,7 @@ class RGBDCamera(
 
     ### Querying with the **`.Q` Proxy**
     This class is fully queryable via the **`.Q` proxy**. You can filter RGBDCamera data based
-    on thresholds values within a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog].
+    on thresholds values within a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog].
     Expressions entailing lists of values can be queried using any between `all()`, `any()`
     or index access `[i]` followed by the contained type supported operations.
 
@@ -216,7 +216,7 @@ class ToFCamera(
 
     ### Querying with the **`.Q` Proxy**
     This class is fully queryable via the **`.Q` proxy**. You can filter ToFCamera data based
-    on thresholds values within a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog].
+    on thresholds values within a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog].
     Expressions entailing lists of values can be queried using any between `all()`, `any()`
     or index access `[i]` followed by the contained type supported operations.
 
@@ -257,9 +257,9 @@ class ToFCamera(
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `ToFCamera.Q.noise.all()` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
-    | `ToFCamera.Q.noise.any()` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
-    | `ToFCamera.Q.noise.[i]` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `ToFCamera.Q.noise.all()` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.outside()` |
+    | `ToFCamera.Q.noise.any()` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.outside()` |
+    | `ToFCamera.Q.noise.[i]` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.outside()` |
 
     Example:
         ```python
@@ -309,9 +309,9 @@ class ToFCamera(
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `ToFCamera.Q.grayscale.all()` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
-    | `ToFCamera.Q.grayscale.any()` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
-    | `ToFCamera.Q.grayscale.[i]` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `ToFCamera.Q.grayscale.all()` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.outside()` |
+    | `ToFCamera.Q.grayscale.any()` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.outside()` |
+    | `ToFCamera.Q.grayscale.[i]` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.outside()` |
 
     Example:
         ```python
@@ -378,7 +378,7 @@ class StereoCamera(
 
     ### Querying with the **`.Q` Proxy**
     This class is fully queryable via the **`.Q` proxy**. You can filter StereoCamera data based
-    on thresholds values within a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog].
+    on thresholds values within a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog].
     Expressions entailing lists of values can be queried using any between `all()`, `any()`
     or index access `[i]` followed by the contained type supported operations.
 
@@ -416,9 +416,9 @@ class StereoCamera(
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `StereoCamera.Q.luma.all()` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
-    | `StereoCamera.Q.luma.any()` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
-    | `StereoCamera.Q.luma.[i]` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `StereoCamera.Q.luma.all()` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.outside()` |
+    | `StereoCamera.Q.luma.any()` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.outside()` |
+    | `StereoCamera.Q.luma.[i]` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.outside()` |
 
     Example:
         ```python
@@ -466,9 +466,9 @@ class StereoCamera(
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `StereoCamera.Q.cost.all()` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
-    | `StereoCamera.Q.cost.any()` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
-    | `StereoCamera.Q.cost.[i]` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `StereoCamera.Q.cost.all()` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.outside()` |
+    | `StereoCamera.Q.cost.any()` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.outside()` |
+    | `StereoCamera.Q.cost.[i]` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.outside()` |
 
     Example:
         ```python

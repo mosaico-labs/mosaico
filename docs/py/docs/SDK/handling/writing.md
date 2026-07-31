@@ -153,7 +153,7 @@ Once a topic is created via [`SequenceWriter.topic_create`][mosaicolabs.handlers
 1. The metadata fields will be queryable via the [`Query` mechanism](../query.md). The mechanism allows creating query expressions like: `QueryTopic().with_user_metadata("interface.type", eq="UART")`.
     API Reference:
     * [`mosaicolabs.models.platform.Topic`][mosaicolabs.models.platform.Topic]
-    * [`mosaicolabs.models.query.builders.QueryTopic`][mosaicolabs.models.query.builders.QueryTopic].
+    * [`mosaicolabs.query.builders.QueryTopic`][mosaicolabs.query.builders.QueryTopic].
 
 
 ### Topic-Level Error Handling

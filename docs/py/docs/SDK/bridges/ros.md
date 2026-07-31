@@ -152,6 +152,17 @@ class MyCustomAdapter(ROSAdapterBase[MyCustomData]):
         return MyCustomData(...)
 ```
 
+#### Extending the Bridge (Unmodeled Adapters)
+
+Not every ROS message type needs a hand-written adapter before it can be ingested. When the bridge encounters a topic whose message type has no registered adapter — a proprietary or custom `.msg`/`.idl` definition, for instance — it doesn't reject the topic. Instead, it synthesizes an **[`UnmodeledAdapter`][mosaicolabs.ros_bridge.adapters.unmodeled.UnmodeledAdapter]** for it at runtime, transparently and with no user intervention required, capable of translating that type in both directions: ROS bag to Mosaico, and back again from Mosaico to ROS.
+
+This is possible because ROS bag files carry the schema of every message type alongside the raw data. The bridge converts that schema into an equivalent PyArrow schema and wraps it into a dynamically-generated [`Unmodeled`][mosaicolabs.models.core.unmodeled.Unmodeled] ontology class via [`resolve_ontology_class`][mosaicolabs.models.core.helpers.resolve_ontology_class] — the same mechanism the Mosaico ontology system uses for any schema that isn't backed by a hand-authored Python class.
+
+!!! important "Const/enum data is not part of the message payload"
+    ROS message constants (`UPPER_CASE` fields, e.g. `uint8 STATUS_FIX=0`) are not ingested as part of each message's data. Since they're fixed per message *type* rather than per message *instance*, they are extracted once and stored as **topic metadata** (alongside the original ROS message type and definition) instead of being duplicated into every ingested row.
+
+See [Advanced: Ingesting Unmodeled Ontologies](../ontology.md#advanced-ingesting-unmodeled-ontologies) for the full mechanics of the `Unmodeled` ontology type — including how schema-variant fingerprinting keeps multiple versions of the same tag apart, and, most importantly, how to **query** this data on the server without ever needing to resolve a Python class for it.
+
 #### Override Adapters
 This section explains how to extend the bridge's capabilities by implementing and registering Override Adapters.
 
@@ -404,7 +415,7 @@ While the underlying `rosbags` library supports the majority of standard ROS 2 b
   * **Recommendation:** This issue originates in the upstream parser handling of this specific dataset's serialization alignment. It is currently recommended to exclude this dataset or transcode it using standard ROS 2 tools before ingestion.
 
 
-  ## Supported Message Types
+## Supported Message Types
   
   ***ROS-Specific Data Models***
   

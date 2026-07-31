@@ -32,7 +32,7 @@ class Topic:
 
     ### Querying with **Query Builders**
     Querying Topic specific attributes (like `user_metadata` or `name`) can be made using the
-    [QueryTopic()][mosaicolabs.models.query.builders.QueryTopic] query builder.
+    [QueryTopic()][mosaicolabs.query.builders.QueryTopic] query builder.
 
     Example:
         ```python
@@ -65,7 +65,7 @@ class Topic:
 
     ### Querying with **Query Builders**
     Querying the `user_metadata` attribute can be made using the
-    [`QueryTopic.with_user_metadata()`][mosaicolabs.models.query.builders.QueryTopic.with_user_metadata] query builder.
+    [`QueryTopic.with_user_metadata()`][mosaicolabs.query.builders.QueryTopic.with_user_metadata] query builder.
 
     Example:
         ```python
@@ -95,11 +95,11 @@ class Topic:
     The unique identifier or resource name of the entity.
 
     ### Querying with **Query Builders**
-    The `name` attribute is queryable when constructing a [`QueryTopic`][mosaicolabs.models.query.QueryTopic]
+    The `name` attribute is queryable when constructing a [`QueryTopic`][mosaicolabs.query.QueryTopic]
     via the convenience methods:
 
-    * [`QueryTopic.with_name()`][mosaicolabs.models.query.builders.QueryTopic.with_name]
-    * [`QueryTopic.with_name_match()`][mosaicolabs.models.query.builders.QueryTopic.with_name_match]
+    * [`QueryTopic.with_name()`][mosaicolabs.query.builders.QueryTopic.with_name]
+    * [`QueryTopic.with_name_match()`][mosaicolabs.query.builders.QueryTopic.with_name_match]
 
     Example:
         ```python
@@ -125,11 +125,11 @@ class Topic:
     The name of the parent sequence containing this topic.
 
     ### Querying with **Query Builders**
-    The `sequence_name` attribute is queryable queryable when constructing a [`QuerySequence`][mosaicolabs.models.query.QuerySequence]
+    The `sequence_name` attribute is queryable queryable when constructing a [`QuerySequence`][mosaicolabs.query.QuerySequence]
     via the convenience methods:
 
-    * [`QuerySequence.with_name()`][mosaicolabs.models.query.builders.QuerySequence.with_name]
-    * [`QuerySequence.with_name_match()`][mosaicolabs.models.query.builders.QuerySequence.with_name_match]
+    * [`QuerySequence.with_name()`][mosaicolabs.query.builders.QuerySequence.with_name]
+    * [`QuerySequence.with_name_match()`][mosaicolabs.query.builders.QuerySequence.with_name_match]
 
     Example:
         ```python
@@ -155,10 +155,10 @@ class Topic:
     The UTC timestamp indicating when the entity was created on the server.
 
     ### Querying with **Query Builders**
-    The `created_timestamp` attribute is queryable when constructing a [`QueryTopic`][mosaicolabs.models.query.QueryTopic]
+    The `created_timestamp` attribute is queryable when constructing a [`QueryTopic`][mosaicolabs.query.QueryTopic]
     via the convenience method:
 
-    * [`QueryTopic.with_created_timestamp()`][mosaicolabs.models.query.builders.QueryTopic.with_created_timestamp]
+    * [`QueryTopic.with_created_timestamp()`][mosaicolabs.query.builders.QueryTopic.with_created_timestamp]
 
     Example:
         ```python
@@ -187,10 +187,10 @@ class Topic:
     [`Serializable`][mosaicolabs.models.core.Serializable] class registry.
 
     ### Querying with **Query Builders**
-    The `ontology_tag` attribute is queryable when constructing a [`QueryTopic`][mosaicolabs.models.query.QueryTopic]
+    The `ontology_tag` attribute is queryable when constructing a [`QueryTopic`][mosaicolabs.query.QueryTopic]
     via the convenience method:
     
-    * [`QueryTopic.with_ontology_tag()`][mosaicolabs.models.query.builders.QueryTopic.with_ontology_tag].
+    * [`QueryTopic.with_ontology_tag()`][mosaicolabs.query.builders.QueryTopic.with_ontology_tag].
 
     Example:
         ```python

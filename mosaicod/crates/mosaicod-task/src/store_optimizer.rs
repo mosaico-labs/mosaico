@@ -118,6 +118,7 @@ impl StoreOptimizer {
                 &topic.uuid(),
                 &stats.path,
                 stats.metadata.size_bytes as i64,
+                stats.metadata.arrow_size_bytes as i64,
                 stats.metadata.row_count as i64,
                 &topic.ontology_tag,
                 stats.ontology_stats,

@@ -144,10 +144,13 @@ class ROSMessage:
             to the bag file. This is the "storage time".
         topic (str): The specific topic string source (e.g., "/camera/left/image_raw").
         msg_type (str): The canonical ROS type string (e.g., "sensor_msgs/msg/Image").
-        data (Optional[Dict[str, Any]]): The message payload converted into a standard
-            nested Python dictionary.
+        msg_def (Optional[str]): The ROS message definition as string.
+        data_field (Optional[Dict[str, Any]]): The message payload converted into a
+            standard nested Python dictionary.
+        const_data (Dict[str, Any]): The message constants (e.g. `uint8 STATUS_FIX=0`)
+            declared at the top level of the message, keyed by their `UPPER_CASE` name.
         header (Optional[ROSHeader]): An automatically parsed `ROSHeader` if the
-            `data` payload contains a valid header field.
+            `data_field` payload contains a valid header field.
     """
 
     def __init__(
@@ -156,11 +159,13 @@ class ROSMessage:
         topic: str,
         msg_type: str,
         data: Optional[Dict[str, Any]],
+        const_data: Optional[Dict[str, Any]] = None,
     ):
         self.bag_timestamp_ns = bag_timestamp_ns
         self.topic = topic
         self.msg_type = msg_type
-        self.data = data
+        self.data_field = data
+        self.const_data = const_data or {}
         if data:
             header_dict = data.get("header")
             if header_dict:
@@ -176,7 +181,9 @@ class ROSMessage:
     """The topic string of the message source."""
     msg_type: str
     """The message ros type string."""
-    data: Optional[Dict[str, Any]]
+    data_field: Optional[Dict[str, Any]]
     """The message payload, converted into a standard nested Python dictionary."""
+    const_data: Dict[str, Any]
+    """The message's top-level constants, keyed by their `UPPER_CASE` name."""
     header: Optional[ROSHeader] = None
     """The message payload header"""

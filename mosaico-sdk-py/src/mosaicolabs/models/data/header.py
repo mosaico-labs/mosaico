@@ -23,7 +23,7 @@ class Header(Serializable):
         sample_counter: Integer indicating the number of samples elapsed since process start. It can be omitted if not available.
 
     ### Querying with the **`.Q` Proxy**
-    This class fields are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
+    This class fields are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog]
     via the **`.Q` proxy**. Check the fields documentation for detailed description.
 
     Example:
@@ -68,8 +68,8 @@ class Header(Serializable):
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `Header.Q.timestamp.seconds` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
-    | `Header.Q.timestamp.nanoseconds` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `Header.Q.timestamp.seconds` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.outside()` |
+    | `Header.Q.timestamp.nanoseconds` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.outside()` |
 
     Example:
         ```python
@@ -112,7 +112,7 @@ class Header(Serializable):
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `Header.Q.frame_id` | `String` | `.eq()`, `.match()`, `.in_()`, `.lt()`, `.gt()`, `.leq()`, `.geq()` |
+    | `Header.Q.frame_id` | `String` | `.eq()`, `.match()`, `.in_()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.between()`, `.outside()` |
 
     Example:
         ```python
@@ -155,7 +155,7 @@ class Header(Serializable):
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `Header.Q.sample_counter` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `Header.Q.sample_counter` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.outside()` |
 
     Example:
         ```python

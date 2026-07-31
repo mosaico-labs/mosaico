@@ -123,6 +123,7 @@ pub fn is_textual(data_type: &DataType) -> bool {
         data_type,
         DataType::Utf8
             | DataType::LargeUtf8
+            | DataType::Utf8View
             | DataType::Date32
             | DataType::Date64
             | DataType::Timestamp(_, _)
@@ -327,19 +328,22 @@ pub fn stats_from_arrow_field(field: &Field) -> types::Stats {
     match field.data_type() {
         dt if is_numeric(dt) => Stats::Numeric(NumericStats::new()),
         dt if is_textual(dt) => Stats::Textual(TextualStats::new()),
-        DataType::List(elem) | DataType::LargeList(elem) => {
-            if is_textual(elem.data_type()) {
-                Stats::ListTextual(TextualStats::new())
-            } else {
-                Stats::ListNumeric(NumericStats::new())
+        DataType::List(elem) | DataType::LargeList(elem) | DataType::FixedSizeList(elem, _) => {
+            // Descend through any number of nested list layers to reach the
+            // innermost element type, then classify by that leaf type.
+            let mut leaf = elem.data_type();
+            while let DataType::List(inner)
+            | DataType::LargeList(inner)
+            | DataType::FixedSizeList(inner, _) = leaf
+            {
+                leaf = inner.data_type();
             }
-        }
-        DataType::FixedSizeList(elem, _) => {
-            if is_textual(elem.data_type()) {
-                Stats::ListTextual(TextualStats::new())
-            } else {
-                Stats::ListNumeric(NumericStats::new())
+            if is_textual(leaf) {
+                return Stats::ListTextual(TextualStats::new());
+            } else if is_numeric(leaf) {
+                return Stats::ListNumeric(NumericStats::new());
             }
+            Stats::Unsupported
         }
         _ => Stats::Unsupported,
     }
@@ -359,6 +363,19 @@ fn list_child_values_from_array(array: &ArrayRef) -> Option<ArrayRef> {
         return Some(a.values().clone());
     }
     None
+}
+
+/// Recursively unwraps nested list layers (e.g. `List<List<float>>`, or any
+/// number of nesting levels) until it reaches a non-list (leaf) array,
+/// returning that innermost values array.
+///
+/// Returns `None` if the input is not a list type at all.
+fn list_leaf_values_from_array(array: &ArrayRef) -> Option<ArrayRef> {
+    let mut current = list_child_values_from_array(array)?;
+    while let Some(inner) = list_child_values_from_array(&current) {
+        current = inner;
+    }
+    Some(current)
 }
 
 /// Inspects an array and updates the provided statistics using SIMD-optimized Arrow compute kernels.
@@ -399,7 +416,7 @@ pub fn stats_inspect_array(stats: &mut types::Stats, array: &ArrayRef) -> Result
             stats.merge(min_val, max_val, has_null);
         }
         Stats::ListNumeric(stats) => {
-            let flatten_list = list_child_values_from_array(array).ok_or_else(|| {
+            let flatten_list = list_leaf_values_from_array(array).ok_or_else(|| {
                 arrow::error::ArrowError::CastError("expected list array".to_string())
             })?;
 
@@ -412,7 +429,7 @@ pub fn stats_inspect_array(stats: &mut types::Stats, array: &ArrayRef) -> Result
             stats.merge(min_val, max_val, has_null, has_nan);
         }
         Stats::ListTextual(stats) => {
-            let flatten_list = list_child_values_from_array(array).ok_or_else(|| {
+            let flatten_list = list_leaf_values_from_array(array).ok_or_else(|| {
                 arrow::error::ArrowError::CastError("expected list array".to_string())
             })?;
 
@@ -458,8 +475,7 @@ pub fn ontology_model_stats_from_schema(schema: &SchemaRef) -> types::OntologyMo
 #[cfg(any(test, feature = "testing"))]
 pub mod testing {
     use super::*;
-
-    use arrow::array::{Int64Array, LargeBinaryBuilder, RecordBatch};
+    use arrow::array::{Int64Array, LargeBinaryBuilder, ListBuilder, RecordBatch, StringBuilder};
     use arrow::datatypes::{DataType, Field, Schema};
 
     pub fn dummy_empty_batch() -> RecordBatch {
@@ -564,6 +580,37 @@ pub mod testing {
             schema.clone(),
             vec![
                 Arc::new(Int64Array::from(ts_vec)),
+                Arc::new(builder.finish()),
+            ],
+        )
+        .unwrap()
+    }
+
+    /// Returns a dummy batch containing a list of strings for each record
+    pub fn dummy_list_string_batch() -> RecordBatch {
+        let schema = Arc::new(Schema::new(vec![
+            Field::new(
+                params::ARROW_SCHEMA_COLUMN_NAME_INDEX_TIMESTAMP,
+                DataType::Int64,
+                false,
+            ),
+            Field::new(
+                "value",
+                DataType::List(Arc::new(Field::new("item", DataType::Utf8, true))),
+                false,
+            ),
+        ]));
+
+        let mut builder = ListBuilder::new(StringBuilder::new());
+        for row in [vec!["a", "b", "c"], vec!["d", "e"]] {
+            row.iter().for_each(|s| builder.values().append_value(s));
+            builder.append(true);
+        }
+
+        RecordBatch::try_new(
+            schema,
+            vec![
+                Arc::new(Int64Array::from(vec![10000, 10005])),
                 Arc::new(builder.finish()),
             ],
         )
@@ -817,5 +864,68 @@ mod tests {
                 "readings.y".to_owned(),
             ]
         );
+    }
+
+    fn list_of_lists_f32(inner_lists: Vec<Vec<f32>>) -> ArrayRef {
+        use arrow::array::{Float32Builder, ListBuilder};
+
+        let mut builder = ListBuilder::new(ListBuilder::new(Float32Builder::new()));
+        for inner in inner_lists {
+            for v in inner {
+                builder.values().values().append_value(v);
+            }
+            builder.values().append(true);
+        }
+        builder.append(true);
+        Arc::new(builder.finish())
+    }
+
+    #[test]
+    fn nested_list_of_lists_numeric_stats() {
+        let array = list_of_lists_f32(vec![vec![1.0, 2.0, 3.0], vec![-1.0, -2.0, -3.0]]);
+        let field = Field::new("ranges", array.data_type().clone(), false);
+
+        let mut stats = stats_from_arrow_field(&field);
+        assert!(
+            matches!(stats, types::Stats::ListNumeric(_)),
+            "List<List<Float32>> must be classified as ListNumeric"
+        );
+
+        stats_inspect_array(&mut stats, &array)
+            .expect("nested list stats inspection must not fail");
+
+        let types::Stats::ListNumeric(n) = stats else {
+            panic!("expected ListNumeric stats");
+        };
+        assert_eq!(n.min, -3.0);
+        assert_eq!(n.max, 3.0);
+    }
+
+    #[test]
+    fn triple_nested_list_numeric_stats() {
+        use arrow::array::{Float32Builder, ListBuilder};
+
+        // List<List<List<Float32>>> with one row: [[[5.0, 42.0]]]
+        let mut builder =
+            ListBuilder::new(ListBuilder::new(ListBuilder::new(Float32Builder::new())));
+        builder.values().values().values().append_value(5.0);
+        builder.values().values().values().append_value(42.0);
+        builder.values().values().append(true);
+        builder.values().append(true);
+        builder.append(true);
+        let array: ArrayRef = Arc::new(builder.finish());
+
+        let field = Field::new("deep", array.data_type().clone(), false);
+        let mut stats = stats_from_arrow_field(&field);
+        assert!(matches!(stats, types::Stats::ListNumeric(_)));
+
+        stats_inspect_array(&mut stats, &array)
+            .expect("triple-nested list stats inspection must not fail");
+
+        let types::Stats::ListNumeric(n) = stats else {
+            panic!("expected ListNumeric stats");
+        };
+        assert_eq!(n.min, 5.0);
+        assert_eq!(n.max, 42.0);
     }
 }

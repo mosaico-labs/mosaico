@@ -92,11 +92,13 @@ class LidarAdapter(PointCloudAdapterBase[Lidar]):
         return lidar
 
     @classmethod
-    def schema_metadata(cls, typestore: Typestore, ros_msg_type: str) -> Optional[dict]:
+    def schema_metadata(
+        cls, typestore: Typestore, ros_msg_type: str, ros_version: int
+    ) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
         """
-        return super().schema_metadata(typestore, ros_msg_type)
+        return super().schema_metadata(typestore, ros_msg_type, ros_version)
 
 
 class RadarAdapter(PointCloudAdapterBase[Radar]):
@@ -179,11 +181,13 @@ class RadarAdapter(PointCloudAdapterBase[Radar]):
         return radar
 
     @classmethod
-    def schema_metadata(cls, typestore: Typestore, ros_msg_type: str) -> Optional[dict]:
+    def schema_metadata(
+        cls, typestore: Typestore, ros_msg_type: str, ros_version: int
+    ) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
         """
-        return super().schema_metadata(typestore, ros_msg_type)
+        return super().schema_metadata(typestore, ros_msg_type, ros_version)
 
 
 class RGBDCameraAdapter(PointCloudAdapterBase[RGBDCamera]):
@@ -256,11 +260,13 @@ class RGBDCameraAdapter(PointCloudAdapterBase[RGBDCamera]):
         return rgbd_camera
 
     @classmethod
-    def schema_metadata(cls, typestore: Typestore, ros_msg_type: str) -> Optional[dict]:
+    def schema_metadata(
+        cls, typestore: Typestore, ros_msg_type: str, ros_version: int
+    ) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
         """
-        return super().schema_metadata(typestore, ros_msg_type)
+        return super().schema_metadata(typestore, ros_msg_type, ros_version)
 
 
 class ToFCameraAdapter(PointCloudAdapterBase[ToFCamera]):
@@ -336,11 +342,13 @@ class ToFCameraAdapter(PointCloudAdapterBase[ToFCamera]):
         return tof_camera
 
     @classmethod
-    def schema_metadata(cls, typestore: Typestore, ros_msg_type: str) -> Optional[dict]:
+    def schema_metadata(
+        cls, typestore: Typestore, ros_msg_type: str, ros_version: int
+    ) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
         """
-        return super().schema_metadata(typestore, ros_msg_type)
+        return super().schema_metadata(typestore, ros_msg_type, ros_version)
 
 
 class StereoCameraAdapter(PointCloudAdapterBase[StereoCamera]):
@@ -415,8 +423,10 @@ class StereoCameraAdapter(PointCloudAdapterBase[StereoCamera]):
         return stereo_camera
 
     @classmethod
-    def schema_metadata(cls, typestore: Typestore, ros_msg_type: str) -> Optional[dict]:
+    def schema_metadata(
+        cls, typestore: Typestore, ros_msg_type: str, ros_version: int
+    ) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
         """
-        return super().schema_metadata(typestore, ros_msg_type)
+        return super().schema_metadata(typestore, ros_msg_type, ros_version)

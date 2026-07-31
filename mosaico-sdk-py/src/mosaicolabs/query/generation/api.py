@@ -3,19 +3,18 @@ from typing import Any, ClassVar, Dict, Optional, Type, TypeVar, Union
 
 import pyarrow as pa
 
-from mosaicolabs.models.query.generation.internal import (
+from ..expressions import _QueryCatalogExpression
+from ..protocols import FieldMapperProtocol
+from .internal import (
     _PYARROW_TO_PYTHON_BASE_TYPE,
     _PYTHON_TYPE_TO_QUERYABLE_MIXIN,
+    _QueryableList,
 )
-from mosaicolabs.models.query.generation.mixins import (
+from .mixins import (
     _make_queryable_field_type,
     _QueryableField,
     _QueryableUnsupported,
 )
-
-from ..expressions import _QueryCatalogExpression
-from ..protocols import FieldMapperProtocol
-from .internal import _QueryableList
 
 SUPPORTED_LIST_OPERATIONS = ["?", "!"]
 SUPPORTED_PYARROW_LIST_TYPES = (pa.ListType, pa.LargeListType, pa.FixedSizeListType)

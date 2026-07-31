@@ -66,6 +66,7 @@ _PYARROW_TO_PYTHON_BASE_TYPE: Dict[pa.DataType, type] = {
     pa.timestamp("ns"): datetime.datetime,
     # String types
     pa.string(): str,
+    # NOTE: Kept for user customized schemas
     pa.large_string(): str,
 }
 

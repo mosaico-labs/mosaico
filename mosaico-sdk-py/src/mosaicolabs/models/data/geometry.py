@@ -44,12 +44,12 @@ class _Vector2dStruct(BaseModel):
     The Vector X component
     
     ### Querying with the **`.Q` Proxy**
-    This field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog] 
+    This field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog] 
     via the **`.Q` proxy**.
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `<Model>.Q.x` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `<Model>.Q.x` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.outside()` |
 
     Note: Universal Compatibility
         The `<Model>` placeholder represents any Mosaico class derived by `_Vector2dStruct` (i.e. [`Vector2d`][mosaicolabs.models.data.Vector2d], [`Point2d`][mosaicolabs.models.data.Point2d])
@@ -97,12 +97,12 @@ class _Vector2dStruct(BaseModel):
     The Vector Y component
     
     ### Querying with the **`.Q` Proxy**
-    This field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog] 
+    This field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog] 
     via the **`.Q` proxy**.
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `<Model>.Q.y` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `<Model>.Q.y` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.outside()` |
 
     Note: Universal Compatibility
         The `<Model>` placeholder represents any Mosaico class derived by `_Vector2dStruct` (i.e. [`Vector2d`][mosaicolabs.models.data.Vector2d], [`Point2d`][mosaicolabs.models.data.Point2d])
@@ -184,12 +184,12 @@ class _Vector3dStruct(BaseModel):
     The Vector X component
     
     ### Querying with the **`.Q` Proxy**
-    This field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog] 
+    This field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog] 
     via the **`.Q` proxy**.
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `<Model>.Q.x` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `<Model>.Q.x` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.outside()` |
 
     Note: Universal Compatibility
         The `<Model>` placeholder represents any Mosaico class derived by `_Vector3dStruct` (i.e. [`Vector3d`][mosaicolabs.models.data.Vector2d], [`Point3d`][mosaicolabs.models.data.Point2d])
@@ -237,12 +237,12 @@ class _Vector3dStruct(BaseModel):
     The Vector Y component
     
     ### Querying with the **`.Q` Proxy**
-    This field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog] 
+    This field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog] 
     via the **`.Q` proxy**.
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `<Model>.Q.y` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `<Model>.Q.y` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.outside()` |
 
     Note: Universal Compatibility
         The `<Model>` placeholder represents any Mosaico class derived by `_Vector3dStruct` (i.e. [`Vector3d`][mosaicolabs.models.data.Vector2d], [`Point3d`][mosaicolabs.models.data.Point2d])
@@ -290,12 +290,12 @@ class _Vector3dStruct(BaseModel):
     The Vector Z component
     
     ### Querying with the **`.Q` Proxy**
-    This field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog] 
+    This field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog] 
     via the **`.Q` proxy**.
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `<Model>.Q.z` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `<Model>.Q.z` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.outside()` |
 
     Note: Universal Compatibility
         The `<Model>` placeholder represents any Mosaico class derived by `_Vector3dStruct` (i.e. [`Vector3d`][mosaicolabs.models.data.Vector2d], [`Point3d`][mosaicolabs.models.data.Point2d])
@@ -377,12 +377,12 @@ class _Vector4dStruct(BaseModel):
     The Vector X component
     
     ### Querying with the **`.Q` Proxy**
-    This field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog] 
+    This field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog] 
     via the **`.Q` proxy**.
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `<Model>.Q.x` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `<Model>.Q.x` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.outside()` |
 
     Note: Universal Compatibility
         The `<Model>` placeholder represents any Mosaico class derived by `_Vector4dStruct` (i.e. [`Vector4d`][mosaicolabs.models.data.Vector4d], [`Quaternion`][mosaicolabs.models.data.Quaternion])
@@ -431,12 +431,12 @@ class _Vector4dStruct(BaseModel):
     The Vector Y component
     
     ### Querying with the **`.Q` Proxy**
-    This field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog] 
+    This field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog] 
     via the **`.Q` proxy**.
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `<Model>.Q.y` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `<Model>.Q.y` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.outside()` |
 
     Note: Universal Compatibility
         The `<Model>` placeholder represents any Mosaico class derived by `_Vector4dStruct` (i.e. [`Vector4d`][mosaicolabs.models.data.Vector4d], [`Quaternion`][mosaicolabs.models.data.Quaternion])
@@ -485,12 +485,12 @@ class _Vector4dStruct(BaseModel):
     The Vector Z component
     
     ### Querying with the **`.Q` Proxy**
-    This field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog] 
+    This field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog] 
     via the **`.Q` proxy**.
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `<Model>.Q.z` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `<Model>.Q.z` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.outside()` |
 
     Note: Universal Compatibility
         The `<Model>` placeholder represents any Mosaico class derived by `_Vector4dStruct` (i.e. [`Vector4d`][mosaicolabs.models.data.Vector4d], [`Quaternion`][mosaicolabs.models.data.Quaternion])
@@ -539,12 +539,12 @@ class _Vector4dStruct(BaseModel):
     The Vector W component
     
     ### Querying with the **`.Q` Proxy**
-    This field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog] 
+    This field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog] 
     via the **`.Q` proxy**.
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `<Model>.Q.w` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `<Model>.Q.w` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.outside()` |
 
     Note: Universal Compatibility
         The `<Model>` placeholder represents any Mosaico class derived by `_Vector4dStruct` (i.e. [`Vector4d`][mosaicolabs.models.data.Vector4d], [`Quaternion`][mosaicolabs.models.data.Quaternion])
@@ -628,7 +628,7 @@ class Vector2d(
         header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
-    This class fields are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
+    This class fields are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog]
     via the **`.Q` proxy**. Check the fields documentation for detailed description.
 
     Example:
@@ -685,7 +685,7 @@ class Vector3d(
         header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
-    This class fields are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
+    This class fields are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog]
     via the **`.Q` proxy**. Check the fields documentation for detailed description.
 
     Example:
@@ -743,7 +743,7 @@ class Vector4d(
         header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
-    This class fields are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
+    This class fields are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog]
     via the **`.Q` proxy**. Check the fields documentation for detailed description.
 
     Example:
@@ -800,7 +800,7 @@ class Point2d(
         header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
-    This class fields are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
+    This class fields are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog]
     via the **`.Q` proxy**. Check the fields documentation for detailed description.
 
     Example:
@@ -858,7 +858,7 @@ class Point3d(
         header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
-    This class fields are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
+    This class fields are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog]
     via the **`.Q` proxy**. Check the fields documentation for detailed description.
 
     Example:
@@ -917,7 +917,7 @@ class Quaternion(
         header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
-    This class fields are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
+    This class fields are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog]
     via the **`.Q` proxy**. Check the fields documentation for detailed description.
 
     Example:
@@ -979,7 +979,7 @@ class Transform(
         header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
-    This class fields are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
+    This class fields are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog]
     via the **`.Q` proxy**. Check the fields documentation for detailed description.
 
     Example:
@@ -1020,9 +1020,9 @@ class Transform(
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `Transform.Q.translation.x` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
-    | `Transform.Q.translation.y` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
-    | `Transform.Q.translation.z` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `Transform.Q.translation.x` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.outside()` |
+    | `Transform.Q.translation.y` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.outside()` |
+    | `Transform.Q.translation.z` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.outside()` |
 
     Example:
         ```python
@@ -1061,10 +1061,10 @@ class Transform(
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `Transform.Q.rotation.x` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
-    | `Transform.Q.rotation.y` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
-    | `Transform.Q.rotation.z` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
-    | `Transform.Q.rotation.w` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `Transform.Q.rotation.x` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.outside()` |
+    | `Transform.Q.rotation.y` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.outside()` |
+    | `Transform.Q.rotation.z` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.outside()` |
+    | `Transform.Q.rotation.w` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.outside()` |
 
     Example:
         ```python
@@ -1102,7 +1102,7 @@ class Transform(
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `Transform.Q.target_frame_id` | `String` | `.eq()`, `.match()`, `.in_()`, `.lt()`, `.gt()`, `.leq()`, `.geq()` |
+    | `Transform.Q.target_frame_id` | `String` | `.eq()`, `.match()`, `.in_()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.between()`, `.outside()` |
 
     Example:
         ```python
@@ -1154,7 +1154,7 @@ class Pose(
         header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
-    This class fields are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
+    This class fields are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog]
     via the **`.Q` proxy**. Check the fields documentation for detailed description.
 
     Example:
@@ -1195,9 +1195,9 @@ class Pose(
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `Pose.Q.position.x` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
-    | `Pose.Q.position.y` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
-    | `Pose.Q.position.z` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `Pose.Q.position.x` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.outside()` |
+    | `Pose.Q.position.y` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.outside()` |
+    | `Pose.Q.position.z` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.outside()` |
 
     Example:
         ```python
@@ -1237,10 +1237,10 @@ class Pose(
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `Pose.Q.orientation.x` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
-    | `Pose.Q.orientation.y` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
-    | `Pose.Q.orientation.z` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
-    | `Pose.Q.orientation.w` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `Pose.Q.orientation.x` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.outside()` |
+    | `Pose.Q.orientation.y` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.outside()` |
+    | `Pose.Q.orientation.z` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.outside()` |
+    | `Pose.Q.orientation.w` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.outside()` |
 
     Example:
         ```python
@@ -1287,7 +1287,7 @@ class RobotPath(
         header (optional[Header]): Optional heading containing measurement metadata
 
     ### Querying with the **`.Q` Proxy**
-    This class is fully queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
+    This class is fully queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog]
     via the **`.Q` proxy**. Both `path_frame` and `poses` are queryable. Check the fields
     documentation for detailed description.
 
@@ -1327,9 +1327,9 @@ class RobotPath(
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `RobotPath.Q.poses.all().position.x` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
-    | `RobotPath.Q.poses.any().position.x` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
-    | `RobotPath.Q.poses.[i].position.x` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `RobotPath.Q.poses.all().position.x` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.outside()` |
+    | `RobotPath.Q.poses.any().position.x` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.outside()` |
+    | `RobotPath.Q.poses.[i].position.x` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.outside()` |
 
     Example:
         ```python
@@ -1394,9 +1394,9 @@ class Polygon(
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `Polygon.Q.points.all().x` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
-    | `Polygon.Q.points.any().x` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
-    | `Polygon.Q.points.[i].x` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `Polygon.Q.points.all().x` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.outside()` |
+    | `Polygon.Q.points.any().x` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.outside()` |
+    | `Polygon.Q.points.[i].x` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.outside()` |
 
     Example:
         ```python

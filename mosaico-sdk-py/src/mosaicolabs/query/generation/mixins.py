@@ -31,10 +31,10 @@ class _QueryableComparable:
     """
     Mixin providing comparison operators for ordered field types.
 
-    Composed with [`_QueryableField`][mosaicolabs.models.query.generation.mixins._QueryableField]
+    Composed with [`_QueryableField`][mosaicolabs.query.generation.mixins._QueryableField]
     to produce a concrete queryable field for any type with a natural
-    ordering - numeric ([`_QueryableNumeric`][mosaicolabs.models.query.generation.mixins._QueryableNumeric])
-    or date/time ([`_QueryableDateTime`][mosaicolabs.models.query.generation.mixins._QueryableDateTime]).
+    ordering - numeric ([`_QueryableNumeric`][mosaicolabs.query.generation.mixins._QueryableNumeric])
+    or date/time ([`_QueryableDateTime`][mosaicolabs.query.generation.mixins._QueryableDateTime]).
     Every operator validates its operand(s) against `__mixin_supported_types__`
     (transforming them first via `_transform_value()` if the subclass
     overrides it, e.g. to serialize a `datetime` to ISO 8601), then delegates
@@ -156,9 +156,9 @@ class _QueryableComparable:
         Args:
             *values (Any): The candidate values, passed either as separate
                 positional arguments (`in_(v1, v2)`) or as a single list or
-                tuple (`in_([v1, v2])`). Every value must share the same type,
-                matching one of the types in `__mixin_supported_types__` for
-                this field.
+                tuple (`in_([v1, v2])`).
+                All must be either `float` or `int`.
+
 
         Returns:
             The atomic comparison expression (`$in`).
@@ -173,14 +173,15 @@ class _QueryableComparable:
 
     def between(self, *values: Any) -> "_QueryExpression":
         """
-        Matches records where the field's value falls within an inclusive range.
+        Matches records where the field's value falls within an inclusive
+        range, i.e. `lower <= v <= upper`.
 
         Args:
             *values (Any): Exactly two values `(lower, upper)`, passed either as two
                 positional arguments (`between(lo, hi)`) or as a single list
-                or tuple (`between([lo, hi])`), with `lower <= upper`. Both
-                must match one of the types in `__mixin_supported_types__` for
-                this field.
+                or tuple (`between([lo, hi])`), with `lower <= upper`.
+                Both must be either `float` or `int`.
+
 
         Returns:
             The atomic comparison expression (`$between`).
@@ -194,17 +195,40 @@ class _QueryableComparable:
             *values, allowed_types=self.__mixin_supported_types__
         )
 
+    def outside(self, *values: Any) -> "_QueryExpression":
+        """
+        Matches records where the field's value falls outside an exclusive
+        range, i.e. `v < lower || v > upper`.
+
+        Args:
+            *values (Any): Exactly two values `(lower, upper)`, passed either as two
+                positional arguments (`outside(lo, hi)`) or as a single list
+                or tuple (`outside([lo, hi])`), with `lower <= upper`.
+                Both must be either `float` or `int`.
+
+        Returns:
+            The atomic comparison expression (`$outside`).
+
+        Raises:
+            ValueError: If not exactly two values are provided, or if the
+                first value is greater than the second.
+            TypeError: If the values don't share the same, supported types.
+        """
+        return getattr(self, "_outside")(
+            *values, allowed_types=self.__mixin_supported_types__
+        )
+
 
 class _QueryableNumeric(_QueryableComparable):
     """
     Queryable numeric field: `int` or `float`.
 
     Inherits every comparison operator from
-    [`_QueryableComparable`][mosaicolabs.models.query.generation.mixins._QueryableComparable]
+    [`_QueryableComparable`][mosaicolabs.query.generation.mixins._QueryableComparable]
     (`eq`, `neq`, `lt`, `leq`, `gt`, `geq`, `in_`, `between`), restricting
     accepted operand values to `int`/`float`. This is the mixin behind numeric
     `.Q` proxy fields (e.g. `IMU.Q.acceleration.x`) and the class-free
-    [`QueryableNumeric`][mosaicolabs.models.query.queryable_fields.QueryableNumeric].
+    [`QueryableNumeric`][mosaicolabs.query.queryable_fields.QueryableNumeric].
     """
 
     __slots__ = ()
@@ -240,7 +264,7 @@ class _QueryableDateTime(_QueryableComparable):
     Queryable date/time/timestamp field for comparisons in the backend.
 
     Inherits every comparison operator from
-    [`_QueryableComparable`][mosaicolabs.models.query.generation.mixins._QueryableComparable]
+    [`_QueryableComparable`][mosaicolabs.query.generation.mixins._QueryableComparable]
     (`eq`, `neq`, `lt`, `leq`, `gt`, `geq`, `in_`, `between`). Accepts Python
     temporal types (`datetime.date`, `datetime.time`, `datetime.datetime`) as
     well as numeric timestamps (`int`, nanoseconds since epoch); both are
@@ -288,7 +312,7 @@ class _QueryableBool:
     """
     Mixin providing comparison operators for boolean fields.
 
-    Composed with [`_QueryableField`][mosaicolabs.models.query.generation.mixins._QueryableField]
+    Composed with [`_QueryableField`][mosaicolabs.query.generation.mixins._QueryableField]
     to build queryable `bool` fields (e.g. `ROI.Q.do_rectify`). Booleans only
     support equality: there's no meaningful `.lt()`/`.gt()` ordering, and the
     backend doesn't currently support `.in_()`/`.between()` on this type.
@@ -323,7 +347,7 @@ class _QueryableString:
     """
     Mixin providing comparison operators for string fields.
 
-    Composed with [`_QueryableField`][mosaicolabs.models.query.generation.mixins._QueryableField]
+    Composed with [`_QueryableField`][mosaicolabs.query.generation.mixins._QueryableField]
     to build queryable `str` fields (e.g. `IMU.Q.frame_id`). Every operator
     validates that its operand is a `str` before delegating to
     `_QueryableField._cmp()`. Ordering operators (`.lt()`, `.leq()`, `.gt()`,
@@ -355,10 +379,25 @@ class _QueryableString:
 
     def match(self, value: Any) -> "_QueryExpression":
         """
-        Matches records where the field contains `value` as a substring.
+        Matches records where the field satisfies a glob-style pattern.
+
+        `value` is a lightweight glob pattern that must match the entire
+        field value. It supports the following wildcards:
+
+        | Wildcard | Description                                        | Example                    | Matches                                |
+        | -------- | --------------------------------------------------- | --------------------------- | --------------------------------------- |
+        | `*`      | Zero or more characters, including spaces            | `*imu`                      | `front_imu`, `camera_imu`               |
+        | `?`      | Exactly one character, including spaces              | `?.2.0`                     | `1.2.0`, `3.2.0` (not `10.2.0`)          |
+        | `[]`     | A character set or range                             | `[gs]*` / `[a-z]*`          | `gyrolytics`, `satnavics`               |
+        | `#`      | Any single digit (`0`-`9`); shorthand for `[0-9]`    | `test-query-sequence-#`     | `test-query-sequence-1`                 |
+
+        Note:
+            If `value` contains none of the wildcards above, the operator
+            is equivalent to [`.eq()`][mosaicolabs.query.queryable_fields.QueryableString.eq],
+            i.e. an exact match will be performed.
 
         Args:
-            value: The substring to search for.
+            value: The glob pattern to match against.
 
         Returns:
             The atomic comparison expression (`$match`).
@@ -457,9 +496,57 @@ class _QueryableString:
             *values, allowed_types=self.__mixin_supported_types__
         )
 
+    def between(self, *values: str) -> "_QueryExpression":
+        """
+        Matches records where the field's value falls within an inclusive
+        range, i.e. `lower <= v <= upper`. Since the field is a `str`, the
+        comparison is lexicographic.
+
+        Args:
+            *values (Any): Exactly two values `(lower, upper)`, passed either as two
+                positional arguments (`between(lo, hi)`) or as a single list
+                or tuple (`between([lo, hi])`), with `lower <= upper`.
+                Both must be of type `str`.
+
+        Returns:
+            The atomic comparison expression (`$between`).
+
+        Raises:
+            ValueError: If not exactly two values are provided, or if the
+                first value is greater than the second.
+            TypeError: If any value isn't a `str`.
+        """
+        return getattr(self, "_between")(
+            *values, allowed_types=self.__mixin_supported_types__
+        )
+
+    def outside(self, *values: str) -> "_QueryExpression":
+        """
+        Matches records where the field's value falls outside an exclusive
+        range, i.e. `v < lower || v > upper`. Since the field is a `str`,
+        the comparison is lexicographic.
+
+        Args:
+            *values (Any): Exactly two values `(lower, upper)`, passed either as two
+                positional arguments (`outside(lo, hi)`) or as a single list
+                or tuple (`outside([lo, hi])`), with `lower <= upper`.
+                Both must be of type `str`.
+
+        Returns:
+            The atomic comparison expression (`$outside`).
+
+        Raises:
+            ValueError: If not exactly two values are provided, or if the
+                first value is greater than the second.
+            TypeError: If any value isn't a `str`.
+        """
+        return getattr(self, "_outside")(
+            *values, allowed_types=self.__mixin_supported_types__
+        )
+
 
 # -------------------------------------------------------------------------
-# Dynbamic (Multi-Type) Queryable Mixin
+# Dynamic (Multi-Type) Queryable Mixin
 # -------------------------------------------------------------------------
 
 
@@ -467,9 +554,9 @@ class _QueryableDynamicValue:
     """
     A promiscuous mixin for dynamic dict values (e.g. `user_metadata`).
 
-    Composed with [`_QueryableField`][mosaicolabs.models.query.generation.mixins._QueryableField]
+    Composed with [`_QueryableField`][mosaicolabs.query.generation.mixins._QueryableField]
     to build queryable fields for entries of a `Dict[str, Any]` field, reached
-    via [`_DynamicFieldFactoryMixin`][mosaicolabs.models.query.generation.mixins._DynamicFieldFactoryMixin]'s
+    via [`_DynamicFieldFactoryMixin`][mosaicolabs.query.generation.mixins._DynamicFieldFactoryMixin]'s
     bracket notation (e.g. `<Model>.Q.metadata["mission"]`). Because a
     dictionary value's type isn't known ahead of time, every operator here
     accepts numeric, string, and boolean values with only loose client-side
@@ -524,10 +611,25 @@ class _QueryableDynamicValue:
 
     def match(self, value: Any):
         """
-        Matches records where the field contains `value` as a substring.
+        Matches records where the field satisfies a glob-style pattern.
+
+        `value` is a lightweight glob pattern that must match the entire
+        field value. It supports the following wildcards:
+
+        | Wildcard | Description                                        | Example                    | Matches                                |
+        | -------- | --------------------------------------------------- | --------------------------- | --------------------------------------- |
+        | `*`      | Zero or more characters, including spaces            | `*imu`                      | `front_imu`, `camera_imu`               |
+        | `?`      | Exactly one character, including spaces              | `?.2.0`                     | `1.2.0`, `3.2.0` (not `10.2.0`)          |
+        | `[]`     | A character set or range                             | `[gs]*` / `[a-z]*`          | `gyrolytics`, `satnavics`               |
+        | `#`      | Any single digit (`0`-`9`); shorthand for `[0-9]`    | `test-query-sequence-#`     | `test-query-sequence-1`                 |
+
+        Note:
+            If `value` contains none of the wildcards above, the operator
+            is equivalent to [`.eq()`][mosaicolabs.query.queryable_fields.QueryableString.eq],
+            i.e. an exact match will be performed.
 
         Args:
-            value: The substring to search for.
+            value: The glob pattern to match against.
 
         Returns:
             The atomic comparison expression (`$match`).
@@ -640,7 +742,10 @@ class _QueryableDynamicValue:
 
     def between(self, *values) -> "_QueryExpression":
         """
-        Matches records where the field's value falls within an inclusive range.
+        Matches records where the field's value falls within an inclusive
+        range, i.e. `lower <= v <= upper`. Since the field's type isn't known
+        ahead of time, the comparison is numeric if `(lower, upper)` are
+        numbers, or lexicographic if they're strings.
 
         Args:
             *values: Exactly two values `(lower, upper)`, passed either as two
@@ -653,8 +758,31 @@ class _QueryableDynamicValue:
         Raises:
             ValueError: If not exactly two values are provided, or if the
                 first value is greater than the second.
+            TypeError: If the values don't share the same type.
         """
         return getattr(self, "_between")(*values, allowed_types=None)
+
+    def outside(self, *values: Any) -> "_QueryExpression":
+        """
+        Matches records where the field's value falls outside an exclusive
+        range, i.e. `v < lower || v > upper`. Since the field's type isn't
+        known ahead of time, the comparison is numeric if `(lower, upper)`
+        are numbers, or lexicographic if they're strings.
+
+        Args:
+            *values (Any): Exactly two values `(lower, upper)`, passed either as two
+                positional arguments (`outside(lo, hi)`) or as a single list
+                or tuple (`outside([lo, hi])`), with `lower <= upper`.
+
+        Returns:
+            The atomic comparison expression (`$outside`).
+
+        Raises:
+            ValueError: If not exactly two values are provided, or if the
+                first value is greater than the second.
+            TypeError: If the values don't share the same type.
+        """
+        return getattr(self, "_outside")(*values, allowed_types=None)
 
     def ex(self, value: bool) -> "_QueryExpression":
         """
@@ -771,14 +899,14 @@ class _QueryableField:
     Represents a single queryable field, addressed by its fully-qualified path.
 
     This is the core class that holds state (the field's path and the concrete
-    [`_QueryExpression`][mosaicolabs.models.query.expressions._QueryExpression]
+    [`_QueryExpression`][mosaicolabs.query.expressions._QueryExpression]
     subclass to build) and implements the machinery every `_Queryable*` mixin
     operator relies on: `_cmp()` builds an atomic expression, and
     `_validate_value_type()`, `_in()`, `_between()` back the shared
     `.in_()`/`.between()` operators. The public operators themselves (`eq`,
     `lt`, `match`, ...) come from whichever `_Queryable*` mixin is composed
     alongside this class - see
-    [`_make_queryable_field_type()`][mosaicolabs.models.query.generation.mixins._make_queryable_field_type].
+    [`_make_queryable_field_type()`][mosaicolabs.query.generation.mixins._make_queryable_field_type].
     """
 
     __slots__ = ("_full_path", "_expr_cls")
@@ -788,7 +916,7 @@ class _QueryableField:
         Args:
             full_path: The fully-qualified, dot-notated field path, prefixed
                 by the ontology tag (e.g. `"IMU.acceleration.x"`).
-            expr_cls: The [`_QueryExpression`][mosaicolabs.models.query.expressions._QueryExpression]
+            expr_cls: The [`_QueryExpression`][mosaicolabs.query.expressions._QueryExpression]
                 subclass used to build comparison expressions for this field
                 (e.g. `_QueryCatalogExpression`).
         """
@@ -870,7 +998,8 @@ class _QueryableField:
     def _between(self, *values, allowed_types: Union[Type, Tuple[Type, ...], None]):
         """
         Checks if the field's value is between two provided values (inclusive).
-        Accept either between(v1, v2, ...) or between([v1, v2, ...])
+        Accept either between(v1, v2) or between([v1, v2]).
+        The operator corresponds numerically to test whether `v1 <= v <= v2`.
         """
 
         if len(values) == 1 and isinstance(values[0], (list, tuple)):
@@ -892,6 +1021,33 @@ class _QueryableField:
 
         transformed = [getattr(self, "_transform_value")(v) for v in values]
         return getattr(self, "_cmp")("$between", transformed)
+
+    def _outside(self, *values, allowed_types: Union[Type, Tuple[Type, ...], None]):
+        """
+        Checks if the field's value is outside two provided values (exclusive).
+        Accept either outside(v1, v2) or outside([v1, v2]).
+        The operator corresponds numerically to test whether `v < v1 || v > v2`.
+        """
+
+        if len(values) == 1 and isinstance(values[0], (list, tuple)):
+            values = values[0]  # unpack list/tuple
+        else:
+            values = list(values)
+
+        if len(values) != 2:
+            raise ValueError("'outside' operator requires exactly two numeric values.")
+
+        # Validate type of each value
+        getattr(self, "_validate_value_type")(values, allowed_types)
+
+        # Ensure first <= second
+        if values[0] > values[1]:
+            raise ValueError(
+                "'outside' operator expects the first value less than (or equal to) the second."
+            )
+
+        transformed = [getattr(self, "_transform_value")(v) for v in values]
+        return getattr(self, "_cmp")("$outside", transformed)
 
     def __getattr__(self, name: str):
         """This is called when an attribute is not found normally. Raise a helpful error."""

@@ -9,11 +9,11 @@ class _QueryableMixinProtocol(Protocol):
 
 class QueryableProtocol(Protocol):
     """
-    Structural protocol for classes that integrate into a multi-domain [`Query`][mosaicolabs.models.query.builders.Query].
+    Structural protocol for classes that integrate into a multi-domain [`Query`][mosaicolabs.query.builders.Query].
 
     A class implicitly satisfies this protocol if it provides a unique identification tag
     via `name()` and a serialization method via `to_dict()`. This
-    protocol ensures that the root [`Query`][mosaicolabs.models.query.builders.Query]
+    protocol ensures that the root [`Query`][mosaicolabs.query.builders.Query]
     or the  can
     orchestrate complex requests without knowing the specific internal logic of
     each sub-query.
@@ -21,9 +21,9 @@ class QueryableProtocol(Protocol):
     ### Reference Implementations
     The following classes are standard examples of this protocol:
 
-    * [`QueryTopic`][mosaicolabs.models.query.builders.QueryTopic]: Filters Topic-level metadata.
-    * [`QuerySequence`][mosaicolabs.models.query.builders.QuerySequence]: Filters Sequence-level metadata.
-    * [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]: Filters fine-grained sensor field data.
+    * [`QueryTopic`][mosaicolabs.query.builders.QueryTopic]: Filters Topic-level metadata.
+    * [`QuerySequence`][mosaicolabs.query.builders.QuerySequence]: Filters Sequence-level metadata.
+    * [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog]: Filters fine-grained sensor field data.
     """
 
     __supported_query_expressions__: Tuple[Type[_QueryExpression], ...]

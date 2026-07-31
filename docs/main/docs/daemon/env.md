@@ -1,6 +1,6 @@
 ---
 title: Environment Variables
-sidebar_position: 10
+sidebar_position: 12
 description: "Complete reference for all environment variables accepted by mosaicod. Covers storage path, gRPC port, TLS certificate paths, log level, retention policy, and other runtime configuration options."
 ---
 

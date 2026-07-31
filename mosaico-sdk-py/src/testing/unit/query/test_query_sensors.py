@@ -4,18 +4,6 @@
 import pytest
 
 from mosaicolabs.models.data import Inertia, RobotPath
-from mosaicolabs.models.query import (
-    Query,
-    QueryOntologyCatalog,
-)
-from mosaicolabs.models.query.expressions import (
-    _QueryCatalogExpression,
-)
-from mosaicolabs.models.query.generation.mixins import (
-    _QueryableBool,
-    _QueryableNumeric,
-    _QueryableString,
-)
 from mosaicolabs.models.sensors import (
     GPS,
     IMU,
@@ -26,6 +14,18 @@ from mosaicolabs.models.sensors import (
     Range,
     RobotJoint,
     Temperature,
+)
+from mosaicolabs.query import (
+    Query,
+    QueryOntologyCatalog,
+)
+from mosaicolabs.query.expressions import (
+    _QueryCatalogExpression,
+)
+from mosaicolabs.query.generation.mixins import (
+    _QueryableBool,
+    _QueryableNumeric,
+    _QueryableString,
 )
 from mosaicolabs.ros_bridge.data_ontology import FrameTransform
 

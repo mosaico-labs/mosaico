@@ -1,0 +1,100 @@
+---
+title: Reconstruct ROS bag
+sidebar_position: 2
+description: "Runnable example that reconstructs the NVIDIA R2B Dataset 2024 sequences back into ROS 2 bag files from Mosaico. Covers the ROSSequenceExtractor pipeline, every ROSExtractorConfig option, and how the automatic Unmodeled Adapter reconstructs custom message types with no reverse-translation code required."
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+Takes sequences previously ingested into Mosaico and writes them back out as native ROS 2 `.mcap` bag files. It is the inverse operation of the [ROS Ingestion](./ros_ingestion) example. Connection handling, topic filtering, ROS type resolution, and bag writing are all handled automatically.
+
+<Tabs>
+
+<TabItem value="python" label="Python" default>
+:::tip[Learn]
+[Doc: ROS Bridge](https://docs.mosaico.dev/python-sdk/SDK/bridges/ros/)
+
+[API Reference: ROS Bridge](https://docs.mosaico.dev/python-sdk/SDK/API_reference/bridges/ros/ros/)
+
+:::
+</TabItem>
+
+<TabItem value="cpp" label="C++">
+The C++ SDK is currently in development.
+</TabItem>
+
+<TabItem value="rust" label="Rust">
+The Rust SDK is currently in development.
+</TabItem>
+
+</Tabs>
+
+```bash title="Run"
+mosaicolabs.examples reconstruct_rosbags
+```
+
+Run the command with `--help` to see all available options.
+
+The daemon must be running, and it must already contain the sequences ingested by the [ROS Ingestion](./ros_ingestion) example. This script only reads back data already on the server, it does not download or ingest anything itself.
+
+The full source is on [GitHub](https://github.com/mosaico-labs/mosaico/blob/main/mosaico-sdk-py/src/mosaicolabs/examples/ros_injection/reconstruct_rosbags.py).
+
+## Custom Ontology Definition
+
+The R2B dataset includes `isaac_ros_nova_interfaces/msg/EncoderTicks`, the same custom, hand-modeled type introduced in the [Custom Ontology](./custom_ontology) example to make wheel-encoder ticks ingestible:
+
+```python title="Custom EncoderTicks model"
+from mosaicolabs import MosaicoField, MosaicoType, Serializable
+
+class EncoderTicks(Serializable):
+    left_ticks: MosaicoType.uint32 = MosaicoField(
+        description="Cumulative counts from the left wheel encoder."
+    )
+    right_ticks: MosaicoType.uint32 = MosaicoField(
+        description="Cumulative counts from the right wheel encoder."
+    )
+    encoder_timestamp: MosaicoType.uint64 = MosaicoField(
+        description="Timestamp of the encoder ticks."
+    )
+```
+
+## No Adapter Needed to Reconstruct
+
+The [ROS Ingestion](./ros_ingestion) example writes `EncoderTicksAdapter` by hand (imported here via `ros_injection.custom_ontology`, see [ROS Ingestion](./ros_ingestion#ros-adapter)) to get a fully-typed, queryable `EncoderTicks` model, but that step is a choice, not a requirement. Writing a reverse adapter is optional too: for any topic that reaches the extractor with no adapter registered for its ROS message type, the bridge falls back to the same automatic [Unmodeled Adapter](https://docs.mosaico.dev/python-sdk/SDK/bridges/ros/#extending-the-bridge-unmodeled-adapters) used at ingestion time. Since the original `.msg` definition was already captured as topic metadata when the sequence was ingested, the extractor can recover it, re-register it with the local ROS typestore, and reconstruct the native ROS message from it. See [Advanced: Ingesting Unmodeled Ontologies](https://docs.mosaico.dev/python-sdk/SDK/ontology/#advanced-ingesting-unmodeled-ontologies) for the full mechanics of this round-trip.
+
+## Reconstruction Pipeline
+
+`ROSSequenceExtractor.run()` mirrors the injector's pipeline in reverse: it connects to Mosaico, streams every message of the requested sequence back out, resolves the adapter for each topic (falling back to the automatic [Unmodeled Adapter](https://docs.mosaico.dev/python-sdk/SDK/bridges/ros/#extending-the-bridge-unmodeled-adapters) as described above), and writes the translated ROS messages into a fresh bag under `rosbag_path/sequence_name`.
+
+```python title="Reconstruct every ingested sequence"
+BAG_FILE_PATH = Path(ASSET_DIR) / "reconstructed"
+
+SEQUENCE_NAMES = [
+    "r2b_galileo2_0",
+    "r2b_galileo_0",
+    "r2b_whitetunnel_0",
+    "r2b_robotarm_0",
+]
+
+ROS_DISTRO = Stores.ROS2_JAZZY
+
+for sequence in SEQUENCE_NAMES:
+    configs = ROSExtractorConfig(
+        rosbag_path=BAG_FILE_PATH,
+        sequence_name=sequence,
+        host=MOSAICO_HOST,
+        port=MOSAICO_PORT,
+        ros_distro=ROS_DISTRO,
+        storage_plugin=StoragePlugin.MCAP,
+        log_level=LOG_LEVEL,
+        mosaico_api_key=API_KEY,
+        enable_tls=ENABLE_TLS,
+        overwrite=True,
+    )
+
+    extractor = ROSSequenceExtractor(configs)
+    extractor.run()
+```
+
+Each sequence is written to its own `.mcap` bag under `/tmp/mosaico_assets/reconstructed/<sequence_name>/`, ready to be replayed with any standard ROS 2 tooling (`ros2 bag play`, `ros2 bag info`, ...).

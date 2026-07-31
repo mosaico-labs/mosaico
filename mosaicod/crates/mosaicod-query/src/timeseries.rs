@@ -77,15 +77,15 @@ impl TimeseriesEngine {
             .expect("TimeseriesGateway::read requires a Parquet-based format");
         let listing_options = parquet_strategy.listing_options();
 
-        let mut conf = SessionConfig::new();
+        let mut conf = SessionConfig::new()
+            // Reduce the number of partition used to avoid management overhead
+            .with_target_partitions(1)
+            // Parquet specific optimizations
+            .set_bool("datafusion.execution.parquet.pushdown_filters", true)
+            .set_bool("datafusion.execution.parquet.reorder_filters", true);
+
         if let Some(batch_size) = batch_size {
-            conf = conf
-                .with_batch_size(batch_size)
-                // Reduce the number of partition used to avoid management overhead
-                .with_target_partitions(1)
-                // Parquet specific optimizations
-                .set_bool("datafusion.execution.parquet.pushdown_filters", true)
-                .set_bool("datafusion.execution.parquet.reorder_filters", true);
+            conf = conf.with_batch_size(batch_size)
         }
 
         let ctx = SessionContext::new_with_config_rt(conf, self.runtime.clone());
@@ -117,6 +117,15 @@ impl TimeseriesEngine {
             .url_schema
             .join(&path.as_ref().to_string_lossy())?)
     }
+
+    pub async fn schema(
+        &self,
+        path: impl AsRef<Path>,
+        format: types::Format,
+    ) -> Result<SchemaRef, Error> {
+        let res = self.read(path, format, None).await?;
+        Ok(res.schema())
+    }
 }
 
 #[derive(Clone)]
@@ -125,6 +134,10 @@ pub struct TimeseriesResult {
 }
 
 impl TimeseriesResult {
+    pub fn schema(&self) -> SchemaRef {
+        Arc::new(self.data_frame.schema().as_arrow().clone())
+    }
+
     pub fn schema_with_metadata(&self, metadata: HashMap<String, String>) -> SchemaRef {
         Arc::new(Schema::new_with_metadata(
             self.data_frame.schema().fields().clone(),
@@ -240,16 +253,16 @@ fn scalar_value_to_timestamp(value: ScalarValue) -> Option<types::Timestamp> {
     }
 }
 
-/// Verifies that `field` resolves to a list type in `schema`
-fn field_schema_is_list(field: &OntologyField, schema: &Schema) -> bool {
+/// Verifies that `field` resolves to a list type in `schema`.
+fn field_schema_is_list(field: &OntologyField, schema: &Schema) -> Result<bool, Error> {
     let parsed = field.field_path();
     let mut segs = parsed.field_segments();
 
     let Some(first) = segs.next() else {
-        return false;
+        return Ok(false);
     };
     let Ok(arrow_field) = schema.field_with_name(first) else {
-        return false;
+        return Ok(false);
     };
     let mut dtype = arrow_field.data_type();
 
@@ -266,11 +279,11 @@ fn field_schema_is_list(field: &OntologyField, schema: &Schema) -> bool {
             match dtype {
                 DataType::Struct(fields) => {
                     let Some(f) = fields.iter().find(|f| f.name() == seg) else {
-                        return false;
+                        return Ok(false);
                     };
                     dtype = f.data_type();
                 }
-                _ => return false,
+                _ => return Ok(false),
             }
             if list_idx == Some(seg_idx) {
                 break;
@@ -278,10 +291,20 @@ fn field_schema_is_list(field: &OntologyField, schema: &Schema) -> bool {
         }
     }
 
-    matches!(
-        dtype,
+    let element = match dtype {
+        DataType::List(f) | DataType::LargeList(f) | DataType::FixedSizeList(f, _) => f.data_type(),
+        _ => return Ok(false),
+    };
+
+    // Lists of lists are not yet supported for filtering.
+    if matches!(
+        element,
         DataType::List(_) | DataType::LargeList(_) | DataType::FixedSizeList(_, _)
-    )
+    ) {
+        return Err(Error::unsupported_op(field.field()));
+    }
+
+    Ok(true)
 }
 
 /// Converts an [`OntologyField`] dot-path into a nested DataFusion [`Expr`].
@@ -366,6 +389,11 @@ fn scalar_op_to_df_expr<V: Into<Value>>(expr: Expr, op: Op<V>) -> Result<Option<
             let vmax = value_to_df_expr(range.max.into());
             expr.clone().gt_eq(vmin).and(expr.lt_eq(vmax))
         }
+        Op::Outside(range) => {
+            let vmin = value_to_df_expr(range.min.into());
+            let vmax = value_to_df_expr(range.max.into());
+            expr.clone().lt(vmin).or(expr.gt(vmax))
+        }
         Op::In(items) => {
             let list = items
                 .into_iter()
@@ -405,6 +433,13 @@ fn any_op_to_df_expr<V: Into<Value>>(arr: Expr, op: Op<V>) -> Result<Option<Expr
             let vmax = value_to_df_expr(range.max.into());
             let x = lambda_var("x");
             let body = x.clone().gt_eq(vmin).and(x.lt_eq(vmax));
+            array_any_match(arr, lambda(["x"], body))
+        }
+        Op::Outside(range) => {
+            let vmin = value_to_df_expr(range.min.into());
+            let vmax = value_to_df_expr(range.max.into());
+            let x = lambda_var("x");
+            let body = x.clone().lt(vmin).or(x.gt(vmax));
             array_any_match(arr, lambda(["x"], body))
         }
         Op::In(items) => {
@@ -459,6 +494,15 @@ fn all_op_to_df_expr<V: Into<Value>>(arr: Expr, op: Op<V>) -> Result<Option<Expr
             array_min(arr.clone())
                 .gt_eq(vmin)
                 .and(array_max(arr).lt_eq(vmax))
+        }
+        Op::Outside(range) => {
+            let vmin = value_to_df_expr(range.min.into());
+            let vmax = value_to_df_expr(range.max.into());
+
+            // all elements outside [a, b] <-> no element is inside [a, b]
+            let x = lambda_var("x");
+            let inside = x.clone().gt_eq(vmin).and(x.lt_eq(vmax));
+            not(array_any_match(arr, lambda(["x"], inside)))
         }
         Op::In(items) => {
             let set = make_array(
@@ -587,6 +631,11 @@ fn struct_elem_predicate<V: Into<Value>>(
             let vmax = value_to_df_expr(range.max.into());
             make_fe().gt_eq(vmin).and(make_fe().lt_eq(vmax))
         }
+        Op::Outside(range) => {
+            let vmin = value_to_df_expr(range.min.into());
+            let vmax = value_to_df_expr(range.max.into());
+            make_fe().lt(vmin).or(make_fe().gt(vmax))
+        }
         Op::In(items) => {
             let list = items
                 .into_iter()
@@ -656,14 +705,14 @@ where
         let expr = match parsed.specifier() {
             None => {
                 let arr = unfold_field(&field);
-                if field_schema_is_list(&field, schema) {
+                if field_schema_is_list(&field, schema)? {
                     plain_list_op_to_df_expr(arr, op, &field.field())
                 } else {
                     scalar_op_to_df_expr(arr, op)
                 }
             }?,
             Some(IndexSpecifier::At(i)) => {
-                if !field_schema_is_list(&field, schema) {
+                if !field_schema_is_list(&field, schema)? {
                     return Err(Error::bad_field_with_message(
                         field.to_string(),
                         "expected list type in `schema'".to_owned(),
@@ -677,7 +726,7 @@ where
                 }
             }?,
             Some(IndexSpecifier::Any) => {
-                if !field_schema_is_list(&field, schema) {
+                if !field_schema_is_list(&field, schema)? {
                     return Err(Error::bad_field_with_message(
                         field.to_string(),
                         "expected list type in `schema'".to_owned(),
@@ -693,7 +742,7 @@ where
                 }
             }?,
             Some(IndexSpecifier::All) => {
-                if !field_schema_is_list(&field, schema) {
+                if !field_schema_is_list(&field, schema)? {
                     return Err(Error::bad_field_with_message(
                         field.to_string(),
                         "expected list type in `schema'".to_owned(),

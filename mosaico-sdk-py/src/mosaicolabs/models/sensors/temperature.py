@@ -30,7 +30,7 @@ class Temperature(
 
     ### Querying with the **`.Q` Proxy**
     This class is fully queryable via the **`.Q` proxy**. You can filter temperature data based
-    on temperature values within a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog].
+    on temperature values within a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog].
 
     Example:
         ```python
@@ -71,7 +71,7 @@ class Temperature(
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `Temperature.Q.value` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `Temperature.Q.value` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.outside()` |
 
     Example:
         ```python

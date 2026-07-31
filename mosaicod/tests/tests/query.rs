@@ -677,3 +677,58 @@ async fn test_query_invalid_keys(pool: sqlx::Pool<db::DatabaseType>) {
 
     server.shutdown().await;
 }
+
+#[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
+async fn test_query_user_metadata_outside_integer(pool: sqlx::Pool<db::DatabaseType>) {
+    let server = common::ServerBuilder::new(common::HOST, pool).build().await;
+    let mut client = common::ClientBuilder::new(common::HOST, server.port())
+        .build()
+        .await;
+
+    let seq = "seq_umeta_outside";
+    setup_topics_with_metadata(
+        &mut client,
+        seq,
+        &[
+            ("topic_1", json!({"x": 1})),
+            ("topic_6", json!({"x": 6})),
+            ("topic_99", json!({"x": 99})),
+        ],
+    )
+    .await;
+
+    // outside([5, 50]): matches x < 5 || x > 50.
+    let items = actions::query(
+        &mut client,
+        json!({
+            "topic": {
+                "user_metadata": {
+                    "x": { "$outside": [5, 50] }
+                }
+            }
+        }),
+    )
+    .await
+    .unwrap();
+
+    let locators = topic_locator_and_ontology(&items);
+    assert_eq!(
+        locators.len(),
+        2,
+        "expected 2 matching topics, got: {locators:?}"
+    );
+    assert!(
+        locators.contains(&(format!("{seq}/topic_1"), "mock".to_owned())),
+        "topic_1 (x=1 < 5) included"
+    );
+    assert!(
+        locators.contains(&(format!("{seq}/topic_99"), "mock".to_owned())),
+        "topic_99 (x=99 > 50) included"
+    );
+    assert!(
+        !locators.contains(&(format!("{seq}/topic_6"), "mock".to_owned())),
+        "topic_6 (x=6 inside [5,50]) excluded"
+    );
+
+    server.shutdown().await;
+}

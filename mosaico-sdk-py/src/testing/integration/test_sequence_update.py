@@ -3,8 +3,8 @@ import pytest
 from mosaicolabs.comm import MosaicoClient
 from mosaicolabs.enum import SessionLevelErrorPolicy
 from mosaicolabs.models.core import Message
-from mosaicolabs.models.query import QueryOntologyCatalog, QueryTopic
 from mosaicolabs.models.sensors import Pressure, Temperature
+from mosaicolabs.query import QueryOntologyCatalog, QueryTopic
 
 from .config import UPLOADED_SEQUENCE_NAME
 from .helpers import SequenceDataStream

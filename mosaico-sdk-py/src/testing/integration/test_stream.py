@@ -33,6 +33,15 @@ def test_sequence_data_stream(
     # The metadata are coherent
     assert seqhandler.user_metadata == UPLOADED_SEQUENCE_METADATA
     sstream_handl = seqhandler.get_data_streamer()
+    assert (
+        sstream_handl.timestamp_ns_min is not None
+        and sstream_handl.timestamp_ns_max is not None
+    )
+    assert (
+        synthetic_sequence_data_stream.tstamp_ns_start == sstream_handl.timestamp_ns_min
+        and synthetic_sequence_data_stream.tstamp_ns_end
+        == sstream_handl.timestamp_ns_max
+    )
     # Get the next timestamp, without consuming the related sample
     next_tstamp = sstream_handl.next_timestamp()
     assert next_tstamp is not None
@@ -127,9 +136,18 @@ def test_topic_data_stream(
     assert tophandler.user_metadata == topic_to_metadata_dict[topic]
     # This must raise if topic handler is malformed
     tstream_handl = tophandler.get_data_streamer()
+    assert (
+        tstream_handl.timestamp_ns_min is not None
+        and tstream_handl.timestamp_ns_max is not None
+    )
+    assert (
+        _cached_topic_data_stream[0].msg.timestamp_ns == tstream_handl.timestamp_ns_min
+        and _cached_topic_data_stream[-1].msg.timestamp_ns
+        == tstream_handl.timestamp_ns_max
+    )
 
-    _validate_returned_topic_name(tstream_handl.name())
-    assert tstream_handl.name() == topic
+    _validate_returned_topic_name(tstream_handl.name)
+    assert tstream_handl.name == topic
 
     # Topic reader must be valid
     assert tstream_handl is not None
@@ -213,6 +231,7 @@ def test_topic_data_stream_multiple_call(
 def test_sequence_data_stream_filter_topics(
     mosaico_client: MosaicoClient,
     inject_synthetic_sequence,  # necessary to make sure data are available on server
+    synthetic_sequence_data_stream,
 ):
     """Test that the sequence data stream is correctly unpacked and provided"""
     seqhandler = mosaico_client.sequence_handler(UPLOADED_SEQUENCE_NAME)
@@ -222,8 +241,24 @@ def test_sequence_data_stream_filter_topics(
     # get a subset of topics
     filtered_topics = topic_list[: round(len(topic_list) / 2)]
     assert len(filtered_topics) > 0
+    _cached_topic_data_stream = [
+        dstream
+        for dstream in synthetic_sequence_data_stream.items
+        if dstream.topic in filtered_topics
+    ]
+    min_tstamp = _cached_topic_data_stream[0].msg.timestamp_ns
+    max_tstamp = _cached_topic_data_stream[-1].msg.timestamp_ns
     ret_topics = set()
-    for topic, _ in seqhandler.get_data_streamer(topics=filtered_topics):
+    sstream_handl = seqhandler.get_data_streamer(topics=filtered_topics)
+    assert (
+        sstream_handl.timestamp_ns_min is not None
+        and sstream_handl.timestamp_ns_max is not None
+    )
+    assert (
+        sstream_handl.timestamp_ns_min == min_tstamp
+        and sstream_handl.timestamp_ns_max == max_tstamp
+    )
+    for topic, _ in sstream_handl:
         # only desired topics must be returned
         assert topic in filtered_topics
         ret_topics.add(topic)

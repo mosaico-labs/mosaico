@@ -157,6 +157,7 @@ h6,
   font-size: 0.85rem;
   font-weight: 400;
   opacity: 0.75;
+  line-height: 1.4;
 }
 
 .dropdown__menu {

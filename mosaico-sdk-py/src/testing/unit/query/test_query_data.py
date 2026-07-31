@@ -16,7 +16,6 @@ from mosaicolabs.models.data import (
     Integer16,
     Integer32,
     Integer64,
-    LargeString,
     MotionState,
     Pose,
     String,
@@ -27,11 +26,11 @@ from mosaicolabs.models.data import (
     Unsigned64,
     Velocity,
 )
-from mosaicolabs.models.query import Query, QueryOntologyCatalog
-from mosaicolabs.models.query.expressions import (
+from mosaicolabs.query import Query, QueryOntologyCatalog
+from mosaicolabs.query.expressions import (
     _QueryCatalogExpression,
 )
-from mosaicolabs.models.query.generation.mixins import (
+from mosaicolabs.query.generation.mixins import (
     _QueryableBool,
     _QueryableNumeric,
     _QueryableString,
@@ -864,7 +863,6 @@ class TestQueryROIAPI:
         Floating64,
         Boolean,
         String,
-        LargeString,
     ],
 )
 class TestQueryBaseTypesAPI:

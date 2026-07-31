@@ -1,7 +1,7 @@
 import math
 
 from mosaicolabs import MosaicoClient, Point3d, Pressure, Temperature, TimestampRange
-from mosaicolabs.models.query import QueryOntologyCatalog, QuerySequence
+from mosaicolabs.query import QueryOntologyCatalog, QuerySequence
 from testing.integration.config import QUERY_FILTER_SEQUENCE_RESOLUTION_NS
 
 

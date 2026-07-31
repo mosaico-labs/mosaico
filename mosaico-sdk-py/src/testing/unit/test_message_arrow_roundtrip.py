@@ -18,7 +18,6 @@ from mosaicolabs import (
     Integer16,
     Integer32,
     Integer64,
-    LargeString,
     Magnetometer,
     Message,
     MotionState,
@@ -178,11 +177,6 @@ def test_boolean_roundtrip():
 
 def test_string_roundtrip():
     model = String(data="Mosaico_Test_Data_@2026_€")
-    assert_roundtrip(model)
-
-
-def test_large_string_roundtrip():
-    model = LargeString(data="LOG_START" + ("A" * 1000) + "LOG_END")
     assert_roundtrip(model)
 
 

@@ -21,7 +21,6 @@ from mosaicolabs import (
     Integer16,
     Integer32,
     Integer64,
-    LargeString,
     Magnetometer,
     MosaicoType,
     MotionState,
@@ -402,7 +401,6 @@ SCALAR_CASES = [
     (Floating64, pa.float64(), "64-bit Floating-point data"),
     (Boolean, pa.bool_(), "Boolean data"),
     (String, pa.string(), "String data"),
-    (LargeString, pa.large_string(), "Large string data"),
 ]
 
 

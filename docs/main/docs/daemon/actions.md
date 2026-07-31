@@ -55,6 +55,8 @@ Here, `*` can be either `sequence` or `topic`.
 | Action | Description | Permission |
 | --- | --- | --- |
 | `query` | This action serves as the gateway to the query system. It accepts a complex filter object and returns a list of resources that match the criteria. | `read` |
+| `topic_filter_clusterize` | Filters a single topic by its ontology values and an optional time window, groups the matching timestamps into temporal clusters, and streams them back. See [Filtering](filtering.md#clustering). | `read` |
+| `topic_filter_intersect` | Applies `topic_filter_clusterize` to several topics of the same sequence independently, then streams the time windows where all of them hold matching data simultaneously. See [Filtering](filtering.md#intersection). | `read` |
 
 ## Misc
 

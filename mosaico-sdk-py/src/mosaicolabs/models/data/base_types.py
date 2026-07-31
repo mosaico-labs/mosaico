@@ -22,7 +22,7 @@ class Integer8(Serializable):
         data: The underlying 8-bit integer value.
 
     ### Querying with the **`.Q` Proxy**
-    The fields of this class are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
+    The fields of this class are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog]
     via the **`.Q` proxy**. Check the fields documentation for detailed description.
 
     Example:
@@ -56,12 +56,12 @@ class Integer8(Serializable):
     The underlying integer value.
     
     ### Querying with the **`.Q` Proxy**
-    This field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog] 
+    This field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog] 
     via the **`.Q` proxy**.
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `Integer8.Q.data` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `Integer8.Q.data` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.outside()` |
 
     Example:
         ```python
@@ -97,7 +97,7 @@ class Integer16(Serializable):
         data: The underlying 16-bit integer value.
 
     ### Querying with the **`.Q` Proxy**
-    The fields of this class are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
+    The fields of this class are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog]
     via the **`.Q` proxy**. Check the fields documentation for detailed description.
 
     Example:
@@ -130,12 +130,12 @@ class Integer16(Serializable):
     The underlying integer value.
     
     ### Querying with the **`.Q` Proxy**
-    This field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog] 
+    This field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog] 
     via the **`.Q` proxy**.
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `Integer16.Q.data` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`|
+    | `Integer16.Q.data` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.outside()` |
 
     Example:
         ```python
@@ -171,7 +171,7 @@ class Integer32(Serializable):
         data: The underlying 32-bit integer value.
 
     ### Querying with the **`.Q` Proxy**
-    The fields of this class are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
+    The fields of this class are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog]
     via the **`.Q` proxy**. Check the fields documentation for detailed description.
 
     Example:
@@ -204,12 +204,12 @@ class Integer32(Serializable):
     The underlying integer value.
     
     ### Querying with the **`.Q` Proxy**
-    This field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog] 
+    This field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog] 
     via the **`.Q` proxy**.
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `Integer32.Q.data` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `Integer32.Q.data` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.outside()` |
 
     Example:
         ```python
@@ -245,7 +245,7 @@ class Integer64(Serializable):
         data: The underlying 64-bit integer value.
 
     ### Querying with the **`.Q` Proxy**
-    The fields of this class are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
+    The fields of this class are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog]
     via the **`.Q` proxy**. Check the fields documentation for detailed description.
 
     Example:
@@ -278,12 +278,12 @@ class Integer64(Serializable):
     The underlying integer value.
     
     ### Querying with the **`.Q` Proxy**
-    This field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog] 
+    This field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog] 
     via the **`.Q` proxy**.
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `Integer64.Q.data` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `Integer64.Q.data` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.outside()` |
 
     Example:
         ```python
@@ -322,7 +322,7 @@ class Unsigned8(Serializable):
         ValueError: If `data` is initialized with a negative value.
 
     ### Querying with the **`.Q` Proxy**
-    The fields of this class are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
+    The fields of this class are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog]
     via the **`.Q` proxy**. Check the fields documentation for detailed description.
 
     Example:
@@ -355,12 +355,12 @@ class Unsigned8(Serializable):
     The underlying unsigned integer value.
     
     ### Querying with the **`.Q` Proxy**
-    This field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog] 
+    This field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog] 
     via the **`.Q` proxy**.
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `Unsigned8.Q.data` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `Unsigned8.Q.data` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.outside()` |
 
     Example:
         ```python
@@ -410,7 +410,7 @@ class Unsigned16(Serializable):
         ValueError: If `data` is initialized with a negative value.
 
     ### Querying with the **`.Q` Proxy**
-    The fields of this class are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
+    The fields of this class are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog]
     via the **`.Q` proxy**. Check the fields documentation for detailed description.
 
     Example:
@@ -443,12 +443,12 @@ class Unsigned16(Serializable):
     The underlying unsigned integer value.
     
     ### Querying with the **`.Q` Proxy**
-    This field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog] 
+    This field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog] 
     via the **`.Q` proxy**.
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `Unsigned16.Q.data` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `Unsigned16.Q.data` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.outside()` |
 
     Example:
         ```python
@@ -498,7 +498,7 @@ class Unsigned32(Serializable):
         ValueError: If `data` is initialized with a negative value.
 
     ### Querying with the **`.Q` Proxy**
-    The fields of this class are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
+    The fields of this class are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog]
     via the **`.Q` proxy**. Check the fields documentation for detailed description.
 
     Example:
@@ -531,12 +531,12 @@ class Unsigned32(Serializable):
     The underlying unsigned integer value.
     
     ### Querying with the **`.Q` Proxy**
-    This field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog] 
+    This field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog] 
     via the **`.Q` proxy**.
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `Unsigned32.Q.data` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `Unsigned32.Q.data` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.outside()` |
 
     Example:
         ```python
@@ -586,7 +586,7 @@ class Unsigned64(Serializable):
         ValueError: If `data` is initialized with a negative value.
 
     ### Querying with the **`.Q` Proxy**
-    The fields of this class are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
+    The fields of this class are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog]
     via the **`.Q` proxy**. Check the fields documentation for detailed description.
 
     Example:
@@ -619,12 +619,12 @@ class Unsigned64(Serializable):
     The underlying unsigned integer value.
     
     ### Querying with the **`.Q` Proxy**
-    This field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog] 
+    This field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog] 
     via the **`.Q` proxy**.
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `Unsigned64.Q.data` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `Unsigned64.Q.data` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.outside()` |
 
     Example:
         ```python
@@ -671,7 +671,7 @@ class Floating16(Serializable):
         data: The underlying single-precision float.
 
     ### Querying with the **`.Q` Proxy**
-    The fields of this class are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
+    The fields of this class are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog]
     via the **`.Q` proxy**. Check the fields documentation for detailed description.
 
     Example:
@@ -704,12 +704,12 @@ class Floating16(Serializable):
     The underlying single-precision float.
     
     ### Querying with the **`.Q` Proxy**
-    This field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog] 
+    This field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog] 
     via the **`.Q` proxy**.
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `Floating16.Q.data` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `Floating16.Q.data` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.outside()` |
 
     Example:
         ```python
@@ -745,7 +745,7 @@ class Floating32(Serializable):
         data: The underlying single-precision float.
 
     ### Querying with the **`.Q` Proxy**
-    The fields of this class are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
+    The fields of this class are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog]
     via the **`.Q` proxy**. Check the fields documentation for detailed description.
 
     Example:
@@ -778,12 +778,12 @@ class Floating32(Serializable):
     The underlying single-precision float.
     
     ### Querying with the **`.Q` Proxy**
-    This field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog] 
+    This field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog] 
     via the **`.Q` proxy**.
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `Floating32.Q.data` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `Floating32.Q.data` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.outside()` |
 
     Example:
         ```python
@@ -819,7 +819,7 @@ class Floating64(Serializable):
         data: The underlying single-precision float.
 
     ### Querying with the **`.Q` Proxy**
-    The fields of this class are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
+    The fields of this class are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog]
     via the **`.Q` proxy**. Check the fields documentation for detailed description.
 
     Example:
@@ -852,12 +852,12 @@ class Floating64(Serializable):
     The underlying single-precision float.
 
     ### Querying with the **`.Q` Proxy**
-    This field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog] 
+    This field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog] 
     via the **`.Q` proxy**.
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `Floating64.Q.data` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()` |
+    | `Floating64.Q.data` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.outside()` |
 
     Example:
         ```python
@@ -893,7 +893,7 @@ class Boolean(Serializable):
         data: The underlying boolean value.
 
     ### Querying with the **`.Q` Proxy**
-    The fields of this class are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
+    The fields of this class are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog]
     via the **`.Q` proxy**. Check the fields documentation for detailed description.
 
     Example:
@@ -926,7 +926,7 @@ class Boolean(Serializable):
     The underlying boolean value.
     
     ### Querying with the **`.Q` Proxy**
-    This field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog] 
+    This field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog] 
     via the **`.Q` proxy**.
 
     | Field Access Path | Queryable Type | Supported Operators |
@@ -967,7 +967,7 @@ class String(Serializable):
         data: The underlying string data.
 
     ### Querying with the **`.Q` Proxy**
-    The fields of this class are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
+    The fields of this class are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog]
     via the **`.Q` proxy**. Check the fields documentation for detailed description.
 
     Example:
@@ -1000,12 +1000,12 @@ class String(Serializable):
     The underlying string data.
     
     ### Querying with the **`.Q` Proxy**
-    This field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog] 
+    This field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.query.builders.QueryOntologyCatalog] 
     via the **`.Q` proxy**.
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `String.Q.data` | `String` | `.eq()`, `.match()`, `.in_()`, `.lt()`, `.gt()`, `.leq()`, `.geq()` |
+    | `String.Q.data` | `String` | `.eq()`, `.match()`, `.in_()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.between()`, `.outside()` |
 
     Example:
         ```python
@@ -1014,83 +1014,6 @@ class String(Serializable):
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for strings containing a specific log pattern
             qresponse = client.query(QueryOntologyCatalog(String.Q.data.match("*[ERR]*")))
-
-            # Inspect the response
-            if qresponse is not None:
-                # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
-                    print(f"Sequence: {item.sequence.name}")
-                    print(f"Topics: {[topic.name for topic in item.topics]}")
-
-                    # Clusterize all topics within the sequence to extract the time intervals
-                    clusters_dict = item.clusterize_all()
-
-                    # Since clusterize_all() used default clustering_dt_ns, each topic will have
-                    # just one cluster representing the first and last moment the query was satisfied
-                    for t_name, clusters in clusters_dict.items():
-                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
-        ```
-    """
-
-
-class LargeString(Serializable):
-    """
-    A wrapper for a Large UTF-8 encoded string.
-
-    Use this class when string data is expected to exceed 2GB in size, necessitating
-    the use of 64-bit offsets in the underlying PyArrow implementation.
-
-    Attributes:
-        data: The underlying large string data.
-
-    ### Querying with the **`.Q` Proxy**
-    The fields of this class are queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog]
-    via the **`.Q` proxy**. Check the fields documentation for detailed description.
-
-    Example:
-        ```python
-        from mosaicolabs import MosaicoClient, LargeString, QueryOntologyCatalog
-
-        with MosaicoClient.connect("localhost", 6726) as client:
-            # Filter for a specific data value
-            qresponse = client.query(QueryOntologyCatalog(LargeString.Q.data.eq("hello")))
-
-            # Inspect the response
-            if qresponse is not None:
-                # Results are automatically grouped by Sequence for easier data management
-                for item in qresponse:
-                    print(f"Sequence: {item.sequence.name}")
-                    print(f"Topics: {[topic.name for topic in item.topics]}")
-
-                    # Clusterize all topics within the sequence to extract the time intervals
-                    clusters_dict = item.clusterize_all()
-
-                    # Since clusterize_all() used default clustering_dt_ns, each topic will have
-                    # just one cluster representing the first and last moment the query was satisfied
-                    for t_name, clusters in clusters_dict.items():
-                        print(f"{t_name}:\\n", "\\n".join(f"{cluster}" for cluster in clusters))
-        ```
-    """
-
-    data: MosaicoType.large_string = MosaicoField(description="Large string data.")
-    """
-    The underlying large string data.
-
-    ### Querying with the **`.Q` Proxy**
-    This field is queryable when constructing a [`QueryOntologyCatalog`][mosaicolabs.models.query.builders.QueryOntologyCatalog] 
-    via the **`.Q` proxy**.
-
-    | Field Access Path | Queryable Type | Supported Operators |
-    | :--- | :--- | :--- |
-    | `LargeString.Q.data` | `String` | `.eq()`, `.match()`, `.in_()`, `.lt()`, `.gt()`, `.leq()`, `.geq()` |
-
-    Example:
-        ```python
-        from mosaicolabs import MosaicoClient, LargeString, QueryOntologyCatalog
-
-        with MosaicoClient.connect("localhost", 6726) as client:
-            # Filter for large strings containing a specific log pattern
-            qresponse = client.query(QueryOntologyCatalog(LargeString.Q.data.match("CRITICAL_ERR_")))
 
             # Inspect the response
             if qresponse is not None:

@@ -19,7 +19,7 @@ import pyarrow.flight as fl
 
 from ..enum import FlightAction
 from ..logging_config import get_logger
-from ..models.query.topic_cluster import TopicCluster
+from ..query.topic_cluster import TopicCluster
 
 # Set the hierarchical logger
 logger = get_logger(__name__)

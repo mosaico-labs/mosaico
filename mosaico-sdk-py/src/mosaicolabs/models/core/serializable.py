@@ -31,16 +31,50 @@ import pyarrow as pa
 
 from mosaicolabs.enum import SerializationFormat
 
-from ..query.generation.api import _QueryProxyMixin
+from ...query.generation.api import _QueryProxyMixin
 from .base_model import BaseModel
-from .internal.helpers import _fix_empty_dicts, encode_to_dict
+from .internal.helpers import _fix_empty_dicts
 from .internal.pyarrow_mapper import PyarrowFieldMapper
-from .types import BASE_MAPPING
+from .types import BASE_MAPPING, REMAPPED_PYARROW_TYPES
 
 # --- Private Registry ---
 # Global dictionary mapping string tags (e.g., "IMU") to class types.
 _SCHEMA_REGISTRY: Dict[str, Type["Serializable"]] = {}
 SCHEMA_ID_LEN = 10  # 40 bits
+
+
+def _canonicalize_arrow_type(schema_struct: pa.StructType) -> pa.StructType:
+    """
+    Normalizes **first level only** of Arrow schemas that are logically
+    equivalent but physically distinct (e.g. `pa.string`, `pa.string_view`),
+    so ontologies are compared on logical shape rather than physical
+    representation.
+
+    This matters because the query engine reading data back (e.g. DataFusion's
+    Parquet reader) may return `pa.string_view`/`pa.binary_view` for a column
+    the SDK declared as `pa.string`/`pa.binary`.
+    Without normalization, the same logical schema would hash differently depending
+    on which variant a given read happened to produce, causing a correctly modeled
+    ontology to be misidentified as an unrecognized (`Unmodeled`) schema variant.
+    """
+
+    remapped_field = []
+    for field in schema_struct:
+        if field.type in REMAPPED_PYARROW_TYPES:
+            remapped_type = REMAPPED_PYARROW_TYPES[field.type]
+        else:
+            remapped_type = field.type
+
+        remapped_field.append(
+            pa.field(
+                field.name,
+                remapped_type,
+                nullable=field.nullable,
+                metadata=field.metadata,
+            )
+        )
+
+    return pa.struct(remapped_field)
 
 
 def _compute_schema_fingerprint(struct: pa.StructType) -> str:
@@ -52,12 +86,18 @@ def _compute_schema_fingerprint(struct: pa.StructType) -> str:
     same ontology tag within a process (e.g. when multiple ontology versions of the
     same dynamically resolved, unmodeled data type are encountered).
 
+    Fields are normalized via `_canonicalize_arrow_type` before hashing, so the
+    fingerprint reflects logical schema shape rather than whichever
+    physically-distinct type variant (e.g. `pa.string` vs. `pa.string_view`) a
+    particular read happened to produce.
+
     The SHA-1 digest is intentionally truncated to 10 hexadecimal characters (40 bits)
     to keep the fingerprint compact. Given the expected number of distinct schema
     versions, the probability of an accidental collision is negligible for this use
     case.
     """
-    return hashlib.sha1(str(struct).encode("utf-8")).hexdigest()[:SCHEMA_ID_LEN]
+    canonical = _canonicalize_arrow_type(struct)
+    return hashlib.sha1(str(canonical).encode("utf-8")).hexdigest()[:SCHEMA_ID_LEN]
 
 
 class Serializable(BaseModel, _QueryProxyMixin):
@@ -209,9 +249,7 @@ class Serializable(BaseModel, _QueryProxyMixin):
             )
 
     def _encode(self):
-        return {
-            name: encode_to_dict(value) for name, value in self.model_dump().items()
-        }
+        return self.model_dump()
 
     # --- Factory Methods ---
 
@@ -434,8 +472,8 @@ class Serializable(BaseModel, _QueryProxyMixin):
             Exception: If the class was not properly initialized via `__pydantic_init_subclass__`.
 
         Hint: **Practical Application: Topic Filtering**
-            This method is particularly useful when constructing [`QueryTopic`][mosaicolabs.models.query.builders.QueryTopic]
-            requests. By using the convenience method [`QueryTopic.with_ontology_tag()`][mosaicolabs.models.query.builders.QueryTopic.with_ontology_tag],
+            This method is particularly useful when constructing [`QueryTopic`][mosaicolabs.query.builders.QueryTopic]
+            requests. By using the convenience method [`QueryTopic.with_ontology_tag()`][mosaicolabs.query.builders.QueryTopic.with_ontology_tag],
             you can filter topics by data type without hardcoding strings that might change.
 
             Example:

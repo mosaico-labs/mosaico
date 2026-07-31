@@ -6,10 +6,10 @@ It implements a Domain-Specific Language that allows users to filter **Sequences
 
 **Key Components:**
 
-* [**`Query`**][mosaicolabs.models.query.builders.Query]: The root container that aggregates multiple specialized sub-queries.
-* [**`QueryOntologyCatalog`**][mosaicolabs.models.query.builders.QueryOntologyCatalog]: For fine-grained filtering based on sensor-specific field values (e.g., `IMU.Q.acceleration.x > 9.8`).
-* [**`QueryTopic`**][mosaicolabs.models.query.builders.QueryTopic]: Specifically for filtering topic-level metadata.
-* [**`QuerySequence`**][mosaicolabs.models.query.builders.QuerySequence]: Specifically for filtering sequence-level metadata.
+* [**`Query`**][mosaicolabs.query.builders.Query]: The root container that aggregates multiple specialized sub-queries.
+* [**`QueryOntologyCatalog`**][mosaicolabs.query.builders.QueryOntologyCatalog]: For fine-grained filtering based on sensor-specific field values (e.g., `IMU.Q.acceleration.x > 9.8`).
+* [**`QueryTopic`**][mosaicolabs.query.builders.QueryTopic]: Specifically for filtering topic-level metadata.
+* [**`QuerySequence`**][mosaicolabs.query.builders.QuerySequence]: Specifically for filtering sequence-level metadata.
 """
 
 from typing import Any, Dict, List, Optional, Tuple, Type
@@ -180,7 +180,7 @@ class QueryOntologyCatalog:
     ):
         """
         The constructor initializes the query with an optional list of
-        [`_QueryCatalogExpression`][mosaicolabs.models.query.expressions._QueryCatalogExpression] objects, generated
+        [`_QueryCatalogExpression`][mosaicolabs.query.expressions._QueryCatalogExpression] objects, generated
         via `<Model>.Q.` proxy, where model is any of the available data ontology (e.g. IMU.Q, GPS.Q, String.Q, etc.)
 
         Args:
@@ -214,7 +214,7 @@ class QueryOntologyCatalog:
 
     def with_expression(self, expr: _QueryExpression) -> "QueryOntologyCatalog":
         """
-        Adds a new [`_QueryCatalogExpression`][mosaicolabs.models.query.expressions._QueryCatalogExpression]
+        Adds a new [`_QueryCatalogExpression`][mosaicolabs.query.expressions._QueryCatalogExpression]
         expression to the query using a fluent interface.
 
         Example:
@@ -264,7 +264,7 @@ class QueryOntologyCatalog:
 
     # compatibility with QueryProtocol
     def name(self) -> str:
-        """Returns the top-level key ('ontology') used for nesting inside a root [`Query`][mosaicolabs.models.query.builders.Query]."""
+        """Returns the top-level key ('ontology') used for nesting inside a root [`Query`][mosaicolabs.query.builders.Query]."""
         return "ontology"
 
     # compatibility with QueryProtocol
@@ -386,14 +386,18 @@ class QueryTopic:
             ValueError: If no operator is provided, if multiple operators are provided in
                 a single call, or if an unsupported operator is used.
 
-        Operators Supported:
+        Supported Operators:
             * `eq`: Equal to
             * `neq`: Not equal to
             * `gt`: Greater than
             * `geq`: Greater than or equal to
             * `lt`: Less than
             * `leq`: Less than or equal to
+            * `match`: glob-style pattern matching, see
+                [QueryableString.match][mosaicolabs.query.queryable_fields.QueryableString.match]
             * `between`: Range filter (expects a list of [min, max])
+            * `outside`: Range filter (expects a list of [min, max])
+            * `in_`: One-of (expects a list of values)
             * `ex`: The key exist (ex=True) or does not exist (ex=False)
 
         Example:
@@ -456,17 +460,23 @@ class QueryTopic:
 
     def with_name_match(self, name: str) -> "QueryTopic":
         """
-        Adds a RegEx filter for the topic 'name' field. Supported RegEx operations are:
+        Adds a RegEx-like filter for the topic 'name' field. Supported operators are:
 
-        - * => matches a multiple (zero or more) characters, including space.
-        - ? => matches a single (exactly one) characters, including space.
-        - [] => matches a character set. Examples: [aeiou] to match any vocals, or [a-z] to match a range
-        - # => matches any single digit (0 — 9). Shortcut for [0-9]
+        * `*`: matches a multiple (zero or more) characters, including space.
+        * `?`: matches a single (exactly one) characters, including space.
+        * `[]`: matches a character set. Examples: `[aeiou]` to match any vocals, or `[a-z]` to match a range
+        * `#`: matches any single digit (0 — 9). Shortcut for `[0-9]`
 
-        Supposing the server cotains car1/imu/front we can get it using:
-            - *imu*
-            - car#/[a-z]*/[a-z]**
-            - car?/[umi]*/?????
+        Supposing the server contains a topic with name `car1/imu/front` we can get it using:
+
+        * `*imu*`
+        * `car#/[a-z]*/[a-z]**`
+        * `car?/[umi]*/?????`
+
+        Note:
+            If `name` contains none of the wildcards above, the operator
+            is equivalent to [`.with_name()`][mosaicolabs.query.builders.QueryTopic.with_name],
+            i.e. an exact match will be performed.
 
         Example:
             ```python
@@ -603,7 +613,7 @@ class QueryTopic:
 
     # compatibility with QueryProtocol
     def name(self) -> str:
-        """Returns the top-level key ('topic') used when nesting this query inside a root [`Query`][mosaicolabs.models.query.builders.Query]."""
+        """Returns the top-level key ('topic') used when nesting this query inside a root [`Query`][mosaicolabs.query.builders.Query]."""
         return "topic"
 
     # compatibility with QueryProtocol
@@ -778,14 +788,18 @@ class QuerySequence:
             ValueError: If no operator is provided, if multiple operators are provided in
                 a single call, or if an unsupported operator is used.
 
-        Operators Supported:
+        Supported Operators:
             * `eq`: Equal to
             * `neq`: Not equal to
             * `gt`: Greater than
             * `geq`: Greater than or equal to
             * `lt`: Less than
             * `leq`: Less than or equal to
+            * `match`: glob-style pattern matching, see
+                [QueryableString.match][mosaicolabs.query.queryable_fields.QueryableString.match]
             * `between`: Range filter (expects a list of [min, max])
+            * `outside`: Range filter (expects a list of [min, max])
+            * `in_`: One-of (expects a list of values)
             * `ex`: The key exist (ex=True) or does not exist (ex=False)
 
         Example:
@@ -854,16 +868,22 @@ class QuerySequence:
         """
         Adds a RegEx filter for the sequence 'name' field. Supported RegEx operations are:
 
-        - * => matches a multiple (zero or more) characters, including space.
-        - ? => matches a single (exactly one) characters, including space.
-        - [] => matches a character set. Examples: [aeiou] to match any vocals, or [a-z] to match a range
-        - # => matches any single digit (0 — 9). Shortcut for [0-9]
+        * `*`: matches a multiple (zero or more) characters, including space.
+        * `?`: matches a single (exactly one) characters, including space.
+        * `[]`: matches a character set. Examples: `[aeiou]` to match any vocals, or `[a-z]` to match a range
+        * `#`: matches any single digit (0 — 9). Shortcut for `[0-9]`
 
-        Supposing the server cotains sequence experiment1-car we can get it using:
-            - experiment*
-            - [a-z]*1-car
-            - experiment?/[a-z]*
-            - experiment1-car
+        Supposing the server contains a sequence with name `experiment1-car` we can get it using:
+
+        * `experiment*`
+        * `[a-z]*1-car`
+        * `experiment?/[a-z]*`
+        * `experiment1-car`
+
+        Note:
+            If `name` contains none of the wildcards above, the operator
+            is equivalent to [`.with_name()`][mosaicolabs.query.builders.QuerySequence.with_name],
+            i.e. an exact match will be performed.
 
         Example:
             ```python
@@ -959,7 +979,7 @@ class QuerySequence:
 
     # compatibility with QueryProtocol
     def name(self) -> str:
-        """Returns the top-level key ('sequence') used for nesting inside a root [`Query`][mosaicolabs.models.query.builders.Query]."""
+        """Returns the top-level key ('sequence') used for nesting inside a root [`Query`][mosaicolabs.query.builders.Query]."""
         return "sequence"
 
         # compatibility with QueryProtocol

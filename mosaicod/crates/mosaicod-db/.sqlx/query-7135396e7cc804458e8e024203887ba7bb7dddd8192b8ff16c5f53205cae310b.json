@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "INSERT INTO chunk_t(chunk_uuid, topic_id, data_file, size_bytes, row_count)\n        VALUES ($1, $2, $3, $4, $5)\n        RETURNING *",
+  "query": "INSERT INTO chunk_t(\n            chunk_uuid, topic_id, data_file, size_bytes, arrow_size_bytes, row_count\n        )\n        VALUES ($1, $2, $3, $4, $5, $6)\n        RETURNING *",
   "describe": {
     "columns": [
       {
@@ -32,6 +32,11 @@
         "ordinal": 5,
         "name": "row_count",
         "type_info": "Int8"
+      },
+      {
+        "ordinal": 6,
+        "name": "arrow_size_bytes",
+        "type_info": "Int8"
       }
     ],
     "parameters": {
@@ -39,6 +44,7 @@
         "Uuid",
         "Int4",
         "Text",
+        "Int8",
         "Int8",
         "Int8"
       ]
@@ -49,8 +55,9 @@
       false,
       false,
       false,
-      false
+      false,
+      true
     ]
   },
-  "hash": "b5b9f289beb32a05c87fb4c8cc5157db33f9d65eaff8e35f56fd476831fc2cc1"
+  "hash": "7135396e7cc804458e8e024203887ba7bb7dddd8192b8ff16c5f53205cae310b"
 }

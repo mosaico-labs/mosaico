@@ -104,18 +104,35 @@ title() {
         "$padding" "$line" "$text" "$padding" "$line" "${RESET}"
 }
 
+CLEANED_UP=false
 function cleanup() {
+    # Run the teardown only once, even when reached through several traps
+    # (INT runs cleanup, then the following exit fires the EXIT trap).
+    if $CLEANED_UP; then
+        return
+    fi
+    CLEANED_UP=true
+
+    # Ignore further signals so a second Ctrl-C cannot interrupt the teardown:
+    # if `docker compose down -v` is aborted the postgres volume survives and
+    # stale data is left on the DB.
+    trap '' INT TERM
+
     if [ -n "$MOSAICOD_PID" ]; then
         kill "$MOSAICOD_PID" 2>/dev/null
         wait "$MOSAICOD_PID" 2>/dev/null
         echo "${DIM}mosaicod ($MOSAICOD_PID) terminated.${RESET}"
     fi
-    
+
     cd ${PROJECT_DIR}/docker/testing
     docker compose down -v 2> /dev/null
 }
 
 trap cleanup EXIT
+# Route Ctrl-C (INT) and termination (TERM) through cleanup as well, then exit
+# with the conventional 128+signal status so the volume is always removed.
+trap 'cleanup; exit 130' INT
+trap 'cleanup; exit 143' TERM
 
 main() {
 

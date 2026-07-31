@@ -6,6 +6,7 @@ pub async fn update_chunk_stats(
     topic_uuid: &types::Uuid,
     datafile: impl AsRef<std::path::Path>,
     size_bytes: i64,
+    arrow_size_bytes: i64,
     row_count: i64,
     ontology_tag: &str,
     cstats: types::OntologyModelStats,
@@ -14,7 +15,7 @@ pub async fn update_chunk_stats(
 
     let chunk = db::chunk_create(
         tx,
-        &db::ChunkRecord::new(topic_id, datafile, size_bytes, row_count),
+        &db::ChunkRecord::new(topic_id, datafile, size_bytes, arrow_size_bytes, row_count),
     )
     .await?;
 

@@ -2,7 +2,7 @@ from typing import Optional, Type
 
 import pytest
 
-from mosaicolabs.models.query import (
+from mosaicolabs.query import (
     Query,
     QueryOntologyCatalog,
     QueryResponse,
@@ -12,13 +12,13 @@ from mosaicolabs.models.query import (
     QuerySequence,
     QueryTopic,
 )
-from mosaicolabs.models.query.expressions import (
+from mosaicolabs.query.expressions import (
     _QueryCatalogExpression,
     _QueryExpression,
     _QuerySequenceExpression,
     _QueryTopicExpression,
 )
-from mosaicolabs.models.query.generation.mixins import (
+from mosaicolabs.query.generation.mixins import (
     _QueryableBool,
     _QueryableComparable,
     _QueryableDynamicValue,
@@ -26,7 +26,7 @@ from mosaicolabs.models.query.generation.mixins import (
     _QueryableString,
     _QueryableUnsupported,
 )
-from mosaicolabs.models.query.protocols import QueryableProtocol
+from mosaicolabs.query.protocols import QueryableProtocol
 
 _QUERY_TYPES = [QueryOntologyCatalog, QueryTopic, QuerySequence]
 _QUERY_EXPRESSION_TYPES = [
@@ -333,7 +333,7 @@ class TestQueryableComparable:
 class TestQueryableString:
     _allowed_types = [str]
     _allowed_unary_operators = ["eq", "match", "lt", "gt", "leq", "geq"]
-    _allowed_varargs_operators = ["in_"]
+    _allowed_varargs_operators = ["in_", "between", "outside"]
 
     @pytest.mark.parametrize("value_type", _allowed_types)
     @pytest.mark.parametrize(

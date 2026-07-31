@@ -28,6 +28,9 @@ pub struct ChunkRecord {
     pub topic_id: i32,
     pub(crate) data_file: String,
     pub size_bytes: i64,
+    /// Uncompressed in-memory Arrow footprint of the chunk, as opposed to
+    /// [`Self::size_bytes`], which is the size of the compressed Parquet buffer.
+    pub arrow_size_bytes: Option<i64>,
     pub row_count: i64,
 }
 
@@ -36,6 +39,7 @@ impl ChunkRecord {
         topic_id: i32,
         data_file: impl AsRef<std::path::Path>,
         size_bytes: i64,
+        arrow_size_bytes: i64,
         row_count: i64,
     ) -> Self {
         Self {
@@ -44,6 +48,7 @@ impl ChunkRecord {
             topic_id,
             data_file: data_file.as_ref().to_string_lossy().to_string(),
             size_bytes,
+            arrow_size_bytes: Some(arrow_size_bytes),
             row_count,
         }
     }
