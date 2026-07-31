@@ -33,13 +33,16 @@ pub async fn chunk_create(
 ) -> Result<schema::ChunkRecord, Error> {
     let res = sqlx::query_as!(
         schema::ChunkRecord,
-        r#"INSERT INTO chunk_t(chunk_uuid, topic_id, data_file, size_bytes, row_count)
-        VALUES ($1, $2, $3, $4, $5)
+        r#"INSERT INTO chunk_t(
+            chunk_uuid, topic_id, data_file, size_bytes, arrow_size_bytes, row_count
+        )
+        VALUES ($1, $2, $3, $4, $5, $6)
         RETURNING *"#,
         chunk.chunk_uuid,
         chunk.topic_id,
         chunk.data_file,
         chunk.size_bytes,
+        chunk.arrow_size_bytes,
         chunk.row_count,
     )
     .fetch_one(exec.as_exec())
@@ -202,6 +205,7 @@ fn cast_chunk_data(row: PgRow) -> Result<schema::ChunkRecord, Error> {
         topic_id: row.try_get("topic_id")?,
         data_file: row.try_get("data_file")?,
         size_bytes: row.try_get("size_bytes")?,
+        arrow_size_bytes: row.try_get("arrow_size_bytes")?,
         row_count: row.try_get("row_count")?,
     })
 }
@@ -214,7 +218,12 @@ pub async fn topic_get_stats(
     let res = sqlx::query!(
         r#"SELECT
             COALESCE(SUM(size_bytes), 0)::BIGINT as "total_size_bytes!",
-            COALESCE(SUM(row_count), 0)::BIGINT as "total_row_count!"
+            COALESCE(SUM(row_count), 0)::BIGINT as "total_row_count!",
+            COALESCE(
+                SUM(COALESCE(arrow_size_bytes, size_bytes))::FLOAT8
+                    / NULLIF(SUM(row_count), 0),
+                0
+            )::FLOAT8 as "avg_bytes_per_row!"
         FROM chunk_t
         WHERE topic_id = $1"#,
         topic_id
@@ -225,5 +234,6 @@ pub async fn topic_get_stats(
     Ok(types::TopicChunksStats {
         total_size_bytes: res.total_size_bytes,
         total_row_count: res.total_row_count,
+        avg_bytes_per_row: res.avg_bytes_per_row,
     })
 }
