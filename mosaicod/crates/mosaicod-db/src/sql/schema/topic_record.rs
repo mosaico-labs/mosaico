@@ -1,6 +1,6 @@
-use tracing::error;
 use mosaicod_core::types;
 use mosaicod_marshal as marshal;
+use tracing::error;
 
 #[derive(Debug, Clone)]
 pub struct TopicRecord {

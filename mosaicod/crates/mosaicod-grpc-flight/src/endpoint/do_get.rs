@@ -6,11 +6,11 @@ use arrow_flight::{
     error::FlightError,
 };
 use futures::TryStreamExt;
-use tracing::{debug, info, trace};
 use mosaicod_core::{self as core, params, types};
 use mosaicod_facade as facade;
 use mosaicod_grpc_common as grpc_common;
 use mosaicod_marshal as marshal;
+use tracing::{debug, info, trace};
 
 pub async fn do_get(
     ctx: &facade::Context,
