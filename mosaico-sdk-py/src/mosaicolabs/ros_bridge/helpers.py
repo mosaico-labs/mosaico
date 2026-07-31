@@ -1,5 +1,13 @@
 import fnmatch
-from typing import Any, Dict, List, Optional, TypeGuard
+from typing import (
+    Any,
+    ClassVar,
+    Dict,
+    List,
+    Optional,
+    TypeGuard,
+    get_origin,
+)
 
 import numpy as np
 from rosbags.interfaces import TopicInfo
@@ -113,7 +121,10 @@ def _to_dict(message: Any) -> tuple[Any, Dict[str, Any]]:
             if field_name == "__msgtype__":
                 continue
             field_value = getattr(message, field_name)
-            if field.type.startswith("ClassVar"):
+            if (
+                (isinstance(field.type, str) and field.type.startswith("ClassVar["))
+                or get_origin(field.type) is ClassVar
+            ):  # NOTE: the or condition is to ensure that if rosbags moves away from annotation policy this still works
                 const_dict[field_name] = field_value
             else:
                 data_dict[field_name], _ = _to_dict(field_value)

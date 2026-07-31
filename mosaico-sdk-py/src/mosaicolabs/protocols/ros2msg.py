@@ -180,12 +180,13 @@ def convert_ros2msg(msgdef: str, msgtype: str) -> pa.StructType:
     """
     msg_typesdict = get_types_from_msg(msgdef, msgtype)
 
-    # This is necessary since ROS1 msgdef does not contain types like Time and Duration. Therefore,
-    # the created typesdict will not hold Duration and Time on the first level, but their composed
-    # types (like Header) will be composed of these types. Consequently, when looking for these types
-    # at the first level of typesdict they will not be found making the system crash.
-    # This does not happen for ros2 msgdef since they always contain Time and Duration within the
-    # msgdef creating a typesdict where at the first level are present their definitions.
+    # This is necessary since builtin_interfaces containing Time and Duration were introduced in ROS2;
+    # within ROS1, Time and Duration were built-in types and not part of a separate package. Therefore,
+    # ROS1 msgdef do not contain Time and Duration message definitions leading to a typesdict that does
+    # not hold Duration and Time as key attributes. However, composed types (like Header) still contain
+    # Time and Duration data structures. Consequently, when looking for these structures composition within
+    # typesdict they cannot be found, making the system crash. To solve this, Time and Duration definitions
+    # need to be added to the typedict decuded from the input msgdef through the typestore coming from Stores.Empty
     typesdict = get_typestore(Stores.EMPTY).fielddefs | msg_typesdict
 
     return _typesdict_to_schema(typesdict, msgtype)
