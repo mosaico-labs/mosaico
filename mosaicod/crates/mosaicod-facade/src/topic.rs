@@ -212,7 +212,10 @@ pub(super) mod internal {
         let params = params::params();
 
         let target_size = params.target_message_size.value;
-        let batch_size = (target_size as f64 / stats.avg_bytes_per_row) as usize;
+
+        // Guard in case of average 0 to avoid panic
+        let avg_bytes_per_row = (stats.avg_bytes_per_row as usize).max(1);
+        let batch_size = target_size / avg_bytes_per_row;
 
         Ok(batch_size.clamp(1, params.max_batch_size.value))
     }

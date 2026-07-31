@@ -220,10 +220,10 @@ pub async fn topic_get_stats(
             COALESCE(SUM(size_bytes), 0)::BIGINT as "total_size_bytes!",
             COALESCE(SUM(row_count), 0)::BIGINT as "total_row_count!",
             COALESCE(
-                SUM(COALESCE(arrow_size_bytes, size_bytes))::FLOAT8
+                SUM(COALESCE(arrow_size_bytes, size_bytes))
                     / NULLIF(SUM(row_count), 0),
                 0
-            )::FLOAT8 as "avg_bytes_per_row!"
+            )::BIGINT as "avg_bytes_per_row!"
         FROM chunk_t
         WHERE topic_id = $1"#,
         topic_id
