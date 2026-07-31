@@ -167,9 +167,7 @@ async fn on_chunk_created(
         &mut tx,
         topic_uuid,
         &target_path,
-        chunk_metadata.size_bytes as i64,
-        chunk_metadata.arrow_size_bytes as i64,
-        chunk_metadata.row_count as i64,
+        chunk_metadata,
         ontology_tag,
         cstats,
     )

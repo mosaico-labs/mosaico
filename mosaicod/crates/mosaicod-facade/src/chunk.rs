@@ -1,13 +1,12 @@
 use mosaicod_core::{error::PublicResult as Result, types};
 use mosaicod_db as db;
+use mosaicod_rw as rw;
 
 pub async fn update_chunk_stats(
     tx: &mut db::Tx<'_>,
     topic_uuid: &types::Uuid,
     datafile: impl AsRef<std::path::Path>,
-    size_bytes: i64,
-    arrow_size_bytes: i64,
-    row_count: i64,
+    metadata: rw::ChunkMetadata,
     ontology_tag: &str,
     cstats: types::OntologyModelStats,
 ) -> Result<()> {
@@ -15,7 +14,13 @@ pub async fn update_chunk_stats(
 
     let chunk = db::chunk_create(
         tx,
-        &db::ChunkRecord::new(topic_id, datafile, size_bytes, arrow_size_bytes, row_count),
+        &db::ChunkRecord::new(
+            topic_id,
+            datafile,
+            metadata.size_bytes as i64,
+            metadata.arrow_size_bytes as i64,
+            metadata.row_count as i64,
+        ),
     )
     .await?;
 
