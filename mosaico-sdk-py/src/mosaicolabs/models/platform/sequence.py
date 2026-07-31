@@ -185,13 +185,13 @@ class Sequence:
         Factory method to create a Sequence view from platform resource information.
 
         Args:
-            name: The name of the platform resource.
-            total_size_bytes: The total size of the sequence in bytes.
-            platform_metadata: The metadata of the platform resource.
-            resrc_manifest: The manifest of the platform resource.
+            name (str): The name of the platform resource.
+            total_size_bytes (int): The total size of the sequence in bytes.
+            platform_metadata (SequenceMetadata): The metadata of the platform resource.
+            resrc_manifest (SequenceResourceManifest): The manifest of the platform resource.
 
         Returns:
-            A Sequence instance.
+            Self: A Sequence instance.
         """
         if not isinstance(platform_metadata, SequenceMetadata):
             raise ValueError(

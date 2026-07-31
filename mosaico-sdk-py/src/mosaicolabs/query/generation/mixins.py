@@ -52,11 +52,11 @@ class _QueryableComparable:
         Matches records where the field is exactly equal to `value`.
 
         Args:
-            value: The value to compare against. Must match one of the types
+            value (Any): The value to compare against. Must match one of the types
                 in `__mixin_supported_types__` for this field.
 
         Returns:
-            The atomic comparison expression (`$eq`).
+            _QueryExpression: The atomic comparison expression (`$eq`).
 
         Raises:
             TypeError: If `value` isn't one of the supported types.
@@ -69,11 +69,11 @@ class _QueryableComparable:
         Matches records where the field is not equal to `value`.
 
         Args:
-            value: The value to compare against. Must match one of the types
+            value (Any): The value to compare against. Must match one of the types
                 in `__mixin_supported_types__` for this field.
 
         Returns:
-            The atomic comparison expression (`$neq`).
+            _QueryExpression: The atomic comparison expression (`$neq`).
 
         Raises:
             TypeError: If `value` isn't one of the supported types.
@@ -86,11 +86,11 @@ class _QueryableComparable:
         Matches records where the field is strictly less than `value`.
 
         Args:
-            value: The exclusive upper bound. Must match one of the types in
+            value (Any): The exclusive upper bound. Must match one of the types in
                 `__mixin_supported_types__` for this field.
 
         Returns:
-            The atomic comparison expression (`$lt`).
+            _QueryExpression: The atomic comparison expression (`$lt`).
 
         Raises:
             TypeError: If `value` isn't one of the supported types.
@@ -103,11 +103,11 @@ class _QueryableComparable:
         Matches records where the field is less than or equal to `value`.
 
         Args:
-            value: The inclusive upper bound. Must match one of the types in
+            value (Any): The inclusive upper bound. Must match one of the types in
                 `__mixin_supported_types__` for this field.
 
         Returns:
-            The atomic comparison expression (`$leq`).
+            _QueryExpression: The atomic comparison expression (`$leq`).
 
         Raises:
             TypeError: If `value` isn't one of the supported types.
@@ -120,11 +120,11 @@ class _QueryableComparable:
         Matches records where the field is strictly greater than `value`.
 
         Args:
-            value: The exclusive lower bound. Must match one of the types in
+            value (Any): The exclusive lower bound. Must match one of the types in
                 `__mixin_supported_types__` for this field.
 
         Returns:
-            The atomic comparison expression (`$gt`).
+            _QueryExpression: The atomic comparison expression (`$gt`).
 
         Raises:
             TypeError: If `value` isn't one of the supported types.
@@ -137,11 +137,11 @@ class _QueryableComparable:
         Matches records where the field is greater than or equal to `value`.
 
         Args:
-            value: The inclusive lower bound. Must match one of the types in
+            value (Any): The inclusive lower bound. Must match one of the types in
                 `__mixin_supported_types__` for this field.
 
         Returns:
-            The atomic comparison expression (`$geq`).
+            _QueryExpression: The atomic comparison expression (`$geq`).
 
         Raises:
             TypeError: If `value` isn't one of the supported types.
@@ -161,7 +161,7 @@ class _QueryableComparable:
 
 
         Returns:
-            The atomic comparison expression (`$in`).
+            _QueryExpression: The atomic comparison expression (`$in`).
 
         Raises:
             ValueError: If no values are provided.
@@ -184,7 +184,7 @@ class _QueryableComparable:
 
 
         Returns:
-            The atomic comparison expression (`$between`).
+            _QueryExpression: The atomic comparison expression (`$between`).
 
         Raises:
             ValueError: If not exactly two values are provided, or if the
@@ -207,7 +207,7 @@ class _QueryableComparable:
                 Both must be either `float` or `int`.
 
         Returns:
-            The atomic comparison expression (`$outside`).
+            _QueryExpression: The atomic comparison expression (`$outside`).
 
         Raises:
             ValueError: If not exactly two values are provided, or if the
@@ -286,12 +286,12 @@ class _QueryableDateTime(_QueryableComparable):
         suitable for backend comparison.
 
         Args:
-            value: A `datetime.date`, `datetime.time`, `datetime.datetime`, or
+            value (Any): A `datetime.date`, `datetime.time`, `datetime.datetime`, or
                 an `int` (nanoseconds since epoch).
 
         Returns:
-            The ISO 8601 representation of `value`, or the string form of the
-            nanosecond timestamp if `value` is an `int`.
+            str: The ISO 8601 representation of `value`, or the string form of the
+                nanosecond timestamp if `value` is an `int`.
         """
         getattr(self, "_validate_value_type")(value, self.__mixin_supported_types__)
 
@@ -326,10 +326,10 @@ class _QueryableBool:
         Matches records where the field equals `value`.
 
         Args:
-            value: `True` or `False`.
+            value (Any): `True` or `False`.
 
         Returns:
-            The atomic comparison expression (`$eq`).
+            _QueryExpression: The atomic comparison expression (`$eq`).
 
         Raises:
             TypeError: If `value` isn't a `bool`.
@@ -362,10 +362,10 @@ class _QueryableString:
         Matches records where the field is exactly equal to `value`.
 
         Args:
-            value: The string to compare against.
+            value (Any): The string to compare against.
 
         Returns:
-            The atomic comparison expression (`$eq`).
+            _QueryExpression: The atomic comparison expression (`$eq`).
 
         Raises:
             TypeError: If `value` isn't a `str`.
@@ -397,10 +397,10 @@ class _QueryableString:
             i.e. an exact match will be performed.
 
         Args:
-            value: The glob pattern to match against.
+            value (Any): The glob pattern to match against.
 
         Returns:
-            The atomic comparison expression (`$match`).
+            _QueryExpression: The atomic comparison expression (`$match`).
 
         Raises:
             TypeError: If `value` isn't a `str`.
@@ -414,10 +414,10 @@ class _QueryableString:
         lexicographically.
 
         Args:
-            value: The exclusive upper bound.
+            value (Any): The exclusive upper bound.
 
         Returns:
-            The atomic comparison expression (`$lt`).
+            _QueryExpression: The atomic comparison expression (`$lt`).
 
         Raises:
             TypeError: If `value` isn't a `str`.
@@ -431,10 +431,10 @@ class _QueryableString:
         lexicographically.
 
         Args:
-            value: The inclusive upper bound.
+            value (Any): The inclusive upper bound.
 
         Returns:
-            The atomic comparison expression (`$leq`).
+            _QueryExpression: The atomic comparison expression (`$leq`).
 
         Raises:
             TypeError: If `value` isn't a `str`.
@@ -448,10 +448,10 @@ class _QueryableString:
         lexicographically.
 
         Args:
-            value: The exclusive lower bound.
+            value (Any): The exclusive lower bound.
 
         Returns:
-            The atomic comparison expression (`$gt`).
+            _QueryExpression: The atomic comparison expression (`$gt`).
 
         Raises:
             TypeError: If `value` isn't a `str`.
@@ -465,10 +465,10 @@ class _QueryableString:
         lexicographically.
 
         Args:
-            value: The inclusive lower bound.
+            value (Any): The inclusive lower bound.
 
         Returns:
-            The atomic comparison expression (`$geq`).
+            _QueryExpression: The atomic comparison expression (`$geq`).
 
         Raises:
             TypeError: If `value` isn't a `str`.
@@ -486,7 +486,7 @@ class _QueryableString:
                 tuple (`in_([v1, v2])`).
 
         Returns:
-            The atomic comparison expression (`$in`).
+            _QueryExpression: The atomic comparison expression (`$in`).
 
         Raises:
             ValueError: If no values are provided.
@@ -509,7 +509,7 @@ class _QueryableString:
                 Both must be of type `str`.
 
         Returns:
-            The atomic comparison expression (`$between`).
+            _QueryExpression: The atomic comparison expression (`$between`).
 
         Raises:
             ValueError: If not exactly two values are provided, or if the
@@ -533,7 +533,7 @@ class _QueryableString:
                 Both must be of type `str`.
 
         Returns:
-            The atomic comparison expression (`$outside`).
+            _QueryExpression: The atomic comparison expression (`$outside`).
 
         Raises:
             ValueError: If not exactly two values are provided, or if the
@@ -572,10 +572,10 @@ class _QueryableDynamicValue:
         Matches records where the field equals `value`.
 
         Args:
-            value: A numeric, string, or boolean value.
+            value (Any): A numeric, string, or boolean value.
 
         Returns:
-            The atomic comparison expression (`$eq`).
+            _QueryExpression: The atomic comparison expression (`$eq`).
 
         Raises:
             TypeError: If `value` isn't numeric, string, or boolean.
@@ -593,10 +593,10 @@ class _QueryableDynamicValue:
         Matches records where the field is not equal to `value`.
 
         Args:
-            value: A numeric, string, or boolean value.
+            value (Any): A numeric, string, or boolean value.
 
         Returns:
-            The atomic comparison expression (`$neq`).
+            _QueryExpression: The atomic comparison expression (`$neq`).
 
         Raises:
             TypeError: If `value` isn't numeric, string, or boolean.
@@ -609,7 +609,7 @@ class _QueryableDynamicValue:
         )
         return getattr(self, "_cmp")("$neq", value)
 
-    def match(self, value: Any):
+    def match(self, value: Any) -> "_QueryExpression":
         """
         Matches records where the field satisfies a glob-style pattern.
 
@@ -629,10 +629,10 @@ class _QueryableDynamicValue:
             i.e. an exact match will be performed.
 
         Args:
-            value: The glob pattern to match against.
+            value (Any): The glob pattern to match against.
 
         Returns:
-            The atomic comparison expression (`$match`).
+            _QueryExpression: The atomic comparison expression (`$match`).
 
         Raises:
             TypeError: If `value` isn't a `str`.
@@ -643,7 +643,7 @@ class _QueryableDynamicValue:
         )
         return getattr(self, "_cmp")("$match", value)
 
-    def in_(self, *values: Any):
+    def in_(self, *values: Any) -> "_QueryExpression":
         """
         Matches records where the field's value is one of `values`.
 
@@ -653,7 +653,7 @@ class _QueryableDynamicValue:
                 tuple (`in_([v1, v2])`).
 
         Returns:
-            The atomic comparison expression (`$in`).
+            _QueryExpression: The atomic comparison expression (`$in`).
 
         Raises:
             ValueError: If no values are provided.
@@ -665,10 +665,10 @@ class _QueryableDynamicValue:
         Matches records where the field is strictly less than `value`.
 
         Args:
-            value: A numeric or string value (booleans aren't ordered).
+            value (Any): A numeric or string value (booleans aren't ordered).
 
         Returns:
-            The atomic comparison expression (`$lt`).
+            _QueryExpression: The atomic comparison expression (`$lt`).
 
         Raises:
             TypeError: If `value` isn't numeric or string.
@@ -685,10 +685,10 @@ class _QueryableDynamicValue:
         Matches records where the field is less than or equal to `value`.
 
         Args:
-            value: A numeric or string value (booleans aren't ordered).
+            value (Any): A numeric or string value (booleans aren't ordered).
 
         Returns:
-            The atomic comparison expression (`$leq`).
+            _QueryExpression: The atomic comparison expression (`$leq`).
 
         Raises:
             TypeError: If `value` isn't numeric or string.
@@ -705,10 +705,10 @@ class _QueryableDynamicValue:
         Matches records where the field is strictly greater than `value`.
 
         Args:
-            value: A numeric or string value (booleans aren't ordered).
+            value (Any): A numeric or string value (booleans aren't ordered).
 
         Returns:
-            The atomic comparison expression (`$gt`).
+            _QueryExpression: The atomic comparison expression (`$gt`).
 
         Raises:
             TypeError: If `value` isn't numeric or string.
@@ -725,10 +725,10 @@ class _QueryableDynamicValue:
         Matches records where the field is greater than or equal to `value`.
 
         Args:
-            value: A numeric or string value (booleans aren't ordered).
+            value (Any): A numeric or string value (booleans aren't ordered).
 
         Returns:
-            The atomic comparison expression (`$geq`).
+            _QueryExpression: The atomic comparison expression (`$geq`).
 
         Raises:
             TypeError: If `value` isn't numeric or string.
@@ -740,7 +740,7 @@ class _QueryableDynamicValue:
         )
         return getattr(self, "_cmp")("$geq", value)
 
-    def between(self, *values) -> "_QueryExpression":
+    def between(self, *values: Any) -> "_QueryExpression":
         """
         Matches records where the field's value falls within an inclusive
         range, i.e. `lower <= v <= upper`. Since the field's type isn't known
@@ -748,12 +748,12 @@ class _QueryableDynamicValue:
         numbers, or lexicographic if they're strings.
 
         Args:
-            *values: Exactly two values `(lower, upper)`, passed either as two
+            *values (Any): Exactly two values `(lower, upper)`, passed either as two
                 positional arguments (`between(lo, hi)`) or as a single list
                 or tuple (`between([lo, hi])`), with `lower <= upper`.
 
         Returns:
-            The atomic comparison expression (`$between`).
+            _QueryExpression: The atomic comparison expression (`$between`).
 
         Raises:
             ValueError: If not exactly two values are provided, or if the
@@ -775,7 +775,7 @@ class _QueryableDynamicValue:
                 or tuple (`outside([lo, hi])`), with `lower <= upper`.
 
         Returns:
-            The atomic comparison expression (`$outside`).
+            _QueryExpression: The atomic comparison expression (`$outside`).
 
         Raises:
             ValueError: If not exactly two values are provided, or if the
@@ -789,11 +789,11 @@ class _QueryableDynamicValue:
         Checks whether the dictionary key backing this field exists.
 
         Args:
-            value: `True` to require the key's existence (`$ex`), `False` to
+            value (bool): `True` to require the key's existence (`$ex`), `False` to
                 require its absence (`$nex`).
 
         Returns:
-            The atomic existence (or non-existence) expression.
+            _QueryExpression: The atomic existence (or non-existence) expression.
 
         Raises:
             TypeError: If `value` isn't a `bool`.
@@ -914,9 +914,9 @@ class _QueryableField:
     def __init__(self, full_path: str, expr_cls: Type[_QueryExpression]):
         """
         Args:
-            full_path: The fully-qualified, dot-notated field path, prefixed
+            full_path (str): The fully-qualified, dot-notated field path, prefixed
                 by the ontology tag (e.g. `"IMU.acceleration.x"`).
-            expr_cls: The [`_QueryExpression`][mosaicolabs.query.expressions._QueryExpression]
+            expr_cls (Type[_QueryExpression]): The [`_QueryExpression`][mosaicolabs.query.expressions._QueryExpression]
                 subclass used to build comparison expressions for this field
                 (e.g. `_QueryCatalogExpression`).
         """

@@ -30,9 +30,9 @@ class _QueryExpression:
         Initializes an atomic comparison.
 
         Args:
-            full_path: The dot-separated field path used in the final query dictionary.
-            op: The short-string operation identifier (must start with `$`).
-            value: The constant value for the comparison.
+            full_path (str): The dot-separated field path used in the final query dictionary.
+            op (str): The short-string operation identifier (must start with `$`).
+            value (Any): The constant value for the comparison.
         """
         # self.key is the full path used in the final query dict, e.g., "GPS.status"
         self.key = full_path
@@ -83,7 +83,7 @@ class _QuerySequenceExpression(_QueryExpression):
     It is the only expression type accepted by the
     [`QuerySequence`][mosaicolabs.query.builders.QuerySequence] builder.
 
-    It handles fields such as the sequence `name`, `created_timestamp`, or custom
+    It handles fields such as the sequence `name`, `created_at_ns`, or custom
     entries within the sequence's `user_metadata`.
 
     **Internal Translation Example:**
@@ -92,7 +92,7 @@ class _QuerySequenceExpression(_QueryExpression):
     | --- | --- |
     | `QuerySequence().with_user_metadata("project", eq="Apollo")` | `_QuerySequenceExpression("user_metadata.project", "$eq", "Apollo")` |
     | `QuerySequence().with_name("Apollo")` | `_QuerySequenceExpression("name", "$eq", "Apollo")` |
-    | `QuerySequence().with_created_timestamp(Time.from_float(1704067200.0))` | `_QuerySequenceExpression("created_timestamp", "$between", [1704067200.0, None])` |
+    | `QuerySequence().with_created_timestamp(time_start=1704067200_000000000)` | `_QuerySequenceExpression("created_at_ns", "$geq", 1704067200_000000000)` |
 
     """
 
@@ -126,6 +126,6 @@ class _QueryCatalogExpression(_QueryExpression):
         """
         Returns the ontology tag the expression refers to as a string. For example:
         IMU.Q.acceleration.x.gt(9.8) -> imu
-        GPS.Q.latitude.lt(1.0) -> gps
+        GPS.Q.position.x.lt(1.0) -> gps
         """
         return self.key.split(".")[0]

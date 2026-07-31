@@ -5,7 +5,6 @@ use ext::arrow_filter::{Cluster, ClusteringError};
 use arrow::error::ArrowError;
 use datafusion::physical_plan::SendableRecordBatchStream;
 use futures::StreamExt;
-use log::{info, trace, warn};
 use mosaicod_core::{
     self as core,
     types::{self, MetadataBlob, TopicLocator},
@@ -20,6 +19,7 @@ use mosaicod_marshal::{
 use mosaicod_query as query;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
+use tracing::{info, trace, warn};
 
 use crate::flight::DoActionStream;
 

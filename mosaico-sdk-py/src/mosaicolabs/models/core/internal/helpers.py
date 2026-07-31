@@ -34,8 +34,8 @@ def _encode_to_dict(obj: Any, exclude_none: bool = False) -> Any:
     into a standard Python dictionary representation.
 
     Args:
-        obj: The input object to encode. Can be a Pydantic model, dataclass, list, tuple, or primitive.
-        skip_none (bool): If True, omit fields with None values from the resulting dictionary.
+        obj (Any): The input object to encode. Can be a Pydantic model, dataclass, list, tuple, or primitive.
+        exclude_none (bool): If True, omit fields with None values from the resulting dictionary.
 
     Returns:
         Any: A dictionary (for models/dataclasses), a list/tuple (for iterables),

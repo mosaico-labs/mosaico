@@ -1,6 +1,18 @@
-from typing import Any, Callable, Dict, Generic, Optional, Type, TypeVar
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    Generic,
+    Optional,
+    Type,
+    TypeVar,
+)
 
 from rosbags.typesys import Stores, get_typestore
+
+if TYPE_CHECKING:
+    from rosbags.typesys.store import MsgType
 
 from mosaicolabs.models.core import Message, Serializable
 
@@ -54,7 +66,7 @@ class ROSBridge(Generic[T]):
         new message types during bag ingestion. Users must use the @register_default_adapter decorator instead.
 
         Args:
-            adapter_class: A class inheriting from `ROSAdapterBase` that defines the
+            adapter_class (Type[ROSAdapterBase]): A class inheriting from `ROSAdapterBase` that defines the
                 translation logic and target ROS types.
 
         Raises:
@@ -96,10 +108,10 @@ class ROSBridge(Generic[T]):
         Retrieves the registered adapter class for a given ROS message type.
 
         Args:
-            ros_msg_type: The full ROS message type string (e.g., "sensor_msgs/msg/Image").
+            ros_msg_type (str): The full ROS message type string (e.g., "sensor_msgs/msg/Image").
 
         Returns:
-            The corresponding `ROSAdapterBase` subclass if found, otherwise `None`.
+            Optional[Type[ROSAdapterBase]]: The corresponding `ROSAdapterBase` subclass if found, otherwise `None`.
         """
         return cls._default_adapters.get(ros_msg_type)
 
@@ -114,11 +126,11 @@ class ROSBridge(Generic[T]):
         the canonical choices for Mosaico → ROS translation.
 
         Args:
-            mosaico_type: The ontology tag string (e.g., ``"imu"``, ``"image"``).
+            mosaico_type (str): The ontology tag string (e.g., ``"imu"``, ``"image"``).
 
         Returns:
-            The corresponding ``ROSAdapterBase`` subclass if one is registered,
-            otherwise ``None``.
+            Optional[Type[ROSAdapterBase]]: The corresponding ``ROSAdapterBase`` subclass if one is registered,
+                otherwise ``None``.
         """
         return cls._default_mosaico_adapters.get(mosaico_type)
 
@@ -126,6 +138,9 @@ class ROSBridge(Generic[T]):
     def is_msgtype_adapted(cls, ros_msg_type: str) -> bool:
         """
         Checks if a specific ROS message type has a registered translator.
+
+        Args:
+            ros_msg_type (str): The full ROS message type string (e.g., "sensor_msgs/msg/Image").
 
         Returns:
             bool: True if the type is supported, False otherwise.
@@ -139,10 +154,10 @@ class ROSBridge(Generic[T]):
         for reverse translation (Mosaico → ROS).
 
         Args:
-            mosaico_type: The ontology tag string to check.
+            mosaico_type (str): The ontology tag string to check.
 
         Returns:
-            ``True`` if a default adapter exists for this type, ``False`` otherwise.
+            bool: ``True`` if a default adapter exists for this type, ``False`` otherwise.
         """
         return mosaico_type in cls._default_mosaico_adapters
 
@@ -152,7 +167,7 @@ class ROSBridge(Generic[T]):
         Checks if a specific Mosaico Ontology class has a registered adapter.
 
         Args:
-            mosaico_cls: The Mosaico class to check (e.g., `Image`, `Imu`).
+            mosaico_cls (Type[Message]): The Mosaico class to check (e.g., `Image`, `Imu`).
 
         Returns:
             bool: True if an adapter exists for this class, False otherwise.
@@ -182,11 +197,11 @@ class ROSBridge(Generic[T]):
             ```
 
         Args:
-            ros_msg: The `ROSMessage` container produced by the `ROSLoader`.
+            ros_msg (ROSMessage): The `ROSMessage` container produced by the `ROSLoader`.
             **kwargs: Arbitrary context arguments passed directly to the adapter's translate method.
 
         Returns:
-            A fully constructed Mosaico `Message` if an adapter is available, otherwise `None`.
+            Optional[Message]: A fully constructed Mosaico `Message` if an adapter is available, otherwise `None`.
         """
         adapter_class = cls.get_default_adapter(ros_msg.msg_type)
         if adapter_class is None:
@@ -198,8 +213,23 @@ class ROSBridge(Generic[T]):
     @classmethod
     def from_mosaico_message(
         cls, mosaico_msg: Message, store: Stores, ros_msg_type: Optional[str] = None
-    ):  # TODO: is this useful?
+    ) -> Optional["MsgType"]:
+        """
+        The high-level API for translating a Mosaico `Message` into a ROS message.
 
+        This method identifies the appropriate adapter based on the message's ontology
+        tag and invokes its `to_ros` method.
+
+        Args:
+            mosaico_msg (Message): The Mosaico `Message` to translate.
+            store (Stores): The rosbags typestore identifier used to resolve the target ROS type.
+            ros_msg_type (Optional[str]): Override for the output ROS type. If `None`,
+                the adapter's default ROS type is used.
+
+        Returns:
+            Optional[MsgType]: The constructed ROS message if a default adapter is registered
+                for the message's ontology tag, otherwise `None`.
+        """
         adapter_class = cls._default_mosaico_adapters.get(mosaico_msg.ontology_tag())
         if adapter_class is None:
             return None
@@ -221,17 +251,18 @@ def register_default_adapter(
         ```python
         from mosaicolabs.ros_bridge import register_default_adapter, ROSAdapterBase
 
-        @register_default_adapter(is_default=False):
+        @register_default_adapter(is_default=False)
         class MySensorAdapter(ROSAdapterBase):
             ros_msgtype = "sensor_msgs/msg/Temperature"
             # ...
         ```
 
     Args:
-        is_default: flag indicating that this adapter should be used when traslating from Mosaico to ROS
+        is_default (bool): flag indicating that this adapter should be used when traslating from Mosaico to ROS
 
     Returns:
-        The same class, unmodified, after successful registration.
+        Callable[[type["ROSAdapterBase"]], type["ROSAdapterBase"]]: The same class, unmodified,
+            after successful registration.
     """
 
     def wrapper(cls: Type["ROSAdapterBase"]) -> Type["ROSAdapterBase"]:

@@ -97,6 +97,14 @@ class LidarAdapter(PointCloudAdapterBase[Lidar]):
     ) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
+
+        Args:
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (str): The ROS message type to extract metadata for.
+            ros_version (int): The ROS version (1 or 2) to consider for metadata extraction.
+
+        Returns:
+            Optional[dict]: A dictionary containing the schema metadata, or None if not applicable.
         """
         return super().schema_metadata(typestore, ros_msg_type, ros_version)
 
@@ -186,6 +194,14 @@ class RadarAdapter(PointCloudAdapterBase[Radar]):
     ) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
+
+        Args:
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (str): The ROS message type to extract metadata for.
+            ros_version (int): The ROS version (1 or 2) to consider for metadata extraction.
+
+        Returns:
+            Optional[dict]: A dictionary containing the schema metadata, or None if not applicable.
         """
         return super().schema_metadata(typestore, ros_msg_type, ros_version)
 
@@ -265,6 +281,14 @@ class RGBDCameraAdapter(PointCloudAdapterBase[RGBDCamera]):
     ) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
+
+        Args:
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (str): The ROS message type to extract metadata for.
+            ros_version (int): The ROS version (1 or 2) to consider for metadata extraction.
+
+        Returns:
+            Optional[dict]: A dictionary containing the schema metadata, or None if not applicable.
         """
         return super().schema_metadata(typestore, ros_msg_type, ros_version)
 
@@ -347,6 +371,14 @@ class ToFCameraAdapter(PointCloudAdapterBase[ToFCamera]):
     ) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
+
+        Args:
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (str): The ROS message type to extract metadata for.
+            ros_version (int): The ROS version (1 or 2) to consider for metadata extraction.
+
+        Returns:
+            Optional[dict]: A dictionary containing the schema metadata, or None if not applicable.
         """
         return super().schema_metadata(typestore, ros_msg_type, ros_version)
 
@@ -428,5 +460,13 @@ class StereoCameraAdapter(PointCloudAdapterBase[StereoCamera]):
     ) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
+
+        Args:
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (str): The ROS message type to extract metadata for.
+            ros_version (int): The ROS version (1 or 2) to consider for metadata extraction.
+
+        Returns:
+            Optional[dict]: A dictionary containing the schema metadata, or None if not applicable.
         """
         return super().schema_metadata(typestore, ros_msg_type, ros_version)

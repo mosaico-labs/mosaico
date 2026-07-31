@@ -1,8 +1,8 @@
-use log::info;
 use mosaicod_core::params;
 use mosaicod_grpc_common as grpc_common;
 use mosaicod_marshal::ActionResponse;
 use semver;
+use tracing::info;
 
 /// Returns the server version.
 pub fn version() -> grpc_common::Result<ActionResponse> {

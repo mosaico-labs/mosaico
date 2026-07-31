@@ -3,7 +3,7 @@ use crate::{
     core::{AsExec, Tx},
     sql::schema,
 };
-use log::trace;
+use tracing::trace;
 
 /// Acquires a transaction-level advisory lock to prevent race conditions. The caller must run
 /// this on a connection held open for the duration of a single transaction (see `AsExec` impl

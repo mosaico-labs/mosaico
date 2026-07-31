@@ -15,7 +15,7 @@ def _decode_app_metadata(
     Decodes and validates the raw App Metadata JSON payload.
 
     Args:
-        app_mdata: JSON payload as a UTF-8 string or byte sequence.
+        app_mdata (Union[bytes, str]): JSON payload as a UTF-8 string or byte sequence.
 
     Returns:
         Dict[str, Any]: Decoded app_metadata JSON.

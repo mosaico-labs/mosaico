@@ -15,10 +15,13 @@ def flatten_dict(
     """
     Recursively flattens a nested dictionary into a single-level dictionary.
 
-    :param d: The dictionary to flatten.
-    :param parent_key: The base key to prepend to new keys (used in recursion).
-    :param sep: The separator to use between keys.
-    :return: A new flattened dictionary.
+    Args:
+        d (dict[str, Any]): The dictionary to flatten.
+        parent_key (str): The base key to prepend to new keys (used in recursion).
+        sep (str): The separator to use between keys.
+
+    Returns:
+        dict[str, str]: A new flattened dictionary.
     """
     items = {}
     for k, v in d.items():
@@ -39,9 +42,12 @@ def unflatten_dict(d: dict[str, Any], sep: str = ".") -> dict[str, Any]:
     Converts a flattened dictionary back into a nested dictionary structure,
     decoding Python-style literals (None, True, False, numbers, lists, dicts) along the way.
 
-    :param d: The flattened dictionary (e.g., {'a.b': '1', 'a.c': '[1,2]'}).
-    :param sep: The separator used to join the keys (default is '.').
-    :return: A new, nested dictionary with decoded values.
+    Args:
+        d (dict[str, Any]): The flattened dictionary (e.g., {'a.b': '1', 'a.c': '[1,2]'}).
+        sep (str): The separator used to join the keys (default is '.').
+
+    Returns:
+        dict[str, Any]: A new, nested dictionary with decoded values.
     """
 
     def decode_value(value: Any) -> Any:

@@ -79,10 +79,10 @@ class Notification:
         Create a Notification object from a dictionary.
 
         Args:
-            data: The dictionary to create the Notification object from.
+            data (Dict[str, Any]): The dictionary to create the Notification object from.
 
         Returns:
-            A Notification object.
+            Notification: A Notification object.
         """
         sequence_name = data["name"]
         unpacked = unpack_topic_full_path(sequence_name)

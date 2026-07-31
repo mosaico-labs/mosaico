@@ -188,9 +188,9 @@ class Serializable(BaseModel, _QueryProxyMixin):
         are forwarded to the superclass implementation.
 
         Args:
-            skip_schema_generation: If ``True``, disables automatic arrow schema
+            skip_schema_generation (bool): If ``True``, disables automatic arrow schema
                 generation for the subclass during Pydantic subclass initialization.
-            skip_query_proxy_ingestion: If ``True``, disables automatic .Q query
+            skip_query_proxy_ingestion (bool): If ``True``, disables automatic .Q query
                 proxy ingestion in the subclass during Pydantic subclass initialization.
             **kwargs: Additional keyword arguments forwarded to the superclass.
         """
@@ -263,7 +263,7 @@ class Serializable(BaseModel, _QueryProxyMixin):
             **kwargs: Keyword arguments for the subclass constructor.
 
         Returns:
-            An instance of the corresponding `Serializable` subclass.
+            Serializable: An instance of the corresponding `Serializable` subclass.
         """
         # Clean up potential artifacts from Parquet deserialization (e.g., None as empty structs)
         fixed_kwargs = _fix_empty_dicts(kwargs) if kwargs else {}
@@ -297,10 +297,10 @@ class Serializable(BaseModel, _QueryProxyMixin):
         Retrieves the concrete Python class type associated with a specific tag.
 
         Args:
-            tag: The unique ontology identifier.
+            tag (str): The unique ontology identifier.
 
         Returns:
-            The Python class type if found, otherwise `None`.
+            Optional[Type["Serializable"]]: The Python class type if found, otherwise `None`.
         """
         if not cls._is_registered(tag):
             return None
@@ -316,10 +316,10 @@ class Serializable(BaseModel, _QueryProxyMixin):
         PyArrow field metadata.
 
         Args:
-            model_class: The Pydantic model class to convert.
+            model_class (type[BaseModel]): The Pydantic model class to convert.
 
         Returns:
-            A pa.StructType representing the schema of the Pydantic model.
+            pa.StructType: A pa.StructType representing the schema of the Pydantic model.
         """
 
         cached_struct = model_class.__dict__.get("__msco_pyarrow_struct__")
@@ -368,12 +368,12 @@ class Serializable(BaseModel, _QueryProxyMixin):
         * Annotated types (extracts metadata for type hinting).
 
         Args:
-            base_type: The Python type or type hint to resolve.
-            suggested_type: An optional pre-defined PyArrow DataType provided
+            base_type (Any): The Python type or type hint to resolve.
+            suggested_type (Optional[Any]): An optional pre-defined PyArrow DataType provided
                 via Annotated metadata.
 
         Returns:
-            The resolved pa.DataType.
+            pa.DataType: The resolved pa.DataType.
 
         Raises:
             NotImplementedError: If a Union contains more than one non-None type.
@@ -466,7 +466,7 @@ class Serializable(BaseModel, _QueryProxyMixin):
         identifier for queries and serialization.
 
         Returns:
-            The registered string tag for this class (e.g., `"imu"`, `"gps"`).
+            str: The registered string tag for this class (e.g., `"imu"`, `"gps"`).
 
         Raises:
             Exception: If the class was not properly initialized via `__pydantic_init_subclass__`.

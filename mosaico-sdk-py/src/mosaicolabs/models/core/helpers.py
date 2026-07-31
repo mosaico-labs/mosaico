@@ -35,24 +35,24 @@ def resolve_ontology_class(
     `f"{ontology_tag}__{fingerprint}"`.
 
     Args:
-        ontology_tag: The ontology identifier to resolve. If a `Serializable`
+        ontology_tag (str): The ontology identifier to resolve. If a `Serializable`
             class is already registered under this tag, it's returned directly
             (subject to the schema-variant check above); otherwise a dynamic
             `Unmodeled` class is created and registered under it.
-        schema: The pyarrow schema of the incoming data. Required when
+        schema (Optional[pa.StructType]): The pyarrow schema of the incoming data. Required when
             `ontology_tag` isn't already registered, since it's needed to build
             the fallback class. When provided for an already-registered tag,
             it's compared against the registered schema to detect drift.
-        schema_fingerprint: The fingerprint of `schema`, if the caller already
+        schema_fingerprint (Optional[str]): The fingerprint of `schema`, if the caller already
             computed it (e.g. once at stream-connect time, since the schema is
             invariant for the life of a stream). Avoids re-hashing `schema` on
             every call. Computed from `schema` on demand if omitted.
-        serialization_format: The serialization format to use if a dynamic
+        serialization_format (Optional[SerializationFormat]): The serialization format to use if a dynamic
             class needs to be created. Defaults to `SerializationFormat.Default`
             if omitted.
 
     Returns:
-        The resolved `Serializable` class: the already-registered class for
+        Type[Serializable]: The resolved `Serializable` class: the already-registered class for
             `ontology_tag`, a newly created `Unmodeled` fallback class, or a
             distinct schema-variant class, depending on the case above.
 

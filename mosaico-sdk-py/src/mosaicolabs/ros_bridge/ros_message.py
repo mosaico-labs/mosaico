@@ -47,7 +47,7 @@ class ROSHeader:
     frame_id: str
     """Frame this data is associated with"""
     stamp: Time
-    """seconds (stamp_secs) since epoch (in Python the variable is called 'secs')"""
+    """The point in time (seconds and nanoseconds) when the data was sampled."""
 
     _REQUIRED_KEYS = ("frame_id", "stamp")
 
@@ -70,7 +70,7 @@ class ROSHeader:
             ```
 
         Args:
-            data: The 'header' sub-dictionary from a deserialized ROS message.
+            data (Dict[str, Any]): The 'header' sub-dictionary from a deserialized ROS message.
 
         Raises:
             ValueError: If the input dictionary is missing mandatory ROS keys.
@@ -92,10 +92,10 @@ class ROSHeader:
         by inspecting the dataclass fields available in the typestore.
 
         Args:
-            typestore: The rosbags typestore
+            typestore (Typestore): The rosbags typestore
 
         Returns:
-            A native ROS ``Header`` instance populated with the stamp and frame_id.
+            MsgType: A native ROS ``Header`` instance populated with the stamp and frame_id.
         """
         RosTime = typestore.types["builtin_interfaces/msg/Time"]
         RosHeader = typestore.types["std_msgs/msg/Header"]
@@ -144,7 +144,6 @@ class ROSMessage:
             to the bag file. This is the "storage time".
         topic (str): The specific topic string source (e.g., "/camera/left/image_raw").
         msg_type (str): The canonical ROS type string (e.g., "sensor_msgs/msg/Image").
-        msg_def (Optional[str]): The ROS message definition as string.
         data_field (Optional[Dict[str, Any]]): The message payload converted into a
             standard nested Python dictionary.
         const_data (Dict[str, Any]): The message constants (e.g. `uint8 STATUS_FIX=0`)

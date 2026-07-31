@@ -88,7 +88,7 @@ class SequenceWriter(_BaseSessionWriter):
                                 "lon": 9.19201,
                             },
                         },
-                    }
+                    },
                     on_error = SessionLevelErrorPolicy.Delete
                     ) as seq_writer:
                         # Start creating topics and pushing data
@@ -103,10 +103,10 @@ class SequenceWriter(_BaseSessionWriter):
                 * [`TopicWriter.push()`][mosaicolabs.handlers.TopicWriter.push]
 
         Args:
-            sequence_name: Unique name for the new sequence.
-            client: The primary control FlightClient.
-            metadata: User-defined metadata dictionary.
-            config: Operational configuration (e.g., error policies, batch sizes).
+            sequence_name (str): Unique name for the new sequence.
+            client (fl.FlightClient): The primary control FlightClient.
+            metadata (dict[str, Any]): User-defined metadata dictionary.
+            config (SessionWriterConfig): Operational configuration (e.g., error policies, batch sizes).
         """
         _validate_sequence_name(sequence_name)
         _validate_metadata(metadata)
@@ -156,12 +156,12 @@ class SequenceWriter(_BaseSessionWriter):
         Override the __exit__ method to handle exceptions and apply `on_error` policies.
 
         Args:
-            exc_type: The type of the exception.
-            exc_value: The exception value.
-            traceback: The traceback.
+            exc_type (Optional[Type[BaseException]]): The type of the exception.
+            exc_val (Optional[BaseException]): The exception value.
+            exc_tb (Optional[Any]): The traceback.
 
         Returns:
-            The return value of the base class __exit__ method.
+            None: The return value of the base class __exit__ method.
         """
 
         # Run base session cleanup
@@ -210,13 +210,13 @@ class SequenceWriter(_BaseSessionWriter):
         Creates a new topic within the active sequence.
 
         Args:
-            topic_name: The relative name of the new topic.
-            metadata: Topic-specific user metadata.
-            ontology_type: The `Serializable` data model class defining the topic's schema.
-            on_error: The error policy to use in the `TopicWriter`.
+            topic_name (str): The relative name of the new topic.
+            metadata (dict[str, Any]): Topic-specific user metadata.
+            ontology_type (Type[Serializable]): The `Serializable` data model class defining the topic's schema.
+            on_error (TopicLevelErrorPolicy): The error policy to use in the `TopicWriter`.
 
         Returns:
-            A `TopicWriter` instance configured for parallel ingestion, or `None` if creation fails.
+            Optional[TopicWriter]: A `TopicWriter` instance configured for parallel ingestion, or `None` if creation fails.
 
         Raises:
             RuntimeError: If called outside of a `with` block.
@@ -291,6 +291,6 @@ class SequenceWriter(_BaseSessionWriter):
         Returns the current operational status of the sequence.
 
         Returns:
-            The [`SequenceStatus`][mosaicolabs.enum.SequenceStatus].
+            SequenceStatus: The [`SequenceStatus`][mosaicolabs.enum.SequenceStatus].
         """
         return self._status

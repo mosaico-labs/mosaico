@@ -67,13 +67,13 @@ from mosaicolabs.ros_bridge.data_ontology import (
 _TIME_FIELD = [
     pa.field(
         "seconds",
-        pa.int64(),
+        pa.int32(),
         nullable=False,
         metadata={"description": "Time in seconds"},
     ),
     pa.field(
         "nanoseconds",
-        pa.uint64(),
+        pa.uint32(),
         nullable=False,
         metadata={"description": "Time in nanoseconds"},
     ),

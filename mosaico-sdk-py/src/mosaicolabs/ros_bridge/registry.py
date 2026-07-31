@@ -83,9 +83,9 @@ class ROSTypeRegistry:
             ```
 
         Args:
-            msg_type: The canonical ROS type name (e.g., "package/msg/TypeName").
-            source: A `Path` object to a `.msg` file or a raw text string of the definition.
-            store: The target scope. If `None`, the definition is stored in the **GLOBAL** profile
+            msg_type (str): The canonical ROS type name (e.g., "package/msg/TypeName").
+            source (Union[str, Path]): A `Path` object to a `.msg` file or a raw text string of the definition.
+            store (Optional[Union[Stores, str]]): The target scope. If `None`, the definition is stored in the **GLOBAL** profile
                 and becomes available to all loaders regardless of their distribution.
 
         Raises:
@@ -135,9 +135,9 @@ class ROSTypeRegistry:
             ```
 
         Args:
-            package_name: The name of the ROS package to use as a prefix.
-            dir_path: The filesystem path to the directory containing `.msg` files.
-            store: The target distribution scope for the entire directory.
+            package_name (str): The name of the ROS package to use as a prefix.
+            dir_path (Union[str, Path]): The filesystem path to the directory containing `.msg` files.
+            store (Optional[Union[Stores, str]]): The target distribution scope for the entire directory.
 
         Raises:
             ValueError: If `dir_path` does not point to a valid directory.
@@ -174,11 +174,11 @@ class ROSTypeRegistry:
         access to shared custom types.
 
         Args:
-            store: The distribution identifier (e.g., `Stores.ROS2_HUMBLE`) to fetch overrides for.
+            store (Optional[Union[Stores, str]]): The distribution identifier (e.g., `Stores.ROS2_HUMBLE`) to fetch overrides for.
 
         Returns:
-            A flat dictionary mapping `msg_type` to `definition`, formatted for
-            direct injection into `rosbags` high-level readers.
+            Dict[str, str]: A flat dictionary mapping `msg_type` to `definition`, formatted for
+                direct injection into `rosbags` high-level readers.
         """
         # Start with Global defaults
         # We use .copy() to ensure we don't accidentally mutate the registry itself
@@ -210,11 +210,11 @@ class ROSTypeRegistry:
         Internal utility to normalize varied inputs into raw definition text.
 
         Args:
-            source: A `Path` or `str`. If a string is provided that exists as a file
+            source (Union[str, Path]): A `Path` or `str`. If a string is provided that exists as a file
                 path ending in `.msg`, it is read from the disk.
 
         Returns:
-            The raw text content of the ROS message definition.
+            str: The raw text content of the ROS message definition.
         """
         if isinstance(source, Path):
             if not source.exists():

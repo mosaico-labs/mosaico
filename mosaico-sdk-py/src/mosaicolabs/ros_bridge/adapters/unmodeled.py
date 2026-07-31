@@ -31,16 +31,16 @@ def pack_unmodeled(
     as-is, since they can be passed straight through via `**raw_data`.
 
     Args:
-        raw_data: The payload to pack, keyed by field name exactly as declared
+        raw_data (dict[str, Any]): The payload to pack, keyed by field name exactly as declared
             in `msg_def`. Mutated in place for nested-message fields.
-        msg_def: The rosbags field definitions (`Typestore.get_msgdef(...).fields`)
+        msg_def (Fielddefs): The rosbags field definitions (`Typestore.get_msgdef(...).fields`)
             describing the expected shape of `raw_data`.
-        typestore: The rosbags typestore used to resolve nested message types
+        typestore (Typestore): The rosbags typestore used to resolve nested message types
             by name and look up their own field definitions.
 
     Returns:
-        `raw_data`, with every nested-message dict replaced by an instance of
-        its corresponding rosbags message type.
+        dict[str, Any]: The updated `raw_data`, with every nested-message dict replaced by an instance of
+            its corresponding rosbags message type.
 
     Raises:
         TypeError: If a field's definition doesn't match any of the node types
@@ -145,16 +145,25 @@ class UnmodeledAdapter(ROSAdapterBase[T], Generic[T]):
         Main entry point for translating a high-level `ROSMessage`.
 
         Args:
-            ros_msg: The source ROS message yielded by the loader.
+            ros_msg (ROSMessage): The source ROS message yielded by the loader.
             **kwargs: Additional context for the translation.
 
         Returns:
-            A Mosaico `Message` containing the normalized `Pose` payload.
+            Message: A Mosaico `Message` containing the normalized `Unmodeled` payload.
         """
         return super().translate(ros_msg, **kwargs)
 
     @classmethod
     def from_dict(cls, ros_data: dict) -> T:
+        """
+        Converts the raw dictionary data into the specific Mosaico `Unmodeled` type.
+
+        Args:
+            ros_data (dict): The raw dictionary from the ROS message.
+
+        Returns:
+            T: The constructed `Unmodeled` subclass instance wrapping `ros_data`.
+        """
         return cls.__mosaico_ontology_type__(raw_data=ros_data)
 
     @classmethod
@@ -167,6 +176,18 @@ class UnmodeledAdapter(ROSAdapterBase[T], Generic[T]):
         """
         Converts a Mosaico `Unmodeled` subclass (or a ``Message`` wrapping one) into the
         corresponding ROS message.
+
+        Args:
+            mosaico_data (Union[Message, T]): A ``Message`` wrapping an `Unmodeled` instance, or a raw instance.
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (Optional[str]): Override for the output ROS type. Defaults to
+                the adapter's default ROS type if `None`.
+
+        Returns:
+            Any: The constructed ROS message, or raises an error if:
+
+                - the ros_msg_type is unsupported by adapter (TypeError)
+                - the ros_msg_type or default type are unsupported by typestore (TypeError)
         """
         # Resolve ROS message to translate Mosaico message to if not defined in input
         resolved_rosmsg_type = ros_msg_type or cls.get_default_ros_msg()
@@ -196,6 +217,14 @@ class UnmodeledAdapter(ROSAdapterBase[T], Generic[T]):
     ) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
+
+        Args:
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (str): The ROS message type to extract metadata for.
+            ros_version (int): The ROS version (1 or 2) to consider for metadata extraction.
+
+        Returns:
+            Optional[dict]: A dictionary containing the schema metadata, or None if not applicable.
         """
         return super().schema_metadata(typestore, ros_msg_type, ros_version)
 

@@ -5,8 +5,8 @@
 //! methods for interacting with the database. Error handling is unified through the
 //! [`DatabaseError`] enum.
 
-use log::debug;
 use sqlx::Pool;
+use tracing::debug;
 use url::Url;
 
 use super::Error;

@@ -51,14 +51,14 @@ def _extract_ros_metadata(t_handler: TopicHandler) -> Dict[str, Any]:
     a field that's present but holds an unexpected type raises immediately.
 
     Args:
-        t_handler: The topic handler whose metadata should be inspected.
+        t_handler (TopicHandler): The topic handler whose metadata should be inspected.
 
     Returns:
-        The declared ROS metadata, or an empty dict if the topic carries no
-        ``_ros_`` metadata at all.
+        Dict[str, Any]: The declared ROS metadata, or an empty dict if the topic carries no
+            ``_ros_`` metadata at all.
 
-    Raise: TypeError when the topic's ``_ros_`` metadata carries malformed
-        metadata
+    Raises:
+        TypeError: When the topic's ``_ros_`` metadata carries malformed metadata.
     """
     ros_metadata = t_handler.user_metadata.get("_ros_")
 
@@ -95,11 +95,11 @@ def _to_dict(message: Any) -> tuple[Any, Dict[str, Any]]:
     along the way.
 
     Returns:
-        A `(value, const_dict)` tuple. `const_dict` holds the `UPPER_CASE` constants
-        declared directly on `message` and is empty for lists/tuples/arrays/time values,
-        which never carry constants of their own. Callers recursing into nested fields
-        should keep only `value` and discard `const_dict`, so constants nested below the
-        top level of the original call are dropped rather than collected.
+        tuple[Any, Dict[str, Any]]: A `(value, const_dict)` tuple. `const_dict` holds the `UPPER_CASE` constants
+            declared directly on `message` and is empty for lists/tuples/arrays/time values,
+            which never carry constants of their own. Callers recursing into nested fields
+            should keep only `value` and discard `const_dict`, so constants nested below the
+            top level of the original call are dropped rather than collected.
     """
     if hasattr(message, "__msgtype__"):
         data_dict: Dict[str, Any] = {}

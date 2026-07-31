@@ -104,7 +104,7 @@ class _QueryCombinator:
         Initializes the logical combinator.
 
         Args:
-            expressions: A list of atomic expressions to merge.
+            expressions List[_QueryExpression]: A list of atomic expressions to merge.
         """
         # self.op = op
         self.expressions = expressions
@@ -144,7 +144,7 @@ class QueryOntologyCatalog:
 
     Example:
         ```python
-        from mosaicolabs import MosaicoClient, Topic, QuerySequence
+        from mosaicolabs import MosaicoClient, IMU, QueryOntologyCatalog
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Filter for a specific data value (using constructor)
@@ -184,7 +184,7 @@ class QueryOntologyCatalog:
         via `<Model>.Q.` proxy, where model is any of the available data ontology (e.g. IMU.Q, GPS.Q, String.Q, etc.)
 
         Args:
-            *expressions: A variable number of expressions, generated via the `.Q` proxy on an ontology model.
+            *expressions (_QueryExpression): A variable number of expressions, generated via the `.Q` proxy on an ontology model.
 
         Raises:
             TypeError: If an expression is not of the supported type.
@@ -205,10 +205,10 @@ class QueryOntologyCatalog:
         Internal method for creating a new query builder from a list of expressions.
 
         Args:
-            exprs: A list of `_QueryExpression` instances.
+            exprs (_QueryExpression): A list of `_QueryExpression` instances.
 
         Returns:
-            A new `QueryOntologyCatalog` instance containing the provided expressions.
+            QueryOntologyCatalog: A new `QueryOntologyCatalog` instance containing the provided expressions.
         """
         return cls(*exprs)
 
@@ -246,11 +246,11 @@ class QueryOntologyCatalog:
             ```
 
         Args:
-            expr: A valid expression generated via the `.Q` proxy on an ontology model,
+            expr (_QueryExpression): A valid expression generated via the `.Q` proxy on an ontology model,
                 e.g., `GPS.Q.status.satellites.leq(10)`.
 
         Returns:
-            The `QueryOntologyCatalog` instance for method chaining.
+            QueryOntologyCatalog: The `QueryOntologyCatalog` instance for method chaining.
         """
         _validate_expression_type(
             expr,
@@ -276,7 +276,7 @@ class QueryOntologyCatalog:
             `{"IMU.timestamp_ns": {"$between": [...]}, "IMU.acceleration.x": {"$leq": 10}}`
 
         Returns:
-            A dictionary containing all merged sensor-field expressions.
+            Dict[str, Any]: A dictionary containing all merged sensor-field expressions.
         """
         query_dict = _QueryCombinator(list(self._expressions)).to_dict()
         return query_dict
@@ -298,14 +298,14 @@ class QueryTopic:
 
     Example:
         ```python
-        from mosaicolabs import MosaicoClient, Image, Topic, QuerySequence
+        from mosaicolabs import MosaicoClient, Image, QueryTopic
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Query for all 'image' topics created in a specific timeframe, matching some metadata (key, value) pair
             qresponse = client.query(
                 QueryTopic()
                 .with_ontology_tag(Image.ontology_tag())
-                .with_created_timestamp(time_start=Time.from_float(1700000000))
+                .with_created_timestamp(time_start=1700000000_000000000)
                 .with_user_metadata("camera_id.serial_number", eq="ABC123_XYZ")
             )
 
@@ -334,10 +334,10 @@ class QueryTopic:
         Internal method for creating a new query builder from a list of expressions.
 
         Args:
-            exprs: A list of `_QueryTopicExpression` instances.
+            exprs (_QueryTopicExpression): A list of `_QueryTopicExpression` instances.
 
         Returns:
-            A new `QueryTopic` instance containing the provided expressions.
+            QueryTopic: A new `QueryTopic` instance containing the provided expressions.
         """
         instance = cls()
 
@@ -355,10 +355,10 @@ class QueryTopic:
         using a fluent interface.
 
         Args:
-            expr: A `_QueryTopicExpression`.
+            expr (_QueryTopicExpression): A `_QueryTopicExpression`.
 
         Returns:
-            The `QueryTopic` instance for method chaining.
+            QueryTopic: The `QueryTopic` instance for method chaining.
         """
 
         _validate_expression_type(expr, self.__supported_query_expressions__)
@@ -451,10 +451,10 @@ class QueryTopic:
             ```
 
         Args:
-            name: The exact name of the topic to match.
+            name (str): The exact name of the topic to match.
 
         Returns:
-            The `QueryTopic` instance for method chaining.
+            QueryTopic: The `QueryTopic` instance for method chaining.
         """
         return self._with_expression(_QueryTopicExpression("name", "$eq", f"{name}"))
 
@@ -497,10 +497,10 @@ class QueryTopic:
             ```
 
         Args:
-            name: The string pattern to search for within the topic name.
+            name (str): The string pattern to search for within the topic name.
 
         Returns:
-            The `QueryTopic` instance for method chaining.
+            QueryTopic: The `QueryTopic` instance for method chaining.
         """
         return self._with_expression(
             # employs explicit _QueryTopicExpression composition for dealing with
@@ -538,10 +538,10 @@ class QueryTopic:
             method of the desired ontology class.
 
         Args:
-            ontology_tag: The string tag (e.g., 'imu', 'gps') to filter by.
+            ontology_tag (str): The string tag (e.g., 'imu', 'gps') to filter by.
 
         Returns:
-            The `QueryTopic` instance for method chaining.
+            QueryTopic: The `QueryTopic` instance for method chaining.
         """
         return self._with_expression(
             # employs explicit _QueryTopicExpression composition for dealing with
@@ -559,14 +559,14 @@ class QueryTopic:
 
         Example:
             ```python
-            from mosaicolabs import MosaicoClient, Topic, QuerySequence
+            from mosaicolabs import MosaicoClient, QueryTopic
 
             with MosaicoClient.connect("localhost", 6726) as client:
                 # Find sequences created during a specific day
                 qresponse = client.query(
                     QueryTopic().with_created_timestamp(
-                        time_start=Time.from_float(1704067200.0), # 2024-01-01
-                        time_end=Time.from_float(1704153600.0)    # 2024-01-02
+                        time_start=1704067200_000000000, # 2024-01-01
+                        time_end=1704153600_000000000    # 2024-01-02
                     )
                 )
 
@@ -579,11 +579,11 @@ class QueryTopic:
             ```
 
         Args:
-            time_start: Optional lower bound (inclusive).
-            time_end: Optional upper bound (inclusive).
+            time_start (Optional[int]): Optional lower bound (inclusive).
+            time_end (Optional[int]): Optional upper bound (inclusive).
 
         Returns:
-            The `QueryTopic` instance for method chaining.
+            QueryTopic: The `QueryTopic` instance for method chaining.
 
         Raises:
             ValueError: If both bounds are None or if `time_start > time_end`.
@@ -613,7 +613,13 @@ class QueryTopic:
 
     # compatibility with QueryProtocol
     def name(self) -> str:
-        """Returns the top-level key ('topic') used when nesting this query inside a root [`Query`][mosaicolabs.query.builders.Query]."""
+        """
+        Returns the top-level key ('topic') used when nesting this query inside a
+        root [`Query`][mosaicolabs.query.builders.Query].
+
+        Returns:
+            str: The string "topic" indicating the query type.
+        """
         return "topic"
 
     # compatibility with QueryProtocol
@@ -628,7 +634,7 @@ class QueryTopic:
            are stripped of their prefix and nested under that key.
 
         Returns:
-            A dictionary representation of the query, e.g., `{"name": {"$eq": "..."}, "user_metadata": {"key": {"$eq": "..."}}}`.
+            Dict[str, Any]: A dictionary representation of the query, e.g., `{"name": {"$eq": "..."}, "user_metadata": {"key": {"$eq": "..."}}}`.
         """
 
         # Set all fields that are dictionaries (like user_metadata)
@@ -689,7 +695,10 @@ class QueryTopic:
 
     def expressions(self) -> List[_QueryExpression]:
         """
-        Return the list of query expressions.
+        The list of query expressions.
+
+        Returns:
+            List[_QueryExpression]: The list of expressions currently stored in the query.
         """
         return self._expressions
 
@@ -704,14 +713,14 @@ class QuerySequence:
 
     Example:
         ```python
-        from mosaicolabs import MosaicoClient, Topic, QuerySequence
+        from mosaicolabs import MosaicoClient, QuerySequence
 
         with MosaicoClient.connect("localhost", 6726) as client:
             # Search for sequences by project name and creation date
             qresponse = client.query(
                 QuerySequence()
                 .with_user_metadata("project", eq="Apollo")
-                .with_created_timestamp(time_start=Time.from_float(1690000000.0))
+                .with_created_timestamp(time_start=1690000000_000000000)
             )
 
             # Inspect the response
@@ -737,10 +746,10 @@ class QuerySequence:
         Internal method for creating a new query builder from a list of expressions.
 
         Args:
-            exprs: A list of `_QuerySequenceExpression` instances.
+            exprs (_QueryExpression): A list of `_QuerySequenceExpression` instances.
 
         Returns:
-            A new `QuerySequence` instance containing the provided expressions.
+            QuerySequence: A new `QuerySequence` instance containing the provided expressions.
         """
         instance = cls()
 
@@ -761,7 +770,7 @@ class QuerySequence:
             expr: A `_QuerySequenceExpression`.
 
         Returns:
-            The `QuerySequence` instance for method chaining.
+            QuerySequence: The `QuerySequence` instance for method chaining.
 
         """
         _validate_expression_type(expr, self.__supported_query_expressions__)
@@ -853,10 +862,10 @@ class QuerySequence:
             ```
 
         Args:
-            name: The exact name of the sequence to match.
+            name (str): The exact name of the sequence to match.
 
         Returns:
-            The `QuerySequence` instance for method chaining.
+            QuerySequence: The `QuerySequence` instance for method chaining.
         """
         return self._with_expression(
             # employs explicit _QuerySequenceExpression composition for dealing with
@@ -902,10 +911,10 @@ class QuerySequence:
             ```
 
         Args:
-            name: The string pattern to search for within the sequence name.
+            name (str): The string pattern to search for within the sequence name.
 
         Returns:
-            The `QuerySequence` instance for method chaining.
+            QuerySequence: The `QuerySequence` instance for method chaining.
         """
         return self._with_expression(
             # employs explicit _QuerySequenceExpression composition for dealing with
@@ -923,14 +932,14 @@ class QuerySequence:
 
         Example:
             ```python
-            from mosaicolabs import MosaicoClient, Topic, QuerySequence
+            from mosaicolabs import MosaicoClient, QuerySequence
 
             with MosaicoClient.connect("localhost", 6726) as client:
                 # Find sequences created during a specific time range
                 qresponse = client.query(
                     QuerySequence().with_created_timestamp(
-                        time_start=Time.from_float(1704067200.0), # 2024-01-01
-                        time_end=Time.from_float(1704153600.0)    # 2024-01-02
+                        time_start=1704067200_000000000, # 2024-01-01
+                        time_end=1704153600_000000000    # 2024-01-02
                     )
                 )
 
@@ -941,11 +950,11 @@ class QuerySequence:
             ```
 
         Args:
-            time_start: Optional lower bound (inclusive).
-            time_end: Optional upper bound (inclusive).
+            time_start (Optional[int]): Optional lower bound (inclusive).
+            time_end (Optional[int]): Optional upper bound (inclusive).
 
         Returns:
-            The `QuerySequence` instance for method chaining.
+            QuerySequence: The `QuerySequence` instance for method chaining.
 
         Raises:
             ValueError: If both bounds are `None` or if `time_start > time_end`.
@@ -979,7 +988,12 @@ class QuerySequence:
 
     # compatibility with QueryProtocol
     def name(self) -> str:
-        """Returns the top-level key ('sequence') used for nesting inside a root [`Query`][mosaicolabs.query.builders.Query]."""
+        """
+        The top-level key ('sequence') used for nesting inside a root [`Query`][mosaicolabs.query.builders.Query].
+
+        Returns:
+            str: The string "sequence" indicating the query type.
+        """
         return "sequence"
 
         # compatibility with QueryProtocol
@@ -994,7 +1008,7 @@ class QuerySequence:
         2. **Metadata Fields**: Fields targeting `user_metadata` are collected and nested.
 
         Returns:
-            A dictionary representation preserving the hierarchical structure.
+            Dict[str, Any]: A dictionary representation preserving the hierarchical structure.
         """
         # Identify all fields that are dictionaries (like user_metadata)
         metadata_field_names = {
@@ -1054,7 +1068,10 @@ class QuerySequence:
 
     def expressions(self) -> List[_QueryExpression]:
         """
-        Return the list of query expressions.
+        The list of query expressions.
+
+        Returns:
+            List[_QueryExpression]: The list of expressions currently stored in the query.
         """
         return self._expressions
 
@@ -1109,7 +1126,7 @@ class Query:
         Initializes the root query with a set of sub-queries.
 
         Args:
-            *queries: A variable number of sub-query objects (e.g., `QueryTopic()`, `QuerySequence()`).
+            *queries (QueryableProtocol): A variable number of sub-query objects (e.g., `QueryTopic()`, `QuerySequence()`).
 
         Raises:
             ValueError: If duplicate query types are detected in the initial arguments.
@@ -1135,7 +1152,7 @@ class Query:
         Adds additional sub-queries to the existing root query.
 
         Args:
-            *queries: Additional sub-query instances.
+            *queries (QueryableProtocol): Additional sub-query instances.
 
         Raises:
             ValueError: If an appended query type is already present in the request.
@@ -1188,7 +1205,7 @@ class Query:
             ```
 
         Returns:
-            The final aggregated query dictionary.
+            Dict[str, Any]: The final aggregated query dictionary.
         """
         # Uses a dictionary comprehension to build the final object
         return {q.name(): q.to_dict() for q in self._queries}

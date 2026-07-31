@@ -106,7 +106,7 @@ class SyncTransformer(BaseEstimator, TransformerMixin):
             # 200_000_000,      10.0,       None        # <- avoid hallucination on `sensor_b`
             # 400_000_000,      10.0,       None        # <- avoid hallucination on `sensor_b`
             # 600_000_000,      11.0,       1.0
-            # 800_000_000,      11.0,       2.0
+            # 800_000_000,      11.0,       1.0
             # 1_000_000_000,    11.0,       2.0
             # 1_200_000_000,    12.0,       2.0
             # 1_400_000_000,    12.0,       2.0

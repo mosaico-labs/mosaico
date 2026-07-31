@@ -1,7 +1,6 @@
 use super::{Context, Error};
 use arrow::datatypes::SchemaRef;
 
-use log::{trace, warn};
 use mosaicod_core::error::PublicError;
 use mosaicod_core::types::TopicMetadataProperties;
 use mosaicod_core::{self as core, error::PublicResult as Result, params, types};
@@ -12,6 +11,7 @@ use mosaicod_rw::{self as rw, ToProperties};
 use mosaicod_store as store;
 use std::path;
 use std::sync::Arc;
+use tracing::{trace, warn};
 
 /// Define topic metadata type containing JSON user metadata
 pub type TopicMetadata = types::TopicMetadata<marshal::JsonMetadataBlob>;

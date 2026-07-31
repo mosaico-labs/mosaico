@@ -1,9 +1,9 @@
 //! Session related actions.
-use log::{info, trace, warn};
 use mosaicod_core::{self as core, types};
 use mosaicod_facade as facade;
 use mosaicod_grpc_common as grpc_common;
 use mosaicod_marshal::ActionResponse;
+use tracing::{info, trace, warn};
 
 pub async fn create(
     ctx: &facade::Context,

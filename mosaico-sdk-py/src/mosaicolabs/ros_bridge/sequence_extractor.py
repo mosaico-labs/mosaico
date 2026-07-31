@@ -211,7 +211,7 @@ class ROSSequenceExtractor:
         Returns the MosaicoLoader.
 
         Returns:
-            An instance of MosaicoLoader.
+            MosaicoLoader: An instance of MosaicoLoader.
         """
 
         if self.mosaico_loader:
@@ -242,10 +242,10 @@ class ROSSequenceExtractor:
            (version 9 for Jazzy / Kilted / LATEST, version 8 for all others).
 
         Args:
-            path: The output directory for the bag file.
+            path (Path): The output directory for the bag file.
 
         Returns:
-            The open bag writer instance.
+            Union[Ros1Writer, Ros2Writer]: The open bag writer instance.
         """
         bagwriter = None
 
@@ -470,7 +470,7 @@ class ROSSequenceExtractor:
 
 def ros_sequence_extractor():
     """
-    Console script entrypointy.
+    Console script entrypoint.
     Parses arguments. sets up configuration, and initiates the sequence extractor
     """
 
@@ -490,7 +490,7 @@ def ros_sequence_extractor():
         "--ros_distro",
         default="ROS2_JAZZY",
         choices=[s.name for s in Stores],
-        help="Target ROS distribution for messages. If not set defaults to ROS2_HUMBLE",
+        help="Target ROS distribution for messages. If not set defaults to ROS2_JAZZY",
     )
     parser.add_argument(
         "--storage_plugin",

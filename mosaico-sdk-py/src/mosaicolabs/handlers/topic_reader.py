@@ -95,8 +95,9 @@ class TopicDataStreamer:
             ```
 
         Args:
-            client: The active FlightClient used for remote operations.
-            state: The internal state object managing the Arrow reader and peek buffers.
+            client (fl.FlightClient): The active FlightClient used for remote operations.
+            state (_TopicReadState): The internal state object managing the Arrow reader and peek buffers.
+            pyarrow_schema (pa.StructType): The Arrow schema of the data ontology handled by this topic.
         """
         self._fl_client: fl.FlightClient = client
         """The FlightClient used for remote operations."""
@@ -134,12 +135,12 @@ class TopicDataStreamer:
             method to obtain a configured instance.
 
         Args:
-            client: An established PyArrow Flight connection.
-            topic_name: The name of the topic to read.
-            ticket: The opaque authorization ticket representing the specific data stream.
+            client (fl.FlightClient): An established PyArrow Flight connection.
+            topic_name (str): The name of the topic to read.
+            ticket (fl.Ticket): The opaque authorization ticket representing the specific data stream.
 
         Returns:
-            An initialized `TopicDataStreamer` ready for iteration.
+            TopicDataStreamer: An initialized `TopicDataStreamer` ready for iteration.
 
         Raises:
             ConnectionError: If the server fails to open the `do_get` stream.
@@ -197,14 +198,14 @@ class TopicDataStreamer:
             method to obtain a configured instance.
 
         Args:
-            topic_name: The name of the topic to read.
-            sequence_name: The name of the parent sequence.
-            client: An established PyArrow Flight connection.
-            start_timestamp_ns: The **inclusive** lower bound (t >= start) in nanoseconds.
-            end_timestamp_ns: The **exclusive** upper bound (t < end) in nanoseconds.
+            topic_name (str): The name of the topic to read.
+            sequence_name (str): The name of the parent sequence.
+            client (fl.FlightClient): An established PyArrow Flight connection.
+            start_timestamp_ns (Optional[int]): The **inclusive** lower bound (t >= start) in nanoseconds.
+            end_timestamp_ns (Optional[int]): The **exclusive** upper bound (t < end) in nanoseconds.
 
         Returns:
-            An initialized `TopicDataStreamer`.
+            TopicDataStreamer: An initialized `TopicDataStreamer`.
 
         Raises:
             ConnectionError: If `get_flight_info` or `do_get` fail on the server.
@@ -248,7 +249,7 @@ class TopicDataStreamer:
         Peeks at the timestamp of the next record without consuming it.
 
         Returns:
-            The next timestamp in nanoseconds, or `None` if the stream is empty.
+            Optional[int]: The next timestamp in nanoseconds, or `None` if the stream is empty.
 
         Raises:
             ValueError: if the data streamer instance has been closed.
@@ -295,7 +296,7 @@ class TopicDataStreamer:
         The name of the topic associated with this streamer.
 
         Returns:
-            The name of the topic.
+            str: The name of the topic.
         """
         return self._rdstate.topic_name
 
@@ -305,7 +306,7 @@ class TopicDataStreamer:
         The ontology `SerializationFormat` associated with this data stream.
 
         Returns:
-            The ontology `SerializationFormat`.
+            SerializationFormat: The ontology `SerializationFormat`.
         """
         return self._rdstate.serialization_format
 
@@ -315,7 +316,7 @@ class TopicDataStreamer:
         The ontology tag associated with this streamer.
 
         Returns:
-            The ontology tag.
+            str: The ontology tag.
         """
         return self._rdstate.ontology_tag
 
@@ -325,7 +326,7 @@ class TopicDataStreamer:
         The number of messages associated with this streamer.
 
         Returns:
-            The number of messages. None if an error occurred during message count retrieval
+            Optional[int]: The number of messages. None if an error occurred during message count retrieval
         """
         return self._rdstate.msg_count
 
@@ -335,7 +336,7 @@ class TopicDataStreamer:
         The lowest timestamp (nanoseconds) in this stream.
 
         Returns:
-            The lowest timestamp (nanoseconds) in this stream. None if an error occurred during retrieval
+            Optional[int]: The lowest timestamp (nanoseconds) in this stream. None if an error occurred during retrieval
         """
         return self._rdstate.timestamp_ns_min
 
@@ -345,7 +346,7 @@ class TopicDataStreamer:
         The highest timestamp (nanoseconds) in this stream.
 
         Returns:
-            The highest timestamp (nanoseconds) in this stream. None if an error occurred during retrieval
+            Optional[int]: The highest timestamp (nanoseconds) in this stream. None if an error occurred during retrieval
         """
         return self._rdstate.timestamp_ns_max
 

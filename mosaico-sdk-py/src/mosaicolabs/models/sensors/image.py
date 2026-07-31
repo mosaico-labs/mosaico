@@ -306,7 +306,7 @@ class Image(
         description="Pixel format (e.g., 'bgr8', 'mono16')."
     )
     """
-    The pixel encoding (e.g., 'bgr8', 'mono16'). Optional field.
+    The pixel encoding (e.g., 'bgr8', 'mono16').
 
     ### Querying with the **`.Q` Proxy**
     The encoding is queryable via the `encoding` field.
@@ -400,6 +400,8 @@ class Image(
             height (int): Image height.
             width (int): Image width.
             encoding (str): Pixel format string.
+            is_bigendian (Optional[bool]): True if the source data is Big-Endian.
+                Defaults to system endianness if None.
             format (ImageFormat): Target container ('raw' or 'png').
 
         Returns:
@@ -657,7 +659,7 @@ class StatefulDecodingSession:
                     # Use the session for stateful video decoding
                     # The 'context' parameter ensures we use the correct reference frames for this topic
                     pil_img = decoding_session.decode(
-                        img_data=img.data,
+                        img_bytes=img.data,
                         format=img.format,
                         context=topic
                     )
@@ -842,7 +844,7 @@ class CompressedImage(
                     # Use the session for stateful video decoding
                     # The 'context' parameter ensures we use the correct reference frames for this topic
                     pil_img = decoding_session.decode(
-                        img_data=img.data,
+                        img_bytes=img.data,
                         format=img.format,
                         context=topic
                     )
@@ -975,7 +977,7 @@ class CompressedImage(
                         # Use the session for stateful video decoding
                         # The 'context' parameter ensures we use the correct reference frames for this topic
                         pil_img = decoding_session.decode(
-                            img_data=img.data,
+                            img_bytes=img.data,
                             format=img.format,
                             context=topic
                         )
@@ -1014,8 +1016,8 @@ class CompressedImage(
         the conversion must be made via user defined encoding algorithms.
 
         Args:
-            image: The source Pillow image.
-            format: The target compression format (default: 'jpeg').
+            image (PILImage.Image): The source Pillow image.
+            format (ImageFormat): The target compression format (default: 'jpeg').
             **kwargs: Additional arguments passed to the codec's encode method
                       (e.g., quality=90).
 

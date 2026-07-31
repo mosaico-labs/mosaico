@@ -68,7 +68,7 @@ class QueryableNumeric(_QueryableField, _QueryableNumeric):
         ```
 
     Args:
-        path: The fully-qualified, dot-notated field path, prefixed by the
+        path (str): The fully-qualified, dot-notated field path, prefixed by the
             ontology tag (e.g. `"IMU.acceleration.x"`, or
             `f"{ontology_tag}.temperature.celsius"` for an unmodeled ontology).
     """
@@ -100,7 +100,7 @@ class QueryableString(_QueryableField, _QueryableString):
         ```
 
     Args:
-        path: The fully-qualified, dot-notated field path, prefixed by the
+        path (str): The fully-qualified, dot-notated field path, prefixed by the
             ontology tag (e.g. `"IMU.frame_id"`, or
             `f"{ontology_tag}.status.label"` for an unmodeled ontology).
     """
@@ -132,7 +132,7 @@ class QueryableBool(_QueryableField, _QueryableBool):
         ```
 
     Args:
-        path: The fully-qualified, dot-notated field path, prefixed by the
+        path (str): The fully-qualified, dot-notated field path, prefixed by the
             ontology tag (e.g. `"ROI.do_rectify"`, or
             `f"{ontology_tag}.status.is_online"` for an unmodeled ontology).
     """

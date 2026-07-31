@@ -84,8 +84,8 @@ class _QueryProxy:
                 appropriate ``_Queryable*`` mixin (e.g., ``_QueryableNumeric`` for floats).
 
         Returns:
-            A dynamically-created ``_QueryableField`` subclass instance, ready to be
-            used in query expressions.
+            _QueryableField: A dynamically-created ``_QueryableField`` subclass instance, ready to be
+                used in query expressions.
         """
 
         mixin = _pyarrow_to_queryable_mixin(field_type)
@@ -111,8 +111,8 @@ class _QueryProxy:
             list_expression (str): The access expression to append.
 
         Returns:
-            - ``_QueryProxy`` when the list contains a _QueryableList (contains nested map)
-            - ``_QueryableField`` when it contains a pa.ListType (contains basic datatype)
+            Union[_QueryProxy, _QueryableField]: Either a new `_QueryProxy` for a nested struct, or a
+                `_QueryableField` for a simple field.
 
         Raises:
             ValueError: If ``list_expression`` is not a supported operator and not a digit.
@@ -169,8 +169,8 @@ class _QueryProxy:
             name (str): The name of the attribute being accessed (e.g., "position").
 
         Returns:
-            Union[_QueryProxy, _QueryableField]: Either a new QueryProxy for a nested struct, or a
-            _QueryableField for a simple field.
+            Union[_QueryProxy, _QueryableField]: Either a new `_QueryProxy` for a nested struct, or a
+                `_QueryableField` for a simple field.
 
         Raises:
             AttributeError: If the 'name' is not a valid field in the schema,
@@ -224,8 +224,8 @@ class _QueryProxy:
             key (int): The zero-based index of the element to access.
 
         Returns:
-            Union[_QueryProxy, _QueryableField]: A new proxy or queryable field rooted at
-            the indexed element (e.g., path becomes ``"tags[0]"``).
+            Union[_QueryProxy, _QueryableField]: Either a new `_QueryProxy` for a nested struct, or a
+                `_QueryableField` for a simple field.
 
         Raises:
             TypeError: If ``key`` is not an integer.
@@ -250,15 +250,15 @@ class _QueryProxy:
             RobotPath.Q.poses.any().position.x.gt(1.0)
 
         Returns:
-            Union[_QueryProxy, _QueryableField]: A new proxy or queryable field whose path
-            ends with ``[?]`` (e.g., ``"poses[?]"``).
+            Union[_QueryProxy, _QueryableField]: Either a new `_QueryProxy` for a nested struct, or a
+                `_QueryableField` for a simple field.
 
         Raises:
             TypeError: If the current field is not a list.
         """
         return self._add_list_expression("?")
 
-    def all(self):
+    def all(self) -> Union["_QueryProxy", _QueryableField]:
         """
         Returns a proxy or field scoped to the *all-elements* quantifier (``[!]``).
 
@@ -270,8 +270,8 @@ class _QueryProxy:
             RobotPath.Q.poses.all().position.x.gt(1.0)
 
         Returns:
-            Union[_QueryProxy, _QueryableField]: A new proxy or queryable field whose path
-            ends with ``[!]`` (e.g., ``"poses[!]"``).
+            Union[_QueryProxy, _QueryableField]: Either a new `_QueryProxy` for a nested struct, or a
+                `_QueryableField` for a simple field.
 
         Raises:
             TypeError: If the current field is not a list.
@@ -280,12 +280,12 @@ class _QueryProxy:
         return self._add_list_expression("!")
 
     @property
-    def _queryable_fields(self):
+    def _queryable_fields(self) -> list[str]:
         """
         Returns the list of the queryable fields supported by this mapping.
 
         Returns:
-            A list of strings describing the queryable fields
+            List[str]: A list of strings describing the queryable fields
         """
 
         result = []
@@ -304,7 +304,7 @@ class _QueryProxy:
         return result
 
     @property
-    def _queryable_schema(self):
+    def _queryable_schema(self) -> Union[Dict[str, Any], None]:
         """
         Returns the schema of the queryable fields supported by this mapping.
 
@@ -314,13 +314,13 @@ class _QueryProxy:
         that field.
 
         Returns:
-            A nested dictionary describing the queryable structure. Intermediate
-            nodes are dictionaries, and leaf nodes are tuples of type names.
+            Union[Dict[str, Any], None]: A nested dictionary describing the queryable structure. Intermediate
+                nodes are dictionaries, and leaf nodes are tuples of type names.
         """
 
         return self._infer_queryable_schema(self.__schema__)
 
-    def _infer_queryable_schema(self, schema):
+    def _infer_queryable_schema(self, schema) -> Union[Dict[str, Any], None]:
         """
         Recursively infers the schema of a queryable mapping.
 
@@ -333,8 +333,8 @@ class _QueryProxy:
             schema: The nested schema mapping.
 
         Returns:
-            A nested dictionary preserving the original hierarchy, where leaf values
-            are tuples of supported type names.
+            Union[Dict[str, Any], None]: A nested dictionary preserving the original hierarchy, where leaf values
+                are tuples of supported type names.
         """
         if isinstance(schema, _QueryableList):  # A List of structs
             return {
@@ -421,7 +421,6 @@ def queryable(
 
     Args:
         mapper_type (Type[FieldMapperProtocol]): The type of mapper to use.
-        query_expression_type (Type[_QueryExpression]): The type of query expression to use.
         prefix (Optional[str]): The prefix to use for the query.
         **kwargs: Additional keyword arguments to pass to the mapper.
     """

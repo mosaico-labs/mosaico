@@ -77,9 +77,9 @@ class SequenceUpdater(_BaseSessionWriter):
                 * [`TopicWriter.push()`][mosaicolabs.handlers.TopicWriter.push]
 
         Args:
-            sequence_name: Unique name for the new sequence.
-            client: The primary control FlightClient.
-            config: Operational configuration (e.g., error policies, batch sizes).
+            sequence_name (str): Unique name for the new sequence.
+            client (fl.FlightClient): The primary control FlightClient.
+            config (SessionWriterConfig): Operational configuration (e.g., error policies, batch sizes).
         """
 
         # Initialize base class
@@ -114,13 +114,13 @@ class SequenceUpdater(_BaseSessionWriter):
         Creates a new topic within the active sequence.
 
         Args:
-            topic_name: The relative name of the new topic.
-            metadata: Topic-specific user metadata.
-            ontology_type: The `Serializable` data model class defining the topic's schema.
-            on_error: The error policy to use in the `TopicWriter`.
+            topic_name (str): The relative name of the new topic.
+            metadata (dict[str, Any]): Topic-specific user metadata.
+            ontology_type (Type[Serializable]): The `Serializable` data model class defining the topic's schema.
+            on_error (TopicLevelErrorPolicy): The error policy to use in the `TopicWriter`.
 
         Returns:
-            A `TopicWriter` instance configured for parallel ingestion, or `None` if creation fails.
+            Optional[TopicWriter]: A `TopicWriter` instance configured for parallel ingestion, or `None` if creation fails.
 
         Raises:
             RuntimeError: If called outside of a `with` block.

@@ -1,3 +1,4 @@
+from .base_session_writer import AnySessionWriter as AnySessionWriter
 from .sequence_handler import SequenceHandler as SequenceHandler
 from .sequence_reader import (
     SequenceDataStreamer as SequenceDataStreamer,

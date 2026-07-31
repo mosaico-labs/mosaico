@@ -19,13 +19,13 @@ use datafusion::functions_nested::expr_fn::{
 };
 use datafusion::prelude::*;
 use datafusion::scalar::ScalarValue;
-use log::trace;
 use mosaicod_core::{params, types};
 use mosaicod_rw::ToParquetProperties;
 use mosaicod_store as store;
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
+use tracing::trace;
 
 pub type TimeseriesEngineRef = Arc<TimeseriesEngine>;
 

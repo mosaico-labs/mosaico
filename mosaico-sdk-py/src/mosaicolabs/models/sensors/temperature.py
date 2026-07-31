@@ -140,7 +140,7 @@ class Temperature(
         `Kelvin = (Fahrenheit - 32) * 5 / 9 + 273.15`.
 
         Args:
-            value (float): The temperature value in Celsius.
+            value (float): The temperature value in Fahrenheit.
             variance (Optional[float]): The variance of the data.
             variance_type (Optional[int]): Enum integer representing the variance parameterization.
 

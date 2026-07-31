@@ -55,6 +55,55 @@ def test_sequence_reload(
     mosaico_client.close()
 
 
+def test_sequence_exists(
+    mosaico_client: MosaicoClient,
+    inject_synthetic_sequence,  # Ensure the data are available on the data platform
+):
+    """Test that the sent and reconstructed sequence metadata are the same as original ones"""
+    # Sequence must exist
+    assert mosaico_client.sequence_exists(UPLOADED_SEQUENCE_NAME)
+    # free resources
+    mosaico_client.close()
+
+
+def test_sequence_does_not_exist(
+    mosaico_client: MosaicoClient,
+):
+    """Test that the sent and reconstructed sequence metadata are the same as original ones"""
+    # Sequence must not exist
+    assert not mosaico_client.sequence_exists("non_existent_sequence")
+    # free resources
+    mosaico_client.close()
+
+
+@pytest.mark.parametrize("topic_name", topic_list)
+def test_topic_exists(
+    mosaico_client: MosaicoClient,
+    topic_name,
+    inject_synthetic_sequence,  # Ensure the data are available on the data platform
+):
+    """Test that the sent and reconstructed topic metadata are the same as original ones"""
+    # Topic must exist
+    assert mosaico_client.topic_exists(
+        sequence_name=UPLOADED_SEQUENCE_NAME, topic_name=topic_name
+    )
+    # free resources
+    mosaico_client.close()
+
+
+def test_topic_does_not_exist(
+    mosaico_client: MosaicoClient,
+    inject_synthetic_sequence,  # Ensure the data are available on the data platform
+):
+    """Test that the sent and reconstructed topic metadata are the same as original ones"""
+    # Topic must not exist
+    assert not mosaico_client.topic_exists(
+        sequence_name=UPLOADED_SEQUENCE_NAME, topic_name="non_existent_topic"
+    )
+    # free resources
+    mosaico_client.close()
+
+
 @pytest.mark.parametrize("topic_name", topic_list)
 def test_topic_metadata_recvd(
     mosaico_client: MosaicoClient,

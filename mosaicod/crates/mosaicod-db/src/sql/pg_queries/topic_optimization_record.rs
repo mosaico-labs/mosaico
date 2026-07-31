@@ -1,6 +1,6 @@
 use crate::{Error, core::AsExec, sql::schema};
-use log::{trace, warn};
 use mosaicod_core::types;
+use tracing::{trace, warn};
 
 pub async fn topic_optimization_delete_stale(
     exe: &mut impl AsExec,

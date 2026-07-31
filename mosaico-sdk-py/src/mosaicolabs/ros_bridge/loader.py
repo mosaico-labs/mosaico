@@ -218,9 +218,9 @@ class ProgressManager:
         Useful for indicating errors or skipped topics (e.g. "[red]Unresolved Adapter").
 
         Args:
-            topic: The topic name.
-            status: The status message to display.
-            style: The rich style string (e.g., 'red', 'bold yellow').
+            topic (str): The topic name.
+            status (str): The status message to display.
+            style (str): The rich style string (e.g., 'red', 'bold yellow').
         """
         if topic in self.tasks:
             self.progress.update(
@@ -306,14 +306,14 @@ class ROSLoader:
             ```
 
         Args:
-            file_path: Path to the bag file or directory.
-            topics: A single topic name, a list of names, or glob patterns. Patterns are evaluated in ORDER (gitignore-like semantics).
+            file_path (Union[str, Path]): Path to the bag file or directory.
+            topics (Optional[Union[str, List[str]]]): A single topic name, a list of names, or glob patterns. Patterns are evaluated in ORDER (gitignore-like semantics).
                 If None, all available topics are loaded.
-            typestore_name: The target ROS distribution for default message schemas.
+            typestore_name (Stores): The target ROS distribution for default message schemas.
                 See [`rosbags.typesys.Stores`](https://ternaris.gitlab.io/rosbags/topics/typesys.html#type-stores).
-            error_policy: How to handle errors during message iteration.
-            custom_types: Local overrides for message definitions (type_name: path/to/msg).
-            serialization_formats: Maps a ROS message type string (e.g. `sensor_msgs/msg/CustomPointCloud2`)
+            error_policy (LoaderErrorPolicy): How to handle errors during message iteration.
+            custom_types (Optional[Dict[str, Union[str, Path]]]): Local overrides for message definitions (type_name: path/to/msg).
+            serialization_formats (Optional[Dict[str, SerializationFormat]]): Maps a ROS message type string (e.g. `sensor_msgs/msg/CustomPointCloud2`)
                 to the [`SerializationFormat`][mosaicolabs.enum.serialization_format.SerializationFormat]
                 used when synthesizing an [`Unmodeled`][mosaicolabs.models.core.unmodeled.Unmodeled]
                 ontology for that type. Only applies to topics that have **no** hand-written Mosaico
@@ -495,8 +495,8 @@ class ROSLoader:
                 of the topic for which an adapter must be resolved.
 
         Returns:
-            The resolved adapter class, or ``None`` if ``topic_info`` carries no
-            ``msgtype`` to key the lookup/creation on.
+            Optional[Type[ROSAdapterBase]]: The resolved adapter class, or ``None`` if ``topic_info`` carries no
+                ``msgtype`` to key the lookup/creation on.
         """
 
         if not topic_info.msgtype:
@@ -548,11 +548,11 @@ class ROSLoader:
         Returns the total number of messages to be processed based on active filters.
 
         Args:
-            topic: If provided, returns the count for that specific topic, even if filtered or unresolved adapted.
+            topic (Optional[str]): If provided, returns the count for that specific topic, even if filtered or unresolved adapted.
                 If None, returns the aggregate count for all accepted topics.
 
         Returns:
-            The total message count.
+            int: The total message count.
         """
 
         self._resolve_connections()
@@ -683,7 +683,7 @@ class ROSLoader:
 
         Returns:
             List[str]: A list of ROS message type strings in the same order
-            as the resolved topics.
+                as the resolved topics.
         """
         self._resolve_connections()
         return [val.msgtype for val in self._accepted_topics.values()]
@@ -713,13 +713,13 @@ class ROSLoader:
         Returns the resolve adapter for accepted topic.
 
         Args:
-            topic_name: The topic name whose adapter should be resolved.
+            topic_name (str): The topic name whose adapter should be resolved.
                 Must be one of the accepted topics produced by :meth:`_resolve_connections`.
 
         Returns:
-            The Mosaico->ROS adapter type obtained during :meth:`_resolve_connections`.
-            Adapter is resolved through the rosmsg_type within Mosaico topic metadata
-            (if available) or getting the default adapter associated to the topic's ontology.
+            Optional[Type[ROSAdapterBase]]: The ROS->Mosaico adapter type obtained during :meth:`_resolve_connections`.
+                Adapter is resolved through the rosmsg_type within Mosaico topic metadata
+                (if available) or getting the default adapter associated to the topic's ontology.
         """
         self._resolve_connections()
 
@@ -819,14 +819,14 @@ class MosaicoLoader:
     :class:`ProgressManager` for live progress reporting.
 
     Args:
-        m_client: An open :class:`MosaicoClient` connection.
-        sequence_name: Name of the Mosaico sequence to load.
-        typestore: The ROS typestore containing the registered ROS messages.
-        topics: Optional topic-name filter patterns (glob-style, ``!``-prefixed for
+        m_client (MosaicoClient): An open :class:`MosaicoClient` connection.
+        typestore (Typestore): The ROS typestore containing the registered ROS messages.
+        sequence_name (str): Name of the Mosaico sequence to load.
+        topics (Optional[Union[str, List[str]]]): Optional topic-name filter patterns (glob-style, ``!``-prefixed for
             exclusions). ``None`` loads all topics.
-        start_timestamp_ns: Lower bound for the time window (nanoseconds). Clipped
+        start_timestamp_ns (Optional[int]): Lower bound for the time window (nanoseconds). Clipped
             to the sequence minimum if out of range.
-        end_timestamp_ns: Upper bound for the time window (nanoseconds). Clipped to
+        end_timestamp_ns (Optional[int]): Upper bound for the time window (nanoseconds). Clipped to
             the sequence maximum if out of range.
     """
 
@@ -892,10 +892,10 @@ class MosaicoLoader:
         registered for the topic's ontology tag.
 
         Args:
-            t_handler: The topic handler whose adapter should be resolved.
+            t_handler (TopicHandler): The topic handler whose adapter should be resolved.
 
         Returns:
-            A ``(adapter, rosmsg_type)`` pair.
+            Tuple[Optional[type[ROSAdapterBase]], Optional[str]]: A ``(adapter, rosmsg_type)`` pair.
 
         Raise: TypeError when the topic's ``_ros_`` metadata carries a non-string ``msgtype`` (malformed
             metadata)
@@ -1100,11 +1100,11 @@ class MosaicoLoader:
         resolved topics combined.
 
         Args:
-            topic: If provided, count messages for that specific topic only.
+            topic (Optional[str]): If provided, count messages for that specific topic only.
                 If ``None``, sum across all resolved topics.
 
         Returns:
-            The total message count.
+            int: The total message count.
         """
         self._resolve_sequence()
 
@@ -1211,7 +1211,7 @@ class MosaicoLoader:
 
         Returns:
             List[str | None]: Ontology tag strings (e.g. ``"imu"``, ``"image"``)
-            or ``None`` for unresolvable topics.
+                or ``None`` for unresolvable topics.
         """
         s_handler = self._resolve_sequence()
 
@@ -1260,14 +1260,14 @@ class MosaicoLoader:
         reconstruct the correct ROS schema when re-exporting or comparing data.
 
         Args:
-            topic_name: The topic whose original ROS message type should be resolved.
+            topic_name (str): The topic whose original ROS message type should be resolved.
                 Must be one of the accepted topics produced by :meth:`_resolve_sequence`.
 
         Returns:
-            The ROS message type string (e.g. ``"sensor_msgs/msg/Imu"``) if the
-            metadata was stored at ingestion time, or ``None`` if the topic is
-            unknown, the ``_ros_`` metadata block is absent, or the ``msgtype``
-            key is missing from that block.
+            Optional[str]: The ROS message type string (e.g. ``"sensor_msgs/msg/Imu"``) if the
+                metadata was stored at ingestion time, or ``None`` if the topic is
+                unknown, the ``_ros_`` metadata block is absent, or the ``msgtype``
+                key is missing from that block.
         """
         self._resolve_sequence()
 
@@ -1278,13 +1278,13 @@ class MosaicoLoader:
         Returns the resolve adapter for accepted topic.
 
         Args:
-            topic_name: The topic name whose adapter should be resolved.
+            topic_name (str): The topic name whose adapter should be resolved.
                 Must be one of the accepted topics produced by :meth:`_resolve_sequence`.
 
         Returns:
-            The Mosaico->ROS adapter type obtained during :meth:`_resolve_sequence`.
-            Adapter is resolved through the rosmsg_type within Mosaico topic metadata
-            (if available) or getting the default adapter associated to the topic's ontology.
+            Optional[Type[ROSAdapterBase]]: The Mosaico->ROS adapter type obtained during :meth:`_resolve_sequence`.
+                Adapter is resolved through the rosmsg_type within Mosaico topic metadata
+                (if available) or getting the default adapter associated to the topic's ontology.
         """
         self._resolve_sequence()
 
@@ -1305,7 +1305,7 @@ class MosaicoLoader:
 
     def close(self):
         """
-        Explicitly closes the bag file and releases system resources.
+        Explicitly closes the sequence handler and releases system resources.
         """
 
         # This handles also streamer closing

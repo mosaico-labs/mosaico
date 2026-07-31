@@ -1,8 +1,8 @@
 use crate::{Error, core::AsExec, sql::schema};
-use log::{trace, warn};
 use mosaicod_core::types::{self};
 use mosaicod_query as query;
 use sqlx::{Row, postgres::PgRow};
+use tracing::{trace, warn};
 
 pub async fn column_get_or_create(
     exec: &mut impl AsExec,

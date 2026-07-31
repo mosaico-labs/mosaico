@@ -34,10 +34,10 @@ class QueryableProtocol(Protocol):
         Internal method for creating a new query builder from a list of expressions.
 
         Args:
-            exprs: A list of `_QueryExpression` instances.
+            exprs (_QueryExpression): A list of `_QueryExpression` instances.
 
         Returns:
-            A new `QueryableProtocol` instance containing the provided expressions.
+            QueryableProtocol: A new `QueryableProtocol` instance containing the provided expressions.
         """
         ...
 
@@ -78,9 +78,7 @@ class FieldMapperProtocol(Protocol):
         Builds the queryable field schema for a given class.
 
         Args:
-            class_type: The Pydantic or Arrow class to inspect.
-            query_expression_type: The _QueryExpression class (e.g., _QueryTopicExpression)
-                                   to inject into the final _QueryableField.
-            path_prefix: The current path prefix.
+            class_type (Type): The Pydantic or Arrow class to inspect.
+            path_prefix (Optional[str]): The current path prefix.
         """
         ...
