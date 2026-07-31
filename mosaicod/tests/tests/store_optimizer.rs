@@ -1,11 +1,28 @@
 #![allow(unused_crate_dependencies)]
 
+// use arrow::util::pretty::print_batches;
+use arrow::{array::RecordBatch, compute::BatchCoalescer};
 use mosaicod_core::types;
 use mosaicod_db as db;
 use mosaicod_ext as ext;
 use mosaicod_rw::ToProperties;
 use mosaicod_store as store;
 use tests::{self, actions, cleanup, common, store_optimizer};
+
+/// Does not take into account metadata.s
+fn record_batches_equal(b1: &RecordBatch, b2: &RecordBatch) -> bool {
+    // print_batches(&[b1.clone()]).unwrap();
+    // print_batches(&[b2.clone()]).unwrap();
+
+    b1.schema().fields == b2.schema().fields
+        && b1.num_rows() == b2.num_rows()
+        && b1.num_columns() == b2.num_columns()
+        && b1
+            .columns()
+            .iter()
+            .zip(b2.columns())
+            .all(|(c1, c2)| c1 == c2)
+}
 
 // ===========================================================================
 // Store optimization routine. Single server tests
@@ -55,7 +72,7 @@ async fn test_store_optimization_1(pool: sqlx::Pool<db::DatabaseType>) {
         &mut client,
         &topic_uuid,
         &topic_locator.to_string(),
-        batches,
+        batches.clone(),
         false,
     )
     .await
@@ -180,6 +197,19 @@ async fn test_store_optimization_1(pool: sqlx::Pool<db::DatabaseType>) {
             .unwrap()
     );
 
+    // Retrieve back data with do_get to check it remained unchanged.
+    let info = actions::get_flight_info(&mut client, &topic_locator.to_string(), None)
+        .await
+        .unwrap();
+    let ticket = info.endpoint[0].ticket.clone().unwrap();
+
+    let (_, received_batches) = actions::do_get_with_ticket(&mut client, ticket)
+        .await
+        .unwrap();
+
+    assert_eq!(received_batches.len(), 1);
+    assert!(record_batches_equal(&received_batches[0], &batches[0]));
+
     server.shutdown().await;
     cleanup_handle.shutdown().await;
 }
@@ -233,7 +263,7 @@ async fn test_store_optimization_2(pool: sqlx::Pool<db::DatabaseType>) {
         &mut client,
         &topic_uuid,
         &topic_locator.to_string(),
-        batches,
+        batches.clone(),
         false,
     )
     .await
@@ -304,11 +334,28 @@ async fn test_store_optimization_2(pool: sqlx::Pool<db::DatabaseType>) {
             .unwrap()
     );
 
+    // Retrieve back data with do_get.
+    let info = actions::get_flight_info(&mut client, &topic_locator.to_string(), None)
+        .await
+        .unwrap();
+    let ticket = info.endpoint[0].ticket.clone().unwrap();
+
+    let (_, received_batches) = actions::do_get_with_ticket(&mut client, ticket)
+        .await
+        .unwrap();
+
+    assert_eq!(received_batches.len(), 1);
+
+    let recv_batch = &received_batches[0];
+
+    assert_eq!(recv_batch.num_rows(), 35);
+    assert_eq!(recv_batch.num_columns(), 2);
+
     server.shutdown().await;
 }
 
 /// Tests the optimization in a scenario with 1 sequence, 1 topic and many record batches with many rows.
-/// The optimization should produce a single output file.
+/// The optimization should produce 2 output files due to 3MB file limit.
 #[sqlx::test(migrator = "mosaicod_db::testing::MIGRATOR")]
 async fn test_store_optimization_3(pool: sqlx::Pool<db::DatabaseType>) {
     let server = common::ServerBuilder::new(common::HOST, pool.clone())
@@ -357,7 +404,7 @@ async fn test_store_optimization_3(pool: sqlx::Pool<db::DatabaseType>) {
         &mut client,
         &topic_uuid,
         &topic_locator.to_string(),
-        batches,
+        batches.clone(),
         false,
     )
     .await
@@ -445,6 +492,36 @@ async fn test_store_optimization_3(pool: sqlx::Pool<db::DatabaseType>) {
 
         assert!(chunk_metadata.size > 0);
     }
+
+    // Retrieve back data with do_get to check data order remained unchanged.
+    let info = actions::get_flight_info(&mut client, &topic_locator.to_string(), None)
+        .await
+        .unwrap();
+    let ticket = info.endpoint[0].ticket.clone().unwrap();
+
+    let (_, received_batches) = actions::do_get_with_ticket(&mut client, ticket)
+        .await
+        .unwrap();
+
+    let target_rows = batches.iter().map(|x| x.num_rows()).sum();
+
+    let mut bc = BatchCoalescer::new(batches[0].schema(), target_rows);
+
+    batches
+        .into_iter()
+        .for_each(|batch| bc.push_batch(batch).unwrap());
+
+    let merged_batch = bc.next_completed_batch().unwrap();
+
+    // Consider that once sent record batches have a default limit of 8192 rows.
+    assert_eq!(received_batches.len(), 139);
+
+    let mut offset = 0;
+    received_batches.iter().for_each(|batch| {
+        let slice = merged_batch.slice(offset, batch.num_rows());
+        assert!(record_batches_equal(&slice, batch));
+        offset += batch.num_rows();
+    });
 
     server.shutdown().await;
 }
