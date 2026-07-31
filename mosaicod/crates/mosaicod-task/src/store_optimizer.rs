@@ -29,6 +29,12 @@ fn df_to_internal_error(err: df::error::DataFusionError) -> core::Error {
     core::Error::internal(Some(err_msg))
 }
 
+#[derive(Default, Debug)]
+struct OptimizationResult {
+    completed: Vec<types::TopicLocator>,
+    failed: Vec<types::TopicLocator>,
+}
+
 pub struct StoreOptimizer {
     db: db::Database,
     store: store::StoreRef,
@@ -294,7 +300,7 @@ impl StoreOptimizer {
         Ok(chunk_stats)
     }
 
-    async fn optimize(&self) -> Result<u32> {
+    async fn optimize(&self) -> Result<OptimizationResult> {
         // Check for stale topics (if the optimization has started too long ago, then we can assume that something went wrong).
         // In this case remove the topic from the list (it will be re-added later (see below).
         let stale_deleted = db::topic_optimization_delete_stale(
@@ -311,7 +317,7 @@ impl StoreOptimizer {
         // Scans the database to search for topics not yet optimized and to put them inside topic optimization table.
         db::topic_update_optimization_list(&mut self.db.connection()).await?;
 
-        let mut optimized_topics = 0;
+        let mut res = OptimizationResult::default();
 
         loop {
             let mut tx = self.db.transaction().await?;
@@ -336,41 +342,52 @@ impl StoreOptimizer {
                 )
                 .await?;
 
-                let chunk_stats = self
-                    .optimize_topic(&topic_record, &opt_path_in_store)
+                let topic_res = self.optimize_topic(&topic_record, &opt_path_in_store).await;
+
+                if let Ok(chunk_stats) = topic_res {
+                    let mut tx = self.db.transaction().await?;
+
+                    // Remove topic from optimization list once processed and update path_in_store inside topic record.
+                    // These operations are done within the same transaction to prevent a cleanup routine scam in between.
+                    db::topic_optimization_delete(
+                        &mut tx,
+                        topic_to_optimize_record.topic_id,
+                        types::allow_data_loss(),
+                    )
                     .await?;
 
-                let mut tx = self.db.transaction().await?;
-
-                // Remove topic from optimization list once processed and update path_in_store inside topic record.
-                // These operations are done within the same transaction to prevent a cleanup routine scam in between.
-                db::topic_optimization_delete(
-                    &mut tx,
-                    topic_to_optimize_record.topic_id,
-                    types::allow_data_loss(),
-                )
-                .await?;
-
-                db::topic_optimization_complete(
-                    &mut tx,
-                    topic_to_optimize_record.topic_id,
-                    types::Timestamp::now().as_i64(),
-                    opt_path_in_store,
-                )
-                .await?;
-
-                self.update_chunk_stats(&mut tx, &topic_record, chunk_stats)
+                    db::topic_optimization_complete(
+                        &mut tx,
+                        topic_to_optimize_record.topic_id,
+                        types::Timestamp::now().as_i64(),
+                        opt_path_in_store,
+                    )
                     .await?;
 
-                tx.commit().await?;
+                    self.update_chunk_stats(&mut tx, &topic_record, chunk_stats)
+                        .await?;
 
-                optimized_topics += 1;
+                    tx.commit().await?;
+
+                    res.completed.push(topic_record.locator());
+                } else {
+                    // If the topic optimization fails, remove it from the optimization list anyway.
+                    // It will be re-added at the next execution.
+                    db::topic_optimization_delete(
+                        &mut self.db.connection(),
+                        topic_to_optimize_record.topic_id,
+                        types::allow_data_loss(),
+                    )
+                    .await?;
+
+                    res.failed.push(topic_record.locator());
+                }
             } else {
                 break;
             }
         }
 
-        Ok(optimized_topics)
+        Ok(res)
     }
 
     /// Starts the optimization routine every [`time_interval`].
@@ -379,9 +396,10 @@ impl StoreOptimizer {
             info!("Store optimization routine started");
 
             match self.optimize().await {
-                Ok(optimized_topics) => info!(
-                    "Store optimization routine completed: {} topics optimized",
-                    optimized_topics
+                Ok(opt_res) => info!(
+                    "Store optimization routine completed: {} topics successful, {} topics failed",
+                    opt_res.completed.len(),
+                    opt_res.failed.len()
                 ),
                 Err(e) => error!("Store optimization routine failed: {}", e),
             }
