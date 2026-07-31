@@ -77,7 +77,7 @@ pub async fn do_get(
                 target = "streaming batch",
                 cols = batch.columns().len(),
                 rows = batch.num_rows(),
-                batch_physical_size = batch.get_array_memory_size() / 1_000_000,
+                batch_physical_size_MB = batch.get_array_memory_size() / 1_000_000,
             );
         })
         .map_err(|e| FlightError::ExternalError(Box::new(e)));
@@ -105,7 +105,7 @@ pub async fn do_get(
         cols = schema.fields().len(),
         total_rows = total_rows.unwrap_or(0),
         optimal_batch_size = doget_params.optimal_batch_size,
-        max_flight_data_size = max_flight_data_size / 1_000_000,
+        max_flight_data_size_MB = max_flight_data_size / 1_000_000,
     );
 
     Ok(FlightDataEncoderBuilder::new()
