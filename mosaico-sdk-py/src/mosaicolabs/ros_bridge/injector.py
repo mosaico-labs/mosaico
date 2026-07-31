@@ -39,7 +39,7 @@ from mosaicolabs.enum import (
     TopicLevelErrorPolicy,
     TopicWriterStatus,
 )
-from mosaicolabs.handlers import SequenceWriter
+from mosaicolabs.handlers.base_session_writer import AnySessionWriter
 from mosaicolabs.logging_config import get_logger, setup_sdk_logging
 
 from .loader import LoaderErrorPolicy, ProgressManager, ROSLoader
@@ -257,7 +257,7 @@ class RosbagInjector:
     def __init__(self, config: ROSInjectionConfig):
         """
         Args:
-            config: The fully resolved configuration object.
+            config (ROSInjectionConfig): The fully resolved configuration object.
         """
         self.cfg = config
         # Create the single "source of truth" for the terminal
@@ -298,10 +298,10 @@ class RosbagInjector:
         Memoized lookup for Mosaico ROS Adapters.
 
         Args:
-            msg_type: The ROS message type string (e.g., "sensor_msgs/msg/Image").
+            msg_type (str): The ROS message type string (e.g., "sensor_msgs/msg/Image").
 
         Returns:
-            The adapter class if found, otherwise None.
+            Optional[Type[ROSAdapterBase]]:The adapter class if found, otherwise None.
         """
 
         return ROSBridge.get_default_adapter(msg_type)
@@ -325,10 +325,6 @@ class RosbagInjector:
         This method establishes the necessary contexts (Network Client, File Loader, Server Writer)
         and executes the processing loop. It handles graceful shutdowns in case of
         user interrupts and provides a summary report upon completion.
-
-        Raises:
-            KeyboardInterrupt: If the user cancels the operation via Ctrl+C.
-            Exception: Any fatal error encountered during networking or file access.
         """
         # 1. Prepare Registry
         self._register_custom_types()
@@ -444,7 +440,7 @@ class RosbagInjector:
         self,
         ros_msg: ROSMessage,
         exc: Optional[Exception],
-        seq_writer: SequenceWriter,
+        seq_writer: AnySessionWriter,
         ui: ProgressManager,
     ):
         """
@@ -621,7 +617,7 @@ def ros_injector():
         default=None,
         choices=[s.name.lower() for s in Stores],
         help="Target ROS Distribution for message parsing (e.g., ros2_humble). "
-        "If not set, defaults to ROS2_HUMBLE.",
+        "If not set, defaults to an empty/auto-detected typestore.",
     )
 
     # Advanced Arguments

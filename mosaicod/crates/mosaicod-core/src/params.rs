@@ -174,6 +174,8 @@ pub struct Params {
     /// Maximum batch size (number of elements inside a arrow record batch) used during data
     /// streaming
     ///
+    /// Must be greater than 0.
+    ///
     /// Defaults to default data fusion batch size 8192.
     pub max_batch_size: Param<usize>,
 
@@ -279,6 +281,13 @@ pub fn load_params_from_env(config: ParamsLoadOptions) -> error::PublicResult<()
         store_secret_key: Param::optional("MOSAICOD_STORE_SECRET_KEY", "".to_owned()),
         store_access_key: Param::optional("MOSAICOD_STORE_ACCESS_KEY", "".to_owned()),
     };
+
+    if ev.max_batch_size.value == 0 {
+        Err(error::Error::invalid_configuration(
+            ev.max_batch_size.env.clone(),
+            "must be greater than 0".to_owned(),
+        ))?;
+    }
 
     let _ = ENV.set(ev);
 

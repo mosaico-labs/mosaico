@@ -2630,13 +2630,13 @@ name = "mosaicod-db"
 version = "0.6.0-dev"
 dependencies = [
  "chrono",
- "log",
  "mosaicod-core",
  "mosaicod-marshal",
  "mosaicod-query",
  "serde_json",
  "sqlx",
  "tokio",
+ "tracing",
  "url",
  "uuid",
 ]
@@ -2662,7 +2662,6 @@ version = "0.6.0-dev"
 dependencies = [
  "arrow",
  "futures",
- "log",
  "mosaicod-core",
  "mosaicod-db",
  "mosaicod-ext",
@@ -2673,6 +2672,7 @@ dependencies = [
  "serde_json",
  "sqlx",
  "tokio",
+ "tracing",
  "ulid",
 ]
 
@@ -2731,7 +2731,6 @@ dependencies = [
  "arrow-flight",
  "datafusion",
  "futures",
- "log",
  "mosaicod-core",
  "mosaicod-db",
  "mosaicod-ext",
@@ -2769,7 +2768,6 @@ version = "0.6.0-dev"
 dependencies = [
  "arrow",
  "datafusion",
- "log",
  "mosaicod-core",
  "mosaicod-ext",
  "mosaicod-rw",
@@ -2778,6 +2776,7 @@ dependencies = [
  "regex",
  "thiserror",
  "tokio",
+ "tracing",
  "url",
 ]
 
@@ -2805,12 +2804,12 @@ dependencies = [
  "chrono",
  "datafusion",
  "futures",
- "log",
  "mosaicod-core",
  "object_store",
  "parquet",
  "thiserror",
  "tokio",
+ "tracing",
  "url",
 ]
 

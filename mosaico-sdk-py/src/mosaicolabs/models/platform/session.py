@@ -1,8 +1,8 @@
 """
-Sequence Catalog Entity.
+Session Catalog Entity.
 
-This module defines the `Sequence` class, which represents a read-only view of a
-Sequence's platform_metadata. A Sequence is a logical grouping of multiple Topics.
+This module defines the `Session` class, which represents a read-only view of a
+server-side writing Session platform resource.
 """
 
 from dataclasses import dataclass

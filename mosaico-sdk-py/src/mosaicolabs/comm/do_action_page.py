@@ -32,7 +32,7 @@ T_DoActionPageResponse = TypeVar(
 
 class _DoActionPageResponse(ABC):
     """
-    Abstract base class for Flight Action responses. Differently from the _DoActionPageResponse
+    Abstract base class for Flight Action responses. Differently from `_DoActionResponse`,
     this class handles responses composed of list of dictionaries rather than just a single dictionary.
     Indeed it defines from_list() rather than from_dict().
 

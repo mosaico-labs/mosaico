@@ -45,14 +45,14 @@ def make_dummy_instance(
     Builds an instance of `cls` with every field populated.
 
     Args:
-        cls: The `Serializable`/`BaseModel` subclass to instantiate.
-        overrides: Optional explicit values for specific top-level field names,
+        cls (Type[_BaseModelT]): The `Serializable`/`BaseModel` subclass to instantiate.
+        overrides (Optional[Dict[str, Any]]): Optional explicit values for specific top-level field names,
             for the rare class with a cross-field validator (e.g. `Range`'s
             `min_range <= range <= max_range`) that independent per-field
             generation can't be expected to satisfy generically.
 
     Returns:
-        A fully populated, valid instance of `cls`.
+        _BaseModelT: A fully populated, valid instance of `cls`.
     """
     kwargs = {
         name: _dummy_value(field_info.annotation, field_info.metadata)

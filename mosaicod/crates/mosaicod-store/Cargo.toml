@@ -17,7 +17,7 @@ mosaicod-core = { workspace = true }
 
 futures = { workspace = true }
 datafusion = { workspace = true }
-log = { workspace = true }
+tracing = { workspace = true }
 object_store = { workspace = true }
 thiserror = { workspace = true }
 url = { workspace = true }

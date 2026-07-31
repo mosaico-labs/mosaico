@@ -3,7 +3,6 @@ use arrow_flight::{
     FlightDescriptor, FlightEndpoint, FlightInfo, Ticket, flight_descriptor::DescriptorType,
 };
 use futures::stream::{self, StreamExt, TryStreamExt};
-use log::{info, trace};
 use mosaicod_core::{
     self as core,
     error::BoxPublicError,
@@ -15,6 +14,7 @@ use mosaicod_facade::Context;
 use mosaicod_grpc_common as grpc_common;
 use mosaicod_marshal as marshal;
 use mosaicod_marshal::flight;
+use tracing::{info, trace};
 
 /// Message provided when an error occurs when building flight info data
 const UNABLE_TO_BUILD_FLIGHT_INFO: &str = "unable to build flight info data";

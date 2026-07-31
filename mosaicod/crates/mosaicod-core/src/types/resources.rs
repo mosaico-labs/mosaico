@@ -278,6 +278,8 @@ impl<M> TopicMetadata<M> {
 pub struct TopicChunksStats {
     pub total_size_bytes: i64,
     pub total_row_count: i64,
+    /// Average row footprint in uncompressed Arrow bytes
+    pub avg_bytes_per_row: i64,
 }
 
 /// Metadata properties associated to a topic.

@@ -108,7 +108,7 @@ class Header(Serializable):
     measurement does not support one (like an audio stream).
 
     ### Querying with the **`.Q` Proxy**
-    Frame id component is queryable through the `sample_counter` field prefix.
+    Frame id component is queryable through the `frame_id` field prefix.
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |

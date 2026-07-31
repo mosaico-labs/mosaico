@@ -1,6 +1,5 @@
 use super::Error;
 use futures::stream::{FuturesUnordered, StreamExt};
-use log::{debug, trace};
 use mosaicod_core::{error::PublicResult as Result, params, types};
 use mosaicod_db as db;
 use mosaicod_query as query;
@@ -8,6 +7,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::sync::Semaphore;
+use tracing::{debug, trace};
 
 /// Facade used to perform queries in the system, it will handle the dependencies
 /// between different components (mainly `query` and `db` modules).

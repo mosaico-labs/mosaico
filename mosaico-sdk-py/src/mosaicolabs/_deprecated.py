@@ -1,7 +1,7 @@
 """Support for aliasing whole module subtrees that have moved.
 
 Used to keep old import paths working (with a DeprecationWarning) after an
-internal reorganization, e.g. ``mosaicolabs.query`` -> ``mosaicolabs.query``.
+internal reorganization, e.g. ``mosaicolabs.models.query`` -> ``mosaicolabs.query``.
 """
 
 from __future__ import annotations

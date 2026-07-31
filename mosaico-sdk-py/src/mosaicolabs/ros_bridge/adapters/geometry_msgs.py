@@ -73,7 +73,7 @@ class PoseAdapter(ROSAdapterBase[Pose]):
                     "orientation": {"x": 0, "y": 0, "z": 0, "w": 1}
                 },
             }
-        }
+        )
         # Automatically resolves to a flat Mosaico Pose with attached metadata
         mosaico_pose = PoseAdapter.translate(ros_msg)
         ```
@@ -99,11 +99,11 @@ class PoseAdapter(ROSAdapterBase[Pose]):
         Main entry point for translating a high-level `ROSMessage`.
 
         Args:
-            ros_msg: The source ROS message yielded by the loader.
-            **kwargs: Additional context for the translation.
+            ros_msg (ROSMessage): The source ROS message yielded by the loader.
+            **kwargs (Any): Additional context for the translation.
 
         Returns:
-            A Mosaico `Message` containing the normalized `Pose` payload.
+            Message: A Mosaico `Message` containing the normalized `Pose` payload.
         """
         return super().translate(ros_msg, **kwargs)
 
@@ -123,8 +123,7 @@ class PoseAdapter(ROSAdapterBase[Pose]):
 
         Example:
             ```python
-            ros_data=
-            {
+            ros_data = {
                 "header": {"frame_id": "map", "stamp": {"sec": 17000, "nanosec": 0}},
                 "pose": {
                     "position": {"x": 1.0, "y": 2.0, "z": 0.0},
@@ -202,13 +201,14 @@ class PoseAdapter(ROSAdapterBase[Pose]):
         - ``geometry_msgs/msg/PoseWithCovarianceStamped``
 
         Args:
-            mosaico_data: A ``Message`` wrapping a ``Pose`` instance, or a raw ``Pose``.
-            typestore: The rosbags typestore for target type resolution.
-            ros_msg_type: Override for the output ROS type. Defaults to
+            mosaico_data (Union[Message, Pose]): A ``Message`` wrapping a ``Pose`` instance, or a raw ``Pose``.
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (Optional[str]): Override for the output ROS type. Defaults to
                 ``geometry_msgs/msg/Pose`` if ``None``.
 
         Returns:
-            The constructed ROS message, or raises an error if:
+            MsgType: The constructed ROS message, or raises an error if:
+
                 - the ros_msg_type is unsupported by adapter (TypeError)
                 - the ros_msg_type or default type are unsupported by typestore (TypeError)
                 - the ros_msg_type or default type are supported but translation is not implemented (NotImplementedError)
@@ -272,6 +272,15 @@ class PoseAdapter(ROSAdapterBase[Pose]):
     ) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
+
+        Args:
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (str): The ROS message type to extract metadata for.
+            ros_version (int): The ROS version (1 or 2) to consider for metadata extraction.
+
+        Returns:
+            Optional[dict]: A dictionary containing the schema metadata, or None if not applicable.
+
         """
         return super().schema_metadata(typestore, ros_msg_type, ros_version)
 
@@ -298,18 +307,18 @@ class TwistAdapter(ROSAdapterBase[Velocity]):
 
     Example:
         ```python
-        ros_msg= ROSMessage(
+        ros_msg = ROSMessage(
             timestamp=1700000000000,
             topic="/cmd_vel",
             msg_type="geometry_msgs/msg/TwistStamped",
-            data=
-            {
+            data = {
                 "header": {"frame_id": "map", "stamp": {"sec": 17000, "nanosec": 0}},
                 "twist": {
                     "linear": {"x": 5.0, "y": 0.0, "z": 0.0},
                     "angular": {"x": 0.0, "y": 0.0, "z": 1.0}
-            },
-            "covariance": [0.1] * 36
+                },
+                "covariance": [0.1] * 36
+            }
         )
         # Automatically resolves to a flat Mosaico Velocity with attached metadata
         mosaico_velocity = TwistAdapter.translate(ros_msg)
@@ -357,8 +366,7 @@ class TwistAdapter(ROSAdapterBase[Velocity]):
 
         Example:
             ```python
-            ros_data=
-            {
+            ros_data = {
                 "header": {"frame_id": "map", "stamp": {"sec": 17000, "nanosec": 0}},
                 "twist": {
                     "linear": {"x": 5.0, "y": 0.0, "z": 0.0},
@@ -436,13 +444,14 @@ class TwistAdapter(ROSAdapterBase[Velocity]):
         - ``geometry_msgs/msg/TwistWithCovarianceStamped``
 
         Args:
-            mosaico_data: A ``Message`` wrapping a ``Velocity`` instance, or a raw ``Velocity``.
-            typestore: The rosbags typestore for target type resolution.
-            ros_msg_type: Override for the output ROS type. Defaults to
+            mosaico_data (Union[Message, Velocity]): A ``Message`` wrapping a ``Velocity`` instance, or a raw ``Velocity``.
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (Optional[str]): Override for the output ROS type. Defaults to
                 ``geometry_msgs/msg/Twist`` if ``None``.
 
         Returns:
-            The constructed ROS message, or raises an error if:
+            MsgType: The constructed ROS message, or raises an error if:
+
                 - the ros_msg_type is unsupported by adapter (TypeError)
                 - the ros_msg_type or default type are unsupported by typestore (TypeError)
                 - the ros_msg_type or default type are supported but translation is not implemented (NotImplementedError)
@@ -512,6 +521,15 @@ class TwistAdapter(ROSAdapterBase[Velocity]):
     ) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
+
+        Args:
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (str): The ROS message type to extract metadata for.
+            ros_version (int): The ROS version (1 or 2) to consider for metadata extraction.
+
+        Returns:
+            Optional[dict]: A dictionary containing the schema metadata, or None if not applicable.
+
         """
         return super().schema_metadata(typestore, ros_msg_type, ros_version)
 
@@ -538,8 +556,7 @@ class AccelAdapter(ROSAdapterBase[Acceleration]):
             topic="/accel",
             timestamp=17000,
             msg_type="geometry_msgs/msg/AccelStamped",
-            data=
-            {
+            data = {
                 "header": {"frame_id": "map", "stamp": {"sec": 17000, "nanosec": 0}},
                 "accel": {
                     "linear": {"x": 5.0, "y": 0.0, "z": 0.0},
@@ -547,6 +564,7 @@ class AccelAdapter(ROSAdapterBase[Acceleration]):
                 },
                 "covariance": [0.1] * 36
             }
+        )
         # Automatically resolves to a flat Mosaico Acceleration with attached metadata
         mosaico_acceleration = AccelAdapter.translate(ros_msg)
         ```
@@ -593,8 +611,7 @@ class AccelAdapter(ROSAdapterBase[Acceleration]):
 
         Example:
             ```python
-            ros_data=
-            {
+            ros_data = {
                 "header": {"frame_id": "map", "stamp": {"sec": 17000, "nanosec": 0}},
                 "accel": {
                     "linear": {"x": 5.0, "y": 0.0, "z": 0.0},
@@ -673,13 +690,14 @@ class AccelAdapter(ROSAdapterBase[Acceleration]):
         - ``geometry_msgs/msg/AccelWithCovarianceStamped``
 
         Args:
-            mosaico_data: A ``Message`` wrapping an ``Acceleration`` instance, or a raw ``Acceleration``.
-            typestore: The rosbags typestore for target type resolution.
-            ros_msg_type: Override for the output ROS type. Defaults to
+            mosaico_data (Union[Message, Acceleration]): A ``Message`` wrapping an ``Acceleration`` instance, or a raw ``Acceleration``.
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (Optional[str]): Override for the output ROS type. Defaults to
                 ``geometry_msgs/msg/Accel`` if ``None``.
 
         Returns:
-            The constructed ROS message, or raises an error if:
+            MsgType: The constructed ROS message, or raises an error if:
+
                 - the ros_msg_type is unsupported by adapter (TypeError)
                 - the ros_msg_type or default type are unsupported by typestore (TypeError)
                 - the ros_msg_type or default type are supported but translation is not implemented (NotImplementedError)
@@ -745,6 +763,17 @@ class AccelAdapter(ROSAdapterBase[Acceleration]):
     def schema_metadata(
         cls, typestore: Typestore, ros_msg_type: str, ros_version: int
     ) -> Optional[dict]:
+        """
+        Extract the ROS message specific schema metadata, if any.
+
+        Args:
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (str): The ROS message type to extract metadata for.
+            ros_version (int): The ROS version (1 or 2) to consider for metadata extraction.
+
+        Returns:
+            Optional[dict]: A dictionary containing the schema metadata, or None if not applicable.
+        """
         return super().schema_metadata(typestore, ros_msg_type, ros_version)
 
 
@@ -768,11 +797,11 @@ class Vector3Adapter(ROSAdapterBase[Vector3d]):
             topic="/vector3",
             timestamp=17000,
             msg_type="geometry_msgs/msg/Vector3Stamped",
-            data=
-            {
+            data = {
                 "header": {"frame_id": "map", "stamp": {"sec": 17000, "nanosec": 0}},
                 "vector": {"x": 5.0, "y": 0.0, "z": 0.0},
             }
+        )
         # Automatically resolves to a flat Mosaico Vector3 with attached metadata
         mosaico_vector3 = Vector3Adapter.translate(ros_msg)
         ```
@@ -815,8 +844,7 @@ class Vector3Adapter(ROSAdapterBase[Vector3d]):
 
         Example:
             ```python
-            ros_data=
-            {
+            ros_data = {
                 "header": {"frame_id": "map", "stamp": {"sec": 17000, "nanosec": 0}},
                 "vector": {"x": 5.0, "y": 0.0, "z": 0.0},
             }
@@ -880,13 +908,14 @@ class Vector3Adapter(ROSAdapterBase[Vector3d]):
         - ``geometry_msgs/msg/Vector3Stamped``
 
         Args:
-            mosaico_data: A ``Message`` wrapping a ``Vector3d`` instance, or a raw ``Vector3d``.
-            typestore: The rosbags typestore for target type resolution.
-            ros_msg_type: Override for the output ROS type. Defaults to
+            mosaico_data (Union[Message, Vector3d]): A ``Message`` wrapping a ``Vector3d`` instance, or a raw ``Vector3d``.
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (Optional[str]): Override for the output ROS type. Defaults to
                 ``geometry_msgs/msg/Vector3`` if ``None``.
 
         Returns:
-            The constructed ROS message, or raises an error if:
+            MsgType: The constructed ROS message, or raises an error if:
+
                 - the ros_msg_type is unsupported by adapter (TypeError)
                 - the ros_msg_type or default type are unsupported by typestore (TypeError)
                 - the ros_msg_type or default type are supported but translation is not implemented (NotImplementedError)
@@ -931,6 +960,17 @@ class Vector3Adapter(ROSAdapterBase[Vector3d]):
     def schema_metadata(
         cls, typestore: Typestore, ros_msg_type: str, ros_version: int
     ) -> Optional[dict]:
+        """
+        Extract the ROS message specific schema metadata, if any.
+
+        Args:
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (str): The ROS message type to extract metadata for.
+            ros_version (int): The ROS version (1 or 2) to consider for metadata extraction.
+
+        Returns:
+            Optional[dict]: A dictionary containing the schema metadata, or None if not applicable.
+        """
         return super().schema_metadata(typestore, ros_msg_type, ros_version)
 
 
@@ -954,11 +994,11 @@ class PointAdapter(ROSAdapterBase[Point3d]):
             topic="/point",
             timestamp=17000,
             msg_type="geometry_msgs/msg/PointStamped",
-            data=
-            {
+            data = {
                 "header": {"frame_id": "map", "stamp": {"sec": 17000, "nanosec": 0}},
                 "point": {"x": 5.0, "y": 0.0, "z": 0.0},
             }
+        )
         # Automatically resolves to a flat Mosaico Point3d with attached metadata
         mosaico_point3d = PointAdapter.translate(ros_msg)
         ```
@@ -1001,8 +1041,7 @@ class PointAdapter(ROSAdapterBase[Point3d]):
 
         Example:
             ```python
-            ros_data=
-            {
+            ros_data = {
                 "header": {"frame_id": "map", "stamp": {"sec": 17000, "nanosec": 0}},
                 "point": {"x": 5.0, "y": 0.0, "z": 0.0},
             }
@@ -1067,13 +1106,14 @@ class PointAdapter(ROSAdapterBase[Point3d]):
         - ``geometry_msgs/msg/PointStamped``
 
         Args:
-            mosaico_data: A ``Message`` wrapping a ``Point3d`` instance, or a raw ``Point3d``.
-            typestore: The rosbags typestore for target type resolution.
-            ros_msg_type: Override for the output ROS type. Defaults to
+            mosaico_data (Union[Message, Point3d]): A ``Message`` wrapping a ``Point3d`` instance, or a raw ``Point3d``.
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (Optional[str]): Override for the output ROS type. Defaults to
                 ``geometry_msgs/msg/Point`` if ``None``.
 
         Returns:
-            The constructed ROS message, or raises an error if:
+            MsgType: The constructed ROS message, or raises an error if:
+
                 - the ros_msg_type is unsupported by adapter (TypeError)
                 - the ros_msg_type or default type are unsupported by typestore (TypeError)
                 - the ros_msg_type or default type are supported but translation is not implemented (NotImplementedError)
@@ -1114,6 +1154,17 @@ class PointAdapter(ROSAdapterBase[Point3d]):
     def schema_metadata(
         cls, typestore: Typestore, ros_msg_type: str, ros_version: int
     ) -> Optional[dict]:
+        """
+        Extract the ROS message specific schema metadata, if any.
+
+        Args:
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (str): The ROS message type to extract metadata for.
+            ros_version (int): The ROS version (1 or 2) to consider for metadata extraction.
+
+        Returns:
+            Optional[dict]: A dictionary containing the schema metadata, or None if not applicable.
+        """
         return super().schema_metadata(typestore, ros_msg_type, ros_version)
 
 
@@ -1137,11 +1188,11 @@ class QuaternionAdapter(ROSAdapterBase[Quaternion]):
             topic="/quaternion",
             timestamp=17000,
             msg_type="geometry_msgs/msg/QuaternionStamped",
-            data=
-            {
+            data = {
                 "header": {"frame_id": "map", "stamp": {"sec": 17000, "nanosec": 0}},
                 "quaternion": {"x": 5.0, "y": 0.0, "z": 0.0, "w": 1.0},
             }
+        )
         # Automatically resolves to a flat Mosaico Quaternion with attached metadata
         mosaico_quaternion = QuaternionAdapter.translate(ros_msg)
         ```
@@ -1184,8 +1235,7 @@ class QuaternionAdapter(ROSAdapterBase[Quaternion]):
 
         Example:
             ```python
-            ros_data=
-            {
+            ros_data = {
                 "header": {"frame_id": "map", "stamp": {"sec": 17000, "nanosec": 0}},
                 "quaternion": {"x": 5.0, "y": 0.0, "z": 0.0, "w": 1.0},
             }
@@ -1251,13 +1301,14 @@ class QuaternionAdapter(ROSAdapterBase[Quaternion]):
         - ``geometry_msgs/msg/QuaternionStamped``
 
         Args:
-            mosaico_data: A ``Message`` wrapping a ``Quaternion`` instance, or a raw ``Quaternion``.
-            typestore: The rosbags typestore for target type resolution.
-            ros_msg_type: Override for the output ROS type. Defaults to
+            mosaico_data (Union[Message, Quaternion]): A ``Message`` wrapping a ``Quaternion`` instance, or a raw ``Quaternion``.
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (Optional[str]): Override for the output ROS type. Defaults to
                 ``geometry_msgs/msg/Quaternion`` if ``None``.
 
         Returns:
-            The constructed ROS message, or raises an error if:
+            MsgType: The constructed ROS message, or raises an error if:
+
                 - the ros_msg_type is unsupported by adapter (TypeError)
                 - the ros_msg_type or default type are unsupported by typestore (TypeError)
                 - the ros_msg_type or default type are supported but translation is not implemented (NotImplementedError)
@@ -1303,6 +1354,17 @@ class QuaternionAdapter(ROSAdapterBase[Quaternion]):
     def schema_metadata(
         cls, typestore: Typestore, ros_msg_type: str, ros_version: int
     ) -> Optional[dict]:
+        """
+        Extract the ROS message specific schema metadata, if any.
+
+        Args:
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (str): The ROS message type to extract metadata for.
+            ros_version (int): The ROS version (1 or 2) to consider for metadata extraction.
+
+        Returns:
+            Optional[dict]: A dictionary containing the schema metadata, or None if not applicable.
+        """
         return super().schema_metadata(typestore, ros_msg_type, ros_version)
 
 
@@ -1326,11 +1388,11 @@ class TransformAdapter(ROSAdapterBase[Transform]):
             topic="/transform",
             timestamp=17000,
             msg_type="geometry_msgs/msg/TransformStamped",
-            data=
-            {
+            data = {
                 "header": {"frame_id": "map", "stamp": {"sec": 17000, "nanosec": 0}},
                 "transform": {"translation": {"x": 5.0, "y": 0.0, "z": 0.0}, "rotation": {"x": 0.0, "y": 0.0, "z": 0.0, "w": 1.0}},
             }
+        )
         # Automatically resolves to a flat Mosaico Transform with attached metadata
         mosaico_transform = TransformAdapter.translate(ros_msg)
         ```
@@ -1374,8 +1436,7 @@ class TransformAdapter(ROSAdapterBase[Transform]):
 
         Example:
             ```python
-            ros_data=
-            {
+            ros_data = {
                 "header": {"frame_id": "map", "stamp": {"sec": 17000, "nanosec": 0}},
                 "transform": {"translation": {"x": 5.0, "y": 0.0, "z": 0.0}, "rotation": {"x": 0.0, "y": 0.0, "z": 0.0, "w": 1.0}},
             }
@@ -1444,13 +1505,14 @@ class TransformAdapter(ROSAdapterBase[Transform]):
         - ``geometry_msgs/msg/TransformStamped``
 
         Args:
-            mosaico_data: A ``Message`` wrapping a ``Transform`` instance, or a raw ``Transform``.
-            typestore: The rosbags typestore for target type resolution.
-            ros_msg_type: Override for the output ROS type. Defaults to
+            mosaico_data (Union[Message, Transform]): A ``Message`` wrapping a ``Transform`` instance, or a raw ``Transform``.
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (Optional[str]): Override for the output ROS type. Defaults to
                 ``geometry_msgs/msg/Transform`` if ``None``.
 
         Returns:
-            The constructed ROS message, or raises an error if:
+            MsgType: The constructed ROS message, or raises an error if:
+
                 - the ros_msg_type is unsupported by adapter (TypeError)
                 - the ros_msg_type or default type are unsupported by typestore (TypeError)
                 - the ros_msg_type or default type are supported but translation is not implemented (NotImplementedError)
@@ -1498,6 +1560,17 @@ class TransformAdapter(ROSAdapterBase[Transform]):
     def schema_metadata(
         cls, typestore: Typestore, ros_msg_type: str, ros_version: int
     ) -> Optional[dict]:
+        """
+        Extract the ROS message specific schema metadata, if any.
+
+        Args:
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (str): The ROS message type to extract metadata for.
+            ros_version (int): The ROS version (1 or 2) to consider for metadata extraction.
+
+        Returns:
+            Optional[dict]: A dictionary containing the schema metadata, or None if not applicable.
+        """
         return super().schema_metadata(typestore, ros_msg_type, ros_version)
 
 
@@ -1521,11 +1594,11 @@ class WrenchAdapter(ROSAdapterBase[ForceTorque]):
             topic="/wrench",
             timestamp=17000,
             msg_type="geometry_msgs/msg/WrenchStamped",
-            data=
-            {
+            data = {
                 "header": {"frame_id": "map", "stamp": {"sec": 17000, "nanosec": 0}},
                 "wrench": {"force": {"x": 5.0, "y": 0.0, "z": 0.0}, "torque": {"x": 0.0, "y": 0.0, "z": 0.0}},
             }
+        )
         # Automatically resolves to a flat Mosaico ForceTorque with attached metadata
         mosaico_wrench = WrenchAdapter.translate(ros_msg)
         ```
@@ -1569,8 +1642,7 @@ class WrenchAdapter(ROSAdapterBase[ForceTorque]):
 
         Example:
             ```python
-            ros_data=
-            {
+            ros_data = {
                 "header": {"frame_id": "map", "stamp": {"sec": 17000, "nanosec": 0}},
                 "wrench": {"force": {"x": 5.0, "y": 0.0, "z": 0.0}, "torque": {"x": 0.0, "y": 0.0, "z": 0.0}},
             }
@@ -1626,13 +1698,14 @@ class WrenchAdapter(ROSAdapterBase[ForceTorque]):
         - ``geometry_msgs/msg/WrenchStamped``
 
         Args:
-            mosaico_data: A ``Message`` wrapping a ``ForceTorque`` instance, or a raw ``ForceTorque``.
-            typestore: The rosbags typestore for target type resolution.
-            ros_msg_type: Override for the output ROS type. Defaults to
+            mosaico_data (Union[Message, ForceTorque]): A ``Message`` wrapping a ``ForceTorque`` instance, or a raw ``ForceTorque``.
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (Optional[str]): Override for the output ROS type. Defaults to
                 ``geometry_msgs/msg/Wrench`` if ``None``.
 
         Returns:
-            The constructed ROS message, or raises an error if:
+            MsgType: The constructed ROS message, or raises an error if:
+
                 - the ros_msg_type is unsupported by adapter (TypeError)
                 - the ros_msg_type or default type are unsupported by typestore (TypeError)
                 - the ros_msg_type or default type are supported but translation is not implemented (NotImplementedError)
@@ -1676,6 +1749,17 @@ class WrenchAdapter(ROSAdapterBase[ForceTorque]):
     def schema_metadata(
         cls, typestore: Typestore, ros_msg_type: str, ros_version: int
     ) -> Optional[dict]:
+        """
+        Extract the ROS message specific schema metadata, if any.
+
+        Args:
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (str): The ROS message type to extract metadata for.
+            ros_version (int): The ROS version (1 or 2) to consider for metadata extraction.
+
+        Returns:
+            Optional[dict]: A dictionary containing the schema metadata, or None if not applicable.
+        """
         return super().schema_metadata(typestore, ros_msg_type, ros_version)
 
 
@@ -1797,13 +1881,14 @@ class PolygonAdapter(ROSAdapterBase[Polygon]):
         - ``geometry_msgs/msg/PolygonStamped``
 
         Args:
-            mosaico_data: A ``Message`` wrapping a ``Polygon`` instance, or a raw ``Polygon``.
-            typestore: The rosbags typestore for target type resolution.
-            ros_msg_type: Override for the output ROS type. Defaults to
+            mosaico_data (Union[Message, Polygon]): A ``Message`` wrapping a ``Polygon`` instance, or a raw ``Polygon``.
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (Optional[str]): Override for the output ROS type. Defaults to
                 ``geometry_msgs/msg/Polygon`` if ``None``.
 
         Returns:
-            The constructed ROS message, or raises an error if:
+            MsgType: The constructed ROS message, or raises an error if:
+
                 - the ros_msg_type is unsupported by adapter (TypeError)
                 - the ros_msg_type or default type are unsupported by typestore (TypeError)
                 - the ros_msg_type or default type are supported but translation is not implemented (NotImplementedError)
@@ -1847,6 +1932,17 @@ class PolygonAdapter(ROSAdapterBase[Polygon]):
     def schema_metadata(
         cls, typestore: Typestore, ros_msg_type: str, ros_version: int
     ) -> Optional[dict]:
+        """
+        Extract the ROS message specific schema metadata, if any.
+
+        Args:
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (str): The ROS message type to extract metadata for.
+            ros_version (int): The ROS version (1 or 2) to consider for metadata extraction.
+
+        Returns:
+            Optional[dict]: A dictionary containing the schema metadata, or None if not applicable.
+        """
         return super().schema_metadata(typestore, ros_msg_type, ros_version)
 
 
@@ -1997,13 +2093,14 @@ class InertiaAdapter(ROSAdapterBase[Inertia]):
         - ``geometry_msgs/msg/InertiaStamped``
 
         Args:
-            mosaico_data: A ``Message`` wrapping an ``Inertia`` instance, or a raw ``Inertia``.
-            typestore: The rosbags typestore for target type resolution.
-            ros_msg_type: Override for the output ROS type. Defaults to
+            mosaico_data (Union[Message, Inertia]): A ``Message`` wrapping an ``Inertia`` instance, or a raw ``Inertia``.
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (Optional[str]): Override for the output ROS type. Defaults to
                 ``geometry_msgs/msg/Inertia`` if ``None``.
 
         Returns:
-            The constructed ROS message, or raises an error if:
+            MsgType: The constructed ROS message, or raises an error if:
+
                 - the ros_msg_type is unsupported by adapter (TypeError)
                 - the ros_msg_type or default type are unsupported by typestore (TypeError)
                 - the ros_msg_type or default type are supported but translation is not implemented (NotImplementedError)
@@ -2053,4 +2150,15 @@ class InertiaAdapter(ROSAdapterBase[Inertia]):
     def schema_metadata(
         cls, typestore: Typestore, ros_msg_type: str, ros_version: int
     ) -> Optional[dict]:
+        """
+        Extract the ROS message specific schema metadata, if any.
+
+        Args:
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (str): The ROS message type to extract metadata for.
+            ros_version (int): The ROS version (1 or 2) to consider for metadata extraction.
+
+        Returns:
+            Optional[dict]: A dictionary containing the schema metadata, or None if not applicable.
+        """
         return super().schema_metadata(typestore, ros_msg_type, ros_version)

@@ -65,10 +65,10 @@ class SequenceHandler:
         while internal modules should use the `SequenceHandler._connect()` factory.
 
         Args:
-            sequence_model: The underlying metadata and system info model for the sequence.
-            client: The active FlightClient for remote operations.
-            timestamp_ns_min: The lowest timestamp (in ns) available in this sequence.
-            timestamp_ns_max: The highest timestamp (in ns) available in this sequence.
+            sequence_model (Sequence): The underlying metadata and system info model for the sequence.
+            client (fl.FlightClient): The active FlightClient for remote operations.
+            timestamp_ns_min (Optional[int]): The lowest timestamp (in ns) available in this sequence.
+            timestamp_ns_max (Optional[int]): The highest timestamp (in ns) available in this sequence.
         """
         self._fl_client: fl.FlightClient = client
         """The FlightClient used for remote operations."""
@@ -135,7 +135,7 @@ class SequenceHandler:
             client (fl.FlightClient): Connected client.
 
         Returns:
-            Optional tuple containing:
+            Optional[Tuple]: Tuple containing:
                 - the sequence model (`Sequence`),
                 - the min sequence timestamp
                 - the max sequence timestamp
@@ -224,7 +224,7 @@ class SequenceHandler:
         The unique name of the sequence.
 
         Returns:
-            The unique name of the sequence.
+            str: The unique name of the sequence.
         """
         return self._sequence.name
 
@@ -234,7 +234,7 @@ class SequenceHandler:
         The list of topic names (data channels) available within this sequence.
 
         Returns:
-            The list of topic names (data channels) available within this sequence.
+            List[str]: The list of topic names (data channels) available within this sequence.
         """
         return self._sequence.topics
 
@@ -244,7 +244,7 @@ class SequenceHandler:
         The list of all the writing sessions that produced this sequence (upon creation or updates).
 
         Returns:
-            A list of [`Session`][mosaicolabs.models.platform.Session] instances
+            List[Session]: A list of [`Session`][mosaicolabs.models.platform.Session] instances
         """
         return self._sequence.sessions
 
@@ -254,7 +254,7 @@ class SequenceHandler:
         The user-defined metadata dictionary associated with this sequence.
 
         Returns:
-            The ucreated_timestampdata dictionary associated with this sequence.
+            Dict[str, Any]: The user-defined metadata dictionary associated with this sequence.
         """
         return self._sequence.user_metadata
 
@@ -264,7 +264,7 @@ class SequenceHandler:
         The UTC timestamp indicating when the entity was created on the server.
 
         Returns:
-            The UTC creation timestamp.
+            int: The UTC creation timestamp.
         """
         return self._sequence.created_timestamp
 
@@ -274,7 +274,7 @@ class SequenceHandler:
         The list of UTC timestamps indicating when the entity was updated on the server.
 
         Returns:
-            The list of UTC update timestamps.
+            List[int]: The list of UTC update timestamps.
         """
         return self._sequence.updated_timestamps
 
@@ -284,7 +284,7 @@ class SequenceHandler:
         The total physical storage footprint of the entity on the server in bytes.
 
         Returns:
-            The total physical storage in bytes.
+            int: The total physical storage in bytes.
         """
         return self._sequence.total_size_bytes
 
@@ -294,7 +294,7 @@ class SequenceHandler:
         The lowest timestamp (nanoseconds) recorded in the sequence across all topics.
 
         Returns:
-            The lowest timestamp (nanoseconds) recorded in the sequence across all topics, or `None` if the sequence contains no data or the timestamps could not be derived.
+            Optional[int]: The lowest timestamp (nanoseconds) recorded in the sequence across all topics, or `None` if the sequence contains no data or the timestamps could not be derived.
         """
         return self._timestamp_ns_min
 
@@ -304,7 +304,7 @@ class SequenceHandler:
         The highest timestamp (nanoseconds) recorded in the sequence across all topics.
 
         Returns:
-            The highest timestamp (nanoseconds) recorded in the sequence across all topics, or `None` if the sequence contains no data or the timestamps could not be derived.
+            Optional[int]: The highest timestamp (nanoseconds) recorded in the sequence across all topics, or `None` if the sequence contains no data or the timestamps could not be derived.
         """
         return self._timestamp_ns_max
 
@@ -322,15 +322,15 @@ class SequenceHandler:
         multiple topics.
 
         Args:
-            topics: A subset of topic names to stream. If empty, all topics
+            topics (List[str]): A subset of topic names to stream. If empty, all topics
                 in the sequence are streamed.
-            start_timestamp_ns: The **inclusive** lower bound (t >= start) for the time window in nanoseconds.
+            start_timestamp_ns (Optional[int]): The **inclusive** lower bound (t >= start) for the time window in nanoseconds.
                 The stream starts at the first message with a timestamp greater than or equal to this value.
-            end_timestamp_ns: The **exclusive** upper bound (t < end) for the time window in nanoseconds.
+            end_timestamp_ns (Optional[int]): The **exclusive** upper bound (t < end) for the time window in nanoseconds.
                 The stream stops at the first message with a timestamp strictly less than this value.
 
         Returns:
-            A `SequenceDataStreamer` iterator yielding `(topic_name, message)` tuples.
+            SequenceDataStreamer: A `SequenceDataStreamer` iterator yielding `(topic_name, message)` tuples.
 
         Raises:
             ValueError: If the provided topic names do not exist or if the
@@ -410,12 +410,12 @@ class SequenceHandler:
         Get a specific [`TopicHandler`][mosaicolabs.handlers.TopicHandler] for a child topic.
 
         Args:
-            topic_name: The relative name of the topic (e.g., "/camera/front").
-            force_new_instance: If `True`, bypasses the internal cache and
+            topic_name (str): The relative name of the topic (e.g., "/camera/front").
+            force_new_instance (bool): If `True`, bypasses the internal cache and
                 recreates the handler.
 
         Returns:
-            A `TopicHandler` dedicated to the specified topic.
+            TopicHandler: A `TopicHandler` dedicated to the specified topic.
 
         Raises:
             ValueError: If the topic is not available in this sequence or
@@ -436,7 +436,7 @@ class SequenceHandler:
                         print(f"\t|Topic: {top_handler.sequence_name}:{top_handler.name}")
                         print(f"\t|User metadata: {top_handler.user_metadata}")
                         print(f"\t|Timestamp span: {top_handler.timestamp_ns_min} - {top_handler.timestamp_ns_max}")
-                        print(f"\t|Created {top_handler.created_datetime}")
+                        print(f"\t|Created {top_handler.created_timestamp}")
                         print(f"\t|Size (MB) {top_handler.total_size_bytes/(1024*1024)}")
 
                     # Once done, close the resources, topic handler and related reading channels (recommended).
@@ -484,7 +484,6 @@ class SequenceHandler:
         Args:
             on_error (SessionLevelErrorPolicy): Behavior on write failure. Defaults to
                 [`SessionLevelErrorPolicy.Report`][mosaicolabs.enum.SessionLevelErrorPolicy.Report].
-
             max_batch_size_bytes (Optional[int]): Max bytes per Arrow batch.
             max_batch_size_records (Optional[int]): Max records per Arrow batch.
 

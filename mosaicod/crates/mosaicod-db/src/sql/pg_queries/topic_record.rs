@@ -1,9 +1,9 @@
 use crate::{Error, core::AsExec, sql::schema};
-use log::{trace, warn};
 use mosaicod_core::types;
 use mosaicod_marshal as marshal;
 use mosaicod_query as query;
 use sqlx::{Row, postgres::PgRow};
+use tracing::{trace, warn};
 
 fn cast_topic_data(row: PgRow) -> Result<schema::TopicRecord, Error> {
     Ok(schema::TopicRecord {

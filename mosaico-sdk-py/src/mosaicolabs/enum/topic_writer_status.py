@@ -16,9 +16,9 @@ class TopicWriterStatus(Enum):
 
     Active = "active"
     """
-    The initial state of a topic writer before server-side registration.
-    
-    In this state, the local [`TopicWriter`][mosaicolabs.handlers.TopicWriter] instance 
+    The initial state of a topic writer after server-side registration.
+
+    In this state, the local [`TopicWriter`][mosaicolabs.handlers.TopicWriter] instance
     has been created and the `TOPIC_CREATE` handshake has completed.
     """
 

@@ -34,12 +34,12 @@ def pack_rgb(r: int, g: int, b: int) -> float:
     a single field.
 
     Args:
-        r: Red intensity (0-255).
-        g: Green intensity (0-255).
-        b: Blue intensity (0-255).
+        r (int): Red intensity (0-255).
+        g (int): Green intensity (0-255).
+        b (int): Blue intensity (0-255).
 
     Returns:
-        The RGB color encoded as a 32-bit float.
+        float: The RGB color encoded as a 32-bit float.
     """
     packed = np.uint32((r << 16) | (g << 8) | b)
     return float(np.frombuffer(packed.tobytes(), dtype=np.float32)[0])
@@ -53,10 +53,10 @@ def unpack_rgb(packed_rgb: float) -> Tuple[int, int, int]:
     extracts the individual color bytes.
 
     Args:
-        packed_rgb: The encoded float value containing RGB data.
+        packed_rgb (float): The encoded float value containing RGB data.
 
     Returns:
-        A tuple of `(red, green, blue)`, where each value is between 0 and 255.
+        Tuple[int, int, int]: A tuple of `(red, green, blue)`, where each value is between 0 and 255.
     """
     packed = np.frombuffer(np.float32(packed_rgb).tobytes(), dtype=np.uint32)[0]
 
@@ -116,9 +116,10 @@ class _DepthCameraBase(
     Packed RGB colour value per point.
 
     Each element encodes the red, green, and blue channels of the pixel
-    co-registered with the corresponding depth sample. The packing convention
-    `rgb` field (bits 16–23 = R, 8–15 = G, 0–7 = B, stored as a float32 reinterpretation of a uint32).
-    There are useful utilities for [`pack_rgb()`][mosaicolabs.models.futures.depth_camera.pack_rgb] and [`unpack_rgb()`][mosaicolabs.models.futures.depth_camera.unpack_rgb] rgb in in the internal of depth camera.
+    co-registered with the corresponding depth sample. The `rgb` field uses the
+    packing convention (bits 16-23 = R, 8-15 = G, 0-7 = B, stored as a float32
+    reinterpretation of a uint32). Use [`pack_rgb()`][mosaicolabs.models.futures.depth_camera.pack_rgb]
+    and [`unpack_rgb()`][mosaicolabs.models.futures.depth_camera.unpack_rgb] to convert to/from this format.
     """
 
     intensity: Optional[MosaicoType.list_(MosaicoType.float32)] = MosaicoField(

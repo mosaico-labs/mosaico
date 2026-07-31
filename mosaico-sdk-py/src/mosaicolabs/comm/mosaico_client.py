@@ -7,10 +7,13 @@ and serves as a factory for creating resource handlers (sequences, topics)
 and executing queries.
 """
 
+import json
 import os
 from typing import Any, Dict, List, Optional, Type, Union
 
 import pyarrow.flight as fl
+
+from mosaicolabs.helpers.helpers import sanitize_sequence_name, sanitize_topic_name
 
 from ..enum import (
     FlightAction,
@@ -100,15 +103,15 @@ class MosaicoClient:
             `RuntimeError`.
 
         Args:
-            host: The remote server host.
-            port: The remote server port.
-            timeout: The connection timeout.
-            control_client: The primary PyArrow Flight control client.
-            sentinel: Private object used to verify factory-based instantiation.
-            enable_tls: Enable TLS communication.
-            compression: The compression configuration for gRPC.
-            tls_cert: The TLS certificate.
-            middlewares: The middlewares to be used for the connection.
+            host (str): The remote server host.
+            port (int): The remote server port.
+            timeout (int): The connection timeout.
+            control_client (fl.FlightClient): The primary PyArrow Flight control client.
+            sentinel (object): Private object used to verify factory-based instantiation.
+            enable_tls (bool): Enable TLS communication.
+            compression (GRPCCompression): The compression configuration for gRPC.
+            tls_cert (Optional[bytes]): The TLS certificate.
+            middlewares (dict[str, fl.ClientMiddlewareFactory]): The middlewares to be used for the connection.
         """
         if sentinel is not MosaicoClient._CONNECT_SENTINEL:
             raise RuntimeError(
@@ -275,8 +278,8 @@ class MosaicoClient:
 
         Returns:
             MosaicoClient: A client instance pre-configured with discovered settings.
-            If no specific environment variables are found, it returns a
-            client with default settings.
+                If no specific environment variables are found, it returns a
+                client with default settings.
 
         Example:
             ``` python
@@ -398,7 +401,7 @@ class MosaicoClient:
                 if sequence_handler:
                     # Print sequence details
                     print(f"Sequence: {sequence_handler.name}")
-                    print(f"Created: {sequence_handler.created_datetime}")
+                    print(f"Created: {sequence_handler.created_timestamp}")
                     print(f"Topic list: {sequence_handler.topics}")
                     print(f"User Metadata: {sequence_handler.user_metadata}")
                     print(f"Size (MB): {sequence_handler.total_size_bytes / 1024 / 1024}")
@@ -415,6 +418,34 @@ class MosaicoClient:
 
             self._sequence_handlers_cache[sequence_name] = sh
         return sh
+
+    def sequence_exists(self, sequence_name: str) -> bool:
+        """
+        Checks if a sequence exists on the server.
+
+        Note:
+            If using the Authorization middleware (via an API-Key), this method requires the
+            `read` permission.
+
+        Args:
+            sequence_name (str): The unique identifier of the sequence.
+
+        Returns:
+            bool: True if the sequence exists, False otherwise.
+        """
+        descriptor = fl.FlightDescriptor.for_command(
+            json.dumps(
+                {
+                    "resource_locator": sanitize_sequence_name(sequence_name),
+                }
+            )
+        )
+        # Get FlightInfo
+        try:
+            self._control_client.get_flight_info(descriptor)
+        except Exception:
+            return False
+        return True
 
     def topic_handler(
         self,
@@ -443,12 +474,12 @@ class MosaicoClient:
             # Establish a connection to the Mosaico Data Platform
             with MosaicoClient.connect("localhost", 6726) as client:
                 # Retrieve a topic handler
-                topic_handler = client.topic_handler("my_sequence", "/front/camera/image_raw)
+                topic_handler = client.topic_handler("my_sequence", "/front/camera/image_raw")
                 if topic_handler:
                     # Print topic details
                     print(f"Topic: {topic_handler.sequence_name}:{topic_handler.name}")
                     print(f"Ontology Tag: {topic_handler.ontology_tag}")
-                    print(f"Created: {topic_handler.created_datetime}")
+                    print(f"Created: {topic_handler.created_timestamp}")
                     print(f"User Metadata: {topic_handler.user_metadata}")
                     print(f"Size (MB): {topic_handler.total_size_bytes / 1024 / 1024}")
 
@@ -469,6 +500,38 @@ class MosaicoClient:
 
             self._topic_handlers_cache[topic_resource_name] = th
         return th
+
+    def topic_exists(self, sequence_name: str, topic_name: str) -> bool:
+        """
+        Checks if a topic exists on the server.
+
+        Note:
+            If using the Authorization middleware (via an API-Key), this method requires the
+            `read` permission.
+
+        Args:
+            sequence_name (str): The parent sequence name.
+            topic_name (str): The specific topic name.
+
+        Returns:
+            bool: True if the topic exists, False otherwise.
+        """
+        descriptor = fl.FlightDescriptor.for_command(
+            json.dumps(
+                {
+                    "resource_locator": pack_topic_resource_name(
+                        sanitize_sequence_name(sequence_name),
+                        sanitize_topic_name(topic_name),
+                    ),
+                }
+            )
+        )
+        # Get FlightInfo
+        try:
+            self._control_client.get_flight_info(descriptor)
+        except Exception:
+            return False
+        return True
 
     # --- Main API Methods ---
 
@@ -496,7 +559,6 @@ class MosaicoClient:
             metadata (dict[str, Any]): User-defined metadata to attach.
             on_error (SessionLevelErrorPolicy): Behavior on write failure. Defaults to
                 [`SessionLevelErrorPolicy.Report`][mosaicolabs.enum.SessionLevelErrorPolicy.Report].
-
             max_batch_size_bytes (Optional[int]): Max bytes per Arrow batch.
             max_batch_size_records (Optional[int]): Max records per Arrow batch.
 
@@ -532,7 +594,7 @@ class MosaicoClient:
                                 "lon": 9.19201,
                             },
                         },
-                    }
+                    },
                     on_error = SessionLevelErrorPolicy.Delete
                     ) as seq_writer:
                         # Start creating topics and pushing data...
@@ -608,9 +670,7 @@ class MosaicoClient:
 
             # Open the connection with the Mosaico Client
             with MosaicoClient.connect("localhost", 6726) as client:
-                # Get the handler for the sequence
-                with client.sequence_update("mission_log_042")
-                # Update the sequence
+                # Resume writing into an existing sequence
                 with client.sequence_update("mission_log_042",
                         on_error = SessionLevelErrorPolicy.Delete
                     ) as seq_updater:
@@ -927,7 +987,7 @@ class MosaicoClient:
             `read` permission.
 
         Args:
-            *queries: Variable arguments of query builder objects (e.g., `QuerySequence`).
+            *queries (QueryableProtocol): Variable arguments of query builder objects (e.g., `QuerySequence`).
             query (Optional[Query]): An alternative pre-constructed Query object.
 
         Returns:

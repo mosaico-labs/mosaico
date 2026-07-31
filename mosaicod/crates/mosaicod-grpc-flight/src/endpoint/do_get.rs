@@ -6,11 +6,11 @@ use arrow_flight::{
     error::FlightError,
 };
 use futures::TryStreamExt;
-use log::{debug, info, trace};
 use mosaicod_core::{self as core, params, types};
 use mosaicod_facade as facade;
 use mosaicod_grpc_common as grpc_common;
 use mosaicod_marshal as marshal;
+use tracing::{debug, info, trace};
 
 pub async fn do_get(
     ctx: &facade::Context,
@@ -46,12 +46,16 @@ pub async fn do_get(
     }
 
     let mut metadata = doget_params.metadata;
+    let mut total_rows = None;
 
     // Timestamp_range can be None only if there is no data uploaded for the topic yet.
     // In that case the entire interval_props is left empty.
     if let Some(timestamp_range) = query_result.clone().timestamp_range().await? {
+        let message_count = query_result.clone().count().await?;
+        total_rows = Some(message_count);
+
         metadata = metadata.with_interval(types::TopicIntervalProperties {
-            message_count: query_result.clone().count().await?,
+            message_count,
             timestamp_range,
         });
     }
@@ -67,7 +71,16 @@ pub async fn do_get(
     let stream = query_result.stream().await?;
 
     // Convert the data stream to a flight stream casting the returned error
-    let stream = stream.map_err(|e| FlightError::ExternalError(Box::new(e)));
+    let stream = stream
+        .inspect_ok(|batch| {
+            debug!(
+                target = "streaming batch",
+                cols = batch.columns().len(),
+                rows = batch.num_rows(),
+                batch_physical_size_MB = batch.get_array_memory_size() / 1_000_000,
+            );
+        })
+        .map_err(|e| FlightError::ExternalError(Box::new(e)));
 
     // We enable by default LZ4_FRAME compression for all streams.
     // As `.try_with_compression()` states the function throws an error at runtime
@@ -84,7 +97,15 @@ pub async fn do_get(
     // If our value is below the default we keep the default.
     let max_flight_data_size = usize::max(
         GRPC_TARGET_MAX_FLIGHT_SIZE_BYTES,
-        params::params().max_grpc_message_size.value - 2_000_000,
+        params::params().target_message_size.value,
+    );
+
+    debug!(
+        target = "streaming topic",
+        cols = schema.fields().len(),
+        total_rows = total_rows.unwrap_or(0),
+        optimal_batch_size = doget_params.optimal_batch_size,
+        max_flight_data_size_MB = max_flight_data_size / 1_000_000,
     );
 
     Ok(FlightDataEncoderBuilder::new()

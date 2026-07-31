@@ -4,7 +4,6 @@
 
 use datafusion::execution::object_store::{DefaultObjectStoreRegistry, ObjectStoreRegistry};
 use futures::stream::{StreamExt, TryStreamExt};
-use log::trace;
 use mosaicod_core::params;
 use mosaicod_core::traits;
 use object_store::{
@@ -13,6 +12,7 @@ use object_store::{
 use parquet::arrow::async_reader::ParquetObjectReader;
 use std::sync::Arc;
 use thiserror::Error;
+use tracing::trace;
 use url::Url;
 
 #[derive(Error, Debug)]
@@ -401,8 +401,8 @@ impl traits::AsyncWriteToPath for Store {
 #[cfg(any(test, feature = "testing"))]
 pub mod testing {
     use super::*;
-    use log::error;
     use std::ops::Deref;
+    use tracing::error;
 
     #[derive(Clone)]
     pub struct Store {

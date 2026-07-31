@@ -262,13 +262,13 @@ class Topic:
         Factory method to create a Topic view from platform resource information.
 
         Args:
-            name: The name of the platform resource.
-            sequence_name: The name of the sequence the topic belongs to.
-            platform_metadata: The metadata of the platform resource.
-            resrc_manifest: The manifest of the platform resource.
+            name (str): The name of the platform resource.
+            sequence_name (str): The name of the sequence the topic belongs to.
+            platform_metadata (TopicMetadata): The metadata of the platform resource.
+            resrc_manifest (TopicResourceManifest): The manifest of the platform resource.
 
         Returns:
-            A Topic instance.
+            Self: A Topic instance.
         """
         if not isinstance(platform_metadata, TopicMetadata):
             raise ValueError(

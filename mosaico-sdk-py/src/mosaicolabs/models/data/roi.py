@@ -52,7 +52,7 @@ class ROI(Serializable):
     """
 
     offset: Vector2d = MosaicoField(
-        description="(Leftmost, Rightmost) pixels of the ROI."
+        description="(Leftmost, Topmost) pixels of the ROI."
     )
     """
     The top-left pixel coordinates of the ROI.

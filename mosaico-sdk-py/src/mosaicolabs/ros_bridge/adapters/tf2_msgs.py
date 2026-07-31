@@ -42,7 +42,7 @@ class FrameTransformAdapter(ROSAdapterBase[FrameTransform]):
                             },
                             "frame_id": "map",
                         },
-                        "child_frame_id": "base_link"
+                        "child_frame_id": "base_link",
                         "transform": {
                             "translation": {
                                 "x": 0.0,
@@ -104,7 +104,7 @@ class FrameTransformAdapter(ROSAdapterBase[FrameTransform]):
                             },
                             "frame_id": "map",
                         },
-                        "child_frame_id": "base_link"
+                        "child_frame_id": "base_link",
                         "transform": {
                             "translation": {
                                 "x": 0.0,
@@ -145,14 +145,17 @@ class FrameTransformAdapter(ROSAdapterBase[FrameTransform]):
         ``tf2_msgs/msg/TFMessage``.
 
         Args:
-            mosaico_data: A ``Message`` wrapping a ``FrameTransform``, or a raw ``FrameTransform``.
-            typestore: The rosbags typestore for target type resolution.
-            ros_msg_type: Override for the output ROS type. Only
+            mosaico_data (Union[Message, FrameTransform]): A ``Message`` wrapping a ``FrameTransform``, or a raw ``FrameTransform``.
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (Optional[str]): Override for the output ROS type. Only
                 ``tf2_msgs/msg/TFMessage`` is supported.
 
         Returns:
-            A ``tf2_msgs/msg/TFMessage`` instance, or ``None`` if the type is
-            unsupported or absent from the typestore.
+            MsgType: The constructed ``tf2_msgs/msg/TFMessage``, or raises an error if:
+
+                - the ros_msg_type is unsupported by adapter (TypeError)
+                - the ros_msg_type or default type are unsupported by typestore (TypeError)
+                - the ros_msg_type or default type are supported but translation is not implemented (NotImplementedError)
         """
 
         # Resolve ROS message to translate Mosaico message to if not defined in input
@@ -192,5 +195,13 @@ class FrameTransformAdapter(ROSAdapterBase[FrameTransform]):
     ) -> Optional[dict]:
         """
         Extract the ROS message specific schema metadata, if any.
+
+        Args:
+            typestore (Typestore): The rosbags typestore for target type resolution.
+            ros_msg_type (str): The ROS message type to extract metadata for.
+            ros_version (int): The ROS version (1 or 2) to consider for metadata extraction.
+
+        Returns:
+            Optional[dict]: A dictionary containing the schema metadata, or None if not applicable.
         """
         return super().schema_metadata(typestore, ros_msg_type, ros_version)

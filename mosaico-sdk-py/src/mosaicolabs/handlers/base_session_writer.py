@@ -9,7 +9,7 @@ and distributes client resources to individual Topics.
 from abc import ABC, abstractmethod
 from dataclasses import asdict, fields
 from logging import Logger
-from typing import Any, Dict, Optional, Type
+from typing import Any, Dict, List, Optional, Type
 
 import pyarrow.flight as fl
 
@@ -75,10 +75,10 @@ class _BaseSessionWriter(ABC):
         to obtain a user-facing writer instance.
 
         Args:
-            sequence_name: Unique name for the sequence corresponding to the session.
-            client: The primary control FlightClient.
-            config: Operational configuration (e.g., error policies, batch sizes).
-            logger: The `Logger` instance
+            sequence_name (str): Unique name for the sequence corresponding to the session.
+            client (fl.FlightClient): The primary control FlightClient.
+            config (SessionWriterConfig): Operational configuration (e.g., error policies, batch sizes).
+            logger (Logger): The `Logger` instance
         """
         self._name: str = sequence_name
         """The name of the sequence this session refers to"""
@@ -108,7 +108,7 @@ class _BaseSessionWriter(ABC):
         Initializes a new session on the existing remote resource.
 
         Args:
-            sequence_name: The name of the sequence owning the data pushed in this session.
+            sequence_name (str): The name of the sequence owning the data pushed in this session.
         """
 
         # Send the `SESSION_CREATE` action, to start a new session on the existing remote resource.
@@ -164,9 +164,9 @@ class _BaseSessionWriter(ABC):
             - Sending specialized notification signals to the server upon exit.
 
         Args:
-            exc_type: The type of the exception raised in the with-block, if any.
-            exc_val: The instance of the exception raised in the with-block, if any.
-            exc_tb: The traceback of the exception raised in the with-block, if any.
+            exc_type (Optional[Type[BaseException]]): The type of the exception raised in the with-block, if any.
+            exc_val (Optional[BaseException]): The instance of the exception raised in the with-block, if any.
+            exc_tb (Optional[Any]): The traceback of the exception raised in the with-block, if any.
         """
         error_in_block = exc_type is not None
         out_exc = exc_val
@@ -253,9 +253,9 @@ class _BaseSessionWriter(ABC):
           or Reports the error based on `SessionWriterConfig.on_error`.
 
         Args:
-            exc_type: The type of the exception.
-            exc_val: The exception value.
-            exc_tb: The traceback.
+            exc_type (Optional[Type[BaseException]]): The type of the exception.
+            exc_val (Optional[BaseException]): The exception value.
+            exc_tb (Optional[Any]): The traceback.
 
         Returns:
             None: prevents exception suppression
@@ -421,13 +421,13 @@ class _BaseSessionWriter(ABC):
             The class verifies that the topic name is valid and that the metadata is valid (i.e. it is a dict).
 
         Args:
-            topic_name: The relative name of the new topic.
-            metadata: Topic-specific user metadata.
-            ontology_type: The `Serializable` data model class defining the topic's schema.
-            on_error: The error policy to use in the `TopicWriter`.
+            topic_name (str): The relative name of the new topic.
+            metadata (dict[str, Any]): Topic-specific user metadata.
+            ontology_type (Type[Serializable]): The `Serializable` data model class defining the topic's schema.
+            on_error (TopicLevelErrorPolicy): The error policy to use in the `TopicWriter`.
 
         Returns:
-            A `TopicWriter` instance configured for parallel ingestion, or `None` if creation fails.
+            Optional[TopicWriter]: A `TopicWriter` instance configured for parallel ingestion, or `None` if creation fails.
 
         Raises:
             RuntimeError: If called outside of a `with` block.
@@ -534,7 +534,7 @@ class _BaseSessionWriter(ABC):
         Returns the current operational status of the session corresponding to this sequence write or update.
 
         Returns:
-            The [`SessionStatus`][mosaicolabs.enum.SessionStatus].
+            SessionStatus: The [`SessionStatus`][mosaicolabs.enum.SessionStatus].
         """
         self._check_entered()
         return self._status
@@ -546,7 +546,7 @@ class _BaseSessionWriter(ABC):
         The locator format is: '`sequence_name`:`session_identifier`'.
 
         Returns:
-            The locator of the session.
+            str: The locator of the session.
         """
         self._check_entered()
         return self._locator
@@ -557,17 +557,21 @@ class _BaseSessionWriter(ABC):
         for the given name.
 
         Args:
-            topic_name: The name of the topic to check.
+            topic_name (str): The name of the topic to check.
 
         Returns:
-            True if the topic writer exists locally, False otherwise.
+            bool: True if the topic writer exists locally, False otherwise.
         """
         self._check_entered()
         return topic_name in self._topic_writers
 
-    def list_topic_writers(self) -> list[str]:
+    def list_topic_writers(self) -> List[str]:
         """
         Returns the list of all topic names currently managed by this writer.
+
+        Returns:
+            List[str]: A list of topic names for which `TopicWriter` instances have been created
+                and are currently active within this session.
         """
         self._check_entered()
         return [k for k in self._topic_writers.keys()]
@@ -590,10 +594,10 @@ class _BaseSessionWriter(ABC):
           for a specific identifier through a single, persistent writer instance.
 
         Args:
-            topic_name: The unique name or identifier of the topic writer to retrieve.
+            topic_name (str): The unique name or identifier of the topic writer to retrieve.
 
         Returns:
-            The `TopicWriter` instance if it has been previously initialized within this `SequenceWriter` context, otherwise `None`.
+            Optional[TopicWriter]: The `TopicWriter` instance if it has been previously initialized within this `SequenceWriter` context, otherwise `None`.
 
         Example:
             Processing a generic interleaved sensor log (like a ROS bag or a custom JSON log):
@@ -644,3 +648,8 @@ class _BaseSessionWriter(ABC):
         """
         self._check_entered()
         return self._topic_writers.get(topic_name)
+
+
+# Public alias for type hints accepting any concrete _BaseSessionWriter subclass
+# (e.g. SequenceWriter, SequenceUpdater) without exposing the private base name.
+AnySessionWriter = _BaseSessionWriter

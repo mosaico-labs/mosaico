@@ -39,6 +39,8 @@ def setup_sdk_logging(
             instance. If provided, the logger and any active UI (like progress
             bars) will synchronize to prevent screen flickering. Defaults
             to a new Console(stderr=True).
+        propagate (bool): If True, log messages will propagate to the root logger.
+            Defaults to False to avoid duplicate logs in test runners like pytest.
 
     Example:
         ```python

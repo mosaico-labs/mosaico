@@ -67,9 +67,9 @@ def download_assets(url: str, output_dir: str) -> None:
     preserving the directory structure.
 
     Args:
-        url:        GitHub tree URL, e.g.
-                    https://github.com/owner/repo/tree/branch/path/to/folder
-        output_dir: Local directory where files will be saved.
+        url (str): GitHub tree URL, e.g.
+            https://github.com/owner/repo/tree/branch/path/to/folder
+        output_dir (str): Local directory where files will be saved.
     """
     # Expected format: https://github.com/<owner>/<repo>/tree/<branch>/<path>
     parts = url.rstrip("/").replace("https://github.com/", "").split("/")

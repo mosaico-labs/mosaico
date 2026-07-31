@@ -2,11 +2,11 @@
 //! entity within the application.
 
 use super::{Context, session, topic};
-use log::trace;
 use mosaicod_core::{self as core, error::PublicError, error::PublicResult as Result, types};
 use mosaicod_db as db;
 use mosaicod_marshal as marshal;
 use std::path;
+use tracing::trace;
 
 /// Define sequence metadata type contaning json user metadata
 pub type SequenceUserMetadata = marshal::JsonMetadataBlob;

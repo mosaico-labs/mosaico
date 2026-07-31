@@ -163,6 +163,9 @@ class Velocity(
         """
         Ensures the velocity object is not empty.
 
+        Returns:
+            Velocity: This instance, unchanged, if validation succeeds.
+
         Raises:
             ValueError: If both `linear` and `angular` are None.
         """
@@ -314,6 +317,9 @@ class Acceleration(
     def check_at_least_one_exists(self) -> "Acceleration":
         """
         Ensures the acceleration object is not empty.
+
+        Returns:
+            Acceleration: This instance, unchanged, if validation succeeds.
 
         Raises:
             ValueError: If both `linear` and `angular` are None.

@@ -35,8 +35,8 @@ class _UploadMode(Enum):
 # Map ontology format types to their optimal upload strategy
 _SERIALIZATION_FORMAT_TO_UPLOAD_MODE = {
     SerializationFormat.Image: _UploadMode.Bytes,  # Heavy data -> Limit by bytes
-    SerializationFormat.Default: _UploadMode.Bytes,  # Light data -> Limit by count
-    SerializationFormat.Ragged: _UploadMode.Bytes,
+    SerializationFormat.Default: _UploadMode.Bytes,  # Limit by bytes
+    SerializationFormat.Ragged: _UploadMode.Bytes,  # Limit by bytes
 }
 
 
@@ -239,7 +239,7 @@ class _TopicWriteState:
 
     def _write_current_batch(self):
         """
-        Flushes buffer: transfers data ownership to async task and resets buffer.
+        Flushes buffer: synchronously writes the buffered records and resets buffer.
         """
         if self.writer is None:
             raise ValueError("Writer is None")

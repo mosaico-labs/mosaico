@@ -263,7 +263,7 @@ class SequenceResourceManifest:
         Factory method to create a SequenceResourceManifest from FlightInfo.app_metadata.
 
         Args:
-            app_mdata: The app_metadata object containing the sequence resource info.
+            app_mdata (Union[bytes, str]): The app_metadata object containing the sequence resource info.
 
         Returns:
             SequenceResourceManifest: An immutable instance containing parsed data.

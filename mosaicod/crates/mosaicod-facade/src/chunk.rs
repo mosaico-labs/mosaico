@@ -12,6 +12,7 @@ impl<'a> Chunk<'a> {
         topic_uuid: &types::Uuid,
         datafile: impl AsRef<std::path::Path>,
         size_bytes: i64,
+        arrow_size_bytes: i64,
         row_count: i64,
         context: &'a Context,
     ) -> Result<Self> {
@@ -21,7 +22,7 @@ impl<'a> Chunk<'a> {
 
         let chunk = db::chunk_create(
             &mut tx,
-            &db::ChunkRecord::new(topic_id, datafile, size_bytes, row_count),
+            &db::ChunkRecord::new(topic_id, datafile, size_bytes, arrow_size_bytes, row_count),
         )
         .await?;
 

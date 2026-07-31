@@ -81,7 +81,7 @@ class HeaderMixin(BaseModel):
 
     | Field Access Path | Queryable Type | Supported Operators |
     | :--- | :--- | :--- |
-    | `<Model>.Q.timestamp.seconds` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.outside()` |
+    | `<Model>.Q.header.timestamp.seconds` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.outside()` |
     | `<Model>.Q.header.timestamp.nanoseconds` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.outside()` |
     | `<Model>.Q.header.frame_id` | `String` | `.eq()`, `.match()`, `.in_()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.between()`, `.outside()` |
     | `<Model>.Q.header.sample_counter` | `Numeric` | `.eq()`, `.lt()`, `.gt()`, `.leq()`, `.geq()`, `.in_()`, `.between()`, `.outside()` |

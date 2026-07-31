@@ -38,16 +38,16 @@ def _diff_against_struct(
     every mismatch found along the way instead of stopping at the first one.
 
     Args:
-        data: The raw payload dict to validate (e.g. `Unmodeled.raw_data`).
-        struct: The pyarrow struct schema `data` is expected to conform to.
-        path: The dotted field path accumulated so far, used to qualify nested
+        data (Dict[str, Any]): The raw payload dict to validate (e.g. `Unmodeled.raw_data`).
+        struct (pa.StructType): The pyarrow struct schema `data` is expected to conform to.
+        path (str): The dotted field path accumulated so far, used to qualify nested
             field names in the returned error messages (e.g. `"gyro.x"`).
             Callers should omit this; it's populated internally during recursion.
 
     Returns:
-        A list of human-readable mismatch descriptions - missing required
-        fields, unknown fields, and type mismatches on nested structs. Empty if
-        `data` fully matches `struct`.
+        List[str]: A list of human-readable mismatch descriptions - missing required
+            fields, unknown fields, and type mismatches on nested structs. Empty if
+            `data` fully matches `struct`.
     """
     errors: List[str] = []
     schema_fields = {field.name: field for field in struct}
@@ -127,6 +127,9 @@ class Unmodeled(
         """
         Validates `raw_data` against the class's declared pyarrow schema.
 
+        Args:
+            context (Any): The Pydantic validation context passed by the base class.
+
         Raises:
             ValueError: If `raw_data` is missing a required field, contains a
                 field not present in the schema, or has a nested field whose
@@ -141,12 +144,12 @@ class Unmodeled(
                 f"pyarrow schema:\n" + "\n".join(f"  - {e}" for e in errors)
             )
 
-    def _encode(self):
+    def _encode(self) -> Dict[str, Any]:
         """Returns `raw_data` as-is: it's already a plain, flat-friendly dict."""
         return self.raw_data
 
     @classmethod
-    def _decode(cls, *_, **kwargs):
+    def _decode(cls, *_, **kwargs) -> "Unmodeled":
         """
         Reconstructs an instance from decoded Arrow row data.
 
@@ -154,10 +157,10 @@ class Unmodeled(
             **kwargs: The decoded field values for this row, keyed by field name.
 
         Returns:
-            A new instance with `raw_data` set to `kwargs`, after normalizing
-            away the Parquet/Arrow deserialization artifact where an all-`None`
-            nested struct comes back as e.g. `{"x": None, "y": None}` instead of
-            plain `None` (see `_fix_empty_dicts`).
+            Unmodeled: A new instance with `raw_data` set to `kwargs`, after normalizing
+                away the Parquet/Arrow deserialization artifact where an all-`None`
+                nested struct comes back as e.g. `{"x": None, "y": None}` instead of
+                plain `None` (see `_fix_empty_dicts`).
         """
         fixed_kwargs = _fix_empty_dicts(kwargs) if kwargs else {}
         return cls(raw_data=fixed_kwargs)
@@ -224,23 +227,22 @@ def make_unmodeled_ontology_class(
         ```
 
     Args:
-        class_name: The Python class name assigned to the generated class
+        class_name (str): The Python class name assigned to the generated class
             (e.g. shown in `repr()` and error messages).
-        ontology_tag: The unique ontology identifier to register the class
-            under. If `None`, it's auto-generated from `class_name`
-            (`CamelCase` -> `snake_case`), matching the behavior of a normal
-            `Serializable` subclass.
-        serialization_format: The batching/serialization strategy for topics
+        ontology_tag (Optional[str]): The unique ontology identifier to register the class
+            under. If `None`, it's auto-generated from `class_name`, matching the behavior
+            of a normal `Serializable` subclass.
+        serialization_format (SerializationFormat): The batching/serialization strategy for topics
             using this ontology (see
             [`Serializable.__serialization_format__`][mosaicolabs.models.core.Serializable]).
-        pyarrow_schema: The Arrow struct schema describing the ontology's data
+        pyarrow_schema (pa.StructType): The Arrow struct schema describing the ontology's data
             payload, used verbatim as the class's `__msco_pyarrow_struct__`.
-        registry_key: Advanced/internal use - see the note above. Defaults to
+        registry_key (Optional[str]): Advanced/internal use - see the note above. Defaults to
             `None`, meaning the class's local registry key is `ontology_tag`
             itself (the common case for every direct caller of this factory).
 
     Returns:
-        A new `Unmodeled` subclass, already registered in the
+        Type[Unmodeled]: A new `Unmodeled` subclass, already registered in the
             [`Serializable`][mosaicolabs.models.core.Serializable] factory under
             `registry_key` (or `ontology_tag`, if `registry_key` is omitted), and
             reporting `ontology_tag` to the platform either way.

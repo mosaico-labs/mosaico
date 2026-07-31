@@ -8,6 +8,9 @@ use std::sync::Arc;
 #[derive(Debug, Clone)]
 pub struct ChunkMetadata {
     pub size_bytes: usize,
+    /// Uncompressed in-memory Arrow footprint of the rows written to this chunk, as
+    /// opposed to [`Self::size_bytes`], which measures the encoded, compressed buffer.
+    pub arrow_size_bytes: usize,
     pub row_count: usize,
 }
 
@@ -23,6 +26,7 @@ pub struct InMemoryChunkEncoder {
     stats: types::OntologyModelStats,
     schema: SchemaRef,
     row_count: usize,
+    arrow_size_bytes: usize,
 }
 
 impl InMemoryChunkEncoder {
@@ -37,6 +41,7 @@ impl InMemoryChunkEncoder {
             stats: mosaicod_ext::arrow::ontology_model_stats_from_schema(&schema),
             schema,
             row_count: 0,
+            arrow_size_bytes: 0,
         })
     }
 
@@ -56,6 +61,7 @@ impl InMemoryChunkEncoder {
             }
         }
         self.row_count += batch.num_rows();
+        self.arrow_size_bytes += batch.get_array_memory_size();
         Ok(())
     }
 
@@ -101,11 +107,13 @@ impl InMemoryChunkEncoder {
         // We are calling `finish` since the implementation is the same as
         // close but takes no ownership of the writer. And we return the internal data buffer.
         let row_count = self.row_count;
+        let arrow_size_bytes = self.arrow_size_bytes;
         let buffer = match self.writer {
             Writer::Parquet(w) => w.buffer()?,
         };
         let metadata = ChunkMetadata {
             size_bytes: buffer.len(),
+            arrow_size_bytes,
             row_count,
         };
         Ok((buffer, self.stats, metadata))
@@ -258,5 +266,7 @@ mod tests {
         // Check metadata
         assert_eq!(metadata.row_count, 3);
         assert_eq!(metadata.size_bytes, buffer.len());
+
+        assert_eq!(metadata.arrow_size_bytes, batch.get_array_memory_size());
     }
 }

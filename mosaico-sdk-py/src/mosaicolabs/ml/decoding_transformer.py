@@ -47,9 +47,9 @@ class VideoDecodingTransformer(BaseEstimator, TransformerMixin):
 
         Args:
             topics (List[str]): The list of topics to target for image decoding.
-            stateless_codec (optional): An instance of a codec to handle formats that
+            stateless_codec (_StatelessDefaultCodec): An instance of a codec to handle formats that
                 do not require state (e.g., JPEG). Defaults to _StatelessDefaultCodec().
-            stateful_decoding_session_type (optional): The class to instantiate for
+            stateful_decoding_session_type (StatefulDecodingSession): The class to instantiate for
                 state-dependent video decoding. Defaults to StatefulDecodingSession.
         """
         self._topics = topics
