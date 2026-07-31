@@ -3,7 +3,7 @@ use arrow_flight::{
     FlightDescriptor, FlightEndpoint, FlightInfo, Ticket, flight_descriptor::DescriptorType,
 };
 use futures::stream::{self, StreamExt, TryStreamExt};
-use log::{info, trace};
+use tracing::{info, trace};
 use mosaicod_core::{
     self as core,
     error::BoxPublicError,

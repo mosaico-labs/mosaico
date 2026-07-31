@@ -3,7 +3,7 @@ use crate::{
     core::{AsExec, RowLocking},
     sql::schema,
 };
-use log::{trace, warn};
+use tracing::{trace, warn};
 use mosaicod_core::types;
 
 fn rowlock2str(rl: RowLocking) -> &'static str {

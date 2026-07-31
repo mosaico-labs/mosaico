@@ -2,7 +2,7 @@
 //! entity within the application.
 
 use super::{Context, session, topic};
-use log::trace;
+use tracing::trace;
 use mosaicod_core::{self as core, error::PublicError, error::PublicResult as Result, types};
 use mosaicod_db as db;
 use mosaicod_marshal as marshal;

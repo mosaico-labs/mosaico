@@ -1,6 +1,6 @@
 //! Query-related actions
 
-use log::{info, trace};
+use tracing::{info, trace};
 use mosaicod_facade as facade;
 use mosaicod_grpc_common as grpc_common;
 use mosaicod_marshal::{self as marshal, ActionResponse};

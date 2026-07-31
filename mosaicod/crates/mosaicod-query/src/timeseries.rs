@@ -19,7 +19,7 @@ use datafusion::functions_nested::expr_fn::{
 };
 use datafusion::prelude::*;
 use datafusion::scalar::ScalarValue;
-use log::trace;
+use tracing::trace;
 use mosaicod_core::{params, types};
 use mosaicod_rw::ToParquetProperties;
 use mosaicod_store as store;

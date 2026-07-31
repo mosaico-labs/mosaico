@@ -1,5 +1,5 @@
 use crate::{Error, core::AsExec, sql::schema};
-use log::trace;
+use tracing::trace;
 use mosaicod_core::types::{self};
 use mosaicod_query as query;
 use sqlx::{Row, postgres::PgRow};

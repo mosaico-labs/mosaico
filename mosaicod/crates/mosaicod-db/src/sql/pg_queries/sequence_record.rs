@@ -1,5 +1,5 @@
 use crate::{Error, core::AsExec, sql::schema};
-use log::{trace, warn};
+use tracing::{trace, warn};
 use mosaicod_core::types;
 
 /// Find a sequence given its id.

@@ -1,4 +1,4 @@
-use log::error;
+use tracing::error;
 use mosaicod_core::types;
 use mosaicod_marshal as marshal;
 

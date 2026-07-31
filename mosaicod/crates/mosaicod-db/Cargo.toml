@@ -18,7 +18,7 @@ mosaicod-core = { workspace = true }
 mosaicod-marshal = { workspace = true }
 mosaicod-query = { workspace = true }
 
-log = { workspace = true }
+tracing = { workspace = true }
 sqlx = { workspace = true }
 url = { workspace = true }
 uuid = { workspace = true }

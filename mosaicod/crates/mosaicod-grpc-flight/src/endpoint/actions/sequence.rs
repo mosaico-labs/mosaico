@@ -1,5 +1,5 @@
 //! Sequence-related actions
-use log::{info, trace, warn};
+use tracing::{info, trace, warn};
 use mosaicod_core::types::{self, MetadataBlob};
 use mosaicod_facade as facade;
 use mosaicod_grpc_common as grpc_common;

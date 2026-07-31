@@ -19,7 +19,7 @@ mosaicod-query = { workspace = true }
 mosaicod-db = { workspace = true, features = ["postgres"] }
 
 arrow = { workspace = true }
-log = { workspace = true }
+tracing = { workspace = true }
 futures = { workspace = true }
 tokio = { workspace = true }
 

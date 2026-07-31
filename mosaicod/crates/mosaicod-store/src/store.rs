@@ -4,7 +4,7 @@
 
 use datafusion::execution::object_store::{DefaultObjectStoreRegistry, ObjectStoreRegistry};
 use futures::stream::{StreamExt, TryStreamExt};
-use log::trace;
+use tracing::trace;
 use mosaicod_core::params;
 use mosaicod_core::traits;
 use object_store::{
@@ -401,7 +401,7 @@ impl traits::AsyncWriteToPath for Store {
 #[cfg(any(test, feature = "testing"))]
 pub mod testing {
     use super::*;
-    use log::error;
+    use tracing::error;
     use std::ops::Deref;
 
     #[derive(Clone)]

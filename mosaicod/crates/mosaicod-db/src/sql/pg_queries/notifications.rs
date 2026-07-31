@@ -1,5 +1,5 @@
 use crate::{Error, core::AsExec, sql::schema};
-use log::trace;
+use tracing::trace;
 use mosaicod_core::types;
 
 /// Creates a new notification associated with a topic

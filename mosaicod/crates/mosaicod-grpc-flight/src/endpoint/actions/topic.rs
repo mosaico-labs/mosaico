@@ -5,7 +5,7 @@ use ext::arrow_filter::{Cluster, ClusteringError};
 use arrow::error::ArrowError;
 use datafusion::physical_plan::SendableRecordBatchStream;
 use futures::StreamExt;
-use log::{info, trace, warn};
+use tracing::{info, trace, warn};
 use mosaicod_core::{
     self as core,
     types::{self, MetadataBlob, TopicLocator},

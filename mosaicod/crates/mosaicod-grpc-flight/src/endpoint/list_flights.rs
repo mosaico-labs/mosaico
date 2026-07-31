@@ -3,7 +3,7 @@
 //! Returns a stream of all available sequences when queried at the root level.
 use arrow_flight::{Criteria, FlightDescriptor, FlightEndpoint, FlightInfo, Ticket};
 use futures::stream::BoxStream;
-use log::{info, trace};
+use tracing::{info, trace};
 use mosaicod_core as core;
 use mosaicod_facade as facade;
 use mosaicod_grpc_common as grpc_common;

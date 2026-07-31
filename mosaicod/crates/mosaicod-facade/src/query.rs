@@ -1,6 +1,6 @@
 use super::Error;
 use futures::stream::{FuturesUnordered, StreamExt};
-use log::{debug, trace};
+use tracing::{debug, trace};
 use mosaicod_core::{error::PublicResult as Result, params, types};
 use mosaicod_db as db;
 use mosaicod_query as query;

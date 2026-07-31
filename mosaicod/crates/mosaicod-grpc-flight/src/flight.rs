@@ -5,7 +5,7 @@ use arrow_flight::{
     decode::FlightDataDecoder, flight_service_server::FlightService,
 };
 use futures::{StreamExt, TryStreamExt, stream::BoxStream};
-use log::error;
+use tracing::error;
 use mosaicod_core::{self as core, params};
 use mosaicod_db as db;
 use mosaicod_facade as facade;

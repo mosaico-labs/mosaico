@@ -1,4 +1,4 @@
-use log::info;
+use tracing::info;
 use mosaicod_core::params;
 use mosaicod_grpc_common as grpc_common;
 use mosaicod_marshal::ActionResponse;
