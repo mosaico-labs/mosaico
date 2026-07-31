@@ -340,15 +340,16 @@ impl StoreOptimizer {
                     .optimize_topic(&topic_record, &opt_path_in_store)
                     .await?;
 
-                // Remove topic from optimization list once processed.
+                let mut tx = self.db.transaction().await?;
+
+                // Remove topic from optimization list once processed and update path_in_store inside topic record.
+                // These operations are done within the same transaction to prevent a cleanup routine scam in between.
                 db::topic_optimization_delete(
-                    &mut self.db.connection(),
+                    &mut tx,
                     topic_to_optimize_record.topic_id,
                     types::allow_data_loss(),
                 )
                 .await?;
-
-                let mut tx = self.db.transaction().await?;
 
                 db::topic_optimization_complete(
                     &mut tx,
