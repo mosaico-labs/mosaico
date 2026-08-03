@@ -1,5 +1,13 @@
 import fnmatch
-from typing import Any, Dict, List, Optional, TypeGuard
+from typing import (
+    Any,
+    ClassVar,
+    Dict,
+    List,
+    Optional,
+    TypeGuard,
+    get_origin,
+)
 
 import numpy as np
 from rosbags.interfaces import TopicInfo
@@ -91,8 +99,7 @@ def _to_dict(message: Any) -> tuple[Any, Dict[str, Any]]:
     """
     Recursively converts a rosbags message object and its nested fields to a standard
     Python dictionary (or list/primitive type if encountered during recursion), splitting
-    out message constants (`UPPER_CASE` attributes, as opposed to `snake_case` fields)
-    along the way.
+    out message constants along the way.
 
     Returns:
         tuple[Any, Dict[str, Any]]: A `(value, const_dict)` tuple. `const_dict` holds the `UPPER_CASE` constants
@@ -101,32 +108,26 @@ def _to_dict(message: Any) -> tuple[Any, Dict[str, Any]]:
             should keep only `value` and discard `const_dict`, so constants nested below the
             top level of the original call are dropped rather than collected.
     """
-    if hasattr(message, "__msgtype__"):
+    dataclass_fields = getattr(message, "__dataclass_fields__", None)
+    if dataclass_fields is not None:
         data_dict: Dict[str, Any] = {}
         const_dict: Dict[str, Any] = {}
-        # rosbags messages are dataclasses without __slots__. Iterating the
-        # declared dataclass fields is ~3.5x faster than scanning dir(message)
-        # (which enumerates and filters the whole attribute space on every
-        # nested object) and yields identical data.
-        fields = getattr(message, "__slots__", None)
-        if fields is None:
-            dataclass_fields = getattr(message, "__dataclass_fields__", None)
-            if dataclass_fields is not None:
-                fields = list(dataclass_fields.keys())
-            else:
-                # dunders and __msgtype__ are filtered by the loop below.
-                fields = dir(message)
-        for field_name in fields:
-            if field_name.startswith("_") or field_name == "__msgtype__":
+        # rosbags codegens constants as fields annotated `ClassVar[...]`,
+        # while actual message fields never are. The modules are generated
+        # with `from __future__ import annotations`, so `field.type` is the
+        # string "ClassVar[...]" rather than a real `typing.ClassVar` -
+        # hence the string check instead of `typing.get_origin`.
+        for field_name, field in dataclass_fields.items():
+            if field_name == "__msgtype__":
                 continue
-            try:
-                field_value = getattr(message, field_name)
-            except AttributeError:
-                continue
-            if field_name.isupper():
+            field_value = getattr(message, field_name)
+            if (
+                (isinstance(field.type, str) and field.type.startswith("ClassVar["))
+                or get_origin(field.type) is ClassVar
+            ):  # NOTE: the or condition is to ensure that if rosbags moves away from annotation policy this still works
                 const_dict[field_name] = field_value
-                continue
-            data_dict[field_name], _ = _to_dict(field_value)
+            else:
+                data_dict[field_name], _ = _to_dict(field_value)
         return data_dict, const_dict
     elif isinstance(message, (list, tuple)):
         return [_to_dict(item)[0] for item in message], {}

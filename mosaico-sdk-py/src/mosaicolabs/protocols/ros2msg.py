@@ -1,4 +1,5 @@
 # =========================================================================== #
+# Converter 1: ROS 1 .msg  (encoding == "ros1msg")
 # Converter 1: ROS 2 .msg  (encoding == "ros2msg")
 # =========================================================================== #
 from typing import Dict, cast
@@ -9,7 +10,7 @@ from rosbags.interfaces.typing import (
     Nodetype,
     Typesdict,
 )
-from rosbags.typesys import get_types_from_msg
+from rosbags.typesys import Stores, get_types_from_msg, get_typestore
 
 _ROS_2_PYARROW_TYPE: Dict[str, pa.DataType] = {
     "bool": pa.bool_(),
@@ -30,20 +31,20 @@ _ROS_2_PYARROW_TYPE: Dict[str, pa.DataType] = {
 }
 
 
-def _typesdict_to_schema(types_dict: Typesdict, msgtype: str) -> pa.StructType:
+def _typesdict_to_schema(typesdict: Typesdict, msgtype: str) -> pa.StructType:
     """Recursively build a PyArrow struct type for a message type.
 
-    Walks the field definitions for ``msgtype`` inside ``types_dict`` (as
+    Walks the field definitions for ``msgtype`` inside ``typesdict`` (as
     produced by ``rosbags.typesys.get_types_from_msg``) and translates each
     field into a PyArrow field, recursing into nested message types and
     list/array element types as needed.
 
     Args:
-        types_dict (Typesdict): Mapping of fully-qualified ROS message type name to its
+        typesdict (Typesdict): Mapping of fully-qualified ROS message type name to its
             ``(constants, fields)`` definition, as returned by
             ``get_types_from_msg``.
         msgtype (str): Fully-qualified name (e.g. ``"geometry_msgs/msg/Point"``) of
-            the message type within ``types_dict`` to convert.
+            the message type within ``typesdict`` to convert.
 
     Returns:
         pa.StructType: A ``pa.StructType`` mirroring the fields of ``msgtype``, with ROS
@@ -54,7 +55,7 @@ def _typesdict_to_schema(types_dict: Typesdict, msgtype: str) -> pa.StructType:
             ``Basetype`` or list/sequence shape.
     """
     # Extract msgtype from Typesdict since we need to create the pyarrow struct of that particular part
-    _, fields_def = types_dict[msgtype]
+    _, fields_def = typesdict[msgtype]
     pyarrow_fields: list[pa.field] = []
 
     for field_name, field_desc in fields_def:
@@ -74,7 +75,7 @@ def _typesdict_to_schema(types_dict: Typesdict, msgtype: str) -> pa.StructType:
 
         elif node_type is Nodetype.NAME and isinstance(content, str):
             composed_field = pa.field(
-                field_name, _typesdict_to_schema(types_dict, content)
+                field_name, _typesdict_to_schema(typesdict, content)
             )
 
             pyarrow_fields.append(composed_field)
@@ -98,7 +99,7 @@ def _typesdict_to_schema(types_dict: Typesdict, msgtype: str) -> pa.StructType:
                 item_content, str
             ):  # complex type
                 list_field = pa.field(
-                    field_name, _typesdict_to_schema(types_dict, item_content)
+                    field_name, _typesdict_to_schema(typesdict, item_content)
                 )
 
             else:
@@ -177,5 +178,15 @@ def convert_ros2msg(msgdef: str, msgtype: str) -> pa.StructType:
                 ])),
             ])
     """
-    types_dict = get_types_from_msg(msgdef, msgtype)
-    return _typesdict_to_schema(types_dict, msgtype)
+    msg_typesdict = get_types_from_msg(msgdef, msgtype)
+
+    # This is necessary since builtin_interfaces containing Time and Duration were introduced in ROS2;
+    # within ROS1, Time and Duration were built-in types and not part of a separate package. Therefore,
+    # ROS1 msgdef do not contain Time and Duration message definitions leading to a typesdict that does
+    # not hold Duration and Time as key attributes. However, composed types (like Header) still contain
+    # Time and Duration data structures. Consequently, when looking for these structures composition within
+    # typesdict they cannot be found, making the system crash. To solve this, Time and Duration definitions
+    # need to be added to the typedict decuded from the input msgdef through the typestore coming from Stores.Empty
+    typesdict = get_typestore(Stores.EMPTY).fielddefs | msg_typesdict
+
+    return _typesdict_to_schema(typesdict, msgtype)
