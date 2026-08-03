@@ -1,6 +1,6 @@
 ---
 title: Chained Queries
-sidebar_position: 9
+sidebar_position: 10
 description: "How to correlate conditions across two different Topic types using chained queries. Covers converting a QueryResponse into a locked QuerySequence domain with to_query_sequence(), then running a second targeted query restricted to only the matching sessions."
 ---
 
@@ -9,13 +9,19 @@ import TabItem from '@theme/TabItem';
 
 ## Using Results to Scope a Second Query
 
-A single `client.query()` call applies AND across all conditions for a single **topic**. That constraint is fundamental: a topic has exactly one declared type, so it cannot simultaneously be a `GPS` stream and a `String` log. If you need to ask "find me sessions that have high-precision GPS data *and* contain error log messages", you cannot express that in one shot; those two conditions live on two different topics of two different types.
+Say you want sessions that have high-precision GPS data *and* contain error log messages. It's tempting to pass both conditions to a single `client.query()` call:
 
-Chained queries solve this. The pattern is to run an initial broad query to find candidate sequences, convert the response into a new query builder scoped to exactly those sequences, then run a second query within that narrowed domain. You get the intersection of both conditions without loading any data client-side.
+```python
+# Looks for ONE topic that is BOTH GPS data AND named /localization/log_string
+client.query(
+    QueryOntologyCatalog(GPS.Q.status.status.eq(2)),
+    QueryTopic().with_name("/localization/log_string"),
+)
+```
 
-:::info[Why is Chaining Necessary?]
-A single `client.query()` call applies AND across all conditions for a single **topic**. A topic cannot be both a `GPS` stream and a `String` log, so chaining is required to correlate two different topics within the same sequence.
-:::
+This returns nothing. All builders passed to one `client.query()` call are ANDed together and evaluated against each *individual* topic — so the query above asks the daemon to find a topic that is simultaneously typed as `GPS` and named `/localization/log_string`. Since a topic has exactly one name and one ontology type, no topic can ever satisfy both, even if a GPS topic and a `/localization/log_string` topic both exist side by side in the very same sequence.
+
+What you actually want is two *separate* topics — one carrying the GPS data, one carrying the logs — correlated within the same sequence. Chained queries solve this: run an initial broad query to find candidate sequences, convert the response into a new query builder scoped to exactly those sequences, then run a second query within that narrowed domain to find the log topic. You get the intersection of both conditions without loading any data client-side.
 
 <Tabs>
 
@@ -43,7 +49,7 @@ The Rust SDK is currently in development.
 
 **Broad search.** The first query casts a wide net. You may use only a `QueryOntologyCatalog` filter here, or combine it with a `QuerySequence` if you already know something about the sessions you care about. The result is a `QueryResponse` containing every sequence where the condition was satisfied.
 
-**Domain locking.** Call `to_query_sequence()` on the response. This converts the `QueryResponse` into a new `QuerySequence` builder that is already pre-filtered to the sequence IDs returned by the first query. The second query will only search within those sessions; the daemon will not touch any other data. This is what makes chaining both correct and efficient: you are not re-scanning the entire catalog, just the sessions you already know are relevant.
+**Domain locking.** Call `to_query_sequence()` on the response. This converts the `QueryResponse` into a new `QuerySequence` builder that is already pre-filtered to the sequence names returned by the first query. The second query will only search within those sessions; the daemon will not touch any other data. This is what makes chaining both correct and efficient: you are not re-scanning the entire catalog, just the sessions you already know are relevant.
 
 **Targeted refinement.** Pass the locked `QuerySequence` as the first argument of a new `client.query()` call, then add whichever `QueryTopic` and `QueryOntologyCatalog` conditions you need. The daemon evaluates the combination and returns only sessions that satisfy every condition across both queries.
 
@@ -90,8 +96,6 @@ The Rust SDK is currently in development.
 
 ## Key Concepts
 
-**`to_query_sequence()`** is the bridge between the two queries. When called on a `QueryResponse`, it produces a `QuerySequence` builder pre-populated with the IDs of all sequences that appeared in the response. Passing this builder as the first argument of the next `client.query()` call tells the daemon to restrict the search scope to those sessions only. No session outside that set will ever be evaluated, regardless of what the other filters say.
+**`to_query_topic()`** is the topic-level equivalent of `to_query_sequence()` used above. Instead of locking down to a set of sequences, it produces a `QueryTopic` builder pre-scoped to the specific topic paths returned by the previous response. Use this when you want to chain on exact topic identity, for instance when the first query already narrowed you to a particular channel and you want the second query to be applied to that same channel without re-specifying its name.
 
-**`to_query_topic()`** is the topic-level equivalent. Instead of locking down to a set of sequences, it produces a `QueryTopic` builder pre-scoped to the specific topic paths returned by the previous response. Use this when you want to chain on exact topic identity, for instance when the first query already narrowed you to a particular channel and you want the second query to be applied to that same channel without re-specifying its name.
-
-**Why not just filter client-side?** You could collect all sequence IDs from the first response and write a loop in Python. Chaining is preferable because both queries run entirely server-side. The daemon evaluates the second filter against only the relevant data without transferring intermediate results over the network. For large catalogs, the difference in latency is significant.
+**Why not just filter client-side?** Both queries in a chain run entirely server-side: the daemon evaluates the second filter against only the relevant data without transferring intermediate results over the network. For large catalogs, this is significantly faster than collecting sequence names from the first response and looping over them in Python.

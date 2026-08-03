@@ -1,6 +1,6 @@
 ---
 title: Temporal Windows
-sidebar_position: 8
+sidebar_position: 9
 description: "How to extract and compare time intervals from a query response using clusterize() and intersect(), with pointers to clusterize_all() and the sequence-level intersect() for operating across every topic at once."
 ---
 
@@ -9,12 +9,12 @@ import TabItem from '@theme/TabItem';
 
 ## Extracting and Comparing Time Intervals
 
-When a query includes a `QueryOntologyCatalog` filter, a matched topic doesn't just tell you **that** its condition was satisfied but also **when**. Starting from a query response, you can compute and compare these time intervals: split a single topic's matches into distinct windows, or check whether two different signals were true at the same moment. Concretely, you can:
+When a query includes a `QueryOntologyCatalog` filter, a matched topic doesn't just tell you **that** its condition was satisfied but also **when**. Starting from a query response, you can compute and compare these time intervals: split a single topic's matches into distinct windows, or check whether two different signals were true at the same moment. This guide walks through the two operations you'll reach for most often:
 
-- retrieve and merge all the time intervals associated to one topic where the query is satisfied. See [clusterize](https://docs.mosaico.dev/python-sdk/SDK/query/#topic-clusterize) operation.
-- retrieve and compare different time intervals associated to different topics coming from different queries, finding whether two distinct events happened at the same time. See [topic intersect](https://docs.mosaico.dev/python-sdk/SDK/query/#topics-intersect) operation.
-- retrieve and merge all the time intervals associated to all sequence's topics where the query is satisfied. See [clusterize_all](https://docs.mosaico.dev/python-sdk/SDK/query/#sequence-clusterize) operation.
-- retrieve and compare different time intervals associated to different topics' sequences. See [sequence intersect](https://docs.mosaico.dev/python-sdk/SDK/query/#sequences-intersect) operation.
+- **`clusterize()`**: retrieve and merge all the time intervals associated to one topic where the query is satisfied.
+- **`intersect()`** on a `QueryResponseItem`: retrieve and compare time intervals across all of a sequence's topics at once, finding whether they were simultaneously true.
+
+Two related operations are covered only in [Key Concepts](#key-concepts) below, with a link to the full reference: `clusterize_all()` (the sequence-wide counterpart of `clusterize()`) and the topic-level `intersect()` (for correlating a hand-picked set of topics, even across different queries or sequences).
 
 <Tabs>
 

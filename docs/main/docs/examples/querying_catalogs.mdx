@@ -41,7 +41,16 @@ The daemon must be running and contain data ingested via the [ROS Ingestion](./r
 
 ## The Query Builder Pattern
 
-Mosaico's query API uses fluent builder objects. Passing multiple builders to `client.query()` joins them with a logical AND, evaluated entirely server-side in a single round trip. Nothing is joined or filtered on the client side.
+Mosaico's query API uses fluent builder objects. Passing multiple builders to `client.query()` joins them with a logical AND, evaluated entirely server-side in a single round trip. Nothing is joined or filtered on the client side:
+
+```python title="Two builders joined server-side"
+client.query(
+    QueryTopic().with_name_match("*imu*"),      # AND
+    QueryOntologyCatalog(IMU.Q.acceleration.y.geq(1.0)),
+)
+```
+
+The sections below build up from a single builder to combinations of them.
 
 ## Finding Topics by Name
 
@@ -78,7 +87,7 @@ results = client.query(
 
 ## Multi-Domain Queries
 
-`QueryOntologyCatalog` combined with `QueryTopic` lets you filter by both sensor type and field value in one call. The `.Q` proxy provides type-safe dot-notation expressions: `IMU.Q.acceleration.y.geq(1.0)` means "find messages where IMU y-axis acceleration is >= 1.0 m/s²".
+`QueryOntologyCatalog` combined with `QueryTopic` lets you filter by both sensor type and field value in one call. The `.Q` proxy provides type-safe dot-notation expressions: `IMU.Q.acceleration.y.geq(1.0)` means "find messages where IMU y-axis acceleration is >= 1.0 m/s²". Here `QueryTopic` uses `with_name()`, i.e. an exact topic path, instead of the `with_ontology_tag()` seen above, since the physical filter on `IMU.Q...` already narrows the search to IMU data; restricting further to one specific topic path pins down *which* IMU stream the acceleration threshold applies to.
 
 ```python title="Multi-domain query with physics filter"
 from mosaicolabs import IMU, QueryOntologyCatalog, QueryTopic
@@ -93,6 +102,10 @@ results = client.query(
 
 
 ## Replaying an Event
+
+:::note
+This pattern is not part of the `query_catalogs` example script itself; it illustrates a natural next step once you have a query response, combining `clusterize()` with [`get_data_streamer()`](./data_inspection) (see the Data Inspection example).
+:::
 
 The returned query response can be used directly to slice a data stream to the exact windows containing the event. The example adds one second of padding on each side to capture the run-up and recovery.
 
@@ -112,3 +125,11 @@ if results:
                 for msg in streamer:
                     pass  # process the event window
 ```
+
+## Which Builder For Which Question
+
+| Question | Builder | Method |
+| --- | --- | --- |
+| "Which topics match this name pattern?" | `QueryTopic` | `with_name_match()` |
+| "Which topics carry this sensor type?" | `QueryTopic` | `with_ontology_tag()` |
+| "Which topics satisfy this physical condition?" | `QueryOntologyCatalog` | `.Q` proxy expression, e.g. `IMU.Q.acceleration.y.geq(1.0)` |

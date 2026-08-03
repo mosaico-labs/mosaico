@@ -95,8 +95,4 @@ The Rust SDK is currently in development.
 
 ## Key Concepts
 
-**Convenience methods** like `with_name_match()` and `with_user_metadata()` cover the most common filtering patterns. `with_name_match()` is intentionally fuzzy so you can match recording names without knowing them exactly. `with_user_metadata()` gives you precise control over any field you stored at ingestion time, with a full set of comparison operators.
-
-**Generic methods** using `with_expression()` and the `.Q` proxy give you access to the full operator set (`.gt()`, `.lt()`, `.between()`, and others) when the convenience methods do not cover your use case. The `.Q` proxy builds type-safe field paths from Ontology models, ensuring that the field names in your query match the actual schema.
-
-**Dynamic metadata** through dot notation means you can query any depth of nesting in the metadata you stored at recording time. There is no fixed schema for user metadata; whatever JSON-like structure you attached to the Sequence is fully searchable using `"key.subkey.deeper"` paths.
+**Generic methods** using `with_expression()` and the `.Q` proxy give you access to the full operator set (`.gt()`, `.lt()`, `.between()`, and others) when the convenience methods above do not cover your use case. See [The `.Q` Proxy](./multi_domain_query.mdx#the-q-proxy) for how it builds type-safe field paths from Ontology models.

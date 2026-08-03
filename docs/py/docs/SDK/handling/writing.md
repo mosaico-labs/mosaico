@@ -6,7 +6,7 @@ description: Data Writers.
 The **Writing Workflow** in Mosaico is designed for high-throughput data ingestion, ensuring that your application remains responsive even when streaming high-bandwidth sensor data like 4K video or high-frequency IMU telemetry.
 
 !!! info "API-Keys"
-    When the connection is established via the authorization middleware (i.e. using an [API-Key](../client.md#2-authentication-api-key)), the writing workflow is allowed only if the key the `write` permission.
+    When the connection is established via the authorization middleware (i.e. using an [API-Key](../client.md#2-authentication-api-key)), the writing workflow is allowed only if the key has the `write` permission.
 
 
 ## `SequenceWriter`
@@ -15,7 +15,7 @@ The **Writing Workflow** in Mosaico is designed for high-throughput data ingesti
 
 The `SequenceWriter` acts as the central controller for a recording session. It manages the high-level lifecycle of the data on the server and serves as the factory for individual sensor streams. 
 
-Spawning a new sequence writer is done via the [`MosaicoClient.connect()`][mosaicolabs.comm.MosaicoClient.connect] factory method.
+Spawning a new sequence writer is done via the [`MosaicoClient.sequence_create()`][mosaicolabs.comm.MosaicoClient.sequence_create] factory method.
 
 **Key Roles:**
 
@@ -31,23 +31,7 @@ with MosaicoClient.connect("localhost", 6726) as client:
     with client.sequence_create(
         sequence_name="mission_log_042", 
         # Custom metadata for this data sequence.
-        metadata={ # (1)!
-            "vehicle": {
-                "vehicle_id": "veh_sim_042",
-                "powertrain": "EV",
-                "sensor_rig_version": "v3.2.1",
-                "software_stack": {
-                    "perception": "perception-5.14.0",
-                    "localization": "loc-2.9.3",
-                    "planning": "plan-4.1.7",
-                },
-            },
-            "driver": {
-                "driver_id": "drv_sim_017",
-                "role": "validation",
-                "experience_level": "senior",
-            },
-        }
+        metadata={"vehicle_id": "veh_sim_042", "driver_id": "drv_sim_017"}, # (1)!
         on_error = SessionLevelErrorPolicy.Delete
         ) as seq_writer:
 
@@ -57,7 +41,7 @@ with MosaicoClient.connect("localhost", 6726) as client:
 
 ```
 
-1. The metadata fields will be queryable via the [`Query` mechanism](../query.md). The mechanism allows creating queries like: `QuerySequence().with_user_metadata("vehicle.software_stack.planning", eq="plan-4.1.7")`
+1. Metadata can be arbitrarily nested (e.g. `{"vehicle": {"software_stack": {"planning": "plan-4.1.7"}}}`) and every field is queryable via the [`Query` mechanism](../query.md), including nested ones: `QuerySequence().with_user_metadata("vehicle.software_stack.planning", eq="plan-4.1.7")`
 
 ### Sequence-Level Error Handling
 ??? question "API Reference"
@@ -102,7 +86,7 @@ Once a topic is created via [`SequenceWriter.topic_create`][mosaicolabs.handlers
                 "serial_number": "IMUF-9A31D72X",
                 "calibrated":"false",
             },
-            error_policy=TopicLevelErrorPolicy.Raise, # Raises an exception if an error occurs
+            on_error=TopicLevelErrorPolicy.Raise, # Raises an exception if an error occurs
             ontology_type=IMU, # The ontology type stored in this topic
         )
 
@@ -121,7 +105,7 @@ Once a topic is created via [`SequenceWriter.topic_create`][mosaicolabs.handlers
                     "protocol": "NMEA",
                 },
             }, # The topic/sensor custom metadata
-            error_policy=TopicLevelErrorPolicy.Ignore, # Ignore errors in this topic
+            on_error=TopicLevelErrorPolicy.Ignore, # Ignore errors in this topic
             ontology_type=GPS, # The ontology type stored in this topic
         )
 
@@ -158,7 +142,7 @@ Once a topic is created via [`SequenceWriter.topic_create`][mosaicolabs.handlers
 
 ### Topic-Level Error Handling
 
-By default, the `SequenceWriter` context manager cannot natively distinguish which specific topic failed during custom processing or data pushing. An unhandled exception in one stream will bubble up and trigger the global **Sequence-Level Error Policy**, potentially aborting the entire upload. To prevent this, the SDK introduces native **Topic-Level Error Policies**, which automate the "Defensive Ingestion" pattern directly within the `TopicWriter`. This pattern is highly recommended, in paerticular for complex ingestion pipelines (see for example the [interleaved ingestion how-to](https://docs.mosaico.dev/learn/writing_interleaved_topics)).
+By default, the `SequenceWriter` context manager cannot natively distinguish which specific topic failed during custom processing or data pushing. An unhandled exception in one stream will bubble up and trigger the global **Sequence-Level Error Policy**, potentially aborting the entire upload. To prevent this, the SDK introduces native **Topic-Level Error Policies**, which automate the "Defensive Ingestion" pattern directly within the `TopicWriter`. This pattern is highly recommended, in particular for complex ingestion pipelines (see for example the [interleaved ingestion how-to](https://docs.mosaico.dev/learn/writing_interleaved_topics)).
 
 !!! note
     The error handling is only possible inside the `TopicWriter` context manager, i.e. by wrapping the processing and pushing code inside a `with topic_writer:` block.

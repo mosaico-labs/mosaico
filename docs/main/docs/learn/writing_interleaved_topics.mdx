@@ -37,19 +37,16 @@ The serial approach from the previous guide (iterate IMU completely, then GPS, t
 
 ## Architecture of Interleaved Ingestion
 
-The ingestion pipeline for an MCAP file has four layers that are worth understanding before diving into the code.
+The ingestion pipeline for an MCAP file has four layers, in the order data flows through them:
 
-First, the **source file stream**: the MCAP reader delivers a flat sequence of `(schema, channel, message)` tuples in chronological order. Each tuple carries the schema name (e.g. `"sensor_msgs/msg/Imu"`), the channel topic string (e.g. `"/sensors/imu"`), and the raw binary payload.
-
-Second, **schema detection and translation**: MCAP schemas are external definitions, typically ROS 2 message types, that do not map directly to Mosaico's Ontology. You need a translation layer that knows how to convert a `sensor_msgs/msg/Imu` payload into a Mosaico `IMU` object and return a `Message` ready for the SDK. The `Message.timestamp_ns` must be set from the MCAP envelope's `publish_time` (the DDS publish time), not from `header.stamp` inside the payload, which is the sensor measurement time. This translator is also responsible for declaring which Mosaico Ontology type corresponds to each schema.
-
-Third, **dynamic TopicWriter registration**: the first time a given channel topic appears in the stream, a new `TopicWriter` is created and cached inside the `SequenceWriter`. Every subsequent message on that channel reuses the cached writer. The `swriter.get_topic_writer()` method is the cache lookup; `swriter.topic_create()` is the cache population.
-
-Fourth, the **push path**: once a writer is obtained, the translated message is pushed through it to the daemon, exactly as in the serial guides. The only difference is that this happens inline within the single chronological scan of the file, interleaving pushes across multiple writers as messages are encountered.
+1. **Source file stream**: the MCAP reader delivers a flat sequence of `(schema, channel, message)` tuples in chronological order, each carrying a schema name (e.g. `"sensor_msgs/msg/Imu"`), a channel topic string (e.g. `"/sensors/imu"`), and the raw binary payload.
+2. **Schema detection and translation**: since MCAP schemas (typically ROS 2 message types) don't map directly to Mosaico's Ontology, a translation layer converts each payload into the matching Mosaico object and declares which Ontology type corresponds to each schema.
+3. **Dynamic `TopicWriter` registration**: the first time a channel topic appears, a new `TopicWriter` is created and cached inside the `SequenceWriter`; every subsequent message on that channel reuses it. `swriter.get_topic_writer()` is the cache lookup, `swriter.topic_create()` is the cache population.
+4. **Push path**: once a writer is obtained, the translated message is pushed through it to the daemon, exactly as in the serial guides — just interleaved across multiple writers within a single chronological scan instead of one writer at a time.
 
 ### Custom Translator and Type Mapping
 
-The translator is the bridge between the external world and the Mosaico type system. External robotics schemas like `sensor_msgs/msg/Imu` have their own field naming conventions (`linear_acceleration`, `angular_velocity`) and timestamp representation (a `header.stamp` struct with separate seconds and nanoseconds fields). Mosaico's Ontology types have their own conventions (`acceleration`, `angular_velocity` as `Vector3d`; timestamps as a single nanosecond integer on the `Message` wrapper). The translator is where you perform this mapping explicitly and consciously.
+The translator is the bridge between the external world and the Mosaico type system: it maps external field names and conventions (`linear_acceleration`, a `header.stamp` struct) onto Mosaico's own (`acceleration` as a `Vector3d`, a single nanosecond timestamp on `Message`). Keeping this mapping in one place means a source schema change or a new Ontology type only touches the translator, not the rest of the pipeline.
 
 :::info[MCAP `header.stamp` and the Message timestamp]
 In MCAP, `header.stamp` records **when the sensor took the measurement**, equivalent to the `Header` timestamp inside a Mosaico Ontology. It is **not** appropriate for `Message.timestamp_ns`, which must be a monotonic timestamp representing the playback time. In MCAP, the correct value for `Message.timestamp_ns` is `message.publish_time`, available from the MCAP message object in the ingestion loop. The translator below therefore accepts `publish_time_ns` as an explicit parameter instead of extracting a timestamp from the payload. For a full explanation of this distinction, see the [Message](https://docs.mosaico.dev/python-sdk/SDK/ontology/#message-the-envelope) guide.
@@ -102,7 +99,7 @@ The Rust SDK is currently in development.
 <Tabs groupId="lang" defaultValue="python">
 <TabItem value="python" label="Python">
 
-The ingestion loop is where the lazy registration pattern comes to life. For each message from the MCAP reader, the first question is whether a `TopicWriter` already exists for this channel. `swriter.get_topic_writer(channel.topic)` checks the `SequenceWriter`'s internal cache and returns the writer if it has been registered, or `None` if this is the first time this topic has been encountered. On first encounter, we call `determine_mosaico_type()` to learn which Ontology type this channel carries, and then create the writer with `swriter.topic_create()`. On all subsequent encounters, we skip straight to the push.
+The ingestion loop is where the lazy registration pattern comes to life: for each message, `swriter.get_topic_writer(channel.topic)` returns the cached writer, or `None` on first encounter — in which case `determine_mosaico_type()` resolves the Ontology type and `swriter.topic_create()` registers the writer before the push.
 
 The `on_error=TopicLevelErrorPolicy.Finalize` parameter is worth paying close attention to. In the serial guides, we caught push exceptions manually with `try-except` to prevent them from propagating to the sequence level. Here, `TopicLevelErrorPolicy.Finalize` provides an equivalent guarantee at the framework level: if a topic writer encounters an unrecoverable error, it closes itself gracefully (finalizes its stream) rather than raising an exception that could abort the entire sequence. Other topics continue ingesting normally. This is especially important for interleaved ingestion, where a bad message on the `/sensors/imu` topic appears in the same chronological stream as valid GPS and Pressure messages; you want those other messages to still reach the daemon even if the IMU stream has a problem.
 

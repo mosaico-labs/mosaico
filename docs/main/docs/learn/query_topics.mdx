@@ -7,9 +7,9 @@ description: "How to search for specific sensor channels (Topics) across the dat
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-While Sequence queries let you find recording sessions by their session-level metadata, Topic queries let you go one level deeper: you search for specific sensor channels across your entire dataset, regardless of which recording session they belong to. This is useful when you are not looking for a particular mission but for a particular kind of sensor. For example, you might want to find every IMU channel recorded through a serial interface across all sessions, perhaps to audit hardware configurations, build a training dataset for a model that requires IMU data, or check which sessions have coverage from a particular sensor type.
+While Sequence queries let you find recording sessions by their session-level metadata, Topic queries let you go one level deeper: you search for specific sensor channels across your entire dataset, regardless of which recording session they belong to. This is useful when you are not looking for a particular mission but for a particular kind of sensor — for example, finding every IMU channel recorded through a serial interface across all sessions.
 
-The `QueryTopic` builder works the same way as `QuerySequence`: each `.with_*()` call you chain onto it adds another AND condition, and the daemon evaluates all conditions together on the server side. Only Topics that satisfy every constraint are returned.
+The `QueryTopic` builder works the same way as [`QuerySequence`](./query_sequences.mdx): each `.with_*()` call you chain onto it adds another AND condition, and the daemon evaluates all conditions together on the server side. Only Topics that satisfy every constraint are returned.
 
 <Tabs>
 
@@ -41,16 +41,7 @@ You can narrow the results further by chaining `with_user_metadata()` calls, com
 
 ### Pattern Matching: Wildcards and Glob Keys
 
-Both `with_name_match()` and the `match=` keyword of `with_user_metadata()` accept a lightweight glob-style pattern instead of an exact value:
-
-| Wildcard | Description | Example | Matches |
-| --- | --- | --- | --- |
-| `*` | Zero or more characters, including spaces | `/front*` | `/front/camera`, `/front/imu` |
-| `?` | Exactly one character, including spaces | `?.2.0` | `1.2.0`, `3.2.0` (not `10.2.0`) |
-| `[]` | A character set or range | `[gs]*` | `gyrolytics`, `satnavics` |
-| `#` | Any single digit (`0`-`9`); shorthand for `[0-9]` | `camera_#` | `camera_1` |
-
-These wildcards apply to the Topic `name`, or metadata **values** passed through `with_user_metadata(key, match=...)`. Glob patterns apply to metadata **keys only**: `*` matches exactly one key segment, and `**` matches one or more segments at any depth. For example, `"*.type"` matches `interface.type` or `sensor.type`, while `"**.type"` also matches `interface.driver.type`.
+`with_name_match()` and the `match=` keyword of `with_user_metadata()` accept the same lightweight glob syntax (`*`, `?`, `[]`, `#`) described in [Query Sequences](./query_sequences.mdx#pattern-matching-wildcards-and-glob-keys), applied here to Topic names instead of Sequence names — e.g. `/front*` matches `/front/camera` and `/front/imu`. Metadata key globs work identically.
 
 In the example below, the query combines the IMU type filter with a metadata filter matching any key ending in `.type` (one level deep) whose value starts with `serial`. The AND semantics mean both conditions must hold simultaneously.
 
@@ -92,8 +83,6 @@ The Rust SDK is currently in development.
 
 ## Key Concepts
 
-**Ontology tags** are the primary way to filter by sensor type. Each Ontology type in Mosaico carries a tag that uniquely identifies it in the catalog. Calling `.ontology_tag()` on a model class (for example `IMU.ontology_tag()`) returns the string identifier that the daemon uses internally to classify Topics. Using this tag as a filter guarantees type safety: you get back only Topics whose data actually conforms to the IMU schema, not just Topics that happen to be named `/imu`.
+**Type safety via ontology tags.** Filtering with `with_ontology_tag()` guarantees you get back only Topics whose data actually conforms to that schema, not just Topics that happen to be named similarly (e.g. `/imu`).
 
-**Combining filters** with `with_ontology_tag()` and `with_user_metadata()` narrows results with AND semantics. Because every `.with_*()` call adds an additional required condition, you can compose arbitrarily specific queries. Start with a type filter to establish the sensor kind, then add metadata conditions to select by hardware variant, interface type, calibration status, or any other field you stored at ingestion time.
-
-**Generic methods** using `with_expression()` and the `.Q` proxy give you access to the full operator set when the convenience methods do not cover your use case. The `.Q` proxy builds type-safe field paths directly from Ontology model definitions, so your queries stay consistent with the schema even as it evolves.
+**Generic methods** using `with_expression()` and the `.Q` proxy give you access to the full operator set when the convenience methods do not cover your use case. The `.Q` proxy builds type-safe field paths directly from Ontology model definitions, so your queries stay consistent with the schema even as it evolves. See [Multi-Domain Queries](./multi_domain_query.mdx#the-q-proxy) for how the proxy works.

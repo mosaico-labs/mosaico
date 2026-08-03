@@ -34,7 +34,7 @@ This example demonstrates iterating through a sequence in 10-second tabular chun
 from mosaicolabs import MosaicoClient
 from mosaicolabs.ml import DataFrameExtractor
 
-with MosaicoClient.connect("localhost", 6726):
+with MosaicoClient.connect("localhost", 6726) as client:
     # Initialize from an existing SequenceHandler
     seq_handler = client.sequence_handler("drive_session_01")
     extractor = DataFrameExtractor(seq_handler)
@@ -42,7 +42,7 @@ with MosaicoClient.connect("localhost", 6726):
     # Iterate through 10-second chunks
     for df in extractor.to_pandas_chunks(window_sec=10.0):
         # 'df' is a pandas DataFrame with semantic columns
-        # Example: df["/front/camera/imu.imu.acceleration.x"]
+        # Example: df["/front/camera/imu.IMU.acceleration.x"]
         print(f"Processing chunk with {len(df)} rows")
 
 ```
@@ -53,7 +53,7 @@ For complex types like images that require specialized decoding, Mosaico allows 
 from mosaicolabs import MosaicoClient, Message, Image
 from mosaicolabs.ml import DataFrameExtractor
 
-with MosaicoClient.connect("localhost", 6726):
+with MosaicoClient.connect("localhost", 6726) as client:
     # Initialize from an existing SequenceHandler
     seq_handler = client.sequence_handler("drive_session_01")
     extractor = DataFrameExtractor(seq_handler)
@@ -78,7 +78,7 @@ with MosaicoClient.connect("localhost", 6726):
 ## Video Decoding for ML Pipelines
 
 ??? question "API Reference"
-[`mosaicolabs.ml.VideoDecodingTransformer`][mosaicolabs.ml.VideoDecodingTransformer]
+    [`mosaicolabs.ml.VideoDecodingTransformer`][mosaicolabs.ml.VideoDecodingTransformer]
 
 When handling multi-camera robotics datasets, managing image data presents a fundamental architectural conflict between video compression mechanics and machine learning dataloader strategies.
 
@@ -150,8 +150,6 @@ Unlike standard resamplers that treat each data batch in isolation, this transfo
 * **Protocol-Based Extensibility**: The mathematical logic for resampling is decoupled through a [`SyncPolicy`][mosaicolabs.ml.SyncPolicy] protocol, allowing for custom kernel injection.
 
 ### Implementation and Stateful Lifecycle
-
-Architecturally, the [`SyncTransformer`][mosaicolabs.ml.SyncTransformer] is implemented as a **stateful state-machine** designed to maintain signal continuity across independent data chunks. Unlike standard library resamplers that often treat each input batch as an isolated event, this transformer is engineered to "stitch" the temporal gaps between the windowed DataFrames yielded by the [`DataFrameExtractor`][mosaicolabs.ml.DataFrameExtractor].
 
 #### Internal State Management
 The transformer maintains two critical internal buffers that persist for its entire lifecycle:
@@ -258,23 +256,25 @@ By implementing the standard `fit`/`transform` interface, the [`SyncTransformer`
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from mosaicolabs import MosaicoClient
-from mosaicolabs.ml import DataFrameExtractor, SyncTransformer, SynchHold
+from mosaicolabs.ml import DataFrameExtractor, SyncTransformer, SyncHold
 
 
 # Define a pipeline for physical AI preprocessing
 pipeline = Pipeline([
-    ('sync', SyncTransformer(target_fps=30.0, policy=SynchHold())),
+    ('sync', SyncTransformer(target_fps=30.0, policy=SyncHold())),
     ('scaler', StandardScaler())
 ])
 
-with MosaicoClient.connect("localhost", 6726):
+with MosaicoClient.connect("localhost", 6726) as client:
     # Initialize from an existing SequenceHandler
     seq_handler = client.sequence_handler("drive_session_01")
     extractor = DataFrameExtractor(seq_handler)
 
     # Process sequential chunks while maintaining signal continuity
     for sparse_chunk in extractor.to_pandas_chunks(window_sec=5.0):
-        # The transformer automatically carries state across sequential calls
-        normalized_dense_chunk = pipeline.transform(sparse_chunk)
+        # The transformer automatically carries state across sequential calls.
+        # fit_transform() is used because the scaler must (re-)compute its
+        # statistics on every chunk before applying the transformation.
+        normalized_dense_chunk = pipeline.fit_transform(sparse_chunk)
 
 ```
