@@ -49,7 +49,7 @@ poetry run pre-commit run
 After setup, confirm the hook is in place:
 
 ```bash
-ls .git/hooks/pre-commit
+ls ../.git/hooks/pre-commit
 ```
 
 You should see the file present. If it is missing, re-run `poetry run pre-commit install`.

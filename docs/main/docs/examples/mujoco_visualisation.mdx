@@ -51,6 +51,10 @@ MuJoCo is not included in the default SDK dependencies — install it before run
 pip install mujoco
 ```
 
+:::note
+On first run, if the model files are not found locally at `MUJOCO_XML_SCENE_PATH`, the example automatically downloads them from the [MuJoCo Menagerie](https://github.com/google-deepmind/mujoco_menagerie) GitHub repository. This requires outbound network access to GitHub.
+:::
+
 ## Locating the Joint State Topic
 
 `QuerySequence` and `QueryTopic` are combined to find the right channel in a single server-side query. Filtering by `RobotJoint.ontology_tag()` ensures the result contains only joint state topics, regardless of how the channel is named in the bag.
@@ -89,6 +93,19 @@ for items in result:
 
 Each `RobotJoint` message is timestamped in nanoseconds relative to the recording start. That offset drives the simulation forward so the replay matches the original motion at the correct cadence. Joint positions are applied directly to the MuJoCo model state and the viewer is updated each frame.
 
+:::note
+The snippet below is a simplified illustration and omits setup boilerplate (loading the MJCF scene, syncing `relative_ts` to wall-clock time, joint-name-to-`qpos`-index lookups, error handling). See the [full source on GitHub](https://github.com/mosaico-labs/mosaico/blob/main/mosaico-sdk-py/src/mosaicolabs/examples/mujoco_vis.py) for a runnable version.
+:::
+
+```python title="Set up the MuJoCo model, data, and viewer"
+import mujoco
+import mujoco.viewer
+
+mj_model = mujoco.MjModel.from_xml_path(MUJOCO_XML_SCENE_PATH)
+mj_data = mujoco.MjData(mj_model)
+viewer = mujoco.viewer.launch_passive(mj_model, mj_data)
+```
+
 ```python title="Stream joints and drive the simulation"
 for joint_msg in top_handler.get_data_streamer():
     relative_ts = (
@@ -97,7 +114,7 @@ for joint_msg in top_handler.get_data_streamer():
 
     joints = joint_msg.get_data(RobotJoint)
     mj_data.qpos[:] = joints.positions
-    mj.mj_forward(mj_model, mj_data)
+    mujoco.mj_forward(mj_model, mj_data)
     viewer.sync()
 ```
 

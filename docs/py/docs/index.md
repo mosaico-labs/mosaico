@@ -5,7 +5,7 @@ description: Architecture and design of the mosaico python SDK.
 
 The Mosaico SDK is a Python interface designed specifically for managing **Physical AI and Robotics data**. Its purpose is to handle the complete lifecycle of information, from the moment it is captured by a sensor to the moment it is used to train a neural network or analyze a robot's behavior.
 
-The SDK is built on the philosophy that robotics data is **unique**. Whether it comes from a autonomous car, a drone, or a factory arm, this data is multi-modal, highly frequent, and deeply interconnected in space and time. The Mosaico SDK provides the infrastructure to treat this data as a *first-class citizen* rather than just a collection of generic numbers. It understands the geometric and physical semantics of complex data types such as LIDAR point clouds, IMU readings, high-resolution camera feeds, and rigid-body transformations.
+The SDK is built on the philosophy that robotics data is **unique**, whether it comes from an autonomous car, a drone, or a factory arm. This data is multi-modal, highly frequent, and deeply interconnected in space and time. The Mosaico SDK provides the infrastructure to treat this data as a *first-class citizen* rather than just a collection of generic numbers. It understands the geometric and physical semantics of complex data types such as LIDAR point clouds, IMU readings, high-resolution camera feeds, and rigid-body transformations.
 
 ## Installation
 Install the SDK via `pip`:
@@ -54,13 +54,18 @@ You can push data into Mosaico through two primary pathways, both designed to en
 
 ### Data Retrieval
 
-Retrieving data goes beyond simple downloading. It is possible to stream and merge multiple topics into a single, time-ordered timeline, which is essential for sensor fusion. 
-Connect directly to a specific sensor, such as just the front-facing camera, to save bandwidth and memory. 
-The SDK fetches data in batches, allowing you to process datasets that are much larger than your computer's RAM.
+Retrieving data goes beyond simple downloading:
+
+* **Multi-Topic Streaming**: Stream and merge multiple topics into a single, time-ordered timeline, essential for sensor fusion.
+* **Selective Access**: Connect directly to a specific sensor, such as just the front-facing camera, to save bandwidth and memory.
+* **Batched Fetching**: Data is fetched in batches, allowing you to process datasets that are much larger than your computer's RAM.
 
 ### Querying & Discovery
 
-Mosaico allows you to find data based on *what* happened, not just *when* it happened. You can search for specific sequences by metadata tags (like `robot_id` or `location`) or query the actual contents of the sensor data (e.g., *"Find all sequences where the vehicle acceleration exceeded 4 m/s^2"*).
+Mosaico allows you to find data based on *what* happened, not just *when* it happened:
+
+* **Metadata Search**: Find specific sequences by metadata tags, such as `robot_id` or `location`.
+* **Content Search**: Query the actual contents of the sensor data, e.g., *"Find all sequences where the vehicle acceleration exceeded 4 m/s^2"*.
 
 ### Machine Learning & Analytics
 

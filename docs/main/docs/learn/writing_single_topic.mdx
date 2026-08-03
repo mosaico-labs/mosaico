@@ -172,7 +172,7 @@ with client.sequence_create(...) as swriter:
 
 :::info[Topic-Level Error Policy]
 The `TopicLevelErrorPolicy.Ignore` error policy will log on the server any error happening within the `TopicWriter` context
-(e.g. while pushing a message), and then will ignore it, keeping the injestion stream up and active. For a more detailed explanation,
+(e.g. while pushing a message), and then will ignore it, keeping the ingestion stream up and active. For a more detailed explanation,
 refer to the [Topic-Level Error Handling](https://docs.mosaico.dev/python-sdk/SDK/handling/writing/#topic-level-error-handling) Section.
 :::
 
@@ -233,12 +233,12 @@ The Rust SDK is currently in development.
 
 ## How It Fits Together
 
-It is worth pausing to see the full picture before looking at the complete code. The Mosaico Daemon is always running, managing storage and serving the gRPC API. Your application acts as a client: it opens a connection, instructs the daemon to create a Sequence (a catalog entry with metadata and time bounds), and then registers a Topic within that sequence (a typed, append-only stream). As you iterate through your CSV, each row becomes a `Message`, a typed, timestamped record. The SDK batches those messages and streams them to the daemon via gRPC using Arrow-encoded payloads. When the `SequenceWriter` scope exits cleanly, the daemon seals the sequence and it becomes queryable.
+Error handling in this guide is layered deliberately across the three levels introduced above. At the row level, the **generator yields `None`** for unparseable rows, keeping bad source data out of the message stream entirely. At the push level, the **`with imu_twriter:`** context catches transport or validation errors for individual messages without aborting the session. At the sequence level, the `on_error` policy decides what to do if something truly unrecoverable happens. This three-layer approach means a single bad CSV row never brings down an entire recording session.
 
 <Tabs groupId="lang" defaultValue="python">
 <TabItem value="python" label="Python">
 
-Error handling is layered deliberately. At the row level, the **generator yields `None`** for unparseable rows, keeping bad source data out of the message stream entirely. At the push level, a **`try-except`** catches transport or validation errors for individual messages without aborting the session. At the sequence level, the `on_error` policy decides what to do if something truly unrecoverable happens. This three-layer approach means a single bad CSV row never brings down an entire recording session.
+The complete, runnable script below ties these three layers together.
 
 </TabItem>
 <TabItem value="cpp" label="C++">
@@ -261,7 +261,8 @@ The Rust SDK is currently in development.
 ```python title="Full example"
 import pandas as pd
 from mosaicolabs import (
-    MosaicoClient, setup_sdk_logging, SessionLevelErrorPolicy, Message, IMU, Vector3d,
+    MosaicoClient, setup_sdk_logging, SessionLevelErrorPolicy, TopicLevelErrorPolicy,
+    TopicWriterStatus, Message, IMU, Vector3d,
 )
 
 def stream_imu_from_csv(file_path: str, chunk_size: int = 1000, skipinitialspace: bool = True):
