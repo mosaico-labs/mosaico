@@ -1,3 +1,4 @@
+import json
 import os
 import stat
 import sys
@@ -28,6 +29,8 @@ DEFAULT_CONFIG_PATH = Path.home() / DEFAULT_CONFIG_FOLDER / DEFAULT_CONFIG_FILEN
 class OutputFormat(str, Enum):
     TABLE = "table"
     CSV = "csv"
+    JSON = "json"
+    JSONL = "jsonl"
 
 
 def get_config_path() -> Path:
@@ -115,6 +118,20 @@ def config_permissions(path: Optional[Path] = None) -> Optional[int]:
         return None
 
     return stat.S_IMODE(path.stat().st_mode)
+
+
+def emit_structured_records(
+    records: List[Dict[str, Any]], output: OutputFormat, collection: str
+) -> None:
+    """Emit stable JSON or JSON Lines records without terminal decoration."""
+    if output == OutputFormat.JSON:
+        print(json.dumps({"schema_version": 1, collection: records}, sort_keys=True))
+        return
+    if output == OutputFormat.JSONL:
+        for record in records:
+            print(json.dumps(record, sort_keys=True))
+        return
+    raise ValueError(f"Unsupported structured output format: {output}")
 
 
 def _flatten_metadata(data: Dict[str, Any], prefix: str = "") -> List[str]:

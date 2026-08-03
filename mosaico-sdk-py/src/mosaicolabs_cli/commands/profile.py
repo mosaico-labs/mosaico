@@ -7,6 +7,7 @@ from rich.table import Table
 from mosaicolabs_cli.utils.config import (
     OutputFormat,
     console,
+    emit_structured_records,
     error_console,
     get_config_path,
     load_config,
@@ -215,6 +216,11 @@ def list_profiles(
     config_data = load_config(config_path)
 
     if not config_data:
+        if output in (OutputFormat.JSON, OutputFormat.JSONL):
+            emit_structured_records([], output, "profiles")
+            return
+        if output == OutputFormat.CSV:
+            return
         console.print(
             "[yellow]No profiles configured yet.[/yellow] Use `mosaico profile add` to create one."
         )
@@ -255,9 +261,28 @@ def list_profiles(
                 )
                 console.print(p.to_csv())
 
+    elif output in (OutputFormat.JSON, OutputFormat.JSONL):
+        records = []
+        for name, content in config_data.items():
+            if isinstance(content, dict):
+                p = MosaicoProfile.from_dict(
+                    content, name=name, is_default=content.get("default", False)
+                )
+                records.append(
+                    {
+                        "name": p.name,
+                        "host": p.host,
+                        "port": p.port,
+                        "default": p.is_default,
+                        "tls": p.enable_tls,
+                        "api_key_configured": bool(p.api_key),
+                    }
+                )
+        emit_structured_records(records, output, "profiles")
+
     else:
         error_console.print(
-            f"[bold red]Error:[/bold red] Unsupported output format: '{output}'. Use 'table' or 'csv'."
+            f"[bold red]Error:[/bold red] Unsupported output format: '{output}'."
         )
         raise typer.Exit(code=1)
 
