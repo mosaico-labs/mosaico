@@ -10,7 +10,7 @@ from mosaicolabs_cli.utils.config import (
     error_console,
     get_config_path,
     load_config,
-    serialize_to_toml,
+    write_config,
 )
 from mosaicolabs_cli.utils.env import DEFAULT_MOSAICO_PORT
 from mosaicolabs_cli.utils.mosaico_profile import MosaicoProfile
@@ -126,10 +126,7 @@ def add_profile(
     }
 
     try:
-        config_path.parent.mkdir(parents=True, exist_ok=True)
-
-        toml_string = serialize_to_toml(config_data)
-        config_path.write_text(toml_string, encoding="utf-8")
+        write_config(config_data, config_path)
 
         console.print(
             f"[bold green]Success:[/bold green] Profile [yellow]'{name}'[/yellow] saved to {config_path}"
@@ -186,8 +183,7 @@ def remove_profile(
             auto_promoted_profile = first_remaining_name
 
     try:
-        toml_string = serialize_to_toml(config_data)
-        config_path.write_text(toml_string, encoding="utf-8")
+        write_config(config_data, config_path)
 
         console.print(
             f"[bold green]Success:[/bold green] Profile [yellow]'{name}'[/yellow] removed."
@@ -299,8 +295,7 @@ def set_default_profile(
                 profile_content["default"] = False
 
     try:
-        toml_string = serialize_to_toml(config_data)
-        config_path.write_text(toml_string, encoding="utf-8")
+        write_config(config_data, config_path)
         console.print(
             f"[bold green]Success:[/bold green] Switched active profile to [yellow]'{name}'[/yellow]."
         )
